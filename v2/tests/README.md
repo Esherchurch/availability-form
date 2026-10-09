@@ -28,6 +28,7 @@ Run every one of these from `v2/`, not from here.
 | What each of the four levels actually gets, in a browser | `node tests/check-levels-in-browser.mjs` (add `--shots`) |
 | Every page in v2 is either style-checked or excused with a reason | `node tests/check-every-page-is-checked.mjs` |
 | The pages still work when the functions are not reachable (F-118) | `node tests/check-pages-without-functions.mjs` |
+| A young person's suggestion, and a leader putting it on the board | `node tests/check-board-queue.mjs` (add `--shots`) |
 | Pairing the projection PC: a code made, redeemed, and the site disconnected | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-churchshow-pairing.mjs"` |
 | The Connect ChurchShow page, used rather than looked at | `node tests/check-churchshow-page.mjs` (add `--shots`) |
 | A young person's phone: a code redeemed through the function, and the Youth Hub opened | `node tests/check-youth-access.mjs` (add `--shots`) |

@@ -195,16 +195,37 @@ console.log('\nyouth access - where youthGranted() may and may not appear');
    It also catches the opposite, which is the fault the reviewing window
    found: the helper defined, and used by nothing at all. */
 const YOUTH_MAY_READ = ['songs', 'services', 'events', 'portal',
-                        'kb_playthrough', 'kb_training_worship', 'worshipBoardState'];
+                        'kb_playthrough', 'kb_training_worship', 'worshipBoardState',
+                        /* The moderated boards' queue. A child posts here and
+                           reads their own back; the group's adults read the
+                           queue. YOUTH-ACCESS.md, and A-059. */
+                        'boardSuggestions',
+                        /* NAMED HELPERS, not a blanket pass for helpers: a new
+                           one wrapping youthGranted() still fails this, which
+                           is the point. youthInGroup composes it and is itself
+                           only used by the collections above. */
+                        'fn:youthInGroup'];
 
 const youthLines = [];
 for (let i = 0; i < lines.length; i++) {
   const t = lines[i].trim();
-  if (!/youthGranted\(\)/.test(t)) continue;
-  /* the definition itself, and the comments explaining it, are not grants */
-  if (t.startsWith('//') || t.startsWith('function youthGranted')) continue;
+  /* youthInGroup() counts too. It composes youthGranted() and is how the two
+     moderated boards and their queue are gated, so a scan looking only for
+     youthGranted() reported boardSuggestions as ungated when it is not. */
+  if (!/youthGranted\(\)|youthInGroup\(/.test(t)) continue;
+  /* the definitions themselves, and the comments explaining them, are not
+     grants */
+  if (t.startsWith('//') || t.startsWith('function youthGranted')
+      || t.startsWith('function youthInGroup')) continue;
+  /* WHICH MATCH BLOCK, OR WHICH HELPER. Walking back to the nearest `match`
+     is wrong for a helper defined between two match blocks: youthInGroup()
+     sits after availabilityRequests and was reported as a grant inside it.
+     So look for a function first - if the nearest thing above is an open
+     function body, this line belongs to that function and is named for it. */
   let coll = '(top level)';
   for (let j = i; j >= 0; j--) {
+    const fn = lines[j].match(/^\s*function\s+(\w+)\s*\(/);
+    if (fn) { coll = 'fn:' + fn[1]; break; }
     const m = lines[j].match(/^\s*match \/([A-Za-z_]+)\//);
     if (m) { coll = m[1]; break; }
   }

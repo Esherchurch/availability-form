@@ -519,12 +519,30 @@ service cloud.firestore {
     // writable only by the teams it belongs to, so a note pinned to the Kids
     // Church board is not church-wide reading.
 
+    // Which group a board belongs to, in one place, so the board rules and
+    // the suggestion rules cannot drift apart.
+    function boardGroup(boardId) {
+      return boardId == 'renu' ? 'ReNu'
+           : boardId == 'lazers' ? 'Lazers'
+           : boardId == 'kids-church' ? 'Kids Church'
+           : boardId == 'youth' ? 'Youth Worship'
+           : '';
+    }
+
     function boardIsMine(boardId) {
       return isMaster()
-        || (boardId == 'kids-church'
-            && (onTeam('Kids Church') || adminOf('Kids Church')))
+        // KIDS CHURCH IS LEADERS ONLY (Martin, 9 Oct 2026). It used to be
+        // anyone on the team; this takes it away from ordinary Kids Church
+        // members who can see it today, which is the instruction and is
+        // flagged in the report rather than slipped in.
+        || (boardId == 'kids-church' && adminOf('Kids Church'))
         || (boardId == 'youth'
             && (onTeam('Youth Worship') || adminOf('Youth Worship')))
+        // ReNu and Lazers: the adults on the group write it directly, as the
+        // worship team does theirs. A young person's post goes through
+        // boardSuggestions below and a leader puts it up.
+        || ((boardId == 'renu' || boardId == 'lazers')
+            && (onTeam(boardGroup(boardId)) || adminOf(boardGroup(boardId))))
         || (boardId == 'state'
             && (onTeam('Worship Team') || onTeam('AV Team') || onTeam('Choir')
                 || adminOf('Worship Team')));
@@ -540,8 +558,65 @@ service cloud.firestore {
       // it would have been refused anyway for an adult on Youth Worship, who
       // is not on Worship Team. It reads 'youth' now.
       allow read: if boardIsMine(boardId)
-                  || (youthGranted() && boardId == 'youth');
+                  || (youthGranted() && boardId == 'youth')
+                  || ((boardId == 'renu' || boardId == 'lazers')
+                      && youthInGroup(boardGroup(boardId)));
       allow write: if boardIsMine(boardId);
+    }
+
+    // ---- what a young person posts, before a leader has seen it ------
+    //
+    // ONE DOCUMENT PER POST, which is the whole reason this collection
+    // exists: a board is one document holding every note, so letting a child
+    // write it would let them rewrite everybody else's. Here each post stands
+    // alone, and until a leader copies it onto the board it is not on the
+    // board - "waits for a leader before others see it" is true by
+    // construction rather than by a flag somebody has to check.
+    //
+    // NO SURNAMES AND NO CONTACT DETAILS: the allowed keys hold neither an
+    // email nor a telephone number, and firstName must have no space in it,
+    // which is what stops a surname. What the rules CANNOT do is stop a child
+    // typing a number into the text - nothing can, short of refusing free
+    // text - and that is what the moderation is for.
+    function suggestionShape(d, boardId) {
+      return d.keys().hasOnly(['boardId', 'text', 'firstName', 'byUid', 'createdAt'])
+             && d.boardId == boardId
+             && d.byUid == request.auth.uid
+             && d.text is string && d.text.size() > 0 && d.text.size() <= 500
+             && d.firstName is string && d.firstName.size() > 0
+             && d.firstName.size() <= 40
+             && !d.firstName.matches('.*\\s.*');
+    }
+
+    match /boardSuggestions/{suggestionId} {
+      // A leader of the group sees the queue. The child sees their own, so
+      // the app can say "waiting for a leader".
+      allow get: if isMaster()
+                 || adminOf(boardGroup(resource.data.get('boardId', '')))
+                 || onTeam(boardGroup(resource.data.get('boardId', '')))
+                 || (request.auth != null && resource.data.get('byUid', '') == request.auth.uid);
+      // A list is for the queue, so it is the group's adults only - a child
+      // listing the queue would read every other child's unapproved post.
+      allow list: if isMaster()
+                  || adminOf(boardGroup(resource.data.get('boardId', '')))
+                  || onTeam(boardGroup(resource.data.get('boardId', '')));
+
+      // Only ReNu and Lazers are moderated; the youth board is not a queue.
+      allow create: if (suggestionId.matches('renu__.*') || suggestionId.matches('lazers__.*'))
+                    && youthInGroup(boardGroup(request.resource.data.get('boardId', '')))
+                    && suggestionShape(request.resource.data,
+                         suggestionId.matches('renu__.*') ? 'renu' : 'lazers');
+
+      // LEADERS CAN REMOVE ANYTHING (Martin). A child may also withdraw
+      // their own, which is not "removing anything" - it is theirs.
+      allow delete: if isMaster()
+                    || adminOf(boardGroup(resource.data.get('boardId', '')))
+                    || onTeam(boardGroup(resource.data.get('boardId', '')))
+                    || (request.auth != null && resource.data.get('byUid', '') == request.auth.uid);
+
+      // Nobody edits one. A leader approves by putting it on the board and
+      // deleting it, so there is no half-approved state to reason about.
+      allow update: if false;
     }
 
     // ---- news ---------------------------------------------------------
@@ -596,6 +671,22 @@ service cloud.firestore {
     //
     // AND NEVER addressBook. The church does not hold minors' email
     // addresses and a young person's phone does not hold the adults'.
+    // The young person's own access record, or null. youthGranted() reads it
+    // too, and two identical get()s in one evaluation are one document read.
+    function youthRec() {
+      return get(/databases/$(database)/documents/youthAccess/$(request.auth.uid));
+    }
+
+    // WHICH GROUP. redeemYouthCode copies the youth groups off the child's
+    // address book record into `groups` when the code is redeemed, so the
+    // rules can tell a Lazers child from a ReNu one without reading the
+    // address book - which would hand over every field of it (rules cannot
+    // project). If the office moves a child between groups, the next code
+    // moves them here.
+    function youthInGroup(group) {
+      return youthGranted() && group in youthRec().data.get('groups', []);
+    }
+
     function youthGranted() {
       return request.auth != null
              && exists(/databases/$(database)/documents/youthAccess/$(request.auth.uid))

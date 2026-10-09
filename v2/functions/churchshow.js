@@ -42,13 +42,38 @@ import { createHash, randomInt } from 'node:crypto';
 export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const CODE_LENGTH = 8;
 export const CODE_LIFE_MS = 15 * 60 * 1000;
-export const MAX_TRIES = 5;
+
+/* THERE IS NO "FIVE FAILED TRIES" LIMIT, and the ChurchShow window's F-CS3
+   is right that the one I wrote could never have fired:
+
+   - a wrong code hashes to a different document, so there is nothing to count
+     it against
+   - the only place tries was ever incremented was a SUCCESSFUL redemption,
+     and a used code is refused by usedAt anyway
+
+   So it was a check that read as protection and gave none. What actually
+   protects this is the fifteen-minute life, 31^8 (about 850 billion) and
+   maxInstances - all of which are real. The field is still written as 0, so
+   nothing reading the document has to change. */
 
 /* One sentence, the same one, for every way of being wrong. ChurchShow shows
    it to the operator exactly as it arrives, so it has to read as something a
    person can act on - and it must never say WHICH way the code was wrong,
    because that is the difference between "no" and a hint. */
 export const REFUSAL = "That code isn't valid or has run out \u2014 make a new one on the hub.";
+
+/* R7, requested by the ChurchShow window after testing against the real
+   functions: A SERVER FAULT MUST NOT READ AS A BAD CODE.
+
+   The one that will actually happen is the IAM step - a v2 function cannot
+   sign a custom token until its runtime service account has Service Account
+   Token Creator on itself. Without it createCustomToken throws, and the old
+   code turned that into "That code isn't valid or has run out", so an
+   operator would have made code after code, each one refused, with nothing
+   anywhere saying the problem was at our end. ChurchShow shows any `error`
+   sentence as it arrives, so this is the whole fix. */
+export const SETUP_FAILED = "The hub couldn't finish connecting ChurchShow \u2014 "
+  + "ask the hub admin to check the server setup (SERVER-DEPLOY.md).";
 
 export const uidFor = (siteId) => 'churchshow-' + String(siteId);
 export const hashCode = (code) => createHash('sha256').update('egbc-churchshow:' + code).digest('hex');
@@ -155,14 +180,12 @@ export async function redeem(db, auth, { code, nowMs }) {
     if (!snap.exists) return { no: true };
 
     const d = snap.data() || {};
-    const tries = Number(d.tries || 0);
     const expires = d.expiresAt && d.expiresAt.toMillis ? d.expiresAt.toMillis() : 0;
 
     if (d.usedAt) return { no: true };
     if (!expires || expires < nowMs) return { no: true };
-    if (tries >= MAX_TRIES) return { no: true };
 
-    tx.update(ref, { usedAt: new Date(nowMs), tries: tries + 1 });
+    tx.update(ref, { usedAt: new Date(nowMs) });
     return { uid: d.uid, siteId: d.siteId, siteName: d.siteName || d.siteId };
   });
 
@@ -175,9 +198,22 @@ export async function redeem(db, auth, { code, nowMs }) {
     return { status: 400, body: { error: REFUSAL } };
   }
 
-  const customToken = await auth.createCustomToken(outcome.uid, {
-    device: 'churchshow', siteId: outcome.siteId
-  });
+  /* CAUGHT HERE, not in the function wrapper, so it can be tested without
+     one - and so the code has already been marked used by the transaction
+     above. That is deliberate: a code that got as far as signing has been
+     spent, and handing the same one back after a server fault would be
+     telling the operator to retry something that cannot now work. They need
+     a new code once the setup is fixed, which is what the sentence says. */
+  let customToken;
+  try {
+    customToken = await auth.createCustomToken(outcome.uid, {
+      device: 'churchshow', siteId: outcome.siteId
+    });
+  } catch (e) {
+    console.error('[churchShowRedeem] could not sign a custom token \u2014 '
+      + 'is Service Account Token Creator granted? ', e);
+    return { status: 500, body: { error: SETUP_FAILED } };
+  }
 
   return {
     status: 200,

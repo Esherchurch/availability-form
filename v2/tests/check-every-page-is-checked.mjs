@@ -66,8 +66,6 @@ const NOT_YET = {
   "data-tools.html": "Step P - not in a group yet",
   "hubresources.html": "Step P - not in a group yet",
   "inventory-system-2.html": "Step P - not in a group yet",
-  "login.html": "Step P - not in a group yet",
-  "meeting.html": "Step P - and it is a DESIGN.md reference page, which makes it the odd one out",
   "schematic.html": "Step P - not in a group yet",
   "song-summary.html": "Step P - not in a group yet",
   "sundayplannersonglibrary.html": "Step P - not in a group yet",

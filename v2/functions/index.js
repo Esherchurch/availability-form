@@ -29,7 +29,8 @@ import {
   whoAmI as whoAmIIn, callerIp
 } from './availability-form.js';
 import {
-  pairingCode as pairingCodeIn, redeem as redeemIn, disconnect as disconnectIn
+  pairingCode as pairingCodeIn, redeem as redeemIn, disconnect as disconnectIn,
+  SETUP_FAILED
 } from './churchshow.js';
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
 
@@ -530,9 +531,11 @@ export const churchShowRedeem = onRequest({ cors: false, invoker: 'public' }, as
     res.status(out.status).json(out.body);
   } catch (e) {
     console.error('[churchShowRedeem]', e);
-    /* The same sentence as every other refusal: an operator in a hall does
-       not need to know whether it was their code or our service account. */
-    res.status(400).json({ error: "That code isn't valid or has run out \u2014 make a new one on the hub." });
+    /* R7. ANYTHING THAT THROWS IS OUR FAULT, never a bad code: every way a
+       code can be wrong is answered with a 400 inside redeem(). Saying "that
+       code isn't valid" here sent an operator hunting for a new code while
+       the real problem was the IAM step on our side. */
+    res.status(500).json({ error: SETUP_FAILED });
   }
 });
 

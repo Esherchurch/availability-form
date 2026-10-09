@@ -233,6 +233,32 @@
     .note-actions { opacity: 1; }
     .page-tab .tab-delete { opacity: 1; }
   }
+/* ---- waiting for a leader ------------------------------------------
+   DESIGN.md shapes: a white card with a 1px line border and radius 14,
+   36px buttons at radius 8, 13px/500 labels, sentence case, Lucide icons.
+   Nothing here is pill-shaped and nothing is above weight 600. */
+#queue { max-width: 1100px; margin: 14px auto 0; padding: 0 16px; }
+#queue .q-h { font-size: 15px; font-weight: 600; color: #111827; margin: 0 0 8px; }
+#queue .q-empty { font-size: 13px; color: #6b7280; margin: 0; }
+#queue .q-row { display: flex; align-items: center; gap: 12px; background: #fff;
+  border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 1px 2px rgba(16,24,40,.05);
+  padding: 12px 14px; margin-bottom: 8px; }
+#queue .q-tx { flex: 1; min-width: 0; display: grid; gap: 2px; }
+#queue .q-tx b { font-size: 14px; font-weight: 600; color: #111827; }
+#queue .q-tx span { font-size: 14px; color: #374151; overflow-wrap: anywhere; }
+#queue .q-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px;
+  padding: 0 14px; border-radius: 8px; font: 500 13px Inter, sans-serif; cursor: pointer;
+  border: 1px solid transparent; }
+#queue .q-btn.ok { background: #3d6263; color: #fff; }
+#queue .q-btn.ok:hover { background: #2a4a4b; }
+#queue .q-btn.no { background: #fff; color: #111827; border-color: #d1d5db; }
+#queue .q-btn.no:hover { background: #f3f4f6; }
+@media (max-width: 640px) {
+  /* A finger, not a mouse: 48px, and the buttons go under the text rather
+     than squeezing it (APP-DESIGN-BRIEF §7). */
+  #queue .q-row { flex-wrap: wrap; }
+  #queue .q-btn { height: 48px; flex: 1; justify-content: center; }
+}
 </style>
 </head>
 <body>
@@ -256,6 +282,10 @@
     <button class="btn btn-admin btn-sm" id="adminBtn" onclick="toggleAdmin()"><i data-lucide="lock" style="width:15px;height:15px;vertical-align:-2px"></i> Admin</button>
   </div>
 </header>
+
+<!-- What a young person has suggested, waiting for a leader to put it up.
+     Only drawn on ReNu and Lazers, and only for the group's adults. -->
+<section id="queue" style="display:none"></section>
 
 <div class="pages-bar" id="pagesBar">
   <button class="add-page-btn" onclick="openAddPageModal()" title="Add new page">＋</button>
@@ -434,10 +464,23 @@ if (typeof EGBCAuth !== 'undefined' && EGBCAuth.db) {
 const BOARDS = [
   { id:'worship', doc:'state',       title:'Worship Board',      sub:'Suggestions &amp; Ideas',
     teams:['Worship Team', 'AV Team', 'Choir'] },
+  /* LEADERS ONLY (Martin, 9 Oct 2026). leadersOnly means administering the
+     team rather than being on it, because the mirrored data has no leader
+     tier between the two - admin is the only rank above member that exists.
+     This takes the board away from ordinary Kids Church members who have it
+     today, which is the instruction. */
   { id:'kids',    doc:'kids-church', title:'Kids Church Board',  sub:'Suggestions &amp; Ideas',
-    teams:['Kids Church'] },
+    teams:['Kids Church'], leadersOnly:true },
   { id:'youth',   doc:'youth',       title:'Youth Board',        sub:'Suggestions &amp; Ideas',
     teams:['Youth Worship'] },
+  /* MODERATED. A young person with a live code reads these and posts a
+     suggestion; it waits in boardSuggestions until a leader puts it up. The
+     board document itself is written by the group's adults only, which is
+     what makes "waits for a leader" true rather than hoped for. */
+  { id:'renu',    doc:'renu',        title:'ReNu Board',         sub:'Suggestions &amp; Ideas',
+    teams:['ReNu'], moderated:true },
+  { id:'lazers',  doc:'lazers',      title:'Lazers Board',       sub:'Suggestions &amp; Ideas',
+    teams:['Lazers'], moderated:true },
 ];
 
 let board = BOARDS[0];
@@ -449,6 +492,18 @@ function canSee(b) {
     return b.id === 'worship';
   }
   if (EGBCAuth.isMaster()) return true;
+  /* hasRole is "on the team OR administers it". A leaders-only board wants
+     the second half only. */
+  return b.leadersOnly
+    ? b.teams.some(t => EGBCAuth.isAdminOf(t))
+    : b.teams.some(t => EGBCAuth.hasRole(t));
+}
+
+/* Can this person put a suggestion up, or throw one away? The group's adults
+   and a master admin - the same people the rules let write the board. */
+function canModerate(b) {
+  if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) return false;
+  if (EGBCAuth.isMaster()) return true;
   return b.teams.some(t => EGBCAuth.hasRole(t));
 }
 
@@ -457,6 +512,96 @@ function canSee(b) {
    shared key would spill Kids Church notes onto the worship board the next
    time Firebase was unreachable. */
 function localKey(b) { return b.id === 'worship' ? 'worshipBoard2' : 'egbcBoard_' + b.id; }
+
+/* ---- WAITING FOR A LEADER ------------------------------------------
+   One document per suggestion, which is the point: a board is one document
+   holding every note, so a young person writing it would be rewriting
+   everybody's. Approving copies the text onto the board and deletes the
+   suggestion, so there is no half-approved state to reason about and nothing
+   appears to anybody else until a leader has read it.
+
+   No surname and no contact details reach here: the rules allow a firstName
+   with no space in it and no email or telephone field at all. The free text
+   is free text, which is exactly why a person reads it before anybody else
+   does. */
+
+async function loadSuggestions() {
+  const box = document.getElementById('queue');
+  if (!box) return;
+  if (!board.moderated || !canModerate(board)) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  let rows = [];
+  try {
+    const snap = await db.collection('boardSuggestions')
+      .where('boardId', '==', board.doc).get();
+    rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b2) => String(a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0)
+                     .localeCompare(String(b2.createdAt && b2.createdAt.toMillis ? b2.createdAt.toMillis() : 0)));
+  } catch (e) {
+    box.innerHTML = '<p class="q-empty">Could not read what is waiting.</p>';
+    return;
+  }
+  if (!rows.length) {
+    box.innerHTML = '<p class="q-empty">Nothing is waiting to go up.</p>';
+    return;
+  }
+  const esc = t => { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; };
+  box.innerHTML = '<h3 class="q-h">Waiting for you (' + rows.length + ')</h3>'
+    + rows.map(r =>
+        '<div class="q-row"><div class="q-tx"><b>' + esc(r.firstName || 'Someone') + '</b>'
+        + '<span>' + esc(r.text || '') + '</span></div>'
+        + '<button class="q-btn ok" data-up="' + esc(r.id) + '">'
+        + '<i data-lucide="check" style="width:14px;height:14px"></i>Put it up</button>'
+        + '<button class="q-btn no" data-bin="' + esc(r.id) + '">'
+        + '<i data-lucide="trash-2" style="width:14px;height:14px"></i>Remove</button></div>').join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+/* Approve: the note goes on the board in the leader's hands, under the
+   child's FIRST NAME, and the suggestion goes. If the board write fails the
+   suggestion is left where it is rather than lost. */
+async function approveSuggestion(id) {
+  let r;
+  try {
+    const snap = await db.collection('boardSuggestions').doc(id).get();
+    if (!snap.exists) { toast('That one has gone already'); return loadSuggestions(); }
+    r = snap.data();
+  } catch (e) { toast('Could not read it'); return; }
+
+  state.notes.push({
+    id: 'n' + Date.now(), pageId: state.currentPage,
+    author: r.firstName || 'Someone', cat: 'idea',
+    title: '', body: r.text || '', ytUrl: '', link: '', linkLabel: '', imgUrl: '',
+    reactions: {}, myReactions: {}, createdAt: Date.now(), archived: false,
+    x: 60 + (state.notes.length % 5) * 310, y: 60 + Math.floor(state.notes.length / 5) * 340,
+    rot: 0, zIndex: maxZ() + 1
+  });
+  try {
+    await BOARD_DOC.set({ pages: state.pages, notes: state.notes });
+  } catch (e) {
+    state.notes.pop();
+    toast('Could not put it up - nothing has been lost');
+    return;
+  }
+  try { await db.collection('boardSuggestions').doc(id).delete(); } catch (e) {}
+  renderNotes();
+  toast('Up it goes');
+  loadSuggestions();
+}
+
+async function removeSuggestion(id) {
+  if (!confirm('Remove this suggestion?\n\nIt will not go on the board and nobody else will see it.')) return;
+  try { await db.collection('boardSuggestions').doc(id).delete(); toast('Removed'); }
+  catch (e) { toast('Could not remove it'); }
+  loadSuggestions();
+}
+
+document.addEventListener('click', e => {
+  const up = e.target.closest('[data-up]');
+  if (up) return approveSuggestion(up.dataset.up);
+  const bin = e.target.closest('[data-bin]');
+  if (bin) return removeSuggestion(bin.dataset.bin);
+});
 
 function chooseBoard() {
   const mine = BOARDS.filter(canSee);
@@ -469,6 +614,9 @@ function chooseBoard() {
   LOCAL_KEY = localKey(board);
 
   document.getElementById('boardTitle').textContent = board.title;
+  /* Each time the board changes, so a leader of two groups does not see the
+     other one's queue. */
+  loadSuggestions();
   document.getElementById('boardSub').innerHTML     = board.sub;
   document.title = board.title;
 

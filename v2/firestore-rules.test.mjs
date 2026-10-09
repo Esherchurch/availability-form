@@ -40,6 +40,8 @@ const PEOPLE = {
      Attender: in the address book. Member: in it, with the office's tick. */
   attender:{ uid: 'u_attender', teams: [], adminFor: [], masterAdmin: false,
              attender: true, status: 'active' },
+  renuLead:   { uid: 'u_renu_lead',   teams: ['ReNu'],   adminFor: ['ReNu'],   masterAdmin: false },
+  lazersLead: { uid: 'u_lazers_lead', teams: ['Lazers'], adminFor: ['Lazers'], masterAdmin: false },
   member:  { uid: 'u_member',   teams: [], adminFor: [], masterAdmin: false,
              attender: true, churchMember: true, status: 'active' },
 };
@@ -144,6 +146,22 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'songs', 'sg_cs'), { title: 'A projected song' });
   await setDoc(doc(db, 'songSummaries', '2026-10-11'), {
     date: '2026-10-11', worshipLeader: 'Samy', items: [] });
+  /* The two new boards, and children in them. groups is what the rules
+     read - redeemYouthCode copies it off the child's record. */
+  await setDoc(doc(db, 'worshipBoardState', 'renu'), { notes: [], pages: [] });
+  await setDoc(doc(db, 'worshipBoardState', 'lazers'), { notes: [], pages: [] });
+  await setDoc(doc(db, 'youthAccess', 'u_youth_renu'), {
+    memberId: 'm_renu_kid', memberName: 'Ada Synthetic', firstName: 'Ada',
+    groups: ['ReNu'], grantCode: 'RENU-0001',
+    redeemedAt: WEEK_AGO, expiresAt: YEAR_ON, active: true });
+  await setDoc(doc(db, 'youthAccess', 'u_youth_renu2'), {
+    memberId: 'm_renu_kid2', memberName: 'Ben Synthetic', firstName: 'Ben',
+    groups: ['ReNu'], grantCode: 'RENU-0002',
+    redeemedAt: WEEK_AGO, expiresAt: YEAR_ON, active: true });
+  await setDoc(doc(db, 'youthAccess', 'u_youth_lazers'), {
+    memberId: 'm_laz_kid', memberName: 'Cat Synthetic', firstName: 'Cat',
+    groups: ['Lazers'], grantCode: 'LAZR-0001',
+    redeemedAt: WEEK_AGO, expiresAt: YEAR_ON, active: true });
   await setDoc(doc(db, 'addressBook', 'm_gone'), {
     name: 'Gone Synthetic', email: 'gone@example.invalid', markers: ['Worship Team'],
     churchMember: true, archived: true });
@@ -464,7 +482,13 @@ await check('pending person cannot see the videos', 'deny', () => getDoc(doc(as(
 
 // The pin boards, which is what the three-board split was for.
 await check('worship reads the worship board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'state')));
-await check('worship reads the kids board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'kids-church')));
+/* THIS USED TO BE 'allow'. Samy is on Worship Team AND Kids Church, so she
+   could read the Kids Church board as a team member. Martin narrowed that
+   board to Kids Church LEADERS on 9 October 2026, which takes it away from
+   ordinary Kids Church members who have it today - this check failing is the
+   whole of that cost, made visible rather than argued about. Karen, who
+   administers Kids Church, still has it. */
+await check('a Kids Church MEMBER no longer reads the kids board - leaders only now', 'deny', () => getDoc(doc(as('samy'), 'worshipBoardState', 'kids-church')));
 await check('youth cannot read the kids board', 'deny', () => getDoc(doc(as('isla'), 'worshipBoardState', 'kids-church')));
 await check('youth reads the youth board', 'allow', () => getDoc(doc(as('isla'), 'worshipBoardState', 'youth')));
 await check('kids admin writes the kids board', 'allow', () => setDoc(doc(as('karen'), 'worshipBoardState', 'kids-church'), { notes: [] }));
@@ -2079,6 +2103,105 @@ await check('nor can an access record be written for somebody else\'s uid', 'den
    volunteer has, and a volunteer does not become a young person. */
 await check('a volunteer still reads the worship board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'state')));
 await check('an Attender cannot read the youth board', 'deny', () => getDoc(doc(as('attender'), 'worshipBoardState', 'youth')));
+
+/* ---- the pin boards: who sees, who posts (Martin, 9 Oct 2026) ------
+   Five boards now. Three were there; Kids Church has been narrowed to its
+   leaders, and ReNu and Lazers are new and moderated.
+
+   A board is ONE document holding every note (stickynotes.html does
+   `BOARD_DOC.set({ pages, notes })`), so a young person cannot be allowed to
+   write one - they would be rewriting everybody else's notes. Their posts go
+   in boardSuggestions, one document each, which only the group's adults can
+   read. "Waits for a leader before others see it" is therefore true by
+   construction: until a leader copies it onto the board, it is not on the
+   board. */
+
+const renuYouth = () => youth('u_youth_renu');
+const lazersYouth = () => youth('u_youth_lazers');
+
+/* WHO SEES WHAT. Five boards, and every one of them is somebody's. */
+await check('the worship team sees the worship board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'state')));
+await check('and writes it', 'allow', () => setDoc(doc(as('samy'), 'worshipBoardState', 'state'), { notes: [], pages: [] }));
+
+await check('KIDS CHURCH IS LEADERS ONLY NOW: its admin sees it', 'allow', () => getDoc(doc(as('karen'), 'worshipBoardState', 'kids-church')));
+await check('and an ordinary Kids Church member does NOT', 'deny', () => getDoc(doc(as('samy'), 'worshipBoardState', 'kids-church')));
+await check('nor writes it', 'deny', () => setDoc(doc(as('samy'), 'worshipBoardState', 'kids-church'), { notes: [] }));
+
+await check('a ReNu leader sees the ReNu board', 'allow', () => getDoc(doc(as('renuLead'), 'worshipBoardState', 'renu')));
+await check('and writes it, so they can put a post up', 'allow', () => setDoc(doc(as('renuLead'), 'worshipBoardState', 'renu'), { notes: [], pages: [] }));
+await check('a ReNu child sees it', 'allow', () => getDoc(doc(renuYouth(), 'worshipBoardState', 'renu')));
+await check('AND CANNOT WRITE IT - that is the whole reason for the queue', 'deny', () => setDoc(doc(renuYouth(), 'worshipBoardState', 'renu'), { notes: [] }));
+await check('a Lazers child cannot see the ReNu board', 'deny', () => getDoc(doc(lazersYouth(), 'worshipBoardState', 'renu')));
+await check('nor the worship team’s', 'deny', () => getDoc(doc(lazersYouth(), 'worshipBoardState', 'state')));
+await check('nor Kids Church’s', 'deny', () => getDoc(doc(lazersYouth(), 'worshipBoardState', 'kids-church')));
+await check('a Lazers child sees the Lazers board', 'allow', () => getDoc(doc(lazersYouth(), 'worshipBoardState', 'lazers')));
+await check('and a young person in no group sees neither', 'deny', () => getDoc(doc(youthOk(), 'worshipBoardState', 'lazers')));
+await check('an Attender sees none of them', 'deny', () => getDoc(doc(as('attender'), 'worshipBoardState', 'renu')));
+await check('and a stranger certainly not', 'deny', () => getDoc(doc(anon(), 'worshipBoardState', 'renu')));
+
+/* WHO POSTS. A post is a suggestion until a leader puts it up. */
+const aPost = (over) => Object.assign({
+  boardId: 'renu', text: 'Can we do the bake sale again?',
+  firstName: 'Ada', byUid: 'u_youth_renu', createdAt: new Date()
+}, over || {});
+
+await check('a ReNu child posts a suggestion', 'allow',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p1'), aPost()));
+await check('and sees their own back, so the app can say it is waiting', 'allow',
+  () => getDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p1')));
+await check('A LEADER SEES THE QUEUE', 'allow',
+  () => getDocs(query(collection(as('renuLead'), 'boardSuggestions'), where('boardId', '==', 'renu'))));
+await check('ANOTHER CHILD DOES NOT SEE IT until a leader puts it up', 'deny',
+  () => getDoc(doc(youth('u_youth_renu2'), 'boardSuggestions', 'renu__p1')));
+await check('nor can a child list the queue', 'deny',
+  () => getDocs(query(collection(renuYouth(), 'boardSuggestions'), where('boardId', '==', 'renu'))));
+await check('a Lazers child cannot post to ReNu', 'deny',
+  () => setDoc(doc(lazersYouth(), 'boardSuggestions', 'renu__p2'), aPost({ byUid: 'u_youth_lazers' })));
+await check('a young person in no group cannot post at all', 'deny',
+  () => setDoc(doc(youthOk(), 'boardSuggestions', 'renu__p3'), aPost({ byUid: 'u_youth_ok' })));
+await check('an expired code cannot post', 'deny',
+  () => setDoc(doc(youthExpired(), 'boardSuggestions', 'renu__p4'), aPost({ byUid: 'u_youth_expired' })));
+await check('nor a cancelled one', 'deny',
+  () => setDoc(doc(youthOff(), 'boardSuggestions', 'renu__p5'), aPost({ byUid: 'u_youth_off' })));
+await check('nor a stranger', 'deny',
+  () => setDoc(doc(anon(), 'boardSuggestions', 'renu__p6'), aPost({ byUid: 'nobody' })));
+
+/* NO SURNAMES, NO CONTACT DETAILS. The rules hold the shape; the moderation
+   holds the free text, which is what moderation is for. */
+await check('a post cannot carry a surname', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p7'), aPost({ firstName: 'Ada Smith' })));
+await check('nor an email address field', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p8'), aPost({ email: 'ada@example.invalid' })));
+await check('nor a telephone number field', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p9'), aPost({ phone: '01234 567890' })));
+await check('nor be posted in somebody else’s name', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p10'), aPost({ byUid: 'u_youth_renu2' })));
+await check('nor be empty', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p11'), aPost({ text: '' })));
+await check('nor an essay', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__p12'), aPost({ text: 'x'.repeat(501) })));
+await check('and the youth board is not a queue - no suggestions for it', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'youth__p1'), aPost({ boardId: 'youth' })));
+
+/* LEADERS CAN REMOVE ANYTHING. */
+await check('A LEADER REMOVES A POST', 'allow',
+  () => deleteDoc(doc(as('renuLead'), 'boardSuggestions', 'renu__p1')));
+await check('a child may withdraw their own', 'allow', async () => {
+  await setDoc(doc(renuYouth(), 'boardSuggestions', 'renu__mine'), aPost());
+  await deleteDoc(doc(renuYouth(), 'boardSuggestions', 'renu__mine'));
+});
+await check('but not another child’s', 'deny', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'boardSuggestions', 'renu__theirs'),
+      { boardId: 'renu', text: 'theirs', firstName: 'Ben', byUid: 'u_youth_renu2', createdAt: new Date() });
+  });
+  await deleteDoc(doc(renuYouth(), 'boardSuggestions', 'renu__theirs'));
+});
+await check('nobody edits a post - approving means putting it up and deleting it', 'deny',
+  () => updateDoc(doc(as('renuLead'), 'boardSuggestions', 'renu__theirs'), { text: 'changed' }));
+await check('and a Lazers leader cannot touch a ReNu post', 'deny',
+  () => deleteDoc(doc(as('lazersLead'), 'boardSuggestions', 'renu__theirs')));
+
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));

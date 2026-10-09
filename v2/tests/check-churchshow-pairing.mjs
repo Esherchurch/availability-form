@@ -280,6 +280,78 @@ ok('keeping the date it was first connected',
 const backOk = await redeemCall({ code: back.code });
 ok('and the new code works', backOk.status === 200, backOk.status + ' ' + backOk.raw);
 
+console.log('\nR7: a fault at our end does not read as a bad code');
+
+/* THE EMULATOR CANNOT PRODUCE THIS. It signs custom tokens locally and
+   never asks IAM anything, so the one failure that will actually happen in
+   production - Service Account Token Creator not granted - cannot be
+   reached through the HTTP endpoint here. redeem() takes its db and auth as
+   arguments for this reason: hand it a signer that throws.
+
+   The ChurchShow window asked for this (R7, F-CS3) because the old code
+   answered that fault with "That code isn't valid or has run out", and an
+   operator would have made code after code, each refused, with nothing
+   saying the problem was at our end. */
+const { redeem, SETUP_FAILED, REFUSAL, hashCode } = await import('../functions/churchshow.js');
+
+/* A live code to redeem, written straight in. */
+const R7_CODE = 'R7TESTAB';
+await put('deviceCodes/' + hashCode(R7_CODE), {
+  uid: DEVICE_UID, siteId: SITE, siteName: SITE_NAME,
+  expiresAt: new Date(Date.now() + 9e5), usedAt: null, tries: 0,
+  createdBy: av.uid, createdAt: new Date() });
+await put('devices/' + DEVICE_UID, { kind: 'churchshow', siteId: SITE,
+  siteName: SITE_NAME, active: true, pairedBy: av.uid, pairedAt: new Date() });
+
+/* The real Firestore, through the Admin SDK over REST is not available here,
+   so a small stand-in for the two things redeem() asks of db. It is a
+   stand-in for the DATABASE, not for the thing being tested. */
+const codeDoc = {
+  uid: DEVICE_UID, siteId: SITE, siteName: SITE_NAME,
+  expiresAt: { toMillis: () => Date.now() + 9e5 }, usedAt: null, tries: 0
+};
+let markedUsed = false;
+const fakeDb = {
+  collection: (name) => ({
+    doc: () => ({
+      get: async () => ({
+        exists: true,
+        data: () => (name === 'devices' ? { active: true, siteId: SITE } : codeDoc)
+      })
+    })
+  }),
+  runTransaction: async (fn) => fn({
+    get: async () => ({ exists: true, data: () => codeDoc }),
+    update: () => { markedUsed = true; }
+  })
+};
+const throwingAuth = {
+  createCustomToken: async () => {
+    const e = new Error('Permission iam.serviceAccounts.signBlob is required');
+    e.code = 'auth/insufficient-permission';
+    throw e;
+  }
+};
+
+const setupFault = await redeem(fakeDb, throwingAuth, { code: R7_CODE, nowMs: Date.now() });
+ok('R7: a signing failure answers 500, not 400',
+  setupFault.status === 500, JSON.stringify(setupFault).slice(0, 200));
+ok('R7: with a sentence about OUR setup, not about their code',
+  setupFault.body && setupFault.body.error === SETUP_FAILED,
+  JSON.stringify(setupFault.body));
+ok('R7: and it is not the bad-code sentence',
+  setupFault.body && setupFault.body.error !== REFUSAL, JSON.stringify(setupFault.body));
+ok('R7: it names SERVER-DEPLOY.md, so somebody knows where to look',
+  /SERVER-DEPLOY\.md/.test((setupFault.body || {}).error || ''), (setupFault.body || {}).error);
+
+/* And the same stand-in with a signer that works must still answer 200, or
+   the stand-in is proving nothing about redeem(). */
+const workingAuth = { createCustomToken: async () => 'a.b.c' };
+codeDoc.usedAt = null;
+const fine = await redeem(fakeDb, workingAuth, { code: R7_CODE, nowMs: Date.now() });
+ok('and the same path answers 200 when signing works',
+  fine.status === 200 && fine.body.customToken === 'a.b.c', JSON.stringify(fine).slice(0, 160));
+
 const failed = R.filter(v => !v).length;
 console.log('\n' + (R.length - failed) + '/' + R.length + ' passed');
 process.exit(failed ? 1 : 0);

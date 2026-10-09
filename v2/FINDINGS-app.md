@@ -1637,3 +1637,138 @@ part.
 
 **Both of the things that were on that list are off it**, and the record of
 why is kept in the document, because they shaped the design.
+
+---
+
+## A-058 — R7: a fault at our end no longer reads as a bad code
+
+The ChurchShow window's request, after testing against the real functions
+(F-CS3). `churchShowRedeem` answered **every** failure with "That code isn't
+valid or has run out" — including the one that will actually happen, which is
+the IAM step not being granted. An operator would have made code after code,
+each refused, with nothing anywhere saying the problem was ours.
+
+Now: **500** with *"The hub couldn't finish connecting ChurchShow — ask the
+hub admin to check the server setup (SERVER-DEPLOY.md)."* ChurchShow shows any
+`error` sentence as it arrives, so no change was needed at their end.
+
+Handled where it happens, inside `redeem()`, not in the function wrapper — so
+it can be tested without one. **The emulator cannot produce this fault**: it
+signs custom tokens locally and never asks IAM anything. The test hands
+`redeem()` a signer that throws, which is exactly what a missing Token Creator
+does, and the deliberate break (answering 400 with the bad-code sentence
+again) fails all four assertions.
+
+### And a dead limit they found while testing it
+
+F-CS3 is right that my "five failed tries" check **could never have fired**:
+
+- a wrong code hashes to a different document, so there is nothing to count it
+  against
+- `tries` was only ever incremented on a **successful** redemption, and a used
+  code is refused by `usedAt` anyway
+
+It was a check that read as protection and gave none. Removed, with what
+actually protects it written down instead: the fifteen-minute life, 31⁸ (about
+850 billion) and `maxInstances`. `MAX_TRIES` is gone; they import `hashCode`,
+not that, so nothing of theirs breaks — but it is worth them knowing.
+
+---
+
+## A-059 — the pin boards: five of them, two moderated
+
+Martin's third youth follow-up.
+
+| Board | Who sees it | Who writes it |
+|---|---|---|
+| Worship (`state`) | Worship, AV, Choir | the same |
+| **Kids Church** | **its admins only — narrowed** | the same |
+| Youth (`youth`) | Youth Worship, and any young person with a live code | Youth Worship |
+| **ReNu** (new) | ReNu adults, and ReNu children | ReNu adults |
+| **Lazers** (new) | Lazers adults, and Lazers children | Lazers adults |
+
+**Kids Church was narrowed, and that has a visible cost.** It already existed
+and was open to anyone on the team; Martin asked for leaders only. A rules
+check that had passed for weeks — "worship reads the kids board", where Samy
+is on Worship *and* Kids Church — now reads *"a Kids Church MEMBER no longer
+reads the kids board"*. That failing check is the whole of the cost, made
+visible rather than argued about. **Say if you meant "as well as" rather than
+"instead of".**
+
+### Why a second collection and not a flag
+
+A board is **one document holding every note** — `stickynotes.html` does
+`BOARD_DOC.set({ pages, notes })`. To add a note you rewrite the whole board,
+so letting a young person write it would let them rewrite or delete everybody
+else's, and no rule can reliably tell "they appended one" from "they rewrote
+the lot".
+
+So a young person's post is its own document in `boardSuggestions`, readable
+only by the group's adults. **"Waits for a leader before others see it" is
+then true by construction** rather than by a flag somebody has to remember to
+check: until a leader copies it onto the board, it is not on the board.
+Approving is "put it up, then delete the suggestion", so there is no
+half-approved state.
+
+### No surnames, no contact details
+
+The rules allow six keys and none of them is an email address or a telephone
+number, and `firstName` must contain **no space** — which is what stops a
+surname arriving. `redeemYouthCode` already stores `firstName` separately, so
+that is what a post carries.
+
+**What the rules cannot do is stop a child typing a number into the text.**
+Nothing can, short of refusing free text. That is what the moderation is for,
+and it is why the moderation is not optional.
+
+### Which group a child is in
+
+`redeemYouthCode` copies the youth groups off the child's address book record
+when the code is redeemed. Reading the address book from the rules instead
+would hand over every field of the record, because rules cannot pick fields
+out of a document. If the office moves a child between groups, the next code
+moves them.
+
+### What is not built
+
+**The box a child types a suggestion into.** `stickynotes.html` is guarded
+"anyone signed in with a `users` document", and a youth-code account has none
+— the guard turns them away before the page draws. Their surface is the ReNu
+and Lazers spaces in the phone app, which is the next piece of work. The rules
+and the leaders' queue are ready for it, and the rules tests exercise the
+posting side already, so the queue is not untested — it is unused.
+
+### Proved
+
+33 rules checks across the five boards, 14 in a browser (a leader opening the
+queue, putting one up, removing another), and six deliberate breaks: a child
+writing the board, any child posting to any board, the queue readable by any
+child, the queue listable by any child, approving without deleting, and the
+queue reading every board at once.
+
+**The last one was caught twice**, which is worth noting: the page asked for
+*all* suggestions, and the **rules refused the query outright** — an
+unconstrained list cannot prove `adminOf(boardGroup(...))`, so Firestore
+refused the lot rather than leaking another group's. The page's filter and the
+rule are both doing the job.
+
+---
+
+## A-060 — two regressions on the events window's pages, found by the style sweep
+
+The full sweep went from **0 to 16** after their recent commits. Neither is
+mine and I have not touched their pages.
+
+| | |
+|---|---|
+| `places-admin.html`, sites tab | a button whose whole label is **"↑"** — an arrow glyph where a Lucide icon belongs. 2 faults, one per tab that shows it |
+| `bookings-admin.html`, every tab | **`h2` at weight 700**, 14 times. DESIGN.md allows 700 on `h1` only |
+
+**How the second one surfaced is worth knowing**: the offending text is "Page
+Test Hall", which is a **site I seeded** in `tests/check-churchshow-page.mjs`.
+The fault is theirs and is in the styling, not the data — any site name shows
+it — but it took my synthetic site existing for a site heading to be drawn at
+all. Worth saying so they can reproduce it.
+
+The style check covering their pages is the system working. I am reporting
+rather than fixing, because they are their pages.

@@ -91,6 +91,24 @@ export async function redeemYouthCode(db, auth, { code, nowMs }) {
     } };
   }
 
+  /* WHICH GROUPS THEY ARE IN, copied off their address book record here at
+     redemption. The rules need it to tell a Lazers child from a ReNu one for
+     the moderated pin boards; reading the address book from the rules instead
+     would hand over every field of the record, because rules cannot pick
+     fields out of a document.
+
+     Only the youth groups are copied, nothing else comes with them, and if
+     the office moves a child between groups the next code moves them here
+     too. Read off the record, never from anything the phone sent. */
+  const YOUTH_GROUPS = ['Lazers', 'ReNu', 'Youth Worship'];
+  let groups = [];
+  if (outcome.memberId) {
+    const child = await db.collection('addressBook').doc(outcome.memberId).get();
+    const markers = child.exists && Array.isArray((child.data() || {}).markers)
+      ? child.data().markers : [];
+    groups = markers.filter(m => YOUTH_GROUPS.indexOf(m) !== -1);
+  }
+
   /* An account with no email address and no password, because the church does
      not hold a minor's address and there is nothing to send a reset to. The
      display name is the child's first name only - see below. */
@@ -104,6 +122,7 @@ export async function redeemYouthCode(db, auth, { code, nowMs }) {
     memberId: outcome.memberId,
     memberName: outcome.memberName,
     firstName,
+    groups,
     grantCode: docIdFor(clean),
     redeemedAt: new Date(nowMs),
     expiresAt: new Date(nowMs + ACCESS_MS),

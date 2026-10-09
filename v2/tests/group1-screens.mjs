@@ -123,6 +123,18 @@ export const PAGES = [
   { page: 'church-settings.html', wait: 9000, states: [
       ['main', '1']
     ] },
+  /* Martin, 9 Oct 2026: neither of these may stay unchecked. meeting.html is
+     one of DESIGN.md's two named reference pages - "when in doubt, copy what
+     they do" - and login.html is the first screen anybody sees. Both were
+     outside the style check entirely until now (A-054).
+
+     login.html is measured SIGNED OUT, which is the only state it has. */
+  { page: 'meeting.html', wait: 9000, states: [
+      ['the lobby', '1']
+    ] },
+  { page: 'login.html', wait: 8000, states: [
+      ['the sign-in box', '1']
+    ] },
   /* The projection computer's pairing page (FINDINGS-churchshow.md R1-R3).
      One screen: the site picker and what is connected. The code box only
      appears after a function call, which a style sweep does not make. */
