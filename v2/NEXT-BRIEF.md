@@ -177,6 +177,18 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 22. The phone app design is now BEFORE switch-over (Martin, 9 Oct 2026)
+
+Martin chose to **hold launch until the new app design (`APP-DESIGN-BRIEF.md`, mock-up in `v2/design/app-mockup.html`) is built**, so members only learn one new thing. This changes the §12 launch line: the app design joins the "before switch-over" list.
+
+The order for the main window from here:
+1. Finish the youth access fix and the ChurchShow hub side, which are already in hand.
+2. **App design, stage A1 (establish):** what each space needs from existing pages, what is missing, and what the family rule needs from the data. Stop and report.
+3. Build the app shell in stages (spaces, tabs, Home, Me, the family rule, Running things, the phone fixes, A-038), alternating with **Step M** and **Step P** (the restyle), so neither stalls.
+4. Step T (email lock), then Q (launch checklist, with the app on it).
+
+The events window builds its own screens inside the spaces (APP-DESIGN-BRIEF §8), after "Who can come". **Sermons (Listen)** are now before launch too.
+
 ## 21. Who is who: Attender, Church member, Team member (Martin, 9 Oct 2026)
 
 Martin approved these levels. They answer the events window's F-103, where a signed-in person on no rota team was "pending" and looked like a visitor to small groups.
