@@ -1772,3 +1772,87 @@ all. Worth saying so they can reproduce it.
 
 The style check covering their pages is the system working. I am reporting
 rather than fixing, because they are their pages.
+
+---
+
+## A-061 — App design A1 established: APP-A1.md
+
+The whole of it is in `APP-A1.md`. Four things NEXT-BRIEF §22 asked for, plus
+the events window's F-130 and F-131, which were blocking them.
+
+**The number worth carrying away: of the mock-up's 24 screens, 11 open a page
+that already exists, 8 are a phone layout over data that already exists, and
+5 are genuinely new.** The app is mostly an arrangement, which is what
+APP-DESIGN-BRIEF §5 intends.
+
+### The one that changes a design decision
+
+**The family rule cannot be computed on the phone.** `householdIds` follows
+`householdId` links in **both directions over the whole address book** — the
+book records households two ways, so one record is not enough. The address
+book is now closed to Attenders (A-030), and "Your family this week" is a
+section on an *Attender's* Home. So it needs a function.
+
+The good news is that there is no new logic: `householdIds` is **already
+exported server-side**, in `functions/rota-feed.js:75`, and already used by
+the household calendar feed. `myFamily()` calls that and returns
+`{ id, firstName }` plus dates — no surname, no telephone number, no address.
+A-043 is why.
+
+### Five things missing, and the one that is bigger than it looks
+
+**A person cannot edit their own details.** `addressbook.html` is admins only,
+so "My details" has nothing behind it. The whole point of the levels is that
+an Attender has an account, and the first thing somebody wants is to correct
+their own telephone number. It also needs a policy Martin has not given: the
+mock-up's own words are *"Name, phone, address, who can see them"*.
+
+The others: teams are not data; "message the team" has no route for a team
+leader who is not Core Team; the leader's note on "This Sunday" has no field;
+Giving has nothing at all; and `sermons-admin.html` exists but is reachable
+from nowhere.
+
+### Teams as data, and the decision that makes it cheap
+
+**Key `teams/{teamId}` by the team's name as the rules already spell it** —
+`Kids Church`, not `kids-church`. Then every `markers` array, every
+`adminFor`, and **every string in `firestore.rules` keeps working untouched**.
+`egbc-auth.js` reads the collection and keeps `TEAMS` as the fallback, so a
+page that draws before the read lands still draws.
+
+Two things deliberately excluded: **no rules generated from data** (a team
+existing must never grant anything; `markers` stays the only switch, or adding
+a team becomes a way of granting access), and **no rename in v1** — a real
+rename rewrites every record that mentions the team, so archive-and-create is
+the safe answer. That is a decision for Martin, because §6 does say "renames".
+
+### F-130, answered accurately rather than dramatically
+
+The mock-up's helpers do **not** make database text safe, and the live gap is
+that `row()`, `sec()` and `next()` escape nothing at all — a song title with a
+`<script>` tag in it would run. Every call passes a literal, which is the only
+reason nothing shows.
+
+`esc()` also misses `'`. **I first wrote that this was "one step from live"
+and then checked: it is not.** Every attribute the mock-up builds is
+double-quoted, so there is nowhere for a bare apostrophe to break out today.
+Latent, worth fixing, not urgent — and saying so correctly matters more than
+making the point sound sharper.
+
+The shell's helpers will escape `title`/`sub` themselves so a screen cannot
+forget, and `right`/`inner` stay HTML by design because they carry pills and
+cards. A check will feed a name containing `<script>` and an apostrophe
+through every helper.
+
+### F-131, answered with a shape to agree now
+
+`EGBCApp.refresh(space, tab)` — a no-op if the person has navigated away, so
+a check-in arriving elsewhere does not yank them back. And a `watch` hook per
+screen that returns its own teardown, because a screen is re-rendered from
+scratch on every navigation and an `onSnapshot` started in a render function
+would be started again each time and never stopped.
+
+Their own click handlers are fine. The caveat worth stating is the one that
+has caught me three times in my own checks (A-033, A-044, A-049): **the DOM is
+rebuilt on every render**, so `getElementById('save').onclick = …` once at
+load is lost. Delegate, or re-attach each render.

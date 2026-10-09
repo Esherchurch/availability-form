@@ -54,6 +54,7 @@ const NOT_YET = {
   "safeguarding.html": "the events window's",
   "safeguarding-settings.html": "the events window's",
   "signup.html": "the events window's",
+  "sermons-admin.html": "the events window's (F-132) - and not in the Menu yet, A-061",
   "whatson.html": "the events window's",
   "youthapp2.html": "Step M (Restyle Group 3)",
   "youthserviceplanner.html": "Step M (Restyle Group 3)",
