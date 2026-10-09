@@ -1546,9 +1546,9 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
 // They run once the main window's churchShow() helper (ChurchShow pairing,
 // R1-R5) is in the rules, and the R6 clause is added to screenPages. Until
 // then they are skipped, and say so.
-if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
-  console.log('  NOTE  R6: 5 ChurchShow device checks skipped - waiting for the main window\u2019s churchShow() helper');
-} else {
+// (The main window's churchShow() helper is in, so these always run now:
+// if the device clause is ever taken out, they fail rather than skip.)
+{
   const device = (siteId) => env.authenticatedContext('churchshow-' + siteId, { device: 'churchshow', siteId }).firestore();
   await env.withSecurityRulesDisabled(async (c) => {
     const db = c.firestore();
@@ -1643,10 +1643,10 @@ if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
   await check('an admin makes a Church-members-only event', 'allow', () => setDoc(doc(as('karen'), 'calEvents', 'ev_w_cm2'), { ...EV(['churchMembers'], 'churchMembers'), createdBy: 'u_karen' }));
   await check('and cannot make it public by its audience while saying members only', 'deny', () => setDoc(doc(as('karen'), 'calEvents', 'ev_w_cm3'), { ...EV(['churchMembers', 'public'], 'churchMembers'), createdBy: 'u_karen' }));
 
-  /* signing up: the sign-up rule is the main window's; these run once it uses canSignUpTo() */
-  if (!/canSignUpTo\(request\.resource\.data\.calEventId\)/.test(fs.readFileSync('firestore.rules', 'utf8').split('// ── EVENTS (events window)')[0])) {
-    console.log('  NOTE  Who can come: 3 sign-up checks skipped - waiting for the main window to add canSignUpTo() to the sign-up rule (F-115)');
-  } else {
+  /* signing up: the sign-up rule is the main window's, and since F-115 it
+     uses canSignUpTo(). These always run now: if the clause is ever taken
+     out, they fail (they no longer skip). */
+  {
     const SU = (calEventId, uid) => ({ calEventId, personKind: 'addressBook', personId: 'm_x', name: 'Test person', email: 'x@example.invalid', phone: '',
       attendees: [], answers: {}, places: 1, ticketTypeId: '', status: 'waiting', donation: 0, createdAt: 'x', memberUid: uid || '' });
     await check('SIGN-UP: AN ATTENDER CANNOT SIGN UP TO A CHURCH-MEMBERS-ONLY EVENT', 'deny', () => setDoc(doc(ctx('u_att'), 'signups', 'su_w_att_cm'.padEnd(32, '0')), SU('ev_w_cm', 'u_att')));
