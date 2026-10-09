@@ -27,6 +27,15 @@ Run every one of these from `v2/`, not from here.
 | The form **filled in** in a browser, and the youth planner opened signed out | `node tests/check-form-in-browser.mjs` (add `--shots`) |
 | What each of the four levels actually gets, in a browser | `node tests/check-levels-in-browser.mjs` (add `--shots`) |
 | Who can read what, read off the rules themselves | `node tests/check-access-levels.mjs` (add `--write` to rewrite ACCESS-LEVELS.md) |
+
+**Run the browser checks one at a time.** They share one emulator and one
+test account, and `giveFullAccess` and `check-menu.mjs` both write
+`addressBook/ab_tester`. Two of them at once leaves that record half way
+between what each wanted, `refreshFromBook` mirrors it over the user
+document, and pages start turning the sweep away - which the style check
+reports as "PAGES THIS RUN NEVER SAW" rather than as a failure. Measured, by
+running check-menu and check-style-every-screen together on 9 Oct 2026.
+
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
 

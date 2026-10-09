@@ -208,8 +208,15 @@ async function seed() {
   await ev('window.confirmHouseholdMember()');
   await sleep(3000);
 
-  const rows = await ev('document.querySelectorAll("#eventList .bg-white").length');
-  ok('Pat gets his two Sundays', rows === 2, 'rows ' + rows);
+  /* Named, not counted. Counting broke the moment another check in the suite
+     seeded an event of its own into the same emulator - and an exact count is
+     the wrong assertion anyway: what matters is which of OUR dates are drawn
+     and which are not. */
+  const drawnIds = String(await ev(`JSON.stringify(Array.from(document.querySelectorAll('#eventList button'))
+    .map(b => (b.getAttribute('onclick') || '').match(/ev_br_[a-z]+/))
+    .filter(Boolean).map(m => m[0]).filter((v, i, a) => a.indexOf(v) === i))`));
+  ok('Pat gets both of his Sundays', /ev_br_one/.test(drawnIds) && /ev_br_two/.test(drawnIds), drawnIds);
+  ok('and not the Kids Church date, which is not his', !/ev_br_kids/.test(drawnIds), drawnIds);
 
   const shown = await ev('(document.getElementById("eventList").innerText || "").replace(/\\s+/g, " ")');
   ok('the term heading is drawn', /Browser Term/i.test(String(shown)), String(shown).slice(0, 160));
