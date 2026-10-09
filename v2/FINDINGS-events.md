@@ -2427,3 +2427,133 @@ Built to the main window's shell contract (FINDINGS-app A-050):
    but its buttons are only on Listen (and the lock screen). Does the shell
    want a small "now playing" strip above the tab bar?
    `EGBCAppListen.nowPlaying()` says what's playing.
+
+### F-135 — what "Close a room" built (the app's Maintenance space, "Rooms"; Martin, A-M2)
+- **Data** (rules in my section, 26 new checks):
+  - `roomClosures/<id>`: the room, its days (one month at most), the reason
+    (required), who closed it and when, and later who lifted it, and whether
+    the office has warned the people booked. Anyone in the address book reads
+    it.
+  - `roomClosedDays/<room>_<day>`: one marker a day. Anyone may read it,
+    because the public booking page needs it. **It says only "closed", never
+    why.**
+- **Who:** the Maintenance team, and the office of the room's site (admins
+  and its bookings admins). An Attender can't.
+- **The booking rules now read the marker.** On a closed day:
+  - **members and the public can't book the room or ask for it**, whatever a
+    page does
+  - the office can, but only by booking over it, with a reason (as for any
+    clash)
+  - the day after, it books as usual
+- **A day's marker can only be switched on** for a day its closure names,
+  for that room, while the closure is on. It can only be switched off by
+  lifting the closure it belongs to. Nothing is deleted.
+- **Where it shows:**
+  - **App, Maintenance → Rooms** (`egbc-app-maint.js`, `maint_rooms`):
+    - each room, Open or Closed (the days and the reason)
+    - tap a room to choose the days and the reason, then "Close the Hall"
+    - a closed room shows its details and "Open it again"
+  - **maintenance.html:** a "Close a room" card for the team and the office,
+    with the same closing and lifting (both use `egbc-events-bookings.js`).
+  - **Book a room (rooms.html):**
+    - **a closed room disappears from the day view** on those days
+    - its week shows those days as closed
+    - asking for it says "not free then (closed that day)"
+  - **The public page (book.html):** "The room is closed that day."
+  - **Room bookings (bookings-admin.html):**
+    - each closure appears under Waiting, with the reason, who closed it, and
+      **who is booked then**
+    - **"Warn the people booked"** emails each of them in one go. Their
+      booking is kept: the office decides what comes next.
+    - the day view shows "Hall · closed"
+- **The office is emailed** when a room is closed or opened again (the
+  site's bookings address, or the church's enquiry email).
+- **Warning the people booked is the office's job, by design:** the
+  Maintenance team can't see other people's bookings (the rules), so the
+  page can't email them. One button on Room bookings does it, and the
+  closure records that it has been done.
+- **Found while testing:**
+  - maintenance.html wasn't loading `egbc-email.js`, so closing a room from
+    that page couldn't have told the office. It's fixed.
+  - The jobs list used ✓ and ⚙ as icons (the style sweep counts those as
+    emoji). Both are now Lucide icons, with a door for a closed room.
+
+### F-136 — what "What's on" and "Book a room" built for the app (Me and my family)
+- **`egbc-app-whatson.js`** (`me_whatson`, to the A-050 contract):
+  - **The list** shows exactly what What's on shows that person, from the
+    same query. Members-only items stay hidden from those who can't come;
+    the rules see to that.
+  - **Pills:** "Booked" (or "Waiting list"), "Sign up", "Members",
+    "Cancelled".
+  - **Quick filters:** "This month", then the kinds of event in the list,
+    with Kids and families called "For families".
+  - **An event's own view:**
+    - when, where and the description
+    - **"You + 1 booked: change numbers or cancel"**, which opens their own
+      booking; or "Sign up"
+    - **"Add to my calendar"**, a calendar file
+    - "The full page"
+  - **Book a room:** each room members can book, as it is today: "Free
+    until 6pm", "Booked until 8pm, then free", "Free all evening". **A room
+    closed today isn't there at all.** Tapping a room opens Book a room.
+- **`egbc-events-home.js`**, for Home (A-050 A4): **`myEvents()`** returns
+  the person's own bookings for events still to come, as plain data (the
+  title, when, where, places, waiting or not, and the links to manage it
+  and to the event). It only ever reads their own; the rules allow nothing
+  else.
+- **Share on WhatsApp is not built:** the brief says one shared helper,
+  `egbc-share.js`, and it doesn't exist yet. The button goes in the event
+  view once the main window has made it.
+
+### F-137 — REQUESTS for the main window
+1. **A "Sermons" role (Martin, on F-134).** Martin wants who can upload
+   sermons to be a tick in the address book, alongside master admins.
+   Please add:
+   - the tick in the address book
+   - mirrored onto `users/{uid}` and checked by `mirrorsBook()`, like the
+     others
+
+   I'd suggest a field of its own (for example `roles: ['Sermons']`), **not
+   `adminFor`**: `adminFor` makes `isAdmin()` true, which would open
+   everything an admin can do. Tell me the field, and I'll switch
+   `sermonAdmin()` (Firestore) and `sermonAdminHere()` (Storage) to it, with
+   tests. I'll also replace the "Who can add sermons" list on the upload
+   page with a note pointing to the address book. Until then, the list on
+   the page works.
+2. **The "Now playing" bar above the tabs (Martin, yes).** It's the shell's
+   to draw. `egbc-app-listen.js` now gives it:
+   - `EGBCAppListen.nowPlaying()`: `null`, or `{ id, title, speaker, series,
+     pos, dur, paused }`
+   - `EGBCAppListen.toggle()`: play or pause
+   - `EGBCAppListen.onChange(fn)`: told when the sermon, its place or
+     play/pause changes, at most four times a second
+
+   Suggested:
+   - a slim strip, the title and a play/pause button, at least 48px high
+   - it sits above the tab bar and clears the safe area (A1c)
+   - tapping the strip goes to `go:me:listen`
+   - it shows only while `nowPlaying()` isn't null
+
+   The sermons browser test checks that `onChange` is told what's playing.
+3. **What the shell must load** for my screens, in this order:
+   - Firebase app, auth, firestore and **storage**
+   - `egbc-auth.js`, `egbc-church.js`, **`egbc-email.js`**, `egbc-ics.js`
+   - `egbc-events.js`, `egbc-events-kids.js`, `egbc-events-checkin.js`,
+     `egbc-events-bookings.js`, `egbc-events-home.js`
+   - then `egbc-app-kids.js`, `egbc-app-listen.js`, `egbc-app-whatson.js`,
+     `egbc-app-maint.js`
+   - each module's `register(V, { row, sec, next, ic, esc, redraw })`
+
+   Without `egbc-email.js`, closing a room couldn't tell the office.
+4. **Still mine and not built:** the app's Maintenance "Jobs" screen
+   (`maint_jobs`; maintenance.html has it today) and Running things →
+   Bookings (`office_bookings`). Both are next if wanted.
+5. **The style sweep (A-054):** fixed both:
+   - places-admin's "↑" and "↓" are now Lucide arrows with "Move up" and
+     "Move down" labels (a tap on the icon still moves the room)
+   - every h2 on Room bookings is 600 (the two outside a card were falling
+     back to the browser's bold)
+
+   I also swapped maintenance.html's ✓ and ⚙ before the sweep found them.
+   Please add `maintenance.html`, `sermons-admin.html` and `bookings-admin.html`
+   to the sweep's list if they aren't on it.

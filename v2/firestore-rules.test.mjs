@@ -1761,6 +1761,56 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a job is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'maintJobs', 'job_1')));
 }
 
+// ── EVENTS (events window) ── Close a room (the app's Maintenance "Rooms"; F-123, F-135, Martin A-M2)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  /* The office here is an admin: a later block re-makes u_lena with another member number. */
+  const office_ = () => as('karen');
+  const DAYS = ['2027-01-11', '2027-01-12', '2027-01-13'];
+  const C = (who, extra) => ({ siteId: 'site_bk', roomId: 'room_band', roomName: 'Test Band Room', from: DAYS[0], to: DAYS[2], days: DAYS,
+    reason: 'Repainting (invented)', status: 'on', by: who, byName: 'x', at: serverTimestamp(), ...(extra || {}) });
+  const M = (cid, day, on, extra) => ({ closureId: cid, roomId: 'room_band', siteId: 'site_bk', day, on, ...(extra || {}) });
+  const close = (dbx, cid, c, days) => { const x = writeBatch(dbx); x.set(doc(dbx, 'roomClosures', cid), c);
+    (days || c.days).forEach(d => x.set(doc(dbx, 'roomClosedDays', 'room_band_' + d), M(cid, d, true))); return x.commit(); };
+  await check('AN ATTENDER CANNOT CLOSE A ROOM', 'deny', () => close(ctx('u_att'), 'cl_att', C('u_att')));
+  await check('THE MAINTENANCE TEAM CLOSES A ROOM for three days, with a reason', 'allow', () => close(ctx('u_mt'), 'cl_1', C('u_mt')));
+  await check('not without a reason', 'deny', () => close(ctx('u_mt'), 'cl_2', C('u_mt', { reason: '' })));
+  await check('nor for more than a month at once', 'deny', () => close(ctx('u_mt'), 'cl_3', C('u_mt', { to: '2027-03-01',
+    days: Array.from({ length: 32 }, (_, i) => new Date(Date.UTC(2027, 0, 11 + i)).toISOString().slice(0, 10)).concat(['2027-03-01']) })));
+  await check('a day’s marker only for a day the closure names', 'deny', () => setDoc(doc(ctx('u_mt'), 'roomClosedDays', 'room_band_2027-01-20'), M('cl_1', '2027-01-20', true)));
+  await check('nor for another room', 'deny', () => setDoc(doc(ctx('u_mt'), 'roomClosedDays', 'room_hold_2027-01-12'), M('cl_1', '2027-01-12', true, { roomId: 'room_hold' })));
+  const B = (day, extra) => ({ kind: 'member', status: 'requested', siteId: 'site_bk', roomId: 'room_band', groupId: '', day, startMin: 1080, endMin: 1140,
+    startLocal: day + 'T18:00', endLocal: day + 'T19:00', setupMins: 0, packdownMins: 0, slotFrom: 72, slotTo: 76, title: 'Test band practice', people: 6, layout: '', av: { needed: false, what: '' },
+    refreshments: { needed: false }, resources: [], notes: '', requester: { name: 'Samy', email: 'samy@example.invalid', phone: '', org: '' },
+    memberUid: 'u_samy', memberName: 'Samy', createdAt: 'x', ...(extra || {}) });
+  const K = (n) => ('bk_cl_' + n).padEnd(31, '0');
+  const confirmed = (dbx, key, b) => { const x = writeBatch(dbx); x.set(doc(dbx, 'bookings', key), b);
+    const sl = Array(96).fill(0); for (let i = b.slotFrom; i < b.slotTo; i++) sl[i] = 1;
+    x.set(doc(dbx, 'roomDays', b.roomId + '_' + b.day), { slots: sl, lastBooking: key, roomId: b.roomId, day: b.day, siteId: b.siteId }); return x.commit(); };
+  await check('A MEMBER CANNOT BOOK A CLOSED ROOM (it disappears from Book a room)', 'deny', () => confirmed(as('samy'), K('m_conf'), B('2027-01-12', { status: 'confirmed' })));
+  await check('nor ask for it', 'deny', () => setDoc(doc(as('samy'), 'bookings', K('m_req')), B('2027-01-12')));
+  await check('nor can the public', 'deny', () => setDoc(doc(anon(), 'bookings', K('p_req')), B('2027-01-12', { kind: 'hire', memberUid: '', memberName: '', people: 10,
+    requester: { name: 'Hirer Synthetic', email: 'hirer@example.invalid', phone: '', org: '' } })));
+  await check('the day after it opens again, it books as usual', 'allow', () => confirmed(as('samy'), K('m_after'), B('2027-01-14', { status: 'confirmed' })));
+  const office = (key, extra) => confirmed(office_(), key, B('2027-01-13', { kind: 'office', status: 'confirmed', memberUid: '', ...(extra || {}) }));
+  await check('the office cannot book a closed room without saying why', 'deny', () => office(K('o_plain')));
+  await check('it may, as booking over something, with a reason', 'allow', () => office(K('o_over'), { override: true, decisionNote: 'Painters finish at noon (invented)' }));
+  await check('anyone reads that a room is closed on a day (the public booking page)', 'allow', () => getDoc(doc(anon(), 'roomClosedDays', 'room_band_2027-01-12')));
+  await check('but not why: the public cannot read the closure', 'deny', () => getDoc(doc(anon(), 'roomClosures', 'cl_1')));
+  await check('anyone in the address book can', 'allow', () => getDoc(doc(ctx('u_att'), 'roomClosures', 'cl_1')));
+  await check('a day cannot be opened again without lifting the closure', 'deny', () => setDoc(doc(ctx('u_mt'), 'roomClosedDays', 'room_band_2027-01-12'), M('cl_1', '2027-01-12', false)));
+  const lift = (dbx, who) => { const x = writeBatch(dbx);
+    x.update(doc(dbx, 'roomClosures', 'cl_1'), { status: 'lifted', liftedBy: who, liftedByName: 'x', liftedAt: serverTimestamp() });
+    DAYS.forEach(d => x.set(doc(dbx, 'roomClosedDays', 'room_band_' + d), M('cl_1', d, false))); return x.commit(); };
+  await check('an Attender cannot lift it', 'deny', () => lift(ctx('u_att'), 'u_att'));
+  await check('THE OFFICE RECORDS THAT IT WARNED THE PEOPLE BOOKED', 'allow', () => updateDoc(doc(office_(), 'roomClosures', 'cl_1'), { warnedAt: serverTimestamp(), warnedBy: 'u_karen', warnedCount: 2 }));
+  await check('the Maintenance team cannot say the office did', 'deny', () => updateDoc(doc(ctx('u_mt'), 'roomClosures', 'cl_1'), { warnedAt: serverTimestamp(), warnedBy: 'u_mt', warnedCount: 0 }));
+  await check('the Maintenance team lifts it, and its days open', 'allow', () => lift(ctx('u_mt'), 'u_mt'));
+  await check('then a member books it again', 'allow', () => confirmed(as('samy'), K('m_again'), B('2027-01-12', { status: 'confirmed' })));
+  await check('a closure is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'roomClosures', 'cl_1')));
+  await check('nor a day’s marker', 'deny', () => deleteDoc(doc(as('martin'), 'roomClosedDays', 'room_band_2027-01-12')));
+}
+
 // ── EVENTS (events window) ── leaders check themselves in on a Sunday (the app's Kids Church Today; F-120)
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();

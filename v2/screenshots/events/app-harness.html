@@ -14,11 +14,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="../../egbc-auth.js"></script>
+<script src="../../egbc-church.js"></script>
+<script src="../../egbc-email.js"></script>
+<script src="../../egbc-ics.js"></script>
 <script src="../../egbc-events.js"></script>
 <script src="../../egbc-events-kids.js"></script>
 <script src="../../egbc-events-checkin.js"></script>
 <script src="../../egbc-app-kids.js"></script>
 <script src="../../egbc-app-listen.js"></script>
+<script src="../../egbc-events-bookings.js"></script>
+<script src="../../egbc-events-home.js"></script>
+<script src="../../egbc-app-whatson.js"></script>
+<script src="../../egbc-app-maint.js"></script>
 <style>
 /* Layout: on a computer, a phone in the middle with the notes beside it; on a phone, the app fills the screen. */
 :root {
@@ -162,6 +169,7 @@ svg.lucide { stroke-width: 1.75; }
 (function () {
   var V = {};
   var SPACE = { kids: { label: 'Kids Church', tabs: [['today', 'Today', 'sun'], ['children', 'Children', 'baby']] },
+                maint: { label: 'Maintenance', tabs: [['jobs', 'Jobs', 'wrench'], ['rooms', 'Rooms', 'door-closed'], ['team', 'Team', 'users']] },
                 me: { label: 'Me and my family', tabs: [['home', 'Home', 'house'], ['whatson', "What's on", 'calendar-days'], ['listen', 'Listen', 'headphones'], ['me', 'Me', 'circle-user']] } };
   var Q = new URLSearchParams(location.search);
   var S = { space: SPACE[Q.get('space')] ? Q.get('space') : 'kids', tab: Q.get('tab') || 'today', toast: '' };
@@ -192,6 +200,8 @@ function sec(title, more, inner) {
   EGBCAuth.require().then(function () {
     EGBCAppKids.register(V, { row: row, sec: sec, next: next, ic: ic, esc: esc, redraw: draw });
     EGBCAppListen.register(V, { row: row, sec: sec, next: next, ic: ic, esc: esc, redraw: draw });
+    EGBCAppWhatson.register(V, { row: row, sec: sec, next: next, ic: ic, esc: esc, redraw: draw });
+    EGBCAppMaint.register(V, { row: row, sec: sec, next: next, ic: ic, esc: esc, redraw: draw });
     draw();
   });
 })();

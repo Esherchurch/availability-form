@@ -1874,8 +1874,15 @@ service cloud.firestore {
              && (roomData(d.roomId).get('fireMax', 0) == 0 || d.people <= roomData(d.roomId).get('fireMax', 0));
     }
 
+    // A room closed for the day (Close a room, F-135) is not free at any
+    // time: only the office may book it, as booking over something, with
+    // a reason.
+    function roomOpen(roomId, day) {
+      return !(exists(/databases/$(database)/documents/roomClosedDays/$(roomId + '_' + day))
+               && get(/databases/$(database)/documents/roomClosedDays/$(roomId + '_' + day)).data.get('on', false) == true);
+    }
     function slotsFree(d) {
-      return daySlots(d.roomId, d.day)[d.slotFrom:d.slotTo].hasOnly([0]);
+      return roomOpen(d.roomId, d.day) && daySlots(d.roomId, d.day)[d.slotFrom:d.slotTo].hasOnly([0]);
     }
 
     function memberCreate(key) {
@@ -1886,7 +1893,7 @@ service cloud.firestore {
              // the price and records the charge (F-077).
              && (!('bookingType' in d) || d.status == 'requested'
                  || get(/databases/$(database)/documents/bookingTypes/$(d.bookingType)).data.get('charged', false) == false)
-             && ((d.status == 'confirmed' && memberInstant(d.roomId)
+             && ((d.status == 'confirmed' && memberInstant(d.roomId) && roomOpen(d.roomId, d.day)
                   && getAfter(/databases/$(database)/documents/roomDays/$(d.roomId + '_' + d.day)).data.lastBooking == key)
                  || (d.status == 'requested' && slotsFree(d)));
     }
@@ -2733,6 +2740,69 @@ service cloud.firestore {
                                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneBy', 'doneByName', 'doneAt', 'doneNote']))
                               || (resource.data.status == 'done' && request.resource.data.status == 'todo'
                                   && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneNote']))))
+                    );
+      allow delete: if false;
+    }
+
+    // ---- CLOSE A ROOM (the Maintenance space's "Rooms"; F-123, F-135) --
+    // The Maintenance team or the room's office (admins, the site's
+    // bookings admins) closes a room for some days, with a reason (Martin,
+    // A-M2: the room disappears from Book a room on those days).
+    //   roomClosures/<id>: the closure - room, days, reason, who, and
+    //     whether it has been lifted. Anyone in the address book reads it.
+    //   roomClosedDays/<room>_<day>: one marker a day, read by anyone (the
+    //     public booking page needs it). It says only "closed", never why.
+    // The booking rules above read the marker: closed means not free.
+    // A marker is set on only for a day its closure names, while the
+    // closure is on, and set off only by lifting the closure it belongs to.
+    // Nothing is deleted. Bookings already made are not touched: the office
+    // decides, and warns the people booked from Room bookings.
+    function mayClose(siteId) {
+      return maintTeam() || theOffice(siteId);
+    }
+    function closureShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['siteId', 'roomId', 'roomName', 'from', 'to', 'days', 'reason', 'status',
+                               'by', 'byName', 'at', 'liftedBy', 'liftedByName', 'liftedAt', 'warnedAt', 'warnedBy', 'warnedCount'])
+             && d.siteId is string && d.roomId is string && roomData(d.roomId).siteId == d.siteId
+             && d.roomName is string && d.roomName.size() <= 120
+             && d.from is string && d.from.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+             && d.to is string && d.to.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && d.to >= d.from
+             && d.days is list && d.days.size() >= 1 && d.days.size() <= 31
+             && d.days[0] == d.from && d.days[d.days.size() - 1] == d.to
+             && d.reason is string && d.reason.size() > 0 && d.reason.size() <= 300
+             && d.status in ['on', 'lifted'];
+    }
+    match /roomClosures/{id} {
+      allow read: if active();
+      allow create: if mayClose(request.resource.data.siteId) && closureShape() && request.resource.data.status == 'on'
+                    && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
+                    && !request.resource.data.keys().hasAny(['liftedBy', 'liftedAt', 'warnedAt']);
+      allow update: if closureShape() && (
+                      // Lifted, by whoever may close the room, in their name, now.
+                      (mayClose(resource.data.siteId) && resource.data.status == 'on' && request.resource.data.status == 'lifted'
+                       && request.resource.data.liftedBy == request.auth.uid && request.resource.data.liftedAt == request.time
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'liftedBy', 'liftedByName', 'liftedAt']))
+                      // The office records that it warned the people booked.
+                      || (theOffice(resource.data.siteId) && request.resource.data.warnedBy == request.auth.uid && request.resource.data.warnedAt == request.time
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['warnedAt', 'warnedBy', 'warnedCount'])));
+      allow delete: if false;
+    }
+    match /roomClosedDays/{dayId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['closureId', 'roomId', 'siteId', 'day', 'on'])
+                    && dayId == request.resource.data.roomId + '_' + request.resource.data.day
+                    && mayClose(request.resource.data.siteId)
+                    && request.resource.data.closureId is string
+                    && (
+                      (request.resource.data.on == true
+                       && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.status == 'on'
+                       && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.roomId == request.resource.data.roomId
+                       && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.siteId == request.resource.data.siteId
+                       && request.resource.data.day in getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.days)
+                      || (request.resource.data.on == false && resource != null && resource.data.siteId == request.resource.data.siteId
+                          && resource.data.closureId == request.resource.data.closureId
+                          && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.status == 'lifted')
                     );
       allow delete: if false;
     }

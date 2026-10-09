@@ -14,7 +14,9 @@
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-guard.js?v=202610062100"></script>
+<script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610091400"></script>
+<script src="egbc-events-bookings.js?v=202610111000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -57,6 +59,7 @@
   <h1>Maintenance</h1>
   <p class="sub">Jobs reported by the church. Something broken? Report it here.</p>
   <div id="main"><div class="card hint">Loading…</div></div>
+  <div id="close"></div>
 </div>
 <div id="toast"></div>
 
@@ -75,6 +78,59 @@
   function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
   function canRun(j) { return TEAM || ADMIN || OFFICE_SITES.indexOf(j.siteId) >= 0; }
   function when(ts) { return ts && ts.toDate ? E.fmtDateShort(ts.toDate().toISOString()) : ''; }
+
+  /* ---- Close a room (F-123, F-135; Martin, A-M2) ----
+     The Maintenance team and the office close a room for some days, with a
+     reason. It disappears from Book a room on those days, the office is
+     emailed, and the office warns anyone already booked (Room bookings). */
+  var B = window.EGBCBookings, CLOSURES = [];
+  function mayClose(room) { return TEAM || ADMIN || OFFICE_SITES.indexOf(room.siteId) >= 0; }
+  function siteOf(id) { return SITES.filter(function (s) { return s.id === id; })[0] || {}; }
+  function drawClose() {
+    var rooms = ROOMS.filter(mayClose), el = document.getElementById('close');
+    if (!rooms.length) { el.innerHTML = ''; return; }
+    var t = B.today();
+    el.innerHTML = '<div class="card" id="closeCard"><h2>Close a room</h2><p class="hint" style="margin:0 0 8px">So nobody can book it. It disappears from Book a room on those days, and the office is told.</p>' +
+      (CLOSURES.length ? CLOSURES.map(function (c) {
+        return '<div class="job" data-cl="' + esc(c.id) + '"><span class="ico" aria-hidden="true"><i data-lucide="door-closed" style="width:18px;height:18px"></i></span><div class="t"><b>' + esc(c.roomName) + '</b> <span class="pill todo">Closed</span><br>' +
+          '<span class="hint">' + esc(B.closureWords(c)) + ' · ' + esc(c.reason) + ' · by ' + esc(c.byName || 'someone') + '</span>' +
+          (mayClose(c) ? '<div class="acts"><button class="btn sec" data-lift="' + esc(c.id) + '">Open it again</button></div>' : '') + '</div></div>';
+      }).join('') : '<p class="hint">No room is closed.</p>') +
+      '<label class="l" for="c-room">Room</label><select id="c-room"><option value="">Choose…</option>' + SITES.map(function (s) {
+        var rs = rooms.filter(function (r) { return r.siteId === s.id; });
+        return rs.length ? '<optgroup label="' + esc(s.name) + '">' + rs.map(function (r) { return '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>'; }).join('') + '</optgroup>' : '';
+      }).join('') + '</select>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label class="l" for="c-from">From</label><input class="inp" type="date" id="c-from" min="' + t + '" value="' + t + '"></div>' +
+      '<div><label class="l" for="c-to">To (the last day)</label><input class="inp" type="date" id="c-to" min="' + t + '" value="' + t + '"></div></div>' +
+      '<label class="l" for="c-why">Why</label><input class="inp" id="c-why" maxlength="300" placeholder="e.g. Repainting">' +
+      '<div id="c-err"></div><div class="acts"><button class="btn" id="c-go">Close the room</button></div></div>';
+    document.getElementById('c-go').onclick = closeIt;
+    document.querySelectorAll('[data-lift]').forEach(function (b) { b.onclick = function () { liftIt(b.dataset.lift, b); }; });
+  }
+  function closeIt() {
+    var room = ROOMS.filter(function (r) { return r.id === document.getElementById('c-room').value; })[0];
+    var from = document.getElementById('c-from').value, to = document.getElementById('c-to').value, why = document.getElementById('c-why').value.trim();
+    var err = document.getElementById('c-err'), btn = document.getElementById('c-go');
+    if (!room || !from || !to || !why) { err.innerHTML = '<p class="st no">Choose the room and the days, and say why.</p>'; return; }
+    if (from < B.today()) { err.innerHTML = '<p class="st no">The first day has gone.</p>'; return; }
+    btn.disabled = true;
+    B.closeRoom({ room: room, site: siteOf(room.siteId), from: from, to: to, reason: why }).then(function (c) {
+      toast(room.name + ' closed ' + B.closureWords(c) + '. The office has been told.');
+      return loadClosures();
+    }).catch(function (e) { btn.disabled = false; err.innerHTML = '<p class="st no">' + esc(e.message || e) + '</p>'; });
+  }
+  function liftIt(id, btn) {
+    var c = CLOSURES.filter(function (x) { return x.id === id; })[0];
+    btn.disabled = true;
+    B.liftClosure(c, siteOf(c.siteId)).then(function () { toast(c.roomName + ' is open again'); return loadClosures(); })
+      .catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
+  }
+  function loadClosures() {
+    return db().collection('roomClosures').where('status', '==', 'on').get().then(function (s) {
+      CLOSURES = all(s).filter(function (c) { return c.to >= B.today(); }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+      drawClose();
+    }).catch(function () { CLOSURES = []; drawClose(); });
+  }
 
   function draw() {
     var todo = JOBS.filter(function (j) { return j.status === 'todo'; }), done = JOBS.filter(function (j) { return j.status === 'done'; }).slice(0, 20);
@@ -102,7 +158,7 @@
     document.querySelectorAll('[data-photo]').forEach(function (b) { b.onclick = function () { showPhoto(b.dataset.photo, b); }; });
   }
   function row(j) {
-    return '<div class="job" data-job="' + esc(j.id) + '"><span class="ico" aria-hidden="true">' + (j.status === 'done' ? '&#10003;' : '&#9881;') + '</span><div class="t">' +
+    return '<div class="job" data-job="' + esc(j.id) + '"><span class="ico" aria-hidden="true">' + (j.status === 'done' ? '<i data-lucide="check" style="width:18px;height:18px"></i>' : '<i data-lucide="wrench" style="width:18px;height:18px"></i>') + '</span><div class="t">' +
       '<b>' + esc(j.what) + '</b> <span class="pill ' + j.status + '">' + (j.status === 'done' ? 'Done' : 'To do') + '</span><br>' +
       '<span class="hint">' + esc(j.where || '') + ' · reported by ' + esc(j.reportedByName || 'someone') + (j.reportedAt ? ', ' + esc(when(j.reportedAt)) : '') + '</span>' +
       (j.details ? '<br>' + esc(j.details) : '') +
@@ -172,7 +228,7 @@
     SITES = all(r[0]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     ROOMS = all(r[1]).filter(function (x) { return x.active !== false && x.kind !== 'online'; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     OFFICE_SITES = all(r[2]).filter(function (b) { return (b.bookingsAdmins || []).indexOf(ME.memberId) >= 0; }).map(function (b) { return b.id; });
-    return load();
+    return Promise.all([load(), loadClosures()]);
   }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();
 </script>

@@ -258,9 +258,12 @@ try {
     && /search for “Test Green Sermons \(invented\)”/.test(lt), lt.slice(0, 600));
   const sneakDraft = await L.evaluate((id) => EGBCAuth.db.collection('sermons').doc(id).get().then(() => 'read', e => e.code), draft.id);
   ok('   a listener cannot read the draft, even by asking for it', sneakDraft === 'permission-denied', sneakDraft);
+  await L.evaluate(() => { window.__np = []; EGBCAppListen.onChange((n) => window.__np.push(n)); });
   await tap(L, '[data-lact="play:' + fresh.id + '"]');
   const playing = await until(() => L.evaluate(() => { const n = EGBCAppListen.nowPlaying(); return n && !n.paused && n.pos > 0 ? n : null; }), 20000);
   ok('   Play: it plays, and "Now playing" shows it', playing && playing.id === fresh.id && /Now playing Ask boldly/.test(await text(L, '[data-l="now"]')), J(playing));
+  const told = await until(() => L.evaluate(() => (window.__np || []).filter((n) => n && n.title === 'Ask boldly, plan wisely (invented)' && n.speaker === 'Ryan Synthetic' && !n.paused && n.dur === 120).length));
+  ok('   the shell\'s "Now playing" bar is told what is playing (F-137)', told > 0, String(told));
   await L.screenshot({ path: path.join(HERE, 'listen-375.png'), fullPage: true });
   await tap(L, '[data-act="tab:home"]');
   await sleep(600);

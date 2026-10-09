@@ -607,7 +607,123 @@
     return EGBCChurch.send(mail);
   }
 
+  /* ---- Close a room (F-123, F-135; Martin, A-M2) ----
+     roomClosures/<id> is the closure: the room, its days, the reason, who.
+     roomClosedDays/<room>_<day> is one marker a day that anyone may read
+     ("closed", never why). The rules refuse a booking on a closed day to
+     everyone but the office, who must say why (booking over something).
+     A closed room disappears from Book a room on those days. Bookings
+     already made are left alone: the office warns the people booked. */
+  var CLOSE_MAX = 31;
+  function daysFrom(from, to) {
+    var out = [], d = from;
+    while (d <= to && out.length <= CLOSE_MAX) { out.push(d); d = addDays(d, 1); }
+    return out;
+  }
+  /* { roomId_day: true } for every closed day among these rooms and days. */
+  function closedDays(rooms, days) {
+    var asks = [];
+    rooms.forEach(function (r) { days.forEach(function (d) { asks.push([r.id, d]); }); });
+    return Promise.all(asks.map(function (a) {
+      return db().collection('roomClosedDays').doc(a[0] + '_' + a[1]).get()
+        .then(function (s) { return s.exists && s.data().on === true; }).catch(function () { return false; });
+    })).then(function (l) { var out = {}; asks.forEach(function (a, i) { if (l[i]) out[a[0] + '_' + a[1]] = true; }); return out; });
+  }
+  /* { roomId: true } for the rooms closed on one day. */
+  function closedOn(rooms, day) {
+    return closedDays(rooms, [day]).then(function (m) { var out = {}; rooms.forEach(function (r) { if (m[r.id + '_' + day]) out[r.id] = true; }); return out; });
+  }
+  function closureWords(c) {
+    var a = EGBCEvents.fmtDateShort(c.from + 'T12:00'), b = EGBCEvents.fmtDateShort(c.to + 'T12:00');
+    return (c.from === c.to ? a : a + ' to ' + b);
+  }
+  /* o: { room, site, from, to, reason }. Resolves with the closure. */
+  function closeRoom(o) {
+    var days = daysFrom(o.from, o.to);
+    if (!o.reason || !String(o.reason).trim()) return Promise.reject(new Error('Say why the room is closed.'));
+    if (!days.length || o.to < o.from) return Promise.reject(new Error('The last day is before the first.'));
+    if (days.length > CLOSE_MAX) return Promise.reject(new Error('Close it for a month at most at a time.'));
+    var w = who(), ref = db().collection('roomClosures').doc(), b = db().batch();
+    var c = { siteId: o.room.siteId, roomId: o.room.id, roomName: String(o.room.name || '').slice(0, 120), from: o.from, to: o.to, days: days,
+              reason: String(o.reason).trim().slice(0, 300), status: 'on', by: w.uid, byName: w.name, at: firebase.firestore.FieldValue.serverTimestamp() };
+    b.set(ref, c);
+    days.forEach(function (d) { b.set(db().collection('roomClosedDays').doc(o.room.id + '_' + d), { closureId: ref.id, roomId: o.room.id, siteId: o.room.siteId, day: d, on: true }); });
+    return b.commit().then(function () {
+      c.id = ref.id;
+      return tellClosure(c, o.site, 'closed').catch(function () { return null; }).then(function () { return c; });
+    });
+  }
+  /* Opens the closure's days again - only the days still marked by it
+     (a later closure of the same day keeps its own). */
+  function liftClosure(c, site) {
+    var w = who();
+    return Promise.all(c.days.map(function (d) { return db().collection('roomClosedDays').doc(c.roomId + '_' + d).get(); })).then(function (snaps) {
+      var b = db().batch();
+      b.update(db().collection('roomClosures').doc(c.id), { status: 'lifted', liftedBy: w.uid, liftedByName: w.name, liftedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      snaps.forEach(function (s, i) {
+        if (s.exists && s.data().closureId === c.id && s.data().on) b.set(s.ref, { closureId: c.id, roomId: c.roomId, siteId: c.siteId, day: c.days[i], on: false });
+      });
+      return b.commit();
+    }).then(function () { return tellClosure(c, site, 'lifted').catch(function () { return null; }); });
+  }
+  /* The office hears of every closure and every lifting. */
+  function tellClosure(c, site, what) {
+    var to = (site && site.bookingsEmail) || (typeof EGBCChurch !== 'undefined' && EGBCChurch.email()) || '';
+    if (!to) return Promise.resolve({ ok: false, error: 'no address to tell' });
+    var lifted = what === 'lifted', w = who();
+    var body = '<p><strong>' + esc(c.roomName) + '</strong>, ' + esc(closureWords(c)) + (lifted ? ': open again.' : ': closed. ' + esc(c.reason)) + '</p>' +
+      '<p>' + (lifted ? 'Opened by ' : 'Closed by ') + esc(w.name || c.byName || '') + '.</p>' +
+      (lifted ? '' : '<p>It cannot be booked on those days. Anyone already booked has not been told yet: open <strong>Room bookings</strong> in the hub to see who, and warn them.</p>');
+    return EGBCChurch.send({ to: [to], subject: (lifted ? 'Room open again: ' : 'Room closed: ') + c.roomName + ', ' + closureWords(c),
+      html: EGBCChurch.wrap(lifted ? 'A room is open again' : 'A room has been closed', body) });
+  }
+  /* The office: who is booked in the room on the closure's days. */
+  function closureClashes(c) {
+    return db().collection('bookings').where('siteId', '==', c.siteId).where('roomId', '==', c.roomId).get().then(function (s) {
+      return s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); })
+        .filter(function (b) { return c.days.indexOf(b.day) >= 0 && (b.status === 'requested' || b.status === 'confirmed') && b.kind !== 'event'; })
+        .sort(function (a, b) { return (a.day + a.startMin / 10000) < (b.day + b.startMin / 10000) ? -1 : 1; });
+    });
+  }
+  /* The office warns each of them (their booking is not cancelled: the
+     office will be in touch), and the closure records that it did. */
+  function warnClosure(c, list) {
+    var w = who();
+    return Promise.all(list.map(function (b) {
+      var to = (b.requester && b.requester.email) || '';
+      if (!to) return { ok: false };
+      var body = '<p>' + esc(c.roomName) + ', ' + esc(when(b)) + (b.title ? ': <strong>' + esc(b.title) + '</strong>' : '') + '.</p>' +
+        '<p>The room will be closed that day: ' + esc(c.reason) + '</p>' +
+        '<p>Your booking has not been cancelled. Someone from the church will be in touch about another room or another day.</p>' +
+        '<p style="color:#6b7280;font-size:13px">Reference ' + esc(ref(b)) + '</p>';
+      return EGBCChurch.send({ to: [to], subject: 'The room you booked will be closed: ' + c.roomName + ', ' + when(b), html: EGBCChurch.wrap('The room you booked will be closed', body) })
+        .catch(function () { return { ok: false }; });
+    })).then(function (r) {
+      var sent = r.filter(function (x) { return x && x.ok !== false; }).length;
+      return db().collection('roomClosures').doc(c.id).update({ warnedAt: firebase.firestore.FieldValue.serverTimestamp(), warnedBy: w.uid, warnedCount: sent }).then(function () { return sent; });
+    });
+  }
+
+  /* "Free from 6pm today", "Booked until 8pm", "Free all evening": a
+     room's day in a few words, from now (minutes since midnight) to the
+     end of the day the booking bars show. */
+  function freeWords(sl, nowMin) {
+    var i = Math.max(FROM, Math.ceil((nowMin || 0) / SLOT));
+    if (i >= TO) return { free: null, words: 'Nothing more today' };
+    var t = function (k) { var m = k * SLOT, h = Math.floor(m / 60), mm = m % 60, h12 = h % 12 || 12; return h12 + (mm ? '.' + (mm < 10 ? '0' : '') + mm : '') + (h < 12 ? 'am' : 'pm'); };
+    var busyNow = !!sl[i], j = i;
+    while (j < TO && !!sl[j] === busyNow) j++;
+    if (!busyNow) {
+      if (j >= TO) return { free: true, words: i <= 72 && (nowMin || 0) < 17 * 60 ? 'Free for the rest of the day' : 'Free all evening' };
+      return { free: true, words: 'Free until ' + t(j) };
+    }
+    if (j >= TO) return { free: false, words: 'Booked for the rest of the day' };
+    return { free: false, words: 'Booked until ' + t(j) + ', then free' };
+  }
+
   var api = { SLOT: SLOT, N: N, DAYS: DAYS, zeros: zeros, toMin: toMin, hhmm: hhmm, dow: dow, addDays: addDays, today: today,
+              daysFrom: daysFrom, closedDays: closedDays, closedOn: closedOn, closeRoom: closeRoom, liftClosure: liftClosure, tellClosure: tellClosure,
+              closureClashes: closureClashes, warnClosure: warnClosure, closureWords: closureWords, freeWords: freeWords, CLOSE_MAX: CLOSE_MAX,
               slots: slots, rotaWeek: rotaWeek, base: base, loadDays: loadDays, free: free, serviceAt: serviceAt,
               memberMode: memberMode, prepare: prepare, write: write, mark: mark, email: email, when: when,
               approve: approve, decline: decline, cancel: cancel, move: move, kitClash: kitClash,

@@ -166,6 +166,26 @@
     if (t) t.textContent = clock(a.currentTime) + ' of ' + clock(a.duration || (PROG[NOW] || {}).dur || 0);
     if (r && doc.activeElement !== r) { r.max = String(Math.floor(a.duration || 0) || 1); r.value = String(Math.floor(a.currentTime)); }
     if (pp) { pp.setAttribute('aria-label', a.paused ? 'Play' : 'Pause'); pp.innerHTML = (H ? H.ic(a.paused ? 'play' : 'pause', 15) : '') + ' ' + (a.paused ? 'Play' : 'Pause'); }
+    tell();
+  }
+
+  /* The shell's "Now playing" bar (F-137): it asks onChange() to hear when
+     the sermon, its place or play/pause changes, and draws itself from
+     nowPlaying(). At most four times a second. */
+  var WATCHERS = [], lastTell = 0, tellTimer = null;
+  function tell() {
+    var gap = Date.now() - lastTell;
+    if (gap < 250) { if (!tellTimer) tellTimer = setTimeout(function () { tellTimer = null; tell(); }, 250 - gap); return; }
+    lastTell = Date.now();
+    var n = nowPlaying();
+    WATCHERS.forEach(function (fn) { try { fn(n); } catch (e) { /* a watcher's mistake is its own */ } });
+  }
+  function nowPlaying() {
+    var s = NOW ? sermon(NOW) : null;
+    if (!s) return null;
+    var ser = seriesOf(s);
+    return { id: NOW, title: s.title, speaker: s.speaker || '', series: ser ? ser.name : '', pos: A ? A.currentTime : 0,
+             dur: (A && A.duration) || s.durationSec || 0, paused: A ? A.paused : true };
   }
 
   /* ---------------- loading ---------------- */
@@ -301,7 +321,11 @@
       });
     },
     /* For tests and the shell: what is loaded in the player now. */
-    nowPlaying: function () { return NOW ? { id: NOW, pos: A ? A.currentTime : 0, paused: A ? A.paused : true } : null; },
+    /* For the shell's "Now playing" bar (F-137): what is playing, or null;
+       play or pause it; and hear when either changes. */
+    nowPlaying: nowPlaying,
+    toggle: function () { toggle(); },
+    onChange: function (fn) { if (typeof fn === 'function') WATCHERS.push(fn); },
     _saveNow: function () { saveNow(true); }
   };
 })(typeof window !== 'undefined' ? window : this);

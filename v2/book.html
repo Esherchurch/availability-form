@@ -17,7 +17,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101900"></script>
+<script src="egbc-events-bookings.js?v=202610111000"></script>
 <script src="egbc-events-bookform.js?v=202610101200"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -119,8 +119,11 @@
     var s = B.slots(B.toMin(v.start), B.toMin(v.end), v.setup, v.pack);
     var day = v.day || B.today();
     var list = v.day && v.repeat.rule && v.repeat.until ? B.repeatDays(v.day, v.repeat.rule, v.repeat.until) : [day];
-    Promise.all(list.map(function (d) { return B.loadDays([r], d); })).then(function (all) {
+    Promise.all(list.map(function (d) { return B.loadDays([r], d); }).concat([B.closedDays([r], list)])).then(function (all) {
       if (mine !== checking) return;
+      /* A day the room is closed (Close a room) is taken from end to end. */
+      var shut = all.pop(), full = B.zeros().map(function () { return 1; });
+      list.forEach(function (d, i) { if (shut[r.id + '_' + d]) all[i][r.id] = full.slice(); });
       var days = {}, site = SITES[r.siteId] || {};
       list.forEach(function (d, i) { days[r.id + '_' + d] = all[i][r.id]; });
       document.getElementById('day').innerHTML = '<h2>' + esc(r.name) + ', ' + esc(EGBCEvents.fmtDate(day + 'T12:00')) + '</h2>' +
@@ -142,7 +145,8 @@
         var skip = EGBCBookForm.values(form()).skip;
         chosen = report.filter(function (x) { return x.ok && skip.indexOf(x.day) < 0; }).map(function (x) { return x.day; });
         if (!chosen.length) msg.push(['no', 'None of those dates is free.']);
-      } else if (!B.free(all[0][r.id], s)) msg.push(['no', 'The room is not free for all of that time. The day above shows when it is.']);
+      } else if (shut[r.id + '_' + v.day]) msg.push(['no', 'The room is closed that day. Please choose another date.']);
+      else if (!B.free(all[0][r.id], s)) msg.push(['no', 'The room is not free for all of that time. The day above shows when it is.']);
       else chosen = [v.day];
       if (r.fireMax && v.people > r.fireMax) msg.push(['no', 'This room can never hold more than ' + r.fireMax + ' people.']);
       if (!v.title || !(v.people > 0)) msg.push(['wait', 'Say what it is for, and how many people.']);

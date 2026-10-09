@@ -9,7 +9,7 @@
 <script src="egbc-auth.js?v=202610061500"></script>
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101900"></script>
+<script src="egbc-events-bookings.js?v=202610111000"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <script src="egbc-guard.js?v=202610061500" data-admin="any"></script>
 <meta charset="UTF-8">
@@ -379,8 +379,8 @@
           '<div class="grid sm:grid-cols-2 gap-2 items-start">' +
             '<div>' + nameField('sites', s) + '</div>' +
             '<div class="flex flex-wrap gap-1 items-center">' +
-              '<button class="btn btn-x" data-mv="sites" data-id="' + s.id + '" data-d="-1">&uarr;</button>' +
-              '<button class="btn btn-x" data-mv="sites" data-id="' + s.id + '" data-d="1">&darr;</button>' +
+              '<button class="btn btn-x" data-mv="sites" data-id="' + s.id + '" data-d="-1" aria-label="Move up" title="Move up"><i data-lucide="arrow-up" style="width:16px;height:16px"></i></button>' +
+              '<button class="btn btn-x" data-mv="sites" data-id="' + s.id + '" data-d="1" aria-label="Move down" title="Move down"><i data-lucide="arrow-down" style="width:16px;height:16px"></i></button>' +
               '<button class="btn btn-x" data-tog="sites" data-id="' + s.id + '">' +
                 (s.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
               '<span class="pill ' + (s.active === false ? 'off' : 'on') + '">' +
@@ -461,8 +461,8 @@
             nameField('rooms', r) +
           '</div>' +
           '<div class="flex flex-wrap gap-1 items-center">' +
-            '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="-1">&uarr;</button>' +
-            '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="1">&darr;</button>' +
+            '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="-1" aria-label="Move up" title="Move up"><i data-lucide="arrow-up" style="width:16px;height:16px"></i></button>' +
+            '<button class="btn btn-x" data-mv="rooms" data-id="' + r.id + '" data-d="1" aria-label="Move down" title="Move down"><i data-lucide="arrow-down" style="width:16px;height:16px"></i></button>' +
             (r.kind === 'online' ? '' : '<button class="btn btn-x" data-prof="' + r.id + '">Profile</button>') +
             '<button class="btn btn-x" data-tog="rooms" data-id="' + r.id + '">' +
               (r.active === false ? 'Bring back' : 'Take out of use') + '</button>' +
@@ -880,8 +880,8 @@
       return '<div class="row"><div class="grid sm:grid-cols-2 gap-2 items-start">' +
         '<div>' + nameField('menus', m) + '</div>' +
         '<div class="flex flex-wrap gap-1 items-center">' +
-          '<button class="btn btn-x" data-mv="menus" data-id="' + m.id + '" data-d="-1">&uarr;</button>' +
-          '<button class="btn btn-x" data-mv="menus" data-id="' + m.id + '" data-d="1">&darr;</button>' +
+          '<button class="btn btn-x" data-mv="menus" data-id="' + m.id + '" data-d="-1" aria-label="Move up" title="Move up"><i data-lucide="arrow-up" style="width:16px;height:16px"></i></button>' +
+          '<button class="btn btn-x" data-mv="menus" data-id="' + m.id + '" data-d="1" aria-label="Move down" title="Move down"><i data-lucide="arrow-down" style="width:16px;height:16px"></i></button>' +
           '<button class="btn btn-x" data-tog="menus" data-id="' + m.id + '">' + (m.active === false ? 'Bring back' : 'Take off the menu') + '</button>' +
           '<span class="pill ' + (m.active === false ? 'off' : 'on') + '">' + (m.active === false ? 'Off the menu' : 'On the menu') + '</span>' +
         '</div></div>' +

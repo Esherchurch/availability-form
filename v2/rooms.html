@@ -17,7 +17,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101900"></script>
+<script src="egbc-events-bookings.js?v=202610111000"></script>
 <script src="egbc-events-bookform.js?v=202610101200"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -113,15 +113,20 @@
     if (!rs.length) { document.getElementById('c-grid').innerHTML = '<p class="hint">No rooms here can be booked by members.</p>'; return; }
     var job;
     if (V.view === 'day') {
-      job = B.loadDays(rs, V.day).then(function (days) {
-        return '<p class="hint" style="margin:0 0 6px">' + esc(EGBCEvents.fmtDate(V.day + 'T12:00')) + '</p>' + B.axis() + rs.map(function (r) {
+      /* A room closed that day (Close a room) is not shown at all (Martin, A-M2). */
+      job = Promise.all([B.loadDays(rs, V.day), B.closedOn(rs, V.day)]).then(function (got) {
+        var days = got[0], open = rs.filter(function (r) { return !got[1][r.id]; });
+        if (!open.length) return '<p class="hint">No room can be booked that day.</p>';
+        return '<p class="hint" style="margin:0 0 6px">' + esc(EGBCEvents.fmtDate(V.day + 'T12:00')) + '</p>' + B.axis() + open.map(function (r) {
           return B.bar(days[r.id], { label: r.name, mine: mineOn(r.id, V.day), service: svc(r.id, V.day), click: true, attrs: ' data-room="' + esc(r.id) + '" data-day="' + V.day + '"' });
         }).join('');
       });
     } else {
       var r = roomById(V.room), list = [0, 1, 2, 3, 4, 5, 6].map(function (n) { return B.addDays(V.day, n); });
-      job = Promise.all(list.map(function (d) { return B.loadDays([r], d); })).then(function (all) {
+      job = Promise.all(list.map(function (d) { return B.loadDays([r], d); }).concat([B.closedDays([r], list)])).then(function (all) {
+        var shut = all.pop();
         return '<p class="hint" style="margin:0 0 6px">' + esc(r.name) + '</p>' + B.axis() + list.map(function (d, i) {
+          if (shut[r.id + '_' + d]) return B.bar(B.zeros().map(function () { return 1; }), { label: EGBCEvents.fmtDateShort(d + 'T12:00') + ' · closed' });
           return B.bar(all[i][r.id], { label: EGBCEvents.fmtDateShort(d + 'T12:00'), mine: mineOn(r.id, d), service: svc(r.id, d), click: true, attrs: ' data-room="' + esc(r.id) + '" data-day="' + d + '"' });
         }).join('');
       });
@@ -259,12 +264,14 @@
     if (v.repeat.rule && !v.repeat.until) { out.innerHTML = '<div class="st wait">Choose when it stops repeating.</div>'; return; }
     var rooms = v.rooms.map(roomById), list = v.repeat.rule ? B.repeatDays(v.day, v.repeat.rule, v.repeat.until) : [v.day];
     if (rooms.length * list.length > 100) { out.innerHTML = '<div class="st no">That is more than 100 bookings at once. Choose fewer rooms or an earlier end.</div>'; return; }
-    Promise.all(list.map(function (d) { return B.loadDays(rooms, d); })).then(function (all) {
+    Promise.all(list.map(function (d) { return B.loadDays(rooms, d); }).concat([B.closedDays(rooms, list)])).then(function (all) {
       if (mine !== checking) return;
+      var shut = all.pop();
       var days = {}, report = list.map(function (d, i) {
         var why = '';
         rooms.forEach(function (r) {
           days[r.id + '_' + d] = all[i][r.id];
+          if (!why && shut[r.id + '_' + d]) why = r.name + ': closed that day';
           if (!why && !B.free(all[i][r.id], s)) {
             var sv = ''; for (var k = s.from; k < s.to && !sv; k++) sv = all[i][r.id][k] ? B.serviceAt(site(), r.id, d, k) : '';
             why = r.name + (sv ? ': ' + sv : ' is booked');

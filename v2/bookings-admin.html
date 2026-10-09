@@ -18,7 +18,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
-<script src="egbc-events-bookings.js?v=202610101900"></script>
+<script src="egbc-events-bookings.js?v=202610111000"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <script src="egbc-accounts.js?v=202610101900"></script>
 <script src="egbc-events-money.js?v=202610091900"></script>
@@ -36,6 +36,7 @@
   h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
   .sub{color:var(--muted);margin:0 0 16px}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  h2{font-weight:600}
   .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 6px}
   label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
   .inp,select{height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff;width:100%}
@@ -97,7 +98,7 @@
 (function () {
   'use strict';
   var B = window.EGBCBookings;
-  var SITES = [], ROOMS = [], KIT = [], LIST = [], V = { site: '', tab: 'waiting', day: B.today() };
+  var SITES = [], ROOMS = [], KIT = [], LIST = [], CLOSURES = [], V = { site: '', tab: 'waiting', day: B.today() };
   function db() { return EGBCAuth.db; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
@@ -120,8 +121,11 @@
                         db().collection('charges').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
                         db().collection('hirers').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
                         db().collection('invoices').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
-                        EGBCAccounts.settings(true)]).then(function (r) {
+                        EGBCAccounts.settings(true),
+                        db().collection('roomClosures').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; })]).then(function (r) {
       var s = r[0];
+      CLOSURES = r[5].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .filter(function (c) { return c.status === 'on' && c.to >= B.today(); }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
       HIRERS = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       INVOICES = r[3].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       ACC = r[4];
@@ -134,7 +138,8 @@
   function draw() {
     var waiting = LIST.filter(function (b) { return b.status === 'requested' && b.day >= B.today(); });
     var asks = LIST.filter(function (b) { return b.cancelRequest && b.cancelRequest.status === 'asked' && (b.status === 'confirmed' || b.status === 'requested'); });
-    var tabs = [['waiting', 'Waiting', waiting.length + asks.length], ['coming', 'Coming up'], ['day', 'Day view'], ['setup', 'Setup sheet'],
+    var shutNow = CLOSURES.filter(function (c) { return !c.warnedAt && clashesOf(c).length; });
+    var tabs = [['waiting', 'Waiting', waiting.length + asks.length + shutNow.length], ['coming', 'Coming up'], ['day', 'Day view'], ['setup', 'Setup sheet'],
                 ['invoices', 'Invoices'], ['hirers', 'Hirers'], ['accounts', 'Accounts'], ['past', 'Past and cancelled']];
     document.getElementById('main').innerHTML =
       '<div class="row">' + (SITES.length > 1 ? '<div class="f"><label class="l" for="a-site">Site</label><select id="a-site">' + SITES.map(function (s) {
@@ -161,8 +166,9 @@
         cards.push(seriesCard(show.filter(function (x) { return x.series && x.series.id === b.series.id; })));
       } else cards.push(card(b));
     });
-    if (V.tab === 'waiting') cards = asks.map(askCard).concat(cards);
+    if (V.tab === 'waiting') cards = CLOSURES.map(closureCard).concat(asks.map(askCard)).concat(cards);
     el.innerHTML = cards.length ? cards.join('') : '<div class="card hint">' + (V.tab === 'waiting' ? 'Nothing is waiting.' : 'Nothing here.') + '</div>';
+    wireClosures(el);
     wireAsks(el);
     wireSeries(el);
     wireMoney(el);
@@ -622,6 +628,41 @@
   }
 
   /* Every room at the site on one day, with what is booked. */
+  /* ---- rooms closed (Close a room, F-135) ----
+     Shown with Waiting while they last. The people already booked in the
+     room on those days are listed, and the office warns them in one go
+     (their bookings stay: the office decides what next). */
+  function clashesOf(c) {
+    return LIST.filter(function (b) { return b.roomId === c.roomId && c.days.indexOf(b.day) >= 0 && (b.status === 'requested' || b.status === 'confirmed') && b.kind !== 'event'; });
+  }
+  function closureCard(c) {
+    var hit = clashesOf(c);
+    return '<div class="card" data-closure="' + esc(c.id) + '"><h2>' + esc(c.roomName) + ' closed: ' + esc(B.closureWords(c)) + ' <span class="pill wait">Closed</span></h2>' +
+      '<p style="margin:0 0 6px">' + esc(c.reason) + '</p><p class="hint" style="margin:0 0 8px">Closed by ' + esc(c.byName || 'someone') + '. It cannot be booked on those days.</p>' +
+      (hit.length ? '<p style="margin:0 0 6px"><b>' + hit.length + ' booked then:</b></p>' + hit.map(function (b) {
+        return '<p class="hint" style="margin:0 0 4px">' + esc(B.when(b)) + ': ' + esc(b.title || 'Booking') + ' (' + esc((b.requester && b.requester.name) || b.memberName || '') + ')</p>'; }).join('')
+        : '<p class="hint" style="margin:0 0 6px">Nobody is booked then.</p>') +
+      (c.warnedAt ? '<p class="hint" style="margin:6px 0 0">Warned: ' + (c.warnedCount || 0) + ' email' + (c.warnedCount === 1 ? '' : 's') + ' sent.</p>' : '') +
+      '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+      (hit.length && !c.warnedAt ? '<button class="btn" data-cwarn="' + esc(c.id) + '">Warn the ' + (hit.length === 1 ? 'person' : hit.length + ' people') + ' booked</button>' : '') +
+      '<button class="btn sec" data-clift="' + esc(c.id) + '">Open it again</button></div></div>';
+  }
+  function wireClosures(el) {
+    var byId = function (id) { return CLOSURES.filter(function (c) { return c.id === id; })[0]; };
+    el.querySelectorAll('[data-cwarn]').forEach(function (b) {
+      b.onclick = function () {
+        var c = byId(b.dataset.cwarn); b.disabled = true;
+        B.warnClosure(c, clashesOf(c)).then(function (n) { toast(n + ' warned'); return load(); }).catch(function (e) { b.disabled = false; toast('Could not: ' + (e.message || e)); });
+      };
+    });
+    el.querySelectorAll('[data-clift]').forEach(function (b) {
+      b.onclick = function () {
+        var c = byId(b.dataset.clift); b.disabled = true;
+        B.liftClosure(c, site()).then(function () { toast(c.roomName + ' is open again'); return load(); }).catch(function (e) { b.disabled = false; toast('Could not: ' + (e.message || e)); });
+      };
+    });
+  }
+
   function drawDay(el) {
     var rs = ROOMS.filter(function (r) { return r.siteId === V.site; });
     el.innerHTML = '<div class="card"><div class="row"><div class="f"><label class="l" for="d-day">Day</label><input class="inp" type="date" id="d-day" value="' + esc(V.day) + '"></div>' +
@@ -629,8 +670,10 @@
     document.getElementById('d-day').onchange = function () { if (this.value) { V.day = this.value; drawDay(el); } };
     document.getElementById('d-prev').onclick = function () { V.day = B.addDays(V.day, -1); drawDay(el); };
     document.getElementById('d-next').onclick = function () { V.day = B.addDays(V.day, 1); drawDay(el); };
-    B.loadDays(rs, V.day).then(function (days) {
+    Promise.all([B.loadDays(rs, V.day), B.closedOn(rs, V.day)]).then(function (got) {
+      var days = got[0];
       document.getElementById('d-grid').innerHTML = B.axis() + rs.map(function (r) {
+        if (got[1][r.id]) return B.bar(B.zeros().map(function () { return 1; }), { label: r.name + ' · closed' });
         return B.bar(days[r.id], { label: r.name, service: function (i) { return B.serviceAt(site(), r.id, V.day, i); } });
       }).join('') + B.key(false);
       var that = LIST.filter(function (b) { return b.day === V.day && b.status !== 'cancelled' && b.status !== 'declined'; });
