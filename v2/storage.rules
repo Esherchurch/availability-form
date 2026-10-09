@@ -289,6 +289,36 @@ service firebase.storage {
       allow delete: if adminHere() || groupLeaderHere(groupId);
     }
 
+    // A maintenance job's one photo (F-123; Martin, A-M1): put up by the
+    // person who reported the job, while it is to do; seen only by the
+    // Maintenance team and the office (admins, and the bookings admins of
+    // the job's site). One file per job, at maintJobs/<job>/photo.
+    function maintJob(jobId) {
+      return firestore.get(/databases/(default)/documents/maintJobs/$(jobId)).data;
+    }
+    function maintReader(jobId) {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active'
+             && (adminHere()
+                 || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('teams', []).hasAny(['Maintenance'])
+                 || (firestore.exists(/databases/(default)/documents/maintJobs/$(jobId))
+                     && maintJob(jobId).get('siteId', '') != ''
+                     && firestore.exists(/databases/(default)/documents/bookingSettings/$(maintJob(jobId).siteId))
+                     && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('memberId', '-')
+                          in firestore.get(/databases/(default)/documents/bookingSettings/$(maintJob(jobId).siteId)).data.get('bookingsAdmins', [])));
+    }
+    match /maintJobs/{jobId}/photo {
+      allow read: if maintReader(jobId);
+      allow write: if request.auth != null
+                   && firestore.exists(/databases/(default)/documents/maintJobs/$(jobId))
+                   && maintJob(jobId).reportedBy == request.auth.uid
+                   && maintJob(jobId).status == 'todo'
+                   && request.resource.size < 8 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if false;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────

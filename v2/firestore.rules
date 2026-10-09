@@ -2512,6 +2512,55 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- MAINTENANCE JOBS (the phone app's Maintenance space; F-123) -----
+    // Anyone signed in reports a job: what, where, and one optional photo.
+    // Everyone signed in sees the list (so nobody reports it twice). The
+    // Maintenance team and the office (admins, and the bookings admins of
+    // the job's site) mark it done or open it again. The photo is the
+    // Maintenance team's and the office's only (Martin, A-M1): its file is
+    // guarded in storage.rules; here only its path is kept. Never deleted.
+    function maintTeam() {
+      return active() && me().get('teams', []).hasAny(['Maintenance']);
+    }
+    function maintOffice(siteId) {
+      return isAdmin() || bookingsAdminOf(siteId);
+    }
+    function maintShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['siteId', 'roomId', 'where', 'what', 'details', 'photoPath', 'status',
+                               'reportedBy', 'reportedByName', 'reportedAt', 'doneBy', 'doneByName', 'doneAt', 'doneNote'])
+             && d.siteId is string && d.roomId is string
+             && d.where is string && d.where.size() <= 120
+             && d.what is string && d.what.size() > 0 && d.what.size() <= 200
+             && d.get('details', '') is string && d.get('details', '').size() <= 2000
+             && d.get('photoPath', '') is string && d.get('photoPath', '').size() <= 300
+             && d.status in ['todo', 'done']
+             && d.get('doneNote', '') is string && d.get('doneNote', '').size() <= 500;
+    }
+    match /maintJobs/{jobId} {
+      allow read: if active();
+      allow create: if active() && maintShape() && request.resource.data.status == 'todo'
+                    && request.resource.data.reportedBy == request.auth.uid && request.resource.data.reportedAt == request.time
+                    && request.resource.data.get('photoPath', '') in ['', 'maintJobs/' + jobId + '/photo']
+                    && !request.resource.data.keys().hasAny(['doneBy', 'doneAt']);
+      allow update: if maintShape()
+                    && request.resource.data.reportedBy == resource.data.reportedBy && request.resource.data.reportedAt == resource.data.reportedAt
+                    && (
+                      // The person who reported it may add the photo, or correct it, while it is to do.
+                      (resource.data.status == 'todo' && request.resource.data.status == 'todo' && resource.data.reportedBy == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['what', 'details', 'where', 'roomId', 'siteId', 'photoPath'])
+                        && request.resource.data.get('photoPath', '') in ['', 'maintJobs/' + jobId + '/photo'])
+                      // The Maintenance team or the office: done (in their name, now), or open again.
+                      || ((maintTeam() || maintOffice(resource.data.siteId))
+                          && ((resource.data.status == 'todo' && request.resource.data.status == 'done'
+                               && request.resource.data.doneBy == request.auth.uid && request.resource.data.doneAt == request.time
+                               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneBy', 'doneByName', 'doneAt', 'doneNote']))
+                              || (resource.data.status == 'done' && request.resource.data.status == 'todo'
+                                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneNote']))))
+                    );
+      allow delete: if false;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------

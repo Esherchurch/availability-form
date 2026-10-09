@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Maintenance</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610082145" data-title="Maintenance"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-guard.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610091400"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --maint:#4f5a66;--maint-tint:#eceff2;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px calc(72px + env(safe-area-inset-bottom))}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  label.l{display:block;font-size:14px;font-weight:500;color:var(--ink);margin:10px 0 5px}
+  .inp,select,textarea{min-height:48px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 15px Inter,sans-serif;color:var(--ink);background:#fff;width:100%}
+  textarea{padding:10px 12px;min-height:80px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 18px;border-radius:10px;font:600 15px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--maint);color:#fff;text-decoration:none}
+  .btn:disabled{opacity:.55}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .job{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+  .job:first-child{border-top:none}
+  .job .t{flex:1;min-width:0}.job .t b{color:var(--ink)}
+  .ico{flex:none;width:40px;height:40px;border-radius:10px;background:var(--maint-tint);color:var(--maint);display:flex;align-items:center;justify-content:center;font-size:18px}
+  .pill{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.todo{background:var(--gold-bg);color:var(--gold)}.pill.done{background:var(--ok-bg);color:var(--ok)}
+  .hint{font-size:13px;color:var(--muted)}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .acts .btn{min-height:40px;font-size:14px;padding:0 12px}
+  .st{border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0}.st.ok{background:var(--ok-bg);color:var(--ok)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  img.photo{max-width:100%;border-radius:10px;margin-top:8px;display:block}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Maintenance</h1>
+  <p class="sub">Jobs reported by the church. Something broken? Report it here.</p>
+  <div id="main"><div class="card hint">Loading…</div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  /* WHO DOES WHAT (the rules enforce it; F-123, Martin A-M1):
+     anyone signed in reports a job and sees the list; the Maintenance team
+     and the office (admins, a site's bookings admins) mark jobs done or
+     open them again, and they alone see a job's photo. */
+  var E = window.EGBCEvents, esc = E.esc;
+  var ME = {}, JOBS = [], ROOMS = [], SITES = [], OFFICE_SITES = [], TEAM = false, ADMIN = false;
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+  function canRun(j) { return TEAM || ADMIN || OFFICE_SITES.indexOf(j.siteId) >= 0; }
+  function when(ts) { return ts && ts.toDate ? E.fmtDateShort(ts.toDate().toISOString()) : ''; }
+
+  function draw() {
+    var todo = JOBS.filter(function (j) { return j.status === 'todo'; }), done = JOBS.filter(function (j) { return j.status === 'done'; }).slice(0, 20);
+    document.getElementById('main').innerHTML =
+      '<div class="card" id="todo"><h2>To do</h2>' + (todo.length ? todo.map(row).join('') : '<p class="hint">Nothing waiting. Thank you!</p>') + '</div>' +
+      '<button class="btn" id="r-open" style="margin-bottom:14px">+ Report a job</button>' +
+      '<div class="card" id="report" style="display:none"><h2>Report a job</h2>' +
+        '<label class="l" for="r-room">Where</label><select id="r-room"><option value="">Choose…</option>' +
+          SITES.map(function (s) {
+            var rs = ROOMS.filter(function (r) { return r.siteId === s.id; });
+            return rs.length ? '<optgroup label="' + esc(s.name) + '">' + rs.map(function (r) { return '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>'; }).join('') + '</optgroup>' : '';
+          }).join('') + '<option value="__else">Somewhere else</option></select>' +
+        '<div id="r-else-box" style="display:none"><label class="l" for="r-else">Where exactly</label><input class="inp" id="r-else" maxlength="120" placeholder="e.g. the car park, the garden gate"></div>' +
+        '<label class="l" for="r-what">What is wrong</label><input class="inp" id="r-what" maxlength="200" placeholder="e.g. Two lights out">' +
+        '<label class="l" for="r-details">More detail (if it helps)</label><textarea id="r-details" maxlength="2000"></textarea>' +
+        '<label class="l" for="r-photo">A photo (optional)</label><input class="inp" id="r-photo" type="file" accept="image/*" capture="environment" style="padding:10px">' +
+        '<p class="hint">Only the Maintenance team and the office see the photo.</p>' +
+        '<div id="r-err"></div><button class="btn" id="r-go">Report it</button></div>' +
+      (done.length ? '<div class="card" id="done"><h2>Done</h2>' + done.map(row).join('') + '</div>' : '');
+    document.getElementById('r-room').onchange = function () { document.getElementById('r-else-box').style.display = this.value === '__else' ? '' : 'none'; };
+    document.getElementById('r-go').onclick = report;
+    document.getElementById('r-open').onclick = function () { document.getElementById('report').style.display = ''; this.style.display = 'none'; document.getElementById('r-room').focus(); };
+    document.querySelectorAll('[data-done]').forEach(function (b) { b.onclick = function () { markDone(b.dataset.done, b); }; });
+    document.querySelectorAll('[data-reopen]').forEach(function (b) { b.onclick = function () { reopen(b.dataset.reopen, b); }; });
+    document.querySelectorAll('[data-photo]').forEach(function (b) { b.onclick = function () { showPhoto(b.dataset.photo, b); }; });
+  }
+  function row(j) {
+    return '<div class="job" data-job="' + esc(j.id) + '"><span class="ico" aria-hidden="true">' + (j.status === 'done' ? '&#10003;' : '&#9881;') + '</span><div class="t">' +
+      '<b>' + esc(j.what) + '</b> <span class="pill ' + j.status + '">' + (j.status === 'done' ? 'Done' : 'To do') + '</span><br>' +
+      '<span class="hint">' + esc(j.where || '') + ' · reported by ' + esc(j.reportedByName || 'someone') + (j.reportedAt ? ', ' + esc(when(j.reportedAt)) : '') + '</span>' +
+      (j.details ? '<br>' + esc(j.details) : '') +
+      (j.status === 'done' ? '<br><span class="hint">Done by ' + esc(j.doneByName || '') + (j.doneAt ? ', ' + esc(when(j.doneAt)) : '') + (j.doneNote ? ': ' + esc(j.doneNote) : '') + '</span>' : '') +
+      '<div id="ph-' + esc(j.id) + '"></div>' +
+      (canRun(j) ? '<div class="acts">' + (j.photoPath ? '<button class="btn sec" data-photo="' + esc(j.id) + '">See the photo</button>' : '') +
+        (j.status === 'todo' ? '<button class="btn" data-done="' + esc(j.id) + '">Mark done</button>' : '<button class="btn sec" data-reopen="' + esc(j.id) + '">Open again</button>') + '</div>' : '') +
+      '</div></div>';
+  }
+
+  /* Report: the job first, then its one photo (the rules let only the
+     person who reported it put it up, while it is to do). */
+  function report() {
+    var roomId = document.getElementById('r-room').value, what = document.getElementById('r-what').value.trim();
+    var room = ROOMS.filter(function (r) { return r.id === roomId; })[0];
+    var where = roomId === '__else' ? document.getElementById('r-else').value.trim() : room ? room.name : '';
+    var file = (document.getElementById('r-photo').files || [])[0];
+    var err = document.getElementById('r-err');
+    if (!what || !where) { err.innerHTML = '<p class="st no">Say where, and what is wrong.</p>'; return; }
+    var id = 'job_' + E.key(14), btn = document.getElementById('r-go');
+    btn.disabled = true;
+    db().collection('maintJobs').doc(id).set({ siteId: room ? room.siteId : '', roomId: room ? room.id : '', where: where.slice(0, 120), what: what.slice(0, 200),
+      details: document.getElementById('r-details').value.trim().slice(0, 2000), photoPath: file ? 'maintJobs/' + id + '/photo' : '', status: 'todo',
+      reportedBy: uid(), reportedByName: ME.name || '', reportedAt: firebase.firestore.FieldValue.serverTimestamp() }).then(function () {
+      if (!file) return;
+      return EGBCAuth.storage().ref('maintJobs/' + id + '/photo').put(file, { contentType: file.type || 'image/jpeg' })
+        .catch(function () { toast('The job is reported, but the photo did not go up.'); return db().collection('maintJobs').doc(id).update({ photoPath: '' }); });
+    }).then(function () { toast('Thank you. The Maintenance team will see it.'); return load(); })
+      .catch(function (e) { btn.disabled = false; err.innerHTML = '<p class="st no">Could not report it: ' + esc(e.message || e) + '</p>'; });
+  }
+  function markDone(id, btn) {
+    var note = prompt('Done. Anything to add? (optional)') || '';
+    btn.disabled = true;
+    db().collection('maintJobs').doc(id).update({ status: 'done', doneBy: uid(), doneByName: ME.name || '', doneAt: firebase.firestore.FieldValue.serverTimestamp(), doneNote: note.slice(0, 500) })
+      .then(function () { toast('Marked done'); return load(); }).catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
+  }
+  function reopen(id, btn) {
+    btn.disabled = true;
+    db().collection('maintJobs').doc(id).update({ status: 'todo', doneNote: '' })
+      .then(function () { toast('Opened again'); return load(); }).catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
+  }
+  function showPhoto(id, btn) {
+    btn.disabled = true;
+    EGBCAuth.storage().ref('maintJobs/' + id + '/photo').getDownloadURL().then(function (url) {
+      document.getElementById('ph-' + id).innerHTML = '<img class="photo" alt="The photo with this job" src="' + esc(url) + '">';
+      btn.remove();
+    }).catch(function () { btn.disabled = false; toast('The photo could not be shown'); });
+  }
+
+  function load() {
+    return db().collection('maintJobs').get().then(function (s) {
+      JOBS = all(s).sort(function (a, b) { return (b.reportedAt && a.reportedAt) ? b.reportedAt.toMillis() - a.reportedAt.toMillis() : 0; });
+      draw();
+    });
+  }
+
+  EGBCAuth.require().then(function (profile) {
+    ME = profile || {};
+    TEAM = (ME.teams || []).indexOf('Maintenance') >= 0;
+    ADMIN = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
+    return Promise.all([db().collection('sites').get().catch(function () { return { docs: [] }; }), db().collection('rooms').get().catch(function () { return { docs: [] }; }),
+                        db().collection('bookingSettings').get().catch(function () { return { docs: [] }; })]);
+  }).then(function (r) {
+    SITES = all(r[0]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    ROOMS = all(r[1]).filter(function (x) { return x.active !== false && x.kind !== 'online'; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    OFFICE_SITES = all(r[2]).filter(function (b) { return (b.bookingsAdmins || []).indexOf(ME.memberId) >= 0; }).map(function (b) { return b.id; });
+    return load();
+  }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

@@ -2153,3 +2153,51 @@ data and the rules are mine. Needed:
 4. Listen: the upload page and the player first; the feed and the Spotify
    repointing last (needs A-L1 and A-L2).
 5. The small What's on and Book a room additions, alongside.
+
+### F-127 — Martin's decisions on the app plan (9 October 2026)
+- **A-K1:** the collection code shows on the parent's phone. The child's
+  label prints when the phone's code is scanned at the door, or shows on the
+  leader screen if there's no printer.
+- **A-M1:** one optional photo per maintenance job, seen by the Maintenance
+  team and the office only.
+- **A-M2:** a closed room disappears from Book a room for those days.
+- **A-L1:** the podcast feed is a server function.
+- **A-L2:** Martin is getting the details from Val.
+- **Order:** Kids Church Today waits for the main window's answer on A1
+  and A2. Meanwhile I build what doesn't depend on the shell: the
+  Maintenance jobs; then the sermons storage, upload page and feed function.
+
+### F-128 — what Maintenance jobs built (the app's Maintenance space, "Jobs")
+- **`maintJobs`**: what, where (a room, or "somewhere else"), more detail,
+  one optional photo, who reported it and when, to do or done, who did it,
+  when, and a note. Never deleted.
+- **Who does what (the rules):**
+  - anyone signed in (Attenders included) reports a job, and sees the list,
+    so nobody reports the same thing twice
+  - the person who reported it may add detail or the photo while it's to do
+  - **the Maintenance team** (anyone with "Maintenance" in their teams) and
+    **the office** (admins, and the bookings admins of the job's site) mark
+    it done (in their own name, with an optional note) or open it again
+- **The photo (Martin, A-M1):** one per job, at `maintJobs/<job>/photo` in
+  Storage. Only the person who reported the job puts it up, while the job is
+  to do. **Only the Maintenance team and the office see it.** Not the
+  public, not other members, and not even the person who took it, once it's
+  sent.
+- **`maintenance.html`, "Maintenance":**
+  - the jobs list first, then "+ Report a job"
+  - the photo can come straight from the phone's camera
+  - the team and the office get "Mark done", "Open again" and "See the
+    photo"
+  - phone sizes as the app brief asks: 48px targets, bottom safe area, and
+    the Maintenance colour
+  - it works on its own now, and opens inside the app's Maintenance space
+    once the shell is ready (A1, A2)
+- **Not yet:** nobody is told when a job is reported. That would be a
+  notification to the Maintenance team (notifications are on hold), or an
+  email, which needs the team's addresses now the address book is closed.
+  Say if an email is wanted now.
+- **Needs the main window (A3, still open):** a **Maintenance** team in the
+  teams data, so people can be put on it. Until then only admins and the
+  office can mark jobs done.
+- Tests: rules (maintenance jobs, 16 checks); storage (the photo, 9);
+  maint-jobs in the browser (13).

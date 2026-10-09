@@ -1687,6 +1687,34 @@ if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
   await check('a Church member fills it in', 'allow', () => answer(ctx('u_cm'), 'req_w_cm_c'.padEnd(32, '0'), 'resp_w_cm_c'));
 }
 
+// ── EVENTS (events window) ── maintenance jobs (the app's Maintenance space; F-123, A-M1)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'users', 'u_mt'), { uid: 'u_mt', memberId: 'm_mt', status: 'active', name: 'Mo Maintenance', teams: ['Maintenance'], adminFor: [], masterAdmin: false, attender: true });
+  });
+  const JOB = (who, extra) => ({ siteId: 'site_off', roomId: 'room_hall', where: 'Hall', what: 'Two lights out', details: 'Back of the hall (invented)', photoPath: '',
+    status: 'todo', reportedBy: who, reportedByName: 'x', reportedAt: serverTimestamp(), ...(extra || {}) });
+  await check('ANYONE SIGNED IN REPORTS A JOB (an Attender)', 'allow', () => setDoc(doc(ctx('u_att'), 'maintJobs', 'job_1'), JOB('u_att')));
+  await check('with its photo\u2019s place named', 'allow', () => setDoc(doc(ctx('u_att'), 'maintJobs', 'job_2'), JOB('u_att', { photoPath: 'maintJobs/job_2/photo' })));
+  await check('but not pointing at another job\u2019s photo', 'deny', () => setDoc(doc(ctx('u_att'), 'maintJobs', 'job_3'), JOB('u_att', { photoPath: 'maintJobs/job_1/photo' })));
+  await check('nobody signed out reports one', 'deny', () => setDoc(doc(guest(), 'maintJobs', 'job_4'), JOB('')));
+  await check('nor in someone else\u2019s name', 'deny', () => setDoc(doc(ctx('u_att'), 'maintJobs', 'job_5'), JOB('u_cm')));
+  await check('nor already done', 'deny', () => setDoc(doc(ctx('u_att'), 'maintJobs', 'job_6'), JOB('u_att', { status: 'done' })));
+  await check('everyone signed in sees the list', 'allow', () => getDocs(collection(ctx('u_cm'), 'maintJobs')));
+  await check('the public do not', 'deny', () => getDocs(collection(guest(), 'maintJobs')));
+  await check('the reporter adds detail while it is to do', 'allow', () => updateDoc(doc(ctx('u_att'), 'maintJobs', 'job_1'), { details: 'Both tubes (invented)', photoPath: 'maintJobs/job_1/photo' }));
+  await check('AN ATTENDER CANNOT MARK A JOB DONE', 'deny', () => updateDoc(doc(ctx('u_att'), 'maintJobs', 'job_1'), { status: 'done', doneBy: 'u_att', doneByName: 'x', doneAt: serverTimestamp() }));
+  await check('nor can someone else change the reporter\u2019s job', 'deny', () => updateDoc(doc(ctx('u_cm'), 'maintJobs', 'job_1'), { what: 'Something else' }));
+  await check('the Maintenance team marks it done, in their own name', 'allow', () => updateDoc(doc(ctx('u_mt'), 'maintJobs', 'job_1'), { status: 'done', doneBy: 'u_mt', doneByName: 'Mo', doneAt: serverTimestamp(), doneNote: 'New tubes (invented)' }));
+  await check('not in someone else\u2019s name', 'deny', () => updateDoc(doc(ctx('u_mt'), 'maintJobs', 'job_2'), { status: 'done', doneBy: 'u_att', doneByName: 'x', doneAt: serverTimestamp() }));
+  await check('the office (a bookings admin of the job\u2019s site) marks one done too', 'allow', () => updateDoc(doc(ctx('u_office'), 'maintJobs', 'job_2'), { status: 'done', doneBy: 'u_office', doneByName: 'x', doneAt: serverTimestamp() }));
+  await check('and the team opens one again', 'allow', () => updateDoc(doc(ctx('u_mt'), 'maintJobs', 'job_2'), { status: 'todo', doneNote: 'Still flickering' }));
+  await check('a job is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'maintJobs', 'job_1')));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

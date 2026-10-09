@@ -261,6 +261,27 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 });
 await check("the group's leader puts up its picture", 'allow', () => put(env.authenticatedContext('u_gl').storage(), 'smallGroups/sg_tue/4-photo.jpg', { type: 'image/jpeg' }));
 await check("but not another group's", 'deny', () => put(env.authenticatedContext('u_gl').storage(), 'smallGroups/sg_other/5-photo.jpg', { type: 'image/jpeg' }));
+
+// ── EVENTS (events window) ── a maintenance job's photo (F-123; Martin, A-M1)
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  const U = (uid, mid, teams) => setDoc(doc(db, 'users', uid), { memberId: mid, teams, adminFor: [], masterAdmin: false, status: 'active' });
+  await U('u_rep', 'm_rep', []); await U('u_oth', 'm_oth', []); await U('u_mtt', 'm_mtt', ['Maintenance']); await U('u_offc', 'm_offc', []);
+  await setDoc(doc(db, 'bookingSettings', 'site_mj'), { bookingsAdmins: ['m_offc'], safeguardingLead: '', safeguardingDeputy: '' });
+  await setDoc(doc(db, 'maintJobs', 'job_s1'), { siteId: 'site_mj', roomId: '', where: 'Hall', what: 'Leak', status: 'todo', reportedBy: 'u_rep', photoPath: 'maintJobs/job_s1/photo' });
+  await setDoc(doc(db, 'maintJobs', 'job_s2'), { siteId: 'site_mj', roomId: '', where: 'Hall', what: 'Done one', status: 'done', reportedBy: 'u_rep', photoPath: '' });
+});
+const st = (uid) => env.authenticatedContext(uid).storage();
+await check('the person who reported a job puts up its photo', 'allow', () => put(st('u_rep'), 'maintJobs/job_s1/photo', { type: 'image/jpeg' }));
+await check('nobody else can', 'deny', () => put(st('u_oth'), 'maintJobs/job_s1/photo', { type: 'image/jpeg' }));
+await check('not once the job is done', 'deny', () => put(st('u_rep'), 'maintJobs/job_s2/photo', { type: 'image/jpeg' }));
+await check('only a picture', 'deny', () => put(st('u_rep'), 'maintJobs/job_s1/photo', { type: 'application/pdf' }));
+await check('THE MAINTENANCE TEAM SEES THE PHOTO', 'allow', () => getBytes(ref(st('u_mtt'), 'maintJobs/job_s1/photo')));
+await check('so does the office: a bookings admin of the job\'s site', 'allow', () => getBytes(ref(st('u_offc'), 'maintJobs/job_s1/photo')));
+await check('and an admin', 'allow', () => getBytes(ref(as('karen'), 'maintJobs/job_s1/photo')));
+await check('A MEMBER WHO IS NEITHER DOES NOT, not even the one who reported it', 'deny', () => getBytes(ref(st('u_oth'), 'maintJobs/job_s1/photo')));
+await check('nor the public', 'deny', () => getBytes(ref(anon(), 'maintJobs/job_s1/photo')));
+// ── end EVENTS ──
 // ── end EVENTS ──
 
 /* ---- nothing else moved ------------------------------------------- */
