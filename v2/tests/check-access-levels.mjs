@@ -49,6 +49,7 @@ const VOLUNTEERS = [
   ['rotaSignoff', 'the rota'],
   ['events', 'the rota, and who is serving on it'],
   ['services', 'service plans'],
+  ['songSummaries', "the song list for a Sunday - had no rule at all until 9 Oct 2026"],
   ['songs', 'the song library'],
   ['teamContent', 'team panels'],
   ['videoSections', 'the team video library'],
@@ -75,7 +76,7 @@ const VOLUNTEERS = [
 ];
 
 /* The projection PC, per FINDINGS-churchshow.md R4. */
-const DEVICE = ['songs', 'services', 'events'];
+const DEVICE = ['songs', 'services', 'songSummaries', 'events'];
 
 /* The read rule for one collection, as the file has it. A `match` block can
    hold several allow lines; this takes the ones that mention read, get or

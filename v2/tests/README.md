@@ -26,8 +26,18 @@ Run every one of these from `v2/`, not from here.
 | The availability form’s three functions, with nobody signed in | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-availability-form.mjs"` |
 | The form **filled in** in a browser, and the youth planner opened signed out | `node tests/check-form-in-browser.mjs` (add `--shots`) |
 | What each of the four levels actually gets, in a browser | `node tests/check-levels-in-browser.mjs` (add `--shots`) |
+| The pages still work when the functions are not reachable (F-118) | `node tests/check-pages-without-functions.mjs` |
+| Pairing the projection PC: a code made, redeemed, and the site disconnected | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-churchshow-pairing.mjs"` |
+| The Connect ChurchShow page, used rather than looked at | `node tests/check-churchshow-page.mjs` (add `--shots`) |
 | A young person's phone: a code redeemed and the Youth Hub opened | `node tests/check-youth-access.mjs` (add `--shots`) |
 | Who can read what, read off the rules themselves | `node tests/check-access-levels.mjs` (add `--write` to rewrite ACCESS-LEVELS.md) |
+
+**`v2/design/` is reference, not a page.** `design/app-mockup.html` is the
+phone design Martin approved (APP-DESIGN-BRIEF.md) and must stay out of the
+page checks. It already is: every check enumerates `*.html` in the v2 root
+and none of them reads a subdirectory, which was measured rather than
+assumed - 82 files, and the mock-up is not one of them. **If a check is ever
+made recursive, exclude `design/` explicitly at that point.**
 
 **Run the browser checks one at a time.** They share one emulator and one
 test account, and `giveFullAccess` and `check-menu.mjs` both write

@@ -70,7 +70,13 @@
               description: 'What is plugged into what' },
             { title: 'Monitor Setup', url: 'MonitorStageMap.html', icon: 'speaker',
               description: 'Who hears what on stage' }
-          ] }
+          ] },
+          /* The projection computer signs in to the hub with a code read off
+             this page. Admins only: the page turns a member away and the
+             function refuses them again. FINDINGS-churchshow.md R1-R3. */
+          { title: 'Connect ChurchShow', url: 'churchshow.html', icon: 'monitor-play',
+            admin: true,
+            description: 'Sign the projection computer in to the hub' }
         ] }
       ] },
 

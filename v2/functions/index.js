@@ -18,6 +18,7 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { randomBytes } from 'node:crypto';
 import {
   buildFeed, buildHouseholdFeed, buildFullFeed,
@@ -27,6 +28,9 @@ import {
   findMe as findMeIn, myDates as myDatesIn, saveAnswer as saveAnswerIn,
   whoAmI as whoAmIIn, callerIp
 } from './availability-form.js';
+import {
+  pairingCode as pairingCodeIn, redeem as redeemIn, disconnect as disconnectIn
+} from './churchshow.js';
 
 initializeApp();
 const db = getFirestore();
@@ -473,4 +477,60 @@ export const saveAnswer = onCall(async (request) => orThrow(await saveAnswerIn(d
 export const whoAmI = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   return orThrow(await whoAmIIn(db, { token: request.auth.token || {} }));
+});
+
+/* =================================================================
+   Pairing the projection PC (ChurchShow)
+   =================================================================
+
+   R1-R3 of FINDINGS-churchshow.md. The ChurchShow side is already built to
+   the wire contract in that file, so the shapes here are fixed - in
+   particular churchShowRedeem answers 200 { customToken, siteId, siteName }
+   or 400 { error: "<one plain sentence>" }, and ChurchShow shows that
+   sentence to the operator exactly as it arrives.
+
+   churchShowRedeem HAS TO BE PUBLIC: the projection PC has no account until
+   this gives it one. What protects it is that the code is 8 characters from a
+   31-character alphabet, lives fifteen minutes, is stored only as a sha256,
+   is burnt in a transaction on first use, and is refused the moment the
+   device is switched off on the hub.
+
+   IT ALSO NEEDS AN IAM STEP. A v2 function cannot sign a custom token until
+   its own runtime service account has Service Account Token Creator on
+   itself. SERVER-DEPLOY.md has the command; without it churchShowRedeem
+   answers 500 and nothing else in the suite is affected.               */
+
+
+export const churchShowPairingCode = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return orThrow(await pairingCodeIn(db, getAuth(), {
+    uid: request.auth.uid,
+    siteId: (request.data || {}).siteId,
+    nowMs: Date.now()
+  }));
+});
+
+export const churchShowDisconnect = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return orThrow(await disconnectIn(db, getAuth(), {
+    uid: request.auth.uid,
+    siteId: (request.data || {}).siteId
+  }));
+});
+
+/* Not a callable: ChurchShow is an Electron app posting plain JSON, not a
+   Firebase client, so this answers ordinary HTTP. POST only - a GET with a
+   code in the query string would end up in a proxy log. */
+export const churchShowRedeem = onRequest({ cors: false, invoker: 'public' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Post the code.' }); return; }
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const out = await redeemIn(db, getAuth(), { code: body.code, nowMs: Date.now() });
+    res.status(out.status).json(out.body);
+  } catch (e) {
+    console.error('[churchShowRedeem]', e);
+    /* The same sentence as every other refusal: an operator in a hall does
+       not need to know whether it was their code or our service account. */
+    res.status(400).json({ error: "That code isn't valid or has run out \u2014 make a new one on the hub." });
+  }
 });

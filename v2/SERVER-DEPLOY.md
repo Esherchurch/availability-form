@@ -246,6 +246,74 @@ check the two new fields only if they are present — so a stale browser cannot
 lock anybody out. It just means that person is treated as they were before
 until they next load the page properly. There are rules tests for both shapes.
 
+---
+
+## The projection computer (ChurchShow) — one extra step, and it is easy to miss
+
+Three more functions: `churchShowPairingCode`, `churchShowRedeem` and
+`churchShowDisconnect`. **Twelve in all now.** They deploy with the same
+command as everything else:
+
+```
+firebase deploy --only functions:hub --project egbc-worship-planner
+```
+
+### The step that is not a deploy
+
+`churchShowRedeem` signs a **custom token**, and a v2 function cannot do that
+until its own runtime service account is allowed to sign tokens for itself.
+Without this the function answers an error and ChurchShow shows *"That code
+isn't valid or has run out"* for every code, however fresh.
+
+Find the service account the functions run as — the deploy prints it, and it is
+usually `egbc-worship-planner@appspot.gserviceaccount.com` — then, once:
+
+```
+gcloud iam service-accounts add-iam-policy-binding ^
+  egbc-worship-planner@appspot.gserviceaccount.com ^
+  --member="serviceAccount:egbc-worship-planner@appspot.gserviceaccount.com" ^
+  --role="roles/iam.serviceAccountTokenCreator" ^
+  --project=egbc-worship-planner
+```
+
+It names the same account twice on purpose: it is giving the account
+permission to sign for **itself**.
+
+`churchShowRedeem` also has to be reachable without an account, because the
+projection computer has none until the code gives it one. The CLI normally
+sets that and says so; if the deploy reports it could not:
+
+```
+gcloud functions add-invoker-policy-binding churchShowRedeem --region=europe-west2 --member=allUsers
+```
+
+**Only `churchShowRedeem` and `rotaFeed`.** The pairing and disconnect
+functions check who is asking and must stay closed.
+
+### Connecting it, on the day
+
+1. On the hub, open **Menu → Worship & AV → AV → Connect ChurchShow**. An AV or
+   Worship admin, or you.
+2. Choose the building and press **Make pairing code**. An eight-character code
+   appears with a countdown; it lasts fifteen minutes and works once.
+3. On the projection computer: ChurchShow → **Settings** → **Connect to the
+   hub**, type the code, press Connect.
+4. The hub page's "What is connected" list shows it as **On**.
+
+**Do this before the rules go live**, or the screens read nothing on Sunday.
+It is the one hard dependency between the two jobs.
+
+### If a computer goes missing
+
+Press **Disconnect** against that building. The screens there stop reading the
+hub **straight away** — not within the hour — because the rules check the
+device's own record on every request as well as its sign-in. Any code made and
+not yet used is thrown away at the same time. Connect it again with a new code
+when the machine is back.
+
+One connection covers a **building**, not a computer, so the spare machine can
+pair with its own code without stopping the main one.
+
 ## Then check it, by hand, before telling anyone
 
 ### The calendar links

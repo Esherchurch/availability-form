@@ -123,6 +123,12 @@ export const PAGES = [
   { page: 'church-settings.html', wait: 9000, states: [
       ['main', '1']
     ] },
+  /* The projection computer's pairing page (FINDINGS-churchshow.md R1-R3).
+     One screen: the site picker and what is connected. The code box only
+     appears after a function call, which a style sweep does not make. */
+  { page: 'churchshow.html', wait: 9000, states: [
+      ['main', '1']
+    ] },
   /* F-089 and F-095, from the events window: the children's register and
      Sunday check-in. */
   { page: 'kids-admin.html', wait: 9000, states: [

@@ -703,6 +703,20 @@ service cloud.firestore {
       allow write: if canAct('Worship Team') || canAct('Youth Worship');
     }
 
+    // THIS COLLECTION HAD NO RULE AT ALL, so the catch-all at the bottom
+    // refused it - and three pages use it: SundayServicePlanner.html writes
+    // it (line ~552), youthserviceplanner.html writes it (~800), and
+    // song-summary.html reads it (~148). All three would have stopped working
+    // the day the rules were deployed. Found while answering ChurchShow's
+    // question about whether anything still writes it; it does.
+    //
+    // One document per Sunday, keyed by the date: the song list for the
+    // service, which is what ChurchShow falls back to when it has no plan.
+    match /songSummaries/{date} {
+      allow read: if volunteer() || churchShow();
+      allow write: if canAct('Worship Team') || canAct('Youth Worship');
+    }
+
     // ---- the AV team's own two -------------------------------------
     // Neither of these had a rule, so the catch-all at the bottom denied
     // them: the inventory and the schematic would not have read, let alone

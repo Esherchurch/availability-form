@@ -120,6 +120,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'deviceCodes', 'ab'.repeat(32)), {
     uid: 'churchshow-site_main', siteId: 'site_main', usedAt: null, tries: 0 });
   await setDoc(doc(db, 'songs', 'sg_cs'), { title: 'A projected song' });
+  await setDoc(doc(db, 'songSummaries', '2026-10-11'), {
+    date: '2026-10-11', worshipLeader: 'Samy', items: [] });
   await setDoc(doc(db, 'addressBook', 'm_gone'), {
     name: 'Gone Synthetic', email: 'gone@example.invalid', markers: ['Worship Team'],
     churchMember: true, archived: true });
@@ -1794,6 +1796,12 @@ const csMain = () => device('churchshow-site_main', 'site_main');
 const csOff = () => device('churchshow-site_old', 'site_old');
 
 await check('the projection PC reads a service plan', 'allow', () => getDoc(doc(csMain(), 'services', 's1')));
+/* songSummaries HAD NO RULE AT ALL, so the catch-all refused it - and three
+   pages use it: SundayServicePlanner writes it, youthserviceplanner writes
+   it, song-summary reads it. All three would have stopped the day the rules
+   were deployed. Found while answering ChurchShow's question about whether
+   anything still writes it. A-047. */
+await check('and the song list for a Sunday, which is its fallback', 'allow', () => getDoc(doc(csMain(), 'songSummaries', '2026-10-11')));
 await check('and the songs', 'allow', () => getDoc(doc(csMain(), 'songs', 'sg_cs')));
 await check('and the rota, which this commit shut to everyone else', 'allow', () => getDoc(doc(csMain(), 'events', 'e1')));
 
@@ -1825,6 +1833,13 @@ await check('a device with no record at all reads nothing', 'deny',
    in - so an ordinary member without it gains nothing from the new clause,
    and an Attender still cannot read the service plan. */
 await check('a signed-in member without the claim gains nothing new', 'deny', () => getDoc(doc(as('attender'), 'services', 's1')));
+await check('a volunteer reads the song list for a Sunday', 'allow', () => getDoc(doc(as('samy'), 'songSummaries', '2026-10-11')));
+await check('an Attender does not', 'deny', () => getDoc(doc(as('attender'), 'songSummaries', '2026-10-11')));
+await check('nor a stranger', 'deny', () => getDoc(doc(anon(), 'songSummaries', '2026-10-11')));
+await check('a worship admin writes it, which is what the planner does', 'allow',
+  () => setDoc(doc(as('martin'), 'songSummaries', '2026-10-18'), { date: '2026-10-18', items: [] }));
+await check('an ordinary volunteer cannot', 'deny',
+  () => setDoc(doc(as('isla'), 'songSummaries', '2026-10-25'), { date: '2026-10-25', items: [] }));
 await check('an admin can see what is paired', 'allow', () => getDoc(doc(as('martin'), 'devices', 'churchshow-site_main')));
 await check('a volunteer cannot', 'deny', () => getDoc(doc(as('samy'), 'devices', 'churchshow-site_main')));
 await check('and nobody reads a pairing code, ever', 'deny', () => getDoc(doc(as('martin'), 'deviceCodes', 'ab'.repeat(32))));
@@ -1868,6 +1883,7 @@ await check('nor who can serve when', 'deny', () => getDoc(doc(youthOk(), 'avail
 await check('nor anybody\'s account', 'deny', () => getDoc(doc(youthOk(), 'users', 'u_samy')));
 await check('nor another young person\'s access record', 'deny', () => getDoc(doc(youthOk(), 'youthAccess', 'u_youth_expired')));
 await check('nor the news', 'deny', () => getDoc(doc(youthOk(), 'news', 'n1')));
+await check('nor the Sunday song list, which the youth app does not use', 'deny', () => getDoc(doc(youthOk(), 'songSummaries', '2026-10-11')));
 await check('nor the resource shelf', 'deny', () => getDoc(doc(youthOk(), 'resources', 'r1')));
 
 /* READ ONLY, everywhere. Saving a plan has always needed

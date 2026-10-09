@@ -1177,3 +1177,96 @@ drawn pass nor the source pass has ever measured it. The same is true of
 scheduled. `youth-access.html` and `index.html` are in no group at all, and
 between them they are the only two pages a member of the church is ever
 emailed a link to.
+
+---
+
+## A-047 — songSummaries had no rule at all, and three pages use it
+
+Found while answering ChurchShow's question about whether anything still
+writes it. It does:
+
+| | |
+|---|---|
+| `SundayServicePlanner.html:552` | writes it |
+| `youthserviceplanner.html:800` | writes it |
+| `song-summary.html:148` | reads it |
+
+There was **no `match /songSummaries/` block**, so the catch-all at the
+bottom of the file refused all three. Every one would have stopped working
+the day the rules were deployed, silently in two cases: both writers are
+`await`ed without a catch.
+
+Now `read: volunteer() || churchShow()`, `write: canAct('Worship Team') ||
+canAct('Youth Worship')` — the same shape as `services`, which is what it
+belongs with. Six checks, and it is in `check-access-levels.mjs` on both the
+volunteers list and the device list, so it cannot drift back.
+
+**Worth noting how it was found**: not by a check, and not by reading the
+rules looking for holes. Another window asked a question about one collection
+and the answer required opening the file. A collection with no rule is
+invisible to a test suite that only tests the rules that exist.
+
+---
+
+## A-048 — the whoAmI move put a cold start in front of every page
+
+The events window reported it (F-118): `addressbook.html` timed out after
+"Shut the address book". It is mine, and it was worse than one page.
+
+Moving the identity lookup into a function (A-036) left this in
+`loadProfile`:
+
+```js
+if (d.linkedBy !== 'admin') {
+  return findMembers(...).then(...)      // now an HTTPS call
+}
+```
+
+`linkedBy` is `'auto'` for everybody matched automatically, which is almost
+everybody — so **every page load in the suite waited on a function call**
+before it would draw. And `fetch` has no timeout of its own, so where the
+function was not listening the page waited for ever. The events window's
+emulators (`firebase.events.json`) have **no functions emulator at all**, so
+on their ports that was every page, every time.
+
+Three changes:
+
+1. **It is no longer awaited.** The re-check exists to notice that a *second*
+   address book record has appeared on somebody's address — something an
+   administrator does, weeks after the match. It has never needed to happen
+   before the page draws, so it runs behind the page and what it finds applies
+   from the next load.
+2. **Once a session**, not once a page.
+3. **`callFunction` gives up after eight seconds**, so a dead endpoint
+   degrades instead of hanging. And a first sign-in that cannot reach `whoAmI`
+   now shows "we do not recognise that address" rather than "something went
+   wrong" with a fetch error on it.
+
+The window this opens, stated: between an admin adding a second record on an
+address and that person's next page load, they keep the identity they were
+guessed into. That was already true for up to a page load.
+
+`tests/check-pages-without-functions.mjs` is the gate. It **hangs** every call
+to a hub function — not refuses it, because a refusal fails in milliseconds
+and proves nothing — and then opens four pages.
+
+---
+
+## A-049 — "loaded" has to mean "a person can see it"
+
+While proving A-048 I put F-118 back on purpose, and `addressbook.html`
+**passed**.
+
+Its rows were in the DOM: a page's own modular reads do not wait for
+`egbc-guard.js`, so the list fills in underneath while the guard still has
+`body{visibility:hidden}` and a "Checking access" splash on top. A person
+would have sat looking at that splash for ever, and my readiness test —
+counting `#memberListBody tr` — called it loaded.
+
+Readiness now means the guard has finished and the body is visible, as well as
+something having been drawn. With that, putting F-118 back fails five
+assertions including the one named after it.
+
+Third time in this session: A-033, A-044, and now this. Each was a check that
+could not tell the two outcomes apart, and each was caught by the deliberate
+break rather than by care.

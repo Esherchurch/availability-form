@@ -74,12 +74,35 @@
   var FUNCTIONS_REGION = 'europe-west2';
   var FUNCTIONS_BASE = 'https://' + FUNCTIONS_REGION + '-' + FIREBASE_CONFIG.projectId + '.cloudfunctions.net';
 
+  /* A FUNCTION THAT IS NOT THERE MUST NOT HANG THE PAGE. fetch waits for
+     ever by default, and "for ever" is what the events window saw: their
+     emulators have no functions emulator, so the call went to a port nobody
+     was listening on and addressbook.html never finished loading (F-118).
+     Eight seconds is longer than a cold start and shorter than a person's
+     patience. */
+  var CALL_TIMEOUT_MS = 8000;
+
   function callFunction(name, data) {
     return auth.currentUser.getIdToken().then(function (idToken) {
-      return fetch(FUNCTIONS_BASE + '/' + name, {
+      var stop = null;
+      var opts = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
         body: JSON.stringify({ data: data || {} })
+      };
+      /* AbortController is everywhere we support, but a page that cannot
+         abort should still send rather than refuse to work. */
+      if (typeof AbortController !== 'undefined') {
+        var ac = new AbortController();
+        opts.signal = ac.signal;
+        stop = setTimeout(function () { ac.abort(); }, CALL_TIMEOUT_MS);
+      }
+      return fetch(FUNCTIONS_BASE + '/' + name, opts).then(function (r) {
+        if (stop) clearTimeout(stop);
+        return r;
+      }, function (e) {
+        if (stop) clearTimeout(stop);
+        throw e;
       });
     }).then(function (r) {
       return r.json();
@@ -190,6 +213,49 @@
      query. It is created on first sign-in by matching the auth email
      to an address book record.                                       */
 
+  /* sessionStorage can throw in a private window and comes back empty after
+     one, so neither reading nor writing it may be allowed to matter: a
+     failure here just means the check runs again, which is correct and only
+     slower. */
+  var SESSION_KEY = 'egbc_identity_checked';
+
+  function checkedThisSession(uid) {
+    try { return sessionStorage.getItem(SESSION_KEY) === uid; } catch (e) { return false; }
+  }
+  function markCheckedThisSession(uid) {
+    try { sessionStorage.setItem(SESSION_KEY, uid); } catch (e) {}
+  }
+
+  /* Has a second address book record appeared on this person's address? An
+     administrator adding a parent's email to a child's record is the case,
+     and it is not something that happens between two clicks - so this runs
+     AFTER the page is usable, and what it finds applies from the next page
+     load. Nothing here is awaited and nothing here can fail visibly. */
+  function recheckIdentityLater(user) {
+    findMembers((user.email || '').toLowerCase().trim()).then(function (matches) {
+      if (matches.length <= 1) return;
+      var patch = {
+        status: 'ambiguous',
+        memberId: null,
+        teams: [],
+        candidates: matches.map(function (m) {
+          return {
+            id: m.id,
+            name: (m.data.name || m.data.fullName || '(no name)').trim(),
+            admin: m.data.masterAdmin === true
+                   || (Array.isArray(m.data.adminFor) && m.data.adminFor.length > 0)
+          };
+        })
+      };
+      return db.collection('users').doc(user.uid).update(patch);
+    }).catch(function (e) {
+      /* An unreachable function, or a refused write. Either way the person
+         keeps the identity they already had, which is what they had a
+         moment ago, and somebody will see this on the console. */
+      console.info('EGBCAuth: identity re-check did not run: ' + ((e && e.message) || e));
+    });
+  }
+
   function loadProfile(user) {
     return db.collection('users').doc(user.uid).get().then(function (snap) {
       if (!snap.exists) return provisionProfile(user);
@@ -208,29 +274,23 @@
       /* An automatic match is a guess, and the address book changes. If a
          second record now carries this address - a parent's email added to a
          child's record, say - the guess is no longer safe and an
-         administrator has to decide. Links an admin made are left alone. */
-      if (d.linkedBy !== 'admin') {
-        return findMembers((user.email || '').toLowerCase().trim()).then(function (matches) {
-          if (matches.length > 1) {
-            var patch = {
-              status: 'ambiguous',
-              memberId: null,
-              teams: [],
-              candidates: matches.map(function (m) {
-                var mk = Array.isArray(m.data.markers) ? m.data.markers : [];
-                return {
-                  id: m.id,
-                  name: (m.data.name || m.data.fullName || '(no name)').trim(),
-                  admin: m.data.masterAdmin === true || (Array.isArray(m.data.adminFor) && m.data.adminFor.length > 0)
-                };
-              })
-            };
-            return db.collection('users').doc(user.uid).update(patch)
-              .catch(function () {})
-              .then(function () { return Object.assign({}, d, patch); });
-          }
-          return refreshFromBook(user, d);
-        }).catch(function () { return d; });
+         administrator has to decide. Links an admin made are left alone.
+
+         ONCE A SESSION, NOT ONCE A PAGE. This check used to be a Firestore
+         query, which was cheap enough to repeat on every page load. It is a
+         function call now (A-036), and leaving it here put a cold start in
+         front of every page in the suite - which is what the events window
+         reported as addressbook.html timing out (F-118).
+
+         A second record appearing on somebody's address is a thing an
+         administrator does, not a thing that happens between two clicks, so
+         checking once per browser session is the same safety at a fraction
+         of the cost. */
+      /* NOT AWAITED, and that is the whole of the fix. Once a session, and
+         behind the page rather than in front of it. */
+      if (d.linkedBy !== 'admin' && !checkedThisSession(user.uid)) {
+        markCheckedThisSession(user.uid);
+        recheckIdentityLater(user);
       }
 
       return refreshFromBook(user, d);
@@ -350,7 +410,16 @@
   function provisionProfile(user) {
     var email = (user.email || '').toLowerCase().trim();
 
-    return findMembers(email).then(function (matches) {
+    /* IF whoAmI CANNOT BE REACHED, this must still answer. An unreachable
+       function is indistinguishable from "nobody on file" as far as the page
+       can tell, and the card for that - "we do not recognise that address" -
+       is honest and tells them what to do. The alternative, which is what
+       happened before this line existed, is provisionProfile rejecting and
+       the page showing "Something went wrong" with a fetch error on it. */
+    return findMembers(email).catch(function (e) {
+      console.warn('EGBCAuth: could not ask whoAmI who this is', e && e.message);
+      return [];
+    }).then(function (matches) {
       var profile = {
         uid: user.uid,
         email: email,
@@ -776,6 +845,13 @@
     /* The four levels, for a page deciding what to draw. Section 21 says
        members-only things are HIDDEN rather than shown locked, so a page asks
        these before it draws, not after somebody has pressed something. */
+    /* Call one of the hub's functions, signed in. The page does not repeat
+       the region or the emulator port, and does not need a fourth Firebase
+       script tag to do it - see callFunction above. */
+    call: function (name, data) {
+      return callFunction(name, data);
+    },
+
     isAttender: function () {
       return !!(currentProfile && currentProfile.attender === true);
     },
