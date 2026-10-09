@@ -139,7 +139,7 @@
   var SGDEF = {};
   function settingsOf() {
     var l = LEAD || {}, d = SGDEF || {};
-    return { ratioAll: l.ratioAll || d.ratioAll || 8, ratioUnder8: l.ratioUnder8 || d.ratioUnder8 || 4,
+    return { ratioAll: l.ratioAll || d.ratioAll || 5, ratioUnder8: l.ratioUnder8 || d.ratioUnder8 || 4,
              requireChecks: l.requireChecks !== undefined ? !!l.requireChecks : !!d.requireChecks,
              dbsYears: l.dbsYears || d.dbsYears || 3, trainingYears: l.trainingYears || d.trainingYears || 3 };
   }
@@ -258,7 +258,7 @@
     on('saveSettings', function () {
       var leaders = (LEAD && LEAD.leaders) || [];
       saveLeaders(leaders, {
-        ratioAll: parseInt(document.getElementById('rAll').value, 10) || 8,
+        ratioAll: parseInt(document.getElementById('rAll').value, 10) || 5,
         ratioUnder8: parseInt(document.getElementById('rU8').value, 10) || 4,
         dbsYears: parseInt(document.getElementById('yDbs').value, 10) || 3,
         trainingYears: parseInt(document.getElementById('yTr').value, 10) || 3,

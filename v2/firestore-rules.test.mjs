@@ -1480,6 +1480,41 @@ if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
   });
 }
 
+// ── EVENTS (events window) ── F-109 (Martin): under-18s groups refuse an uncleared leader; F-108: accounts setting is the office's
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const ago = (y, extraDays) => { const d = new Date(); d.setFullYear(d.getFullYear() - y); d.setDate(d.getDate() + (extraDays || 0)); return d.toISOString().slice(0, 10); };
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'leaderChecks', 'm_lena'), { name: 'Lena', dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(1), siteId: '' });
+    await setDoc(doc(db, 'leaderChecks', 'm_mo'), { name: 'Mo', dbsStatus: 'current', dbsSeen: ago(4), trainingDate: ago(1), siteId: '' });
+  });
+  const YG = (leaders, extra) => ({ name: 'Youth group', type: 'Youth', open: true, capacity: 0, memberCount: 0, visibility: 'public', active: true, under18: true,
+    leaderIds: leaders, leaderNames: leaders, locationKind: 'home', area: 'Esher', ...(extra || {}) });
+  await check('UNDER-18s: A LEADER WITH NO DBS CHECK OR TRAINING CANNOT BE NAMED', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), YG(['m_ned'])));
+  await check('nor one whose DBS check is out of date (seen four years ago)', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), YG(['m_mo'])));
+  await check('a leader with both in date can', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), YG(['m_lena'])));
+  await check('adding an uncleared leader later is refused', 'deny', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), { leaderIds: ['m_lena', 'm_ned'], lastLeaderAdded: 'm_ned' }));
+  await check('nor slipped in by naming someone else as the one added', 'deny', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), { leaderIds: ['m_lena', 'm_ned'], lastLeaderAdded: 'm_lena' }));
+  const EX = (who, extra) => ({ groupId: 'sg_y18', memberId: 'm_ned', name: 'Ned', reason: 'DBS applied for; always with Lena (invented)', siteId: 'site_kids', by: who, byName: 'x', at: serverTimestamp(), ...(extra || {}) });
+  await check('a groups admin cannot record an exception', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroupExceptions', 'sg_y18__m_ned'), EX('u_gina')));
+  await check('an exception needs a real reason', 'deny', () => setDoc(doc(as('martin'), 'smallGroupExceptions', 'sg_y18__m_ned'), EX('u_martin', { reason: 'ok' })));
+  await check('the safeguarding lead records an exception, with a reason', 'allow', () => setDoc(doc(ctx('u_sg'), 'smallGroupExceptions', 'sg_y18__m_ned'), EX('u_sg')));
+  await check('then the leader may be added', 'allow', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), { leaderIds: ['m_lena', 'm_ned'], lastLeaderAdded: 'm_ned' }));
+  await check('the exception is for that group only', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18b'), YG(['m_ned'])));
+  await check('marking an existing group under-18s with an uncleared leader is refused', 'deny', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), { under18: true, leaderIds: ['m_ned'] }));
+  await check('a group that is not for under-18s takes any leader, as before', 'allow', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), { leaderIds: ['m_ned'] }));
+
+  /* F-108 */
+  await env.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+    await setDoc(doc(db, 'users', 'u_office'), { memberId: 'm_office', status: 'active', teams: ['Welcome Team'], adminFor: [], masterAdmin: false });
+    await setDoc(doc(db, 'bookingSettings', 'site_off'), { bookingsAdmins: ['m_office'], safeguardingLead: '', safeguardingDeputy: '' });
+    await setDoc(doc(db, 'settings', 'accounts'), { mode: 'none', invoiceNumbersBy: 'hub', payText: 'Bank: invented', payDays: 14, officeSites: ['site_off'] }); });
+  await check('F-108: an admin reads the accounts setting', 'allow', () => getDoc(doc(as('karen'), 'settings', 'accounts')));
+  await check('F-108: so does the office (a bookings admin of a site it names)', 'allow', () => getDoc(doc(ctx('u_office'), 'settings', 'accounts')));
+  await check('F-108: A MEMBER WHO IS NOT THE OFFICE DOES NOT', 'deny', () => getDoc(doc(as('samy'), 'settings', 'accounts')));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

@@ -228,7 +228,10 @@
           '<option value="event"' + (v.mode === 'event' ? ' selected' : '') + '>For one event only</option>' +
           '<option value="schoolyear"' + (v.mode === 'schoolyear' ? ' selected' : '') + '>To the end of the school year</option>' +
           '<option value="days"' + (v.mode === 'days' ? ' selected' : '') + '>A number of days</option>' +
+          '<option value="months"' + (v.mode === 'months' ? ' selected' : '') + '>A number of months</option>' +
         '</select></div>' +
+        '<div class="field" id="edMonthsBox" style="max-width:140px;' + (v.mode === 'months' ? '' : 'display:none') + '"><label for="edMonths">Months</label>' +
+          '<input class="inp" id="edMonths" type="number" min="1" max="60" value="' + (v.months || 12) + '"></div>' +
         '<div class="field" id="edDaysBox" style="max-width:140px;' + (v.mode === 'days' ? '' : 'display:none') + '"><label for="edDays">Days</label>' +
           '<input class="inp" id="edDays" type="number" min="1" value="' + (v.days || 365) + '"></div>' +
         '<div class="field" style="max-width:220px"><label for="edKeep">Keep answers for (months after they run out)</label>' +
@@ -259,7 +262,8 @@
     ED.siteId = document.getElementById('edSite').value;
     ED.team = document.getElementById('edTeam').value;
     var mode = document.getElementById('edValid').value;
-    ED.validity = mode === 'days' ? { mode: 'days', days: parseInt(document.getElementById('edDays').value, 10) || 365 } : { mode: mode };
+    ED.validity = mode === 'days' ? { mode: 'days', days: parseInt(document.getElementById('edDays').value, 10) || 365 }
+      : mode === 'months' ? { mode: 'months', months: parseInt(document.getElementById('edMonths').value, 10) || 12 } : { mode: mode };
     ED.retentionMonths = parseInt(document.getElementById('edKeep').value, 10) || 12;
     document.querySelectorAll('.fieldbox').forEach(function (box) {
       var f = at(box.getAttribute('data-path')).field;
@@ -276,7 +280,10 @@
 
   function wireEditor() {
     document.getElementById('edClose').onclick = function () { ED = null; document.getElementById('editor').innerHTML = ''; };
-    document.getElementById('edValid').onchange = function () { document.getElementById('edDaysBox').style.display = this.value === 'days' ? '' : 'none'; };
+    document.getElementById('edValid').onchange = function () {
+      document.getElementById('edDaysBox').style.display = this.value === 'days' ? '' : 'none';
+      document.getElementById('edMonthsBox').style.display = this.value === 'months' ? '' : 'none';
+    };
     document.getElementById('edAdd').onclick = function () { readEditor(); ED.fields.push({ id: fid(), type: 'text', label: '', required: false }); drawEditor(); };
     document.getElementById('edSave').onclick = saveForm;
     document.querySelectorAll('.fieldbox').forEach(function (box) {

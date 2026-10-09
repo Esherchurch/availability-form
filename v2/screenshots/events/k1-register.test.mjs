@@ -161,7 +161,7 @@ try {
   await tap(K, '#s-form-go');
   const ks = await until(async () => { const x = await get('kidsSettings', 'site_t'); return x && x.formId ? x : null; });
   const form = ks && await get('forms', ks.formId);
-  ok('1. the children\'s team is Kids Church; the registration form is made from the parent consent form', form && form.template === 'parent' && form.validity.mode === 'schoolyear' && form.fields.some(f => f.id === 'children'), J(ks));
+  ok('1. the children\'s team is Kids Church; the registration form is made from the parent consent form', form && form.template === 'parent' && form.validity.mode === 'months' && form.validity.months === 12 && form.fields.some(f => f.id === 'children'), J(ks));
   for (const [name, years, room, ratio, leader] of [['Little ones', ['Reception', 'Year 1', 'Year 2'], 'room_little', '4', 'm_lou'], ['Juniors', ['Year 3', 'Year 4', 'Year 5', 'Year 6'], 'room_junior', '8', 'm_jo']]) {
     await go(K, 'kids-admin.html', '[data-tab="groups"]'); await tap(K, '[data-tab="groups"]');
     await K.waitForSelector('#g-new'); await tap(K, '#g-new');
@@ -238,7 +238,7 @@ try {
   ok('   one family: the parent, their phone, a family code, and who may collect', fams.length === 1 && fams[0].phone === '07700 900111' && /^[A-HJKMNP-Z2-9]{6}$/.test(fams[0].familyCode) && J(fams[0].collectors) === J(['Parent Synthetic', 'Grandma Invented']), J(fams[0]));
   ok('   two children, each in their group', ada && ben && ada.groupId === little.id && ben.groupId === juniors.id && ben.year === 'Year 4');
   ok('   Ada flagged for allergies; Ben has no flags and no photos', ada.flags.allergies === true && ada.flags.medical === false && ben.flags.allergies === false && ben.photo === false);
-  ok('   consent until the end of the school year', /-08-31$/.test(ada.consentUntil) && ada.consentUntil === fams[0].consentUntil);
+  ok('   consent for a year from when it was given (Martin)', ada.consentUntil === (() => { const d = new Date(); d.setHours(12); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); })() && ada.consentUntil === fams[0].consentUntil, ada.consentUntil);
   await go(S, 'kids-admin.html', `[data-open="${ada.id}"]`);
   const listText = await S.$eval('#body', e => e.innerText);
   ok('   the register lists both, with the flags', /Ada Synthetic[\s\S]*Allergies/.test(listText) && /Ben Synthetic[\s\S]*No photos/.test(listText));

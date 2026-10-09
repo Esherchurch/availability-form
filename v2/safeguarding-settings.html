@@ -85,11 +85,12 @@
   function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3400); }
 
   /* What applies when nobody has saved anything: the templates' own
-     periods, 1 to 8 and 1 to 4, 3 years (Martin, F-046), not required. */
+     periods (a year, Martin 9 Oct 2026), 1 to 5 (Martin 9 Oct 2026) and 1 to 4
+     for under-8s, 3 years (Martin, F-046), not required. */
   function builtIn() {
     var t = {};
     F.TEMPLATES.forEach(function (x) { t[x.id] = F.templateDefaults(x.id); });
-    return { templates: t, ratioAll: 8, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false };
+    return { templates: t, ratioAll: 5, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false };
   }
   function current() {
     var b = builtIn(), s = SAVED || {};
@@ -124,10 +125,12 @@
           var d = c.templates[t.id], mode = (d.validity || {}).mode || 'event';
           return '<div class="tpl"><h3>' + esc(t.title) + '</h3><div class="two">' +
             '<div class="field"><label for="v_' + t.id + '">Answer lasts</label><select id="v_' + t.id + '" class="vmode" data-t="' + t.id + '">' +
-              [['event', 'One event'], ['schoolyear', 'End of school year (31 Aug)'], ['days', 'A number of days']].map(function (o) {
+              [['event', 'One event'], ['schoolyear', 'End of school year (31 Aug)'], ['days', 'A number of days'], ['months', 'A number of months']].map(function (o) {
                 return '<option value="' + o[0] + '"' + (mode === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
             '<div class="field" id="dbox_' + t.id + '" style="max-width:140px;' + (mode === 'days' ? '' : 'display:none') + '"><label for="d_' + t.id + '">Days</label>' +
               '<input class="inp" id="d_' + t.id + '" type="number" min="1" max="3650" value="' + ((d.validity || {}).days || 365) + '"></div>' +
+            '<div class="field" id="mbox_' + t.id + '" style="max-width:140px;' + (mode === 'months' ? '' : 'display:none') + '"><label for="m_' + t.id + '">Months</label>' +
+              '<input class="inp" id="m_' + t.id + '" type="number" min="1" max="60" value="' + ((d.validity || {}).months || 12) + '"></div>' +
             '<div class="field"><label for="k_' + t.id + '">Kept after that</label>' + keepSelect('k_' + t.id, d.retentionMonths || 12) + '</div>' +
           '</div></div>';
         }).join('') + '</div>' +
@@ -149,7 +152,11 @@
       '<div class="card" id="already"></div>';
 
     document.querySelectorAll('.vmode').forEach(function (s) {
-      s.onchange = function () { document.getElementById('dbox_' + s.getAttribute('data-t')).style.display = s.value === 'days' ? '' : 'none'; markDirty(); };
+      s.onchange = function () {
+        document.getElementById('dbox_' + s.getAttribute('data-t')).style.display = s.value === 'days' ? '' : 'none';
+        document.getElementById('mbox_' + s.getAttribute('data-t')).style.display = s.value === 'months' ? '' : 'none';
+        markDirty();
+      };
     });
     document.querySelectorAll('#wrap input, #wrap select').forEach(function (el) { el.addEventListener('change', markDirty); el.addEventListener('input', markDirty); });
     document.getElementById('save').onclick = save;
@@ -163,12 +170,13 @@
     var t = {};
     F.TEMPLATES.forEach(function (x) {
       var mode = document.getElementById('v_' + x.id).value;
-      t[x.id] = { validity: mode === 'days' ? { mode: 'days', days: Math.max(1, parseInt(document.getElementById('d_' + x.id).value, 10) || 365) } : { mode: mode },
+      t[x.id] = { validity: mode === 'days' ? { mode: 'days', days: Math.max(1, parseInt(document.getElementById('d_' + x.id).value, 10) || 365) }
+                  : mode === 'months' ? { mode: 'months', months: Math.max(1, Math.min(60, parseInt(document.getElementById('m_' + x.id).value, 10) || 12)) } : { mode: mode },
                   retentionMonths: parseInt(document.getElementById('k_' + x.id).value, 10) || 12 };
     });
     return {
       templates: t,
-      ratioAll: Math.min(50, Math.max(1, parseInt(document.getElementById('rAll').value, 10) || 8)),
+      ratioAll: Math.min(50, Math.max(1, parseInt(document.getElementById('rAll').value, 10) || 5)),
       ratioUnder8: Math.min(50, Math.max(1, parseInt(document.getElementById('rU8').value, 10) || 4)),
       dbsYears: parseInt(document.getElementById('yDbs').value, 10) || 3,
       trainingYears: parseInt(document.getElementById('yTr').value, 10) || 3,
@@ -196,7 +204,8 @@
 
   function sameValidity(a, b) {
     a = a || {}; b = b || {};
-    return (a.mode || 'event') === (b.mode || 'event') && (a.mode !== 'days' || (a.days || 365) === (b.days || 365));
+    return (a.mode || 'event') === (b.mode || 'event') && (a.mode !== 'days' || (a.days || 365) === (b.days || 365))
+           && (a.mode !== 'months' || (a.months || 12) === (b.months || 12));
   }
 
   function findAlready() {

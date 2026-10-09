@@ -201,6 +201,23 @@ try {
   await until(async () => (await get('leaderChecks', 'm_lena') || {}).dbsStatus === 'current');
   await go(GI, 'groups-admin.html', '[data-check="m_lena"]');
   ok('   a master admin records her checks: she is cleared', /Lena Leader: DBS ok, training ok/.test(await text(GI, '[data-checks="sg_youth"]')) && !(await GI.$('[data-checks-short]')), await text(GI, '[data-checks="sg_youth"]'));
+  /* F-109 (Martin): naming an uncleared leader to an under-18s group is refused */
+  await tap(GI, '[data-gedit="sg_youth"]'); await GI.waitForSelector('#f-addlead');
+  await GI.select('#f-addlead', 'm_ned'); await tap(GI, '#f-save');
+  await GI.waitForSelector('#f-u18-refused');
+  ok('   F-109: A GROUPS ADMIN CANNOT NAME NED (NO CHECKS) TO THE UNDER-18s GROUP: refused, and told why', /Not cleared: Ned Member/.test(await text(GI, '#f-u18-refused'))
+    && J((await get('smallGroups', 'sg_youth')).leaderIds) === J(['m_lena']) && !(await GI.$('[data-except]')), await text(GI, '#f-u18-refused'));
+  await go(KA, 'groups-admin.html', '[data-gedit="sg_youth"]'); await tap(KA, '[data-gedit="sg_youth"]'); await KA.waitForSelector('#f-addlead');
+  await KA.select('#f-addlead', 'm_ned'); await tap(KA, '#f-save');
+  await KA.waitForSelector('[data-except="m_ned"]');
+  await tap(KA, '[data-except="m_ned"]'); await KA.waitForSelector('#ex-save');
+  await val(KA, '#ex-reason', 'DBS applied for; always with Lena (invented).'); await tap(KA, '#ex-save');
+  await until(() => get('smallGroupExceptions', 'sg_youth__m_ned'));
+  await tap(KA, '#f-save');
+  await until(async () => (await get('smallGroups', 'sg_youth')).leaderIds.includes('m_ned'));
+  ok('   a master admin records an exception, with a reason; then Ned can be named', J((await get('smallGroups', 'sg_youth')).leaderIds) === J(['m_lena', 'm_ned']));
+  await go(GI, 'groups-admin.html', '[data-exception="m_ned"]');
+  ok('   and the group shows the exception, with its reason', /Exception: DBS applied for; always with Lena/.test(await text(GI, '[data-checks="sg_youth"]')));
   await kB.close();
 
   /* ---------- 6. oversight ---------- */
@@ -209,7 +226,7 @@ try {
   ok('6. oversight: every group, its members, when it last met, how many usually come', /Tuesday youth group Under-18s 1 Lena Leader/.test(row) && row.includes('1.8'), row);
   await GI.waitForSelector('#ov-none-n');
   const none = await GI.$$eval('[data-none]', x => x.map(e => e.dataset.none));
-  ok('   and the people in no group (Mo, now he has left; not Pat or Lena)', none.includes('m_mo') && none.includes('m_ned') && !none.includes('m_pat') && !none.includes('m_lena'), J(none));
+  ok('   and the people in no group (Mo, now he has left; not Pat, nor Lena and Ned who lead it)', none.includes('m_mo') && !none.includes('m_ned') && !none.includes('m_pat') && !none.includes('m_lena'), J(none));
   await hideBanner(GI);
   await GI.setViewport({ width: 375, height: 900 });
   await GI.screenshot({ path: path.join(HERE, 'c7-oversight-375.png'), fullPage: true });

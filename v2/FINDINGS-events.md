@@ -1818,3 +1818,58 @@ pages allowed; another site's page, a cleared page, a list without
 are skipped, and the rules run prints a note saying so. I haven't defined the
 helper myself: it belongs outside the events section. F-100 now says "the
 paired ChurchShow device".
+
+### F-112 — Martin's safeguarding defaults (9 October 2026), built
+- **Consent and permissions last one year, 12 months from when they're
+  given, for every form template**: parent consent, trips, leader
+  declaration, hirer safeguarding, health and access. There's a new period,
+  "a number of months", on Forms and in Safeguarding settings, defaulting to
+  12.
+- **The leader ratio default is 1 to 5.** The under-8s default stays 1 to 4.
+  The same goes for a new children's group on the register.
+- **Defaults only:** forms already made keep their period, and answers
+  already given keep their dates. If the office has saved its own periods
+  in Safeguarding settings, those still win.
+- The children's register now says "once a year" and "lasts a year from when
+  it is given".
+- Tests updated to the new defaults (e2-forms-unit adds three checks; the e2,
+  e3-settings and k1 browser tests check a year from today).
+
+### F-109 — decided (Martin) and built: under-18s groups refuse an uncleared leader
+- **The rules refuse** naming a leader to an under-18s group unless they
+  have an **in-date DBS check and safeguarding training** (`leaderChecks`,
+  judged against the years in Safeguarding settings, 3 if unset), or a
+  **master admin or the safeguarding lead has recorded an exception** with a
+  reason (`smallGroupExceptions/<group>__<member>`, at least a sentence).
+  An exception is for that group only.
+- **When it's checked:** every leader when a group is made, or first marked
+  under-18s (at most three leaders at that moment); then the one leader
+  added on each later change. The page saves an under-18s group's new
+  leaders one at a time for this.
+- **The page:** a refused save says who isn't cleared. A master admin or the
+  safeguarding lead gets "Record an exception for …"; after that, saving
+  again names the leader. The group's checks panel shows the exception and
+  its reason.
+- **Not re-checked later:** a leader whose check runs out stays named. The
+  panel shows them as "not cleared", as before.
+- Tests: rules (12 checks); c7-stage2 in the browser adds three steps.
+
+### F-108 — decided (Martin) and built: the accounts setting is the office's
+`settings/accounts` (the accounts connector mode, and "how to pay" on
+invoices) is readable only by admins and the bookings admins of the sites it
+names. An admin saving it on Room bookings, Accounts fills in those sites.
+**The setting already saved live has no site list yet,** so until an admin
+saves it once, only admins can read it. A bookings admin who isn't an admin
+then prints invoices without the "how to pay" text. **For Martin:** after
+deploying the rules, open Room bookings, Accounts, and press Save once.
+
+### F-113 — phone notifications: step F is in FINDINGS-notify.md
+Notifications move to the events window (SHARE-NOTIFY-BRIEF, steps F then K).
+Step F, establishing only, is written up in `FINDINGS-notify.md`:
+- what's there (N-0)
+- **Martin's Firebase console steps in plain words (N-1)**
+- the plan for "call a parent" (N-2)
+- the requests for the main window (N-4, N-5)
+- three decisions for Martin (N-6)
+
+Nothing is built yet.

@@ -1666,8 +1666,16 @@ service cloud.firestore {
     // settings/accounts: 'none' (the hub is the whole money system; the
     // default) or 'calla'. Who numbers invoices in Calla mode is Martin's to
     // decide (the brief): recorded as 'hub' until he does.
+    // Office only (Martin, F-108): admins, and the bookings admins of the
+    // sites the setting names (officeSites, filled in when an admin saves it;
+    // up to three sites are checked).
+    function officeOfListed(sites) {
+      return (sites.size() > 0 && bookingsAdminOf(sites[0]))
+             || (sites.size() > 1 && bookingsAdminOf(sites[1]))
+             || (sites.size() > 2 && bookingsAdminOf(sites[2]));
+    }
     match /settings/accounts {
-      allow read: if active();
+      allow read: if isAdmin() || officeOfListed(resource.data.get('officeSites', []));
       allow write: if isAdmin()
                    && request.resource.data.mode in ['none', 'calla']
                    && request.resource.data.get('invoiceNumbersBy', 'hub') in ['hub', 'calla'];
@@ -1969,6 +1977,59 @@ service cloud.firestore {
              // The address and the link to join belong in smallGroupPrivate, never on the public card.
              && !d.keys().hasAny(['address', 'meetingLink', 'postcode']);
     }
+    // UNDER-18s GROUPS (Martin, F-109). A leader may be named only with an
+    // in-date DBS check and safeguarding training (leaderChecks, against the
+    // years in Safeguarding settings, 3 if unset), or an exception recorded
+    // with a reason by a master admin or the safeguarding lead
+    // (smallGroupExceptions/<group>__<member>). Checked for every leader when
+    // a group is made, or first marked under-18s (at most three leaders
+    // then), and for the one leader added on each later change (the page
+    // names them in lastLeaderAdded).
+    function yearsAgo(n) {
+      let t = request.time;
+      return string(t.year() - n) + '-' + (t.month() < 10 ? '0' : '') + string(t.month()) + '-' + (t.day() < 10 ? '0' : '') + string(t.day());
+    }
+    function sgYears(field) {
+      return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
+             ? get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get(field, 3) : 3;
+    }
+    function checksInDate(memberId) {
+      return exists(/databases/$(database)/documents/leaderChecks/$(memberId))
+             && get(/databases/$(database)/documents/leaderChecks/$(memberId)).data.get('dbsStatus', '') == 'current'
+             && get(/databases/$(database)/documents/leaderChecks/$(memberId)).data.get('dbsSeen', '') >= yearsAgo(sgYears('dbsYears'))
+             && get(/databases/$(database)/documents/leaderChecks/$(memberId)).data.get('trainingDate', '') >= yearsAgo(sgYears('trainingYears'));
+    }
+    function leaderCleared(groupId, memberId) {
+      return memberId is string && memberId != ''
+             && (checksInDate(memberId) || exists(/databases/$(database)/documents/smallGroupExceptions/$(groupId + '__' + memberId)));
+    }
+    function allCleared(groupId, ids) {
+      return ids.size() <= 3
+             && (ids.size() < 1 || leaderCleared(groupId, ids[0]))
+             && (ids.size() < 2 || leaderCleared(groupId, ids[1]))
+             && (ids.size() < 3 || leaderCleared(groupId, ids[2]));
+    }
+    function under18Ok(groupId) {
+      let d = request.resource.data;
+      let after = d.get('leaderIds', []);
+      return d.get('under18', false) != true
+             || ((resource == null || resource.data.get('under18', false) != true) && allCleared(groupId, after))
+             || (resource != null && resource.data.get('under18', false) == true
+                 && (after.toSet().difference(resource.data.get('leaderIds', []).toSet()).size() == 0
+                     || (after.toSet().difference(resource.data.get('leaderIds', []).toSet()).size() == 1
+                         && after.toSet().difference(resource.data.get('leaderIds', []).toSet()).hasOnly([d.get('lastLeaderAdded', '')])
+                         && leaderCleared(groupId, d.get('lastLeaderAdded', '')))));
+    }
+    match /smallGroupExceptions/{key} {
+      allow read: if groupsAdmin() || isMaster() || sgLeadOf(resource.data.get('siteId', '')) || groupLeader(resource.data.groupId)
+                  || (active() && resource.data.memberId == me().get('memberId', '-'));
+      allow create, update: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', '')))
+                   && request.resource.data.keys().hasOnly(['groupId', 'memberId', 'name', 'reason', 'siteId', 'by', 'byName', 'at'])
+                   && key == request.resource.data.groupId + '__' + request.resource.data.memberId
+                   && request.resource.data.reason is string && request.resource.data.reason.size() >= 10 && request.resource.data.reason.size() <= 1000
+                   && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time;
+      allow delete: if isMaster() || sgLeadOf(resource.data.get('siteId', ''));
+    }
     function memberKeyOf(groupId, personKind, personId) {
       return groupId + '__' + (personKind == 'contacts' ? 'c' : 'a') + '_' + personId;
     }
@@ -1992,8 +2053,8 @@ service cloud.firestore {
     }
     match /smallGroups/{groupId} {
       allow read: if (resource.data.get('visibility', 'public') == 'public' && resource.data.get('active', true) == true) || active();
-      allow create: if groupsAdmin() && groupShape() && request.resource.data.get('memberCount', 0) == 0;
-      allow update: if groupShape() && groupCountOk(groupId)
+      allow create: if groupsAdmin() && groupShape() && request.resource.data.get('memberCount', 0) == 0 && under18Ok(groupId);
+      allow update: if groupShape() && groupCountOk(groupId) && under18Ok(groupId)
                     && (groupsAdmin()
                         || (groupLeader(groupId)
                             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'type', 'description', 'day', 'time', 'frequency', 'frequencyNote',

@@ -122,10 +122,11 @@ try {
   await L.goto(URLB + 'safeguarding-settings.html', { waitUntil: 'networkidle2' });
   await L.waitForSelector('#save');
   ok('the lead, not an admin, can open it', !!(await L.$('#save')));
-  ok('it starts from the built-in defaults: parent consent to the end of the school year, kept 1 year',
-    (await v(L, '#v_parent')) === 'schoolyear' && (await v(L, '#k_parent')) === '12');
-  ok('1 to 8, 1 to 4, 3 years each, checks not required',
-    (await v(L, '#rAll')) === '8' && (await v(L, '#rU8')) === '4' && (await v(L, '#yDbs')) === '3' && (await v(L, '#yTr')) === '3' && !(await L.$eval('#req', e => e.checked)));
+  ok('it starts from the built-in defaults: parent consent lasts 12 months from when given (Martin), kept 1 year',
+    (await v(L, '#v_parent')) === 'months' && (await v(L, '#m_parent')) === '12' && (await v(L, '#k_parent')) === '12'
+    && (await v(L, '#v_trip')) === 'months' && (await v(L, '#v_health')) === 'months' && (await v(L, '#v_leader')) === 'months');
+  ok('1 to 5 (Martin), 1 to 4 for under-8s, 3 years each, checks not required',
+    (await v(L, '#rAll')) === '5' && (await v(L, '#rU8')) === '4' && (await v(L, '#yDbs')) === '3' && (await v(L, '#yTr')) === '3' && !(await L.$eval('#req', e => e.checked)));
 
   /* 2. change and save */
   await L.select('#k_parent', '24');

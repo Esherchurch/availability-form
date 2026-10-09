@@ -160,7 +160,7 @@
   }
 
   /* Leaders needed for a number of children at a group's ratio. */
-  function leadersNeeded(children, ratio) { return children > 0 ? Math.ceil(children / Math.max(1, ratio || 8)) : 0; }
+  function leadersNeeded(children, ratio) { return children > 0 ? Math.ceil(children / Math.max(1, ratio || 5)) : 0; }
 
   /* The first-time visitor's quick form, checked before anything is written. */
   function visitorProblems(v) {

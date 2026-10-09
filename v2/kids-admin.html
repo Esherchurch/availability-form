@@ -60,7 +60,7 @@
 <body>
 <div class="wrap">
   <h1>Children's register</h1>
-  <p class="sub">Sunday groups, the children registered for them, and registration: the parent consent form, once a school year.</p>
+  <p class="sub">Sunday groups, the children registered for them, and registration: the parent consent form, once a year.</p>
   <div id="main"><div class="card hint">Loading…</div></div>
 </div>
 <div id="toast"></div>
@@ -221,7 +221,7 @@
   function drawRegistration(el) {
     if (!SETTINGS.formId) { el.innerHTML = '<div class="card">The registration form is not set up yet. ' + (EGBCAuth.isAdmin() ? 'Set it up on the Settings tab.' : 'Ask an admin to set it up.') + '</div>'; return; }
     var pend = pending(), sent = REQUESTS.filter(function (q) { return q.status !== 'done'; }).sort(function (a, b) { return a.sentAt < b.sentAt ? 1 : -1; });
-    el.innerHTML = '<div class="card"><h2>Send the registration form</h2><p class="hint">To a parent or guardian. They fill it in once a school year: their children, medical needs, who may collect.</p>' +
+    el.innerHTML = '<div class="card"><h2>Send the registration form</h2><p class="hint">To a parent or guardian. They fill it in once a year: their children, medical needs, who may collect.</p>' +
       '<div class="two"><div><label class="l" for="r-name">Their name</label><input class="inp" id="r-name" maxlength="120"></div>' +
       '<div><label class="l" for="r-email">Their email</label><input class="inp" id="r-email" type="email" maxlength="200"></div></div>' +
       '<div style="margin-top:10px"><button class="btn" id="r-send">Send it</button></div></div>' +
@@ -303,7 +303,7 @@
     el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { groupForm(group(b.dataset.gedit), rooms); }; });
   }
   function groupForm(g, rooms) {
-    g = g || { name: '', years: [], day: 7, start: '10:30', end: '12:00', ratio: 8, roomId: '', active: true, leaderIds: [] };
+    g = g || { name: '', years: [], day: 7, start: '10:30', end: '12:00', ratio: 5, roomId: '', active: true, leaderIds: [] };
     var leaders = (g.leaderIds || []).slice();
     var box = document.getElementById('g-form');
     function drawLeaders() {
@@ -330,7 +330,7 @@
       var d = { siteId: V.site, name: document.getElementById('g-name').value.trim().slice(0, 80), roomId: document.getElementById('g-room').value,
         years: [].slice.call(document.querySelectorAll('.g-year:checked')).map(function (x) { return x.value; }), day: +document.getElementById('g-day').value,
         start: document.getElementById('g-start').value, end: document.getElementById('g-end').value,
-        ratio: Math.max(1, Math.min(30, parseInt(document.getElementById('g-ratio').value, 10) || 8)), active: document.getElementById('g-active').checked,
+        ratio: Math.max(1, Math.min(30, parseInt(document.getElementById('g-ratio').value, 10) || 5)), active: document.getElementById('g-active').checked,
         leaderIds: leaders, order: g.order || GROUPS.length + 1, updatedAt: new Date().toISOString(), updatedBy: uid() };
       if (!d.name) { toast('It needs a name'); return; }
       var id = g.id || 'kg_' + E.key(10);
@@ -354,7 +354,7 @@
       (CAN_TEAMS ? '<div class="two" style="margin-top:6px"><div><input class="inp" id="s-other" placeholder="Another team, exactly as the rota names it"></div></div><div style="margin-top:10px"><button class="btn" id="s-save">Save</button></div>'
         : '<p class="hint">A master admin or the safeguarding lead changes these.</p>') + '</div>' +
       '<div class="card"><h2>The registration form</h2>' + (SETTINGS.formId ? '<p class="st ok" id="s-form">Set up: "' + esc(SETTINGS.formTitle || 'Children\'s registration') + '". Its wording is changed on the Forms page; its periods on Safeguarding settings.</p>'
-        : (EGBCAuth.isAdmin() && CAN_TEAMS ? '<p class="hint">Made from the parent and guardian consent form: each child, their medical needs, who may collect. It lasts the school year.</p><button class="btn" id="s-form-go">Set up the registration form</button>'
+        : (EGBCAuth.isAdmin() && CAN_TEAMS ? '<p class="hint">Made from the parent and guardian consent form: each child, their medical needs, who may collect. It lasts a year from when it is given.</p><button class="btn" id="s-form-go">Set up the registration form</button>'
           : '<p class="hint">A master admin sets this up (it makes a form).</p>')) + '</div>';
     var sv = document.getElementById('s-save');
     if (sv) sv.onclick = function () {

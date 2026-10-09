@@ -166,7 +166,7 @@ try {
   await tap(M, '#edSave');
   const form = await until(() => readDb(db => getDocs(collection(db, 'forms')).then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))[0])));
   ok('the form is saved with its team, its site, its purpose and how long it lasts',
-    form && form.team === 'AV Team' && form.siteId === 'site_t' && /keep your child safe/.test(form.purpose) && form.validity.mode === 'schoolyear', JSON.stringify(form && { siteId: form.siteId, v: form.validity }));
+    form && form.team === 'AV Team' && form.siteId === 'site_t' && /keep your child safe/.test(form.purpose) && form.validity.mode === 'months' && form.validity.months === 12, JSON.stringify(form && { siteId: form.siteId, v: form.validity }));
   const asthmaId = form.fields.find(f => /asthma/i.test(f.label)).id;
 
   /* ---------- 2. ask for it at the event and send ---------- */
@@ -230,7 +230,7 @@ try {
   ok('the request is marked done, with the answer', done.status === 'done' && !!done.responseId);
   ok('the ordinary half holds no medical answer', !/Peanuts|EpiPen/.test(plainText) && !(asthmaId in resp.answers) && /Vegetarian/.test(plainText) && /Aunt Invented/.test(plainText), plainText);
   ok('the medical half holds them, for the right child', sens.length === 1 && sens[0].answers.children[0].allergies === 'Peanuts - carries an EpiPen' && sens[0].answers[asthmaId] === 'Yes', sensText);
-  ok('it carries the site, how long it lasts and when it is due for deletion', resp.siteId === 'site_t' && /-08-31$/.test(resp.validUntil) && resp.deleteAfter > resp.validUntil);
+  ok('it carries the site, how long it lasts and when it is due for deletion', resp.siteId === 'site_t' && resp.validUntil === (() => { const d = new Date(); d.setHours(12); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); })() && resp.deleteAfter > resp.validUntil, resp.validUntil);
   ok('the signature is the typed name, agreed, with the time', resp.answers.sign && resp.answers.sign.name === 'Parent Synthetic' && resp.answers.sign.agreed === true && !!resp.answers.sign.at);
   ok('the medical half is filed under a key the ordinary answer does not hold', sens[0] && plainText.indexOf(sens[0].id) < 0 && JSON.stringify(done).indexOf(sens[0].id) < 0);
 

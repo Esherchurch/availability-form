@@ -93,12 +93,18 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
 
-  /* validity.mode: 'event' (this event only), 'days' (N days), 'schoolyear'
-     (to the next 31 August). Returns a date string, YYYY-MM-DD. */
+  /* validity.mode: 'event' (this event only), 'days' (N days), 'months' (N
+     calendar months from when it is given: Martin's default, 12, for every
+     template), 'schoolyear' (to the next 31 August). Returns YYYY-MM-DD. */
   function validUntil(form, eventStartLocal, now) {
     now = now || new Date();
     var v = form.validity || { mode: 'event' };
     if (v.mode === 'days') return iso(new Date(now.getTime() + (parseInt(v.days, 10) || 365) * 864e5));
+    if (v.mode === 'months') {
+      var m = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+      m.setMonth(m.getMonth() + (parseInt(v.months, 10) || 12));
+      return iso(m);
+    }
     if (v.mode === 'schoolyear') {
       var end = new Date(now.getFullYear(), 7, 31);
       if (now > new Date(now.getFullYear(), 7, 31, 23, 59)) end = new Date(now.getFullYear() + 1, 7, 31);
@@ -117,6 +123,7 @@
   function validityText(form) {
     var v = form.validity || { mode: 'event' };
     if (v.mode === 'days') return 'Lasts ' + (v.days || 365) + ' days';
+    if (v.mode === 'months') return 'Lasts ' + (v.months || 12) + ' months from when it is given';
     if (v.mode === 'schoolyear') return 'Lasts to the end of the school year (31 August)';
     return 'For one event only';
   }
@@ -209,12 +216,12 @@
   var TEMPLATES = [
     { id: 'parent', title: 'Parent or guardian consent', kind: 'consent',
       purpose: 'We need this to keep your child safe while they are with us: who to call, who may collect them, and anything leaders must know about their health.',
-      validity: { mode: 'schoolyear' }, retentionMonths: 12,
+      validity: { mode: 'months', months: 12 }, retentionMonths: 12,
       fields: [childSection([f('alone', 'yesno', 'Older youth: may they leave on their own at the end?')])].concat(PARENT)
         .concat([f('sign', 'signature', 'I am the parent or guardian, and what I have written is correct', { required: true })]) },
     { id: 'trip', title: 'Trip or residential consent', kind: 'trip',
       purpose: 'We need this to look after your child safely away from church, including travel and any overnight stay.',
-      validity: { mode: 'event' }, retentionMonths: 12,
+      validity: { mode: 'months', months: 12 }, retentionMonths: 12,
       fields: [childSection()].concat(PARENT).concat([
         f('travel', 'yesno', 'May they travel in transport arranged by the church?', { required: true }),
         f('overnight', 'yesno', 'May they stay overnight?'),
@@ -222,7 +229,7 @@
         f('sign', 'signature', 'I am the parent or guardian, and what I have written is correct', { required: true })]) },
     { id: 'leader', title: 'Leader or volunteer declaration', kind: 'leader',
       purpose: 'We need this to show every leader working with children or vulnerable adults has the checks and training our policy asks for.',
-      validity: { mode: 'days', days: 365 }, retentionMonths: 12,
+      validity: { mode: 'months', months: 12 }, retentionMonths: 12,
       fields: [
         f('policy', 'yesno', 'I have read the safeguarding policy', { required: true }),
         f('dbs', 'choice', 'DBS check', { required: true, options: ['Current', 'Applied for', 'None yet'],
@@ -233,7 +240,7 @@
         f('sign', 'signature', 'What I have written is correct', { required: true })] },
     { id: 'hirer', title: 'Hirer safeguarding', kind: 'hirer',
       purpose: 'We need this before a group that works with children or vulnerable adults uses our building.',
-      validity: { mode: 'days', days: 365 }, retentionMonths: 12,
+      validity: { mode: 'months', months: 12 }, retentionMonths: 12,
       fields: [
         f('org', 'text', 'Name of your group', { required: true }),
         f('children', 'yesno', 'Does your group work with children or vulnerable adults?', { required: true }),
@@ -242,7 +249,7 @@
         f('sign', 'signature', 'I am authorised to sign for the group, and this is correct', { required: true })] },
     { id: 'health', title: 'Health and access needs', kind: 'health',
       purpose: 'We ask so we can make the event safe and welcoming for you. Leave anything blank that does not apply.',
-      validity: { mode: 'event' }, retentionMonths: 6,
+      validity: { mode: 'months', months: 12 }, retentionMonths: 6,
       fields: [
         f('health', 'longtext', 'Anything about your health we should know', { sensitive: true }),
         f('access', 'longtext', 'Access needs (step-free, hearing loop, seating)', { sensitive: true }),

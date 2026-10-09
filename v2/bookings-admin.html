@@ -21,7 +21,7 @@
 <script src="egbc-events-bookings.js?v=202610101900"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <script src="egbc-accounts.js?v=202610101900"></script>
-<script src="egbc-events-money.js?v=202610101900"></script>
+<script src="egbc-events-money.js?v=202610091900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -111,6 +111,7 @@
   var MCTX = { db: db, esc: esc, toast: toast, room: room, siteId: function () { return V.site; }, state: V,
     list: function () { return LIST; }, charges: function () { return CHARGES; }, hirers: function () { return HIRERS; }, invoices: function () { return INVOICES; },
     settings: function () { return ACC; }, payText: function () { return ACC.payText || ''; }, isAdmin: false,
+    siteIds: function () { return SITES.map(function (s) { return s.id; }); },
     pageLink: function (b) { return pageLink(b); },
     reload: function (o) { o = o || {}; if (o.tab) V.tab = o.tab; return load().then(function () { if (o.open) MONEY.drawHirers(document.getElementById('list'), o.open); }); } };
   var MONEY = EGBCMoney(MCTX);

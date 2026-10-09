@@ -82,7 +82,7 @@
        own (smallGroupPrivate). */
   var G = window.EGBCGroups, E = window.EGBCEvents, esc = E.esc;
   var ME = {}, ADMIN = false, MASTER = false, SETTINGS = {}, GROUPS = [], PEOPLE = [], SITES = [], ROOMS = [], REQUESTS = [], MEMBERS = [], TEAMS = [], SGDEF = {};
-  var C = window.EGBCCheckin, SG = window.EGBCSafeguarding;
+  var C = window.EGBCCheckin, SG = window.EGBCSafeguarding, SGSITES = [];
   var V = { tab: 'groups', group: '' };
   function db() { return EGBCAuth.db; }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
@@ -147,15 +147,18 @@
   function drawChecks(g) {
     var box = document.querySelector('[data-checks="' + g.id + '"]'); if (!box) return;
     Promise.all((g.leaderIds || []).map(function (m) {
-      return db().collection('leaderChecks').doc(m).get().then(function (s) { return { m: m, c: s.exists ? s.data() : null, seen: true }; }, function () { return { m: m, seen: false }; });
+      return Promise.all([db().collection('leaderChecks').doc(m).get().then(function (s) { return { c: s.exists ? s.data() : null, seen: true }; }, function () { return { seen: false }; }),
+        db().collection('smallGroupExceptions').doc(g.id + '__' + m).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; })])
+        .then(function (x) { return { m: m, c: x[0].c, seen: x[0].seen, ex: x[1] }; });
     })).then(function (l) {
       var bad = 0;
       box.innerHTML = '<div class="st ' + 'wait' + '" style="margin-top:6px"><b>Under-18s: leaders\' checks</b>' + l.map(function (x) {
         var nm = (person(x.m) || {}).name || x.m;
         if (!x.seen) return '<br>' + esc(nm) + ': <span class="hint">the safeguarding lead can see this</span>';
         var st = SG.checkStatus(x.c, SGDEF, new Date().toISOString());
-        if (!st.ok) bad++;
+        if (!st.ok && !x.ex) bad++;
         return '<br><span data-check="' + esc(x.m) + '">' + esc(nm) + ': DBS ' + esc(st.dbs) + ', training ' + esc(st.training) + '</span>' +
+          (x.ex ? ' <span class="pill wait" data-exception="' + esc(x.m) + '">Exception: ' + esc(x.ex.reason) + ' (' + esc(x.ex.byName || '') + ')</span>' : '') +
           (MASTER ? ' <button class="btn sec" style="height:26px" data-record="' + esc(x.m) + '">Record a check</button>' : '');
       }).join('') + (bad ? '<br><b data-checks-short="' + bad + '">' + bad + ' leader' + (bad === 1 ? '' : 's') + ' not cleared to lead under-18s yet.</b>' : '') +
         '<br><span class="hint">They also fill in the leader declaration: send it from <a href="forms-admin.html" style="color:var(--brand)">Forms</a>.</span></div>';
@@ -243,10 +246,27 @@
       updatedAt: d.updatedAt, updatedBy: uid() };
     var id = g.id || 'sg_' + E.key(12), batch = db().batch();
     if (isNew) Object.assign(d, { memberCount: 0, image: '', createdAt: d.updatedAt });
+    /* Under-18s (Martin, F-109): the rules check each leader added to an
+       under-18s group, one at a time, so the new ones follow the first save. */
+    var adding = [];
+    if (ADMIN && d.under18 && !isNew && g.under18) {
+      adding = leaders.filter(function (m) { return (g.leaderIds || []).indexOf(m) < 0; });
+      d.leaderIds = leaders.filter(function (m) { return (g.leaderIds || []).indexOf(m) >= 0; });
+      d.leaderNames = d.leaderIds.map(function (m) { return (person(m) || {}).name || ''; }).filter(Boolean);
+    }
     batch.set(db().collection('smallGroups').doc(id), d, { merge: true });
     batch.set(db().collection('smallGroupPrivate').doc(id), p);
     btn.disabled = true;
+    var refusedWho = d.under18 ? (isNew || !g.under18 ? leaders : []) : [];
     batch.commit().then(function () {
+      return adding.reduce(function (pr, m) {
+        return pr.then(function (ids) {
+          var next = ids.concat([m]);
+          return db().collection('smallGroups').doc(id).update({ leaderIds: next, leaderNames: next.map(function (x) { return (person(x) || {}).name || ''; }).filter(Boolean),
+            lastLeaderAdded: m, updatedAt: new Date().toISOString(), updatedBy: uid() }).then(function () { return next; }, function (e) { refusedWho = [m]; throw e; });
+        });
+      }, Promise.resolve(d.leaderIds || []));
+    }).then(function () {
       var f = document.getElementById('f-image');
       if (f && f.files && f.files[0]) {
         var path = 'smallGroups/' + id + '/' + Date.now() + '-' + f.files[0].name.replace(/[^A-Za-z0-9._-]/g, '_');
@@ -255,7 +275,36 @@
           .then(function (url) { return db().collection('smallGroups').doc(id).update({ image: url, updatedAt: new Date().toISOString(), updatedBy: uid() }); });
       }
     }).then(function () { toast('Saved'); V.group = id; return load(); })
-      .catch(function (e) { btn.disabled = false; document.getElementById('f-err').innerHTML = '<p class="st no">Could not save: ' + esc(e.message || e) + '</p>'; });
+      .catch(function (e) {
+        btn.disabled = false;
+        var box = document.getElementById('f-err');
+        if (d.under18 && /permission/i.test(String(e.code || e.message || e)) && refusedWho.length) {
+          box.innerHTML = '<div class="st no" id="f-u18-refused"><b>Not saved.</b> An under-18s group\'s leaders need an in-date DBS check and safeguarding training' +
+            (isNew || !g.under18 ? ' (and at most three leaders when it is first set up)' : '') + '. Not cleared: ' + esc(refusedWho.map(function (m) { return (person(m) || {}).name || m; }).join(', ')) +
+            '. A master admin or the safeguarding lead can record their checks, or an exception with a reason.' +
+            (canExcept() && !isNew ? refusedWho.map(function (m) { return '<br><button class="btn sec" style="margin-top:6px" data-except="' + esc(m) + '">Record an exception for ' + esc((person(m) || {}).name || m) + '</button>'; }).join('') : '') + '</div>';
+          box.querySelectorAll('[data-except]').forEach(function (b) { b.onclick = function () { recordException(b.dataset.except, Object.assign({ id: id }, g, d), box); }; });
+          return;
+        }
+        box.innerHTML = '<p class="st no">Could not save: ' + esc(e.message || e) + '</p>';
+      });
+  }
+  /* An exception (Martin, F-109): a master admin or the safeguarding lead
+     lets a leader lead this under-18s group without in-date checks, with a
+     reason. It is for this group only. */
+  function canExcept() { return MASTER || SGSITES.length > 0; }
+  function recordException(m, g, box) {
+    box.insertAdjacentHTML('beforeend', '<div class="card" id="ex-card" style="margin-top:8px"><b>An exception for ' + esc((person(m) || {}).name || m) + ' in ' + esc(g.name) + '</b>' +
+      '<label class="l" for="ex-reason">Why (at least a sentence)</label><textarea id="ex-reason" maxlength="1000"></textarea><div id="ex-err"></div>' +
+      '<button class="btn" id="ex-save" style="margin-top:8px">Record the exception</button></div>');
+    document.getElementById('ex-save').onclick = function () {
+      var reason = document.getElementById('ex-reason').value.trim();
+      if (reason.length < 10) { document.getElementById('ex-err').innerHTML = '<p class="st no">Please give the reason.</p>'; return; }
+      db().collection('smallGroupExceptions').doc(g.id + '__' + m).set({ groupId: g.id, memberId: m, name: (person(m) || {}).name || '', reason: reason.slice(0, 1000),
+        siteId: MASTER ? (g.siteId || '') : (SGSITES.indexOf(g.siteId) >= 0 ? g.siteId : SGSITES[0]), by: uid(), byName: ME.name || '', at: firebase.firestore.FieldValue.serverTimestamp() })
+        .then(function () { toast('Exception recorded. Save the group again.'); document.getElementById('ex-card').remove(); })
+        .catch(function (e) { document.getElementById('ex-err').innerHTML = '<p class="st no">Could not: ' + esc(e.message || e) + '</p>'; });
+    };
   }
 
   /* ================= members ================= */
@@ -499,6 +548,10 @@
     TEAMS = Object.keys(t).sort();
     SITES = all(r[3]).filter(function (s) { return s.active !== false; }); ROOMS = all(r[4]).filter(function (x) { return x.active !== false; });
     SGDEF = r[5] && r[5].exists ? r[5].data() : {};
+    return db().collection('bookingSettings').get().then(function (bs) {
+      SGSITES = bs.docs.filter(function (x) { return x.data().safeguardingLead === ME.memberId || x.data().safeguardingDeputy === ME.memberId; }).map(function (x) { return x.id; });
+    }, function () {}).then(function () { return r; });
+  }).then(function (r) {
     if (!ADMIN && !r[1].docs.length) {
       return noAccess(EGBCAuth.isAdmin && EGBCAuth.isAdmin() && !(SETTINGS.teams || []).length
         ? '<h2 style="margin:0 0 6px;font-size:15px">Not set up yet</h2>A master admin chooses, on this page\'s Settings, which team\'s admins look after the small groups.'

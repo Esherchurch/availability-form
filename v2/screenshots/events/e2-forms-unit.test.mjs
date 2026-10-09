@@ -40,6 +40,9 @@ ok('a question marked medical is private whatever it says', F.isSensitive({ id: 
 
 /* ---- how long an answer lasts ---- */
 ok('school year: from October, to next 31 August', F.validUntil({ validity: { mode: 'schoolyear' } }, '', new Date('2026-10-08T10:00')) === '2027-08-31');
+ok("12 months from when given (Martin's default for every template)", F.validUntil({ validity: { mode: 'months', months: 12 } }, '', new Date('2026-10-08T10:00')) === '2027-10-08');
+ok('every template now lasts 12 months by default', F.TEMPLATES.every(t => t.validity.mode === 'months' && t.validity.months === 12));
+ok('and says so', F.validityText({ validity: { mode: 'months', months: 12 } }) === 'Lasts 12 months from when it is given');
 ok('school year: in July, to this 31 August', F.validUntil({ validity: { mode: 'schoolyear' } }, '', new Date('2027-07-01T10:00')) === '2027-08-31');
 ok('a number of days', F.validUntil({ validity: { mode: 'days', days: 30 } }, '', new Date('2026-10-08T10:00')) === '2026-11-07');
 ok('one event: the day of the event', F.validUntil({ validity: { mode: 'event' } }, '2026-12-20T18:00', new Date('2026-10-08T10:00')) === '2026-12-20');

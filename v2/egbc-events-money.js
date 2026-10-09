@@ -210,7 +210,9 @@
       var sv = document.getElementById('x-save');
       if (sv) sv.onclick = function () {
         var mode = (document.querySelector('input[name="x-mode"]:checked') || {}).value || 'none';
-        db().collection('settings').doc('accounts').set({ mode: mode, invoiceNumbersBy: 'hub', payText: document.getElementById('x-pay').value.trim().slice(0, 1000),
+        /* officeSites: whose bookings admins may read this (office only, F-108). */
+        db().collection('settings').doc('accounts').set({ mode: mode, invoiceNumbersBy: 'hub', officeSites: (ctx.siteIds ? ctx.siteIds() : []).slice(0, 3),
+          payText: document.getElementById('x-pay').value.trim().slice(0, 1000),
           payDays: Math.max(0, Math.min(120, parseInt(document.getElementById('x-days').value, 10) || 14)) })
           .then(function () { return A.settings(true); }).then(function () { ctx.toast('Saved'); return ctx.reload({ tab: 'accounts' }); })
           .catch(function (e) { ctx.toast('Could not save: ' + (e.message || e)); });
