@@ -1694,8 +1694,9 @@ member for small groups (and What's on), whether or not they are on a team?
 That's a change to the main window's sign-in, not mine.
 
 ### F-104 — leaders aren't emailed when a visitor asks
-A visitor can't read the address book, so their page can't email the
-leaders. A signed-in member's page can, and does. Visitors' requests wait on
+Correction: the address book *is* readable by anyone today (the main window's
+proposal of 9 October is to close that). So Find a group deliberately doesn't
+read it for a visitor: that would break the day it closes. A signed-in member's page can, and does. Visitors' requests wait on
 Small groups, Requests (with a count on the tab). **For the main window:** a
 server step to email the leaders about new requests, and a "requests waiting"
 badge in the hub for group leaders.
