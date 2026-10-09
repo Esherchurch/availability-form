@@ -177,6 +177,17 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 20. ChurchShow, and calling a parent three ways (Martin, 9 Oct 2026)
+
+**ChurchShow** (the projection app) is now in its own private repo, `Esherchurch/churchshow`, worked on by a third Code window from `CHURCHSHOW-BRIEF.md`.
+
+**Launch blocker, for Step Q.** ChurchShow reads `services`, `songs`, `addressBook` and `events` through the Firestore REST API with the web key and **no sign-in**. Once the locked rules are deployed at switch-over, all four are refused. ChurchShow's CS1 is establishing a sign-in, probably **pairing the projection PC from the hub**: a "Connect ChurchShow" page, a small function in codebase "hub" that issues a custom token for a device uid, and read-only rules for that device. The hub side of that will come to you as a request. Put "ChurchShow signed in and reading on the locked rules" on the Q checklist now.
+
+**Calling a parent: Martin wants all three ways.**
+1. On the service screen through ChurchShow: the events window's `screenPages`, showing the code only. Before launch.
+2. Tap to ring the parent. Exists.
+3. **A notification on the parent's phone** through the hub app. This is the first real use of the Notify step (SHARE-NOTIFY-BRIEF, F then K). It stays after launch unless Martin brings it forward, but design Notify so "a leader pages a parent" is its first message type: one parent, one message, from the leader screen.
+
 ## 19. "Powered by Church HQ" (Martin, 8 Oct 2026)
 
 The product is called **Church HQ** (churchhq.co.uk). EGBC is its first church. **Members still see "EGBC Hub"**: the church's own name and logo stay the brand, and every future church gets the same. Church HQ appears only as a small, quiet credit.
