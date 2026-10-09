@@ -177,6 +177,27 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 21. Who is who: Attender, Church member, Team member (Martin, 9 Oct 2026)
+
+Martin approved these levels. They answer the events window's F-103, where a signed-in person on no rota team was "pending" and looked like a visitor to small groups.
+
+| Level | Who | Gets |
+|---|---|---|
+| **Pending** | signed in, not in the address book | almost nothing until the office adds them |
+| **Attender** | anyone **in the address book** | their own dashboard, small groups, events and sign-ups, the rota, open meetings, Book a room, Resources |
+| **Church member** | an Attender the office has ticked **"Church member"** (formally joined the church; not every attender) | everything an Attender gets, **plus members-only**: members' meetings (e.g. the **CMM** room), members-only documents and notices, later voting |
+| **Team member** | on a rota team | their team's pages on top, as now; admins as now |
+
+Rules and how it fits:
+- **The address book stays the one switch.** A record that matches the person's verified email makes them an Attender, and the "Church member" tick on that record makes them a Church member. Mirror both onto `users/{uid}` the same checked way `teams` is mirrored today, so the rules can test `isAttender()` and `isChurchMember()`. The person can never grant either to themselves.
+- `status` becomes `active` for Attenders too, not only for people on a team. Check every rule that used `active()` to mean "volunteer": anything meant for volunteers only must test the team, not `active()`. List each one in the report.
+- **The address book "Church member" tick:** office or admins only, shown on `addressbook.html` without changing the page's existing structure (§15). It's an added field.
+- **Members-only things don't appear** for Attenders, with no locked door. The Menu, What's on and Meet hide them.
+- **Meetings:** the CMM video room becomes Church members only. Others stay as now.
+- Do this together with the address book privacy fix (`6398f6bb`), since both change who can read the address book.
+
+**For the events window** (passed on separately): every event, form and group gets "Who can come": Everyone (public), Attenders, Church members only, or a team. The rules enforce it with the new `isAttender()` and `isChurchMember()` once the main window has added them. F-103 is resolved by this: an Attender is not a visitor.
+
 ## 20. ChurchShow, and calling a parent three ways (Martin, 9 Oct 2026)
 
 **ChurchShow** (the projection app) is now in its own private repo, `Esherchurch/churchshow`, worked on by a third Code window from `CHURCHSHOW-BRIEF.md`.
