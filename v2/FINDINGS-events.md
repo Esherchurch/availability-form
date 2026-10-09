@@ -1873,3 +1873,81 @@ Step F, establishing only, is written up in `FINDINGS-notify.md`:
 - three decisions for Martin (N-6)
 
 Nothing is built yet.
+
+### F-114 — "Who can come" built (Martin, NEXT-BRIEF §21)
+Events, forms and small groups each have **"Who can come"**, with four
+choices: **Everyone** (public), **Attenders** (signed in from the address
+book), **Church members only**, or **one or more teams**.
+- **Events:**
+  - The choice is on the event form.
+  - The rules judge the event's `audience` list, as before; "Church members
+    only" is the new value `churchMembers`.
+  - A rule in my section lets Church members read those events. The main
+    rule (outside my section) still lets admins read every event.
+  - **Hidden, not locked:** What's on asks only for what each person may
+    come to (Church-members-only events only for Church members and admins),
+    so an Attender never sees it at all.
+  - Opening its link says only "That event could not be found, or it is not
+    open to you", the same as a missing event, now also when the rules
+    refuse it.
+- **Small groups:**
+  - "Who can come" replaces the old "members only" tick, stored as `canCome`.
+    A group's existing `audience` field is the words "who it is for", so it
+    keeps its name.
+  - The rules refuse a `canCome` that doesn't match the setting.
+  - Find a group asks only for groups the person may come to.
+  - A group's leaders and its own members always see it.
+  - Nobody can ask to join a group they can't come to.
+- **Forms:**
+  - "Who can fill it in": anyone with the link (as before, the default),
+    Attenders, Church members only, or its team.
+  - The rules refuse an answer from someone it isn't for.
+  - The form page says so before anything is typed: "Sign in to fill it in",
+    or "You are signed in as someone it is not for".
+- Tests:
+  - rules ("Who can come": 28 checks, of which 3 sign-up checks wait for
+    F-115)
+  - who-can-come in the browser (15)
+  - group test data updated with `canCome`
+
+### F-115 — REQUEST for the main window: sign-ups must check "Who can come"
+The sign-up rule (`match /signups/{manageKey}`, outside my section) doesn't
+check who an event is for. Today anyone with an event's id, signed in or
+not, can sign up to it, Church-members-only events included. **One line,
+please:**
+
+    allow create: if signupShape() && takesItsPlaces() && canSignUpTo(request.resource.data.calEventId);
+
+`canSignUpTo()` is in my section, and checks the same audiences as reading.
+**Tested here on a copy:**
+- with the line, all 704 rules checks pass, including "SIGN-UP: AN ATTENDER
+  CANNOT SIGN UP TO A CHURCH-MEMBERS-ONLY EVENT"
+- without it, that check fails
+
+The three sign-up checks are in the rules tests already. They're skipped,
+with a note, until the line is there, then they run. Please also run the
+events browser tests (e1, signups) after adding it.
+
+### F-116 — noted: the main window changed the screenPages read rule
+Adding R6, the main window changed "anyone signed in reads an uncleared page"
+to "volunteer()" (anyone on a team, or an admin). Now that every Attender
+signs in as active, that's the right call: collection codes stay with
+volunteers, the leads and ChurchShow. I've left it as they wrote it. R6 runs
+and passes (5 checks, none skipped).
+
+### F-117 — what "Attenders" means in the rules
+The Attenders choice is the existing "members" audience. The rules judge it
+with `active()`, and since §21 that includes every Attender as well as every
+volunteer. I didn't switch it to `isAttender()`, because the event rule
+that judges it is outside my section. The difference: `isAttender()` would
+leave out a volunteer who isn't marked as an Attender. **For the main
+window, if wanted:** use `isAttender() || volunteer()` there.
+
+### F-118 — for the main window: addressbook.html now times out in the page check
+The events window's page check ("pages-smoke") loads every v2 page against
+my emulators. Since commit 79e5bf8e ("Shut the address book…"),
+`addressbook.html` doesn't finish loading within 20 seconds, joining the
+five that already timed out (MonitorStageMap, Planner,
+SundayServicePlanner, view-only-rota, youthserviceplanner). It's not my
+page and I haven't changed it. It may simply be waiting for sign-in, as the
+others do. Worth a look.

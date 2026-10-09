@@ -1440,12 +1440,12 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
     await U('u_ned', 'm_ned', [], []);
   });
   const GRP = (extra) => ({ name: 'Tuesday home group', type: 'Home group', description: 'Bible and supper', day: 2, time: '19:30', frequency: 'weekly', locationKind: 'home', area: 'Esher',
-    audience: 'Adults', open: true, capacity: 2, memberCount: 0, visibility: 'public', active: true, leaderIds: ['m_lena'], leaderNames: ['Lena'], ...(extra || {}) });
+    audience: 'Adults', open: true, capacity: 2, memberCount: 0, visibility: 'public', canCome: ['public', 'members'], active: true, leaderIds: ['m_lena'], leaderNames: ['Lena'], ...(extra || {}) });
   await check('before a groups team is named, a Core Team admin cannot add a group', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_tue'), GRP()));
   await check('a master admin names the groups admins (Core Team)', 'allow', () => setDoc(doc(as('martin'), 'groupsSettings', 'main'), { teams: ['Core Team'] }));
   await check('a groups admin (Core Team) adds a group, with Lena leading', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_tue'), GRP()));
   await check('and its private half: the address', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroupPrivate', 'sg_tue'), { address: '1 Invented Road, Esher', meetingLink: '', notes: '' }));
-  await check('a members-only group too', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), GRP({ name: 'Members prayer', visibility: 'members', capacity: 0 })));
+  await check('a members-only group too', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), GRP({ name: 'Members prayer', visibility: 'members', canCome: ['members'], capacity: 0 })));
   await check('an admin of another team cannot add a group', 'deny', () => setDoc(doc(ctx('u_wes'), 'smallGroups', 'sg_x'), GRP()));
   await check('a home address may not go on the public card', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_z'), GRP({ address: '1 Invented Road' })));
   await check('nor can a group start with members already counted', 'deny', () => setDoc(doc(as('martin'), 'smallGroups', 'sg_y'), GRP({ memberCount: 3 })));
@@ -1575,7 +1575,7 @@ if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
     await setDoc(doc(db, 'leaderChecks', 'm_lena'), { name: 'Lena', dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(1), siteId: '' });
     await setDoc(doc(db, 'leaderChecks', 'm_mo'), { name: 'Mo', dbsStatus: 'current', dbsSeen: ago(4), trainingDate: ago(1), siteId: '' });
   });
-  const YG = (leaders, extra) => ({ name: 'Youth group', type: 'Youth', open: true, capacity: 0, memberCount: 0, visibility: 'public', active: true, under18: true,
+  const YG = (leaders, extra) => ({ name: 'Youth group', type: 'Youth', open: true, capacity: 0, memberCount: 0, visibility: 'public', canCome: ['public', 'members'], active: true, under18: true,
     leaderIds: leaders, leaderNames: leaders, locationKind: 'home', area: 'Esher', ...(extra || {}) });
   await check('UNDER-18s: A LEADER WITH NO DBS CHECK OR TRAINING CANNOT BE NAMED', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), YG(['m_ned'])));
   await check('nor one whose DBS check is out of date (seen four years ago)', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_y18'), YG(['m_mo'])));
@@ -1599,6 +1599,90 @@ if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
   await check('F-108: an admin reads the accounts setting', 'allow', () => getDoc(doc(as('karen'), 'settings', 'accounts')));
   await check('F-108: so does the office (a bookings admin of a site it names)', 'allow', () => getDoc(doc(ctx('u_office'), 'settings', 'accounts')));
   await check('F-108: A MEMBER WHO IS NOT THE OFFICE DOES NOT', 'deny', () => getDoc(doc(as('samy'), 'settings', 'accounts')));
+}
+
+// ── EVENTS (events window) ── WHO CAN COME (Martin, NEXT-BRIEF §21): events, forms, small groups
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  const U = (db, uid, mid, o) => setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams: o.teams || [], adminFor: [], masterAdmin: false,
+    attender: true, churchMember: !!o.churchMember });
+  const EV = (audience, visibility) => ({ title: 'Who can come test', visibility, status: 'confirmed', audience, teams: visibility === 'team' ? audience : [],
+    startUtc: Date.now() + 864e5 * 10, endUtc: Date.now() + 864e5 * 10 + 3600e3, createdBy: 'x' });
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await U(db, 'u_att', 'm_att', {});
+    await U(db, 'u_cm', 'm_cm', { churchMember: true });
+    await U(db, 'u_vol', 'm_vol', { teams: ['Worship Team'] });
+    await setDoc(doc(db, 'calEvents', 'ev_w_pub'), EV(['public', 'members'], 'public'));
+    await setDoc(doc(db, 'calEvents', 'ev_w_att'), EV(['members'], 'members'));
+    await setDoc(doc(db, 'calEvents', 'ev_w_cm'), EV(['churchMembers'], 'churchMembers'));
+    await setDoc(doc(db, 'calEvents', 'ev_w_team'), EV(['Worship Team'], 'team'));
+  });
+  const list = (who, aud) => getDocs(query(collection(who, 'calEvents'), where('audience', 'array-contains-any', aud)));
+  /* events */
+  await check('Everyone: a public event is open to someone not signed in', 'allow', () => getDoc(doc(guest(), 'calEvents', 'ev_w_pub')));
+  await check('an Attenders event is not', 'deny', () => getDoc(doc(guest(), 'calEvents', 'ev_w_att')));
+  await check('an Attender sees the Attenders event', 'allow', () => getDoc(doc(ctx('u_att'), 'calEvents', 'ev_w_att')));
+  await check('AN ATTENDER CANNOT SEE A CHURCH-MEMBERS-ONLY EVENT', 'deny', () => getDoc(doc(ctx('u_att'), 'calEvents', 'ev_w_cm')));
+  await check('nor list Church-members-only events', 'deny', () => list(ctx('u_att'), ['churchMembers']));
+  await check('an Attender\u2019s own list (public and Attenders) is allowed, and holds no members-only event', 'allow', async () => {
+    const snap = await list(ctx('u_att'), ['public', 'members']);
+    if (snap.docs.some(d => d.id === 'ev_w_cm')) throw new Error('a members-only event came back');
+  });
+  await check('a Church member sees it', 'allow', () => getDoc(doc(ctx('u_cm'), 'calEvents', 'ev_w_cm')));
+  await check('and lists it with everything else they may come to', 'allow', async () => {
+    const snap = await list(ctx('u_cm'), ['public', 'members', 'churchMembers']);
+    if (!snap.docs.some(d => d.id === 'ev_w_cm')) throw new Error('the members-only event did not come back');
+  });
+  await check('a team event: not for an Attender on no team', 'deny', () => getDoc(doc(ctx('u_att'), 'calEvents', 'ev_w_team')));
+  await check('but for that team', 'allow', () => getDoc(doc(ctx('u_vol'), 'calEvents', 'ev_w_team')));
+  await check('a Church member on no team does not see a team event', 'deny', () => getDoc(doc(ctx('u_cm'), 'calEvents', 'ev_w_team')));
+  await check('an admin makes a Church-members-only event', 'allow', () => setDoc(doc(as('karen'), 'calEvents', 'ev_w_cm2'), { ...EV(['churchMembers'], 'churchMembers'), createdBy: 'u_karen' }));
+  await check('and cannot make it public by its audience while saying members only', 'deny', () => setDoc(doc(as('karen'), 'calEvents', 'ev_w_cm3'), { ...EV(['churchMembers', 'public'], 'churchMembers'), createdBy: 'u_karen' }));
+
+  /* signing up: the sign-up rule is the main window's; these run once it uses canSignUpTo() */
+  if (!/canSignUpTo\(request\.resource\.data\.calEventId\)/.test(fs.readFileSync('firestore.rules', 'utf8').split('// ── EVENTS (events window)')[0])) {
+    console.log('  NOTE  Who can come: 3 sign-up checks skipped - waiting for the main window to add canSignUpTo() to the sign-up rule (F-115)');
+  } else {
+    const SU = (calEventId, uid) => ({ calEventId, personKind: 'addressBook', personId: 'm_x', name: 'Test person', email: 'x@example.invalid', phone: '',
+      attendees: [], answers: {}, places: 1, ticketTypeId: '', status: 'waiting', donation: 0, createdAt: 'x', memberUid: uid || '' });
+    await check('SIGN-UP: AN ATTENDER CANNOT SIGN UP TO A CHURCH-MEMBERS-ONLY EVENT', 'deny', () => setDoc(doc(ctx('u_att'), 'signups', 'su_w_att_cm'.padEnd(32, '0')), SU('ev_w_cm', 'u_att')));
+    await check('SIGN-UP: a Church member can', 'allow', () => setDoc(doc(ctx('u_cm'), 'signups', 'su_w_cm_cm'.padEnd(32, '0')), SU('ev_w_cm', 'u_cm')));
+    await check('SIGN-UP: someone not signed in cannot sign up to an Attenders event', 'deny', () => setDoc(doc(guest(), 'signups', 'su_w_g_att'.padEnd(32, '0')), SU('ev_w_att')));
+  }
+
+  /* small groups */
+  const SG = (canCome, visibility, extra) => ({ name: 'Members group', type: 'Prayer', open: true, capacity: 0, memberCount: 0, visibility, canCome, active: true,
+    leaderIds: ['m_lena'], leaderNames: ['Lena'], locationKind: 'home', area: 'Esher', ...(extra || {}) });
+  await check('a groups admin makes a Church-members-only group', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_w_cm'), SG(['churchMembers'], 'churchMembers')));
+  await check('its "who can come" must agree with its setting', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_w_bad'), SG(['members'], 'churchMembers')));
+  await check('a team group', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_w_team'), SG(['Worship Team'], 'team', { teams: ['Worship Team'] })));
+  await check('AN ATTENDER DOES NOT SEE A CHURCH-MEMBERS-ONLY GROUP', 'deny', () => getDoc(doc(ctx('u_att'), 'smallGroups', 'sg_w_cm')));
+  await check('nor can they ask to join it', 'deny', () => setDoc(doc(ctx('u_att'), 'smallGroupRequests', 'rq_w_att'), { groupId: 'sg_w_cm', groupName: 'x', name: 'Att', email: 'a@example.invalid',
+    phone: '', message: '', personKind: 'addressBook', personId: 'm_att', status: 'asked', createdAt: serverTimestamp() }));
+  await check('a Church member sees it, and asks to join', 'allow', async () => {
+    await getDoc(doc(ctx('u_cm'), 'smallGroups', 'sg_w_cm'));
+    await setDoc(doc(ctx('u_cm'), 'smallGroupRequests', 'rq_w_cm'), { groupId: 'sg_w_cm', groupName: 'x', name: 'Cm', email: 'c@example.invalid',
+      phone: '', message: '', personKind: 'addressBook', personId: 'm_cm', status: 'asked', createdAt: serverTimestamp() });
+  });
+  await check('the group\u2019s leader always sees it', 'allow', () => getDoc(doc(ctx('u_lena'), 'smallGroups', 'sg_w_cm')));
+  await check('a team group: not for an Attender on no team', 'deny', () => getDoc(doc(ctx('u_att'), 'smallGroups', 'sg_w_team')));
+  await check('a Church member\u2019s list of groups they may come to', 'allow', () => getDocs(query(collection(ctx('u_cm'), 'smallGroups'), where('canCome', 'array-contains-any', ['public', 'members', 'churchMembers']))));
+
+  /* forms */
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'forms', 'form_w_cm'), { title: 'Members\u2019 meeting reply', fields: [], siteId: '', team: '', canCome: ['churchMembers'] });
+    for (const k of ['req_w_cm_a', 'req_w_cm_b', 'req_w_cm_c']) await setDoc(doc(db, 'formRequests', k.padEnd(32, '0')), { formId: 'form_w_cm', calEventId: '', siteId: '', email: 'cm@example.invalid', status: 'sent' });
+  });
+  const answer = (dbx, key, rid) => { const b = writeBatch(dbx);
+    b.set(doc(dbx, 'formResponses', rid), { formId: 'form_w_cm', requestKey: key, calEventId: '', email: 'cm@example.invalid', name: 'Cm', siteId: '', answers: {},
+      submittedAt: 'x', validUntil: '2027-10-09', deleteAfter: '2028-10-09' });
+    b.update(doc(dbx, 'formRequests', key), { status: 'done', completedAt: 'x', responseId: rid }); return b.commit(); };
+  await check('A CHURCH-MEMBERS-ONLY FORM CANNOT BE FILLED IN BY SOMEONE NOT SIGNED IN, even with the link', 'deny', () => answer(guest(), 'req_w_cm_a'.padEnd(32, '0'), 'resp_w_cm_a'));
+  await check('nor by an Attender', 'deny', () => answer(ctx('u_att'), 'req_w_cm_b'.padEnd(32, '0'), 'resp_w_cm_b'));
+  await check('a Church member fills it in', 'allow', () => answer(ctx('u_cm'), 'req_w_cm_c'.padEnd(32, '0'), 'resp_w_cm_c'));
 }
 
 // ── EVENTS (events window) ── church details (F-058)

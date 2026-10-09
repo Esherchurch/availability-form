@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events.js?v=202610091400"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610072300"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -352,6 +352,14 @@
     document.title = (EV.title || 'Event') + ' — EGBC';
     draw();
   }).catch(function (e) {
+    /* Not open to this person (Who can come, §21): say exactly what a
+       missing event says, so a members-only event is not even hinted at. */
+    if (/permission/i.test(String((e && (e.code || e.message)) || e))) {
+      document.getElementById('wrap').innerHTML =
+        '<div class="card">That event could not be found, or it is not open to you. ' +
+        '<a href="whatson.html" style="color:var(--brand)">See what\'s on</a>.</div>';
+      return;
+    }
     document.getElementById('wrap').innerHTML =
       '<div class="card">That event could not be loaded.<br><span style="font-size:13px;color:#6b7280">' + esc(e.message || e) + '</span></div>';
   });

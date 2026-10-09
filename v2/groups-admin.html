@@ -15,7 +15,7 @@
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610091400"></script>
 <script src="egbc-events-groups.js?v=202610091600"></script>
 <script src="egbc-events-checkin.js?v=202610082300"></script>
 <script src="egbc-events-safeguarding.js?v=202610081800"></script>
@@ -130,7 +130,7 @@
     var list = mine(), L = look();
     el.innerHTML = '<div class="card"><h2>' + (ADMIN ? 'Every group' : 'Your groups') + '</h2>' + (list.length ? list.map(function (g) {
       return '<div class="row" data-grow="' + esc(g.id) + '"><div class="t"><b>' + esc(g.name) + '</b> ' + (g.active === false ? '<span class="pill">Not running</span>' : '') +
-        (g.visibility === 'members' ? '<span class="pill">Members only</span>' : '<span class="pill">Public</span>') +
+        '<span class="pill">' + esc(E.whoText(g.visibility || 'public', g.teams)) + '</span>' +
         '<span class="pill ' + (G.joinable(g) ? 'ok' : 'wait') + '">' + esc(G.status(g)) + '</span>' + (g.under18 ? '<span class="pill no">Under-18s</span>' : '') +
         '<br><span class="hint">' + esc(G.when(g)) + ' · ' + esc(G.wherePublic(g, L)) + ' · ' + (g.memberCount || 0) + (g.capacity ? ' of ' + g.capacity : '') + ' members · led by ' +
         esc((g.leaderNames || []).join(', ') || 'nobody yet') + '</span>' + (g.under18 ? '<div data-checks="' + esc(g.id) + '"></div>' : '') + '</div><button class="btn sec" data-gedit="' + esc(g.id) + '">Edit</button></div>';
@@ -205,7 +205,10 @@
         '<div class="two"><div><label class="l" for="f-aud">Who it is for</label><input class="inp" id="f-aud" maxlength="80" value="' + esc(g.audience || '') + '"></div>' +
         '<div><label class="l" for="f-cap">Most members (0 for no limit)</label><input class="inp" type="number" min="0" max="200" id="f-cap" value="' + esc(g.capacity || 0) + '"></div></div>' +
         '<label class="ck"><input type="checkbox" id="f-open"' + (g.open !== false ? ' checked' : '') + '> Taking new members</label>' +
-        (ADMIN ? '<label class="ck"><input type="checkbox" id="f-members"' + (g.visibility === 'members' ? ' checked' : '') + '> Members only (not shown to the public)</label>' +
+        (ADMIN ? '<div class="two"><div><label class="l" for="f-who">Who can come</label><select id="f-who">' + E.WHO.map(function (w) {
+            return '<option value="' + w[0] + '"' + ((g.visibility || 'public') === w[0] ? ' selected' : '') + '>' + w[1] + '</option>'; }).join('') + '</select></div>' +
+          '<div id="f-teams-box"><label class="l" for="f-teams">Which teams</label><select id="f-teams" multiple size="4">' + TEAMS.map(function (t) {
+            return '<option value="' + esc(t) + '"' + ((g.teams || []).indexOf(t) >= 0 ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div></div>' +
           '<label class="ck"><input type="checkbox" id="f-u18"' + (g.under18 ? ' checked' : '') + '> Includes under-18s (its leaders need the same checks and forms as children\'s leaders)</label>' +
           '<label class="ck"><input type="checkbox" id="f-active"' + (g.active !== false ? ' checked' : '') + '> Running</label>' +
           '<label class="l">Leaders</label><div id="f-leaders"></div><select id="f-addlead" style="margin-top:6px"><option value="">Add a leader…</option>' + PEOPLE.map(function (x) { return opt(x.id, x.name, ''); }).join('') + '</select>' +
@@ -218,6 +221,8 @@
         ['home', 'room', 'venue', 'online'].forEach(function (x) { document.getElementById('loc-' + x).style.display = k === x ? '' : 'none'; });
       }
       document.querySelectorAll('[name="f-loc"]').forEach(function (r) { r.onchange = showLoc; }); showLoc();
+      var who = document.getElementById('f-who');
+      if (who) { var tb = function () { document.getElementById('f-teams-box').style.display = who.value === 'team' ? '' : 'none'; }; who.onchange = tb; tb(); }
       function drawLeaders() {
         var b = document.getElementById('f-leaders'); if (!b) return;
         b.innerHTML = leaders.length ? leaders.map(function (m) { return '<span class="pill ok">' + esc((person(m) || {}).name || m) + ' <button class="btn sec" style="height:20px;padding:0 6px" data-unlead="' + esc(m) + '">&times;</button></span>'; }).join('') : '<span class="hint">None yet.</span>';
@@ -238,7 +243,11 @@
       venueName: kind === 'venue' ? v('f-venue').trim().slice(0, 120) : '', audience: v('f-aud').trim().slice(0, 80),
       open: c('f-open', true), capacity: Math.max(0, Math.min(200, parseInt(v('f-cap'), 10) || 0)), updatedAt: new Date().toISOString(), updatedBy: uid() };
     if (ADMIN) {
-      d.visibility = c('f-members', false) ? 'members' : 'public'; d.under18 = c('f-u18', false); d.active = c('f-active', true);
+      d.visibility = v('f-who') || 'public';
+      d.teams = d.visibility === 'team' ? [].slice.call(document.getElementById('f-teams').selectedOptions).map(function (o) { return o.value; }).slice(0, 10) : [];
+      if (d.visibility === 'team' && !d.teams.length) { document.getElementById('f-err').innerHTML = '<p class="st no">Choose which teams.</p>'; return; }
+      d.canCome = E.canComeFor(d.visibility, d.teams);
+      d.under18 = c('f-u18', false); d.active = c('f-active', true);
       d.leaderIds = leaders; d.leaderNames = leaders.map(function (m) { return (person(m) || {}).name || ''; }).filter(Boolean);
     }
     if (!d.name) { document.getElementById('f-err').innerHTML = '<p class="st no">It needs a name.</p>'; return; }

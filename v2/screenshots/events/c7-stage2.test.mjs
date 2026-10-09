@@ -88,7 +88,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
   await setDoc(doc(db, 'groupsSettings', 'main'), { teams: ['Core Team'] });
   await setDoc(doc(db, 'smallGroups', 'sg_youth'), { name: 'Tuesday youth group', type: 'Youth', description: 'Games and a talk (invented).', day: 2, time: '19:00', frequency: 'weekly',
-    locationKind: 'home', area: 'Esher', audience: 'Years 7 to 9', open: true, capacity: 0, memberCount: 2, visibility: 'public', active: true, under18: true,
+    locationKind: 'home', area: 'Esher', audience: 'Years 7 to 9', open: true, capacity: 0, memberCount: 2, visibility: 'public', canCome: ['public', 'members'], active: true, under18: true,
     leaderIds: ['m_lena'], leaderNames: ['Lena Leader'], image: '' });
   await setDoc(doc(db, 'smallGroupPrivate', 'sg_youth'), { address: '2 Invented Close, Esher', meetingLink: '', notes: '' });
   await setDoc(doc(db, 'smallGroupMembers', 'sg_youth__a_m_mo'), MEM('m_mo', 'Mo Member', 'mo.member@example.invalid'));

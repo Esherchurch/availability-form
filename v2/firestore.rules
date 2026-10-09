@@ -1033,6 +1033,41 @@ service cloud.firestore {
     // window (EVENTS-WINDOW-BRIEF.md). The main window does not edit it,
     // and nothing in it changes a rule outside it.
 
+    // ---- WHO CAN COME (Martin, NEXT-BRIEF §21) ------------------------
+    // Every event, form and small group says who it is for, in one list:
+    // an event's `audience`, a form's or a group's `canCome` (a group's
+    // `audience` is the words "who it is for"). The values:
+    //   'public'        Everyone, signed in or not
+    //   'members'       Attenders: anyone signed in from the address book
+    //                   (and every volunteer)
+    //   'churchMembers' Church members only (the office's tick)
+    //   <team names>    those teams
+    // A reader who cannot come is never shown it: lists ask only for the
+    // audiences that apply to them, and the rules refuse the rest.
+    function audienceOk(a) {
+      return a.hasAny(['public'])
+             || (active() && a.hasAny(['members']))
+             || (isChurchMember() && a.hasAny(['churchMembers']))
+             || (active() && a.hasAny(me().get('teams', [])))
+             || isAdmin();
+    }
+    // Events: the main rule (outside this section) lets admins and the
+    // other audiences read; this lets a Church member read a
+    // Church-members-only event. Rules for one path add up, so it widens
+    // nothing else.
+    match /calEvents/{calEventId} {
+      allow get, list: if isChurchMember() && resource.data.get('audience', []).hasAny(['churchMembers']);
+    }
+    // Who may sign up to an event: the same test. The sign-up rule is
+    // outside this section; the main window adds
+    //   && canSignUpTo(request.resource.data.calEventId)
+    // to its create (request in FINDINGS-events.md, F-115).
+    function canSignUpTo(calEventId) {
+      return calEventId is string && calEventId != ''
+             && exists(/databases/$(database)/documents/calEvents/$(calEventId))
+             && audienceOk(get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('audience', []));
+    }
+
     // ---- who leads an event (Chunk 3, stage 3) ------------------------
     // eventLeaders/{calEventId}.leaderUids names the people leading that
     // event. Being on that list is what lets a leader who is not an admin
@@ -1334,7 +1369,9 @@ service cloud.firestore {
                     && request.resource.data.formId == requestAfter(request.resource.data.requestKey).formId
                     && request.resource.data.email == requestAfter(request.resource.data.requestKey).email
                     && request.resource.data.siteId == requestAfter(request.resource.data.requestKey).siteId
-                    && request.resource.data.calEventId == requestAfter(request.resource.data.requestKey).calEventId;
+                    && request.resource.data.calEventId == requestAfter(request.resource.data.requestKey).calEventId
+                    // Who can come (§21): a form for Attenders, Church members or a team is filled in signed in.
+                    && audienceOk(get(/databases/$(database)/documents/forms/$(request.resource.data.formId)).data.get('canCome', ['public']));
       // An answer, once given, is the record of what was said. Deleting it
       // when its time is up is the retention list's job (stage 3).
       allow update: if false;
@@ -2246,7 +2283,8 @@ service cloud.firestore {
     function groupShape() {
       let d = request.resource.data;
       return d.name is string && d.name.size() > 0 && d.name.size() <= 80
-             && d.get('visibility', 'public') in ['public', 'members']
+             && d.get('visibility', 'public') in ['public', 'members', 'churchMembers', 'team']
+             && groupAudienceAgrees()
              && d.get('locationKind', 'home') in ['home', 'room', 'venue', 'online']
              && d.get('leaderIds', []) is list && d.get('leaderIds', []).size() <= 10
              && d.get('capacity', 0) is int && d.get('capacity', 0) >= 0 && d.get('capacity', 0) <= 200
@@ -2312,6 +2350,16 @@ service cloud.firestore {
     function memberKeyOf(groupId, personKind, personId) {
       return groupId + '__' + (personKind == 'contacts' ? 'c' : 'a') + '_' + personId;
     }
+    // A group's canCome must say what its "Who can come" says.
+    function groupAudienceAgrees() {
+      let d = request.resource.data;
+      let v = d.get('visibility', 'public');
+      let a = d.get('canCome', []);
+      return (v == 'public' && a.hasAll(['public', 'members']) && a.size() == 2)
+             || (v == 'members' && a == ['members'])
+             || (v == 'churchMembers' && a == ['churchMembers'])
+             || (v == 'team' && d.get('teams', []) is list && d.get('teams', []).size() > 0 && d.get('teams', []).size() <= 10 && a == d.get('teams', []));
+    }
     // The count moves with a member added or taken out, named in lastMemberKey.
     function groupCountOk(groupId) {
       let b = resource.data.get('memberCount', 0);
@@ -2331,7 +2379,14 @@ service cloud.firestore {
       allow write: if isMaster() && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20;
     }
     match /smallGroups/{groupId} {
-      allow read: if (resource.data.get('visibility', 'public') == 'public' && resource.data.get('active', true) == true) || active();
+      // Who can come (§21): the public read public groups that are running;
+      // signed in, a group is read by those it is for, and always by its
+      // leaders, its members and the groups admins.
+      allow read: if (resource.data.get('visibility', 'public') == 'public' && resource.data.get('active', true) == true)
+                  || audienceOk(resource.data.get('canCome', []))
+                  || groupsAdmin()
+                  || (active() && me().get('memberId', '-') in resource.data.get('leaderIds', []))
+                  || groupMember(groupId);
       allow create: if groupsAdmin() && groupShape() && request.resource.data.get('memberCount', 0) == 0 && under18Ok(groupId);
       allow update: if groupShape() && groupCountOk(groupId) && under18Ok(groupId)
                     && (groupsAdmin()
@@ -2418,7 +2473,8 @@ service cloud.firestore {
                     && sgDoc(request.resource.data.groupId).get('open', true) == true
                     && (sgDoc(request.resource.data.groupId).get('capacity', 0) == 0
                         || sgDoc(request.resource.data.groupId).get('memberCount', 0) < sgDoc(request.resource.data.groupId).get('capacity', 0))
-                    && (sgDoc(request.resource.data.groupId).get('visibility', 'public') == 'public' || active())
+                    && (sgDoc(request.resource.data.groupId).get('visibility', 'public') == 'public'
+                        || audienceOk(sgDoc(request.resource.data.groupId).get('canCome', [])))
                     && request.resource.data.status == 'asked' && request.resource.data.createdAt == request.time
                     && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
                     && request.resource.data.email is string && request.resource.data.email.size() <= 200

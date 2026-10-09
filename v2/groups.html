@@ -16,7 +16,7 @@
 <script src="egbc-auth.js?v=202610062100"></script>
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610091400"></script>
 <script src="egbc-events-groups.js?v=202610091600"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -100,7 +100,7 @@
       '<span class="body"><span class="t">' + esc(g.name) + '</span>' +
       '<span class="meta">' + esc(G.when(g)) + ' · ' + esc(G.wherePublic(g, LOOK)) + '</span>' +
       (g.type ? '<span class="tag">' + esc(g.type) + '</span>' : '') + (g.audience ? '<span class="tag">' + esc(g.audience) + '</span>' : '') +
-      (g.visibility === 'members' ? '<span class="tag">Members</span>' : '') +
+      (g.visibility && g.visibility !== 'public' ? '<span class="tag">' + esc(E.whoText(g.visibility, g.teams)) + '</span>' : '') +
       (lead ? '<span class="flag lead">You lead this</span>' : mine ? '<span class="flag open">You are in this group</span>' :
         '<span class="flag ' + (G.joinable(g) ? 'open' : 'shut') + '">' + esc(G.status(g)) + '</span>') + '</span></button>';
   }
@@ -237,13 +237,20 @@
   EGBCAuth.optional().then(function (p) {
     ME = p && p.status === 'active' ? p : null;
     document.getElementById('signedOut').style.display = ME ? 'none' : '';
-    var q = ME ? db().collection('smallGroups').where('active', '==', true) : db().collection('smallGroups').where('visibility', '==', 'public').where('active', '==', true);
+    /* Who can come (§21): signed in, ask for the groups this person may come
+       to - nothing else is shown, not even as a locked door. */
+    var q = ME ? db().collection('smallGroups').where('canCome', 'array-contains-any', E.myAudiences()) : db().collection('smallGroups').where('visibility', '==', 'public').where('active', '==', true);
     return Promise.all([q.get(), E.lookups().catch(function () { return {}; }),
       ME && ME.memberId ? db().collection('smallGroupMembers').where('personKind', '==', 'addressBook').where('personId', '==', ME.memberId).get().catch(function () { return { docs: [] }; }) : { docs: [] }]);
   }).then(function (r) {
-    ALL = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.day || 9) - (b.day || 9) || a.name.localeCompare(b.name); });
+    ALL = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (g) { return g.active !== false; }).sort(function (a, b) { return (a.day || 9) - (b.day || 9) || a.name.localeCompare(b.name); });
     LOOK = { sites: names(r[1].sites), rooms: names(r[1].rooms) }; F.look = LOOK;
     MINE = r[2].docs.map(function (d) { return d.data().groupId; });
+    /* My own groups, even one I could not otherwise come to (I was added). */
+    var missing = MINE.filter(function (id) { return !ALL.some(function (g) { return g.id === id; }); });
+    return Promise.all(missing.map(function (id) { return db().collection('smallGroups').doc(id).get().then(function (s) { return s.exists ? Object.assign({ id: s.id }, s.data()) : null; }, function () { return null; }); }))
+      .then(function (l) { ALL = ALL.concat(l.filter(Boolean)); return r; });
+  }).then(function (r) {
     G.areas(ALL).forEach(function (a) { document.getElementById('f-area').insertAdjacentHTML('beforeend', '<option>' + esc(a) + '</option>'); });
     drawMine(); draw();
     var want = new URLSearchParams(location.search).get('group');

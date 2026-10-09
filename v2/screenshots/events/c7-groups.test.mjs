@@ -84,7 +84,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });
   await setDoc(doc(db, 'rooms', 'room_hall'), { siteId: 'site_t', name: 'Test Hall', kind: 'room', active: true, order: 1 });
   await setDoc(doc(db, 'smallGroups', 'sg_members'), { name: 'Members prayer', type: 'Prayer', description: '', day: 6, time: '08:00', frequency: 'weekly', locationKind: 'room', siteId: 'site_t', roomId: 'room_hall',
-    area: '', audience: 'Adults', open: true, capacity: 0, memberCount: 0, visibility: 'members', active: true, leaderIds: ['m_karen'], leaderNames: ['Karen Admin'] });
+    area: '', audience: 'Adults', open: true, capacity: 0, memberCount: 0, visibility: 'members', canCome: ['members'], active: true, leaderIds: ['m_karen'], leaderNames: ['Karen Admin'] });
 });
 const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(async (c) => { out = await fn(c.firestore()); }); return out; };
 const get = (c, id) => readDb(db => getDoc(doc(db, c, id)).then(s => s.exists() ? s.data() : null));

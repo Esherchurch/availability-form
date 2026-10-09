@@ -16,7 +16,7 @@
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610062100"></script>
+<script src="egbc-events.js?v=202610091400"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -147,7 +147,8 @@
           (ev.status === 'pending' ? '<span class="flag held">Not public yet</span>' : '') +
           placesNote(ev) +
           '<span class="tag"><span class="dot" style="background:' + cat.colour + '"></span>' + esc(cat.name) + '</span>' +
-          (ev.visibility === 'members' ? '<span class="tag">Members</span>' : '') +
+          (ev.visibility === 'members' ? '<span class="tag">Attenders</span>' : '') +
+          (ev.visibility === 'churchMembers' ? '<span class="tag">Church members</span>' : '') +
           (ev.visibility === 'team' ? '<span class="tag">' + esc((ev.teams || []).join(', ')) + '</span>' : '') +
           (ev.labels || []).map(function (l) { return '<span class="tag">' + esc(l) + '</span>'; }).join('') +
         '</span>' +

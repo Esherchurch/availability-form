@@ -107,6 +107,8 @@
      carries its team names.  */
   function audienceFor(ev) {
     var vis = ev.visibility || 'members';
+    /* Church members only (§21): held or not, never wider. */
+    if (vis === 'churchMembers') return ['churchMembers'];
     var held = (ev.status || 'confirmed') === 'pending';
     if (held) return ['members'];
     if (vis === 'public') return ['public', 'members'];
@@ -133,6 +135,10 @@
     var out = ['public', 'members'];
     (p.teams || []).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
     (p.adminFor || []).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
+    /* Church members only (§21): asked for only by those who may come, so it
+       is never shown to anyone else - not even as a locked door. Admins may
+       read every event (the rules say so), so they ask for it too. */
+    if (p.churchMember === true || (EGBCAuth.isAdmin && EGBCAuth.isAdmin())) out.push('churchMembers');
     /* A master admin may read any event - the rules say so - but a query
        only returns documents whose audience it asked for, so asking for
        their own teams alone left another team's event invisible to the one
@@ -387,7 +393,36 @@
     });
   }
 
+  /* ---- WHO CAN COME (Martin, NEXT-BRIEF §21) -------------------------
+     The same four choices on events, forms and small groups. An event keeps
+     its list in `audience`; a form or a group in `canCome`. */
+  var WHO = [['public', 'Everyone'], ['members', 'Attenders (signed in)'], ['churchMembers', 'Church members only'], ['team', 'One or more teams']];
+  function canComeFor(vis, teams) {
+    if (vis === 'public') return ['public', 'members'];
+    if (vis === 'churchMembers') return ['churchMembers'];
+    if (vis === 'team') { var t = (teams || []).filter(Boolean).slice(0, 10); return t.length ? t : ['members']; }
+    return ['members'];
+  }
+  function whoText(vis, teams) {
+    if (vis === 'public') return 'Everyone';
+    if (vis === 'churchMembers') return 'Church members only';
+    if (vis === 'team') return (teams || []).join(', ') || 'A team';
+    return 'Attenders';
+  }
+  /* May this person come? (The rules decide; this is for what a page says.) */
+  function mayCome(list, profile) {
+    list = list || ['public'];
+    if (list.indexOf('public') >= 0) return true;
+    var p = profile || null;
+    if (!p || p.status !== 'active') return false;
+    if (p.masterAdmin || (p.adminFor || []).length) return true;
+    if (list.indexOf('members') >= 0) return true;
+    if (list.indexOf('churchMembers') >= 0 && p.churchMember === true) return true;
+    return (p.teams || []).some(function (t) { return list.indexOf(t) >= 0; });
+  }
+
   global.EGBCEvents = {
+    WHO: WHO, canComeFor: canComeFor, whoText: whoText, mayCome: mayCome,
     key: key,
     esc: esc,
     fmtDate: fmtDate,

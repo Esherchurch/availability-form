@@ -15,7 +15,7 @@
 <script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
-<script src="egbc-events.js?v=202610072300"></script>
+<script src="egbc-events.js?v=202610091400"></script>
 <script src="egbc-events-checkin.js?v=202610080900"></script>
 <script src="egbc-events-forms.js?v=202610080900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -224,6 +224,9 @@
           '<option value="">No site: master admins only</option>' +
           SITES.map(function (s) { return '<option value="' + esc(s.id) + '"' + (ED.siteId === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') +
         '</select></div>' +
+        '<div class="field"><label for="edWho">Who can fill it in</label><select id="edWho">' +
+          [['public', 'Anyone with the link'], ['members', 'Attenders, signed in'], ['churchMembers', 'Church members only'], ['team', ED.team ? 'Its team (' + esc(ED.team) + ')' : 'Its team']].map(function (w) {
+            return '<option value="' + w[0] + '"' + ((ED.who || 'public') === w[0] ? ' selected' : '') + '>' + w[1] + '</option>'; }).join('') + '</select></div>' +
         '<div class="field"><label for="edValid">An answer lasts</label><select id="edValid">' +
           '<option value="event"' + (v.mode === 'event' ? ' selected' : '') + '>For one event only</option>' +
           '<option value="schoolyear"' + (v.mode === 'schoolyear' ? ' selected' : '') + '>To the end of the school year</option>' +
@@ -261,6 +264,8 @@
     ED.purpose = document.getElementById('edPurpose').value.trim();
     ED.siteId = document.getElementById('edSite').value;
     ED.team = document.getElementById('edTeam').value;
+    ED.who = document.getElementById('edWho').value;
+    if (ED.who === 'team' && !ED.team) ED.who = 'members';
     var mode = document.getElementById('edValid').value;
     ED.validity = mode === 'days' ? { mode: 'days', days: parseInt(document.getElementById('edDays').value, 10) || 365 }
       : mode === 'months' ? { mode: 'months', months: parseInt(document.getElementById('edMonths').value, 10) || 12 } : { mode: mode };
@@ -307,7 +312,7 @@
     if (empty.length) { toast('Every question needs wording.'); return; }
     var id = ED.id || ('form_' + E.key(12));
     var d = {
-      title: ED.title, purpose: ED.purpose, siteId: ED.siteId || '', team: ED.team || '', validity: ED.validity,
+      title: ED.title, purpose: ED.purpose, siteId: ED.siteId || '', team: ED.team || '', who: ED.who || 'public', canCome: E.canComeFor(ED.who || 'public', [ED.team]), validity: ED.validity,
       retentionMonths: ED.retentionMonths, fields: ED.fields, template: ED.template || '',
       kind: ED.kind || 'custom', version: (ED.version || 0) + 1,
       updatedAt: new Date().toISOString(), updatedBy: uid()
