@@ -256,6 +256,91 @@ const REFUSED_PROBE = "(function(){var b=document.body;if(!b)return '';"
     console.log('  ' + 'error console'.padEnd(22) + '  ' + watch.summary());
     if (watch.errors.length) pagesWithErrors.push({ page: P.page, errors: watch.errors.slice() });
   }
+  /* ================= AND THE SAME QUESTION OF THE SOURCE ==============
+
+     THE RENDERED PASS CANNOT SEE A TOAST.
+
+     Martin found emoji on the pin board that this check had just called
+     clean. Every one of them was real, and none of them was on screen when
+     the probe looked:
+
+       a toast - one line for one second, shown when something is saved
+       the empty board - hidden whenever there are any notes
+       the drag hint - shown while somebody is dragging
+       the Archive button's label - correct in the markup, overwritten with
+         an emoji by JavaScript the moment anybody switches page
+       a tab's delete button - built in JavaScript while editing the pages
+
+     Waiting longer would not have found one of them. They are not slow to
+     draw; they are in states no screen in this list enters. That is A3b's
+     lesson in a new place: the icon check already reads the markup for
+     exactly this reason, and this one did not.
+
+     So: read the file. An emoji in a label, a toast or a button written by
+     JavaScript is found whether or not anything draws it.
+
+     What is NOT flagged, deliberately:
+       - an emoji inside a comment, which nobody sees
+       - a `emoji:` field in a data table, where the pin board keeps the
+         character for the plain-text report people paste into an email
+       - musical notation, U+2669 to U+266F
+       - user content: a notice, a song note, anything somebody typed    */
+
+  /* A PICTOGRAPH IS ALWAYS AN ICON STANDING IN FOR A LUCIDE ONE.
+     An ARROW usually is not - it is a connector somebody typed in a
+     sentence:
+
+       "In Stream: open video -> Share -> Embed"      prose
+       "Year 3 -> Little Ones"                        prose
+       "<div class=empty>(mailbox)</div>"             an icon
+
+     So arrows count only in the ICON POSITION: straight after a > or a
+     quote, where a label begins. Flagging every arrow turned three pages of
+     honest prose into failures, and a check people learn to scroll past is
+     worse than no check. */
+  const SRC_PICTO = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{2668}\u{2670}-\u{27BF}\u{2B00}-\u{2BFF}]\uFE0F?/gu;
+  /* ...and a word has to follow, or the arrow is a connector rather than
+     a label: "' -> ' + name" joins two things, "'(arrow) Unarchive'"
+     labels a button. */
+  const SRC_ARROW_AT_START = /[>'"`]\s*([\u{2190}-\u{21FF}]\uFE0F?)\s+[A-Za-z]/gu;
+
+  /* A line is interface if it draws something a person reads. */
+  const INTERFACE = [
+    /textContent\s*=/, /innerHTML\s*(=|\+=)/, /\btoast\s*\(/, /\balert\s*\(/,
+    /\bconfirm\s*\(/, /placeholder\s*=/, /\btitle\s*=/, /\baria-label\s*=/,
+    /<(button|a|label|option|summary|h[1-4]|th|span|div|p|td)\b/i
+  ];
+  const NOT_INTERFACE = [
+    /^\s*(\/\/|\*|\/\*)/,          /* a comment */
+    /\bemoji\s*:/,                   /* a data table's kept character */
+    /console\.(log|info|warn|error)/
+  ];
+
+  const srcHits = [];
+  for (const P of PAGES) {
+    if (only && !P.page.toLowerCase().includes(only.toLowerCase())) continue;
+    let text;
+    try { text = fs.readFileSync(path.join(V2, P.page), 'utf8'); } catch (e) { continue; }
+    text.split(/\r?\n/).forEach((line, n) => {
+      SRC_PICTO.lastIndex = 0; SRC_ARROW_AT_START.lastIndex = 0;
+      const picto = line.match(SRC_PICTO) || [];
+      const arrows = [...line.matchAll(SRC_ARROW_AT_START)].map(m => m[1]);
+      if (!picto.length && !arrows.length) return;
+      if (NOT_INTERFACE.some(re => re.test(line))) return;
+      if (!INTERFACE.some(re => re.test(line))) return;
+      const found = [...new Set(picto.concat(arrows))].join(' ');
+      srcHits.push({ page: P.page, line: n + 1, found, text: line.trim().slice(0, 90) });
+    });
+  }
+
+  if (srcHits.length) {
+    console.log('');
+    console.log('EMOJI IN THE SOURCE that no screen happened to show:');
+    srcHits.slice(0, 40).forEach(h =>
+      console.log('  ' + h.page + ':' + h.line + '  ' + h.found + '   ' + h.text));
+    if (srcHits.length > 40) console.log('  …and ' + (srcHits.length - 40) + ' more');
+  }
+
   console.log('\nTOTAL across every screen: ' + grand);
   if (turnedAway.length) {
     console.log(''); console.log('PAGES THIS RUN NEVER SAW. The number above is not about them:');
@@ -274,5 +359,5 @@ const REFUSED_PROBE = "(function(){var b=document.body;if(!b)return '';"
   /* A page that was never opened fails the run. Carrying on with a quiet zero
      is the whole of what went wrong before: six pages went unmeasured for days
      behind a total of 0. */
-  process.exit(grand || pagesWithErrors.length || turnedAway.length ? 1 : 0);
+  process.exit(grand || pagesWithErrors.length || turnedAway.length || srcHits.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

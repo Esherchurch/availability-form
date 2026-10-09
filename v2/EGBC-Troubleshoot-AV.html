@@ -117,7 +117,7 @@
         </div>
 
         <div id="batchDrop" class="drop-zone rounded-[1.5rem] px-6 py-12 text-center cursor-pointer bg-[#f0f6f6] mb-6" onclick="document.getElementById('batchFiles').click()">
-          <div class="text-4xl mb-3 opacity-30">📁</div>
+          <div class="text-4xl mb-3 opacity-30"><i data-lucide="folder" style="width:28px;height:28px;vertical-align:-2px"></i></div>
           <div class="text-sm font-semibold opacity-70">Drop your videos here</div>
           <div class="text-[12px] opacity-50 mt-2 leading-relaxed">Transcripts are generated in the browser automatically.<br>If you already have .txt or .vtt files, drop those too and they will be paired by filename.</div>
         </div>
@@ -186,7 +186,7 @@
 
   <div id="contentArea"></div>
   <div id="emptyState" class="hidden text-center py-20">
-    <div class="text-5xl mb-4">📭</div>
+    <div class="text-5xl mb-4"><i data-lucide="inbox" style="width:34px;height:34px;vertical-align:-2px"></i></div>
     <div class="font-semibold opacity-40 text-sm">No content yet</div>
     <div class="text-sm opacity-30 mt-2">Use the Admin panel to add videos, images and notes</div>
   </div>
@@ -305,14 +305,14 @@ function toggleSec(id){const el=document.getElementById(id);const chv=document.g
 function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
 
 function cardHTML(a,highlight=''){
-  const icons={Video:'▶',Image:'📷',Note:'📝'};
+  const icons={Video:'▶',Image:'<i data-lucide="camera" style="width:16px;height:16px;vertical-align:-2px"></i>',Note:'<i data-lucide="file-pen" style="width:16px;height:16px;vertical-align:-2px"></i>'};
   const colors={Video:'bg-blue-50 text-blue-700',Image:'bg-green-50 text-green-700',Note:'bg-yellow-50 text-yellow-700'};
   const bullets=(a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,3);
   const tags=(a.tags||'').split(',').map(t=>t.trim()).filter(Boolean).slice(0,3);
   const title=highlight?hlText(escapeHtml(a.title||''),highlight):escapeHtml(a.title||'');
   const jump=a._cue&&a._cue.t!==null?`<div class="mb-3 inline-flex items-center gap-2 bg-[#e7f0ef] border border-[#d1dfdf] px-3 py-1.5 rounded-lg"><span class="text-[12px] font-semibold text-[#3d6263]">▶ ${fmtTime(a._cue.t)}</span></div>`:'';
   return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}'${a._cue&&a._cue.t!==null?','+a._cue.t:''})">
-    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'📄'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-lg text-[12px] font-semibold">${a.assetType||'Video'}</span></div>
+    <div class="flex justify-between items-start mb-4"><span class="text-xl">${icons[a.assetType]||'<i data-lucide="file-text" style="width:16px;height:16px;vertical-align:-2px"></i>'}</span><span class="${colors[a.assetType]||'bg-gray-50 text-gray-600'} px-3 py-1 rounded-lg text-[12px] font-semibold">${a.assetType||'Video'}</span></div>
     <h3 class="font-semibold text-base mb-3 leading-snug">${title}</h3>
     ${jump}
     ${a._cue?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed italic">"${hlText(escapeHtml(a._cue.text),highlight)}"</p>`:(a.description?`<p class="text-[12px] opacity-60 mb-4 leading-relaxed line-clamp-2">${escapeHtml(a.description)}</p>`:'')}
@@ -583,7 +583,7 @@ function renderQueue(){
 
     return `<div class="bg-white rounded-[1.5rem] border border-[#d1dfdf] p-5">
       <div class="flex items-start gap-4 flex-wrap">
-        <span class="text-2xl">${q.assetType==='Image'?'📷':'🎬'}</span>
+        <span class="text-2xl">${q.assetType==='Image'?'<i data-lucide="camera" style="width:16px;height:16px;vertical-align:-2px"></i>':'<i data-lucide="clapperboard" style="width:16px;height:16px;vertical-align:-2px"></i>'}</span>
         <div class="flex-grow min-w-[200px]">
           <input value="${escapeHtml(q.title)}" oninput="updateQueueItem('${q.id}','title',this.value)" class="w-full px-4 py-2 rounded-lg border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm outline-none mb-2">
           <div class="flex gap-2 items-center flex-wrap">
@@ -791,7 +791,7 @@ async function renderManageList(){
   list.innerHTML=items.map(a=>{
     const legacy=a.contentURL&&!isVideoURL(a.contentURL)&&a.assetType==='Video';
     return `<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
-    <span class="text-lg">${{Video:'▶',Image:'📷',Note:'📝'}[a.assetType]||'📄'}</span>
+    <span class="text-lg">${{Video:'▶',Image:'<i data-lucide="camera" style="width:16px;height:16px;vertical-align:-2px"></i>',Note:'<i data-lucide="file-pen" style="width:16px;height:16px;vertical-align:-2px"></i>'}[a.assetType]||'<i data-lucide="file-text" style="width:16px;height:16px;vertical-align:-2px"></i>'}</span>
     <div class="flex-grow min-w-0"><div class="font-semibold text-sm truncate">${escapeHtml(a.title)}</div><div class="text-[12px] opacity-50">${escapeHtml(a.category||'Uncategorised')} · ${a.assetType} · ${a.published?'Published':'Unpublished'}${legacy?' · <span class="text-amber-600 font-semibold">LEGACY EMBED</span>':''}</div></div>
     <div class="flex gap-2 flex-shrink-0">
       <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-lg font-semibold text-[12px] hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>

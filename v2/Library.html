@@ -559,10 +559,10 @@ async function renderList(docs) {
         if (stats.totalCount === 0) {
             statsEl.innerHTML = `<span class="stat-badge stat-never">Never used</span>`;
         } else {
-            let html = `<span class="stat-badge stat-total">✦ ${stats.totalCount} total</span>`;
+            let html = `<span class="stat-badge stat-total"><i data-lucide="sparkles" style="width:15px;height:15px;vertical-align:-2px"></i> ${stats.totalCount} total</span>`;
             if (stats.recentCount > 0) {
                 const cls = stats.recentCount >= 3 ? "stat-recent warning" : "stat-recent";
-                html += `<span class="stat-badge ${cls}">↺ ${stats.recentCount} recent</span>`;
+                html += `<span class="stat-badge ${cls}"><i data-lucide="refresh-cw" style="width:15px;height:15px;vertical-align:-2px"></i> ${stats.recentCount} recent</span>`;
             }
             if (stats.lastUsed) {
                 html += `<span class="stat-badge stat-last">Last: ${formatDate(stats.lastUsed)}</span>`;
@@ -665,7 +665,7 @@ async function renderUsagePanel(songTitle) {
     }
 
     const recentWarning = stats.recentCount >= 2
-        ? `<span class="usage-warning">⚠ Used ${stats.recentCount}x in last 3 months</span>`
+        ? `<span class="usage-warning"><i data-lucide="triangle-alert" style="width:15px;height:15px;vertical-align:-2px"></i> Used ${stats.recentCount}x in last 3 months</span>`
         : "";
 
     panel.innerHTML = `

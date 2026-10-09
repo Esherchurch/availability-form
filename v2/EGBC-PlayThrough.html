@@ -179,7 +179,7 @@
                 <div class="text-[12px] font-semibold text-[#3d6263] opacity-60">Step 3 — Chord Detection</div>
                 <div class="text-[12px] text-[#3d6263] opacity-60">Drop your video/audio file here. Chords are detected locally — the file is never uploaded anywhere.</div>
                 <div id="adminDropZone" class="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleFileDrop(event,'admin')" onclick="document.getElementById('adminFileInput').click()">
-                  <div class="text-2xl mb-1">🎵</div>
+                  <div class="text-2xl mb-1"><i data-lucide="music" style="width:22px;height:22px;vertical-align:-2px"></i></div>
                   <div class="font-semibold text-[12px] opacity-60">Drop video or audio file</div>
                   <div class="text-[12px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>
                 </div>
@@ -265,7 +265,7 @@
             <div class="text-[12px] font-semibold text-[#3d6263] opacity-60">Add / Update Chord Detection</div>
             <div class="text-[12px] text-[#3d6263] opacity-60">Drop the original video/audio file to detect chords per section. File is analysed locally and discarded.</div>
             <div id="editDropZone" class="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleFileDrop(event,'edit')" onclick="document.getElementById('editFileInput').click()">
-              <div class="text-2xl mb-1">🎵</div>
+              <div class="text-2xl mb-1"><i data-lucide="music" style="width:22px;height:22px;vertical-align:-2px"></i></div>
               <div class="font-semibold text-[12px] opacity-60">Drop video or audio file</div>
               <div class="text-[12px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>
             </div>
@@ -289,7 +289,7 @@
   <!-- CONTENT -->
   <div id="contentArea"></div>
   <div id="emptyState" class="hidden text-center py-20">
-    <div class="text-5xl mb-4">🎸</div>
+    <div class="text-5xl mb-4"><i data-lucide="guitar" style="width:34px;height:34px;vertical-align:-2px"></i></div>
     <div class="font-semibold opacity-40 text-sm">No songs yet</div>
     <div class="text-sm opacity-30 mt-2">Use the Admin panel to add play-through videos</div>
   </div>
@@ -398,7 +398,7 @@ function cardHTML(a,highlight=''){
   const title=highlight?hlText(a.title||'',highlight):(a.title||'');
   return `<div class="result-card bg-white border border-[#d1dfdf] rounded-[1.5rem] p-6 cursor-pointer shadow-sm" onclick="openCard('${a.id}')">
     <div class="flex justify-between items-start mb-3">
-      <span class="text-xl">${{Guitar:'🎸',Keyboard:'🎹',Both:'🎸🎹'}[a.instrument]||'▶'}</span>
+      <span class="text-xl">${{Guitar:'<i data-lucide="guitar" style="width:16px;height:16px;vertical-align:-2px"></i>',Keyboard:'<i data-lucide="piano" style="width:16px;height:16px;vertical-align:-2px"></i>',Both:'<i data-lucide="guitar" style="width:16px;height:16px;vertical-align:-2px"></i><i data-lucide="piano" style="width:16px;height:16px;vertical-align:-2px"></i>'}[a.instrument]||'<i data-lucide="play" style="width:16px;height:16px;vertical-align:-2px"></i>'}</span>
       <div class="flex gap-1 flex-wrap justify-end">
         ${a.ourKey?`<span class="bg-[#3d6263] text-white px-3 py-1 rounded-lg text-[12px] font-semibold">Key: ${a.ourKey}</span>`:''}
         ${a.songSection?`<span class="bg-[#f0f6f6] border border-[#d1dfdf] px-3 py-1 rounded-lg text-[12px] font-semibold">${a.songSection}</span>`:''}
@@ -663,7 +663,7 @@ async function processAudioFile(file, context){
   const resultEl = document.getElementById(context+'ChordsResult');
 
   zone.classList.add('analysing');
-  zone.innerHTML = `<div class="text-[12px] font-semibold opacity-60">📁 ${file.name}</div>`;
+  zone.innerHTML = `<div class="text-[12px] font-semibold opacity-60"><i data-lucide="folder" style="width:15px;height:15px;vertical-align:-2px"></i> ${file.name}</div>`;
   progress.classList.remove('hidden');
   resultEl.classList.add('hidden');
 
@@ -696,7 +696,7 @@ async function processAudioFile(file, context){
     setTimeout(()=>{
       progress.classList.add('hidden');
       zone.classList.remove('analysing');
-      zone.innerHTML = `<div class="text-green-700 font-semibold text-[12px]">✓ Analysis complete</div><div class="text-[12px] opacity-50 mt-1">${file.name}</div>`;
+      zone.innerHTML = `<div class="text-green-700 font-semibold text-[12px]"><i data-lucide="check" style="width:15px;height:15px;vertical-align:-2px"></i> Analysis complete</div><div class="text-[12px] opacity-50 mt-1">${file.name}</div>`;
 
       if(Object.keys(chordsPerSection).length){
         resultEl.innerHTML = Object.entries(chordsPerSection).map(([sec,chords])=>
@@ -713,7 +713,7 @@ async function processAudioFile(file, context){
     clearInterval(interval);
     progress.classList.add('hidden');
     zone.classList.remove('analysing');
-    zone.innerHTML = `<div class="text-red-500 font-semibold text-[12px]">✗ Could not read file — try MP3 or WAV</div>`;
+    zone.innerHTML = `<div class="text-red-500 font-semibold text-[12px]"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i> Could not read file — try MP3 or WAV</div>`;
     console.log('Audio analysis error:', e.message);
   }
 }
@@ -983,7 +983,7 @@ function resetAdminForm(){
   document.getElementById('sectionMarkersPreview').classList.add('hidden');
   document.getElementById('bulletsPreview').classList.remove('hidden');
   document.getElementById('bulletsPreview').textContent='Paste embed code — section markers will appear here, then drop your video for chord detection.';
-  document.getElementById('adminDropZone').innerHTML='<div class="text-2xl mb-1">🎵</div><div class="font-semibold text-[12px] opacity-60">Drop video or audio file</div><div class="text-[12px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
+  document.getElementById('adminDropZone').innerHTML='<div class="text-2xl mb-1"><i data-lucide="music" style="width:22px;height:22px;vertical-align:-2px"></i></div><div class="font-semibold text-[12px] opacity-60">Drop video or audio file</div><div class="text-[12px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
   document.getElementById('adminAnalyseProgress').classList.add('hidden');
   document.getElementById('adminChordsResult').classList.add('hidden');
   setStatus('pasteStatus','','');
@@ -1011,10 +1011,10 @@ async function renderManageList(){
   const items=await loadAll();
   if(!items.length){list.innerHTML='<div class="text-sm opacity-50 italic">No content yet.</div>';return;}
   list.innerHTML=items.map(a=>`<div class="flex items-center gap-3 flex-wrap bg-white rounded-[1rem] px-5 py-3 border border-[#d1dfdf] ${a.published?'':'opacity-50 border-dashed'}">
-    <span class="text-lg">${{Guitar:'🎸',Keyboard:'🎹',Both:'🎸🎹'}[a.instrument]||'▶'}</span>
+    <span class="text-lg">${{Guitar:'<i data-lucide="guitar" style="width:16px;height:16px;vertical-align:-2px"></i>',Keyboard:'<i data-lucide="piano" style="width:16px;height:16px;vertical-align:-2px"></i>',Both:'<i data-lucide="guitar" style="width:16px;height:16px;vertical-align:-2px"></i><i data-lucide="piano" style="width:16px;height:16px;vertical-align:-2px"></i>'}[a.instrument]||'<i data-lucide="play" style="width:16px;height:16px;vertical-align:-2px"></i>'}</span>
     <div class="flex-grow min-w-0">
       <div class="font-semibold text-sm truncate">${a.title}</div>
-      <div class="text-[12px] opacity-50">${a.songSection||''} ${a.ourKey?'· Key: '+a.ourKey:''} · ${a.instrument||''} · ${Object.keys(a.chordsPerSection||{}).length?'Chords detected ✓':'No chords'} · ${a.published?'Published':'Unpublished'}</div>
+      <div class="text-[12px] opacity-50">${a.songSection||''} ${a.ourKey?'· Key: '+a.ourKey:''} · ${a.instrument||''} · ${Object.keys(a.chordsPerSection||{}).length?'Chords detected':'No chords'} · ${a.published?'Published':'Unpublished'}</div>
     </div>
     <div class="flex gap-2 flex-shrink-0">
       <button onclick="editItem('${a.id}')" class="bg-[#f0f6f6] border border-[#d1dfdf] px-4 py-2 rounded-lg font-semibold text-[12px] hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
@@ -1091,7 +1091,7 @@ function parseEditTranscript(transcript){
 function closeEdit(){
   document.getElementById('editModal').classList.add('hidden');
   editDetectedChords={};
-  document.getElementById('editDropZone').innerHTML='<div class="text-2xl mb-1">🎵</div><div class="font-semibold text-[12px] opacity-60">Drop video or audio file</div><div class="text-[12px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
+  document.getElementById('editDropZone').innerHTML='<div class="text-2xl mb-1"><i data-lucide="music" style="width:22px;height:22px;vertical-align:-2px"></i></div><div class="font-semibold text-[12px] opacity-60">Drop video or audio file</div><div class="text-[12px] opacity-40 mt-1">MP4, MOV, MP3, WAV, M4A</div>';
 }
 
 async function saveEdit(){

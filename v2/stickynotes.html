@@ -239,7 +239,7 @@
 
 <header>
   <div class="header-left">
-    <div class="logo-icon">✝️</div>
+    <div class="logo-icon"><i data-lucide="church" style="width:22px;height:22px"></i></div>
     <div>
       <div class="header-title" id="boardTitle">Board</div>
       <div class="header-subtitle" id="boardSub">Suggestions &amp; Ideas</div>
@@ -274,13 +274,13 @@
 <div class="board-outer" id="boardOuter">
   <div class="board-canvas" id="boardCanvas">
     <div id="emptyState" class="empty-board" style="display:none">
-      <div class="empty-icon">📌</div>
+      <div class="empty-icon"><i data-lucide="pin" style="width:34px;height:34px"></i></div>
       <p>No notes yet — add the first one!</p>
     </div>
   </div>
 </div>
 
-<div class="drag-hint" id="dragHint">📌 Drag notes by their pin or top bar</div>
+<div class="drag-hint" id="dragHint"><i data-lucide="pin" style="width:15px;height:15px;vertical-align:-2px"></i> Drag notes by their pin or top bar</div>
 
 <!-- ADD / EDIT NOTE MODAL -->
 <div class="modal-overlay" id="noteModal">
@@ -489,12 +489,15 @@ function switchBoard(id) {
 // ── CONFIG ────────────────────────────────────────────────────────────────
 
 const CAT_META = {
-  song:    { label:'Song',    emoji:'🎵', cls:'note-song'    },
-  event:   { label:'Event',   emoji:'📅', cls:'note-event'   },
-  av:      { label:'AV/Tech', emoji:'🎬', cls:'note-av'      },
-  prayer:  { label:'Prayer',  emoji:'🙏', cls:'note-prayer'  },
-  general: { label:'General', emoji:'💡', cls:'note-general' },
-  other:   { label:'Other',   emoji:'📎', cls:'note-other'   },
+  /* `icon` is what the interface shows - DESIGN.md allows no emoji there.
+     `emoji` stays because the plain-text report further down still uses it,
+     and a text file somebody pastes into an email is not the interface. */
+  song:    { label:'Song',    emoji:'🎵', icon:'music', cls:'note-song'    },
+  event:   { label:'Event',   emoji:'📅', icon:'calendar-days', cls:'note-event'   },
+  av:      { label:'AV/Tech', emoji:'🎬', icon:'clapperboard', cls:'note-av'      },
+  prayer:  { label:'Prayer',  emoji:'🙏', icon:'heart', cls:'note-prayer'  },
+  general: { label:'General', emoji:'💡', icon:'lightbulb', cls:'note-general' },
+  other:   { label:'Other',   emoji:'📎', icon:'paperclip', cls:'note-other'   },
 };
 const REACTIONS = [
   { key:'love',    emoji:'❤️', icon:'heart', label:'Love it'  },
@@ -506,6 +509,18 @@ const REACTIONS = [
 /* A Lucide icon at the size the reaction buttons want. egbc-ui.js draws
    these even when they arrive later through innerHTML, which is how the
    notes are rendered. */
+/* The Archive / Board button, in one place rather than two. textContent
+   cannot hold an icon, so it is innerHTML, and egbc-ui.js redraws icons that
+   arrive late. */
+function setArchiveBtn(showingArchive) {
+  const b = document.getElementById('archiveToggleBtn');
+  if (!b) return;
+  b.innerHTML = showingArchive
+    ? reactionIcon('clipboard-list') + ' Board'
+    : reactionIcon('archive') + ' Archive';
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
 function reactionIcon(name) {
   return '<i data-lucide="' + name + '" style="width:14px;height:14px;vertical-align:-2px"></i>';
 }
@@ -561,7 +576,7 @@ async function loadState() {
         state = { ...state, ...parsed };
         // Save the migrated data up to Firebase immediately
         await BOARD_DOC.set({ pages: state.pages, notes: state.notes });
-        toast('Board migrated to cloud sync ☁️');
+        toast('Board migrated to cloud sync');
       }
     }
     setSyncStatus('synced');
@@ -646,7 +661,8 @@ function renderPages() {
     tab.textContent = page.title;
     if (page.id !== 'main' && isAdmin) {
       const d = document.createElement('span');
-      d.className = 'tab-delete'; d.textContent = '✕';
+      d.className = 'tab-delete'; d.innerHTML = reactionIcon('x');
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
       d.onclick = e => { e.stopPropagation(); confirmDeletePage(page.id); };
       tab.appendChild(d);
     }
@@ -657,7 +673,7 @@ function renderPages() {
 
 function switchPage(id) {
   state.currentPage = id; state.showArchive = false;
-  document.getElementById('archiveToggleBtn').textContent = '📦 Archive';
+  setArchiveBtn(false);
   renderPages(); renderNotes();
 }
 
@@ -753,7 +769,7 @@ function buildNoteEl(note, idx) {
   el.innerHTML = `
     <div class="note-pin"></div>
     <div class="note-topbar">
-      <span class="note-category">${meta.emoji} ${meta.label}</span>
+      <span class="note-category">${reactionIcon(meta.icon)} ${meta.label}</span>
       ${actionsHtml}
     </div>
     ${note.title ? `<div class="note-title">${esc(note.title)}</div>` : ''}
@@ -829,12 +845,12 @@ function saveNote() {
     });
   }
   saveState(); closeNoteModal(); renderNotes();
-  toast(state.editingNoteId ? 'Note updated' : '📌 Note pinned!');
+  toast(state.editingNoteId ? 'Note updated' : 'Note pinned');
   state.editingNoteId = null;
 }
 
 function editNote(id) { openNoteModal(id); }
-function archiveNote(id)   { const n=state.notes.find(n=>n.id===id); if(n){n.archived=true;  saveState();renderNotes();toast('Note archived 📦');} }
+function archiveNote(id)   { const n=state.notes.find(n=>n.id===id); if(n){n.archived=true;  saveState();renderNotes();toast('Note archived');} }
 function unarchiveNote(id) { const n=state.notes.find(n=>n.id===id); if(n){n.archived=false; saveState();renderNotes();toast('Note restored');} }
 function confirmDeleteNote(id) {
   showConfirm('Delete Note','Permanently delete this note?',()=>{
@@ -863,7 +879,7 @@ function setFilter(cat, el) {
 }
 function toggleArchiveView() {
   state.showArchive = !state.showArchive;
-  document.getElementById('archiveToggleBtn').textContent = state.showArchive ? '📋 Board' : '📦 Archive';
+  setArchiveBtn(state.showArchive);
   renderNotes();
 }
 

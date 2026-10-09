@@ -327,7 +327,7 @@
 
 <!-- Toolbar -->
 <div id="toolbar">
-    <div class="tgroup"><span class="brandmark">✉️ Email Builder</span></div>
+    <div class="tgroup"><span class="brandmark"><i data-lucide="mail" style="width:15px;height:15px;vertical-align:-2px"></i> Email Builder</span></div>
     <div class="tgroup">
         <button class="tbtn b" onmousedown="event.preventDefault(); document.execCommand('bold');" title="Bold">B</button>
         <button class="tbtn i" onmousedown="event.preventDefault(); document.execCommand('italic');" title="Italic">I</button>
@@ -394,7 +394,7 @@
 
         <div id="email-canvas">
             <div class="canvas-preheader" title="Preview text — the grey line shown in the inbox next to the subject">
-                <span>👁</span><input id="preheaderInput" type="text" placeholder="Preview text shown in the inbox (optional)" maxlength="140">
+                <span><i data-lucide="eye" style="width:15px;height:15px;vertical-align:-2px"></i></span><input id="preheaderInput" type="text" placeholder="Preview text shown in the inbox (optional)" maxlength="140">
             </div>
             <div class="canvas-header">
                 <div>
@@ -416,7 +416,7 @@
 
     <div id="sidebar">
         <div class="panel">
-            <div class="panel-title">📮 Send to</div>
+            <div class="panel-title"><i data-lucide="send" style="width:15px;height:15px;vertical-align:-2px"></i> Send to</div>
             <label class="list-item"><input type="checkbox" class="team-filter" value="AV Team"> AV Team <span class="cnt" data-team="AV Team"></span></label>
             <label class="list-item"><input type="checkbox" class="team-filter" value="Worship Team"> Worship Team <span class="cnt" data-team="Worship Team"></span></label>
             <label class="list-item"><input type="checkbox" class="team-filter" value="Youth Worship"> Youth Team <span class="cnt" data-team="Youth Worship"></span></label>
@@ -428,7 +428,7 @@
         </div>
 
         <div class="panel">
-            <div class="panel-title">✍️ Your details</div>
+            <div class="panel-title"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:-2px"></i> Your details</div>
             <div class="field">
                 <label for="senderEmail">Your email (reply-to)</label>
                 <input id="senderEmail" type="email" placeholder="your@email.com" oninput="localStorage.setItem('egbc-sender-email',this.value)">
@@ -437,7 +437,7 @@
         </div>
 
         <div class="panel">
-            <div class="panel-title">📂 Drafts</div>
+            <div class="panel-title"><i data-lucide="folder-open" style="width:15px;height:15px;vertical-align:-2px"></i> Drafts</div>
             <button class="btn-ghost" onclick="openDraftsModal()">Open saved drafts</button>
             <div id="current-draft-info"></div>
         </div>
@@ -877,7 +877,7 @@ async function sendAll() {
     $('resFail').textContent = failed.length;
     $('failList').innerHTML = failed.length
         ? `<div class="fail-list"><b>Couldn't deliver to:</b><br>${failed.map(f => escapeHtml(f.name) + ' (' + escapeHtml(f.email) + ')').join('<br>')}</div>`
-        : `<div style="text-align:center;color:var(--good);font-weight:600;font-size:13px;">🎉 Everyone received it.</div>`;
+        : `<div style="text-align:center;color:var(--good);font-weight:600;font-size:13px;"><i data-lucide="party-popper" style="width:15px;height:15px;vertical-align:-2px"></i> Everyone received it.</div>`;
     $('sendResults').style.display = 'block';
 
     lastSendList = failed;  // allow one-click retry of just the failures
@@ -916,7 +916,7 @@ async function renderDraftsList() {
             return `<div class="draft-card" style="${active ? 'border-color:#3d6263;background:#f0f6f6;' : ''}">
                 <div class="draft-info">
                     <div class="draft-name">${escapeHtml(data.name || 'Untitled Draft')}${active ? '<span class="draft-badge">LOADED</span>' : ''}</div>
-                    <div class="draft-meta">✏️ ${escapeHtml(data.createdBy || '?')} · ${formatDate(data.createdAt)}<br>🔄 ${escapeHtml(data.updatedBy || '?')} · ${formatDate(data.updatedAt)}</div>
+                    <div class="draft-meta"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:-2px"></i> ${escapeHtml(data.createdBy || '?')} · ${formatDate(data.createdAt)}<br><i data-lucide="refresh-cw" style="width:15px;height:15px;vertical-align:-2px"></i> ${escapeHtml(data.updatedBy || '?')} · ${formatDate(data.updatedAt)}</div>
                 </div>
                 <div class="draft-actions">
                     <button class="btn-load" onclick="loadDraft('${d.id}')">Load</button>
@@ -1012,8 +1012,8 @@ async function deleteDraft(id) {
 function updateCurrentDraftInfo(name, createdBy, updatedBy, createdAt, updatedAt) {
     const el = $('current-draft-info');
     let html = `<div style="font-weight:600;color:#1e293b;margin-bottom:4px;font-size:12px;">${escapeHtml(name || 'Draft')}</div>`;
-    html += `<div>✏️ Created by <b>${escapeHtml(createdBy || '?')}</b></div>`;
-    html += `<div style="margin-top:4px;">🔄 Last edited by <b>${escapeHtml(updatedBy || '?')}</b></div>`;
+    html += `<div><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:-2px"></i> Created by <b>${escapeHtml(createdBy || '?')}</b></div>`;
+    html += `<div style="margin-top:4px;"><i data-lucide="refresh-cw" style="width:15px;height:15px;vertical-align:-2px"></i> Last edited by <b>${escapeHtml(updatedBy || '?')}</b></div>`;
     html += `<button onclick="overwriteActiveDraft()" class="btn-primary" style="background:var(--good);margin-top:10px;padding:9px;font-size:12px;"><i data-lucide="save" style="width:15px;height:15px;vertical-align:-2px"></i> Save changes to this draft</button>`;
     el.innerHTML = html; el.style.display = 'block';
 }
