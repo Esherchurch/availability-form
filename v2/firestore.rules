@@ -1824,7 +1824,12 @@ service cloud.firestore {
       allow read: if kidsLead(resource.data.siteId)
                   || me().get('memberId', '-') in resource.data.get('leaderIds', [])
                   || me().get('memberId', '-') in resource.data.get('sessionLeaderIds', []);
-      allow create, update: if kidsLead(request.resource.data.siteId)
+      // A lead opens it, or (Martin, F-098) the rota's Session Leader for
+      // that day, naming themselves: the rota check below proves it is them.
+      allow create, update: if (kidsLead(request.resource.data.siteId)
+                       || (active() && request.resource.data.day == kidsToday()
+                           && exists(/databases/$(database)/documents/kidsSettings/$(request.resource.data.siteId))
+                           && request.resource.data.get('sessionLeaderIds', []) == [me().get('memberId', '-')]))
                    && request.resource.data.keys().hasOnly(['siteId', 'day', 'rotaId', 'leaderIds', 'sessionLeaderIds', 'expiresAt', 'updatedAt', 'updatedBy'])
                    && request.resource.data.day is string
                    && morningId == request.resource.data.siteId + '_' + request.resource.data.day
@@ -1853,6 +1858,194 @@ service cloud.firestore {
                    && request.resource.data.name == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.name
                    && request.resource.data.day == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.day
                    && request.resource.data.state == getAfter(/databases/$(database)/documents/checkins/$(checkinId)).data.state;
+      allow delete: if false;
+    }
+
+    // ---- term dates (Martin, F-098) -----------------------------------
+    // Three terms a year, each with a start and an end, set by a lead; the
+    // registers use them.
+    function termOk(t) {
+      return t is map && t.keys().hasOnly(['name', 'from', 'to'])
+             && t.name is string && t.name.size() > 0 && t.name.size() <= 40
+             && t.from is string && t.from.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+             && t.to is string && t.to.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && t.from <= t.to;
+    }
+    match /kidsTerms/{siteId} {
+      allow read: if active();
+      allow write: if kidsLead(siteId)
+                   && request.resource.data.keys().hasOnly(['terms', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.terms is list && request.resource.data.terms.size() == 3
+                   && termOk(request.resource.data.terms[0]) && termOk(request.resource.data.terms[1]) && termOk(request.resource.data.terms[2])
+                   && request.resource.data.terms[0].to < request.resource.data.terms[1].from
+                   && request.resource.data.terms[1].to < request.resource.data.terms[2].from;
+    }
+
+    // ---- paging a parent on the screen, through ChurchShow (F-098) ------
+    // One document per page, its id the child's check-in id, so paging the
+    // same child again replaces it. THE CONTRACT ChurchShow reads is in
+    // FINDINGS-events.md (F-100): { siteId, code, room, message, createdBy,
+    // createdAt, clearedAt }. The code only, never a name: the message must
+    // be exactly "<code>, please come to <group>", with the code from that
+    // child's check-in and the group's own name.
+    // Group leaders, the Session Leader and the leads page and clear;
+    // anyone signed in reads a page that has not been cleared (the
+    // projection computer signs in as an AV or worship person). A page
+    // older than five minutes counts as cleared (ChurchShow and the leader's
+    // screen both treat it so; the leader's screen also writes clearedAt).
+    function pageCk(pageId) {
+      return get(/databases/$(database)/documents/checkins/$(pageId)).data;
+    }
+    function pageTeam(pageId) {
+      return exists(/databases/$(database)/documents/checkins/$(pageId))
+             && pageCk(pageId).get('kind', '') == 'child'
+             && (kidsGroupLeader(pageCk(pageId).groupId) || kidsSessionLeaderNow(pageCk(pageId).siteId) || kidsLead(pageCk(pageId).siteId));
+    }
+    function pageShape(pageId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['siteId', 'code', 'room', 'message', 'createdBy', 'createdAt', 'clearedAt'])
+             && d.siteId == pageCk(pageId).siteId
+             && d.code == pageCk(pageId).pickupCode
+             && d.room is string && d.room.size() <= 80
+             && d.message == d.code + ', please come to ' + get(/databases/$(database)/documents/kidsGroups/$(pageCk(pageId).groupId)).data.name
+             && d.createdBy == request.auth.uid
+             && d.createdAt == request.time
+             && d.clearedAt == null;
+    }
+    match /screenPages/{pageId} {
+      allow read: if (active() && resource.data.clearedAt == null)
+                  || (active() && resource.data.createdBy == request.auth.uid)
+                  || kidsLead(resource.data.siteId);
+      // A new page (or the same child paged again), for a child who is in.
+      allow create: if pageTeam(pageId) && pageCk(pageId).state == 'in' && pageShape(pageId);
+      allow update: if pageTeam(pageId)
+                    && ((pageCk(pageId).state == 'in' && pageShape(pageId))
+                        || (resource.data.clearedAt == null
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clearedAt'])
+                            && request.resource.data.clearedAt == request.time));
+      allow delete: if false;
+    }
+
+    // ---- small groups (Chunk 7, stage 1; EVENTS-BOOKINGS-BRIEF §6.15) ----
+    //
+    //   - GROUPS ADMINS: master admins, and the admins of the teams a master
+    //     admin names in groupsSettings/main. They add groups and choose
+    //     their leaders.
+    //   - A GROUP'S LEADERS (smallGroups.leaderIds, member ids) edit its
+    //     details (not its leaders, nor whether it is public), add and
+    //     remove its members, and accept or decline requests to join it.
+    //   - THE PUBLIC sees public groups that are running; members see all.
+    //     A home group's address and an online link are smallGroupPrivate:
+    //     the group's members, its leaders and the groups admins only.
+    //   - Who is in a group: the group, its leaders, the groups admins - and
+    //     each person their own places.
+    // A group's memberCount moves by one with each member added or taken
+    // out, in the same write, and never past its limit.
+    function groupsAdmin() {
+      return isMaster()
+             || (active() && exists(/databases/$(database)/documents/groupsSettings/main)
+                 && me().get('adminFor', []).hasAny(get(/databases/$(database)/documents/groupsSettings/main).data.get('teams', [])));
+    }
+    function sgDoc(groupId) { return get(/databases/$(database)/documents/smallGroups/$(groupId)).data; }
+    function groupLeader(groupId) {
+      return active() && groupId is string && groupId != '' && exists(/databases/$(database)/documents/smallGroups/$(groupId))
+             && me().get('memberId', '-') in sgDoc(groupId).get('leaderIds', []);
+    }
+    function groupMember(groupId) {
+      return active() && groupId is string && groupId != ''
+             && exists(/databases/$(database)/documents/smallGroupMembers/$(groupId + '__a_' + me().get('memberId', '-')));
+    }
+    function groupShape() {
+      let d = request.resource.data;
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 80
+             && d.get('visibility', 'public') in ['public', 'members']
+             && d.get('locationKind', 'home') in ['home', 'room', 'venue', 'online']
+             && d.get('leaderIds', []) is list && d.get('leaderIds', []).size() <= 10
+             && d.get('capacity', 0) is int && d.get('capacity', 0) >= 0 && d.get('capacity', 0) <= 200
+             && d.get('memberCount', 0) is int && d.get('memberCount', 0) >= 0
+             && d.get('open', true) is bool && d.get('active', true) is bool
+             && d.get('description', '') is string && d.get('description', '').size() <= 2000
+             // The address and the link to join belong in smallGroupPrivate, never on the public card.
+             && !d.keys().hasAny(['address', 'meetingLink', 'postcode']);
+    }
+    function memberKeyOf(groupId, personKind, personId) {
+      return groupId + '__' + (personKind == 'contacts' ? 'c' : 'a') + '_' + personId;
+    }
+    // The count moves with a member added or taken out, named in lastMemberKey.
+    function groupCountOk(groupId) {
+      let b = resource.data.get('memberCount', 0);
+      let a = request.resource.data.get('memberCount', 0);
+      let k = request.resource.data.get('lastMemberKey', '');
+      return a == b
+             || (a == b + 1 && k is string && k.matches(groupId + '__.*')
+                 && existsAfter(/databases/$(database)/documents/smallGroupMembers/$(k))
+                 && !exists(/databases/$(database)/documents/smallGroupMembers/$(k))
+                 && (request.resource.data.get('capacity', 0) == 0 || a <= request.resource.data.get('capacity', 0)))
+             || (a == b - 1 && k is string && k.matches(groupId + '__.*')
+                 && !existsAfter(/databases/$(database)/documents/smallGroupMembers/$(k))
+                 && exists(/databases/$(database)/documents/smallGroupMembers/$(k)));
+    }
+    match /groupsSettings/{id} {
+      allow read: if active();
+      allow write: if isMaster() && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20;
+    }
+    match /smallGroups/{groupId} {
+      allow read: if (resource.data.get('visibility', 'public') == 'public' && resource.data.get('active', true) == true) || active();
+      allow create: if groupsAdmin() && groupShape() && request.resource.data.get('memberCount', 0) == 0;
+      allow update: if groupShape() && groupCountOk(groupId)
+                    && (groupsAdmin()
+                        || (groupLeader(groupId)
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'type', 'description', 'day', 'time', 'frequency', 'frequencyNote',
+                                 'locationKind', 'siteId', 'roomId', 'area', 'venueName', 'audience', 'open', 'capacity', 'memberCount', 'lastMemberKey', 'updatedAt', 'updatedBy'])));
+      allow delete: if false;
+    }
+    match /smallGroupPrivate/{groupId} {
+      allow read: if groupsAdmin() || groupLeader(groupId) || groupMember(groupId);
+      allow write: if (groupsAdmin() || groupLeader(groupId))
+                   && request.resource.data.keys().hasOnly(['address', 'meetingLink', 'notes', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.get('address', '').size() <= 300 && request.resource.data.get('meetingLink', '').size() <= 300;
+    }
+    match /smallGroupMembers/{key} {
+      allow read: if groupsAdmin() || groupLeader(resource.data.groupId) || groupMember(resource.data.groupId)
+                  || (active() && resource.data.personKind == 'addressBook' && resource.data.personId == me().get('memberId', '-'));
+      allow create: if (groupsAdmin() || groupLeader(request.resource.data.groupId))
+                    && request.resource.data.keys().hasOnly(['groupId', 'personKind', 'personId', 'name', 'email', 'phone', 'joinedAt', 'addedBy'])
+                    && request.resource.data.personKind in ['addressBook', 'contacts']
+                    && key == memberKeyOf(request.resource.data.groupId, request.resource.data.personKind, request.resource.data.personId)
+                    && existsAfter(/databases/$(database)/documents/$(request.resource.data.personKind)/$(request.resource.data.personId))
+                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+                    && getAfter(/databases/$(database)/documents/smallGroups/$(request.resource.data.groupId)).data.get('memberCount', 0)
+                         == sgDoc(request.resource.data.groupId).get('memberCount', 0) + 1;
+      allow delete: if (groupsAdmin() || groupLeader(resource.data.groupId))
+                    && getAfter(/databases/$(database)/documents/smallGroups/$(resource.data.groupId)).data.get('memberCount', 0)
+                         == sgDoc(resource.data.groupId).get('memberCount', 0) - 1;
+      allow update: if false;
+    }
+    // Anyone may ask to join a public group that is running, open and not
+    // full (members-only groups: signed-in members). A member asks as
+    // themselves; a guest as the contact written in the same batch.
+    match /smallGroupRequests/{requestId} {
+      allow read: if groupsAdmin() || groupLeader(resource.data.groupId);
+      allow create: if request.resource.data.keys().hasOnly(['groupId', 'groupName', 'name', 'email', 'phone', 'message', 'personKind', 'personId', 'status', 'createdAt'])
+                    && request.resource.data.groupId is string && exists(/databases/$(database)/documents/smallGroups/$(request.resource.data.groupId))
+                    && sgDoc(request.resource.data.groupId).get('active', true) == true
+                    && sgDoc(request.resource.data.groupId).get('open', true) == true
+                    && (sgDoc(request.resource.data.groupId).get('capacity', 0) == 0
+                        || sgDoc(request.resource.data.groupId).get('memberCount', 0) < sgDoc(request.resource.data.groupId).get('capacity', 0))
+                    && (sgDoc(request.resource.data.groupId).get('visibility', 'public') == 'public' || active())
+                    && request.resource.data.status == 'asked' && request.resource.data.createdAt == request.time
+                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+                    && request.resource.data.email is string && request.resource.data.email.size() <= 200
+                    && request.resource.data.get('phone', '') is string && request.resource.data.get('phone', '').size() <= 40
+                    && request.resource.data.get('message', '') is string && request.resource.data.get('message', '').size() <= 1000
+                    && ((request.resource.data.personKind == 'addressBook' && active() && request.resource.data.personId == me().get('memberId', '-'))
+                        || (request.resource.data.personKind == 'contacts'
+                            && existsAfter(/databases/$(database)/documents/contacts/$(request.resource.data.personId))));
+      allow update: if (groupsAdmin() || groupLeader(resource.data.groupId))
+                    && resource.data.status == 'asked' && request.resource.data.status in ['accepted', 'declined']
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decidedAt', 'decidedBy'])
+                    && request.resource.data.decidedAt == request.time && request.resource.data.decidedBy == request.auth.uid
+                    && (request.resource.data.status == 'declined'
+                        || existsAfter(/databases/$(database)/documents/smallGroupMembers/$(memberKeyOf(resource.data.groupId, resource.data.personKind, resource.data.personId))));
       allow delete: if false;
     }
 

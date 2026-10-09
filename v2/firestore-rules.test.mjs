@@ -1294,6 +1294,130 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the leads still do', 'allow', () => roll(ctx('u_kim')));
 }
 
+// ── EVENTS (events window) ── F-098: the Session Leader opens the morning; term dates; paging on the screen (ChurchShow)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const TOMORROW = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const { Timestamp } = await import('firebase/firestore');
+  const soon = (h) => Timestamp.fromMillis(Date.now() + h * 3600000);
+  const M = (extra) => ({ siteId: 'site_kids', day: TODAY, rotaId: 'rota_today', leaderIds: ['m_lou', 'm_jo', 'm_sid'], sessionLeaderIds: ['m_sam'], expiresAt: soon(8), updatedAt: 'x', updatedBy: 'u_sam', ...(extra || {}) });
+  await check('someone not the Session Leader on the rota cannot open the morning', 'deny', () => setDoc(doc(ctx('u_nat'), 'kidsMornings', 'site_kids_' + TODAY), M({ sessionLeaderIds: ['m_nat'] })));
+  await check('nor by naming the real Session Leader', 'deny', () => setDoc(doc(ctx('u_nat'), 'kidsMornings', 'site_kids_' + TODAY), M()));
+  await check('THE ROTA\u2019S SESSION LEADER OPENS THE MORNING THEMSELVES', 'allow', () => setDoc(doc(ctx('u_sam'), 'kidsMornings', 'site_kids_' + TODAY), M()));
+  await check('but only today\u2019s', 'deny', () => setDoc(doc(ctx('u_sam'), 'kidsMornings', 'site_kids_' + TOMORROW), M({ day: TOMORROW })));
+
+  const T = (a, b, c) => ({ terms: [{ name: 'Autumn', from: a[0], to: a[1] }, { name: 'Spring', from: b[0], to: b[1] }, { name: 'Summer', from: c[0], to: c[1] }], updatedAt: 'x', updatedBy: 'x' });
+  const YEAR = T(['2026-09-03', '2026-12-18'], ['2027-01-05', '2027-03-26'], ['2027-04-12', '2027-07-21']);
+  await check('a lead sets the year\u2019s three terms', 'allow', () => setDoc(doc(ctx('u_kim'), 'kidsTerms', 'site_kids'), YEAR));
+  await check('terms that overlap are refused', 'deny', () => setDoc(doc(ctx('u_kim'), 'kidsTerms', 'site_kids'), T(['2026-09-03', '2027-01-10'], ['2027-01-05', '2027-03-26'], ['2027-04-12', '2027-07-21'])));
+  await check('a term that ends before it starts is refused', 'deny', () => setDoc(doc(ctx('u_kim'), 'kidsTerms', 'site_kids'), T(['2026-12-18', '2026-09-03'], ['2027-01-05', '2027-03-26'], ['2027-04-12', '2027-07-21'])));
+  await check('a group leader cannot set them', 'deny', () => setDoc(doc(ctx('u_lou'), 'kidsTerms', 'site_kids'), YEAR));
+
+  const PID = 'kids_grp_junior_' + TODAY + '__kid_cat__0';   /* Cat, checked in to Juniors this morning (code Q7P2) */
+  const PAGE = (who, extra) => ({ siteId: 'site_kids', code: 'Q7P2', room: 'Junior Room', message: 'Q7P2, please come to Juniors', createdBy: who, createdAt: serverTimestamp(), clearedAt: null, ...(extra || {}) });
+  await check('THE PAGE MAY NOT NAME THE CHILD', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { message: 'Cat Synthetic, please come to Juniors' })));
+  await check('nor carry a code that is not the family\u2019s', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { code: 'ZZZZ', message: 'ZZZZ, please come to Juniors' })));
+  await check('nor anything else', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { childName: 'Cat Synthetic' })));
+  await check('the leader of Little ones cannot page for a Junior', 'deny', () => setDoc(doc(ctx('u_lou'), 'screenPages', PID), PAGE('u_lou')));
+  await check('an admin of another team cannot page', 'deny', () => setDoc(doc(ctx('u_wes'), 'screenPages', PID), PAGE('u_wes')));
+  await check('Juniors\u2019 leader pages Cat\u2019s parent: "Q7P2, please come to Juniors"', 'allow', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo')));
+  await check('THE CONTRACT: the projection computer (a worship admin) reads the active pages for the site, exactly these fields, a code and no name', 'allow', async () => {
+    const snap = await getDocs(query(collection(ctx('u_wes'), 'screenPages'), where('siteId', '==', 'site_kids'), where('clearedAt', '==', null)));
+    const d = snap.docs[0] && snap.docs[0].data();
+    if (snap.size !== 1) throw new Error('expected one page, got ' + snap.size);
+    if (Object.keys(d).sort().join(',') !== 'clearedAt,code,createdAt,createdBy,message,room,siteId') throw new Error('fields: ' + Object.keys(d).sort());
+    if (d.message !== 'Q7P2, please come to Juniors' || d.code !== 'Q7P2' || d.room !== 'Junior Room' || d.siteId !== 'site_kids' || d.clearedAt !== null) throw new Error(JSON.stringify(d));
+    if (typeof d.createdAt.toMillis !== 'function' || Math.abs(d.createdAt.toMillis() - Date.now()) > 120000) throw new Error('createdAt is not server time');
+    if (/Cat|Synthetic/.test(JSON.stringify(d))) throw new Error('a name on the screen');
+  });
+  await check('a list that does not ask for uncleared pages is refused', 'deny', () => getDocs(query(collection(ctx('u_wes'), 'screenPages'), where('siteId', '==', 'site_kids'))));
+  await check('nobody signed out reads them', 'deny', () => getDocs(query(collection(env.unauthenticatedContext().firestore(), 'screenPages'), where('siteId', '==', 'site_kids'), where('clearedAt', '==', null))));
+  await check('the Session Leader pages too, this morning', 'allow', () => setDoc(doc(ctx('u_sam'), 'screenPages', PID), PAGE('u_sam')));
+  await check('"Done" may not change anything but clearedAt', 'deny', () => updateDoc(doc(ctx('u_jo'), 'screenPages', PID), { clearedAt: serverTimestamp(), code: 'ZZZZ' }));
+  await check('the leader presses "Done": it is cleared, at server time', 'allow', () => updateDoc(doc(ctx('u_jo'), 'screenPages', PID), { clearedAt: serverTimestamp() }));
+  await check('once cleared, the projection computer no longer reads it', 'deny', () => getDoc(doc(ctx('u_wes'), 'screenPages', PID)));
+  await check('a page is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'screenPages', PID)));
+}
+
+// ── EVENTS (events window) ── small groups (Chunk 7, stage 1)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const U = (uid, mid, teams, adminFor) => Promise.all([setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor, masterAdmin: false }),
+      setDoc(doc(db, 'addressBook', mid), { name: uid, email: uid + '@example.invalid', markers: teams })]);
+    await U('u_gina', 'm_gina', ['Core Team'], ['Core Team']);
+    await U('u_lena', 'm_lena', ['Small Groups'], []);
+    await U('u_mo', 'm_mo', [], []);
+    await U('u_ned', 'm_ned', [], []);
+  });
+  const GRP = (extra) => ({ name: 'Tuesday home group', type: 'Home group', description: 'Bible and supper', day: 2, time: '19:30', frequency: 'weekly', locationKind: 'home', area: 'Esher',
+    audience: 'Adults', open: true, capacity: 2, memberCount: 0, visibility: 'public', active: true, leaderIds: ['m_lena'], leaderNames: ['Lena'], ...(extra || {}) });
+  await check('before a groups team is named, a Core Team admin cannot add a group', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_tue'), GRP()));
+  await check('a master admin names the groups admins (Core Team)', 'allow', () => setDoc(doc(as('martin'), 'groupsSettings', 'main'), { teams: ['Core Team'] }));
+  await check('a groups admin (Core Team) adds a group, with Lena leading', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_tue'), GRP()));
+  await check('and its private half: the address', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroupPrivate', 'sg_tue'), { address: '1 Invented Road, Esher', meetingLink: '', notes: '' }));
+  await check('a members-only group too', 'allow', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), GRP({ name: 'Members prayer', visibility: 'members', capacity: 0 })));
+  await check('an admin of another team cannot add a group', 'deny', () => setDoc(doc(ctx('u_wes'), 'smallGroups', 'sg_x'), GRP()));
+  await check('a home address may not go on the public card', 'deny', () => setDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_z'), GRP({ address: '1 Invented Road' })));
+  await check('nor can a group start with members already counted', 'deny', () => setDoc(doc(as('martin'), 'smallGroups', 'sg_y'), GRP({ memberCount: 3 })));
+
+  await check('the public see public groups that are running', 'allow', () => getDocs(query(collection(guest(), 'smallGroups'), where('visibility', '==', 'public'), where('active', '==', true))));
+  await check('but not members-only groups', 'deny', () => getDoc(doc(guest(), 'smallGroups', 'sg_mem')));
+  await check('members see them', 'allow', () => getDocs(query(collection(ctx('u_ned'), 'smallGroups'), where('active', '==', true))));
+  await check('A HOME GROUP\u2019S ADDRESS IS NOT PUBLIC', 'deny', () => getDoc(doc(guest(), 'smallGroupPrivate', 'sg_tue')));
+  await check('nor open to a member who is not in the group', 'deny', () => getDoc(doc(ctx('u_ned'), 'smallGroupPrivate', 'sg_tue')));
+  await check('the leader reads it', 'allow', () => getDoc(doc(ctx('u_lena'), 'smallGroupPrivate', 'sg_tue')));
+
+  /* Asking to join: a guest as a contact written in the same batch; a member as themselves. */
+  const REQ = (extra) => ({ groupId: 'sg_tue', groupName: 'Tuesday home group', name: 'Guest Synthetic', email: 'guest@example.invalid', phone: '', message: 'Hello',
+    personKind: 'contacts', personId: 'c_guest1', status: 'asked', createdAt: serverTimestamp(), ...(extra || {}) });
+  const guestAsk = (id, extra) => { const g = guest(), b = writeBatch(g);
+    b.set(doc(g, 'contacts', 'c_guest1'), { name: 'Guest Synthetic', email: 'guest@example.invalid', phone: '', source: 'signup', createdAt: 'x' });
+    b.set(doc(g, 'smallGroupRequests', id), REQ(extra)); return b.commit(); };
+  await check('a guest asks to join a public group', 'allow', () => guestAsk('rq_guest'));
+  await check('a guest cannot ask to join a members-only group', 'deny', () => guestAsk('rq_guest2', { groupId: 'sg_mem' }));
+  await check('nor ask as someone already accepted', 'deny', () => guestAsk('rq_guest3', { status: 'accepted' }));
+  await check('a member asks as themselves', 'allow', () => setDoc(doc(ctx('u_mo'), 'smallGroupRequests', 'rq_mo'), REQ({ name: 'Mo', email: 'mo@example.invalid', personKind: 'addressBook', personId: 'm_mo' })));
+  await check('but not as another member', 'deny', () => setDoc(doc(ctx('u_mo'), 'smallGroupRequests', 'rq_mo2'), REQ({ personKind: 'addressBook', personId: 'm_ned' })));
+  await check('requests are not public', 'deny', () => getDoc(doc(guest(), 'smallGroupRequests', 'rq_guest')));
+  await check('nor seen by another member', 'deny', () => getDocs(query(collection(ctx('u_ned'), 'smallGroupRequests'), where('groupId', '==', 'sg_tue'))));
+  await check('the leader sees the group\u2019s requests', 'allow', () => getDocs(query(collection(ctx('u_lena'), 'smallGroupRequests'), where('groupId', '==', 'sg_tue'), where('status', '==', 'asked'))));
+
+  /* Accepting: the request, the member and the count, in one write. */
+  const accept = (who, rq, kind, pid, name, count) => { const b = writeBatch(who), key = 'sg_tue__' + (kind === 'contacts' ? 'c' : 'a') + '_' + pid;
+    b.update(doc(who, 'smallGroupRequests', rq), { status: 'accepted', decidedAt: serverTimestamp(), decidedBy: who === undefined ? '' : whoUid });
+    b.set(doc(who, 'smallGroupMembers', key), { groupId: 'sg_tue', personKind: kind, personId: pid, name, email: '', phone: '', joinedAt: 'x', addedBy: 'x' });
+    b.update(doc(who, 'smallGroups', 'sg_tue'), { memberCount: count, lastMemberKey: key }); return b.commit(); };
+  let whoUid = 'u_lena';
+  await check('accepting without counting is refused', 'deny', () => { const w = ctx('u_lena'), b = writeBatch(w);
+    b.update(doc(w, 'smallGroupRequests', 'rq_mo'), { status: 'accepted', decidedAt: serverTimestamp(), decidedBy: 'u_lena' });
+    b.set(doc(w, 'smallGroupMembers', 'sg_tue__a_m_mo'), { groupId: 'sg_tue', personKind: 'addressBook', personId: 'm_mo', name: 'Mo', email: '', phone: '', joinedAt: 'x', addedBy: 'x' }); return b.commit(); });
+  await check('a member of another group cannot accept', 'deny', () => { whoUid = 'u_ned'; return accept(ctx('u_ned'), 'rq_mo', 'addressBook', 'm_mo', 'Mo', 1); });
+  await check('the leader accepts Mo: request, member and count together', 'allow', () => { whoUid = 'u_lena'; return accept(ctx('u_lena'), 'rq_mo', 'addressBook', 'm_mo', 'Mo', 1); });
+  await check('Mo now reads the address', 'allow', () => getDoc(doc(ctx('u_mo'), 'smallGroupPrivate', 'sg_tue')));
+  await check('and who else is in the group', 'allow', () => getDocs(query(collection(ctx('u_mo'), 'smallGroupMembers'), where('groupId', '==', 'sg_tue'))));
+  await check('and finds their own groups', 'allow', () => getDocs(query(collection(ctx('u_mo'), 'smallGroupMembers'), where('personKind', '==', 'addressBook'), where('personId', '==', 'm_mo'))));
+  await check('Ned, in no group, does not see who is in it', 'deny', () => getDocs(query(collection(ctx('u_ned'), 'smallGroupMembers'), where('groupId', '==', 'sg_tue'))));
+  await check('the leader accepts the guest (the second of two places)', 'allow', () => accept(ctx('u_lena'), 'rq_guest', 'contacts', 'c_guest1', 'Guest Synthetic', 2));
+  await check('THE GROUP IS FULL: nobody can be added past its limit', 'deny', () => { const w = ctx('u_lena'), b = writeBatch(w), key = 'sg_tue__a_m_ned';
+    b.set(doc(w, 'smallGroupMembers', key), { groupId: 'sg_tue', personKind: 'addressBook', personId: 'm_ned', name: 'Ned', email: '', phone: '', joinedAt: 'x', addedBy: 'x' });
+    b.update(doc(w, 'smallGroups', 'sg_tue'), { memberCount: 3, lastMemberKey: key }); return b.commit(); });
+  await check('and nobody can ask to join a full group', 'deny', () => setDoc(doc(ctx('u_ned'), 'smallGroupRequests', 'rq_ned'), REQ({ name: 'Ned', personKind: 'addressBook', personId: 'm_ned' })));
+  await check('the count cannot be moved by hand', 'deny', () => updateDoc(doc(ctx('u_lena'), 'smallGroups', 'sg_tue'), { memberCount: 0 }));
+  await check('the leader edits the group\u2019s details', 'allow', () => updateDoc(doc(ctx('u_lena'), 'smallGroups', 'sg_tue'), { time: '20:00', capacity: 3 }));
+  await check('but not its leaders', 'deny', () => updateDoc(doc(ctx('u_lena'), 'smallGroups', 'sg_tue'), { leaderIds: ['m_lena', 'm_ned'] }));
+  await check('nor whether it is public', 'deny', () => updateDoc(doc(ctx('u_lena'), 'smallGroups', 'sg_tue'), { visibility: 'members' }));
+  await check('the leader takes the guest out: member and count together', 'allow', () => { const w = ctx('u_lena'), b = writeBatch(w);
+    b.delete(doc(w, 'smallGroupMembers', 'sg_tue__c_c_guest1')); b.update(doc(w, 'smallGroups', 'sg_tue'), { memberCount: 1, lastMemberKey: 'sg_tue__c_c_guest1' }); return b.commit(); });
+  await check('a member cannot add themselves', 'deny', () => { const w = ctx('u_ned'), b = writeBatch(w), key = 'sg_tue__a_m_ned';
+    b.set(doc(w, 'smallGroupMembers', key), { groupId: 'sg_tue', personKind: 'addressBook', personId: 'm_ned', name: 'Ned', email: '', phone: '', joinedAt: 'x', addedBy: 'x' });
+    b.update(doc(w, 'smallGroups', 'sg_tue'), { memberCount: 2, lastMemberKey: key }); return b.commit(); });
+  await check('a group is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'smallGroups', 'sg_tue')));
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

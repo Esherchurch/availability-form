@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find a group</title>
+
+<!-- Public, like What's on: a visitor who has never heard of the hub can
+     land here. Signed in, members also see members-only groups and their
+     own groups. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610082145" data-title="Find a group"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-email.js?v=202610081729"></script>
+<script src="egbc-events.js?v=202610062100"></script>
+<script src="egbc-events-groups.js?v=202610091200"></script>
+<script src="egbc-poweredby.js?v=202610081518"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--gold:#b07d2e;--gold-bg:#fdf8ee;--danger:#b0392c;--danger-bg:#fdf1ef;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 16px 64px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:12px}
+  .grp{display:flex;gap:14px;padding:16px;align-items:flex-start;text-align:left;width:100%;background:#fff;border:1px solid var(--line);border-radius:14px;
+       box-shadow:var(--card);margin-bottom:10px;cursor:pointer;font:inherit;color:inherit}
+  .grp:hover{background:#f9fafb;border-color:var(--line-2)}
+  .grp .body{flex:1;min-width:0;display:block}
+  .grp .t{display:block;font-size:15px;font-weight:600;color:var(--ink)}
+  .grp .meta{display:block;font-size:13px;color:var(--muted)}
+  .thumb{flex:none;width:88px;height:62px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+  .tag{display:inline-flex;align-items:center;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 7px;background:#f9fafb;margin:6px 6px 0 0}
+  .flag{display:inline-block;font-size:12px;font-weight:500;border-radius:6px;padding:1px 7px;margin:6px 6px 0 0}
+  .flag.open{background:var(--ok-bg);color:var(--ok)} .flag.shut{background:#f3f4f6;color:var(--muted)} .flag.lead{background:var(--gold-bg);color:var(--gold)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;align-items:center}
+  .search,select,.inp,textarea{height:36px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  .search{flex:1;min-width:180px}
+  .inp,textarea{width:100%;height:40px} textarea{height:80px;padding:8px 10px}
+  label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:8px 0 4px}
+  .ck{display:flex;gap:6px;align-items:center;font-size:13px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;
+       border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .sec-h{font-size:13px;font-weight:600;color:var(--ink);margin:22px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .note{background:var(--tint);border:1px solid #cfe0de;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}.st.ok{background:var(--ok-bg);color:var(--ok)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  .empty{padding:30px 16px;text-align:center;color:var(--muted)}
+  dl{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:10px 0;font-size:14px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+  #back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;padding:30px 12px;z-index:80;overflow:auto}
+  #modal{background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px}
+  #modal img.hero{width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-bottom:10px}
+  footer#poweredby{max-width:900px;margin:0 auto;padding:0 16px 24px}
+  @media (max-width:420px){ .thumb{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Find a group</h1>
+  <p class="sub">Small groups meet through the week, in homes, at church and online. Find one and ask to join: its leaders will be in touch.</p>
+  <div id="signedOut" class="note" style="display:none">You are seeing the groups open to everyone. <a href="login.html" style="color:var(--brand)">Sign in</a> to see members' groups too.</div>
+  <div id="mine"></div>
+  <div class="filters">
+    <input id="q" class="search" type="search" placeholder="Search groups" aria-label="Search groups">
+    <select id="f-day" aria-label="Day"><option value="">Any day</option></select>
+    <select id="f-type" aria-label="Kind of group"><option value="">Any kind</option></select>
+    <select id="f-area" aria-label="Area"><option value="">Anywhere</option></select>
+    <label class="ck"><input type="checkbox" id="f-open"> Taking new members</label>
+  </div>
+  <div id="list"><div class="empty">Loading…</div></div>
+</div>
+<footer id="poweredby"></footer>
+<div id="back"><div id="modal"></div></div>
+
+<script>
+(function () {
+  'use strict';
+  var G = window.EGBCGroups, E = window.EGBCEvents, esc = E.esc;
+  var ALL = [], MINE = [], LOOK = { sites: {}, rooms: {} }, ME = null, F = { look: null };
+  function db() { return EGBCAuth.db; }
+  function openModal(html) { document.getElementById('modal').innerHTML = html; document.getElementById('back').style.display = 'flex'; }
+  function closeModal() { document.getElementById('back').style.display = 'none'; }
+  document.getElementById('back').onclick = function (e) { if (e.target.id === 'back') closeModal(); };
+  function names(list) { var o = {}; Object.keys(list || {}).forEach(function (k) { var v = list[k]; o[k] = typeof v === 'string' ? v : (v && v.name) || ''; }); return o; }
+
+  function card(g, mine) {
+    var lead = ME && (g.leaderIds || []).indexOf(ME.memberId) >= 0;
+    return '<button class="grp" data-g="' + esc(g.id) + '">' + (g.image ? '<img class="thumb" src="' + esc(g.image) + '" alt="">' : '') +
+      '<span class="body"><span class="t">' + esc(g.name) + '</span>' +
+      '<span class="meta">' + esc(G.when(g)) + ' · ' + esc(G.wherePublic(g, LOOK)) + '</span>' +
+      (g.type ? '<span class="tag">' + esc(g.type) + '</span>' : '') + (g.audience ? '<span class="tag">' + esc(g.audience) + '</span>' : '') +
+      (g.visibility === 'members' ? '<span class="tag">Members</span>' : '') +
+      (lead ? '<span class="flag lead">You lead this</span>' : mine ? '<span class="flag open">You are in this group</span>' :
+        '<span class="flag ' + (G.joinable(g) ? 'open' : 'shut') + '">' + esc(G.status(g)) + '</span>') + '</span></button>';
+  }
+  function draw() {
+    var shown = ALL.filter(function (g) { return G.matches(g, F); });
+    document.getElementById('list').innerHTML = shown.length ? shown.map(function (g) { return card(g, MINE.indexOf(g.id) >= 0); }).join('')
+      : '<div class="card empty">' + (ALL.length ? 'No groups match. Try fewer filters.' : 'No groups to show yet.') + '</div>';
+    wire(document.getElementById('list'));
+  }
+  function drawMine() {
+    var box = document.getElementById('mine');
+    var mine = ALL.filter(function (g) { return MINE.indexOf(g.id) >= 0 || (ME && (g.leaderIds || []).indexOf(ME.memberId) >= 0); });
+    box.innerHTML = mine.length ? '<div class="sec-h">Your groups</div>' + mine.map(function (g) { return card(g, true); }).join('') +
+      (mine.some(function (g) { return (g.leaderIds || []).indexOf(ME.memberId) >= 0; }) ? '<p><a class="btn sec" href="groups-admin.html" id="to-admin">Run your group: members and requests</a></p>' : '') +
+      '<div class="sec-h">All groups</div>' : '';
+    wire(box);
+  }
+  function wire(el) { el.querySelectorAll('[data-g]').forEach(function (b) { b.onclick = function () { detail(b.dataset.g); }; }); }
+
+  function detail(id) {
+    var g = ALL.filter(function (x) { return x.id === id; })[0]; if (!g) return;
+    var member = MINE.indexOf(g.id) >= 0 || (ME && (g.leaderIds || []).indexOf(ME.memberId) >= 0);
+    try { history.replaceState(null, '', 'groups.html?group=' + encodeURIComponent(id)); } catch (e) {}
+    openModal((g.image ? '<img class="hero" src="' + esc(g.image) + '" alt="">' : '') +
+      '<h2 style="margin:0 0 4px;font-size:19px;color:var(--ink)">' + esc(g.name) + '</h2>' +
+      (g.description ? '<p style="white-space:pre-wrap">' + esc(g.description) + '</p>' : '') +
+      '<dl><dt>When</dt><dd>' + esc(G.when(g)) + '</dd><dt>Where</dt><dd id="g-where">' + esc(G.wherePublic(g, LOOK)) + '</dd>' +
+      (g.audience ? '<dt>Who for</dt><dd>' + esc(g.audience) + '</dd>' : '') +
+      ((g.leaderNames || []).length ? '<dt>Led by</dt><dd>' + esc(g.leaderNames.join(', ')) + '</dd>' : '') +
+      '<dt>New members</dt><dd>' + esc(G.status(g)) + '</dd></dl>' +
+      '<div id="g-private"></div><div id="g-join"></div><div style="margin-top:12px"><button class="btn sec" id="g-close">Close</button></div>');
+    document.getElementById('g-close').onclick = function () { closeModal(); try { history.replaceState(null, '', 'groups.html'); } catch (e) {} };
+    if (member) {
+      /* The address (or meeting link) is for the group's own members. */
+      db().collection('smallGroupPrivate').doc(g.id).get().then(function (s) {
+        var p = s.exists ? s.data() : {};
+        document.getElementById('g-private').innerHTML = '<div class="st ok" id="g-address">You are in this group.' +
+          (p.address ? '<br><b>Address</b>: ' + esc(p.address) : '') + (p.meetingLink ? '<br><b>Joining online</b>: <a href="' + esc(p.meetingLink) + '">' + esc(p.meetingLink) + '</a>' : '') +
+          (p.notes ? '<br>' + esc(p.notes) : '') + '</div>';
+      }).catch(function () {});
+      return;
+    }
+    if (!G.joinable(g)) { document.getElementById('g-join').innerHTML = '<p class="hint">' + esc(G.status(g)) + '. Have a look at the other groups, or ask the church office.</p>'; return; }
+    document.getElementById('g-join').innerHTML = '<div class="card" style="margin:0"><h3 style="margin:0 0 4px;font-size:15px;color:var(--ink)">Ask to join</h3>' +
+      '<p style="margin:0;font-size:13px;color:var(--muted)">This goes to the group\'s leaders, who will get in touch.</p>' +
+      '<label class="l" for="j-name">Your name</label><input class="inp" id="j-name" maxlength="120" value="' + esc(ME ? ME.name || '' : '') + '">' +
+      '<label class="l" for="j-email">Your email</label><input class="inp" id="j-email" type="email" maxlength="200" value="' + esc(ME ? ME.email || '' : '') + '">' +
+      '<label class="l" for="j-phone">Your phone (if you would like a call)</label><input class="inp" id="j-phone" type="tel" maxlength="40">' +
+      '<label class="l" for="j-msg">Anything you would like them to know</label><textarea id="j-msg" maxlength="1000"></textarea>' +
+      '<div id="j-err"></div><div style="margin-top:10px"><button class="btn" id="j-go">Ask to join</button></div></div>';
+    document.getElementById('j-go').onclick = function () { ask(g, this); };
+  }
+
+  /* A request: a member asks as themselves; a guest becomes a contact
+     (EVENTS-BOOKINGS-BRIEF §6.16: one place for people), in the same write. */
+  function ask(g, btn) {
+    var r = { name: document.getElementById('j-name').value.trim(), email: document.getElementById('j-email').value.trim().toLowerCase(),
+      phone: document.getElementById('j-phone').value.trim(), message: document.getElementById('j-msg').value.trim() };
+    var probs = G.requestProblems(r);
+    if (probs.length) { document.getElementById('j-err').innerHTML = '<div class="st no">Please give ' + esc(probs.join(' and ')) + '.</div>'; return; }
+    btn.disabled = true;
+    var now = new Date().toISOString(), batch = db().batch(), reqRef = db().collection('smallGroupRequests').doc(E.key(20));
+    var personKind = 'addressBook', personId = ME && ME.memberId ? ME.memberId : '';
+    if (!personId) {
+      personKind = 'contacts'; personId = 'c_' + E.key(16);
+      batch.set(db().collection('contacts').doc(personId), { name: r.name, email: r.email, phone: r.phone, source: 'signup', createdAt: now });
+    }
+    batch.set(reqRef, { groupId: g.id, groupName: g.name, name: r.name.slice(0, 120), email: r.email.slice(0, 200), phone: r.phone.slice(0, 40), message: r.message.slice(0, 1000),
+      personKind: personKind, personId: personId, status: 'asked', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    batch.commit().then(function () {
+      var mail = [EGBCChurch.send({ to: [r.email], subject: 'Your request to join ' + g.name,
+        html: '<p>Dear ' + esc(r.name) + ',</p><p>Thank you for asking to join <b>' + esc(g.name) + '</b> (' + esc(G.when(g)) + '). We have passed it to the group\'s leaders, who will be in touch.</p>' }).catch(function () {})];
+      /* Signed-in members can see the leaders' addresses, so the leaders hear straight away. */
+      if (ME) mail.push(Promise.all((g.leaderIds || []).map(function (m) { return db().collection('addressBook').doc(m).get().catch(function () { return null; }); })).then(function (l) {
+        var to = l.filter(function (s) { return s && s.exists && s.data().email; }).map(function (s) { return s.data().email; });
+        if (to.length) return EGBCChurch.send({ to: to, subject: r.name + ' would like to join ' + g.name,
+          html: '<p>' + esc(r.name) + ' (' + esc(r.email) + (r.phone ? ', ' + esc(r.phone) : '') + ') has asked to join <b>' + esc(g.name) + '</b>.</p>' + (r.message ? '<p>' + esc(r.message) + '</p>' : '') +
+            '<p>Accept or decline on Small groups, Requests.</p>' });
+      }).catch(function () {}));
+      return Promise.all(mail);
+    }).then(function () {
+      document.getElementById('g-join').innerHTML = '<div class="st ok" id="j-done">Thank you. Your request has gone to the leaders of ' + esc(g.name) + ', who will be in touch. We have emailed you a copy.</div>';
+    }).catch(function (e) { btn.disabled = false; document.getElementById('j-err').innerHTML = '<div class="st no">Could not send it: ' + esc(e.message || e) + '</div>'; });
+  }
+
+  /* filters */
+  G.DAYS.forEach(function (d, i) { if (i) document.getElementById('f-day').insertAdjacentHTML('beforeend', '<option value="' + i + '">' + d + 's</option>'); });
+  G.TYPES.forEach(function (t) { document.getElementById('f-type').insertAdjacentHTML('beforeend', '<option>' + esc(t) + '</option>'); });
+  document.getElementById('q').oninput = function () { F.q = this.value; draw(); };
+  document.getElementById('f-day').onchange = function () { F.day = this.value; draw(); };
+  document.getElementById('f-type').onchange = function () { F.type = this.value; draw(); };
+  document.getElementById('f-area').onchange = function () { F.area = this.value; draw(); };
+  document.getElementById('f-open').onchange = function () { F.openOnly = this.checked; draw(); };
+
+  if (window.EGBCPoweredBy) EGBCPoweredBy.mount(document.getElementById('poweredby'));
+  EGBCChurch.closeOnLeave();
+
+  /* Which groups may be listed depends on who is asking: wait for sign-in. */
+  EGBCAuth.optional().then(function (p) {
+    ME = p && p.status === 'active' ? p : null;
+    document.getElementById('signedOut').style.display = ME ? 'none' : '';
+    var q = ME ? db().collection('smallGroups').where('active', '==', true) : db().collection('smallGroups').where('visibility', '==', 'public').where('active', '==', true);
+    return Promise.all([q.get(), E.lookups().catch(function () { return {}; }),
+      ME && ME.memberId ? db().collection('smallGroupMembers').where('personKind', '==', 'addressBook').where('personId', '==', ME.memberId).get().catch(function () { return { docs: [] }; }) : { docs: [] }]);
+  }).then(function (r) {
+    ALL = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.day || 9) - (b.day || 9) || a.name.localeCompare(b.name); });
+    LOOK = { sites: names(r[1].sites), rooms: names(r[1].rooms) }; F.look = LOOK;
+    MINE = r[2].docs.map(function (d) { return d.data().groupId; });
+    G.areas(ALL).forEach(function (a) { document.getElementById('f-area').insertAdjacentHTML('beforeend', '<option>' + esc(a) + '</option>'); });
+    drawMine(); draw();
+    var want = new URLSearchParams(location.search).get('group');
+    if (want) detail(want);
+  }).catch(function (e) { document.getElementById('list').innerHTML = '<div class="card empty">Could not load the groups: ' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

@@ -270,6 +270,16 @@ service firebase.storage {
       allow delete: if adminHere();
     }
 
+    // A small group's picture (Chunk 7): the groups admins upload it; it is
+    // shown on "Find a group", so anyone may read it.
+    match /smallGroups/{groupId}/{fileName} {
+      allow read: if true;
+      allow write: if adminHere()
+                   && request.resource.size < 8 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if adminHere();
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────

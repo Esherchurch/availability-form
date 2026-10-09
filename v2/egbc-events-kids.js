@@ -179,16 +179,34 @@
      spring January to March, summer April to August. (School terms move
      with Easter; a register only needs the right Sundays in roughly the
      right bucket, and the dates can always be chosen by hand.) */
-  function termOf(day) {
+  /* With the lead's term dates (kidsTerms, F-098), those win: the term the
+     day falls in, or in a holiday the term just gone. */
+  function termOf(day, terms) {
+    day = String(day).slice(0, 10);
+    var set = (terms || []).filter(function (t) { return t && t.from && t.to; }).slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    if (set.length) {
+      var inT = set.filter(function (t) { return t.from <= day && day <= t.to; })[0];
+      if (inT) return { name: inT.name, from: inT.from, to: inT.to };
+      var gone = set.filter(function (t) { return t.to < day; }).pop();
+      if (gone) return { name: gone.name, from: gone.from, to: gone.to };
+    }
+    return guessTerm(day);
+  }
+  function guessTerm(day) {
     var y = +String(day).slice(0, 4), m = +String(day).slice(5, 7);
     if (m >= 9) return { name: 'Autumn ' + y, from: y + '-09-01', to: y + '-12-31' };
     if (m <= 3) return { name: 'Spring ' + y, from: y + '-01-01', to: y + '-03-31' };
     return { name: 'Summer ' + y, from: y + '-04-01', to: y + '-08-31' };
   }
-  function termBefore(day) {
-    var t = termOf(day), d = new Date(t.from + 'T12:00:00Z');
-    d.setUTCDate(d.getUTCDate() - 1);
-    return termOf(d.toISOString().slice(0, 10));
+  function termBefore(day, terms) {
+    var t = termOf(day, terms);
+    var set = (terms || []).filter(function (x) { return x && x.from && x.to && x.to < t.from; }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    if (set.length) { var p = set.pop(); return { name: p.name, from: p.from, to: p.to }; }
+    var before = function (day) { var d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
+    var g = guessTerm(before(t.from));
+    /* a guessed term that overlaps the set one (1 September vs 3 September) is the same term */
+    if (g.to >= t.from) g = guessTerm(before(g.from));
+    return g;
   }
   /* Every date from..to (inclusive) that falls on a group's day
      (1 Monday ... 7 Sunday, as the groups store it). */

@@ -16,7 +16,7 @@
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610082330"></script>
+<script src="egbc-events-kids.js?v=202610091000"></script>
 <script src="egbc-events-checkin.js?v=202610082300"></script>
 <script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-scan.js?v=202610082100"></script>
@@ -114,7 +114,8 @@
   /* The morning (stage 3, F-094): MORNING is today's record if this person may
      read it; SESSION is true for the rota's Session Leader while it is open;
      ROLLALL when they may see every group's roll-call. */
-  var MORNING = null, SESSION = false, ROLLALL = false, SLNAME = '';
+  var MORNING = null, SESSION = false, ROLLALL = false, SLNAME = '', ROTASL = false, TERMS = [], ROOMS = [], PAGES = {};
+  var PAGE_MINUTES = 5;
   var V = { site: '', tab: '', q: '', group: '', labels: null, scanning: false, msg: '' }, UNSUB = [];
   var DAY = C.today();
   function db() { return EGBCAuth.db; }
@@ -146,8 +147,19 @@
     var kids = LEAD ? db().collection('kidsChildren').where('siteId', '==', site).get().then(all)
       : !mine.length ? Promise.resolve([]) : Promise.all(mine.map(function (g) { return db().collection('kidsChildren').where('groupId', '==', g.id).get().then(all); }))
           .then(function (l) { return [].concat.apply([], l); });
-    return Promise.all([db().collection('kidsGroups').where('siteId', '==', site).get(), kids]).then(function (r) {
+    return Promise.all([db().collection('kidsGroups').where('siteId', '==', site).get(), kids,
+                        db().collection('kidsTerms').doc(site).get().catch(function () { return null; }),
+                        db().collection('rooms').where('siteId', '==', site).get().catch(function () { return { docs: [] }; })]).then(function (r) {
       GROUPS = all(r[0]).filter(function (g) { return g.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      TERMS = r[2] && r[2].exists ? (r[2].data().terms || []) : [];
+      ROOMS = all(r[3]);
+      /* Pages on the screen not yet cleared (anyone signed in may read them). */
+      PAGES = {};
+      UNSUB.push(db().collection('screenPages').where('siteId', '==', site).where('clearedAt', '==', null).onSnapshot(function (snap) {
+        snap.docChanges().forEach(function (ch) { if (ch.type === 'removed') delete PAGES[ch.doc.id]; else PAGES[ch.doc.id] = Object.assign({ id: ch.doc.id }, ch.doc.data()); });
+        tidyPages();
+        if (V.tab === 'groups') drawPages();
+      }, function () {}));
       CHILDREN = r[1].filter(function (c) { return c.status !== 'left'; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
       if (!V.tab) V.tab = LEAD ? 'desk' : mine.length ? 'groups' : 'roll';
       if (!V.group || !visibleGroups().some(function (g) { return g.id === V.group; })) V.group = (visibleGroups()[0] || {}).id || '';
@@ -170,7 +182,7 @@
           if (V.tab === 'roll') drawRollBody();
         }, function () {}));
       });
-      if (LEAD) openMorning();
+      if (LEAD) openMorning(GROUPS);
       draw();
     });
   }
@@ -458,12 +470,13 @@
     box.innerHTML = '<div class="count"><div><b id="g-in">' + ins.length + '</b><span class="hint">in now</span></div>' +
       '<div><b>' + K.leadersNeeded(ins.length, g.ratio) + '</b><span class="hint">leaders needed (1 to ' + esc(g.ratio || '?') + ')</span></div>' +
       '<div><b>' + outs.length + '</b><span class="hint">gone home</span></div></div>' +
-      '<div id="g-allergy"></div>' +
+      '<div id="g-allergy"></div><div id="g-pages"></div>' +
       '<div class="card" id="g-ins"><h2>In now</h2>' + (ins.length ? ins.map(function (c) { return row(c, 'in'); }).join('') : '<p class="hint">Nobody yet.</p>') + '</div>' +
       '<div class="card" id="g-not"><h2>Not here yet</h2>' + (notYet.length ? notYet.map(function (c) { return row(c, 'not'); }).join('') : '<p class="hint">Everyone has come.</p>') + '</div>' +
       (outs.length ? '<div class="card" id="g-outs"><h2>Gone home</h2>' + outs.map(function (c) { return row(c, 'out'); }).join('') + '</div>' : '');
     box.querySelectorAll('[data-more]').forEach(function (b) { b.onclick = function () { details(child(b.dataset.more)); }; });
     allergiesInRoom(ins);
+    drawPages();
     box.querySelectorAll('[data-gout]').forEach(function (b) { b.onclick = function () { checkOutBox(b.dataset.gout); }; });
     box.querySelectorAll('[data-gin]').forEach(function (b) {
       b.onclick = function () {
@@ -503,11 +516,11 @@
      group leader meeting today, and the rota's Session Leader, see the
      roll-call until the end of the day. The rules check the Session Leader
      against the rota. */
-  function openMorning() {
-    var wd = new Date().getDay() || 7, meeting = GROUPS.filter(function (g) { return (g.day || 7) === wd; });
-    if (!meeting.length) return;
+  function openMorning(groups) {
+    var wd = new Date().getDay() || 7, meeting = (groups || GROUPS).filter(function (g) { return g.active !== false && (g.day || 7) === wd; });
+    if (!meeting.length) return Promise.resolve(null);
     var mday = K.morningDay();
-    db().collection('events').where('date', '==', mday).get().then(function (snap) {
+    return db().collection('events').where('date', '==', mday).get().then(function (snap) {
       var rotaId = '', sl = '';
       snap.docs.forEach(function (d) { var a = (d.data().assignments || {})['Session Leader']; if (!sl && a && !Array.isArray(a) && a.id) { sl = a.id; SLNAME = a.name || ''; rotaId = d.id; } });
       var ids = {}; meeting.forEach(function (g) { (g.leaderIds || []).forEach(function (m) { ids[m] = 1; }); });
@@ -515,8 +528,8 @@
       var exp = new Date(Math.min(end.getTime(), Date.now() + 17 * 3600000));
       var d = { siteId: V.site, day: mday, rotaId: rotaId, leaderIds: Object.keys(ids).slice(0, 60), sessionLeaderIds: sl ? [sl] : [],
         expiresAt: firebase.firestore.Timestamp.fromDate(exp), updatedAt: new Date().toISOString(), updatedBy: uid() };
-      return db().collection('kidsMornings').doc(V.site + '_' + mday).set(d).then(function () { MORNING = d; drawMorningNote(); });
-    }).catch(function (e) { toast('Could not open the morning: ' + (e.message || e)); });
+      return db().collection('kidsMornings').doc(V.site + '_' + mday).set(d).then(function () { MORNING = d; drawMorningNote(); return d; });
+    }).catch(function (e) { toast('Could not open the morning: ' + (e.message || e)); return null; });
   }
   function drawMorningNote() {
     var box = document.getElementById('d-morning'); if (!box || !MORNING) return;
@@ -567,7 +580,7 @@
     if (!gs.length) { el.innerHTML = '<div class="card hint">No groups yet.</div>'; return; }
     if (!V.rgroup || !gs.some(function (g) { return g.id === V.rgroup; })) V.rgroup = gs[0].id;
     V.rperiod = V.rperiod || 'term';
-    var t = K.termOf(DAY), lt = K.termBefore(DAY);
+    var t = K.termOf(DAY, TERMS), lt = K.termBefore(DAY, TERMS);
     el.innerHTML = '<div class="card"><div class="row"><div class="f"><label class="l" for="reg-group">Group</label><select id="reg-group">' + gs.map(function (g) {
         return '<option value="' + esc(g.id) + '"' + (g.id === V.rgroup ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select></div>' +
       '<div class="f"><label class="l" for="reg-period">Which weeks</label><select id="reg-period">' + [['week', 'The latest week'], ['term', 'This term (' + t.name + ')'], ['last', 'Last term (' + lt.name + ')'], ['custom', 'Choose the dates']].map(function (o) {
@@ -657,8 +670,18 @@
       '<dl><dt>Parent</dt><dd>' + esc(c.parentName || '') + '</dd><dt>Phone</dt><dd>' + (c.phone ? '<a href="tel:' + esc(tel(c.phone)) + '" style="color:var(--brand)">' + esc(c.phone) + '</a>' : 'none given') + '</dd>' +
       '<dt>Emergency</dt><dd>' + esc(c.emergency || 'none given') + '</dd><dt>May collect</dt><dd>' + esc((c.collectors || []).join(', ')) + '</dd>' +
       '<dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No: ring the parent') + '</dd><dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd></dl>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="m-page">Page a parent</button><button class="btn sec" id="m-close">Close</button></div><div id="m-pager"></div>');
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="m-page">Page a parent</button>' +
+      (ckOf(c) && ckOf(c).state === 'in' ? '<button class="btn" id="m-screen">Show on screen</button>' : '') + '<button class="btn sec" id="m-close">Close</button></div><div id="m-pager"></div>');
     document.getElementById('m-close').onclick = closeModal;
+    var ms = document.getElementById('m-screen');
+    if (ms) ms.onclick = function () {
+      ms.disabled = true;
+      showOnScreen(c).then(function (pg) {
+        document.getElementById('m-pager').innerHTML = '<div class="st ok" id="on-screen" style="margin-top:10px"><div class="hint">On the screen now (for ' + PAGE_MINUTES + ' minutes):</div><div class="page-call">' + esc(pg.message) + '</div>' +
+          '<div style="margin-top:8px"><button class="btn tall" id="m-done">Done: the parent is here</button></div></div>';
+        document.getElementById('m-done').onclick = function () { clearPage(pg.id).then(function () { closeModal(); toast('Taken off the screen'); }); };
+      }).catch(function (e) { ms.disabled = false; toast('Could not show it: ' + (e.message || e)); });
+    };
     document.getElementById('m-page').onclick = function () {
       document.getElementById('m-pager').innerHTML = '<div class="st wait" id="pager" style="margin-top:10px"><div class="hint">Call ' + esc(c.parentName || 'the parent') + ' to come to ' + esc((group(c.groupId) || {}).name || 'the group') + ':</div>' +
         (c.phone ? '<a class="page-call" href="tel:' + esc(tel(c.phone)) + '">' + esc(c.phone) + '</a><div style="margin-top:8px"><a class="btn tall" href="tel:' + esc(tel(c.phone)) + '">Call now</a></div>' : '<div class="page-call">No phone number on their record</div>') +
@@ -671,11 +694,58 @@
     }).catch(function () { document.getElementById('m-med').textContent = 'Could not open the medical details.'; });
   }
 
+  /* ---- paging on the screen, through ChurchShow (Martin, F-098) ----
+     One document per page in screenPages, its id the child's check-in id.
+     The contract ChurchShow reads is in FINDINGS-events.md (F-100). The
+     code only, never the child's name. */
+  function roomName(g) { var r = ROOMS.filter(function (x) { return x.id === g.roomId; })[0]; return r ? r.name : g.name; }
+  function showOnScreen(c) {
+    var ck = ckOf(c), g = group(c.groupId);
+    var pg = { siteId: ck.siteId, code: ck.pickupCode, room: roomName(g).slice(0, 80), message: ck.pickupCode + ', please come to ' + g.name,
+      createdBy: uid(), createdAt: firebase.firestore.FieldValue.serverTimestamp(), clearedAt: null };
+    return db().collection('screenPages').doc(ck.id).set(pg).then(function () { return Object.assign({ id: ck.id }, pg); });
+  }
+  function clearPage(id) {
+    return db().collection('screenPages').doc(id).update({ clearedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      .catch(function (e) { toast('Could not clear it: ' + (e.message || e)); });
+  }
+  function pageAge(p) { var t = p.createdAt && p.createdAt.toMillis ? p.createdAt.toMillis() : Date.now(); return Date.now() - t; }
+  function myPage(p) { return Object.keys(CKS).indexOf(p.id) >= 0; }
+  /* A page clears itself after five minutes: ChurchShow stops showing it,
+     and whichever leader's screen is open writes clearedAt. */
+  function tidyPages() {
+    Object.keys(PAGES).forEach(function (id) {
+      var p = PAGES[id];
+      if (myPage(p) && !p._clearing && pageAge(p) > PAGE_MINUTES * 60000) { p._clearing = true; clearPage(id); }
+    });
+  }
+  setInterval(function () { tidyPages(); if (V.tab === 'groups') drawPages(); }, 30000);
+  function drawPages() {
+    var box = document.getElementById('g-pages'); if (!box) return;
+    var list = Object.keys(PAGES).map(function (k) { return PAGES[k]; }).filter(function (p) {
+      var ck = CKS[p.id]; return ck && ck.groupId === V.group && pageAge(p) <= PAGE_MINUTES * 60000;
+    });
+    box.innerHTML = list.length ? '<div class="st ok" id="g-onscreen"><b>On the screen now</b>' + list.map(function (p) {
+      return '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span class="page-call" style="font-size:16px">' + esc(p.message) + '</span><button class="btn sec" data-pdone="' + esc(p.id) + '">Done</button></div>';
+    }).join('') + '</div>' : '';
+    box.querySelectorAll('[data-pdone]').forEach(function (b) { b.onclick = function () { b.disabled = true; clearPage(b.dataset.pdone); }; });
+  }
+
   /* ---- who am I, for this site (as the Children's register works it out) ---- */
   function start() {
     var s = SITES.filter(function (x) { return x.id === V.site; })[0] || {};
     SETTINGS = s._settings || {}; LEAD = !!s._lead; V.tab = ''; V.labels = null;
     MORNING = s._mdoc || null; SESSION = !!s._session; ROLLALL = !!s._morning; SLNAME = '';
+    /* The rota's Session Leader, if no lead has opened the morning yet,
+       opens it (Martin, F-098; the rules check the rota). */
+    if (ROTASL && !SESSION && !LEAD) {
+      return db().collection('kidsGroups').where('siteId', '==', V.site).get().then(function (g) {
+        return openMorning(all(g));
+      }).then(function (d) {
+        if (d) { MORNING = d; SESSION = true; ROLLALL = true; }
+        return load();
+      }).catch(function () { noAccess(); });
+    }
     return load().catch(function () { noAccess(); });
   }
   function begin() {
@@ -686,9 +756,13 @@
       var bs = {}, ks = {};
       all(r[1]).forEach(function (s) { bs[s.id] = s; }); all(r[2]).forEach(function (s) { ks[s.id] = s; });
       MYGROUPS = all(r[3]);
-      return Promise.all(all(r[0]).map(function (s) {
+      /* Am I the Session Leader on today's rota? */
+      var rota = db().collection('events').where('date', '==', K.morningDay()).get().then(function (s) {
+        ROTASL = s.docs.some(function (d) { var a = (d.data().assignments || {})['Session Leader']; return a && !Array.isArray(a) && a.id === mid; });
+      }).catch(function () {});
+      return rota.then(function () { return Promise.all(all(r[0]).map(function (s) {
         return db().collection('kidsMornings').doc(s.id + '_' + K.morningDay()).get().then(function (m) { return m.exists ? m.data() : null; }, function () { return null; });
-      })).then(function (ms) { return { r: r, ms: ms, bs: bs, ks: ks }; });
+      })); }).then(function (ms) { return { r: r, ms: ms, bs: bs, ks: ks }; });
     }).then(function (x) {
       var r = x.r, bs = x.bs, ks = x.ks, mid = ME.memberId || '-', adminFor = ME.adminFor || [];
       /* Not set up yet: no site in Places, or no children's team chosen. */
@@ -706,7 +780,7 @@
         s._morning = !!(open && (s._session || (m.leaderIds || []).indexOf(mid) >= 0));
         s._mdoc = m;
         return s;
-      }).filter(function (s) { return s._lead || s._leader || s._morning; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      }).filter(function (s) { return s._lead || s._leader || s._morning || (ROTASL && ((s._settings.teams || []).length > 0)); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       if (!SITES.length) return noAccess();
       if (!SITES.some(function (s) { return s.id === V.site; })) V.site = SITES[0].id;
       return start();

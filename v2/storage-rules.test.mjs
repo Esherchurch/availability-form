@@ -248,6 +248,13 @@ await check('only a picture, not a PDF', 'deny', () => put(as('karen'), 'church/
 await check('and not over 2 MB', 'deny', () => put(as('karen'), 'church/logo-4.jpg', { type: 'image/jpeg', bytes: 2 * 1024 * 1024 + 10 }));
 // ── end EVENTS ──
 
+// ── EVENTS (events window) ── a small group's picture (Chunk 7)
+await check('an admin puts a picture on a small group', 'allow', () => put(as('karen'), 'smallGroups/sg_tue/1-photo.jpg', { type: 'image/jpeg' }));
+await check('anyone can see it (Find a group is public)', 'allow', () => getBytes(ref(anon(), 'smallGroups/sg_tue/1-photo.jpg')));
+await check('a member who is not an admin cannot', 'deny', () => put(as('samy'), 'smallGroups/sg_tue/2-photo.jpg', { type: 'image/jpeg' }));
+await check('only a picture', 'deny', () => put(as('karen'), 'smallGroups/sg_tue/3.pdf', { type: 'application/pdf' }));
+// ── end EVENTS ──
+
 /* ---- nothing else moved ------------------------------------------- */
 /* Banners are uploaded from the hub by anyone signed in, and were before
    this change. If tightening events had caught them too, this fails. */

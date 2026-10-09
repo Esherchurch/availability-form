@@ -408,7 +408,8 @@ try {
        first and wait for the new one. */
     files().filter(f => match.test(f)).forEach(f => fs.unlinkSync(path.join(aB.__dl, f)));
     await W.click(click);
-    return until(() => files().find(f => match.test(f)), 15000);
+    /* ...and until it has been written (a long run once read it empty). */
+    return until(() => { const f = files().find(f => match.test(f)); return f && fs.statSync(path.join(aB.__dl, f)).size > 0 ? f : null; }, 15000);
   }
   const csv1 = await grab('#dlCsv', /who came\.csv$/);
   const text1 = csv1 ? fs.readFileSync(path.join(aB.__dl, csv1), 'utf8') : '';

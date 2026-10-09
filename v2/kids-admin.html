@@ -17,7 +17,7 @@
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610082100"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610082300"></script>
+<script src="egbc-events-kids.js?v=202610091000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -74,7 +74,7 @@
      see their own group's children, with their medical details, and
      nothing else. */
   var K = window.EGBCKids, F = window.EGBCForms, E = window.EGBCEvents;
-  var SITES = [], ROOMS = [], GROUPS = [], FAMILIES = [], CHILDREN = [], SETTINGS = {}, RESPONSES = [], REQUESTS = [], SENS = [], PEOPLE = [];
+  var SITES = [], ROOMS = [], GROUPS = [], FAMILIES = [], CHILDREN = [], SETTINGS = {}, RESPONSES = [], REQUESTS = [], SENS = [], PEOPLE = [], TERMS = [];
   var V = { site: '', tab: new URLSearchParams(location.search).get('tab') === 'settings' ? 'settings' : 'children', group: '', q: '', open: '' }, ME = {}, LEAD = false, MYGROUPS = [], CAN_TEAMS = false;
   function db() { return EGBCAuth.db; }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
@@ -102,8 +102,10 @@
       LEAD ? db().collection('kidsFamilies').where('siteId', '==', site).get() : none,
       LEAD && fid ? db().collection('formResponses').where('siteId', '==', site).where('formId', '==', fid).get().catch(function () { return none; }) : none,
       LEAD && fid ? db().collection('formRequests').where('siteId', '==', site).where('formId', '==', fid).get().catch(function () { return none; }) : none,
-      LEAD && fid ? db().collection('sensitiveResponses').where('siteId', '==', site).where('formId', '==', fid).get().catch(function () { return none; }) : none
+      LEAD && fid ? db().collection('sensitiveResponses').where('siteId', '==', site).where('formId', '==', fid).get().catch(function () { return none; }) : none,
+      db().collection('kidsTerms').doc(site).get().catch(function () { return null; })
     ]).then(function (r) {
+      TERMS = r[6] && r[6].exists ? (r[6].data().terms || []) : [];
       GROUPS = all(r[0]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       CHILDREN = r[1].sort(function (a, b) { return a.name.localeCompare(b.name); });
       FAMILIES = all(r[2]); RESPONSES = all(r[3]); REQUESTS = r[4].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }); SENS = all(r[5]);
@@ -361,6 +363,25 @@
       db().collection('kidsSettings').doc(V.site).set({ teams: t, updatedAt: new Date().toISOString(), updatedBy: uid() }, { merge: true })
         .then(function () { toast('Saved'); return begin(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
     };
+    /* Term dates (Martin, F-098): three a year, set by a lead; the registers use them. */
+    if (LEAD) {
+      var y = +new Date().toISOString().slice(0, 4), m = +new Date().toISOString().slice(5, 7), sy = m >= 9 ? y : y - 1;
+      var def = TERMS.length === 3 ? TERMS : [{ name: 'Autumn ' + sy, from: sy + '-09-01', to: sy + '-12-31' }, { name: 'Spring ' + (sy + 1), from: (sy + 1) + '-01-01', to: (sy + 1) + '-03-31' },
+        { name: 'Summer ' + (sy + 1), from: (sy + 1) + '-04-01', to: (sy + 1) + '-08-31' }];
+      el.insertAdjacentHTML('beforeend', '<div class="card" id="t-card"><h2>Term dates</h2><p class="hint">' + (TERMS.length === 3 ? 'The registers count these terms. Change them each year.' : 'Not set yet: the registers are guessing (September to December, January to March, April to August). Set this year\'s dates.') + '</p>' +
+        def.map(function (t, i) {
+          return '<div class="two" style="margin-bottom:6px"><div><label class="l" for="t-name-' + i + '">Term</label><input class="inp" id="t-name-' + i + '" maxlength="40" value="' + esc(t.name) + '"></div>' +
+            '<div><label class="l" for="t-from-' + i + '">Starts</label><input class="inp" type="date" id="t-from-' + i + '" value="' + esc(t.from) + '"></div>' +
+            '<div><label class="l" for="t-to-' + i + '">Ends</label><input class="inp" type="date" id="t-to-' + i + '" value="' + esc(t.to) + '"></div></div>';
+        }).join('') + '<div id="t-err"></div><button class="btn" id="t-save">Save the term dates</button></div>');
+      document.getElementById('t-save').onclick = function () {
+        var terms = [0, 1, 2].map(function (i) { return { name: document.getElementById('t-name-' + i).value.trim().slice(0, 40), from: document.getElementById('t-from-' + i).value, to: document.getElementById('t-to-' + i).value }; });
+        var bad = terms.some(function (t) { return !t.name || !t.from || !t.to || t.from > t.to; }) || !(terms[0].to < terms[1].from && terms[1].to < terms[2].from);
+        if (bad) { document.getElementById('t-err').innerHTML = '<p class="st no">Each term needs a name, and a start before its end, in order, without overlapping.</p>'; return; }
+        db().collection('kidsTerms').doc(V.site).set({ terms: terms, updatedAt: new Date().toISOString(), updatedBy: uid() })
+          .then(function () { toast('Saved'); return load(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+      };
+    }
     var fg = document.getElementById('s-form-go');
     if (fg) fg.onclick = function () {
       db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }).then(function (s) {

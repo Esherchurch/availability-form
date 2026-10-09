@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Small groups</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610082145" data-title="Small groups"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-church.js?v=202610101000"></script>
+<script src="egbc-guard.js?v=202610062100"></script>
+<script src="egbc-email.js?v=202610081729"></script>
+<script src="egbc-events.js?v=202610062100"></script>
+<script src="egbc-events-groups.js?v=202610091200"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:8px 0 5px}
+  .inp,select,textarea{height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff;width:100%}
+  textarea{height:90px;padding:8px 12px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55;cursor:default}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)} .btn.sec:hover{background:#f3f4f6}
+  .btn.warn{background:#fff;color:var(--danger);border-color:#f0c9c3}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tab{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line-2);background:#fff;font:500 13px Inter,sans-serif;color:var(--body);cursor:pointer}
+  .tab.on{background:var(--tint);border-color:var(--brand);color:var(--ink)}
+  .tab .n{display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:999px;background:var(--gold);color:#fff;font-size:11px;margin-left:6px;text-align:center}
+  .hint{font-size:13px;color:var(--muted)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:none}.row .t{flex:1;min-width:200px}.row .t b{color:var(--ink)}
+  .two{display:flex;gap:10px;flex-wrap:wrap}.two>div{flex:1;min-width:150px}
+  .pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;margin:2px 4px 2px 0;background:#f3f4f6}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.wait{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}
+  .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
+  .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
+  .ck{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:14px}
+  .radios{display:flex;gap:14px;flex-wrap:wrap}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Small groups</h1>
+  <p class="sub">The groups, who leads them, who is in them, and requests to join. <a href="groups.html" style="color:var(--brand)">See "Find a group"</a></p>
+  <div id="main"><div class="card hint">Loading…</div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  /* WHO SEES WHAT (the rules enforce it):
+     - GROUPS ADMINS (master admins, and admins of the teams named on
+       Settings) add groups, choose their leaders, and see every group.
+     - A GROUP'S LEADERS edit their group's details, add and remove its
+       members, and accept or decline requests to join it.
+     - A home group's address and an online group's link are the group's
+       own (smallGroupPrivate). */
+  var G = window.EGBCGroups, E = window.EGBCEvents, esc = E.esc;
+  var ME = {}, ADMIN = false, MASTER = false, SETTINGS = {}, GROUPS = [], PEOPLE = [], SITES = [], ROOMS = [], REQUESTS = [], MEMBERS = [], TEAMS = [];
+  var V = { tab: 'groups', group: '' };
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+  function group(id) { return GROUPS.filter(function (g) { return g.id === id; })[0] || null; }
+  function leads(g) { return (g.leaderIds || []).indexOf(ME.memberId) >= 0; }
+  function mine() { return ADMIN ? GROUPS : GROUPS.filter(leads); }
+  function person(id) { return PEOPLE.filter(function (p) { return p.id === id; })[0] || null; }
+  function look() { var o = { sites: {}, rooms: {} }; SITES.forEach(function (s) { o.sites[s.id] = s.name; }); ROOMS.forEach(function (r) { o.rooms[r.id] = r.name; }); return o; }
+
+  function load() {
+    var mid = ME.memberId || '-';
+    var groups = ADMIN ? db().collection('smallGroups').get() : db().collection('smallGroups').where('leaderIds', 'array-contains', mid).get();
+    return groups.then(function (s) {
+      GROUPS = all(s).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      var reqs = ADMIN ? [db().collection('smallGroupRequests').where('status', '==', 'asked').get()]
+        : GROUPS.map(function (g) { return db().collection('smallGroupRequests').where('groupId', '==', g.id).where('status', '==', 'asked').get(); });
+      return Promise.all(reqs.map(function (q) { return q.catch(function () { return { docs: [] }; }); }));
+    }).then(function (l) {
+      REQUESTS = [].concat.apply([], l.map(all)).sort(function (a, b) { return (a.createdAt && b.createdAt && a.createdAt.toMillis() < b.createdAt.toMillis()) ? -1 : 1; });
+      if (!V.group || !group(V.group)) V.group = (mine()[0] || {}).id || '';
+      draw();
+    });
+  }
+
+  function draw() {
+    var tabs = [['groups', 'Groups'], ['members', 'Members'], ['requests', 'Requests', REQUESTS.length]].concat(MASTER ? [['settings', 'Settings']] : []);
+    document.getElementById('main').innerHTML = '<div class="tabs">' + tabs.map(function (t) {
+      return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>'; }).join('') + '</div><div id="body"></div>';
+    document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });
+    var el = document.getElementById('body');
+    if (V.tab === 'members') return drawMembers(el);
+    if (V.tab === 'requests') return drawRequests(el);
+    if (V.tab === 'settings') return drawSettings(el);
+    drawGroups(el);
+  }
+
+  /* ================= groups ================= */
+  function drawGroups(el) {
+    var list = mine(), L = look();
+    el.innerHTML = '<div class="card"><h2>' + (ADMIN ? 'Every group' : 'Your groups') + '</h2>' + (list.length ? list.map(function (g) {
+      return '<div class="row" data-grow="' + esc(g.id) + '"><div class="t"><b>' + esc(g.name) + '</b> ' + (g.active === false ? '<span class="pill">Not running</span>' : '') +
+        (g.visibility === 'members' ? '<span class="pill">Members only</span>' : '<span class="pill">Public</span>') +
+        '<span class="pill ' + (G.joinable(g) ? 'ok' : 'wait') + '">' + esc(G.status(g)) + '</span>' + (g.under18 ? '<span class="pill no">Under-18s</span>' : '') +
+        '<br><span class="hint">' + esc(G.when(g)) + ' · ' + esc(G.wherePublic(g, L)) + ' · ' + (g.memberCount || 0) + (g.capacity ? ' of ' + g.capacity : '') + ' members · led by ' +
+        esc((g.leaderNames || []).join(', ') || 'nobody yet') + '</span></div><button class="btn sec" data-gedit="' + esc(g.id) + '">Edit</button></div>';
+    }).join('') : '<p class="hint">' + (ADMIN ? 'No groups yet.' : 'You do not lead a group.') + '</p>') +
+      (ADMIN ? '<div style="margin-top:10px"><button class="btn" id="g-new">Add a group</button></div>' : '') + '</div><div id="g-form"></div>';
+    var nb = document.getElementById('g-new'); if (nb) nb.onclick = function () { groupForm(null); };
+    el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { groupForm(group(b.dataset.gedit)); }; });
+  }
+  function groupForm(g) {
+    var isNew = !g;
+    g = g || { name: '', type: 'Home group', description: '', day: 3, time: '19:30', frequency: 'weekly', frequencyNote: '', locationKind: 'home', siteId: '', roomId: '', area: '',
+      venueName: '', audience: 'Adults', open: true, capacity: 12, visibility: 'public', under18: false, active: true, leaderIds: [], leaderNames: [], image: '', memberCount: 0 };
+    var box = document.getElementById('g-form'), leaders = (g.leaderIds || []).slice();
+    var priv = isNew ? Promise.resolve({}) : db().collection('smallGroupPrivate').doc(g.id).get().then(function (s) { return s.exists ? s.data() : {}; }).catch(function () { return {}; });
+    priv.then(function (p) {
+      var opt = function (v, t, cur) { return '<option value="' + esc(v) + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + esc(t) + '</option>'; };
+      box.innerHTML = '<div class="card" id="g-card"><h2>' + (isNew ? 'A new group' : esc(g.name)) + '</h2>' +
+        '<div class="two"><div><label class="l" for="f-name">Name</label><input class="inp" id="f-name" maxlength="80" value="' + esc(g.name) + '"></div>' +
+        '<div><label class="l" for="f-type">Kind</label><select id="f-type">' + G.TYPES.map(function (t) { return opt(t, t, g.type); }).join('') + '</select></div></div>' +
+        '<label class="l" for="f-desc">What it is (shown on "Find a group")</label><textarea id="f-desc" maxlength="2000">' + esc(g.description || '') + '</textarea>' +
+        '<div class="two"><div><label class="l" for="f-day">Day</label><select id="f-day">' + opt(0, 'It varies', g.day) + [1, 2, 3, 4, 5, 6, 7].map(function (d) { return opt(d, G.DAYS[d], g.day); }).join('') + '</select></div>' +
+        '<div><label class="l" for="f-time">Time</label><input class="inp" type="time" id="f-time" value="' + esc(g.time || '') + '"></div>' +
+        '<div><label class="l" for="f-freq">How often</label><select id="f-freq">' + [['weekly', 'Every week'], ['fortnightly', 'Every other week'], ['monthly', 'Once a month'], ['other', 'Something else']].map(function (o) { return opt(o[0], o[1], g.frequency); }).join('') + '</select></div>' +
+        '<div><label class="l" for="f-freqnote">If something else</label><input class="inp" id="f-freqnote" maxlength="80" value="' + esc(g.frequencyNote || '') + '"></div></div>' +
+        '<label class="l">Where</label><div class="radios">' + [['home', 'A home'], ['room', 'A room at church'], ['venue', 'Somewhere else'], ['online', 'Online']].map(function (o) {
+          return '<label class="ck"><input type="radio" name="f-loc" value="' + o[0] + '"' + (g.locationKind === o[0] ? ' checked' : '') + '> ' + o[1] + '</label>'; }).join('') + '</div>' +
+        '<div id="loc-home" class="two"><div><label class="l" for="f-area">Area (shown to everyone)</label><input class="inp" id="f-area" maxlength="60" value="' + esc(g.area || '') + '" placeholder="e.g. Esher, Claygate"></div>' +
+        '<div><label class="l" for="f-address">Address (only the group\'s members see it)</label><input class="inp" id="f-address" maxlength="300" value="' + esc(p.address || '') + '"></div></div>' +
+        '<div id="loc-room" class="two"><div><label class="l" for="f-site">Site</label><select id="f-site"><option value="">Choose…</option>' + SITES.map(function (s) { return opt(s.id, s.name, g.siteId); }).join('') + '</select></div>' +
+        '<div><label class="l" for="f-room">Room</label><select id="f-room"><option value="">Choose…</option>' + ROOMS.filter(function (r) { return r.kind !== 'online'; }).map(function (r) { return opt(r.id, r.name, g.roomId); }).join('') + '</select></div></div>' +
+        '<div id="loc-venue"><label class="l" for="f-venue">Where (shown to everyone)</label><input class="inp" id="f-venue" maxlength="120" value="' + esc(g.venueName || '') + '" placeholder="e.g. The Bear, Esher"></div>' +
+        '<div id="loc-online"><label class="l" for="f-link">Link to join (only the group\'s members see it)</label><input class="inp" id="f-link" maxlength="300" value="' + esc(p.meetingLink || '') + '" placeholder="A meeting room link"></div>' +
+        '<label class="l" for="f-notes">A note for the members (only they see it)</label><input class="inp" id="f-notes" maxlength="300" value="' + esc(p.notes || '') + '" placeholder="e.g. parking, which door">' +
+        '<div class="two"><div><label class="l" for="f-aud">Who it is for</label><input class="inp" id="f-aud" maxlength="80" value="' + esc(g.audience || '') + '"></div>' +
+        '<div><label class="l" for="f-cap">Most members (0 for no limit)</label><input class="inp" type="number" min="0" max="200" id="f-cap" value="' + esc(g.capacity || 0) + '"></div></div>' +
+        '<label class="ck"><input type="checkbox" id="f-open"' + (g.open !== false ? ' checked' : '') + '> Taking new members</label>' +
+        (ADMIN ? '<label class="ck"><input type="checkbox" id="f-members"' + (g.visibility === 'members' ? ' checked' : '') + '> Members only (not shown to the public)</label>' +
+          '<label class="ck"><input type="checkbox" id="f-u18"' + (g.under18 ? ' checked' : '') + '> Includes under-18s (its leaders need the same checks and forms as children\'s leaders)</label>' +
+          '<label class="ck"><input type="checkbox" id="f-active"' + (g.active !== false ? ' checked' : '') + '> Running</label>' +
+          '<label class="l">Leaders</label><div id="f-leaders"></div><select id="f-addlead" style="margin-top:6px"><option value="">Add a leader…</option>' + PEOPLE.map(function (x) { return opt(x.id, x.name, ''); }).join('') + '</select>' +
+          '<label class="l" for="f-image">Picture (optional)</label><input type="file" id="f-image" accept="image/*">' + (g.image ? '<p class="hint">Has a picture.</p>' : '')
+          : '<p class="hint">Leaders and whether it is public are set by the groups admins.</p>') +
+        '<div id="f-err"></div><div style="margin-top:12px"><button class="btn" id="f-save">Save</button></div></div>';
+      function showLoc() {
+        var k = (document.querySelector('[name="f-loc"]:checked') || {}).value;
+        ['home', 'room', 'venue', 'online'].forEach(function (x) { document.getElementById('loc-' + x).style.display = k === x ? '' : 'none'; });
+      }
+      document.querySelectorAll('[name="f-loc"]').forEach(function (r) { r.onchange = showLoc; }); showLoc();
+      function drawLeaders() {
+        var b = document.getElementById('f-leaders'); if (!b) return;
+        b.innerHTML = leaders.length ? leaders.map(function (m) { return '<span class="pill ok">' + esc((person(m) || {}).name || m) + ' <button class="btn sec" style="height:20px;padding:0 6px" data-unlead="' + esc(m) + '">&times;</button></span>'; }).join('') : '<span class="hint">None yet.</span>';
+        b.querySelectorAll('[data-unlead]').forEach(function (x) { x.onclick = function () { leaders = leaders.filter(function (y) { return y !== x.dataset.unlead; }); drawLeaders(); }; });
+      }
+      drawLeaders();
+      var al = document.getElementById('f-addlead');
+      if (al) al.onchange = function () { if (this.value && leaders.indexOf(this.value) < 0) leaders.push(this.value); this.value = ''; drawLeaders(); };
+      document.getElementById('f-save').onclick = function () { save(g, isNew, leaders, this); };
+    });
+  }
+  function save(g, isNew, leaders, btn) {
+    var v = function (id) { var e = document.getElementById(id); return e ? e.value : ''; }, c = function (id, dflt) { var e = document.getElementById(id); return e ? e.checked : dflt; };
+    var kind = (document.querySelector('[name="f-loc"]:checked') || {}).value || 'home';
+    var d = { name: v('f-name').trim().slice(0, 80), type: v('f-type'), description: v('f-desc').trim().slice(0, 2000), day: +v('f-day') || 0, time: v('f-time'),
+      frequency: v('f-freq'), frequencyNote: v('f-freqnote').trim().slice(0, 80), locationKind: kind,
+      siteId: kind === 'room' ? v('f-site') : '', roomId: kind === 'room' ? v('f-room') : '', area: kind === 'home' ? v('f-area').trim().slice(0, 60) : '',
+      venueName: kind === 'venue' ? v('f-venue').trim().slice(0, 120) : '', audience: v('f-aud').trim().slice(0, 80),
+      open: c('f-open', true), capacity: Math.max(0, Math.min(200, parseInt(v('f-cap'), 10) || 0)), updatedAt: new Date().toISOString(), updatedBy: uid() };
+    if (ADMIN) {
+      d.visibility = c('f-members', false) ? 'members' : 'public'; d.under18 = c('f-u18', false); d.active = c('f-active', true);
+      d.leaderIds = leaders; d.leaderNames = leaders.map(function (m) { return (person(m) || {}).name || ''; }).filter(Boolean);
+    }
+    if (!d.name) { document.getElementById('f-err').innerHTML = '<p class="st no">It needs a name.</p>'; return; }
+    var p = { address: kind === 'home' ? v('f-address').trim().slice(0, 300) : '', meetingLink: kind === 'online' ? v('f-link').trim().slice(0, 300) : '', notes: v('f-notes').trim().slice(0, 300),
+      updatedAt: d.updatedAt, updatedBy: uid() };
+    var id = g.id || 'sg_' + E.key(12), batch = db().batch();
+    if (isNew) Object.assign(d, { memberCount: 0, image: '', createdAt: d.updatedAt });
+    batch.set(db().collection('smallGroups').doc(id), d, { merge: true });
+    batch.set(db().collection('smallGroupPrivate').doc(id), p);
+    btn.disabled = true;
+    batch.commit().then(function () {
+      var f = document.getElementById('f-image');
+      if (ADMIN && f && f.files && f.files[0]) {
+        var path = 'smallGroups/' + id + '/' + Date.now() + '-' + f.files[0].name.replace(/[^A-Za-z0-9._-]/g, '_');
+        var ref = EGBCAuth.storage().ref(path);
+        return ref.put(f.files[0], { contentType: f.files[0].type }).then(function () { return ref.getDownloadURL(); })
+          .then(function (url) { return db().collection('smallGroups').doc(id).update({ image: url, updatedAt: new Date().toISOString(), updatedBy: uid() }); });
+      }
+    }).then(function () { toast('Saved'); V.group = id; return load(); })
+      .catch(function (e) { btn.disabled = false; document.getElementById('f-err').innerHTML = '<p class="st no">Could not save: ' + esc(e.message || e) + '</p>'; });
+  }
+
+  /* ================= members ================= */
+  /* Adding or removing someone changes the group's count in the same
+     write; the rules hold it to the group's limit. */
+  function addMember(g, personKind, personId, who, batch) {
+    var key = G.memberKey(g.id, personKind, personId);
+    batch = batch || db().batch();
+    batch.set(db().collection('smallGroupMembers').doc(key), { groupId: g.id, personKind: personKind, personId: personId, name: who.name.slice(0, 120),
+      email: (who.email || '').slice(0, 200), phone: (who.phone || '').slice(0, 40), joinedAt: new Date().toISOString(), addedBy: uid() });
+    batch.update(db().collection('smallGroups').doc(g.id), { memberCount: (g.memberCount || 0) + 1, lastMemberKey: key });
+    return batch;
+  }
+  function drawMembers(el) {
+    var list = mine();
+    if (!list.length) { el.innerHTML = '<div class="card hint">No groups yet.</div>'; return; }
+    var g = group(V.group) || list[0]; V.group = g.id;
+    el.innerHTML = '<div class="card"><label class="l" for="m-group">Group</label><select id="m-group">' + list.map(function (x) {
+      return '<option value="' + esc(x.id) + '"' + (x.id === g.id ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select><div id="m-list" class="hint" style="margin-top:10px">Loading…</div></div>';
+    document.getElementById('m-group').onchange = function () { V.group = this.value; drawMembers(el); };
+    db().collection('smallGroupMembers').where('groupId', '==', g.id).get().then(function (s) {
+      MEMBERS = all(s).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      var have = MEMBERS.map(function (m) { return m.personId; });
+      var b = document.getElementById('m-list'); b.className = '';
+      b.innerHTML = '<p class="hint">' + MEMBERS.length + (g.capacity ? ' of ' + g.capacity : '') + ' members</p>' + (MEMBERS.length ? MEMBERS.map(function (m) {
+        return '<div class="row" data-mem="' + esc(m.id) + '"><div class="t"><b>' + esc(m.name) + '</b>' + (m.personKind === 'contacts' ? ' <span class="pill">Guest</span>' : '') +
+          '<br><span class="hint">' + esc(m.email || '') + (m.phone ? ' · ' + esc(m.phone) : '') + '</span></div><button class="btn warn" data-remove="' + esc(m.id) + '">Remove</button></div>';
+      }).join('') : '<p class="hint">Nobody yet.</p>') +
+        '<div class="two" style="margin-top:10px"><div><select id="m-add"><option value="">Add someone from the church\'s address book…</option>' + PEOPLE.filter(function (x) { return have.indexOf(x.id) < 0; }).map(function (x) {
+          return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join('') + '</select></div></div>';
+      b.querySelectorAll('[data-remove]').forEach(function (x) {
+        x.onclick = function () {
+          var m = MEMBERS.filter(function (y) { return y.id === x.dataset.remove; })[0];
+          if (!confirm('Take ' + m.name + ' out of ' + g.name + '?')) return;
+          var batch = db().batch();
+          batch.delete(db().collection('smallGroupMembers').doc(m.id));
+          batch.update(db().collection('smallGroups').doc(g.id), { memberCount: Math.max(0, (g.memberCount || 0) - 1), lastMemberKey: m.id });
+          batch.commit().then(function () { toast('Removed'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+        };
+      });
+      document.getElementById('m-add').onchange = function () {
+        var p = person(this.value); if (!p) return;
+        if (G.full(g)) { toast(g.name + ' is full. Raise its limit first.'); this.value = ''; return; }
+        addMember(g, 'addressBook', p.id, p).commit().then(function () { toast('Added ' + p.name); return load(); }).catch(function (e) { toast('Could not add: ' + (e.message || e)); });
+      };
+    }).catch(function (e) { document.getElementById('m-list').textContent = 'Could not load: ' + (e.message || e); });
+  }
+
+  /* ================= requests ================= */
+  function drawRequests(el) {
+    el.innerHTML = '<div class="card"><h2>Asking to join</h2>' + (REQUESTS.length ? REQUESTS.map(function (r) {
+      var g = group(r.groupId) || { name: r.groupName };
+      return '<div class="row" data-req="' + esc(r.id) + '"><div class="t"><b>' + esc(r.name) + '</b> <span class="hint">for ' + esc(g.name) + '</span>' + (r.personKind === 'contacts' ? ' <span class="pill">Guest</span>' : ' <span class="pill ok">Member</span>') +
+        '<br><span class="hint">' + esc(r.email) + (r.phone ? ' · <a href="tel:' + esc(r.phone.replace(/[^\d+]/g, '')) + '" style="color:var(--brand)">' + esc(r.phone) + '</a>' : '') +
+        (r.createdAt ? ' · asked ' + esc(E.fmtDateShort(r.createdAt.toDate().toISOString())) : '') + '</span>' + (r.message ? '<br>' + esc(r.message) : '') + '</div>' +
+        '<button class="btn" data-accept="' + esc(r.id) + '">Accept</button><button class="btn sec" data-decline="' + esc(r.id) + '">Decline</button></div>';
+    }).join('') : '<p class="hint">Nobody is waiting.</p>') + '</div>';
+    el.querySelectorAll('[data-accept]').forEach(function (b) { b.onclick = function () { decide(b.dataset.accept, true, b); }; });
+    el.querySelectorAll('[data-decline]').forEach(function (b) { b.onclick = function () { decide(b.dataset.decline, false, b); }; });
+  }
+  /* Accepting: the request, their place in the group and the group's count,
+     in one write; then an email with when and where (the address too, now
+     they are a member). */
+  function decide(id, yes, btn) {
+    var r = REQUESTS.filter(function (x) { return x.id === id; })[0], g = group(r.groupId);
+    if (yes && G.full(g)) { toast(g.name + ' is full. Raise its limit first.'); return; }
+    btn.disabled = true;
+    var batch = db().batch();
+    batch.update(db().collection('smallGroupRequests').doc(id), { status: yes ? 'accepted' : 'declined', decidedAt: firebase.firestore.FieldValue.serverTimestamp(), decidedBy: uid() });
+    if (yes) addMember(g, r.personKind, r.personId, r, batch);
+    batch.commit().then(function () {
+      return yes ? db().collection('smallGroupPrivate').doc(g.id).get().then(function (s) { return s.exists ? s.data() : {}; }).catch(function () { return {}; }) : null;
+    }).then(function (p) {
+      var html = yes ? '<p>Dear ' + esc(r.name) + ',</p><p>Welcome to <b>' + esc(g.name) + '</b>. It meets ' + esc(G.when(g)) + ', ' + esc(G.wherePublic(g, look())) + '.</p>' +
+          (p && p.address ? '<p>The address: ' + esc(p.address) + '</p>' : '') + (p && p.meetingLink ? '<p>To join online: <a href="' + esc(p.meetingLink) + '">' + esc(p.meetingLink) + '</a></p>' : '') +
+          (p && p.notes ? '<p>' + esc(p.notes) + '</p>' : '') + '<p>' + esc((g.leaderNames || []).join(' and ')) + '</p>'
+        : '<p>Dear ' + esc(r.name) + ',</p><p>Thank you for asking to join ' + esc(g.name) + '. It is not able to take you just now; the church office can help you find another group.</p>';
+      return EGBCChurch.send({ to: [r.email], subject: yes ? 'Welcome to ' + g.name : 'Your request to join ' + g.name, html: html }).catch(function () { toast('Saved, but the email could not be sent'); });
+    }).then(function () { toast(yes ? r.name + ' is in ' + g.name : 'Declined'); return load(); })
+      .catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
+  }
+
+  /* ================= settings (master admins) ================= */
+  function drawSettings(el) {
+    var teams = SETTINGS.teams || [];
+    el.innerHTML = '<div class="card"><h2>Groups admins</h2><p class="hint">The admins of these teams add groups and choose their leaders. Master admins always can.</p>' +
+      TEAMS.map(function (t) { return '<label class="ck"><input type="checkbox" class="s-team" value="' + esc(t) + '"' + (teams.indexOf(t) >= 0 ? ' checked' : '') + '> ' + esc(t) + '</label>'; }).join('') +
+      '<div style="margin-top:10px"><button class="btn" id="s-save">Save</button></div></div>';
+    document.getElementById('s-save').onclick = function () {
+      var t = [].slice.call(document.querySelectorAll('.s-team:checked')).map(function (x) { return x.value; });
+      db().collection('groupsSettings').doc('main').set({ teams: t, updatedAt: new Date().toISOString(), updatedBy: uid() })
+        .then(function () { SETTINGS.teams = t; toast('Saved'); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+    };
+  }
+
+  function noAccess(msg) { document.getElementById('main').innerHTML = '<div class="card" id="noaccess">' + msg + '</div>'; }
+
+  EGBCAuth.require().then(function (profile) {
+    ME = profile || {};
+    MASTER = !!ME.masterAdmin;
+    return Promise.all([db().collection('groupsSettings').doc('main').get().catch(function () { return null; }),
+      db().collection('smallGroups').where('leaderIds', 'array-contains', ME.memberId || '-').get().catch(function () { return { docs: [] }; }),
+      db().collection('addressBook').get().catch(function () { return { docs: [] }; }),
+      db().collection('sites').get().catch(function () { return { docs: [] }; }), db().collection('rooms').get().catch(function () { return { docs: [] }; })]);
+  }).then(function (r) {
+    SETTINGS = r[0] && r[0].exists ? r[0].data() : {};
+    ADMIN = MASTER || (SETTINGS.teams || []).some(function (t) { return (ME.adminFor || []).indexOf(t) >= 0; });
+    var ab = all(r[2]);
+    PEOPLE = ab.map(function (p) { return { id: p.id, name: String(p.name || p.fullName || '').trim(), email: p.email || '', phone: p.phone || p.mobile || '' }; }).filter(function (p) { return p.name; })
+      .sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var t = {}; ab.forEach(function (p) { (p.markers || []).forEach(function (m) { if (m) t[m] = 1; }); (p.adminFor || []).forEach(function (m) { if (m) t[m] = 1; }); });
+    TEAMS = Object.keys(t).sort();
+    SITES = all(r[3]).filter(function (s) { return s.active !== false; }); ROOMS = all(r[4]).filter(function (x) { return x.active !== false; });
+    if (!ADMIN && !r[1].docs.length) {
+      return noAccess(EGBCAuth.isAdmin && EGBCAuth.isAdmin() && !(SETTINGS.teams || []).length
+        ? '<h2 style="margin:0 0 6px;font-size:15px">Not set up yet</h2>A master admin chooses, on this page\'s Settings, which team\'s admins look after the small groups.'
+        : 'This page is for the small groups admins and each group\'s leaders. To find a group, see <a href="groups.html" style="color:var(--brand)">Find a group</a>.');
+    }
+    return load();
+  }).catch(function (e) { noAccess(esc(e.message || e)); });
+})();
+</script>
+</body>
+</html>

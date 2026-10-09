@@ -1578,3 +1578,142 @@ d. **"Page a parent"** still shows the number to call. A text message needs
 - **For Martin, on deploying the rules:** two new collections, `kidsMornings`
   and `kidsRoll`. Their lists ask by site and day, or by group and day, so no
   new index should be needed.
+
+### F-098 — decided (Martin) and built
+- **The rota's Session Leader may open the morning**, if no lead has yet.
+  They can name only themselves, only for today, and the rules check the
+  rota for that date. Tests: rules ("THE ROTA'S SESSION LEADER OPENS THE
+  MORNING THEMSELVES"), browser (f098-screen).
+- **Term dates are a setting** on the Children's register, Settings tab:
+  three terms, each with a name, start and end, set by a lead each year
+  (`kidsTerms/<site>`). The rules refuse terms that overlap or end before they
+  start. The registers use them; in a holiday, "this term" is the term just
+  gone. Until they are set, the registers guess as before.
+- **SMS paging:** later. Instead, parents are paged on the screen through
+  ChurchShow: a "Show on screen" button next to "Page a parent". The
+  contract is F-100.
+
+### F-100 — THE CONTRACT: paging a parent on the screen (ChurchShow reads this)
+**Collection:** `screenPages`. One document per page. Its id is the child's
+check-in id, so paging the same child again replaces the last page.
+
+**Fields: exactly these, nothing else (the rules refuse anything more):**
+
+| field | type | what it holds |
+|---|---|---|
+| `siteId` | string | the site (Places) whose screen shows it |
+| `code` | string | the family's collection code for that morning, 4 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no 0, O, 1, I or L) |
+| `room` | string | the group's room name (or the group's name if it has no room), up to 80 characters |
+| `message` | string | exactly `"<code>, please come to <group>"`, e.g. `"K7P2, please come to Little ones"`. The rules check it letter for letter against the code and the group's name |
+| `createdBy` | string | the uid of the leader who paged |
+| `createdAt` | timestamp | server time |
+| `clearedAt` | timestamp or null | `null` while it is on the screen; server time once cleared |
+
+**Never a child's name.** The rules allow only the code and the group's name in
+the message, and nothing outside these seven fields.
+
+**How ChurchShow reads it.** Signed in, as any member (the projection computer
+signs in as an AV or worship person), it listens to:
+
+    screenPages where siteId == <the site> and clearedAt == null
+
+Show each page whose `createdAt` is less than **5 minutes** ago. Treat anything
+older as cleared, even if `clearedAt` is still null. A list that doesn't ask
+for `clearedAt == null` is refused.
+
+**Who writes:**
+- Group leaders, that morning's Session Leader and the leads create a page,
+  for a child who is checked in.
+- They clear it with "Done" (only `clearedAt` changes, to server time).
+- The leader's screen also clears it itself once it is 5 minutes old.
+- Nothing is ever deleted.
+
+**Tests:** in the rules ("THE CONTRACT: the projection computer … exactly these
+fields, a code and no name"), and in the browser (f098-screen: "THE CONTRACT: one
+document, exactly …", "THE CODE ONLY, NEVER THE CHILD'S NAME", "the projection
+computer … reads it as ChurchShow will").
+
+**For the ChurchShow window:** the reader isn't built here. Building it there,
+against this contract, is theirs.
+
+### F-101 — the Session Leader can page, but has no button
+The rules let the Session Leader page for any group that morning. But their
+screen is the roll-call, which holds no collection codes, so it has no "Show
+on screen" button. A group leader or a lead pages from the group screen. Say
+if the Session Leader needs the button: they would need to see the codes.
+
+### F-102 — what Chunk 7 stage 1 built (small groups: directory, find a group, joining, membership)
+- **`groups.html`, "Find a group"** (public, like What's on, with the Powered by
+  Church HQ footer).
+  - Everyone sees the public groups that are running; signed-in members see
+    members-only groups too.
+  - Filters: words, day, kind, area, and "taking new members".
+  - Each group shows when, roughly where, who it is for, who leads it and
+    whether it is open. "Roughly where" is a room, a venue, "online", or for a
+    home group only its area ("In a home in Esher"). There's a picture if one
+    was uploaded.
+  - **"Ask to join"**: name, email, phone, a message. A member asks as
+    themselves. A visitor becomes a contact in the same write (one place for
+    people, §6.16).
+  - The asker is emailed a copy. When the asker is a signed-in member, the
+    leaders are emailed too (see F-104).
+  - **"Your groups"** for members, with the address or meeting link of
+    their own groups.
+  - A link such as `groups.html?group=<id>` opens one group, for sharing.
+- **`groups-admin.html`, "Small groups"**:
+  - **Groups:** groups admins add groups and choose leaders. Leaders edit
+    their own group's details, but not its leaders or whether it is public.
+    Home groups have an area (public) and an address (private). Online
+    groups have a link (private). There's a members-only switch, an under-18s
+    flag, "running" and a picture.
+  - **Members:** add from the address book, remove.
+  - **Requests:** accept (welcome email with when and where, and the address
+    now they are in) or decline (a kind email).
+  - **Settings:** a master admin names which team's admins are the groups
+    admins. Until then, admins see "Not set up yet".
+- **Rules:**
+  - The address and the link live only in `smallGroupPrivate`: the group's
+    members, its leaders and the groups admins. The rules refuse an address
+    on the public card.
+  - Who is in a group is visible to the group, its leaders and the admins,
+    and each person sees their own places.
+  - The member count moves with each member added or removed, in the same
+    write, and never past the group's limit. Nobody can ask to join a full
+    or closed group.
+  - Nothing is deleted.
+- Tests: rules (small groups, 39 checks); storage (group pictures, 4);
+  c7-groups-unit (18); c7-groups in the browser (32).
+
+### F-103 — members on no team are "pending", so they join as visitors
+In this hub, a member on no rota team signs in as **pending**, not active (the
+main window's sign-in, `egbc-auth.js`). Small groups follows the rules
+already there: a pending member sees only public groups, and asking to join
+makes them a contact, like a visitor. Many people in small groups will be on
+no team. **For Martin:** should anyone in the address book count as an active
+member for small groups (and What's on), whether or not they are on a team?
+That's a change to the main window's sign-in, not mine.
+
+### F-104 — leaders aren't emailed when a visitor asks
+A visitor can't read the address book, so their page can't email the
+leaders. A signed-in member's page can, and does. Visitors' requests wait on
+Small groups, Requests (with a count on the tab). **For the main window:** a
+server step to email the leaders about new requests, and a "requests waiting"
+badge in the hub for group leaders.
+
+### F-105 — REQUESTS for the main window (small groups)
+- **Menu:** "Find a group" (`groups.html`), for everyone, near What's on.
+  "Small groups" (`groups-admin.html`), for groups admins and group leaders.
+- **The personal dashboard (§6.16a):** "Your groups", using
+  `smallGroupMembers where personKind == 'addressBook' and personId == <member id>`.
+  The rules allow exactly that list.
+- **Contacts:** please add `'group'` to the sources a public contact may have
+  (`publicContact()`, outside my section). A visitor asking to join is saved
+  with source `'signup'` until then.
+- **Style check:** add `groups.html` and `groups-admin.html`.
+
+### F-106 — left for stage 2 of Chunk 7
+Meetings and attendance, messaging the group, notes per meeting, group
+events, leader oversight; members leaving a group themselves; leaders
+uploading the picture (only groups admins can, for now); and connecting
+under-18s groups' leaders to the checks and forms (§6.10). The flag is there
+and is shown.

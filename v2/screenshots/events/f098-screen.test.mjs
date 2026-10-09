@@ -1,29 +1,11 @@
-/* Chunk 6, stage 3 — the morning: the fire roll-call for everyone leading
-   it, the rota's Session Leader, consent renewal at the desk, registers,
-   new families to welcome, allergies in the room, and "not set up yet".
+/* F-098 (Martin) — the rota's Session Leader opens the morning; "Show on
+   screen" pages a parent through ChurchShow (the contract in F-100); "Done"
+   and the five-minute clear; term dates as a setting, used by the registers.
    Events window. Invented children and parents only, events emulators only,
    network guard, no email leaves the machine.
 
-     npm i --no-save puppeteer-core
      npx firebase emulators:exec --config firebase.events.json --only auth,firestore \
-       --project egbc-worship-planner "node screenshots/events/k3-morning.test.mjs"
-
-   What it proves:
-     0. with no site in Places, a master admin is told the steps (with
-        links) and anyone else to ask the office; with a site but no
-        children's team, the master admin is taken to Settings
-     1. a lead opening the desk on a group's day opens the morning, naming
-        the rota's Session Leader
-     2. consent run out: the child still comes in, and the parent is shown a
-        QR code for the form (and emailed it)
-     3. the fire roll-call: the leader of Little ones sees every child
-        checked in (name, group, time) and no medical details; their group
-        screen lists the allergies in the room
-     4. the Session Leader sees every group and, for children checked in,
-        their medical details; nothing else; and nothing once the morning
-        closes
-     5. registers by group for chosen weeks, downloaded (and logged)
-     6. new families to welcome */
+       --project egbc-worship-planner "node screenshots/events/f098-screen.test.mjs" */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -42,7 +24,7 @@ const PROJECT = 'egbc-worship-planner';
 const cfg = JSON.parse(fs.readFileSync(path.join(V2, 'firebase.events.json'), 'utf8'));
 if (cfg.emulators.firestore.port !== 8182 || cfg.emulators.auth.port !== 9098) throw new Error('Not the events emulators - refusing to write.');
 const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'egbc-k3-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'egbc-f98-'));
 const STAMP = JSON.parse(fs.readFileSync(path.join(V2, 'version.json'), 'utf8').replace(/^\uFEFF/, '')).stamp;
 
 const results = [];
@@ -77,7 +59,8 @@ const P = {
   lou:   { email: 'lou.little@example.invalid', name: 'Lou Little', mid: 'm_lou', teams: ['Kids Church'] },
   jo:    { email: 'jo.junior@example.invalid', name: 'Jo Junior', mid: 'm_jo', teams: ['Kids Church'] },
   sam:   { email: 'sam.session@example.invalid', name: 'Sam Session', mid: 'm_sam', teams: ['Kids Church'] },
-  nat:   { email: 'nat.helper@example.invalid', name: 'Nat Helper', mid: 'm_nat', teams: ['Kids Church'] }
+  nat:   { email: 'nat.helper@example.invalid', name: 'Nat Helper', mid: 'm_nat', teams: ['Kids Church'] },
+  ava:   { email: 'ava.av@example.invalid', name: 'Ava Projection', mid: 'm_ava', teams: ['AV Team'], adminFor: ['AV Team'] }
 };
 for (const k of Object.keys(P)) {
   P[k].uid = (await (await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake', {
@@ -162,141 +145,97 @@ const outbox = (p) => p.evaluate(() => (window.__egbcOutbox || []).map(m => m.pa
 const text = (p, sel) => p.$eval(sel || 'body', e => e.innerText.replace(/\s+/g, ' '));
 const hideBanner = (p) => p.evaluate(() => { const b = document.querySelector('.firebase-emulator-warning'); if (b) b.style.display = 'none'; });
 
+const fwd = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
+
 try {
-  /* ---------- 0. not set up yet ---------- */
-  const kB = await as('karen'); const KA = kB.page;
-  const nB = await as('nat'); const N = nB.page;
-  await go(KA, 'kids-admin.html', '#notsetup');
-  ok('0. no site yet: a master admin is told the two steps, with a link to Places', /Not set up yet/.test(await text(KA, '#notsetup')) && (await KA.$eval('#ns-places', a => a.getAttribute('href'))) === 'places-admin.html'
-    && (await KA.$eval('#ns-settings', a => a.getAttribute('href'))) === 'kids-admin.html?tab=settings', await text(KA, '#notsetup'));
-  await hideBanner(KA);
-  await KA.setViewport({ width: 375, height: 800 });
-  await KA.screenshot({ path: path.join(HERE, 'k3-not-set-up-375.png'), fullPage: true });
-  await KA.setViewport({ width: 1100, height: 900 });
-  await go(N, 'kids-admin.html', '#notsetup');
-  ok('   someone who is not an admin is told to ask the office', /Please ask the church office/.test(await text(N, '#notsetup')) && !(await N.$('#ns-places')));
-  await go(KA, 'kids-checkin.html', '#notsetup');
-  await go(N, 'kids-checkin.html', '#notsetup');
-  ok('   the same on Sunday check-in', !!(await KA.$('#ns-places')) && /ask the church office/.test(await text(N, '#notsetup')));
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });
     await setDoc(doc(db, 'bookingSettings', 'site_t'), { bookingsAdmins: [], safeguardingLead: '', safeguardingDeputy: '' });
+    await setDoc(doc(db, 'rooms', 'room_little'), { siteId: 'site_t', name: 'Test Little Room', kind: 'room', active: true, order: 1 });
   });
-  await go(KA, 'kids-admin.html', '#notsetup-team');
-  ok('   a site, but no children\'s team: the master admin is taken to Settings to choose it', /choose the children's team on Settings/.test(await text(KA, '#notsetup-team')) && !!(await KA.$('.s-team')));
-  await go(KA, 'kids-checkin.html', '#notsetup');
-  ok('   and Sunday check-in shows the first step done', /Places: add the site .*\(done\)/.test(await text(KA, '#notsetup')), await text(KA, '#notsetup'));
-  await kB.close(); await seedChurch();
+  await seedChurch();
+  await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), 'kidsGroups', 'kg_little'), { roomId: 'room_little' }); });
 
-  /* ---------- 1. the morning opens ---------- */
-  const sB = await as('samy'); const S = sB.page;
-  await go(S, 'kids-checkin.html', '#morning-note');
+  /* ---------- 1. the Session Leader opens the morning ---------- */
+  const mB = await as('sam'); const M = mB.page;
+  await go(M, 'kids-checkin.html', '#roll');
   const morning = await until(() => get('kidsMornings', 'site_t_' + UTCDAY));
-  ok('1. the desk opens the morning, with the rota\'s Session Leader', morning && J(morning.sessionLeaderIds) === J(['m_sam']) && J(morning.leaderIds.sort()) === J(['m_jo', 'm_lou']) && morning.rotaId === 'rota_today', J(morning));
-  ok('   and says so', /Session Leader Sam Session \(from the rota\)/.test(await text(S, '#morning-note')), await text(S, '#morning-note'));
+  ok('1. THE ROTA\'S SESSION LEADER OPENS THE MORNING, before any lead has come', morning && morning.updatedBy === P.sam.uid && J(morning.sessionLeaderIds) === J(['m_sam']) && J(morning.leaderIds.sort()) === J(['m_jo', 'm_lou']), J(morning));
+  ok('   and sees the roll-call', J(await M.$$eval('[data-tab]', b => b.map(x => x.textContent))) === J(['Roll-call']));
+  const nB = await as('nat'); const N = nB.page;
+  const natTry = await N.evaluate((d) => EGBCAuth.db.collection('kidsMornings').doc('site_t_' + d).set({ siteId: 'site_t', day: d, rotaId: 'rota_today', leaderIds: [], sessionLeaderIds: ['m_nat'],
+    expiresAt: firebase.firestore.Timestamp.fromMillis(Date.now() + 3600000), updatedAt: 'x', updatedBy: 'x' }).then(() => 'opened', e => e.code), UTCDAY);
+  ok('   someone not on the rota as Session Leader cannot', /permission/.test(natTry), natTry);
+  await nB.close();
+
+  /* a lead checks Ada in */
+  const sB = await as('samy'); const S = sB.page;
+  await go(S, 'kids-checkin.html', '#d-q');
   await val(S, '#d-q', '900111');
   await S.waitForSelector('[data-fam="fam_1"]');
-  await check(S, '[data-fam="fam_1"] .d-tick[value="kc_eve"]', false);
+  await check(S, '[data-fam="fam_1"] .d-tick[value="kc_ben"]', false); await check(S, '[data-fam="fam_1"] .d-tick[value="kc_eve"]', false);
   await tap(S, '[data-checkin="fam_1"]');
-  await until(async () => (await get('kidsRoll', 'kids_kg_junior_' + DAY + '__kc_ben__0')));
-  const roll = await get('kidsRoll', 'kids_kg_little_' + DAY + '__kc_ada__0');
-  ok('   each check-in has its roll-call copy: name, group and time only', roll && roll.name === 'Ada Synthetic' && roll.groupName === 'Little ones' && roll.state === 'in'
-    && !('pickupCode' in roll) && !('familyId' in roll) && !Object.keys(roll).some(k => /phone|allerg|medic/i.test(k)), J(roll));
+  const CKID = 'kids_kg_little_' + DAY + '__kc_ada__0';
+  const ada = await until(() => get('checkins', CKID));
+  const CODE = ada.pickupCode;
 
-  /* ---------- 2. consent run out ---------- */
-  await val(S, '#d-q', 'Val');
-  await S.waitForSelector('[data-renew="fam_v"]');
-  ok('2. Vic\'s consent has run out: shown in red, and Vic can still be ticked in', /Consent ran out/.test(await text(S, '[data-fam="fam_v"]')) && !!(await S.$('[data-fam="fam_v"] .d-tick:checked')));
-  await S.evaluate(() => { window.__egbcOutbox.length = 0; });
-  await tap(S, '[data-renew="fam_v"]');
-  await S.waitForSelector('#renew-qr svg');
-  const rq = await until(async () => (await readDb(db => getDocs(query(collection(db, 'formRequests'), where('email', '==', 'val@example.invalid'))))).docs.map(d => ({ key: d.id, ...d.data() }))[0]);
-  ok('   the parent is shown a QR code for the registration form', !!rq && rq.formId === 'form_kids_site_t' && J(rq.subjects) === J(['Vic Visitor']));
-  const mail = await until(async () => { const o = await outbox(S); return o.length ? o : null; });
-  ok('   and the same link is emailed (to the outbox only)', mail && mail[0].to[0] === 'val@example.invalid' && JSON.stringify(mail[0]).includes(rq.key));
-  await hideBanner(S);
-  await S.setViewport({ width: 375, height: 900 });
-  await S.screenshot({ path: path.join(HERE, 'k3-renew-qr-375.png') });
-  await S.setViewport({ width: 1100, height: 900 });
-  await tap(S, '#m-done');
-  await tap(S, '[data-checkin="fam_v"]');
-  ok('   Vic is checked in all the same', !!(await until(() => get('checkins', 'kids_kg_little_' + DAY + '__kc_vic__0'))));
-
-  /* ---------- 3. the fire roll-call, for a group leader ---------- */
+  /* ---------- 2. Show on screen ---------- */
   const lB = await as('lou', 375); const L = lB.page;
-  await go(L, 'kids-checkin.html', '#g-ins');
-  await L.waitForSelector('#g-allergies');
-  const alg = await text(L, '#g-allergies');
-  ok('3. Little ones\' screen lists the allergies in the room now (Ada, Vic), not Eve who has not come', /Ada Synthetic: Allergies: Peanuts: carries an EpiPen; Medication: EpiPen/.test(alg) && /Vic Visitor: Allergies: Dairy/.test(alg) && !/Eve/.test(alg), alg);
-  await tap(L, '[data-tab="roll"]');
-  await until(async () => /3/.test(await L.$eval('#roll-total', e => e.textContent)));
-  const lr = await text(L, '#roll');
-  ok('   FIRE ROLL-CALL: the leader of Little ones sees every child in, Ben the Junior too: name, group, time', /Little ones Ada Synthetic in since .* Vic Visitor in since/.test(lr) && /Juniors Ben Synthetic in since/.test(lr), lr);
-  ok('   and no medical details, no phone numbers, nothing to open', !(await L.$('[data-rmed]')) && !/Asthma|07700|EpiPen/.test(lr));
-  const lsneak = await L.evaluate(() => Promise.all([EGBCAuth.db.collection('kidsMedical').doc('kc_ben').get().then(() => 'read', e => e.code),
-    EGBCAuth.db.collection('kidsChildren').doc('kc_ben').get().then(() => 'read', e => e.code)]));
-  ok('   round the page too: not Ben\'s medical details, nor his record', lsneak.every(x => /permission/.test(x)), J(lsneak));
+  await go(L, 'kids-checkin.html', '[data-more="kc_ada"]');
+  await tap(L, '[data-more="kc_ada"]');
+  await L.waitForSelector('#m-screen');
+  ok('2. "Show on screen" sits next to "Page a parent"', J(await L.$$eval('#modal .btn', b => b.map(x => x.textContent).slice(0, 2))) === J(['Page a parent', 'Show on screen']));
+  await tap(L, '#m-screen');
+  await L.waitForSelector('#on-screen');
+  ok('   the leader sees what the screen says', (await text(L, '#on-screen')).includes(CODE + ', please come to Little ones'), await text(L, '#on-screen'));
+  const pg = await until(() => get('screenPages', CKID));
+  ok('   THE CONTRACT: one document, exactly { siteId, code, room, message, createdBy, createdAt, clearedAt }',
+    pg && Object.keys(pg).sort().join(',') === 'clearedAt,code,createdAt,createdBy,message,room,siteId' && pg.siteId === 'site_t' && pg.code === CODE && pg.room === 'Test Little Room'
+    && pg.message === CODE + ', please come to Little ones' && pg.createdBy === P.lou.uid && pg.clearedAt === null && typeof pg.createdAt.toMillis === 'function', J(pg));
+  ok('   THE CODE ONLY, NEVER THE CHILD\'S NAME', !/Ada|Synthetic/.test(J(pg)));
   await hideBanner(L);
-  await L.screenshot({ path: path.join(HERE, 'k3-rollcall-375.png'), fullPage: true });
+  await L.screenshot({ path: path.join(HERE, 'f098-show-on-screen-375.png') });
 
-  /* ---------- 4. the Session Leader ---------- */
-  const mB = await as('sam', 375); const M = mB.page;
-  await go(M, 'kids-checkin.html', '#roll');
-  ok('4. the Session Leader (on no group) sees the roll-call', J(await M.$$eval('[data-tab]', b => b.map(x => x.textContent))) === J(['Roll-call']));
-  await until(async () => /3/.test(await M.$eval('#roll-total', e => e.textContent)));
-  await tap(M, '[data-rmed="kc_ben"]');
-  await M.waitForSelector('[data-med="kc_ben"]');
-  ok('   THE SESSION LEADER SEES THE MEDICAL DETAILS OF A CHILD IN THIS MORNING, in any group', /Asthma \(invented\)/.test(await text(M, '[data-med="kc_ben"]')) && /this morning only/.test(await text(M, '#modal')));
-  const msneak = await M.evaluate(() => Promise.all([EGBCAuth.db.collection('kidsMedical').doc('kc_eve').get().then(() => 'read', e => e.code),
-    EGBCAuth.db.collection('kidsChildren').doc('kc_ben').get().then(() => 'read', e => e.code),
-    EGBCAuth.db.collection('checkins').doc('kids_kg_junior_' + EGBCCheckin.today() + '__kc_ben__0').get().then(() => 'read', e => e.code)]));
-  ok('   but not Eve\'s, who has not come; nor anyone\'s record or check-in', msneak.every(x => /permission/.test(x)), J(msneak));
-  await go(N, 'kids-checkin.html', '#noaccess');
-  ok('   someone on Kids Church not leading this morning sees nothing', !!(await N.$('#noaccess')));
-  await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), 'kidsMornings', 'site_t_' + UTCDAY), { expiresAt: Timestamp.fromMillis(Date.now() - 60000) }); });
-  const after = await M.evaluate(() => EGBCAuth.db.collection('kidsMedical').doc('kc_ben').get().then(() => 'read', e => e.code));
-  ok('   WHEN THE MORNING CLOSES: the Session Leader no longer sees the medical details', /permission/.test(after), after);
-  await go(L, 'kids-checkin.html', '#g-ins'); await tap(L, '[data-tab="roll"]');
-  await until(async () => /2/.test(await L.$eval('#roll-total', e => e.textContent)));
-  ok('   and Little ones\' leader is back to their own group', !/Ben/.test(await text(L, '#roll')) && /own group/.test(await text(L, '#body')));
-  /* (Since F-098 the rota's Session Leader may open the morning again themselves.) */
-  await go(M, 'kids-checkin.html', '#roll');
-  ok('   (the rota\'s Session Leader may open it again that day: F-098)', (await until(async () => { const m = await get('kidsMornings', 'site_t_' + UTCDAY); return m.updatedBy === P.sam.uid && m.expiresAt.toMillis() > Date.now(); })) === true);
-  await mB.close(); await nB.close();
+  /* ---------- 3. ChurchShow reads it ---------- */
+  const aB = await as('ava'); const A = aB.page;
+  const churchShow = () => A.evaluate(() => EGBCAuth.db.collection('screenPages').where('siteId', '==', 'site_t').where('clearedAt', '==', null).get()
+    .then(s => s.docs.map(d => { const x = d.data(); return { message: x.message, room: x.room, code: x.code, fresh: Date.now() - x.createdAt.toMillis() < 5 * 60000 }; }), e => e.code));
+  const shown = await churchShow();
+  ok('3. the projection computer (signed in as an AV admin, no children\'s rights) reads it as ChurchShow will', Array.isArray(shown) && shown.length === 1 && shown[0].message === CODE + ', please come to Little ones' && shown[0].fresh, J(shown));
+  const avSneak = await A.evaluate((id) => Promise.all([EGBCAuth.db.collection('checkins').doc(id).get().then(() => 'read', e => e.code), EGBCAuth.db.collection('kidsChildren').doc('kc_ada').get().then(() => 'read', e => e.code)]), CKID);
+  ok('   and nothing else about the child', avSneak.every(x => /permission/.test(x)), J(avSneak));
 
-  /* ---------- 5. registers ---------- */
-  await tap(L, '[data-tab="register"]');
-  await L.waitForSelector('#reg-period');
-  await L.select('#reg-period', 'custom');
-  await L.waitForSelector('#reg-from');
-  await val(L, '#reg-from', back(14));
-  const first = +back(14).slice(8, 10) + '/' + +back(14).slice(5, 7);
-  await until(() => L.$eval('#reg-table th:nth-child(2)', (e, f) => e.textContent === f, first));
-  const grid = await L.$$eval('#reg-table tr', rows => rows.map(r => [...r.children].map(c => c.textContent.trim()).join('|')));
-  ok('5. a group leader\'s register for their group: three weeks, who came, and the totals',
-    grid.length === 5 && grid[1] === 'Ada Synthetic|✓||✓|2' && grid[2] === 'Eve Synthetic|✓|||1' && grid[3] === 'Vic Visitor|||✓|1' && grid[4] === 'Children|2|0|2|', J(grid));
-  await tap(L, '#reg-csv');
-  const logged = await until(async () => (await readDb(db => getDocs(query(collection(db, 'downloadsLog'), where('by', '==', P.lou.uid))))).docs.map(d => d.data())[0]);
-  ok('   downloaded, and the download logged in their name', logged && /Register: Little ones/.test(logged.what) && logged.sensitive === false, J(logged));
-  await lB.close();
-  await tap(S, '[data-tab="register"]');
-  await S.waitForSelector('#reg-table');
-  ok('   a lead sees every group\'s register', J(await S.$$eval('#reg-group option', o => o.map(x => x.textContent))) === J(['Little ones', 'Juniors']));
+  /* ---------- 4. Done ---------- */
+  await tap(L, '#m-done');
+  const cleared = await until(async () => { const p = await get('screenPages', CKID); return p.clearedAt ? p : null; });
+  ok('4. "Done" clears it, at server time', cleared && typeof cleared.clearedAt.toMillis === 'function');
+  ok('   and the screen no longer shows it', J(await until(async () => { const x = await churchShow(); return Array.isArray(x) && !x.length ? x : null; })) === '[]');
 
-  /* ---------- 6. new families to welcome ---------- */
-  await tap(S, '[data-tab="visitors"]');
-  await S.waitForSelector('[data-vfam="fam_v"]');
-  ok('6. new families this week: Val, with Vic, the form not back yet', /Val Visitor .*Vic Visitor \(Little ones\).*07700 900444.*Full form not back yet/.test(await text(S, '[data-vfam="fam_v"]')) && !(await S.$('[data-vfam="fam_1"]')));
-  await tap(S, '[data-welcome="fam_v"]');
-  const w = await until(async () => { const f = await get('kidsFamilies', 'fam_v'); return f.welcomedAt ? f : null; });
-  ok('   "we have said hello" is noted, with who', w && w.welcomedBy === P.samy.uid);
-  await S.waitForSelector('[data-vfam="fam_v"] .pill.ok');
-  ok('   and shown', /Welcomed by Samy Lead/.test(await text(S, '[data-vfam="fam_v"]')));
-  await hideBanner(S);
-  await S.setViewport({ width: 375, height: 900 });
-  await S.screenshot({ path: path.join(HERE, 'k3-visitors-375.png'), fullPage: true });
-  await sB.close();
+  /* ---------- 5. it clears itself after five minutes ---------- */
+  await tap(L, '[data-more="kc_ada"]'); await L.waitForSelector('#m-screen'); await tap(L, '#m-screen'); await L.waitForSelector('#on-screen');
+  await until(async () => { const p = await get('screenPages', CKID); return p && p.clearedAt === null; });
+  await tap(L, '#m-close');
+  await L.waitForSelector('#g-onscreen');
+  ok('5. paged again: the group screen shows what is on the screen, with Done', (await text(L, '#g-onscreen')).includes(CODE + ', please come to Little ones') && !!(await L.$('[data-pdone]')));
+  await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), 'screenPages', CKID), { createdAt: Timestamp.fromMillis(Date.now() - 6 * 60000) }); });
+  const auto = await until(async () => { const p = await get('screenPages', CKID); return p.clearedAt ? p : null; }, 45000);
+  ok('   six minutes on, nobody pressed Done: the leader\'s screen clears it by itself', !!auto);
+  await aB.close();
+
+  /* ---------- 6. term dates ---------- */
+  await go(S, 'kids-admin.html?tab=settings', '#t-card');
+  const set = [['Test term A', fwd(-30), fwd(30)], ['Test term B', fwd(40), fwd(80)], ['Test term C', fwd(90), fwd(120)]];
+  for (let i = 0; i < 3; i++) { await val(S, '#t-name-' + i, set[i][0]); await val(S, '#t-from-' + i, set[i][1]); await val(S, '#t-to-' + i, set[i][2]); }
+  await val(S, '#t-to-0', fwd(50)); await tap(S, '#t-save');
+  ok('6. overlapping terms are refused on the page', /without overlapping/.test(await text(S, '#t-err')));
+  await val(S, '#t-to-0', fwd(30)); await tap(S, '#t-save');
+  const terms = await until(async () => { const t = await get('kidsTerms', 'site_t'); return t && t.terms[0].name === 'Test term A' ? t : null; });
+  ok('   a lead sets the year\'s three terms', terms && terms.terms.length === 3 && terms.terms[2].to === fwd(120));
+  await go(S, 'kids-checkin.html', '[data-tab="register"]'); await tap(S, '[data-tab="register"]');
+  await S.waitForSelector('#reg-period');
+  ok('   the registers use them', J(await S.$$eval('#reg-period option', o => o.map(x => x.textContent))).includes('This term (Test term A)'), J(await S.$$eval('#reg-period option', o => o.map(x => x.textContent))));
+  await lB.close(); await sB.close(); await mB.close();
 } catch (e) {
   ok('the run finished', false, e.stack);
   for (const [l, p] of PAGES) { try { console.log('     [' + l + '] ' + p.url() + ' :: ' + (await p.$eval('body', b => b.innerText)).replace(/\s+/g, ' ').slice(0, 600)); } catch (x) {} }
