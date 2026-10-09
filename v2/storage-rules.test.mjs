@@ -253,6 +253,14 @@ await check('an admin puts a picture on a small group', 'allow', () => put(as('k
 await check('anyone can see it (Find a group is public)', 'allow', () => getBytes(ref(anon(), 'smallGroups/sg_tue/1-photo.jpg')));
 await check('a member who is not an admin cannot', 'deny', () => put(as('samy'), 'smallGroups/sg_tue/2-photo.jpg', { type: 'image/jpeg' }));
 await check('only a picture', 'deny', () => put(as('karen'), 'smallGroups/sg_tue/3.pdf', { type: 'application/pdf' }));
+/* Stage 2: the group's own leaders may change its picture too. */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 'users', 'u_gl'), { memberId: 'm_gl', teams: ['Welcome Team'], adminFor: [], masterAdmin: false, status: 'active' });
+  await setDoc(doc(db, 'smallGroups', 'sg_tue'), { name: 'Tuesday', leaderIds: ['m_gl'] });
+});
+await check("the group's leader puts up its picture", 'allow', () => put(env.authenticatedContext('u_gl').storage(), 'smallGroups/sg_tue/4-photo.jpg', { type: 'image/jpeg' }));
+await check("but not another group's", 'deny', () => put(env.authenticatedContext('u_gl').storage(), 'smallGroups/sg_other/5-photo.jpg', { type: 'image/jpeg' }));
 // ── end EVENTS ──
 
 /* ---- nothing else moved ------------------------------------------- */

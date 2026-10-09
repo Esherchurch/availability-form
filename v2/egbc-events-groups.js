@@ -94,7 +94,52 @@
     return out;
   }
 
+  /* ---- stage 2: meetings, the register, oversight ---- */
+
+  function ymd(d) { return d.toISOString().slice(0, 10); }
+  /* The next date on the group's day, today counting. (Fortnightly and
+     monthly groups: the leader picks the date if this is not it.) */
+  function nextDate(g, today) {
+    if (!(g && g.day >= 1 && g.day <= 7)) return '';
+    var d = new Date(String(today).slice(0, 10) + 'T12:00:00Z');
+    for (var i = 0; i < 7; i++) { if ((d.getUTCDay() || 7) === g.day) return ymd(d); d.setUTCDate(d.getUTCDate() + 1); }
+    return '';
+  }
+  function monthsBefore(day, n) {
+    var d = new Date(String(day).slice(0, 10) + 'T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - n); return ymd(d);
+  }
+  /* Who came, for a download: a row per member (and one for anyone in a
+     register who has since left), a column per register in the dates. */
+  function attendanceTable(members, regs, from, to) {
+    var inRange = (regs || []).filter(function (a) { return a.date >= from && a.date <= to; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var dates = inRange.map(function (a) { return a.date; });
+    var rows = (members || []).map(function (m) { return { key: m.id, name: m.name, days: {} }; });
+    inRange.forEach(function (a) {
+      (a.present || []).forEach(function (k) {
+        var r = rows.filter(function (x) { return x.key === k; })[0];
+        if (!r) { r = { key: k, name: 'Someone who has left', days: {} }; rows.push(r); }
+        r.days[a.date] = true;
+      });
+    });
+    rows.forEach(function (r) { r.total = dates.filter(function (d) { return r.days[d]; }).length; });
+    return { dates: dates, rows: rows, guests: inRange.map(function (a) { return a.guests || 0; }), totals: inRange.map(function (a) { return a.count || 0; }) };
+  }
+  /* A line of oversight for one group, from its registers. */
+  function overview(g, regs) {
+    var r = (regs || []).filter(function (a) { return a.groupId === g.id || !a.groupId; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var last8 = r.slice(-8), avg = last8.length ? Math.round(last8.reduce(function (s, a) { return s + (a.count || 0); }, 0) / last8.length * 10) / 10 : null;
+    var trend = '';
+    if (r.length >= 8) {
+      var mean = function (l) { return l.reduce(function (s, a) { return s + (a.count || 0); }, 0) / l.length; };
+      var older = mean(r.slice(-8, -4)), newer = mean(r.slice(-4));
+      trend = newer > older * 1.15 ? 'growing' : newer < older * 0.85 ? 'smaller' : 'steady';
+    }
+    return { id: g.id, name: g.name, members: g.memberCount || 0, capacity: g.capacity || 0, leaders: (g.leaderNames || []).join(', '), under18: !!g.under18, active: g.active !== false,
+      lastMet: r.length ? r[r.length - 1].date : '', average: avg, trend: trend };
+  }
+
   global.EGBCGroups = { DAYS: DAYS, FREQ: FREQ, TYPES: TYPES, norm: norm, when: when, wherePublic: wherePublic, full: full, joinable: joinable,
-    status: status, matches: matches, areas: areas, memberKey: memberKey, requestProblems: requestProblems };
+    status: status, matches: matches, areas: areas, memberKey: memberKey, requestProblems: requestProblems,
+    nextDate: nextDate, monthsBefore: monthsBefore, attendanceTable: attendanceTable, overview: overview };
 
 })(typeof window !== 'undefined' ? window : this);

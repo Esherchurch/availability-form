@@ -1612,8 +1612,9 @@ check-in id, so paging the same child again replaces the last page.
 **Never a child's name.** The rules allow only the code and the group's name in
 the message, and nothing outside these seven fields.
 
-**How ChurchShow reads it.** Signed in, as any member (the projection computer
-signs in as an AV or worship person), it listens to:
+**How ChurchShow reads it.** As **the paired ChurchShow device** for that site
+(ChurchShow pairing, request R6). Never give a volunteer's account to the
+projection PC. It listens to:
 
     screenPages where siteId == <the site> and clearedAt == null
 
@@ -1718,3 +1719,102 @@ events, leader oversight; members leaving a group themselves; leaders
 uploading the picture (only groups admins can, for now); and connecting
 under-18s groups' leaders to the checks and forms (§6.10). The flag is there
 and is shown.
+
+### F-103 — decided (Martin, NEXT-BRIEF §21)
+Anyone in the address book is an **Attender**, not a visitor. The office
+ticks some Attenders as **Church members**. Small groups needs no change for
+this: once the main window makes Attenders `active`, they see members-only
+groups and ask to join as themselves.
+
+**Next, once the main window adds `isAttender()` and `isChurchMember()`:**
+every event, form and small group gets "Who can come": Everyone (public),
+Attenders, Church members only, or a team. The rules will enforce it, and
+members-only items stay hidden from those who can't come. This waits for the
+main window and is not built yet.
+
+### F-107 — what Chunk 7 stage 2 built (small groups: meetings, register, messages, oversight)
+- **Meetings** (Small groups, Meetings tab):
+  - each group's meetings by date, with the next one on the group's day
+    marked "Next", and another date can be added
+  - **notes or a study plan** per meeting, which the group's members see
+  - "Not meeting this time"
+- **The register:** a tick per member and a guests count, made for a phone.
+  Only the leaders and the groups admins see who came. The rules refuse it
+  to the members.
+- **Download who came** for chosen dates: CSV with a column per meeting,
+  times per person, guests and totals. Each download is logged in the
+  leader's name.
+- **Message the group:** one email to each member, so addresses stay private
+  from each other. The reply goes to the leader. Messages are kept, and the
+  group's members read them again on "Find a group".
+- **Members leave themselves:** "Leave this group" on "Find a group". Their
+  place and the count go in one write, and the rules allow only their own
+  place.
+- **Leaders put up their group's picture** (storage rule: the group's own
+  leaders, or the groups admins).
+- **Under-18s groups (§6.10):**
+  - Each leader's DBS check and safeguarding training are shown from the
+    same records E3 uses (status and dates only), with "not cleared yet"
+    when one is missing or out of date.
+  - A master admin can record a check there.
+  - There is a pointer to send the leader declaration from Forms.
+- **Oversight** (groups admins): every group with its members, leaders, when
+  it last met, how many usually come (the last 8 registers) and whether
+  that's growing, steady or smaller; and the **people in no group**.
+- Tests: rules (stage 2, 19 checks); storage (leaders' pictures, 2);
+  c7-groups-unit (27); c7-stage2 in the browser (22).
+
+### F-108 — my rules that use "active", for the Attender change (§21)
+§21 makes `active` true for every Attender. Every `active()` in the events
+section, and what it will mean:
+- **Fine for Attenders, as intended:**
+  - small groups: members-only groups, asking to join as themselves,
+    leaving, "Your groups"
+  - raising a safeguarding concern
+  - logging one's own downloads
+  - Sunday check-in's screen pages (codes only)
+  - reading the term dates, the kids groups' names and the kids settings
+  - reading `eventLeaders` (who leads an event)
+  - reading the safeguarding settings (policy numbers)
+  - the catering menus
+  - an event leader's own rights
+  - booking as a member
+- **Bound to something stronger already:**
+  - the invoice counter moves only with an invoice the office writes
+  - forms by team need `adminFor`
+  - kids leads and group leaders need their lists
+  - the morning needs its lists or the rota
+- **Worth a look:** `settings/accounts` (the accounts connector mode) is
+  readable by any active person. It holds no secret today (the mode and an
+  export mark), but once Attenders are active it may be better as office
+  only. I'll make that change if Martin agrees.
+
+### F-109 — under-18s groups: checks are shown, not enforced
+As on events (E3), an under-18s group's leaders' checks are shown with a
+warning. Nothing stops an uncleared leader being named. A master admin
+records the check here. A safeguarding lead records it on an event's
+Safeguarding page, because groups have no site of their own. **For Martin:**
+should naming an uncleared leader to an under-18s group be refused outright?
+
+### F-110 — two guards that back each other up (from the stage 2 breaks)
+A member taking someone else out of a group needs two rules to fail. One
+lets a member delete only their own place; the other lets a member change
+the count only for their own place. Breaking either alone was **not**
+caught, because the other still refused. Breaking both together was caught
+("a member cannot take someone else out"). Kept as two guards on purpose.
+
+### F-111 — R6 (ChurchShow): the paired device reads screenPages; waiting on the main window
+ChurchShow reads as a **paired device** (`churchshow-<site>`, claim `device: 'churchshow'`,
+no `users/` record), so the current rule (any signed-in active person) would
+refuse it. When the main window has added the `churchShow()` helper (ChurchShow
+pairing, R1 to R5), I add this ahead of the existing read conditions, exactly as R6 asks:
+
+    allow read: if (churchShow() && resource.data.siteId == request.auth.token.siteId && resource.data.clearedAt == null)
+                || ...the rest as now
+
+**The five tests are written** (rules tests, "R6"): its own site's uncleared
+pages allowed; another site's page, a cleared page, a list without
+`clearedAt == null`, and any write all refused. Until the helper exists they
+are skipped, and the rules run prints a note saying so. I haven't defined the
+helper myself: it belongs outside the events section. F-100 now says "the
+paired ChurchShow device".

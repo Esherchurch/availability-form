@@ -43,6 +43,22 @@ ok('the areas to choose from', J(G.areas(L)) === J(['Claygate', 'Esher']));
 ok('a place in a group has one id per person store', G.memberKey('sg_1', 'addressBook', 'm_1') === 'sg_1__a_m_1' && G.memberKey('sg_1', 'contacts', 'c_1') === 'sg_1__c_c_1');
 ok('asking to join needs a name and an email that works', J(G.requestProblems({ name: '', email: 'x' })) === J(['your name', 'an email address']) && !G.requestProblems({ name: 'A', email: 'a@example.invalid' }).length);
 
+/* ---- stage 2 ---- */
+ok('the next Tuesday from a Friday', G.nextDate({ day: 2 }, '2026-10-09') === '2026-10-13');
+ok('today counts, if it is the day', G.nextDate({ day: 5 }, '2026-10-09') === '2026-10-09');
+ok('no day set: no next date', G.nextDate({ day: 0 }, '2026-10-09') === '');
+ok('three months before', G.monthsBefore('2026-10-09', 3) === '2026-07-09');
+const MEM = [{ id: 'k_a', name: 'Ann' }, { id: 'k_b', name: 'Bob' }];
+const REGS = [{ date: '2026-09-01', present: ['k_a'], guests: 1, count: 2 }, { date: '2026-09-08', present: ['k_a', 'k_b', 'k_gone'], guests: 0, count: 3 }, { date: '2026-12-01', present: ['k_b'], guests: 0, count: 1 }];
+const t = G.attendanceTable(MEM, REGS, '2026-09-01', '2026-09-30');
+ok('who came: a column per register in the dates', J(t.dates) === J(['2026-09-01', '2026-09-08']));
+ok('a row per member, with how many times', J(t.rows.map(r => [r.name, r.total])) === J([['Ann', 2], ['Bob', 1], ['Someone who has left', 1]]), J(t.rows));
+ok('guests and totals per date', J(t.guests) === J([1, 0]) && J(t.totals) === J([2, 3]));
+const R = (n, c) => Array.from({ length: n }, (_, i) => ({ groupId: 'g', date: '2026-0' + (1 + Math.floor(i / 4)) + '-' + String(10 + (i % 4) * 5), count: c[i] }));
+const ov = G.overview({ id: 'g', name: 'G', memberCount: 9, capacity: 12, leaderNames: ['Ann'] }, R(8, [4, 4, 5, 4, 7, 8, 7, 8]));
+ok('oversight: usually comes (last 8 registers) and the trend', ov.average === 5.9 && ov.trend === 'growing' && ov.lastMet === '2026-02-25', J(ov));
+ok('a group with no registers yet', G.overview({ id: 'h', name: 'H' }, []).average === null && G.overview({ id: 'h', name: 'H' }, []).lastMet === '');
+
 const failed = results.filter(x => !x).length;
 console.log('\n' + (results.length - failed) + '/' + results.length + ' passed');
 process.exit(failed ? 1 : 0);

@@ -1418,6 +1418,68 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a group is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'smallGroups', 'sg_tue')));
 }
 
+// ── EVENTS (events window) ── small groups, stage 2: meetings, the register, messages, leaving
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  /* After stage 1's checks: Lena leads sg_tue; Mo is its one member; Ned is in no group. */
+  const MEET = (extra) => ({ groupId: 'sg_tue', date: '2026-10-13', time: '20:00', cancelled: false, notes: 'Study plan: Mark 4 (invented)', updatedAt: 'x', updatedBy: 'x', ...(extra || {}) });
+  await check('the leader writes a meeting\u2019s notes', 'allow', () => setDoc(doc(ctx('u_lena'), 'smallGroupMeetings', 'sg_tue__2026-10-13'), MEET()));
+  await check('under its own date only', 'deny', () => setDoc(doc(ctx('u_lena'), 'smallGroupMeetings', 'sg_tue__2026-10-20'), MEET()));
+  await check('a member cannot write them', 'deny', () => setDoc(doc(ctx('u_mo'), 'smallGroupMeetings', 'sg_tue__2026-10-13'), MEET({ notes: 'changed' })));
+  await check('the group\u2019s members read the study plan', 'allow', () => getDocs(query(collection(ctx('u_mo'), 'smallGroupMeetings'), where('groupId', '==', 'sg_tue'))));
+  await check('someone not in the group does not', 'deny', () => getDocs(query(collection(ctx('u_ned'), 'smallGroupMeetings'), where('groupId', '==', 'sg_tue'))));
+  const REG = (extra) => ({ groupId: 'sg_tue', date: '2026-10-13', present: ['sg_tue__a_m_mo'], guests: 1, count: 2, updatedAt: 'x', updatedBy: 'x', ...(extra || {}) });
+  await check('the leader takes the register', 'allow', () => setDoc(doc(ctx('u_lena'), 'smallGroupAttendance', 'sg_tue__2026-10-13'), REG()));
+  await check('the count must be who came plus guests', 'deny', () => setDoc(doc(ctx('u_lena'), 'smallGroupAttendance', 'sg_tue__2026-10-13'), REG({ count: 9 })));
+  await check('WHO CAME IS NOT FOR THE MEMBERS: Mo cannot read the register', 'deny', () => getDocs(query(collection(ctx('u_mo'), 'smallGroupAttendance'), where('groupId', '==', 'sg_tue'))));
+  await check('the groups admins read every register (oversight)', 'allow', () => getDocs(collection(ctx('u_gina'), 'smallGroupAttendance')));
+  await check('a leader of no group cannot list them all', 'deny', () => getDocs(collection(ctx('u_lena'), 'smallGroupAttendance')));
+  const MSG = (who, extra) => ({ groupId: 'sg_tue', subject: 'This week', body: 'We meet at 8 (invented).', sentBy: who, sentByName: 'x', sentAt: serverTimestamp(), recipients: 1, ...(extra || {}) });
+  await check('the leader messages the group, and it is kept', 'allow', () => setDoc(doc(ctx('u_lena'), 'smallGroupMessages', 'msg_1'), MSG('u_lena')));
+  await check('a member cannot send as the group', 'deny', () => setDoc(doc(ctx('u_mo'), 'smallGroupMessages', 'msg_2'), MSG('u_mo')));
+  await check('members read their group\u2019s messages', 'allow', () => getDocs(query(collection(ctx('u_mo'), 'smallGroupMessages'), where('groupId', '==', 'sg_tue'))));
+  await check('a message is never changed afterwards', 'deny', () => updateDoc(doc(ctx('u_lena'), 'smallGroupMessages', 'msg_1'), { body: 'rewritten' }));
+  await check('a leader changes the group\u2019s picture', 'allow', () => updateDoc(doc(ctx('u_lena'), 'smallGroups', 'sg_tue'), { image: 'https://example.invalid/new.jpg' }));
+  /* Leaving. */
+  const leave = (who, key, count, extraGroup) => { const w = ctx(who), b = writeBatch(w);
+    b.delete(doc(w, 'smallGroupMembers', key)); b.update(doc(w, 'smallGroups', 'sg_tue'), { memberCount: count, lastMemberKey: key, ...(extraGroup || {}) }); return b.commit(); };
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'smallGroupMembers', 'sg_tue__a_m_ned2'), { groupId: 'sg_tue', personKind: 'addressBook', personId: 'm_ned2', name: 'Other', email: '', phone: '', joinedAt: 'x', addedBy: 'x' });
+    await updateDoc(doc(db, 'smallGroups', 'sg_tue'), { memberCount: 2 });
+  });
+  await check('a member cannot take someone else out', 'deny', () => leave('u_mo', 'sg_tue__a_m_ned2', 1));
+  await check('nor change anything else on the way out', 'deny', () => leave('u_mo', 'sg_tue__a_m_mo', 1, { open: false }));
+  await check('MO LEAVES THE GROUP HIMSELF: his place and the count, together', 'allow', () => leave('u_mo', 'sg_tue__a_m_mo', 1));
+  await check('and no longer reads its study plan', 'deny', () => getDocs(query(collection(ctx('u_mo'), 'smallGroupMeetings'), where('groupId', '==', 'sg_tue'))));
+}
+
+// ── EVENTS (events window) ── R6 (ChurchShow): the paired device reads its own site's pages
+// They run once the main window's churchShow() helper (ChurchShow pairing,
+// R1-R5) is in the rules, and the R6 clause is added to screenPages. Until
+// then they are skipped, and say so.
+if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
+  console.log('  NOTE  R6: 5 ChurchShow device checks skipped - waiting for the main window\u2019s churchShow() helper');
+} else {
+  const device = (siteId) => env.authenticatedContext('churchshow-' + siteId, { device: 'churchshow', siteId }).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const PG = (siteId, cleared) => ({ siteId, code: 'Q7P2', room: 'Junior Room', message: 'Q7P2, please come to Juniors', createdBy: 'u_jo', createdAt: new Date(), clearedAt: cleared ? new Date() : null });
+    await setDoc(doc(db, 'screenPages', 'pg_r6_open'), PG('site_kids', false));
+    await setDoc(doc(db, 'screenPages', 'pg_r6_other'), PG('site_other', false));
+    await setDoc(doc(db, 'screenPages', 'pg_r6_cleared'), PG('site_kids', true));
+  });
+  await check('R6: the paired ChurchShow device reads its own site\u2019s uncleared pages', 'allow',
+    () => getDocs(query(collection(device('site_kids'), 'screenPages'), where('siteId', '==', 'site_kids'), where('clearedAt', '==', null))));
+  await check('R6: but not another site\u2019s page', 'deny', () => getDoc(doc(device('site_kids'), 'screenPages', 'pg_r6_other')));
+  await check('R6: nor a cleared page', 'deny', () => getDoc(doc(device('site_kids'), 'screenPages', 'pg_r6_cleared')));
+  await check('R6: nor a list that does not ask for clearedAt == null', 'deny', () => getDocs(query(collection(device('site_kids'), 'screenPages'), where('siteId', '==', 'site_kids'))));
+  await check('R6: and it writes nothing (no page, no Done)', 'deny', async () => {
+    const d = device('site_kids');
+    await updateDoc(doc(d, 'screenPages', 'pg_r6_open'), { clearedAt: serverTimestamp() });
+  });
+}
+
 // ── EVENTS (events window) ── church details (F-058)
 {
   const D = (extra) => ({ name: 'Test Church', enquiryEmail: 'enquiries@example.invalid', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'u_karen', ...(extra || {}) });

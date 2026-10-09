@@ -1888,8 +1888,10 @@ service cloud.firestore {
     // be exactly "<code>, please come to <group>", with the code from that
     // child's check-in and the group's own name.
     // Group leaders, the Session Leader and the leads page and clear;
-    // anyone signed in reads a page that has not been cleared (the
-    // projection computer signs in as an AV or worship person). A page
+    // anyone signed in reads a page that has not been cleared. ChurchShow
+    // reads as the paired ChurchShow device, never a volunteer's account:
+    // its clause (R6, F-111) is added here once the main window's
+    // churchShow() helper exists. A page
     // older than five minutes counts as cleared (ChurchShow and the leader's
     // screen both treat it so; the leader's screen also writes clearedAt).
     function pageCk(pageId) {
@@ -1995,7 +1997,12 @@ service cloud.firestore {
                     && (groupsAdmin()
                         || (groupLeader(groupId)
                             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'type', 'description', 'day', 'time', 'frequency', 'frequencyNote',
-                                 'locationKind', 'siteId', 'roomId', 'area', 'venueName', 'audience', 'open', 'capacity', 'memberCount', 'lastMemberKey', 'updatedAt', 'updatedBy'])));
+                                 'locationKind', 'siteId', 'roomId', 'area', 'venueName', 'audience', 'open', 'capacity', 'memberCount', 'lastMemberKey', 'image', 'updatedAt', 'updatedBy']))
+                        // A member leaving takes themselves off the count (stage 2).
+                        || (groupMember(groupId)
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'lastMemberKey'])
+                            && request.resource.data.get('lastMemberKey', '') == groupId + '__a_' + me().get('memberId', '-')
+                            && request.resource.data.get('memberCount', 0) == resource.data.get('memberCount', 0) - 1));
       allow delete: if false;
     }
     match /smallGroupPrivate/{groupId} {
@@ -2015,11 +2022,51 @@ service cloud.firestore {
                     && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
                     && getAfter(/databases/$(database)/documents/smallGroups/$(request.resource.data.groupId)).data.get('memberCount', 0)
                          == sgDoc(request.resource.data.groupId).get('memberCount', 0) + 1;
-      allow delete: if (groupsAdmin() || groupLeader(resource.data.groupId))
+      allow delete: if (groupsAdmin() || groupLeader(resource.data.groupId)
+                        || (active() && resource.data.personKind == 'addressBook' && resource.data.personId == me().get('memberId', '-')))
                     && getAfter(/databases/$(database)/documents/smallGroups/$(resource.data.groupId)).data.get('memberCount', 0)
                          == sgDoc(resource.data.groupId).get('memberCount', 0) - 1;
       allow update: if false;
     }
+    // ---- small groups, stage 2: meetings, the register, messages ----
+    // A meeting is one group on one date: its notes or study plan, and
+    // whether it is off. The group's members read them. Who came (the
+    // register) is the leaders' and the groups admins' only. Messages sent
+    // to the group are kept, and the group's members may read them.
+    function groupRunner(groupId) { return groupsAdmin() || groupLeader(groupId); }
+    function meetingIdOk(id, d) {
+      return d.groupId is string && d.date is string && d.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && id == d.groupId + '__' + d.date;
+    }
+    match /smallGroupMeetings/{meetingId} {
+      allow read: if groupRunner(resource.data.groupId) || groupMember(resource.data.groupId);
+      allow write: if groupRunner(request.resource.data.groupId) && meetingIdOk(meetingId, request.resource.data)
+                   && request.resource.data.keys().hasOnly(['groupId', 'date', 'time', 'cancelled', 'notes', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 4000
+                   && request.resource.data.get('cancelled', false) is bool
+                   && (resource == null || resource.data.groupId == request.resource.data.groupId);
+      allow delete: if false;
+    }
+    match /smallGroupAttendance/{meetingId} {
+      allow read: if groupRunner(resource.data.groupId);
+      allow write: if groupRunner(request.resource.data.groupId) && meetingIdOk(meetingId, request.resource.data)
+                   && request.resource.data.keys().hasOnly(['groupId', 'date', 'present', 'guests', 'count', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.present is list && request.resource.data.present.size() <= 200
+                   && request.resource.data.get('guests', 0) is int && request.resource.data.get('guests', 0) >= 0
+                   && request.resource.data.count == request.resource.data.present.size() + request.resource.data.get('guests', 0)
+                   && (resource == null || resource.data.groupId == request.resource.data.groupId);
+      allow delete: if false;
+    }
+    match /smallGroupMessages/{messageId} {
+      allow read: if groupRunner(resource.data.groupId) || groupMember(resource.data.groupId);
+      allow create: if groupRunner(request.resource.data.groupId)
+                    && request.resource.data.keys().hasOnly(['groupId', 'subject', 'body', 'sentBy', 'sentByName', 'sentAt', 'recipients'])
+                    && request.resource.data.subject is string && request.resource.data.subject.size() > 0 && request.resource.data.subject.size() <= 200
+                    && request.resource.data.body is string && request.resource.data.body.size() <= 10000
+                    && request.resource.data.sentBy == request.auth.uid && request.resource.data.sentAt == request.time
+                    && request.resource.data.recipients is int;
+      allow update, delete: if false;
+    }
+
     // Anyone may ask to join a public group that is running, open and not
     // full (members-only groups: signed-in members). A member asks as
     // themselves; a guest as the contact written in the same batch.

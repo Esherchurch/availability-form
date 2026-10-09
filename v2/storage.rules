@@ -270,14 +270,23 @@ service firebase.storage {
       allow delete: if adminHere();
     }
 
-    // A small group's picture (Chunk 7): the groups admins upload it; it is
-    // shown on "Find a group", so anyone may read it.
+    // A small group's picture (Chunk 7): the groups admins or (stage 2) the
+    // group's own leaders upload it; it is shown on "Find a group", so
+    // anyone may read it.
+    function groupLeaderHere(groupId) {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active'
+             && firestore.exists(/databases/(default)/documents/smallGroups/$(groupId))
+             && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('memberId', '-')
+                  in firestore.get(/databases/(default)/documents/smallGroups/$(groupId)).data.get('leaderIds', []);
+    }
     match /smallGroups/{groupId}/{fileName} {
       allow read: if true;
-      allow write: if adminHere()
+      allow write: if (adminHere() || groupLeaderHere(groupId))
                    && request.resource.size < 8 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
-      allow delete: if adminHere();
+      allow delete: if adminHere() || groupLeaderHere(groupId);
     }
 
     // ── end EVENTS ──────────────────────────────────────────────────

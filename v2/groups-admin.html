@@ -16,7 +16,9 @@
 <script src="egbc-guard.js?v=202610062100"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610062100"></script>
-<script src="egbc-events-groups.js?v=202610091200"></script>
+<script src="egbc-events-groups.js?v=202610091600"></script>
+<script src="egbc-events-checkin.js?v=202610082300"></script>
+<script src="egbc-events-safeguarding.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -54,6 +56,9 @@
   .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
   .ck{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:14px}
   .radios{display:flex;gap:14px;flex-wrap:wrap}
+  table.reg{border-collapse:collapse;font-size:13px;min-width:100%}
+  table.reg th,table.reg td{border:1px solid var(--line);padding:5px 7px;text-align:left;white-space:nowrap}
+  .scroll{overflow-x:auto}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
 </style>
 </head>
@@ -76,7 +81,8 @@
      - A home group's address and an online group's link are the group's
        own (smallGroupPrivate). */
   var G = window.EGBCGroups, E = window.EGBCEvents, esc = E.esc;
-  var ME = {}, ADMIN = false, MASTER = false, SETTINGS = {}, GROUPS = [], PEOPLE = [], SITES = [], ROOMS = [], REQUESTS = [], MEMBERS = [], TEAMS = [];
+  var ME = {}, ADMIN = false, MASTER = false, SETTINGS = {}, GROUPS = [], PEOPLE = [], SITES = [], ROOMS = [], REQUESTS = [], MEMBERS = [], TEAMS = [], SGDEF = {};
+  var C = window.EGBCCheckin, SG = window.EGBCSafeguarding;
   var V = { tab: 'groups', group: '' };
   function db() { return EGBCAuth.db; }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
@@ -104,13 +110,17 @@
   }
 
   function draw() {
-    var tabs = [['groups', 'Groups'], ['members', 'Members'], ['requests', 'Requests', REQUESTS.length]].concat(MASTER ? [['settings', 'Settings']] : []);
+    var tabs = [['groups', 'Groups'], ['members', 'Members'], ['meetings', 'Meetings'], ['message', 'Message'], ['requests', 'Requests', REQUESTS.length]]
+      .concat(ADMIN ? [['oversight', 'Oversight']] : []).concat(MASTER ? [['settings', 'Settings']] : []);
     document.getElementById('main').innerHTML = '<div class="tabs">' + tabs.map(function (t) {
       return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>'; }).join('') + '</div><div id="body"></div>';
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });
     var el = document.getElementById('body');
     if (V.tab === 'members') return drawMembers(el);
     if (V.tab === 'requests') return drawRequests(el);
+    if (V.tab === 'meetings') return drawMeetings(el);
+    if (V.tab === 'message') return drawMessage(el);
+    if (V.tab === 'oversight') return drawOversight(el);
     if (V.tab === 'settings') return drawSettings(el);
     drawGroups(el);
   }
@@ -123,11 +133,46 @@
         (g.visibility === 'members' ? '<span class="pill">Members only</span>' : '<span class="pill">Public</span>') +
         '<span class="pill ' + (G.joinable(g) ? 'ok' : 'wait') + '">' + esc(G.status(g)) + '</span>' + (g.under18 ? '<span class="pill no">Under-18s</span>' : '') +
         '<br><span class="hint">' + esc(G.when(g)) + ' · ' + esc(G.wherePublic(g, L)) + ' · ' + (g.memberCount || 0) + (g.capacity ? ' of ' + g.capacity : '') + ' members · led by ' +
-        esc((g.leaderNames || []).join(', ') || 'nobody yet') + '</span></div><button class="btn sec" data-gedit="' + esc(g.id) + '">Edit</button></div>';
+        esc((g.leaderNames || []).join(', ') || 'nobody yet') + '</span>' + (g.under18 ? '<div data-checks="' + esc(g.id) + '"></div>' : '') + '</div><button class="btn sec" data-gedit="' + esc(g.id) + '">Edit</button></div>';
     }).join('') : '<p class="hint">' + (ADMIN ? 'No groups yet.' : 'You do not lead a group.') + '</p>') +
       (ADMIN ? '<div style="margin-top:10px"><button class="btn" id="g-new">Add a group</button></div>' : '') + '</div><div id="g-form"></div>';
     var nb = document.getElementById('g-new'); if (nb) nb.onclick = function () { groupForm(null); };
     el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { groupForm(group(b.dataset.gedit)); }; });
+    list.filter(function (g) { return g.under18; }).forEach(drawChecks);
+  }
+  /* Under-18s (§6.10): the group's leaders need the same checks as
+     children's leaders: a current DBS check and safeguarding training,
+     recorded in leaderChecks (status and dates only), and the leader
+     declaration (Forms). Shown here; a master admin can record a check. */
+  function drawChecks(g) {
+    var box = document.querySelector('[data-checks="' + g.id + '"]'); if (!box) return;
+    Promise.all((g.leaderIds || []).map(function (m) {
+      return db().collection('leaderChecks').doc(m).get().then(function (s) { return { m: m, c: s.exists ? s.data() : null, seen: true }; }, function () { return { m: m, seen: false }; });
+    })).then(function (l) {
+      var bad = 0;
+      box.innerHTML = '<div class="st ' + 'wait' + '" style="margin-top:6px"><b>Under-18s: leaders\' checks</b>' + l.map(function (x) {
+        var nm = (person(x.m) || {}).name || x.m;
+        if (!x.seen) return '<br>' + esc(nm) + ': <span class="hint">the safeguarding lead can see this</span>';
+        var st = SG.checkStatus(x.c, SGDEF, new Date().toISOString());
+        if (!st.ok) bad++;
+        return '<br><span data-check="' + esc(x.m) + '">' + esc(nm) + ': DBS ' + esc(st.dbs) + ', training ' + esc(st.training) + '</span>' +
+          (MASTER ? ' <button class="btn sec" style="height:26px" data-record="' + esc(x.m) + '">Record a check</button>' : '');
+      }).join('') + (bad ? '<br><b data-checks-short="' + bad + '">' + bad + ' leader' + (bad === 1 ? '' : 's') + ' not cleared to lead under-18s yet.</b>' : '') +
+        '<br><span class="hint">They also fill in the leader declaration: send it from <a href="forms-admin.html" style="color:var(--brand)">Forms</a>.</span></div>';
+      box.querySelectorAll('[data-record]').forEach(function (b) { b.onclick = function () { recordCheck(b.dataset.record, g); }; });
+    });
+  }
+  function recordCheck(m, g) {
+    var box = document.querySelector('[data-checks="' + g.id + '"]');
+    box.insertAdjacentHTML('beforeend', '<div class="card" id="rc-card" style="margin-top:8px"><b>' + esc((person(m) || {}).name || m) + '</b>' +
+      '<div class="two"><div><label class="l" for="rc-dbs">DBS</label><select id="rc-dbs"><option value="current">Current</option><option value="applied">Applied for</option><option value="none">None</option></select></div>' +
+      '<div><label class="l" for="rc-seen">DBS seen on</label><input class="inp" type="date" id="rc-seen"></div><div><label class="l" for="rc-train">Training on</label><input class="inp" type="date" id="rc-train"></div></div>' +
+      '<button class="btn" id="rc-save" style="margin-top:8px">Save the check</button></div>');
+    document.getElementById('rc-save').onclick = function () {
+      db().collection('leaderChecks').doc(m).set({ name: (person(m) || {}).name || '', dbsStatus: document.getElementById('rc-dbs').value, dbsSeen: document.getElementById('rc-seen').value,
+        trainingDate: document.getElementById('rc-train').value, siteId: g.siteId || '', updatedAt: new Date().toISOString(), updatedBy: uid() })
+        .then(function () { toast('Saved'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+    };
   }
   function groupForm(g) {
     var isNew = !g;
@@ -161,8 +206,9 @@
           '<label class="ck"><input type="checkbox" id="f-u18"' + (g.under18 ? ' checked' : '') + '> Includes under-18s (its leaders need the same checks and forms as children\'s leaders)</label>' +
           '<label class="ck"><input type="checkbox" id="f-active"' + (g.active !== false ? ' checked' : '') + '> Running</label>' +
           '<label class="l">Leaders</label><div id="f-leaders"></div><select id="f-addlead" style="margin-top:6px"><option value="">Add a leader…</option>' + PEOPLE.map(function (x) { return opt(x.id, x.name, ''); }).join('') + '</select>' +
-          '<label class="l" for="f-image">Picture (optional)</label><input type="file" id="f-image" accept="image/*">' + (g.image ? '<p class="hint">Has a picture.</p>' : '')
+          ''
           : '<p class="hint">Leaders and whether it is public are set by the groups admins.</p>') +
+        '<label class="l" for="f-image">Picture (optional)</label><input type="file" id="f-image" accept="image/*">' + (g.image ? '<p class="hint">Has a picture.</p>' : '') +
         '<div id="f-err"></div><div style="margin-top:12px"><button class="btn" id="f-save">Save</button></div></div>';
       function showLoc() {
         var k = (document.querySelector('[name="f-loc"]:checked') || {}).value;
@@ -202,7 +248,7 @@
     btn.disabled = true;
     batch.commit().then(function () {
       var f = document.getElementById('f-image');
-      if (ADMIN && f && f.files && f.files[0]) {
+      if (f && f.files && f.files[0]) {
         var path = 'smallGroups/' + id + '/' + Date.now() + '-' + f.files[0].name.replace(/[^A-Za-z0-9._-]/g, '_');
         var ref = EGBCAuth.storage().ref(path);
         return ref.put(f.files[0], { contentType: f.files[0].type }).then(function () { return ref.getDownloadURL(); })
@@ -292,6 +338,134 @@
       .catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
   }
 
+  /* ================= meetings and the register ================= */
+  function pickGroup(el, id) {
+    var list = mine();
+    if (!list.length) { el.innerHTML = '<div class="card hint">No groups yet.</div>'; return null; }
+    var g = group(V.group) || list[0]; V.group = g.id;
+    return '<label class="l" for="' + id + '">Group</label><select id="' + id + '">' + list.map(function (x) {
+      return '<option value="' + esc(x.id) + '"' + (x.id === g.id ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>';
+  }
+  function today() { var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+  function drawMeetings(el) {
+    var sel = pickGroup(el, 'mt-group'); if (sel === null) return;
+    var g = group(V.group), next = G.nextDate(g, today());
+    el.innerHTML = '<div class="card">' + sel + '<div id="mt-body" class="hint" style="margin-top:10px">Loading…</div></div><div id="mt-edit"></div>';
+    document.getElementById('mt-group').onchange = function () { V.group = this.value; drawMeetings(el); };
+    Promise.all([db().collection('smallGroupMeetings').where('groupId', '==', g.id).get(), db().collection('smallGroupAttendance').where('groupId', '==', g.id).get(),
+                 db().collection('smallGroupMembers').where('groupId', '==', g.id).get()]).then(function (r) {
+      var meets = all(r[0]), regs = all(r[1]); MEMBERS = all(r[2]).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      var dates = {}; meets.forEach(function (m) { dates[m.date] = 1; }); regs.forEach(function (a) { dates[a.date] = 1; }); if (next) dates[next] = 1;
+      var list = Object.keys(dates).sort().reverse().slice(0, 16);
+      var b = document.getElementById('mt-body'); b.className = '';
+      b.innerHTML = list.map(function (d) {
+        var m = meets.filter(function (x) { return x.date === d; })[0] || {}, a = regs.filter(function (x) { return x.date === d; })[0];
+        return '<div class="row" data-meet="' + esc(d) + '"><div class="t"><b>' + esc(E.fmtDate(d + 'T12:00')) + '</b>' + (d === next ? ' <span class="pill wait">Next</span>' : '') +
+          (m.cancelled ? ' <span class="pill no">Not meeting</span>' : '') + (a ? ' <span class="pill ok">' + a.count + ' came</span>' : '') +
+          (m.notes ? '<br><span class="hint">' + esc(m.notes.slice(0, 120)) + '</span>' : '') + '</div>' +
+          '<button class="btn sec" data-notes="' + esc(d) + '">Notes</button><button class="btn" data-reg="' + esc(d) + '">Register</button></div>';
+      }).join('') + '<div class="two" style="margin-top:10px"><div><label class="l" for="mt-new">Another date</label><input class="inp" type="date" id="mt-new"></div>' +
+        '<div style="align-self:flex-end"><button class="btn sec" id="mt-add">Add</button></div></div>' +
+        '<h2 style="margin-top:16px">Download who came</h2><div class="two"><div><label class="l" for="dl-from">From</label><input class="inp" type="date" id="dl-from" value="' + esc(G.monthsBefore(today(), 3)) + '"></div>' +
+        '<div><label class="l" for="dl-to">Until</label><input class="inp" type="date" id="dl-to" value="' + esc(today()) + '"></div><div style="align-self:flex-end"><button class="btn sec" id="dl-csv">Download (CSV, for Excel)</button></div></div>';
+      b.querySelectorAll('[data-notes]').forEach(function (x) { x.onclick = function () { editNotes(g, x.dataset.notes, meets.filter(function (m) { return m.date === x.dataset.notes; })[0]); }; });
+      b.querySelectorAll('[data-reg]').forEach(function (x) { x.onclick = function () { takeRegister(g, x.dataset.reg, regs.filter(function (a) { return a.date === x.dataset.reg; })[0]); }; });
+      document.getElementById('mt-add').onclick = function () { var d = document.getElementById('mt-new').value; if (d) editNotes(g, d, null); };
+      document.getElementById('dl-csv').onclick = function () { downloadRegister(g, regs, document.getElementById('dl-from').value, document.getElementById('dl-to').value); };
+    }).catch(function (e) { document.getElementById('mt-body').textContent = 'Could not load: ' + (e.message || e); });
+  }
+  function editNotes(g, d, m) {
+    m = m || {};
+    var box = document.getElementById('mt-edit');
+    box.innerHTML = '<div class="card" id="nt-card"><h2>' + esc(g.name) + ', ' + esc(E.fmtDate(d + 'T12:00')) + '</h2>' +
+      '<label class="l" for="nt-notes">Notes or study plan (the group\'s members see this)</label><textarea id="nt-notes" maxlength="4000">' + esc(m.notes || '') + '</textarea>' +
+      '<label class="ck"><input type="checkbox" id="nt-off"' + (m.cancelled ? ' checked' : '') + '> Not meeting this time</label>' +
+      '<button class="btn" id="nt-save">Save</button></div>';
+    box.scrollIntoView({ block: 'start' });
+    document.getElementById('nt-save').onclick = function () {
+      db().collection('smallGroupMeetings').doc(g.id + '__' + d).set({ groupId: g.id, date: d, time: g.time || '', cancelled: document.getElementById('nt-off').checked,
+        notes: document.getElementById('nt-notes').value.trim().slice(0, 4000), updatedAt: new Date().toISOString(), updatedBy: uid() })
+        .then(function () { toast('Saved'); drawMeetings(document.getElementById('body')); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+    };
+  }
+  /* The register on a phone: a tick per member, and how many guests. */
+  function takeRegister(g, d, a) {
+    a = a || { present: [], guests: 0 };
+    var box = document.getElementById('mt-edit');
+    box.innerHTML = '<div class="card" id="rg-card"><h2>Who came: ' + esc(E.fmtDate(d + 'T12:00')) + '</h2>' + (MEMBERS.length ? MEMBERS.map(function (m) {
+      return '<label class="ck" style="font-size:16px;margin:10px 0"><input type="checkbox" class="rg-tick" style="width:22px;height:22px" value="' + esc(m.id) + '"' + (a.present.indexOf(m.id) >= 0 ? ' checked' : '') + '> ' + esc(m.name) + '</label>';
+    }).join('') : '<p class="hint">No members yet.</p>') +
+      '<label class="l" for="rg-guests">Guests</label><input class="inp" type="number" min="0" max="50" id="rg-guests" value="' + (a.guests || 0) + '" style="max-width:120px">' +
+      '<div style="margin-top:10px"><button class="btn" id="rg-save">Save the register</button></div></div>';
+    box.scrollIntoView({ block: 'start' });
+    document.getElementById('rg-save').onclick = function () {
+      var present = [].slice.call(document.querySelectorAll('.rg-tick:checked')).map(function (x) { return x.value; });
+      var guests = Math.max(0, Math.min(50, parseInt(document.getElementById('rg-guests').value, 10) || 0));
+      db().collection('smallGroupAttendance').doc(g.id + '__' + d).set({ groupId: g.id, date: d, present: present, guests: guests, count: present.length + guests,
+        updatedAt: new Date().toISOString(), updatedBy: uid() })
+        .then(function () { toast('Saved: ' + (present.length + guests) + ' came'); drawMeetings(document.getElementById('body')); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+    };
+  }
+  function downloadRegister(g, regs, from, to) {
+    var t = G.attendanceTable(MEMBERS, regs, from, to);
+    if (!t.dates.length) { toast('No registers in those dates'); return; }
+    var head = ['Name'].concat(t.dates).concat(['Times']);
+    var rows = t.rows.map(function (r) { return [r.name].concat(t.dates.map(function (d) { return r.days[d] ? 'Yes' : ''; })).concat([r.total]); })
+      .concat([['Guests'].concat(t.guests).concat([''])], [['Total'].concat(t.totals).concat([''])]);
+    C.logDownload({ calEventId: 'group_' + g.id, what: 'Who came: ' + g.name + ' ' + from + ' to ' + to, format: 'csv', columns: head, sensitive: false }).then(function () {
+      C.saveFile('Who came ' + g.name + ' ' + from + '.csv', new Blob(['\ufeff' + C.csvText(head, rows)], { type: 'text/csv' }));
+    }).catch(function (e) { toast('Could not download: ' + (e.message || e)); });
+  }
+
+  /* ================= message the group ================= */
+  /* One email to each member (their addresses stay private from each
+     other), and the message kept for the group to read again. */
+  function drawMessage(el) {
+    var sel = pickGroup(el, 'ms-group'); if (sel === null) return;
+    var g = group(V.group);
+    el.innerHTML = '<div class="card">' + sel + '<label class="l" for="ms-subject">Subject</label><input class="inp" id="ms-subject" maxlength="200">' +
+      '<label class="l" for="ms-body">Message</label><textarea id="ms-body" maxlength="10000" style="height:160px"></textarea>' +
+      '<div style="margin-top:10px"><button class="btn" id="ms-send">Send to the group</button></div></div><div class="card"><h2>Sent before</h2><div id="ms-old" class="hint">Loading…</div></div>';
+    document.getElementById('ms-group').onchange = function () { V.group = this.value; drawMessage(el); };
+    db().collection('smallGroupMessages').where('groupId', '==', g.id).get().then(function (s) {
+      var l = all(s).sort(function (a, b) { return (b.sentAt && a.sentAt) ? b.sentAt.toMillis() - a.sentAt.toMillis() : 0; }).slice(0, 10);
+      document.getElementById('ms-old').innerHTML = l.length ? l.map(function (m) { return '<div class="row" data-msg="' + esc(m.id) + '"><div class="t"><b>' + esc(m.subject) + '</b> <span class="hint">' +
+        esc(m.sentByName || '') + (m.sentAt ? ', ' + esc(E.fmtDateShort(m.sentAt.toDate().toISOString())) : '') + ' · to ' + m.recipients + '</span></div></div>'; }).join('') : 'Nothing yet.';
+    }).catch(function () {});
+    document.getElementById('ms-send').onclick = function () {
+      var subject = document.getElementById('ms-subject').value.trim(), body = document.getElementById('ms-body').value.trim(), btn = this;
+      if (!subject || !body) { toast('Write a subject and a message'); return; }
+      btn.disabled = true;
+      db().collection('smallGroupMembers').where('groupId', '==', g.id).get().then(function (s) {
+        var to = all(s).filter(function (m) { return m.email; });
+        var html = '<p>' + esc(body).replace(/\n/g, '<br>') + '</p><p>' + esc(ME.name || '') + ', ' + esc(g.name) + '</p>';
+        return Promise.all(to.map(function (m) { return EGBCChurch.send({ to: [m.email], subject: subject, html: html, replyTo: ME.email || '' }).catch(function () { return null; }); })).then(function () {
+          return db().collection('smallGroupMessages').add({ groupId: g.id, subject: subject.slice(0, 200), body: body.slice(0, 10000), sentBy: uid(), sentByName: ME.name || '',
+            sentAt: firebase.firestore.FieldValue.serverTimestamp(), recipients: to.length });
+        }).then(function () { toast('Sent to ' + to.length); drawMessage(el); });
+      }).catch(function (e) { btn.disabled = false; toast('Could not send: ' + (e.message || e)); });
+    };
+  }
+
+  /* ================= oversight (the groups admins) ================= */
+  function drawOversight(el) {
+    el.innerHTML = '<div class="card"><h2>Every group</h2><div id="ov-body" class="hint">Loading…</div></div><div class="card"><h2>People in no group</h2><div id="ov-none" class="hint">Loading…</div></div>';
+    Promise.all([db().collection('smallGroupMembers').get(), db().collection('smallGroupAttendance').get()]).then(function (r) {
+      var mem = all(r[0]), regs = all(r[1]);
+      var rows = GROUPS.map(function (g) { return G.overview(g, regs.filter(function (a) { return a.groupId === g.id; })); });
+      document.getElementById('ov-body').className = '';
+      document.getElementById('ov-body').innerHTML = '<div class="scroll"><table class="reg" id="ov-table"><tr><th>Group</th><th>Members</th><th>Leaders</th><th>Last met</th><th>Usually comes</th><th>Trend</th></tr>' +
+        rows.map(function (o) { return '<tr data-ov="' + esc(o.id) + '"><td>' + esc(o.name) + (o.under18 ? ' <span class="pill no">Under-18s</span>' : '') + (o.active ? '' : ' <span class="pill">Not running</span>') + '</td><td>' + o.members + (o.capacity ? ' of ' + o.capacity : '') +
+          '</td><td>' + esc(o.leaders) + '</td><td>' + esc(o.lastMet ? E.fmtDateShort(o.lastMet + 'T12:00') : 'no register yet') + '</td><td>' + (o.average === null ? '' : o.average) + '</td><td>' + esc(o.trend) + '</td></tr>'; }).join('') + '</table></div>';
+      var inGroup = {}; mem.forEach(function (m) { if (m.personKind === 'addressBook') inGroup[m.personId] = 1; });
+      GROUPS.forEach(function (g) { (g.leaderIds || []).forEach(function (l) { inGroup[l] = 1; }); });
+      var none = PEOPLE.filter(function (p) { return !inGroup[p.id]; });
+      document.getElementById('ov-none').className = '';
+      document.getElementById('ov-none').innerHTML = '<p class="hint" id="ov-none-n">' + none.length + ' of ' + PEOPLE.length + ' people in the address book are in no group and lead none.</p>' +
+        none.map(function (p) { return '<span class="pill" data-none="' + esc(p.id) + '">' + esc(p.name) + '</span>'; }).join('');
+    }).catch(function (e) { document.getElementById('ov-body').textContent = 'Could not load: ' + (e.message || e); });
+  }
+
   /* ================= settings (master admins) ================= */
   function drawSettings(el) {
     var teams = SETTINGS.teams || [];
@@ -313,7 +487,8 @@
     return Promise.all([db().collection('groupsSettings').doc('main').get().catch(function () { return null; }),
       db().collection('smallGroups').where('leaderIds', 'array-contains', ME.memberId || '-').get().catch(function () { return { docs: [] }; }),
       db().collection('addressBook').get().catch(function () { return { docs: [] }; }),
-      db().collection('sites').get().catch(function () { return { docs: [] }; }), db().collection('rooms').get().catch(function () { return { docs: [] }; })]);
+      db().collection('sites').get().catch(function () { return { docs: [] }; }), db().collection('rooms').get().catch(function () { return { docs: [] }; }),
+      db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; })]);
   }).then(function (r) {
     SETTINGS = r[0] && r[0].exists ? r[0].data() : {};
     ADMIN = MASTER || (SETTINGS.teams || []).some(function (t) { return (ME.adminFor || []).indexOf(t) >= 0; });
@@ -323,6 +498,7 @@
     var t = {}; ab.forEach(function (p) { (p.markers || []).forEach(function (m) { if (m) t[m] = 1; }); (p.adminFor || []).forEach(function (m) { if (m) t[m] = 1; }); });
     TEAMS = Object.keys(t).sort();
     SITES = all(r[3]).filter(function (s) { return s.active !== false; }); ROOMS = all(r[4]).filter(function (x) { return x.active !== false; });
+    SGDEF = r[5] && r[5].exists ? r[5].data() : {};
     if (!ADMIN && !r[1].docs.length) {
       return noAccess(EGBCAuth.isAdmin && EGBCAuth.isAdmin() && !(SETTINGS.teams || []).length
         ? '<h2 style="margin:0 0 6px;font-size:15px">Not set up yet</h2>A master admin chooses, on this page\'s Settings, which team\'s admins look after the small groups.'

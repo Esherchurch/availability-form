@@ -17,7 +17,7 @@
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610062100"></script>
-<script src="egbc-events-groups.js?v=202610091200"></script>
+<script src="egbc-events-groups.js?v=202610091600"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -141,6 +141,7 @@
           (p.address ? '<br><b>Address</b>: ' + esc(p.address) : '') + (p.meetingLink ? '<br><b>Joining online</b>: <a href="' + esc(p.meetingLink) + '">' + esc(p.meetingLink) + '</a>' : '') +
           (p.notes ? '<br>' + esc(p.notes) : '') + '</div>';
       }).catch(function () {});
+      memberExtras(g);
       return;
     }
     if (!G.joinable(g)) { document.getElementById('g-join').innerHTML = '<p class="hint">' + esc(G.status(g)) + '. Have a look at the other groups, or ask the church office.</p>'; return; }
@@ -152,6 +153,40 @@
       '<label class="l" for="j-msg">Anything you would like them to know</label><textarea id="j-msg" maxlength="1000"></textarea>' +
       '<div id="j-err"></div><div style="margin-top:10px"><button class="btn" id="j-go">Ask to join</button></div></div>';
     document.getElementById('j-go').onclick = function () { ask(g, this); };
+  }
+
+  /* For the group's own members (stage 2): what is coming up, with the
+     notes or study plan; the messages sent to the group; and leaving. */
+  function memberExtras(g) {
+    var box = document.getElementById('g-join'), today = new Date().toISOString().slice(0, 10);
+    var inIt = MINE.indexOf(g.id) >= 0;
+    Promise.all([db().collection('smallGroupMeetings').where('groupId', '==', g.id).get().catch(function () { return { docs: [] }; }),
+                 db().collection('smallGroupMessages').where('groupId', '==', g.id).get().catch(function () { return { docs: [] }; })]).then(function (r) {
+      var meets = r[0].docs.map(function (d) { return d.data(); }).filter(function (m) { return m.date >= today; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; }).slice(0, 4);
+      var msgs = r[1].docs.map(function (d) { return d.data(); }).sort(function (a, b) { return (b.sentAt && a.sentAt) ? b.sentAt.toMillis() - a.sentAt.toMillis() : 0; }).slice(0, 5);
+      box.innerHTML = (meets.length ? '<h3 style="font-size:15px;color:var(--ink);margin:14px 0 4px">Coming up</h3>' + meets.map(function (m) {
+          return '<div class="card" style="margin:6px 0;padding:10px" data-up="' + esc(m.date) + '"><b>' + esc(E.fmtDate(m.date + 'T12:00')) + '</b>' + (m.cancelled ? ' · <span style="color:var(--danger)">Not meeting</span>' : '') +
+            (m.notes ? '<div style="white-space:pre-wrap;margin-top:4px">' + esc(m.notes) + '</div>' : '') + '</div>'; }).join('') : '') +
+        (msgs.length ? '<h3 style="font-size:15px;color:var(--ink);margin:14px 0 4px">Messages</h3>' + msgs.map(function (m) {
+          return '<div class="card" style="margin:6px 0;padding:10px"><b>' + esc(m.subject) + '</b> <span style="color:var(--muted);font-size:13px">' + esc(m.sentByName || '') + '</span>' +
+            '<div style="white-space:pre-wrap;margin-top:4px">' + esc(m.body) + '</div></div>'; }).join('') : '') +
+        (inIt ? '<div style="margin-top:12px"><button class="btn sec" id="g-leave">Leave this group</button></div>' : '');
+      var lv = document.getElementById('g-leave');
+      if (lv) lv.onclick = function () {
+        if (!confirm('Leave ' + g.name + '? You can ask to join again later.')) return;
+        lv.disabled = true;
+        /* Their own place and the group's count, in one write (the rules insist). */
+        var key = G.memberKey(g.id, 'addressBook', ME.memberId), b = db().batch();
+        b.delete(db().collection('smallGroupMembers').doc(key));
+        b.update(db().collection('smallGroups').doc(g.id), { memberCount: Math.max(0, (g.memberCount || 0) - 1), lastMemberKey: key });
+        b.commit().then(function () {
+          MINE = MINE.filter(function (x) { return x !== g.id; }); g.memberCount = Math.max(0, (g.memberCount || 0) - 1);
+          box.innerHTML = '<div class="st ok" id="g-left">You have left ' + esc(g.name) + '.</div>';
+          document.getElementById('g-private').innerHTML = '';
+          drawMine(); draw();
+        }).catch(function (e) { lv.disabled = false; alert('Could not: ' + (e.message || e)); });
+      };
+    });
   }
 
   /* A request: a member asks as themselves; a guest becomes a contact
