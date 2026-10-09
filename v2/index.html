@@ -13,9 +13,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
-        import { db, storage, ready } from './egbc-db.js';
-        import { collection, query, where, getDocs, setDoc, doc, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { storage, ready, call } from './egbc-db.js';
         import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        /* THIS PAGE NO LONGER READS FIRESTORE. It used to query addressBook
+           by email, read every event, and write into availability - which is
+           why those three were open to the whole internet in firestore.rules.
+           They are shut now, and the page asks three functions instead:
+
+             findMe      the people on this address, and a form token
+             myDates     their dates, and their previous answers
+             saveAnswer  one answer, for one of the people the token names
+
+           The token is what makes the last one safe. Without it, anybody who
+           had seen a member id could answer as that person.
+           PRIVACY-OPEN-COLLECTIONS.md has the reasoning; Martin chose this
+           on 9 October 2026. */
 
         /* One signed-in connection. Nothing below runs until the session is
            restored: a query sent before then goes out anonymous, whatever the
@@ -26,6 +39,8 @@
 
 
         let currentUser = null;
+        let formToken = null;          // from findMe; myDates and saveAnswer need it
+        let myEvents = [];             // the dates myDates sent back
         let availabilityData = {};
         let displayedEvents = [];
         let loginMatches = [];
@@ -47,15 +62,24 @@
             const emailInput = document.getElementById('memberEmail').value.toLowerCase().trim();
             if (!emailInput) return;
 
-            const q = query(collection(db, "addressBook"), where("email", "==", emailInput));
-            const snap = await getDocs(q);
+            let found;
+            try {
+                found = await call('findMe', { email: emailInput });
+            } catch (err) {
+                /* The rate limit arrives here, and it has something to say -
+                   so say it, rather than the generic "not found" below. */
+                alert(err && err.message ? err.message
+                      : "Could not look that up just now. Please check your internet connection and try again.");
+                return;
+            }
 
-            if (snap.empty) {
+            if (!found.people || !found.people.length) {
                 alert("Email not found. Please ensure you are registered in the Address Book.");
                 return;
             }
 
-            loginMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            formToken = found.token;
+            loginMatches = found.people;
 
             if (loginMatches.length === 1) {
                 proceedToForm(loginMatches[0]);
@@ -93,14 +117,14 @@
         }
 
         window.setStatus = async (eventId, dateKey, newStatus) => {
-            const docId = `${currentUser.id}_${eventId}`;
-            await setDoc(doc(db, "availability", docId), {
+            /* The name and the date are no longer sent: the function reads
+               them off the records, so the only thing this page decides is
+               the answer itself. */
+            await call('saveAnswer', {
+                token: formToken,
                 memberId: currentUser.id,
-                memberName: currentUser.name,
                 eventId: eventId,
-                dateKey: dateKey,
-                status: newStatus,
-                updatedAt: new Date()
+                status: newStatus
             });
         };
 
@@ -134,61 +158,48 @@
             }
         };
 
-        function loadResponses() {
-            /* Draw the dates FIRST, and never wait on the read below.
+        async function loadResponses() {
+            /* ONE CALL NOW, and it brings both halves.
 
-               This page has no sign-in, by decision. firestore.rules lets it
-               read the dates and write an answer, and deliberately does not
-               let it read anybody's answers back - there is no identity here
-               to check them against. But this function used to call
-               renderDates() only from inside the snapshot callback, so when
-               that read was refused the callback never fired and the form
-               showed no dates at all. Nobody noticed because the rules are
-               not deployed yet: the day they are, the one page the whole
-               church uses would have gone blank.
+               This used to draw the dates first and then try to read the
+               person's own previous answers straight out of availability -
+               a read firestore.rules refused on purpose, because there was
+               no identity here to check it against. The form coped by
+               showing every date blank, which meant somebody coming back to
+               change one answer could not see the others.
 
-               So: the dates are drawn, and the previous answers are a bonus
-               that arrives if the read is allowed. */
-            renderDates();
-
+               myDates answers both questions for the one person the token
+               names, so the previous answers come back as well. */
             try {
-                onSnapshot(
-                    query(collection(db, "availability"), where("memberId", "==", currentUser.id)),
-                    (snap) => {
-                        availabilityData = {};
-                        snap.forEach(d => { availabilityData[d.data().eventId] = d.data().status; });
-                        renderDates();
-                    },
-                    () => {
-                        /* Refused, which is what the rules say should happen.
-                           The form still works; it just cannot show what this
-                           person said last time. See PARITY-AUDIT.md S-007. */
-                    }
-                );
-            } catch (e) { /* same again, for a browser that throws instead */ }
+                const mine = await call('myDates', { token: formToken, memberId: currentUser.id });
+                availabilityData = mine.answers || {};
+                myEvents = mine.events || [];
+            } catch (err) {
+                console.error("Could not load your dates:", err);
+                availabilityData = {};
+                myEvents = [];
+                document.getElementById('eventList').innerHTML =
+                  '<div class="text-center text-sm text-gray-500 py-10">Could not load your dates. '
+                  + 'Please check your internet connection and reload the page.</div>';
+                return;
+            }
+            renderDates();
         }
 
-        async function renderDates() {
-            const q = query(collection(db, "events"), orderBy("date"));
-            const snap = await getDocs(q);
+        function renderDates() {
             const container = document.getElementById('eventList');
             container.innerHTML = '';
             displayedEvents = [];
 
+            /* The function has already dropped the archived dates and the
+               ones for other teams, so nothing about another team's rota
+               ever reaches this page. */
             const grouped = {};
-            snap.forEach(d => {
-                const ev = d.data();
-                if (ev.archived === true) return;
-                const eventTeams = ev.teams || [];
-                const memberMarkers = currentUser.markers || [];
-                const isRelevant = eventTeams.length === 0 || eventTeams.some(t => memberMarkers.includes(t)) || (eventTeams.includes('Youth') && memberMarkers.includes('Youth Worship'));
-                if (isRelevant) {
-                    const eventObj = { id: d.id, ...ev };
-                    displayedEvents.push(eventObj);
-                    const termKey = ev.termLabel || "Active Rota";
-                    if (!grouped[termKey]) grouped[termKey] = [];
-                    grouped[termKey].push(eventObj);
-                }
+            myEvents.forEach(ev => {
+                displayedEvents.push(ev);
+                const termKey = ev.termLabel || "Active Rota";
+                if (!grouped[termKey]) grouped[termKey] = [];
+                grouped[termKey].push(ev);
             });
 
             Object.keys(grouped).sort().forEach(term => {

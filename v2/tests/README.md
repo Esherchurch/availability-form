@@ -23,6 +23,10 @@ Run every one of these from `v2/`, not from here.
 | "Powered by Church HQ" is in its three places and nowhere else | `node tests/check-poweredby.mjs` (add `--shots`) |
 | Reminder emails go to the right people, once, and nobody else | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-reminders.mjs"` |
 | The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
+| The availability form’s three functions, with nobody signed in | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-availability-form.mjs"` |
+| The form **filled in** in a browser, and the youth planner opened signed out | `node tests/check-form-in-browser.mjs` (add `--shots`) |
+| What each of the four levels actually gets, in a browser | `node tests/check-levels-in-browser.mjs` (add `--shots`) |
+| Who can read what, read off the rules themselves | `node tests/check-access-levels.mjs` (add `--write` to rewrite ACCESS-LEVELS.md) |
 | Firestore rules | `firebase emulators:exec --project demo-egbc "node firestore-rules.test.mjs"` |
 | Storage rules | `firebase emulators:exec --project demo-egbc "node storage-rules.test.mjs"` |
 

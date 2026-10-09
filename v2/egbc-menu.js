@@ -185,6 +185,13 @@
      up with a Core Team menu by pasting a URL. */
   function visible(node, who) {
     if (node.core && !who.isCore) return false;
+    /* Section 21: members-only things do not appear for an Attender, with no
+       locked door. prune() then drops a heading left with nothing under it,
+       so there is not even an empty section to wonder about. Nothing in the
+       tree carries this yet - members-only documents and notices need an
+       audience field on resources and news first - but the Menu is where
+       they will hang, and the mechanism is tested rather than waiting. */
+    if (node.members && !who.isChurchMember) return false;
     if (node.admin && !who.isAdmin) return false;
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
     /* On that team, or the person who administers it, or a master admin.
@@ -488,6 +495,7 @@
         adminFor: adminFor,
         isMaster: !!(A && A.isMaster && A.isMaster()),
         isCore: teams.indexOf('Core Team') !== -1 || !!(A && A.isMaster && A.isMaster()),
+        isChurchMember: !!(A && A.isChurchMember && A.isChurchMember()),
         isAdmin: !!(A && A.isAdmin && A.isAdmin()),
         /* Who looks after a site's bookings is a list of member ids inside
            bookingSettings, which means a read. Whoever draws the Menu does

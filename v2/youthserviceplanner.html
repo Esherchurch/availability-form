@@ -3,6 +3,21 @@
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-shell.js?v=202610082145" data-title="Youth Service Planner"></script>
+<!-- Sign-in. The page reads the address book to build its name list and the
+     events collection for its dates; both are shut to strangers now
+     (PRIVACY-OPEN-COLLECTIONS.md), so it has to know who is asking. The guard
+     hides the page until the check passes and explains itself if it fails.
+
+     IT IS AN INSTALLABLE OFFLINE APP, and this is the cost of the change: the
+     first load of a session needs the network to restore the session. Opened
+     with no connection at all it shows the guard's "Checking access" and then
+     the sign-in page, where before it showed a planner with an empty name
+     list. Martin's decision, 9 October 2026. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610091200"></script>
+<script src="egbc-guard.js?v=202610091200" data-team="Youth Worship"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-youthservice.json">
     <link rel="apple-touch-icon" href="icon-192.png">

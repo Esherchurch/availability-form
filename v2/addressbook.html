@@ -92,6 +92,7 @@
             keepUnknownKidsRoles('kidsprimary', data.kidsRolesPrimary);
             keepUnknownKidsRoles('kidssecondary', data.kidsRolesSecondary);
             document.getElementById('isMinor').checked = !!data.isMinor;
+            document.getElementById('churchMember').checked = !!data.churchMember;
             document.getElementById('masterAdmin').checked = !!data.masterAdmin;
             document.querySelectorAll('.teamcap').forEach(i => {
                 const c = data.teamCaps || {};
@@ -198,6 +199,7 @@
                 kidsRolesPrimary: Array.from(document.querySelectorAll('.kidsprimary:checked')).map(cb => cb.value),
                 kidsRolesSecondary: Array.from(document.querySelectorAll('.kidssecondary:checked')).map(cb => cb.value),
                 isMinor: document.getElementById('isMinor').checked,
+                churchMember: document.getElementById('churchMember').checked,
                 adminFor: Array.from(document.querySelectorAll('.adminfor:checked')).map(cb => cb.value),
                 masterAdmin: document.getElementById('masterAdmin').checked,
                 teamCaps: (() => {
@@ -486,6 +488,9 @@ document.addEventListener('egbc-ready',()=>{
                                 <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Core Team"> Core Team</label>
                             </div>
                         </div>
+
+                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263] pt-1"><input type="checkbox" id="churchMember" class="w-3.5 h-3.5"> Church member</label>
+                        <p class="text-[9px] text-gray-400 font-semibold leading-relaxed -mt-2">Formally joined the church, which is not everyone who comes. It opens members' meetings and members-only documents. Being in the address book at all is enough for everything else.</p>
 
                         <label class="flex items-center gap-2 cursor-pointer text-[#6b4a7a] pt-1"><input type="checkbox" id="masterAdmin" class="w-3.5 h-3.5"> Master admin</label>
                         <p class="text-[9px] text-gray-400 font-semibold leading-relaxed -mt-2">Everything, everywhere, including making other people admins. Very few people.</p>

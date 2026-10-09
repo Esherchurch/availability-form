@@ -733,3 +733,278 @@ previewing as a Worship member sees that member's Menu, and the shell's copy
 did not. The Menu would have differed between the hub and every other page
 again, quietly, and only for an admin previewing. It calls the one function
 now. That is A-024's lesson arriving a second time in the same file.
+
+---
+
+## A-030 — closing the address book and widening `active()` pull in opposite directions
+
+Both were asked for on the same day, and they collide.
+
+PRIVACY-OPEN-COLLECTIONS.md proposed closing `addressBook` to
+`allow read: if active()`. NEXT-BRIEF §21 then made `active()` mean **Attender**
+— anyone in the address book, which is very nearly the whole congregation.
+
+Done in that order, the fix would have read as done and moved almost nothing:
+from "anyone on the internet" to "anyone who comes to this church".
+
+**What was built instead.** `active()` keeps its name and its new, wider
+meaning. A second function, `volunteer()`, is *exactly* what `active()` meant
+before — `status == 'active'` was only ever written for somebody with teams,
+`adminFor` or `masterAdmin` — and the 31 rule lines meant for volunteers were
+changed to it in the same commit. **That pass moved nothing on the day it was
+made**, which is what makes it safe; what it does is stop those 31 widening
+when the meaning changed underneath them.
+
+`addressBook` is now `isAdmin() || volunteer() || bookIsMine(personId)` for a
+single record, and `isAdmin() || volunteer()` for a query — a person may read
+their own record and nobody else's.
+
+`tests/check-access-levels.mjs` reads the rules back and fails if any of the 28
+volunteer-only collections has drifted to `active()`, or if any of the 11
+section 21 opens to Attenders has drifted the other way. ACCESS-LEVELS.md is
+generated from the same read.
+
+**10 of the 31 changed lines are inside the marked events section** of
+`firestore.rules` (`eventLeaders`, `concerns` create, `safeguardingSettings`,
+`counters` ×2, `settings/accounts`, `kidsSettings`, `kidsGroups`, `kidsTerms`,
+`screenPages`). The standing rule is to leave that section alone. It was
+changed anyway, and deliberately: the alternative was to publish the
+safeguarding settings and the children's groups to every Attender in the
+church. The substitution is behaviour-preserving today, so nothing the events
+window has built changes — **but they need to know `active()` means something
+new**, and a rule they write next week saying `active()` will not mean what the
+rule above it meant.
+
+---
+
+## A-031 — the rules refused a browser holding yesterday's `egbc-auth.js`
+
+The first version of §21's mirror required `attender` and `churchMember` on
+every write to `users/{uid}`. Two rules tests that had passed for weeks
+started failing: *"a first sign-in writes the membership the address book
+gives"* and *"an admin in the book comes back an admin"*.
+
+Those tests write what the **old** client writes. They were not stale — they
+were the deploy. A browser still holding the previous `egbc-auth.js` writes the
+old shape, `refreshFromBook` swallows the refusal (`.catch(function () {})`),
+and somebody signing in for the first time that day would have been stuck
+`pending` with nothing on screen to explain it. Rule Zero.
+
+`mirrorsBook` now checks both fields **only if they are present**, and allows
+`status: 'pending'` whatever the record says — claiming *less* than the address
+book grants can never be an escalation. Both shapes have their own test, and
+there is a third proving a cached client still cannot smuggle a wrong
+`churchMember` through while it is there.
+
+---
+
+## A-032 — the style check has never looked at the one page the whole church uses
+
+`index.html` is not in `tests/group1-screens.mjs`, so neither the drawn pass
+nor the source pass has ever measured it. It has two emoji on its answer
+buttons:
+
+```
+index.html:231      ✓ Available
+index.html:236      ✗ Unavailable
+```
+
+Not fixed, because the page has not been restyled and is in no restyle group —
+adding it to the check today would fail on the font and the weights as well,
+which is a restyle job rather than this one. **It should go into a group.** It
+is the only page a member of the church is ever emailed a link to.
+
+---
+
+## A-033 — "the answer he gave is remembered" was reading a variable it could not see
+
+In `tests/check-form-in-browser.mjs`, written the same afternoon:
+
+```js
+const remembered = await ev('JSON.stringify(window.availabilityData || null)');
+ok('the answer he gave is remembered', /ev_br_one/.test(String(remembered)), remembered);
+```
+
+`availabilityData` is module-scoped inside `index.html`'s `<script type="module">`,
+not on `window`. It returned `null` — and would have returned `null` whether
+the answer came back or not, so the assertion could only ever fail, never pass
+wrongly, but it was measuring nothing. The replacement reads the **screen**:
+the chosen button is the one `renderDates` gives `bg-green-600`, and the other
+one must not have it.
+
+Same family as A-023 and A-024: a check that cannot tell the two outcomes apart
+is not a check. Worth saying because it was written *after* that lesson.
+
+---
+
+## A-034 — two things in the rules that are wrong today, found while auditing
+
+Neither is caused by this change; both are in the file now.
+
+1. **`training_portal` is `allow read, write: if active()`.** The practice
+   copies of the tools write there, and anybody signed in may scribble on it.
+   That is defensible for a sandbox. It is now `volunteer()`, so Attenders
+   cannot — but a *write* open to every volunteer is still worth a decision.
+
+2. **An archived person who still has teams ticked stays a volunteer.**
+   `attender` is false for them (this change), but `status` is still `active`
+   because `markers` is not empty, so they keep their team's pages until an
+   admin clears the ticks. Leaving the church does not currently take anything
+   away. Untouched: making `archived` override the ticks is a decision about
+   people, not a tidy-up.
+
+---
+
+## A-035 — a members-only room can be hidden, not locked
+
+The CMM video room is Church members only now: it is absent from Meetings and
+from the hub's meetings card for anybody without the tick, and a pasted
+`meeting.html?room=CMM` is refused in words.
+
+**What that does not do.** The call itself is a Daily room at a fixed public
+address, `https://egbc.daily.co/CMM`, private only because people knock and a
+host admits them. Anybody who already has that link still reaches the knock
+screen, and the host admitting them is still the real gate. Making the room
+itself members-only is a Daily setting, not something a page can do.
+
+Also: **the tick starts off for everybody**, so on the day this deploys CMM is
+invisible to everyone, including the Core Team, until the office ticks people.
+That is step 2 of the deploy order in SERVER-DEPLOY.md.
+
+The Core Team app's room picker was deliberately **not** gated. Hiding CMM from
+the people who schedule the members' meeting would stop the meeting being
+created at all. One line if Martin wants it the other way.
+
+---
+
+## A-036 — closing the address book stopped anybody signing in, and no rules test could have caught it
+
+This is the one worth reading. **637 rules cases passed** on a change that
+made it impossible for anybody to sign in to anything for the first time.
+
+`egbc-auth.js` has always found out *who* has signed in by querying the
+address book from the page:
+
+```js
+db.collection('addressBook').where('email', '==', email)
+db.collection('addressBook').where('signInEmails', 'array-contains', email)
+```
+
+It has to, because it does not know the person's `memberId` until it has found
+them. With `allow read: if true` that worked for anybody, including somebody
+with no `users/{uid}` document at all. Closing the collection meant a brand new
+account — on no team, administering nothing — had both queries refused,
+`provisionProfile` failed, and every page showed **"Something went wrong"**
+with a rules error printed on it.
+
+**Every rules test passed because every one of them wrote `users/{uid}` with
+the memberId already in hand.** Not one ran the query that produces it. Same
+family as A-023 and A-024: the tests covered the write and not the lookup, and
+the lookup is the part that locks people out.
+
+**I first wrote that this cannot be fixed in the rules. That was wrong, and I
+had put it in two code comments before checking it.** A `list` rule CAN say
+`resource.data.email == request.auth.token.email`: Firestore allows a query
+whose own `where` clauses guarantee the rule, and refuses one that asks for the
+whole collection. Measured five ways afterwards — plain field access, the
+`.get(field, default)` form, `array-contains`, both clauses ORed, and an
+unconstrained query, which was correctly refused.
+
+What actually broke the two attempts was A-037 below: `active()`, sitting in
+the same rule as an `||`, threw on the missing `users/{uid}` document. I read
+"evaluation error" and reached for the wrong explanation, which is the whole of
+the mistake.
+
+**The lookup is a function anyway**, and the reasons are worth more than the
+clause saved: the address book is then shut to page-side queries entirely, with
+no clause for somebody to widen later with an `||`, and the function drops
+archived and under-16 records itself rather than trusting the page to. The cost
+is that signing in now needs a deployed function, which is a real cost and is
+in SERVER-DEPLOY.md twice.
+
+So: **`whoAmI`**, in codebase `hub`, beside the
+availability form's three. It reads the address out of the **verified ID
+token**, never out of the request body, so it can only ever answer about
+whoever is asking — which is why it may return rather more than `findMe` does.
+It applies the two exclusions `findMembers` used to apply in the page
+(`archived`, `isMinor`), so the page is no longer the only thing enforcing
+them.
+
+`egbc-auth.js` calls it over plain `fetch` with the ID token rather than
+through `firebase-functions-compat`, because that would be a fourth script tag
+on sixty-odd pages for one call.
+
+**Consequence for the deploy, and it is a hard one:** `whoAmI` must be live
+before the rules are. SERVER-DEPLOY.md says so twice.
+
+---
+
+## A-037 — `active()` threw rather than returning false, for every one of its 72 call sites
+
+Found in the same walk, and separate from A-036.
+
+```
+function active() {
+  return signedIn() && me().status == 'active';
+}
+```
+
+`me()` is `get(users/{uid}).data`. For a document that does not exist, `get()`
+returns null, and `null.status` is **not false — it is an evaluation error**,
+which fails the whole ruleset for that request with "Null value error" rather
+than a tidy refusal.
+
+Any rule naming `active()`, evaluated by a signed-in person with no
+`users/{uid}` document, threw. That was unreachable **only** because
+`addressBook` was open: a brand new account's first act is the lookup above,
+and nothing else in the suite is read before the mirror is written. It now
+checks `exists()` first.
+
+Worth knowing because it was latent for as long as these rules have existed,
+and it would have surfaced the day they were deployed, for everybody, as
+"Something went wrong".
+
+---
+
+## A-038 — what an Attender's hub actually looks like, which nobody has seen before
+
+Walked it (`tests/check-levels-in-browser.mjs`). An Attender reaches the hub —
+the first time anybody not on a team has — and gets the video meetings card,
+the pin board card and Resources. The Rota Planner turns them away in words.
+All correct.
+
+But the hub logs **four refusals** to its console on the way:
+
+| | |
+|---|---|
+| Team panels failed | `teamContent` — volunteers only |
+| Meetings load failed | `events` — volunteers only |
+| Pin board card: could not read the board | `worshipBoardState` |
+| Hero load failed | `pageContent` |
+
+Every one is caught and the card degrades to an empty state, so nothing is
+broken on screen. But four red lines in the console is how a real fault hides,
+and `tests/smoke-all-pages.mjs` asserts the console is clean — it only passes
+because it runs as a master admin.
+
+**Not fixed: deciding what an Attender's hub should show is a design
+question**, and §21 says "their own dashboard", which is a piece of work rather
+than a tidy-up. What is cheap and worth doing first is to stop the hub
+*asking* for things the person cannot have, which removes all four.
+
+---
+
+## A-039 — the brand logo is a live Storage URL on every page
+
+`egbc-shell.js:30` hard-codes
+`https://firebasestorage.googleapis.com/.../copilot_image_...jpeg?alt=media&token=…`
+and the shell is on every page, so every page served from localhost asks the
+**live** bucket for it. CoreTeamApp.html and EGBCWorship&AV.html have more of
+the same.
+
+It is a public image with a download token, not data, and the request is
+refused by the harness, so nothing has leaked. But it is the same shape as the
+fault that put five test records in the live database — a localhost page
+talking to live Firebase — and it is the reason
+`tests/check-levels-in-browser.mjs` has to name two expected exceptions rather
+than assert nothing at all. Named, not fixed.

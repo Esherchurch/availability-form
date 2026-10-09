@@ -197,7 +197,8 @@ async function lobby(profile) {
     const today = new Date().toISOString().split('T')[0];
     const snap = await EGBCAuth.db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
     upcoming = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(ev => !ev.archived && VIDEO_ROOMS[videoRoomFor(ev)] && forMe(ev))
+      .filter(ev => !ev.archived && VIDEO_ROOMS[videoRoomFor(ev)] && forMe(ev)
+                    && EGBCAuth.mayJoinRoom(videoRoomFor(ev)))
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
   } catch (e) { console.error('Could not load meetings', e); }
 
@@ -217,7 +218,9 @@ async function lobby(profile) {
   });
 
   html += '<div class="lab">All meeting rooms</div>';
-  Object.entries(VIDEO_ROOMS).forEach(([r, label]) => {
+  /* A members' meeting is not offered to somebody who is not a member, and
+     is not shown locked either - section 21: it simply is not there. */
+  Object.entries(VIDEO_ROOMS).filter(([r]) => EGBCAuth.mayJoinRoom(r)).forEach(([r, label]) => {
     html += `<div class="row"><div class="ic">${I('video')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div><div class="s">${esc(VIDEO_BASE + r)}</div></div>
       <button class="btn sm" onclick="copyLink('${r}')">${I('link', 15)}Copy invite link</button>
       <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}">Join</a></div>`;
@@ -338,6 +341,16 @@ function start(profile) {
   if (!room) { lobby(profile); return; }
   if (!VIDEO_ROOMS[room]) {
     showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
+    return;
+  }
+  /* Hiding the room cannot cover a pasted address, so this one has to be
+     said out loud. It is the only place a members-only thing is refused
+     rather than simply absent. */
+  if (!EGBCAuth.mayJoinRoom(room)) {
+    showMsg('A members\' meeting',
+      'This room is for church members. If you have formally joined the church '
+      + 'and this is wrong, ask the church office to tick it against your record.',
+      '<a class="btn" href="hub.html">Back to hub</a>');
     return;
   }
   document.body.classList.add('in-call');

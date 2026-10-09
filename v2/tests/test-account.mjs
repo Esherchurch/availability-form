@@ -59,6 +59,11 @@ export async function giveFullAccess(uid, email) {
     teams: { arrayValue: { values: ALL_TEAMS.map(str) } },
     adminFor: { arrayValue: { values: ALL_TEAMS.map(str) } },
     masterAdmin: { booleanValue: true },
+    /* Section 21: the sweep account is an Attender and a Church member too,
+       or every members-only thing would be hidden from it and a sweep would
+       measure its absence as though that were the page. */
+    attender: { booleanValue: true },
+    churchMember: { booleanValue: true },
     roles: { mapValue: { fields: Object.fromEntries(ALL_TEAMS.map(t => [t, str('owner')])) } }
   } });
   /* AND THE ADDRESS BOOK, WHICH IS WHERE IT ACTUALLY COMES FROM.
@@ -73,6 +78,7 @@ export async function giveFullAccess(uid, email) {
     email: str(email || 'places.tester@example.invalid'),
     markers: { arrayValue: { values: ALL_TEAMS.map(str) } },
     adminFor: { arrayValue: { values: ALL_TEAMS.map(str) } },
-    masterAdmin: { booleanValue: true }
+    masterAdmin: { booleanValue: true },
+    churchMember: { booleanValue: true }
   } });
 }

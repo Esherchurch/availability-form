@@ -119,6 +119,133 @@ by Google's scheduler, not by anybody.
 
 ---
 
+---
+
+## The address book privacy fix, and the access levels (9 October 2026)
+
+**THE ORDER MATTERS MORE THAN ANYTHING ELSE ON THIS PAGE.** The functions go
+first and the rules go last, and there is a gap in between where everything
+works. Do it the other way round and the availability form — the one page the
+whole church uses — stops working the moment the rules land, because the
+functions it now asks are not there yet.
+
+Three things change together:
+
+- `addressBook`, `events` and `availability` stop being open to the internet.
+  The availability form asks three new functions instead.
+- Being **in the address book** now makes somebody an Attender, with a sign-in
+  that works. Before, only people on a team could get in at all.
+- The projection PC (ChurchShow) gets its own identity in the rules, because
+  closing `events` is what would otherwise black out the screens.
+
+### 1. Deploy the functions — safe to do today
+
+```
+cd functions
+npm install
+cd ..
+firebase deploy --only functions:hub --project egbc-worship-planner
+```
+
+**Nine functions now, not five.** The four new ones:
+
+| | |
+|---|---|
+| `findMe` | the availability form: who is on this email address |
+| `myDates` | their dates, and their previous answers |
+| `saveAnswer` | one answer |
+| **`whoAmI`** | **which address book record belongs to the person signed in** |
+
+**`whoAmI` is the one that matters most, and it is easy to overlook.** Signing
+in has always worked by the page querying the address book to find out who you
+are. With the address book shut, a page cannot do that any more — a brand new
+account is on no team, so it is allowed nothing — and it cannot be fixed in the
+rules. The lookup is this function. **If it is missing when the rules land,
+nobody new can sign in at all**, and anybody whose account was linked
+automatically rather than by hand stops being recognised on their next visit.
+
+Watch for the same two things as always: **nodejs22** against each, and **no
+offer to delete anything** — if it names `sendEmail`, say no and stop, because
+the codebase was not named.
+
+Deploying these changes nothing for anybody. The form still reads Firestore
+directly until step 4, the pages carry on as they are, and the new functions
+simply sit there.
+
+### 2. Tick the Church members — before step 4, not after
+
+Open **Address book**, and against each person who has formally joined the
+church, tick **Church member** (it is in the same block as Master admin and
+Under 16).
+
+**The tick starts off for everybody.** Until somebody has it, the **CMM**
+meeting room is invisible to everyone, including the Core Team — it is no
+longer offered in Meetings and a pasted link to it is refused. Nothing else
+depends on the tick yet.
+
+### 3. Turn on two clean-up timers — one console setting each
+
+The form keeps two small collections and both carry an `expiresAt`:
+
+| Collection | What it holds | Lives for |
+|---|---|---|
+| `formSessions` | the token that proves somebody can receive mail at an address | 2 hours |
+| `formRateLimit` | a **hash** of a connection, and a count. No address, no name. | 1 hour |
+
+In the Firebase console → Firestore → **Time-to-live**, add a policy on each
+of those two collections with the field **`expiresAt`**. Without them nothing
+breaks; the two collections simply grow for ever.
+
+### 4. Deploy the rules — AT SWITCH-OVER, NOT BEFORE
+
+```
+firebase deploy --only firestore:rules --project egbc-worship-planner
+```
+
+**This is the one that cannot be half done.** After it:
+
+- a stranger gets nothing from the address book or the rota
+- the availability form works only if step 1 has been done
+- **signing in works only if step 1 has been done**, because `whoAmI` is what
+  finds somebody's record now
+- ChurchShow works only once it has been paired (that is a separate piece of
+  work, and it is not finished — until it is, the projection PC loses its
+  reads the moment these rules land)
+
+**So do not deploy these rules until ChurchShow has been paired**, or Sunday
+morning's screens go blank. That is the one hard dependency between the two
+jobs.
+
+### What to check by hand, in this order
+
+1. Open the availability form **in a private window**, signed in to nothing.
+   Type in the address of somebody on a rota. You should get their name, their
+   Sundays, and any answer they gave last time — **that last part is new**, the
+   form could never show it before.
+2. Press an answer, reload the page, and go in again. The answer should still
+   be there.
+3. Sign in as somebody who is **in the address book but on no team**. Before,
+   they got "No teams yet" and nothing else. They should now reach the hub.
+4. Sign in as yourself and open **Meetings**. CMM should be in the list if you
+   have the tick, and absent if you have not.
+5. Open the **Youth Service Planner** signed out — it should ask you to sign
+   in rather than drawing itself with an empty name list.
+
+### If the form stops working after step 4
+
+The functions were not deployed, or were deployed without the codebase named.
+Run step 1 again and watch what the CLI prints. Nothing needs to be rolled
+back: the rules and the functions are independent, and the form starts working
+again as soon as the functions are there.
+
+### One thing worth knowing about browsers
+
+Somebody whose browser is still holding yesterday's `egbc-auth.js` writes the
+old shape of their own account record. The rules accept it on purpose — they
+check the two new fields only if they are present — so a stale browser cannot
+lock anybody out. It just means that person is treated as they were before
+until they next load the page properly. There are rules tests for both shapes.
+
 ## Then check it, by hand, before telling anyone
 
 ### The calendar links

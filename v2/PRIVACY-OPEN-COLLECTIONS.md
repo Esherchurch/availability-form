@@ -1,6 +1,14 @@
 # The address book is readable by anyone on the internet
 
-**A launch blocker. Nothing has been changed — this is for Martin to decide.**
+**DECIDED AND BUILT — Martin, 9 October 2026: Option A with the rate limit,
+`availability` closed to direct writes, and the youth planner given the shared
+guard rather than a `teamList` call.** The rules are in the repository and are
+**not deployed**: they go live at switch-over, and SERVER-DEPLOY.md has the
+order, which matters.
+
+Everything below is the reasoning that was put to him, left as it was written,
+because it is why the code looks the way it does. What was built is at the
+bottom.
 
 ---
 
@@ -208,5 +216,39 @@ Before anything is deployed:
 - **the youth planner opened signed out**, to prove it still builds its name
   list — the check that would have caught what I nearly missed
 
-**Nothing in this document has been built or changed.** Say which option and I
-will build it.
+---
+
+## 6. What was built
+
+| | |
+|---|---|
+| `functions/availability-form.js` | `findMe`, `myDates`, `saveAnswer`, the rate limit, the form token |
+| `functions/index.js` | the three callables, in codebase `hub` |
+| `index.html` | three function calls; **no Firestore left in the page at all** |
+| `firestore.rules` | `addressBook`, `events` shut; the open `availability` write gone; `formSessions` and `formRateLimit` shut to everything |
+| `youthserviceplanner.html` | the shared guard, `data-team="Youth Worship"` |
+| `tests/check-availability-form.mjs` | the three functions, over HTTP, nobody signed in |
+| `tests/check-form-in-browser.mjs` | the form **filled in**, in a browser, and the youth planner opened signed out |
+| `firestore-rules.test.mjs` | the seven public-form checks inverted, plus the levels and the device |
+
+**Two things the proposal did not foresee.**
+
+1. **Option A and §21 collide.** The proposal said close `addressBook` to
+   `active()`. §21 then made `active()` mean *Attender* — almost the whole
+   church. Closing it to `active()` would have been closing it to very nearly
+   nobody. It is closed to `volunteer()` instead, which is what `active()`
+   meant before, plus your own record. ACCESS-LEVELS.md has the whole picture.
+
+2. **The form can now show somebody their previous answers.** It never could:
+   the rules refused that read on purpose, because there was no identity to
+   check it against, and the page coped by drawing every date blank. `myDates`
+   answers for the one person the token names, so coming back to change one
+   answer now shows the others. That is the only thing about the form that is
+   different on screen.
+
+**What is still true, and was not fixed because nothing can fix it cheaply:**
+`findMe` is an oracle. Somebody who already has an email address can learn
+whether that person is in this church's address book, and their name — twenty
+guesses an hour per connection. Option B is the cure, it is the same function
+with an emailed link in front of it, and the choice can still be changed later
+without touching the rules again.

@@ -56,6 +56,7 @@ import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getStorage, connectStorageEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import { getAuth, connectAuthEmulator, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
 
 /* The same project, and the same app name egbc-auth.js uses. The name is the
    whole point: it is what makes this the same session rather than a new one. */
@@ -89,6 +90,15 @@ export const db = (function () {
 })();
 export const storage = getStorage(app);
 
+/* europe-west2, because that is where functions/index.js deploys them. Get
+   the region wrong and every call fails with "not found", from a function
+   that is plainly there. */
+export const functions = getFunctions(app, 'europe-west2');
+
+/* So a page says call('findMe', { email }) and never repeats the region or
+   the emulator. */
+export const call = (name, data) => httpsCallable(functions, name)(data).then(r => r.data);
+
 /* Local work talks to the emulator, exactly as egbc-auth.js does for the
    compat side - ports from firebase.json. Without this a page served from
    localhost writes to the live database, which is not a theoretical risk:
@@ -101,14 +111,15 @@ export const usingEmulator =
    (firebase.events.json); every other localhost port keeps 8181 / 9099 / 9199.
    Same rule in egbc-auth.js. */
 const EMU = location.port === '5601'
-  ? { firestore: 8182, auth: 9098, storage: 9198 }
-  : { firestore: 8181, auth: 9099, storage: 9199 };
+  ? { firestore: 8182, auth: 9098, storage: 9198, functions: 5102 }
+  : { firestore: 8181, auth: 9099, storage: 9199, functions: 5101 };
 
 if (usingEmulator) {
   try {
     connectFirestoreEmulator(db, 'localhost', EMU.firestore);
     connectAuthEmulator(auth, 'http://localhost:' + EMU.auth, { disableWarnings: true });
     connectStorageEmulator(storage, 'localhost', EMU.storage);
+    connectFunctionsEmulator(functions, 'localhost', EMU.functions);
     console.info('EGBCDb: using local emulators');
   } catch (e) {
     console.warn('EGBCDb: emulator not available', e.message);

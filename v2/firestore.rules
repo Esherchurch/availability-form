@@ -25,12 +25,47 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function me() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    // The signed-in person's mirrored record, as a Resource. get() returns
+    // null for a document that is not there, which is how active() can tell
+    // without a second lookup: two identical get() calls in one evaluation
+    // count as ONE document access, and an exists() would have been a second.
+    // That mattered - see active().
+    function myRecord() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    function me() {
+      return myRecord().data;
+    }
+
+    // IT HAS TO CHECK THE DOCUMENT IS THERE. get() on a document that does
+    // not exist returns null, and `null.status` is not false - it is an
+    // evaluation error, which fails the whole rule set for that request with
+    // "Null value error" rather than a tidy refusal.
+    //
+    // That was unreachable until 9 October 2026 only because addressBook was
+    // `allow read: if true`: a brand new account has no users/{uid} document
+    // yet, and the first thing egbc-auth.js does is query the address book to
+    // find out who has signed in. The moment that query went through a rule
+    // naming active(), every first sign-in threw - for everybody, not only
+    // Attenders - and the page showed "Something went wrong". Found by
+    // signing in as an Attender in a browser and reading the screen; no rules
+    // test caught it, because they all wrote users/{uid} with the memberId
+    // already in hand and none of them ran the lookup that finds it.
+    // AN exists() HERE COST TOO MUCH. The first fix for the null above was
+    // `exists(users/{uid}) && me().status == 'active'`, which is correct and
+    // readable - and it broke one rule in the events window's section outright:
+    // "the Session Leader sees the medical details of a child checked in this
+    // morning" went from allow to deny, because that rule already walks the
+    // rota and the morning and the child, and Firestore allows a limited
+    // number of document accesses per request. The extra exists() was one too
+    // many. 636/637, from a change that read as a safe tidy-up.
+    //
+    // Comparing the get() to null does the same job for nothing: the same
+    // get() appears in me(), and two identical gets in one evaluation are one
+    // access.
     function active() {
-      return signedIn() && me().status == 'active';
+      return signedIn() && myRecord() != null && me().status == 'active';
     }
 
     function onTeam(team) {
@@ -53,6 +88,84 @@ service cloud.firestore {
     // Manages something, anything. Use adminOf(team) wherever the area is known.
     function isAdmin() {
       return isMaster() || (active() && me().get('adminFor', []).size() > 0);
+    }
+
+    // ---- the four levels (NEXT-BRIEF 21, Martin, 9 Oct 2026) --------
+    //
+    //   Pending        signed in, no address book record carries their
+    //                  verified address. Almost nothing.
+    //   Attender       a record does. status is 'active' for them now, which
+    //                  it was not before, so active() means Attender.
+    //   Church member  that record also has the office's "Church member"
+    //                  tick. Members' meetings, members-only documents.
+    //   Team member    that record has teams in markers. Their team's pages.
+    //
+    // THE NAME active() DID NOT CHANGE BUT ITS MEANING DID, and it is used 72
+    // times. Everything meant for volunteers was changed to volunteer() in
+    // the same commit - which is exactly what active() meant before, so that
+    // pass moved nothing - and only the places section 21 names were left
+    // reading active(). ACCESS-LEVELS.md lists all 72 with the verdict.
+    //
+    // None of the three can be granted by the person they describe: all of
+    // them are mirrored from the address book and checked by mirrorsBook().
+
+    // What active() used to mean: on a team, or administering something.
+    function volunteer() {
+      return active() && (me().get('teams', []).size() > 0
+                          || me().get('adminFor', []).size() > 0
+                          || me().get('masterAdmin', false) == true);
+    }
+
+    // In the address book, not archived, not a child's record. Carries no
+    // information active() does not already imply - mirrorsBook proves the
+    // record is theirs - and exists so that a rule meaning "anyone who comes
+    // to this church" can say so rather than leaning on a coincidence.
+    function isAttender() {
+      return active() && me().get('attender', false) == true;
+    }
+
+    // Formally joined the church. Not every attender, and the office decides.
+    function isChurchMember() {
+      return active() && me().get('churchMember', false) == true;
+    }
+
+    // ---- the projection PC (ChurchShow) ----------------------------
+    //
+    // ChurchShow reads services, songs and the rota through the Firestore
+    // REST API with the web key and no sign-in at all. It works today only
+    // because events was open; this commit shuts it, so without this the
+    // projection would go blank at switch-over. NEXT-BRIEF 20, and R4 of
+    // FINDINGS-churchshow.md.
+    //
+    // NOT active(): a paired computer is not a person and has no
+    // users/{uid} document. The claim is set by the pairing function with
+    // the Admin SDK, so it cannot be forged from a page.
+    //
+    // THE DEVICE DOCUMENT IS CHECKED AS WELL AS THE CLAIM, and that is the
+    // point of it: revoking a refresh token stops the device RENEWING, but
+    // an ID token already issued stays good for up to an hour. Reading
+    // devices/{uid}.active makes Disconnect on the hub take effect at once
+    // rather than "some time within the hour".
+    //
+    // Reads only. The device may write nothing, anywhere.
+    function churchShow() {
+      return request.auth != null
+             && request.auth.token.get('device', '') == 'churchshow'
+             && exists(/databases/$(database)/documents/devices/$(request.auth.uid))
+             && get(/databases/$(database)/documents/devices/$(request.auth.uid))
+                  .data.get('active', false) == true;
+    }
+
+    // The paired computers, and the one-time pairing codes. Written by the
+    // functions with the Admin SDK, which does not come through here; an
+    // admin may look at what is paired, and nothing may be written from a
+    // page. A code is a password, so even reading one is shut.
+    match /devices/{deviceUid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /deviceCodes/{codeHash} {
+      allow read, write: if false;
     }
 
     // May change that team's content. Used by the knowledge base, the video
@@ -117,9 +230,37 @@ service cloud.firestore {
              && d.get('teams', []) == book(d.get('memberId', '')).get('markers', [])
              && d.get('adminFor', []) == book(d.get('memberId', '')).get('adminFor', [])
              && d.get('masterAdmin', false) == book(d.get('memberId', '')).get('masterAdmin', false)
-             && d.get('status', '') == (
-                  (d.get('teams', []).size() > 0 || d.get('adminFor', []).size() > 0
-                   || d.get('masterAdmin', false) == true) ? 'active' : 'pending');
+             // Section 21. The "Church member" tick, and being an Attender at
+             // all. Somebody archived has left, and a child's record is not a
+             // person who signs in - neither is an Attender, and refreshFromBook
+             // did not look at either before, so an archived member kept
+             // whatever they had.
+             //
+             // CHECKED IF PRESENT, NOT REQUIRED. A browser holding a cached
+             // egbc-auth.js writes the old shape, with neither field, and
+             // refreshFromBook swallows a refusal - so requiring them would
+             // leave somebody signing in for the first time on deploy day
+             // stuck pending with nothing on screen to explain it. Absent
+             // means "claims nothing extra", which is exactly what the old
+             // client meant.
+             && (!d.keys().hasAny(['churchMember'])
+                 || d.get('churchMember', false) == (
+                      book(d.get('memberId', '')).get('churchMember', false) == true
+                      && book(d.get('memberId', '')).get('archived', false) != true))
+             && (!d.keys().hasAny(['attender'])
+                 || d.get('attender', false) == (
+                      book(d.get('memberId', '')).get('archived', false) != true
+                      && book(d.get('memberId', '')).get('isMinor', false) != true))
+             // An Attender is active now, where before only a volunteer was.
+             // 'pending' is allowed whatever the book says, because claiming
+             // LESS than the record grants can never be an escalation - and
+             // it is what the old client writes for an Attender on no team.
+             && (d.get('status', '') == 'pending'
+                 || (d.get('status', '') == 'active'
+                     && (d.get('attender', false) == true
+                         || d.get('teams', []).size() > 0
+                         || d.get('adminFor', []).size() > 0
+                         || d.get('masterAdmin', false) == true)));
     }
 
     // Claiming nothing: waiting to be recognised, or waiting for an admin to
@@ -132,7 +273,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || active());
+      allow read: if signedIn() && (request.auth.uid == uid || volunteer());
 
       allow create: if signedIn()
                     && request.auth.uid == uid
@@ -150,7 +291,8 @@ service cloud.firestore {
       allow update: if signedIn() && request.auth.uid == uid
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['lastSeen', 'name', 'teams', 'adminFor', 'masterAdmin',
-                                   'status', 'memberId', 'linkedBy', 'candidates'])
+                                   'status', 'memberId', 'linkedBy', 'candidates',
+                                   'attender', 'churchMember'])
                     && mirrorsBook(request.resource.data);
 
       // Own record: standing down to 'ambiguous' when a second record turns
@@ -228,10 +370,74 @@ service cloud.firestore {
 
     // signInEmails holds any extra addresses Core Team has linked to this
     // person, so a Gmail sign-in still resolves to their record.
+    // THIS WAS `allow read: if true` UNTIL 9 OCTOBER 2026, so that
+    // index.html - the public availability form, which has no sign-in by
+    // design - could find somebody by their email address. That handed anyone
+    // on the internet every name, address, telephone number and household in
+    // the church, in one request. The form now asks the findMe function
+    // instead, which answers about one address and returns a name and teams
+    // and nothing else. PRIVACY-OPEN-COLLECTIONS.md has the reasoning.
+    //
+    // NOT active(): that now means Attender, which is most of the church, so
+    // closing it to active() would have been closing it to almost nobody.
+    // volunteer() is what active() meant before.
     match /addressBook/{personId} {
-      // Open, for the availability form. See the note above.
-      allow read: if true;
+      // Their own record, so a dashboard can greet them by name. bookIsMine
+      // checks the verified address on the record, so it cannot be claimed.
+      allow get: if isAdmin() || volunteer() || bookIsMine(personId);
+      // A LIST IS EVALUATED AGAINST EACH DOCUMENT IT RETURNS, which is what
+      // makes the last clause possible and what the first version of this rule
+      // got wrong. It said `isAdmin() || volunteer()` and nothing else - and
+      // broke EVERY FIRST SIGN-IN, for everybody, not only Attenders.
+      //
+      // egbc-auth.js does not know your memberId until it has found you, and
+      // it finds you with two queries: `where email ==` and
+      // `where signInEmails array-contains`. A brand new account has no
+      // users/{uid} document at all, so volunteer() is false, the queries were
+      // refused, provisionProfile failed, and the page showed "Something went
+      // wrong". The rules tests all passed, because every one of them tested
+      // the WRITE to users/{uid} with the memberId already in hand, and not
+      // one of them ran the lookup that produces it. Caught by signing in as
+      // an Attender in a browser and reading the screen.
+      //
+      // The last clause lets a signed-in person run exactly those two
+      // queries and no others: a document only comes back if it carries their
+      // own verified address, so there is nothing to enumerate.
+      // A QUERY IS NOT NARROWED TO ONE PERSON HERE, and that is a choice
+      // rather than a limitation - an earlier version of this comment said it
+      // was impossible, which is not true. A list rule CAN say
+      // `resource.data.email == request.auth.token.email`: Firestore then
+      // allows a query whose own `where` clauses guarantee it and refuses one
+      // that asks for the whole collection. Measured, five ways, after this
+      // comment first claimed otherwise.
+      //
+      // The lookup is a function anyway - whoAmI, which egbc-auth.js asks -
+      // for two reasons that are worth more than the clause saved:
+      //
+      //   the directory is then shut to page-side queries ENTIRELY, so there
+      //   is no clause for somebody to widen later by adding an `||`, and
+      //
+      //   whoAmI drops archived and under-16 records itself, so the page is
+      //   no longer the only thing enforcing that.
+      //
+      // The cost is that signing in now needs that function deployed. See
+      // SERVER-DEPLOY.md, which says so twice.
+      //
+      // Once the page knows the id, `allow get` above lets it read that one
+      // record - its own.
+      allow list: if isAdmin() || volunteer();
       allow write: if isAdmin();
+    }
+
+    // Two collections the availability form's function keeps for itself. The
+    // Admin SDK does not go through these rules, so shutting them to
+    // everything costs the function nothing and means a form token cannot be
+    // read out of the database by the page that was given one.
+    match /formSessions/{token} {
+      allow read, write: if false;
+    }
+    match /formRateLimit/{ipHash} {
+      allow read, write: if false;
     }
 
     // ---- rota, services, availability -------------------------------
@@ -240,41 +446,54 @@ service cloud.firestore {
 
     // events.teams is an array of team names, e.g. ["Worship Team","AV Team"].
     // A leader of any team on the event may write it.
+    // ALSO `allow read: if true` until 9 October 2026, and worse than it
+    // looks: every event carries `assignments`, so this published who is
+    // serving, by name, along with the service leader and the speaker. The
+    // availability form needs dates and types only, and the myDates function
+    // gives it those - filtered to the one person asking, with no
+    // assignments, no leader and no speaker.
     match /events/{eventId} {
-      // Open, for the availability form: it has to show which Sundays there
-      // are before anyone can say which ones they can do.
-      allow read: if true;
+      // FINDINGS-churchshow.md R4: "events - already open; if it's ever
+      // closed, add churchShow()". This commit is what closes it.
+      allow read: if volunteer() || churchShow();
       allow write: if isAdmin()
                    || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team']));
     }
 
     match /availability/{docId} {
-      allow read: if active();
-      // Open, for the availability form. There is no account behind it, so
-      // there is no identity to check the answer against - but an answer has
-      // to look like an answer, which stops the collection being used as
-      // free storage by anything that finds it.
-      allow create, update: if request.resource.data.keys().hasAll(['memberId'])
-                            && request.resource.data.memberId is string;
-      allow delete: if canAct('Kids Church');
+      allow read: if volunteer();
+      // THE OPEN CREATE IS GONE. It checked that an answer looked like an
+      // answer, not that it was yours: anyone who had read the address book -
+      // which anyone could - held every member id, and could mark anybody
+      // available or unavailable for anything. The form writes through the
+      // saveAnswer function now, which will only accept an answer for a
+      // person whose email address the caller proved they can receive mail at.
+      //
+      // A signed-in planner still edits answers on the rota's behalf, which is
+      // what the Core Team app does. Delete was canAct('Kids Church') alone,
+      // which refused the Core Team app's own "clear this answer" - it has
+      // never been exercised because these rules are not deployed yet.
+      allow create, update: if volunteer();
+      allow delete: if volunteer();
     }
 
     // ---- knowledge base ---------------------------------------------
 
     match /kb_troubleshoot_av/{docId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct('AV Team');
     }
 
     match /kb_howto_av/{docId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct('AV Team');
     }
 
     // ---- songs and library ------------------------------------------
 
     match /songs/{docId} {
-      allow read: if active();
+      // The projection PC reads the words and the chords. See churchShow().
+      allow read: if volunteer() || churchShow();
       allow write: if isAdmin();
     }
 
@@ -283,7 +502,7 @@ service cloud.firestore {
     // church-wide one. Someone on Worship and Kids Church sees both.
 
     match /teamContent/{team} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if adminOf(team);
     }
 
@@ -327,7 +546,7 @@ service cloud.firestore {
     // team does not ask the same people again.
 
     match /availabilityRequests/{term} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if isAdmin();
     }
 
@@ -392,7 +611,7 @@ service cloud.firestore {
     // The sections a team has made for its own videos - one document per
     // team, holding a list of names.
     match /videoSections/{teamSlug} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct(request.resource.data.team);
     }
 
@@ -402,7 +621,7 @@ service cloud.firestore {
     // clears them again on the next edit.
 
     match /rotaSignoff/{key} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if isAdmin();
     }
 
@@ -417,12 +636,12 @@ service cloud.firestore {
     // Play-through and worship training sit alongside the two AV ones above.
 
     match /kb_playthrough/{docId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct('Worship Team');
     }
 
     match /kb_training_worship/{docId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct('Worship Team');
     }
 
@@ -432,7 +651,8 @@ service cloud.firestore {
     // Sunday; building one is a worship job.
 
     match /services/{serviceId} {
-      allow read: if active();
+      // The projection PC reads the service plan. See churchShow().
+      allow read: if volunteer() || churchShow();
       allow write: if canAct('Worship Team') || canAct('Youth Worship');
     }
 
@@ -444,17 +664,17 @@ service cloud.firestore {
     // plugged into what.
 
     match /inventory/{itemId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct('AV Team') || isAdmin();
     }
 
     match /av_schematic/{docId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct('AV Team') || isAdmin();
     }
 
     match /schedules/{scheduleId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if canAct('Worship Team') || canAct('Youth Worship');
     }
 
@@ -463,12 +683,12 @@ service cloud.firestore {
     // drafts. Readable by the team, changed by whoever manages something.
 
     match /portal/{docId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if isAdmin();
     }
 
     match /pageContent/{docId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if isAdmin();
     }
 
@@ -479,7 +699,7 @@ service cloud.firestore {
     // The practice copies of the tools write here rather than into the real
     // collections. Anyone learning the system may scribble on it.
     match /training_portal/{docId} {
-      allow read, write: if active();
+      allow read, write: if volunteer();
     }
 
     // ---- places: sites, rooms, resources, venues --------------------
@@ -582,7 +802,7 @@ service cloud.firestore {
     }
 
     match /contacts/{contactId} {
-      allow get, list: if active();
+      allow get, list: if volunteer();
       allow create: if isAdmin() || publicContact();
       allow update, delete: if isAdmin();
     }
@@ -738,11 +958,11 @@ service cloud.firestore {
     // history and the log of what was emailed. None of it is for members.
 
     match /eventChecklists/{calEventId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if isAdmin();
     }
     match /checklistTemplates/{templateId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if isAdmin();
     }
     match /eventNotes/{calEventId} {
@@ -1122,7 +1342,7 @@ service cloud.firestore {
     //                  by whom and when.
 
     match /eventLeaders/{calEventId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
                                                              'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy'])
@@ -1173,7 +1393,7 @@ service cloud.firestore {
 
     match /concerns/{concernId} {
       allow read: if sgLeadOf(resource.data.siteId);
-      allow create: if active()
+      allow create: if volunteer()
                     && request.resource.data.keys().hasOnly(['siteId', 'calEventId', 'about', 'concern', 'reportedBy',
                                                               'reportedByName', 'createdAt', 'status'])
                     && request.resource.data.reportedBy == request.auth.uid
@@ -1196,7 +1416,7 @@ service cloud.firestore {
     // an admin says which site they lead (leadSiteId) and the rule checks it.
     function wholeYears(v) { return v is int && v >= 1 && v <= 10; }
     match /safeguardingSettings/{id} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if id == 'defaults'
                    && (isAdmin() || sgLeadOf(request.resource.data.get('leadSiteId', '')))
                    && request.resource.data.keys().hasOnly(['templates', 'ratioAll', 'ratioUnder8', 'dbsYears', 'trainingYears',
@@ -1640,8 +1860,8 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /counters/{counterId} {
-      allow read: if active();
-      allow create, update: if active() && counterId == 'invoices'
+      allow read: if volunteer();
+      allow create, update: if volunteer() && counterId == 'invoices'
                             && request.resource.data.keys().hasOnly(['next'])
                             && request.resource.data.next == (resource == null ? 2 : resource.data.next + 1)
                             && existsAfter(/databases/$(database)/documents/invoices/$('inv_' + string(request.resource.data.next - 1)));
@@ -1735,7 +1955,7 @@ service cloud.firestore {
              && kidsLead(siteId);
     }
     match /kidsSettings/{siteId} {
-      allow read: if active();
+      allow read: if volunteer();
       // Who the leads are is set by a master admin or the safeguarding lead.
       allow write: if (isMaster() || sgLeadOf(siteId))
                    && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20
@@ -1744,7 +1964,7 @@ service cloud.firestore {
     // Groups by school year, each with its room, day and time, ratio and
     // leaders. The leads set them.
     match /kidsGroups/{groupId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if kidsLead(request.resource.data.siteId)
                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
                    && request.resource.data.get('ratio', 0) is int
@@ -1879,7 +2099,7 @@ service cloud.firestore {
              && t.to is string && t.to.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && t.from <= t.to;
     }
     match /kidsTerms/{siteId} {
-      allow read: if active();
+      allow read: if volunteer();
       allow write: if kidsLead(siteId)
                    && request.resource.data.keys().hasOnly(['terms', 'updatedAt', 'updatedBy'])
                    && request.resource.data.terms is list && request.resource.data.terms.size() == 3
@@ -1922,7 +2142,16 @@ service cloud.firestore {
              && d.clearedAt == null;
     }
     match /screenPages/{pageId} {
-      allow read: if (active() && resource.data.clearedAt == null)
+      // R6 of FINDINGS-churchshow.md: the projection PC shows the code on the
+      // service screen, so it reads its OWN site's pages and only while they
+      // are uncleared. The events window wrote the five checks for this and
+      // left the rule to the main window with churchShow(); it is here rather
+      // than with the rest of CS2 because closing `events` in the same commit
+      // is what takes the device's last open collection away.
+      allow read: if (churchShow()
+                      && resource.data.siteId == request.auth.token.siteId
+                      && resource.data.clearedAt == null)
+                  || (volunteer() && resource.data.clearedAt == null)
                   || (active() && resource.data.createdBy == request.auth.uid)
                   || kidsLead(resource.data.siteId);
       // A new page (or the same child paged again), for a child who is in.

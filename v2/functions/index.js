@@ -23,6 +23,10 @@ import {
   buildFeed, buildHouseholdFeed, buildFullFeed,
   householdIds, visibleRoleTeams, FULL_SCOPES
 } from './rota-feed.js';
+import {
+  findMe as findMeIn, myDates as myDatesIn, saveAnswer as saveAnswerIn,
+  whoAmI as whoAmIIn, callerIp
+} from './availability-form.js';
 
 initializeApp();
 const db = getFirestore();
@@ -418,3 +422,55 @@ function addLondonDay(at, n) {
           String(t.getUTCMonth() + 1).padStart(2, '0'),
           String(t.getUTCDate()).padStart(2, '0')].join('-');
 }
+
+/* =================================================================
+   The public availability form
+   =================================================================
+
+   PRIVACY-OPEN-COLLECTIONS.md, Option A, Martin's decision 9 Oct 2026.
+   addressBook and events were `allow read: if true` and availability had an
+   open create, all three only so index.html could work without a sign-in.
+   These three calls replace that: the Admin SDK reads on the form's behalf,
+   so the rules can be shut.
+
+   No sign-in, on purpose - that is the whole point of the form - so every one
+   of them is reachable by anybody. What protects each is written in
+   availability-form.js: a rate limit on the lookup, and a two-hour token on
+   the other two, which is what makes it impossible to answer for somebody
+   else.                                                                   */
+
+
+/* The module answers with { error, message } so it can be tested without a
+   function around it; a callable has to throw. One place to convert. */
+function orThrow(result) {
+  if (result && result.error) throw new HttpsError(result.error, result.message || 'No.');
+  return result;
+}
+
+export const findMe = onCall(async (request) => orThrow(await findMeIn(db, {
+  email: (request.data || {}).email,
+  ip: callerIp(request.rawRequest),
+  nowMs: Date.now()
+})));
+
+export const myDates = onCall(async (request) => orThrow(await myDatesIn(db, {
+  token: (request.data || {}).token,
+  memberId: (request.data || {}).memberId,
+  nowMs: Date.now()
+})));
+
+export const saveAnswer = onCall(async (request) => orThrow(await saveAnswerIn(db, {
+  token: (request.data || {}).token,
+  memberId: (request.data || {}).memberId,
+  eventId: (request.data || {}).eventId,
+  status: (request.data || {}).status,
+  nowMs: Date.now()
+})));
+
+/* Which address book record belongs to the person signed in. See whoAmI in
+   availability-form.js: it reads the address out of the verified token, so a
+   caller can only ever learn about themselves. */
+export const whoAmI = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return orThrow(await whoAmIIn(db, { token: request.auth.token || {} }));
+});

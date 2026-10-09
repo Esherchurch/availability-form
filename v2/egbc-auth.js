@@ -66,6 +66,29 @@
   var auth = firebase.auth(app);
   var db = firebase.firestore(app);
 
+  /* The hub's functions. Called over plain fetch with the ID token rather
+     than through firebase-functions-compat, because that would be a fourth
+     script tag on sixty-odd pages for one call. A callable's HTTP interface
+     is simple enough: POST { data: {...} }, and the answer comes back as
+     { result: {...} } or { error: {...} }. */
+  var FUNCTIONS_REGION = 'europe-west2';
+  var FUNCTIONS_BASE = 'https://' + FUNCTIONS_REGION + '-' + FIREBASE_CONFIG.projectId + '.cloudfunctions.net';
+
+  function callFunction(name, data) {
+    return auth.currentUser.getIdToken().then(function (idToken) {
+      return fetch(FUNCTIONS_BASE + '/' + name, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+        body: JSON.stringify({ data: data || {} })
+      });
+    }).then(function (r) {
+      return r.json();
+    }).then(function (body) {
+      if (body && body.error) throw new Error((body.error && body.error.message) || 'refused');
+      return (body && body.result) || {};
+    });
+  }
+
   /* Local rules testing. Only ever fires when the pages are served from
      localhost, so this is inert on GitHub Pages and safe to ship.
      See EMULATOR.md. */
@@ -94,6 +117,8 @@
          Guarded, because not every page loads the storage SDK; where it is
          absent there is nothing to point anywhere. */
       if (firebase.storage) firebase.storage(app).useEmulator('localhost', EMU.storage);
+      FUNCTIONS_BASE = 'http://localhost:' + (location.port === '5601' ? 5102 : 5101)
+                     + '/' + FIREBASE_CONFIG.projectId + '/' + FUNCTIONS_REGION;
       console.info('EGBCAuth: using local emulators');
     } catch (e) {
       console.warn('EGBCAuth: emulator not available', e.message);
@@ -212,6 +237,42 @@
     });
   }
 
+  /* What one address book record says about access, in the shape users/{uid}
+     stores it. firestore.rules checks every field of this against the record
+     (mirrorsBook), so none of it can be granted by the person it describes.
+
+     THE FOUR LEVELS, NEXT-BRIEF 21 (Martin, 9 Oct 2026):
+       Pending        no record carries their verified address
+       Attender       a record does - and status is 'active' for them now,
+                      where before only a volunteer was active
+       Church member  that record also carries the office's tick
+       Team member    that record has teams in markers
+
+     Archived and under-16 records are not Attenders. findMembers already
+     skipped both when matching an address, but refreshFromBook re-read the
+     record by id and never looked at either - so somebody archived kept
+     whatever they had, for ever. That mattered little while 'active' meant
+     "on a team"; it matters now that it means "comes to this church". */
+  function membershipFrom(md) {
+    var teams = Array.isArray(md.markers) ? md.markers : [];
+    var adminFor = Array.isArray(md.adminFor) ? md.adminFor : [];
+    var gone = md.archived === true;
+    var child = md.isMinor === true;
+    var attender = !gone && !child;
+    return {
+      teams: teams,
+      adminFor: adminFor,
+      masterAdmin: md.masterAdmin === true,
+      attender: attender,
+      churchMember: md.churchMember === true && !gone,
+      // Someone can administer an area without being a member of it - Karen
+      // runs Kids Church, Marcia runs Youth - so status counts either, and
+      // now being in the address book at all counts too.
+      status: (attender || teams.length || adminFor.length || md.masterAdmin === true)
+                ? 'active' : 'pending'
+    };
+  }
+
   /* Markers are edited in the address book, so re-read them each load rather
      than letting the mirrored copy drift. */
   function refreshFromBook(user, d) {
@@ -219,13 +280,8 @@
       var patch = { lastSeen: firebase.firestore.FieldValue.serverTimestamp() };
       if (m.exists) {
         var md = m.data();
-        var teams = Array.isArray(md.markers) ? md.markers : [];
-        var adminFor = Array.isArray(md.adminFor) ? md.adminFor : [];
-        patch.teams = teams;
-        patch.adminFor = adminFor;
-        patch.masterAdmin = md.masterAdmin === true;
+        Object.assign(patch, membershipFrom(md));
         patch.name = (md.name || md.fullName || d.name || '').trim();
-        patch.status = (teams.length || adminFor.length || md.masterAdmin === true) ? 'active' : 'pending';
       }
       return db.collection('users').doc(user.uid).update(patch)
         .catch(function () {})
@@ -234,53 +290,61 @@
   }
 
 
-  /* Look a person up by their primary address book email, then by any extra
-     sign-in address Core Team has linked to them. People sign in with whatever
-     Google account is on their phone, which is often not the address the church
-     holds, so the second lookup is what stops them getting stuck. */
+  /* WHICH RECORD IS MINE. This used to be two queries on the address book,
+     straight from the page: `where email ==`, then
+     `where signInEmails array-contains` - because people sign in with
+     whatever Google account is on their phone, which is often not the address
+     the church holds, and the second lookup is what stops them getting stuck.
+
+     IT WORKED ONLY BECAUSE THE ADDRESS BOOK WAS OPEN TO THE INTERNET. Closing
+     it (PRIVACY-OPEN-COLLECTIONS.md, 9 Oct 2026) broke every FIRST sign-in,
+     for everybody and not just Attenders: a brand new account has no
+     users/{uid} document, so it is on no team and administers nothing, and
+     both queries were refused.
+
+     It COULD be mended in the rules - `allow list: if resource.data.email ==
+     request.auth.token.email` does work, because Firestore allows a query
+     whose own `where` clauses guarantee the rule and refuses one that asks
+     for the whole collection. An earlier version of this comment said that
+     was impossible; it was measured afterwards and it is not.
+
+     It is a function anyway, for two reasons worth more than the clause: the
+     address book is then shut to page-side queries entirely, with no clause
+     for somebody to widen later, and the function applies the exclusions
+     itself rather than trusting the page to. It reads the address out of the
+     verified ID token rather than out of anything the page sends, so it can
+     only ever answer about whoever is asking:
+
+       - archived: somebody who has left does not get to sign in as themselves
+       - isMinor: under 16s use an access code emailed to a parent, which also
+         means a parent's address on a child's record is never mistaken for
+         the child
+
+     The shape it returns is the shape the old queries returned - [{id, data}] -
+     so applyMember and the ambiguity check above are unchanged. */
   function findMembers(email) {
-    return Promise.all([
-      db.collection('addressBook').where('email', '==', email).get(),
-      db.collection('addressBook').where('signInEmails', 'array-contains', email).get()
-    ]).then(function (results) {
-      var seen = {}, out = [];
-      results.forEach(function (snap) {
-        snap.docs.forEach(function (d) {
-          if (seen[d.id]) return;
-          seen[d.id] = true;
-          var md = d.data();
-          if (md.archived) return;
-          /* Under 16s cannot sign in - they use an access code emailed to a
-             parent. From 16 the church holds their own email and they sign in
-             like anyone else. This is an explicit flag, not inferred from
-             teams: an adult who runs youth work is on Youth Worship and is
-             plainly not under 16. Flagging them here also means a parent's
-             address on a child's record can never be mistaken for the child. */
-          if (md.isMinor === true) return;
-          out.push({ id: d.id, data: md });
-        });
+    return callFunction('whoAmI', {}).then(function (r) {
+      return (r.people || []).map(function (p) {
+        return { id: p.id, data: {
+          name: p.name,
+          markers: p.markers || [],
+          adminFor: p.adminFor || [],
+          masterAdmin: p.masterAdmin === true,
+          churchMember: p.churchMember === true
+        } };
       });
-      return out;
     });
   }
 
   function applyMember(uid, m, how) {
-    var teams = Array.isArray(m.data.markers) ? m.data.markers : [];
-    var adminFor = Array.isArray(m.data.adminFor) ? m.data.adminFor : [];
-    return {
+    return Object.assign({
       memberId: m.id,
       name: (m.data.name || m.data.fullName || '').trim(),
-      teams: teams,
-      adminFor: adminFor,
-      masterAdmin: m.data.masterAdmin === true,
-      // Someone can administer an area without being a member of it - Karen
-      // runs Kids Church, Marcia runs Youth - so status counts either.
-      status: (teams.length || adminFor.length || m.data.masterAdmin === true) ? 'active' : 'pending',
       // 'auto' was matched on a unique email. 'admin' was chosen by a person.
       // Only 'admin' is trusted permanently - an automatic match is re-checked
       // on every load, because a second record can appear on that address later.
       linkedBy: how || 'auto'
-    };
+    }, membershipFrom(m.data));
   }
 
   function provisionProfile(user) {
@@ -293,6 +357,8 @@
         name: user.displayName || '',
         memberId: null,
         teams: [],
+        attender: false,
+        churchMember: false,
         status: 'pending',
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
@@ -706,6 +772,41 @@
          masterAdmin  - everything, everywhere, including making admins
          adminFor[]   - manages those areas only
          member       - their own team's pages, plus anything open to everyone  */
+
+    /* The four levels, for a page deciding what to draw. Section 21 says
+       members-only things are HIDDEN rather than shown locked, so a page asks
+       these before it draws, not after somebody has pressed something. */
+    isAttender: function () {
+      return !!(currentProfile && currentProfile.attender === true);
+    },
+
+    isChurchMember: function () {
+      return !!(currentProfile && currentProfile.churchMember === true);
+    },
+
+    /* What "signed in and allowed in" used to mean: on a team, or
+       administering something. A page that is for volunteers asks this, not
+       whether somebody is signed in. */
+    isVolunteer: function () {
+      if (!currentProfile) return false;
+      return (currentProfile.teams || []).length > 0
+             || (currentProfile.adminFor || []).length > 0
+             || currentProfile.masterAdmin === true;
+    },
+
+    /* Which video rooms are for Church members only (NEXT-BRIEF 21). One
+       list, read by meeting.html and hub-app.js, which each hold their own
+       copy of the room names and would otherwise each need their own copy of
+       this too.
+
+       NOTE FOR THE DAY THIS GOES LIVE: the tick defaults to off, so until the
+       office has ticked people, CMM is invisible to everybody. */
+    MEMBERS_ONLY_ROOMS: ['CMM'],
+
+    mayJoinRoom: function (room) {
+      if (EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) === -1) return true;
+      return EGBCAuth.isChurchMember();
+    },
 
     isMaster: function () {
       if (viewAs()) return false;

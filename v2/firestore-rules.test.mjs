@@ -35,6 +35,13 @@ const PEOPLE = {
   samy:   { uid: 'u_samy',   teams: ['Worship Team', 'Kids Church'], adminFor: [], masterAdmin: false },
   isla:   { uid: 'u_isla',   teams: ['Youth Worship'], adminFor: [], masterAdmin: false },
   pending:{ uid: 'u_pending', teams: [], adminFor: [], masterAdmin: false },
+  /* Section 21. Neither is on a team, and that is the point: before this
+     change they would both have been 'pending' and locked out of everything.
+     Attender: in the address book. Member: in it, with the office's tick. */
+  attender:{ uid: 'u_attender', teams: [], adminFor: [], masterAdmin: false,
+             attender: true, status: 'active' },
+  member:  { uid: 'u_member',   teams: [], adminFor: [], masterAdmin: false,
+             attender: true, churchMember: true, status: 'active' },
 };
 
 await env.withSecurityRulesDisabled(async (ctx) => {
@@ -43,10 +50,48 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(db, 'users', p.uid), {
       memberId: 'm_' + p.uid, name: p.uid,
       teams: p.teams, adminFor: p.adminFor, masterAdmin: p.masterAdmin,
-      status: (p.teams.length || p.adminFor.length || p.masterAdmin) ? 'active' : 'pending',
+      attender: p.attender === true, churchMember: p.churchMember === true,
+      status: p.status
+        || ((p.teams.length || p.adminFor.length || p.masterAdmin) ? 'active' : 'pending'),
     });
   }
   await setDoc(doc(db, 'addressBook', 'm_u_samy'), { name: 'Samy', markers: ['Worship Team'] });
+  await setDoc(doc(db, 'addressBook', 'm_u_attender'), {
+    name: 'Attender Synthetic', email: 'attender@example.invalid', markers: [] });
+  await setDoc(doc(db, 'addressBook', 'm_u_member'), {
+    name: 'Member Synthetic', email: 'member@example.invalid', markers: [], churchMember: true });
+  await setDoc(doc(db, 'news', 'n1'), { title: 'A notice', body: 'x', ackedBy: [] });
+  await setDoc(doc(db, 'songs', 'sg1'), { title: 'A song' });
+  await setDoc(doc(db, 'kb_howto_av', 'kb1'), { title: 'How to' });
+  await setDoc(doc(db, 'availability', 'a1'), { memberId: 'm_u_samy', status: 'avail' });
+  await setDoc(doc(db, 'training_portal', 'tp_x'), { note: 'practice' });
+  await setDoc(doc(db, 'addressBook', 'm_attender2'), {
+    name: 'Fresh Synthetic', email: 'attender2@example.invalid', markers: [] });
+  await setDoc(doc(db, 'addressBook', 'm_attender3'), {
+    name: 'Cached Synthetic', email: 'attender3@example.invalid', markers: ['Worship Team'] });
+  /* ChurchShow: one paired projection PC per site, and one switched off. */
+  await setDoc(doc(db, 'devices', 'churchshow-site_main'), {
+    kind: 'churchshow', siteId: 'site_main', active: true,
+    pairedBy: 'u_martin', pairedAt: '2026-10-09' });
+  /* site_kids is the one the events window's own R6 block pages from. Its
+     five checks were written before churchShow() existed and seed only the
+     screenPages documents - but the rule checks devices/{uid}.active as well
+     as the claim (R4, and the reason Disconnect works at once rather than
+     within the hour), so without this the device is not paired and R6's
+     first check fails. Seeded here, in the main window's block, rather than
+     by editing theirs. */
+  await setDoc(doc(db, 'devices', 'churchshow-site_kids'), {
+    kind: 'churchshow', siteId: 'site_kids', active: true,
+    pairedBy: 'u_martin', pairedAt: '2026-10-09' });
+  await setDoc(doc(db, 'devices', 'churchshow-site_old'), {
+    kind: 'churchshow', siteId: 'site_old', active: false,
+    pairedBy: 'u_martin', pairedAt: '2026-09-01' });
+  await setDoc(doc(db, 'deviceCodes', 'ab'.repeat(32)), {
+    uid: 'churchshow-site_main', siteId: 'site_main', usedAt: null, tries: 0 });
+  await setDoc(doc(db, 'songs', 'sg_cs'), { title: 'A projected song' });
+  await setDoc(doc(db, 'addressBook', 'm_gone'), {
+    name: 'Gone Synthetic', email: 'gone@example.invalid', markers: ['Worship Team'],
+    churchMember: true, archived: true });
   /* Two invented people who have NOT signed in yet, so there is no users
      record for them. Everything above is created with the rules switched off,
      which is why nothing here ever exercised a first sign-in - and why the
@@ -264,16 +309,26 @@ async function check(name, expect, fn) {
   }
 }
 
-/* The availability form has no sign-in, by decision: it goes to the whole
-   team once a term and a password box would lose the people it is for. So
-   these three have to work without an account - and nothing else does. */
-await check('public form reads the address book', 'allow', () => getDocs(collection(anon(), 'addressBook')));
-await check('public form reads the dates', 'allow', () => getDoc(doc(anon(), 'events', 'e1')));
-await check('public form submits an answer', 'allow', () => setDoc(doc(anon(), 'availability', 'a1'), { memberId: 'm_u_samy', status: 'yes' }));
-await check('an answer has to look like an answer', 'deny', () => setDoc(doc(anon(), 'availability', 'junk'), { anything: 'goes' }));
+/* A STRANGER GETS NOTHING. These seven used to be the other way round:
+   addressBook and events were `allow read: if true` and availability had an
+   open create, all so index.html could work without a sign-in. That published
+   every name, email address, telephone number and household in the church,
+   every service with its assignments - who is serving, by name - and let
+   anyone write an answer for any member id.
+
+   The form asks the findMe, myDates and saveAnswer functions now, which use
+   the Admin SDK and so do not come through here at all.
+   PRIVACY-OPEN-COLLECTIONS.md; Martin's decision, 9 October 2026. */
+await check('a stranger cannot list the address book', 'deny', () => getDocs(collection(anon(), 'addressBook')));
+await check('a stranger cannot read one record either', 'deny', () => getDoc(doc(anon(), 'addressBook', 'm_u_samy')));
+await check('a stranger cannot read the dates', 'deny', () => getDoc(doc(anon(), 'events', 'e1')));
+await check('a stranger cannot list the dates', 'deny', () => getDocs(collection(anon(), 'events')));
+await check('a stranger cannot write an answer for anybody', 'deny', () => setDoc(doc(anon(), 'availability', 'a1'), { memberId: 'm_u_samy', status: 'yes' }));
 await check('the form cannot read anyone\'s answers back', 'deny', () => getDoc(doc(anon(), 'availability', 'a1')));
 await check('the form cannot edit the address book', 'deny', () => setDoc(doc(anon(), 'addressBook', 'm_u_samy'), { name: 'Nope' }));
 await check('the form cannot edit the rota', 'deny', () => setDoc(doc(anon(), 'events', 'e1'), { date: 'x' }));
+await check('nor can it read the form session store', 'deny', () => getDoc(doc(anon(), 'formSessions', 'anytoken')));
+await check('nor the rate limit counter', 'deny', () => getDoc(doc(anon(), 'formRateLimit', 'anyhash')));
 await check('the form cannot read the boards', 'deny', () => getDoc(doc(anon(), 'worshipBoardState', 'state')));
 await check('the form cannot read the videos', 'deny', () => getDoc(doc(anon(), 'teamVideos', 'v_kids')));
 
@@ -1541,6 +1596,123 @@ if (!/function churchShow\(/.test(fs.readFileSync('firestore.rules', 'utf8'))) {
 }
 // ── end EVENTS ──
 // ── end EVENTS ──
+
+/* ---- the four levels (NEXT-BRIEF 21) -------------------------------
+   The thing to prove is not that an Attender can do the new things. It is
+   that widening status 'active' from "on a team" to "in the address book"
+   did NOT hand the volunteers' material to the whole church - which is what
+   it would have done, at 72 call sites, had they not been changed to
+   volunteer() in the same commit. */
+
+await check('an Attender is let in at all', 'allow', () => getDoc(doc(as('attender'), 'users', 'u_attender')));
+await check('an Attender reads the hub page registry', 'allow', () => getDoc(doc(as('attender'), 'hubPages', 'p1')));
+await check('an Attender reads the news', 'allow', () => getDoc(doc(as('attender'), 'news', 'n1')));
+/* bookIsMine checks the verified address on the record, so the context has
+   to carry one - as() alone has no email in its token. */
+await check('an Attender reads their OWN address book record', 'allow',
+  () => getDoc(doc(asNewcomer('u_attender', 'attender@example.invalid'), 'addressBook', 'm_u_attender')));
+
+await check('an Attender cannot list the address book', 'deny', () => getDocs(collection(as('attender'), 'addressBook')));
+await check('an Attender cannot read somebody else\'s record', 'deny', () => getDoc(doc(as('attender'), 'addressBook', 'm_u_samy')));
+await check('an Attender cannot read the rota', 'deny', () => getDoc(doc(as('attender'), 'events', 'e1')));
+await check('an Attender cannot read who can serve when', 'deny', () => getDoc(doc(as('attender'), 'availability', 'a1')));
+await check('an Attender cannot read the song library', 'deny', () => getDoc(doc(as('attender'), 'songs', 'sg1')));
+await check('an Attender cannot read a service plan', 'deny', () => getDoc(doc(as('attender'), 'services', 's1')));
+await check('an Attender cannot read the AV knowledge base', 'deny', () => getDoc(doc(as('attender'), 'kb_howto_av', 'kb1')));
+await check('an Attender cannot read the hirer contacts', 'deny', () => getDoc(doc(as('attender'), 'contacts', 'c_guest')));
+await check('an Attender cannot read another person\'s user record', 'deny', () => getDoc(doc(as('attender'), 'users', 'u_samy')));
+await check('an Attender cannot scribble on the practice copies', 'deny', () => setDoc(doc(as('attender'), 'training_portal', 'tp_x'), { note: 'hello' }));
+
+await check('a volunteer still lists the address book', 'allow', () => getDocs(collection(as('samy'), 'addressBook')));
+await check('a volunteer still reads the rota', 'allow', () => getDoc(doc(as('samy'), 'events', 'e1')));
+await check('an admin who is on no team still reads the rota', 'allow', () => getDoc(doc(as('karen'), 'events', 'e1')));
+
+/* The tick itself. Nothing in the rules turns on isChurchMember() yet - the
+   CMM room is a page, not a collection - so what is proved here is that the
+   mirror cannot be forged, which is the part that would matter. */
+/* BOTH CLIENT SHAPES. The new egbc-auth.js writes attender and
+   churchMember; a browser still holding the old one writes neither, and
+   must not be locked out for it. Both are proved, because only one of them
+   was, and the two that broke were the old shape. */
+await check('a new sign-in with the new shape is allowed', 'allow',
+  () => setDoc(doc(asNewcomer('u_fresh', 'attender2@example.invalid'), 'users', 'u_fresh'), {
+    uid: 'u_fresh', email: 'attender2@example.invalid', name: 'Fresh Synthetic',
+    memberId: 'm_attender2', teams: [], adminFor: [], masterAdmin: false,
+    attender: true, churchMember: false, status: 'active', linkedBy: 'auto' }));
+await check('a CACHED client, writing neither field, is still allowed in', 'allow',
+  () => setDoc(doc(asNewcomer('u_cached', 'attender3@example.invalid'), 'users', 'u_cached'), {
+    uid: 'u_cached', email: 'attender3@example.invalid', name: 'Cached Synthetic',
+    memberId: 'm_attender3', teams: ['Worship Team'], adminFor: [], masterAdmin: false,
+    status: 'active', linkedBy: 'auto' }));
+await check('but it cannot smuggle a wrong tick in while it is there', 'deny',
+  () => setDoc(doc(asNewcomer('u_cached2', 'attender3@example.invalid'), 'users', 'u_cached2'), {
+    uid: 'u_cached2', email: 'attender3@example.invalid', name: 'Cached Synthetic',
+    memberId: 'm_attender3', teams: ['Worship Team'], adminFor: [], masterAdmin: false,
+    churchMember: true, status: 'active', linkedBy: 'auto' }));
+
+await check('an Attender cannot award themselves the Church member tick', 'deny',
+  () => setDoc(doc(as('attender'), 'users', 'u_attender'), {
+    uid: 'u_attender', email: 'attender@example.invalid', name: 'Attender Synthetic',
+    memberId: 'm_u_attender', teams: [], adminFor: [], masterAdmin: false,
+    attender: true, churchMember: true, status: 'active', linkedBy: 'auto' }));
+await check('nor claim to be an Attender on an archived record', 'deny',
+  () => setDoc(doc(asNewcomer('u_gone', 'gone@example.invalid'), 'users', 'u_gone'), {
+    uid: 'u_gone', email: 'gone@example.invalid', name: 'Gone Synthetic',
+    memberId: 'm_gone', teams: ['Worship Team'], adminFor: [], masterAdmin: false,
+    attender: true, churchMember: true, status: 'active', linkedBy: 'auto' }));
+await check('an archived person mirrors as pending, not Attender', 'allow',
+  () => setDoc(doc(asNewcomer('u_gone', 'gone@example.invalid'), 'users', 'u_gone'), {
+    uid: 'u_gone', email: 'gone@example.invalid', name: 'Gone Synthetic',
+    memberId: 'm_gone', teams: ['Worship Team'], adminFor: [], masterAdmin: false,
+    attender: false, churchMember: false, status: 'active', linkedBy: 'auto' }));
+
+/* ---- the projection PC (ChurchShow, R4 of FINDINGS-churchshow.md) ----
+   The claim is set by the pairing function with the Admin SDK, so it cannot
+   be forged from a page - but that is a statement about the Admin SDK, not
+   about these rules, so what is proved here is the rest: the device reads
+   the three things it needs, writes nothing anywhere, and stops the moment
+   somebody presses Disconnect on the hub. */
+
+const device = (uid, siteId) => env.authenticatedContext(uid,
+  { device: 'churchshow', siteId }).firestore();
+const csMain = () => device('churchshow-site_main', 'site_main');
+const csOff = () => device('churchshow-site_old', 'site_old');
+
+await check('the projection PC reads a service plan', 'allow', () => getDoc(doc(csMain(), 'services', 's1')));
+await check('and the songs', 'allow', () => getDoc(doc(csMain(), 'songs', 'sg_cs')));
+await check('and the rota, which this commit shut to everyone else', 'allow', () => getDoc(doc(csMain(), 'events', 'e1')));
+
+await check('but NOT the address book - rules cannot hide fields', 'deny', () => getDoc(doc(csMain(), 'addressBook', 'm_u_samy')));
+await check('nor who can serve when', 'deny', () => getDoc(doc(csMain(), 'availability', 'a1')));
+await check('nor anybody’s account', 'deny', () => getDoc(doc(csMain(), 'users', 'u_samy')));
+await check('nor the pairing codes', 'deny', () => getDoc(doc(csMain(), 'deviceCodes', 'ab'.repeat(32))));
+await check('nor its own device record', 'deny', () => getDoc(doc(csMain(), 'devices', 'churchshow-site_main')));
+
+await check('IT MAY WRITE NOTHING: not a song', 'deny', () => setDoc(doc(csMain(), 'songs', 'sg_cs'), { title: 'Changed' }));
+await check('not a service plan', 'deny', () => setDoc(doc(csMain(), 'services', 's1'), { date: 'x' }));
+await check('not the rota', 'deny', () => setDoc(doc(csMain(), 'events', 'e1'), { date: 'x' }));
+await check('not its own device record, to switch itself back on', 'deny',
+  () => setDoc(doc(csMain(), 'devices', 'churchshow-site_main'), { active: true }));
+
+/* Disconnect on the hub sets active:false. An ID token already issued stays
+   valid for up to an hour, so if the rules trusted the claim alone this
+   would still be reading on Sunday evening. */
+await check('DISCONNECTED: a switched-off device reads nothing', 'deny', () => getDoc(doc(csOff(), 'services', 's1')));
+await check('nor the songs', 'deny', () => getDoc(doc(csOff(), 'songs', 'sg_cs')));
+await check('nor the rota', 'deny', () => getDoc(doc(csOff(), 'events', 'e1')));
+
+/* A device uid with no device document at all - a token from before the
+   record was written, or a uid somebody guessed. */
+await check('a device with no record at all reads nothing', 'deny',
+  () => getDoc(doc(device('churchshow-site_ghost', 'site_ghost'), 'services', 's1')));
+
+/* And the other way round: the claim is what grants this, not being signed
+   in - so an ordinary member without it gains nothing from the new clause,
+   and an Attender still cannot read the service plan. */
+await check('a signed-in member without the claim gains nothing new', 'deny', () => getDoc(doc(as('attender'), 'services', 's1')));
+await check('an admin can see what is paired', 'allow', () => getDoc(doc(as('martin'), 'devices', 'churchshow-site_main')));
+await check('a volunteer cannot', 'deny', () => getDoc(doc(as('samy'), 'devices', 'churchshow-site_main')));
+await check('and nobody reads a pairing code, ever', 'deny', () => getDoc(doc(as('martin'), 'deviceCodes', 'ab'.repeat(32))));
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));

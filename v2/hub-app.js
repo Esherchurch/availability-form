@@ -880,7 +880,9 @@ async function loadMeetings() {
     const snap = await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
     UPCOMING = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(ev => !ev.archived);
     MEETINGS = UPCOMING.slice()
-      .filter(ev => !ev.archived && videoRoomFor(ev) && meetingForMe(ev))
+      /* Section 21: a members' meeting does not appear for an Attender. */
+      .filter(ev => !ev.archived && videoRoomFor(ev) && meetingForMe(ev)
+                    && EGBCAuth.mayJoinRoom(videoRoomFor(ev)))
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
   } catch (e) {
     console.error('Meetings load failed', e);
