@@ -2984,6 +2984,11 @@ async function issueCode(member,parent,silent){
   await db.collection('youthGrants').doc(code).set({
     memberId:member.id,
     memberName:member.name||'',
+    /* WHICH RECORD THE PARENT IS, not just their address. The rules check the
+       household with it: the child's householdId has to be this id, and this
+       record has to carry the address the code is going to. Without it the
+       rule cannot tell a parent from any email somebody typed. */
+    parentId:member.householdId||'',
     sentTo:parent.email,
     issuedBy:ME.name||ME.email,
     issuedAt:firebase.firestore.FieldValue.serverTimestamp(),

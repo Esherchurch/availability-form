@@ -37,14 +37,21 @@ fifteen-year-old on the youth worship team plan a service on the bus.
    would rather they did not have access, simply do not use it."*
 4. **The young person types the code** into `youth-access.html`. Eight
    characters, shown as `XXXX-XXXX`.
-5. **The page signs them in anonymously** — a Firebase account with no email
-   address, no password and no name — and writes `youthAccess/{uid}`.
-6. **The code is burnt.** `youthGrants/{code}` gets `redeemedAt` and the `uid`
-   that used it. A forwarded copy is worthless from that moment.
-7. **That device is in for six weeks** (`WEEKS` in `youth-access.html`). The
+5. **The page posts it to `redeemYouthCode`** and reads nothing itself. The
+   function checks the code with the Admin SDK, creates the identity
+   (`youth-` and twenty random characters, no email address, no password),
+   writes `youthAccess/{uid}`, burns the code **in one transaction**, and
+   answers with a custom token and the child's **first name only**.
+6. **The page signs in with that token.** It never saw the grant document, so
+   it never saw the parent's address.
+7. **The code is burnt.** `youthGrants/{code}` has `redeemedAt` and the `uid`
+   that used it. A forwarded copy is worthless from that moment, and a
+   mistyped code leaves no account behind — the old order signed in first and
+   checked second.
+8. **That device is in for six weeks** (`WEEKS` in `youth-access.html`). The
    hub's panel offers to send renewals for anything with fourteen days or
    fewer left; the old code keeps working until it expires.
-8. **Revoke stops it at once.** `revokeGrant()` sets `active: false` on both
+9. **Revoke stops it at once.** `revokeGrant()` sets `active: false` on both
    the grant and the access record, and `youthGranted()` reads that on every
    request — so it is immediate, not "within the hour".
 
@@ -54,17 +61,21 @@ fifteen-year-old on the youth worship team plan a service on the bus.
 
 | | What it is | Who may touch it |
 |---|---|---|
-| `youthGrants/{code}` | one issued code. `memberId`, `memberName`, `sentTo` (the **parent's** address), `issuedBy`, `redeemedAt`, `uid`, `active` | an admin creates, lists and cancels. Anybody holding the code may `get` it — that *is* the redemption. Nobody may list it. |
-| `youthAccess/{uid}` | one signed-in device. `memberId`, `memberName`, `grantCode`, `redeemedAt`, `expiresAt`, `active`. **No email address.** | written once by the device redeeming, against a live unredeemed code. Read by that device and by admins. Changed only by an admin. |
-| the anonymous account | a Firebase uid and nothing else | nobody. It is not linked to a person, an address or a password. |
+| `youthGrants/{code}` | one issued code. `memberId`, `parentId`, `memberName`, `sentTo` (the **parent's** address), `issuedBy`, `redeemedAt`, `uid`, `active` | **shut to every page.** An admin creates, lists and cancels; `redeemYouthCode` reads and burns it with the Admin SDK. Creating one is checked against the household — see below. |
+| `youthAccess/{uid}` | one signed-in device. `memberId`, `memberName`, `firstName`, `grantCode`, `redeemedAt`, `expiresAt`, `active`. **No email address.** | **written only by `redeemYouthCode`.** Read by that device and by admins. Changed only by an admin. |
+| the device account | `youth-` and twenty random characters, with the child's first name as its display name. No email, no password. | nobody. Created by the function on success only. |
 
 ---
 
 ## What `youthGranted()` opens
 
-A young person's phone is an **anonymous account plus a live `youthAccess`
+A young person's phone is **a device account plus a live `youthAccess`
 document**. That is all `youthGranted()` asks: signed in, a record exists for
 this uid, `active == true`, and `expiresAt` is still in the future.
+
+(It was an *anonymous* account until 9 October 2026. Redeeming through a
+function means the identity is made by the function on success, so a mistyped
+code no longer leaves a disposable account behind.)
 
 It grants **read** on exactly what `youthapp2.html` asks for:
 
@@ -144,25 +155,46 @@ somebody widens a rule by mistake.
 
 ## What this does not protect, and is worth knowing
 
-1. **`youthGrants/{code}` is `allow get: if true`, and the document holds the
-   parent's email address.** Anybody holding a code can read `sentTo`,
-   `memberName` and `memberId`. The code is the password and the open read is
-   what lets `youth-access.html` look it up *before* signing anybody in. Two
-   ways to close it, neither done:
-   - sign in anonymously first and make it `request.auth != null` — cheap, but
-     it leaves a disposable account behind on every wrong code
-   - redeem through a function, so the page never reads the grant at all. That
-     is the proper fix and it is the same shape as `whoAmI`
-2. **The parent requirement lives in the page, not in the rules.**
-   `youthGrants` create is `isAdmin()`, so an admin could write a grant by hand
-   for somebody with no parent on file. `sendCode()` refuses to, and the "Under
-   16 plus a household" filter is what the panel offers — but the rules do not
-   enforce it.
-3. **A six-week code on a lost phone works until it expires**, unless somebody
+1. **A six-week code on a lost phone works until it expires**, unless somebody
    revokes it. Revoking is immediate; noticing is not automatic.
-4. **One device per code**, by design — the code is burnt on redemption. A
+2. **One device per code**, by design — the code is burnt on redemption. A
    young person with a new phone needs a new code, which means the parent is
    asked again. That is the point rather than a limitation.
+3. **A refusal says which of three things went wrong** — unrecognised,
+   cancelled, already used — where ChurchShow's pairing gives one sentence for
+   every failure. It is a small oracle: it says a code once existed. Against
+   36⁸, about 2.8 trillion, on codes that are single-use and live six weeks,
+   and against the value of telling a fourteen-year-old "that one has been
+   used, ask for another" rather than "no". Deliberate, and worth knowing.
+4. **The rules cannot check that the email was actually sent.** They check the
+   grant names a parent with an address on file; whether `sendEmail` delivered
+   it is between that function and Resend.
+
+### Two things that WERE on this list and are not any more
+
+Both were closed on 9 October 2026, on Martin's instruction, and both are
+worth keeping a record of because they shaped the design.
+
+**The grant document was readable by whoever held the code**
+(`allow get: if true`), and it holds `sentTo` — the parent's email address.
+That was not an oversight: the page looked the code up before anybody was
+signed in, which is how redemption worked. `redeemYouthCode` does the lookup
+now, with the Admin SDK, and the collection is shut to every page.
+
+Closing it turned up something the rules had let through all along:
+**marking a code used needed no read**, so even with `get` shut a phone could
+have blind-written `redeemedAt` and `uid` onto somebody else's live code and
+burnt it. Nothing read it back, so nothing would have noticed until a real
+code stopped working. The clause that allowed it is gone, and a rules check
+expects the refusal.
+
+**The parent requirement lived in the page**, not the rules: `youthGrants`
+create was `isAdmin()`, so an admin could have written a grant by hand for a
+child with nobody behind them. It is `grantHasParent()` now, and it asks about
+the household rather than about a typed address — the record must be a child,
+its household head must be the record named as the parent, and that record
+must carry the address the code is going to. Eight checks, and a deliberate
+break (the one Martin named) fails all eight.
 
 ---
 
@@ -171,7 +203,9 @@ somebody widens a rule by mistake.
 | | |
 |---|---|
 | The rules, in four states — a live code, an expired one, a cancelled one, and no code at all | `firestore-rules.test.mjs` |
+| The parent requirement, eight ways, each written directly as an admin | `firestore-rules.test.mjs` |
 | A code redeemed and the app opened, on a phone-sized screen | `tests/check-youth-access.mjs` |
+| The three refusals, straight at `redeemYouthCode` | `tests/check-youth-access.mjs` |
 
 The browser check holds both principles directly: it seeds an adult with a
 deliberately distinctive email address, telephone number and street, and fails

@@ -250,9 +250,15 @@ const offMachine = u => {
   ok('and greets them by name', /Young Synthetic/.test(String(await ev('document.getElementById("doneName").textContent'))),
     String(await ev('document.getElementById("doneName").textContent')));
   const uid = String(await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).uid || ""'));
-  ok('on an anonymous account, with no email address anywhere in it',
-    !!uid && (await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).email || "(none)"')) === '(none)'
-    && (await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).isAnonymous')) === true, uid);
+  /* NOT anonymous any more, and that is the change rather than a fault.
+     Redeeming goes through redeemYouthCode now, which creates the identity
+     itself - "youth-" and twenty random characters - so a mistyped code no
+     longer leaves a disposable anonymous account behind. What matters has not
+     changed: no email address, and no password to reset. */
+  ok('on an account with no email address and no password',
+    !!uid && /^youth-/.test(uid)
+    && (await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).email || "(none)"')) === '(none)'
+    && (await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).providerData || []')).length === 0, uid);
   await shot('3-in');
 
   const access = await getOne('youthAccess/' + uid);
@@ -367,6 +373,44 @@ const offMachine = u => {
   await shot('5-reused');
 
   /* ---- the console, and where the pages went ----------------------- */
+  console.log('\nthe three refusals, straight at the function');
+  /* The page can only try what somebody types, so a cancelled code and a
+     code of the wrong shape are easier to ask the endpoint about directly.
+     The three refusals are deliberately DIFFERENT sentences, unlike
+     ChurchShow's one: the person holding a youth code is the person it was
+     sent to, and "already used" tells them what to do while "no" does not. */
+  const fn = (body) => new Promise((res, rej) => {
+    const d = JSON.stringify(body);
+    const r = http.request({ host: 'localhost', port: 5101, method: 'POST',
+      path: '/egbc-worship-planner/europe-west2/redeemYouthCode',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(d) } },
+      x => { let t = ''; x.on('data', c => t += c); x.on('end', () => { try { res({ status: x.statusCode, body: JSON.parse(t || '{}') }); } catch { res({ status: x.statusCode, body: {} }); } }); });
+    r.on('error', rej); r.end(d);
+  });
+
+  await put('youthGrants/CANC-ELLD', {
+    memberId: 'ab_young_synth', memberName: 'Young Synthetic',
+    sentTo: PARENT, issuedBy: 'Synthetic Leader',
+    redeemedAt: null, uid: null, active: false });
+  const cancelled = await fn({ code: 'CANC-ELLD' });
+  ok('a cancelled code is refused, and says it was cancelled',
+    cancelled.status === 400 && /cancelled/i.test(cancelled.body.message || ''),
+    cancelled.status + ' ' + JSON.stringify(cancelled.body));
+  ok('and nothing was written for it',
+    (await getOne('youthAccess/' + (cancelled.body.uid || 'none'))) === null);
+
+  const short = await fn({ code: 'ABC' });
+  ok('a code of the wrong shape is refused before any lookup',
+    short.status === 400 && /eight characters/i.test(short.body.message || ''),
+    short.status + ' ' + JSON.stringify(short.body));
+
+  const none = await fn({});
+  ok('and so is no code at all', none.status === 400, none.status + ' ' + JSON.stringify(none.body));
+
+  /* The thing the whole change is for. */
+  const leaked = JSON.stringify([cancelled.body, short.body, none.body]);
+  ok('NO REFUSAL LEAKS THE PARENT\u2019S ADDRESS', !leaked.includes(PARENT), leaked.slice(0, 200));
+
   console.log('\nthe console, and where the pages went');
   const real = errs.filter(e => !/Logo fetch failed|storage\/object-not-found|cdn\.tailwindcss/i.test(e));
   ok('no errors a young person would see', real.length === 0, JSON.stringify(real).slice(0, 300));

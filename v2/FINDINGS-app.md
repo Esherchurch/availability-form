@@ -1468,3 +1468,172 @@ cannot sign in waits for `EGBCAuth.require()` for ever rather than failing.
 `youthserviceplanner.html` in particular gained a sign-in door on 9 October
 (the youth access work), so on their ports it now needs an account that
 exists in **their** auth emulator.
+
+---
+
+## A-053 — Maintenance added as a team, and why §6 wants teams as data
+
+The events window's A3. `'Maintenance'` is now a team, so its members can
+mark a job done and their rules — which already say
+`me().teams.hasAny(['Maintenance'])` — have something to match.
+
+**This is not "teams as data" (APP-DESIGN-BRIEF §6).** That is a piece of A1
+and means the office adding, renaming, recolouring and removing teams without
+a Code window. This is one team, added the way the other eight are, so they
+are not blocked waiting for A1.
+
+And it is a decent argument for §6, because one team had to be written into
+**four** files by hand:
+
+| | |
+|---|---|
+| `egbc-auth.js` | `TEAMS` — the canonical list, with the label and the colour |
+| `addressbook.html` | the team tick, **and** the "admin for" tick — two hand-written lists |
+| `tests/test-account.mjs` | `ALL_TEAMS`, so the sweep account is on it |
+| `egbc-menu.js` | the Menu entry, or the page is unreachable |
+| `tests/check-menu.mjs` | the hand-written expectation, twice |
+
+Whoever builds the data version should start from that list. The colour,
+`#4f5a66`, is the one the approved mock-up uses for the Maintenance space, so
+the hub and the app agree.
+
+**No rota cap for Maintenance**, on purpose: a cap is "how often may this
+person be put on the rota", and jobs are not a rota.
+
+The Menu entry is top level with no team on it, because the page's own door is
+"anyone signed in" — reporting something broken is for everybody, and only the
+Maintenance team can mark it done.
+
+---
+
+## A-054 — the style check looks at 29 of 84 pages
+
+The events window asked for `maintenance.html` to be in the sweep. It already
+is: `smoke-all-pages.mjs` reads the directory. But `check-style-every-screen`
+works from a hand-written list, and **a page missing from that list is not
+reported as missing — it is simply never measured.**
+
+That has now happened four times:
+
+| | |
+|---|---|
+| A-032 | `index.html`, never style-checked, with emoji on its answer buttons |
+| A-046 | `youth-access.html` and `youthapp2.html`, the same |
+| — | `churchshow.html` would have been the fourth, had I not just written it |
+
+So `tests/check-every-page-is-checked.mjs` is the gate: every `.html` in v2 is
+either in the style check's list or on a NOT_YET list **with a reason**.
+Adding a page and forgetting it fails. Deleting a page and leaving its name
+behind fails. An excuse with no reason fails. All three proved by doing them.
+
+**The number it printed on the first run is the finding: 29 of 84.** The other
+55 are now written down with a reason each, grouped:
+
+| Why | How many |
+|---|---|
+| the events window's own pages | 18 |
+| Step M — Restyle Group 3, youth | 3 |
+| **Step P — the rest of the restyle, not in a group yet** | **15** |
+| the public availability form | 1 |
+| instructions panels, opened from inside a tool | 4 |
+| practice copies of tools | 5 |
+| out of scope (Worship Hub, Calla Design, Mix Builder) | 5 |
+| not pages anybody opens | 4 |
+
+**Two of those 55 are worth Martin's eye.** `meeting.html` is one of
+DESIGN.md's two named reference pages — "when in doubt, copy what they do" —
+and it has never been style-checked. And `login.html`, the first screen
+anybody sees, is in no group either.
+
+**Six of my first guesses at that list were wrong**: pages I excused that the
+style check already covers. The "no page is both checked and excused" check is
+what said so, which is the only reason the list is right.
+
+---
+
+## A-055 — the parent requirement is in the rules now
+
+Martin's first youth follow-up, after A-045 pointed out it was only the page's.
+
+`youthGrants` create was `isAdmin()`. `hub-app.js` looks up the household
+head, refuses to send without an address, and only offers people flagged
+Under 16 — but an admin could write a grant by hand for a child with nobody
+behind them, and nothing would have stopped it.
+
+`grantHasParent()` asks about the **household**, not about a typed address:
+
+```
+the code is for a record that exists and is flagged Under 16
+that record's household head is the record named as the parent
+the parent's record exists and carries an email address
+the address the code is being sent to is THAT address
+```
+
+So `issueCode` now records `parentId` as well as `sentTo` — without it the
+rule has nothing to check the household against.
+
+Eight checks, every one written **directly as a master admin**, which is the
+only route the old rule left open. The deliberate break Martin named — taking
+`grantHasParent` off the create — fails all eight.
+
+`bookRec(id)` compares the `get()` to null rather than calling `exists()`
+first, so the whole thing costs two document reads instead of four. That is
+the A-037 lesson, which cost a passing check the first time round.
+
+---
+
+## A-056 — redeeming is a function, and closing the door found another one open
+
+Martin's second follow-up. `youthGrants/{code}` was `allow get: if true`
+because `youth-access.html` looked the code up before anybody was signed in —
+and that document holds `sentTo`, **the parent's email address**. A forwarded
+email, a screenshot or a used code handed it over.
+
+`redeemYouthCode` does it now: checks the code, creates the identity, writes
+`youthAccess/{uid}` and burns the grant **in one transaction**, and answers
+with a custom token and the child's **first name only**. The collection is
+shut to every page, and `youthAccess` create is `if false` — a phone writes
+nothing.
+
+Two things fell out of it.
+
+**A phone could have burnt anybody's code.** The old rule let the redeemer
+write `redeemedAt` and `uid`, and *a write needs no read* — so even with `get`
+shut, a phone could have blind-written those two fields onto somebody else's
+live code and destroyed it. Nothing reads it back, so nothing would have
+noticed until a real code stopped working. Found because a rules check
+expected the refusal and did not get it.
+
+**No account for a wrong code.** The old order was sign in anonymously, then
+look the code up, so every mistyped code left a disposable account behind.
+The function creates the identity only on success.
+
+### And a defect of mine, found by driving the page
+
+`normalise()` strips the dash to tidy the input, and I then looked up
+`youthGrants/<undashed>`. **The document ids are dashed** — `makeCode()`
+stores `ABCD-2345` as the id — so every real code came back "we do not
+recognise that code", and a nonsense one gave the same answer for the right
+reason.
+
+The rules tests could not see it: they never call the function. The function
+check I would have written would have used whatever `normalise` produced and
+agreed with itself. It took the browser walk, with a seeded code and a real
+page, to say so — which is the fourth time in this session that the thing
+which caught a fault was a check driving a page rather than a check of a
+part.
+
+---
+
+## A-057 — what the two youth follow-ups leave
+
+`YOUTH-ACCESS.md` has the full list; the short version:
+
+| | |
+|---|---|
+| A six-week code on a lost phone works until it expires | revoking is immediate, noticing is not automatic |
+| A refusal says which of three things went wrong | deliberate: "that one has been used, ask for another" is worth more to a fourteen-year-old than "no", against 36⁸ on single-use codes |
+| The rules cannot check the email was actually sent | they check the grant names a parent with an address; delivery is between `sendEmail` and Resend |
+
+**Both of the things that were on that list are off it**, and the record of
+why is kept in the document, because they shaped the design.

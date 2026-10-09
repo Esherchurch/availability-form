@@ -31,6 +31,7 @@ import {
 import {
   pairingCode as pairingCodeIn, redeem as redeemIn, disconnect as disconnectIn
 } from './churchshow.js';
+import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
 
 initializeApp();
 const db = getFirestore();
@@ -532,5 +533,23 @@ export const churchShowRedeem = onRequest({ cors: false, invoker: 'public' }, as
     /* The same sentence as every other refusal: an operator in a hall does
        not need to know whether it was their code or our service account. */
     res.status(400).json({ error: "That code isn't valid or has run out \u2014 make a new one on the hub." });
+  }
+});
+
+/* Redeeming a youth access code. Public, because a young person has no
+   account until this gives them one - the same shape as churchShowRedeem.
+   What protects it is that the code is eight characters, single-use, burnt in
+   a transaction, and issued only against a parent's address (the rules'
+   grantHasParent). See functions/youth-redeem.js, and YOUTH-ACCESS.md. */
+export const redeemYouthCode = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'unknown', message: 'Post the code.' }); return; }
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const out = await redeemYouthCodeIn(db, getAuth(), { code: body.code, nowMs: Date.now() });
+    res.status(out.status).json(out.body);
+  } catch (e) {
+    console.error('[redeemYouthCode]', e);
+    res.status(500).json({ error: 'unknown',
+      message: 'Something went wrong at our end. Try again, or ask a leader.' });
   }
 });

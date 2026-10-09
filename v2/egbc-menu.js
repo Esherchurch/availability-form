@@ -38,6 +38,11 @@
       description: 'What we have, and asking about it' },
     { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',
       description: 'See what is free and book it' },
+    /* The events window's page (F-123). No team on it, because the page
+       itself is open to anyone signed in: reporting something broken is for
+       everybody, and only the Maintenance team can mark it done. */
+    { title: 'Maintenance', url: 'maintenance.html', icon: 'wrench',
+      description: 'Report something broken, and what is being fixed' },
 
     /* Worship and AV people (Choir folds into Worship), and Core Team, who
        run them. Not Kids Church (Martin, 8 Oct 2026: "Kids church still sees

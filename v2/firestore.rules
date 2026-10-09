@@ -603,35 +603,85 @@ service cloud.firestore {
              && get(/databases/$(database)/documents/youthAccess/$(request.auth.uid)).data.expiresAt > request.time;
     }
 
-    match /youthGrants/{code} {
-      // The code IS the secret: a direct get by exact id is how it is redeemed.
-      // Listing is closed, so nobody can fish for a valid one.
-      allow get: if true;
-      allow list: if isAdmin();
-      allow create, delete: if isAdmin();
+    // A record, or null if it is not there. get() returns null for a missing
+    // document and null.data is an evaluation error rather than false, so
+    // every use below is guarded - and two identical get()s in one evaluation
+    // count as one document read, which is why this costs two reads and not
+    // four (the lesson from active(), A-037).
+    function bookRec(id) {
+      return get(/databases/$(database)/documents/addressBook/$(id));
+    }
 
-      // Redemption: mark it used, once, binding it to the redeemer.
-      allow update: if isAdmin()
-                    || (request.auth != null
-                        && resource.data.active == true
-                        && resource.data.redeemedAt == null
-                        && request.resource.data.uid == request.auth.uid
-                        && request.resource.data.diff(resource.data)
-                             .affectedKeys().hasOnly(['redeemedAt', 'uid']));
+    // NO YOUNG PERSON GETS IN WITHOUT A PARENT RECEIVING THE CODE, and that
+    // is now the rule's business rather than the page's (Martin, after A-045
+    // pointed out it was only the page's).
+    //
+    // It asks about the HOUSEHOLD, not about a string somebody typed:
+    //
+    //   the code is for a record that exists and is flagged Under 16
+    //   that record's household head is the record named as the parent
+    //   the parent's record exists and carries an email address
+    //   the address the code is being sent to is THAT address
+    //
+    // So an admin cannot write a grant for a child with no parent on file,
+    // cannot name somebody else's parent, and cannot send it anywhere except
+    // the address the church holds for that household.
+    function grantHasParent(d) {
+      let child = d.get('memberId', '');
+      let parent = d.get('parentId', '');
+      return child != '' && parent != ''
+             && bookRec(child) != null
+             && bookRec(parent) != null
+             && bookRec(child).data.get('isMinor', false) == true
+             && bookRec(child).data.get('householdId', '') == parent
+             && bookRec(parent).data.get('email', '') != ''
+             && d.get('sentTo', '') == bookRec(parent).data.get('email', '');
+    }
+
+    match /youthGrants/{code} {
+      // SHUT TO EVERY PAGE. This document holds `sentTo`, the PARENT'S EMAIL
+      // ADDRESS, and it used to be `allow get: if true` so that
+      // youth-access.html could look a code up before anybody was signed in.
+      // Anybody holding a code could therefore read a parent's address off
+      // it - a forwarded email, a screenshot, a code already used (A-045).
+      //
+      // redeemYouthCode does the lookup now, with the Admin SDK, which does
+      // not come through these rules. An admin may still list them, because
+      // the hub's youth panel shows what has been issued.
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin() && grantHasParent(request.resource.data);
+      allow delete: if isAdmin();
+
+      // Marking a code used is redeemYouthCode's job, in the same
+      // transaction as the check - so the clause that let the redeemer do it
+      // from a phone is gone.
+      //
+      // IT WOULD STILL HAVE WORKED WITHOUT IT, which is why this is worth
+      // saying: a write needs no read, so even with `get` shut to admins a
+      // phone could have blind-written `redeemedAt` and `uid` onto somebody
+      // else's live code and burnt it. Nothing read it back, so nothing would
+      // have noticed until a young person's real code stopped working. Caught
+      // by a rules check that expected the refusal and did not get it.
+      //
+      // An admin may still cancel one (active: false) from the youth panel.
+      allow update: if isAdmin();
     }
 
     match /youthAccess/{uid} {
+      // Their own record, so the app can greet them and the page can tell
+      // whether this device has already redeemed something. Admins see all
+      // of them, for the hub's youth panel.
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
       allow update, delete: if isAdmin();
 
-      // Created only by the person redeeming, and only against a live,
-      // unredeemed code.
-      allow create: if request.auth != null
-                    && request.auth.uid == uid
-                    && request.resource.data.active == true
-                    && exists(/databases/$(database)/documents/youthGrants/$(request.resource.data.grantCode))
-                    && get(/databases/$(database)/documents/youthGrants/$(request.resource.data.grantCode)).data.active == true
-                    && get(/databases/$(database)/documents/youthGrants/$(request.resource.data.grantCode)).data.redeemedAt == null;
+      // WRITTEN ONLY BY redeemYouthCode, with the Admin SDK. It used to be
+      // written by the phone, which is why the rule above it had to be open:
+      // the page read the grant, then wrote this, then burnt the grant. Three
+      // steps a page could get half way through, and one of them handed over
+      // a parent's email address. One function does all three now, in a
+      // transaction, and nothing on a phone may write here at all.
+      allow create: if false;
     }
 
     // ---- the video library ------------------------------------------

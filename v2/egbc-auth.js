@@ -180,7 +180,11 @@
     'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a' },
     'Lazers':        { label: 'Lazers',       colour: '#8a4a3d' },
     'ReNu':          { label: 'ReNu',         colour: '#3d6b5f' },
-    'Core Team':     { label: 'Core Team',    colour: '#6b4a7a' }
+    'Core Team':     { label: 'Core Team',    colour: '#6b4a7a' },
+    /* A3, for the events window: the people who fix things. The colour is
+       the one the approved app mock-up uses for the Maintenance space
+       (--maint), so the hub and the app agree about it. */
+    'Maintenance':   { label: 'Maintenance',  colour: '#4f5a66' }
   };
 
   /* ---- Roles -------------------------------------------------------

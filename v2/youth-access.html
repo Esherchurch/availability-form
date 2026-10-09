@@ -102,6 +102,25 @@ auth.onAuthStateChanged(async u=>{
   }catch(e){/* not redeemed yet, leave the form up */}
 });
 
+/* WHERE THE CODE IS CHECKED, and it is not here any more.
+
+   This page used to read youthGrants/{code} itself, which is why the rule
+   was `allow get: if true`. That document holds `sentTo` - THE PARENT'S
+   EMAIL ADDRESS - along with the child's name and member id, so anybody with
+   a code could read a parent's address off it: a forwarded email, a
+   screenshot, a code already used. A-045, and Martin's decision.
+
+   The function does it now, with the Admin SDK, and youthGrants is shut to
+   every page. It also means no anonymous account is left behind by a
+   mistyped code: the old order was sign in first, look the code up second.
+
+   REDEEM_URL is the only thing here that knows where the functions live. On
+   localhost it is the emulator; everywhere else it is the live project. */
+const REDEEM_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:' + (location.port === '5601' ? 5102 : 5101)
+    + '/egbc-worship-planner/europe-west2/redeemYouthCode'
+  : 'https://europe-west2-egbc-worship-planner.cloudfunctions.net/redeemYouthCode';
+
 async function redeem(){
   const code=document.getElementById('code').value.trim().toUpperCase();
   if(!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)){msg('That does not look like a full code. It has eight characters.',false);return;}
@@ -109,45 +128,41 @@ async function redeem(){
   show('busyView');
 
   try{
-    /* The code is the doc id, so this is a direct lookup - nobody can list
-       the grants or fish for a valid one. */
-    const ref=db.collection('youthGrants').doc(code);
-    const snap=await ref.get();
+    /* Eight seconds, because a phone in a church hall on a bad signal must
+       be told something rather than left on the spinner. */
+    const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const stop = ac ? setTimeout(function(){ac.abort();},8000) : null;
+    let r;
+    try{
+      r = await fetch(REDEEM_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({code:code}),
+        signal: ac ? ac.signal : undefined
+      });
+    } finally { if(stop) clearTimeout(stop); }
 
-    if(!snap.exists){show('enterView');msg('We do not recognise that code. Check it against the email, or ask a leader for a new one.',false);return;}
+    const out = await r.json().catch(function(){return {};});
 
-    const g=snap.data();
-    if(g.active===false){show('enterView');msg('That code has been cancelled. Ask a leader for a new one.',false);return;}
-    if(g.redeemedAt){show('enterView');msg('That code has already been used. Codes work once only - ask a leader for a new one.',false);return;}
+    if(!r.ok || !out.customToken){
+      show('enterView');
+      msg(out.message || 'We could not check that code just now. Try again, or ask a leader.', false);
+      return;
+    }
 
-    const cred=await auth.signInAnonymously();
-    const uid=cred.user.uid;
+    /* The token is what signs them in. The page never saw the grant. */
+    await auth.signInWithCustomToken(out.customToken);
 
-    const expires=new Date();
-    expires.setDate(expires.getDate()+WEEKS*7);
-
-    await db.collection('youthAccess').doc(uid).set({
-      memberId:g.memberId||null,
-      memberName:g.memberName||'',
-      grantCode:code,
-      redeemedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      expiresAt:firebase.firestore.Timestamp.fromDate(expires),
-      active:true
-    });
-
-    /* Burn the code. A forwarded copy is worthless from here. */
-    await ref.update({
-      redeemedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      uid:uid
-    });
-
-    document.getElementById('doneName').textContent='Signed in as '+(g.memberName||'a member of the youth group')+'.';
+    document.getElementById('doneName').textContent =
+      'Signed in as ' + (out.firstName || 'a member of the youth group') + '.';
     show('doneView');
 
   }catch(e){
     console.error(e);
     show('enterView');
-    msg('Something went wrong: '+e.message,false);
+    msg(e && e.name === 'AbortError'
+      ? 'That took too long. Check your internet connection and try again.'
+      : 'Something went wrong. Try again, or ask a leader.', false);
   }
 }
 </script>

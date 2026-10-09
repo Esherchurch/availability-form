@@ -314,6 +314,59 @@ when the machine is back.
 One connection covers a **building**, not a computer, so the spare machine can
 pair with its own code without stopping the main one.
 
+---
+
+## Redeeming a youth code (9 October 2026)
+
+**Thirteen functions now.** The new one is `redeemYouthCode`, and it is the
+reason a young person's phone no longer reads the document that holds their
+**parent's email address**.
+
+It deploys with everything else:
+
+```
+firebase deploy --only functions:hub --project egbc-worship-planner
+```
+
+**It has to be reachable without an account**, because a young person has
+none until the code gives them one. The CLI normally sets that; if the deploy
+says it could not:
+
+```
+gcloud functions add-invoker-policy-binding redeemYouthCode --region=europe-west2 --member=allUsers
+```
+
+**It signs a custom token**, so it needs the same IAM step as
+`churchShowRedeem` — *Service Account Token Creator on itself*. If you have
+already done that for ChurchShow, it is done for this too; it is one setting
+on the account, not one per function.
+
+### The order, and it matters
+
+**Deploy this before the rules.** After the rules land, `youthGrants` is shut
+to every page, so if the function is not there **no young person can redeem a
+code at all** — they get "we could not check that code just now". Before the
+rules land, the old page would still work, but the page has already been
+changed to use the function, so in practice: deploy the functions, then check
+a code redeems, then the rules.
+
+### What to check by hand
+
+1. In the hub's youth panel, send yourself a code for a young person whose
+   household has your address on it.
+2. Open **youth-access.html** in a private window, type the code, and you
+   should be in, greeted by their **first name only**.
+3. Try the same code again: *"That code has already been used."*
+4. Press **Revoke** against it in the panel, then open the Youth Hub on that
+   device — it should stop working straight away, not in an hour.
+
+### One thing that changed for the office
+
+Codes now record **which record the parent is** (`parentId`), and the rules
+refuse a code that does not name a parent with an address on file. Nothing to
+do by hand — the panel fills it in — but a code written any other way is
+refused, which is the point.
+
 ## Then check it, by hand, before telling anyone
 
 ### The calendar links

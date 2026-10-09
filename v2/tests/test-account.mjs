@@ -23,7 +23,7 @@ const BASE = '/v1/projects/' + PROJECT + '/databases/(default)/documents/';
    does that, carefully, as three different people - so here the account simply
    has all of it. */
 export const ALL_TEAMS = ['Core Team', 'Worship Team', 'AV Team', 'Choir',
-  'Kids Church', 'Youth Worship', 'Lazers', 'ReNu'];
+  'Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Maintenance'];
 
 const rest = (method, p, body) => new Promise((res, rej) => {
   const data = body ? JSON.stringify(body) : null;

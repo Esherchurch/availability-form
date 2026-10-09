@@ -45,11 +45,13 @@ const APPROVED = [
   ["What's on"],
   ['Hire our rooms'],
   ['Book a room'],
+  ['Maintenance'],
   ['Worship & AV', [
     ['Worship', [['Play-Through'], ['Worship Training'],
       ['Music Databases', [['Music Database'], ['Music Uploader']]]]],
     ['AV', [['How-To AV'], ['AV Troubleshoot'],
-      ['Equipment', [['Inventory'], ['AV Infrastructure Mapper'], ['Monitor Setup']]]]]
+      ['Equipment', [['Inventory'], ['AV Infrastructure Mapper'], ['Monitor Setup']]],
+      ['Connect ChurchShow']]]
   ]],
   ['Youth', [['Youth Service Planner']]],
   ['Kids Church', [["Children's register"], ['Sunday check-in']]],
@@ -78,7 +80,25 @@ const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & A
 const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Planner',
   'Availability form', 'People and email', 'Address Book', 'Email Compiler', 'Music',
   'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore'];
-const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore'];
+/* WHERE THEY FIRST DIFFER, not the first 150 characters of each. The Menu is
+   long enough that two lists agreeing for 150 characters tells you nothing,
+   and that is exactly what the old report did: it showed the matching part
+   twice and cut off before the difference. */
+function firstDifference(seen, expected) {
+  let i = 0;
+  while (i < seen.length && i < expected.length && seen[i] === expected[i]) i++;
+  const where = i === 0 ? 'at the very first name' : 'after "' + seen[i - 1] + '"';
+  return 'they agree for ' + i + ' names, then differ ' + where
+    + '\n          on screen: ' + (seen.slice(i, i + 5).join(' > ') || '(nothing more)')
+    + '\n          approved : ' + (expected.slice(i, i + 5).join(' > ') || '(nothing more)')
+    + '\n          ' + seen.length + ' names on screen, ' + expected.length + ' approved';
+}
+
+const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore',
+  /* admin: true on the Menu node. It also sits under the Worship & AV team
+     heading, so it is in WORSHIP_ONLY too - both gates apply and a name has
+     to be in both lists or the expectation is wrong for somebody. */
+  'Connect ChurchShow'];
 /* "Room bookings" is the one entry that is not gated on Core Team or on
    administering a team: a site's bookings admin is usually neither (F-067). */
 const BOOKINGS_ONLY = ['Room bookings'];
@@ -92,7 +112,10 @@ const KIDS_ONLY = ['Kids Church', "Children's register", 'Sunday check-in'];
    line. Written out by hand, as the rest of this list is. */
 const WORSHIP_ONLY = ['Worship & AV', 'Worship', 'Play-Through', 'Worship Training',
   'Music Databases', 'Music Database', 'Music Uploader', 'AV', 'How-To AV',
-  'AV Troubleshoot', 'Equipment', 'Inventory', 'AV Infrastructure Mapper', 'Monitor Setup'];
+  'AV Troubleshoot', 'Equipment', 'Inventory', 'AV Infrastructure Mapper', 'Monitor Setup',
+  /* Narrower still: admin: true, so an ordinary Worship or AV member does
+     not see it either. The per-person expectations below carry that. */
+  'Connect ChurchShow'];
 
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
@@ -316,6 +339,11 @@ const READ_MENU = `(() => {
     const onCore = p.teams.includes('Core Team');
     const anAdmin = !!p.adminFor.length || !!p.masterAdmin;
     const books = anAdmin || !!p.bookingsAdmin;
+    /* The Worship & AV heading's teams, which is what lets the subtree
+       through at all - a Kids Church admin never reaches Connect ChurchShow. */
+    const worshipAV = p.teams.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t))
+                      || p.adminFor.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t))
+                      || !!p.masterAdmin;
     /* The two headings Room bookings sits under. A bookings admin who is on
        neither Core Team nor any admin list still has to get through them -
        and must get nothing else from inside them, not even the Core Team
@@ -338,7 +366,7 @@ const READ_MENU = `(() => {
       JSON.stringify(seen) === JSON.stringify(expected),
       JSON.stringify(seen) === JSON.stringify(expected)
         ? expected.length + ' names, in order'
-        : 'on screen: ' + seen.join(' > ').slice(0, 150) + '\n          approved : ' + expected.join(' > ').slice(0, 150));
+        : firstDifference(seen, expected));
     const stillHere = GONE_HEADINGS.filter(g => seen.includes(g))
       .concat(GONE_ANYWHERE.filter(g => (menu.text || '').toLowerCase().includes(g.toLowerCase())));
     /* Nothing in v2 links to the old dashboard page any more (17a). The file
@@ -380,6 +408,12 @@ const READ_MENU = `(() => {
        is on no team - looks after Room bookings and nothing else. Asserting
        the flat list said she should see three pages she cannot reach. */
     const wantAdmin = [
+      /* Connect ChurchShow is admin: true and sits under Worship & AV, so
+         the sidebar picks it up - it walks the pruned Menu for anything
+         with admin or bookings on it (hub-app.js ~1162). It comes FIRST
+         because that is where the Menu has it, and "in the Menu's order"
+         is the whole point of this check. */
+      ...(worshipAV && anAdmin ? ['Connect ChurchShow'] : []),
       ...(onCore && anAdmin ? ['Events', 'Places'] : []),
       ...(books ? ['Room bookings'] : []),
       ...(onCore && anAdmin ? ['Backup & Restore'] : [])

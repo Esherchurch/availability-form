@@ -86,6 +86,28 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   /* u_youth_none has no youthAccess document at all - an anonymous account
      that never redeemed anything, which is what a stranger's phone is. */
 
+  /* A household, for the parent requirement. The rule asks about this shape
+     and not about a typed address: a child flagged Under 16 whose
+     householdId is the parent's record, and that record carrying an email. */
+  await setDoc(doc(db, 'addressBook', 'ab_parent'), {
+    name: 'Parent Synthetic', email: 'parent.synth@example.invalid', markers: [] });
+  await setDoc(doc(db, 'addressBook', 'ab_child'), {
+    name: 'Child Synthetic', markers: ['Youth Worship'],
+    isMinor: true, householdId: 'ab_parent' });
+  /* A parent with no address on file - the case the panel refuses and the
+     rule now refuses too. */
+  await setDoc(doc(db, 'addressBook', 'ab_parent_noemail'), {
+    name: 'No Address Synthetic', markers: [] });
+  await setDoc(doc(db, 'addressBook', 'ab_child_orphan'), {
+    name: 'Orphan Synthetic', markers: ['Youth Worship'],
+    isMinor: true, householdId: 'ab_parent_noemail' });
+  /* A child with no household at all. */
+  await setDoc(doc(db, 'addressBook', 'ab_child_nohome'), {
+    name: 'No Household Synthetic', markers: ['Youth Worship'], isMinor: true });
+  /* An adult, to prove a code is only ever for a child. */
+  await setDoc(doc(db, 'addressBook', 'ab_grownup'), {
+    name: 'Grown Up Synthetic', email: 'grownup@example.invalid', markers: [] });
+
   await setDoc(doc(db, 'youthGrants', 'DDDD-4444'), {
     memberId: 'm_young4', memberName: 'Waiting Synthetic', sentTo: 'parent@example.invalid',
     issuedBy: 'u_martin', redeemedAt: null, uid: null, active: true });
@@ -1963,12 +1985,81 @@ await check('nor write itself an access record', 'deny',
   () => setDoc(doc(youthNone(), 'youthAccess', 'u_youth_none'), {
     grantCode: 'EEEE-5555', active: true, expiresAt: new Date(Date.now() + 1e11) }));
 
+/* ---- the parent requirement, now in the rules (Martin) -------------
+   "No young person gets in without a parent receiving the code" was held by
+   hub-app.js alone: it looks up the household head and refuses to send
+   without an address. The rule was `allow create: if isAdmin()`, so an admin
+   could write a grant by hand for a child with nobody behind them - A-045.
+
+   Every one of these is written DIRECTLY, as a master admin, which is the
+   only way the old rule could be got round. */
+
+const aGrant = (over) => Object.assign({
+  memberId: 'ab_child', parentId: 'ab_parent', memberName: 'Child Synthetic',
+  sentTo: 'parent.synth@example.invalid', issuedBy: 'u_martin',
+  redeemedAt: null, uid: null, active: true
+}, over || {});
+
+await check('a code for a child, sent to their household, is allowed', 'allow',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0001'), aGrant()));
+
+/* THE BREAK MARTIN NAMED. */
+await check('A CODE WITH NO PARENT IS REFUSED, written directly by an admin', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0002'), aGrant({ parentId: '' })));
+await check('and so is one with the parent left out altogether', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0003'), {
+    memberId: 'ab_child', memberName: 'Child Synthetic',
+    sentTo: 'parent.synth@example.invalid', issuedBy: 'u_martin',
+    redeemedAt: null, uid: null, active: true }));
+
+await check('a parent who is not in the address book is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0004'),
+    aGrant({ parentId: 'ab_not_a_record' })));
+await check('a parent with no email address on file is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0005'),
+    aGrant({ memberId: 'ab_child_orphan', parentId: 'ab_parent_noemail', sentTo: '' })));
+await check('a child with no household is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0006'),
+    aGrant({ memberId: 'ab_child_nohome' })));
+
+/* The one that matters most after "no parent": naming a real parent who is
+   not THIS child's, which is how a code could be sent to the wrong house. */
+await check('somebody else\'s parent is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0007'),
+    aGrant({ parentId: 'ab_grownup', sentTo: 'grownup@example.invalid' })));
+
+/* And the address has to be the one the church holds, not one typed in. */
+await check('sending it anywhere but the parent\'s own address is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0008'),
+    aGrant({ sentTo: 'somewhere.else@example.invalid' })));
+
+await check('and a code for a grown-up is refused - codes are for children', 'deny',
+  () => setDoc(doc(as('martin'), 'youthGrants', 'PAR1-0009'),
+    aGrant({ memberId: 'ab_grownup', parentId: 'ab_parent' })));
+
+await check('a volunteer cannot write a grant at all', 'deny',
+  () => setDoc(doc(as('samy'), 'youthGrants', 'PAR1-0010'), aGrant()));
+await check('nor can a young person with a code', 'deny',
+  () => setDoc(doc(youthOk(), 'youthGrants', 'PAR1-0011'), aGrant()));
+
 /* REDEEMING. The code is the document id, so a direct get is the redemption
    and listing is shut - nobody can fish for a live one. */
-await check('a code can be looked up by anybody who has it', 'allow', () => getDoc(doc(anon(), 'youthGrants', 'DDDD-4444')));
+/* REDEEMING IS A FUNCTION NOW (Martin's second follow-up), so these say the
+   opposite of what they used to. The grant holds `sentTo` - the parent's
+   email address - and was `allow get: if true` because the page looked a
+   code up before anybody was signed in, so anybody holding a code could
+   read a parent's address off it (A-045). redeemYouthCode does the lookup
+   with the Admin SDK, which does not come through these rules. */
+await check('A CODE CANNOT BE READ BY SOMEBODY HOLDING IT ANY MORE', 'deny', () => getDoc(doc(anon(), 'youthGrants', 'DDDD-4444')));
+await check('nor by a young person signed in with another code', 'deny', () => getDoc(doc(youthOk(), 'youthGrants', 'DDDD-4444')));
+await check('nor by a volunteer', 'deny', () => getDoc(doc(as('samy'), 'youthGrants', 'DDDD-4444')));
+await check('an admin reads one, for the hub\u2019s youth panel', 'allow', () => getDoc(doc(as('martin'), 'youthGrants', 'DDDD-4444')));
 await check('but the grants cannot be listed', 'deny', () => getDocs(collection(anon(), 'youthGrants')));
 await check('an admin lists them', 'allow', () => getDocs(collection(as('martin'), 'youthGrants')));
-await check('redeeming a live code writes an access record', 'allow',
+/* The phone used to do this in three steps - read the grant, write this,
+   burn the grant. The middle one is refused outright now; one function
+   does all three in a transaction. */
+await check('A PHONE CANNOT WRITE ITSELF AN ACCESS RECORD, even with a live code', 'deny',
   () => setDoc(doc(youthNone(), 'youthAccess', 'u_youth_none'), {
     memberId: 'm_young4', memberName: 'Waiting Synthetic', grantCode: 'DDDD-4444',
     redeemedAt: serverTimestamp(), expiresAt: new Date(Date.now() + 1e11), active: true }));
@@ -1976,6 +2067,9 @@ await check('a code already used cannot be redeemed again', 'deny',
   () => setDoc(doc(youth('u_youth_second'), 'youthAccess', 'u_youth_second'), {
     memberId: 'm_young5', memberName: 'Used Synthetic', grantCode: 'EEEE-5555',
     redeemedAt: serverTimestamp(), expiresAt: new Date(Date.now() + 1e11), active: true }));
+await check('and a phone cannot burn a code either', 'deny',
+  () => updateDoc(doc(youthNone(), 'youthGrants', 'DDDD-4444'), {
+    redeemedAt: serverTimestamp(), uid: 'u_youth_none' }));
 await check('nor can an access record be written for somebody else\'s uid', 'deny',
   () => setDoc(doc(youth('u_youth_third'), 'youthAccess', 'u_youth_ok'), {
     memberId: 'm_young4', grantCode: 'DDDD-4444', active: true,
