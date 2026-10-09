@@ -1008,3 +1008,172 @@ fault that put five test records in the live database — a localhost page
 talking to live Firebase — and it is the reason
 `tests/check-levels-in-browser.mjs` has to name two expected exceptions rather
 than assert nothing at all. Named, not fixed.
+
+---
+
+## A-040 — a rule function that was defined and used by nothing
+
+The reviewing window found it. `youthGranted()` was in `firestore.rules`, it
+was correct, it was commented, it referred to a document that did not exist —
+and **no rule called it**. Under the locked rules a young person's phone (an
+anonymous account plus a `youthAccess` document) was refused every collection
+`youthapp2.html` reads: `services`, `songs`, `events`, `portal`,
+`worshipBoardState` and `addressBook`.
+
+The Youth Hub would have opened and shown an empty shell. No songs, no
+services, no board, nothing on screen saying why — because every one of those
+reads is wrapped in a `try/catch` that does nothing.
+
+It is the same shape as A-023 and A-024 one level up: not a gate that cannot
+fail, but a gate **nothing was wired to**. Nothing could have caught it except
+reading the file and asking what calls what, which is what the reviewing
+window did. `tests/check-access-levels.mjs` now fails if `youthGranted()`
+stops being used, starts being used anywhere outside the seven collections it
+is for, or ever appears on a write.
+
+It now grants read on `songs`, `services`, `events`, `portal/dashboardContent`,
+`kb_playthrough` and `kb_training_worship` (published articles only), and
+`worshipBoardState/youth`. Read only, and never `addressBook`.
+YOUTH-ACCESS.md — which the rules referred to for a fortnight before it
+existed — has the whole design.
+
+---
+
+## A-041 — the youth app read the worship team's pin board
+
+`youthapp2.html` read **and wrote** `worshipBoardState/state`. `state` is the
+worship team's board; there is a separate `youth` one, and the rules have given
+it to Youth Worship all along.
+
+Wrong twice over: it showed the youth the worship team's notes, and under the
+locked rules it would have been refused anyway for an **adult** on Youth
+Worship, who is not on the Worship Team. So the youth board has never worked
+for the youth team, and the board they were looking at was somebody else's.
+
+It reads and writes `youth` now. **Anything the youth app has already pinned
+is on the worship board and will not follow** — it is in
+`worshipBoardState/state`, where the worship team can see it. Worth saying
+before anybody wonders where their notes went.
+
+---
+
+## A-042 — the youth app's Save failed silently, and had no catch
+
+```js
+const snap = await db.collection('services').where('date','==',date).get();
+if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
+else await db.collection('services').add(serviceData);
+alert('Youth service saved successfully.');
+```
+
+Writing a service plan needs `canAct('Youth Worship')`. A young person is not
+an admin and never was, so the write was refused, the promise rejected, and the
+line below it never ran: no alert, no error, no sign that anything had
+happened at all. The plan looked saved and was not.
+
+Now in words, and the words say what to do: *"Only a youth leader can save the
+plan. Show them what you have put together and they will save it."* A leader
+who hits a genuine failure gets a different sentence, about their connection.
+
+---
+
+## A-043 — the youth app put every adult's email address and telephone number on a child's phone
+
+`youthapp2.html` read the **whole address book**, unconditionally, on every
+load:
+
+```js
+const snap = await db.collection('addressBook').get();
+snap.forEach(d => { const data = d.data(); if (data.email) addressBook.push(data); });
+```
+
+Every adult's name, email address, telephone number, address and household,
+onto whatever phone had the page open. It was used for one thing: the
+recipients of the "email the plan" button. The names on the plan itself come
+from the rota table, not from here.
+
+Against Martin's principle — *no email addresses for under-18s, ever* — in the
+most direct way possible.
+
+The read now happens only for a signed-in volunteer, and a young person
+pressing the email button is told a leader sends it out. The rules refuse them
+in any case, but a page that asks and is refused is a page that starts working
+the day somebody widens a rule by mistake.
+
+**Not done, and it is the better fix:** the recipients could be resolved
+server-side, the way `whoAmI` resolves a member id, and then no page would
+need the address book for this at all. That removes the last reason
+`youthapp2.html` reads it and would let the read go entirely rather than being
+gated. One function.
+
+---
+
+## A-044 — the most important assertion in the new check was measuring nothing
+
+In the first run of `tests/check-youth-access.mjs`:
+
+```js
+const book = await ev('(window.addressBook || []).length');
+ok('and the page never read the address book at all', Number(book) === 0, ...);
+```
+
+`addressBook` is a top-level `let` in a classic script. Those live in the
+global **lexical** environment and are not properties of `window`, so this
+read `undefined`, `(undefined || []).length` was `0`, and the assertion passed
+whatever the page had done.
+
+Two sibling assertions read `window.allSongs` and `window.eventsForDay` the
+same way and **failed**, which is the only reason this was found. The one that
+mattered failed safe into a pass.
+
+This is A-033 again, in a check written after A-033, by the same hand, the same
+afternoon. Writing the lesson down did not stop it: what stops it is a
+deliberate break, and the break is what proved the rest.
+
+**And the break found a second hole in the same assertion.** Putting the
+address book read back made only *one* check fail: "NO ADULT EMAIL ADDRESS
+anywhere on the page" still passed, because the page had every adult's address
+**in memory** and had not drawn it yet. In memory on a child's phone is
+precisely the thing being forbidden. All four privacy assertions now search
+the page's own state as well as the DOM, and all four fail on that break.
+
+---
+
+## A-045 — a youth code can be read by anybody holding it, and it names the parent
+
+`youthGrants/{code}` is `allow get: if true`, and the document holds `sentTo` —
+**the parent's email address** — along with the child's name and member id.
+
+The open read is not a mistake: `youth-access.html` looks the code up *before*
+anybody is signed in, which is how redemption works at all. And 8 characters
+from a 36-character alphabet is 2.8 trillion, so guessing is not the worry.
+The worry is that a code in a forwarded email, or a used code, still hands over
+a parent's address and a child's name to whoever has it.
+
+Two ways to close it, neither done because neither is what was asked for:
+
+1. Sign in anonymously first and make the rule `request.auth != null`. Cheap,
+   and it leaves a disposable account behind on every mistyped code.
+2. Redeem through a function, so the page never reads the grant. The proper
+   fix, the same shape as `whoAmI`, and it would let `sentTo` stay out of
+   anything a device can reach.
+
+Also worth knowing: **the parent requirement lives in the page, not the
+rules.** `youthGrants` create is `isAdmin()`, so an admin could write a grant
+by hand for a young person with no parent on file. `sendCode()` refuses to, and
+the panel only offers people flagged Under 16 who have a household — but the
+rules do not enforce it.
+
+---
+
+## A-046 — two more pages the style check has never opened
+
+A-032 said `index.html` is not in `tests/group1-screens.mjs`, so neither the
+drawn pass nor the source pass has ever measured it. The same is true of
+`youth-access.html`, which has `✓` as its success mark, and of
+`youthapp2.html`, which has `📋 📌 🎸` on its home cards and `⚠️` in its alerts.
+
+`youthapp2.html` is Step M's (Restyle Group 3), so that one is already
+scheduled. `youth-access.html` and `index.html` are in no group at all, and
+between them they are the only two pages a member of the church is ever
+emailed a link to.

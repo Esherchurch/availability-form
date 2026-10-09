@@ -26,6 +26,7 @@ Run every one of these from `v2/`, not from here.
 | The availability form’s three functions, with nobody signed in | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-availability-form.mjs"` |
 | The form **filled in** in a browser, and the youth planner opened signed out | `node tests/check-form-in-browser.mjs` (add `--shots`) |
 | What each of the four levels actually gets, in a browser | `node tests/check-levels-in-browser.mjs` (add `--shots`) |
+| A young person's phone: a code redeemed and the Youth Hub opened | `node tests/check-youth-access.mjs` (add `--shots`) |
 | Who can read what, read off the rules themselves | `node tests/check-access-levels.mjs` (add `--write` to rewrite ACCESS-LEVELS.md) |
 
 **Run the browser checks one at a time.** They share one emulator and one

@@ -24,50 +24,50 @@ the same commit, which moved nothing on the day.
 
 | Collection | What it is | The rule |
 |---|---|---|
-| `availability` | who can serve when | `read: if volunteer();` <br>(line 464) |
-| `availabilityRequests` | the rota | `read: if volunteer();` <br>(line 549) |
-| `rotaSignoff` | the rota | `read: if volunteer();` <br>(line 624) |
-| `events` | the rota, and who is serving on it | `read: if volunteer() \|\| churchShow();` <br>(line 458) |
-| `services` | service plans | `read: if volunteer() \|\| churchShow();` <br>(line 655) |
-| `songs` | the song library | `read: if volunteer() \|\| churchShow();` <br>(line 496) |
-| `teamContent` | team panels | `read: if volunteer();` <br>(line 505) |
-| `videoSections` | the team video library | `read: if volunteer();` <br>(line 614) |
-| `kb_troubleshoot_av` | AV | `read: if volunteer();` <br>(line 483) |
-| `kb_howto_av` | AV | `read: if volunteer();` <br>(line 488) |
-| `kb_playthrough` | Worship | `read: if volunteer();` <br>(line 639) |
-| `kb_training_worship` | Worship | `read: if volunteer();` <br>(line 644) |
-| `inventory` | AV | `read: if volunteer();` <br>(line 667) |
-| `av_schematic` | AV | `read: if volunteer();` <br>(line 672) |
-| `schedules` | AV | `read: if volunteer();` <br>(line 677) |
-| `portal` | older shared team content | `read: if volunteer();` <br>(line 686) |
-| `pageContent` | older shared team content | `read: if volunteer();` <br>(line 691) |
-| `training_portal` | the practice copies - and this one is a WRITE as well | `read, write: if volunteer();` <br>(line 702) |
-| `contacts` | hirer and sign-up contacts: name, email, telephone, isMinor | `get, list: if volunteer();` <br>(line 805) |
-| `eventChecklists` | the admin's side of an event | `read: if volunteer();` <br>(line 961) |
-| `checklistTemplates` | the admin's side of an event | `read: if volunteer();` <br>(line 965) |
-| `eventLeaders` | who leads an event | `read: if volunteer();` <br>(line 1345) |
-| `safeguardingSettings` | safeguarding | `read: if volunteer();` <br>(line 1419) |
-| `counters` | invoice numbering | `read: if volunteer();` <br>(line 1863) |
-| `kidsSettings` | Kids Church | `read: if volunteer();` <br>(line 1958) |
-| `kidsGroups` | Kids Church | `read: if volunteer();` <br>(line 1967) |
-| `kidsTerms` | Kids Church term dates | `read: if volunteer();` <br>(line 2102) |
-| `screenPages` | paging a parent on the service screen | `read: if (churchShow() && resource.data.siteId == request.auth.token.siteId && resource.data.clearedAt == null) \|\| (volunteer() && resource.data.clearedAt == null) \|\| (active() && resource.data.createdBy == request.auth.uid) \|\| kidsLead(resource.data.siteId);` <br>(line 2151) |
+| `availability` | who can serve when | `read: if volunteer();` <br>(line 470) |
+| `availabilityRequests` | the rota | `read: if volunteer();` <br>(line 570) |
+| `rotaSignoff` | the rota | `read: if volunteer();` <br>(line 664) |
+| `events` | the rota, and who is serving on it | `read: if volunteer() \|\| churchShow() \|\| youthGranted();` <br>(line 464) |
+| `services` | service plans | `read: if volunteer() \|\| churchShow() \|\| youthGranted();` <br>(line 702) |
+| `songs` | the song library | `read: if volunteer() \|\| churchShow() \|\| youthGranted();` <br>(line 503) |
+| `teamContent` | team panels | `read: if volunteer();` <br>(line 512) |
+| `videoSections` | the team video library | `read: if volunteer();` <br>(line 654) |
+| `kb_troubleshoot_av` | AV | `read: if volunteer();` <br>(line 489) |
+| `kb_howto_av` | AV | `read: if volunteer();` <br>(line 494) |
+| `kb_playthrough` | Worship | `read: if volunteer() \|\| (youthGranted() && resource.data.published == true);` <br>(line 682) |
+| `kb_training_worship` | Worship | `read: if volunteer() \|\| (youthGranted() && resource.data.published == true);` <br>(line 689) |
+| `inventory` | AV | `read: if volunteer();` <br>(line 714) |
+| `av_schematic` | AV | `read: if volunteer();` <br>(line 719) |
+| `schedules` | AV | `read: if volunteer();` <br>(line 724) |
+| `portal` | older shared team content | `read: if volunteer() \|\| (youthGranted() && docId == 'dashboardContent');` <br>(line 735) |
+| `pageContent` | older shared team content | `read: if volunteer();` <br>(line 741) |
+| `training_portal` | the practice copies - and this one is a WRITE as well | `read, write: if volunteer();` <br>(line 752) |
+| `contacts` | hirer and sign-up contacts: name, email, telephone, isMinor | `get, list: if volunteer();` <br>(line 855) |
+| `eventChecklists` | the admin's side of an event | `read: if volunteer();` <br>(line 1011) |
+| `checklistTemplates` | the admin's side of an event | `read: if volunteer();` <br>(line 1015) |
+| `eventLeaders` | who leads an event | `read: if volunteer();` <br>(line 1395) |
+| `safeguardingSettings` | safeguarding | `read: if volunteer();` <br>(line 1469) |
+| `counters` | invoice numbering | `read: if volunteer();` <br>(line 1913) |
+| `kidsSettings` | Kids Church | `read: if volunteer();` <br>(line 2008) |
+| `kidsGroups` | Kids Church | `read: if volunteer();` <br>(line 2017) |
+| `kidsTerms` | Kids Church term dates | `read: if volunteer();` <br>(line 2152) |
+| `screenPages` | paging a parent on the service screen | `read: if (churchShow() && resource.data.siteId == request.auth.token.siteId && resource.data.clearedAt == null) \|\| (volunteer() && resource.data.clearedAt == null) \|\| (active() && resource.data.createdBy == request.auth.uid) \|\| kidsLead(resource.data.siteId);` <br>(line 2201) |
 
 ## Open to any Attender
 
 | Collection | What it is | The rule |
 |---|---|---|
 | `hubPages` | the hub page registry - an Attender needs the hub at all | `read: if active();` <br>(line 363) |
-| `news` | church notices, and the "I have read it" button | `read: if active();` <br>(line 532) |
-| `resources` | the resource shelf | `read: if active();` <br>(line 631) |
-| `sites` | Book a room | `read: if active() \|\| activeRecord();` <br>(line 729) |
-| `rooms` | Book a room | `read: if active() \|\| activeRecord();` <br>(line 734) |
-| `bookableResources` | Book a room | `read: if active();` <br>(line 746) |
-| `venues` | Book a room | `read: if active();` <br>(line 753) |
-| `bookingSettings` | Book a room | `read: if active();` <br>(line 763) |
-| `menus` | what is on the menu, for a hire enquiry | `read: if active() \|\| activeRecord();` <br>(line 1510) |
-| `groupsSettings` | small groups | `read: if active();` <br>(line 2280) |
-| `smallGroups` | small groups - this is what resolves F-103 | `read: if (resource.data.get('visibility', 'public') == 'public' && resource.data.get('active', true) == true) \|\| active();` <br>(line 2284) |
+| `news` | church notices, and the "I have read it" button | `read: if active();` <br>(line 553) |
+| `resources` | the resource shelf | `read: if active();` <br>(line 671) |
+| `sites` | Book a room | `read: if active() \|\| activeRecord();` <br>(line 779) |
+| `rooms` | Book a room | `read: if active() \|\| activeRecord();` <br>(line 784) |
+| `bookableResources` | Book a room | `read: if active();` <br>(line 796) |
+| `venues` | Book a room | `read: if active();` <br>(line 803) |
+| `bookingSettings` | Book a room | `read: if active();` <br>(line 813) |
+| `menus` | what is on the menu, for a hire enquiry | `read: if active() \|\| activeRecord();` <br>(line 1560) |
+| `groupsSettings` | small groups | `read: if active();` <br>(line 2330) |
+| `smallGroups` | small groups - this is what resolves F-103 | `read: if (resource.data.get('visibility', 'public') == 'public' && resource.data.get('active', true) == true) \|\| active();` <br>(line 2334) |
 
 ## The address book
 

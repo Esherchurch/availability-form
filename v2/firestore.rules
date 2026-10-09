@@ -454,8 +454,14 @@ service cloud.firestore {
     // assignments, no leader and no speaker.
     match /events/{eventId} {
       // FINDINGS-churchshow.md R4: "events - already open; if it's ever
-      // closed, add churchShow()". This commit is what closes it.
-      allow read: if volunteer() || churchShow();
+      // closed, add churchShow()". That commit is what closed it.
+      //
+      // The youth app lists them to choose which service to plan, and marks
+      // the ones that are not youth services "view only". That means a young
+      // person sees who is serving, by name, on every service - no telephone
+      // number, no address, no email, because events carries none. Said out
+      // loud in YOUTH-ACCESS.md rather than left to be discovered.
+      allow read: if volunteer() || churchShow() || youthGranted();
       allow write: if isAdmin()
                    || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team']));
     }
@@ -493,7 +499,8 @@ service cloud.firestore {
 
     match /songs/{docId} {
       // The projection PC reads the words and the chords. See churchShow().
-      allow read: if volunteer() || churchShow();
+      // The youth app picks from the same library. See youthGranted().
+      allow read: if volunteer() || churchShow() || youthGranted();
       allow write: if isAdmin();
     }
 
@@ -512,8 +519,8 @@ service cloud.firestore {
     // writable only by the teams it belongs to, so a note pinned to the Kids
     // Church board is not church-wide reading.
 
-    match /worshipBoardState/{boardId} {
-      allow read, write: if isMaster()
+    function boardIsMine(boardId) {
+      return isMaster()
         || (boardId == 'kids-church'
             && (onTeam('Kids Church') || adminOf('Kids Church')))
         || (boardId == 'youth'
@@ -521,6 +528,20 @@ service cloud.firestore {
         || (boardId == 'state'
             && (onTeam('Worship Team') || onTeam('AV Team') || onTeam('Choir')
                 || adminOf('Worship Team')));
+    }
+
+    match /worshipBoardState/{boardId} {
+      // A young person READS the youth board and writes nothing. Not 'state':
+      // that is the worship team's, and the whole point of one document per
+      // board is that a note pinned to one is not church-wide reading.
+      //
+      // youthapp2.html read and wrote 'state' until 9 October 2026, which was
+      // wrong twice over - it showed the youth the worship team's board, and
+      // it would have been refused anyway for an adult on Youth Worship, who
+      // is not on Worship Team. It reads 'youth' now.
+      allow read: if boardIsMine(boardId)
+                  || (youthGranted() && boardId == 'youth');
+      allow write: if boardIsMine(boardId);
     }
 
     // ---- news ---------------------------------------------------------
@@ -556,6 +577,25 @@ service cloud.firestore {
     // redeemed once on the young person's own device, which is then bound to
     // an anonymous Firebase account. See YOUTH-ACCESS.md.
 
+    // WHAT THIS OPENS, and the list is deliberately short - it is every
+    // collection youthapp2.html asks for and no others. YOUTH-ACCESS.md says
+    // why each one is there.
+    //
+    //   songs                the library the planner picks from
+    //   services             the plans
+    //   events               which services there are, to choose one
+    //   portal/dashboardContent  the welcome panel
+    //   kb_playthrough       published articles only
+    //   kb_training_worship  published articles only
+    //   worshipBoardState/youth  the youth board, and NOT 'state', which
+    //                        belongs to the worship team
+    //
+    // READ ONLY, everywhere. A young person writes nothing: saving a plan,
+    // the board and the song library all need canAct('Youth Worship') or
+    // isAdmin() already, so this takes nothing away.
+    //
+    // AND NEVER addressBook. The church does not hold minors' email
+    // addresses and a young person's phone does not hold the adults'.
     function youthGranted() {
       return request.auth != null
              && exists(/databases/$(database)/documents/youthAccess/$(request.auth.uid))
@@ -636,12 +676,18 @@ service cloud.firestore {
     // Play-through and worship training sit alongside the two AV ones above.
 
     match /kb_playthrough/{docId} {
-      allow read: if volunteer();
+      // Published articles only. The youth app's query already asks for
+      // published == true, which is what lets a rule say so: for a list,
+      // Firestore allows a query whose own constraints guarantee the rule.
+      allow read: if volunteer()
+                  || (youthGranted() && resource.data.published == true);
       allow write: if canAct('Worship Team');
     }
 
     match /kb_training_worship/{docId} {
-      allow read: if volunteer();
+      // Published articles only, as above.
+      allow read: if volunteer()
+                  || (youthGranted() && resource.data.published == true);
       allow write: if canAct('Worship Team');
     }
 
@@ -652,7 +698,8 @@ service cloud.firestore {
 
     match /services/{serviceId} {
       // The projection PC reads the service plan. See churchShow().
-      allow read: if volunteer() || churchShow();
+      // The youth app reads it to plan a youth service. See youthGranted().
+      allow read: if volunteer() || churchShow() || youthGranted();
       allow write: if canAct('Worship Team') || canAct('Youth Worship');
     }
 
@@ -683,7 +730,10 @@ service cloud.firestore {
     // drafts. Readable by the team, changed by whoever manages something.
 
     match /portal/{docId} {
-      allow read: if volunteer();
+      // One document, the welcome panel the youth app draws on its home
+      // screen. Not the rest of the older shared content.
+      allow read: if volunteer()
+                  || (youthGranted() && docId == 'dashboardContent');
       allow write: if isAdmin();
     }
 

@@ -69,6 +69,37 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     name: 'Fresh Synthetic', email: 'attender2@example.invalid', markers: [] });
   await setDoc(doc(db, 'addressBook', 'm_attender3'), {
     name: 'Cached Synthetic', email: 'attender3@example.invalid', markers: ['Worship Team'] });
+  /* YOUTH ACCESS. Four devices, because four states have to be told apart
+     and only one of them is let in. No email address anywhere in any of
+     this: the church does not hold minors' addresses (YOUTH-ACCESS.md). */
+  const YEAR_ON = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+  const WEEK_AGO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  await setDoc(doc(db, 'youthAccess', 'u_youth_ok'), {
+    memberId: 'm_young', memberName: 'Young Synthetic', grantCode: 'AAAA-1111',
+    redeemedAt: WEEK_AGO, expiresAt: YEAR_ON, active: true });
+  await setDoc(doc(db, 'youthAccess', 'u_youth_expired'), {
+    memberId: 'm_young2', memberName: 'Lapsed Synthetic', grantCode: 'BBBB-2222',
+    redeemedAt: WEEK_AGO, expiresAt: WEEK_AGO, active: true });
+  await setDoc(doc(db, 'youthAccess', 'u_youth_off'), {
+    memberId: 'm_young3', memberName: 'Stopped Synthetic', grantCode: 'CCCC-3333',
+    redeemedAt: WEEK_AGO, expiresAt: YEAR_ON, active: false });
+  /* u_youth_none has no youthAccess document at all - an anonymous account
+     that never redeemed anything, which is what a stranger's phone is. */
+
+  await setDoc(doc(db, 'youthGrants', 'DDDD-4444'), {
+    memberId: 'm_young4', memberName: 'Waiting Synthetic', sentTo: 'parent@example.invalid',
+    issuedBy: 'u_martin', redeemedAt: null, uid: null, active: true });
+  await setDoc(doc(db, 'youthGrants', 'EEEE-5555'), {
+    memberId: 'm_young5', memberName: 'Used Synthetic', sentTo: 'parent@example.invalid',
+    issuedBy: 'u_martin', redeemedAt: WEEK_AGO, uid: 'u_someone', active: true });
+
+  /* What the youth app actually reads. */
+  await setDoc(doc(db, 'portal', 'dashboardContent'), { welcome: 'Hello youth' });
+  await setDoc(doc(db, 'worshipBoardState', 'youth'), { notes: [], pages: [] });
+  await setDoc(doc(db, 'kb_playthrough', 'kb_pub'), { title: 'Published', published: true });
+  await setDoc(doc(db, 'kb_playthrough', 'kb_draft'), { title: 'A draft', published: false });
+  await setDoc(doc(db, 'kb_training_worship', 'kbt_pub'), { title: 'Published', published: true });
+
   /* ChurchShow: one paired projection PC per site, and one switched off. */
   await setDoc(doc(db, 'devices', 'churchshow-site_main'), {
     kind: 'churchshow', siteId: 'site_main', active: true,
@@ -1713,6 +1744,91 @@ await check('a signed-in member without the claim gains nothing new', 'deny', ()
 await check('an admin can see what is paired', 'allow', () => getDoc(doc(as('martin'), 'devices', 'churchshow-site_main')));
 await check('a volunteer cannot', 'deny', () => getDoc(doc(as('samy'), 'devices', 'churchshow-site_main')));
 await check('and nobody reads a pairing code, ever', 'deny', () => getDoc(doc(as('martin'), 'deviceCodes', 'ab'.repeat(32))));
+
+/* ---- youth access (the reviewing window's launch blocker) ----------
+   youthGranted() was defined in these rules and used by nothing, so a young
+   person's phone - an anonymous account plus a youthAccess document - was
+   refused every collection youthapp2.html reads. The app would have opened
+   and shown an empty shell.
+
+   Four states, and only one of them is let in. YOUTH-ACCESS.md. */
+
+const youth = (uid) => env.authenticatedContext(uid, { provider_id: 'anonymous' }).firestore();
+const youthOk = () => youth('u_youth_ok');
+const youthExpired = () => youth('u_youth_expired');
+const youthOff = () => youth('u_youth_off');
+const youthNone = () => youth('u_youth_none');
+
+await check('a young person with a live code reads the song library', 'allow', () => getDocs(collection(youthOk(), 'songs')));
+await check('and one song', 'allow', () => getDoc(doc(youthOk(), 'songs', 'sg1')));
+await check('and the service plans', 'allow', () => getDocs(collection(youthOk(), 'services')));
+await check('and which services there are, to pick one', 'allow', () => getDocs(collection(youthOk(), 'events')));
+await check('and the welcome panel', 'allow', () => getDoc(doc(youthOk(), 'portal', 'dashboardContent')));
+await check('and the YOUTH pin board', 'allow', () => getDoc(doc(youthOk(), 'worshipBoardState', 'youth')));
+await check('and a published article', 'allow',
+  () => getDocs(query(collection(youthOk(), 'kb_playthrough'), where('published', '==', true))));
+await check('and the training one', 'allow',
+  () => getDocs(query(collection(youthOk(), 'kb_training_worship'), where('published', '==', true))));
+await check('and their own access record, so the app can greet them', 'allow',
+  () => getDoc(doc(youthOk(), 'youthAccess', 'u_youth_ok')));
+
+/* THE ONE THAT MATTERS MOST. */
+await check('BUT NEVER THE ADDRESS BOOK - not one record', 'deny', () => getDoc(doc(youthOk(), 'addressBook', 'm_u_samy')));
+await check('nor a list of it', 'deny', () => getDocs(collection(youthOk(), 'addressBook')));
+await check('nor the worship team\'s board', 'deny', () => getDoc(doc(youthOk(), 'worshipBoardState', 'state')));
+await check('nor the Kids Church board', 'deny', () => getDoc(doc(youthOk(), 'worshipBoardState', 'kids-church')));
+await check('nor an unpublished article', 'deny', () => getDoc(doc(youthOk(), 'kb_playthrough', 'kb_draft')));
+await check('nor a list that does not ask for published == true', 'deny', () => getDocs(collection(youthOk(), 'kb_playthrough')));
+await check('nor the rest of the older shared content', 'deny', () => getDoc(doc(youthOk(), 'portal', 'p_other')));
+await check('nor who can serve when', 'deny', () => getDoc(doc(youthOk(), 'availability', 'a1')));
+await check('nor anybody\'s account', 'deny', () => getDoc(doc(youthOk(), 'users', 'u_samy')));
+await check('nor another young person\'s access record', 'deny', () => getDoc(doc(youthOk(), 'youthAccess', 'u_youth_expired')));
+await check('nor the news', 'deny', () => getDoc(doc(youthOk(), 'news', 'n1')));
+await check('nor the resource shelf', 'deny', () => getDoc(doc(youthOk(), 'resources', 'r1')));
+
+/* READ ONLY, everywhere. Saving a plan has always needed
+   canAct('Youth Worship'), so this takes nothing away - it says so. */
+await check('IT WRITES NOTHING: not a service plan', 'deny', () => setDoc(doc(youthOk(), 'services', 's1'), { date: '2026-01-01' }));
+await check('not a new service plan either', 'deny', () => setDoc(doc(youthOk(), 'services', 's_new_youth'), { date: '2026-01-01' }));
+await check('not a song', 'deny', () => setDoc(doc(youthOk(), 'songs', 'sg1'), { title: 'Mine now' }));
+await check('not the youth board it can read', 'deny', () => setDoc(doc(youthOk(), 'worshipBoardState', 'youth'), { notes: [] }));
+await check('not its own access record, to extend itself', 'deny',
+  () => updateDoc(doc(youthOk(), 'youthAccess', 'u_youth_ok'), { expiresAt: new Date(Date.now() + 1e11) }));
+await check('and not the rota', 'deny', () => setDoc(doc(youthOk(), 'events', 'e1'), { date: 'x' }));
+
+/* THE OTHER THREE STATES. */
+await check('AN EXPIRED CODE gets nothing', 'deny', () => getDocs(collection(youthExpired(), 'songs')));
+await check('and nothing from the services', 'deny', () => getDocs(collection(youthExpired(), 'services')));
+await check('A CANCELLED CODE gets nothing', 'deny', () => getDocs(collection(youthOff(), 'songs')));
+await check('and nothing from the youth board', 'deny', () => getDoc(doc(youthOff(), 'worshipBoardState', 'youth')));
+await check('NO CODE AT ALL gets nothing', 'deny', () => getDocs(collection(youthNone(), 'songs')));
+await check('and cannot read the board', 'deny', () => getDoc(doc(youthNone(), 'worshipBoardState', 'youth')));
+await check('nor write itself an access record', 'deny',
+  () => setDoc(doc(youthNone(), 'youthAccess', 'u_youth_none'), {
+    grantCode: 'EEEE-5555', active: true, expiresAt: new Date(Date.now() + 1e11) }));
+
+/* REDEEMING. The code is the document id, so a direct get is the redemption
+   and listing is shut - nobody can fish for a live one. */
+await check('a code can be looked up by anybody who has it', 'allow', () => getDoc(doc(anon(), 'youthGrants', 'DDDD-4444')));
+await check('but the grants cannot be listed', 'deny', () => getDocs(collection(anon(), 'youthGrants')));
+await check('an admin lists them', 'allow', () => getDocs(collection(as('martin'), 'youthGrants')));
+await check('redeeming a live code writes an access record', 'allow',
+  () => setDoc(doc(youthNone(), 'youthAccess', 'u_youth_none'), {
+    memberId: 'm_young4', memberName: 'Waiting Synthetic', grantCode: 'DDDD-4444',
+    redeemedAt: serverTimestamp(), expiresAt: new Date(Date.now() + 1e11), active: true }));
+await check('a code already used cannot be redeemed again', 'deny',
+  () => setDoc(doc(youth('u_youth_second'), 'youthAccess', 'u_youth_second'), {
+    memberId: 'm_young5', memberName: 'Used Synthetic', grantCode: 'EEEE-5555',
+    redeemedAt: serverTimestamp(), expiresAt: new Date(Date.now() + 1e11), active: true }));
+await check('nor can an access record be written for somebody else\'s uid', 'deny',
+  () => setDoc(doc(youth('u_youth_third'), 'youthAccess', 'u_youth_ok'), {
+    memberId: 'm_young4', grantCode: 'DDDD-4444', active: true,
+    expiresAt: new Date(Date.now() + 1e11) }));
+
+/* And the other way round: a youth code is not a back door to anything a
+   volunteer has, and a volunteer does not become a young person. */
+await check('a volunteer still reads the worship board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'state')));
+await check('an Attender cannot read the youth board', 'deny', () => getDoc(doc(as('attender'), 'worshipBoardState', 'youth')));
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));

@@ -1244,6 +1244,22 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 const db = EGBCAuth.db;
 const storage = EGBCAuth.storage();
 
+/* WHO IS LOOKING AT THIS PAGE. Two quite different people use it: an adult
+   on the youth team, signed in to the hub, and a young person on their own
+   phone with an access code - an anonymous account and a youthAccess
+   document, no email address anywhere (YOUTH-ACCESS.md).
+
+   It matters here for one reason only: the "email the plan" button needs the
+   adults' email addresses, and a young person's phone must never hold them.
+   Martin's principle, and it is not negotiable. So the address book is read
+   only when a signed-in volunteer is looking, and the button is not offered
+   otherwise. Everything else on the page works for both. */
+function onTheYouthTeam() {
+  try {
+    return !!(window.EGBCAuth && EGBCAuth.isVolunteer && EGBCAuth.isVolunteer());
+  } catch (e) { return false; }
+}
+
 // ── STATE ──
 let currentSection = 'home';
 let sectionHistory = [];
@@ -1251,6 +1267,7 @@ let worshipLeaderName = '';
 let eventsForDay = [];
 let addressBook = [];
 let isYouthService = false;
+const YOUTH_BOARD = 'youth';
 let boardNotes = [];
 let boardPages = [{ id: 'main', title: 'General Board' }];
 let boardCurrentPage = 'main';
@@ -1375,10 +1392,22 @@ window.addEventListener('load', async () => {
   document.getElementById('service-order').addEventListener('input', e => { if (e.target.tagName.toLowerCase() === 'textarea') autoFitTextAreas(); });
   document.addEventListener('input', e => { if (['introBox','outroBox'].includes(e.target.id)) autoFitTextAreas(); });
 
-  try {
-    const snap = await db.collection('addressBook').get();
-    snap.forEach(d => { const data = d.data(); if (data.email) addressBook.push(data); });
-  } catch(e) {}
+  /* THE WHOLE ADDRESS BOOK USED TO BE READ HERE, unconditionally - every
+     adult's name, email address, telephone number and household, onto
+     whatever phone had the page open. It was only ever used to find the
+     email addresses for the "email the plan" button (see emailSchedule).
+     The names on the plan come from the rota table, not from here.
+
+     So it is read only for a signed-in volunteer, and a young person's phone
+     never asks for it at all. The rules refuse them anyway - youthGranted()
+     grants no addressBook, ever - but a page that asks and is refused is a
+     page that would work if somebody widened the rule by mistake. */
+  if (onTheYouthTeam()) {
+    try {
+      const snap = await db.collection('addressBook').get();
+      snap.forEach(d => { const data = d.data(); if (data.email) addressBook.push(data); });
+    } catch(e) {}
+  }
 
   loadNews();
   if (!localStorage.getItem('egbc_youth_hub_toured_home')) {
@@ -1666,14 +1695,32 @@ async function saveSchedule() {
     } else { order.push({ type:'item', title:b.querySelector('.item-title-input').value }); }
   });
   const serviceData = { date, worshipLeader:worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
-  const snap = await db.collection('services').where('date','==',date).get();
-  if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
-  else await db.collection('services').add(serviceData);
+  /* THIS HAD NO catch. Writing a service plan needs canAct('Youth Worship'),
+     which a young person is not and never was - so the write was refused, the
+     promise rejected, and the line below never ran. No alert, no error, no
+     sign that anything had happened at all: the plan looked saved and was
+     not. Said in words now, and the words say what to do next. */
+  try {
+    const snap = await db.collection('services').where('date','==',date).get();
+    if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
+    else await db.collection('services').add(serviceData);
+  } catch (e) {
+    alert(onTheYouthTeam()
+      ? 'That did not save. Check your internet connection and try again - nothing has been lost from the screen.'
+      : 'Only a youth leader can save the plan. Show them what you have put together and they will save it.');
+    return;
+  }
   alert('✅ Youth service saved successfully.');
 }
 
 async function emailSchedule() {
   if (!isYouthService) { alert('⚠️ This is not a youth service — cannot email.'); return; }
+  /* Nobody can be emailed from a phone that holds no addresses, and that is
+     the point rather than a limitation. A leader sends the plan. */
+  if (!onTheYouthTeam()) {
+    alert('A leader sends the plan out. Ask one of them, or save it and they will see it.');
+    return;
+  }
   const date = document.getElementById('serviceDate').value || 'TBC';
   const serviceNotes = document.getElementById('serviceTypeNotes').value || '';
   const introText = document.getElementById('introBox').value || '';
@@ -1805,7 +1852,12 @@ async function emailSchedule() {
 async function loadBoard() {
   document.getElementById('notes-list').innerHTML = '<div class="loading-state">Loading board...</div>';
   try {
-    const snap = await db.collection('worshipBoardState').doc('state').get();
+    /* 'youth', not 'state'. 'state' is the worship team's board, and one
+       document per board is how a note pinned to one stays with the team it
+       was pinned for. Reading 'state' here showed the youth the worship
+       team's notes, and would have been refused outright for an adult on
+       Youth Worship, who is not on the Worship Team. */
+    const snap = await db.collection('worshipBoardState').doc(YOUTH_BOARD).get();
     if (snap.exists) {
       const state = snap.data();
       boardNotes = state.notes || [];
@@ -1968,7 +2020,12 @@ function react(noteId, key) {
 async function saveBoardState() {
   const state = { notes: boardNotes, pages: boardPages };
   localStorage.setItem('worshipBoard2', JSON.stringify(state));
-  try { await db.collection('worshipBoardState').doc('state').set(state); } catch(e) {}
+  /* A young person may read this board and not write it, so a refusal here
+     is expected rather than a fault - the note stays in localStorage on their
+     own phone and a leader puts it up. Still worth one line on the console
+     rather than nothing at all. */
+  try { await db.collection('worshipBoardState').doc(YOUTH_BOARD).set(state); }
+  catch(e) { console.info('Board not saved to the church copy: ' + (e.code || e.message)); }
 }
 
 function openAddNote() { document.getElementById('add-note-modal').classList.add('open'); }

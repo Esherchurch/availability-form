@@ -157,6 +157,55 @@ for (const name of DEVICE) {
 const dev = (readRules('devices') || []).map(x => x.clause).join(' ');
 ok('what is paired is visible to an admin and nobody else', /isAdmin\(\)/.test(dev), dev);
 
+console.log('\nyouth access - where youthGranted() may and may not appear');
+
+/* The drift that would matter most is somebody adding `|| youthGranted()` to
+   the address book, or to a write. Both are one keystroke, and neither would
+   fail any other check - so this reads the file and names the only seven
+   places the helper is allowed to be. YOUTH-ACCESS.md says why each.
+
+   It also catches the opposite, which is the fault the reviewing window
+   found: the helper defined, and used by nothing at all. */
+const YOUTH_MAY_READ = ['songs', 'services', 'events', 'portal',
+                        'kb_playthrough', 'kb_training_worship', 'worshipBoardState'];
+
+const youthLines = [];
+for (let i = 0; i < lines.length; i++) {
+  const t = lines[i].trim();
+  if (!/youthGranted\(\)/.test(t)) continue;
+  /* the definition itself, and the comments explaining it, are not grants */
+  if (t.startsWith('//') || t.startsWith('function youthGranted')) continue;
+  let coll = '(top level)';
+  for (let j = i; j >= 0; j--) {
+    const m = lines[j].match(/^\s*match \/([A-Za-z_]+)\//);
+    if (m) { coll = m[1]; break; }
+  }
+  youthLines.push({ line: i + 1, coll, text: t });
+}
+
+ok('youthGranted() is used by something at all', youthLines.length > 0,
+  'defined, and used nowhere - which is exactly the launch blocker it was');
+
+for (const name of YOUTH_MAY_READ)
+  ok('a young person may read ' + name, youthLines.some(y => y.coll === name),
+    'found in: ' + youthLines.map(y => y.coll).join(', '));
+
+const strays = youthLines.filter(y => !YOUTH_MAY_READ.includes(y.coll));
+ok('and youthGranted() appears NOWHERE ELSE', strays.length === 0,
+  strays.map(y => y.coll + ' at line ' + y.line).join('; '));
+
+const youthWrites = youthLines.filter(y => /allow[^:]*\b(write|create|update|delete)\b/.test(y.text));
+ok('IT GRANTS NO WRITE, ANYWHERE', youthWrites.length === 0,
+  youthWrites.map(y => y.coll + ' at line ' + y.line).join('; '));
+
+const bookClause = (readRules('addressBook') || []).map(r => r.clause).join(' ');
+ok('NEVER the address book - no email addresses for under-18s, ever',
+  !/youthGranted/.test(bookClause), bookClause);
+
+const board = (readRules('worshipBoardState') || []).map(r => r.clause).join(' ');
+ok('and only the YOUTH board, not the worship or Kids Church one',
+  /youthGranted\(\) && boardId == 'youth'/.test(board), board);
+
 /* ---- the record ------------------------------------------------------- */
 
 if (process.argv.includes('--write')) {
