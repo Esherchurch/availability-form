@@ -192,7 +192,15 @@ const ALLOWED = ['www.gstatic.com', 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com
        usable means either the picker or the tool list is up. */
     ['hub.html', 'document.querySelectorAll("#toolList > *").length > 0 || /Which team today/i.test(document.body.innerText)'],
     ['view-only-rota.html', '!!document.body && document.body.innerText.length > 100'],
-    ['meeting.html', '!!document.getElementById("lobby") && document.body.innerText.length > 80']
+    ['meeting.html', '!!document.getElementById("lobby") && document.body.innerText.length > 80'],
+    /* The five the events window says already timed out on their
+       emulators, before this change. If my fix covers them, they are
+       fixed; if it does not, they were timing out for a reason of their
+       own and that is worth knowing rather than guessing. F-118. */
+    ['MonitorStageMap.html', 'document.body.innerText.length > 80'],
+    ['Planner.html', 'document.body.innerText.length > 150'],
+    ['SundayServicePlanner.html', 'document.body.innerText.length > 150'],
+    ['youthserviceplanner.html', 'document.body.innerText.length > 150']
   ]) {
     const r = await open(page, ready);
     ok(page + ' loads with no function reachable', r.done && r.blocked === '',

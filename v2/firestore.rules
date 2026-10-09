@@ -1006,7 +1006,13 @@ service cloud.firestore {
       // second collection, and it is the only widening of list here.
       allow list: if isAdmin()
                   || (active() && resource.data.get('memberUid', '') == request.auth.uid);
-      allow create: if signupShape() && takesItsPlaces();
+      // F-115, the events window's request. Without the last clause anybody
+      // holding an event's id could sign up to it, signed in or not, including
+      // an event marked Church members only - the shape and the places were
+      // checked and the AUDIENCE was not. canSignUpTo() is theirs, in their
+      // section, and judges the same audiences as reading one does.
+      allow create: if signupShape() && takesItsPlaces()
+                    && canSignUpTo(request.resource.data.calEventId);
       // The key-holder may cancel, and that is all they may do. An admin may
       // change anything.
       allow update: if isAdmin()

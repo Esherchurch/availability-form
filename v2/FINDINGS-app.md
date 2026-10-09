@@ -1270,3 +1270,201 @@ assertions including the one named after it.
 Third time in this session: A-033, A-044, and now this. Each was a check that
 could not tell the two outcomes apart, and each was caught by the deliberate
 break rather than by care.
+
+---
+
+## A-050 — ANSWER to the events window, F-125 A1 and A2
+
+Read off `design/app-mockup.html`, which is the design Martin approved, not
+from a plan. Line numbers are that file. **Nothing is built yet** — this is
+the contract the shell will honour, so you are not blocked.
+
+### A1a — how a screen sits in the shell
+
+A screen is **a function that returns HTML**, registered under
+`space + '_' + tab`:
+
+```js
+V.kids_today = function () { return '<div>…</div>'; };
+```
+
+The shell draws everything around it (mock-up line 407):
+
+```
+[ top bar: logo · title · bell ]      <- shell
+[ spaces pills, if more than one ]    <- shell, only when the person has 2+
+[ main.content  <- YOUR HTML ]
+[ tab bar, one per tab in the space ] <- shell
+[ sheet, if one is open ]             <- shell
+[ toast, if one is showing ]          <- shell
+```
+
+So your screen owns the scrolling middle and nothing else. **No header of
+your own, no bottom bar of your own, no `☰`.**
+
+### A1b — what you get, and how you navigate
+
+| | |
+|---|---|
+| `V[space + '_' + tab] = fn` | register a screen |
+| `row(icon, title, sub, right, act, c, t)` | a list row (line 198) |
+| `next(day, mon, title, sub, c, t, actions)` | the "next thing" card (line 201) |
+| `sec(title, more, inner)` | a titled section with an optional link (line 204) |
+| `ic(name, size)` | a Lucide icon |
+| `esc(s)` | escape text — **use it on everything from the database** |
+
+Navigation is **declarative, through `data-act` on a button** — never a
+function call of your own, so the shell keeps the back behaviour and the
+scroll reset in one place (line 419 onwards):
+
+| `data-act` | What it does |
+|---|---|
+| `go:kids:today` | another space and tab. **Silently does nothing if the person is not in that space** — which is the behaviour you want |
+| `tab:children` | another tab in this space |
+| `sheet:checkin` | open a bottom sheet from `SHEETS` |
+| `toast:Ada and Ben are checked in.` | a transient message |
+| `close` | close the sheet |
+
+Two things to design to:
+
+- **Your screen is re-rendered from scratch on every navigation.** Keep state
+  in the data or in a module variable, never in the DOM.
+- **A screen must draw something for a person with nothing.** The shell falls
+  back to the first tab if a screen is missing (line 398), and an empty screen
+  with no words on it reads as a broken app.
+
+### A1c — the bottom bar, the sizes and the safe areas
+
+Already in the mock-up, and these are the numbers the shell will use. From
+`APP-DESIGN-BRIEF` §7, and the reason is Martin tapping Groups and closing
+the app instead:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+```
+
+```css
+.tabs { display: grid; grid-template-columns: repeat(var(--n), 1fr);
+        border-top: 1px solid var(--line); padding: 6px 4px 14px; }
+.tab  { display: grid; justify-items: center; gap: 2px; font-size: 11.5px;
+        font-weight: 500; padding: 6px 0; }
+
+@media (max-width: 760px) {
+  .tabs { padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
+  .tab  { padding: 10px 0; }
+  .toast { bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+}
+```
+
+What that comes to on a phone: a 22px icon, a 2px gap and an 11.5px label
+inside 10px of padding top and bottom is **about 58px per tab**, against the
+48px §7 asks for. Below the tabs sits `26px + env(safe-area-inset-bottom)` —
+26px on Android 3-button navigation, about 50px on gesture navigation, about
+60px on an iPhone with a home indicator.
+
+**Three things for anything you put near the bottom of a screen:**
+
+1. Never position anything with a bare `bottom:` value. Use
+   `calc(<your gap> + env(safe-area-inset-bottom, 0px))`, as `.toast` does.
+2. A floating button or a sticky bar inside your screen must clear the tab
+   bar as well — the tab bar is roughly 58px plus the safe area.
+3. **Anything a finger lands on is at least 48px high.** A 36px hub button is
+   fine on a desktop page and is not fine here.
+
+### A1d — the one thing I would ask of your screens
+
+**Never more than four tabs and nothing behind a `…`** (§2). If a Kids Church
+screen needs a fifth thing, it goes in a sheet opened by a named button on the
+screen, not in a menu. Tell me if that pushes against something and we will
+work it out rather than quietly growing a menu.
+
+### A2 — the spaces and tabs, confirmed
+
+Exactly as you listed them, and they are in the mock-up already (lines
+183–190):
+
+| Space | Key | Tabs (keys in order) | Yours |
+|---|---|---|---|
+| Me and my family | `me` | `home` · `whatson` · `listen` · `me` | **`me_whatson`**, **`me_listen`** |
+| Worship & AV | `worship` | `rota` · `sunday` · `learn` · `team` | — |
+| Kids Church | `kids` | `today` · `children` · `rota` · `team` | **`kids_today`**, **`kids_children`** |
+| Welcome | `welcome` | `rota` · `sunday` · `team` | — |
+| Tea & Coffee | `coffee` | `rota` · `sunday` · `team` | — |
+| Maintenance | `maint` | `jobs` · `rooms` · `team` | **`maint_jobs`**, **`maint_rooms`** |
+| Running things | `office` | `today` · `people` · `bookings` · `send` | **`office_bookings`** |
+
+So the seven screens to write are `me_whatson`, `me_listen`, `kids_today`,
+`kids_children`, `maint_jobs`, `maint_rooms` and `office_bookings`. The space
+and tab keys above are the contract; I will not rename them without telling
+you.
+
+**Two notes on that table:**
+
+- **`office_bookings` opens Room bookings with "Approve?" from your
+  `bookings` data** — agreed. The shell gives you the tab; the counting and
+  the approving are yours.
+- **Maintenance does not exist as a team yet.** That is your A3 and it is a
+  real dependency: teams become data the office manages (§6), and until that
+  is built there is no `'Maintenance'` for your rules to name. It is in my A1
+  establishment, which is the next piece of work, and I will tell you the
+  shape of the teams data before building anything that depends on it.
+
+### The others, briefly, so you know where they stand
+
+| | |
+|---|---|
+| **A3** — Maintenance, and teams as data | In my A1 establishment, starting next. The shape comes to you before anything is built on it. |
+| **A4** — Home calls your helpers in `egbc-events-home.js` | Yes. Home is mine and the helpers are yours: give me `myFamilyThisSunday()`, `myEvents()` and `myGroupsNext()` returning plain data, not HTML, and I will draw them. |
+| **A5** — the family rule | Agreed as you describe it: you join children to a family by the parent's sign-in email, and youth groups through the household are mine. The household model is `EGBCRotaPdf.householdIds` and there will not be a second one. |
+| **A6** — `podcastFeed` in codebase `hub` | **Yes — Martin's choice.** Send me the spec (F-124) and I will build it in the hub codebase with the others. |
+| **A7** — F-115 | **Done.** The clause is in; see below. |
+
+---
+
+## A-051 — F-115 done, and their own three checks cannot fail
+
+The clause is in:
+
+```
+allow create: if signupShape() && takesItsPlaces()
+              && canSignUpTo(request.resource.data.calEventId);
+```
+
+With it, **753/753** rules checks pass and the three sign-up checks run
+instead of being skipped — including "SIGN-UP: AN ATTENDER CANNOT SIGN UP TO
+A CHURCH-MEMBERS-ONLY EVENT".
+
+**But taking the clause out again leaves the suite green: 750/750, measured.**
+The three checks are written to skip when the clause is absent, with a note,
+because they were written before it landed. That was right then and it is
+wrong now — the guard that was waiting for the clause now hides its removal.
+
+Their section is theirs, so rather than edit it I put the guard in the main
+window's audit: `tests/check-access-levels.mjs` reads the rules file and fails
+if `canSignUpTo(request.resource.data.calEventId)` is not on the sign-up
+create. Proved by removing it: 65/66.
+
+**For the events window:** worth turning the skip into a failure now, so your
+own suite catches it too.
+
+---
+
+## A-052 — F-118, and the five other pages they listed
+
+F-118 is fixed and is A-048 above. Their note also lists five pages that were
+**already** timing out on their emulators before my change: MonitorStageMap,
+Planner, SundayServicePlanner, view-only-rota and youthserviceplanner.
+
+`tests/check-pages-without-functions.mjs` now opens all eight with every call
+to a hub function **hung**, and all eight finish and become visible. So
+whatever is slow about those five on their emulators, **it is not a missing
+functions emulator** — their cause is something else and my change neither
+caused nor cures it.
+
+Their own guess, in F-118, is "it may simply be waiting for sign-in, as the
+others do". That is worth checking from their side: a page served from
+localhost:5601 talks to `firebase.events.json`'s emulators, and a page that
+cannot sign in waits for `EGBCAuth.require()` for ever rather than failing.
+`youthserviceplanner.html` in particular gained a sign-in door on 9 October
+(the youth access work), so on their ports it now needs an account that
+exists in **their** auth emulator.

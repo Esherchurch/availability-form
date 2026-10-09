@@ -158,6 +158,33 @@ for (const name of DEVICE) {
 const dev = (readRules('devices') || []).map(x => x.clause).join(' ');
 ok('what is paired is visible to an admin and nobody else', /isAdmin\(\)/.test(dev), dev);
 
+console.log('\nsign-ups check who an event is for (F-115)');
+
+/* The events window's own three checks for this are written to skip when the
+   clause is absent, so removing it leaves their suite green - measured, at
+   750/750 with it gone. This reads the file instead. */
+const signupClause = (readRules('signups') || []).map(r => r.clause).join(' ');
+const signupCreate = (() => {
+  const i = lines.findIndex(l => /^\s*match \/signups\//.test(l));
+  if (i < 0) return '';
+  let out = '';
+  for (let j = i; j < lines.length && j < i + 40; j++) {
+    if (/^\s*allow create:/.test(lines[j])) {
+      out = lines[j].trim();
+      let k = j;
+      while (!/;\s*$/.test(out) && k + 1 < lines.length) { k++; out += ' ' + lines[k].trim(); }
+      break;
+    }
+  }
+  return out.replace(/\s+/g, ' ');
+})();
+
+ok('there is a create rule for sign-ups at all', signupCreate !== '', signupCreate);
+ok('F-115: SIGNING UP CHECKS WHO THE EVENT IS FOR',
+  /canSignUpTo\(request\.resource\.data\.calEventId\)/.test(signupCreate), signupCreate);
+ok('and still checks the shape and the places',
+  /signupShape\(\)/.test(signupCreate) && /takesItsPlaces\(\)/.test(signupCreate), signupCreate);
+
 console.log('\nyouth access - where youthGranted() may and may not appear');
 
 /* The drift that would matter most is somebody adding `|| youthGranted()` to
