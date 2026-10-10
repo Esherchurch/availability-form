@@ -62,7 +62,7 @@ const APPROVED = [
     ['Events and rooms', [['Events'], ['Places'], ['Room bookings']]],
     ['Admin', [['Backup & Restore']]]
   ]],
-  ['Resources', [["Idea's pin board"], ['Apps and downloads'], ['Team Resources'], ['Team Videos']]]
+  ['Resources', [['Pin boards'], ['Apps and downloads'], ['Team Resources'], ['Team Videos']]]
 ];
 
 /* Taken out, and they must stay out.
@@ -538,7 +538,13 @@ const READ_MENU = `(() => {
   const differs = [], noMenu = [], broke = [], signedOut = [];
 
   for (const page of pages) {
-    const hasShell = /egbc-shell\.js/.test(fs.readFileSync(path.join(V2, page), 'utf8'));
+    /* A SCRIPT TAG, not a mention. This read the whole file for the name,
+       so a comment on youth-access.html saying it loads the UI helper
+       "rather than through egbc-shell.js" made the check believe it had a
+       shell, open a Menu that was never there, and report the page as
+       having lost one. A sentence about a file is not a load of it. */
+    const hasShell = /<script[^>]+src=["'][^"']*egbc-shell\.js/
+      .test(fs.readFileSync(path.join(V2, page), 'utf8'));
     if (!hasShell) {
       if (!NO_MENU[page]) noMenu.push(page + ' - has no shell and no reason given');
       continue;

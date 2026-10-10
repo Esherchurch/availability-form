@@ -166,7 +166,9 @@
       ] },
 
     { title: 'Resources', icon: 'folder-open', children: [
-      { title: "Idea's pin board", url: 'stickynotes.html', icon: 'sticky-note',
+      /* "Pin boards", plural, because there are five of them now and the old
+         name read as one (Martin, 10 Oct 2026). */
+      { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note',
         description: 'Anything anybody wants to raise' },
       { title: 'Apps and downloads', url: 'hubresources.html', icon: 'smartphone',
         description: 'Put the apps on your phone, and the files you may need' },

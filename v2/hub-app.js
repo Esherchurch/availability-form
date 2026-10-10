@@ -99,6 +99,10 @@ function openTeamPicker() {
 
 function chooseTeam(t) {
   TEAM = t;
+  /* Picking a team still moves the charter card with it. The card's own
+     switch is for reading the other one without moving the page; choosing a
+     team is the bigger act and overrides it. */
+  CHARTER_TEAM = null;
   localStorage.setItem(TEAM_KEY, t);
   document.getElementById('teamPicker').classList.remove('on');
   applyTeam();
@@ -278,6 +282,52 @@ const CHARTER_PAGE = {
 
 let CHARTER_OPEN = false;
 
+/* WHICH CHARTER THE CARD IS SHOWING, which is not the same as which team the
+   page is on. Somebody on Worship & AV and Youth Worship has two charters,
+   and reading the other one should not mean switching the whole page to the
+   other team - the rota, the panels and the notices all move with the team
+   picker, and none of that is wanted just to read a charter (Martin, 10 Oct
+   2026). So the card keeps its own choice, starting at the picked team's. */
+let CHARTER_TEAM = null;
+
+/* The charters this person can read, one entry per charter rather than one
+   per team: Worship Team and AV Team share the Worship & AV charter, and
+   Choir folds into Worship, so a member of two of those has ONE charter and
+   no switch at all. */
+function myCharters() {
+  const out = [], seen = {};
+  availableTeams().forEach(t => {
+    const cfg = CHARTER_PAGE[t];
+    if (!cfg || seen[cfg.id]) return;
+    seen[cfg.id] = true;
+    out.push({ team: t, id: cfg.id });
+  });
+  return out;
+}
+
+/* Switching is a read, so it redraws the card and touches nothing else. */
+function showCharter(team) {
+  CHARTER_TEAM = team;
+  CHARTER_OPEN = false;
+  loadCharter();
+}
+
+function renderCharterSwitch() {
+  const row = document.getElementById('charterSwitch');
+  if (!row) return;
+  const mine = myCharters();
+  /* One charter is no choice, and a row with a single button in it is
+     clutter that reads as a setting. */
+  if (mine.length < 2) { row.style.display = 'none'; row.innerHTML = ''; return; }
+  row.innerHTML = mine.map(m => {
+    const c = EGBCAuth.TEAMS[m.team] || { label: m.team, colour: 'var(--brand)' };
+    return `<button type="button" aria-pressed="${m.team === CHARTER_TEAM}"`
+      + ` onclick="showCharter('${esc(m.team)}')">`
+      + `<span class="dot" style="background:${c.colour}"></span>${esc(c.label)}</button>`;
+  }).join('');
+  row.style.display = '';
+}
+
 
 /* ---- CHARTER DEFAULTS ----------------------------------------------
    The charter pages hold their text as a default inside the file, so it
@@ -346,9 +396,12 @@ async function importAllCharters() {
 }
 
 async function importCharter() {
-  const cfg = CHARTER_PAGE[TEAM];
+  /* The charter the CARD is showing, not the team the page is on. Leaving
+     these as TEAM would have written one team's charter into another's
+     document the moment somebody switched the card and pressed Edit. */
+  const cfg = CHARTER_PAGE[CHARTER_TEAM];
   if (!cfg) return;
-  if (!EGBCAuth.isAdminOf(TEAM)) { alert('That is not one of your teams.'); return; }
+  if (!EGBCAuth.isAdminOf(CHARTER_TEAM)) { alert('That is not one of your teams.'); return; }
 
   const def = CHARTER_DEFAULTS[cfg.id];
   if (!def) { alert('There is no saved text for this team to bring across - write it here instead.'); return; }
@@ -363,15 +416,25 @@ async function importCharter() {
 
 async function loadCharter() {
   const card = document.getElementById('charterCard');
-  const cfg = CHARTER_PAGE[TEAM];
+
+  /* Start at the picked team's charter. If that team has none - Maintenance
+     has no charter - but another of this person's teams does, show that one
+     rather than an empty space where the card was. */
+  const mine = myCharters();
+  if (!CHARTER_TEAM || !CHARTER_PAGE[CHARTER_TEAM] || !mine.some(m => m.team === CHARTER_TEAM)) {
+    CHARTER_TEAM = CHARTER_PAGE[TEAM] ? TEAM : (mine[0] ? mine[0].team : null);
+  }
+
+  const cfg = CHARTER_PAGE[CHARTER_TEAM];
   if (!cfg) { card.style.display = 'none'; return; }
+  renderCharterSwitch();
 
   let d = null;
   try {
     d = (await db.collection('pageContent').doc(cfg.id).get()).data();
   } catch (e) { console.error('Charter load failed', e); }
 
-  const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM, colour: 'var(--brand)' };
+  const c = EGBCAuth.TEAMS[CHARTER_TEAM] || { label: CHARTER_TEAM, colour: 'var(--brand)' };
   document.getElementById('charterTeam').textContent = c.label;
   document.getElementById('charterTeam').style.color = c.colour;
   const link = document.getElementById('charterLink');
@@ -388,7 +451,7 @@ async function loadCharter() {
     /* The charter pages hold their text as a default in the file and only
        write to Firestore once someone edits there. So there may be nothing
        stored yet even though the page looks full. */
-    if (!EGBCAuth.isAdminOf(TEAM)) { card.style.display = 'none'; return; }
+    if (!EGBCAuth.isAdminOf(CHARTER_TEAM)) { card.style.display = 'none'; return; }
     document.getElementById('charterTitle').textContent = (d && d.title) || `${c.label} charter`;
     body.classList.remove('short');
     const canImport = !!CHARTER_DEFAULTS[cfg.id];
@@ -512,8 +575,8 @@ function toggleCharter() {
 }
 
 function editCharter() {
-  if (!EGBCAuth.isAdminOf(TEAM)) { alert('That is not one of your teams.'); return; }
-  document.getElementById('chModalTitle').textContent = `${TEAM} charter`;
+  if (!EGBCAuth.isAdminOf(CHARTER_TEAM)) { alert('That is not one of your teams.'); return; }
+  document.getElementById('chModalTitle').textContent = `${CHARTER_TEAM} charter`;
   document.getElementById('chTitle').value = document.getElementById('charterTitle').textContent || '';
   document.getElementById('chBody').value = htmlToText(CHARTER_HTML);
   document.getElementById('charterModal').classList.add('on');
@@ -526,7 +589,7 @@ function closeCharterEditor() {
 }
 
 async function saveCharter() {
-  const cfg = CHARTER_PAGE[TEAM];
+  const cfg = CHARTER_PAGE[CHARTER_TEAM];
   if (!cfg) return;
   const title = document.getElementById('chTitle').value.trim();
   const html = textToHtml(document.getElementById('chBody').value);

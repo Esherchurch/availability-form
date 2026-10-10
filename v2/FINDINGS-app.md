@@ -1974,3 +1974,84 @@ fingerprint of a dropped connection - splash still up, signed in, no profile
 
 See A-062. Not established, not fixed, and recorded so it is not rediscovered
 from scratch.
+
+## A-065 — the charter switch, and the pin board's
+
+Martin, 10 October 2026, two instructions of the same shape: somebody who
+belongs to two things should be able to see that, and move between them,
+without going somewhere else first.
+
+**The charter card keeps its own choice.** Somebody on Worship & AV and Youth
+Worship has two charters, and reading the other one used to mean switching
+team in the picker - which moves the rota, the panels, the notices and the
+tools with it. The card now has a row of buttons, one per charter, and
+pressing one redraws the card and nothing else. Picking a team in the picker
+still moves the card, because that is the bigger act.
+
+**One button per CHARTER, not per team.** Worship Team and AV Team share the
+Worship & AV charter and Choir folds into Worship, so somebody on two of
+those has one charter and gets no switch at all. Counting teams would have
+given them two buttons that do the same thing, which is the first deliberate
+break below.
+
+**Found while building it, and it would have been mine:** `importCharter`,
+`editCharter` and `saveCharter` all worked off `TEAM`. Once the card could
+show another team's charter, Edit would have opened the shown charter and
+**saved it into the picked team's document**. They follow `CHARTER_TEAM` now.
+
+**The pin board says "Switch board" in words.** It was a bare `<select>`
+carrying the current board's name, which reads as a title rather than a
+control. It now has the words and an icon, and it only appears when there is
+more than one board to go to. The Menu entry is "Pin boards" - plural, since
+there are five - which also changed `tests/check-menu.mjs`'s approved list,
+written out by hand so the check cannot agree with itself.
+
+### Deliberate breaks
+
+| Break | Caught by |
+|---|---|
+| count teams instead of charters | "Worship and AV share a charter, so still NO switch" |
+| switching the charter also switches team | "THE TEAM DID NOT" |
+| the control goes back to a bare title | "and it says what it does" |
+
+The first of these failed to apply at first - a CRLF anchor - and the suite
+came back 15/15, which I nearly reported as a break that passed. **A break
+that did not apply is not a break**, and the only thing that caught it was
+reading the applied-or-not line rather than the score.
+
+`tests/check-charter-switch.mjs`, **15/15**.
+
+## A-066 — two of Martin's five need the family rule, and are not built
+
+Of the five things asked for on 10 October, three are done (A-065 and the
+Menu rename). Two are **not**, and both for the same reason:
+
+- a young person on the youth band **and** the main band seeing their
+  main-rota dates and both charters in the Youth app
+- offering a parent the boards for **their family's** youth groups
+
+Both need to know who is in somebody's family. APP-A1.md established that
+this cannot be worked out on the phone: `householdIds` needs the whole
+address book, which is closed to Attenders since the privacy fix, and the
+export already exists server-side at `functions/rota-feed.js:75`. That is
+exactly `myFamily()`, the next piece of the app shell.
+
+They are listed here rather than half-built, because a family rule computed
+two ways is a privacy hole waiting for the two to disagree. **Martin's
+deliberate break for them - a youth-only young person must not see the
+Worship & AV charter - belongs with that work**, and is written down here so
+it arrives with it.
+
+## A-067 — the Menu check believed a comment
+
+Adding `egbc-ui.js` to `youth-access.html` in Step M came with a comment
+saying the page loads it directly "rather than through egbc-shell.js". The
+Menu check decided which pages have a Menu by reading the whole file for the
+string `egbc-shell.js`, so **the sentence about the file counted as a load of
+it**: the check opened a Menu that was never there and reported the page as
+having lost one.
+
+It now looks for a script tag with that `src`, which across all 86 pages
+changes exactly one verdict - this page - and leaves the other 62 as they
+were. A mention is not a load, and the same shape will catch anyone who
+writes about a file in a comment again.

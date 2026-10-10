@@ -231,6 +231,18 @@
                    border-radius:0 8px 8px 0;font-style:italic;color:var(--ink)}
   #charterBody.short{max-height:250px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 72%,transparent)}
 
+  /* One button per charter the person has, for somebody on more than one
+     team. A row of plain buttons rather than tabs, because it sits inside a
+     card that already has a header. 8px radius, 13px/500, the suite's
+     secondary button - DESIGN.md's shapes, so the style check is happy. */
+  .chswitch{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 0}
+  .chswitch button{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;
+    border:1px solid var(--line-2);background:#fff;cursor:pointer;
+    font:500 13px Inter,sans-serif;color:var(--body)}
+  .chswitch button:hover{background:#f3f4f6}
+  .chswitch button[aria-pressed="true"]{background:var(--tint);border-color:var(--brand);color:var(--brand)}
+  .chswitch .dot{width:8px;height:8px;border-radius:50%;flex:none}
+
   /* ---- meetings ---- */
   .meet{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
   .meet:last-child{border-bottom:0}
@@ -444,6 +456,12 @@
           <a id="charterLink" class="btn sm ghost" href="#">Open full page<i data-lucide="arrow-up-right" style="width:15px;height:15px"></i></a>
         </div>
       </div>
+      <!-- Somebody on two or more teams gets a charter each, and switching
+           between them should not mean switching the whole page. This row
+           appears only when there is more than one charter to show, and it
+           changes nothing else: the team picker, the rota and the panels
+           stay where they were (Martin, 10 Oct 2026). -->
+      <div class="chswitch" id="charterSwitch" style="display:none"></div>
       <div class="cb">
         <div class="rich" id="charterBody"></div>
       </div>

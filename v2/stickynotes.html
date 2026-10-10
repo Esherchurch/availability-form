@@ -52,11 +52,24 @@
   .header-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
   /* sync indicator */
-  .board-picker {
-    font-family: var(--font); font-size: 0.75rem; font-weight:600; color: var(--teal);
+  /* The words, the icon and the dropdown as one control, so "Switch board"
+     is the thing you press rather than a label beside something else. */
+  .board-switch {
+    display: inline-flex; align-items: center; gap: 7px;
     background: var(--teal-light); border: 1px solid var(--brand-ring);
-    border-radius: var(--r-sm); padding: 8px 14px; cursor: pointer;
+    border-radius: var(--r-sm); padding: 0 12px; min-height: 36px;
+    color: var(--teal); cursor: pointer;
+    font-family: var(--font); font-size: 13px; font-weight: 500;
   }
+  .board-switch:hover { border-color: var(--teal); }
+  .board-switch > span { white-space: nowrap; }
+  .board-picker {
+    font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--teal);
+    background: transparent; border: none; border-left: 1px solid var(--brand-ring);
+    padding: 7px 0 7px 10px; margin-left: 2px; cursor: pointer;
+  }
+  .board-picker:focus { outline: none; }
+  .board-switch:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px var(--brand-ring); }
 
   #syncDot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -272,8 +285,17 @@
     </div>
   </div>
   <div class="header-actions">
-    <select id="boardPicker" class="board-picker" style="display:none"
-            onchange="switchBoard(this.value)" title="Which board"></select>
+    <!-- "Switch board" IN WORDS, not just a dropdown. The picker was a bare
+         select carrying the current board's name, which reads as a title
+         rather than a control, so people on more than one board did not know
+         they could move between them (Martin, 10 Oct 2026). The words and
+         the icon say what it does; the select still does it. -->
+    <label class="board-switch" id="boardSwitch" for="boardPicker" style="display:none">
+      <i data-lucide="arrow-left-right" style="width:15px;height:15px"></i>
+      <span>Switch board</span>
+      <select id="boardPicker" class="board-picker"
+              onchange="switchBoard(this.value)"></select>
+    </label>
     <div id="syncDot" title="Sync status"></div>
     <span id="adminBadge" class="admin-badge" style="display:none">Admin</span>
     <button class="btn btn-primary" onclick="openNoteModal()"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:-2px"></i> Add Note</button>
@@ -487,6 +509,15 @@ let board = BOARDS[0];
 let BOARD_DOC = null;
 let LOCAL_KEY = 'worshipBoard2';
 
+/* STILL TO COME: a parent's family's youth groups.
+   Martin, 10 Oct 2026: "Offer only boards for the person's own teams and
+   their family's youth groups." The first half is below and always has
+   been. The second needs to know who is in somebody's family, which
+   APP-A1.md established cannot be worked out on the phone - householdIds
+   needs the whole address book, which is closed to Attenders. It arrives
+   with myFamily() and hooks in here, as one more clause (A-066). It is NOT
+   half-built, because a family rule computed two ways is a privacy hole
+   waiting for the two to disagree. */
 function canSee(b) {
   if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) {
     return b.id === 'worship';
@@ -621,12 +652,15 @@ function chooseBoard() {
   document.title = board.title;
 
   const pick = document.getElementById('boardPicker');
+  const sw = document.getElementById('boardSwitch');
   if (mine.length > 1) {
     pick.innerHTML = mine.map(b =>
       `<option value="${b.id}"${b.id === board.id ? ' selected' : ''}>${b.title}</option>`).join('');
-    pick.style.display = '';
+    if (sw) sw.style.display = '';
   } else {
-    pick.style.display = 'none';
+    /* One board is no choice, and a "Switch board" control with nothing to
+       switch to is worse than none. */
+    if (sw) sw.style.display = 'none';
   }
 }
 

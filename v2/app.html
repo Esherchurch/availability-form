@@ -187,7 +187,7 @@ function teamTeam(space, extra) {
       (k === 'youth'
         ? row('scroll-text', 'Our charter', 'What we are for, and how we work', null, 'open:Youthcharter.html')
         : '') +
-      row('sticky-note', 'Ideas pin board', 'Suggestions and ideas', null,
+      row('sticky-note', 'Pin boards', 'Suggestions and ideas', null,
           k === 'youth' ? 'open:stickynotes.html?board=youth' : 'open:stickynotes.html?board=' + k));
   });
 });
@@ -208,7 +208,7 @@ A.screen('worship', 'learn', function () {
 A.screen('worship', 'team', function () {
   return teamTeam('worship',
     row('scroll-text', 'Our team charter', 'What we are for, and how we work', null, 'open:Worshipteamcharter.html') +
-    row('sticky-note', 'Ideas pin board', 'Suggestions and ideas', null, 'open:stickynotes.html?board=worship') +
+    row('sticky-note', 'Pin boards', 'Suggestions and ideas', null, 'open:stickynotes.html?board=worship') +
     row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html') +
     row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html') +
     row('list-music', 'Song library', 'Every song we have', null, 'open:Library.html'));
