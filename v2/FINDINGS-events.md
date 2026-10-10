@@ -2925,3 +2925,44 @@ S-002 covers it. The event page should be part of that ten minutes.
    tap, which works either way.
 3. **Checklist item 7 (real devices):** please add the event page's Share
    to the list. It uses the same helper, so it's the same ten minutes.
+
+### F-149 — the index check (launch list item 2): nothing to add
+**The question:** the emulator runs any query, with or without a database
+index, so a missing index would only show after the switch-over, as "The
+query requires an index" on a live page.
+
+**The answer: none of my queries needs an index that isn't already in
+`firestore.indexes.json`.**
+- **483 queries read**, in 56 files: every file an "Events:" commit has
+  touched, except `egbc-auth.js` and `egbc-db.js`.
+- **Only one needs a composite index:** What's on's list (who can come,
+  from now on, soonest first). It's already in the file, and live since
+  8 Oct.
+- **Everything else** filters only by "equals" (the site, the day, the
+  group, the event), or by one field alone. Firestore serves both from its
+  automatic indexes.
+- **Where I chose this on purpose:** sorting is done on the page after
+  reading, not in the query, so no index is needed.
+
+**The functions I've asked the main window for** (N-4, F-139) were checked
+the same way, by reading my specs. Each reads by "equals" or by document
+id, so they need nothing either.
+
+**The check stays:** `screenshots/events/index-check.mjs`, in the full run.
+- **It reads the code** and applies Firestore's own rule: a query needs a
+  composite index when it sorts, or uses a range, on one field and also
+  filters or sorts on another.
+- **It fails** if any query needs an index the file lacks. It also fails if
+  it meets a filter it can't read as part of a query, rather than guess.
+- **6 deliberate breaks, all caught:**
+  - the What's on index missing
+  - the What's on index sorting the wrong way
+  - a query sorting by another field
+  - a query with a range on another field
+  - two forms of a query kept in a variable
+- **One of the six is cautious, not strictly needed:** a single range
+  filter on its own needs no index, but the check can't be sure, so it
+  says so.
+
+**For the main window:** nothing to deploy for me. If you'd like the
+same check over your own files, run it with `FILES=a.js,b.html`.
