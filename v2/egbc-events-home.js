@@ -10,11 +10,12 @@
 
    Built: myEvents() and myGroupsNext() for Home; officeQueue() and
    officeToday() for Running things (the Bookings tab draws the queue;
-   Today, the main window's, draws the counts). myFamilyThisSunday() comes
-   with the parents' Sunday (F-121).
+   Today, the main window's, draws the counts); myFamilyThisSunday() for
+   the parents' Sunday (F-121).
 
    Needs (loaded before it): egbc-auth.js, egbc-events.js,
-   egbc-events-groups.js (myGroupsNext), and for the office the rules alone.
+   egbc-events-groups.js (myGroupsNext), egbc-events-kids.js and
+   egbc-events-qr.js (myFamilyThisSunday), and for the office the rules alone.
    =================================================================== */
 
 (function (global) {
@@ -160,5 +161,54 @@
     });
   }
 
-  global.EGBCEventsHome = { myEvents: myEvents, myGroupsNext: myGroupsNext, officeQueue: officeQueue, officeToday: officeToday };
+  /* ---- "This Sunday, for parents" (F-121; Martin, A-K1) ----
+     The signed-in parent's own family or families, found by the email they
+     signed in with - the one on the registration form, or the second
+     parent's (N-6) - and only once that email is VERIFIED (the rules say
+     the same):
+       [{ familyId, siteId, parentName, familyCode, qrText, qrSvg,
+          children: [{ id, name, group, state: 'due'|'in'|'out', inAt, outAt }],
+          collectionCode, inCount, day }]
+     BEFORE ARRIVING: show qrText (or qrSvg, ready drawn) at the door. The
+     desk scans it, ticks who is here, and the labels print with the
+     morning's collection code - or show on the leader's screen if there is
+     no printer (A-K1). ONCE IN: collectionCode is that code, shown on the
+     phone. Children who have left the register are not shown. */
+  function myFamilyThisSunday() {
+    var u = (EGBCAuth.user && EGBCAuth.user()) || {}, K = global.EGBCKids, QR = global.EGBCEventsQR;
+    var email = String(u.email || '').toLowerCase();
+    if (!email || !u.emailVerified || !K) return Promise.resolve([]);
+    var day = today();
+    var fams = db().collection('kidsFamilies');
+    return Promise.all([fams.where('email', '==', email).get().catch(function () { return { docs: [] }; }),
+                        fams.where('email2', '==', email).get().catch(function () { return { docs: [] }; })]).then(function (r) {
+      var seen = {}, list = [];
+      r[0].docs.concat(r[1].docs).forEach(function (d) { if (!seen[d.id]) { seen[d.id] = 1; list.push(Object.assign({ id: d.id }, d.data())); } });
+      return Promise.all(list.map(function (f) {
+        return Promise.all([
+          db().collection('kidsChildren').where('familyId', '==', f.id).get().then(all, function () { return []; }),
+          db().collection('checkins').where('kind', '==', 'child').where('familyId', '==', f.id).where('day', '==', day).get().then(all, function () { return []; })
+        ]).then(function (x) {
+          var kids = x[0].filter(function (c) { return c.status !== 'left'; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+          var gids = {}; kids.forEach(function (c) { if (c.groupId) gids[c.groupId] = 1; });
+          return Promise.all(Object.keys(gids).map(function (g) {
+            return db().collection('kidsGroups').doc(g).get().then(function (s) { return [g, s.exists ? s.data().name || '' : '']; }, function () { return [g, '']; });
+          })).then(function (names) {
+            var gname = {}; names.forEach(function (n) { gname[n[0]] = n[1]; });
+            var cks = x[1], inNow = cks.filter(function (c) { return c.state === 'in'; });
+            var children = kids.map(function (c) {
+              var ck = cks.filter(function (k) { return k.signupKey === c.id || k.childId === c.id || (k.name === c.name && k.groupId === c.groupId); })[0];
+              return { id: c.id, name: c.name, group: gname[c.groupId] || '', state: ck ? (ck.state === 'in' ? 'in' : 'out') : 'due', inAt: ck ? ck.inAt || '' : '', outAt: ck ? ck.outAt || '' : '' };
+            });
+            var code = f.familyCode || '';
+            return { familyId: f.id, siteId: f.siteId || '', parentName: f.parentName || '', familyCode: code,
+                     qrText: code ? K.familyQR(code) : '', qrSvg: code && QR ? QR.svg(K.familyQR(code), 180) : '',
+                     children: children, collectionCode: inNow.length ? inNow[0].pickupCode || '' : '', inCount: inNow.length, day: day };
+          });
+        });
+      }));
+    });
+  }
+
+  global.EGBCEventsHome = { myEvents: myEvents, myGroupsNext: myGroupsNext, myFamilyThisSunday: myFamilyThisSunday, officeQueue: officeQueue, officeToday: officeToday };
 })(typeof window !== 'undefined' ? window : this);

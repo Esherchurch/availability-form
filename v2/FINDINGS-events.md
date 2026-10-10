@@ -2743,3 +2743,59 @@ to read their own family, so I've kept it as a stage of its own.
 5. **Home's helpers are ready:** `myEvents()`, `myGroupsNext()` and
    `officeToday()`, each plain data. `myFamilyThisSunday()` comes with F-121.
 6. **Share on WhatsApp** still waits for `egbc-share.js`.
+
+**F-141 item 4, answered (Martin, NEXT-BRIEF §25):** the main window is
+building group-based access to Running things. Anyone in a site's
+`bookingsAdmins` gets the Bookings tab automatically. `bookingsAdmins` stays
+as it is, and nothing changes on my side.
+
+### F-145 — what Parents' Sunday built (Home, "This Sunday, for parents"; F-121, Martin A-K1 and N-6)
+**How it works on a Sunday (A-K1):**
+- **Before arriving:** the parent's phone shows the **family code and its QR
+  code**. At the door, the desk scans it with the scanner it already has,
+  ticks who is here, and the labels print with that morning's collection
+  code (or show on the leader screen if there is no printer).
+- **Once in:** the phone shows **who is in and in which group, and the
+  collection code**.
+
+**Who sees it** (rules in my section, 16 new checks):
+- **A parent sees only their own family.** They are matched by the email on
+  the registration form, or the optional **second parent's email** (N-6c,
+  now on the form and kept on the family as `email2`), to the email they
+  sign in with.
+- **Only a verified sign-in email counts**, so nobody can claim a family by
+  typing its address.
+- **Signed in is enough:** a parent need not be in the address book (§21,
+  N-6b).
+- What a parent can read:
+  - their own family record
+  - their own children (names and groups)
+  - this morning's check-ins **for their own family only**, including the
+    collection code
+  - group names
+- **Never** another family's anything, nor the leaders' medical copy, and a
+  parent changes nothing.
+
+**`myFamilyThisSunday()`** (`egbc-events-home.js`) returns plain data for
+the main window's Home to draw:
+- the family code, its QR as text and **ready drawn** (an SVG)
+- each child with their group and whether due, in or gone home
+- the collection code once anyone is in
+- a child who has left the register is not shown
+- nothing medical
+
+**Tests:**
+- rules: 16
+- browser: `parents` (13), on the real shell's page, including the code on
+  the phone being the one the door's scanner reads, the second parent, a
+  parent not in the address book, an unverified sign-in seeing nothing, and
+  another parent never seeing this family's code
+
+**For the main window (Home):** call `EGBCEventsHome.myFamilyThisSunday()`
+and draw it:
+- "Show this at the door" with `qrSvg` and `familyCode`
+- the children, with "in" or "due"
+- **the collection code**, large, once `collectionCode` is set
+
+Load `egbc-events-kids.js` and `egbc-events-qr.js` before
+`egbc-events-home.js`.

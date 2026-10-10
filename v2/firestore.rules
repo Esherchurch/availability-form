@@ -2400,6 +2400,44 @@ service cloud.firestore {
                                 || getAfter(/databases/$(database)/documents/kidsMedical/$(childId)).data.groupId == request.resource.data.get('groupId', ''));
       allow delete: if false;
     }
+
+    // ---- PARENTS' SUNDAY (Home, "This Sunday, for parents"; F-121, A-K1) --
+    // A parent sees THEIR OWN family on their phone: the family's code (to
+    // show at the door), their children's names and groups, and this
+    // morning's check-ins with the collection code. Nothing else, nobody
+    // else's. A parent is matched by the email on the registration form,
+    // or the second parent's (Martin, N-6a and N-6c), to the email they
+    // signed in with - and only if that sign-in email is VERIFIED, so nobody
+    // can claim a family by typing its address. Signed in is enough: a
+    // parent need not be in the address book (§21).
+    function myVerifiedEmail() {
+      return signedIn() && request.auth.token.get('email_verified', false) == true
+             ? string(request.auth.token.get('email', '')).lower() : '';
+    }
+    function parentOfFamilyData(d) {
+      let e = myVerifiedEmail();
+      return e != '' && (d.get('email', '') == e || d.get('email2', '') == e);
+    }
+    function parentOf(familyId) {
+      return familyId is string && familyId != ''
+             && exists(/databases/$(database)/documents/kidsFamilies/$(familyId))
+             && parentOfFamilyData(get(/databases/$(database)/documents/kidsFamilies/$(familyId)).data);
+    }
+    match /kidsFamilies/{familyId} {
+      allow read: if parentOfFamilyData(resource.data);
+    }
+    match /kidsChildren/{childId} {
+      allow read: if parentOf(resource.data.get('familyId', ''));
+    }
+    match /checkins/{checkinId} {
+      allow read: if resource.data.get('kind', '') == 'child' && parentOf(resource.data.get('familyId', ''));
+    }
+    // A group's name and ages, for a parent's phone ("Little ones"). A group
+    // holds no child, no name of a leader (member ids only) and nothing
+    // medical.
+    match /kidsGroups/{groupId} {
+      allow read: if myVerifiedEmail() != '';
+    }
     // One child's medical details, from the private half of their form.
     match /kidsMedical/{childId} {
       // ...and the rota's Session Leader, that morning, for the children

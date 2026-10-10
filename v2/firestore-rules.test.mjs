@@ -1985,6 +1985,44 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a member does not', 'deny', () => getDoc(doc(as('samy'), 'notifyLog', 'nl_1')));
   await check('nobody writes the log from a page', 'deny', () => setDoc(doc(as('martin'), 'notifyLog', 'nl_2'), { type: 'test' }));
 }
+
+// ── EVENTS (events window) ── Parents' Sunday: a parent sees their own family on their phone (F-121, A-K1, N-6)
+{
+  const TODAY = new Date().toISOString().slice(0, 10);
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'kidsFamilies', 'fam_p'), { siteId: 'site_kids', parentName: 'Pat Parent', email: 'pat.parent@example.invalid', email2: 'sam.carer@example.invalid', familyCode: 'ABC234', collectors: ['Pat Parent'] });
+    await setDoc(doc(db, 'kidsFamilies', 'fam_o'), { siteId: 'site_kids', parentName: 'Other Parent', email: 'other.parent@example.invalid', familyCode: 'XYZ789', collectors: [] });
+    await setDoc(doc(db, 'kidsChildren', 'kc_p1'), { siteId: 'site_kids', familyId: 'fam_p', name: 'Ada Synthetic', groupId: 'kg_par', status: 'registered' });
+    await setDoc(doc(db, 'kidsChildren', 'kc_o1'), { siteId: 'site_kids', familyId: 'fam_o', name: 'Otto Synthetic', groupId: 'kg_par', status: 'registered' });
+    await setDoc(doc(db, 'checkins', 'ck_p1'), { kind: 'child', familyId: 'fam_p', siteId: 'site_kids', groupId: 'kg_par', day: TODAY, state: 'in', pickupCode: 'K7P2', name: 'Ada Synthetic' });
+    await setDoc(doc(db, 'checkins', 'ck_o1'), { kind: 'child', familyId: 'fam_o', siteId: 'site_kids', groupId: 'kg_par', day: TODAY, state: 'in', pickupCode: 'Q9R3', name: 'Otto Synthetic' });
+    await setDoc(doc(db, 'kidsMedical', 'kc_p1'), { siteId: 'site_kids', groupId: 'kg_par', allergies: 'invented' });
+    await setDoc(doc(db, 'kidsGroups', 'kg_par'), { siteId: 'site_kids', name: 'Little ones', years: ['Year 1'], ratio: 5, leaderIds: ['m_x'] });
+  });
+  /* The sign-in email may carry capitals; the form's is kept in lower case. */
+  const as_ = (uid, email, verified) => env.authenticatedContext(uid, { email, email_verified: verified !== false }).firestore();
+  const pat = () => as_('u_pat', 'Pat.Parent@example.invalid');
+  const sam = () => as_('u_samc', 'sam.carer@example.invalid');
+  const fake = () => as_('u_fake', 'pat.parent@example.invalid', false);
+  const stranger = () => as_('u_str', 'stranger@example.invalid');
+  await check('A PARENT FINDS THEIR OWN FAMILY BY THEIR SIGN-IN EMAIL', 'allow', () => getDocs(query(collection(pat(), 'kidsFamilies'), where('email', '==', 'pat.parent@example.invalid'))));
+  await check('and reads it', 'allow', () => getDoc(doc(pat(), 'kidsFamilies', 'fam_p')));
+  await check('THE SECOND PARENT TOO, by the second email (N-6c)', 'allow', () => getDocs(query(collection(sam(), 'kidsFamilies'), where('email2', '==', 'sam.carer@example.invalid'))));
+  await check('NOT ANOTHER FAMILY', 'deny', () => getDoc(doc(pat(), 'kidsFamilies', 'fam_o')));
+  await check('   nor every family', 'deny', () => getDocs(collection(pat(), 'kidsFamilies')));
+  await check('AN UNVERIFIED SIGN-IN WITH THE SAME ADDRESS GETS NOTHING', 'deny', () => getDoc(doc(fake(), 'kidsFamilies', 'fam_p')));
+  await check('a stranger gets nothing', 'deny', () => getDoc(doc(stranger(), 'kidsFamilies', 'fam_p')));
+  await check('the parent lists their own children', 'allow', () => getDocs(query(collection(pat(), 'kidsChildren'), where('familyId', '==', 'fam_p'))));
+  await check('NOT ANOTHER FAMILY’S CHILD', 'deny', () => getDoc(doc(pat(), 'kidsChildren', 'kc_o1')));
+  await check('this morning’s check-ins for their family, with the collection code', 'allow', () => getDocs(query(collection(pat(), 'checkins'), where('kind', '==', 'child'), where('familyId', '==', 'fam_p'), where('day', '==', TODAY))));
+  await check('NOT ANOTHER FAMILY’S COLLECTION CODE', 'deny', () => getDoc(doc(pat(), 'checkins', 'ck_o1')));
+  await check('   nor the whole morning', 'deny', () => getDocs(query(collection(pat(), 'checkins'), where('kind', '==', 'child'), where('day', '==', TODAY))));
+  await check('the medical copy stays with the leaders', 'deny', () => getDoc(doc(pat(), 'kidsMedical', 'kc_p1')));
+  await check('a parent changes nothing here', 'deny', () => updateDoc(doc(pat(), 'kidsFamilies', 'fam_p'), { familyCode: 'AAAAAA' }));
+  await check('a verified parent reads a group’s name', 'allow', () => getDoc(doc(pat(), 'kidsGroups', 'kg_par')));
+  await check('an unverified sign-in does not', 'deny', () => getDoc(doc(fake(), 'kidsGroups', 'kg_par')));
+}
 // ── end EVENTS ──
 // ── end EVENTS ──
 
