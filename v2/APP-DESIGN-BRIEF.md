@@ -55,7 +55,7 @@ Answers "what do I need to know this week?" In this order, each section shown on
 
 **The availability form is already a mobile form.** The app links to it ("My availability", and "Open the availability form" on a team's Rota tab). It never rebuilds it.
 - There is no "I can't make it", no accept/decline and no swaps (F-018).
-- Check every other screen the same way: if a v2 page already does the job, the app opens that page.
+- Check every other screen the same way: if a v2 page already does the job, the app opens that page **in app mode** (§7d), so the person never drops out of the app's look.
 
 ## 6. New things the design adds
 
@@ -126,6 +126,32 @@ Martin, opening app.html on his phone: *"thats not the app. thats the website."*
 - **Behind a switch that is OFF until switch-over** (e.g. a settings flag the office or Martin turns on), so nobody's installed hub changes while the app is being built. Add "turn on: installed hub opens the new app" to the launch checklist (NEXT-BRIEF §26).
 - Always leave a way back: the app's Me tab has "Open the full website" (hub.html?web=1, which skips the redirect).
 - **The old team apps** (EGBC Core Team, EGBC Worship Hub, EGBC Youth Hub) do the same at switch-over, behind the same switch: each opens the right space (Core Team → core, Worship Hub → worship, Youth Hub → youth). Their manifests are never changed either. The parity table in §7b must be green first.
+
+## 7d. It must look and feel like the mock-up, everywhere (Martin, 10 Oct 2026)
+
+Martin: *"you gave me a mock up of an app that i liked, and what you gave me in that link is not an app, it is the mobile version of the website."*
+
+**Why it feels like the website today:**
+1. **Almost every row is `open:somepage.html`**, so a tap leaves the app (`location.href`) and lands on the website page, with the website's top bar and Menu and no tab bar. The reviewing window's §5 wording ("the app opens that page") caused this. It meant *don't rebuild what a page does*, not *drop people out of the app*.
+2. **Home is still a placeholder** ("arrives in the next stages"), so the cards that made the mock-up feel like an app (You are serving, your family, your events, notices) aren't there.
+
+**The rule from now on:** the person never leaves the app's look. The app's header and its row of spaces stay, the tab bar stays, and a back arrow is always there.
+
+**A. Pages opened from the app open in "app mode".** No rebuilding: the page does the same job, dressed as the app.
+- `open:` goes to the page with `?app=1` (and the app remembers it in sessionStorage, so links inside the page keep it).
+- In app mode, `egbc-shell.js` **draws no website top bar, no Menu and no preview strip**. Instead it draws the app's own slim header: ← back to where you were in the app, and the page title. The app's tab bar is drawn at the bottom too, so a tap on Home takes you home.
+- Same colours, fonts, card style and safe-area padding as app.html. **Structure on the page itself doesn't change** (NEXT-BRIEF §15).
+- Test it on every page the app opens: in app mode there's no website bar or Menu, there's a back arrow and tab bar, and the page's main action still works.
+
+**B. Native screens for the everyday things in the mock-up**, drawn inside the app rather than opened as pages:
+- **Home**, as in the mock-up and §3: you are serving, this Sunday for parents (F-145), your family this week, your events, notices, your groups.
+- **A team's Rota tab**: my next dates and the team's coming Sundays, with "Open the availability form" (that one opens in app mode).
+- **This Sunday**: the order of service, read-only, with songs and the YouTube buttons.
+- **Pin boards**: the team's board, readable, with "Add an idea". The full board page opens in app mode for moving and archiving notes.
+- **Core Team Plan** (§7b): CoreTeamApp's phone planner, which was already a phone screen.
+- **Me**: details, household, calendar links, notifications, "Open the full website".
+
+**C. A side-by-side check.** For every screen in the mock-up (`design/app-mockup.html`), a screenshot of the real app at 375px next to the mock-up's, as the restyle did. Martin approves by looking, not by reading a report.
 
 ## 8. Who builds what
 
