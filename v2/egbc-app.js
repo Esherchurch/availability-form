@@ -207,10 +207,19 @@
 
   var V = {};          /* space_tab -> { draw, watch } */
   var stopWatching = null;
+  /* Which space_tab the live watcher belongs to, so a redraw of the same
+     screen leaves it alone. See the note in draw(). */
+  var watchingKey = null;
 
   function screen(space, tab, draw, watch) {
     V[space + '_' + tab] = { draw: draw, watch: watch || null };
   }
+
+  /* Is there a screen behind this tab? A row that leads to a tab nothing
+     has registered does nothing when tapped, which reads as a broken app -
+     so a screen that offers such a row asks first, rather than the row
+     being commented out and forgotten when the screen arrives. */
+  function has(space, tab) { return !!V[space + '_' + tab]; }
 
   /* A tab with no screen behind it is not drawn. A tab that leads nowhere
      is worse than a missing one: it reads as a broken app. */
@@ -307,12 +316,31 @@
        screen is re-rendered from scratch on every navigation, so an
        onSnapshot started inside draw() would be started again each time
        and never stopped (F-131). */
-    if (stopWatching) { try { stopWatching(); } catch (e) {} stopWatching = null; }
-    if (entry && entry.watch) {
-      var here = S.space, there = S.tab;
-      try {
-        stopWatching = entry.watch(function () { refresh(here, there); }) || null;
-      } catch (e) { console.warn('egbc-app: watch failed for ' + here + '_' + there, e); }
+    /* ONCE PER SCREEN, NOT ONCE PER DRAW (F-141.2, the events window).
+       This used to stop and restart the watcher on every draw - including
+       the redraws refresh() itself causes. A Firestore listener answers as
+       soon as it starts, so a screen that redraws on new data looped: draw,
+       watch, answer, refresh, draw. The events window worked around it by
+       not using watch() at all.
+
+       The watcher is keyed to the space and tab it was started for, and is
+       left alone while that is what is on screen. Navigating away stops it,
+       which is what F-131 promised. */
+    var hereKey = S.space + '_' + S.tab;
+    if (watchingKey !== hereKey) {
+      if (stopWatching) { try { stopWatching(); } catch (e) {} stopWatching = null; }
+      watchingKey = null;
+      if (entry && entry.watch) {
+        var here = S.space, there = S.tab;
+        try {
+          stopWatching = entry.watch(function () { refresh(here, there); }) || null;
+          watchingKey = hereKey;
+        } catch (e) { console.warn('egbc-app: watch failed for ' + hereKey, e); }
+      } else {
+        /* No watcher on this screen, but remember we are here, so moving
+           to a screen that has one still starts it. */
+        watchingKey = hereKey;
+      }
     }
   }
 
@@ -350,7 +378,7 @@
 
   global.EGBCApp = {
     SPACES: SPACES,
-    screen: screen, sheet: sheet, refresh: refresh, go: go, draw: draw,
+    screen: screen, has: has, sheet: sheet, refresh: refresh, go: go, draw: draw,
     who: who, spacesFor: spacesFor, tabsFor: tabsFor,
     esc: esc, ic: ic, row: row, sec: sec, next: next, card: card,
     head: head, empty: empty,

@@ -12,6 +12,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!-- Storage, for the events window's photos and the backup sermon audio
+     (F-141). egbc-auth.js points it at the emulator on localhost, but only
+     if it is loaded BEFORE that line runs - hence here. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610091200"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
@@ -79,6 +83,22 @@
   .next h4{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
   .next p{margin:2px 0 0;font-size:13px;color:var(--muted)}
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+
+  /* Pills and small notes, which the screens use and the shell owns
+     (F-141.3). The events window ships a :where() fallback so its screens
+     are never unstyled; these are plain selectors, so they win over it.
+     12px, not the mock-up's 11.5px - DESIGN.md's floor, and the style
+     check measures it.
+
+     A pill is a CHIP, not a control: a round-ended <span> saying "Today" or
+     "3 waiting". The style check flags a 999px radius only on buttons and
+     inputs, which is the distinction DESIGN.md draws too. */
+  .pill{display:inline-flex;align-items:center;font-size:12px;font-weight:600;
+        padding:3px 8px;border-radius:999px;white-space:nowrap;
+        background:var(--ok-bg,#ecfdf3);color:var(--ok,#15803d)}
+  .pill.warn{background:#fdf8ee;color:#b07d2e}
+  .pill.n{background:var(--tint,#eef5f4);color:var(--brand,#3d6263)}
+  .example{font-size:12px;color:var(--muted);text-align:center;margin:0}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;
        padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;
        border:1px solid var(--line-2);background:#fff;color:var(--ink)}
@@ -117,7 +137,27 @@
 <body>
 <div id="egbc-app"></div>
 
+<!-- THE EVENTS WINDOW'S SCREENS (F-141), in the order it asked for: its
+     shared libraries first, then its screens after the shell, because each
+     screen registers itself against EGBCApp. A screen mounted here replaces
+     the shell's interim "open the existing page" row for the same space and
+     tab, and adds the ones the shell had none for. -->
+<script src="egbc-church.js?v=202610101200"></script>
+<script src="egbc-email.js?v=202610101200"></script>
+<script src="egbc-ics.js?v=202610101200"></script>
+<script src="egbc-events.js?v=202610101200"></script>
+<script src="egbc-events-kids.js?v=202610101200"></script>
+<script src="egbc-events-checkin.js?v=202610101200"></script>
+<script src="egbc-events-bookings.js?v=202610101200"></script>
+<script src="egbc-events-groups.js?v=202610101200"></script>
+<script src="egbc-events-home.js?v=202610101200"></script>
 <script src="egbc-app.js?v=202610101200"></script>
+<script src="egbc-app-events.js?v=202610101200"></script>
+<script src="egbc-app-kids.js?v=202610101200"></script>
+<script src="egbc-app-listen.js?v=202610101200"></script>
+<script src="egbc-app-whatson.js?v=202610101200"></script>
+<script src="egbc-app-maint.js?v=202610101200"></script>
+<script src="egbc-app-office.js?v=202610101200"></script>
 <script>
 /* ---- the screens that open a page which already does the job -------
    APP-DESIGN-BRIEF §5, and A1 counted 11 of the mock-up's 24 this way.
@@ -136,12 +176,17 @@ A.screen('me', 'home', function (me) {
     + card(
         row('calendar-days', "What's on", 'Church events, and signing up', null, 'tab:whatson') +
         row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
+        /* The Listen row is back, because the events window's Listen screen
+           is mounted now (F-141). It was taken out in stage 1 for the right
+           reason - a row pointing at a tab with no screen behind it does
+           nothing - and the check caught that before anybody shipped it.
+           A.screen() decides: the row only appears if Listen is really
+           there, so this cannot go stale again. */
+        (A.has('me', 'listen')
+          ? row('headphones', 'Listen', 'Sermons and the songs for Sunday', null, 'tab:listen')
+          : '') +
         row('circle-user', 'Me', 'Your details, household and calendar', null, 'tab:me'))
-    /* NO LISTEN ROW IN THIS STAGE. There is no Listen screen registered
-       yet - the player is the events window's - and a row pointing at a tab
-       that does not exist is a row that does nothing. The check caught it:
-       the Me space draws three tabs, not four. */
-    + A.empty('hammer', 'Your rota, your family, your notices and Listen arrive in the next stages.');
+    + A.empty('hammer', 'Your rota, your family and your notices arrive in the next stages.');
 });
 
 A.screen('me', 'whatson', function () {
@@ -260,7 +305,15 @@ A.screen('office', 'bookings', function () {
 });
 
 /* Nothing starts until the guard says who this is. */
-document.addEventListener('egbc-ready', function () { EGBCApp.start(); });
+document.addEventListener('egbc-ready', function () {
+  /* The events window's screens go on BEFORE the first draw, so nobody sees
+     the shell's interim rows flash and be replaced (F-141). Guarded,
+     because the shell has to draw whether or not that file loaded. */
+  try {
+    if (window.EGBCAppEvents && EGBCAppEvents.mountAll) EGBCAppEvents.mountAll(EGBCApp);
+  } catch (e) { console.warn('app: the events screens did not mount', e); }
+  EGBCApp.start();
+});
 </script>
 </body>
 </html>

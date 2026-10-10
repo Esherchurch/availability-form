@@ -405,6 +405,66 @@ const offMachine = u => {
   ok('there is no hidden menu anywhere in the app',
     (await ev('document.body.innerText.indexOf("\\u2630")')) === -1);
 
+  /* ---- the events window's screens are really mounted (F-141) --------
+     Adding fifteen script tags and a mountAll() call looks finished whether
+     or not a single screen arrived: "every tab drawn has a screen behind
+     it" passes just as happily when the shell's own interim rows are all
+     there is. So this asks for the screens BY NAME.
+
+     It is written as what each space must offer, not as a count, because a
+     count passes when the wrong screen is mounted. */
+  console.log('\nthe events window\'s screens (F-141)');
+  ok('its mounting file loaded', (await ev('typeof EGBCAppEvents')) === 'object');
+  const mounted = JSON.parse(String(await ev(`JSON.stringify({
+    kids: ['today','children'].filter(t => EGBCApp.has('kids', t)),
+    me: ['whatson','listen'].filter(t => EGBCApp.has('me', t)),
+    maint: ['jobs','rooms'].filter(t => EGBCApp.has('maint', t)),
+    office: ['bookings'].filter(t => EGBCApp.has('office', t))
+  })`)));
+  ok('  Kids Church has Today and Children',
+    mounted.kids.join(',') === 'today,children', JSON.stringify(mounted.kids));
+  ok("  Me has What's on and Listen",
+    mounted.me.join(',') === 'whatson,listen', JSON.stringify(mounted.me));
+  ok('  Maintenance has Jobs and Rooms',
+    mounted.maint.join(',') === 'jobs,rooms', JSON.stringify(mounted.maint));
+  ok('  Running things has Bookings',
+    mounted.office.join(',') === 'bookings', JSON.stringify(mounted.office));
+  /* Martin tapped Listen in the mock-up and it was not there (stage 1 took
+     the row out on purpose). It comes back only when the screen does, and
+     this is what says so. */
+  ok('  Home offers Listen again, now there is something behind it',
+    String(await ev(`(() => { EGBCApp.go('me','home');
+      return (document.getElementById('egbc-content')||{}).innerHTML || ''; })()`)).includes('tab:listen'),
+    'the Home screen has no Listen row');
+
+  /* ---- a watcher is started once per screen, not once per draw -------
+     F-141.2: draw() used to stop and restart the watcher every time,
+     including the redraws refresh() itself causes - so a screen that
+     redraws on new data looped. The events window worked around it by not
+     using watch() at all, which is a workaround and not a fix. */
+  console.log('\nwatch() survives a redraw (F-141.2)');
+  const watchStory = JSON.parse(String(await ev(`JSON.stringify((() => {
+    let started = 0, stopped = 0;
+    /* START FROM SOMEWHERE ELSE. The first version registered the probe
+       while the app was already showing me/home, so going there changed
+       nothing and the watcher never started - which read as the fix being
+       broken when it was the probe. */
+    EGBCApp.go('me', 'whatson');
+    EGBCApp.screen('me', 'home', () => '<p>probe</p>', () => { started++; return () => { stopped++; }; });
+    EGBCApp.go('me', 'home');
+    const afterOpen = started;
+    EGBCApp.refresh('me', 'home');
+    EGBCApp.refresh('me', 'home');
+    EGBCApp.refresh('me', 'home');
+    const afterRedraws = started;
+    EGBCApp.go('me', 'whatson');
+    return { afterOpen, afterRedraws, stoppedOnLeaving: stopped };
+  })())`)));
+  ok('it starts when the screen opens', watchStory.afterOpen === 1, JSON.stringify(watchStory));
+  ok('THREE REDRAWS DO NOT START IT AGAIN', watchStory.afterRedraws === 1,
+    'started ' + watchStory.afterRedraws + ' times - a listener that answers on start would loop here');
+  ok('and leaving the screen stops it', watchStory.stoppedOnLeaving === 1, JSON.stringify(watchStory));
+
   /* ---- §7: the phone itself ----------------------------------------- */
   console.log('\nthe phone (§7)');
   ok('viewport-fit=cover is on the page',
