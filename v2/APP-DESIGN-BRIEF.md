@@ -108,6 +108,25 @@ Martin: *"why isnt there a core team area in the phone app? They will be doing t
 
 Anything with no home in the new app is a gap to fix before launch (NEXT-BRIEF §15: no lost functionality). The old apps stay installed and working until switch-over. **Never** retire them or change their manifest id, start_url or scope.
 
+## 7c. The app must be installable, and the old icon leads to it (Martin, 10 Oct 2026)
+
+Martin, opening app.html on his phone: *"thats not the app. thats the website."* He's right. **app.html has no manifest**, so it opens in the browser and can't be added to a home screen. It also means **no iPhone notifications** (§23), because iPhone only gives them to an installed app.
+
+**1. Its own manifest, now.** Add `manifest-app.json` and link it from app.html:
+- name and short_name: **"EGBC Hub"** (Martin's choice)
+- id: `/availability-form/v2/app.html`, start_url app.html, scope `/availability-form/v2/`, display standalone
+- the existing EGBC icons, and a theme colour from the shell
+- the apple-touch-icon and apple-mobile-web-app tags, as on hub.html
+- Installed, it opens straight to Home, signed in (§7). Test it installed on Android and an iPhone.
+- It's a **new** manifest with a **new** id. Existing manifests are never changed.
+
+**2. The installed "EGBC Hub" leads to the new app, at switch-over (Martin).**
+- People already have "EGBC Hub" installed, and it opens hub.html. **Don't change manifest-hub.json** (id, start_url or scope), or their installs break.
+- Instead, **hub.html sends a phone into app.html**: when it's running installed (display-mode standalone) on a phone-sized screen, it goes to app.html (location.replace). A computer, or a phone in the browser, keeps the website hub.
+- **Behind a switch that is OFF until switch-over** (e.g. a settings flag the office or Martin turns on), so nobody's installed hub changes while the app is being built. Add "turn on: installed hub opens the new app" to the launch checklist (NEXT-BRIEF §26).
+- Always leave a way back: the app's Me tab has "Open the full website" (hub.html?web=1, which skips the redirect).
+- **The old team apps** (EGBC Core Team, EGBC Worship Hub, EGBC Youth Hub) do the same at switch-over, behind the same switch: each opens the right space (Core Team → core, Worship Hub → worship, Youth Hub → youth). Their manifests are never changed either. The parity table in §7b must be green first.
+
 ## 8. Who builds what
 
 - **Main window:** the app shell (spaces, tabs, Home, Me, Running things, the family rule, the phone fixes) and **A-038** (what an Attender sees). It owns the hub and the shell.

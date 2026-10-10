@@ -254,6 +254,7 @@ The reviewing window adds to this list whenever a report says "before this goes 
 9. **The safeguarding lead confirms:** DBS and training periods (annual), the leader ratio (1:5), who reads each kind of "I'm worried about someone" concern, and how long concerns are kept.
 10. **Martin confirms the teams list** (APP-DESIGN-BRIEF §6).
 11. **App renames**, only if Martin approves (A-014).
+12. **Turn on "installed apps open the new app"** (APP-DESIGN-BRIEF §7c): the installed EGBC Hub, Core Team, Worship Hub and Youth Hub open the new app on a phone. Only after the §7b parity table is green.
 
 ## 25. Running things: the office chooses what each person sees (Martin, 10 Oct 2026)
 
