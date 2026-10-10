@@ -151,6 +151,15 @@ Martin: *"you gave me a mock up of an app that i liked, and what you gave me in 
 - **Core Team Plan** (§7b): CoreTeamApp's phone planner, which was already a phone screen.
 - **Me**: details, household, calendar links, notifications, "Open the full website".
 
+**A2. Every page the app opens must be phone width (Martin: "it isnt even phone width. It is the desktop version of the website in places").**
+- At 375px, no page opened from the app may scroll sideways, shrink to fit, or show a desktop layout (wide tables, side-by-side columns, hover-only controls).
+- The app currently opens about 25 pages: stickynotes, resources, index, meeting, hub, groups, bookings-admin, addressbook, worried, whatson, view-only-rota, safeguarding, rooms, maintenance, kids-checkin, kids-admin, the two charters, Library, EmailBuilder2, and the four EGBC-HowTo/Troubleshoot/PlayThrough/Training pages. **Screenshot each at 375px in app mode** and sort them into three lists:
+  1. **Phone-ready:** keep it, in app mode.
+  2. **Has a phone version already** in an old phone app (CoreTeamApp: service planner, rota, meetings, email compiler; worshiphubapp: its rota, songs and Sunday views; youthapp2): use that phone version, shared rather than copied.
+  3. **Desktop only:** don't open it from the app. Either draw a native phone screen for what a phone user needs (e.g. the rota as "my dates and the coming Sundays"), or leave it for the computer with a plain "This one is easier on a computer" row. Never drop someone onto a desktop page.
+- **Never "hub.html" from the app.** That's the website's home. Notices are drawn on the app's Home, and "Open the full website" on Me is the only way to the hub, and it says so.
+- Add a check: every `open:` target, at 375px in app mode, has no sideways scroll. It fails the build if one does.
+
 **C. A side-by-side check.** For every screen in the mock-up (`design/app-mockup.html`), a screenshot of the real app at 375px next to the mock-up's, as the restyle did. Martin approves by looking, not by reading a report.
 
 ## 8. Who builds what
