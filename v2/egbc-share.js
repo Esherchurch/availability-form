@@ -172,8 +172,21 @@
 
   function htmlToWhatsApp(html) {
     if (!html) return '';
-    var holder = doc.createElement('div');
-    holder.innerHTML = String(html);
+    /* A SEPARATE, INERT DOCUMENT - NOT createElement('div') (F-148).
+       A div made with createElement belongs to THIS page's document, so
+       `<img src=x onerror=…>` dropped into it RUNS, even though nothing is
+       ever shown and the div is never attached. The events window proved
+       it: their break 3 handed this helper uncleaned words and the bad
+       picture fired.
+       DOMParser builds a document of its own that loads nothing and runs
+       nothing, which is what egbc-editor.js already does.
+
+       THE HELPER CLEANS ITS OWN INPUT. The events window's pages clean
+       before calling, and notices rely on the editor having cleaned at
+       save time - but a shared helper that is only safe when every caller
+       remembers is not safe, it is lucky. */
+    var holder = new DOMParser().parseFromString(String(html), 'text/html').body;
+    if (!holder) return '';
     var pieces = [];
     walk(holder, pieces, 0);
     var lines = [];

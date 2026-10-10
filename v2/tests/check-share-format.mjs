@@ -151,6 +151,41 @@ const PAGE = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
   const js = String(await ev('EGBCShare.htmlToWhatsApp("<a href=\\"javascript:alert(1)\\">Press</a>")'));
   ok('a javascript: link is not passed on', !/javascript:/i.test(js), JSON.stringify(js));
 
+  /* ---- F-148: READING THE HTML MUST NOT RUN IT ----------------------
+     The helper used to parse into document.createElement('div'). A div
+     made that way belongs to the live document, so an <img src=x
+     onerror=…> inside it FIRES - never shown, never attached, still run.
+     The events window found it: their break 3 handed this uncleaned words
+     and the bad picture went off.
+
+     A shared helper that is only safe when every caller remembers to
+     clean first is not safe, it is lucky. This feeds it the nastiest
+     thing a notice could contain and watches for any sign of life. */
+  console.log('\nreading a notice must never run it (F-148)');
+  await ev('window.__ran = 0;');
+  const nasty = '<p>Before</p>'
+    + '<img src="x" onerror="window.__ran=1">'
+    + '<svg onload="window.__ran=2"></svg>'
+    + '<iframe src="javascript:window.__ran=3"></iframe>'
+    + '<p>After</p>';
+  const out2 = String(await ev('EGBCShare.htmlToWhatsApp(' + JSON.stringify(nasty) + ')'));
+  /* The image is given time to fail, because onerror is asynchronous: an
+     immediate check would pass even on the broken version. */
+  await sleep(900);
+  ok('NOTHING RAN', (await ev('window.__ran')) === 0,
+    'window.__ran became ' + (await ev('window.__ran')));
+  ok('  and the words either side still came through',
+    /Before/.test(out2) && /After/.test(out2), JSON.stringify(out2));
+  ok('  with no tag left in them', !/<\/?[a-z][^>]*>/i.test(out2), JSON.stringify(out2));
+
+  /* The same through format(), which is what a page actually calls. */
+  await ev('window.__ran = 0;');
+  await ev('EGBCShare.format({ title: "A notice", html: '
+    + JSON.stringify('<img src="y" onerror="window.__ran=9">') + ' })');
+  await sleep(900);
+  ok('  nor through format(), which is the way in a page uses',
+    (await ev('window.__ran')) === 0, 'window.__ran became ' + (await ev('window.__ran')));
+
   /* Trimming. A long notice is cut at a line break with "Read more:". */
   console.log('\na long notice');
   const long = { title: 'Long one', html: '<p>' + 'Words and words. '.repeat(90) + '</p>',

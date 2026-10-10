@@ -8,6 +8,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EGBC Hub</title>
 
+<!-- INSTALLABLE (§7c). Without a manifest this opened in the browser and
+     could not be added to a home screen - Martin: "thats not the app.
+     thats the website." It also meant no iPhone notifications (§23), which
+     only reach an installed app.
+
+     A NEW manifest with a NEW id. manifest-hub.json is untouched: people
+     already have "EGBC Hub" installed pointing at hub.html, and changing
+     its id, start_url or scope would break their install. How the installed
+     hub comes to lead here instead is §7c part 2, behind a switch that is
+     off until switch-over - not built here. -->
+<link rel="manifest" href="./manifest-app.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EGBC Hub">
+
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -153,7 +171,7 @@
 <script src="egbc-church.js?v=202610101200"></script>
 <script src="egbc-email.js?v=202610101200"></script>
 <script src="egbc-ics.js?v=202610101200"></script>
-<script src="egbc-events.js?v=202610101200"></script>
+<script src="egbc-events.js?v=202610101800"></script>
 <script src="egbc-events-kids.js?v=202610101200"></script>
 <script src="egbc-events-checkin.js?v=202610101200"></script>
 <script src="egbc-events-bookings.js?v=202610101200"></script>
@@ -163,7 +181,7 @@
 <script src="egbc-app-events.js?v=202610101200"></script>
 <script src="egbc-app-kids.js?v=202610101200"></script>
 <script src="egbc-app-listen.js?v=202610101200"></script>
-<script src="egbc-app-whatson.js?v=202610101200"></script>
+<script src="egbc-app-whatson.js?v=202610101800"></script>
 <script src="egbc-app-maint.js?v=202610101200"></script>
 <script src="egbc-app-office.js?v=202610101200"></script>
 <script>

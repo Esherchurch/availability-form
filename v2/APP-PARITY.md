@@ -195,3 +195,153 @@ rather than being something to invent:
 Home in Stage 2 uses the same two functions rather than a second copy, so a
 notice that has expired on the computer cannot still be showing on the
 phone. Checked in the code just now, not remembered.
+
+---
+
+# Part 2 — the 25 pages the app opens, at 375px (§7d A2)
+
+Martin: *"it isnt even phone width. It is the desktop version of the website
+in places."*
+
+`tests/check-app-opens-phone-width.mjs` opens every `open:` target the app
+has — read out of `app.html` and `egbc-app.js`, so a row added tomorrow is
+measured tomorrow — on a 375px phone profile, signed in with access to
+everything so each page draws itself rather than a refusal. Pictures in
+`screenshots/app-width/`.
+
+## What the measurement is worth, and what it is not
+
+It took three passes to produce a number I would put in front of anybody,
+and the first two were wrong in ways that read as good news:
+
+- **"0 of 25 draw the website bar or Menu."** The detector looked for
+  `.egbc-bar` and `#egbcBar`. The element is `#egbc-bar`. **22 of 25 draw
+  it** — everything except `hub.html`, `index.html` and `login.html`. A
+  detector that finds nothing looks exactly like a clean result.
+- **"24 of 25 fit."** True, and misleading: "fits" only meant the page does
+  not scroll sideways. `addressbook.html` passes that and shows
+  `adult.leader.secret@exampl` — an email cut off mid-word — and a
+  household menu reading `None / Ne`. Content clipped **inside** a
+  container is invisible to a page-level width check.
+- **The clipped-content check then reported the website bar's own page
+  title** (`Play-Through…`, `Address Book…`) as a fault. That ellipsis is
+  deliberate chrome, which app mode removes anyway. Excluded now.
+
+**I only caught the first two by opening the screenshots instead of
+believing my own output.** The measurement sorts the obvious cases; part C —
+you looking at the pictures — is what actually decides.
+
+## 1. Phone-ready: keep them, in app mode
+
+No sideways scroll, no desktop layout, nothing clipped. They need **app mode
+and nothing else**: the website bar off, the app's header and tab bar on.
+
+`EGBC-HowTo-AV.html` · `EGBC-PlayThrough.html` · `EGBC-Training-Worship.html` ·
+`EGBC-Troubleshoot-AV.html` · `Library.html` · `Worshipteamcharter.html` ·
+`Youthcharter.html` · `index.html` · `login.html` · `meeting.html` ·
+`resources.html` · `stickynotes.html` · `view-only-rota.html` ·
+`worried.html`
+
+`view-only-rota.html` is worth naming: I opened it as a control expecting
+trouble and it is genuinely good on a phone. The answer really is mixed
+rather than uniformly bad.
+
+### The events window's, and theirs to fix
+
+These eight are the events window's pages. All measure as phone-ready today,
+so they need app mode and no more — but they should see this list and judge
+their own by eye:
+
+`whatson.html` · `safeguarding.html` · `rooms.html` · `maintenance.html` ·
+`kids-checkin.html` · `kids-admin.html` · `bookings-admin.html` ·
+`groups.html`
+
+## 2. Has a phone version already — use that, shared not copied
+
+| Page the app opens today | The phone version that exists | Where it should go |
+|---|---|---|
+| `EmailBuilder2.html` | CoreTeamApp's **Email Compiler** section, with its drafts and mailing-list sheets | Core Team ▸ Team |
+| *(the desktop rota planner)* | CoreTeamApp's **Rota Planner** | Core Team ▸ Rota |
+| *(SundayServicePlanner)* | CoreTeamApp's **Service Planner** (`spInit`) | Core Team ▸ Plan |
+
+§7b already says these are moved or shared, never rewritten and never
+copied. **This is the same work**, which is why both halves are in one file.
+
+## 3. Desktop only — do not open from the app
+
+### `EmailBuilder2.html` — the one hard failure
+
+**+321px of sideways scroll at 375px**, and the picture is worse than the
+number: the formatting toolbar is cut off at the right, the email preview is
+wider than the screen, the "Send to" panel is clipped, and the reply-to box
+runs off the edge. `div#whoModal` alone is **696px** in a 375px window.
+
+It is category 2 as well as 3: CoreTeamApp already has a phone email
+compiler. **The app should open that, not this.** Until Core Team ▸ Team
+exists, the row should say "easier on a computer" rather than drop somebody
+here.
+
+### `hub.html` — not a width problem, a rule
+
+It measures as fitting, and §7d says plainly: **never open hub.html from the
+app.** It is the website's home. Notices belong on the app's Home, and
+"Open the full website" on Me is the only route there, saying so. The app
+currently has a row that opens it; that row goes when Home is built.
+
+### `addressbook.html` — fits, and should not be opened as it is
+
+No sideways scroll, but a **560px table in a 375px window**, so emails are
+clipped mid-word. A phone user wants to look somebody up and ring them, not
+edit the address book. **A native "find a person" screen** is the honest
+answer; the full page stays on the computer.
+
+## The check, and what it fails on
+
+`check-app-opens-phone-width.mjs` fails the build when any `open:` target
+scrolls sideways at 375px, which §7d A2 asks for. It is **failing now**, on
+`EmailBuilder2.html`, and will keep failing until that row stops pointing
+there — which is the point of a gate rather than a list.
+
+It also reports, without failing: which pages draw the website bar (22), the
+widest table on each, and any content clipped inside its box. Those are
+signs for the eye, not verdicts.
+
+## The off-screen-text measurement, and three goes at getting it right
+
+I wrote this detector **three times** and each wrong version returned
+"none" or "0" — which is indistinguishable from good news.
+
+1. It looked for `.egbc-bar`, an id that does not exist, and reported that
+   no page draws the website bar. Every one of them does.
+2. It compared each element's `scrollWidth` with its own `clientWidth` and
+   found nothing. The address book's emails are not clipped by their own
+   box: they sit in a 560px table that an ancestor clips, so each element
+   is simply positioned off the screen.
+3. It then caught only the website bar's page title — `Play-Through…`,
+   `Address Book…` — which is deliberate chrome that app mode removes.
+
+It now measures what a person actually sees: text whose right edge is past
+the right edge of the screen. **The only reason a clean bill of health
+never reached Martin is that I opened the screenshots instead of believing
+my own output.** When a measurement disagrees with a picture, the picture
+wins.
+
+What it finds now:
+
+| Page | Off the right edge |
+|---|---|
+| `EmailBuilder2.html` | "Your name is saved alongside…", "Hi team,…", "Start your update here…", the footer verse, `worship@esherchurch.org` |
+| `addressbook.html` | "Family…", "Instruments…" — the 560px table's headings |
+| `stickynotes.html` | "No notes yet — add the first…" |
+| `hub.html`, `login.html` | "Nothing new…" |
+
+**The last two rows are probably not faults, and I have not proved either
+way.** A pin board is a canvas you drag, so a note to the right of the
+screen is the point of it; and "Nothing new" on the hub and the sign-in page
+is likely an element parked off-screen on purpose. They are listed because
+hiding a result I cannot explain is how the first three versions of this
+check happened. **The first two rows are real**, and both pages are already
+in list 3 for other reasons.
+
+This is a **sign, not a gate**: the build fails only on sideways scroll,
+where the measurement is unambiguous.
