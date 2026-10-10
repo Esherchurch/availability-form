@@ -637,7 +637,9 @@ function chooseBoard() {
   const asked = new URLSearchParams(location.search).get('board');
   const wanted = mine.find(b => b.id === asked);
   if (asked && !wanted) toast('That board is another team\'s');
-  /* NO BOARD IS NO BOARD. Falling back to the first one showed someone with no board of their own     the Worship board (Martin, 10 Oct 2026, as a Kids Church member). Say so     plainly and draw nothing else. */
+  /* NO BOARD IS NO BOARD. Falling back to the first one showed someone with
+     no board of their own the Worship board (Martin, 10 Oct 2026). Say so
+     plainly and draw nothing else. */
   if (!mine.length) return noBoard();
   board = wanted || mine[0];
 
