@@ -33,13 +33,13 @@
   .btn.solid{background:var(--brand);color:#fff;border-color:var(--brand)}
   .btn.solid:hover{background:var(--brand-dark)}
   .btn.sm{height:32px;padding:0 12px}
-  #stage{flex:1;min-height:420px;border-radius:14px;overflow:hidden;background:#111827;position:relative}
+  #stage{flex:1;min-height:420px;border-radius:12px;overflow:hidden;background:#fff;border:1px solid var(--line);position:relative}
   #stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
   .msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-       color:#fff;text-align:center;padding:24px}
+       color:var(--ink);text-align:center;padding:24px}
   .msg .t{font-size:20px;font-weight:600}
-  .msg .s{font-size:14px;opacity:.75;max-width:420px;line-height:1.5}
-  .msg .btn{background:#fff;border-color:#fff;color:var(--ink)}
+  .msg .s{font-size:14px;color:var(--muted);max-width:420px;line-height:1.5}
+  .msg .btn{background:#fff;border-color:var(--line-2);color:var(--ink)}
   #lobby{width:100%;max-width:920px;margin:0 auto}
   body.lobby-mode .strip{width:100%;max-width:920px;margin:12px auto 0;box-sizing:border-box}
   .lab{font-size:12px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
@@ -89,12 +89,15 @@ const VIDEO_ROOMS = {
   'Eldership': 'Eldership', 'CMM': 'CMM', 'kids-ministries': 'Kids Ministries', 'interviews': 'Interviews',
 };
 
-/* EGBC colours on Daily's controls and backgrounds. */
+/* The site's own colours on Daily's controls and backgrounds (Martin: make
+   it look part of the page, not embedded). Daily Prebuilt only takes
+   colours, so these are the hub's tokens: white panels, the light canvas
+   behind the video, ink text, grey lines and the teal accent. */
 const THEME = { colors: {
   accent: '#3d6263', accentText: '#FFFFFF',
-  background: '#14201f', backgroundAccent: '#2e4c4d', baseText: '#FFFFFF',
-  border: '#3d6263', mainAreaBg: '#14201f', mainAreaBgAccent: '#2e4c4d',
-  mainAreaText: '#FFFFFF', supportiveText: '#c9d8d6',
+  background: '#FFFFFF', backgroundAccent: '#eef5f4', baseText: '#111827',
+  border: '#e5e7eb', mainAreaBg: '#f6f7f7', mainAreaBgAccent: '#eef5f4',
+  mainAreaText: '#111827', supportiveText: '#6b7280',
 } };
 
 const params = new URLSearchParams(location.search);
