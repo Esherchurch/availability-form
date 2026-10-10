@@ -211,7 +211,10 @@ Martin: *"we want it from the start."* Push notifications are **before switch-ov
   - **an urgent notice** from the office
 
   Each person chooses which they get. Email stays as the fallback for anyone without the app installed.
-- **Martin's one console step** (N-1): generate the Web Push key pair in Firebase → Project settings → Cloud Messaging. The reviewing window can do it in Chrome with his go-ahead.
+- **N-1 is DONE (10 Oct 2026).** The reviewing window generated the Web Push key pair in Firebase (Project settings → Cloud Messaging; Firebase Cloud Messaging API V1 is Enabled). The **public VAPID key**, which is safe in client code, is:
+  `BFrIuBbcmauGFmFx0w_E5HsNdGolDZErMT5xpxCgdoRNDe9kJeugCHi3MHjlGaqe2uAVnWD9wR_GQQl75OuGIK4`
+  The private half stays in Firebase; never ask for it.
+- **Both Android and iPhone from day one (Martin).** Android works in Chrome and when installed. iPhone works from iOS 16.4 once the hub is added to the Home Screen: detect an iPhone that hasn't added it, and show a short, friendly 'Add to Home Screen, then turn on notifications' guide with pictures. Test the real flow on both.
 - iPhone needs iOS 16.4+ and the app added to the Home Screen; the app should explain that in one friendly line when someone turns notifications on.
 
 ## 22. The phone app design is now BEFORE switch-over (Martin, 9 Oct 2026)
