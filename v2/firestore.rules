@@ -462,8 +462,102 @@ service cloud.firestore {
       // number, no address, no email, because events carries none. Said out
       // loud in YOUTH-ACCESS.md rather than left to be discovered.
       allow read: if volunteer() || churchShow() || youthGranted();
-      allow write: if isAdmin()
-                   || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team']));
+      // SAFEGUARDING IS A SEPARATE GATE, and it applies to admins too. The
+      // line above says who may touch the rota; safeguardingOk() says who
+      // may be put on it. A master admin is not exempt - the exception
+      // route is, which is the point of recording a reason.
+      allow write: if (isAdmin()
+                       || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team'])))
+                   && safeguardingOk();
+    }
+
+    // ---- SAFEGUARDING: teams that work with under-18s ------------------
+    // NEXT-BRIEF §24, Martin, 10 October 2026: "nobody without an in-date
+    // DBS check and training can be put on a ticked team's slot."
+    //
+    // THE SAME FIVE NAMES ARE IN egbc-auth.js (TEAMS, `under18: true`),
+    // because the rules cannot read that file and the interface cannot read
+    // these. tests/check-under18-teams-agree.mjs reads both and fails if
+    // they ever differ, so adding a team in one place tells you about the
+    // other. Creche is not here because it is not a team: the address book
+    // holds it as roles inside Kids Church.
+    function under18Teams() {
+      return ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu'];
+    }
+    function eventIsUnder18() {
+      return request.resource.data.get('teams', []).hasAny(under18Teams());
+    }
+
+    // In-date DBS and training, judged by checksInDate() - the events
+    // window's, against the years in Safeguarding settings (F-109). Reused
+    // rather than written again: one definition of "cleared" for the whole
+    // church, so the rota and the under-18s groups cannot drift apart.
+    //
+    // An exception is recorded by a master admin or the safeguarding lead
+    // with a reason, in rotaExceptions. UNLIKE the groups one, which is per
+    // group, this covers the person for under-18s rota work generally: a
+    // church rota is one thing, where a group is many.
+    function rotaCleared(memberId) {
+      return memberId is string && memberId != ''
+             && (checksInDate(memberId)
+                 || exists(/databases/$(database)/documents/rotaExceptions/$(memberId)));
+    }
+
+    // WHICH SLOT CHANGED, and it is the page that says so - proved on the
+    // emulator rather than assumed, because two things are not as they look:
+    // affectedKeys() returns a SET, which cannot be indexed ([0] gives
+    // "Function not found"), and indexing a map by a key that is not there
+    // is an evaluation error, so it fails closed.
+    //
+    // The page names the slot in lastSlot. It cannot lie: affectedKeys()
+    // must be exactly that one slot, so filling a different slot while
+    // naming an empty one is refused. There is no shadow list to trust.
+    function slotName() { return request.resource.data.get('lastSlot', ''); }
+    function slotsChanged() {
+      return request.resource.data.get('assignments', {})
+               .diff(resource.data.get('assignments', {})).affectedKeys();
+    }
+    function slotEmptied() {
+      return !(slotName() in request.resource.data.get('assignments', {}));
+    }
+    function personInSlot() {
+      return request.resource.data.assignments[slotName()].get('id', '');
+    }
+    function safeguardingOk() {
+      return !eventIsUnder18()
+             // A new under-18s event starts empty and is filled a slot at a
+             // time, so there is never a create to check. An event arriving
+             // complete would need one clearance per slot, and the document
+             // access limit does not allow that - the same reason F-109
+             // checks the one leader added rather than all of them.
+             || (resource == null
+                   ? request.resource.data.get('assignments', {}).keys().size() == 0
+                   : (slotsChanged().size() == 0
+                      || (slotsChanged().size() == 1 && slotsChanged().hasOnly([slotName()])
+                          && (slotEmptied() || rotaCleared(personInSlot())))));
+    }
+
+    // The exception, and who may record one: a master admin, or the
+    // safeguarding lead named in Safeguarding settings. A reason is
+    // required and has to be a sentence, not a shrug - the same shape and
+    // the same floor as smallGroupExceptions (F-109).
+    function sgLeadChurchwide() {
+      return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
+             && sgLeadOf(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', ''));
+    }
+    match /rotaExceptions/{memberId} {
+      // Anybody planning a rota needs to see why somebody is allowed on it,
+      // and the person themselves can see their own.
+      allow read: if volunteer();
+      allow create, update: if (isMaster() || sgLeadChurchwide())
+                   && memberId == request.resource.data.get('memberId', '')
+                   && request.resource.data.keys().hasOnly(['memberId', 'name', 'reason', 'by', 'byName', 'at'])
+                   && request.resource.data.reason is string
+                   && request.resource.data.reason.size() >= 10
+                   && request.resource.data.reason.size() <= 1000
+                   && request.resource.data.by == request.auth.uid
+                   && request.resource.data.at == request.time;
+      allow delete: if isMaster() || sgLeadChurchwide();
     }
 
     match /availability/{docId} {

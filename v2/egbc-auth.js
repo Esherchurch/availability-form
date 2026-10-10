@@ -172,14 +172,28 @@
      entirely, set by `adminFor` and `masterAdmin` on the address book
      record, so being on Core Team does not by itself grant them.            */
 
+  /* `under18` — WORKS WITH UNDER-18s (NEXT-BRIEF §24, Martin, 10 Oct 2026).
+     Nobody goes on a ticked team's rota slot without an in-date DBS check
+     and safeguarding training, or an exception recorded with a reason.
+
+     THE RULES CANNOT READ THIS FILE, so firestore.rules carries the same
+     five names in under18Teams(). Two copies of one truth is how a gate
+     quietly stops covering a team, so tests/check-under18-teams-agree.mjs
+     reads both and fails if they ever differ. Add a team in one place and
+     that check tells you about the other.
+
+     CRECHE IS NOT A TEAM. Martin's list names it, but the address book
+     holds it as roles inside Kids Church - "Leader (Creche)" and "Assistant
+     (Creche)" - so ticking Kids Church already covers every creche worker.
+     Nothing was invented to match the list. */
   var TEAMS = {
     'Worship Team':  { label: 'Worship',      colour: '#3d6263' },
     'AV Team':       { label: 'AV',           colour: '#4a5f7a' },
     'Choir':         { label: 'Choir',        colour: '#7a4a5f', parent: 'Worship Team' },
-    'Youth Worship': { label: 'Youth',        colour: '#5f7a4a' },
-    'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a' },
-    'Lazers':        { label: 'Lazers',       colour: '#8a4a3d' },
-    'ReNu':          { label: 'ReNu',         colour: '#3d6b5f' },
+    'Youth Worship': { label: 'Youth',        colour: '#5f7a4a', under18: true },
+    'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a', under18: true },
+    'Lazers':        { label: 'Lazers',       colour: '#8a4a3d', under18: true },
+    'ReNu':          { label: 'ReNu',         colour: '#3d6b5f', under18: true },
     'Core Team':     { label: 'Core Team',    colour: '#6b4a7a' },
     /* A3, for the events window: the people who fix things. The colour is
        the one the approved app mock-up uses for the Maintenance space

@@ -2316,6 +2316,136 @@ await check('and a Lazers leader cannot touch a ReNu post', 'deny',
   () => deleteDoc(doc(as('lazersLead'), 'boardSuggestions', 'renu__theirs')));
 
 
+/* ---- safeguarding: nobody uncleared on an under-18s team's rota -----
+   NEXT-BRIEF §24, Martin, 10 October 2026. The teams ticked at launch are
+   Kids Church, Youth Worship, Lazers and ReNu. Creche is not among them
+   because it is not a team: the address book holds it as roles inside Kids
+   Church, so ticking Kids Church covers every creche worker.
+
+   "Cleared" is the events window's definition (F-109, checksInDate):
+   dbsStatus current, dbsSeen within dbsYears, trainingDate within
+   trainingYears. Reused rather than written again, so the rota and the
+   under-18s groups cannot drift apart about who is cleared.
+
+   HOW THE RULE KNOWS WHICH SLOT CHANGED, proved on the emulator before it
+   was written: assignments.diff(...).affectedKeys() returns a SET, which
+   cannot be indexed, and indexing a map by an absent key is an evaluation
+   error - so it fails closed. The page names the slot it changed in
+   `lastSlot` and cannot lie about it, because affectedKeys() must be
+   exactly that slot. */
+
+const TODAY = new Date();
+const ymd = (d) => d.toISOString().slice(0, 10);
+const yearsBack = (n) => ymd(new Date(TODAY.getFullYear() - n, TODAY.getMonth(), TODAY.getDate()));
+
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 'safeguardingSettings', 'defaults'), {
+    dbsYears: 3, trainingYears: 3, leadSiteId: 'site_main', requireChecks: true });
+  await setDoc(doc(db, 'bookingSettings', 'site_main'), {
+    safeguardingLead: 'm_u_karen', safeguardingDeputy: '' });
+
+  /* Three people, one of each kind. */
+  await setDoc(doc(db, 'leaderChecks', 'm_cleared'), {
+    dbsStatus: 'current', dbsSeen: yearsBack(1), trainingDate: yearsBack(1) });
+  await setDoc(doc(db, 'leaderChecks', 'm_expired'), {
+    dbsStatus: 'current', dbsSeen: yearsBack(9), trainingDate: yearsBack(1) });
+  /* m_nodbs has NO leaderChecks record at all - the commonest case, and the
+     one Martin named: a Youth Worship leader with no DBS. */
+
+  /* A youth rota slot and a worship one, so the same write can be shown to
+     be refused on the first and allowed on the second. */
+  await setDoc(doc(db, 'events', 'ev_youth'), {
+    date: '2026-11-01', teams: ['Youth Worship'], assignments: {}, lastSlot: '' });
+  await setDoc(doc(db, 'events', 'ev_youth2'), {
+    date: '2026-11-08', teams: ['Youth Worship'], assignments: {}, lastSlot: '' });
+  await setDoc(doc(db, 'events', 'ev_youth3'), {
+    date: '2026-11-15', teams: ['Youth Worship'],
+    assignments: { Guitar: { id: 'm_cleared', name: 'Cleared Person' } }, lastSlot: 'Guitar' });
+  await setDoc(doc(db, 'events', 'ev_youth4'), {
+    date: '2026-11-22', teams: ['Youth Worship'], assignments: {}, lastSlot: '' });
+  await setDoc(doc(db, 'events', 'ev_youth5'), {
+    date: '2026-11-29', teams: ['Youth Worship'], assignments: {}, lastSlot: '' });
+  await setDoc(doc(db, 'events', 'ev_kids'), {
+    date: '2026-11-01', teams: ['Kids Church'], assignments: {}, lastSlot: '' });
+  await setDoc(doc(db, 'events', 'ev_worship'), {
+    date: '2026-11-01', teams: ['Worship Team'], assignments: {}, lastSlot: '' });
+  await setDoc(doc(db, 'events', 'ev_except'), {
+    date: '2026-12-06', teams: ['Youth Worship'], assignments: {}, lastSlot: '' });
+});
+
+/* THE ONE MARTIN NAMED. */
+await check('a Youth Worship leader with NO DBS cannot be put on the youth rota', 'deny',
+  () => updateDoc(doc(as('isla'), 'events', 'ev_youth'),
+    { assignments: { Guitar: { id: 'm_nodbs', name: 'No DBS' } }, lastSlot: 'Guitar' }));
+
+await check('nor can one whose DBS has run out', 'deny',
+  () => updateDoc(doc(as('isla'), 'events', 'ev_youth2'),
+    { assignments: { Guitar: { id: 'm_expired', name: 'Expired' } }, lastSlot: 'Guitar' }));
+
+await check('a cleared person goes on it', 'allow',
+  () => updateDoc(doc(as('isla'), 'events', 'ev_youth4'),
+    { assignments: { Guitar: { id: 'm_cleared', name: 'Cleared Person' } }, lastSlot: 'Guitar' }));
+
+await check('taking somebody off a youth slot is always allowed', 'allow',
+  () => updateDoc(doc(as('isla'), 'events', 'ev_youth3'), { assignments: {}, lastSlot: 'Guitar' }));
+
+await check('a master admin is NOT exempt - the exception route is', 'deny',
+  () => updateDoc(doc(as('martin'), 'events', 'ev_youth5'),
+    { assignments: { Guitar: { id: 'm_nodbs', name: 'No DBS' } }, lastSlot: 'Guitar' }));
+
+await check('Kids Church is ticked too', 'deny',
+  () => updateDoc(doc(as('samy'), 'events', 'ev_kids'),
+    { assignments: { Helper: { id: 'm_nodbs', name: 'No DBS' } }, lastSlot: 'Helper' }));
+
+/* A team that is NOT ticked is untouched by any of this. */
+await check('a team that works with adults is not affected', 'allow',
+  () => updateDoc(doc(as('samy'), 'events', 'ev_worship'),
+    { assignments: { Guitar: { id: 'm_nodbs', name: 'No DBS' } }, lastSlot: 'Guitar' }));
+
+/* THE SLOT CANNOT BE LIED ABOUT. Filling one slot while naming another is
+   how a shadow field would have been walked around; affectedKeys() has to
+   be exactly the named slot. */
+await check('naming one slot while filling another is refused', 'deny',
+  () => updateDoc(doc(as('isla'), 'events', 'ev_youth'),
+    { assignments: { Drums: { id: 'm_nodbs', name: 'No DBS' } }, lastSlot: 'Guitar' }));
+
+await check('two slots at once is refused, even if one is cleared', 'deny',
+  () => updateDoc(doc(as('isla'), 'events', 'ev_youth'),
+    { assignments: { Guitar: { id: 'm_cleared', name: 'Cleared' }, Drums: { id: 'm_nodbs', name: 'No DBS' } },
+      lastSlot: 'Guitar' }));
+
+/* THE EXCEPTION, and who may record one. */
+await check('a team leader cannot record a safeguarding exception', 'deny',
+  () => setDoc(doc(as('isla'), 'rotaExceptions', 'm_nodbs'),
+    { memberId: 'm_nodbs', name: 'No DBS', reason: 'He is very nice and we are short handed',
+      by: 'u_isla', byName: 'Isla', at: serverTimestamp() }));
+
+await check('an exception with no real reason is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'rotaExceptions', 'm_nodbs'),
+    { memberId: 'm_nodbs', name: 'No DBS', reason: 'ok',
+      by: 'u_martin', byName: 'Martin', at: serverTimestamp() }));
+
+await check('a master admin records one with a reason', 'allow',
+  () => setDoc(doc(as('martin'), 'rotaExceptions', 'm_nodbs'),
+    { memberId: 'm_nodbs', name: 'No DBS',
+      reason: 'DBS applied for on 1 October, certificate expected within the month',
+      by: 'u_martin', byName: 'Martin', at: serverTimestamp() }));
+
+await check('the safeguarding lead records one too', 'allow',
+  () => setDoc(doc(as('karen'), 'rotaExceptions', 'm_expired'),
+    { memberId: 'm_expired', name: 'Expired',
+      reason: 'Renewal booked for the fourteenth, covering until then with another leader present',
+      by: 'u_karen', byName: 'Karen', at: serverTimestamp() }));
+
+/* ...and with the exception recorded, the same write now goes through. */
+await check('after the exception, that person CAN go on the youth rota', 'allow',
+  () => updateDoc(doc(as('isla'), 'events', 'ev_except'),
+    { assignments: { Guitar: { id: 'm_nodbs', name: 'No DBS' } }, lastSlot: 'Guitar' }));
+
+await check('the person can see their own exception', 'allow',
+  () => getDoc(doc(as('isla'), 'rotaExceptions', 'm_nodbs')));
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

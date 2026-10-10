@@ -2055,3 +2055,91 @@ It now looks for a script tag with that `src`, which across all 86 pages
 changes exactly one verdict - this page - and leaves the other 62 as they
 were. A mention is not a load, and the same shape will catch anyone who
 writes about a file in a comment again.
+
+## A-068 — safeguarding on the rota: the tick, and the gate behind it
+
+NEXT-BRIEF §24, Martin, 10 October 2026. **Nobody goes on a ticked team's
+rota slot without an in-date DBS check and safeguarding training**, or an
+exception recorded with a reason.
+
+**Creche is not a team.** Martin's list names it, but the address book holds
+it as *roles inside Kids Church* - "Leader (Creche)" and "Assistant
+(Creche)" - so ticking Kids Church already covers every creche worker.
+Nothing was invented to match the list. The four ticked are Kids Church,
+Youth Worship, Lazers and ReNu.
+
+**"Cleared" is the events window's definition, reused rather than rewritten.**
+`checksInDate()` from F-109: `dbsStatus` current, `dbsSeen` within
+`dbsYears`, `trainingDate` within `trainingYears`. One definition for the
+whole church, so the rota and the under-18s groups cannot drift apart about
+who is cleared. The drift guard asserts that `rotaCleared()` still calls it.
+
+### Two things about the rules that are not as they look, both proved first
+
+I was about to design around a shadow field. Two emulator probes said
+otherwise:
+
+- `assignments.diff(before).affectedKeys()` **works on a nested map field**,
+  and returns a **Set** - which **cannot be indexed**. `[0]` gives
+  "Function not found error: Name: [[]]".
+- Indexing a map by a **variable** key *does* work, and indexing a key that
+  is **not there is an evaluation error** - so it fails closed rather than
+  passing.
+
+So the page names the slot it changed in `lastSlot`, and **cannot lie about
+it**: `affectedKeys()` must be exactly that one slot. Filling a different
+slot while naming an empty one is refused, and so is changing two at once.
+There is no shadow list for the rule to trust, which is what the first
+design would have had.
+
+**Why one slot at a time.** A clearance costs about five document accesses,
+and the limit is ten. An event arriving with a full rota would need one per
+slot. F-109 solved the same problem the same way, checking the one leader
+added rather than all of them; a new under-18s event must therefore start
+empty, and is filled a slot at a time.
+
+**A master admin is not exempt.** The exception route is - that is the point
+of recording a reason. `rotaExceptions/<memberId>`, written only by a master
+admin or the safeguarding lead, reason at least a sentence. Unlike F-109's
+per-group exception this is church-wide, because a church rota is one thing
+where a group is many; said out loud rather than left to be noticed.
+
+### The tick is written down twice, and that is guarded
+
+The tick lives in the teams data (`TEAMS` in `egbc-auth.js`) because that is
+what the interface reads. The rules cannot read a JavaScript file, so the
+four names are in `under18Teams()` as well. **Two copies of one truth is how
+a gate stops covering a team** - tick one in `egbc-auth.js` alone and the
+interface says a team is protected while the rules let anybody on its rota,
+which is worse than no tick because it reads as safe.
+
+`tests/check-under18-teams-agree.mjs` reads both files and fails naming
+whichever team is missing from which. It holds the four names a **third**
+time, copied from the brief by hand, because a check that only compared the
+two files would pass just as happily when both lost a team.
+
+It also found its own bug immediately: `split('\n')` on a CRLF file leaves a
+trailing `\r`, and JavaScript's `.` does not match a carriage return, so a
+pattern ending `(.*)$` failed on **every** line. The check reported no ticked
+teams at all - which reads exactly like the tick being missing. Fifth time
+line endings have cost me this session.
+
+### Deliberate breaks
+
+| Break | Caught by |
+|---|---|
+| untick Lazers in the teams data only | "every team the brief names is ticked in the teams data", naming Lazers |
+| drop Lazers from `under18Teams()` only | "every team the brief names is enforced by the rules", naming Lazers |
+| remove `safeguardingOk()` from the events write rule | **six** rules tests, including Martin's named one |
+
+`firestore-rules.test.mjs` **909/909** with 16 new checks; with the gate
+removed, **903/909**.
+
+### Still to build
+
+The planner side: Planner.html and the Core Team rota saving one slot at a
+time for a ticked team, saying **why** somebody cannot be added, and
+offering "Record an exception" to a master admin or the safeguarding lead.
+The rules refuse an uncleared person today, so the rota is safe; what is
+missing is the explanation, and until it is built a planner sees a refusal
+rather than a reason.
