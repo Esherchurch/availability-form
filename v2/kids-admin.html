@@ -276,7 +276,7 @@
       var d = { siteId: V.site, familyId: famId, name: c.name, dob: c.dob, year: c.year, dietary: c.dietary, photo: c.photo, firstaid: c.firstaid, alone: c.alone,
         flags: c.flags, consentUntil: resp.validUntil, responseId: rid, groupId: groupId, groupFixed: !!(had && had.groupFixed),
         status: had && had.status === 'left' ? 'left' : 'registered',
-        parentName: p.family.parentName, phone: p.family.phone, email: p.family.email, emergency: p.family.emergency, collectors: p.family.collectors, familyCode: code,
+        parentName: p.family.parentName, phone: p.family.phone, email: p.family.email, email2: p.family.email2 || '', emergency: p.family.emergency, collectors: p.family.collectors, familyCode: code,
         updatedAt: now, updatedBy: uid() };
       if (!had) d.createdAt = now;
       batch.set(db().collection('kidsChildren').doc(id), d, { merge: true });

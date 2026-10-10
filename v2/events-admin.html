@@ -126,6 +126,9 @@
   var E = window.EGBCEvents, esc = E.esc;
   var ALL = [], LOOK = { sites: {}, rooms: {}, venues: {} }, SITES = [], ROOMS = [], VENUES = [];
   var CUR = null, TT = [], QS = [], CAP = null, ED = null, TAB = 'details', showPast = false;
+  /* §24: whether the event works with under-18s lives on its safeguarding
+     record (eventLeaders), where the rules check its leaders and helpers. */
+  var U18 = false, U18_WAS = false;
   var SIGNUPS = [], CHECK = null, NOTES = '', CHANGES = [], COMMS = [], CSET = {};
 
   function db() { return EGBCAuth.db; }
@@ -202,9 +205,11 @@
 
   function open(id) {
     TAB = 'details';
-    if (!id) { CUR = blank(); TT = []; QS = []; CAP = null; SIGNUPS = []; CHECK = null; NOTES = ''; CHANGES = []; COMMS = []; return drawEditor(); }
+    if (!id) { CUR = blank(); TT = []; QS = []; CAP = null; SIGNUPS = []; CHECK = null; NOTES = ''; CHANGES = []; COMMS = []; U18 = U18_WAS = false; return drawEditor(); }
     E.load(id).then(function (r) {
       CUR = r.ev; TT = r.ticketTypes; QS = r.questions; CAP = r.capacity;
+      return db().collection('eventLeaders').doc(id).get().then(function (s) { U18 = U18_WAS = !!(s.exists && s.data().under18); }, function () { U18 = U18_WAS = false; });
+    }).then(function () {
       return Promise.all([
         db().collection('signups').where('calEventId', '==', id).get(),
         db().collection('eventChecklists').doc(id).get(),
@@ -289,6 +294,7 @@
       '</div>' +
       '<div class="field"><label for="f_labels">Labels (comma separated)</label><input class="inp" id="f_labels" value="' + esc((CUR.labels || []).join(', ')) + '"></div>' +
       '<label class="check"><input type="checkbox" id="f_feat"' + (CUR.featured ? ' checked' : '') + '>Feature this on the hub and at the top of What\'s on</label>' +
+      '<label class="check"><input type="checkbox" id="f_u18"' + (U18 ? ' checked' : '') + '><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</label>' +
       '<div class="field"><label>Picture</label>' +
         (CUR.image ? '<img src="' + esc(CUR.image) + '" alt="" style="max-width:220px;border-radius:8px;border:1px solid var(--line);display:block;margin-bottom:8px">' : '') +
         '<input type="file" id="f_img" accept="image/*" class="inp" style="padding:8px 12px;height:auto">' +
@@ -809,6 +815,7 @@
     CUR.visibility = document.getElementById('f_vis').value;
     CUR.status = document.getElementById('f_status').value;
     CUR.featured = document.getElementById('f_feat').checked;
+    U18 = !!(document.getElementById('f_u18') || {}).checked;
     CUR.organiserName = document.getElementById('f_org').value.trim();
     CUR.overseers = document.getElementById('f_over').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     CUR.labels = document.getElementById('f_labels').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -942,13 +949,36 @@
     }).then(function () {
       return isNew ? makeSeries(id) : null;
     }).then(function (ids) {
-      return syncRooms([id].concat(ids || []));
-    }).then(function () {
-      toast('Saved.');
+      return syncRooms([id].concat(ids || [])).then(function () { return under18([id].concat(ids || [])); });
+    }).then(function (u18msg) {
+      toast(u18msg || 'Saved.');
       return refresh().then(function () { open(id); });
     }).catch(function (e) {
       btn.disabled = false;
       toast('Could not save: ' + (e.message || e));
+    });
+  }
+
+  /* §24: set or clear "Works with under-18s" on each event's safeguarding
+     record. The rules refuse the tick if anyone already named is not cleared
+     (an in-date DBS check and training, or an exception): then the event is
+     saved and the page says why the tick was not. */
+  function under18(ids) {
+    if (U18 === U18_WAS) return Promise.resolve('');
+    var siteId = (CUR.location || {}).siteId || '';
+    return Promise.all(ids.map(function (eid) {
+      var ref = db().collection('eventLeaders').doc(eid);
+      return ref.get().then(function (s) {
+        if (s.exists) {
+          var l = s.data().leaders || [];
+          return ref.update({ under18: U18, leaderIds: l.map(function (x) { return x.memberId || ''; }), updatedAt: new Date().toISOString(), updatedBy: uid() });
+        }
+        return ref.set({ leaders: [], leaderUids: [], leaderIds: [], siteId: siteId, under18: U18, updatedAt: new Date().toISOString(), updatedBy: uid() });
+      });
+    })).then(function () { U18_WAS = U18; return ''; }, function (e) {
+      U18 = U18_WAS;
+      if (e && e.code === 'permission-denied') return 'Saved, but not marked as working with under-18s: someone already named as a leader or helper has no in-date DBS check or training. Open Safeguarding for this event to see who.';
+      throw e;
     });
   }
 

@@ -86,6 +86,8 @@
     var family = {
       parentName: String(a.parentName || resp.name || '').slice(0, 120), phone: String(a.parentPhone || '').slice(0, 40),
       email: String(resp.email || '').toLowerCase(), emergency: String(a.emergency || '').slice(0, 500),
+      /* N-6c: an optional second parent's email, for calling them to collect. */
+      email2: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(a.parentEmail2 || '').trim()) ? String(a.parentEmail2).trim().toLowerCase().slice(0, 200) : '',
       collectors: splitNames(a.collectors).slice(0, 20)
     };
     if (family.parentName && family.collectors.map(norm).indexOf(norm(family.parentName)) < 0) family.collectors.unshift(family.parentName);

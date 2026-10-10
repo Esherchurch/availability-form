@@ -83,6 +83,34 @@
     return { dbs: dbs, training: training, ok: dbs === 'ok' && training === 'ok' };
   }
 
+  /* Whose DBS check or training runs out soon, or has (NEXT-BRIEF §24,
+     F-142): for the safeguarding page now, and for the daily reminders the
+     main window's function sends (F-143), which uses this same function.
+       list:  [{ memberId, name, dbsStatus, dbsSeen, trainingDate }]
+       o:     { dbsYears, trainingYears }   (Safeguarding settings; 3 if unset)
+       today: 'YYYY-MM-DD';  days: how far ahead counts as soon (default 42)
+     -> [{ memberId, name, what: 'dbs' | 'training', ends: 'YYYY-MM-DD',
+           state: 'soon' | 'out', daysLeft }], soonest first.
+     A DBS check only applied for, or none at all, is not "running out":
+     it was never in date, and the page shows it as missing already. */
+  function checksDue(list, o, today, days) {
+    o = o || {}; days = days == null ? 42 : days;
+    var t = new Date(String(today).slice(0, 10) + 'T12:00'), out = [];
+    var iso = function (d) { var p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
+    (list || []).forEach(function (c) {
+      if (!c) return;
+      var add = function (what, from, years) {
+        if (!from) return;
+        var end = addYears(from, years || 3), left = Math.round((end - t) / 864e5);
+        if (left > days) return;
+        out.push({ memberId: c.memberId || c.id || '', name: c.name || '', what: what, ends: iso(end), state: left < 0 ? 'out' : 'soon', daysLeft: left });
+      };
+      if (c.dbsStatus === 'current') add('dbs', c.dbsSeen, o.dbsYears);
+      add('training', c.trainingDate, o.trainingYears);
+    });
+    return out.sort(function (a, b) { return a.ends < b.ends ? -1 : a.ends > b.ends ? 1 : 0; });
+  }
+
   /* A list the rules can allow in more than one way. A leader may ask for
      everything for their event; a safeguarding lead may only ask for their
      own site's, and the question has to say so or the whole list is
@@ -206,7 +234,7 @@
 
   var api = {
     norm: norm, me: me, leadersOf: leadersOf, myLeadSites: myLeadSites,
-    ageOn: ageOn, ratio: ratio, checkStatus: checkStatus,
+    ageOn: ageOn, ratio: ratio, checkStatus: checkStatus, checksDue: checksDue,
     formsForEvent: formsForEvent, unshared: unshared, listForEvent: listForEvent, shareWithLeaders: shareWithLeaders
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

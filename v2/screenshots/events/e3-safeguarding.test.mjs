@@ -332,6 +332,8 @@ try {
   ok('the ordinary admin does not see the incident log', !/grazed/.test(await text(A)) && !(await A.$('#addInc')));
   await go(L, 'safeguarding.html?event=ev_x', '#incCsv');
   ok('Lena sees it', /grazed a knee/.test(await text(L)));
+  /* A real click, so the button must be on screen and not under the emulator's own warning strip. */
+  await L.$eval('#incCsv', e => e.scrollIntoView({ block: 'center' }));
   await L.click('#incCsv');
   const csv = await until(() => fs.readdirSync(lB.__dl).find(f => /incidents\.csv$/.test(f)));
   ok('Lena downloads the log', csv && /grazed a knee/.test(fs.readFileSync(path.join(lB.__dl, csv), 'utf8')));

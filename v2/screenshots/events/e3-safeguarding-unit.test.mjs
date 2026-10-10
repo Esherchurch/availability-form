@@ -37,6 +37,19 @@ ok('DBS applied for is not yet in date', S.checkStatus({ dbsStatus: 'applied', t
 ok('nothing recorded: both missing', JSON.stringify(S.checkStatus(null, yrs, '2026-10-10')) === JSON.stringify({ dbs: 'missing', training: 'missing', ok: false }));
 ok('a longer period on the event keeps an older check in date', S.checkStatus({ dbsStatus: 'current', dbsSeen: '2022-01-01', trainingDate: '2025-01-01' }, { dbsYears: 5, trainingYears: 3 }, '2026-10-10').ok);
 
+/* §24: reminders before a DBS check or training runs out (checksDue). */
+const due = S.checksDue([
+  { memberId: 'm_a', name: 'Ava', dbsStatus: 'current', dbsSeen: '2023-11-01', trainingDate: '2025-06-01' },   // DBS ends 1 Nov 2026: soon
+  { memberId: 'm_b', name: 'Ben', dbsStatus: 'current', dbsSeen: '2025-01-01', trainingDate: '2023-10-01' },   // training ended 1 Oct 2026: out
+  { memberId: 'm_c', name: 'Cal', dbsStatus: 'current', dbsSeen: '2025-01-01', trainingDate: '2025-01-01' },   // nothing due
+  { memberId: 'm_d', name: 'Dee', dbsStatus: 'applied', trainingDate: '2023-12-31' }                            // applied: no DBS line; training ends 31 Dec 2026: beyond 42 days
+], { dbsYears: 3, trainingYears: 3 }, '2026-10-10');
+ok('§24: running out within six weeks is "soon", with the days left', due.some(d => d.memberId === 'm_a' && d.what === 'dbs' && d.ends === '2026-11-01' && d.state === 'soon' && d.daysLeft === 22), JSON.stringify(due));
+ok('§24: already run out is "out"', due.some(d => d.memberId === 'm_b' && d.what === 'training' && d.state === 'out' && d.daysLeft === -9), JSON.stringify(due));
+ok('§24: in date for a while: nothing; a DBS only applied for is not "running out"', !due.some(d => d.memberId === 'm_c') && !due.some(d => d.memberId === 'm_d'), JSON.stringify(due));
+ok('§24: soonest first', due.map(d => d.memberId).join() === 'm_b,m_a', JSON.stringify(due));
+ok('§24: a wider window catches the later one', S.checksDue([{ memberId: 'm_d', trainingDate: '2023-12-31' }], {}, '2026-10-10', 90).length === 1);
+
 const failed = results.filter(r => !r).length;
 console.log('\n' + (results.length - failed) + '/' + results.length + ' passed');
 process.exit(failed ? 1 : 0);

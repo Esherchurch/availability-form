@@ -1639,6 +1639,33 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('marking an existing group under-18s with an uncleared leader is refused', 'deny', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), { under18: true, leaderIds: ['m_ned'] }));
   await check('a group that is not for under-18s takes any leader, as before', 'allow', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), { leaderIds: ['m_ned'] }));
 
+  /* §24 (Martin): "Works with under-18s" on an event or club - Kids Film Club. */
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'calEvents', 'ev_film'), { title: 'Kids Film Club (invented)', location: { kind: 'room', siteId: 'site_kids' }, status: 'confirmed', audience: ['public'] });
+    await setDoc(doc(db, 'calEvents', 'ev_puppet'), { title: 'Puppet practice (invented)', location: { kind: 'room', siteId: 'site_kids' }, status: 'confirmed', audience: ['public'] });
+    await setDoc(doc(db, 'leaderChecks', 'm_tia'), { name: 'Tia', dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(4), siteId: '' });
+  });
+  const P_ = (id, role) => ({ uid: '', memberId: id, name: id, role: role || 'helper' });
+  const FILM = (people, extra) => ({ leaders: people.map(x => P_(x)), leaderUids: [], leaderIds: people, siteId: 'site_kids', under18: true, ...(extra || {}) });
+  await check('§24: KIDS FILM CLUB, TICKED, WITH A LEADER WHOSE CHECKS ARE IN DATE', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena'])));
+  await check('§24: A KIDS FILM CLUB HELPER WITH EXPIRED TRAINING CANNOT BE ADDED', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_tia'], { lastLeaderAdded: 'm_tia' })));
+  await check('§24: nor one with no checks at all', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_ned'], { lastLeaderAdded: 'm_ned' })));
+  await check('§24: nor slipped in by naming someone else as the one added', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_tia'], { lastLeaderAdded: 'm_lena' })));
+  await check('§24: nor by a member id list that says someone else', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'),
+    { ...FILM(['m_lena', 'm_lena']), leaders: [P_('m_lena'), P_('m_tia')] }));
+  await check('§24: nor by unticking it, adding them, and ticking it again (ticking checks everyone named)', 'deny', async () => {
+    await setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...FILM(['m_tia']), under18: false });
+    return setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), FILM(['m_tia']));
+  });
+  const EEX = (who, extra) => ({ calEventId: 'ev_film', memberId: 'm_tia', name: 'Tia', reason: 'Training booked for next week; always with Lena (invented)', siteId: 'site_kids', by: who, byName: 'x', at: serverTimestamp(), ...(extra || {}) });
+  await check('§24: an ordinary admin cannot record an exception', 'deny', () => setDoc(doc(as('karen'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_karen')));
+  await check('§24: an exception needs a real reason', 'deny', () => setDoc(doc(as('martin'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_martin', { reason: 'ok' })));
+  await check('§24: the safeguarding lead records an exception, with a reason (the F-109 route)', 'allow', () => setDoc(doc(ctx('u_sg'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_sg')));
+  await check('§24: then the helper may be added', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_tia'], { lastLeaderAdded: 'm_tia' })));
+  await check('§24: the exception is for that event only', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), FILM(['m_tia'])));
+  await check('§24: an event not ticked takes any helper, as before', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...FILM(['m_tia', 'm_ned']), under18: false }));
+
   /* F-108 */
   await env.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
     await setDoc(doc(db, 'users', 'u_office'), { memberId: 'm_office', status: 'active', teams: ['Welcome Team'], adminFor: [], masterAdmin: false });
@@ -1925,6 +1952,38 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('NOBODY ELSE READS WHAT SOMEONE LISTENS TO, not even a master admin', 'deny', () => getDoc(doc(as('martin'), 'listenProgress', 'u_listen', 'sermons', 'feed_ep1')));
   await check('nor writes it', 'deny', () => setDoc(doc(ctx('u_preach'), 'listenProgress', 'u_listen', 'sermons', 'feed_ep1'), P()));
   await check('the place has its own shape', 'deny', () => setDoc(doc(ctx('u_listen'), 'listenProgress', 'u_listen', 'sermons', 'srm_1'), P({ pos: -3 })));
+}
+
+// ── EVENTS (events window) ── phone notifications (NEXT-BRIEF §23; F-144)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  const pend = () => asNewcomer('u_newparent', 'newparent@example.invalid');
+  const TOK = 'fcm-invented-token-' + 'x'.repeat(120);
+  const PT = (uid, extra) => ({ uid, token: TOK, platform: 'android', createdAt: serverTimestamp(), lastSeen: serverTimestamp(), ...(extra || {}) });
+  await check('A PERSON REGISTERS THEIR OWN PHONE', 'allow', () => setDoc(doc(as('samy'), 'pushTokens', 'u_samy_abcdef1234'), PT('u_samy')));
+  await check('NOBODY READS A PHONE’S TOKEN, not even its owner', 'deny', () => getDoc(doc(as('samy'), 'pushTokens', 'u_samy_abcdef1234')));
+  await check('   not a master admin either', 'deny', () => getDoc(doc(as('martin'), 'pushTokens', 'u_samy_abcdef1234')));
+  await check('   and nobody lists them', 'deny', () => getDocs(collection(as('martin'), 'pushTokens')));
+  await check('NOBODY REGISTERS A PHONE IN SOMEONE ELSE’S NAME', 'deny', () => setDoc(doc(as('isla'), 'pushTokens', 'u_samy_zzzzzz9999'), PT('u_samy')));
+  await check('   nor under someone else’s id with their own name', 'deny', () => setDoc(doc(as('isla'), 'pushTokens', 'u_samy_yyyyyy8888'), PT('u_isla')));
+  await check('   nor take over someone else’s phone record', 'deny', () => setDoc(doc(as('isla'), 'pushTokens', 'u_samy_abcdef1234'), PT('u_isla')));
+  await check('a person refreshes their own phone (last seen now)', 'allow', () => updateDoc(doc(as('samy'), 'pushTokens', 'u_samy_abcdef1234'), { lastSeen: serverTimestamp() }));
+  await check('the record has its own shape', 'deny', () => setDoc(doc(as('samy'), 'pushTokens', 'u_samy_bbbbbb2222'), PT('u_samy', { platform: 'fridge' })));
+  await check('someone else cannot remove it', 'deny', () => deleteDoc(doc(as('isla'), 'pushTokens', 'u_samy_abcdef1234')));
+  await check('the person turns it off (removes it)', 'allow', () => deleteDoc(doc(as('samy'), 'pushTokens', 'u_samy_abcdef1234')));
+  await check('A PARENT NOT IN THE ADDRESS BOOK MAY STILL TURN ON A PHONE (Martin, N-6b)', 'allow', () => setDoc(doc(pend(), 'pushTokens', 'u_newparent_cccccc3333'), PT('u_newparent', { platform: 'iphone' })));
+  await check('nobody signed out does', 'deny', () => setDoc(doc(guest(), 'pushTokens', 'x_dddddddd4444'), PT('x')));
+  const PR = (extra) => ({ types: { callParent: true, rota: false }, quietFrom: '21:30', quietTo: '07:30', updatedAt: serverTimestamp(), ...(extra || {}) });
+  await check('a person keeps their own switches', 'allow', () => setDoc(doc(as('samy'), 'notifyPrefs', 'u_samy'), PR()));
+  await check('and reads them back', 'allow', () => getDoc(doc(as('samy'), 'notifyPrefs', 'u_samy')));
+  await check('nobody else reads them', 'deny', () => getDoc(doc(as('martin'), 'notifyPrefs', 'u_samy')));
+  await check('nor changes them', 'deny', () => setDoc(doc(as('isla'), 'notifyPrefs', 'u_samy'), PR()));
+  await check('quiet hours must be times', 'deny', () => setDoc(doc(as('samy'), 'notifyPrefs', 'u_samy'), PR({ quietFrom: 'late' })));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'notifyLog', 'nl_1'), { type: 'callParent', siteId: 'site_kids', by: 'u_lena', phones: 2, at: 'x' }); });
+  await check('the site’s safeguarding lead reads what was sent', 'allow', () => getDoc(doc(env.authenticatedContext('u_sg').firestore(), 'notifyLog', 'nl_1')));
+  await check('a member does not', 'deny', () => getDoc(doc(as('samy'), 'notifyLog', 'nl_1')));
+  await check('nobody writes the log from a page', 'deny', () => setDoc(doc(as('martin'), 'notifyLog', 'nl_2'), { type: 'test' }));
 }
 // ── end EVENTS ──
 // ── end EVENTS ──

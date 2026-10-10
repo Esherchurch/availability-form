@@ -1687,10 +1687,67 @@ service cloud.firestore {
       allow read: if volunteer();
       allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
-                                                             'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy'])
+                                                             'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
+                                                             'under18', 'leaderIds', 'lastLeaderAdded'])
                    && request.resource.data.leaderUids is list
                    && request.resource.data.get('siteId', '')
-                        == get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '');
+                        == get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '')
+                   && under18EventOk(calEventId);
+    }
+
+    // ---- "WORKS WITH UNDER-18s" ON AN EVENT OR CLUB (NEXT-BRIEF §24; F-142)
+    // Martin: everyone working with under-18s needs an in-date DBS check
+    // and training - Kids Film Club, Puppet practice, youth events, anything
+    // a leader ticks. The SAME checks records (leaderChecks, against the
+    // years in Safeguarding settings) and the SAME exception route as the
+    // under-18s small groups (F-109): a master admin or the site's
+    // safeguarding lead records an exception with a reason
+    // (eventExceptions/<event>__<member>).
+    // On a ticked event every leader and helper is in leaderIds (their
+    // member ids, in the same order as leaders). When the box is first
+    // ticked, everyone already named (three at most) must be cleared; after
+    // that each person added must be, one at a time (lastLeaderAdded).
+    function eventCleared(calEventId, memberId) {
+      return memberId is string && memberId != ''
+             && (checksInDate(memberId) || exists(/databases/$(database)/documents/eventExceptions/$(calEventId + '__' + memberId)));
+    }
+    function idAt(d, i) { return d.leaders[i].get('memberId', ''); }
+    function eventIdsMatch(d) {
+      let ids = d.get('leaderIds', []);
+      return ids is list && d.leaders is list && ids.size() == d.leaders.size() && ids.size() <= 12
+             && (ids.size() < 1 || ids[0] == idAt(d, 0)) && (ids.size() < 2 || ids[1] == idAt(d, 1))
+             && (ids.size() < 3 || ids[2] == idAt(d, 2)) && (ids.size() < 4 || ids[3] == idAt(d, 3))
+             && (ids.size() < 5 || ids[4] == idAt(d, 4)) && (ids.size() < 6 || ids[5] == idAt(d, 5))
+             && (ids.size() < 7 || ids[6] == idAt(d, 6)) && (ids.size() < 8 || ids[7] == idAt(d, 7))
+             && (ids.size() < 9 || ids[8] == idAt(d, 8)) && (ids.size() < 10 || ids[9] == idAt(d, 9))
+             && (ids.size() < 11 || ids[10] == idAt(d, 10)) && (ids.size() < 12 || ids[11] == idAt(d, 11));
+    }
+    function under18EventOk(calEventId) {
+      let d = request.resource.data;
+      let after = d.get('leaderIds', []);
+      let before = resource == null ? [] : resource.data.get('leaderIds', []);
+      let added = after.toSet().difference(before.toSet());
+      return d.get('under18', false) != true
+             || (eventIdsMatch(d)
+                 && (((resource == null || resource.data.get('under18', false) != true)
+                      && after.size() <= 3
+                      && (after.size() < 1 || eventCleared(calEventId, after[0]))
+                      && (after.size() < 2 || eventCleared(calEventId, after[1]))
+                      && (after.size() < 3 || eventCleared(calEventId, after[2])))
+                     || (resource != null && resource.data.get('under18', false) == true
+                         && (added.size() == 0
+                             || (added.size() == 1 && added.hasOnly([d.get('lastLeaderAdded', '')])
+                                 && eventCleared(calEventId, d.get('lastLeaderAdded', '')))))));
+    }
+    match /eventExceptions/{key} {
+      allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', '')) || isAdmin()
+                  || (active() && resource.data.memberId == me().get('memberId', '-'));
+      allow create, update: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', '')))
+                   && request.resource.data.keys().hasOnly(['calEventId', 'memberId', 'name', 'reason', 'siteId', 'by', 'byName', 'at'])
+                   && key == request.resource.data.calEventId + '__' + request.resource.data.memberId
+                   && request.resource.data.reason is string && request.resource.data.reason.size() >= 10 && request.resource.data.reason.size() <= 1000
+                   && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time;
+      allow delete: if isMaster() || sgLeadOf(resource.data.get('siteId', ''));
     }
 
     // Leaders may list the sign-ups of the event they lead, for check-in,
@@ -3004,6 +3061,44 @@ service cloud.firestore {
                     && request.resource.data.dur is number && request.resource.data.dur >= 0
                     && request.resource.data.done is bool && request.resource.data.at == request.time;
       allow delete: if false;
+    }
+
+    // ---- PHONE NOTIFICATIONS (NEXT-BRIEF §23; FINDINGS-notify N-2; F-144) --
+    // pushTokens/<uid>_<hash>: one per person per phone. A person adds,
+    //   refreshes and removes ONLY THEIR OWN. NOBODY READS THEM, not even
+    //   the person: only the sending function (Admin SDK) does. Signed in is
+    //   enough: a parent not in the address book may still be called to
+    //   collect their child (Martin, N-6b).
+    // notifyPrefs/<uid>: a person's own switches and quiet hours.
+    // notifyLog: what was sent, when, by whom, and to how many phones (never
+    //   a token). Written by the function only; read by master admins, the
+    //   site's safeguarding lead and its Kids Church leads.
+    match /pushTokens/{id} {
+      allow read: if false;
+      allow create, update: if signedIn() && id.matches(request.auth.uid + '_[A-Za-z0-9_-]{8,64}')
+                    && request.resource.data.keys().hasOnly(['uid', 'token', 'platform', 'createdAt', 'lastSeen'])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.token is string && request.resource.data.token.size() >= 20 && request.resource.data.token.size() <= 4096
+                    && request.resource.data.platform in ['android', 'iphone', 'desktop', 'other']
+                    && request.resource.data.lastSeen == request.time
+                    && (resource == null
+                        ? request.resource.data.createdAt == request.time
+                        : (resource.data.uid == request.auth.uid && request.resource.data.createdAt == resource.data.createdAt));
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /notifyPrefs/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['types', 'quietFrom', 'quietTo', 'updatedAt'])
+                    && request.resource.data.types is map && request.resource.data.types.size() <= 20
+                    && request.resource.data.quietFrom is string && request.resource.data.quietFrom.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+                    && request.resource.data.quietTo is string && request.resource.data.quietTo.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+                    && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+    match /notifyLog/{id} {
+      allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', '')) || kidsLead(resource.data.get('siteId', ''));
+      allow write: if false;
     }
 
     // ── end EVENTS ──────────────────────────────────────────────────

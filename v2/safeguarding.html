@@ -107,7 +107,7 @@
   var EVID = new URLSearchParams(location.search).get('event') || '';
   var ME = {}, ADMIN = false, MASTER = false, LEADSITES = [], SITES = [];
   var EV = null, SITE = '', LEAD = null, LEADER = false, ISLEAD = false;
-  var SIGNUPS = null, FORMINFO = { children: {}, responses: [] }, USERS = [], CHECKS = {}, INCIDENTS = [], UNSHARED = [];
+  var SIGNUPS = null, FORMINFO = { children: {}, responses: [] }, USERS = [], CHECKS = {}, EXC = {}, INCIDENTS = [], UNSHARED = [];
 
   function db() { return EGBCAuth.db; }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
@@ -141,6 +141,7 @@
     var l = LEAD || {}, d = SGDEF || {};
     return { ratioAll: l.ratioAll || d.ratioAll || 5, ratioUnder8: l.ratioUnder8 || d.ratioUnder8 || 4,
              requireChecks: l.requireChecks !== undefined ? !!l.requireChecks : !!d.requireChecks,
+             under18: !!l.under18,
              dbsYears: l.dbsYears || d.dbsYears || 3, trainingYears: l.trainingYears || d.trainingYears || 3 };
   }
 
@@ -183,19 +184,23 @@
         var s = SG.checkStatus(CHECKS[l.memberId], st, EV.startLocal);
         var chip = function (what, v) { return '<span class="flag ' + (v === 'ok' ? 'ok' : v === 'applied' ? 'wait' : 'warn') + '">' + what + ': ' + (v === 'ok' ? 'in date' : v) + '</span>'; };
         return '<div class="row"><span class="ib">' + ico('badge-check', 16) + '</span><span class="who"><span class="n">' + esc(l.name) + '</span>' +
+          ' <span class="m">· ' + (l.role === 'helper' ? 'helper' : 'leader') + '</span>' +
+          (EXC[l.memberId] ? ' <span class="flag wait" title="' + esc(EXC[l.memberId].reason || '') + '">exception recorded</span>' : '') +
           (l.uid ? '' : ' <span class="flag off">has not signed in yet</span>') + '<br>' +
           ((CHECKS[l.memberId] !== undefined || canChecks) ? chip('DBS', s.dbs) + chip('Training', s.training) : '<span class="m">Checks are seen by admins and the safeguarding lead.</span>') + '</span>' +
           (canChecks && l.memberId ? '<button class="btn ghost sm recCheck" data-i="' + i + '">' + ico('clipboard-check') + 'Checks</button>' : '') +
           (canEdit ? '<button class="btn ghost sm dropLeader" data-i="' + i + '" title="Remove">' + ico('x') + '</button>' : '') + '</div>';
       }).join('') : '<p class="hint">No leaders named yet.</p>') +
-      (st.requireChecks && leaders.some(function (l) { return !SG.checkStatus(CHECKS[l.memberId], st, EV.startLocal).ok; })
+      (st.under18 ? '<div class="banner ok" id="u18Msg" style="margin-top:10px">' + ico('shield-check') + ' Works with under-18s: every leader and helper must have an in-date DBS check and training, or an exception recorded by the safeguarding lead. Nobody else can be added.</div>' : '') +
+      ((st.requireChecks || st.under18) && leaders.some(function (l) { return !SG.checkStatus(CHECKS[l.memberId], st, EV.startLocal).ok && !EXC[l.memberId]; })
         ? '<div class="banner warn" id="checksMsg" style="margin-top:10px">' + ico('triangle-alert') + ' This event needs every leader to have an in-date DBS check and training, and not all do.</div>' : '') +
       (canEdit ? '<div class="two" style="margin-top:14px">' +
         '<div class="field"><label for="rAll">One leader for every … children</label><input class="inp" id="rAll" type="number" min="1" value="' + st.ratioAll + '"></div>' +
         '<div class="field"><label for="rU8">… and for every … under-8s</label><input class="inp" id="rU8" type="number" min="1" value="' + st.ratioUnder8 + '"></div>' +
         '<div class="field"><label for="yDbs">DBS counts for (years)</label><input class="inp" id="yDbs" type="number" min="1" value="' + st.dbsYears + '"></div>' +
         '<div class="field"><label for="yTr">Training counts for (years)</label><input class="inp" id="yTr" type="number" min="1" value="' + st.trainingYears + '"></div>' +
-        '</div><label class="check"><input type="checkbox" id="reqChecks"' + (st.requireChecks ? ' checked' : '') + '>Every leader must have an in-date DBS check and training</label>' +
+        '</div><label class="check"><input type="checkbox" id="under18"' + (st.under18 ? ' checked' : '') + '><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</label>' +
+        '<label class="check"><input type="checkbox" id="reqChecks"' + (st.requireChecks ? ' checked' : '') + '>Every leader must have an in-date DBS check and training</label>' +
         '<button class="btn sm" id="saveSettings">' + ico('check') + 'Save</button>' : '') +
       '</div>';
 
@@ -238,8 +243,11 @@
     var d = Object.assign({
       leaders: leaders, leaderUids: leaders.map(function (l) { return l.uid; }).filter(Boolean), siteId: SITE,
       ratioAll: st.ratioAll, ratioUnder8: st.ratioUnder8, requireChecks: st.requireChecks,
-      dbsYears: st.dbsYears, trainingYears: st.trainingYears, updatedAt: now(), updatedBy: ME.uid
+      dbsYears: st.dbsYears, trainingYears: st.trainingYears, updatedAt: now(), updatedBy: ME.uid,
+      /* §24: the member ids in the same order, which the rules check on a ticked event. */
+      under18: st.under18, leaderIds: leaders.map(function (l) { return l.memberId || ''; })
     }, extra || {});
+    if (!d.lastLeaderAdded) delete d.lastLeaderAdded;
     return db().collection('eventLeaders').doc(EVID).set(d).then(function () { LEAD = d; return loadChecks(); }).then(drawEvent);
   }
 
@@ -262,8 +270,13 @@
         ratioUnder8: parseInt(document.getElementById('rU8').value, 10) || 4,
         dbsYears: parseInt(document.getElementById('yDbs').value, 10) || 3,
         trainingYears: parseInt(document.getElementById('yTr').value, 10) || 3,
-        requireChecks: document.getElementById('reqChecks').checked
-      }).then(function () { toast('Saved.'); }).catch(fail('save'));
+        requireChecks: document.getElementById('reqChecks').checked,
+        under18: document.getElementById('under18').checked
+      }).then(function () { toast('Saved.'); }).catch(function (e) {
+        if (e && e.code === 'permission-denied' && document.getElementById('under18').checked && !settingsOf().under18)
+          toast('Not ticked: everyone named must have an in-date DBS check and training (or an exception), and at most three can be named when it is first ticked. Add the rest one at a time after.');
+        else fail('save')(e);
+      });
     });
     document.querySelectorAll('.dropLeader').forEach(function (b) {
       b.onclick = function () {
@@ -290,29 +303,68 @@
 
   /* --- choosing leaders: from everyone who has signed in, or the rota --- */
 
+  /* On an event that works with under-18s (§24) each person is added on
+     their own, naming them as the one added: the rules check their DBS and
+     training then, and refuse anyone not cleared. Those refused are named,
+     with the exception route for the safeguarding lead. */
   function addLeaders(people) {
-    var leaders = ((LEAD && LEAD.leaders) || []).slice();
-    people.forEach(function (p) {
-      if (!leaders.some(function (l) { return (p.uid && l.uid === p.uid) || (p.memberId && l.memberId === p.memberId); })) leaders.push(p);
-    });
-    return saveLeaders(leaders);
+    var have = function (p) { return ((LEAD && LEAD.leaders) || []).some(function (l) { return (p.uid && l.uid === p.uid) || (p.memberId && l.memberId === p.memberId); }); };
+    if (!settingsOf().under18) {
+      var leaders = ((LEAD && LEAD.leaders) || []).slice();
+      people.forEach(function (p) { if (!have(p)) leaders.push(p); });
+      return saveLeaders(leaders);
+    }
+    var refused = [];
+    return people.reduce(function (chain, p) {
+      return chain.then(function () {
+        if (have(p)) return;
+        if (!p.memberId) { refused.push(p); return; }
+        return saveLeaders(((LEAD && LEAD.leaders) || []).concat([p]), { lastLeaderAdded: p.memberId })
+          .catch(function (e) { if (e && e.code === 'permission-denied') refused.push(p); else throw e; });
+      });
+    }, Promise.resolve()).then(function () { if (refused.length) notCleared(refused); });
+  }
+
+  /* Someone not cleared: said plainly, and the F-109 route for those who may use it. */
+  function notCleared(list) {
+    var canEx = MASTER || ISLEAD, p = list[0];
+    modal('<h3>' + ico('shield-alert', 18) + 'Not added</h3>' +
+      '<p style="margin-top:0" id="u18Refused">' + list.map(function (x) { return '<b>' + esc(x.name) + '</b>'; }).join(', ') + (list.length === 1 ? ' was' : ' were') +
+      ' not added. This event works with under-18s, so everyone helping needs an in-date DBS check and safeguarding training' +
+      (p.memberId ? '' : ', and needs to be in the address book') + '.</p>' +
+      (canEx && p.memberId ? '<p class="hint">If there is a good reason, record an exception for ' + esc(p.name) + ' at this event. It is kept, with your name and the reason.</p>' +
+        '<div class="field"><label for="exWhy">The reason</label><textarea id="exWhy" maxlength="1000" placeholder="e.g. Training booked for next week; always working alongside a cleared leader"></textarea></div>' +
+        '<div class="foot"><button class="btn sec" data-close>Close</button><button class="btn" id="exSave">Record the exception and add them</button></div>'
+        : '<p class="hint">The safeguarding lead can record their checks, or an exception with a reason.</p><div class="foot"><button class="btn" data-close>Close</button></div>'));
+    var b = document.getElementById('exSave');
+    if (b) b.onclick = function () {
+      var why = document.getElementById('exWhy').value.trim();
+      if (why.length < 10) { toast('Say why, in a sentence.'); return; }
+      b.disabled = true;
+      db().collection('eventExceptions').doc(EVID + '__' + p.memberId).set({ calEventId: EVID, memberId: p.memberId, name: p.name, reason: why, siteId: SITE,
+        by: ME.uid, byName: ME.name || '', at: firebase.firestore.FieldValue.serverTimestamp() })
+        .then(function () { closeModal(); return addLeaders([p]); }).then(function () { toast(p.name + ' added, with the exception recorded.'); })
+        .catch(function (e) { b.disabled = false; fail('record the exception')(e); });
+    };
   }
 
   function leaderPicker() {
-    modal('<h3>' + ico('user-plus', 18) + 'Add a leader</h3><div class="field"><label for="lq">Find by name</label><input class="inp" id="lq" autocomplete="off"></div>' +
+    modal('<h3>' + ico('user-plus', 18) + 'Add a leader or helper</h3><div class="field"><label for="lq">Find by name</label><input class="inp" id="lq" autocomplete="off"></div>' +
       '<div id="lres" style="max-height:320px;overflow:auto"></div><div class="foot"><button class="btn sec" data-close>Close</button></div>');
     var q = document.getElementById('lq');
     var draw = function () {
       var t = q.value.trim().toLowerCase();
       document.getElementById('lres').innerHTML = USERS.filter(function (u) { return !t || (u.name || '').toLowerCase().indexOf(t) >= 0; }).slice(0, 30).map(function (u) {
         return '<div class="row"><span class="who"><span class="n">' + esc(u.name || u.email) + '</span><br><span class="m">' + esc(u.email || '') + '</span></span>' +
-          '<button class="btn sm pick" data-uid="' + esc(u.uid) + '">Add</button></div>';
+          '<button class="btn sm pick" data-uid="' + esc(u.uid) + '" data-role="leader">Leader</button> <button class="btn sec sm pick" data-uid="' + esc(u.uid) + '" data-role="helper">Helper</button></div>';
       }).join('') || '<p class="hint">Nobody by that name has signed in yet.</p>';
       document.querySelectorAll('.pick').forEach(function (b) {
         b.onclick = function () {
           var u = USERS.filter(function (x) { return x.uid === b.getAttribute('data-uid'); })[0];
           closeModal();
-          addLeaders([{ uid: u.uid, memberId: u.memberId || '', name: u.name || u.email }]).then(function () { toast(u.name + ' added.'); }).catch(fail('add them'));
+          addLeaders([{ uid: u.uid, memberId: u.memberId || '', name: u.name || u.email, role: b.getAttribute('data-role') || 'leader' }]).then(function () {
+            if (((LEAD && LEAD.leaders) || []).some(function (l) { return l.uid === u.uid; })) toast(u.name + ' added.');
+          }).catch(fail('add them'));
         };
       });
     };
@@ -347,7 +399,7 @@
         var picked = [].slice.call(document.querySelectorAll('.rp:checked')).map(function (c) {
           var p = people[+c.getAttribute('data-i')];
           var u = USERS.filter(function (x) { return p.memberId && x.memberId === p.memberId; })[0];
-          return { uid: u ? u.uid : '', memberId: p.memberId, name: p.name };
+          return { uid: u ? u.uid : '', memberId: p.memberId, name: p.name, role: 'leader' };
         });
         closeModal();
         addLeaders(picked).then(function () { toast('Added ' + picked.length + '.'); }).catch(fail('add them'));
@@ -453,7 +505,16 @@
 
   /* ================= the page without an event ================= */
 
-  function drawHome(concerns, events) {
+  function dueLine(d, own) {
+    var what = d.what === 'dbs' ? 'DBS check' : 'safeguarding training';
+    return '<div class="row" data-due="' + esc(d.memberId + ':' + d.what) + '"><span class="ib">' + ico(d.state === 'out' ? 'shield-alert' : 'clock', 16) + '</span><span class="who"><span class="n">' +
+      esc(own ? 'Your ' + what : d.name + ': ' + what) + '</span><br><span class="m">' +
+      esc(d.state === 'out' ? 'Ran out on ' + E.fmtDate(d.ends + 'T12:00') : 'Runs out on ' + E.fmtDate(d.ends + 'T12:00') + ' (' + d.daysLeft + ' day' + (d.daysLeft === 1 ? '' : 's') + ')') +
+      '</span></span><span class="flag ' + (d.state === 'out' ? 'warn' : 'wait') + '">' + (d.state === 'out' ? 'Run out' : 'Soon') + '</span></div>';
+  }
+
+  function drawHome(concerns, events, due, mineDue) {
+    due = due || []; mineDue = mineDue || [];
     var html = '<h1>Safeguarding</h1><p class="sub">Leaders, ratios, checks, incidents and concerns.</p>' +
       '<div class="bar"><button class="btn" id="concernBtn">' + ico('message-square-warning') + 'Report a concern</button>' +
       (MASTER ? '<a class="btn sec" href="retention.html">' + ico('archive') + 'Due for deletion</a>' : '') +
@@ -469,6 +530,11 @@
             '<button class="btn ghost sm cNote" data-id="' + esc(x.id) + '">' + ico('pencil') + (x.status === 'new' ? 'Mark seen and add notes' : 'Notes') + '</button></div>';
         }).join('') : '<p class="hint">Nothing reported.</p>') + '</div>';
     }
+    if (mineDue.length) html += '<div class="card" id="myDue"><h2><span class="badge">' + ico('clock', 17) + '</span>Your checks</h2>' +
+      '<p class="hint" style="margin-top:-4px">You help with under-18s, so these need to stay in date. Your safeguarding lead can renew them.</p>' + mineDue.map(function (d) { return dueLine(d, true); }).join('') + '</div>';
+    if (ADMIN || LEADSITES.length) html += '<div class="card" id="due"><h2><span class="badge">' + ico('clock', 17) + '</span>DBS checks and training running out</h2>' +
+      '<p class="hint" style="margin-top:-4px">The next six weeks, and any that have already run out. Someone whose check has run out cannot be added to anything that works with under-18s.</p>' +
+      (due.length ? due.map(function (d) { return dueLine(d, false); }).join('') : '<p class="hint">Nothing running out.</p>') + '</div>';
     html += '<div class="card"><h2><span class="badge">' + ico('calendar-days', 17) + '</span>Coming up</h2>' +
       (events.length ? events.map(function (e) {
         return '<div class="row"><span class="ib">' + ico('calendar', 16) + '</span><span class="who"><span class="n">' + esc(e.title) + '</span><br><span class="m">' +
@@ -504,18 +570,31 @@
           .filter(function (e) { return ADMIN || e._mine || LEADSITES.indexOf((e.location || {}).siteId) >= 0; });
       });
     });
-    return Promise.all([concerns, events]).then(function (r) { drawHome(r[0], r[1]); });
+    /* §24: DBS checks and training running out (six weeks ahead): everyone's
+       for admins, a site's for its safeguarding lead, and each person's own. */
+    var checks = (ADMIN ? db().collection('leaderChecks').get().then(function (q) { return q.docs; })
+      : Promise.all(LEADSITES.map(function (sid) { return db().collection('leaderChecks').where('siteId', '==', sid).get().then(function (q) { return q.docs; }, function () { return []; }); }))
+          .then(function (l) { return [].concat.apply([], l); })).catch(function () { return []; });
+    var mine = ME.memberId ? db().collection('leaderChecks').doc(ME.memberId).get().then(function (d) { return d.exists ? [d] : []; }, function () { return []; }) : Promise.resolve([]);
+    return Promise.all([concerns, events, checks, mine]).then(function (r) {
+      var y = { dbsYears: SGDEF.dbsYears || 3, trainingYears: SGDEF.trainingYears || 3 }, today = new Date().toISOString().slice(0, 10);
+      var rows = function (docs) { var seen = {}; return docs.filter(function (d) { if (seen[d.id]) return false; seen[d.id] = 1; return true; }).map(function (d) { return Object.assign({ memberId: d.id }, d.data()); }); };
+      drawHome(r[0], r[1], SG.checksDue(rows(r[2]), y, today), SG.checksDue(rows(r[3]), y, today));
+    });
   }
 
   /* ================= loading ================= */
 
   function loadChecks() {
     var leaders = (LEAD && LEAD.leaders) || [];
-    return Promise.all(leaders.map(function (l) {
+    /* Exceptions at this event (§24), for the office and the safeguarding lead. */
+    var ex = (MASTER || ISLEAD || ADMIN) ? db().collection('eventExceptions').where('calEventId', '==', EVID).get()
+      .then(function (q) { EXC = {}; q.docs.forEach(function (d) { EXC[d.data().memberId] = d.data(); }); }).catch(function () { EXC = {}; }) : null;
+    return Promise.all([ex].concat(leaders.map(function (l) {
       if (!l.memberId) return null;
       return db().collection('leaderChecks').doc(l.memberId).get().then(function (s) { CHECKS[l.memberId] = s.exists ? s.data() : null; })
         .catch(function () { delete CHECKS[l.memberId]; });
-    }));
+    })));
   }
 
   function loadIncidents() {

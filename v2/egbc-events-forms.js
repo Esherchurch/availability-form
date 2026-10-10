@@ -208,6 +208,8 @@
   var PARENT = [
     f('parentName', 'text', 'Your name (parent or guardian)', { required: true }),
     f('parentPhone', 'text', 'Your phone number', { required: true }),
+    /* Martin, N-6c: a second parent or carer can be called to collect too. */
+    f('parentEmail2', 'text', 'A second parent or carer\'s email (optional)', { help: 'So a leader can call them to collect on their phone as well. They sign in to the hub with this email.' }),
     f('emergency', 'longtext', 'Emergency contacts: two names and phone numbers, not including you', { required: true }),
     f('collectors', 'text', 'Who may collect your children? (names, separated by commas)', { required: true,
       help: 'Leaders will only hand your child to someone on this list.' })
