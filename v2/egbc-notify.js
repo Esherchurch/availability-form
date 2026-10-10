@@ -181,8 +181,10 @@
   /* What a function said, in words, or why it could not be reached. */
   function call(name, data) {
     return EGBCAuth.call(name, data).then(function (r) { return r || {}; }, function (e) {
-      var code = String((e && e.code) || '');
-      if (/not-found|unavailable|internal|unimplemented/.test(code) || /Failed to fetch|NetworkError/i.test(String(e && e.message)))
+      var code = String((e && e.code) || ''), msg = String((e && e.message) || '');
+      /* Not deployed yet, or out of reach: no connection, a 'not found' page,
+         or a reply that is not data at all. */
+      if (/not-found|unavailable|unimplemented/.test(code) || /Failed to fetch|NetworkError|Unexpected token|JSON|not.?found|aborted/i.test(msg))
         return { error: 'not-live' };
       return { error: code || 'failed', message: (e && e.message) || '' };
     });
@@ -197,7 +199,8 @@
   /* The words for the answer, for whoever pressed the button. */
   function callWords(r) {
     if (!r || r.error === 'not-live') return 'Phone calls start once the sending function is live. Use Show on screen, or ring them.';
-    if (r.error === 'too-soon') return 'They were called less than two minutes ago.';
+    if (r.reason === 'too-soon') return 'They were called less than two minutes ago. Use Show on screen, or ring them.';
+    if (r.reason === 'not-in') return 'That child is not checked in now.';
     if (r.error) return 'Could not call them: ' + (r.message || r.error) + '. Use Show on screen, or ring them.';
     var bits = [];
     if (r.phones) bits.push('sent to ' + r.phones + ' phone' + (r.phones === 1 ? '' : 's'));
@@ -212,4 +215,6 @@
     /* For the browser test only: a pretend phone. */
     _driver: function (d) { Object.keys(d || {}).forEach(function (k) { DRIVER[k] = d[k]; }); }
   };
+  /* A browser test sets this before the page loads (it cannot hold a phone). */
+  if (global.__EGBC_NOTIFY_DRIVER) global.EGBCNotify._driver(global.__EGBC_NOTIFY_DRIVER);
 })(window);

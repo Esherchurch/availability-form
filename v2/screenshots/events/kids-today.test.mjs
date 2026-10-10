@@ -174,6 +174,25 @@ try {
   await L.screenshot({ path: path.join(L === L ? HERE : HERE, 'kids-today-leader-375.png'), fullPage: true });
   await tap(L, '[data-call="kc_ada"] [data-kact^="done:"]');
   ok('   "Done" clears it', !!(await until(async () => (await get('screenPages', 'kids_kg_little_' + DAY + '__kc_ada__0')).clearedAt)));
+  /* §23: "Call on their phone". The sending function is the main window's
+     (N-4), so the test stands in for it and checks what the button asks and
+     what it says back. First: the function not live yet. */
+  await until(() => L.$('[data-kact="phone:kids_kg_little_' + DAY + '__kc_ada__0"]'));
+  await L.evaluate(() => { window.__calls = []; EGBCAuth.call = (n, d) => { window.__calls.push([n, d]); return Promise.reject(new TypeError('Failed to fetch')); }; });
+  await tap(L, '[data-kact="phone:kids_kg_little_' + DAY + '__kc_ada__0"]');
+  await until(async () => /sending function is live/.test(await text(L, '[data-call="kc_ada"]')));
+  ok('   §23 "CALL ON THEIR PHONE": before the function is live it says so, and points to the screen or ringing',
+    /Phone calls start once the sending function is live\. Use Show on screen, or ring them\./.test(await text(L, '[data-call="kc_ada"]')));
+  const asked = await L.evaluate(() => window.__calls);
+  ok('   it asks callParent for that child\'s check-in, and nothing else (no name)', J(asked) === J([['callParent', { checkinId: 'kids_kg_little_' + DAY + '__kc_ada__0' }]]), J(asked));
+  await L.evaluate(() => { EGBCAuth.call = () => Promise.resolve({ phones: 2, emailed: 1 }); });
+  await tap(L, '[data-kact="phone:kids_kg_little_' + DAY + '__kc_ada__0"]');
+  await until(async () => /Sent to 2 phones/.test(await text(L, '[data-call="kc_ada"]')));
+  ok('   once live: "Sent to 2 phones, emailed 1."', /Sent to 2 phones, emailed 1\./.test(await text(L, '[data-call="kc_ada"]')));
+  await L.evaluate(() => { EGBCAuth.call = () => Promise.resolve({ phones: 0, emailed: 0, reason: 'too-soon' }); });
+  await tap(L, '[data-kact="phone:kids_kg_little_' + DAY + '__kc_ada__0"]');
+  await until(async () => /less than two minutes ago/.test(await text(L, '[data-call="kc_ada"]')));
+  ok('   and twice within two minutes: "called less than two minutes ago"', true);
   await tap(L, '[data-kact="in"]');
   await until(async () => (await L.$eval('[data-k="leaders"]', e => e.textContent)) === '2');
   ok('   she checks herself in too: 2 leaders', true);

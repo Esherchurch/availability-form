@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Notifications</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610082145" data-title="Notifications"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+<script src="egbc-auth.js?v=202610062100"></script>
+<script src="egbc-notify-core.js?v=202610111300"></script>
+<script src="egbc-notify.js?v=202610111300"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:640px;margin:0 auto;padding:20px 16px calc(72px + env(safe-area-inset-bottom))}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  h2{font-weight:600}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 18px;border-radius:10px;font:600 15px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn:disabled{opacity:.55}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .hint{font-size:13px;color:var(--muted)}
+  .st{border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0}.st.ok{background:var(--ok-bg);color:var(--ok)}.st.no{background:var(--danger-bg);color:var(--danger)}.st.warn{background:var(--gold-bg);color:var(--gold)}
+  .sw{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line);min-height:48px;cursor:pointer}
+  .sw:first-of-type{border-top:none}
+  .sw input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--brand)}
+  .sw b{color:var(--ink);font-weight:600;display:block}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  label.l{display:block;font-size:14px;font-weight:500;color:var(--ink);margin:10px 0 5px}
+  .inp{min-height:48px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 15px Inter,sans-serif;color:var(--ink);background:#fff;width:100%}
+  ol.steps{list-style:none;padding:0;margin:0;counter-reset:s}
+  ol.steps li{counter-increment:s;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+  ol.steps li:first-child{border-top:none}
+  ol.steps li img{width:96px;height:auto;border-radius:10px;border:1px solid var(--line);background:#fff;display:block}
+  ol.steps li p{margin:0}
+  ol.steps li p::before{content:counter(s) ". ";font-weight:600;color:var(--ink)}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Notifications</h1>
+  <p class="sub">Messages from the church hub on this phone. You choose which.</p>
+  <div id="state"><div class="card hint">Loading…</div></div>
+  <div id="types"></div>
+  <div class="card"><h2>No phone set up?</h2><p class="hint" style="margin:0">Then we email you instead. Room booking news is emailed to you anyway, so it only comes to your phone.</p></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  /* NEXT-BRIEF §23 (Martin): notifications from day one, on Android and on
+     iPhone. The page side; the sending is the main window's (N-4).
+     - Android (Chrome, or the installed app): the button turns them on.
+     - iPhone: only from iOS 16.4, and only in the app ADDED TO THE HOME
+       SCREEN. In Safari the page shows how to add it instead of a button
+       that could not work.
+     - The person presses the button; nothing asks on its own (the brief).
+     - Someone signed in but not in the address book (a parent, §21) may
+       turn on "call a parent" only (Martin, N-6b). */
+  var N = window.EGBCNotify, CORE = window.EGBCNotifyCore;
+  var PREFS = null, PENDING = false, BUSY = false;
+  function $(id) { return document.getElementById(id); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 4500); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  /* ---- the iPhone guide: plain words, simple pictures ---- */
+  var PIC = {
+    share: '<svg viewBox="0 0 96 64" role="img" aria-label="The Share button at the bottom of Safari"><rect x="0" y="40" width="96" height="24" fill="#f3f4f6"/>' +
+      '<rect x="40" y="44" width="16" height="16" rx="4" fill="#fff" stroke="#3d6263" stroke-width="2"/><path d="M48 54v-8m-3 3l3-3 3 3" stroke="#3d6263" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+      '<rect x="8" y="8" width="80" height="24" rx="6" fill="#fff" stroke="#d1d5db"/><text x="48" y="24" font-size="9" text-anchor="middle" fill="#6b7280" font-family="Inter,sans-serif">esherchurch…</text></svg>',
+    add: '<svg viewBox="0 0 96 64" role="img" aria-label="Add to Home Screen, in the list"><rect x="4" y="6" width="88" height="52" rx="8" fill="#fff" stroke="#d1d5db"/>' +
+      '<text x="12" y="22" font-size="8" fill="#9ca3af" font-family="Inter,sans-serif">Copy</text><line x1="8" y1="28" x2="88" y2="28" stroke="#e5e7eb"/>' +
+      '<rect x="10" y="34" width="12" height="12" rx="3" fill="none" stroke="#3d6263" stroke-width="1.6"/><path d="M16 37v6m-3-3h6" stroke="#3d6263" stroke-width="1.6"/>' +
+      '<text x="26" y="43.5" font-size="6.4" fill="#111827" font-family="Inter,sans-serif" font-weight="600">Add to Home Screen</text></svg>',
+    icon: '<svg viewBox="0 0 96 64" role="img" aria-label="The EGBC Hub icon on the Home Screen"><rect width="96" height="64" fill="#eef5f4"/>' +
+      '<rect x="34" y="10" width="28" height="28" rx="7" fill="#3d6263"/><text x="48" y="28" font-size="8" text-anchor="middle" fill="#fff" font-family="Inter,sans-serif" font-weight="600">EGBC</text>' +
+      '<text x="48" y="52" font-size="8" text-anchor="middle" fill="#111827" font-family="Inter,sans-serif">EGBC Hub</text></svg>',
+    bell: '<svg viewBox="0 0 96 64" role="img" aria-label="Turn on notifications"><rect width="96" height="64" fill="#fff"/>' +
+      '<rect x="4" y="20" width="88" height="24" rx="8" fill="#3d6263"/><text x="48" y="35" font-size="6.6" text-anchor="middle" fill="#fff" font-family="Inter,sans-serif" font-weight="600">Turn on notifications</text></svg>'
+  };
+  /* Shown as pictures, so their small words are part of the picture. */
+  function pic(name) {
+    var svg = PIC[name], alt = (svg.match(/aria-label="([^"]*)"/) || [, ''])[1];
+    return '<img alt="' + esc(alt) + '" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')) + '">';
+  }
+  function iphoneGuide() {
+    return '<div class="card" id="iphone-guide"><h2>On an iPhone: add the hub to your Home Screen first</h2>' +
+      '<p class="hint" style="margin:0 0 6px">An iPhone only lets an app send notifications once it is on your Home Screen. It takes a moment, and you only do it once.</p>' +
+      '<ol class="steps">' +
+        '<li>' + pic('share') + '<p>In Safari, tap the <b>Share</b> button: the square with an arrow, at the bottom of the screen.</p></li>' +
+        '<li>' + pic('add') + '<p>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</p></li>' +
+        '<li>' + pic('icon') + '<p>Close Safari and open <b>EGBC Hub</b> from its new icon on your Home Screen.</p></li>' +
+        '<li>' + pic('bell') + '<p>Come back to this page (Me, then Notifications) and tap <b>Turn on notifications</b>.</p></li>' +
+      '</ol></div>';
+  }
+
+  /* ---- this phone ---- */
+  function drawState() {
+    var d = N.device(), html;
+    if (d.why === 'iphone-add') html = iphoneGuide();
+    else if (d.why === 'iphone-old') html = '<div class="card" id="iphone-old"><h2>Your iPhone needs updating first</h2><p style="margin:0">Notifications need iOS 16.4 or later. ' +
+      'To update: Settings, then General, then Software Update. Until then we email you instead.</p></div>';
+    else if (d.why === 'blocked') html = '<div class="card" id="blocked"><h2>Notifications are blocked on this phone</h2>' +
+      '<p style="margin:0 0 6px">They were turned off for the church hub in this phone\'s settings. To allow them:</p>' +
+      '<p class="hint" style="margin:0">On Android in Chrome: tap the padlock beside the address, then Permissions, then Notifications, then Allow. In the installed app: Settings, then Apps, then EGBC Hub, then Notifications.</p></div>';
+    else if (d.why === 'unsupported') html = '<div class="card" id="unsupported"><h2>This browser cannot show notifications</h2><p style="margin:0">Use Chrome on Android, or the hub added to an iPhone\'s Home Screen. Until then we email you instead.</p></div>';
+    else if (N.isOn()) html = '<div class="card" id="on"><h2>On for this phone</h2><p class="st ok" style="margin:0">You will get the messages you have chosen below.</p>' +
+      '<div class="acts"><button class="btn" id="n-test">Send me a test</button><button class="btn sec" id="n-off">Turn off on this phone</button></div><div id="n-out"></div></div>';
+    else html = '<div class="card" id="off"><h2>Turn on notifications</h2><p style="margin:0">Get the messages you choose below on this phone, even when the hub is closed.</p>' +
+      '<div class="acts"><button class="btn" id="n-on">Turn on notifications on this phone</button></div>' +
+      '<p class="hint" style="margin:10px 0 0">On an iPhone this works in the hub added to your Home Screen (iOS 16.4 or later).</p><div id="n-out"></div></div>';
+    $('state').innerHTML = html;
+    if ($('n-on')) $('n-on').onclick = turnOn;
+    if ($('n-off')) $('n-off').onclick = turnOff;
+    if ($('n-test')) $('n-test').onclick = test;
+  }
+  function say(cls, words) { var o = $('n-out'); if (o) o.innerHTML = '<p class="st ' + cls + '">' + esc(words) + '</p>'; }
+  function turnOn() {
+    if (BUSY) return; BUSY = true; this.disabled = true;
+    N.turnOn().then(function () { BUSY = false; drawState(); toast('Notifications are on for this phone.'); }, function (e) {
+      BUSY = false; drawState();
+      var c = e && e.code;
+      say('no', c === 'blocked' ? 'This phone said no. To allow them, see the steps that now show above.'
+        : c === 'dismissed' ? 'You said not now. Press the button again whenever you are ready.'
+        : c === 'iphone-add' ? 'On an iPhone, add the hub to your Home Screen first.'
+        : 'This phone did not give an address for messages. Try again in a moment.');
+      if (c === 'blocked') drawState();
+    });
+  }
+  function turnOff() {
+    if (BUSY) return; BUSY = true;
+    N.turnOff().then(function () { BUSY = false; drawState(); toast('Turned off on this phone.'); }, function () { BUSY = false; toast('Could not turn them off. Try again.'); });
+  }
+  function test() {
+    var b = $('n-test'); b.disabled = true;
+    N.test().then(function (r) {
+      b.disabled = false;
+      if (r.error === 'not-live') say('warn', 'Test messages start once the sending function is live. Everything on this phone is ready.');
+      else if (r.error) say('no', 'The test could not be sent: ' + (r.message || r.error));
+      else say('ok', 'Sent. It should arrive in a few seconds.');
+    });
+  }
+
+  /* ---- the switches ---- */
+  function drawTypes() {
+    var T = CORE.TYPES, keys = Object.keys(T).filter(function (k) { return !T[k].hidden && (!PENDING || k === 'callParent'); });
+    $('types').innerHTML = '<div class="card" id="switches"><h2>What I get</h2>' +
+      (PENDING ? '<p class="hint" style="margin:0 0 6px">You are not in the church\'s address book yet, so only this one is offered. The office can add you.</p>' : '') +
+      keys.map(function (k) {
+        return '<label class="sw"><input type="checkbox" data-type="' + k + '"' + (PREFS.types[k] ? ' checked' : '') + '><span><b>' + esc(T[k].label) + '</b><span class="hint">' + esc(T[k].help) + '</span></span></label>';
+      }).join('') + '</div>' +
+      '<div class="card" id="quiet"><h2>Quiet hours</h2><p class="hint" style="margin:0">Messages still come, silently. Calling you to collect your child, and urgent notices, are never quiet.</p>' +
+      '<div class="two"><div><label class="l" for="q-from">From</label><input class="inp" type="time" id="q-from" value="' + esc(PREFS.quietFrom) + '"></div>' +
+      '<div><label class="l" for="q-to">Until</label><input class="inp" type="time" id="q-to" value="' + esc(PREFS.quietTo) + '"></div></div></div>';
+    document.querySelectorAll('[data-type]').forEach(function (c) { c.onchange = function () { PREFS.types[c.dataset.type] = c.checked; save(); }; });
+    $('q-from').onchange = function () { PREFS.quietFrom = this.value; save(); };
+    $('q-to').onchange = function () { PREFS.quietTo = this.value; save(); };
+  }
+  function save() {
+    N.savePrefs(PREFS).then(function (p) { PREFS = p; toast('Saved.'); }, function (e) { toast('Could not save: ' + (e.message || e)); });
+  }
+
+  /* Anyone signed in may use this page: a parent need not be in the book. */
+  EGBCAuth.optional().then(function (profile) {
+    if (!EGBCAuth.user()) {
+      sessionStorage.setItem('egbc_return_to', 'notifications.html');
+      location.href = 'login.html';
+      return;
+    }
+    PENDING = !profile || profile.status !== 'active';
+    drawState();
+    N.touch();
+    return N.loadPrefs().then(function (p) { PREFS = p; drawTypes(); });
+  }).catch(function (e) { $('state').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

@@ -2844,3 +2844,12 @@ fits; three does not.
   clears him, and the warning goes.
 - **5 deliberate breaks**, all caught, including "one person without checks
   holds up the one paired with them".
+
+### F-144 — phone notifications built (NEXT-BRIEF §23): see FINDINGS-notify N-8
+- What's built: N-8.
+- What the main window is asked for: N-4 (the sending functions) and N-5
+  (the service worker, the app, the Menu, and letting parents not in the
+  address book into the app).
+- The real-phone proof, for Martin: N-7.
+- `egbc-notify-core.js` also carries the §24 "checks running out" message,
+  so the weekly reminder function (N-4) uses the same words and switch.

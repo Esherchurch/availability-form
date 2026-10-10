@@ -17,6 +17,8 @@
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
 <script src="egbc-events-kids.js?v=202610091800"></script>
+<script src="egbc-notify-core.js?v=202610111300"></script>
+<script src="egbc-notify.js?v=202610111300"></script>
 <script src="egbc-events-checkin.js?v=202610082300"></script>
 <script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-scan.js?v=202610082100"></script>
@@ -686,8 +688,20 @@
       '<dt>Emergency</dt><dd>' + esc(c.emergency || 'none given') + '</dd><dt>May collect</dt><dd>' + esc((c.collectors || []).join(', ')) + '</dd>' +
       '<dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No: ring the parent') + '</dd><dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd></dl>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="m-page">Page a parent</button>' +
-      (ckOf(c) && ckOf(c).state === 'in' ? '<button class="btn" id="m-screen">Show on screen</button>' : '') + '<button class="btn sec" id="m-close">Close</button></div><div id="m-pager"></div>');
+      (ckOf(c) && ckOf(c).state === 'in' ? '<button class="btn" id="m-screen">Show on screen</button>' : '') +
+      (ckOf(c) && ckOf(c).state === 'in' && window.EGBCNotify ? '<button class="btn" id="m-phone">Call on their phone</button>' : '') +
+      '<button class="btn sec" id="m-close">Close</button></div><div id="m-pager"></div>');
     document.getElementById('m-close').onclick = closeModal;
+    /* §23: the family's own phones get the group and the code only, never
+       the child's name; anyone with no phone set up is emailed. */
+    var mp = document.getElementById('m-phone');
+    if (mp) mp.onclick = function () {
+      mp.disabled = true;
+      EGBCNotify.callParent(ckOf(c).id).then(function (r) {
+        document.getElementById('m-pager').innerHTML = '<div class="st ' + (r && !r.error && (r.phones || r.emailed) ? 'ok' : 'wait') + '" id="m-called" style="margin-top:10px">' + esc(EGBCNotify.callWords(r)) + '</div>';
+        mp.disabled = false;
+      });
+    };
     var ms = document.getElementById('m-screen');
     if (ms) ms.onclick = function () {
       ms.disabled = true;

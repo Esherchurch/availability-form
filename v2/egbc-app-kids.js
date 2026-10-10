@@ -40,6 +40,8 @@
   /* The morning's data. */
   var D = { groups: [], children: [], cks: {}, roll: {}, leaders: {}, pages: {}, med: {}, mine: null };
   var DAY = '';
+  /* What calling a family's phones said, by check-in (§23). */
+  var CALLS = {};
 
   function db() { return EGBCAuth.db; }
   function me() { return (EGBCAuth.profile && EGBCAuth.profile()) || {}; }
@@ -180,6 +182,16 @@
         createdBy: uid(), createdAt: firebase.firestore.FieldValue.serverTimestamp(), clearedAt: null }).catch(function () { btn.disabled = false; global.alert('Could not show it on the screen.'); });
       return;
     }
+    /* Call the parents' phones (§23): the function sends the group and the
+       code only, to the family's own phones, and emails anyone with none. */
+    if (a.indexOf('phone:') === 0) {
+      if (!global.EGBCNotify) return;
+      var ckId = a.slice(6);
+      btn.disabled = true;
+      CALLS[ckId] = 'Calling…'; redraw();
+      global.EGBCNotify.callParent(ckId).then(function (r) { CALLS[ckId] = global.EGBCNotify.callWords(r); redraw(); });
+      return;
+    }
     if (a.indexOf('done:') === 0) {
       btn.disabled = true;
       db().collection('screenPages').doc(a.slice(5)).update({ clearedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(function () { btn.disabled = false; });
@@ -244,10 +256,12 @@
       return '<div class="card" data-call="' + esc(x.childId) + '" style="padding:12px;margin:6px 0"><b>' + esc(x.name) + '</b> <small>' + esc(g ? g.name : '') + '</small>' +
         (on ? '<p style="margin:6px 0" data-k="onscreen"><b>On the screen now:</b> ' + esc(on.message) + '</p><div class="actions">' + btn('done:' + on.id, 'Done: the parent is here', true) + '</div>'
             : '<div class="actions">' + btn('screen:' + x.childId, H.ic('monitor', 15) + ' Show on screen', true) +
-              (c && c.phone ? '<a class="btn" style="min-height:48px;text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="tel:' + esc(tel(c.phone)) + '">' + H.ic('phone', 15) + ' Ring</a>' : '') + '</div>') + '</div>';
+              (global.EGBCNotify ? btn('phone:' + x.ck.id, H.ic('bell-ring', 15) + ' Call on their phone') : '') +
+              (c && c.phone ? '<a class="btn" style="min-height:48px;text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="tel:' + esc(tel(c.phone)) + '">' + H.ic('phone', 15) + ' Ring</a>' : '') + '</div>') +
+        (CALLS[x.ck.id] ? '<p class="sub" style="margin:6px 0 0" data-k="called">' + esc(CALLS[x.ck.id]) + '</p>' : '') + '</div>';
     });
     out += H.sec('Call a parent', canPage()
-      ? '<p class="sub" style="margin:0 0 6px">Shows the family\'s code on the screen in church. Never the child\'s name.</p>' + (callRows.length ? callRows.join('') : '<p class="sub">Nobody is in yet.</p>')
+      ? '<p class="sub" style="margin:0 0 6px">Shows the family\'s code on the screen in church, or calls their parents\' phones. Never the child\'s name.</p>' + (callRows.length ? callRows.join('') : '<p class="sub">Nobody is in yet.</p>')
       : '<p class="sub">Group leaders and the leads call a parent from here.</p>');
     out += '<div class="actions" data-k="tools">' + (S.lead ? '<a class="btn" style="min-height:48px;text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="kids-checkin.html?tab=desk">' + H.ic('scan-line', 15) + ' Check-in desk</a>' : '') +
       '<a class="btn" style="min-height:48px;text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="kids-checkin.html?tab=roll">' + H.ic('flame', 15) + ' Fire roll-call</a></div>';

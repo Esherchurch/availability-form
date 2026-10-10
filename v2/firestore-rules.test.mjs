@@ -1986,6 +1986,8 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('   and nobody lists them', 'deny', () => getDocs(collection(as('martin'), 'pushTokens')));
   await check('NOBODY REGISTERS A PHONE IN SOMEONE ELSE’S NAME', 'deny', () => setDoc(doc(as('isla'), 'pushTokens', 'u_samy_zzzzzz9999'), PT('u_samy')));
   await check('   nor under someone else’s id with their own name', 'deny', () => setDoc(doc(as('isla'), 'pushTokens', 'u_samy_yyyyyy8888'), PT('u_isla')));
+  /* The one that would let Isla's phone receive Samy's messages: her own record, his name. */
+  await check('   NOR HER OWN PHONE RECORD IN SAMY’S NAME (to get his messages)', 'deny', () => setDoc(doc(as('isla'), 'pushTokens', 'u_isla_eeeeee5555'), PT('u_samy')));
   await check('   nor take over someone else’s phone record', 'deny', () => setDoc(doc(as('isla'), 'pushTokens', 'u_samy_abcdef1234'), PT('u_isla')));
   await check('a person refreshes their own phone (last seen now)', 'allow', () => updateDoc(doc(as('samy'), 'pushTokens', 'u_samy_abcdef1234'), { lastSeen: serverTimestamp() }));
   await check('the record has its own shape', 'deny', () => setDoc(doc(as('samy'), 'pushTokens', 'u_samy_bbbbbb2222'), PT('u_samy', { platform: 'fridge' })));
