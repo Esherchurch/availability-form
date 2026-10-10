@@ -184,7 +184,13 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - The member directory **already exists**. The Email Builder **already exists**. Improve them; don't duplicate them.
 
 **Before launch:**
-- **Safeguarding in the rota (main window, Planner and Core Team rota):** a person whose DBS check or training has lapsed **cannot be put on a children's or youth rota slot** (Kids Church, Creche, youth roles). The planner says why. A master admin or the safeguarding lead can record an exception with a reason. Use the same checks records the events window uses for under-18s groups (F-109). Rules-enforced, with tests and a deliberate break.
+- **Safeguarding for everyone working with under-18s (Martin):** not only Kids Church. A **"Works with under-18s" tick** on each **team** (in the teams data) and on each **event or club** (events-admin) makes an in-date DBS check and training **required** for its leaders, helpers and rota slots.
+  - **Teams ticked at launch:** Kids Church, Creche, **Youth Worship**, Lazers, ReNu.
+  - **Events and clubs:** **Kids Film Club**, Puppet practice, youth events, and anything a leader ticks.
+  - **Under-18s small groups** already work this way (F-109); use the same checks records and the same exception route (master admin or safeguarding lead, with a reason).
+  - **Main window:** the tick on teams, and the check in Planner and the Core Team rota (a person can't be put on a ticked team's slot).
+  - **Events window:** the tick on events and clubs, the check when naming leaders and helpers, and reminders before a DBS check or training runs out.
+  - Rules-enforced, with tests and deliberate breaks (e.g. a Youth Worship leader with no DBS can't be put on the youth rota, and a Kids Film Club helper with expired training can't be added).
 
 **After launch (in this order unless Martin says otherwise):**
 1. **Better group emails:** improve `EmailBuilder2.html` with saved templates, a record of what was sent and who to, a choice of a team, group, family or everyone as recipients, and sending as a notification too.
