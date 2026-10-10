@@ -274,6 +274,12 @@ A.screen('kids', 'rota', function () { return teamRota('Kids Church'); });
 A.screen('kids', 'team', function () {
   return teamTeam('kids',
     row('shield-check', 'Safeguarding', 'Report a concern, the policy, your training', null, 'open:safeguarding.html') +
+    /* MISSING UNTIL NOW, and it was a leftover from the board being
+       leaders-only: every other team space offers its board and Kids
+       Church did not, so the people the board is FOR had no way to it
+       from the app (Martin, 10 Oct 2026). */
+    row('sticky-note', 'Pin boards', 'Suggestions and ideas', null,
+        'open:stickynotes.html?board=kids') +
     row('clipboard-list', "Children's register", 'Who came, by group and term', null, 'open:kids-admin.html') +
     row('scan-line', 'Sunday check-in', 'The desk on a Sunday morning', null, 'open:kids-checkin.html') +
     row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:resources.html'));

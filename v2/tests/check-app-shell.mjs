@@ -83,6 +83,16 @@ const PEOPLE = {
   /* ...and this is who does: somebody in the Church office group. */
   admin:    { email: 'app.churchoffice@example.invalid', teams: ['Church office'], adminFor: [],
               spaces: ['me', 'office'], note: 'in the Church office group' },
+  /* ON EVERY TEAM. Nobody real is, but "does every team space offer its
+     own pin board?" cannot be answered by anyone who is not: go() refuses
+     a space you are not in, so a person on two teams can only ever prove
+     two of them. One person who is on all of them is the only way to see
+     all five in one pass. */
+  everyteam:{ email: 'app.everyteam@example.invalid',
+              teams: ['Worship Team', 'Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Maintenance'],
+              adminFor: [],
+              spaces: ['me', 'worship', 'kids', 'youth', 'lazers', 'renu', 'maint'],
+              note: 'on every team there is' },
 };
 
 /* The two groups NEXT-BRIEF §25 starts with. A group is a team with
@@ -436,6 +446,38 @@ const offMachine = u => {
   })()`)) === true, await tabsOnScreen());
   ok('there is no hidden menu anywhere in the app',
     (await ev('document.body.innerText.indexOf("\\u2630")')) === -1);
+
+  /* ---- every team space offers ITS OWN board -------------------------
+     Kids Church had no "Pin boards" row at all - a leftover from the board
+     being leaders-only - so the people the board is for had no way to it
+     from the app. Every other team space had one, which is exactly the
+     shape of fault a per-space check finds and a spot check does not.
+
+     IT CHECKS THE BOARD IS THE RIGHT ONE, not merely that a row exists: a
+     row pointing at another team's board is worse than none, and that is
+     what the page used to do when nothing matched (check-board-queue). */
+  console.log('\nevery team space offers its own pin board');
+  await openAs(PEOPLE.everyteam);
+  const BOARD_OF = { worship: 'worship', kids: 'kids', youth: 'youth',
+                     lazers: 'lazers', renu: 'renu' };
+  const boards = JSON.parse(String(await ev(`JSON.stringify((() => {
+    const out = {};
+    for (const k of Object.keys(${JSON.stringify(BOARD_OF)})) {
+      if (!EGBCApp.has(k, 'team')) continue;
+      EGBCApp.go(k, 'team');
+      const html = (document.getElementById('egbc-content') || {}).innerHTML || '';
+      const m = html.match(/stickynotes\\.html\\?board=([a-z-]+)/);
+      out[k] = m ? m[1] : '(no row)';
+    }
+    return out;
+  })())`)));
+  /* The sweep account is on every team, so every one of these must answer.
+     A space missing from the result is a space with no Team tab, which is
+     itself worth failing on. */
+  for (const [space, board] of Object.entries(BOARD_OF)) {
+    ok('  ' + space + ' offers the ' + board + ' board',
+      boards[space] === board, 'it offers: ' + (boards[space] || '(no Team tab at all)'));
+  }
 
   /* ---- "I'm worried about someone", on every space (§24) -------------
      Martin asked for it on EVERY version of the app, and a button in the

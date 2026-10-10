@@ -163,3 +163,35 @@ space load, so there is one copy and the old app keeps working. That is the
 right shape and it is not a small job. The alternative — copying it — gives
 two planners that drift, which NEXT-BRIEF §15 and my own A-053 both warn
 about.
+
+---
+
+## Two rows owed, recorded so they are not lost
+
+**Core Team ▸ Team gets the Core Team pin board** (Martin, 10 Oct 2026),
+opening `stickynotes.html?board=core`, beside the Email Compiler, the Core
+Team charter and resources. **Not built**, because the Core Team space
+itself is not — §7b says to stop after this table. It goes in with the
+space, and `check-app-shell.mjs` already holds the gate that will catch it
+if it is missed: every team space must offer its own board, checked by
+board id rather than by "a row exists", as a person on every team.
+
+That gate exists because **Kids Church had no such row at all**, a leftover
+from the board being leaders-only, so the people the board is for had no way
+to it from the app. It is there now.
+
+## Notices on Home: confirmed, and the field is `until`
+
+Martin asked whether Home's notices will show the latest news **with its
+show-until date** (§17). Yes, and the mechanism already exists on the hub
+rather than being something to invent:
+
+- the hub's notice editor has **"Show until (optional)"** (`nwUntil`,
+  `hub.html`), stored as `until` on the news document
+- `isNewsExpired(n)` in `hub-app.js` is `n.until && n.until < todayIso()`,
+  so a notice takes itself off the page the day after
+- `forMe(n)` filters by team on top of that
+
+Home in Stage 2 uses the same two functions rather than a second copy, so a
+notice that has expired on the computer cannot still be showing on the
+phone. Checked in the code just now, not remembered.
