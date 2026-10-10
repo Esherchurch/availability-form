@@ -22,7 +22,7 @@
 <meta name="theme-color" content="#3d6263">
 <title>Youth Hub</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
 <style>
@@ -45,7 +45,7 @@
   --bg: var(--canvas);
   --white: var(--surface);
   --green: var(--brand);
-  --font: 'Montserrat', sans-serif;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -87,17 +87,15 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-weight: 800;
+  font-weight: 600;
 }
 #back-btn.visible { display: flex; }
 
 #header-title {
   flex: 1;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--teal);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   line-height: 1.2;
 }
 
@@ -108,7 +106,7 @@ body {
   border: 1px solid var(--border);
   color: var(--teal);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -139,14 +137,14 @@ body {
   display: flex; align-items: center; justify-content: space-between;
 }
 .news-header-bar h3 {
-  font-size: 10px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal);
+  font-size: 12px; font-weight: 600;
+    color: var(--teal);
 }
 .news-items-list { padding: 0; }
 .news-item { padding: 12px 16px; border-bottom: 1px solid var(--bg); }
 .news-item:last-child { border-bottom: none; }
-.news-item-date { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #a0b0b0; margin-bottom: 3px; }
-.news-item-title { font-size: 13px; font-weight: 800; color: var(--teal); margin-bottom: 4px; line-height: 1.3; }
+.news-item-date { font-size: 12px; font-weight: 600;   color: #a0b0b0; margin-bottom: 3px; }
+.news-item-title { font-size: 13px; font-weight: 600; color: var(--teal); margin-bottom: 4px; line-height: 1.3; }
 .news-item-body { font-size: 12px; color: #555; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .news-item-body img { max-width: 100%; border-radius: 8px; margin: 4px 0; }
 .news-item-body a { color: var(--teal); }
@@ -155,8 +153,8 @@ body {
 /* ── TILES ── */
 .tiles-heading {
   padding: 0 16px 10px;
-  font-size: 9px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.2em;
+  font-size: 12px; font-weight: 600;
+   letter-spacing: 0.2em;
   color: var(--teal); opacity: 0.5;
 }
 .tiles-grid {
@@ -174,8 +172,8 @@ body {
 }
 .tile:active { transform: scale(0.97); box-shadow: 0 0 0 2px rgba(0,180,200,0.3); }
 .tile-icon { font-size: 28px; line-height: 1; }
-.tile-name { font-size: 13px; font-weight: 800; color: var(--teal); line-height: 1.2; }
-.tile-desc { font-size: 10px; color: var(--teal); opacity: 0.5; font-weight: 600; line-height: 1.3; }
+.tile-name { font-size: 13px; font-weight: 600; color: var(--teal); line-height: 1.2; }
+.tile-desc { font-size: 12px; color: var(--teal); opacity: 0.5; font-weight: 600; line-height: 1.3; }
 .tile-arrow { position: absolute; bottom: 14px; right: 14px; font-size: 16px; color: var(--teal); opacity: 0.2; }
 
 .tile-planner { border-top: 3px solid #3d6263; }
@@ -198,7 +196,7 @@ body {
   border-radius: 0.75rem;
   padding: 0.75rem 1rem;
   font-family: var(--font);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--teal);
   transition: all 0.2s;
   height: auto;
@@ -224,17 +222,17 @@ select.styled-input { appearance: none; cursor: pointer; }
 .planner-date-row select { flex: 1; }
 
 .planner-leader {
-  font-size: 11px; font-weight: 700; color: var(--teal);
+  font-size: 12px; font-weight: 600; color: var(--teal);
   opacity: 0.6; padding: 0 2px;
 }
-.planner-leader span { font-weight: 800; opacity: 1; }
+.planner-leader span { font-weight: 600; opacity: 1; }
 
 .readonly-banner {
   display: none;
   background: #fff8e6;
   border-bottom: 2px solid #e0c060;
   padding: 10px 16px;
-  font-size: 12px; font-weight: 800;
+  font-size: 12px; font-weight: 600;
   color: #7a5500; text-align: center;
 }
 .readonly-banner.visible { display: block; }
@@ -243,15 +241,15 @@ select.styled-input { appearance: none; cursor: pointer; }
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 12px 8px; flex-wrap: wrap; gap: 8px;
 }
-.planner-section-header h2 { font-size: 15px; font-weight: 800; color: var(--teal); }
+.planner-section-header h2 { font-size: 15px; font-weight: 600; color: var(--teal); }
 .planner-btn-row { display: flex; gap: 6px; }
 
 .planner-btn {
   padding: 8px 14px;
-  border-radius: 9999px;
-  font-family: var(--font); font-size: 12px; font-weight: 800;
+  border-radius: 8px;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
   cursor: pointer; border: none;
-  text-transform: uppercase; letter-spacing: 0.04em;
+   letter-spacing: 0.04em;
 }
 .planner-btn-secondary {
   background: var(--bg); color: var(--teal);
@@ -276,8 +274,8 @@ select.styled-input { appearance: none; cursor: pointer; }
   flex-shrink: 0; touch-action: none;
 }
 .song-number {
-  font-size: 9px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.1em; color: var(--teal); opacity: 0.5;
+  font-size: 12px; font-weight: 600; 
+   color: var(--teal); opacity: 0.5;
   white-space: nowrap; min-width: 44px;
 }
 .song-title-wrap { flex: 1; position: relative; min-width: 0; }
@@ -285,7 +283,7 @@ select.styled-input { appearance: none; cursor: pointer; }
   width: 100%; background: var(--bg);
   border: 1px solid var(--border); border-radius: 0.5rem;
   padding: 8px 10px; font-family: var(--font);
-  font-weight: 700; font-size: 13px; color: var(--teal); outline: none;
+  font-weight: 600; font-size: 13px; color: var(--teal); outline: none;
 }
 .song-title-input:focus { border-color: var(--teal); }
 .suggest-box {
@@ -295,14 +293,14 @@ select.styled-input { appearance: none; cursor: pointer; }
   z-index: 300; overflow: hidden; margin-top: 2px; display: none;
 }
 .suggest-item {
-  padding: 10px 14px; font-size: 13px; font-weight: 700;
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
   color: var(--teal); cursor: pointer; border-bottom: 1px solid var(--bg);
 }
 .suggest-item:last-child { border-bottom: none; }
 .suggest-item:hover { background: var(--bg); }
 .collapse-btn {
   width: 28px; height: 28px; border: none; background: none;
-  font-size: 11px; color: var(--teal); cursor: pointer;
+  font-size: 12px; color: var(--teal); cursor: pointer;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; transition: transform 0.2s;
 }
@@ -321,7 +319,7 @@ select.styled-input { appearance: none; cursor: pointer; }
 .serve-count-badge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 2rem; height: 2rem; border-radius: 9999px;
-  font-size: 0.75rem; font-weight: 800; padding: 0 0.5rem;
+  font-size: 0.75rem; font-weight: 600; padding: 0 0.5rem;
   background: #e6f0f0; color: var(--teal); border: 1.5px solid var(--border);
   transition: all 0.2s; flex-shrink: 0;
 }
@@ -336,15 +334,15 @@ select.styled-input { appearance: none; cursor: pointer; }
 .key-info-box {
   margin-top: 8px; padding: 8px 10px;
   background: var(--bg); border-radius: 8px;
-  font-size: 11px; font-weight: 600; color: var(--teal); line-height: 1.5;
+  font-size: 12px; font-weight: 600; color: var(--teal); line-height: 1.5;
 }
 .files-box {
   margin-top: 8px; padding: 10px 12px;
-  background: var(--bg); border-radius: 10px; font-size: 11px;
+  background: var(--bg); border-radius: 10px; font-size: 12px;
 }
 .files-box a {
   display: inline-block; background: var(--teal); color: white;
-  padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
   text-decoration: none; margin: 2px 2px 0 0;
 }
 
@@ -356,18 +354,18 @@ select.styled-input { appearance: none; cursor: pointer; }
 .item-block:hover { border-color: var(--border); }
 .item-title-input {
   flex: 1; background: transparent; border: none;
-  font-family: var(--font); font-weight: 700; font-size: 15px;
+  font-family: var(--font); font-weight: 600; font-size: 15px;
   color: var(--teal); outline: none; min-width: 0;
 }
 
 .rota-table { width: 100%; border-collapse: collapse; }
 .rota-table th {
   text-align: left; padding: 8px 12px;
-  font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--teal); font-weight: 800; border-bottom: 1px solid var(--border);
+  font-size: 12px;  
+  color: var(--teal); font-weight: 600; border-bottom: 1px solid var(--border);
 }
 .rota-table td { padding: 10px 12px; font-size: 13px; font-weight: 600; color: #333; border-bottom: 1px solid var(--bg); }
-.rota-table td:first-child { font-weight: 800; color: var(--teal); }
+.rota-table td:first-child { font-weight: 600; color: var(--teal); }
 .rota-table textarea {
   width: 100%; background: var(--bg); border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 8px; font-family: var(--font);
@@ -377,7 +375,7 @@ select.styled-input { appearance: none; cursor: pointer; }
 .planner-actions {
   display: flex; gap: 10px; padding: 16px 12px 0;
 }
-.planner-actions button { flex: 1; padding: 14px; border: none; border-radius: 12px; font-family: var(--font); font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+.planner-actions button { flex: 1; padding: 14px; border: none; border-radius: 12px; font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer;  }
 
 /* readonly */
 body.readonly-mode .styled-input,
@@ -400,9 +398,9 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 }
 .board-filters::-webkit-scrollbar { display: none; }
 .filter-pill {
-  flex-shrink: 0; padding: 6px 14px; border-radius: 9999px;
+  flex-shrink: 0; padding: 6px 14px; border-radius: 8px;
   border: 1.5px solid var(--border); background: var(--white);
-  font-family: var(--font); font-size: 11px; font-weight: 800;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
   color: var(--teal); cursor: pointer; white-space: nowrap;
 }
 .filter-pill.active { background: #3d6263; color: white; border-color: #3d6263; }
@@ -412,16 +410,16 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 }
 .board-pages::-webkit-scrollbar { display: none; }
 .page-pill {
-  flex-shrink: 0; padding: 5px 12px; border-radius: 9999px;
+  flex-shrink: 0; padding: 5px 12px; border-radius: 8px;
   border: 1px solid var(--border); background: var(--bg);
-  font-size: 11px; font-weight: 700; color: var(--teal); cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--teal); cursor: pointer;
 }
 .page-pill.active { background: #3d6263; color: white; border-color: #3d6263; }
 .board-add-btn {
   margin: 12px 12px 0; width: calc(100% - 24px); padding: 13px;
   background: var(--teal); color: white; border: none; border-radius: 12px;
-  font-family: var(--font); font-size: 13px; font-weight: 800;
-  text-transform: uppercase; cursor: pointer; letter-spacing: 0.05em;
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+   cursor: pointer; 
 }
 .notes-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .note-card {
@@ -436,17 +434,17 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .note-card-general { background: linear-gradient(135deg, #f0fdf4, #86efac); }
 .note-card-prayer  { background: linear-gradient(135deg, #f5f3ff, #d8b4fe); }
 .note-card-other   { background: linear-gradient(135deg, #fff7ed, #fdba74); }
-.note-card-cat { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(0,0,0,0.4); margin-bottom: 5px; }
-.note-card-title { font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #1a0a00; margin-bottom: 4px; line-height: 1.2; }
+.note-card-cat { font-size: 12px; font-weight: 600;   color: rgba(0,0,0,0.4); margin-bottom: 5px; }
+.note-card-title { font-family: 'Caveat', cursive; font-size: 18px; font-weight: 600; color: #1a0a00; margin-bottom: 4px; line-height: 1.2; }
 .note-card-body { font-family: 'Caveat', cursive; font-size: 15px; color: #2d1a00; line-height: 1.4; margin-bottom: 8px; white-space: pre-wrap; }
 .note-card-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
-.note-card-meta { font-size: 10px; font-weight: 700; color: rgba(0,0,0,0.4); }
+.note-card-meta { font-size: 12px; font-weight: 600; color: rgba(0,0,0,0.4); }
 .note-reactions { display: flex; gap: 5px; }
 .reaction-btn {
   background: rgba(255,255,255,0.5); border: 1px solid rgba(0,0,0,0.1);
-  border-radius: 9999px; padding: 3px 9px; font-size: 12px; cursor: pointer;
+  border-radius: 8px; padding: 3px 9px; font-size: 12px; cursor: pointer;
   display: flex; align-items: center; gap: 2px;
-  font-family: var(--font); font-weight: 700; color: rgba(0,0,0,0.6);
+  font-family: var(--font); font-weight: 600; color: rgba(0,0,0,0.6);
   position: relative; z-index: 2;
 }
 .reaction-btn.active { background: rgba(255,255,255,0.85); }
@@ -470,17 +468,17 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .note-detail-close {
   width: 32px; height: 32px; border-radius: 50%;
   background: var(--bg); border: none; font-size: 16px;
-  font-weight: 800; cursor: pointer; color: var(--teal);
+  font-weight: 600; cursor: pointer; color: var(--teal);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .note-detail-cat-badge {
-  font-size: 9px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.12em; padding: 4px 10px; border-radius: 9999px;
+  font-size: 12px; font-weight: 600; 
+   padding: 4px 10px; border-radius: 9999px;
   margin-bottom: 10px; display: inline-block;
 }
 .note-detail-title {
-  font-size: 22px; font-weight: 800; color: var(--teal);
+  font-size: 22px; font-weight: 600; color: var(--teal);
   line-height: 1.2; margin-bottom: 10px;
 }
 .note-detail-body {
@@ -491,11 +489,11 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   display: flex; align-items: center; gap: 10px;
   background: #ff0000; color: white; border-radius: 12px;
   padding: 12px 16px; text-decoration: none;
-  font-family: var(--font); font-size: 13px; font-weight: 800;
+  font-family: var(--font); font-size: 13px; font-weight: 600;
   margin-bottom: 16px;
 }
 .note-detail-meta {
-  font-size: 11px; font-weight: 700; color: var(--teal);
+  font-size: 12px; font-weight: 600; color: var(--teal);
   opacity: 0.4; padding-top: 12px; border-top: 1px solid var(--border);
 }
 .note-detail-reactions {
@@ -503,9 +501,9 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 }
 .note-detail-reaction-btn {
   background: var(--bg); border: 1.5px solid var(--border);
-  border-radius: 9999px; padding: 8px 16px; font-size: 15px; cursor: pointer;
+  border-radius: 8px; padding: 8px 16px; font-size: 15px; cursor: pointer;
   display: flex; align-items: center; gap: 6px;
-  font-family: var(--font); font-weight: 800; color: var(--teal);
+  font-family: var(--font); font-weight: 600; color: var(--teal);
 }
 .note-detail-reaction-btn.active {
   background: var(--teal); color: white; border-color: var(--teal);
@@ -514,7 +512,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   margin-top: 20px; width: 100%; padding: 13px;
   background: #fef2f2; color: #b22222; border: 1.5px solid #fca5a5;
   border-radius: 12px; font-family: var(--font); font-size: 13px;
-  font-weight: 800; cursor: pointer; text-transform: uppercase;
+  font-weight: 600; cursor: pointer; 
 }
 
 /* ── KB ── */
@@ -522,9 +520,8 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .kb-tab {
   flex: 1; padding: 10px; border-radius: 12px;
   border: 1.5px solid var(--border); background: var(--white);
-  font-family: var(--font); font-size: 11px; font-weight: 800;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
   color: var(--teal); cursor: pointer; text-align: center;
-  text-transform: uppercase; letter-spacing: 0.05em;
 }
 .kb-tab.active { background: #3d6263; color: white; border-color: #3d6263; }
 .kb-search-box { margin: 10px 12px 0; position: relative; }
@@ -539,9 +536,9 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .kb-quick-tags { display: flex; gap: 6px; padding: 8px 12px 0; overflow-x: auto; scrollbar-width: none; }
 .kb-quick-tags::-webkit-scrollbar { display: none; }
 .kb-quick-tag {
-  flex-shrink: 0; padding: 5px 12px; border-radius: 9999px;
+  flex-shrink: 0; padding: 5px 12px; border-radius: 8px;
   border: 1px solid var(--border); background: var(--bg);
-  font-size: 11px; font-weight: 700; color: var(--teal); cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--teal); cursor: pointer;
 }
 .kb-cards { padding: 10px 12px 0; display: flex; flex-direction: column; gap: 8px; }
 .kb-card {
@@ -550,15 +547,15 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 }
 .kb-card:active { transform: scale(0.98); }
 .kb-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-.kb-card-type { font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 9999px; }
+.kb-card-type { font-size: 12px; font-weight: 600;  padding: 3px 8px; border-radius: 9999px; }
 .kb-card-type-video { background: #eff6ff; color: #1d4ed8; }
 .kb-card-type-note  { background: #fefce8; color: #854d0e; }
 .kb-card-type-image { background: #f0fdf4; color: #166534; }
-.kb-card-title { font-size: 14px; font-weight: 800; color: var(--teal); margin-bottom: 5px; line-height: 1.3; }
-.kb-card-bullets { font-size: 11px; color: var(--teal); opacity: 0.6; line-height: 1.5; }
+.kb-card-title { font-size: 14px; font-weight: 600; color: var(--teal); margin-bottom: 5px; line-height: 1.3; }
+.kb-card-bullets { font-size: 12px; color: var(--teal); opacity: 0.6; line-height: 1.5; }
 .kb-section-label {
-  padding: 14px 12px 4px; font-size: 9px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal); opacity: 0.4;
+  padding: 14px 12px 4px; font-size: 12px; font-weight: 600;
+    color: var(--teal); opacity: 0.4;
   display: flex; align-items: center; gap: 8px;
 }
 .kb-section-label::before { content: ''; flex: 1; height: 1px; background: var(--border); }
@@ -579,30 +576,30 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
   padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: transform 0.1s;
 }
 .song-item:active { transform: scale(0.98); }
-.song-item-title { font-size: 14px; font-weight: 800; color: var(--teal); margin-bottom: 4px; }
+.song-item-title { font-size: 14px; font-weight: 600; color: var(--teal); margin-bottom: 4px; }
 .song-item-meta { display: flex; gap: 6px; flex-wrap: wrap; }
-.song-meta-badge { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: var(--bg); color: var(--teal); border: 1px solid var(--border); }
+.song-meta-badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; background: var(--bg); color: var(--teal); border: 1px solid var(--border); }
 .song-detail { padding: 12px; }
-.song-detail-title { font-size: 22px; font-weight: 800; color: var(--teal); margin-bottom: 8px; line-height: 1.2; }
+.song-detail-title { font-size: 22px; font-weight: 600; color: var(--teal); margin-bottom: 8px; line-height: 1.2; }
 .song-detail-links { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.song-detail-link { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 800; text-decoration: none; text-transform: uppercase; }
+.song-detail-link { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 600; text-decoration: none;  }
 .song-link-youtube { background: #ff0000; color: white; }
 .song-link-ccli    { background: var(--teal); color: white; }
 .song-detail-files { margin-top: 8px; }
-.song-files-heading { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--teal); opacity: 0.5; margin-bottom: 8px; padding: 0 2px; }
+.song-files-heading { font-size: 12px; font-weight: 600;   color: var(--teal); opacity: 0.5; margin-bottom: 8px; padding: 0 2px; }
 .song-file-card { background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .song-file-info { flex: 1; min-width: 0; }
-.song-file-key { font-size: 10px; font-weight: 800; color: var(--teal); text-transform: uppercase; }
-.song-file-type { font-size: 11px; font-weight: 700; color: var(--teal); opacity: 0.6; }
-.song-file-open { background: var(--teal); color: white; border: none; border-radius: 8px; padding: 7px 14px; font-family: var(--font); font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; flex-shrink: 0; }
+.song-file-key { font-size: 12px; font-weight: 600; color: var(--teal);  }
+.song-file-type { font-size: 12px; font-weight: 600; color: var(--teal); opacity: 0.6; }
+.song-file-open { background: var(--teal); color: white; border: none; border-radius: 8px; padding: 7px 14px; font-family: var(--font); font-size: 12px; font-weight: 600; cursor: pointer;  flex-shrink: 0; }
 
 /* ── MUSIC UPLOADER ── */
 .uploader-wrap { padding: 12px; }
 .uploader-info { background: var(--white); border-radius: 14px; border: 1px solid var(--border); padding: 16px; margin-bottom: 14px; }
-.uploader-info-title { font-size: 13px; font-weight: 800; color: var(--teal); margin-bottom: 6px; }
+.uploader-info-title { font-size: 13px; font-weight: 600; color: var(--teal); margin-bottom: 6px; }
 .uploader-info-text { font-size: 12px; color: var(--teal); opacity: 0.6; line-height: 1.5; }
 .upload-form { background: var(--white); border-radius: 14px; border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.form-field label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--teal); margin-bottom: 6px; }
+.form-field label { display: block; font-size: 12px; font-weight: 600;   color: var(--teal); margin-bottom: 6px; }
 .form-input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--teal); background: var(--bg); outline: none; }
 .form-input:focus { border-color: var(--teal); background: var(--white); }
 .form-select { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--teal); background: var(--bg); outline: none; }
@@ -611,38 +608,38 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .upload-file-area:active { border-color: var(--teal); background: var(--teal-light); }
 .upload-file-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; font-size: 0; }
 .upload-file-icon { font-size: 28px; margin-bottom: 8px; }
-.upload-file-text { font-size: 12px; font-weight: 700; color: var(--teal); opacity: 0.6; }
-.upload-file-name { margin-top: 6px; font-size: 11px; font-weight: 800; color: var(--teal); }
-.btn-upload { width: 100%; padding: 14px; background: var(--teal); color: white; border: none; border-radius: 12px; font-family: var(--font); font-size: 14px; font-weight: 800; text-transform: uppercase; cursor: pointer; letter-spacing: 0.05em; }
+.upload-file-text { font-size: 12px; font-weight: 600; color: var(--teal); opacity: 0.6; }
+.upload-file-name { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--teal); }
+.btn-upload { width: 100%; padding: 14px; background: var(--teal); color: white; border: none; border-radius: 12px; font-family: var(--font); font-size: 14px; font-weight: 600;  cursor: pointer;  }
 .btn-upload:disabled { opacity: 0.4; cursor: not-allowed; }
 .upload-progress { display: none; background: var(--bg); border-radius: 8px; overflow: hidden; height: 8px; }
 .upload-progress-bar { height: 100%; background: var(--teal); border-radius: 8px; width: 0%; transition: width 0.3s; }
-.upload-status { font-size: 12px; font-weight: 700; color: var(--teal); text-align: center; min-height: 16px; }
+.upload-status { font-size: 12px; font-weight: 600; color: var(--teal); text-align: center; min-height: 16px; }
 
 /* ── KB MODAL ── */
 #kb-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; justify-content: center; }
 #kb-modal.open { display: flex; }
 .kb-modal-box { background: var(--white); border-radius: 24px 24px 0 0; width: 100%; max-height: 90vh; overflow-y: auto; padding: 20px 16px calc(var(--safe-bottom) + 20px); }
-.kb-modal-close { float: right; width: 32px; height: 32px; border-radius: 50%; background: var(--bg); border: none; font-size: 16px; font-weight: 800; cursor: pointer; color: var(--teal); display: flex; align-items: center; justify-content: center; }
-.kb-modal-breadcrumb { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal); opacity: 0.4; margin-bottom: 6px; }
-.kb-modal-title { font-size: 20px; font-weight: 800; color: var(--teal); margin-bottom: 14px; line-height: 1.2; clear: both; }
+.kb-modal-close { float: right; width: 32px; height: 32px; border-radius: 50%; background: var(--bg); border: none; font-size: 16px; font-weight: 600; cursor: pointer; color: var(--teal); display: flex; align-items: center; justify-content: center; }
+.kb-modal-breadcrumb { font-size: 12px; font-weight: 600;   color: var(--teal); opacity: 0.4; margin-bottom: 6px; }
+.kb-modal-title { font-size: 20px; font-weight: 600; color: var(--teal); margin-bottom: 14px; line-height: 1.2; clear: both; }
 .kb-modal-steps { background: var(--bg); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-.kb-modal-steps-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: var(--teal); opacity: 0.5; margin-bottom: 12px; }
+.kb-modal-steps-title { font-size: 12px; font-weight: 600;   color: var(--teal); opacity: 0.5; margin-bottom: 12px; }
 .kb-modal-step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
 .kb-modal-step:last-child { margin-bottom: 0; }
-.kb-step-num { width: 24px; height: 24px; background: var(--teal); color: white; border-radius: 50%; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.kb-step-num { width: 24px; height: 24px; background: var(--teal); color: white; border-radius: 50%; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .kb-step-text { font-size: 13px; font-weight: 600; color: var(--teal); line-height: 1.4; padding-top: 2px; }
 
 /* ── ADD NOTE MODAL ── */
 #add-note-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; }
 #add-note-modal.open { display: flex; }
 .add-note-box { background: var(--white); border-radius: 24px 24px 0 0; width: 100%; padding: 20px 16px calc(var(--safe-bottom) + 20px); max-height: 92vh; overflow-y: auto; }
-.add-note-title { font-size: 18px; font-weight: 800; color: var(--teal); margin-bottom: 16px; }
+.add-note-title { font-size: 18px; font-weight: 600; color: var(--teal); margin-bottom: 16px; }
 .add-note-form { display: flex; flex-direction: column; gap: 12px; }
 .add-note-textarea { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: var(--font); font-size: 14px; color: var(--teal); background: var(--bg); outline: none; resize: none; min-height: 80px; }
 .add-note-btn-row { display: flex; gap: 8px; }
-.btn-cancel { flex: 1; padding: 13px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--white); font-family: var(--font); font-size: 13px; font-weight: 800; color: var(--teal); cursor: pointer; }
-.btn-pin { flex: 2; padding: 13px; border-radius: 10px; border: none; background: var(--teal); font-family: var(--font); font-size: 13px; font-weight: 800; color: white; cursor: pointer; text-transform: uppercase; }
+.btn-cancel { flex: 1; padding: 13px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--white); font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--teal); cursor: pointer; }
+.btn-pin { flex: 2; padding: 13px; border-radius: 10px; border: none; background: var(--teal); font-family: var(--font); font-size: 13px; font-weight: 600; color: white; cursor: pointer;  }
 
 /* ── EMAIL MODAL ── */
 #emailModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 600; align-items: flex-end; justify-content: center; }
@@ -654,21 +651,21 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 #tour-overlay.active { display: block; pointer-events: all; }
 .tour-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); pointer-events: none; z-index: 0; }
 .tour-tooltip { position: absolute; background: var(--teal); color: white; border-radius: 16px; padding: 16px; max-width: calc(100vw - 40px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); pointer-events: all; z-index: 3; cursor: default; }
-.tour-tooltip-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.tour-tooltip-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
 .tour-tooltip-text { font-size: 12px; opacity: 0.85; line-height: 1.4; margin-bottom: 14px; }
 .tour-btn-row { display: flex; justify-content: space-between; align-items: center; }
-.tour-skip { font-size: 11px; font-weight: 700; opacity: 0.6; cursor: pointer; background: none; border: none; color: white; padding: 0; }
-.tour-next { background: #3d6263; color: white; border: none; border-radius: 9999px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 800; cursor: pointer; }
-.tour-step-count { font-size: 10px; opacity: 0.5; }
+.tour-skip { font-size: 12px; font-weight: 600; opacity: 0.6; cursor: pointer; background: none; border: none; color: white; padding: 0; }
+.tour-next { background: #3d6263; color: white; border: none; border-radius: 8px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 600; cursor: pointer; }
+.tour-step-count { font-size: 12px; opacity: 0.5; }
 .tour-highlight { position: absolute; border-radius: 12px; box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3); pointer-events: none; z-index: 2; transition: all 0.3s; }
 
 /* ── SHARED ── */
 .skeleton { background: linear-gradient(90deg, #e8f0f0 25%, #d1dfdf 50%, #e8f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 10px; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.loading-state { padding: 40px 20px; text-align: center; color: var(--teal); opacity: 0.4; font-size: 12px; font-weight: 700; }
+.loading-state { padding: 40px 20px; text-align: center; color: var(--teal); opacity: 0.4; font-size: 12px; font-weight: 600; }
 .empty-state { padding: 40px 20px; text-align: center; }
 .empty-state-icon { font-size: 40px; margin-bottom: 10px; }
-.empty-state-text { font-size: 13px; font-weight: 700; color: var(--teal); opacity: 0.4; }
+.empty-state-text { font-size: 13px; font-weight: 600; color: var(--teal); opacity: 0.4; }
 mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.2s ease; }
@@ -687,14 +684,16 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 
 /* App chrome */
 #app-header { box-shadow: var(--shadow-sm); border-bottom: 1px solid var(--hairline); }
-#header-title { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
+#header-title { color: var(--muted); font-size: 12px;  }
 #back-btn, #header-help { background: var(--surface-2); border: 1px solid var(--hairline-strong); color: var(--brand); }
 #back-btn:active, #header-help:active { transform: translateY(1px); }
 
-/* Section labels — the only uppercase permitted */
+/* Section labels. These were small, wide-spaced capitals; Step M made them
+   sentence case at 12px/600, because DESIGN.md allows no all-capitals labels
+   anywhere and the style check measures it. */
 .tiles-heading, .kb-section-label, .song-files-heading, .kb-modal-breadcrumb,
 .kb-modal-steps-title, .form-field label, .news-header-bar h3, .song-number {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+  font-size: 12px; font-weight: 600;
   color: var(--muted); opacity: 1;
 }
 
@@ -709,7 +708,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 /* Tiles */
 .tile-icon { font-size: 26px; }
 .tile-name { color: var(--ink); font-size: 15px; letter-spacing: -0.01em; }
-.tile-desc { color: var(--muted); opacity: 1; font-size: 11px; }
+.tile-desc { color: var(--muted); opacity: 1; font-size: 12px; }
 .tile-arrow { color: var(--faint); opacity: 1; }
 
 /* News */
@@ -717,7 +716,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .news-item { border-bottom: 1px solid var(--hairline); }
 .news-item-title { color: var(--ink); font-size: 14px; }
 .news-item-body { color: var(--body); }
-.news-item-date { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
+.news-item-date { color: var(--muted); font-size: 12px;  }
 .news-empty { color: var(--muted); }
 
 /* Youth service planner */
@@ -741,34 +740,34 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .suggest-box { border-radius: var(--r-md); box-shadow: var(--shadow-lg); border-color: var(--hairline); }
 .suggest-item { color: var(--ink); }
 .readonly-banner { background: var(--gold-tint); border-bottom: 1px solid var(--gold); color: var(--gold); }
-.rota-table th { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; border-bottom: 1px solid var(--hairline-strong); }
+.rota-table th { font-size: 12px; color: var(--muted);  border-bottom: 1px solid var(--hairline-strong); }
 .rota-table td { color: var(--body); border-bottom: 1px solid var(--hairline); }
 .rota-table td:first-child { color: var(--ink); }
 
 /* Note (sticky) cards — keep character, lift the fine print */
 .note-card { border-radius: var(--r-lg); }
-.note-card-cat { font-size: 11px; color: rgba(20,32,31,0.5); letter-spacing: 0.08em; }
-.note-card-meta { font-size: 11px; color: rgba(20,32,31,0.5); }
+.note-card-cat { font-size: 12px; color: rgba(20,32,31,0.5);  }
+.note-card-meta { font-size: 12px; color: rgba(20,32,31,0.5); }
 .note-detail-meta { opacity: 1; color: var(--muted); }
 
 /* Knowledge base */
 .kb-card { transition: transform 0.1s, box-shadow 0.15s; }
 .kb-card-title { color: var(--ink); }
 .kb-card-bullets { color: var(--muted); opacity: 1; }
-.kb-card-type { font-size: 11px; }
+.kb-card-type { font-size: 12px; }
 .kb-section-label { opacity: 1; }
 .kb-modal-breadcrumb { opacity: 1; }
-.kb-step-num { font-size: 11px; background: var(--brand); }
+.kb-step-num { font-size: 12px; background: var(--brand); }
 .kb-step-text { color: var(--body); }
 .kb-modal-title, .note-detail-title, .song-detail-title, .add-note-title { color: var(--ink); letter-spacing: -0.01em; }
 .kb-modal-steps { background: var(--surface-2); border-radius: var(--r-md); }
 
 /* Song library */
 .song-item-title { color: var(--ink); }
-.song-meta-badge { font-size: 11px; background: var(--brand-tint); color: var(--brand); border: none; }
+.song-meta-badge { font-size: 12px; background: var(--brand-tint); color: var(--brand); border: none; }
 .song-files-heading { opacity: 1; }
 .song-file-card { background: var(--surface-2); border-radius: var(--r-md); }
-.song-file-key { font-size: 11px; color: var(--muted); }
+.song-file-key { font-size: 12px; color: var(--muted); }
 .song-file-type { color: var(--body); opacity: 1; font-size: 12px; }
 
 /* Inputs — hairline-strong, r-md, brand focus + ring */
@@ -789,7 +788,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .board-add-btn, .btn-upload, .btn-pin, .btn-cancel, .planner-btn, .planner-actions button,
 .song-file-open, .song-detail-link, .kb-tab, .filter-pill, .page-pill, .kb-quick-tag,
 .reaction-btn, .note-detail-reaction-btn, .note-detail-delete, .tour-next {
-  text-transform: none; letter-spacing: normal; font-weight: 700;
+  text-transform: none; letter-spacing: normal; font-weight: 600;
   transition: background .15s, box-shadow .15s, transform .05s, border-color .15s;
 }
 .board-add-btn:active, .btn-upload:active, .btn-pin:active, .btn-cancel:active,
@@ -797,7 +796,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .kb-tab:active, .filter-pill:active, .page-pill:active, .note-detail-delete:active { transform: translateY(1px); }
 .board-add-btn, .btn-upload, .btn-pin, .btn-cancel { border-radius: var(--r-md); padding: 11px 20px; }
 .song-file-open { border-radius: var(--r-sm); }
-.planner-btn { border-radius: var(--r-pill); padding: 8px 16px; }
+.planner-btn { border-radius: 8px; padding: 8px 16px; }
 /* Primary */
 .board-add-btn, .btn-upload, .btn-pin, .planner-btn-primary {
   background: var(--brand); color: #fff; border: none; box-shadow: var(--shadow-sm);
@@ -809,12 +808,12 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .note-detail-delete { background: var(--danger-tint); color: var(--danger); border: 1px solid transparent; border-radius: var(--r-md); }
 /* Tabs / pills */
 .kb-tab { border-radius: var(--r-md); }
-.page-pill, .filter-pill, .kb-quick-tag { border-radius: var(--r-pill); }
+.page-pill, .filter-pill, .kb-quick-tag { border-radius: 8px; }
 
 /* Tour */
 .tour-tooltip { border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
 .tour-next { color: var(--brand); background: #fff; }
-.tour-step-count { font-size: 11px; }
+.tour-step-count { font-size: 12px; }
 
 /* Shimmer skeleton */
 .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
@@ -900,8 +899,8 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 #notes-list .note-card:nth-child(4n)::after { background: repeating-linear-gradient(45deg, rgba(255,255,255,.4) 0 5px, rgba(255,255,255,.1) 5px 10px), rgba(232,170,120,.72); rotate: 4deg; }
 #notes-list .note-card-title { font-family:'Caveat',cursive; font-size:22px; line-height:1.15; color:#241100; }
 #notes-list .note-card-body  { font-family:'Caveat',cursive; font-size:17px; color:#3a2200; }
-#notes-list .note-card-cat   { font-family:'Caveat',cursive !important; font-size:14px !important; text-transform:none !important; letter-spacing:0 !important; color:rgba(0,0,0,.55) !important; font-weight:700; margin-bottom:2px; }
-#notes-list .note-card-meta  { color:rgba(0,0,0,.5) !important; font-size:11px !important; }
+#notes-list .note-card-cat   { font-family:'Caveat',cursive !important; font-size:14px !important; text-transform:none !important; letter-spacing:0 !important; color:rgba(0,0,0,.55) !important; font-weight:600; margin-bottom:2px; }
+#notes-list .note-card-meta  { color:rgba(0,0,0,.5) !important; font-size:12px !important; }
 #notes-list .empty-state { background:transparent !important; color:#5a3d17 !important; text-align:center; padding:44px 16px; }
 @media (prefers-reduced-motion: reduce){ #notes-list .note-card { transition:none; animation:none; } }
 </style>
@@ -911,7 +910,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 
 <!-- HEADER -->
 <div id="app-header">
-  <button id="back-btn" onclick="goBack()">←</button>
+  <button id="back-btn" onclick="goBack()" aria-label="Back"><i data-lucide="arrow-left" style="width:18px;height:18px"></i></button>
   <div id="header-title">Youth Hub</div>
   <button id="header-help" onclick="startTour(true)" title="Help">?</button>
 </div>
@@ -924,56 +923,56 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
     <div style="background:var(--white);padding:16px 16px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);">
       <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=bdd037bd-8caf-436d-b09a-3174ecf5123c" alt="EGBC Youth Worship" style="height:56px;width:auto;display:block;background:white;">
       <div>
-        <div style="font-size:16px;font-weight:900;color:var(--teal);line-height:1.1;">Youth Worship</div>
-        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">EGBC Youth Team</div>
+        <div style="font-size:16px;font-weight:600;color:var(--teal);line-height:1.1;">Youth Worship</div>
+        <div style="font-size:12px;font-weight:600;color:var(--muted);">EGBC Youth Team</div>
       </div>
     </div>
 
     <div class="tiles-heading" style="margin-top:12px;">Tools</div>
     <div class="tiles-grid" id="tiles-grid">
       <div class="tile tile-planner" onclick="openSection('planner')">
-        <div class="tile-icon">📋</div>
+        <div class="tile-icon"><i data-lucide="clipboard-list" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Service Planner</div>
         <div class="tile-desc">Plan songs, order &amp; team</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-board" onclick="openSection('board')">
-        <div class="tile-icon">📌</div>
+        <div class="tile-icon"><i data-lucide="pin" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Idea Pin Board</div>
         <div class="tile-desc">Suggestions &amp; ideas from the team</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-worship" onclick="openSection('worship')">
-        <div class="tile-icon">🎸</div>
+        <div class="tile-icon"><i data-lucide="guitar" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Worship Resources</div>
         <div class="tile-desc">Play-through videos &amp; training</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-upload" onclick="openSection('upload')">
-        <div class="tile-icon">🎵</div>
+        <div class="tile-icon"><i data-lucide="music" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Music Uploader</div>
         <div class="tile-desc">Add sheet music to the library</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-library" onclick="openSection('library')">
-        <div class="tile-icon">📚</div>
+        <div class="tile-icon"><i data-lucide="library" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Song Library</div>
         <div class="tile-desc">Browse &amp; find sheet music</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-news" onclick="openSection('news')" id="tile-news">
-        <div class="tile-icon">📣</div>
+        <div class="tile-icon"><i data-lucide="megaphone" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Latest News</div>
         <div class="tile-desc">Team updates &amp; announcements</div>
         <div class="tile-arrow">›</div>
-        <div id="news-badge" style="display:none;position:absolute;top:12px;right:12px;background:#ef4444;color:white;font-size:10px;font-weight:800;min-width:20px;height:20px;border-radius:9999px;align-items:center;justify-content:center;padding:0 5px;"></div>
+        <div id="news-badge" style="display:none;position:absolute;top:12px;right:12px;background:#ef4444;color:white;font-size:12px;font-weight:600;min-width:20px;height:20px;border-radius:9999px;align-items:center;justify-content:center;padding:0 5px;"></div>
       </div>
     </div>
   </div>
 
   <!-- YOUTH SERVICE PLANNER -->
   <div id="section-planner" class="section-screen">
-    <div class="readonly-banner" id="readonly-banner">👁️ View only — this is not a youth service. You can browse but cannot make changes.</div>
+    <div class="readonly-banner" id="readonly-banner" style="display:flex;align-items:center;gap:6px"><i data-lucide="eye" style="width:15px;height:15px"></i> View only — this is not a youth service. You can browse but cannot make changes.</div>
     <div class="planner-top">
       <div class="planner-date-row">
         <input type="date" id="serviceDate" onchange="loadRota()" class="styled-input">
@@ -1002,7 +1001,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 
     <div style="padding:0 12px;">
       <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;margin-bottom:12px;">
-        <div style="font-size:13px;font-weight:800;color:var(--teal);margin-bottom:12px;">Service Team &amp; Roles</div>
+        <div style="font-size:13px;font-weight:600;color:var(--teal);margin-bottom:12px;">Service Team &amp; Roles</div>
         <div style="overflow-x:auto;">
           <table class="rota-table">
             <thead><tr><th>Role</th><th>Person</th><th>Notes</th></tr></thead>
@@ -1024,25 +1023,25 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
   <div id="section-board" class="section-screen">
     <div class="board-pages" id="board-pages"></div>
     <div class="board-filters" id="board-filters">
-      <button class="filter-pill active" onclick="setBoardFilter('all',this)">📌 All</button>
-      <button class="filter-pill" onclick="setBoardFilter('song',this)">🎵 Songs</button>
-      <button class="filter-pill" onclick="setBoardFilter('event',this)">📅 Events</button>
-      <button class="filter-pill" onclick="setBoardFilter('prayer',this)">🙏 Prayer</button>
-      <button class="filter-pill" onclick="setBoardFilter('general',this)">💡 General</button>
-      <button class="filter-pill" onclick="setBoardFilter('other',this)">📎 Other</button>
+      <button class="filter-pill active" onclick="setBoardFilter('all',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="pin" style="width:14px;height:14px"></i> All</button>
+      <button class="filter-pill" onclick="setBoardFilter('song',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="music" style="width:14px;height:14px"></i> Songs</button>
+      <button class="filter-pill" onclick="setBoardFilter('event',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="calendar-days" style="width:14px;height:14px"></i> Events</button>
+      <button class="filter-pill" onclick="setBoardFilter('prayer',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="heart" style="width:14px;height:14px"></i> Prayer</button>
+      <button class="filter-pill" onclick="setBoardFilter('general',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="lightbulb" style="width:14px;height:14px"></i> General</button>
+      <button class="filter-pill" onclick="setBoardFilter('other',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="paperclip" style="width:14px;height:14px"></i> Other</button>
     </div>
-    <button class="board-add-btn" onclick="openAddNote()">✏️ Add an Idea</button>
+    <button class="board-add-btn" onclick="openAddNote()" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><i data-lucide="pencil" style="width:16px;height:16px"></i> Add an Idea</button>
     <div class="notes-list" id="notes-list"></div>
   </div>
 
   <!-- WORSHIP RESOURCES -->
   <div id="section-worship" class="section-screen">
     <div class="kb-tabs">
-      <button class="kb-tab active" id="tab-playthrough" onclick="switchKbTab('playthrough')">▶ Play Through</button>
-      <button class="kb-tab" id="tab-training" onclick="switchKbTab('training')">📖 Training</button>
+      <button class="kb-tab active" id="tab-playthrough" onclick="switchKbTab('playthrough')" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="play" style="width:15px;height:15px"></i> Play Through</button>
+      <button class="kb-tab" id="tab-training" onclick="switchKbTab('training')" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="book-open" style="width:15px;height:15px"></i> Training</button>
     </div>
     <div class="kb-search-box">
-      <span class="kb-search-icon">🔍</span>
+      <span class="kb-search-icon"><i data-lucide="search" style="width:16px;height:16px"></i></span>
       <input class="kb-search-input" id="worship-search" placeholder="Search songs, topics..." oninput="doKbSearch('worship')">
     </div>
     <div class="kb-quick-tags" id="worship-quick-tags">
@@ -1109,7 +1108,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
   <!-- SONG LIBRARY -->
   <div id="section-library" class="section-screen">
     <div class="library-search">
-      <span class="library-search-icon">🔍</span>
+      <span class="library-search-icon"><i data-lucide="search" style="width:16px;height:16px"></i></span>
       <input type="text" placeholder="Search songs..." oninput="searchLibrary(this.value)" id="library-search-input">
     </div>
     <div class="song-list" id="song-list"><div class="loading-state">Loading songs...</div></div>
@@ -1128,7 +1127,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 <!-- KB MODAL -->
 <div id="kb-modal">
   <div class="kb-modal-box">
-    <button class="kb-modal-close" onclick="closeKbModal()">✕</button>
+    <button class="kb-modal-close" onclick="closeKbModal()" aria-label="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     <div id="kb-modal-content"></div>
   </div>
 </div>
@@ -1136,7 +1135,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 <!-- ADD NOTE MODAL -->
 <div id="add-note-modal">
   <div class="add-note-box">
-    <div class="add-note-title">📌 New Idea</div>
+    <div class="add-note-title" style="display:flex;align-items:center;gap:6px"><i data-lucide="pin" style="width:17px;height:17px"></i> New Idea</div>
     <div class="add-note-form">
       <div class="form-row-2">
         <div class="form-field">
@@ -1146,11 +1145,11 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
         <div class="form-field">
           <label>Category</label>
           <select class="form-select" id="note-cat" onchange="toggleNoteYT()">
-            <option value="song">🎵 Song</option>
-            <option value="event">📅 Event</option>
-            <option value="prayer">🙏 Prayer</option>
-            <option value="general">💡 General</option>
-            <option value="other">📎 Other</option>
+            <option value="song">Song</option>
+            <option value="event">Event</option>
+            <option value="prayer">Prayer</option>
+            <option value="general">General</option>
+            <option value="other">Other</option>
           </select>
         </div>
       </div>
@@ -1168,7 +1167,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
       </div>
       <div class="add-note-btn-row">
         <button class="btn-cancel" onclick="closeAddNote()">Cancel</button>
-        <button class="btn-pin" onclick="saveNote()">📌 Pin It!</button>
+        <button class="btn-pin" onclick="saveNote()" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><i data-lucide="pin" style="width:16px;height:16px"></i> Pin It!</button>
       </div>
     </div>
   </div>
@@ -1179,36 +1178,36 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
   <div class="note-detail-box">
     <div class="note-detail-header">
       <div id="note-detail-cat-badge" class="note-detail-cat-badge"></div>
-      <button class="note-detail-close" onclick="closeNoteDetail()">✕</button>
+      <button class="note-detail-close" onclick="closeNoteDetail()" aria-label="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     </div>
     <div id="note-detail-title" class="note-detail-title"></div>
     <div id="note-detail-body" class="note-detail-body"></div>
     <div id="note-detail-yt-wrap"></div>
     <div id="note-detail-reactions" class="note-detail-reactions"></div>
     <div id="note-detail-meta" class="note-detail-meta"></div>
-    <button class="note-detail-delete" id="note-detail-delete-btn">🗑 Remove this idea</button>
+    <button class="note-detail-delete" id="note-detail-delete-btn" style="display:inline-flex;align-items:center;gap:6px"><i data-lucide="trash-2" style="width:15px;height:15px"></i> Remove this idea</button>
   </div>
 </div>
 
 <!-- EMAIL MODAL -->
 <div id="emailModal">
   <div id="emailModalBox">
-    <p style="font-size:12px;color:#3d6263;opacity:0.7;margin-bottom:10px;font-weight:700;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
+    <p style="font-size:12px;color:#3d6263;opacity:0.7;margin-bottom:10px;font-weight:600;">Sends from EGBCWorship@callasuite.uk &mdash; replies go to you.</p>
     <div style="margin-bottom:14px;">
-      <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3d6263;margin-bottom:5px;">Your Email (reply-to)</label>
-      <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
+      <label style="display:block;font-size:12px;font-weight:600;letter-spacing:1px;color:#3d6263;margin-bottom:5px;">Your Email (reply-to)</label>
+      <input id="senderEmail" type="email" placeholder="your@email.com" style="width:100%;border:1.5px solid #d1dfdf;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;color:#3d6263;font-family:inherit;outline:none;" oninput="localStorage.setItem('egbc-sender-email',this.value)">
     </div>
-    <h2 style="font-size:18px;font-weight:800;color:var(--teal);margin-bottom:6px;">Send Youth Service Plan</h2>
-    <p style="font-size:12px;color:var(--teal);opacity:0.6;margin-bottom:20px;font-weight:700;">Plan will be copied to clipboard. Choose who to email.</p>
-    <button id="modalTeamBtn" style="width:100%;display:block;text-align:center;border:none;cursor:pointer;margin-bottom:20px;background:var(--teal);color:white;padding:14px;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:800;text-transform:uppercase;">Email Whole Team</button>
+    <h2 style="font-size:18px;font-weight:600;color:var(--teal);margin-bottom:6px;">Send Youth Service Plan</h2>
+    <p style="font-size:12px;color:var(--teal);opacity:0.6;margin-bottom:20px;font-weight:600;">Plan will be copied to clipboard. Choose who to email.</p>
+    <button id="modalTeamBtn" style="width:100%;display:block;text-align:center;border:none;cursor:pointer;margin-bottom:20px;background:var(--teal);color:white;padding:14px;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:600;">Email Whole Team</button>
     <div style="border-top:1px solid var(--border);padding-top:16px;">
-      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Or email one person:</p>
+      <p style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.5;margin-bottom:8px;">Or email one person:</p>
       <select id="modalIndividualSelect" class="styled-input" style="margin-bottom:10px;"></select>
-      <button id="modalIndividualBtn" style="width:100%;display:block;text-align:center;cursor:pointer;background:var(--bg);color:var(--teal);border:1.5px solid var(--border);padding:13px;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:800;">Email This Person</button>
+      <button id="modalIndividualBtn" style="width:100%;display:block;text-align:center;cursor:pointer;background:var(--bg);color:var(--teal);border:1.5px solid var(--border);padding:13px;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:600;">Email This Person</button>
     </div>
     <div style="margin-top:16px;text-align:center;">
-      <div id="modalStatus" style="margin-top:10px;font-size:13px;font-weight:700;min-height:18px;text-align:center;"></div>
-      <button id="modalCancelBtn" style="font-size:12px;font-weight:700;color:#aaa;background:none;border:none;cursor:pointer;text-decoration:underline;">Cancel</button>
+      <div id="modalStatus" style="margin-top:10px;font-size:13px;font-weight:600;min-height:18px;text-align:center;"></div>
+      <button id="modalCancelBtn" style="font-size:12px;font-weight:600;color:#aaa;background:none;border:none;cursor:pointer;text-decoration:underline;">Cancel</button>
     </div>
   </div>
 </div>
@@ -1221,20 +1220,24 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
   <div class="tour-tooltip" id="tour-tooltip">
     <div class="tour-tooltip-title" id="tour-title"></div>
     <div class="tour-tooltip-text" id="tour-text"></div>
-    <div style="display:flex;align-items:center;gap:8px;font-size:11px;opacity:0.8;margin-bottom:12px;position:relative;z-index:10;">
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:0.8;margin-bottom:12px;position:relative;z-index:10;">
       <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;" onchange="this.blur()">
-      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+      <!-- A LABEL, not a span with an onclick. It behaved like a control and
+           did not read as one, which check-icon-buttons.mjs found the moment
+           this page joined its list. Tying it to the checkbox lets the
+           browser do the wiring, so the hand-rolled toggle goes as well. -->
+      <label for="tour-dont-show" style="cursor:pointer;">Don't show this again</label>
     </div>
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>
-      <button class="tour-next" id="tour-next" onclick="nextTourStep()">Next →</button>
+      <button class="tour-next" id="tour-next" onclick="nextTourStep()" style="display:inline-flex;align-items:center;gap:5px">Next <i data-lucide="arrow-right" style="width:14px;height:14px"></i></button>
     </div>
   </div>
 </div>
 
 <!-- TOAST -->
-<div id="toast" style="position:fixed;bottom:calc(var(--safe-bottom)+20px);left:50%;transform:translateX(-50%);background:var(--teal);color:white;padding:10px 20px;border-radius:9999px;font-size:12px;font-weight:800;z-index:800;display:none;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"></div>
+<div id="toast" style="position:fixed;bottom:calc(var(--safe-bottom)+20px);left:50%;transform:translateX(-50%);background:var(--teal);color:white;padding:10px 20px;border-radius:9999px;font-size:12px;font-weight:600;z-index:800;display:none;white-space:nowrap;"></div>
 
 <script>
 // ── FIREBASE ──
@@ -1363,11 +1366,11 @@ function renderNewsSection() {
     const badge = document.getElementById('news-badge');
     if (badge) badge.style.display = 'none';
   }
-  if (!items.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📣</div><div class="empty-state-text">No news yet</div></div>'; return; }
+  if (!items.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="megaphone" style="width:34px;height:34px"></i></div><div class="empty-state-text">No news yet</div></div>'; return; }
   list.innerHTML = items.map(item => `
     <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:16px;">
-      ${item.date ? `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#a0b0b0;margin-bottom:5px;">${item.date}</div>` : ''}
-      <div style="font-size:15px;font-weight:800;color:var(--teal);margin-bottom:8px;line-height:1.3;">${item.title || ''}</div>
+      ${item.date ? `<div style="font-size:12px;font-weight:600;color:#a0b0b0;margin-bottom:5px;">${item.date}</div>` : ''}
+      <div style="font-size:15px;font-weight:600;color:var(--teal);margin-bottom:8px;line-height:1.3;">${item.title || ''}</div>
       <div style="font-size:13px;color:#555;line-height:1.6;">${item.body || ''}</div>
     </div>`).join('');
 }
@@ -1494,7 +1497,7 @@ async function showKeyInfo(id, title) {
   const missing = ALL_KEYS.filter(k => !uniqueKeys.includes(k));
   const box = document.getElementById('keyinfo-' + id);
   box.style.display = 'block';
-  box.innerHTML = `<span style="font-weight:800;color:var(--teal);">Available:</span> ${uniqueKeys.sort().join(', ') || 'None'} &nbsp;·&nbsp; <span style="font-weight:800;color:#b22222;">Missing:</span> <span style="opacity:0.6;">${missing.join(', ')}</span>`;
+  box.innerHTML = `<span style="font-weight:600;color:var(--teal);">Available:</span> ${uniqueKeys.sort().join(', ') || 'None'} &nbsp;·&nbsp; <span style="font-weight:600;color:#b22222;">Missing:</span> <span style="opacity:0.6;">${missing.join(', ')}</span>`;
 
   const servingHistory = data.servingHistory || [];
   const sundayHistory = servingHistory.filter(s => s.day && s.day.toLowerCase() === 'sunday');
@@ -1525,9 +1528,9 @@ async function searchSong(input, id) {
   if (!matches.length) {
     const enc = encodeURIComponent(input.value);
     box.innerHTML = `<div class="suggest-item" style="color:#b22222;">Not in library</div>
-      <div style="padding:8px 14px;font-size:11px;display:flex;gap:12px;background:white;">
-        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">🔎 SongSelect</a>
-        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:700;">▶ YouTube</a>
+      <div style="padding:8px 14px;font-size:12px;display:flex;gap:12px;background:white;">
+        <a href="https://songselect.ccli.com/search/results?search=${enc}" target="_blank" style="color:var(--teal);font-weight:600;" style="display:inline-flex;align-items:center;gap:4px"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
+        <a href="https://www.youtube.com/results?search_query=${enc}" target="_blank" style="color:var(--teal);font-weight:600;">▶ YouTube</a>
       </div>`;
   } else {
     box.innerHTML = matches.map(s => `<div class="suggest-item" onclick="selectSong('${s.title.replace(/'/g,"\\'")}','${id}')">${s.title}</div>`).join('');
@@ -1579,20 +1582,20 @@ async function keyChanged(id) {
   const ssLink = ccli ? `https://songselect.ccli.com/Songs/${ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
   const allFiles = data.files || [];
 
-  let html = `<div class="files-box"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;font-weight:700;">
-    ${youtube ? `<a href="${youtube}" target="_blank" style="color:#b22222;text-decoration:none;">🎬 YouTube</a>` : ''}
-    <a href="${ssLink}" target="_blank" style="color:var(--teal);text-decoration:none;">🔎 SongSelect</a>
+  let html = `<div class="files-box"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:12px;font-weight:600;">
+    ${youtube ? `<a href="${youtube}" target="_blank" style="color:#b22222;text-decoration:none;display:inline-flex;align-items:center;gap:4px;"><i data-lucide="video" style="width:14px;height:14px"></i> YouTube</a>` : ''}
+    <a href="${ssLink}" target="_blank" style="color:var(--teal);text-decoration:none;" style="display:inline-flex;align-items:center;gap:4px"><i data-lucide="search" style="width:14px;height:14px"></i> SongSelect</a>
     ${ccli ? `<span style="color:var(--teal);opacity:0.5;">CCLI: ${ccli}</span>` : ''}
   </div>`;
   if (keys.length) {
     keys.forEach(k => {
       const kFiles = allFiles.filter(f => f.key && f.key.trim().toLowerCase() === k.trim().toLowerCase());
-      html += `<div style="margin-top:6px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.5;margin-bottom:4px;">Key: ${k}</div>`;
-      if (!kFiles.length) html += `<span style="font-size:11px;opacity:0.5;font-weight:600;">No files for ${k}</span>`;
-      else { const grouped = {}; kFiles.forEach(f => { if (!grouped[f.type]) grouped[f.type] = []; grouped[f.type].push(f); }); Object.keys(grouped).forEach(type => { html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--teal);opacity:0.4;margin-top:4px;">${type}</div>`; grouped[type].forEach(file => { html += `<a href="${file.url}" target="_blank">Open File</a>`; }); }); }
+      html += `<div style="margin-top:6px;"><div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.5;margin-bottom:4px;">Key: ${k}</div>`;
+      if (!kFiles.length) html += `<span style="font-size:12px;opacity:0.5;font-weight:600;">No files for ${k}</span>`;
+      else { const grouped = {}; kFiles.forEach(f => { if (!grouped[f.type]) grouped[f.type] = []; grouped[f.type].push(f); }); Object.keys(grouped).forEach(type => { html += `<div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.4;margin-top:4px;">${type}</div>`; grouped[type].forEach(file => { html += `<a href="${file.url}" target="_blank">Open File</a>`; }); }); }
       html += `</div>`;
     });
-  } else { html += `<div style="font-size:11px;opacity:0.5;font-weight:600;">Select keys to see sheet music</div>`; }
+  } else { html += `<div style="font-size:12px;opacity:0.5;font-weight:600;">Select keys to see sheet music</div>`; }
   html += `</div>`;
   container.innerHTML = html;
 }
@@ -1677,7 +1680,7 @@ async function selectEvent() {
 }
 
 async function saveSchedule() {
-  if (!isYouthService) { alert('⚠️ This is not a youth service — you can view it but cannot save changes.'); return; }
+  if (!isYouthService) { alert('This is not a youth service - you can view it but cannot save changes.'); return; }
   const date = document.getElementById('serviceDate').value;
   const introText = document.getElementById('introBox').value;
   const outroText = document.getElementById('outroBox').value;
@@ -1710,11 +1713,11 @@ async function saveSchedule() {
       : 'Only a youth leader can save the plan. Show them what you have put together and they will save it.');
     return;
   }
-  alert('✅ Youth service saved successfully.');
+  alert('Youth service saved.');
 }
 
 async function emailSchedule() {
-  if (!isYouthService) { alert('⚠️ This is not a youth service — cannot email.'); return; }
+  if (!isYouthService) { alert('This is not a youth service, so it cannot be emailed.'); return; }
   /* Nobody can be emailed from a phone that holds no addresses, and that is
      the point rather than a limitation. A leader sends the plan. */
   if (!onTheYouthTeam()) {
@@ -1727,16 +1730,16 @@ async function emailSchedule() {
   const outroText = document.getElementById('outroBox').value || '';
 
   let htmlEmail = `<div style="font-family:Montserrat,Arial,sans-serif;color:#3d6263;max-width:650px;padding:30px;background:#fff;margin:auto;">
-    <h1 style="color:#3d6263;font-size:24px;font-weight:800;text-align:center;">Youth Service Plan</h1>
-    <p style="text-transform:uppercase;font-weight:700;color:#3d6263;opacity:.6;letter-spacing:1.5px;font-size:11px;text-align:center;">${date} · Leader: ${worshipLeaderName}</p>
+    <h1 style="color:#3d6263;font-size:24px;font-weight:600;text-align:center;">Youth Service Plan</h1>
+    <p style="font-weight:600;color:#3d6263;opacity:.6;letter-spacing:1.5px;font-size:12px;text-align:center;">${date} · Leader: ${worshipLeaderName}</p>
     ${serviceNotes ? `<div style="background:#f0f6f6;border-left:4px solid #3d6263;padding:15px;margin:16px 0;font-size:13px;color:#3d6263;">${serviceNotes.replace(/\n/g,'<br>')}</div>` : ''}
     ${introText ? `<div style="font-size:14px;color:#3d6263;margin:16px 0;">${introText.replace(/\n/g,'<br>')}</div>` : ''}
-    <h2 style="border-bottom:3px solid #3d6263;padding-bottom:8px;color:#3d6263;text-transform:uppercase;font-size:13px;letter-spacing:1px;margin:16px 0;">Order of Service</h2>
+    <h2 style="border-bottom:3px solid #3d6263;padding-bottom:8px;color:#3d6263;font-size:13px;letter-spacing:1px;margin:16px 0;">Order of Service</h2>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
       <thead style="background:#f0f6f6;"><tr>
-        <th style="text-align:left;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Title</th>
-        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Key</th>
-        <th style="text-align:center;padding:8px;font-size:11px;text-transform:uppercase;color:#3d6263;border-bottom:1px solid #d1dfdf;">Resources</th>
+        <th style="text-align:left;padding:8px;font-size:12px;color:#3d6263;border-bottom:1px solid #d1dfdf;">Title</th>
+        <th style="text-align:center;padding:8px;font-size:12px;color:#3d6263;border-bottom:1px solid #d1dfdf;">Key</th>
+        <th style="text-align:center;padding:8px;font-size:12px;color:#3d6263;border-bottom:1px solid #d1dfdf;">Resources</th>
       </tr></thead><tbody>`;
 
   const blocks = document.querySelectorAll('.service-block');
@@ -1754,38 +1757,38 @@ async function emailSchedule() {
         const data = snap.data();
         const ssLink = data.ccli ? `https://songselect.ccli.com/Songs/${data.ccli}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
         let linksHtml = '';
-        if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color:#3d6263;text-decoration:none;font-weight:700;font-size:11px;padding:0 5px;">YouTube</a>`;
-        if (linksHtml) linksHtml += `<span style="color:#cbd5e1;font-size:11px;">&nbsp;|&nbsp;</span>`;
-        linksHtml += `<a href="${ssLink}" style="color:#3d6263;text-decoration:none;font-weight:700;font-size:11px;padding:0 5px;">SongSelect</a>`;
+        if (data.youtube) linksHtml += `<a href="${data.youtube}" style="color:#3d6263;text-decoration:none;font-weight:600;font-size:12px;padding:0 5px;">YouTube</a>`;
+        if (linksHtml) linksHtml += `<span style="color:#cbd5e1;font-size:12px;">&nbsp;|&nbsp;</span>`;
+        linksHtml += `<a href="${ssLink}" style="color:#3d6263;text-decoration:none;font-weight:600;font-size:12px;padding:0 5px;">SongSelect</a>`;
         resourcesHtml = `<div style="margin-bottom:8px;">${linksHtml}</div>`;
         keys.forEach(k => {
           const kFiles = (data.files||[]).filter(f=>f.key&&f.key.trim().toLowerCase()===k.trim().toLowerCase());
           if (kFiles.length) {
-            resourcesHtml += `<div style="font-size:10px;color:#3d6263;font-weight:bold;margin-top:5px;">Key: ${k}</div>`;
-            kFiles.forEach(f => { resourcesHtml += `<div style="margin-top:2px;"><a href="${f.url}" style="color:#3d6263;text-decoration:underline;font-size:11px;font-weight:600;">Download ${f.type}</a></div>`; });
+            resourcesHtml += `<div style="font-size:12px;color:#3d6263;font-weight:bold;margin-top:5px;">Key: ${k}</div>`;
+            kFiles.forEach(f => { resourcesHtml += `<div style="margin-top:2px;"><a href="${f.url}" style="color:#3d6263;text-decoration:underline;font-size:12px;font-weight:600;">Download ${f.type}</a></div>`; });
           }
         });
       }
       htmlEmail += `<tr>
-        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;"><p style="font-weight:800;font-size:14px;color:#1e293b;margin:0;">${songIdx}. ${title}</p>${notes?`<p style="font-style:italic;font-size:11px;color:#64748b;margin:4px 0 0;">${notes}</p>`:''}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:top;font-weight:700;color:#3d6263;font-size:14px;">${keys.join(', ')||'-'}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;"><p style="font-weight:600;font-size:14px;color:#1e293b;margin:0;">${songIdx}. ${title}</p>${notes?`<p style="font-style:italic;font-size:12px;color:#64748b;margin:4px 0 0;">${notes}</p>`:''}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:top;font-weight:600;color:#3d6263;font-size:14px;">${keys.join(', ')||'-'}</td>
         <td style="padding:12px 8px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:top;">${resourcesHtml}</td>
       </tr>`;
       songIdx++;
     } else {
       const item = b.querySelector('.item-title-input').value;
-      if (item) htmlEmail += `<tr><td colspan="3" style="padding:10px 8px;background:#f8fafc;border-left:4px solid #3d6263;font-weight:800;font-size:12px;color:#3d6263;text-transform:uppercase;">${item}</td></tr>`;
+      if (item) htmlEmail += `<tr><td colspan="3" style="padding:10px 8px;background:#f8fafc;border-left:4px solid #3d6263;font-weight:600;font-size:12px;color:#3d6263;">${item}</td></tr>`;
     }
   }
 
   htmlEmail += `</tbody></table>`;
   let rosterNames = [];
   const teamRows = Array.from(document.querySelectorAll('#teamBody tr'));
-  htmlEmail += `<p style="font-weight:700;color:#3d6263;font-size:13px;margin:16px 0 8px;">Our team for this service:</p><table style="width:100%;border-collapse:collapse;"><tbody>`;
+  htmlEmail += `<p style="font-weight:600;color:#3d6263;font-size:13px;margin:16px 0 8px;">Our team for this service:</p><table style="width:100%;border-collapse:collapse;"><tbody>`;
   const rowData = teamRows.map(r => [r.children[0].textContent, r.children[1].textContent, r.querySelector('.instr-note').value]);
   sortAssignments(rowData).forEach(([role, name, note]) => {
     if (name && name !== 'None') rosterNames.push(name.trim());
-    htmlEmail += `<tr><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;width:35%;color:#3d6263;font-weight:700;">${role}</td><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">${name}${note?`<br><i style="font-size:11px;color:#666;">Note: ${note}</i>`:''}</td></tr>`;
+    htmlEmail += `<tr><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;width:35%;color:#3d6263;font-weight:600;">${role}</td><td style="padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">${name}${note?`<br><i style="font-size:12px;color:#666;">Note: ${note}</i>`:''}</td></tr>`;
   });
   htmlEmail += `</tbody></table>`;
   if (outroText) htmlEmail += `<div style="font-size:14px;color:#444;margin-top:16px;">${outroText.replace(/\n/g,'<br>')}</div>`;
@@ -1817,13 +1820,13 @@ async function emailSchedule() {
       });
       const result = await resp.json();
       if (result.ok) {
-        if (statusEl) { statusEl.textContent = '✓ Sent!'; statusEl.style.color = '#3B7D23'; }
+        if (statusEl) { statusEl.textContent = 'Sent'; statusEl.style.color = '#3B7D23'; }
         setTimeout(() => modal.classList.remove('active'), 1800);
       } else {
-        if (statusEl) { statusEl.textContent = '✗ Error: ' + (result.error || 'Unknown'); statusEl.style.color = '#e05555'; }
+        if (statusEl) { statusEl.textContent = 'Error: ' + (result.error || 'Unknown'); statusEl.style.color = '#e05555'; }
       }
     } catch(e) {
-      if (statusEl) { statusEl.textContent = '✗ Network error'; statusEl.style.color = '#e05555'; }
+      if (statusEl) { statusEl.textContent = 'Network error'; statusEl.style.color = '#e05555'; }
     }
   }
   document.getElementById('modalTeamBtn').onclick = async () => {
@@ -1893,7 +1896,7 @@ function renderNotes() {
   notes.sort((a, b) => b.createdAt - a.createdAt);
   const list = document.getElementById('notes-list');
   if (!notes.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📌</div><div class="empty-state-text">No ideas yet — be the first!</div></div>';
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="pin" style="width:34px;height:34px"></i></div><div class="empty-state-text">No ideas yet — be the first!</div></div>';
     return;
   }
   const REACTIONS = [
@@ -2047,8 +2050,8 @@ async function saveNote() {
     x:60+(i%5)*310+(i*37%40)-20, y:60+Math.floor(i/5)*340+(i*53%40)-20,
     rot:(i*17%7)-3.5, zIndex:10
   });
-  closeAddNote(); renderNotes(); toast('Saving... 📌');
-  await saveBoardState(); toast('Idea pinned! 📌');
+  closeAddNote(); renderNotes(); toast('Saving...');
+  await saveBoardState(); toast('Idea pinned');
   ['note-author','note-title','note-body','note-yt'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('note-cat').value = 'song';
 }
@@ -2095,13 +2098,13 @@ function renderWorshipCards(highlight='') {
 }
 
 function renderKbCards(assets, context, highlight='') {
-  if (!assets.length) return '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No content yet</div></div>';
+  if (!assets.length) return '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="inbox" style="width:34px;height:34px"></i></div><div class="empty-state-text">No content yet</div></div>';
   return assets.map(a => {
     const bullets = (a.bullets||'').split('\n').filter(b=>b.trim()).slice(0,2);
     const typeClass = a.assetType==='Video' ? 'kb-card-type-video' : a.assetType==='Note' ? 'kb-card-type-note' : 'kb-card-type-image';
     const titleText = highlight ? hlText(a.title||'', highlight) : (a.title||'');
-    const keyBadge = a.ourKey ? `<span style="background:var(--teal);color:white;padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;">Key: ${a.ourKey}</span>` : '';
-    return `<div class="kb-card fade-in" onclick="openKbCard('${a.id}','${context}')"><div class="kb-card-top"><div style="display:flex;gap:6px;flex-wrap:wrap;"><span class="kb-card-type ${typeClass}">${a.assetType||'Video'}</span>${keyBadge}${a.songSection?`<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:9999px;font-size:9px;font-weight:800;color:var(--teal);">${a.songSection}</span>`:''}</div></div><div class="kb-card-title">${titleText}</div>${bullets.length?`<div class="kb-card-bullets">${bullets.map(b=>`• ${b.replace(/^[•\-\*]\s*/,'')}`).join('<br>')}</div>`:''}</div>`;
+    const keyBadge = a.ourKey ? `<span style="background:var(--teal);color:white;padding:3px 8px;border-radius:9999px;font-size:12px;font-weight:600;">Key: ${a.ourKey}</span>` : '';
+    return `<div class="kb-card fade-in" onclick="openKbCard('${a.id}','${context}')"><div class="kb-card-top"><div style="display:flex;gap:6px;flex-wrap:wrap;"><span class="kb-card-type ${typeClass}">${a.assetType||'Video'}</span>${keyBadge}${a.songSection?`<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:9999px;font-size:12px;font-weight:600;color:var(--teal);">${a.songSection}</span>`:''}</div></div><div class="kb-card-title">${titleText}</div>${bullets.length?`<div class="kb-card-bullets">${bullets.map(b=>`• ${b.replace(/^[•\-\*]\s*/,'')}`).join('<br>')}</div>`:''}</div>`;
   }).join('');
 }
 
@@ -2121,16 +2124,16 @@ function openKbCard(id, context) {
     <div class="kb-modal-breadcrumb">${context==='playthrough'?'Play Through':'Worship Training'}${asset.category?' — '+asset.category:''}</div>
     <div class="kb-modal-title">${asset.title||''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-      ${asset.ourKey?`<span style="background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;">Key: ${asset.ourKey}</span>`:''}
-      ${asset.songSection?`<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.songSection}</span>`:''}
-      ${asset.instrument?`<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${asset.instrument}</span>`:''}
+      ${asset.ourKey?`<span style="background:var(--teal);color:white;padding:5px 12px;border-radius:9999px;font-size:12px;font-weight:600;">Key: ${asset.ourKey}</span>`:''}
+      ${asset.songSection?`<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:12px;font-weight:600;color:var(--teal);">${asset.songSection}</span>`:''}
+      ${asset.instrument?`<span style="background:var(--bg);border:1px solid var(--border);padding:5px 12px;border-radius:9999px;font-size:12px;font-weight:600;color:var(--teal);">${asset.instrument}</span>`:''}
     </div>
-    ${src?`<a href="${src}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;background:var(--teal);color:white;border-radius:14px;padding:16px 18px;margin-bottom:14px;text-decoration:none;font-family:var(--font);font-weight:800;font-size:15px;"><span style="font-size:22px;">▶</span><span style="flex:1;">Watch Video</span><span style="font-size:11px;opacity:0.6;font-weight:700;">Opens in browser</span></a>`:''}
-    ${sections.length?`<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:11px;font-weight:700;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div></div>`:''}
-    ${Object.keys(chordsPerSection).length?`<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:var(--teal);opacity:0.5;margin-bottom:8px;">Chords by Section</div>${Object.entries(chordsPerSection).map(([sec,chords])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="background:var(--teal);color:white;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:800;">${sec}</span><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--teal);">${chords}</span></div>`).join('')}</div>`:''}
+    ${src?`<a href="${src}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;background:var(--teal);color:white;border-radius:14px;padding:16px 18px;margin-bottom:14px;text-decoration:none;font-family:var(--font);font-weight:600;font-size:15px;"><span style="font-size:22px;">▶</span><span style="flex:1;">Watch Video</span><span style="font-size:12px;opacity:0.6;font-weight:600;">Opens in browser</span></a>`:''}
+    ${sections.length?`<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.5;margin-bottom:8px;">Sections</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${sections.map(s=>`<div style="background:white;border:1px solid var(--border);padding:5px 10px;border-radius:9999px;font-size:12px;font-weight:600;color:var(--teal);">${fmtTime(s.seconds)} ${s.label}</div>`).join('')}</div></div>`:''}
+    ${Object.keys(chordsPerSection).length?`<div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.5;margin-bottom:8px;">Chords by Section</div>${Object.entries(chordsPerSection).map(([sec,chords])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="background:var(--teal);color:white;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600;">${sec}</span><span style="font-family:monospace;font-size:12px;font-weight:600;color:var(--teal);">${chords}</span></div>`).join('')}</div>`:''}
     ${bullets.length?`<div class="kb-modal-steps"><div class="kb-modal-steps-title">How To Do It</div>${bullets.map((b,i)=>`<div class="kb-modal-step"><span class="kb-step-num">${i+1}</span><span class="kb-step-text">${b.replace(/^[•\-\*\d\.]\s*/,'')}</span></div>`).join('')}</div>`:''}
     ${asset.description?`<p style="font-size:13px;color:var(--teal);opacity:0.7;line-height:1.5;margin-top:12px;">${asset.description}</p>`:''}
-    ${asset.tags?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">${asset.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--bg);padding:5px 12px;border-radius:9999px;font-size:10px;font-weight:700;color:var(--teal);border:1px solid var(--border);">${t}</span>`).join('')}</div>`:''}`;
+    ${asset.tags?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">${asset.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--bg);padding:5px 12px;border-radius:9999px;font-size:12px;font-weight:600;color:var(--teal);border:1px solid var(--border);">${t}</span>`).join('')}</div>`:''}`;
   document.getElementById('kb-modal').classList.add('open');
 }
 
@@ -2147,7 +2150,7 @@ async function loadSongs() {
 
 function renderSongList(songs) {
   const list = document.getElementById('song-list');
-  if (!songs.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎵</div><div class="empty-state-text">No songs found</div></div>'; return; }
+  if (!songs.length) { list.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="music" style="width:34px;height:34px"></i></div><div class="empty-state-text">No songs found</div></div>'; return; }
   list.innerHTML = songs.slice(0, 100).map(s => {
     const keys = [...new Set((s.files||[]).map(f=>f.key).filter(Boolean))];
     const types = [...new Set((s.files||[]).map(f=>f.type).filter(Boolean))];
@@ -2174,7 +2177,7 @@ function openSong(id) {
   }
   filesHtml += '</div>';
   const panel = document.getElementById('song-detail-panel');
-  panel.innerHTML = `<div class="song-detail fade-in"><div class="song-detail-title">${s.title||''}</div>${s.artist?`<div style="font-size:13px;color:var(--teal);opacity:0.5;font-weight:700;margin-bottom:12px;">${s.artist}</div>`:''}<div class="song-detail-links">${s.youtube?`<a href="${s.youtube}" target="_blank" rel="noopener" class="song-detail-link song-link-youtube">▶ YouTube</a>`:''}<a href="${ccliUrl}" target="_blank" rel="noopener" class="song-detail-link song-link-ccli">🔗 SongSelect</a></div>${filesHtml}</div>`;
+  panel.innerHTML = `<div class="song-detail fade-in"><div class="song-detail-title">${s.title||''}</div>${s.artist?`<div style="font-size:13px;color:var(--teal);opacity:0.5;font-weight:600;margin-bottom:12px;">${s.artist}</div>`:''}<div class="song-detail-links">${s.youtube?`<a href="${s.youtube}" target="_blank" rel="noopener" class="song-detail-link song-link-youtube">▶ YouTube</a>`:''}<a href="${ccliUrl}" target="_blank" rel="noopener" class="song-detail-link song-link-ccli" style="display:inline-flex;align-items:center;gap:4px"><i data-lucide="link" style="width:14px;height:14px"></i> SongSelect</a></div>${filesHtml}</div>`;
   document.getElementById('song-list').style.display = 'none';
   panel.style.display = 'block';
   sectionHistory.push('library-list');
@@ -2183,7 +2186,7 @@ function openSong(id) {
 // ── MUSIC UPLOADER ──
 function initUploadSlots() {
   if (document.getElementById('upload-file-input-0')) return;
-  document.getElementById('upload-file-slots').innerHTML = `<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon">📄</div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
+  document.getElementById('upload-file-slots').innerHTML = `<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon"><i data-lucide="file-text" style="width:26px;height:26px"></i></div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
   uploadSlots = 1; uploadFiles = {};
 }
 
@@ -2193,7 +2196,7 @@ function addUploadSlot() {
   if (uploadSlots >= 4) { toast('Maximum 4 files at once'); return; }
   const container = document.getElementById('upload-file-slots');
   const div = document.createElement('div'); div.className = 'form-field';
-  div.innerHTML = `<label>PDF File (${uploadSlots+1} of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon">📄</div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-${uploadSlots}"></div><input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" onchange="fileSelected(${uploadSlots},this)"></div>`;
+  div.innerHTML = `<label>PDF File (${uploadSlots+1} of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon"><i data-lucide="file-text" style="width:26px;height:26px"></i></div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-${uploadSlots}"></div><input type="file" id="upload-file-input-${uploadSlots}" accept=".pdf" onchange="fileSelected(${uploadSlots},this)"></div>`;
   container.appendChild(div); uploadSlots++;
   if (uploadSlots >= 4) document.getElementById('upload-more-btn').style.display = 'none';
 }
@@ -2206,7 +2209,7 @@ async function searchUploadSong() {
   const norm = val.toLowerCase();
   const matches = allSongs.filter(s => (s.normalized||s.title||'').toLowerCase().includes(norm)).slice(0, 5);
   if (!matches.length) { resultsEl.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--teal);opacity:0.5;font-style:italic;">No match — will create new song entry</div>`; return; }
-  resultsEl.innerHTML = matches.map(s => `<div onclick="selectUploadSong('${s.id}')" style="padding:10px 14px;border-bottom:1px solid var(--bg);font-size:13px;font-weight:700;color:var(--teal);cursor:pointer;">${s.title}</div>`).join('');
+  resultsEl.innerHTML = matches.map(s => `<div onclick="selectUploadSong('${s.id}')" style="padding:10px 14px;border-bottom:1px solid var(--bg);font-size:13px;font-weight:600;color:var(--teal);cursor:pointer;">${s.title}</div>`).join('');
 }
 
 function selectUploadSong(id) {
@@ -2221,10 +2224,10 @@ function checkDuplicates() {
   const key = document.getElementById('upload-key').value;
   const type = document.getElementById('upload-type').value;
   const statusEl = document.getElementById('upload-match-status');
-  if (!uploadMatchedSong) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ New song — will be created</div>`; return; }
+  if (!uploadMatchedSong) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:600;color:#166534;">New song - it will be created</div>`; return; }
   const dups = (uploadMatchedSong.files||[]).filter(f => f.key===key && f.type===type);
-  if (dups.length && key && type) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:12px;font-weight:700;color:#991b1b;">⚠ A ${type} in ${key} already exists for "${uploadMatchedSong.title}"<br><label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:700;cursor:pointer;"><input type="checkbox" id="upload-force" style="width:16px;height:16px;"> Replace existing file</label></div>`; }
-  else if (uploadMatchedSong && key && type) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:700;color:#166534;">✓ Matched to "${uploadMatchedSong.title}" — no duplicate</div>`; }
+  if (dups.length && key && type) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:12px;font-weight:600;color:#991b1b;">A ${type} in ${key} already exists for "${uploadMatchedSong.title}"<br><label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:600;cursor:pointer;"><input type="checkbox" id="upload-force" style="width:16px;height:16px;"> Replace existing file</label></div>`; }
+  else if (uploadMatchedSong && key && type) { statusEl.innerHTML = `<div style="padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;font-weight:600;color:#166534;">Matched to "${uploadMatchedSong.title}" — no duplicate</div>`; }
 }
 
 async function submitUpload() {
@@ -2265,16 +2268,16 @@ async function submitUpload() {
     }
     bar.style.width = '95%'; status.textContent = 'Saving to database...';
     await docRef.set({ title:finalTitle, normalized:finalTitle.toLowerCase(), files, ...(existingData.youtube?{youtube:existingData.youtube}:{}), ...(existingData.ccli?{ccli:existingData.ccli}:{}) }, { merge:true });
-    bar.style.width = '100%'; status.textContent = '✓ Uploaded!'; toast('Upload complete! 🎵');
+    bar.style.width = '100%'; status.textContent = 'Uploaded'; toast('Upload complete');
     setTimeout(() => {
       prog.style.display='none'; bar.style.width='0%'; status.textContent=''; btn.disabled=false;
       document.getElementById('upload-song-title').value=''; document.getElementById('upload-key').value=''; document.getElementById('upload-type').value='';
       document.getElementById('upload-song-matches').innerHTML=''; document.getElementById('upload-match-status').innerHTML='';
       uploadFiles={}; uploadSlots=1; uploadMatchedSong=null;
-      document.getElementById('upload-file-slots').innerHTML=`<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon">📄</div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
+      document.getElementById('upload-file-slots').innerHTML=`<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon"><i data-lucide="file-text" style="width:26px;height:26px"></i></div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
       document.getElementById('upload-more-btn').style.display='block'; allSongs=[];
     }, 2000);
-  } catch(e) { status.textContent = '✗ Upload failed: '+e.message; btn.disabled=false; }
+  } catch(e) { status.textContent = 'Upload failed: '+e.message; btn.disabled=false; }
 }
 
 // ── TOUR ──
@@ -2346,7 +2349,8 @@ function showTourStep(steps) {
   document.getElementById('tour-title').textContent = step.title;
   document.getElementById('tour-text').textContent = step.text;
   document.getElementById('tour-count').textContent = `${tourStepIndex+1} / ${steps.length}`;
-  document.getElementById('tour-next').textContent = tourStepIndex < steps.length-1 ? 'Next →' : 'Got it!';
+  document.getElementById('tour-next').innerHTML = tourStepIndex < steps.length-1
+    ? 'Next ' + '<i data-lucide="arrow-right" style="width:14px;height:14px"></i>' : 'Got it!';
   if (target) {
     const rect = target.getBoundingClientRect();
     highlight.style.left = rect.left-4+'px'; highlight.style.top = rect.top-4+'px';

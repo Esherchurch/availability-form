@@ -33,7 +33,15 @@ const ACCOUNT = {
   pw: process.env.EGBC_EMU_PW || 'test-only-password'
 };
 
-/* Restyle Group 2 (Step H), in the order RESTYLE-BRIEF lists them. */
+/* Which group to picture, in the order RESTYLE-BRIEF lists its pages.
+   Pass the group as the fourth argument:
+
+     node tests/shots-restyle.mjs . after 3
+
+   Group 3 is three pages, not the brief's four: NEXT-BRIEF §4 takes the
+   Worship Hub out of scope and overrides the Group 3 list. */
+const GROUP3 = ['youthapp2.html', 'youthserviceplanner.html', 'youth-access.html'];
+
 const GROUP2 = ['Library.html', 'batchupload.html', 'music-uploader.html',
   'EmailBuilder2.html', 'stickynotes.html', 'EGBC-PlayThrough.html',
   'EGBC-HowTo-AV.html', 'EGBC-Troubleshoot-AV.html', 'EGBC-Training-Worship.html',
@@ -120,7 +128,8 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
      which is behind a button and is where most of its faults were. */
   const EXTRA = { 'hub.html': ['the admin panel', "(()=>{try{openAdmin();adminTab('people');return 1}catch(e){return String(e)}})()"] };
 
-  for (const page of GROUP2) {
+  const GROUP = (process.argv[4] === '3') ? GROUP3 : GROUP2;
+  for (const page of GROUP) {
     if (!fs.existsSync(path.join(SERVE_DIR, page))) { console.log(page.padEnd(28) + 'not in this tree'); continue; }
     const waitFor = (PAGES.find(p => p.page === page) || {}).wait || 9000;
     for (const [wName, w, h] of WIDTHS) {

@@ -7,17 +7,25 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#5f7a4a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202609041833"></script>
+<!-- Inter and the Lucide icons, the suite's look. This page has no Menu by
+     design - a young person with a code, not an account - so it loads the UI
+     helper itself rather than through egbc-shell.js, the same as login.html
+     and index.html. -->
+<script src="egbc-ui.js?v=202610100100"></script>
 <style>
   :root{--canvas:#eef4f3;--ink:#14201f;--hairline:#dde7e6;--brand:#5f7a4a;--brand-dark:#475c37}
-  body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
+  body{background:var(--canvas);color:var(--brand);-webkit-font-smoothing:antialiased}
   input:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px rgba(95,122,74,.28)!important;outline:none}
-  #code{letter-spacing:.28em;text-transform:uppercase}
+  /* Letter-spacing stays: a code is read a character at a time off an email.
+     The uppercasing moved into format(), which already does it to the VALUE -
+     so the code that gets sent is upper case rather than merely looking it,
+     and DESIGN.md's "no uppercase labels" is kept. */
+  #code{letter-spacing:.28em}
   .spin{animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 </style>
 </head>
@@ -27,46 +35,48 @@
 
   <div class="text-center mb-8">
     <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-20 h-20 rounded-full object-cover mx-auto mb-5 shadow-lg" style="border:3px solid #fff">
-    <h1 class="text-2xl font-black tracking-tight text-[#14201f]">Youth</h1>
-    <p class="text-sm font-semibold opacity-50 mt-1">Esher Green Baptist Church</p>
+    <h1 class="text-2xl font-bold tracking-tight text-[#14201f]">Youth</h1>
+    <p class="text-sm font-medium opacity-50 mt-1">Esher Green Baptist Church</p>
   </div>
 
-  <div class="bg-white rounded-[2rem] border border-[#dde7e6] shadow-lg p-8">
+  <div class="bg-white rounded-[14px] border border-[#dde7e6] shadow-lg p-8">
 
     <div id="enterView">
-      <h2 class="font-black text-lg mb-2 text-center">Enter your access code</h2>
+      <h2 class="font-semibold text-lg mb-2 text-center">Enter your access code</h2>
       <p class="text-[13px] opacity-55 leading-relaxed text-center mb-6">
         Your parent or guardian will have been emailed a code. Enter it once and this device stays signed in.
       </p>
 
       <input id="code" type="text" inputmode="text" autocomplete="off" spellcheck="false"
         placeholder="XXXX-XXXX" maxlength="9"
-        class="w-full px-5 py-4 rounded-2xl border border-[#dde7e6] bg-[#f0f6f6] font-black text-center text-lg outline-none mb-4"
+        class="w-full px-5 py-3 rounded-lg border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-center text-lg outline-none mb-4"
         oninput="format(this)" onkeydown="if(event.key==='Enter')redeem()">
 
       <button onclick="redeem()" id="goBtn"
-        class="w-full bg-[#5f7a4a] text-white py-4 rounded-full font-black text-[11px] uppercase tracking-widest hover:bg-black transition-all">
+        class="w-full bg-[#5f7a4a] text-white py-3 rounded-lg font-medium text-[14px] hover:bg-[#475c37] transition-all">
         Continue
       </button>
 
-      <div id="msg" class="hidden mt-5 text-[12px] font-bold text-center px-3 py-3 rounded-2xl"></div>
+      <div id="msg" class="hidden mt-5 text-[13px] font-medium text-center px-3 py-3 rounded-lg"></div>
 
-      <p class="text-[11px] leading-relaxed opacity-40 mt-6 text-center">
+      <p class="text-[12px] leading-relaxed opacity-40 mt-6 text-center">
         Haven't got a code? Ask one of the youth leaders.
       </p>
     </div>
 
     <div id="busyView" class="hidden text-center py-10">
       <div class="w-10 h-10 rounded-full mx-auto mb-4 spin" style="border:3px solid #dde7e6;border-top-color:#5f7a4a"></div>
-      <p class="text-[11px] font-black uppercase tracking-widest opacity-50">Just a moment</p>
+      <p class="text-[13px] font-medium opacity-50">Just a moment</p>
     </div>
 
     <div id="doneView" class="hidden text-center py-6">
-      <div class="text-4xl mb-4">✓</div>
-      <h2 class="font-black text-lg mb-2">You're in</h2>
+      <!-- A Lucide tick, not the dingbat one (A-046). The old character drew
+           as a green emoji on an iPhone and as plain text everywhere else. -->
+      <div class="mb-4 flex justify-center"><i data-lucide="circle-check" style="width:44px;height:44px;color:#5f7a4a"></i></div>
+      <h2 class="font-semibold text-lg mb-2">You're in</h2>
       <p id="doneName" class="text-sm opacity-60 leading-relaxed mb-6"></p>
-      <a href="youthapp2.html" class="inline-block bg-[#5f7a4a] text-white px-8 py-3.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Open Youth Hub</a>
-      <p class="text-[11px] opacity-40 mt-6 leading-relaxed">This device stays signed in for six weeks. You'll be sent a new code after that.</p>
+      <a href="youthapp2.html" class="inline-block bg-[#5f7a4a] text-white px-8 py-3 rounded-lg font-medium text-[14px] hover:bg-[#475c37] transition-all">Open Youth Hub</a>
+      <p class="text-[12px] opacity-40 mt-6 leading-relaxed">This device stays signed in for six weeks. You'll be sent a new code after that.</p>
     </div>
 
   </div>
@@ -81,7 +91,7 @@ const db=firebase.firestore(app);
 const WEEKS=6;
 
 function show(v){['enterView','busyView','doneView'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==v));}
-function msg(t,ok){const m=document.getElementById('msg');m.textContent=t;m.className='mt-5 text-[12px] font-bold text-center px-3 py-3 rounded-2xl '+(ok?'bg-green-50 text-green-800':'bg-red-50 text-red-700');m.classList.remove('hidden');}
+function msg(t,ok){const m=document.getElementById('msg');m.textContent=t;m.className='mt-5 text-[13px] font-medium text-center px-3 py-3 rounded-lg '+(ok?'bg-green-50 text-green-800':'bg-red-50 text-red-700');m.classList.remove('hidden');}
 
 /* Insert the dash as they type, so the code looks like the emailed one. */
 function format(el){

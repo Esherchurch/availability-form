@@ -162,7 +162,8 @@ export const PAGES = [
      three tab buttons the AV pages have, the five dialogs the Email Compiler
      has, the admin bar and HTML editor every charter has.
 
-     `restyled: false` comes off each as it is done. */
+     `restyled: false` came off all three when Step M restyled them, so the
+     style check asserts on them like every other page. */
 
   { page: 'Library.html', wait: 9000, states: [
       ['main', '1'],
@@ -238,6 +239,51 @@ export const PAGES = [
   { page: 'EGBC-PlayThrough.html', wait: 8000, states: [
       ['main', '1'],
       ['the admin panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=dmin],[id*=odal]').forEach(m=>{if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
+    ] },
+
+  /* ---- RESTYLE GROUP 3: youth and kids (Step M) ----------------------
+
+     Worship Hub is excluded by NEXT-BRIEF §4, which overrides the brief's
+     own Group 3 list, so three pages and not four.
+
+     Read off the page, not guessed: youthapp2.html has a home screen, six
+     sections, two tabs inside Worship Resources, an add-note sheet, the
+     email-team modal and a tour. The tour goes FIRST, for the reason the
+     CoreTeamApp entry at the top of this file gives - a screen the set-up
+     dismisses is a screen nothing ever measures, and on the youth app the
+     tour is the first thing a young person sees.
+
+     `restyled: false` came off all three when Step M restyled them, so the
+     style check asserts on them like every other page. */
+
+  { page: 'youthapp2.html', wait: 10000, states: [
+      ['the tour', "(()=>{try{if(typeof startTour==='function'){startTour();return 'started'}}catch(e){}const o=document.querySelector('#tour-overlay,.tour-overlay');if(o){o.classList.add('active','open');return 'shown'}return 'no tour'})()"],
+      ['home', "(()=>{const o=document.querySelector('#tour-overlay,.tour-overlay');if(o)o.classList.remove('active','open');document.querySelectorAll('.section-screen').forEach(s=>s.classList.remove('active'));const h=document.getElementById('home-screen');if(h)h.style.display='';return 1})()"],
+      ['the planner', "openSection('planner')"],
+      ['the idea pin board', "openSection('board')"],
+      ['worship resources', "openSection('worship')"],
+      ['worship: training tab', "(()=>{openSection('worship');try{switchKbTab('training')}catch(e){return 'no switchKbTab'}return 1})()"],
+      ['the music uploader', "openSection('upload')"],
+      ['the song library', "openSection('library')"],
+      ['the news', "openSection('news')"],
+      ['the add-note sheet', "(()=>{try{openAddNote();return 1}catch(e){const m=document.getElementById('add-note-modal');if(m){m.classList.add('open');return 'shown'}return 'no sheet'}})()"],
+      ['the email-team modal', "(()=>{let n=0;document.querySelectorAll('[id*=odal]').forEach(m=>{if(m.style){m.style.display='block';m.classList.remove('hidden');m.classList.add('open');n++}});return n})()"]
+    ] },
+  /* The planner the youth team fills in. Its song rows build their own
+     markup as you type, and the key-info panel only exists after a song is
+     chosen - the same trap SundayServicePlanner's entry above describes. */
+  { page: 'youthserviceplanner.html', wait: 10000, states: [
+      ['main', '1'],
+      ['a song chosen', "(()=>{const i=document.querySelector('input[list],input[placeholder*=ong],#songSearch');if(i){i.value='Synthetic Song';i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new Event('change',{bubbles:true}));return 1}return 'no song field'})()"],
+      ['every panel revealed', "(()=>{let n=0;document.querySelectorAll('[id*=odal],details').forEach(m=>{if(m.tagName==='DETAILS'){m.open=true;n++}else if(m.style){m.style.display='block';m.classList.remove('hidden');n++}});return n})()"]
+    ] },
+  /* Three views, and the message box, which is its own look on success and
+     on refusal - and a young person with a bad code sees the refusal. */
+  { page: 'youth-access.html', wait: 8000, states: [
+      ['entering a code', "(()=>{try{show('enterView')}catch(e){}const c=document.getElementById('code');if(c)c.value='ABCD-1234';return 1})()"],
+      ['a code refused', "(()=>{try{show('enterView');msg('That code is not valid. Ask your leader for a new one.',false)}catch(e){return 'no msg'}return 1})()"],
+      ['working on it', "(()=>{try{show('busyView')}catch(e){return 'no show'}return 1})()"],
+      ['let in', "(()=>{try{show('doneView');const n=document.getElementById('doneName');if(n)n.textContent='Synthetic Person';}catch(e){return 'no show'}return 1})()"]
     ] }
 ];
 

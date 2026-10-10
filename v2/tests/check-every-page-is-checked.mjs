@@ -63,9 +63,9 @@ const NOT_YET = {
   "signup.html": "the events window's",
   "sermons-admin.html": "the events window's (F-132) - and not in the Menu yet, A-061",
   "whatson.html": "the events window's",
-  "youthapp2.html": "Step M (Restyle Group 3)",
-  "youthserviceplanner.html": "Step M (Restyle Group 3)",
-  "youth-access.html": "Step M (Restyle Group 3) - and it has an emoji tick, A-046",
+  /* All three were here as "Step M (Restyle Group 3)". Step M restyled them,
+     so they are in tests/group1-screens.mjs now and the style check asserts
+     on them - and the emoji tick A-046 named is a Lucide icon. */
   "EGBCWorship&AV.html": "Step P - not in a group yet",
   "Handover.html": "Step P - not in a group yet",
   "MonitorStageMap.html": "Step P - not in a group yet",
