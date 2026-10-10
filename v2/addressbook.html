@@ -73,6 +73,12 @@
             document.getElementById('freq').value = data.maxFrequency;
             document.getElementById('relatedTo').value = data.householdId || '';
             
+            /* Rebuild the ticks for THIS record first, so a team that has
+               since been archived still shows for somebody who is in it.
+               Archive-and-create means the old name has to stay readable,
+               or editing an address would quietly take the person off a
+               team nobody meant to remove them from. */
+            if(typeof fillTeamTicks === 'function') fillTeamTicks(data.markers || []);
             document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
             if(data.markers) data.markers.forEach(m => { const el = document.querySelector(`.marker[value="${m}"]`); if(el) el.checked = true; });
             if(data.primaryInstruments) data.primaryInstruments.forEach(i => { const el = document.querySelector(`.primary[value="${i}"]`); if(el) el.checked = true; });
@@ -277,7 +283,52 @@ function applyAdminScope(){
   });
 }
 
+/* The team and group ticks, built from the teams data rather than written
+   into the page (APP-A1 §4 step 2). Called before anything loads a record
+   into the form, so the boxes exist to be ticked.
+
+   ORDER AND LABELS ARE THE DATA'S. `order` puts them where the office
+   wants; teams with no order keep the built-in table's order, which is the
+   order this page had by hand. An archived team still shows IF somebody is
+   already in it - archive-and-create means the old name must stay
+   readable - but it is not offered on a new record. */
+function fillTeamTicks(alsoShow) {
+  const T = (window.EGBCAuth && EGBCAuth.TEAMS) || {};
+  const keep = Array.isArray(alsoShow) ? alsoShow : [];
+  const names = Object.keys(T).filter(n => !T[n].archived || keep.indexOf(n) !== -1);
+  const ordered = names.sort((a, b) => {
+    const oa = typeof T[a].order === 'number' ? T[a].order : 999;
+    const ob = typeof T[b].order === 'number' ? T[b].order : 999;
+    return oa !== ob ? oa - ob : names.indexOf(a) - names.indexOf(b);
+  });
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const box = (cls, name, label) =>
+    '<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="' + cls
+    + '" value="' + esc(name) + '"> ' + esc(label) + '</label>';
+
+  const teams = ordered.filter(n => T[n].rota !== false);
+  const groups = ordered.filter(n => T[n].rota === false);
+
+  const m = document.getElementById('markerTicks');
+  if (m) m.innerHTML = teams.map(n => box('marker', n, T[n].label || n)).join('');
+
+  /* A group is joined the same way a team is - it is a marker - so the
+     boxes carry the same class and the save path needs no change at all. */
+  const g = document.getElementById('groupTicks');
+  const gw = document.getElementById('groupTickWrap');
+  if (g) g.innerHTML = groups.map(n => box('marker', n, T[n].label || n)).join('');
+  if (gw) gw.classList.toggle('hidden', groups.length === 0);
+
+  /* "Admin for" is about rota teams. A group's access is set on the group
+     by the master admin (§25), so there is nothing to administer per
+     person - and offering it would imply there is. */
+  const a = document.getElementById('adminForTicks');
+  if (a) a.innerHTML = teams.map(n => box('adminfor', n, T[n].label || n)).join('');
+}
+
 document.addEventListener('egbc-ready',()=>{
+  fillTeamTicks();
   applyAdminScope();
   // The list is drawn before auth resolves, so redraw it now that we know
   // whose records this person may touch.
@@ -462,33 +513,32 @@ document.addEventListener('egbc-ready',()=>{
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-semibold text-[#3d6263] uppercase tracking-widest">Teams</label>
-                    <div class="grid grid-cols-2 gap-2 text-[10px] font-medium text-gray-600">
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Core Team"> Core Team</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Worship Team"> Worship</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="AV Team"> AV</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Choir"> Choir</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Youth Worship"> Youth</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Kids Church"> Kids Church</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Lazers"> Lazers</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="ReNu"> ReNu</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="marker" value="Maintenance"> Maintenance</label>
+                    <!-- GENERATED FROM THE TEAMS DATA (APP-A1 §4 step 2), not
+                         written out here. There were two hand-written lists on
+                         this page - this one and "Admin for" below - and they
+                         had already drifted: Core Team was first in one and
+                         last in the other. A team the office adds has to appear
+                         in both or somebody can be made an admin of a team
+                         nobody can be put on. Both are built by fillTeamTicks()
+                         from EGBCAuth.TEAMS, which is the teams collection with
+                         the built-in table as its fallback. -->
+                    <div id="markerTicks" class="grid grid-cols-2 gap-2 text-[10px] font-medium text-gray-600"></div>
+                    <!-- Groups are teams with rota:false - Church office,
+                         Bookings (NEXT-BRIEF §25). Somebody is put in a group
+                         exactly the way they are put on a team, which is what
+                         Martin asked for instead of ticking 130 profiles.
+                         Hidden when there are none, so the page looks as it
+                         always did until the office makes one. -->
+                    <div id="groupTickWrap" class="hidden pt-2">
+                      <label class="block text-[10px] font-semibold text-[#6b4a7a] uppercase tracking-widest mb-2">Groups</label>
+                      <div id="groupTicks" class="grid grid-cols-2 gap-2 text-[10px] font-medium text-gray-600"></div>
                     </div>
 
                     <div class="pt-3 mt-1 border-t border-[#dde7e6] space-y-3">
                         <div>
                             <label class="block text-[10px] font-semibold text-[#6b4a7a] uppercase tracking-widest mb-1">Admin for</label>
                             <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mb-2">Which areas they manage - pages, resources and people. Core Team usually means Worship and AV. Leave blank for ordinary members.</p>
-                            <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Worship Team"> Worship</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="AV Team"> AV</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Choir"> Choir</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Youth Worship"> Youth</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Kids Church"> Kids Church</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Lazers"> Lazers</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="ReNu"> ReNu</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Maintenance"> Maintenance</label>
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="adminfor" value="Core Team"> Core Team</label>
-                            </div>
+                            <div id="adminForTicks" class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase"></div>
                         </div>
 
                         <label class="flex items-center gap-2 cursor-pointer text-[#3d6263] pt-1"><input type="checkbox" id="churchMember" class="w-3.5 h-3.5"> Church member</label>

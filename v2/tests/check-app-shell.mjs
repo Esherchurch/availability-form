@@ -51,7 +51,14 @@ const val = (v) => {
   return { stringValue: String(v) };
 };
 const fields = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, val(v)]));
-const put = (p, obj) => req(8181, 'PATCH', DOCS + '/' + p, { fields: fields(obj) }, { Authorization: 'Bearer owner' });
+/* EACH SEGMENT ENCODED. A team's document id is its NAME as the rules
+   spell it - "Kids Church", "Church office" - which is what makes
+   teams-as-data cheap, and which means every id has a space in it. Firestore
+   is content with that; a URL is not, and the REST call threw outright. The
+   compat SDK encodes for itself, so only this harness had to learn. */
+const put = (p, obj) => req(8181, 'PATCH',
+  DOCS + '/' + p.split('/').map(encodeURIComponent).join('/'),
+  { fields: fields(obj) }, { Authorization: 'Bearer owner' });
 
 /* Five people, chosen so that between them they prove every branch of
    "which spaces does this person see". */
@@ -66,8 +73,24 @@ const PEOPLE = {
               spaces: ['me', 'worship', 'kids'], note: 'two teams' },
   maint:    { email: 'app.maint@example.invalid', teams: ['Maintenance'], adminFor: [],
               spaces: ['me', 'maint'], note: 'the new team' },
+  /* NEXT-BRIEF §25 CHANGED WHAT THIS PERSON SEES, and that is the point of
+     keeping them. Core Team and "Admin for" used to give the whole Running
+     things space; they now give nothing at all, because the church
+     administrator may not be on Core Team and a Worship admin should not
+     get People and Send for looking after Worship. */
   office:   { email: 'app.office@example.invalid', teams: ['Core Team'], adminFor: ['Kids Church'],
-              spaces: ['me', 'kids', 'office'], note: 'runs things' },
+              spaces: ['me', 'kids'], note: 'Core Team, which no longer runs things by itself' },
+  /* ...and this is who does: somebody in the Church office group. */
+  admin:    { email: 'app.churchoffice@example.invalid', teams: ['Church office'], adminFor: [],
+              spaces: ['me', 'office'], note: 'in the Church office group' },
+};
+
+/* The two groups NEXT-BRIEF §25 starts with. A group is a team with
+   rota:false, so it needs no second concept anywhere - a person is put in
+   one exactly as they are put on a team. */
+const GROUPS = {
+  'Church office': { runs: ['today', 'people', 'bookings', 'send'] },
+  'Bookings':      { runs: ['bookings'] }
 };
 
 const NO_SW = '<script>(function(){try{if(navigator.serviceWorker){navigator.serviceWorker.register=function(){return Promise.resolve(undefined);};}}catch(e){}})();</script>';
@@ -89,6 +112,13 @@ const offMachine = u => {
 
 (async () => {
   if (wantShots) fs.mkdirSync(SHOTS, { recursive: true });
+
+  /* The groups go in before anybody signs in, because egbc-auth.js reads
+     the teams collection while the page loads. */
+  for (const [name, g] of Object.entries(GROUPS)) {
+    await put('teams/' + name, {
+      name, label: name, colour: '#111827', rota: false, runs: g.runs, archived: false });
+  }
 
   for (const [key, p] of Object.entries(PEOPLE)) {
     let up = JSON.parse((await req(9099, 'POST',
@@ -388,7 +418,9 @@ const offMachine = u => {
 
   /* ---- §2: never more than four tabs, and no empty tabs ------------- */
   console.log('\nthe tabs (§2)');
-  await openAs(PEOPLE.office);
+  /* The person with the most spaces and tabs, which under §25 is whoever
+     is in the Church office group rather than whoever is on Core Team. */
+  await openAs(PEOPLE.admin);
   const everySpace = JSON.parse(String(await ev(`JSON.stringify((() => {
     const out = {};
     for (const k of EGBCApp.spacesFor(EGBCApp.who())) out[k] = EGBCApp.tabsFor(k).map(t => t[0]);
@@ -504,6 +536,13 @@ const offMachine = u => {
 
   /* ---- navigation --------------------------------------------------- */
   console.log('\nmoving about');
+  /* AS SOMEBODY WHO HAS KIDS CHURCH. This used to run as whoever the
+     section above left signed in, which was the Core Team person - and
+     §25 took Running things away from them, so the section above now opens
+     as the Church office person instead, who is on no team at all. Saying
+     who this runs as, rather than inheriting it, is what stops the next
+     change to the section above quietly breaking this one. */
+  await openAs(PEOPLE.office);
   await ev("EGBCApp.go('kids','team')");
   await sleep(1200);
   ok('switching space and tab works', String(await ev('JSON.stringify(EGBCApp.state())')).includes('"kids"'),

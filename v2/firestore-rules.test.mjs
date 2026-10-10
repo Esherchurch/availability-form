@@ -2564,6 +2564,79 @@ await check('after the exception, that person CAN go on the youth rota', 'allow'
 await check('the person can see their own exception', 'allow',
   () => getDoc(doc(as('isla'), 'rotaExceptions', 'm_nodbs')));
 
+/* ---- teams as data, and who runs things (NEXT-BRIEF §25) ------------
+   The teams collection is read by every page for labels and colours, and
+   written only by a master admin - adding a team gives access to whoever is
+   ticked into it, and `runs` decides who runs things.
+
+   THE RULES NEVER READ IT, which is the point: a team appearing in `teams`
+   grants nothing by itself. `markers` on an address book record is still
+   the only switch, so the last test here is the one that matters. */
+
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 'teams', 'Church office'), {
+    name: 'Church office', label: 'Church office', colour: '#111827',
+    rota: false, runs: ['today', 'people', 'bookings', 'send'], archived: false });
+  /* A person whose mirror and record AGREE, which the shared fixtures above
+     do not: Isla's users doc says attender:false while her address book
+     record would make her one, so mirrorsBook refuses her heartbeat for a
+     reason that has nothing to do with `runs`. A test that cannot pass for
+     an unrelated reason proves nothing about the thing it names. */
+  await setDoc(doc(db, 'users', 'u_runs'), {
+    memberId: 'm_u_runs', name: 'Runs Tester', teams: [], adminFor: [],
+    masterAdmin: false, attender: true, churchMember: false, status: 'active', runs: [] });
+  await setDoc(doc(db, 'addressBook', 'm_u_runs'), {
+    name: 'Runs Tester', email: 'runs@example.invalid', markers: [],
+    adminFor: [], churchMember: false, archived: false, isMinor: false });
+});
+
+await check('anyone active reads the teams data', 'allow',
+  () => getDoc(doc(as('samy'), 'teams', 'Church office')));
+await check('and lists it, for the labels every page needs', 'allow',
+  () => getDocs(collection(as('attender'), 'teams')));
+await check('a stranger does not', 'deny',
+  () => getDoc(doc(anon(), 'teams', 'Church office')));
+
+await check('a team admin cannot make a group', 'deny',
+  () => setDoc(doc(as('karen'), 'teams', 'Finance'),
+    { name: 'Finance', label: 'Finance', rota: false, runs: ['today'] }));
+await check('nor give an existing one more tabs', 'deny',
+  () => updateDoc(doc(as('karen'), 'teams', 'Church office'),
+    { runs: ['today', 'people', 'bookings', 'send'] }));
+await check('a master admin makes one', 'allow',
+  () => setDoc(doc(as('martin'), 'teams', 'Bookings'),
+    { name: 'Bookings', label: 'Bookings', colour: '#111827', rota: false,
+      runs: ['bookings'], archived: false }));
+await check('  but the id has to be the name, or two names mean one group', 'deny',
+  () => setDoc(doc(as('martin'), 'teams', 'bookings'),
+    { name: 'Bookings', label: 'Bookings', rota: false, runs: ['bookings'] }));
+await check('  and a made-up tab is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'teams', 'Elders'),
+    { name: 'Elders', label: 'Elders', rota: false, runs: ['everything'] }));
+
+/* THE ONE THAT MATTERS. `runs` is mirrored onto users/{uid} so the app and
+   the Menu can read it without a second query - and a mirror is only safe
+   if the person cannot write their own. */
+/* WITH THE VERIFIED EMAIL, which is what a real page has. as('isla')
+   carries no email claim, so bookIsMine() is false and every one of these
+   would be refused for the wrong reason - a gate that says no because the
+   set-up is wrong proves nothing about the gate. */
+const runsReal = asNewcomer('u_runs', 'runs@example.invalid');
+
+await check('SOMEBODY CANNOT GIVE THEMSELVES A RUNNING THINGS TAB', 'deny',
+  () => updateDoc(doc(runsReal, 'users', 'u_runs'),
+    { runs: ['people', 'send'], lastSeen: serverTimestamp() }));
+await check('  nor one tab', 'deny',
+  () => updateDoc(doc(runsReal, 'users', 'u_runs'),
+    { runs: ['bookings'], lastSeen: serverTimestamp() }));
+/* ...and the heartbeat still goes through, so adding `runs` to the mirror
+   has not quietly refused every page load (A-062 was exactly that, found
+   in the emulator's log rather than by anything failing). */
+await check('  and the heartbeat still works, claiming none', 'allow',
+  () => updateDoc(doc(runsReal, 'users', 'u_runs'),
+    { runs: [], lastSeen: serverTimestamp() }));
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

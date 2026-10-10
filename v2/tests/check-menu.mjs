@@ -78,8 +78,23 @@ const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & A
    structure, for the same reason the structure is: a check that asks the code
    what the answer should be is not a check. */
 const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Planner',
-  'Availability form', 'People and email', 'Address Book', 'Email Compiler', 'Music',
+  'Availability form', 'Music',
   'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore'];
+/* NEXT-BRIEF §25: the Address Book and the Email Compiler left CORE_ONLY.
+   They follow the Running things tabs - People and Send - which come from a
+   group, because the church administrator may not be on Core Team and a
+   Worship admin should not get them for looking after Worship.
+
+   "People and email" IS IN HERE TOO, which took a failing run to get right.
+   It is the heading above them and has no page of its own, so prune() drops
+   it when neither child shows - a Core Team member sees no empty heading
+   where the address book used to be. It follows its children, so it belongs
+   with them. */
+const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler'];
+/* The heading the church administrator passes THROUGH to reach them, the
+   same way a bookings admin passes through to Room bookings. They get the
+   heading and not its page - the Core Team charter is not theirs. */
+const OPENED_FOR_OFFICE = ['Core Team'];
 /* WHERE THEY FIRST DIFFER, not the first 150 characters of each. The Menu is
    long enough that two lists agreeing for 150 characters tells you nothing,
    and that is exactly what the old report did: it showed the matching part
@@ -120,8 +135,23 @@ const WORSHIP_ONLY = ['Worship & AV', 'Worship', 'Play-Through', 'Worship Traini
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
     sees: ['Worship & AV', 'Youth', 'Resources'], doesNot: ['Core Team'] },
+  /* NEXT-BRIEF §25 CHANGED THIS PERSON, and the change is the point.
+     "People and email" - the Address Book and the Email Compiler - used to
+     come with Core Team. Martin: the church administrator may not be on
+     Core Team, and a Worship admin should not get People and Send for
+     looking after Worship. So those two follow the Church office group
+     now, and Core Team on its own carries neither. */
   'somebody on Core Team': { teams: ['Core Team'], adminFor: [], masterAdmin: false,
-    sees: ['Core Team', 'Planning', 'People and email'], doesNot: ['Events and rooms', 'Admin'] },
+    sees: ['Core Team', 'Planning'],
+    /* Not even the heading: it has no page of its own, so with both its
+       children gone there is nothing to draw. */
+    doesNot: ['Events and rooms', 'Admin', 'People and email', 'Address Book', 'Email Compiler'] },
+  /* ...and this is who does get them: the church administrator, on no rota
+     team at all, in the Church office group. They reach "Core Team" as a
+     heading on the way - and must not thereby be handed its charter. */
+  'the church administrator': { teams: ['Church office'], adminFor: [], masterAdmin: false,
+    sees: ['People and email', 'Address Book', 'Email Compiler'],
+    doesNot: ['Planning', 'Rota Planner', 'Worship & AV'] },
   'a master admin': { teams: ['Core Team'], adminFor: ['Core Team'], masterAdmin: true,
     sees: ['Core Team', 'Events and rooms', 'Admin', 'Backup & Restore', 'Kids Church'], doesNot: [] },
   /* F-089. A children's leader is on no other team and administers nothing,
@@ -288,6 +318,16 @@ const READ_MENU = `(() => {
       description: val('a row left over from before it was retired') }
   });
 
+  /* The Church office group has to exist for the church administrator to
+     be in one (NEXT-BRIEF §25). A group is a team with rota:false carrying
+     the Running things tabs its members get. */
+  await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/teams/'
+    + encodeURIComponent('Church office'), { fields: {
+      name: val('Church office'), label: val('Church office'), colour: val('#111827'),
+      rota: { booleanValue: false },
+      runs: { arrayValue: { values: ['today', 'people', 'bookings', 'send'].map(val) } },
+      archived: { booleanValue: false } } });
+
   const want = flat(APPROVED);
   console.log('the approved structure has ' + want.length + ' names\n');
 
@@ -370,11 +410,17 @@ const READ_MENU = `(() => {
     const worship = p.teams.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t)) ||
                     p.adminFor.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t)) ||
                     !!p.masterAdmin;
+    /* In a group that carries the People or Send tab, or a master admin.
+       Written out here rather than read from egbc-auth.js, so the check
+       cannot agree with the thing it is checking. */
+    const office = (p.teams || []).includes('Church office') || !!p.masterAdmin;
     const expected = want
+      .filter(w => !(OFFICE_ONLY.includes(w) && !office))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
       .filter(w => !(WORSHIP_ONLY.includes(w) && !worship))
-      .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w)))
+      .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w))
+                   || (office && OPENED_FOR_OFFICE.includes(w)))
       .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w)));
     ok('  the names are the approved ones, in order',
       JSON.stringify(seen) === JSON.stringify(expected),

@@ -2143,3 +2143,120 @@ offering "Record an exception" to a master admin or the safeguarding lead.
 The rules refuse an uncleared person today, so the rota is safe; what is
 missing is the explanation, and until it is built a planner sees a refusal
 rather than a reason.
+
+## A-069 — teams as data, and who runs things (NEXT-BRIEF §25)
+
+Two pieces, because the second needs the first.
+
+### Teams as data (APP-A1 §4, steps 1 and 2)
+
+A `teams/{teamId}` collection where **the id is the team's name as the rules
+already spell it**. That one decision is what makes it cheap: every
+`markers` array, every `adminFor`, and every team name written into a rule
+keeps working untouched, and **the rules do not read the collection at
+all** - a team appearing there grants nothing by itself, or adding a team
+would be a way of granting access.
+
+`egbc-auth.js` reads it once per page, cached, alongside the profile rather
+than after it, with the built-in `TEAMS` table as the **fallback**: a page
+that loads before the read lands, or with no connection, still draws its own
+team's colour. The read never rejects.
+
+**The address book's two tick lists are generated from it now.** There were
+two written out by hand, and they had already drifted - Core Team was first
+in one and last in the other. A team the office adds has to appear in both,
+or somebody can be made an admin of a team nobody can be put on.
+
+**A team id has a space in it**, which Firestore is content with and a URL
+is not: the first seeding call threw `ERR_UNESCAPED_CHARACTERS` outright.
+The compat SDK encodes for itself, so only the test harnesses had to learn.
+
+### Who sees Running things
+
+`spacesFor()` gave the whole space to anyone who administered anything, or
+was on Core Team. **Wrong both ways**, and both are now checked: the church
+administrator may not be on Core Team, and a Worship admin should not get
+People and Send for looking after Worship.
+
+A **group is a team with `rota: false`** carrying `runs`. Church office has
+all four tabs, Bookings has one. People are put in a group exactly as they
+are put on a team - Martin's "we do need to be able to set groups though so
+we dont have to individual tick 130 profiles" - so changing the group
+changes everybody in it at once, which is the sixth test.
+
+**One helper, `EGBCAuth.runsTabs()`**, used by the app's Running things and
+by the computer's Menu, so a person cannot be offered the address book on
+one and refused it on the other. The Menu's Address Book and Email Compiler
+were `core: true` and are `runs: 'people'` / `runs: 'send'` now.
+
+### Two layers, and they are not the same question
+
+- **allowed** - what the groups and ticks permit (`runsTabs`)
+- **shown** - what the tab bar offers, which also needs a screen to exist
+
+§25 says "a visible tab must actually open for that person". **Today is
+allowed by the Church office group and has no screen behind it**, so it is
+allowed and not shown. That is the rule working, and the check says it out
+loud rather than leaving a count to imply it - asserting only what is shown
+would hide a group losing a tab, and asserting only what is allowed would
+promise a tab that opens nothing.
+
+### A guard I described wrongly, and the break that proved it
+
+`runsTabs()` starts `if (isMaster() && !v)`. I wrote that the `!v` is what
+makes view-as work. **It is not**: `isMaster()` already returns false while
+viewing as somebody else, so removing `!v` changed no test at all. The thing
+that does the work is one line further down, and breaking *that* is caught
+immediately. The comment says so now.
+
+### Deliberate breaks
+
+| Break | Caught by |
+|---|---|
+| the old "an admin of anything, or Core Team" rule | eight assertions: both the people who should not have it, and all three who should |
+| `runsTabs` ignores view-as (the `!v` guard) | **nothing** - see above; the guard was belt and braces |
+| `runsTabs` reads own teams instead of the viewed team | "LOOKING AS THE BOOKINGS GROUP, they see its one tab" |
+
+`tests/check-runs-tabs.mjs`, **30/30**, covering every case on Martin's §25
+list. `tests/check-app-shell.mjs` **48/48**, where the Core Team person's
+expectation changed from "sees Running things" to "does not" - which is the
+correction, kept visible rather than deleted.
+
+### For Martin, before this goes live
+
+**The Church office group has to exist, with people in it.** Until it does,
+the office loses the Address Book and Email Compiler from the Menu, because
+Core Team no longer carries them. A master admin still sees everything, so
+nobody is locked out of fixing it.
+
+### A-069, continued: the rules, and what the Menu check had to learn
+
+**The `teams` rule**: read by anyone active, written only by a master admin,
+with the id required to equal the name (or two spellings would mean one
+group) and `runs` allowed only the four tabs that exist. `runs` is mirrored
+onto `users/{uid}` the same checked way `teams` is, so **nobody can give
+themselves a tab** - the break that stops checking it fails exactly the two
+assertions that say so. `firestore-rules.test.mjs` **953/953**.
+
+One of those tests was wrong twice before it was right, both times refusing
+for a reason that had nothing to do with `runs`:
+
+- `as('isla')` carries **no email claim**, so `bookIsMine()` was false and
+  the write was refused whatever `runs` said. A gate that says no because
+  the set-up is wrong proves nothing about the gate.
+- With a verified email it still failed: Isla's fixture has
+  `attender: false` while her address book record would make her one, so
+  `mirrorsBook()` refuses her heartbeat outright. The test now uses a person
+  whose mirror and record agree.
+
+**The Menu check needed two corrections of its own**, both found by running
+it rather than by reasoning:
+
+- "People and email" is a heading with no page of its own, so `prune()`
+  drops it when both its children are hidden. A Core Team member sees no
+  empty heading where the address book used to be - so the heading belongs
+  with its children in the office list, not in the Core Team one.
+- The church administrator reaches those children **through** the "Core
+  Team" heading, exactly as a bookings admin reaches Room bookings, and must
+  not thereby be handed the Core Team charter. That is `OPENED_FOR_OFFICE`,
+  the same mechanism as `OPENED_FOR_BOOKINGS`.

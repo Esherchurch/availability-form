@@ -135,9 +135,18 @@
             description: 'What the team fills in each term' }
         ] },
         { title: 'People and email', icon: 'contact', core: true, children: [
-          { title: 'Address Book', url: 'addressbook.html', icon: 'book-user', core: true,
+          /* `runs`, NOT `core` (NEXT-BRIEF §25). These were Core Team's,
+             and Martin's point is that the church administrator may not be
+             on Core Team while a Worship admin, who is, has no business in
+             People and Send. Membership of the Church office group decides
+             it now, and the phone's Running things asks the same helper.
+
+             WHEN THIS GOES LIVE the Church office group has to exist with
+             people in it, or the office loses these two from the Menu. A
+             master admin still sees everything. */
+          { title: 'Address Book', url: 'addressbook.html', icon: 'book-user', runs: 'people',
             description: 'Who is on which team, and how to reach them' },
-          { title: 'Email Compiler', url: 'EmailBuilder2.html', icon: 'mail', core: true,
+          { title: 'Email Compiler', url: 'EmailBuilder2.html', icon: 'mail', runs: 'send',
             description: 'Write and send to a team' }
         ] },
         { title: 'Music', icon: 'music-2', core: true, children: [
@@ -207,6 +216,13 @@
     if (node.members && !who.isChurchMember) return false;
     if (node.admin && !who.isAdmin) return false;
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
+    /* `runs` NAMES A RUNNING THINGS TAB (NEXT-BRIEF §25): the same four the
+       app's Running things space has, answered by the same helper. A node
+       carrying one is shown to whoever that tab is for, whatever else the
+       flags above say - so the church administrator, who may be on no team
+       and administer nothing, reaches the address book, and the Worship
+       admin who is in no group does not. */
+    if (node.runs && (who.runs || []).indexOf(node.runs) === -1) return false;
     /* On that team, or the person who administers it, or a master admin.
        Deliberately NOT "any admin": somebody who administers Worship is not
        the children's team, and a Menu that offers everybody everything is
@@ -510,6 +526,11 @@
         isCore: teams.indexOf('Core Team') !== -1 || !!(A && A.isMaster && A.isMaster()),
         isChurchMember: !!(A && A.isChurchMember && A.isChurchMember()),
         isAdmin: !!(A && A.isAdmin && A.isAdmin()),
+        /* THE SAME ANSWER THE PHONE USES (NEXT-BRIEF §25). One helper, so
+           somebody cannot be offered the address book on the computer and
+           refused it in the app. runsTabs() honours view-as itself, so the
+           preview is right here too without a second rule. */
+        runs: (A && A.runsTabs) ? A.runsTabs() : [],
         /* Who looks after a site's bookings is a list of member ids inside
            bookingSettings, which means a read. Whoever draws the Menu does
            that read and sets this before drawing; unset means "not one",

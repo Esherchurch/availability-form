@@ -251,6 +251,18 @@ service cloud.firestore {
                  || d.get('attender', false) == (
                       book(d.get('memberId', '')).get('archived', false) != true
                       && book(d.get('memberId', '')).get('isMinor', false) != true))
+             // The one-off Running things ticks (NEXT-BRIEF §25). Checked
+             // against the record like everything else here, so a person
+             // cannot give themselves a tab by writing their own mirror -
+             // and an archived person carries none. Present-or-absent for
+             // the same reason as the two above: a browser holding a cached
+             // egbc-auth.js writes the old shape with no `runs` at all, and
+             // requiring it would refuse every heartbeat silently.
+             && (!d.keys().hasAny(['runs'])
+                 || (book(d.get('memberId', '')).get('archived', false) != true
+                     && d.get('runs', []) == book(d.get('memberId', '')).get('runs', []))
+                 || (book(d.get('memberId', '')).get('archived', false) == true
+                     && d.get('runs', []).size() == 0))
              // An Attender is active now, where before only a volunteer was.
              // 'pending' is allowed whatever the book says, because claiming
              // LESS than the record grants can never be an escalation - and
@@ -292,7 +304,7 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['lastSeen', 'name', 'teams', 'adminFor', 'masterAdmin',
                                    'status', 'memberId', 'linkedBy', 'candidates',
-                                   'attender', 'churchMember'])
+                                   'attender', 'churchMember', 'runs'])
                     && mirrorsBook(request.resource.data);
 
       // Own record: standing down to 'ambiguous' when a second record turns
@@ -469,6 +481,35 @@ service cloud.firestore {
       allow write: if (isAdmin()
                        || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team'])))
                    && safeguardingOk();
+    }
+
+    // ---- TEAMS AS DATA (APP-A1 §4, steps 1-2) --------------------------
+    // teamId IS THE TEAM'S NAME as the rules already spell it - 'Kids
+    // Church', 'Worship Team'. That one decision is what makes this cheap:
+    // every markers array, every adminFor, and every team name written into
+    // a rule keeps working untouched. THE RULES DO NOT READ THIS
+    // COLLECTION, and must not: a team's name appearing here grants
+    // nothing by itself, or adding a team would be a way of granting
+    // access. `markers` on an address book record stays the only switch.
+    //
+    // A GROUP IS A TEAM WITH rota: false (NEXT-BRIEF §25) - Church office,
+    // Bookings, Elders, Finance. `runs` on it names the Running things tabs
+    // its members see.
+    match /teams/{teamId} {
+      // Everyone needs the labels and colours to draw anything, and there
+      // is nothing private in it.
+      allow read: if active();
+      // Adding a team gives access to whoever is ticked into it, and `runs`
+      // decides who runs things - neither is an ordinary admin job.
+      allow write: if isMaster()
+                   && request.resource.data.keys().hasOnly(['name', 'label', 'colour', 'tint',
+                        'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived',
+                        'updatedAt', 'updatedBy'])
+                   && request.resource.data.get('name', '') == teamId
+                   && request.resource.data.get('rota', true) is bool
+                   && request.resource.data.get('runs', []) is list
+                   && request.resource.data.get('runs', []).size() <= 4
+                   && request.resource.data.get('runs', []).hasOnly(['today', 'people', 'bookings', 'send']);
     }
 
     // ---- SAFEGUARDING: teams that work with under-18s ------------------

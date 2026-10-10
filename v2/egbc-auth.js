@@ -201,6 +201,89 @@
     'Maintenance':   { label: 'Maintenance',  colour: '#4f5a66' }
   };
 
+  /* ---- Teams as data (APP-A1 §4, steps 1-2) -------------------------
+
+     The office manages teams and groups in a `teams` collection, keyed by
+     the team's NAME exactly as the rules spell it. The table above stays as
+     the FALLBACK, for the moment before the read lands and for a page
+     opened with no connection - a page that cannot draw its own team's
+     colour is worse than one drawing last week's.
+
+     A GROUP IS A TEAM WITH rota: false (NEXT-BRIEF §25): Church office,
+     Bookings, Elders, Finance. It has no rota and no space of its own; what
+     it carries is `runs`, the Running things tabs its members see.
+
+     ONE READ, CACHED. Every page loads this file, and a second read per
+     page would be sixty reads a visit for a list that changes twice a year.
+
+     WHAT THIS DOES NOT DO: it never grants anything. A team appearing here
+     gives nobody access - `markers` on an address book record is still the
+     only switch, and firestore.rules never reads this collection. */
+  var teamsLoaded = false;
+  var teamsPromise = null;
+
+  function mergeTeam(id, d) {
+    var base = TEAMS[id] || {};
+    TEAMS[id] = {
+      label:    d.label || d.name || base.label || id,
+      colour:   d.colour || base.colour || '#3d6263',
+      tint:     d.tint || base.tint,
+      parent:   d.parent || base.parent || undefined,
+      rota:     d.rota !== false,
+      tabs:     Array.isArray(d.tabs) ? d.tabs : base.tabs,
+      runs:     Array.isArray(d.runs) ? d.runs : (base.runs || []),
+      under18:  d.under18 === true || base.under18 === true,
+      order:    typeof d.order === 'number' ? d.order : base.order,
+      archived: d.archived === true
+    };
+    if (!TEAMS[id].parent) delete TEAMS[id].parent;
+  }
+
+  /* WHICH SITES THIS PERSON LOOKS AFTER THE BOOKINGS FOR.
+
+     A site's bookings admin can already decide that site's bookings - the
+     rules say so - so refusing them the Bookings tab would be a tab missing
+     from somebody doing the work (F-141.4, and NEXT-BRIEF §25 says to give
+     it to them). bookingSettings is one small document per site and is
+     readable by anyone active, so this is a cheap read; it is cached like
+     the teams, and it never rejects. */
+  var bookingsAdminOf = [];
+
+  function loadBookingsAdmin(memberId) {
+    if (!memberId) return Promise.resolve([]);
+    return db.collection('bookingSettings').get().then(function (snap) {
+      var mine = [];
+      snap.forEach(function (doc) {
+        var list = (doc.data() || {}).bookingsAdmins;
+        if (Array.isArray(list) && list.indexOf(memberId) !== -1) mine.push(doc.id);
+      });
+      bookingsAdminOf = mine;
+      return mine;
+    }).catch(function () { return []; });
+  }
+
+  /* Resolves once, whether the read worked or not: the fallback is a
+     complete answer, so nothing waits on the network to draw. */
+  function loadTeams() {
+    if (teamsPromise) return teamsPromise;
+    teamsPromise = db.collection('teams').get().then(function (snap) {
+      snap.forEach(function (doc) {
+        var d = doc.data() || {};
+        /* An archived team keeps working for anyone still ticked into it -
+           archive-and-create, not rename (APP-A1 b, Martin approved) - but
+           it is not offered as a new choice. */
+        mergeTeam(doc.id, d);
+      });
+      teamsLoaded = true;
+      return TEAMS;
+    }).catch(function (e) {
+      /* The table above is a complete answer. Say so once and carry on. */
+      console.info('EGBCAuth: teams collection not read, using the built-in list', e && e.code);
+      return TEAMS;
+    });
+    return teamsPromise;
+  }
+
   /* ---- Roles -------------------------------------------------------
      member  — sees the team's pages
      leader  — plus planning and rota editing for that team
@@ -343,6 +426,15 @@
       masterAdmin: md.masterAdmin === true,
       attender: attender,
       churchMember: md.churchMember === true && !gone,
+      /* The one-off Running things ticks (NEXT-BRIEF §25), mirrored the
+         same checked way teams are - so nobody can grant themselves a tab.
+         Only the four tabs that exist, so a stray value in the record
+         cannot become anything. An archived person keeps none of it. */
+      runs: (!gone && Array.isArray(md.runs)
+              ? md.runs.filter(function (r) {
+                  return ['today', 'people', 'bookings', 'send'].indexOf(r) !== -1;
+                })
+              : []),
       // Someone can administer an area without being a member of it - Karen
       // runs Kids Church, Marcia runs Youth - so status counts either, and
       // now being in the address book at all counts too.
@@ -697,7 +789,18 @@
 
           currentUser = user;
 
-          loadProfile(user).then(function (profile) {
+          /* The teams read goes alongside the profile read, not after it:
+             both are needed before a page draws, and one after the other
+             would put two round trips in front of every page. It never
+             rejects - the built-in table is a complete answer - so it
+             cannot stop anybody getting in. */
+          Promise.all([loadProfile(user), loadTeams()]).then(function (both) {
+            var profile = both[0];
+            /* After the profile, because it needs the member id - and the
+               Running things tabs are decided before the page draws. */
+            return loadBookingsAdmin(profile && profile.memberId).then(function () { return both; });
+          }).then(function (both) {
+            var profile = both[0];
             currentProfile = profile;
 
             if (profile.status !== 'active') {
@@ -922,6 +1025,75 @@
       return mine.length ? teamsVisibleTo(mine) : null;
     },
     viewingAs: viewAs,
+
+    /* ---- Running things: which tabs, and why (NEXT-BRIEF §25) --------
+
+       Martin: "the church Admin might not be core team" and "we do need to
+       be able to set groups though so we dont have to individual tick 130
+       profiles."
+
+       spacesFor() used to give the whole Running things space to anyone who
+       administered anything, or was on Core Team. That is wrong BOTH ways:
+       the church administrator may well not be on Core Team, and a Worship
+       admin should not get People and Send because they look after Worship.
+
+       SO ACCESS IS SET ON A GROUP, AND PEOPLE ARE PUT IN THE GROUP. A group
+       is a team with rota:false carrying `runs`, the tabs its members see.
+       Church office has all four; Bookings has Bookings.
+
+       What a person sees adds up from three places, and nothing else:
+         - the `runs` of every team or group they are in
+         - their own one-off ticks, for the odd exception
+         - Bookings, if they are a bookings admin of any site
+       A master admin sees all four. CORE TEAM AND "ADMIN FOR" GIVE NOTHING
+       by themselves - that is the whole point.
+
+       ONE ANSWER FOR BOTH SCREENS. The app's Running things space and the
+       computer's Menu ask this same function, so a person cannot be offered
+       a thing on one and refused it on the other.
+
+       VIEW-AS HONOURS IT: a master admin looking as somebody else sees what
+       that person sees, or the feature is useless for checking this. */
+    runsTabs: function () {
+      var ORDER = ['today', 'people', 'bookings', 'send'];
+      var v = viewAs();
+
+      /* A master admin sees everything. isMaster() ALREADY returns false
+         while viewing as somebody else, so the `!v` here is belt and
+         braces rather than the mechanism - removing it changed no test,
+         which is how that was established rather than assumed. What makes
+         view-as work is the `teams` line below, and breaking THAT is
+         caught at once. */
+      if (EGBCAuth.isMaster() && !v) return ORDER.slice();
+
+      var p = currentProfile || {};
+      var out = {};
+
+      /* Looking as somebody else: their team is all we are told, so the
+         answer is that team's runs and nothing personal. */
+      var teams = v ? [v.team] : (p.teams || []);
+      teams.forEach(function (t) {
+        var cfg = TEAMS[t];
+        if (!cfg || !cfg.runs) return;
+        cfg.runs.forEach(function (r) { out[r] = true; });
+      });
+
+      if (!v) {
+        /* One-off ticks on the person's own record, for the exception the
+           groups do not cover. */
+        (Array.isArray(p.runs) ? p.runs : []).forEach(function (r) { out[r] = true; });
+        /* A site's bookings admin decides that site's bookings, so refusing
+           them the Bookings tab would be a tab missing from somebody who
+           can already do the work (F-141.4). */
+        if (bookingsAdminOf.length) out.bookings = true;
+      }
+
+      return ORDER.filter(function (r) { return out[r]; });
+    },
+
+    /* Does this person run anything at all? The space is offered only if
+       this is at least one tab, so nobody gets an empty Running things. */
+    runsThings: function () { return EGBCAuth.runsTabs().length > 0; },
 
     /* Manages this particular area. */
     isAdminOf: function (team) {

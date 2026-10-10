@@ -179,7 +179,11 @@
       adminFor: p.adminFor || [],
       isMaster: !!(global.EGBCAuth && EGBCAuth.isMaster && EGBCAuth.isMaster()),
       isAdmin: !!(global.EGBCAuth && EGBCAuth.isAdmin && EGBCAuth.isAdmin()),
-      churchMember: !!p.churchMember
+      churchMember: !!p.churchMember,
+      /* Which Running things tabs, from the groups this person is in
+         (§25). The shell never works this out for itself - one answer,
+         shared with the Menu. */
+      runs: (global.EGBCAuth && EGBCAuth.runsTabs) ? EGBCAuth.runsTabs() : []
     };
   }
 
@@ -192,7 +196,13 @@
       var s = SPACES[k];
       if (k === 'me') return;
       if (s.runsThings) {
-        if (me.isAdmin || me.teams.indexOf('Core Team') !== -1) out.push(k);
+        /* NOT "is an admin of anything, or on Core Team" any more
+           (NEXT-BRIEF §25). That was wrong both ways: the church
+           administrator may not be on Core Team, and a Worship admin should
+           not get People and Send because they look after Worship. The
+           answer comes from the groups a person is in, and the computer's
+           Menu asks the same function, so the two cannot disagree. */
+        if (me.runs.length) out.push(k);
         return;
       }
       var mine = (s.teams || []).some(function (t) {
@@ -224,7 +234,15 @@
   /* A tab with no screen behind it is not drawn. A tab that leads nowhere
      is worse than a missing one: it reads as a broken app. */
   function tabsFor(space) {
-    return (SPACES[space].tabs || []).filter(function (t) { return !!V[space + '_' + t[0]]; });
+    var tabs = (SPACES[space].tabs || []).filter(function (t) { return !!V[space + '_' + t[0]]; });
+    /* Running things shows ONLY the tabs this person runs (§25). Somebody
+       in the Bookings group gets one tab, not four with three refusals
+       behind them - "a tab someone sees must actually work". */
+    if (SPACES[space].runsThings) {
+      var runs = who().runs;
+      tabs = tabs.filter(function (t) { return runs.indexOf(t[0]) !== -1; });
+    }
+    return tabs;
   }
 
   /* ---- where we are -------------------------------------------------- */
