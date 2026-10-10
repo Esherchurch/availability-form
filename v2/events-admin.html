@@ -22,6 +22,7 @@
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
 <script src="egbc-events-bookings.js?v=202610111000"></script>
+<script src="egbc-events-safeguarding.js?v=202610111200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -960,26 +961,30 @@
   }
 
   /* §24: set or clear "Works with under-18s" on each event's safeguarding
-     record. The rules refuse the tick if anyone already named is not cleared
-     (an in-date DBS check and training, or an exception): then the event is
-     saved and the page says why the tick was not. */
+     record. Ticking is always accepted, however many leaders and helpers
+     are named; then everyone is cleared in turn (F-146), and the page says
+     plainly who is not cleared yet and what to do. Unticking forgets who
+     was cleared, so ticking again checks everyone afresh. */
   function under18(ids) {
     if (U18 === U18_WAS) return Promise.resolve('');
     var siteId = (CUR.location || {}).siteId || '';
+    var found = [];
     return Promise.all(ids.map(function (eid) {
-      var ref = db().collection('eventLeaders').doc(eid);
+      var ref = db().collection('eventLeaders').doc(eid), stamp = { updatedAt: new Date().toISOString(), updatedBy: uid() };
       return ref.get().then(function (s) {
-        if (s.exists) {
-          var l = s.data().leaders || [];
-          return ref.update({ under18: U18, leaderIds: l.map(function (x) { return x.memberId || ''; }), updatedAt: new Date().toISOString(), updatedBy: uid() });
-        }
-        return ref.set({ leaders: [], leaderUids: [], leaderIds: [], siteId: siteId, under18: U18, updatedAt: new Date().toISOString(), updatedBy: uid() });
+        var l = s.exists ? s.data().leaders || [] : [];
+        var d = Object.assign({ under18: U18, leaderIds: l.map(function (x) { return x.memberId || ''; }), clearedIds: [], lastCleared: [] }, stamp);
+        return (s.exists ? ref.update(d) : ref.set(Object.assign({ leaders: [], leaderUids: [], siteId: siteId }, d))).then(function () {
+          if (!U18 || !l.length || !window.EGBCSafeguarding) return;
+          return EGBCSafeguarding.clearInTurn(eid).then(function (r) { found.push({ r: r, total: l.length }); });
+        });
       });
-    })).then(function () { U18_WAS = U18; return ''; }, function (e) {
-      U18 = U18_WAS;
-      if (e && e.code === 'permission-denied') return 'Saved, but not marked as working with under-18s: someone already named as a leader or helper has no in-date DBS check or training. Open Safeguarding for this event to see who.';
-      throw e;
-    });
+    })).then(function () {
+      U18_WAS = U18;
+      if (!U18) return 'Saved. No longer marked as working with under-18s.';
+      var f = found[0];
+      return 'Saved. Marked as working with under-18s.' + (f ? ' ' + EGBCSafeguarding.clearWords(f.r, f.total) : '');
+    }, function (e) { U18 = U18_WAS; throw e; });
   }
 
   /* A series is made as separate events joined by seriesId, so one date

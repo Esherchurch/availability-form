@@ -2799,3 +2799,48 @@ and draw it:
 
 Load `egbc-events-kids.js` and `egbc-events-qr.js` before
 `egbc-events-home.js`.
+
+### F-146 — "Works with under-18s" with many people named: no dead end (after review)
+**What it did before:** when the box was first ticked, the rules checked
+everyone already named in one save, three at most. An event with four or
+more leaders and helpers **could not be ticked at all**. The page said "at
+most three can be named when it is first ticked", which left the person
+ticking it no way on but removing people. That was a dead end.
+
+**Why the limit exists:** in one save, the rules can only look up a few
+records, and each person's check costs two. Measured: two people per save
+fits; three does not.
+
+**What it does now:**
+- **Ticking is always accepted**, however many are named (up to 20).
+- **The page clears everyone in turn, two at a time**, in one click.
+  - Each person is checked as they're cleared: in-date checks, or an
+    exception.
+  - Each one cleared is recorded on the event (`clearedIds`).
+  - If a pair is refused, each of the two is tried on their own, so one
+    person without checks never holds up the other.
+- **Anyone who can't be cleared is named plainly, with the way forward.**
+  The event form says, for example: "4 of 5 are cleared. Not yet: Ned New
+  (no in-date DBS check or training). The safeguarding lead can record an
+  exception with a reason, or they can be taken off this event."
+- **On the Safeguarding page:**
+  - Each such person is marked "not cleared yet".
+  - A master admin or the safeguarding lead gets an "Exception" button on
+    their row.
+  - "Check again" is there for after someone's checks are brought up to
+    date.
+- **While anyone isn't cleared:** nobody new can be named unless they're
+  cleared in the same save, and the event is still marked as working with
+  under-18s.
+- **Unticking forgets who was cleared**, so ticking again checks everyone
+  afresh.
+
+**Proved:**
+- **Rules:** a five-person Kids Film Club in turn (ticked, then two, then
+  two more), with Ned refused. Three in one save is refused. Nobody new can
+  be named while Ned waits, and removing Ned is accepted.
+- **Browser:** Puppet practice with five named, Ned in the middle. Ticking
+  is accepted, the four are cleared, and Ned is named. An exception for Ned
+  clears him, and the warning goes.
+- **5 deliberate breaks**, all caught, including "one person without checks
+  holds up the one paired with them".

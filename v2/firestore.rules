@@ -1688,7 +1688,7 @@ service cloud.firestore {
       allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
                                                              'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
-                                                             'under18', 'leaderIds', 'lastLeaderAdded'])
+                                                             'under18', 'leaderIds', 'clearedIds', 'lastCleared'])
                    && request.resource.data.leaderUids is list
                    && request.resource.data.get('siteId', '')
                         == get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '')
@@ -1703,10 +1703,21 @@ service cloud.firestore {
     // under-18s small groups (F-109): a master admin or the site's
     // safeguarding lead records an exception with a reason
     // (eventExceptions/<event>__<member>).
-    // On a ticked event every leader and helper is in leaderIds (their
-    // member ids, in the same order as leaders). When the box is first
-    // ticked, everyone already named (three at most) must be cleared; after
-    // that each person added must be, one at a time (lastLeaderAdded).
+    //
+    // HOW, WITH ANY NUMBER OF PEOPLE (F-146, after review). The rules can
+    // look up only a few records in one save, so they cannot check twenty
+    // people at once. So the clearing is done IN TURN and recorded:
+    //   leaderIds    every leader's and helper's member id, in the same
+    //                order as leaders (20 at most)
+    //   clearedIds   those checked and found cleared since the box was
+    //                ticked
+    //   lastCleared  the (at most two) people this save clears; each must
+    //                be cleared NOW (checks in date, or an exception)
+    // Ticking is always accepted; the page then clears everyone two at a
+    // time, and names anyone it cannot, with the way forward (an exception,
+    // or removing them). Nobody new may be NAMED on a ticked event unless
+    // they are cleared in the same save. Unticking empties clearedIds, so
+    // ticking again checks everyone afresh.
     function eventCleared(calEventId, memberId) {
       return memberId is string && memberId != ''
              && (checksInDate(memberId) || exists(/databases/$(database)/documents/eventExceptions/$(calEventId + '__' + memberId)));
@@ -1714,30 +1725,38 @@ service cloud.firestore {
     function idAt(d, i) { return d.leaders[i].get('memberId', ''); }
     function eventIdsMatch(d) {
       let ids = d.get('leaderIds', []);
-      return ids is list && d.leaders is list && ids.size() == d.leaders.size() && ids.size() <= 12
+      return ids is list && d.leaders is list && ids.size() == d.leaders.size() && ids.size() <= 20
              && (ids.size() < 1 || ids[0] == idAt(d, 0)) && (ids.size() < 2 || ids[1] == idAt(d, 1))
              && (ids.size() < 3 || ids[2] == idAt(d, 2)) && (ids.size() < 4 || ids[3] == idAt(d, 3))
              && (ids.size() < 5 || ids[4] == idAt(d, 4)) && (ids.size() < 6 || ids[5] == idAt(d, 5))
              && (ids.size() < 7 || ids[6] == idAt(d, 6)) && (ids.size() < 8 || ids[7] == idAt(d, 7))
              && (ids.size() < 9 || ids[8] == idAt(d, 8)) && (ids.size() < 10 || ids[9] == idAt(d, 9))
-             && (ids.size() < 11 || ids[10] == idAt(d, 10)) && (ids.size() < 12 || ids[11] == idAt(d, 11));
+             && (ids.size() < 11 || ids[10] == idAt(d, 10)) && (ids.size() < 12 || ids[11] == idAt(d, 11))
+             && (ids.size() < 13 || ids[12] == idAt(d, 12)) && (ids.size() < 14 || ids[13] == idAt(d, 13))
+             && (ids.size() < 15 || ids[14] == idAt(d, 14)) && (ids.size() < 16 || ids[15] == idAt(d, 15))
+             && (ids.size() < 17 || ids[16] == idAt(d, 16)) && (ids.size() < 18 || ids[17] == idAt(d, 17))
+             && (ids.size() < 19 || ids[18] == idAt(d, 18)) && (ids.size() < 20 || ids[19] == idAt(d, 19));
     }
     function under18EventOk(calEventId) {
       let d = request.resource.data;
-      let after = d.get('leaderIds', []);
-      let before = resource == null ? [] : resource.data.get('leaderIds', []);
-      let added = after.toSet().difference(before.toSet());
+      let wasOn = resource != null && resource.data.get('under18', false) == true;
+      let ids = d.get('leaderIds', []);
+      let after = d.get('clearedIds', []);
+      let last = d.get('lastCleared', []);
+      let before = wasOn ? resource.data.get('clearedIds', []) : [];
+      let namedBefore = wasOn ? resource.data.get('leaderIds', []) : ids;
       return d.get('under18', false) != true
-             || (eventIdsMatch(d)
-                 && (((resource == null || resource.data.get('under18', false) != true)
-                      && after.size() <= 3
-                      && (after.size() < 1 || eventCleared(calEventId, after[0]))
-                      && (after.size() < 2 || eventCleared(calEventId, after[1]))
-                      && (after.size() < 3 || eventCleared(calEventId, after[2])))
-                     || (resource != null && resource.data.get('under18', false) == true
-                         && (added.size() == 0
-                             || (added.size() == 1 && added.hasOnly([d.get('lastLeaderAdded', '')])
-                                 && eventCleared(calEventId, d.get('lastLeaderAdded', '')))))));
+             ? (after is list && after.size() == 0)
+             : (eventIdsMatch(d) && after is list && last is list && last.size() <= 2
+                // only people named can be cleared
+                && after.toSet().difference(ids.toSet()).size() == 0
+                // anything newly cleared is in lastCleared...
+                && after.toSet().difference(before.toSet()).difference(last.toSet()).size() == 0
+                // ...and everyone in lastCleared is cleared now
+                && (last.size() < 1 || eventCleared(calEventId, last[0]))
+                && (last.size() < 2 || eventCleared(calEventId, last[1]))
+                // nobody newly named on a ticked event unless cleared
+                && ids.toSet().difference(namedBefore.toSet()).difference(after.toSet()).size() == 0);
     }
     match /eventExceptions/{key} {
       allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', '')) || isAdmin()

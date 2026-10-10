@@ -17,7 +17,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610080900"></script>
-<script src="egbc-events-safeguarding.js?v=202610081800"></script>
+<script src="egbc-events-safeguarding.js?v=202610111200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -186,12 +186,20 @@
         return '<div class="row"><span class="ib">' + ico('badge-check', 16) + '</span><span class="who"><span class="n">' + esc(l.name) + '</span>' +
           ' <span class="m">· ' + (l.role === 'helper' ? 'helper' : 'leader') + '</span>' +
           (EXC[l.memberId] ? ' <span class="flag wait" title="' + esc(EXC[l.memberId].reason || '') + '">exception recorded</span>' : '') +
+          (st.under18 && ((LEAD && LEAD.clearedIds) || []).indexOf(l.memberId) < 0 ? ' <span class="flag warn notCleared">not cleared yet</span>' : '') +
           (l.uid ? '' : ' <span class="flag off">has not signed in yet</span>') + '<br>' +
           ((CHECKS[l.memberId] !== undefined || canChecks) ? chip('DBS', s.dbs) + chip('Training', s.training) : '<span class="m">Checks are seen by admins and the safeguarding lead.</span>') + '</span>' +
           (canChecks && l.memberId ? '<button class="btn ghost sm recCheck" data-i="' + i + '">' + ico('clipboard-check') + 'Checks</button>' : '') +
+          ((MASTER || ISLEAD) && st.under18 && l.memberId && ((LEAD && LEAD.clearedIds) || []).indexOf(l.memberId) < 0
+            ? '<button class="btn ghost sm exFor" data-i="' + i + '">' + ico('shield-check') + 'Exception</button>' : '') +
           (canEdit ? '<button class="btn ghost sm dropLeader" data-i="' + i + '" title="Remove">' + ico('x') + '</button>' : '') + '</div>';
       }).join('') : '<p class="hint">No leaders named yet.</p>') +
       (st.under18 ? '<div class="banner ok" id="u18Msg" style="margin-top:10px">' + ico('shield-check') + ' Works with under-18s: every leader and helper must have an in-date DBS check and training, or an exception recorded by the safeguarding lead. Nobody else can be added.</div>' : '') +
+      (st.under18 && leaders.some(function (l) { return ((LEAD && LEAD.clearedIds) || []).indexOf(l.memberId) < 0; })
+        ? '<div class="banner warn" id="u18Pending" style="margin-top:10px">' + ico('triangle-alert') + ' Not cleared yet: ' +
+          esc(leaders.filter(function (l) { return ((LEAD && LEAD.clearedIds) || []).indexOf(l.memberId) < 0; }).map(function (l) { return l.name; }).join(', ')) +
+          '. Bring their checks up to date, record an exception (the safeguarding lead), or take them off this event.' +
+          (canEdit ? ' <button class="btn sec sm" id="clearAgain">Check again</button>' : '') + '</div>' : '') +
       ((st.requireChecks || st.under18) && leaders.some(function (l) { return !SG.checkStatus(CHECKS[l.memberId], st, EV.startLocal).ok && !EXC[l.memberId]; })
         ? '<div class="banner warn" id="checksMsg" style="margin-top:10px">' + ico('triangle-alert') + ' This event needs every leader to have an in-date DBS check and training, and not all do.</div>' : '') +
       (canEdit ? '<div class="two" style="margin-top:14px">' +
@@ -245,9 +253,10 @@
       ratioAll: st.ratioAll, ratioUnder8: st.ratioUnder8, requireChecks: st.requireChecks,
       dbsYears: st.dbsYears, trainingYears: st.trainingYears, updatedAt: now(), updatedBy: ME.uid,
       /* §24: the member ids in the same order, which the rules check on a ticked event. */
-      under18: st.under18, leaderIds: leaders.map(function (l) { return l.memberId || ''; })
+      under18: st.under18, leaderIds: leaders.map(function (l) { return l.memberId || ''; }), lastCleared: []
     }, extra || {});
-    if (!d.lastLeaderAdded) delete d.lastLeaderAdded;
+    /* Who is cleared (F-146): only people still named, and nobody once unticked. */
+    if (!extra || !extra.clearedIds) d.clearedIds = d.under18 ? ((LEAD && LEAD.clearedIds) || []).filter(function (id) { return d.leaderIds.indexOf(id) >= 0; }) : [];
     return db().collection('eventLeaders').doc(EVID).set(d).then(function () { LEAD = d; return loadChecks(); }).then(drawEvent);
   }
 
@@ -272,11 +281,10 @@
         trainingYears: parseInt(document.getElementById('yTr').value, 10) || 3,
         requireChecks: document.getElementById('reqChecks').checked,
         under18: document.getElementById('under18').checked
-      }).then(function () { toast('Saved.'); }).catch(function (e) {
-        if (e && e.code === 'permission-denied' && document.getElementById('under18').checked && !settingsOf().under18)
-          toast('Not ticked: everyone named must have an in-date DBS check and training (or an exception), and at most three can be named when it is first ticked. Add the rest one at a time after.');
-        else fail('save')(e);
-      });
+      }).then(function () {
+        if (!settingsOf().under18 || !leaders.length) { toast('Saved.'); return; }
+        return clearAll();
+      }).catch(fail('save'));
     });
     document.querySelectorAll('.dropLeader').forEach(function (b) {
       b.onclick = function () {
@@ -286,6 +294,8 @@
       };
     });
     document.querySelectorAll('.recCheck').forEach(function (b) { b.onclick = function () { checksModal(LEAD.leaders[+b.getAttribute('data-i')]); }; });
+    document.querySelectorAll('.exFor').forEach(function (b) { b.onclick = function () { notCleared([LEAD.leaders[+b.getAttribute('data-i')]], true); }; });
+    on('clearAgain', function () { this.disabled = true; clearAll().catch(fail('check')); });
     on('addInc', incidentModal);
     on('incCsv', incidentCsv);
     document.querySelectorAll('.followUp').forEach(function (b) {
@@ -319,22 +329,35 @@
       return chain.then(function () {
         if (have(p)) return;
         if (!p.memberId) { refused.push(p); return; }
-        return saveLeaders(((LEAD && LEAD.leaders) || []).concat([p]), { lastLeaderAdded: p.memberId })
+        return saveLeaders(((LEAD && LEAD.leaders) || []).concat([p]), { clearedIds: ((LEAD && LEAD.clearedIds) || []).concat([p.memberId]), lastCleared: [p.memberId] })
           .catch(function (e) { if (e && e.code === 'permission-denied') refused.push(p); else throw e; });
       });
     }, Promise.resolve()).then(function () { if (refused.length) notCleared(refused); });
   }
 
+  /* Everyone named on a ticked event, cleared in turn (F-146): the rules
+     check two at a time, so this goes through them all and says plainly
+     who could not be cleared, and what to do about it. */
+  function clearAll() {
+    var total = ((LEAD && LEAD.leaders) || []).length;
+    return SG.clearInTurn(EVID).then(function (r) {
+      return SG.leadersOf(EVID).then(function (l) { LEAD = l; return loadChecks(); }).then(function () {
+        drawEvent();
+        toast('Saved. ' + SG.clearWords(r, total));
+      });
+    });
+  }
+
   /* Someone not cleared: said plainly, and the F-109 route for those who may use it. */
-  function notCleared(list) {
+  function notCleared(list, named) {
     var canEx = MASTER || ISLEAD, p = list[0];
-    modal('<h3>' + ico('shield-alert', 18) + 'Not added</h3>' +
+    modal('<h3>' + ico('shield-alert', 18) + (named ? 'Not cleared yet' : 'Not added') + '</h3>' +
       '<p style="margin-top:0" id="u18Refused">' + list.map(function (x) { return '<b>' + esc(x.name) + '</b>'; }).join(', ') + (list.length === 1 ? ' was' : ' were') +
-      ' not added. This event works with under-18s, so everyone helping needs an in-date DBS check and safeguarding training' +
+      (named ? ' not cleared' : ' not added') + '. This event works with under-18s, so everyone helping needs an in-date DBS check and safeguarding training' +
       (p.memberId ? '' : ', and needs to be in the address book') + '.</p>' +
       (canEx && p.memberId ? '<p class="hint">If there is a good reason, record an exception for ' + esc(p.name) + ' at this event. It is kept, with your name and the reason.</p>' +
         '<div class="field"><label for="exWhy">The reason</label><textarea id="exWhy" maxlength="1000" placeholder="e.g. Training booked for next week; always working alongside a cleared leader"></textarea></div>' +
-        '<div class="foot"><button class="btn sec" data-close>Close</button><button class="btn" id="exSave">Record the exception and add them</button></div>'
+        '<div class="foot"><button class="btn sec" data-close>Close</button><button class="btn" id="exSave">Record the exception' + (named ? '' : ' and add them') + '</button></div>'
         : '<p class="hint">The safeguarding lead can record their checks, or an exception with a reason.</p><div class="foot"><button class="btn" data-close>Close</button></div>'));
     var b = document.getElementById('exSave');
     if (b) b.onclick = function () {
@@ -343,7 +366,8 @@
       b.disabled = true;
       db().collection('eventExceptions').doc(EVID + '__' + p.memberId).set({ calEventId: EVID, memberId: p.memberId, name: p.name, reason: why, siteId: SITE,
         by: ME.uid, byName: ME.name || '', at: firebase.firestore.FieldValue.serverTimestamp() })
-        .then(function () { closeModal(); return addLeaders([p]); }).then(function () { toast(p.name + ' added, with the exception recorded.'); })
+        .then(function () { closeModal(); return named ? SG.clearOne(EVID, p.memberId).then(function () { return SG.leadersOf(EVID); }).then(function (l) { LEAD = l; return loadChecks(); }).then(drawEvent) : addLeaders([p]); })
+        .then(function () { toast(p.name + (named ? ' is cleared' : ' added') + ', with the exception recorded.'); })
         .catch(function (e) { b.disabled = false; fail('record the exception')(e); });
     };
   }

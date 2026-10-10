@@ -111,6 +111,59 @@
     return out.sort(function (a, b) { return a.ends < b.ends ? -1 : a.ends > b.ends ? 1 : 0; });
   }
 
+  /* "Works with under-18s" (§24, F-146): clear everyone named, in turn.
+     The rules can check only two people in one save, so this saves two at
+     a time; when a pair is refused it tries each on their own, so one
+     person without checks never holds up the rest. Nobody is removed.
+     -> { cleared: [memberId], notCleared: [{ memberId, name, why }] } */
+  function clearInTurn(evId) {
+    var ref = db().collection('eventLeaders').doc(evId), w = me();
+    return ref.get().then(function (s) {
+      var d = s.exists ? s.data() : null;
+      if (!d || !d.under18) return { cleared: [], notCleared: [] };
+      var leaders = d.leaders || [], cleared = (d.clearedIds || []).slice(), bad = [];
+      var nameOf = function (id) { var l = leaders.filter(function (x) { return x.memberId === id; })[0]; return l ? l.name : id; };
+      /* Someone with no address book record can never be cleared. */
+      leaders.forEach(function (l) { if (!l.memberId) bad.push({ memberId: '', name: l.name, why: 'not in the address book' }); });
+      var todo = (d.leaderIds || []).filter(function (id, i, a) { return id && cleared.indexOf(id) < 0 && a.indexOf(id) === i; });
+      var save = function (ids) {
+        return ref.update({ clearedIds: cleared.concat(ids), lastCleared: ids, updatedAt: new Date().toISOString(), updatedBy: w.uid })
+          .then(function () { cleared = cleared.concat(ids); return true; });
+      };
+      var one = function (id) {
+        return save([id]).catch(function (e) {
+          if (e && e.code !== 'permission-denied') throw e;
+          bad.push({ memberId: id, name: nameOf(id), why: 'no in-date DBS check or training' });
+        });
+      };
+      var step = function () {
+        if (!todo.length) return Promise.resolve();
+        var pair = todo.splice(0, 2);
+        return save(pair).catch(function (e) {
+          if (e && e.code !== 'permission-denied') throw e;
+          return pair.reduce(function (p, id) { return p.then(function () { return one(id); }); }, Promise.resolve());
+        }).then(step);
+      };
+      return step().then(function () { return { cleared: cleared, notCleared: bad }; });
+    });
+  }
+  /* One person already named, cleared now (after an exception was recorded,
+     or their checks were brought up to date). */
+  function clearOne(evId, memberId) {
+    var ref = db().collection('eventLeaders').doc(evId), w = me();
+    return ref.get().then(function (s) {
+      var d = s.data() || {}, c = (d.clearedIds || []).filter(function (x) { return x !== memberId; });
+      return ref.update({ clearedIds: c.concat([memberId]), lastCleared: [memberId], updatedAt: new Date().toISOString(), updatedBy: w.uid });
+    });
+  }
+  /* The words for what clearing found, for whoever ticked the box. */
+  function clearWords(r, total) {
+    if (!r.notCleared.length) return 'Every leader and helper (' + total + ') is cleared.';
+    return (total - r.notCleared.length) + ' of ' + total + ' are cleared. Not yet: ' +
+      r.notCleared.map(function (x) { return x.name + ' (' + x.why + ')'; }).join(', ') +
+      '. The safeguarding lead can record an exception with a reason, or they can be taken off this event.';
+  }
+
   /* A list the rules can allow in more than one way. A leader may ask for
      everything for their event; a safeguarding lead may only ask for their
      own site's, and the question has to say so or the whole list is
@@ -234,7 +287,7 @@
 
   var api = {
     norm: norm, me: me, leadersOf: leadersOf, myLeadSites: myLeadSites,
-    ageOn: ageOn, ratio: ratio, checkStatus: checkStatus, checksDue: checksDue,
+    ageOn: ageOn, ratio: ratio, checkStatus: checkStatus, checksDue: checksDue, clearInTurn: clearInTurn, clearOne: clearOne, clearWords: clearWords,
     formsForEvent: formsForEvent, unshared: unshared, listForEvent: listForEvent, shareWithLeaders: shareWithLeaders
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

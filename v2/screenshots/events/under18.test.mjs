@@ -12,8 +12,9 @@
         page says so, and the rules refuse it whatever the page does
      4. the F-109 exception route: a master admin records a reason, and then
         the helper is added, marked "exception recorded"
-     5. ticking an event that already names someone uncleared is refused,
-        and the event is still saved
+     5. ticking an event that already names FIVE people is accepted (F-146):
+        they are cleared in turn, the one who cannot be is named with the way
+        forward, and the way forward (an exception) works - no dead end
      6. reminders: "running out" for admins, and "your checks" for the person */
 
 import fs from 'node:fs';
@@ -89,7 +90,11 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'bookingSettings', 'site_k'), { bookingsAdmins: [], safeguardingLead: '', safeguardingDeputy: '' });
   await setDoc(doc(db, 'calEvents', 'ev_film'), EV('Kids Film Club (invented)'));
   await setDoc(doc(db, 'calEvents', 'ev_puppet'), EV('Puppet practice (invented)'));
-  await setDoc(doc(db, 'eventLeaders', 'ev_puppet'), { leaders: [{ uid: '', memberId: 'm_ned', name: 'Ned New', role: 'helper' }], leaderUids: [], leaderIds: ['m_ned'], siteId: 'site_k' });
+  /* Puppet practice already names FIVE: four whose checks are in date, and Ned, who has none (F-146). */
+  const FIVE = [['m_c1', 'Cara One'], ['m_c2', 'Cal Two'], ['m_ned', 'Ned New'], ['m_c3', 'Cy Three'], ['m_c4', 'Col Four']];
+  await setDoc(doc(db, 'eventLeaders', 'ev_puppet'), { leaders: FIVE.map(([m, n]) => ({ uid: '', memberId: m, name: n, role: 'helper' })), leaderUids: [],
+    leaderIds: FIVE.map(x => x[0]), siteId: 'site_k' });
+  for (const [m, n] of FIVE.filter(x => x[0] !== 'm_ned')) await setDoc(doc(db, 'leaderChecks', m), { name: n, dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(1), siteId: 'site_k' });
   /* Lena: in date. Tia: DBS in date, training four years ago (out). Ned: nothing. Lena's training runs out in three weeks. */
   await setDoc(doc(db, 'leaderChecks', 'm_lena'), { name: 'Lena Leader', dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(3, 21), siteId: 'site_k' });
   await setDoc(doc(db, 'leaderChecks', 'm_tia'), { name: 'Tia Helper', dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(4), siteId: 'site_k' });
@@ -153,7 +158,7 @@ try {
   ok('   and she is not on it', (await get('eventLeaders', 'ev_film')).leaders.length === 1);
   ok('   an admin who is not the safeguarding lead is not offered an exception', !(await A.$('#exSave')) && /safeguarding lead can record/.test(await text(A, '.modal, #modal')));
   const sneak = await A.evaluate(() => EGBCAuth.db.collection('eventLeaders').doc('ev_film').get().then((s) => {
-    const d = s.data(); d.leaders = d.leaders.concat([{ uid: '', memberId: 'm_tia', name: 'Tia Helper', role: 'helper' }]); d.leaderIds = d.leaders.map(l => l.memberId); d.lastLeaderAdded = 'm_tia';
+    const d = s.data(); d.leaders = d.leaders.concat([{ uid: '', memberId: 'm_tia', name: 'Tia Helper', role: 'helper' }]); d.leaderIds = d.leaders.map(l => l.memberId); d.clearedIds = (d.clearedIds || []).concat(['m_tia']); d.lastCleared = ['m_tia'];
     return EGBCAuth.db.collection('eventLeaders').doc('ev_film').set(d).then(() => 'written', e => e.code);
   }));
   ok('   AND THE RULES REFUSE IT, whatever the page does', sneak === 'permission-denied', sneak);
@@ -173,14 +178,28 @@ try {
   ok('   she is shown as a helper, with the exception recorded', /Tia Helper · helper exception recorded/.test(await text(M, '#wrap')), await text(M, '#wrap'));
   await M.screenshot({ path: path.join(HERE, 'under18-exception.png'), fullPage: true });
 
-  /* 5. ticking an event that already names someone uncleared */
+  /* 5. ticking an event that already names FIVE people, one not cleared (F-146): no dead end */
   await go(M, 'events-admin.html', '.open[data-id="ev_puppet"]');
   await tap(M, '.open[data-id="ev_puppet"]');
   await M.waitForSelector('#f_u18');
   await M.$eval('#f_u18', e => { e.checked = true; });
   await tap(M, '#save');
-  ok('5. ticking Puppet practice, which names Ned (no checks), is refused, and says why', !!(await toastSays(M, /not marked as working with under-18s/)));
-  ok('   the event is saved; the tick is not', (await get('eventLeaders', 'ev_puppet')).under18 !== true);
+  ok('5. FIVE NAMED: TICKING IS ACCEPTED, and the page says who is cleared and who is not, and what to do',
+    !!(await toastSays(M, /Marked as working with under-18s\. 4 of 5 are cleared\. Not yet: Ned New \(no in-date DBS check or training\)\. The safeguarding lead can record an exception/)),
+    await M.$eval('#toast', e => e.textContent).catch(() => '?'));
+  const p5 = await get('eventLeaders', 'ev_puppet');
+  ok('   ticked, the four cleared in turn (two at a time), nobody removed', p5.under18 === true && J([...p5.clearedIds].sort()) === J(['m_c1', 'm_c2', 'm_c3', 'm_c4']) && p5.leaders.length === 5, J(p5.clearedIds));
+  await go(M, 'safeguarding.html?event=ev_puppet', '#u18Pending');
+  ok('   the safeguarding page names Ned as not cleared yet, with the way forward', /Not cleared yet: Ned New\. Bring their checks up to date, record an exception .* or take them off this event/.test(await text(M, '#u18Pending'))
+    && (await M.$$('.notCleared')).length === 1);
+  await M.$eval('.exFor', e => e.click());
+  await until(() => M.$('#exSave'));
+  await val(M, '#exWhy', 'Puppet practice only; always alongside Cara (invented)');
+  await tap(M, '#exSave');
+  const p5b = await until(async () => { const d = await get('eventLeaders', 'ev_puppet'); return d && d.clearedIds.includes('m_ned') ? d : null; });
+  ok('   THE WAY FORWARD WORKS: an exception for Ned, and now all five are cleared', p5b && p5b.clearedIds.length === 5 && !!(await get('eventExceptions', 'ev_puppet__m_ned')), J(p5b && p5b.clearedIds));
+  await until(async () => !(await M.$('#u18Pending')));
+  ok('   and the warning goes', !(await M.$('#u18Pending')) && !(await M.$('.notCleared')));
 
   /* 6. reminders */
   await go(A, 'safeguarding.html', '#due');

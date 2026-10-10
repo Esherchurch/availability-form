@@ -1639,32 +1639,51 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('marking an existing group under-18s with an uncleared leader is refused', 'deny', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), { under18: true, leaderIds: ['m_ned'] }));
   await check('a group that is not for under-18s takes any leader, as before', 'allow', () => updateDoc(doc(ctx('u_gina'), 'smallGroups', 'sg_mem'), { leaderIds: ['m_ned'] }));
 
-  /* §24 (Martin): "Works with under-18s" on an event or club - Kids Film Club. */
+  /* §24 (Martin): "Works with under-18s" on an event or club - Kids Film Club.
+     F-146: cleared in turn, three at a time, so any number can be ticked. */
   await env.withSecurityRulesDisabled(async (c) => {
     const db = c.firestore();
-    await setDoc(doc(db, 'calEvents', 'ev_film'), { title: 'Kids Film Club (invented)', location: { kind: 'room', siteId: 'site_kids' }, status: 'confirmed', audience: ['public'] });
-    await setDoc(doc(db, 'calEvents', 'ev_puppet'), { title: 'Puppet practice (invented)', location: { kind: 'room', siteId: 'site_kids' }, status: 'confirmed', audience: ['public'] });
+    for (const id of ['ev_film', 'ev_puppet', 'ev_five']) await setDoc(doc(db, 'calEvents', id), { title: id + ' (invented)', location: { kind: 'room', siteId: 'site_kids' }, status: 'confirmed', audience: ['public'] });
     await setDoc(doc(db, 'leaderChecks', 'm_tia'), { name: 'Tia', dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(4), siteId: '' });
+    for (const m of ['m_c1', 'm_c2', 'm_c3', 'm_c4']) await setDoc(doc(db, 'leaderChecks', m), { name: m, dbsStatus: 'current', dbsSeen: ago(1), trainingDate: ago(1), siteId: '' });
   });
   const P_ = (id, role) => ({ uid: '', memberId: id, name: id, role: role || 'helper' });
-  const FILM = (people, extra) => ({ leaders: people.map(x => P_(x)), leaderUids: [], leaderIds: people, siteId: 'site_kids', under18: true, ...(extra || {}) });
-  await check('§24: KIDS FILM CLUB, TICKED, WITH A LEADER WHOSE CHECKS ARE IN DATE', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena'])));
-  await check('§24: A KIDS FILM CLUB HELPER WITH EXPIRED TRAINING CANNOT BE ADDED', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_tia'], { lastLeaderAdded: 'm_tia' })));
-  await check('§24: nor one with no checks at all', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_ned'], { lastLeaderAdded: 'm_ned' })));
-  await check('§24: nor slipped in by naming someone else as the one added', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_tia'], { lastLeaderAdded: 'm_lena' })));
-  await check('§24: nor by a member id list that says someone else', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'),
-    { ...FILM(['m_lena', 'm_lena']), leaders: [P_('m_lena'), P_('m_tia')] }));
-  await check('§24: nor by unticking it, adding them, and ticking it again (ticking checks everyone named)', 'deny', async () => {
-    await setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...FILM(['m_tia']), under18: false });
+  /* Everyone named, these cleared so far, these cleared in this save. */
+  const U18 = (people, cleared, last, extra) => ({ leaders: people.map(x => P_(x)), leaderUids: [], leaderIds: people, siteId: 'site_kids', under18: true,
+    clearedIds: cleared, lastCleared: last, ...(extra || {}) });
+  const FILM = (people, extra) => U18(people, people, people, extra);
+  const film = (who, d) => setDoc(doc(who, 'eventLeaders', 'ev_film'), d);
+  await check('§24: KIDS FILM CLUB, TICKED, WITH A LEADER WHOSE CHECKS ARE IN DATE', 'allow', () => film(as('karen'), FILM(['m_lena'])));
+  await check('§24: A KIDS FILM CLUB HELPER WITH EXPIRED TRAINING CANNOT BE ADDED', 'deny', () => film(as('karen'), U18(['m_lena', 'm_tia'], ['m_lena', 'm_tia'], ['m_tia'])));
+  await check('§24: nor added without being cleared at all', 'deny', () => film(as('karen'), U18(['m_lena', 'm_tia'], ['m_lena'], [])));
+  await check('§24: nor one with no checks at all', 'deny', () => film(as('karen'), U18(['m_lena', 'm_ned'], ['m_lena', 'm_ned'], ['m_ned'])));
+  await check('§24: nor marked cleared without being checked in this save', 'deny', () => film(as('karen'), U18(['m_lena', 'm_tia'], ['m_lena', 'm_tia'], ['m_lena'])));
+  await check('§24: nor by a member id list that says someone else', 'deny', () => film(as('karen'), { ...U18(['m_lena', 'm_lena'], ['m_lena'], []), leaders: [P_('m_lena'), P_('m_tia')] }));
+  await check('§24: nor by unticking it, adding them, and ticking it again (ticking checks everyone afresh)', 'deny', async () => {
+    await setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia'], [], []), under18: false });
     return setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), FILM(['m_tia']));
   });
+  await check('§24: unticking forgets who was cleared', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...U18(['m_lena'], ['m_lena'], []), under18: false }));
+  /* Five already named, one of them not cleared: no dead end. */
+  const five = ['m_c1', 'm_c2', 'm_c3', 'm_c4', 'm_ned'];
+  const FIVE = (who, cleared, last) => setDoc(doc(who, 'eventLeaders', 'ev_five'), U18(five, cleared, last));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'eventLeaders', 'ev_five'), { ...U18(five, [], []), under18: false }); });
+  await check('§24 FIVE NAMED: TICKING THE BOX IS ACCEPTED (nobody cleared yet)', 'allow', () => FIVE(as('karen'), [], []));
+  await check('§24 five: the first two are cleared in one save', 'allow', () => FIVE(as('karen'), ['m_c1', 'm_c2'], ['m_c1', 'm_c2']));
+  await check('§24 five: not three in one save (the rules can only look up so much)', 'deny', () => FIVE(as('karen'), ['m_c1', 'm_c2', 'm_c3'], ['m_c1', 'm_c2', 'm_c3']));
+  await check('§24 five: the next two in the next', 'allow', () => FIVE(as('karen'), ['m_c1', 'm_c2', 'm_c3', 'm_c4'], ['m_c3', 'm_c4']));
+  await check('§24 five: Ned, with no checks, CANNOT be cleared', 'deny', () => FIVE(as('karen'), ['m_c1', 'm_c2', 'm_c3', 'm_c4', 'm_ned'], ['m_ned']));
+  await check('§24 five: and nobody new can be named while it is ticked unless cleared', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_five'),
+    U18(five.concat(['m_tia']), ['m_c1', 'm_c2', 'm_c3', 'm_c4'], [])));
+  await check('§24 five: the way forward - Ned is removed', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_five'),
+    U18(['m_c1', 'm_c2', 'm_c3', 'm_c4'], ['m_c1', 'm_c2', 'm_c3', 'm_c4'], [])));
   const EEX = (who, extra) => ({ calEventId: 'ev_film', memberId: 'm_tia', name: 'Tia', reason: 'Training booked for next week; always with Lena (invented)', siteId: 'site_kids', by: who, byName: 'x', at: serverTimestamp(), ...(extra || {}) });
   await check('§24: an ordinary admin cannot record an exception', 'deny', () => setDoc(doc(as('karen'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_karen')));
   await check('§24: an exception needs a real reason', 'deny', () => setDoc(doc(as('martin'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_martin', { reason: 'ok' })));
   await check('§24: the safeguarding lead records an exception, with a reason (the F-109 route)', 'allow', () => setDoc(doc(ctx('u_sg'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_sg')));
-  await check('§24: then the helper may be added', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_film'), FILM(['m_lena', 'm_tia'], { lastLeaderAdded: 'm_tia' })));
+  await check('§24: then the helper may be added', 'allow', () => film(as('karen'), U18(['m_lena', 'm_tia'], ['m_lena', 'm_tia'], ['m_tia'])));
   await check('§24: the exception is for that event only', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), FILM(['m_tia'])));
-  await check('§24: an event not ticked takes any helper, as before', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...FILM(['m_tia', 'm_ned']), under18: false }));
+  await check('§24: an event not ticked takes any helper, as before', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia', 'm_ned'], [], []), under18: false }));
 
   /* F-108 */
   await env.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
