@@ -249,7 +249,7 @@ The reviewing window adds to this list whenever a report says "before this goes 
 4. **Email lock** (Calla, Stage 2), allowing the hub's service account first.
 5. **"Church office" group has its people in it** (§25). Until it does, the office loses the Address Book and Email Compiler in the Menu. Master admin still sees everything. **Martin (10 Oct 2026): Val (church administrator) and Ryan (pastor)**, both seeing all four tabs. Martin is master admin, so he sees everything already.
 6. **Real-phone proof (N-7):** notifications on an Android phone and an iPhone (installed to the home screen), once N-4 and N-5 are live.
-7. **Share on real devices:** WhatsApp from Android, iPhone and the PC (FINDINGS-share.md).
+7. **Share on real devices:** WhatsApp from Android, iPhone and the PC (FINDINGS-share.md): a notice, and an event from its own page (with the poster).
 8. **ChurchShow pairing** in switch-over week, on the projection PC.
 9. **The safeguarding lead confirms:** DBS and training periods (annual), the leader ratio (1:5), who reads each kind of "I'm worried about someone" concern, and how long concerns are kept.
 10. **Martin confirms the teams list** (APP-DESIGN-BRIEF §6).
