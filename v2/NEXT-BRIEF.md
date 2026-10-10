@@ -177,6 +177,21 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 24. From the research, what Martin wants and what he does not (10 Oct 2026)
+
+**A value that governs everything here.** Martin: *"we are not making people check in to church … I am not comfortable logging when people come in and out of church. That is a very unhealthy church culture."*
+- **Never record or track adults' attendance.** No adult check-in, and no "who hasn't been seen" for adults.
+- The member directory **already exists**. The Email Builder **already exists**. Improve them; don't duplicate them.
+
+**Before launch:**
+- **Safeguarding in the rota (main window, Planner and Core Team rota):** a person whose DBS check or training has lapsed **cannot be put on a children's or youth rota slot** (Kids Church, Creche, youth roles). The planner says why. A master admin or the safeguarding lead can record an exception with a reason. Use the same checks records the events window uses for under-18s groups (F-109). Rules-enforced, with tests and a deliberate break.
+
+**After launch (in this order unless Martin says otherwise):**
+1. **Better group emails:** improve `EmailBuilder2.html` with saved templates, a record of what was sent and who to, a choice of a team, group, family or everyone as recipients, and sending as a notification too.
+2. **Serving too often:** the address book already holds each person's **maximum serving number**, which the rota uses. Add a **threshold** the office sets, so when someone is near or over it, their team leader gets a gentle prompt to check in with them. No new tracking.
+3. **Kids Church families not seen for a while:** for **families with children registered in Kids Church only**, if none of the children have been checked in for (say) 6 weeks, the **Kids Church leads** get a gentle "it might be worth checking in" prompt. **Nothing for adults, ever.** It uses only the kids check-in that already exists.
+4. **Fill a rota gap:** when someone marks a date unavailable on the availability form, offer the gap to suitable free people with a one-tap "I'll do it" link. *To be discussed with Martin first*, given F-018.
+
 ## 23. Phone notifications are part of the launch (Martin, 10 Oct 2026)
 
 Martin: *"we want it from the start."* Push notifications are **before switch-over**, built with the app (§22), not after it. The plan is in the events window's `FINDINGS-notify.md` (N-1 to N-6, decisions recorded).
