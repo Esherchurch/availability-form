@@ -240,6 +240,21 @@ The order for the main window from here:
 
 The events window builds its own screens inside the spaces (APP-DESIGN-BRIEF §8), after "Who can come". **Sermons (Listen)** are now before launch too.
 
+## 26. Must be on the launch checklist (Q) — collected as we go
+
+The reviewing window adds to this list whenever a report says "before this goes live". Step Q copies every line into the checklist page and Martin's plain-words switch-over steps.
+1. **Deploy order:** the hub functions (`--only functions:hub`, including whoAmI, redeemYouthCode and the N-4 senders) go live **before** the rules.
+2. **IAM:** `roles/iam.serviceAccountTokenCreator` on the runtime service account (SERVER-DEPLOY.md).
+3. **Rules and indexes deploy** (Martin).
+4. **Email lock** (Calla, Stage 2), allowing the hub's service account first.
+5. **"Church office" group has its people in it** (§25). Until it does, the office loses the Address Book and Email Compiler in the Menu. Master admin still sees everything. Martin says who goes in it.
+6. **Real-phone proof (N-7):** notifications on an Android phone and an iPhone (installed to the home screen), once N-4 and N-5 are live.
+7. **Share on real devices:** WhatsApp from Android, iPhone and the PC (FINDINGS-share.md).
+8. **ChurchShow pairing** in switch-over week, on the projection PC.
+9. **The safeguarding lead confirms:** DBS and training periods (annual), the leader ratio (1:5), who reads each kind of "I'm worried about someone" concern, and how long concerns are kept.
+10. **Martin confirms the teams list** (APP-DESIGN-BRIEF §6).
+11. **App renames**, only if Martin approves (A-014).
+
 ## 25. Running things: the office chooses what each person sees (Martin, 10 Oct 2026)
 
 Martin: *"the church Admin might not be core team"* and *"we need to select what people see."*
