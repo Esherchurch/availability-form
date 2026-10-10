@@ -88,7 +88,7 @@ Answers "what do I need to know this week?" In this order, each section shown on
   - targets at least 48px high
   - Test on Android (gesture and 3-button navigation) and on an iPhone, installed and in the browser.
 - Installed as an app it opens straight to Home, signed in.
-- **Notifications** come later. The events window has the plan in `FINDINGS-notify.md`, with "call a parent" first. Leave the hooks.
+- **Notifications are part of the launch** (NEXT-BRIEF §23), on Android and iPhone from day one. The plan is in `FINDINGS-notify.md`, with "call a parent" first.
 
 ## 8. Who builds what
 
@@ -98,7 +98,7 @@ Answers "what do I need to know this week?" In this order, each section shown on
 
 ## 9. Order (Martin decides)
 
-This is new work, not parity, so by §12 it comes **after** launch unless Martin brings it forward. Before starting, ask Martin:
+**Decided (Martin, 9 Oct 2026): (b), hold launch until this design is built.** The choice he was given:
 - **(a)** launch on the current hub and switch to this design afterwards, or
 - **(b)** hold launch until this design is built, since it's what members will see.
 
