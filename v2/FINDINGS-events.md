@@ -2853,3 +2853,75 @@ fits; three does not.
 - The real-phone proof, for Martin: N-7.
 - `egbc-notify-core.js` also carries the §24 "checks running out" message,
   so the weekly reminder function (N-4) uses the same words and switch.
+
+### F-147 — Share on WhatsApp for events (launch list item 1)
+Uses the main window's `egbc-share.js` and nothing else: one shared helper,
+as the brief says. Nothing is ever sent from here. The person sees the
+preview, presses Share, and picks the group in WhatsApp themselves.
+
+**Where the button is:**
+- **The event's own page** (`signup.html`), beside Add to calendar.
+- **The app's event view** (What's on), as "Share on WhatsApp".
+- **events-admin's list**, a share icon on each event. This is for Martin's
+  weekly posting.
+- **An open photo upload link** (events-admin, Photos). Its message tells
+  guests that nothing they send is shown until it has been looked at. A
+  link that's switched off, full or run out has no Share button.
+- **Not on an event that isn't announced yet.** A cancelled one can be
+  shared, and says CANCELLED.
+
+**What goes in the message:** the title, when and where, the words in
+WhatsApp's markup, then the link to the event's page. The poster goes as a
+picture file when the phone can take one. It never says who has signed up.
+
+**The pieces, in `egbc-events.js`:**
+- `shareItem` builds the message.
+- `share` opens the preview, and fetches `egbc-share.js` the first time if
+  the page hasn't loaded it. This is why the app needs no new script tag.
+- `plainText` and `safeHtml` read an event's words.
+
+**Two faults found on the way, both fixed:**
+- **The app showed an event's words with their tags**, as "<p>A shared
+  meal</p>", and the calendar file did the same. Both now show plain text.
+- **The event's own page put the words into the page exactly as stored.**
+  The editor cleans words when they're saved, but the rules can't check
+  HTML, so words written any other way went straight onto a public page.
+  - They're now cleaned again when shown: the editor's own tags and
+    pictures, and nothing that can run.
+  - The cleaning uses a separate document (DOMParser), which runs nothing
+    and loads nothing.
+
+**Proved** (`share.test.mjs`, 25 checks):
+- the phone gets exactly the previewed words, plus the poster
+- a computer gets wa.me with the message ready
+- three bad pictures in an event's words never run, on the page, in the
+  app or in the share
+- the app fetches the helper only when it's needed
+
+**8 deliberate breaks, all caught.**
+- At first, the break "a picture keeps its onerror" was **not** caught: my
+  bad pictures had no web address, so they were thrown out before that
+  check mattered. I added one with a real web address, and it's caught now.
+
+**Not proved: real devices.** This is checklist item 7, and FINDINGS-share
+S-002 covers it. The event page should be part of that ten minutes.
+
+### F-148 — REQUESTS for the main window (sharing)
+1. **`egbc-share.js` reads HTML in a way that can run it.**
+   - **The problem:** `htmlToWhatsApp` puts the HTML into a
+     `document.createElement('div')`. In a page's own document, an
+     `<img src=… onerror=…>` there runs, even though it's never shown.
+   - **How it was shown:** break 3 of F-147 handed it uncleaned words, and
+     the bad picture ran.
+   - **The fix:** `new DOMParser().parseFromString(html, 'text/html')`
+     makes a separate document that runs nothing. `egbc-editor.js` already
+     does this.
+   - **Who is affected:** my pages clean the words first, so they're safe
+     already. Notices and meetings rely on the editor having cleaned them
+     when saved.
+2. **app.html: bump the version on `egbc-events.js` and
+   `egbc-app-whatson.js`**, so phones fetch the new copies. Optionally, also
+   load `egbc-share.js` there. Without it, my code fetches it on first
+   tap, which works either way.
+3. **Checklist item 7 (real devices):** please add the event page's Share
+   to the list. It uses the same helper, so it's the same ten minutes.

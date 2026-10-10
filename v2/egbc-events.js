@@ -320,13 +320,136 @@
       /* Left as it was (F-068): a calendar treats a new UID as a new entry. */
       uid: 'egbc-event-' + ev.id + '@esherchurch.org',
       title: ev.title,
-      description: ev.description || '',
+      /* The words as plain text: a calendar shows "<p>" as it is. */
+      description: plainText(ev.description || ''),
       location: where || '',
       start: ev.startLocal || ev.startUtc,
       end: ev.endLocal || ev.endUtc,
       allDay: !!ev.allDay,
       url: location.origin + location.pathname.replace(/[^/]*$/, '') + 'signup.html?event=' + ev.id,
       status: ev.status === 'cancelled' ? 'cancelled' : 'confirmed'
+    });
+  }
+
+  /* ---- the words, safely, and Share on WhatsApp ----------------------
+     An event's words are the editor's HTML. Two things here read them
+     WITHOUT EVER PUTTING THEM IN THE PAGE: DOMParser makes a separate
+     document that runs no scripts and loads no pictures, so a bad
+     <img onerror> in an old event can do nothing. */
+
+  function parsed(html) {
+    if (!html || typeof DOMParser === 'undefined') return null;
+    return new DOMParser().parseFromString('<div id="r">' + html + '</div>', 'text/html').getElementById('r');
+  }
+
+  /* The words as plain text, a blank line between paragraphs. For the app
+     and the calendar, which show text, not HTML. */
+  function plainText(html) {
+    var root = parsed(html);
+    if (!root) return String(html || '');
+    root.querySelectorAll('br').forEach(function (b) { b.replaceWith('\n'); });
+    root.querySelectorAll('li').forEach(function (b) { b.prepend('- '); b.append('\n'); });
+    root.querySelectorAll('p,h1,h2,h3,h4,h5,h6,blockquote,div,ul,ol').forEach(function (b) { b.append('\n\n'); });
+    return root.textContent.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  /* The words cut down to what a WhatsApp message can carry: the editor's
+     small set of tags, no attributes but a web link's href, no pictures. */
+  var KEEP_TAGS = { P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, UL: 1, OL: 1, LI: 1, H2: 1, H3: 1, BLOCKQUOTE: 1, A: 1 };
+  function cleaned(html, pictures) {
+    var root = parsed(html);
+    if (!root) return '';
+    (function walk(node) {
+      Array.prototype.slice.call(node.childNodes).forEach(function (n) {
+        if (n.nodeType === 8) { n.remove(); return; }
+        if (n.nodeType !== 1) return;
+        var tag = n.tagName;
+        if (/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|SVG|MATH|TEMPLATE|NOSCRIPT|FORM|INPUT|BUTTON|TEXTAREA|SELECT|LINK|META|BASE)$/.test(tag)) { n.remove(); return; }
+        if (tag === 'IMG') {
+          var src = n.getAttribute('src') || '', alt = n.getAttribute('alt') || '';
+          if (!pictures || !/^(https?:|data:image\/(png|jpeg|gif|webp);)/i.test(src)) { n.remove(); return; }
+          Array.prototype.slice.call(n.attributes).forEach(function (a) { n.removeAttribute(a.name); });
+          n.setAttribute('src', src); n.setAttribute('alt', alt);
+          return;
+        }
+        walk(n);
+        if (!KEEP_TAGS[tag]) { n.replaceWith.apply(n, n.childNodes); return; }
+        var href = tag === 'A' ? n.getAttribute('href') || '' : '';
+        Array.prototype.slice.call(n.attributes).forEach(function (a) { n.removeAttribute(a.name); });
+        if (/^(https?:\/\/|mailto:)/i.test(href)) {
+          n.setAttribute('href', href);
+          if (pictures) { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
+        }
+      });
+    })(root);
+    return root.innerHTML;
+  }
+  /* For WhatsApp: no pictures (the poster goes as a file instead). */
+  function shareHtml(html) { return cleaned(html, false); }
+  /* For showing on a page: the editor's tags and pictures, nothing that
+     can run. The editor cleans the words when they are saved; this cleans
+     them again when they are shown, because the rules cannot check HTML. */
+  function safeHtml(html) { return cleaned(html, true); }
+
+  function pageBase() { return location.origin + location.pathname.replace(/[^/]*$/, ''); }
+  /* Beside this file, which sits with the events pages, so the link is
+     right from the app too, wherever the app page is. */
+  function eventUrl(id) { return (HERE || pageBase()) + 'signup.html?event=' + encodeURIComponent(id); }
+
+  /* What goes to WhatsApp for an event: its title, when and where, the
+     words, and the link to its page. Never who has signed up. */
+  function shareItem(ev, where) {
+    var when = [fmtWhen(ev), where].filter(Boolean).join(' · ');
+    return {
+      title: ev.title || 'Event',
+      when: (ev.status === 'cancelled' ? 'CANCELLED · ' : '') + when,
+      html: shareHtml(ev.description || ''),
+      link: eventUrl(ev.id),
+      image: ev.image || ''
+    };
+  }
+
+  /* The one shared helper, egbc-share.js (the main window's), fetched the
+     first time it is needed if the page has not loaded it. Beside this
+     file, wherever that is. */
+  var HERE = (function () {
+    var s = global.document && global.document.currentScript;
+    return s && s.src ? s.src.replace(/[^/]*$/, '').replace(/\?.*$/, '') : '';
+  })();
+  var shareLoading = null;
+  function shareReady() {
+    if (global.EGBCShare) return Promise.resolve(global.EGBCShare);
+    if (!shareLoading) shareLoading = new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = HERE + 'egbc-share.js?v=202610111800';
+      s.onload = function () { global.EGBCShare ? res(global.EGBCShare) : rej(new Error('Sharing could not be loaded.')); };
+      s.onerror = function () { shareLoading = null; rej(new Error('Sharing could not be loaded. Check the signal and try again.')); };
+      document.head.appendChild(s);
+    });
+    return shareLoading;
+  }
+
+  /* The picture as a file, so the phone can send it with the words. A
+     picture that will not come in 5 seconds is left out, and the preview
+     says so: the words still go. */
+  function pictureFile(url) {
+    if (!url || typeof fetch === 'undefined' || typeof File === 'undefined') return Promise.resolve(null);
+    var t = new Promise(function (res) { setTimeout(function () { res(null); }, 5000); });
+    var f = fetch(url).then(function (r) {
+      if (!r.ok) return null;
+      return r.blob().then(function (b) {
+        if (!/^image\//.test(b.type)) return null;
+        return new File([b], 'picture.' + (b.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg'), { type: b.type });
+      });
+    }).catch(function () { return null; });
+    return Promise.race([f, t]);
+  }
+
+  /* Open the preview. Nothing is sent: the person picks the group in
+     WhatsApp and presses send there. */
+  function share(item) {
+    return Promise.all([shareReady(), pictureFile(item.image)]).then(function (r) {
+      return r[0].open(Object.assign({}, item, { file: r[1] }));
     });
   }
 
@@ -442,6 +565,13 @@
     lookups: lookups,
     icsFor: icsFor,
     manageUrl: manageUrl,
+    plainText: plainText,
+    shareHtml: shareHtml,
+    safeHtml: safeHtml,
+    eventUrl: eventUrl,
+    shareItem: shareItem,
+    shareReady: shareReady,
+    share: share,
     confirmationEmail: confirmationEmail,
     checkinCodes: checkinCodes,
     CATEGORIES: [

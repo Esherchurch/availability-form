@@ -29,8 +29,12 @@
               today ("Free until 6pm", "Booked until 8pm, then free");
               a room closed today (Close a room) is not there at all
 
-   Share on WhatsApp waits for the main window's egbc-share.js
-   (SHARE-NOTIFY-BRIEF: one shared helper, never a second).
+   Share on WhatsApp uses the main window's egbc-share.js (SHARE-NOTIFY-
+   BRIEF: one shared helper, never a second), through EGBCEvents.share,
+   which fetches it the first time if the app has not loaded it.
+
+   An event's words are the editor's HTML. They are shown here as plain
+   text (EGBCEvents.plainText), never as HTML and never as "<p>".
 
    Needs (loaded before it): egbc-auth.js, egbc-events.js, egbc-ics.js,
    egbc-events-bookings.js, egbc-events-home.js.
@@ -142,12 +146,13 @@
     if (m) rows.push(rowAct('open:' + m.manageUrl, 'users', m.waiting ? 'You are on the waiting list' : (m.places > 1 ? 'You + ' + (m.places - 1) + ' booked' : 'You are booked'), 'Change numbers or cancel'));
     else if (e.signupOn && e.status !== 'cancelled') rows.push(rowAct('open:' + BASE + 'signup.html?event=' + encodeURIComponent(e.id), 'user-plus', 'Sign up', e.price ? 'Book your place' : 'Say you are coming'));
     if (e.status !== 'cancelled') rows.push(rowAct('ics', 'calendar-plus', 'Add to my calendar', 'Google, iPhone or Outlook'));
+    rows.push(rowAct('share', 'share-2', 'Share on WhatsApp', e.status === 'cancelled' ? 'Let people know' : 'Invite a friend'));
     rows.push(rowAct('open:' + BASE + 'signup.html?event=' + encodeURIComponent(e.id), 'external-link', 'The full page', 'Everything about it'));
     return '<div>' + act('list', 'What\'s on', false, 'arrow-left') + '<p class="hello" style="margin-top:10px">' + esc(e.title || 'Untitled event') + '</p>' +
       '<p class="sub">' + esc([E.fmtWhen(e), where].filter(Boolean).join(' · ')) + '</p></div>' +
       (e.status === 'cancelled' ? '<div class="card" style="padding:14px"><p style="margin:0"><b>This has been cancelled.</b></p></div>' : '') +
       (only ? '<p class="sub" style="margin:0">' + esc(only) + '</p>' : '') +
-      (e.description ? '<div class="card" style="padding:14px" data-w="words"><p class="wo-words">' + esc(e.description) + '</p></div>' : '') +
+      (E.plainText(e.description) ? '<div class="card" style="padding:14px" data-w="words"><p class="wo-words">' + esc(E.plainText(e.description)) + '</p></div>' : '') +
       '<div class="card list wo-list" data-w="acts">' + rows.join('') + '</div>';
   }
 
@@ -186,6 +191,13 @@
     if (a === 'list') { VIEW.mode = 'list'; redraw(); return; }
     if (a === 'rooms') { VIEW.mode = 'rooms'; redraw(); return; }
     if (a.indexOf('open:') === 0) { global.location.href = a.slice(5); return; }
+    if (a === 'share') {
+      var se = ev(VIEW.eventId); if (!se) return;
+      E.share(E.shareItem(se, E.locationText(se, D.look))).catch(function (err) {
+        if (H && H.toast) H.toast(err.message || 'Sharing could not be opened.'); else global.alert(err.message || 'Sharing could not be opened.');
+      });
+      return;
+    }
     if (a === 'ics') {
       var e = ev(VIEW.eventId); if (!e || !global.EGBCICS) return;
       EGBCICS.download('egbc-' + (e.title || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40), E.icsFor(e, E.locationText(e, D.look)));

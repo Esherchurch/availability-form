@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610091400"></script>
+<script src="egbc-events.js?v=202610111800"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610072300"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -191,9 +191,11 @@
           '<span class="tag"><span class="dot" style="background:' + cat.colour + '"></span>' + esc(cat.name) + '</span>' +
           (EV.labels || []).map(function (x) { return '<span class="tag">' + esc(x) + '</span>'; }).join('') +
         '</div>' +
-        (EV.description ? '<div class="desc">' + EV.description + '</div>' : '') +
+        (E.safeHtml(EV.description) ? '<div class="desc">' + E.safeHtml(EV.description) + '</div>' : '') +
         '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">' +
           '<button class="btn sec" id="ics"><i data-lucide="calendar-plus" style="width:15px;height:15px"></i>Add to calendar</button>' +
+          /* Not for an event that is not announced yet. */
+          (EV.status === 'pending' ? '' : '<button class="btn sec" id="share"><i data-lucide="share-2" style="width:15px;height:15px"></i>Share on WhatsApp</button>') +
           '<a class="btn ghost" href="whatson.html"><i data-lucide="arrow-left" style="width:15px;height:15px"></i>What\'s on</a>' +
         '</div>' +
       '</div>' +
@@ -207,6 +209,10 @@
   function wire() {
     var icsBtn = document.getElementById('ics');
     if (icsBtn) icsBtn.onclick = function () { EGBCICS.download(EV.title || 'event', E.icsFor(EV, WHERE)); };
+    var shareBtn = document.getElementById('share');
+    if (shareBtn) shareBtn.onclick = function () {
+      E.share(E.shareItem(EV, WHERE)).catch(function (e) { alert(e.message || 'Sharing could not be opened.'); });
+    };
 
     var add = document.getElementById('addAtt');
     if (add) add.onclick = function () {

@@ -16,7 +16,7 @@
 <script src="egbc-church.js?v=202610101000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610091400"></script>
+<script src="egbc-events.js?v=202610111800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -158,7 +158,7 @@
   function matches(ev) {
     if (filterCat && (ev.category || 'other') !== filterCat) return false;
     if (filterText) {
-      var hay = ((ev.title || '') + ' ' + (ev.description || '') + ' ' + (ev.labels || []).join(' ')).toLowerCase();
+      var hay = ((ev.title || '') + ' ' + E.plainText(ev.description || '') + ' ' + (ev.labels || []).join(' ')).toLowerCase();
       if (hay.indexOf(filterText) === -1) return false;
     }
     return true;
@@ -206,7 +206,7 @@
       return {
         /* Left as it was (F-068): a calendar treats a new UID as a new entry. */
         uid: 'egbc-event-' + ev.id + '@esherchurch.org',
-        title: ev.title, description: ev.description, location: E.locationText(ev, LOOK),
+        title: ev.title, description: E.plainText(ev.description || ''), location: E.locationText(ev, LOOK),
         start: ev.startLocal || ev.startUtc, end: ev.endLocal || ev.endUtc, allDay: !!ev.allDay
       };
     }), (EGBCChurch.name() ? EGBCChurch.name() + ' — ' : '') + "what's on"));
