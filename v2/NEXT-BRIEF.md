@@ -240,6 +240,22 @@ The order for the main window from here:
 
 The events window builds its own screens inside the spaces (APP-DESIGN-BRIEF §8), after "Who can come". **Sermons (Listen)** are now before launch too.
 
+## 25. Running things: the office chooses what each person sees (Martin, 10 Oct 2026)
+
+Martin: *"the church Admin might not be core team"* and *"we need to select what people see."*
+
+Today `egbc-app.js` `spacesFor()` shows the whole Running things space to **anyone who is an admin of anything, or on Core Team**. That is wrong both ways: the church administrator may not be on Core Team, and a Worship admin should not get People and Send just because they admin Worship.
+
+**The fix:**
+- In the **address book's admin section** (next to the existing "Admin for" ticks), add a **"Running things"** group of ticks, one per tab: **Today · People · Bookings · Send**. Store them on the person, e.g. `runs: ['today','people','bookings','send']`.
+- The person sees **Running things only if they have at least one tick**, and **only the tabs they're ticked for**. The master admin sees all four.
+- **Core Team and "Admin for" no longer give Running things on their own.** At switch-over, the office ticks the right people (the church administrator, Martin, etc.). Don't guess from Core Team.
+- **Bookings:** anyone named as a site's bookings admin (`bookingsAdmins`, events window) also gets the Bookings tab automatically, so nobody has to tick it twice.
+- **The Menu on a computer follows the same ticks** for the same things (address book, Email Builder, notices, bookings admin), so the phone and the computer never disagree.
+- **A tick must actually work.** If a tab is ticked, the page behind it must open for that person (the rules agree). If ticking it would need a rules change, say so and stop. Don't loosen a rule quietly.
+- Tests: someone with only Bookings sees one tab; a Worship admin with no ticks sees no Running things; the church admin who isn't Core sees what they're ticked for; view-as follows the ticks.
+- Only the master admin (or someone ticked for People) can change these ticks.
+
 ## 21. Who is who: Attender, Church member, Team member (Martin, 9 Oct 2026)
 
 Martin approved these levels. They answer the events window's F-103, where a signed-in person on no rota team was "pending" and looked like a visitor to small groups.
