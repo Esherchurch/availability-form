@@ -486,13 +486,11 @@ if (typeof EGBCAuth !== 'undefined' && EGBCAuth.db) {
 const BOARDS = [
   { id:'worship', doc:'state',       title:'Worship Board',      sub:'Suggestions &amp; Ideas',
     teams:['Worship Team', 'AV Team', 'Choir'] },
-  /* LEADERS ONLY (Martin, 9 Oct 2026). leadersOnly means administering the
-     team rather than being on it, because the mirrored data has no leader
-     tier between the two - admin is the only rank above member that exists.
-     This takes the board away from ordinary Kids Church members who have it
-     today, which is the instruction. */
+  /* EVERYONE ON KIDS CHURCH (Martin, 10 Oct 2026: "anyone logged in as
+     kids church should have it"). It was briefly leaders-only; that was
+     never his instruction. */
   { id:'kids',    doc:'kids-church', title:'Kids Church Board',  sub:'Suggestions &amp; Ideas',
-    teams:['Kids Church'], leadersOnly:true },
+    teams:['Kids Church'] },
   { id:'youth',   doc:'youth',       title:'Youth Board',        sub:'Suggestions &amp; Ideas',
     teams:['Youth Worship'] },
   /* MODERATED. A young person with a live code reads these and posts a
@@ -639,7 +637,9 @@ function chooseBoard() {
   const asked = new URLSearchParams(location.search).get('board');
   const wanted = mine.find(b => b.id === asked);
   if (asked && !wanted) toast('That board is another team\'s');
-  board = wanted || mine[0] || BOARDS[0];
+  /* NO BOARD IS NO BOARD. Falling back to the first one showed someone with no board of their own     the Worship board (Martin, 10 Oct 2026, as a Kids Church member). Say so     plainly and draw nothing else. */
+  if (!mine.length) return noBoard();
+  board = wanted || mine[0];
 
   BOARD_DOC = db.collection('worshipBoardState').doc(board.doc);
   LOCAL_KEY = localKey(board);
@@ -662,6 +662,20 @@ function chooseBoard() {
        switch to is worse than none. */
     if (sw) sw.style.display = 'none';
   }
+}
+
+function noBoard() {
+  document.getElementById('boardTitle').textContent = 'Pin boards';
+  document.getElementById('boardSub').textContent = '';
+  document.title = 'Pin boards';
+  document.querySelectorAll('header .header-actions, #pagesBar, .filter-bar, #queue')
+    .forEach(el => { el.style.display = 'none'; });
+  document.getElementById('boardCanvas').innerHTML =
+    '<div class="empty-board" style="display:block;max-width:420px;width:calc(100% - 32px)">'
+    + '<p style="color:rgba(0,0,0,.6)">There isn\'t a pin board for your team.</p>'
+    + '<p style="color:rgba(0,0,0,.5);font-weight:500;margin-top:8px">If you think you should see one, ask your team leader.</p>'
+    + '<p style="margin-top:16px"><a href="hub.html" style="color:#3d6263;font-weight:600">Back to the hub</a></p></div>';
+  return false;
 }
 
 function switchBoard(id) {
@@ -1206,7 +1220,7 @@ function whenSignedIn() {
 
 (async () => {
   await whenSignedIn();
-  chooseBoard();
+  if (chooseBoard() === false) return;
   state = blankState();
   await loadState();
   seedData();
