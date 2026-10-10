@@ -7,9 +7,10 @@
 
    THE CONTRACT (A-050), as for Listen. The shell calls, once:
 
-     EGBCAppWhatson.register(V, { row, sec, next, ic, esc, redraw })
+     EGBCAppWhatson.mount(EGBCApp)        (EGBCAppEvents.mountAll does it)
 
-   which sets V.me_whatson. EVERYTHING FROM THE DATABASE IS ESCAPED HERE.
+   (now EGBCAppWhatson.mount(EGBCApp), the real shell; F-140). The shell's
+   helpers escape text themselves; this file escapes only its own HTML.
    Buttons that do something carry data-wact and are handled here;
    navigation between spaces stays the shell's data-act.
 
@@ -97,7 +98,7 @@
     return '<button class="btn' + (primary ? ' primary' : '') + '" data-wact="' + esc(wact) + '" style="min-height:44px">' + (icon && H ? H.ic(icon, 15) + ' ' : '') + label + '</button>';
   }
   function rowAct(wact, icon, title, sub, right) {
-    return '<div data-wact="' + esc(wact) + '">' + H.row(icon, esc(title), esc(sub), right || null) + '</div>';
+    return '<div data-wact="' + esc(wact) + '">' + H.row(icon, title, sub, right || null) + '</div>';
   }
   var STYLE = '<style>.wo-list>[data-wact]+[data-wact]{border-top:1px solid var(--line)}.wo-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}' +
     '.wo-chips .btn{flex:none}.wo-chips .btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}.wo-words{white-space:pre-wrap;margin:0}</style>';
@@ -129,7 +130,7 @@
         return rowAct('event:' + e.id, ICON[e.category || 'other'] || 'calendar-days', e.title || 'Untitled event', [E.fmtWhen(e), where, only].filter(Boolean).join(' · '), pillFor(e));
       }).join('') + '</div>'
         : '<div class="card" style="padding:14px" data-w="none"><p style="margin:0">' + (VIEW.filter ? 'Nothing here. Try another one above.' : 'Nothing coming up yet.') + '</p></div>') +
-      H.sec('Rooms', null, '<div class="card list wo-list">' + rowAct('rooms', 'door-open', 'Book a room', 'See what is free and book it. No need to ask the office.') + '</div>') +
+      H.sec('Rooms', '<div class="card list wo-list">' + rowAct('rooms', 'door-open', 'Book a room', 'See what is free and book it. No need to ask the office.') + '</div>') +
       '<p class="example">Calendar: add your rota and events to your phone\'s calendar from Me.</p>';
   }
 
@@ -192,9 +193,10 @@
   }
 
   global.EGBCAppWhatson = {
-    register: function (V, helpers) {
-      H = helpers;
-      V.me_whatson = screen;
+    /* The shell (egbc-app.js) calls this once: EGBCAppWhatson.mount(EGBCApp). */
+    mount: function (App) {
+      H = global.EGBCAppEvents.helpers(App, 'me');
+      App.screen('me', 'whatson', screen);
       global.document.addEventListener('click', function (e) {
         var b = e.target.closest && e.target.closest('[data-wact]');
         if (b) { e.preventDefault(); doAct(b.getAttribute('data-wact')); }

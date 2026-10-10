@@ -256,8 +256,8 @@ try {
   /* 6. the player */
   const lB = await as('lee', 'lee-phone1'); browsers.push(lB); const L = lB.page;
   await go(L, listen, '.hello');
-  await until(async () => /A new one \(invented\)/.test(await text(L, '#content')));
-  const lt = await text(L, '#content');
+  await until(async () => /A new one \(invented\)/.test(await text(L, '#egbc-content')));
+  const lt = await text(L, '#egbc-content');
   ok('6. Listen: the newest from the podcast first, the series, the recent ones; never the hidden one', /Listen.*A new one \(invented\)/.test(lt)
     && /Series.*Luke: the lost found \(invented\) 1 sermon/.test(lt) && /Recent.*Rebuilding the walls/.test(lt) && /A talk not on the podcast/.test(lt) && !/Ask and plan/.test(lt)
     && /search for “Test Green Sermons \(invented\)”/.test(lt), lt.slice(0, 700));
@@ -271,11 +271,11 @@ try {
   const told = await until(() => L.evaluate(() => (window.__np || []).filter((n) => n && n.title === 'Grace that scandalises (corrected, invented)' && n.speaker === 'Jeanette (invented)' && n.series === 'Luke: the lost found (invented)' && !n.paused).length));
   ok('   the shell\'s "Now playing" bar is told what is playing (F-137)', told > 0, String(told));
   await L.screenshot({ path: path.join(HERE, 'listen-series-375.png'), fullPage: true });
-  await tap(L, '[data-act="tab:home"]');
+  await tap(L, '[data-tab="whatson"]');
   await sleep(600);
-  const still = await L.evaluate(() => { const a = document.getElementById('egbc-listen-audio'); return a && !a.paused && !document.getElementById('content').contains(a); });
+  const still = await L.evaluate(() => { const a = document.getElementById('egbc-listen-audio'); return a && !a.paused && !document.getElementById('egbc-content').contains(a); });
   ok('   IT KEEPS PLAYING when you go to another tab', still);
-  await tap(L, '[data-act="tab:listen"]');
+  await tap(L, '[data-tab="listen"]');
   await L.waitForSelector('#lis-pp');
   await L.evaluate(() => { document.getElementById('egbc-listen-audio').currentTime = 50; });
   await tap(L, '#lis-pp');
@@ -285,7 +285,7 @@ try {
 
   const l2B = await as('lee', 'lee-phone2'); browsers.push(l2B); const L2 = l2B.page;
   await go(L2, listen, '.hello');
-  await until(async () => /Carry on listening/.test(await text(L2, '#content')));
+  await until(async () => /Carry on listening/.test(await text(L2, '#egbc-content')));
   const carry = await text(L2, '[data-l="carry"]');
   ok('   ON ANOTHER PHONE: "Carry on listening", with the time left', /Grace that scandalises \(corrected, invented\) Jeanette \(invented\) · 1 min left/.test(carry), carry);
   await tap(L2, '[data-l="carry"] [data-lact="play:' + id1 + '"]');

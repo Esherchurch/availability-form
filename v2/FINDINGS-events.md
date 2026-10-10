@@ -2653,3 +2653,93 @@ page. Until then nothing comes in, and the page says so.
 
 **The CORS point:** a page can't fetch the feed itself; the podcast host
 doesn't allow it. That's why this is a server step.
+
+### F-140 — my APP-A1 screens, now on the real shell; Jobs and Bookings built
+**On the real shell.** The main window's `egbc-app.js` differs from the
+mock-up my screens were built against: the helpers escape text themselves
+(APP-A1 §5), `sec()` and `next()` take their arguments in a new order, and
+screens register with `EGBCApp.screen()`. So:
+- **`egbc-app-events.js`** (new) is where my screens meet the shell.
+  - **`EGBCAppEvents.mountAll(EGBCApp)`** mounts every one of mine that is
+    loaded.
+  - It gives each screen the shell's own helpers in one shape.
+  - My screens now pass **plain text** to `row`, `sec`, `next` and `head`,
+    and escape only HTML of their own (pills, cards, attributes).
+- Kids Church Today and Children, What's on, Listen and Close a room are
+  moved over. Their tests pass on the real shell: Kids Today 17, Sermons 27,
+  What's on 15, Close a room 27.
+- **The test stand-in is now the real shell.**
+  `screenshots/events/app-harness.html` loads `egbc-app.js` with app.html's
+  own styles and mounts my screens exactly as the shell will.
+
+**Built:**
+- **Maintenance → Jobs** (`maint_jobs`, in `egbc-app-maint.js`), the same
+  jobs as maintenance.html:
+  - to do, then done
+  - "Report a job": where, what, detail, and one photo
+  - a job's own view: for the team and the office, "See the photo", "Mark
+    done" with a note, and "Open it again"
+- **Running things → Bookings** (`office_bookings`, `egbc-app-office.js`):
+  - **Requests:** what is waiting at the person's own sites, each marked
+    "Approve?". **A free booking for one date is approved or declined on the
+    phone**, through the same code as Room bookings, and the person is
+    emailed. Declining asks why.
+  - **Sent to Room bookings:** a booking with a price to confirm, or a
+    series of dates, because the price and the series belong on the full
+    page. So are hirers asking to cancel, and closed rooms with people still
+    to warn.
+  - **A room closed that day is never approved from the phone.**
+- **For Home and Today** (`egbc-events-home.js`), each returning plain data:
+  - **`myGroupsNext()`:** the next meeting of each of the person's groups.
+    It skips a meeting the leader called off, and gives the area, never the
+    address.
+  - **`officeQueue()` and `officeToday()`:** what is waiting for the office,
+    and the counts for Running things' Today (room requests, cancellations
+    asked for, closures to warn, jobs to do).
+  - `myEvents()` was already there.
+- **Tests:** `app-jobs-office` (24). It includes page code typed into a job
+  and into a booking's title, both shown as text and never run.
+
+**Still mine, next:** the parents' Sunday on Home, "This Sunday, for parents"
+(F-121): the family's code on the parent's phone and checking in from it
+(Martin, A-K1), with `myFamilyThisSunday()`. It needs new rules for a parent
+to read their own family, so I've kept it as a stage of its own.
+
+### F-141 — REQUESTS for the main window (the shell)
+1. **Load my screens in app.html, after your own screens:**
+   - **Scripts:** add `firebase-storage-compat.js` (photos and the backup
+     sermon audio), then:
+     - `egbc-church.js`, `egbc-email.js`, `egbc-ics.js`
+     - `egbc-events.js`, `egbc-events-kids.js`, `egbc-events-checkin.js`,
+       `egbc-events-bookings.js`, `egbc-events-groups.js`,
+       `egbc-events-home.js`
+     - after `egbc-app.js`: `egbc-app-events.js`, `egbc-app-kids.js`,
+       `egbc-app-listen.js`, `egbc-app-whatson.js`, `egbc-app-maint.js`,
+       `egbc-app-office.js`
+   - **On `egbc-ready`:** call `EGBCAppEvents.mountAll(EGBCApp)` before
+     `EGBCApp.start()`. My screens replace your interim ones for
+     `me_whatson`, `maint_jobs` and `office_bookings` (the same space and
+     tab), and add `kids_today`, `kids_children`, `me_listen` and
+     `maint_rooms`.
+   - Home's Listen row can come back once Listen is mounted.
+2. **`watch()` is called again on every draw.** `draw()` stops the last
+   watcher and calls `entry.watch()` each time, including the redraws that
+   `refresh()` causes. A Firestore listener answers as soon as it starts, so
+   a screen that refreshes on new data would loop: draw, watch, answer,
+   refresh, draw…
+   - Suggested: call `watch` only when the space or tab changes (remember the
+     last `space_tab` it was started for), and not on a `refresh()`.
+   - Until then, my screens don't use `watch`. They start their listeners
+     once per page and ask for a redraw, which never multiplies them.
+3. **Pills and small notes aren't styled by the shell yet.** `.pill`,
+   `.pill.warn`, `.pill.n` and `.example` are the mock-up's.
+   - `egbc-app-events.js` adds a fallback inside `:where()`, so it weighs
+     nothing and your rules win once you add them.
+   - 12px, not the mock-up's 11.5px (DESIGN.md's floor).
+4. **Running things for a site's bookings admin:** `spacesFor()` gives
+   Running things only to admins and the Core Team. A site's bookings admin
+   who is neither (as the office often is) won't see Bookings, though the
+   rules let them decide their site's bookings. Is that intended?
+5. **Home's helpers are ready:** `myEvents()`, `myGroupsNext()` and
+   `officeToday()`, each plain data. `myFamilyThisSunday()` comes with F-121.
+6. **Share on WhatsApp** still waits for `egbc-share.js`.

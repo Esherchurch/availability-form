@@ -9,12 +9,13 @@
    re-draws a screen from scratch on every navigation, so state lives here,
    never in the page. The shell calls, once:
 
-     EGBCAppKids.register(V, { row, sec, next, ic, esc, redraw })
+     EGBCAppKids.mount(EGBCApp)        (EGBCAppEvents.mountAll does it)
 
-   which sets V.kids_today and V.kids_children, starts loading, and asks
-   the shell to redraw (helpers.redraw) when the data arrives or changes.
-   EVERYTHING FROM THE DATABASE IS ESCAPED HERE before it reaches the
-   shell's row() and sec(), which (in the mock-up) do not escape.
+   which registers kids_today and kids_children with EGBCApp.screen, starts
+   loading, and asks the shell to redraw (EGBCApp.refresh) when the data
+   arrives or changes. The shell's row/sec/next ESCAPE text themselves
+   (APP-A1 §5; F-140): this file passes them plain text, and escapes only
+   what it puts in HTML of its own (pills, cards, attributes).
    Buttons that DO something (check myself in, show on screen, done) carry
    data-kact and are handled here; navigation stays the shell's data-act.
 
@@ -45,6 +46,7 @@
   function uid() { return (EGBCAuth.user && EGBCAuth.user() || {}).uid || ''; }
   function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
   function esc(s) { return H ? H.esc(s) : String(s == null ? '' : s); }
+  var KIDS = '#7a5f4a', WARN = '#b07d2e';
   var redrawTimer = null;
   function redraw() { clearTimeout(redrawTimer); redrawTimer = setTimeout(function () { if (H && H.redraw) H.redraw(); }, 30); }
   function group(id) { return D.groups.filter(function (g) { return g.id === id; })[0] || null; }
@@ -230,10 +232,10 @@
       /* No child record (the Session Leader): shown only when something is written down. */
       if (!o.c && m && (m.refused || medText(m) === 'Nothing written down')) return '';
       var allergy = o.c ? !!(o.c.flags && o.c.flags.allergies) : !!(m && m.allergies && K.meaningful(m.allergies));
-      return H.row(allergy ? 'triangle-alert' : 'heart-pulse', esc(o.x.name + ' · ' + ((g && g.name) || o.x.groupName || '')), esc(medText(m)),
-        '<span class="pill warn">' + (allergy ? 'Allergy' : 'Medical') + '</span>', null, 'var(--warn)', 'var(--warn-tint)');
+      return H.row(allergy ? 'triangle-alert' : 'heart-pulse', o.x.name + ' · ' + ((g && g.name) || o.x.groupName || ''), medText(m),
+        '<span class="pill warn">' + (allergy ? 'Allergy' : 'Medical') + '</span>', WARN);
     }).filter(Boolean);
-    out += H.sec('Needs in the room', null, needRows.length ? '<div class="card list" data-k="needs">' + needRows.join('') + '</div>' : '<p class="sub" data-k="needs">No allergies or medical needs among the children in now.</p>');
+    out += H.sec('Needs in the room', needRows.length ? '<div class="card list" data-k="needs">' + needRows.join('') + '</div>' : '<p class="sub" data-k="needs">No allergies or medical needs among the children in now.</p>');
     /* Call a parent. */
     var pages = Object.keys(D.pages).map(function (k) { return D.pages[k]; });
     var mayPage = ins.filter(function (x) { return x.ck; });
@@ -244,7 +246,7 @@
             : '<div class="actions">' + btn('screen:' + x.childId, H.ic('monitor', 15) + ' Show on screen', true) +
               (c && c.phone ? '<a class="btn" style="min-height:48px;text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="tel:' + esc(tel(c.phone)) + '">' + H.ic('phone', 15) + ' Ring</a>' : '') + '</div>') + '</div>';
     });
-    out += H.sec('Call a parent', null, canPage()
+    out += H.sec('Call a parent', canPage()
       ? '<p class="sub" style="margin:0 0 6px">Shows the family\'s code on the screen in church. Never the child\'s name.</p>' + (callRows.length ? callRows.join('') : '<p class="sub">Nobody is in yet.</p>')
       : '<p class="sub">Group leaders and the leads call a parent from here.</p>');
     out += '<div class="actions" data-k="tools">' + (S.lead ? '<a class="btn" style="min-height:48px;text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="kids-checkin.html?tab=desk">' + H.ic('scan-line', 15) + ' Check-in desk</a>' : '') +
@@ -262,28 +264,29 @@
       var ins = inNow();
       return head('Children', dayText() + ' · in now') + (ins.length ? gs.map(function (g) {
         var l = ins.filter(function (x) { return x.groupId === g.id; });
-        return l.length ? H.sec(esc(g.name), null, '<div class="card list">' + l.map(function (x) { return H.row('baby', esc(x.name), esc('in at ' + time(x.inAt)), '<span class="pill">In</span>', null, 'var(--kids)', 'var(--kids-tint)'); }).join('') + '</div>') : '';
+        return l.length ? H.sec(g.name, '<div class="card list">' + l.map(function (x) { return H.row('baby', x.name, 'in at ' + time(x.inAt), '<span class="pill">In</span>', KIDS); }).join('') + '</div>') : '';
       }).join('') : '<p class="sub">Nobody is in yet.</p>') + '<p class="example">Each group\'s leaders see their own children\'s details.</p>';
     }
     var out = head('Children', S.lead ? 'Every group' : gs.length === 1 ? gs[0].name + ' · your group' : 'Your groups');
     gs.forEach(function (g) {
       var kids = D.children.filter(function (c) { return c.groupId === g.id; });
-      out += H.sec(esc(g.name), null, kids.length ? '<div class="card list" data-kgroup="' + esc(g.id) + '">' + kids.map(function (c) {
+      out += H.sec(g.name, kids.length ? '<div class="card list" data-kgroup="' + esc(g.id) + '">' + kids.map(function (c) {
         var ck = ckOf(c), st = K.consentState(c, DAY);
         var where = ck ? (ck.state === 'in' ? 'in at ' + time(ck.inAt) : 'went home ' + time(ck.outAt) + (ck.collectedBy ? ' with ' + ck.collectedBy : '')) : 'not arrived';
         var pill = st === 'out' ? '<span class="pill warn" data-consent="out">Consent ran out</span>' : st === 'renew' ? '<span class="pill warn" data-consent="renew">Renew</span>'
           : ck && ck.state === 'in' ? '<span class="pill">In</span>' : ck ? '<span class="pill">Home</span>' : '<span class="pill n">Due</span>';
-        return '<div data-kid="' + esc(c.id) + '">' + H.row('baby', esc(c.name), esc((c.year ? c.year + ' · ' : '') + where + ((c.collectors || []).length ? ' · collect: ' + c.collectors.join(', ') : '')), pill, null, 'var(--kids)', 'var(--kids-tint)') + '</div>';
+        return '<div data-kid="' + esc(c.id) + '">' + H.row('baby', c.name, (c.year ? c.year + ' · ' : '') + where + ((c.collectors || []).length ? ' · collect: ' + c.collectors.join(', ') : ''), pill, KIDS) + '</div>';
       }).join('') + '</div>' : '<p class="sub">No children in this group yet.</p>');
     });
     return out + '<p class="example">Leaders see only their own group. Medical details stay private. "Renew": their consent runs out within a month; the registration form is sent from the Children\'s register.</p>';
   }
 
   global.EGBCAppKids = {
-    register: function (V, helpers) {
-      H = helpers; wire();
-      V.kids_today = today;
-      V.kids_children = children;
+    /* The shell (egbc-app.js) calls this once: EGBCAppKids.mount(EGBCApp). */
+    mount: function (App) {
+      H = global.EGBCAppEvents.helpers(App, 'kids'); wire();
+      App.screen('kids', 'today', today);
+      App.screen('kids', 'children', children);
     },
     _state: function () { return { S: S, loaded: LOADED }; }
   };

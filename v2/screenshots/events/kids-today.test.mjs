@@ -138,7 +138,7 @@ async function as(who) {
 const tap = (p, sel) => p.$eval(sel, e => e.click());
 const go = async (p, url, sel) => { await p.goto(URLB + url, { waitUntil: 'networkidle2' }); if (sel) await p.waitForSelector(sel, { timeout: 20000 }); };
 const text = (p, sel) => p.$eval(sel || 'body', e => e.innerText.replace(/\s+/g, ' '));
-const app = (tab) => 'screenshots/events/app-harness.html' + (tab ? '?tab=' + tab : '');
+const app = (tab) => 'screenshots/events/app-harness.html?space=kids' + (tab ? '&tab=' + tab : '');
 
 try {
   /* 1. the Session Leader, first in */
@@ -146,8 +146,8 @@ try {
   await go(M, app('today'), '[data-k="counts"]');
   const morning = await until(() => get('kidsMornings', 'site_t_' + UTCDAY));
   ok('1. the rota\'s Session Leader opens the morning from the app', morning && J(morning.sessionLeaderIds) === J(['m_sam']));
-  await until(async () => /Peanuts/.test(await text(M, '#content')) && /Asthma/.test(await text(M, '#content')));
-  const mt = await text(M, '#content');
+  await until(async () => /Peanuts/.test(await text(M, '#egbc-content')) && /Asthma/.test(await text(M, '#egbc-content')));
+  const mt = await text(M, '#egbc-content');
   ok('   "Today": you are session leader; 2 in; the needs in the room for both children in', /you are session leader/.test(mt) && (await M.$eval('[data-k="in"]', e => e.textContent)) === '2'
     && /Ada Synthetic · Little ones Peanuts: carries an EpiPen Allergy/.test(mt) && /Ben Synthetic · Juniors Asthma \(invented\) · Medication: Inhaler Medical/.test(mt), mt.slice(0, 500));
   ok('   no codes, so no paging: "Group leaders and the leads call a parent"', /Group leaders and the leads call a parent from here/.test(mt) && !(await M.$('[data-kact^="screen:"]')));
@@ -160,9 +160,9 @@ try {
   /* 2. a group leader */
   const lB = await as('lou'); const L = lB.page;
   await go(L, app('today'), '[data-k="counts"]');
-  await until(async () => /Peanuts/.test(await text(L, '#content')));
+  await until(async () => /Peanuts/.test(await text(L, '#egbc-content')));
   await sleep(800);
-  const lt = await text(L, '#content');
+  const lt = await text(L, '#egbc-content');
   ok('2. a group leader: 2 in, 2 of Little ones not arrived, 1 leader in', /you lead Little ones/.test(lt) && (await L.$eval('[data-k="in"]', e => e.textContent)) === '2'
     && (await L.$eval('[data-k="due"]', e => e.textContent)) === '2' && (await L.$eval('[data-k="leaders"]', e => e.textContent)) === '1', lt.slice(0, 300));
   ok('   NEED TO KNOW: Ada\'s allergy shows, a Junior\'s asthma does not', /Peanuts/.test(lt) && !/Asthma|Inhaler/.test(lt));
@@ -179,9 +179,9 @@ try {
   ok('   she checks herself in too: 2 leaders', true);
 
   /* 3. Children */
-  await tap(L, '[data-act="tab:children"]');
+  await tap(L, '[data-tab="children"]');
   await L.waitForSelector('[data-kid="kc_eve"]');
-  const ct = await text(L, '#content');
+  const ct = await text(L, '#egbc-content');
   ok('3. Children: her group, who is in and who is not', /Ada Synthetic Year 1 · in at/.test(ct) && /Eve Synthetic Year 1 · not arrived/.test(ct) && !/Ben/.test(ct), ct.slice(0, 400));
   ok('   "Renew" a month before consent runs out; "Consent ran out" after', !!(await L.$('[data-kid="kc_eve"] [data-consent="renew"]')) && !!(await L.$('[data-kid="kc_vic"] [data-consent="out"]')) && !(await L.$('[data-kid="kc_ada"] [data-consent]')));
   await L.screenshot({ path: path.join(HERE, 'kids-children-375.png'), fullPage: true });

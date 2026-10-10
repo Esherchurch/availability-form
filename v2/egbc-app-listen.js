@@ -6,9 +6,11 @@
 
    THE CONTRACT (A-050), as for Kids Church Today. The shell calls, once:
 
-     EGBCAppListen.register(V, { row, sec, next, ic, esc, redraw })
+     EGBCAppListen.mount(EGBCApp)        (EGBCAppEvents.mountAll does it)
 
-   which sets V.me_listen. EVERYTHING FROM THE DATABASE IS ESCAPED HERE.
+   (now EGBCAppListen.mount(EGBCApp), the real shell; F-140). The shell's
+   row/sec/next/head ESCAPE text themselves (APP-A1 §5): this file passes
+   them plain text, and escapes only what it puts in HTML of its own.
    Buttons that do something carry data-lact and are handled here;
    navigation stays the shell's data-act.
 
@@ -220,7 +222,7 @@
   }
   /* A list row that acts: the shell's row(), inside our own data-lact. */
   function rowAct(lact, icon, title, sub) {
-    return '<div data-lact="' + esc(lact) + '">' + H.row(icon, esc(title), esc(sub)) + '</div>';
+    return '<div data-lact="' + esc(lact) + '">' + H.row(icon, title, sub) + '</div>';
   }
   var STYLE = '<style>.lis-list>[data-lact]+[data-lact]{border-top:1px solid var(--line)}.lis-q{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;background:var(--surface,#fff);color:var(--ink)}' +
     '.lis-seek{width:100%;accent-color:var(--brand)}.lis-time{font-size:12.5px;color:var(--muted)}</style>';
@@ -240,7 +242,7 @@
     var list = D.sermons.filter(function (s) { var p = PROG[s.id]; return p && !p.done && p.pos > 30 && s.id !== NOW; })
       .sort(function (a, b) { return (PROG[b.id].at || 0) - (PROG[a.id].at || 0); }).slice(0, 3);
     if (!list.length) return '';
-    return H.sec('Carry on listening', null, '<div class="card list lis-list" data-l="carry">' + list.map(function (s) {
+    return H.sec('Carry on listening', '<div class="card list lis-list" data-l="carry">' + list.map(function (s) {
       return rowAct('play:' + s.id, 'circle-play', s.title, [s.speaker, minsLeft(PROG[s.id])].filter(Boolean).join(' · '));
     }).join('') + '</div>');
   }
@@ -282,7 +284,7 @@
     if (!D.sermons.length) return STYLE + head + '<div class="card" style="padding:14px" data-l="none"><p style="margin:0">No sermons yet. Sunday\'s will be here after it is put up.</p></div>';
     if (VIEW.mode === 'series' && D.series[VIEW.seriesId]) return STYLE + seriesView();
     var latest = D.sermons[0], ser = seriesOf(latest), dm = dayMon(latest.date);
-    var latestCard = latest.id === NOW ? '' : H.next(esc(dm[0]), esc(dm[1]), esc(latest.title), esc(subOf(latest)), 'var(--brand)', 'var(--brand-tint)',
+    var latestCard = latest.id === NOW ? '' : H.next(dm[0], dm[1], latest.title, subOf(latest),
       act('play:' + latest.id, PROG[latest.id] && !PROG[latest.id].done && PROG[latest.id].pos > 30 ? 'Carry on' : 'Play', true, 'play') + (ser ? act('series:' + ser.id, 'Whole series', false, 'list') : ''));
     var counts = {}; D.sermons.forEach(function (s) { if (s.seriesId) counts[s.seriesId] = (counts[s.seriesId] || 0) + 1; });
     var series = Object.keys(D.series).filter(function (k) { return counts[k]; }).map(function (k) { return D.series[k]; })
@@ -291,10 +293,10 @@
     return STYLE + head + nowCard() + latestCard + carryOn() +
       '<input class="lis-q" id="lis-q" type="search" placeholder="Search by speaker, Bible book or date" aria-label="Search the sermons" value="' + esc(VIEW.q) + '">' +
       '<div id="lis-res">' + results() + '</div>' +
-      (series.length ? H.sec('Series', null, '<div class="card list lis-list" data-l="series">' + series.map(function (x) {
+      (series.length ? H.sec('Series', '<div class="card list lis-list" data-l="series">' + series.map(function (x) {
         return rowAct('series:' + x.id, 'layers', x.name, counts[x.id] + ' sermon' + (counts[x.id] === 1 ? '' : 's'));
       }).join('') + '</div>') : '') +
-      (recent.length ? H.sec('Recent', null, '<div class="card list lis-list" data-l="recent">' + recent.map(function (s) {
+      (recent.length ? H.sec('Recent', '<div class="card list lis-list" data-l="recent">' + recent.map(function (s) {
         return rowAct('play:' + s.id, 'circle-play', s.title, said(s.date) + ' · ' + subOf(s));
       }).join('') + '</div>') : '') +
       (D.show && D.show.showTitle ? '<p class="example">Also on Spotify and other podcast apps: search for “' + esc(D.show.showTitle) + '”.</p>' : '');
@@ -312,9 +314,10 @@
   }
 
   global.EGBCAppListen = {
-    register: function (V, helpers) {
-      H = helpers;
-      V.me_listen = screen;
+    /* The shell (egbc-app.js) calls this once: EGBCAppListen.mount(EGBCApp). */
+    mount: function (App) {
+      H = global.EGBCAppEvents.helpers(App, 'me');
+      App.screen('me', 'listen', screen);
       var doc = global.document;
       doc.addEventListener('click', function (e) {
         var b = e.target.closest && e.target.closest('[data-lact]');

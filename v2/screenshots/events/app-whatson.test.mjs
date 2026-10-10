@@ -136,7 +136,7 @@ try {
   await until(() => A.$('[data-w="events"]'));
   const at = await text(A, '[data-w="events"]');
   ok('1. an Attender sees what they can come to: her supper marked Booked, the party to sign up to', /Test Harvest Supper .*Booked/.test(at) && /Test Light Party .*Sign up/.test(at), at);
-  ok('   NEVER THE CHURCH MEMBERS\u2019 MEETING', !/Members\u2019 Meeting/.test(await text(A, '#content')));
+  ok('   NEVER THE CHURCH MEMBERS\u2019 MEETING', !/Members\u2019 Meeting/.test(await text(A, '#egbc-content')));
   const C = await as('cath');
   await go(C, app, '.hello');
   await until(() => C.$('[data-w="events"]'));
@@ -145,15 +145,15 @@ try {
 
   /* 2. the quick filters */
   await tap(A, '[data-wact="filter:kids"]');
-  await until(async () => !/Harvest/.test(await text(A, '#content')));
-  const fam = await text(A, '#content');
+  await until(async () => !/Harvest/.test(await text(A, '#egbc-content')));
+  const fam = await text(A, '#egbc-content');
   ok('2. "For families" shows the party only', /Test Light Party/.test(fam) && !/Harvest/.test(fam) && /For families/.test(await text(A, '[data-w="chips"]')), fam.slice(0, 300));
   await tap(A, '[data-wact="filter:kids"]');
-  await until(async () => /Harvest/.test(await text(A, '#content')));
+  await until(async () => /Harvest/.test(await text(A, '#egbc-content')));
   await tap(A, '[data-wact="filter:month"]');
-  await until(async () => !/Light Party/.test(await text(A, '#content')));
+  await until(async () => !/Light Party/.test(await text(A, '#egbc-content')));
   const sameMonth = ymd(soon).slice(0, 7) === TODAY.slice(0, 7);
-  const mo = await text(A, '#content');
+  const mo = await text(A, '#egbc-content');
   ok('   "This month" shows this month\'s', sameMonth ? (/Harvest/.test(mo) && !/Light Party/.test(mo)) : !/Light Party/.test(mo), mo.slice(0, 300));
   await tap(A, '[data-wact="filter:month"]');
   await A.screenshot({ path: path.join(HERE, 'app-whatson-375.png'), fullPage: true });
@@ -162,7 +162,7 @@ try {
   await until(() => A.$('[data-wact="event:ev_soc"]'));
   await tap(A, '[data-wact="event:ev_soc"]');
   await until(() => A.$('[data-w="acts"]'));
-  const evt = await text(A, '#content');
+  const evt = await text(A, '#egbc-content');
   const manage = await A.$eval('[data-w="acts"] [data-wact^="open:"]', e => e.getAttribute('data-wact'));
   ok('3. the supper: "You + 1 booked", to change numbers or cancel', /Test Harvest Supper/.test(evt) && /You \+ 1 booked Change numbers or cancel/.test(evt) && /Bring a dish/.test(evt), evt.slice(0, 400));
   ok('   which opens her own booking', /^open:http:\/\/localhost:5601\/my-signup\.html\?key=su_ann_soc_0+$/.test(manage), manage);

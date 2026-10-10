@@ -138,31 +138,33 @@ try {
   /* 1. who may close */
   const A = (await as('ann')).page;
   await go(A, app('maint', 'rooms'), '.hello');
-  await until(async () => /Only the Maintenance team and the office close rooms/.test(await text(A, '#content')));
-  ok('1. an Attender is told only the Maintenance team and the office close rooms', /Only the Maintenance team and the office close rooms/.test(await text(A, '#content')) && !(await A.$('[data-mact^="close:"]')));
+  await until(() => A.evaluate(() => window.__harnessReady === true));
+  const aState = await A.evaluate(() => EGBCApp.state());
+  ok('1. AN ATTENDER HAS NO MAINTENANCE SPACE: the shell will not open it, so nothing offers "Close a room"', aState.space !== 'maint'
+    && !(await A.$('[data-mact^="close:"]')) && !(await A.$('[data-space="maint"]')), JSON.stringify(aState));
 
   /* 2. Mo closes the Hall from the app */
   const M = (await as('mo')).page;
   await go(M, app('maint', 'rooms'), '.hello');
   await until(() => M.$('[data-mact="close:room_hall"]'));
-  const mt = await text(M, '#content');
+  const mt = await text(M, '#egbc-content');
   ok('2. the Maintenance team sees the rooms, each open', /Close a room.*Test Band Room Open.*Test Hall Open/.test(mt), mt);
   await tap(M, '[data-mact="close:room_hall"]');
   await M.waitForSelector('#mt-from');
   await val(M, '#mt-from', D1); await val(M, '#mt-to', D2);
   await tap(M, '[data-mact="doclose"]');
-  ok('   not without a reason', !!(await until(async () => /Say why the room is closed/.test(await text(M, '#content')))));
+  ok('   not without a reason', !!(await until(async () => /Say why the room is closed/.test(await text(M, '#egbc-content')))));
   await val(M, '#mt-why', 'Repainting (invented)');
   await tap(M, '[data-mact="doclose"]');
   const cl = await until(async () => (await list('roomClosures'))[0] || null);
   ok('   CLOSED: the Hall, those two days, the reason, in Mo\'s name', cl && cl.roomId === 'room_hall' && J(cl.days) === J([D1, D2]) && cl.reason === 'Repainting (invented)' && cl.by === P.mo.uid && cl.status === 'on', J(cl));
   const m1 = await get('roomClosedDays', 'room_hall_' + D1), m2 = await get('roomClosedDays', 'room_hall_' + D2), m3 = await get('roomClosedDays', 'room_hall_' + D3);
   ok('   each day is marked closed (and no more)', m1 && m1.on && m2 && m2.on && !m3 && !('reason' in m1), J([m1, m2, m3]));
-  await until(async () => /Test Hall closed/.test(await text(M, '#content')));
+  await until(async () => /Test Hall closed/.test(await text(M, '#egbc-content')));
   const mail = (await outbox(M)).find(m => /Room closed: Test Hall/.test(m.subject));
   ok('   THE OFFICE IS EMAILED (the site\'s bookings address), with the reason', mail && mail.to[0] === 'bookings@example.invalid' && /Repainting/.test(mail.html) && /Room bookings/.test(mail.html), J(mail && mail.to));
-  ok('   the app says so, and shows the Hall closed', /Test Hall closed .*The office has been told/.test(await text(M, '#content')) && /Test Hall Closed .*Repainting \(invented\) Closed/.test(await text(M, '[data-m="rooms"]')),
-    await text(M, '#content'));
+  ok('   the app says so, and shows the Hall closed', /Test Hall closed .*The office has been told/.test(await text(M, '#egbc-content')) && /Test Hall Closed .*Repainting \(invented\) Closed/.test(await text(M, '[data-m="rooms"]')),
+    await text(M, '#egbc-content'));
   await M.screenshot({ path: path.join(HERE, 'close-room-app-375.png'), fullPage: true });
 
   /* 3. Book a room */
