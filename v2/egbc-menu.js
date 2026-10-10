@@ -174,6 +174,13 @@
         ] }
       ] },
 
+    /* NEXT-BRIEF §24. Gated on nothing: anybody who comes to this church
+       may notice that somebody has stopped coming, and they are not
+       necessarily on a team. Its own entry rather than inside Resources,
+       because somebody looking for it is not browsing. */
+    { title: "I'm worried about someone", url: 'worried.html', icon: 'heart-handshake',
+      description: 'Tell the pastoral team, or the safeguarding lead, about somebody' },
+
     { title: 'Resources', icon: 'folder-open', children: [
       /* "Pin boards", plural, because there are five of them now and the old
          name read as one (Martin, 10 Oct 2026). */

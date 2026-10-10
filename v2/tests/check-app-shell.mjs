@@ -437,6 +437,33 @@ const offMachine = u => {
   ok('there is no hidden menu anywhere in the app',
     (await ev('document.body.innerText.indexOf("\\u2630")')) === -1);
 
+  /* ---- "I'm worried about someone", on every space (§24) -------------
+     Martin asked for it on EVERY version of the app, and a button in the
+     top bar is only on every space if every space is actually looked at.
+     Counting it once on Home would pass while four spaces had none. */
+  console.log('\n"Worried?" is on every space (§24)');
+  const worryEverywhere = JSON.parse(String(await ev(`JSON.stringify((() => {
+    const out = {};
+    for (const k of EGBCApp.spacesFor(EGBCApp.who())) {
+      EGBCApp.go(k);
+      const b = document.querySelector('.worry');
+      out[k] = !!b && (b.getAttribute('data-act') || '') === 'open:worried.html'
+               && (b.innerText || '').trim().length > 0;
+    }
+    return out;
+  })())`)));
+  ok('every space this person has offers it',
+    Object.values(worryEverywhere).length > 1
+      && Object.values(worryEverywhere).every(Boolean), JSON.stringify(worryEverywhere));
+  ok('  and it says a word, rather than being a bare heart',
+    /Worried/i.test(String(await ev("(document.querySelector('.worry')||{}).innerText || ''"))),
+    await ev("(document.querySelector('.worry')||{}).innerText || ''"));
+  ok('  at a size a finger can land on', (await ev(
+    "(() => { const b = document.querySelector('.worry');"
+    + " return b ? Math.round(b.getBoundingClientRect().height) : 0; })()")) >= 44,
+    await ev("(() => { const b = document.querySelector('.worry');"
+      + " return b ? Math.round(b.getBoundingClientRect().height) : 0; })()"));
+
   /* ---- the events window's screens are really mounted (F-141) --------
      Adding fifteen script tags and a mountAll() call looks finished whether
      or not a single screen arrived: "every tab drawn has a screen behind

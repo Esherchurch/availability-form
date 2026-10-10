@@ -42,6 +42,14 @@
   .top-row{display:flex;align-items:center;gap:10px;padding:12px 16px 10px}
   .logo{font-size:11px;font-weight:600;letter-spacing:.14em;color:var(--sp)}
   .top-title{font-size:13px;font-weight:500;color:var(--muted);flex:1}
+  /* "Worried?" in the top bar, on every space (NEXT-BRIEF §24). 44px, not
+     48: it sits in a 46px-tall bar beside the title, and a 48px target
+     would push the bar taller on every screen in the app. It is not a
+     primary action - the tabs are - and it is still a comfortable tap. */
+  .worry{display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 10px;
+         border:none;background:none;cursor:pointer;color:var(--sp);
+         font:500 13px Inter,sans-serif}
+  .worry:active{opacity:.65}
 
   /* The spaces, as a scrolling row of pills under the header. Not a menu. */
   .spaces{display:flex;gap:6px;overflow-x:auto;padding:0 12px 10px;scrollbar-width:none}

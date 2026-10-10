@@ -491,8 +491,16 @@ const BOARDS = [
      never his instruction. */
   { id:'kids',    doc:'kids-church', title:'Kids Church Board',  sub:'Suggestions &amp; Ideas',
     teams:['Kids Church'] },
+  /* CORE TEAM'S OWN (Martin, 10 Oct 2026). Everyone on Core Team, nobody
+     else - not every admin, and not Worship, who have their own. */
+  { id:'core',    doc:'core-team',   title:'Core Team Board',    sub:'Suggestions &amp; Ideas',
+    teams:['Core Team'] },
+  /* MODERATED TOO, from 10 Oct 2026. The youth board let a young person
+     with a live code READ it and suggest nothing, which Martin called
+     "cutting off exactly the people we want ideas from". Now it works like
+     ReNu and Lazers: they suggest, an adult on Youth Worship puts it up. */
   { id:'youth',   doc:'youth',       title:'Youth Board',        sub:'Suggestions &amp; Ideas',
-    teams:['Youth Worship'] },
+    teams:['Youth Worship'], moderated:true },
   /* MODERATED. A young person with a live code reads these and posts a
      suggestion; it waits in boardSuggestions until a leader puts it up. The
      board document itself is written by the group's adults only, which is

@@ -62,6 +62,9 @@ const APPROVED = [
     ['Events and rooms', [['Events'], ['Places'], ['Room bookings']]],
     ['Admin', [['Backup & Restore']]]
   ]],
+  /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
+     is not inside any of the lists below. */
+  ["I'm worried about someone"],
   ['Resources', [['Pin boards'], ['Apps and downloads'], ['Team Resources'], ['Team Videos']]]
 ];
 

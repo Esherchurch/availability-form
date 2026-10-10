@@ -284,7 +284,16 @@
 
     var html = '<div class="top" style="--sp:' + esc(space.colour) + '">'
       + '<div class="top-row"><span class="logo">EGBC</span>'
-      + '<span class="top-title">EGBC Hub</span></div>';
+      + '<span class="top-title">EGBC Hub</span>'
+      /* "I'M WORRIED ABOUT SOMEONE", on EVERY space (NEXT-BRIEF §24):
+         Me and my family, every team space, and Running things. It sits in
+         the top bar rather than on a screen for exactly that reason - a
+         screen belongs to one space, and somebody who notices that a
+         neighbour has stopped coming should not have to find the right tab
+         first. An icon with a label, because an unlabelled heart is a
+         guess. */
+      + '<button class="worry" data-act="open:worried.html" aria-label="I am worried about someone">'
+      + ic('heart-handshake', 17) + '<span>Worried?</span></button></div>';
 
     /* The row of spaces, only when there is more than one. Somebody on no
        team gets no row, not an empty one. */

@@ -132,6 +132,14 @@ export const PAGES = [
   { page: 'meeting.html', wait: 9000, states: [
       ['the lobby', '1']
     ] },
+  /* NEXT-BRIEF §24. Three screens, because the form changes shape: the
+     choice not yet made, a safeguarding concern chosen, and the thank-you
+     that is all the person who raised it ever sees. */
+  { page: 'worried.html', wait: 9000, states: [
+      ['the form', '1'],
+      ['a safeguarding concern', "(()=>{const b=document.querySelector('.kind[data-kind=safeguarding]');if(b)b.click();return 1})()"],
+      ['thank you', "(()=>{document.getElementById('form').classList.add('hidden');document.getElementById('thanks').classList.remove('hidden');return 1})()"]
+    ] },
   { page: 'login.html', wait: 8000, states: [
       ['the sign-in box', '1']
     ] },

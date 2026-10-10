@@ -45,6 +45,7 @@ const NOT_YET = {
      style sweep would ask of it. */
   "app.html": "the phone app's shell - measured by tests/check-app-shell.mjs, to APP-DESIGN-BRIEF rather than the desktop restyle",
   "attendance.html": "the events window's",
+  "notifications.html": "the events window's - it builds egbc-notify.js and the preferences (FINDINGS-notify N-1 to N-6); this window's half is N-4 and N-5",
   "events-admin.html": "the events window's",
   "form.html": "the events window's",
   "forms-admin.html": "the events window's",

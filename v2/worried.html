@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610082145" data-title="I'm worried about someone"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>I'm worried about someone — EGBC</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610091200"></script>
+<script src="egbc-guard.js?v=202610091200"></script>
+
+<style>
+  :root{
+    --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
+    --faint:#9ca3af; --line:#e5e7eb; --line-2:#d1d5db; --brand:#3d6263; --brand-dark:#2a4a4b;
+    --tint:#eef5f4; --ring:rgba(61,98,99,.15);
+    --danger:#b0392c; --danger-tint:#fdf3f1; --ok:#15803d; --ok-tint:#ecfdf3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:620px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 6px;letter-spacing:-.01em}
+  .lede{margin:0 0 20px;color:var(--muted)}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        box-shadow:0 1px 2px rgba(16,24,40,.05);padding:18px;margin-bottom:16px}
+
+  /* The two choices. Big targets, because this is a phone in a car park. */
+  .kinds{display:grid;gap:10px}
+  @media(min-width:520px){.kinds{grid-template-columns:1fr 1fr}}
+  .kind{display:block;text-align:left;border:1px solid var(--line-2);background:#fff;
+        border-radius:10px;padding:14px;cursor:pointer;min-height:48px;
+        font:400 14px Inter,system-ui,sans-serif;color:var(--body)}
+  .kind:hover{background:#f3f4f6}
+  .kind[aria-pressed="true"]{border-color:var(--brand);background:var(--tint);
+        box-shadow:0 0 0 3px var(--ring)}
+  .kind b{display:block;font-weight:600;color:var(--ink);margin-bottom:3px}
+  .kind span{font-size:13px;color:var(--muted)}
+
+  /* The 999 line. First, loud, and never behind a choice. */
+  .urgent{background:var(--danger-tint);border:1px solid #f0c8c1;border-radius:10px;
+          padding:14px;margin:0 0 16px;display:flex;gap:10px;align-items:flex-start}
+  .urgent i{color:var(--danger);flex:none;margin-top:1px}
+  .urgent b{color:var(--danger);font-weight:600}
+  .urgent p{margin:3px 0 0;font-size:13px;color:var(--body)}
+  .urgent a{color:var(--danger);font-weight:500}
+
+  label.fl{display:block;font-weight:500;color:var(--ink);margin:14px 0 6px}
+  label.fl .opt{font-weight:400;color:var(--faint)}
+  input[type=text],textarea,select{width:100%;border:1px solid var(--line-2);border-radius:8px;
+       padding:10px 12px;font:400 14px/1.5 Inter,system-ui,sans-serif;color:var(--ink);background:#fff}
+  input[type=text]{height:40px}
+  textarea{min-height:120px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
+  .hint{font-size:13px;color:var(--muted);margin:5px 0 0}
+
+  .tick{display:flex;gap:9px;align-items:flex-start;margin-top:14px;cursor:pointer}
+  .tick input{width:17px;height:17px;margin-top:1px;flex:none;accent-color:var(--brand)}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;
+       padding:0 18px;border-radius:8px;border:1px solid var(--line-2);background:#fff;
+       color:var(--ink);font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-dark)}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .row{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+
+  .said{margin-top:14px;font-size:14px;min-height:20px}
+  .said.bad{color:var(--danger)}
+
+  .thanks{text-align:center;padding:30px 16px}
+  .thanks i{color:var(--ok)}
+  .thanks h2{font-size:19px;font-weight:600;color:var(--ink);margin:12px 0 6px}
+  .thanks p{margin:0 auto;max-width:420px;color:var(--muted)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <h1>I'm worried about someone</h1>
+  <p class="lede">If you have noticed that somebody is struggling, or that you have not
+    seen them for a while, tell us. Nothing here is automatic and nobody is being
+    watched &mdash; this is only for when a person decides to speak up.</p>
+
+  <!-- THE 999 LINE IS FIRST AND ALWAYS VISIBLE. Not behind the safeguarding
+       choice, not below the fold: somebody in a hurry must meet it before
+       they meet a form. NEXT-BRIEF §24 asks for it in plain words. -->
+  <div class="urgent">
+    <i data-lucide="phone" style="width:18px;height:18px"></i>
+    <div>
+      <b>If someone is in immediate danger, call 999.</b>
+      <p id="leadLine">This form is read by people, not watched by a machine, so it is
+        not the way to raise something urgent.</p>
+    </div>
+  </div>
+
+  <form id="form">
+    <div class="card">
+      <label class="fl" id="kindLabel">What kind of concern is it?</label>
+      <div class="kinds" role="group" aria-labelledby="kindLabel">
+        <button type="button" class="kind" data-kind="pastoral" aria-pressed="false">
+          <b>A pastoral concern</b>
+          <span>You have not seen them for a while, they seem lonely, or they are going
+            through a hard time. Goes to the pastoral team.</span>
+        </button>
+        <button type="button" class="kind" data-kind="safeguarding" aria-pressed="false">
+          <b>A safeguarding concern</b>
+          <span>A child or an adult may be at risk. Goes only to the safeguarding lead
+            and deputy.</span>
+        </button>
+      </div>
+
+      <label class="fl" for="who">Who are you worried about?</label>
+      <input type="text" id="who" list="people" autocomplete="off"
+             placeholder="Start typing a name">
+      <datalist id="people"></datalist>
+      <p class="hint">Pick them from the list if they are in the address book, or just
+        type a name. Either is fine.</p>
+
+      <label class="fl" for="noticed">What have you noticed?</label>
+      <textarea id="noticed" placeholder="In your own words. There is no right way to put it."></textarea>
+
+      <label class="tick">
+        <input type="checkbox" id="contactMe" checked>
+        <span>I am happy to be contacted about this.</span>
+      </label>
+
+      <div class="row">
+        <button type="submit" class="btn primary" id="send">
+          <i data-lucide="send" style="width:16px;height:16px"></i> Send it
+        </button>
+        <a class="btn" href="hub.html">Cancel</a>
+      </div>
+      <p class="said" id="said" role="status"></p>
+    </div>
+  </form>
+
+  <!-- WHAT THE PERSON WHO RAISED IT SEES, and all they see. There is no
+       list of "concerns I raised": the rules refuse them their own concern
+       back, because such a list is one somebody can be asked to show. -->
+  <div class="thanks hidden" id="thanks">
+    <i data-lucide="circle-check" style="width:44px;height:44px"></i>
+    <h2>Thank you, it has been passed on.</h2>
+    <p id="thanksWho">Somebody will look at it. You will not see it again here, and the
+      person you are worried about will never know it came from you.</p>
+    <div class="row" style="justify-content:center">
+      <a class="btn" href="hub.html">Back to the hub</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const db = firebase.firestore(EGBCAuth.app);
+
+let KIND = '';
+let ME = null;
+/* name -> memberId, for the people the person may pick from. */
+const BOOK = {};
+
+const $ = (id) => document.getElementById(id);
+const say = (words, bad) => {
+  const el = $('said');
+  el.textContent = words || '';
+  el.className = 'said' + (bad ? ' bad' : '');
+};
+
+/* The two choices, which are the one thing that decides who reads it. */
+document.querySelectorAll('.kind').forEach(b => {
+  b.onclick = () => {
+    KIND = b.dataset.kind;
+    document.querySelectorAll('.kind').forEach(x =>
+      x.setAttribute('aria-pressed', String(x === b)));
+    say('');
+  };
+});
+
+document.addEventListener('egbc-ready', async () => {
+  ME = EGBCAuth.profile() || {};
+
+  /* THE SAFEGUARDING LEAD'S TELEPHONE NUMBER (§24). It is on their address
+     book record, which an ordinary attender cannot read - so the number is
+     kept on the settings document beside who the lead is, and the page
+     reads that. If it is not set, the line simply does not claim one
+     rather than showing a blank. */
+  try {
+    const sg = (await db.collection('safeguardingSettings').doc('defaults').get()).data() || {};
+    if (sg.leadName && sg.leadPhone) {
+      $('leadLine').innerHTML = 'If it cannot wait, ring ' + esc(sg.leadName)
+        + ' on <a href="tel:' + esc(String(sg.leadPhone).replace(/[^0-9+]/g, '')) + '">'
+        + esc(sg.leadPhone) + '</a>. This form is read by people, not watched by a machine.';
+    }
+  } catch (e) { /* the line already says something useful without it */ }
+
+  /* The names to pick from. A leader sees their own teams; the office sees
+     everybody. Whoever can read nothing still gets a plain text box, which
+     is why the field is a text input with a datalist rather than a select:
+     a concern about somebody the person cannot look up must still be
+     possible to raise. */
+  try {
+    const snap = await db.collection('addressBook').get();
+    const names = [];
+    snap.forEach(d => {
+      const r = d.data() || {};
+      if (r.archived === true || r.isMinor === true) return;
+      const n = (r.name || r.fullName || '').trim();
+      if (!n) return;
+      BOOK[n.toLowerCase()] = d.id;
+      names.push(n);
+    });
+    names.sort();
+    $('people').innerHTML = names.map(n => '<option value="' + esc(n) + '"></option>').join('');
+  } catch (e) { /* type a name instead; the form works either way */ }
+});
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const who = $('who').value.trim();
+  const noticed = $('noticed').value.trim();
+
+  if (!KIND) return say('Please choose which kind of concern it is.', true);
+  if (!who) return say('Please say who you are worried about.', true);
+  if (noticed.length < 5) return say('Please say a little about what you have noticed.', true);
+
+  $('send').disabled = true;
+  say('Sending…');
+
+  try {
+    await db.collection('worries').add({
+      kind: KIND,
+      /* Both, when the name matches the address book: the id so the reader
+         can find them, the name so the concern still reads properly if the
+         record is ever archived. */
+      aboutMemberId: BOOK[who.toLowerCase()] || '',
+      aboutName: who,
+      noticed: noticed,
+      happyToBeContacted: $('contactMe').checked,
+      by: EGBCAuth.user().uid,
+      byName: ME.name || '',
+      at: firebase.firestore.FieldValue.serverTimestamp(),
+      dealtWith: false
+    });
+    $('form').classList.add('hidden');
+    $('thanks').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    $('send').disabled = false;
+    say('It did not send. Please try again, or tell a leader directly.', true);
+    console.error('worried: could not save', err);
+  }
+});
+</script>
+</body>
+</html>

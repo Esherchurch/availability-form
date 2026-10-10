@@ -483,6 +483,93 @@ service cloud.firestore {
                    && safeguardingOk();
     }
 
+    // ---- "I'M WORRIED ABOUT SOMEONE" (NEXT-BRIEF §24) ------------------
+    // Martin: "We are not tracking it, but if someone notices that X has
+    // not been in church for a while they can flag it if they are worried.
+    // It may be an older person getting isolated."
+    //
+    // PEOPLE-LED, NEVER AUTOMATIC. Nothing here counts or watches anybody;
+    // a person chooses to speak up. The same value governs §24 throughout:
+    // adults' attendance is never recorded.
+    //
+    // PRIVATE, AND THAT IS THE WHOLE POINT. The person it is about never
+    // sees it. It never appears on their address book record, their
+    // profile, the directory or any list. The person who raised it gets
+    // "Thank you, it has been passed on" and nothing else - not even their
+    // own concern back, because a list of "concerns I raised" is a list
+    // somebody can be asked to show.
+    //
+    // WHO READS WHAT:
+    //   pastoral      the Pastoral group (teams-as-data, rota:false), and
+    //                 the safeguarding lead
+    //   safeguarding  the safeguarding lead and deputy, AND NOBODY ELSE
+    //
+    // A MASTER ADMIN IS DELIBERATELY NOT A READER of a safeguarding
+    // concern. §24 says "goes only to the safeguarding lead and deputy",
+    // and a master admin is a technical role, not a safeguarding one.
+    // Reading it the other way would make "only" mean "only, and whoever
+    // can edit the rules". If Martin wants otherwise it is one line, said
+    // out loud rather than assumed.
+    function sgLeadOrDeputy() {
+      return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
+             && sgLeadOf(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', ''));
+    }
+    function onPastoral() { return onTeam('Pastoral'); }
+
+    function concernShape(d) {
+      return d.keys().hasOnly(['kind', 'aboutMemberId', 'aboutName', 'noticed',
+                               'happyToBeContacted', 'by', 'byName', 'at',
+                               'dealtWith', 'dealtNote', 'dealtBy', 'dealtAt'])
+             && (d.kind == 'pastoral' || d.kind == 'safeguarding')
+             // Who it is about: picked from the address book, or typed.
+             // One of the two has to say something, or the concern names
+             // nobody and cannot be acted on.
+             && (d.get('aboutName', '').size() > 0 || d.get('aboutMemberId', '').size() > 0)
+             && d.get('aboutName', '').size() <= 120
+             && d.get('aboutMemberId', '').size() <= 80
+             && d.noticed is string && d.noticed.size() >= 5 && d.noticed.size() <= 4000
+             && d.happyToBeContacted is bool
+             && d.by == request.auth.uid
+             && d.byName is string && d.byName.size() <= 120
+             && d.at == request.time
+             && d.get('dealtWith', false) == false;
+    }
+
+    // A COLLECTION OF ITS OWN, and it has to be. `concerns` already exists
+    // - the events window's safeguarding concerns raised at an event, keyed
+    // by site, read by that site's safeguarding lead. Firestore ORs every
+    // match block for a path, so a second block on `concerns` would hand
+    // each set of documents the other's rules. A deliberate break proved it
+    // live: with both on `concerns`, opening MY read rule unlocked THEIR
+    // documents and three of their tests failed alongside mine. Separated,
+    // the same break touches only the ten that are mine.
+    match /worries/{worryId} {
+      // Anybody in the address book may raise one. Someone noticing that a
+      // neighbour has stopped coming is exactly who this is for, and they
+      // are not necessarily on a team.
+      allow create: if active() && concernShape(request.resource.data);
+
+      allow read: if (resource.data.kind == 'safeguarding' && sgLeadOrDeputy())
+                  || (resource.data.kind == 'pastoral' && (onPastoral() || sgLeadOrDeputy()));
+
+      // Marking it dealt with, and nothing else. Not the words of the
+      // concern, not who it is about, not who raised it - an account of
+      // what somebody was worried about should not be editable after the
+      // fact, by anyone.
+      allow update: if sgLeadOrDeputy()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['dealtWith', 'dealtNote', 'dealtBy', 'dealtAt'])
+                    && request.resource.data.dealtBy == request.auth.uid
+                    && request.resource.data.get('dealtNote', '') is string
+                    && request.resource.data.get('dealtNote', '').size() <= 2000;
+
+      // NOBODY DELETES ONE from a page. How long concerns are kept is the
+      // safeguarding lead's decision to confirm before switch-over (§24),
+      // and when it is made it belongs in a scheduled function with the
+      // Admin SDK - not in a button somebody can press in a hurry.
+      allow delete: if false;
+    }
+
     // ---- TEAMS AS DATA (APP-A1 §4, steps 1-2) --------------------------
     // teamId IS THE TEAM'S NAME as the rules already spell it - 'Kids
     // Church', 'Worship Team'. That one decision is what makes this cheap:
@@ -661,18 +748,25 @@ service cloud.firestore {
            : boardId == 'lazers' ? 'Lazers'
            : boardId == 'kids-church' ? 'Kids Church'
            : boardId == 'youth' ? 'Youth Worship'
+           : boardId == 'core-team' ? 'Core Team'
            : '';
     }
 
     function boardIsMine(boardId) {
       return isMaster()
-        // KIDS CHURCH IS LEADERS ONLY (Martin, 9 Oct 2026). It used to be
-        // anyone on the team; this takes it away from ordinary Kids Church
-        // members who can see it today, which is the instruction and is
-        // flagged in the report rather than slipped in.
-        || (boardId == 'kids-church' && adminOf('Kids Church'))
+        // KIDS CHURCH IS THE WHOLE TEAM, the same as Youth (Martin, 10 Oct
+        // 2026): "Its an ideas board. Its pointless chopping off the people
+        // we want ideas from." It was built leaders-only on the 9 October
+        // note and that has been corrected here and in the page.
+        || (boardId == 'kids-church'
+            && (onTeam('Kids Church') || adminOf('Kids Church')))
         || (boardId == 'youth'
             && (onTeam('Youth Worship') || adminOf('Youth Worship')))
+        // CORE TEAM'S OWN BOARD (Martin, 10 Oct 2026). Everyone on the
+        // team, nobody else - not every admin, and not Worship, who have
+        // their own.
+        || (boardId == 'core-team'
+            && (onTeam('Core Team') || adminOf('Core Team')))
         // ReNu and Lazers: the adults on the group write it directly, as the
         // worship team does theirs. A young person's post goes through
         // boardSuggestions below and a leader puts it up.
@@ -736,11 +830,18 @@ service cloud.firestore {
                   || adminOf(boardGroup(resource.data.get('boardId', '')))
                   || onTeam(boardGroup(resource.data.get('boardId', '')));
 
-      // Only ReNu and Lazers are moderated; the youth board is not a queue.
-      allow create: if (suggestionId.matches('renu__.*') || suggestionId.matches('lazers__.*'))
+      // THE YOUTH BOARD IS MODERATED TOO (Martin, 10 Oct 2026). It let a
+      // young person with a live code READ it and suggest nothing, which
+      // "cuts off exactly the people we want ideas from". Same shape, same
+      // queue, same no-surname and no-contact-details rules as ReNu and
+      // Lazers: the young person posts a suggestion, an adult on Youth
+      // Worship puts it up.
+      allow create: if (suggestionId.matches('renu__.*') || suggestionId.matches('lazers__.*')
+                        || suggestionId.matches('youth__.*'))
                     && youthInGroup(boardGroup(request.resource.data.get('boardId', '')))
                     && suggestionShape(request.resource.data,
-                         suggestionId.matches('renu__.*') ? 'renu' : 'lazers');
+                         suggestionId.matches('renu__.*') ? 'renu'
+                         : suggestionId.matches('lazers__.*') ? 'lazers' : 'youth');
 
       // LEADERS CAN REMOVE ANYTHING (Martin). A child may also withdraw
       // their own, which is not "removing anything" - it is theirs.
@@ -1878,8 +1979,15 @@ service cloud.firestore {
       allow read: if volunteer();
       allow write: if id == 'defaults'
                    && (isAdmin() || sgLeadOf(request.resource.data.get('leadSiteId', '')))
+                   /* leadName and leadPhone (NEXT-BRIEF §24): the "I'm
+                      worried about someone" form shows the safeguarding
+                      lead's number beside "call 999". The number is on
+                      their address book record, which an ordinary attender
+                      cannot read now - so it is kept here, beside who the
+                      lead is, and the form reads this one document. */
                    && request.resource.data.keys().hasOnly(['templates', 'ratioAll', 'ratioUnder8', 'dbsYears', 'trainingYears',
-                                                             'requireChecks', 'leadSiteId', 'updatedAt', 'updatedBy', 'updatedByName'])
+                                                             'requireChecks', 'leadSiteId', 'leadName', 'leadPhone',
+                                                             'updatedAt', 'updatedBy', 'updatedByName'])
                    && request.resource.data.templates is map
                    && request.resource.data.ratioAll is int && request.resource.data.ratioAll >= 1 && request.resource.data.ratioAll <= 50
                    && request.resource.data.ratioUnder8 is int && request.resource.data.ratioUnder8 >= 1 && request.resource.data.ratioUnder8 <= 50

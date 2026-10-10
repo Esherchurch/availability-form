@@ -1030,7 +1030,12 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
       <button class="filter-pill" onclick="setBoardFilter('general',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="lightbulb" style="width:14px;height:14px"></i> General</button>
       <button class="filter-pill" onclick="setBoardFilter('other',this)" style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="paperclip" style="width:14px;height:14px"></i> Other</button>
     </div>
-    <button class="board-add-btn" onclick="openAddNote()" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><i data-lucide="pencil" style="width:16px;height:16px"></i> Add an Idea</button>
+    <!-- The words change for a young person, because the button does
+         something different for them: it sends a suggestion to a leader
+         rather than pinning a note. A button that says "Add" and queues
+         instead is a small lie. setBoardAddLabel() sets it. -->
+    <button class="board-add-btn" id="board-add-btn" onclick="openAddNote()" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><i data-lucide="pencil" style="width:16px;height:16px"></i> <span id="board-add-words">Add an Idea</span></button>
+    <p class="board-wait" id="board-wait" style="display:none;font-size:12px;color:var(--muted);text-align:center;margin:8px 0 0">Your idea goes to a youth leader first. They put it on the board.</p>
     <div class="notes-list" id="notes-list"></div>
   </div>
 
@@ -1312,7 +1317,7 @@ function openSection(name) {
   document.getElementById('back-btn').classList.add('visible');
   document.getElementById('section-' + name).classList.add('active');
 
-  if (name === 'board') loadBoard();
+  if (name === 'board') { setBoardAddLabel(); loadBoard(); }
   if (name === 'worship' && worshipAssets.length === 0 && trainingAssets.length === 0) loadWorshipAssets();
   if (name === 'upload' && allSongs.length === 0) loadSongs();
   if (name === 'upload') initUploadSlots();
@@ -2035,10 +2040,55 @@ function openAddNote() { document.getElementById('add-note-modal').classList.add
 function closeAddNote() { document.getElementById('add-note-modal').classList.remove('open'); }
 function toggleNoteYT() { document.getElementById('note-yt-field').style.display = document.getElementById('note-cat').value === 'song' ? 'block' : 'none'; }
 
+/* A YOUNG PERSON SUGGESTS; AN ADULT PUTS IT UP (Martin, 10 Oct 2026).
+   The youth board used to let a young person with a code read it and
+   suggest nothing - "cutting off exactly the people we want ideas from" -
+   and the rules now refuse them the board document itself. So their idea
+   goes into boardSuggestions, where an adult on Youth Worship sees it in
+   the queue on stickynotes.html and puts it up under their first name.
+
+   Only the FIRST NAME and the words travel: no surname (the rules refuse
+   one with a space in it), no email, no telephone number. Same shape and
+   same queue as ReNu and Lazers. */
+/* An adult pins; a young person suggests. Say which. */
+function setBoardAddLabel() {
+  const adult = onTheYouthTeam();
+  const words = document.getElementById('board-add-words');
+  const wait = document.getElementById('board-wait');
+  if (words) words.textContent = adult ? 'Add an Idea' : 'Suggest an Idea';
+  if (wait) wait.style.display = adult ? 'none' : '';
+}
+
+async function suggestNote(title, body) {
+  const words = [title, body].filter(Boolean).join(' - ').slice(0, 500);
+  const first = (document.getElementById('note-author').value.trim().split(/\s+/)[0] || 'Someone')
+    .slice(0, 40);
+  const uid = EGBCAuth.user() ? EGBCAuth.user().uid : '';
+  await db.collection('boardSuggestions').doc('youth__' + uid + '_' + Date.now()).set({
+    boardId: YOUTH_BOARD, text: words, firstName: first, byUid: uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
 async function saveNote() {
   const title = document.getElementById('note-title').value.trim();
   const body  = document.getElementById('note-body').value.trim();
   if (!title && !body) { toast('Please add a title or details'); return; }
+
+  if (!onTheYouthTeam()) {
+    try {
+      await suggestNote(title, body);
+      closeAddNote();
+      toast('Sent to a leader. It goes up once they have seen it.');
+      ['note-author','note-title','note-body','note-yt'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('note-cat').value = 'song';
+    } catch (e) {
+      console.warn('youth app: could not send the suggestion', e);
+      toast('That did not send. Try again in a moment.');
+    }
+    return;
+  }
+
   const i = boardNotes.filter(n => n.pageId === boardCurrentPage && !n.archived).length;
   boardNotes.push({
     id:'n'+Date.now(), pageId:boardCurrentPage,

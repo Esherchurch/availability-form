@@ -158,6 +158,14 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     memberId: 'm_renu_kid2', memberName: 'Ben Synthetic', firstName: 'Ben',
     groups: ['ReNu'], grantCode: 'RENU-0002',
     redeemedAt: WEEK_AGO, expiresAt: YEAR_ON, active: true });
+  /* A young person on the YOUTH BAND, for the youth board's queue (Martin,
+     10 Oct 2026). The youth board used to let them read and suggest
+     nothing, which "cuts off exactly the people we want ideas from". */
+  await setDoc(doc(db, 'worshipBoardState', 'youth'), { notes: [], pages: [] });
+  await setDoc(doc(db, 'youthAccess', 'u_youth_yw'), {
+    memberId: 'm_yw_kid', memberName: 'Cara Synthetic', firstName: 'Cara',
+    groups: ['Youth Worship'], grantCode: 'YWOR-0001',
+    redeemedAt: WEEK_AGO, expiresAt: YEAR_ON, active: true });
   await setDoc(doc(db, 'youthAccess', 'u_youth_lazers'), {
     memberId: 'm_laz_kid', memberName: 'Cat Synthetic', firstName: 'Cat',
     groups: ['Lazers'], grantCode: 'LAZR-0001',
@@ -185,6 +193,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'events', 'e1'), { date: '2026-09-06', roles: ['Guitar'] });
   await setDoc(doc(db, 'worshipBoardState', 'state'), { notes: [] });
   await setDoc(doc(db, 'worshipBoardState', 'kids-church'), { notes: [] });
+  /* Core Team's own board (Martin, 10 Oct 2026). */
+  await setDoc(doc(db, 'worshipBoardState', 'core-team'), { notes: [], pages: [] });
   await setDoc(doc(db, 'worshipBoardState', 'youth'), { notes: [] });
   await setDoc(doc(db, 'teamVideos', 'v_kids'), { title: 'Kids clip', team: 'Kids Church' });
   await setDoc(doc(db, 'teamVideos', 'v_worship'), { title: 'Worship clip', team: 'Worship Team' });
@@ -482,13 +492,13 @@ await check('pending person cannot see the videos', 'deny', () => getDoc(doc(as(
 
 // The pin boards, which is what the three-board split was for.
 await check('worship reads the worship board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'state')));
-/* THIS USED TO BE 'allow'. Samy is on Worship Team AND Kids Church, so she
-   could read the Kids Church board as a team member. Martin narrowed that
-   board to Kids Church LEADERS on 9 October 2026, which takes it away from
-   ordinary Kids Church members who have it today - this check failing is the
-   whole of that cost, made visible rather than argued about. Karen, who
-   administers Kids Church, still has it. */
-await check('a Kids Church MEMBER no longer reads the kids board - leaders only now', 'deny', () => getDoc(doc(as('samy'), 'worshipBoardState', 'kids-church')));
+/* BACK TO 'allow', and this is the corrected one. It was narrowed to Kids
+   Church leaders on the 9 October note and Martin put it back on the 10th:
+   "Its an ideas board. Its pointless chopping off the people we want ideas
+   from." Samy is on Worship Team and Kids Church, and reads it as a member
+   of the team - exactly as Youth works. */
+await check('a Kids Church member reads the kids board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'kids-church')));
+await check('and writes it, because that is what an ideas board is for', 'allow', () => setDoc(doc(as('samy'), 'worshipBoardState', 'kids-church'), { notes: [] }));
 await check('youth cannot read the kids board', 'deny', () => getDoc(doc(as('isla'), 'worshipBoardState', 'kids-church')));
 await check('youth reads the youth board', 'allow', () => getDoc(doc(as('isla'), 'worshipBoardState', 'youth')));
 await check('kids admin writes the kids board', 'allow', () => setDoc(doc(as('karen'), 'worshipBoardState', 'kids-church'), { notes: [] }));
@@ -2349,14 +2359,19 @@ await check('an Attender cannot read the youth board', 'deny', () => getDoc(doc(
 
 const renuYouth = () => youth('u_youth_renu');
 const lazersYouth = () => youth('u_youth_lazers');
+const ywYouth = () => youth('u_youth_yw');
 
 /* WHO SEES WHAT. Five boards, and every one of them is somebody's. */
 await check('the worship team sees the worship board', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'state')));
 await check('and writes it', 'allow', () => setDoc(doc(as('samy'), 'worshipBoardState', 'state'), { notes: [], pages: [] }));
 
-await check('KIDS CHURCH IS LEADERS ONLY NOW: its admin sees it', 'allow', () => getDoc(doc(as('karen'), 'worshipBoardState', 'kids-church')));
-await check('and an ordinary Kids Church member does NOT', 'deny', () => getDoc(doc(as('samy'), 'worshipBoardState', 'kids-church')));
-await check('nor writes it', 'deny', () => setDoc(doc(as('samy'), 'worshipBoardState', 'kids-church'), { notes: [] }));
+/* EVERY BOARD IS FOR EVERYONE ON ITS TEAM (Martin, 10 Oct 2026), never
+   leaders only - an ideas board that excludes the people you want ideas
+   from is not one. Kids Church was narrowed on the 9th and put back on the
+   10th; these three are the corrected pair plus its admin. */
+await check('Kids Church: its admin sees the board', 'allow', () => getDoc(doc(as('karen'), 'worshipBoardState', 'kids-church')));
+await check('AND SO DOES AN ORDINARY MEMBER', 'allow', () => getDoc(doc(as('samy'), 'worshipBoardState', 'kids-church')));
+await check('who writes it too', 'allow', () => setDoc(doc(as('samy'), 'worshipBoardState', 'kids-church'), { notes: [] }));
 
 await check('a ReNu leader sees the ReNu board', 'allow', () => getDoc(doc(as('renuLead'), 'worshipBoardState', 'renu')));
 await check('and writes it, so they can put a post up', 'allow', () => setDoc(doc(as('renuLead'), 'worshipBoardState', 'renu'), { notes: [], pages: [] }));
@@ -2396,6 +2411,46 @@ await check('nor a cancelled one', 'deny',
   () => setDoc(doc(youthOff(), 'boardSuggestions', 'renu__p5'), aPost({ byUid: 'u_youth_off' })));
 await check('nor a stranger', 'deny',
   () => setDoc(doc(anon(), 'boardSuggestions', 'renu__p6'), aPost({ byUid: 'nobody' })));
+
+/* ---- THE YOUTH BOARD IS A QUEUE TOO (Martin, 10 Oct 2026) ----------
+   It let a young person with a live code read the board and suggest
+   nothing. Same queue, same shape, same no-surname rule as ReNu and
+   Lazers: they post, an adult on Youth Worship puts it up. */
+const aYouthPost = (over) => Object.assign({
+  boardId: 'youth', text: 'Could we do a songwriting night?',
+  firstName: 'Cara', byUid: 'u_youth_yw', createdAt: new Date()
+}, over || {});
+
+await check('A YOUNG PERSON ON THE YOUTH BAND SUGGESTS AN IDEA', 'allow',
+  () => setDoc(doc(ywYouth(), 'boardSuggestions', 'youth__p1'), aYouthPost()));
+await check('  and sees their own back, so the app can say it is waiting', 'allow',
+  () => getDoc(doc(ywYouth(), 'boardSuggestions', 'youth__p1')));
+await check('  AND CANNOT WRITE THE BOARD DIRECTLY - that is the whole queue', 'deny',
+  () => setDoc(doc(ywYouth(), 'worshipBoardState', 'youth'), { notes: [] }));
+await check('  nor list the queue and read everybody else\'s', 'deny',
+  () => getDocs(query(collection(ywYouth(), 'boardSuggestions'), where('boardId', '==', 'youth'))));
+await check('AN ADULT ON YOUTH WORSHIP SEES THE QUEUE', 'allow',
+  () => getDocs(query(collection(as('isla'), 'boardSuggestions'), where('boardId', '==', 'youth'))));
+await check('  and puts it up by writing the board', 'allow',
+  () => setDoc(doc(as('isla'), 'worshipBoardState', 'youth'), { notes: [], pages: [] }));
+await check('a ReNu child cannot suggest to the youth board', 'deny',
+  () => setDoc(doc(renuYouth(), 'boardSuggestions', 'youth__p2'),
+    aYouthPost({ byUid: 'u_youth_renu' })));
+await check('  and a youth suggestion still cannot carry a surname', 'deny',
+  () => setDoc(doc(ywYouth(), 'boardSuggestions', 'youth__p3'),
+    aYouthPost({ firstName: 'Cara Smith' })));
+
+/* ---- Core Team's own board (Martin, 10 Oct 2026) ------------------- */
+await check('a Core Team member reads the Core Team board', 'allow',
+  () => getDoc(doc(as('martin'), 'worshipBoardState', 'core-team')));
+await check('  and writes it', 'allow',
+  () => setDoc(doc(as('martin'), 'worshipBoardState', 'core-team'), { notes: [], pages: [] }));
+await check('A WORSHIP-ONLY MEMBER CANNOT READ IT', 'deny',
+  () => getDoc(doc(as('isla'), 'worshipBoardState', 'core-team')));
+await check('  nor can a young person', 'deny',
+  () => getDoc(doc(ywYouth(), 'worshipBoardState', 'core-team')));
+await check('  nor an Attender', 'deny',
+  () => getDoc(doc(as('attender'), 'worshipBoardState', 'core-team')));
 
 /* NO SURNAMES, NO CONTACT DETAILS. The rules hold the shape; the moderation
    holds the free text, which is what moderation is for. */
@@ -2636,6 +2691,125 @@ await check('  nor one tab', 'deny',
 await check('  and the heartbeat still works, claiming none', 'allow',
   () => updateDoc(doc(runsReal, 'users', 'u_runs'),
     { runs: [], lastSeen: serverTimestamp() }));
+
+/* ---- "I'm worried about someone" (NEXT-BRIEF §24) -------------------
+   Private is the whole point: the person it is about never sees it, and it
+   never reaches their record, the directory or any list. Martin named the
+   three breaks - an ordinary member, a team leader, and the person named -
+   and all three are below.
+
+   A MASTER ADMIN IS NOT A READER of a safeguarding concern either, which
+   is the strict reading of "goes only to the safeguarding lead and
+   deputy". That is a decision rather than an oversight, so it is a test. */
+
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  /* The Pastoral group: a team with rota:false, read by the pastoral team. */
+  await setDoc(doc(db, 'teams', 'Pastoral'), {
+    name: 'Pastoral', label: 'Pastoral', colour: '#6b4a7a', rota: false, runs: [], archived: false });
+  /* karen is the safeguarding lead (bookingSettings/site_main, seeded with
+     the §24 block above); pastor is on the Pastoral group; worried raises
+     them; samy is an ordinary member; isla leads Youth Worship. */
+  await setDoc(doc(db, 'users', 'u_pastor'), {
+    memberId: 'm_u_pastor', name: 'Pastor Synthetic', teams: ['Pastoral'], adminFor: [],
+    masterAdmin: false, attender: true, churchMember: true, status: 'active' });
+  await setDoc(doc(db, 'users', 'u_worried'), {
+    memberId: 'm_u_worried', name: 'Worried Synthetic', teams: [], adminFor: [],
+    masterAdmin: false, attender: true, churchMember: false, status: 'active' });
+  /* The person the concerns are ABOUT, who must never read either. */
+  await setDoc(doc(db, 'users', 'u_about'), {
+    memberId: 'm_u_about', name: 'About Synthetic', teams: ['Worship Team'], adminFor: [],
+    masterAdmin: false, attender: true, churchMember: false, status: 'active' });
+
+  const base = {
+    aboutMemberId: 'm_u_about', aboutName: 'About Synthetic',
+    noticed: 'Not seen at church for about six weeks, and did not answer the door.',
+    happyToBeContacted: true, by: 'u_worried', byName: 'Worried Synthetic',
+    at: new Date(), dealtWith: false };
+  await setDoc(doc(db, 'worries', 'c_pastoral'), { ...base, kind: 'pastoral' });
+  await setDoc(doc(db, 'worries', 'c_safeguarding'), { ...base, kind: 'safeguarding' });
+});
+PEOPLE.pastor = { uid: 'u_pastor' };
+PEOPLE.worried = { uid: 'u_worried' };
+PEOPLE.about = { uid: 'u_about' };
+
+/* ---- raising one --------------------------------------------------- */
+const concern = (kind, extra) => ({
+  kind, aboutMemberId: 'm_u_about', aboutName: 'About Synthetic',
+  noticed: 'They have not been in church for a while and I am worried about them.',
+  happyToBeContacted: true, by: 'u_worried', byName: 'Worried Synthetic',
+  at: serverTimestamp(), dealtWith: false, ...(extra || {}) });
+
+await check('anybody in the address book can raise a pastoral concern', 'allow',
+  () => setDoc(doc(as('worried'), 'worries', 'c_new1'), concern('pastoral')));
+await check('and a safeguarding one', 'allow',
+  () => setDoc(doc(as('worried'), 'worries', 'c_new2'), concern('safeguarding')));
+await check('a stranger cannot raise one', 'deny',
+  () => setDoc(doc(anon(), 'worries', 'c_new3'), concern('pastoral')));
+await check('a concern about nobody is refused', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_new4'),
+    concern('pastoral', { aboutMemberId: '', aboutName: '' })));
+await check('one with nothing noticed is refused', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_new5'), concern('pastoral', { noticed: 'x' })));
+await check('nobody can raise one in somebody else\'s name', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_new6'), concern('pastoral', { by: 'u_samy' })));
+await check('nor raise one already marked dealt with', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_new7'), concern('pastoral', { dealtWith: true })));
+
+/* ---- THE THREE BREAKS MARTIN NAMED --------------------------------- */
+await check('AN ORDINARY MEMBER CANNOT READ A CONCERN', 'deny',
+  () => getDoc(doc(as('samy'), 'worries', 'c_pastoral')));
+await check('  nor a safeguarding one', 'deny',
+  () => getDoc(doc(as('samy'), 'worries', 'c_safeguarding')));
+await check('A TEAM LEADER CANNOT EITHER', 'deny',
+  () => getDoc(doc(as('isla'), 'worries', 'c_pastoral')));
+/* NOT Karen: in these fixtures she is the safeguarding lead, so she reads
+   both - correctly, and asserted below. Administering a team is the thing
+   being checked here, and renuLead administers one without being the
+   lead. The first version of this line named Karen and failed, which is
+   the fixture catching a description of it that was wrong. */
+await check('  nor somebody who administers a team of their own', 'deny',
+  () => getDoc(doc(as('renuLead'), 'worries', 'c_pastoral')));
+await check('THE PERSON IT IS ABOUT CANNOT READ IT', 'deny',
+  () => getDoc(doc(as('about'), 'worries', 'c_pastoral')));
+await check('  nor the safeguarding one about them', 'deny',
+  () => getDoc(doc(as('about'), 'worries', 'c_safeguarding')));
+await check('  and cannot find it by listing the collection', 'deny',
+  () => getDocs(collection(as('about'), 'worries')));
+/* Even the person who raised it does not get it back: a list of "concerns
+   I raised" is a list somebody can be asked to show. */
+await check('even the person who RAISED it cannot read it back', 'deny',
+  () => getDoc(doc(as('worried'), 'worries', 'c_pastoral')));
+
+/* ---- who does read ------------------------------------------------- */
+await check('the pastoral team reads a pastoral concern', 'allow',
+  () => getDoc(doc(as('pastor'), 'worries', 'c_pastoral')));
+await check('BUT NOT A SAFEGUARDING ONE', 'deny',
+  () => getDoc(doc(as('pastor'), 'worries', 'c_safeguarding')));
+await check('the safeguarding lead reads a safeguarding concern', 'allow',
+  () => getDoc(doc(as('karen'), 'worries', 'c_safeguarding')));
+await check('and a pastoral one too', 'allow',
+  () => getDoc(doc(as('karen'), 'worries', 'c_pastoral')));
+/* The strict reading of "only the safeguarding lead and deputy". */
+await check('A MASTER ADMIN IS NOT A READER of a safeguarding concern', 'deny',
+  () => getDoc(doc(as('martin'), 'worries', 'c_safeguarding')));
+
+/* ---- marking it dealt with ----------------------------------------- */
+await check('the safeguarding lead marks one dealt with, with a note', 'allow',
+  () => updateDoc(doc(as('karen'), 'worries', 'c_pastoral'),
+    { dealtWith: true, dealtNote: 'Visited on Tuesday; she is well and glad to be asked.',
+      dealtBy: 'u_karen', dealtAt: serverTimestamp() }));
+await check('  the pastoral team cannot', 'deny',
+  () => updateDoc(doc(as('pastor'), 'worries', 'c_safeguarding'), { dealtWith: true }));
+await check('  AND NOBODY CAN CHANGE WHAT WAS SAID', 'deny',
+  () => updateDoc(doc(as('karen'), 'worries', 'c_safeguarding'),
+    { noticed: 'Actually it was nothing.' }));
+await check('  nor who it was about', 'deny',
+  () => updateDoc(doc(as('karen'), 'worries', 'c_safeguarding'), { aboutName: 'Somebody else' }));
+await check('NOBODY DELETES ONE, not even the lead', 'deny',
+  () => deleteDoc(doc(as('karen'), 'worries', 'c_safeguarding')));
+await check('  and certainly not the person it is about', 'deny',
+  () => deleteDoc(doc(as('about'), 'worries', 'c_safeguarding')));
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));

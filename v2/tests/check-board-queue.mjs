@@ -211,6 +211,59 @@ const offMachine = u => {
     !JSON.stringify(board2 ? board2.fields : {}).includes('rather not put up'));
   await shot('3-removed');
 
+  /* ---- SOMEBODY WITH NO BOARD OF THEIR OWN (Martin, 10 Oct 2026) -----
+     The page used to fall back to BOARDS[0] when nothing matched, which
+     showed a person on a team with no board the WORSHIP board - another
+     team's ideas, to somebody who should see none. A plain message is the
+     answer, and this is what says so.
+
+     Maintenance is the team with no board. Nothing else about this person
+     is unusual, which is the point: the fallback was not about who they
+     were, it was about what the list did when it came up empty. */
+  console.log('\nsomebody on a team with no board');
+  const NOBOARD = 'maint.noboard@example.invalid';
+  let nb = JSON.parse((await req(9099, 'POST',
+    '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
+    { email: NOBOARD, password: PW, returnSecureToken: true })).body || '{}');
+  if (!nb.localId) nb = JSON.parse((await req(9099, 'POST',
+    '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key',
+    { email: NOBOARD, password: PW, returnSecureToken: true })).body || '{}');
+  await fsReq('PATCH', DOCS + '/users/' + nb.localId, { fields: {
+    uid: { stringValue: nb.localId }, email: { stringValue: NOBOARD },
+    name: { stringValue: 'Maint Synthetic' }, memberId: { stringValue: 'ab_maint_nb' },
+    status: { stringValue: 'active' }, linkedBy: { stringValue: 'admin' },
+    teams: { arrayValue: { values: [{ stringValue: 'Maintenance' }] } },
+    adminFor: { arrayValue: { values: [] } },
+    masterAdmin: { booleanValue: false }, attender: { booleanValue: true },
+    churchMember: { booleanValue: false } } });
+  await fsReq('PATCH', DOCS + '/addressBook/ab_maint_nb', { fields: {
+    name: { stringValue: 'Maint Synthetic' }, email: { stringValue: NOBOARD },
+    markers: { arrayValue: { values: [{ stringValue: 'Maintenance' }] } },
+    adminFor: { arrayValue: { values: [] } },
+    churchMember: { booleanValue: false }, archived: { booleanValue: false },
+    isMinor: { booleanValue: false } } });
+
+  await send('Page.navigate', { url: 'about:blank' }); await sleep(300);
+  await send('Storage.clearDataForOrigin', { origin: 'http://localhost:' + SERVE,
+    storageTypes: 'indexeddb,local_storage,cache_storage,websql,service_workers' });
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' }); await sleep(3500);
+  await ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword('
+    + JSON.stringify(NOBOARD) + ',' + JSON.stringify(PW) + ').catch(function(){})', true);
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/stickynotes.html' });
+  await sleep(9000);
+  const nbText = String(await ev('document.body.innerText'));
+  ok('they are told there is no board for their team',
+    /isn.t a pin board for your team/i.test(nbText), nbText.replace(/\s+/g, ' ').slice(0, 220));
+  ok('AND ARE NOT SHOWN THE WORSHIP BOARD',
+    !/Worship Board/i.test(String(await ev('document.getElementById("boardTitle").textContent'))),
+    String(await ev('document.getElementById("boardTitle").textContent')));
+  ok('  with no notes on screen from anybody else',
+    (await ev('document.querySelectorAll(".note, .note-card").length')) === 0,
+    await ev('document.querySelectorAll(".note, .note-card").length'));
+  ok('  and no "Switch board" control, there being nothing to switch to',
+    (await ev("(() => { const el = document.getElementById('boardSwitch');"
+      + " return el && getComputedStyle(el).display !== 'none' ? 'shown' : 'hidden'; })()")) === 'hidden');
+
   console.log('\nthe console, and where the page went');
   const real = errs.filter(e => !/Logo fetch failed|storage\/object-not-found|cdn\.tailwindcss/i.test(e));
   ok('no errors on the console', real.length === 0, JSON.stringify(real).slice(0, 300));
