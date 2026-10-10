@@ -90,6 +90,24 @@ Answers "what do I need to know this week?" In this order, each section shown on
 - Installed as an app it opens straight to Home, signed in.
 - **Notifications are part of the launch** (NEXT-BRIEF §23), on Android and iPhone from day one. The plan is in `FINDINGS-notify.md`, with "call a parent" first.
 
+## 7b. A Core Team space, and nothing the old phone apps do is lost (Martin, 10 Oct 2026)
+
+Martin: *"why isnt there a core team area in the phone app? They will be doing the sunday service plans from the phone app. Look at the current core team phone app!"* The mock-up left Core Team out. That was the reviewing window's mistake, and the shell copied it.
+
+**Core Team gets its own space**, for everyone on Core Team (not gated on §25 "Running things", which is the office's). Four tabs:
+- **Plan:** the Sunday Service Planner on the phone, to build and manage the order of service. **Use CoreTeamApp's own phone planner screens** (`spInit`, the service list and service detail) rather than opening the desktop SundayServicePlanner page, which isn't made for a phone. Move or share that code; don't rewrite it, and don't lose anything it does (songs, YouTube and SongSelect buttons, notes, the order).
+- **Rota:** the rota planner as CoreTeamApp has it on the phone (assign the team, + for a new service).
+- **Meetings:** join video calls and see upcoming online meetings.
+- **Team:** the Email Compiler, the **Core Team pin board**, the Core Team charter, and resources.
+
+**And a parity check against every existing phone app**, because this one was missed. Before Stage 2 carries on, list every screen and action in each of these and say where it lives in the new app:
+- `CoreTeamApp.html` (Core Team)
+- `worshiphubapp.html` (Worship & AV)
+- `youthapp2.html` (youth)
+- `Performancenotes.html`
+
+Anything with no home in the new app is a gap to fix before launch (NEXT-BRIEF §15: no lost functionality). The old apps stay installed and working until switch-over. **Never** retire them or change their manifest id, start_url or scope.
+
 ## 8. Who builds what
 
 - **Main window:** the app shell (spaces, tabs, Home, Me, Running things, the family rule, the phone fixes) and **A-038** (what an Attender sees). It owns the hub and the shell.
