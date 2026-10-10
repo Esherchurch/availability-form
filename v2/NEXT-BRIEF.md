@@ -246,15 +246,19 @@ Martin: *"the church Admin might not be core team"* and *"we need to select what
 
 Today `egbc-app.js` `spacesFor()` shows the whole Running things space to **anyone who is an admin of anything, or on Core Team**. That is wrong both ways: the church administrator may not be on Core Team, and a Worship admin should not get People and Send just because they admin Worship.
 
-**The fix:**
-- In the **address book's admin section** (next to the existing "Admin for" ticks), add a **"Running things"** group of ticks, one per tab: **Today · People · Bookings · Send**. Store them on the person, e.g. `runs: ['today','people','bookings','send']`.
-- The person sees **Running things only if they have at least one tick**, and **only the tabs they're ticked for**. The master admin sees all four.
-- **Core Team and "Admin for" no longer give Running things on their own.** At switch-over, the office ticks the right people (the church administrator, Martin, etc.). Don't guess from Core Team.
-- **Bookings:** anyone named as a site's bookings admin (`bookingsAdmins`, events window) also gets the Bookings tab automatically, so nobody has to tick it twice.
-- **The Menu on a computer follows the same ticks** for the same things (address book, Email Builder, notices, bookings admin), so the phone and the computer never disagree.
-- **A tick must actually work.** If a tab is ticked, the page behind it must open for that person (the rules agree). If ticking it would need a rules change, say so and stop. Don't loosen a rule quietly.
-- Tests: someone with only Bookings sees one tab; a Worship admin with no ticks sees no Running things; the church admin who isn't Core sees what they're ticked for; view-as follows the ticks.
-- Only the master admin (or someone ticked for People) can change these ticks.
+**Groups, not 130 ticks (Martin: "we do need to be able to set groups though so we dont have to individual tick 130 profiles"):**
+- **Most people need nothing ticked.** "Me and my family" and their own team spaces already come from the teams they're on. Only admin-type access is chosen.
+- **Access is set on a group, and people are put in the group.** Use the **teams-as-data** design (APP-A1, the `teams` collection): a group is a team with `rota: false`, like Elders, Finance and Safeguarding. Add one field to a team or group: **`runs: ['today','people','bookings','send']`**, the Running things tabs its members see.
+  - Start with **"Church office"** (all four) and **"Bookings"** (Bookings only). The office can add more groups and change what a group sees in one place, and everyone in it changes at once.
+  - A rota team can carry `runs` too if Martin wants (e.g. Core Team → Today), but **nothing is given by default**. Core Team and "Admin for" don't give Running things on their own (the church admin may not be Core).
+- **One-off extras:** a person can also have individual ticks (`runs` on their address-book record) for the odd exception. What they see is **their groups' tabs plus their own ticks**.
+- The person sees **Running things only if that adds up to at least one tab**, and only those tabs. The master admin sees all four.
+- **Bookings:** anyone named as a site's bookings admin (`bookingsAdmins`, events window) also gets the Bookings tab automatically.
+- **The computer Menu follows the same answer** for the same things (address book, Email Builder, notices, bookings admin), so phone and computer never disagree. One helper in `egbc-auth.js` (e.g. `runsTabs()`) gives the answer and both use it; view-as honours it.
+- **A tab someone sees must actually work.** If the page behind it would need a rules change to open for them, say so and stop. Don't loosen a rule quietly.
+- **Who can change it:** the master admin sets what a group sees. Putting people into groups is done in the address book, the way team ticks are today.
+- Tests: a "Bookings" group member sees one tab; a Worship admin in no group sees no Running things; the church admin who isn't Core but is in "Church office" sees all four; a change to the group's `runs` changes every member; an individual extra tick adds to the group; view-as follows it.
+- **Depends on teams as data.** If that hasn't been built yet, build the `teams` collection read first (APP-A1 steps 1–2), then this.
 
 ## 21. Who is who: Attender, Church member, Team member (Martin, 9 Oct 2026)
 
