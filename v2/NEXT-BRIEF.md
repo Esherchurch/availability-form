@@ -192,6 +192,17 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
   - **Events window:** the tick on events and clubs, the check when naming leaders and helpers, and reminders before a DBS check or training runs out.
   - Rules-enforced, with tests and deliberate breaks (e.g. a Youth Worship leader with no DBS can't be put on the youth rota, and a Kids Film Club helper with expired training can't be added).
 
+- **"I'm worried about someone" (Martin, 10 Oct 2026):** a button on **every** version of the app (Me and my family, every team space, Running things) and in the Menu. *"We are not tracking it, but if someone notices that X has not been in church for a while they can flag it if they are worried. It may be an older person getting isolated."*
+  - **People-led, never automatic.** Nothing counts or watches anyone; a person chooses to speak up. This fits the rule above.
+  - **Two choices on one short form:**
+    - **A pastoral concern** (e.g. "haven't seen them for a while", "seems lonely", "going through a hard time"): goes to the **pastoral team**.
+    - **A safeguarding concern** (a child or adult may be at risk): goes **only** to the **safeguarding lead and deputy**. The form says first, in plain words: *"If someone is in immediate danger, call 999."* and shows the safeguarding lead's phone number.
+  - Fields: who it's about (pick from the address book, or type a name), what you've noticed, and whether you're happy to be contacted. Nothing else is required.
+  - **Private.** The person it's about never sees it, and it never shows on their address-book record, profile, the directory or any list. The person who raised it sees only "Thank you, it has been passed on." Rules-enforced: only the named readers can read a concern; nobody can edit or delete one except the safeguarding lead (who can mark it "dealt with" with a note). Tests and deliberate breaks, e.g. an ordinary member or team leader can't read one, and the person named can't.
+  - The readers get a **notification and an email** (no details in either, just "a new concern has been raised", with a link).
+  - The **safeguarding lead confirms** who reads each kind and how long concerns are kept, before switch-over.
+  - **Main window** builds it (one form, rules, the Menu entry, a button in the app shell). Small.
+
 **After launch (in this order unless Martin says otherwise):**
 1. **Better group emails:** improve `EmailBuilder2.html` with saved templates, a record of what was sent and who to, a choice of a team, group, family or everyone as recipients, and sending as a notification too.
 2. **Serving too often:** the address book already holds each person's **maximum serving number**, which the rota uses. Add a **threshold** the office sets, so when someone is near or over it, their team leader gets a gentle prompt to check in with them. No new tracking.
