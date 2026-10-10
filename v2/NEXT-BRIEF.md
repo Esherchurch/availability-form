@@ -177,6 +177,22 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
 - Prove it on Planner's "Send all rotas" with a synthetic signed-off term. The outbox holds the rota emails, and **nothing** reaches the network: check the browser's network log for zero requests to either address.
 - Moving these pages onto `egbc-email.js` properly stays in Step T.
 
+## 23. Phone notifications are part of the launch (Martin, 10 Oct 2026)
+
+Martin: *"we want it from the start."* Push notifications are **before switch-over**, built with the app (§22), not after it. The plan is in the events window's `FINDINGS-notify.md` (N-1 to N-6, decisions recorded).
+- **Events window:** builds notifications (`egbc-notify.js`, preferences, "call a parent" as the first type).
+- **Main window:** N-4 (the sending function in codebase "hub") and N-5 (the service-worker line, registering it, and Menu/profile links).
+- **Messages at launch:**
+  - **call a parent** (code and group only)
+  - **rota reminder** the day before you serve
+  - **booking confirmed / approved / declined**
+  - **a new maintenance job** (to the Maintenance team)
+  - **an urgent notice** from the office
+
+  Each person chooses which they get. Email stays as the fallback for anyone without the app installed.
+- **Martin's one console step** (N-1): generate the Web Push key pair in Firebase → Project settings → Cloud Messaging. The reviewing window can do it in Chrome with his go-ahead.
+- iPhone needs iOS 16.4+ and the app added to the Home Screen; the app should explain that in one friendly line when someone turns notifications on.
+
 ## 22. The phone app design is now BEFORE switch-over (Martin, 9 Oct 2026)
 
 Martin chose to **hold launch until the new app design (`APP-DESIGN-BRIEF.md`, mock-up in `v2/design/app-mockup.html`) is built**, so members only learn one new thing. This changes the §12 launch line: the app design joins the "before switch-over" list.
