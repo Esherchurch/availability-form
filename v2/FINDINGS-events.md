@@ -3021,3 +3021,17 @@ Listen, Kids Church Today, Jobs, Bookings) draw through the shell's helpers
   screens across.
 - My tests build their test copy of the app from app.html, so they'll show
   what breaks.
+
+### F-151 — the missing past sermons (Martin, 11 Oct)
+**Martin:** some past sermons are missing from Val's Spotify show, so the
+ChurchSuite downloads are needed after all. This is step 4 of 3.7 in
+`SWITCHOVER-events.md`.
+- **When:** once Val's feed address is in and the feed has come in.
+- **Matching:** the feed against the downloads, on **playing time**. The
+  MP3 names and the titles inside the files aren't reliable, and file size
+  changes when Spotify re-saves the audio.
+- **Martin sees the list first:** the ones with no match, and any that are
+  unsure.
+- **Then only those are uploaded,** as backup audio, with title, speaker,
+  date and series.
+- **Not started.** It waits for the feed address (A-L2).

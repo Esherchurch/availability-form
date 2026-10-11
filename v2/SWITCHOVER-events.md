@@ -157,11 +157,23 @@ so "Show on screen" can call a parent.
    - This list becomes a "Sermons" tick in the address book once the main
      window adds it.
 3. **Optional:** add each sermon's series and Bible passage.
-4. **A question for Martin:** are all the past sermons already on Val's
-   show?
-   - If yes, the ChurchSuite downloads aren't needed: the feed brings in
-     everything the show holds.
-   - If some are missing, upload those by hand on the same page.
+4. **The past sermons missing from Val's show (Martin, 11 Oct: some are
+   missing, so the ChurchSuite downloads are needed).** This is done
+   once the RSS address is in and the feed has come in.
+   1. **The events window compares** what the feed holds with Martin's
+      ChurchSuite downloads.
+      - **They're matched on playing time** (to within a few seconds),
+        because the file names and the titles inside the files can't be
+        trusted.
+      - File size isn't used either, because Spotify re-saves the audio.
+   2. **Martin gets the list first:** the ChurchSuite sermons with no match
+      on the show, and any that are unsure (two of the same length).
+      **Nothing is uploaded until Martin has seen it.**
+   3. **Only the missing ones are uploaded,** as backup audio on
+      `sermons-admin.html`, each with its **title, speaker, date and
+      series**. Martin, or Val, confirms these from the list.
+   4. **Check:** each one plays in the app's Listen, and none appears twice
+      beside a feed episode.
 
 ### 3.8 Room hire and invoices (the office; can come after launch)
 **Pages:** `places-admin.html` (Hire prices) and `bookings-admin.html`
@@ -207,7 +219,7 @@ so "Show on screen" can call a parent.
 | Any team admin can rename or close rooms, or Core Team only? (F-008) | Martin | Any team admin |
 | "Site admins" for children's records means master admins (F-087)? | Martin | Master admins only |
 | Does the Session Leader get "Show on screen"? (F-101) | Martin | No |
-| Are all past sermons on Val's show? (3.7) | Martin and Val | The feed brings in what the show holds |
+| Which ChurchSuite sermons to upload (3.7, step 4) | Martin, from the list | Nothing uploaded until he has seen it |
 
 ## Part 6. What does NOT need doing
 
