@@ -112,6 +112,23 @@
       '#egbc-bar{padding:6px 8px}',
       '#egbc-bar .eb-k,#egbc-bar .eb-who,#egbc-bar .eb-lbl{display:none}',
       '#egbc-bar a.eb-b,#egbc-bar button.eb-b{padding:0 10px}',
+      /* THE PAGE'S NAME GETS THE ROOM (Martin, 11 Oct 2026: the bar
+         "truncates the page title to Ho…"). The buttons are already
+         icons only on a phone; what was left squeezing the title was
+         the gaps, the avatar - which says nothing the Menu does not -
+         and one line of nowrap with an ellipsis on the end.
+         So: the avatar goes, the gaps tighten, and the name wraps to a
+         second line instead of being cut off. A bar one line taller is
+         worth more than a title nobody can read. */
+      '#egbc-bar .eb-av{display:none}',
+      '#egbc-bar{gap:8px}',
+      '#egbc-bar .eb-r{gap:4px}',
+      /* Two lines, held by a max-height rather than -webkit-line-clamp.
+         The clamp version made the bar 2,088px tall on Library - the
+         page's own CSS reaches .eb-n and the clamp stopped applying, so
+         the title wrapped to a hundred lines and the bar grew with it.
+         A max-height cannot do that whatever the page does to display. */
+      '#egbc-bar .eb-n{white-space:normal;line-height:1.2;max-height:2.4em;overflow:hidden}',
       '}'
     ].join('');
     document.head.appendChild(el);

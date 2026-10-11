@@ -2372,3 +2372,48 @@ happen on demand, so what has been proved is that the gate still passes
 with the probe in the path, not that the probe catches a drop. The same
 code is what fixed it in `check-core-covers-worship.mjs`, where the drop
 WAS reproducible.
+
+### A-073 — addressbook in app mode: some controls still behind the tab bar
+
+Found by `tests/check-app-mode.mjs` and **named as a known exception in
+it**, printed whenever it fires rather than skipped quietly.
+
+`addressbook.html`'s entry card is a 100vh column with its own inner
+scroller, so the body's padding cannot lift its last controls clear of
+the app's tab bar. Setting the page's own `--egbc-bar` hook from app
+mode fixed most of it — and one run then came back clean, so I took the
+exception out, and the next run failed again. **A single green run is
+not evidence**, which is the second time this week.
+
+**It is not worth fixing in app mode.** APP-PARITY already puts this page
+in category 3: "fits, and should not be opened as it is… a **native
+'find a person' screen** is the honest answer". Dressing a page as the
+app cannot fix a page that should not be opened from the app. That
+screen is §7d B work.
+
+### A-074 — Library.html: the website bar is 2,088px tall on a phone
+
+`tests/check-website-on-a-phone.mjs`, at 375px, signed in: every other
+page's bar is ~50px. Library's is **2,088px**, so the whole screen is
+bar and the page's own "Select a Song" heading is under it. Its "view
+as" strip is 153px — three lines — where every other page's is 45.
+
+**Not caused by the title change.** My first go at letting the title wrap
+used `-webkit-line-clamp`, which Library's own CSS defeated, and that
+version really did inflate the bar; it was replaced with a `max-height`
+that cannot. Library is still 2,088px with the max-height in place, so
+something in that page reaches into `#egbc-bar` and the strip.
+
+**Not fixed**, because it is a page-specific collision and the title and
+strip work on the other 21 pages. Library is Martin's Music Database and
+is worth looking at on its own.
+
+### A-075 — maintenance.html: the "view as" strip is 61px, not 45px
+
+Same check. Every other page's strip measures 45px — one line, as §7d
+asks. `maintenance.html` comes out at 61px. Not two full lines, but not
+one either, so something on that page is making a control taller.
+
+Small, and recorded rather than chased: the strip is the events window's
+page's chrome only in the sense that it sits on it; the strip itself is
+`egbc-auth.js`, mine.

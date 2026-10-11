@@ -743,11 +743,19 @@
     }
 
     var v = viewAs();
+    /* ONE LINE ON A PHONE (Martin, 11 Oct 2026: the strip "takes two full
+       lines at the bottom of a phone screen"). Same controls, same ids,
+       same behaviour - shorter words, no wrapping, and it scrolls
+       sideways if it still will not fit. Master admin only, as before. */
+    var narrow = (global.innerWidth || 1024) < 700;
     bar.style.cssText =
       /* z-index 40: below every page's pop-up windows (Tailwind z-50, the hub's 110),
          so it never covers their buttons. Page content gets matching space below. */
       'position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;align-items:center;' +
-      'gap:10px;flex-wrap:wrap;padding:10px 16px;font-family:Inter,system-ui,sans-serif;' +
+      (narrow
+        ? 'gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:6px 10px;'
+        : 'gap:10px;flex-wrap:wrap;padding:10px 16px;') +
+      'font-family:Inter,system-ui,sans-serif;' +
       'font-size:13px;font-weight:500;box-shadow:0 -1px 2px rgba(16,24,40,.05);' +
       (v ? 'background:#b07d2e;color:#fff' : 'background:#fff;color:#374151;border-top:1px solid #e5e7eb');
 
@@ -758,10 +766,12 @@
     }).join('');
 
     bar.innerHTML =
-      '<span style="font-weight:600">' +
-        (v ? 'Seeing the site as a ' + (TEAMS[v.team] ? TEAMS[v.team].label : v.team) +
-             ' ' + (v.admin ? 'admin' : 'member')
-           : 'View the site as') +
+      '<span style="font-weight:600;white-space:nowrap' + (narrow ? ';flex:none' : '') + '">' +
+        (narrow
+          ? (v ? 'Seeing as' : 'View as')
+          : (v ? 'Seeing the site as a ' + (TEAMS[v.team] ? TEAMS[v.team].label : v.team) +
+                 ' ' + (v.admin ? 'admin' : 'member')
+               : 'View the site as')) +
       '</span>' +
       '<select id="egbc-va-team" style="font-family:inherit;font-size:13px;font-weight:500;' +
         /* Own colours: in view-as mode the bar's text is white, and a select inherits it - white names on a white list. */
@@ -772,14 +782,19 @@
       '</select>' +
       /* 'As an admin' only means something once a team is chosen. Ticking it on
          'Myself' used to reload and untick, which looked broken - so it waits. */
-      '<label style="display:flex;align-items:center;gap:6px;cursor:' + (v ? 'pointer' : 'default;opacity:.55') + '"' +
+      '<label style="display:flex;align-items:center;gap:6px;white-space:nowrap;' +
+        (narrow ? 'flex:none;' : '') + 'cursor:' + (v ? 'pointer' : 'default;opacity:.55') + '"' +
         (v ? '' : ' title="Choose a team first"') + '>' +
-        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '> as an admin' +
-        (v ? '' : ' <span style="font-weight:400">(choose a team first)</span>') +
+        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '>' +
+        (narrow ? ' admin' : ' as an admin') +
+        /* The hint is the first thing to go on a phone: the checkbox is
+           already greyed out and carries the same words in its title. */
+        (v || narrow ? '' : ' <span style="font-weight:400">(choose a team first)</span>') +
       '</label>' +
       (v ? '<button id="egbc-va-off" style="font-family:inherit;font-size:13px;font-weight:500;' +
            'height:32px;border-radius:8px;padding:0 12px;border:none;cursor:pointer;background:#fff;' +
-           'color:#b07d2e;margin-left:auto">Back to myself</button>' : '');
+           'color:#b07d2e;white-space:nowrap;' + (narrow ? 'flex:none' : 'margin-left:auto') + '">' +
+           (narrow ? 'Me' : 'Back to myself') + '</button>' : '');
 
     function apply() {
       var team = document.getElementById('egbc-va-team').value;

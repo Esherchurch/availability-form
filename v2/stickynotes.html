@@ -39,13 +39,27 @@
   body { font-family: var(--font); background: var(--bg); min-height: 100vh; overflow: hidden; }
 
   header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-    height: 64px; background: var(--surface);
+    position: fixed; top: var(--sn-top-0, 0px); left: 0; right: 0; z-index: 200;
+    /* min-height, not height: at 375px the title and the buttons are
+       taller than 64px, and a fixed height made them spill out of the
+       top of the bar (Martin, 11 Oct 2026: "Switch board is at top
+       -39px, off screen"). The bars below stack off the measured
+       height, so growing here pushes them down instead. */
+    min-height: 64px;
+    background: var(--surface);
     border-bottom: 1px solid var(--hairline);
     box-shadow: var(--shadow);
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 28px;
+    /* flex-wrap and flex-start, not a single centred line. With
+       align-items:center a line taller than the bar is centred on it and
+       spills out of BOTH ends - which is how "Switch board" ended up
+       above the top of the screen. Wrapping puts the buttons on their
+       own line at 375px and the bar grows to hold them; the bars below
+       stack off its measured height, so they follow it down. */
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: 8px;
+    padding: 8px 16px;
   }
+  @media (min-width: 700px) { header { flex-wrap: nowrap; padding: 0 28px; } }
   .header-left { display:flex; align-items:center; gap:12px; }
   .logo-icon   { font-size:1.7rem; }
   .header-title { font-family:var(--font); font-size:1.3rem; font-weight:600; color:var(--teal); letter-spacing:-.01em; line-height:1; }
@@ -103,7 +117,7 @@
   .admin-badge { background: var(--danger); color: #fff; font-size: 0.75rem; font-weight:600;   padding: 3px 9px; border-radius: var(--r-pill); }
 
   .pages-bar {
-    position: fixed; top: 64px; left: 0; right: 0; z-index: 190;
+    position: fixed; top: var(--sn-top-1, 64px); left: 0; right: 0; z-index: 190;
     background: #fff; border-bottom: 1px solid var(--border);
     padding: 0 24px; display: flex; gap: 4px; align-items: flex-end;
     overflow-x: auto; scrollbar-width: thin; height: 42px;
@@ -123,7 +137,7 @@
   .add-page-btn:hover { opacity: 1; transform: scale(1.2); }
 
   .filter-bar {
-    position: fixed; top: 106px; left: 0; right: 0; z-index: 180;
+    position: fixed; top: var(--sn-top-2, 106px); left: 0; right: 0; z-index: 180;
     background: #fff; border-bottom: 1px solid var(--border);
     padding: 7px 24px; display: flex; gap: 6px; align-items: center;
     overflow-x: auto; scrollbar-width: none; height: 46px;
@@ -139,7 +153,8 @@
   .filter-chip:hover  { background: var(--teal-light); border-color: var(--teal); }
   .filter-chip.active { background: var(--teal); color: #fff; border-color: var(--teal); }
 
-  .board-outer { position: fixed; top: 152px; left: 0; right: 0; bottom: 0; overflow: auto; }
+  .board-outer { position: fixed; top: var(--sn-top-3, 152px); left: 0; right: 0;
+                 bottom: var(--sn-bottom, 0px); overflow: auto; }
   .board-canvas {
     position: relative; width: 3200px; height: 2400px;
     background:
@@ -1248,6 +1263,49 @@ function whenSignedIn() {
     setTimeout(() => h.classList.add('fade'), 3500);
   }, 800);
 })();
+
+/* ---- the bars stack off each other, not off numbers ---------------
+   Four bars are fixed to the top of the screen. Their tops used to be
+   0, 64, 106 and 152, typed in - which is right only while every bar
+   is exactly the height somebody assumed. At 375px the header is not,
+   so its contents spilled upwards off the screen.
+
+   --am-top is the app header’s height when this page was opened from
+   the phone app (egbc-appmode.js), and 0 otherwise, so one sum covers
+   both. data-am-own tells app mode to leave these four alone: they
+   have already counted it, and being shifted again would double it. */
+function snStack() {
+  var root = document.documentElement;
+  var am = parseFloat(getComputedStyle(root).getPropertyValue("--am-top")) || 0;
+  var amB = parseFloat(getComputedStyle(root).getPropertyValue("--am-bottom")) || 0;
+  var bars = [document.querySelector("header"),
+              document.querySelector(".pages-bar"),
+              document.querySelector(".filter-bar")];
+  var y = am;
+  for (var i = 0; i < bars.length; i++) {
+    if (!bars[i]) continue;
+    bars[i].setAttribute("data-am-own", "1");
+    root.style.setProperty("--sn-top-" + i, y + "px");
+    var cs = getComputedStyle(bars[i]);
+    if (cs.display !== "none") y += bars[i].offsetHeight;
+  }
+  root.style.setProperty("--sn-top-3", y + "px");
+  root.style.setProperty("--sn-bottom", amB + "px");
+  var outer = document.querySelector(".board-outer");
+  if (outer) outer.setAttribute("data-am-own", "1");
+}
+snStack();
+window.addEventListener("resize", snStack);
+/* The bars fill in as the board loads - the page tabs, the filters and
+   "Switch board" all appear once we know which board this is. */
+setTimeout(snStack, 400);
+setTimeout(snStack, 1500);
+try {
+  var snPending = null;
+  new MutationObserver(function () {
+    clearTimeout(snPending); snPending = setTimeout(snStack, 120);
+  }).observe(document.body, { childList: true, subtree: true });
+} catch (e) {}
 </script>
 </body>
 </html>

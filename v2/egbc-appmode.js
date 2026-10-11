@@ -159,6 +159,86 @@
     return html + '</nav>';
   }
 
+  var topH = 0, bottomH = 0;
+
+  /* ---- A PAGE'S OWN FIXED CHROME HAS TO MOVE TOO -------------------
+     Martin, 11 Oct 2026, walking stickynotes in app mode: "Add Note,
+     Report, Archive and Admin sit at top 5-56px UNDER the app header;
+     Switch board is at top -39px, off screen."
+
+     Padding on the body moves the page's flow. It does nothing at all
+     to an element the page has fixed to the viewport - stickynotes has
+     four of them stacked at top 0, 64, 106 and 152 - so the app's
+     header simply landed on top of them, and the first bar was pushed
+     off the screen entirely.
+
+     So every fixed element the PAGE owns is moved down by the header,
+     and up by the tab bar, by however much each of them is anchored.
+     The original value is kept on the element, so this is idempotent
+     and a second pass after a redraw does not stack offsets.
+
+     WHAT IS LEFT ALONE, and why:
+       - our own header and tab bar
+       - anything covering the whole viewport. That is a modal backdrop,
+         and a modal is meant to cover everything, the app's chrome
+         included. Shifting it would leave a 60px strip of page showing
+         through the top of it.
+       - anything anchored to neither top nor bottom (top and bottom
+         both auto): the page is centring it, and centring still works. */
+  var SHIFT = 'data-am-shift';
+
+  /* Which box actually scrolls this element - the page, or a scrolling
+     ancestor of its own. */
+  function scrollerOf(el) {
+    for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      var cs = getComputedStyle(p);
+      if (/(auto|scroll|overlay)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight + 1) return p;
+    }
+    return document.scrollingElement;
+  }
+
+  function shiftFixed() {
+    if (!on() || !document.body) return;
+    var top = document.getElementById('egbc-am-top');
+    var tabs = document.getElementById('egbc-am-tabs');
+    var all = document.body.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (el === top || el === tabs) continue;
+      if ((top && top.contains(el)) || (tabs && tabs.contains(el))) continue;
+      /* A page that has counted --am-top into its own layout says so,
+         and is left alone - shifting it again would double it.
+         stickynotes does this, because its four bars stack off each
+         other's measured heights and one blind offset cannot know that. */
+      if (el.hasAttribute('data-am-own')) continue;
+      var cs = getComputedStyle(el);
+      /* STICKY COUNTS TOO. The address book's Save row is
+         position:sticky;bottom:0, so it sat behind the tab bar - the
+         one control on that screen somebody actually came for.
+         Sticky inside a scrolling box of its own sticks to that box,
+         not the viewport, so only the ones the PAGE scrolls are moved:
+         anything with a scrolling ancestor is already clear of our
+         chrome, because its box is. */
+      if (cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+      if (cs.position === 'sticky' && scrollerOf(el) !== document.scrollingElement) continue;
+      var r = el.getBoundingClientRect();
+      if (r.width >= innerWidth - 2 && r.height >= innerHeight - 2) continue;
+
+      var done = el.getAttribute(SHIFT);
+      var was = done ? JSON.parse(done) : { top: cs.top, bottom: cs.bottom };
+      if (!done) el.setAttribute(SHIFT, JSON.stringify(was));
+
+      if (was.top && was.top !== 'auto') {
+        var t = parseFloat(was.top);
+        if (!isNaN(t)) el.style.top = (t + topH) + 'px';
+      }
+      if (was.bottom && was.bottom !== 'auto') {
+        var b = parseFloat(was.bottom);
+        if (!isNaN(b)) el.style.bottom = (b + bottomH) + 'px';
+      }
+    }
+  }
+
   var started = false;
   function start(opts) {
     if (!on() || started) return false;
@@ -195,13 +275,36 @@
     var fit = function () {
       var t = document.getElementById('egbc-am-top');
       var b = document.getElementById('egbc-am-tabs');
-      if (t) document.documentElement.style.setProperty('--am-top', t.offsetHeight + 'px');
-      if (b) document.documentElement.style.setProperty('--am-bottom', b.offsetHeight + 'px');
-      else document.documentElement.style.setProperty('--am-bottom', '0px');
+      topH = t ? t.offsetHeight : 0;
+      bottomH = b ? b.offsetHeight : 0;
+      document.documentElement.style.setProperty('--am-top', topH + 'px');
+      document.documentElement.style.setProperty('--am-bottom', bottomH + 'px');
+      /* --egbc-bar IS THE PAGE'S OWN HOOK for "how much chrome is in the
+         way", and egbc-shell.js sets it to the website bar's height. The
+         address book sizes its entry card with it -
+         height:calc(100vh - 6rem - var(--egbc-bar)) - so that the Save
+         button stays on screen. In app mode nothing was setting it, the
+         card was sized for no chrome at all, and Save sat behind the tab
+         bar. Using the page's own hook rather than fighting it is both
+         smaller and more likely to be right on the next page that has
+         one. */
+      document.documentElement.style.setProperty('--egbc-bar', (topH + bottomH) + 'px');
+      shiftFixed();
     };
     fit();
     global.addEventListener('resize', fit);
     setTimeout(fit, 300);
+    setTimeout(fit, 1500);
+    /* A page can put its chrome up later - stickynotes draws its board
+       bar once it knows which board you are on. Debounced, because this
+       watches every page and some of them redraw constantly. */
+    try {
+      var pending = null;
+      new MutationObserver(function () {
+        clearTimeout(pending);
+        pending = setTimeout(shiftFixed, 120);
+      }).observe(document.body, { childList: true, subtree: true });
+    } catch (e) {}
 
     icons();
     return true;
@@ -216,7 +319,9 @@
       if (tabs) ssSet(TABS, JSON.stringify(tabs));
       ssSet(KEY, '1');
     },
-    leave: function () { ssDel(KEY); ssDel(BACK); ssDel(TABS); }
+    leave: function () { ssDel(KEY); ssDel(BACK); ssDel(TABS); },
+    /* A page that moves its own chrome about can ask for another pass. */
+    refit: function () { shiftFixed(); }
   };
 
   /* A page that loads this and nothing else - the availability form - is
