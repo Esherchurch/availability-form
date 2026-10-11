@@ -56,31 +56,31 @@
 
   var SPACES = {
     me: {
-      label: 'Me and my family', colour: '#3d6263',
+      label: 'Me and my family', colour: '#3d6263', tint: '#eef5f4',
       tabs: [['home', 'Home', 'house'], ['whatson', "What's on", 'calendar-days'],
              ['listen', 'Listen', 'headphones'], ['me', 'Me', 'circle-user']]
     },
     worship: {
-      label: 'Worship & AV', colour: '#4a5f7a',
+      label: 'Worship & AV', colour: '#4a5f7a', tint: '#e9eef5',
       teams: ['Worship Team', 'AV Team', 'Choir'],
       tabs: [['rota', 'Rota', 'calendar-check'], ['sunday', 'Sunday', 'list-music'],
              ['learn', 'Learn', 'graduation-cap'], ['team', 'Team', 'users']]
     },
     kids: {
-      label: 'Kids Church', colour: '#7a5f4a', teams: ['Kids Church'],
+      label: 'Kids Church', colour: '#7a5f4a', tint: '#f4ede7', teams: ['Kids Church'],
       tabs: [['today', 'Today', 'sun'], ['children', 'Children', 'baby'],
              ['rota', 'Rota', 'calendar-check'], ['team', 'Team', 'users']]
     },
-    youth: { label: 'Youth', colour: '#5f7a4a', teams: ['Youth Worship'], tabs: SIMPLE_TABS },
-    lazers: { label: 'Lazers', colour: '#8a4a3d', teams: ['Lazers'], tabs: SIMPLE_TABS },
-    renu: { label: 'ReNu', colour: '#3d6b5f', teams: ['ReNu'], tabs: SIMPLE_TABS },
+    youth: { label: 'Youth', colour: '#5a4a7a', tint: '#efebf6', teams: ['Youth Worship'], tabs: SIMPLE_TABS },
+    lazers: { label: 'Lazers', colour: '#8a4a5e', tint: '#f6ebef', teams: ['Lazers'], tabs: SIMPLE_TABS },
+    renu: { label: 'ReNu', colour: '#6b5a3a', tint: '#f2ede4', teams: ['ReNu'], tabs: SIMPLE_TABS },
     maint: {
-      label: 'Maintenance', colour: '#4f5a66', teams: ['Maintenance'],
+      label: 'Maintenance', colour: '#4f5a66', tint: '#eceff2', teams: ['Maintenance'],
       tabs: [['jobs', 'Jobs', 'wrench'], ['rooms', 'Rooms', 'door-closed'],
              ['team', 'Team', 'users']]
     },
     office: {
-      label: 'Running things', colour: '#111827', runsThings: true,
+      label: 'Running things', colour: '#111827', tint: '#e3e8e6', runsThings: true,
       tabs: [['today', 'Today', 'layout-dashboard'], ['people', 'People', 'contact'],
              ['bookings', 'Bookings', 'door-open'], ['send', 'Send', 'send']]
     }
@@ -134,9 +134,12 @@
   }
 
   /* A list row. title and sub are TEXT and are escaped; right is HTML. */
-  function row(icon, title, sub, right, act, colour) {
+  function row(icon, title, sub, right, act, colour, tint) {
     var a = actOk(act) ? ' data-act="' + esc(act) + '"' : '';
-    var c = colour ? ' style="--c:' + esc(colour) + '"' : '';
+    /* --c AND --ct, as the mock-up does: the icon box is the tint and the
+       glyph is the colour. One grey tint behind every row is a good part
+       of why the cards all looked the same (§7e). */
+    var c = colour ? ' style="--c:' + esc(colour) + (tint ? ';--ct:' + esc(tint) : '') + '"' : '';
     return '<button class="row"' + a + c + '><span class="ic">' + ic(icon) + '</span>'
       + '<span class="tx"><b>' + esc(title) + '</b>'
       + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>'
@@ -151,8 +154,9 @@
   }
 
   /* The "next thing" card. Everything but actions is TEXT. */
-  function next(day, mon, title, sub, actions, colour) {
-    return '<div class="card next"' + (colour ? ' style="--c:' + esc(colour) + '"' : '') + '>'
+  function next(day, mon, title, sub, actions, colour, tint) {
+    return '<div class="card next"'
+      + (colour ? ' style="--c:' + esc(colour) + (tint ? ';--ct:' + esc(tint) : '') + '"' : '') + '>'
       + '<div class="next-top"><div class="date"><b>' + esc(day) + '</b><span>' + esc(mon) + '</span></div>'
       + '<div><h4>' + esc(title) + '</h4><p>' + esc(sub) + '</p></div></div>'
       + (actions ? '<div class="actions">' + actions + '</div>' : '') + '</div>';
@@ -175,6 +179,10 @@
     return {
       first: String(p.name || '').split(/\s+/)[0] || 'there',
       name: p.name || '',
+      /* Home matches this against each event's assignments to find what
+         somebody is serving on. It is the address book id, which is what
+         the rota stores - never the uid. */
+      memberId: p.memberId || '',
       teams: teams,
       adminFor: p.adminFor || [],
       isMaster: !!(global.EGBCAuth && EGBCAuth.isMaster && EGBCAuth.isMaster()),
@@ -208,7 +216,13 @@
       var mine = (s.teams || []).some(function (t) {
         return me.teams.indexOf(t) !== -1 || me.adminFor.indexOf(t) !== -1;
       });
-      if (mine || me.isMaster) out.push(k);
+      /* A MASTER ADMIN IS NO EXCEPTION (§7e). `|| me.isMaster` gave Martin
+         all nine spaces, where the mock-up gives him three - and that is
+         most of "it is now as confusing as the church suite one". He sees
+         the teams he is actually on; to look at another team's space he
+         uses "View as" on the Me tab, which is one row rather than a strip
+         on every screen. */
+      if (mine) out.push(k);
     });
     return out;
   }
@@ -283,7 +297,13 @@
     if (!V[S.space + '_' + S.tab]) S.tab = tabs[0] ? tabs[0][0] : null;
 
     var html = '<div class="top" style="--sp:' + esc(space.colour) + '">'
+      /* The mock-up's header: a filled logo square, the title at 16px/600
+         in ink, then the buttons. Mine was letter-spaced small caps and a
+         muted 13px title, which read as a website strip. */
       + '<div class="top-row"><span class="logo">EGBC</span>'
+      /* "EGBC Hub", as the mock-up has it. The space is named in the
+         pills below; putting it in the title too said the same thing
+         twice and lost the app's name. */
       + '<span class="top-title">EGBC Hub</span>'
       /* "I'M WORRIED ABOUT SOMEONE", on EVERY space (NEXT-BRIEF §24):
          Me and my family, every team space, and Running things. It sits in

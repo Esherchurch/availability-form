@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- data-egbc-no-strips: NO WEBSITE STRIPS IN THE APP (§7e). egbc-auth.js
+     fixes a "View the site as" bar to the bottom of the page for a master
+     admin, and in the app it landed on top of the tab bar - Martin saw it
+     there. The same thing is one row on Me instead. Set on <html> rather
+     than <body> so it is readable before any script runs. -->
+<html lang="en" data-egbc-no-strips>
 <head>
 <meta charset="UTF-8">
 <!-- viewport-fit=cover, because the tab bar has to be able to pad itself past
@@ -42,93 +47,159 @@
 <script src="egbc-ui.js?v=202610091200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* ===== TAKEN FROM design/app-mockup.html (§7e) =====================
+     Martin: "it is not the design we agreed." These are the mock-up's own
+     tokens and rules, copied rather than approximated - the same hex
+     values, the same radii, the same spacing. Where the real app needs
+     something the mock-up has no equivalent of, it is marked.
+
+     THE SPACE COLOURS ARE THE MOCK-UP'S, and they are not all the ones
+     egbc-auth.js uses for the hub's team dots: Youth is #5a4a7a here and
+     #5f7a4a there, and the Worship space takes the AV blue. The app is
+     drawn to the design Martin approved; the hub keeps its own. */
   :root{
-    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
-    --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
-    --card:0 1px 2px rgba(16,24,40,.05);--sp:var(--brand);
+    --brand:#3d6263; --brand-tint:#eef5f4;
+    --bg:#f3f6f5;    --surface:#ffffff;
+    --ink:#111827;   --body:#374151;   --muted:#6b7280;
+    --line:#e3e8e6;
+    --worship:#3d6263; --worship-tint:#e8f1f0;
+    --av:#4a5f7a;      --av-tint:#e9eef5;
+    --kids:#7a5f4a;    --kids-tint:#f4ede7;
+    --youth:#5a4a7a;   --youth-tint:#efebf6;
+    --welcome:#8a4a5e; --welcome-tint:#f6ebef;
+    --coffee:#6b5a3a;  --coffee-tint:#f2ede4;
+    --maint:#4f5a66;   --maint-tint:#eceff2;
+    --good:#1f7a4d;    --good-tint:#e6f4ec;
+    --warn:#9a5b00;    --warn-tint:#fdf3e2;
+    --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --sp:var(--brand);
   }
+  /* The mock-up follows the phone's own light or dark setting, and so does
+     the app. Kept whole rather than dropped: a church app that glares at
+     somebody in bed at night is a thing people complain about once. */
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --brand:#7fb3b1; --brand-tint:#1f3333; --bg:#0f1514; --surface:#182120;
+    --ink:#eef3f2; --body:#cdd8d6; --muted:#93a5a2; --line:#2a3634;
+    --worship:#7fb3b1; --worship-tint:#1f3333; --av:#9db3d1; --av-tint:#1e2733;
+    --kids:#d1b39b; --kids-tint:#2e241d; --youth:#b9a8db; --youth-tint:#261f33;
+    --welcome:#e0a3b6; --welcome-tint:#331d24; --coffee:#d6c39a; --coffee-tint:#2b2416;
+    --maint:#b3bfcc; --maint-tint:#20262d;
+    --good:#6fcf9d; --good-tint:#16301f; --warn:#f0b762; --warn-tint:#33260f;
+    color-scheme:dark; } }
+  :root[data-theme="dark"]{
+    --brand:#7fb3b1; --brand-tint:#1f3333; --bg:#0f1514; --surface:#182120;
+    --ink:#eef3f2; --body:#cdd8d6; --muted:#93a5a2; --line:#2a3634;
+    --worship:#7fb3b1; --worship-tint:#1f3333; --av:#9db3d1; --av-tint:#1e2733;
+    --kids:#d1b39b; --kids-tint:#2e241d; --youth:#b9a8db; --youth-tint:#261f33;
+    --welcome:#e0a3b6; --welcome-tint:#331d24; --coffee:#d6c39a; --coffee-tint:#2b2416;
+    --maint:#b3bfcc; --maint-tint:#20262d;
+    --good:#6fcf9d; --good-tint:#16301f; --warn:#f0b762; --warn-tint:#33260f;
+    color-scheme:dark; }
+
   *{box-sizing:border-box}
   html,body{height:100%}
-  body{margin:0;background:var(--canvas);color:var(--body);
-       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--body);
+       font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;cursor:pointer}
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  i[data-lucide]{display:inline-flex}
+  svg.lucide{stroke-width:1.75}
 
-  /* The three rows: chrome, the scrolling middle, the tabs. The middle is the
-     only thing that scrolls, so the tab bar never leaves the screen. */
-  #egbc-app{display:grid;grid-template-rows:auto 1fr auto;height:100%;max-width:520px;margin:0 auto;background:#fff}
+  /* FULL WIDTH, NO GREY MARGINS (§7e). This had max-width:520px with auto
+     margins, so on a wide phone the app sat in a column with the page
+     ground showing down both sides - part of Martin's "it does not fit the
+     screen". The mock-up's phone fills its screen; so does this. */
+  #egbc-app{display:flex;flex-direction:column;height:100%;background:var(--bg)}
 
-  .top{background:#fff;border-bottom:1px solid var(--line);padding:env(safe-area-inset-top) 0 0}
-  .top-row{display:flex;align-items:center;gap:10px;padding:12px 16px 10px}
-  .logo{font-size:11px;font-weight:600;letter-spacing:.14em;color:var(--sp)}
-  .top-title{font-size:13px;font-weight:500;color:var(--muted);flex:1}
-  /* "Worried?" in the top bar, on every space (NEXT-BRIEF §24). 44px, not
-     48: it sits in a 46px-tall bar beside the title, and a 48px target
-     would push the bar taller on every screen in the app. It is not a
-     primary action - the tabs are - and it is still a comfortable tap. */
+  /* ---- the chrome, from the mock-up ------------------------------- */
+  .top{background:var(--surface);padding:calc(14px + env(safe-area-inset-top)) 16px 10px;
+       border-bottom:1px solid var(--line);display:grid;gap:10px}
+  .top-row{display:flex;align-items:center;gap:10px}
+  .logo{width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;
+        display:grid;place-items:center;font-weight:700;font-size:11px;letter-spacing:.02em;flex:none}
+  .top-title{font-weight:600;color:var(--ink);font-size:16px;flex:1;min-width:0}
+  .icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
+            background:var(--surface);display:grid;place-items:center;position:relative;flex:none;
+            color:var(--body)}
+  .badge{position:absolute;top:-4px;right:-4px;background:#c0392b;color:#fff;font-size:10px;
+         font-weight:600;min-width:17px;height:17px;border-radius:9px;display:grid;
+         place-items:center;padding:0 4px}
+
+  /* NOT IN THE MOCK-UP, and said so rather than implied: "I'm worried
+     about someone" is NEXT-BRIEF §24, which came after the design. It is
+     drawn in the mock-up's idiom - the same border, radius and surface as
+     .icon-btn - but keeps its word, because an unlabelled heart is a
+     guess, and 44px rather than the mock-up's 36px, because a missed tap
+     on a safeguarding route is not like a missed tap on a bell. */
   .worry{display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 10px;
-         border:none;background:none;cursor:pointer;color:var(--sp);
-         font:500 13px Inter,sans-serif}
+         border:1px solid var(--line);border-radius:10px;background:var(--surface);
+         color:var(--brand);font-size:13px;font-weight:500;flex:none;white-space:nowrap}
   .worry:active{opacity:.65}
 
-  /* The spaces, as a scrolling row of pills under the header. Not a menu. */
-  .spaces{display:flex;gap:6px;overflow-x:auto;padding:0 12px 10px;scrollbar-width:none}
+  /* The pills. THE SELECTED ONE IS FILLED with its space's colour, which is
+     what makes the row read as "where am I" at a glance. Mine were white
+     with an inset outline and all looked the same. */
+  .spaces{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
   .spaces::-webkit-scrollbar{display:none}
-  .space{flex:none;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;
-         border:1px solid var(--line-2);border-radius:8px;background:#fff;color:var(--body);
-         font:500 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
-  .space[aria-pressed="true"]{border-color:var(--sp);color:var(--ink);background:#fff;box-shadow:inset 0 0 0 1px var(--sp)}
+  .space{flex:none;display:flex;align-items:center;gap:6px;border:1px solid var(--line);
+         background:var(--surface);padding:6px 12px;border-radius:999px;font-size:13px;
+         font-weight:500;color:var(--body);white-space:nowrap}
   .space .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .space[aria-pressed="true"]{background:var(--sp,var(--brand));border-color:var(--sp,var(--brand));color:#fff}
+  .space[aria-pressed="true"] .dot{background:#fff !important}
 
-  .content{overflow-y:auto;padding:16px 16px 20px;display:grid;gap:14px;align-content:start}
-  .hello{font-size:22px;font-weight:700;color:var(--ink);margin:0}
-  .sub{font-size:13px;color:var(--muted);margin:2px 0 0}
-
-  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card)}
-  .card.list{display:grid}
-  .row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;
-       border:0;border-bottom:1px solid var(--line);padding:12px 14px;cursor:pointer;
-       font:400 14px Inter,sans-serif;color:var(--body);min-height:56px}
-  .card.list .row:last-child{border-bottom:0}
-  .row:active{background:#f3f4f6}
-  .row .ic{width:36px;height:36px;border-radius:8px;background:var(--tint);color:var(--c,var(--sp));
-           display:grid;place-items:center;flex:none}
-  .row .tx{flex:1;min-width:0;display:grid;gap:1px}
-  .row .tx b{font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
-  .row .tx small{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
-  .row .chev{color:var(--faint);flex:none}
+  .content{flex:1;overflow-y:auto;padding:16px;display:grid;gap:14px;align-content:start}
+  .hello{font-size:22px;font-weight:700;color:var(--ink);margin:2px 0 0}
+  .sub{color:var(--muted);font-size:13px;margin:0}
 
   .sec{display:grid;gap:8px}
-  .sec-h{display:flex;align-items:baseline;gap:10px}
-  .sec-h h3{font-size:15px;font-weight:600;color:var(--ink);margin:0;flex:1}
-  .sec-h button{background:none;border:0;color:var(--sp);font:500 13px Inter,sans-serif;cursor:pointer;padding:4px}
+  .sec-h{display:flex;align-items:baseline;justify-content:space-between}
+  .sec-h h3{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
+  .sec-h button{border:0;background:none;color:var(--brand);font-size:13px;font-weight:500;padding:0}
 
-  .next{padding:14px}
-  .next-top{display:flex;gap:12px;align-items:flex-start}
-  .date{width:48px;text-align:center;flex:none}
-  .date b{display:block;font-size:20px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
-  .date span{font-size:11px;color:var(--muted)}
-  .next h4{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
-  .next p{margin:2px 0 0;font-size:13px;color:var(--muted)}
-  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 
-  /* Pills and small notes, which the screens use and the shell owns
-     (F-141.3). The events window ships a :where() fallback so its screens
-     are never unstyled; these are plain selectors, so they win over it.
-     12px, not the mock-up's 11.5px - DESIGN.md's floor, and the style
-     check measures it.
+  /* The "next thing" card: a COLOURED LEFT EDGE and a TINTED DATE TILE.
+     Mine had neither, which is most of why Home looked like a list of
+     links rather than the mock-up. */
+  .next{padding:14px;display:grid;gap:12px;border-left:4px solid var(--c,var(--brand))}
+  .next-top{display:flex;gap:12px;align-items:center}
+  .date{width:50px;flex:none;text-align:center;border-radius:10px;
+        background:var(--ct,var(--brand-tint));color:var(--c,var(--brand));padding:6px 0}
+  .date b{display:block;font-size:20px;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums}
+  .date span{font-size:11px;font-weight:600}
+  .next h4{margin:0;font-size:16px;font-weight:600;color:var(--ink)}
+  .next p{margin:0;font-size:13px;color:var(--muted)}
 
-     A pill is a CHIP, not a control: a round-ended <span> saying "Today" or
-     "3 waiting". The style check flags a 999px radius only on buttons and
-     inputs, which is the distinction DESIGN.md draws too. */
-  .pill{display:inline-flex;align-items:center;font-size:12px;font-weight:600;
-        padding:3px 8px;border-radius:999px;white-space:nowrap;
-        background:var(--ok-bg,#ecfdf3);color:var(--ok,#15803d)}
-  .pill.warn{background:#fdf8ee;color:#b07d2e}
-  .pill.n{background:var(--tint,#eef5f4);color:var(--brand,#3d6263)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;
+       font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px;color:var(--body)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+
+  .list{display:grid}
+  .card.list{display:grid}
+  .row{display:flex;gap:12px;align-items:center;padding:12px 14px;border:0;background:none;
+       text-align:left;width:100%}
+  .row + .row{border-top:1px solid var(--line)}
+  .row .ic{width:36px;height:36px;border-radius:10px;background:var(--ct,var(--brand-tint));
+           color:var(--c,var(--brand));display:grid;place-items:center;flex:none}
+  .row .tx{flex:1;min-width:0}
+  .row b{display:block;font-weight:600;color:var(--ink);font-size:14px;overflow-wrap:anywhere}
+  .row small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+  .chev{color:var(--muted);flex:none}
+
+  .pill{font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;
+        background:var(--good-tint);color:var(--good);white-space:nowrap}
+  .pill.warn{background:var(--warn-tint);color:var(--warn)}
+  .pill.n{background:var(--brand-tint);color:var(--brand)}
+
+  .notice{padding:12px 14px;display:grid;gap:4px}
+  .notice + .notice{border-top:1px solid var(--line)}
+  .notice b{color:var(--ink);font-weight:600}
+  .notice p{margin:0;font-size:13px}
+  /* 12px, not the mock-up's 11.5px: DESIGN.md's floor, and the style check
+     measures it. The only number in here deliberately not the mock-up's. */
   .example{font-size:12px;color:var(--muted);text-align:center;margin:0}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;
-       padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;
-       border:1px solid var(--line-2);background:#fff;color:var(--ink)}
-  .btn.primary{background:var(--sp);border-color:var(--sp);color:#fff}
 
   .empty{display:grid;justify-items:center;gap:8px;text-align:center;color:var(--muted);
          font-size:13px;padding:26px 8px;margin:0}
@@ -140,7 +211,7 @@
        - below it, 26px plus whatever the phone says its own navigation
          needs: nothing on Android 3-button, about 24px on gesture
          navigation, about 34px on an iPhone with a home indicator */
-  .tabs{display:grid;grid-template-columns:repeat(var(--n,4),1fr);background:#fff;
+  .tabs{display:grid;grid-template-columns:repeat(var(--n,4),1fr);background:var(--surface);
         border-top:1px solid var(--line);padding:6px 4px calc(26px + env(safe-area-inset-bottom,0px))}
   .tab{border:0;background:none;display:grid;justify-items:center;gap:2px;padding:10px 0;
        font:500 11.5px Inter,sans-serif;color:var(--muted);cursor:pointer}
@@ -148,14 +219,14 @@
   .tab[aria-current="page"] svg{stroke-width:2.25}
 
   .sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;z-index:60}
-  .sheet{background:#fff;width:100%;max-width:520px;margin:0 auto;border-radius:20px 20px 0 0;
+  .sheet{background:var(--surface);width:100%;border-radius:20px 20px 0 0;
          padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;
          max-height:85%;overflow-y:auto}
   .sheet h3{margin:0;font-size:17px;font-weight:600;color:var(--ink)}
   .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:-6px auto 2px}
 
   /* Clear of the tab bar as well as the phone's own navigation. */
-  .toast{position:fixed;left:16px;right:16px;max-width:488px;margin:0 auto;
+  .toast{position:fixed;left:16px;right:16px;
          bottom:calc(96px + env(safe-area-inset-bottom,0px));background:var(--ink);color:#fff;
          padding:10px 14px;border-radius:8px;font-size:13px;z-index:70;text-align:center}
 </style>
@@ -194,25 +265,210 @@
    later stages. A tab with no screen behind it is not drawn at all. */
 
 const A = EGBCApp, row = A.row, sec = A.sec, card = A.card, head = A.head, ic = A.ic;
+const next = A.next;
+/* Home reads the rota and the notices itself. The same named app every
+   page uses, so the emulator hook in egbc-auth.js applies here too. */
+const db = firebase.firestore(EGBCAuth.app);
 
 /* ---- Me and my family ---------------------------------------------- */
 
+/* ---- Home, built from the mock-up (§7e) -----------------------------
+   Martin: "the app is still wrong... it is not the design we agreed."
+   Home was four links and a "next stages" placeholder. The mock-up's Home
+   answers "what do I need to know this week?" in five sections, and this
+   is those five with real data behind them.
+
+   IT DRAWS WHAT IT HAS AND SAYS NOTHING ABOUT WHAT IT HAS NOT. A section
+   with no data is left out rather than shown empty: an app that says "You
+   are serving" above nothing reads as broken. The greeting and the date
+   are always there, so the screen is never blank.
+
+   THE DATA IS LOADED ONCE AND CACHED, then the screen asks to be redrawn.
+   A screen function has to return HTML immediately - it cannot wait - so
+   the first draw shows what is already known and the rest arrives.
+   refresh() is a no-op if the person has moved on (F-131). */
+
+var HOME = { loaded: false, serving: [], events: [], groups: [], family: [], news: [] };
+
+function homeMonth(d) {
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+}
+function homeGreeting() {
+  var h = new Date().getHours();
+  return h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening';
+}
+function homeToday() {
+  var d = new Date();
+  return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]
+    + ' ' + d.getDate() + ' ' + ['January','February','March','April','May','June','July',
+      'August','September','October','November','December'][d.getMonth()];
+}
+
+/* The space a team's name belongs to, so a rota card is the colour of the
+   team it is for - which is what makes the mock-up's Home readable at a
+   glance rather than a column of identical cards. */
+function spaceForTeam(team) {
+  var S = A.SPACES, k;
+  for (k in S) if (S[k].teams && S[k].teams.indexOf(team) !== -1) return S[k];
+  return S.me;
+}
+function spaceKeyForTeam(team) {
+  var S = A.SPACES, k;
+  for (k in S) if (S[k].teams && S[k].teams.indexOf(team) !== -1) return k;
+  return '';
+}
+
+/* What this person is serving on next, from the rota. `events` carries
+   assignments as role -> { id, name }, which is how the planner writes it. */
+function loadServing(memberId) {
+  if (!memberId) return Promise.resolve([]);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  return db.collection('events').get().then(function (snap) {
+    var out = [];
+    snap.forEach(function (d) {
+      var e = d.data() || {};
+      if (e.archived === true || !e.date) return;
+      var when = new Date(e.date + 'T00:00:00');
+      if (isNaN(when) || when < today) return;
+      var roles = [];
+      var a = e.assignments || {};
+      Object.keys(a).forEach(function (role) {
+        if (a[role] && a[role].id === memberId) roles.push(role);
+      });
+      if (!roles.length) return;
+      out.push({ when: when, date: e.date, roles: roles,
+                 title: e.type || 'Service', start: e.startTime || '',
+                 teams: Array.isArray(e.teams) ? e.teams : [] });
+    });
+    out.sort(function (x, y) { return x.when - y.when; });
+    return out.slice(0, 3);
+  }).catch(function () { return []; });
+}
+
+/* Notices: the hub's own news, with the hub's own rules about which ones
+   are still showing. isNewsExpired() and forMe() live in hub-app.js and
+   are NOT copied here - the app reads the same two fields the hub writes,
+   so a notice that has expired on the computer cannot still be on the
+   phone (confirmed in the code, §17). */
+function todayIso() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    + '-' + String(d.getDate()).padStart(2, '0');
+}
+function loadNews(me) {
+  return db.collection('news').get().then(function (snap) {
+    var out = [];
+    snap.forEach(function (d) {
+      var n = d.data() || {};
+      if (n.until && n.until < todayIso()) return;           /* "show until" */
+      if (Array.isArray(n.teams) && n.teams.length
+          && !n.teams.some(function (t) { return me.teams.indexOf(t) !== -1; })) return;
+      out.push({ title: n.title || '', body: String(n.body || '').replace(/<[^>]*>/g, '').trim(),
+                 at: n.createdAt || n.at || '' });
+    });
+    out.sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    return out.slice(0, 3);
+  }).catch(function () { return []; });
+}
+
+function loadHome(me) {
+  if (HOME.loaded) return;
+  HOME.loaded = true;
+  var H = window.EGBCEventsHome;
+  var jobs = [
+    loadServing(me.memberId).then(function (r) { HOME.serving = r; }),
+    loadNews(me).then(function (r) { HOME.news = r; }),
+    H && H.myEvents ? H.myEvents().then(function (r) { HOME.events = r || []; },
+      function () {}) : Promise.resolve(),
+    H && H.myGroupsNext ? H.myGroupsNext().then(function (r) { HOME.groups = r || []; },
+      function () {}) : Promise.resolve(),
+    /* F-145: "This Sunday, for parents". The events window's, and it
+       answers an empty list for anybody who is not one. */
+    H && H.myFamilyThisSunday ? H.myFamilyThisSunday().then(function (r) { HOME.family = r || []; },
+      function () {}) : Promise.resolve()
+  ];
+  Promise.all(jobs).then(function () { A.refresh('me', 'home'); });
+}
+
 A.screen('me', 'home', function (me) {
-  return head('Morning, ' + me.first, 'Here is your week')
-    + card(
-        row('calendar-days', "What's on", 'Church events, and signing up', null, 'tab:whatson') +
-        row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
-        /* The Listen row is back, because the events window's Listen screen
-           is mounted now (F-141). It was taken out in stage 1 for the right
-           reason - a row pointing at a tab with no screen behind it does
-           nothing - and the check caught that before anybody shipped it.
-           A.screen() decides: the row only appears if Listen is really
-           there, so this cannot go stale again. */
-        (A.has('me', 'listen')
-          ? row('headphones', 'Listen', 'Sermons and the songs for Sunday', null, 'tab:listen')
-          : '') +
-        row('circle-user', 'Me', 'Your details, household and calendar', null, 'tab:me'))
-    + A.empty('hammer', 'Your rota, your family and your notices arrive in the next stages.');
+  loadHome(me);
+
+  var out = '<div><p class="hello">' + homeGreeting() + ', ' + A.esc(me.first) + '</p>'
+          + '<p class="sub">' + A.esc(homeToday()) + ' · here is your week</p></div>';
+
+  /* You are serving */
+  if (HOME.serving.length) {
+    out += sec('You are serving', HOME.serving.map(function (s) {
+      var team = s.teams[0] || '';
+      var sp = spaceForTeam(team);
+      var key = spaceKeyForTeam(team);
+      var d = s.when;
+      /* "See the plan", as the mock-up has it - and only when there is a
+         plan to see: the key has to be a space this person is in, or the
+         button is one that does nothing. */
+      var act = (key && A.spacesFor(me).indexOf(key) !== -1 && A.has(key, 'sunday'))
+        ? '<button class="btn" data-act="go:' + key + ':sunday">'
+          + ic('list-music', 15) + ' See the plan</button>'
+        : '';
+      return next(String(d.getDate()), homeMonth(d), s.roles.join(' and '),
+        s.title + (s.start ? ' · ' + s.start : ''), act, sp.colour, sp.tint);
+    }).join(''), ['Whole rota', 'open:view-only-rota.html']);
+  }
+
+  /* This Sunday, for parents (F-145) */
+  if (HOME.family.length) {
+    out += sec('This Sunday', card(HOME.family.map(function (f) {
+      return row('baby', f.name || 'Your children',
+        f.line || f.note || 'Kids Church this Sunday',
+        f.code ? '<span class="pill">' + A.esc(f.code) + '</span>' : null,
+        null, A.SPACES.kids.colour, A.SPACES.kids.tint);
+    }).join('')));
+  }
+
+  /* Your events */
+  if (HOME.events.length) {
+    out += sec('Your events', card(HOME.events.slice(0, 3).map(function (e) {
+      return row('calendar-heart', e.title || 'An event',
+        [e.when, e.where].filter(Boolean).join(' · '),
+        '<span class="pill' + (e.waiting ? ' warn' : '') + '">'
+          + (e.waiting ? 'Waiting' : 'Booked') + '</span>',
+        'tab:whatson');
+    }).join('')), ['All events', 'tab:whatson']);
+  }
+
+  /* Notices */
+  if (HOME.news.length) {
+    out += sec('Notices', '<div class="card">' + HOME.news.map(function (n) {
+      return '<div class="notice"><b>' + A.esc(n.title) + '</b>'
+        + (n.body ? '<p>' + A.esc(n.body.slice(0, 140)) + '</p>' : '') + '</div>';
+    }).join('') + '</div>');
+  }
+
+  /* Your groups */
+  if (HOME.groups.length) {
+    out += sec('Your groups', card(HOME.groups.slice(0, 3).map(function (g) {
+      return row('house', g.name || 'A group',
+        [g.date, g.time, g.where].filter(Boolean).join(' · '),
+        null, 'open:groups.html');
+    }).join('')), ['All groups', 'open:groups.html']);
+  }
+
+  /* The quick ways on, which the mock-up has as its last card. Always
+     drawn, so a brand new person with nothing on their rota, no events
+     and no groups still has somewhere to go. */
+  out += sec('Quick links', card(
+      row('calendar-days', "What's on", 'Church events, and signing up', null, 'tab:whatson',
+          A.SPACES.me.colour, A.SPACES.me.tint)
+    + row('calendar-check-2', 'My availability', 'Opens the form you already use', null,
+          'open:index.html', A.SPACES.me.colour, A.SPACES.me.tint)
+    + (A.has('me', 'listen')
+        ? row('headphones', 'Listen', "Sermons and the songs for Sunday", null, 'tab:listen',
+              A.SPACES.me.colour, A.SPACES.me.tint)
+        : '')
+    + row('circle-user', 'Me', 'Your details, household and calendar', null, 'tab:me',
+          A.SPACES.me.colour, A.SPACES.me.tint)));
+
+  return out;
 });
 
 A.screen('me', 'whatson', function () {
@@ -229,6 +485,17 @@ A.screen('me', 'me', function (me) {
         row('users', 'My groups', 'Your groups, and finding one', null, 'open:groups.html') +
         row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
         row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota', null, 'open:hub.html'))
+    /* "Open the full website" is the ONLY route to the hub from the app
+       (§7d), and it says what it is. Everything else that used to point
+       at hub.html has gone. */
+    + card(row('monitor', 'Open the full website', 'Everything, on a computer', null, 'open:hub.html'))
+    /* VIEW AS: one row, master admin only, where the website's strip used
+       to be a bar across every screen (§7e). It opens the website's own
+       picker rather than growing a second one here. */
+    + (me.isMaster
+        ? card(row('eye', 'View as somebody else', 'See what another team sees', null,
+                   'open:hub.html'))
+        : '')
     + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'))
     + A.empty('hammer', 'My details, my household and Give arrive in the next stages.');
 });

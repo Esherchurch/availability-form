@@ -130,7 +130,13 @@
         ? { firestore: 8182, auth: 9098, storage: 9198 }
         : { firestore: 8181, auth: 9099, storage: 9199 };
       db.useEmulator('localhost', EMU.firestore);
-      auth.useEmulator('http://localhost:' + EMU.auth);
+      /* disableWarnings: the Firebase SDK pins a red "Running in emulator
+         mode" bar to the bottom of the page. It is the SDK's own, it only
+         ever appears against the emulator, and it is never on a real
+         phone - but it sits on top of the app's tab bar in every
+         screenshot, which §7e says nothing may. Off here so a picture
+         shows the app rather than the SDK's warning. */
+      auth.useEmulator('http://localhost:' + EMU.auth, { disableWarnings: true });
       /* Storage was missing from this list, so every upload made from a
          page served on localhost went to the LIVE bucket - the knowledge
          base videos, the team shelf, banners, and now event pictures.
@@ -698,6 +704,15 @@
      master admin most needs to be able to see. */
   function mountViewAsBar() {
     if (!reallyMaster()) return;
+    /* NOT INSIDE THE PHONE APP (APP-DESIGN-BRIEF §7e). This is a website
+       strip, fixed to the bottom of the page, and in the app it lands on
+       top of the tab bar - Martin saw it there and it is half of why the
+       app "does not fit the screen". The app offers the same thing as one
+       row on Me, master admin only, which is where it belongs.
+
+       The page asks for it to be left out rather than this file knowing
+       the app's name, so any other full-screen page can do the same. */
+    if (document.documentElement.hasAttribute('data-egbc-no-strips')) return;
 
     var bar = document.getElementById('egbc-viewas');
     if (!bar) {
