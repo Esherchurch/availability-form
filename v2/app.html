@@ -192,6 +192,8 @@
      gives them the full width of the tab, since the planner's own cards
      carry their 12px margins. */
   .sp-host{margin:0 -16px}
+  /* The rota brings its own toolbar and scrolling list. */
+  .cr-host{margin:0 -16px;display:flex;flex-direction:column;min-height:60vh}
 
   .list{display:grid}
   .card.list{display:grid}
@@ -279,6 +281,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="egbc-core-planner.js?v=202610111600"></script>
 <script src="egbc-core-meetings.js?v=202610111800"></script>
+<script src="egbc-core-rota.js?v=202610111900"></script>
 <script>
 /* ---- the screens that open a page which already does the job -------
    APP-DESIGN-BRIEF §5, and A1 counted 11 of the mock-up's 24 this way.
@@ -724,6 +727,13 @@ document.addEventListener('click', function (e) {
     return;
   }
 
+  /* The Rota tab's "+". The shell's actOk list allows a bare word, so
+     this needs no new shape in it. */
+  if (a === 'newevent') {
+    if (window.EGBCCoreRota) EGBCCoreRota.newEvent();
+    return;
+  }
+
   if (a.indexOf('viewas:') === 0) {
     var which = a.slice(7);
     try {
@@ -941,6 +951,31 @@ function mountCorePlanner() {
     /* The planner's own toast and loader were CoreTeamApp's. In here they
        are the shell's, so "Service saved" looks like everything else the
        app says. */
+    toast: function (m) { A.toast(m); },
+    loader: function () {}
+  });
+}
+
+/* ROTA (§7b): "the rota planner as CoreTeamApp has it on the phone
+   (assign the team, + for a new service)." CoreTeamApp's own, shared.
+
+   THE "+" IS THE SCREEN'S, NOT THE TOOLBAR'S. In the Core Team app it is
+   the header button beside the title; putting one in the shared toolbar
+   would have added a button to their app that was never there, so the
+   app draws its own row and calls the same function. */
+A.screen('core', 'rota', function () {
+  setTimeout(mountCoreRota, 0);
+  return head('Rota', 'Who is on, and who is free')
+    + card(row('plus', 'New service or meeting', 'Pick a date and a type', null, 'newevent',
+               A.SPACES.core.colour, A.SPACES.core.tint))
+    + '<div id="core-rota-host" class="cr-host"></div>';
+});
+
+function mountCoreRota() {
+  var host = document.getElementById('core-rota-host');
+  if (!host || !window.EGBCCoreRota) return;
+  EGBCCoreRota.mount({
+    into: host, db: EGBCAuth.db,
     toast: function (m) { A.toast(m); },
     loader: function () {}
   });

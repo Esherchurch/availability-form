@@ -164,7 +164,10 @@
        evidence for that sentence. The gate that does hold for the
        calendar sheet is idFromKey() in app.html: an unrecognised key
        makes nothing. */
-    return /^(close|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120}|copycal:[a-z]+|makecal:[a-z]+|viewas:[a-z]+)$/
+    /* newevent is Core Team ▸ Rota's "+" (§7b). It IS load-bearing,
+       unlike copycal:/makecal: above: the row is built by row(), so
+       without it here the button loses its action and does nothing. */
+    return /^(close|newevent|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120}|copycal:[a-z]+|makecal:[a-z]+|viewas:[a-z]+)$/
       .test(String(a || ''));
   }
 

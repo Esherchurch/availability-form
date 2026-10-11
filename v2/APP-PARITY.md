@@ -261,8 +261,9 @@ their own by eye:
 | Page the app opens today | The phone version that exists | Where it should go | State |
 |---|---|---|---|
 | *(SundayServicePlanner)* | CoreTeamApp's **Service Planner** (`spInit`) | Core Team ▸ Plan | **done, 11 Oct 2026** |
-| *(the desktop rota planner)* | CoreTeamApp's **Rota Planner** | Core Team ▸ Rota | next |
-| `EmailBuilder2.html` | CoreTeamApp's **Email Compiler**, with its drafts and mailing-list sheets | Core Team ▸ Team | next; the row opens CoreTeamApp meanwhile |
+| *(the desktop rota planner)* | CoreTeamApp’s **Rota Planner** | Core Team ▸ Rota | **done, 11 Oct 2026** |
+| *(none — new)* | CoreTeamApp’s **Meetings** list | Core Team ▸ Meetings | **done, 11 Oct 2026** |
+| `EmailBuilder2.html` | CoreTeamApp's **Email Compiler**, with its drafts and mailing-list sheets | Core Team ▸ Team | the one left; the row opens CoreTeamApp meanwhile |
 
 **The Service Planner is shared, not copied.** It came out of
 `CoreTeamApp.html` into **`egbc-core-planner.js`**, which both the
@@ -364,3 +365,29 @@ in list 3 for other reasons.
 
 This is a **sign, not a gate**: the build fails only on sideways scroll,
 where the measurement is unambiguous.
+
+## The three shared Core Team screens, and what changed in the move
+
+`egbc-core-planner.js`, `egbc-core-meetings.js` and `egbc-core-rota.js` are
+CoreTeamApp's own code, lifted out so the installed Core Team app and
+`app.html` run one copy of each (§7b: "move or share that code; don't
+rewrite it"). `tests/check-core-planner.mjs` asks the same questions of
+both hosts — 72 checks.
+
+**Everything that behaves differently in the Core Team app**, because it
+is on people's phones today and the list is owed:
+
+| What | Before | Now |
+|---|---|---|
+| Service Planner date | opened blank | opens on the coming Sunday, and picks that day's service if there is exactly one |
+| Planner's "input" listener | added again on every visit to the screen | wired once |
+| New-event form | markup on the page, `.modal-overlay` / `.form-*` / `.btn-*` | drawn by the module, `cr-*` classes with the same declarations. Same fields, same order, same wording, same defaults |
+| New-event form z-index | 500 | 9100, so it sits above the assignment sheet (9000) rather than under it. They are never open together |
+| Meetings date label | `new Date(ev.date)`, parsed as UTC | `new Date(ev.date + 'T00:00:00')`, the phone's own day. No visible change in the UK; it would have shifted a day in a negative time zone |
+| Meetings list | interpolated an event's type and description raw | escapes them (F-130) |
+| `renderPlanner` | relied on egbc-ui.js's observer to draw the Lucide icons | calls `EGBCUI.icons()` itself as well |
+
+Nothing else. The assignment sheets, the availability buckets, the drag
+and drop, the auto-fill order, the term generation, the availability
+emails, every `confirm()` wording and every inline style on the rota rows
+are as they were.

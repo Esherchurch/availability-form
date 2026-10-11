@@ -35,7 +35,10 @@ export const PAGES = [
       ['sheet: add role', SHUT + ";openModal('modal-add-role-sheet')"],
       ['sheet: drafts', SHUT + ";openModal('modal-drafts')"],
       ['sheet: mailing list', SHUT + ";openModal('modal-mailing')"],
-      ['modal: new event', SHUT + ";openModal('modal-new-event')"],
+      /* The new-event form is egbc-core-rota.js's from 11 Oct 2026, so it
+         is opened by its own function rather than by openModal() on
+         markup that is no longer in the page (§7b). Same form. */
+      ['modal: new event', SHUT + ";(typeof EGBCCoreRota!=='undefined'?EGBCCoreRota.newEvent():openModal('modal-new-event'))"],
       ['modal: new service', SHUT + ";openModal('modal-new-service')"],
       ['modal: song', SHUT + ";openModal('modal-song')"],
       ['modal: add item', SHUT + ";openModal('modal-add-item')"],

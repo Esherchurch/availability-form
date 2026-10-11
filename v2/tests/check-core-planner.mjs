@@ -42,6 +42,8 @@ const PW = 'test-only-password';
 
 const ME = { email: 'core.planner@example.invalid', name: 'Planner Synthetic', member: 'ab_core_planner' };
 const SONG = 'Synthetic Song Of Gladness';
+const PLAYER = { member: 'ab_core_player', name: 'Player Synthetic',
+                 email: 'core.player@example.invalid' };
 
 const R = [];
 const ok = (n, v, x) => {
@@ -130,6 +132,18 @@ async function seed() {
     youtube: 'https://www.youtube.com/watch?v=synthetic',
     files: [{ type: 'Chord Sheet', key: 'G', url: 'https://example.invalid/g.pdf' }],
     servingHistory: [{ day: 'Sunday', count: 3 }] });
+
+  /* SOMEBODY THE ROTA CAN OFFER. Without this the assignment sheet
+     says "Nobody on this event's teams", which is true and useless as a
+     test: a deliberate break that emptied the candidate list passed,
+     because an empty list and a refused list read the same. One player
+     on the event's team, who plays the role and has said yes. */
+  await put('addressBook/' + PLAYER.member, {
+    name: PLAYER.name, email: PLAYER.email, markers: ['Worship Team'], adminFor: [],
+    primaryInstruments: ['Guitar'], secondaryInstruments: [], maxFrequency: '4',
+    churchMember: false, archived: false, isMinor: false });
+  await put('availability/av_core_planner', {
+    eventId: 'ev_core_planner', memberId: PLAYER.member, status: 'avail' });
 
   /* A service on the rota for that Sunday, so "Select Service" has one. */
   await put('events/ev_core_planner', {
@@ -442,6 +456,7 @@ async function seed() {
        the comment stays true. */
     ok('  and no host token is anywhere in it',
       !/[?&]t=|token=/.test(JSON.stringify(links)), JSON.stringify(links).slice(0, 160));
+    await shot('meetings-' + label.replace(/[^a-z]+/gi, '-').toLowerCase());
     ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
   };
   const MEET_ID = {
@@ -473,6 +488,135 @@ async function seed() {
     await until('  its meetings list filled in',
       '(function(){var c=document.getElementById("core-meet-host");'
       + 'return (c && /All meeting rooms/.test(c.textContent)) ? "yes" : "no"})()', 40);
+  });
+
+  /* ---- 2c. the Rota, the third shared screen ------------------------ */
+  /* §7b: "the rota planner as CoreTeamApp has it on the phone (assign the
+     team, + for a new service)."
+
+     THESE ARE THE THREE THINGS MARTIN SAID HE WOULD WALK, read-only, in
+     the old Core Team app: a service's assignments, the availability
+     list, and the new-event form without saving. So they are the three
+     this checks, in that order, in both hosts - and nothing here saves
+     anything either. */
+  const rota = async (label, open) => {
+    console.log('\n' + label + ':');
+    errs = [];
+    await open();
+
+    const toolbar = String(await ev('(function(){var c=document.getElementById("termSelect");'
+      + 'if(!c) return "(no toolbar)";'
+      + 'var b=c.parentElement.querySelectorAll("button");'
+      + 'return Array.prototype.map.call(b,function(x){return x.textContent.trim()}).join("|")})()'));
+    ok('  the toolbar is there, with its six buttons in order',
+      toolbar === 'Populate|Auto-Fill|+ Practices|+ Service|Gather Avail|Hide Assigned', toolbar);
+
+    const terms = Number(await ev('document.querySelectorAll("#eventList button[onclick^=\'toggleTermCollapse\']").length'));
+    ok('  the rota is drawn, by term', terms >= 1, terms + ' terms');
+    const rowFor = '(function(){var b=document.querySelectorAll("#eventList [onclick^=\\"roleTap(\\"]");'
+      + 'return b.length})()';
+    const roles = Number(await ev(rowFor));
+    ok('  with roles you can tap to assign', roles >= 1, roles + ' role slots');
+
+    /* 1. A SERVICE'S ASSIGNMENTS. Opens the sheet and reads it; the
+       sheet is closed again without choosing anybody. */
+    await ev('(function(){var b=document.querySelectorAll("#eventList [onclick^=\\"roleTap(\\"]");'
+      + 'if(!b.length) return "none"; b[0].click(); return "tapped"})()');
+    await until('  tapping a role opens the assignment sheet',
+      '!!document.getElementById("rota-sheet") ? "yes" : "no"', 20);
+    const sheet = String(await ev('(function(){var s=document.getElementById("rota-sheet");'
+      + 'return s?s.textContent.replace(/\\s+/g," ").trim():"(no sheet)"})()'));
+    /* A NAMED PERSON, not just the shape of a sheet. "Nobody on this
+       event's teams" satisfied the first version of this and so did a
+       deliberately emptied candidate list - an empty list and a refused
+       one read the same. The seed puts one player on the event's team
+       who plays Guitar and has said yes, so the sheet must name them
+       and say why they are in it. */
+    ok('  and it offers people, with why they are in the list',
+      /Assign|Or replace with/.test(sheet)
+        && sheet.indexOf('Player Synthetic') !== -1
+        && /(plays this|available)/.test(sheet),
+      sheet.slice(0, 200));
+    await ev('closeSheet();1');
+    ok('  and closes again without changing anything',
+      !(await ev('!!document.getElementById("rota-sheet")')));
+
+    /* 2. THE AVAILABILITY LIST - the inbox button on an event row. */
+    await ev('(function(){var b=document.querySelectorAll("#eventList [onclick^=\\"toggleBucket(\\"]");'
+      + 'if(!b.length) return "none"; b[0].click(); return "tapped"})()');
+    await sleep(600);
+    const buckets = String(await ev('(function(){var c=document.getElementById("eventList");'
+      + 'return c?c.textContent.replace(/\\s+/g," "):""})()'));
+    ok('  the availability list opens, in its three parts',
+      /Available/.test(buckets) && /Declined/.test(buckets) && /Pending/.test(buckets),
+      buckets.slice(0, 120));
+    await ev('(function(){var b=document.querySelectorAll("#eventList [onclick^=\\"toggleBucket(\\"]");'
+      + 'if(b.length) b[0].click(); return "shut"})()');
+
+    /* 3. THE NEW-EVENT FORM, opened and cancelled. Every field, by the
+       id the old markup used, because those ids are what the form's own
+       code reads - if one were renamed in the move, Create Event would
+       throw rather than do nothing, and nobody would see it until they
+       pressed it. */
+    await ev('EGBCCoreRota.newEvent();1');
+    await until('  the "+" opens the new-event form',
+      '(function(){var el=document.getElementById("cr-new-event");'
+      + 'return (el && el.classList.contains("open")) ? "yes" : "no"})()', 20);
+    const form = JSON.parse(String(await ev(
+      '(function(){var f={};'
+      + '["new-event-date","new-event-type","new-event-term","new-event-video","event-modal-btn"]'
+      + '.forEach(function(id){var el=document.getElementById(id);'
+      + ' f[id] = el ? (el.tagName.toLowerCase() + ":" + (el.value !== undefined ? el.value : "")) : "(missing)";});'
+      + 'var t=document.getElementById("new-event-type");'
+      + 'f.types = t ? t.options.length : 0;'
+      + 'var v=document.getElementById("new-event-video");'
+      + 'f.rooms = v ? v.options.length : 0;'
+      + 'return JSON.stringify(f)})()') || '{}'));
+    ok('  with all four fields, by the names the form\'s own code reads',
+      form['new-event-date'] && form['new-event-date'].indexOf('(missing)') !== 0
+        && form['new-event-type'] && form['new-event-type'].indexOf('(missing)') !== 0
+        && form['new-event-term'] && form['new-event-term'].indexOf('(missing)') !== 0
+        && form['new-event-video'] && form['new-event-video'].indexOf('(missing)') !== 0,
+      JSON.stringify(form));
+    ok('  the eleven event types the old form offered', form.types === 11, form.types + ' types');
+    ok('  the seven rooms plus "No video call"', form.rooms === 8, form.rooms + ' options');
+    ok('  it opens on Sunday Morning Worship, with its usual room',
+      /Sunday Morning Worship$/.test(form['new-event-type'] || ''), form['new-event-type']);
+    /* CANCELLED, NOT SAVED. This check writes nothing to the rota. */
+    await ev('closeNewEventForm();1');
+    await sleep(300);
+    ok('  and Cancel shuts it without creating anything',
+      String(await ev('(function(){var el=document.getElementById("cr-new-event");'
+        + 'return (el && el.classList.contains("open")) ? "open" : "shut"})()')) === 'shut');
+
+    await shot('rota-' + label.replace(/[^a-z]+/gi, '-').toLowerCase());
+    ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
+  };
+
+  await rota('CoreTeamApp, the Rota Planner', async () => {
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/CoreTeamApp.html' });
+    await until('  the Core Team app loaded', '(typeof openSection === "undefined") ? "no" : "yes"', 60);
+    await ev('(function(){try{if(typeof endTour==="function")endTour()}catch(e){}'
+      + 'var o=document.getElementById("tour-overlay");if(o)o.classList.remove("active");'
+      + 'openSection("rota");return "opened"})()');
+    await until('  the rota drew',
+      '(function(){var c=document.getElementById("eventList");'
+      + 'return (c && c.children.length) ? "yes" : "no"})()', 50);
+  });
+
+  await rota('the phone app, Core Team ▸ Rota', async () => {
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+    let drawn = '';
+    for (let i = 0; i < 60; i++) {
+      await sleep(500);
+      drawn = String(await ev('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}})'
+        + '.getAttribute("data-drawn") || ""'));
+      if (drawn.indexOf(uid + ':') === 0) break;
+    }
+    await ev('EGBCApp.go("core","rota");1');
+    await until('  the rota drew',
+      '(function(){var c=document.getElementById("eventList");'
+      + 'return (c && c.children.length) ? "yes" : "no"})()', 50);
   });
 
   /* ---- 3. and it really is the same file ----------------------------- */
