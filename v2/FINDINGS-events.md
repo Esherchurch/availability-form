@@ -2966,3 +2966,58 @@ id, so they need nothing either.
 
 **For the main window:** nothing to deploy for me. If you'd like the
 same check over your own files, run it with `FILES=a.js,b.html`.
+
+### F-150 — switch-over notes for my areas (launch list item 3), and my eight pages by eye
+**The notes:** `SWITCHOVER-events.md`, for Martin, Val, the office and the
+safeguarding lead, ready for Step Q to copy into the checklist.
+- **Part 1:** what goes live, in what order.
+- **Part 2:** two things to do straight after the deploy:
+  - give each existing form a Team (F-092)
+  - press Save once on Accounts (F-108)
+- **Part 3:** the setting up, in order. A site comes first, because Kids
+  Church needs one. Safeguarding checks come before leaders are named, so
+  nobody is refused on the day.
+- **Part 4:** the proofs on real devices.
+- **Part 5:** the decisions still open, each with its default. **The DBS and
+  training period is a setting, currently 3 years, for the safeguarding
+  lead to set.**
+- **Part 6:** what does NOT need doing.
+
+**One new question for Martin (3.7):** are all the past sermons on Val's
+Spotify show? If they are, the ChurchSuite downloads aren't needed, because
+the feed brings in everything the show holds.
+
+**My eight pages at 375px, by eye** (§7d; APP-PARITY part 2 measured them
+phone-ready). These are notes only: nothing will change until the main
+window's app mode lands.
+- **`kids-admin.html`: the clearest "desktop squeezed down".**
+  - When a child is opened, their details sit in two narrow columns.
+  - The parent's email breaks mid-word ("parent@example.inv / alid").
+  - The "May collect" box is cut off ("Parent Syntheti").
+  - Its help text runs one or two words a line.
+  - **The fix:** at phone width, stack each label above its value.
+- **`safeguarding.html`:**
+  - The "Works with under-18s" tick has its label squeezed into a thin
+    column ("Works / with / under- / 18s").
+  - The two settings beside each other are fine.
+- **`rooms.html`:** in the day chart, room names are cut ("Test Ban…"). The
+  chart scrolls inside its own box, which is meant, but the names should
+  show whole.
+- **`maintenance.html`:** in Close a room, the "To (the last day)" date box
+  pokes past the card's edge.
+- **`bookings-admin.html`:**
+  - The requester's email breaks mid-word.
+  - Only the Waiting tab was seen. Day view, Setup sheet and Invoices still
+    need looking at in app mode.
+- **`whatson.html`, `kids-checkin.html` and `groups.html`:** nothing looked
+  squeezed.
+
+**For the main window (APP-DESIGN-BRIEF §7e):** rebuilding app.html from the
+mock-up's code will change how the shell draws. My app screens (What's on,
+Listen, Kids Church Today, Jobs, Bookings) draw through the shell's helpers
+(`row`, `sec`, `next`, `card`, `head`, `empty`, `ic`, `esc`) and mount with
+`EGBCAppEvents.mountAll`.
+- If those names or what they return change, please say, and I'll move my
+  screens across.
+- My tests build their test copy of the app from app.html, so they'll show
+  what breaks.
