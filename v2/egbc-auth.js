@@ -755,7 +755,9 @@
       (narrow
         ? 'gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:6px 10px;'
         : 'gap:10px;flex-wrap:wrap;padding:10px 16px;') +
-      'font-family:Inter,system-ui,sans-serif;' +
+      /* Its own line-height and box-sizing, for the same reason the
+         select has its own size: this sits on somebody else's page. */
+      'font-family:Inter,system-ui,sans-serif;line-height:1.3;box-sizing:border-box;' +
       'font-size:13px;font-weight:500;box-shadow:0 -1px 2px rgba(16,24,40,.05);' +
       (v ? 'background:#b07d2e;color:#fff' : 'background:#fff;color:#374151;border-top:1px solid #e5e7eb');
 
@@ -766,7 +768,7 @@
     }).join('');
 
     bar.innerHTML =
-      '<span style="font-weight:600;white-space:nowrap' + (narrow ? ';flex:none' : '') + '">' +
+      '<span style="font-weight:600;white-space:nowrap;margin:0;padding:0' + (narrow ? ';flex:none' : '') + '">' +
         (narrow
           ? (v ? 'Seeing as' : 'View as')
           : (v ? 'Seeing the site as a ' + (TEAMS[v.team] ? TEAMS[v.team].label : v.team) +
@@ -776,6 +778,13 @@
       '<select id="egbc-va-team" style="font-family:inherit;font-size:13px;font-weight:500;' +
         /* Own colours: in view-as mode the bar's text is white, and a select inherits it - white names on a white list. */
         'background:#fff;color:#111827;' +
+        /* AND ITS OWN SIZE. This is shared chrome sitting on somebody
+           else's page, and a page that styles a bare `select` styles
+           this one: maintenance.html has
+           `.inp,select,textarea{min-height:48px;width:100%}`, which
+           pushed the strip onto its own line and made it 61px instead
+           of 45. Said here rather than hoped for. */
+        'width:auto;min-width:0;max-width:52vw;min-height:0;box-sizing:border-box;flex:none;' +
         'height:32px;border-radius:8px;padding:0 10px;border:1px solid ' +
         (v ? 'rgba(255,255,255,.45)' : '#d1d5db') + '">' +
         '<option value="">Myself</option>' + opts +
@@ -783,9 +792,13 @@
       /* 'As an admin' only means something once a team is chosen. Ticking it on
          'Myself' used to reload and untick, which looked broken - so it waits. */
       '<label style="display:flex;align-items:center;gap:6px;white-space:nowrap;' +
+        /* margin:0 and padding:0 because a page that styles a bare
+           `label` styles this one - Library has
+           `label{display:block;margin-bottom:8px;padding-left:2px}`. */
+        'margin:0;padding:0;min-height:0;font-size:13px;' +
         (narrow ? 'flex:none;' : '') + 'cursor:' + (v ? 'pointer' : 'default;opacity:.55') + '"' +
         (v ? '' : ' title="Choose a team first"') + '>' +
-        '<input type="checkbox" id="egbc-va-admin"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '>' +
+        '<input type="checkbox" id="egbc-va-admin" style="width:16px;height:16px;min-height:0;margin:0;flex:none"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '>' +
         (narrow ? ' admin' : ' as an admin') +
         /* The hint is the first thing to go on a phone: the checkbox is
            already greyed out and carries the same words in its title. */

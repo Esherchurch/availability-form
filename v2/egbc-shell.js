@@ -184,6 +184,7 @@
       '<div class="eb-r">' + right + '</div>';
 
     document.body.insertBefore(d, document.body.firstChild);
+    unflex(d);
     pushDownStickyHeaders(d);
     checkFresh();
 
@@ -500,6 +501,34 @@
 
      Only elements at top:0 are touched - a sticky table heading further
      down the page is left exactly where it is. */
+  /* ---- a bar cannot be a flex item in a row -------------------------
+     Library's body is `display:flex; height:100vh` - two full-height
+     columns side by side. The bar is inserted as the body's first
+     child, so it became a THIRD column: stretched to the full height by
+     align-items, and on a phone that meant a 2,088px bar and a screen
+     that was nothing else (Martin, 11 Oct 2026, A-074).
+
+     Where the body lays its children out in a row or a grid, the bar
+     comes out of the flow and floats at the top instead, and the body
+     is given room for it. border-box so that room comes out of the
+     100vh rather than being added to it, which would make the page
+     scroll by exactly the height of the bar. */
+  function unflex(bar) {
+    var bcs = window.getComputedStyle(document.body);
+    if (!/^(flex|inline-flex|grid|inline-grid)$/.test(bcs.display)) return;
+    bar.style.position = 'fixed';
+    bar.style.top = '8px';
+    bar.style.left = '8px';
+    bar.style.right = '8px';
+    bar.style.margin = '0';
+    var room = function () {
+      document.body.style.boxSizing = 'border-box';
+      document.body.style.paddingTop = (bar.offsetHeight + 16) + 'px';
+    };
+    room();
+    window.addEventListener('resize', room);
+  }
+
   function pushDownStickyHeaders(bar) {
     /* The bar floats, so what matters is where its bottom edge sits, not
        just how tall it is: its own top offset counts too. */

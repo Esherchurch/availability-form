@@ -2391,29 +2391,45 @@ in category 3: "fits, and should not be opened as it is… a **native
 app cannot fix a page that should not be opened from the app. That
 screen is §7d B work.
 
-### A-074 — Library.html: the website bar is 2,088px tall on a phone
+### A-074 — Library.html: the bar is fixed; its "view as" strip is still 28px too tall
 
-`tests/check-website-on-a-phone.mjs`, at 375px, signed in: every other
-page's bar is ~50px. Library's is **2,088px**, so the whole screen is
-bar and the page's own "Select a Song" heading is under it. Its "view
-as" strip is 153px — three lines — where every other page's is 45.
+**The 2,088px bar is fixed.** `Library.html`’s `body` is
+`display:flex; height:100vh` — two full-height columns side by side — and
+the shell inserts `#egbc-bar` as the body’s first child, so it became a
+THIRD column, stretched to the full height by `align-items`. On a phone
+the whole screen was bar.
 
-**Not caused by the title change.** My first go at letting the title wrap
-used `-webkit-line-clamp`, which Library's own CSS defeated, and that
-version really did inflate the bar; it was replaced with a `max-height`
-that cannot. Library is still 2,088px with the max-height in place, so
-something in that page reaches into `#egbc-bar` and the strip.
+`egbc-shell.js` now takes the bar out of the flow where the body lays its
+children out in a row or a grid, and gives the body room for it with
+`box-sizing:border-box` so that room comes out of the 100vh rather than
+making the page scroll by the height of the bar. Library’s own "Select a
+Song" heading is clear of it, and its name is not cut off.
 
-**Not fixed**, because it is a page-specific collision and the title and
-strip work on the other 21 pages. Library is Martin's Music Database and
-is worth looking at on its own.
+**What is left: the "view as" strip measures 73px on Library**, where
+every other page is 45. That is one line plus 28px.
 
-### A-075 — maintenance.html: the "view as" strip is 61px, not 45px
+Four things were pinned trying to find it, and each was a real fault
+worth fixing on its own — this is shared chrome sitting on somebody
+else’s page, and a page that styles a bare element styles it too:
 
-Same check. Every other page's strip measures 45px — one line, as §7d
-asks. `maintenance.html` comes out at 61px. Not two full lines, but not
-one either, so something on that page is making a control taller.
+- the select had no size of its own, and `maintenance.html` has
+  `.inp,select,textarea{min-height:48px;width:100%}`, which pushed the
+  strip onto two lines there. **That fixed maintenance: 61px → 45px**
+  (A-075 closed).
+- the checkbox, the button, the label and the leading span now carry
+  their own size, margin and line-height, because Library has
+  `label{display:block;margin-bottom:8px;padding-left:2px}`.
 
-Small, and recorded rather than chased: the strip is the events window's
-page's chrome only in the sense that it sits on it; the strip itself is
-`egbc-auth.js`, mine.
+**None of them moved Library off 73px**, which says the extra 28 is not
+in the strip’s children at all but in its own box — a rule on that page
+reaching `#egbc-viewas` itself. 14px of padding top and bottom would do
+it exactly. Not chased further: it is one page, one strip, master admin
+only, and the strip is legible and usable at 73px. Worth ten minutes
+with Library’s stylesheet open, not an hour of guessing.
+### A-075 — CLOSED. maintenance.html’s "view as" strip is 45px
+
+It measured 61px because the page styles a bare `select`:
+`.inp,select,textarea{min-height:48px; width:100%}`, and the strip’s
+team picker is a bare select. The strip’s controls now carry their own
+width, min-height and box-sizing, because this is shared chrome sitting
+on somebody else’s page. 45px, like the other twenty.
