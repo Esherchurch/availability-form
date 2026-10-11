@@ -79,6 +79,25 @@
       tabs: [['jobs', 'Jobs', 'wrench'], ['rooms', 'Rooms', 'door-closed'],
              ['team', 'Team', 'users']]
     },
+    /* CORE TEAM (§7b). Martin, 10 Oct 2026: "why isnt there a core team
+       area in the phone app? They will be doing the sunday service plans
+       from the phone app. Look at the current core team phone app!" The
+       mock-up left it out and the shell copied the omission.
+
+       It is a TEAM space, not Running things: everyone on Core Team gets
+       it, and whether they also run the office is §25's separate
+       question. A Core Team member therefore has this AND Worship & AV,
+       because Core Team covers Worship & AV everywhere else too
+       (CORE_COVERS, 11 Oct).
+
+       The green is its own - no other space uses it - because the whole
+       point of the mock-up's colours is telling the spaces apart at a
+       glance. The four tabs are §7b's, in its order. */
+    core: {
+      label: 'Core Team', colour: '#4a7a5f', tint: '#e8f2ec', teams: ['Core Team'],
+      tabs: [['plan', 'Plan', 'clipboard-list'], ['rota', 'Rota', 'calendar-check'],
+             ['meetings', 'Meetings', 'video'], ['team', 'Team', 'users']]
+    },
     office: {
       label: 'Running things', colour: '#111827', tint: '#e3e8e6', runsThings: true,
       tabs: [['today', 'Today', 'layout-dashboard'], ['people', 'People', 'contact'],

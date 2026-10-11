@@ -258,11 +258,30 @@ their own by eye:
 
 ## 2. Has a phone version already — use that, shared not copied
 
-| Page the app opens today | The phone version that exists | Where it should go |
-|---|---|---|
-| `EmailBuilder2.html` | CoreTeamApp's **Email Compiler** section, with its drafts and mailing-list sheets | Core Team ▸ Team |
-| *(the desktop rota planner)* | CoreTeamApp's **Rota Planner** | Core Team ▸ Rota |
-| *(SundayServicePlanner)* | CoreTeamApp's **Service Planner** (`spInit`) | Core Team ▸ Plan |
+| Page the app opens today | The phone version that exists | Where it should go | State |
+|---|---|---|---|
+| *(SundayServicePlanner)* | CoreTeamApp's **Service Planner** (`spInit`) | Core Team ▸ Plan | **done, 11 Oct 2026** |
+| *(the desktop rota planner)* | CoreTeamApp's **Rota Planner** | Core Team ▸ Rota | next |
+| `EmailBuilder2.html` | CoreTeamApp's **Email Compiler**, with its drafts and mailing-list sheets | Core Team ▸ Team | next; the row opens CoreTeamApp meanwhile |
+
+**The Service Planner is shared, not copied.** It came out of
+`CoreTeamApp.html` into **`egbc-core-planner.js`**, which both the
+installed Core Team app and `app.html`'s Core Team ▸ Plan tab load. There
+is one `spInit` in the suite, not two.
+
+`tests/check-core-planner.mjs` asks the same questions of both hosts — the
+default order of service, "+ Song", the song search, the YouTube and
+SongSelect buttons, the CCLI number, which keys we have a chord sheet in,
+and the services on a chosen date — and then asserts there is only one copy
+of the code. 26 checks. Two deliberate breaks caught it: CoreTeamApp not
+loading the module, and the planner rebuilding its panel on each mount
+(which threw away a half-written order of service).
+
+**Until the Email Compiler is shared the same way**, Core Team ▸ Team has a
+row that opens `CoreTeamApp.html` — an app already on the phone that
+already does the job. That is the answer Martin took for Performance Notes
+(G-1 option a), not a new idea. The app still never opens
+`EmailBuilder2.html`, which is category 3 below.
 
 §7b already says these are moved or shared, never rewritten and never
 copied. **This is the same work**, which is why both halves are in one file.

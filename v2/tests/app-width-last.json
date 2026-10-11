@@ -1,5 +1,33 @@
 [
  {
+  "page": "CoreTeamApp.html",
+  "over": 0,
+  "client": 375,
+  "worst": "div#tour-highlight.tour-highlight",
+  "worstW": 387,
+  "websiteBar": false,
+  "menu": false,
+  "widestTable": 0,
+  "clipped": [],
+  "tinyText": 0,
+  "blocked": "",
+  "title": "EGBC Worship Planner"
+ },
+ {
+  "page": "Coreteamcharter.html",
+  "over": 0,
+  "client": 375,
+  "worst": null,
+  "worstW": 0,
+  "websiteBar": true,
+  "menu": false,
+  "widestTable": 0,
+  "clipped": [],
+  "tinyText": 0,
+  "blocked": "",
+  "title": "Core Team charter"
+ },
+ {
   "page": "EGBC-HowTo-AV.html",
   "over": 0,
   "client": 375,
@@ -56,26 +84,6 @@
   "title": "EGBC — AV Troubleshoot"
  },
  {
-  "page": "EmailBuilder2.html",
-  "over": 321,
-  "client": 375,
-  "worst": "div#whoModal.modal",
-  "worstW": 696,
-  "websiteBar": true,
-  "menu": false,
-  "widestTable": 0,
-  "clipped": [
-   "Your name is saved alongside",
-   "Hi team,",
-   "Start your update here — add",
-   "“By this everyone will know ",
-   "worship@esherchurch.org"
-  ],
-  "tinyText": 0,
-  "blocked": "",
-  "title": "Worship & AV Team | Email Builder"
- },
- {
   "page": "Library.html",
   "over": 1,
   "client": 980,
@@ -128,7 +136,9 @@
   "widestTable": 560,
   "clipped": [
    "Family",
-   "Instruments"
+   "Instruments",
+   "Karen Synthetic Family",
+   "Rota Tester Family"
   ],
   "tinyText": 0,
   "blocked": "",

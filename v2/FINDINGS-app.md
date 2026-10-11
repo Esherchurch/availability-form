@@ -2291,3 +2291,60 @@ Everything else EmailBuilder2 touches now agrees with its door:
 `emailDrafts` (`isAdmin() || onTeam('Core Team')`), `addressBook` (read for
 any volunteer, unchanged), and `email_assets/` in Storage, which had no rule
 at all — see F-155.
+
+### A-071 — CoreTeamApp's welcome tour throws on the first screen, every time
+
+**Recorded, not fixed. It is not from the planner move** — the same lines
+are in the copy taken before I touched the file, in the same order.
+
+Opening `CoreTeamApp.html` with the console on:
+
+```
+Uncaught ReferenceError: Cannot access '_touredSections' before initialization
+    at maybeTriggerTour (CoreTeamApp.html:…)
+```
+
+`showScreen('home')` runs while the page is still being parsed — it is a
+bare call in the body of the inline script — and the last thing it does is
+`maybeTriggerTour(name)`. `_touredSections` is a `const` declared about
+2,400 lines further down, so at that moment it is in its temporal dead
+zone and reading it throws.
+
+**What it costs:** the welcome tour never fires on the first screen a new
+Core Team member sees, which is the one screen it was written for. Every
+other screen is fine, because by then the `const` exists.
+
+**The fix is one line** — move `const _touredSections = new Set();` up
+beside the other tour state, or make `maybeTriggerTour` tolerate it. I
+have not made it, because it is nothing to do with §7b and Martin decides
+what goes into a live installed app.
+
+Found by opening the page with the console on while checking the planner
+move had not broken it. The existing screenshot runner dismisses the tour
+as its first action, so nothing had ever seen this.
+
+### A-072 — the 375px width gate has no drop-retry, and reported three false refusals
+
+`tests/check-app-opens-phone-width.mjs` failed once with:
+
+> EGBC-Training-Worship.html No access to this page,
+> EGBC-Troubleshoot-AV.html No access to this page,
+> addressbook.html Admins only
+
+Run again, unchanged, it passed 2/2. It is the Firestore emulator dropping
+the browser client (A-062/A-063): no profile, so the guard refuses, and
+the refusal reads exactly like a real access fault — which is what it
+looked like, in the middle of unrelated work, and it cost twenty minutes
+of hunting a change that had not broken anything.
+
+**Every other browser check in this folder has the narrow retry for that
+fingerprint now; this one does not.** That is the recurring shape: a fix
+learned in one check is not carried into its siblings, and has to be
+learned again from the symptom.
+
+**This one fails the build**, so a false failure here is worse than a
+false finding — it is a red gate nobody can tell from a real one. Worth
+giving it the same probe `check-core-covers-worship.mjs` has: ask the page
+whether Firestore is reachable, and reload only when it is not.
+
+Not done here, because it is nothing to do with §7b.

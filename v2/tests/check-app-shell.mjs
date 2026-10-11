@@ -84,9 +84,14 @@ const PEOPLE = {
      Team link showed every Worship & AV item plus Core's own, and Martin
      found Library refusing him. Kids Church is still here because they
      administer it. Running things is still NOT, which is §25. */
+  /* AND THE CORE TEAM SPACE FROM 11 OCT (§7b). Martin: "why isnt there a
+     core team area in the phone app? They will be doing the sunday
+     service plans from the phone app." It is a team space like any
+     other, so being on Core Team gives it - which is a different
+     question from running the office, and that is still §25's. */
   office:   { email: 'app.office@example.invalid', teams: ['Core Team'], adminFor: ['Kids Church'],
-              spaces: ['me', 'worship', 'kids'],
-              note: 'Core Team: covers Worship & AV, but does not run things by itself' },
+              spaces: ['me', 'worship', 'kids', 'core'],
+              note: 'Core Team: its own space, covers Worship & AV, does not run things' },
   /* ...and this is who does: somebody in the Church office group. */
   admin:    { email: 'app.churchoffice@example.invalid', teams: ['Church office'], adminFor: [],
               spaces: ['me', 'office'], note: 'in the Church office group' },
