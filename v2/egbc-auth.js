@@ -674,6 +674,8 @@
      the list is a union of everything they are on. */
 
   var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship', 'Core Team'];
+  /* What being on Core Team also opens (see inTeam). */
+  var CORE_COVERS = ['Worship Team', 'AV Team', 'Choir'];
 
   function teamsVisibleTo(teams) {
     var out = teams.slice();
@@ -896,7 +898,11 @@
                should clear a leader gate on a Kids Church page. */
             var hasRank = !opts.role || !wanted.length || EGBCAuth.isOwner() ||
               wanted.some(function (t) {
-                return roleAtLeast(profile.roles, t, opts.role) || EGBCAuth.isAdminOf(t);
+                return roleAtLeast(profile.roles, t, opts.role) || EGBCAuth.isAdminOf(t)
+                  /* Core Team ran the Service Planner and the build tools on
+                     the old portal, so they clear a Worship & AV leader gate. */
+                  || (opts.role === 'leader' && CORE_COVERS.indexOf(t) !== -1
+                      && EGBCAuth.effectiveTeams().indexOf('Core Team') !== -1);
               });
 
             if (!hasRank) {
@@ -964,8 +970,14 @@
       return out;
     },
 
+    /* CORE TEAM COVERS WORSHIP & AV (Martin, 11 Oct 2026: "core team cant see
+       worship and AV"). On the old portal the Core Team link showed every
+       Worship & AV item plus its own, so a Core Team member counts as on
+       Worship Team and AV Team for every page check. */
     inTeam: function (team) {
-      return EGBCAuth.effectiveTeams().indexOf(team) !== -1;
+      var mine = EGBCAuth.effectiveTeams();
+      if (mine.indexOf(team) !== -1) return true;
+      return CORE_COVERS.indexOf(team) !== -1 && mine.indexOf('Core Team') !== -1;
     },
 
     /* Can act on this area: either they administer it, or they are on it. */
