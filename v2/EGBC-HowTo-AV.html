@@ -67,13 +67,13 @@
   </header>
 
   <div class="bg-white rounded-[14px] border border-[#d1dfdf] shadow-lg p-6 mb-8">
-    <div class="flex gap-3 items-center">
-      <div class="flex-grow relative">
+    <div class="flex flex-wrap gap-3 items-center">
+      <div class="flex-grow relative w-full sm:w-auto">
         <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input id="searchInput" type="text" placeholder="What do you need help with? e.g. 'how do I set up the mixing desk'" class="w-full pl-14 pr-6 py-4 rounded-lg border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40 outline-none" onkeydown="if(event.key==='Enter')doSearch()">
       </div>
-      <button onclick="doSearch()" class="bg-[#3d6263] text-white px-8 py-4 rounded-lg font-semibold text-[12px] shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
-      <button onclick="clearSearch()" class="bg-white border border-[#d1dfdf] px-5 py-4 rounded-lg font-semibold text-[12px] hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+      <button onclick="doSearch()" class="flex-1 sm:flex-none bg-[#3d6263] text-white px-8 py-4 rounded-lg font-semibold text-[12px] shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
+      <button onclick="clearSearch()" class="flex-1 sm:flex-none bg-white border border-[#d1dfdf] px-5 py-4 rounded-lg font-semibold text-[12px] hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
       <span class="text-[12px] font-semibold opacity-40 self-center">Quick:</span>
