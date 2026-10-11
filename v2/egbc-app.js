@@ -438,6 +438,56 @@
     }
   }
 
+  /* ---- leaving the app, and coming back (§7d A) -----------------------
+
+     A page the app opens wears the app's header and tab bar instead of
+     the website's. Three things are handed over before the tap lands,
+     because the page cannot work any of them out for itself:
+
+       ?app=1        turns app mode on, and egbc-appmode.js remembers it
+                     so a link INSIDE the page keeps you in the app
+       where to go   back to the exact tab you left, not whatever the
+                     browser's history happens to hold
+       which tabs    this person's own tabs for this space. The page has
+                     no idea who they are on; guessing would offer tabs
+                     they do not have, and go() refuses a space you are
+                     not in, so the guess would end in a dead tap.
+
+     THE ONE PAGE THAT IS NOT OPENED IN APP MODE IS THE HUB. §7d says the
+     app never opens the website's home except by "Open the full website"
+     on Me, and that row means what it says - so this clears app mode on
+     the way out rather than dressing the website up as the app. */
+
+  var WEBSITE = { 'hub.html': true };
+
+  function openPage(target) {
+    var page = String(target).split('?')[0].split('#')[0];
+    if (WEBSITE[page]) {
+      if (global.EGBCAppMode) EGBCAppMode.leave();
+      location.href = target.indexOf('?') === -1 ? target + '?app=0' : target + '&app=0';
+      return;
+    }
+    if (global.EGBCAppMode) {
+      EGBCAppMode.remember('app.html#' + S.space + ':' + S.tab, {
+        space: S.space, tab: S.tab, tabs: tabsFor(S.space),
+        colour: (SPACES[S.space] || {}).colour || ''
+      });
+    }
+    location.href = target + (target.indexOf('?') === -1 ? '?app=1' : '&app=1');
+  }
+
+  /* Coming back: app.html#space:tab. Only a space this person really has
+     - the hash is typed-in text as far as this is concerned, and go()
+     refuses the rest anyway. */
+  function fromHash() {
+    var h = String(location.hash || '').replace(/^#/, '');
+    if (!/^[a-z]+:[a-z-]+$/.test(h)) return false;
+    var bits = h.split(':');
+    if (!SPACES[bits[0]]) return false;
+    go(bits[0], bits[1]);
+    return true;
+  }
+
   /* ---- what a tap does ------------------------------------------------
      Navigation is the shell's, so the back behaviour and the scroll reset
      live in one place. A screen's own buttons use their own handlers -
@@ -472,8 +522,9 @@
     if (a.indexOf('sheet:') === 0) { S.sheet = a.slice(6); return draw(); }
     if (a.indexOf('go:') === 0) { var g = a.split(':'); return go(g[1], g[2]); }
     /* open: a page that already does the job (§5). The app does not rebuild
-       what v2 already has; it opens it. */
-    if (a.indexOf('open:') === 0) { location.href = a.slice(5); return; }
+       what v2 already has; it opens it - IN APP MODE (§7d A), so the
+       person does not land on the website halfway through a job. */
+    if (a.indexOf('open:') === 0) { return openPage(a.slice(5)); }
     if (a.indexOf('toast:') === 0) {
       S.toast = a.slice(6); draw();
       clearTimeout(toastTimer);
@@ -496,6 +547,14 @@
       toastTimer = setTimeout(function () { S.toast = null; draw(); }, 3200);
     },
     state: function () { return { space: S.space, tab: S.tab, sheet: S.sheet }; },
-    start: function () { S.space = 'me'; S.tab = 'home'; draw(); }
+    /* COMING BACK FROM A PAGE lands on app.html#space:tab, and that is
+       where the person should be - not on Home, which is where they were
+       several taps ago (§7d A: "back to where you were in the app").
+       Anything else, or a hash naming a space they are not in, starts on
+       Home exactly as before. */
+    start: function () {
+      if (fromHash()) return;
+      S.space = 'me'; S.tab = 'home'; draw();
+    }
   };
 })(window);

@@ -391,3 +391,44 @@ Nothing else. The assignment sheets, the availability buckets, the drag
 and drop, the auto-fill order, the term generation, the availability
 emails, every `confirm()` wording and every inline style on the rota rows
 are as they were.
+
+## App mode (§7d A), 11 Oct 2026
+
+`egbc-appmode.js` dresses a website page as the app: the app's slim
+header with a back arrow and the page's name, the app's tab bar, and no
+website bar, no Menu and no "view as" strip. **The page itself is not
+touched** (§15) — same markup, same controls, same main action. All this
+adds is chrome around it and the padding to clear it.
+
+**The 23 pages it covers** — every `open:` target except the three below:
+
+`Coreteamcharter` · `EGBC-HowTo-AV` · `EGBC-PlayThrough` ·
+`EGBC-Training-Worship` · `EGBC-Troubleshoot-AV` · `Library` ·
+`Worshipteamcharter` · `Youthcharter` · `addressbook` · `bookings-admin` ·
+`groups` · `index` · `kids-admin` · `kids-checkin` · `maintenance` ·
+`meeting` · `resources` · `rooms` · `safeguarding` · `stickynotes` ·
+`view-only-rota` · `whatson` · `worried`
+
+**Three deliberately not**, and the check asserts each:
+
+| Page | Why |
+|---|---|
+| `hub.html` | §7d: the website's home. "Open the full website" on Me is the only route and it now **leaves** app mode (`?app=0`) |
+| `CoreTeamApp.html` | an installed app with its own chrome; the Team row hands over to it |
+| `login.html` | nobody is in the app yet |
+
+**How a page knows.** The app's `open:` rows go to the page with `?app=1`,
+and `egbc-appmode.js` remembers that in sessionStorage — so a link
+*inside* the page, which knows nothing about any of this, keeps you in
+the app. It dies with the tab, which is right: a bookmark opened tomorrow
+is the website again.
+
+**Where back goes.** Not history. The app writes `app.html#space:tab`
+before it sends you, so back returns to the tab you left. The tab bar is
+handed over the same way: the app knows which tabs that person has and
+the page does not, so it is given the list rather than a second copy of
+the rules being written.
+
+`tests/check-app-mode.mjs` walks all 23 at 375px, then the same pages
+**as the website**, because a change that dressed every page as the app
+for everybody would pass a one-sided check.

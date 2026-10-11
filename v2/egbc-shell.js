@@ -536,6 +536,17 @@
 
 
   function start() {
+    /* APP MODE (APP-DESIGN-BRIEF §7d A). When the app opened this page,
+       the website's bar, its Menu and its preview strip are not drawn at
+       all - egbc-appmode.js puts the app's slim header and tab bar there
+       instead. The page itself is untouched either way (§15).
+       It is checked FIRST, before css() and font(), so nothing of the
+       website's chrome is laid out and then hidden. */
+    if (window.EGBCAppMode && EGBCAppMode.on()) {
+      font();
+      EGBCAppMode.start({ title: pageTitle });
+      return;
+    }
     css();
     font();
 

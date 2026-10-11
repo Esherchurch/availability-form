@@ -728,6 +728,12 @@
        The page asks for it to be left out rather than this file knowing
        the app's name, so any other full-screen page can do the same. */
     if (document.documentElement.hasAttribute('data-egbc-no-strips')) return;
+    /* And not in app mode either (§7d A): a page the app opened wears the
+       app's header and tab bar, and a third strip fixed to the bottom
+       would sit on top of the tab bar - which is exactly what Martin saw
+       in the app itself. egbc-appmode.js sets the attribute before
+       anything draws. */
+    if (document.documentElement.hasAttribute('data-egbc-app-mode')) return;
 
     var bar = document.getElementById('egbc-viewas');
     if (!bar) {
