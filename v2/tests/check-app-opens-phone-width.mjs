@@ -217,8 +217,17 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
     });
   })()`;
 
-  const rows = [];
-  for (const page of PAGES) {
+  /* THE EMULATOR DROPS A BROWSER CLIENT NOW AND AGAIN (A-062/A-063), and
+     here it wears a disguise: no profile means the guard refuses, so the
+     page reports "No access to this page" and this gate goes red for what
+     reads exactly like a real access fault. It did, on three pages at
+     once, in the middle of unrelated work (A-072) - and THIS GATE FAILS
+     THE BUILD, so a false red here is worse than a false finding.
+     The same narrow probe the Core Team walk uses: ask the page whether
+     Firestore answers at all. A read that will not finish in six seconds
+     against an emulator on this machine is the connection; one that
+     finishes means the refusal is real and stands. */
+  const openPage = async (page) => {
     await send('Page.navigate', { url: 'about:blank' }); await sleep(200);
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + page });
     await sleep(page === 'hub.html' || page === 'meeting.html' ? 11000 : 8000);
@@ -226,6 +235,23 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
     let m;
     try { m = JSON.parse(String(await ev(MEASURE))); }
     catch { m = { over: -1, worst: '(could not measure)', blocked: '', title: '' }; }
+    return m;
+  };
+  let dropped = 0;
+  const rows = [];
+  for (const page of PAGES) {
+    let m = await openPage(page);
+    for (let attempt = 0; m.blocked && attempt < 2; attempt++) {
+      const reach = String(await ev(
+        'Promise.race([ EGBCAuth.db.collection("users").limit(1).get()'
+        + '.then(function(){ return "reachable"; })'
+        + '.catch(function(e){ return "unreachable:" + e.code; }),'
+        + ' new Promise(function(r){ setTimeout(function(){ r("unreachable:timeout"); }, 6000); }) ])',
+        true));
+      if (reach.indexOf('unreachable') !== 0) break;   /* a real refusal */
+      dropped++;
+      m = await openPage(page);
+    }
     rows.push({ page, ...m });
     const verdict = m.blocked ? 'blocked: ' + m.blocked
       : m.over > SLOP ? 'OVER by ' + m.over + 'px  (' + (m.worst || '?') + ' is ' + m.worstW + 'px)'
@@ -248,6 +274,10 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   console.log('\n--- NOT PHONE WIDTH at 375px (' + over.length + ') ---');
   over.forEach(r => console.log('  ' + r.page.padEnd(30) + '+' + r.over + 'px   widest: '
     + (r.worst || '?') + ' ' + r.worstW + 'px'));
+  /* Said out loud, not swallowed. A retry nobody can see is a gate
+     nobody can trust. */
+  if (dropped) console.log('\nnote  the emulator dropped the browser client '
+    + dropped + 'x (A-062); those pages were opened again');
   if (odd.length) {
     console.log('\n--- could not be measured (' + odd.length + ') ---');
     odd.forEach(r => console.log('  ' + r.page.padEnd(30) + (r.blocked || 'no measurement')));

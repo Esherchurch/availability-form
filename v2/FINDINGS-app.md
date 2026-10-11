@@ -2292,37 +2292,49 @@ Everything else EmailBuilder2 touches now agrees with its door:
 any volunteer, unchanged), and `email_assets/` in Storage, which had no rule
 at all — see F-155.
 
-### A-071 — CoreTeamApp's welcome tour throws on the first screen, every time
+### A-071 — WITHDRAWN. The welcome tour was never broken; I had broken the page
 
-**Recorded, not fixed. It is not from the planner move** — the same lines
-are in the copy taken before I touched the file, in the same order.
+**I reported this wrongly and Martin approved a change to a live installed
+app on the strength of it. The change has been reverted.**
 
-Opening `CoreTeamApp.html` with the console on:
+What I saw was real: opening `CoreTeamApp.html` with the console on gave
 
 ```
-Uncaught ReferenceError: Cannot access '_touredSections' before initialization
-    at maybeTriggerTour (CoreTeamApp.html:…)
+Uncaught ReferenceError: Cannot access ‘_touredSections’ before initialization
 ```
 
-`showScreen('home')` runs while the page is still being parsed — it is a
-bare call in the body of the inline script — and the last thing it does is
-`maybeTriggerTour(name)`. `_touredSections` is a `const` declared about
-2,400 lines further down, so at that moment it is in its temporal dead
-zone and reading it throws.
+What I concluded from it was wrong. I decided the `const` was being read
+from top-level code before its declaration, and said so, and checked only
+that *the same lines were in the file before I touched it* — which was true
+and proves nothing.
 
-**What it costs:** the welcome tour never fires on the first screen a new
-Core Team member sees, which is the one screen it was written for. Every
-other screen is fine, because by then the `const` exists.
+**The real cause was my own half-finished work, in the same session.** The
+`<script src="egbc-core-planner.js">` tag had not gone in (a guard in my
+wiring script matched the filename inside a comment it had just written).
+So `EGBCCorePlanner is not defined` threw partway down the inline script,
+**the rest of it never ran**, `_touredSections` was never declared at all,
+and the 500ms tour timer then failed on it. Two errors, one of them mine,
+and I read the second as the story.
 
-**The fix is one line** — move `const _touredSections = new Set();` up
-beside the other tour state, or make `maybeTriggerTour` tolerate it. I
-have not made it, because it is nothing to do with §7b and Martin decides
-what goes into a live installed app.
+**Proved by a break that did not bite.** With the tag back in place I moved
+the `const` back to where it had always been and ran the new tour check:
+it passed. A fix whose removal changes nothing was not fixing anything.
+The only path that reads `_touredSections` runs from a `setTimeout`, by
+which time the script has finished parsing, so its position is fine.
 
-Found by opening the page with the console on while checking the planner
-move had not broken it. The existing screenshot runner dismisses the tour
-as its first action, so nothing had ever seen this.
+**What was kept:** the check Martin asked for — in
+`tests/check-core-planner.mjs`, first thing, against a cleared browser:
+the tour comes up by itself on the first screen, with its first step, and
+nothing threw on the way. It earns its place for a better reason than the
+one I gave: it is a check that *the page’s script ran to the end*, which is
+exactly the state I had put CoreTeamApp into and did not notice until the
+planner check told me.
 
+**The lesson, since this is the second time this week:** “the same lines
+were there before” is not the same as “this behaviour was there before”.
+The way to tell is to reproduce it on a clean checkout, which takes one
+`git stash` and a minute, and which I did for the six rules failures
+(F-153) and did not do here.
 ### A-072 — the 375px width gate has no drop-retry, and reported three false refusals
 
 `tests/check-app-opens-phone-width.mjs` failed once with:
@@ -2347,4 +2359,16 @@ false finding — it is a red gate nobody can tell from a real one. Worth
 giving it the same probe `check-core-covers-worship.mjs` has: ask the page
 whether Firestore is reachable, and reload only when it is not.
 
-Not done here, because it is nothing to do with §7b.
+
+**DONE, 11 Oct 2026** (Martin: "yes, give the width gate the same
+drop-retry as the walk"). `check-app-opens-phone-width.mjs` now probes
+whether Firestore answers before believing a refusal, and reopens the page
+up to twice when it does not. A refusal from a reachable emulator is real
+and still fails. The retry count is printed, because a retry nobody can
+see is a gate nobody can trust.
+
+**Not exercised in a run yet** - a dropped client cannot be made to
+happen on demand, so what has been proved is that the gate still passes
+with the probe in the path, not that the probe catches a drop. The same
+code is what fixed it in `check-core-covers-worship.mjs`, where the drop
+WAS reproducible.

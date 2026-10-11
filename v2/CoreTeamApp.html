@@ -3053,7 +3053,12 @@ function endTour() {
   document.getElementById('tour-overlay').classList.remove('active');
 }
 
-// Auto-trigger on first visit to each section
+// Auto-trigger on first visit to each section.
+//
+// This const sits 2,000 lines below the call to maybeTriggerTour() in
+// showScreen(), and that is FINE: the only path that reaches it runs from
+// a setTimeout, by which time this script has finished parsing. It was
+// reported as a fault (A-071) and it is not one - that finding is closed.
 const _touredSections = new Set();
 function maybeTriggerTour(section) {
   if (_touredSections.has(section)) return;

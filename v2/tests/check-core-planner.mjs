@@ -94,6 +94,17 @@ const SUNDAY = (() => {
   return d.toISOString().slice(0, 10);
 })();
 
+/* The coming Sunday, or today when today is Sunday - the date the planner
+   now opens on. Worked out HERE independently of the planner's own
+   comingSunday(), because a check that asks the code what it did and then
+   agrees with it proves nothing. Local time, like the planner's. */
+const COMING = (() => {
+  const d = new Date(); d.setHours(12, 0, 0, 0);
+  while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
+  const m = String(d.getMonth() + 1), day = String(d.getDate());
+  return d.getFullYear() + '-' + m.padStart(2, '0') + '-' + day.padStart(2, '0');
+})();
+
 async function seed() {
   let up = JSON.parse((await req(9099, 'POST',
     '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
@@ -245,6 +256,37 @@ async function seed() {
     const p1 = await planner(label);
     ok('  the planner is on the screen', p1.mounted === 'yes', JSON.stringify(p1));
     if (p1.mounted !== 'yes') return;
+
+    /* IT OPENS ON THE COMING SUNDAY (Martin, 11 Oct 2026). It opened
+       blank, so the first thing anybody did was pick the date they were
+       always going to pick. */
+    const opened = String(await ev('(document.getElementById("spDate")||{}).value||""'));
+    ok('  it opens on the coming Sunday, not a blank date', opened === COMING,
+      'opened on "' + opened + '", wanted ' + COMING);
+    /* AND THE SERVICE ON IT, ONLY IF THERE IS EXACTLY ONE. Two means a
+       choice, and choosing for somebody is how you plan the wrong
+       service without noticing. Written as the rule rather than as "it
+       picked mine", because the emulator is shared and what else is on
+       that Sunday is not this check's to control - the rule holds either
+       way, and the branch that ran is printed. */
+    await until('  the rota for that Sunday has been looked up',
+      '(function(){var s=document.getElementById("spEventSelect");'
+      + 'return (s && s.dataset.done !== undefined) || (s && s.options.length >= 1) ? "yes" : "no"})()', 30);
+    await sleep(1200);
+    const choice = JSON.parse(String(await ev(
+      '(function(){var s=document.getElementById("spEventSelect");'
+      + 'if(!s) return JSON.stringify({services:-1,chosen:"(no select)"});'
+      + 'return JSON.stringify({ services: s.options.length - 1, chosen: s.value,'
+      + ' chosenText: s.selectedIndex > 0 ? s.options[s.selectedIndex].textContent : "" })})()') || '{}'));
+    if (choice.services === 1) {
+      ok('  and chooses it, because there is exactly one service that day',
+        choice.chosen !== '' && choice.chosenText !== '', JSON.stringify(choice));
+      const team = String(await ev('document.querySelectorAll("#spTeamBody tr").length'));
+      ok('    which fills in who is on', Number(team) > 0, team + ' rows');
+    } else {
+      ok('  and does NOT choose for them, because there are ' + choice.services
+        + ' services that day', choice.chosen === '', JSON.stringify(choice));
+    }
     /* THE DEFAULT ORDER, which is what a planner opens with: seven songs
        and two items, "Welcome and Notices" then "Message". */
     ok('  it opens with the default order of service',
@@ -302,6 +344,37 @@ async function seed() {
     await shot(label.replace(/[^a-z]+/gi, '-').toLowerCase());
     ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
   };
+
+  /* ---- 0. the welcome tour, which A-071 stopped firing --------------- */
+  /* Martin, 11 Oct 2026: fix it, with a check that the tour starts on
+     first open. The fault was a const declared 2,000 lines below the call
+     that reads it, so maybeTriggerTour threw "Cannot access
+     '_touredSections' before initialization" and the tour never fired on
+     the FIRST screen a new Core Team member sees - the one screen it was
+     written for. Every later screen was fine, which is why nothing
+     noticed, and why this check is deliberately the FIRST thing done to
+     a cleared browser rather than something done after a walk around. */
+  console.log('the welcome tour, on a first open:');
+  await send('Page.navigate', { url: 'about:blank' }); await sleep(200);
+  await send('Storage.clearDataForOrigin', { origin: 'http://localhost:' + SERVE,
+    storageTypes: 'local_storage' });
+  errs = [];
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/CoreTeamApp.html' });
+  await until('  the Core Team app loaded', '(typeof openSection === "undefined") ? "no" : "yes"', 60);
+  /* The tour fires on a 500ms timer after the screen settles, and nothing
+     is clicked here - this is what a person gets by opening the app. */
+  await until('  the tour comes up by itself on the first screen',
+    '(function(){var o=document.getElementById("tour-overlay");'
+    + 'return (o && o.classList.contains("active")) ? "yes" : "no"})()', 30);
+  const tourText = String(await ev('(function(){var o=document.getElementById("tour-overlay");'
+    + 'return o ? o.textContent.replace(/\\s+/g," ").trim() : "(no overlay)"})()'));
+  ok('  the tour comes up by itself, with its first step',
+    /Welcome to Worship Planner/.test(tourText), tourText.slice(0, 140));
+  ok('  and nothing threw on the way',
+    !errs.some(e => /_touredSections|before initialization/.test(e)),
+    JSON.stringify(errs.slice(0, 3)));
+  await ev('(function(){try{if(typeof endTour==="function")endTour()}catch(e){}'
+    + 'var o=document.getElementById("tour-overlay");if(o)o.classList.remove("active");return "ended"})()');
 
   /* ---- 1. the installed Core Team app, which must not break ---------- */
   await run('CoreTeamApp, the installed one', async () => {

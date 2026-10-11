@@ -242,12 +242,53 @@
       });
       _spInputWired = true;
     }
-    // Pre-populate default order on first open, exactly like the desktop planner
+    /* OPEN ON THE COMING SUNDAY (Martin, 11 Oct 2026). It opened on a
+       blank date, so the first thing anybody did was pick the date they
+       were always going to pick. The planner is for this Sunday far more
+       often than for any other day.
+       In the module rather than in either host, so the Core Team app and
+       the phone app open the same way - which is the whole reason the
+       planner lives here. */
     if (!_spDefaultLoaded) {
+      _spDefaultLoaded = true;
+      var dateBox = document.getElementById('spDate');
+      if (dateBox && !dateBox.value) {
+        dateBox.value = comingSunday();
+        /* And the service on it, IF THERE IS EXACTLY ONE. Two means a
+           choice - a morning service and an evening one, say - and
+           choosing for somebody is how you plan the wrong service
+           without noticing. */
+        spLoadRota().then(function () {
+          var sel = document.getElementById('spEventSelect');
+          if (sel && sel.options.length === 2) {
+            sel.value = sel.options[1].value;
+            return spSelectEvent();
+          }
+          /* Nothing on the rota that day, or more than one: the default
+             order, as before. */
+          spSetupDefaultOrder();
+          spAutoFit();
+        }).catch(function () { spSetupDefaultOrder(); spAutoFit(); });
+        return;
+      }
+      // Pre-populate default order on first open, exactly like the desktop planner
       spSetupDefaultOrder();
       spAutoFit();
-      _spDefaultLoaded = true;
     }
+  }
+
+  /* The next Sunday, or today when today IS Sunday - a plan is most often
+     worked on during the week before, and on the morning itself. Local
+     time throughout: new Date() is the phone's own day, and the date box
+     wants yyyy-mm-dd in that same day, so toISOString() (which is UTC)
+     would hand somebody in a British summer evening the day before. */
+  function comingSunday() {
+    var d = new Date();
+    d.setHours(12, 0, 0, 0);
+    while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
+    var m = String(d.getMonth() + 1), day = String(d.getDate());
+    return d.getFullYear() + '-' + (m.length < 2 ? '0' + m : m)
+                           + '-' + (day.length < 2 ? '0' + day : day);
   }
 
   function spSetupDefaultOrder() {
