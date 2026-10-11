@@ -58,9 +58,27 @@
   /* A row that opens Room bookings: the shell's own row, with its own act. */
   function link(icon, title, sub, right) { return global.EGBCApp.row(icon, title, sub, right || null, FULL, global.EGBCAppEvents.COLOURS.office); }
 
+  /* No site to look after (F-152). Three reasons, three sentences:
+       - someone who may see bookings (an admin, the Church office group, a
+         one-off tick, or a site's bookings admin) when there are no sites
+         at all yet: the live state before Places is filled in, and the
+         answer is Places, not "you are not on one";
+       - someone given the Bookings tab (say, by the Church office group)
+         who is not yet a bookings admin of any site: the rules let only a
+         site's bookings admins read its bookings, so say how to become one;
+       - anybody else: they really are not on a site's office. */
+  function noSiteWords(q) {
+    var A = global.EGBCAuth || {};
+    var admin = !!(A.isAdmin && A.isAdmin());
+    var tab = !!(A.runsTabs && A.runsTabs().indexOf('bookings') >= 0);
+    if ((admin || tab) && !q.allSites) return { o: 'nosites', words: 'No sites or rooms set up yet — add them in Places on a computer.' };
+    if (tab) return { o: 'notyet', words: 'You are not yet a bookings admin of any site. A master admin adds you in Places, under “Who approves”.' };
+    return { o: 'none', words: 'Room bookings are looked after by each site\'s office. You are not on one.' };
+  }
+
   function listView() {
     var out = H.head('Room bookings', Q.sites.length ? 'What is waiting for you' : '');
-    if (!Q.sites.length) return out + '<div class="card" style="padding:14px" data-o="none"><p style="margin:0">Room bookings are looked after by each site\'s office. You are not on one.</p></div>';
+    if (!Q.sites.length) { var n = noSiteWords(Q); return out + '<div class="card" style="padding:14px" data-o="' + n.o + '"><p style="margin:0">' + esc(n.words) + '</p></div>'; }
     if (VIEW.done) out += '<div class="card" style="padding:14px" data-o="done"><p style="margin:0">' + esc(VIEW.done) + '</p></div>';
     var seen = {}, rows = [];
     Q.requests.forEach(function (b) {
@@ -141,6 +159,8 @@
   }
 
   global.EGBCAppOffice = {
+    /* The words for no site to look after (F-152); the tests ask it directly. */
+    noSiteWords: noSiteWords,
     /* The shell (egbc-app.js) calls this once, through EGBCAppEvents.mountAll. */
     mount: function (App) {
       H = global.EGBCAppEvents.helpers(App, 'office');

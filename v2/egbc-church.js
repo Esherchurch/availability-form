@@ -66,15 +66,31 @@
       '<span class="ch-name">' + esc(D.name || 'Rooms for hire') + '</span>' +
       '<span class="ch-hub"></span>' +
       (o.back ? '<a class="ch-back" href="hire.html">' + ICON.back + 'Back to all rooms</a>' : '') + '</div>';
-    /* Martin (F-062): someone already signed in to the hub gets a way back
-       to it. The public never see it - it appears only once the browser
-       says a person is signed in, and this never asks anyone to sign in. */
+    /* SIGNED IN: the hub's own top bar and Menu, like every other page
+       (Martin, 11 Oct: "the drop down menu disappears on some pages").
+       egbc-shell.js is loaded only once the browser says a person is signed
+       in, so the public never get the hub's bar, its "Hub" button (which
+       leads to sign-in) or a Menu, and nobody is ever asked to sign in.
+       The shell then draws itself for that person through
+       EGBCAuth.optional(), which never redirects. This header steps back to
+       just "Back to all rooms", where the page has one. */
     try {
       firebase.auth(firebase.app('egbc')).onAuthStateChanged(function (u) {
-        var h = el.querySelector('.ch-hub'); if (!h) return;
-        h.innerHTML = u ? '<a class="ch-back" href="hub.html" id="ch-hub">' + ICON.hub + 'Back to the hub</a>' : '';
+        if (u) hubShell(el);
       });
-    } catch (e) { /* no sign-in on this page: nothing to show */ }
+    } catch (e) { /* no sign-in on this page: the public header stays */ }
+  }
+
+  var SHELL = 'egbc-shell.js?v=202610082145';
+  function hubShell(el) {
+    if (document.querySelector('script[src^="egbc-shell.js"]')) return;
+    var s = document.createElement('script');
+    s.src = SHELL;
+    s.setAttribute('data-title', (document.title || 'Rooms').split(' — ')[0]);
+    document.head.appendChild(s);
+    el.classList.add('ch-signedin');
+    ['.ch-logo', '.ch-name', '.ch-hub'].forEach(function (k) { var x = el.querySelector(k); if (x) x.style.display = 'none'; });
+    if (!el.querySelector('.ch-back')) el.style.display = 'none';
   }
 
   /* The public pages close their database connection as the visitor leaves.

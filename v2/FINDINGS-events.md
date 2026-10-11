@@ -3194,3 +3194,81 @@ clause, one fails.
 **Neither page is yours and nothing of yours changed** — this is recorded
 here because the same question is worth asking of every path the events
 window's pages write to. A path with no rule does not announce itself.
+### F-152 answered — Bookings with no sites yet
+**Changed:** `egbc-app-office.js`, plus one count in `officeQueue()`
+(`allSites`).
+
+**What each person now sees:**
+- **Can see bookings, and there are no sites at all yet:** "No sites or
+  rooms set up yet — add them in Places on a computer." This covers an admin
+  (Martin included), the Church office group, a one-off tick, and a site's
+  bookings admin.
+- **Has the Bookings tab but isn't a bookings admin of any site,** for
+  example someone in the Church office group: "You are not yet a bookings
+  admin of any site. A master admin adds you in Places, under 'Who
+  approves'."
+  - **This is a third case, beyond what was asked.** The rules let only
+    admins and a site's bookings admins read its bookings. The office group
+    gives the tab but no reading rights.
+  - So Val, if she's in the group but not yet a bookings admin, would
+    otherwise have been told "You are not on one" too.
+- **Anybody else:** "You are not on one", as before.
+- **With a site:** Martin sees its requests, unchanged.
+
+**Proved:** `office-nosites.test.mjs`, 10 checks, through the real shell at
+375px. It covers Martin and Val with no sites, then both with a site, and
+asks the decision directly about someone on no office.
+
+**3 deliberate breaks, all caught:**
+- **The one that matters:** the old behaviour, where an empty list always
+  reads "not on one".
+- The office group forgotten.
+- Everybody getting the Places sentence.
+
+### F-156 — the public hire pages: the hub's bar and Menu when signed in (Martin, 11 Oct)
+**Martin:** "the drop down menu disappears on some pages". The four pages
+were `hire.html`, `room.html`, `book.html` and `my-booking.html`.
+
+**The fix is in one place:** `EGBCChurch.header()`, which draws the public
+header on all four pages.
+
+**Signed in:**
+- The page loads the standard `egbc-shell.js`, with its top bar, Hub button
+  and Menu, like every other page.
+- The public header's logo, name and "Back to the hub" step back, so there
+  is one bar, not two.
+- "Back to all rooms" stays where the page has it.
+
+**Signed out:**
+- The shell is never loaded, so the page is exactly as before.
+- There is no hub bar, no Menu and no Hub button. Each of those would lead
+  a member of the public to the hub's sign-in.
+- There is no sign-in prompt, and the visitor is never redirected.
+
+**Why it's safe:** the shell is added only after the browser reports a
+signed-in person. It then uses `EGBCAuth.optional()`, which never
+redirects, so a public page can't force a sign-in.
+
+**Proved:** `public-menu.test.mjs`, 82 checks: all four pages, signed in and
+signed out, at a computer's width and at 375px.
+- **Signed in:**
+  - the bar and Menu are there
+  - the Menu opens and lists pages
+  - the page still works
+  - one bar, not two
+  - nothing scrolls sideways
+- **Signed out:**
+  - the page works
+  - the public header is there
+  - no bar, Menu, Hub link or sign-in prompt
+  - still on the page
+  - nothing scrolls sideways
+
+**`r3-bookings.test.mjs` updated:** its "Back to the hub" check now checks
+for the hub's bar and Menu instead. That link was replaced on purpose.
+
+**3 deliberate breaks, all caught:**
+- **The one that matters:** the bar and Menu for everyone. Caught on every
+  signed-out page.
+- Back to how it was: no Menu when signed in.
+- Two bars at once.

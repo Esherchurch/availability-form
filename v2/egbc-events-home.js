@@ -150,7 +150,9 @@
           var hit = books.filter(function (b) { return b.roomId === c.roomId && c.days.indexOf(b.day) >= 0 && (b.status === 'requested' || b.status === 'confirmed') && b.kind !== 'event'; });
           return Object.assign({}, c, { booked: hit.length });
         }).filter(function (c) { return c.booked > 0; });
-        return { sites: mine, requests: requests, cancelAsks: cancelAsks, closures: closures, jobsToDo: jobs, url: BASE + 'bookings-admin.html' };
+        /* allSites: how many active sites there are at all, so the screen
+           can tell "no sites yet" from "not this person's" (F-152). */
+        return { sites: mine, allSites: sites.length, requests: requests, cancelAsks: cancelAsks, closures: closures, jobsToDo: jobs, url: BASE + 'bookings-admin.html' };
       });
     });
   }
