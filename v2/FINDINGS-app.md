@@ -2260,3 +2260,34 @@ it rather than by reasoning:
   Team" heading, exactly as a bookings admin reaches Room bookings, and must
   not thereby be handed the Core Team charter. That is `OPENED_FOR_OFFICE`,
   the same mechanism as `OPENED_FOR_BOOKINGS`.
+
+### A-070 — the send endpoint EmailBuilder2 posts to checks nobody
+
+**Recorded, not fixed, and not mine to fix.** Found while widening
+EmailBuilder2 to anyone on Core Team (Martin, 11 Oct 2026) — the job was
+"make sure the rules for whatever it reads and writes agree", so the send
+path got read too.
+
+`EmailBuilder2.html:825` posts the finished email to
+`https://sendemail-irkwdhx3xq-uc.a.run.app` with **no ID token and no
+credentials of any kind** — just `{ to, subject, html, replyTo }`. Anyone
+who knows that address can send email as the church, to any address they
+like, without an account here.
+
+`sendEmail` belongs to the **Calla window** and is not in this repository
+(`firebase.json` says so against the `hub` codebase). So:
+
+- **Nothing changed here.** Widening the page's door from "a Core Team
+  leader" to "anyone on Core Team" does not touch this: the endpoint was
+  never checking the first one either.
+- **It wants a token.** The pattern already used by every other function
+  in `functions/index.js` is `request.auth.uid`, then a read of
+  `users/{uid}`. `EGBCAuth.call()` sends the token for exactly this.
+- **For Martin to decide**, since it crosses to another window and another
+  codebase: whether to ask Calla for an authenticated `sendEmail`, and what
+  it should require — signed in, or on Core Team.
+
+Everything else EmailBuilder2 touches now agrees with its door:
+`emailDrafts` (`isAdmin() || onTeam('Core Team')`), `addressBook` (read for
+any volunteer, unchanged), and `email_assets/` in Storage, which had no rule
+at all — see F-155.

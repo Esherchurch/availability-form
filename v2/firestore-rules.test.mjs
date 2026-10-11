@@ -69,6 +69,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     name: 'Member Synthetic', email: 'member@example.invalid', markers: [], churchMember: true });
   await setDoc(doc(db, 'news', 'n1'), { title: 'A notice', body: 'x', ackedBy: [] });
   await setDoc(doc(db, 'songs', 'sg1'), { title: 'A song' });
+  /* A church email half written, for the Core Team tests below. */
+  await setDoc(doc(db, 'emailDrafts', 'd1'),
+    { subject: 'A draft', updatedBy: 'u_martin', updatedAt: 'then' });
   await setDoc(doc(db, 'kb_howto_av', 'kb1'), { title: 'How to' });
   await setDoc(doc(db, 'availability', 'a1'), { memberId: 'm_u_samy', status: 'avail' });
   await setDoc(doc(db, 'training_portal', 'tp_x'), { note: 'practice' });
@@ -2489,6 +2492,24 @@ await check('  reads the rota', 'allow',
 await check('  and SAVES a Worship service, not only reads it', 'allow',
   () => setDoc(doc(as('core'), 'events', 'e_core_saves'),
     { date: '2026-11-01', roles: ['Guitar'], teams: ['Worship Team'] }));
+
+/* ---- the church email's drafts (Martin, 11 Oct 2026) ---------------
+   "ANYONE on Core Team, as on the old portal." EmailBuilder2.html was
+   gated data-role="leader" and emailDrafts was isAdmin(), so a Core Team
+   member was stopped twice. Both have gone. */
+await check('a Core Team member reads the email drafts', 'allow',
+  () => getDoc(doc(as('core'), 'emailDrafts', 'd1')));
+await check('  and writes one', 'allow',
+  () => setDoc(doc(as('core'), 'emailDrafts', 'd_core'),
+    { subject: 'This Sunday', updatedBy: 'u_core', updatedAt: 'now' }));
+await check('  an admin still can, as before', 'allow',
+  () => getDoc(doc(as('karen'), 'emailDrafts', 'd1')));
+await check('BUT A WORSHIP-ONLY MEMBER CANNOT', 'deny',
+  () => getDoc(doc(as('samy'), 'emailDrafts', 'd1')));
+await check('  nor write one', 'deny',
+  () => setDoc(doc(as('samy'), 'emailDrafts', 'd_bad'), { subject: 'No' }));
+await check('  nor an Attender', 'deny',
+  () => getDoc(doc(as('attender'), 'emailDrafts', 'd1')));
 
 /* IT ONLY GOES ONE WAY. Nobody counts as Core Team who is not on it. */
 await check('A WORSHIP-ONLY MEMBER STILL CANNOT READ THE CORE TEAM BOARD', 'deny',

@@ -264,12 +264,24 @@ const offMachine = u => {
       const state = await openOnce(file);
       if (state.indexOf('blocked:Something went wrong') !== 0
           && state.indexOf('never settled') !== 0) return state;
-      const stuck = String(await ev(
-        '(!!document.getElementById("egbc-guard-splash") || !!(document.body &&'
-        + ' document.body.getAttribute("data-egbc-blocked") === "Something went wrong"))'
-        + ' && typeof EGBCAuth !== "undefined" && !!EGBCAuth.user() && !EGBCAuth.profile()'
-        + ' ? "dropped" : "its own fault"'));
-      if (stuck !== 'dropped' || attempt === 2) return state;
+      /* ASK THE PAGE WHETHER IT CAN REACH FIRESTORE AT ALL, rather than
+         matching on "no profile yet". That narrower fingerprint missed
+         this one: MonitorStageMap sat on the splash with the profile
+         already in hand, because the read the GUARD is waiting on never
+         came back while another path had filled the profile in. The
+         honest question is not which fields are set, it is whether the
+         emulator is answering this client. A read that will not finish
+         in six seconds against an emulator on this machine is the
+         connection; one that finishes is the page's own fault, and that
+         still fails here. */
+      const reach = String(await ev(
+        'Promise.race([ EGBCAuth.db.collection("users").limit(1).get()'
+        + '.then(function(){ return "reachable"; })'
+        + '.catch(function(e){ return "unreachable:" + e.code; }),'
+        + ' new Promise(function(r){ setTimeout(function(){ r("unreachable:timeout"); }, 6000); }) ])',
+        true));
+      const stuck = reach.indexOf('unreachable') === 0 ? 'dropped' : 'its own fault';
+      if (stuck !== 'dropped' || attempt === 2) return state + ' [' + reach + ']';
       dropped++;
     }
     return 'never settled';
@@ -358,6 +370,35 @@ const offMachine = u => {
     }
     ok('  and the ' + ranked.length + ' admin/leader pages turn them away on RANK, not on team',
       wrongReason.length === 0, wrongReason.join('\n          '));
+
+    /* THE CHURCH EMAIL, BY NAME (Martin, 11 Oct 2026: "ANYONE on Core
+       Team, as on the old portal"). It is in the list above now that
+       data-role="leader" has gone from its guard, and it would be
+       counted there silently - but it was refused to Core Team for a
+       second reason that the list above cannot see, so it gets its own
+       line. If somebody puts the role back, this says which page. */
+    const eb = PAGES.filter(p2 => p2.file === 'EmailBuilder2.html')[0];
+    ok('  EmailBuilder2 asks for Core Team and nothing more',
+      !!eb && eb.teams.join(',') === 'Core Team' && !eb.role,
+      eb ? ('team=' + eb.teams.join(',') + ' role=' + (eb.role || '(none)')) : 'not guarded at all');
+    const ebState = await openPage('EmailBuilder2.html');
+    ok('  and a Core Team member opens it', ebState === 'open', ebState);
+    /* AND THE DRAFTS BEHIND THE DOOR. A page that opens onto data the
+       rules refuse is the same fault one step further in, and it is the
+       one that would have been left: emailDrafts was isAdmin(). Asked
+       the way the page asks it, from inside the page. */
+    const drafts = String(await ev(
+      'EGBCAuth.db.collection("emailDrafts").limit(1).get()'
+      + '.then(function(){ return "read"; })'
+      + '.catch(function(e){ return "refused: " + e.code; })', true));
+    ok('  and can read the drafts behind it', drafts === 'read', drafts);
+    const wrote = String(await ev(
+      'EGBCAuth.db.collection("emailDrafts").doc("_walk_check").set('
+      + '{ subject: "walk check", updatedBy: "check-core-covers-worship", updatedAt: "now" })'
+      + '.then(function(){ return EGBCAuth.db.collection("emailDrafts").doc("_walk_check").delete(); })'
+      + '.then(function(){ return "wrote"; })'
+      + '.catch(function(e){ return "refused: " + e.code; })', true));
+    ok('  and write one, which is the whole job', wrote === 'wrote', wrote);
 
     /* THE OTHER DIRECTION. A cover that lets Core Team into everything is
        not a cover, it is a master key with a different name. */

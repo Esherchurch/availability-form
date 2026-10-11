@@ -120,8 +120,11 @@ Maintenance. Section 4 is how.
 
 ### c. "Message the team" and "Message the group"
 
-`EmailBuilder2.html` exists but is a Core Team tool (`data-team="Core Team"
-data-role="leader"`). A Welcome team leader cannot email their own team.
+`EmailBuilder2.html` exists but is a Core Team tool (`data-team="Core Team"`
+— the `data-role="leader"` came off on 11 Oct 2026, Martin: "ANYONE on Core
+Team, as on the old portal"). A Welcome team leader still cannot email their
+own team, because they are not on Core Team: this paragraph is about who the
+tool is **for**, not about the rank gate that has gone.
 
 **What it needs:** one function that takes a team or group and a short
 message, resolves the addresses server-side and sends — which is the same

@@ -1161,8 +1161,20 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ANYONE ON CORE TEAM, NOT ONLY AN ADMIN (Martin, 11 Oct 2026, "as on
+    // the old portal"). EmailBuilder2.html was gated data-role="leader"
+    // and this was isAdmin(), which is the same mistake twice: a Core Team
+    // member who writes the church email was refused at the door and would
+    // have been refused the drafts behind it. The page gate has gone; this
+    // is the half that actually protects the data.
+    //
+    // A draft is the church's own wording before it is sent. It carries no
+    // personal data of anybody else - the addresses are chosen at sending
+    // time, not stored here - so Core Team reading and writing all of them
+    // is the right shape, and that is why this is not narrowed to the
+    // person who wrote it.
     match /emailDrafts/{draftId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAdmin() || onTeam('Core Team');
     }
 
     // The practice copies of the tools write here rather than into the real

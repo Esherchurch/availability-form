@@ -3167,3 +3167,30 @@ passing version of the rules and tests, run today, fails the same six.
 **Checked:** the file's other fixed dates (bookings and headcounts in
 November and December) share no record names with anything dated today, so
 they can't collide this way.
+
+### F-155 — `email_assets/` had no Storage rule, so no church email could carry a picture
+
+Found on 11 Oct 2026 while making the rules agree with EmailBuilder2's door
+(Martin: "ANYONE on Core Team, as on the old portal"), and worth recording
+because of **how** it was found: nobody looked at Storage for this, the
+Firestore side was the job. It only came up because "whatever it reads and
+writes" was taken literally.
+
+`EmailBuilder2.html` and `CoreTeamApp.html` both upload to
+`email_assets/…`. That path appeared **nowhere** in `storage.rules`, so it
+fell to the closed catch-all at the bottom — `allow read, write: if false`.
+Every picture upload from both pages was refused, for a leader, for a master
+admin, for everybody. Nothing shouted: the page simply could not add a
+picture.
+
+Now: read open (the picture ends up in somebody's inbox, where there is no
+sign-in to consult — the same reasoning as `banners/`), write for Core Team
+or a master admin, 20MB, images only, no delete (old emails still point at
+it). Nine tests in `storage-rules.test.mjs`, with a Core-Team-only person —
+`martin` there is a master admin and would have passed without the Core
+clause. Two deliberate breaks: remove the rule, three fail; remove the Core
+clause, one fails.
+
+**Neither page is yours and nothing of yours changed** — this is recorded
+here because the same question is worth asking of every path the events
+window's pages write to. A path with no rule does not announce itself.

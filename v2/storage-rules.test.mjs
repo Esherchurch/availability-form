@@ -41,6 +41,10 @@ const PEOPLE = {
   karen:  { uid: 'u_karen',  teams: [], adminFor: ['Kids Church'], masterAdmin: false },
   samy:   { uid: 'u_samy',   teams: ['Worship Team'], adminFor: [], masterAdmin: false },
   pending:{ uid: 'u_pending', teams: [], adminFor: [], masterAdmin: false },
+  /* Core Team and nothing else. martin is Core Team too, but he is also a
+     master admin, so he would pass the email-picture tests below without
+     the Core clause being there at all. */
+  core:   { uid: 'u_core',   teams: ['Core Team'], adminFor: [], masterAdmin: false },
 };
 
 await env.withSecurityRulesDisabled(async (ctx) => {
@@ -59,6 +63,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   /* The church logo, where it really is: the root of the bucket. */
   await uploadBytes(ref(st, '1774936285076.png'), PIC(), { contentType: 'image/png' });
   await uploadBytes(ref(st, 'something-else-at-the-root.png'), PIC(), { contentType: 'image/png' });
+  /* A picture already in a church email, so reading one can be tested as
+     well as putting one there. */
+  await uploadBytes(ref(st, 'email_assets/already-sent.png'), PIC(), { contentType: 'image/png' });
 });
 
 /* A tiny PNG. Invented bytes; not a real photograph of anybody. */
@@ -305,6 +312,32 @@ await check('a sermon’s audio is never deleted from a page', 'deny', () => del
 await check('the uploader puts up a series picture', 'allow', () => put(st('u_prc'), 'sermonSeries/ser_neh/artwork', { type: 'image/png' }));
 // ── end EVENTS ──
 // ── end EVENTS ──
+
+/* ---- pictures in a church email (Martin, 11 Oct 2026) --------------
+   EmailBuilder2.html and CoreTeamApp.html both upload here. The path had
+   NO RULE, so it fell to the closed catch-all and every upload from both
+   pages was refused - for a leader, for a master admin, for everybody.
+   Nothing shouted; the page simply could not add a picture. */
+await check('a Core Team member puts a picture in a church email', 'allow',
+  () => put(as('core'), 'email_assets/1234_photo.png'));
+await check('  and a master admin can too', 'allow',
+  () => put(as('martin'), 'email_assets/5678_photo.png'));
+/* The picture ends up in somebody's inbox, where there is no sign-in to
+   consult - the same reason banners are open. */
+await check('  and it can be seen with no account at all, as an email needs',
+  'allow', () => getBytes(ref(anon(), 'email_assets/already-sent.png')));
+await check('BUT A WORSHIP-ONLY MEMBER CANNOT PUT ONE THERE', 'deny',
+  () => put(as('samy'), 'email_assets/sneak.png'));
+await check('  nor an admin of some other area', 'deny',
+  () => put(as('karen'), 'email_assets/sneak2.png'));
+await check('  nor somebody with no account', 'deny',
+  () => put(anon(), 'email_assets/sneak3.png'));
+await check('  and not a file that is not a picture', 'deny',
+  () => put(as('core'), 'email_assets/payload.pdf', { type: 'application/pdf' }));
+await check('  nor one far too big to email', 'deny',
+  () => put(as('core'), 'email_assets/huge.png', { bytes: 21 * 1024 * 1024 }));
+await check('  and nobody deletes one, because old emails still point at it', 'deny',
+  () => deleteObject(ref(as('core'), 'email_assets/already-sent.png')));
 
 /* ---- nothing else moved ------------------------------------------- */
 /* Banners are uploaded from the hub by anyone signed in, and were before
