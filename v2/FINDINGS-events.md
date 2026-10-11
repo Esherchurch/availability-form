@@ -3035,3 +3035,50 @@ ChurchSuite downloads are needed after all. This is step 4 of 3.7 in
 - **Then only those are uploaded,** as backup audio, with title, speaker,
   date and series.
 - **Not started.** It waits for the feed address (A-L2).
+
+### F-152 — REQUEST for the events window: Running things ▸ Bookings tells a master admin "You are not on one" (Martin, 11 Oct)
+
+**What Martin saw.** Walking the live phone app as himself — a master admin
+— Running things ▸ Bookings says:
+
+> Room bookings are looked after by each site's office. You are not on one.
+
+That sentence is wrong for him twice over. He *is* the office of every site:
+`bookings-admin.html` lets `isAdmin()` see all of them, and
+`EGBCEventsHome.officeQueue()` already agrees — `mine` is every active site
+when `isAdmin()` is true (`egbc-events-home.js:131`). What has actually
+happened is that **there are no sites in the database yet**, so `sites` is
+empty, `mine` is empty, and `egbc-app-office.js:63` reads an empty list as
+"you are not an office".
+
+**What Martin asked for**, in his words:
+
+- a master admin with **no sites yet**: *"No sites or rooms set up yet — add
+  them in Places on a computer"*
+- a master admin with sites: **every site's requests** (which the queue
+  already returns — nothing to change below the screen)
+- anybody else who is on no site's office: the sentence you have now, which
+  is right for them
+
+**Why it is yours and not mine.** The one line that needs changing is
+`egbc-app-office.js:63`, which is your file. I have not touched it. The data
+underneath is already right, so this is a wording-and-branch change on that
+line, not a change to `officeQueue()`.
+
+**Suggested shape** (yours to take or leave):
+
+```js
+if (!Q.sites.length) {
+  var admin = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
+  return out + '<div class="card" style="padding:14px" data-o="none"><p style="margin:0">'
+    + (admin
+        ? 'No sites or rooms set up yet — add them in Places on a computer.'
+        : 'Room bookings are looked after by each site\'s office. You are not on one.')
+    + '</p></div>';
+}
+```
+
+**A test that can fail**, if you want one: a master admin with no `sites`
+documents must see the Places sentence, and the same person with one active
+site must see that site's requests. The first of those is the live state
+today, which is how it reached Martin.

@@ -129,11 +129,23 @@
   /* An action, or nothing. Only the shapes the shell knows how to do, so a
      screen cannot smuggle anything into the attribute. */
   function actOk(a) {
-    /* copycal: and viewas: are the Me screen's, added when the calendar
-       choices and "View as" moved off the website and onto a sheet
-       (§7d). Both are a fixed word and a short key - no free text goes
-       into the attribute, which is the whole point of this list. */
-    return /^(close|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120}|copycal:[a-z]+|viewas:[a-z]+)$/
+    /* copycal:, makecal: and viewas: are the Me screen's, added when the
+       calendar choices and "View as" moved off the website and onto a
+       sheet (§7d). Each is a fixed word and a short key - no free text
+       goes into the attribute, which is the whole point of this list.
+
+       WHICH OF THESE IS LOAD-BEARING, said plainly because I got this
+       wrong once already with the !v guard in runsTabs(): this list only
+       gates actions that go through row() and sec(). The viewas: rows do,
+       so viewas: here is load-bearing. The calendar sheet's buttons are
+       hand-written HTML in app.html, so copycal: and makecal: never reach
+       this function at all - they are listed for consistency, and taking
+       them out breaks nothing. Deliberately removing makecal: from this
+       list caught nothing in check-app-calendar.mjs, which is the honest
+       evidence for that sentence. The gate that does hold for the
+       calendar sheet is idFromKey() in app.html: an unrecognised key
+       makes nothing. */
+    return /^(close|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120}|copycal:[a-z]+|makecal:[a-z]+|viewas:[a-z]+)$/
       .test(String(a || ''));
   }
 
@@ -413,7 +425,18 @@
     }
 
     var a = b.dataset.act || '';
-    if (a === 'close') { S.sheet = null; return draw(); }
+    if (a === 'close') {
+      /* THE BACKDROP CLOSES THE SHEET ONLY WHEN THE TAP LANDS ON THE
+         BACKDROP. The backdrop carries data-act="close", so closest()
+         found it from anything inside the panel that has no action of its
+         own - and the calendar sheet's "Apple / iPhone", "Google" and
+         "Outlook" are real <a> links, which have none. The sheet shut
+         under the person's finger as they tapped the thing they wanted.
+         A Close button inside the panel still works: it carries the
+         action itself, so b is the button, not the backdrop. */
+      if (b.className && String(b.className).indexOf('sheet-back') !== -1 && e.target !== b) return;
+      S.sheet = null; return draw();
+    }
     if (a.indexOf('tab:') === 0) { S.tab = a.slice(4); S.sheet = null; return draw(); }
     if (a.indexOf('sheet:') === 0) { S.sheet = a.slice(6); return draw(); }
     if (a.indexOf('go:') === 0) { var g = a.split(':'); return go(g[1], g[2]); }

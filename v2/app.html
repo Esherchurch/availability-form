@@ -175,6 +175,10 @@
   .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;
        font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px;color:var(--body)}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  /* The calendar sheet's Apple, Google and Outlook buttons are real links,
+     because a webcal:// address has to be handed to the phone - so .btn has
+     to work on an <a> too, without the browser's underline. */
+  a.btn{text-decoration:none}
 
   .list{display:grid}
   .card.list{display:grid}
@@ -528,45 +532,88 @@ function whoIAm(me) {
 }
 
 /* ---- Add to my calendar, ON ME (Martin, 11 Oct) ---------------------
-   This row opened hub.html, which §7d says the app never does. The
-   calendar UI only existed inside hub-app.js, so there was no page to
-   point at either - it is built here instead.
+   This row opened hub.html, which §7d says the app never does, and the
+   calendar UI only existed inside hub-app.js - so it is built here.
 
-   The three feeds are the ones myCalendarLinks already makes. The link
-   is a secret: anybody holding it can read that person's dates, which is
-   why the function hands it over rather than it being guessable, and why
-   the sheet offers Copy rather than printing it in full. */
+   THE SAME THREE BUTTONS THE HUB HAS, because copy-and-paste is too hard
+   for most people (Martin, 11 Oct). webcal:// is what makes Apple and
+   Outlook offer to SUBSCRIBE rather than download the file once; Google
+   wants the https address wrapped in its own cid link. Copy stays as the
+   last resort.
+
+   AND A FEED THAT DOES NOT EXIST YET CAN BE MADE from here. It used to
+   say "not set up yet" with no way to set it up, which is a dead end
+   with a label on it. Tapping one calls myCalendarLink for that feed,
+   exactly as the hub's "Add to my calendar" button does, and the buttons
+   appear.
+
+   THE IDS ARE THE FUNCTION'S OWN: me, household, full:all. My first
+   version invented "all", which is not a feed and would have failed
+   quietly - the sheet would have offered a button that made nothing. */
 var FEED_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? 'http://localhost:5101/egbc-worship-planner/europe-west2/rotaFeed'
   : 'https://europe-west2-egbc-worship-planner.cloudfunctions.net/rotaFeed';
 
-var CAL = { state: 'idle', feeds: {} };
+var CAL = { state: 'idle', feeds: {}, making: '', error: '' };
 var CAL_KINDS = [
-  ['me', 'user', 'Just me', 'The dates I am on'],
-  ['household', 'house', 'My household', 'Everyone at my address'],
-  ['all', 'users', 'The whole rota', 'Every team, every Sunday']
+  ['me', 'user', 'Just me', 'The dates you are on'],
+  ['household', 'house', 'My household', 'Everyone at your address, with who is doing what'],
+  ['full:all', 'users', 'The whole rota', 'Every service, with everybody you may see']
 ];
 
-/* THE FETCH IS NOT STARTED HERE, and that distinction cost an hour. The
-   first version called EGBCAuth.call() from inside the sheet builder,
-   and the builder runs when the sheet is REGISTERED - at script load,
-   before anybody has signed in. call() reaches for
-   auth.currentUser.getIdToken(), currentUser is null, it throws, and the
-   whole inline script dies partway through: no screens registered, no
-   tabs, nothing drawn, for every person. The screenshots showed four
-   blank apps and said "did not draw".
-
-   So loadCalendar() is called from the Me SCREEN, which only ever runs
-   after sign-in, and the builder does nothing but describe what it has. */
 function loadCalendar() {
   if (CAL.state !== 'idle') return;
   CAL.state = 'loading';
   EGBCAuth.call('myCalendarLinks', {}).then(function (r) {
     CAL.feeds = (r && r.feeds) || {}; CAL.state = 'ready';
-  }, function () { CAL.state = 'failed'; }).then(function () {
-    A.sheet('calendar', calendarSheet());
-    A.refresh('me', 'me');
-  });
+  }, function () { CAL.state = 'failed'; }).then(redrawCalendar);
+}
+
+function makeCalendarFeed(id) {
+  if (CAL.making) return;
+  CAL.making = id; CAL.error = '';
+  redrawCalendar();
+  EGBCAuth.call('myCalendarLink', { feed: id, reset: false }).then(function (r) {
+    if (r && r.key) CAL.feeds[id] = r.key;
+    else CAL.error = 'No link came back. Try again in a moment.';
+  }, function (err) {
+    CAL.error = calProblem(err);
+  }).then(function () { CAL.making = ''; redrawCalendar(); });
+}
+
+/* THE HUB'S OWN WORDS for each refusal (hub-app.js calendarProblem). The
+   function refuses three different things and only one of them is "try
+   again": somebody not linked to the address book can try all day. */
+function calProblem(e) {
+  var code = String((e && e.code) || '').replace(/^functions\//, '');
+  if (code === 'unauthenticated') return 'Sign in again and then try this.';
+  if (code === 'permission-denied') return 'Only someone on a team has a rota to put in a calendar.';
+  if (code === 'failed-precondition' || code === 'invalid-argument') return (e && e.message)
+    || 'Your account is not linked to the address book yet, so there is no rota to show.';
+  return 'Could not get your link just now. Try again in a moment.';
+}
+
+function redrawCalendar() {
+  A.sheet('calendar', calendarSheet());
+  /* Registering the sheet only stores it. If it is open in front of
+     somebody - which it is, the moment they tap "Set this one up" - the
+     page has to be drawn again or they watch "Making your link…" for
+     ever. */
+  if (A.state().sheet === 'calendar') A.draw(); else A.refresh('me', 'me');
+}
+
+function calFeedButtons(key) {
+  var url = FEED_BASE + '?k=' + encodeURIComponent(key);
+  var webcal = url.replace(/^https?:\/\//, 'webcal://');
+  var google = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal);
+  /* Real links, not data-act: a webcal:// address has to be followed by
+     the phone, which is the whole point of it. */
+  return '<div class="actions" style="margin:8px 0 2px">'
+    + '<a class="btn" href="' + A.esc(webcal) + '">' + ic('smartphone', 15) + ' Apple / iPhone</a>'
+    + '<a class="btn" href="' + A.esc(google) + '" target="_blank" rel="noopener">'
+      + ic('calendar', 15) + ' Google</a>'
+    + '<a class="btn" href="' + A.esc(webcal) + '">' + ic('mail', 15) + ' Outlook</a>'
+    + '</div>';
 }
 
 function calendarSheet() {
@@ -577,22 +624,38 @@ function calendarSheet() {
     body = '<p>Could not get your calendar links just now. Try again in a moment, '
          + 'or set them up on the full website.</p>';
   } else {
-    body = '<div class="card list">' + CAL_KINDS.map(function (k) {
-      var key = CAL.feeds[k[0]];
-      return row(k[1], k[2], key ? k[3] : k[3] + ' · not set up yet',
-        key ? '<span class="pill n">Copy</span>' : '',
-        key ? 'copycal:' + k[0] : '', A.SPACES.me.colour, A.SPACES.me.tint);
-    }).join('') + '</div>'
-    + '<p class="example">Paste the link into your calendar app as a subscription. '
-    + 'It keeps itself up to date.</p>';
+    body = CAL_KINDS.map(function (k) {
+      var id = k[0], key = CAL.feeds[id];
+      var head = '<div style="font-weight:600;color:var(--ink);font-size:14px">' + A.esc(k[2]) + '</div>'
+        + '<div style="font-size:12.5px;color:var(--muted);margin:2px 0 0">' + A.esc(k[3]) + '</div>';
+      var inner = key
+        ? calFeedButtons(key)
+          + '<div class="actions"><button class="btn" data-act="copycal:' + A.esc(idKey(id)) + '">'
+            + ic('copy', 15) + ' Copy link</button></div>'
+        : (CAL.making === id
+            ? '<p class="example" style="text-align:left;margin:8px 0 0">Making your link…</p>'
+            : '<div class="actions" style="margin-top:8px">'
+              + '<button class="btn primary" data-act="makecal:' + A.esc(idKey(id)) + '">'
+              + ic('plus', 15) + ' Set this one up</button></div>');
+      return '<div class="card" style="padding:14px;margin-bottom:10px">' + head + inner + '</div>';
+    }).join('')
+    + (CAL.error ? '<p class="example" style="color:#b0392c">' + A.esc(CAL.error) + '</p>' : '')
+    + '<p class="example">Apple and Outlook subscribe to it, so new dates appear by '
+    + 'themselves. Keep the link to yourself: anybody with it can see those dates.</p>';
   }
   return '<h3>Add to my calendar</h3>'
-    + '<p>A link your phone’s calendar reads, so your dates appear in it. '
-    + 'Keep it to yourself: anybody with it can see those dates.</p>'
+    + '<p>Your dates, in the calendar you already use.</p>'
     + body
     + '<div class="actions"><button class="btn" data-act="close">Close</button></div>';
 }
-A.sheet('calendar', calendarSheet());
+
+/* data-act allows letters only, and "full:all" has a colon in it. The
+   sheet uses a short safe name and this turns it back. */
+function idKey(id) { return id.replace(/[^a-z]/g, ''); }
+function idFromKey(k) {
+  for (var i = 0; i < CAL_KINDS.length; i++) if (idKey(CAL_KINDS[i][0]) === k) return CAL_KINDS[i][0];
+  return '';
+}
 
 /* ---- View as, ON ME, master admin only (§7e) ------------------------
    Where the website's strip across every screen used to be. It writes
@@ -622,8 +685,16 @@ document.addEventListener('click', function (e) {
   if (!b) return;
   var a = b.dataset.act || '';
 
+  /* Set one up. The feed ids have a colon in them (full:all) and data-act
+     allows letters only, so the button carries the short name. */
+  if (a.indexOf('makecal:') === 0) {
+    var make = idFromKey(a.slice(8));
+    if (make) makeCalendarFeed(make);
+    return;
+  }
+
   if (a.indexOf('copycal:') === 0) {
-    var key = CAL.feeds[a.slice(8)];
+    var key = CAL.feeds[idFromKey(a.slice(8))];
     if (!key) return;
     var url = FEED_BASE + '?k=' + encodeURIComponent(key);
     (navigator.clipboard && navigator.clipboard.writeText

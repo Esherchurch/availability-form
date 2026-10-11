@@ -107,7 +107,20 @@
     }).then(function (r) {
       return r.json();
     }).then(function (body) {
-      if (body && body.error) throw new Error((body.error && body.error.message) || 'refused');
+      if (body && body.error) {
+        var e = new Error((body.error && body.error.message) || 'refused');
+        /* THE REASON, NOT JUST THE WORDS. A callable's refusal carries a
+           status - FAILED_PRECONDITION, PERMISSION_DENIED - and this threw
+           it away, so every caller could only say "that did not work".
+           Carried across in the shape the Firebase SDK uses, which is what
+           hub-app.js's calendarProblem() already reads, so one function can
+           read either. The message is untouched: nothing that catches this
+           today behaves differently. */
+        if (body.error.status) {
+          e.code = String(body.error.status).toLowerCase().replace(/_/g, '-');
+        }
+        throw e;
+      }
       return (body && body.result) || {};
     });
   }

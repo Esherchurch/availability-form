@@ -19,6 +19,7 @@ Run every one of these from `v2/`, not from here.
 | The home page fits on one screen, and the phone order is right | `node tests/check-home-fits.mjs` (add `--shots`) |
 | A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
 | "My calendar" works through the browser, end to end | `node tests/check-calendar-end-to-end.mjs` |
+| Karen sets up her household feed **from the phone app**, and gets the Apple, Google and Outlook buttons | `firebase emulators:exec --only firestore,auth,functions --project egbc-worship-planner "node tests/check-app-calendar.mjs"` (add `--shots`) |
 | An email carries this church's name and address, not one in the code | `node tests/check-email-church-details.mjs` |
 | "Powered by Church HQ" is in its three places and nowhere else | `node tests/check-poweredby.mjs` (add `--shots`) |
 | Reminder emails go to the right people, once, and nobody else | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-reminders.mjs"` |
