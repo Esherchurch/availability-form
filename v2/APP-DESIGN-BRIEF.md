@@ -162,6 +162,23 @@ Martin: *"you gave me a mock up of an app that i liked, and what you gave me in 
 
 **C. A side-by-side check.** For every screen in the mock-up (`design/app-mockup.html`), a screenshot of the real app at 375px next to the mock-up's, as the restyle did. Martin approves by looking, not by reading a report.
 
+## 7e. Reset: build it FROM the mock-up (Martin, 11 Oct 2026)
+
+Martin: *"the app is still wrong. It does not fit the screen. it is not the design we agreed. it is now as confusing as the church suite one."*
+
+The reviewing window opened app.html as Martin (master admin) on 11 Oct and found:
+1. **Nine spaces in the row:** Me, Worship & AV, Kids Church, Youth, Lazers, ReNu, Maintenance, Running things and more. `spacesFor()` gives a master admin **every** space (`|| me.isMaster`). The mock-up gave Martin three: Me, Worship & AV, Running things. This is the "as confusing as ChurchSuite" problem.
+2. **The website's "View the site as" strip is drawn inside the app**, at the bottom of the screen where the tab bar is.
+3. **Home is a list of four links** and a "next stages" placeholder, not the mock-up's Home.
+4. Taps leave the app for website pages (§7d).
+
+**What changes. This comes before everything else in §7c and §7d, apart from the manifest:**
+- **`design/app-mockup.html` is the design, in code.** Build the real app.html **from its HTML and CSS**: header, space pills, cards, rows, date tiles, tab bar, sizes, spacing, colours and fonts. Wire real data into it. Don't build a look of your own and try to get it close. Where the shell already has logic (spaces, tabs, the guard, the events window's screens), keep the logic and swap its drawing for the mock-up's.
+- **Spaces = your own teams, and nothing else. A master admin is no exception.** Remove `|| me.isMaster` from `spacesFor()`. Martin sees the spaces for the teams he's actually on. To look at another team's space, master admin uses "View as" on the **Me** tab (one row, master only), not a strip on every screen. If someone really is on more than four or five teams, the row scrolls, as in the mock-up.
+- **No website strips in the app:** no "View the site as" bar, no website top bar, no Menu, no emulator banner over the tab bar.
+- **Fits the phone:** the app is the full width of the phone, with no grey margins. At 375px nothing scrolls sideways and nothing is cut off. The tab bar clears the phone's own buttons (§7).
+- **Proof is pictures, not numbers.** Before reporting, take a 375px screenshot of the real app next to the same screen of the mock-up, for each persona the mock-up has (Martin, Sarah, Karen, Jo), using the emulator with matching test people. Send the pairs. **Martin approves by eye.** Nothing in §7d part B starts until Home and the shell match.
+
 ## 8. Who builds what
 
 - **Main window:** the app shell (spaces, tabs, Home, Me, Running things, the family rule, the phone fixes) and **A-038** (what an Attender sees). It owns the hub and the shell.
