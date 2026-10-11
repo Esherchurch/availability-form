@@ -129,7 +129,11 @@
   /* An action, or nothing. Only the shapes the shell knows how to do, so a
      screen cannot smuggle anything into the attribute. */
   function actOk(a) {
-    return /^(close|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120})$/
+    /* copycal: and viewas: are the Me screen's, added when the calendar
+       choices and "View as" moved off the website and onto a sheet
+       (§7d). Both are a fixed word and a short key - no free text goes
+       into the attribute, which is the whole point of this list. */
+    return /^(close|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120}|copycal:[a-z]+|viewas:[a-z]+)$/
       .test(String(a || ''));
   }
 
@@ -429,6 +433,14 @@
     who: who, spacesFor: spacesFor, tabsFor: tabsFor,
     esc: esc, ic: ic, row: row, sec: sec, next: next, card: card,
     head: head, empty: empty,
+    /* A screen's own code sometimes has something to say - "Link copied"
+       - without a button to hang a toast: action on. Same toast, same
+       timer, so there is one of them rather than two. */
+    toast: function (words) {
+      S.toast = String(words || ''); S.sheet = null; draw();
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { S.toast = null; draw(); }, 3200);
+    },
     state: function () { return { space: S.space, tab: S.tab, sheet: S.sheet }; },
     start: function () { S.space = 'me'; S.tab = 'home'; draw(); }
   };

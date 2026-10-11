@@ -208,16 +208,61 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
     await send('Storage.clearDataForOrigin', { origin: 'http://localhost:' + SERVE,
       storageTypes: 'indexeddb,local_storage,cache_storage,websql,service_workers' });
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
-    await sleep(3500);
+    /* WAIT FOR THE HARNESS, AND THEN CHECK THE SIGN-IN TOOK. This slept
+       3500ms and navigated on the strength of an unchecked promise, so
+       when the gstatic scripts were slow the sign-in threw "firebase is
+       not defined", the previous person stayed signed in, and the script
+       photographed them under the next person's name - it printed
+       "Afternoon, Sarah" under Martin's heading. check-app-shell.mjs
+       learned this (A-062) and this file did not; it has now. */
+    for (let i = 0; i < 40; i++) {
+      await sleep(400);
+      if (String(await ev('(typeof firebase === "undefined" || typeof EGBCAuth === "undefined") ? "no" : "yes"')) === 'yes') break;
+    }
+    /* AND WAIT FOR THE SIGN-OUT TO SETTLE before signing the next person
+       in. Issuing both together left the previous session winning the
+       race: the spaces were Martin's and every word on the screen was
+       Sarah's, in the same picture. check-app-shell.mjs waits for this
+       and does not have the problem. */
+    await ev('firebase.auth(EGBCAuth.app).signOut().catch(function(){})', true);
+    for (let i = 0; i < 40; i++) {
+      await sleep(300);
+      if (String(await ev('firebase.auth(EGBCAuth.app).currentUser ? "no" : "yes"')) === 'yes') break;
+    }
     await ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword('
       + JSON.stringify(p.email) + ',' + JSON.stringify(PW) + ').catch(function(){})', true);
+    let signedIn = false;
+    for (let i = 0; i < 40; i++) {
+      await sleep(400);
+      const u = String(await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).uid || ""'));
+      if (u === p.uid) { signedIn = true; break; }
+    }
+    if (!signedIn) { console.log('  SKIPPED ' + key + ' - could not sign in. No picture taken.'); continue; }
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
 
+    /* WAIT FOR THE APP TO DRAW FOR *THIS* PERSON, and reload if the
+       emulator drops the connection (A-062/A-063). Without this the
+       script photographed whoever was there: the first run of the walk
+       below printed "Afternoon, Sarah" under Martin's heading, with no
+       spaces - a page that had never finished loading for him. A picture
+       of the wrong person is worse than no picture. */
     let drawn = '';
-    for (let i = 0; i < 40; i++) {
-      await sleep(500);
-      drawn = String(await ev('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}}).getAttribute("data-drawn")||""'));
+    for (let attempt = 0; attempt < 4; attempt++) {
+      for (let i = 0; i < 40; i++) {
+        await sleep(500);
+        drawn = String(await ev('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}}).getAttribute("data-drawn")||""'));
+        if (drawn.indexOf(p.uid + ':') === 0) break;
+      }
       if (drawn.indexOf(p.uid + ':') === 0) break;
+      const stuck = String(await ev(
+        '(!!document.getElementById("egbc-guard-splash") && typeof EGBCAuth !== "undefined"'
+        + ' && !!EGBCAuth.user() && !EGBCAuth.profile()) ? "stuck" : "other"'));
+      console.log('  note  ' + key + ' did not draw (' + stuck + '); reloading');
+      await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+    }
+    if (drawn.indexOf(p.uid + ':') !== 0) {
+      console.log('  SKIPPED ' + key + ' - the app never drew for them. No picture taken.');
+      continue;
     }
     /* Home loads its data and asks for a redraw; wait for that too, or the
        picture is of the first pass with nothing in it. */
@@ -226,6 +271,45 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
     const spaces = String(await ev("Array.from(document.querySelectorAll('.space')).map(b=>b.textContent.trim()).join(', ')"));
     const sections = String(await ev("Array.from(document.querySelectorAll('.sec-h h3')).map(h=>h.textContent.trim()).join(' | ')"));
     const strips = String(await ev("document.getElementById('egbc-viewas') ? 'VIEW-AS STRIP PRESENT' : 'none'"));
+
+    /* EVERY SPACE AND TAB THIS PERSON HAS, not just Home. Martin walked
+       the live app and found three things a Home-only picture could never
+       show: Me calling him an Attender, rows going to the website, and
+       Running things drawing nothing. A screenshot of one screen is not a
+       walk of the app. */
+    /* WARM EVERY TAB FIRST. A screen that loads its own data returns
+       "Loading…" on the draw that follows go(), so a walk that reads
+       immediately reports every async screen as empty - which is a
+       report that cries wolf. This opens each one, waits, and only then
+       reads them. */
+    const tabs = JSON.parse(String(await ev(`JSON.stringify(
+      EGBCApp.spacesFor(EGBCApp.who()).flatMap(k => EGBCApp.tabsFor(k).map(t => k + '/' + t[0])))`)));
+    for (const at of tabs) {
+      const [sp, tb] = at.split('/');
+      await ev(`EGBCApp.go(${JSON.stringify(sp)}, ${JSON.stringify(tb)})`);
+      await sleep(900);
+    }
+    await sleep(1500);
+
+    const walk = JSON.parse(String(await ev(`JSON.stringify((() => {
+      const out = [];
+      for (const k of EGBCApp.spacesFor(EGBCApp.who())) {
+        for (const t of EGBCApp.tabsFor(k)) {
+          EGBCApp.go(k, t[0]);
+          const c = document.getElementById('egbc-content');
+          const txt = (c ? (c.innerText || '') : '').replace(/\\s+/g, ' ').trim();
+          const html = c ? c.innerHTML : '';
+          out.push({ at: k + '/' + t[0], chars: txt.length,
+                     words: txt.slice(0, 90),
+                     hub: (html.match(/open:hub\\.html/g) || []).length });
+        }
+      }
+      EGBCApp.go('me', 'home');
+      return out;
+    })())`)));
+    walk.forEach(w => console.log('           ' + ' '.repeat(7) + ' ' + w.at.padEnd(16)
+      + (w.chars < 40 ? 'ALMOST EMPTY  ' : '') + (w.hub ? 'HUB LINKS:' + w.hub + '  ' : '')
+      + '"' + w.words + '"'));
     const sideways = await ev('document.documentElement.scrollWidth - document.documentElement.clientWidth');
     console.log('  app      ' + key.padEnd(7)
       + ' spaces: [' + (spaces || '(none)') + ']');

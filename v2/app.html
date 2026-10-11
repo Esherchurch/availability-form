@@ -479,6 +479,15 @@ A.screen('me', 'home', function (me) {
      WHAT A BRAND NEW PERSON SEES. With no rota, no events and no groups,
      Home would otherwise be a greeting and nothing. One honest line, and
      the tabs underneath, rather than a card of links. */
+  /* MY AVAILABILITY STAYS ON HOME (Martin, 11 Oct). I read "remove Quick
+     links except My availability" as "move it to Me", and took it off
+     Home altogether. He meant keep it. It is the one row that is not
+     already a tab, and saying which Sundays you can do is the thing the
+     church most needs people to actually do. */
+  out += card(row('calendar-check-2', 'My availability',
+    'Say which Sundays you can do', null, 'open:index.html',
+    A.SPACES.me.colour, A.SPACES.me.tint));
+
   if (!HOME.serving.length && !HOME.family.length && !HOME.events.length
       && !HOME.groups.length && !HOME.news.length) {
     out += A.empty('calendar-days',
@@ -497,22 +506,159 @@ A.screen('me', 'whatson', function () {
         row('users', 'Small groups', 'Your groups, and finding one', null, 'open:groups.html'));
 });
 
+/* WHO THIS PERSON IS, in their own words (Martin, 11 Oct). It said
+   "Attender" to a master admin on two teams, which is both wrong and
+   faintly insulting. Somebody on a team is a team member and the teams
+   are named; "Attender" is only for somebody on none.
+
+   The labels are the spaces' own, so "Worship & AV" rather than the two
+   markers behind it, and the list does not repeat itself. */
+function whoIAm(me) {
+  if (!me.teams.length) return me.churchMember ? 'Church member' : 'Attender';
+  var seen = {}, names = [];
+  me.teams.forEach(function (t) {
+    var S = A.SPACES, k, label = t;
+    for (k in S) if (S[k].teams && S[k].teams.indexOf(t) !== -1) { label = S[k].label; break; }
+    if (!seen[label]) { seen[label] = 1; names.push(label); }
+  });
+  var who = names.length > 2
+    ? names.slice(0, 2).join(', ') + ' and ' + (names.length - 2) + ' more'
+    : names.join(' and ');
+  return who + (me.isMaster ? ' · master admin' : '');
+}
+
+/* ---- Add to my calendar, ON ME (Martin, 11 Oct) ---------------------
+   This row opened hub.html, which §7d says the app never does. The
+   calendar UI only existed inside hub-app.js, so there was no page to
+   point at either - it is built here instead.
+
+   The three feeds are the ones myCalendarLinks already makes. The link
+   is a secret: anybody holding it can read that person's dates, which is
+   why the function hands it over rather than it being guessable, and why
+   the sheet offers Copy rather than printing it in full. */
+var FEED_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:5101/egbc-worship-planner/europe-west2/rotaFeed'
+  : 'https://europe-west2-egbc-worship-planner.cloudfunctions.net/rotaFeed';
+
+var CAL = { state: 'idle', feeds: {} };
+var CAL_KINDS = [
+  ['me', 'user', 'Just me', 'The dates I am on'],
+  ['household', 'house', 'My household', 'Everyone at my address'],
+  ['all', 'users', 'The whole rota', 'Every team, every Sunday']
+];
+
+/* THE FETCH IS NOT STARTED HERE, and that distinction cost an hour. The
+   first version called EGBCAuth.call() from inside the sheet builder,
+   and the builder runs when the sheet is REGISTERED - at script load,
+   before anybody has signed in. call() reaches for
+   auth.currentUser.getIdToken(), currentUser is null, it throws, and the
+   whole inline script dies partway through: no screens registered, no
+   tabs, nothing drawn, for every person. The screenshots showed four
+   blank apps and said "did not draw".
+
+   So loadCalendar() is called from the Me SCREEN, which only ever runs
+   after sign-in, and the builder does nothing but describe what it has. */
+function loadCalendar() {
+  if (CAL.state !== 'idle') return;
+  CAL.state = 'loading';
+  EGBCAuth.call('myCalendarLinks', {}).then(function (r) {
+    CAL.feeds = (r && r.feeds) || {}; CAL.state = 'ready';
+  }, function () { CAL.state = 'failed'; }).then(function () {
+    A.sheet('calendar', calendarSheet());
+    A.refresh('me', 'me');
+  });
+}
+
+function calendarSheet() {
+  var body;
+  if (CAL.state === 'loading' || CAL.state === 'idle') {
+    body = '<p>Getting your links…</p>';
+  } else if (CAL.state === 'failed') {
+    body = '<p>Could not get your calendar links just now. Try again in a moment, '
+         + 'or set them up on the full website.</p>';
+  } else {
+    body = '<div class="card list">' + CAL_KINDS.map(function (k) {
+      var key = CAL.feeds[k[0]];
+      return row(k[1], k[2], key ? k[3] : k[3] + ' · not set up yet',
+        key ? '<span class="pill n">Copy</span>' : '',
+        key ? 'copycal:' + k[0] : '', A.SPACES.me.colour, A.SPACES.me.tint);
+    }).join('') + '</div>'
+    + '<p class="example">Paste the link into your calendar app as a subscription. '
+    + 'It keeps itself up to date.</p>';
+  }
+  return '<h3>Add to my calendar</h3>'
+    + '<p>A link your phone’s calendar reads, so your dates appear in it. '
+    + 'Keep it to yourself: anybody with it can see those dates.</p>'
+    + body
+    + '<div class="actions"><button class="btn" data-act="close">Close</button></div>';
+}
+A.sheet('calendar', calendarSheet());
+
+/* ---- View as, ON ME, master admin only (§7e) ------------------------
+   Where the website's strip across every screen used to be. It writes
+   the same sessionStorage key the website's own bar uses, so the two
+   cannot disagree about who is being looked at. */
+A.sheet('viewas',
+  '<h3>View as somebody else</h3>'
+  + '<p>See what a member of another team sees. It changes nothing for them, '
+  + 'and it lasts until you turn it off.</p>'
+  + '<div class="card list">'
+  + Object.keys(A.SPACES).filter(function (k) { return (A.SPACES[k].teams || []).length; })
+      .map(function (k) {
+        var s = A.SPACES[k];
+        return row('eye', s.label, 'As a member of ' + s.label, null,
+                   'viewas:' + k, s.colour, s.tint);
+      }).join('')
+  + '</div>'
+  + '<div class="actions">'
+  + '<button class="btn primary" data-act="viewas:off">Stop viewing as somebody else</button>'
+  + '<button class="btn" data-act="close">Close</button></div>');
+
+/* The two actions those sheets need. Handled here rather than in the
+   shell, because they are this screen's business - the shell knows
+   about navigation, not about calendars. */
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('[data-act]');
+  if (!b) return;
+  var a = b.dataset.act || '';
+
+  if (a.indexOf('copycal:') === 0) {
+    var key = CAL.feeds[a.slice(8)];
+    if (!key) return;
+    var url = FEED_BASE + '?k=' + encodeURIComponent(key);
+    (navigator.clipboard && navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(url) : Promise.reject())
+      .then(function () { A.toast('Link copied. Paste it into your calendar.'); },
+            function () { A.toast('Could not copy it. Open the full website instead.'); });
+    return;
+  }
+
+  if (a.indexOf('viewas:') === 0) {
+    var which = a.slice(7);
+    try {
+      if (which === 'off') sessionStorage.removeItem('egbc_view_as');
+      else sessionStorage.setItem('egbc_view_as',
+        JSON.stringify({ team: (A.SPACES[which] || {}).teams[0], role: 'member' }));
+    } catch (err) {}
+    /* A reload, because who you are is decided while the page loads -
+       the profile, the teams, the spaces and the Menu all read it once. */
+    location.reload();
+  }
+});
+
 A.screen('me', 'me', function (me) {
-  return head(me.first, me.churchMember ? 'Church member' : 'Attender')
+  loadCalendar();   /* after sign-in, never at registration - see above */
+  return head(me.first, whoIAm(me))
     + card(
         row('users', 'My groups', 'Your groups, and finding one', null, 'open:groups.html') +
         row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
-        row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota', null, 'open:hub.html'))
+        row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota',
+            null, 'sheet:calendar'))
     /* "Open the full website" is the ONLY route to the hub from the app
-       (§7d), and it says what it is. Everything else that used to point
-       at hub.html has gone. */
+       (§7d), and it says what it is. */
     + card(row('monitor', 'Open the full website', 'Everything, on a computer', null, 'open:hub.html'))
-    /* VIEW AS: one row, master admin only, where the website's strip used
-       to be a bar across every screen (§7e). It opens the website's own
-       picker rather than growing a second one here. */
     + (me.isMaster
-        ? card(row('eye', 'View as somebody else', 'See what another team sees', null,
-                   'open:hub.html'))
+        ? card(row('eye', 'View as somebody else', 'See what another team sees', null, 'sheet:viewas'))
         : '')
     + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'))
     + A.empty('hammer', 'My details, my household and Give arrive in the next stages.');
@@ -520,14 +666,94 @@ A.screen('me', 'me', function (me) {
 
 /* ---- a team space -------------------------------------------------- */
 
-function teamRota(label) {
-  return head('Your rota', label)
-    + sec('Next term', '<div class="card" style="padding:14px">'
-        + '<p style="margin:0 0 10px;font-size:14px">Say which Sundays you can do on the availability form.</p>'
-        + '<div class="actions"><button class="btn primary" data-act="open:index.html">'
-        + ic('calendar-check-2', 15) + ' Open the availability form</button></div></div>')
-    + sec('The whole rota', card(
-        row('table', 'Everyone, week by week', 'The rota as it stands', null, 'open:view-only-rota.html')));
+/* A TEAM'S ROTA: MY NEXT DATES, AND THE TEAM'S COMING SUNDAYS.
+   Martin, 11 Oct: it showed no dates at all, only "say which Sundays you
+   can do" - which is the form, not the rota. The mock-up's Rota tab
+   answers "when am I on, and who else is on when".
+
+   It reuses the rota Home already loads rather than reading `events` a
+   second time: one load per page, and the two screens cannot disagree
+   about what is coming. */
+var TEAMROTA = { loaded: false, ready: false, dates: [] };
+
+function loadTeamRota() {
+  if (TEAMROTA.loaded) return;
+  TEAMROTA.loaded = true;
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  db.collection('events').get().then(function (snap) {
+    var out = [];
+    snap.forEach(function (d) {
+      var e = d.data() || {};
+      if (e.archived === true || !e.date) return;
+      var when = new Date(e.date + 'T00:00:00');
+      if (isNaN(when) || when < today) return;
+      var a = e.assignments || {}, who = [];
+      Object.keys(a).forEach(function (role) {
+        if (a[role] && a[role].name) who.push({ role: role, name: a[role].name, id: a[role].id || '' });
+      });
+      out.push({ when: when, date: e.date, title: e.type || 'Service',
+                 start: e.startTime || '', arrive: e.arriveTime || e.arrives || '',
+                 teams: Array.isArray(e.teams) ? e.teams : [], who: who });
+    });
+    out.sort(function (x, y) { return x.when - y.when; });
+    TEAMROTA.dates = out;
+  }).catch(function () {}).then(function () {
+    TEAMROTA.ready = true;
+    var s = A.state();
+    if (s.tab === 'rota') A.refresh(s.space, 'rota');
+  });
+}
+
+function teamRota(label, spaceKey) {
+  loadTeamRota();
+  var me = A.who();
+  var sp = A.SPACES[spaceKey] || A.SPACES.me;
+  var teams = sp.teams || [];
+  var mine = TEAMROTA.dates.filter(function (d) {
+    return d.teams.some(function (t) { return teams.indexOf(t) !== -1; });
+  });
+
+  var out = head('Your rota', label);
+
+  /* MY next dates on this team. */
+  var minePersonal = mine.filter(function (d) {
+    return d.who.some(function (w) { return w.id && w.id === me.memberId; });
+  }).slice(0, 3);
+
+  if (minePersonal.length) {
+    out += sec('You are on', minePersonal.map(function (d) {
+      var roles = d.who.filter(function (w) { return w.id === me.memberId; })
+                       .map(function (w) { return w.role; });
+      var time = d.arrive ? 'arrive ' + d.arrive : d.start;
+      return next(String(d.when.getDate()), homeMonth(d.when), roles.join(' and '),
+        d.title + (time ? ' · ' + time : ''), '', sp.colour, sp.tint);
+    }).join(''));
+  } else if (TEAMROTA.ready) {
+    out += sec('You are on', '<div class="card" style="padding:14px">'
+      + '<p style="margin:0;font-size:14px">Nothing on the rota for you yet. '
+      + 'Say which Sundays you can do and the planner will put you on.</p></div>');
+  }
+
+  /* The team's coming Sundays, whoever is on them. */
+  if (mine.length) {
+    out += sec('Coming up', card(mine.slice(0, 6).map(function (d) {
+      var names = d.who.map(function (w) { return w.name.split(/\s+/)[0]; });
+      var seen = {}, firsts = [];
+      names.forEach(function (n) { if (!seen[n]) { seen[n] = 1; firsts.push(n); } });
+      return row('calendar-check',
+        d.when.getDate() + ' ' + homeMonth(d.when) + ' · ' + d.title,
+        firsts.length ? firsts.join(', ') : 'Nobody on it yet',
+        null, null, sp.colour, sp.tint);
+    }).join('')), ['Whole rota', 'open:view-only-rota.html']);
+  } else {
+    out += sec('Coming up', '<div class="card" style="padding:14px"><p style="margin:0;font-size:14px">'
+      + (TEAMROTA.ready ? 'Nothing on the rota for this team yet.' : 'Finding the rota…')
+      + '</p></div>');
+  }
+
+  out += card(row('calendar-check-2', 'My availability', 'Say which Sundays you can do',
+    null, 'open:index.html', sp.colour, sp.tint));
+  return out;
 }
 
 function teamTeam(space, extra) {
@@ -535,7 +761,7 @@ function teamTeam(space, extra) {
 }
 
 ['youth', 'lazers', 'renu'].forEach(function (k) {
-  A.screen(k, 'rota', function () { return teamRota(A.SPACES[k].label); });
+  A.screen(k, 'rota', function () { return teamRota(A.SPACES[k].label, k); });
   A.screen(k, 'team', function () {
     return teamTeam(k,
       row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html') +
@@ -550,7 +776,7 @@ function teamTeam(space, extra) {
 
 /* ---- Worship & AV --------------------------------------------------- */
 
-A.screen('worship', 'rota', function () { return teamRota('Worship & AV'); });
+A.screen('worship', 'rota', function () { return teamRota('Worship & AV', 'worship'); });
 
 A.screen('worship', 'learn', function () {
   return head('Learn', 'Videos and how-tos for the team')
@@ -572,7 +798,7 @@ A.screen('worship', 'team', function () {
 
 /* ---- Kids Church ----------------------------------------------------- */
 
-A.screen('kids', 'rota', function () { return teamRota('Kids Church'); });
+A.screen('kids', 'rota', function () { return teamRota('Kids Church', 'kids'); });
 
 A.screen('kids', 'team', function () {
   return teamTeam('kids',
@@ -610,10 +836,24 @@ A.screen('office', 'people', function () {
 });
 
 A.screen('office', 'send', function () {
+  /* NEITHER OF THESE OPENS FROM THE PHONE YET, and saying so is better
+     than dropping somebody onto a page that fights them (Martin, 11 Oct).
+
+     An email: EmailBuilder2.html is the worst page in the app's list at
+     375px - +321px of sideways scroll, a 696px dialog, the toolbar cut
+     off (APP-PARITY part 2). CoreTeamApp already has a phone email
+     compiler; this row becomes that one when Core Team > Team is built
+     (§7b), and until then it does not pretend.
+
+     A notice: the notice editor lives inside hub.html, and §7d says the
+     app never opens the website's home. It needs a phone screen of its
+     own, which is a later stage. */
   return head('Send something')
     + card(
-        row('mail', 'An email', 'To a team, a group or everyone', null, 'open:EmailBuilder2.html') +
-        row('megaphone', 'A notice', "Shows on everyone's home page", null, 'open:hub.html'));
+        row('mail', 'An email', 'Easier on a computer for now', null, 'toast:The email compiler needs a big screen. It comes to the app with the Core Team space.') +
+        row('megaphone', 'A notice', 'Easier on a computer for now', null, 'toast:Writing a notice needs a big screen for now. Open the full website from Me.'))
+    + A.empty('monitor', 'Both of these are easier on a computer today. '
+        + 'They get phone screens of their own in a later stage.');
 });
 
 A.screen('office', 'bookings', function () {
