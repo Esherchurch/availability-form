@@ -288,7 +288,7 @@ const db = firebase.firestore(EGBCAuth.app);
    the first draw shows what is already known and the rest arrives.
    refresh() is a no-op if the person has moved on (F-131). */
 
-var HOME = { loaded: false, serving: [], events: [], groups: [], family: [], news: [] };
+var HOME = { loaded: false, ready: false, serving: [], events: [], groups: [], family: [], news: [] };
 
 function homeMonth(d) {
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
@@ -336,8 +336,21 @@ function loadServing(memberId) {
         if (a[role] && a[role].id === memberId) roles.push(role);
       });
       if (!roles.length) return;
+      /* ARRIVAL TIME FIRST, THE SERVICE TIME OTHERWISE (Martin, 11 Oct).
+         The mock-up says "arrive 08:00", which is what a person on the
+         rota actually needs - being there for the service is too late.
+
+         NOTHING IN THE ROTA STORES ONE TODAY. An events document carries
+         date, startTime, endTime, type, teams, assignments, serviceLeader
+         and speaker, and no arrival time at all; the mock-up's "arrive
+         08:00" was example words. So this reads one if it is ever written
+         - arriveTime, or `arrives` as the planner's own comment spells it
+         - and falls back to the service time until the planner can set
+         it. Said in the report rather than a field invented quietly. */
       out.push({ when: when, date: e.date, roles: roles,
-                 title: e.type || 'Service', start: e.startTime || '',
+                 title: e.type || 'Service',
+                 arrive: e.arriveTime || e.arrives || '',
+                 start: e.startTime || '',
                  teams: Array.isArray(e.teams) ? e.teams : [] });
     });
     out.sort(function (x, y) { return x.when - y.when; });
@@ -387,7 +400,10 @@ function loadHome(me) {
     H && H.myFamilyThisSunday ? H.myFamilyThisSunday().then(function (r) { HOME.family = r || []; },
       function () {}) : Promise.resolve()
   ];
-  Promise.all(jobs).then(function () { A.refresh('me', 'home'); });
+  /* `ready` tells an empty Home the difference between still looking and
+     there being nothing. Without it, a new person reads "nothing for you
+     this week" for a second before their week appears. */
+  Promise.all(jobs).then(function () { HOME.ready = true; A.refresh('me', 'home'); });
 }
 
 A.screen('me', 'home', function (me) {
@@ -410,8 +426,9 @@ A.screen('me', 'home', function (me) {
         ? '<button class="btn" data-act="go:' + key + ':sunday">'
           + ic('list-music', 15) + ' See the plan</button>'
         : '';
+      var time = s.arrive ? 'arrive ' + s.arrive : s.start;
       return next(String(d.getDate()), homeMonth(d), s.roles.join(' and '),
-        s.title + (s.start ? ' · ' + s.start : ''), act, sp.colour, sp.tint);
+        s.title + (time ? ' · ' + time : ''), act, sp.colour, sp.tint);
     }).join(''), ['Whole rota', 'open:view-only-rota.html']);
   }
 
@@ -453,20 +470,21 @@ A.screen('me', 'home', function (me) {
     }).join('')), ['All groups', 'open:groups.html']);
   }
 
-  /* The quick ways on, which the mock-up has as its last card. Always
-     drawn, so a brand new person with nothing on their rota, no events
-     and no groups still has somewhere to go. */
-  out += sec('Quick links', card(
-      row('calendar-days', "What's on", 'Church events, and signing up', null, 'tab:whatson',
-          A.SPACES.me.colour, A.SPACES.me.tint)
-    + row('calendar-check-2', 'My availability', 'Opens the form you already use', null,
-          'open:index.html', A.SPACES.me.colour, A.SPACES.me.tint)
-    + (A.has('me', 'listen')
-        ? row('headphones', 'Listen', "Sermons and the songs for Sunday", null, 'tab:listen',
-              A.SPACES.me.colour, A.SPACES.me.tint)
-        : '')
-    + row('circle-user', 'Me', 'Your details, household and calendar', null, 'tab:me',
-          A.SPACES.me.colour, A.SPACES.me.tint)));
+  /* NO "QUICK LINKS" (Martin, 11 Oct). The mock-up has none, and three of
+     the four rows were What's on, Listen and Me - which are already the
+     tabs along the bottom. A card of links to the tab bar is the website
+     habit this design is meant to break. "My availability" is the one
+     that was not a tab, and it lives on Me, where the mock-up puts it.
+
+     WHAT A BRAND NEW PERSON SEES. With no rota, no events and no groups,
+     Home would otherwise be a greeting and nothing. One honest line, and
+     the tabs underneath, rather than a card of links. */
+  if (!HOME.serving.length && !HOME.family.length && !HOME.events.length
+      && !HOME.groups.length && !HOME.news.length) {
+    out += A.empty('calendar-days',
+      HOME.ready ? 'Nothing for you this week. What’s on has everything coming up.'
+                 : 'Finding your week…');
+  }
 
   return out;
 });

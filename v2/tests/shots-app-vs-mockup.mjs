@@ -85,7 +85,21 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   /* A notice and a rota slot, so Home has something real to draw rather
      than being empty in every picture. Synthetic, and dated so it stays
      in the future. */
-  const soon = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
+  /* THE NEXT ACTUAL SUNDAY. The first version used "today + 6 days" and
+     called it "Sunday Morning Worship" - which on 11 October landed on
+     Saturday the 17th. Martin spotted it in the picture. The app read the
+     date correctly; the seed was lying about the day. A service seeded
+     for a Sunday is seeded on a Sunday. */
+  const nextSunday = (() => {
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7));
+    return d;
+  })();
+  const soon = nextSunday.getFullYear() + '-'
+    + String(nextSunday.getMonth() + 1).padStart(2, '0') + '-'
+    + String(nextSunday.getDate()).padStart(2, '0');
+  console.log('the next Sunday is ' + soon + ' ('
+    + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(soon + 'T12:00:00').getDay()] + ')');
   const until = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
   await put('news/shot_n1', { title: 'Gift day next Sunday',
     body: 'For the roof appeal. Give online or on the day.', until, createdAt: '2026-10-11', teams: [] });
@@ -112,7 +126,12 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   }
   /* Martin on Sound, Karen leading Kids Church - the mock-up's own
      examples, so the pictures line up. */
-  await put('events/shot_ev1', { date: soon, startTime: '10:30', type: 'Sunday Morning Worship',
+  /* arriveTime, so the card reads "arrive 08:00" as the mock-up does.
+     NOTHING IN THE REAL ROTA WRITES THIS FIELD YET - the planner has no
+     arrival time at all - so on real data Home falls back to the service
+     time. Seeded here to show the shape Martin asked for. */
+  await put('events/shot_ev1', { date: soon, startTime: '10:30', arriveTime: '08:00',
+    type: 'Sunday Morning Worship',
     teams: ['AV Team'], archived: false, lastSlot: '',
     assignments: { Sound: { id: PEOPLE.martin.memberId, name: PEOPLE.martin.name } } });
   await put('events/shot_ev2', { date: soon, startTime: '10:30', type: 'Kids Church',

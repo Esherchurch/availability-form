@@ -447,6 +447,46 @@ const offMachine = u => {
   ok('there is no hidden menu anywhere in the app',
     (await ev('document.body.innerText.indexOf("\\u2630")')) === -1);
 
+  /* ---- Home's dates say the right day --------------------------------
+     Martin, 11 Oct: "17 Oct 2026 is a Saturday." It was the seeding, not
+     the app - but the question is worth pinning, because the way it WOULD
+     become a bug is one character.
+
+     new Date('2026-10-18T00:00:00') is midnight LOCAL and gives the 18th.
+     new Date('2026-10-18') is midnight UTC, and anywhere west of
+     Greenwich that is the 17th at tea time - so the date tile would show
+     a day earlier for half the world and be right in London, which is the
+     worst kind of bug to find. This drives the clock to a negative offset
+     and checks the tile still says 18. */
+  console.log('\nthe date on a rota card (Martin, 11 Oct)');
+  await openAs(PEOPLE.two);
+  const dateProbe = JSON.parse(String(await ev(`JSON.stringify((() => {
+    /* The app's own expression, lifted out of Home. */
+    const mk = (iso) => { const d = new Date(iso + 'T00:00:00');
+      return { day: d.getDate(), dow: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] }; };
+    return { sunday: mk('2026-10-18'), saturday: mk('2026-10-17'),
+             newYear: mk('2027-01-01'), leap: mk('2028-02-29') };
+  })())`)));
+  ok('18 October 2026 is the 18th, and a Sunday',
+    dateProbe.sunday.day === 18 && dateProbe.sunday.dow === 'Sun', JSON.stringify(dateProbe.sunday));
+  ok('  17 October is the 17th, and a Saturday',
+    dateProbe.saturday.day === 17 && dateProbe.saturday.dow === 'Sat', JSON.stringify(dateProbe.saturday));
+  ok('  New Year\'s Day does not slip to 31 December',
+    dateProbe.newYear.day === 1, JSON.stringify(dateProbe.newYear));
+  ok('  and a leap day survives', dateProbe.leap.day === 29, JSON.stringify(dateProbe.leap));
+  /* The one that would catch the real mistake. */
+  const utcTrap = JSON.parse(String(await ev(`JSON.stringify({
+    local: new Date('2026-10-18T00:00:00').getDate(),
+    utcMidnight: new Date('2026-10-18').getDate()
+  })`)));
+  ok('  and the browser agrees the two spellings can differ',
+    typeof utcTrap.local === 'number' && typeof utcTrap.utcMidnight === 'number',
+    JSON.stringify(utcTrap));
+  ok('  HOME USES THE LOCAL ONE', (await ev(
+    "(() => fetch('app.html').then(r => r.text()).then(t => "
+    + "/new Date\\(e\\.date \\+ 'T00:00:00'\\)/.test(t) ? 'yes' : 'no'))()", true)) === 'yes',
+    'Home no longer parses the date as local midnight');
+
   /* ---- every team space offers ITS OWN board -------------------------
      Kids Church had no "Pin boards" row at all - a leftover from the board
      being leaders-only - so the people the board is for had no way to it
@@ -530,13 +570,20 @@ const offMachine = u => {
     mounted.maint.join(',') === 'jobs,rooms', JSON.stringify(mounted.maint));
   ok('  Running things has Bookings',
     mounted.office.join(',') === 'bookings', JSON.stringify(mounted.office));
-  /* Martin tapped Listen in the mock-up and it was not there (stage 1 took
-     the row out on purpose). It comes back only when the screen does, and
-     this is what says so. */
-  ok('  Home offers Listen again, now there is something behind it',
-    String(await ev(`(() => { EGBCApp.go('me','home');
+  /* LISTEN IS A TAB, NOT A ROW ON HOME, and this assertion used to say the
+     opposite. F-141 asked for the row back once the screen was mounted,
+     and it was - inside a "Quick links" card. Martin, 11 Oct: take Quick
+     links off Home, because "What's on, Listen and Me are already tabs"
+     and the mock-up has no such card. A card of links to the tab bar is
+     the website habit the design is meant to break.
+
+     So what matters is that Listen is REACHABLE, which is the tab. */
+  ok('  Listen is a tab in the Me space', mounted.me.includes('listen'),
+    JSON.stringify(mounted.me));
+  ok('  and Home does NOT repeat it as a row (Martin, 11 Oct)',
+    !String(await ev(`(() => { EGBCApp.go('me','home');
       return (document.getElementById('egbc-content')||{}).innerHTML || ''; })()`)).includes('tab:listen'),
-    'the Home screen has no Listen row');
+    'Home still has a Listen row, which the tab bar already offers');
 
   /* ---- a watcher is started once per screen, not once per draw -------
      F-141.2: draw() used to stop and restart the watcher every time,
