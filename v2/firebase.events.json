@@ -7,7 +7,7 @@
     "rules": "storage.rules"
   },
   "emulators": {
-    "comment": "The events window's emulators (EVENTS-WINDOW-BRIEF.md). Pages served from localhost:5601 use these; firebase.json keeps the main window's. Hub and logging are moved too, so both sets can run at once.",
+    "comment": "The events window's emulators (EVENTS-WINDOW-BRIEF.md). Pages served from localhost:5601 use these; firebase.json keeps the main window's. Hub and logging are moved too, so both sets can run at once: 4402 and 4502 (11 Oct, after the main window's runs and ours shared 4401/4501 and broke each other), and the UI on 4002.",
     "auth": {
       "port": 9098
     },
@@ -19,13 +19,13 @@
     },
     "ui": {
       "enabled": true,
-      "port": 4001
+      "port": 4002
     },
     "hub": {
-      "port": 4401
+      "port": 4402
     },
     "logging": {
-      "port": 4501
+      "port": 4502
     },
     "singleProjectMode": true
   }
