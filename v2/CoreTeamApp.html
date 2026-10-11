@@ -518,6 +518,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 <!-- The service planner, shared with the phone app (APP-DESIGN-BRIEF §7b).
      It was inline in this file until 11 Oct 2026. -->
 <script src="egbc-core-planner.js?v=202610111600"></script>
+<script src="egbc-core-meetings.js?v=202610111800"></script>
 </head>
 <body>
 
@@ -1904,20 +1905,15 @@ const MANDATORY_SUNDAY_ROLES = ["Worship Leader","Keyboard","Guitar","Drums","Ba
 const EVENT_TYPES_LIST = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Special Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
 const AV_ROLES = ["Sound","Words","Cameras"];
 
-// ── VIDEO MEETINGS (Daily.co) ── plain "knock to join" links only; never put host tokens here
-const VIDEO_BASE = 'https://egbc.daily.co/';
-const VIDEO_ROOMS = [
-  ['Worship-AV','Worship & AV'], ['worship-core-team','Worship Core Team'], ['Prayer','Prayer'],
-  ['Eldership','Eldership'], ['CMM','CMM'], ['kids-ministries','Kids Ministries'], ['interviews','Interviews'],
-];
-const VIDEO_DEFAULT_BY_TYPE = {
-  'Core Team Meeting':'worship-core-team', 'Worship and AV Team Meeting':'Worship-AV',
-  'Worship Team Meeting':'Worship-AV', 'AV Team Meeting':'Worship-AV',
-};
-// ev.videoRoom: room name, '' = no call, undefined = use the default for the event type
-const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
-const videoLinkFor = ev => { const r = videoRoomFor(ev); return r ? VIDEO_BASE + r : ''; };
-const videoRoomLabel = room => (VIDEO_ROOMS.find(([r]) => r === room) || [room, room])[1];
+// ── VIDEO MEETINGS ── moved to egbc-core-meetings.js with the meetings
+// list (§7b). The rota code below picks a video room on an event, so it
+// takes the room table from there rather than keeping a second copy.
+const VIDEO_BASE            = EGBCCoreMeetings.VIDEO_BASE;
+const VIDEO_ROOMS           = EGBCCoreMeetings.VIDEO_ROOMS;
+const VIDEO_DEFAULT_BY_TYPE = EGBCCoreMeetings.VIDEO_DEFAULT_BY_TYPE;
+const videoRoomFor          = EGBCCoreMeetings.videoRoomFor;
+const videoLinkFor          = EGBCCoreMeetings.videoLinkFor;
+const videoRoomLabel        = EGBCCoreMeetings.videoRoomLabel;
 
 /* personName and personId now come from egbc-core-planner.js. */
 
@@ -1959,51 +1955,16 @@ function startRotaListeners() {
   });
 }
 
+/* renderMeetings and copyMeetingLink belong to egbc-core-meetings.js
+   now. This passes cachedEvents, which the rota listener keeps live, so
+   the list here still updates the moment somebody picks a room. */
 function renderMeetings() {
-  const container = document.getElementById('meetingsList');
-  if (!container) return;
-  const today = new Date().toISOString().split('T')[0];
-  const upcoming = cachedEvents
-    .filter(ev => !ev.archived && ev.date >= today && videoRoomFor(ev))
-    .sort((a,b) => (a.date+(a.startTime||'')).localeCompare(b.date+(b.startTime||'')));
-  const btn = 'display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:8px;font-family:Inter,system-ui,sans-serif;font-weight:500;font-size:13px;cursor:pointer;text-decoration:none;white-space:nowrap;';
-  // v2: Join opens the EGBC meeting page (signed-in, name filled in); Copy link stays the plain Daily link for guests
-  const meetingPage = (room, evId) => `meeting.html?room=${encodeURIComponent(room)}${evId ? "&event=" + encodeURIComponent(evId) : ""}`;
-  const joinBtn = link => `<a href="${link}" target="_blank" rel="noopener" style="${btn}background:#15803d;color:white;border:1px solid #15803d;">Join</a>`;
-  const copyBtn = link => `<button onclick="copyMeetingLink('${link}')" style="${btn}background:white;color:#111827;border:1px solid #d1d5db;">Copy link</button>`;
-  const card = 'background:white;border:1px solid #e5e7eb;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
-  const heading = t => `<div style="font-size:12px;font-weight:600;color:#6b7280;margin:14px 2px 8px;">${t}</div>`;
-
-  let html = heading('Upcoming online meetings');
-  if (!upcoming.length) {
-    html += `<div style="${card}font-size:12px;font-weight:600;color:#3d6263;opacity:0.7;">None yet. In the Rota Planner, pick a video room on a meeting to add it here.</div>`;
-  }
-  upcoming.forEach(ev => {
-    const link = videoLinkFor(ev);
-    const d = new Date(ev.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
-    html += `<div style="${card}"><div style="flex:1;min-width:160px;">
-      <div style="font-size:13px;font-weight:600;color:#3d6263;">${ev.type}${ev.description?' · '+ev.description:''}</div>
-      <div style="font-size:13px;font-weight:600;color:#3d6263;opacity:0.6;">${d}${ev.startTime?' · '+ev.startTime+(ev.endTime?'–'+ev.endTime:''):''} · ${videoRoomLabel(videoRoomFor(ev))}</div>
-    </div>${joinBtn(meetingPage(videoRoomFor(ev), ev.id))}${copyBtn(link)}</div>`;
+  EGBCCoreMeetings.mount({
+    into: document.getElementById('meetingsList'),
+    events: cachedEvents,
+    toast: toast
   });
-
-  html += heading('All meeting rooms');
-  VIDEO_ROOMS.forEach(([room,label]) => {
-    const link = VIDEO_BASE + room;
-    html += `<div style="${card}"><div style="flex:1;min-width:160px;">
-      <div style="font-size:13px;font-weight:600;color:#3d6263;">${label}</div>
-      <div style="font-size:13px;font-weight:600;color:#3d6263;opacity:0.6;word-break:break-all;">${link}</div>
-    </div>${joinBtn(meetingPage(room))}${copyBtn(link)}</div>`;
-  });
-
-  html += `<div style="font-size:13px;font-weight:600;color:#3d6263;opacity:0.6;margin:12px 2px;line-height:1.5;">Rooms are private: people type their name and knock, then the host lets them in. Hosts use their own private host link.</div>`;
-  container.innerHTML = html;
 }
-
-window.copyMeetingLink = async link => {
-  try { await navigator.clipboard.writeText(link); toast('Link copied'); }
-  catch { prompt('Copy this link:', link); }
-};
 
 window.toggleHideAssigned = () => { hideAssigned = !hideAssigned; renderPlanner(); };
 window.toggleTermCollapse = t  => { rotaCollapsedTerms.has(t) ? rotaCollapsedTerms.delete(t) : rotaCollapsedTerms.add(t); renderPlanner(); };

@@ -278,6 +278,7 @@
      the planner still works, with no drag handle. -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="egbc-core-planner.js?v=202610111600"></script>
+<script src="egbc-core-meetings.js?v=202610111800"></script>
 <script>
 /* ---- the screens that open a page which already does the job -------
    APP-DESIGN-BRIEF §5, and A1 counted 11 of the mock-up's 24 this way.
@@ -943,6 +944,23 @@ function mountCorePlanner() {
     toast: function (m) { A.toast(m); },
     loader: function () {}
   });
+}
+
+/* MEETINGS (§7b): join a call, and what is coming up with a room on it.
+   CoreTeamApp's own list, shared the same way the planner is. It has a
+   live rota listener to feed it; the app has none, so the module reads
+   `events` once for itself - which is the only difference between the
+   two. */
+A.screen('core', 'meetings', function () {
+  setTimeout(mountCoreMeetings, 0);
+  return head('Meetings', 'Join a call, and what is coming up')
+    + '<div id="core-meet-host"></div>';
+});
+
+function mountCoreMeetings() {
+  var host = document.getElementById('core-meet-host');
+  if (!host || !window.EGBCCoreMeetings) return;
+  EGBCCoreMeetings.mount({ into: host, toast: function (m) { A.toast(m); } });
 }
 
 A.screen('core', 'team', function () {

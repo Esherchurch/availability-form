@@ -21,7 +21,7 @@ Run every one of these from `v2/`, not from here.
 | "My calendar" works through the browser, end to end | `node tests/check-calendar-end-to-end.mjs` |
 | Karen sets up her household feed **from the phone app**, and gets the Apple, Google and Outlook buttons | `firebase emulators:exec --only firestore,auth,functions --project egbc-worship-planner "node tests/check-app-calendar.mjs"` (add `--shots`) |
 | Core Team opens every Worship & AV page, and nothing that is not theirs | `node tests/check-core-covers-worship.mjs` (add `--shots`) |
-| The Sunday Service Planner works, in BOTH the Core Team app and the phone app’s Plan tab | `node tests/check-core-planner.mjs` (add `--shots`) |
+| Core Team’s shared screens — the Service Planner and the Meetings list — work in BOTH the Core Team app and the phone app | `node tests/check-core-planner.mjs` (add `--shots`) |
 | An email carries this church's name and address, not one in the code | `node tests/check-email-church-details.mjs` |
 | "Powered by Church HQ" is in its three places and nowhere else | `node tests/check-poweredby.mjs` (add `--shots`) |
 | Reminder emails go to the right people, once, and nobody else | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-reminders.mjs"` |

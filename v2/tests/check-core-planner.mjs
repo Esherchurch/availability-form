@@ -1,4 +1,4 @@
-/* THE SERVICE PLANNER, IN BOTH THE PLACES THAT RUN IT.
+/* CORE TEAM’S SHARED SCREENS, IN BOTH THE PLACES THAT RUN THEM.
  *
  *   node tests/check-core-planner.mjs            (from v2/, emulators up)
  *   node tests/check-core-planner.mjs --shots
@@ -404,6 +404,77 @@ async function seed() {
     await sleep(1500);
   });
 
+  /* ---- 2b. Meetings, the other screen that is now shared ------------- */
+  /* §7b, Core Team ▸ Meetings: "join video calls and see upcoming online
+     meetings." Same question of both hosts, same reason. */
+  const meetings = async (label, open) => {
+    console.log('\n' + label + ':');
+    errs = [];
+    await open();
+    const text = String(await ev('(function(){var c=document.getElementById(' + JSON.stringify(MEET_ID[label])
+      + ');return c?c.textContent.replace(/\\s+/g," ").trim():"(nothing)"})()'));
+    ok('  the meetings list is drawn',
+      /Upcoming online meetings/.test(text) && /All meeting rooms/.test(text), text.slice(0, 140));
+    /* EVERY ROOM, by the names people know them by. A room missing from
+       this list is a call nobody can join. */
+    const rooms = ['Worship & AV', 'Worship Core Team', 'Prayer', 'Eldership', 'CMM',
+                   'Kids Ministries', 'Interviews'];
+    const missing = rooms.filter(r => text.indexOf(r) === -1);
+    ok('  with all seven rooms on it', missing.length === 0, 'missing: ' + missing.join(', '));
+    /* JOIN GOES TO THE EGBC PAGE, not straight to Daily: the meeting page
+       fills the person's name in and knows who they are. Copy link stays
+       the plain Daily address, for a guest with no account. */
+    const links = JSON.parse(String(await ev(
+      '(function(){var c=document.getElementById(' + JSON.stringify(MEET_ID[label]) + ');'
+      + 'if(!c) return JSON.stringify({join:[],copy:[]});'
+      + 'var a=c.querySelectorAll("a[href]"), b=c.querySelectorAll("button[onclick]");'
+      + 'return JSON.stringify({'
+      + ' join: Array.prototype.map.call(a,function(x){return x.getAttribute("href")}),'
+      + ' copy: Array.prototype.map.call(b,function(x){return x.getAttribute("onclick")}) })})()') || '{}'));
+    ok('  Join opens the EGBC meeting page, with the room on it',
+      links.join.length >= 7 && links.join.every(h => /^meeting\.html\?room=/.test(h)),
+      links.join.slice(0, 3).join(' | '));
+    ok('  and Copy link copies the plain room address',
+      links.copy.length >= 7 && links.copy.every(h => /copyMeetingLink\('https:\/\/egbc\.daily\.co\//.test(h)),
+      links.copy.slice(0, 2).join(' | '));
+    /* NO HOST TOKEN, EVER. Anybody with one walks in as the host. The
+       comment saying so travelled with the code; this is the check that
+       the comment stays true. */
+    ok('  and no host token is anywhere in it',
+      !/[?&]t=|token=/.test(JSON.stringify(links)), JSON.stringify(links).slice(0, 160));
+    ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
+  };
+  const MEET_ID = {
+    'CoreTeamApp, Meetings': 'meetingsList',
+    'the phone app, Core Team ▸ Meetings': 'core-meet-host'
+  };
+
+  await meetings('CoreTeamApp, Meetings', async () => {
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/CoreTeamApp.html' });
+    await until('  the Core Team app loaded', '(typeof openSection === "undefined") ? "no" : "yes"', 60);
+    await ev('(function(){try{if(typeof endTour==="function")endTour()}catch(e){}'
+      + 'var o=document.getElementById("tour-overlay");if(o)o.classList.remove("active");'
+      + 'openSection("meetings");return "opened"})()');
+    await until('  its meetings list filled in',
+      '(function(){var c=document.getElementById("meetingsList");'
+      + 'return (c && /All meeting rooms/.test(c.textContent)) ? "yes" : "no"})()', 40);
+  });
+
+  await meetings('the phone app, Core Team ▸ Meetings', async () => {
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+    let drawn = '';
+    for (let i = 0; i < 60; i++) {
+      await sleep(500);
+      drawn = String(await ev('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}})'
+        + '.getAttribute("data-drawn") || ""'));
+      if (drawn.indexOf(uid + ':') === 0) break;
+    }
+    await ev('EGBCApp.go("core","meetings");1');
+    await until('  its meetings list filled in',
+      '(function(){var c=document.getElementById("core-meet-host");'
+      + 'return (c && /All meeting rooms/.test(c.textContent)) ? "yes" : "no"})()', 40);
+  });
+
   /* ---- 3. and it really is the same file ----------------------------- */
   console.log('\nthe same code, not two copies:');
   const srcs = String(await ev('Array.prototype.map.call(document.scripts,function(s){return s.src})'
@@ -415,9 +486,22 @@ async function seed() {
     !/function spInit\s*\(/.test(core), 'spInit is still defined in CoreTeamApp.html');
   ok('  nor its own copy of the planner styles',
     !/\.sp-input\s*\{/.test(core), '.sp-input is still in CoreTeamApp.html');
+  ok('  both load egbc-core-meetings.js',
+    /egbc-core-meetings\.js/.test(core)
+      && Number(await ev('Array.prototype.filter.call(document.scripts,'
+        + 'function(s){return /egbc-core-meetings/.test(s.src)}).length')) === 1);
+  ok('  and CoreTeamApp no longer has its own renderMeetings body',
+    !/const\s+VIDEO_ROOMS\s*=\s*\[/.test(core),
+    'the room table is still written out in CoreTeamApp.html');
 
   /* ---- 4. leaving the tab must not throw the plan away --------------- */
   console.log('\na half-written plan survives:');
+  /* Back to Plan first: the section above left the app on Meetings, and
+     a check that assumes which tab it is on is a check that breaks the
+     next time somebody adds a section above it. */
+  await ev('EGBCApp.go("core","plan");1');
+  await until('  the planner is back on screen',
+    '!!document.getElementById("sp-order") ? "yes" : "no"', 30);
   await ev('(function(){var t=document.querySelectorAll("#sp-order .song-title");'
     + 't[0].value="Half Written Synthetic";return "typed"})()');
   await ev('EGBCApp.go("core","team");1'); await sleep(800);

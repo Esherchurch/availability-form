@@ -1,0 +1,187 @@
+/* ===================================================================
+   EGBC — the video meetings list, on a phone
+   ===================================================================
+
+   APP-DESIGN-BRIEF §7b, Core Team ▸ Meetings: "join video calls and see
+   upcoming online meetings."
+
+   MOVED, NOT COPIED, the same way the service planner was
+   (egbc-core-planner.js). This is CoreTeamApp.html's renderMeetings and
+   the room table it reads, lifted out unchanged so the installed Core
+   Team app and the phone app list the same meetings from the same place.
+
+   WHAT CHANGED IN THE MOVE, and nothing else did:
+     - the events come from the host. CoreTeamApp has a live listener
+       feeding cachedEvents; the phone app has no such listener, so when
+       no list is handed in this reads `events` once for itself.
+     - toast comes from the host, as the planner's does.
+
+   THE ROOMS ARE "KNOCK TO JOIN" LINKS AND NOTHING ELSE. There is no host
+   token here and there must never be one: anybody with a host token
+   walks straight in as the host. A person types their name, knocks, and
+   whoever is hosting lets them in. The comment was in CoreTeamApp and it
+   travels with the code.
+
+   VIDEO_ROOMS and the default-by-type table are also what the rota
+   planner reads when somebody picks a video room on a meeting, so they
+   are exported rather than kept private.
+
+   HOW TO USE IT:
+
+     EGBCCoreMeetings.mount({ into: el, events: [...], toast: fn });
+
+   =================================================================== */
+
+(function (global) {
+  'use strict';
+
+  var VIDEO_BASE = 'https://egbc.daily.co/';
+  var VIDEO_ROOMS = [
+    ['Worship-AV', 'Worship & AV'], ['worship-core-team', 'Worship Core Team'], ['Prayer', 'Prayer'],
+    ['Eldership', 'Eldership'], ['CMM', 'CMM'], ['kids-ministries', 'Kids Ministries'], ['interviews', 'Interviews']
+  ];
+  var VIDEO_DEFAULT_BY_TYPE = {
+    'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
+    'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV'
+  };
+  // ev.videoRoom: room name, '' = no call, undefined = use the default for the event type
+  var videoRoomFor = function (ev) {
+    return ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
+  };
+  var videoLinkFor = function (ev) { var r = videoRoomFor(ev); return r ? VIDEO_BASE + r : ''; };
+  var videoRoomLabel = function (room) {
+    for (var i = 0; i < VIDEO_ROOMS.length; i++) if (VIDEO_ROOMS[i][0] === room) return VIDEO_ROOMS[i][1];
+    return room;
+  };
+
+  var H = {
+    toast: function (m) { try { console.log('[meetings] ' + m); } catch (e) {} },
+    events: null
+  };
+  function db() { return global.EGBCAuth && EGBCAuth.db; }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* renderMeetings, from CoreTeamApp. The one change inside it is esc():
+     an event's type and description are typed by a person, and this
+     builds HTML out of them. CoreTeamApp interpolated them raw - nothing
+     has ever come of it, because only Core Team can type there, but the
+     escaping contract (F-130) says the helpers escape and this is now a
+     shared helper. */
+  function render(container, events) {
+    if (!container) return;
+    var today = new Date().toISOString().split('T')[0];
+    var upcoming = (events || [])
+      .filter(function (ev) { return !ev.archived && ev.date >= today && videoRoomFor(ev); })
+      .sort(function (a, b) {
+        return (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || ''));
+      });
+    var btn = 'display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:8px;'
+      + 'font-family:var(--font,Inter,system-ui,sans-serif);font-weight:500;font-size:13px;cursor:pointer;'
+      + 'text-decoration:none;white-space:nowrap;';
+    /* Join opens the EGBC meeting page (signed in, name filled in); Copy
+       link stays the plain Daily link, for a guest with no account. */
+    var meetingPage = function (room, evId) {
+      return 'meeting.html?room=' + encodeURIComponent(room)
+        + (evId ? '&event=' + encodeURIComponent(evId) : '');
+    };
+    var joinBtn = function (link) {
+      return '<a href="' + esc(link) + '" target="_blank" rel="noopener" style="' + btn
+        + 'background:#15803d;color:white;border:1px solid #15803d;">Join</a>';
+    };
+    var copyBtn = function (link) {
+      return '<button onclick="copyMeetingLink(\'' + esc(link) + '\')" style="' + btn
+        + 'background:var(--white,#fff);color:#111827;border:1px solid #d1d5db;">Copy link</button>';
+    };
+    var card = 'background:var(--white,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;'
+      + 'padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+    var heading = function (t) {
+      return '<div style="font-size:12px;font-weight:600;color:var(--muted,#6b7280);margin:14px 2px 8px;">'
+        + esc(t) + '</div>';
+    };
+
+    var html = heading('Upcoming online meetings');
+    if (!upcoming.length) {
+      html += '<div style="' + card + 'font-size:12px;font-weight:600;color:var(--teal,#3d6263);opacity:0.7;">'
+        + 'None yet. In the Rota Planner, pick a video room on a meeting to add it here.</div>';
+    }
+    upcoming.forEach(function (ev) {
+      var link = videoLinkFor(ev);
+      var d = new Date(ev.date + 'T00:00:00').toLocaleDateString('en-GB',
+        { weekday: 'short', day: 'numeric', month: 'short' });
+      html += '<div style="' + card + '"><div style="flex:1;min-width:160px;">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);">'
+        + esc(ev.type) + (ev.description ? ' · ' + esc(ev.description) : '') + '</div>'
+        + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);opacity:0.6;">'
+        + esc(d) + (ev.startTime ? ' · ' + esc(ev.startTime) + (ev.endTime ? '–' + esc(ev.endTime) : '') : '')
+        + ' · ' + esc(videoRoomLabel(videoRoomFor(ev))) + '</div>'
+        + '</div>' + joinBtn(meetingPage(videoRoomFor(ev), ev.id)) + copyBtn(link) + '</div>';
+    });
+
+    html += heading('All meeting rooms');
+    VIDEO_ROOMS.forEach(function (pair) {
+      var room = pair[0], label = pair[1];
+      var link = VIDEO_BASE + room;
+      html += '<div style="' + card + '"><div style="flex:1;min-width:160px;">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);">' + esc(label) + '</div>'
+        + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);opacity:0.6;word-break:break-all;">'
+        + esc(link) + '</div>'
+        + '</div>' + joinBtn(meetingPage(room)) + copyBtn(link) + '</div>';
+    });
+
+    html += '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);opacity:0.6;'
+      + 'margin:12px 2px;line-height:1.5;">Rooms are private: people type their name and knock, '
+      + 'then the host lets them in. Hosts use their own private host link.</div>';
+    container.innerHTML = html;
+  }
+
+  /* The events, when the host has none of its own. One read, cached for
+     the page: the list changes when somebody edits the rota, and a tab
+     that re-reads every time it is opened is a read per tap. */
+  var CACHE = null;
+  function loadEvents() {
+    if (CACHE) return Promise.resolve(CACHE);
+    if (!db()) return Promise.resolve([]);
+    return db().collection('events').get().then(function (snap) {
+      CACHE = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      return CACHE;
+    }, function () { return []; });
+  }
+
+  function mount(opts) {
+    opts = opts || {};
+    var into = opts.into;
+    if (!into) return null;
+    if (opts.toast) H.toast = opts.toast;
+    if (opts.events) {
+      render(into, opts.events);
+      return into;
+    }
+    into.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--muted,#6b7280)">'
+      + 'Finding the meetings…</div>';
+    loadEvents().then(function (evs) { render(into, evs); });
+    return into;
+  }
+
+  /* On window because the Copy link buttons this builds are inline
+     handlers, exactly as they were in CoreTeamApp. */
+  global.copyMeetingLink = async function (link) {
+    try { await navigator.clipboard.writeText(link); H.toast('Link copied'); }
+    catch (e) { prompt('Copy this link:', link); }
+  };
+
+  global.EGBCCoreMeetings = {
+    mount: mount,
+    render: render,
+    VIDEO_BASE: VIDEO_BASE,
+    VIDEO_ROOMS: VIDEO_ROOMS,
+    VIDEO_DEFAULT_BY_TYPE: VIDEO_DEFAULT_BY_TYPE,
+    videoRoomFor: videoRoomFor,
+    videoLinkFor: videoLinkFor,
+    videoRoomLabel: videoRoomLabel
+  };
+})(window);
