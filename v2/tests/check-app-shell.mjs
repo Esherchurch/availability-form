@@ -78,8 +78,15 @@ const PEOPLE = {
      things space; they now give nothing at all, because the church
      administrator may not be on Core Team and a Worship admin should not
      get People and Send for looking after Worship. */
+  /* WORSHIP IS IN THIS LIST FROM 11 OCT, and it is not a widening that
+     crept in: Core Team covers Worship & AV on every check now
+     (CORE_COVERS in egbc-auth.js), because on the old portal the Core
+     Team link showed every Worship & AV item plus Core's own, and Martin
+     found Library refusing him. Kids Church is still here because they
+     administer it. Running things is still NOT, which is §25. */
   office:   { email: 'app.office@example.invalid', teams: ['Core Team'], adminFor: ['Kids Church'],
-              spaces: ['me', 'kids'], note: 'Core Team, which no longer runs things by itself' },
+              spaces: ['me', 'worship', 'kids'],
+              note: 'Core Team: covers Worship & AV, but does not run things by itself' },
   /* ...and this is who does: somebody in the Church office group. */
   admin:    { email: 'app.churchoffice@example.invalid', teams: ['Church office'], adminFor: [],
               spaces: ['me', 'office'], note: 'in the Church office group' },
@@ -666,10 +673,16 @@ const offMachine = u => {
   ok('and the Kids Church team screen offers the register',
     /register/i.test(String(await ev('document.getElementById("egbc-content").innerText'))),
     String(await ev('document.getElementById("egbc-content").innerText')).slice(0, 160));
-  await ev("EGBCApp.go('worship','rota')");
+  /* YOUTH, NOT WORSHIP. This asked for the worship space, and from 11 Oct
+     this person is entitled to it: they are on Core Team, and Core Team
+     covers Worship & AV on every check (CORE_COVERS in egbc-auth.js,
+     Martin: "core team cant see worship and AV"). So the assertion was
+     measuring the cover rather than the refusal. Youth Worship is a space
+     they really are not in. */
+  await ev("EGBCApp.go('youth','rota')");
   await sleep(1000);
   ok('a space this person is NOT in is refused, silently',
-    !String(await ev('JSON.stringify(EGBCApp.state())')).includes('worship'),
+    !String(await ev('JSON.stringify(EGBCApp.state())')).includes('youth'),
     String(await ev('JSON.stringify(EGBCApp.state())')));
   await shot('kids-team');
 

@@ -44,11 +44,19 @@
     { title: 'Maintenance', url: 'maintenance.html', icon: 'wrench',
       description: 'Report something broken, and what is being fixed' },
 
-    /* Worship and AV people (Choir folds into Worship), and Core Team, who
-       run them. Not Kids Church (Martin, 8 Oct 2026: "Kids church still sees
-       all the menu items for worship"). */
+    /* Worship and AV people (Choir folds into Worship). Not Kids Church
+       (Martin, 8 Oct 2026: "Kids church still sees all the menu items for
+       worship").
+
+       CORE TEAM IS NOT LISTED HERE ANY MORE, and that is not a removal.
+       It used to be a third name in this list, which is a second copy of
+       a rule that lives in egbc-auth.js (CORE_COVERS). onTeam() below now
+       asks EGBCAuth.inTeam, which carries the cover, so Core Team still
+       gets this heading - by the same answer the page guards give, rather
+       than by a list that could be corrected in one place and not the
+       other. */
     { title: 'Worship & AV', url: 'Worshipteamcharter.html', icon: 'music',
-      team: ['Worship Team', 'AV Team', 'Core Team'],
+      team: ['Worship Team', 'AV Team'],
       description: 'What the team is for, and how it works',
       children: [
         { title: 'Worship', icon: 'mic-vocal', children: [
@@ -244,8 +252,20 @@
   function onTeam(team, who) {
     if (who.isMaster) return true;
     return [].concat(team).some(function (t) {
-      return (who.teams || []).indexOf(t) !== -1 ||
-             (who.adminFor || []).indexOf(t) !== -1;
+      /* EGBCAuth.inTeam, so the Menu and every page guard answer this the
+         same way. The difference it makes is Core Team: on the old portal
+         the Core Team link showed every Worship & AV item plus Core's own
+         (Martin, 11 Oct 2026, "core team cant see worship and AV"), and
+         the cover for that lives in one place - CORE_COVERS in
+         egbc-auth.js. The Menu used to carry its own copy of it.
+         The fallback is the plain membership test, for the case where the
+         Menu is drawn with no EGBCAuth on the page. It deliberately has
+         NO cover in it: a quiet second copy of the rule is the thing this
+         change exists to remove. */
+      return (window.EGBCAuth && EGBCAuth.inTeam
+                ? EGBCAuth.inTeam(t)
+                : (who.teams || []).indexOf(t) !== -1)
+        || (who.adminFor || []).indexOf(t) !== -1;
     });
   }
 

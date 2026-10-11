@@ -229,8 +229,17 @@
         if (me.runs.length) out.push(k);
         return;
       }
+      /* EGBCAuth.inTeam, not me.teams.indexOf. The difference is Core Team:
+         on the old portal the Core Team link showed every Worship & AV item
+         plus Core's own, and inTeam() is where that cover lives
+         (CORE_COVERS, 11 Oct). Asking it here rather than repeating the
+         list means the app's spaces, the Menu and every page guard answer
+         the same question the same way. It honours "View as" too, because
+         inTeam reads effectiveTeams. */
       var mine = (s.teams || []).some(function (t) {
-        return me.teams.indexOf(t) !== -1 || me.adminFor.indexOf(t) !== -1;
+        return (global.EGBCAuth && EGBCAuth.inTeam ? EGBCAuth.inTeam(t)
+                                                   : me.teams.indexOf(t) !== -1)
+          || me.adminFor.indexOf(t) !== -1;
       });
       /* A MASTER ADMIN IS NO EXCEPTION (§7e). `|| me.isMaster` gave Martin
          all nine spaces, where the mock-up gives him three - and that is

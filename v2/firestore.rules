@@ -68,8 +68,33 @@ service cloud.firestore {
       return signedIn() && myRecord() != null && me().status == 'active';
     }
 
+    // CORE TEAM COVERS WORSHIP & AV (Martin, 11 Oct 2026: "core team cant
+    // see worship and AV"). On the old portal the Core Team link showed
+    // every Worship & AV item plus Core's own, and the pages now agree -
+    // egbc-auth.js CORE_COVERS. The rules have to say the same thing, or a
+    // page opens and the data behind it is refused.
+    //
+    // ONE LIST, AND EVERY TEAM TEST GOES THROUGH IT. The reason is not
+    // tidiness: there were two ways of asking "is this person on that
+    // team" in this file - onTeam() and a bare me().teams.hasAny() on the
+    // rota write - and a cover added to one of them would have let Core
+    // Team read the Service Planner and refused them saving it. Both now
+    // read myTeams().
+    //
+    // IT ONLY GOES ONE WAY. Core Team counts as Worship, AV and Choir;
+    // nobody counts as Core Team who is not on it.
+    function coreCovers() { return ['Worship Team', 'AV Team', 'Choir']; }
+    function myTeams() {
+      return 'Core Team' in me().teams ? me().teams.concat(coreCovers()) : me().teams;
+    }
+
     function onTeam(team) {
-      return active() && (team in me().teams);
+      return active() && (team in myTeams());
+    }
+
+    // On any of these teams. Same list, same cover.
+    function onAnyTeam(teams) {
+      return active() && myTeams().hasAny(teams);
     }
 
     // Three levels, all set in the address book and mirrored onto users/{uid}:
@@ -478,8 +503,11 @@ service cloud.firestore {
       // line above says who may touch the rota; safeguardingOk() says who
       // may be put on it. A master admin is not exempt - the exception
       // route is, which is the point of recording a reason.
+      // onAnyTeam, not a bare me().teams.hasAny: Core Team ran the Service
+      // Planner on the old portal, so they must be able to SAVE a Worship
+      // service and not only read it. Same helper as onTeam, same cover.
       allow write: if (isAdmin()
-                       || me().teams.hasAny(request.resource.data.get('teams', ['Worship Team'])))
+                       || onAnyTeam(request.resource.data.get('teams', ['Worship Team'])))
                    && safeguardingOk();
     }
 

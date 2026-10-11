@@ -3082,3 +3082,52 @@ if (!Q.sites.length) {
 documents must see the Places sentence, and the same person with one active
 site must see that site's requests. The first of those is the live state
 today, which is how it reached Martin.
+
+### F-153 — six rules tests are failing on main, all in kids check-in and paging
+
+Found while running the suite for an unrelated change, and **checked against
+a clean checkout before saying so**: these six fail on `main` with no edits
+of mine in the tree, so they are not from the Core Team cover (F-154) or the
+calendar work.
+
+```
+FAIL  the desk checks Cat in, with her roll-call copy, in one write   (expected allow)
+FAIL  but not of a child who has not come this morning                (expected deny)
+FAIL  Juniors' leader pages Cat's parent: "Q7P2, please come to Juniors" (expected allow)
+FAIL  THE CONTRACT: the projection computer (a worship admin) reads the
+      active pages for the site, exactly these fields, a code and no name (expected allow)
+FAIL  the Session Leader pages too, this morning                      (expected allow)
+FAIL  the leader presses "Done": it is cleared, at server time        (expected allow)
+```
+
+Baseline: **1013/1019 on a clean `main`.** With my changes and the nine new
+Core Team tests it is 1022/1028 — the same six.
+
+One of them is an "expected deny" that is now allowing, which is the one I
+would look at first. I have not touched these rules or these tests.
+
+### F-154 — Core Team covers Worship & AV, in the rules as well as the pages
+
+Your `2cc0e0ad` made `EGBCAuth.inTeam` treat Core Team as Worship, AV and
+Choir. The rules now say the same thing, so a page that opens is not a page
+whose data is then refused:
+
+- `firestore.rules`: one list, `coreCovers()`, behind `myTeams()`. Both
+  `onTeam(team)` and a new `onAnyTeam(teams)` read it. The rota write used
+  a bare `me().teams.hasAny()` of its own, which would have let Core Team
+  **read** the Service Planner and refused them **saving** it; it goes
+  through `onAnyTeam` now.
+- Nine rules tests, with a Core-Team-only synthetic person (`u_core`) -
+  `martin` is Core Team but also AV Team and a master admin, so he proves
+  nothing here. Deliberate break: without the cover, four of them fail.
+- `egbc-app.js` `spacesFor()` asks `EGBCAuth.inTeam`, so a Core Team member
+  gets the Worship & AV space in the phone app.
+- `egbc-menu.js` no longer carries its own copy of the list: `'Core Team'`
+  has come out of the Worship & AV node's `team:` and its `onTeam()` asks
+  `EGBCAuth.inTeam`.
+- `tests/check-core-covers-worship.mjs` walks **every** page carrying
+  `data-team`, twice - as a master admin viewing as Core Team, and as
+  somebody whose only team is Core Team. The page list is read off the
+  pages, so one added later is walked without anybody remembering.
+
+Nothing of yours was changed.

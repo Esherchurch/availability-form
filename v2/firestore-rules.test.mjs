@@ -44,6 +44,11 @@ const PEOPLE = {
   lazersLead: { uid: 'u_lazers_lead', teams: ['Lazers'], adminFor: ['Lazers'], masterAdmin: false },
   member:  { uid: 'u_member',   teams: [], adminFor: [], masterAdmin: false,
              attender: true, churchMember: true, status: 'active' },
+  /* CORE TEAM AND NOTHING ELSE (Martin, 11 Oct 2026: "core team cant see
+     worship and AV"). martin is Core Team too, but he is also on AV Team
+     AND a master admin, so he would pass every check below for two other
+     reasons and prove nothing about the cover. */
+  core:    { uid: 'u_core',     teams: ['Core Team'], adminFor: [], masterAdmin: false },
 };
 
 await env.withSecurityRulesDisabled(async (ctx) => {
@@ -2451,6 +2456,41 @@ await check('  nor can a young person', 'deny',
   () => getDoc(doc(ywYouth(), 'worshipBoardState', 'core-team')));
 await check('  nor an Attender', 'deny',
   () => getDoc(doc(as('attender'), 'worshipBoardState', 'core-team')));
+
+/* ---- CORE TEAM COVERS WORSHIP & AV (Martin, 11 Oct 2026) -----------
+   "core team cant see worship and AV". On the old portal the Core Team
+   link showed every Worship & AV item plus Core's own. egbc-auth.js now
+   says so on every page check (CORE_COVERS); these are the rules saying
+   the same thing, because a page that opens onto data the rules refuse is
+   not a fix, it is a worse fault with a nicer error.
+
+   u_core is Core Team AND NOTHING ELSE: not AV, not a master admin. */
+await check('a Core Team member reads the worship board', 'allow',
+  () => getDoc(doc(as('core'), 'worshipBoardState', 'state')));
+await check('  and writes it, because they run the service', 'allow',
+  () => setDoc(doc(as('core'), 'worshipBoardState', 'state'), { notes: [], pages: [] }));
+await check('  reads the song library', 'allow',
+  () => getDoc(doc(as('core'), 'songs', 'sg1')));
+await check('  reads a Worship Team video', 'allow',
+  () => getDoc(doc(as('core'), 'teamVideos', 'v_worship')));
+await check('  reads the rota', 'allow',
+  () => getDoc(doc(as('core'), 'events', 'e1')));
+/* THE SERVICE PLANNER SAVES, and this is the half that a second spelling
+   of "is on that team" would have got wrong: the rota write used a bare
+   me().teams.hasAny() of its own, so Core Team could have read the
+   planner and been refused saving it. Both go through myTeams() now. */
+await check('  and SAVES a Worship service, not only reads it', 'allow',
+  () => setDoc(doc(as('core'), 'events', 'e_core_saves'),
+    { date: '2026-11-01', roles: ['Guitar'], teams: ['Worship Team'] }));
+
+/* IT ONLY GOES ONE WAY. Nobody counts as Core Team who is not on it. */
+await check('A WORSHIP-ONLY MEMBER STILL CANNOT READ THE CORE TEAM BOARD', 'deny',
+  () => getDoc(doc(as('samy'), 'worshipBoardState', 'core-team')));
+await check('  nor write it', 'deny',
+  () => setDoc(doc(as('samy'), 'worshipBoardState', 'core-team'), { notes: [], pages: [] }));
+/* And the cover is three named teams, not "everything Core Team fancies". */
+await check('  and Core Team is not quietly on Kids Church', 'deny',
+  () => getDoc(doc(as('core'), 'teamVideos', 'v_kids')));
 
 /* NO SURNAMES, NO CONTACT DETAILS. The rules hold the shape; the moderation
    holds the free text, which is what moderation is for. */
