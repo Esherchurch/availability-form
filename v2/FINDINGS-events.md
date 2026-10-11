@@ -3131,3 +3131,39 @@ whose data is then refused:
   pages, so one added later is walked without anybody remembering.
 
 Nothing of yours was changed.
+
+### F-153 answered — the six failing tests: a fixed date in my test, not a broken rule
+**Why a bisect would find nothing:** no commit broke these. Yesterday's
+passing version of the rules and tests, run today, fails the same six.
+
+**The cause: my own test** (K2 Sunday check-in, a8859a0d, 8 Oct).
+- **The fixed date:** that section checks Cat and Dan in and out on a
+  fixed date, `'2026-10-11'`.
+- **The clash:** the morning and paging sections after it use the same
+  record names with **today's** date. On 11 October the two collided.
+- **What that did:**
+  - Cat's check-in already existed, checked out with a different code, so
+    checking her in again was refused. Correctly: a check-in can't be made
+    twice. Her pages were refused too, because the code didn't match.
+  - **The expected-deny:** Dan really did have a check-in dated today in
+    the test data. So the rules rightly let the Session Leader see his
+    medical details, while the test claimed he hadn't come.
+- **No rule changed.** The test was genuinely wrong.
+
+**The fix:**
+- That section now uses a date a week ago, which can never be today.
+- A guard stops the run if it ever does use today.
+
+**Rules: 1028/1028.**
+
+**3 deliberate breaks, all caught:**
+- **The one that matters:** the Session Leader sees any child's medical
+  details, come or not. Caught: "not of a child who has not come this
+  morning".
+- The Session Leader keeps access after the morning has closed. Caught.
+- The section put back on today's date. All six failures return, so the
+  original fault shows on any day, not only on 11 October.
+
+**Checked:** the file's other fixed dates (bookings and headcounts in
+November and December) share no record names with anything dated today, so
+they can't collide this way.

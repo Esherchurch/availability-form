@@ -1345,7 +1345,14 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
 // ── EVENTS (events window) ── Sunday check-in (Chunk 6, stage 2): E1's check-in, need to know
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();
-  const DAY = '2026-10-11';
+  /* A week ago, never today (F-153). This section checks Cat and Dan in and
+     out under the same record names the morning and paging sections below
+     use for TODAY. It was fixed at '2026-10-11', and on that day the two
+     collided: Cat was already checked out, and Dan really was checked in
+     "this morning", so the rules rightly let the Session Leader see his
+     medical details while the test said they should not. */
+  const DAY = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  if (DAY === new Date().toISOString().slice(0, 10)) throw new Error('the check-in section must not use today');
   await env.withSecurityRulesDisabled(async (c) => {
     const db = c.firestore();
     await setDoc(doc(db, 'kidsFamilies', 'fam_2'), { siteId: 'site_kids', parentName: 'Parent Two', collectors: ['Parent Two', 'Grandma Invented'], familyCode: 'FAM222' });
