@@ -343,7 +343,12 @@
     var N = 0;
     groups.forEach(function (g) { g.forEach(function (l) { N = Math.max(N, l.slots.length); }); });
 
-    var body = [], meta = [];
+    /* Each body row's facts, looked up by the row itself rather than by
+       d.row.index: with rowSpan on the date column autoTable's index does not
+       always line up with ours, and the household PDF (several team lines on
+       one date) threw "reading 'line'" and stopped the rota email sending. */
+    var body = [], meta = [], metaByRow = new Map();
+    function metaOf(d) { return metaByRow.get(d.row.raw) || meta[d.row.index] || null; }
     groups.forEach(function (g, gi) {
       g.forEach(function (l, li) {
         var row = [];
@@ -355,6 +360,7 @@
         }
         body.push(row);
         meta.push({ band: gi % 2, line: l });
+        metaByRow.set(row, meta[meta.length - 1]);
       });
     });
 
@@ -371,7 +377,8 @@
       columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 21 } },
       didParseCell: function (d) {
         if (d.section !== 'body') return;
-        var m = meta[d.row.index];
+        var m = metaOf(d);
+        if (!m) return;
         d.cell.styles.fillColor = BAND[m.band];
         var col = d.column.index;
         if (col === 0) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.valign = 'middle'; return; }
@@ -385,7 +392,9 @@
       },
       didDrawCell: function (d) {
         if (d.section !== 'body' || d.column.index < 2) return;
-        var s = meta[d.row.index].line.slots[d.column.index - 2];
+        var m = metaOf(d);
+        if (!m) return;
+        var s = m.line.slots[d.column.index - 2];
         if (!s) return;
         var x = d.cell.x + 1.6, y = d.cell.y + 1.6, w = d.cell.width - 3.2;
         var c = TEAM_RGB[teamOf(s.role)];
