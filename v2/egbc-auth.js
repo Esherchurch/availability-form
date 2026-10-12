@@ -689,6 +689,11 @@
   var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship', 'Core Team'];
   /* What being on Core Team also opens (see inTeam). */
   var CORE_COVERS = ['Worship Team', 'AV Team', 'Choir'];
+  /* WORSHIP AND AV ARE ONE TEAM FOR PAGES (Martin, 12 Oct 2026: "if worship
+     team want to turn on the sound desk they should be able to see how").
+     Someone on any of these counts as on all of them for page checks. Rank
+     gates (data-role leader/admin) are unchanged. */
+  var WORSHIP_AV = ['Worship Team', 'AV Team', 'Choir'];
 
   function teamsVisibleTo(teams) {
     var out = teams.slice();
@@ -1033,6 +1038,8 @@
     inTeam: function (team) {
       var mine = EGBCAuth.effectiveTeams();
       if (mine.indexOf(team) !== -1) return true;
+      if (WORSHIP_AV.indexOf(team) !== -1 &&
+          mine.some(function (t) { return WORSHIP_AV.indexOf(t) !== -1; })) return true;
       return CORE_COVERS.indexOf(team) !== -1 && mine.indexOf('Core Team') !== -1;
     },
 
