@@ -241,15 +241,27 @@ const REFUSED_PROBE = "(function(){var b=document.body;if(!b)return '';"
     }
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + P.page });
     await sleep(P.wait);
-    if (P.signedOut) {
-      /* It must actually BE the page asked for. A redirect here would put
-         us back to measuring something else under this name. */
-      const here = String(await ev('location.pathname.split("/").pop()'));
-      if (here !== P.page) {
-        console.log('\n' + P.page + '   went to ' + here + ' instead - not measured');
-        pagesWithErrors.push({ page: P.page, errors: ['redirected to ' + here + ' while signed out'] });
-        continue;
-      }
+    /* IS THIS THE PAGE IT SAYS IT IS? Asked of EVERY page, not just the
+       signed-out ones, and this is the gate on the whole business above.
+
+       I had this as a signedOut-only check and then broke it on purpose
+       to see it bite. It did not. With hub.html's notices date now at
+       12px there is nothing wrong with the hub, so measuring the hub
+       under login.html's name scores a clean 0 and nothing says a word.
+       The count could only ever have shown this while the page being
+       measured by mistake happened to be in breach - which is to say
+       the old symptom was luck, not detection.
+
+       So the identity of the page is asserted directly. A page measured
+       under the wrong name is a fault whatever it scores, and it is the
+       fault that hid three of the 24 for weeks. */
+    const here = String(await ev('location.pathname.split("/").pop()'));
+    if (here !== P.page) {
+      console.log('\n' + P.page + '   went to ' + here + ' instead - NOT measured');
+      pagesWithErrors.push({ page: P.page,
+        errors: ['measured as ' + here + ', not ' + P.page
+          + (P.signedOut ? ' (asked for signed out)' : ' (signed in)')] });
+      continue;
     }
     /* A dialog in headless Chrome stops the page until something answers it,
        and nothing here will. confirm says no, so anything that asks before
