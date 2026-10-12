@@ -920,10 +920,13 @@ function renderNoticesCard() {
 
   if (!show.length && !canPost) { card.innerHTML = ''; return; }
 
-  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <i data-lucide="megaphone" style="width:17px;height:17px;color:var(--brand)"></i>
+  /* flex-wrap, because on a 375px phone "Notices", "Post a notice" and
+     "See all" do not fit on one line and a row that cannot wrap pushes
+     the card wider than the screen instead. */
+  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;min-width:0">
+      <i data-lucide="megaphone" style="width:17px;height:17px;color:var(--brand);flex:none"></i>
       <h2 style="margin:0;font-size:14px;font-weight:600;color:var(--ink)">Notices</h2>
-      <div style="margin-left:auto;display:flex;gap:6px">
+      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         ${canPost ? '<button class="btn sm solid" onclick="openNewsEditor()">'
           + '<i data-lucide="plus" style="width:14px;height:14px"></i>Post a notice</button>' : ''}
         ${live.length > 3 ? '<button class="btn sm ghost" onclick="openLatest()">See all</button>' : ''}
@@ -941,9 +944,9 @@ function renderNoticesCard() {
   card.innerHTML = `<div class="card">${head}
     <div style="display:grid;gap:5px">
       ${show.map(n => `<button class="nx" onclick="openLatest()">
-        <div style="display:flex;align-items:baseline;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:8px;min-width:0">
           ${n.pinned ? '<i data-lucide="pin" style="width:13px;height:13px;color:var(--gold);flex:none"></i>' : ''}
-          <span class="nx-t">${esc(n.title || 'Notice')}</span>
+          <span class="nx-t" style="flex:1;min-width:0">${esc(n.title || 'Notice')}</span>
           <span class="nx-d">${esc(noticeWhen(n))}</span>
         </div>
         <div class="nx-b">${esc(noticePreview(n))}</div>

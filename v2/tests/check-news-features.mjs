@@ -320,9 +320,13 @@ const offMachine = u => {
   await ev('window.__prompted=0;window.prompt=function(){window.__prompted++;return null};1');
 
   await ev("openNewsEditor();1"); await sleep(1200);
-  await ev("document.getElementById('nwTitle').value='We need a Choir!';"
-    + "newsEditor().setHTML('<p>We are starting a <b>choir</b>.</p>"
-    + "<ul><li>Thursdays at 7</li><li>No audition</li></ul>');"
+  /* MARTIN'S REAL NOTICE, not a tidy one. A title somebody typed with
+     a link pasted on the end, a picture at its own 400px, and an email
+     footer with addresses in it. The long title is what reaches the
+     widget: the body is stripped to words for the preview, so a tidy
+     one-line notice proves nothing about width at all. */
+  await ev("document.getElementById('nwTitle').value='We need a Choir! Rehearsals start on Thursday - see https://www.eastgrinsteadbaptistchurch.org.uk/notices/choir-rehearsals-autumn-2026';"
+    + "newsEditor().setHTML('<p>We are starting a <b>choir</b>.</p><ul><li>Thursdays at 7</li><li>No audition</li></ul><img src=\"data:image/gif;base64,R0lGODlhkAEsAIAAAP///wAAACH5BAEAAAAALAAAAACQASwAAAIFhI+py+0PADs=\" width=\"400\" style=\"width:400px\" alt=\"The choir\"><p>Sent from Val: val.somebody-with-a-long-name@eastgrinsteadbaptistchurch.org.uk or reply to notices+choir-autumn-2026-rehearsals@eastgrinsteadbaptistchurch.org.uk</p>');"
     + "document.getElementById('nwDate').value='Sunday 18 October';1");
   await ev('saveNews()', true); await sleep(3500);
 
@@ -362,6 +366,84 @@ const offMachine = u => {
     /^seen at/.test(onDesktop), onDesktop);
   const onPhone = await seenAt(375, 812);
   ok('  and on a 375px phone', /^seen at/.test(onPhone), onPhone);
+
+  /* AND IT MUST FIT THE PHONE (Martin, 12 Oct 2026: on his installed
+     hub the notices "go off the page completely" - the card measured
+     704px inside a 375px screen).
+
+     MY OWN CHECK PASSED THAT. It asked elementFromPoint whether the
+     widget was on screen, which answers "is anything on top of it"
+     and says nothing at all about width: a card 300px wider than the
+     phone still has its top-left corner exactly where it should be.
+     So this measures width, and it uses the notice Martin actually
+     posted - a long title, a pasted email and a picture - because a
+     one-word test notice fits anything. */
+  await ev('window.scrollTo(0,0);1');
+
+  /* THE PHONE IS 375px WIDE AND NOTHING THE PAGE DOES CHANGES THAT.
+     Measure against that number, never against window.innerWidth.
+     My second version of this check did compare the document against
+     innerWidth, and it could not fail: the long title widened the
+     layout, the viewport shrank to fit, and innerWidth came back 487
+     with the document also 487. Both grew together, so a page 112px
+     wider than the phone read as a clean pass. Martin's 583px is the
+     same escape on his real notices. The viewport growing at all is
+     therefore itself the fault, and it is asserted first. */
+  const PHONE = 375;
+  const wide = JSON.parse(String(await ev(`(() => {
+    const out = {
+      vw: window.innerWidth,
+      doc: Math.round(document.documentElement.scrollWidth),
+      over: []
+    };
+    const card = document.getElementById('noticesCard');
+    if (!card) return JSON.stringify({ ...out, missing: true });
+    for (const el of [card, ...card.querySelectorAll('*')]) {
+      const r = el.getBoundingClientRect();
+      if (r.width <= ${PHONE} + 1 && r.right <= ${PHONE} + 1) continue;
+      out.over.push((el.className || el.tagName) + ' ' + Math.round(r.width)
+        + 'px, right edge ' + Math.round(r.right));
+      if (out.over.length >= 4) break;
+    }
+    return JSON.stringify(out);
+  })()`)));
+  ok('  the phone is still 375px wide once the page has laid out',
+    wide.vw === PHONE, 'window.innerWidth is ' + wide.vw + 'px, asked for ' + PHONE);
+  ok('  the page itself does not scroll sideways at 375px',
+    wide.doc <= PHONE + 1, wide.doc + 'px of page in a ' + PHONE + 'px phone');
+  ok('  and nothing in the notices card is wider than the phone',
+    !wide.missing && wide.over.length === 0, wide.over.join('; '));
+
+  /* AND IT CLIPS, which is a different claim from fitting. Martin asked
+     for "wrap or clip with ellipsis inside the card", and a card can fit
+     the phone while the title is simply cut off mid-letter with no sign
+     that there is more. Taking the whole fix out fails the three widths
+     above; taking only .nx-t's rule out does not, because four other
+     lines each contain this title on their own. This assertion is what
+     makes .nx-t's rule carry its own weight: it has to be the thing
+     doing the clipping, and the ellipsis has to be on. */
+  const clip = JSON.parse(String(await ev(`(() => {
+    const t = document.querySelector('#noticesCard .nx-t');
+    if (!t) return JSON.stringify({ missing: true });
+    const s = getComputedStyle(t);
+    return JSON.stringify({
+      overflowing: t.scrollWidth > t.clientWidth + 1,
+      scrollWidth: Math.round(t.scrollWidth),
+      clientWidth: Math.round(t.clientWidth),
+      ellipsis: s.textOverflow,
+      overflow: s.overflowX,
+      wrap: s.whiteSpace,
+      text: (t.textContent || '').trim().slice(0, 40)
+    });
+  })()`)));
+  ok('  the long title is cut off with an ellipsis, not just hidden',
+    !clip.missing && clip.overflowing && clip.ellipsis === 'ellipsis'
+      && clip.overflow !== 'visible',
+    clip.missing ? 'no .nx-t in the card'
+      : clip.text + '... ' + clip.scrollWidth + 'px of words in '
+        + clip.clientWidth + 'px, text-overflow:' + clip.ellipsis
+        + ', overflow-x:' + clip.overflow + ', white-space:' + clip.wrap);
+
   if (wantShots) {
     await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 945, deviceScaleFactor: 1, mobile: false });
     await sleep(700);

@@ -139,13 +139,42 @@
      put the home page 160px over the fold at 1440x900. One line of the
      words is enough to know whether you want to read it; the whole
      notice is one tap away in Latest. */
+  /* NOTHING IN HERE MAY BE WIDER THAN THE PHONE (Martin, 12 Oct 2026:
+     on his installed hub the notices "go off the page completely" -
+     the card measured 704px inside a 375px screen).
+
+     What does it is the TITLE, not the body: the widget strips the
+     notice to words for the preview, so a pasted picture or table
+     never reaches it, but a title is shown as typed and Val pastes a
+     link on the end. A link has no space in it, so it cannot wrap, so
+     it pushes the row out - and the viewport meta then shrinks to fit,
+     which is why the whole page measured 583px on a 375px phone.
+
+     These lines are deliberately belt and braces, and I checked which
+     of them carry the load rather than assuming: taking any ONE of
+     them out leaves the card fitting 375px, because each contains that
+     title on its own. Taking all of them out puts it back to 487px in
+     the check. So do not read the list as five necessary lines - read
+     it as five different ways in, each closed:
+       min-width:0      a flex child will not shrink below its content
+                        unless it is told it may
+       max-width:100%   a child with its own width (a pasted table)
+       img              nothing in the widget draws an image today,
+                        since the preview is words only; this is here
+                        so adding a thumbnail cannot reopen the fault
+       .nx overflow     the row clips whatever still escapes
+       .nx-t            the title clips with a visible ellipsis, which
+                        is the part the check asserts on its own */
+  #noticesCard,#noticesCard *{min-width:0;max-width:100%;box-sizing:border-box}
+  #noticesCard img{max-width:100%;height:auto}
   .nx{display:block;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--hairline);
-      border-radius:9px;padding:7px 10px;cursor:pointer;font:inherit;color:inherit}
+      border-radius:9px;padding:7px 10px;cursor:pointer;font:inherit;color:inherit;overflow:hidden}
   .nx:hover{border-color:var(--hairline-strong);background:#fff}
-  .nx-t{font-size:13px;font-weight:600;color:var(--ink);line-height:1.25}
+  .nx-t{font-size:13px;font-weight:600;color:var(--ink);line-height:1.25;
+        min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .nx-d{font-size:11px;color:var(--faint);margin-left:auto;white-space:nowrap;flex:none}
   .nx-b{font-size:12px;color:var(--muted);line-height:1.35;margin-top:2px;
-        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   #waitingCard{order:-2} #pinned{order:-1}
   /* NOTICES THIRD ON A PHONE, above the pin board and the charter.
      Martin, 12 Oct 2026: "I specifically said the notices need to be
