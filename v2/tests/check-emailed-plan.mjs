@@ -47,13 +47,18 @@ const SONG1 = 'Synthetic Emailed Song';
 const SONG2 = 'Synthetic Second Emailed Song';
 const ITEM = 'Synthetic Notices Slot';
 
-/* A Sunday 10 weeks out, away from every other check's "coming Sunday". */
-const EMAILED = (() => {
-  const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + 70);
+/* Two Sundays about 10 weeks out, away from every other check's "coming
+   Sunday". EMAILED has a plan that was sent and never saved; BLANK has
+   no plan of any kind, which is the state that used to show the
+   previous Sunday's songs. */
+const sundayIn = (days) => {
+  const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + days);
   while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
   const m = String(d.getMonth() + 1), day = String(d.getDate());
   return d.getFullYear() + '-' + m.padStart(2, '0') + '-' + day.padStart(2, '0');
-})();
+};
+const EMAILED = sundayIn(70);
+const BLANK = sundayIn(77);
 
 const R = [];
 const ok = (n, v, x) => {
@@ -87,17 +92,17 @@ const runQuery = (body) => req(8181, 'POST', DOCS + ':runQuery', body, { Authori
 /* Every `services` document for the emailed date, read straight out of
    the emulator rather than from the page - the page is the thing on
    trial. */
-const savedServices = async () => {
+const savedServices = async (date) => {
   const r = await runQuery({ structuredQuery: {
     from: [{ collectionId: 'services' }],
     where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL',
-             value: { stringValue: EMAILED } } } } });
+             value: { stringValue: date || EMAILED } } } } });
   let rows = [];
   try { rows = JSON.parse(r.body || '[]'); } catch { rows = []; }
   return rows.filter(x => x && x.document).map(x => x.document);
 };
-const clearServices = async () => {
-  for (const d of await savedServices()) {
+const clearServices = async (date) => {
+  for (const d of await savedServices(date)) {
     await req(8181, 'DELETE', '/v1/' + d.name.split('/v1/').pop()
       || d.name, undefined, { Authorization: 'Bearer owner' });
   }
@@ -147,6 +152,18 @@ async function seed() {
     serviceLeader: 'Leader Synthetic', speaker: 'Speaker Synthetic',
     assignments: { 'Worship Leader': { id: ME.member, name: ME.name } } });
 
+  /* A SECOND SUNDAY WITH NO PLAN AT ALL - no services document and no
+     songSummaries. Martin, 12 Oct 2026: moving to a Sunday like this
+     left the PREVIOUS Sunday's songs on screen (4 Oct's showed under
+     18 Oct), and with send-saves that could save or send the wrong
+     songs as this Sunday's plan. */
+  await put('events/ev_blank_plan', {
+    termLabel: 'Autumn 2026', teams: ['Worship Team'], roles: ['Guitar'],
+    archived: false, draft: false, date: BLANK, startTime: '10:30',
+    type: 'Sunday Morning Worship', description: 'Synthetic nothing planned',
+    serviceLeader: 'Leader Synthetic', speaker: 'Speaker Synthetic',
+    assignments: { 'Worship Leader': { id: ME.member, name: ME.name } } });
+
   /* THE EMAILED PLAN, and NO `services` document: exactly the state
      11 Oct was in. This is the whole fixture. */
   await put('songSummaries/' + EMAILED, {
@@ -162,6 +179,16 @@ async function seed() {
 (async () => {
   const uid = await seed();
   await clearServices();
+  /* THE BLANK SUNDAY MUST REALLY BE BLANK - no saved plan and no emailed
+     one - or the stale-songs section below proves nothing. */
+  await clearServices(BLANK);
+  await req(8181, 'DELETE', DOCS + '/songSummaries/' + BLANK, undefined,
+    { Authorization: 'Bearer owner' });
+  const blankLeft = (await savedServices(BLANK)).length;
+  const blankSummary = (await get('songSummaries/' + BLANK)).status;
+  ok('the blank Sunday has no plan of any kind',
+    blankLeft === 0 && blankSummary === 404,
+    blankLeft + ' services, songSummaries HTTP ' + blankSummary);
   const before = await savedServices();
   /* THE FIXTURE HAS TO BE THE FAULT. If a `services` document for this
      date survives from an earlier run, every assertion below passes for
@@ -415,6 +442,115 @@ async function seed() {
     shown.indexOf(SONG1) === -1, shown.slice(0, 220));
   await req(8181, 'DELETE', DOCS + '/services/sv_emailed_plan', undefined,
     { Authorization: 'Bearer owner' });
+
+  /* ---- a Sunday with no plan starts blank, not on last week's songs ----
+
+     Martin, 12 Oct 2026, found and fixed this in both copies of
+     SundayServicePlanner.html at 122df87f: with no saved plan AND no
+     emailed one, the page left the PREVIOUS date's songs on screen -
+     4 Oct's showed under 18 Oct. On its own that is a confusing screen.
+     Together with "sending saves the schedule", which went in an hour
+     earlier, it is worse than confusing: pressing Send on that screen
+     would have saved and sent last Sunday's songs as this Sunday's plan.
+     Two safe-looking changes making each other dangerous.
+
+     His sequence, walked here: a Sunday WITH songs, then a Sunday with
+     NOTHING, then back. The middle one is the assertion. */
+  const pickDate = async (dateSel, eventSel, date) => {
+    await ev('(function(){var d=document.getElementById(' + JSON.stringify(dateSel) + ');'
+      + 'd.value=' + JSON.stringify(date) + ';'
+      + 'd.dispatchEvent(new Event("change",{bubbles:true}));return "set"})()');
+    for (let i = 0; i < 40; i++) {
+      await sleep(500);
+      const n = String(await ev('(function(){var s=document.getElementById('
+        + JSON.stringify(eventSel) + ');return s?String(s.options.length):"0"})()'));
+      if (Number(n) > 1) break;
+    }
+    await ev('(function(){var s=document.getElementById(' + JSON.stringify(eventSel) + ');'
+      + 'if(!s||s.options.length<2)return "no";s.value=s.options[1].value;'
+      + 's.dispatchEvent(new Event("change",{bubbles:true}));return "chose"})()');
+    await sleep(2500);
+  };
+
+  const staleWalk = async (what, page, loadedExpr, dateSel, eventSel, orderSel, open) => {
+    console.log('\n' + what + ', moving between Sundays:');
+    errs = [];
+    if (open) { await open(); } else {
+      await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + page });
+      await until('  it loaded', loadedExpr, 60);
+    }
+
+    await pickDate(dateSel, eventSel, EMAILED);
+    let t = String(await orderText(orderSel));
+    ok('  the Sunday WITH songs shows them', t.indexOf(SONG1) !== -1, t.slice(0, 200));
+
+    await pickDate(dateSel, eventSel, BLANK);
+    t = String(await orderText(orderSel));
+    /* THE ONE THAT MATTERS. Not "it shows something" - it must not show
+       the OTHER Sunday's songs, by name. */
+    ok('  the Sunday with NO plan does not show the other Sunday’s songs',
+      t.indexOf(SONG1) === -1 && t.indexOf(SONG2) === -1, t.slice(0, 240));
+    ok('  it starts from the default order instead of an empty screen',
+      /Welcome and Notices/.test(t) && /Message/.test(t), t.slice(0, 240));
+    /* And the words either side of the songs are this Sunday's, not the
+       last one's: the notes come from the rota, intro and outro clear. */
+    const words = JSON.parse(String(await ev('(function(){'
+      + 'var g=function(id){var e=document.getElementById(id);return e?e.value:"(none)"};'
+      + 'return JSON.stringify({ notes: g(' + JSON.stringify(what.indexOf('Sunday Service') === 0 ? 'serviceTypeNotes' : 'spTypeNotes') + '),'
+      + ' intro: g(' + JSON.stringify(what.indexOf('Sunday Service') === 0 ? 'introBox' : 'spIntro') + '),'
+      + ' outro: g(' + JSON.stringify(what.indexOf('Sunday Service') === 0 ? 'outroBox' : 'spOutro') + ') })})()')));
+    ok('  the service notes are this Sunday’s, from the rota',
+      /Synthetic nothing planned/.test(words.notes), JSON.stringify(words));
+    ok('  and the opening and closing remarks are not carried over',
+      !words.intro && !words.outro, JSON.stringify(words));
+
+    await pickDate(dateSel, eventSel, EMAILED);
+    t = String(await orderText(orderSel));
+    ok('  and going back to the Sunday with songs shows them again',
+      t.indexOf(SONG1) !== -1 && t.indexOf(SONG2) !== -1, t.slice(0, 200));
+    ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
+  };
+
+  await staleWalk('Sunday Service Planner', 'SundayServicePlanner.html',
+    '(typeof loadRota === "undefined") ? "no" : "yes"',
+    'serviceDate', 'eventSelect', '#service-order');
+
+  /* AND THE SHARED PLANNER CANNOT DO THE SAME, asked rather than assumed.
+     Martin thought it looked right because it calls spSetupDefaultOrder,
+     and it is right - but for a reason worth writing down: it clears
+     sp-order and spTypeNotes BEFORE the branch (egbc-core-planner.js
+     :543 and :505) and rebuilds the whole team table with its note cells
+     (:509), so there is nothing left of the last Sunday to go stale. The
+     else branch then clears intro and outro (:579). "It calls the right
+     function" would not have been enough on its own: the SSP bug was not
+     in setupDefaultOrder, it was in what nobody cleared around it. */
+  await staleWalk('the shared planner, CoreTeamApp', 'CoreTeamApp.html',
+    '(typeof openSection === "undefined") ? "no" : "yes"',
+    'spDate', 'spEventSelect', '#sp-order', async () => {
+      await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/CoreTeamApp.html' });
+      await until('  the Core Team app loaded',
+        '(typeof openSection === "undefined") ? "no" : "yes"', 60);
+      await ev('(function(){try{if(typeof endTour==="function")endTour()}catch(e){}'
+        + 'var o=document.getElementById("tour-overlay");if(o)o.classList.remove("active");'
+        + 'openSection("service");return "opened"})()');
+      await sleep(1500);
+    });
+
+  await staleWalk('the shared planner, the phone app', 'app.html',
+    '(typeof EGBCApp === "undefined") ? "no" : "yes"',
+    'spDate', 'spEventSelect', '#sp-order', async () => {
+      await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+      let d2 = '';
+      for (let i = 0; i < 60; i++) {
+        await sleep(500);
+        d2 = String(await ev('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}})'
+          + '.getAttribute("data-drawn") || ""'));
+        if (d2.indexOf(uid + ':') === 0) break;
+      }
+      ok('  the app drew for them', d2.indexOf(uid + ':') === 0, d2 || '(never drew)');
+      await ev('(function(){EGBCApp.go("core","plan");return "went"})()');
+      await sleep(1800);
+    });
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
