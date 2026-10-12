@@ -11,9 +11,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610062100"></script>
-<script src="egbc-church.js?v=202610101000"></script>
-<script src="egbc-guard.js?v=202610062100" data-admin="any"></script>
+<script src="egbc-auth.js?v=202610121600"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<!-- An admin, OR the Church office. The office are the people who know
+     the church's bank details, which now live on this page, and they are
+     not necessarily admins of anything. Each half of the page is drawn
+     only for whoever may actually save it - see mayDetails()/mayGive(). -->
+<script src="egbc-guard.js?v=202610121600" data-admin="any" data-also-team="Church office"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -45,6 +49,10 @@
   <h1>Church details</h1>
   <p class="sub">The name, enquiry email and logo shown on the public room-hire pages and in emails. Change them here, once.</p>
   <div class="card" id="form"><p class="hint">Loading…</p></div>
+
+  <h1 style="font-size:18px;margin:22px 0 4px" id="give-h" hidden>Giving</h1>
+  <p class="sub" id="give-sub" hidden>The church's bank details, shown to people who have signed in &mdash; on the Give screen in the app and the Give page on the website. Type them once; nothing else needs them again.</p>
+  <div class="card" id="give-form" hidden></div>
 </div>
 <div id="toast"></div>
 <script>
@@ -88,10 +96,111 @@
     }).then(function () { toast('Saved.'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
   }
 
-  EGBCAuth.require({ adminAny: true }).then(function () {
+  /* ---- giving: the church's bank details ---------------------------
+
+     WHO SEES THIS CARD IS THE SAME QUESTION AS WHO MAY SAVE IT, and the
+     answer has to match firestore.rules exactly: a master admin, or the
+     Church office. The page itself is data-admin="any", so a Kids Church
+     admin opens it legitimately for the name and logo - and if the card
+     were drawn for them too, they would fill in the church's bank
+     details, press Save, and be refused by the rules. A page that opens
+     onto data it cannot write is the fault this project keeps finding;
+     better not to draw it.
+
+     NO VALUES IN THIS FILE. The repository is public. The fields start
+     empty and Martin or Val type the real ones in once it is live. */
+  function mayGive() {
+    return !!(EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'));
+  }
+
+  var G = {};
+
+  function drawGiving() {
+    ['give-h', 'give-sub', 'give-form'].forEach(function (id) {
+      document.getElementById(id).hidden = false;
+    });
+    document.getElementById('give-form').innerHTML =
+      '<div class="field"><label for="g-name">Account name</label>' +
+        '<input class="inp" id="g-name" maxlength="120" autocomplete="off" value="' + esc(G.accountName) + '"></div>' +
+      '<div class="field"><label for="g-sort">Sort code</label>' +
+        '<input class="inp" id="g-sort" maxlength="20" autocomplete="off" inputmode="numeric" value="' + esc(G.sortCode) + '">' +
+        /* NO EXAMPLE DIGITS HERE, not even zeros. An earlier version of
+           this hint carried a sort-code-shaped example and check-give.mjs
+           flagged it - rightly, because it looks for the SHAPE in these
+           pages and an example is indistinguishable from somebody pasting
+           the real one in "just to see". Then the comment explaining that
+           carried the shape too, and was flagged in its turn: the fifth
+           time in this project a check has matched a comment describing
+           the thing it was looking for. The check stays strict; the words
+           give way, both times. */
+        '<p class="hint" style="margin:6px 0 0">Six digits, however you would write it on a form &mdash; with or without the dashes.</p></div>' +
+      '<div class="field"><label for="g-acct">Account number</label>' +
+        '<input class="inp" id="g-acct" maxlength="20" autocomplete="off" inputmode="numeric" value="' + esc(G.accountNumber) + '"></div>' +
+      '<div class="field"><label for="g-ref">Suggested reference</label>' +
+        '<input class="inp" id="g-ref" maxlength="60" autocomplete="off" value="' + esc(G.reference) + '">' +
+        '<p class="hint" style="margin:6px 0 0">What to put in the reference box, so the treasurer can tell who it is from. For example: their own name.</p></div>' +
+      '<div class="field"><label for="g-gastate">Gift Aid</label>' +
+        '<select class="inp" id="g-gastate">' +
+          '<option value="no"' + (G.giftAid ? '' : ' selected') + '>Do not mention Gift Aid</option>' +
+          '<option value="yes"' + (G.giftAid ? ' selected' : '') + '>Mention Gift Aid, with a link to the form</option>' +
+        '</select></div>' +
+      '<div class="field" id="g-url-field"' + (G.giftAid ? '' : ' hidden') + '>' +
+        '<label for="g-url">Link to the Gift Aid form</label>' +
+        '<input class="inp" id="g-url" type="url" maxlength="300" placeholder="https://" value="' + esc(G.giftAidUrl) + '">' +
+        '<p class="hint" style="margin:6px 0 0">Where the declaration form lives. Left empty, the Gift Aid line still appears but without a link.</p></div>' +
+      '<div class="field"><label for="g-note">Anything else to say</label>' +
+        '<input class="inp" id="g-note" maxlength="400" value="' + esc(G.note) + '">' +
+        '<p class="hint" style="margin:6px 0 0">One line, shown under the details. Optional.</p></div>' +
+      '<button class="btn" id="g-save">Save the giving details</button>';
+    document.getElementById('g-gastate').onchange = function () {
+      document.getElementById('g-url-field').hidden = this.value !== 'yes';
+    };
+    document.getElementById('g-save').onclick = saveGiving;
+  }
+
+  function saveGiving() {
+    var v = function (id) { return document.getElementById(id).value.trim(); };
+    var giftAid = document.getElementById('g-gastate').value === 'yes';
+    var url = giftAid ? v('g-url') : '';
+    if (url && !/^https?:\/\/\S+$/.test(url)) { toast('That link does not look right. It should start with https://'); return; }
+    var u = EGBCAuth.user() || {};
+    var body = {
+      accountName: v('g-name'), sortCode: v('g-sort'), accountNumber: v('g-acct'),
+      reference: v('g-ref'), giftAid: giftAid, giftAidUrl: url, note: v('g-note'),
+      updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
+    };
+    document.getElementById('g-save').disabled = true;
+    db().collection('churchSettings').doc('giving').set(body).then(function () {
+      G = body; toast('Saved.'); drawGiving();
+    }).catch(function (e) {
+      document.getElementById('g-save').disabled = false;
+      toast('Could not save: ' + (e.message || e));
+    });
+  }
+
+  /* THE NAME, EMAIL AND LOGO ARE AN ADMIN'S, and the rules say so:
+     `details` is writable by isAdmin() only. A Church office member who
+     is not an admin may open this page for the giving details, so their
+     half of it is drawn and the other half is not. Drawing a form that
+     Save would refuse is the fault this project keeps finding. */
+  function mayDetails() { return !!EGBCAuth.isAdmin(); }
+
+  EGBCAuth.require({ adminAny: true, alsoTeam: 'Church office' }).then(function () {
+    if (!mayDetails()) {
+      document.querySelector('.sub').textContent =
+        'The church’s giving details. The name, enquiry email and logo are '
+        + 'changed by a team admin.';
+      document.getElementById('form').hidden = true;
+    }
     return db().collection('churchSettings').doc('details').get();
-  }).then(function (s) { D = s.exists ? s.data() : {}; draw(); })
-    .catch(function (e) { document.getElementById('form').innerHTML = '<p>' + esc(e.message || e) + '</p>'; });
+  }).then(function (s) {
+    D = s.exists ? s.data() : {};
+    if (mayDetails()) draw();
+    if (!mayGive()) return null;
+    return db().collection('churchSettings').doc('giving').get().then(function (g) {
+      G = (g.exists && g.data()) || {}; drawGiving();
+    });
+  }).catch(function (e) { document.getElementById('form').innerHTML = '<p>' + esc(e.message || e) + '</p>'; });
 })();
 </script>
 </body>

@@ -898,7 +898,16 @@
             /* Pages open to anyone who administers something - the address
                book, for instance, where Karen manages Kids Church and the
                Core Team manage Worship and AV. */
-            if (opts.adminAny && !EGBCAuth.isAdmin()) {
+            /* "OR anybody on this team" (opts.alsoTeam). adminAny and
+               team are ANDed below, which cannot express "an admin OR
+               the Church office" - what the church details page needs
+               now the church's bank details live on it. Worked out
+               before either refusal, because it waives both. */
+            var alsoOk = !!opts.alsoTeam && String(opts.alsoTeam).split(',').some(function (t) {
+              return EGBCAuth.inTeam(t.trim());
+            });
+
+            if (opts.adminAny && !EGBCAuth.isAdmin() && !alsoOk) {
               EGBCAuth._blockPage(
                 'Admins only',
                 'This page is for people who manage a team. If you think you should ' +
@@ -917,7 +926,7 @@
               return t.trim();
             }).filter(Boolean) : [];
 
-            var mayEnter = !wanted.length || EGBCAuth.isOwner() ||
+            var mayEnter = alsoOk || !wanted.length || EGBCAuth.isOwner() ||
               wanted.some(function (t) {
                 return EGBCAuth.inTeam(t) || EGBCAuth.isAdminOf(t);
               });

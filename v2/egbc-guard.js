@@ -12,6 +12,12 @@
    Attributes:
      data-team  — team required to view the page (omit for "any signed-in user")
      data-role  — minimum role: member (default), leader, admin
+     data-admin — "any": anybody who administers something
+     data-also-team — "...or anybody on this team", ORed with the above.
+                  data-team and data-admin are ANDed with each other, so
+                  neither can say "an admin OR the Church office", which is
+                  what church-settings.html needs now the church's bank
+                  details live on it.
 
    The page is hidden until the check passes, so unauthorised content is
    never briefly visible. If the check fails the user gets an explanation
@@ -28,6 +34,15 @@
   var team = script ? script.getAttribute('data-team') : null;
   var role = script ? script.getAttribute('data-role') : null;
   var adminAny = script ? script.getAttribute('data-admin') === 'any' : false;
+  /* data-also-team — "or anybody on this team", ORed with whatever else
+     the page asks for. data-admin and data-team are ANDed, which cannot
+     say "an admin OR the Church office", and that is exactly what the
+     church details page needs now the giving details live on it: the
+     office are the people who know the church's bank details and they
+     are not necessarily admins of anything. A separate attribute rather
+     than changing what the other two mean, because no page uses both
+     today and a page that did would have its access quietly widened. */
+  var alsoTeam = script ? script.getAttribute('data-also-team') : null;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');
@@ -73,6 +88,7 @@
     if (team) opts.team = team;
     if (role) opts.role = role;
     if (adminAny) opts.adminAny = true;
+    if (alsoTeam) opts.alsoTeam = alsoTeam;
 
     EGBCAuth.require(opts).then(function (profile) {
       reveal();

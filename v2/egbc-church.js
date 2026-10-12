@@ -110,9 +110,58 @@
   /* Each page sets its own <title> from this, so the tab shows the church. */
   function title(page) { document.title = page + (D.name ? ' — ' + D.name : ''); }
 
+  /* ---- giving: the church's bank details ---------------------------
+     ONE SETTING, churchSettings/giving, typed in once on
+     church-settings.html. Everywhere that tells somebody how to pay the
+     church reads it from here: the Give screen in the app, the Give page
+     on the website, and (asked of the events window) the "How to pay"
+     line on a room-hire invoice. Nobody retypes an account number.
+
+     IT IS A SEPARATE DOCUMENT FROM `details`, and a separate read, for
+     one reason: `details` is world-readable because the login page and
+     the public hire pages draw the church's name from it, and the bank
+     details are not. The rules gate `giving` on being signed in. So a
+     page that is not signed in gets a refusal here, which is the
+     intended answer and not an error - hence the catch returning blanks,
+     and hence this not being part of load().
+
+     WHAT CALLERS MUST DO: ask whether there is anything to show, with
+     has(), rather than printing empty labels. Nothing is seeded, so
+     until Martin or Val type the details in, every one of these is
+     blank, and a screen saying "Account number:" with nothing after it
+     is worse than a screen that says the details are not up yet. */
+  var G = null, giveLoading = null;
+  var BLANK = {
+    accountName: '', sortCode: '', accountNumber: '', reference: '',
+    giftAid: false, giftAidUrl: '', note: ''
+  };
+
+  function giving() {
+    if (giveLoading) return giveLoading;
+    giveLoading = EGBCAuth.db.collection('churchSettings').doc('giving').get().then(function (s) {
+      var d = (s.exists && s.data()) || {};
+      G = {
+        accountName: d.accountName || '', sortCode: d.sortCode || '',
+        accountNumber: d.accountNumber || '', reference: d.reference || '',
+        giftAid: d.giftAid === true, giftAidUrl: d.giftAidUrl || '', note: d.note || ''
+      };
+      return G;
+    }).catch(function () { G = Object.assign({}, BLANK); return G; });
+    return giveLoading;
+  }
+
+  /* Is there anything worth drawing? The Gift Aid line on its own is not
+     "how to pay the church", so it does not count here. */
+  function givingReady() {
+    var g = G || BLANK;
+    return !!(g.accountName || g.sortCode || g.accountNumber);
+  }
+
   var api = {
     load: load, wrap: wrap, send: send, header: header, title: title, closeOnLeave: closeOnLeave,
-    name: function () { return D.name; }, email: function () { return D.enquiryEmail; }, logo: function () { return D.logoUrl; }
+    name: function () { return D.name; }, email: function () { return D.enquiryEmail; }, logo: function () { return D.logoUrl; },
+    giving: giving, givingReady: givingReady,
+    givingNow: function () { return G ? Object.assign({}, G) : null; }
   };
   global.EGBCChurch = api;
   /* Start straight away, so the name and address are there by the time a

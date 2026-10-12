@@ -126,6 +126,17 @@ export const PAGES = [
   { page: 'church-settings.html', wait: 9000, states: [
       ['main', '1']
     ] },
+  /* Give (Martin, 12 Oct 2026). Two states, because the interesting one
+     is the empty one: nothing is seeded, so until the office types the
+     bank details in this is what everybody sees, and it has to read as
+     a sentence rather than as a row of blank labels. */
+  { page: 'give.html', wait: 9000, states: [
+      ['main', '1'],
+      ['before the details are set', "(()=>{document.getElementById('body')"
+        + ".innerHTML='<p class=\"note\">The bank details are not up yet. "
+        + "The church office is setting them, and they will appear here.</p>';"
+        + "return 'blank'})()"]
+    ] },
   /* Martin, 9 Oct 2026: neither of these may stay unchecked. meeting.html is
      one of DESIGN.md's two named reference pages - "when in doubt, copy what
      they do" - and login.html is the first screen anybody sees. Both were

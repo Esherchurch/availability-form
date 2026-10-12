@@ -3297,3 +3297,58 @@ rule on my side: scratch output goes in the session's own scratchpad
 directory, with a distinct name per run, never a shared path. If you can
 see what wrote it — a timestamp, a surrounding line — send it and I will
 chase it properly rather than guess.
+
+---
+
+### F-157 — REQUEST for the events window: "How to pay" on an invoice should default to the church's giving setting (Martin, 12 Oct)
+
+**What has just been built on this side.** Martin had the church's bank
+details ready and asked for them to be stored **once**, never typed twice.
+They now live in a single document, `churchSettings/giving`:
+
+| field | what it is |
+|---|---|
+| `accountName` | the name on the account |
+| `sortCode` | as somebody would write it on a form |
+| `accountNumber` | |
+| `reference` | what to put in the reference box, e.g. their own name |
+| `giftAid` | whether to mention Gift Aid at all |
+| `giftAidUrl` | where the declaration form lives (may be empty) |
+| `note` | one optional line, shown under the details |
+
+It is edited on `church-settings.html`, by a **master admin or the Church
+office** — deliberately not every admin, because a Kids Church admin has no
+business changing where the church's money goes. Read it with
+`EGBCChurch.giving()` (a Promise) and ask `EGBCChurch.givingReady()` whether
+there is anything worth drawing. Both are in `egbc-church.js`, which your
+pages already load.
+
+**It is readable only when signed in.** `details` stays world-readable
+because the login page and the public hire pages take the church's name from
+it; `giving` is gated on `active()`. One `match` block decides both — adding
+a second on that path would OR them and put the bank details back on the
+public side.
+
+**The request.** `egbc-events-money.js:203` offers *"How to pay (printed on
+invoices)"* as a free-text box, `settings/accounts.payText`, placeholder
+"Bank transfer to …". Today the office types the church's bank details into
+it by hand. That is the second copy, and a second copy is how two sets of
+numbers end up disagreeing — the one on the invoice being the stale one.
+
+Could `payText` **default to** the giving setting: when `payText` is empty,
+compose the line from `EGBCChurch.giving()` rather than printing nothing,
+leaving the box as an override for anything a room-hire invoice needs that a
+member giving by standing order does not?
+
+**Two things to be careful of, from building the other end:**
+
+- **An invoice may be read by somebody who has never signed in.** If any
+  invoice is rendered outside a signed-in page — a PDF built by a function,
+  say — `giving` will be refused there and the compose must fall back to
+  whatever `payText` holds rather than printing an empty "How to pay".
+  Worth checking which it is before wiring it up; I have not opened your
+  PDF path and am not asserting either way.
+- **Nothing is seeded.** Until Val fills the setting in, every field is
+  blank, so `givingReady()` is the gate, not the presence of the document.
+
+Entirely your call whether and when — nothing on this side waits on it.

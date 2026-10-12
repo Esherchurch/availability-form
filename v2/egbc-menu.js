@@ -34,6 +34,12 @@
       description: 'Set one up, join a call, every meeting room' },
     { title: "What's on", url: 'whatson.html', icon: 'calendar-heart',
       description: 'Church events, and signing up' },
+    /* No team on it: giving is for everybody signed in. It is not on the
+       public side of the Menu because the bank details are not readable
+       until you have signed in - the rules say so, and a Menu item that
+       led to a refusal would be worse than none. */
+    { title: 'Give', url: 'give.html', icon: 'hand-coins',
+      description: 'The church’s bank details, and Gift Aid' },
     { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
       description: 'What we have, and asking about it' },
     { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',

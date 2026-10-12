@@ -167,7 +167,15 @@
     /* newevent is Core Team ▸ Rota's "+" (§7b). It IS load-bearing,
        unlike copycal:/makecal: above: the row is built by row(), so
        without it here the button loses its action and does nothing. */
-    return /^(close|newevent|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120}|copycal:[a-z]+|makecal:[a-z]+|viewas:[a-z]+)$/
+    /* copygive: is the Give sheet's Copy buttons (§Give). Like copycal:
+       and makecal: above it is hand-written in app.html, so it never
+       reaches here either - listed so the shape of every action in the
+       app is written down in one place, not because it gates anything.
+       What actually gates it is giveValue(): an unrecognised key returns
+       nothing and the button says there is nothing to copy. The row that
+       OPENS the sheet does go through row(), and sheet:[a-z-]+ covers
+       it, which is the load-bearing half. */
+    return /^(close|newevent|tab:[a-z-]+|sheet:[a-z-]+|go:[a-z]+:[a-z-]+|open:[A-Za-z0-9._%&=?-]+|toast:.{1,120}|copycal:[a-z]+|makecal:[a-z]+|copygive:[a-z]+|viewas:[a-z]+)$/
       .test(String(a || ''));
   }
 

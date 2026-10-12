@@ -24,6 +24,7 @@ is proving something throws wraps it in `expectThrow()`.
 | No page links out of v2, and every email link is a full v2 address | `node tests/check-links-stay-in-v2.mjs` |
 | The hub's news does everything the portal's news panel does | `node tests/check-news-features.mjs` (add `--shots`) |
 | The home page fits on one screen, and the phone order is right | `node tests/check-home-fits.mjs` (add `--shots`) |
+| Giving: the bank details are one setting, shown on the app and the website, and no number is in the repository | `node tests/check-give.mjs` (add `--shots`) |
 | A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
 | "My calendar" works through the browser, end to end | `node tests/check-calendar-end-to-end.mjs` |
 | Karen sets up her household feed **from the phone app**, and gets the Apple, Google and Outlook buttons | `firebase emulators:exec --only firestore,auth,functions --project egbc-worship-planner "node tests/check-app-calendar.mjs"` (add `--shots`) |

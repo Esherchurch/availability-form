@@ -44,6 +44,10 @@ const APPROVED = [
   ['Rota'],
   ['Meetings'],
   ["What's on"],
+  /* Give (Martin, 12 Oct 2026). Gated on nothing - giving is for
+     everybody signed in - so it sits out here with the other ungated
+     entries rather than inside a team's list. */
+  ['Give'],
   ['Hire our rooms'],
   ['Book a room'],
   ['Maintenance'],

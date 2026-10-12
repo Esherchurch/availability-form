@@ -39,11 +39,11 @@
      (F-141). egbc-auth.js points it at the emulator on localhost, but only
      if it is loaded BEFORE that line runs - hence here. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610091200"></script>
+<script src="egbc-auth.js?v=202610121600"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
-<script src="egbc-guard.js?v=202610091200"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ui.js?v=202610091200"></script>
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
@@ -265,7 +265,7 @@
      screen registers itself against EGBCApp. A screen mounted here replaces
      the shell's interim "open the existing page" row for the same space and
      tab, and adds the ones the shell had none for. -->
-<script src="egbc-church.js?v=202610101200"></script>
+<script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610101200"></script>
 <script src="egbc-ics.js?v=202610101200"></script>
 <script src="egbc-events.js?v=202610101800"></script>
@@ -274,7 +274,7 @@
 <script src="egbc-events-bookings.js?v=202610101200"></script>
 <script src="egbc-events-groups.js?v=202610101200"></script>
 <script src="egbc-events-home.js?v=202610101200"></script>
-<script src="egbc-app.js?v=202610101200"></script>
+<script src="egbc-app.js?v=202610121600"></script>
 <script src="egbc-app-events.js?v=202610101200"></script>
 <script src="egbc-app-kids.js?v=202610101200"></script>
 <script src="egbc-app-listen.js?v=202610101200"></script>
@@ -772,6 +772,96 @@ function calendarSheet() {
     + '<div class="actions"><button class="btn" data-act="close">Close</button></div>';
 }
 
+/* ---- Give (Martin, 12 Oct 2026) -----------------------------------
+
+   The church's bank details, from the one setting the office types in
+   (churchSettings/giving, via EGBCChurch.giving()). Nothing here knows
+   any numbers, and nothing writes any: it reads the setting and offers
+   each line with a Copy button, because the whole job on a phone is
+   getting a sort code into a banking app without a typo.
+
+   WHAT IT DOES WHEN NOTHING IS SET: says so plainly. Until Martin or
+   Val fill the setting in, "Account number:" with a blank after it is
+   worse than a sentence admitting the details are not up yet. */
+var GIVE = { state: 'idle', d: null };
+
+function loadGiving() {
+  if (GIVE.state !== 'idle') return;
+  GIVE.state = 'loading';
+  EGBCChurch.giving().then(function (g) {
+    GIVE.d = g; GIVE.state = 'ready';
+  }).catch(function () { GIVE.state = 'failed'; }).then(function () {
+    var s = A.state();
+    if (s.sheet === 'give') A.refresh(s.space, s.tab);
+  });
+}
+
+/* The three details, each copyable. A short key in data-act, not the
+   value: free text in an attribute is exactly what actOk() exists to
+   keep out, and the value is looked up from the loaded setting instead
+   (the same shape as copycal:/idFromKey below). */
+var GIVE_LINES = [
+  ['name', 'Account name', 'accountName'],
+  ['sort', 'Sort code', 'sortCode'],
+  ['acct', 'Account number', 'accountNumber']
+];
+
+function giveValue(key) {
+  if (!GIVE.d) return '';
+  if (key === 'ref') return String(GIVE.d.reference || '');
+  var row = GIVE_LINES.filter(function (r) { return r[0] === key; })[0];
+  return row ? String(GIVE.d[row[2]] || '') : '';
+}
+
+function giveSheet() {
+  var body;
+  if (GIVE.state === 'loading' || GIVE.state === 'idle') {
+    body = '<p>Getting the details…</p>';
+  } else if (GIVE.state === 'failed' || !GIVE.d) {
+    body = '<p>Could not get the giving details just now. Try again in a moment.</p>';
+  } else if (!EGBCChurch.givingReady()) {
+    body = '<p>The bank details are not up yet. The church office is setting them, '
+         + 'and they will appear here.</p>';
+  } else {
+    var g = GIVE.d;
+    body = GIVE_LINES.map(function (r) {
+      var val = String(g[r[2]] || '');
+      if (!val) return '';
+      return '<div class="card" style="padding:12px 14px;margin-bottom:8px">'
+        + '<div style="font-size:12.5px;color:var(--muted)">' + A.esc(r[1]) + '</div>'
+        + '<div style="font-weight:600;color:var(--ink);font-size:16px;margin:2px 0 0;'
+          + 'font-variant-numeric:tabular-nums;word-break:break-word">' + A.esc(val) + '</div>'
+        + '<div class="actions" style="margin:8px 0 0">'
+          + '<button class="btn" data-act="copygive:' + A.esc(r[0]) + '">'
+          + ic('copy', 15) + ' Copy</button></div>'
+        + '</div>';
+    }).join('')
+    + (g.reference
+        ? '<div class="card" style="padding:12px 14px;margin-bottom:8px">'
+          + '<div style="font-size:12.5px;color:var(--muted)">Put this as the reference</div>'
+          + '<div style="font-weight:600;color:var(--ink);font-size:15px;margin:2px 0 0;'
+            + 'word-break:break-word">' + A.esc(g.reference) + '</div>'
+          + '<div class="actions" style="margin:8px 0 0">'
+            + '<button class="btn" data-act="copygive:ref">' + ic('copy', 15) + ' Copy</button></div>'
+          + '</div>'
+        : '')
+    + (g.note ? '<p class="example" style="text-align:left">' + A.esc(g.note) + '</p>' : '')
+    + (g.giftAid
+        ? '<p class="example" style="text-align:left">If you pay UK tax, Gift Aid adds 25p to '
+          + 'every pound you give, at no cost to you.'
+          + (g.giftAidUrl
+              ? ' <a href="' + A.esc(g.giftAidUrl) + '" target="_blank" rel="noopener">'
+                + 'Fill in the Gift Aid form</a>.'
+              : ' Ask the church office for a Gift Aid form.')
+          + '</p>'
+        : '');
+  }
+  return '<h3>Give</h3>'
+    + '<p>Thank you. You can set up a standing order or send a one-off gift with these details.</p>'
+    + body
+    + '<div class="actions"><button class="btn" data-act="close">Close</button></div>';
+}
+
 /* data-act allows letters only, and "full:all" has a colon in it. The
    sheet uses a short safe name and this turns it back. */
 function idKey(id) { return id.replace(/[^a-z]/g, ''); }
@@ -827,6 +917,19 @@ document.addEventListener('click', function (e) {
     return;
   }
 
+  /* A bank detail onto the clipboard. The key is a short word and the
+     value comes from the loaded setting, so nothing typed by anybody
+     ever reaches the attribute. */
+  if (a.indexOf('copygive:') === 0) {
+    var gv = giveValue(a.slice(9));
+    if (!gv) { A.toast('Nothing to copy yet.'); return; }
+    (navigator.clipboard && navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(gv) : Promise.reject())
+      .then(function () { A.toast('Copied.'); },
+            function () { A.toast('Could not copy it. You can type it in instead.'); });
+    return;
+  }
+
   /* The Rota tab's "+". The shell's actOk list allows a bare word, so
      this needs no new shape in it. */
   /* THE DOT CLEARS WHEN THEY LOOK. The shell opens the sheet by
@@ -858,12 +961,16 @@ document.addEventListener('click', function (e) {
 
 A.screen('me', 'me', function (me) {
   loadCalendar();   /* after sign-in, never at registration - see above */
+  loadGiving();
+  A.sheet('give', giveSheet());
   return head(me.first, whoIAm(me))
     + card(
         row('users', 'My groups', 'Your groups, and finding one', null, 'open:groups.html') +
         row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
         row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota',
             null, 'sheet:calendar'))
+    + card(row('hand-coins', 'Give', 'The church’s bank details, and Gift Aid',
+               null, 'sheet:give'))
     /* "Open the full website" is the ONLY route to the hub from the app
        (§7d), and it says what it is. */
     + card(row('monitor', 'Open the full website', 'Everything, on a computer', null, 'open:hub.html'))
@@ -871,7 +978,7 @@ A.screen('me', 'me', function (me) {
         ? card(row('eye', 'View as somebody else', 'See what another team sees', null, 'sheet:viewas'))
         : '')
     + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'))
-    + A.empty('hammer', 'My details, my household and Give arrive in the next stages.');
+    + A.empty('hammer', 'My details and my household arrive in the next stages.');
 });
 
 /* ---- a team space -------------------------------------------------- */
