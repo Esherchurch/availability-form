@@ -864,8 +864,245 @@ function teamTeam(space, extra) {
   return head(A.SPACES[space].label) + card(extra);
 }
 
+/* ---- THE PIN BOARD, READABLE IN THE APP (§7d B) ---------------------
+   "the team's board, readable, with 'Add an idea'. The full board page
+   opens in app mode for moving and archiving notes."
+
+   stickynotes.html is a cork board you drag notes around on - 3,200px
+   wide, which is right on a desk and not a thing to do with a thumb.
+   What a phone wants is to READ the ideas and add one, so that is what
+   this is: the notes as a list, newest first, and one button.
+
+   It reads the same worshipBoardState document the board page writes,
+   and "Add an idea" opens the board page in app mode rather than
+   writing a note itself - adding one means placing it on the cork, and
+   two pieces of code deciding where notes go is how boards end up with
+   notes on top of each other. */
+var BOARD = {};
+/* row() draws a chevron when nothing is passed for `right`, which
+   reads as "this goes somewhere". A line that is just information -
+   who is on, an item in the order - gets this instead. */
+var NOCHEV = '<span></span>';
+var CLOSE = '<div class="actions"><button class="btn" data-act="close">Close</button></div>';
+
+function loadBoard(docId, spaceKey) {
+  if (BOARD[docId]) return;
+  BOARD[docId] = { ready: false, notes: [] };
+  db.collection('worshipBoardState').doc(docId).get().then(function (d) {
+    var data = d.exists ? (d.data() || {}) : {};
+    BOARD[docId].notes = (data.notes || []).filter(function (n) { return !n.archived; })
+      .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+  }, function () {}).then(function () {
+    BOARD[docId].ready = true;
+    paintBoard(spaceKey);
+  });
+}
+
+/* THE BOARDS, one per space that has one. A SHEET rather than a fifth
+   tab: §2 caps a space at four tabs and says to use a sheet instead,
+   and every one of these spaces is already full. The Team tab's "Pin
+   boards" row opens it. */
+var BOARDS = {
+  worship: ['state', 'worship'], kids: ['kids-church', 'kids'],
+  core: ['core-team', 'core-team'], youth: ['youth', 'youth'],
+  lazers: ['lazers', 'lazers'], renu: ['renu', 'renu']
+};
+
+function paintBoard(spaceKey) {
+  var cfg = BOARDS[spaceKey];
+  if (!cfg) return;
+  A.sheet('board-' + spaceKey, pinBoard(spaceKey, cfg[0], cfg[1]));
+  if (A.state().sheet === 'board-' + spaceKey) A.draw();
+}
+
+function pinBoard(spaceKey, docId, boardParam) {
+  loadBoard(docId, spaceKey);
+  var sp = A.SPACES[spaceKey] || A.SPACES.me;
+  var b = BOARD[docId] || { ready: false, notes: [] };
+
+  var out = '<h3>Pin board</h3><p>Ideas from the team.</p>';
+  out += card(row('plus', 'Add an idea', 'Put a note on the board', null,
+                  'open:stickynotes.html?board=' + boardParam, sp.colour, sp.tint));
+
+  if (!b.ready) {
+    return out + card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
+      + 'Finding the board…</p></div>') + CLOSE;
+  }
+  if (!b.notes.length) {
+    return out + card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
+      + 'Nothing on the board yet. Yours could be the first.</p></div>') + CLOSE;
+  }
+
+  /* The note as it reads, not as it is pinned: who wrote it, what it
+     says, and the link if it has one. No dragging, no rotation, no
+     overlapping - none of that is a phone. */
+  out += sec('On the board', b.notes.slice(0, 30).map(function (n) {
+    var when = n.createdAt ? new Date(n.createdAt) : null;
+    var sub = (n.author || 'Someone')
+      + (when && !isNaN(when) ? ' · ' + when.toLocaleDateString('en-GB',
+          { day: 'numeric', month: 'short' }) : '');
+    var body = String(n.title ? n.title + ' — ' + (n.body || '') : (n.body || '')).trim();
+    var link = n.ytUrl || n.link;
+    return '<div class="card" style="padding:14px;margin-bottom:10px">'
+      + '<div style="font-size:12.5px;color:var(--muted)">' + A.esc(sub) + '</div>'
+      + '<div style="font-size:14px;color:var(--ink);margin-top:4px;white-space:pre-wrap">'
+      + A.esc(body || '(no words)') + '</div>'
+      + (link ? '<div class="actions" style="margin-top:8px">'
+                + '<a class="btn" href="' + A.esc(link) + '" target="_blank" rel="noopener">'
+                + ic('external-link', 15) + ' ' + A.esc(n.linkLabel || 'Open') + '</a></div>' : '')
+      + '</div>';
+  }).join(''));
+
+  out += card(row('layout-grid', 'The whole board', 'Move and archive notes', null,
+                  'open:stickynotes.html?board=' + boardParam, sp.colour, sp.tint));
+  return out + CLOSE;
+}
+
+/* ---- THIS SUNDAY (APP-DESIGN-BRIEF §7d B) ---------------------------
+   "the order of service, read-only, with songs and the YouTube buttons."
+
+   What a musician opens on a Sunday morning, standing up: what we are
+   singing, in what key, with the note the leader left, and a way to hear
+   it. Read-only on purpose - the planner is Core Team's, and it is a tab
+   away for the people who have it.
+
+   It reads the SAME service document the planner writes (`services`,
+   keyed by date), so there is one order of service in the church and
+   not an app's idea of one. The team comes from the event, as the
+   planner's own table does. */
+var SUNDAY = { loaded: '', ready: false, date: '', plan: null, ev: null, songs: {} };
+
+function loadThisSunday(spaceKey) {
+  /* Keyed by space: Kids Church's next service is not always Worship's,
+     and loading once for whichever tab was opened first would show one
+     team the other's morning. */
+  if (SUNDAY.loaded === spaceKey) return;
+  SUNDAY = { loaded: spaceKey, ready: false, date: '', plan: null, ev: null, songs: {} };
+  var teams = (A.SPACES[spaceKey] || {}).teams || [];
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  db.collection('events').get().then(function (snap) {
+    /* The next service still to come - today counts, because this is
+       most used on the morning itself - FOR THIS SPACE'S TEAMS, and
+       the earliest one if there are two that day. Without the team
+       filter a Kids Church person was shown the worship service, and
+       without the tie-break the one you got depended on the order
+       Firestore handed them back. */
+    var best = null;
+    snap.forEach(function (d) {
+      var e = d.data() || {};
+      if (e.archived === true || !e.date) return;
+      if (!/Sunday Morning Worship|Service/i.test(e.type || '')) return;
+      if (teams.length && !(e.teams || []).some(function (t) { return teams.indexOf(t) !== -1; })) return;
+      var when = new Date(e.date + 'T00:00:00');
+      if (isNaN(when) || when < today) return;
+      var key = e.date + ' ' + (e.startTime || '99:99');
+      if (!best || key < best.key) best = { when: when, key: key, id: d.id, ev: e };
+    });
+    if (!best) return null;
+    SUNDAY.date = best.ev.date;
+    SUNDAY.ev = best.ev;
+    return db.collection('services').where('date', '==', best.ev.date).get()
+      .then(function (s) { if (!s.empty) SUNDAY.plan = s.docs[0].data(); });
+  }).then(function () {
+    /* Only the songs that are actually on the plan, one read each - the
+       library is big and a phone on a church wifi does not need it. */
+    var titles = ((SUNDAY.plan && SUNDAY.plan.order) || [])
+      .filter(function (i) { return i.type === 'song' && i.title; })
+      .map(function (i) { return i.title; });
+    return Promise.all(titles.map(function (t) {
+      var id = t.toLowerCase().replace(/\s+/g, '-');
+      return db.collection('songs').doc(id).get().then(function (d) {
+        if (d.exists) SUNDAY.songs[t] = d.data();
+      }, function () {});
+    }));
+  }).catch(function () {}).then(function () {
+    SUNDAY.ready = true;
+    var s = A.state();
+    if (s.tab === 'sunday') A.refresh(s.space, 'sunday');
+  });
+}
+
+function thisSunday(spaceKey) {
+  loadThisSunday(spaceKey);
+  var sp = A.SPACES[spaceKey] || A.SPACES.me;
+  var me = A.who();
+
+  if (!SUNDAY.ready) {
+    return head('This Sunday') + card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
+      + 'Finding Sunday’s plan…</p></div>');
+  }
+  if (!SUNDAY.ev) {
+    return head('This Sunday') + card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
+      + 'Nothing on the rota yet. When the next service is planned it appears here.</p></div>');
+  }
+
+  var when = new Date(SUNDAY.date + 'T00:00:00');
+  var sub = when.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  var out = head('This Sunday', sub + (SUNDAY.ev.startTime ? ' · ' + SUNDAY.ev.startTime : ''));
+
+  /* WHO IS ON, and the person reading this first. */
+  var a = SUNDAY.ev.assignments || {};
+  var mineRoles = Object.keys(a).filter(function (r) {
+    return a[r] && a[r].id && a[r].id === me.memberId;
+  });
+  if (mineRoles.length) {
+    out += sec('You are on', card(row('user-check', mineRoles.join(' and '),
+      SUNDAY.ev.arriveTime ? 'Arrive ' + SUNDAY.ev.arriveTime : (SUNDAY.ev.startTime || ''),
+      NOCHEV, null, sp.colour, sp.tint)));
+  }
+
+  if (!SUNDAY.plan) {
+    out += card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
+      + 'The order of service is not written yet. It appears here as soon as it is.</p></div>');
+  } else {
+    if (SUNDAY.plan.serviceNotes) {
+      out += sec('Notes', card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
+        + A.esc(SUNDAY.plan.serviceNotes) + '</p></div>'));
+    }
+    var n = 0;
+    var items = (SUNDAY.plan.order || []).map(function (item) {
+      if (item.type !== 'song') {
+        return row('circle-dot', item.title || 'Item', '', NOCHEV, null, sp.colour, sp.tint);
+      }
+      n++;
+      var song = SUNDAY.songs[item.title] || {};
+      var keys = (Array.isArray(item.keys) ? item.keys : [item.key]).filter(Boolean);
+      var bits = [];
+      if (keys.length) bits.push('Key ' + keys.join(', '));
+      if (item.notes) bits.push(item.notes);
+      /* THE YOUTUBE BUTTON, named in §7b and §7d as not to be lost - it
+         is how somebody learns a song they do not know before Sunday.
+         A real link, because it leaves the app for YouTube. */
+      var right = '';
+      if (song.youtube) {
+        right = '<a class="btn" href="' + A.esc(song.youtube) + '" target="_blank" rel="noopener"'
+          + ' onclick="event.stopPropagation()">' + ic('play', 15) + ' Listen</a>';
+      }
+      return row('music', n + '. ' + (item.title || 'Song'), bits.join(' · '),
+                 right || NOCHEV, null, sp.colour, sp.tint);
+    }).join('');
+    out += sec('Order of service', card(items || '<div style="padding:14px">'
+      + '<p style="margin:0;font-size:14px">Nothing in the order yet.</p></div>'));
+  }
+
+  /* THE TEAM, as the planner's own table has it. */
+  var team = Object.keys(a).filter(function (r) { return a[r] && a[r].name; }).sort();
+  if (SUNDAY.ev.serviceLeader) team.unshift('Service Leader');
+  if (team.length) {
+    out += sec('Who is on', card(team.map(function (r) {
+      var who = r === 'Service Leader' ? SUNDAY.ev.serviceLeader : (a[r] || {}).name;
+      return row('user', r, who || '', NOCHEV, null, sp.colour, sp.tint);
+    }).join('')));
+  }
+
+  out += card(row('headphones', 'Play through the songs', 'Listen before you come', null,
+                  'open:EGBC-PlayThrough.html', sp.colour, sp.tint));
+  return out;
+}
+
 ['youth', 'lazers', 'renu'].forEach(function (k) {
   A.screen(k, 'rota', function () { return teamRota(A.SPACES[k].label, k); });
+  A.screen(k, 'sunday', function () { return thisSunday(k); });
   A.screen(k, 'team', function () {
     return teamTeam(k,
       row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html') +
@@ -873,14 +1110,15 @@ function teamTeam(space, extra) {
       (k === 'youth'
         ? row('scroll-text', 'Our charter', 'What we are for, and how we work', null, 'open:Youthcharter.html')
         : '') +
-      row('sticky-note', 'Pin boards', 'Suggestions and ideas', null,
-          k === 'youth' ? 'open:stickynotes.html?board=youth' : 'open:stickynotes.html?board=' + k));
+      row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-' + k));
   });
 });
 
 /* ---- Worship & AV --------------------------------------------------- */
 
 A.screen('worship', 'rota', function () { return teamRota('Worship & AV', 'worship'); });
+
+A.screen('worship', 'sunday', function () { return thisSunday('worship'); });
 
 A.screen('worship', 'learn', function () {
   return head('Learn', 'Videos and how-tos for the team')
@@ -894,7 +1132,7 @@ A.screen('worship', 'learn', function () {
 A.screen('worship', 'team', function () {
   return teamTeam('worship',
     row('scroll-text', 'Our team charter', 'What we are for, and how we work', null, 'open:Worshipteamcharter.html') +
-    row('sticky-note', 'Pin boards', 'Suggestions and ideas', null, 'open:stickynotes.html?board=worship') +
+    row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-worship') +
     row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html') +
     row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html') +
     row('list-music', 'Song library', 'Every song we have', null, 'open:Library.html'));
@@ -911,8 +1149,7 @@ A.screen('kids', 'team', function () {
        leaders-only: every other team space offers its board and Kids
        Church did not, so the people the board is FOR had no way to it
        from the app (Martin, 10 Oct 2026). */
-    row('sticky-note', 'Pin boards', 'Suggestions and ideas', null,
-        'open:stickynotes.html?board=kids') +
+    row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-kids') +
     row('clipboard-list', "Children's register", 'Who came, by group and term', null, 'open:kids-admin.html') +
     row('scan-line', 'Sunday check-in', 'The desk on a Sunday morning', null, 'open:kids-checkin.html') +
     row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:resources.html'));
@@ -1005,8 +1242,7 @@ A.screen('core', 'team', function () {
   return teamTeam('core',
     row('scroll-text', 'Our charter', 'What Core Team is for, and how it works', null,
         'open:Coreteamcharter.html') +
-    row('sticky-note', 'Pin boards', 'Suggestions and ideas', null,
-        'open:stickynotes.html?board=core-team') +
+    row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-core') +
     /* THE PHONE EMAIL COMPILER, which is CoreTeamApp's. EmailBuilder2 is
        the desktop one and scrolls 321px sideways at 375px (APP-PARITY
        part 3), so the app does not open it. Pointing at the installed
@@ -1068,6 +1304,14 @@ A.screen('office', 'bookings', function () {
 });
 
 /* Nothing starts until the guard says who this is. */
+/* Every board gets its sheet registered, so the Team tab's row has
+   something to open on the first tap; the sheet redraws itself when
+   the board arrives. Down here, after BOARDS and paintBoard exist -
+   `var` hoists the name and not the value, so calling this at the top
+   of the file threw on Object.keys(undefined) and took every screen
+   registration after it down with it. */
+Object.keys(BOARDS).forEach(paintBoard);
+
 document.addEventListener('egbc-ready', function () {
   /* The events window's screens go on BEFORE the first draw, so nobody sees
      the shell's interim rows flash and be replaced (F-141). Guarded,

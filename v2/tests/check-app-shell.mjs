@@ -512,14 +512,28 @@ const offMachine = u => {
   await openAs(PEOPLE.everyteam);
   const BOARD_OF = { worship: 'worship', kids: 'kids', youth: 'youth',
                      lazers: 'lazers', renu: 'renu' };
+  /* THROUGH THE SHEET, because that is where the board is now (§7d B).
+     The board used to be a row that left the app for stickynotes; it is
+     a readable list inside the app, opened from the same row, with the
+     full cork board one tap further on. So this follows the row the way
+     a person does - tap it, read what the sheet offers - rather than
+     looking for a link that is no longer on the tab. The claim is
+     unchanged and is the one that matters: each space offers ITS OWN
+     board, and a row pointing at another team's is worse than none. */
   const boards = JSON.parse(String(await ev(`JSON.stringify((() => {
     const out = {};
     for (const k of Object.keys(${JSON.stringify(BOARD_OF)})) {
       if (!EGBCApp.has(k, 'team')) continue;
       EGBCApp.go(k, 'team');
-      const html = (document.getElementById('egbc-content') || {}).innerHTML || '';
+      const btn = document.querySelector('#egbc-content [data-act^="sheet:board-"]');
+      if (!btn) { out[k] = '(no row)'; continue; }
+      btn.click();
+      const sheet = document.querySelector('.sheet');
+      const html = sheet ? sheet.innerHTML : '';
       const m = html.match(/stickynotes\\.html\\?board=([a-z-]+)/);
-      out[k] = m ? m[1] : '(no row)';
+      out[k] = m ? m[1] : '(sheet with no board link)';
+      const close = document.querySelector('.sheet [data-act="close"]');
+      if (close) close.click();
     }
     return out;
   })())`)));

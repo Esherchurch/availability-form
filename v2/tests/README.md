@@ -23,6 +23,7 @@ Run every one of these from `v2/`, not from here.
 | Core Team opens every Worship & AV page, and nothing that is not theirs | `node tests/check-core-covers-worship.mjs` (add `--shots`) |
 | Core Team’s three shared screens — the Service Planner, the Rota and the Meetings list — work in BOTH the Core Team app and the phone app | `node tests/check-core-planner.mjs` (add `--shots`) |
 | App mode: every page the app opens wears the app’s header and tab bar, no website bar or Menu, and its main action still works | `node tests/check-app-mode.mjs` (add `--shots`) |
+| The screens the app draws itself — This Sunday’s order of service, and the pin board | `node tests/check-native-screens.mjs` (add `--shots`) |
 | The website on a phone: the page’s name is not cut off, its first heading is not under the bar, and the "view as" strip is one line | `node tests/check-website-on-a-phone.mjs` (add `--shots`) |
 | An email carries this church's name and address, not one in the code | `node tests/check-email-church-details.mjs` |
 | "Powered by Church HQ" is in its three places and nowhere else | `node tests/check-poweredby.mjs` (add `--shots`) |
