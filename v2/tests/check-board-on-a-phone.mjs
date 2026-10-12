@@ -385,6 +385,41 @@ async function seed() {
     /youtube\.com\/embed\/dQw4w9WgXcQ/.test(player), player);
   ok('  the reactions are offered by name',
     /Love it/.test(sheet) && /Not sure/.test(sheet), sheet.slice(0, 240));
+  /* THE COMMENTS LINE UP WITH THE NOTE ABOVE THEM (Martin, 12 Oct 2026:
+     "the Comments heading, the comment box and the Post button run edge
+     to edge (measured 0..372 at 372px) while the note card above has
+     side margins"). Measured against the CARD rather than against a
+     number, because the question is whether they agree with it - a
+     gutter of the wrong size would still pass a "not zero" test. */
+  const gutters = JSON.parse(String(await ev('(function(){'
+    + 'var pick=function(sel){var e=document.querySelector(sel);if(!e)return null;'
+    + 'var r=e.getBoundingClientRect();'
+    + 'return {l:Math.round(r.left),r:Math.round(r.right)}};'
+    + 'return JSON.stringify({'
+    + ' card: pick("#noteSheet .ns-card"),'
+    + ' head: pick("#noteSheet .ns-sec"),'
+    + ' box:  pick("#noteSheet [data-bp-box]"),'
+    + ' post: pick("#noteSheet [data-bp=\\"send\\"]"),'
+    + ' vw: window.innerWidth })})()')));
+  /* EACH OF THESE HAS TO BE ABLE TO FAIL ON ITS OWN. Lining up with the
+     card is not enough by itself: when the gutter went missing the card
+     ran 0..375 too, so "the heading lines up with the card" was
+     perfectly true of a screen where everything was against the edges.
+     So each one asks BOTH questions - inset from the screen, and the
+     same edges as the card. */
+  const inset = (a) => a && a.l >= 6 && a.r <= gutters.vw - 6;
+  const sameEdges = (a, b) => a && b && Math.abs(a.l - b.l) <= 1 && Math.abs(a.r - b.r) <= 1;
+  ok('  the note card is not against the edges of the screen',
+    inset(gutters.card), JSON.stringify(gutters));
+  ok('  the Comments heading is inset and lines up with the card',
+    inset(gutters.head) && sameEdges(gutters.card, gutters.head), JSON.stringify(gutters));
+  ok('  and so is the comment box',
+    inset(gutters.box) && sameEdges(gutters.card, gutters.box), JSON.stringify(gutters));
+  ok('  and the Post button starts on the same line as the card',
+    gutters.post && gutters.card && gutters.post.l >= 6
+      && Math.abs(gutters.post.l - gutters.card.l) <= 1,
+    JSON.stringify(gutters));
+
   /* A LEADER'S BUTTONS ARE VISIBLE, not behind a "...". */
   const acts = JSON.parse(String(await ev('(function(){'
     + 'var b=[].slice.call(document.querySelectorAll("#noteSheet .ns-acts button"));'

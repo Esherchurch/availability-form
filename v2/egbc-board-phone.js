@@ -313,6 +313,15 @@
       var note = noteById(openId);
       var inner = el(o.sheetInner);
       if (!note || !inner) return;
+      /* THE GUTTER IS THE MODULE'S JOB, not the host's. This padding
+         used to be a rule in stickynotes.html keyed to its own id; when
+         the styling moved in here it became .ns-inner, and the website's
+         div never had that class - so on the phone the Comments heading,
+         the box and the Post button ran edge to edge while the note card
+         kept its own inset padding and looked right. Martin measured
+         them at 0..372 in a 372px screen. Adding the class here means no
+         host can forget it. */
+      inner.classList.add('ns-inner');
       var meta = CAT_META[note.cat] || CAT_META.other;
       var list = notes();
       var at = -1;
