@@ -65,7 +65,7 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 
 ## 6. Where things stand (12 Oct 2026, evening)
 
-**Possibly unpushed from the previous main window.** Check `git status` and `git log origin/main..HEAD` in **this** working copy first:
+**Update, 12 Oct late: a9843252 pushed and live** — item 1 (Worship/AV/Choir one team in the rules, 1077/1077) and the stuck-splash fix (A-063: after 8s, "Could not check your access… Try again", page stays hidden; check-guard-does-not-spin 7/7). The previous main window then started item 2. **Check what it left:** possibly unpushed from the previous main window. Check `git status` and `git log origin/main..HEAD` in **this** working copy first:
 - **Item 1:** Worship/AV/Choir as one team in `firestore.rules` (`worshipAv()`), plus `tests/check-worship-av-one-team.mjs` 12/12, and the guard-readiness fix in five checks ("is the page revealed" = `#egbc-guard-style` gone, not "no splash").
 - If any of that is committed but unpushed, run the checks it names, then push. If it's uncommitted and incomplete, **report what you find. Don't redo or discard it.**
 
@@ -73,8 +73,8 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 
 ## 7. The queue, in this order
 
-1. **Finish and push item 1** (above).
-2. **The stuck "Checking access" splash (A-063).** When the guard's first profile read doesn't come back, a page can sit on "Checking access" forever. Martin hit it on his phone on 12 Oct, and a check saw it on schematic.html. Find why the read can hang. Make the guard retry, then show "Couldn't check your access — try again" after about 8 seconds instead of spinning. Test it with a deliberate stall.
+1. ~~Item 1~~ DONE (a9843252).
+2. ~~The stuck "Checking access" splash (A-063)~~ DONE (a9843252). When the guard's first profile read doesn't come back, a page can sit on "Checking access" forever. Martin hit it on his phone on 12 Oct, and a check saw it on schematic.html. Find why the read can hang. Make the guard retry, then show "Couldn't check your access — try again" after about 8 seconds instead of spinning. Test it with a deliberate stall.
 3. **The Sunday plan for everyone on the email (item 2).** That includes preachers, service leaders and AV. Today the email's link (song-summary.html) is Worship-only. Spec: the reviewing window's message (the read-only plan view for exactly that date's email audience; an `audience` list of uids written by both planners' Send; rules allowing `request.auth.uid in audience` or the worship/AV/core teams; Home shows "You're preaching on Sunday — see the plan"). Tests: a speaker on no team sees their Sunday and not another; an AV member sees it; an attender not on the email can't.
 4. **N-4 and N-5 (notifications)** from `FINDINGS-notify.md`: the sending functions in codebase "hub" (call a parent, test message, rota reminder, booking updates, new maintenance job (also covers F-129's email), urgent notice, weekly checks reminder), the service worker line, registering it, Notifications under Me and in the Menu, and letting parents who aren't in the address book in narrowly (Parents' Sunday and Notifications only, nothing else). The hub's server calls to `sendEmail` must send a Google identity token for audience `https://sendemail-irkwdhx3xq-uc.a.run.app` (§26 item 4).
 5. **Stage 2, the family link-up (`myFamily()`):** "Your family this week" on Home; a young person's main-rota dates and both charters; a parent seeing the family's youth groups; F-145 (Parents' Sunday drawn on Home, collection code large). Side-by-side pairs against the mock-up for Martin.
@@ -87,6 +87,8 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 **After launch (don't start):** NEXT-BRIEF §24's after-launch list, including item 5, "Watch" (the YouTube channel `UCf7lMnb24HfNJKGpMeYdQXQ`, members-only full services, the weekly live link with show-until and the church's choice of disappear or Watch again).
 
 ## 8. Open findings to know about
+
+- **The test suite:**  runs every check (35/42 on 12 Oct). Known reds: check-core-planner 68/72 (red before a9843252 too), check-churchshow-page (flaky; 15/15 earlier the same day), check-website-on-a-phone (A-074), plus F-158 (events window). **Several checks only pass alone**, because they share one emulator and read each other's leftovers. The fix is for each check to own and clear its own fixture. It's a separate piece of work, not started; raise it before doing it.
 
 - **A-063:** the guard never recovers from a failed first read (queue item 2).
 - **A-064:** the Attender's mirror write doesn't arrive. Open, not established.
