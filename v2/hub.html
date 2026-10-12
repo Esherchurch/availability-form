@@ -129,9 +129,29 @@
   .home{display:flex;flex-direction:column}
   .home .hcol{display:contents}
   .home>div:empty,.hcol>div:empty{display:none}
+  /* A notice in the home-page widget: the title, when it went up, and
+     two lines of it. A button, because the whole thing opens in Latest -
+     and the whole row is the target, not a small "more" link. */
+  /* COMPACT ON PURPOSE (§17b, and Martin 12 Oct: "keep it compact so
+     the page still fits one screen"). Three notices at two lines each
+     put the home page 160px over the fold at 1440x900. One line of the
+     words is enough to know whether you want to read it; the whole
+     notice is one tap away in Latest. */
+  .nx{display:block;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--hairline);
+      border-radius:9px;padding:7px 10px;cursor:pointer;font:inherit;color:inherit}
+  .nx:hover{border-color:var(--hairline-strong);background:#fff}
+  .nx-t{font-size:13px;font-weight:600;color:var(--ink);line-height:1.25}
+  .nx-d{font-size:11px;color:var(--faint);margin-left:auto;white-space:nowrap;flex:none}
+  .nx-b{font-size:12px;color:var(--muted);line-height:1.35;margin-top:2px;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #waitingCard{order:-2} #pinned{order:-1}
-  #servingCard{order:1} #meetingsCard{order:2} #pinBoardCard{order:3}
-  #charterCard{order:4} #myEventsCard{order:5} #bodyCard{order:6} #teamPanels{order:7}
+  /* NOTICES THIRD ON A PHONE, above the pin board and the charter.
+     Martin, 12 Oct 2026: "I specifically said the notices need to be
+     seen, not hidden" - and below the charter, which is a long read, is
+     hidden in all but name. */
+  #servingCard{order:1} #meetingsCard{order:2} #noticesCard{order:3}
+  #pinBoardCard{order:4} #charterCard{order:5} #myEventsCard{order:6}
+  #teamPanels{order:7}
   @media(min-width:901px){
     .home{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 16px;align-items:start}
     .home .hcol{display:block;min-width:0}
@@ -229,7 +249,12 @@
   .rich a{color:var(--brand);font-weight:500}
   .rich blockquote{margin:0 0 14px;padding:12px 16px;background:var(--tint);border-left:3px solid var(--brand);
                    border-radius:0 8px 8px 0;font-style:italic;color:var(--ink)}
-  #charterBody.short{max-height:250px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 72%,transparent)}
+  /* 150px, not 250. The notices now sit on this page (Martin, 12 Oct
+     2026) and something had to give for it to still fit one screen -
+     he said to shrink other widgets before hiding notices. The charter
+     is the longest read on the page and "Read it all" is right beside
+     it, so a shorter taste of it costs the least. */
+  #charterBody.short{max-height:150px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 72%,transparent)}
 
   /* One button per charter the person has, for somebody on more than one
      team. A row of plain buttons rather than tabs, because it sits inside a
@@ -471,14 +496,26 @@
     <div class="hcol">
     <!-- Step N: the pin board, which Martin said was "actually important but
          buried". Filled by renderPinBoardCard() in hub-app.js. -->
+    <!-- NOTICES, ON THE PAGE (Martin, 12 Oct 2026). What was here was the
+         "welcome widget" - one block of words an admin edited through a
+         browser prompt() asking for raw HTML. Martin: "just a widget",
+         and he could not find the news at all, because it only existed
+         behind the Latest pop-out. "I specifically said the notices need
+         to be seen, not hidden."
+
+         FIRST IN THIS COLUMN, not last. On a desktop the two columns are
+         `display:block`, so `order` does nothing and the DOM order is
+         what you see - at the bottom of the right-hand column it would
+         have been below the fold, which is the fault again with a new
+         card in it.
+
+         The same notices as Latest: same team filter, same show-until,
+         pinned first. Filled by renderNoticesCard(). -->
+    <div id="noticesCard"></div>
+
     <div id="meetingsCard"></div>
     <div id="pinBoardCard"></div>
     <div id="myEventsCard"></div>
-
-    <div class="card" id="bodyCard">
-      <div class="rich" id="bodyContent"><div class="skel" style="height:15px;width:45%;margin-bottom:12px"></div><div class="skel" style="height:12px;margin-bottom:7px"></div><div class="skel" style="height:12px;width:80%"></div></div>
-      <button class="btn sm edit-only" id="bodyEdit" style="display:none;margin-top:14px" onclick="editBody()"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit this</button>
-    </div>
 
     </div>
 

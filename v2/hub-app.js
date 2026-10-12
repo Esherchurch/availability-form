@@ -120,6 +120,7 @@ function applyTeam() {
   loadCharter();
   renderTeamPanels();
   renderNews();
+  renderNoticesCard();
   renderWaiting();
   renderServing();
   renderMyEvents();
@@ -163,6 +164,7 @@ function toggleEditMode() {
   setEditButton();
   renderTeamPanels();
   renderNews();
+  renderNoticesCard();
 }
 
 function setEditButton() {
@@ -207,7 +209,7 @@ function renderTeamPanels() {
         <span class="nm"><span class="dot" style="background:${c.colour}"></span>${esc(c.label)}</span>
         ${EDITING && canEdit ? `<button class="btn sm ghost" style="margin-left:auto" onclick="editTeamPanel('${t}')"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit</button>` : ''}
       </div>
-      ${d.title ? `<h3 style="font-size:17px;font-weight:600;margin-bottom:8px">${esc(d.title)}</h3>` : ''}
+      ${d.title ? `<h3 style="font-size:17px;font-weight:600;margin-bottom:7px">${esc(d.title)}</h3>` : ''}
       <div class="rich">${d.body ? safeHtml(d.body) : '<p style="color:var(--faint);font-style:italic">Nothing for this team yet.</p>'}</div>
     </div>`;
   }).join('');
@@ -635,42 +637,22 @@ async function loadHero() {
     bg.style.backgroundRepeat = 'no-repeat';
     bg.style.backgroundPosition = `${px}% ${py}%`;
 
-    renderWelcome(d.body);
   } catch (e) {
     console.error('Hero load failed', e);
     document.getElementById('heroTitle').textContent = 'EGBC Hub';
-    renderWelcome('');
   }
 }
 
-/* The welcome words, which are church-wide and are usually empty.
+/* THE WELCOME WIDGET IS GONE (Martin, 12 Oct 2026). It was one block of
+   church-wide words, edited through a browser prompt() that asked an
+   admin for raw HTML - "just a widget", and the only thing on the home
+   page where the notices should have been.
 
-   Martin, on the live hub as Core Team: an empty card saying "Nothing here
-   yet." sat in the bottom right of the home page. It was telling everybody in
-   the church about a gap only an admin can fill, on the one page that is
-   supposed to fit on a screen.
+   portal/dashboardContent.body IS LEFT ALONE in the database. Martin
+   said not to delete it, and nothing here reads or writes it any more;
+   if it is ever wanted back, the words are still there.
 
-   So: no words and cannot edit - no card at all. No words and CAN edit - the
-   card, saying what it is for and offering to fill it, which is the only way
-   an admin would ever find out the feature exists. */
-function renderWelcome(html) {
-  const card = document.getElementById('bodyCard');
-  const body = document.getElementById('bodyContent');
-  if (!card || !body) return;
-
-  const words = String(html || '').replace(/<[^>]*>/g, '').trim();
-  const canEdit = !!(window.EGBCAuth && EGBCAuth.isAdmin && EGBCAuth.isAdmin());
-
-  if (words) { card.style.display = ''; body.innerHTML = html; return; }
-
-  if (!canEdit) { card.style.display = 'none'; body.innerHTML = ''; return; }
-
-  card.style.display = '';
-  body.innerHTML = '<p style="color:var(--faint);font-style:italic;margin:0">' +
-    'No welcome words yet. This is the first thing people read on the hub - ' +
-    'a sentence about what is going on is enough.</p>' +
-    '<button class="btn sm solid" style="margin-top:12px" onclick="editBody()">Add a welcome</button>';
-}
+   What replaces it is renderNoticesCard() below. */
 
 /* Banner editing. Karen is not going to open Firebase, so the picture is
    uploaded here - drag one in or pick one - and the URL never appears. */
@@ -866,15 +848,111 @@ async function saveHero() {
 })();
 
 
-async function editBody() {
-  const d = (await db.collection('portal').doc('dashboardContent').get()).data() || {};
-  const cur = d.body || '';
-  const next = prompt('Main content. HTML is allowed - <h2>, <p>, <a href>, <img src>:', cur);
-  if (next === null) return;
-  try {
-    await db.collection('portal').doc('dashboardContent').set({ body: next }, { merge: true });
-    loadHero();
-  } catch (e) { alert('Could not save: ' + e.message); }
+/* editBody() has gone with the welcome widget. It was the last prompt()
+   on this page asking somebody for raw HTML; notices are written in the
+   proper typing box (egbc-editor.js) like everything else. */
+
+/* ---- NOTICES, ON THE HOME PAGE (Martin, 12 Oct 2026) ---------------
+   "I specifically said the notices need to be seen, not hidden."
+
+   The same notices as Latest and from the same list - same team filter,
+   same show-until, pinned first - so there is one set of notices in the
+   church and not two that can disagree. The newest three, because §17b
+   says this page fits on a screen and three is what fits.
+
+   WHO SEES WHAT when there is nothing: somebody who cannot post sees no
+   card at all, because an empty box telling them about a gap they
+   cannot fill is what the welcome widget did. Somebody who CAN post
+   sees "No notices yet" and the button - which is the only way they
+   would learn the feature is there.
+
+   Two lines of each notice, not the whole thing. The words are a
+   person's own HTML from the editor, so the preview is built from its
+   TEXT: the tags are stripped rather than trusted, and the full notice
+   with its bold and its lists is one tap away in Latest. */
+function noticePreview(n) {
+  /* A SPACE WHERE A BLOCK ENDED. textContent runs them together, so a
+     paragraph followed by a list came out as "We are starting a
+     choir.Thursdays at 7No audition" - which reads as a typo rather
+     than as two things. The separator goes in before the tags are
+     stripped, and the words are still the words, not markup. */
+  const spaced = String(safeHtml(n.body || ''))
+    .replace(/<\/(p|div|li|h[1-6]|tr|blockquote)>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, ' ');
+  const el = document.createElement('div');
+  el.innerHTML = spaced;
+  const words = (el.textContent || '').replace(/\s+/g, ' ').trim();
+  return words.length > 90 ? words.slice(0, 90).replace(/\s+\S*$/, '') + '…' : words;
+}
+
+function noticeWhen(n) {
+  const ms = newsMillis(n);
+  if (!ms) return '';
+  const d = new Date(ms), now = new Date();
+  const days = Math.round((now - d) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return days + ' days ago';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+/* Anybody who can edit a notice can write one. canEditNews() answers it
+   for a notice that exists; this is the same question with none. */
+function canPostNotice() {
+  if (!window.EGBCAuth) return false;
+  if (EGBCAuth.isMaster()) return true;
+  return (EGBCAuth.profile() && (EGBCAuth.profile().adminFor || []).length > 0);
+}
+
+function renderNoticesCard() {
+  const card = document.getElementById('noticesCard');
+  if (!card) return;
+
+  /* THE SAME LIST LATEST USES. isNewsExpired is the show-until rule and
+     NEWS is already filtered to this person's teams by loadNews. */
+  const live = NEWS.filter(n => !isNewsExpired(n));
+  const ordered = live.slice().sort((a, b) => {
+    const pin = n => (n.pinned ? 0 : 1);
+    return pin(a) - pin(b) || newsMillis(b) - newsMillis(a);
+  });
+  const show = ordered.slice(0, 3);
+  const canPost = canPostNotice();
+
+  if (!show.length && !canPost) { card.innerHTML = ''; return; }
+
+  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <i data-lucide="megaphone" style="width:17px;height:17px;color:var(--brand)"></i>
+      <h2 style="margin:0;font-size:14px;font-weight:600;color:var(--ink)">Notices</h2>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        ${canPost ? '<button class="btn sm solid" onclick="openNewsEditor()">'
+          + '<i data-lucide="plus" style="width:14px;height:14px"></i>Post a notice</button>' : ''}
+        ${live.length > 3 ? '<button class="btn sm ghost" onclick="openLatest()">See all</button>' : ''}
+      </div>
+    </div>`;
+
+  if (!show.length) {
+    card.innerHTML = `<div class="card">${head}
+      <p style="margin:0;color:var(--faint);font-style:italic;font-size:13px">
+        No notices yet. This is the first thing the church reads on the hub.</p></div>`;
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+    return;
+  }
+
+  card.innerHTML = `<div class="card">${head}
+    <div style="display:grid;gap:5px">
+      ${show.map(n => `<button class="nx" onclick="openLatest()">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          ${n.pinned ? '<i data-lucide="pin" style="width:13px;height:13px;color:var(--gold);flex:none"></i>' : ''}
+          <span class="nx-t">${esc(n.title || 'Notice')}</span>
+          <span class="nx-d">${esc(noticeWhen(n))}</span>
+        </div>
+        <div class="nx-b">${esc(noticePreview(n))}</div>
+      </button>`).join('')}
+    </div>
+    ${live.length > 3 ? `<button class="btn sm ghost" style="margin-top:8px" onclick="openLatest()">
+      See all ${live.length} notices</button>` : ''}
+  </div>`;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
 
 /* ---- NEWS --------------------------------------------------------- */
@@ -971,7 +1049,12 @@ function renderMeetings() {
      matters. "All rooms" in the header is still the way to everything. */
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const soon = MEETINGS.filter(ev => ev.date <= tomorrow);
-  const shown = soon.length ? soon.slice(0, 5) : MEETINGS.slice(0, 1);
+  /* TWO, NOT FIVE. Five meeting rows is 200px of a home page that §17b
+     says fits one screen, and from 12 Oct the notices are on it too.
+     The rest are one tap away behind "more coming up", which was
+     already there - Martin's instruction was to shrink other widgets
+     before hiding the notices, and this is the widest one. */
+  const shown = soon.length ? soon.slice(0, 2) : MEETINGS.slice(0, 1);
   const more = MEETINGS.length - shown.length;
   const rows = shown.map(ev => {
     const link = `meeting.html?room=${encodeURIComponent(videoRoomFor(ev))}&event=${encodeURIComponent(ev.id)}`;
@@ -1000,10 +1083,16 @@ function renderMeetings() {
           <a class="btn sm ghost" href="meeting.html">All rooms</a>
         </div>
       </div>
-      <div class="cb" style="padding-top:6px;padding-bottom:14px">
+      <div class="cb" style="padding-top:6px;padding-bottom:${MEETINGS.length ? '14px' : '10px'}">
         ${rows}${none}
         ${more > 0 ? `<a href="meeting.html" style="display:block;font-size:13px;color:var(--brand);text-decoration:none;padding:6px 0">${more} more coming up</a>` : ''}
-        <div class="note">Type your name and knock &mdash; the host will let you in.</div>
+        ${/* THE KNOCKING NOTE ONLY WHEN THERE IS SOMETHING TO JOIN.
+              With no meetings this card was five lines explaining how to
+              get into a call that is not happening, and on a phone it
+              pushed the notices down the page - which is the thing
+              Martin asked not to happen (12 Oct 2026: "shrink other
+              widgets before hiding notices"). */''}
+        ${MEETINGS.length ? '<div class="note">Type your name and knock &mdash; the host will let you in.</div>' : ''}
       </div>
     </div>`;
 }
@@ -1087,6 +1176,7 @@ async function loadNews() {
       ACKED = new Set(acks.docs.map(d => d.id));
     }
     renderNews();
+  renderNoticesCard();
   } catch (e) {
     console.error('News load failed', e);
     document.getElementById('newsTrack').innerHTML =
@@ -1635,6 +1725,7 @@ async function ackNews(id) {
     const n = NEWS.find(x => x.id === id);
     if (n) n.ackedBy = [...(n.ackedBy || []), ME.memberId];
     renderNews();
+  renderNoticesCard();
     /* The same acknowledgement is what "Waiting for you" counts, so that
        card has to be redrawn too - otherwise it keeps asking for something
        already done. */

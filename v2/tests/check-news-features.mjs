@@ -301,6 +301,98 @@ const offMachine = u => {
     .some(d => (((d.fields || {}).title || {}).stringValue) === 'NOTICE-H must not save');
   ok('  and nothing was written', !stillThere);
 
+  /* ---- THE NOTICES WIDGET ON THE HOME PAGE (Martin, 12 Oct 2026) ----
+     "I specifically said the notices need to be seen, not hidden."
+
+     What was here was the welcome widget: one block of words edited
+     through a browser prompt() asking for raw HTML, and the news was
+     only behind the Latest pop-out, which Martin could not find.
+
+     Martin's own test, in his words: he posts "We need a Choir!" as a
+     notice with bold and a list, and it appears formatted in the widget
+     and in Latest; nobody sees a prompt(). */
+  console.log('\nthe notices widget on the home page');
+
+  /* A prompt() anywhere on this page fails the check from here on. The
+     welcome widget's editor was the last one, and the point of the
+     change is that notices are typed in the proper box. */
+  await loadHub();
+  await ev('window.__prompted=0;window.prompt=function(){window.__prompted++;return null};1');
+
+  await ev("openNewsEditor();1"); await sleep(1200);
+  await ev("document.getElementById('nwTitle').value='We need a Choir!';"
+    + "newsEditor().setHTML('<p>We are starting a <b>choir</b>.</p>"
+    + "<ul><li>Thursdays at 7</li><li>No audition</li></ul>');"
+    + "document.getElementById('nwDate').value='Sunday 18 October';1");
+  await ev('saveNews()', true); await sleep(3500);
+
+  await loadHub();
+  const widget = String(await ev("(function(){var c=document.getElementById('noticesCard');"
+    + "return c?c.textContent.replace(/\\s+/g,' ').trim():'(no widget)'})()"));
+  ok('  the notices widget is on the home page', widget !== '(no widget)' && widget.length > 0, widget.slice(0, 80));
+  ok('  with the notice on it, by name', /We need a Choir!/.test(widget), widget.slice(0, 160));
+  /* AND THE LIST READS AS A LIST. textContent runs blocks together, so
+     the first preview said "a choir.Thursdays at 7No audition", which
+     reads as a typo rather than as two things. */
+  ok('  and the first line or two of what it says, with its words apart',
+    /We are starting a choir\. Thursdays at 7 No audition/.test(widget), widget.slice(0, 200));
+  ok('  and when it went up', /Today|Yesterday|days ago|[A-Z][a-z]{2}/.test(widget), widget.slice(0, 160));
+
+  /* SEEN WITHOUT CLICKING ANYTHING. The whole complaint was that the
+     news was behind a pop-out, so "it is in the DOM" is not the claim -
+     it has to be on the screen, at both sizes, with nothing opened. */
+  const seenAt = async (w, h) => {
+    await send('Emulation.setDeviceMetricsOverride',
+      { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 });
+    await sleep(900);
+    return String(await ev(`(function(){
+      var c = document.getElementById('noticesCard');
+      if (!c) return 'no widget';
+      var r = c.getBoundingClientRect();
+      if (r.height < 10) return 'nothing drawn';
+      if (r.top > window.innerHeight) return 'below the fold at ' + Math.round(r.top);
+      if (r.bottom < 0) return 'above the screen';
+      var mid = document.elementFromPoint(Math.round(r.left + r.width / 2),
+        Math.round(Math.min(Math.max(r.top + 20, 1), window.innerHeight - 1)));
+      return (mid && c.contains(mid)) ? 'seen at ' + Math.round(r.top) : 'covered';
+    })()`));
+  };
+  const onDesktop = await seenAt(1920, 945);
+  ok('  seen on a 1920x945 screen without opening anything',
+    /^seen at/.test(onDesktop), onDesktop);
+  const onPhone = await seenAt(375, 812);
+  ok('  and on a 375px phone', /^seen at/.test(onPhone), onPhone);
+  if (wantShots) {
+    await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 945, deviceScaleFactor: 1, mobile: false });
+    await sleep(700);
+    let r2 = await send('Page.captureScreenshot', { format: 'png' });
+    if (r2.data) fs.writeFileSync(path.join(SHOTS, 'notices--hub-1920.png'), Buffer.from(r2.data, 'base64'));
+    await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
+    await sleep(700);
+    r2 = await send('Page.captureScreenshot', { format: 'png' });
+    if (r2.data) fs.writeFileSync(path.join(SHOTS, 'notices--hub-375.png'), Buffer.from(r2.data, 'base64'));
+  }
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 950, deviceScaleFactor: 1, mobile: false });
+  await sleep(600);
+
+  /* FORMATTED IN LATEST, which is where the whole notice lives. */
+  await ev('openLatest();1'); await sleep(1200);
+  const latest = String(await ev("(function(){var p=document.getElementById('latestPanel');"
+    + "return p?p.innerHTML:''})()"));
+  ok('  the whole notice is in Latest, with its bold and its list',
+    /<b>choir<\/b>|<strong>choir<\/strong>/i.test(latest) && /<li>Thursdays at 7<\/li>/i.test(latest),
+    latest.replace(/\s+/g, ' ').slice(0, 200));
+  await ev('closeLatest();1'); await sleep(400);
+
+  /* THE WELCOME WIDGET IS GONE, and so is the prompt. */
+  ok('  the welcome widget is gone from the page',
+    !(await ev("!!document.getElementById('bodyCard') || !!document.getElementById('bodyContent')")));
+  ok('  and nothing on this page asks for raw HTML in a prompt',
+    Number(await ev('window.__prompted || 0')) === 0,
+    'prompt() was called ' + String(await ev('window.__prompted || 0')) + ' times');
+  ok('  "Post a notice" is offered to somebody who can post',
+    /Post a notice/.test(widget), widget.slice(0, 120));
+
   /* ---- no page errors through any of it ------------------------------- */
   console.log('\nthe console');
   ok('  nothing on the console through all of it', watch.errors.length === 0, watch.summary());
