@@ -142,7 +142,13 @@ export const PAGES = [
      they do" - and login.html is the first screen anybody sees. Both were
      outside the style check entirely until now (A-054).
 
-     login.html is measured SIGNED OUT, which is the only state it has. */
+     login.html is measured SIGNED OUT, which is the only state it has -
+     and from 12 Oct 2026 it actually is. It used to say this and not do
+     it: the check signs in before walking, login.html sends a signed-in
+     visitor straight on to their destination, and so the HUB was being
+     measured and printed under login.html's name. The flag below is what
+     makes the sentence true, and the check now refuses to measure the
+     page at all if it is redirected. */
   { page: 'meeting.html', wait: 9000, states: [
       ['the lobby', '1']
     ] },
@@ -154,7 +160,7 @@ export const PAGES = [
       ['a safeguarding concern', "(()=>{const b=document.querySelector('.kind[data-kind=safeguarding]');if(b)b.click();return 1})()"],
       ['thank you', "(()=>{document.getElementById('form').classList.add('hidden');document.getElementById('thanks').classList.remove('hidden');return 1})()"]
     ] },
-  { page: 'login.html', wait: 8000, states: [
+  { page: 'login.html', wait: 8000, signedOut: true, states: [
       ['the sign-in box', '1']
     ] },
   /* The projection computer's pairing page (FINDINGS-churchshow.md R1-R3).

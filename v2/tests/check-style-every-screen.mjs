@@ -194,6 +194,7 @@ const REFUSED_PROBE = "(function(){var b=document.body;if(!b)return '';"
   + "return (shut && b.querySelectorAll('*').length < 40) ? t : '';})()";
 
   let grand = 0; const rows = []; const pagesWithErrors = []; const turnedAway = [];
+  let signedIn = true;   /* see P.signedOut in the loop below */
   for (const P of PAGES) {
     if (only && !P.page.toLowerCase().includes(only.toLowerCase())) continue;
     /* Pages the restyle has not reached are walked by the icon check, not
@@ -205,8 +206,51 @@ const REFUSED_PROBE = "(function(){var b=document.body;if(!b)return '';"
       continue;
     }
     watch.reset();
+    /* SIGNED OUT, FOR THE PAGES THAT ONLY EXIST SIGNED OUT.
+       login.html sends a signed-in visitor straight to their destination,
+       so measuring it while signed in measured the HUB and printed the
+       result under login.html's name. group1-screens.mjs even said
+       "login.html is measured SIGNED OUT, which is the only state it
+       has" - it was not, and the comment is what made it look handled.
+       That is how three of this check's 24 problems were the hub's
+       notices date counted a second time, and why the example it printed
+       for login.html was an element login.html does not contain.
+       Signed out for these, then signed back in for the rest. */
+    if (P.signedOut && signedIn) {
+      await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
+      await sleep(2500);
+      await ev('firebase.auth(EGBCAuth.app).signOut()', true);
+      await sleep(400);
+      signedIn = false;
+    }
+    /* And BACK IN for everything else, or every page after login.html
+       would be measured signed out - which is the same fault in the
+       other direction, and would show up as a page of zeroes. */
+    if (!P.signedOut && !signedIn) {
+      await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
+      await sleep(3000);
+      await ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword('
+        + JSON.stringify(ACCOUNT.email) + ',' + JSON.stringify(ACCOUNT.pw) + ')', true);
+      await sleep(600);
+      const back = String(await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).email || ""'));
+      if (back !== ACCOUNT.email) {
+        console.error('Could not sign back in after a signed-out page; the rest would be false zeroes.');
+        server.close(); chrome.kill(); process.exit(2);
+      }
+      signedIn = true;
+    }
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + P.page });
     await sleep(P.wait);
+    if (P.signedOut) {
+      /* It must actually BE the page asked for. A redirect here would put
+         us back to measuring something else under this name. */
+      const here = String(await ev('location.pathname.split("/").pop()'));
+      if (here !== P.page) {
+        console.log('\n' + P.page + '   went to ' + here + ' instead - not measured');
+        pagesWithErrors.push({ page: P.page, errors: ['redirected to ' + here + ' while signed out'] });
+        continue;
+      }
+    }
     /* A dialog in headless Chrome stops the page until something answers it,
        and nothing here will. confirm says no, so anything that asks before
        acting is cancelled rather than carried out. */
