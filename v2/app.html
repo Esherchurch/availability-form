@@ -49,10 +49,11 @@
      written - bold, lists - and cleans it through the one cleaner the
      suite has rather than trusting it or flattening it. -->
 <script src="egbc-share.js?v=202610121200"></script>
+<script src="egbc-board-phone.js?v=202610121900"></script>
 <!-- App mode (§7d A): the app itself sets the flag and hands over where
      to come back to, so a page it opens wears the app's chrome. -->
 <script src="egbc-appmode.js?v=202610112000"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   /* ===== TAKEN FROM design/app-mockup.html (§7e) =====================
      Martin: "it is not the design we agreed." These are the mock-up's own
@@ -259,6 +260,27 @@
 </head>
 <body>
 <div id="egbc-app"></div>
+
+<!-- ONE NOTE, FILLING THE SCREEN (APP-DESIGN-BRIEF §7f). Outside
+     #egbc-app on purpose: the shell rebuilds everything inside it on
+     every draw, and a note somebody is reading is not something to
+     rebuild underneath them.
+
+     data-am-own: app mode may not shift it. It covers the screen
+     deliberately, which is the whole point of "it fills the phone screen
+     so you can read it".
+
+     data-egbc-overlay is the website shell's version of the same thing,
+     and it does NOTHING here - app.html does not load egbc-shell.js, so
+     nothing in the app pushes fixed elements down. I took it off to see
+     and the check still passed at 56/56. It stays because the attribute
+     costs nothing and the day this markup is copied to a page that DOES
+     have the site bar is the day it matters; it is written down as
+     insurance rather than left looking load-bearing. -->
+<div id="appNoteSheet" hidden data-bp-sheet data-egbc-overlay="1" data-am-own="1"
+     role="dialog" aria-modal="true" aria-label="Note">
+  <div class="ns-inner" id="appNoteSheetInner"></div>
+</div>
 
 <!-- THE EVENTS WINDOW'S SCREENS (F-141), in the order it asked for: its
      shared libraries first, then its screens after the shell, because each
@@ -1128,48 +1150,130 @@ function paintBoard(spaceKey) {
   if (A.state().sheet === 'board-' + spaceKey) A.draw();
 }
 
+/* THE SAME SMALL POST-ITS AND THE SAME FULL-SCREEN NOTE AS THE WEBSITE
+   (APP-DESIGN-BRIEF §7f: "the board sheet uses the same small-post-it
+   grid and full-screen note, so the app and the phone website match").
+
+   Both draw through egbc-board-phone.js. They match because it is the
+   same code, not because two screens were written to look alike - which
+   is a thing that stays true only until somebody changes one of them. */
+var BOARD_PHONE = {};     /* spaceKey -> the mounted board */
+
+function boardPhone(spaceKey, docId) {
+  if (BOARD_PHONE[spaceKey]) return BOARD_PHONE[spaceKey];
+  var me = A.who() || {};
+  BOARD_PHONE[spaceKey] = EGBCBoardPhone.mount({
+    /* LOOKED UP EACH TIME, not held: the shell rebuilds the sheet's
+       markup on every draw, so a node captured now is gone by the next
+       tap. */
+    grid: function () { return document.getElementById('pbGrid-' + spaceKey); },
+    empty: function () { return document.getElementById('pbEmpty-' + spaceKey); },
+    sheet: function () { return document.getElementById('appNoteSheet'); },
+    sheetInner: function () { return document.getElementById('appNoteSheetInner'); },
+    db: db,
+    boardId: docId,
+    notes: function () { return (BOARD[docId] || {}).notes || []; },
+    /* Who may post and comment is the team, and who may archive or
+       remove is a leader of it - the same answer the rules give. */
+    canPost: function () { return boardIsMine(spaceKey); },
+    isLeader: function () { return boardLeaderHere(spaceKey); },
+    me: function () {
+      var w = A.who() || {};
+      return w.uid ? { uid: w.uid, name: w.name || 'Someone' } : null;
+    },
+    toast: function (m) { A.toast(m); },
+    /* Reactions, archiving and removing all write the BOARD document,
+       which is one document holding every note - so they go through the
+       page that owns it rather than being half-implemented here. The app
+       is read-and-comment; the rest opens the board. */
+    onReact: null,
+    /* Edit opens the board page, in app mode, through the shell's own
+       open: action - openPage() is not exported, and a second way of
+       leaving the app is a second thing to keep right. The row is built
+       and clicked rather than reaching into the shell. */
+    onEdit: function () {
+      var b = document.createElement('button');
+      b.setAttribute('data-act', 'open:stickynotes.html?board='
+        + ((BOARDS[spaceKey] || [])[1] || '') + '&add=0');
+      b.style.display = 'none';
+      document.body.appendChild(b);
+      b.click();
+      b.remove();
+    },
+    onArchive: null,
+    onRemove: null,
+    afterChange: function () { A.draw(); },
+  });
+  return BOARD_PHONE[spaceKey];
+}
+
+/* On this team, and a leader of it - read from the shell's own idea of
+   who somebody is, so the app and the Menu cannot disagree. */
+function boardTeamsFor(spaceKey) {
+  var sp = A.SPACES[spaceKey] || {};
+  return sp.teams || [];
+}
+function boardIsMine(spaceKey) {
+  var me = A.who() || {};
+  if (me.isMaster) return true;
+  return boardTeamsFor(spaceKey).some(function (t) { return EGBCAuth.inTeam(t); });
+}
+function boardLeaderHere(spaceKey) {
+  var me = A.who() || {};
+  if (me.isMaster) return true;
+  return boardTeamsFor(spaceKey).some(function (t) { return EGBCAuth.isAdminOf(t); });
+}
+
 function pinBoard(spaceKey, docId, boardParam) {
   loadBoard(docId, spaceKey);
   var sp = A.SPACES[spaceKey] || A.SPACES.me;
   var b = BOARD[docId] || { ready: false, notes: [] };
 
   var out = '<h3>Pin board</h3><p>Ideas from the team.</p>';
+  /* "Add an idea" opens the add form - the board page's own, in app
+     mode, so there is one add form and it is the one that knows where a
+     new note goes on the corkboard (noteSpot()). */
   out += card(row('plus', 'Add an idea', 'Put a note on the board', null,
-                  'open:stickynotes.html?board=' + boardParam, sp.colour, sp.tint));
+                  'open:stickynotes.html?board=' + boardParam + '&add=1', sp.colour, sp.tint));
 
   if (!b.ready) {
     return out + card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
       + 'Finding the board…</p></div>') + CLOSE;
   }
-  if (!b.notes.length) {
-    return out + card('<div style="padding:14px"><p style="margin:0;font-size:14px">'
-      + 'Nothing on the board yet. Yours could be the first.</p></div>') + CLOSE;
-  }
 
-  /* The note as it reads, not as it is pinned: who wrote it, what it
-     says, and the link if it has one. No dragging, no rotation, no
-     overlapping - none of that is a phone. */
-  out += sec('On the board', b.notes.slice(0, 30).map(function (n) {
-    var when = n.createdAt ? new Date(n.createdAt) : null;
-    var sub = (n.author || 'Someone')
-      + (when && !isNaN(when) ? ' · ' + when.toLocaleDateString('en-GB',
-          { day: 'numeric', month: 'short' }) : '');
-    var body = String(n.title ? n.title + ' — ' + (n.body || '') : (n.body || '')).trim();
-    var link = n.ytUrl || n.link;
-    return '<div class="card" style="padding:14px;margin-bottom:10px">'
-      + '<div style="font-size:12.5px;color:var(--muted)">' + A.esc(sub) + '</div>'
-      + '<div style="font-size:14px;color:var(--ink);margin-top:4px;white-space:pre-wrap">'
-      + A.esc(body || '(no words)') + '</div>'
-      + (link ? '<div class="actions" style="margin-top:8px">'
-                + '<a class="btn" href="' + A.esc(link) + '" target="_blank" rel="noopener">'
-                + ic('external-link', 15) + ' ' + A.esc(n.linkLabel || 'Open') + '</a></div>' : '')
-      + '</div>';
-  }).join(''));
+  /* The grid is filled in after the shell has drawn it - see the
+     observer below. Empty markup here, notes there. */
+  out += '<div class="pb-grid" id="pbGrid-' + A.esc(spaceKey) + '"></div>'
+    + '<p class="example" id="pbEmpty-' + A.esc(spaceKey) + '" hidden>'
+    + 'Nothing on the board yet. Yours could be the first.</p>';
 
   out += card(row('layout-grid', 'The whole board', 'Move and archive notes', null,
                   'open:stickynotes.html?board=' + boardParam, sp.colour, sp.tint));
   return out + CLOSE;
 }
+
+/* FILL THE GRID AFTER EVERY DRAW. The shell rebuilds everything inside
+   #egbc-app each time it renders and stamps data-drawn when it has, so
+   that stamp is the honest moment to put the post-its back. Without it
+   the board would draw once and be empty after the next tap anywhere. */
+(function () {
+  var app = document.getElementById('egbc-app');
+  if (!app || !window.MutationObserver) return;
+  new MutationObserver(function () {
+    /* WHICH BOARD IS ON SCREEN COMES FROM THE SHELL, not from a variable
+       set while drawing. pinBoard() runs for EVERY board at start-up -
+       Object.keys(BOARDS).forEach(paintBoard) registers them all - so a
+       variable set there holds whichever was registered last, and the
+       grid for the board somebody actually opened stayed empty. */
+    var open = String((A.state() || {}).sheet || '');
+    if (open.indexOf('board-') !== 0) return;
+    var key = open.slice(6);
+    var cfg = BOARDS[key];
+    if (!cfg) return;
+    if (!document.getElementById('pbGrid-' + key)) return;
+    boardPhone(key, cfg[0]).render();
+  }).observe(app, { attributes: true, attributeFilter: ['data-drawn'] });
+})();
 
 /* ---- THIS SUNDAY (APP-DESIGN-BRIEF §7d B) ---------------------------
    "the order of service, read-only, with songs and the YouTube buttons."

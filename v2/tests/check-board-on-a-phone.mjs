@@ -396,9 +396,15 @@ async function seed() {
   /* ---- 3. a comment, and a second person sees it ----------------- */
   console.log('\ncomments');
   const before = (await commentsOn('nph_mid')).length;
-  await ev('(function(){var b=document.getElementById("nsCmtBox");'
+  /* TYPED INTO THE BOX AND THE BUTTON PRESSED, rather than calling the
+     function behind it. The first version called sendComment(), which
+     stopped existing the moment the screen moved into
+     egbc-board-phone.js - and a check that calls internals is testing
+     the shape of the code rather than what somebody can do. */
+  await ev('(function(){var b=document.querySelector("#noteSheet [data-bp-box]");'
     + 'if(!b)return "no box";b.value=' + JSON.stringify(COMMENT) + ';return "typed"})()');
-  await ev('sendComment()', true);
+  await ev('(function(){var b=document.querySelector("#noteSheet [data-bp=\\"send\\"]");'
+    + 'if(!b)return "no button";b.click();return "sent"})()');
   await sleep(2500);
   const after = await commentsOn('nph_mid');
   ok('  the comment is written, as its own document',
@@ -603,6 +609,87 @@ async function seed() {
   await sleep(400);
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
   await shot('corkboard-1280');
+
+  /* ---- the phone app's board sheet ------------------------------
+     §7f: "the board sheet uses the same small-post-it grid and
+     full-screen note, so the app and the phone website match."
+
+     They match because it is the same code - egbc-board-phone.js - and
+     that is what is checked here: the same classes, the same notes in
+     the same order, and the same note view with its comments. A check
+     that only asked "does the app show three things" would pass over
+     two screens that had drifted apart. */
+  console.log('\nthe same board in the phone app');
+  await signInAs('lead');
+  await phone();
+  watch.reset();
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+  let appDrawn = '';
+  for (let i = 0; i < 60; i++) {
+    await sleep(500);
+    appDrawn = String(await ev('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}})'
+      + '.getAttribute("data-drawn") || ""'));
+    if (appDrawn.indexOf(PEOPLE.lead.uid + ':') === 0) break;
+  }
+  ok('  the app drew for them', appDrawn.indexOf(PEOPLE.lead.uid + ':') === 0,
+    appDrawn || '(never drew)');
+  await ev('(function(){EGBCApp.go("worship","team");return "went"})()');
+  await sleep(1200);
+  await ev('(function(){var r=document.querySelector("[data-act=\\"sheet:board-worship\\"]");'
+    + 'if(r)r.click();return r?"opened":"no row"})()');
+  await until('  the board sheet shows the same small post-its',
+    '(function(){var g=document.getElementById("pbGrid-worship");'
+    + 'if(!g)return "no grid";var n=g.querySelectorAll(".pb-note").length;'
+    + 'return n === 3 ? "yes" : (n + " post-its")})()', 40);
+  const appOrder = String(await ev('(function(){'
+    + 'return [].slice.call(document.querySelectorAll("#pbGrid-worship .pb-note .pb-title"))'
+    + '.map(function(e){return e.textContent.trim()}).join(" || ")})()'));
+  ok('  newest first, the same as the website',
+    appOrder.indexOf(T_NEW) === 0 && appOrder.indexOf(T_OLD) > appOrder.indexOf(T_MID), appOrder);
+  const appRows = JSON.parse(String(await ev('(function(){'
+    + 'var ns=[].slice.call(document.querySelectorAll("#pbGrid-worship .pb-note"));'
+    + 'var tops={};ns.forEach(function(n){var t=Math.round(n.getBoundingClientRect().top/10)*10;'
+    + 'tops[t]=(tops[t]||0)+1});'
+    + 'return JSON.stringify({perRow:Object.keys(tops).map(function(k){return tops[k]})})})()')));
+  ok('  two per row here too', appRows.perRow[0] === 2, JSON.stringify(appRows));
+
+  await ev('(function(){var ns=[].slice.call(document.querySelectorAll("#pbGrid-worship .pb-note"))'
+    + '.filter(function(e){return e.textContent.indexOf(' + JSON.stringify(T_MID) + ') !== -1});'
+    + 'if(ns.length)ns[0].click();return "tapped"})()');
+  await until('  tapping one fills the screen in the app as well',
+    '(function(){var s=document.getElementById("appNoteSheet");'
+    + 'if(!s||s.hidden)return "not open";var r=s.getBoundingClientRect();'
+    + 'return (r.width >= 374 && r.top <= 1) ? "yes"'
+    + ' : Math.round(r.width)+"x"+Math.round(r.height)+" at "+Math.round(r.top)})()', 30);
+  await until('  and the comment is on it, from the same collection',
+    '(function(){var h=document.querySelector("#appNoteSheet [data-bp-comments]");'
+    + 'return h && h.textContent.indexOf("we could do this in Bb") !== -1 ? "yes" : "no"})()', 30);
+  const appPlayer = String(await ev('(function(){'
+    + 'var f=document.querySelector("#appNoteSheet iframe.ns-yt");'
+    + 'return f?f.getAttribute("src"):"(no player)"})()'));
+  ok('  with the video playing in place', /youtube\.com\/embed\/dQw4w9WgXcQ/.test(appPlayer), appPlayer);
+  ok('  nothing of the app is left showing over it',
+    String(await ev('(function(){var e=document.elementFromPoint(187,8);'
+      + 'var s=document.getElementById("appNoteSheet");'
+      + 'return (e && s && (e===s || s.contains(e))) ? "yes"'
+      + ' : "showing through: " + (e ? (e.id || e.className || e.tagName) : "nothing")})()')) === 'yes',
+    String(await ev('(function(){var e=document.elementFromPoint(187,8);'
+      + 'return e ? (e.id || e.className || e.tagName) : "nothing"})()')));
+
+  /* THE SHELL REDRAWS, AND THE BOARD SURVIVES IT. The app rebuilds
+     everything inside #egbc-app on every draw; a grid filled once would
+     be empty after the next tap anywhere on the screen. */
+  await ev('(function(){var b=document.querySelector("#appNoteSheet [data-bp=\\"close\\"]");'
+    + 'if(b)b.click();return "closed"})()');
+  await sleep(800);
+  await ev('EGBCApp.draw()');
+  await sleep(900);
+  await until('  the post-its are still there after the app redraws',
+    '(function(){var g=document.getElementById("pbGrid-worship");'
+    + 'return g && g.querySelectorAll(".pb-note").length === 3 ? "yes"'
+    + ' : (g ? g.querySelectorAll(".pb-note").length + " post-its" : "no grid")})()', 30);
+  ok('  nothing on the console', watch.errors.length === 0, watch.summary());
+  await shot('app-sheet-375');
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
