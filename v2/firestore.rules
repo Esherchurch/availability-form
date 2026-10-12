@@ -2125,13 +2125,43 @@ service cloud.firestore {
     // ---- church details (Martin, F-058) -----------------------------
     // One document: the church's name, its enquiry email and its logo. The
     // public hire pages show them, so anyone may read it; admins set it.
+    // ONE MATCH BLOCK, NOT TWO. Several match blocks on the same path are
+    // ORed, so adding `match /churchSettings/giving` beside this one would
+    // leave `giving` readable by `if true` from here - which is the whole
+    // point of keeping the bank details off a public document. That trap
+    // cost a real mistake once already (the concerns/worries rename).
     match /churchSettings/{id} {
-      allow read: if true;
-      allow write: if isAdmin() && id == 'details'
-                   && request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'updatedAt', 'updatedBy'])
-                   && request.resource.data.name is string && request.resource.data.name.size() <= 120
-                   && request.resource.data.enquiryEmail is string && request.resource.data.enquiryEmail.size() <= 200
-                   && (request.resource.data.enquiryEmail == '' || request.resource.data.enquiryEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'));
+      // `details` is the church's name, enquiry address and logo, and it is
+      // read by pages nobody has signed in to - the availability form, the
+      // login page, the public room-hire pages. It stays open.
+      //
+      // `giving` is the church's BANK DETAILS, and it does not. They are
+      // not a secret - they are on the giving envelopes - but an account
+      // number on a world-readable document is an invitation to a
+      // convincing fake, and nobody needs them before signing in.
+      allow read: if id != 'giving' || active();
+
+      allow write: if (isAdmin() && id == 'details'
+                       && request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'updatedAt', 'updatedBy'])
+                       && request.resource.data.name is string && request.resource.data.name.size() <= 120
+                       && request.resource.data.enquiryEmail is string && request.resource.data.enquiryEmail.size() <= 200
+                       && (request.resource.data.enquiryEmail == '' || request.resource.data.enquiryEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$')))
+                   // The giving details: a master admin, or the Church
+                   // office, who are the people who would know them.
+                   // Deliberately NOT every admin - a Kids Church admin has
+                   // no business changing where the church's money goes.
+                   || ((isMaster() || onTeam('Church office')) && id == 'giving'
+                       && request.resource.data.keys().hasOnly(['accountName', 'sortCode', 'accountNumber',
+                            'reference', 'giftAid', 'giftAidUrl', 'note', 'updatedAt', 'updatedBy'])
+                       && request.resource.data.accountName is string && request.resource.data.accountName.size() <= 120
+                       && request.resource.data.sortCode is string && request.resource.data.sortCode.size() <= 20
+                       && request.resource.data.accountNumber is string && request.resource.data.accountNumber.size() <= 20
+                       && request.resource.data.reference is string && request.resource.data.reference.size() <= 60
+                       && request.resource.data.get('giftAid', false) is bool
+                       && request.resource.data.get('giftAidUrl', '') is string
+                       && request.resource.data.get('giftAidUrl', '').size() <= 300
+                       && request.resource.data.get('note', '') is string
+                       && request.resource.data.get('note', '').size() <= 400);
     }
 
     // ---- room bookings (Chunk 4, R2) ---------------------------------

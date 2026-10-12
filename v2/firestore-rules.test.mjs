@@ -49,6 +49,16 @@ const PEOPLE = {
      AND a master admin, so he would pass every check below for two other
      reasons and prove nothing about the cover. */
   core:    { uid: 'u_core',     teams: ['Core Team'], adminFor: [], masterAdmin: false },
+  /* THE CHURCH OFFICE, and nothing else. They are the other people who
+     may set the church's bank details, so they have to be somebody who
+     is not a master admin and not an admin of anything - otherwise an
+     allow proves only that admins can write, which is not the rule. */
+  /* u_office IS ALREADY TAKEN, by a bookings admin on the Welcome Team
+     seeded further down for the accounts and maintenance tests. Reusing
+     that uid here put their teams on this person by the time these tests
+     ran, and the Church office write was refused for a reason that had
+     nothing to do with the rule being tested. Hence a uid of its own. */
+  churchOffice: { uid: 'u_church_office', teams: ['Church office'], adminFor: [], masterAdmin: false },
 };
 
 await env.withSecurityRulesDisabled(async (ctx) => {
@@ -1918,6 +1928,53 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a member cannot change them', 'deny', () => setDoc(doc(as('samy'), 'churchSettings', 'details'), D({ updatedBy: 'u_samy' })));
   await check('the enquiry address has to look like one', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ enquiryEmail: 'not an address' })));
   await check('there is one church details document', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'other'), D()));
+}
+
+// ── GIVING ── the church's bank details (Martin, 12 Oct 2026)
+//
+// THESE NUMBERS ARE NOT THE CHURCH'S. They are nonsense on purpose, and
+// they must stay nonsense: the repository is public, and a sort code in
+// a test file is a sort code on the internet. Martin or Val type the
+// real ones into the settings page once it is live.
+//
+// What the rules have to guarantee is the pair: `details` stays readable
+// by people who have not signed in, because the login page and the
+// public hire pages draw the church's name from it, while `giving` is
+// not. Both live on the same path, and one `match` block decides both.
+{
+  const G = (extra) => ({
+    accountName: 'Test Church Account', sortCode: '00-00-00', accountNumber: '00000000',
+    reference: 'YOUR NAME', giftAid: true, giftAidUrl: 'https://example.invalid/giftaid',
+    note: '', updatedAt: 'x', updatedBy: 'u_church_office', ...(extra || {}),
+  });
+  await check('the church office sets the bank details', 'allow',
+    () => setDoc(doc(as('churchOffice'), 'churchSettings', 'giving'), G()));
+  await check('so does a master admin', 'allow',
+    () => setDoc(doc(as('martin'), 'churchSettings', 'giving'), G({ updatedBy: 'u_martin' })));
+  /* THE ONE THAT MATTERS. An account number on a world-readable document
+     is an invitation to a convincing fake, and nobody needs it before
+     signing in. If a second match block is ever added on this path they
+     are ORed, `details` says `if true`, and this check is what notices. */
+  await check('nobody who has not signed in can read them', 'deny',
+    () => getDoc(doc(anon(), 'churchSettings', 'giving')));
+  await check('but anyone signed in can, which is the point of them', 'allow',
+    () => getDoc(doc(as('samy'), 'churchSettings', 'giving')));
+  await check('and the church details are still public, alongside them', 'allow',
+    () => getDoc(doc(anon(), 'churchSettings', 'details')));
+  /* Deliberately not every admin: a Kids Church admin has no business
+     changing where the church's money goes. */
+  await check('an admin of a team cannot change where the money goes', 'deny',
+    () => setDoc(doc(as('karen'), 'churchSettings', 'giving'), G({ updatedBy: 'u_karen' })));
+  await check('nor can a member', 'deny',
+    () => setDoc(doc(as('samy'), 'churchSettings', 'giving'), G({ updatedBy: 'u_samy' })));
+  await check('nor can Core Team, who are not the office', 'deny',
+    () => setDoc(doc(as('core'), 'churchSettings', 'giving'), G({ updatedBy: 'u_core' })));
+  await check('an unexpected field is refused', 'deny',
+    () => setDoc(doc(as('churchOffice'), 'churchSettings', 'giving'), G({ password: 'x' })));
+  await check('the account number has to be a string, not a number', 'deny',
+    () => setDoc(doc(as('churchOffice'), 'churchSettings', 'giving'), G({ accountNumber: 12345678 })));
+  await check('a reference nobody could type is refused', 'deny',
+    () => setDoc(doc(as('churchOffice'), 'churchSettings', 'giving'), G({ reference: 'x'.repeat(61) })));
 }
 
 // ── EVENTS (events window) ── room hire, R1

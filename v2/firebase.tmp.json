@@ -1,0 +1,35 @@
+{
+  "comment": "A THIRD set of ports, for when firebase.spare.json's 8171 is already held by the other window working in this repo. Same rules, same functions. Set EGBC_FIREBASE_CONFIG=firebase.tmp.json so the rules tests read these ports, and pass --config firebase.tmp.json to the CLI. Two windows share this clone, so neither may assume the spare is free.",
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "hub",
+      "ignore": ["node_modules", ".git", "*.local"]
+    }
+  ],
+  "emulators": {
+    "auth": {
+      "port": 9079
+    },
+    "firestore": {
+      "port": 8161
+    },
+    "storage": {
+      "port": 9179
+    },
+    "functions": {
+      "port": 5181
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  }
+}
