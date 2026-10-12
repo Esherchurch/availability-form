@@ -422,8 +422,19 @@ window.selectEvent = async () => {
 
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const snap = await getDocs(q);
-    if (!snap.empty) {
-        const saved = snap.docs[0].data();
+    // No saved schedule but the plan was EMAILED (Send writes songSummaries):
+    // show the emailed order rather than an empty one (Martin, 12 Oct 2026 -
+    // 11 Oct was sent but never saved, and both planners showed no songs).
+    let saved = !snap.empty ? snap.docs[0].data() : null;
+    if (!saved) {
+        try {
+            const ss = await getDoc(doc(db, "songSummaries", data.date));
+            if (ss.exists() && (ss.data().items || []).length) {
+                saved = { order: (ss.data().items || []).map(it => ({ type: it.type, title: it.title || "", keys: it.keys || [], notes: it.notes || "" })) };
+            }
+        } catch (e) { console.warn("Could not read the emailed plan", e); }
+    }
+    if (saved) {
         if (saved.roles) {
             if (saved.roles.serviceLeader && !data.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
             if (saved.roles.worshipLeader) document.getElementById('roleWorshipLeader').value = saved.roles.worshipLeader;
@@ -461,7 +472,7 @@ window.selectEvent = async () => {
     } else { autoFitTextAreas(); }
 };
 
-window.saveSchedule = async () => {
+window.saveSchedule = async (quiet) => {
     const date = document.getElementById('serviceDate').value;
     const introText = document.getElementById('introBox').value;
     const outroText = document.getElementById('outroBox').value;
@@ -486,7 +497,7 @@ window.saveSchedule = async () => {
         const snap = await getDocs(q);
         if (!snap.empty) { await updateDoc(doc(db, "services", snap.docs[0].id), serviceData); }
         else { await addDoc(collection(db, "services"), serviceData); }
-        alert("✅ Service saved successfully.");
+        if (!quiet) alert("✅ Service saved successfully.");
     } catch (err) {
         console.error("Failed to save service:", err);
         alert("❌ Failed to save service: " + (err?.message || err));
@@ -523,6 +534,9 @@ window.emailSchedule = async () => {
     const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
+    // Sending saves the schedule as well, so a plan that has gone out is never
+    // lost to the planners or ChurchShow (Martin, 12 Oct 2026).
+    if (date !== "TBC") await window.saveSchedule(true);
     const summaryUrl = await saveSongSummaryToFirestore(date);
 
     let htmlEmail = `<!DOCTYPE html>

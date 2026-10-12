@@ -1980,8 +1980,18 @@ async function spSelectEvent() {
   const q = db.collection('services').where('date', '==', data.date);
   const snap = await q.get();
   document.getElementById('sp-order').innerHTML = '';
-  if (!snap.empty) {
-    const saved = snap.docs[0].data();
+  // No saved schedule but the plan was emailed: show the emailed order
+  // (Martin, 12 Oct 2026).
+  let saved = !snap.empty ? snap.docs[0].data() : null;
+  if (!saved) {
+    try {
+      const ss = await db.collection('songSummaries').doc(data.date).get();
+      if (ss.exists && (ss.data().items || []).length) {
+        saved = { order: (ss.data().items || []).map(it => ({ type: it.type, title: it.title || '', keys: it.keys || [], notes: it.notes || '' })) };
+      }
+    } catch (e) { console.warn('Could not read the emailed plan', e); }
+  }
+  if (saved) {
     document.getElementById('spIntro').value = saved.introText || '';
     document.getElementById('spOutro').value = saved.outroText || '';
     document.getElementById('spTypeNotes').value = saved.serviceNotes || data.description || '';
@@ -2017,7 +2027,7 @@ async function spSelectEvent() {
   spAutoFit();
 }
 
-async function spSave() {
+async function spSave(quiet) {
   const date = document.getElementById('spDate').value;
   if (!date) { toast('Please select a date first'); return; }
   const roleNotes = {};
@@ -2045,6 +2055,8 @@ async function spSave() {
 
 async function spEmail() {
   const date = document.getElementById('spDate').value || 'TBC';
+  // Sending saves the schedule as well (Martin, 12 Oct 2026).
+  if (date !== 'TBC') await spSave(true);
   const serviceNotes = document.getElementById('spTypeNotes').value || '';
   const introText = document.getElementById('spIntro').value || '';
   const outroText = document.getElementById('spOutro').value || '';
