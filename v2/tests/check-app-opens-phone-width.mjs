@@ -31,6 +31,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { giveFullAccess } from './test-account.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'screenshots', 'app-width');
@@ -114,11 +115,7 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   };
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "app-opens-phone-width");
 
   await send('Emulation.setDeviceMetricsOverride',
     { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });

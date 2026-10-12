@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -118,11 +119,7 @@ const offMachine = u => {
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "pinboard-card");
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1100, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' }); await sleep(4000);

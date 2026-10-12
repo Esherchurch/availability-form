@@ -24,6 +24,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -140,11 +141,7 @@ const ALLOWED = ['www.gstatic.com', 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com
   await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
 
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "pages-without-functions");
 
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' }); await sleep(3500);
   await ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword('

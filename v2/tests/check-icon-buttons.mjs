@@ -35,6 +35,7 @@ import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
 import { giveFullAccess } from './test-account.mjs';
 import { PAGES } from './group1-screens.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -344,11 +345,7 @@ const turnedAway = [];
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 950, deviceScaleFactor: 1, mobile: false });
-  const ev = async x => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "icon-buttons");
 
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
   await sleep(4500);

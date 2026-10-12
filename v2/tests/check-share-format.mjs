@@ -18,6 +18,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -76,11 +77,7 @@ const PAGE = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); }
   };
   await send('Runtime.enable'); await send('Page.enable');
-  const ev = async (x) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "share-format");
 
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' });
   await sleep(1200);

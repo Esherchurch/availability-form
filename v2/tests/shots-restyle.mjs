@@ -22,6 +22,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { giveFullAccess } from './test-account.mjs';
 import { PAGES } from './group1-screens.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const SERVE_DIR = path.resolve(process.argv[2] || '.');
 const LABEL = process.argv[3] || 'after';
@@ -110,11 +111,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "shots-restyle");
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' }); await sleep(4000);

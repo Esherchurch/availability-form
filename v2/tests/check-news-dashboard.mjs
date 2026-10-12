@@ -26,6 +26,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -131,11 +132,7 @@ function seed() {
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || r.exceptionDetails.text || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "news-dashboard");
 
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
   await sleep(4000);

@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -285,11 +286,7 @@ const READ_MENU = `(() => {
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1100, deviceScaleFactor: 1, mobile: false });
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "menu");
 
   /* MAKE THE ACCOUNT RATHER THAN HOPE FOR IT. This check signed in as an
      account another check happens to create, so on a fresh emulator - after

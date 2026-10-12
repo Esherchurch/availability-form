@@ -27,6 +27,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -213,11 +214,7 @@ const offMachine = u => {
   await send('Emulation.setDeviceMetricsOverride',
     { width: 375, height: 812, deviceScaleFactor: 3, mobile: true });
 
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "native-screens");
   const until = async (what, expr, tries = 50) => {
     let last = '';
     for (let i = 0; i < tries; i++) {

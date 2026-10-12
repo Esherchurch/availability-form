@@ -29,6 +29,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const OUT = path.join(V2, 'screenshots', 'app-vs-mockup');
@@ -175,11 +176,7 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   };
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "shots-app-vs-mockup");
   const shot = async (name) => {
     const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
     if (r.data) fs.writeFileSync(path.join(OUT, name + '.png'), Buffer.from(r.data, 'base64'));

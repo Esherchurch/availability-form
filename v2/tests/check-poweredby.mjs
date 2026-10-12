@@ -27,6 +27,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
 import { giveFullAccess } from './test-account.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -113,11 +114,7 @@ const makeAccount = () => new Promise((res, rej) => {
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "poweredby");
 
   /* What the credit looks like on screen: is it there, is it centred, is the
      mark beside the words rather than a broken image, and is it a link. */

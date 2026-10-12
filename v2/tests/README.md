@@ -2,8 +2,15 @@
 
 Run every one of these from `v2/`, not from here.
 
+Every browser check drives the page through one shared `ev()`
+(`tests/browser-eval.mjs`). A thrown expression comes back as the string
+`THREW ...` **and** is written down, and anything written down turns the
+run red at exit even if the tally says everything passed. A check that
+is proving something throws wraps it in `expectThrow()`.
+
 | Check | How to run it |
 |---|---|
+| **The checking itself: a throw in the page turns the run red** | `node tests/check-harness.mjs` (a second, no browser) |
 | Every page loads, renders, is on Inter and keeps its controls | `node tests/smoke-all-pages.mjs` |
 | The drawn page obeys DESIGN.md, on every screen and not just the first | `node tests/check-style-every-screen.mjs` (add a page name to do one page) |
 | Every v2 page against the original it replaced, side by side | `node tests/compare-with-original.mjs` (add a page name for one; `--shots` also saves screenshots) |

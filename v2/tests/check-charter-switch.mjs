@@ -33,6 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -176,11 +177,7 @@ const offMachine = u => {
      which stops it establishing - see A-062 and tests/README.md. */
   await send('Fetch.enable', { patterns: [{ urlPattern: 'https://*' }] });
 
-  const ev = async (x, a = false) => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: a })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "charter-switch");
 
   const until = async (what, expr, tries = 40) => {
     let last = '';

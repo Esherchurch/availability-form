@@ -39,6 +39,7 @@ import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
 import { giveFullAccess } from './test-account.mjs';
 import { PAGES } from './group1-screens.mjs';
+import { makeEval } from './browser-eval.mjs';
 
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -153,11 +154,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
      of a file is worse than no check. */
   await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 950, deviceScaleFactor: 1, mobile: false });
-  const ev = async x => {
-    const r = (await send('Runtime.evaluate', { expression: x, returnByValue: true })) || {};
-    if (r.exceptionDetails) return 'THREW ' + String((r.exceptionDetails.exception || {}).description || '').split('\n')[0];
-    return r.result && r.result.value;
-  };
+  const ev = makeEval(send, "style-every-screen");
 
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
   await sleep(4500);
