@@ -196,7 +196,7 @@ Today stickynotes at 375px is a 3200×2400 canvas, with one of five notes on scr
 - the **video playing in place**, or the link as a big button
 - who and when
 - **React**: Love it, Like, Not sure (as today)
-- **Comments (new)**: a short reply under the note, e.g. "we could do this in Bb", with the name and date. Anyone who can post on that board can comment.
+- **Comments (new, on the computer corkboard too — Martin: "add the comments on the computer too")**: a short reply under the note, e.g. "we could do this in Bb", with the name and date. Anyone who can post on that board can comment.
 - **Edit**, for the person who posted it (and leaders), using the same form as adding
 - leaders' **Archive** and **Remove** as small visible buttons, never behind "…"
 - a big **Close**, plus the phone's back gesture/button closes it. **Swipe left or right** goes to the next or previous note.
