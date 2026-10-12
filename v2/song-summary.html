@@ -1,12 +1,32 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- APP MODE, because the app can now send somebody here. Home offers
+     "You are on the plan for Sunday …" to anyone in that plan's audience
+     (12 Oct 2026), and the moment it did, this became a page the app
+     opens - so it has to wear the app's header, back arrow and tab bar
+     like every other one. check-app-mode.mjs builds its list from every
+     open: the app can produce, so it started demanding this page the
+     same day the card was added, and found it bare. -->
+<script src="egbc-appmode.js?v=202610112000"></script>
 <script src="egbc-shell.js?v=202610121800" data-title="Song Summary"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610121600"></script>
-<script src="egbc-guard.js?v=202610121600" data-team="Worship Team"></script>
+<!-- EVERYONE ON THE PLAN EMAIL CAN READ THE PLAN (Martin, 12 Oct 2026:
+     "That includes the preachers and service leader"). This page is what
+     the email's summary link opens, and it was guarded on Worship Team -
+     so a preacher who is on no team got "No access" from their own
+     email.
+
+     NO data-team NOW: signed in is enough to reach the page, and the
+     RULES decide what they can actually read. A reader who is neither a
+     volunteer nor named on that Sunday's plan gets a refusal from the
+     database and the page says so in plain words. That is the right way
+     round: the page cannot know who is on a particular Sunday without
+     reading the plan, which is the very thing being gated. -->
+<script src="egbc-guard.js?v=202610121800"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Song Summary – EGBC</title>
@@ -199,9 +219,32 @@ if (!date) {
             }
         }
     } catch (e) {
-        console.error(e);
+        const refusedEarly = e && (e.code === 'permission-denied'
+            || /insufficient permissions/i.test(e.message || ''));
+        /* A REFUSAL IS NOT AN ERROR. Now that anybody signed in can reach
+           this page and the rules decide what they may read, being
+           refused is the ordinary answer for a forwarded link or a
+           mistyped date - and console.error is how a check decides a page
+           is broken. Logging it as an error made check-plan-audience
+           report "something on the console" for a page behaving exactly
+           as designed. */
+        if (refusedEarly) console.warn('song-summary: not on this plan');
+        else console.error(e);
         document.getElementById('subline').textContent = date;
-        document.getElementById('content').innerHTML = `<div class="error">Error loading data: ${e.message}</div>`;
+        /* A REFUSAL IS NOT AN ERROR, and should not read like one. Now
+           that the page lets anybody signed in reach it and the rules
+           decide what they may read, "permission-denied" is the ordinary
+           answer for somebody who was not on this Sunday's email - a
+           forwarded link, or the wrong date typed in. Telling them
+           "Error loading data: Missing or insufficient permissions"
+           invites them to report a fault that is not one. */
+        const refused = e && (e.code === 'permission-denied'
+            || /insufficient permissions/i.test(e.message || ''));
+        document.getElementById('content').innerHTML = refused
+            ? `<div class="error">This plan was sent to the people serving on ${escapeHtml(date)}.
+               If you think you should be able to see it, ask whoever sent the email to add you
+               to that Sunday&rsquo;s rota.</div>`
+            : `<div class="error">Error loading data: ${escapeHtml(e.message || String(e))}</div>`;
     }
 }
 </script>

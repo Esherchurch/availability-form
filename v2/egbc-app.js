@@ -239,6 +239,17 @@
          somebody is serving on. It is the address book id, which is what
          the rota stores - never the uid. */
       memberId: p.memberId || '',
+      /* THE SIGN-IN ACCOUNT, which is a different thing from memberId and
+         is what the DATABASE knows somebody by. Two screens need it and
+         neither could have it before: a comment on a pin board is stored
+         with the uid that wrote it (7f), and the Sunday plan's audience
+         is a list of uids. Both were quietly doing nothing - the comment
+         box in the app said "you need to be signed in" to somebody who
+         was, and Home showed no plan to a preacher who was on one.
+         The comment above still stands: the ROTA is keyed by memberId,
+         and this is not that. */
+      uid: (global.EGBCAuth && EGBCAuth.user && EGBCAuth.user()
+            && EGBCAuth.user().uid) || '',
       teams: teams,
       adminFor: p.adminFor || [],
       isMaster: !!(global.EGBCAuth && EGBCAuth.isMaster && EGBCAuth.isMaster()),

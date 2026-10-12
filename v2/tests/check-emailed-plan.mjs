@@ -334,6 +334,23 @@ async function seed() {
     appOrder.indexOf(SONG1) !== -1 && appOrder.indexOf(SONG2) !== -1,
     appOrder.slice(0, 260));
 
+  /* AND IT WROTE DOWN WHO THE PLAN IS FOR (Martin, 12 Oct 2026). The
+     audience is what lets a preacher on no team open the link in their
+     own email, and it is written when the plan is saved or sent - so
+     Send is exactly where to check it. */
+  ok('  and who the plan is for, so the email’s link will work',
+    appOrder.indexOf('"audience"') !== -1 && appOrder.indexOf(uid) !== -1,
+    appOrder.slice(0, 300));
+  /* THE PEOPLE IT COULD NOT FIND ARE WRITTEN DOWN TOO, which Martin
+     asked for by name: this event's serviceLeader and speaker are typed
+     names that are not in the address book, so they cannot become uids.
+     Silently dropping them is how somebody ends up unable to see a plan
+     with nobody knowing why. */
+  ok('  and the names it could not place are recorded, not dropped',
+    appOrder.indexOf('audienceUnresolved') !== -1
+      && /Leader Synthetic|Speaker Synthetic/.test(appOrder),
+    appOrder.slice(0, 400));
+
   /* ---- 2. CoreTeamApp.html, the installed one --------------------- */
   console.log('\nCoreTeamApp, the installed one:');
   await clearServices();

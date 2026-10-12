@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-plan-audience.js?v=202610122100"></script>
 <script src="egbc-auth.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Worship Team" data-role="leader"></script>
 <meta charset="UTF-8">
@@ -526,6 +527,56 @@ window.selectEvent = async () => {
     }
 };
 
+/* WHO THE PLAN IS FOR (Martin, 12 Oct 2026). The policy is in
+   egbc-plan-audience.js so this page and egbc-core-planner.js cannot
+   drift; the two lookups differ only because this page is on the
+   modular SDK and that one is on compat. */
+async function audienceFor(theDate) {
+    const empty = { audience: [], unresolved: [], withoutAccount: [] };
+    try {
+        const ev = eventsForDay.filter(e => e && e.date === theDate);
+        /* Every service that day, not only the chosen one: a Sunday with
+           a morning and an evening sends one email between them. */
+        const merged = { assignments: {}, serviceLeader: '', speaker: '' };
+        ev.forEach(e => {
+            Object.keys(e.assignments || {}).forEach(r => {
+                merged.assignments[r + '|' + e.date + (e.startTime || '')] = e.assignments[r];
+            });
+            if (!merged.serviceLeader) merged.serviceLeader = e.serviceLeader || '';
+            if (!merged.speaker) merged.speaker = e.speaker || '';
+        });
+        return await EGBCPlanAudience.build(merged, {
+            findMemberIdsByNames: async (names) => {
+                const out = {};
+                for (const n of names) {
+                    const s = await getDocs(query(collection(db, 'addressBook'),
+                        where('name', '==', n), limit(2)));
+                    /* ONE MATCH ONLY: two people with the same name is
+                       exactly when a guess is dangerous, so it is left
+                       unresolved and reported instead. */
+                    if (s.size === 1) out[n] = s.docs[0].id;
+                }
+                return out;
+            },
+            findUidsByMemberIds: async (ids) => {
+                const out = {};
+                for (const id of ids) {
+                    const s = await getDocs(query(collection(db, 'users'),
+                        where('memberId', '==', id), limit(1)));
+                    if (!s.empty) out[id] = s.docs[0].id;
+                }
+                return out;
+            }
+        });
+    } catch (e) {
+        /* A plan that cannot work out its audience still saves: losing
+           the plan would be far worse than a preacher asking for the
+           link. */
+        console.warn('Could not work out who the plan is for', e);
+        return empty;
+    }
+}
+
 window.saveSchedule = async (quiet) => {
     const date = document.getElementById('serviceDate').value;
     const introText = document.getElementById('introBox').value;
@@ -546,7 +597,9 @@ window.saveSchedule = async (quiet) => {
         speaker: document.getElementById('roleSpeaker').value.trim(),
         reader: document.getElementById('roleReader').value.trim()
     };
-    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order, roles };
+    const aud = await audienceFor(date);
+    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order, roles,
+        audience: aud.audience, audienceUnresolved: aud.unresolved };
     try {
         const snap = await getDocs(q);
         if (!snap.empty) { await updateDoc(doc(db, "services", snap.docs[0].id), serviceData); }
@@ -585,7 +638,9 @@ async function saveSongSummaryToFirestore(date) {
             if (title) items.push({ type: "item", title });
         }
     }
-    await setDoc(doc(db, "songSummaries", date), { date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString() });
+    const sumAud = await audienceFor(date);
+    await setDoc(doc(db, "songSummaries", date), { date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString(),
+        audience: sumAud.audience, audienceUnresolved: sumAud.unresolved });
     return `song-summary.html?date=${date}`;
 }
 

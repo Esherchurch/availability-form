@@ -1185,11 +1185,43 @@ service cloud.firestore {
     // software reads back. Everyone signed in can see the plan for a
     // Sunday; building one is a worship job.
 
+    // EVERYONE ON THE SUNDAY PLAN EMAIL CAN READ THE PLAN (Martin,
+    // 12 Oct 2026: "That includes the preachers and service leader").
+    //
+    // The planner writes an `audience` of uids when the plan is saved or
+    // sent - the people the rota names, plus the serviceLeader and the
+    // speaker, resolved through the address book. This lets those uids
+    // read the document and nobody else.
+    //
+    // WHY A LIST AND NOT A QUESTION. Being "on this Sunday" is a fact
+    // about the rota event, the address book and the users mirror; rules
+    // cannot join three collections, and asking the page to prove it
+    // would put three reads in front of every plan anybody opens.
+    //
+    // THE TEAMS ARE NOT IN THE LIST. Worship, AV, Choir and Core Team
+    // already read these through volunteer(), and a list of their uids
+    // would be stale the moment somebody joined. Only the named people
+    // are written down, because they are the ones no team covers - which
+    // is the whole fault being fixed.
+    function onThePlan() {
+      return signedIn() && request.auth.uid in resource.data.get('audience', []);
+    }
+
+    // The field is a list of uids and nothing else. Without this a
+    // planner could put anything in it, and `audience` is a read gate.
+    function audienceShape(d) {
+      return d.get('audience', []) is list
+             && d.get('audience', []).size() <= 300
+             && d.get('audienceUnresolved', []) is list
+             && d.get('audienceUnresolved', []).size() <= 50;
+    }
+
     match /services/{serviceId} {
       // The projection PC reads the service plan. See churchShow().
       // The youth app reads it to plan a youth service. See youthGranted().
-      allow read: if volunteer() || churchShow() || youthGranted();
-      allow write: if canAct('Worship Team') || canAct('Youth Worship');
+      allow read: if volunteer() || churchShow() || youthGranted() || onThePlan();
+      allow write: if (canAct('Worship Team') || canAct('Youth Worship'))
+                   && audienceShape(request.resource.data);
     }
 
     // THIS COLLECTION HAD NO RULE AT ALL, so the catch-all at the bottom
@@ -1202,8 +1234,12 @@ service cloud.firestore {
     // One document per Sunday, keyed by the date: the song list for the
     // service, which is what ChurchShow falls back to when it has no plan.
     match /songSummaries/{date} {
-      allow read: if volunteer() || churchShow();
-      allow write: if canAct('Worship Team') || canAct('Youth Worship');
+      // The same audience as the service it belongs to: the link in the
+      // plan email goes here, so this is the document a preacher who is
+      // on no team actually opens.
+      allow read: if volunteer() || churchShow() || onThePlan();
+      allow write: if (canAct('Worship Team') || canAct('Youth Worship'))
+                   && audienceShape(request.resource.data);
     }
 
     // ---- the AV team's own two -------------------------------------

@@ -39,6 +39,7 @@
      (F-141). egbc-auth.js points it at the emulator on localhost, but only
      if it is loaded BEFORE that line runs - hence here. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-plan-audience.js?v=202610122100"></script>
 <script src="egbc-auth.js?v=202610121600"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
@@ -296,7 +297,7 @@
 <script src="egbc-events-bookings.js?v=202610101200"></script>
 <script src="egbc-events-groups.js?v=202610101200"></script>
 <script src="egbc-events-home.js?v=202610101200"></script>
-<script src="egbc-app.js?v=202610121600"></script>
+<script src="egbc-app.js?v=202610122200"></script>
 <script src="egbc-app-events.js?v=202610101200"></script>
 <script src="egbc-app-kids.js?v=202610101200"></script>
 <script src="egbc-app-listen.js?v=202610101200"></script>
@@ -344,7 +345,40 @@ const db = firebase.firestore(EGBCAuth.app);
    the first draw shows what is already known and the rest arrives.
    refresh() is a no-op if the person has moved on (F-131). */
 
-var HOME = { loaded: false, ready: false, serving: [], events: [], groups: [], family: [], news: [] };
+var HOME = { loaded: false, ready: false, serving: [], events: [], groups: [], family: [], news: [], plans: [] };
+
+/* THE SUNDAY PLANS THIS PERSON IS ON (Martin, 12 Oct 2026: "the
+   read-only plan shows on Home for anyone in the audience").
+
+   Asked of songSummaries, because that is the document the plan email
+   links to and the one the audience is written onto. The query says
+   array-contains my uid, which is exactly what the read rule allows -
+   so every document it can return is one this person may read, and the
+   rules are satisfied by the query's own shape.
+
+   A FAILURE HERE IS SILENT ON PURPOSE. Most people are on no plan, and
+   a Home screen that showed "could not load your plan" to the whole
+   church because one query was refused would be worse than the card
+   never appearing. */
+function loadMyPlan(me) {
+  if (!me || !me.uid) return Promise.resolve([]);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  return db.collection('songSummaries')
+    .where('audience', 'array-contains', me.uid)
+    .limit(12).get()
+    .then(function (snap) {
+      var out = [];
+      snap.forEach(function (d) {
+        var data = d.data() || {};
+        var when = new Date(String(d.id) + 'T00:00:00');
+        if (isNaN(when) || when < today) return;    /* last Sunday is not news */
+        out.push({ date: d.id, when: when, leader: data.worshipLeader || '' });
+      });
+      out.sort(function (a, b) { return a.when - b.when; });
+      return out.slice(0, 2);
+    })
+    .catch(function () { return []; });
+}
 
 function homeMonth(d) {
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
@@ -547,7 +581,11 @@ function loadHome(me) {
     /* F-145: "This Sunday, for parents". The events window's, and it
        answers an empty list for anybody who is not one. */
     H && H.myFamilyThisSunday ? H.myFamilyThisSunday().then(function (r) { HOME.family = r || []; },
-      function () {}) : Promise.resolve()
+      function () {}) : Promise.resolve(),
+    /* THE SUNDAY PLAN THEY ARE ON (Martin, 12 Oct 2026). A preacher or a
+       service leader is on no team, so nothing else on this screen would
+       ever mention them - and the email's link was refusing them. */
+    loadMyPlan(me).then(function (r) { HOME.plans = r; }, function () {})
   ];
   /* `ready` tells an empty Home the difference between still looking and
      there being nothing. Without it, a new person reads "nothing for you
@@ -560,6 +598,27 @@ A.screen('me', 'home', function (me) {
 
   var out = '<div><p class="hello">' + homeGreeting() + ', ' + A.esc(me.first) + '</p>'
           + '<p class="sub">' + A.esc(homeToday()) + ' · here is your week</p></div>';
+
+  /* YOU ARE ON THIS SUNDAY'S PLAN (Martin, 12 Oct 2026). Near the top,
+     because for a preacher or a service leader it is the only thing on
+     this screen that is about them - they are on no team, so "You are
+     serving" never mentions them.
+
+     IT DOES NOT SAY "you're preaching". The audience is a list of uids;
+     it does not record who is the speaker and who is playing bass, and
+     guessing from a typed name would be wrong the first time two people
+     share one. What it can say truthfully is that the plan was sent to
+     them, which is the thing they need to know. */
+  if (HOME.plans && HOME.plans.length) {
+    out += sec('This Sunday', HOME.plans.map(function (p) {
+      var when = p.when.toLocaleDateString('en-GB',
+        { weekday: 'long', day: 'numeric', month: 'long' });
+      return row('book-open-text', 'You are on the plan for ' + when,
+        'The songs and the order of service'
+          + (p.leader ? ' · led by ' + p.leader : ''),
+        null, 'open:song-summary.html?date=' + p.date);
+    }).join(''));
+  }
 
   /* You are serving */
   if (HOME.serving.length) {

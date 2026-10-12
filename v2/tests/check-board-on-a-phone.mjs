@@ -703,6 +703,26 @@ async function seed() {
     + 'var f=document.querySelector("#appNoteSheet iframe.ns-yt");'
     + 'return f?f.getAttribute("src"):"(no player)"})()'));
   ok('  with the video playing in place', /youtube\.com\/embed\/dQw4w9WgXcQ/.test(appPlayer), appPlayer);
+
+  /* AND A COMMENT CAN BE POSTED FROM THE APP, not only read there.
+     This check used to open the app's note and check the comment it
+     found - which passed while posting one was completely broken: the
+     app's who() carried no uid, so the module decided nobody was signed
+     in and refused to post. Reading somebody else's comment proves the
+     query; only posting proves the box. */
+  const appComment = 'Synthetic comment posted from the app';
+  await ev('(function(){var b=document.querySelector("#appNoteSheet [data-bp-box]");'
+    + 'if(!b)return "no box";b.value=' + JSON.stringify(appComment) + ';return "typed"})()');
+  await ev('(function(){var b=document.querySelector("#appNoteSheet [data-bp=\\"send\\"]");'
+    + 'if(!b)return "no button";b.click();return "sent"})()');
+  await sleep(2500);
+  const posted = await commentsOn('nph_mid');
+  ok('  a comment posted from the app reaches the database',
+    JSON.stringify(posted.map(d => d.fields || {})).indexOf(appComment) !== -1,
+    posted.length + ' comments on that note');
+  await until('  and appears on the note in the app',
+    '(function(){var h=document.querySelector("#appNoteSheet [data-bp-comments]");'
+    + 'return h && h.textContent.indexOf("posted from the app") !== -1 ? "yes" : "no"})()', 30);
   ok('  nothing of the app is left showing over it',
     String(await ev('(function(){var e=document.elementFromPoint(187,8);'
       + 'var s=document.getElementById("appNoteSheet");'

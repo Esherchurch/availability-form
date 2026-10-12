@@ -584,6 +584,54 @@
     spAutoFit();
   }
 
+  /* The audience for a date, with this host's two lookups. The policy -
+     who counts, and what "did not resolve" means - is in
+     egbc-plan-audience.js, because SundayServicePlanner.html has to do
+     exactly the same thing with a different SDK. */
+  async function spAudienceFor(date) {
+    var empty = { audience: [], unresolved: [], withoutAccount: [] };
+    try {
+      var ev = spEventsForDay.filter(function (e) { return e && e.date === date; });
+      /* Every service that day, not just the chosen one: a Sunday with a
+         morning and an evening sends one email between them. */
+      var merged = { assignments: {}, serviceLeader: '', speaker: '' };
+      ev.forEach(function (e) {
+        Object.keys(e.assignments || {}).forEach(function (r) {
+          merged.assignments[r + '|' + e.date + (e.startTime || '')] = e.assignments[r];
+        });
+        if (!merged.serviceLeader) merged.serviceLeader = e.serviceLeader || '';
+        if (!merged.speaker) merged.speaker = e.speaker || '';
+      });
+      return await EGBCPlanAudience.build(merged, {
+        findMemberIdsByNames: async function (names) {
+          var out = {};
+          for (var i = 0; i < names.length; i++) {
+            var s = await db().collection('addressBook').where('name', '==', names[i]).limit(2).get();
+            /* ONE MATCH ONLY. Two people with the same name is exactly
+               when a guess is dangerous, so it is left unresolved and
+               reported rather than picking the first. */
+            if (s.size === 1) out[names[i]] = s.docs[0].id;
+          }
+          return out;
+        },
+        findUidsByMemberIds: async function (ids) {
+          var out = {};
+          for (var i = 0; i < ids.length; i++) {
+            var s = await db().collection('users').where('memberId', '==', ids[i]).limit(1).get();
+            if (!s.empty) out[ids[i]] = s.docs[0].id;
+          }
+          return out;
+        }
+      });
+    } catch (e) {
+      /* A plan that cannot work out its audience still saves. Losing the
+         plan because a lookup failed would be a far worse fault than a
+         preacher having to ask for the link. */
+      console.warn('Could not work out who the plan is for', e);
+      return empty;
+    }
+  }
+
   async function spSave(quiet) {
     var date = document.getElementById('spDate').value;
     if (!date) { toast('Please select a date first'); return; }
@@ -601,6 +649,14 @@
       } else { order.push({ type: 'item', title: b.querySelector('.item-title').value }); }
     });
     var serviceData = { date: date, worshipLeader: spLeader, serviceNotes: document.getElementById('spTypeNotes').value, introText: document.getElementById('spIntro').value, outroText: document.getElementById('spOutro').value, roleNotes: roleNotes, order: order };
+    /* WHO THE PLAN IS FOR, written onto it (Martin, 12 Oct 2026:
+       "EVERYONE ON THE SUNDAY PLAN EMAIL CAN SEE THE PLAN — that
+       includes the preachers and service leader"). Without this a
+       preacher on no team opens the link in their own email and is told
+       "No access". */
+    var aud = await spAudienceFor(date);
+    serviceData.audience = aud.audience;
+    serviceData.audienceUnresolved = aud.unresolved;
     loader(true, 'Saving...');
     try {
       var snap = await db().collection('services').where('date', '==', date).get();

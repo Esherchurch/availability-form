@@ -239,6 +239,19 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'teamVideos', 'v_choir'), { title: 'Choir clip', team: 'Choir' });
   await setDoc(doc(db, 'videoSections', 'kids-church'), { team: 'Kids Church', names: ['Church Show'] });
   await setDoc(doc(db, 'services', 's1'), { date: '2026-09-06' });
+  /* THE SUNDAY PLAN AND ITS AUDIENCE (Martin, 12 Oct 2026). Two
+     Sundays, so "can read their own" and "cannot read another" are
+     different questions and not the same one asked twice. u_preach is
+     on NO team, which is the whole point: a preacher locked out of an
+     email that was sent to them. */
+  await setDoc(doc(db, 'services', 'sv_their_sunday'), {
+    date: '2026-11-08', audience: ['u_preach'], audienceUnresolved: [] });
+  await setDoc(doc(db, 'services', 'sv_other_sunday'), {
+    date: '2026-11-15', audience: ['u_someone_else'], audienceUnresolved: [] });
+  await setDoc(doc(db, 'songSummaries', '2026-11-08'), {
+    date: '2026-11-08', items: [], audience: ['u_preach'], audienceUnresolved: [] });
+  await setDoc(doc(db, 'songSummaries', '2026-11-15'), {
+    date: '2026-11-15', items: [], audience: ['u_someone_else'], audienceUnresolved: [] });
   await setDoc(doc(db, 'inventory', 'inv1'), { name: 'Synthetic mixing desk', where: 'Main Hall' });
   await setDoc(doc(db, 'av_schematic', 'main'), { boxes: [] });
   await setDoc(doc(db, 'resources', 'r1'), { title: 'Charter' });
@@ -2280,6 +2293,60 @@ await check('an Attender cannot read the rota', 'deny', () => getDoc(doc(as('att
 await check('an Attender cannot read who can serve when', 'deny', () => getDoc(doc(as('attender'), 'availability', 'a1')));
 await check('an Attender cannot read the song library', 'deny', () => getDoc(doc(as('attender'), 'songs', 'sg1')));
 await check('an Attender cannot read a service plan', 'deny', () => getDoc(doc(as('attender'), 'services', 's1')));
+/* ── EVERYONE ON THE SUNDAY PLAN EMAIL CAN READ THE PLAN ─────────────
+   Martin, 12 Oct 2026: "That includes the preachers and service leader."
+   The link in the plan email goes to song-summary.html, and a preacher
+   on no team was getting "No access" from their own email.
+
+   u_preach is on NO team: teams [], adminFor [], not a master admin. So
+   volunteer() is false for them and the ONLY thing that can let them in
+   is being named on that Sunday's plan. */
+{
+  const preacher = () => env.authenticatedContext('u_preach').firestore();
+  await check('a speaker on no team reads the plan for THEIR Sunday', 'allow',
+    () => getDoc(doc(preacher(), 'services', 'sv_their_sunday')));
+  await check('and the song summary the email links to', 'allow',
+    () => getDoc(doc(preacher(), 'songSummaries', '2026-11-08')));
+  /* THE ONE THAT MATTERS. Being on one Sunday is not being on the rota. */
+  await check('but NOT another Sunday’s plan', 'deny',
+    () => getDoc(doc(preacher(), 'services', 'sv_other_sunday')));
+  await check('nor its song summary', 'deny',
+    () => getDoc(doc(preacher(), 'songSummaries', '2026-11-15')));
+  /* An AV member reads it because they are a volunteer, not because they
+     are named - which is why the teams are deliberately NOT written into
+     the audience list. */
+  await check('somebody on AV reads it without being named on it', 'allow',
+    () => getDoc(doc(as('av'), 'services', 'sv_their_sunday')));
+  /* An Attender is on no team AND not on the plan. */
+  await check('an Attender who is not on the email cannot read it', 'deny',
+    () => getDoc(doc(as('attender'), 'services', 'sv_their_sunday')));
+  await check('nor its song summary', 'deny',
+    () => getDoc(doc(as('attender'), 'songSummaries', '2026-11-08')));
+  /* BEING ON THE PLAN IS NOT BEING A PLANNER. */
+  await check('and being named on it does not let them change it', 'deny',
+    () => setDoc(doc(preacher(), 'services', 'sv_their_sunday'),
+      { date: '2026-11-08', audience: ['u_preach'], order: [] }));
+  /* The audience is a read gate, so it has to be a list of uids and not
+     whatever a page felt like writing.
+
+     AS SOMEBODY WHO CAN ACTUALLY WRITE. The first version of this used
+     samy, who is on Worship Team but administers nothing - so the write
+     was refused by the write rule and the assertion passed without ever
+     reaching the shape check. Deliberately breaking audienceShape() to
+     `return true` is what showed it: 1086/1086, unchanged. An assertion
+     that passes with the thing it tests removed is not an assertion.
+     A positive control sits beside it for the same reason. */
+  await check('a planner writes a plan with a proper audience', 'allow',
+    () => setDoc(doc(as('martin'), 'services', 'sv_shape'),
+      { date: '2026-11-08', audience: ['u_preach'], audienceUnresolved: [] }));
+  await check('but the audience has to be a list, not a name', 'deny',
+    () => setDoc(doc(as('martin'), 'services', 'sv_shape2'),
+      { date: '2026-11-08', audience: 'u_preach' }));
+  await check('and what did not resolve has to be a list too', 'deny',
+    () => setDoc(doc(as('martin'), 'services', 'sv_shape3'),
+      { date: '2026-11-08', audience: [], audienceUnresolved: 'Pat' }));
+}
+
 await check('an Attender cannot read the AV knowledge base', 'deny', () => getDoc(doc(as('attender'), 'kb_howto_av', 'kb1')));
 await check('an Attender cannot read the hirer contacts', 'deny', () => getDoc(doc(as('attender'), 'contacts', 'c_guest')));
 await check('an Attender cannot read another person\'s user record', 'deny', () => getDoc(doc(as('attender'), 'users', 'u_samy')));

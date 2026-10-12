@@ -109,7 +109,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Worship & AV charter"
+  "title": "Worship & AV Team Charter"
  },
  {
   "page": "Youthcharter.html",
@@ -323,6 +323,20 @@
   "tinyText": 0,
   "blocked": "",
   "title": "Safeguarding — Synthetic Road Community Church"
+ },
+ {
+  "page": "song-summary.html",
+  "over": 0,
+  "client": 375,
+  "worst": null,
+  "worstW": 0,
+  "websiteBar": true,
+  "menu": false,
+  "widestTable": 0,
+  "clipped": [],
+  "tinyText": 1,
+  "blocked": "",
+  "title": "Song Summary – EGBC"
  },
  {
   "page": "stickynotes.html",

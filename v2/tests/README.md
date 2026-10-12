@@ -26,6 +26,10 @@ is proving something throws wraps it in `expectThrow()`.
 | The home page fits on one screen, and the phone order is right | `node tests/check-home-fits.mjs` (add `--shots`) |
 | Giving: the bank details are one setting, shown on the app and the website, and no number is in the repository | `node tests/check-give.mjs` (add `--shots`) |
 | A plan that was emailed but never saved still shows its songs, in all three planners, and Send saves | `node tests/check-emailed-plan.mjs` |
+| Everyone on the Sunday plan email can open the plan - a preacher on no team, their Sunday and not another | `node tests/check-plan-audience.mjs` |
+| "Checking access" does not spin for ever | `node tests/check-guard-does-not-spin.mjs` |
+| Worship, AV and Choir see the same pages, both ways | `node tests/check-worship-av-one-team.mjs` |
+| **Every check, one after another** | `node tests/run-all.mjs` (add `--list` to see what it runs and skips) |
 | One piece of code decides where a note lands on the corkboard, and stickynotes.html parses | `node tests/check-note-placement.mjs` (a second, no browser) |
 | The pin board on a phone: small post-its, one note filling the screen, comments - the same screen in the app and on the website | `node tests/check-board-on-a-phone.mjs` (add `--shots`) |
 | A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
