@@ -179,6 +179,50 @@ The reviewing window opened app.html as Martin (master admin) on 11 Oct and foun
 - **Fits the phone:** the app is the full width of the phone, with no grey margins. At 375px nothing scrolls sideways and nothing is cut off. The tab bar clears the phone's own buttons (§7).
 - **Proof is pictures, not numbers.** Before reporting, take a 375px screenshot of the real app next to the same screen of the mock-up, for each persona the mock-up has (Martin, Sarah, Karen, Jo), using the emulator with matching test people. Send the pairs. **Martin approves by eye.** Nothing in §7d part B starts until Home and the shell match.
 
+## 7f. Pin boards on a phone (Martin, 12 Oct 2026)
+
+Martin: *"they will be posting youtube links they find, jotting ideas etc. The way i see it working is similar to the 'how to' videos … you have a small version of whatever the card is, but when you press on it it fills the phone screen so you can read it or add to it etc. So keep post-its but you can make them much smaller and as people tap they get bigger."*
+
+Today stickynotes at 375px is a 3200×2400 canvas, with one of five notes on screen. The computer corkboard **stays exactly as it is**. This is how the **same notes** show on a phone, in the app and on the website alike, at widths under about 700px.
+
+**Small post-its, in a grid**
+- **Two small post-its per row** at 375px, keeping the post-it look: the category colour, the slight tilt, the pin and the handwritten title.
+- Each small one shows only the **title**, a **YouTube thumbnail** if it has a video link (the way the How To cards do), **who** posted it and the reaction counts.
+- **Newest first.** The x/y corkboard positions are **ignored for display and never written** on a phone.
+- The category chips stay as a row to filter. **"Add an idea"** is a big button at the top.
+
+**Tap: the post-it fills the screen** (as the How To cards open)
+- the full words, readable
+- the **video playing in place**, or the link as a big button
+- who and when
+- **React**: Love it, Like, Not sure (as today)
+- **Comments (new)**: a short reply under the note, e.g. "we could do this in Bb", with the name and date. Anyone who can post on that board can comment.
+- **Edit**, for the person who posted it (and leaders), using the same form as adding
+- leaders' **Archive** and **Remove** as small visible buttons, never behind "…"
+- a big **Close**, plus the phone's back gesture/button closes it. **Swipe left or right** goes to the next or previous note.
+
+**Adding on a phone:** the same add form, laid out for a phone with the title, words, category and link. Paste a YouTube link and its thumbnail shows. The new note gets a free spot on the corkboard **using stickynotes' own placement code** (one piece of code decides where notes go). On a phone it simply appears first in the grid.
+
+**Comments: data and rules**
+- The board is one document holding every note, so comments **must not** go in it. Use a separate collection, one document per comment, e.g. `boardComments/{id}` with boardId, noteId, text (≤ 500), byUid, byName and createdAt.
+- **Read:** whoever can read that board.
+- **Create:** whoever can write that board (adults on the team). On the **moderated youth boards** (Youth, ReNu, Lazers), young people **don't comment** at launch. Their way in stays "Suggest an idea" through a leader.
+- **Delete:** the comment's author, or a leader of the board. No editing comments.
+- No surnames or contact details for young people, as now.
+
+**The app:** the board sheet (0fa59143) uses the same small-post-it grid and full-screen note, so the app and the phone website match. "Add an idea" opens the add form in the app. "The whole board" opens stickynotes in app mode, which is now this phone layout, not the canvas.
+
+**Proof:**
+- at 375px: every note is reachable without sideways panning; tapping one fills the screen; a YouTube note plays
+- a comment is added and seen by a second team member
+- someone off the team can't read comments
+- a young person can't comment
+- a phone add gets a corkboard spot that doesn't overlap another note
+- the computer corkboard is unchanged, checked side by side
+- deliberate breaks for each
+
+Pairs at 375px for Martin to approve by eye.
+
 ## 8. Who builds what
 
 - **Main window:** the app shell (spaces, tabs, Home, Me, Running things, the family rule, the phone fixes) and **A-038** (what an Attender sees). It owns the hub and the shell.
