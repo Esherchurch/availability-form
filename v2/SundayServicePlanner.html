@@ -455,10 +455,28 @@ window.selectEvent = async () => {
         teamBody.innerHTML += `<tr><td class="w-1/4">${role}</td><td class="w-1/4">${name}</td><td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
     });
 
+    /* NO SAVED SCHEDULE BUT THE PLAN WAS EMAILED: show the emailed order
+       rather than an empty one (Martin, 12 Oct 2026). 11 Oct was sent but
+       never saved - Send writes songSummaries/{date}, Save Schedule writes
+       services - so ChurchShow showed the plan and both planners showed
+       the leaders and no songs. Nothing had deleted anything.
+
+       BOTH READS AT ONCE, so the fallback costs no time on a fresh date:
+       in series it delayed the default order of service noticeably. */
     const q = query(collection(db, "services"), where("date", "==", data.date));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-        const saved = snap.docs[0].data();
+    const [snap, ss] = await Promise.all([
+        getDocs(q),
+        getDoc(doc(db, "songSummaries", data.date))
+            .catch(e => { console.warn("Could not read the emailed plan", e); return null; })
+    ]);
+    let saved = !snap.empty ? snap.docs[0].data() : null;
+    if (!saved && ss && ss.exists() && (ss.data().items || []).length) {
+        saved = { order: (ss.data().items || []).map(it => ({
+            type: it.type, title: it.title || "",
+            keys: it.keys || [], notes: it.notes || ""
+        })) };
+    }
+    if (saved) {
         if (saved.roles) {
             if (saved.roles.serviceLeader && !data.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
             if (saved.roles.worshipLeader) document.getElementById('roleWorshipLeader').value = saved.roles.worshipLeader;
@@ -496,7 +514,7 @@ window.selectEvent = async () => {
     } else { autoFitTextAreas(); }
 };
 
-window.saveSchedule = async () => {
+window.saveSchedule = async (quiet) => {
     const date = document.getElementById('serviceDate').value;
     const introText = document.getElementById('introBox').value;
     const outroText = document.getElementById('outroBox').value;
@@ -521,7 +539,13 @@ window.saveSchedule = async () => {
         const snap = await getDocs(q);
         if (!snap.empty) { await updateDoc(doc(db, "services", snap.docs[0].id), serviceData); }
         else { await addDoc(collection(db, "services"), serviceData); }
-        alert("Service saved.");
+        /* QUIET WHEN SENDING, because Send calls this first and two
+           pop-ups for one button is how people learn to dismiss them
+           without reading. A FAILURE still speaks, quiet or not: the
+           whole point is that a plan which has gone out is never lost,
+           so silence on a failed save would be the original fault with
+           a smaller window. */
+        if (!quiet) alert("Service saved.");
     } catch (err) {
         console.error("Failed to save service:", err);
         alert("Could not save the service: " + (err?.message || err));
@@ -555,6 +579,12 @@ async function saveSongSummaryToFirestore(date) {
 
 window.emailSchedule = async () => {
     const date = document.getElementById('serviceDate').value || "TBC";
+    /* SENDING SAVES THE SCHEDULE FIRST, so a plan that has gone out to
+       the team is never missing from the planners (Martin, 12 Oct 2026).
+       Before this, Send wrote only songSummaries, and a plan sent but
+       never saved showed its leaders and no songs. TBC is skipped
+       because a services document is keyed by a real date. */
+    if (date !== "TBC") await window.saveSchedule(true);
     const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";

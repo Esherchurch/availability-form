@@ -518,11 +518,37 @@
       teamBody.innerHTML += '<tr><td>' + e[0] + '</td><td>' + personName(e[1]) + '</td>' + NOTE_CELL + '</tr>';
     });
 
+    /* NO SAVED SCHEDULE BUT THE PLAN WAS EMAILED: show the emailed order
+       rather than an empty one (Martin, 12 Oct 2026). 11 Oct was sent but
+       never saved - Send writes songSummaries/{date}, Save writes
+       services - so ChurchShow, which falls back to songSummaries, showed
+       the plan while both planners showed the leaders and no songs.
+       Nothing had deleted anything.
+
+       BOTH READS AT ONCE, not one after the other. Asking for the
+       emailed plan only after the services query came back empty put a
+       second round trip in front of every fresh date, and the planner
+       drew its default order that much later - enough that
+       check-core-planner caught the phone app with an empty order of
+       service. Concurrently, the fallback costs nothing in time. The
+       emailed plan is read whether or not it is needed, which is one
+       small document and the honest price of not being slower. */
     var q = db().collection('services').where('date', '==', data.date);
-    var snap = await q.get();
+    var both = await Promise.all([
+      q.get(),
+      db().collection('songSummaries').doc(data.date).get()
+        .catch(function (e) { console.warn('Could not read the emailed plan', e); return null; })
+    ]);
+    var snap = both[0], ss = both[1];
     document.getElementById('sp-order').innerHTML = '';
-    if (!snap.empty) {
-      var saved = snap.docs[0].data();
+    var saved = !snap.empty ? snap.docs[0].data() : null;
+    if (!saved && ss && ss.exists && (ss.data().items || []).length) {
+      saved = { order: (ss.data().items || []).map(function (it) {
+        return { type: it.type, title: it.title || '',
+                 keys: it.keys || [], notes: it.notes || '' };
+      }) };
+    }
+    if (saved) {
       document.getElementById('spIntro').value = saved.introText || '';
       document.getElementById('spOutro').value = saved.outroText || '';
       document.getElementById('spTypeNotes').value = saved.serviceNotes || data.description || '';
@@ -558,7 +584,7 @@
     spAutoFit();
   }
 
-  async function spSave() {
+  async function spSave(quiet) {
     var date = document.getElementById('spDate').value;
     if (!date) { toast('Please select a date first'); return; }
     var roleNotes = {};
@@ -580,13 +606,22 @@
       var snap = await db().collection('services').where('date', '==', date).get();
       if (!snap.empty) await db().collection('services').doc(snap.docs[0].id).update(serviceData);
       else await db().collection('services').add(serviceData);
-      toast('Service saved');
+      /* QUIET WHEN SENDING, because Email calls this first and two
+         toasts for one button teaches people to ignore both. A FAILURE
+         still speaks either way: the point of saving on send is that a
+         plan which has gone out is never lost, so a silent failed save
+         would be the original fault in a smaller window. */
+      if (!quiet) toast('Service saved');
     } catch (e) { toast('Error saving'); }
     loader(false);
   }
 
   async function spEmail() {
     var date = document.getElementById('spDate').value || 'TBC';
+    /* SENDING SAVES THE SCHEDULE FIRST, so a plan that has gone to the
+       team is never missing from the planners (Martin, 12 Oct 2026).
+       TBC is skipped: a services document is keyed by a real date. */
+    if (date !== 'TBC') await spSave(true);
     var serviceNotes = document.getElementById('spTypeNotes').value || '';
     var introText = document.getElementById('spIntro').value || '';
     var outroText = document.getElementById('spOutro').value || '';

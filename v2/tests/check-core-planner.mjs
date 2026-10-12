@@ -264,7 +264,7 @@ async function seed() {
     errs = [];
     await open();
 
-    const p1 = await planner(label);
+    let p1 = await planner(label);
     ok('  the planner is on the screen', p1.mounted === 'yes', JSON.stringify(p1));
     if (p1.mounted !== 'yes') return;
 
@@ -299,7 +299,22 @@ async function seed() {
         + ' services that day', choice.chosen === '', JSON.stringify(choice));
     }
     /* THE DEFAULT ORDER, which is what a planner opens with: seven songs
-       and two items, "Welcome and Notices" then "Message". */
+       and two items, "Welcome and Notices" then "Message".
+
+       WAIT FOR IT, rather than snapshotting and hoping. This was a race
+       all along and nothing had lost it yet: the planner draws the
+       default order after reading the database, and p1 was taken the
+       moment the screen appeared. On 12 Oct the emailed-plan fallback
+       added a read in front of that draw and the phone app lost the
+       race - reported as "0 songs", which reads exactly like a planner
+       that opens empty. The next assertion is what gave it away: "+
+       Song" then counted 8, which is the seven defaults plus the one it
+       had just added. A snapshot cannot tell "not yet" from "not at
+       all", so it has to wait for the thing it is about to measure. */
+    await until('  the default order of service is drawn',
+      '(function(){var n=document.querySelectorAll("#sp-order .song-block").length;'
+      + 'return n === 7 ? "yes" : "no"})()', 40);
+    p1 = await planner(label);
     ok('  it opens with the default order of service',
       p1.songs === 7 && p1.items === 'Welcome and Notices|Message',
       p1.songs + ' songs, items: ' + p1.items);
