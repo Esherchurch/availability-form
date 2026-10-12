@@ -88,7 +88,7 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 
 ## 8. Open findings to know about
 
-- **The test suite:**  runs every check (35/42 on 12 Oct). Known reds: check-core-planner 68/72 (red before a9843252 too), check-churchshow-page (flaky; 15/15 earlier the same day), check-website-on-a-phone (A-074), plus F-158 (events window). **Several checks only pass alone**, because they share one emulator and read each other's leftovers. The fix is for each check to own and clear its own fixture. It's a separate piece of work, not started; raise it before doing it.
+- **The test suite:** `node tests/run-all.mjs` (from `v2/`) runs every check (35/42 on 12 Oct). Known reds: check-core-planner 68/72 (red before a9843252 too), check-churchshow-page (flaky; 15/15 earlier the same day), check-website-on-a-phone (A-074), plus F-158 (events window). **Several checks only pass alone**, because they share one emulator and read each other's leftovers. The fix is for each check to own and clear its own fixture. It's a separate piece of work, not started; raise it before doing it.
 
 - **A-063:** the guard never recovers from a failed first read (queue item 2).
 - **A-064:** the Attender's mirror write doesn't arrive. Open, not established.
