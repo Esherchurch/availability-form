@@ -545,6 +545,19 @@
       var el = all[i];
       if (el === bar || bar.contains(el)) continue;
 
+      /* A FULL-SCREEN OVERLAY IS NOT A HEADER TO BE PUSHED DOWN.
+         data-egbc-overlay says "I cover the screen on purpose; leave my
+         position alone". The pin board's full-screen note (7f) is the
+         first: it asks for inset:0 and was given top:66px and a height
+         short by the same amount, so a note that should have filled the
+         phone left a strip of the page showing above it.
+
+         Deliberately NOT data-am-own, which app mode uses: stickynotes
+         marks its four stacked bars with that, and those DO still need
+         pushing down by this bar. One attribute for both would have
+         quietly stopped that and dropped the bars behind it. */
+      if (el.hasAttribute('data-egbc-overlay')) continue;
+
       var cs = window.getComputedStyle(el);
       if (cs.position !== 'sticky' && cs.position !== 'fixed') continue;
 

@@ -18,6 +18,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
 import { makeEval } from './browser-eval.mjs';
+import { giveFullAccess } from './test-account.mjs';
 
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -40,6 +41,20 @@ const rest = (method, p, body) => new Promise((res, rej) => {
       data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {}) },
     r => { let d = ''; r.on('data', c => d += c); r.on('end', () => res({ status: r.statusCode, body: d })); });
   req.on('error', rej); req.end(data);
+});
+
+/* MAKE THE TEST ACCOUNT IF IT IS NOT THERE. This check signed in and
+   assumed the account existed because some other check had made it -
+   and after the emulator was restarted it did not, so the sign-in failed
+   with auth/user-not-found and every assertion became a false zero.
+   A check that depends on another check having run is not a check. */
+const makeAccount = () => new Promise((res, rej) => {
+  const data = JSON.stringify({ email: ACCOUNT.email, password: ACCOUNT.pw, returnSecureToken: true });
+  const r = http.request({ host: 'localhost', port: 9099, method: 'POST',
+    path: '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } },
+    s => { let d = ''; s.on('data', c => d += c); s.on('end', () => res(d)); });
+  r.on('error', rej); r.end(data);
 });
 
 /* Four invented notes. The oldest is archived, so it must not show. */
@@ -122,9 +137,26 @@ const offMachine = u => {
   const ev = makeEval(send, "pinboard-card");
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1100, deviceScaleFactor: 1, mobile: false });
+  await makeAccount();   /* a no-op if it is already there */
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' }); await sleep(4000);
   await ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' +
     JSON.stringify(ACCOUNT.email) + ',' + JSON.stringify(ACCOUNT.pw) + ')', true);
+
+  /* ASK FOR AN ACCOUNT THAT CAN OPEN THE HUB, rather than hoping whichever
+     check ran last left one. This check had been red at 4/12 for a while
+     and the reason was not the card: #pinBoardCard was not on the page at
+     all, because this shared account had been left without the teams the
+     hub needs and the guard put up a door instead. That is A-023 exactly
+     - "six pages used to go unwalked behind a quiet zero because
+     check-menu.mjs had left this account as a Worship member" - and
+     check-style-every-screen already fixed itself the same way. A fresh
+     emulator does it too, so it would have come back regardless. */
+  const uid = String(await ev('((firebase.auth(EGBCAuth.app).currentUser)||{}).uid || ""'));
+  if (!uid) {
+    console.error('Could not sign in as ' + ACCOUNT.email + ' - every assertion below would be a false zero.');
+    server.close(); chrome.kill(); process.exit(2);
+  }
+  await giveFullAccess(uid, ACCOUNT.email);
 
   for (const [label, w, h] of [['desktop', 1280, 1100], ['phone', 375, 820]]) {
     await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 500 });

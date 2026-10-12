@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610112000"></script>
-<script src="egbc-shell.js?v=202610082145" data-title="Ideas pin board"></script>
+<script src="egbc-shell.js?v=202610121800" data-title="Ideas pin board"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -248,11 +248,20 @@
   ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 
   @media (max-width:600px) {
-    header { height:54px; padding:0 14px; }
+    /* NO HARDCODED `top` HERE ANY MORE. These used to say top:54px and
+       top:90px, which fought snStack() - the script that MEASURES each
+       fixed bar and writes --sn-top-N from what it finds. At 375px the
+       header wraps and is taller than 54px, so the three bars sat on top
+       of one another and the first row of post-its was behind them.
+       A measured number and a guessed one cannot both be right; the
+       measurement wins, and these now only set the sizes it measures.
+
+       Heights are auto for the same reason: a 36px bar holding a 44px
+       button does not hold it, it lets it hang out over the next one. */
+    header { padding:0 14px; height:auto; min-height:54px; }
     .header-title { font-size:1.05rem; }
-    .pages-bar { top:54px; height:36px; }
-    .filter-bar { top:90px; height:42px; }
-    .board-outer { top:132px; }
+    .pages-bar { height:auto; min-height:36px; padding:4px 14px; }
+    .filter-bar { height:auto; min-height:42px; padding:6px 14px; }
     .form-row { grid-template-columns:1fr; }
     .note { width:230px; }
   }
@@ -288,6 +297,192 @@
   #queue .q-row { flex-wrap: wrap; }
   #queue .q-btn { height: 48px; flex: 1; justify-content: center; }
 }
+  /* ---- THE PHONE LAYOUT (APP-DESIGN-BRIEF 7f) ---------------------
+     Under 700px the corkboard is put away and the same notes are drawn
+     as a grid of small post-its, two per row. 700px rather than a phone
+     width on purpose: a narrow window on a laptop is the same problem as
+     a phone, and the brief says "at widths under about 700px".
+
+     DESIGN.md applies here like everywhere: nothing under 12px, no
+     weight above 600, no capitals, and no pill-shaped controls - so the
+     radii below stay well under 20px. The handwritten font is kept for
+     the titles because that is what makes a post-it a post-it. */
+  @media (max-width: 700px) {
+    body { overflow: auto; }
+    .board-outer, .drag-hint { display: none !important; }
+    #phoneBoard { display: block; }
+  }
+  @media (min-width: 701px) {
+    /* Belt and braces: the container is also hidden by the `hidden`
+       attribute, which JS removes only on a phone. */
+    #phoneBoard { display: none !important; }
+  }
+
+  /* BELOW THE PAGE'S OWN FIXED BARS. The header, the page tabs and the
+     filter row are all position:fixed, and snStack() measures them into
+     --sn-top-3 for exactly this reason - the corkboard uses the same
+     number. Without it the first row of post-its sits underneath them
+     and "Add an idea" is off the top of the screen entirely.
+
+     My assertions did not catch that and could not have: they measured
+     widths, and a note hidden behind a bar is the right width. The
+     375px screenshot caught it, which is what the screenshots are for. */
+  #phoneBoard { padding: calc(var(--sn-top-3, 152px) + 12px) 12px 90px; }
+  /* NOTHING IN HERE MAY BE WIDER THAN THE PHONE. A pasted link in a
+     title has no spaces in it and cannot wrap, which is exactly what
+     pushed the hub's notices off a 375px screen. */
+  #phoneBoard, #phoneBoard * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+
+  .pb-add {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 48px; margin: 0 0 12px;
+    background: var(--teal); color: #fff; border: none; border-radius: 12px;
+    font-family: var(--font); font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .pb-add:active { background: var(--brand-dark, #2a4a4b); }
+
+  /* TWO PER ROW at 375px, which is what Martin asked for. */
+  .pb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+
+  .pb-note {
+    position: relative; display: block; width: 100%; text-align: left;
+    border: none; padding: 16px 10px 10px; border-radius: 3px;
+    font-family: var(--font); cursor: pointer; overflow: hidden;
+    box-shadow: 0 2px 7px rgba(0,0,0,.18);
+  }
+  /* The tilt, small and deterministic off the note's own place in the
+     grid - the same idea as the corkboard, so a board still looks like a
+     board rather than a table of results. */
+  .pb-note:nth-child(4n+1) { transform: rotate(-1.4deg); }
+  .pb-note:nth-child(4n+2) { transform: rotate(1.1deg); }
+  .pb-note:nth-child(4n+3) { transform: rotate(.8deg); }
+  .pb-note:nth-child(4n)   { transform: rotate(-.7deg); }
+  .pb-note:active { transform: scale(.98); }
+
+  /* The pin, as on the corkboard. */
+  .pb-pin {
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #e74c3c, #8b0000);
+    box-shadow: 0 2px 5px rgba(0,0,0,.35); z-index: 2;
+  }
+  .pb-cat {
+    font-size: 12px; font-weight: 600; color: rgba(0,0,0,.5);
+    display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+  }
+  .pb-title {
+    font-family: var(--font-hand); font-size: 17px; font-weight: 600;
+    color: #1a0a00; line-height: 1.25; margin-bottom: 5px;
+    /* A title somebody types is as long as they like, and a pasted link
+       has nowhere to break, so it is clipped after three lines. */
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden; max-height: 4em; overflow-wrap: anywhere;
+  }
+  .pb-thumb {
+    width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover;
+    border-radius: 3px; display: block; margin: 0 0 6px; background: rgba(0,0,0,.12);
+  }
+  .pb-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; font-size: 12px; font-weight: 600; color: rgba(0,0,0,.58);
+  }
+  .pb-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .pb-counts { display: flex; gap: 6px; flex: none; }
+  .pb-counts span { display: flex; align-items: center; gap: 2px; }
+  .pb-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+
+  /* ---- ONE NOTE, FILLING THE SCREEN ------------------------------- */
+  #noteSheet {
+    /* ABOVE THE SHARED SITE BAR, which sits at z-index 9000
+       (egbc-shell.js). The brief asks for a note that "fills the phone
+       screen", and at 400 it filled everything except the strip the bar
+       was on - which the 375px screenshot showed plainly and no
+       assertion of mine would have. Closing is never a dead end: there
+       is a big Close, and the phone's back button, both checked. */
+    position: fixed; inset: 0; z-index: 9100; background: var(--canvas, #eef4f3);
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    /* THE SIDEWAYS GESTURE IS OURS WHILE A NOTE IS OPEN. Without it a
+       swipe to the right is the browser's "go back", so "swipe left or
+       right for the next or previous note" only worked in one direction -
+       and going back took the whole page with it rather than moving a
+       note, which is worse than nothing happening. The check found it by
+       reporting that #noteSheet had stopped existing.
+
+       touch-action IS THE LINE THAT DOES IT, and overscroll-behavior is
+       not: I added both in one go and then took each out in turn rather
+       than assume. Removing overscroll-behavior changed nothing at all
+       (43/43); removing touch-action put the fault straight back. It is
+       kept as cheap insurance for browsers that treat the two
+       differently, and labelled as insurance rather than as the fix, so
+       nobody later reads this as two necessary lines. */
+    overscroll-behavior: contain;   /* not load-bearing here; see above */
+    touch-action: pan-y;            /* THIS is what keeps the swipe ours */
+  }
+  #noteSheetInner { padding: 14px 14px 40px; max-width: 640px; margin: 0 auto; }
+  #noteSheet, #noteSheet * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  .ns-bar {
+    position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
+    background: var(--canvas, #eef4f3); padding: 4px 0 10px;
+  }
+  .ns-close {
+    display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px;
+    background: #fff; color: var(--teal); border: 1px solid var(--border, #d9e4e3);
+    border-radius: 10px; font-family: var(--font); font-size: 14px; font-weight: 600;
+    cursor: pointer;
+  }
+  .ns-step {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; background: #fff; color: var(--teal);
+    border: 1px solid var(--border, #d9e4e3); border-radius: 10px; cursor: pointer;
+  }
+  .ns-step[disabled] { opacity: .4; cursor: default; }
+  .ns-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(16,24,40,.06); }
+  .ns-title {
+    font-family: var(--font-hand); font-size: 24px; font-weight: 600;
+    color: var(--ink, #14201f); line-height: 1.2; margin: 0 0 8px; overflow-wrap: anywhere;
+  }
+  .ns-body { font-size: 15px; line-height: 1.55; color: var(--body, #3a4d4c); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ns-meta { font-size: 12.5px; color: var(--muted, #6b8281); font-weight: 600; margin: 10px 0 0; }
+  .ns-yt { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 10px; display: block; margin: 12px 0 0; }
+  .ns-link {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 48px; margin: 12px 0 0; background: var(--teal); color: #fff;
+    border-radius: 12px; font-size: 15px; font-weight: 600; text-decoration: none;
+    padding: 0 14px; overflow-wrap: anywhere;
+  }
+  .ns-sec { font-size: 13px; font-weight: 600; color: var(--muted, #6b8281); margin: 18px 0 8px; }
+  .ns-react { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 0; }
+  .ns-react button {
+    display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px;
+    background: #fff; border: 1px solid var(--border, #d9e4e3); border-radius: 12px;
+    font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--teal); cursor: pointer;
+  }
+  .ns-react button.on { background: var(--teal-light, #e3eeed); border-color: var(--teal); }
+  .ns-acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 0; }
+  /* LEADERS' BUTTONS ARE VISIBLE, never behind a "..." - the brief says
+     so in those words. */
+  .ns-acts button {
+    display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px;
+    background: #fff; border: 1px solid var(--border, #d9e4e3); border-radius: 10px;
+    font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--teal); cursor: pointer;
+  }
+  .ns-acts button.danger { color: #a3321f; border-color: #e7c3bb; }
+  .ns-cmt { background: #fff; border-radius: 10px; padding: 11px 13px; margin: 0 0 8px; }
+  .ns-cmt-who { font-size: 12.5px; font-weight: 600; color: var(--muted, #6b8281); display: flex; gap: 8px; align-items: baseline; }
+  .ns-cmt-text { font-size: 14.5px; line-height: 1.5; color: var(--body, #3a4d4c); margin: 3px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ns-cmt-del { background: none; border: none; color: #a3321f; font-family: var(--font); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 0 0; }
+  .ns-cmt-box {
+    width: 100%; min-height: 76px; border: 1px solid var(--border, #d9e4e3);
+    border-radius: 10px; padding: 10px 12px; font-family: var(--font); font-size: 15px;
+    color: var(--ink, #14201f); background: #fff; resize: vertical;
+  }
+  .ns-cmt-send {
+    display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px;
+    margin: 8px 0 0; background: var(--teal); color: #fff; border: none;
+    border-radius: 10px; font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .ns-cmt-send[disabled] { opacity: .5; }
+  .ns-note { font-size: 13px; color: var(--muted, #6b8281); }
 </style>
 </head>
 <body>
@@ -349,6 +544,41 @@
 </div>
 
 <div class="drag-hint" id="dragHint"><i data-lucide="pin" style="width:15px;height:15px;vertical-align:-2px"></i> Drag notes by their pin or top bar</div>
+
+<!-- THE SAME NOTES, LAID OUT FOR A PHONE (APP-DESIGN-BRIEF 7f).
+     Martin: "you have a small version of whatever the card is, but when
+     you press on it it fills the phone screen so you can read it or add
+     to it etc. So keep post-its but you can make them much smaller and
+     as people tap they get bigger."
+
+     A SECOND CONTAINER RATHER THAN A RESPONSIVE CANVAS. The corkboard is
+     3200x2400 and absolutely positions every note; at 375px that put one
+     note on screen and asked somebody to pan a canvas with a finger.
+     These are the same notes from the same state - nothing is copied -
+     drawn as a grid instead, and the corkboard is left exactly as it is
+     for a computer. -->
+<div id="phoneBoard" hidden>
+  <button class="pb-add" id="pbAdd" onclick="openNoteModal()">
+    <i data-lucide="plus" style="width:17px;height:17px"></i> Add an idea
+  </button>
+  <div class="pb-grid" id="pbGrid"></div>
+  <p class="pb-empty" id="pbEmpty" hidden>No notes yet &mdash; add the first one.</p>
+</div>
+
+<!-- ONE NOTE, FILLING THE SCREEN. Opened by tapping a small post-it, as
+     the How To cards open. Built fresh each time rather than kept in the
+     markup, because it holds whichever note was tapped. -->
+<!-- data-am-own: HANDS OFF, APP MODE. egbc-appmode.js offsets a page's
+     own fixed chrome so it clears the app's header and tab bar, and it
+     skips anything carrying this attribute. Without it the sheet was
+     pushed down by the height of the bar above it - computed top:66px on
+     something asking for inset:0 - so a note that was supposed to fill
+     the screen left a strip of the page showing at the top. A
+     full-screen note is not chrome to be moved out of the way; it IS the
+     screen while it is open. -->
+<div id="noteSheet" hidden data-am-own="1" data-egbc-overlay="1" role="dialog" aria-modal="true" aria-label="Note">
+  <div id="noteSheetInner"></div>
+</div>
 
 <!-- ADD / EDIT NOTE MODAL -->
 <div class="modal-overlay" id="noteModal">
@@ -931,6 +1161,20 @@ function confirmDeletePage(id) {
 
 // ── RENDER NOTES ──────────────────────────────────────────────────────────
 function renderNotes() {
+  /* ON A PHONE, THE GRID INSTEAD OF THE CORKBOARD (7f). One entry point
+     for both, so everything that already calls renderNotes() - adding,
+     editing, archiving, filtering, switching page or board - keeps the
+     phone in step without knowing it exists.
+
+     It returns before touching the canvas on purpose: the canvas is
+     3200x2400 and absolutely places every note, and laying that out
+     behind a hidden container is work nobody sees. The note-with-no-
+     place repair below therefore does NOT run on a phone, which is
+     exactly right - the brief says x and y are never written there. */
+  const pb = document.getElementById('phoneBoard');
+  if (pb) pb.hidden = !isPhone();
+  if (isPhone()) { renderPhoneBoard(); return; }
+
   const canvas = document.getElementById('boardCanvas');
   canvas.querySelectorAll('.note').forEach(e => e.remove());
 
@@ -959,6 +1203,425 @@ function renderNotes() {
     i++;
   });
 }
+
+/* ===================================================================
+   THE PHONE: SMALL POST-ITS, AND ONE NOTE FILLING THE SCREEN (7f)
+   ===================================================================
+
+   Under 700px the corkboard is put away and these draw the SAME notes
+   out of the same state. Nothing is copied and nothing is written back
+   differently: in particular x, y and zIndex are neither read nor
+   written here, which is what the brief asks for ("The x/y corkboard
+   positions are ignored for display and never written on a phone") -
+   a note added on a phone still gets a corkboard spot, from noteSpot(),
+   so it has somewhere sensible to be when a computer opens the board.
+   =================================================================== */
+
+const PHONE_MQ = window.matchMedia('(max-width: 700px)');
+function isPhone() { return PHONE_MQ.matches; }
+
+/* REDRAW WHEN THE WIDTH CROSSES 700px. A phone turned on its side does
+   this, and so does a check that sets the viewport after the page has
+   loaded - which is how every 375px measurement in this project is
+   taken. Without it the first render wins and a check resizing to 375px
+   measures the corkboard, which is exactly the sort of "measured the
+   wrong thing" that cost a day on the hub's notices. The sheet is shut
+   first: a full-screen note makes no sense on a computer. */
+(function () {
+  const onChange = () => {
+    if (typeof closeNoteSheet === 'function') closeNoteSheet(true);
+    if (state && state.notes) renderNotes();
+  };
+  if (PHONE_MQ.addEventListener) PHONE_MQ.addEventListener('change', onChange);
+  else if (PHONE_MQ.addListener) PHONE_MQ.addListener(onChange);
+})();
+
+/* The notes this phone screen is showing, newest first, after the
+   category filter. ONE list, because the small grid and the swipe
+   between full-screen notes have to agree about what "next" means. */
+function phoneNotes() {
+  let out = state.notes.filter(n => n.pageId === state.currentPage);
+  out = state.showArchive ? out.filter(n => n.archived) : out.filter(n => !n.archived);
+  if (state.currentFilter !== 'all') out = out.filter(n => n.cat === state.currentFilter);
+  /* NEWEST FIRST (the brief). createdAt may be missing on a note from
+     before it was stored, so those sort last rather than first. */
+  return out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function ytThumb(url) {
+  const id = extractYtId(url || '');
+  return id ? 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg' : '';
+}
+
+function whenText(ms) {
+  if (!ms) return '';
+  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+/* A SMALL POST-IT: the title, a YouTube thumbnail if it has a video, who
+   put it up, and the reaction counts. Deliberately NOT the words - that
+   is what tapping it is for, and three lines of somebody's paragraph in
+   a 170px box is neither a summary nor the note. */
+function buildSmallNote(note) {
+  const meta = CAT_META[note.cat] || CAT_META.other;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'pb-note ' + meta.cls;
+  b.id = 'pbnote_' + note.id;
+  b.setAttribute('data-note', note.id);
+  b.onclick = () => openNoteSheet(note.id);
+
+  const thumb = ytThumb(note.ytUrl);
+  const cmts = commentCount(note.id);
+  const counts = REACTIONS
+    .map(r => ({ r, c: (note.reactions || {})[r.key] || 0 }))
+    .filter(x => x.c > 0)
+    .map(x => '<span>' + reactionIcon(x.r.icon) + x.c + '</span>')
+    .join('')
+    /* Comments count on the small post-it too. Only when there are any:
+       a row of zeroes tells somebody nothing and takes the space the
+       name needs. */
+    + (cmts ? '<span>' + reactionIcon('message-square') + cmts + '</span>' : '');
+
+  b.innerHTML = '<span class="pb-pin"></span>'
+    + '<span class="pb-cat">' + reactionIcon(meta.icon) + ' ' + esc(meta.label) + '</span>'
+    + (thumb ? '<img class="pb-thumb" src="' + esc(thumb) + '" alt="" loading="lazy"'
+        + ' onerror="this.style.display=\'none\'">' : '')
+    + '<span class="pb-title">' + esc(note.title || note.body || '(no title)') + '</span>'
+    + '<span class="pb-foot"><span class="pb-who">' + esc(note.author || 'Anonymous') + '</span>'
+    + '<span class="pb-counts">' + counts + '</span></span>';
+  return b;
+}
+
+function renderPhoneBoard() {
+  const grid = document.getElementById('pbGrid');
+  const empty = document.getElementById('pbEmpty');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const notes = phoneNotes();
+  notes.forEach(n => grid.appendChild(buildSmallNote(n)));
+  if (empty) empty.hidden = notes.length > 0;
+  /* Only people who may write this board get "Add an idea". On a
+     moderated board a young person's way in is a suggestion, which is a
+     different screen. */
+  const add = document.getElementById('pbAdd');
+  if (add) add.hidden = !canModerate(board);
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
+/* ---- one note, filling the screen -------------------------------- */
+
+let sheetNoteId = null;
+
+function canEditNote(note) {
+  if (!note) return false;
+  if (mayAdmin()) return true;              /* a leader of this board */
+  const me = (typeof EGBCAuth !== 'undefined' && EGBCAuth.profile && EGBCAuth.profile()) || null;
+  if (!me) return false;
+  /* The person who put it up. Notes carry a typed author name and not a
+     uid, so this is the only honest comparison available - and it is why
+     Edit is offered rather than assumed: a leader can always edit. */
+  return !!note.author && !!me.name && note.author.trim() === me.name.trim();
+}
+
+function openNoteSheet(id) {
+  const note = state.notes.find(n => n.id === id);
+  if (!note) return;
+  sheetNoteId = id;
+  const sheet = document.getElementById('noteSheet');
+  sheet.hidden = false;
+  document.body.style.overflow = 'hidden';
+  /* THE PHONE'S BACK BUTTON AND BACK GESTURE CLOSE IT, which the brief
+     asks for. A pushed history entry is what makes that work; popstate
+     closes without pushing again. */
+  try { history.pushState({ egbcNote: id }, ''); } catch (e) {}
+  paintNoteSheet();
+  sheet.scrollTop = 0;
+  loadComments(id);
+}
+
+function closeNoteSheet(fromHistory) {
+  const sheet = document.getElementById('noteSheet');
+  if (!sheet || sheet.hidden) return;
+  sheet.hidden = true;
+  sheetNoteId = null;
+  document.body.style.overflow = '';
+  if (!fromHistory) {
+    try { if (history.state && history.state.egbcNote) history.back(); } catch (e) {}
+  }
+}
+
+window.addEventListener('popstate', () => {
+  const sheet = document.getElementById('noteSheet');
+  if (sheet && !sheet.hidden) closeNoteSheet(true);
+});
+
+/* SWIPE between notes, in the order the grid shows them. */
+function stepNote(dir) {
+  const list = phoneNotes();
+  const at = list.findIndex(n => n.id === sheetNoteId);
+  if (at === -1) return;
+  const next = list[at + dir];
+  if (!next) return;
+  sheetNoteId = next.id;
+  paintNoteSheet();
+  document.getElementById('noteSheet').scrollTop = 0;
+  loadComments(next.id);
+}
+
+function paintNoteSheet() {
+  const note = state.notes.find(n => n.id === sheetNoteId);
+  const host = document.getElementById('noteSheetInner');
+  if (!note || !host) return;
+  const meta = CAT_META[note.cat] || CAT_META.other;
+  const list = phoneNotes();
+  const at = list.findIndex(n => n.id === note.id);
+
+  const ytId = extractYtId(note.ytUrl || '');
+  const link = String(note.link || '').trim();
+  const mr = note.myReactions || {};
+
+  host.innerHTML =
+    '<div class="ns-bar">'
+    + '<button class="ns-close" onclick="closeNoteSheet()">'
+      + reactionIcon('arrow-left') + ' Close</button>'
+    + '<div style="margin-left:auto;display:flex;gap:8px">'
+    + '<button class="ns-step" onclick="stepNote(-1)" aria-label="The note before this one"'
+      + (at <= 0 ? ' disabled' : '') + '>' + reactionIcon('chevron-left') + '</button>'
+    + '<button class="ns-step" onclick="stepNote(1)" aria-label="The next note"'
+      + (at === -1 || at >= list.length - 1 ? ' disabled' : '') + '>'
+      + reactionIcon('chevron-right') + '</button>'
+    + '</div></div>'
+
+    + '<div class="ns-card">'
+    + '<div class="pb-cat">' + reactionIcon(meta.icon) + ' ' + esc(meta.label)
+      + (note.archived ? ' &middot; Archived' : '') + '</div>'
+    + (note.title ? '<h2 class="ns-title">' + esc(note.title) + '</h2>' : '')
+    + (note.body ? '<div class="ns-body">' + esc(note.body) + '</div>' : '')
+    /* THE VIDEO PLAYS IN PLACE (the brief), not on YouTube's website. */
+    + (ytId ? '<iframe class="ns-yt" src="https://www.youtube.com/embed/' + esc(ytId)
+        + '?rel=0" allow="accelerometer; autoplay; encrypted-media; picture-in-picture"'
+        + ' allowfullscreen title="Video on this note"></iframe>' : '')
+    + (note.imgUrl ? '<img class="ns-yt" style="aspect-ratio:auto" src="' + esc(note.imgUrl)
+        + '" alt="" onerror="this.style.display=\'none\'">' : '')
+    /* A link that is not a video becomes a big button, as asked. */
+    + (!ytId && /^https?:\/\//i.test(link)
+        ? '<a class="ns-link" href="' + esc(link) + '" target="_blank" rel="noopener">'
+          + reactionIcon('link') + ' ' + esc(note.linkLabel || link) + '</a>' : '')
+    + '<p class="ns-meta">' + esc(note.author || 'Anonymous')
+      + (note.createdAt ? ' &middot; ' + whenText(note.createdAt) : '') + '</p>'
+
+    + '<div class="ns-react">'
+    + REACTIONS.map(r => '<button class="' + (mr[r.key] ? 'on' : '')
+        + '" onclick="reactFromSheet(\'' + note.id + '\',\'' + r.key + '\')">'
+        + reactionIcon(r.icon) + ' ' + esc(r.label)
+        + ((note.reactions || {})[r.key] ? ' ' + note.reactions[r.key] : '') + '</button>').join('')
+    + '</div>'
+
+    /* EDIT for the person who posted it and for leaders; ARCHIVE and
+       REMOVE for leaders, as small VISIBLE buttons - "never behind
+       '...'", which is the brief's wording. */
+    + '<div class="ns-acts">'
+    + (canEditNote(note) ? '<button onclick="editFromSheet(\'' + note.id + '\')">'
+        + reactionIcon('pencil') + ' Edit</button>' : '')
+    + (mayAdmin() ? (note.archived
+        ? '<button onclick="archiveFromSheet(\'' + note.id + '\',false)">'
+          + reactionIcon('upload') + ' Put back</button>'
+        : '<button onclick="archiveFromSheet(\'' + note.id + '\',true)">'
+          + reactionIcon('archive') + ' Archive</button>')
+      + '<button class="danger" onclick="removeFromSheet(\'' + note.id + '\')">'
+        + reactionIcon('trash-2') + ' Remove</button>' : '')
+    + '</div>'
+    + '</div>'
+
+    + '<div class="ns-sec">Comments</div>'
+    + '<div id="nsComments"><p class="ns-note">Loading&hellip;</p></div>'
+    + (canComment()
+        ? '<textarea class="ns-cmt-box" id="nsCmtBox" maxlength="500"'
+          + ' placeholder="Add a comment&hellip;"></textarea>'
+          + '<button class="ns-cmt-send" id="nsCmtSend" onclick="sendComment()">'
+          + reactionIcon('send') + ' Post</button>'
+        : '<p class="ns-note">Only people on this team can comment.</p>');
+
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
+/* The sheet's own wrappers, so the corkboard's functions stay as they
+   are and the sheet redraws itself afterwards. */
+function reactFromSheet(id, key) { react(id, key); paintNoteSheet(); renderNotes(); }
+function editFromSheet(id) { closeNoteSheet(); openNoteModal(id); }
+function archiveFromSheet(id, on) {
+  if (on) archiveNote(id); else unarchiveNote(id);
+  closeNoteSheet();
+}
+function removeFromSheet(id) {
+  if (!confirm('Remove this note for everybody?')) return;
+  state.notes = state.notes.filter(n => n.id !== id);
+  saveState(); closeNoteSheet(); renderNotes(); toast('Note removed');
+}
+
+/* ---- comments on the COMPUTER corkboard too ----------------------
+   Martin, in 7f: "add the comments on the computer too", shown when a
+   note is opened there.
+
+   The corkboard had no idea of a note being "opened" - every note shows
+   its words where it sits, and a click on one is a drag. So each note
+   gets ONE more button beside its reactions, with the number of comments
+   on it, and it opens the same full-screen note view the phone uses.
+   One note view, comments and all, rather than a second one for the
+   computer that would drift away from it.
+
+   THE COUNTS ARE ONE QUERY FOR THE WHOLE BOARD, not one per note: a
+   board with thirty notes would otherwise make thirty requests every
+   time it drew. */
+let COMMENT_COUNTS = {};
+
+async function loadCommentCounts() {
+  const tally = {};
+  try {
+    const snap = await commentsRef().where('boardId', '==', board.doc).get();
+    snap.forEach(d => {
+      const n = (d.data() || {}).noteId;
+      if (n) tally[n] = (tally[n] || 0) + 1;
+    });
+  } catch (e) {
+    /* A board somebody may read but whose comments are refused is not a
+       fault worth a message on screen - the button simply shows none. */
+    return;
+  }
+  COMMENT_COUNTS = tally;
+  renderNotes();
+}
+
+function commentCount(noteId) { return COMMENT_COUNTS[noteId] || 0; }
+
+/* ---- comments: their own collection, never inside the board ------- */
+
+function canComment() {
+  /* The same people who may WRITE this board, which is what the rules
+     allow. A young person reads comments and writes none at launch. */
+  return canModerate(board);
+}
+
+function commentsRef() {
+  return db.collection('boardComments');
+}
+
+let commentsFor = null;
+
+async function loadComments(noteId) {
+  const host = () => document.getElementById('nsComments');
+  commentsFor = noteId;
+  let rows = [];
+  try {
+    const snap = await commentsRef()
+      .where('boardId', '==', board.doc)
+      .where('noteId', '==', noteId)
+      .get();
+    snap.forEach(d => rows.push(Object.assign({ id: d.id }, d.data())));
+  } catch (e) {
+    if (commentsFor === noteId && host()) {
+      host().innerHTML = '<p class="ns-note">Could not load the comments.</p>';
+    }
+    return;
+  }
+  /* Oldest first, which is how a conversation reads. Sorted here rather
+     than in the query so there is no index to deploy for it. */
+  rows.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  if (commentsFor !== noteId) return;      /* they swiped on */
+  paintComments(rows);
+}
+
+function paintComments(rows) {
+  const host = document.getElementById('nsComments');
+  if (!host) return;
+  const me = (typeof EGBCAuth !== 'undefined' && EGBCAuth.user && EGBCAuth.user()) || null;
+  const myUid = me ? me.uid : '';
+  if (!rows.length) {
+    host.innerHTML = '<p class="ns-note">No comments yet.</p>';
+    return;
+  }
+  host.innerHTML = rows.map(c => {
+    const mine = myUid && c.byUid === myUid;
+    const when = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-GB',
+      { day: 'numeric', month: 'short' }) : '';
+    return '<div class="ns-cmt">'
+      + '<div class="ns-cmt-who"><span>' + esc(c.byName || 'Someone') + '</span>'
+      + (when ? '<span>' + esc(when) + '</span>' : '') + '</div>'
+      + '<div class="ns-cmt-text">' + esc(c.text || '') + '</div>'
+      + ((mine || mayAdmin())
+          ? '<button class="ns-cmt-del" onclick="deleteComment(\'' + esc(c.id) + '\')">Delete</button>'
+          : '')
+      + '</div>';
+  }).join('');
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+}
+
+async function sendComment() {
+  const box = document.getElementById('nsCmtBox');
+  const btn = document.getElementById('nsCmtSend');
+  if (!box || !sheetNoteId) return;
+  const text = box.value.trim();
+  if (!text) { toast('Type something first'); return; }
+  const me = (typeof EGBCAuth !== 'undefined' && EGBCAuth.user && EGBCAuth.user()) || null;
+  const prof = (typeof EGBCAuth !== 'undefined' && EGBCAuth.profile && EGBCAuth.profile()) || null;
+  if (!me) { toast('You need to be signed in'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    await commentsRef().add({
+      boardId: board.doc, noteId: sheetNoteId, text: text.slice(0, 500),
+      byUid: me.uid, byName: (prof && prof.name) || me.email || 'Someone',
+      createdAt: new Date().toISOString(),
+    });
+    box.value = '';
+    await loadComments(sheetNoteId);
+    loadCommentCounts();   /* the number beside the note, on the corkboard */
+  } catch (e) {
+    toast('Could not post that comment');
+  }
+  if (btn) btn.disabled = false;
+}
+
+async function deleteComment(id) {
+  if (!confirm('Delete this comment?')) return;
+  try {
+    await commentsRef().doc(id).delete();
+    if (sheetNoteId) await loadComments(sheetNoteId);
+    loadCommentCounts();
+  } catch (e) { toast('Could not delete that comment'); }
+}
+
+/* SWIPE LEFT OR RIGHT goes to the next or previous note (the brief).
+   Deliberately strict: mostly-horizontal, far enough to be meant, and
+   not while a finger is inside the video or a scrolling box. */
+(function () {
+  let sx = 0, sy = 0, lx = 0, ly = 0, tracking = false;
+  const sheet = () => document.getElementById('noteSheet');
+  document.addEventListener('touchstart', (e) => {
+    const s = sheet();
+    if (!s || s.hidden || e.touches.length !== 1) { tracking = false; return; }
+    if (e.target.closest && e.target.closest('iframe, textarea, a, button')) { tracking = false; return; }
+    sx = lx = e.touches[0].clientX; sy = ly = e.touches[0].clientY; tracking = true;
+  }, { passive: true });
+  /* THE LAST PLACE THE FINGER WAS, kept as it moves. touchend does not
+     always carry it: the first version of this read changedTouches[0]
+     and did nothing at all when that was empty, which is what Chrome's
+     debugger sends and what some browsers send for a release. A swipe
+     that silently does nothing is indistinguishable from a swipe nobody
+     implemented. */
+  document.addEventListener('touchmove', (e) => {
+    if (!tracking || !e.touches.length) return;
+    lx = e.touches[0].clientX; ly = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = (e.changedTouches && e.changedTouches[0]) || { clientX: lx, clientY: ly };
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    stepNote(dx < 0 ? 1 : -1);
+  }, { passive: true });
+})();
 
 function buildNoteEl(note, idx) {
   const meta = CAT_META[note.cat] || CAT_META.other;
@@ -1009,7 +1672,7 @@ function buildNoteEl(note, idx) {
     ${note.title ? `<div class="note-title">${esc(note.title)}</div>` : ''}
     ${note.body  ? `<div class="note-body">${esc(note.body)}</div>`   : ''}
     ${ytHtml}${imgHtml}${linkHtml}
-    <div class="note-reactions">${reactHtml}</div>
+    <div class="note-reactions">${reactHtml}<button class="reaction-btn" onclick="openNoteSheet('${note.id}')" title="Comments on this note"><i data-lucide="message-square" style="width:14px;height:14px;vertical-align:-2px"></i><span>${commentCount(note.id) || ''}</span></button></div>
     <div class="note-meta">
       <span>${esc(note.author||'Anonymous')}</span>
       <span>${date}</span>
@@ -1299,6 +1962,11 @@ function whenSignedIn() {
   paintAdmin();
   renderPages();
   renderNotes();
+  /* The comment counts, one query for the board, redrawing when they
+     arrive. Deliberately NOT awaited: a board that draws only once the
+     comments are counted is a board that waits for something nobody has
+     asked to see yet. */
+  loadCommentCounts();
   /* ?add=1 opens straight on the Add Note box. The hub's pin board card uses
      it for "Add an idea": somebody who has had the thought should not have to
      find the button first. Opened after the board has loaded, so the note
