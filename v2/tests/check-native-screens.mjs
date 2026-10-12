@@ -137,6 +137,17 @@ const offMachine = u => {
       { type: 'item', title: 'Welcome and Notices' }
     ] });
 
+  /* NOTICES, for the bell. One church-wide (no teams), one for this
+     person's team, and one for a team they are NOT on - because "a
+     notice they should not see" is the half of this that matters and
+     an empty list cannot prove it. */
+  await put('news/nt_all', { title: 'NOTICE for everyone', body: '<p>Everyone sees this.</p>',
+    teams: [], createdAt: new Date().toISOString(), pinned: false });
+  await put('news/nt_mine', { title: 'NOTICE for Worship', body: '<p>Worship <b>only</b>.</p>',
+    teams: ['Worship Team'], createdAt: new Date().toISOString(), pinned: false });
+  await put('news/nt_theirs', { title: 'NOTICE for Kids Church', body: '<p>Not for them.</p>',
+    teams: ['Kids Church'], createdAt: new Date().toISOString(), pinned: false });
+
   /* The board, in the shape stickynotes writes: notes with createdAt,
      one archived so "archived ones are left out" is a question. */
   await put('worshipBoardState/state', {
@@ -303,6 +314,76 @@ const offMachine = u => {
   ok('  with the whole cork board one tap further on, and the RIGHT board',
     full === 'open:stickynotes.html?board=worship', full);
   await shot('pin-board');
+  ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
+
+  /* ---- THE BELL, AND THE RED DOT (Martin, 12 Oct 2026) ------------
+     "Behind the bell with a red dot - harder to ignore a red dot on a
+     small screen." The dot counts the notices this person has not
+     seen; opening the sheet marks them seen and clears it; somebody a
+     notice is not for never sees it at all. */
+  console.log('\nthe bell, and the red dot:');
+  errs.length = 0;
+  /* Nothing seen yet: the seen mark is the same localStorage key the
+     hub's Latest writes, so this starts from a cleared one. */
+  await ev('localStorage.removeItem("egbc-hub-news-seen");1');
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+  for (let i2 = 0; i2 < 60; i2++) {
+    await sleep(500);
+    const d2 = String(await ev('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}})'
+      + '.getAttribute("data-drawn") || ""'));
+    if (d2.indexOf(uid + ':') === 0) break;
+  }
+  await until('  the notices have loaded',
+    '(typeof EGBCAppNotices === "undefined") ? "no" : "yes"', 40);
+  await sleep(1800);
+  await ev('EGBCApp.draw();1'); await sleep(400);
+
+  const bellSel = '[data-act="sheet:notices"]';
+  const bell = String(await ev('(function(){var b=document.querySelector(\'' + bellSel + '\');'
+    + 'if(!b) return "(no bell)";'
+    + 'var r=b.getBoundingClientRect();'
+    + 'var dot=b.querySelector(".badge");'
+    + 'return JSON.stringify({w:Math.round(r.width),h:Math.round(r.height),'
+    + ' dot: dot?dot.textContent.trim():"", label: b.getAttribute("aria-label")||""})})()'));
+  ok('  the bell is in the top bar', bell !== '(no bell)', bell);
+  const bq = JSON.parse(bell === '(no bell)' ? '{}' : bell);
+  /* THE DOT IS WHAT IS UNSEEN, and on a shared emulator that is however
+     many notices are in it - not just the three this check seeds.
+     Asserting "2" read the right number, 8, as a fault. What has to be
+     true is that the dot and the list agree and that there is one. */
+  const unseenNow = Number(await ev('EGBCAppNotices.unseen()')) || 0;
+  ok('  with a red dot, counting what has not been seen',
+    bq.dot === (unseenNow > 9 ? '9+' : String(unseenNow)) && unseenNow >= 2,
+    'the dot says "' + bq.dot + '", unseen() says ' + unseenNow);
+  ok('  and the count in words for a screen reader', /not seen/.test(bq.label || ''), bq.label);
+
+  /* SOMEBODY IT IS NOT FOR NEVER SEES IT. This person is on Worship
+     Team only, so the Kids Church notice is not theirs - and a count
+     of 3 would mean the team filter had gone. */
+  await ev('document.querySelector(\'' + bellSel + '\').click();1');
+  await until('  tapping the bell opens the notices',
+    '(function(){var s=document.querySelector(".sheet");'
+    + 'return (s && /Notices/.test(s.textContent)) ? "yes" : "no"})()', 30);
+  const sheetTxt = String(await ev('(function(){var s=document.querySelector(".sheet");'
+    + 'return s?s.textContent.replace(/\\s+/g," ").trim():"(none)"})()'));
+  ok('  the church-wide notice is in it', /NOTICE for everyone/.test(sheetTxt), sheetTxt.slice(0, 160));
+  ok('  and their own team\u2019s', /NOTICE for Worship/.test(sheetTxt), sheetTxt.slice(0, 160));
+  ok('  AND A NOTICE FOR A TEAM THEY ARE NOT ON IS NOT',
+    !/NOTICE for Kids Church/.test(sheetTxt), sheetTxt.slice(0, 220));
+  const sheetHtml = String(await ev('(function(){var s=document.querySelector(".sheet");'
+    + 'return s?s.innerHTML:""})()'));
+  ok('  with the notice\u2019s own bold, not a flattened line',
+    /<b>only<\/b>|<strong>only<\/strong>/i.test(sheetHtml), sheetHtml.slice(0, 200));
+
+  /* OPENING IS READING: the dot clears. */
+  await sleep(700);
+  const after = String(await ev('(function(){var b=document.querySelector(\'' + bellSel + '\');'
+    + 'if(!b) return "(no bell)";var d=b.querySelector(".badge");return d?d.textContent.trim():"none"})()'));
+  ok('  opening them clears the dot', after === 'none', 'the dot says "' + after + '"');
+  const seenMark = String(await ev('localStorage.getItem("egbc-hub-news-seen")||""'));
+  ok('  and it is the hub\u2019s own seen record, so Latest agrees',
+    !!seenMark && seenMark !== '0', seenMark);
+  await shot('bell-notices');
   ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
 
   if (wantShots) console.log('\nscreenshots in tests/shots/');

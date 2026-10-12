@@ -1189,29 +1189,12 @@ async function loadNews() {
    <meta> and <style>. Render the formatting, drop anything structural or
    executable, and flatten the rest so a whole email does not bring its own
    layout into a 330px column. */
+/* ONE CLEANER, and it lives in egbc-share.js (12 Oct 2026). The phone
+   app needs the same one for its notices sheet, and two copies of a
+   sanitiser is one copy nobody updates. The body of this moved there
+   unchanged; this keeps the name the rest of this file already calls. */
 function safeHtml(raw) {
-  if (!raw) return '';
-  const doc = new DOMParser().parseFromString(raw, 'text/html');
-
-  doc.querySelectorAll('script,style,meta,link,title,iframe,object,embed,form,input,button').forEach(n => n.remove());
-
-  doc.querySelectorAll('*').forEach(n => {
-    [...n.attributes].forEach(a => {
-      const keep = a.name === 'href' || a.name === 'src' || a.name === 'alt';
-      if (!keep || /^javascript:/i.test(a.value)) n.removeAttribute(a.name);
-    });
-    if (n.tagName === 'A') { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
-  });
-
-  // Email HTML is nearly always tables; unwrap them into plain blocks.
-  doc.querySelectorAll('table,tbody,thead,tr').forEach(n => n.replaceWith(...n.childNodes));
-  doc.querySelectorAll('td,th').forEach(n => {
-    const d = doc.createElement('div');
-    d.append(...n.childNodes);
-    n.replaceWith(d);
-  });
-
-  return doc.body.innerHTML;
+  return (window.EGBCShare && EGBCShare.clean) ? EGBCShare.clean(raw) : '';
 }
 
 /* Plain text, for working out whether something needs collapsing. */

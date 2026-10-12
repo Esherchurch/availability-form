@@ -45,6 +45,10 @@
      "we do not recognise that address" card, which is right. -->
 <script src="egbc-guard.js?v=202610091200"></script>
 <script src="egbc-ui.js?v=202610091200"></script>
+<!-- The shared HTML cleaner. The notices sheet shows a notice as it was
+     written - bold, lists - and cleans it through the one cleaner the
+     suite has rather than trusting it or flattening it. -->
+<script src="egbc-share.js?v=202610121200"></script>
 <!-- App mode (§7d A): the app itself sets the flag and hands over where
      to come back to, so a page it opens wears the app's chrome. -->
 <script src="egbc-appmode.js?v=202610112000"></script>
@@ -398,6 +402,37 @@ function todayIso() {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
     + '-' + String(d.getDate()).padStart(2, '0');
 }
+/* ---- NOTICES, AND THE BELL (Martin, 12 Oct 2026) --------------------
+   "Behind the bell with a red dot - harder to ignore a red dot on a
+   small screen."
+
+   THE SAME NOTICES AS THE HUB'S LATEST: the same `news` collection, the
+   same team filter, the same show-until, and the same record of what
+   has been seen - localStorage 'egbc-hub-news-seen', which the hub
+   writes when somebody opens Latest. The app and the website are one
+   origin, so a notice read on the computer is read on the phone. That
+   is Martin's wording ("same ... 'seen' record as the hub's Latest")
+   and it is also the only version that does not nag somebody twice.
+
+   The seen mark is a convenience kept in this browser, not a record: a
+   notice that must be acknowledged has ackedBy on the notice itself,
+   and nothing here touches that. */
+var NOTICES = { ready: false, all: [] };
+var NEWS_SEEN_KEY = 'egbc-hub-news-seen';
+
+function noticeMillis(n) {
+  var c = n && (n.createdAt || n.at);
+  if (!c) return 0;
+  if (typeof c.toMillis === 'function') return c.toMillis();
+  if (c.seconds) return c.seconds * 1000;
+  var t = Date.parse(c);
+  return isNaN(t) ? 0 : t;
+}
+
+function noticesSeenAt() {
+  try { return Number(localStorage.getItem(NEWS_SEEN_KEY) || 0) || 0; } catch (e) { return 0; }
+}
+
 function loadNews(me) {
   return db.collection('news').get().then(function (snap) {
     var out = [];
@@ -406,12 +441,74 @@ function loadNews(me) {
       if (n.until && n.until < todayIso()) return;           /* "show until" */
       if (Array.isArray(n.teams) && n.teams.length
           && !n.teams.some(function (t) { return me.teams.indexOf(t) !== -1; })) return;
-      out.push({ title: n.title || '', body: String(n.body || '').replace(/<[^>]*>/g, '').trim(),
-                 at: n.createdAt || n.at || '' });
+      out.push({ id: d.id, title: n.title || '', html: String(n.body || ''),
+                 body: String(n.body || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+                 pinned: !!n.pinned, date: n.date || '',
+                 at: n.createdAt || n.at || '', ms: noticeMillis(n) });
     });
-    out.sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    /* Pinned first, then newest. The hub's Latest orders them the same
+       way, and two orders for one list is how people start asking which
+       one is right. */
+    out.sort(function (a, b) {
+      return (a.pinned ? 0 : 1) - (b.pinned ? 0 : 1) || b.ms - a.ms;
+    });
+    NOTICES.all = out;
+    NOTICES.ready = true;
+    paintNotices();
     return out.slice(0, 3);
-  }).catch(function () { return []; });
+  }).catch(function () { NOTICES.ready = true; return []; });
+}
+
+/* The shell draws the bell and asks for this. */
+window.EGBCAppNotices = {
+  unseen: function () {
+    var since = noticesSeenAt();
+    return NOTICES.all.filter(function (n) { return n.ms > since; }).length;
+  },
+  /* Opened is read, exactly as the hub's Latest does it: the newest
+     notice decides the mark, so one posted while the sheet is open is
+     still unseen next time. */
+  markSeen: function () {
+    var newest = NOTICES.all.reduce(function (m, n) { return Math.max(m, n.ms); }, 0);
+    try {
+      localStorage.setItem(NEWS_SEEN_KEY, String(Math.max(newest, noticesSeenAt())));
+    } catch (e) {}
+  }
+};
+
+function noticesSheet() {
+  var out = '<h3>Notices</h3>';
+  if (!NOTICES.ready) {
+    return out + '<p>Finding the notices…</p>' + CLOSE;
+  }
+  if (!NOTICES.all.length) {
+    return out + '<p>Nothing just now. Notices from the church and your teams appear here.</p>' + CLOSE;
+  }
+  out += '<p>From the church and your teams.</p>';
+  out += NOTICES.all.slice(0, 20).map(function (n) {
+    var when = n.ms ? new Date(n.ms) : null;
+    var label = n.date || (when && !isNaN(when)
+      ? when.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
+    /* THE WHOLE NOTICE, with its bold and its lists. It is written in
+       the editor and cleaned by egbc-share.js on the way in, and shown
+       here through the same cleaner rather than trusted. */
+    var body = (window.EGBCShare && EGBCShare.clean)
+      ? EGBCShare.clean(n.html) : A.esc(n.body);
+    return '<div class="card" style="padding:14px;margin-bottom:10px">'
+      + '<div style="display:flex;align-items:baseline;gap:8px">'
+      + (n.pinned ? ic('pin', 13) : '')
+      + '<div style="font-weight:600;color:var(--ink);font-size:14px;flex:1">' + A.esc(n.title || 'Notice') + '</div>'
+      + '<div style="font-size:12px;color:var(--muted);white-space:nowrap">' + A.esc(label) + '</div>'
+      + '</div>'
+      + '<div class="rich" style="font-size:13.5px;color:var(--body);margin-top:6px">' + body + '</div>'
+      + '</div>';
+  }).join('');
+  return out + CLOSE;
+}
+
+function paintNotices() {
+  A.sheet('notices', noticesSheet());
+  if (A.state().sheet === 'notices') A.draw();
 }
 
 function loadHome(me) {
@@ -732,6 +829,15 @@ document.addEventListener('click', function (e) {
 
   /* The Rota tab's "+". The shell's actOk list allows a bare word, so
      this needs no new shape in it. */
+  /* THE DOT CLEARS WHEN THEY LOOK. The shell opens the sheet by
+     itself; this is the "and they have now seen them" half, and the
+     redraw is what takes the red dot off the bell. */
+  if (a === 'sheet:notices') {
+    EGBCAppNotices.markSeen();
+    setTimeout(function () { A.draw(); }, 0);
+    return;
+  }
+
   if (a === 'newevent') {
     if (window.EGBCCoreRota) EGBCCoreRota.newEvent();
     return;
@@ -995,6 +1101,16 @@ function loadThisSunday(spaceKey) {
       if (teams.length && !(e.teams || []).some(function (t) { return teams.indexOf(t) !== -1; })) return;
       var when = new Date(e.date + 'T00:00:00');
       if (isNaN(when) || when < today) return;
+      /* ON A SUNDAY, and the day decides, not the type. The screen was
+         showing "This Sunday - Thursday 15 October": the rota carries
+         services typed "Sunday Morning Worship" that sit on other days
+         (a Thursday practice of one, in the test data), and a screen
+         with this name showing a Thursday is wrong whatever the type
+         field says.
+         A midweek Carol or Midnight service therefore does not appear
+         here. That is deliberate: it is on the Rota tab, which is
+         about every date, and this screen answers one question. */
+      if (when.getDay() !== 0) return;
       var key = e.date + ' ' + (e.startTime || '99:99');
       if (!best || key < best.key) best = { when: when, key: key, id: d.id, ev: e };
     });
@@ -1311,6 +1427,7 @@ A.screen('office', 'bookings', function () {
    of the file threw on Object.keys(undefined) and took every screen
    registration after it down with it. */
 Object.keys(BOARDS).forEach(paintBoard);
+paintNotices();
 
 document.addEventListener('egbc-ready', function () {
   /* The events window's screens go on BEFORE the first draw, so nobody sees

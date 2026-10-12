@@ -86,6 +86,11 @@
     'flex:none;text-decoration:none}',
     '#egbc-am-top .am-title{font-weight:600;color:var(--am-ink);font-size:16px;flex:1;min-width:0;',
     'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    /* The same size and shape as the back arrow, on the other side, so
+       the two read as a pair and both clear 44px (§7). */
+    '#egbc-am-top a.am-worry{width:44px;height:44px;border-radius:10px;',
+    'border:1px solid var(--am-line);background:var(--am-surface);color:var(--am-brand);',
+    'display:grid;place-items:center;flex:none;text-decoration:none}',
 
     '#egbc-am-tabs{position:fixed;left:0;right:0;bottom:0;z-index:9500;background:var(--am-surface);',
     'border-top:1px solid var(--am-line);display:flex;',
@@ -256,13 +261,31 @@
     var title = String(opts.title || document.title || 'EGBC')
       .replace(/\s*[|–-]\s*EGBC.*$/i, '').trim() || 'EGBC';
 
+    /* "I'M WORRIED ABOUT SOMEONE" BELONGS HERE TOO (NEXT-BRIEF §24,
+       Martin 12 Oct 2026). It is in the app's own top bar on every
+       space, for the reason §24 gives: somebody who notices a neighbour
+       has stopped coming should not have to find the right tab first.
+       In app mode the header had only back and the title, so on all 23
+       pages the app opens - the charters, the rota, the pin board,
+       resources - it vanished. §24 says every version of the app.
+       Icon-only, because the header also has to hold the page's name on
+       a 360px phone, with the aria-label carrying the words. Not on
+       worried.html itself: a button that reloads the page you are on is
+       a dead end with a label. */
+    var here = String(location.pathname || '').split('/').pop().toLowerCase();
+    var worry = here === 'worried.html' ? ''
+      : '<a class="am-worry" href="worried.html?app=1"'
+        + ' aria-label="I am worried about someone" title="I am worried about someone">'
+        + ic('heart-handshake') + '</a>';
+
     var top = document.createElement('div');
     top.id = 'egbc-am-top';
     top.innerHTML = '<a class="am-back" href="' + backHref() + '" aria-label="Back to the app">'
       + ic('arrow-left') + '</a>'
       + '<div class="am-title">' + title.replace(/[&<>"]/g, function (c) {
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-        }) + '</div>';
+        }) + '</div>'
+      + worry;
     document.body.insertBefore(top, document.body.firstChild);
 
     var bar = tabBar();

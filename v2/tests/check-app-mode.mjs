@@ -283,6 +283,21 @@ const offMachine = u => {
       header: vis(top),
       title: top ? (top.querySelector('.am-title') || {}).textContent || '' : '',
       back: vis(back),
+      /* §24: "I'm worried about someone" is on every version of the
+         app. It has to be ON SCREEN and TAPPABLE, not merely present -
+         a 44px target the app's own header cannot be covering. */
+      worry: (() => {
+        const w = top && top.querySelector('a.am-worry');
+        if (!w) return 'missing';
+        const r = w.getBoundingClientRect();
+        if (!vis(w)) return 'not visible';
+        if (r.width < 40 || r.height < 40) return 'only ' + Math.round(r.width) + 'x' + Math.round(r.height);
+        const hit = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+        if (!(hit && (hit === w || w.contains(hit)))) return 'covered';
+        if (!/worried.html/.test(w.getAttribute('href') || '')) return 'goes to ' + w.getAttribute('href');
+        if (!(w.getAttribute('aria-label') || '').trim()) return 'no aria-label';
+        return 'ok';
+      })(),
       backTo: back ? back.getAttribute('href') : '',
       tabs: tabs ? tabs.querySelectorAll('a').length : 0,
       websiteBar: vis(document.getElementById('egbc-bar')),
@@ -468,7 +483,7 @@ const offMachine = u => {
   /* ---- 1. in app mode ------------------------------------------------ */
   console.log('in app mode, at ' + WIDTH + 'px:');
   await handOver();
-  const bad = { header: [], back: [], tabs: [], bar: [], menu: [], strip: [], action: [], wide: [], covered: [] };
+  const bad = { header: [], back: [], tabs: [], bar: [], menu: [], strip: [], action: [], wide: [], covered: [], worry: [] };
   const known = [];
   for (const page of PAGES) {
     const r = await openPage(page, true);
@@ -487,6 +502,15 @@ const offMachine = u => {
     if (r.menuBtn) bad.menu.push(page);
     if (r.viewAs) bad.strip.push(page);
     if (r.over > 4) bad.wide.push(page + ' +' + r.over + 'px');
+    /* EXCEPT ON worried.html ITSELF, where it is deliberately absent:
+       a button that reloads the page you are already on is a dead end
+       with a label. Asserted the other way round, so taking it off a
+       page by accident still fails. */
+    if (page === 'worried.html') {
+      if (r.worry === 'ok') bad.worry.push(page + ' -> offers Worried? on the Worried page itself');
+    } else if (r.worry !== 'ok') {
+      bad.worry.push(page + ' -> ' + r.worry);
+    }
 
     /* WAIT FOR THE CONTROL, don't glance once. Half these pages draw
        their contents from Firestore after the guard has let them
@@ -541,6 +565,8 @@ const offMachine = u => {
     + (known.length ? ' (except ' + [...new Set(known)].join(', ') + ')' : ''),
     realCovered.length === 0, realCovered.join('\n          '));
   [...new Set(known)].forEach(k => console.log('        known  ' + k + ' — ' + KNOWN[k]));
+  ok('“I’m worried about someone” is on every one of them, and tappable',
+    bad.worry.length === 0, bad.worry.join('\n          '));
   ok('and nothing scrolls sideways at ' + WIDTH + 'px', bad.wide.length === 0, bad.wide.join(', '));
 
   /* ---- 2. and the website still works -------------------------------- */

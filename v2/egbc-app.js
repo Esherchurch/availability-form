@@ -211,6 +211,16 @@
 
   /* ---- who is looking ------------------------------------------------ */
 
+  /* How many notices this person has not seen. The screens own the
+     notices - they know the team filter and the show-until - so the
+     shell asks rather than working it out a second time. Nothing
+     registered yet, or nothing unseen: no dot. */
+  function unseenNotices() {
+    try {
+      return (global.EGBCAppNotices && EGBCAppNotices.unseen && EGBCAppNotices.unseen()) || 0;
+    } catch (e) { return 0; }
+  }
+
   function who() {
     var p = (global.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) || {};
     var teams = (global.EGBCAuth && EGBCAuth.effectiveTeams && EGBCAuth.effectiveTeams()) || p.teams || [];
@@ -359,6 +369,18 @@
          neighbour has stopped coming should not have to find the right tab
          first. An icon with a label, because an unlabelled heart is a
          guess. */
+      /* THE BELL, with a red dot (Martin, 12 Oct 2026: "harder to
+         ignore a red dot on a small screen"). The count is the notices
+         this person has not seen, and the app does not work it out -
+         the screens do, and hand it over here, so the bar and the sheet
+         cannot disagree about how many there are. No notices and
+         nothing unseen: a plain bell, which still opens the list. */
+      + '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
+      + (unseenNotices() ? ', ' + unseenNotices() + ' you have not seen' : '') + '">'
+      + ic('bell', 17)
+      + (unseenNotices() ? '<span class="badge">' + (unseenNotices() > 9 ? '9+' : unseenNotices())
+          + '</span>' : '')
+      + '</button>'
       + '<button class="worry" data-act="open:worried.html" aria-label="I am worried about someone">'
       + ic('heart-handshake', 17) + '<span>Worried?</span></button></div>';
 

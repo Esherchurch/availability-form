@@ -390,7 +390,45 @@
       + esc(label || 'Share on WhatsApp') + '</button>';
   }
 
+  /* ---- clean(html): somebody's words, safe to put on a page ---------
+     Moved here from hub-app.js's safeHtml (12 Oct 2026) because the
+     phone app needs the same thing for its notices sheet, and the one
+     rule this file exists for is that two copies of a cleaner is one
+     copy nobody updates. The hub calls this now; its safeHtml is a
+     one-line wrapper around it.
+
+     What it does, unchanged: drop anything that runs or loads, keep
+     only href, src and alt, force links to open in a new tab, and
+     unwrap the tables that email HTML is always made of. */
+  function clean(raw) {
+    if (!raw) return '';
+    var doc = new DOMParser().parseFromString(String(raw), 'text/html');
+
+    doc.querySelectorAll('script,style,meta,link,title,iframe,object,embed,form,input,button')
+      .forEach(function (n) { n.remove(); });
+
+    doc.querySelectorAll('*').forEach(function (n) {
+      Array.prototype.slice.call(n.attributes).forEach(function (a) {
+        var keep = a.name === 'href' || a.name === 'src' || a.name === 'alt';
+        if (!keep || /^javascript:/i.test(a.value)) n.removeAttribute(a.name);
+      });
+      if (n.tagName === 'A') { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
+    });
+
+    doc.querySelectorAll('table,tbody,thead,tr').forEach(function (n) {
+      n.replaceWith.apply(n, Array.prototype.slice.call(n.childNodes));
+    });
+    doc.querySelectorAll('td,th').forEach(function (n) {
+      var d = doc.createElement('div');
+      d.append.apply(d, Array.prototype.slice.call(n.childNodes));
+      n.replaceWith(d);
+    });
+
+    return doc.body.innerHTML;
+  }
+
   global.EGBCShare = {
+    clean: clean,
     format: format,
     htmlToWhatsApp: htmlToWhatsApp,
     open: open,
