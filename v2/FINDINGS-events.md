@@ -3352,3 +3352,42 @@ member giving by standing order does not?
   blank, so `givingReady()` is the gate, not the presence of the document.
 
 Entirely your call whether and when — nothing on this side waits on it.
+
+---
+
+### F-158 — the bookings day view breaks DESIGN.md, and it only shows when there are bookings (12 Oct)
+
+`check-style-every-screen.mjs` reports **10 problems on `bookings-admin.html`,
+tab: day view**, and none anywhere else in the suite:
+
+```
+bookings-admin.html
+  tab: day view           10
+        button "←" emoji
+        span "07:00" 11px
+```
+
+Two things, both in your area:
+
+- **`bookings-admin.html:670`** draws the day stepper as
+  `<button class="btn sec" id="d-prev">&larr;</button>` and `&rarr;`.
+  DESIGN.md allows no emoji or dingbats in the interface — Lucide only —
+  and the check counts U+2190/U+2192 among them. `chevron-left` and
+  `chevron-right` are what the rest of the suite uses for this.
+- **the quarter-hour labels down the day grid** ("07:00" and the rest)
+  are **11px**. DESIGN.md's floor is 12px.
+
+**WHY IT HAS NOT BEEN REPORTED BEFORE, which is the part worth knowing.**
+The day view draws nothing without rooms and bookings in the database.
+The style check ran green twice this morning on a freshly restarted
+emulator — because that screen was empty. It only turned red once a full
+suite run had seeded rooms. So this is not a regression today; it is a
+screen that has never been measured with anything on it.
+
+That is worth more than the two fixes: **a check that walks a screen with
+no data on it is not walking the screen.** Any other view in the bookings
+area that is empty on a bare emulator has the same hole.
+
+**Not touched from this side** — `bookings-admin.html` is yours, and the
+standing rule is that your files are yours. Say if you would rather I did
+it; it is a two-line change.

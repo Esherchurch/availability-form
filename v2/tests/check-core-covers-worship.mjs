@@ -296,11 +296,25 @@ const offMachine = u => {
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/' + file });
     for (let i = 0; i < 75; i++) {
       await sleep(400);
+      /* "OPEN" MEANS THE GUARD REVEALED IT, not "no splash yet".
+         egbc-guard.js appends #egbc-guard-style (body{visibility:hidden})
+         synchronously as its script runs and adds the splash later, in
+         start() - so asking "is there a splash?" reads a hidden page as
+         OPEN whenever the poll lands in the gap between them.
+
+         It shows up only where the expected answer is BLOCKED, because a
+         false open on a page somebody may see agrees with the assertion
+         anyway. That is how it hid here: the sibling check
+         (check-worship-av-one-team.mjs) had one safety assertion flicker
+         once in twenty runs, and the fault was in every page this
+         function has ever reported on.
+
+         reveal() removes the style element and nothing else does. */
       const state = String(await ev(
         '(function(){ if(!document.body) return "loading";'
         + ' var b = document.body.getAttribute("data-egbc-blocked");'
         + ' if (b) return "blocked:" + b;'
-        + ' if (document.getElementById("egbc-guard-splash")) return "checking";'
+        + ' if (document.getElementById("egbc-guard-style")) return "checking";'
         + ' return "open"; })()'));
       if (state.indexOf('blocked:') === 0 || state === 'open') return state;
     }

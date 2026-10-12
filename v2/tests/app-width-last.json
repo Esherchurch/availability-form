@@ -137,7 +137,6 @@
   "clipped": [
    "Family",
    "Instruments",
-   "Karen Synthetic Family",
    "Rota Tester Family",
    "P: Guitar"
   ],
@@ -157,7 +156,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Room bookings"
+  "title": "Room bookings — Synthetic Road Community Church"
  },
  {
   "page": "groups.html",
@@ -171,7 +170,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Find a group"
+  "title": "Find a group — Synthetic Road Community Church"
  },
  {
   "page": "hub.html",
@@ -183,8 +182,11 @@
   "menu": false,
   "widestTable": 0,
   "clipped": [
-   "For the roof appeal. Give on",
-   "Bring a friend. Sign up in W"
+   "Not for them.",
+   "Everyone sees this.",
+   "· Sunday 18 October",
+   "Thursdays at 7",
+   "No audition"
   ],
   "tinyText": 0,
   "blocked": "",
@@ -216,7 +218,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Children's register"
+  "title": "Children's register — Synthetic Road Community Church"
  },
  {
   "page": "kids-checkin.html",
@@ -230,7 +232,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Sunday check-in"
+  "title": "Sunday check-in — Synthetic Road Community Church"
  },
  {
   "page": "login.html",
@@ -242,8 +244,11 @@
   "menu": false,
   "widestTable": 0,
   "clipped": [
-   "For the roof appeal. Give on",
-   "Bring a friend. Sign up in W"
+   "Not for them.",
+   "Everyone sees this.",
+   "· Sunday 18 October",
+   "Thursdays at 7",
+   "No audition"
   ],
   "tinyText": 0,
   "blocked": "",
@@ -261,7 +266,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Maintenance"
+  "title": "Maintenance — Synthetic Road Community Church"
  },
  {
   "page": "meeting.html",
@@ -303,7 +308,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Book a room"
+  "title": "Book a room — Synthetic Road Community Church"
  },
  {
   "page": "safeguarding.html",
@@ -317,20 +322,18 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Safeguarding"
+  "title": "Safeguarding — Synthetic Road Community Church"
  },
  {
   "page": "stickynotes.html",
   "over": 0,
   "client": 375,
-  "worst": "div#boardCanvas.board-canvas",
-  "worstW": 3200,
+  "worst": null,
+  "worstW": 0,
   "websiteBar": true,
   "menu": false,
   "widestTable": 0,
-  "clipped": [
-   "No notes yet — add the first"
-  ],
+  "clipped": [],
   "tinyText": 0,
   "blocked": "",
   "title": "Worship Board"
@@ -361,7 +364,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "What's on"
+  "title": "What's on — Synthetic Road Community Church"
  },
  {
   "page": "worried.html",

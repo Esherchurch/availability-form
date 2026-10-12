@@ -216,7 +216,11 @@ const offMachine = u => {
         '(function(){ if(!document.body) return "loading";'
         + ' var b = document.body.getAttribute("data-egbc-blocked");'
         + ' if (b) return "blocked:" + b;'
-        + ' if (document.getElementById("egbc-guard-splash")) return "checking";'
+        /* The STYLE element, not the splash: egbc-guard.js adds the style
+         synchronously and the splash later, so asking about the splash
+         reads a hidden page as open in the gap between them. reveal()
+         removes the style and nothing else does. */
+        + ' if (document.getElementById("egbc-guard-style")) return "checking";'
         + ' return "open"; })()'));
       if (state.indexOf('blocked:') === 0 || state === 'open') return state;
     }

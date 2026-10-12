@@ -305,11 +305,25 @@ const offMachine = u => {
     board.slice(0, 200));
   ok('  AN ARCHIVED NOTE IS NOT SHOWN', board.indexOf('An archived idea') === -1, board.slice(0, 240));
   ok('  and "Add an idea" is the first thing offered', /Add an idea/.test(board), board.slice(0, 120));
-  const full = String(await ev('(function(){var a=document.querySelectorAll(".sheet [data-act]");'
-    + 'for(var i=0;i<a.length;i++){if(/stickynotes/.test(a[i].dataset.act))return a[i].dataset.act}'
-    + 'return "(none)"})()'));
+  /* BY NAME, NOT BY BEING FIRST. This used to take the first action
+     mentioning stickynotes and expect the cork board's address. There
+     are two of them now - §7f made "Add an idea" open the add form
+     straight away (&add=1), and it comes first - so the check was
+     reading the Add row and reporting the wrong one. Both are asserted
+     now, which is also what the brief asks for: "'Add an idea' opens the
+     add form in the app" and "'The whole board' opens stickynotes in app
+     mode". */
+  const acts = JSON.parse(String(await ev('(function(){'
+    + 'var a=[].slice.call(document.querySelectorAll(".sheet [data-act]"));'
+    + 'var out={};a.forEach(function(b){'
+    + ' var t=(b.textContent||"").replace(/\\s+/g," ").trim();'
+    + ' if(/Add an idea/.test(t)) out.add=b.dataset.act;'
+    + ' if(/The whole board/.test(t)) out.whole=b.dataset.act;});'
+    + 'return JSON.stringify(out)})()')));
   ok('  with the whole cork board one tap further on, and the RIGHT board',
-    full === 'open:stickynotes.html?board=worship', full);
+    acts.whole === 'open:stickynotes.html?board=worship', JSON.stringify(acts));
+  ok('  and "Add an idea" opens the add form on that same board',
+    acts.add === 'open:stickynotes.html?board=worship&add=1', JSON.stringify(acts));
   await shot('pin-board');
   ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
 

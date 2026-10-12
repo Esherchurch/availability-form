@@ -200,6 +200,18 @@ const YOUTH_MAY_READ = ['songs', 'services', 'events', 'portal',
                            reads their own back; the group's adults read the
                            queue. YOUTH-ACCESS.md, and A-059. */
                         'boardSuggestions',
+                        /* COMMENTS ON A NOTE (APP-DESIGN-BRIEF 7f). A young
+                           person READS these on their own group's board and
+                           writes none - create goes through boardIsMine(),
+                           which is false for a youth-code account, so "they
+                           don't comment at launch" is true by construction.
+                           Reading is deliberate: they can see the notes, and
+                           being talked about on a board you can see and
+                           cannot answer would be worse than not seeing it.
+                           Added here with the reason rather than by widening
+                           the test - this list refusing a new collection is
+                           the whole point of it. */
+                        'boardComments',
                         /* NAMED HELPERS, not a blanket pass for helpers: a new
                            one wrapping youthGranted() still fails this, which
                            is the point. youthInGroup composes it and is itself

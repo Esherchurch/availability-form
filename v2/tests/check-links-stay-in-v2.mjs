@@ -29,7 +29,18 @@ const V2_ADDRESS = OLD + 'v2/';
 const IN_AN_EMAIL = [
   { file: 'Planner.html', what: 'the Fill In My Availability button on the rota email' },
   { file: 'trainingrotaplanner.html', what: 'the same button in the training copy of that email' },
-  { file: 'CoreTeamApp.html', what: 'the availability email sent from Core Team' },
+  /* THE AVAILABILITY EMAIL MOVED. It was built in CoreTeamApp.html until
+     the Core Team rota was lifted into egbc-core-rota.js so both hosts
+     run one copy (febf6797, 11 Oct 2026). The link is the same link and
+     still goes in an email - an email has no page to be relative to - but
+     this list still named the old home, so the check reported the same
+     move twice: a full address "leaving v2" from the new file, and an
+     email "missing its full address" from the old one.
+
+     Both halves were mine, and this check has been red since that day.
+     Correcting where the email lives is not loosening it: a full address
+     anywhere other than these files still fails. */
+  { file: 'egbc-core-rota.js', what: 'the availability email sent from Core Team' },
   { file: 'hub-app.js', what: 'the access code email to a parent' },
   { file: 'EmailBuilder2.html', what: 'the address offered when an admin puts a link in an email' },
   { file: 'hubresources.html', what: 'the example under a box where somebody pastes a full address' }

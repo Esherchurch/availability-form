@@ -158,7 +158,18 @@ const ALLOWED = ['www.gstatic.com', 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com
      the splash. A readiness test that only counts elements reports that as
      loaded; the first version of this check did, and the deliberate break
      sailed past it. */
-  const VISIBLE = '!document.getElementById("egbc-guard-splash")'
+  /* document.body FIRST. Polling starts the moment the navigation is
+     sent, and for the first few milliseconds there is no body - so
+     getComputedStyle(document.body) threw "parameter 1 is not of type
+     'Element'". The poll simply retried, the check still reported 13/13,
+     and nothing said a word: the throw came back as the string "THREW
+     ..." and was dropped on the floor.
+
+     It only became visible on 12 Oct 2026, when browser-eval.mjs started
+     turning a page-side throw red whatever the tally says. This is the
+     first thing that gate caught that was not deliberately planted. */
+  const VISIBLE = '!!document.body'
+    + ' && !document.getElementById("egbc-guard-splash")'
     + ' && getComputedStyle(document.body).visibility !== "hidden"';
 
   async function open(page, ready) {

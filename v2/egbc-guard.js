@@ -75,6 +75,59 @@
     if (sp) sp.remove();
   }
 
+  /* THE SPLASH MUST NOT SPIN FOR EVER (Martin, 12 Oct 2026: "Checking
+     access" stuck on his phone, opening the rota from the app right
+     after a laptop restart; it cleared on its own later).
+     =================================================================
+
+     WHY IT CAN HANG. EGBCAuth.require() waits on loadProfile(), which is
+     a Firestore get() with no timeout. The SDK retries a wedged
+     connection by itself and that get() can stay pending for minutes - a
+     sleeping laptop, a phone changing network, the emulator dropping a
+     client (A-062/A-063). While it is pending the promise neither
+     resolves nor rejects, so the guard never reveals the page and never
+     refuses it: the splash is all there is, and nothing on the screen
+     says anything is wrong.
+
+     SO THE GUARD STOPS WAITING SILENTLY AT 8 SECONDS. It does not give
+     up - the read is still running, and if it comes back the page opens
+     as it always would. It just stops pretending to be busy and says
+     what has happened, with a way out.
+
+     THE MESSAGE REPLACES THE SPINNER AND NOT THE PAGE. The body is still
+     hidden; revealing it would show whatever is underneath to somebody
+     whose access has not been checked, which is the one thing this file
+     exists to prevent. */
+  var SETTLE_MS = 8000;
+  var settled = false;
+
+  function stillWaiting() {
+    if (settled) return false;
+    if (!document.body) return true;
+    /* A refusal is an answer: _blockPage() stamps the body and replaces
+       it, so this is not a stall. */
+    return !document.body.getAttribute('data-egbc-blocked');
+  }
+
+  function sayStuck() {
+    if (!stillWaiting()) return;
+    var sp = document.getElementById('egbc-guard-splash');
+    if (!sp) return;
+    sp.innerHTML =
+      '<div style="text-align:center;max-width:300px;padding:0 20px">'
+      + '<div style="font-size:16px;font-weight:600;color:#2a4a4b;margin:0 0 8px">'
+      + 'Could not check your access</div>'
+      + '<p style="font-size:14px;line-height:1.5;color:#52706f;margin:0 0 16px">'
+      + 'This is nearly always the connection. Your place is still here &mdash; '
+      + 'try again in a moment.</p>'
+      + '<button id="egbc-guard-retry" style="min-height:44px;padding:0 18px;'
+      + 'background:#3d6263;color:#fff;border:none;border-radius:10px;'
+      + 'font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">'
+      + 'Try again</button></div>';
+    var b = document.getElementById('egbc-guard-retry');
+    if (b) b.onclick = function () { location.reload(); };
+  }
+
   function start() {
     var sp = splash();
 
@@ -90,7 +143,10 @@
     if (adminAny) opts.adminAny = true;
     if (alsoTeam) opts.alsoTeam = alsoTeam;
 
+    setTimeout(sayStuck, SETTLE_MS);
+
     EGBCAuth.require(opts).then(function (profile) {
+      settled = true;
       reveal();
 
       /* A sign-out chip, but only where there is no shared bar already
@@ -103,6 +159,7 @@
 
       document.dispatchEvent(new CustomEvent('egbc-ready', { detail: profile }));
     }).catch(function (e) {
+      settled = true;
       console.error('egbc-guard:', e);
       reveal();
     });

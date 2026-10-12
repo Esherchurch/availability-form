@@ -49,6 +49,19 @@ const PEOPLE = {
      AND a master admin, so he would pass every check below for two other
      reasons and prove nothing about the cover. */
   core:    { uid: 'u_core',     teams: ['Core Team'], adminFor: [], masterAdmin: false },
+  /* WORSHIP, AV AND CHOIR, one each and nothing else (Martin, 12 Oct
+     2026: "if worship team want to turn on the sound desk they should be
+     able to see how"). Three separate people, because the claim is that
+     each of the three sees the other two's things - samy would not do,
+     being on Worship AND Kids Church, and martin would not either, being
+     a master admin who passes everything for another reason entirely. */
+  worship: { uid: 'u_worship', teams: ['Worship Team'], adminFor: [], masterAdmin: false },
+  av:      { uid: 'u_av',      teams: ['AV Team'],      adminFor: [], masterAdmin: false },
+  choir:   { uid: 'u_choir',   teams: ['Choir'],        adminFor: [], masterAdmin: false },
+  /* A LEADER of AV and of nothing else, to show that seeing more did not
+     become changing more. */
+  avLead:  { uid: 'u_av_lead',  teams: ['AV Team'], adminFor: ['AV Team'], masterAdmin: false },
+
   /* THE CHURCH OFFICE, and nothing else. They are the other people who
      may set the church's bank details, so they have to be somebody who
      is not a master admin and not an admin of anything - otherwise an
@@ -222,6 +235,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     byUid: 'u_isla', byName: 'Isla', createdAt: 'x' });
   await setDoc(doc(db, 'teamVideos', 'v_kids'), { title: 'Kids clip', team: 'Kids Church' });
   await setDoc(doc(db, 'teamVideos', 'v_worship'), { title: 'Worship clip', team: 'Worship Team' });
+  await setDoc(doc(db, 'teamVideos', 'v_av'), { title: 'AV clip', team: 'AV Team' });
+  await setDoc(doc(db, 'teamVideos', 'v_choir'), { title: 'Choir clip', team: 'Choir' });
   await setDoc(doc(db, 'videoSections', 'kids-church'), { team: 'Kids Church', names: ['Church Show'] });
   await setDoc(doc(db, 'services', 's1'), { date: '2026-09-06' });
   await setDoc(doc(db, 'inventory', 'inv1'), { name: 'Synthetic mixing desk', where: 'Main Hall' });
@@ -589,6 +604,55 @@ await check('kids admin cannot write the worship board', 'deny', () => setDoc(do
 }
 
 // The video library.
+/* ── WORSHIP, AV AND CHOIR ARE ONE TEAM FOR SEEING THINGS ────────────
+   Martin, 12 Oct 2026: "if worship team want to turn on the sound desk
+   they should be able to see how." egbc-auth.js already says this for
+   the pages (WORSHIP_AV, 8c9dba43); these are the rules saying the same,
+   or a page opens and the data behind it is refused.
+
+   BOTH DIRECTIONS, and the third team as well - "Worship can read AV"
+   on its own would pass with a rule that simply let everybody read
+   everything. */
+{
+  await check('Worship reads the AV team’s video', 'allow',
+    () => getDoc(doc(as('worship'), 'teamVideos', 'v_av')));
+  await check('AV reads the worship team’s', 'allow',
+    () => getDoc(doc(as('av'), 'teamVideos', 'v_worship')));
+  await check('Choir reads both', 'allow',
+    () => getDoc(doc(as('choir'), 'teamVideos', 'v_av')));
+  await check('and Worship reads the choir’s', 'allow',
+    () => getDoc(doc(as('worship'), 'teamVideos', 'v_choir')));
+  /* AND IT STOPS THERE. Kids Church is not part of this. */
+  await check('but Kids Church still cannot read the AV team’s', 'deny',
+    () => getDoc(doc(as('karen'), 'teamVideos', 'v_av')));
+  await check('nor can AV read the Kids Church one', 'deny',
+    () => getDoc(doc(as('av'), 'teamVideos', 'v_kids')));
+
+  /* SEEING MORE IS NOT CHANGING MORE. Every leader-only write goes
+     through adminOf(), which reads adminFor and never myTeams() - so
+     widening what the three can read must not have widened what they can
+     write. This is the half that would be silently wrong if the cover
+     had been added to the wrong helper. */
+  await check('being on AV does not let somebody change an AV video', 'deny',
+    () => setDoc(doc(as('av'), 'teamVideos', 'v_av2'), { title: 'No', team: 'AV Team' }));
+  await check('nor does being on Worship let them change the AV team’s', 'deny',
+    () => setDoc(doc(as('worship'), 'teamVideos', 'v_av3'), { title: 'No', team: 'AV Team' }));
+  await check('the AV leader changes the AV team’s', 'allow',
+    () => setDoc(doc(as('avLead'), 'teamVideos', 'v_av4'), { title: 'Yes', team: 'AV Team' }));
+  /* AND A LEADER OF ONE IS NOT A LEADER OF THE OTHER TWO. The cover is
+     about seeing; leading a team is still leading that team. */
+  await check('but not the worship team’s', 'deny',
+    () => setDoc(doc(as('avLead'), 'teamVideos', 'v_w2'), { title: 'No', team: 'Worship Team' }));
+
+  /* The worship board is the other thing the three share. */
+  await check('AV reads the worship board', 'allow',
+    () => getDoc(doc(as('av'), 'worshipBoardState', 'state')));
+  await check('Choir reads it too', 'allow',
+    () => getDoc(doc(as('choir'), 'worshipBoardState', 'state')));
+  await check('and Kids Church does not', 'deny',
+    () => getDoc(doc(as('karen'), 'worshipBoardState', 'state')));
+}
+
 await check('kids admin reads a kids video', 'allow', () => getDoc(doc(as('karen'), 'teamVideos', 'v_kids')));
 await check('youth cannot read a kids video', 'deny', () => getDoc(doc(as('isla'), 'teamVideos', 'v_kids')));
 await check('kids admin adds a video', 'allow', () => setDoc(doc(as('karen'), 'teamVideos', 'v_new'), { title: 'New', team: 'Kids Church' }));

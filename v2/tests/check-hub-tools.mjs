@@ -235,9 +235,25 @@ const ok = (n, v, x) => { R.push(v); console.log('  ' + (v ? 'PASS  ' : 'FAIL  '
     'egbcworship&av.html':
       'the hub does everything it did - 17a. The file stays for the phone app.'
   };
+  /* RENAMED, NOT LOST. v2 offers the page under a different name, so a
+     check that compares titles reports it as missing - which is what it
+     has been doing for the pin board. egbc-menu.js says why in its own
+     words: "Pin boards", plural, because there are five of them now.
+
+     Keyed on the url like the list above, and it still has to FIND the
+     new title on v2's hub: this says "look for this instead", not "never
+     mind". A page that really did disappear still fails. */
+  const RENAMED_IN_V2 = {
+    'stickynotes.html': 'Pin boards',
+  };
   const retired = p => RETIRED_ON_PURPOSE[String(p.url || '').toLowerCase()];
-  const missingFromV2 = onOrig.filter(p => !has(v2.text, p.title) && !retired(p));
-  const onPurpose = onOrig.filter(p => !has(v2.text, p.title) && retired(p));
+  const v2Title = p => RENAMED_IN_V2[String(p.url || '').toLowerCase()] || p.title;
+  const onV2 = p => has(v2.text, v2Title(p));
+  const renamed = onOrig.filter(p => RENAMED_IN_V2[String(p.url || '').toLowerCase()] && onV2(p));
+  if (renamed.length) console.log('offered under a new name   : '
+    + renamed.map(p => p.title + ' -> ' + v2Title(p)).join('; '));
+  const missingFromV2 = onOrig.filter(p => !onV2(p) && !retired(p));
+  const onPurpose = onOrig.filter(p => !onV2(p) && retired(p));
   if (onPurpose.length) console.log('not offered, on purpose : ' +
     onPurpose.map(p => p.title + ' - ' + retired(p)).join('; '));
   const extraInV2 = wanted.filter(p => !has(orig.text, p.title) && has(v2.text, p.title));

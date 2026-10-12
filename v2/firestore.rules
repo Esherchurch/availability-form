@@ -83,9 +83,30 @@ service cloud.firestore {
     //
     // IT ONLY GOES ONE WAY. Core Team counts as Worship, AV and Choir;
     // nobody counts as Core Team who is not on it.
-    function coreCovers() { return ['Worship Team', 'AV Team', 'Choir']; }
+    //
+    // WORSHIP, AV AND CHOIR ARE ONE TEAM FOR SEEING THINGS (Martin,
+    // 12 Oct 2026: "if worship team want to turn on the sound desk they
+    // should be able to see how"). Being on any of the three counts as
+    // being on all three, which egbc-auth.js's inTeam() already does for
+    // the pages (WORSHIP_AV, 8c9dba43). The rules have to say the same
+    // or a page opens and the data behind it is refused - which is the
+    // fault this whole helper was written for.
+    //
+    // ONE LIST FOR BOTH, because they are the same three teams: what
+    // Core Team covers and what the three cover between them.
+    //
+    // THIS WIDENS READING AND NOT WRITING. Every leader-only write in
+    // this file goes through canAct()/adminOf(), which read adminFor
+    // directly and never myTeams() - so an AV member reading the worship
+    // team's videos does not become able to change them. That is worth
+    // stating because widening a helper that everything leans on is
+    // exactly how a read gate turns into a write gate by accident.
+    function worshipAv() { return ['Worship Team', 'AV Team', 'Choir']; }
+    function coreCovers() { return worshipAv(); }
     function myTeams() {
-      return 'Core Team' in me().teams ? me().teams.concat(coreCovers()) : me().teams;
+      return me().teams
+        .concat('Core Team' in me().teams ? worshipAv() : [])
+        .concat(me().teams.hasAny(worshipAv()) ? worshipAv() : []);
     }
 
     function onTeam(team) {
