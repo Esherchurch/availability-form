@@ -265,13 +265,15 @@ until its own runtime service account is allowed to sign tokens for itself.
 Without this the function answers an error and ChurchShow shows *"That code
 isn't valid or has run out"* for every code, however fresh.
 
-Find the service account the functions run as — the deploy prints it, and it is
-usually `egbc-worship-planner@appspot.gserviceaccount.com` — then, once:
+The functions run as the project's **default compute account**, read from the
+console on 12 Oct 2026 (Cloud Run → bookingreminders → YAML,
+`serviceAccountName`): `199442060489-compute@developer.gserviceaccount.com`.
+NOT the appspot account this note used to guess. Then, once:
 
 ```
 gcloud iam service-accounts add-iam-policy-binding ^
-  egbc-worship-planner@appspot.gserviceaccount.com ^
-  --member="serviceAccount:egbc-worship-planner@appspot.gserviceaccount.com" ^
+  199442060489-compute@developer.gserviceaccount.com ^
+  --member="serviceAccount:199442060489-compute@developer.gserviceaccount.com" ^
   --role="roles/iam.serviceAccountTokenCreator" ^
   --project=egbc-worship-planner
 ```
