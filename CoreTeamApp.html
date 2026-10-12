@@ -1386,7 +1386,7 @@ async function openServiceDetail(id) {
       introText:        svcData.introText || '',
       outroText:        svcData.outroText || '',
       notes:            svcData.notes     || '',
-      _rotaAssignments: rotaAssignments,
+      _rotaAssignments: worshipOnly(rotaAssignments),
     };
 
     openSection('service-detail');
@@ -1973,7 +1973,7 @@ async function spSelectEvent() {
   [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
     if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
   });
-  spSortAssignments(Object.entries(data.assignments || {})).forEach(([role, person]) => {
+  spSortAssignments(Object.entries(worshipOnly(data.assignments))).forEach(([role, person]) => {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${personName(person)}</td><td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td></tr>`;
   });
 
@@ -2365,6 +2365,15 @@ const videoLinkFor = ev => { const r = videoRoomFor(ev); return r ? VIDEO_BASE +
 const videoRoomLabel = room => (VIDEO_ROOMS.find(([r]) => r === room) || [room, room])[1];
 
 const personName = raw => Array.isArray(raw) ? raw.map(p => p.name).join(', ') : (raw?.name || '');
+// Kids Church roles share the Sunday event since the new hub's rota planner
+// (Oct 2026) and the old site reads the same database. The worship plan and
+// its email are for Worship & AV only (Martin, 12 Oct 2026), so leave the
+// Kids Church slots out of the team list and of who the email goes to.
+const KIDS_CHURCH_ROLES = ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+  'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)'];
+const isWorshipRole = r => KIDS_CHURCH_ROLES.indexOf(r) === -1 && !/^Helper \d+$/.test(r);
+const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));
+
 const personId = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || '');
 
 let rotaCollapsedTerms = new Set();

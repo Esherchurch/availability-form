@@ -65,6 +65,15 @@ const db = getFirestore(app);
 
 // ── Normalise assignments — handles both single {id,name} and array [{id,name}] formats
 const personName = raw => Array.isArray(raw) ? raw.map(p => p.name).join(', ') : (raw?.name || '');
+// Kids Church roles share the Sunday event since the new hub's rota planner
+// (Oct 2026) and the old site reads the same database. The worship plan and
+// its email are for Worship & AV only (Martin, 12 Oct 2026), so leave the
+// Kids Church slots out of the team list and of who the email goes to.
+const KIDS_CHURCH_ROLES = ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+  'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)'];
+const isWorshipRole = r => KIDS_CHURCH_ROLES.indexOf(r) === -1 && !/^Helper \d+$/.test(r);
+const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));
+
 const personId   = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || '');
 
 let worshipLeaderName = "";
@@ -404,7 +413,7 @@ window.selectEvent = async () => {
     document.getElementById('roleSpeaker').value = data.speaker || findRole(/speak|preach|message|sermon/i);
     document.getElementById('roleReader').value = findRole(/read/i);
 
-    let assignmentsArray = Object.entries(data.assignments || {});
+    let assignmentsArray = Object.entries(worshipOnly(data.assignments));
     assignmentsArray = sortAssignments(assignmentsArray);
     assignmentsArray.forEach(([role, person]) => {
         const name = personName(person);
