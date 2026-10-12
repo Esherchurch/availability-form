@@ -214,6 +214,12 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   /* Core Team's own board (Martin, 10 Oct 2026). */
   await setDoc(doc(db, 'worshipBoardState', 'core-team'), { notes: [], pages: [] });
   await setDoc(doc(db, 'worshipBoardState', 'youth'), { notes: [] });
+  /* A comment already on a youth note, so "a young person READS the
+     comments and writes none" can be tested as two separate questions.
+     Written by a leader, which is who may write them. */
+  await setDoc(doc(db, 'boardComments', 'bc_youth'), {
+    boardId: 'youth', noteId: 'n1', text: 'Good idea, lets try it',
+    byUid: 'u_isla', byName: 'Isla', createdAt: 'x' });
   await setDoc(doc(db, 'teamVideos', 'v_kids'), { title: 'Kids clip', team: 'Kids Church' });
   await setDoc(doc(db, 'teamVideos', 'v_worship'), { title: 'Worship clip', team: 'Worship Team' });
   await setDoc(doc(db, 'videoSections', 'kids-church'), { team: 'Kids Church', names: ['Church Show'] });
@@ -521,6 +527,66 @@ await check('youth cannot read the kids board', 'deny', () => getDoc(doc(as('isl
 await check('youth reads the youth board', 'allow', () => getDoc(doc(as('isla'), 'worshipBoardState', 'youth')));
 await check('kids admin writes the kids board', 'allow', () => setDoc(doc(as('karen'), 'worshipBoardState', 'kids-church'), { notes: [] }));
 await check('kids admin cannot write the worship board', 'deny', () => setDoc(doc(as('karen'), 'worshipBoardState', 'state'), { notes: [] }));
+
+/* ── COMMENTS ON A PIN BOARD NOTE (APP-DESIGN-BRIEF 7f) ──────────────
+   A separate collection, one document per comment, because the board is a
+   single document: anyone allowed to add a comment INSIDE it would be
+   allowed to rewrite every note on it.
+
+   Read follows the board. Create follows who may WRITE the board, which
+   is how "young people don't comment at launch" is true by construction
+   rather than by a flag - a youth-code account fails boardIsMine(). */
+{
+  const C = (extra) => ({
+    boardId: 'state', noteId: 'n1', text: 'We could do this in Bb',
+    byUid: 'u_samy', byName: 'Samy', createdAt: 'x', ...(extra || {}),
+  });
+  const kids = (extra) => C({ boardId: 'kids-church', byUid: 'u_samy', ...(extra || {}) });
+
+  await check('somebody on the worship team comments on a worship note', 'allow',
+    () => setDoc(doc(as('samy'), 'boardComments', 'bc_1'), C()));
+  await check('and reads it back', 'allow',
+    () => getDoc(doc(as('samy'), 'boardComments', 'bc_1')));
+  await check('a master admin reads it too', 'allow',
+    () => getDoc(doc(as('martin'), 'boardComments', 'bc_1')));
+  /* Off that board entirely: isla is Youth Worship, not Worship Team. */
+  await check('somebody off that board cannot read its comments', 'deny',
+    () => getDoc(doc(as('isla'), 'boardComments', 'bc_1')));
+  await check('nor comment on it', 'deny',
+    () => setDoc(doc(as('isla'), 'boardComments', 'bc_2'), C({ byUid: 'u_isla' })));
+  await check('nor can somebody who has not signed in', 'deny',
+    () => getDoc(doc(anon(), 'boardComments', 'bc_1')));
+
+  /* The author is whoever is signed in, not whoever the page claims. */
+  await check('a comment cannot be signed with somebody else’s name', 'deny',
+    () => setDoc(doc(as('samy'), 'boardComments', 'bc_3'), C({ byUid: 'u_martin' })));
+  await check('500 characters is the limit', 'deny',
+    () => setDoc(doc(as('samy'), 'boardComments', 'bc_4'), C({ text: 'x'.repeat(501) })));
+  await check('an empty comment is not a comment', 'deny',
+    () => setDoc(doc(as('samy'), 'boardComments', 'bc_5'), C({ text: '' })));
+  await check('and no unexpected field rides along', 'deny',
+    () => setDoc(doc(as('samy'), 'boardComments', 'bc_6'), C({ email: 'a@b.invalid' })));
+
+  /* NOBODY EDITS ONE. An edited comment still carrying its original name
+     and date is a quiet way to put words in somebody's mouth. */
+  await check('nobody edits a comment, not even the person who wrote it', 'deny',
+    () => updateDoc(doc(as('samy'), 'boardComments', 'bc_1'), { text: 'changed' }));
+
+  /* Taking one down: the author, or a LEADER of that board - narrower
+     than who may write it. Everyone on Kids Church may pin a note and
+     comment; removing another person's words is a leader's job. */
+  await check('somebody on Kids Church comments on the kids board', 'allow',
+    () => setDoc(doc(as('samy'), 'boardComments', 'bc_k1'), kids()));
+  const lena = () => env.authenticatedContext('u_lena').firestore();
+  await check('another member of that team reads it', 'allow',
+    () => getDoc(doc(lena(), 'boardComments', 'bc_k1')));
+  await check('but cannot take somebody else’s comment down', 'deny',
+    () => deleteDoc(doc(lena(), 'boardComments', 'bc_k1')));
+  await check('the Kids Church admin can, being a leader of that board', 'allow',
+    () => deleteDoc(doc(as('karen'), 'boardComments', 'bc_k1')));
+  await check('and the author can take their own down', 'allow',
+    () => deleteDoc(doc(as('samy'), 'boardComments', 'bc_1')));
+}
 
 // The video library.
 await check('kids admin reads a kids video', 'allow', () => getDoc(doc(as('karen'), 'teamVideos', 'v_kids')));
@@ -2279,6 +2345,14 @@ await check('and the service plans', 'allow', () => getDocs(collection(youthOk()
 await check('and which services there are, to pick one', 'allow', () => getDocs(collection(youthOk(), 'events')));
 await check('and the welcome panel', 'allow', () => getDoc(doc(youthOk(), 'portal', 'dashboardContent')));
 await check('and the YOUTH pin board', 'allow', () => getDoc(doc(youthOk(), 'worshipBoardState', 'youth')));
+/* COMMENTS ON THEIR OWN BOARD: they READ them and write none.
+   APP-DESIGN-BRIEF 7f: "On the moderated youth boards (Youth, ReNu,
+   Lazers), young people don't comment at launch. Their way in stays
+   'Suggest an idea' through a leader." They read the notes, so they read
+   what is said about them - being talked about on a board you can see
+   and cannot answer would be worse than not seeing it. */
+await check('and the comments on a note on their own board', 'allow',
+  () => getDoc(doc(youthOk(), 'boardComments', 'bc_youth')));
 await check('and a published article', 'allow',
   () => getDocs(query(collection(youthOk(), 'kb_playthrough'), where('published', '==', true))));
 await check('and the training one', 'allow',
@@ -2298,6 +2372,19 @@ await check('nor who can serve when', 'deny', () => getDoc(doc(youthOk(), 'avail
 await check('nor anybody\'s account', 'deny', () => getDoc(doc(youthOk(), 'users', 'u_samy')));
 await check('nor another young person\'s access record', 'deny', () => getDoc(doc(youthOk(), 'youthAccess', 'u_youth_expired')));
 await check('nor the news', 'deny', () => getDoc(doc(youthOk(), 'news', 'n1')));
+/* AND THEY DO NOT COMMENT, which is the decision behind 7f and the one
+   most likely to be undone by accident later: widening who may create a
+   comment to "whoever can READ the board" would let them, and this is
+   what would notice. Their route stays a suggestion a leader reads
+   first. */
+await check('a young person cannot comment on a note, even on their own board', 'deny',
+  () => setDoc(doc(youthOk(), 'boardComments', 'bc_y2'),
+    { boardId: 'youth', noteId: 'n1', text: 'me too', byUid: 'u_youth_ok',
+      byName: 'Young', createdAt: 'x' }));
+await check('nor on the worship team’s', 'deny',
+  () => setDoc(doc(youthOk(), 'boardComments', 'bc_y3'),
+    { boardId: 'state', noteId: 'n1', text: 'me too', byUid: 'u_youth_ok',
+      byName: 'Young', createdAt: 'x' }));
 await check('nor the Sunday song list, which the youth app does not use', 'deny', () => getDoc(doc(youthOk(), 'songSummaries', '2026-10-11')));
 await check('nor the resource shelf', 'deny', () => getDoc(doc(youthOk(), 'resources', 'r1')));
 

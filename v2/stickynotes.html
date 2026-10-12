@@ -621,14 +621,19 @@ async function approveSuggestion(id) {
     r = snap.data();
   } catch (e) { toast('Could not read it'); return; }
 
-  state.notes.push({
+  /* noteSpot(), like every other way of adding a note. This had its own
+     copy of the arithmetic and a DIFFERENT one: it counted every note on
+     the board rather than the ones on this page that are not archived,
+     and it left out the jitter and the tilt. So a note a leader put up
+     from a young person's suggestion sat square and could land on top of
+     another page's note, while one typed in by hand never did. Nobody
+     would have guessed why from looking at the board. */
+  state.notes.push(Object.assign({
     id: 'n' + Date.now(), pageId: state.currentPage,
     author: r.firstName || 'Someone', cat: 'idea',
     title: '', body: r.text || '', ytUrl: '', link: '', linkLabel: '', imgUrl: '',
     reactions: {}, myReactions: {}, createdAt: Date.now(), archived: false,
-    x: 60 + (state.notes.length % 5) * 310, y: 60 + Math.floor(state.notes.length / 5) * 340,
-    rot: 0, zIndex: maxZ() + 1
-  });
+  }, noteSpot()));
   try {
     await BOARD_DOC.set({ pages: state.pages, notes: state.notes });
   } catch (e) {
@@ -938,10 +943,17 @@ function renderNotes() {
 
   let i = 0;
   notes.forEach(note => {
+    /* A NOTE WITH NO PLACE YET gets one from the same formula as a new
+       one - noteSpotAt(), underneath noteSpot(). A note added on a phone
+       never writes x and y (7f), so this is the path that gives it a
+       sensible spot the first time somebody opens the corkboard on a
+       computer. Off the render index, because there may be several of
+       them and noteSpot() would put them all on one square. */
     if (note.x == null) {
-      const col = i % 5, row = Math.floor(i/5);
-      note.x = 60 + col*310 + (i*37%40) - 20;
-      note.y = 60 + row*340 + (i*53%40) - 20;
+      const spot = noteSpotAt(i);
+      note.x = spot.x;
+      note.y = spot.y;
+      if (note.rot == null) note.rot = spot.rot;
     }
     canvas.appendChild(buildNoteEl(note, i));
     i++;
@@ -1043,6 +1055,46 @@ function onCatChange() {
     document.getElementById('noteCat').value === 'song' ? '' : 'none';
 }
 
+/* WHERE A NEW NOTE GOES ON THE CORKBOARD — ONE PIECE OF CODE.
+   ============================================================
+
+   APP-DESIGN-BRIEF 7f: "The new note gets a free spot on the corkboard
+   using stickynotes' own placement code (one piece of code decides where
+   notes go)." This was those six lines inline in saveNote(), which is
+   fine while there is one way to add a note. There are two now - this
+   page and the phone - and a second copy of this arithmetic would drift,
+   so a note added on a phone would land somewhere a note added on a
+   computer never would, for no reason anybody could explain.
+
+   The phone IGNORES x and y for its own layout and never writes them,
+   but a note added there still has to have a sensible place when
+   somebody opens the corkboard on a computer. So the phone calls this.
+
+   The numbers are unchanged: five across, 310 apart, 340 down, with a
+   small deterministic jitter and tilt off the index so a board does not
+   look like a spreadsheet. Deterministic rather than random, which is
+   why two people adding notes do not land on top of each other.
+
+   TWO CALLERS, TWO QUESTIONS, ONE FORMULA. Placing one NEW note asks
+   "how many are already there"; renderNotes() asks the same arithmetic
+   of a note that has no x and y at all - a note from before positions
+   were stored, or one added on a phone, which never writes them. That
+   one has to lay out several at once off the render index, so it cannot
+   call noteSpot(); it calls noteSpotAt() underneath it. If it called
+   noteSpot() every placeless note would land on the same square. */
+function noteSpotAt(i) {
+  return {
+    x: 60 + (i % 5) * 310 + (i * 37 % 40) - 20,
+    y: 60 + Math.floor(i / 5) * 340 + (i * 53 % 40) - 20,
+    rot: (i * 17 % 7) - 3.5,
+  };
+}
+
+function noteSpot() {
+  const i = state.notes.filter(n => n.pageId === state.currentPage && !n.archived).length;
+  return Object.assign(noteSpotAt(i), { zIndex: maxZ() + 1 });
+}
+
 function saveNote() {
   const f = id => document.getElementById(id).value.trim();
   const author=f('noteAuthor'), cat=document.getElementById('noteCat').value,
@@ -1054,17 +1106,11 @@ function saveNote() {
     const n = state.notes.find(n=>n.id===state.editingNoteId);
     if (n) Object.assign(n, {author,cat,title,body,ytUrl,link,linkLabel,imgUrl});
   } else {
-    const existing = state.notes.filter(n=>n.pageId===state.currentPage&&!n.archived);
-    const i = existing.length;
-    state.notes.push({
+    state.notes.push(Object.assign({
       id:'n'+Date.now(), pageId:state.currentPage,
       author,cat,title,body,ytUrl,link,linkLabel,imgUrl,
       reactions:{}, myReactions:{}, createdAt:Date.now(), archived:false,
-      x: 60+(i%5)*310+(i*37%40)-20,
-      y: 60+Math.floor(i/5)*340+(i*53%40)-20,
-      rot: (i*17%7)-3.5,
-      zIndex: maxZ()+1,
-    });
+    }, noteSpot()));
   }
   saveState(); closeNoteModal(); renderNotes();
   toast(state.editingNoteId ? 'Note updated' : 'Note pinned');

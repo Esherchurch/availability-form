@@ -883,6 +883,69 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // ---- comments on a pin board note (APP-DESIGN-BRIEF 7f) ----------
+    //
+    // ONE DOCUMENT PER COMMENT, and the brief says so in as many words:
+    // "The board is one document holding every note, so comments MUST NOT
+    // go in it." The reason is the same one that put suggestions in their
+    // own collection - a board is a single document, so anyone allowed to
+    // add a comment to it would be allowed to rewrite every note on it.
+    // Here a comment stands alone and the worst anyone can do to the board
+    // by commenting is add a row beside it.
+    //
+    // WHO IS A LEADER OF A BOARD, for deleting somebody else's comment.
+    // Deliberately NARROWER than who may write the board: everyone on Kids
+    // Church can pin a note and comment, but taking down another person's
+    // words is a leader's job.
+    function boardLeader(boardId) {
+      return isMaster()
+             || (boardId == 'state' && adminOf('Worship Team'))
+             || (boardGroup(boardId) != '' && adminOf(boardGroup(boardId)));
+    }
+
+    function commentShape(d) {
+      return d.keys().hasOnly(['boardId', 'noteId', 'text', 'byUid', 'byName', 'createdAt'])
+             && d.boardId is string && d.boardId.size() > 0 && d.boardId.size() <= 40
+             && d.noteId is string && d.noteId.size() > 0 && d.noteId.size() <= 60
+             && d.text is string && d.text.size() > 0 && d.text.size() <= 500
+             && d.byName is string && d.byName.size() > 0 && d.byName.size() <= 80
+             // The author is whoever is signed in, not whoever the page says.
+             && d.byUid == request.auth.uid;
+    }
+
+    match /boardComments/{commentId} {
+      // READ: whoever can read that board, which includes a young person
+      // with a live code on their own group's board - they read the notes,
+      // so they read what is said about them.
+      allow read: if boardIsMine(resource.data.boardId)
+                  || (youthGranted() && resource.data.boardId == 'youth')
+                  || ((resource.data.boardId == 'renu' || resource.data.boardId == 'lazers')
+                      && youthInGroup(boardGroup(resource.data.boardId)));
+
+      // CREATE: whoever can WRITE that board - the adults on the team.
+      //
+      // YOUNG PEOPLE DO NOT COMMENT AT LAUNCH, which is Martin's decision
+      // and not an oversight: on the moderated boards (Youth, ReNu,
+      // Lazers) their way in stays "Suggest an idea" through a leader, so
+      // that an adult reads anything they write before anybody else does.
+      // boardIsMine() is false for a youth-code account, so this is true
+      // by construction rather than by a flag - the same reasoning as the
+      // suggestions queue above. When that changes it changes HERE, in one
+      // place, and the check below is what will notice.
+      allow create: if boardIsMine(request.resource.data.boardId)
+                    && commentShape(request.resource.data);
+
+      // DELETE: the person who wrote it, or a leader of that board.
+      allow delete: if (request.auth != null && resource.data.byUid == request.auth.uid)
+                    || boardLeader(resource.data.boardId);
+
+      // NOBODY EDITS A COMMENT (the brief: "No editing comments"). An
+      // edited comment with the same name and date on it is a quiet way to
+      // put words in somebody's mouth; deleting and writing again is
+      // honest about what happened.
+      allow update: if false;
+    }
+
     // ---- news ---------------------------------------------------------
     // One document per notice, with a `teams` array. An empty array means
     // everyone; otherwise only people on one of those teams see it, which is

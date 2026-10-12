@@ -26,6 +26,7 @@ is proving something throws wraps it in `expectThrow()`.
 | The home page fits on one screen, and the phone order is right | `node tests/check-home-fits.mjs` (add `--shots`) |
 | Giving: the bank details are one setting, shown on the app and the website, and no number is in the repository | `node tests/check-give.mjs` (add `--shots`) |
 | A plan that was emailed but never saved still shows its songs, in all three planners, and Send saves | `node tests/check-emailed-plan.mjs` |
+| One piece of code decides where a note lands on the corkboard, and stickynotes.html parses | `node tests/check-note-placement.mjs` (a second, no browser) |
 | A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
 | "My calendar" works through the browser, end to end | `node tests/check-calendar-end-to-end.mjs` |
 | Karen sets up her household feed **from the phone app**, and gets the Apple, Google and Outlook buttons | `firebase emulators:exec --only firestore,auth,functions --project egbc-worship-planner "node tests/check-app-calendar.mjs"` (add `--shots`) |
