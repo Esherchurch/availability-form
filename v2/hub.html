@@ -231,6 +231,9 @@
   #egbc-tabbar a.on{color:var(--brand)}
   #egbc-tabbar a.on i{color:var(--brand)}
   #egbc-tabbar i{width:20px;height:20px;color:var(--muted)}
+  /* A label that wraps on a narrow phone ("My serving" at 360px) stays centred
+     under its icon instead of sitting to the left (Martin, 12 Oct 2026). */
+  #egbc-tabbar a span,#egbc-tabbar button span{display:block;text-align:center;line-height:1.2;max-width:100%}
   @media(max-width:1100px){
     #egbc-tabbar{display:block}
     /* Room for the bar, so the last card is not under it. The view-as
