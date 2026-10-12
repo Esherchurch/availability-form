@@ -469,7 +469,19 @@ window.selectEvent = async () => {
         });
         updateSongNumbers();
         autoFitTextAreas();
-    } else { autoFitTextAreas(); }
+    } else {
+        // No plan for this Sunday: start from a fresh blank order. Leaving the
+        // last Sunday's songs on screen meant they could be saved (or, now that
+        // sending saves, sent) as this Sunday's plan (Martin, 12 Oct 2026).
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+        document.getElementById('introBox').value = "";
+        document.getElementById('outroBox').value = "";
+        document.getElementById('serviceTypeNotes').value = data.description || "";
+        setupDefaultOrder();
+        updateSongNumbers();
+        autoFitTextAreas();
+    }
 };
 
 window.saveSchedule = async (quiet) => {
