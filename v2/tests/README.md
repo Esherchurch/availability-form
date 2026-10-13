@@ -27,6 +27,7 @@ is proving something throws wraps it in `expectThrow()`.
 | Giving: the bank details are one setting, shown on the app and the website, and no number is in the repository | `node tests/check-give.mjs` (add `--shots`) |
 | A plan that was emailed but never saved still shows its songs, in all three planners, and Send saves | `node tests/check-emailed-plan.mjs` |
 | Everyone on the Sunday plan email can open the plan - a preacher on no team, their Sunday and not another | `node tests/check-plan-audience.mjs` |
+| The switch-over backfill writes the same audience the planner would, from four weeks ago on, and cannot reach the real database by accident | `node tests/check-audience-backfill.mjs` |
 | "Checking access" does not spin for ever | `node tests/check-guard-does-not-spin.mjs` |
 | Worship, AV and Choir see the same pages, both ways | `node tests/check-worship-av-one-team.mjs` |
 | **Every check, one after another** | `node tests/run-all.mjs` (add `--list` to see what it runs and skips) |

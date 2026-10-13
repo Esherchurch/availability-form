@@ -2440,3 +2440,56 @@ It measured 61px because the page styles a bare `select`:
 team picker is a bare select. The strip’s controls now carry their own
 width, min-height and box-sizing, because this is shared chrome sitting
 on somebody else’s page. 45px, like the other twenty.
+
+### A-076 — the Sunday plan audience backfill (NEXT-BRIEF §26 item 13), and four things found building it
+
+`tools/backfill-plan-audience.mjs` writes `audience` and
+`audienceUnresolved`, and nothing else, onto every `services` and
+`songSummaries` document dated from four weeks ago onwards. It works
+the answer out **as the planners do**: the policy is the planners' own
+`egbc-plan-audience.js`, loaded rather than copied, and the day's
+services are picked and merged as `SundayServicePlanner.html` does it.
+It does a dry run unless given `--write`, and it refuses to touch the
+real database without `--live`. **It has not been run against the live
+database.** It's a switch-over step, and Martin's steps are in §26.
+
+`tests/check-audience-backfill.mjs` **26/26**. The proof that matters:
+the real Sunday Service Planner is opened on the same synthetic Sunday,
+Save is pressed, and it writes **the same people and the same unresolved
+names** as the script did.
+
+| Break | Caught by |
+|---|---|
+| a name two records share resolves to the first of them | 6, including "THE SAME PEOPLE THE SCRIPT WROTE" |
+| archived services counted | 3, including the planner comparison |
+| the four-week window dropped | "seven weeks ago is left alone" |
+| `set()` instead of `update()` | "nothing else on the plan was touched" |
+| the `--live` door removed | **not run**. With the door gone, the check would try to connect to the real project, so I didn't break it. The door is the first thing the script does, before anything is loaded |
+
+**Found, not fixed. Each needs Martin's word or is someone else's:**
+
+1. **The old site's Send wipes the audience.** The original planners'
+   `setDoc(songSummaries/<date>)` has no merge, so every send from the
+   old site replaces the summary without an audience. The backfill must
+   therefore run **after the last old-site send**, which §26 now says.
+2. **`youthserviceplanner.html` (v2) does the same.** Its Send replaces
+   `songSummaries/<date>` with no audience and no merge. After
+   switch-over, a youth plan sent for a date that also has a Sunday
+   plan **replaces that Sunday's summary**, songs and audience alike.
+   That has always been true of the shared document id; the audience
+   only makes it visible. For Martin: should the youth planner write
+   an audience too, or a summary of its own?
+3. **Only the first service's leader and speaker count.** Both planners
+   merge a day's services with `if (!merged.speaker)`, so an evening
+   preacher on a day with a morning speaker is **not** on the audience.
+   The backfill copies this, because the brief is "as the planners do".
+   For Martin: should every service's leader and speaker be on it?
+4. **The two planners disagree slightly about "archived".**
+   SundayServicePlanner skips `archived === true`, and
+   egbc-core-planner skips any truthy `archived`. Every writer I found
+   stores a boolean, so they give the same answer today. The backfill
+   follows SundayServicePlanner.
+
+Also: on the emulator, firebase-admin prints a harmless
+`MetadataLookupWarning` because it looks for a Google Cloud metadata
+server that isn't there. It doesn't affect what is read or written.

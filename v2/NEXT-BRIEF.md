@@ -278,6 +278,11 @@ The reviewing window adds to this list whenever a report says "before this goes 
 11. **App renames**, only if Martin approves (A-014).
 12. **Turn on "installed apps open the new app"** (APP-DESIGN-BRIEF §7c): the installed EGBC Hub, Core Team, Worship Hub and Youth Hub open the new app on a phone. Only after the §7b parity table is green.
 13. **Backfill the Sunday plan audience before the rules go live** (ab09a833). Only plans saved or sent from the **v2** planners carry an `audience`; the original site's planners don't write one, and the team uses those until switch-over. So run a one-off script (main window) that computes and writes `audience` on every services/songSummaries document from today onwards, and on recent ones, the same way the planners do. Otherwise preachers and service leaders can't open plans made on the old site.
+    **Built: `tools/backfill-plan-audience.mjs` (A-076).** It must run **after the last plan is sent from the old site**, because the old planners' Send replaces the plan summary and wipes any audience on it. So: on switch-over day, once nobody is using the old planners, and before the rules. Martin, from the `v2` folder:
+    1. Once, if not already done: `gcloud auth application-default login`, signing in as the church account.
+    2. Look first (writes nothing): `node tools/backfill-plan-audience.mjs --live`. It lists each Sunday from four weeks ago on, who it will put on the plan, and anyone it couldn't match. Paste the output to the main window.
+    3. Write it: `node tools/backfill-plan-audience.mjs --live --write`. It finishes with "N written". Running it again is harmless and should say "0 written".
+    4. Names it couldn't match: add them to the address book (or fix the spelling on the rota), then run step 3 again. People "not signed in yet" need nothing doing; they're covered once they sign in and the plan is saved again.
 
 ## 25. Running things: the office chooses what each person sees (Martin, 10 Oct 2026)
 
