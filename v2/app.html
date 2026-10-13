@@ -608,17 +608,25 @@ function loadHome(me) {
     /* THE SUNDAY PLAN THEY ARE ON (Martin, 12 Oct 2026). A preacher or a
        service leader is on no team, so nothing else on this screen would
        ever mention them - and the email's link was refusing them. */
-    loadMyPlan(me).then(function (r) { HOME.plans = r; }, function () {}),
-    /* YOUR FAMILY THIS WEEK (§4): the household's serving and groups, from
-       the server, because the household needs the whole address book. A
-       failure leaves the section out rather than the screen broken. */
-    (window.EGBCAuth && EGBCAuth.call ? EGBCAuth.call('myFamily', {}) : Promise.resolve(null))
-      .then(function (r) { HOME.familyWeek = (r && r.week) || []; }, function () {})
+    loadMyPlan(me).then(function (r) { HOME.plans = r; }, function () {})
   ];
   /* `ready` tells an empty Home the difference between still looking and
      there being nothing. Without it, a new person reads "nothing for you
      this week" for a second before their week appears. */
   Promise.all(jobs).then(function () { HOME.ready = true; A.refresh('me', 'home'); });
+
+  /* YOUR FAMILY THIS WEEK (§4): the household's serving and groups, from
+     the server, because the household needs the whole address book. NOT
+     one of the jobs above: it is a function call, and a slow one (a cold
+     start) held the whole of Home on "Finding your week..." - the person's
+     own serving card included - until it answered. It draws when it
+     arrives. A failure leaves the section out rather than the screen
+     broken. */
+  (window.EGBCAuth && EGBCAuth.call ? EGBCAuth.call('myFamily', {}) : Promise.resolve(null))
+    .then(function (r) {
+      HOME.familyWeek = (r && r.week) || [];
+      if (HOME.familyWeek.length) A.refresh('me', 'home');
+    }, function () {});
 }
 
 /* A list of first names as a person would say it: "Ada and Ben". */
@@ -660,14 +668,19 @@ function parentsSunday(f) {
 }
 
 /* One row of "Your family this week": who, and when and where only. */
+/* A PILL ON THE RIGHT, AS THE MOCK-UP HAS, and never the arrow: these rows
+   go nowhere (when and where only, no team tools - §4), and an arrow on a
+   row that does nothing reads as a broken app. */
 function familyRow(w) {
+  var today = new Date(); today = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
   if (w.kind === 'group') {
     return row('sparkles', (w.group || 'A group') + ' · ' + w.firstName,
-      [dayShort(w.date), w.time, w.where].filter(Boolean).join(' · '), null, null,
+      [dayShort(w.date), w.time, w.where].filter(Boolean).join(' · '),
+      w.date === today ? '<span class="pill n">Today</span>' : '<span></span>', null,
       A.SPACES.youth ? A.SPACES.youth.colour : null, A.SPACES.youth ? A.SPACES.youth.tint : null);
   }
   return row('calendar-days', w.firstName + ' · ' + (w.roles || []).join(', '),
-    [dayShort(w.date), w.title, w.time].filter(Boolean).join(' · '), null, null);
+    [dayShort(w.date), w.title, w.time].filter(Boolean).join(' · '), '<span class="pill">On</span>', null);
 }
 
 /* Feature 'notifications' (HANDOVER-MAIN rule 12). */

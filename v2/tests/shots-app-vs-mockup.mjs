@@ -138,7 +138,48 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   await put('events/shot_ev2', { date: soon, startTime: '10:30', type: 'Kids Church',
     teams: ['Kids Church'], archived: false, lastSlot: '',
     assignments: { 'Session leader': { id: PEOPLE.karen.memberId, name: PEOPLE.karen.name } } });
-  console.log('seeded 4 synthetic people, 2 notices and 2 rota slots\n');
+  /* ---- THE FAMILIES, as the mock-up has them (item 6) ------------------
+     Karen's son Oliver plays drums this Sunday and goes to ReNu; Sarah's
+     Ada and Ben are booked into Kids Church, and Ben goes to Lazers. So
+     "Your family this week", Parents' Sunday and "Your family's groups"
+     are filled in the pictures, the way the reviewing window asked: a
+     household that IS serving this week. The address book writes set off
+     familyGroupsSync, and opening Home runs myFamily. */
+  const SITE = 'site_shot';
+  const ymd = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const lazersDay = (() => {   /* the coming Friday, or Saturday if Friday is past this week */
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + (((5 - d.getDay()) + 7) % 7 || 7));
+    if ((d - new Date()) / 864e5 > 6) d.setDate(d.getDate() - 1);
+    return ymd(d);
+  })();
+  await req(9099, 'POST', '/identitytoolkit.googleapis.com/v1/projects/egbc-worship-planner/accounts:update',
+    { localId: PEOPLE.sarah.uid, emailVerified: true }, { Authorization: 'Bearer owner' });
+  await put('addressBook/ab_shot_oliver', { name: 'Oliver Lewis', markers: ['Worship Team', 'ReNu'],
+    householdId: PEOPLE.karen.memberId, adminFor: [], archived: false, isMinor: true });
+  await put('addressBook/ab_shot_ada', { name: 'Ada Green', markers: [], householdId: PEOPLE.sarah.memberId,
+    adminFor: [], archived: false, isMinor: true });
+  await put('addressBook/ab_shot_ben', { name: 'Ben Green', markers: ['Lazers'], householdId: PEOPLE.sarah.memberId,
+    adminFor: [], archived: false, isMinor: true });
+  await put('events/shot_ev1', { date: soon, startTime: '10:30', arriveTime: '08:00',
+    type: 'Sunday Morning Worship',
+    teams: ['AV Team', 'Worship Team'], archived: false, lastSlot: '',
+    assignments: { Sound: { id: PEOPLE.martin.memberId, name: PEOPLE.martin.name },
+                   Drums: { id: 'ab_shot_oliver', name: 'Oliver Lewis' } } });
+  await put('rooms/shot_room_hall', { name: 'Hall', siteId: SITE });
+  await put('rooms/shot_room_upper', { name: 'Upper room', siteId: SITE });
+  await put('calEvents/shot_cal_lazers', { title: 'Lazers', teams: ['Lazers'], status: 'confirmed', audience: ['Lazers'],
+    startLocal: lazersDay + 'T18:30', endLocal: lazersDay + 'T20:00', location: { kind: 'rooms', siteId: SITE, roomIds: ['shot_room_hall'] } });
+  await put('calEvents/shot_cal_renu', { title: 'ReNu', teams: ['ReNu'], status: 'confirmed', audience: ['ReNu'],
+    startLocal: soon + 'T19:00', endLocal: soon + 'T21:00', location: { kind: 'rooms', siteId: SITE, roomIds: ['shot_room_upper'] } });
+  await put('kidsSettings/' + SITE, { teams: ['Kids Church'] });
+  await put('kidsGroups/shot_g_little', { name: 'Little ones', siteId: SITE, leaderIds: [], ratio: 5 });
+  await put('kidsGroups/shot_g_juniors', { name: 'Juniors', siteId: SITE, leaderIds: [], ratio: 8 });
+  await put('kidsFamilies/shot_fam_sarah', { email: PEOPLE.sarah.email, siteId: SITE, parentName: 'Sarah Green', familyCode: 'GREEN7' });
+  await put('kidsChildren/shot_kc_ada', { familyId: 'shot_fam_sarah', name: 'Ada Green', groupId: 'shot_g_little', siteId: SITE, status: 'active' });
+  await put('kidsChildren/shot_kc_ben', { familyId: 'shot_fam_sarah', name: 'Ben Green', groupId: 'shot_g_juniors', siteId: SITE, status: 'active' });
+  console.log('seeded 4 synthetic people, 2 notices, 2 rota slots, and two families (Karen: Oliver; Sarah: Ada and Ben)');
+  console.log('  Oliver drums on ' + soon + ', ReNu that evening; Ben’s Lazers on ' + lazersDay + '\n');
 
   const server = http.createServer((q, s) => {
     const url = decodeURIComponent(q.url.split('?')[0]);

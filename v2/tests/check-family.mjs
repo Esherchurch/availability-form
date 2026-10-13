@@ -196,6 +196,7 @@ const offMachine = u => {
     sres.writeHead(200, { 'Content-Type': type + '; charset=utf-8', 'Cache-Control': 'no-store' });
     sres.end(body);
   }).listen(SERVE);
+  let holdFamily = false;
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + path.join(os.tmpdir(), 'cdp-family-' + process.pid), '--window-size=375,812', '--no-first-run', 'about:blank'], { stdio: 'ignore' });
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -214,13 +215,15 @@ const offMachine = u => {
     if (watch.handle(m)) return;
     if (m.method === 'Fetch.requestPaused') {
       const u = m.params.request.url || '';
+      /* A myFamily call that never answers, for the "slow" test below. */
+      if (holdFamily && u.indexOf('/myFamily') !== -1) return;
       if (offMachine(u)) return send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' });
       send('Fetch.continueRequest', { requestId: m.params.requestId });
     }
   };
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
-  await send('Fetch.enable', { patterns: [{ urlPattern: 'https://*' }] });
+  await send('Fetch.enable', { patterns: [{ urlPattern: 'https://*' }, { urlPattern: '*myFamily*' }] });
   const evl = makeEval(send, 'family');
 
   /* Parents' Sunday, the events window's data, for Sarah's family. */
@@ -255,6 +258,11 @@ const offMachine = u => {
   ok('  with Ben\u2019s Lazers, when and where', /Lazers · Ben/.test(t) && /Synthetic Hall/.test(t), t.slice(0, 600));
   ok('  Parents\u2019 Sunday names the child, by first name', /Ada is booked into Kids Church/.test(t), t.slice(0, 600));
   ok('  and shows the family QR for the desk', (await evl('!!document.querySelector(".parents .pqr svg")')) === true);
+  /* The family rows go nowhere (when and where only), so no arrow: an
+     arrow on a row that does nothing reads as a broken app. */
+  ok('  the family rows carry no arrow, because they go nowhere',
+    (await evl('(function(){var r=[].slice.call(document.querySelectorAll("#egbc-app .row")).filter(function(b){return /Lazers · Ben/.test(b.textContent)});'
+      + 'return r.length>=1 && r.every(function(x){return !x.querySelector(".chev")})})()')) === true);
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
   console.log('\nand once Ada is in');
@@ -268,6 +276,20 @@ const offMachine = u => {
   ok('  LARGE - read off a phone across a room (32px or more)', !!code && code.size >= 32, JSON.stringify(code));
   ok('  and a screen reader reads it letter by letter', !!code && code.label === 'Collection code K 7 P 2', JSON.stringify(code));
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
+
+  /* A SLOW FAMILY ANSWER MUST NOT HOLD HOME. The first set of pictures
+     caught Martin's Home on "Finding your week..." with his own serving
+     card hidden, because Home waited for myFamily's cold start before
+     drawing anything. Here myFamily never answers at all. */
+  console.log('\nwhen the family answer never comes, the rest of Home does not wait for it');
+  holdFamily = true;
+  watch.reset();
+  await openHome();
+  t = String(await home());
+  ok('  Home has finished: no "Finding your week"', !/Finding your week/.test(t), t.slice(0, 300));
+  ok('  and Parents’ Sunday is there regardless', /Ada is in Kids Church/.test(t), t.slice(0, 300));
+  ok('  with only the family section still to come', !/Your family this week/.test(t), t.slice(0, 300));
+  holdFamily = false;
 
   /* ---- 3. 6c: a parent reads their children's youth boards ------------
      The server writes the children's youth groups onto the parent's record
@@ -354,6 +376,10 @@ const offMachine = u => {
       && (await evl('!document.querySelector("[data-act=\\"open:stickynotes.html?board=renu\\"]")')) === true);
 
   for (const p of ['worshipBoardState/lazers', 'worshipBoardState/renu']) await del(p);
+  /* ITS OWN ROTA AND CALENDAR EVENTS GO TOO. Left behind, they turned up as
+     a second ReNu meeting in the app-vs-mock-up pictures. */
+  for (const p of ['events/ev_fam_d3', 'events/ev_fam_d2_draft', 'events/ev_fam_d10', 'calEvents/cal_fam_renu',
+    'calEvents/cal_fam_lazers', 'calEvents/cal_fam_held', 'calEvents/cal_fam_cancelled']) await del(p);
   for (const p of ['checkins/ck_fam_ada', 'kidsChildren/kc_fam_ada', 'kidsFamilies/fam_fam_sarah']) await del(p);
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
