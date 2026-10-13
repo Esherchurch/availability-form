@@ -57,6 +57,7 @@ const req = (port, method, p, body, hdr) => new Promise((res, rej) => {
 });
 const val = (v) => {
   if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return { integerValue: String(v) };
   if (Array.isArray(v)) return { arrayValue: { values: v.map(val) } };
   if (v && typeof v === 'object') return { mapValue: { fields: fields(v) } };
   return { stringValue: String(v) };
@@ -273,6 +274,17 @@ const offMachine = u => {
 
   /* ---- the pin board's switch, which is the same idea --------------- */
   console.log('\nthe pin board says "Switch board" in words');
+
+  /* ITS OWN BOARDS, not whatever the last check left. The two boards these
+     people can reach get one plain synthetic note each. Before this, a
+     YouTube note left on the Worship board by check-board-on-a-phone made
+     this check reach youtube.com whenever it ran second - red in the suite,
+     green on its own (the reviewing window, 13 Oct 2026). */
+  const plainBoard = (title) => ({ pages: [{ id: 'main', name: 'Main' }], notes: [{ id: 'n_ch_1', pageId: 'main',
+    cat: 'general', author: 'Charter Synthetic', title, body: 'Synthetic.', ytUrl: '', link: '', linkLabel: '', imgUrl: '',
+    reactions: { love: 0, like: 0, dislike: 0, pray: 0 }, archived: false, x: 60, y: 60, rot: 0, zIndex: 10, createdAt: 1700000000000 }] });
+  await put('worshipBoardState/state', plainBoard('Synthetic Worship Note'));
+  await put('worshipBoardState/youth', plainBoard('Synthetic Youth Note'));
 
   await openHubAs(PEOPLE.two, 'stickynotes.html');
   const sw = String(await ev(
