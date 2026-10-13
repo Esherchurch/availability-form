@@ -157,8 +157,17 @@
     return !!(g.accountName || g.sortCode || g.accountNumber);
   }
 
+  /* WHICH PARTS THIS CHURCH USES (HANDOVER-MAIN rule 12; NEXT-BRIEF §24
+     after launch, item 14). Every feature built from 13 Oct 2026 has a
+     name, and its Menu entries, app tabs and Home cards ask uses(name)
+     before they are drawn. The per-church switch comes after launch;
+     until it exists every part is on. A page that does not load this
+     file should ask `!window.EGBCChurch || EGBCChurch.uses(name)`.
+     Names so far: 'notifications'. */
+  function uses(name) { return true; }
+
   var api = {
-    load: load, wrap: wrap, send: send, header: header, title: title, closeOnLeave: closeOnLeave,
+    load: load, wrap: wrap, send: send, header: header, title: title, closeOnLeave: closeOnLeave, uses: uses,
     name: function () { return D.name; }, email: function () { return D.enquiryEmail; }, logo: function () { return D.logoUrl; },
     giving: giving, givingReady: givingReady,
     givingNow: function () { return G ? Object.assign({}, G) : null; }

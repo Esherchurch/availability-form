@@ -369,6 +369,73 @@ refuse a code that does not name a parent with an address on file. Nothing to
 do by hand — the panel fills it in — but a code written any other way is
 refused, which is the point.
 
+## Phone notifications: the sending side (13 October 2026)
+
+**Seven more functions, twenty in all.** They deploy with the same command
+as everything else:
+
+```
+cd functions
+npm install
+cd ..
+firebase deploy --only functions:hub --project egbc-worship-planner
+```
+
+(`npm install` again, because one library was added: `google-auth-library`.)
+
+| Function | What it sends | When |
+|---|---|---|
+| `callParent` | "Please come to Little Ones / Collection code K7P2", to that child's parents' phones | a leader presses "Call on their phone" |
+| `notifyTest` | a test, to the person who asked | "Send me a test" on Notifications |
+| `rotaReminders` | "You are serving tomorrow" | 17:00 London, every day |
+| `bookingNotify` | a room booking confirmed, approved, declined or cancelled | when its status changes |
+| `maintJobNotify` | a new maintenance job, to the Maintenance team (and F-129's email) | when a job is reported |
+| `urgentNotice` | a notice the office ticks "Urgent" | once, when it is posted |
+| `checksReminders` | a DBS check or training running out | 09:00 London, every Monday |
+
+Anybody with no phone set up is **emailed** instead, except for booking news,
+which the booking page emails already.
+
+### Before deploying: one question to answer first
+
+**`bookingNotify`, `maintJobNotify` and `urgentNotice` run when the database
+changes, and Google requires them to run in the same place as the database.**
+They are set to `europe-west2` (`TRIGGER_REGION` in `functions/index.js`).
+
+Check it: Firebase console, **Firestore Database**, and read the **Location**
+shown at the top (for example "europe-west2" or "nam5"). **Tell the main
+window what it says before deploying.** If it is different, those three
+would refuse to deploy. The other seventeen would still deploy and work.
+
+### The hub's emails now carry the server's Google identity
+
+Every email the hub's functions send (reminders, notifications) now carries a
+Google identity token for `sendEmail`'s address, from
+`199442060489-compute@developer.gserviceaccount.com` (NEXT-BRIEF §26 item 4b).
+Calla's `sendEmail` accepts this already (Step 1, live 12 Oct). If a token
+can't be got, the email goes without one, which still works until
+switch-over. Each row in `emailOutbox` now says `auth: google` or
+`auth: none`. **After deploying, look at the next reminder's row: it should
+say `google`.** If it says `none`, tell the main window before switch-over,
+because on that day Calla stops accepting emails without one.
+
+### What to check by hand
+
+Once the events window's phone side (N-5) is live too, with made-up names, on
+a real Android phone and a real iPhone: N-7 in `FINDINGS-notify.md`.
+
+### If something goes wrong
+
+**To stop the timers at once:** Cloud Scheduler, the job (`rotaReminders` or
+`checksReminders`), **Pause**. **To stop the rest:**
+
+```
+firebase functions:delete callParent notifyTest bookingNotify maintJobNotify urgentNotice --region=europe-west2
+```
+
+Nothing else depends on them. The pages say "use Show on screen or ring
+them" when `callParent` isn't there.
+
 ## Then check it, by hand, before telling anyone
 
 ### The calendar links

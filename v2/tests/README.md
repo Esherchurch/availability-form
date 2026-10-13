@@ -43,6 +43,7 @@ is proving something throws wraps it in `expectThrow()`.
 | The website on a phone: the page’s name is not cut off, its first heading is not under the bar, and the "view as" strip is one line | `node tests/check-website-on-a-phone.mjs` (add `--shots`) |
 | An email carries this church's name and address, not one in the code | `node tests/check-email-church-details.mjs` |
 | "Powered by Church HQ" is in its three places and nowhere else | `node tests/check-poweredby.mjs` (add `--shots`) |
+| Phone notifications: call a parent (never the child's name, leaders only), the test, the day before I serve, bookings, a maintenance job, an urgent notice, checks running out - each to the right people, once | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-notify-send.mjs"` |
 | Reminder emails go to the right people, once, and nobody else | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-reminders.mjs"` |
 | The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
 | The availability form’s three functions, with nobody signed in | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-availability-form.mjs"` |

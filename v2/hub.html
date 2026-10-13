@@ -767,11 +767,22 @@
       </span>
     </label>
 
-    <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-bottom:18px">
+    <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-bottom:10px">
       <input type="checkbox" id="nwAck" style="width:16px;height:16px;accent-color:var(--brand);margin-top:2px">
       <span>
         <span style="font-size:14px;font-weight:500;color:var(--ink)">Ask people to confirm they have read it</span>
         <span style="display:block;font-size:13px;color:var(--muted);margin-top:1px">You will be able to see who has and who has not</span>
+      </span>
+    </label>
+
+    <!-- An urgent notice also goes to people's phones (NEXT-BRIEF §23,
+         FINDINGS-notify N-4), once, to everyone it is for. Feature
+         'notifications' (HANDOVER-MAIN rule 12). -->
+    <label id="nwUrgentRow" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-bottom:18px">
+      <input type="checkbox" id="nwUrgent" style="width:16px;height:16px;accent-color:var(--brand);margin-top:2px">
+      <span>
+        <span style="font-size:14px;font-weight:500;color:var(--ink)">Urgent: send it to people's phones as well</span>
+        <span id="nwUrgentHelp" style="display:block;font-size:13px;color:var(--muted);margin-top:1px">Only for things like a service moved or the building closed. It goes once, when you post it, to everyone it is for</span>
       </span>
     </label>
 
@@ -814,6 +825,6 @@
   });
 </script>
 <nav id="egbc-tabbar" aria-label="Main"></nav>
-<script src="hub-app.js?v=202610062000"></script>
+<script src="hub-app.js?v=202610131000"></script>
 </body>
 </html>

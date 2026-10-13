@@ -2493,3 +2493,64 @@ names** as the script did.
 Also: on the emulator, firebase-admin prints a harmless
 `MetadataLookupWarning` because it looks for a Google Cloud metadata
 server that isn't there. It doesn't affect what is read or written.
+
+### A-077 — N-4: phone notifications, the sending side
+
+FINDINGS-notify N-4, built to the events window's spec. Seven functions in
+codebase "hub": `callParent`, `notifyTest`, `rotaReminders` (17:00 daily),
+`bookingNotify`, `maintJobNotify` (and F-129's email), `urgentNotice` and
+`checksReminders` (Mondays 09:00). All the work is in `functions/notify.js`,
+which takes its database, push and email as arguments.
+
+**What each message says and who gets it is not decided here.** It's
+`functions/notify-core.cjs`, a copy of the events window's
+`egbc-notify-core.js`, and `checksDue()` comes from
+`functions/safeguarding-core.cjs`, a copy of `egbc-events-safeguarding.js`.
+Functions can only deploy what is in their own folder, so the copies are
+needed; the check fails the moment either differs from its original. **For
+the events window: if you change either file, copy it over the `.cjs` too.**
+
+`tests/check-notify-send.mjs` **45/45** on the spare emulators, through the
+real functions: callables over HTTP, the timers, and the triggers by
+writing documents. Nothing leaves the machine: on the emulator a push goes
+to `pushOutbox` and an email to `emailOutbox`.
+
+| Break | Caught by |
+|---|---|
+| the child's name passed as the group | "NEVER THE CHILD'S NAME" (+1) |
+| the rota reminder's once-only marker removed | "RUN AGAIN, IT SENDS NOTHING" |
+| dead phones kept | "the phone that has gone is removed" |
+| anybody may call a parent | 4 refusal assertions |
+| an urgent notice to every team | "and nobody on another team" (+1) |
+| the photo's path in the maintenance email | "has NO PHOTO" |
+
+**Sent once, every time.** Timers retry and triggers can fire twice, so
+every sender writes a marker that is created and never overwritten
+(`notifySent/…`, or `checksReminded/…` for the fortnightly rule, or
+`notifyThrottle/…` for "once a child every two minutes"). The client
+rules' catch-all already closes all three to pages.
+
+**The urgent tick** is on the hub's notice editor, the one screen N-4 adds.
+It sets `urgent: true` only when ticked, shows a sent notice as "Already
+sent to phones" and locked, and is hidden when the church doesn't use
+notifications. That's the first use of `EGBCChurch.uses()` (HANDOVER-MAIN
+rule 12), which returns true for everything until the per-church switch
+exists. `check-news-features.mjs` 49/49, with two breaks caught (the
+feature ignored; a sent notice not locked). Any admin who can post a notice
+can mark it urgent. For Martin: should that be the office only?
+
+**§26 item 4(b) is done for the functions:** `sendOne` attaches a Google
+identity token for sendEmail's address (`functions/id-token.js`), and sends
+without one if it can't get one rather than not at all. `emailOutbox` rows
+say `auth: google` or `none`. `check-reminders.mjs` still 38/38. Proving
+that a real token is fetched is only possible after deploying; the steps
+say what to look for.
+
+**Open, for Martin before deploying:** the three Firestore triggers must run
+in the database's own region. They are set to `europe-west2`, and the
+database's Location is not recorded anywhere in the repository.
+SERVER-DEPLOY.md says where to read it.
+
+**Not done here:** server-side `uses('notifications')`. The functions
+don't ask yet, because there's nowhere to ask until the switch exists. When
+item 14 is built, the senders should check it too.

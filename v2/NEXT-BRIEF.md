@@ -283,6 +283,7 @@ The reviewing window adds to this list whenever a report says "before this goes 
     2. Look first (writes nothing): `node tools/backfill-plan-audience.mjs --live`. It lists each Sunday from four weeks ago on, who it will put on the plan, and anyone it couldn't match. Paste the output to the main window.
     3. Write it: `node tools/backfill-plan-audience.mjs --live --write`. It finishes with "N written". Running it again is harmless and should say "0 written".
     4. Names it couldn't match: add them to the address book (or fix the spelling on the rota), then run step 3 again. People "not signed in yet" need nothing doing; they're covered once they sign in and the plan is saved again.
+14. **Notification triggers in the database's region** (A-077). Before the first deploy of N-4, Martin reads Firestore's Location in the console and the main window confirms `TRIGGER_REGION` matches. After deploying, the next reminder's `emailOutbox` row says `auth: google`.
 
 ## 25. Running things: the office chooses what each person sees (Martin, 10 Oct 2026)
 

@@ -283,6 +283,50 @@ const offMachine = u => {
     ok('  it is gone from the database', gone === 404, 'GET returned ' + gone);
   } else ok('  it is gone from the database', false, 'nothing to remove');
 
+  /* ---- urgent: also to phones (N-4) ----------------------------------- */
+  /* The server sends a notice to phones the first time it is urgent, and
+     never again. So the page must set the field only when the tick is
+     really pressed, show a sent notice as sent, and offer nothing when
+     the church does not use notifications (HANDOVER-MAIN rule 12). */
+  console.log('\nan urgent notice also goes to phones');
+  ok('  an ordinary notice is saved without the field',
+    !!mine && !('urgent' in (mine.fields || {})), mine ? Object.keys(mine.fields || {}).join(',') : 'nothing saved');
+  await ev('closeNewsEditor();openNewsEditor();1'); await sleep(900);
+  ok('  a new notice offers the tick, unticked',
+    String(await ev("(function(){var r=document.getElementById('nwUrgentRow'),b=document.getElementById('nwUrgent');"
+      + "return (r&&!r.hidden&&r.offsetHeight>0?'shown':'hidden')+'/'+(b&&b.checked?'ticked':'unticked')})()")) === 'shown/unticked');
+  await ev("document.getElementById('nwTitle').value='NOTICE-U urgent by the check';newsEditor().setHTML('<p>Hall closed</p>');"
+    + "document.getElementById('nwUrgent').checked=true;1");
+  await ev('saveNews()', true); await sleep(3500);
+  const all2 = JSON.parse((await rest('GET', docPath('news') + '?pageSize=300')).body || '{}').documents || [];
+  const urg = all2.find(d => (((d.fields || {}).title || {}).stringValue) === 'NOTICE-U urgent by the check');
+  ok('  ticked, it is saved as urgent', !!urg && ((urg.fields || {}).urgent || {}).booleanValue === true,
+    urg ? JSON.stringify((urg.fields || {}).urgent || '(no field)') : 'not saved');
+  const urgId = urg ? urg.name.split('/').pop() : '';
+  if (urgId) {
+    await ev("closeNewsEditor();openNewsEditor('" + urgId + "');1"); await sleep(900);
+    const st = String(await ev("(function(){var b=document.getElementById('nwUrgent');"
+      + "return (b.checked?'ticked':'unticked')+'/'+(b.disabled?'locked':'open')+'/'+document.getElementById('nwUrgentHelp').textContent})()"));
+    ok('  opened again it shows as sent, and cannot be sent twice', /^ticked\/locked\/Already sent/.test(st), st);
+    await ev("closeNewsEditor();deleteNews('" + urgId + "')", true); await sleep(2500);
+  } else ok('  opened again it shows as sent, and cannot be sent twice', false, 'nothing saved');
+
+  /* The church does not use notifications: no tick, and no urgent field
+     even if the box were somehow ticked. */
+  await ev("window.__realChurch=window.EGBCChurch;window.EGBCChurch={uses:function(n){return n!=='notifications'}};"
+    + "closeNewsEditor();openNewsEditor();1"); await sleep(900);
+  ok('  a church that does not use notifications is not offered it',
+    (await ev("document.getElementById('nwUrgentRow').hidden")) === true);
+  await ev("document.getElementById('nwTitle').value='NOTICE-V feature off';newsEditor().setHTML('<p>x</p>');"
+    + "document.getElementById('nwUrgent').checked=true;1");
+  await ev('saveNews()', true); await sleep(3500);
+  const all3 = JSON.parse((await rest('GET', docPath('news') + '?pageSize=300')).body || '{}').documents || [];
+  const off = all3.find(d => (((d.fields || {}).title || {}).stringValue) === 'NOTICE-V feature off');
+  ok('  and nothing it saves is marked urgent', !!off && !('urgent' in (off.fields || {})),
+    off ? Object.keys(off.fields || {}).join(',') : 'not saved');
+  if (off) { await ev("deleteNews('" + off.name.split('/').pop() + "')", true); await sleep(2500); }
+  await ev("window.EGBCChurch=window.__realChurch;1");
+
   /* ---- a save that fails says so -------------------------------------- */
   console.log('\na save that fails says so');
   await ev("window.__alert='';openNewsEditor();1"); await sleep(1000);

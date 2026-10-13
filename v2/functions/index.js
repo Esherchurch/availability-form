@@ -276,6 +276,14 @@ const SEND_EMAIL_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
 
 const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
 
+/* THE SERVER'S GOOGLE IDENTITY (NEXT-BRIEF §26 item 4b). sendEmail accepts
+   a Google identity token for its own address from this codebase's runtime
+   account, and on switch-over day stops taking anything else. See
+   id-token.js: no token means the message goes without one, not that it
+   does not go. */
+import { emailAuthHeader, idTokenClient } from './id-token.js';
+const sendEmailClient = idTokenClient(SEND_EMAIL_URL);
+
 /* Every message, sent or stubbed, lands in emailOutbox. On the emulator that
    is the whole of it and a check reads it; in the real project it is the
    record of what went out, which is what somebody will want the morning a
@@ -301,8 +309,10 @@ async function sendOne(msg, meta) {
   try {
     const payload = { to: row.to, subject: row.subject, html: row.html };
     if (row.replyTo) payload.replyTo = row.replyTo;
+    const auth = await emailAuthHeader(sendEmailClient);
+    row.auth = auth.Authorization ? 'google' : 'none';
     const r = await fetch(SEND_EMAIL_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify(payload)
     });
     const j = await r.json().catch(() => null);
@@ -556,3 +566,77 @@ export const redeemYouthCode = onRequest({ cors: true, invoker: 'public' }, asyn
       message: 'Something went wrong at our end. Try again, or ask a leader.' });
   }
 });
+
+/* =================================================================
+   Phone notifications (FINDINGS-notify N-4; NEXT-BRIEF §23)
+   =================================================================
+
+   The sending side; the events window built the phone side. What each
+   message says and who gets it on a phone or by email is notify-core.cjs,
+   the same file the Notifications page uses. The work is in notify.js;
+   these are the doors.
+
+   THREE OF THESE ARE FIRESTORE TRIGGERS (bookingNotify, maintJobNotify,
+   urgentNotice), and a trigger has to run in the database's own region.
+   TRIGGER_REGION must be the Location shown for the database in the
+   Firebase console (Firestore, top of the Data tab). If it is wrong, those
+   three refuse to deploy and the rest deploy as normal.                   */
+
+import { getMessaging } from 'firebase-admin/messaging';
+import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
+import * as Notify from './notify.js';
+
+const TRIGGER_REGION = 'europe-west2';
+
+async function notifyDeps() {
+  return {
+    db, auth: getAuth(),
+    push: Notify.pushTransport({ db, messaging: onEmulator() ? null : getMessaging(), onEmulator: onEmulator() }),
+    email: sendOne,
+    hub: await Notify.hubUrl(db)
+  };
+}
+
+/* A leader calls a parent to collect their child: the group and the code,
+   to that family's own phones. */
+export const callParent = onCall(async (request) => orThrow(await Notify.callParent(await notifyDeps(), {
+  uid: request.auth && request.auth.uid,
+  checkinId: (request.data || {}).checkinId
+})));
+
+/* "Send me a test", from the Notifications page. */
+export const notifyTest = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return Notify.send(await notifyDeps(), { uids: [request.auth.uid], type: 'test', by: request.auth.uid });
+});
+
+/* The day before you serve, at five in the evening. */
+export const rotaReminders = onSchedule(
+  { schedule: '0 17 * * *', timeZone: 'Europe/London', retryCount: 2 },
+  async () => { await Notify.runRotaReminders(await notifyDeps(), new Date()); }
+);
+
+/* Booking confirmed, approved, declined or cancelled. */
+export const bookingNotify = onDocumentUpdated({ document: 'bookings/{key}', region: TRIGGER_REGION }, async (event) => {
+  await Notify.onBookingChange(await notifyDeps(), event.params.key,
+    event.data.before.data(), event.data.after.data(), event.id);
+});
+
+/* A new maintenance job, to the Maintenance team (and F-129's email). */
+export const maintJobNotify = onDocumentCreated({ document: 'maintJobs/{id}', region: TRIGGER_REGION }, async (event) => {
+  if (!event.data) return;
+  await Notify.onMaintJob(await notifyDeps(), event.params.id, event.data.data());
+});
+
+/* A notice the office marks urgent, once, to everyone it is for. */
+export const urgentNotice = onDocumentWritten({ document: 'news/{id}', region: TRIGGER_REGION }, async (event) => {
+  const before = event.data.before && event.data.before.exists ? event.data.before.data() : null;
+  const after = event.data.after && event.data.after.exists ? event.data.after.data() : null;
+  await Notify.onNotice(await notifyDeps(), event.params.id, before, after);
+});
+
+/* DBS checks and training running out, every Monday morning. */
+export const checksReminders = onSchedule(
+  { schedule: '0 9 * * 1', timeZone: 'Europe/London', retryCount: 2 },
+  async () => { await Notify.runChecksReminders(await notifyDeps(), new Date()); }
+);

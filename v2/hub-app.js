@@ -1737,6 +1737,18 @@ function openNewsEditor(id) {
   document.getElementById('nwPinned').checked = n ? !!n.pinned : false;
   document.getElementById('nwAck').checked = n ? !!n.requireAck : false;
 
+  /* URGENT goes to phones too (N-4), once: the server sends it the first
+     time the notice is urgent and never again, so a notice that already
+     went is shown ticked and locked rather than offering to send it twice.
+     Only when the church uses notifications (HANDOVER-MAIN rule 12). */
+  const urgent = document.getElementById('nwUrgent');
+  document.getElementById('nwUrgentRow').hidden = !notificationsOn();
+  urgent.checked = !!(n && n.urgent);
+  urgent.disabled = !!(n && n.urgent);
+  document.getElementById('nwUrgentHelp').textContent = n && n.urgent
+    ? 'Already sent to phones. It is not sent again'
+    : 'Only for things like a service moved or the building closed. It goes once, when you post it, to everyone it is for';
+
   /* An admin may only post to areas they manage - Karen to Kids Church,
      Core Team to Worship and AV.
 
@@ -1765,6 +1777,9 @@ function openNewsEditor(id) {
 
   document.getElementById('newsModal').classList.add('on');
 }
+/* The hub does not load egbc-church.js, so a missing helper counts as on,
+   which is what every feature is until the per-church switch exists. */
+function notificationsOn() { return !window.EGBCChurch || EGBCChurch.uses('notifications'); }
 function closeNewsEditor() { document.getElementById('newsModal').classList.remove('on'); }
 
 /* Notices are written in a proper editor (egbc-editor.js): toolbar buttons,
@@ -1803,6 +1818,10 @@ async function saveNews() {
 
   if (!teams.length && !confirm('This will go to everyone in the church, on every team.\n\nPost it church-wide?')) return;
 
+  const urgentBox = document.getElementById('nwUrgent');
+  const sendUrgent = notificationsOn() && urgentBox.checked && !urgentBox.disabled;
+  if (sendUrgent && !confirm('This sends it to the phones of everyone it is for, straight away, and it cannot be called back.\n\nSend it?')) return;
+
   const data = {
     title, body, teams,
     date: document.getElementById('nwDate').value.trim(),
@@ -1811,6 +1830,9 @@ async function saveNews() {
     requireAck: document.getElementById('nwAck').checked,
     postedBy: ME.name || ME.email
   };
+  /* Only ever set to true here: once sent it cannot be unsent, and a
+     notice that was never urgent is left without the field. */
+  if (sendUrgent) data.urgent = true;
 
   try {
     const id = document.getElementById('nwId').value;

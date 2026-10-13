@@ -52,6 +52,12 @@ const NEEDS_ITS_OWN_COMMAND = {
     'needs the spare emulator and functions: set FUNCTIONS_EMULATOR_PORT=5191 && '
     + 'firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions '
     + '--project egbc-worship-planner "node tests/check-reminders.mjs"',
+  /* Phone notifications, sent by the real functions: callables, timers
+     and Firestore triggers, so it needs the functions emulator with them. */
+  'check-notify-send.mjs':
+    'needs the spare emulator and functions: set FUNCTIONS_EMULATOR_PORT=5191 && '
+    + 'firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions '
+    + '--project egbc-worship-planner "node tests/check-notify-send.mjs"',
 };
 
 /* Not checks: helpers and screenshot scripts that live in the same
