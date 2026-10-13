@@ -3412,3 +3412,93 @@ Also for you, no action needed: N-4 is built (FINDINGS-app A-077). Your
 `functions/` as `.cjs`, because functions can only deploy their own
 folder. `check-notify-send.mjs` fails if either copy differs from the
 original, so **if you change either file, copy it over the `.cjs` too.**
+
+### F-160 — item 4: phone notifications checked end to end against N-4 and N-5
+**What was run:** my pages (`notifications.html`, `egbc-notify.js`), the
+main window's **real** functions (codebase hub, in the functions emulator),
+the emulator's push and email outboxes, and my service worker
+(`egbc-notify-sw.js`) deciding what the phone shows.
+- **The new test:** `notify-e2e.test.mjs`, **34 checks**, now in my full
+  run.
+- **The functions emulator:** added to `firebase.events.json` on 5102,
+  which is the port `egbc-auth.js` already calls from 5601. It starts only
+  when a run names `functions`.
+- **The two timed reminders** (rota, checks) are run straight from
+  `functions/notify.js` at chosen times, because a timer can't be fired on
+  the emulator.
+
+**Proved:**
+- **Call a parent:**
+  - Jo (the group's leader) presses it. The parent's phone shows "Please
+    come to Juniors / Collection code Q7P2". The second parent, who has no
+    phone, is emailed the same words.
+  - **The child's name is nowhere**: not in the push, the email or the log.
+  - The message stays on screen until it's dealt with, and is never quiet,
+    even at 23:30.
+  - A dead phone is removed.
+  - A second press inside two minutes sends nothing, and says so.
+  - Someone who leads nothing is refused.
+- **Quiet hours:** a rota reminder at 22:00 arrives, silently.
+- **The switches:**
+  - a message turned off on the page is not sent, and not emailed either
+  - no phone means an email instead, except booking news (the page emails
+    those already)
+- **Every launch message, with its own words:**
+  - the test message
+  - the rota ("You are serving tomorrow", the role and the service)
+  - booking approved
+  - maintenance job (**no photo**, and it opens that job)
+  - urgent notice (as plain text, never quiet)
+  - checks running out (plus one email to the site's safeguarding lead)
+- **Once only:** timers and triggers that run twice send once. An edit that
+  isn't a status change, or edits an urgent notice, sends nothing.
+- **A tap** opens the hub, inside its own scope.
+
+**7 deliberate breaks, all caught.**
+- **The main window's files were never edited, not even for a moment.**
+  The four function-side breaks ran against a scratch copy of `functions/`
+  in my scratchpad.
+- **Function side:**
+  - **the one that matters:** the child's name put on the phone
+  - anybody may call
+  - no two-minute gap
+  - a dead phone kept
+- **My files:**
+  - the service worker ignores quiet hours
+  - calling a parent slips off the screen by itself
+  - a switch turned off isn't saved
+- At first the test failed 5 checks, all mistakes in the test itself:
+  - **"name nowhere":** it matched my invented record id `kc_cat…` in the
+    hidden tag. Real ids are random.
+  - **two "tapped, it opens" checks:** they read the result too early.
+  - **two email checks:** they relied on the outbox's order, which the
+    database doesn't keep.
+
+**Checked by reading (functions/notify.js against my N-4 spec):**
+- The message is data-only, which my service worker expects.
+- Calls are urgent, and the push has a one-hour lifetime.
+- Dead phones are removed.
+- The log holds no token and no address.
+- Only verified parent addresses are used.
+- The two-minute gate is decided in one transaction.
+- "Who may call a parent" matches the rules' paging (`kidsLead`, which
+  includes master admins and the safeguarding lead).
+- **The hidden tag:** it carries the check-in's id, which includes the
+  child's record id. Both places that create children use random ids
+  (`'kc_' + 14 random characters`), so it can't hold a name.
+- **The copies:** both of my files copied into `functions/` match the
+  originals exactly.
+
+**Not done, as asked:** the real-phone proof (N-7). It needs N-4 deployed,
+which Martin does with the main window's steps.
+
+**Found, not mine to fix:**
+1. **For the main window: the rota reminder never sends an arrival time.**
+   - My message has room for one (`arrive`), but `runRotaReminders` sends
+     only the roles and "service, start time".
+   - So it says "Bass · Morning Service, 10:30", not when to arrive.
+   - Fine for launch. If the rota holds an arrival time, pass it as
+     `arrive`.
+2. **For the main window: take `notifications.html` off the WAITING list**
+   in `tests/check-app-mode.mjs`. F-159's line is in (5424b2b0), so the
+   check can now hold the page to the same standard.

@@ -17,6 +17,9 @@
     "storage": {
       "port": 9198
     },
+    "functions": {
+      "port": 5102
+    },
     "ui": {
       "enabled": true,
       "port": 4002
@@ -28,5 +31,17 @@
       "port": 4502
     },
     "singleProjectMode": true
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "hub",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.local"
+      ],
+      "comment": "The main window's functions (codebase hub), run only by tests that name functions (notify-e2e). Pages served from localhost:5601 call them on 5102 (egbc-auth.js)."
+    }
+  ]
 }
