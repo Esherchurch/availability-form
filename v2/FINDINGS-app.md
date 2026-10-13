@@ -2784,3 +2784,31 @@ are unchanged: on a phone 62/62, empty 9/9, charter switch 15/15, placement
 
 **Needs a deploy:** `familyGroupsSync` (a Firestore trigger, europe-west2)
 and `myFamily` (6a), with `functions:hub`.
+
+### A-084 — item 6b: a young person's own main-rota dates and charters, in the Youth app
+
+A-066's first half. A young person signs in with a code and has no read of
+the rota (`events` names everybody) or the charters (`pageContent`; a phone
+that can read one charter document can read them all). So the server
+answers, for the person asking only: **`myYouthHub`** (`functions/youth-hub.js`).
+- **Who:** a live, unexpired `youthAccess` record for a young person, or an
+  adult's own active record. A code that has run out is refused.
+- **Their own slots** on the main rota, the next eight weeks: when, the role,
+  the service. Never anybody else's name or role. Not drafts.
+- **Their charters only:** the Youth charter for a youth group, and the
+  Worship & AV charter **only** for someone whose record puts them on Worship,
+  AV or Choir. **Martin's deliberate break holds:** a youth-only young person
+  is never sent it.
+
+The Youth app has a new tile, **My rota and charters**: the dates, and each
+charter as a section that opens. It's in the style check's list of Youth app
+screens (0 problems; a 12px floor break → 1).
+
+`tests/check-youth-hub.mjs` **16/16**: the function asked as a young person
+on both bands, one on the youth band only, an expired code, nobody, and an
+adult; the Youth app opened as an adult on both and one on youth only. Four
+breaks, each caught: the Worship & AV charter for everyone, an expired code
+accepted, everyone's roles sent, drafts counted. `check-youth-access` 34/34.
+
+**Needs a deploy:** `myYouthHub`, with `functions:hub`. It reads only and
+sends nothing.

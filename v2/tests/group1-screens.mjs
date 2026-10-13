@@ -294,6 +294,8 @@ export const PAGES = [
       ['the music uploader', "openSection('upload')"],
       ['the song library', "openSection('library')"],
       ['the news', "openSection('news')"],
+      /* 6b: my rota and charters, waited on until it has drawn. */
+      ['my rota and charters', "(async()=>{openSection('mine');for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,300));if(!/Looking you up/.test((document.getElementById('mine-body')||{}).textContent||''))break}return 1})()"],
       ['the add-note sheet', "(()=>{try{openAddNote();return 1}catch(e){const m=document.getElementById('add-note-modal');if(m){m.classList.add('open');return 'shown'}return 'no sheet'}})()"],
       ['the email-team modal', "(()=>{let n=0;document.querySelectorAll('[id*=odal]').forEach(m=>{if(m.style){m.style.display='block';m.classList.remove('hidden');m.classList.add('open');n++}});return n})()"]
     ] },

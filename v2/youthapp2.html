@@ -903,6 +903,18 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 #notes-list .note-card-meta  { color:rgba(0,0,0,.5) !important; font-size:12px !important; }
 #notes-list .empty-state { background:transparent !important; color:#5a3d17 !important; text-align:center; padding:44px 16px; }
 @media (prefers-reduced-motion: reduce){ #notes-list .note-card { transition:none; animation:none; } }
+
+/* 6b: My rota and charters */
+.mine-body { padding: 16px; }
+.mine-h { font-size: 16px; font-weight: 600; color: var(--ink, #111827); margin: 0 0 8px; }
+.mine-list { background: #fff; border: 1px solid var(--hairline, #e5e7eb); border-radius: 12px; margin-bottom: 16px; }
+.mine-row { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; font-size: 14px; }
+.mine-row + .mine-row { border-top: 1px solid var(--hairline, #e5e7eb); }
+.mine-row span { color: var(--muted, #6b7280); font-size: 13px; }
+.mine-note { font-size: 14px; color: var(--muted, #6b7280); margin: 0 0 16px; }
+.mine-charter { background: #fff; border: 1px solid var(--hairline, #e5e7eb); border-radius: 12px; margin-bottom: 12px; }
+.mine-charter summary { min-height: 48px; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.mine-charter-body { padding: 0 14px 14px; font-size: 14px; line-height: 1.6; }
 </style>
 <script src="egbc-ui.js?v=202610061800"></script>
 </head>
@@ -958,6 +970,14 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
         <div class="tile-icon"><i data-lucide="library" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Song Library</div>
         <div class="tile-desc">Browse &amp; find sheet music</div>
+        <div class="tile-arrow">›</div>
+      </div>
+      <!-- 6b (A-066): their own main-rota dates and their charters, from the
+           server, because a code gives no read of the rota or the charters. -->
+      <div class="tile tile-mine" onclick="openSection('mine')" id="tile-mine">
+        <div class="tile-icon"><i data-lucide="calendar-heart" style="width:26px;height:26px"></i></div>
+        <div class="tile-name">My rota and charters</div>
+        <div class="tile-desc">When you are on, and how we serve</div>
         <div class="tile-arrow">›</div>
       </div>
       <div class="tile tile-news" onclick="openSection('news')" id="tile-news">
@@ -1121,7 +1141,10 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
   </div>
 
   <!-- NEWS -->
-  <div id="section-news" class="section-screen">
+  <div class="section-screen" id="section-mine">
+  <div id="mine-body" class="mine-body"></div>
+</div>
+<div id="section-news" class="section-screen">
     <div id="news-full-list" style="padding:12px;display:flex;flex-direction:column;gap:10px;">
       <div class="loading-state">Loading news...</div>
     </div>
@@ -1311,7 +1334,7 @@ function openSection(name) {
   const titles = {
     planner:'Youth Service Planner', board:'Idea Pin Board',
     worship:'Worship Resources', upload:'Music Uploader',
-    library:'Song Library', news:'Latest News'
+    library:'Song Library', news:'Latest News', mine:'My rota and charters'
   };
   document.getElementById('header-title').textContent = titles[name] || 'Youth Hub';
   document.getElementById('back-btn').classList.add('visible');
@@ -1323,8 +1346,37 @@ function openSection(name) {
   if (name === 'upload') initUploadSlots();
   if (name === 'library' && allSongs.length === 0) loadSongs();
   if (name === 'news') renderNewsSection();
+  if (name === 'mine') loadMine();
 
   maybeTriggerSectionTour(name);
+}
+
+/* ---- 6b: my rota and my charters ------------------------------------
+   Asked of myYouthHub, which answers for this person alone: their own
+   slots on the main rota, and the charters that are theirs (the Youth
+   charter for a youth group; Worship & AV only for someone on Worship, AV
+   or Choir). The charter text is written by the church's admins, the same
+   HTML the charter pages show. */
+function loadMine() {
+  const box = document.getElementById('mine-body');
+  if (!box) return;
+  box.innerHTML = '<p class="mine-note">Looking you up…</p>';
+  const call = window.EGBCAuth && EGBCAuth.call ? EGBCAuth.call('myYouthHub', {}) : Promise.reject(new Error('Not signed in'));
+  call.then(r => {
+    r = r || {};
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const day = iso => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    let html = '<h3 class="mine-h">When you are on</h3>';
+    html += (r.rota || []).length
+      ? '<div class="mine-list">' + r.rota.map(x => '<div class="mine-row"><b>' + esc(day(x.date)) + '</b>'
+          + '<span>' + esc((x.roles || []).join(', ')) + ' · ' + esc(x.title) + (x.time ? ' · ' + esc(x.time) : '') + '</span></div>').join('') + '</div>'
+      : '<p class="mine-note">You are not on the main rota in the next few weeks.</p>';
+    html += (r.charters || []).map(c => '<details class="mine-charter" data-charter="' + esc(c.id) + '"><summary>' + esc(c.title || 'Charter') + '</summary>'
+      + '<div class="mine-charter-body">' + (c.html || '') + '</div></details>').join('');
+    box.innerHTML = html;
+  }).catch(e => {
+    box.innerHTML = '<p class="mine-note">Could not load this just now. ' + (e && e.message ? String(e.message).replace(/</g, '&lt;') : '') + '</p>';
+  });
 }
 
 function goBack() {

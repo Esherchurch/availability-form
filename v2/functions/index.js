@@ -34,6 +34,7 @@ import {
 } from './churchshow.js';
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
 import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family.js';
+import { myYouthHub as myYouthHubIn } from './youth-hub.js';
 
 initializeApp();
 const db = getFirestore();
@@ -671,4 +672,12 @@ export const familyGroupsSync = onDocumentWritten({ document: 'addressBook/{id}'
   const before = event.data.before && event.data.before.exists ? event.data.before.data() : null;
   const after = event.data.after && event.data.after.exists ? event.data.after.data() : null;
   await onBookChangeIn(db, event.params.id, before, after);
+});
+
+/* A young person's own rota dates and charters, for the Youth app (6b).
+   Their code gives them no account and no read of the rota or the
+   charters; this answers for them alone. See youth-hub.js. */
+export const myYouthHub = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return orThrow(await myYouthHubIn(db, { uid: request.auth.uid, now: new Date() }));
 });

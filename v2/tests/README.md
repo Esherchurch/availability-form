@@ -35,6 +35,7 @@ is proving something throws wraps it in `expectThrow()`.
 | The initials open a "you" menu on the hub and every page: the items and their order, keyboard and screen reader, Escape and a tap outside, 375px, the feature switch, master admin | `node tests/check-you-menu.mjs` |
 | Phone notifications on or off: the switch on Church settings, off to start, a master admin only | `node tests/check-notify-switch.mjs` |
 | The family rule: myFamily (first names, this week, the household both ways), "Your family this week" and Parents' Sunday on Home, the collection code large | `node tests/check-family.mjs` |
+| A young person's own main-rota dates and charters in the Youth app; a youth-only one never gets the Worship & AV charter | `node tests/check-youth-hub.mjs` |
 | An empty pin board opens empty and writes nothing; a board with notes is left as it was (A-079) | `node tests/check-board-empty.mjs` |
 | One piece of code decides where a note lands on the corkboard, and stickynotes.html parses | `node tests/check-note-placement.mjs` (a second, no browser) |
 | The pin board on a phone: small post-its, one note filling the screen, comments - the same screen in the app and on the website | `node tests/check-board-on-a-phone.mjs` (add `--shots`) |
