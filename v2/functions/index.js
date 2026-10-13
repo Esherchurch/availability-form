@@ -33,7 +33,7 @@ import {
   SETUP_FAILED
 } from './churchshow.js';
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
-import { myFamily as myFamilyIn } from './family.js';
+import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family.js';
 
 initializeApp();
 const db = getFirestore();
@@ -662,4 +662,13 @@ export const checksReminders = onSchedule(
 export const myFamily = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   return orThrow(await myFamilyIn(db, { uid: request.auth.uid, now: new Date() }));
+});
+
+/* A household or a child's groups changed: rewrite the parents'
+   familyGroups, which is what lets them read their children's youth
+   boards (6c; the board rules read it). */
+export const familyGroupsSync = onDocumentWritten({ document: 'addressBook/{id}', region: TRIGGER_REGION }, async (event) => {
+  const before = event.data.before && event.data.before.exists ? event.data.before.data() : null;
+  const after = event.data.after && event.data.after.exists ? event.data.after.data() : null;
+  await onBookChangeIn(db, event.params.id, before, after);
 });

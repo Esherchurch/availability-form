@@ -21,6 +21,70 @@ import { householdIds } from './rota-feed.js';
 
 const DAYS = 7;
 
+/* ---- the family's youth groups, written onto the parent's record (6c) ----
+
+   The reviewing window, 13 Oct 2026: a parent sees the pin boards of the
+   youth groups THEIR CHILDREN are in. The rules cannot work out a
+   household (it needs the whole address book), so the server writes the
+   answer onto users/{uid}.familyGroups and the board rules read that.
+   Nobody can write it about themselves (the users rules); it is rewritten
+   whenever the household or a child's groups change (addressBook trigger)
+   and whenever the person opens Home (myFamily), so it cannot go stale for
+   long and needs no one-off backfill.
+
+   A CHILD is a household member whose record says isMinor. Their groups
+   are the youth groups with a board: Youth Worship, Lazers and ReNu - the
+   same three the rules' boardGroup() names for 'youth', 'lazers', 'renu'. */
+export const YOUTH_GROUPS = ['Youth Worship', 'Lazers', 'ReNu'];
+
+export function familyGroupsFor(book, memberId) {
+  const byId = {};
+  (book || []).forEach((m) => { byId[m.id] = m; });
+  const out = new Set();
+  householdIds(book, memberId).forEach((id) => {
+    const m = byId[id];
+    if (!m || id === memberId || m.archived === true || m.isMinor !== true) return;
+    (Array.isArray(m.markers) ? m.markers : []).forEach((t) => { if (YOUTH_GROUPS.includes(t)) out.add(t); });
+  });
+  return [...out].sort();
+}
+
+/* Rewrite familyGroups for every account belonging to these members.
+   Only when it changes, so a trigger cannot set off a stream of writes. */
+export async function refreshFamilyGroups(db, memberIds, book) {
+  const ids = [...new Set((memberIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  if (!book) book = (await db.collection('addressBook').get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  let changed = 0;
+  for (const id of ids) {
+    const want = familyGroupsFor(book, id);
+    const users = await db.collection('users').where('memberId', '==', id).get();
+    for (const u of users.docs) {
+      const has = Array.isArray(u.data().familyGroups) ? u.data().familyGroups : [];
+      if (JSON.stringify(has) === JSON.stringify(want)) continue;
+      await u.ref.update({ familyGroups: want });
+      changed++;
+    }
+  }
+  return changed;
+}
+
+/* The addressBook trigger's question: a change that could alter somebody's
+   family groups - who points at whom, a child's groups, being a child,
+   being archived - touches everybody in the household before AND after. */
+export async function onBookChange(db, id, before, after) {
+  const keys = ['householdId', 'markers', 'isMinor', 'archived'];
+  const b = before || {}, a = after || {};
+  if (keys.every((k) => JSON.stringify(b[k] === undefined ? null : b[k]) === JSON.stringify(a[k] === undefined ? null : a[k]))) return 0;
+  const book = (await db.collection('addressBook').get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const affected = new Set(householdIds(book, id));
+  /* The household this record has just LEFT: whoever it used to point at,
+     and everybody joined to them. */
+  if (b.householdId) householdIds(book, b.householdId).forEach((x) => affected.add(x));
+  affected.add(id);
+  return refreshFamilyGroups(db, [...affected], book);
+}
+
 function londonDate(at, n = 0) {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London',
     year: 'numeric', month: '2-digit', day: '2-digit' }).format(at).split('-').map(Number);
@@ -51,6 +115,8 @@ export async function myFamily(db, { uid, now = new Date() }) {
 
   const bookSnap = await db.collection('addressBook').get();
   const book = bookSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  /* Opening Home keeps their own family groups right (6c). */
+  await refreshFamilyGroups(db, [me.memberId], book).catch((e) => console.warn('[myFamily] familyGroups', e));
   const byId = {};
   book.forEach((m) => { byId[m.id] = m; });
   const others = householdIds(book, me.memberId)

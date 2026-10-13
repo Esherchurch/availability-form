@@ -269,6 +269,91 @@ const offMachine = u => {
   ok('  and a screen reader reads it letter by letter', !!code && code.label === 'Collection code K 7 P 2', JSON.stringify(code));
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
+  /* ---- 3. 6c: a parent reads their children's youth boards ------------
+     The server writes the children's youth groups onto the parent's record
+     (familyGroups) when the household or a child's groups change, and the
+     rules let them READ those boards. Here: the trigger, both directions,
+     and the read-only board a parent actually gets. */
+  console.log('\nthe family’s youth groups, written by the server (6c)');
+  const famOf = async (uid) => {
+    const r = await req(8181, 'GET', DOCS + '/users/' + uid, undefined, OWNER);
+    const f = (JSON.parse(r.body || '{}').fields || {}).familyGroups;
+    return f ? (((f.arrayValue || {}).values) || []).map((v) => v.stringValue).join(',') : '(none)';
+  };
+  const waitFam = async (uid, want) => {
+    let v = '';
+    for (let i = 0; i < 40; i++) { v = await famOf(uid); if (v === want) return v; await sleep(500); }
+    return v;
+  };
+  const patch = (p, o) => req(8181, 'PATCH', DOCS + '/' + p + '?' + Object.keys(o).map((k) => 'updateMask.fieldPaths=' + k).join('&'),
+    { fields: fields(o) }, OWNER);
+  let fv = await waitFam(ACCOUNTS.sarah.uid, 'Lazers');
+  ok('  Sarah’s record lists Ben’s youth group: Lazers', fv === 'Lazers', fv);
+  fv = await famOf(ACCOUNTS.karen.uid);
+  ok('  Karen’s lists nothing: Oliver is not a child on the book', fv === '' || fv === '(none)', fv);
+  await patch('addressBook/ab_fam_oliver', { isMinor: true });
+  fv = await waitFam(ACCOUNTS.karen.uid, 'ReNu');
+  ok('  marked as a child, his youth group arrives on Karen’s record - ReNu, not Worship', fv === 'ReNu', fv);
+  await patch('addressBook/ab_fam_ben', { householdId: '' });
+  fv = await waitFam(ACCOUNTS.sarah.uid, '');
+  ok('  Ben leaves the household: Lazers leaves Sarah’s record', fv === '', fv);
+  await patch('addressBook/ab_fam_ben', { householdId: 'ab_fam_sarah' });
+  fv = await waitFam(ACCOUNTS.sarah.uid, 'Lazers');
+  ok('  and comes back when he does', fv === 'Lazers', fv);
+  await patch('addressBook/ab_fam_oliver', { isMinor: false });
+
+  console.log('\nthe Lazers board, as Sarah - to read, at computer width');
+  await put('worshipBoardState/lazers', { pages: [{ id: 'main', name: 'Main' }], notes: [{ id: 'n_fam_1', pageId: 'main', cat: 'general',
+    author: 'Lazers Leader', title: 'Synthetic Lazers Note', body: 'Bring a torch on Friday.', ytUrl: '', link: '', linkLabel: '',
+    imgUrl: '', reactions: { love: 2, like: 0, dislike: 0, pray: 0 }, archived: false, x: 60, y: 60, rot: 0, zIndex: 10, createdAt: 1700000000000 }] });
+  await put('worshipBoardState/renu', { pages: [{ id: 'main', name: 'Main' }], notes: [{ id: 'n_fam_2', pageId: 'main', cat: 'general',
+    author: 'ReNu Leader', title: 'Synthetic ReNu Note', body: 'Not hers.', archived: false, x: 60, y: 60, rot: 0, zIndex: 10, createdAt: 1700000000000 }] });
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  /* A fresh sign-in, so the profile the page reads is the one the server just wrote. */
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
+  await sleep(2500);
+  await evl('firebase.auth(EGBCAuth.app).signOut()', true); await sleep(300);
+  await evl('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(ACCOUNTS.sarah.email) + ',' + JSON.stringify(PW) + ')', true);
+  await sleep(800);
+  const openBoard = async (q) => {
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/stickynotes.html' + (q || '') });
+    for (let i = 0; i < 60; i++) {
+      await sleep(400);
+      const st = String(await evl('(function(){ if(!document.body) return "loading"; if (document.body.getAttribute("data-egbc-blocked")) return "blocked";'
+        + ' return document.getElementById("egbc-guard-style") ? "checking" : "open"; })()'));
+      if (st === 'open' || st === 'blocked') break;
+    }
+    await sleep(3000);
+  };
+  watch.reset();
+  await openBoard('');
+  const vis = (sel) => evl('(function(){var e=document.querySelector(' + JSON.stringify(sel) + ');'
+    + 'if(!e) return false; var r=e.getBoundingClientRect(); return !e.hidden && getComputedStyle(e).display!=="none" && r.width>0 && r.height>0})()');
+  ok('  she gets her child’s group’s board', String(await evl('document.getElementById("boardTitle").textContent')) === 'Lazers Board',
+    String(await evl('document.getElementById("boardTitle").textContent')));
+  ok('  with its note on it', /Synthetic Lazers Note/.test(String(await evl('document.body.innerText'))));
+  ok('  as the small post-its, even on a computer (the read-only view)', (await vis('#phoneBoard')) === true);
+  ok('  and nothing to add with: no Add Note, no "Add an idea"',
+    (await vis('#pbAdd')) === false && (await evl('[].slice.call(document.querySelectorAll("header .header-actions button")).some(function(b){return /Add Note/.test(b.textContent)&&getComputedStyle(b).display!=="none"})')) === false);
+  await evl('(function(){var c=document.querySelector("#pbGrid .pb-note");if(c)c.click();return 1})()'); await sleep(1500);
+  ok('  opened, the note shows its reactions as counts, not buttons to press',
+    Number(await evl('document.querySelectorAll("[data-bp=react]").length')) === 0
+      && Number(await evl('document.querySelectorAll(".ns-rc").length')) >= 1);
+  ok('  and offers no comment box, no edit, no archive',
+    Number(await evl('document.querySelectorAll("[data-bp-box],[data-bp=send],[data-bp=edit],[data-bp=archive],[data-bp=remove]").length')) === 0);
+  ok('  nothing on the console', watch.errors.length === 0, watch.summary());
+  await openBoard('?board=renu');
+  ok('  asking for another group’s board gets her own instead', String(await evl('document.getElementById("boardTitle").textContent')) === 'Lazers Board'
+    && !/Synthetic ReNu Note/.test(String(await evl('document.body.innerText'))));
+
+  console.log('\nand the app offers it on Home');
+  await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
+  await openHome();
+  ok('  "Your family’s groups": the Lazers board, to read',
+    (await evl('!!document.querySelector("[data-act=\\"open:stickynotes.html?board=lazers\\"]")')) === true
+      && (await evl('!document.querySelector("[data-act=\\"open:stickynotes.html?board=renu\\"]")')) === true);
+
+  for (const p of ['worshipBoardState/lazers', 'worshipBoardState/renu']) await del(p);
   for (const p of ['checkins/ck_fam_ada', 'kidsChildren/kc_fam_ada', 'kidsFamilies/fam_fam_sarah']) await del(p);
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();

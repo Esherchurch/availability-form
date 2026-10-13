@@ -318,6 +318,11 @@
        attribute, which JS removes only on a phone. */
     #phoneBoard { display: none !important; }
   }
+  /* A PARENT'S READ-ONLY BOARD (6c) is the small post-its at any width:
+     the corkboard is all dragging and editing, none of it theirs. */
+  body.ro-board { overflow: auto; }
+  body.ro-board .board-outer, body.ro-board .drag-hint { display: none !important; }
+  body.ro-board #phoneBoard { display: block !important; }
 
   /* BELOW THE PAGE'S OWN FIXED BARS. The header, the page tabs and the
      filter row are all position:fixed, and snStack() measures them into
@@ -647,6 +652,18 @@ function canSee(b) {
     : b.teams.some(t => EGBCAuth.hasRole(t));
 }
 
+/* A PARENT'S VIEW OF THEIR CHILDREN'S YOUTH BOARDS (6c). familyGroups is
+   written onto their record by the server, from the household; the rules
+   let them READ these boards and nothing else, so the page offers them
+   read-only - the phone grid, whatever the width, with nothing to add,
+   react to, comment on or move. */
+function familyBoard(b) {
+  if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) return false;
+  if (['youth', 'renu', 'lazers'].indexOf(b.doc) === -1) return false;
+  const fam = EGBCAuth.profile().familyGroups || [];
+  return b.teams.some(t => fam.indexOf(t) !== -1);
+}
+
 /* Can this person put a suggestion up, or throw one away? The group's adults
    and a master admin - the same people the rules let write the board. */
 function canModerate(b) {
@@ -757,7 +774,8 @@ document.addEventListener('click', e => {
 });
 
 function chooseBoard() {
-  const mine = BOARDS.filter(canSee);
+  const mine = BOARDS.filter(b => canSee(b) || familyBoard(b));
+  mine.forEach(b => { b.readOnly = !canSee(b); });
   const asked = new URLSearchParams(location.search).get('board');
   const wanted = mine.find(b => b.id === asked);
   if (asked && !wanted) toast('That board is another team\'s');
@@ -771,6 +789,10 @@ function chooseBoard() {
   LOCAL_KEY = localKey(board);
 
   document.getElementById('boardTitle').textContent = board.title;
+  document.body.classList.toggle('ro-board', !!board.readOnly);
+  /* Read only: no Add Note in the header either. */
+  document.querySelectorAll('header .header-actions button[onclick="openNoteModal()"]')
+    .forEach(el => { el.style.display = board.readOnly ? 'none' : ''; });
   /* Each time the board changes, so a leader of two groups does not see the
      other one's queue. */
   loadSuggestions();
@@ -1088,7 +1110,7 @@ function renderNotes() {
    board next. */
 
 const PHONE_MQ = window.matchMedia('(max-width: 700px)');
-function isPhone() { return PHONE_MQ.matches; }
+function isPhone() { return PHONE_MQ.matches || !!(board && board.readOnly); }
 
 /* REDRAW WHEN THE WIDTH CROSSES 700px. A phone turned on its side does
    this, and so does a check that sets the viewport after the page has
@@ -1134,6 +1156,7 @@ function boardPhone() {
        rules allow. A young person reads comments and writes none at
        launch; their way in stays "Suggest an idea" through a leader. */
     canPost: () => canModerate(board),
+    readOnly: () => !!board.readOnly,
     isLeader: () => mayAdmin(),
     me: () => {
       const u = (typeof EGBCAuth !== 'undefined' && EGBCAuth.user && EGBCAuth.user()) || null;

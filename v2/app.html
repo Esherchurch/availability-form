@@ -740,6 +740,17 @@ A.screen('me', 'home', function (me) {
     out += sec('Your family this week', card(HOME.familyWeek.map(familyRow).join('')));
   }
 
+  /* YOUR FAMILY'S GROUP BOARDS (6c): the youth boards of the groups the
+     children are in, to read. From familyGroups on their own record,
+     which the server writes and the rules read. */
+  var fam = ((window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) || {}).familyGroups || [];
+  var FAM_BOARD = { 'Youth Worship': ['youth', 'Youth'], 'Lazers': ['lazers', 'Lazers'], 'ReNu': ['renu', 'ReNu'] };
+  var famRows = fam.filter(function (g) { return FAM_BOARD[g]; }).map(function (g) {
+    return row('sticky-note', FAM_BOARD[g][1] + ' board', 'Your family\u2019s group · to read', null,
+      'open:stickynotes.html?board=' + FAM_BOARD[g][0]);
+  });
+  if (famRows.length) out += sec('Your family\u2019s groups', card(famRows.join('')));
+
   /* Your events */
   if (HOME.events.length) {
     out += sec('Your events', card(HOME.events.slice(0, 3).map(function (e) {

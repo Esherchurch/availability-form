@@ -2742,3 +2742,45 @@ names, drafts counted, held events counted, the code drawn small. **The held
 one first passed for the wrong reason:** the held event was a Lazers one, in
 Sarah's household, and I had only asserted on Karen's answer, where it could
 never appear. The assertion is now on Sarah's, and the break fails it.
+
+### A-083 — item 6c: a parent reads their children's youth-group boards
+
+The reviewing window's decision: a server-written list on the parent's
+record, which the rules check.
+
+- **`users/{uid}.familyGroups`**: the youth groups (Youth Worship, Lazers,
+  ReNu, the three with a board) that the **children** in the household are
+  in. A child is a household member whose record says `isMinor`. It's
+  written only by the server (`functions/family.js`), by the new trigger
+  **`familyGroupsSync`** whenever an address book record's household,
+  groups, child flag or archiving changes (both the household it joins and
+  the one it leaves), and by `myFamily` whenever the person opens Home, so
+  there's no backfill to run. It's rewritten only when it changes.
+- **Nobody can write it about themselves:** the users update rules never
+  allowed the field, and account creation now refuses it too.
+- **The rules:** `familyBoard()`. One of the three youth boards, the reader
+  active, and the board's group in their own `familyGroups`. It lets them
+  **read** that board and its comments. Writing is unchanged.
+- **The page:** a family board is offered **read-only**: the small post-its
+  at any width (the corkboard is all dragging and editing), no Add Note, no
+  "Add an idea", reactions shown as counts rather than buttons, and no
+  comment box, edit or archive. That's a new `readOnly` option on
+  `egbc-board-phone.js`, separate from `canPost` because someone who can't
+  post may still react. **The app's Home** offers each one under "Your
+  family's groups".
+
+Checks: rules **1110/1110** (9 new: their own child's board and comments
+yes; another group's board and comments no; writing no; nobody gives
+themselves a group, on update or on creating their record). Breaks: any
+youth board → 5 fail; self-grant on create → 1 fail.
+`check-family.mjs` **35/35**: Sarah's record gets Lazers from Ben; Karen's
+gets ReNu only once Oliver is marked a child, and not Worship; Ben leaving
+takes Lazers off and coming back puts it on; the board as Sarah at 1280px is
+read-only and hers; asking for another group's board gets her own; Home
+offers it. Four breaks, each caught (adults counted, the old household
+forgotten, not read-only, family boards hidden). The pin board's own checks
+are unchanged: on a phone 62/62, empty 9/9, charter switch 15/15, placement
+11/11, queue 18/18.
+
+**Needs a deploy:** `familyGroupsSync` (a Firestore trigger, europe-west2)
+and `myFamily` (6a), with `functions:hub`.

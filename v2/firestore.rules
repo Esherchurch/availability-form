@@ -335,6 +335,8 @@ service cloud.firestore {
 
       allow create: if signedIn()
                     && request.auth.uid == uid
+                    // familyGroups opens boards (6c): the server's to write.
+                    && !request.resource.data.keys().hasAny(['familyGroups'])
                     && (claimsNothing(request.resource.data)
                         || mirrorsBook(request.resource.data));
 
@@ -826,6 +828,15 @@ service cloud.firestore {
                 || adminOf('Worship Team')));
     }
 
+    // A PARENT READS THEIR CHILDREN'S YOUTH BOARDS (6c, the reviewing
+    // window 13 Oct 2026). familyGroups is written by the server only
+    // (functions/family.js), from the household; nobody can write it about
+    // themselves (the users rules). Reading only - writing is unchanged.
+    function familyBoard(boardId) {
+      return (boardId == 'youth' || boardId == 'renu' || boardId == 'lazers')
+             && active() && boardGroup(boardId) in me().get('familyGroups', []);
+    }
+
     match /worshipBoardState/{boardId} {
       // A young person READS the youth board and writes nothing. Not 'state':
       // that is the worship team's, and the whole point of one document per
@@ -838,7 +849,8 @@ service cloud.firestore {
       allow read: if boardIsMine(boardId)
                   || (youthGranted() && boardId == 'youth')
                   || ((boardId == 'renu' || boardId == 'lazers')
-                      && youthInGroup(boardGroup(boardId)));
+                      && youthInGroup(boardGroup(boardId)))
+                  || familyBoard(boardId);
       allow write: if boardIsMine(boardId);
     }
 
@@ -941,7 +953,8 @@ service cloud.firestore {
       allow read: if boardIsMine(resource.data.boardId)
                   || (youthGranted() && resource.data.boardId == 'youth')
                   || ((resource.data.boardId == 'renu' || resource.data.boardId == 'lazers')
-                      && youthInGroup(boardGroup(resource.data.boardId)));
+                      && youthInGroup(boardGroup(resource.data.boardId)))
+                  || familyBoard(resource.data.boardId);
 
       // CREATE: whoever can WRITE that board - the adults on the team.
       //

@@ -40,6 +40,10 @@ const PEOPLE = {
      Attender: in the address book. Member: in it, with the office's tick. */
   attender:{ uid: 'u_attender', teams: [], adminFor: [], masterAdmin: false,
              attender: true, status: 'active' },
+  /* 6c: a parent on no team whose child is in Lazers. familyGroups is put
+     on their record below, as the server would. */
+  parent:  { uid: 'u_parent', teams: [], adminFor: [], masterAdmin: false,
+             attender: true, status: 'active' },
   renuLead:   { uid: 'u_renu_lead',   teams: ['ReNu'],   adminFor: ['ReNu'],   masterAdmin: false },
   lazersLead: { uid: 'u_lazers_lead', teams: ['Lazers'], adminFor: ['Lazers'], masterAdmin: false },
   member:  { uid: 'u_member',   teams: [], adminFor: [], masterAdmin: false,
@@ -3189,6 +3193,36 @@ await check('  and it holds a yes or no and nothing else', 'deny',
   () => setDoc(doc(as('martin'), 'churchSettings', 'notifications'), { live: 'yes' }));
 await check('  nor anything beside it', 'deny',
   () => setDoc(doc(as('martin'), 'churchSettings', 'notifications'), { live: true, sendTo: 'everyone' }));
+
+// ---- a parent reads their children's youth boards (6c) -------------------
+await env.withSecurityRulesDisabled(async (c) => {
+  const d = c.firestore();
+  await updateDoc(doc(d, 'users', 'u_parent'), { familyGroups: ['Lazers'] });
+  await setDoc(doc(d, 'worshipBoardState', 'lazers'), { pages: [], notes: [] });
+  await setDoc(doc(d, 'worshipBoardState', 'renu'), { pages: [], notes: [] });
+  await setDoc(doc(d, 'boardComments', 'bc_fam_lazers'), { boardId: 'lazers', noteId: 'n1', text: 'x', byUid: 'u_lazers_lead', byName: 'L', createdAt: 'then' });
+  await setDoc(doc(d, 'boardComments', 'bc_fam_renu'), { boardId: 'renu', noteId: 'n1', text: 'x', byUid: 'u_renu_lead', byName: 'R', createdAt: 'then' });
+});
+await check('a parent reads the board of their child’s group', 'allow',
+  () => getDoc(doc(as('parent'), 'worshipBoardState', 'lazers')));
+await check('  and its comments', 'allow',
+  () => getDoc(doc(as('parent'), 'boardComments', 'bc_fam_lazers')));
+await check('  but NOT another youth group’s board', 'deny',
+  () => getDoc(doc(as('parent'), 'worshipBoardState', 'renu')));
+await check('  nor its comments', 'deny',
+  () => getDoc(doc(as('parent'), 'boardComments', 'bc_fam_renu')));
+await check('  and cannot write the board they can read', 'deny',
+  () => setDoc(doc(as('parent'), 'worshipBoardState', 'lazers'), { pages: [], notes: [] }));
+await check('an attender with no familyGroups reads no youth board', 'deny',
+  () => getDoc(doc(as('attender'), 'worshipBoardState', 'lazers')));
+await check('nobody can give themselves a family group', 'deny',
+  () => updateDoc(doc(as('attender'), 'users', 'u_attender'), { familyGroups: ['ReNu'] }));
+await check('  not even when making their record', 'deny',
+  () => setDoc(doc(asNewcomer('u_fam_new', 'fam.new@example.invalid'), 'users', 'u_fam_new'),
+    { status: 'pending', teams: [], adminFor: [], masterAdmin: false, familyGroups: ['ReNu'] }));
+await check('  while making the same record without it is fine', 'allow',
+  () => setDoc(doc(asNewcomer('u_fam_new2', 'fam.new2@example.invalid'), 'users', 'u_fam_new2'),
+    { status: 'pending', teams: [], adminFor: [], masterAdmin: false }));
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));

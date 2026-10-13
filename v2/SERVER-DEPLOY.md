@@ -455,6 +455,15 @@ because that would write a rate-limit record).
 | `rotaReminders`, `checksReminders` (timers) | **Yes.** Dry run while the switch is off: logs, sends nothing |
 | `bookingNotify`, `maintJobNotify`, `urgentNotice` (triggers) | **Yes.** Same. The first deploy of a trigger may take a few minutes and may ask to retry while Google sets up its permissions |
 
+### Added since (13 Oct 2026, later): the family
+
+Two more, created by the same command:
+
+| Function | Safe before switch-over? |
+|---|---|
+| `myFamily` | **Yes.** The app's "Your family this week": reads the household and this week's rota and group meetings, first names only; also keeps the caller's own `familyGroups` right |
+| `familyGroupsSync` (trigger on the address book) | **Yes.** Writes only `familyGroups` onto parents' records, and only when it changes. Sends nothing |
+
 ### Deploying N-4, step by step (Martin, with a window watching)
 
 1. In the `v2` folder: `git pull`, so the code is today's.

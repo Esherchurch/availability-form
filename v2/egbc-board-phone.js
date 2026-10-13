@@ -168,6 +168,7 @@
       'background:#fff;border:1px solid var(--border,#d9e4e3);border-radius:12px;',
       'font-family:inherit;font-size:14px;font-weight:600;color:var(--teal,#3d6263);cursor:pointer}',
     '.ns-react button.on{background:var(--teal-light,#e3eeed);border-color:var(--teal,#3d6263)}',
+    '.ns-react .ns-rc{display:flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;font-size:13px;color:#374151}',
     '.ns-acts{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}',
     '.ns-acts button{display:flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;',
       'background:#fff;border:1px solid var(--border,#d9e4e3);border-radius:10px;',
@@ -215,7 +216,13 @@
 
     function notes() { return (o.notes && o.notes()) || []; }
     function isLeader() { return !!(o.isLeader && o.isLeader()); }
-    function canPost() { return !!(o.canPost && o.canPost()); }
+    /* READ ONLY (6c): a parent reading their child's youth board. They see
+       the notes, the reactions as counts and the comments, and can change
+       nothing - no reacting, commenting, adding, editing or archiving.
+       Separate from canPost, because somebody who cannot post may still be
+       allowed to react. */
+    function readOnly() { return !!(o.readOnly && o.readOnly()); }
+    function canPost() { return !readOnly() && !!(o.canPost && o.canPost()); }
     function me() { return (o.me && o.me()) || null; }
 
     /* ---- the small post-its ------------------------------------- */
@@ -362,6 +369,11 @@
 
         + '<div class="ns-react">'
         + REACTIONS.map(function (r) {
+            /* Read only: the counts, not buttons that would be refused. */
+            if (readOnly()) {
+              return (note.reactions || {})[r.key]
+                ? '<span class="ns-rc">' + ic(r.icon) + ' ' + esc(r.label) + ' ' + note.reactions[r.key] + '</span>' : '';
+            }
             return '<button class="' + (mine[r.key] ? 'on' : '') + '" data-bp="react"'
               + ' data-key="' + r.key + '">' + ic(r.icon) + ' ' + esc(r.label)
               + ((note.reactions || {})[r.key] ? ' ' + note.reactions[r.key] : '') + '</button>';
@@ -372,8 +384,8 @@
            for leaders, as small VISIBLE buttons - "never behind '...'",
            which is the brief's wording. */
         + '<div class="ns-acts">'
-        + (mayEdit ? '<button data-bp="edit">' + ic('pencil') + ' Edit</button>' : '')
-        + (isLeader() ? (note.archived
+        + (mayEdit && !readOnly() ? '<button data-bp="edit">' + ic('pencil') + ' Edit</button>' : '')
+        + (isLeader() && !readOnly() ? (note.archived
             ? '<button data-bp="unarchive">' + ic('upload') + ' Put back</button>'
             : '<button data-bp="archive">' + ic('archive') + ' Archive</button>')
           + '<button class="danger" data-bp="remove">' + ic('trash-2') + ' Remove</button>' : '')
@@ -390,7 +402,9 @@
             ? '<textarea class="ns-cmt-box" data-bp-box maxlength="500"'
               + ' placeholder="Add a comment&hellip;"></textarea>'
               + '<button class="ns-cmt-send" data-bp="send">' + ic('send') + ' Post</button>'
-            : '<p class="ns-note">Only people on this team can comment.</p>');
+            : readOnly()
+              ? '<p class="ns-note">You can read your family\'s group board. The group\'s own people post and comment.</p>'
+              : '<p class="ns-note">Only people on this team can comment.</p>');
 
       icons();
     };
