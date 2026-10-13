@@ -1,5 +1,5 @@
 {
-  "comment": "Same rules and the same functions, on spare ports, so a rules run or a functions run can happen while the dev emulators (firebase.json) are up with seeded data. Set EGBC_FIREBASE_CONFIG=firebase.spare.json so the rules tests read the same ports, and pass --config firebase.spare.json to the CLI.",
+  "comment": "Same rules and the same functions, on spare ports, so a rules run or a functions run can happen while the dev emulators (firebase.json) are up with seeded data. Set EGBC_FIREBASE_CONFIG=firebase.spare.json so the rules tests read the same ports, and pass --config firebase.spare.json to the CLI. Hub, logging, eventarc and tasks have fixed ports of their own (4412, 4512, 9312, 9512), so a spare run never drifts onto the dev set (4400/4500/9299/9499) or the events window's (4402/4502) - the events window, 13 Oct, after a spare run took 4402 and blocked theirs.",
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -11,7 +11,11 @@
     {
       "source": "functions",
       "codebase": "hub",
-      "ignore": ["node_modules", ".git", "*.local"]
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.local"
+      ]
     }
   ],
   "emulators": {
@@ -30,6 +34,18 @@
     "ui": {
       "enabled": false
     },
-    "singleProjectMode": true
+    "singleProjectMode": true,
+    "hub": {
+      "port": 4412
+    },
+    "logging": {
+      "port": 4512
+    },
+    "eventarc": {
+      "port": 9312
+    },
+    "tasks": {
+      "port": 9512
+    }
   }
 }
