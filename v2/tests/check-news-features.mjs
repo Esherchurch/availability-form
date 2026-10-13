@@ -311,6 +311,15 @@ const offMachine = u => {
     await ev("closeNewsEditor();deleteNews('" + urgId + "')", true); await sleep(2500);
   } else ok('  opened again it shows as sent, and cannot be sent twice', false, 'nothing saved');
 
+  /* AN ADMIN WHO IS NOT THE OFFICE (Martin, 13 Oct 2026): not offered it,
+     and the rules refuse it anyway (firestore-rules.test.mjs). */
+  await ev("window.__realMaster=EGBCAuth.isMaster;window.__realInTeam=EGBCAuth.inTeam;"
+    + "EGBCAuth.isMaster=function(){return false};EGBCAuth.inTeam=function(t){return t!=='Church office'&&window.__realInTeam(t)};"
+    + "closeNewsEditor();openNewsEditor();1"); await sleep(900);
+  ok('  an admin who is not in the Church office is not offered it',
+    (await ev("document.getElementById('nwUrgentRow').hidden")) === true);
+  await ev("EGBCAuth.isMaster=window.__realMaster;EGBCAuth.inTeam=window.__realInTeam;closeNewsEditor();1");
+
   /* The church does not use notifications: no tick, and no urgent field
      even if the box were somehow ticked. */
   await ev("window.__realChurch=window.EGBCChurch;window.EGBCChurch={uses:function(n){return n!=='notifications'}};"

@@ -1740,9 +1740,12 @@ function openNewsEditor(id) {
   /* URGENT goes to phones too (N-4), once: the server sends it the first
      time the notice is urgent and never again, so a notice that already
      went is shown ticked and locked rather than offering to send it twice.
-     Only when the church uses notifications (HANDOVER-MAIN rule 12). */
+     Only when the church uses notifications (HANDOVER-MAIN rule 12), and
+     only for the Church office and the master admin (Martin, 13 Oct 2026;
+     the rules say the same). Anyone else sees a notice that already went
+     as sent, and is not offered the tick. */
   const urgent = document.getElementById('nwUrgent');
-  document.getElementById('nwUrgentRow').hidden = !notificationsOn();
+  document.getElementById('nwUrgentRow').hidden = !notificationsOn() || !(mayMarkUrgent() || (n && n.urgent));
   urgent.checked = !!(n && n.urgent);
   urgent.disabled = !!(n && n.urgent);
   document.getElementById('nwUrgentHelp').textContent = n && n.urgent
@@ -1780,6 +1783,7 @@ function openNewsEditor(id) {
 /* The hub does not load egbc-church.js, so a missing helper counts as on,
    which is what every feature is until the per-church switch exists. */
 function notificationsOn() { return !window.EGBCChurch || EGBCChurch.uses('notifications'); }
+function mayMarkUrgent() { return EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'); }
 function closeNewsEditor() { document.getElementById('newsModal').classList.remove('on'); }
 
 /* Notices are written in a proper editor (egbc-editor.js): toolbar buttons,
@@ -1819,7 +1823,7 @@ async function saveNews() {
   if (!teams.length && !confirm('This will go to everyone in the church, on every team.\n\nPost it church-wide?')) return;
 
   const urgentBox = document.getElementById('nwUrgent');
-  const sendUrgent = notificationsOn() && urgentBox.checked && !urgentBox.disabled;
+  const sendUrgent = notificationsOn() && mayMarkUrgent() && urgentBox.checked && !urgentBox.disabled;
   if (sendUrgent && !confirm('This sends it to the phones of everyone it is for, straight away, and it cannot be called back.\n\nSend it?')) return;
 
   const data = {

@@ -972,14 +972,24 @@ service cloud.firestore {
     // everyone; otherwise only people on one of those teams see it, which is
     // what keeps youth notices carrying places and times away from others.
 
+    // URGENT ALSO GOES TO PHONES (N-4, functions/notify.js onNotice), once,
+    // to everyone it is for. Martin, 13 Oct 2026: only the Church office
+    // group and the master admin may do that, not every admin. A notice
+    // that is already urgent may still be edited by its admins - that
+    // sends nothing, the phones were told the first time.
+    function urgentOk() {
+      return request.resource.data.get('urgent', false) != true
+             || (resource != null && resource.data.get('urgent', false) == true)
+             || isMaster() || onTeam('Church office');
+    }
     match /news/{itemId} {
       allow read: if active();
-      allow create: if isAdmin();
+      allow create: if isAdmin() && urgentOk();
       allow delete: if isAdmin();
 
       // Anyone active may add themselves to ackedBy, and nothing else -
       // that is the "I have read it" button.
-      allow update: if isAdmin()
+      allow update: if (isAdmin() && urgentOk())
                     || (active()
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ackedBy'])
                         && request.resource.data.ackedBy.hasAll(resource.data.get('ackedBy', [])));

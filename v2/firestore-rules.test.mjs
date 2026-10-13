@@ -72,6 +72,9 @@ const PEOPLE = {
      ran, and the Church office write was refused for a reason that had
      nothing to do with the rule being tested. Hence a uid of its own. */
   churchOffice: { uid: 'u_church_office', teams: ['Church office'], adminFor: [], masterAdmin: false },
+  /* In the Church office group AND an admin: the person who may mark a
+     notice urgent (N-4, Martin 13 Oct 2026). */
+  officeAdmin: { uid: 'u_office_admin', teams: ['Church office'], adminFor: ['Kids Church'], masterAdmin: false },
 };
 
 await env.withSecurityRulesDisabled(async (ctx) => {
@@ -3153,6 +3156,27 @@ await check('NOBODY DELETES ONE, not even the lead', 'deny',
   () => deleteDoc(doc(as('karen'), 'worries', 'c_safeguarding')));
 await check('  and certainly not the person it is about', 'deny',
   () => deleteDoc(doc(as('about'), 'worries', 'c_safeguarding')));
+
+// ---- an urgent notice goes to phones: the office and master admin only --
+// Martin, 13 Oct 2026. Posting a notice is unchanged (any admin); setting
+// urgent is the office's. A positive control for each refusal, so a
+// refusal for some other reason cannot pass as this one.
+await check('an admin posts an ordinary notice', 'allow',
+  () => setDoc(doc(as('karen'), 'news', 'u_plain'), { title: 'Plain', body: 'x', teams: ['Kids Church'], ackedBy: [] }));
+await check('  but an admin NOT in the office cannot post it urgent', 'deny',
+  () => setDoc(doc(as('karen'), 'news', 'u_karen'), { title: 'Urgent', body: 'x', teams: ['Kids Church'], ackedBy: [], urgent: true }));
+await check('  nor make an existing notice urgent', 'deny',
+  () => updateDoc(doc(as('karen'), 'news', 'u_plain'), { urgent: true }));
+await check('an admin in the Church office posts it urgent', 'allow',
+  () => setDoc(doc(as('officeAdmin'), 'news', 'u_office'), { title: 'Urgent', body: 'x', teams: [], ackedBy: [], urgent: true }));
+await check('  and the master admin', 'allow',
+  () => setDoc(doc(as('martin'), 'news', 'u_master'), { title: 'Urgent', body: 'x', teams: [], ackedBy: [], urgent: true }));
+await check('  the office makes an existing notice urgent', 'allow',
+  () => updateDoc(doc(as('officeAdmin'), 'news', 'u_plain'), { urgent: true }));
+await check('  and any admin may still edit it afterwards, which sends nothing', 'allow',
+  () => updateDoc(doc(as('karen'), 'news', 'u_plain'), { title: 'Plain, edited' }));
+await check('  urgent false may be set by any admin', 'allow',
+  () => setDoc(doc(as('karen'), 'news', 'u_false'), { title: 'Not', body: 'x', teams: [], ackedBy: [], urgent: false }));
 
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
