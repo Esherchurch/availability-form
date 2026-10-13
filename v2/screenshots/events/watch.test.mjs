@@ -128,6 +128,10 @@ try {
   const want = W.defaultTimes({}, new Date());
   const shownUntil = await O.$eval('#lv-until', e => e.value);
   ok('1. THE OFFICE: show-until starts at the church\'s default, the coming Sunday at 4pm', shownUntil === boxOf(want.showUntil) && /T16:00$/.test(shownUntil), shownUntil + ' vs ' + boxOf(want.showUntil));
+  const shownFrom = await O.$eval('#lv-from', e => e.value);
+  ok('   ON THE DAY (Martin, 14 Oct): show-from starts at the start of that Sunday, not now', shownFrom === boxOf(want.showFrom) && /T00:00$/.test(shownFrom) && shownFrom.slice(0, 10) === shownUntil.slice(0, 10), shownFrom);
+  /* The rest of the test is "on the day": from now. */
+  await val(O, '#lv-from', boxOf(Date.now() - 60000));
   await val(O, '#lv-url', LIVE_URL);
   await val(O, '#lv-title', 'Sunday morning (invented)');
   await tap(O, '#lv-go');

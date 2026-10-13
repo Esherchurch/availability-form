@@ -3565,10 +3565,12 @@ service cloud.firestore {
       allow read: if active() && id in ['settings', 'live', 'feedStatus'];
       // The church's choices: its channel, and the live card's defaults.
       allow write: if sermonAdmin() && id == 'settings'
-                   && request.resource.data.keys().hasOnly(['channelId', 'untilDay', 'untilTime', 'after', 'againDays', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.keys().hasOnly(['channelId', 'untilDay', 'fromTime', 'untilTime', 'after', 'againDays', 'updatedAt', 'updatedBy'])
                    && (request.resource.data.channelId == '' || request.resource.data.channelId.matches('^UC[A-Za-z0-9_-]{22}$'))
                    && request.resource.data.untilDay is int && request.resource.data.untilDay >= 0 && request.resource.data.untilDay <= 6
                    && request.resource.data.untilTime is string && request.resource.data.untilTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+                   && request.resource.data.get('fromTime', '00:00') is string && request.resource.data.get('fromTime', '00:00').matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+                   && request.resource.data.get('fromTime', '00:00') < request.resource.data.untilTime
                    && request.resource.data.after in ['disappear', 'again']
                    && request.resource.data.againDays is int && request.resource.data.againDays >= 1 && request.resource.data.againDays <= 31
                    && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;

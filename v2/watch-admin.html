@@ -13,7 +13,7 @@
 <script src="egbc-auth.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610131800"></script>
+<script src="egbc-events.js?v=202610141200"></script>
 <script src="egbc-watch.js?v=202610141000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -155,9 +155,10 @@
   /* The church's defaults for the live card */
   function settingsCard() {
     return '<div class="card" id="defaults"><h2>The live card, every week</h2>' +
-      '<p class="hint" style="margin:0 0 6px">What a new live link starts with. You can still change it for one week above.</p>' +
-      '<div class="two"><div><label class="l" for="df-day">It goes on</label><select id="df-day">' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (SET.untilDay === i ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="l" for="df-time">At</label><input class="inp" type="time" id="df-time" value="' + esc(SET.untilTime) + '"></div></div>' +
+      '<p class="hint" style="margin:0 0 6px">What a new live link starts with: on the front of the app on the day of the service. You can still change it for one week above.</p>' +
+      '<div class="two"><div><label class="l" for="df-day">The service is on</label><select id="df-day">' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (SET.untilDay === i ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="l" for="df-from">Shown from</label><input class="inp" type="time" id="df-from" value="' + esc(SET.fromTime) + '"></div></div>' +
+      '<div class="two"><div><label class="l" for="df-time">Until</label><input class="inp" type="time" id="df-time" value="' + esc(SET.untilTime) + '"></div><div></div></div>' +
       '<label class="l">Then</label>' +
       '<label class="radio"><input type="radio" name="df-after" value="disappear"' + (SET.after !== 'again' ? ' checked' : '') + '> The card disappears</label>' +
       '<label class="radio"><input type="radio" name="df-after" value="again"' + (SET.after === 'again' ? ' checked' : '') + '> It becomes “Watch again” for <input class="inp" type="number" min="1" max="31" id="df-days" value="' + SET.againDays + '" style="width:80px;min-height:40px;display:inline-block"> days</label>' +
@@ -172,7 +173,8 @@
     document.querySelectorAll('[data-yt]').forEach(function (b) { b.onclick = function () { setHidden(b.dataset.yt, b.dataset.hide === '1'); }; });
     $('ch-go').onclick = function () { saveSettings({ channelId: val('ch-id') }); };
     $('df-go').onclick = function () {
-      saveSettings({ untilDay: +val('df-day'), untilTime: val('df-time'), after: (document.querySelector('input[name="df-after"]:checked') || {}).value || 'disappear', againDays: +val('df-days') || 7 });
+      if (val('df-from') >= val('df-time')) { toast('“Shown from” must be before “Until”'); return; }
+      saveSettings({ untilDay: +val('df-day'), fromTime: val('df-from'), untilTime: val('df-time'), after: (document.querySelector('input[name="df-after"]:checked') || {}).value || 'disappear', againDays: +val('df-days') || 7 });
     };
   }
 
@@ -218,7 +220,7 @@
     var s = Object.assign({}, SET, patch);
     if (s.channelId && !/^UC[A-Za-z0-9_-]{22}$/.test(s.channelId)) { toast('A channel id starts UC and is 24 characters long'); return; }
     var clean = W.settingsOf(s); clean.channelId = s.channelId || '';
-    db().collection('watchShow').doc('settings').set({ channelId: clean.channelId, untilDay: clean.untilDay, untilTime: clean.untilTime, after: clean.after, againDays: clean.againDays,
+    db().collection('watchShow').doc('settings').set({ channelId: clean.channelId, untilDay: clean.untilDay, fromTime: clean.fromTime, untilTime: clean.untilTime, after: clean.after, againDays: clean.againDays,
       updatedAt: now(), updatedBy: uid() })
       .then(function () { toast('Saved.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
   }

@@ -3733,3 +3733,28 @@ Nothing is EGBC's in code.
 for notifications (A-081, eb27ade9) is off by default, so my end-to-end test
 now proves "switched off: calling a parent is refused in words, and nothing
 is sent". It then switches it on in the test database for the rest, 35/35.
+
+### F-164 added (Martin, 14 Oct) — the live service on the front page ON THE DAY, phone and desktop
+Martin: *"when there is a streamed service scheduled it should go on the
+front page of the app on both phone and desktop on that day"*.
+
+**Built (events window):**
+- **When a new live link shows:** by default, on the day of the service,
+  from a "shown from" time to the "until" time. It's a church setting,
+  `watchShow/settings.fromTime`, and EGBC's is from the start of the
+  Sunday until 4pm.
+- **Added on a Wednesday,** it waits for Sunday. **Added on the Sunday
+  morning,** it shows at once.
+- **The Watch page:** "The service is on [day], shown from [time], until
+  [time]". The person adding the link can still change it for one week.
+- **The rules:** "shown from" must come before "until".
+- **Tests:** unit 25, browser 30, rules 1143.
+  - The break "show from whenever it's saved" is caught (4 checks).
+
+**For the main window, added to F-164 item 2:** the "Watch live" card goes
+on the front page on the **desktop** too, as well as the app's Home.
+- That means `hub.html`'s home, from the same
+  `EGBCEventsHome.watchLive()`, for signed-in people only.
+- `hub.html` would need to load `egbc-events-home.js`.
+- The helper is null outside the day's times, so the card appears and goes
+  by itself.

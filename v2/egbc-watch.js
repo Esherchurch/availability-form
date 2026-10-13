@@ -35,14 +35,18 @@
   'use strict';
 
   /* The church's choices, with a church that has set nothing getting
-     these. EGBC's are the same: the live card goes at 4pm on the Sunday
-     (when the trimmed version goes up) and then disappears. */
-  var DEFAULTS = { channelId: '', untilDay: 0, untilTime: '16:00', after: 'disappear', againDays: 7 };
+     these. EGBC's are the same: the live card is on the front of the app
+     ON THE DAY of the service (Martin, 14 Oct: "when there is a streamed
+     service scheduled it should go on the front page ... on that day"),
+     from the start of the Sunday until 4pm (when the trimmed version goes
+     up), and then disappears. */
+  var DEFAULTS = { channelId: '', untilDay: 0, fromTime: '00:00', untilTime: '16:00', after: 'disappear', againDays: 7 };
   function settingsOf(s) {
     s = s || {};
     return {
       channelId: /^UC[A-Za-z0-9_-]{22}$/.test(s.channelId || '') ? s.channelId : '',
       untilDay: s.untilDay >= 0 && s.untilDay <= 6 ? +s.untilDay : DEFAULTS.untilDay,
+      fromTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(s.fromTime || '') && s.fromTime < (/^([01]\d|2[0-3]):[0-5]\d$/.test(s.untilTime || '') ? s.untilTime : DEFAULTS.untilTime) ? s.fromTime : DEFAULTS.fromTime,
       untilTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(s.untilTime || '') ? s.untilTime : DEFAULTS.untilTime,
       after: s.after === 'again' ? 'again' : 'disappear',
       againDays: s.againDays >= 1 && s.againDays <= 31 ? +s.againDays : DEFAULTS.againDays
@@ -155,16 +159,18 @@
     }
     return Date.UTC(y, m - 1, d, h, mi);
   }
-  /* The church's defaults for a link added now: shown from now until the
-     next untilDay at untilTime (today's, if it is still to come), then
-     disappear or "Watch again" for againDays more. */
+  /* The church's defaults for a link added now: shown ON THE DAY, from
+     fromTime to untilTime, on the next untilDay (today, if untilTime is
+     still to come), then disappear or "Watch again" for againDays more.
+     Added on a Wednesday, it waits for Sunday; added on the Sunday morning,
+     it shows at once. */
   function defaultTimes(settings, now) {
     var s = settingsOf(settings), t = (now || new Date()).getTime();
     for (var k = 0; k <= 7; k++) {
       var p = londonParts(new Date(t + k * 864e5));
       if (p.wd !== s.untilDay) continue;
       var until = londonAt(p.y, p.m, p.d, s.untilTime);
-      if (until > t) return { showFrom: t, showUntil: until, after: s.after, againUntil: until + s.againDays * 864e5 };
+      if (until > t) return { showFrom: londonAt(p.y, p.m, p.d, s.fromTime), showUntil: until, after: s.after, againUntil: until + s.againDays * 864e5 };
     }
     return { showFrom: t, showUntil: t + 7 * 864e5, after: s.after, againUntil: t + (7 + s.againDays) * 864e5 };
   }

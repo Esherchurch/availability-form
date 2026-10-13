@@ -79,13 +79,17 @@ const egbc = W.defaultTimes({}, at('2026-10-15T12:00:00Z'));   /* a Thursday, in
 ok('4. EGBC (nothing set): until that Sunday at 4pm, then it disappears', hm(egbc.showUntil) === '2026-10-18 16:00 Sun' && egbc.after === 'disappear', hm(egbc.showUntil));
 const sunMorning = W.defaultTimes({}, at('2026-10-18T09:30:00Z'));   /* Sunday 10:30 BST, during the service */
 ok('   added on the Sunday morning: until 4pm THAT DAY, not next week', hm(sunMorning.showUntil) === '2026-10-18 16:00 Sun', hm(sunMorning.showUntil));
+/* Martin, 14 Oct: on the front of the app ON THE DAY of the service. */
+ok('   ON THE DAY: added on the Thursday, it shows from the start of Sunday, not straight away', hm(egbc.showFrom) === '2026-10-18 0:00 Sun', hm(egbc.showFrom));
+ok('   added on the Sunday morning, it shows at once (the day has begun)', sunMorning.showFrom <= Date.parse('2026-10-18T09:30:00Z') && hm(sunMorning.showFrom) === '2026-10-18 0:00 Sun', hm(sunMorning.showFrom));
+ok('   so on the Thursday the card is not on the front of the app; on the Sunday it is', W.liveState(Object.assign({ url: 'https://youtu.be/dQw4w9WgXcQ' }, egbc), at('2026-10-15T12:00:00Z')) === null && W.liveState(Object.assign({ url: 'https://youtu.be/dQw4w9WgXcQ' }, egbc), at('2026-10-18T08:00:00Z')) === 'live');
 const sunEvening = W.defaultTimes({}, at('2026-10-18T17:00:00Z'));   /* Sunday 6pm: today's 4pm has gone */
 ok('   added on Sunday after 4pm: the next Sunday', hm(sunEvening.showUntil) === '2026-10-25 16:00 Sun', hm(sunEvening.showUntil));
 ok('   the clocks go back on 25 Oct: still 4pm by the clock (16:00 GMT)', new Date(sunEvening.showUntil).toISOString() === '2026-10-25T16:00:00.000Z', new Date(sunEvening.showUntil).toISOString());
-const other = W.defaultTimes({ untilDay: 6, untilTime: '20:30', after: 'again', againDays: 3 }, at('2026-10-15T12:00:00Z'));
-ok('   another church: Saturday 8.30pm, then "Watch again" for 3 days', hm(other.showUntil) === '2026-10-17 20:30 Sat' && other.after === 'again' && other.againUntil - other.showUntil === 3 * 864e5, hm(other.showUntil));
-const s = plain(W.settingsOf({ channelId: 'not a channel', untilDay: 9, untilTime: '25:00', after: 'x', againDays: 0 }));
-ok('   settings that make no sense fall back to the defaults', s.channelId === '' && s.untilDay === 0 && s.untilTime === '16:00' && s.after === 'disappear' && s.againDays === 7, J(s));
+const other = W.defaultTimes({ untilDay: 6, fromTime: '18:00', untilTime: '20:30', after: 'again', againDays: 3 }, at('2026-10-15T12:00:00Z'));
+ok('   another church: Saturday 6pm to 8.30pm, then "Watch again" for 3 days', hm(other.showFrom) === '2026-10-17 18:00 Sat' && hm(other.showUntil) === '2026-10-17 20:30 Sat' && other.after === 'again' && other.againUntil - other.showUntil === 3 * 864e5, hm(other.showUntil));
+const s = plain(W.settingsOf({ channelId: 'not a channel', untilDay: 9, fromTime: '17:00', untilTime: '25:00', after: 'x', againDays: 0 }));
+ok('   settings that make no sense fall back to the defaults (a start after the end too)', s.channelId === '' && s.untilDay === 0 && s.fromTime === '00:00' && s.untilTime === '16:00' && s.after === 'disappear' && s.againDays === 7, J(s));
 ok('   a real channel id is kept', W.settingsOf({ channelId: 'UCf7lMnb24HfNJKGpMeYdQXQ' }).channelId === 'UCf7lMnb24HfNJKGpMeYdQXQ');
 
 /* ---- 5: the card ---- */

@@ -2259,6 +2259,8 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   /* the church's choices */
   await check('THE CHURCH\'S SETTINGS: the channel and the live card\'s defaults', 'allow', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach')));
   await check('a channel id is a channel id', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach', { channelId: 'https://youtube.com/@x' })));
+  await check('shown from the start of the day of the service', 'allow', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach', { fromTime: '00:00' })));
+  await check('but never from after it ends', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach', { fromTime: '17:00' })));
   await check('a day of the week is 0 to 6', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach', { untilDay: 7 })));
   await check('read signed in only', 'deny', () => getDoc(doc(guest(), 'watchShow', 'settings')));
   await check('the feed\'s status is the function\'s alone', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'feedStatus'), { ok: true }));
