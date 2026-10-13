@@ -93,9 +93,33 @@
      The rules check the numbering, so two at once cannot share a number.
      charges: [{ id, bookingKey, lines, subtotal, vat, total, payer, ... }]
      o: { siteId, payer, monthly, period, label(charge) -> words, by } */
+  /* HOW TO PAY, decided when an invoice is issued and kept on it (and on
+     the booking's invoice summary), so the hirer sees the same words in
+     the email and on their own booking page - which is signed out and
+     cannot read the bank details - and an old invoice keeps the words it
+     was sent with if the details change later.
+       1. The Accounts "How to pay" box, if anything is typed there: the
+          office's override, as before.
+       2. Otherwise the church's bank details: ONE setting
+          (churchSettings/giving, EGBCChurch.giving(), signed in only),
+          typed once in Church details.
+       3. Otherwise nothing, and the invoice says only when to pay. */
+  function payWords(st) {
+    var own = String((st && st.payText) || '').trim();
+    if (own) return Promise.resolve(own.slice(0, 1000));
+    if (!global.EGBCChurch || !EGBCChurch.giving) return Promise.resolve('');
+    return EGBCChurch.giving().then(function (g) {
+      if (!EGBCChurch.givingReady()) return '';
+      var to = [g.accountName ? 'to ' + g.accountName : '', g.sortCode ? 'sort code ' + g.sortCode : '', g.accountNumber ? 'account number ' + g.accountNumber : ''].filter(Boolean);
+      return ('Please pay by bank transfer ' + to.join(', ') + '.').slice(0, 1000);
+    }, function () { return ''; });
+  }
+
   function issue(charges, o) {
-    var counter = db().collection('counters').doc('invoices'), made;
+    var counter = db().collection('counters').doc('invoices'), made, pay = '';
     return settings().then(function (st) {
+      return payWords(st).then(function (w) { pay = w; return st; });
+    }).then(function (st) {
       return db().runTransaction(function (tx) {
         return tx.get(counter).then(function (c) {
           var seq = c.exists ? c.data().next : 1;
@@ -106,12 +130,12 @@
           made = { seq: seq, number: number(seq), siteId: o.siteId, chargeIds: charges.map(function (ch) { return ch.id; }),
             bookingKeys: charges.map(function (ch) { return ch.bookingKey; }), payer: o.payer, lines: lines, subtotal: sub, vat: vat, total: sub + vat,
             monthly: !!o.monthly, period: o.period || '', issuedAt: new Date().toISOString(), dueDate: addDays(today(), +st.payDays || 14),
-            status: charges.every(function (ch) { return ch.status === 'paid'; }) ? 'paid' : 'unpaid', issuedBy: o.by || '' };
+            status: charges.every(function (ch) { return ch.status === 'paid'; }) ? 'paid' : 'unpaid', issuedBy: o.by || '', payText: pay };
           tx.set(db().collection('invoices').doc('inv_' + seq), made);
           tx.set(counter, { next: seq + 1 });
           charges.forEach(function (ch) {
             tx.update(db().collection('charges').doc(ch.id), { invoiceId: 'inv_' + seq, invoiceNumber: made.number });
-            tx.update(db().collection('bookings').doc(ch.bookingKey), { invoice: { number: made.number, issuedAt: made.issuedAt, dueDate: made.dueDate, monthly: made.monthly } });
+            tx.update(db().collection('bookings').doc(ch.bookingKey), { invoice: { number: made.number, issuedAt: made.issuedAt, dueDate: made.dueDate, monthly: made.monthly, payText: made.payText } });
           });
         });
       });
@@ -163,7 +187,7 @@
     }, Promise.resolve());
   }
 
-  global.EGBCAccounts = { settings: settings, NOT_BUILT: NOT_BUILT, sendCustomer: sendCustomer, sendInvoice: sendInvoice, sendPayment: sendPayment,
+  global.EGBCAccounts = { settings: settings, payWords: payWords, NOT_BUILT: NOT_BUILT, sendCustomer: sendCustomer, sendInvoice: sendInvoice, sendPayment: sendPayment,
     fetchPaymentStatus: fetchPaymentStatus, waiting: waiting, retry: retry, issue: issue, number: number, HEAD: HEAD, rows: rows, markExported: markExported };
 
 })(typeof window !== 'undefined' ? window : this);

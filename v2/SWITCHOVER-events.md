@@ -34,7 +34,7 @@ These two change who can see things the moment the rules are live.
 | What | Page | Why it can't wait |
 |---|---|---|
 | Give **each existing form** a Team | `forms-admin.html`: open each form, pick its Team, Save | Until then, only master admins and the safeguarding lead can use those forms (F-092) |
-| Press **Save once** on Accounts | Room bookings → **Accounts** → Save | Until then, a bookings admin who isn't an admin prints invoices without "how to pay" (F-108) |
+| Press **Save once** on Accounts | Room bookings → **Accounts** → Save | Until then, a bookings admin who isn't an admin can't read the Accounts setting. Their invoices still carry the bank details from Church details, but not any wording typed in Accounts (F-108, F-161) |
 
 **Also worth one look:** sign in as an admin who has never signed in
 before. F-011 says a first sign-in might be refused under the new rules.
@@ -182,7 +182,7 @@ so "Show on screen" can call a parent.
   members are offered "Church or ministry use".
 - **Price cards** per room and kind. VAT is off unless ticked.
 - **Terms and conditions** for each kind.
-- **Bank details** for "how to pay" on invoices. Nothing is assumed.
+- **Bank details** for "how to pay" on invoices: typed **once**, in Church details (the giving details). Every invoice uses them (F-161). Type in Room bookings → Accounts → "How to pay" **only** to say something different on invoices. Until they are in, an invoice says only when to pay.
 - **Hirer records:** the charity rate needs the charity number checked.
 - **Kit**, the **catering menu** and **outside venues.**
 - **Until prices are set:** the hire page asks people to get in touch about

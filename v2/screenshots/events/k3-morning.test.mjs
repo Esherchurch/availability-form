@@ -273,7 +273,9 @@ try {
   await val(L, '#reg-from', back(14));
   const first = +back(14).slice(8, 10) + '/' + +back(14).slice(5, 7);
   await until(() => L.$eval('#reg-table th:nth-child(2)', (e, f) => e.textContent === f, first));
-  const grid = await L.$$eval('#reg-table tr', rows => rows.map(r => [...r.children].map(c => c.textContent.trim()).join('|')));
+  /* The heading can change before every row is drawn: wait for the totals row (seen once in a full run, 13 Oct). */
+  const rowsNow = () => L.$$eval('#reg-table tr', rows => rows.map(r => [...r.children].map(c => c.textContent.trim()).join('|')));
+  const grid = (await until(async () => { const g = await rowsNow(); return g.length === 5 && /^Children\|/.test(g[4]) ? g : null; }, 10000)) || await rowsNow();
   ok('5. a group leader\'s register for their group: three weeks, who came, and the totals',
     grid.length === 5 && grid[1] === 'Ada Synthetic|✓||✓|2' && grid[2] === 'Eve Synthetic|✓|||1' && grid[3] === 'Vic Visitor|||✓|1' && grid[4] === 'Children|2|0|2|', J(grid));
   await tap(L, '#reg-csv');

@@ -3502,3 +3502,58 @@ which Martin does with the main window's steps.
 2. **For the main window: take `notifications.html` off the WAITING list**
    in `tests/check-app-mode.mjs`. F-159's line is in (5424b2b0), so the
    check can now hold the page to the same standard.
+
+### F-161 — invoices' "How to pay" comes from the one giving setting
+**Asked:** room-hire invoices' "How to pay" should default to the church's
+bank details, the one giving setting (`EGBCChurch.giving()`), with the old
+Accounts box kept as an override.
+
+**How it works:**
+- **When an invoice is issued**, `EGBCAccounts.payWords()` decides the
+  words:
+  1. **Words typed in Accounts' "How to pay" box**, if there are any. The
+     override stays.
+  2. **Otherwise the church's bank details:** "Please pay by bank transfer
+     to …, sort code …, account number …".
+  3. **Otherwise nothing,** and the invoice says only when to pay, as
+     before.
+- **The words are kept on the invoice and on each booking's invoice
+  summary** (`payText`).
+  - The giving setting is signed-in only, so the hirer's own booking page,
+    which is signed out, could never read it. It reads the kept words
+    instead.
+  - An invoice keeps the words it was sent with if the details change
+    later.
+- **The invoice email prints the kept words.** An invoice issued before
+  this falls back to the Accounts box, as before.
+- **The hirer's booking page shows them** under the invoice. It now also
+  says "quoting INV-…".
+- **The Accounts box** says that leaving it empty uses the church's bank
+  details.
+- **No rules change.** Invoices aren't limited to a fixed list of fields,
+  and the office may already write a booking's invoice summary.
+- **Who can issue with it:** anyone signed in may read the giving setting,
+  so every office person who issues invoices can.
+
+**Worth knowing:** the bank details were kept to signed-in people. Now they
+are also on each invoiced booking, which anyone with that booking's
+private link (the hirer) can open. That's what copying them onto the
+invoice means, and a hirer needs them to pay.
+
+**Proved:** `c5-stage3.test.mjs`, now 43 checks (6 new):
+- with nothing in Accounts, the bank details, on the invoice, its bookings
+  and the email
+- with words in Accounts, those instead, from the next invoice on
+- the first invoice keeps its words
+- signed out, each hirer sees their own invoice's words
+
+**5 deliberate breaks, all caught:**
+- **The one that matters:** back to how it was, where an invoice says
+  nothing about how to pay.
+- The override ignored.
+- The words not kept on the booking.
+- The email using today's box rather than the invoice's words.
+- The hirer's page not showing them.
+
+**Switch-over notes updated:** bank details are typed once, in Church
+details. The Accounts box is only for different wording.

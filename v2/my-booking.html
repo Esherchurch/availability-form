@@ -105,7 +105,11 @@
       '</div>' +
       (confirmed && q ? quoteDoc() : '') +
       (b.invoice ? '<div class="card" id="invoice"><h2>Invoice ' + esc(b.invoice.number) + '</h2><p style="margin:0">Issued ' + esc(fmtAt(b.invoice.issuedAt)) +
-        (b.invoice.dueDate ? '; please pay by ' + esc(EGBCEvents.fmtDate(b.invoice.dueDate + 'T12:00')) : '') + (b.invoice.monthly ? ' (your monthly invoice, with your other bookings that month)' : '') + '.</p></div>' : '') +
+        (b.invoice.dueDate ? '; please pay by ' + esc(EGBCEvents.fmtDate(b.invoice.dueDate + 'T12:00')) : '') + (b.invoice.monthly ? ' (your monthly invoice, with your other bookings that month)' : '') + ', quoting ' + esc(b.invoice.number) + '.</p>' +
+        /* How to pay, as it was on the invoice when it was issued: kept on the
+           booking, because this page is signed out and cannot read the
+           church's bank details itself. */
+        (b.invoice.payText ? '<p id="paytext" style="margin:8px 0 0">' + esc(b.invoice.payText).replace(/\n/g, '<br>') + '</p>' : '') + '</div>' : '') +
       (confirmed && q && pay ? '<div class="card" id="paid"><h2>Payments</h2><p style="margin:0">' +
         (pay.status === 'paid' ? '<b>Paid in full</b>, ' + QT.pounds(pay.paid) + '. Thank you.' : 'Paid ' + QT.pounds(pay.paid || 0) + ' of ' + QT.pounds(pay.total) + '.') + '</p></div>' : '') +
       (b.damage && b.damage.status && b.damage.status !== 'none' ? '<div class="card" id="damage"><h2>Damage deposit</h2><p style="margin:0">' + damageWords(b.damage) + '</p></div>' : '') +

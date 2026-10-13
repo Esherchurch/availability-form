@@ -101,6 +101,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
       adminFor: [], masterAdmin: !!x.admin, status: 'active' });
   }
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
+  /* The church's bank details: the ONE giving setting (invented numbers). */
+  await setDoc(doc(db, 'churchSettings', 'giving'), { accountName: 'Test Green Church', sortCode: '00-00-00', accountNumber: '00000000', reference: 'GIFT', giftAid: false, giftAidUrl: '', note: '' });
   await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });
   await setDoc(doc(db, 'rooms', 'room_hall'), ROOM('Test Hall', { order: 1, fireMax: 120 }));
   await setDoc(doc(db, 'bookingTypes', 'type_hire'), { name: 'Private hire', forPublic: true, charged: true, active: true, order: 1 });
@@ -111,6 +113,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'bookings', KA2), BK(KA2, D2, HA, 'Hirer Alpha', 'Invented Tots'));
   await setDoc(doc(db, 'bookings', KB), BK(KB, D3, HB, 'Hirer Beta', 'Invented Party'));
 });
+/* How to pay: the giving setting's words, and an office's own words in Accounts. */
+const GIVING = 'Please pay by bank transfer to Test Green Church, sort code 00-00-00, account number 00000000.';
+const OWN = 'Pay at the church office, or by cheque to Test Green Church (invented).';
 const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(async (c) => { out = await fn(c.firestore()); }); return out; };
 const get = (c, id) => readDb(db => getDoc(doc(db, c, id)).then(s => s.exists() ? s.data() : null));
 const bookings = (w) => readDb(db => getDocs(query(collection(db, 'bookings'), where(w[0], '==', w[1]))).then(s => s.docs.map(d => ({ key: d.id, ...d.data() }))));
@@ -217,12 +222,18 @@ try {
   ok('   each charge and booking knows its invoice', (await get('charges', 'ch_' + KA2)).invoiceNumber === 'INV-00001' && (await get('bookings', KA1)).invoice.number === 'INV-00001');
   const mi = await until(async () => (await outbox(L)).find(m => /Invoice INV-00001: £124.00/.test(m.subject)));
   ok('   emailed to Alpha, with both bookings and the address', mi && mi.to[0] === HA && /Invented Lane/.test(mi.html) && (mi.html.match(/my-booking\.html\?k=/g) || []).length === 2);
+  ok('   HOW TO PAY: nothing typed in Accounts, so the church\'s bank details, kept on the invoice and its bookings', inv1.payText === GIVING && (await get('bookings', KA1)).invoice.payText === GIVING, J(inv1.payText));
+  ok('   and printed in the email', !!mi && mi.html.includes(GIVING), mi && mi.html.slice(-400));
+  /* Words typed in the Accounts box override it, from the next invoice on. */
+  await readDb(db => setDoc(doc(db, 'settings', 'accounts'), { mode: 'none', invoiceNumbersBy: 'hub', officeSites: ['site_t'], payText: OWN, payDays: 14 }));
   await go(L, 'bookings-admin.html', '[data-tab="coming"]'); await tap(L, '[data-tab="coming"]');
   await L.waitForSelector(`[data-key="${KB}"] [data-do="invoice"]`);
   ok('   a monthly hirer\'s booking has no "Issue an invoice"; a one-off\'s does', !(await L.$(`[data-key="${KA1}"] [data-do="invoice"]`)));
   await tap(L, `[data-key="${KB}"] [data-do="invoice"]`);
   const inv2 = await until(() => get('invoices', 'inv_2'), 15000);
   ok('   Beta\'s invoice is the next number, INV-00002, £70; the counter is at 3', inv2 && inv2.number === 'INV-00002' && inv2.total === 7000 && (await get('counters', 'invoices')).next === 3);
+  ok('   HOW TO PAY: with words typed in Accounts, those words instead', inv2.payText === OWN && (await get('bookings', KB)).invoice.payText === OWN, J(inv2.payText));
+  ok('   Alpha\'s invoice keeps the words it was sent with', (await get('invoices', 'inv_1')).payText === GIVING);
 
   /* ---------- 4. the damage deposit ---------- */
   await go(L, 'bookings-admin.html', '[data-tab="coming"]'); await tap(L, '[data-tab="coming"]');
@@ -250,6 +261,7 @@ try {
   await go(G, 'my-booking.html?k=' + KB, '#damage');
   ok('   the hirer\'s page shows it: returned £80, kept £20 (a broken chair)', /Returned to you: £80.00. Kept: £20.00 \(Test: a broken chair\)/.test(await G.$eval('#damage', e => e.innerText)));
   ok('   and the invoice number', /INV-00002/.test(await G.$eval('#invoice', e => e.innerText)));
+  ok('   SIGNED OUT, the hirer sees how to pay: their invoice\'s own words', (await G.$eval('#paytext', e => e.innerText).catch(() => '')) === OWN);
   await go(G, 'my-booking.html?k=' + KA2, '#askOpen');
   await tap(G, '#askOpen'); await val(G, '#askWhy', 'Test: half term');
   await tap(G, '#askGo');
@@ -347,6 +359,7 @@ try {
   await L.waitForSelector(`[data-hrow="${hA.id}"]`);
   await L.screenshot({ path: path.join(HERE, 'c5-hirers-375.png'), fullPage: true });
   await go(G, 'my-booking.html?k=' + KA1, '#invoice');
+  ok('   SIGNED OUT, Alpha sees the bank details their invoice was issued with', (await G.$eval('#paytext', e => e.innerText).catch(() => '')) === GIVING, await G.$eval('#invoice', e => e.innerText));
   await G.screenshot({ path: path.join(HERE, 'c5-hirer-invoice-375.png'), fullPage: true });
 
   await lB.close(); await gB.close(); await kB.close();

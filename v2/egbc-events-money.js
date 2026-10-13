@@ -117,8 +117,11 @@
         '<p>' + esc(inv.payer.org || inv.payer.name || '') + (inv.payer.address ? '<br>' + esc(inv.payer.address).replace(/\n/g, '<br>') : '') + '</p>' +
         Q.table({ lines: inv.lines, subtotal: inv.subtotal, vat: inv.vat, vatRate: inv.vat ? '' : 0, total: inv.total, deposit: 0, damageDeposit: 0 }).replace('VAT (%)', 'VAT') +
         '<p>Please pay by <strong>' + esc(EGBCEvents.fmtDate(inv.dueDate + 'T12:00')) + '</strong>, quoting <strong>' + esc(inv.number) + '</strong>.</p>' +
-        (ctx.payText() ? '<p>' + esc(ctx.payText()).replace(/\n/g, '<br>') + '</p>' : '') + (links || '');
+        /* The words decided when it was issued (EGBCAccounts.payWords); an
+           invoice issued before they were kept on it uses today's setting. */
+        (payOf(inv) ? '<p>' + esc(payOf(inv)).replace(/\n/g, '<br>') + '</p>' : '') + (links || '');
     }
+    function payOf(inv) { return typeof inv.payText === 'string' ? inv.payText : ctx.payText(); }
     function monthWords(p) { return p ? new Date(p + '-15T12:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : ''; }
     function emailInvoice(inv, bookings) {
       var to = inv.payer.email; if (!to) return Promise.resolve();
@@ -200,7 +203,8 @@
           '<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="radio" name="x-mode" value="none"' + (st.mode !== 'calla' ? ' checked' : '') + '> None: the hub is the whole money system</label>' +
           '<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="radio" name="x-mode" value="calla"' + (st.mode === 'calla' ? ' checked' : '') + '> Calla Accounts: also send hirers, invoices and payments there</label>' +
           '<p class="hint">With Calla Accounts, who numbers the invoices is for Martin to decide; until then the hub does.</p>' +
-          '<div class="field"><label class="l" for="x-pay">How to pay (printed on invoices)</label><textarea class="inp" id="x-pay" style="height:70px;padding:8px 12px" placeholder="Bank transfer to ...">' + esc(st.payText || '') + '</textarea></div>' +
+          '<div class="field"><label class="l" for="x-pay">How to pay (printed on invoices)</label><textarea class="inp" id="x-pay" style="height:70px;padding:8px 12px" placeholder="Leave empty to use the church\'s bank details">' + esc(st.payText || '') + '</textarea>' +
+            '<p class="hint">Leave this empty and invoices use the church\'s bank details, typed in once in Church details. Anything typed here is used instead.</p></div>' +
           '<div class="row"><div class="f"><label class="l" for="x-days">Pay within (days)</label><input class="inp" type="number" min="0" max="120" id="x-days" value="' + (+st.payDays || 14) + '"></div></div>' +
           '<div class="acts"><button class="btn" id="x-save">Save</button></div></div>' : '') +
         '<div class="card" id="x-queue"><h2>Not yet sent to Calla Accounts</h2><p class="hint">Loading…</p></div>';
