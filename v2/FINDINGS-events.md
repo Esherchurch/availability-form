@@ -3758,3 +3758,57 @@ on the front page on the **desktop** too, as well as the app's Home.
 - `hub.html` would need to load `egbc-events-home.js`.
 - The helper is null outside the day's times, so the card appears and goes
   by itself.
+
+### F-165 — the public What's on: public / members only / NOT LISTED, and the website's two embeds (NEXT-BRIEF §24 item 13)
+Feature name **`publicWhatson`** (EGBCChurch.uses).
+
+**What's built:**
+- **"Who can come" on an event gains "Not listed"** (only the organisers
+  and admins see it). It's the first choice, and **the default for a new
+  event**. Until now a new event started as "Everyone", which is exactly
+  the accident Martin wants to prevent.
+  - "Everyone" now says "(public, on the church website too)".
+  - Small groups and forms keep their own four choices (`E.WHO`). Events
+    use `E.EVENT_WHO`.
+- **How "not listed" works:** a not-listed event's `audience` is
+  `['unlisted']`, which no reader's list ever asks for. So it's in nobody's
+  What's on, the app, or the website's embeds, not even a master admin's.
+  - events-admin alone asks for it, and shows it with a "Not listed"
+    flag.
+  - The existing event rule (`canSeeEvent`, the main window's) already
+    lets only admins read it, and refuses "public" unless the event says
+    Everyone. **No rule needed changing.** The new rules tests prove it.
+- **`whatson-embed.html`:** the two views that replace the website's
+  ChurchSuite iframes.
+  - `whatson-embed.html` is a "coming up" list.
+  - `?view=month` is a month calendar with the months before and after.
+    On a phone it's a list of the month's days instead of seven columns.
+  - Options: `&accent=` for the website's colour, `&limit=` for the list's
+    length.
+  - **It asks the database for public events only, and checks again on
+    the page**, so a visitor who happens to be signed in to the hub in the
+    same browser still sees only the public list.
+  - It never signs anyone in and draws no hub bar or Menu.
+  - Each event opens its own public page in a new tab.
+  - It tells a parent page its height (`postMessage`) for websites that
+    size the iframe to fit.
+- **events-admin:** a fold-out "On the church website" card with the two
+  `<iframe>` codes to paste in, each with a Copy button.
+
+**Proved:**
+- `public-whatson.test.mjs`: 24 checks, at a computer's width and 375px,
+  signed out, as an attender, and as a master admin.
+- **Rules:** 10 new checks, 1153 in all.
+- **6 deliberate breaks, all caught:**
+  - **the one that matters:** a new event starts as "Everyone" again
+  - the embed asking for more than public events
+  - "not listed" saved as attenders
+  - events-admin unable to find not-listed events
+  - the month squeezed at 375px
+  - the embed showing events while switched off
+
+**Existing events are unchanged.** Any already marked "Everyone" will show
+on the website. The switch-over notes ask the office to check them first.
+
+**For the main window:** add `publicWhatson` to "What does your church
+use?", under Events and rooms.

@@ -2266,6 +2266,27 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the feed\'s status is the function\'s alone', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'feedStatus'), { ok: true }));
 }
 
+// ── EVENTS (events window) ── the public What's on: public / members only / NOT LISTED (NEXT-BRIEF §24 item 13; F-165)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  const T = Date.now() + 5 * 864e5;
+  const EV = (title, visibility, audience, extra) => ({ title, visibility, audience, status: 'confirmed', startUtc: T, endUtc: T + 3600e3, createdBy: 'u_martin', teams: [], ...(extra || {}) });
+  /* A master admin makes them, as events-admin does. */
+  await check('NOT LISTED: an admin makes a not-listed event (a church meeting)', 'allow', () => setDoc(doc(as('martin'), 'calEvents', 'ev_unl'), EV('Church meeting (invented)', 'unlisted', ['unlisted'])));
+  await check('one marked not listed cannot also be public', 'deny', () => setDoc(doc(as('martin'), 'calEvents', 'ev_unl2'), EV('AA (invented)', 'unlisted', ['unlisted', 'public'])));
+  await check('a public one', 'allow', () => setDoc(doc(as('martin'), 'calEvents', 'ev_pubw'), EV('Harvest supper (invented)', 'public', ['public', 'members'])));
+  await check('NOBODY SIGNED OUT READS THE NOT-LISTED ONE', 'deny', () => getDoc(doc(guest(), 'calEvents', 'ev_unl')));
+  await check('nor an attender', 'deny', () => getDoc(doc(ctx('u_watcher'), 'calEvents', 'ev_unl')));
+  await check('the admins read it (events-admin)', 'allow', () => getDoc(doc(as('karen'), 'calEvents', 'ev_unl')));
+  await check('the public list (the website\'s embeds) is allowed signed out', 'allow', () => getDocs(query(collection(guest(), 'calEvents'), where('audience', 'array-contains', 'public'))));
+  let pub = [];
+  await env.withSecurityRulesDisabled(async (c) => { pub = (await getDocs(query(collection(c.firestore(), 'calEvents'), where('audience', 'array-contains', 'public')))).docs.map(d => d.id); });
+  await check('AND IT NEVER HOLDS A NOT-LISTED EVENT', 'allow', async () => { if (pub.includes('ev_unl') || !pub.includes('ev_pubw')) throw new Error('wrong list: ' + pub.join()); });
+  await check('nor can anyone signed out ask for the not-listed ones', 'deny', () => getDocs(query(collection(guest(), 'calEvents'), where('audience', 'array-contains', 'unlisted'))));
+  await check('nor an attender', 'deny', () => getDocs(query(collection(ctx('u_watcher'), 'calEvents'), where('audience', 'array-contains', 'unlisted'))));
+}
+
 // ── EVENTS (events window) ── phone notifications (NEXT-BRIEF §23; F-144)
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();

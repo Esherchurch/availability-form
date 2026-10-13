@@ -139,7 +139,8 @@ try {
   });
   await go(KA, 'events-admin.html', 'button.open[data-id="ev_cm"]');
   await tap(KA, 'button.open[data-id="ev_cm"]'); await KA.waitForSelector('#f_vis');
-  ok('1. "Who can come": Everyone, Attenders, Church members only, a team', J(await KA.$$eval('#f_vis option', o => o.map(x => x.textContent))) === J(['Everyone', 'Attenders (signed in)', 'Church members only', 'One or more teams']));
+  /* Since F-165: "Not listed" first (the default for a new event), and "Everyone" says it is public. */
+  ok('1. "Who can come": Not listed, Everyone, Attenders, Church members only, a team', J(await KA.$$eval('#f_vis option', o => o.map(x => x.textContent))) === J(['Not listed: only the organisers and admins see it', 'Everyone (public, on the church website too)', 'Attenders (signed in)', 'Church members only', 'One or more teams']));
   await KA.select('#f_vis', 'churchMembers');
   const saveSel = (await KA.$('#save')) ? '#save' : '#f_save';
   await tap(KA, saveSel);

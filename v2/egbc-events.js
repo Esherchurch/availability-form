@@ -107,6 +107,10 @@
      carries its team names.  */
   function audienceFor(ev) {
     var vis = ev.visibility || 'members';
+    /* NOT LISTED (§24 item 13; F-165): in nobody's list, public or members'.
+       No reader asks for 'unlisted', so only the admins the rules already
+       let read every event see it (events-admin). Held or not. */
+    if (vis === 'unlisted') return ['unlisted'];
     /* Church members only (§21): held or not, never wider. */
     if (vis === 'churchMembers') return ['churchMembers'];
     var held = (ev.status || 'confirmed') === 'pending';
@@ -520,13 +524,21 @@
      The same four choices on events, forms and small groups. An event keeps
      its list in `audience`; a form or a group in `canCome`. */
   var WHO = [['public', 'Everyone'], ['members', 'Attenders (signed in)'], ['churchMembers', 'Church members only'], ['team', 'One or more teams']];
+  /* EVENTS ONLY (small groups and forms keep WHO): NOT LISTED FIRST, and the
+     default for a new event (Martin, §24 item 13): a church meeting, a
+     refugee group or AA must never appear by accident. "Everyone" is the
+     only one that reaches the public What's on and the website's embeds. */
+  var EVENT_WHO = [['unlisted', 'Not listed: only the organisers and admins see it'], ['public', 'Everyone (public, on the church website too)'], ['members', 'Attenders (signed in)'],
+    ['churchMembers', 'Church members only'], ['team', 'One or more teams']];
   function canComeFor(vis, teams) {
+    if (vis === 'unlisted') return ['unlisted'];
     if (vis === 'public') return ['public', 'members'];
     if (vis === 'churchMembers') return ['churchMembers'];
     if (vis === 'team') { var t = (teams || []).filter(Boolean).slice(0, 10); return t.length ? t : ['members']; }
     return ['members'];
   }
   function whoText(vis, teams) {
+    if (vis === 'unlisted') return 'Not listed';
     if (vis === 'public') return 'Everyone';
     if (vis === 'churchMembers') return 'Church members only';
     if (vis === 'team') return (teams || []).join(', ') || 'A team';
@@ -545,7 +557,7 @@
   }
 
   global.EGBCEvents = {
-    WHO: WHO, canComeFor: canComeFor, whoText: whoText, mayCome: mayCome,
+    WHO: WHO, EVENT_WHO: EVENT_WHO, canComeFor: canComeFor, whoText: whoText, mayCome: mayCome,
     key: key,
     esc: esc,
     fmtDate: fmtDate,

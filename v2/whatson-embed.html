@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What's on</title>
+<!-- THE PUBLIC WHAT'S ON, for a church's own website (NEXT-BRIEF §24 item
+     13; F-165). Put in an <iframe> on the website, in place of the two
+     ChurchSuite calendars:
+       whatson-embed.html                a "coming up" list
+       whatson-embed.html?view=month     a month calendar
+     Options: &accent=3d6263 (the website's colour, no #), &limit=12 (list).
+
+     ONLY EVENTS MARKED "EVERYONE" (public), whoever is looking. The page
+     asks the database for public events and nothing else, so a visitor who
+     happens to be signed in to the hub in the same browser still sees only
+     the public list - never a church meeting, a members' event or one that
+     is not listed. It never signs anyone in, draws no hub bar or Menu, and
+     every event opens on its own public page in a new tab. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610121600"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610141200"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--accent:#3d6263;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--tint:#eef5f4}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:transparent;color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .box{padding:4px 2px 8px}
+  a{color:inherit;text-decoration:none}
+  .ev{display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-top:1px solid var(--line)}
+  .ev:first-child{border-top:none}
+  .ev:hover .t{color:var(--accent)}
+  .date{flex:none;width:52px;text-align:center;border-radius:10px;background:var(--tint);padding:6px 0;line-height:1.15}
+  .date .dw{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .date .dn{font-size:20px;font-weight:700;color:var(--accent)}
+  .date .dm{font-size:11px;color:var(--muted)}
+  .ev .x{flex:1;min-width:0}
+  .ev .t{font-weight:600;color:var(--ink);overflow-wrap:break-word}
+  .ev .m{font-size:13px;color:var(--muted);overflow-wrap:break-word}
+  .ev .tag{display:inline-block;margin-top:4px;font-size:12px;font-weight:600;color:var(--accent)}
+  .none{color:var(--muted);padding:12px 4px}
+  .bar{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+  .bar h2{flex:1;margin:0;font-size:17px;font-weight:600;color:var(--ink)}
+  .bar button{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:600 16px Inter,sans-serif;cursor:pointer}
+  .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+  .grid .h{font-size:12px;font-weight:600;color:var(--muted);text-align:center;padding:6px 0;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .grid .c{min-height:92px;padding:4px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+  .grid .c.out{background:#fafafa}
+  .grid .c .n{font-size:12px;color:var(--muted)}
+  .grid .c.today .n{color:#fff;background:var(--accent);border-radius:999px;display:inline-block;min-width:20px;text-align:center}
+  .grid .c a{display:block;margin-top:3px;font-size:12px;line-height:1.3;padding:3px 5px;border-radius:6px;background:var(--tint);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .grid .c a:hover{background:var(--accent);color:#fff}
+  /* A phone is too narrow for seven columns: the month is a list of its days. */
+  .agenda{display:none}
+  @media (max-width:560px){.grid{display:none}.agenda{display:block}}
+</style>
+</head>
+<body>
+<div class="box" id="box"><p class="none">Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var Q = new URLSearchParams(location.search);
+  var VIEW = Q.get('view') === 'month' ? 'month' : 'list';
+  var LIMIT = Math.max(1, Math.min(50, +Q.get('limit') || 12));
+  if (/^[0-9a-f]{6}$/i.test(Q.get('accent') || '')) document.documentElement.style.setProperty('--accent', '#' + Q.get('accent'));
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var LOOK = { sites: {}, rooms: {}, venues: {} };
+  var month = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+  var box = document.getElementById('box');
+
+  function db() { return EGBCAuth.db; }
+  /* An event's own public page, beside this one. */
+  function link(ev) { return E.eventUrl(ev.id); }
+  /* Only what is public, whoever is looking: asked for by the database
+     (audience 'public') and checked again here (visibility and status). */
+  function publicOnly(list) {
+    return list.filter(function (e) { return e.visibility === 'public' && e.status !== 'pending' && (e.audience || []).indexOf('public') >= 0; });
+  }
+  function load(from, to) {
+    var q = db().collection('calEvents').where('audience', 'array-contains', 'public').where('startUtc', '>=', from);
+    if (to) q = q.where('startUtc', '<', to);
+    return q.orderBy('startUtc').limit(300).get().then(function (s) {
+      return publicOnly(s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }));
+    });
+  }
+  /* Tell a parent page how tall this is, for a website that sizes its iframe to fit. */
+  function tellHeight() {
+    try { parent.postMessage({ egbcWhatsOnHeight: document.documentElement.scrollHeight }, '*'); } catch (e) {}
+  }
+
+  function row(e) {
+    var d = new Date(e.startUtc), where = E.locationText(e, LOOK);
+    return '<a class="ev" href="' + esc(link(e)) + '" target="_blank" rel="noopener" data-ev="' + esc(e.id) + '">' +
+      '<span class="date"><span class="dw">' + DAYS[d.getDay()] + '</span><br><span class="dn">' + d.getDate() + '</span><br><span class="dm">' + MONTHS[d.getMonth()].slice(0, 3) + '</span></span>' +
+      '<span class="x"><span class="t">' + esc(e.title || 'Event') + '</span><br><span class="m">' + esc([E.fmtWhen(e), where].filter(Boolean).join(' · ')) + '</span>' +
+      (e.status === 'cancelled' ? '<br><span class="tag" style="color:#b0392c">Cancelled</span>' : e.signupOn ? '<br><span class="tag">Sign up</span>' : '') + '</span></a>';
+  }
+
+  function drawList() {
+    load(Date.now() - 6 * 3600e3).then(function (list) {
+      list = list.slice(0, LIMIT);
+      box.innerHTML = list.length ? '<div data-view="list">' + list.map(row).join('') + '</div>' : '<p class="none" data-view="list">Nothing coming up just now.</p>';
+      tellHeight();
+    }).catch(function () { box.innerHTML = '<p class="none">What\'s on could not be loaded just now.</p>'; tellHeight(); });
+  }
+
+  function drawMonth() {
+    var y = month.getFullYear(), m = month.getMonth(), first = new Date(y, m, 1), next = new Date(y, m + 1, 1);
+    box.innerHTML = '<div class="bar"><button id="prev" aria-label="The month before">‹</button><h2>' + MONTHS[m] + ' ' + y + '</h2><button id="next" aria-label="The month after">›</button></div><p class="none">Loading…</p>';
+    wireMonth();
+    load(first.getTime(), next.getTime()).then(function (list) {
+      var byDay = {};
+      list.forEach(function (e) { var d = new Date(e.startUtc), k = d.getDate(); (byDay[k] = byDay[k] || []).push(e); });
+      /* The grid starts on Monday. */
+      var lead = (first.getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate(), today = new Date(), cells = '';
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (h) { cells += '<div class="h">' + h + '</div>'; });
+      for (var i = 0; i < lead; i++) cells += '<div class="c out"></div>';
+      for (var dd = 1; dd <= days; dd++) {
+        var isToday = today.getFullYear() === y && today.getMonth() === m && today.getDate() === dd;
+        cells += '<div class="c' + (isToday ? ' today' : '') + '"><span class="n">' + dd + '</span>' + (byDay[dd] || []).map(function (e) {
+          var d = new Date(e.startUtc);
+          return '<a href="' + esc(link(e)) + '" target="_blank" rel="noopener" data-ev="' + esc(e.id) + '" title="' + esc(e.title) + '">' + (e.allDay ? '' : esc(E.fmtTime(d)) + ' ') + esc(e.title || 'Event') + '</a>';
+        }).join('') + '</div>';
+      }
+      while ((lead + days) % 7) { cells += '<div class="c out"></div>'; days++; }
+      box.innerHTML = '<div class="bar"><button id="prev" aria-label="The month before">‹</button><h2>' + MONTHS[m] + ' ' + y + '</h2><button id="next" aria-label="The month after">›</button></div>' +
+        '<div class="grid" data-view="month">' + cells + '</div>' +
+        '<div class="agenda" data-view="agenda">' + (list.length ? list.map(row).join('') : '<p class="none">Nothing in ' + MONTHS[m] + ' yet.</p>') + '</div>';
+      wireMonth(); tellHeight();
+    }).catch(function () { box.innerHTML = '<p class="none">What\'s on could not be loaded just now.</p>'; tellHeight(); });
+  }
+  function wireMonth() {
+    var p = document.getElementById('prev'), n = document.getElementById('next');
+    if (p) p.onclick = function () { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); drawMonth(); };
+    if (n) n.onclick = function () { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); drawMonth(); };
+  }
+
+  /* Switched off for this church ("What does your church use?"): nothing. */
+  if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('publicWhatson')) {
+    box.innerHTML = '<p class="none">Not available.</p>'; tellHeight(); return;
+  }
+  E.lookups().then(function (l) { LOOK = l; }, function () {}).then(function () { if (VIEW === 'month') drawMonth(); else drawList(); });
+  window.addEventListener('resize', tellHeight);
+})();
+</script>
+</body>
+</html>

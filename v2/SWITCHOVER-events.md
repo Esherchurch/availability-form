@@ -182,6 +182,11 @@ so "Show on screen" can call a parent.
 3. **Each week:** paste the live link (unlisted on YouTube). It shows to people signed in only, never on a public page.
 4. **Full services for the church:** add any as unlisted links. A private video can't be shared this way.
 
+### 3.7c The public What's on, on the church website (the office, then whoever edits the website)
+1. **Check every event marked "Everyone"** on `events-admin.html`: those, and only those, will show on the church website. A church meeting, a refugee group, AA or anything private should be **Not listed** (new events start that way) or members only.
+2. **Copy the two codes** from events-admin, under "On the church website": a "coming up" list and a month calendar.
+3. **On esherchurch.org/whats_on,** replace the two ChurchSuite iframes with them (in WordPress, a Custom HTML block each). Do this when the hub's events are ready, at the switch from ChurchSuite.
+
 ### 3.8 Room hire and invoices (the office; can come after launch)
 **Pages:** `places-admin.html` (Hire prices) and `bookings-admin.html`
 (Accounts, Hirers)
