@@ -59,6 +59,9 @@ const sundayIn = (days) => {
 };
 const EMAILED = sundayIn(70);
 const BLANK = sundayIn(77);
+/* A YOUTH-LED SUNDAY (Martin, 13 Oct 2026: "a youth-led service IS that
+   Sunday's service"), for the Youth Service Planner's Send. */
+const YOUTH = sundayIn(84);
 
 const R = [];
 const ok = (n, v, x) => {
@@ -138,10 +141,10 @@ async function seed() {
      teams back as they found them. */
   await put('users/' + uid, {
     uid, email: ME.email, name: ME.name, memberId: ME.member, status: 'active',
-    linkedBy: 'admin', teams: ['Worship Team', 'Core Team'], adminFor: ['Worship Team'],
+    linkedBy: 'admin', teams: ['Worship Team', 'Core Team', 'Youth Worship'], adminFor: ['Worship Team'],
     masterAdmin: false, attender: true, churchMember: true });
   await put('addressBook/' + ME.member, {
-    name: ME.name, email: ME.email, markers: ['Worship Team', 'Core Team'],
+    name: ME.name, email: ME.email, markers: ['Worship Team', 'Core Team', 'Youth Worship'],
     adminFor: ['Worship Team'], churchMember: true, archived: false, isMinor: false });
 
   /* The service on the rota, so both planners can pick it. */
@@ -513,9 +516,9 @@ async function seed() {
        last one's: the notes come from the rota, intro and outro clear. */
     const words = JSON.parse(String(await ev('(function(){'
       + 'var g=function(id){var e=document.getElementById(id);return e?e.value:"(none)"};'
-      + 'return JSON.stringify({ notes: g(' + JSON.stringify(what.indexOf('Sunday Service') === 0 ? 'serviceTypeNotes' : 'spTypeNotes') + '),'
-      + ' intro: g(' + JSON.stringify(what.indexOf('Sunday Service') === 0 ? 'introBox' : 'spIntro') + '),'
-      + ' outro: g(' + JSON.stringify(what.indexOf('Sunday Service') === 0 ? 'outroBox' : 'spOutro') + ') })})()')));
+      + 'return JSON.stringify({ notes: g(' + JSON.stringify(orderSel === '#service-order' ? 'serviceTypeNotes' : 'spTypeNotes') + '),'
+      + ' intro: g(' + JSON.stringify(orderSel === '#service-order' ? 'introBox' : 'spIntro') + '),'
+      + ' outro: g(' + JSON.stringify(orderSel === '#service-order' ? 'outroBox' : 'spOutro') + ') })})()')));
     ok('  the service notes are this Sunday’s, from the rota',
       /Synthetic nothing planned/.test(words.notes), JSON.stringify(words));
     ok('  and the opening and closing remarks are not carried over',
@@ -568,6 +571,50 @@ async function seed() {
       await ev('(function(){EGBCApp.go("core","plan");return "went"})()');
       await sleep(1800);
     });
+
+  /* ---- the Youth Service Planner (Martin, 13 Oct 2026) ------------
+
+     "A youth-led service IS that Sunday's service." So the youth planner
+     does what the Sunday planners do: an emailed-only plan shows its
+     songs, a Sunday with no plan starts blank, and Send saves the
+     schedule and writes the summary WITH its audience, merged rather
+     than replacing what is there. */
+  const youthLoaded = '(function(){ if (document.body && document.body.getAttribute("data-egbc-blocked")) return "blocked";'
+    + ' return (typeof loadRota === "undefined" || document.getElementById("egbc-guard-style")) ? "no" : "yes"})()';
+  await staleWalk('the Youth Service Planner', 'youthserviceplanner.html', youthLoaded,
+    'serviceDate', 'eventSelect', '#service-order');
+
+  console.log('\nthe Youth Service Planner, sending a youth-led Sunday:');
+  await clearServices(YOUTH);
+  await put('events/ev_youth_plan', {
+    termLabel: 'Autumn 2026', teams: ['Youth Worship'], roles: ['Worship Leader'],
+    archived: false, draft: false, date: YOUTH, startTime: '10:30',
+    type: 'Youth Service', description: 'Youth-led synthetic Sunday',
+    serviceLeader: 'Leader Synthetic', speaker: 'Speaker Synthetic',
+    assignments: { 'Worship Leader': { id: ME.member, name: ME.name } } });
+  /* Something already on the summary that is not the page's to remove. */
+  await put('songSummaries/' + YOUTH, { date: YOUTH, worshipLeader: ME.name, items: [], keepMe: 'synthetic' });
+  errs = [];
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/youthserviceplanner.html' });
+  await until('  the youth planner loaded', youthLoaded, 60);
+  await ev('window.alert=function(m){window.__alert=String(m)};window.confirm=function(){return true};1');
+  await pickDate('serviceDate', 'eventSelect', YOUTH);
+  await ev('(function(){var t=document.querySelector("#service-order .song-title");'
+    + 'if(t){t.value=' + JSON.stringify(SONG1) + ';}return "typed"})()');
+  await ev('emailSchedule()', true);
+  await sleep(4000);
+  const ySaved = await savedServices(YOUTH);
+  ok('  pressing Send saves the schedule too', ySaved.length === 1, ySaved.length + ' services documents');
+  const yAud = ySaved[0] ? (((ySaved[0].fields || {}).audience || {}).arrayValue || {}).values || [] : [];
+  ok('  and the saved plan carries its audience (the youth rota)',
+    yAud.some(v => v.stringValue === uid), JSON.stringify(yAud));
+  const ySum = JSON.parse((await get('songSummaries/' + YOUTH)).body || '{}').fields || {};
+  const sAud = ((ySum.audience || {}).arrayValue || {}).values || [];
+  ok('  the emailed summary carries the same audience', sAud.some(v => v.stringValue === uid), JSON.stringify(ySum.audience || {}));
+  ok('  and it was MERGED, not replaced', (ySum.keepMe || {}).stringValue === 'synthetic', Object.keys(ySum).join(','));
+  ok('  with this Sunday\u2019s song on it', JSON.stringify(ySum.items || {}).indexOf(SONG1) !== -1,
+    JSON.stringify(ySum.items || {}).slice(0, 200));
+  ok('  nothing on the console', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();

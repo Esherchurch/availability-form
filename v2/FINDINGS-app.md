@@ -2479,6 +2479,18 @@ names** as the script did.
    That has always been true of the shared document id; the audience
    only makes it visible. For Martin: should the youth planner write
    an audience too, or a summary of its own?
+   **DONE (Martin, 13 Oct: "a youth-led service IS that Sunday's
+   service").** The Youth Service Planner now behaves like the Sunday
+   planners: Send saves the schedule; both documents carry the audience,
+   worked out by the shared policy and mergeDay(); the summary is merged,
+   not replaced; an emailed-only plan shows its songs; and a Sunday with
+   no plan starts from the default order. check-emailed-plan 66/66, with
+   five breaks each caught by its own assertion.
+   **Seen while breaking it, not caused by it:** SundayServicePlanner's
+   "choosing the date finds the service" fails now and then (twice in
+   five runs here, once in the suite), in a page and a section this work
+   did not touch. It passes alone. Worth a look when the checks get their
+   own fixtures (HANDOVER-MAIN §8).
 3. **Only the first service's leader and speaker count.** Both planners
    merge a day's services with `if (!merged.speaker)`, so an evening
    preacher on a day with a morning speaker is **not** on the audience.

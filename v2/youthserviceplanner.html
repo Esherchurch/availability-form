@@ -18,6 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Youth Worship"></script>
+<script src="egbc-plan-audience.js?v=202610131430"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-youthservice.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -262,7 +263,7 @@
 
 <script type="module">
 import { db, ready } from './egbc-db.js';
-import { collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, setDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /* One signed-in connection. Nothing below runs until the session is
    restored: a query sent before then goes out anonymous, whatever the
@@ -677,10 +678,26 @@ window.selectEvent = async () => {
             </tr>`;
     });
 
+    /* A YOUTH-LED SERVICE IS THAT SUNDAY'S SERVICE (Martin, 13 Oct 2026),
+       so this page behaves as the Sunday planners do since 12 Oct:
+       NO SAVED SCHEDULE BUT THE PLAN WAS EMAILED shows the emailed order
+       rather than an empty one, and a Sunday with no plan at all starts
+       from a fresh default order, never the last date's songs. Both reads
+       at once, as SundayServicePlanner does. */
     const q = query(collection(db, "services"), where("date", "==", data.date));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-        const saved = snap.docs[0].data();
+    const [snap, ss] = await Promise.all([
+        getDocs(q),
+        getDoc(doc(db, "songSummaries", data.date))
+            .catch(e => { console.warn("Could not read the emailed plan", e); return null; })
+    ]);
+    let saved = !snap.empty ? snap.docs[0].data() : null;
+    if (!saved && ss && ss.exists() && (ss.data().items || []).length) {
+        saved = { order: (ss.data().items || []).map(it => ({
+            type: it.type, title: it.title || "",
+            keys: it.keys || [], notes: it.notes || ""
+        })) };
+    }
+    if (saved) {
         document.getElementById('introBox').value = saved.introText || "";
         document.getElementById('outroBox').value = saved.outroText || "";
         document.getElementById('serviceTypeNotes').value = saved.serviceNotes || "";
@@ -721,11 +738,56 @@ window.selectEvent = async () => {
         updateSongNumbers();
         autoFitTextAreas();
     } else {
+        const container = document.getElementById('service-order');
+        container.innerHTML = "";
+        document.getElementById('introBox').value = "";
+        document.getElementById('outroBox').value = "";
+        document.getElementById('serviceTypeNotes').value = data.description || "";
+        setupDefaultOrder();
+        updateSongNumbers();
         autoFitTextAreas();
     }
 };
 
-window.saveSchedule = async () => {
+/* WHO THE PLAN IS FOR, as the Sunday planners work it out: the day's
+   services picked as SundayServicePlanner picks them (not archived, the
+   first of each type), merged by the shared mergeDay() - so the youth
+   rota, every service's leader and speaker, and the rest of that day's
+   rota - and resolved by the shared policy. A failure saves the plan
+   anyway: losing it would be worse than a preacher asking for the link. */
+async function audienceFor(theDate) {
+    const empty = { audience: [], unresolved: [], withoutAccount: [] };
+    try {
+        const seen = {};
+        eventsForDay.filter(e => e && e.date === theDate && e.archived !== true).forEach(e => {
+            const key = e.type || "Unknown";
+            if (!seen[key]) seen[key] = e;
+        });
+        return await EGBCPlanAudience.build(EGBCPlanAudience.mergeDay(Object.values(seen)), {
+            findMemberIdsByNames: async (names) => {
+                const out = {};
+                for (const n of names) {
+                    const s = await getDocs(query(collection(db, 'addressBook'), where('name', '==', n), limit(2)));
+                    if (s.size === 1) out[n] = s.docs[0].id;
+                }
+                return out;
+            },
+            findUidsByMemberIds: async (ids) => {
+                const out = {};
+                for (const id of ids) {
+                    const s = await getDocs(query(collection(db, 'users'), where('memberId', '==', id), limit(1)));
+                    if (!s.empty) out[id] = s.docs[0].id;
+                }
+                return out;
+            }
+        });
+    } catch (e) {
+        console.warn('Could not work out who the plan is for', e);
+        return empty;
+    }
+}
+
+window.saveSchedule = async (quiet) => {
     if (!isYouthService) {
         alert("This is not a youth service - you can view it but cannot save changes.");
         return;
@@ -758,7 +820,9 @@ window.saveSchedule = async () => {
     });
 
     const q = query(collection(db, "services"), where("date", "==", date));
-    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
+    const aud = await audienceFor(date);
+    const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order,
+        audience: aud.audience, audienceUnresolved: aud.unresolved };
 
     try {
         const snap = await getDocs(q);
@@ -767,7 +831,8 @@ window.saveSchedule = async () => {
         } else {
             await addDoc(collection(db, "services"), serviceData);
         }
-        alert("Youth service saved.");
+        /* Quiet when Send calls it; a failure still speaks. */
+        if (!quiet) alert("Youth service saved.");
     } catch (err) {
         console.error("Failed to save youth service:", err);
         alert("Could not save the youth service: " + (err?.message || err));
@@ -795,9 +860,13 @@ async function saveSongSummaryToFirestore(date) {
             if (title) items.push({ type: "item", title });
         }
     }
+    /* MERGED, NOT REPLACED, and with the audience: the summary is that
+       Sunday's, and replacing it wiped who it was for (A-076). */
+    const sumAud = await audienceFor(date);
     await setDoc(doc(db, "songSummaries", date), {
-        date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString()
-    });
+        date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString(),
+        audience: sumAud.audience, audienceUnresolved: sumAud.unresolved
+    }, { merge: true });
     return `song-summary.html?date=${date}`;
 }
 
@@ -807,6 +876,10 @@ window.emailSchedule = async () => {
         return;
     }
     const date = document.getElementById('serviceDate').value || "TBC";
+    /* SENDING SAVES THE SCHEDULE FIRST, as the Sunday planners do, so a
+       plan that has gone out is never missing. TBC is skipped: a services
+       document is keyed by a real date. */
+    if (date !== "TBC") await window.saveSchedule(true);
     const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
