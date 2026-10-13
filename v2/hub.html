@@ -473,11 +473,10 @@
     <button class="btn ghost" id="editModeBtn" style="display:none" onclick="toggleEditMode()"></button>
     <button class="btn ghost icon" id="adminBtn" style="display:none" onclick="openAdmin()" title="Administration"><i data-lucide="settings" style="width:18px;height:18px"></i></button>
     <div class="who">
-      <button class="avatar" id="av" onclick="toggleWho(event)" title="Your account"></button>
-      <div class="whomenu" id="whoMenu">
-        <div class="nm"><b id="whoName"></b><span id="whoEmail"></span></div>
-        <button onclick="EGBCAuth.signOut()"><i data-lucide="log-out" style="width:16px;height:16px"></i>Sign out</button>
-      </div>
+      <!-- The "you" menu (Martin, 13 Oct 2026): the same one as on every
+           other page, drawn by egbc-menu.js. Sign out is its last item. -->
+      <button type="button" class="avatar" id="av" aria-haspopup="menu" aria-expanded="false"
+              onclick="EGBCMenu.toggleYou(this)" title="You"></button>
     </div>
   </div>
 </header>
@@ -813,17 +812,7 @@
   </div>
 </div>
 
-<script>
-  /* Account menu under the initials. */
-  function toggleWho(e) {
-    e.stopPropagation();
-    document.getElementById('whoMenu').classList.toggle('on');
-  }
-  document.addEventListener('click', function (e) {
-    var m = document.getElementById('whoMenu');
-    if (m && !e.target.closest('.who')) m.classList.remove('on');
-  });
-</script>
+
 <nav id="egbc-tabbar" aria-label="Main"></nav>
 <script src="hub-app.js?v=202610131400"></script>
 <!-- The one service worker on the v2 scope, so a phone with only the

@@ -73,7 +73,10 @@
       '#egbc-bar button.eb-nav{background:var(--egbc-brand);color:#fff;border-color:var(--egbc-brand)}',
       '#egbc-bar button.eb-nav:hover{background:var(--egbc-brand-dark);border-color:var(--egbc-brand-dark)}',
       '#egbc-bar .eb-av{width:32px;height:32px;border-radius:50%;background:var(--egbc-tint);color:var(--egbc-brand-dark);',
-      'display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;margin-left:4px}',
+      'display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;margin-left:4px;'
+      + 'border:0;padding:0;font-family:inherit;cursor:pointer}',
+      '#egbc-bar .eb-av:hover{box-shadow:0 0 0 3px var(--egbc-tint)}',
+      '#egbc-bar .eb-av:focus-visible{outline:2px solid var(--egbc-brand);outline-offset:2px}',
       '#egbc-bar .eb-who{font-size:13px;font-weight:500;color:var(--egbc-body);white-space:nowrap}',
 
       /* Even out the page width without touching the page's own layout. */
@@ -120,7 +123,9 @@
          So: the avatar goes, the gaps tighten, and the name wraps to a
          second line instead of being cut off. A bar one line taller is
          worth more than a title nobody can read. */
-      '#egbc-bar .eb-av{display:none}',
+      /* The initials stay on a phone now: they open the "you" menu, and the
+         sign-out icon they replaced took the same room. */
+      '#egbc-bar .eb-av{width:34px;height:34px;flex:0 0 auto}',
       '#egbc-bar{gap:8px}',
       '#egbc-bar .eb-r{gap:4px}',
       /* Two lines, held by a max-height rather than -webkit-line-clamp.
@@ -169,8 +174,11 @@
     if (profile) right += '<button class="eb-b eb-nav" id="egbc-nav-btn">' + ic('layout-grid', 16) + '<span class="eb-lbl">Menu</span></button>';
     if (profile) {
       var who = String(profile.name || profile.email).replace(/</g, '&lt;');
-      right += '<div class="eb-av" title="' + who + '">' + initials(profile.name || profile.email) + '</div>' +
-               '<button class="eb-b eb-ghost" title="Sign out" onclick="EGBCAuth.signOut()">' + ic('log-out', 16) + '</button>';
+      /* THE INITIALS OPEN THE "YOU" MENU (Martin, 13 Oct 2026): Notifications,
+         My details, Add to my calendar, My availability, View as (master
+         admin), Sign out - drawn by egbc-menu.js for the hub and every page. */
+      right += '<button type="button" class="eb-av" id="egbc-you-btn" aria-haspopup="menu" aria-expanded="false"'
+             + ' aria-label="You: ' + who + '" title="' + who + '">' + initials(profile.name || profile.email) + '</button>';
     }
 
     d.innerHTML =
@@ -190,6 +198,12 @@
 
     var nb = document.getElementById('egbc-nav-btn');
     if (nb) nb.addEventListener('click', openNav);
+    var yb = document.getElementById('egbc-you-btn');
+    if (yb) yb.addEventListener('click', function () {
+      loadMenuScript().then(function () {
+        if (window.EGBCMenu && EGBCMenu.toggleYou) EGBCMenu.toggleYou(yb, profile);
+      });
+    });
   }
 
   /* ---- is this page the one that was installed? ----------------------

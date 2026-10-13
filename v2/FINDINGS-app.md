@@ -2621,3 +2621,47 @@ changed. `tests/check-board-empty.mjs` 9/9: an empty Worship board opens
 with no notes, writes nothing, reaches no YouTube; a board with notes
 keeps exactly those notes. Break (the old page) -> 4 fail.
 `check-charter-switch` is 15/15 again.
+
+### A-080 — the initials open a "you" menu, on the hub and every page
+
+Martin, 13 Oct 2026: tapping the initials offered only Sign out, and he
+expected Notifications there. The initials now open one menu, drawn by
+`egbc-menu.js` (`EGBCMenu.toggleYou`) for both the shell's bar and the
+hub's own header, so the two cannot drift apart (A-024). In Martin's order:
+Notifications (feature 'notifications'), My details, Add to my calendar, My
+availability, View the site as... (master admin only), and Sign out last.
+The person's name and address head it, as the hub's small menu did. That
+menu, and the bar's separate sign-out icon, are gone; Sign out is in the new
+menu.
+
+**Three things decided, said plainly:**
+- **My details is read-only.** There is no page yet where somebody can see
+  or change their own details (APP-A1 §2a). It shows the name, address and
+  teams the church holds, and says to ask the church office to change
+  anything. It doesn't invent a page or new data. When a real "my details"
+  screen exists, this item opens it.
+- **"Same items and order as the app's Me tab"** and Martin's list differ:
+  Me has My groups, Give and "Open the full website" too, in another order.
+  **Martin's list was followed exactly.** For Martin: should either one change
+  to match the other?
+- **View the site as... moves focus to the existing strip** at the bottom,
+  which stays. It is shown to whoever's own record is master admin, so
+  it's still there while they're viewing as somebody else.
+
+On a phone the initials now show (they used to be hidden under 700px). The
+sign-out icon they replace took the same room.
+
+`tests/check-you-menu.mjs` **38/38**: at 375px and 1280px; the hub and a
+website page offer the same items in the same order; aria-haspopup and
+aria-expanded; focus goes in, the arrows move, Escape and a tap outside
+close it and focus returns; it fits and every item is 44px or more; the
+feature switch; master admin; Add to my calendar opens the hub's sheet
+from the hub and from anywhere else; My details; Sign out.
+
+| Break | Caught by |
+|---|---|
+| Escape ignored | "Escape closes it" (both widths) |
+| the feature switch ignored | "Notifications is not in the menu" |
+| View as for everybody | the order, at both widths and on the hub (5) |
+| a tap outside ignored | "a tap outside closes it" (both widths) |
+| the initials hidden on a phone again | "visible to tap" (+2) |

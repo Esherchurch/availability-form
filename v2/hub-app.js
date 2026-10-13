@@ -131,8 +131,13 @@ function applyTeam() {
 EGBCAuth.require().then(async profile => {
   ME = profile;
   document.getElementById('av').textContent = initials(profile.name || profile.email);
-  document.getElementById('whoName').textContent = profile.name || '';
-  document.getElementById('whoEmail').textContent = profile.email || '';
+  /* The name and address now head the "you" menu (egbc-menu.js), which
+     reads them from the profile itself. The button says who it is for. */
+  document.getElementById('av').setAttribute('aria-label', 'You: ' + (profile.name || profile.email || ''));
+  /* "Add to my calendar" from the "you" menu on any other page lands here. */
+  if (new URLSearchParams(location.search).get('calendar') === '1' && typeof window.openMyCalendar === 'function') {
+    setTimeout(function () { window.openMyCalendar(); }, 0);
+  }
 
   if (EGBCAuth.isAdmin()) {
     document.getElementById('adminBtn').style.display = '';

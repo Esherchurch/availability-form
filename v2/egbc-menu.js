@@ -543,7 +543,201 @@
     if (body) body.classList.toggle('open', open);
   }
 
+
+  /* ==== THE "YOU" MENU, under the initials (Martin, 13 Oct 2026) ========
+
+     "Tapping the initials only offers Sign out - Notifications is the
+     logical place." So the initials open a small menu of the person's own
+     things, on the hub and every other page alike: ONE renderer, here,
+     because two menus kept in step is how the Menu drifted before (A-024).
+
+     The items and their order are Martin's:
+       Notifications          feature 'notifications' (HANDOVER-MAIN rule 12)
+       My details             read-only for now: what the church holds, and
+                              "ask the office" - there is no page to edit
+                              your own details yet (APP-A1 §2a)
+       Add to my calendar     the hub's calendar sheet
+       My availability        the form
+       View the site as...    master admin only; takes you to the strip at
+                              the bottom, which stays where it is
+       Sign out               last
+
+     A real menu for a keyboard and a screen reader: the initials are a
+     button with aria-haspopup and aria-expanded, the items are menuitems,
+     the arrows move between them, Escape and a tap outside close it, and
+     focus goes back to the initials. */
+  function youWho(p) {
+    const A = window.EGBCAuth;
+    return p || (A && A.profile && A.profile()) || {};
+  }
+  function youItems(p) {
+    const me = youWho(p), items = [];
+    if (!window.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses('notifications')) {
+      items.push({ key: 'notifications', label: 'Notifications', sub: 'On this phone, and which ones you get', icon: 'bell-ring', href: 'notifications.html' });
+    }
+    items.push({ key: 'details', label: 'My details', sub: 'What the church has on file', icon: 'id-card', act: 'details' });
+    items.push({ key: 'calendar', label: 'Add to my calendar', sub: 'Just me, my household, or the whole rota', icon: 'calendar-plus', act: 'calendar' });
+    items.push({ key: 'availability', label: 'My availability', sub: 'Say which Sundays you can do', icon: 'calendar-check-2', href: 'index.html' });
+    /* The REAL record, not isMaster(): while looking at the site as a
+       Worship member, isMaster() is false, and the way back must stay. */
+    if (me.masterAdmin === true) {
+      items.push({ key: 'viewas', label: 'View the site as\u2026', sub: 'See what a team sees', icon: 'eye', act: 'viewas' });
+    }
+    items.push({ key: 'signout', label: 'Sign out', sub: '', icon: 'log-out', act: 'signout' });
+    return items;
+  }
+
+  const YOU_CSS = [
+    '#egbc-you{position:fixed;z-index:9600;background:#fff;border:1px solid #e5e7eb;border-radius:12px;',
+    'box-shadow:0 12px 32px rgba(17,24,39,.16);padding:6px;font-family:Inter,system-ui,sans-serif;color:#111827;',
+    'box-sizing:border-box;max-height:calc(100vh - 80px);overflow-y:auto}',
+    '#egbc-you .ey-h{padding:8px 10px 10px;border-bottom:1px solid #e5e7eb;margin-bottom:4px}',
+    '#egbc-you .ey-h b{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}',
+    '#egbc-you .ey-h span{display:block;font-size:12px;color:#6b7280;overflow-wrap:anywhere}',
+    '#egbc-you [role=menuitem]{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:48px;',
+    'padding:8px 10px;border:0;border-radius:8px;background:none;font:inherit;font-size:14px;color:#111827;',
+    'text-align:left;text-decoration:none;cursor:pointer}',
+    '#egbc-you [role=menuitem]:hover,#egbc-you [role=menuitem]:focus{background:#eef4f3;outline:none}',
+    '#egbc-you [role=menuitem]:focus-visible{box-shadow:0 0 0 2px #3d6263}',
+    '#egbc-you .ey-t{display:flex;flex-direction:column;min-width:0}',
+    '#egbc-you .ey-t small{font-size:12px;color:#6b7280}',
+    '#egbc-you .ey-ic{flex:0 0 auto;color:#3d6263;display:flex}',
+    '#egbc-you .ey-sep{height:1px;background:#e5e7eb;margin:4px 0}',
+    '#egbc-you .ey-d{padding:6px 10px 10px;font-size:14px}',
+    '#egbc-you .ey-d dt{font-size:12px;color:#6b7280;margin-top:8px}',
+    '#egbc-you .ey-d dd{margin:2px 0 0;overflow-wrap:anywhere}',
+    '#egbc-you .ey-d p{font-size:13px;color:#6b7280;margin:12px 0 0}'
+  ].join('\n');
+
+  function youCss() {
+    if (document.getElementById('egbc-you-css')) return;
+    const s = document.createElement('style');
+    s.id = 'egbc-you-css';
+    s.textContent = YOU_CSS;
+    document.head.appendChild(s);
+  }
+  const youIc = (n) => '<span class="ey-ic"><i data-lucide="' + n + '" style="width:18px;height:18px"></i></span>';
+
+  let YOU = null;   /* { panel, button, profile, onKey, onDown } while open */
+
+  function youPosition() {
+    if (!YOU) return;
+    const r = YOU.button.getBoundingClientRect();
+    const w = Math.min(300, window.innerWidth - 16);
+    YOU.panel.style.width = w + 'px';
+    YOU.panel.style.top = Math.round(r.bottom + 6) + 'px';
+    YOU.panel.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+  }
+  function youFocusables() {
+    return YOU ? [].slice.call(YOU.panel.querySelectorAll('[role=menuitem]')) : [];
+  }
+  function youDraw(view) {
+    const me = youWho(YOU.profile);
+    let html = '<div class="ey-h"><b>' + esc(me.name || 'You') + '</b><span>' + esc(me.email || '') + '</span></div>';
+    if (view === 'details') {
+      const A = window.EGBCAuth;
+      const teams = (me.teams || []).map((t) => (A && A.TEAMS && A.TEAMS[t] && A.TEAMS[t].label) || t);
+      html += '<dl class="ey-d">'
+        + '<dt>Name</dt><dd>' + esc(me.name || 'Not given') + '</dd>'
+        + '<dt>Email</dt><dd>' + esc(me.email || '') + '</dd>'
+        + '<dt>Teams</dt><dd>' + esc(teams.length ? teams.join(', ') : 'None yet') + '</dd>'
+        + '<p>To change anything here, ask the church office.</p></dl>'
+        + '<button type="button" role="menuitem" data-you="back">' + youIc('arrow-left') + '<span class="ey-t">Back</span></button>';
+    } else {
+      youItems(YOU.profile).forEach((it) => {
+        if (it.key === 'signout') html += '<div class="ey-sep" role="separator"></div>';
+        const inner = youIc(it.icon) + '<span class="ey-t">' + esc(it.label) + (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</span>';
+        html += it.href
+          ? '<a role="menuitem" data-you="' + it.key + '" href="' + it.href + '">' + inner + '</a>'
+          : '<button type="button" role="menuitem" data-you="' + it.key + '">' + inner + '</button>';
+      });
+    }
+    YOU.panel.innerHTML = html;
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+    const first = youFocusables()[0];
+    if (first) first.focus();
+  }
+  function youClose(refocus) {
+    if (!YOU) return;
+    const b = YOU.button;
+    document.removeEventListener('keydown', YOU.onKey, true);
+    document.removeEventListener('pointerdown', YOU.onDown, true);
+    window.removeEventListener('resize', youPosition);
+    YOU.panel.remove();
+    b.setAttribute('aria-expanded', 'false');
+    YOU = null;
+    if (refocus) b.focus();
+  }
+  function youAct(key) {
+    if (key === 'back') { youDraw('menu'); return; }
+    if (key === 'details') { youDraw('details'); return; }
+    if (key === 'signout') { youClose(false); if (window.EGBCAuth) EGBCAuth.signOut(); return; }
+    if (key === 'calendar') {
+      youClose(false);
+      /* On the hub the sheet is right here; anywhere else, the hub opens it. */
+      if (typeof window.openMyCalendar === 'function') window.openMyCalendar();
+      else location.href = 'hub.html?calendar=1';
+      return;
+    }
+    if (key === 'viewas') {
+      youClose(false);
+      const sel = document.getElementById('egbc-va-team');
+      if (sel) { sel.scrollIntoView({ block: 'nearest' }); sel.focus(); }
+    }
+  }
+  function youOpen(button, profile) {
+    youCss();
+    const panel = document.createElement('div');
+    panel.id = 'egbc-you';
+    panel.setAttribute('role', 'menu');
+    panel.setAttribute('aria-label', 'You');
+    if (!button.id) button.id = 'egbc-you-btn';
+    panel.setAttribute('aria-labelledby', button.id);
+    document.body.appendChild(panel);
+    YOU = { panel, button, profile };
+    button.setAttribute('aria-expanded', 'true');
+    button.setAttribute('aria-controls', 'egbc-you');
+    panel.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-you]');
+      if (!el) return;
+      const key = el.getAttribute('data-you');
+      if (el.tagName === 'A') { youClose(false); return; }   /* let the link go */
+      e.preventDefault();
+      youAct(key);
+    });
+    YOU.onKey = (e) => {
+      if (!YOU) return;
+      const items = youFocusables();
+      const i = items.indexOf(document.activeElement);
+      if (e.key === 'Escape') { e.preventDefault(); youClose(true); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); (items[(i + 1) % items.length] || items[0]).focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); (items[(i - 1 + items.length) % items.length] || items[0]).focus(); }
+      else if (e.key === 'Home') { e.preventDefault(); items[0] && items[0].focus(); }
+      else if (e.key === 'End') { e.preventDefault(); items[items.length - 1] && items[items.length - 1].focus(); }
+      else if (e.key === 'Tab') { youClose(false); }
+    };
+    YOU.onDown = (e) => {
+      if (!YOU) return;
+      if (YOU.panel.contains(e.target) || YOU.button.contains(e.target)) return;
+      youClose(false);
+    };
+    document.addEventListener('keydown', YOU.onKey, true);
+    document.addEventListener('pointerdown', YOU.onDown, true);
+    window.addEventListener('resize', youPosition);
+    youPosition();
+    youDraw('menu');
+  }
+  /* The initials' click. A second tap on the initials closes it. */
+  function toggleYou(button, profile) {
+    if (YOU && YOU.button === button) { youClose(true); return; }
+    youClose(false);
+    youOpen(button, profile);
+  }
+
   window.EGBCMenu = {
+    /* The "you" menu under the initials, and what it offers (for checks). */
+    toggleYou: toggleYou,
+    youItems: function (p) { return youItems(p).map(function (i) { return i.key; }); },
 
     TREE: TREE,
     OPENED_FROM_A_TOOL: OPENED_FROM_A_TOOL,
