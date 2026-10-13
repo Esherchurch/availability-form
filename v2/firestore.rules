@@ -2271,6 +2271,12 @@ service cloud.firestore {
       // convincing fake, and nobody needs them before signing in.
       allow read: if id != 'giving' || active();
 
+      // THE NOTIFICATIONS MASTER SWITCH (A-081): whether the timers and
+      // triggers really send. A master admin only - it is the one setting
+      // that starts the church being emailed and buzzed.
+      allow write: if (isMaster() && id == 'notifications'
+                       && request.resource.data.keys().hasOnly(['live', 'updatedAt', 'updatedBy'])
+                       && request.resource.data.live is bool);
       allow write: if (isAdmin() && id == 'details'
                        && request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'updatedAt', 'updatedBy'])
                        && request.resource.data.name is string && request.resource.data.name.size() <= 120

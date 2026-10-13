@@ -67,7 +67,7 @@ const APPROVED = [
     ['People and email', [['Address Book'], ['Email Compiler']]],
     ['Music', [['Music Upload']]],
     ['Events and rooms', [['Events'], ['Places'], ['Room bookings']]],
-    ['Admin', [['Backup & Restore']]]
+    ['Admin', [['Backup & Restore'], ['Church settings']]]
   ]],
   /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
      is not inside any of the lists below. */
@@ -89,7 +89,7 @@ const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & A
    what the answer should be is not a check. */
 const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Planner',
   'Availability form', 'Music',
-  'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore'];
+  'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings'];
 /* NEXT-BRIEF §25: the Address Book and the Email Compiler left CORE_ONLY.
    They follow the Running things tabs - People and Send - which come from a
    group, because the church administrator may not be on Core Team and a
@@ -119,7 +119,7 @@ function firstDifference(seen, expected) {
     + '\n          ' + seen.length + ' names on screen, ' + expected.length + ' approved';
 }
 
-const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore',
+const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings',
   /* admin: true on the Menu node. It also sits under the Worship & AV team
      heading, so it is in WORSHIP_ONLY too - both gates apply and a name has
      to be in both lists or the expectation is wrong for somebody. */
@@ -482,7 +482,7 @@ const READ_MENU = `(() => {
       ...(worshipAV && anAdmin ? ['Connect ChurchShow'] : []),
       ...(onCore && anAdmin ? ['Events', 'Places'] : []),
       ...(books ? ['Room bookings'] : []),
-      ...(onCore && anAdmin ? ['Backup & Restore'] : [])
+      ...(onCore && anAdmin ? ['Backup & Restore', 'Church settings'] : [])
     ];
     ok("  the sidebar lists what they look after, in the Menu's order",
       sidebar === wantAdmin.join('|'),

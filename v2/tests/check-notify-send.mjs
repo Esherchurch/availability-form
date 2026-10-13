@@ -160,8 +160,27 @@ const londonDate = (n) => {
   ok('  whichever shape the library hands back', h2.Authorization === 'Bearer synthetic-old-shape', JSON.stringify(h2));
   ok('  and a failure to get one sends without, rather than not at all', JSON.stringify(h3) === '{}', JSON.stringify(h3));
 
+  /* ---- the master switch's default (A-081) ---------------------------
+     With nothing set, the answer must be OFF. Asked of liveState() itself,
+     with a pretend database, because the sections below always set it. */
+  console.log('\nthe master switch, with nothing set');
+  const { liveState } = await import('../functions/notify.js');
+  const fakeDb = (docs) => ({ collection: () => ({ doc: (id) => ({ get: async () => (docs[id]
+    ? { exists: true, data: () => docs[id] } : { exists: false, data: () => ({}) }) }) }) });
+  const st0 = await liveState(fakeDb({}));
+  ok('  no setting at all: OFF', st0.sending === false && st0.live === false, JSON.stringify(st0));
+  const st1 = await liveState(fakeDb({ notifications: { live: 'true' } }));
+  ok('  anything but exactly true: OFF', st1.sending === false, JSON.stringify(st1));
+  const st2 = await liveState(fakeDb({ notifications: { live: true } }));
+  ok('  exactly true: ON', st2.sending === true, JSON.stringify(st2));
+  const st3 = await liveState(fakeDb({ notifications: { live: true }, features: { notifications: false } }));
+  ok('  but a church that does not use notifications: OFF whatever the switch says', st3.sending === false, JSON.stringify(st3));
+
   /* ---- seed ---------------------------------------------------------- */
   const SITE = 'site_ns';
+  /* SWITCHED ON for everything down to section 8, which switches it off.
+     Off is the default (A-081), so these would otherwise all be dry runs. */
+  await put('churchSettings/notifications', { live: true });
   await put('churchSettings/details', { name: 'Synthetic Church', enquiryEmail: 'office@example.invalid' });
   await person('mum', { tokens: ['tok-mum-phone-aaaaaaaaaaaaaaaaaaaaaaaa', 'dead-mum-old-phone-aaaaaaaaaaaaaaaa'], member: false });
   await person('dad', { member: false });
@@ -360,6 +379,75 @@ const londonDate = (n) => {
   await runSchedule('checksReminders');
   const oc2 = await settle(() => false, 6);
   ok('  run again the same fortnight: nothing', oc2.push.length === 0 && oc2.mail.length === 0, JSON.stringify(oc2));
+
+  /* ---- 8. THE MASTER SWITCH OFF (A-081) -------------------------------
+     The default. Every timer and trigger works out what it WOULD send,
+     logs the counts, and sends nothing - no push, no email of any kind.
+     Only "Send me a test" goes, to the person who pressed it. Then the
+     switch goes on and the same things DO send: the dry run used nothing
+     up. Fresh fixtures for each, so nothing earlier can explain a quiet. */
+  console.log('\nTHE MASTER SWITCH OFF: nothing goes out');
+  await put('churchSettings/notifications', { live: false });
+  const DAY2 = londonDate(1);
+  await person('offRota', { teams: ['Worship Team'], tokens: ['tok-offrota-aaaaaaaaaaaaaaaaaaaaaaaa'] });
+  await person('offRota2', { teams: ['Worship Team'] });
+  await put('events/ev_ns_off', { date: DAY2, type: 'Evening Prayer', startTime: '19:30', archived: false, draft: false,
+    assignments: { 'Leader': { id: P.offRota.member, name: 'x' }, 'Reader': { id: P.offRota2.member, name: 'y' } } });
+  await put('addressBook/' + P.fixer.member, { name: 'fixer Synthetic', email: P.fixer.email, markers: ['Maintenance'], archived: false, adminFor: [], isMinor: false });
+  await put('addressBook/' + P.fixer2.member, { name: 'fixer2 Synthetic', email: P.fixer2.email, markers: ['Maintenance'], archived: false, adminFor: [], isMinor: false });
+  await person('offHelper', { teams: ['Kids Church'], tokens: ['tok-offhelper-aaaaaaaaaaaaaaaaaaaaaa'], name: 'Off Helper Synthetic' });
+  const ago2 = new Date(); ago2.setUTCFullYear(ago2.getUTCFullYear() - 3); ago2.setUTCDate(ago2.getUTCDate() + 10);
+  await put('leaderChecks/' + P.offHelper.member, { name: 'Off Helper Synthetic', dbsStatus: 'current',
+    dbsSeen: new Date().toISOString().slice(0, 10), trainingDate: ago2.toISOString().slice(0, 10), siteId: SITE });
+  await put('checkins/ck_off', { kind: 'child', state: 'in', name: 'Off Synthetic', siteId: SITE, groupId: 'g_ns', familyId: 'fam_a', pickupCode: 'OFF1' });
+  await put('bookings/bk_off', { status: 'requested', memberUid: P.booker.uid, roomId: 'room_ns', siteId: SITE, day: DAY2, startLocal: DAY2 + 'T19:00', kind: 'member' });
+  await sleep(1500);
+  const logsBefore = (await list('notifyLog')).length;
+  mark();
+
+  const off1 = await call('callParent', P.leader, { checkinId: 'ck_off' });
+  ok('  calling a parent is refused, in words', /FAILED_PRECONDITION/.test(off1.error || ''), JSON.stringify(off1));
+  await runSchedule('rotaReminders');
+  await rest('PATCH', DOCS + '/bookings/bk_off?updateMask.fieldPaths=status', { fields: fields({ status: 'confirmed' }) });
+  await put('maintJobs/job_ns_off', { siteId: SITE, roomId: 'room_ns', where: 'Porch', what: 'Off switch job',
+    details: '', photoPath: '', status: 'todo', reportedBy: P.leader.uid, reportedByName: 'Leader Synthetic', reportedAt: new Date() });
+  await put('news/n_ns_off', { title: 'Off switch urgent', body: '<p>x</p>', teams: ['Kids Church'], urgent: true });
+  await runSchedule('checksReminders');
+  await sleep(6000);
+  const offOut = await newSince();
+  ok('  NO PUSH from any of them', offOut.push.length === 0, JSON.stringify(offOut.push.map((x) => x.data && x.data.title)));
+  ok('  and NO EMAIL - not the fallback, not F-129\'s, not the office\'s, not the safeguarding lead\'s',
+    offOut.mail.length === 0, JSON.stringify(offOut.mail.map((m) => [m.to, m.subject])));
+  const dry = (await list('notifyLog')).slice(0).filter((l) => l.dryRun === true);
+  const kinds = [...new Set(dry.map((l) => l.type))].sort().join(',');
+  ok('  each one logged what it WOULD have sent: rota, booking, maintenance job, urgent notice, checks',
+    ['booking', 'checks', 'maintJob', 'rota', 'urgent'].every((k) => kinds.split(',').includes(k)), kinds);
+  ok('  as counts, never a token or an address', !/tok-|@/.test(JSON.stringify(dry)), JSON.stringify(dry).slice(0, 300));
+  ok('  and the log did grow', (await list('notifyLog')).length > logsBefore);
+
+  mark();
+  const offTest = await call('notifyTest', P.leader, {});
+  ok('  but "Send me a test" still reaches the person who pressed it', offTest.phones === 1, JSON.stringify(offTest));
+  const ot2 = await settle((g) => g.push.length >= 1);
+  ok('  and only them', ot2.push.length === 1 && ot2.push[0].tokens.join() === 'tok-leader-aaaaaaaaaaaaaaaaaaaaaaaaa', JSON.stringify(ot2.push));
+
+  /* The church does not use notifications at all: not even the test. */
+  await put('churchSettings/features', { notifications: false });
+  const offFeature = await call('notifyTest', P.leader, {});
+  ok('  a church that does not use notifications does not even send the test', /FAILED_PRECONDITION/.test(offFeature.error || ''), JSON.stringify(offFeature));
+  await put('churchSettings/features', { notifications: true });
+
+  /* SWITCHED ON: the same rota and checks send now - the dry run used up
+     none of their once-only markers. */
+  console.log('\nswitched on again: what was held back now goes');
+  await put('churchSettings/notifications', { live: true });
+  mark();
+  await runSchedule('rotaReminders');
+  await runSchedule('checksReminders');
+  const onOut = await settle((g) => g.push.length >= 2 && g.mail.length >= 2, 30);
+  ok('  the rota reminder goes, to the phone and by email', onOut.push.some((x) => x.tokens.includes('tok-offrota-aaaaaaaaaaaaaaaaaaaaaaaa'))
+    && onOut.mail.some((m) => m.to[0] === P.offRota2.email), JSON.stringify({ p: onOut.push.map((x) => x.tokens), m: onOut.mail.map((m) => m.to) }));
+  ok('  and so does the checks reminder', onOut.push.some((x) => x.tokens.includes('tok-offhelper-aaaaaaaaaaaaaaaaaaaaaa')), JSON.stringify(onOut.push.map((x) => x.tokens)));
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   process.exit(R.some((v) => !v) ? 1 : 0);

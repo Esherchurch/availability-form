@@ -52,6 +52,46 @@ export function londonDate(at, n = 0) {
   return t.toISOString().slice(0, 10);
 }
 
+/* THE MASTER SWITCH (the reviewing window, 13 Oct 2026). Deploying the
+   senders puts timers and triggers live against the real database, and with
+   email as the fallback for everybody without a phone set up - which today
+   is everybody - they would start emailing real people before launch, and
+   could repeat emails the old pages already send. So:
+
+     churchSettings/notifications.live   OFF unless it is exactly true.
+                                          A master admin sets it (rules).
+     churchSettings/features.notifications
+                                          the server's half of
+                                          EGBCChurch.uses('notifications')
+                                          (HANDOVER-MAIN rule 12): on unless
+                                          it is exactly false.
+
+   While either is off, every timer and trigger works out who it WOULD
+   reach, writes that to notifyLog as counts (never an address), and sends
+   nothing - no push, no email. It writes no once-only markers either, so
+   switching on later loses nothing. Calling a parent is refused in words.
+   Only "Send me a test", to the person pressing it, still goes: that is
+   how Martin proves it on his own phone (N-7). */
+export async function liveState(db) {
+  const [n, f] = await Promise.all([
+    db.collection('churchSettings').doc('notifications').get().catch(() => null),
+    db.collection('churchSettings').doc('features').get().catch(() => null)
+  ]);
+  const live = !!(n && n.exists && n.data().live === true);
+  const feature = !(f && f.exists && f.data().notifications === false);
+  return { live, feature, sending: live && feature };
+}
+
+/* The email door while switched off: it records that one would have gone,
+   to how many, and sends nothing. */
+export function dryEmail(db) {
+  return async (msg, meta) => {
+    await db.collection('notifyLog').add({ type: 'email', kind: (meta && meta.kind) || '', dryRun: true,
+      wouldEmail: (msg.to || []).length, at: new Date().toISOString() });
+    return { ok: false, dryRun: true };
+  };
+}
+
 export async function hubUrl(db) {
   try {
     const s = await db.collection('churchSettings').doc('details').get();
@@ -147,6 +187,16 @@ export async function send(deps, o) {
   const plan = Core.plan({ uids, type: o.type, prefs, tokens, emails, now });
   const words = Core.message(o.type, o.data || {});
 
+  /* SWITCHED OFF: say what would have gone, send nothing. */
+  if (deps.dryRun) {
+    const wouldPhones = plan.push.reduce((n, e) => n + e.tokens.length, 0);
+    await db.collection('notifyLog').add({ type: o.type, siteId: o.siteId || '', by: o.by || '', at: now.toISOString(),
+      dryRun: true, wouldPhones, wouldEmail: plan.email.length, skipped: plan.skipped.length });
+    console.info('[notify] switched off: ' + o.type + ' would reach ' + wouldPhones + ' phone(s) and email '
+      + plan.email.length + ' - nothing sent');
+    return { phones: 0, emailed: 0, none: uids.length, dryRun: true, wouldPhones, wouldEmail: plan.email.length };
+  }
+
   let phones = 0, emailed = 0;
   const urgent = o.type === 'callParent' || o.type === 'urgent';
   for (const entry of plan.push) {
@@ -192,7 +242,9 @@ export async function send(deps, o) {
 /* Once only. A scheduled run retries, and a trigger can fire twice; the
    marker is created, never overwritten, so the second attempt finds it
    and sends nothing. Returns true when THIS call made it. */
-export async function once(db, id, fields = {}) {
+export async function once(db, id, fields = {}, dryRun = false) {
+  /* A dry run must not use up the marker, or switching on would skip it. */
+  if (dryRun) return true;
   try {
     await db.collection('notifySent').doc(id).create({ at: new Date().toISOString(), ...fields });
     return true;
@@ -243,6 +295,11 @@ export async function callParent(deps, { uid, checkinId, now = new Date() }) {
   if (!uid) return { error: 'unauthenticated', message: 'Sign in first.' };
   const id = String(checkinId || '');
   if (!id || id.length > 300 || id.includes('/')) return { error: 'invalid-argument', message: 'Which child?' };
+
+  if (deps.dryRun) {
+    return { error: 'failed-precondition',
+      message: 'Phone notifications are not switched on yet, so nothing was sent' };
+  }
 
   const ckSnap = await db.collection('checkins').doc(id).get();
   const ck = ckSnap.exists ? ckSnap.data() : null;
@@ -318,7 +375,7 @@ export async function runRotaReminders(deps, runAt = new Date()) {
   for (const mid of Object.keys(byMember)) {
     const uid = uidOf[mid];
     if (!uid) { skipped++; continue; }
-    if (!(await once(db, 'rota_' + day + '_' + uid))) { skipped++; continue; }
+    if (!(await once(db, 'rota_' + day + '_' + uid, {}, deps.dryRun))) { skipped++; continue; }
     await send(deps, { uids: [uid], type: 'rota', by: 'rotaReminders', now: runAt,
       data: { roles: byMember[mid].roles, place: byMember[mid].places.join(' · '), tag: day } });
     sent++;
@@ -342,7 +399,7 @@ export function bookingChange(before, after) {
 export async function onBookingChange(deps, key, before, after, eventId) {
   const status = bookingChange(before, after);
   if (!status || !after.memberUid) return null;
-  if (!(await once(deps.db, 'booking_' + key + '_' + (eventId || status)))) return null;
+  if (!(await once(deps.db, 'booking_' + key + '_' + (eventId || status), {}, deps.dryRun))) return null;
   const room = after.roomId ? await deps.db.collection('rooms').doc(after.roomId).get() : null;
   const when = [after.day ? dayWords(after.day) : '', String(after.startLocal || '').slice(11, 16)].filter(Boolean).join(' ');
   return send(deps, { uids: [after.memberUid], type: 'booking', by: 'bookingNotify', siteId: after.siteId || '',
@@ -357,7 +414,7 @@ export async function onBookingChange(deps, key, before, after, eventId) {
    NO PHOTO, and no link to its file (Martin, A-M1). */
 export async function onMaintJob(deps, jobId, job) {
   const { db } = deps;
-  if (!(await once(db, 'maintJob_' + jobId))) return null;
+  if (!(await once(db, 'maintJob_' + jobId, {}, deps.dryRun))) return null;
   const book = await db.collection('addressBook').where('markers', 'array-contains', 'Maintenance').get();
   const members = book.docs.filter((d) => d.data().archived !== true)
     .map((d) => ({ id: d.id, email: String(d.data().email || '') }));
@@ -407,7 +464,7 @@ export async function onMaintJob(deps, jobId, job) {
 export async function onNotice(deps, id, before, after) {
   const { db } = deps;
   if (!after || after.urgent !== true || (before && before.urgent === true)) return null;
-  if (!(await once(db, 'urgent_' + id))) return null;
+  if (!(await once(db, 'urgent_' + id, {}, deps.dryRun))) return null;
   const teams = Array.isArray(after.teams) ? after.teams.filter(Boolean) : [];
   const users = await db.collection('users').where('status', '==', 'active').get();
   const uids = users.docs.filter((d) => {
@@ -444,12 +501,14 @@ export async function runChecksReminders(deps, runAt = new Date()) {
   let told = 0;
   for (const x of due) {
     const ref = db.collection('checksReminded').doc(x.memberId + '_' + x.what);
-    const fresh = await db.runTransaction(async (tx) => {
-      const s = await tx.get(ref);
-      if (s.exists && runAt.getTime() - Number(s.data().atMs || 0) < fortnight) return false;
-      tx.set(ref, { atMs: runAt.getTime(), ends: x.ends, state: x.state });
-      return true;
-    });
+    const fresh = deps.dryRun
+      ? await ref.get().then((s) => !(s.exists && runAt.getTime() - Number(s.data().atMs || 0) < fortnight))
+      : await db.runTransaction(async (tx) => {
+        const s = await tx.get(ref);
+        if (s.exists && runAt.getTime() - Number(s.data().atMs || 0) < fortnight) return false;
+        tx.set(ref, { atMs: runAt.getTime(), ends: x.ends, state: x.state });
+        return true;
+      });
     if (!fresh) continue;
     (bySite[siteOf[x.memberId]] = bySite[siteOf[x.memberId]] || []).push(x);
     if (uidOf[x.memberId]) {

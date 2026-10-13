@@ -396,16 +396,86 @@ firebase deploy --only functions:hub --project egbc-worship-planner
 Anybody with no phone set up is **emailed** instead, except for booking news,
 which the booking page emails already.
 
-### Before deploying: one question to answer first
+### The database's region: confirmed
 
 **`bookingNotify`, `maintJobNotify` and `urgentNotice` run when the database
 changes, and Google requires them to run in the same place as the database.**
-They are set to `europe-west2` (`TRIGGER_REGION` in `functions/index.js`).
+They are set to `europe-west2` (`TRIGGER_REGION` in `functions/index.js`), and
+the reviewing window read the database's location as **europe-west2** on
+13 Oct 2026 (`firebase firestore:databases:get`, as the church account).
 
-Check it: Firebase console, **Firestore Database**, and read the **Location**
-shown at the top (for example "europe-west2" or "nam5"). **Tell the main
-window what it says before deploying.** If it is different, those three
-would refuse to deploy. The other seventeen would still deploy and work.
+### NOTHING IS SENT UNTIL MARTIN SWITCHES IT ON (A-081)
+
+Deploying puts the timers and triggers live against the real database. With
+email as the fallback for everybody who has no phone set up, which today is
+everybody, they would start emailing real people before launch. So there
+is a **master switch, OFF by default**:
+
+- `churchSettings/notifications` → `live`. Off unless it is exactly `true`.
+  Only a master admin may set it (the rules say so, from switch-over).
+- While it is off, every timer and trigger writes what it **would** have sent
+  to `notifyLog` (counts only, `dryRun: true`) and sends nothing: no phone
+  message, no email. Calling a parent says it is not switched on yet.
+- **"Send me a test" works anyway**, to the person who pressed it. That is the
+  real-phone proof (N-7).
+- Switching it on later loses nothing: a dry run doesn't use up the once-only
+  markers.
+
+**To turn it on or off:** Menu → Core Team → Admin → **Church settings** →
+**Phone notifications** → the switch. It asks "Turn them on?" first. Only a
+master admin sees it. No Firebase console needed.
+
+**Until switch-over the rules are not deployed**, so the live database does
+not yet stop somebody else setting `live`. Only that switch writes it, and
+only master admins are shown it.
+
+### What a deploy creates and what it updates (checked 13 Oct 2026)
+
+Read off the live project by asking each function's public address with a
+plain GET, which runs none of their code (`findMe` was not POSTed to,
+because that would write a rate-limit record).
+
+**Updated (already live, moved to Node 22):**
+
+| Function | Safe before switch-over? |
+|---|---|
+| `rotaFeed`, `myCalendarLink`, `myCalendarLinks` | **Yes.** Live since 9 Oct; calendar links keep working |
+| `bookingReminders`, `documentExpiryReminders` | **Yes.** Live since 9 Oct (timers can't be checked from outside; this file records them). Their emails now carry the Google identity token |
+
+**Created (not live yet):**
+
+| Function | Safe before switch-over? |
+|---|---|
+| `whoAmI` | **Yes, and wanted.** v2 pages already ask it who somebody is, and without it they fall back to "we do not recognise that address" |
+| `findMe`, `myDates`, `saveAnswer` | **Yes.** The v2 availability form's three calls; the original site's form is untouched |
+| `churchShowPairingCode`, `churchShowRedeem`, `churchShowDisconnect` | **Yes.** Nothing calls them until a projection PC is paired; `churchShowRedeem` also needs the IAM step |
+| `redeemYouthCode` | **Yes.** Only a young person's code uses it |
+| `notifyTest` | **Yes.** Sends only to the person who presses it |
+| `callParent` | **Yes.** Refuses while the switch is off |
+| `rotaReminders`, `checksReminders` (timers) | **Yes.** Dry run while the switch is off: logs, sends nothing |
+| `bookingNotify`, `maintJobNotify`, `urgentNotice` (triggers) | **Yes.** Same. The first deploy of a trigger may take a few minutes and may ask to retry while Google sets up its permissions |
+
+### Deploying N-4, step by step (Martin, with a window watching)
+
+1. In the `v2` folder: `git pull`, so the code is today's.
+2. `cd functions`, then `npm install`, then `cd ..` (a library was added).
+3. `firebase login` if asked, as the church account.
+4. `firebase deploy --only functions:hub --project egbc-worship-planner`
+   - It should say **nodejs22** against each function.
+   - It must **not** offer to delete anything. If it names `sendEmail`, say
+     **no** and stop.
+   - If a trigger says to retry because permissions are still being set up,
+     wait five minutes and run the same command again.
+5. If not done before: the IAM step for `churchShowRedeem` (above).
+6. **Leave the switch OFF.** Church settings → Phone notifications should
+   say "Off".
+7. **The real-phone proof (N-7), on your own phone first:** open the app,
+   Me → Notifications → turn on → "Send me a test". It should arrive.
+   Then the same on an iPhone added to the Home Screen.
+8. Look at Firestore → `notifyLog` the next morning: the 17:00 rota reminder
+   should show as a `dryRun` with counts, and nobody should have had
+   anything.
+9. **Only at launch:** Church settings → Phone notifications → switch on.
 
 ### The hub's emails now carry the server's Google identity
 

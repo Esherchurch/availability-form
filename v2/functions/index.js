@@ -588,11 +588,18 @@ import * as Notify from './notify.js';
 
 const TRIGGER_REGION = 'europe-west2';
 
-async function notifyDeps() {
+/* Every sender's door reads the master switch first (notify.js liveState).
+   Switched off, the senders run as a dry run: they log what they would
+   send and send nothing. "Send me a test" alone ignores the switch - it
+   goes to the person who pressed it, which is how the real-phone proof
+   (N-7) is done before anything else is switched on. */
+async function notifyDeps(opts = {}) {
+  const st = await Notify.liveState(db);
+  const dryRun = opts.test ? !st.feature : !st.sending;
   return {
-    db, auth: getAuth(),
+    db, auth: getAuth(), dryRun, state: st,
     push: Notify.pushTransport({ db, messaging: onEmulator() ? null : getMessaging(), onEmulator: onEmulator() }),
-    email: sendOne,
+    email: dryRun ? Notify.dryEmail(db) : sendOne,
     hub: await Notify.hubUrl(db)
   };
 }
@@ -607,7 +614,9 @@ export const callParent = onCall(async (request) => orThrow(await Notify.callPar
 /* "Send me a test", from the Notifications page. */
 export const notifyTest = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  return Notify.send(await notifyDeps(), { uids: [request.auth.uid], type: 'test', by: request.auth.uid });
+  const deps = await notifyDeps({ test: true });
+  if (deps.dryRun) throw new HttpsError('failed-precondition', 'This church does not use phone notifications.');
+  return Notify.send(deps, { uids: [request.auth.uid], type: 'test', by: request.auth.uid });
 });
 
 /* The day before you serve, at five in the evening. */

@@ -2665,3 +2665,51 @@ from the hub and from anywhere else; My details; Sign out.
 | View as for everybody | the order, at both widths and on the hub (5) |
 | a tap outside ignored | "a tap outside closes it" (both widths) |
 | the initials hidden on a phone again | "visible to tap" (+2) |
+
+### A-081 — the notifications master switch: nothing is sent until a master admin turns it on
+
+The reviewing window, before Martin deploys N-4: the timers and triggers
+would go live against the real database, and with email as the fallback for
+everybody without a phone set up, which today is everybody, they would start
+emailing real people before launch, and could repeat emails the old pages
+already send.
+
+**`churchSettings/notifications.live`, OFF unless it is exactly `true`.**
+`churchSettings/features.notifications` is the server's half of
+`EGBCChurch.uses('notifications')` (rule 12), on unless it is exactly
+`false`. While either is off:
+- every timer and trigger (rota reminder, booking news, maintenance job and
+  F-129's email, urgent notice, checks and the safeguarding lead's email)
+  works out who it **would** reach, writes counts (never a token or an
+  address) to `notifyLog` with `dryRun: true`, and **sends nothing**;
+- it writes **no once-only markers**, so switching on later loses nothing;
+- calling a parent is refused in words ("not switched on yet"), which the
+  leader's screen already shows as "use Show on screen, or ring them";
+- **"Send me a test" still goes**, to the person who pressed it (N-7);
+  with the feature off, not even that.
+
+**The switch is on Church settings** (Martin: "I want an on off switch
+please as an admin. I dont want to go in to firebase to do something
+basic"). It's a real switch (role="switch"), off to start with. Turning it
+on asks first; turning it off doesn't. It's drawn for a master admin only,
+matching the rule (`isMaster()` and `id == 'notifications'`, a yes-or-no and
+nothing else). Church settings had **no way in from the Menu at all**, only
+a link inside Places, so it's now under Core Team › Admin beside Backup &
+Restore, for admins.
+
+Checks: `check-notify-send` **60/60** (the default is off, with a fake
+database; every sender silent when off; the test still goes; switched on, the
+held-back rota and checks reminders go). Seven breaks, each caught:
+default on, send() ignoring the switch, email not gated, the dry run using
+up markers, call-a-parent not gated, the urgent trigger bypassing it, and the
+test ignoring the feature. `firestore-rules.test.mjs` **1101/1101** (four
+new). `check-notify-switch` **10/10**, with two breaks (no question before on;
+shown to every admin).
+
+**Until switch-over the rules are not deployed**, so on the live database
+the master-admin-only rule is not enforced yet. Only the Church settings
+switch writes this setting, and it's drawn for master admins alone.
+
+**From the events window (F-160), recorded:** the rota reminder carries no
+arrival time, only the service's start time, because the rota holds none.
+Fine for launch.

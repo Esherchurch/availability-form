@@ -191,7 +191,11 @@
         ] },
         { title: 'Admin', icon: 'settings', core: true, admin: true, children: [
           { title: 'Backup & Restore', url: 'data-tools.html', icon: 'database-backup', core: true, admin: true,
-            description: 'Take a copy of everything, or put one back' }
+            description: 'Take a copy of everything, or put one back' },
+          /* Martin, 13 Oct 2026: the switch for phone notifications is
+             here, and the page had no way in from the Menu at all. */
+          { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', core: true, admin: true,
+            description: 'The church\'s name and logo, giving details, and phone notifications on or off' }
         ] }
       ] },
 

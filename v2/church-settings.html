@@ -40,6 +40,15 @@
        cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff}
   .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55}
   .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  /* The on/off switch (A-081). A real button with role="switch", 48px tall. */
+  .sw{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:10px 12px;border:1px solid var(--line-2);border-radius:10px;
+      background:#fff;font:500 15px Inter,sans-serif;color:var(--ink);cursor:pointer;text-align:left}
+  .sw:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .sw .track{flex:0 0 auto;width:46px;height:26px;border-radius:13px;background:#d1d5db;position:relative;transition:background .15s}
+  .sw .track::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .sw[aria-checked="true"] .track{background:var(--brand)}
+  .sw[aria-checked="true"] .track::after{left:23px}
+  .sw:disabled{opacity:.55;cursor:wait}
   .logo{width:96px;height:96px;object-fit:contain;border:1px solid var(--line);border-radius:12px;background:#fff;display:block;margin-bottom:8px}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none}
 </style>
@@ -53,6 +62,13 @@
   <h1 style="font-size:18px;margin:22px 0 4px" id="give-h" hidden>Giving</h1>
   <p class="sub" id="give-sub" hidden>The church's bank details, shown to people who have signed in &mdash; on the Give screen in the app and the Give page on the website. Type them once; nothing else needs them again.</p>
   <div class="card" id="give-form" hidden></div>
+
+  <!-- PHONE NOTIFICATIONS, ON OR OFF (Martin, 13 Oct 2026: "I want an on
+       off switch please as an admin. I don't want to go in to Firebase to
+       do something basic"). A master admin only, as the rules say. -->
+  <h1 style="font-size:18px;margin:22px 0 4px" id="notify-h" hidden>Phone notifications</h1>
+  <p class="sub" id="notify-sub" hidden>Rota reminders, booking news, new maintenance jobs, urgent notices and DBS and training reminders, by phone, and by email for anyone without the app.</p>
+  <div class="card" id="notify-form" hidden></div>
 </div>
 <div id="toast"></div>
 <script>
@@ -178,6 +194,37 @@
     });
   }
 
+  /* ---- phone notifications: the master switch (A-081) -------------
+
+     OFF unless it says on. While it is off nothing is sent to anybody -
+     the senders only note what they would have sent - except "Send me a
+     test", which goes to whoever presses it, so a phone can be tried
+     first. A master admin only, here and in the rules (churchSettings/
+     notifications), because switching it on starts the whole church
+     being messaged. Drawn only for the person who can save it. */
+  function mayNotify() { return !!EGBCAuth.isMaster(); }
+  var N = { live: false };
+  function drawNotify() {
+    ['notify-h', 'notify-sub', 'notify-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+    var on = N.live === true;
+    document.getElementById('notify-form').innerHTML =
+      '<button type="button" class="sw" id="n-switch" role="switch" aria-checked="' + on + '" aria-describedby="n-state">' +
+        '<span class="track" aria-hidden="true"></span><span>Send phone notifications</span></button>' +
+      '<p class="hint" id="n-state" style="margin:10px 0 0">' + (on
+        ? '<b style="color:var(--ink)">On.</b> They are being sent. Each person chooses which ones they get, on their Notifications page.'
+        : '<b style="color:var(--ink)">Off.</b> Nothing is sent to anybody. &ldquo;Send me a test&rdquo; on the Notifications page still works, for whoever presses it, so you can try your own phone first.') +
+      '</p>';
+    document.getElementById('n-switch').onclick = function () { setNotify(!on); };
+  }
+  function setNotify(live) {
+    if (live && !confirm('This starts sending notifications to the whole church - by phone, and by email to anyone without the app.\n\nTurn them on?')) return;
+    var b = document.getElementById('n-switch'); b.disabled = true;
+    var u = EGBCAuth.user() || {};
+    db().collection('churchSettings').doc('notifications').set({ live: live, updatedAt: new Date().toISOString(), updatedBy: u.uid || '' })
+      .then(function () { N.live = live; toast(live ? 'Phone notifications are on.' : 'Phone notifications are off.'); drawNotify(); })
+      .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
+  }
+
   /* THE NAME, EMAIL AND LOGO ARE AN ADMIN'S, and the rules say so:
      `details` is writable by isAdmin() only. A Church office member who
      is not an admin may open this page for the giving details, so their
@@ -196,6 +243,11 @@
   }).then(function (s) {
     D = s.exists ? s.data() : {};
     if (mayDetails()) draw();
+    if (mayNotify()) {
+      db().collection('churchSettings').doc('notifications').get().then(function (n) {
+        N = (n.exists && n.data()) || { live: false }; drawNotify();
+      }).catch(function () { N = { live: false }; drawNotify(); });
+    }
     if (!mayGive()) return null;
     return db().collection('churchSettings').doc('giving').get().then(function (g) {
       G = (g.exists && g.data()) || {}; drawGiving();

@@ -33,6 +33,7 @@ is proving something throws wraps it in `expectThrow()`.
 | Worship, AV and Choir see the same pages, both ways | `node tests/check-worship-av-one-team.mjs` |
 | **Every check, one after another** | `node tests/run-all.mjs` (add `--list` to see what it runs and skips) |
 | The initials open a "you" menu on the hub and every page: the items and their order, keyboard and screen reader, Escape and a tap outside, 375px, the feature switch, master admin | `node tests/check-you-menu.mjs` |
+| Phone notifications on or off: the switch on Church settings, off to start, a master admin only | `node tests/check-notify-switch.mjs` |
 | An empty pin board opens empty and writes nothing; a board with notes is left as it was (A-079) | `node tests/check-board-empty.mjs` |
 | One piece of code decides where a note lands on the corkboard, and stickynotes.html parses | `node tests/check-note-placement.mjs` (a second, no browser) |
 | The pin board on a phone: small post-its, one note filling the screen, comments - the same screen in the app and on the website | `node tests/check-board-on-a-phone.mjs` (add `--shots`) |

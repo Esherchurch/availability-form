@@ -3178,6 +3178,18 @@ await check('  and any admin may still edit it afterwards, which sends nothing',
 await check('  urgent false may be set by any admin', 'allow',
   () => setDoc(doc(as('karen'), 'news', 'u_false'), { title: 'Not', body: 'x', teams: [], ackedBy: [], urgent: false }));
 
+// ---- the notifications master switch (A-081) ----------------------------
+await check('the master admin switches phone notifications on', 'allow',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'notifications'), { live: true, updatedBy: 'u_martin' }));
+await check('  an admin who is not master cannot', 'deny',
+  () => setDoc(doc(as('karen'), 'churchSettings', 'notifications'), { live: false }));
+await check('  nor the Church office', 'deny',
+  () => setDoc(doc(as('officeAdmin'), 'churchSettings', 'notifications'), { live: false }));
+await check('  and it holds a yes or no and nothing else', 'deny',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'notifications'), { live: 'yes' }));
+await check('  nor anything beside it', 'deny',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'notifications'), { live: true, sendTo: 'everyone' }));
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 
