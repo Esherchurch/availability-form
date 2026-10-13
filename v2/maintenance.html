@@ -17,7 +17,7 @@
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610091400"></script>
-<script src="egbc-events-bookings.js?v=202610111000"></script>
+<script src="egbc-events-bookings.js?v=202610131800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -101,7 +101,8 @@
         var rs = rooms.filter(function (r) { return r.siteId === s.id; });
         return rs.length ? '<optgroup label="' + esc(s.name) + '">' + rs.map(function (r) { return '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>'; }).join('') + '</optgroup>' : '';
       }).join('') + '</select>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label class="l" for="c-from">From</label><input class="inp" type="date" id="c-from" min="' + t + '" value="' + t + '"></div>' +
+      /* minmax(0,1fr): each column may shrink, so a date box no longer pokes past the card on a phone (F-150). */
+      '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px"><div><label class="l" for="c-from">From</label><input class="inp" type="date" id="c-from" min="' + t + '" value="' + t + '"></div>' +
       '<div><label class="l" for="c-to">To (the last day)</label><input class="inp" type="date" id="c-to" min="' + t + '" value="' + t + '"></div></div>' +
       '<label class="l" for="c-why">Why</label><input class="inp" id="c-why" maxlength="300" placeholder="e.g. Repainting">' +
       '<div id="c-err"></div><div class="acts"><button class="btn" id="c-go">Close the room</button></div></div>';

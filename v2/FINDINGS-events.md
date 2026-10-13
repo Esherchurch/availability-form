@@ -3557,3 +3557,71 @@ invoice means, and a hirer needs them to pay.
 
 **Switch-over notes updated:** bank details are typed once, in Church
 details. The Accounts box is only for different wording.
+
+### F-162 — F-150's phone fixes, in app mode at 375px
+**Each fix, judged by eye** in app mode at 375px, with a check of its own
+(`phone-fixes.test.mjs`, 24 checks, now in the full run):
+- **`kids-admin.html`:** an opened child's details now put each label
+  above its value, at full width.
+  - The parent's email is on one line.
+  - "May collect" shows everyone ("Parent Synthetic, Grandma Invented"),
+    not "Parent Syntheti".
+  - Long words break only when they can't fit a line of their own (was:
+    anywhere).
+- **`safeguarding.html`:** the "Works with under-18s" words are one span
+  beside the box. Before, the bold words and the rest became two squeezed
+  flex columns ("Works / with / under- / 18s").
+- **`rooms.html`, and Room bookings' Day view:** the day chart puts each
+  room's name on its own line above its bar, whole.
+  - The name stays in view while the chart scrolls sideways. That scroll is
+    kept on purpose, so the quarter-hour cells stay big enough to tap.
+  - This is in `egbc-events-bookings.js`, so `room.html` and `book.html`
+    get it too.
+- **`maintenance.html`:** Close a room's two date columns may now shrink
+  (`minmax(0,1fr)`), so the "To" box no longer pokes past the card.
+- **`bookings-admin.html`:** a booking's details stack the same way as
+  kids-admin, so the requester's email is on one line, not broken
+  mid-word. Every tab was walked in app mode:
+  - Waiting, Coming up, Day view, Setup sheet, Invoices, Hirers, Accounts,
+    Past and cancelled
+  - nothing scrolls sideways, and no words run off the screen
+  - Coming up had the same narrow columns, and the same fix covers it
+- **Every page and tab** also passes the main window's measure (APP-PARITY):
+  no sideways scroll, and no words past the right edge outside a box that
+  scrolls on purpose. **That measure passed on the unfixed pages too**,
+  which is why each fault has a check of its own.
+
+**Before and after, for Martin:** `screenshots/events/phone-compare-*-375.png`
+puts the two side by side, one image per page:
+- kids-admin
+- safeguarding
+- rooms
+- maintenance
+- bookings: Waiting, Day view and Coming up
+
+The single pictures are `phone-<page>-before-375.png` and
+`phone-<page>-after-375.png`.
+
+**Proved:**
+- **Before:** the test on the old code fails on exactly the faults F-150
+  named.
+- **After:** 24/24.
+- **5 deliberate breaks**, each fix undone on its own, all caught.
+- **Two of my first breaks were not caught, and I said so:**
+  - **maintenance:** a date-box rule I'd added was redundant. The real fix
+    is the shrinkable columns, so I removed the rule and pointed the break
+    at the columns.
+  - **bookings-admin:** the columns could come back unnoticed, because the
+    email no longer broke anyway. I added the layout check.
+
+**Test note (F-073 again):** after a few pages in one tab, the next page
+said "Could not check your access". The browser had run out of connections
+to the local test database, because each page's live connection lingers. So
+the test opens each page in a fresh tab.
+- Live, the database shares one connection, so a phone doesn't meet this.
+- I first blamed a scroll line in the test, and that was wrong. Capturing
+  the screen on failure showed the real cause.
+
+**For the main window:** `app.html` loads `egbc-events-bookings.js?v=202610101200`.
+Please bump it to `202610131800`, so the app's own Book a room and Day view
+draw the room names whole on phones that have the old copy.

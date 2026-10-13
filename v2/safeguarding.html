@@ -94,6 +94,9 @@
   .modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
          padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
+  /* One span of words beside the box: a label that is a flex row otherwise
+     turns its bold words and the rest into two squeezed columns (F-150). */
+  .check>span{flex:1;min-width:0}
 </style>
 </head>
 <body>
@@ -208,7 +211,7 @@
         '<div class="field"><label for="rU8">… and for every … under-8s</label><input class="inp" id="rU8" type="number" min="1" value="' + st.ratioUnder8 + '"></div>' +
         '<div class="field"><label for="yDbs">DBS counts for (years)</label><input class="inp" id="yDbs" type="number" min="1" value="' + st.dbsYears + '"></div>' +
         '<div class="field"><label for="yTr">Training counts for (years)</label><input class="inp" id="yTr" type="number" min="1" value="' + st.trainingYears + '"></div>' +
-        '</div><label class="check"><input type="checkbox" id="under18"' + (st.under18 ? ' checked' : '') + '><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</label>' +
+        '</div><label class="check"><input type="checkbox" id="under18"' + (st.under18 ? ' checked' : '') + '><span><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</span></label>' +
         '<label class="check"><input type="checkbox" id="reqChecks"' + (st.requireChecks ? ' checked' : '') + '>Every leader must have an in-date DBS check and training</label>' +
         '<button class="btn sm" id="saveSettings">' + ico('check') + 'Save</button>' : '') +
       '</div>';

@@ -499,7 +499,9 @@
     '.bk-c.t{background:#cfd4d8}.bk-c.s{background:#e9d6ad}.bk-c.m{background:#3d6263}.bk-c.p{box-shadow:inset 0 0 0 2px #b07d2e}' +
     '.bk-ax{display:flex;margin-left:128px;font-size:11px;color:var(--muted,#6b7280)}.bk-ax span{flex:1;min-width:0}' +
     '.bk-key{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted,#6b7280);margin-top:8px}.bk-key i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid #d1d5db}' +
-    '@media (max-width:520px){.bk-lab{width:72px}.bk-ax{margin-left:80px}}';
+    /* On a phone (F-150): a room's name on its own line above its bar, whole,
+       rather than cut to 72px; it stays in view while a wide chart scrolls. */
+    '@media (max-width:520px){.bk-row{flex-wrap:wrap;gap:2px 8px;margin:6px 0}.bk-lab{width:auto;flex:1 0 100%;white-space:normal;overflow:visible;position:sticky;left:0}.bk-bar{flex:1 0 100%}.bk-ax{margin-left:0}}';
   var FROM = 28, TO = 92;
   function css() {
     if (typeof document === 'undefined' || document.getElementById('bk-css')) return;
