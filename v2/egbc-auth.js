@@ -388,7 +388,7 @@
       /* Someone linked since their last visit: pick the membership up now,
          so they do not have to be told to sign out and back in. */
       if (!d.memberId) {
-        return provisionProfile(user);
+        return provisionProfile(user, d);
       }
 
       /* An automatic match is a guess, and the address book changes. If a
@@ -536,7 +536,7 @@
     }, membershipFrom(m.data));
   }
 
-  function provisionProfile(user) {
+  function provisionProfile(user, existing) {
     var email = (user.email || '').toLowerCase().trim();
 
     /* IF whoAmI CANNOT BE REACHED, this must still answer. An unreachable
@@ -579,6 +579,17 @@
       } else if (matches.length === 1) {
         Object.assign(profile, applyMember(user.uid, matches[0], 'auto'));
       }
+
+      /* A RECORD THAT IS ALREADY THERE KEEPS ITS createdAt (A-078). Somebody
+         the church does not hold yet comes back through here on every visit,
+         and so does somebody the office linked since their last one. Writing
+         a fresh createdAt each time made the write an update that changes
+         createdAt, which no users rule allows - so from the second visit on
+         the page said "Something went wrong" instead of letting them in or
+         telling them plainly. Hidden only because the live database has no
+         rules yet. With createdAt kept, the first is the heartbeat and the
+         second is the checked mirror update, both of which the rules allow. */
+      if (existing && existing.createdAt) profile.createdAt = existing.createdAt;
 
       return db.collection('users').doc(user.uid).set(profile)
         .then(function () { return profile; });
@@ -871,6 +882,22 @@
           }).then(function (both) {
             var profile = both[0];
             currentProfile = profile;
+
+            /* A PARENT WHO IS NOT IN THE ADDRESS BOOK (Martin, N-6b; FINDINGS-
+               notify N-5.5). They may be called to collect their child, and
+               Parents' Sunday is for them, so the app - and only a page that
+               asks with data-allow-pending="parent" - lets them in, NARROWLY:
+               a VERIFIED address (an unverified one could be anybody who
+               typed it), no address book record at all (not 'ambiguous', and
+               not "in the book but on no team"), and the page is told, so it
+               draws Parents' Sunday and Notifications and nothing else. The
+               rules are unchanged: they are 'pending' there as everywhere. */
+            if (opts.allowPending === 'parent' && profile.status === 'pending'
+                && !profile.memberId && user.emailVerified) {
+              profile.parentOnly = true;
+              resolve(profile);
+              return;
+            }
 
             if (profile.status !== 'active') {
               if (profile.status === 'ambiguous' && profile.candidates && profile.candidates.length) {

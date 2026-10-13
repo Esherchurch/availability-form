@@ -17,6 +17,9 @@
  *   core: true     somebody on Core Team
  *   admin: true    somebody who administers at least one area
  *   bookings: true an admin, or a bookings admin for any site
+ *   feature: 'x'   only when the church uses that part (HANDOVER-MAIN
+ *                  rule 12, EGBCChurch.uses); everything is on until the
+ *                  per-church switch exists
  * A heading with nothing visible under it is not drawn at all.
  *
  * A HEADING THAT IS ALSO A PAGE opens its charter - Worship & AV, Youth and
@@ -40,6 +43,10 @@
        led to a refusal would be worse than none. */
     { title: 'Give', url: 'give.html', icon: 'hand-coins',
       description: 'The church’s bank details, and Gift Aid' },
+    /* Phone notifications (FINDINGS-notify N-5): for everybody signed in,
+       the person's own switches. Feature 'notifications'. */
+    { title: 'Notifications', url: 'notifications.html', icon: 'bell-ring', feature: 'notifications',
+      description: 'On this phone, and which ones you get' },
     { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
       description: 'What we have, and asking about it' },
     { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',
@@ -227,6 +234,10 @@
      to arrive, which is how the original portal did it and how somebody ended
      up with a Core Team menu by pasting a URL. */
   function visible(node, who) {
+    /* A part the church does not use is not drawn at all. A page without
+       egbc-church.js counts it as used, which is what everything is until
+       the per-church switch exists. */
+    if (node.feature && window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses(node.feature)) return false;
     if (node.core && !who.isCore) return false;
     /* Section 21: members-only things do not appear for an Attender, with no
        locked door. prune() then drops a heading left with nothing under it,

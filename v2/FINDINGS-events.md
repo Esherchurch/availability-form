@@ -3391,3 +3391,24 @@ area that is empty on a bare emulator has the same hole.
 **Not touched from this side** — `bookings-admin.html` is yours, and the
 standing rule is that your files are yours. Say if you would rather I did
 it; it is a two-line change.
+
+### F-159 — REQUEST from the main window: app mode on notifications.html (N-5)
+The app's Me tab now has **Notifications**, which opens `notifications.html`
+the way every other row does (`open:` with `?app=1`). To wear the app's
+header and tab bar rather than the website's, the page needs the one line
+the other eight of your pages already carry:
+
+    <script src="egbc-appmode.js?v=202610112000"></script>
+
+next to `egbc-shell.js` in the `<head>`. Nothing else on the page changes.
+
+Until it lands, `tests/check-app-mode.mjs` lists the page under
+**WAITING**, printed on every run. When you add the line, please take the
+page off that list (one line, `WAITING` near the top), and the check will
+then hold it to the same standard as the rest.
+
+Also for you, no action needed: N-4 is built (FINDINGS-app A-077). Your
+`egbc-notify-core.js` and `egbc-events-safeguarding.js` are copied into
+`functions/` as `.cjs`, because functions can only deploy their own
+folder. `check-notify-send.mjs` fails if either copy differs from the
+original, so **if you change either file, copy it over the `.cjs` too.**

@@ -39,12 +39,15 @@
      (F-141). egbc-auth.js points it at the emulator on localhost, but only
      if it is loaded BEFORE that line runs - hence here. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<!-- Phone notifications (FINDINGS-notify N-5): Me > Notifications, the
+     one-time offer on Home, and Kids Church Today's "Call on their phone". -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610121600"></script>
+<script src="egbc-auth.js?v=202610131500"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
-<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-guard.js?v=202610131500" data-allow-pending="parent"></script>
 <script src="egbc-ui.js?v=202610091200"></script>
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
@@ -297,7 +300,12 @@
 <script src="egbc-events-bookings.js?v=202610101200"></script>
 <script src="egbc-events-groups.js?v=202610101200"></script>
 <script src="egbc-events-home.js?v=202610101200"></script>
-<script src="egbc-app.js?v=202610122200"></script>
+<script src="egbc-notify-core.js?v=202610111300"></script>
+<script src="egbc-notify.js?v=202610111300"></script>
+<script src="egbc-app.js?v=202610131500"></script>
+<!-- The one service worker on the v2 scope, so a phone that has only ever
+     opened the app can receive (N-5). -->
+<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
 <script src="egbc-app-events.js?v=202610101200"></script>
 <script src="egbc-app-kids.js?v=202610101200"></script>
 <script src="egbc-app-listen.js?v=202610101200"></script>
@@ -571,6 +579,15 @@ function loadHome(me) {
   if (HOME.loaded) return;
   HOME.loaded = true;
   var H = window.EGBCEventsHome;
+  /* A parent let in without an address book record (N-5.5) reads their
+     children's Sunday and nothing else: the rest is closed to them by the
+     rules, and asking would only fill the console with refusals. */
+  if (me.parentOnly) {
+    (H && H.myFamilyThisSunday ? H.myFamilyThisSunday() : Promise.resolve([]))
+      .then(function (r) { HOME.family = r || []; }, function () {})
+      .then(function () { HOME.ready = true; A.refresh('me', 'home'); });
+    return;
+  }
   var jobs = [
     loadServing(me.memberId).then(function (r) { HOME.serving = r; }),
     loadNews(me).then(function (r) { HOME.news = r; }),
@@ -591,6 +608,14 @@ function loadHome(me) {
      there being nothing. Without it, a new person reads "nothing for you
      this week" for a second before their week appears. */
   Promise.all(jobs).then(function () { HOME.ready = true; A.refresh('me', 'home'); });
+}
+
+/* Feature 'notifications' (HANDOVER-MAIN rule 12). */
+function notifyOn() { return !window.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses('notifications'); }
+function notifyOffer() {
+  if (!notifyOn() || !window.EGBCNotify) return false;
+  try { if (EGBCNotify.isOn()) return false; } catch (e) { return false; }
+  try { return localStorage.getItem('egbc.notify.offer') !== 'no'; } catch (e) { return true; }
 }
 
 A.screen('me', 'home', function (me) {
@@ -676,6 +701,26 @@ A.screen('me', 'home', function (me) {
         [g.date, g.time, g.where].filter(Boolean).join(' · '),
         null, 'open:groups.html');
     }).join('')), ['All groups', 'open:groups.html']);
+  }
+
+  /* TURN ON NOTIFICATIONS? (FINDINGS-notify N-5). Gentle and one-time:
+     a row, never a prompt that comes up by itself (no phone allows that,
+     and the brief says never on page load). It goes when they are on, or
+     when the person says "Not now". Feature 'notifications'. */
+  if (notifyOffer()) {
+    out += card(row('bell-ring', 'Turn on notifications?',
+      'The day before you serve, and a call when your child needs you',
+      '<button class="btn" data-act="notifynotnow">Not now</button>',
+      'open:notifications.html', A.SPACES.me.colour, A.SPACES.me.tint));
+  }
+
+  if (me.parentOnly) {
+    if (!HOME.family.length) {
+      out += A.empty('baby', HOME.ready
+        ? 'Your children’s Sunday shows here when they are checked in. The church does not have your address on its records yet; the office can add you.'
+        : 'Finding your Sunday…');
+    }
+    return out;
   }
 
   /* NO "QUICK LINKS" (Martin, 11 Oct). The mock-up has none, and three of
@@ -1022,6 +1067,13 @@ document.addEventListener('click', function (e) {
     return;
   }
 
+  if (a === 'notifynotnow') {
+    try { localStorage.setItem('egbc.notify.offer', 'no'); } catch (err) {}
+    A.toast('You can turn them on any time, from Me.');
+    setTimeout(function () { A.draw(); }, 0);
+    return;
+  }
+
   if (a === 'newevent') {
     if (window.EGBCCoreRota) EGBCCoreRota.newEvent();
     return;
@@ -1041,6 +1093,16 @@ document.addEventListener('click', function (e) {
 });
 
 A.screen('me', 'me', function (me) {
+  var notifyRow = notifyOn()
+    ? row('bell-ring', 'Notifications', 'On this phone, and which ones you get', null, 'open:notifications.html')
+    : '';
+  /* A parent let in without an address book record (N-5.5): their
+     notifications, and the way out. Nothing else on Me is theirs. */
+  if (me.parentOnly) {
+    return head(me.first || 'Welcome', 'Signed in as a parent')
+      + (notifyRow ? card(notifyRow) : '')
+      + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'));
+  }
   loadCalendar();   /* after sign-in, never at registration - see above */
   loadGiving();
   A.sheet('give', giveSheet());
@@ -1049,7 +1111,8 @@ A.screen('me', 'me', function (me) {
         row('users', 'My groups', 'Your groups, and finding one', null, 'open:groups.html') +
         row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
         row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota',
-            null, 'sheet:calendar'))
+            null, 'sheet:calendar') +
+        notifyRow)
     + card(row('hand-coins', 'Give', 'The church’s bank details, and Gift Aid',
                null, 'sheet:give'))
     /* "Open the full website" is the ONLY route to the hub from the app

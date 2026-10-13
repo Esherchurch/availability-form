@@ -28,6 +28,7 @@ is proving something throws wraps it in `expectThrow()`.
 | A plan that was emailed but never saved still shows its songs, in all three planners, and Send saves | `node tests/check-emailed-plan.mjs` |
 | Everyone on the Sunday plan email can open the plan - a preacher on no team, their Sunday and not another | `node tests/check-plan-audience.mjs` |
 | The switch-over backfill writes the same audience the planner would, from four weeks ago on, and cannot reach the real database by accident | `node tests/check-audience-backfill.mjs` |
+| Phone notifications in the app: the service worker, Me > Notifications, the one-time offer, the Menu, the feature switch, and a parent not in the address book let in narrowly | `node tests/check-notify-app.mjs` |
 | "Checking access" does not spin for ever | `node tests/check-guard-does-not-spin.mjs` |
 | Worship, AV and Choir see the same pages, both ways | `node tests/check-worship-av-one-team.mjs` |
 | **Every check, one after another** | `node tests/run-all.mjs` (add `--list` to see what it runs and skips) |

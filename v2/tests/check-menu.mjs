@@ -48,6 +48,8 @@ const APPROVED = [
      everybody signed in - so it sits out here with the other ungated
      entries rather than inside a team's list. */
   ['Give'],
+  /* Notifications (FINDINGS-notify N-5), for everybody signed in. */
+  ['Notifications'],
   ['Hire our rooms'],
   ['Book a room'],
   ['Maintenance'],

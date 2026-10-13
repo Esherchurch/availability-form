@@ -258,7 +258,9 @@
       /* Which Running things tabs, from the groups this person is in
          (§25). The shell never works this out for itself - one answer,
          shared with the Menu. */
-      runs: (global.EGBCAuth && EGBCAuth.runsTabs) ? EGBCAuth.runsTabs() : []
+      runs: (global.EGBCAuth && EGBCAuth.runsTabs) ? EGBCAuth.runsTabs() : [],
+      /* Let in as a parent only (N-5.5): Home and Me, nothing else. */
+      parentOnly: !!p.parentOnly
     };
   }
 
@@ -267,6 +269,7 @@
      not an empty row, no row. */
   function spacesFor(me) {
     var out = ['me'];
+    if (me.parentOnly) return out;
     Object.keys(SPACES).forEach(function (k) {
       var s = SPACES[k];
       if (k === 'me') return;
@@ -328,6 +331,12 @@
     /* Running things shows ONLY the tabs this person runs (§25). Somebody
        in the Bookings group gets one tab, not four with three refusals
        behind them - "a tab someone sees must actually work". */
+    /* A parent who is not in the address book has Home and Me only
+       (N-5.5): What's on and Listen read things the rules keep for people
+       the church knows. */
+    if (space === 'me' && who().parentOnly) {
+      tabs = tabs.filter(function (t) { return t[0] === 'home' || t[0] === 'me'; });
+    }
     if (SPACES[space].runsThings) {
       var runs = who().runs;
       tabs = tabs.filter(function (t) { return runs.indexOf(t[0]) !== -1; });

@@ -2570,3 +2570,47 @@ SERVER-DEPLOY.md says where to read it.
 **Not done here:** server-side `uses('notifications')`. The functions
 don't ask yet, because there's nowhere to ask until the switch exists. When
 item 14 is built, the senders should check it too.
+
+### A-078 — a second visit by anyone the church does not hold said "Something went wrong" (fixed)
+
+Found while building N-5's parent view, by a deliberate break that the
+check failed to catch. `provisionProfile()` rewrote the whole of
+`users/{uid}`, including a fresh `createdAt`, every time it ran. It runs
+on every visit by somebody with no address book record, and by somebody
+the office linked since their last visit. From the second visit on that
+write is an update, and no `users` rule lets `createdAt` change, so it was
+refused and the guard showed "Something went wrong" with a
+PERMISSION_DENIED underneath. The first visit is a create, which is
+allowed, and that's how it hid. The live database has no rules yet, so
+nobody has met it. **After switch-over, everybody signing in before the
+office adds them would have.** It may be what A-064 saw.
+
+**Proved older than N-5** by running the same probe on the code before it
+(`git stash`): the same refusal, on `view-only-rota.html`.
+
+**Fixed** in `egbc-auth.js`: a record that already exists keeps its
+`createdAt`. The repeat visit is then the heartbeat, and the newly linked
+person is the checked mirror update, both of which the rules allow. No
+rule changed. `check-notify-app.mjs`: "lets them in again on their next
+visit", and "anywhere else turns them away, at the usual door" (We do not
+recognise that address). Break (fresh createdAt) → 5 fail.
+
+### A-079 — the pin board writes four invented notes onto an empty Worship board, and that is what loads youtube.com
+
+The reviewing window asked what started `check-charter-switch` reaching
+youtube.com. **Nothing started recently.** Since the v2 import
+(`39273a50`, 3 Sep), `stickynotes.html`'s `seedData()` has filled an
+**empty Worship board** with four sample notes ("Sarah: Way Maker" with a
+real YouTube video, "Pastor Mike", "Tom", "Jenny") **and saved them**
+(`saveState()`). The computer corkboard draws the video as an embedded
+YouTube player. The check fails only when it meets an empty Worship
+board: on freshly restarted emulators, or when no earlier check has left
+notes there. That's why it comes and goes.
+
+EGBC's real Worship board isn't empty, so nothing happens to EGBC. **But
+for any new church (Church HQ) the first visit would write invented people's
+notes into its real board.** Not changed, because it's existing
+behaviour (HANDOVER-MAIN: ask, don't tidy). For Martin: remove the sample
+notes, so an empty board opens empty, as every other board already does?
+Once that's decided, the check should seed its own board rather than
+depend on what an earlier check left.

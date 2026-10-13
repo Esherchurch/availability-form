@@ -56,6 +56,14 @@ const ok = (n, v, x) => {
      CoreTeamApp   - an installed app of its own, with its own chrome
      login.html    - nobody is in the app yet */
 const NOT_APP_MODE = ['hub.html', 'CoreTeamApp.html', 'login.html'];
+/* WAITING ON THE EVENTS WINDOW, named and printed every run rather than
+   quietly skipped. The page is theirs (HANDOVER-MAIN rule 10), so the one
+   line that dresses it as the app - <script src="egbc-appmode.js"> - is a
+   request, not an edit. Take a page off this list the day the line lands;
+   the check then holds it to everything above. */
+const WAITING = {
+  'notifications.html': 'F-159: the events window adds egbc-appmode.js (Me > Notifications, N-5)'
+};
 
 /* ONE KNOWN EXCEPTION, named and printed rather than quietly skipped.
 
@@ -158,7 +166,9 @@ const offMachine = u => {
 
 (async () => {
   if (wantShots) fs.mkdirSync(SHOTS, { recursive: true });
-  const PAGES = targets().filter(p => NOT_APP_MODE.indexOf(p) === -1);
+  const PAGES = targets().filter(p => NOT_APP_MODE.indexOf(p) === -1 && !WAITING[p]);
+  Object.keys(WAITING).filter(p => targets().indexOf(p) !== -1)
+    .forEach(p => console.log('  waiting  ' + p + ' — ' + WAITING[p]));
   console.log('the app opens ' + (PAGES.length + NOT_APP_MODE.length) + ' pages; '
     + PAGES.length + ' of them in app mode.\n');
 

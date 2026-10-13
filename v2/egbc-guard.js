@@ -43,6 +43,10 @@
      than changing what the other two mean, because no page uses both
      today and a page that did would have its access quietly widened. */
   var alsoTeam = script ? script.getAttribute('data-also-team') : null;
+  /* data-allow-pending="parent" (FINDINGS-notify N-5.5): the app alone
+     lets in a verified address the church holds no record for, as a
+     parent, to Parents' Sunday and Notifications and nothing else. */
+  var allowPending = script ? script.getAttribute('data-allow-pending') : null;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');
@@ -142,6 +146,7 @@
     if (role) opts.role = role;
     if (adminAny) opts.adminAny = true;
     if (alsoTeam) opts.alsoTeam = alsoTeam;
+    if (allowPending) opts.allowPending = allowPending;
 
     setTimeout(sayStuck, SETTLE_MS);
 
