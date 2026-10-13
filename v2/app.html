@@ -226,6 +226,11 @@
 
   .notice{padding:12px 14px;display:grid;gap:4px}
   .notice + .notice{border-top:1px solid var(--line)}
+  /* F-145: the collection code is read off a phone across a room. */
+  .parents{text-align:center}
+  .parents .pcode{font-size:44px;font-weight:700;letter-spacing:.14em;color:var(--ink);margin:2px 0;line-height:1.1}
+  .parents .pqr{display:flex;justify-content:center;margin:6px 0}
+  .parents .pqr svg{width:180px;height:180px;max-width:100%}
   .notice b{color:var(--ink);font-weight:600}
   .notice p{margin:0;font-size:13px}
   /* 12px, not the mock-up's 11.5px: DESIGN.md's floor, and the style check
@@ -296,6 +301,7 @@
 <script src="egbc-ics.js?v=202610101200"></script>
 <script src="egbc-events.js?v=202610101800"></script>
 <script src="egbc-events-kids.js?v=202610101200"></script>
+<script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-checkin.js?v=202610101200"></script>
 <script src="egbc-events-bookings.js?v=202610131800"></script>
 <script src="egbc-events-groups.js?v=202610101200"></script>
@@ -353,7 +359,7 @@ const db = firebase.firestore(EGBCAuth.app);
    the first draw shows what is already known and the rest arrives.
    refresh() is a no-op if the person has moved on (F-131). */
 
-var HOME = { loaded: false, ready: false, serving: [], events: [], groups: [], family: [], news: [], plans: [] };
+var HOME = { loaded: false, ready: false, serving: [], events: [], groups: [], family: [], familyWeek: [], news: [], plans: [] };
 
 /* THE SUNDAY PLANS THIS PERSON IS ON (Martin, 12 Oct 2026: "the
    read-only plan shows on Home for anyone in the audience").
@@ -602,12 +608,66 @@ function loadHome(me) {
     /* THE SUNDAY PLAN THEY ARE ON (Martin, 12 Oct 2026). A preacher or a
        service leader is on no team, so nothing else on this screen would
        ever mention them - and the email's link was refusing them. */
-    loadMyPlan(me).then(function (r) { HOME.plans = r; }, function () {})
+    loadMyPlan(me).then(function (r) { HOME.plans = r; }, function () {}),
+    /* YOUR FAMILY THIS WEEK (§4): the household's serving and groups, from
+       the server, because the household needs the whole address book. A
+       failure leaves the section out rather than the screen broken. */
+    (window.EGBCAuth && EGBCAuth.call ? EGBCAuth.call('myFamily', {}) : Promise.resolve(null))
+      .then(function (r) { HOME.familyWeek = (r && r.week) || []; }, function () {})
   ];
   /* `ready` tells an empty Home the difference between still looking and
      there being nothing. Without it, a new person reads "nothing for you
      this week" for a second before their week appears. */
   Promise.all(jobs).then(function () { HOME.ready = true; A.refresh('me', 'home'); });
+}
+
+/* A list of first names as a person would say it: "Ada and Ben". */
+function andList(a) {
+  a = a.filter(Boolean);
+  return a.length < 2 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+}
+function firstOf(s) { return String(s || '').trim().split(/\s+/)[0]; }
+function dayShort(iso) {
+  var d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function parentsSunday(f) {
+  var kids = (f.children || []);
+  var names = andList(kids.map(function (c) { return firstOf(c.name); }));
+  var title = !names ? 'Kids Church this Sunday'
+    : f.collectionCode ? names + (kids.length > 1 ? ' are' : ' is') + ' in Kids Church'
+    : names + (kids.length > 1 ? ' are' : ' is') + ' booked into Kids Church';
+  var body;
+  if (f.collectionCode) {
+    body = '<p class="sub">Your collection code</p>'
+      + '<p class="pcode" aria-label="Collection code ' + A.esc(String(f.collectionCode).split('').join(' ')) + '">'
+      + A.esc(f.collectionCode) + '</p>'
+      + '<p class="sub">Show it when you collect.</p>';
+  } else {
+    /* qrSvg is drawn by egbc-events-qr.js from the family code alone. */
+    body = (f.qrSvg ? '<div class="pqr" role="img" aria-label="Family check-in code">' + f.qrSvg + '</div>' : '')
+      + '<p class="sub">Show this at the desk when you arrive.</p>'
+      + (f.familyCode ? '<p class="sub">Family code <b>' + A.esc(f.familyCode) + '</b></p>' : '');
+  }
+  var list = kids.map(function (c) {
+    var st = c.state === 'in' ? '<span class="pill">In</span>'
+      : c.state === 'out' ? '<span class="pill n">Collected</span>' : '<span class="pill n">Expected</span>';
+    return row('baby', firstOf(c.name), c.group || 'Kids Church', st, null, A.SPACES.kids.colour, A.SPACES.kids.tint);
+  }).join('');
+  return sec('This Sunday', '<div class="card notice parents"><b>' + A.esc(title) + '</b>' + body + '</div>'
+    + (list ? card(list) : ''));
+}
+
+/* One row of "Your family this week": who, and when and where only. */
+function familyRow(w) {
+  if (w.kind === 'group') {
+    return row('sparkles', (w.group || 'A group') + ' · ' + w.firstName,
+      [dayShort(w.date), w.time, w.where].filter(Boolean).join(' · '), null, null,
+      A.SPACES.youth ? A.SPACES.youth.colour : null, A.SPACES.youth ? A.SPACES.youth.tint : null);
+  }
+  return row('calendar-days', w.firstName + ' · ' + (w.roles || []).join(', '),
+    [dayShort(w.date), w.title, w.time].filter(Boolean).join(' · '), null, null);
 }
 
 /* Feature 'notifications' (HANDOVER-MAIN rule 12). */
@@ -665,14 +725,19 @@ A.screen('me', 'home', function (me) {
     }).join(''), ['Whole rota', 'open:view-only-rota.html']);
   }
 
-  /* This Sunday, for parents (F-145) */
+  /* THIS SUNDAY, FOR PARENTS (F-121, F-145). Drawn from what the events
+     window's helper returns: before arriving, the family QR the desk scans;
+     once a child is in, the COLLECTION CODE, large, because it is read off
+     a phone across a room. The earlier version read f.name, f.line and
+     f.code, which the helper never sends - it showed "Your children" and
+     no code at all. */
   if (HOME.family.length) {
-    out += sec('This Sunday', card(HOME.family.map(function (f) {
-      return row('baby', f.name || 'Your children',
-        f.line || f.note || 'Kids Church this Sunday',
-        f.code ? '<span class="pill">' + A.esc(f.code) + '</span>' : null,
-        null, A.SPACES.kids.colour, A.SPACES.kids.tint);
-    }).join('')));
+    out += HOME.family.map(parentsSunday).join('');
+  }
+
+  /* Your family this week (§4) */
+  if (HOME.familyWeek.length) {
+    out += sec('Your family this week', card(HOME.familyWeek.map(familyRow).join('')));
   }
 
   /* Your events */
@@ -741,7 +806,7 @@ A.screen('me', 'home', function (me) {
     'Say which Sundays you can do', null, 'open:index.html',
     A.SPACES.me.colour, A.SPACES.me.tint));
 
-  if (!HOME.serving.length && !HOME.family.length && !HOME.events.length
+  if (!HOME.serving.length && !HOME.family.length && !HOME.familyWeek.length && !HOME.events.length
       && !HOME.groups.length && !HOME.news.length) {
     out += A.empty('calendar-days',
       HOME.ready ? 'Nothing for you this week. What’s on has everything coming up.'

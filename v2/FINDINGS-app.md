@@ -2713,3 +2713,32 @@ switch writes this setting, and it's drawn for master admins alone.
 **From the events window (F-160), recorded:** the rota reminder carries no
 arrival time, only the service's start time, because the rota holds none.
 Fine for launch.
+
+### A-082 — item 6a: "Your family this week", and Parents' Sunday drawn from what it really gets
+
+**`myFamily`** (codebase "hub", `functions/family.js`) answers "your family
+this week" for the person signed in. It runs on the server because the
+household needs the whole address book, which an Attender may not read
+(APP-A1 §3). It uses the calendar feed's `householdIds()`, followed both
+ways, so there's no second household model. It returns **first names only**
+(A-043), and for this week each family member's rota slots (not drafts, not
+archived) and their groups' meetings (the events window's calendar events
+for a team they're on, confirmed only), with when and where. It never
+includes the person themselves (that's "You are serving") or anybody outside
+the household. **It's a new function, so it needs a deploy** (`functions:hub`),
+which is safe: it reads and writes nothing else.
+
+**Home** shows "Your family this week" from it, and draws Parents' Sunday
+again properly. **That card was broken:** it read `f.name`, `f.line` and
+`f.code`, which the events window's `myFamilyThisSunday()` never sends, so
+it said "Your children" and never showed a code. It now uses the real
+fields: the children's first names, the family QR for the desk before
+arriving (`egbc-events-qr.js` is now loaded in the app; it wasn't, so the QR
+could never appear), and once a child is in, **the collection code, large**
+(44px, read letter by letter by a screen reader), with each child's state.
+
+`tests/check-family.mjs` **21/21**. Five breaks caught: self included, full
+names, drafts counted, held events counted, the code drawn small. **The held
+one first passed for the wrong reason:** the held event was a Lazers one, in
+Sarah's household, and I had only asserted on Karen's answer, where it could
+never appear. The assertion is now on Sarah's, and the break fails it.

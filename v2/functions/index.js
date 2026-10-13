@@ -33,6 +33,7 @@ import {
   SETUP_FAILED
 } from './churchshow.js';
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
+import { myFamily as myFamilyIn } from './family.js';
 
 initializeApp();
 const db = getFirestore();
@@ -649,3 +650,16 @@ export const checksReminders = onSchedule(
   { schedule: '0 9 * * 1', timeZone: 'Europe/London', retryCount: 2 },
   async () => { await Notify.runChecksReminders(await notifyDeps(), new Date()); }
 );
+
+/* =================================================================
+   The family rule (APP-DESIGN-BRIEF §4; APP-A1 §3)
+   =================================================================
+
+   "Your family this week" on Home: the caller's household, first names
+   only, and this week's rota slots and group meetings - when and where,
+   nothing else. A function because the household needs the whole address
+   book, which an Attender may not read. See family.js.                  */
+export const myFamily = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return orThrow(await myFamilyIn(db, { uid: request.auth.uid, now: new Date() }));
+});
