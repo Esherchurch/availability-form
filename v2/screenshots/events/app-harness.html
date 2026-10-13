@@ -54,6 +54,14 @@
     --warn:#9a5b00;    --warn-tint:#fdf3e2;
     --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
     --sp:var(--brand);
+    /* THE NAMES THE SHARED SERVICE PLANNER USES (§7b). egbc-core-planner.js
+       came out of CoreTeamApp, whose palette calls these --teal, --border
+       and --white. They are pointed at this app's own tokens rather than
+       given values of their own, so the planner follows the app - including
+       into dark mode, which redefines what they point AT and needs no
+       second list here. */
+    --teal:var(--brand); --teal-light:var(--brand-tint);
+    --border:var(--line); --white:var(--surface);
   }
   /* The mock-up follows the phone's own light or dark setting, and so does
      the app. Kept whole rather than dropped: a church app that glares at
@@ -161,6 +169,13 @@
      to work on an <a> too, without the browser's underline. */
   a.btn{text-decoration:none}
 
+  /* The service planner's container. It brings its own styles; this only
+     gives them the full width of the tab, since the planner's own cards
+     carry their 12px margins. */
+  .sp-host{margin:0 -16px}
+  /* The rota brings its own toolbar and scrolling list. */
+  .cr-host{margin:0 -16px;display:flex;flex-direction:column;min-height:60vh}
+
   .list{display:grid}
   .card.list{display:grid}
   .row{display:flex;gap:12px;align-items:center;padding:12px 14px;border:0;background:none;
@@ -180,6 +195,11 @@
 
   .notice{padding:12px 14px;display:grid;gap:4px}
   .notice + .notice{border-top:1px solid var(--line)}
+  /* F-145: the collection code is read off a phone across a room. */
+  .parents{text-align:center}
+  .parents .pcode{font-size:44px;font-weight:700;letter-spacing:.14em;color:var(--ink);margin:2px 0;line-height:1.1}
+  .parents .pqr{display:flex;justify-content:center;margin:6px 0}
+  .parents .pqr svg{width:180px;height:180px;max-width:100%}
   .notice b{color:var(--ink);font-weight:600}
   .notice p{margin:0;font-size:13px}
   /* 12px, not the mock-up's 11.5px: DESIGN.md's floor, and the style check
@@ -218,7 +238,7 @@
 </head>
 <body>
 <div id="egbc-app"></div>
-<script src="../../egbc-app.js?v=202610101200"></script>
+<script src="../../egbc-app.js?v=202610131500"></script>
 <script src="../../egbc-app-events.js"></script>
 <script src="../../egbc-app-kids.js"></script>
 <script src="../../egbc-app-listen.js"></script>

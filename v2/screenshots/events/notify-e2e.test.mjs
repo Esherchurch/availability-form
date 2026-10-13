@@ -207,6 +207,11 @@ try {
   await MO.evaluate(() => EGBCNotify.loadPrefs().then(p => { p.types.rota = false; return EGBCNotify.savePrefs(p); }));
   ok('   Mo turns "the day before I serve" off', (await db.collection('notifyPrefs').doc(P.mo.uid).get()).data().types.rota === false);
 
+  /* ---------- 0b. the main window's master switch (A-081), off by default ---------- */
+  const r0 = await JO.evaluate((id) => EGBCNotify.callParent(id).then(r => ({ r, words: EGBCNotify.callWords(r) })), CK);
+  ok('0. SWITCHED OFF (the default): calling a parent is refused in words, and nothing is sent', r0.r.error === 'failed-precondition' && /not switched on yet/.test(r0.words) && (await pushes()).length === 0, J(r0));
+  await db.collection('churchSettings').doc('notifications').set({ live: true });
+
   /* ---------- 1. call a parent ---------- */
   const r1 = await JO.evaluate((id) => EGBCNotify.callParent(id).then(r => ({ r, words: EGBCNotify.callWords(r) })), CK);
   ok('1. CALL A PARENT: Jo (Juniors\' leader) presses it: one phone, one email', r1.r.phones === 1 && r1.r.emailed === 1, J(r1));

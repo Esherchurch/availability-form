@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Watch</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610121800" data-title="Watch"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610121600"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610131800"></script>
+<script src="egbc-watch.js?v=202610141000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px calc(72px + env(safe-area-inset-bottom))}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  label.l{display:block;font-size:14px;font-weight:500;color:var(--ink);margin:10px 0 5px}
+  .inp,select{min-height:48px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 15px Inter,sans-serif;color:var(--ink);background:#fff;width:100%;min-width:0}
+  .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}
+  @media (max-width:480px){.two{grid-template-columns:minmax(0,1fr)}}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 18px;border-radius:10px;font:600 15px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn:disabled{opacity:.55}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.small{min-height:40px;font-size:14px;padding:0 12px}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .row{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:none}
+  .row .t{flex:1;min-width:0;overflow-wrap:break-word}.row .t b{color:var(--ink)}
+  .pill{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.off{background:#f3f4f6;color:var(--muted)}
+  .hint{font-size:13px;color:var(--muted)}
+  .st{border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0}.st.ok{background:var(--ok-bg);color:var(--ok)}.st.no{background:var(--danger-bg);color:var(--danger)}.st.warn{background:var(--gold-bg);color:var(--gold)}
+  .radio{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:14px}.radio input{margin-top:3px}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Watch</h1>
+  <p class="sub">The live service, full services for the church, and the church's YouTube channel, in "Listen &amp; Watch" in the app. <a href="sermons-admin.html" style="color:var(--brand)">Sermons</a> are on their own page.</p>
+  <div id="main"><div class="card hint">Loading…</div></div>
+</div>
+<div id="toast"></div>
+<script>
+(function () {
+  'use strict';
+  /* WATCH (NEXT-BRIEF §24 item 5; F-163), for the people who look after
+     sermons (sermonShow/access, and master admins). Every part is the
+     church's own setting; the rules enforce who and what (videos,
+     watchShow). Nothing here is ever shown signed out. */
+  var E = window.EGBCEvents, W = window.EGBCWatch, esc = E.esc;
+  var ME = {}, MASTER = false, MAY = false, ACCESS = { memberIds: [] }, SET = W.settingsOf(null), LIVE = null, STATUS = null, VIDEOS = [], BUSY = false;
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function now() { return firebase.firestore.FieldValue.serverTimestamp(); }
+  function $(id) { return document.getElementById(id); }
+  function val(id) { var e = $(id); return e ? String(e.value || '').trim() : ''; }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 4000); }
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+  /* A time on this device's clock, as a date-and-time box wants it, and back. */
+  function boxOf(ms) { if (!ms) return ''; var d = new Date(ms), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+  function msOf(box) { var t = box ? new Date(box).getTime() : NaN; return isFinite(t) ? t : 0; }
+  function said(ms) { var d = new Date(ms); return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' at ' + d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' }); }
+  function today() { return boxOf(Date.now()).slice(0, 10); }
+
+  /* ---------------- drawing ---------------- */
+  function draw() {
+    if (!(window.EGBCChurch && EGBCChurch.uses ? EGBCChurch.uses('watch') : true)) {
+      $('main').innerHTML = '<div class="card"><h2>Watch is switched off for this church</h2><p>It can be switched on in "What does your church use?".</p></div>'; return;
+    }
+    if (!MAY) { $('main').innerHTML = '<div class="card"><h2>Only the people who look after sermons can do this</h2><p>Ask the office if it should be you.</p></div>'; return; }
+    $('main').innerHTML = liveCard() + membersCard() + channelCard() + settingsCard();
+    wire();
+  }
+
+  /* (c) This week's live service */
+  function liveCard() {
+    var l = LIVE && LIVE.url ? LIVE : null, d = W.defaultTimes(SET, new Date()), st = l ? W.liveState(l, new Date()) : null;
+    var now = !l ? '<p class="st warn" id="lv-state">No live link at the moment.</p>'
+      : st === 'live' ? '<p class="st ok" id="lv-state">Showing as “Watch live” until ' + esc(said(l.showUntil)) + (l.after === 'again' ? ', then “Watch again” until ' + esc(said(l.againUntil)) : ', then it disappears') + '.</p>'
+      : st === 'again' ? '<p class="st ok" id="lv-state">Showing as “Watch again” until ' + esc(said(l.againUntil)) + '.</p>'
+      : Date.now() < l.showFrom ? '<p class="st warn" id="lv-state">Saved. It shows from ' + esc(said(l.showFrom)) + '.</p>'
+      : '<p class="st warn" id="lv-state">Finished: not showing any more.</p>';
+    var after = l ? l.after : SET.after;
+    return '<div class="card" id="live"><h2>This week\'s live service</h2>' +
+      '<p class="hint" style="margin:0 0 6px">A “Watch live” card on everyone\'s Home in the app, for people signed in only. It is never on a public page. ' +
+      'The link is unlisted on YouTube: anyone who has it can pass it on.</p>' + now +
+      '<label class="l" for="lv-url">The live link from YouTube</label><input class="inp" id="lv-url" maxlength="300" inputmode="url" placeholder="https://youtube.com/live/…" value="' + esc(l ? l.url : '') + '">' +
+      '<label class="l" for="lv-title">What to call it</label><input class="inp" id="lv-title" maxlength="120" value="' + esc(l ? l.title || '' : 'Sunday morning') + '">' +
+      '<div class="two"><div><label class="l" for="lv-from">Show from</label><input class="inp" type="datetime-local" id="lv-from" value="' + boxOf(l ? l.showFrom : d.showFrom) + '"></div>' +
+      '<div><label class="l" for="lv-until">Show until</label><input class="inp" type="datetime-local" id="lv-until" value="' + boxOf(l ? l.showUntil : d.showUntil) + '"></div></div>' +
+      '<label class="l">Then</label>' +
+      '<label class="radio"><input type="radio" name="lv-after" value="disappear"' + (after !== 'again' ? ' checked' : '') + '> The card disappears</label>' +
+      '<label class="radio"><input type="radio" name="lv-after" value="again"' + (after === 'again' ? ' checked' : '') + '> It becomes “Watch again” until:</label>' +
+      '<input class="inp" type="datetime-local" id="lv-again" value="' + boxOf(l && l.againUntil ? l.againUntil : d.againUntil) + '">' +
+      '<div class="acts"><button class="btn" id="lv-go">Save the live link</button>' + (l ? '<button class="btn sec" id="lv-off">Take it down</button>' : '') + '</div></div>';
+  }
+
+  /* (b) Full services for the church */
+  function membersCard() {
+    var list = VIDEOS.filter(function (v) { return v.source === 'members'; }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    return '<div class="card" id="members"><h2>Full services, for the church</h2>' +
+      '<p class="hint" style="margin:0 0 6px">Services that are not public on the channel. On YouTube, set the video to <b>unlisted</b> (a private video cannot be shared this way). ' +
+      'Only people signed in see it here, but an unlisted link can still be passed on by anyone who has it.</p>' +
+      (list.length ? list.map(function (v) {
+        return '<div class="row"><div class="t"><b>' + esc(v.title) + '</b><br><span class="hint">' + esc(E.fmtDate(v.date + 'T12:00')) + ' · ' +
+          (v.audience === 'churchMembers' ? 'church members only' : 'everyone signed in') + '</span></div>' +
+          '<button class="btn sec small" data-mvdel="' + esc(v.id) + '">Remove</button></div>';
+      }).join('') : '<p class="hint" id="mv-none">None yet.</p>') +
+      '<label class="l" for="mv-url">The video\'s link</label><input class="inp" id="mv-url" maxlength="300" inputmode="url" placeholder="https://youtu.be/…">' +
+      '<label class="l" for="mv-title">Its name</label><input class="inp" id="mv-title" maxlength="200" placeholder="Morning service, 11 October">' +
+      '<div class="two"><div><label class="l" for="mv-date">Date</label><input class="inp" type="date" id="mv-date" value="' + today() + '"></div>' +
+      '<div><label class="l" for="mv-who">Who sees it</label><select id="mv-who"><option value="signedIn">Everyone signed in</option><option value="churchMembers">Church members only</option></select></div></div>' +
+      '<div class="acts"><button class="btn" id="mv-go">Add it</button></div></div>';
+  }
+
+  /* (a) The church's channel */
+  function channelCard() {
+    var s = STATUS, feed = VIDEOS.filter(function (v) { return v.source === 'feed'; }).sort(function (a, b) { return String(b.published).localeCompare(String(a.published)); });
+    var said2 = !SET.channelId ? '<p class="st warn" id="ch-state">No channel yet, so no videos come in.</p>'
+      : !s ? '<p class="st warn" id="ch-state">Saved. The channel is read every hour; the first read has not happened yet.</p>'
+      : s.ok ? '<p class="st ok" id="ch-state">Last read: ' + (s.videos || 0) + ' video' + (s.videos === 1 ? '' : 's') + (s.channelTitle ? ' from “' + esc(s.channelTitle) + '”' : '') + (s.created ? ', ' + s.created + ' new' : '') + '.</p>'
+      : '<p class="st no" id="ch-state">The last read did not work: ' + esc(s.error || 'no reason given') + ' Check the channel id.</p>';
+    return '<div class="card" id="channel"><h2>The church\'s YouTube channel</h2>' +
+      '<p class="hint" style="margin:0 0 6px">Its latest public videos come in by themselves within the hour and play in the app. Hide any you do not want there.</p>' + said2 +
+      (feed.length ? feed.slice(0, 15).map(function (v) {
+        return '<div class="row"><div class="t"><b>' + esc(v.title) + '</b><br><span class="hint">' + esc(E.fmtDate(String(v.published).slice(0, 10) + 'T12:00')) + '</span> ' +
+          (v.hidden ? '<span class="pill off">hidden</span>' : '<span class="pill ok">shown</span>') + '</div>' +
+          '<button class="btn sec small" data-yt="' + esc(v.id) + '" data-hide="' + (v.hidden ? '0' : '1') + '">' + (v.hidden ? 'Show' : 'Hide') + '</button></div>';
+      }).join('') : '') +
+      '<label class="l" for="ch-id">The channel\'s id</label><input class="inp" id="ch-id" maxlength="24" placeholder="UC…" value="' + esc(SET.channelId) + '">' +
+      '<p class="hint">In YouTube Studio: Settings, Channel, Advanced settings. It starts UC.</p>' +
+      '<div class="acts"><button class="btn" id="ch-go">Save the channel</button></div></div>';
+  }
+
+  /* The church's defaults for the live card */
+  function settingsCard() {
+    return '<div class="card" id="defaults"><h2>The live card, every week</h2>' +
+      '<p class="hint" style="margin:0 0 6px">What a new live link starts with. You can still change it for one week above.</p>' +
+      '<div class="two"><div><label class="l" for="df-day">It goes on</label><select id="df-day">' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (SET.untilDay === i ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="l" for="df-time">At</label><input class="inp" type="time" id="df-time" value="' + esc(SET.untilTime) + '"></div></div>' +
+      '<label class="l">Then</label>' +
+      '<label class="radio"><input type="radio" name="df-after" value="disappear"' + (SET.after !== 'again' ? ' checked' : '') + '> The card disappears</label>' +
+      '<label class="radio"><input type="radio" name="df-after" value="again"' + (SET.after === 'again' ? ' checked' : '') + '> It becomes “Watch again” for <input class="inp" type="number" min="1" max="31" id="df-days" value="' + SET.againDays + '" style="width:80px;min-height:40px;display:inline-block"> days</label>' +
+      '<div class="acts"><button class="btn" id="df-go">Save</button></div></div>';
+  }
+
+  function wire() {
+    $('lv-go').onclick = saveLive;
+    if ($('lv-off')) $('lv-off').onclick = takeDown;
+    $('mv-go').onclick = addMembers;
+    document.querySelectorAll('[data-mvdel]').forEach(function (b) { b.onclick = function () { removeMembers(b.dataset.mvdel); }; });
+    document.querySelectorAll('[data-yt]').forEach(function (b) { b.onclick = function () { setHidden(b.dataset.yt, b.dataset.hide === '1'); }; });
+    $('ch-go').onclick = function () { saveSettings({ channelId: val('ch-id') }); };
+    $('df-go').onclick = function () {
+      saveSettings({ untilDay: +val('df-day'), untilTime: val('df-time'), after: (document.querySelector('input[name="df-after"]:checked') || {}).value || 'disappear', againDays: +val('df-days') || 7 });
+    };
+  }
+
+  /* ---------------- saving ---------------- */
+  function saveLive() {
+    if (BUSY) return;
+    var url = val('lv-url'), vid = W.videoIdFromUrl(url), from = msOf(val('lv-from')), until = msOf(val('lv-until'));
+    var after = (document.querySelector('input[name="lv-after"]:checked') || {}).value || 'disappear', again = msOf(val('lv-again'));
+    if (!vid) { toast('That is not a YouTube video link'); return; }
+    if (!from || !until || until <= from) { toast('“Show until” must come after “Show from”'); return; }
+    if (after === 'again' && !(again > until)) { toast('“Watch again” must end after the card does'); return; }
+    BUSY = true;
+    db().collection('watchShow').doc('live').set({ url: url, videoId: vid, title: val('lv-title').slice(0, 120), showFrom: from, showUntil: until, after: after,
+      againUntil: after === 'again' ? again : 0, updatedAt: now(), updatedBy: uid() })
+      .then(function () { BUSY = false; toast('Saved. Everyone signed in sees it from ' + said(from) + '.'); return load(); })
+      .catch(function (e) { BUSY = false; toast('Could not: ' + (e.message || e)); });
+  }
+  function takeDown() {
+    db().collection('watchShow').doc('live').set({ url: '', updatedAt: now(), updatedBy: uid() })
+      .then(function () { toast('Taken down.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+  }
+  function addMembers() {
+    if (BUSY) return;
+    var url = val('mv-url'), vid = W.videoIdFromUrl(url), title = val('mv-title'), date = val('mv-date');
+    if (!vid) { toast('That is not a YouTube video link'); return; }
+    if (!title) { toast('Give it a name'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Give its date'); return; }
+    BUSY = true;
+    db().collection('videos').doc('mv_' + vid).set({ source: 'members', videoId: vid, url: url, title: title.slice(0, 200), date: date, audience: val('mv-who') === 'churchMembers' ? 'churchMembers' : 'signedIn',
+      note: '', hidden: false, addedBy: uid(), addedAt: now(), updatedAt: now() })
+      .then(function () { BUSY = false; toast('Added. Everyone it is for sees it in Listen & Watch.'); return load(); })
+      .catch(function (e) { BUSY = false; toast('Could not: ' + (e.message || e)); });
+  }
+  function removeMembers(id) {
+    if (!confirm('Take this service out of the app? It stays on YouTube.')) return;
+    db().collection('videos').doc(id).delete().then(function () { toast('Taken out.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+  }
+  function setHidden(id, hide) {
+    db().collection('videos').doc(id).update({ hidden: hide }).then(function () { toast(hide ? 'Hidden from the app.' : 'Shown in the app.'); return load(); })
+      .catch(function (e) { toast('Could not: ' + (e.message || e)); });
+  }
+  function saveSettings(patch) {
+    var s = Object.assign({}, SET, patch);
+    if (s.channelId && !/^UC[A-Za-z0-9_-]{22}$/.test(s.channelId)) { toast('A channel id starts UC and is 24 characters long'); return; }
+    var clean = W.settingsOf(s); clean.channelId = s.channelId || '';
+    db().collection('watchShow').doc('settings').set({ channelId: clean.channelId, untilDay: clean.untilDay, untilTime: clean.untilTime, after: clean.after, againDays: clean.againDays,
+      updatedAt: now(), updatedBy: uid() })
+      .then(function () { toast('Saved.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+  }
+
+  /* ---------------- loading ---------------- */
+  function load() {
+    return Promise.all([
+      db().collection('watchShow').doc('settings').get().catch(function () { return null; }),
+      db().collection('watchShow').doc('live').get().catch(function () { return null; }),
+      db().collection('watchShow').doc('feedStatus').get().catch(function () { return null; }),
+      db().collection('videos').where('source', '==', 'feed').get().catch(function () { return { docs: [] }; }),
+      db().collection('videos').where('source', '==', 'members').get().catch(function () { return { docs: [] }; })
+    ]).then(function (r) {
+      SET = W.settingsOf(r[0] && r[0].exists ? r[0].data() : null);
+      LIVE = r[1] && r[1].exists ? r[1].data() : null;
+      STATUS = r[2] && r[2].exists ? r[2].data() : null;
+      VIDEOS = all(r[3]).concat(all(r[4]));
+      draw();
+    });
+  }
+
+  EGBCAuth.require().then(function (profile) {
+    ME = profile || {};
+    MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+    return db().collection('sermonShow').doc('access').get().then(function (d) { ACCESS = d.exists ? d.data() : { memberIds: [] }; }, function () { ACCESS = { memberIds: [] }; });
+  }).then(function () {
+    MAY = MASTER || (ACCESS.memberIds || []).indexOf(ME.memberId) >= 0;
+    if (!MAY) { draw(); return; }
+    return load();
+  }).catch(function (e) { $('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

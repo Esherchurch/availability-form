@@ -212,5 +212,36 @@
     });
   }
 
-  global.EGBCEventsHome = { myEvents: myEvents, myGroupsNext: myGroupsNext, myFamilyThisSunday: myFamilyThisSunday, officeQueue: officeQueue, officeToday: officeToday };
+  /* ---- "Watch live" on Home (NEXT-BRIEF §24 item 5; F-163) ----
+     For the main window's Home card. Signed-in people only (the rules
+     refuse watchShow/live to anyone else), and only while the office's
+     live link is showing:
+       null, or { state: 'live' | 'again', title, videoId, embed, until,
+                  action: 'open:' + the Listen & Watch tab }
+     'live' from show-from to show-until; then, as the church chose, nothing,
+     or 'again' until the second time. Asks EGBCChurch.uses('watch') first.
+     egbc-watch.js is fetched beside this file the first time. */
+  var watchLoading = null;
+  function watchReady() {
+    if (global.EGBCWatch) return Promise.resolve(global.EGBCWatch);
+    if (!watchLoading) watchLoading = new Promise(function (res, rej) {
+      var sc = document.createElement('script');
+      sc.src = BASE + 'egbc-watch.js?v=202610141000';
+      sc.onload = function () { global.EGBCWatch ? res(global.EGBCWatch) : rej(new Error('no EGBCWatch')); };
+      sc.onerror = function () { watchLoading = null; rej(new Error('egbc-watch.js could not be loaded')); };
+      document.head.appendChild(sc);
+    });
+    return watchLoading;
+  }
+  function watchLive(now) {
+    if (global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('watch')) return Promise.resolve(null);
+    if (!uid()) return Promise.resolve(null);
+    return Promise.all([watchReady(), db().collection('watchShow').doc('live').get()]).then(function (r) {
+      var W = r[0], l = r[1].exists ? r[1].data() : null, st = W.liveState(l, now || new Date());
+      if (!st) return null;
+      return { state: st, title: l.title || '', videoId: l.videoId, embed: W.embedUrl(l.videoId), until: st === 'live' ? l.showUntil : l.againUntil, action: 'app:me/listen' };
+    }).catch(function () { return null; });
+  }
+
+  global.EGBCEventsHome = { myEvents: myEvents, myGroupsNext: myGroupsNext, myFamilyThisSunday: myFamilyThisSunday, officeQueue: officeQueue, officeToday: officeToday, watchLive: watchLive };
 })(typeof window !== 'undefined' ? window : this);

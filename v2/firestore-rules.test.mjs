@@ -2205,6 +2205,65 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the place has its own shape', 'deny', () => setDoc(doc(ctx('u_listen'), 'listenProgress', 'u_listen', 'sermons', 'srm_1'), P({ pos: -3 })));
 }
 
+// ── EVENTS (events window) ── Watch: the YouTube channel, members-only services, the live link (NEXT-BRIEF §24 item 5; F-163)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'users', 'u_watcher'), { uid: 'u_watcher', memberId: 'm_watcher', status: 'active', name: 'Wes Watcher', teams: [], adminFor: [], masterAdmin: false, attender: true });
+    await setDoc(doc(db, 'users', 'u_cmember'), { uid: 'u_cmember', memberId: 'm_cmember', status: 'active', name: 'Cam Member', teams: [], adminFor: [], masterAdmin: false, attender: true, churchMember: true });
+    /* A channel video exactly as the hub function writes it. */
+    await setDoc(doc(db, 'videos', 'yt_aaaaaaaaaa1'), { source: 'feed', videoId: 'aaaaaaaaaa1', title: 'Harvest (invented)', published: '2026-10-04T10:30:00Z', thumb: '', description: '', hidden: false, createdAt: 'x', updatedAt: 'x' });
+  });
+  const MV = (vid, extra) => ({ source: 'members', videoId: vid, url: 'https://youtu.be/' + vid, title: 'Full service, 11 Oct (invented)', date: '2026-10-11', audience: 'signedIn',
+    note: '', hidden: false, addedBy: 'u_preach', addedAt: serverTimestamp(), updatedAt: serverTimestamp(), ...(extra || {}) });
+  const NOW = Date.now();
+  const LIVE = (who, extra) => ({ url: 'https://www.youtube.com/live/llllllllll1', videoId: 'llllllllll1', title: 'Sunday morning', showFrom: NOW, showUntil: NOW + 6 * 3600e3,
+    after: 'disappear', againUntil: 0, updatedAt: serverTimestamp(), updatedBy: who, ...(extra || {}) });
+  const SET = (who, extra) => ({ channelId: 'UCf7lMnb24HfNJKGpMeYdQXQ', untilDay: 0, untilTime: '16:00', after: 'disappear', againDays: 7, updatedAt: serverTimestamp(), updatedBy: who, ...(extra || {}) });
+
+  /* who looks after it: the sermon people (Pat, named above) */
+  await check('WATCH: the person who looks after sermons adds a members-only full service (an unlisted link)', 'allow', () => setDoc(doc(ctx('u_preach'), 'videos', 'mv_mmmmmmmmmm1'), MV('mmmmmmmmmm1')));
+  await check('SOMEONE NOT NAMED CANNOT, not even an admin of another area', 'deny', () => setDoc(doc(as('karen'), 'videos', 'mv_mmmmmmmmmm2'), MV('mmmmmmmmmm2', { addedBy: 'u_karen' })));
+  await check('its document is its video\'s own (no second copy under another id)', 'deny', () => setDoc(doc(ctx('u_preach'), 'videos', 'mv_other'), MV('mmmmmmmmmm3')));
+  await check('only a YouTube link', 'deny', () => setDoc(doc(ctx('u_preach'), 'videos', 'mv_mmmmmmmmmm4'), MV('mmmmmmmmmm4', { url: 'https://example.invalid/mmmmmmmmmm4' })));
+  await check('NO PAGE CAN MAKE A CHANNEL VIDEO (only the function reads the feed)', 'deny', () => setDoc(doc(ctx('u_preach'), 'videos', 'yt_zzzzzzzzzz9'),
+    { source: 'feed', videoId: 'zzzzzzzzzz9', title: 'Fake', published: 'x', thumb: '', description: '', hidden: false, createdAt: 'x', updatedAt: 'x' }));
+  await check('the office may hide a channel video', 'allow', () => updateDoc(doc(ctx('u_preach'), 'videos', 'yt_aaaaaaaaaa1'), { hidden: true }));
+  await check('but not rename it (the feed owns that)', 'deny', () => updateDoc(doc(ctx('u_preach'), 'videos', 'yt_aaaaaaaaaa1'), { title: 'Renamed' }));
+  await check('nor delete it', 'deny', () => deleteDoc(doc(ctx('u_preach'), 'videos', 'yt_aaaaaaaaaa1')));
+
+  /* who reads */
+  await check('a channel video is public (it is on YouTube already)', 'allow', () => getDoc(doc(guest(), 'videos', 'yt_aaaaaaaaaa1')));
+  await check('THE MEMBERS\' FULL SERVICE: NOT SIGNED OUT', 'deny', () => getDoc(doc(guest(), 'videos', 'mv_mmmmmmmmmm1')));
+  await check('nor a list of them', 'deny', () => getDocs(query(collection(guest(), 'videos'), where('source', '==', 'members'))));
+  await check('everyone signed in sees it (the default)', 'allow', () => getDoc(doc(ctx('u_watcher'), 'videos', 'mv_mmmmmmmmmm1')));
+  await check('and lists them', 'allow', () => getDocs(query(collection(ctx('u_watcher'), 'videos'), where('source', '==', 'members'), where('audience', '==', 'signedIn'))));
+  await check('one for church members only', 'allow', () => setDoc(doc(ctx('u_preach'), 'videos', 'mv_cccccccccc1'), MV('cccccccccc1', { audience: 'churchMembers' })));
+  await check('is not seen by an attender', 'deny', () => getDoc(doc(ctx('u_watcher'), 'videos', 'mv_cccccccccc1')));
+  await check('is seen by a church member', 'allow', () => getDoc(doc(ctx('u_cmember'), 'videos', 'mv_cccccccccc1')));
+  await check('the office may take one away', 'allow', () => deleteDoc(doc(ctx('u_preach'), 'videos', 'mv_cccccccccc1')));
+
+  /* the live link */
+  await check('THE LIVE LINK: the office sets this week\'s', 'allow', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'live'), LIVE('u_preach')));
+  await check('IT IS NEVER READ SIGNED OUT', 'deny', () => getDoc(doc(guest(), 'watchShow', 'live')));
+  await check('everyone signed in reads it', 'allow', () => getDoc(doc(ctx('u_watcher'), 'watchShow', 'live')));
+  await check('someone not named cannot set it', 'deny', () => setDoc(doc(as('karen'), 'watchShow', 'live'), LIVE('u_karen')));
+  await check('it ends after it starts', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'live'), LIVE('u_preach', { showUntil: NOW - 1 })));
+  await check('"Watch again" needs its own end, after the card\'s', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'live'), LIVE('u_preach', { after: 'again', againUntil: NOW })));
+  await check('with one, it is fine', 'allow', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'live'), LIVE('u_preach', { after: 'again', againUntil: NOW + 7 * 864e5 })));
+  await check('only a YouTube link', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'live'), LIVE('u_preach', { url: 'https://example.invalid/live' })));
+  await check('taken away: an empty link', 'allow', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'live'), { url: '', updatedAt: serverTimestamp(), updatedBy: 'u_preach' }));
+
+  /* the church's choices */
+  await check('THE CHURCH\'S SETTINGS: the channel and the live card\'s defaults', 'allow', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach')));
+  await check('a channel id is a channel id', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach', { channelId: 'https://youtube.com/@x' })));
+  await check('a day of the week is 0 to 6', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'settings'), SET('u_preach', { untilDay: 7 })));
+  await check('read signed in only', 'deny', () => getDoc(doc(guest(), 'watchShow', 'settings')));
+  await check('the feed\'s status is the function\'s alone', 'deny', () => setDoc(doc(ctx('u_preach'), 'watchShow', 'feedStatus'), { ok: true }));
+}
+
 // ── EVENTS (events window) ── phone notifications (NEXT-BRIEF §23; F-144)
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();

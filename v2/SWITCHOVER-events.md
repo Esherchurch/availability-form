@@ -175,6 +175,13 @@ so "Show on screen" can call a parent.
    4. **Check:** each one plays in the app's Listen, and none appears twice
       beside a feed episode.
 
+### 3.7b Watch: the live service and the church's videos (Martin, with Val)
+**Page:** `watch-admin.html` (Watch), for the same people as Sermons.
+1. **The channel's id:** YouTube Studio → Settings → Channel → Advanced settings. It starts UC. **EGBC: UCf7lMnb24HfNJKGpMeYdQXQ.** Until it's in, no channel videos come in.
+2. **The live card, every week:** EGBC's is set already as the default: it goes at **4pm on Sunday**, then **disappears**. Change it here if wanted.
+3. **Each week:** paste the live link (unlisted on YouTube). It shows to people signed in only, never on a public page.
+4. **Full services for the church:** add any as unlisted links. A private video can't be shared this way.
+
 ### 3.8 Room hire and invoices (the office; can come after launch)
 **Pages:** `places-admin.html` (Hire prices) and `bookings-admin.html`
 (Accounts, Hirers)

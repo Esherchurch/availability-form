@@ -3625,3 +3625,111 @@ the test opens each page in a fresh tab.
 **For the main window:** `app.html` loads `egbc-events-bookings.js?v=202610101200`.
 Please bump it to `202610131800`, so the app's own Book a room and Day view
 draw the room names whole on phones that have the old copy.
+
+### F-163 — Watch: "Listen & Watch", the YouTube channel, full services, the live link (NEXT-BRIEF §24 item 5)
+Feature name **`watch`** (EGBCChurch.uses). Built for any church: the
+channel and the live card's defaults are settings (`watchShow/settings`).
+Nothing is EGBC's in code.
+
+**What's built:**
+- **`egbc-watch.js`:** the part that decides. It touches no database and
+  no network, so the page, the app, the unit test and the function all use
+  it.
+  - It reads YouTube's channel feed. A video is known by its YouTube id, at
+    `videos/yt_<id>`, so a second read never makes a copy, and "hidden" is
+    the office's choice and never touched by a read.
+  - It turns any usual YouTube link into its video id.
+  - It works out the live card's times from the church's settings, in
+    London time.
+  - It says whether the card shows "Watch live", "Watch again", or
+    nothing.
+- **`watch-admin.html`, "Watch":** for the people who look after sermons
+  (`sermonShow/access`, and master admins), linked from Sermons.
+  - **This week's live link:** "show until" starts at the church's default
+    (EGBC: the coming Sunday at 4pm), then it disappears or becomes "Watch
+    again" until a second date. "Take it down" removes it. It says plainly
+    that it's for signed-in people only, and that an unlisted link can be
+    passed on.
+  - **Full services:** unlisted YouTube links, for everyone signed in or
+    for church members only. It explains that a private video can't be
+    shared this way.
+  - **The channel:** its id (as a setting), what the last read found, and
+    Hide or Show for each video.
+  - **The live card's defaults:** the day and time it goes, then disappear
+    or "Watch again" for a number of days.
+- **The app (`egbc-app-listen.js`):** "Listen & Watch", still one tab.
+  - A Listen / Watch switch at the top, with the "Watch live" or "Watch
+    again" card above both while the link is showing.
+  - Watch lists the full services, then the channel's newest videos
+    (never a hidden one). Each plays in place, in YouTube's no-cookie
+    player.
+  - Switched off, it's plain "Listen", as before.
+  - `egbc-watch.js` is fetched the first time it's needed, so `app.html`
+    needs no new script tag.
+- **Home:** `EGBCEventsHome.watchLive(now?)` gives the main window's Home
+  card `{ state: 'live' | 'again', title, videoId, embed, until }`, or
+  `null`. It gives `null` signed out, outside the times, or with Watch
+  switched off.
+- **The rules** (in the events section):
+  - **The live link and the members' full services are never readable
+    signed out.**
+  - A church-members-only service is for church members (and the office).
+  - No page can make a channel video. The office may only hide or show
+    one.
+  - Links must be YouTube's, and times must be in order ("Watch again"
+    ends after the card does).
+  - The church's settings are checked: a channel id starts UC, a day is
+    0 to 6.
+
+**Proved:**
+- `watch-unit.test.mjs`: 22 checks, including a second read making no
+  copies, Sunday-morning versus Sunday-evening, and the clocks going back.
+- `watch.test.mjs`: 29 checks, the office's page and the real app shell at
+  375px.
+- **Rules:** 31 new checks. The full file passes, 1141.
+- **8 deliberate breaks, all caught:**
+  - **the one that matters:** the live link readable signed out (caught
+    by the browser test and by the rules tests)
+  - a members' service readable signed out
+  - a second read making copies
+  - a link added on Sunday morning running to next Sunday
+  - the card ignoring show-until
+  - a hidden video shown
+  - the card showing with Watch switched off
+- **Found by my own tests, and fixed:**
+  - With Watch switched off, the live card still showed.
+  - At 375px, the video player came out one line tall. The app's content
+    is a grid, and a 16:9 video sized by its own width counted as no
+    height. Now a plain 16:9 box holds it, and a check makes sure the card
+    holds the whole player.
+
+### F-164 — REQUESTS for the main window (Watch)
+1. **The hourly read of the channel (codebase hub).** Like the sermon feed
+   (F-139, still to be built), so one scheduled function could do both:
+   - Read `watchShow/settings.channelId`. If it's empty, do nothing.
+   - Fetch `https://www.youtube.com/feeds/videos.xml?channel_id=<id>`
+     (`EGBCWatch.feedUrl`).
+   - Call `EGBCWatch.sync(store, text, new Date())`, where the store is:
+     - `get(id)` and `create(id, data)` / `update(id, data)` on
+       `videos/<id>`
+     - `status(data)` on `watchShow/feedStatus`
+   - Copy `egbc-watch.js` into `functions/` as `watch-core.cjs`, with the
+     same copy check as the other two.
+   - **Never** read `watchShow/live`, or write anything but `videos/yt_*`
+     and `watchShow/feedStatus`.
+2. **Home: the "Watch live" card** for signed-in people, from
+   `EGBCEventsHome.watchLive()`.
+   - "Watch live" or "Watch again", with the title.
+   - A tap opens Me ▸ Listen & Watch, which plays it.
+3. **The tab's name:** "Listen" becomes **"Listen & Watch"** when
+   `EGBCChurch.uses('watch')`. The label is the shell's.
+4. **The Menu:** "Watch" (`watch-admin.html`) beside "Sermons", for master
+   admins and the people in `sermonShow/access`.
+5. **`app.html`:** bump `egbc-app-listen.js` and `egbc-events-home.js`.
+6. **"What does your church use?" (item 14):** add `watch` to its list,
+   under Sundays and teams, or Communication.
+
+**Note (13 Oct), `notify-e2e.test.mjs`:** the main window's master switch
+for notifications (A-081, eb27ade9) is off by default, so my end-to-end test
+now proves "switched off: calling a parent is refused in words, and nothing
+is sent". It then switches it on in the test database for the rest, 35/35.

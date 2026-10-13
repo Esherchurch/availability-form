@@ -31,6 +31,15 @@
    play from the podcast's own addresses, and any uploaded in the hub.
    Search by speaker, Bible book, title, series or date.
 
+   LISTEN & WATCH (NEXT-BRIEF §24 item 5; F-163), still one tab, behind
+   the feature name 'watch' (EGBCChurch.uses): a Listen / Watch switch at
+   the top, and above both, the "Watch live" or "Watch again" card while the
+   office's live link is showing. Watch has the full services for the
+   church (signed in only, or church members only) and the channel's latest
+   videos, each playing in place (YouTube's no-cookie player). What decides
+   is egbc-watch.js, fetched beside this file the first time it is needed,
+   so app.html needs no new script tag.
+
    Needs (loaded before it): egbc-auth.js (with Storage), egbc-events.js.
    =================================================================== */
 
@@ -41,7 +50,10 @@
   var H = null, STARTED = false, LOADED = false, FAILED = false;
   var D = { sermons: [], series: {}, show: null };
   var PROG = {};                         /* sermonId -> { pos, dur, done, at (ms) } */
-  var VIEW = { mode: 'home', seriesId: '', q: '' };
+  var VIEW = { mode: 'home', seriesId: '', q: '', part: 'listen', video: '' };
+  var WD = { loaded: false, failed: false, live: null, members: [], channel: [] };
+  var BASE = (function () { var sc = global.document && global.document.currentScript; return sc && sc.src ? sc.src.replace(/[^/]*$/, '').replace(/\?.*$/, '') : ''; })();
+  function usesWatch() { return !global.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses('watch'); }
   var A = null, NOW = '', lastLocal = 0, lastCloud = 0, URLS = {};
   var KEY = 'egbc.listen.v1';
 
@@ -215,6 +227,41 @@
     }).catch(function () { FAILED = true; LOADED = true; redraw(); });
   }
 
+  /* ---------------- Watch: loading ---------------- */
+
+  var watchLoading = null;
+  function watchReady() {
+    if (global.EGBCWatch) return Promise.resolve(global.EGBCWatch);
+    if (!watchLoading) watchLoading = new Promise(function (res, rej) {
+      var sc = global.document.createElement('script');
+      sc.src = BASE + 'egbc-watch.js?v=202610141000';
+      sc.onload = function () { global.EGBCWatch ? res(global.EGBCWatch) : rej(new Error('Watch could not be loaded.')); };
+      sc.onerror = function () { watchLoading = null; rej(new Error('Watch could not be loaded.')); };
+      global.document.head.appendChild(sc);
+    });
+    return watchLoading;
+  }
+  function churchMember() { var p = EGBCAuth.profile && EGBCAuth.profile(); return !!(p && p.churchMember === true); }
+  function startWatch() {
+    if (WD.started || !usesWatch()) return; WD.started = true;
+
+    Promise.all([
+      watchReady(),
+      db().collection('watchShow').doc('live').get().catch(function () { return null; }),
+      db().collection('videos').where('source', '==', 'members').where('audience', '==', 'signedIn').get().catch(function () { return { docs: [] }; }),
+      churchMember() ? db().collection('videos').where('source', '==', 'members').where('audience', '==', 'churchMembers').get().catch(function () { return { docs: [] }; }) : Promise.resolve({ docs: [] }),
+      db().collection('videos').where('source', '==', 'feed').get().catch(function () { return { docs: [] }; })
+    ]).then(function (r) {
+      WD.live = r[1] && r[1].exists ? r[1].data() : null;
+      WD.members = all(r[2]).concat(all(r[3])).filter(function (v) { return !v.hidden; }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+      WD.channel = all(r[4]).filter(function (v) { return !v.hidden; }).sort(function (a, b) { return String(b.published).localeCompare(String(a.published)); }).slice(0, 12);
+      WD.loaded = true; redraw();
+    }).catch(function () { WD.failed = true; WD.loaded = true; redraw(); });
+  }
+  /* Tests set EGBCAppListen.clock to a fixed time. */
+  function nowDate() { return global.EGBCAppListen && global.EGBCAppListen.clock ? new Date(global.EGBCAppListen.clock()) : new Date(); }
+  function liveNow() { return WD.loaded && global.EGBCWatch && WD.live ? EGBCWatch.liveState(WD.live, nowDate()) : null; }
+
   /* ---------------- drawing ---------------- */
 
   function act(lact, label, primary, icon) {
@@ -276,9 +323,59 @@
       }).join('') + '</div>';
   }
 
+  /* The player, in place: YouTube's no-cookie player, 16:9.
+     A plain box keeps the shape and the video fills it. The app's content
+     is a grid, and while it sizes its rows a percentage width is not known
+     yet, so a 16:9 video sized by its own width counted as no height at all
+     and its card came out one line tall (seen at 375px, 14 Oct). */
+  function player(id, title) {
+    return '<div class="card" data-l="player" style="padding:0">' +
+      '<div style="position:relative;aspect-ratio:16/9;background:#000;border-radius:13px 13px 0 0;overflow:hidden">' +
+      '<iframe id="lis-video" src="' + esc(EGBCWatch.embedUrl(id) + '&autoplay=1') + '" title="' + esc(title || 'Video') + '" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" ' +
+      'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>' +
+      '<div style="padding:12px 14px;display:flex;gap:10px;align-items:center"><p style="margin:0;flex:1;min-width:0;font-weight:600;color:var(--ink)">' + esc(title || '') + '</p>' +
+      act('vclose', 'Close', false, 'x') + '</div></div>';
+  }
+  /* "Watch live" while the link is showing; "Watch again" after, if the
+     church chose that. Signed-in people only: the link is read nowhere else. */
+  function liveCard() {
+    if (!usesWatch()) return '';
+    var st = liveNow(); if (!st) return '';
+    var l = WD.live, again = st === 'again';
+    if (VIEW.video === 'live') return player(l.videoId, (again ? 'Watch again: ' : 'Live: ') + (l.title || 'the service'));
+    return '<div class="card next" data-l="live" style="--c:#b0392c"><div><p class="sub" style="margin:0">' + (again ? 'Watch again' : '● Watch live') + '</p>' +
+      '<h4 style="margin:2px 0 0">' + esc(l.title || 'The service') + '</h4></div>' +
+      '<div class="actions">' + act('vlive', again ? 'Watch again' : 'Watch live', true, 'play') + '</div></div>';
+  }
+  function partSwitch() {
+    if (!usesWatch()) return '';
+    return '<div class="wo-chips" data-l="parts" style="display:flex;gap:8px">' + [['listen', 'Listen', 'headphones'], ['watch', 'Watch', 'tv']].map(function (p) {
+      return '<button class="btn" data-lact="part:' + p[0] + '" aria-pressed="' + (VIEW.part === p[0]) + '" style="min-height:44px' + (VIEW.part === p[0] ? ';background:var(--brand);border-color:var(--brand);color:#fff' : '') + '">' + H.ic(p[2], 15) + ' ' + p[1] + '</button>';
+    }).join('') + '</div>';
+  }
+  function watchView() {
+    if (!WD.loaded) return '<div class="card" style="padding:14px"><p class="sub" style="margin:0">Loading the videos…</p></div>';
+    if (WD.failed) return '<div class="card" style="padding:14px"><p style="margin:0">The videos could not be loaded. Check the signal and try again.</p></div>';
+    var playing = VIEW.video && VIEW.video !== 'live' ? WD.members.concat(WD.channel).filter(function (v) { return v.videoId === VIEW.video; })[0] : null;
+    var out = playing ? player(playing.videoId, playing.title) : '';
+    out += WD.members.length ? H.sec('Full services', '<div class="card list lis-list" data-l="members">' + WD.members.map(function (v) {
+      return rowAct('video:' + v.videoId, 'circle-play', v.title, said(v.date) + (v.audience === 'churchMembers' ? ' · church members' : ''));
+    }).join('') + '</div>') : '';
+    out += WD.channel.length ? H.sec('From our YouTube channel', '<div class="card list lis-list" data-l="channel">' + WD.channel.map(function (v) {
+      return rowAct('video:' + v.videoId, 'youtube', v.title, said(String(v.published).slice(0, 10)));
+    }).join('') + '</div>') : '';
+    if (!WD.members.length && !WD.channel.length) out += '<div class="card" style="padding:14px" data-l="novideo"><p style="margin:0">No videos yet.</p></div>';
+    return out;
+  }
+
   function screen() {
     start();
-    var head = '<div><p class="hello">Listen</p><p class="sub">Sunday\'s sermons, here and on Spotify</p></div>';
+    startWatch();
+    var title = usesWatch() ? 'Listen &amp; Watch' : 'Listen';
+    if (usesWatch() && VIEW.part === 'watch') {
+      return STYLE + '<div><p class="hello">' + title + '</p><p class="sub">Sunday\'s services and the church\'s videos</p></div>' + partSwitch() + liveCard() + watchView();
+    }
+    var head = '<div><p class="hello">' + title + '</p><p class="sub">Sunday\'s sermons, here and on Spotify</p></div>' + partSwitch() + liveCard();
     if (!LOADED) return STYLE + head + '<div class="card" style="padding:14px"><p class="sub" style="margin:0">Loading the sermons…</p></div>';
     if (FAILED) return STYLE + head + '<div class="card" style="padding:14px"><p style="margin:0">The sermons could not be loaded. Check the signal and try again.</p></div>';
     if (!D.sermons.length) return STYLE + head + '<div class="card" style="padding:14px" data-l="none"><p style="margin:0">No sermons yet. Sunday\'s will be here after it is put up.</p></div>';
@@ -308,6 +405,10 @@
     if (a.indexOf('play:') === 0) { play(a.slice(5)); return; }
     if (a.indexOf('series:') === 0) { VIEW.mode = 'series'; VIEW.seriesId = a.slice(7); redraw(); return; }
     if (a === 'home') { VIEW.mode = 'home'; redraw(); return; }
+    if (a.indexOf('part:') === 0) { VIEW.part = a.slice(5) === 'watch' ? 'watch' : 'listen'; VIEW.video = ''; redraw(); return; }
+    if (a.indexOf('video:') === 0) { if (A && !A.paused) A.pause(); VIEW.part = 'watch'; VIEW.video = a.slice(6); redraw(); return; }
+    if (a === 'vlive') { if (A && !A.paused) A.pause(); VIEW.video = 'live'; redraw(); return; }
+    if (a === 'vclose') { VIEW.video = ''; redraw(); return; }
     if (a === 'toggle') { toggle(); return; }
     if (a === 'back') { skip(-15); return; }
     if (a === 'fwd') { skip(30); return; }
