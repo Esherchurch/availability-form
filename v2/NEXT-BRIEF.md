@@ -260,6 +260,7 @@ The reviewing window adds to this list whenever a report says "before this goes 
 10. **Martin confirms the teams list** (APP-DESIGN-BRIEF §6).
 11. **App renames**, only if Martin approves (A-014).
 12. **Turn on "installed apps open the new app"** (APP-DESIGN-BRIEF §7c): the installed EGBC Hub, Core Team, Worship Hub and Youth Hub open the new app on a phone. Only after the §7b parity table is green.
+13. **Backfill the Sunday plan audience before the rules go live** (ab09a833). Only plans saved or sent from the **v2** planners carry an `audience`; the original site's planners don't write one, and the team uses those until switch-over. So run a one-off script (main window) that computes and writes `audience` on every services/songSummaries document from today onwards, and on recent ones, the same way the planners do. Otherwise preachers and service leaders can't open plans made on the old site.
 
 ## 25. Running things: the office chooses what each person sees (Martin, 10 Oct 2026)
 
