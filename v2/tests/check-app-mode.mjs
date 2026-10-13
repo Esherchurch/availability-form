@@ -62,7 +62,6 @@ const NOT_APP_MODE = ['hub.html', 'CoreTeamApp.html', 'login.html'];
    request, not an edit. Take a page off this list the day the line lands;
    the check then holds it to everything above. */
 const WAITING = {
-  'notifications.html': 'F-159: the events window adds egbc-appmode.js (Me > Notifications, N-5)'
 };
 
 /* ONE KNOWN EXCEPTION, named and printed rather than quietly skipped.
