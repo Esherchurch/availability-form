@@ -53,6 +53,10 @@ const PEOPLE = {
   twin2:   { member: 'ab_bf_twin2',   name: TWIN,                              account: false },
   arch:    { member: 'ab_bf_arch',    name: 'Archie Archived Backfill Synthetic', account: true },
   dup:     { member: 'ab_bf_dup',     name: 'Dee Duplicate Backfill Synthetic', account: true },
+  /* THE EVENING PREACHER (Martin, 13 Oct 2026: every service's leader and
+     speaker goes on it, morning and evening). Before mergeDay() only the
+     first service's speaker counted, and this person was left out. */
+  evening: { member: 'ab_bf_evening', name: 'Eve Evening Backfill Synthetic', account: true },
   planner: { member: 'ab_bf_planner', name: 'Pia Planner Backfill Synthetic',  account: true,
              teams: ['Worship Team', 'Core Team'], adminFor: ['Worship Team'] },
 };
@@ -145,6 +149,7 @@ async function seed() {
   /* The evening: a name typed in that the address book has never heard
      of, and a box left as "None". */
   await ev('ev_bf_d1_b', { date: D1, type: 'Sunday Evening Worship', startTime: '18:30',
+    speaker: P.evening.name,
     assignments: { 'Keyboard': { name: GUEST }, 'Drums': { name: 'None' } } });
   /* An ARCHIVED service that day, and a second "Sunday Morning Worship"
      after the first. The planner shows neither, so neither is on the email. */
@@ -203,8 +208,8 @@ async function seed() {
   const r2 = run(['--today', TODAY, '--write'], EMU_ENV);
   ok('  it ran', r2.code === 0, r2.out);
   const s1 = await read('services/sv_bf_d1'), m1 = await read('songSummaries/' + D1);
-  const wantD1 = sorted([P.lead.uid, P.speaker.uid]);
-  ok('  the full Sunday: the leader and the speaker, on both documents',
+  const wantD1 = sorted([P.lead.uid, P.speaker.uid, P.evening.uid]);
+  ok('  the full Sunday: the leader, the morning speaker AND the evening preacher, on both documents',
     sorted(s1.audience) === wantD1 && sorted(m1.audience) === wantD1,
     JSON.stringify({ services: s1.audience, summary: m1.audience, want: wantD1 }));
   ok('  NOT the twin, the archived service, the duplicate service, or the bass with no account',

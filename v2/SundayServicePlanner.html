@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-plan-audience.js?v=202610122100"></script>
+<script src="egbc-plan-audience.js?v=202610131430"></script>
 <script src="egbc-auth.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Worship Team" data-role="leader"></script>
 <meta charset="UTF-8">
@@ -537,15 +537,7 @@ async function audienceFor(theDate) {
         const ev = eventsForDay.filter(e => e && e.date === theDate);
         /* Every service that day, not only the chosen one: a Sunday with
            a morning and an evening sends one email between them. */
-        const merged = { assignments: {}, serviceLeader: '', speaker: '' };
-        ev.forEach(e => {
-            Object.keys(e.assignments || {}).forEach(r => {
-                merged.assignments[r + '|' + e.date + (e.startTime || '')] = e.assignments[r];
-            });
-            if (!merged.serviceLeader) merged.serviceLeader = e.serviceLeader || '';
-            if (!merged.speaker) merged.speaker = e.speaker || '';
-        });
-        return await EGBCPlanAudience.build(merged, {
+        return await EGBCPlanAudience.build(EGBCPlanAudience.mergeDay(ev), {
             findMemberIdsByNames: async (names) => {
                 const out = {};
                 for (const n of names) {

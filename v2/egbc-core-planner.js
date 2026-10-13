@@ -594,15 +594,7 @@
       var ev = spEventsForDay.filter(function (e) { return e && e.date === date; });
       /* Every service that day, not just the chosen one: a Sunday with a
          morning and an evening sends one email between them. */
-      var merged = { assignments: {}, serviceLeader: '', speaker: '' };
-      ev.forEach(function (e) {
-        Object.keys(e.assignments || {}).forEach(function (r) {
-          merged.assignments[r + '|' + e.date + (e.startTime || '')] = e.assignments[r];
-        });
-        if (!merged.serviceLeader) merged.serviceLeader = e.serviceLeader || '';
-        if (!merged.speaker) merged.speaker = e.speaker || '';
-      });
-      return await EGBCPlanAudience.build(merged, {
+      return await EGBCPlanAudience.build(EGBCPlanAudience.mergeDay(ev), {
         findMemberIdsByNames: async function (names) {
           var out = {};
           for (var i = 0; i < names.length; i++) {

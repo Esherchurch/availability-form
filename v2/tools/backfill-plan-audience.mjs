@@ -20,7 +20,7 @@
        egbc-plan-audience.js, loaded here rather than copied;
      - the day's services are picked the way SundayServicePlanner.html's
        loadRota picks them (that date, not archived, the first of each
-       service type), and merged the way its audienceFor() merges them;
+       service type), and merged by the planners' own mergeDay();
      - a typed name resolves only when exactly one address book record
        has it, and a member to a uid through users.memberId.
    tests/check-audience-backfill.mjs proves the answer is the same one
@@ -122,19 +122,6 @@ async function servicesOn(date) {
   return Object.values(seen);
 }
 
-/* Merged as audienceFor() merges them: every service that day, because a
-   morning and an evening share one email. */
-function mergeDay(events) {
-  const merged = { assignments: {}, serviceLeader: '', speaker: '' };
-  events.forEach((e) => {
-    Object.keys(e.assignments || {}).forEach((r) => {
-      merged.assignments[r + '|' + e.date + (e.startTime || '')] = e.assignments[r];
-    });
-    if (!merged.serviceLeader) merged.serviceLeader = e.serviceLeader || '';
-    if (!merged.speaker) merged.speaker = e.speaker || '';
-  });
-  return merged;
-}
 
 const nameCache = new Map(), uidCache = new Map(), bookName = new Map();
 const host = {
@@ -194,7 +181,9 @@ const same = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
   let changed = 0, unchanged = 0;
   for (const date of dates) {
     const events = await servicesOn(date);
-    const aud = await Policy.build(mergeDay(events), host);
+    /* Merged by the planners' own mergeDay(): every service that day, and
+       every service's leader and speaker. */
+    const aud = await Policy.build(Policy.mergeDay(events), host);
     const want = { audience: aud.audience, audienceUnresolved: aud.unresolved };
     const docs = targets.filter((t) => t.date === date);
 

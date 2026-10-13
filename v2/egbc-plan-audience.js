@@ -71,8 +71,9 @@
 
     /* THE TWO THAT STARTED THIS. serviceLeader and speaker are typed on
        the event in the Rota Planner, not rota roles, so they are never in
-       assignments - which is exactly why a preacher was locked out. */
-    [e.serviceLeader, e.speaker].forEach(function (n) {
+       assignments - which is exactly why a preacher was locked out. Each
+       may be one name, or a list of them from mergeDay(). */
+    [].concat(e.serviceLeader || [], e.speaker || []).forEach(function (n) {
       if (realName(n)) names.push(realName(n));
     });
 
@@ -83,6 +84,26 @@
   }
 
   function uniq(v, i, arr) { return v && arr.indexOf(v) === i; }
+
+  /* One Sunday's services, merged into the one email they share. Every
+     service's assignments, AND every service's leader and speaker:
+     Martin, 13 Oct 2026, "every service's leader and speaker on that day
+     goes on the audience (morning and evening)". Until then only the
+     first service's were kept, so an evening preacher was left out.
+     Both planners and tools/backfill-plan-audience.mjs call this, so
+     there is one answer to "which people does that day name". */
+  function mergeDay(events) {
+    var merged = { assignments: {}, serviceLeader: [], speaker: [] };
+    (events || []).forEach(function (e) {
+      if (!e) return;
+      Object.keys(e.assignments || {}).forEach(function (r) {
+        merged.assignments[r + '|' + e.date + (e.startTime || '')] = e.assignments[r];
+      });
+      if (e.serviceLeader) merged.serviceLeader.push(e.serviceLeader);
+      if (e.speaker) merged.speaker.push(e.speaker);
+    });
+    return merged;
+  }
 
   /* Build the audience.
 
@@ -127,6 +148,7 @@
 
   global.EGBCPlanAudience = {
     build: build,
+    mergeDay: mergeDay,
     namedBy: namedBy,
     realName: realName
   };

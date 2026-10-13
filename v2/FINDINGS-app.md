@@ -2484,6 +2484,10 @@ names** as the script did.
    preacher on a day with a morning speaker is **not** on the audience.
    The backfill copies this, because the brief is "as the planners do".
    For Martin: should every service's leader and speaker be on it?
+   **DONE (Martin, 13 Oct: yes).** `EGBCPlanAudience.mergeDay()` keeps every
+   service's leader and speaker, and both planners and the backfill call it
+   (one copy, not three). Evening preacher in check-audience-backfill; the
+   break "first speaker only" fails it.
 4. **The two planners disagree slightly about "archived".**
    SundayServicePlanner skips `archived === true`, and
    egbc-core-planner skips any truthy `archived`. Every writer I found
