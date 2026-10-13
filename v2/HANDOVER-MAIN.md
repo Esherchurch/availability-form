@@ -35,6 +35,7 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 9. **Don't double up.** If a page already does the job, the app opens it in app mode (APP-DESIGN-BRIEF §5, §7d).
 10. **Don't edit the events window's files.** Request through FINDINGS-events.md.
 11. Every page follows `DESIGN.md` and works at 375px.
+12. **Every new feature gets a feature name** (e.g. `events`, `pinboards`), and its Menu entries, app tabs and Home cards are drawn only when that feature is on. One switch per church comes later (NEXT-BRIEF §24 after launch, item 14); until it exists, everything counts as on. Martin, 13 Oct: a church may use only some parts (e.g. only Worship, AV and Kids Church while staying on ChurchSuite).
 
 ## 4. Read these, in this order
 
