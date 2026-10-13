@@ -40,8 +40,8 @@ const PEOPLE = {
   master: { email: 'you.master@example.invalid', name: 'Max Master Synthetic', member: 'ab_you_master',
             teams: ['Worship Team'], masterAdmin: true },
 };
-const ORDER = 'notifications,details,calendar,availability,signout';
-const ORDER_MASTER = 'notifications,details,calendar,availability,viewas,signout';
+const ORDER = 'notifications,details,groups,calendar,availability,give,signout';
+const ORDER_MASTER = 'notifications,details,groups,calendar,availability,give,viewas,signout';
 
 const R = [];
 const ok = (n, v, x) => {
@@ -191,7 +191,7 @@ const offMachine = u => {
     await click(BTN);
     s = await waitOpen(BTN);
     ok('  tapping it opens the menu, and the button says so', s.open && s.expanded === 'true' && s.role === 'menu', JSON.stringify(s));
-    ok('  Notifications, My details, Add to my calendar, My availability, Sign out - in that order', s.keys === ORDER, s.keys);
+    ok('  Notifications, My details, My groups, Add to my calendar, My availability, Give, Sign out - in that order', s.keys === ORDER, s.keys);
     ok('  focus goes into it, on the first item', s.focus === 'notifications', s.focus);
     ok('  it fits the screen', s.left >= 0 && s.right <= s.vw && !s.sideways, JSON.stringify(s));
     ok('  and every item is a full-size target (44px or more)', s.minH >= 44, s.minH);
@@ -214,6 +214,10 @@ const offMachine = u => {
   await click('#egbc-you-btn'); await waitOpen('#egbc-you-btn');
   ok('  Notifications goes to the Notifications page',
     String(await ev('(document.querySelector("#egbc-you [data-you=notifications]")||{}).getAttribute("href")')) === 'notifications.html');
+  ok('  My groups goes to the groups page, as on the app’s Me',
+    String(await ev('(document.querySelector("#egbc-you [data-you=groups]")||{}).getAttribute("href")')) === 'groups.html');
+  ok('  and Give to the Give page',
+    String(await ev('(document.querySelector("#egbc-you [data-you=give]")||{}).getAttribute("href")')) === 'give.html');
   ok('  My availability goes to the form',
     String(await ev('(document.querySelector("#egbc-you [data-you=availability]")||{}).getAttribute("href")')) === 'index.html');
   await click('#egbc-you [data-you=details]'); await sleep(300);
@@ -246,7 +250,7 @@ const offMachine = u => {
   console.log('\na church that does not use notifications');
   await ev('window.EGBCChurch={uses:function(n){return n!=="notifications"}};1');
   await click('#av'); h = await waitOpen('#av');
-  ok('  Notifications is not in the menu', h.keys === 'details,calendar,availability,signout', h.keys);
+  ok('  Notifications is not in the menu', h.keys === 'details,groups,calendar,availability,give,signout', h.keys);
   await key('Escape', 'Escape');
 
   /* ---- a master admin ------------------------------------------------- */

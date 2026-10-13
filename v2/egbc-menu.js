@@ -580,8 +580,12 @@
       items.push({ key: 'notifications', label: 'Notifications', sub: 'On this phone, and which ones you get', icon: 'bell-ring', href: 'notifications.html' });
     }
     items.push({ key: 'details', label: 'My details', sub: 'What the church has on file', icon: 'id-card', act: 'details' });
+    /* My groups and Give, as on the app's Me tab (the reviewing window,
+       13 Oct 2026). "Open the full website" stays the app's own. */
+    items.push({ key: 'groups', label: 'My groups', sub: 'Your groups, and finding one', icon: 'users', href: 'groups.html' });
     items.push({ key: 'calendar', label: 'Add to my calendar', sub: 'Just me, my household, or the whole rota', icon: 'calendar-plus', act: 'calendar' });
     items.push({ key: 'availability', label: 'My availability', sub: 'Say which Sundays you can do', icon: 'calendar-check-2', href: 'index.html' });
+    items.push({ key: 'give', label: 'Give', sub: 'The church’s bank details, and Gift Aid', icon: 'hand-coins', href: 'give.html' });
     /* The REAL record, not isMaster(): while looking at the site as a
        Worship member, isMaster() is false, and the way back must stay. */
     if (me.masterAdmin === true) {
