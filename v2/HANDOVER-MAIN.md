@@ -85,7 +85,9 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 9. **Email lock, before switch-over:** `egbc-email.js` and every v2 sender attach the signed-in person's ID token, and the hub functions send identity tokens. Coordinate the date with the reviewing window. Calla removes the open path on switch-over day.
 10. **Step Q:** the launch checklist page, from §26 plus `SWITCHOVER-events.md`.
 
-**After launch (don't start):** NEXT-BRIEF §24's after-launch list, including item 5, "Watch" (the YouTube channel `UCf7lMnb24HfNJKGpMeYdQXQ`, members-only full services, the weekly live link with show-until and the church's choice of disappear or Watch again).
+**ADDED TO THE LAUNCH QUEUE (Martin, 13 Oct), after item 11 (Step Q) in this order unless Martin reorders:** Watch (YouTube channel and live link with show-until), Gift Aid declarations (Val can tick existing ones), CCLI report for admins, privacy tools, read and confirm for policies, church meetings and votes in the meeting page, prayer requests and answers (with Speak), I'm new here, the public What's on (public / members only / not listed), recording play-throughs (audio only). Specs: NEXT-BRIEF §24 items 5–13 and 15. Each gets a feature name (rule 12).
+
+**After launch (don't start):** item 14 ("what does your church use?") and the parked captions idea. Formerly: NEXT-BRIEF §24's after-launch list, including item 5, "Watch" (the YouTube channel `UCf7lMnb24HfNJKGpMeYdQXQ`, members-only full services, the weekly live link with show-until and the church's choice of disappear or Watch again).
 
 ## 8. Open findings to know about
 
