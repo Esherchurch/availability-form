@@ -2812,3 +2812,21 @@ accepted, everyone's roles sent, drafts counted. `check-youth-access` 34/34.
 
 **Needs a deploy:** `myYouthHub`, with `functions:hub`. It reads only and
 sends nothing.
+
+### A-085 — two suite-only reds after item 6, recorded rather than fixed
+
+- **`check-icon-buttons` 3/4 in the suite:** "every control is marked out",
+  for a Youth app post-it (`div "💡 General Synthetic Youth Note…"`). It
+  appeared because `check-charter-switch` now seeds the Youth board with a
+  note, so the Youth app's board had a note on it during a suite run for
+  the first time. The card's fill is a `linear-gradient`, and the check only
+  counts a solid background colour as a fill, so a post-it reads to it as
+  plain text. **Not reproduced on its own:** \`check-icon-buttons
+  youthapp2.html\` is 4/4 with or without counting gradients, because only
+  in the suite does an earlier check give the test account the Youth board.
+  So I haven't changed the check. When the checks own their fixtures
+  (HANDOVER-MAIN §8), this one should seed a Youth board note itself and
+  then count gradient fills.
+- **`check-app-opens-phone-width` ended after 5s with no tally in the
+  suite**, and is 2/2 on its own. Most likely the previous check's browser
+  still held the debugging port.
