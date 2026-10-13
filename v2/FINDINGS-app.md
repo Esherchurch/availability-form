@@ -1940,6 +1940,13 @@ single pass would have proved nothing.
 
 ## A-063 — the app never recovers from a failed first profile read
 
+**FIXED (a9843252, 12 Oct 2026).** At 8 seconds the guard replaces the
+spinner with "Could not check your access" and a **Try again** button. The
+page stays hidden: the message replaces the spinner, never the page, and a
+late answer still opens it. `tests/check-guard-does-not-spin.mjs` 7/7, with
+two deliberate breaks caught. The text below is the finding as first
+recorded.
+
 Found while chasing A-062, in the app rather than the check, and **not fixed**
 because it is `egbc-auth.js`, which every page shares and which the standing
 constraints say to pull before touching.

@@ -66,7 +66,7 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 
 ## 6. Where things stand (12 Oct 2026, evening)
 
-**Update, 12 Oct late: a9843252 pushed and live** — item 1 (Worship/AV/Choir one team in the rules, 1077/1077) and the stuck-splash fix (A-063: after 8s, "Could not check your access… Try again", page stays hidden; check-guard-does-not-spin 7/7). The previous main window then started item 2. **Check what it left:** possibly unpushed from the previous main window. Check `git status` and `git log origin/main..HEAD` in **this** working copy first:
+**Update, 12 Oct late: a9843252 pushed and live** — item 1 (Worship/AV/Choir one team in the rules, 1077/1077) and the stuck-splash fix (A-063: after 8s, "Could not check your access… Try again", page stays hidden; check-guard-does-not-spin 7/7). **RESOLVED (13 Oct): the new main window found the clone clean with nothing unpushed; everything below is in origin/main.** The previous main window then started item 2. **Check what it left:** possibly unpushed from the previous main window. Check `git status` and `git log origin/main..HEAD` in **this** working copy first:
 - **Item 1:** Worship/AV/Choir as one team in `firestore.rules` (`worshipAv()`), plus `tests/check-worship-av-one-team.mjs` 12/12, and the guard-readiness fix in five checks ("is the page revealed" = `#egbc-guard-style` gone, not "no splash").
 - If any of that is committed but unpushed, run the checks it names, then push. If it's uncommitted and incomplete, **report what you find. Don't redo or discard it.**
 
@@ -91,7 +91,7 @@ EGBC Hub v2 lives in `v2/` of `Esherchurch/availability-form`. It's live at http
 
 - **The test suite:** `node tests/run-all.mjs` (from `v2/`) runs every check (35/42 on 12 Oct). Known reds: check-core-planner 68/72 (red before a9843252 too), check-churchshow-page (flaky; 15/15 earlier the same day), check-website-on-a-phone (A-074), plus F-158 (events window). **Several checks only pass alone**, because they share one emulator and read each other's leftovers. The fix is for each check to own and clear its own fixture. It's a separate piece of work, not started; raise it before doing it.
 
-- **A-063:** the guard never recovers from a failed first read (queue item 2).
+- ~~**A-063:** the guard never recovers from a failed first read~~ FIXED (a9843252): the 8s message and Try again, page stays hidden.
 - **A-064:** the Attender's mirror write doesn't arrive. Open, not established.
 - **A-073:** the address book in app mode has controls under the tab bar (fixed by "find a person").
 - **A-074:** Library.html's "view as" strip is 73px. Martin said leave it.
