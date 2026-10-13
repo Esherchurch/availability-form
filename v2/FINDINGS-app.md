@@ -2614,3 +2614,10 @@ behaviour (HANDOVER-MAIN: ask, don't tidy). For Martin: remove the sample
 notes, so an empty board opens empty, as every other board already does?
 Once that's decided, the check should seed its own board rather than
 depend on what an earlier check left.
+
+**DONE (Martin, 13 Oct: remove them).** The sample notes and the call
+that saved them are gone from `stickynotes.html`; nothing else there
+changed. `tests/check-board-empty.mjs` 9/9: an empty Worship board opens
+with no notes, writes nothing, reaches no YouTube; a board with notes
+keeps exactly those notes. Break (the old page) -> 4 fail.
+`check-charter-switch` is 15/15 again.

@@ -1461,21 +1461,13 @@ document.querySelectorAll('.modal-overlay').forEach(o =>
   o.addEventListener('click', e => { if (e.target===o) o.classList.remove('open'); })
 );
 
-// ── SEED DATA (only if Firebase has nothing) ──────────────────────────────
-function seedData() {
-  /* Example notes belong to the board that has always had them. A brand new
-     Kids Church board opens empty rather than with four worship notes on
-     it, which would only need deleting. */
-  if (board.id !== 'worship') return;
-  if (state.notes.length > 0) return;
-  state.notes = [
-    { id:'s1', pageId:'main', cat:'song',    author:'Sarah',       title:'Way Maker',               body:'This song has been really moving our congregation. Would love to sing this in our next service.', ytUrl:'https://www.youtube.com/watch?v=c9Qbq-IrcVs', link:'', linkLabel:'', imgUrl:'', reactions:{love:3,like:5,dislike:0,pray:2}, myReactions:{}, createdAt:Date.now()-172800000, archived:false, x:60,  y:60,  rot:-1.5, zIndex:10 },
-    { id:'s2', pageId:'main', cat:'event',   author:'Pastor Mike', title:'Easter Sunrise Service',  body:'Suggestion to hold an outdoor sunrise service this Easter. Start at 6:30am at the park.', ytUrl:'', link:'', linkLabel:'', imgUrl:'', reactions:{love:7,like:4,dislike:1,pray:5}, myReactions:{}, createdAt:Date.now()-86400000, archived:false, x:390, y:80,  rot:1.2,  zIndex:11 },
-    { id:'s3', pageId:'main', cat:'av',      author:'Tom',         title:'New Screen for Side Stage',body:'The side screens are hard to read from the back rows. Could we look at upgrading?', ytUrl:'', link:'https://www.example.com/screens', linkLabel:'Screen options', imgUrl:'', reactions:{love:2,like:6,dislike:2,pray:0}, myReactions:{}, createdAt:Date.now()-259200000, archived:false, x:720, y:55,  rot:-0.8, zIndex:12 },
-    { id:'s4', pageId:'main', cat:'general', author:'Jenny',       title:'Welcome Banner',           body:'Could we have welcoming signage near the entrance for first-time visitors? Something warm and inviting.', ytUrl:'', link:'', linkLabel:'', imgUrl:'', reactions:{love:4,like:3,dislike:0,pray:1}, myReactions:{}, createdAt:Date.now()-345600000, archived:false, x:150, y:390, rot:1.0,  zIndex:13 },
-  ];
-  saveState();
-}
+// ── NO SAMPLE NOTES (Martin, 13 Oct 2026; A-079) ────────────────────────────
+/* An empty board opens empty, like every other board. Until now an empty
+   Worship board was filled with four invented notes ("Sarah", "Pastor
+   Mike"...) and they were SAVED - so a new church's first visit wrote
+   made-up people into its real board, and one of them embedded a YouTube
+   video. A board that already has notes was never affected, and still
+   is not: nothing here reads or writes them. */
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 /* The guard signs the person in before the page is shown, but it resolves
@@ -1496,7 +1488,6 @@ function whenSignedIn() {
   if (chooseBoard() === false) return;
   state = blankState();
   await loadState();
-  seedData();
   paintAdmin();
   renderPages();
   renderNotes();

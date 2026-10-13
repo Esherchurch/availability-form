@@ -32,6 +32,7 @@ is proving something throws wraps it in `expectThrow()`.
 | "Checking access" does not spin for ever | `node tests/check-guard-does-not-spin.mjs` |
 | Worship, AV and Choir see the same pages, both ways | `node tests/check-worship-av-one-team.mjs` |
 | **Every check, one after another** | `node tests/run-all.mjs` (add `--list` to see what it runs and skips) |
+| An empty pin board opens empty and writes nothing; a board with notes is left as it was (A-079) | `node tests/check-board-empty.mjs` |
 | One piece of code decides where a note lands on the corkboard, and stickynotes.html parses | `node tests/check-note-placement.mjs` (a second, no browser) |
 | The pin board on a phone: small post-its, one note filling the screen, comments - the same screen in the app and on the website | `node tests/check-board-on-a-phone.mjs` (add `--shots`) |
 | A person's calendar feed holds their slots and nobody else's | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-rota-feed.mjs"` |
