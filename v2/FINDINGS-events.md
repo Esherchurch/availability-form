@@ -4970,3 +4970,121 @@ twice: when the page opens, and again at the moment of saving.
 **Proved:** rules 1314/1314; prayer 24/24. 4 deliberate breaks, all caught.
 The one that matters: a request accepted with no safeguarding lead.
 **Not deployed**: the rules go live at switch-over.
+
+### F-181 — PLAN: paying for event tickets by card (Martin's answer 1 to F-180). NO CODE until Martin picks the provider
+Martin: "everything ChurchSuite does for events we need to do at least as
+well, and better ideally." Nobody is known to pay by card today, so this is
+an optional feature, **off by default**: feature name **`cardPayments`**
+(rule 12), under Events in "What does your church use?".
+
+**1. Provider: Martin chooses.** Fees change, so check each provider's own
+page before deciding. These are rough figures, not quotes:
+
+| Provider | Roughly, per UK card payment | Notes |
+|---|---|---|
+| **Stripe** (what ChurchSuite uses) | about 1.5% + 20p; charities can ask for a lower rate | Its own payment page (Checkout), so card details never touch the hub. Refunds by the hub. Pays into the church's bank account. |
+| **SumUp** | about 2.5% online | Simple; the same card reader could take payments at the door. |
+| **PayPal** | a charity rate exists (about 1.4% + 20p) | Many people already have an account. Card refunds by the hub are less tidy. |
+
+**My recommendation: Stripe.** It's what ChurchSuite used, its hosted page
+keeps card details out of the hub, refunds can be done from the hub, and
+its test mode lets us prove everything without real money.
+
+**2. How a paid sign-up works:**
+- The person picks tickets, and the page shows the total.
+- They press "Pay £12.00", and the provider's own page takes the card. The
+  hub never sees or stores card details, only the provider's payment
+  reference, the amount and paid / refunded.
+- Their place is **held for 30 minutes** while they pay. Not paid by then,
+  the place goes back.
+- Paid: the provider tells the hub's server (a signed "webhook"), the place
+  is confirmed, and the confirmation email says "Paid £12.00".
+- Pay-on-arrival tickets stay as they are: no card, "£12.00 to pay on the
+  day", and the door marks them paid (being built now, F-183).
+
+**3. Refunds:**
+- Each event has a refund choice: no refunds; full refund if cancelled at
+  least N days before (the default is 2); or office decides.
+- When someone cancels their own place and the rule allows it, the refund
+  goes back to their card by itself.
+- Office or event admins can refund any place from the event's "Who is
+  coming". It asks first, on the page, saying the amount.
+- The provider usually keeps its fee on a refund. The church sets whether
+  that's absorbed or deducted.
+
+**4. Who sees money:**
+- **Event admins:** paid / not paid / refunded per place, and the event's
+  total.
+- **A new "Finance" role** (Martin names who; ChurchSuite's "Finance Team"
+  user group): every event's takings, refunds, and the payouts into the
+  bank (ChurchSuite's "Stripe transfers" report), with a CSV download.
+- **Nobody** sees card numbers: the hub never has them.
+- **Gift Aid:** a ticket isn't a gift, so no Gift Aid on tickets.
+
+**5. Keys and safety:**
+- The provider's secret key is kept in the server's secret store, set by
+  Martin. It is **never in the repo** and never in a page.
+- Only the server talks to the provider. Pages send "pay for sign-up X";
+  the server works out the price from the event's own ticket types, so a
+  page can't change what it costs.
+- New rules keep the payment records server-written only.
+
+**6. Whose code:**
+- Pages (signup, my-signup, events-admin, the Finance report): mine.
+- The server part (making the payment page, the webhook, refunds) is a new
+  file in `functions/`, which is the main window's. I'll write it there if
+  you agree, the way public-mail.js was done (F-170).
+- Proved on the emulator with a stand-in provider: no real payment and no
+  network, as every test here.
+
+**Martin decides:** the provider; the bank account; who is Finance; the
+default refund rule.
+
+### F-182 — SPEC for the main window (R7): a calendar people can subscribe to, that works
+Martin tried ChurchSuite's calendar feed and **it didn't work**, so ours
+must. You build the server function; I'll do the page side when it's there.
+
+**The function: `eventsFeed`** (public HTTPS, no sign-in, like `rotaFeed`).
+- `…/eventsFeed?church=1` gives **public events only** ("Everyone"). This is
+  for the website and anyone.
+- `…/eventsFeed?key=<key>` gives the events **this person may see** (public,
+  attenders, church members if they are one, their teams). The key is per
+  person, kept in `calendarKeys/{uid}.feeds['events']`, and can be reset
+  like the rota links.
+- `&cat=<categoryId>` (several allowed, comma-separated) gives just those
+  categories (`eventCategories`, F-180).
+- **Never included:** not listed, not public yet (pending), or another
+  team's events.
+
+**Each date:**
+- One `VEVENT`, with `UID` = `<calEventId>@<church domain>`. It must never
+  change, or calendars show duplicates.
+- `DTSTART`/`DTEND` with `TZID=Europe/London` and a `VTIMEZONE` block. All
+  day uses `VALUE=DATE`.
+- `SUMMARY` is the title. `LOCATION` is the room names and site, as
+  `E.locationText`.
+- `DESCRIPTION` is the description as plain words, then the event's page
+  link. `URL` is the event's page.
+- `STATUS:CANCELLED` for a cancelled event, so calendars cross it out.
+- `SEQUENCE` and `LAST-MODIFIED` come from `updatedAt`, so changes show up.
+- Range: the last 30 days to 18 months ahead.
+- `X-WR-CALNAME`: "<church name> – What's on" (plus the category name).
+- Content-Type `text/calendar; charset=utf-8`, CRLF line endings, long
+  lines folded at 75 bytes, `Cache-Control: max-age=900`.
+
+**Why feeds "don't work", and what to check:**
+- They must be https.
+- Google only re-reads a feed every few hours. That's Google, not us; the
+  page will say so.
+- Line folding and CRLF must be right, or Outlook drops the feed silently.
+- The UID must stay the same.
+
+Tests: the output read back by an iCal reader; a not-listed and a pending
+event are never in it; a cancelled one is `STATUS:CANCELLED`; a time on
+the night the clocks change is right.
+
+**My side, once the function exists:** What's on and the app's What's on
+get "Subscribe":
+- "Add to Google Calendar", Apple / Outlook (`webcal://`) and Copy link
+- for everything or chosen categories
+- signed in, "my events" with the person's own key and a Reset
