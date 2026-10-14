@@ -133,6 +133,15 @@
     for (var i = 0; i < 4; i++) out += ALPHA[(a ? a[i] : Math.floor(Math.random() * 256)) % ALPHA.length];
     return out;
   }
+  /* The screen number (Martin, 14 Oct 2026): three digits, the same for a
+     family that morning, printed on the parent's slip beside the
+     collection code. It is all the service screen ever shows: the
+     collection code lets someone take a child home, so it never goes on
+     a screen. */
+  function screenNumber(rand) {
+    var a = rand || (global.crypto && global.crypto.getRandomValues ? global.crypto.getRandomValues(new Uint16Array(1)) : null);
+    return String(100 + ((a ? a[0] : Math.floor(Math.random() * 65536)) % 900));
+  }
   /* A typed code: capitals, no spaces or dashes. (Codes never use 0, O, 1, I or L.) */
   function cleanCode(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
@@ -263,7 +272,7 @@
     notSetUpHtml: notSetUpHtml,
     termOf: termOf, termBefore: termBefore, sessionDates: sessionDates, register: register, morningDay: morningDay, YEARS: YEARS, DAYS: DAYS, norm: norm, meaningful: meaningful, splitNames: splitNames, ageOn: ageOn, yearFor: yearFor,
     groupFor: groupFor, familyCode: familyCode, fromResponse: fromResponse, consentOk: consentOk, consentSoon: consentSoon, consentState: consentState,
-    sessionId: sessionId, checkinIdFor: checkinIdFor, pickupCode: pickupCode, cleanCode: cleanCode, familyQR: familyQR, parseFamilyQR: parseFamilyQR,
+    sessionId: sessionId, checkinIdFor: checkinIdFor, pickupCode: pickupCode, screenNumber: screenNumber, cleanCode: cleanCode, familyQR: familyQR, parseFamilyQR: parseFamilyQR,
     digits: digits, findFamilies: findFamilies, listedCollector: listedCollector, leadersNeeded: leadersNeeded, visitorProblems: visitorProblems };
 
 })(typeof window !== 'undefined' ? window : this);

@@ -16,9 +16,9 @@
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610141200"></script>
-<script src="egbc-events-checkin.js?v=202610082100"></script>
+<script src="egbc-events-checkin.js?v=202610141700"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610091800"></script>
+<script src="egbc-events-kids.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -361,7 +361,20 @@
         : '<p class="hint">A master admin or the safeguarding lead changes these.</p>') + '</div>' +
       '<div class="card"><h2>The registration form</h2>' + (SETTINGS.formId ? '<p class="st ok" id="s-form">Set up: "' + esc(SETTINGS.formTitle || 'Children\'s registration') + '". Its wording is changed on the Forms page; its periods on Safeguarding settings.</p>'
         : (EGBCAuth.isAdmin() && CAN_TEAMS ? '<p class="hint">Made from the parent and guardian consent form: each child, their medical needs, who may collect. It lasts a year from when it is given.</p><button class="btn" id="s-form-go">Set up the registration form</button>'
-          : '<p class="hint">A master admin sets this up (it makes a form).</p>')) + '</div>';
+          : '<p class="hint">A master admin sets this up (it makes a form).</p>')) + '</div>' +
+      /* Martin, 14 Oct 2026: phone first, screen last, and a church may say no screen at all. */
+      '<div class="card" id="s-screen-card"><h2>Calling a parent</h2>' +
+        '<label class="ck"><input type="checkbox" id="s-screen"' + (SETTINGS.screenPaging !== false ? ' checked' : '') + (LEAD || CAN_TEAMS ? '' : ' disabled') + '> Allow showing a number on the service screen</label>' +
+        '<p class="hint">Leaders always call a parent on their phone first. With this on, a leader can also put the family\'s screen number on the service screen, as a last resort, where ChurchShow is connected. ' +
+        'Never a child\'s name, and never the collection code. With it off, there is no screen button at all.</p><p id="s-screen-msg" role="status" class="hint"></p></div>';
+    var sc = document.getElementById('s-screen');
+    if (sc && !sc.disabled) sc.onchange = function () {
+      var on = sc.checked, msg = document.getElementById('s-screen-msg');
+      msg.textContent = 'Saving…';
+      db().collection('kidsSettings').doc(V.site).set({ screenPaging: on, updatedAt: new Date().toISOString(), updatedBy: uid() }, { merge: true })
+        .then(function () { SETTINGS.screenPaging = on; msg.textContent = on ? 'Saved: a leader may show a number on the screen, as a last resort.' : 'Saved: nothing is ever shown on the screen.'; })
+        .catch(function (e) { sc.checked = !on; msg.textContent = 'Not saved: ' + (/permission/i.test(String(e && (e.code || e.message))) ? 'only Kids Church leads and master admins can change this.' : (e.message || e)); });
+    };
     var sv = document.getElementById('s-save');
     if (sv) sv.onclick = function () {
       var t = [].slice.call(document.querySelectorAll('.s-team:checked')).map(function (x) { return x.value; });

@@ -1676,7 +1676,7 @@ service cloud.firestore {
                                'inAt', 'inBy', 'inByName', 'outAt', 'outBy', 'outByName',
                                'collectedBy', 'collectorListed', 'overrideReason',
                                'roomId', 'day', 'updatedAt',
-                               'groupId', 'siteId', 'familyId', 'pickupCode', 'codeGiven'])
+                               'groupId', 'siteId', 'familyId', 'pickupCode', 'codeGiven', 'screenNo'])
              && d.calEventId is string && d.calEventId.size() > 0
              && d.signupKey is string && d.signupKey.size() > 0
              && d.attendeeIndex is int && d.attendeeIndex >= 0 && d.attendeeIndex < 20
@@ -1718,7 +1718,7 @@ service cloud.firestore {
     // code printed for their parent at check-in. There is no way round it
     // on the page: a lead adds a collector to the child's record first.
     function kidsCkFields() {
-      return ['groupId', 'siteId', 'familyId', 'pickupCode', 'codeGiven'];
+      return ['groupId', 'siteId', 'familyId', 'pickupCode', 'codeGiven', 'screenNo'];
     }
     function eventCk(d) {
       return d.kind != 'child' && !d.calEventId.matches('kids_.*') && !d.keys().hasAny(kidsCkFields());
@@ -1737,6 +1737,10 @@ service cloud.firestore {
              && d.attendeeIndex == 0
              && d.pickupCode is string && d.pickupCode.size() >= 4 && d.pickupCode.size() <= 8
              && d.get('codeGiven', '') is string && d.get('codeGiven', '').size() <= 8
+             // The screen number (Martin, 14 Oct 2026): three digits, never
+             // the collection code. All the service screen may ever show.
+             && d.get('screenNo', '') is string
+             && (d.get('screenNo', '') == '' || (d.get('screenNo', '').matches('[0-9]{3}') && d.get('screenNo', '') != d.pickupCode))
              && kidsCkTeam(d);
     }
     // Who may collect: someone listed on the child's record (as it is
@@ -2797,9 +2801,14 @@ service cloud.firestore {
     match /kidsSettings/{siteId} {
       allow read: if volunteer();
       // Who the leads are is set by a master admin or the safeguarding lead.
-      allow write: if (isMaster() || sgLeadOf(siteId))
+      allow write: if ((isMaster() || sgLeadOf(siteId))
                    && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20
-                   && request.resource.data.get('formId', '') is string;
+                   && request.resource.data.get('formId', '') is string
+                   && request.resource.data.get('screenPaging', true) is bool)
+                   // Kids Church leads may switch screen numbers on or off, and nothing else.
+                   || (kidsLead(siteId) && resource != null
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['screenPaging', 'updatedAt', 'updatedBy'])
+                       && request.resource.data.screenPaging is bool);
     }
     // Groups by school year, each with its room, day and time, ratio and
     // leaders. The leads set them.
@@ -3043,13 +3052,23 @@ service cloud.firestore {
              && pageCk(pageId).get('kind', '') == 'child'
              && (kidsGroupLeader(pageCk(pageId).groupId) || kidsSessionLeaderNow(pageCk(pageId).siteId) || kidsLead(pageCk(pageId).siteId));
     }
+    // Kids Church settings: "Allow showing a number on the service screen".
+    // On unless the church has switched it off.
+    function screenPagingOn(siteId) {
+      return !exists(/databases/$(database)/documents/kidsSettings/$(siteId))
+             || get(/databases/$(database)/documents/kidsSettings/$(siteId)).data.get('screenPaging', true) != false;
+    }
     function pageShape(pageId) {
       let d = request.resource.data;
       return d.keys().hasOnly(['siteId', 'code', 'room', 'message', 'createdBy', 'createdAt', 'clearedAt'])
              && d.siteId == pageCk(pageId).siteId
-             && d.code == pageCk(pageId).pickupCode
+             // The screen number, never the collection code (Martin, 14 Oct 2026),
+             // and only where the church allows screen numbers at all.
+             && pageCk(pageId).get('screenNo', '').matches('[0-9]{3}')
+             && d.code == pageCk(pageId).screenNo
+             && screenPagingOn(pageCk(pageId).siteId)
              && d.room is string && d.room.size() <= 80
-             && d.message == d.code + ', please come to ' + get(/databases/$(database)/documents/kidsGroups/$(pageCk(pageId).groupId)).data.name
+             && d.message == 'Screen number ' + d.code + ': please come to ' + get(/databases/$(database)/documents/kidsGroups/$(pageCk(pageId).groupId)).data.name
              && d.createdBy == request.auth.uid
              && d.createdAt == request.time
              && d.clearedAt == null;

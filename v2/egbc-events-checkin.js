@@ -249,7 +249,8 @@
     return { siteId: ck.siteId, day: ck.day, groupId: ck.groupId, groupName: groupName || '', childId: ck.signupKey, name: ck.name,
       state: ck.state, inAt: ck.inAt || '', outAt: ck.state === 'out' ? (ck.outAt || '') : '', roomId: ck.roomId || '', updatedAt: ck.updatedAt };
   }
-  function kidsIn(child, group, day, code, existing) {
+  /* screenNo: the family's screen number this morning (never the code). */
+  function kidsIn(child, group, day, code, existing, screenNo) {
     var who = me(), at = now();
     var id = EGBCKids.checkinIdFor(child.id, group.id, day), ref = db().collection('checkins').doc(id), batch = db().batch();
     var ck = existing ? Object.assign({}, existing, { state: 'in', inAt: at, inBy: who.uid, inByName: who.name, updatedAt: at }) : {
@@ -258,6 +259,7 @@
       roomId: group.roomId || '', day: day, updatedAt: at,
       groupId: group.id, siteId: child.siteId, familyId: child.familyId, pickupCode: code
     };
+    if (!existing && screenNo) ck.screenNo = String(screenNo);
     if (existing) batch.update(ref, { state: 'in', inAt: at, inBy: who.uid, inByName: who.name, updatedAt: at });
     else batch.set(ref, ck);
     batch.set(db().collection('kidsRoll').doc(id), rollCopy(ck, group.name));

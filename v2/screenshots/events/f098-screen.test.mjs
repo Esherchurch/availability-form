@@ -150,7 +150,8 @@ const fwd = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return ym
 try {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });
+    /* churchShowConnected: the main window's pairing function is asked to keep this (F-175). */
+    await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1, churchShowConnected: true });
     await setDoc(doc(db, 'bookingSettings', 'site_t'), { bookingsAdmins: [], safeguardingLead: '', safeguardingDeputy: '' });
     await setDoc(doc(db, 'rooms', 'room_little'), { siteId: 'site_t', name: 'Test Little Room', kind: 'room', active: true, order: 1 });
   });
@@ -178,22 +179,40 @@ try {
   await tap(S, '[data-checkin="fam_1"]');
   const CKID = 'kids_kg_little_' + DAY + '__kc_ada__0';
   const ada = await until(() => get('checkins', CKID));
-  const CODE = ada.pickupCode;
+  const CODE = ada.pickupCode, SCREEN = ada.screenNo;
+  ok('   checked in with a SCREEN NUMBER: three digits, not the collection code', /^[0-9]{3}$/.test(SCREEN || '') && SCREEN !== CODE, J({ SCREEN, CODE }));
+  ok('   printed on the parent\'s slip, beside the collection code', (await until(() => S.$eval('[data-slip] [data-screenno]', e => e.textContent).catch(() => ''))).includes('Screen number ' + SCREEN));
 
   /* ---------- 2. Show on screen ---------- */
   const lB = await as('lou', 375); const L = lB.page;
   await go(L, 'kids-checkin.html', '[data-more="kc_ada"]');
   await tap(L, '[data-more="kc_ada"]');
-  await L.waitForSelector('#m-screen');
-  ok('2. "Show on screen" sits next to "Page a parent"', J(await L.$$eval('#modal .btn', b => b.map(x => x.textContent).slice(0, 2))) === J(['Page a parent', 'Show on screen']));
+  await L.waitForSelector('#m-call');
+  /* Martin, 14 Oct 2026: PHONE FIRST, SCREEN LAST. */
+  const order = await L.$$eval('#m-call .btn', b => b.map(x => x.textContent.trim()));
+  ok('2. PHONE FIRST: "Call on their phone", then "Ring"', J(order.slice(0, 2)) === J(['Call on their phone', 'Ring']), J(order));
+  ok('   "Show on screen" is last: smaller, below, and called a last resort', (await text(L, '#m-last')) === 'Show on screen (last resort)' &&
+    await L.evaluate(() => document.getElementById('m-last').getBoundingClientRect().top > document.getElementById('m-phone').getBoundingClientRect().bottom && !document.getElementById('m-screen').classList.contains('btn')));
+  await hideBanner(L);
+  await L.screenshot({ path: path.join(HERE, 'callparent-buttons-375.png') });
+  await tap(L, '#m-phone');
+  const called = await until(() => L.$eval('#m-called', e => e.textContent).catch(() => ''));
+  ok('   after calling, it says what happened, with the time', / at [0-9]{2}:[0-9]{2}\.$|^[0-9]{2}:[0-9]{2} · /.test(called), called);
+  ok('   and only then is the screen easy to reach: "No answer yet?" and a button', /No answer yet\?/.test(await text(L, '#m-last')) && await L.$eval('#m-screen', e => e.classList.contains('btn')));
   await tap(L, '#m-screen');
+  await L.waitForSelector('#m-confirm');
+  ok('   A CONFIRM STEP ON THE PAGE (not a browser box): it shows the number to the whole church', /This shows the screen number to the whole church\. Use it only if the parent hasn.t answered their phone\./.test(await text(L, '#m-confirm')) && !(await until(() => get('screenPages', CKID), 1500)));
+  await L.screenshot({ path: path.join(HERE, 'callparent-confirm-375.png') });
+  await tap(L, '#m-screen-no');
+  ok('   Cancel puts nothing on the screen', !(await L.$('#m-confirm')) && !(await get('screenPages', CKID)));
+  await tap(L, '#m-screen'); await L.waitForSelector('#m-screen-yes'); await tap(L, '#m-screen-yes');
   await L.waitForSelector('#on-screen');
-  ok('   the leader sees what the screen says', (await text(L, '#on-screen')).includes(CODE + ', please come to Little ones'), await text(L, '#on-screen'));
+  ok('   the leader sees what the screen says', (await text(L, '#on-screen')).includes('Screen number ' + SCREEN + ': please come to Little ones'), await text(L, '#on-screen'));
   const pg = await until(() => get('screenPages', CKID));
   ok('   THE CONTRACT: one document, exactly { siteId, code, room, message, createdBy, createdAt, clearedAt }',
-    pg && Object.keys(pg).sort().join(',') === 'clearedAt,code,createdAt,createdBy,message,room,siteId' && pg.siteId === 'site_t' && pg.code === CODE && pg.room === 'Test Little Room'
-    && pg.message === CODE + ', please come to Little ones' && pg.createdBy === P.lou.uid && pg.clearedAt === null && typeof pg.createdAt.toMillis === 'function', J(pg));
-  ok('   THE CODE ONLY, NEVER THE CHILD\'S NAME', !/Ada|Synthetic/.test(J(pg)));
+    pg && Object.keys(pg).sort().join(',') === 'clearedAt,code,createdAt,createdBy,message,room,siteId' && pg.siteId === 'site_t' && pg.code === SCREEN && pg.room === 'Test Little Room'
+    && pg.message === 'Screen number ' + SCREEN + ': please come to Little ones' && pg.createdBy === P.lou.uid && pg.clearedAt === null && typeof pg.createdAt.toMillis === 'function', J(pg));
+  ok('   THE SCREEN NUMBER ONLY: NEVER THE CHILD\'S NAME, NEVER THE COLLECTION CODE', !/Ada|Synthetic/.test(J(pg)) && J(pg).indexOf(CODE) < 0);
   await hideBanner(L);
   await L.screenshot({ path: path.join(HERE, 'f098-show-on-screen-375.png') });
 
@@ -202,7 +221,7 @@ try {
   const churchShow = () => A.evaluate(() => EGBCAuth.db.collection('screenPages').where('siteId', '==', 'site_t').where('clearedAt', '==', null).get()
     .then(s => s.docs.map(d => { const x = d.data(); return { message: x.message, room: x.room, code: x.code, fresh: Date.now() - x.createdAt.toMillis() < 5 * 60000 }; }), e => e.code));
   const shown = await churchShow();
-  ok('3. the projection computer (signed in as an AV admin, no children\'s rights) reads it as ChurchShow will', Array.isArray(shown) && shown.length === 1 && shown[0].message === CODE + ', please come to Little ones' && shown[0].fresh, J(shown));
+  ok('3. the projection computer (signed in as an AV admin, no children\'s rights) reads it as ChurchShow will', Array.isArray(shown) && shown.length === 1 && shown[0].message === 'Screen number ' + SCREEN + ': please come to Little ones' && shown[0].fresh, J(shown));
   const avSneak = await A.evaluate((id) => Promise.all([EGBCAuth.db.collection('checkins').doc(id).get().then(() => 'read', e => e.code), EGBCAuth.db.collection('kidsChildren').doc('kc_ada').get().then(() => 'read', e => e.code)]), CKID);
   ok('   and nothing else about the child', avSneak.every(x => /permission/.test(x)), J(avSneak));
 
@@ -213,11 +232,11 @@ try {
   ok('   and the screen no longer shows it', J(await until(async () => { const x = await churchShow(); return Array.isArray(x) && !x.length ? x : null; })) === '[]');
 
   /* ---------- 5. it clears itself after five minutes ---------- */
-  await tap(L, '[data-more="kc_ada"]'); await L.waitForSelector('#m-screen'); await tap(L, '#m-screen'); await L.waitForSelector('#on-screen');
+  await tap(L, '[data-more="kc_ada"]'); await L.waitForSelector('#m-screen'); await tap(L, '#m-screen'); await L.waitForSelector('#m-screen-yes'); await tap(L, '#m-screen-yes'); await L.waitForSelector('#on-screen');
   await until(async () => { const p = await get('screenPages', CKID); return p && p.clearedAt === null; });
   await tap(L, '#m-close');
   await L.waitForSelector('#g-onscreen');
-  ok('5. paged again: the group screen shows what is on the screen, with Done', (await text(L, '#g-onscreen')).includes(CODE + ', please come to Little ones') && !!(await L.$('[data-pdone]')));
+  ok('5. paged again: the group screen shows what is on the screen, with Done', (await text(L, '#g-onscreen')).includes('Screen number ' + SCREEN + ': please come to Little ones') && !!(await L.$('[data-pdone]')));
   await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), 'screenPages', CKID), { createdAt: Timestamp.fromMillis(Date.now() - 6 * 60000) }); });
   const auto = await until(async () => { const p = await get('screenPages', CKID); return p.clearedAt ? p : null; }, 45000);
   ok('   six minutes on, nobody pressed Done: the leader\'s screen clears it by itself', !!auto);
@@ -235,6 +254,28 @@ try {
   await go(S, 'kids-checkin.html', '[data-tab="register"]'); await tap(S, '[data-tab="register"]');
   await S.waitForSelector('#reg-period');
   ok('   the registers use them', J(await S.$$eval('#reg-period option', o => o.map(x => x.textContent))).includes('This term (Test term A)'), J(await S.$$eval('#reg-period option', o => o.map(x => x.textContent))));
+  /* ---------- 7. the church's setting, and no ChurchShow ---------- */
+  await S.setViewport({ width: 375, height: 812 });
+  await go(S, 'kids-admin.html?tab=settings', '#s-screen');
+  ok('7. Kids Church settings: "Allow showing a number on the service screen", on by default', await S.$eval('#s-screen', e => e.checked && !e.disabled) && /Allow showing a number on the service screen/.test(await text(S, '#s-screen-card')));
+  await tap(S, '#s-screen');
+  const off = await until(async () => { const k = await get('kidsSettings', 'site_t'); return k && k.screenPaging === false ? k : null; });
+  ok('   a lead switches it OFF', !!off && /nothing is ever shown on the screen/.test(await text(S, '#s-screen-msg')));
+  await hideBanner(S);
+  await S.$eval('#s-screen-card', e => e.scrollIntoView({ block: 'center' }));
+  await S.screenshot({ path: path.join(HERE, 'callparent-setting-off-375.png') });
+  await go(L, 'kids-checkin.html', '[data-more="kc_ada"]'); await tap(L, '[data-more="kc_ada"]'); await L.waitForSelector('#m-call');
+  ok('   SWITCHED OFF: no screen button at all; phone and Ring are still there', !(await L.$('#m-screen')) && !(await L.$('#m-last')) && !!(await L.$('#m-phone')) && !!(await L.$('#m-ring')));
+  /* A page exactly as the page would write it: refused only because the church switched it off. */
+  const refused = await L.evaluate((id, n) => EGBCAuth.db.collection('screenPages').doc(id).set({ siteId: 'site_t', code: n, room: 'Test Little Room',
+    message: 'Screen number ' + n + ': please come to Little ones', createdBy: EGBCAuth.user().uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(), clearedAt: null }).then(() => 'written', e => e.code), CKID, SCREEN);
+  ok('   and the rules refuse a page that tries anyway', /permission/.test(refused), refused);
+  await tap(S, '#s-screen');
+  await until(async () => ((await get('kidsSettings', 'site_t')) || {}).screenPaging === true);
+  await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), 'sites', 'site_t'), { churchShowConnected: false }); });
+  await go(L, 'kids-checkin.html', '[data-more="kc_ada"]'); await tap(L, '[data-more="kc_ada"]'); await L.waitForSelector('#m-call');
+  ok('   NO CHURCHSHOW CONNECTED for the building: no screen button (none that would fail)', !(await L.$('#m-screen')));
   await lB.close(); await sB.close(); await mB.close();
 } catch (e) {
   ok('the run finished', false, e.stack);

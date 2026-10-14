@@ -1590,7 +1590,7 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
 
   const CKID = (kid, g) => 'kids_' + g + '_' + TODAY + '__' + kid + '__0';
   const CK = (kid, g) => ({ calEventId: 'kids_' + g + '_' + TODAY, signupKey: kid, attendeeIndex: 0, name: kid === 'kid_cat' ? 'Cat Synthetic' : 'Dan Synthetic', kind: 'child', state: 'in',
-    inAt: 'x', inBy: 'x', inByName: 'x', roomId: '', day: TODAY, updatedAt: 'x', groupId: g, siteId: 'site_kids', familyId: 'fam_2', pickupCode: 'Q7P2' });
+    inAt: 'x', inBy: 'x', inByName: 'x', roomId: '', day: TODAY, updatedAt: 'x', groupId: g, siteId: 'site_kids', familyId: 'fam_2', pickupCode: 'Q7P2', screenNo: '427' });
   const ROLL = (kid, g, extra) => ({ siteId: 'site_kids', day: TODAY, groupId: g, groupName: 'x', childId: kid, name: CK(kid, g).name, state: 'in', inAt: 'x', outAt: '', roomId: '', updatedAt: 'x', ...(extra || {}) });
   const both = (who, kid, g, rollExtra) => { const b = writeBatch(who); b.set(doc(who, 'checkins', CKID(kid, g)), CK(kid, g)); b.set(doc(who, 'kidsRoll', CKID(kid, g)), ROLL(kid, g, rollExtra)); return b.commit(); };
   await check('a roll-call copy must say what the check-in says', 'deny', () => both(ctx('u_kim'), 'kid_cat', 'grp_junior', { name: 'Someone Else' }));
@@ -1633,27 +1633,35 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a term that ends before it starts is refused', 'deny', () => setDoc(doc(ctx('u_kim'), 'kidsTerms', 'site_kids'), T(['2026-12-18', '2026-09-03'], ['2027-01-05', '2027-03-26'], ['2027-04-12', '2027-07-21'])));
   await check('a group leader cannot set them', 'deny', () => setDoc(doc(ctx('u_lou'), 'kidsTerms', 'site_kids'), YEAR));
 
-  const PID = 'kids_grp_junior_' + TODAY + '__kid_cat__0';   /* Cat, checked in to Juniors this morning (code Q7P2) */
-  const PAGE = (who, extra) => ({ siteId: 'site_kids', code: 'Q7P2', room: 'Junior Room', message: 'Q7P2, please come to Juniors', createdBy: who, createdAt: serverTimestamp(), clearedAt: null, ...(extra || {}) });
+  const PID = 'kids_grp_junior_' + TODAY + '__kid_cat__0';   /* Cat, checked in to Juniors this morning (code Q7P2, screen number 427) */
+  /* Martin, 14 Oct 2026: the screen shows the SCREEN NUMBER, never the collection code. */
+  const PAGE = (who, extra) => ({ siteId: 'site_kids', code: '427', room: 'Junior Room', message: 'Screen number 427: please come to Juniors', createdBy: who, createdAt: serverTimestamp(), clearedAt: null, ...(extra || {}) });
+  await check('THE COLLECTION CODE NEVER GOES ON THE SCREEN', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { code: 'Q7P2', message: 'Screen number Q7P2: please come to Juniors' })));
+  await check('  not in the old words either', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { code: 'Q7P2', message: 'Q7P2, please come to Juniors' })));
+  await env.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'kidsSettings', 'site_kids'), { screenPaging: false }); });
+  await check('WITH SCREEN NUMBERS SWITCHED OFF (Kids Church settings), nothing goes on the screen', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo')));
+  await check('a Kids Church lead switches them back on', 'allow', () => updateDoc(doc(ctx('u_kim'), 'kidsSettings', 'site_kids'), { screenPaging: true }));
+  await check('  but a lead may not change the settings’ other parts with it', 'deny', () => updateDoc(doc(ctx('u_kim'), 'kidsSettings', 'site_kids'), { screenPaging: false, teams: ['Kids Church', 'Worship Team'] }));
+  await check('  nor may a group leader switch them', 'deny', () => updateDoc(doc(ctx('u_lou'), 'kidsSettings', 'site_kids'), { screenPaging: false }));
   await check('THE PAGE MAY NOT NAME THE CHILD', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { message: 'Cat Synthetic, please come to Juniors' })));
-  await check('nor carry a code that is not the family\u2019s', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { code: 'ZZZZ', message: 'ZZZZ, please come to Juniors' })));
+  await check('nor carry a number that is not the family\u2019s', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { code: '999', message: 'Screen number 999: please come to Juniors' })));
   await check('nor anything else', 'deny', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo', { childName: 'Cat Synthetic' })));
   await check('the leader of Little ones cannot page for a Junior', 'deny', () => setDoc(doc(ctx('u_lou'), 'screenPages', PID), PAGE('u_lou')));
   await check('an admin of another team cannot page', 'deny', () => setDoc(doc(ctx('u_wes'), 'screenPages', PID), PAGE('u_wes')));
-  await check('Juniors\u2019 leader pages Cat\u2019s parent: "Q7P2, please come to Juniors"', 'allow', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo')));
+  await check('Juniors\u2019 leader pages Cat\u2019s parent: "Screen number 427: please come to Juniors"', 'allow', () => setDoc(doc(ctx('u_jo'), 'screenPages', PID), PAGE('u_jo')));
   await check('THE CONTRACT: the projection computer (a worship admin) reads the active pages for the site, exactly these fields, a code and no name', 'allow', async () => {
     const snap = await getDocs(query(collection(ctx('u_wes'), 'screenPages'), where('siteId', '==', 'site_kids'), where('clearedAt', '==', null)));
     const d = snap.docs[0] && snap.docs[0].data();
     if (snap.size !== 1) throw new Error('expected one page, got ' + snap.size);
     if (Object.keys(d).sort().join(',') !== 'clearedAt,code,createdAt,createdBy,message,room,siteId') throw new Error('fields: ' + Object.keys(d).sort());
-    if (d.message !== 'Q7P2, please come to Juniors' || d.code !== 'Q7P2' || d.room !== 'Junior Room' || d.siteId !== 'site_kids' || d.clearedAt !== null) throw new Error(JSON.stringify(d));
+    if (d.message !== 'Screen number 427: please come to Juniors' || d.code !== '427' || d.room !== 'Junior Room' || d.siteId !== 'site_kids' || d.clearedAt !== null) throw new Error(JSON.stringify(d));
     if (typeof d.createdAt.toMillis !== 'function' || Math.abs(d.createdAt.toMillis() - Date.now()) > 120000) throw new Error('createdAt is not server time');
     if (/Cat|Synthetic/.test(JSON.stringify(d))) throw new Error('a name on the screen');
   });
   await check('a list that does not ask for uncleared pages is refused', 'deny', () => getDocs(query(collection(ctx('u_wes'), 'screenPages'), where('siteId', '==', 'site_kids'))));
   await check('nobody signed out reads them', 'deny', () => getDocs(query(collection(env.unauthenticatedContext().firestore(), 'screenPages'), where('siteId', '==', 'site_kids'), where('clearedAt', '==', null))));
   await check('the Session Leader pages too, this morning', 'allow', () => setDoc(doc(ctx('u_sam'), 'screenPages', PID), PAGE('u_sam')));
-  await check('"Done" may not change anything but clearedAt', 'deny', () => updateDoc(doc(ctx('u_jo'), 'screenPages', PID), { clearedAt: serverTimestamp(), code: 'ZZZZ' }));
+  await check('"Done" may not change anything but clearedAt', 'deny', () => updateDoc(doc(ctx('u_jo'), 'screenPages', PID), { clearedAt: serverTimestamp(), code: 'Q7P2' }));
   await check('the leader presses "Done": it is cleared, at server time', 'allow', () => updateDoc(doc(ctx('u_jo'), 'screenPages', PID), { clearedAt: serverTimestamp() }));
   await check('once cleared, the projection computer no longer reads it', 'deny', () => getDoc(doc(ctx('u_wes'), 'screenPages', PID)));
   await check('a page is never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'screenPages', PID)));

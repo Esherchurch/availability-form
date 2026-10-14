@@ -194,8 +194,8 @@ try {
   await tap(L, '[data-more="kc_ada"]');
   await L.waitForSelector('[data-med="kc_ada"]');
   ok('   her medical details, and her parent\'s number on tap', /Peanuts: carries an EpiPen/.test(await text(L, '#modal')) && (await L.$eval('#modal a[href^="tel:"]', a => a.getAttribute('href'))) === 'tel:07700900111');
-  await tap(L, '#m-page');
-  ok('   "page a parent" shows the number to call, large, with a Call button', /Call Parent Synthetic to come to Little ones/.test(await text(L, '#pager')) && (await L.$eval('#pager a.btn', a => a.getAttribute('href'))) === 'tel:07700900111');
+  /* Martin, 14 Oct 2026: "Ring" (tap to call) replaced "Page a parent". */
+  ok('   "Ring" calls the parent\'s number with a tap', (await L.$eval('#m-ring', a => a.getAttribute('href'))) === 'tel:07700900111');
   await hideBanner(L);
   await L.screenshot({ path: path.join(HERE, 'k2-leader-375.png'), fullPage: true });
   await tap(L, '#m-close');

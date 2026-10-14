@@ -4349,3 +4349,69 @@ members will be told to ask the office.
   hold the test ports, and auto mode won't let me stop them.
 
 **For the main window:** none of your files changed.
+
+### F-175 — Call a parent: phone first, screen last (Martin, 14 Oct). REQUESTS for the main window
+**Done in `kids-checkin.html`, for any church.** The buttons now come in
+this order:
+1. **"Call on their phone"**, the main button.
+2. **"Ring"** (tap to call), beside it.
+3. **"Show on screen"**, the last resort: a small link below the others,
+   and only after a confirm step on the page, not a browser box: "This
+   shows the screen number to the whole church. Use it only if the
+   parent hasn't answered their phone." [Show on screen] [Cancel]
+
+After a call, the page says what happened ("Sent to 1 phone at 10:42."),
+and only then does "No answer yet?" turn the screen link into a button.
+
+The screen button is never drawn when:
+- the church has switched it off (Kids Church settings, below)
+- the feature `screenPaging` is off in "What does your church use?"
+- no ChurchShow is connected for the building
+- the child has no screen number
+
+**THE SCREEN SHOWS A SCREEN NUMBER, NEVER THE COLLECTION CODE.** The
+collection code lets someone take a child home, and it was going on the
+screen for the whole church.
+- Each family now gets a three-digit screen number each morning, in
+  `checkins.screenNo`, the same way it gets its collection code.
+- It's printed on the parent's slip beside the code.
+- The screen says "Screen number 427: please come to Juniors".
+- The rules now refuse anything else on a screen page, and refuse a
+  screen page when the church has switched screen numbers off.
+- **Is this "the safeguarding fix" Martin meant?** If that was something
+  else, tell me.
+
+**The setting:** Kids Church settings ▸ Calling a parent, "Allow showing
+a number on the service screen" (`kidsSettings/<site>.screenPaging`). It's
+on unless switched off, and Kids Church leads and master admins can
+change it.
+
+**FOR THE MAIN WINDOW:**
+1. **`egbc-app-kids.js`** (the app's Kids Church "Today"): the same order,
+   the same confirm step, the same rules about when the screen button is
+   drawn, and the screen number, never the code. Copy `kids-checkin.html`'s
+   `callButtons` / `wireCall` / `wireScreen` / `showOnScreen`.
+2. **ChurchShow connected:** kids leaders can't read `devices`, so the
+   page can't tell whether a building has a screen. Please have
+   `functions/churchshow.js` keep `sites/<siteId>.churchShowConnected`:
+   `true` when a device is paired, and `false` when the building's last
+   active device is disconnected. **Until then the screen button stays
+   hidden everywhere.** That's safe, but it means no screen numbers at all.
+3. **The app's family check-in** should write `screenNo` too
+   (`EGBCKids.screenNumber()`, one per family per morning). It should also
+   show "Your screen number 427" beside "Your collection code" in
+   `app.html`. Check-ins without one simply get no screen button.
+4. **ChurchShow's display** (F-100 contract): `code` is now the screen
+   number, and `message` reads "Screen number 427: please come to Juniors".
+5. **Bump `?v=` in `app.html`** for `egbc-notify.js`, `egbc-events-kids.js`,
+   `egbc-events-checkin.js` and `egbc-events-bookings.js`, all changed
+   today. I bumped my own 22 pages.
+6. **Add `screenPaging`** to "What does your church use?", under Kids.
+
+**Proved:**
+- `f098-screen.test.mjs`: 30 checks at 375px. It covers the order, the
+  call result, the confirm step, Cancel, the screen number, the setting
+  off (page and rules), and no ChurchShow.
+- Rules: 1243, including 6 new.
+- Eight deliberate breaks, all caught.
+- `k2-sunday`: 38/38. Its "Page a parent" check became "Ring".

@@ -198,14 +198,14 @@
   function callParent(checkinId) { return call('callParent', { checkinId: checkinId }); }
   /* The words for the answer, for whoever pressed the button. */
   function callWords(r) {
-    if (!r || r.error === 'not-live') return 'Phone calls start once the sending function is live. Use Show on screen, or ring them.';
-    if (r.reason === 'too-soon') return 'They were called less than two minutes ago. Use Show on screen, or ring them.';
+    if (!r || r.error === 'not-live') return 'Phone calls start once the sending function is live. Ring them instead.';
+    if (r.reason === 'too-soon') return 'They were called less than two minutes ago. Ring them, or wait a moment.';
     if (r.reason === 'not-in') return 'That child is not checked in now.';
-    if (r.error) return 'Could not call them: ' + (r.message || r.error) + '. Use Show on screen, or ring them.';
+    if (r.error) return 'Could not call them: ' + (r.message || r.error) + '. Ring them instead.';
     var bits = [];
     if (r.phones) bits.push('sent to ' + r.phones + ' phone' + (r.phones === 1 ? '' : 's'));
     if (r.emailed) bits.push('emailed ' + r.emailed);
-    return bits.length ? bits.join(', ').replace(/^./, function (c) { return c.toUpperCase(); }) + '.' : 'Their parents have no phone set up. Use Show on screen, or ring them.';
+    return bits.length ? bits.join(', ').replace(/^./, function (c) { return c.toUpperCase(); }) + '.' : 'Their parents have no phone set up. Ring them instead.';
   }
 
   global.EGBCNotify = {

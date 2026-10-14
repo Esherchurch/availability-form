@@ -17,10 +17,10 @@
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610141200"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610091800"></script>
+<script src="egbc-events-kids.js?v=202610141700"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
-<script src="egbc-notify.js?v=202610111300"></script>
-<script src="egbc-events-checkin.js?v=202610082300"></script>
+<script src="egbc-notify.js?v=202610141700"></script>
+<script src="egbc-events-checkin.js?v=202610141700"></script>
 <script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-scan.js?v=202610082100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -314,16 +314,21 @@
     var ck = Object.keys(CKS).map(function (k) { return CKS[k]; }).filter(function (x) { return x.familyId === familyId && x.day === DAY; })[0];
     return ck ? ck.pickupCode : K.pickupCode();
   }
+  /* And one screen number per family per morning, the same way. */
+  function familyScreenToday(familyId) {
+    var ck = Object.keys(CKS).map(function (k) { return CKS[k]; }).filter(function (x) { return x.familyId === familyId && x.day === DAY && x.screenNo; })[0];
+    return ck ? ck.screenNo : K.screenNumber();
+  }
   function checkInFamily(familyId, btn) {
     var ids = [].slice.call(document.querySelectorAll('[data-fam="' + familyId + '"] .d-tick:checked')).map(function (x) { return x.value; });
     if (!ids.length) { toast('Tick the children who are here'); return; }
     btn.disabled = true;
-    var code = familyCodeToday(familyId);
+    var code = familyCodeToday(familyId), scr = familyScreenToday(familyId);
     Promise.all(ids.map(function (id) {
       var c = child(id), g = group(c.groupId), ck = ckOf(c);
-      return C.kidsIn(c, g, DAY, ck ? ck.pickupCode : code, ck);
+      return C.kidsIn(c, g, DAY, ck ? ck.pickupCode : code, ck, scr);
     })).then(function () {
-      V.labels = { familyId: familyId, ids: ids, code: code };
+      V.labels = { familyId: familyId, ids: ids, code: code, screen: scr };
       toast('Checked in: ' + ids.length);
       drawResults();
     }).catch(function (e) { btn.disabled = false; toast('Could not check in: ' + (e.message || e)); });
@@ -333,6 +338,7 @@
   function labelsHtml(lb) {
     var kids = lb.ids.map(child).filter(Boolean), first = kids[0] || {};
     var codeFor = function (c) { var ck = ckOf(c); return ck ? ck.pickupCode : lb.code; };
+    var screenFor = function (c) { var ck = ckOf(c); return (ck && ck.screenNo) || lb.screen || ''; };
     return kids.map(function (c) {
       var g = group(c.groupId);
       return '<div class="label" data-label="' + esc(c.id) + '"><div class="n">' + esc(c.name) + '</div><div class="g">' + esc(g ? g.name : '') + ' · ' + esc(E.fmtDateShort(DAY + 'T12:00')) + '</div>' +
@@ -340,6 +346,7 @@
         '<div class="code">' + esc(codeFor(c)) + '</div></div>';
     }).join('') +
       '<div class="label slip" data-slip="1"><div class="g">For the parent: show this to collect</div><div class="code">' + esc(codeFor(first)) + '</div>' +
+      (screenFor(first) ? '<div class="g" data-screenno="' + esc(screenFor(first)) + '">Screen number <b>' + esc(screenFor(first)) + '</b>: if you see it on the screen, please come to your child\'s group</div>' : '') +
       '<div class="g">' + esc(kids.map(function (c) { return c.name; }).join(', ')) + '</div>' +
       (first.familyCode ? '<div class="qr">' + QR.svg(K.familyQR(first.familyCode), 110) + '</div><div class="g">Your family code ' + esc(first.familyCode) + ': show it at the desk next week</div>' : '') + '</div>';
   }
@@ -429,12 +436,12 @@
         responseId: '', updatedAt: now, updatedBy: uid() });
       made.push(Object.assign({ id: id }, d));
     });
-    var code = K.pickupCode();
+    var code = K.pickupCode(), scr = K.screenNumber();
     batch.commit().then(function () {
       CHILDREN = CHILDREN.concat(made);
-      return Promise.all(made.filter(function (c) { return group(c.groupId); }).map(function (c) { return C.kidsIn(c, group(c.groupId), DAY, code, null); }));
+      return Promise.all(made.filter(function (c) { return group(c.groupId); }).map(function (c) { return C.kidsIn(c, group(c.groupId), DAY, code, null, scr); }));
     }).then(function () {
-      V.labels = { familyId: famId, ids: made.map(function (c) { return c.id; }), code: code };
+      V.labels = { familyId: famId, ids: made.map(function (c) { return c.id; }), code: code, screen: scr };
       var unplaced = made.filter(function (c) { return !group(c.groupId); });
       toast(unplaced.length ? 'Registered. ' + unplaced.map(function (c) { return c.name; }).join(', ') + ': no group for that school year; a lead places them.' : 'Checked in');
       return sendFullForm(v, made);
@@ -493,10 +500,10 @@
     box.querySelectorAll('[data-gin]').forEach(function (b) {
       b.onclick = function () {
         var c = child(b.dataset.gin); b.disabled = true;
-        var code = familyCodeToday(c.familyId);
-        C.kidsIn(c, g, DAY, code, null).then(function () {
+        var code = familyCodeToday(c.familyId), scr = familyScreenToday(c.familyId);
+        C.kidsIn(c, g, DAY, code, null, scr).then(function () {
           openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">' + esc(c.name) + ' is in</h2><p class="hint">Their collection code is below. Give it to the parent, with the label.</p>' +
-            '<div id="labels">' + labelsHtml({ familyId: c.familyId, ids: [c.id], code: code }) + '</div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn sec" id="m-print">Print</button><button class="btn" id="m-done">Done</button></div>');
+            '<div id="labels">' + labelsHtml({ familyId: c.familyId, ids: [c.id], code: code, screen: scr }) + '</div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn sec" id="m-print">Print</button><button class="btn" id="m-done">Done</button></div>');
           document.getElementById('m-print').onclick = function () { window.print(); };
           document.getElementById('m-done').onclick = closeModal;
         }).catch(function (e) { b.disabled = false; toast('Could not check in: ' + (e.message || e)); });
@@ -688,40 +695,91 @@
       '<dl><dt>Parent</dt><dd>' + esc(c.parentName || '') + '</dd><dt>Phone</dt><dd>' + (c.phone ? '<a href="tel:' + esc(tel(c.phone)) + '" style="color:var(--brand)">' + esc(c.phone) + '</a>' : 'none given') + '</dd>' +
       '<dt>Emergency</dt><dd>' + esc(c.emergency || 'none given') + '</dd><dt>May collect</dt><dd>' + esc((c.collectors || []).join(', ')) + '</dd>' +
       '<dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No: ring the parent') + '</dd><dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd></dl>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="m-page">Page a parent</button>' +
-      (ckOf(c) && ckOf(c).state === 'in' ? '<button class="btn" id="m-screen">Show on screen</button>' : '') +
-      (ckOf(c) && ckOf(c).state === 'in' && window.EGBCNotify ? '<button class="btn" id="m-phone">Call on their phone</button>' : '') +
-      '<button class="btn sec" id="m-close">Close</button></div><div id="m-pager"></div>');
+      callButtons(c));
     document.getElementById('m-close').onclick = closeModal;
+    wireCall(c);
     /* §23: the family's own phones get the group and the code only, never
        the child's name; anyone with no phone set up is emailed. */
-    var mp = document.getElementById('m-phone');
-    if (mp) mp.onclick = function () {
-      mp.disabled = true;
-      EGBCNotify.callParent(ckOf(c).id).then(function (r) {
-        document.getElementById('m-pager').innerHTML = '<div class="st ' + (r && !r.error && (r.phones || r.emailed) ? 'ok' : 'wait') + '" id="m-called" style="margin-top:10px">' + esc(EGBCNotify.callWords(r)) + '</div>';
-        mp.disabled = false;
-      });
-    };
-    var ms = document.getElementById('m-screen');
-    if (ms) ms.onclick = function () {
-      ms.disabled = true;
-      showOnScreen(c).then(function (pg) {
-        document.getElementById('m-pager').innerHTML = '<div class="st ok" id="on-screen" style="margin-top:10px"><div class="hint">On the screen now (for ' + PAGE_MINUTES + ' minutes):</div><div class="page-call">' + esc(pg.message) + '</div>' +
-          '<div style="margin-top:8px"><button class="btn tall" id="m-done">Done: the parent is here</button></div></div>';
-        document.getElementById('m-done').onclick = function () { clearPage(pg.id).then(function () { closeModal(); toast('Taken off the screen'); }); };
-      }).catch(function (e) { ms.disabled = false; toast('Could not show it: ' + (e.message || e)); });
-    };
-    document.getElementById('m-page').onclick = function () {
-      document.getElementById('m-pager').innerHTML = '<div class="st wait" id="pager" style="margin-top:10px"><div class="hint">Call ' + esc(c.parentName || 'the parent') + ' to come to ' + esc((group(c.groupId) || {}).name || 'the group') + ':</div>' +
-        (c.phone ? '<a class="page-call" href="tel:' + esc(tel(c.phone)) + '">' + esc(c.phone) + '</a><div style="margin-top:8px"><a class="btn tall" href="tel:' + esc(tel(c.phone)) + '">Call now</a></div>' : '<div class="page-call">No phone number on their record</div>') +
-        '<div class="hint" style="margin-top:6px">A text message to the parent comes later.</div></div>';
-    };
     db().collection('kidsMedical').doc(c.id).get().then(function (s) {
       var m = s.exists ? s.data() : {};
       document.getElementById('m-med').innerHTML = '<span data-med="' + esc(c.id) + '"><b>Allergies</b>: ' + esc(m.allergies || 'none given') + '<br><b>Medical</b>: ' + esc(m.medical || 'none given') +
         '<br><b>Medication</b>: ' + esc(m.medication || 'none given') + '<br><b>Additional needs</b>: ' + esc(m.needs || 'none given') + '</span>';
     }).catch(function () { document.getElementById('m-med').textContent = 'Could not open the medical details.'; });
+  }
+
+  /* ---- CALL A PARENT: PHONE FIRST, SCREEN LAST (Martin, 14 Oct 2026) ----
+     1. "Call on their phone" (a notification), the main button;
+     2. "Ring", tap to call, beside it;
+     3. "Show on screen", the last resort: smaller, below, and only after
+        a confirm step on the page. After a call it says what happened and
+        only then is the screen easy to reach. It is not drawn at all when
+        the church has switched screen numbers off (Kids Church settings),
+        when no ChurchShow is connected for the building, or for a child
+        with no screen number. The screen shows the screen number, never
+        the collection code. */
+  function siteNow() { return SITES.filter(function (x) { return x.id === V.site; })[0] || {}; }
+  function screenOk(c) {
+    var ck = ckOf(c);
+    /* screenPaging: also the feature's name in "What does your church use?" (rule 12). */
+    var used = !(window.EGBCChurch && EGBCChurch.uses) || EGBCChurch.uses('screenPaging') !== false;
+    return !!(ck && ck.state === 'in' && ck.screenNo && used && SETTINGS.screenPaging !== false && siteNow().churchShowConnected === true);
+  }
+  function clock() { var d = new Date(); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+  function callButtons(c) {
+    var ck = ckOf(c), isIn = !!(ck && ck.state === 'in'), phone = isIn && window.EGBCNotify;
+    return '<div id="m-call" style="margin-top:12px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+      (phone ? '<button class="btn tall" id="m-phone">Call on their phone</button>' : '') +
+      (c.phone ? '<a class="btn ' + (phone ? 'sec ' : '') + 'tall" id="m-ring" href="tel:' + esc(tel(c.phone)) + '" title="' + esc(c.phone) + '">Ring</a>'
+               : '<span class="hint" id="m-nophone">No phone number on their record.</span>') +
+      '<button class="btn sec" id="m-close">Close</button></div>' +
+      '<div id="m-pager"></div>' +
+      (screenOk(c) ? '<div id="m-last" style="margin-top:14px">' + lastResort(false) + '</div>' : '') + '</div>';
+  }
+  /* Before anyone has been called: a small link. After: "No answer yet?" and a button. */
+  function lastResort(afterCall) {
+    return afterCall
+      ? '<p class="hint" style="margin:0 0 6px">No answer yet?</p><button class="btn sec" id="m-screen">Show on screen</button>'
+      : '<button id="m-screen" style="background:none;border:none;padding:0;color:var(--muted,#6b7280);text-decoration:underline;font:500 13px Inter,sans-serif;cursor:pointer">Show on screen (last resort)</button>';
+  }
+  function wireCall(c) {
+    var said = function (cls, words) {
+      document.getElementById('m-pager').innerHTML = '<div class="st ' + cls + '" id="m-called" style="margin-top:10px">' + esc(words) + '</div>';
+      var last = document.getElementById('m-last');
+      if (last && !document.getElementById('m-confirm') && !document.getElementById('on-screen')) { last.innerHTML = lastResort(true); wireScreen(c); }
+    };
+    var mp = document.getElementById('m-phone');
+    if (mp) mp.onclick = function () {
+      mp.disabled = true;
+      EGBCNotify.callParent(ckOf(c).id).then(function (r) {
+        var good = r && !r.error && (r.phones || r.emailed);
+        /* "Sent to 1 phone at 10:42." - or, when it did not go, the time first. */
+        said(good ? 'ok' : 'wait', good ? EGBCNotify.callWords(r).replace(/\.$/, '') + ' at ' + clock() + '.' : clock() + ' · ' + EGBCNotify.callWords(r));
+        mp.disabled = false;
+      });
+    };
+    var mr = document.getElementById('m-ring');
+    if (mr) mr.addEventListener('click', function () { said('wait', 'Rang ' + (c.parentName || 'the parent') + ' at ' + clock() + '.'); });
+    wireScreen(c);
+  }
+  /* The confirm step is on the page, not a browser box. */
+  function wireScreen(c) {
+    var ms = document.getElementById('m-screen'), last = document.getElementById('m-last');
+    if (!ms || !last) return;
+    ms.onclick = function () {
+      var keep = last.innerHTML;
+      last.innerHTML = '<div class="st wait" id="m-confirm"><p style="margin:0 0 8px">This shows the screen number to the whole church. Use it only if the parent hasn\'t answered their phone.</p>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="m-screen-yes">Show on screen</button><button class="btn sec" id="m-screen-no">Cancel</button></div></div>';
+      document.getElementById('m-screen-no').onclick = function () { last.innerHTML = keep; wireScreen(c); };
+      var yes = document.getElementById('m-screen-yes');
+      yes.onclick = function () {
+        yes.disabled = true;
+        showOnScreen(c).then(function (pg) {
+          last.innerHTML = '<div class="st ok" id="on-screen"><div class="hint">On the screen now (for ' + PAGE_MINUTES + ' minutes):</div><div class="page-call">' + esc(pg.message) + '</div>' +
+            '<div style="margin-top:8px"><button class="btn tall" id="m-done">Done: the parent is here</button></div></div>';
+          document.getElementById('m-done').onclick = function () { clearPage(pg.id).then(function () { closeModal(); toast('Taken off the screen'); }); };
+        }).catch(function (e) { yes.disabled = false; toast('Could not show it: ' + (e.message || e)); });
+      };
+    };
   }
 
   /* ---- paging on the screen, through ChurchShow (Martin, F-098) ----
@@ -731,7 +789,8 @@
   function roomName(g) { var r = ROOMS.filter(function (x) { return x.id === g.roomId; })[0]; return r ? r.name : g.name; }
   function showOnScreen(c) {
     var ck = ckOf(c), g = group(c.groupId);
-    var pg = { siteId: ck.siteId, code: ck.pickupCode, room: roomName(g).slice(0, 80), message: ck.pickupCode + ', please come to ' + g.name,
+    /* The screen number, never the collection code (Martin, 14 Oct 2026). */
+    var pg = { siteId: ck.siteId, code: ck.screenNo, room: roomName(g).slice(0, 80), message: 'Screen number ' + ck.screenNo + ': please come to ' + g.name,
       createdBy: uid(), createdAt: firebase.firestore.FieldValue.serverTimestamp(), clearedAt: null };
     return db().collection('screenPages').doc(ck.id).set(pg).then(function () { return Object.assign({ id: ck.id }, pg); });
   }
