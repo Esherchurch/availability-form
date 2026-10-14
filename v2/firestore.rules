@@ -3640,6 +3640,47 @@ service cloud.firestore {
                    && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
     }
 
+    // ---- "I'm new here" (NEXT-BRIEF §24 item 12; F-167) ------------------
+    // A visitor - usually NOT signed in - says hello. Anyone may send one, of
+    // exactly this shape; nothing else can be written, and a sender cannot
+    // read it back (or anyone's). Read only by the people the church chose
+    // (welcomeSettings/main.memberIds) and master admins, who may mark one
+    // contacted. The email address hellos are copied to is chosen by the
+    // church and is the one public setting (welcomeSettings/public).
+    function welcomer() {
+      return active() && exists(/databases/$(database)/documents/welcomeSettings/main)
+             && me().get('memberId', '-') in get(/databases/$(database)/documents/welcomeSettings/main).data.get('memberIds', []);
+    }
+    match /welcomes/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'phone', 'message', 'contactMe', 'uid', 'at', 'status'])
+                    && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 120
+                    && request.resource.data.email is string && request.resource.data.email.size() <= 200
+                    && (request.resource.data.email == '' || request.resource.data.email.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))
+                    && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
+                    && request.resource.data.message is string && request.resource.data.message.size() <= 2000
+                    && request.resource.data.contactMe is bool
+                    // Asking to be contacted needs a way to be contacted.
+                    && (request.resource.data.contactMe == false || request.resource.data.email != '' || request.resource.data.phone != '')
+                    && request.resource.data.uid == (request.auth == null ? '' : request.auth.uid)
+                    && request.resource.data.at == request.time && request.resource.data.status == 'new';
+      allow read: if isMaster() || welcomer();
+      allow update: if (isMaster() || welcomer())
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'handledBy', 'handledAt'])
+                    && request.resource.data.status in ['new', 'contacted']
+                    && request.resource.data.handledBy == request.auth.uid && request.resource.data.handledAt == request.time;
+      // Removing one (a visitor asking to be forgotten) is a master admin's.
+      allow delete: if isMaster();
+    }
+    match /welcomeSettings/{id} {
+      allow read: if id == 'public' || (id == 'main' && (isMaster() || welcomer()));
+      allow write: if isMaster() && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time
+                   && ((id == 'main' && request.resource.data.keys().hasOnly(['memberIds', 'updatedAt', 'updatedBy'])
+                        && request.resource.data.memberIds is list && request.resource.data.memberIds.size() <= 30)
+                       || (id == 'public' && request.resource.data.keys().hasOnly(['notifyEmail', 'updatedAt', 'updatedBy'])
+                           && request.resource.data.notifyEmail is string && request.resource.data.notifyEmail.size() <= 200
+                           && (request.resource.data.notifyEmail == '' || request.resource.data.notifyEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))));
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------

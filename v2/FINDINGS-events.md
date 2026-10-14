@@ -3881,3 +3881,63 @@ it):
 3. Optional: a notification to the pastoral team when a request arrives.
    This would need a small trigger. The spec doesn't ask for it, so I
    haven't requested it.
+
+### F-167 — "I'm new here" (NEXT-BRIEF §24 item 12)
+Feature name **`newHere`**. The page is `newhere.html`. **No server
+function is needed.**
+
+**For visitors, who are usually not signed in:**
+- A welcome card in the church's name and logo, never asking anyone to
+  sign in.
+- The fields: name, "Would you like someone to get in touch?", email or
+  phone, and an optional message with the Speak button.
+- **Nothing is stored until Send:** nothing in the database, and not even a
+  draft on the phone.
+- It says "Thank you … Someone will be in touch soon", or "It is lovely to
+  have you with us" for someone just saying hello.
+- **Spam defence,** as on public sign-up: a hidden field a robot fills,
+  and a minimum time to fill the form.
+
+**Where a hello goes ("whoever the church chooses"):**
+- **The welcomers:** people a master admin picks from the address book
+  (`welcomeSettings/main`). They see the hellos on the same page, signed
+  in, and mark them contacted.
+- **One email address the church picks** (`welcomeSettings/public`; the
+  enquiry address if it's empty) gets a copy of each.
+  - It's sent from the page, the same way public sign-ups send their
+    confirmations.
+  - **Worth knowing:** like public sign-up, this means a public form can
+    send email to that address (F-014). The hidden field and minimum time
+    are the defence. A notification to the welcomers' phones would be the
+    main window's alert function.
+
+**The rules (`welcomes`, `welcomeSettings`):**
+- Anyone can send a hello, of exactly this shape.
+- Asking to be contacted needs an email or a phone number.
+- Signed out, a hello can't claim to be from someone.
+- **A hello is read only by the chosen welcomers and master admins.** Not
+  an attender, and not the visitor who sent it.
+- A welcomer can only mark it contacted. Only a master admin can remove
+  one, for example when a visitor asks to be forgotten.
+- Who the welcomers are isn't public. The email address is, because the
+  page needs it.
+
+**Proved:**
+- **Rules:** 19 new checks, 1201 in all.
+- `newhere.test.mjs`: 19 checks at 375px.
+- **7 deliberate breaks, all caught:**
+  - **the one that matters:** anyone signed in reads the hellos (caught
+    by the browser test and by the rules tests)
+  - who the welcomers are made public
+  - asking for contact with no way to reply
+  - a draft kept on the phone
+  - the robot field ignored
+  - the card showing when switched off
+
+**For the main window:**
+1. Where visitors meet it: a link or QR on the welcome desk and the church
+   website, and perhaps a card on the app's Home for someone not yet in the
+   address book. The page is public, at `newhere.html`.
+2. `newHere` in "What does your church use?", under People and groups.
+3. Your alert function (for prayer and pastoral care) could also cover
+   `welcomes`, with no details in the alert.

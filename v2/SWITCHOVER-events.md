@@ -191,6 +191,11 @@ so "Show on screen" can call a parent.
 - **The pastoral team** is the Pastoral group in the address book. Check its people.
 - **A prayer team (optional):** on `prayer.html`, a master admin names the church's prayer team (its team or group, as in the address book). Leave it empty for none.
 
+### 3.7e "I'm new here" (Martin)
+1. **Who the hellos go to:** on `newhere.html`, signed in as a master admin, add the welcomers (for example the welcome team or the office). Until then only master admins see them.
+2. **The email address** they are copied to (empty means the church's enquiry address).
+3. **Put the link where visitors are:** the welcome desk (a QR code), the church website, the notice sheet: `newhere.html`.
+
 ### 3.8 Room hire and invoices (the office; can come after launch)
 **Pages:** `places-admin.html` (Hire prices) and `bookings-admin.html`
 (Accounts, Hirers)

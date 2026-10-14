@@ -2333,6 +2333,37 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a hidden one is no longer read by others', 'deny', () => getDoc(doc(ctx('u_other'), 'prayerAnswers', 'pa_2')));
 }
 
+// ── EVENTS (events window) ── "I'm new here" (NEXT-BRIEF §24 item 12; F-167)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'users', 'u_welc'), { uid: 'u_welc', memberId: 'm_welc', status: 'active', name: 'Wendy', teams: [], adminFor: [], masterAdmin: false, attender: true });
+    await setDoc(doc(db, 'welcomeSettings', 'main'), { memberIds: ['m_welc'], updatedAt: 'x', updatedBy: 'x' });
+  });
+  const H = (extra) => ({ name: 'Vera Visitor (invented)', email: 'vera@example.invalid', phone: '', message: 'Hello!', contactMe: true, uid: '', at: serverTimestamp(), status: 'new', ...(extra || {}) });
+  await check('NEW HERE: a visitor, not signed in, says hello', 'allow', () => setDoc(doc(guest(), 'welcomes', 'w_1'), H()));
+  await check('just saying hello, with no contact details', 'allow', () => setDoc(doc(guest(), 'welcomes', 'w_2'), H({ email: '', contactMe: false })));
+  await check('asking to be contacted needs an email or phone', 'deny', () => setDoc(doc(guest(), 'welcomes', 'w_3'), H({ email: '', phone: '' })));
+  await check('nothing more than the hello', 'deny', () => setDoc(doc(guest(), 'welcomes', 'w_4'), H({ extra: 'x' })));
+  await check('not already marked contacted', 'deny', () => setDoc(doc(guest(), 'welcomes', 'w_5'), H({ status: 'contacted' })));
+  await check('signed out, not in someone’s name', 'deny', () => setDoc(doc(guest(), 'welcomes', 'w_6'), H({ uid: 'u_martin' })));
+  await check('signed in, it carries their own uid', 'allow', () => setDoc(doc(ctx('u_other'), 'welcomes', 'w_7'), H({ uid: 'u_other' })));
+  await check('A HELLO IS NOT READ SIGNED OUT', 'deny', () => getDoc(doc(guest(), 'welcomes', 'w_1')));
+  await check('nor by the visitor who sent it', 'deny', () => getDoc(doc(ctx('u_other'), 'welcomes', 'w_7')));
+  await check('nor by an attender', 'deny', () => getDocs(collection(ctx('u_asker'), 'welcomes')));
+  await check('the welcomer the church chose reads them', 'allow', () => getDocs(collection(ctx('u_welc'), 'welcomes')));
+  await check('and marks one contacted', 'allow', () => updateDoc(doc(ctx('u_welc'), 'welcomes', 'w_1'), { status: 'contacted', handledBy: 'u_welc', handledAt: serverTimestamp() }));
+  await check('but cannot change what was said', 'deny', () => updateDoc(doc(ctx('u_welc'), 'welcomes', 'w_1'), { message: 'changed' }));
+  await check('a master admin reads them', 'allow', () => getDoc(doc(as('martin'), 'welcomes', 'w_2')));
+  await check('and only a master admin removes one', 'deny', () => deleteDoc(doc(ctx('u_welc'), 'welcomes', 'w_2')));
+  await check('the email address is public (the page needs it)', 'allow', () => getDoc(doc(guest(), 'welcomeSettings', 'public')));
+  await check('WHO THE WELCOMERS ARE IS NOT', 'deny', () => getDoc(doc(guest(), 'welcomeSettings', 'main')));
+  await check('only a master admin chooses them', 'deny', () => setDoc(doc(ctx('u_welc'), 'welcomeSettings', 'main'), { memberIds: ['m_welc', 'm_other'], updatedAt: serverTimestamp(), updatedBy: 'u_welc' }));
+  await check('a master admin does', 'allow', () => setDoc(doc(as('martin'), 'welcomeSettings', 'public'), { notifyEmail: 'welcome@example.invalid', updatedAt: serverTimestamp(), updatedBy: 'u_martin' }));
+}
+
 // ── EVENTS (events window) ── phone notifications (NEXT-BRIEF §23; F-144)
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();
