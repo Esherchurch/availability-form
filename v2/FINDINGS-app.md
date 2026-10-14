@@ -2892,8 +2892,10 @@ concerns spec and never built" — Martin).
 **Who gets told** (Church settings, master admin only, `careRouting/main`):
 - For each of requests for care, pastoral concerns and prayer requests:
   people from the address book and/or a dedicated address.
-- **Never the church office.** The office's enquiry address is refused on the
-  page, and the server never falls back to it.
+- **Never the church office by default.** The server never falls back to it.
+  A church may still choose the office address on purpose (Martin, 14 Oct:
+  "in some churches the vicar is the safeguarding lead and the church
+  office address"); the page saves it with a reminder (bc627cb3).
 - **Safeguarding concerns:** the lead and deputy only.
 - **Nobody named:** the lead and deputy.
 - **No lead set:** the rules refuse every concern and request
