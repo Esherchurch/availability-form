@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610142100"></script>
+<script src="egbc-events.js?v=202610142300"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -82,6 +82,9 @@
   var E = window.EGBCEvents, esc = E.esc;
   var ID = new URLSearchParams(location.search).get('event') || '';
   var EV = null, TT = [], QS = [], CAP = null, LOOK = {}, WHERE = '';
+  /* The whole series (F-184): every date this sign-up is for, when the event
+     says "sign up to the whole series". null: just this date. */
+  var SERIES = null;
   var openedAt = Date.now();          /* for the minimum fill time */
   var attendees = [{ name: '' }];
 
@@ -151,6 +154,8 @@
             return '<option value="' + esc(t.id) + '">' + esc(t.name) +
                    (t.price ? ' — £' + Number(t.price).toFixed(2) : ' — free') + '</option>';
           }).join('') + '</select></div>' : '') +
+        (SERIES ? '<div class="banner info" id="seriesNote">This signs you up to <strong>all ' + SERIES.length + ' dates</strong> in the series:</div>' +
+          '<ul id="seriesDates" style="margin:6px 0 14px;padding-left:20px">' + SERIES.map(function (d) { return '<li>' + esc(E.fmtWhen(d)) + '</li>'; }).join('') + '</ul>' : '') +
         '<div class="field"><label>Who is coming</label><div id="atts">' + attendeeRows() + '</div>' +
           '<button type="button" class="btn sec sm" id="addAtt"><i data-lucide="plus" style="width:15px;height:15px"></i>Add someone else</button>' +
         '</div>' +
@@ -167,7 +172,7 @@
         '<div id="err"></div>' +
         '<button class="btn" id="go" type="submit">' +
           '<i data-lucide="check" style="width:16px;height:16px"></i>' +
-          (waiting ? 'Join the waiting list' : 'Sign up') + '</button>' +
+          (SERIES ? 'Sign up to all ' + SERIES.length + ' dates' : waiting ? 'Join the waiting list' : 'Sign up') + '</button>' +
       '</form></div>';
   }
 
@@ -234,9 +239,9 @@
   }
 
   function dueNow() {
-    if (full()) return 0;
+    if (full() && !SERIES) return 0;
     var n = readAttendees().filter(function (a) { return a.name; }).length || 1;
-    return E.toPay({ status: 'confirmed', places: n, ticketTypeId: (document.getElementById('tt') || {}).value || (TT[0] ? TT[0].id : '') }, TT);
+    return E.toPay({ status: 'confirmed', places: n, ticketTypeId: (document.getElementById('tt') || {}).value || (TT[0] ? TT[0].id : '') }, TT) * (SERIES ? SERIES.length : 1);
   }
   function showDue() {
     var el = document.getElementById('due'); if (!el) return;
@@ -316,6 +321,18 @@
 
     /* The confirmation is emailed by the hub's server once this is saved (functions/public-mail.js,
        F-168): a page with nobody signed in may not send email. */
+    if (SERIES) {
+      /* Every date at once; a full date puts them on its waiting list. */
+      E.signUpSeries(payload, SERIES).then(function (res) {
+        var waitingOn = res.signups.filter(function (s) { return s.status === 'waiting'; }).length;
+        var each = E.toPay({ status: 'confirmed', places: who.length, ticketTypeId: payload.ticketTypeId }, TT);
+        done(res.keys[0], false, each * (SERIES.length - waitingOn), { dates: SERIES.length, waitingOn: waitingOn });
+      }).catch(function (err) {
+        var m = String(err && (err.message || err));
+        fail(/permission|PERMISSION/.test(m) ? 'Someone took a place while you were filling this in. Reload the page and try again.' : (m || 'That could not be saved.'));
+      });
+      return;
+    }
     E.signUp(payload).then(function (res) {
       done(res.manageKey, waiting, waiting ? 0 : E.toPay({ status: 'confirmed', places: who.length, ticketTypeId: payload.ticketTypeId }, TT));
     }).catch(function (err) {
@@ -331,10 +348,11 @@
     });
   }
 
-  function done(manageKey, waiting, due) {
+  function done(manageKey, waiting, due, series) {
     var url = E.manageUrl(manageKey);
     document.getElementById('signupCard').innerHTML =
-      '<h2>' + (waiting ? 'You are on the waiting list' : 'You are signed up') + '</h2>' +
+      '<h2>' + (series ? 'You are signed up to all ' + series.dates + ' dates' : waiting ? 'You are on the waiting list' : 'You are signed up') + '</h2>' +
+      (series && series.waitingOn ? '<div class="banner warn" id="seriesWaiting">' + series.waitingOn + ' of the dates ' + (series.waitingOn === 1 ? 'was' : 'were') + ' already full: you are on the waiting list for ' + (series.waitingOn === 1 ? 'it' : 'those') + '.</div>' : '') +
       '<div class="banner ok">' + (waiting
         ? 'An email saying so is on its way to you. We will email you again if a place comes free.'
         : 'That is booked. A confirmation is on its way to you by email, and should arrive in the next few minutes.') + '</div>' +
@@ -366,6 +384,9 @@
     EV = r[0].ev; TT = r[0].ticketTypes; QS = r[0].questions; CAP = r[0].capacity;
     LOOK = r[1]; WHERE = E.locationText(EV, LOOK);
     document.title = (EV.title || 'Event') + ' — EGBC';
+    if (EV.signupScope === 'series' && EV.seriesId && EV.signupOn) {
+      return E.seriesDates(EV).then(function (d) { SERIES = d.length > 1 ? d : null; draw(); }, function () { draw(); });
+    }
     draw();
   }).catch(function (e) {
     /* Not open to this person (Who can come, §21): say exactly what a

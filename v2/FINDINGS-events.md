@@ -5124,3 +5124,43 @@ email, and no way to mark it paid at the door.
   because it used someone who wasn't that event's leader anyway. A sharper
   check (an admin, so only the "same event" test refuses it) now catches
   it.
+
+### F-184 — "Sign up to the whole series" now works (closes F-030)
+Since Chunk 2, the events page offered "Sign up to: the whole series", but
+nothing read it (F-030). Now it does:
+- **The sign-up page** says "This signs you up to all 4 dates", lists them,
+  and the button reads "Sign up to all 4 dates". What to pay counts every
+  date.
+- **One press, one write:**
+  - a sign-up for every date, each with its own key and its own place on
+    that date's counter
+  - **a date that is already full puts them on its waiting list**, and the
+    thank-you says how many were full
+  - the door, the registers and cancelling one date all work exactly as
+    for a single date
+- **One email, not four** (`functions/public-mail.js`, which needs Martin's
+  functions deploy). It comes from the first date, lists every date (and
+  any on the waiting list), and gives what to pay for the dates with
+  places.
+- **"My place"** lists every date in the booking, with a link to each
+  date's own page (and its own check-in code), and **"Cancel all
+  remaining dates"**, which gives every place back.
+- **A bug fixed on the way:** when a repeating event was made, its later
+  dates got **no ticket types and no questions**, so they were free and
+  asked nothing. Now every date gets the first date's tickets and
+  questions, under the same ids.
+- **New rule `seriesSignups/{signup key}`, in my section:**
+  - It can only be made in the same write as its own new sign-up, and must
+    match it.
+  - Read by the key-holder; listed by admins; never changed.
+  - **Not deployed.**
+
+**Proved:**
+- `series.test.mjs` 15/15. An admin makes a 4-date series with a £3
+  ticket through the real page; a guest signs up 2 people to all 4 (one
+  date full); then "Cancel all".
+- `public-mail.test.mjs` 45/45: one email for the booking, the second date
+  sends nothing, £6.00 for the one date with a place.
+- Rules: 5 new, 1332 in all.
+- 7 deliberate breaks, all caught. The one that matters: a full date booked
+  anyway. The database itself refuses that too.

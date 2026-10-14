@@ -3958,6 +3958,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- the whole series (F-184) -----------------------------------------
+    // One per sign-up in a whole-series booking, under that sign-up's own
+    // key, listing every key in the booking (so one email, and "cancel all").
+    // Made only in the same write as its own sign-up, by whoever is making
+    // that sign-up: the sign-up must be new in this write, and match. Read by
+    // the key-holder; listed by admins; never changed.
+    match /seriesSignups/{signupKey} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['seriesId', 'keys', 'calEventIds', 'email', 'createdAt'])
+                    && request.resource.data.keys is list && request.resource.data.keys.size() >= 2 && request.resource.data.keys.size() <= 60
+                    && signupKey in request.resource.data.keys
+                    && request.resource.data.calEventIds is list && request.resource.data.calEventIds.size() == request.resource.data.keys.size()
+                    && request.resource.data.seriesId is string && request.resource.data.email is string
+                    && !exists(/databases/$(database)/documents/signups/$(signupKey))
+                    && existsAfter(/databases/$(database)/documents/signups/$(signupKey))
+                    && getAfter(/databases/$(database)/documents/signups/$(signupKey)).data.email == request.resource.data.email
+                    && getAfter(/databases/$(database)/documents/signups/$(signupKey)).data.calEventId in request.resource.data.calEventIds;
+      allow update, delete: if false;
+    }
+
     // ---- the picture library (Martin, 14 Oct 2026) ----------------------
     // One shared store of pictures, each with a name and tags. Events point
     // to a picture (calEvents.imageLibId) rather than copying it. Anyone

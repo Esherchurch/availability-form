@@ -3694,6 +3694,18 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nobody deletes one', 'deny', () => deleteDoc(doc(as('martin'), 'signupPayments', 'sp_key_1')));
 }
 
+// The whole series (F-184). The allowed path - made in the same write as its
+// own new sign-up - is driven through the real page in series.test.mjs.
+{
+  const G = { seriesId: 'ser_x', keys: ['sp_key_1', 'sp_new_2'], calEventIds: ['ev_pay', 'ev_pay2'], email: 'pat@example.invalid', createdAt: 'x' };
+  await check('WHOLE SERIES: no series record for a sign-up that already exists (someone else\'s)', 'deny', () => setDoc(doc(env.unauthenticatedContext().firestore(), 'seriesSignups', 'sp_key_1'), G));
+  await check('  nor for a sign-up that is not being made in the same write', 'deny', () => setDoc(doc(env.unauthenticatedContext().firestore(), 'seriesSignups', 'sp_new_2'), G));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seriesSignups', 'sp_seeded'), { ...G, keys: ['sp_seeded', 'sp_new_2'] }); });
+  await check('  the key-holder reads theirs', 'allow', () => getDoc(doc(env.unauthenticatedContext().firestore(), 'seriesSignups', 'sp_seeded')));
+  await check('  nobody but an admin lists them', 'deny', () => getDocs(collection(as('member'), 'seriesSignups')));
+  await check('  nobody changes one', 'deny', () => updateDoc(doc(as('martin'), 'seriesSignups', 'sp_seeded'), { email: 'x@example.invalid' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

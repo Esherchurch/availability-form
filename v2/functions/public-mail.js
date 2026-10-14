@@ -244,6 +244,9 @@ export const handlers = {
     if (/^w_/.test(key) || await data(db, 'checkins', doc.calEventId + '__' + key + '__0')) return { skipped: 'a walk-in at the door' };
     const ev = await data(db, 'calEvents', doc.calEventId);
     if (!ev) return { skipped: 'no event' };
+    /* F-184: a whole-series booking is ONE email, sent with its first date. */
+    const group = await data(db, 'seriesSignups', key);
+    if (group && Array.isArray(group.keys) && group.keys[0] !== key) return { skipped: 'part of a whole-series booking' };
     if (!(await once(db, 'signup_' + key))) return { skipped: 'already sent' };
     ev.id = doc.calEventId;
     const loc = ev.location || {}, look = { sites: {}, rooms: {}, venues: {} };
@@ -252,9 +255,20 @@ export const handlers = {
     if (loc.venueId) look.venues[loc.venueId] = ((await data(db, 'venues', loc.venueId)) || {}).name || '';
     const P = pages(await setting(db, hub));
     /* F-183: what is owed on the day, from the event's own ticket types. */
-    const tts = (await db.collection('calEvents').doc(doc.calEventId).collection('ticketTypes').get()).docs.map(d => ({ id: d.id, ...d.data() }));
+    const ticketsOf = async (id) => (await db.collection('calEvents').doc(id).collection('ticketTypes').get()).docs.map(d => ({ id: d.id, ...d.data() }));
+    let toPay = P.E.toPay(doc, await ticketsOf(doc.calEventId)), dates = null;
+    if (group) {
+      dates = []; toPay = 0;
+      for (let i = 0; i < group.keys.length; i++) {
+        const su = await data(db, 'signups', group.keys[i]), e = await data(db, 'calEvents', group.calEventIds[i]);
+        if (!su || !e) continue;
+        dates.push({ ev: { ...e, id: group.calEventIds[i] }, status: su.status });
+        toPay += P.E.toPay(su, await ticketsOf(group.calEventIds[i]));
+      }
+      dates.sort((a, b) => (a.ev.startUtc || 0) - (b.ev.startUtc || 0));
+    }
     const mail = P.E.confirmationEmail({ ev, where: P.E.locationText(ev, look), email: doc.email, name: doc.name,
-      places: doc.places, attendees: doc.attendees || [], manageKey: key, status: doc.status, toPay: P.E.toPay(doc, tts) });
+      places: doc.places, attendees: doc.attendees || [], manageKey: key, status: doc.status, toPay, dates });
     return { sent: [await send(mail, { source: 'public-mail', kind: 'signup', ref: key })] };
   },
 

@@ -159,6 +159,9 @@ try {
   set('rooms', 'room_pm', { name: 'Test hall', siteId: 'site_pm', active: true });
   set('calEvents', 'ev_pm', { title: 'Test barbecue', startLocal: '2026-06-20T19:30', endLocal: '2026-06-20T21:00', startUtc: Date.UTC(2026, 5, 20, 18, 30), allDay: false, status: 'published',
     location: { kind: 'room', siteId: 'site_pm', roomIds: ['room_pm'] }, description: '<p>Invented.</p>' });
+  /* F-184: a second date of the barbecue, for a whole-series booking. */
+  set('calEvents', 'ev_pm2', { title: 'Test barbecue', startLocal: '2026-06-27T19:30', endLocal: '2026-06-27T21:00', startUtc: Date.UTC(2026, 5, 27, 18, 30), allDay: false, status: 'published', seriesId: 'ser_pm',
+    location: { kind: 'room', siteId: 'site_pm', roomIds: ['room_pm'] }, description: '<p>Invented.</p>' });
   set('smallGroups', 'grp_pm', { name: 'Test home group', day: 2, time: '19:30', leaderIds: ['m_lena'], memberCount: 0 });
   set('addressBook', 'm_lena', { name: 'Lena Leader (invented)', email: 'lena.leader@example.invalid' });
   set('formRequests', 'fr_pm', { formTitle: 'Test consent', name: 'Pam Parent (invented)', email: 'pam@example.invalid', status: 'sent', formId: 'f_pm' });
@@ -179,6 +182,14 @@ try {
   ['2026-11-10', '2026-11-17', '2026-11-24'].forEach((d, i) => w.set(db.collection('bookings').doc('bk_pmser' + (i + 1)), { ...hire, day: d, series: { id: 's_pm', rule: 'week', n: i + 1, of: 3 } }));
   w.set(db.collection('smallGroupRequests').doc('sgr_pm'), { groupId: 'grp_pm', groupName: 'Test home group', name: 'Gail Guest (invented)', email: 'gail@example.invalid', phone: '', message: 'New here (invented).', personKind: 'contacts', personId: 'c_z', status: 'asked', createdAt: Timestamp.now() });
   w.set(db.collection('welcomes').doc('wel_pm'), { name: 'Vera Visitor (invented)', email: 'vera@example.invalid', phone: '', message: 'Hello (invented).', contactMe: true, uid: '', at: Timestamp.now(), status: 'new' });
+  /* F-184: one booking for both dates: two sign-ups, one email. */
+  const S1 = 'seriesone' + 'd'.repeat(23), S2 = 'seriestwo' + 'e'.repeat(23);
+  const SSU = (ev, status) => ({ calEventId: ev, personKind: 'contacts', personId: 'c_s', name: 'Sid Series (invented)', email: 'sid@example.invalid', phone: '', attendees: [{ name: 'Sid Series (invented)' }], answers: {}, places: 1, ticketTypeId: 'tt_pm', status, donation: 0, notes: '', createdAt: '2026-06-01T10:00:00Z' });
+  w.set(db.collection('signups').doc(S1), SSU('ev_pm', 'confirmed'));
+  w.set(db.collection('signups').doc(S2), SSU('ev_pm2', 'waiting'));
+  const GRP = { seriesId: 'ser_pm', keys: [S1, S2], calEventIds: ['ev_pm', 'ev_pm2'], email: 'sid@example.invalid', createdAt: '2026-06-01T10:00:00Z' };
+  w.set(db.collection('seriesSignups').doc(S1), GRP);
+  w.set(db.collection('seriesSignups').doc(S2), GRP);
   await w.commit();
   await db.collection('bookings').doc('bk_pmone').update({ cancelRequest: { status: 'asked', at: Timestamp.now(), reason: 'Test: half term (invented)' } });
   await db.collection('formRequests').doc('fr_pm').update({ status: 'done', completedAt: new Date().toISOString(), responseId: 'resp_pm' });
@@ -214,6 +225,11 @@ try {
   /* ---------- the things that must send nothing ---------- */
   await sleep(4000);
   ok('   a walk-in at the door is not emailed (it never was)', (await rows(WK)).length === 0);
+  const serMail = await until(async () => (await rows(S1))[0]);
+  ok('   THE WHOLE SERIES (F-184): ONE email, from its first date, listing both dates', serMail && serMail.subject.endsWith('(2 dates)') && serMail.html.includes('The 2 dates:') &&
+    serMail.html.includes('Sat 27 Jun 2026, 19:30 – 21:00 - on the waiting list'), serMail && (serMail.subject + ' | ' + serMail.html.slice(0, 500)));
+  ok('   and the second date sends nothing of its own', (await rows(S2)).length === 0);
+  ok('   what to pay counts only the date with a place: £6.00', serMail && serMail.html.includes('To pay on the day:</strong> £6.00'), serMail && serMail.html.slice(0, 600));
   ok('   the second and third dates of the series send nothing of their own', (await rows('bk_pmser2')).length === 0 && (await rows('bk_pmser3')).length === 0);
   const again = [], twice = await PM.handlers.signup({ db, send: async (m) => { again.push(m); return { ok: true }; }, key: SK, doc: (await db.collection('signups').doc(SK).get()).data() });
   ok('   A TRIGGER RUN TWICE SENDS ONCE', twice && twice.skipped === 'already sent' && again.length === 0, J(twice));

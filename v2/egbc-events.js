@@ -256,6 +256,56 @@
       .then(function () { return { manageKey: manageKey, signup: doc }; });
   }
 
+  /* THE WHOLE SERIES (F-184; ChurchSuite's "sign up to the whole series").
+     One sign-up for each date, each with its own key and its own place on
+     that date's counter - so the door, the registers and cancelling one
+     date all work exactly as for a single date. A date that is already
+     full puts this person on its waiting list instead. Beside each one,
+     seriesSignups/{its key} lists every key in the booking, so the email
+     can be ONE email for all the dates and "my place" can cancel them all.
+     Everything is one write: all of it happens, or none of it. */
+  function seriesDates(ev) {
+    if (!ev || !ev.seriesId) return Promise.resolve([ev]);
+    return listUpcoming({ from: Date.now() - 6 * 3600 * 1000, limit: 300 }).then(function (list) {
+      var mine = list.filter(function (e) { return e.seriesId === ev.seriesId && e.status !== 'cancelled' && e.status !== 'pending'; });
+      if (!mine.some(function (e) { return e.id === ev.id; })) mine.push(ev);
+      return mine.sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); });
+    });
+  }
+  function signUpSeries(o, dates) {
+    var places = Math.max(1, parseInt(o.places || 1, 10));
+    var batch = db().batch();
+    var p = signedIn() ? EGBCAuth.profile() : null, personKind, personId;
+    if (p && p.memberId) { personKind = 'addressBook'; personId = p.memberId; }
+    else {
+      personKind = 'contacts'; personId = 'c_' + key(16);
+      batch.set(db().collection('contacts').doc(personId), {
+        name: o.name, email: (o.email || '').toLowerCase().trim(), phone: o.phone || '', source: 'signup', createdAt: new Date().toISOString()
+      });
+    }
+    var keys = dates.map(function () { return key(32); });
+    return Promise.all(dates.map(function (ev) { return db().collection('capacity').doc(ev.id).get(); })).then(function (caps) {
+      var docs = dates.map(function (ev, i) {
+        var c = caps[i];
+        if (!c.exists) throw new Error('Sign-ups are not set up for ' + fmtDate(ev.startLocal || ev.startUtc) + ' yet.');
+        var cap = c.data(), waiting = (cap.taken || 0) + places > (cap.capacity || 0);
+        var d = {
+          calEventId: ev.id, personKind: personKind, personId: personId, name: o.name,
+          email: (o.email || '').toLowerCase().trim(), phone: o.phone || '', attendees: o.attendees || [], answers: o.answers || {},
+          places: places, ticketTypeId: o.ticketTypeId || '', status: waiting ? 'waiting' : 'confirmed', donation: i === 0 ? (o.donation || 0) : 0,
+          notes: o.notes || '', memberUid: (p && EGBCAuth.user && EGBCAuth.user()) ? EGBCAuth.user().uid : '', createdAt: new Date().toISOString()
+        };
+        batch.set(db().collection('signups').doc(keys[i]), d);
+        if (!waiting) batch.update(db().collection('capacity').doc(ev.id), { taken: (cap.taken || 0) + places });
+        return d;
+      });
+      var group = { seriesId: dates[0].seriesId || '', keys: keys, calEventIds: dates.map(function (e) { return e.id; }),
+        email: (o.email || '').toLowerCase().trim(), createdAt: new Date().toISOString() };
+      keys.forEach(function (k) { batch.set(db().collection('seriesSignups').doc(k), group); });
+      return batch.commit().then(function () { return { keys: keys, signups: docs }; });
+    });
+  }
+
   /* Cancelling gives the place back. The counter rule insists the write
      names the sign-up that was cancelled and that it really is cancelled
      in the same batch, so lastCancelled is not decoration. */
@@ -514,10 +564,15 @@
 
   function confirmationEmail(o) {
     var ev = o.ev, where = o.where || '', waiting = o.status === 'waiting';
+    /* The whole series (F-184): one email listing every date. */
+    var dates = o.dates && o.dates.length > 1 ? o.dates : null;
     var body =
       '<p>' + (waiting
         ? 'You are on the waiting list for <strong>' + esc(ev.title) + '</strong>. We will be in touch if a place comes free.'
-        : 'You are signed up to <strong>' + esc(ev.title) + '</strong>.') + '</p>' +
+        : 'You are signed up to <strong>' + esc(ev.title) + '</strong>' + (dates ? ', every date in the series' : '') + '.') + '</p>' +
+      (dates ? '<p><strong>The ' + dates.length + ' dates:</strong><br>' + dates.map(function (d) {
+        return esc(fmtWhen(d.ev)) + (d.status === 'waiting' ? ' - on the waiting list' : ''); }).join('<br>') + '</p>' +
+        '<p style="color:#6b7280;font-size:13px">Each date has its own place, and its own check-in code on your page. You can cancel one date, or all of them.</p>' : '') +
       '<p><strong>When:</strong> ' + esc(fmtWhen(ev)) + '<br>' +
       (where ? '<strong>Where:</strong> ' + esc(where) + '<br>' : '') +
       '<strong>Places:</strong> ' + (o.places || 1) + '</p>' +
@@ -536,7 +591,7 @@
     }
     return {
       to: [o.email],
-      subject: (waiting ? 'Waiting list: ' : 'You are signed up: ') + ev.title,
+      subject: (waiting ? 'Waiting list: ' : 'You are signed up: ') + ev.title + (dates ? ' (' + dates.length + ' dates)' : ''),
       html: EGBCChurch.wrap(waiting ? 'You are on the waiting list' : 'You are signed up', body,
         (global.EGBCChurch && EGBCChurch.name() ? esc(EGBCChurch.name()) + ' &middot; ' : '') + 'If this was not you, ignore this message.'),
       attachments: [{
@@ -624,6 +679,8 @@
     load: load,
     placesLeft: placesLeft,
     signUp: signUp,
+    seriesDates: seriesDates,
+    signUpSeries: signUpSeries,
     cancel: cancel,
     locationText: locationText,
     lookups: lookups,

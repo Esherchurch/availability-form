@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610142100"></script>
+<script src="egbc-events.js?v=202610142300"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -64,6 +64,8 @@
   var SU = null, EV = null, WHERE = '';
   /* Pay on the day (F-183): what is owed, and whether it has been paid. */
   var TT = [], PAY = null;
+  /* The whole series (F-184): the other dates booked with this one. */
+  var GROUP = null, GDATES = [];
 
   function draw() {
     var cancelled = SU.status === 'cancelled';
@@ -103,6 +105,7 @@
         (!mayCancel && !cancelled && !past && EV && EV.allowSelfCancel === false
           ? '<p style="font-size:13px;color:var(--muted);margin:14px 0 0">To change this booking, reply to your confirmation email.</p>' : '') +
       '</div>' +
+      seriesCard(past) +
       codesCard(cancelled || waiting || past);
 
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
@@ -110,6 +113,40 @@
     if (ics) ics.onclick = function () { EGBCICS.download(EV.title || 'event', E.icsFor(EV, WHERE)); };
     var c = document.getElementById('cancel');
     if (c) c.onclick = doCancel;
+    var ca = document.getElementById('cancelAll');
+    if (ca) ca.onclick = cancelAll;
+  }
+
+  function seriesCard() {
+    if (!GROUP) return '';
+    var live = GDATES.filter(function (d) { return d.su && d.su.status !== 'cancelled' && (!d.ev || (d.ev.endUtc || d.ev.startUtc || 0) >= Date.now()); });
+    var may = EV && EV.allowSelfCancel !== false && live.length > 0;
+    return '<div class="card" id="series"><h2>The whole series</h2>' +
+      '<p style="margin:0 0 10px;color:var(--muted);font-size:14px">You signed up to ' + GDATES.length + ' dates at once. Each has its own place and its own check-in code.</p>' +
+      GDATES.map(function (d) {
+        var st = !d.su ? '' : d.su.status === 'cancelled' ? ' - cancelled' : d.su.status === 'waiting' ? ' - waiting list' : '';
+        return '<div class="row" data-date="' + esc(d.key) + '"><span class="v">' + (d.key === KEY ? '<strong>' : '<a href="my-signup.html?key=' + esc(d.key) + '" style="color:var(--brand)">') +
+          esc(d.ev ? E.fmtWhen(d.ev) : 'A date') + (d.key === KEY ? ' (this page)</strong>' : '</a>') + esc(st) + '</span></div>';
+      }).join('') +
+      (may ? '<div style="margin-top:12px"><button class="btn danger" id="cancelAll">Cancel all ' + live.length + ' remaining dates</button></div>' : '') + '</div>';
+  }
+  function cancelAll() {
+    if (!confirm('Cancel your place on every remaining date?')) return;
+    var btn = document.getElementById('cancelAll'); btn.disabled = true;
+    var todo = GDATES.filter(function (d) { return d.su && d.su.status !== 'cancelled' && (!d.ev || (d.ev.endUtc || d.ev.startUtc || 0) >= Date.now()); });
+    todo.reduce(function (p, d) { return p.then(function () { return E.cancel(d.key); }); }, Promise.resolve())
+      .then(loadSeries).then(function () { return EGBCAuth.db.collection('signups').doc(KEY).get(); })
+      .then(function (s) { SU = s.data(); draw(); document.getElementById('wrap').insertAdjacentHTML('afterbegin', '<div class="card"><div class="banner ok" id="allGone">Your places on every remaining date have been given back.</div></div>'); })
+      .catch(function (e) { btn.disabled = false; alert('Not all of them could be cancelled: ' + (e.message || e)); });
+  }
+  function loadSeries() {
+    if (!GROUP) return Promise.resolve();
+    return Promise.all(GROUP.keys.map(function (k, i) {
+      return Promise.all([
+        EGBCAuth.db.collection('signups').doc(k).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; }),
+        EGBCAuth.db.collection('calEvents').doc(GROUP.calEventIds[i]).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; })
+      ]).then(function (r) { return { key: k, su: r[0], ev: r[1] }; });
+    })).then(function (list) { GDATES = list.sort(function (a, b) { return ((a.ev && a.ev.startUtc) || 0) - ((b.ev && b.ev.startUtc) || 0); }); });
   }
 
   /* One check-in code per person, the same ones the confirmation email
@@ -159,10 +196,14 @@
     if (!s.exists) throw new Error('not found');
     SU = s.data();
     return Promise.all([E.load(SU.calEventId).catch(function () { return null; }), E.lookups(),
-      EGBCAuth.db.collection('signupPayments').doc(KEY).get().catch(function () { return null; })]);
+      EGBCAuth.db.collection('signupPayments').doc(KEY).get().catch(function () { return null; }),
+      EGBCAuth.db.collection('seriesSignups').doc(KEY).get().catch(function () { return null; })]);
   }).then(function (r) {
     if (r[0]) { EV = r[0].ev; WHERE = E.locationText(EV, r[1]); TT = r[0].ticketTypes || []; }
     PAY = r[2] && r[2].exists ? r[2].data() : null;
+    GROUP = r[3] && r[3].exists ? r[3].data() : null;
+    return loadSeries();
+  }).then(function () {
     draw();
   }).catch(function () {
     document.getElementById('wrap').innerHTML =
