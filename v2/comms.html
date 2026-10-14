@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emails sent</title>
+<!-- Every email the church sent, and the ones that failed (R8; ChurchSuite's
+     "Communication" and "Email errors" reports, for the whole church).
+     The server's emails come from commsReport (the outline only, never the
+     email); the ones pages sent from commsLog. Admins. Events window. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610141800" data-title="Emails sent"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610141800"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610150900"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  select{min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font:400 14px Inter,sans-serif}
+  .tick{display:flex;gap:8px;align-items:center;min-height:44px;font-weight:500}
+  .btn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;border:1px solid var(--line-2);background:#fff;color:var(--ink)}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:640px}
+  th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
+  td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
+  .ok{color:var(--ok);font-weight:600}
+  .bad{color:var(--danger);font-weight:600}
+  .m{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card m">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var ROWS = [], DAYS = 30, FAILED = false;
+  function db() { return EGBCAuth.db; }
+  function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function when(iso) { var d = new Date(iso); return isNaN(d) ? '' : E.fmtDateShort(d) + ', ' + E.fmtTime(d); }
+
+  function load() {
+    var to = new Date(), from = new Date(); from.setDate(from.getDate() - DAYS);
+    document.getElementById('list').innerHTML = '<p class="m">Loading…</p>';
+    return Promise.all([
+      EGBCAuth.call('commsReport', { from: ymd(from), to: ymd(to) }),
+      db().collection('commsLog').where('at', '>=', from.toISOString()).get().catch(function () { return { docs: [] }; }),
+      db().collection('calEvents').get().catch(function () { return { docs: [] }; })
+    ]).then(function (r) {
+      var titles = {}; r[2].docs.forEach(function (d) { titles[d.id] = d.data().title || ''; });
+      var server = (r[0].rows || []).map(function (x) {
+        return { at: x.at, what: x.what, subject: x.subject, to: x.to.length, first: x.to[0] || '', by: 'The hub', ok: x.ok, error: x.error, test: x.test };
+      });
+      var pages = r[1].docs.map(function (d) {
+        var x = d.data();
+        return { at: x.at, what: (x.kind === 'cancellation' ? 'Event cancelled' : x.kind === 'invitation' ? 'Invitation' : x.kind === 'invitation reminder' ? 'Invitation reminder' : x.kind === 'checklist task' ? 'Checklist: a task given' : 'Event email') +
+          (titles[x.calEventId] ? ': ' + titles[x.calEventId] : ''), subject: x.subject, to: x.to || 0, first: '', by: x.by || 'Someone', ok: !(x.failed > 0), error: x.error || '', test: !!x.stubbed };
+      });
+      ROWS = server.concat(pages).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+      draw();
+    }).catch(function (e) { document.getElementById('list').innerHTML = '<p class="bad">' + esc(e.message || e) + '</p>'; });
+  }
+  function draw() {
+    var rows = FAILED ? ROWS.filter(function (r) { return !r.ok; }) : ROWS;
+    var failed = ROWS.filter(function (r) { return !r.ok; }).length, people = ROWS.reduce(function (n, r) { return n + (r.to || 0); }, 0);
+    document.getElementById('sum').textContent = ROWS.length + ' emails to ' + people + ' people in the last ' + (DAYS === 7 ? 'week' : DAYS === 30 ? '30 days' : '3 months') + '. ' + (failed ? failed + ' failed.' : 'None failed.');
+    document.getElementById('list').innerHTML = rows.length ? '<div class="scroll"><table><thead><tr><th>When</th><th>What</th><th>To</th><th>Sent by</th><th>Result</th></tr></thead><tbody>' + rows.map(function (r) {
+      return '<tr data-row' + (r.ok ? '' : ' data-failed') + '><td>' + esc(when(r.at)) + '</td><td>' + esc(r.what) + '<br><span class="m">' + esc(r.subject) + '</span></td>' +
+        '<td>' + esc(r.first ? r.first + (r.to > 1 ? ' and ' + (r.to - 1) + ' more' : '') : r.to + ' ' + (r.to === 1 ? 'person' : 'people')) + '</td><td>' + esc(r.by) + '</td>' +
+        '<td>' + (r.ok ? '<span class="ok">' + (r.test ? 'Not sent (test)' : 'Sent') + '</span>' : '<span class="bad">Failed</span><br><span class="m">' + esc(r.error) + '</span>') + '</td></tr>';
+    }).join('') + '</tbody></table></div>' : '<p class="m">' + (FAILED ? 'Nothing failed.' : 'No emails in this time.') + '</p>';
+  }
+  function csv() {
+    var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var rows = (FAILED ? ROWS.filter(function (r) { return !r.ok; }) : ROWS);
+    var lines = ['When,What,Subject,To,People,Sent by,Result,Error'].concat(rows.map(function (r) {
+      return [r.at, r.what, r.subject, r.first, r.to, r.by, r.ok ? (r.test ? 'not sent (test)' : 'sent') : 'failed', r.error].map(q).join(',');
+    }));
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = FAILED ? 'Email errors.csv' : 'Emails sent.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  EGBCAuth.require().then(function () {
+    if (!(EGBCAuth.isAdmin && EGBCAuth.isAdmin())) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Emails sent</h1><p>This page is for admins.</p></div>'; return; }
+    document.getElementById('wrap').innerHTML = '<h1>Emails sent</h1><p class="sub">Every email the hub sent for the church, and any that failed: sign-up confirmations, bookings, forms, reminders, and the emails sent from events.</p>' +
+      '<div class="card"><div class="bar"><div><label for="days">When</label><select id="days"><option value="7">The last week</option><option value="30" selected>The last 30 days</option><option value="92">The last 3 months</option></select></div>' +
+      '<label class="tick"><input type="checkbox" id="failed">Only the ones that failed</label><button class="btn" id="csv">Download</button></div>' +
+      '<p id="sum" style="margin:12px 0 0;font-weight:600"></p></div><div class="card" id="list"></div>';
+    document.getElementById('days').onchange = function () { DAYS = +this.value; load(); };
+    document.getElementById('failed').onchange = function () { FAILED = this.checked; draw(); };
+    document.getElementById('csv').onclick = csv;
+    return load();
+  }).catch(function (e) { document.getElementById('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

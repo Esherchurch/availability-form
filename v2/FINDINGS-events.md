@@ -5742,3 +5742,35 @@ New file `functions/checklist-reminders.js` (mine), exported from
   - My first London-date check let "dates in UTC" through, because every
     time I'd chosen fell on the same date in both. It now also runs at
     23:30 UTC on Friday 23 October, which is already Saturday in London.
+
+### F-195 — R8 built: every email the church sent, and the ones that failed
+ChurchSuite's "Communication" and "Email errors" reports, for the whole
+church rather than one event at a time.
+- **`comms.html`** (new, mine; admins; "Emails sent" on the Events page):
+  - the last week / 30 days / 3 months, newest first
+  - each email in plain words ("Sign-up confirmation", "Booking: waiting
+    for approval", "Event cancelled: Quiz night"), its subject, who to
+    ("pat@… and 1 more", or "12 people"), who sent it (the hub, or the
+    admin), and **Sent / Not sent (test) / Failed, and why**
+  - "5 emails to 18 people in the last 30 days. 3 failed."
+  - **"Only the ones that failed"**: the email errors report
+  - **Download** (CSV), named "Email errors" when filtered
+- **Two sources, put together:**
+  - **The server's own emails** come from `emailOutbox` through a new
+    callable, `commsReport` (`functions/comms.js`, mine, exported from
+    `index.js`; admins only). Outbox rows hold whole emails, some with
+    private links (a booking's key), so no page may read `emailOutbox`.
+    The function hands over **the outline only**: when, who to, subject,
+    what kind, result, error. Never the email, its attachments or links.
+  - **Emails pages sent** (an event's "Email everyone", cancellations,
+    invitations, checklist tasks) come from `commsLog`, which admins
+    already read.
+- **What isn't in it:** phone notifications (pushes); those are the main
+  window's `notifyLog`. Rota emails sent from the Calla project's
+  `sendEmail` also aren't here, because they aren't logged in this
+  database.
+
+**Proved:**
+- `comms.test.mjs` 10/10, with the hub's real functions.
+- 5 deliberate breaks, all caught. The one that matters: the whole email,
+  private links and all, handed to the page.

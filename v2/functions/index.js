@@ -730,3 +730,5 @@ export * from './gocardless.js';
 export * from './events-feed.js';
 /* Checklist reminders as a task falls due (R11, F-188), the events window's file. */
 export * from './checklist-reminders.js';
+/* Every email the church sent, and the ones that failed (R8), the events window's file. */
+export * from './comms.js';
