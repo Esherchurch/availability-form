@@ -152,7 +152,9 @@ const offMachine = u => {
     s.end(body);
   }).listen(SERVE);
 
-  const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
+  /* No back/forward cache (A-090): a cached page keeps its database
+     connection open, and after enough pages the sign-in cannot get through. */
+  const chrome = spawn(CHROME, ['--headless=new', '--disable-features=BackForwardCache', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + path.join(os.tmpdir(), 'cdp-wav-' + process.pid),
     '--no-first-run', 'about:blank'], { stdio: 'ignore' });
   const sleep = ms => new Promise(r => setTimeout(r, ms));

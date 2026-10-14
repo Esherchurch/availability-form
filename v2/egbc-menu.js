@@ -41,6 +41,10 @@
        'watch'. "Sermons" joins it when its own Menu entry is built. */
     { title: 'Watch', url: 'watch-admin.html', icon: 'tv', feature: 'watch', sermons: true,
       description: 'This week\u2019s live link, the full services and the channel' },
+    /* SERMONS (the events window's sermons-admin.html): the same people as
+       Watch - master admins and sermonShow/access. Feature 'sermons'. */
+    { title: 'Sermons', url: 'sermons-admin.html', icon: 'book-open-text', feature: 'sermons', sermons: true,
+      description: 'The series and passages, and the podcast feed' },
     { title: "What's on", url: 'whatson.html', icon: 'calendar-heart',
       description: 'Church events, and signing up' },
     /* No team on it: giving is for everybody signed in. It is not on the
@@ -49,6 +53,11 @@
        led to a refusal would be worse than none. */
     { title: 'Give', url: 'give.html', icon: 'hand-coins',
       description: 'The church’s bank details, and Gift Aid' },
+    /* GIFT AID (the events window's giftaid.html, F-169): each person's own
+       declaration, and the office's and treasurer's list on the same page.
+       For everybody signed in; feature 'giftAid'. */
+    { title: 'Gift Aid', url: 'giftaid.html', icon: 'receipt', feature: 'giftAid',
+      description: 'Your Gift Aid declaration' },
     /* Phone notifications (FINDINGS-notify N-5): for everybody signed in,
        the person's own switches. Feature 'notifications'. */
     { title: 'Notifications', url: 'notifications.html', icon: 'bell-ring', feature: 'notifications',
@@ -144,10 +153,35 @@
       children: [
         { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', team: 'Kids Church',
           description: 'The children, their groups, and who may collect them' },
-        { title: 'Sunday check-in', url: 'checkin.html', icon: 'user-check', team: 'Kids Church',
-          description: 'Check children in and out, with labels and collection codes' }
-        /* Safeguarding and Check-in go here when the events window ships
-           them (F-031, F-090), not under Events and rooms. */
+        /* THE SUNDAY DESK (kids-checkin.html), which is what the app's Kids
+           Church opens too. It pointed at checkin.html - the check-in for an
+           EVENT - which is now under Events and rooms as Event check-in. */
+        { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', team: 'Kids Church',
+          description: 'The desk on a Sunday: check children in and out, labels and the fire roll-call' }
+      ] },
+
+    /* SAFEGUARDING (Martin, 14 Oct 2026: he could not find Safeguarding
+       settings - neither page was in the Menu). For the safeguarding lead and
+       deputy and anybody who administers something: the leaders' checks, the
+       exceptions, and the settings. A heading of its own, not under Kids
+       Church: it covers everybody who works with under-18s. */
+    { title: 'Safeguarding', url: 'safeguarding.html', icon: 'shield-check', sg: true,
+      description: 'Leaders\u2019 DBS checks and training, and exceptions',
+      children: [
+        { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', sg: true,
+          description: 'Who the lead is, how long checks last, and the ratios' },
+        { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', sg: true,
+          description: 'Records whose keeping time is up, to check and delete' }
+      ] },
+
+    /* GROUPS AND FORMS: run by whoever administers a team (the pages say
+       which groups and forms are theirs), so for any admin rather than
+       Core Team only. */
+    { title: 'Groups and forms', icon: 'users-round', admin: true, children: [
+        { title: 'Small groups', url: 'groups-admin.html', icon: 'users-round', admin: true,
+          description: 'Groups, their leaders, members and meetings' },
+        { title: 'Forms', url: 'forms-admin.html', icon: 'list-checks', admin: true,
+          description: 'Consent and sign-up forms, and their answers' }
       ] },
 
     { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', core: true,
@@ -193,7 +227,16 @@
              anybody else away politely, so a wrong guess here is a wasted
              click and not a leak. */
           { title: 'Room bookings', url: 'bookings-admin.html', icon: 'calendar-check-2', bookings: true,
-            description: 'Requests to approve, and what is booked' }
+            description: 'Requests to approve, and what is booked' },
+          { title: 'Event check-in', url: 'checkin.html', icon: 'user-check', core: true, admin: true,
+            description: 'Check people in at an event, with its tickets' },
+          { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', core: true, admin: true,
+            description: 'Who came to an event or a series, to download' },
+          { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', core: true, admin: true,
+            description: 'How many came on a Sunday, week by week' },
+          /* F-176: the pictures events use again and again. */
+          { title: 'Picture library', url: 'picture-library.html', icon: 'images', core: true, admin: true, feature: 'pictureLibrary',
+            description: 'Pictures the church uses again and again' }
         ] },
         { title: 'Admin', icon: 'settings', core: true, admin: true, children: [
           { title: 'Backup & Restore', url: 'data-tools.html', icon: 'database-backup', core: true, admin: true,
@@ -218,6 +261,10 @@
       description: 'Pastoral care for you, or tell us you are worried about someone' },
     { title: 'Care & support: what has come in', url: 'care-inbox.html', icon: 'inbox', feature: 'care', careReader: true,
       description: 'For the pastoral team and the safeguarding lead and deputy' },
+    /* PRAYER (the events window's prayer.html, F-166): your requests, and
+       answers to prayer. For everybody signed in; feature 'prayer'. */
+    { title: 'Prayer', url: 'prayer.html', icon: 'church', feature: 'prayer',
+      description: 'Ask for prayer, and see answers to prayer' },
 
     { title: 'Resources', icon: 'folder-open', children: [
       /* "Pin boards", plural, because there are five of them now and the old
@@ -273,6 +320,9 @@
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
     if (node.sermons && !who.isSermons) return false;
     if (node.careReader && !who.isCareReader) return false;
+    /* Safeguarding: the lead and deputy (careRouting/status, kept by the
+       server) or anybody who administers something. */
+    if (node.sg && !who.isAdmin && !who.isSgLead) return false;
     /* `runs` NAMES A RUNNING THINGS TAB (NEXT-BRIEF §25): the same four the
        app's Running things space has, answered by the same helper. A node
        carrying one is shown to whoever that tab is for, whatever else the
@@ -805,7 +855,8 @@
         isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true,
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
-        isCareReader: !!(A && A.isCareReader && A.isCareReader())
+        isCareReader: !!(A && A.isCareReader && A.isCareReader()),
+        isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead())
       };
     },
 

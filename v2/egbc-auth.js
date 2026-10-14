@@ -275,13 +275,14 @@
   /* THE SAFEGUARDING LEAD AND DEPUTY (the rules' sgLeadOrDeputy()), so the
      Menu can offer them "Care & support: what has come in". Unread means
      "not one". */
-  var careLead = false;
+  var careLead = false, sgLead = false;
   function loadCareLead(memberId) {
     if (!memberId) { careLead = false; return Promise.resolve(false); }
     /* careRouting/status, kept by the server: the lead and deputy, readable
        by anyone signed in - the safeguarding settings are a volunteer's. */
     var lead = db.collection('careRouting').doc('status').get().then(function (d) {
-      return ((d.exists && d.data().leadIds) || []).indexOf(memberId) !== -1;
+      sgLead = ((d.exists && d.data().leadIds) || []).indexOf(memberId) !== -1;
+      return sgLead;
     });
     /* Named in "Who gets told" for requests for care or pastoral concerns. */
     var named = db.collection('careRouting').doc('main').get().then(function (d) {
@@ -1210,6 +1211,10 @@
     /* Looks after sermons and Watch: named in sermonShow/access, or a
        master admin. */
     isSermonsAdmin: function () { return EGBCAuth.isMaster() || sermonsAdmin; },
+
+    /* The safeguarding lead or deputy (careRouting/status, kept by the
+       server). For the Menu's Safeguarding; never previewed into. */
+    isSafeguardingLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && sgLead; },
 
     /* Reads Care & support's inbox: the Pastoral team, or the safeguarding
        lead or deputy. NOT a master admin as such - the rules do not let

@@ -2951,3 +2951,48 @@ known-recipient check are listed in SERVER-DEPLOY.md.
   no second look at sending). Rules: the launch switch is a master admin's,
   and anybody can read it.
 - **Needs functions:hub deployed** (`careStatusSync`).
+
+### A-089 — every working page has a way in (Martin, 14 Oct 2026: "I can't find Safeguarding settings")
+
+Twelve working pages had no Menu entry. Now (egbc-menu.js):
+- **Safeguarding** (a heading with its own page): Safeguarding settings and
+  Due for deletion under it. For the safeguarding lead and deputy
+  (`careRouting/status.leadIds`, `EGBCAuth.isSafeguardingLead()`) and
+  anybody who administers something. Also in the hub's "What you look
+  after".
+- **Groups and forms** (any admin): Small groups, Forms.
+- **Kids Church › Sunday check-in** now opens the Sunday desk
+  (`kids-checkin.html`), as the app does. It used to point at `checkin.html`,
+  which is the check-in for an EVENT. That one is now **Events and rooms ›
+  Event check-in**, beside Registers, Headcounts and Picture library (F-176,
+  feature `pictureLibrary`).
+- **Beside Watch:** Sermons (the same people). **Beside Give:** Gift Aid
+  (everybody; `giftAid`). **Beside Care & support:** Prayer (everybody;
+  `prayer`).
+- `youth-access.html`, `attendance.html` and the public pages are reached from
+  elsewhere, each with its reason.
+
+**Rule 14, checked:** check-menu's first assertion fails, naming the page,
+when any v2 page is neither in egbc-menu.js nor on its REACHED_ELSEWHERE
+list with a reason. The break (Safeguarding settings taken out) is caught:
+"NO WAY IN: safeguarding-settings.html". check-menu 62/62.
+
+**Pictures at 375px:** `tests/shots/menu-375--master-admin.png` and
+`menu-375--kids-church-leader.png` (`node tests/shots-menu-375.mjs`).
+
+### A-090 — after many pages in one browser tab, the database reports "offline" (to look into)
+
+Seen three times in the checks on 14 Oct 2026 (check-care,
+check-worship-av-one-team, and the 140-page sweep): after a few dozen pages
+in one headless Chrome tab, sign-in fails with a network error, or a read
+fails with "the client is offline". The emulators are still up. Turning off
+Chrome's back/forward cache (`--disable-features=BackForwardCache`) makes
+it go away. A cached page appears to keep its database connection open, and
+Chrome allows six connections per host.
+
+The checks that hit it now launch Chrome that way. **Still to find out:**
+whether a real person, going back and forward through many pages in one
+tab on a phone, can reach the same state against the live database (which
+is one host, firestore.googleapis.com). If they can, the fix belongs in the
+pages: close the database connection on `pagehide` (`firebase.firestore().
+terminate()` when `event.persisted`), not in the checks.

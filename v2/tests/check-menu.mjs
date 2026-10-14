@@ -46,11 +46,14 @@ const APPROVED = [
   /* Watch (F-164, Martin 14 Oct 2026): master admins and the people who
      look after sermons, so it is here for the master admin this reads as. */
   ['Watch'],
+  ['Sermons'],
   ["What's on"],
   /* Give (Martin, 12 Oct 2026). Gated on nothing - giving is for
      everybody signed in - so it sits out here with the other ungated
      entries rather than inside a team's list. */
   ['Give'],
+  /* Gift Aid (F-169): each person's own declaration. */
+  ['Gift Aid'],
   /* Notifications (FINDINGS-notify N-5), for everybody signed in. */
   ['Notifications'],
   ['Hire our rooms'],
@@ -65,11 +68,14 @@ const APPROVED = [
   ]],
   ['Youth', [['Youth Service Planner']]],
   ['Kids Church', [["Children's register"], ['Sunday check-in']]],
+  /* 14 Oct 2026: Martin could not find Safeguarding settings. */
+  ['Safeguarding', [['Safeguarding settings'], ['Due for deletion']]],
+  ['Groups and forms', [['Small groups'], ['Forms']]],
   ['Core Team', [
     ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
     ['People and email', [['Address Book'], ['Email Compiler']]],
     ['Music', [['Music Upload']]],
-    ['Events and rooms', [['Events'], ['Places'], ['Room bookings']]],
+    ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library']]],
     ['Admin', [['Backup & Restore'], ['Church settings']]]
   ]],
   /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
@@ -78,6 +84,7 @@ const APPROVED = [
      the people who read what comes in. */
   ['Care & support'],
   ['Care & support: what has come in'],
+  ['Prayer'],
   ['Resources', [['Pin boards'], ['Apps and downloads'], ['Team Resources'], ['Team Videos']]]
 ];
 
@@ -95,7 +102,8 @@ const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & A
    what the answer should be is not a check. */
 const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Planner',
   'Availability form', 'Music',
-  'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings'];
+  'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings',
+  'Event check-in', 'Registers', 'Headcounts', 'Picture library'];
 /* NEXT-BRIEF §25: the Address Book and the Email Compiler left CORE_ONLY.
    They follow the Running things tabs - People and Send - which come from a
    group, because the church administrator may not be on Core Team and a
@@ -109,7 +117,7 @@ const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Plan
 const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler'];
 /* Watch (F-164): master admins and the people named in sermonShow/access.
    None of the people here is named there, so it is the master admin's. */
-const SERMONS_ONLY = ['Watch'];
+const SERMONS_ONLY = ['Watch', 'Sermons'];
 /* The Care & support inbox: the Pastoral team, the people named in Who gets
    told, and the safeguarding lead and deputy. None of the people here is
    any of those. */
@@ -133,6 +141,10 @@ function firstDifference(seen, expected) {
 }
 
 const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings',
+  'Event check-in', 'Registers', 'Headcounts', 'Picture library',
+  /* Any admin (none of these people is the safeguarding lead, who would
+     see Safeguarding too). */
+  'Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Groups and forms', 'Small groups', 'Forms',
   /* admin: true on the Menu node. It also sits under the Worship & AV team
      heading, so it is in WORSHIP_ONLY too - both gates apply and a name has
      to be in both lists or the expectation is wrong for somebody. */
@@ -262,6 +274,49 @@ const READ_MENU = `(() => {
 })()`;
 
 (async () => {
+  /* ---- EVERY PAGE THAT SHIPS HAS A WAY IN (HANDOVER-MAIN rule 14) -------
+     Martin, 14 Oct 2026, could not find Safeguarding settings: it and eleven
+     other working pages had no Menu entry. So every page in v2 is either in
+     egbc-menu.js or on this list, with the reason it is reached from
+     somewhere else. A new page with neither fails here, by name. */
+  const REACHED_ELSEWHERE = {
+    'app.html': 'the phone app itself', 'login.html': 'signing in',
+    'CoreTeamApp.html': 'installed phone app', 'worshiphubapp.html': 'installed phone app',
+    'youthapp2.html': 'installed phone app', 'AVteamlandingpage.html': 'installed phone app',
+    'EGBCWorship&AV.html': 'installed phone app', 'Performancenotes.html': 'opened from the hub and the Worship app',
+    'book.html': 'public: hiring a room', 'room.html': 'public: one room', 'my-booking.html': 'public: a hirer\'s booking link',
+    'signup.html': 'public: an event\'s sign-up', 'my-signup.html': 'public: a sign-up\'s own link',
+    'form.html': 'public: a form\'s own link', 'newhere.html': 'public: the welcome card and its QR',
+    'whatson-embed.html': 'the church website\'s embed', 'upload.html': 'public: a guest\'s photo link',
+    'youth-access.html': 'a young person with a code, not an account',
+    'worried.html': 'opened from Care & support', 'groups.html': 'the "you" menu\'s My groups',
+    'song-summary.html': 'opened from the service planners',
+    'emailcompilerinstructions.html': 'opened from the Email Compiler',
+    'rotaplannerinstructions.html': 'opened from the Rota Planner',
+    'Serviceplannerinstructions.html': 'opened from the Sunday Service Planner',
+    'uploaderinstructions.html': 'opened from the Music Uploader',
+    'sundayplannersonglibrary.html': 'opened from the Sunday Service Planner',
+    'training Sunday planner.html': 'part of Worship Training', 'trainingbatchimporter.html': 'part of Worship Training',
+    'trainingmusicdatabase.html': 'part of Worship Training', 'trainingportalhub.html': 'part of Worship Training',
+    'trainingrotaplanner.html': 'part of Worship Training',
+    'studio.html': 'Calla Design, out of scope', 'birthday.html': 'Calla Design, out of scope',
+    'photoeditor.html': 'Calla Design, out of scope', 'sitemaker.html': 'Calla Design, out of scope',
+    'socialmaker.html': 'Calla Design, out of scope', 'Videoeditor.html': 'Calla Design, out of scope',
+    'mix-builder.html': 'Martin\'s mix tools, out of scope', 'mix-player.html': 'Martin\'s mix tools, out of scope',
+    'mix-analyser.html': 'Martin\'s mix tools, out of scope',
+    'Handover.html': 'a one-off note, not part of the suite', 'SharepointHeader.html': 'a fragment, not a page'
+  };
+  {
+    const src = fs.readFileSync(path.join(V2, 'egbc-menu.js'), 'utf8');
+    const inMenu = new Set([...src.matchAll(/url:\s*'([^']+)'/g)].map(m => m[1].toLowerCase()));
+    const all = fs.readdirSync(V2).filter(f => /\.html$/i.test(f));
+    const lost = all.filter(f => !inMenu.has(f.toLowerCase()) && !REACHED_ELSEWHERE[f]);
+    ok('every page is in the Menu or reached from somewhere else, with the reason (rule 14)', lost.length === 0,
+      'NO WAY IN: ' + lost.join(', ') + '\n          add each to egbc-menu.js, or to REACHED_ELSEWHERE here with why');
+    const stale = Object.keys(REACHED_ELSEWHERE).filter(f => inMenu.has(f.toLowerCase()) || !all.includes(f));
+    ok('  and nothing on that list is in the Menu now, or gone', stale.length === 0, stale.join(', '));
+  }
+
   if (wantShots) fs.mkdirSync(SHOTS, { recursive: true });
   const server = http.createServer((q, s) => {
     const url = decodeURIComponent(q.url.split('?')[0]);
@@ -495,9 +550,11 @@ const READ_MENU = `(() => {
          because that is where the Menu has it, and "in the Menu's order"
          is the whole point of this check. */
       ...(worshipAV && anAdmin ? ['Connect ChurchShow'] : []),
+      /* 14 Oct 2026: Safeguarding (sg) and Groups and forms (admin), any admin. */
+      ...(anAdmin ? ['Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Small groups', 'Forms'] : []),
       ...(onCore && anAdmin ? ['Events', 'Places'] : []),
       ...(books ? ['Room bookings'] : []),
-      ...(onCore && anAdmin ? ['Backup & Restore', 'Church settings'] : [])
+      ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Backup & Restore', 'Church settings'] : [])
     ];
     ok("  the sidebar lists what they look after, in the Menu's order",
       sidebar === wantAdmin.join('|'),
@@ -542,6 +599,8 @@ const READ_MENU = `(() => {
     'my-booking.html': 'public hire page (events window) - somebody with a booking reference, not an account',
     'hire.html': 'public hire page (events window)',
     'room.html': 'public hire page (events window)',
+    'newhere.html': 'public welcome card for visitors (events window) - no account, no Menu',
+    'whatson-embed.html': 'the church website\'s embed (events window) - inside another site, no Menu',
     /* NOT AN OVERSIGHT - the point of it. APP-DESIGN-BRIEF §2 says the phone
        app has no hidden menu: four tabs along the bottom and nothing tucked
        behind a hamburger. check-app-shell.mjs asserts the absence. */

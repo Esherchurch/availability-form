@@ -1322,7 +1322,9 @@ function renderNavigation() {
       nodes.forEach(n => {
         /* `bookings` as well as `admin`: Room bookings is the one thing a
            site's bookings admin looks after, and they administer no team. */
-        if (n.url && (n.admin || n.bookings)) admin.push({ url: n.url, title: n.title, icon: n.icon });
+        /* `sg` too (14 Oct 2026): Safeguarding is looked after by the lead and
+           deputy and the admins, and it is exactly what this list is for. */
+        if (n.url && (n.admin || n.bookings || n.sg)) admin.push({ url: n.url, title: n.title, icon: n.icon });
         if (n.children) walk(n.children);
       });
     })(EGBCMenu.forPerson(EGBCMenu.who()));
