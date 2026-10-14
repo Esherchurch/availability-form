@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Picture library</title>
+<!-- The picture library (Martin, 14 Oct 2026): pictures the church uses
+     again and again (Film Club, Cafe Club, Carol Service...). Admins add,
+     rename, replace and delete; events point to them (egbc-picture-library.js).
+     Events window. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610141000" data-title="Picture library"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610141000"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-guard.js?v=202610121600" data-admin="any"></script>
+<script src="egbc-events.js?v=202610141200"></script>
+<script src="egbc-picture-library.js?v=202610141900"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold-bg:#fdf8ee;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 12px}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  .inp{width:100%;height:40px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:8px;font:500 13px Inter,sans-serif;cursor:pointer;
+       border:1px solid transparent;background:var(--brand);color:#fff}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#f1c9c2}
+  .btn:disabled{opacity:.55;cursor:default}
+  .hint{color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .pic{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:12px;min-width:0}
+  .pic img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block;background:var(--tint)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .field{margin-top:8px}
+  .st{border-radius:8px;padding:10px 12px;margin-top:8px;font-size:13px}
+  .st.ok{background:var(--ok-bg);color:var(--ok)} .st.no{background:var(--danger-bg);color:var(--danger)} .st.wait{background:var(--gold-bg);color:#7a5a1e}
+  .fileb{position:relative;overflow:hidden} .fileb input{position:absolute;opacity:0;width:1px;height:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Picture library</h1>
+  <p class="sub">Pictures the church uses again and again. Choose one in an event with "Choose from library"; every date of a repeating event, and every copy, uses the same picture.</p>
+  <div id="main"><div class="card hint">Loading…</div></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var P = window.EGBCPictures, PICS = [], USES = {}, SAID = {};
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function say(id, cls, t) { SAID[id] = { cls: cls, t: t }; var el = $('said-' + id); if (el) { el.className = 'st ' + cls; el.textContent = t; } }
+
+  function draw() {
+    if (!P.on()) { $('main').innerHTML = '<div class="card" id="pl-off">The picture library is switched off for this church ("What does your church use?").</div>'; return; }
+    $('main').innerHTML =
+      '<div class="card" id="pl-add"><h2>Add a picture</h2>' +
+        '<label class="btn sec fileb">Choose a picture<input type="file" id="a-file" accept="image/*"></label> <span class="hint" id="a-chosen"></span>' +
+        '<div class="field"><label for="a-name">Name</label><input class="inp" id="a-name" maxlength="80" placeholder="Film Club"></div>' +
+        '<div class="field"><label for="a-tags">Tags (optional, with commas)</label><input class="inp" id="a-tags" maxlength="300" placeholder="children, film"></div>' +
+        '<div class="row"><button class="btn" id="a-go">Add to the library</button></div><div id="said-add"></div></div>' +
+      (PICS.length ? '<div class="grid" id="pl-grid">' + PICS.map(card).join('') + '</div>' : '<div class="card hint" id="pl-empty">No pictures yet.</div>');
+    Object.keys(SAID).forEach(function (k) { var s = SAID[k], el = $('said-' + k); if (el) { el.className = 'st ' + s.cls; el.textContent = s.t; } });
+  }
+  function card(p) {
+    var n = USES[p.id] || 0;
+    return '<div class="pic" data-pic="' + esc(p.id) + '"><img src="' + esc(p.url) + '" alt="' + esc(p.name) + '">' +
+      '<div class="field"><label for="n-' + esc(p.id) + '">Name</label><input class="inp" id="n-' + esc(p.id) + '" maxlength="80" value="' + esc(p.name) + '"></div>' +
+      '<div class="field"><label for="t-' + esc(p.id) + '">Tags</label><input class="inp" id="t-' + esc(p.id) + '" maxlength="300" value="' + esc((p.tags || []).join(', ')) + '"></div>' +
+      '<p class="hint" data-uses="' + n + '" style="margin:8px 0 0">' + (n ? 'Used by ' + plural(n, 'event') : 'Not used by any event') + '</p>' +
+      '<div class="row"><button class="btn sec" data-save="' + esc(p.id) + '">Save</button>' +
+      '<label class="btn sec fileb">Replace<input type="file" accept="image/*" data-replace="' + esc(p.id) + '"></label>' +
+      '<button class="btn danger" data-del="' + esc(p.id) + '">Delete</button></div>' +
+      '<div id="confirm-' + esc(p.id) + '"></div><div id="said-' + esc(p.id) + '"></div></div>';
+  }
+  function load() {
+    return P.list().then(function (l) {
+      PICS = l;
+      return Promise.all(l.map(function (p) { return P.usedBy(p.id).then(function (e) { USES[p.id] = e.length; }).catch(function () { USES[p.id] = 0; }); }));
+    }).then(draw).catch(function (e) { $('main').innerHTML = '<div class="card st no">Could not open the library: ' + esc(e.message || e) + '</div>'; });
+  }
+
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.id === 'a-file') {
+      var f = t.files && t.files[0];
+      $('a-chosen').textContent = f ? f.name : '';
+      if (f && !$('a-name').value) $('a-name').value = f.name.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ');
+    }
+    if (t.dataset && t.dataset.replace) {
+      var id = t.dataset.replace, file = t.files && t.files[0];
+      if (!file) return;
+      say(id, 'wait', 'Replacing…');
+      P.replace(id, file).then(function (n) { say(id, 'ok', 'Replaced' + (n ? ': ' + plural(n, 'event') + ' now show the new picture.' : '.')); return load(); })
+        .catch(function (err) { say(id, 'no', 'Not replaced: ' + (err.message || err)); });
+    }
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest ? e.target.closest('button') : null;
+    if (!t) return;
+    if (t.id === 'a-go') {
+      var f = $('a-file').files && $('a-file').files[0];
+      if (!f) { say('add', 'no', 'Choose a picture first.'); return; }
+      if (!$('a-name').value.trim()) { say('add', 'no', 'Give it a name.'); return; }
+      t.disabled = true; say('add', 'wait', 'Adding…');
+      P.add(f, { name: $('a-name').value, tags: $('a-tags').value }).then(function (p) { say('add', 'ok', 'Added: ' + p.name + '.'); return load(); })
+        .catch(function (err) { t.disabled = false; say('add', 'no', 'Not added: ' + (err.message || err)); });
+    }
+    if (t.dataset.save) {
+      var id = t.dataset.save;
+      P.rename(id, $('n-' + id).value, $('t-' + id).value).then(function () { say(id, 'ok', 'Saved.'); return load(); })
+        .catch(function (err) { say(id, 'no', 'Not saved: ' + (err.message || err)); });
+    }
+    /* Deleting: the page says first how many events use it. */
+    if (t.dataset.del) {
+      var d = t.dataset.del, n = USES[d] || 0;
+      $('confirm-' + d).innerHTML = '<div class="st wait" id="del-ask"><p style="margin:0 0 8px">' +
+        (n ? 'This picture is used by ' + plural(n, 'event') + '. They will show no picture until someone picks another one.' : 'No event uses this picture.') +
+        ' Delete it from the library?</p><div class="row" style="margin:0"><button class="btn danger" data-delyes="' + esc(d) + '">Delete</button><button class="btn sec" data-delno="' + esc(d) + '">Cancel</button></div></div>';
+    }
+    if (t.dataset.delno) $('confirm-' + t.dataset.delno).innerHTML = '';
+    if (t.dataset.delyes) {
+      var g = t.dataset.delyes; t.disabled = true;
+      P.remove(g).then(function (n) { SAID = {}; say('add', 'ok', 'Deleted' + (n ? '. ' + plural(n, 'event') + ' now show no picture.' : '.')); return load(); })
+        .catch(function (err) { t.disabled = false; say(g, 'no', 'Not deleted: ' + (err.message || err)); });
+    }
+  });
+
+  EGBCAuth.require().then(function () { return EGBCChurch.load ? EGBCChurch.load().catch(function () {}) : null; }).then(load);
+})();
+</script>
+</body>
+</html>

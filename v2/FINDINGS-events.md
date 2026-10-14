@@ -4434,3 +4434,43 @@ roughly one Sunday in three, and the wrong parent would come.
 - **For the main window, the app's family check-in:** get the number with
   `EGBCCheckin.screenNoFor(siteId, day, familyId, groupId)`, not
   `EGBCKids.screenNumber()`. Then pass it to `kidsIn` as its last argument.
+
+### F-176 — The picture library (Martin, 14 Oct). REQUEST for the main window: a Menu entry
+**What it is:** one shared store of pictures, each with a name and tags.
+Nothing about any church is in the code.
+- **In the event editor:** "Choose from library" sits next to "Upload
+  picture". A new picture gets "Save to library, to use again", ticked by
+  default and named after the event.
+- **An event points to a library picture; it doesn't copy it.** The event
+  stores `calEvents.imageLibId` beside `image`. So every date of a
+  repeating event, and every copy, uses the same file, uploaded once.
+- **`picture-library.html` (admins):**
+  - shows how many events use each picture
+  - rename and tags
+  - **Replace**, which updates every event that uses the picture
+  - **Delete**, which first says on the page how many events use it.
+    Those events then show no picture (the plain card) until someone
+    picks another.
+- **Feature name:** `pictureLibrary`. When it's off, the editor shows only
+  "Upload picture" and the page says it's switched off.
+- **Storage:** `library/<picId>/`. The rule is in `storage.rules`, events
+  section, **written, not deployed**. It goes live at switch-over. Until
+  then, live uploads to `library/` are refused by the old storage rules,
+  and the page says "Not added: …".
+- **Firestore:** `pictureLibrary/<id>`. Admins write it, anyone signed in
+  can read it.
+
+**For the main window:**
+1. Add **"Picture library"** (`picture-library.html`) to the Menu for
+   admins, beside Events.
+2. Add `pictureLibrary` to "What does your church use?", under Events.
+
+**Proved:**
+- `picture-library.test.mjs`: 25 checks, screenshots at 375px.
+- Seven deliberate breaks, all caught.
+- The event tests still pass: public-whatson, r3-event-rooms, share,
+  who-can-come, app-whatson.
+
+**Also, rooms made of parts (F-174):** all six browser breaks now run and
+are caught. The first one exposed a gap in my test: it only ever booked
+the front half. It now also books the back half alone.

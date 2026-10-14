@@ -183,6 +183,9 @@ try {
   ok('   then the WHOLE is not free over it: the page says so', (await bookIn(Sm, WHOLE, D, '14:00', '15:00')) === 'not free');
   ok('   and the rules refuse a page that tries', /permission/i.test(await bookIn(Sm, WHOLE, D, '14:00', '15:00', { force: true })));
   ok('   while the OTHER half then is free', (await bookIn(Sm, BACK, D, '14:00', '15:00', { title: 'Back half (invented)' })) === 'booked');
+  /* Either half counts, not just the first: the back alone at 20:00. */
+  ok('   the BACK half alone booked at 20:00: the whole is not free then either', (await bookIn(Sm, BACK, D, '20:00', '21:00', { title: 'Back half late (invented)' })) === 'booked'
+    && (await bookIn(Sm, WHOLE, D, '20:00', '21:00')) === 'not free');
 
   /* ---------- 3. the day chart ---------- */
   await M.goto(URLB + 'bookings-admin.html', { waitUntil: 'networkidle2' });

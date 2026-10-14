@@ -3817,6 +3817,31 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- the picture library (Martin, 14 Oct 2026) ----------------------
+    // One shared store of pictures, each with a name and tags. Events point
+    // to a picture (calEvents.imageLibId) rather than copying it. Anyone
+    // signed in who can edit events may read the library; admins add,
+    // rename, replace and delete. A name, tags, a web address, a size: no
+    // personal data.
+    function pictureShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'tags', 'url', 'path', 'width', 'height', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+             && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+             && d.tags is list && d.tags.size() <= 12
+             && d.url is string && d.url.size() <= 2000
+             && d.path is string && d.path.matches('library/[^/]+/[^/]+')
+             && d.updatedBy == request.auth.uid;
+    }
+    match /pictureLibrary/{picId} {
+      allow read: if active();
+      allow create: if isAdmin() && pictureShape() && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.path.matches('library/' + picId + '/[^/]+');
+      allow update: if isAdmin() && pictureShape()
+                    && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt
+                    && request.resource.data.path.matches('library/' + picId + '/[^/]+');
+      allow delete: if isAdmin();
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------

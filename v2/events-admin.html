@@ -21,6 +21,7 @@
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
+<script src="egbc-picture-library.js?v=202610141900"></script>
 <script src="egbc-events-bookings.js?v=202610141700"></script>
 <script src="egbc-events-safeguarding.js?v=202610111200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -336,10 +337,7 @@
       '<div class="field"><label for="f_labels">Labels (comma separated)</label><input class="inp" id="f_labels" value="' + esc((CUR.labels || []).join(', ')) + '"></div>' +
       '<label class="check"><input type="checkbox" id="f_feat"' + (CUR.featured ? ' checked' : '') + '>Feature this on the hub and at the top of What\'s on</label>' +
       '<label class="check"><input type="checkbox" id="f_u18"' + (U18 ? ' checked' : '') + '><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</label>' +
-      '<div class="field"><label>Picture</label>' +
-        (CUR.image ? '<img src="' + esc(CUR.image) + '" alt="" style="max-width:220px;border-radius:8px;border:1px solid var(--line);display:block;margin-bottom:8px">' : '') +
-        '<input type="file" id="f_img" accept="image/*" class="inp" style="padding:8px 12px;height:auto">' +
-        '<p class="hint">Used on the event page, What\'s on and anywhere it is shared.</p></div>' +
+      pictureField() +
       '<div class="field"><label for="f_notes">Internal notes (admins and overseers only)</label>' +
         '<textarea id="f_notes" maxlength="4000">' + esc(NOTES) + '</textarea></div>';
   }
@@ -930,7 +928,7 @@
       signupOn: !!ev.signupOn, capacity: ev.capacity || 0,
       allowSelfCancel: ev.allowSelfCancel !== false, donationsOn: !!ev.donationsOn,
       signupScope: ev.signupScope || 'date',
-      image: ev.image || '',
+      image: ev.image || '', imageLibId: ev.image ? (ev.imageLibId || '') : '',
       seriesId: ev.seriesId || '',
       updatedAt: new Date().toISOString()
     };
@@ -945,10 +943,54 @@
     }).catch(function () {});
   }
 
+  /* ---- the picture: upload one, or choose from the library (Martin, 14 Oct 2026) ----
+     A new picture is saved to the library unless the tick is taken off; the
+     event then points to it (imageLibId), so its repeats and copies use the
+     same picture without another upload. */
+  function libOn() { return !!(window.EGBCPictures && EGBCPictures.on()); }
+  function pictureField() {
+    var lib = libOn();
+    return '<div class="field" id="f_picture"><label>Picture</label>' +
+      '<div id="f_imgprev">' + (CUR.image ? '<img src="' + esc(CUR.image) + '" alt="" style="max-width:220px;width:100%;border-radius:8px;border:1px solid var(--line);display:block;margin-bottom:8px">' : '') + '</div>' +
+      (CUR.image && CUR.imageLibId ? '<p class="hint" id="f_fromlib" style="margin:0 0 8px">From the picture library.</p>' : '') +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+        '<label class="btn sec" style="cursor:pointer">Upload picture<input type="file" id="f_img" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px"></label>' +
+        (lib ? '<button type="button" class="btn sec" id="f_lib">Choose from library</button>' : '') +
+        (CUR.image ? '<button type="button" class="btn sec" id="f_noimg">No picture</button>' : '') +
+      '</div>' +
+      '<div id="f_chosen" class="hint" style="margin-top:6px"></div>' +
+      (lib ? '<div id="f_libsave" style="display:none;margin-top:6px"><label class="check"><input type="checkbox" id="f_tolib" checked>Save to library, to use again</label>' +
+        '<input class="inp" id="f_libname" maxlength="80" placeholder="Its name in the library" aria-label="Its name in the library" style="margin-top:6px"></div>' : '') +
+      '<p class="hint">Used on the event page, What\'s on and anywhere it is shared.</p></div>';
+  }
+  function showPicture() {
+    var p = document.getElementById('f_picture');
+    if (p) p.outerHTML = pictureField();
+  }
+  document.addEventListener('change', function (e) {
+    if (!e.target || e.target.id !== 'f_img') return;
+    var f = e.target.files && e.target.files[0], box = document.getElementById('f_libsave');
+    document.getElementById('f_chosen').textContent = f ? 'New picture: ' + f.name + ' (saved when you press Save)' : '';
+    if (box) { box.style.display = f ? 'block' : 'none'; var n = document.getElementById('f_libname'); if (f && !n.value) n.value = (document.getElementById('f_title') || {}).value || CUR.title || ''; }
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (t && t.id === 'f_lib') {
+      EGBCPictures.picker(function (pic) { CUR.image = pic.url; CUR.imageLibId = pic.id; showPicture(); toast('Picture chosen: ' + pic.name); });
+    } else if (t && t.id === 'f_noimg') {
+      CUR.image = ''; CUR.imageLibId = ''; showPicture();
+    }
+  });
+
   function uploadImage(id) {
     var f = document.getElementById('f_img');
     if (!f || !f.files || !f.files[0]) return Promise.resolve(null);
     var file = f.files[0];
+    var tick = document.getElementById('f_tolib');
+    if (libOn() && tick && tick.checked) {
+      return EGBCPictures.add(file, { name: (document.getElementById('f_libname') || {}).value || CUR.title }).then(function (pic) { CUR.imageLibId = pic.id; return pic.url; });
+    }
+    CUR.imageLibId = '';
     var ref = EGBCAuth.storage().ref('events/' + id + '/' + Date.now() + '-' + file.name.replace(/[^a-z0-9.\-_]/gi, '_'));
     return ref.put(file).then(function () { return ref.getDownloadURL(); });
   }

@@ -383,6 +383,19 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // The picture library (Martin, 14 Oct 2026): library/<picId>/<file>.
+    // Anyone may see a picture (events are shown on public pages); an
+    // admin adds, replaces and removes them. Pictures only, at most 8 MB
+    // (the pages make them smaller first). WRITTEN, NOT DEPLOYED: it goes
+    // live on switch-over day with the rest of these rules.
+    match /library/{picId}/{fileName} {
+      allow read: if true;
+      allow create, update: if adminHere()
+                            && request.resource.size < 8 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+      allow delete: if adminHere();
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────
