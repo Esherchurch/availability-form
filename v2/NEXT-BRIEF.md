@@ -192,6 +192,7 @@ A3b checked: Group 1 at 0 off-spec across every screen. The 800 weights left in 
   - **Events window:** the tick on events and clubs, the check when naming leaders and helpers, and reminders before a DBS check or training runs out.
   - Rules-enforced, with tests and deliberate breaks (e.g. a Youth Worship leader with no DBS can't be put on the youth rota, and a Kids Film Club helper with expired training can't be added).
 
+- **Update, Martin 14 Oct: the button becomes "Care & support"**, easy to see on every page (website top bar and app header, in words) and **never hideable**. It opens a short choice, with "If someone is in immediate danger, call 999" always first: (1) **"I'd like some pastoral care"**, for yourself, going to the pastoral team; (2) **"I'm worried about someone"**, as below; (3) **"Ask for prayer"**, linking to the prayer requests (events window).
 - **"I'm worried about someone" (Martin, 10 Oct 2026):** a button on **every** version of the app (Me and my family, every team space, Running things) and in the Menu. *"We are not tracking it, but if someone notices that X has not been in church for a while they can flag it if they are worried. It may be an older person getting isolated."*
   - **People-led, never automatic.** Nothing counts or watches anyone; a person chooses to speak up. This fits the rule above.
   - **Two choices on one short form:**
