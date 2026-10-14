@@ -38,6 +38,10 @@
      --as-maintenance "Name"          make a maintenance job of it
      --place "Name=Room"              the room for a booking ChurchSuite gave no place for
      --capacity "Name=30"             sign-ups on, with this many places (ChurchSuite gave no limit)
+     --part public | private          one half (Martin, 14 Oct): public (the building, rooms, the public
+                                      events and their rooms' bookings) now; private (members-only events,
+                                      hires, small groups, jobs) ONLY once the rules are locked. Live, one
+                                      part must be named; --part private --live also needs --rules-locked.
      --today YYYY-MM-DD, --until YYYY-MM-DD    the window (default: today to the end of the year)
      --project ID, --bucket NAME      (default egbc-worship-planner, <project>.firebasestorage.app)
    =================================================================== */
@@ -47,7 +51,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { plan, words, IMPORTER } from './churchsuite-plan.mjs';
+import { plan, part, words, IMPORTER } from './churchsuite-plan.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const V2 = path.resolve(HERE, '..');
@@ -73,15 +77,20 @@ opts('--place').forEach((p) => { const i = p.indexOf('='); if (i > 0) place[p.sl
 const capacity = {};
 opts('--capacity').forEach((p) => { const i = p.lastIndexOf('='); if (i > 0) capacity[p.slice(0, i).trim()] = parseInt(p.slice(i + 1), 10) || 0; });
 const NOW = new Date().toISOString();
-const P = plan({ roomsMd: read('rooms.md'), embed: JSON.parse(read('cs-embed.json')), nonPublicMd: read('cs-nonpublic.md') }, {
+const PART = opt('--part');
+if (PART && PART !== 'public' && PART !== 'private') { console.error('--part is public or private'); process.exit(2); }
+const P = part(plan({ roomsMd: read('rooms.md'), embed: JSON.parse(read('cs-embed.json')), nonPublicMd: read('cs-nonpublic.md') }, {
   today: opt('--today') || NOW.slice(0, 10), until: opt('--until') || '', nowIso: NOW, teams: TEAMS, under18: UNDER18,
   rotaCategories: opts('--rota-category'), asBooking: opts('--as-booking'), asMaintenance: opts('--as-maintenance'), place, capacity
-});
+}), PART);
 console.log(words(P));
 if (!WRITE) { console.log('\nThis was the dry run: nothing has been written. Add --write to make it.'); process.exit(0); }
 
 /* THE DOOR, before anything connects. */
 if (!EMULATOR && !LIVE) { console.error('\nRefusing: this would write the REAL database, and --live was not given.'); process.exit(2); }
+/* Until switch-over the live database can be read signed out (Martin, 14 Oct). */
+if (LIVE && !PART) { console.error('\nRefusing: live, name one part: --part public now, --part private once the rules are locked.'); process.exit(2); }
+if (LIVE && PART === 'private' && !flag('--rules-locked')) { console.error('\nRefusing: the private part (members-only events, hires, small groups, jobs) goes live only once the rules are locked, on switch-over day. Add --rules-locked then.'); process.exit(2); }
 if (EMULATOR && LIVE) { console.error('\nRefusing: --live was given but FIRESTORE_EMULATOR_HOST is set (' + EMULATOR + '). Pick one.'); process.exit(2); }
 if (!P.site) { console.error('\nNo site in rooms.md: nothing to make.'); process.exit(2); }
 

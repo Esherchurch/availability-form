@@ -377,11 +377,34 @@ export function plan(input, options) {
   return P;
 }
 
+/* One part of the plan (Martin, 14 Oct 2026). Until switch-over the live
+   database can be read signed out, so the import goes in two parts:
+     public   the building, rooms, the pictures and places the public
+              events use, the public events, and the bookings that hold
+              rooms for THOSE events - nothing anyone could not see anyway;
+     private  everything else: members-only events and their rooms, the
+              room hires, small groups (and their private parts), jobs.
+   The building and rooms are in both (made once, whichever runs first),
+   because the private part's bookings need them. The two, in either
+   order, make exactly what one whole run makes. */
+export function part(P, which) {
+  if (!which) return P;
+  const pub = (e) => e.data.visibility === 'public', mine = which === 'public' ? pub : (e) => !pub(e);
+  const events = P.events.filter(mine), ids = new Set(events.map((e) => e.id));
+  const pics = new Set(events.map((e) => e.picture).filter(Boolean));
+  const vens = new Set(events.map((e) => e.data.location && e.data.location.venueId).filter(Boolean));
+  const priv = which === 'private';
+  return Object.assign({}, P, { part: which, events, eventBookings: P.eventBookings.filter((b) => ids.has(b.calEventId)),
+    pictures: P.pictures.filter((p) => pics.has(p.id)), venues: P.venues.filter((v) => vens.has(v.id) || (priv && !P.events.some((e) => pub(e) && e.data.location && e.data.location.venueId === v.id))),
+    bookings: priv ? P.bookings : [], groups: priv ? P.groups : [], meetings: priv ? P.meetings : [], jobs: priv ? P.jobs : [], rota: P.rota,
+    warnings: P.warnings.filter((w) => events.some((e) => w.indexOf(e.name + ':') === 0) || (priv && !P.events.some((e) => w.indexOf(e.name + ':') === 0)) || /^Rooms made of parts/.test(w)) });
+}
+
 /* The dry run, in words. */
 export function words(P) {
   const L = [], line = (s) => L.push(s);
   const evNames = {}; P.events.forEach((e) => { (evNames[e.name] = evNames[e.name] || []).push(e); });
-  line('THE CHURCHSUITE IMPORT - what it would make (nothing has been written)');
+  line('THE CHURCHSUITE IMPORT - what it would make (nothing has been written)' + (P.part ? ' - PART: ' + P.part.toUpperCase() : ''));
   line('');
   if (!P.site) { line('NO SITE: rooms.md needs a "Site:" line.'); return L.join('\n'); }
   line('1. THE BUILDING (made first): ' + P.site.data.name + ', ' + P.site.data.address + ' ' + P.site.data.postcode + '  [' + P.site.id + ']');

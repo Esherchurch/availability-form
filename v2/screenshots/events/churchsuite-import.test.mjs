@@ -154,6 +154,20 @@ const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(asyn
 const all = (c) => readDb(db => getDocs(collection(db, c))).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
 const get = (c, id) => readDb(db => getDoc(doc(db, c, id)).then(s => s.exists() ? s.data() : null));
 const COLS = ['importKeys', 'sites', 'rooms', 'venues', 'pictureLibrary', 'calEvents', 'capacity', 'bookings', 'roomDays', 'smallGroups', 'smallGroupPrivate', 'smallGroupMeetings', 'maintJobs', 'signups', 'contacts', 'addressBook'];
+/* What the import made, without what changes from run to run (random
+   keys, times, picture links): records by id, bookings by what they are,
+   room days by their quarter-hours. */
+const snapshot = async () => {
+  const o = {};
+  for (const c of COLS.filter(c => ['signups', 'contacts', 'addressBook'].indexOf(c) < 0)) {
+    const l = await all(c);
+    o[c] = c === 'bookings' ? l.map(b => [b.title, b.day, b.roomId, b.startMin, b.endMin, b.kind, b.calEventId || '', J(b.requester)].join('|')).sort()
+      : c === 'roomDays' ? l.map(d => d.id + ':' + d.slots.join('')).sort()
+      : c === 'importKeys' ? l.map(k => k.id).sort()
+      : l.map(d => d.id).sort();
+  }
+  return o;
+};
 const counts = async () => { const o = {}; for (const c of COLS) o[c] = (await all(c)).length; return o; };
 
 const errors = [], browsers = [];
@@ -267,6 +281,9 @@ try {
   ok('10. RUN TWICE: nothing is made twice', J(await counts()) === J(c1) && !/: [1-9]\d* made/.test(out2), out2.slice(-500));
   ok('    and no room\'s time is taken twice', J((await all('roomDays')).map(d => [d.id, d.slots])) === daysBefore);
 
+  /* What one whole run made, to compare the two parts with (section 12). */
+  const FULL = await snapshot();
+
   /* ---------- 11. ordinary data ---------- */
   const G1 = await page(null, 375);
   await G1.goto(URLB + 'whatson.html', { waitUntil: 'networkidle2' });
@@ -280,6 +297,26 @@ try {
   await M.$eval('#f_title', e => { e.value = 'Test Art Group (renamed)'; e.dispatchEvent(new Event('input', { bubbles: true })); });
   await M.$eval('#save', b => b.click());
   ok('    an admin edits an imported event like any other', (await until(async () => ((await get('calEvents', art.id)) || {}).title === 'Test Art Group (renamed)' ? 'y' : null)) === 'y');
+
+  /* ---------- 12. in two parts (Martin, 14 Oct: the live database can be read signed out until switch-over) ---------- */
+  const refuse = async (extra, re) => { try { await new Promise((res, rej) => execFile(process.execPath, RUN.concat(extra), { cwd: V2, encoding: 'utf8', env: Object.assign({}, process.env, { FIRESTORE_EMULATOR_HOST: '' }) },
+    (e, out, err) => (e ? rej(Object.assign(e, { stderr: err })) : res(out)))); return false; } catch (e) { return re.test(String(e.stderr)); } };
+  ok('12. LIVE, ONE PART MUST BE NAMED', await refuse(['--write', '--live'], /Refusing: live, name one part/));
+  ok('    and the private part goes live only with --rules-locked', await refuse(['--write', '--live', '--part', 'private'], /Refusing: the private part .* only once the rules are locked/));
+  await env.clearFirestore();
+  const outPub = await tool(['--write', '--part', 'public']);
+  const evPub = await all('calEvents'), bkPub = await all('bookings'), kPub = await all('importKeys');
+  const publicIds = new Set(evPub.filter(e => e.visibility === 'public').map(e => e.id));
+  ok('    THE PUBLIC PART: public events only, nothing members-only', evPub.length > 0 && evPub.every(e => e.visibility === 'public'), J(evPub.map(e => e.visibility)));
+  ok('    bookings only to hold those events\' rooms, titled with the event\'s name (no hires)', bkPub.length > 0 && bkPub.every(b => b.kind === 'event' && publicIds.has(b.calEventId) && evPub.find(e => e.id === b.calEventId).title === b.title));
+  ok('    no small groups, private parts, dates or jobs; import names only for those bookings', (await all('smallGroups')).length === 0 && (await all('smallGroupPrivate')).length === 0 &&
+    (await all('smallGroupMeetings')).length === 0 && (await all('maintJobs')).length === 0 && kPub.length === bkPub.length && kPub.every(k => /^cs_ev_/.test(k.id)));
+  ok('    the building, the rooms and the pictures are there', (await all('sites')).length === 1 && (await all('rooms')).length === 5 && (await all('pictureLibrary')).length === 2, outPub.slice(-300));
+  await tool(['--write', '--part', 'private']);
+  const SPLIT = await snapshot();
+  ok('    THEN THE PRIVATE PART: the two together make exactly what one whole run made', J(SPLIT) === J(FULL), J(Object.keys(FULL).filter(k => J(FULL[k]) !== J(SPLIT[k]))));
+  const again1 = await tool(['--write', '--part', 'public']), again2 = await tool(['--write', '--part', 'private']), again3 = await tool(['--write']);
+  ok('    and either part, or the whole, run again makes nothing new', J(await snapshot()) === J(FULL) && ![again1, again2, again3].some(o => /: [1-9]\d* made/.test(o)));
 
   ok('no page threw an error', errors.length === 0, errors.join(' | '));
 } catch (e) {

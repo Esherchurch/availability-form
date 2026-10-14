@@ -4584,3 +4584,55 @@ node tools/import-churchsuite.mjs --from "C:\Users\marti\OneDrive\Documents\New 
     signed out, every private item refused signed out, `--capacity`, and
     a second run still making nothing.
   - Five more deliberate breaks, all caught. Rules: 1249.
+
+**F-177, 14 Oct: the import in TWO PARTS (Martin's choice).** The live
+database can be read signed out until switch-over (the reviewing window
+checked: every collection answers a signed-out REST list).
+
+**`--part public`, NOW:**
+- the building and its 9 rooms
+- the 4 library pictures, and the places the public events use
+- the 14 public events (47 dates)
+- the 23 bookings that hold rooms for **those** events, each titled with
+  the event's name
+
+Nothing members-only goes in this part: no hires, no small groups, no
+maintenance job, and no import names for private items.
+
+**`--part private`, ONLY ON SWITCH-OVER DAY, after the rules deploy:**
+- the 3 members-only events (5 dates)
+- the hires: AA ×46, PAH, Riverside Drive AGM in the Sanctuary
+- the 3 small groups, with their private parts and 20 dates
+- PAT Testing
+
+It also names the building and rooms, which it makes only if they're
+missing.
+
+The tool refuses `--part private --live` unless `--rules-locked` is
+given. Live, a part must always be named, so a whole run can't happen
+live by accident.
+
+**THE LIVE COMMANDS (the reviewing window, from v2):**
+```
+gcloud auth application-default login
+OPTS='--from "C:\Users\marti\OneDrive\Documents\New hub\churchsuite-import" --rota-category Sundays --as-maintenance "PAT Testing" --as-booking "Riverside Drive AGM Meeting" --place "Riverside Drive AGM Meeting=Sanctuary" --capacity "Youth worship practice=30"'
+
+NOW, after Martin's yes:
+  node tools/import-churchsuite.mjs $OPTS --part public                    (look)
+  node tools/import-churchsuite.mjs $OPTS --part public --live --write
+
+ON SWITCH-OVER DAY, only after the rules are deployed:
+  node tools/import-churchsuite.mjs $OPTS --part private                   (look)
+  node tools/import-churchsuite.mjs $OPTS --part private --live --write --rules-locked
+```
+(On Windows, write the options out in full instead of `$OPTS`.)
+
+**Proved:**
+- `churchsuite-import.test.mjs`: 51 checks.
+  - The public part makes only public events and their rooms' bookings.
+    It makes no hires, groups, jobs or private import names.
+  - **A public run then a private run make exactly what one whole run
+    makes.**
+  - Either part, or the whole, run again makes nothing new.
+  - Both refusals work.
+- Five more deliberate breaks, all caught.
