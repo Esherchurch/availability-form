@@ -50,7 +50,8 @@ if (!process.env.PM_INNER) {
   const FN = path.join(TMP, 'functions');
   fs.cpSync(path.join(V2, 'functions'), FN, { recursive: true, filter: (s) => !/[\\/]node_modules([\\/]|$)/.test(s) });
   fs.symlinkSync(path.join(V2, 'functions', 'node_modules'), path.join(FN, 'node_modules'), 'junction');
-  fs.appendFileSync(path.join(FN, 'index.js'), '\n' + LINE + '\n');
+  /* Since ecf5dc50 index.js has the line itself: add it only if missing. */
+  if (!fs.readFileSync(path.join(FN, 'index.js'), 'utf8').includes(LINE)) fs.appendFileSync(path.join(FN, 'index.js'), '\n' + LINE + '\n');
   for (const f of ['firestore.rules', 'firestore.indexes.json']) fs.copyFileSync(path.join(V2, f), path.join(TMP, f));
   fs.writeFileSync(path.join(TMP, 'firebase.json'), JSON.stringify({
     firestore: { rules: 'firestore.rules', indexes: 'firestore.indexes.json' },

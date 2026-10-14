@@ -4242,3 +4242,34 @@ Nothing about editing, assigning, archiving or terms changes.
    2026-10-11. Martin's list for the original site didn't name it, and
    he said no other root changes. The v2 one is done. If he wants the
    original's done too, say so.
+
+### F-172 — F-168 is live; for the reviewing window: where each of the seven emails gets its address (sendEmail's KNOWN_SOURCES)
+**Done, 14 Oct:**
+- `events-f168-pages` merged (19050174) after the deploy (ecf5dc50).
+- Checked live: none of signup, book, my-booking, form, groups or
+  newhere has an email send left in it.
+- The sign-up page says "A confirmation is on its way to you by email".
+
+**sendEmail refuses an address it doesn't know.** These are the
+addresses the triggers send to. **Please check each against Calla's
+KNOWN_SOURCES.** I think the ones marked ⚠ may be missing:
+
+| Trigger | Sends to | Read from |
+|---|---|---|
+| publicMailSignup | the person | `signups/<key>.email` |
+| publicMailBookingAsked | the hirer or member | `bookings/<key>.requester.email` |
+| publicMailBookingOffice | the site's office | ⚠ `sites/<siteId>.bookingsEmail` (a site's own address, set in Places ▸ Bookings), else `churchSettings/details.enquiryEmail` |
+| publicMailCancelAsk | the site's office | ⚠ the same `sites/<siteId>.bookingsEmail`, else the enquiry email |
+| publicMailFormDone | the parent | ⚠ `formRequests/<key>.email` |
+| publicMailGroupAsk | the person | ⚠ `smallGroupRequests/<id>.email`. A guest also gets a `contacts` record with the same address, if contacts count. |
+| publicMailGroupAsk | the group's leaders | `addressBook/<id>.email` |
+| publicMailNewHere | the church's chosen address | ⚠ `welcomeSettings/public.notifyEmail`, else the enquiry email |
+
+If one is refused, nothing breaks for the person who sent it. The refusal
+is recorded in `emailOutbox` (`source: public-mail`, `ok: false`).
+
+**Also in:**
+- The original site's `song-summary.html` shows "Sunday 11 October 2026",
+  the same as v2.
+- `rota-dates.test.mjs` is now 53 checks. It covers 13 copies of the
+  helper, plus a check of what the original song summary says.

@@ -55,9 +55,17 @@ const MARK_A = '/* ── egbc-uk-dates', MARK_Z = '/* ── end egbc-uk-dates 
 const cut = (s) => { s = s.replace(/\r\n/g, '\n'); const a = s.indexOf(MARK_A), z = s.indexOf(MARK_Z); return a < 0 || z < a ? null : s.slice(a, z + MARK_Z.length); };
 const CANON = cut(fs.readFileSync(path.join(HERE, 'uk-dates-snippet.js'), 'utf8'));
 const COPIES = ['v2/Planner.html', 'v2/view-only-rota.html', 'v2/egbc-core-rota.js', 'v2/egbc-core-planner.js', 'v2/SundayServicePlanner.html',
-  'v2/youthserviceplanner.html', 'v2/song-summary.html', 'Planner.html', 'view-only-rota.html', 'CoreTeamApp.html', 'SundayServicePlanner.html', 'youthserviceplanner.html'];
+  'v2/youthserviceplanner.html', 'v2/song-summary.html', 'Planner.html', 'view-only-rota.html', 'CoreTeamApp.html', 'SundayServicePlanner.html', 'youthserviceplanner.html', 'song-summary.html'];
 const differ = COPIES.filter(f => cut(fs.readFileSync(path.join(ROOT, f), 'utf8')) !== CANON);
 ok('A1. every page carries the same copy of the dates helper (' + COPIES.length + ' files, v2 and the original site)', !differ.length, 'differs or missing: ' + differ.join(', '));
+/* The original site's song summary reads the live database, so it is checked by what it says. */
+const ROOTSUM = fs.readFileSync(path.join(ROOT, 'song-summary.html'), 'utf8');
+const has = (t) => ROOTSUM.includes(t);
+ok('    the original site\'s song summary shows the date in UK words (tab, heading, every message)',
+  has('document.title = `Song Summary – ${EGBCUKDates.long(date)}`') &&
+  ROOTSUM.split("textContent = EGBCUKDates.long(date);").length === 3 &&
+  has('textContent = `${EGBCUKDates.long(date)} · Worship Leader: ${leader}`') &&
+  !has("textContent = date;") && !has('textContent = `${date}'));
 const uctx = { window: {}, Intl, Date, Promise }; vm.createContext(uctx);
 vm.runInContext(CANON, uctx);
 const U = uctx.window.EGBCUKDates;
