@@ -94,7 +94,7 @@
        church names here - never the church office or any admin inbox. A
        master admin only, as the rules say (careRouting/main). -->
   <h1 style="font-size:18px;margin:22px 0 4px" id="care-h" hidden>Who gets told</h1>
-  <p class="sub" id="care-sub" hidden>When somebody asks for pastoral care, raises a concern or asks for prayer, the people named here are told that something has come in &mdash; never who or what. They can involve abuse, so they never go to the church office. With nobody named, they go to the safeguarding lead and deputy.</p>
+  <p class="sub" id="care-sub" hidden>When somebody asks for pastoral care, raises a concern or asks for prayer, the people named here are told that something has come in &mdash; never who or what. They can involve abuse, so they never go to the church office by default: only if you type its address here on purpose. With nobody named, they go to the safeguarding lead and deputy.</p>
   <div class="card" id="care-form" hidden></div>
 </div>
 <div id="toast"></div>
@@ -316,7 +316,7 @@
             '<input class="inp" id="add-' + k[0] + '" list="care-people" placeholder="Add a person: start typing a name">' +
             '<button type="button" class="btn sec" data-add="' + k[0] + '">Add</button></div>' +
           '<div class="field" style="margin:10px 0 0"><label for="em-' + k[0] + '">A dedicated address <span class="hint">(optional)</span></label>' +
-            '<input class="inp" id="em-' + k[0] + '" type="email" maxlength="200" value="' + esc(r.email || '') + '" placeholder="For example a pastoral team address - never the office"></div>' +
+            '<input class="inp" id="em-' + k[0] + '" type="email" maxlength="200" value="' + esc(r.email || '') + '" placeholder="For example a pastoral team address"></div>' +
         '</fieldset>';
       }).join('') +
       '<fieldset class="ck"><legend>Safeguarding concerns</legend><p class="hint" style="margin:0">' +
