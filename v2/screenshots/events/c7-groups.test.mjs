@@ -29,6 +29,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
+import { serverMail, find } from './server-mail.mjs';
 const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -169,10 +170,13 @@ try {
   await val(VI, '#j-name', 'Gail Guest'); await val(VI, '#j-email', 'gail.guest@example.invalid'); await val(VI, '#j-msg', 'New to the area (invented).');
   await tap(VI, '#j-go');
   await VI.waitForSelector('#j-done');
-  const gReq = (await readDb(db => getDocs(query(collection(db, 'smallGroupRequests'), where('email', '==', 'gail.guest@example.invalid'))))).docs.map(d => d.data())[0];
+  const gReq = (await readDb(db => getDocs(query(collection(db, 'smallGroupRequests'), where('email', '==', 'gail.guest@example.invalid'))))).docs.map(d => ({ id: d.id, ...d.data() }))[0];
   const gContact = gReq && await get('contacts', gReq.personId);
   ok('   she asks to join: a request, and her a contact (one place for people)', gReq && gReq.status === 'asked' && gReq.personKind === 'contacts' && gContact && gContact.name === 'Gail Guest', J(gReq));
-  ok('   and she is emailed a copy (to the outbox only)', (await outbox(VI)).some(m => m.to[0] === 'gail.guest@example.invalid' && /Your request to join Tuesday home group/.test(m.subject)));
+  ok('   the page itself sends no email (F-168)', (await outbox(VI)).length === 0);
+  const gMails = await serverMail('groupAsk', { id: gReq.id });
+  ok('   and she is emailed a copy, by the server', gMails.some(m => m.to[0] === 'gail.guest@example.invalid' && /Your request to join Tuesday home group/.test(m.subject)), J(gMails.map(m => m.subject)));
+  ok('   AND THE LEADER HEARS, though she is not signed in (the page could not tell them)', gMails.some(m => m.to.includes('lena.leader@example.invalid') && /Gail Guest would like to join Tuesday home group/.test(m.subject)));
   await hideBanner(VI);
   await VI.screenshot({ path: path.join(HERE, 'c7-find-a-group-375.png'), fullPage: true });
 
@@ -187,7 +191,9 @@ try {
   await tap(MO, '#j-go');
   await MO.waitForSelector('#j-done, #j-err .st');
   if (!(await MO.$('#j-done'))) throw new Error('Mo could not ask: ' + await text(MO, '#j-err'));
-  const leaderMail = await until(async () => (await outbox(MO)).find(m => m.to.includes('lena.leader@example.invalid')));
+  ok('   the page itself sends no email (F-168)', (await outbox(MO)).length === 0);
+  const moAsk = (await find('smallGroupRequests', 'email', 'mo.member@example.invalid'))[0];
+  const leaderMail = (await serverMail('groupAsk', { id: moAsk.id })).find(m => m.to.includes('lena.leader@example.invalid'));
   ok('   the leader is emailed: "Mo Member would like to join Tuesday home group"', leaderMail && /Mo Member would like to join Tuesday home group/.test(leaderMail.subject));
 
   /* ---------- 4. the leader accepts ---------- */

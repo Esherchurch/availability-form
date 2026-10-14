@@ -100,15 +100,11 @@
     var user = EGBCAuth.user && EGBCAuth.user();
     var hello = { name: name.slice(0, 120), email: email.slice(0, 200), phone: phone.slice(0, 40), message: msg.slice(0, 2000), contactMe: contact,
       uid: user ? user.uid : '', at: now(), status: 'new' };
+    /* The copy by email to the address the church chose, so nothing waits on
+       somebody opening the hub, is sent by the hub's server once this is saved
+       (functions/public-mail.js, F-168, F-170): a page with nobody signed in
+       may not send email. */
     db().collection('welcomes').add(hello).then(function () {
-      /* By email to the address the church chose: a copy, so nothing waits on
-         somebody opening the hub. Not sent is not a failure for the visitor. */
-      var to = PUB.notifyEmail || EGBCChurch.email();
-      if (!to) return null;
-      var rows = '<p><b>' + esc(name) + '</b> said hello' + (contact ? ' and would like someone to get in touch.' : '.') + '</p>' +
-        (email ? '<p>Email: ' + esc(email) + '</p>' : '') + (phone ? '<p>Phone: ' + esc(phone) + '</p>' : '') + (msg ? '<p>' + esc(msg).replace(/\n/g, '<br>') + '</p>' : '');
-      return EGBCChurch.send({ to: [to], subject: 'Someone new said hello: ' + name.slice(0, 80), html: EGBCChurch.wrap('Someone new said hello', rows) }).catch(function () { return null; });
-    }).then(function () {
       $('main').innerHTML = '<div class="card"><div class="done" id="thanks">Thank you, ' + esc(name) + '. ' + (contact ? 'Someone will be in touch soon.' : 'It is lovely to have you with us.') + '</div></div>';
     }).catch(function (e) { fail('That could not be sent just now. Please try again in a moment.'); });
   }

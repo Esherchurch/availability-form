@@ -44,6 +44,7 @@ import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase
 import puppeteer from 'puppeteer-core';
 import jsQR from 'jsqr';
 import { createGuard } from './guard.mjs';
+import { serverMail, find } from './server-mail.mjs';
 /* Only localhost and the public script and font sites may be reached; no
    service worker; any reply from elsewhere fails the run (guard.mjs). */
 const GUARD = createGuard();
@@ -209,7 +210,13 @@ try {
   await guest.type('#b_q_medical', 'Asthma - inhaler in bag');
   await sleep(2700);   /* the form's minimum fill time */
   await tap(guest, '#go');
-  const mail = await until(() => guest.evaluate(() => (window.__egbcOutbox || []).slice(-1)[0] || null), 15000);
+  /* F-168: the page sends nothing; the hub's server emails the confirmation
+     once the sign-up is saved. Its own code builds it here. */
+  await guest.waitForFunction(() => /You are signed up/.test(document.body.innerText), { timeout: 15000 });
+  ok('the page itself sends no email (F-168)', (await guest.evaluate(() => (window.__egbcOutbox || []).length)) === 0);
+  ok('and says the confirmation is on its way', /A confirmation is on its way to you by email/.test(await guest.evaluate(() => document.body.innerText)));
+  const su = (await find('signups', 'email', 'parent@example.invalid'))[0];
+  const mail = { payload: su ? (await serverMail('signup', { key: su.id }))[0] : null };
   const att = (mail && mail.payload && mail.payload.attachments) || [];
   const pngs = att.filter(a => a.type === 'image/png');
   ok('the confirmation email carries one QR code per person (2)', pngs.length === 2, JSON.stringify(att.map(a => a.filename)));

@@ -32,6 +32,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
+import { serverMail, find } from './server-mail.mjs';
 /* Only localhost and the public script and font sites may be reached; no
    service worker; any reply from elsewhere fails the run (guard.mjs). */
 const GUARD = createGuard();
@@ -234,7 +235,8 @@ try {
   ok('the signature is the typed name, agreed, with the time', resp.answers.sign && resp.answers.sign.name === 'Parent Synthetic' && resp.answers.sign.agreed === true && !!resp.answers.sign.at);
   ok('the medical half is filed under a key the ordinary answer does not hold', sens[0] && plainText.indexOf(sens[0].id) < 0 && JSON.stringify(done).indexOf(sens[0].id) < 0);
 
-  const received = (await outbox(G)).find(m => /^Received/.test(m.subject));
+  ok('the form page itself sends no email (F-168)', !(await outbox(G)).some(m => /^Received/.test(m.subject)));
+  const received = (await serverMail('formDone', { key: reqParentA.id }))[0];
   const viewLink = received && linkIn(received.html);
   ok('the parent is emailed a private link to what they sent', !!viewLink && viewLink.indexOf('&s=' + sens[0].id) > 0);
   await G.goto(viewLink, { waitUntil: 'networkidle2' });

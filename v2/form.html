@@ -262,8 +262,10 @@
       b.update(db().collection('formRequests').doc(KEY), { status: 'done', completedAt: now, responseId: rid });
       return b.commit().then(function () {
         REQ.status = 'done'; REQ.responseId = rid;
-        return EGBCChurch.send(F.doneEmail(REQ, sid, false)).catch(function () {});
-      }).then(function () { done(sid, false); });
+        /* "Form received" is emailed by the hub's server once this is saved (functions/public-mail.js,
+           F-168): a page with nobody signed in may not send email. */
+        done(sid, false);
+      });
     }).catch(function (err) {
       var m = String((err && err.message) || err);
       fail(/permission|insufficient/i.test(m)
@@ -284,7 +286,7 @@
     wrap('<div class="card">' + header() + '</div>' +
       '<div class="card"><div class="banner ok">' + ico('check', 15) + ' Thank you. ' +
         (reused ? 'You have told us it is still correct.' : 'Your form is in.') + '</div>' +
-      '<p style="margin:0 0 12px">We have emailed you a copy of the link to see what you sent. Keep it: only you have it.</p>' +
+      '<p style="margin:0 0 12px">A copy of the link to see what you sent is on its way to you by email. Keep it: only you have it.</p>' +
       (sid || reused ? '<a class="btn sec" href="form.html?k=' + encodeURIComponent(KEY) + (sid ? '&s=' + encodeURIComponent(sid) : '') + '">' + ico('eye') + 'See what you sent</a>' : '') +
       '</div>');
   }
@@ -308,8 +310,8 @@
         status: 'done', completedAt: new Date().toISOString(), responseId: REQ.reuseOf, confirmedStillCorrect: true
       }).then(function () {
         REQ.status = 'done';
-        return EGBCChurch.send(F.doneEmail(REQ, '', true)).catch(function () {});
-      }).then(function () { done('', true); })
+        done('', true);   /* emailed by the server, as above */
+      })
         .catch(function (e) { document.getElementById('err').innerHTML = '<div class="banner warn">That did not go through: ' + esc(e.message || e) + '</div>'; });
     };
     document.getElementById('no').onclick = function () {

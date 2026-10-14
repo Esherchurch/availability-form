@@ -35,6 +35,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
+import { serverMail, find } from './server-mail.mjs';
 const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -291,7 +292,9 @@ try {
   const hire = (await bookings(['kind', 'hire'])).sort((a, b) => a.day < b.day ? -1 : 1);
   ok('   three requests, waiting, as one series', hire.length === 3 && hire.every(b => b.status === 'requested') && new Set(hire.map(b => b.series.id)).size === 1 && hire.map(b => b.day).join() === [T[0], T[2], T[6]].join(),
     JSON.stringify(hire.map(b => [b.day, b.status])));
-  const box4 = await outbox(G);
+  ok('   the hire page itself sends no email (F-168)', (await outbox(G)).length === 0);
+  const first = hire.find(b => b.series.n === 1), box4 = (await serverMail('bookingAsked', { key: first.key })).concat(await serverMail('bookingOffice', { key: first.key }));
+  ok('   the other two dates send nothing of their own', (await serverMail('bookingAsked', { key: hire.find(b => b.series.n === 2).key })).length === 0 && (await serverMail('bookingOffice', { key: hire.find(b => b.series.n === 3).key })).length === 0);
   ok('   the hirer gets one email listing the three dates', box4.filter(m => m.to[0] === 'hirer@example.invalid').length === 1 && /repeating booking is waiting/.test(box4.find(m => m.to[0] === 'hirer@example.invalid').subject));
   ok('   the site\'s bookings address is told, not the church\'s enquiry email', box4.some(m => /Booking request/.test(m.subject) && m.to[0] === 'bookings@example.invalid') && !box4.some(m => m.to[0] === 'office@example.invalid'));
 

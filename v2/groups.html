@@ -206,19 +206,10 @@
     }
     batch.set(reqRef, { groupId: g.id, groupName: g.name, name: r.name.slice(0, 120), email: r.email.slice(0, 200), phone: r.phone.slice(0, 40), message: r.message.slice(0, 1000),
       personKind: personKind, personId: personId, status: 'asked', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    /* They, and the group's leaders, are emailed by the hub's server once this is saved (functions/public-mail.js,
+       F-168): a page with nobody signed in may not send email. */
     batch.commit().then(function () {
-      var mail = [EGBCChurch.send({ to: [r.email], subject: 'Your request to join ' + g.name,
-        html: '<p>Dear ' + esc(r.name) + ',</p><p>Thank you for asking to join <b>' + esc(g.name) + '</b> (' + esc(G.when(g)) + '). We have passed it to the group\'s leaders, who will be in touch.</p>' }).catch(function () {})];
-      /* Signed-in members can see the leaders' addresses, so the leaders hear straight away. */
-      if (ME) mail.push(Promise.all((g.leaderIds || []).map(function (m) { return db().collection('addressBook').doc(m).get().catch(function () { return null; }); })).then(function (l) {
-        var to = l.filter(function (s) { return s && s.exists && s.data().email; }).map(function (s) { return s.data().email; });
-        if (to.length) return EGBCChurch.send({ to: to, subject: r.name + ' would like to join ' + g.name,
-          html: '<p>' + esc(r.name) + ' (' + esc(r.email) + (r.phone ? ', ' + esc(r.phone) : '') + ') has asked to join <b>' + esc(g.name) + '</b>.</p>' + (r.message ? '<p>' + esc(r.message) + '</p>' : '') +
-            '<p>Accept or decline on Small groups, Requests.</p>' });
-      }).catch(function () {}));
-      return Promise.all(mail);
-    }).then(function () {
-      document.getElementById('g-join').innerHTML = '<div class="st ok" id="j-done">Thank you. Your request has gone to the leaders of ' + esc(g.name) + ', who will be in touch. We have emailed you a copy.</div>';
+      document.getElementById('g-join').innerHTML = '<div class="st ok" id="j-done">Thank you. Your request has gone to the leaders of ' + esc(g.name) + ', who will be in touch. A copy is on its way to you by email.</div>';
     }).catch(function (e) { btn.disabled = false; document.getElementById('j-err').innerHTML = '<div class="st no">Could not send it: ' + esc(e.message || e) + '</div>'; });
   }
 

@@ -36,6 +36,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
+import { serverMail, find } from './server-mail.mjs';
 const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -238,7 +239,8 @@ try {
   const b2 = (await bookings(['memberUid', P.samy.uid])).find(b => b.title === 'Test late practice');
   ok('   Samy\'s booking is HELD, not confirmed', b2 && b2.status === 'requested', JSON.stringify(b2 && b2.status));
   ok('   and takes no time until it is approved', range((await get('roomDays', 'room_band_' + WED)).slots, 80, 84).every(x => x === 0));
-  const box4 = await outbox(S);
+  ok('   the page itself sends no waiting email (F-168)', !(await outbox(S)).some(m => /waiting for approval|Booking request/.test(m.subject)));
+  const box4 = (await serverMail('bookingAsked', { key: b2.key })).concat(await serverMail('bookingOffice', { key: b2.key }));
   ok('   Samy is emailed that it is waiting, with no calendar file', box4.some(m => /waiting for approval/.test(m.subject) && m.to[0] === P.samy.email && !ics(m)));
   ok('   and the office is told', box4.some(m => /Booking request/.test(m.subject) && m.to[0] === 'office@example.invalid'));
   await go(S, 'rooms.html', '#mine .bk');
@@ -310,7 +312,10 @@ try {
   const hire = (await bookings(['kind', 'hire']))[0];
   ok('   the request is saved, waiting', hire && hire.status === 'requested' && hire.requester.email === 'hirer@example.invalid' && hire.refreshments.items[0].qty === 30 && hire.refreshments.dietary.vegetarian === 4);
   ok('   with the reference shown', (await G.$eval('#ref', e => e.textContent)) === hire.key.slice(3, 11).toUpperCase());
-  ok('   the hirer is told it is waiting', (await outbox(G)).some(m => /waiting for approval/.test(m.subject) && m.to[0] === 'hirer@example.invalid'));
+  ok('   the hire page itself sends no email (F-168)', (await outbox(G)).length === 0);
+  ok('   the hirer is told it is waiting, by the server', (await serverMail('bookingAsked', { key: hire.key })).some(m => /waiting for approval/.test(m.subject) && m.to[0] === 'hirer@example.invalid'));
+  ok('   and so is the office', (await serverMail('bookingOffice', { key: hire.key })).some(m => /Booking request/.test(m.subject)));
+  ok('   the thank-you says a copy is on its way', /A copy of your request is on its way to you by email/.test(await G.$eval('#done', e => e.innerText)));
   await G.screenshot({ path: path.join(HERE, 'r2-book-thanks-375.png'), fullPage: true });
   const pubSneak = await G.evaluate((day) => {
     const B = EGBCBookings, r = { id: 'room_hall', siteId: 'site_t' };

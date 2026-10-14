@@ -25,8 +25,8 @@
         the right email when what the page saves is saved; a walk-in and
         the later dates of a series send nothing; each one's feature
         switch stops it; a trigger run twice sends once
-     D. (with the page changes, after the deploy) none of the seven pages
-        can send these emails itself any more */
+     D. none of the seven pages can send these emails itself any more
+        (each page's own check proves it sends none, in a browser) */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -237,8 +237,16 @@ try {
   ok('NOTHING LEFT THE MACHINE: every trigger email was stubbed, to invented addresses',
     all.filter(r => r.kind !== 'test').every(r => r.stubbed === true && r.to.every(t => /@example\.invalid$/.test(t))), J(all.map(r => [r.kind, r.stubbed])));
 
-  /* D, that the pages send none of these themselves, comes with the page
-     changes (branch events-f168-pages), after the functions are deployed. */
+  /* ---------- D. the pages ---------- */
+  console.log('\nD. the pages cannot send these themselves');
+  const src = (f) => fs.readFileSync(path.join(V2, f), 'utf8');
+  const sends = /EGBCChurch\.send\(|EGBCEmail\.send\(|confirmationEmail\(|doneEmail\(|B\.tellOffice\(|B\.emailMany\(/;
+  for (const f of ['signup.html', 'book.html', 'my-booking.html', 'form.html', 'groups.html', 'newhere.html'])
+    ok('   ' + f + ' has no email send left in it', !sends.test(src(f)));
+  ok('   rooms.html sends only the "confirmed" email itself (a signed-in member); its waiting ones are the server\'s',
+    !/emailMany\([^)]*'waiting'\)/.test(src('rooms.html')) && /B\.emailMany\(these, name, 'confirmed'\) : null/.test(src('rooms.html')));
+  ok('   each says the email is ON ITS WAY, not that it has gone', /A confirmation is on its way to you by email/.test(src('signup.html')) && /A copy of your request is on its way/.test(src('book.html')) &&
+    /on its way to you by email\. Keep it/.test(src('form.html')) && /A copy is on its way to you by email/.test(src('groups.html')) && !/We have emailed you a (confirmation|copy)/.test(src('signup.html') + src('form.html') + src('groups.html')));
 } catch (e) {
   console.log('  FAIL  the run stopped: ' + (e && e.stack || e));
   results.push(false);
