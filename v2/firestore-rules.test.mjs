@@ -3706,6 +3706,17 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nobody changes one', 'deny', () => updateDoc(doc(as('martin'), 'seriesSignups', 'sp_seeded'), { email: 'x@example.invalid' }));
 }
 
+// Label size (F-185).
+{
+  const LS = (by, extra) => ({ format: 'brother62x29', updatedAt: serverTimestamp(), updatedBy: PEOPLE[by].uid, ...(extra || {}) });
+  await check('LABEL SIZE: an admin chooses it', 'allow', () => setDoc(doc(as('karen'), 'labelSettings', 'main'), LS('karen')));
+  await check('  somebody who is not an admin cannot', 'deny', () => setDoc(doc(as('samy'), 'labelSettings', 'main'), LS('samy')));
+  await check('  not a size the pages do not know', 'deny', () => setDoc(doc(as('karen'), 'labelSettings', 'main'), LS('karen', { format: 'huge' })));
+  await check('  not in somebody else\'s name', 'deny', () => setDoc(doc(as('karen'), 'labelSettings', 'main'), LS('martin')));
+  await check('  anyone signed in who prints labels reads it', 'allow', () => getDoc(doc(as('samy'), 'labelSettings', 'main')));
+  await check('  not signed out', 'deny', () => getDoc(doc(env.unauthenticatedContext().firestore(), 'labelSettings', 'main')));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

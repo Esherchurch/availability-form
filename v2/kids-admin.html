@@ -17,6 +17,7 @@
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610142300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
+<script src="egbc-labels.js?v=202610142300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
 <script src="egbc-events-kids.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -366,7 +367,22 @@
       '<div class="card" id="s-screen-card"><h2>Calling a parent</h2>' +
         '<label class="ck"><input type="checkbox" id="s-screen"' + (SETTINGS.screenPaging !== false ? ' checked' : '') + (LEAD || CAN_TEAMS ? '' : ' disabled') + '> Allow showing a number on the service screen</label>' +
         '<p class="hint">Leaders always call a parent on their phone first. With this on, a leader can also put the family\'s screen number on the service screen, as a last resort, where ChurchShow is connected. ' +
-        'Never a child\'s name, and never the collection code. With it off, there is no screen button at all.</p><p id="s-screen-msg" role="status" class="hint"></p></div>';
+        'Never a child\'s name, and never the collection code. With it off, there is no screen button at all.</p><p id="s-screen-msg" role="status" class="hint"></p></div>' +
+      /* F-185: one label size for the whole church, children and events alike. */
+      '<div class="card" id="s-label-card"><h2>Label size</h2><p class="hint">The labels the printer at the desk takes. The same size is used for children\'s labels here and for name labels at events.</p>' +
+        '<div id="s-label-box"><p class="hint">Loading…</p></div><p id="s-label-msg" role="status" class="hint"></p></div>';
+    if (window.EGBCLabels) EGBCLabels.load().then(function (fmt) {
+      var box = document.getElementById('s-label-box'); if (!box) return;
+      var admin = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
+      box.innerHTML = EGBCLabels.selectHtml(fmt, 's-label') + (admin ? '' : '<p class="hint">An admin chooses this.</p>');
+      var sel = document.getElementById('s-label');
+      if (!admin) { sel.disabled = true; return; }
+      sel.onchange = function () {
+        var msg = document.getElementById('s-label-msg'); msg.textContent = 'Saving…';
+        EGBCLabels.save(sel.value).then(function () { msg.textContent = 'Saved: labels print as ' + EGBCLabels.FORMATS[sel.value].name + '.'; },
+          function (e) { msg.textContent = 'Not saved: ' + (e.message || e); });
+      };
+    });
     var sc = document.getElementById('s-screen');
     if (sc && !sc.disabled) sc.onchange = function () {
       var on = sc.checked, msg = document.getElementById('s-screen-msg');

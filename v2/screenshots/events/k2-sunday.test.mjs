@@ -97,6 +97,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: x.adminFor || [], masterAdmin: !!x.admin, status: 'active' });
   }
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
+  /* F-185: the church's label printer, the Brother small roll. */
+  await setDoc(doc(db, 'labelSettings', 'main'), { format: 'brother62x29', updatedAt: 'x', updatedBy: 'x' });
   await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });
   await setDoc(doc(db, 'rooms', 'room_little'), ROOM('Test Little Room', { order: 1 }));
   await setDoc(doc(db, 'rooms', 'room_junior'), ROOM('Test Junior Room', { order: 2 }));
@@ -173,6 +175,11 @@ try {
     && /Ben Synthetic Juniors/.test(labels[1]) && !/ALLERGY/.test(labels[1]) && labels[1].includes(CODE), J(labels));
   ok('   and the parent\'s slip, with the code and the family QR for next week', (await text(S, '[data-slip]')).includes(CODE) && !!(await S.$('[data-slip] svg')) && /ABC234/.test(await text(S, '[data-slip]')));
   ok('   no medical details on a label', !/Peanuts|EpiPen/.test(await text(S, '#labels')));
+  /* F-185: printed, each label is exactly the church's label, 62 x 29 mm. */
+  await S.emulateMediaType('print');
+  const sized = await S.$$eval('#labels .lbl', ls => ls.map(l => { const r = l.getBoundingClientRect(), q = l.querySelector('.qr'); return { w: Math.round(r.width), h: Math.round(r.height), qr: q ? getComputedStyle(q).display : '' }; }));
+  await S.emulateMediaType(null);
+  ok('   PRINTED ON THE CHURCH\'S LABEL SIZE (F-185): every label 62 x 29 mm, the QR left off a label too small for it', sized.length === 3 && sized.every(s => Math.abs(s.w - 234) <= 2 && Math.abs(s.h - 110) <= 2) && sized.find(s => s.qr) && sized.find(s => s.qr).qr === 'none', J(sized));
   await hideBanner(S);
   await S.setViewport({ width: 375, height: 1200 });
   await S.screenshot({ path: path.join(HERE, 'k2-desk-labels-375.png'), fullPage: true });

@@ -21,6 +21,7 @@
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
+<script src="egbc-labels.js?v=202610142300"></script>
 <script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-scan.js?v=202610082100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -342,20 +343,20 @@
     var screenFor = function (c) { var ck = ckOf(c); return (ck && ck.screenNo) || lb.screen || ''; };
     return kids.map(function (c) {
       var g = group(c.groupId);
-      return '<div class="label" data-label="' + esc(c.id) + '"><div class="n">' + esc(c.name) + '</div><div class="g">' + esc(g ? g.name : '') + ' · ' + esc(E.fmtDateShort(DAY + 'T12:00')) + '</div>' +
-        ((c.flags || {}).allergies ? '<div class="flag">ALLERGY: ask a leader</div>' : '') +
-        '<div class="code">' + esc(codeFor(c)) + '</div></div>';
+      return '<div class="label lbl" data-label="' + esc(c.id) + '"><div class="n lbl-big">' + esc(c.name) + '</div><div class="g lbl-small">' + esc(g ? g.name : '') + ' · ' + esc(E.fmtDateShort(DAY + 'T12:00')) + '</div>' +
+        ((c.flags || {}).allergies ? '<div class="flag lbl-small">ALLERGY: ask a leader</div>' : '') +
+        '<div class="code lbl-big">' + esc(codeFor(c)) + '</div></div>';
     }).join('') +
-      '<div class="label slip" data-slip="1"><div class="g">For the parent: show this to collect</div><div class="code">' + esc(codeFor(first)) + '</div>' +
-      (screenFor(first) ? '<div class="g" data-screenno="' + esc(screenFor(first)) + '">Screen number <b>' + esc(screenFor(first)) + '</b>: if you see it on the screen, please come to your child\'s group</div>' : '') +
-      '<div class="g">' + esc(kids.map(function (c) { return c.name; }).join(', ')) + '</div>' +
-      (first.familyCode ? '<div class="qr">' + QR.svg(K.familyQR(first.familyCode), 110) + '</div><div class="g">Your family code ' + esc(first.familyCode) + ': show it at the desk next week</div>' : '') + '</div>';
+      '<div class="label slip lbl" data-slip="1"><div class="g lbl-small">For the parent: show this to collect</div><div class="code lbl-big">' + esc(codeFor(first)) + '</div>' +
+      (screenFor(first) ? '<div class="g lbl-small" data-screenno="' + esc(screenFor(first)) + '">Screen number <b>' + esc(screenFor(first)) + '</b>: if you see it on the screen, please come to your child\'s group</div>' : '') +
+      '<div class="g lbl-small">' + esc(kids.map(function (c) { return c.name; }).join(', ')) + '</div>' +
+      (first.familyCode ? '<div class="qr lbl-tall">' + QR.svg(K.familyQR(first.familyCode), 110) + '</div><div class="g lbl-small">Your family code ' + esc(first.familyCode) + ': show it at the desk next week</div>' : '') + '</div>';
   }
   function drawLabels() {
     var box = document.getElementById('d-labels') || document.getElementById('v-labels'); if (!box) return;
     if (!V.labels) { box.innerHTML = ''; return; }
     box.innerHTML = '<div class="card"><h2>Labels</h2><p class="hint">Print them, or show the screen: each child wears theirs; the parent keeps the slip with the code.</p>' +
-      '<div id="labels">' + labelsHtml(V.labels) + '</div><div style="margin-top:10px"><button class="btn sec" id="l-print">Print the labels</button></div></div>';
+      '<div id="labels" class="lbl-sheet">' + labelsHtml(V.labels) + '</div><div style="margin-top:10px"><button class="btn sec" id="l-print">Print the labels</button></div></div>';
     document.getElementById('l-print').onclick = function () { window.print(); };
   }
 
@@ -883,6 +884,8 @@
 
   EGBCAuth.require().then(function (profile) {
     ME = profile || {};
+    /* F-185: print on the church's label size. */
+    if (window.EGBCLabels) EGBCLabels.load().then(EGBCLabels.apply);
     return begin();
   }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();

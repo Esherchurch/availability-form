@@ -16,6 +16,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610142300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
+<script src="egbc-labels.js?v=202610142300"></script>
 <script src="egbc-events-safeguarding.js?v=202610111200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -99,7 +100,14 @@
          padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
   .room{margin-bottom:16px}
   .room h4{font-size:14px;font-weight:600;color:var(--ink);margin:0 0 4px;display:flex;gap:8px;align-items:center}
+  /* Name labels (F-185): built off screen, printed on the church's label size. */
+  #nlabels{display:none}
+  .nlabel{width:260px;border:1px solid var(--ink);border-radius:8px;padding:10px 12px;background:#fff}
+  .nlabel .nl-n{font-size:22px;font-weight:700;color:#111;line-height:1.15;overflow-wrap:anywhere}
+  .nlabel .nl-e{font-size:13px;color:#374151}
   @media print{
+    body.print-labels > *:not(#nlabels){display:none !important}
+    body.print-labels #nlabels{display:flex;flex-wrap:wrap;gap:8px}
     .noprint,#egbc-shell,.egbc-bar{display:none !important}
     body{background:#fff}
     .card{box-shadow:none;border:none;padding:0}
@@ -215,6 +223,7 @@
         '<button class="btn" id="scan">' + ico('scan-line', 16) + (SCANNING ? 'Stop scanning' : 'Scan a code') + '</button>' +
         '<button class="btn sec" id="walk">' + ico('user-plus', 15) + 'Walk-in</button>' +
         '<button class="btn sec" id="lead">' + ico('badge-check', 15) + 'Leader</button>' +
+        '<button class="btn sec" id="nameLabels">' + ico('tag', 15) + 'Name labels</button>' +
         '<span class="spacer"></span>' +
         (ADMIN ? '<button class="btn ghost sm" id="sett" title="Check-in settings">' + ico('settings', 16) + '</button>' : '') +
       '</div>' +
@@ -338,6 +347,7 @@
     document.getElementById('scan').onclick = function () { SCANNING ? stopScan() : startScan(); };
     document.getElementById('walk').onclick = function () { walkInModal('walkin'); };
     document.getElementById('lead').onclick = function () { walkInModal('leader'); };
+    document.getElementById('nameLabels').onclick = labelsModal;
     var st = document.getElementById('sett'); if (st) st.onclick = settingsModal;
     var s = document.getElementById('search');
     s.oninput = function () { FILTER = s.value; redrawPeople(); };
@@ -434,6 +444,40 @@
   }
 
   /* ---------- walk-ins and leaders ---------- */
+
+  /* ---------- name labels (F-185) ----------
+     A label for each person: everyone booked, or only those here now. The
+     same label size as the children's labels (labelSettings/main). */
+  var LABELFMT = 'paper';
+  if (window.EGBCLabels) EGBCLabels.load().then(function (f) { LABELFMT = f; EGBCLabels.apply(f); });
+  function labelsModal() {
+    var everyone = ROWS.filter(function (r) { return r.kind !== 'leader'; });
+    var here = everyone.filter(function (r) { var c = ckFor(r.id); return c && c.state === 'in'; });
+    var fname = window.EGBCLabels ? EGBCLabels.FORMATS[LABELFMT].name : 'Plain paper';
+    modal('<h3>' + ico('tag', 18) + 'Name labels</h3>' +
+      '<label class="radio" style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="radio" name="lwho" value="all" checked>Everyone booked (' + everyone.length + ')</label>' +
+      '<label class="radio" style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="radio" name="lwho" value="here">Only those here now (' + here.length + ')</label>' +
+      '<label class="radio" style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="checkbox" id="lEvent" checked>Add the event\'s name and date</label>' +
+      '<p class="hint" id="lFormat">Prints on: ' + esc(fname) + '. ' + (LABELFMT === 'paper' ? 'An admin can choose your label printer\'s size in Kids Church settings.' : '') + '</p>' +
+      '<div class="foot"><button class="btn sec" data-close>Cancel</button><button class="btn" id="lGo">Print the labels</button></div>');
+    document.getElementById('lGo').onclick = function () {
+      var only = (document.querySelector('input[name="lwho"]:checked') || {}).value === 'here';
+      var list = (only ? here : everyone).slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+      if (!list.length) { toast(only ? 'Nobody is checked in yet.' : 'Nobody has booked yet.'); return; }
+      var withEv = document.getElementById('lEvent').checked, sub = (EV.title || '') + ' · ' + E.fmtDateShort(EV.startLocal || EV.startUtc);
+      var box = document.getElementById('nlabels');
+      if (!box) { box = document.createElement('div'); box.id = 'nlabels'; box.className = 'lbl-sheet'; document.body.appendChild(box); }
+      box.innerHTML = list.map(function (r) {
+        return '<div class="nlabel lbl" data-nlabel="' + esc(r.id) + '"><div class="nl-n lbl-big">' + esc(r.name) + '</div>' + (withEv ? '<div class="nl-e lbl-small">' + esc(sub) + '</div>' : '') + '</div>';
+      }).join('');
+      closeModal();
+      document.body.classList.add('print-labels');
+      var done = function () { document.body.classList.remove('print-labels'); window.removeEventListener('afterprint', done); };
+      window.addEventListener('afterprint', done);
+      window.print();
+      setTimeout(done, 1000);
+    };
+  }
 
   function walkInModal(kind) {
     var leader = kind === 'leader';

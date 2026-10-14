@@ -5164,3 +5164,40 @@ nothing read it (F-030). Now it does:
 - Rules: 5 new, 1332 in all.
 - 7 deliberate breaks, all caught. The one that matters: a full date booked
   anyway. The database itself refuses that too.
+
+### F-185 — Name labels for an event's people, adults too; one label size for the church
+Martin: adult name labels "should be able to be".
+- **At the door** (checkin.html, for admins and the event's leaders), a
+  **"Name labels"** button:
+  - Everyone booked, or only those here now.
+  - Optionally the event's name and date.
+  - One label per person, in name order. Only the labels go to the
+    printer.
+- **One label size for the whole church** (`labelSettings/main`, new file
+  `egbc-labels.js`). The children's labels at Sunday check-in and events'
+  name labels use the same size, so one printer and one roll do both.
+  Sizes:
+  - plain paper (as before, and the default)
+  - Brother small roll 62 × 29 mm (ChurchSuite's default)
+  - Brother 62 × 100 mm
+  - Dymo 89 × 36 mm
+  - A4 sheets of 21 and of 8
+- **Who chooses:** an admin, in Kids Church settings. The door says which
+  size it will print on.
+- **On a roll,** each label is its own page, and text is sized to the
+  label. On a label too small for it, the family QR on the parent's slip
+  is left off; the family code is still printed in words.
+- **New rule `labelSettings`, in my section:** anyone active reads; an
+  admin writes one of the known sizes, in their own name. **Not
+  deployed.**
+
+**Proved:**
+- `name-labels.test.mjs` 14/14. A leader prints 3 labels; printed, each is
+  exactly 62 × 29 mm and nothing else on the page prints; "here now" gives
+  1; an A4 sheet of 21 lays them three across at 63.5 × 38.1 mm; an admin
+  changes the size and the leader can't.
+- `k2-sunday.test.mjs` 39/39: the children's labels print at 62 × 29 mm.
+- f098-screen 34/34, e1-checkin 52/52 unchanged.
+- Rules: 6 new, 1338 in all.
+- 5 deliberate breaks, all caught. The one that matters: the door printing
+  on plain paper whatever the church chose.

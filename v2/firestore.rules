@@ -3958,6 +3958,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- label size (F-185) ----------------------------------------------
+    // One for the whole church: children's labels and events' name labels.
+    // Anyone who prints labels (a volunteer, or an event's leader) reads it;
+    // an admin chooses it.
+    match /labelSettings/{id} {
+      allow read: if active();
+      allow write: if isAdmin() && id == 'main'
+                   && request.resource.data.keys().hasOnly(['format', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.format in ['paper', 'brother62x29', 'brother62x100', 'dymo89x36', 'a4x21', 'a4x8']
+                   && request.resource.data.updatedBy == request.auth.uid;
+    }
+
     // ---- the whole series (F-184) -----------------------------------------
     // One per sign-up in a whole-series booking, under that sign-up's own
     // key, listing every key in the booking (so one email, and "cancel all").
