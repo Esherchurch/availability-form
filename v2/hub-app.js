@@ -1374,7 +1374,10 @@ async function checkSgLead() {
       const d = await db.collection('safeguardingSettings').doc('defaults').get();
       const site = d.exists ? String(d.data().leadSiteId || '') : '';
       const b = site ? await db.collection('bookingSettings').doc(site).get() : null;
-      NO_SG_LEAD = !(b && b.exists && b.data().safeguardingLead);
+      /* No leadSiteId (a master admin's save never writes one): any
+         building with a lead counts, as the server's leadSite() says. */
+      NO_SG_LEAD = site ? !(b && b.exists && b.data().safeguardingLead)
+        : !(await db.collection('bookingSettings').get()).docs.some(x => x.data().safeguardingLead);
     }
   } catch (e) { NO_SG_LEAD = false; }
   if (NO_SG_LEAD) renderWaiting();
@@ -1386,7 +1389,9 @@ function waitingItems() {
     icon: 'shield-alert',
     what: 'No safeguarding lead set — concerns can’t reach anyone',
     why: 'Care &amp; support will not send a concern or a request for care until one is set',
-    go: '<a class="btn sm" href="safeguarding-settings.html">Set one</a>'
+    /* The lead is chosen on the building, in Places, until Safeguarding
+       settings gets its own pickers (requested of the main window). */
+    go: '<a class="btn sm" href="places-admin.html">Set one in Places</a>'
   });
   NEWS.filter(n => n.requireAck && !ACKED.has(n.id)).forEach(n => {
     out.push({

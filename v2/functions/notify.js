@@ -493,10 +493,21 @@ async function teamUids(db, team) {
   const snap = await db.collection('users').where('teams', 'array-contains', team).get();
   return snap.docs.filter((d) => d.data().status === 'active').map((d) => d.id);
 }
-/* The safeguarding lead and deputy, as uids. */
-async function leadUids(db) {
+/* Which building's lead counts. leadSiteId when it is set; otherwise the
+   first building with a lead named. A master admin's save never writes
+   leadSiteId, and a lead set in Places must still count (Martin, 14 Oct
+   2026: "my app still says no safeguarding lead set, even though it is"). */
+async function leadSite(db) {
   const sg = await db.collection('safeguardingSettings').doc('defaults').get();
   const site = sg.exists ? String(sg.data().leadSiteId || '') : '';
+  if (site) return site;
+  const all = await db.collection('bookingSettings').get();
+  const hit = all.docs.find((d) => d.data().safeguardingLead);
+  return hit ? hit.id : '';
+}
+/* The safeguarding lead and deputy, as uids. */
+async function leadUids(db) {
+  const site = await leadSite(db);
   if (!site) return [];
   const b = await db.collection('bookingSettings').doc(site).get();
   const ids = b.exists ? ['safeguardingLead', 'safeguardingDeputy'].map((k) => b.data()[k]).filter(Boolean) : [];
@@ -582,8 +593,7 @@ export async function refreshCareStatus(db) {
      deputy's address book ids - not private (the 999 line names the lead) -
      so a page can tell its reader is one of them without the safeguarding
      settings, which are a volunteer's to read. */
-  const sg = await db.collection('safeguardingSettings').doc('defaults').get();
-  const site = sg.exists ? String(sg.data().leadSiteId || '') : '';
+  const site = await leadSite(db);
   let leadSet = false, leadIds = [];
   if (site) {
     const b = await db.collection('bookingSettings').doc(site).get();
