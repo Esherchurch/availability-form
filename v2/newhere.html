@@ -44,6 +44,7 @@
   .btn:disabled{opacity:.55}
   .done{background:var(--ok-bg);color:var(--ok);border-radius:12px;padding:14px;font-size:16px}
   .err{color:#b0392c;font-size:14px;margin:8px 0 0}
+  .okmsg{color:var(--ok);font-size:14px;margin:8px 0 0}
   .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
   .item{padding:12px 0;border-top:1px solid var(--line)}.item:first-of-type{border-top:none}
   .item .m{font-size:13px;color:var(--muted)}.item .w{white-space:pre-wrap;overflow-wrap:break-word;color:var(--ink)}
@@ -65,6 +66,19 @@
   function $(id) { return document.getElementById(id); }
   function val(id) { var e = $(id); return e ? String(e.value || '').trim() : ''; }
   function now() { return firebase.firestore.FieldValue.serverTimestamp(); }
+  /* EVERY SAVE SAYS WHETHER IT WORKED (Martin, 14 Oct: "Save the address"
+     did nothing on the live hub, and the page said nothing either). The
+     words stay after the card is drawn again. */
+  var SAID = {};
+  function said(id, text, ok) { SAID[id] = { text: text, ok: ok }; var el = $(id); if (el) { el.textContent = text; el.className = ok ? 'okmsg' : 'err'; } }
+  function saidHtml(id) { var s = SAID[id]; return '<p id="' + id + '" role="status" class="' + (s ? (s.ok ? 'okmsg' : 'err') : 'okmsg') + '">' + (s ? esc(s.text) : '') + '</p>'; }
+  function saved(id, text) { return function () { said(id, text, true); return loadTeam(); }; }
+  function refused(id) {
+    return function (e) {
+      var m = String((e && (e.code || e.message)) || e);
+      said(id, /permission/i.test(m) ? 'Not saved: the hub would not accept it. Only a master admin can change this - if you are one, tell whoever looks after the hub.' : 'Not saved: ' + m, false);
+    };
+  }
   function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
 
   function card() {
@@ -119,7 +133,7 @@
         '<div class="m">' + esc([h.email, h.phone, d ? E.fmtDateShort(d.toISOString()) : ''].filter(Boolean).join(' · ')) + '</div>' +
         (h.message ? '<div class="w">' + esc(h.message) + '</div>' : '') +
         (h.status !== 'contacted' ? '<button class="btn sec small" data-done="' + esc(h.id) + '" style="margin-top:6px">Mark contacted</button>' : '') + '</div>';
-    }).join('') : '<p class="hint">None yet.</p>') + '</div>' +
+    }).join('') : '<p class="hint">None yet.</p>') + saidHtml('h-msg') + '</div>' +
       (MASTER ? '<div class="card" id="w-settings"><h2>Who hellos go to</h2>' +
         '<p class="hint" style="margin:0 0 6px">These people see the hellos here. One email address also gets each one (leave empty for the church\'s enquiry address).</p>' +
         ((SET.memberIds || []).map(function (m) { return '<div class="item"><b>' + esc(PEOPLE[m] || m) + '</b> <button class="btn sec small" data-unwelcomer="' + esc(m) + '">Remove</button></div>'; }).join('') || '<p class="hint">Nobody yet: only master admins.</p>') +
@@ -127,22 +141,26 @@
         people.map(function (p) { return '<option value="' + esc(p.name) + '">'; }).join('') + '</datalist>' +
         '<button class="btn sec small" id="w-add" style="margin-top:6px">Add</button>' +
         '<label class="l" for="w-email">Email them to</label><input class="inp" id="w-email" type="email" maxlength="200" value="' + esc(PUB.notifyEmail || '') + '" placeholder="' + esc(EGBCChurch.email() || 'welcome@…') + '">' +
-        '<button class="btn sec small" id="w-email-go" style="margin-top:6px">Save the address</button></div>' : '');
+        '<button class="btn sec small" id="w-email-go" style="margin-top:6px">Save the address</button>' + saidHtml('w-msg') + '</div>' : '');
   }
   function drawTeam() {
     $('team').innerHTML = teamCard();
     document.querySelectorAll('[data-done]').forEach(function (b) { b.onclick = function () {
-      db().collection('welcomes').doc(b.dataset.done).update({ status: 'contacted', handledBy: EGBCAuth.user().uid, handledAt: now() }).then(loadTeam);
+      db().collection('welcomes').doc(b.dataset.done).update({ status: 'contacted', handledBy: EGBCAuth.user().uid, handledAt: now() }).then(saved('h-msg', 'Marked as contacted.'), refused('h-msg'));
     }; });
     document.querySelectorAll('[data-unwelcomer]').forEach(function (b) { b.onclick = function () { setWelcomers((SET.memberIds || []).filter(function (m) { return m !== b.dataset.unwelcomer; })); }; });
     if ($('w-add')) $('w-add').onclick = function () { var id = Object.keys(PEOPLE).filter(function (k) { return PEOPLE[k] === val('w-who'); })[0]; if (id) setWelcomers((SET.memberIds || []).concat([id])); };
     if ($('w-email-go')) $('w-email-go').onclick = function () {
-      var e = val('w-email').toLowerCase(); if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return;
-      db().collection('welcomeSettings').doc('public').set({ notifyEmail: e, updatedAt: now(), updatedBy: EGBCAuth.user().uid }).then(loadTeam);
+      var e = val('w-email').toLowerCase();
+      if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { said('w-msg', 'That email address does not look right.', false); return; }
+      said('w-msg', 'Saving…', true);
+      db().collection('welcomeSettings').doc('public').set({ notifyEmail: e, updatedAt: now(), updatedBy: EGBCAuth.user().uid })
+        .then(saved('w-msg', e ? 'Saved: hellos are emailed to ' + e + '.' : 'Saved: hellos are emailed to the church\'s enquiry address.'), refused('w-msg'));
     };
   }
   function setWelcomers(ids) {
-    db().collection('welcomeSettings').doc('main').set({ memberIds: ids.filter(function (x, i) { return ids.indexOf(x) === i; }).slice(0, 30), updatedAt: now(), updatedBy: EGBCAuth.user().uid }).then(loadTeam);
+    db().collection('welcomeSettings').doc('main').set({ memberIds: ids.filter(function (x, i) { return ids.indexOf(x) === i; }).slice(0, 30), updatedAt: now(), updatedBy: EGBCAuth.user().uid })
+      .then(saved('w-msg', 'Saved: who sees the hellos.'), refused('w-msg'));
   }
   function loadTeam() {
     return Promise.all([

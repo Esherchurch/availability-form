@@ -4273,3 +4273,31 @@ is recorded in `emailOutbox` (`source: public-mail`, `ok: false`).
   the same as v2.
 - `rota-dates.test.mjs` is now 53 checks. It covers 13 copies of the
   helper, plus a check of what the original song summary says.
+
+### F-173 — "I'm new here": "Save the address" did nothing on the live hub (Martin, 14 Oct)
+**Why the page said nothing:** none of its saves had an error handler.
+- the address
+- adding or removing someone who sees the hellos
+- "Mark contacted"
+
+A refused save simply vanished. A wrongly typed address was also
+ignored without a word.
+
+**Why it was refused (almost certainly):** the live database still has
+the old rules. The rule allowing `welcomeSettings` writes is in my events
+section, and that only goes live at switch-over. I can't read the live
+rules to prove it.
+- The reviewing window saving `av@esherchurch.org` another way fits this.
+- So does the page's own hello still working live. Old rules allow
+  writes to collections that existed before; `welcomeSettings` is new.
+
+**Fixed:**
+- Every save on the page now says "Saved: …" when it works.
+- It says "Not saved: the hub would not accept it…" when it is refused.
+- It says "That email address does not look right" for a typo.
+- The message stays after the card is drawn again.
+- `newhere.test` is now 23 checks: a typo, a save, and a refusal (a
+  master admin who is no longer one). A break that hid the refusal
+  message was caught.
+
+**On switch-over day,** once the rules are live, the page saves for real.

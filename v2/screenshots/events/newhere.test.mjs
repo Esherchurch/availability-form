@@ -152,6 +152,25 @@ try {
   await until(() => M.$('#w-settings'));
   ok('3. a master admin chooses who: the welcomers, and the email address', /Wendy Welcome/.test(await text(M, '#w-settings')) && (await M.$eval('#w-email', e => e.value)) === 'welcome@example.invalid');
 
+  /* Martin, 14 Oct: "Save the address" did nothing on the live hub, and
+     said nothing. Every save now says whether it worked. */
+  const msg = () => M.$eval('#w-msg', e => e.className + '|' + e.textContent).catch(() => '');
+  await val(M, '#w-email', 'not-an-address');
+  await M.$eval('#w-email-go', b => b.click());
+  ok('   "Save the address": a wrong address says so', /^err\|That email address does not look right/.test(await msg()), await msg());
+  await val(M, '#w-email', 'hello.team@example.invalid');
+  await M.$eval('#w-email-go', b => b.click());
+  const okSaid = await until(async () => { const m = await msg(); return /^okmsg\|Saved: hellos are emailed to hello\.team@example\.invalid/.test(m) ? m : null; });
+  const pubNow = (await list('welcomeSettings')).find(x => x.id === 'public');
+  ok('   a good one is SAVED, and the page says "Saved: hellos are emailed to …"', !!okSaid && pubNow && pubNow.notifyEmail === 'hello.team@example.invalid', (await msg()) + ' / ' + J(pubNow));
+  /* Refused (as the live hub did): no longer a master admin. */
+  await env.withSecurityRulesDisabled(async (x) => { await setDoc(doc(x.firestore(), 'users', P.martin.uid), { masterAdmin: false }, { merge: true }); });
+  await val(M, '#w-email', 'refused@example.invalid');
+  await M.$eval('#w-email-go', b => b.click());
+  const noSaid = await until(async () => { const m = await msg(); return /^err\|Not saved: the hub would not accept it/.test(m) ? m : null; });
+  ok('   REFUSED, it says "Not saved", instead of nothing', !!noSaid, await msg());
+  await env.withSecurityRulesDisabled(async (x) => { await setDoc(doc(x.firestore(), 'users', P.martin.uid), { masterAdmin: true }, { merge: true }); });
+
   /* ---------- 5. the form's own checks ---------- */
   const V2p = await page('visitor2');
   await val(V2p, '#n-name', 'Just Hello (invented)');
