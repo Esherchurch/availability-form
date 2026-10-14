@@ -16,6 +16,7 @@
  *   (nothing)      everyone who is signed in
  *   core: true     somebody on Core Team
  *   admin: true    somebody who administers at least one area
+ *   adminOf: [..]  an admin of one of those areas, or a master admin
  *   bookings: true an admin, or a bookings admin for any site
  *   feature: 'x'   only when the church uses that part (HANDOVER-MAIN
  *                  rule 12, EGBCChurch.uses); everything is on until the
@@ -106,7 +107,7 @@
              this page. Admins only: the page turns a member away and the
              function refuses them again. FINDINGS-churchshow.md R1-R3. */
           { title: 'Connect ChurchShow', url: 'churchshow.html', icon: 'monitor-play',
-            admin: true,
+            admin: true, adminOf: ['AV Team', 'Worship Team'],
             description: 'Sign the projection computer in to the hub' }
         ] }
       ] },
@@ -256,6 +257,12 @@
        they will hang, and the mechanism is tested rather than waiting. */
     if (node.members && !who.isChurchMember) return false;
     if (node.admin && !who.isAdmin) return false;
+    /* adminOf: an admin of one of these areas (or a master admin), the same
+       test the page's own guard makes. Plain admin: true lets in an admin of
+       ANY area, so a Kids Church admin on the AV team was shown Connect
+       ChurchShow and then turned away by the page (Martin, 14 Oct 2026). */
+    if (node.adminOf && !who.isMaster &&
+        !node.adminOf.some(function (t) { return (who.adminFor || []).indexOf(t) !== -1; })) return false;
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
     if (node.sermons && !who.isSermons) return false;
     /* `runs` NAMES A RUNNING THINGS TAB (NEXT-BRIEF §25): the same four the
