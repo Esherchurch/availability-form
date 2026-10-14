@@ -5228,3 +5228,40 @@ something is ticked, a bar shows "N chosen" with:
   `data-pick`, not `data-id`, so nothing mistakes them for "open".
 - 5 deliberate breaks, all caught. The one that matters: "who can come"
   changed but not who can read the event.
+
+### F-187 — Invitations (ChurchSuite's event invitations)
+A new **"Invitations"** tab on each event in events-admin.
+- **Invite** chosen people (from the address book), a whole team, or a
+  small group (its members).
+  - Each person gets **their own email**, so nobody sees who else was
+    asked.
+  - It has the event, the admin's own message, and two buttons: **"Sign
+    up"** and **"I can't come"**, each carrying that person's own key.
+  - Someone with no email address is counted ("1 had no email address"),
+    not lost.
+  - Someone already invited isn't asked twice.
+- **"Sign up" from the email** fills in their name and email. Signing up
+  marks the invitation **Coming**, with the sign-up it led to.
+- **"I can't come"** thanks them, marks it **Can't come**, and still
+  lets them sign up if that changes.
+- **The list:** "4 invited · 1 coming · 1 can't come · 2 no reply yet",
+  and each person's reply. Someone who signed up without using the link
+  still counts as coming.
+- **"Remind the N who have not replied"** goes only to them.
+- **New rule `eventInvites/{key}`, in my section:**
+  - Admins create, list and delete.
+  - The key-holder reads theirs and may answer it (yes / no, at the
+    server's time, and the sign-up key) and change nothing else.
+  - **Not deployed.**
+- For a members-only event, the person must sign in to sign up, as always.
+- A whole small group can be invited only by the groups admins and its
+  leaders. Anyone else is told so.
+
+**Proved:**
+- `invites.test.mjs` 15/15. Other tests still pass: series 15/15,
+  pay-on-day 18/18, who-can-come 15/15; rules 1338/1338.
+- 6 deliberate breaks, all caught. The one that matters: one email to
+  everyone, so each sees who else was asked.
+  - My first key check let one break through. It only changed the name,
+    so it was refused for a different reason. It now gives a proper answer
+    and a new name together, which only the "answer only" rule refuses.

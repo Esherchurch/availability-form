@@ -445,7 +445,7 @@
 
   function tabBar() {
     var t = [['details', 'Details'], ['signups', 'Sign-ups'], ['checklist', 'Checklist'],
-             ['people', 'Who is coming'], ['history', 'History'], ['photos', 'Photos']];
+             ['people', 'Who is coming'], ['invites', 'Invitations'], ['history', 'History'], ['photos', 'Photos']];
     return '<div class="tabs">' + t.map(function (x) {
       return '<button class="tab' + (TAB === x[0] ? ' on' : '') + '" data-tab="' + x[0] + '"' +
              (!CUR.id && x[0] !== 'details' && x[0] !== 'signups' ? ' disabled title="Save it first"' : '') +
@@ -992,6 +992,7 @@
       : TAB === 'checklist' ? checklistTab()
       : TAB === 'people' ? peopleTab()
       : TAB === 'photos' ? '<div id="photosBody"><p class="hint">Loading…</p></div>'
+      : TAB === 'invites' ? '<div id="invBody"><p class="hint">' + (CUR.id ? 'Loading…' : 'Save the event first, then invite people to it.') + '</p></div>'
       : historyTab();
 
     document.getElementById('editor').innerHTML =
@@ -1019,8 +1020,147 @@
     }
     wireEditor();
     if (TAB === 'photos') loadPhotos();
+    if (TAB === 'invites' && CUR.id) loadInvites();
     icons();
     document.getElementById('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- invitations (F-187; ChurchSuite's event invitations) ----------
+     Invite chosen people, a team or a small group. Each person gets their
+     own email with their own link: "Sign up" or "I can't come". The list
+     shows who was invited and who replied - coming (they signed up), can't
+     come, or no reply yet - and reminds those who have not replied. One
+     email each, so nobody sees who else was asked. */
+  var INVITES = [], ADDR = null, GROUPS = [], INV_PICK = [], INV_KIND = 'people';
+  function loadInvites() {
+    return Promise.all([
+      db().collection('eventInvites').where('calEventId', '==', CUR.id).get(),
+      ADDR ? Promise.resolve(null) : db().collection('addressBook').get(),
+      db().collection('smallGroups').get().catch(function () { return { docs: [] }; })
+    ]).then(function (r) {
+      INVITES = r[0].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); })
+        .sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || '')); });
+      if (r[1]) ADDR = r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (p) { return !p.archived && p.name; });
+      GROUPS = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (g) { return g.active !== false; });
+      drawInvites();
+    }).catch(function (e) { var el = document.getElementById('invBody'); if (el) el.innerHTML = '<div class="banner warn">Could not load the invitations: ' + esc(e.message || e) + '</div>'; });
+  }
+  function replyOf(inv) {
+    var came = SIGNUPS.some(function (s) { return s.status !== 'cancelled' && ((inv.memberId && s.personId === inv.memberId) || (inv.email && s.email === inv.email)); });
+    if (came || inv.response === 'yes') return 'yes';
+    return inv.response === 'no' ? 'no' : '';
+  }
+  function teams() {
+    var t = {}; (ADDR || []).forEach(function (p) { (p.markers || []).forEach(function (m) { t[m] = 1; }); });
+    return Object.keys(t).sort();
+  }
+  function drawInvites() {
+    var el = document.getElementById('invBody'); if (!el) return;
+    var counts = { yes: 0, no: 0, '': 0 }; INVITES.forEach(function (i) { counts[replyOf(i)]++; });
+    var picked = INV_PICK.map(function (id) { return (ADDR || []).filter(function (p) { return p.id === id; })[0]; }).filter(Boolean);
+    el.innerHTML =
+      '<p class="hint" style="margin-top:0">Each person gets their own email, with "Sign up" and "I can\'t come". Nobody sees who else was asked.</p>' +
+      '<div class="field"><label>Who to invite</label><div style="display:flex;flex-wrap:wrap;gap:12px">' +
+        [['people', 'Chosen people'], ['team', 'A team'], ['group', 'A small group']].map(function (k) {
+          return '<label class="check" style="margin:0;min-height:44px"><input type="radio" name="invKind" value="' + k[0] + '"' + (INV_KIND === k[0] ? ' checked' : '') + '>' + k[1] + '</label>';
+        }).join('') + '</div></div>' +
+      (INV_KIND === 'people' ? '<div class="field"><label for="invWho">Add someone</label><div style="display:flex;gap:8px"><input class="inp" id="invWho" list="invPeople" placeholder="Start typing a name">' +
+          '<datalist id="invPeople">' + (ADDR || []).map(function (p) { return '<option value="' + esc(p.name) + '">'; }).join('') + '</datalist>' +
+          '<button class="btn sec" id="invAdd">Add</button></div>' +
+          '<div id="invPicked" style="margin-top:8px">' + picked.map(function (p) {
+            return '<span class="flag pub" style="margin:0 6px 6px 0;display:inline-flex;gap:6px;align-items:center">' + esc(p.name) + '<button class="btn ghost sm" data-unpick="' + esc(p.id) + '" aria-label="Remove ' + esc(p.name) + '">×</button></span>'; }).join('') + '</div></div>'
+        : INV_KIND === 'team' ? '<div class="field"><label for="invTeam">Team</label><select id="invTeam"><option value="">Choose…</option>' + teams().map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('') + '</select></div>'
+        : '<div class="field"><label for="invGroup">Small group</label><select id="invGroup"><option value="">Choose…</option>' + GROUPS.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>'; }).join('') + '</select></div>') +
+      '<div class="field"><label for="invMsg">Your message</label><textarea id="invMsg" maxlength="1500" style="min-height:80px">' + esc('We would love you to come to ' + (CUR.title || 'this') + '.') + '</textarea></div>' +
+      '<button class="btn" id="invSend"><i data-lucide="send" style="width:15px;height:15px"></i>Send the invitations</button>' +
+      '<p class="hint" id="invSay" role="status"></p>' +
+      '<h3 style="margin:18px 0 6px">Invited <span class="hint" id="invCounts">' + INVITES.length + ' invited · ' + counts.yes + ' coming · ' + counts.no + ' can\'t come · ' + counts[''] + ' no reply yet</span></h3>' +
+      (INVITES.length ? '<table><thead><tr><th>Name</th><th>Email</th><th>Invited</th><th>Reply</th></tr></thead><tbody>' + INVITES.map(function (i) {
+        var r = replyOf(i), at = i.sentAt && i.sentAt.toDate ? i.sentAt.toDate() : null;
+        return '<tr data-inv="' + esc(i.key) + '"><td>' + esc(i.name) + '</td><td>' + esc(i.email) + '</td><td>' + esc(at ? E.fmtDateShort(at) : '') + (i.reminded ? ' (reminded)' : '') + '</td>' +
+          '<td>' + (r === 'yes' ? '<span class="flag pub">Coming</span>' : r === 'no' ? '<span class="flag">Can\'t come</span>' : '<span class="hint">No reply yet</span>') + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+        (counts[''] ? '<button class="btn sec" id="invRemind" style="margin-top:10px">Remind the ' + counts[''] + ' who have not replied</button>' : '') : '<p class="hint">Nobody invited yet.</p>');
+    document.querySelectorAll('input[name="invKind"]').forEach(function (r) { r.onchange = function () { INV_KIND = r.value; drawInvites(); }; });
+    var add = document.getElementById('invAdd');
+    if (add) add.onclick = function () {
+      var name = document.getElementById('invWho').value.trim(), p = (ADDR || []).filter(function (x) { return x.name === name; })[0];
+      if (!p) { invSay('Choose a name from the list.'); return; }
+      if (INV_PICK.indexOf(p.id) < 0) INV_PICK.push(p.id);
+      drawInvites();
+    };
+    document.querySelectorAll('[data-unpick]').forEach(function (b) { b.onclick = function () { INV_PICK = INV_PICK.filter(function (x) { return x !== b.getAttribute('data-unpick'); }); drawInvites(); }; });
+    document.getElementById('invSend').onclick = sendInvites;
+    var rem = document.getElementById('invRemind'); if (rem) rem.onclick = remindInvites;
+    icons();
+  }
+  function invSay(m) { var el = document.getElementById('invSay'); if (el) el.textContent = m; }
+  /* Who the choice means: [{ memberId, name, email }]. */
+  function inviteesNow() {
+    if (INV_KIND === 'people') return Promise.resolve(INV_PICK.map(function (id) { var p = (ADDR || []).filter(function (x) { return x.id === id; })[0]; return p && { memberId: p.id, name: p.name, email: p.email || '' }; }).filter(Boolean));
+    if (INV_KIND === 'team') {
+      var t = (document.getElementById('invTeam') || {}).value;
+      if (!t) return Promise.reject(new Error('Choose a team.'));
+      return Promise.resolve((ADDR || []).filter(function (p) { return (p.markers || []).indexOf(t) >= 0; }).map(function (p) { return { memberId: p.id, name: p.name, email: p.email || '' }; }));
+    }
+    var g = (document.getElementById('invGroup') || {}).value;
+    if (!g) return Promise.reject(new Error('Choose a small group.'));
+    return db().collection('smallGroupMembers').where('groupId', '==', g).get().then(function (s) {
+      return s.docs.map(function (d) { return d.data(); }).filter(function (m) { return m.status !== 'left'; }).map(function (m) {
+        var p = m.personKind === 'addressBook' ? (ADDR || []).filter(function (x) { return x.id === m.personId; })[0] : null;
+        return { memberId: p ? p.id : '', name: m.name || (p && p.name) || '', email: (p && p.email) || m.email || '' };
+      });
+    }, function () { throw new Error('Only the small groups admins and the group\'s leaders can invite a whole group.'); });
+  }
+  function inviteMail(inv, msg, again) {
+    var url = E.eventUrl(CUR.id) + '&invite=' + encodeURIComponent(inv.key), where = E.locationText(CUR, LOOK);
+    var btn = function (href, words, bg) { return '<a href="' + esc(href) + '" style="display:inline-block;background:' + bg + ';color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;margin:0 8px 8px 0;font:500 14px Inter,Arial,sans-serif">' + words + '</a>'; };
+    return EGBCChurch.send({
+      to: [inv.email],
+      subject: (again ? 'A reminder: ' : 'You are invited: ') + CUR.title,
+      html: EGBCChurch.wrap(again ? 'A reminder: you are invited' : 'You are invited',
+        '<p>Dear ' + esc(String(inv.name || '').split(' ')[0] || 'friend') + ',</p><p>' + esc(msg) + '</p>' +
+        '<p><strong>' + esc(CUR.title) + '</strong><br>' + esc(E.fmtWhen(CUR)) + (where ? '<br>' + esc(where) : '') + '</p>' +
+        '<p>' + btn(url, 'Sign up', '#3d6263') + btn(url + '&reply=no', 'I can’t come', '#6b7280') + '</p>'),
+      log: { calEventId: CUR.id, kind: again ? 'invitation reminder' : 'invitation' }
+    });
+  }
+  function sendInvites() {
+    var msg = document.getElementById('invMsg').value.trim();
+    inviteesNow().then(function (list) {
+      var seen = {}; INVITES.forEach(function (i) { if (i.email) seen[i.email.toLowerCase()] = 1; });
+      var noEmail = list.filter(function (p) { return !p.email; });
+      var fresh = list.filter(function (p) { var e = (p.email || '').toLowerCase(); if (!e || seen[e]) return false; seen[e] = 1; return true; });
+      if (!fresh.length) { invSay(noEmail.length ? 'Nobody to send to: ' + noEmail.length + ' have no email address.' : 'Everyone chosen has been invited already.'); return; }
+      if (!confirm('Send ' + fresh.length + ' invitation' + (fresh.length === 1 ? '' : 's') + '?')) return;
+      var u = EGBCAuth.user() || {}, pr = EGBCAuth.profile() || {}, done = 0;
+      return fresh.reduce(function (p, person) {
+        return p.then(function () {
+          var inv = { key: 'inv_' + E.key(24), calEventId: CUR.id, memberId: person.memberId || '', name: String(person.name || '').slice(0, 120), email: person.email.toLowerCase().slice(0, 200),
+            sentAt: firebase.firestore.FieldValue.serverTimestamp(), by: u.uid || '', byName: String(pr.name || '').slice(0, 120), response: '', respondedAt: null, signupKey: '', reminded: 0 };
+          var d = Object.assign({}, inv); delete d.key;
+          return db().collection('eventInvites').doc(inv.key).set(d).then(function () { return inviteMail(inv, msg, false); })
+            .then(function () { done++; invSay('Sent ' + done + ' of ' + fresh.length + '…'); });
+        });
+      }, Promise.resolve()).then(function () {
+        INV_PICK = [];
+        toast('Sent ' + done + ' invitation' + (done === 1 ? '' : 's') + (noEmail.length ? '. ' + noEmail.length + ' had no email address.' : '.'));
+        return loadInvites();
+      });
+    }).catch(function (e) { invSay(e.message || String(e)); });
+  }
+  function remindInvites() {
+    var msg = document.getElementById('invMsg').value.trim();
+    var todo = INVITES.filter(function (i) { return !replyOf(i) && i.email; });
+    if (!confirm('Remind ' + todo.length + ' who have not replied?')) return;
+    var done = 0;
+    todo.reduce(function (p, inv) {
+      return p.then(function () {
+        return inviteMail(inv, msg, true).then(function () { return db().collection('eventInvites').doc(inv.key).update({ reminded: (inv.reminded || 0) + 1 }); })
+          .then(function () { done++; invSay('Reminded ' + done + ' of ' + todo.length + '…'); });
+      });
+    }, Promise.resolve()).then(function () { toast('Reminded ' + done + '.'); return loadInvites(); })
+      .catch(function (e) { invSay('Stopped after ' + done + ': ' + (e.message || e)); });
   }
 
   /* ---------- saving ---------- */

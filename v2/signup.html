@@ -81,6 +81,30 @@
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
   var ID = new URLSearchParams(location.search).get('event') || '';
+  /* An invitation (F-187): ?invite=<its key> fills in who they are; with
+     &reply=no it records "I can't come". Signing up records "coming". */
+  var INVKEY = new URLSearchParams(location.search).get('invite') || '', NOREPLY = new URLSearchParams(location.search).get('reply') === 'no', INV = null, INVSAID = '';
+  function loadInvite() {
+    if (!INVKEY) return Promise.resolve();
+    var ref = EGBCAuth.db.collection('eventInvites').doc(INVKEY);
+    return ref.get().then(function (s) {
+      if (!s.exists || s.data().calEventId !== ID) return;
+      INV = s.data();
+      if (!NOREPLY || INV.response === 'yes') return;
+      return ref.update({ response: 'no', respondedAt: firebase.firestore.FieldValue.serverTimestamp(), signupKey: INV.signupKey || '' })
+        .then(function () { INV.response = 'no'; INVSAID = 'Thank you for letting us know you can’t come. If that changes, you can still sign up below.'; });
+    }).catch(function () {});
+  }
+  function applyInvite() {
+    if (!INV) return;
+    if (INVSAID) document.getElementById('wrap').insertAdjacentHTML('afterbegin', '<div class="card"><div class="banner info" id="invNo">' + esc(INVSAID) + '</div></div>');
+    var fill = function (id, v) { var el = document.getElementById(id); if (el && !el.value && v) el.value = v; };
+    fill('nm', INV.name); fill('em', INV.email); fill('att0', INV.name);
+  }
+  function inviteAnswered(key) {
+    if (!INV || !INVKEY) return;
+    EGBCAuth.db.collection('eventInvites').doc(INVKEY).update({ response: 'yes', respondedAt: firebase.firestore.FieldValue.serverTimestamp(), signupKey: key }).catch(function () {});
+  }
   var EV = null, TT = [], QS = [], CAP = null, LOOK = {}, WHERE = '';
   /* The whole series (F-184): every date this sign-up is for, when the event
      says "sign up to the whole series". null: just this date. */
@@ -210,6 +234,7 @@
     document.getElementById('wrap').innerHTML = html;
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
     wire();
+    applyInvite();
   }
 
   function wire() {
@@ -349,6 +374,7 @@
   }
 
   function done(manageKey, waiting, due, series) {
+    inviteAnswered(manageKey);
     var url = E.manageUrl(manageKey);
     document.getElementById('signupCard').innerHTML =
       '<h2>' + (series ? 'You are signed up to all ' + series.dates + ' dates' : waiting ? 'You are on the waiting list' : 'You are signed up') + '</h2>' +
@@ -383,6 +409,9 @@
     }
     EV = r[0].ev; TT = r[0].ticketTypes; QS = r[0].questions; CAP = r[0].capacity;
     LOOK = r[1]; WHERE = E.locationText(EV, LOOK);
+    return loadInvite().then(function () { return r; });
+  }).then(function (r) {
+    if (!r) return;
     document.title = (EV.title || 'Event') + ' — EGBC';
     if (EV.signupScope === 'series' && EV.seriesId && EV.signupOn) {
       return E.seriesDates(EV).then(function (d) { SERIES = d.length > 1 ? d : null; draw(); }, function () { draw(); });

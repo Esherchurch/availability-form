@@ -3958,6 +3958,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- invitations (F-187) ----------------------------------------------
+    // One per person invited, under an unguessable key that is in their
+    // email's links. An admin sends them and sees them all. The person, by
+    // the key, may read theirs and answer it - yes or no, at the server's
+    // time, and the sign-up it led to - and change nothing else.
+    match /eventInvites/{inviteKey} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['calEventId', 'memberId', 'name', 'email', 'sentAt', 'by', 'byName', 'response', 'respondedAt', 'signupKey', 'reminded'])
+                    && request.resource.data.calEventId is string && request.resource.data.email is string && request.resource.data.email.size() <= 200
+                    && request.resource.data.name is string && request.resource.data.name.size() <= 120
+                    && request.resource.data.by == request.auth.uid && request.resource.data.sentAt == request.time
+                    && request.resource.data.response == '' && request.resource.data.signupKey == '';
+      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reminded']))
+                    || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response', 'respondedAt', 'signupKey'])
+                        && request.resource.data.response in ['yes', 'no']
+                        && request.resource.data.respondedAt == request.time
+                        && request.resource.data.signupKey is string && request.resource.data.signupKey.size() <= 40);
+      allow delete: if isAdmin();
+    }
+
     // ---- label size (F-185) ----------------------------------------------
     // One for the whole church: children's labels and events' name labels.
     // Anyone who prints labels (a volunteer, or an event's leader) reads it;
