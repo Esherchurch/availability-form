@@ -9,7 +9,11 @@
      ChurchSuite calendars:
        whatson-embed.html                a "coming up" list
        whatson-embed.html?view=month     a month calendar
-     Options: &accent=3d6263 (the website's colour, no #), &limit=12 (list).
+       whatson-embed.html?view=featured  featured events as picture cards,
+                                         a repeating event as one card (F-178)
+     Options: &accent=3d6263 (the website's colour, no #), &limit=12 (list
+     and featured); featured also takes &all=1 (every public event) and
+     &combine=0 (every date its own card).
 
      ONLY EVENTS MARKED "EVERYONE" (public), whoever is looking. The page
      asks the database for public events and nothing else, so a visitor who
@@ -23,7 +27,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610141200"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610141200"></script>
+<script src="egbc-events.js?v=202610141900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--accent:#3d6263;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--tint:#eef5f4}
@@ -57,6 +61,16 @@
   /* A phone is too narrow for seven columns: the month is a list of its days. */
   .agenda{display:none}
   @media (max-width:560px){.grid{display:none}.agenda{display:block}}
+  /* Featured: picture cards, one column on a phone, up to three wide. */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .fc{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;min-width:0}
+  .fc .pic{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--tint)}
+  .fc .nopic{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:16/9;background:var(--tint);color:var(--accent);font-size:28px;font-weight:700}
+  .fc .x{display:block;padding:10px 12px 12px}
+  .fc .t{display:block;font-weight:600;color:var(--ink);overflow-wrap:break-word}
+  .fc .m{display:block;font-size:13px;color:var(--muted);overflow-wrap:break-word}
+  .fc .tag{display:inline-block;margin-top:4px;font-size:12px;font-weight:600;color:var(--accent)}
+  .fc:hover .t{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -66,8 +80,8 @@
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
   var Q = new URLSearchParams(location.search);
-  var VIEW = Q.get('view') === 'month' ? 'month' : 'list';
-  var LIMIT = Math.max(1, Math.min(50, +Q.get('limit') || 12));
+  var VIEW = ['month', 'featured'].indexOf(Q.get('view')) >= 0 ? Q.get('view') : 'list';
+  var LIMIT = Math.max(1, Math.min(50, +Q.get('limit') || (VIEW === 'featured' ? 6 : 12)));
   if (/^[0-9a-f]{6}$/i.test(Q.get('accent') || '')) document.documentElement.style.setProperty('--accent', '#' + Q.get('accent'));
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var LOOK = { sites: {}, rooms: {}, venues: {} };
@@ -112,6 +126,39 @@
     }).catch(function () { box.innerHTML = '<p class="none">What\'s on could not be loaded just now.</p>'; tellHeight(); });
   }
 
+  /* Featured (F-178, ChurchSuite's "Featured" embed): the events marked
+     Featured, as picture cards. A repeating event is ONE card - its next
+     date and how many more - the way ChurchSuite "combines similar events".
+     &all=1 shows every public event, not just featured ones; &combine=0
+     gives every date its own card. */
+  function combine(list) {
+    if (Q.get('combine') === '0') return list.map(function (e) { return { ev: e, more: 0 }; });
+    var seen = {}, out = [];
+    list.forEach(function (e) {
+      var k = e.seriesId ? 's:' + e.seriesId : 'e:' + e.id;
+      if (seen[k]) { seen[k].more++; return; }
+      seen[k] = { ev: e, more: 0 }; out.push(seen[k]);
+    });
+    return out;
+  }
+  function card(c) {
+    var e = c.ev, d = new Date(e.startUtc), where = E.locationText(e, LOOK);
+    return '<a class="fc" href="' + esc(link(e)) + '" target="_blank" rel="noopener" data-ev="' + esc(e.id) + '">' +
+      (e.image ? '<img class="pic" src="' + esc(e.image) + '" alt="" loading="lazy">' : '<span class="nopic">' + d.getDate() + ' ' + MONTHS[d.getMonth()].slice(0, 3) + '</span>') +
+      '<span class="x"><span class="t">' + esc(e.title || 'Event') + '</span><span class="m">' + esc([E.fmtWhen(e), where].filter(Boolean).join(' · ')) + '</span>' +
+      (c.more ? '<span class="m" data-more="' + c.more + '">and ' + c.more + ' more date' + (c.more === 1 ? '' : 's') + '</span>' : '') +
+      (e.status === 'cancelled' ? '<span class="tag" style="color:#b0392c">Cancelled</span>' : e.signupOn ? '<span class="tag">Sign up</span>' : '') + '</span></a>';
+  }
+  function drawFeatured() {
+    load(Date.now() - 6 * 3600e3).then(function (list) {
+      if (Q.get('all') !== '1') list = list.filter(function (e) { return e.featured === true; });
+      var cards = combine(list).slice(0, LIMIT);
+      box.innerHTML = cards.length ? '<div class="cards" data-view="featured">' + cards.map(card).join('') + '</div>' : '<p class="none" data-view="featured">Nothing coming up just now.</p>';
+      tellHeight();
+      box.querySelectorAll('img').forEach(function (i) { i.onload = tellHeight; });
+    }).catch(function () { box.innerHTML = '<p class="none">What\'s on could not be loaded just now.</p>'; tellHeight(); });
+  }
+
   function drawMonth() {
     var y = month.getFullYear(), m = month.getMonth(), first = new Date(y, m, 1), next = new Date(y, m + 1, 1);
     box.innerHTML = '<div class="bar"><button id="prev" aria-label="The month before">‹</button><h2>' + MONTHS[m] + ' ' + y + '</h2><button id="next" aria-label="The month after">›</button></div><p class="none">Loading…</p>';
@@ -147,7 +194,7 @@
   if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('publicWhatson')) {
     box.innerHTML = '<p class="none">Not available.</p>'; tellHeight(); return;
   }
-  E.lookups().then(function (l) { LOOK = l; }, function () {}).then(function () { if (VIEW === 'month') drawMonth(); else drawList(); });
+  E.lookups().then(function (l) { LOOK = l; }, function () {}).then(function () { if (VIEW === 'month') drawMonth(); else if (VIEW === 'featured') drawFeatured(); else drawList(); });
   window.addEventListener('resize', tellHeight);
 })();
 </script>

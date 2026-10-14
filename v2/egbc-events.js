@@ -297,6 +297,45 @@
     return names.join(', ') + (site ? ', ' + site : '');
   }
 
+  /* EVENT CATEGORIES (F-178). Every church starts with these eight. Once an
+     admin saves the church's own list (events-admin, "Event categories"),
+     eventCategories/{id} holds it - name, colour, order, retired - and
+     CATEGORIES becomes that list, changed in place so every page that
+     already holds it sees the new one. A retired category is not offered
+     for a new event, but events already in it still show its name. The
+     list is loaded with lookups(), which every page showing events waits
+     for. */
+  var DEFAULT_CATEGORIES = [
+    { id: 'service', name: 'Service', colour: '#3d6263' },
+    { id: 'social', name: 'Social', colour: '#b07d2e' },
+    { id: 'kids', name: 'Kids and families', colour: '#9bc34a' },
+    { id: 'youth', name: 'Youth', colour: '#6366f1' },
+    { id: 'prayer', name: 'Prayer', colour: '#0ea5e9' },
+    { id: 'music', name: 'Music', colour: '#ec4899' },
+    { id: 'community', name: 'Community', colour: '#15803d' },
+    { id: 'other', name: 'Other', colour: '#6b7280' }
+  ];
+  var CATEGORIES = DEFAULT_CATEGORIES.map(function (c) { return Object.assign({}, c); });
+  var catsLoaded = null;
+  function loadCategories(again) {
+    if (catsLoaded && !again) return catsLoaded;
+    catsLoaded = db().collection('eventCategories').get().then(function (s) {
+      var list = s.docs.map(function (d) {
+        var x = d.data();
+        return { id: d.id, name: x.name || d.id, colour: x.colour || '#6b7280', order: x.order || 0, retired: x.retired === true };
+      }).sort(function (a, b) { return a.order - b.order || a.name.localeCompare(b.name); });
+      if (list.length) CATEGORIES.splice.apply(CATEGORIES, [0, CATEGORIES.length].concat(list));
+      return CATEGORIES;
+    }).catch(function () { return CATEGORIES; });
+    return catsLoaded;
+  }
+  /* An event's category; one the church no longer has reads as "Other". */
+  function catOf(id) {
+    id = id || 'other';
+    return CATEGORIES.filter(function (c) { return c.id === id; })[0] ||
+      CATEGORIES.filter(function (c) { return c.id === 'other'; })[0] || { id: 'other', name: 'Other', colour: '#6b7280' };
+  }
+
   /* Sites, rooms and venues as id -> name, for the pages that show where
      something is. Rooms are referred to by id everywhere, exactly so a
      rename does not break anything - this is where the name is fetched.
@@ -309,7 +348,7 @@
     var rooms = signedIn() ? db().collection('rooms').get()
                            : db().collection('rooms').where('active', '==', true).get();
     var venues = signedIn() ? db().collection('venues').get() : Promise.resolve({ docs: [] });
-    return Promise.all([sites, rooms, venues]).then(function (r) {
+    return Promise.all([sites, rooms, venues, loadCategories()]).then(function (r) {
       r[0].docs.forEach(function (d) { out.sites[d.id] = (d.data().name || ''); });
       r[1].docs.forEach(function (d) { out.rooms[d.id] = (d.data().name || ''); });
       (r[2].docs || []).forEach(function (d) { out.venues[d.id] = (d.data().name || ''); });
@@ -586,16 +625,10 @@
     share: share,
     confirmationEmail: confirmationEmail,
     checkinCodes: checkinCodes,
-    CATEGORIES: [
-      { id: 'service', name: 'Service', colour: '#3d6263' },
-      { id: 'social', name: 'Social', colour: '#b07d2e' },
-      { id: 'kids', name: 'Kids and families', colour: '#9bc34a' },
-      { id: 'youth', name: 'Youth', colour: '#6366f1' },
-      { id: 'prayer', name: 'Prayer', colour: '#0ea5e9' },
-      { id: 'music', name: 'Music', colour: '#ec4899' },
-      { id: 'community', name: 'Community', colour: '#15803d' },
-      { id: 'other', name: 'Other', colour: '#6b7280' }
-    ]
+    CATEGORIES: CATEGORIES,
+    DEFAULT_CATEGORIES: DEFAULT_CATEGORIES,
+    catOf: catOf,
+    loadCategories: loadCategories
   };
 
 })(window);

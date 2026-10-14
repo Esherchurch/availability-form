@@ -4739,3 +4739,170 @@ They come from `notYet()`. The date is `opensOn` on the same document, and
 until it's set the sentence reads "when the new church hub opens".
 `churchSettings/launch` is readable signed out, so newhere.html can read it.
 A test each: with the flag unset nothing is written; with it set, it saves.
+
+**F-170 and F-172: CLOSED (14 Oct).** Every address source is in
+sendEmail's KNOWN_SOURCES.
+
+### F-180 — The ChurchSuite parity check: nothing the church uses today is lost at switch-over (Martin, 14 Oct)
+**Where this comes from.** Martin's own 43 ChurchSuite phone screenshots
+(9 Oct), the church website, and §6.17 of the bookings brief. Read-only:
+feature and screen names only. No people, contacts, children or room-hire
+details are copied here.
+
+**One thing to know first.** Martin's ChurchSuite login only shows
+**Calendar, Rotas and Account**. Other parts may be switched on for other
+people. The screens hint at them (questions 6 and 7 at the end):
+- the Calendar settings have a **Check-in** tab
+- events are "not linked to a **Booking**"
+- an email template asks for **consent for a child**
+- the website's Giving page uses a **ChurchSuite form**
+
+**Built today (mine), so these are now Same:**
+- **Featured events for the website**
+  (`whatson-embed.html?view=featured`). This is ChurchSuite's "Featured"
+  website embed.
+  - Picture cards. A repeating event shows as one card ("and 2 more
+    dates").
+  - Only public events, even when a hub admin is looking.
+  - `&all=1` shows every public event. `&combine=0` gives every date its
+    own card.
+  - Its code is in events-admin, under "On the church website".
+- **For the notices** (events-admin). This is ChurchSuite's "event details
+  for a notice sheet" report.
+  - Pick a Sunday and 1, 2 or 4 weeks. You get the events as plain words,
+    a day at a time, with Copy and Download.
+  - It never includes not-listed, held or cancelled events.
+  - Church-members-only and team events appear only when ticked.
+- **Deleted events** (events-admin). This is ChurchSuite's "deleted events"
+  report.
+  - Deleting a series first records what it was, its dates, and who
+    deleted it when. If that record can't be written, nothing is deleted.
+  - Only admins can read the list. Nobody can change or remove it.
+  - New rule: `calEventsDeleted`, in my section of firestore.rules. **Not
+    deployed**; it goes live at switch-over with the rest.
+- **The church's own event categories** (events-admin, "Event categories").
+  ChurchSuite has 21; the hub had a fixed eight.
+  - Rename, recolour, add, and retire. A category is never deleted. A
+    retired one isn't offered for new events, but events already in it keep
+    it.
+  - The first save turns the built-in eight into the church's own list,
+    so no event loses its category. An unknown category reads as "Other".
+  - What's On, the sign-up page, the website embed and the app all use the
+    church's list (loaded with the rooms and sites they already wait for).
+  - New rule: `eventCategories`: anyone reads, admins write, nobody
+    deletes. **Not deployed.**
+  - The ChurchSuite import still maps ChurchSuite's 21 onto the eight. Once
+    the office has made the church's list, it can recategorise events.
+
+**The table**
+
+| What ChurchSuite does | Who uses it | Where it is in the hub | Same / better / MISSING |
+|---|---|---|---|
+| **CALENDAR** | | | |
+| Calendar of events (116 coming up), month view, add and edit | office, organisers | events-admin, What's On, app What's On | Same |
+| Categories (21), each with a colour and brand | office | events-admin "Event categories": the church's own list | Same (built today). No "brand" per category |
+| Labels (several per event) | nobody (0 labels) | events can carry labels | Not used |
+| Repeating events ("sequences") | office | series in events-admin | Same |
+| Event pictures | office | event picture and the picture library (F-176) | Better |
+| Featured events | office | Featured tick; top of What's On; the new featured embed | Same (built today) |
+| Who can see it (public / My ChurchSuite / hidden) and status (confirmed / pending / cancelled) | office | Who can come (not listed, everyone, attenders, church members, teams) and status | Better |
+| Sign-ups: tickets, questions, limits, waiting list | organisers, public | signup.html, ticket types, questions, waiting list | Same |
+| **Paying for tickets by card** (Stripe transfers report) | treasurer? | none: tickets are free or paid on the day | **MISSING if used**: question 1 |
+| Event overseers | organisers | overseers on each event | Same |
+| Notes and "View changes" (who changed what) | office | internal notes; "What changed" tab | Same |
+| Sign-up and cancellation emails | public | sent by the server (`functions/public-mail.js`, F-170) | Same |
+| Sign-ups communication report; email errors report | office | each event's own communication list (`commsLog`) | Same per event. **A church-wide list is MISSING**: request R8 |
+| Website embeds: a list, a 2-month calendar, a featured grid | website visitors | `whatson-embed.html`: list, month, featured | Same. The hub's month starts on Monday (UK); ChurchSuite's started on Sunday |
+| Subscribe to the calendar (iCal / Google / Outlook, per category) | members? | events: an "Add to calendar" file only. The rota has a live feed | **MISSING**: needs a server function. Request R7, question 5 |
+| Import events | office | the ChurchSuite import (F-177) | Same (one-off) |
+| Event details for a notice sheet | office | events-admin "For the notices" | Same (built today) |
+| Deleted categories, events and labels reports | office | events-admin "Deleted events" | Same for events (built today). Categories and labels: not needed |
+| Birthdays in the calendar | office | birthday.html | Same |
+| Leave requests and setup | nobody (0) | not built: decided in §6.17 (belongs to HR) | Not copied (decided) |
+| Label printing format for events (Brother 62×29 mm) | door team? | children's labels at check-in; no labels for adults at events | Question 8 |
+| Bookings shown in the calendar; "event linked to a booking" | office | room bookings for events; bookings-admin, rooms (F-174) | Same or better |
+| **ROTAS** (main window's) | | | |
+| 14 ministries, 10 rotas: After Service Prayer, A/V, Creche, Flowers, Garden, Kids Church, Lazers Sunday, Police bakes, Preacher / Service Leader, Small Group Leaders, Stewards, Tea & Coffee, Welcome, Worship Group | leaders, volunteers | Worship, AV and Core Team rotas (Planner, view-only rota). Welcome and Tea & Coffee are planned as app team spaces | **MISSING for most ministries**: request R1, question 3 |
+| Who is in each ministry, with their roles | leaders | teams in the address book | Same |
+| Services (0) | nobody | — | Not used |
+| Unavailability (on) | volunteers | availability form; the rota knows who can't come | Same |
+| Accept / decline a rota date (off) | nobody | — | Not used |
+| Reminders at 8am, by email **and text message** | volunteers | rota reminders by email and phone notification | Same, except **text messages: MISSING** (request R3, question 2) |
+| Rota reports: clashes, not on a rota, overview, personal serving, serving frequency, not in a ministry, demographics, service notes | leaders, office | serving history in the planners | **MISSING mostly**: request R2 |
+| My Rotas: next serving, my rotas, my unavailability | volunteers | app team space Rota tab; view-only rota | Same |
+| **MY CHURCHSUITE** (the members' app; main window's) | | | |
+| Home: next events, quick links | members | app Home | Same |
+| My Communication (what the church has sent me) | members | none | **MISSING**: request R6 |
+| My Details: details, photo, spouse, communication choices (email, text, rota reminders), privacy (who sees my phone or address), next of kin, login, delete my account | members | the app says "My details and my household arrive in the next stages" | **MISSING (planned)**: request R4 |
+| My Events (my sign-ups) | members | my-signup.html; app What's On | Same |
+| My Podcasts (sermons) | members | app Listen; sermons (F-138) | Same |
+| Search for Others (members' directory) | members | the address book is office-only | **MISSING**: request R5, question 4 |
+| Links (church website) | members | Menu and app links | Same |
+| **ACCOUNT** | | | |
+| Sites (1: Main site) | office | sites in Places | Same |
+| User groups (Eldership, Finance, Safeguarding); a group's own shared email address | office | teams and roles; safeguarding pages | Same for access. **Sending as the group's shared address: MISSING**: request R9, question 9 |
+| Gatherings (headcounts) (0) | nobody | headcounts.html | Better |
+| Ready-made emails: consent request (adult and child), "check your details" reminder, app invitations; ready-made texts | office | consent is collected at children's registration; invitations come from the main window | Consent: Same. **"Check your details" reminder: MISSING** (part of R4). Texts: see R3 |
+| Files (0) | nobody | resources.html | Not used |
+| Admin reports: deleted emails, texts, gatherings, user groups | office | — | Not needed |
+| **NOT IN MARTIN'S LOGIN: to confirm (question 6)** | | | |
+| Children: check-in, labels, registers | Kids Church | kids-checkin, kids-admin, labels, registers, call a parent (F-175) | Same or better, if it is used |
+| Small groups | group leaders | groups.html, groups-admin. In ChurchSuite they only show as calendar events and a "Small Group Leaders" ministry | Better |
+| Bookings and resources | office | rooms, bookings-admin, hire, book, rooms made of parts | Same or better |
+| Giving and Gift Aid | treasurer | give.html, giftaid.html (F-169) | Same, if ChurchSuite Giving isn't used. The website's ChurchSuite form: question 7 |
+| Forms | office | forms-admin, form.html | Same |
+| Address book and Communication (bulk email) | office | addressbook.html; church emails (main window) | Same for email; texts see R3 |
+| **ON THE WEBSITE, NOT CHURCHSUITE** | | | |
+| Tidio chat | visitors | — | Not ChurchSuite: question 10 |
+
+**REQUESTS for the main window** (all yours; I changed none of your files):
+- **R1. Rotas for the other ministries.** ChurchSuite has 14; the hub's
+  rotas cover Worship, AV and Core Team. Which move, and when, is Martin's
+  call (question 3).
+- **R2. Rota reports:** clashes, not on any rota, serving frequency, personal
+  serving history, not in a ministry.
+- **R3. Text messages (SMS)** for rota reminders and church messages. Only if
+  Martin says they're used (question 2). It needs a paid text service.
+- **R4. My details in the app:** change my own details and photo, my
+  communication choices, my privacy, next of kin, delete my account. Plus the
+  office's "please check your details" email.
+- **R5. A members' directory** ("Search for others"), showing only what each
+  person has chosen to share.
+- **R6. My messages:** what the church has sent me.
+- **R7. A live calendar feed of events** to subscribe to in a phone's
+  calendar, the way `rotaFeed` does for rotas. Public events for anyone;
+  members' events only with the person's own key. I can write the events
+  part if you'd rather; it needs a new file in `functions/`, which is yours.
+- **R8. A church-wide communication list and email errors**, across all
+  events.
+- **R9. Sending as a team's shared address** (e.g. the safeguarding team).
+- **R10. app.html: bump `egbc-events.js?v=` to 202610141900** (it is still
+  on 202610101800), so the app's What's On gets the church's categories.
+  Until then the app shows the built-in eight. Nothing breaks.
+
+**Proved:**
+- `parity.test.mjs`: 36 checks, at a computer's width and at 375px, signed
+  out and as a master admin.
+- Rules: 19 new checks, 1268 in all.
+- 17 deliberate breaks, all caught. The one that matters: the notices
+  letting not-listed and held events through.
+
+**Questions only Martin can answer:**
+1. Does anyone pay for event tickets **by card online** through ChurchSuite?
+   (It has a card-payments report.)
+2. Does the church send **text messages** from ChurchSuite, for rota
+   reminders or anything else?
+3. Which of the **14 rotas** should move into the hub at switch-over, and who
+   runs each one?
+4. Do members use **"Search for others"** (the members' directory) in My
+   ChurchSuite?
+5. Has anyone **subscribed to the ChurchSuite calendar** in their phone's
+   calendar?
+6. Your login only shows Calendar and Rotas. Does **anyone else** use other
+   parts: Address Book, Children (check-in and labels), Small Groups,
+   Bookings, Giving or Communication? Who could look?
+7. What is the **ChurchSuite form on the website's Giving page** for?
+8. Are **name labels printed for adults** at events (the Brother 62×29 mm
+   setting)?
+9. Does the safeguarding team **send from its shared email address**?
+10. The **Tidio chat** on the website isn't ChurchSuite. Keep it?

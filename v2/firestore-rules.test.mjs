@@ -3615,6 +3615,35 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  and the half is free again', 'allow', () => bookOn(as('samy'), KK('a10b'), BK('room_halfA', D, 600, 660), ['room_halfA']));
 }
 
+// Deleted events: what, when and who (F-178, ChurchSuite's "deleted events").
+{
+  const DEL = (by, extra) => ({ title: 'Film club (invented)', startUtc: 1, endUtc: 2, seriesId: 'ser_x', count: 3, byUid: PEOPLE[by].uid, byName: 'Someone', at: serverTimestamp(), ...(extra || {}) });
+  await check('deleted events: an admin records the series they delete', 'allow', () => setDoc(doc(as('karen'), 'calEventsDeleted', 'd1'), DEL('karen')));
+  await check('  not in somebody else\'s name', 'deny', () => setDoc(doc(as('karen'), 'calEventsDeleted', 'd2'), DEL('martin')));
+  await check('  not at a time of their choosing', 'deny', () => setDoc(doc(as('karen'), 'calEventsDeleted', 'd3'), DEL('karen', { at: 5 })));
+  await check('  not with anything else on it', 'deny', () => setDoc(doc(as('karen'), 'calEventsDeleted', 'd4'), DEL('karen', { who: ['a guest'] })));
+  await check('  somebody who is not an admin cannot write one', 'deny', () => setDoc(doc(as('samy'), 'calEventsDeleted', 'd5'), DEL('samy')));
+  await check('  an admin reads the list', 'allow', () => getDocs(collection(as('martin'), 'calEventsDeleted')));
+  await check('  nobody else does', 'deny', () => getDocs(collection(as('member'), 'calEventsDeleted')));
+  await check('  nor signed out', 'deny', () => getDoc(doc(env.unauthenticatedContext().firestore(), 'calEventsDeleted', 'd1')));
+  await check('  NOBODY CHANGES ONE, not even a master admin', 'deny', () => updateDoc(doc(as('martin'), 'calEventsDeleted', 'd1'), { byName: 'Nobody' }));
+  await check('  NOR REMOVES ONE', 'deny', () => deleteDoc(doc(as('martin'), 'calEventsDeleted', 'd1')));
+}
+
+// The church's own event categories (F-178).
+{
+  const CAT = (extra) => ({ name: 'Art Club', colour: '#aa3366', order: 3, retired: false, ...(extra || {}) });
+  await check('event categories: an admin adds one', 'allow', () => setDoc(doc(as('karen'), 'eventCategories', 'art-club'), CAT()));
+  await check('  and retires it', 'allow', () => setDoc(doc(as('karen'), 'eventCategories', 'art-club'), CAT({ retired: true })));
+  await check('  somebody who is not an admin cannot', 'deny', () => setDoc(doc(as('samy'), 'eventCategories', 'samy-cat'), CAT()));
+  await check('  not with a colour that is not a colour', 'deny', () => setDoc(doc(as('karen'), 'eventCategories', 'bad-colour'), CAT({ colour: 'red; x' })));
+  await check('  not with no name', 'deny', () => setDoc(doc(as('karen'), 'eventCategories', 'no-name'), CAT({ name: '' })));
+  await check('  not with anything else on it', 'deny', () => setDoc(doc(as('karen'), 'eventCategories', 'extra'), CAT({ who: 'x' })));
+  await check('  not under an id that is not a plain word', 'deny', () => setDoc(doc(as('karen'), 'eventCategories', 'Art Club!'), CAT()));
+  await check('  NOBODY DELETES ONE, not even a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'eventCategories', 'art-club')));
+  await check('  anyone reads them, signed out too (What\'s on shows them)', 'allow', () => getDocs(collection(env.unauthenticatedContext().firestore(), 'eventCategories')));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

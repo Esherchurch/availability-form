@@ -3891,6 +3891,41 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- deleted events: what, when, and who deleted them (F-178) -------
+    // ChurchSuite's "deleted events" report. Written by events-admin just
+    // before it deletes a series; only an admin may write one, in their own
+    // name and at the server's time; nobody may change or remove one.
+    match /calEventsDeleted/{delId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['title', 'startUtc', 'endUtc', 'seriesId', 'count', 'byUid', 'byName', 'at'])
+                    && request.resource.data.title is string && request.resource.data.title.size() <= 300
+                    && request.resource.data.startUtc is number && request.resource.data.get('endUtc', 0) is number
+                    && request.resource.data.get('seriesId', '') is string
+                    && request.resource.data.count is int && request.resource.data.count >= 1 && request.resource.data.count <= 1000
+                    && request.resource.data.byUid == request.auth.uid
+                    && request.resource.data.byName is string && request.resource.data.byName.size() <= 200
+                    && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
+
+    // ---- the church's own event categories (F-178) ----------------------
+    // A name, a colour, an order and "retired". Anyone may read them: the
+    // public What's on shows an event's category. Admins write them. None
+    // is ever deleted - retired instead - so no event loses its category.
+    function categoryShape() {
+      return request.resource.data.keys().hasOnly(['name', 'colour', 'order', 'retired'])
+          && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 40
+          && request.resource.data.colour is string && request.resource.data.colour.matches('#[0-9a-f]{6}')
+          && request.resource.data.order is int && request.resource.data.order >= 0 && request.resource.data.order <= 500
+          && request.resource.data.retired is bool;
+    }
+    match /eventCategories/{catId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && catId.matches('[a-z0-9-]{1,40}') && categoryShape();
+      allow delete: if false;
+    }
+
     // ---- the picture library (Martin, 14 Oct 2026) ----------------------
     // One shared store of pictures, each with a name and tags. Events point
     // to a picture (calEvents.imageLibId) rather than copying it. Anyone

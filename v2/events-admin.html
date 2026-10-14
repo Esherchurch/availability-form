@@ -17,7 +17,7 @@
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610141200"></script>
+<script src="egbc-events.js?v=202610141900"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
@@ -131,6 +131,43 @@
     <label for="emb-month" style="display:block;font-weight:500;margin:14px 0 4px">A month calendar</label>
     <textarea id="emb-month" readonly style="width:100%;min-height:70px;font:13px ui-monospace,Consolas,monospace;border:1px solid var(--line-2,#d1d5db);border-radius:8px;padding:8px"></textarea>
     <button class="btn sec" data-copy="emb-month" style="margin-top:6px">Copy</button>
+    <label for="emb-featured" style="display:block;font-weight:500;margin:14px 0 4px">Featured events, with their pictures</label>
+    <textarea id="emb-featured" readonly style="width:100%;min-height:70px;font:13px ui-monospace,Consolas,monospace;border:1px solid var(--line-2,#d1d5db);border-radius:8px;padding:8px"></textarea>
+    <button class="btn sec" data-copy="emb-featured" style="margin-top:6px">Copy</button>
+  </details>
+
+  <!-- For the notices (F-178): ChurchSuite's "event details for a notice
+       sheet" report. The events in the weeks picked, as plain words to paste
+       into the notice sheet or a church email. -->
+  <details class="card" id="notices" style="margin-top:14px">
+    <summary style="cursor:pointer;font-weight:600;color:var(--ink);min-height:40px;display:flex;align-items:center">For the notices</summary>
+    <p class="hint">The events in the weeks you pick, ready to paste into the notice sheet or a church email. Events that are not listed, not public yet, or cancelled are left out.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:8px">
+      <div><label for="nt-from" style="display:block;font-weight:500;margin-bottom:4px">Starting</label><select id="nt-from" style="min-height:44px"></select></div>
+      <div><label for="nt-weeks" style="display:block;font-weight:500;margin-bottom:4px">For</label><select id="nt-weeks" style="min-height:44px"><option value="1">1 week</option><option value="2">2 weeks</option><option value="4">4 weeks</option></select></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="checkbox" id="nt-more"> Also church-members-only and team events</label>
+    <label style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="checkbox" id="nt-desc"> Add a line about each event</label>
+    <label for="nt-text" style="display:block;font-weight:500;margin:6px 0 4px">The notices</label>
+    <textarea id="nt-text" readonly style="width:100%;min-height:180px;font:14px/1.5 Inter,system-ui,sans-serif;border:1px solid var(--line-2,#d1d5db);border-radius:8px;padding:8px"></textarea>
+    <button class="btn sec" id="nt-copy" style="margin-top:6px">Copy</button>
+    <button class="btn sec" id="nt-save" style="margin-top:6px">Download</button>
+  </details>
+
+  <!-- Deleted events (F-178): ChurchSuite's "deleted events" report. -->
+  <details class="card" id="deleted" style="margin-top:14px">
+    <summary style="cursor:pointer;font-weight:600;color:var(--ink);min-height:40px;display:flex;align-items:center">Deleted events</summary>
+    <p class="hint">Every series deleted from here: what it was, its first date, and who deleted it when. Nobody can change or remove this list.</p>
+    <div id="del-list"><p class="hint">Open to see the list.</p></div>
+  </details>
+
+  <!-- The church's own event categories (F-178; ChurchSuite has them). -->
+  <details class="card" id="catsCard" style="margin-top:14px">
+    <summary style="cursor:pointer;font-weight:600;color:var(--ink);min-height:40px;display:flex;align-items:center">Event categories</summary>
+    <p class="hint">Each event has one category. It gives the event its colour and the filters on What's On. Rename, recolour or add your own. A category can't be deleted: retire it instead. It's then not offered for new events, and events already in it keep it.</p>
+    <div id="cat-list"></div>
+    <button class="btn sec" id="cat-add" style="margin-top:8px">Add a category</button>
+    <button class="btn" id="cat-save" style="margin-top:8px">Save categories</button>
   </details>
 </div>
 <div id="toast"></div>
@@ -140,6 +177,7 @@
   var frame = function (q, h) { return '<iframe src="' + base + q + '" title="What&#39;s on" style="width:100%;height:' + h + 'px;border:0" loading="lazy"></iframe>'; };
   document.getElementById('emb-list').value = frame('', 700);
   document.getElementById('emb-month').value = frame('?view=month', 900);
+  document.getElementById('emb-featured').value = frame('?view=featured', 520);
   document.querySelectorAll('[data-copy]').forEach(function (b) {
     b.onclick = function () {
       var t = document.getElementById(b.getAttribute('data-copy')); t.select();
@@ -296,7 +334,7 @@
       '<div class="two">' +
         '<div class="field"><label for="f_title">Title</label><input class="inp" id="f_title" value="' + esc(CUR.title) + '" maxlength="140"></div>' +
         '<div class="field" style="max-width:220px"><label for="f_cat">Category</label><select id="f_cat">' +
-          E.CATEGORIES.map(function (c) { return '<option value="' + c.id + '"' + (CUR.category === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
+          E.CATEGORIES.filter(function (c) { return !c.retired || CUR.category === c.id; }).map(function (c) { return '<option value="' + c.id + '"' + (CUR.category === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
         '</select></div>' +
       '</div>' +
       '<div class="field"><label>Description</label><div id="f_desc"></div></div>' +
@@ -1319,6 +1357,15 @@
   function deleteSeries() {
     if (!confirm('Delete every date in this series? Sign-ups are not deleted.')) return;
     db().collection('calEvents').where('seriesId', '==', CUR.seriesId).get().then(function (snap) {
+      /* What, when and who, written FIRST (F-178): if it cannot be written,
+         nothing is deleted. */
+      var first = snap.docs.map(function (d) { return d.data(); }).sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); })[0] || CUR;
+      return db().collection('calEventsDeleted').add({
+        title: String(first.title || CUR.title || 'Event').slice(0, 300), startUtc: first.startUtc || 0, endUtc: first.endUtc || 0,
+        seriesId: CUR.seriesId, count: Math.max(1, snap.size), byUid: uid(),
+        byName: String((EGBCAuth.profile() || {}).name || '').slice(0, 200), at: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(function () { return snap; });
+    }).then(function (snap) {
       /* Their rooms are given back first. */
       return snap.docs.reduce(function (p, d) { return p.then(function () { return B.freeEvent(d.id, roomsById(), 'The event was deleted.'); }); }, Promise.resolve())
         .then(function () { return snap; });
@@ -1327,6 +1374,7 @@
     }).then(function () {
       toast('Series deleted.');
       document.getElementById('editor').innerHTML = '';
+      drawDeleted();
       return refresh();
     }).catch(function (e) { toast('Could not delete: ' + (e.message || e)); });
   }
@@ -1337,6 +1385,121 @@
     }).catch(function () { window.__TPL = []; });
   }
 
+  /* ---- For the notices (F-178) ----
+     ChurchSuite's "event details for a notice sheet": the events in the
+     weeks picked, as plain words. Everyone and attenders' events by default;
+     church-members-only and team events only when ticked. Never a not-listed,
+     held or cancelled one. */
+  var NT_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var NT_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function ntDay(d) { return NT_DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + NT_MONTHS[d.getMonth()]; }
+  function ntStarts() {
+    var t = new Date(); t.setHours(0, 0, 0, 0);
+    var out = [[t.getTime(), 'Today, ' + ntDay(t)]], s = new Date(t);
+    s.setDate(s.getDate() + ((7 - s.getDay()) % 7 || 7));
+    for (var i = 0; i < 8; i++) { out.push([s.getTime(), ntDay(s)]); s = new Date(s); s.setDate(s.getDate() + 7); }
+    return out;
+  }
+  function ntText(list, from, to, more, desc) {
+    var ok = more ? ['public', 'members', 'churchMembers', 'team'] : ['public', 'members'];
+    var rows = list.filter(function (e) {
+      return e.startUtc >= from && e.startUtc < to && ok.indexOf(e.visibility || 'members') >= 0 &&
+        e.status !== 'pending' && e.status !== 'cancelled';
+    }).sort(function (a, b) { return a.startUtc - b.startUtc; });
+    if (!rows.length) return 'No events in these weeks.';
+    var out = [], day = '';
+    rows.forEach(function (e) {
+      var s = new Date(e.startUtc), en = e.endUtc ? new Date(e.endUtc) : null, d = ntDay(s);
+      if (d !== day) { if (out.length) out.push(''); out.push(d); day = d; }
+      var when = e.allDay ? 'All day' : E.fmtTime(s) + (en && en.toDateString() === s.toDateString() ? '–' + E.fmtTime(en) : '');
+      var where = E.locationText(e, LOOK);
+      out.push('• ' + when + '  ' + (e.title || 'Event') + (where ? ' (' + where + ')' : ''));
+      if (desc && e.description) {
+        var box = document.createElement('div'); box.innerHTML = e.description;
+        var words = (box.textContent || '').replace(/\s+/g, ' ').trim();
+        if (words) out.push('  ' + (words.length > 160 ? words.slice(0, 157).replace(/\s+\S*$/, '') + '…' : words));
+      }
+    });
+    return out.join('\n');
+  }
+  function drawNotices() {
+    var sel = document.getElementById('nt-from'); if (!sel) return;
+    if (!sel.options.length) sel.innerHTML = ntStarts().map(function (o, i) { return '<option value="' + o[0] + '"' + (i === 1 ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
+    var from = +sel.value, weeks = +document.getElementById('nt-weeks').value || 1;
+    var to = new Date(from); to.setDate(to.getDate() + 7 * weeks);
+    document.getElementById('nt-text').value = ntText(ALL, from, to.getTime(), document.getElementById('nt-more').checked, document.getElementById('nt-desc').checked);
+  }
+  ['nt-from', 'nt-weeks', 'nt-more', 'nt-desc'].forEach(function (id) { var el = document.getElementById(id); if (el) el.onchange = drawNotices; });
+  document.getElementById('nt-copy').onclick = function () {
+    var t = document.getElementById('nt-text'), b = this; t.select();
+    (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).catch(function () { document.execCommand('copy'); })
+      .then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 2000); });
+  };
+  document.getElementById('nt-save').onclick = function () {
+    var a = document.createElement('a'), sel = document.getElementById('nt-from');
+    a.href = URL.createObjectURL(new Blob([document.getElementById('nt-text').value], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'Notices from ' + sel.options[sel.selectedIndex].text.replace(/^Today, /, '') + '.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  /* ---- Deleted events (F-178): the newest 50, read when the card opens. */
+  function drawDeleted() {
+    var box = document.getElementById('del-list'), card = document.getElementById('deleted');
+    if (!box || !card || !card.open) return;
+    db().collection('calEventsDeleted').orderBy('at', 'desc').limit(50).get().then(function (s) {
+      box.innerHTML = s.empty ? '<p class="hint">Nothing has been deleted.</p>' : '<table><thead><tr><th>Event</th><th>Deleted</th></tr></thead><tbody>' + s.docs.map(function (d) {
+        var x = d.data(), at = x.at && x.at.toDate ? x.at.toDate() : null;
+        return '<tr data-del="' + esc(d.id) + '"><td>' + esc(x.title) + '<br><span class="hint">' + esc(x.startUtc ? E.fmtDate(x.startUtc) : '') + (x.count > 1 ? ' and ' + (x.count - 1) + ' more date' + (x.count === 2 ? '' : 's') : '') + '</span></td>' +
+          '<td>' + esc(x.byName || 'Someone') + '<br><span class="hint">' + esc(at ? E.fmtDate(at) + ', ' + E.fmtTime(at) : '') + '</span></td></tr>';
+      }).join('') + '</tbody></table>';
+    }).catch(function (e) { box.innerHTML = '<p class="hint">The list could not be loaded: ' + esc(e.message || String(e)) + '</p>'; });
+  }
+  document.getElementById('deleted').addEventListener('toggle', drawDeleted);
+
+  /* ---- The church's own event categories (F-178). Saving writes the whole
+     list, in order; the first save turns the built-in eight into the
+     church's own, so events already in them keep their category. */
+  var CATDRAFT = null;
+  function drawCatCard() {
+    var box = document.getElementById('cat-list'); if (!box) return;
+    if (!CATDRAFT) CATDRAFT = E.CATEGORIES.map(function (c) { return { id: c.id, name: c.name, colour: c.colour, retired: !!c.retired }; });
+    box.innerHTML = CATDRAFT.map(function (c, i) {
+      return '<div data-cat="' + esc(c.id || 'new') + '" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line)">' +
+        '<input type="color" aria-label="Colour" data-i="' + i + '" data-k="colour" value="' + esc(c.colour) + '" style="width:44px;height:44px;border:0;padding:0;background:none">' +
+        '<input class="inp" aria-label="Category name" data-i="' + i + '" data-k="name" value="' + esc(c.name) + '" maxlength="40" style="flex:1;min-width:140px' + (c.retired ? ';opacity:.6' : '') + '">' +
+        (c.retired ? '<span class="hint">Retired</span>' : '') +
+        '<button class="btn sec" data-retire="' + i + '">' + (c.retired ? 'Bring back' : 'Retire') + '</button></div>';
+    }).join('');
+    box.querySelectorAll('input[data-i]').forEach(function (inp) { inp.oninput = function () { CATDRAFT[+inp.getAttribute('data-i')][inp.getAttribute('data-k')] = inp.value; }; });
+    box.querySelectorAll('[data-retire]').forEach(function (b) { b.onclick = function () { var c = CATDRAFT[+b.getAttribute('data-retire')]; c.retired = !c.retired; drawCatCard(); }; });
+  }
+  document.getElementById('cat-add').onclick = function () {
+    if (!CATDRAFT) drawCatCard();
+    CATDRAFT.push({ id: '', name: '', colour: '#6b7280', retired: false }); drawCatCard();
+    var ins = document.querySelectorAll('#cat-list input[data-k="name"]'); ins[ins.length - 1].focus();
+  };
+  document.getElementById('cat-save').onclick = function () {
+    if (!CATDRAFT) drawCatCard();
+    var bad = '';
+    CATDRAFT.forEach(function (c) {
+      c.name = String(c.name || '').trim().slice(0, 40);
+      if (!c.name) bad = 'Every category needs a name.';
+      if (!/^#[0-9a-fA-F]{6}$/.test(c.colour)) c.colour = '#6b7280';
+    });
+    if (bad) { toast(bad); return; }
+    CATDRAFT.forEach(function (c) {
+      if (c.id) return;
+      var base = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'category', id = base, n = 2;
+      while (CATDRAFT.some(function (o) { return o !== c && o.id === id; })) id = base + '-' + n++;
+      c.id = id;
+    });
+    var b = db().batch();
+    CATDRAFT.forEach(function (c, i) { b.set(db().collection('eventCategories').doc(c.id), { name: c.name, colour: c.colour.toLowerCase(), order: i, retired: !!c.retired }); });
+    b.commit().then(function () { return E.loadCategories(true); }).then(function () { CATDRAFT = null; drawCatCard(); toast('Categories saved.'); })
+      .catch(function (e) { toast('Could not save the categories: ' + (e.message || e)); });
+  };
+  document.getElementById('catsCard').addEventListener('toggle', function () { if (this.open) { CATDRAFT = null; drawCatCard(); } });
+
   function refresh() {
     /* Everything, not just what is coming up: the admin list has a past
        view, and `audience` already decides what this person may read. */
@@ -1346,7 +1509,7 @@
     return db().collection('calEvents').where('audience', 'array-contains-any', ['unlisted'].concat(E.myAudiences()).slice(0, 30)).get()
       .then(function (snap) {
         ALL = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-        drawList();
+        drawList(); drawNotices();
       });
   }
 
