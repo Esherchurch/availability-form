@@ -325,14 +325,15 @@
       '<button class="btn" id="care-save">Save who gets told</button>';
     document.querySelectorAll('[data-add]').forEach(function (b) {
       b.onclick = function () {
-        var k = b.getAttribute('data-add'), v = document.getElementById('add-' + k).value.trim().toLowerCase();
-        var id = Object.keys(BOOK).filter(function (x) { return BOOK[x].name.toLowerCase() === v; })[0];
-        if (!id) { toast('Pick somebody from the list.'); return; }
-        keepEmails();
-        R[k] = R[k] || { memberIds: [], email: '' };
-        if (R[k].memberIds.indexOf(id) === -1) R[k].memberIds.push(id);
+        var k = b.getAttribute('data-add');
+        if (!takeTyped(k)) { toast('Pick somebody from the list.'); return; }
         drawCare();
       };
+      /* Picking a name from the list adds it straight away: Martin picked
+         names, pressed Save, and they were lost because Add was never pressed
+         (14 Oct 2026). */
+      var inp = document.getElementById('add-' + b.getAttribute('data-add'));
+      inp.addEventListener('change', function () { if (takeTyped(b.getAttribute('data-add'))) drawCare(); });
     });
     document.querySelectorAll('[data-rm]').forEach(function (b) {
       b.onclick = function () {
@@ -350,7 +351,27 @@
       if (el) { R[k[0]] = R[k[0]] || { memberIds: [], email: '' }; R[k[0]].email = el.value.trim().toLowerCase(); }
     });
   }
+  /* A name typed or picked in kind k's box, if it matches the address book:
+     added to that kind. True when one was added. */
+  function takeTyped(k) {
+    var el = document.getElementById('add-' + k), v = el ? el.value.trim().toLowerCase() : '';
+    if (!v) return false;
+    var id = Object.keys(BOOK).filter(function (x) { return BOOK[x].name.toLowerCase() === v; })[0];
+    if (!id) return false;
+    keepEmails();
+    R[k] = R[k] || { memberIds: [], email: '' };
+    R[k].memberIds = R[k].memberIds || [];
+    if (R[k].memberIds.indexOf(id) === -1) R[k].memberIds.push(id);
+    el.value = '';
+    return true;
+  }
   function saveCare() {
+    /* A name still sitting in a box is part of what was meant: add it, or
+       say so, rather than dropping it without a word. */
+    for (var j = 0; j < CARE_KINDS.length; j++) {
+      var box = document.getElementById('add-' + CARE_KINDS[j][0]);
+      if (box && box.value.trim() && !takeTyped(CARE_KINDS[j][0])) { toast('“' + box.value.trim() + '” is not in the address book: pick somebody from the list.'); return; }
+    }
     keepEmails();
     var office = String(D.enquiryEmail || '').trim().toLowerCase(), isOffice = false;
     for (var i = 0; i < CARE_KINDS.length; i++) {
