@@ -174,14 +174,12 @@
         .catch(function () { btn.disabled = false; global.alert('Could not: please try again.'); });
       return;
     }
-    if (a.indexOf('screen:') === 0) {
-      var c = child(a.slice(7)), ck = ckOf(c), g = group(c && c.groupId);
-      if (!ck || !g) return;
-      btn.disabled = true;
-      db().collection('screenPages').doc(ck.id).set({ siteId: ck.siteId, code: ck.pickupCode, room: g.name.slice(0, 80), message: ck.pickupCode + ', please come to ' + g.name,
-        createdBy: uid(), createdAt: firebase.firestore.FieldValue.serverTimestamp(), clearedAt: null }).catch(function () { btn.disabled = false; global.alert('Could not show it on the screen.'); });
-      return;
-    }
+    /* "Show on screen" is OFF in the app until F-175 lands here (the screen
+       number, the last-resort confirm step, the church's setting). It used to
+       put the COLLECTION CODE on the screen, which lets someone take a child
+       home (reviewing window, Martin's rule, 14 Oct 2026). Never write
+       pickupCode to screenPages. */
+    if (a.indexOf('screen:') === 0) return;
     /* Call the parents' phones (§23): the function sends the group and the
        code only, to the family's own phones, and emails anyone with none. */
     if (a.indexOf('phone:') === 0) {
@@ -255,8 +253,8 @@
       var c = child(x.childId), g = group(x.groupId), on = pages.filter(function (p) { return p.id === x.ck.id; })[0];
       return '<div class="card" data-call="' + esc(x.childId) + '" style="padding:12px;margin:6px 0"><b>' + esc(x.name) + '</b> <small>' + esc(g ? g.name : '') + '</small>' +
         (on ? '<p style="margin:6px 0" data-k="onscreen"><b>On the screen now:</b> ' + esc(on.message) + '</p><div class="actions">' + btn('done:' + on.id, 'Done: the parent is here', true) + '</div>'
-            : '<div class="actions">' + btn('screen:' + x.childId, H.ic('monitor', 15) + ' Show on screen', true) +
-              (global.EGBCNotify ? btn('phone:' + x.ck.id, H.ic('bell-ring', 15) + ' Call on their phone') : '') +
+            : '<div class="actions">' +
+              (global.EGBCNotify ? btn('phone:' + x.ck.id, H.ic('bell-ring', 15) + ' Call on their phone', true) : '') +
               (c && c.phone ? '<a class="btn" style="min-height:48px;text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="tel:' + esc(tel(c.phone)) + '">' + H.ic('phone', 15) + ' Ring</a>' : '') + '</div>') +
         (CALLS[x.ck.id] ? '<p class="sub" style="margin:6px 0 0" data-k="called">' + esc(CALLS[x.ck.id]) + '</p>' : '') + '</div>';
     });
