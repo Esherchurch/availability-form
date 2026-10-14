@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610141900"></script>
+<script src="egbc-events.js?v=202610142100"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -62,6 +62,8 @@
   var E = window.EGBCEvents, esc = E.esc;
   var KEY = new URLSearchParams(location.search).get('key') || '';
   var SU = null, EV = null, WHERE = '';
+  /* Pay on the day (F-183): what is owed, and whether it has been paid. */
+  var TT = [], PAY = null;
 
   function draw() {
     var cancelled = SU.status === 'cancelled';
@@ -86,6 +88,11 @@
           ((SU.attendees || []).length
             ? '<div class="row"><span class="k">Who is coming</span><span class="v">' +
               SU.attendees.map(function (a) { return esc(a.name); }).join('<br>') + '</span></div>' : '') +
+          (function () {
+            var due = E.toPay(SU, TT);
+            if (PAY && PAY.paid) return '<div class="row" id="paid"><span class="k">Paid</span><span class="v">' + E.money(PAY.amount) + '</span></div>';
+            return due ? '<div class="row" id="due"><span class="k">To pay on the day</span><span class="v">' + E.money(due) + '</span></div>' : '';
+          })() +
           (SU.notes ? '<div class="row"><span class="k">Your note</span><span class="v">' + esc(SU.notes) + '</span></div>' : '') +
         '</div>' +
         '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">' +
@@ -151,9 +158,11 @@
   }).then(function (s) {
     if (!s.exists) throw new Error('not found');
     SU = s.data();
-    return Promise.all([E.load(SU.calEventId).catch(function () { return null; }), E.lookups()]);
+    return Promise.all([E.load(SU.calEventId).catch(function () { return null; }), E.lookups(),
+      EGBCAuth.db.collection('signupPayments').doc(KEY).get().catch(function () { return null; })]);
   }).then(function (r) {
-    if (r[0]) { EV = r[0].ev; WHERE = E.locationText(EV, r[1]); }
+    if (r[0]) { EV = r[0].ev; WHERE = E.locationText(EV, r[1]); TT = r[0].ticketTypes || []; }
+    PAY = r[2] && r[2].exists ? r[2].data() : null;
     draw();
   }).catch(function () {
     document.getElementById('wrap').innerHTML =

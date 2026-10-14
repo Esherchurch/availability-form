@@ -5088,3 +5088,39 @@ get "Subscribe":
 - "Add to Google Calendar", Apple / Outlook (`webcal://`) and Copy link
 - for everything or chosen categories
 - signed in, "my events" with the person's own key and a Reset
+
+### F-183 — Pay on the day: ChurchSuite's "pay on arrival" tickets, done properly
+Before this, a ticket had a price and nothing else: no total, nothing in the
+email, and no way to mark it paid at the door.
+- **Sign-up page:** "To pay on the day: £10.00". It changes as tickets and
+  people change, and shows again on the thank-you.
+- **Confirmation email:** "To pay on the day: £10.00", made by the server
+  from the event's own ticket types (`functions/public-mail.js`).
+  **Needs the functions deployed by Martin.** Until then the email is as
+  before.
+- **"My place":** what's owed, or "Paid £10.00" once paid.
+- **At the door** (checkin.html, for admins and the event's leaders):
+  - "£10.00 to pay" appears once per booking, on its first person.
+  - Pressing it asks how it was paid: Cash, Card, Bank transfer or Other.
+  - Then it reads "Paid £10.00". "Not paid after all" undoes it.
+- **Events › Who is coming:** a "To pay" column (an amount, or "Paid
+  £10.00") and the event's totals: "£10.00 paid, £5.00 still to pay".
+- What's owed is worked out from the event's ticket types each time, never
+  stored on the sign-up, so a price corrected later is what the door sees.
+  A waiting-list or cancelled place owes nothing.
+- **New rule `signupPayments/{signup key}`, in my section:**
+  - Admins and the event's leaders write, for a sign-up that really is for
+    that event, in their own name, at the server's time.
+  - The key-holder reads their own. Admins and leaders list. Nobody
+    deletes.
+  - **Not deployed.**
+
+**Proved:**
+- `pay-on-day.test.mjs` 18/18.
+- `public-mail.test.mjs` 42/42 (the email says £12.00 for 2 at £6).
+- Rules: 13 new, 1327 in all.
+- 7 deliberate breaks, all caught. The one that matters: a payment filed
+  against a sign-up to a different event. My first rules test missed it,
+  because it used someone who wasn't that event's leader anyway. A sharper
+  check (an admin, so only the "same event" test refuses it) now catches
+  it.

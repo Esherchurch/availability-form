@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
-<script src="egbc-events.js?v=202610141900"></script>
+<script src="egbc-events.js?v=202610142100"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <script src="egbc-events-safeguarding.js?v=202610111200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -120,6 +120,8 @@
   var EVID = params.get('event') || '';
   var VIEW = params.get('view') || '';
   var EV = null, QS = [], SIGNUPS = [], CHECKINS = [], SETTINGS = {}, LOOK = { sites: {}, rooms: {}, venues: {} };
+  /* Pay on the day (F-183): the ticket types, and who has paid. */
+  var TT = [], PAYS = {};
   var ROWS = [], FILTER = '', OPEN_FLAGS = {}, SCANNING = false, STREAM = null, LAST = { code: '', at: 0 }, SCANMSG = '';
   /* Stage 3: event leaders who are not admins use this page too, and the
      children's consent forms add collectors and medical flags. */
@@ -281,7 +283,7 @@
       return '<div class="row" data-row="' + esc(r.id) + '">' +
         '<span class="ib ' + (state === 'in' ? 'in' : state === 'out' ? 'out' : '') + '">' + ico(state === 'in' ? 'check' : state === 'out' ? 'log-out' : 'user', 16) + '</span>' +
         '<span class="who"><span class="n">' + esc(r.name) + '</span>' + flags +
-          (r.walkIn ? '<span class="flag info">Walk-in</span>' : '') + '<br>' +
+          (r.walkIn ? '<span class="flag info">Walk-in</span>' : '') + payFlag(r) + '<br>' +
           '<span class="m">' + line + '</span>' +
           (OPEN_FLAGS[r.id] ? r.flags.map(function (fl) { return '<div class="flagtext"><strong>' + esc(fl.label) + ':</strong> ' + esc(fl.value) + '</div>'; }).join('') : '') +
         '</span>' +
@@ -290,6 +292,39 @@
           : '<button class="btn sm act" data-id="' + esc(r.id) + '">Check in</button>') +
       '</div>';
     }).join('');
+  }
+
+  /* Once per booking, on its first person: what is owed, or that it is paid. */
+  function dueOf(r) {
+    if (!r.signupKey || r.index) return 0;
+    var su = SIGNUPS.filter(function (s) { return s.key === r.signupKey; })[0];
+    return su ? E.toPay(su, TT) : 0;
+  }
+  function payFlag(r) {
+    var due = dueOf(r); if (!due) return '';
+    var p = PAYS[r.signupKey];
+    return p && p.paid
+      ? '<button class="flag info pay" data-pay="' + esc(r.signupKey) + '" title="Change">' + ico('check', 12) + 'Paid ' + E.money(p.amount) + '</button>'
+      : '<button class="flag warn pay" data-pay="' + esc(r.signupKey) + '">' + ico('banknote', 12) + E.money(due) + ' to pay</button>';
+  }
+  function payModal(key) {
+    var r = ROWS.filter(function (x) { return x.signupKey === key && !x.index; })[0]; if (!r) return;
+    var due = dueOf(r), p = PAYS[key] || {};
+    modal('<h3>' + ico('banknote', 18) + esc(r.bookedBy || r.name) + ': ' + E.money(due) + '</h3>' +
+      '<label>How was it paid?</label>' + [['cash', 'Cash'], ['card', 'Card'], ['bank', 'Bank transfer'], ['other', 'Other']].map(function (m, i) {
+        return '<label class="radio" style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="radio" name="payHow" value="' + m[0] + '"' + ((p.method || 'cash') === m[0] ? ' checked' : '') + '>' + m[1] + '</label>';
+      }).join('') +
+      '<div class="foot">' + (p.paid ? '<button class="btn ghost" id="payNo">Not paid after all</button>' : '<button class="btn sec" data-close>Cancel</button>') +
+      '<button class="btn" id="payGo">Paid ' + E.money(due) + '</button></div>');
+    function save(paid) {
+      var how = (document.querySelector('input[name="payHow"]:checked') || {}).value || '';
+      var u = EGBCAuth.user() || {}, pr = EGBCAuth.profile() || {};
+      return db().collection('signupPayments').doc(key).set({ calEventId: EVID, paid: paid, amount: paid ? due : 0, method: paid ? how : '',
+        by: u.uid || '', byName: String(pr.name || '').slice(0, 120), at: firebase.firestore.FieldValue.serverTimestamp() })
+        .then(function () { closeModal(); toast(paid ? 'Paid ' + E.money(due) + '.' : 'Marked not paid.'); }, fail('save the payment'));
+    }
+    document.getElementById('payGo').onclick = function () { save(true); };
+    if (document.getElementById('payNo')) document.getElementById('payNo').onclick = function () { save(false); };
   }
 
   function redrawPeople() {
@@ -321,6 +356,7 @@
     document.querySelectorAll('.act').forEach(function (b) {
       b.onclick = function () { act(b.getAttribute('data-id')); };
     });
+    document.querySelectorAll('[data-pay]').forEach(function (b) { b.onclick = function () { payModal(b.getAttribute('data-pay')); }; });
     document.querySelectorAll('[data-flag]').forEach(function (b) {
       b.onclick = function () { var id = b.getAttribute('data-flag'); OPEN_FLAGS[id] = !OPEN_FLAGS[id]; redrawPeople(); };
     });
@@ -651,7 +687,7 @@
       ]);
     }).then(function (r) {
       if (!r[0]) throw new Error('That event could not be found.');
-      EV = r[0].ev; QS = r[0].questions; LOOK = r[1];
+      EV = r[0].ev; QS = r[0].questions; LOOK = r[1]; TT = r[0].ticketTypes || [];
       SETTINGS = r[2].exists ? r[2].data() : {};
       var site = (EV.location || {}).siteId || '';
       SG.formsForEvent(EVID, [site].concat(r[3] || [])).then(function (fi) {
@@ -669,6 +705,10 @@
         SIGNUPS = snap.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); });
         first.s = true; maybeDraw();
       }, function (e) { toast('Could not load the sign-ups: ' + e.message); });
+      db().collection('signupPayments').where('calEventId', '==', EVID).onSnapshot(function (snap) {
+        PAYS = {}; snap.docs.forEach(function (d) { PAYS[d.id] = d.data(); });
+        if (first.s && first.c) redrawPeople();
+      }, function () { /* not allowed: no payments shown */ });
       db().collection('checkins').where('calEventId', '==', EVID).onSnapshot(function (snap) {
         CHECKINS = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
         first.c = true; maybeDraw();

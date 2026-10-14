@@ -251,8 +251,10 @@ export const handlers = {
     for (const r of (loc.roomIds || [])) look.rooms[r] = ((await data(db, 'rooms', r)) || {}).name || '';
     if (loc.venueId) look.venues[loc.venueId] = ((await data(db, 'venues', loc.venueId)) || {}).name || '';
     const P = pages(await setting(db, hub));
+    /* F-183: what is owed on the day, from the event's own ticket types. */
+    const tts = (await db.collection('calEvents').doc(doc.calEventId).collection('ticketTypes').get()).docs.map(d => ({ id: d.id, ...d.data() }));
     const mail = P.E.confirmationEmail({ ev, where: P.E.locationText(ev, look), email: doc.email, name: doc.name,
-      places: doc.places, attendees: doc.attendees || [], manageKey: key, status: doc.status });
+      places: doc.places, attendees: doc.attendees || [], manageKey: key, status: doc.status, toPay: P.E.toPay(doc, tts) });
     return { sent: [await send(mail, { source: 'public-mail', kind: 'signup', ref: key })] };
   },
 

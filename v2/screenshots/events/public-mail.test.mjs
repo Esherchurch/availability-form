@@ -164,13 +164,15 @@ try {
   set('formRequests', 'fr_pm', { formTitle: 'Test consent', name: 'Pam Parent (invented)', email: 'pam@example.invalid', status: 'sent', formId: 'f_pm' });
   set('formRequests', 'fr_pm2', { formTitle: 'Test consent', name: 'Pat Parent (invented)', email: 'pat@example.invalid', status: 'sent', formId: 'f_pm' });
   set('sensitiveResponses', 'SENSITIVEKEY123', { requestKey: 'fr_pm', responseId: 'resp_pm', answers: {} });
+  /* F-183: a priced ticket, so the email says what to pay on the day. */
+  seed.set(db.collection('calEvents').doc('ev_pm').collection('ticketTypes').doc('tt_pm'), { name: 'Adult', price: 6, capacity: 0, order: 1 });
   await seed.commit();
   await sleep(1500);
 
   const SK = 'signupkey' + 'a'.repeat(23), WK = 'w_' + 'b'.repeat(30);
   const hire = { kind: 'hire', roomId: 'room_pm', siteId: 'site_pm', startMin: 600, endMin: 660, title: 'Test toddler group', status: 'requested', requester: { name: 'Hal Hirer (invented)', email: 'hirer@example.invalid', org: 'Invented Tots' } };
   const w = db.batch();
-  w.set(db.collection('signups').doc(SK), { calEventId: 'ev_pm', personKind: 'contacts', personId: 'c_x', name: 'Sue Signup (invented)', email: 'sue@example.invalid', phone: '', attendees: [{ name: 'Sue Signup (invented)' }, { name: 'Sam Signup (invented)' }], answers: {}, places: 2, ticketTypeId: '', status: 'confirmed', donation: 0, notes: '', memberUid: '', createdAt: new Date().toISOString() });
+  w.set(db.collection('signups').doc(SK), { calEventId: 'ev_pm', personKind: 'contacts', personId: 'c_x', name: 'Sue Signup (invented)', email: 'sue@example.invalid', phone: '', attendees: [{ name: 'Sue Signup (invented)' }, { name: 'Sam Signup (invented)' }], answers: {}, places: 2, ticketTypeId: 'tt_pm', status: 'confirmed', donation: 0, notes: '', memberUid: '', createdAt: new Date().toISOString() });
   w.set(db.collection('signups').doc(WK), { calEventId: 'ev_pm', personKind: 'contacts', personId: 'c_y', name: 'Walter Walkin (invented)', email: 'walter@example.invalid', phone: '', attendees: [{ name: 'Walter Walkin (invented)' }], answers: {}, places: 1, ticketTypeId: '', status: 'confirmed', donation: 0, notes: 'Walk-in at the door', memberUid: '', createdAt: new Date().toISOString() });
   w.set(db.collection('checkins').doc('ev_pm__' + WK + '__0'), { calEventId: 'ev_pm', signupKey: WK, attendeeIndex: 0, name: 'Walter Walkin (invented)' });
   w.set(db.collection('bookings').doc('bk_pmone'), { ...hire, day: '2026-11-03' });
@@ -183,6 +185,7 @@ try {
 
   const su = await until(async () => (await rows(SK))[0]);
   ok('1. SIGN-UP: confirmed, to them, with the calendar file and two check-in codes', su && su.to[0] === 'sue@example.invalid' && su.subject === 'You are signed up: Test barbecue' && su.attachments.length === 3 && su.source === 'public-mail', J(su).slice(0, 300));
+  ok('   and what to pay on the day: 2 places at £6 (F-183)', su && su.html.includes('To pay on the day:</strong> £12.00'), su && su.html.slice(0, 600));
   ok('   saying where and when, as the page did', su && /Test hall, Test site/.test(su.html) && /Sat 20 Jun 2026, 19:30 – 21:00/.test(su.html) && su.html.includes('https://example.invalid/hub/my-signup.html?key=' + SK));
   const one = await until(async () => { const r = await rows('bk_pmone'); return r.length >= 2 ? r : null; });
   const asked = (one || []).find(r => r.kind === 'booking waiting'), office = (one || []).find(r => r.kind === 'booking request');

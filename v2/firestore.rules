@@ -3932,6 +3932,32 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- paid on the day (F-183) ------------------------------------------
+    // One per sign-up, under the sign-up's own key: paid or not, how much and
+    // how. Written by an admin or the event's leaders at the door, for a
+    // sign-up that really is for that event. Read by the key-holder (the
+    // person's own "my place" page, by its unguessable key) and listed by
+    // admins and the event's leaders. Never deleted: "not paid" is a change.
+    function paymentShape(manageKey) {
+      return request.resource.data.keys().hasOnly(['calEventId', 'paid', 'amount', 'method', 'by', 'byName', 'at'])
+          && request.resource.data.calEventId is string
+          && exists(/databases/$(database)/documents/signups/$(manageKey))
+          && get(/databases/$(database)/documents/signups/$(manageKey)).data.calEventId == request.resource.data.calEventId
+          && request.resource.data.paid is bool
+          && request.resource.data.amount is number && request.resource.data.amount >= 0 && request.resource.data.amount <= 100000
+          && request.resource.data.method in ['cash', 'card', 'bank', 'other', '']
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.byName is string && request.resource.data.byName.size() <= 120
+          && request.resource.data.at == request.time;
+    }
+    match /signupPayments/{manageKey} {
+      allow get: if true;
+      allow list: if isAdmin() || isEventLeader(resource.data.calEventId);
+      allow create, update: if (isAdmin() || isEventLeader(request.resource.data.calEventId)) && paymentShape(manageKey)
+                            && (resource == null || resource.data.calEventId == request.resource.data.calEventId);
+      allow delete: if false;
+    }
+
     // ---- the picture library (Martin, 14 Oct 2026) ----------------------
     // One shared store of pictures, each with a name and tags. Events point
     // to a picture (calEvents.imageLibId) rather than copying it. Anyone

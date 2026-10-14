@@ -3670,6 +3670,30 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  anyone reads them, signed out too (What\'s on shows them)', 'allow', () => getDocs(collection(env.unauthenticatedContext().firestore(), 'eventCategories')));
 }
 
+// Paid on the day (F-183).
+{
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'signups', 'sp_key_1'), { calEventId: 'ev_pay', name: 'Pat Payer (invented)', email: 'pat@example.invalid', places: 2, status: 'confirmed' });
+    await setDoc(doc(db, 'eventLeaders', 'ev_pay'), { leaderUids: ['u_samy'] });
+    await setDoc(doc(db, 'signups', 'sp_key_2'), { calEventId: 'ev_pay', name: 'Pip Payer (invented)', email: 'pip@example.invalid', places: 1, status: 'confirmed' });
+  });
+  const PAY = (by, extra) => ({ calEventId: 'ev_pay', paid: true, amount: 12, method: 'cash', by: PEOPLE[by].uid, byName: 'Someone', at: serverTimestamp(), ...(extra || {}) });
+  await check('PAID ON THE DAY: the event\'s leader marks a place paid at the door', 'allow', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), PAY('samy')));
+  await check('  and an admin can', 'allow', () => setDoc(doc(as('karen'), 'signupPayments', 'sp_key_1'), PAY('karen', { method: 'card' })));
+  await check('  somebody who is not its leader or an admin cannot', 'deny', () => setDoc(doc(as('member'), 'signupPayments', 'sp_key_1'), PAY('member')));
+  await check('  not for a sign-up to another event', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), PAY('samy', { calEventId: 'ev_other' })));
+  await check('  not for a sign-up that does not exist', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_nobody'), PAY('samy')));
+  await check('  NOT EVEN AN ADMIN files a payment under a different event from the sign-up\'s', 'deny', () => setDoc(doc(as('karen'), 'signupPayments', 'sp_key_2'), PAY('karen', { calEventId: 'ev_other' })));
+  await check('  not in somebody else\'s name', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), PAY('karen')));
+  await check('  not paid in something that is not a way of paying', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), PAY('samy', { method: 'iou' })));
+  await check('  marked NOT paid again is a change, allowed', 'allow', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), PAY('samy', { paid: false, amount: 0, method: '' })));
+  await check('  the person, by their key, reads whether they have paid', 'allow', () => getDoc(doc(env.unauthenticatedContext().firestore(), 'signupPayments', 'sp_key_1')));
+  await check('  but nobody signed out lists them', 'deny', () => getDocs(collection(env.unauthenticatedContext().firestore(), 'signupPayments')));
+  await check('  the leader lists the event\'s', 'allow', () => getDocs(query(collection(as('samy'), 'signupPayments'), where('calEventId', '==', 'ev_pay'))));
+  await check('  nobody deletes one', 'deny', () => deleteDoc(doc(as('martin'), 'signupPayments', 'sp_key_1')));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

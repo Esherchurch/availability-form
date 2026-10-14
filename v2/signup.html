@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610141900"></script>
+<script src="egbc-events.js?v=202610142100"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -163,6 +163,7 @@
         /* Spam defence, §7.2: a field no person sees, and a form that was
            filled in impossibly fast. Neither is a wall; both are free. */
         '<div class="hp" aria-hidden="true"><label>Leave this empty<input id="website" tabindex="-1" autocomplete="off"></label></div>' +
+        '<p class="hint" id="due" role="status"></p>' +
         '<div id="err"></div>' +
         '<button class="btn" id="go" type="submit">' +
           '<i data-lucide="check" style="width:16px;height:16px"></i>' +
@@ -227,6 +228,20 @@
 
     var f = document.getElementById('f');
     if (f) f.onsubmit = submit;
+    /* Pay on the day (F-183): the amount, as tickets and people change. */
+    if (f) { f.addEventListener('input', showDue); f.addEventListener('change', showDue); f.addEventListener('click', function () { setTimeout(showDue, 0); }); }
+    showDue();
+  }
+
+  function dueNow() {
+    if (full()) return 0;
+    var n = readAttendees().filter(function (a) { return a.name; }).length || 1;
+    return E.toPay({ status: 'confirmed', places: n, ticketTypeId: (document.getElementById('tt') || {}).value || (TT[0] ? TT[0].id : '') }, TT);
+  }
+  function showDue() {
+    var el = document.getElementById('due'); if (!el) return;
+    var d = dueNow();
+    el.textContent = d ? 'To pay on the day: ' + E.money(d) + '. Pay at the door when you arrive.' : '';
   }
 
   function wireDrops() {
@@ -302,7 +317,7 @@
     /* The confirmation is emailed by the hub's server once this is saved (functions/public-mail.js,
        F-168): a page with nobody signed in may not send email. */
     E.signUp(payload).then(function (res) {
-      done(res.manageKey, waiting);
+      done(res.manageKey, waiting, waiting ? 0 : E.toPay({ status: 'confirmed', places: who.length, ticketTypeId: payload.ticketTypeId }, TT));
     }).catch(function (err) {
       var m = String(err && (err.message || err));
       /* The rules refuse the whole batch when the last place went while
@@ -316,13 +331,14 @@
     });
   }
 
-  function done(manageKey, waiting) {
+  function done(manageKey, waiting, due) {
     var url = E.manageUrl(manageKey);
     document.getElementById('signupCard').innerHTML =
       '<h2>' + (waiting ? 'You are on the waiting list' : 'You are signed up') + '</h2>' +
       '<div class="banner ok">' + (waiting
         ? 'An email saying so is on its way to you. We will email you again if a place comes free.'
         : 'That is booked. A confirmation is on its way to you by email, and should arrive in the next few minutes.') + '</div>' +
+      (due ? '<p id="dueDone"><strong>To pay on the day: ' + E.money(due) + '</strong>. Pay at the door when you arrive.</p>' : '') +
       '<p>Keep this link to view or cancel your place. It works even if the email has not arrived:</p>' +
       '<p><a href="' + esc(url) + '" style="color:var(--brand);word-break:break-all">' + esc(url) + '</a></p>' +
       '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +

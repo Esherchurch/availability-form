@@ -17,7 +17,7 @@
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610141900"></script>
+<script src="egbc-events.js?v=202610142100"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
@@ -197,6 +197,8 @@
   /* §24: whether the event works with under-18s lives on its safeguarding
      record (eventLeaders), where the rules check its leaders and helpers. */
   var U18 = false, U18_WAS = false;
+  /* Pay on the day (F-183): who has paid, by sign-up key. */
+  var PAYS = {};
   var SIGNUPS = [], CHECK = null, NOTES = '', CHANGES = [], COMMS = [], CSET = {};
 
   function db() { return EGBCAuth.db; }
@@ -297,13 +299,15 @@
         db().collection('eventChanges').where('calEventId', '==', id).get(),
         db().collection('commsLog').where('calEventId', '==', id).get(),
         /* Which questions are medical, for the download (F-029). */
-        db().collection('checkinSettings').doc(id).get().catch(function () { return null; })
+        db().collection('checkinSettings').doc(id).get().catch(function () { return null; }),
+        db().collection('signupPayments').where('calEventId', '==', id).get().catch(function () { return { docs: [] }; })
       ]);
     }).then(function (r) {
       /* Sorted here rather than in the query on purpose: an orderBy drops
          every document that lacks the field, silently, and these are
          written by several pages over time. Small lists, so sort in the
          page and keep them all. */
+      PAYS = {}; (r[6] ? r[6].docs : []).forEach(function (d) { PAYS[d.id] = d.data(); });
       SIGNUPS = r[0].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); })
         .sort(function (a, b) { return String(a.createdAt || '').localeCompare(String(b.createdAt || '')); });
       CHECK = r[1].exists ? r[1].data() : { tasks: [] };
@@ -607,10 +611,16 @@
     var gone = SIGNUPS.filter(function (s) { return s.status === 'cancelled'; });
     function table(rows, kind) {
       if (!rows.length) return '<p class="hint">Nobody yet.</p>';
-      return '<table><thead><tr><th>Name</th><th>Email</th><th>Places</th><th>Who is coming</th><th></th></tr></thead><tbody>' +
+      var priced = TT.some(function (t) { return Number(t.price) > 0; });
+      return '<table><thead><tr><th>Name</th><th>Email</th><th>Places</th>' + (priced ? '<th>To pay</th>' : '') + '<th>Who is coming</th><th></th></tr></thead><tbody>' +
         rows.map(function (s) {
           return '<tr><td>' + esc(s.name) + (s.attended ? ' <span class="flag pub">Came</span>' : '') + '</td>' +
             '<td>' + esc(s.email) + '</td><td>' + (s.places || 1) + '</td>' +
+            (priced ? '<td data-pay="' + esc(s.key) + '">' + (function () {
+              var due = E.toPay(s, TT), p = PAYS[s.key];
+              if (p && p.paid) return '<span class="flag pub">Paid ' + E.money(p.amount) + '</span>';
+              return due ? E.money(due) : '';
+            })() + '</td>' : '') +
             '<td>' + (s.attendees || []).map(function (a) { return esc(a.name); }).join(', ') +
             /* The answers to the questions belong here, not only in the
                download: an admin reading "any allergies?" on screen is the
@@ -644,7 +654,11 @@
         '<a class="btn sec" href="safeguarding.html?event=' + encodeURIComponent(CUR.id) + '"><i data-lucide="shield-check" style="width:15px;height:15px"></i>Safeguarding</a>' +
         '<span class="hint">' + live.length + ' booked · ' +
           live.reduce(function (n, s) { return n + (s.places || 1); }, 0) + ' places · ' +
-          wait.length + ' waiting</span>' +
+          wait.length + ' waiting' + (function () {
+            var due = 0, paid = 0;
+            live.forEach(function (s) { var p = PAYS[s.key]; if (p && p.paid) paid += Number(p.amount) || 0; else due += E.toPay(s, TT); });
+            return due || paid ? ' · <span id="payTotals">' + E.money(paid) + ' paid, ' + E.money(due) + ' still to pay</span>' : '';
+          })() + '</span>' +
       '</div>' +
       '<h2><span class="badge"><i data-lucide="users" style="width:17px;height:17px"></i></span>Coming</h2>' + table(live, 'live') +
       '<h2 style="margin-top:22px"><span class="badge"><i data-lucide="clock" style="width:17px;height:17px"></i></span>Waiting list</h2>' +

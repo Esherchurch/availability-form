@@ -500,6 +500,18 @@
     return location.origin + location.pathname.replace(/[^/]*$/, '') + 'my-signup.html?key=' + manageKey;
   }
 
+  /* PAY ON THE DAY (F-183): what a place costs is its ticket's price times
+     the places. A waiting-list or cancelled place owes nothing. Worked out
+     from the event's own ticket types every time, never stored on the
+     sign-up, so a price corrected later is what the door sees. */
+  function money(n) { return '£' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+  function toPay(su, ticketTypes) {
+    if (!su || su.status === 'cancelled' || su.status === 'waiting') return 0;
+    var t = (ticketTypes || []).filter(function (x) { return x.id === su.ticketTypeId; })[0] || (ticketTypes || [])[0];
+    var price = t ? Number(t.price) || 0 : 0;
+    return Math.round(price * Math.max(1, parseInt(su.places || 1, 10)) * 100) / 100;
+  }
+
   function confirmationEmail(o) {
     var ev = o.ev, where = o.where || '', waiting = o.status === 'waiting';
     var body =
@@ -509,6 +521,7 @@
       '<p><strong>When:</strong> ' + esc(fmtWhen(ev)) + '<br>' +
       (where ? '<strong>Where:</strong> ' + esc(where) + '<br>' : '') +
       '<strong>Places:</strong> ' + (o.places || 1) + '</p>' +
+      (!waiting && o.toPay > 0 ? '<p><strong>To pay on the day:</strong> ' + money(o.toPay) + '</p>' : '') +
       (o.attendees && o.attendees.length
         ? '<p><strong>Who is coming:</strong><br>' + o.attendees.map(function (a) { return esc(a.name); }).join('<br>') + '</p>'
         : '') +
@@ -628,6 +641,8 @@
     CATEGORIES: CATEGORIES,
     DEFAULT_CATEGORIES: DEFAULT_CATEGORIES,
     catOf: catOf,
+    money: money,
+    toPay: toPay,
     loadCategories: loadCategories
   };
 
