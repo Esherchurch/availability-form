@@ -5313,3 +5313,21 @@ due, and again if it goes overdue, unless it's ticked.
   unchanged.
 - 7 deliberate breaks, all caught. The one that matters: an overdue task
   not shown as overdue in "Your tasks".
+
+### F-189 — kids-today.test follows 1034f3f5 (app's "Show on screen" switched off)
+- The test now checks there is **no** "Show on screen" button, and that
+  **nothing is written to `screenPages`**, least of all the collection code.
+- When the main window re-adds the button the F-175 way, the check
+  becomes: the screen number, never the code or the name.
+- One line was stale since my own F-175 wording ("Ring them instead.").
+- 20/20.
+
+**F-180's MISSING list, checked again:** nothing marked MISSING is left
+that is mine.
+- Event categories: built (F-180).
+- Card payments: waits for Martin's provider (F-181).
+- The calendar feed: R7 (spec F-182). Its page side is mine, once the
+  function exists.
+- Everything else (rotas, texts, My details, the directory, My messages,
+  the church-wide communication list, team addresses) is the main
+  window's, R1 to R11.

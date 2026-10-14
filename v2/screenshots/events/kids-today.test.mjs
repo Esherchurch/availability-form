@@ -166,14 +166,15 @@ try {
   ok('2. a group leader: 2 in, 2 of Little ones not arrived, 1 leader in', /you lead Little ones/.test(lt) && (await L.$eval('[data-k="in"]', e => e.textContent)) === '2'
     && (await L.$eval('[data-k="due"]', e => e.textContent)) === '2' && (await L.$eval('[data-k="leaders"]', e => e.textContent)) === '1', lt.slice(0, 300));
   ok('   NEED TO KNOW: Ada\'s allergy shows, a Junior\'s asthma does not', /Peanuts/.test(lt) && !/Asthma|Inhaler/.test(lt));
-  await tap(L, '[data-kact="screen:kc_ada"]');
-  const pg = await until(() => get('screenPages', 'kids_kg_little_' + DAY + '__kc_ada__0'));
-  ok('   "Show on screen": the family\'s code, never the name', pg && pg.message === 'K7P2, please come to Little ones' && !/Ada/.test(J(pg)));
-  await L.waitForSelector('[data-k="onscreen"]');
-  ok('   and Today says it is on the screen now', /On the screen now: K7P2, please come to Little ones/.test(await text(L, '[data-call="kc_ada"]')));
-  await L.screenshot({ path: path.join(L === L ? HERE : HERE, 'kids-today-leader-375.png'), fullPage: true });
-  await tap(L, '[data-call="kc_ada"] [data-kact^="done:"]');
-  ok('   "Done" clears it', !!(await until(async () => (await get('screenPages', 'kids_kg_little_' + DAY + '__kc_ada__0')).clearedAt)));
+  /* "Show on screen" is switched off in the app (1034f3f5): it put the
+     family's COLLECTION CODE on the church screen. Until the main window
+     re-adds it the F-175 way (the screen number, never the code), the
+     right answer is no button, and nothing written for the screen. When it
+     returns, this becomes: the screen number, never the code or the name. */
+  await sleep(500);
+  ok('   "Show on screen" is not offered (off until it shows the screen number, F-175)', !(await L.$('[data-kact="screen:kc_ada"]')));
+  ok('   and NOTHING IS WRITTEN FOR THE SCREEN, least of all the collection code', !(await get('screenPages', 'kids_kg_little_' + DAY + '__kc_ada__0')));
+  await L.screenshot({ path: path.join(HERE, 'kids-today-leader-375.png'), fullPage: true });
   /* §23: "Call on their phone". The sending function is the main window's
      (N-4), so the test stands in for it and checks what the button asks and
      what it says back. First: the function not live yet. */
@@ -181,8 +182,8 @@ try {
   await L.evaluate(() => { window.__calls = []; EGBCAuth.call = (n, d) => { window.__calls.push([n, d]); return Promise.reject(new TypeError('Failed to fetch')); }; });
   await tap(L, '[data-kact="phone:kids_kg_little_' + DAY + '__kc_ada__0"]');
   await until(async () => /sending function is live/.test(await text(L, '[data-call="kc_ada"]')));
-  ok('   §23 "CALL ON THEIR PHONE": before the function is live it says so, and points to the screen or ringing',
-    /Phone calls start once the sending function is live\. Use Show on screen, or ring them\./.test(await text(L, '[data-call="kc_ada"]')));
+  ok('   §23 "CALL ON THEIR PHONE": before the function is live it says so, and says to ring them',
+    /Phone calls start once the sending function is live\. Ring them instead\./.test(await text(L, '[data-call="kc_ada"]')));
   const asked = await L.evaluate(() => window.__calls);
   ok('   it asks callParent for that child\'s check-in, and nothing else (no name)', J(asked) === J([['callParent', { checkinId: 'kids_kg_little_' + DAY + '__kc_ada__0' }]]), J(asked));
   await L.evaluate(() => { EGBCAuth.call = () => Promise.resolve({ phones: 2, emailed: 1 }); });
