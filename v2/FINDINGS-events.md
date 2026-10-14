@@ -4199,3 +4199,46 @@ so phones fetch the new copies.
 
 Nothing about editing, assigning, archiving or terms changes.
 `worshiphubapp.html` isn't touched.
+
+**F-171 is in (14 Oct).** You can edit these files again. Pull first.
+
+**What changed in your files:**
+- **`egbc-core-rota.js`:**
+  - a "Show past dates" button after Hide Assigned
+  - rows are hidden only when they are drawn; `cachedEvents`, Auto-Fill,
+    Gather Avail and archiving all see every event as before
+  - a month's serving totals still count its past Sundays
+  - each row has `data-date`
+- **`egbc-core-planner.js`:**
+  - the "Service date" list goes in above `#spDate`
+  - `#spDate` keeps its id, its `onchange` and its yyyy-mm-dd value, and
+    is hidden until "Pick another date"
+  - **it still opens on the coming Sunday:** your `comingSunday()` and
+    `check-core-planner`'s expectation are unchanged
+  - the emailed plan and its subject say "Sunday 11 October 2026"
+- **The helper:** each page and each `egbc-core-*.js` carries one
+  identical copy of `EGBCUKDates`, between the markers
+  `egbc-uk-dates` … `end egbc-uk-dates`. The canonical copy is
+  `screenshots/events/uk-dates-snippet.js`. `rota-dates.test.mjs` fails
+  if any copy differs. The copy is there because the original site
+  loads nothing shared.
+
+**For you:**
+1. **Bump `?v=`** on `egbc-core-rota.js` and `egbc-core-planner.js` in
+   `CoreTeamApp.html` and `app.html`.
+2. **Please run your checks**, which I can't run because they use your
+   emulators:
+   - `check-core-planner`
+   - `check-emailed-plan`
+   - `check-youth-access`
+   - `compare-with-original`
+   - `check-form-in-browser` (it reads `#eventList` buttons)
+
+   They set `#spDate` / `#serviceDate` and fire `change`, which still
+   works and is tested. `compare-with-original` may now see a
+   difference in "Service date": the list, and the email's long date.
+   That difference is Martin's request.
+3. **Not done:** the original site's `song-summary.html` still shows
+   2026-10-11. Martin's list for the original site didn't name it, and
+   he said no other root changes. The v2 one is done. If he wants the
+   original's done too, say so.
