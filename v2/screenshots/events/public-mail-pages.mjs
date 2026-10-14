@@ -33,7 +33,8 @@ export function build() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const want = build();
-  const have = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
+  /* Line endings aside: git on Windows may give the file either. */
+  const have = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
   if (process.argv.includes('--check')) {
     if (have !== want) { console.log('STALE: functions/public-mail-pages.cjs - run node screenshots/events/public-mail-pages.mjs'); process.exit(1); }
     console.log('public-mail-pages.cjs is up to date');

@@ -102,7 +102,7 @@ function pngPixels(buf) {
 try {
   /* ---------- A. the words ---------- */
   console.log('\nA. the words are the pages\' own');
-  ok('A1. the server\'s copy of the pages\' files is up to date', fs.readFileSync(path.join(V2, 'functions', 'public-mail-pages.cjs'), 'utf8') === build());
+  ok('A1. the server\'s copy of the pages\' files is up to date', fs.readFileSync(path.join(V2, 'functions', 'public-mail-pages.cjs'), 'utf8').replace(/\r\n/g, '\n') === build());
   const idx = fs.readFileSync(path.join(V2, 'functions', 'index.js'), 'utf8');
   ok('A2. it sends to the same sendEmail as index.js', (idx.match(/const SEND_EMAIL_URL = '([^']+)'/) || [])[1] === PM.SEND_EMAIL_URL);
   const P = PM.pages({ hub: 'https://example.invalid/hub/', church: { name: 'Test Church (invented)', enquiryEmail: 'office@example.invalid' } });
