@@ -3981,6 +3981,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- regular giving by Direct Debit (F-181, GoCardless) ---------------
+    // A giver's regular gift, under an unguessable key that is in their own
+    // link: they read theirs by it. The treasurer and the office (the same
+    // people who see Gift Aid, giftAidOffice) list them, and the gifts
+    // collected. Everything is written by the server only.
+    match /regularGifts/{giftKey} {
+      allow get: if true;
+      allow list: if giftAidOffice();
+      allow write: if false;
+    }
+    match /donations/{donationId} {
+      allow read: if giftAidOffice();
+      allow write: if false;
+    }
+
     // ---- invitations (F-187) ----------------------------------------------
     // One per person invited, under an unguessable key that is in their
     // email's links. An admin sends them and sees them all. The person, by

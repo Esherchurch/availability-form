@@ -687,7 +687,8 @@
         '<div class="field tt-pay" data-i="' + i + '"><label>How people can pay</label><div style="display:flex;flex-wrap:wrap;gap:12px">' +
           '<label class="check" style="margin:0"><input type="checkbox" class="tt-by" data-i="' + i + '" value="day"' + (E.payBy(t).indexOf('day') >= 0 ? ' checked' : '') + '>On the day</label>' +
           '<label class="check" style="margin:0"><input type="checkbox" class="tt-by" data-i="' + i + '" value="card"' + (E.payBy(t).indexOf('card') >= 0 ? ' checked' : '') + (PAYPUB.card ? '' : ' disabled') + '>Card, online</label>' +
-        '</div>' + (PAYPUB.card ? '' : '<p class="hint" style="margin:4px 0 0">Card payments: set up the church\'s own Stripe account on <a href="payments.html">Payments</a> first.</p>') + '</div>' +
+          '<label class="check" style="margin:0"><input type="checkbox" class="tt-by" data-i="' + i + '" value="bank"' + (E.payBy(t).indexOf('bank') >= 0 ? ' checked' : '') + (PAYPUB.bank ? '' : ' disabled') + '>Bank, online</label>' +
+        '</div>' + (PAYPUB.card && PAYPUB.bank ? '' : '<p class="hint" style="margin:4px 0 0">Paying online: set up the church\'s own Stripe (card) or GoCardless (bank) account on <a href="payments.html">Payments</a> first.</p>') + '</div>' +
         '<button class="btn ghost sm tt-del" data-id="' + esc(t.id) + '">Remove</button></div>';
       }).join('') + '</div>' +
       '<button class="btn sec sm" id="ttAdd"><i data-lucide="plus" style="width:15px;height:15px"></i>Add a ticket type</button>' +
@@ -786,8 +787,8 @@
             (priced ? '<td data-pay="' + esc(s.key) + '">' + (function () {
               var due = E.toPay(s, TT), p = PAYS[s.key];
               if (p && (p.status === 'refunded' || p.status === 'part-refunded')) return '<span class="flag">' + (p.status === 'refunded' ? 'Refunded ' : 'Part refunded ') + E.money(p.refunded || p.amount) + '</span>';
-              if (p && p.paid) return '<span class="flag pub">Paid ' + E.money(p.amount) + (p.method === 'card-online' ? ' by card' : '') + '</span>';
-              if (p && p.method === 'card-online' && p.status === 'awaiting') return E.money(due) + '<br><span class="m">waiting for card payment</span>';
+              if (p && p.paid) return '<span class="flag pub">Paid ' + E.money(p.amount) + (p.method === 'card-online' ? ' by card' : p.method === 'bank-online' ? ' by bank' : '') + '</span>';
+              if (p && (p.method === 'card-online' || p.method === 'bank-online') && p.status === 'awaiting') return E.money(due) + '<br><span class="m">waiting for ' + (p.method === 'card-online' ? 'card' : 'bank') + ' payment</span>';
               return due ? E.money(due) : '';
             })() + '</td>' : '') +
             '<td>' + (s.attendees || []).map(function (a) { return esc(a.name); }).join(', ') +

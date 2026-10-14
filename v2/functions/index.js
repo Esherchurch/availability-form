@@ -724,3 +724,5 @@ export const feedSync = onSchedule(
 export * from './public-mail.js';
 /* Taking money through each church's own Stripe account (F-181), the events window's file. */
 export * from './payments.js';
+/* ...and its own GoCardless account: bank payments and Direct Debit giving. */
+export * from './gocardless.js';

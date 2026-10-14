@@ -53,14 +53,56 @@
 (function () {
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
-  var STRIPE = null, TEAM = 'Finance', MASTER = false;
+  var STRIPE = null, GC = null, TEAM = 'Finance', MASTER = false, GIFTS = null, DONATIONS = null;
   function db() { return EGBCAuth.db; }
   function say(id, cls, m) { var el = document.getElementById(id); if (el) { el.className = cls; el.textContent = m; } }
   function when(ts) { var d = ts && ts.toDate ? ts.toDate() : null; return d ? E.fmtDate(d) : ''; }
-  function webhookUrl() {
+  function webhookUrl(name) {
     var o = (firebase.app('egbc').options || {});
-    return location.port === '5601' ? 'http://localhost:5102/' + o.projectId + '/europe-west2/stripeWebhook'
-      : 'https://europe-west2-' + o.projectId + '.cloudfunctions.net/stripeWebhook';
+    return location.port === '5601' ? 'http://localhost:5102/' + o.projectId + '/europe-west2/' + (name || 'stripeWebhook')
+      : 'https://europe-west2-' + o.projectId + '.cloudfunctions.net/' + (name || 'stripeWebhook');
+  }
+  function statusLine(s, id) {
+    return '<div class="ok" id="' + id + '">Connected: ' + esc(s.accountName || 'your account') + ', account …' + esc(s.accountLast4 || '') + ', ' +
+      (s.mode === 'live' ? '<b>live</b> (real money)' : '<b>test</b> (no real money)') +
+      (s.addedByName ? '. Added by ' + esc(s.addedByName) + (s.addedAt ? ' on ' + esc(when(s.addedAt)) : '') : '') + '.</div>';
+  }
+  /* GoCardless (F-181): bank payments for tickets (Instant Bank Pay) and
+     regular giving by Direct Debit, through the church's own account. */
+  function gcCard() {
+    var s = GC || {}, on = !!s.connected;
+    return '<div class="card" id="gocardless"><h2>Bank payments and Direct Debit, through your own GoCardless account</h2>' +
+      '<p class="hint" style="margin-top:0">People pay for tickets straight from their bank (Instant Bank Pay), and give regularly by Direct Debit, with Gift Aid. ' +
+      'The money goes straight into your church\'s GoCardless account. The hub never sees bank details and takes nothing: GoCardless charges your church its normal fee, and that is all.</p>' +
+      (on ? statusLine(s, 'gcStatus') + (s.webhookSet ? '<p class="hint" id="gcHookStatus">The webhook is set, so payments are confirmed as they happen.</p>'
+            : '<div class="warn" id="gcHookStatus" style="margin-top:8px">Not finished: add the webhook (step 3 below). Until then nobody is offered bank payment or Direct Debit.</div>')
+          : '<p id="gcStatus" class="hint"><b>Not connected.</b> Follow the steps below.</p>') +
+      '<details' + (on && s.webhookSet ? '' : ' open') + ' style="margin-top:8px"><summary>' + (on ? 'Replace the token or the webhook' : 'Set it up, step by step') + '</summary><ol class="guide">' +
+        '<li><b>Sign in to your church\'s GoCardless dashboard</b> at manage.gocardless.com (no account yet? make one there, in the church\'s name, with the church\'s bank account).' + shot('gc-1-dashboard', 'The GoCardless dashboard, signed in') + '</li>' +
+        '<li><b>Make an access token.</b> Go to Developers, then <i>Create</i>, then <i>Access token</i>. Name it "Church hub" and choose <b>Read-write access</b>. Copy it (it starts <code>live_</code>, or <code>sandbox_</code> in GoCardless\'s sandbox while you try it out).' + shot('gc-2-token', 'Making an access token in GoCardless') +
+          '<label for="gcKey">Paste the token here</label><input class="inp" id="gcKey" type="password" autocomplete="off" spellcheck="false" placeholder="live_…">' +
+          '<button class="btn" id="gcSaveKey">Check and save the token</button><p id="gcKeyMsg" role="status"></p></li>' +
+        '<li><b>Add the webhook.</b> In GoCardless go to Developers, then <i>Create</i>, then <i>Webhook endpoint</i>. Give it this address:' +
+          '<p><code id="gcHookUrl">' + esc(webhookUrl('gocardlessWebhook')) + '</code></p>Make up a long secret, or let GoCardless make one, and copy it.' + shot('gc-3-webhook', 'Adding the webhook endpoint in GoCardless') +
+          '<label for="gcHookSecret">Paste the webhook secret here</label><input class="inp" id="gcHookSecret" type="password" autocomplete="off" spellcheck="false">' +
+          '<button class="btn" id="gcSaveHook">Save the webhook secret</button><p id="gcHookMsg" role="status"></p></li>' +
+        '<li><b>Choose which tickets can be paid by bank</b>: in Events, each ticket type has "How people can pay".</li>' +
+        '<li><b>Regular giving</b> is on the Give screen, and here: <a href="give-regularly.html">give-regularly.html</a>. Share that link too.</li>' +
+        '<li><b>Refunds</b> are made in your GoCardless dashboard. The hub shows them by itself.</li>' +
+      '</ol></details>' +
+      (on ? '<button class="btn danger" id="removeGc">Remove bank payments and Direct Debit</button><p id="removeGcMsg" role="status"></p>' : '') + '</div>';
+  }
+  /* Regular giving, for the treasurer: how many gifts are running, and the
+     collected gifts with Gift Aid for the HMRC claim. */
+  function givingCard() {
+    if (!GIFTS) return '';
+    var running = GIFTS.filter(function (g) { return g.status === 'active'; });
+    var month = running.reduce(function (n, g) { return n + (g.interval === 'monthly' ? g.amount : g.amount * 13 / 12); }, 0);
+    var ga = (DONATIONS || []).filter(function (d) { return d.giftAid && !d.refunded; });
+    return '<div class="card" id="giving"><h2>Regular giving</h2>' +
+      '<p id="givingSum">' + running.length + ' running, about ' + E.money(month) + ' a month. ' + (DONATIONS || []).length + ' gifts collected, ' + ga.length + ' with Gift Aid.</p>' +
+      '<button class="btn sec" id="gaCsv">Download the Gift Aid gifts (CSV)</button>' +
+      '<p class="hint">Name, house, postcode, date and amount, for each gift collected with Gift Aid: what the HMRC claim needs, beside the declarations on the Gift Aid page.</p></div>';
   }
   /* A screenshot for the guide, once someone with a test account has taken
      it (F-181 question 2): screenshots/payments/<name>.png. Until then the
@@ -105,7 +147,19 @@
       (MASTER ? '<label for="teamInp">The money team</label><input class="inp" id="teamInp" maxlength="60" value="' + esc(TEAM) + '"><button class="btn sec" id="saveTeam">Save</button><p id="teamMsg" role="status"></p>' : '') + '</div>';
   }
   function draw() {
-    document.getElementById('wrap').innerHTML = '<h1>Payments</h1><p class="sub">Taking money online, straight into the church\'s own accounts.</p>' + stripeCard() + teamCard();
+    document.getElementById('wrap').innerHTML = '<h1>Payments</h1><p class="sub">Taking money online, straight into the church\'s own accounts.</p>' + stripeCard() + gcCard() + givingCard() + teamCard();
+    var gk = document.getElementById('gcSaveKey');
+    if (gk) gk.onclick = function () { save('key', document.getElementById('gcKey').value, 'gcKeyMsg', gk, 'gocardless'); };
+    var gh = document.getElementById('gcSaveHook');
+    if (gh) gh.onclick = function () { save('webhook', document.getElementById('gcHookSecret').value, 'gcHookMsg', gh, 'gocardless'); };
+    var rg = document.getElementById('removeGc');
+    if (rg) rg.onclick = function () {
+      if (!confirm('Remove bank payments and Direct Debit? Nobody will be offered them until a token is added again. Gifts already running in GoCardless keep running there.')) return;
+      rg.disabled = true;
+      EGBCAuth.call('paymentsRemove', { provider: 'gocardless' }).then(function () { return load(); }, function (e) { rg.disabled = false; say('removeGcMsg', 'err', e.message || String(e)); });
+    };
+    var gc = document.getElementById('gaCsv');
+    if (gc) gc.onclick = giftAidCsv;
     var k = document.getElementById('saveKey');
     if (k) k.onclick = function () { save('key', document.getElementById('stripeKey').value, 'keyMsg', k); };
     var h = document.getElementById('saveHook');
@@ -122,21 +176,42 @@
         function (e) { say('teamMsg', 'err', e.message || String(e)); });
     };
   }
-  function save(kind, value, msgId, btn) {
+  function save(kind, value, msgId, btn, provider) {
+    provider = provider || 'stripe';
+    var who = provider === 'gocardless' ? 'GoCardless' : 'Stripe';
     value = String(value || '').trim();
     if (!value) { say(msgId, 'err', 'Paste it first.'); return; }
-    btn.disabled = true; say(msgId, 'hint', kind === 'key' ? 'Checking it with Stripe…' : 'Saving…');
-    EGBCAuth.call('paymentsSave', { provider: 'stripe', kind: kind, value: value }).then(function () {
-      return load().then(function () { say(kind === 'key' ? 'keyMsg' : 'hookMsg', 'ok', kind === 'key' ? 'Saved. Stripe knows this key.' : 'Saved.'); });
+    btn.disabled = true; say(msgId, 'hint', kind === 'key' ? 'Checking it with ' + who + '…' : 'Saving…');
+    EGBCAuth.call('paymentsSave', { provider: provider, kind: kind, value: value }).then(function () {
+      return load().then(function () { say(msgId, 'ok', kind === 'key' ? 'Saved. ' + who + ' knows this ' + (provider === 'gocardless' ? 'token.' : 'key.') : 'Saved.'); });
     }, function (e) { btn.disabled = false; say(msgId, 'err', e.message || String(e)); });
+  }
+  function giftAidCsv() {
+    db().collection('giftAid').where('source', '==', 'regular-giving').get().then(function (s) {
+      var dec = {}; s.docs.forEach(function (d) { var x = d.data(); if (x.regularGiftKey) dec[x.regularGiftKey] = x; });
+      var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+      var rows = [['First name', 'Last name', 'House name or number', 'Postcode', 'Date', 'Amount'].join(',')].concat((DONATIONS || []).filter(function (d) { return d.giftAid && !d.refunded; }).map(function (d) {
+        var g = dec[d.regularGiftKey] || {};
+        return [g.firstName || d.name, g.lastName || '', g.house || '', g.postcode || '', d.date, (Number(d.amount) || 0).toFixed(2)].map(q).join(',');
+      }));
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['\ufeff' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      a.download = 'Gift Aid gifts.csv'; document.body.appendChild(a); a.click(); a.remove();
+    });
   }
   function load() {
     return Promise.all([
       db().collection('paymentSettings').doc('stripe').get(),
-      db().collection('paymentSettings').doc('team').get().catch(function () { return null; })
+      db().collection('paymentSettings').doc('team').get().catch(function () { return null; }),
+      db().collection('paymentSettings').doc('gocardless').get().catch(function () { return null; }),
+      db().collection('regularGifts').get().catch(function () { return null; }),
+      db().collection('donations').get().catch(function () { return null; })
     ]).then(function (r) {
       STRIPE = r[0].exists ? r[0].data() : null;
       TEAM = r[1] && r[1].exists ? (r[1].data().team || 'Finance') : 'Finance';
+      GC = r[2] && r[2].exists ? r[2].data() : null;
+      GIFTS = r[3] ? r[3].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }) : null;
+      DONATIONS = r[4] ? r[4].docs.map(function (d) { return d.data(); }) : null;
       draw();
     });
   }

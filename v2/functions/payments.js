@@ -34,6 +34,7 @@ import crypto from 'node:crypto';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
+import { gcSaveToken, gcSaveWebhook, gcRemove, gcReady, bankPage } from './gocardless.js';
 
 const db = () => getFirestore();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
@@ -147,8 +148,13 @@ export const paymentsSave = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!(await isTreasurer(uid))) throw new HttpsError('permission-denied', 'Only a master admin or the church\'s money team can set up payments.');
   const provider = String(req.data && req.data.provider || ''), kind = String(req.data && req.data.kind || ''), value = String(req.data && req.data.value || '').trim();
-  if (provider !== 'stripe') throw new HttpsError('invalid-argument', 'Not a payment provider the hub knows.');
+  if (provider !== 'stripe' && provider !== 'gocardless') throw new HttpsError('invalid-argument', 'Not a payment provider the hub knows.');
   const u = await userOf(uid), who = { addedBy: uid, addedByName: String(u.name || '').slice(0, 120) };
+  if (provider === 'gocardless') {
+    if (kind === 'key') { const r = await gcSaveToken(value, who); await publish(); return { ok: true, ...r }; }
+    if (kind === 'webhook') { await gcSaveWebhook(value, who); await publish(); return { ok: true }; }
+    throw new HttpsError('invalid-argument', 'Save a token or a webhook secret.');
+  }
   const secrets = db().collection('paymentSecrets').doc('stripe'), shown = db().collection('paymentSettings').doc('stripe');
   if (kind === 'key') {
     const mode = stripeMode(value);
@@ -175,9 +181,11 @@ export const paymentsSave = onCall({ region: REGION }, async (req) => {
 export const paymentsRemove = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!(await isTreasurer(uid))) throw new HttpsError('permission-denied', 'Only a master admin or the church\'s money team can change payments.');
-  if (String(req.data && req.data.provider) !== 'stripe') throw new HttpsError('invalid-argument', 'Not a payment provider the hub knows.');
-  await db().collection('paymentSecrets').doc('stripe').delete();
+  const prov = String(req.data && req.data.provider);
+  if (prov !== 'stripe' && prov !== 'gocardless') throw new HttpsError('invalid-argument', 'Not a payment provider the hub knows.');
   const u = await userOf(uid);
+  if (prov === 'gocardless') { await gcRemove({ addedByName: String(u.name || '').slice(0, 120) }); await publish(); return { ok: true }; }
+  await db().collection('paymentSecrets').doc('stripe').delete();
   await db().collection('paymentSettings').doc('stripe').set({ connected: false, webhookSet: false, accountName: '', accountLast4: '', mode: '', removedByName: String(u.name || '').slice(0, 120), removedAt: FieldValue.serverTimestamp() });
   await publish();
   return { ok: true };
@@ -196,7 +204,9 @@ export const paymentsTeam = onCall({ region: REGION }, async (req) => {
 async function publish() {
   const s = await db().collection('paymentSettings').doc('stripe').get();
   const d = s.exists ? s.data() : {};
-  await db().collection('paymentSettings').doc('public').set({ card: !!(d.connected && d.webhookSet), cardMode: d.connected ? d.mode || '' : '' }, { merge: true });
+  const g = await db().collection('paymentSettings').doc('gocardless').get(), gd = g.exists ? g.data() : {};
+  await db().collection('paymentSettings').doc('public').set({ card: !!(d.connected && d.webhookSet), cardMode: d.connected ? d.mode || '' : '',
+    bank: await gcReady(), bankMode: gd.connected ? gd.mode || '' : '' }, { merge: true });
 }
 
 /* A payment page for a booking. Anyone holding the booking's key (the
@@ -204,9 +214,26 @@ async function publish() {
 export const ticketPay = onCall({ region: REGION }, async (req) => {
   const key = String(req.data && req.data.key || ''), method = String(req.data && req.data.method || '');
   if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
-  if (method !== 'card') throw new HttpsError('invalid-argument', 'Not a way of paying the hub knows.');
+  if (method !== 'card' && method !== 'bank') throw new HttpsError('invalid-argument', 'Not a way of paying the hub knows.');
   const sec = await db().collection('paymentSecrets').doc('stripe').get();
   const pub = await db().collection('paymentSettings').doc('public').get();
+  if (method === 'bank') {
+    /* Instant Bank Pay, through the church's own GoCardless (gocardless.js). */
+    if (!(pub.exists && pub.data().bank) || !(await gcReady())) throw new HttpsError('failed-precondition', 'This church does not take bank payments online.');
+    const pb = await priceOf(key, 'bank');
+    if (!pb.keys.length || pb.pence < 100) throw new HttpsError('failed-precondition', 'There is nothing to pay for this booking.');
+    if (!pb.allowed) throw new HttpsError('failed-precondition', 'This ticket is not paid by bank.');
+    const paidB = await db().collection('signupPayments').doc(pb.keys[0].key).get();
+    if (paidB.exists && paidB.data().paid) throw new HttpsError('already-exists', 'This booking is already paid.');
+    const page = await bankPage(pb, key);
+    const bb = db().batch();
+    pb.keys.forEach((x) => bb.set(db().collection('signupPayments').doc(x.key), {
+      calEventId: x.calEventId, paid: false, amount: x.pence / 100, method: 'bank-online', status: 'awaiting',
+      checkoutId: page.ref, holdUntil: Date.now() + HOLD_MS, by: '', byName: 'Online', at: FieldValue.serverTimestamp()
+    }));
+    await bb.commit();
+    return { url: page.url };
+  }
   if (!sec.exists || !sec.data().secretKey || !(pub.exists && pub.data().card)) throw new HttpsError('failed-precondition', 'This church does not take card payments online.');
   const p = await priceOf(key, 'card');
   if (!p.keys.length) throw new HttpsError('failed-precondition', 'There is nothing to pay for this booking.');

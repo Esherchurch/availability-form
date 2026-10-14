@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Give regularly</title>
+<!-- Regular giving by Direct Debit, through the church's OWN GoCardless
+     account (F-181; Martin, 14 Oct 2026). The giver sets up the Direct Debit
+     on GoCardless's own page; the money goes straight to the church. Signed
+     in or not. Their own page afterwards is this one with their key.
+     Events window. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610141800" data-title="Give regularly"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610141800"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610150900"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold-bg:#fdf8ee;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:560px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  label{display:block;font-size:14px;font-weight:500;color:var(--ink);margin:12px 0 5px}
+  .inp,select{width:100%;min-height:48px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 15px Inter,sans-serif;color:var(--ink);background:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:10px;font:600 15px Inter,sans-serif;cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;margin:10px 8px 0 0}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#f1c9c2}
+  .btn:disabled{opacity:.55}
+  .tick{display:flex;gap:10px;align-items:flex-start;font-weight:400;margin-top:14px}
+  .tick input{width:22px;height:22px;flex:none;margin-top:2px}
+  .hint{color:var(--muted);font-size:13px}
+  .ok{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:10px 12px;font-weight:500}
+  .err{color:var(--danger)}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+  .row .k{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var Q = new URLSearchParams(location.search), KEY = Q.get('key') || '', SET = Q.get('set') === '1';
+  function db() { return EGBCAuth.db; }
+  function church() { return (window.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || 'the church'; }
+  /* HMRC's words, in the church's own name, as giftaid.html (F-169). */
+  function wording() {
+    return 'I want to Gift Aid any donations I make in the future, and have made in the past 4 years, to ' + church() + '. ' +
+      'I am a UK taxpayer and understand that if I pay less Income Tax and/or Capital Gains Tax in the current tax year than the amount of Gift Aid claimed on all my donations, it is my responsibility to pay any difference.';
+  }
+  function howOften(g) { return g.interval === 'monthly' ? 'every month, on the ' + g.day + ordinal(g.day) : 'every 4 weeks'; }
+  function ordinal(n) { return (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th'; }
+
+  function form(p) {
+    var days = ''; for (var d = 1; d <= 28; d++) days += '<option value="' + d + '"' + (d === 1 ? ' selected' : '') + '>' + d + ordinal(d) + '</option>';
+    document.getElementById('wrap').innerHTML = '<h1>Give regularly</h1><p class="sub">By Direct Debit, straight to ' + esc(church()) + '. You can change or stop it at any time.</p>' +
+      '<div class="card" id="giveForm">' +
+        '<label for="amt">How much (£)</label><input class="inp" id="amt" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 20">' +
+        '<label for="often">How often</label><select id="often"><option value="monthly">Every month</option><option value="four_weekly">Every 4 weeks</option></select>' +
+        '<div id="dayBox"><label for="day">On which day of the month</label><select id="day">' + days + '</select></div>' +
+        '<label for="nm">Your name</label><input class="inp" id="nm" maxlength="120" autocomplete="name" value="' + esc(p && p.name || '') + '">' +
+        '<label for="em">Your email</label><input class="inp" id="em" type="email" maxlength="200" autocomplete="email" value="' + esc(p && p.email || '') + '">' +
+        '<label class="tick"><input type="checkbox" id="ga"><span><b>Add Gift Aid</b>: the church can claim 25p for every £1 from the government, at no cost to you.</span></label>' +
+        '<div id="gaBox" style="display:none"><p class="hint" id="gaWords">' + esc(wording()) + '</p>' +
+          '<label for="house">House name or number</label><input class="inp" id="house" maxlength="60" autocomplete="address-line1">' +
+          '<label for="addr">The rest of your address (optional)</label><input class="inp" id="addr" maxlength="200">' +
+          '<label for="pc">Postcode</label><input class="inp" id="pc" maxlength="10" autocomplete="postal-code" style="text-transform:uppercase"></div>' +
+        '<button class="btn" id="go">Set up my Direct Debit</button><p id="msg" class="err" role="status"></p>' +
+        '<p class="hint">You set up the Direct Debit on GoCardless\'s secure page, protected by the Direct Debit Guarantee. The church never sees your bank details.</p></div>';
+    var often = document.getElementById('often');
+    often.onchange = function () { document.getElementById('dayBox').style.display = often.value === 'monthly' ? '' : 'none'; };
+    var ga = document.getElementById('ga');
+    ga.onchange = function () { document.getElementById('gaBox').style.display = ga.checked ? '' : 'none'; };
+    document.getElementById('go').onclick = function () {
+      var b = this, m = document.getElementById('msg'); b.disabled = true; m.textContent = '';
+      E.callPublic('giveRegularly', {
+        amount: document.getElementById('amt').value, interval: often.value, day: document.getElementById('day').value,
+        name: document.getElementById('nm').value, email: document.getElementById('em').value,
+        giftAid: ga.checked, house: document.getElementById('house').value, address: document.getElementById('addr').value,
+        postcode: document.getElementById('pc').value, wording: ga.checked ? wording() : ''
+      }).then(function (r) { location.href = r.url; }, function (e) { b.disabled = false; m.textContent = e.message || String(e); });
+    };
+  }
+
+  function mine(g) {
+    var st = g.status === 'active' ? 'Running' : g.status === 'setting-up' ? 'Being set up' : g.status === 'stopped' ? 'Stopped' : 'Ended';
+    document.getElementById('wrap').innerHTML = '<h1>Your regular gift</h1><p class="sub">To ' + esc(church()) + ', by Direct Debit.</p>' +
+      (SET && g.status === 'setting-up' ? '<div class="ok" id="setting">Thank you. GoCardless is confirming your Direct Debit; this page updates by itself.</div>' : '') +
+      '<div class="card" id="gift">' +
+        '<div class="row"><span class="k">Amount</span><span id="gAmount">' + E.money(g.amount) + ' ' + esc(howOften(g)) + '</span></div>' +
+        '<div class="row"><span class="k">Gift Aid</span><span>' + (g.giftAid ? 'Yes, thank you' : 'No') + '</span></div>' +
+        '<div class="row"><span class="k">Now</span><span id="gStatus">' + st + '</span></div>' +
+        (g.status === 'active' ? '<label for="newAmt">Change the amount (£)</label><input class="inp" id="newAmt" type="number" min="1" step="1" value="' + g.amount + '">' +
+          '<button class="btn sec" id="change">Change it</button><button class="btn danger" id="stop">Stop my gift</button>' : '') +
+        '<p id="msg" role="status"></p>' +
+        (g.status === 'active' ? '<p class="hint">Stopping ends the regular gift. Your Direct Debit authority stays with your bank, unused, until you cancel it there if you wish.</p>' : '') +
+      '</div><p class="hint">Keep the link to this page: it is how you change or stop your gift.</p>';
+    var c = document.getElementById('change');
+    if (c) c.onclick = function () {
+      c.disabled = true;
+      E.callPublic('givingChange', { key: KEY, amount: document.getElementById('newAmt').value }).then(function (r) {
+        return load().then(function () { document.getElementById('msg').textContent = 'Changed: ' + E.money(r.amount) + ' from the next collection.'; });
+      }, function (e) { c.disabled = false; document.getElementById('msg').textContent = e.message || String(e); });
+    };
+    var s = document.getElementById('stop');
+    if (s) s.onclick = function () {
+      if (!confirm('Stop your regular gift?')) return;
+      s.disabled = true;
+      E.callPublic('givingStop', { key: KEY }).then(load, function (e) { s.disabled = false; document.getElementById('msg').textContent = e.message || String(e); });
+    };
+  }
+
+  function load() {
+    return db().collection('regularGifts').doc(KEY).get().then(function (s) {
+      if (!s.exists) { document.getElementById('wrap').innerHTML = '<div class="card">That regular gift could not be found. Use the link in your email.</div>'; return; }
+      mine(s.data());
+      if (SET && s.data().status === 'setting-up' && !load.watching) {
+        load.watching = true;
+        var stop = db().collection('regularGifts').doc(KEY).onSnapshot(function (x) { if (x.exists && x.data().status !== 'setting-up') { stop(); mine(x.data()); } }, function () {});
+      }
+    });
+  }
+
+  EGBCAuth.optional().then(function (p) {
+    return Promise.all([p, window.EGBCChurch && EGBCChurch.load ? EGBCChurch.load().catch(function () {}) : null,
+      db().collection('paymentSettings').doc('public').get().catch(function () { return null; })]);
+  }).then(function (r) {
+    if (KEY) return load();
+    var pub = r[2] && r[2].exists ? r[2].data() : {};
+    if (!pub.bank || pub.giving === false) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Give regularly</h1><p>The church does not take Direct Debits online yet.</p></div>'; return; }
+    form(r[0]);
+  }).catch(function (e) { document.getElementById('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

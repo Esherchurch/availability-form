@@ -113,12 +113,15 @@
      and may the chosen ticket be paid that way. */
   var PAYPUB = {};
   function chosenTicket() { var id = (document.getElementById('tt') || {}).value || (TT[0] ? TT[0].id : ''); return TT.filter(function (t) { return t.id === id; })[0] || TT[0] || null; }
-  function cardOk(t) { return !!PAYPUB.card && E.payBy(t).indexOf('card') >= 0; }
+  /* The ways this ticket can be paid online, that the church takes. */
+  function online(t) { return ['card', 'bank'].filter(function (m) { return PAYPUB[m] && E.payBy(t).indexOf(m) >= 0; }); }
+  function cardOk(t) { return online(t).length > 0; }
   function dayOk(t) { return E.payBy(t).indexOf('day') >= 0 || !cardOk(t); }
-  function payCard(key, btn) {
-    btn.disabled = true; btn.textContent = 'Opening the payment page…';
-    E.callPublic('ticketPay', { key: key, method: 'card' }).then(function (r) { location.href = r.url; }, function (e) {
-      btn.disabled = false; btn.textContent = 'Pay by card';
+  function onlineWords(t) { var o = online(t); return o.length === 2 ? 'by card or bank online' : o[0] === 'bank' ? 'by bank online' : 'by card online'; }
+  function payCard(key, btn, method) {
+    var was = btn.textContent; btn.disabled = true; btn.textContent = 'Opening the payment page…';
+    E.callPublic('ticketPay', { key: key, method: method || 'card' }).then(function (r) { location.href = r.url; }, function (e) {
+      btn.disabled = false; btn.textContent = was;
       var m = document.getElementById('payMsg'); if (m) m.textContent = e.message || String(e);
     });
   }
@@ -294,8 +297,8 @@
     var el = document.getElementById('due'); if (!el) return;
     var d = dueNow();
     var t = chosenTicket();
-    el.textContent = !d ? '' : cardOk(t) && dayOk(t) ? 'To pay: ' + E.money(d) + ', by card online after you sign up, or at the door on the day.'
-      : cardOk(t) ? 'To pay: ' + E.money(d) + ', by card online straight after you sign up.' : 'To pay on the day: ' + E.money(d) + '. Pay at the door when you arrive.';
+    el.textContent = !d ? '' : cardOk(t) && dayOk(t) ? 'To pay: ' + E.money(d) + ', ' + onlineWords(t) + ' after you sign up, or at the door on the day.'
+      : cardOk(t) ? 'To pay: ' + E.money(d) + ', ' + onlineWords(t) + ' straight after you sign up.' : 'To pay on the day: ' + E.money(d) + '. Pay at the door when you arrive.';
   }
 
   function wireDrops() {
@@ -409,9 +412,11 @@
         ? 'An email saying so is on its way to you. We will email you again if a place comes free.'
         : 'That is booked. A confirmation is on its way to you by email, and should arrive in the next few minutes.') + '</div>' +
       (due && cardOk(chosenTicketDone) ? '<div class="card" id="payBox" style="background:var(--tint,#eef5f4);margin:10px 0"><p style="margin:0 0 8px"><strong>To pay: ' + E.money(due) + '</strong>' +
-          (dayOk(chosenTicketDone) ? '. Pay now by card, or at the door on the day.' : '. Your place is held for 30 minutes while you pay.') + '</p>' +
-          '<button class="btn" id="payCard">Pay ' + E.money(due) + ' by card</button><p class="hint" id="payMsg" role="status"></p>' +
-          '<p class="hint" style="margin:6px 0 0">You pay on Stripe\'s secure page. The money goes straight to the church.</p></div>'
+          (dayOk(chosenTicketDone) ? '. Pay now online, or at the door on the day.' : '. Your place is held for 30 minutes while you pay.') + '</p>' +
+          (online(chosenTicketDone).indexOf('card') >= 0 ? '<button class="btn" id="payCard">Pay ' + E.money(due) + ' by card</button> ' : '') +
+          (online(chosenTicketDone).indexOf('bank') >= 0 ? '<button class="btn" id="payBank">Pay ' + E.money(due) + ' by bank</button>' : '') +
+          '<p class="hint" id="payMsg" role="status"></p>' +
+          '<p class="hint" style="margin:6px 0 0">You pay on ' + (online(chosenTicketDone).length === 2 ? 'Stripe\'s or GoCardless\'s' : online(chosenTicketDone)[0] === 'bank' ? 'GoCardless\'s' : 'Stripe\'s') + ' secure page. The money goes straight to the church.</p></div>'
        : due ? '<p id="dueDone"><strong>To pay on the day: ' + E.money(due) + '</strong>. Pay at the door when you arrive.</p>' : '') +
       '<p>Keep this link to view or cancel your place. It works even if the email has not arrived:</p>' +
       '<p><a href="' + esc(url) + '" style="color:var(--brand);word-break:break-all">' + esc(url) + '</a></p>' +
@@ -419,7 +424,8 @@
         '<button class="btn sec" id="ics2"><i data-lucide="calendar-plus" style="width:15px;height:15px"></i>Add to calendar</button>' +
         '<a class="btn ghost" href="whatson.html">What\'s on</a></div>';
     document.getElementById('ics2').onclick = function () { EGBCICS.download(EV.title || 'event', E.icsFor(EV, WHERE)); };
-    var pc = document.getElementById('payCard'); if (pc) pc.onclick = function () { payCard(manageKey, pc); };
+    var pc = document.getElementById('payCard'); if (pc) pc.onclick = function () { payCard(manageKey, pc, 'card'); };
+    var pk = document.getElementById('payBank'); if (pk) pk.onclick = function () { payCard(manageKey, pk, 'bank'); };
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
     window.scrollTo({ top: document.getElementById('signupCard').offsetTop - 20, behavior: 'smooth' });
   }

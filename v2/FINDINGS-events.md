@@ -5590,3 +5590,81 @@ connected; until then the page points to Payments.
 **To go live:** Martin deploys `functions:hub` and, at switch-over, the
 rules. Each church then follows the guide on the Payments page. No HQ
 account is needed.
+
+### F-192 — Bank payments and Direct Debit giving, built: each church's OWN GoCardless account (F-181)
+The same pattern as Stripe (F-191). New file `functions/gocardless.js`
+(mine), and one more line in `functions/index.js` (`export * from
+'./gocardless.js'`).
+
+**The Payments page** gets a GoCardless card:
+- the guide: make a read-write **access token**; paste it; add a
+  **webhook endpoint** at the address shown; paste its secret
+- the token is **checked with GoCardless** (`GET /creditors`) before it's
+  kept
+- it then shows "Connected: <name>, account …1234, test / live"
+- Remove; neither the token nor the secret ever comes back
+- `sandbox_` tokens use GoCardless's sandbox; `live_` tokens the real one
+
+**Tickets: on the day / card / bank, any mix.**
+- "Bank, online" is now on each ticket type (`payBy`), offered once the
+  church is connected.
+- Paying by bank is **Instant Bank Pay**: a GoCardless Billing Request with
+  a payment request, on GoCardless's own page. **The price is worked out
+  on the server.**
+- Paid when GoCardless says the request is fulfilled: "Paid £8.00 by bank"
+  on "my place" and in Events.
+- A failed payment gives the place back.
+- **Not paid in 30 minutes, the place goes back.** GoCardless doesn't
+  expire its pages, so `paymentsTidy` does this every 10 minutes.
+
+**Regular giving by Direct Debit** (`give-regularly.html`, new, mine;
+signed in or not):
+- **The form:** how much; monthly on a chosen day, or every 4 weeks; name
+  and email.
+- **"Add Gift Aid":** HMRC's words in the church's name, house and
+  postcode. It keeps a **Gift Aid declaration** in `giftAid` exactly as
+  F-169 does (`source: 'regular-giving'`).
+- **Setting up:** the giver sets up the Direct Debit on GoCardless's page
+  (a Bacs mandate request). Once GoCardless says the mandate is ready, the
+  server starts a **subscription** for that amount and timing.
+- **Each collected gift is recorded once** in `donations`, with its amount,
+  date and Gift Aid. Refunds and failures are recorded too.
+- **The giver's own page** (their key, in their link): amount, how often,
+  Gift Aid, running or not; **Change the amount** (GoCardless is told);
+  **Stop my gift** (the subscription is cancelled).
+- **The treasurer** (Payments › Regular giving):
+  - how many are running, and about how much a month
+  - "Download the Gift Aid gifts (CSV)": first name, last name, house,
+    postcode, date, amount; what the HMRC claim needs, beside the
+    declarations on the Gift Aid page
+- **New rules (my section):**
+  - `regularGifts`: the giver by key; listed by the treasurer and the
+    office (`giftAidOffice`)
+  - `donations`: the same people
+  - both server-written only
+  - **Not deployed.**
+
+**No fee:** no `app_fee` anywhere; the test reads every request.
+
+**Proved:**
+- `gocardless.test.mjs` 33/33, with the hub's real functions and a
+  stand-in GoCardless on this machine:
+  - not a token, and a wrong token, refused; the right one connected; the
+    token and secret never come back
+  - "on the day or by bank"; Instant Bank Pay at the server's 800p; a
+    forged message refused; paid
+  - unpaid after 30 minutes, the place goes back
+  - £20 monthly on the 1st with Gift Aid: the declaration kept, then the
+    subscription started on the mandate
+  - a gift recorded once
+  - changed to £25; stopped
+  - the treasurer's summary and Gift Aid CSV
+  - nobody else reads the gifts
+  - removed: nothing offered
+- `stripe.test.mjs` still 32/32; rules 1355/1355 (7 new).
+- 8 deliberate breaks, all caught. The one that matters: GoCardless's
+  messages believed without checking the signature.
+
+**REQUEST for the main window:** the Give screen (`give.html`, yours)
+needs one link, **"Give regularly by Direct Debit" → give-regularly.html**,
+shown when `paymentSettings/public.bank` is true. Or tell me to add it.

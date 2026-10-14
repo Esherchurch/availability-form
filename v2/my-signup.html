@@ -65,7 +65,7 @@
   /* Pay on the day (F-183): what is owed, and whether it has been paid. */
   var TT = [], PAY = null;
   /* F-181: the church takes card payments, and this ticket may be paid by card. */
-  var CARDNOW = false, PAIDBACK = /[?&]paid=card\b/.test(location.search);
+  var CARDNOW = false, ONLINE = [], PAIDBACK = /[?&]paid=(card|bank)\b/.test(location.search);
   /* The whole series (F-184): the other dates booked with this one. */
   var GROUP = null, GDATES = [];
 
@@ -96,11 +96,13 @@
             var due = E.toPay(SU, TT);
             /* F-181: paid online by card, waiting for it, or refunded. */
             if (PAY && (PAY.status === 'refunded' || PAY.status === 'part-refunded')) return '<div class="row" id="refunded"><span class="k">' + (PAY.status === 'refunded' ? 'Refunded' : 'Part refunded') + '</span><span class="v">' + E.money(PAY.refunded || PAY.amount) + '</span></div>';
-            if (PAY && PAY.paid) return '<div class="row" id="paid"><span class="k">Paid</span><span class="v">' + E.money(PAY.amount) + (PAY.method === 'card-online' ? ' by card' : '') + '</span></div>';
-            if (SU.status === 'confirmed' && (CARDNOW || (PAY && PAY.method === 'card-online'))) {
+            if (PAY && PAY.paid) return '<div class="row" id="paid"><span class="k">Paid</span><span class="v">' + E.money(PAY.amount) + (PAY.method === 'card-online' ? ' by card' : PAY.method === 'bank-online' ? ' by bank' : '') + '</span></div>';
+            if (SU.status === 'confirmed' && (CARDNOW || (PAY && (PAY.method === 'card-online' || PAY.method === 'bank-online')))) {
               var held = PAY && PAY.holdUntil && PAY.holdUntil > Date.now() ? ' Your place is held until ' + E.fmtTime(new Date(PAY.holdUntil)) + '.' : '';
-              return '<div class="row" id="due"><span class="k">To pay</span><span class="v">' + E.money(due) + (PAIDBACK ? '<br><span class="m" id="confirming">Thank you. Confirming your payment with Stripe…</span>' : held) +
-                '<br><button class="btn" id="payNow" style="margin-top:6px">Pay ' + E.money(due) + ' by card</button><span class="m" id="payMsg" role="status"></span></span></div>';
+              return '<div class="row" id="due"><span class="k">To pay</span><span class="v">' + E.money(due) + (PAIDBACK ? '<br><span class="m" id="confirming">Thank you. Confirming your payment…</span>' : held) +
+                (ONLINE.indexOf('card') >= 0 ? '<br><button class="btn" id="payNow" style="margin-top:6px">Pay ' + E.money(due) + ' by card</button>' : '') +
+                (ONLINE.indexOf('bank') >= 0 ? '<br><button class="btn" id="payNowBank" style="margin-top:6px">Pay ' + E.money(due) + ' by bank</button>' : '') +
+                '<span class="m" id="payMsg" role="status"></span></span></div>';
             }
             return due ? '<div class="row" id="due"><span class="k">To pay on the day</span><span class="v">' + E.money(due) + '</span></div>' : '';
           })() +
@@ -124,12 +126,14 @@
     if (c) c.onclick = doCancel;
     var ca = document.getElementById('cancelAll');
     if (ca) ca.onclick = cancelAll;
-    var pn = document.getElementById('payNow');
-    if (pn) pn.onclick = function () {
-      pn.disabled = true;
-      E.callPublic('ticketPay', { key: KEY, method: 'card' }).then(function (res) { location.href = res.url; },
-        function (e) { pn.disabled = false; document.getElementById('payMsg').textContent = ' ' + (e.message || e); });
-    };
+    [['payNow', 'card'], ['payNowBank', 'bank']].forEach(function (x) {
+      var pn = document.getElementById(x[0]);
+      if (pn) pn.onclick = function () {
+        pn.disabled = true;
+        E.callPublic('ticketPay', { key: KEY, method: x[1] }).then(function (res) { location.href = res.url; },
+          function (e) { pn.disabled = false; document.getElementById('payMsg').textContent = ' ' + (e.message || e); });
+      };
+    });
     /* Back from Stripe: the payment is confirmed by Stripe's message to the
        hub, a moment later; watch for it rather than claim it early. */
     if (PAIDBACK && !(PAY && PAY.paid) && !draw.watching) {
@@ -226,7 +230,9 @@
     PAY = r[2] && r[2].exists ? r[2].data() : null;
     var t = TT.filter(function (x) { return x.id === SU.ticketTypeId; })[0] || TT[0];
     return EGBCAuth.db.collection('paymentSettings').doc('public').get().then(function (s) {
-      CARDNOW = !!(s.exists && s.data().card) && E.payBy(t).indexOf('card') >= 0 && E.payBy(t).indexOf('day') < 0;
+      var pub = s.exists ? s.data() : {};
+      ONLINE = ['card', 'bank'].filter(function (m) { return pub[m] && E.payBy(t).indexOf(m) >= 0; });
+      CARDNOW = ONLINE.length > 0 && E.payBy(t).indexOf('day') < 0;
     }, function () {}).then(function () { return r; });
   }).then(function (r) {
     GROUP = r[3] && r[3].exists ? r[3].data() : null;

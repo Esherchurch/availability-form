@@ -3740,6 +3740,22 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  A PAGE CANNOT MARK A PLACE "paid by card online"', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), { calEventId: 'ev_pay', paid: true, amount: 12, method: 'card-online', by: 'u_samy', byName: 'S', at: serverTimestamp() }));
 }
 
+// Regular giving by Direct Debit (F-181, GoCardless).
+{
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'regularGifts', 'rg_' + 'K'.repeat(28)), { name: 'Gill', amount: 20, status: 'active' });
+    await setDoc(doc(c.firestore(), 'donations', 'gc_PM1'), { amount: 20, giftAid: true });
+  });
+  const fin = () => env.authenticatedContext('u_fin').firestore();
+  await check('GIVING: the giver reads their own gift by its key, signed out too', 'allow', () => getDoc(doc(env.unauthenticatedContext().firestore(), 'regularGifts', 'rg_' + 'K'.repeat(28))));
+  await check('  but nobody lists the gifts except the treasurer and the office', 'deny', () => getDocs(collection(as('member'), 'regularGifts')));
+  await check('  the money team does', 'allow', () => getDocs(collection(fin(), 'regularGifts')));
+  await check('  the gifts collected: the money team reads them', 'allow', () => getDocs(collection(fin(), 'donations')));
+  await check('  nobody else', 'deny', () => getDocs(collection(as('samy'), 'donations')));
+  await check('  nobody writes a gift from a page, not even a master admin', 'deny', () => setDoc(doc(as('martin'), 'donations', 'gc_fake'), { amount: 1000 }));
+  await check('  nor changes a regular gift', 'deny', () => updateDoc(doc(as('martin'), 'regularGifts', 'rg_' + 'K'.repeat(28)), { amount: 1 }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 
