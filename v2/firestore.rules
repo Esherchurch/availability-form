@@ -3588,6 +3588,58 @@ service cloud.firestore {
       // feedStatus: written by the hub function only.
     }
 
+    // ---- Prayer requests and answers to prayer (NEXT-BRIEF §24 item 11; F-166)
+    // A request is PRIVATE: read by the person who asked, the Pastoral group
+    // (onPastoral(), the same as "I'm worried"), and - only if the person
+    // chose it - the church's prayer team, a team named in prayerSettings/main
+    // (a church may have none). Nobody else, not even a master admin.
+    // Only the person who asked may mark it answered or take it back.
+    // An answer to prayer is shared with everyone signed in only when the
+    // person chooses, with their name only if they choose; the Pastoral group
+    // may hide one.
+    function prayerTeamName() {
+      return exists(/databases/$(database)/documents/prayerSettings/main)
+             ? get(/databases/$(database)/documents/prayerSettings/main).data.get('prayerTeam', '') : '';
+    }
+    function onPrayerTeam() { return prayerTeamName() != '' && onTeam(prayerTeamName()); }
+    match /prayers/{id} {
+      allow create: if active()
+                    && request.resource.data.keys().hasOnly(['by', 'byName', 'text', 'share', 'at', 'answered', 'answer', 'answeredAt'])
+                    && request.resource.data.by == request.auth.uid
+                    && request.resource.data.byName is string && request.resource.data.byName.size() <= 120
+                    && request.resource.data.text is string && request.resource.data.text.size() >= 3 && request.resource.data.text.size() <= 4000
+                    && request.resource.data.share in ['pastoral', 'prayerTeam']
+                    && request.resource.data.at == request.time
+                    && request.resource.data.answered == false && request.resource.data.answer == '';
+      allow read: if active() && (resource.data.by == request.auth.uid || onPastoral()
+                                  || (resource.data.share == 'prayerTeam' && onPrayerTeam()));
+      allow update: if active() && resource.data.by == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answered', 'answer', 'answeredAt'])
+                    && request.resource.data.answered is bool
+                    && request.resource.data.answer is string && request.resource.data.answer.size() <= 2000
+                    && request.resource.data.answeredAt == request.time;
+      allow delete: if active() && resource.data.by == request.auth.uid;
+    }
+    match /prayerAnswers/{id} {
+      allow read: if active() && (resource.data.hidden == false || onPastoral() || resource.data.by == request.auth.uid);
+      allow create: if active()
+                    && request.resource.data.keys().hasOnly(['by', 'byName', 'text', 'at', 'hidden'])
+                    && request.resource.data.by == request.auth.uid
+                    && request.resource.data.byName is string && request.resource.data.byName.size() <= 120
+                    && request.resource.data.text is string && request.resource.data.text.size() >= 3 && request.resource.data.text.size() <= 2000
+                    && request.resource.data.at == request.time && request.resource.data.hidden == false;
+      allow update: if onPastoral() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden'])
+                    && request.resource.data.hidden is bool;
+      allow delete: if active() && resource.data.by == request.auth.uid;
+    }
+    match /prayerSettings/{id} {
+      allow read: if active();
+      allow write: if isMaster() && id == 'main'
+                   && request.resource.data.keys().hasOnly(['prayerTeam', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.prayerTeam is string && request.resource.data.prayerTeam.size() <= 60
+                   && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------

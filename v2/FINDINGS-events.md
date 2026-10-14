@@ -3812,3 +3812,72 @@ on the website. The switch-over notes ask the office to check them first.
 
 **For the main window:** add `publicWhatson` to "What does your church
 use?", under Events and rooms.
+
+### F-166 — Prayer requests and answers to prayer (NEXT-BRIEF §24 item 11)
+Feature name **`prayer`**. The page is `prayer.html`, and it works in app
+mode. **No server function is needed.**
+
+**A request:**
+- Anyone in the address book can ask, at any time.
+- "Who may see it": **the pastoral team only** (the first choice), or the
+  pastoral team and the church's **prayer team**.
+  - The prayer team is a church setting (`prayerSettings/main.prayerTeam`,
+    a team or group's name), set on the page by a master admin. A church
+    with none simply doesn't offer that choice.
+- The person's name goes with it, so they can be prayed for by name.
+- The page says "Thank you. Your request has been passed on".
+
+**"My requests":**
+- The person sees their own, and marks one answered with a few words.
+- They can share that answer with the church, with or without their name.
+  **The shared answer carries only the answer, never the request.**
+- They can take a request back.
+
+**Answers to prayer:** read by everyone signed in. The pastoral team can
+hide one.
+
+**Who sees requests:**
+- the pastoral team: all of them
+- the prayer team: only those shared with it
+- anyone else: none
+
+The page finds this out by asking the database, so it can never disagree
+with the rules.
+
+**A big "Speak" button** (`egbc-speak.js`, shared so other forms can use
+it):
+- It uses the phone's own speech recognition, which is free.
+- The words land in the box to read and change before anything is sent.
+  Nothing is recorded or kept by the hub.
+- A phone that can't listen (often an iPhone app on the Home Screen) gets
+  no dead button. Instead it says where the keyboard's microphone is.
+
+**The rules (`prayers`, `prayerAnswers`, `prayerSettings`):**
+- A request is read only by:
+  - the person who asked
+  - the Pastoral group (`onPastoral()`, the same as "I'm worried")
+  - the prayer team, if chosen
+- **Not a master admin.**
+- Only the person can mark it answered or take it back. Nobody can change
+  what was asked, or who sees it.
+- Answers: signed in only. Only the pastoral team can hide one.
+
+**Proved:**
+- **Rules:** 29 new checks, 1182 in all.
+- `prayer.test.mjs`: 19 checks at 375px in app mode, with a stand-in
+  speech recogniser.
+- **7 deliberate breaks, all caught:**
+  - **the one that matters:** the prayer team reads pastoral-only
+    requests
+  - anyone signed in reads requests
+  - Speak puts nothing in the box
+  - a dead Speak button on a phone that can't listen
+  - the shared answer carrying the private request
+  - prayer showing when switched off
+
+**For the main window:**
+1. "Prayer" (`prayer.html`) in the Menu, and as a row on the app's Me tab.
+2. `prayer` in "What does your church use?", under People and groups.
+3. Optional: a notification to the pastoral team when a request arrives.
+   This would need a small trigger. The spec doesn't ask for it, so I
+   haven't requested it.

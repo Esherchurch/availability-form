@@ -83,9 +83,11 @@
     return list.filter(function (e) { return e.visibility === 'public' && e.status !== 'pending' && (e.audience || []).indexOf('public') >= 0; });
   }
   function load(from, to) {
-    var q = db().collection('calEvents').where('audience', 'array-contains', 'public').where('startUtc', '>=', from);
-    if (to) q = q.where('startUtc', '<', to);
-    return q.orderBy('startUtc').limit(300).get().then(function (s) {
+    /* One query, written out in full so the index check can read it; it uses
+       the one What's on index (audience contains, then startUtc). The list
+       has no end of its own, so it looks ten years ahead. */
+    to = to || from + 3650 * 864e5;
+    return db().collection('calEvents').where('audience', 'array-contains', 'public').where('startUtc', '>=', from).where('startUtc', '<', to).orderBy('startUtc').limit(300).get().then(function (s) {
       return publicOnly(s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }));
     });
   }

@@ -187,6 +187,10 @@ so "Show on screen" can call a parent.
 2. **Copy the two codes** from events-admin, under "On the church website": a "coming up" list and a month calendar.
 3. **On esherchurch.org/whats_on,** replace the two ChurchSuite iframes with them (in WordPress, a Custom HTML block each). Do this when the hub's events are ready, at the switch from ChurchSuite.
 
+### 3.7d Prayer (Martin)
+- **The pastoral team** is the Pastoral group in the address book. Check its people.
+- **A prayer team (optional):** on `prayer.html`, a master admin names the church's prayer team (its team or group, as in the address book). Leave it empty for none.
+
 ### 3.8 Room hire and invoices (the office; can come after launch)
 **Pages:** `places-admin.html` (Hire prices) and `bookings-admin.html`
 (Accounts, Hirers)

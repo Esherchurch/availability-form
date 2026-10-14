@@ -2287,6 +2287,52 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('nor an attender', 'deny', () => getDocs(query(collection(ctx('u_watcher'), 'calEvents'), where('audience', 'array-contains', 'unlisted'))));
 }
 
+// ── EVENTS (events window) ── prayer requests and answers to prayer (NEXT-BRIEF §24 item 11; F-166)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const U = (uid, mid, teams) => setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor: [], masterAdmin: false, attender: true });
+    await U('u_asker', 'm_asker', []);
+    await U('u_other', 'm_other', []);
+    await U('u_pasto', 'm_pasto', ['Pastoral']);
+    await U('u_prayt', 'm_prayt', ['Prayer Team']);
+  });
+  const PR = (who, share, extra) => ({ by: who, byName: 'Asker (invented)', text: 'Please pray for my mum’s operation (invented).', share, at: serverTimestamp(), answered: false, answer: '', answeredAt: null, ...(extra || {}) });
+  await check('PRAYER: anyone in the address book asks for prayer, pastoral team only', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_1'), PR('u_asker', 'pastoral')));
+  await check('and one for the prayer team too', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_2'), PR('u_asker', 'prayerTeam')));
+  await check('not in someone else’s name', 'deny', () => setDoc(doc(ctx('u_other'), 'prayers', 'pr_3'), PR('u_asker', 'pastoral')));
+  await check('not signed out', 'deny', () => setDoc(doc(guest(), 'prayers', 'pr_4'), PR('nobody', 'pastoral')));
+  await check('the person reads their own', 'allow', () => getDoc(doc(ctx('u_asker'), 'prayers', 'pr_1')));
+  await check('the pastoral team reads it', 'allow', () => getDoc(doc(ctx('u_pasto'), 'prayers', 'pr_1')));
+  await check('and lists them all', 'allow', () => getDocs(collection(ctx('u_pasto'), 'prayers')));
+  await check('A PASTORAL-ONLY REQUEST: NOT ANYONE ELSE', 'deny', () => getDoc(doc(ctx('u_other'), 'prayers', 'pr_1')));
+  await check('NOT A MASTER ADMIN', 'deny', () => getDoc(doc(as('martin'), 'prayers', 'pr_1')));
+  await check('not the prayer team before the church names one', 'deny', () => getDoc(doc(ctx('u_prayt'), 'prayers', 'pr_2')));
+  await check('a master admin names the prayer team', 'allow', () => setDoc(doc(as('martin'), 'prayerSettings', 'main'), { prayerTeam: 'Prayer Team', updatedAt: serverTimestamp(), updatedBy: 'u_martin' }));
+  await check('nobody else can', 'deny', () => setDoc(doc(ctx('u_pasto'), 'prayerSettings', 'main'), { prayerTeam: 'Pastoral', updatedAt: serverTimestamp(), updatedBy: 'u_pasto' }));
+  await check('now the prayer team reads one shared with it', 'allow', () => getDoc(doc(ctx('u_prayt'), 'prayers', 'pr_2')));
+  await check('and lists those', 'allow', () => getDocs(query(collection(ctx('u_prayt'), 'prayers'), where('share', '==', 'prayerTeam'))));
+  await check('BUT NEVER ONE FOR THE PASTORAL TEAM ONLY', 'deny', () => getDoc(doc(ctx('u_prayt'), 'prayers', 'pr_1')));
+  await check('nor all of them', 'deny', () => getDocs(collection(ctx('u_prayt'), 'prayers')));
+  await check('the person marks it answered', 'allow', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_1'), { answered: true, answer: 'Went well (invented).', answeredAt: serverTimestamp() }));
+  await check('but cannot change what was asked, or who sees it', 'deny', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_1'), { share: 'prayerTeam' }));
+  await check('the pastoral team cannot change it', 'deny', () => updateDoc(doc(ctx('u_pasto'), 'prayers', 'pr_1'), { answered: false, answer: '', answeredAt: serverTimestamp() }));
+  await check('nor delete it', 'deny', () => deleteDoc(doc(ctx('u_pasto'), 'prayers', 'pr_1')));
+  await check('the person takes it back', 'allow', () => deleteDoc(doc(ctx('u_asker'), 'prayers', 'pr_2')));
+
+  const AN = (who, extra) => ({ by: who, byName: 'Asker (invented)', text: 'The operation went well. Thank you for praying (invented).', at: serverTimestamp(), hidden: false, ...(extra || {}) });
+  await check('ANSWERS: the person shares an answer with the church', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayerAnswers', 'pa_1'), AN('u_asker')));
+  await check('without a name too', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayerAnswers', 'pa_2'), AN('u_asker', { byName: '' })));
+  await check('not in someone else’s name', 'deny', () => setDoc(doc(ctx('u_other'), 'prayerAnswers', 'pa_3'), AN('u_asker')));
+  await check('everyone signed in reads the shared answers', 'allow', () => getDocs(query(collection(ctx('u_other'), 'prayerAnswers'), where('hidden', '==', false))));
+  await check('NOT SIGNED OUT', 'deny', () => getDocs(query(collection(guest(), 'prayerAnswers'), where('hidden', '==', false))));
+  await check('the pastoral team hides one', 'allow', () => updateDoc(doc(ctx('u_pasto'), 'prayerAnswers', 'pa_2'), { hidden: true }));
+  await check('nobody else can', 'deny', () => updateDoc(doc(ctx('u_other'), 'prayerAnswers', 'pa_1'), { hidden: true }));
+  await check('a hidden one is no longer read by others', 'deny', () => getDoc(doc(ctx('u_other'), 'prayerAnswers', 'pa_2')));
+}
+
 // ── EVENTS (events window) ── phone notifications (NEXT-BRIEF §23; F-144)
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();

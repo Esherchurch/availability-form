@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Prayer</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610112000"></script>
+<script src="egbc-shell.js?v=202610121800" data-title="Prayer"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610121600"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610141200"></script>
+<script src="egbc-speak.js?v=202610141400"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--gold:#b07d2e;--gold-bg:#fdf8ee;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px calc(72px + env(safe-area-inset-bottom))}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  label.l{display:block;font-size:14px;font-weight:500;color:var(--ink);margin:10px 0 5px}
+  textarea{width:100%;min-height:130px;border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;font:400 16px/1.5 Inter,sans-serif;color:var(--ink);background:#fff}
+  .speak{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;margin-top:8px;border-radius:14px;border:2px solid var(--brand);
+         background:var(--tint);color:var(--brand-dark);font:700 20px Inter,sans-serif;cursor:pointer}
+  .speak[aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:#fff}
+  .said{font-size:14px;color:var(--muted);min-height:20px;margin:6px 0 0}
+  .radio{display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-size:15px}.radio input{margin-top:4px;width:18px;height:18px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 18px;border-radius:10px;font:600 15px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.small{min-height:40px;font-size:14px;padding:0 12px}
+  .btn:disabled{opacity:.55}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .item{padding:12px 0;border-top:1px solid var(--line)}.item:first-of-type{border-top:none}
+  .item .w{white-space:pre-wrap;overflow-wrap:break-word;color:var(--ink)}
+  .item .m{font-size:13px;color:var(--muted);margin-top:4px}
+  .pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--tint);color:var(--brand)}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}
+  .done{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:12px;font-size:15px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .tabs button{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:#fff;font:600 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .tabs button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prayer</h1>
+  <p class="sub">Ask for prayer at any time, and share how prayers have been answered.</p>
+  <div id="main"><div class="card">Loading…</div></div>
+</div>
+<div id="toast"></div>
+<script>
+(function () {
+  'use strict';
+  /* PRAYER (NEXT-BRIEF §24 item 11; F-166), feature name 'prayer'.
+     A request is private: the person, the Pastoral group, and the prayer
+     team only if the person chooses it (the rules, prayers). What each
+     person may read is found out by asking - a list the rules refuse means
+     "not for you" - so the page and the rules can never disagree. */
+  var E = window.EGBCEvents, esc = E.esc;
+  var ME = {}, MASTER = false, TEAM = '', TAB = 'ask', MINE = [], ANSWERS = [], FORUS = null, SENT = false;
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function now() { return firebase.firestore.FieldValue.serverTimestamp(); }
+  function $(id) { return document.getElementById(id); }
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 4000); }
+  function when(ts) { var d = ts && ts.toDate ? ts.toDate() : null; return d ? E.fmtDateShort(d.toISOString()) : ''; }
+  function newest(a, b) { var x = a.at && a.at.toMillis ? a.at.toMillis() : 0, y = b.at && b.at.toMillis ? b.at.toMillis() : 0; return y - x; }
+
+  /* ---------------- drawing ---------------- */
+  function draw() {
+    if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('prayer')) { $('main').innerHTML = '<div class="card">Prayer requests are not used by this church.</div>'; return; }
+    var tabs = [['ask', 'Ask for prayer'], ['mine', 'My requests'], ['answers', 'Answers to prayer']];
+    if (FORUS) tabs.push(['forus', FORUS.pastoral ? 'Requests to pray for' : 'Prayer team']);
+    $('main').innerHTML = '<div class="tabs" role="tablist">' + tabs.map(function (t) {
+      return '<button data-tab="' + t[0] + '" aria-pressed="' + (TAB === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      (TAB === 'ask' ? askCard() : TAB === 'mine' ? mineCard() : TAB === 'answers' ? answersCard() : forUsCard()) + (MASTER ? settingsCard() : '');
+    wire();
+  }
+  function askCard() {
+    if (SENT) return '<div class="card" id="ask"><div class="done" id="sent">Thank you. Your request has been passed on, and you will be prayed for.</div>' +
+      '<div class="acts"><button class="btn sec" id="again">Ask for something else</button></div></div>';
+    return '<div class="card" id="ask"><h2>What would you like prayer for?</h2>' +
+      '<textarea id="pr-text" maxlength="4000" aria-label="Your prayer request" placeholder="Write it here, or press Speak and say it."></textarea>' +
+      '<button class="speak" id="pr-speak" type="button" aria-pressed="false">🎤 Speak</button><p class="said" id="pr-said" role="status"></p>' +
+      '<label class="l">Who may see it</label>' +
+      '<label class="radio"><input type="radio" name="pr-share" value="pastoral" checked><span><b>The pastoral team only</b></span></label>' +
+      (TEAM ? '<label class="radio"><input type="radio" name="pr-share" value="prayerTeam"><span><b>The pastoral team and the ' + esc(TEAM) + '</b>, who pray for requests together</span></label>' : '') +
+      '<p class="said">Nobody else sees it. Your name goes with it, so they can pray for you by name.</p>' +
+      '<div class="acts"><button class="btn" id="pr-go">Send my request</button></div></div>';
+  }
+  function mineCard() {
+    return '<div class="card" id="mine"><h2>My requests</h2>' + (MINE.length ? MINE.map(function (p) {
+      return '<div class="item" data-mine="' + esc(p.id) + '"><div class="w">' + esc(p.text) + '</div>' +
+        '<div class="m">' + esc(when(p.at)) + ' · ' + (p.share === 'prayerTeam' ? 'pastoral team and ' + esc(TEAM || 'prayer team') : 'pastoral team') +
+        (p.answered ? ' · <span class="pill ok">Answered</span>' : '') + '</div>' +
+        (p.answered && p.answer ? '<div class="w" style="margin-top:6px">' + esc(p.answer) + '</div>' : '') +
+        (p.answered ? '' : '<label class="l" for="an-' + esc(p.id) + '">Has it been answered? Say how (optional)</label><textarea id="an-' + esc(p.id) + '" maxlength="2000" style="min-height:70px"></textarea>' +
+          '<label class="radio"><input type="checkbox" id="sh-' + esc(p.id) + '"><span>Share the answer with the church, to encourage others</span></label>' +
+          '<label class="radio"><input type="checkbox" id="nm-' + esc(p.id) + '" checked><span>with my name</span></label>') +
+        '<div class="acts">' + (p.answered ? '' : '<button class="btn small" data-answer="' + esc(p.id) + '">It has been answered</button>') +
+        '<button class="btn sec small" data-withdraw="' + esc(p.id) + '">Take it back</button></div></div>';
+    }).join('') : '<p class="said">Nothing yet.</p>') + '</div>';
+  }
+  function answersCard() {
+    return '<div class="card" id="answers"><h2>Answers to prayer</h2><p class="said" style="margin:0 0 8px">Shared by people at church, to encourage each other.</p>' +
+      (ANSWERS.length ? ANSWERS.map(function (a) {
+        return '<div class="item" data-answer-of="' + esc(a.id) + '"><div class="w">' + esc(a.text) + '</div><div class="m">' + esc(a.byName || 'Shared without a name') + ' · ' + esc(when(a.at)) + '</div>' +
+          (FORUS && FORUS.pastoral ? '<div class="acts"><button class="btn sec small" data-hide="' + esc(a.id) + '">Hide it</button></div>' : '') + '</div>';
+      }).join('') : '<p class="said">None shared yet.</p>') +
+      '<label class="l" for="sh-text">Share an answer to prayer</label><textarea id="sh-text" maxlength="2000" style="min-height:90px"></textarea>' +
+      '<button class="speak" id="sh-speak" type="button" aria-pressed="false">🎤 Speak</button><p class="said" id="sh-said" role="status"></p>' +
+      '<label class="radio"><input type="checkbox" id="sh-name" checked><span>with my name</span></label>' +
+      '<div class="acts"><button class="btn" id="sh-go">Share it</button></div></div>';
+  }
+  function forUsCard() {
+    var list = FORUS.list;
+    return '<div class="card" id="forus"><h2>' + (FORUS.pastoral ? 'Requests to pray for' : 'For the ' + esc(TEAM)) + '</h2>' +
+      '<p class="said" style="margin:0 0 8px">Private. Please do not pass these on.</p>' +
+      (list.length ? list.map(function (p) {
+        return '<div class="item" data-forus="' + esc(p.id) + '"><div class="w">' + esc(p.text) + '</div><div class="m">' + esc(p.byName || '') + ' · ' + esc(when(p.at)) +
+          (FORUS.pastoral ? ' · ' + (p.share === 'prayerTeam' ? 'shared with the ' + esc(TEAM || 'prayer team') : 'pastoral only') : '') +
+          (p.answered ? ' · <span class="pill ok">Answered</span>' : '') + '</div>' + (p.answered && p.answer ? '<div class="w" style="margin-top:6px">' + esc(p.answer) + '</div>' : '') + '</div>';
+      }).join('') : '<p class="said">None at the moment.</p>') + '</div>';
+  }
+  function settingsCard() {
+    return '<div class="card" id="pr-settings"><h2>The prayer team</h2><p class="said" style="margin:0 0 6px">If the church has a prayer team, name it here (its team or group, exactly as in the address book), and people can choose to share a request with it too. Leave it empty for none.</p>' +
+      '<input id="pt-name" maxlength="60" value="' + esc(TEAM) + '" style="width:100%;min-height:48px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:inherit">' +
+      '<div class="acts"><button class="btn sec" id="pt-go">Save</button></div></div>';
+  }
+
+  function wire() {
+    document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { TAB = b.dataset.tab; draw(); }; });
+    if ($('pr-speak')) EGBCSpeak.attach($('pr-speak'), $('pr-text'), { status: $('pr-said') });
+    if ($('sh-speak')) EGBCSpeak.attach($('sh-speak'), $('sh-text'), { status: $('sh-said') });
+    if ($('pr-go')) $('pr-go').onclick = send;
+    if ($('again')) $('again').onclick = function () { SENT = false; draw(); };
+    document.querySelectorAll('[data-answer]').forEach(function (b) { b.onclick = function () { answered(b.dataset.answer); }; });
+    document.querySelectorAll('[data-withdraw]').forEach(function (b) { b.onclick = function () { withdraw(b.dataset.withdraw); }; });
+    document.querySelectorAll('[data-hide]').forEach(function (b) { b.onclick = function () { hide(b.dataset.hide); }; });
+    if ($('sh-go')) $('sh-go').onclick = function () { share($('sh-text').value, $('sh-name').checked).then(function (ok) { if (ok) { toast('Shared. Thank you.'); load(); } }); };
+    if ($('pt-go')) $('pt-go').onclick = saveTeam;
+  }
+
+  /* ---------------- saving ---------------- */
+  function send() {
+    var text = ($('pr-text').value || '').trim(), share = (document.querySelector('input[name="pr-share"]:checked') || {}).value || 'pastoral';
+    if (text.length < 3) { toast('Write or say a few words first'); return; }
+    $('pr-go').disabled = true;
+    db().collection('prayers').add({ by: uid(), byName: (ME.name || '').slice(0, 120), text: text.slice(0, 4000), share: share, at: now(), answered: false, answer: '', answeredAt: null })
+      .then(function () { SENT = true; return load(); })
+      .catch(function (e) { $('pr-go').disabled = false; toast('Could not send it: ' + (e.message || e)); });
+  }
+  function answered(id) {
+    var ans = ($('an-' + id).value || '').trim().slice(0, 2000), sh = $('sh-' + id).checked, nm = $('nm-' + id).checked;
+    db().collection('prayers').doc(id).update({ answered: true, answer: ans, answeredAt: now() })
+      .then(function () { return sh && ans.length >= 3 ? share(ans, nm) : true; })
+      .then(function () { toast(sh && ans.length >= 3 ? 'Marked answered, and shared. Thank you.' : 'Marked answered.'); return load(); })
+      .catch(function (e) { toast('Could not: ' + (e.message || e)); });
+  }
+  function withdraw(id) {
+    if (!confirm('Take this request back? The pastoral team will no longer see it.')) return;
+    db().collection('prayers').doc(id).delete().then(function () { toast('Taken back.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+  }
+  function share(text, withName) {
+    text = String(text || '').trim();
+    if (text.length < 3) { toast('Write or say a few words first'); return Promise.resolve(false); }
+    return db().collection('prayerAnswers').add({ by: uid(), byName: withName ? (ME.name || '').slice(0, 120) : '', text: text.slice(0, 2000), at: now(), hidden: false })
+      .then(function () { return true; }, function (e) { toast('Could not share it: ' + (e.message || e)); return false; });
+  }
+  function hide(id) { db().collection('prayerAnswers').doc(id).update({ hidden: true }).then(function () { toast('Hidden.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); }); }
+  function saveTeam() {
+    db().collection('prayerSettings').doc('main').set({ prayerTeam: ($('pt-name').value || '').trim().slice(0, 60), updatedAt: now(), updatedBy: uid() })
+      .then(function () { toast('Saved.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
+  }
+
+  /* ---------------- loading ---------------- */
+  function load() {
+    var pr = db().collection('prayers');
+    return Promise.all([
+      db().collection('prayerSettings').doc('main').get().catch(function () { return null; }),
+      pr.where('by', '==', uid()).get().catch(function () { return { docs: [] }; }),
+      db().collection('prayerAnswers').where('hidden', '==', false).get().catch(function () { return { docs: [] }; }),
+      /* Asked, not guessed: the Pastoral group may list them all ... */
+      pr.get().then(function (s) { return { pastoral: true, list: all(s) }; }, function () { return null; })
+    ]).then(function (r) {
+      TEAM = r[0] && r[0].exists ? (r[0].data().prayerTeam || '') : '';
+      MINE = all(r[1]).sort(newest);
+      ANSWERS = all(r[2]).sort(newest);
+      if (r[3]) return r[3];
+      /* ... and the prayer team, those shared with it. */
+      return TEAM ? pr.where('share', '==', 'prayerTeam').get().then(function (s) { return { pastoral: false, list: all(s) }; }, function () { return null; }) : null;
+    }).then(function (us) {
+      FORUS = us ? { pastoral: us.pastoral, list: us.list.sort(newest) } : null;
+      draw();
+    });
+  }
+
+  EGBCAuth.require().then(function (p) {
+    ME = p || {};
+    MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+    if (/[?&]tab=(mine|answers|forus)\b/.test(location.search)) TAB = location.search.match(/tab=(\w+)/)[1];
+    return load();
+  }).catch(function (e) { $('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>
