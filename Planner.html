@@ -1424,6 +1424,10 @@
    its own id and value (yyyy-mm-dd), so everything that reads it, and
    everything that sets it, works as before.
      attach(input, { load, eventSelect, preferred, keepValue })
+
+   Every date box on the page (rota rows, "new event", "Pick another
+   date"): shows "Sun 18 Oct 2026", never the browser's 10/18/2026.
+     ukify(input), ukifyAll(box), and it happens by itself to any added
    ─────────────────────────────────────────────────────────────────── */
 (function (g) {
   if (g.EGBCUKDates) return;
@@ -1493,6 +1497,58 @@
   function isService(ev) { return !/practice|meeting|workshop/i.test(ev.type || ''); }
   function fire(el) { var e; try { e = new Event('change', { bubbles: true }); } catch (x) { e = document.createEvent('Event'); e.initEvent('change', true, true); } el.dispatchEvent(e); }
 
+  /* ---- every date box: UK words on top ----
+     A browser draws <input type="date"> in ITS language: on a computer set
+     to US English, 10/18/2026, whatever the page says. So every date box on
+     these pages shows "Sun 18 Oct 2026" instead, with the browser's own box
+     lying invisibly over the words: a click or a tap still opens its
+     calendar, and the value underneath is the same yyyy-mm-dd as ever. */
+  var OVER = 'position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:0;cursor:pointer;font-size:16px;';
+  function outer(input) { var p = input.parentNode; return p && p.getAttribute && p.getAttribute('data-uk-date') !== null ? p : input; }
+  function paintDate(input) {
+    var p = input.parentNode, shown = p && p.querySelector ? p.querySelector('[data-uk-shown]') : null;
+    if (shown && shown.parentNode === p) shown.textContent = input.value ? short(input.value) : 'Pick a date';
+    input.setAttribute('aria-label', 'Date: ' + (input.value ? long(input.value) : 'not chosen'));
+  }
+  function ukify(input) {
+    if (!input || String(input.type).toLowerCase() !== 'date' || outer(input) !== input || !input.parentNode) return;
+    var box = document.createElement('span');
+    box.setAttribute('data-uk-date', '');
+    box.className = input.className;
+    box.style.cssText = input.style.cssText;
+    box.style.position = 'relative';
+    if (box.style.display !== 'none') box.style.display = 'inline-flex';
+    box.style.alignItems = 'center';
+    var shown = document.createElement('span');
+    shown.setAttribute('data-uk-shown', '');
+    shown.style.cssText = 'pointer-events:none;white-space:nowrap;';
+    input.parentNode.insertBefore(box, input);
+    box.appendChild(shown);
+    box.appendChild(input);
+    input.className = '';
+    input.style.cssText = OVER;
+    var paint = function () { paintDate(input); };
+    input.addEventListener('input', paint);
+    input.addEventListener('change', paint);
+    input.addEventListener('focus', paint);
+    input.addEventListener('click', function () { paint(); try { if (input.showPicker) input.showPicker(); } catch (e) {} });
+    paint();
+  }
+  function ukifyAll(root) {
+    if (!root) return;
+    if (root.tagName === 'INPUT') { ukify(root); return; }
+    if (!root.querySelectorAll) return;
+    var l = root.querySelectorAll('input[type="date"]');
+    for (var i = 0; i < l.length; i++) ukify(l[i]);
+  }
+  if (g.MutationObserver && g.document) {
+    var watch = new MutationObserver(function (ms) {
+      for (var i = 0; i < ms.length; i++) for (var j = 0; j < ms[i].addedNodes.length; j++) if (ms[i].addedNodes[j].nodeType === 1) ukifyAll(ms[i].addedNodes[j]);
+    });
+    var begin = function () { ukifyAll(document); watch.observe(document.documentElement, { childList: true, subtree: true }); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', begin); else begin();
+  }
+
   function attach(input, o) {
     if (!input || input.getAttribute('data-uk-pick')) return null;
     o = o || {};
@@ -1504,8 +1560,11 @@
       '<select data-uk="list" aria-label="Service date" style="' + SEL + '"><option value="">Reading the rota…</option></select>' +
       '<button type="button" data-uk="next" aria-label="The next service" style="' + BTN + '">&#9654;</button>' +
       '<button type="button" data-uk="other" style="' + LINK + '">Pick another date</button>';
-    input.parentNode.insertBefore(wrap, input);
-    input.style.display = 'none';
+    var at = outer(input);
+    at.parentNode.insertBefore(wrap, at);
+    at.style.display = 'none';
+    /* The date box, in UK words, shown only for "Pick another date". */
+    var showBox = function () { var b = outer(input); b.style.display = b === input ? '' : 'inline-flex'; paintDate(input); };
     var sel = wrap.querySelector('[data-uk="list"]');
 
     function real() { return Array.prototype.filter.call(sel.options, function (op) { return op.value && !op.hasAttribute('data-other'); }); }
@@ -1522,6 +1581,7 @@
     function choose(v) {
       var bits = String(v).split('|'), date = bits[0], type = bits.slice(1).join('|');
       if (input.value !== date) { input.value = date; fire(input); } else sync();
+      paintDate(input);
       pickType(type);
     }
     /* The date box changed some other way: show it in the list. */
@@ -1547,7 +1607,8 @@
     wrap.querySelector('[data-uk="prev"]').onclick = function () { step(-1); };
     wrap.querySelector('[data-uk="next"]').onclick = function () { step(1); };
     wrap.querySelector('[data-uk="other"]').onclick = function () {
-      input.style.display = '';
+      ukify(input);
+      showBox();
       try { input.focus(); if (input.showPicker) input.showPicker(); } catch (e) {}
     };
 
@@ -1574,13 +1635,15 @@
       if (first) { sel.value = first.date + '|' + (first.type || ''); choose(sel.value); }
     }).catch(function () {
       sel.innerHTML = '<option value="">Could not read the rota - pick a date</option>';
-      input.style.display = '';
+      ukify(input);
+      showBox();
     });
     return { sync: sync, select: sel };
   }
 
   g.EGBCUKDates = { long: long, short: short, today: today, hidden: hidden, showPast: showPast, setShowPast: setShowPast,
-    togglePast: togglePast, paintPast: paintPast, scrollToNext: scrollToNext, openAtNext: openAtNext, attach: attach, isService: isService };
+    togglePast: togglePast, paintPast: paintPast, scrollToNext: scrollToNext, openAtNext: openAtNext, attach: attach, isService: isService,
+    ukify: ukify, ukifyAll: ukifyAll };
 })(window);
 /* ── end egbc-uk-dates ── */
 </script>

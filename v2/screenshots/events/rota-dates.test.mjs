@@ -28,7 +28,7 @@ import http from 'node:http';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
 const GUARD = createGuard();
@@ -141,7 +141,7 @@ const errors = [], browsers = [];
 let B = null;
 async function browser() {
   if (B) return B;
-  B = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, 'rita-')), args: ['--no-first-run'] });
+  B = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, 'rita-')), args: ['--no-first-run', '--lang=en-US'], env: { ...process.env, LANG: 'en_US.UTF-8' } });
   GUARD.watchBrowser(B); browsers.push(B);
   const p = await page(1280);
   await p.goto(URLB + 'whatson.html', { waitUntil: 'networkidle2' });
@@ -219,6 +219,11 @@ async function rota(name, file, box, prep) {
   await until(() => dates(q, box).then(x => x.length && x.every(y => y >= T)));
   ok('   hiding them again: gone, and forgotten on this device', (await dates(q, box)).every(y => y >= T) && (await q.evaluate(() => localStorage.getItem('egbc-rota-show-past'))) === null);
   ok('   the term with only past dates is not drawn', !(await q.$eval(box, (e, t) => e.innerText.includes(t), termOf(EV.ev_old.date))) || termOf(EV.ev_old.date) === termOf(T));
+  /* Martin, 14 Oct: "On the rota planner it says 10/18/2026". */
+  const ukRows = await q.evaluate(() => Array.from(document.querySelectorAll('[data-date] input[type="date"]')).map(i => ({ v: i.value, op: getComputedStyle(i).opacity,
+    shown: i.parentNode.getAttribute('data-uk-date') !== null ? (i.parentNode.querySelector('[data-uk-shown]') || {}).textContent : '(no UK words)' })));
+  ok('   EVERY ROW\'S DATE IS IN UK WORDS ("' + ((ukRows[0] || {}).shown || '-') + '"), never the browser\'s 10/18/2026 (' + ukRows.length + ' date boxes)',
+    ukRows.every(r => r.op === '0' && r.shown === U.short(r.v)), J(ukRows.slice(0, 3)));
   await p.close();
   return q;
 }
@@ -230,6 +235,12 @@ try {
     const tot = await PL.evaluate((name) => { const m = document.body.innerText.match(new RegExp(name.replace(/[()]/g, '\\$&') + '\\s*(\\d+)')); return m ? +m[1] : 0; }, GUS.name);
     ok('   this month\'s "Sundays served" still counts the past Sunday it hides (Gus: 2)', tot === 2, 'Gus: ' + tot);
   } else ok('   (today is the 1st: no past Sunday this month to count)', true);
+  /* Changing a row's date still saves it (the practice: no planner lists it). */
+  const MOVED = add(T, 6);
+  await PL.evaluate((from, to) => { const i = document.querySelector('[data-date="' + from + '"] input[type="date"]'); i.value = to; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); }, EV.ev_prac.date, MOVED);
+  const movedDoc = await until(async () => { let d; await env.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'events', 'ev_prac'))).data(); }); return d && d.date === MOVED ? d : null; });
+  ok('   changing a row\'s date still saves it, and the row says so in UK words', !!movedDoc && (await until(() => PL.evaluate((d) => Array.from(document.querySelectorAll('[data-uk-shown]')).some(s => s.textContent === d) ? 'y' : '', U.short(MOVED)), 8000)) === 'y');
+  EV.ev_prac.date = MOVED;   /* where it is now, for the pages below */
   ok('   the toolbar\'s other buttons are all still there', (await PL.$$eval('header button', bs => bs.map(b => b.textContent.trim()))).filter(t => /^(Populate|Auto-Populate|Add Practices|\+ Service|Gather Avail|Hide Assigned)$/.test(t)).length === 6);
   await PL.close();
   const VO = await rota('the view-only rota (view-only-rota.html)', 'view-only-rota.html', '#rotaContent');
@@ -238,6 +249,9 @@ try {
     await p.waitForFunction(() => typeof showScreen === 'function', { timeout: 20000 });
     await p.evaluate(() => showScreen('rota'));
   });
+  await CT.evaluate(() => (window.openNewEventModal || EGBCCoreRota.newEvent)());
+  const newBox = await until(() => CT.evaluate(() => { const i = document.getElementById('new-event-date'); return i && i.parentNode.getAttribute('data-uk-date') !== null ? (i.parentNode.querySelector('[data-uk-shown]') || {}).textContent : ''; }));
+  ok('   the new event form\'s date box is in UK words too ("' + newBox + '")', newBox === 'Pick a date' || /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2} \d{4}$/.test(newBox), newBox);
   await CT.close();
 
   /* ---------- C. the planners ---------- */
@@ -252,7 +266,7 @@ try {
   ok('   it opens on the next one; the date underneath is ' + v0 + ' (yyyy-mm-dd, as before)', v0 === EV.ev_today.date && /^\d{4}-\d{2}-\d{2}$/.test(v0), v0);
   const pickedType = await until(() => SP.$eval('#eventSelect', s => s.value !== '' ? s.options[s.selectedIndex].text : ''));
   ok('   and that service is chosen in "Select Service"', pickedType === 'Sunday Morning Worship', pickedType);
-  ok('   the date box is out of the way until asked for', await SP.$eval('#serviceDate', e => getComputedStyle(e).display === 'none'));
+  ok('   the date box is out of the way until asked for', await SP.$eval('#serviceDate', e => { const b = e.parentNode.getAttribute('data-uk-date') !== null ? e.parentNode : e; return getComputedStyle(b).display === 'none'; }));
   await SP.$eval('[data-uk="next"]', b => b.click());
   const v1 = await until(() => SP.$eval('#serviceDate', (e, t) => e.value !== t ? e.value : '', EV.ev_today.date));
   ok('   ▶ goes to the next service: ' + v1, v1 === EV.ev_next.date, J(await SP.evaluate(() => ({ box: document.getElementById('serviceDate').value, sel: document.querySelector('.uk-pick select').value,
@@ -261,7 +275,8 @@ try {
   await SP.$eval('[data-uk="prev"]', b => b.click());
   ok('   ◀ goes back', (await until(() => SP.$eval('#serviceDate', (e, t) => e.value === t ? 'y' : '', EV.ev_today.date))) === 'y');
   await SP.$eval('[data-uk="other"]', b => b.click());
-  ok('   "Pick another date" shows the date box', await SP.$eval('#serviceDate', e => getComputedStyle(e).display !== 'none'));
+  const otherBox = await SP.$eval('#serviceDate', e => { const b = e.parentNode; return b.getAttribute('data-uk-date') !== null && getComputedStyle(b).display !== 'none' && getComputedStyle(e).opacity === '0' ? b.querySelector('[data-uk-shown]').textContent : ''; });
+  ok('   "Pick another date" shows the date box, in UK words ("' + otherBox + '"), not the browser\'s', otherBox === U.short(EV.ev_today.date), otherBox);
   /* The old way, as the main window's own checks do it. */
   const OTHER = add(T, 40);
   await SP.evaluate((d) => { const b = document.getElementById('serviceDate'); b.value = d; b.dispatchEvent(new Event('change', { bubbles: true })); }, OTHER);
