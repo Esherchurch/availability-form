@@ -3761,9 +3761,15 @@ service cloud.firestore {
                     && request.resource.data.text is string && request.resource.data.text.size() >= 3 && request.resource.data.text.size() <= 4000
                     && request.resource.data.share in ['pastoral', 'prayerTeam']
                     && request.resource.data.at == request.time
-                    && request.resource.data.answered == false && request.resource.data.answer == '';
+                    && request.resource.data.answered == false && request.resource.data.answer == ''
+                    // F-178: with no safeguarding lead set, a request could reach nobody.
+                    && sgLeadSet();
+      // F-178: the people Who gets told names for prayer (careRouting/main),
+      // and the safeguarding lead and deputy, are told of a request (the
+      // server's prayerNotify), so they may read it too.
       allow read: if active() && (resource.data.by == request.auth.uid || onPastoral()
-                                  || (resource.data.share == 'prayerTeam' && onPrayerTeam()));
+                                  || (resource.data.share == 'prayerTeam' && onPrayerTeam())
+                                  || careNamed('prayer') || sgLeadOrDeputy());
       allow update: if active() && resource.data.by == request.auth.uid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answered', 'answer', 'answeredAt'])
                     && request.resource.data.answered is bool

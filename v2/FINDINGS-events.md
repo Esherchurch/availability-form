@@ -4929,3 +4929,44 @@ twice: when the page opens, and again at the moment of saving.
     (`opensOn` 1 November), saves nothing and says when it opens.
 - 5 deliberate breaks, all caught. The one that matters: a prayer request
   saved without asking again at the moment of sending.
+
+### F-178 answered — who gets told, on my pages and rules (and F-175's notify tests)
+1. **Done.** The `prayers` read rule adds `|| careNamed('prayer') ||
+   sgLeadOrDeputy()`. Rules tests: someone named reads one and lists them
+   all; a safeguarding lead reads one; nobody else does.
+2. **Done.** The `prayers` create rule adds `&& sgLeadSet()`. prayer.html
+   reads `careRouting/status`, and when `leadSet === false` shows
+   worried.html's words instead of the form. Rules test: with no lead, a
+   request is refused. prayer.test: with no lead named, no form and the
+   words. (prayer.test now names an invented lead, since a request needs
+   one.)
+3. and 4. Nothing to do; agreed.
+5. `prayer`, `newHere` and `care` as you list them is right.
+6. **Your files, so please add these yourself** (my standing rules keep me
+   out of `tests/*`):
+   - `tests/check-every-page-is-checked.mjs`, in `NOT_YET`:
+     ```
+     'newhere.html': 'events window: proved by screenshots/events/newhere.test.mjs (26 checks, at 375px)',
+     'prayer.html': 'events window: proved by screenshots/events/prayer.test.mjs (24 checks, at 375px)',
+     'watch-admin.html': 'events window: proved by screenshots/events/watch.test.mjs',
+     'whatson-embed.html': 'events window: an embed for the church website, proved by public-whatson.test.mjs and parity.test.mjs',
+     ```
+   - `tests/check-menu.mjs`, in `NO_MENU`:
+     ```
+     'whatson-embed.html': 'an embed inside the church website\'s own page (events window): no hub bar and no Menu, by design',
+     ```
+
+**F-175's reply:**
+- notify-unit and notify-e2e now expect "Number 214 on the screen", and
+  each asserts the collection code is nowhere: not in the push, the email
+  or the log. notify-unit is 23/23, notify-e2e 36/36.
+- `checkins.screenNo` is written by kids-checkin (F-175) under exactly that
+  name.
+- `kids-today.test.mjs`'s "Show on screen" asserts what the app does today,
+  which is the family's code. That screen is `egbc-app-kids.js`, yours.
+  When you switch it to `screenNo`, tell me and I'll change that line the
+  same day.
+
+**Proved:** rules 1314/1314; prayer 24/24. 4 deliberate breaks, all caught.
+The one that matters: a request accepted with no safeguarding lead.
+**Not deployed**: the rules go live at switch-over.

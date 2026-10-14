@@ -81,6 +81,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(db, 'addressBook', x.mid), { name: x.name, email: x.email, markers: x.teams, adminFor: [], masterAdmin: false });
     await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: [], masterAdmin: false, attender: true, status: 'active' });
   }
+  /* A safeguarding lead is named (F-178: with none, a request is refused). */
+  await setDoc(doc(db, 'bookingSettings', 'site_main'), { bookingsAdmins: [], safeguardingLead: 'm_paul', safeguardingDeputy: '' });
+  await setDoc(doc(db, 'safeguardingSettings', 'defaults'), { leadSiteId: 'site_main' });
   await setDoc(doc(db, 'prayerSettings', 'main'), { prayerTeam: 'Prayer Team', updatedAt: 'x', updatedBy: 'x' });
   /* Someone else's, for the pastoral team only. */
   await setDoc(doc(db, 'prayers', 'pr_private'), { by: P.oli.uid, byName: 'Oli Other', text: 'PASTORAL ONLY: a hard week at home (invented).', share: 'pastoral', at: new Date(), answered: false, answer: '', answeredAt: null });
@@ -214,6 +217,13 @@ try {
   await until(() => L.$('#ask #not-yet'));
   await sleep(800);
   ok('6. NOT OPEN AT THE MOMENT OF SENDING: nothing saved, and it says when it opens', !(await list('prayers')).some(p => /LATE/.test(p.text)) && /opens on 1 November 2026/.test(await text(L, '#ask')), await text(L, '#ask'));
+
+  /* ---------- 7. F-178: no safeguarding lead named ---------- */
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'careRouting', 'status'), { leadSet: false }); });
+  const Z = await as('oli');
+  const z = await text(Z, '#ask');
+  ok('7. NO SAFEGUARDING LEAD NAMED: no form, and the words worried.html uses', !(await Z.$('#pr-go')) && /has not yet named who receives them/.test(z) && /call 999/.test(z), z);
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'careRouting', 'status'), { leadSet: true }); });
 
   /* ---------- 5. switched off ---------- */
   const F = await as('ann', { off: true });

@@ -78,6 +78,13 @@
      no answer, no shared answer. Asked when the page opens, and again at
      the moment of saving. */
   var LAUNCH = { locked: false, opensOn: '' };
+  /* F-178: with no safeguarding lead named (careRouting/status, kept by the
+     server), a request could reach nobody, so the form is not offered. The
+     rules refuse it too (sgLeadSet). Missing: the form shows and the rules
+     decide. */
+  var NOBODY = false;
+  var NOBODY_WORDS = 'Messages cannot be sent from here yet, because the church has not yet named who receives them. ' +
+    'If someone is in immediate danger, call 999. Otherwise, please speak to one of the church leaders in person - for example after a Sunday service.';
   function launch() { return window.EGBCLaunch ? EGBCLaunch.check() : Promise.resolve({ locked: false, opensOn: '' }); }
   function notYet() { return window.EGBCLaunch ? EGBCLaunch.notYet(LAUNCH.opensOn) : 'This form is not open yet.'; }
   /* Before every save: still not open means nothing is written. */
@@ -108,6 +115,7 @@
   }
   function askCard() {
     if (!LAUNCH.locked) return '<div class="card" id="ask"><h2>What would you like prayer for?</h2><p class="said" id="not-yet" role="status">' + esc(notYet()) + '</p></div>';
+    if (NOBODY) return '<div class="card" id="ask"><h2>What would you like prayer for?</h2><p class="said" id="nobody" role="status">' + esc(NOBODY_WORDS) + '</p></div>';
     if (SENT) return '<div class="card" id="ask"><div class="done" id="sent">Thank you. Your request has been passed on, and you will be prayed for.</div>' +
       '<div class="acts"><button class="btn sec" id="again">Ask for something else</button></div></div>';
     return '<div class="card" id="ask"><h2>What would you like prayer for?</h2>' +
@@ -231,7 +239,10 @@
     ME = p || {};
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
     if (/[?&]tab=(mine|answers|forus)\b/.test(location.search)) TAB = location.search.match(/tab=(\w+)/)[1];
-    return launch().then(function (L) { LAUNCH = L; return load(); });
+    return launch().then(function (L) {
+      LAUNCH = L;
+      return db().collection('careRouting').doc('status').get().then(function (s) { NOBODY = s.exists && s.data().leadSet === false; }, function () {});
+    }).then(load);
   }).catch(function (e) { $('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();
 </script>

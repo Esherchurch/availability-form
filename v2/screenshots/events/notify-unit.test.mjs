@@ -23,8 +23,12 @@ ok('a switch turned off stays off; quiet hours default to 21:30 to 07:30', N.pre
 ok('nonsense quiet hours fall back to the defaults', N.prefsOf({ quietFrom: '25:99' }).quietFrom === '21:30');
 
 /* What each says. */
-const cp = N.message('callParent', { group: 'Little ones', code: 'K7P2' });
-ok('CALL A PARENT: THE GROUP AND THE CODE ONLY', cp.title === 'Please come to Little ones' && cp.body === 'Collection code K7P2', J(cp));
+/* F-175: the SCREEN NUMBER, never the collection code (it stays on the slip). */
+const cp = N.message('callParent', { group: 'Little ones', screen: '214', code: 'K7P2' });
+ok('CALL A PARENT: THE GROUP AND THE SCREEN NUMBER ONLY', cp.title === 'Please come to Little ones' && cp.body === 'Number 214 on the screen', J(cp));
+ok('   NEVER THE COLLECTION CODE, even if handed it', !/K7P2/.test(J(cp)), J(cp));
+const cp0 = N.message('callParent', { group: 'Little ones', code: 'K7P2' });
+ok('   no screen number: "A leader is asking for you", still no code', cp0.body === 'A leader is asking for you' && !/K7P2/.test(J(cp0)), J(cp0));
 const cp2 = N.message('callParent', { group: 'Little ones', code: 'K7P2', child: 'Ada Synthetic', name: 'Ada Synthetic', allergies: 'peanuts' });
 ok('   and never the child\'s name or anything medical, even if handed them', !/Ada|peanut/i.test(J(cp2)), J(cp2));
 ok('rota: what and when to arrive', N.message('rota', { roles: ['Sound', 'Projection'], arrive: '9.30am', place: 'Esher Green' }).body === 'Sound, Projection · arrive 9.30am · Esher Green');

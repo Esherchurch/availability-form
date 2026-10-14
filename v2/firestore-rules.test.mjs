@@ -2351,6 +2351,32 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the pastoral team hides one', 'allow', () => updateDoc(doc(ctx('u_pasto'), 'prayerAnswers', 'pa_2'), { hidden: true }));
   await check('nobody else can', 'deny', () => updateDoc(doc(ctx('u_other'), 'prayerAnswers', 'pa_1'), { hidden: true }));
   await check('a hidden one is no longer read by others', 'deny', () => getDoc(doc(ctx('u_other'), 'prayerAnswers', 'pa_2')));
+
+  /* F-178: who gets told may read; no safeguarding lead, no request. */
+  let sgWas = null;
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const s = await getDoc(doc(db, 'safeguardingSettings', 'defaults')); sgWas = s.exists() ? s.data() : null;
+    await setDoc(doc(db, 'safeguardingSettings', 'defaults'), { ...(sgWas || {}), leadSiteId: 'site_f178' });
+    await setDoc(doc(db, 'bookingSettings', 'site_f178'), { bookingsAdmins: [], safeguardingLead: 'm_sglead', safeguardingDeputy: '' });
+    await setDoc(doc(db, 'users', 'u_sglead'), { uid: 'u_sglead', memberId: 'm_sglead', status: 'active', name: 'Sian', teams: [], adminFor: [], masterAdmin: false, attender: true });
+    await setDoc(doc(db, 'users', 'u_named'), { uid: 'u_named', memberId: 'm_named', status: 'active', name: 'Nadia', teams: [], adminFor: [], masterAdmin: false, attender: true });
+    await setDoc(doc(db, 'prayers', 'pr_9'), PR('u_asker', 'pastoral', { at: new Date() }));
+  });
+  await check('WHO GETS TOLD: someone not named cannot read a request', 'deny', () => getDoc(doc(ctx('u_named'), 'prayers', 'pr_9')));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'careRouting', 'main'), { prayer: { memberIds: ['m_named'], email: '' }, updatedBy: 'x' }); });
+  await check('  named for prayer requests, they read it', 'allow', () => getDoc(doc(ctx('u_named'), 'prayers', 'pr_9')));
+  await check('  and list them all', 'allow', () => getDocs(collection(ctx('u_named'), 'prayers')));
+  await check('  the safeguarding lead reads it', 'allow', () => getDoc(doc(ctx('u_sglead'), 'prayers', 'pr_9')));
+  await check('  still not anyone else', 'deny', () => getDoc(doc(ctx('u_other'), 'prayers', 'pr_9')));
+  await check('  with a lead set, a request is sent', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_10'), PR('u_asker', 'pastoral')));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'safeguardingSettings', 'defaults'), { ...(sgWas || {}), leadSiteId: 'site_nolead' }); });
+  await check('NO SAFEGUARDING LEAD: a request that would reach nobody is refused', 'deny', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_11'), PR('u_asker', 'pastoral')));
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    if (sgWas) await setDoc(doc(db, 'safeguardingSettings', 'defaults'), sgWas); else await deleteDoc(doc(db, 'safeguardingSettings', 'defaults'));
+    await deleteDoc(doc(db, 'careRouting', 'main'));
+  });
 }
 
 // ── EVENTS (events window) ── "I'm new here" (NEXT-BRIEF §24 item 12; F-167)

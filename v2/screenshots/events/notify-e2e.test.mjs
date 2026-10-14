@@ -17,7 +17,7 @@
    What it proves:
      1. CALL A PARENT: a group leader presses it; both parents are reached
         (a phone, and an email for the one with none); the phone shows
-        "Please come to Juniors / Collection code Q7P2" and NEVER THE
+        "Please come to Juniors / Number 214 on the screen" (never the code) and NEVER THE
         CHILD'S NAME, anywhere in what is sent, emailed or logged; a dead
         phone is removed; a second press inside two minutes sends nothing;
         someone who leads nothing is refused
@@ -130,7 +130,7 @@ const seed = async () => {
   set('kidsGroups', 'grp_j', { siteId: 'site_k', name: 'Juniors', leaderIds: ['m_jo'], years: [3, 4] });
   set('kidsFamilies', 'fam_1', { siteId: 'site_k', parentName: 'Pam Parent', email: P.pam.email, email2: P.pat.email, phone: '07700 900111' });
   set('kidsChildren', 'kc_q8w2e4r6t8y0u1', { siteId: 'site_k', familyId: 'fam_1', name: CHILD, groupId: 'grp_j', status: 'registered', collectors: [] });
-  set('checkins', CK, { kind: 'child', state: 'in', siteId: 'site_k', groupId: 'grp_j', familyId: 'fam_1', pickupCode: 'Q7P2', name: CHILD,
+  set('checkins', CK, { kind: 'child', state: 'in', siteId: 'site_k', groupId: 'grp_j', familyId: 'fam_1', pickupCode: 'Q7P2', screenNo: '214', name: CHILD,
     signupKey: 'kc_q8w2e4r6t8y0u1', attendeeIndex: 0, calEventId: 'kids_grp_j_' + TODAY, day: TODAY, inAt: 'x', inBy: 'x', inByName: 'x', roomId: '', updatedAt: 'x' });
   set('rooms', 'room_hall', { siteId: 'site_k', name: 'Test Hall', kind: 'room', active: true });
   await b.commit();
@@ -217,13 +217,14 @@ try {
   ok('1. CALL A PARENT: Jo (Juniors\' leader) presses it: one phone, one email', r1.r.phones === 1 && r1.r.emailed === 1, J(r1));
   ok('   and is told so in words', r1.words === 'Sent to 1 phone, emailed 1.', r1.words);
   const call = forToken(await pushes(), pamTok)[0];
-  ok('   the parent\'s phone gets "Please come to Juniors" / "Collection code Q7P2", urgent', call && call.data.title === 'Please come to Juniors' && call.data.body === 'Collection code Q7P2' && call.urgency === 'high', J(call));
+  ok('   the parent\'s phone gets "Please come to Juniors" / "Number 214 on the screen", urgent', call && call.data.title === 'Please come to Juniors' && call.data.body === 'Number 214 on the screen' && call.urgency === 'high', J(call));
   const pat = (await emails()).filter(e => (e.to || []).includes(P.pat.email));
-  ok('   the second parent, with no phone, is emailed the same words', pat.length === 1 && pat[0].subject === 'Please come to Juniors' && /Collection code Q7P2/.test(pat[0].html), J(pat));
+  ok('   the second parent, with no phone, is emailed the same words', pat.length === 1 && pat[0].subject === 'Please come to Juniors' && /Number 214 on the screen/.test(pat[0].html), J(pat));
   const everything = J(await pushes()) + J(await emails()) + J((await db.collection('notifyLog').get()).docs.map(d => d.data()));
   ok('   THE CHILD\'S NAME IS NOWHERE: not in the push, the email or the log', !everything.includes('Cat') && !everything.includes('Synthetic'), everything.slice(0, 400));
+  ok('   NOR THE COLLECTION CODE (F-175: it stays on the slip)', !everything.includes('Q7P2'), everything.slice(0, 400));
   const shows = await phoneShows(call.data);
-  ok('   THE PHONE SHOWS exactly that, stays on screen, and is not silent', shows.title === 'Please come to Juniors' && shows.body === 'Collection code Q7P2' && shows.requireInteraction === true && shows.silent === false && !/Cat/.test(J(shows)), J(shows));
+  ok('   THE PHONE SHOWS exactly that, stays on screen, and is not silent', shows.title === 'Please come to Juniors' && shows.body === 'Number 214 on the screen' && shows.requireInteraction === true && shows.silent === false && !/Cat/.test(J(shows)), J(shows));
   ok('   tapped, it opens the hub inside its own scope', shows.opened === URLB + 'app.html', shows.opened);
   ok('   the parent\'s old, dead phone is removed', !(await db.collection('pushTokens').doc(P.pam.uid + '_oldphone').get()).exists);
   const logs = (await db.collection('notifyLog').get()).docs.map(d => d.data());
