@@ -116,6 +116,13 @@ const offMachine = u => {
   }
   await put('teams/Pastoral', { name: 'Pastoral', label: 'Pastoral', colour: '#6b4a7a', rota: false, runs: [], archived: false });
   await put('bookingSettings/' + SITE, { safeguardingLead: 'ab_cr_lead' });
+  /* The buildings themselves - the lead picker lists them - and a second
+     one with NO lead, which "no safeguarding lead" points at: pointing at
+     nothing would let the server find another check's building that has
+     one (leadSite's fallback, 4d632933). */
+  await put('sites/' + SITE, { name: 'Synthetic Care Hall' });
+  await put('sites/site_care_none', { name: 'Synthetic Empty Hall' });
+  await put('bookingSettings/site_care_none', { safeguardingLead: '' });
   /* The safeguarding settings are shared with other checks: only this
      check's lead site is written, and put back afterwards. */
   const sgBefore = await req(8181, 'GET', DOCS + '/safeguardingSettings/defaults', undefined, OWNER);
@@ -475,7 +482,7 @@ const offMachine = u => {
   const status = async () => { const r = await req(8181, 'GET', DOCS + '/careRouting/status', undefined, OWNER);
     const f = (JSON.parse(r.body || '{}').fields || {}).leadSet; return f ? f.booleanValue : undefined; };
   const waitStatus = async (want) => { let v; for (let i = 0; i < 40; i++) { v = await status(); if (v === want) return v; await sleep(500); } return v; };
-  await req(8181, 'PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: '' }) }, OWNER);
+  await req(8181, 'PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: 'site_care_none' }) }, OWNER);
   ok('  the server marks it: careRouting/status says no lead', (await waitStatus(false)) === false);
   await width(375);
   await go('worried.html?for=me', '#nobody', 2000);

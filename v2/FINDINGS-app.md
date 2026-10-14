@@ -2996,3 +2996,23 @@ tab on a phone, can reach the same state against the live database (which
 is one host, firestore.googleapis.com). If they can, the fix belongs in the
 pages: close the database connection on `pagehide` (`firebase.firestore().
 terminate()` when `event.persisted`), not in the checks.
+
+### A-091 — a lead set in Places now satisfies the rules too (14 Oct 2026)
+
+The reviewing window's `leadSite()` (4d632933) counts a lead set on a
+building in Places when `leadSiteId` is empty. But the rules (`sgLeadSet`,
+`sgLeadOrDeputy`) read `leadSiteId` and nothing else. So once they're live,
+a concern would have been refused even though the hub said a lead was set.
+`refreshCareStatus` now writes the building it worked out into
+`safeguardingSettings/defaults.leadSiteId` (rule 13: nobody presses Save).
+
+- check-notify-send 82/82. The break "not written down" is caught.
+- check-care and check-notify-send now point "no lead" at a building with
+  no lead. Pointing at none would let the fallback find another building
+  that has one.
+- The lead pickers on Safeguarding settings are the events window's (the
+  reviewing window, 14 Oct). My draft picker was taken out before it was
+  used.
+
+**Needs functions:hub deployed** (`careStatusFromSettings`,
+`careStatusFromSite` and `careStatusSync` all run it).

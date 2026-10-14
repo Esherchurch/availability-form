@@ -498,10 +498,22 @@ const londonDate = (n) => {
   /* IS A LEAD SET? careRouting/status, for the forms. */
   const status = async () => { const r = await rest('GET', DOCS + '/careRouting/status'); const f = (JSON.parse(r.body || '{}').fields || {}).leadSet; return f ? f.booleanValue : undefined; };
   const waitStatus = async (want) => { let v; for (let i = 0; i < 30; i++) { v = await status(); if (v === want) return v; await sleep(500); } return v; };
-  await rest('PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: '' }) });
+  /* No lead: the building named has nobody (pointing at no building at all
+     now finds one that has a lead - leadSite(), 4d632933). */
+  await put('bookingSettings/site_ns_none', { safeguardingLead: '' });
+  await rest('PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: 'site_ns_none' }) });
   ok('  with no safeguarding lead set, careRouting/status says so', (await waitStatus(false)) === false);
-  await rest('PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: SITE }) });
-  ok('  and changes back when one is', (await waitStatus(true)) === true);
+  /* NO BUILDING NAMED, and one has a lead (set in Places): it counts, AND
+     the server writes leadSiteId down, because the rules read nothing else
+     (HANDOVER rule 13 - nobody presses Save for this). */
+  await rest('PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: '' }) });
+  ok('  with no building named but a lead set on one, careRouting/status says there is a lead', (await waitStatus(true)) === true);
+  let named = '';
+  for (let i = 0; i < 20; i++) {
+    named = ((JSON.parse((await rest('GET', DOCS + '/safeguardingSettings/defaults')).body || '{}').fields || {}).leadSiteId || {}).stringValue || '';
+    if (named) break; await sleep(500);
+  }
+  ok('  and the building is written down where the rules read it', named === SITE, named || '(still empty)');
 
   /* A part the church does not use sends nothing. */
   await put('churchSettings/features', { prayer: false });

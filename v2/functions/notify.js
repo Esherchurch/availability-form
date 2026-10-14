@@ -594,6 +594,14 @@ export async function refreshCareStatus(db) {
      so a page can tell its reader is one of them without the safeguarding
      settings, which are a volunteer's to read. */
   const site = await leadSite(db);
+  /* AND WRITE IT DOWN (HANDOVER rule 13). The rules (sgLeadSet,
+     sgLeadOrDeputy) read safeguardingSettings/defaults.leadSiteId and
+     nothing else, so a lead set only in Places would count here and still
+     be refused by them. When the building was worked out, record it. */
+  if (site) {
+    const d = await db.collection('safeguardingSettings').doc('defaults').get();
+    if (!(d.exists && d.data().leadSiteId)) await db.collection('safeguardingSettings').doc('defaults').set({ leadSiteId: site }, { merge: true });
+  }
   let leadSet = false, leadIds = [];
   if (site) {
     const b = await db.collection('bookingSettings').doc(site).get();
