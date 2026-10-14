@@ -4971,74 +4971,175 @@ twice: when the page opens, and again at the moment of saving.
 The one that matters: a request accepted with no safeguarding lead.
 **Not deployed**: the rules go live at switch-over.
 
-### F-181 — PLAN: paying for event tickets by card (Martin's answer 1 to F-180). NO CODE until Martin picks the provider
-Martin: "everything ChurchSuite does for events we need to do at least as
-well, and better ideally." Nobody is known to pay by card today, so this is
-an optional feature, **off by default**: feature name **`cardPayments`**
-(rule 12), under Events in "What does your church use?".
+### F-181 — PLAN: paying for event tickets by card, through each church's OWN Stripe account (Martin's decision, 14 Oct). PLAN ONLY: no payment code until it is reviewed
+**Martin:** "We are not taking the payments. We won't use our account."
+Church HQ never receives, holds or passes on money, and takes no cut.
+Each church connects its own Stripe account, and money goes straight
+there.
 
-**1. Provider: Martin chooses.** Fees change, so check each provider's own
-page before deciding. These are rough figures, not quotes:
+**Feature name `cardPayments`** (rule 12). Off for every church until that
+church connects a Stripe account; the switch can't be on without one.
 
-| Provider | Roughly, per UK card payment | Notes |
-|---|---|---|
-| **Stripe** (what ChurchSuite uses) | about 1.5% + 20p; charities can ask for a lower rate | Its own payment page (Checkout), so card details never touch the hub. Refunds by the hub. Pays into the church's bank account. |
-| **SumUp** | about 2.5% online | Simple; the same card reader could take payments at the door. |
-| **PayPal** | a charity rate exists (about 1.4% + 20p) | Many people already have an account. Card refunds by the hub are less tidy. |
+#### 1. How a church connects: Stripe Connect, Standard accounts
+- **Church settings › Payments:**
+  - **"Connect with Stripe"** sends a master admin to Stripe's own sign-in
+    (Stripe Connect OAuth). There they sign in to the **church's** Stripe
+    account, or make one, and agree.
+  - Stripe sends them back. The card then shows **"Connected: <the account's
+    name> (acct_…1234)"**, who connected it, and when.
+  - **"Disconnect"** asks first on the page, then tells Stripe and switches
+    card payments off. Events that took card payments keep their records.
+- **Standard accounts:** the church owns its Stripe account outright. It
+  has its own dashboard, bank details, payouts, refunds and disputes. The
+  hub only holds the account's id (`acct_…`, which is not a secret).
+- **No platform fee:** the hub never sets `application_fee_amount`. A test
+  proves no request ever carries one. Stripe charges the church its own
+  normal rate, and nothing else is taken.
+- **One thing HQ does need:** Stripe Connect needs a **platform** Stripe
+  account to register the "Connect with Stripe" button. That gives the hub
+  its Connect client id and its server key.
+  - With Standard accounts and direct charges, **no money ever passes
+    through it**: payments are made on the church's own account.
+  - It costs nothing, but someone must own it (question 1).
+  - Stripe also offers a newer onboarding flow (Account Links). OAuth is
+    the one made for "connect an existing Standard account", which is what
+    churches will mostly have. The plan uses OAuth, with Account Links as
+    the fallback if Stripe asks for it when the platform is set up.
 
-**My recommendation: Stripe.** It's what ChurchSuite used, its hosted page
-keeps card details out of the hub, refunds can be done from the hub, and
-its test mode lets us prove everything without real money.
+#### 2. How someone pays
+- **Each ticket type gets "How do people pay?":** on the day (as now,
+  F-183), online by card, or either (they choose).
+- **Signing up to a card ticket:**
+  1. The sign-up is saved and takes its place, exactly as now, and the
+     page asks the server for a payment page.
+  2. The server works out the price **itself**, from the event's ticket
+     types and the number of places. The page can't change what it costs.
+  3. It makes a **Stripe Checkout** page **on the church's account** (a
+     direct charge). The page sends the person there.
+  4. Card details are typed into Stripe's page and never touch the hub.
+- **The place is held for 30 minutes** (the Checkout page's own expiry).
+  - Paid: Stripe tells the server, and the place is confirmed, "Paid
+    £12.00 by card".
+  - Not paid in time: Stripe tells the server the page expired, and the
+    server cancels the sign-up and gives the place back.
+- **The confirmation email** says "Paid £12.00 by card", or "To pay on the
+  day" as now.
+- **A whole series** (F-184) is one payment for all the dates with places.
 
-**2. How a paid sign-up works:**
-- The person picks tickets, and the page shows the total.
-- They press "Pay £12.00", and the provider's own page takes the card. The
-  hub never sees or stores card details, only the provider's payment
-  reference, the amount and paid / refunded.
-- Their place is **held for 30 minutes** while they pay. Not paid by then,
-  the place goes back.
-- Paid: the provider tells the hub's server (a signed "webhook"), the place
-  is confirmed, and the confirmation email says "Paid £12.00".
-- Pay-on-arrival tickets stay as they are: no card, "£12.00 to pay on the
-  day", and the door marks them paid (being built now, F-183).
+#### 3. Refunds: in the church's own Stripe dashboard
+- The church refunds there, as it would any Stripe payment. The hub never
+  starts a refund.
+- Stripe tells the server, and the hub shows **"Refunded £12.00"** (or
+  "Part refunded £5.00") on Who is coming, "my place" and the totals.
+- **When someone cancels a paid place,** the hub gives the place back.
+  - The office is told: "Pat Payer cancelled a place paid by card: refund
+    £12.00 in Stripe if your policy allows".
+  - Each event shows its refund policy in words, written by the office.
 
-**3. Refunds:**
-- Each event has a refund choice: no refunds; full refund if cancelled at
-  least N days before (the default is 2); or office decides.
-- When someone cancels their own place and the rule allows it, the refund
-  goes back to their card by itself.
-- Office or event admins can refund any place from the event's "Who is
-  coming". It asks first, on the page, saying the amount.
-- The provider usually keeps its fee on a refund. The church sets whether
-  that's absorbed or deducted.
+#### 4. Who sees money
+- **Event admins and leaders:** paid by card / on the day / refunded, per
+  place, and the event's totals, as F-183 does now.
+- **The church's Stripe dashboard:** everything else (payouts, fees,
+  disputes), as the church's own records.
+- **Nobody, ever:** card numbers. The hub never has them.
+- **Gift Aid:** none on tickets (a ticket isn't a gift).
 
-**4. Who sees money:**
-- **Event admins:** paid / not paid / refunded per place, and the event's
-  total.
-- **A new "Finance" role** (Martin names who; ChurchSuite's "Finance Team"
-  user group): every event's takings, refunds, and the payouts into the
-  bank (ChurchSuite's "Stripe transfers" report), with a CSV download.
-- **Nobody** sees card numbers: the hub never has them.
-- **Gift Aid:** a ticket isn't a gift, so no Gift Aid on tickets.
+#### 5. Secrets and safety
+- **Server-side only, in Secret Manager, never in the repo or a page:**
+  - the platform's Stripe secret key (`STRIPE_SECRET_KEY`)
+  - the Connect webhook's signing secret (`STRIPE_CONNECT_WEBHOOK_SECRET`)
+  - The Connect client id (`ca_…`) is not secret but is kept with them.
+- **Webhooks verified:** every one is checked against the raw body and
+  its `Stripe-Signature` header (Stripe's `constructEvent`). Anything
+  unsigned or out of date is refused.
+  - Each event is acted on once, by its id, so Stripe's retries change
+    nothing.
+  - Each event's `account` must be the church's connected account, or it
+    is ignored.
+- **Connecting is guarded:**
+  - The "state" Stripe sends back is a one-time value made for that admin.
+    It expires in 10 minutes and is used once.
+  - Only a master admin may connect or disconnect.
+- **The rules:** everything about card payments is written by the server
+  alone. No page can mark a place "paid by card" or change a refund. The
+  door's own "Paid" (F-183) stays as it is, for cash, card at the door and
+  bank transfer.
 
-**5. Keys and safety:**
-- The provider's secret key is kept in the server's secret store, set by
-  Martin. It is **never in the repo** and never in a page.
-- Only the server talks to the provider. Pages send "pay for sign-up X";
-  the server works out the price from the event's own ticket types, so a
-  page can't change what it costs.
-- New rules keep the payment records server-written only.
+#### 6. What the MAIN WINDOW must build on the server (functions, codebase hub)
+1. **`stripeConnectStart`** (callable, master admin only). Makes the
+   one-time state (`stripeStates/{state}`: uid, expiry), and returns
+   Stripe's sign-in address (client id, `scope=read_write`, state,
+   redirect address).
+2. **`stripeConnectReturn`** (HTTPS, where Stripe sends the admin back).
+   - Checks the state.
+   - Swaps the one-time code for the church's account id (Stripe's OAuth
+     token call, with the platform key).
+   - Reads the account's display name.
+   - Writes `paymentSettings/main`: `{ accountId, accountName,
+     connectedAt, connectedBy, connected: true }`.
+   - Sends the admin back to Church settings › Payments with "Connected".
+3. **`stripeDisconnect`** (callable, master admin only). Stripe's
+   deauthorize call; then `paymentSettings/main.connected = false`, and
+   `cardPayments` off.
+4. **`ticketCheckout`** (callable, anyone signing up, signed in or not).
+   - Input: the sign-up key (unguessable).
+   - Checks the sign-up exists, is confirmed, is unpaid, and that its
+     event's ticket type takes card.
+   - Works out the amount; for a whole series, from `seriesSignups`.
+   - Makes a Checkout Session **on the connected account**
+     (`stripeAccount: acct_…`):
+     - no application fee, 30-minute expiry
+     - `metadata { signupKey, calEventId, keys }`
+     - success and cancel addresses back to "my place"
+   - Writes `signupPayments/{key}`: `{ method: 'card-online', status:
+     'awaiting', amount, checkoutId }`, and returns the page address.
+5. **`stripeWebhook`** (HTTPS, the Connect webhook). Verifies, acts once
+   per event id, then handles:
+   - `checkout.session.completed`: paid (amount, payment id) on every key
+     in the booking.
+   - `checkout.session.expired`: the sign-ups cancelled and their places
+     given back (with `lastCancelled`, as the counter rule wants).
+   - `charge.refunded`: refunded or part refunded, with the amount.
+   - `account.application.deauthorized`: the church disconnected from
+     Stripe's side, so mark disconnected and switch `cardPayments` off.
+6. **Rules** (theirs or mine, by section):
+   - `paymentSettings/main`: admins read; never written by a page.
+   - `stripeStates`: no page at all.
+   - `signupPayments`: my F-183 rule refuses `card-online` and the
+     Stripe fields from pages, so only the server writes them. I'll change
+     my rule for that when the code comes.
+7. **Tests** with a stand-in Stripe and **no network**, as every test here:
+   - a forged webhook is refused
+   - a webhook for another account is ignored
+   - a retried webhook acts once
+   - no request ever carries an application fee
+   - an expired page gives the place back
 
-**6. Whose code:**
-- Pages (signup, my-signup, events-admin, the Finance report): mine.
-- The server part (making the payment page, the webhook, refunds) is a new
-  file in `functions/`, which is the main window's. I'll write it there if
-  you agree, the way public-mail.js was done (F-170).
-- Proved on the emulator with a stand-in provider: no real payment and no
-  network, as every test here.
+#### 7. Mine, once the plan is agreed (pages and tests)
+- **Each ticket type's "How do people pay?"** in events-admin. Card is
+  only offered once the church is connected.
+- **signup.html:** "Pay £12.00 by card" sends them to Stripe; coming back,
+  "Paid, thank you", or "Not paid: your place is held until 18:42". On the
+  day stays as F-183.
+- **my-signup.html:** paid by card / refunded / still to pay, and "Pay now"
+  while held.
+- **events-admin › Who is coming and the totals:** card, on the day,
+  refunded; and the office's note when a paid place is cancelled.
+- **Church settings › Payments** (Connect / Disconnect / connected
+  account): church-settings.html is mostly the main window's. They can
+  build the card, or tell me to (question 4).
 
-**Martin decides:** the provider; the bank account; who is Finance; the
-default refund rule.
+#### Questions before any code
+1. **Who owns HQ's Stripe *platform* account** (needed only so churches
+   can connect; no money goes through it)? It's free to open; Stripe asks
+   for the platform's business details.
+2. **Card, on the day, or either:** should a church choose that per ticket
+   type, as planned?
+3. **30 minutes to pay** before the place goes back: right?
+4. **Church settings › Payments:** the main window's to build, or mine?
+
+The earlier plan (other providers, the hub doing refunds, a Finance role
+seeing payouts) is replaced by this one.
 
 ### F-182 — SPEC for the main window (R7): a calendar people can subscribe to, that works
 Martin tried ChurchSuite's calendar feed and **it didn't work**, so ours
