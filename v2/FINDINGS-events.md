@@ -5201,3 +5201,30 @@ Martin: adult name labels "should be able to be".
 - Rules: 6 new, 1338 in all.
 - 5 deliberate breaks, all caught. The one that matters: the door printing
   on plain paper whatever the church chose.
+
+### F-186 — Several events at once (ChurchSuite's batch actions)
+On the events list, every event has a tick box, plus "Choose all". Once
+something is ticked, a bar shows "N chosen" with:
+- **Change:** category, status (confirmed / not public yet / cancelled)
+  and who can come. "Who can come" also changes **who can read** the
+  event (its audience), exactly as editing one does; the database refuses
+  anything else. Each event records "Changed with others" in its history.
+- **Cancelling several** does what cancelling one does: rooms given back,
+  and **everyone signed up is emailed**. It asks first.
+- **Delete:** each one is recorded in "Deleted events" first (F-180), its
+  rooms are given back, then it is deleted. It asks first. Sign-ups are
+  kept.
+- **Download:** a spreadsheet (CSV) of the ticked events: title, start,
+  end, category, status, who can come (in words), where, sign-ups, places,
+  series.
+- A non-master admin can only change events they may edit. If one is
+  refused, it stops and says how many were done.
+
+**Proved:**
+- `bulk.test.mjs` 14/14, including choose-all at 375px.
+- r3-event-rooms 20/20, parity 36/36, public-whatson 24/24, unchanged.
+  r3-event-rooms first went red, because it opens an event by the first
+  element carrying its id, which was my tick box. The tick boxes now carry
+  `data-pick`, not `data-id`, so nothing mistakes them for "open".
+- 5 deliberate breaks, all caught. The one that matters: "who can come"
+  changed but not who can read the event.

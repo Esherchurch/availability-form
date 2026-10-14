@@ -230,12 +230,17 @@
       return showPast ? t < now : t >= now - 6 * 3600 * 1000;
     }).sort(function (a, b) { return showPast ? b.startUtc - a.startUtc : a.startUtc - b.startUtc; });
 
+    SHOWN = rows;
+    Object.keys(PICKED).forEach(function (id) { if (!rows.some(function (e) { return e.id === id; })) delete PICKED[id]; });
     document.getElementById('list').innerHTML =
       '<h2><span class="badge"><i data-lucide="calendar-days" style="width:17px;height:17px"></i></span>' +
       (showPast ? 'Past events' : 'Coming up') + '<span class="spacer"></span>' +
       '<span class="hint">' + rows.length + '</span></h2>' +
+      (rows.length ? '<label class="check" style="margin:0 0 6px;min-height:44px"><input type="checkbox" id="pickAll"' + (rows.every(function (e) { return PICKED[e.id]; }) ? ' checked' : '') + '>Choose all ' + rows.length + '</label>' : '') +
+      '<div id="bulk"></div>' +
       (rows.length ? rows.map(function (e) {
         return '<div class="row">' +
+          '<input type="checkbox" class="pick" data-pick="' + esc(e.id) + '" aria-label="Choose ' + esc(e.title || 'this event') + '"' + (PICKED[e.id] ? ' checked' : '') + ' style="width:22px;height:22px;flex:none">' +
           '<span class="ib"><i data-lucide="calendar" style="width:17px;height:17px"></i></span>' +
           '<button class="open" data-id="' + esc(e.id) + '">' +
             '<span class="n">' + esc(e.title || 'Untitled') + flags(e) + '</span><br>' +
@@ -260,7 +265,122 @@
         if (e) E.share(E.shareItem(e, E.locationText(e, LOOK))).catch(function (err) { toast(err.message || 'Sharing could not be opened.'); });
       };
     });
+    document.querySelectorAll('.pick').forEach(function (c) {
+      c.onchange = function () { if (c.checked) PICKED[c.getAttribute('data-pick')] = true; else delete PICKED[c.getAttribute('data-pick')]; drawBulk(); };
+    });
+    var pa = document.getElementById('pickAll');
+    if (pa) pa.onchange = function () { SHOWN.forEach(function (e) { if (pa.checked) PICKED[e.id] = true; else delete PICKED[e.id]; }); drawList(); };
+    drawBulk();
     icons();
+  }
+
+  /* ---- Several at once (F-186; ChurchSuite's batch actions) ----
+     Tick events in the list, then: change their category, status or who can
+     come; delete them (each recorded in Deleted events first); or download
+     them as a spreadsheet. Cancelling here does what cancelling one does:
+     rooms given back, and everyone who signed up told. */
+  var PICKED = {}, SHOWN = [];
+  function picked() { return SHOWN.filter(function (e) { return PICKED[e.id]; }); }
+  function drawBulk() {
+    var box = document.getElementById('bulk'); if (!box) return;
+    var n = picked().length;
+    if (!n) { box.innerHTML = ''; return; }
+    var sel = function (id, label, opts) {
+      return '<label class="sr" for="' + id + '" style="position:absolute;left:-9999px">' + label + '</label><select id="' + id + '" style="min-height:44px"><option value="">' + label + '…</option>' +
+        opts.map(function (o) { return '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>'; }).join('') + '</select>';
+    };
+    box.innerHTML = '<div class="card" style="background:var(--tint);margin:0 0 10px;padding:12px"><b id="bulkCount">' + n + ' chosen</b>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center">' +
+        sel('bCat', 'Category', E.CATEGORIES.filter(function (c) { return !c.retired; }).map(function (c) { return [c.id, c.name]; })) +
+        sel('bStatus', 'Status', [['confirmed', 'Confirmed'], ['pending', 'Not public yet'], ['cancelled', 'Cancelled (tells everyone signed up)']]) +
+        sel('bWho', 'Who can come', E.EVENT_WHO.filter(function (w) { return w[0] !== 'team'; })) +
+        '<button class="btn" id="bApply">Change ' + n + '</button>' +
+        '<button class="btn sec" id="bCsv"><i data-lucide="download" style="width:15px;height:15px"></i>Download</button>' +
+        '<button class="btn danger" id="bDel">Delete ' + n + '</button>' +
+        '<button class="btn ghost" id="bClear">Clear</button>' +
+      '</div><p class="hint" id="bulkMsg" role="status" style="margin:6px 0 0"></p></div>';
+    document.getElementById('bClear').onclick = function () { PICKED = {}; drawList(); };
+    document.getElementById('bCsv').onclick = bulkCsv;
+    document.getElementById('bDel').onclick = bulkDelete;
+    document.getElementById('bApply').onclick = bulkApply;
+    icons();
+  }
+  function bulkSay(m) { var el = document.getElementById('bulkMsg'); if (el) el.textContent = m; }
+  function bulkApply() {
+    var cat = document.getElementById('bCat').value, st = document.getElementById('bStatus').value, who = document.getElementById('bWho').value;
+    if (!cat && !st && !who) { bulkSay('Choose a category, a status or who can come first.'); return; }
+    var list = picked();
+    if (st === 'cancelled' && !confirm('Cancel ' + list.length + ' event' + (list.length === 1 ? '' : 's') + ' and email everyone who signed up?')) return;
+    bulkSay('Changing ' + list.length + '…');
+    var done = 0;
+    list.reduce(function (p, ev) {
+      return p.then(function () {
+        var next = Object.assign({}, ev);
+        if (cat) next.category = cat;
+        if (who) next.visibility = who;
+        if (st) next.status = st;
+        var ch = { category: next.category || 'other', visibility: next.visibility || 'members', status: next.status || 'confirmed',
+          audience: E.audienceFor(next), updatedAt: new Date().toISOString() };
+        var was = ev.status;
+        return db().collection('calEvents').doc(ev.id).update(ch).then(function () {
+          return recordChange(ev.id, 'Changed with others: ' + [cat ? 'category' : '', who ? 'who can come' : '', st ? 'status' : ''].filter(Boolean).join(', '));
+        }).then(function () {
+          if (st !== 'cancelled' || was === 'cancelled') return;
+          return cancelledTell(Object.assign({}, ev, ch));
+        }).then(function () { done++; bulkSay('Changed ' + done + ' of ' + list.length + '…'); });
+      });
+    }, Promise.resolve()).then(function () {
+      PICKED = {}; toast('Changed ' + done + ' event' + (done === 1 ? '' : 's') + '.');
+      return refresh();
+    }).catch(function (e) { bulkSay('Stopped after ' + done + ': ' + (e.message || e)); refresh(); });
+  }
+  /* What cancelling one does, for one of several: rooms back, people told. */
+  function cancelledTell(ev) {
+    return B.freeEvent(ev.id, roomsById(), 'The event was cancelled.').then(function () {
+      return db().collection('signups').where('calEventId', '==', ev.id).get();
+    }).then(function (s) {
+      var to = s.docs.map(function (d) { return d.data(); }).filter(function (x) { return x.status !== 'cancelled'; }).map(function (x) { return x.email; }).filter(Boolean);
+      if (!to.length) return;
+      return EGBCChurch.send({
+        to: to, subject: 'Cancelled: ' + ev.title,
+        html: EGBCChurch.wrap('This event has been cancelled',
+          '<p><strong>' + esc(ev.title) + '</strong> on ' + esc(E.fmtWhen(ev)) + ' is not going ahead.</p>' +
+          '<p>Sorry for the change of plan. Nothing more is needed from you.</p>'),
+        log: { calEventId: ev.id, kind: 'cancellation' }
+      });
+    });
+  }
+  function bulkDelete() {
+    var list = picked();
+    if (!confirm('Delete ' + list.length + ' event' + (list.length === 1 ? '' : 's') + '? Their rooms are given back. Sign-ups are not deleted.')) return;
+    bulkSay('Deleting ' + list.length + '…');
+    var done = 0;
+    list.reduce(function (p, ev) {
+      return p.then(function () {
+        /* What, when and who, FIRST: if it cannot be written, this one is not deleted. */
+        return db().collection('calEventsDeleted').add({
+          title: String(ev.title || 'Event').slice(0, 300), startUtc: ev.startUtc || 0, endUtc: ev.endUtc || 0, seriesId: ev.seriesId || '', count: 1,
+          byUid: uid(), byName: String((EGBCAuth.profile() || {}).name || '').slice(0, 200), at: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function () { return B.freeEvent(ev.id, roomsById(), 'The event was deleted.'); })
+          .then(function () { return db().collection('calEvents').doc(ev.id).delete(); })
+          .then(function () { done++; bulkSay('Deleted ' + done + ' of ' + list.length + '…'); });
+      });
+    }, Promise.resolve()).then(function () {
+      PICKED = {}; toast('Deleted ' + done + '.'); drawDeleted();
+      return refresh();
+    }).catch(function (e) { bulkSay('Stopped after ' + done + ': ' + (e.message || e)); refresh(); });
+  }
+  function bulkCsv() {
+    var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var whoName = function (v) { var w = E.EVENT_WHO.filter(function (x) { return x[0] === v; })[0]; return w ? w[1].split(' (')[0].split(':')[0] : v; };
+    var lines = [['Title', 'Starts', 'Ends', 'Category', 'Status', 'Who can come', 'Where', 'Sign-ups', 'Places', 'Series'].join(',')].concat(picked().map(function (e) {
+      return [e.title, e.startLocal || '', e.endLocal || '', E.catOf(e.category).name, e.status || 'confirmed', whoName(e.visibility || 'members'),
+        E.locationText(e, LOOK), e.signupOn ? 'yes' : 'no', e.signupOn ? (e.capacity || '') : '', e.seriesId ? 'yes' : ''].map(q).join(',');
+    }));
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'Events.csv';
+    document.body.appendChild(a); a.click(); a.remove();
   }
 
   /* ---------- opening one ---------- */
