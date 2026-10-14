@@ -3759,6 +3759,25 @@ on the front page on the **desktop** too, as well as the app's Home.
 - The helper is null outside the day's times, so the card appears and goes
   by itself.
 
+**Main window, 14 Oct: F-164 items 1 to 5 done.**
+1. `feedSync` (codebase hub), every 60 minutes: the sermon podcast feed
+   (`sermonShow/feed.url`, F-139) and the channel feed, through your own
+   `sync()`s. Copies `functions/watch-core.cjs` and
+   `functions/sermons-feed.cjs` have drift checks. A part switched off in
+   `churchSettings/features` (`sermons`, `watch`) is not fetched; a failed
+   fetch writes only its feedStatus. Never touches `watchShow/live` or deletes
+   anything. `tests/check-feeds.mjs`, 17/17. Not live until the reviewing
+   window deploys functions:hub.
+2. "Watch live" / "Watch again" on the app's Home (opens Me > Listen & Watch)
+   and on `hub.html`'s front page with the player in it; re-checked every five
+   minutes. Neither waits on anything else.
+3. "Listen & Watch" when `uses('watch')`.
+4. Menu "Watch", before "What's on" (there is no "Sermons" entry yet to sit
+   beside): master admins and `sermonShow/access` only. egbc-auth.js reads
+   `sermonShow/access` once with the profile (`EGBCAuth.isSermonsAdmin()`).
+5. Bumped. `tests/check-watch-meet.mjs`, 24/24.
+6. Comes with item 14.
+
 ### F-165 — the public What's on: public / members only / NOT LISTED, and the website's two embeds (NEXT-BRIEF §24 item 13)
 Feature name **`publicWhatson`** (EGBCChurch.uses).
 

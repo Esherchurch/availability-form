@@ -35,6 +35,11 @@
       description: 'Who is on, week by week' },
     { title: 'Meetings', url: 'meeting.html', icon: 'video',
       description: 'Set one up, join a call, every meeting room' },
+    /* WATCH (F-164): the live link, the full services and the channel.
+       For master admins and the people who look after sermons; feature
+       'watch'. "Sermons" joins it when its own Menu entry is built. */
+    { title: 'Watch', url: 'watch-admin.html', icon: 'tv', feature: 'watch', sermons: true,
+      description: 'This week\u2019s live link, the full services and the channel' },
     { title: "What's on", url: 'whatson.html', icon: 'calendar-heart',
       description: 'Church events, and signing up' },
     /* No team on it: giving is for everybody signed in. It is not on the
@@ -252,6 +257,7 @@
     if (node.members && !who.isChurchMember) return false;
     if (node.admin && !who.isAdmin) return false;
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
+    if (node.sermons && !who.isSermons) return false;
     /* `runs` NAMES A RUNNING THINGS TAB (NEXT-BRIEF §25): the same four the
        app's Running things space has, answered by the same helper. A node
        carrying one is shown to whoever that tab is for, whatever else the
@@ -781,7 +787,9 @@
            bookingSettings, which means a read. Whoever draws the Menu does
            that read and sets this before drawing; unset means "not one",
            which is the safe way round. */
-        isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true
+        isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true,
+        /* sermonShow/access, read with the profile by egbc-auth.js. */
+        isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin())
       };
     },
 

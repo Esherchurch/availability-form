@@ -305,16 +305,16 @@
 <script src="egbc-events-checkin.js?v=202610101200"></script>
 <script src="egbc-events-bookings.js?v=202610131800"></script>
 <script src="egbc-events-groups.js?v=202610101200"></script>
-<script src="egbc-events-home.js?v=202610101200"></script>
+<script src="egbc-events-home.js?v=202610141000"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610111300"></script>
-<script src="egbc-app.js?v=202610131500"></script>
+<script src="egbc-app.js?v=202610141000"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
 <script src="egbc-app-events.js?v=202610101200"></script>
 <script src="egbc-app-kids.js?v=202610101200"></script>
-<script src="egbc-app-listen.js?v=202610101200"></script>
+<script src="egbc-app-listen.js?v=202610141000"></script>
 <script src="egbc-app-whatson.js?v=202610101800"></script>
 <script src="egbc-app-maint.js?v=202610101200"></script>
 <script src="egbc-app-office.js?v=202610101200"></script>
@@ -324,7 +324,7 @@
      the planner still works, with no drag handle. -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="egbc-core-planner.js?v=202610131430"></script>
-<script src="egbc-core-meetings.js?v=202610111800"></script>
+<script src="egbc-core-meetings.js?v=202610141000"></script>
 <script src="egbc-core-rota.js?v=202610111900"></script>
 <script>
 /* ---- the screens that open a page which already does the job -------
@@ -359,7 +359,7 @@ const db = firebase.firestore(EGBCAuth.app);
    the first draw shows what is already known and the rest arrives.
    refresh() is a no-op if the person has moved on (F-131). */
 
-var HOME = { loaded: false, ready: false, serving: [], events: [], groups: [], family: [], familyWeek: [], news: [], plans: [] };
+var HOME = { loaded: false, ready: false, serving: [], events: [], groups: [], family: [], familyWeek: [], news: [], plans: [], watch: null, meetToday: [] };
 
 /* THE SUNDAY PLANS THIS PERSON IS ON (Martin, 12 Oct 2026: "the
    read-only plan shows on Home for anyone in the audience").
@@ -622,6 +622,18 @@ function loadHome(me) {
      own serving card included - until it answered. It draws when it
      arrives. A failure leaves the section out rather than the screen
      broken. */
+  /* WATCH LIVE (F-164): the events window's helper, null outside the
+     day's times, signed out, or with Watch switched off. Like the family
+     answer, it draws when it arrives and holds nothing else back. */
+  (H && H.watchLive ? H.watchLive() : Promise.resolve(null))
+    .then(function (w) { HOME.watch = w || null; if (HOME.watch) A.refresh('me', 'home'); }, function () {});
+
+  /* A VIDEO MEETING TODAY (Martin, 14 Oct 2026): on the Home only on the
+     day it is in the diary, with Join. Any other day there is no card;
+     Core Team > Meetings still has every room. */
+  (window.EGBCCoreMeetings && EGBCCoreMeetings.todayForMe ? EGBCCoreMeetings.todayForMe() : Promise.resolve([]))
+    .then(function (m) { HOME.meetToday = m || []; if (HOME.meetToday.length) A.refresh('me', 'home'); }, function () {});
+
   (window.EGBCAuth && EGBCAuth.call ? EGBCAuth.call('myFamily', {}) : Promise.resolve(null))
     .then(function (r) {
       HOME.familyWeek = (r && r.week) || [];
@@ -744,6 +756,23 @@ A.screen('me', 'home', function (me) {
      a phone across a room. The earlier version read f.name, f.line and
      f.code, which the helper never sends - it showed "Your children" and
      no code at all. */
+  /* WATCH LIVE, first of all on the day (F-164): a tap opens Me >
+     Listen & Watch, which plays it. */
+  if (HOME.watch) {
+    out += sec(HOME.watch.state === 'live' ? 'Watch live' : 'Watch again', card(row('tv',
+      HOME.watch.title || (HOME.watch.state === 'live' ? 'The service, live' : 'This week\u2019s service'),
+      HOME.watch.state === 'live' ? 'Streaming now' : 'Missed it? Watch it again',
+      HOME.watch.state === 'live' ? '<span class="pill">Live</span>' : null, 'tab:listen')));
+  }
+
+  if (HOME.meetToday.length) {
+    out += sec(HOME.meetToday.length === 1 ? 'Video meeting today' : 'Video meetings today', card(HOME.meetToday.map(function (m) {
+      return row('video', m.title,
+        (m.startTime ? m.startTime + (m.endTime ? '\u2013' + m.endTime : '') + ' \u00b7 ' : '') + m.roomLabel,
+        '<span class="pill">Join</span>', 'open:' + m.link);
+    }).join('')));
+  }
+
   if (HOME.family.length) {
     out += HOME.family.map(parentsSunday).join('');
   }

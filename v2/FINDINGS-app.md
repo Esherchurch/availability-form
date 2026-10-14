@@ -2830,3 +2830,32 @@ sends nothing.
 - **`check-app-opens-phone-width` ended after 5s with no tally in the
   suite**, and is 2/2 on its own. Most likely the previous check's browser
   still held the debugging port.
+
+### A-086 — Watch (F-164) and Meet only on the day (Martin, 14 Oct 2026)
+
+**Watch, the events window's F-164 requests 1 to 5:**
+- `feedSync` (functions:hub, every 60 minutes) reads the sermon podcast feed
+  and the YouTube channel feed through the events window's own `sync()`s.
+  Skips a part switched off in `churchSettings/features`. **Needs a deploy.**
+- "Watch live" / "Watch again" on the app's Home and on the hub's front page
+  (with the player), from `watchLive()`. Neither holds anything else up.
+- The Me tab reads "Listen & Watch" when `uses('watch')`.
+- Menu "Watch", for master admins and the people in `sermonShow/access`
+  (`EGBCAuth.isSermonsAdmin()`, read once with the profile).
+
+**Meet only when it's needed** ("we dont need the meet now at all unless it
+is in the diary for that day"):
+- the hub's Video meetings card and "Meet" in its tab bar and sidebar show
+  only on a day with one of the person's video meetings in the diary, and
+  then only that day's, with Join;
+- the app's Home gets a "Video meeting today" card with Join on that day
+  only (`EGBCCoreMeetings.todayForMe()`, the hub's rule kept in step);
+- Menu > Meetings, Core Team > Meetings and the teams' meeting rooms are
+  unchanged. "Today" is now the local day, not UTC's.
+
+**Stamps:** `egbc-auth.js` and `egbc-shell.js` bumped on every page (the
+shell's stamp is the one the Menu loads with), as the main window did in
+e6ba75eb.
+
+**Checks:** `check-watch-meet` 24/24, nine breaks all caught; `check-feeds`
+17/17 (spare emulator, two breaks caught earlier).

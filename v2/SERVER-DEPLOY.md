@@ -464,6 +464,7 @@ Two more, created by the same command:
 | `myFamily` | **Yes.** The app's "Your family this week": reads the household and this week's rota and group meetings, first names only; also keeps the caller's own `familyGroups` right |
 | `familyGroupsSync` (trigger on the address book) | **Yes.** Writes only `familyGroups` onto parents' records, and only when it changes. Sends nothing |
 | `myYouthHub` | **Yes.** The Youth app's "My rota and charters": a young person's (or adult's) own rota slots and their own charters. Reads only |
+| `feedSync` (timer, every 60 minutes) | **Yes.** Reads the sermon podcast feed and the YouTube channel feed into `sermons` and `videos` (F-164). Adds and updates; never deletes, never touches the live link. Does nothing for a part with no address set, or switched off |
 
 ### Deploying N-4, step by step (Martin, with a window watching)
 

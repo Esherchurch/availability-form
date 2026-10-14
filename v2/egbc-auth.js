@@ -268,6 +268,20 @@
      the teams, and it never rejects. */
   var bookingsAdminOf = [];
 
+  /* THE PEOPLE WHO LOOK AFTER SERMONS AND WATCH (sermonShow/access, the
+     events window's; the rules' sermonAdmin()). Read once with the profile
+     so the Menu can offer "Watch" to them without a read of its own.
+     Unread means "not one" - the safe way round. */
+  var sermonsAdmin = false;
+  function loadSermonsAdmin(memberId) {
+    if (!memberId) { sermonsAdmin = false; return Promise.resolve(false); }
+    return db.collection('sermonShow').doc('access').get().then(function (d) {
+      var ids = d.exists ? ((d.data() || {}).memberIds || []) : [];
+      sermonsAdmin = Array.isArray(ids) && ids.indexOf(memberId) !== -1;
+      return sermonsAdmin;
+    }).catch(function () { sermonsAdmin = false; return false; });
+  }
+
   function loadBookingsAdmin(memberId) {
     if (!memberId) return Promise.resolve([]);
     return db.collection('bookingSettings').get().then(function (snap) {
@@ -878,7 +892,8 @@
             var profile = both[0];
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
-            return loadBookingsAdmin(profile && profile.memberId).then(function () { return both; });
+            return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId)])
+              .then(function () { return both; });
           }).then(function (both) {
             var profile = both[0];
             currentProfile = profile;
@@ -1171,6 +1186,10 @@
 
        VIEW-AS HONOURS IT: a master admin looking as somebody else sees what
        that person sees, or the feature is useless for checking this. */
+    /* Looks after sermons and Watch: named in sermonShow/access, or a
+       master admin. */
+    isSermonsAdmin: function () { return EGBCAuth.isMaster() || sermonsAdmin; },
+
     runsTabs: function () {
       var ORDER = ['today', 'people', 'bookings', 'send'];
       var v = viewAs();

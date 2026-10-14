@@ -167,6 +167,50 @@
     return into;
   }
 
+  /* MEET ONLY WHEN IT IS NEEDED (Martin, 14 Oct 2026: "we dont need the
+     meet now at all unless it is in the diary for that day"). The video
+     meetings in the diary TODAY that are this person's - the hub's rule
+     (hub-app.js meetingForMe and loadMeetings), kept in step: a master
+     admin sees all; anyone else, a meeting for one of their teams (the rota
+     calls Youth Worship "Youth") or one they have a role on; and never a
+     room they may not join (a members' meeting is not an Attender's).
+     Today is the local day, not UTC's. Menu > Meetings and Core Team >
+     Meetings still list every room on every day. */
+  function localDay(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function isForMe(ev) {
+    var A = global.EGBCAuth;
+    if (!A) return false;
+    var room = videoRoomFor(ev);
+    if (!room || ev.archived) return false;
+    if (A.mayJoinRoom && !A.mayJoinRoom(room)) return false;
+    if (A.isMaster && A.isMaster()) return true;
+    var mine = (A.effectiveTeams ? A.effectiveTeams() : []) || [];
+    if ((ev.teams || []).some(function (t) { return mine.indexOf(t === 'Youth' ? 'Youth Worship' : t) !== -1; })) return true;
+    var p = A.profile ? A.profile() : null, mid = p && p.memberId;
+    return !!mid && Object.keys(ev.assignments || {}).some(function (k) {
+      var raw = ev.assignments[k];
+      return (Array.isArray(raw) ? raw : [raw]).some(function (x) { return x && x.id === mid; });
+    });
+  }
+  function todayForMe(now) {
+    if (!db()) return Promise.resolve([]);
+    var day = localDay(now);
+    return db().collection('events').where('date', '==', day).get().then(function (snap) {
+      return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .filter(isForMe)
+        .sort(function (a, b) { return (a.startTime || '').localeCompare(b.startTime || ''); })
+        .map(function (ev) {
+          return { id: ev.id, title: ev.type + (ev.description ? ' \u00b7 ' + ev.description : ''),
+            startTime: ev.startTime || '', endTime: ev.endTime || '',
+            room: videoRoomFor(ev), roomLabel: videoRoomLabel(videoRoomFor(ev)),
+            link: 'meeting.html?room=' + encodeURIComponent(videoRoomFor(ev)) + '&event=' + encodeURIComponent(ev.id) };
+        });
+    }, function () { return []; });
+  }
+
   /* On window because the Copy link buttons this builds are inline
      handlers, exactly as they were in CoreTeamApp. */
   global.copyMeetingLink = async function (link) {
@@ -182,6 +226,9 @@
     VIDEO_DEFAULT_BY_TYPE: VIDEO_DEFAULT_BY_TYPE,
     videoRoomFor: videoRoomFor,
     videoLinkFor: videoLinkFor,
-    videoRoomLabel: videoRoomLabel
+    videoRoomLabel: videoRoomLabel,
+    localDay: localDay,
+    isForMe: isForMe,
+    todayForMe: todayForMe
   };
 })(window);

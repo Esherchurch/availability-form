@@ -43,6 +43,9 @@ const APPROVED = [
   ['Dashboard'],
   ['Rota'],
   ['Meetings'],
+  /* Watch (F-164, Martin 14 Oct 2026): master admins and the people who
+     look after sermons, so it is here for the master admin this reads as. */
+  ['Watch'],
   ["What's on"],
   /* Give (Martin, 12 Oct 2026). Gated on nothing - giving is for
      everybody signed in - so it sits out here with the other ungated
@@ -101,6 +104,9 @@ const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Plan
    where the address book used to be. It follows its children, so it belongs
    with them. */
 const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler'];
+/* Watch (F-164): master admins and the people named in sermonShow/access.
+   None of the people here is named there, so it is the master admin's. */
+const SERMONS_ONLY = ['Watch'];
 /* The heading the church administrator passes THROUGH to reach them, the
    same way a bookings admin passes through to Room bookings. They get the
    heading and not its page - the Core Team charter is not theirs. */
@@ -422,6 +428,7 @@ const READ_MENU = `(() => {
     const office = (p.teams || []).includes('Church office') || !!p.masterAdmin;
     const expected = want
       .filter(w => !(OFFICE_ONLY.includes(w) && !office))
+      .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
       .filter(w => !(WORSHIP_ONLY.includes(w) && !worship))

@@ -328,6 +328,11 @@
      is worse than a missing one: it reads as a broken app. */
   function tabsFor(space) {
     var tabs = (SPACES[space].tabs || []).filter(function (t) { return !!V[space + '_' + t[0]]; });
+    /* "LISTEN & WATCH" when the church uses Watch (F-164): one tab, two
+       things. Switched off, it is plain Listen, as before. */
+    if (space === 'me' && global.EGBCChurch && EGBCChurch.uses && EGBCChurch.uses('watch')) {
+      tabs = tabs.map(function (t) { return t[0] === 'listen' ? [t[0], 'Listen & Watch', t[2]] : t; });
+    }
     /* Running things shows ONLY the tabs this person runs (§25). Somebody
        in the Bookings group gets one tab, not four with three refusals
        behind them - "a tab someone sees must actually work". */

@@ -35,6 +35,7 @@ import {
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
 import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family.js';
 import { myYouthHub as myYouthHubIn } from './youth-hub.js';
+import { runFeeds } from './feeds.js';
 
 initializeApp();
 const db = getFirestore();
@@ -681,3 +682,12 @@ export const myYouthHub = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   return orThrow(await myYouthHubIn(db, { uid: request.auth.uid, now: new Date() }));
 });
+
+/* The church's two outside feeds, read every hour (F-139, F-164): the
+   sermon podcast (sermonShow/feed.url) and the YouTube channel
+   (watchShow/settings.channelId). A part the church does not use is not
+   fetched. See feeds.js. */
+export const feedSync = onSchedule(
+  { schedule: 'every 60 minutes', timeZone: 'Europe/London', retryCount: 1 },
+  async () => { await runFeeds(db, { now: new Date() }); }
+);

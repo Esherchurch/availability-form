@@ -197,6 +197,17 @@ const MEASURE = "(function(){var out={};" +
       assignments: { Guitar: { id: ME, name: 'Home Tester' } }
     });
   }
+  /* A VIDEO MEETING TODAY. The hub's Video meetings card is drawn only on
+     a day with one in the diary (Martin, 14 Oct 2026), and a full page -
+     the case this check measures - is a day with one. Local day, as the
+     hub reckons it. */
+  const td = new Date(), p2 = (x) => String(x).padStart(2, '0');
+  await put('events/home_ev_today', {
+    termLabel: 'Autumn 2026', teams: ['Worship Team'], roles: [], archived: false, draft: false,
+    date: td.getFullYear() + '-' + p2(td.getMonth() + 1) + '-' + p2(td.getDate()),
+    startTime: '19:30', endTime: '21:00', type: 'Worship Team Meeting', description: 'Synthetic planning',
+    videoRoom: 'Worship-AV', assignments: {}
+  });
   for (let i = 0; i < 4; i++) {
     await put('calEvents/home_mtg_' + i, {
       title: 'Synthetic team meeting ' + (i + 1), teams: ['Worship Team'],

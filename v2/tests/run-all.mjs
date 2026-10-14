@@ -58,6 +58,11 @@ const NEEDS_ITS_OWN_COMMAND = {
     'needs the spare emulator and functions: set FUNCTIONS_EMULATOR_PORT=5191 && '
     + 'firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions '
     + '--project egbc-worship-planner "node tests/check-notify-send.mjs"',
+  /* The hourly feed read (feedSync): its own Firestore, so a run never
+     leaves sermons or videos in the dev emulator's data. */
+  'check-feeds.mjs':
+    'needs the spare emulator: firebase emulators:exec --config firebase.spare.json --only firestore '
+    + '--project egbc-worship-planner "node tests/check-feeds.mjs"',
 };
 
 /* Not checks: helpers and screenshot scripts that live in the same

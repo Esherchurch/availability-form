@@ -121,6 +121,7 @@ function applyTeam() {
   renderTeamPanels();
   renderNews();
   renderNoticesCard();
+  renderWatch();
   renderWaiting();
   renderServing();
   renderMyEvents();
@@ -1038,6 +1039,8 @@ async function loadMeetings() {
     MEETINGS = [];
   }
   renderMeetings();
+  /* "Meet" in the tab bar and sidebar comes and goes with today's meetings. */
+  try { renderNavigation(); } catch (e) {}
   try { renderServing(); } catch (e) {}
   /* console.error, not warn: a card that fails to draw is a card nobody sees,
      and the checks here treat an error as a failure and a warning as noise.
@@ -1046,24 +1049,37 @@ async function loadMeetings() {
   renderPinBoardCard().catch(e => console.error('Pin board card failed', e && e.message));
 }
 
+/* MEET ONLY WHEN IT IS NEEDED (Martin, 14 Oct 2026: "we dont need the meet
+   now at all unless it is in the diary for that day"). The local day, so a
+   meeting at 00:30 in British Summer Time is today's and not yesterday's. */
+function localToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function meetingsToday() { return MEETINGS.filter(ev => ev.date === localToday()); }
+
 function renderMeetings() {
   const box = document.getElementById('meetingsCard');
   if (!box) return;
-  const today = new Date().toISOString().split('T')[0];
+  /* No video meeting for me in today's diary: no card at all. Menu >
+     Meetings (every room), Core Team > Meetings and each team's "Team
+     meeting room" are still there on every other day. */
+  if (!meetingsToday().length) { box.innerHTML = ''; return; }
+  const today = localToday();
   const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
   /* 17b: "Video meetings is a single row unless one is coming up." Normally
      the next one is all anybody needs; when something is today or tomorrow
      the card opens out and shows all of them, because that is when it
      matters. "All rooms" in the header is still the way to everything. */
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const soon = MEETINGS.filter(ev => ev.date <= tomorrow);
+  /* Today's only, now that the card is only drawn on the day. */
+  const soon = meetingsToday();
   /* TWO, NOT FIVE. Five meeting rows is 200px of a home page that §17b
      says fits one screen, and from 12 Oct the notices are on it too.
      The rest are one tap away behind "more coming up", which was
      already there - Martin's instruction was to shrink other widgets
      before hiding the notices, and this is the widest one. */
   const shown = soon.length ? soon.slice(0, 2) : MEETINGS.slice(0, 1);
-  const more = MEETINGS.length - shown.length;
+  const more = soon.length - shown.length;
   const rows = shown.map(ev => {
     const link = `meeting.html?room=${encodeURIComponent(videoRoomFor(ev))}&event=${encodeURIComponent(ev.id)}`;
     const d = new Date(ev.date + 'T12:00');
@@ -1093,7 +1109,7 @@ function renderMeetings() {
       </div>
       <div class="cb" style="padding-top:6px;padding-bottom:${MEETINGS.length ? '14px' : '10px'}">
         ${rows}${none}
-        ${more > 0 ? `<a href="meeting.html" style="display:block;font-size:13px;color:var(--brand);text-decoration:none;padding:6px 0">${more} more coming up</a>` : ''}
+        ${more > 0 ? `<a href="meeting.html" style="display:block;font-size:13px;color:var(--brand);text-decoration:none;padding:6px 0">${more} more today</a>` : ''}
         ${/* THE KNOCKING NOTE ONLY WHEN THERE IS SOMETHING TO JOIN.
               With no meetings this card was five lines explaining how to
               get into a call that is not happening, and on a phone it
@@ -1259,13 +1275,15 @@ function navPlaces() {
   const places = [
     { url: 'hub.html', label: 'Home', icon: 'house', always: true },
     { url: 'whatson.html', label: "What's on", icon: 'calendar-days' },
-    { url: 'meeting.html', label: 'Meet', icon: 'video' },
+    { url: 'meeting.html', label: 'Meet', icon: 'video', today: true },
     { url: 'view-only-rota.html', label: 'My serving', icon: 'calendar-check' }
   ];
   /* Switched off in the registry still means switched off. */
   const switchedOff = url => PAGES.some(p =>
     decodeURIComponent(String(p.url || '')).toLowerCase() === url && p.enabled === false);
-  return places.filter(p => p.always || (visibleNow[p.url] && !switchedOff(p.url)));
+  /* "Meet" only on a day with a video meeting of mine in the diary. */
+  const meetDay = typeof MEETINGS !== 'undefined' && meetingsToday().length > 0;
+  return places.filter(p => p.always || (visibleNow[p.url] && !switchedOff(p.url) && (!p.today || meetDay)));
 }
 
 /* The hub has its own Menu; every other page gets the shell's. More
@@ -1398,6 +1416,31 @@ function myServing() {
      get the rest, and it was always there. */
   return out.sort((a, b) => (a.ev.date + (a.ev.startTime || '')).localeCompare(b.ev.date + (b.ev.startTime || '')))
     .slice(0, 3);
+}
+
+/* WATCH LIVE ON THE FRONT PAGE (F-164, Martin: "it should go on the front
+   page of the app on both phone and desktop on that day"). The events
+   window's watchLive() says when: null outside the day's times, signed out,
+   or with Watch switched off, so the card comes and goes by itself. On a
+   computer the player is right here; checked again every five minutes. */
+let WATCH_TIMER = null;
+async function renderWatch() {
+  const box = document.getElementById('watchCard');
+  if (!box) return;
+  const H = window.EGBCEventsHome;
+  let w = null;
+  try { w = H && H.watchLive ? await H.watchLive() : null; } catch (e) { w = null; }
+  if (!w || !w.embed) { box.innerHTML = ''; }
+  else {
+    const live = w.state === 'live';
+    box.innerHTML = `<div class="card watch-card">
+      <div class="ch"><div class="ic"><i data-lucide="tv" style="width:18px;height:18px"></i></div>
+        <div><h2>${live ? 'Watch live' : 'Watch again'}</h2><div class="sub">${esc(w.title || (live ? 'The service, live' : 'This week\u2019s service'))}</div></div></div>
+      <div class="watch-frame"><iframe src="${esc(w.embed)}" title="${esc(w.title || 'The service')}" loading="lazy"
+        allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div></div>`;
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+  }
+  if (!WATCH_TIMER) WATCH_TIMER = setInterval(renderWatch, 5 * 60 * 1000);
 }
 
 function renderServing() {

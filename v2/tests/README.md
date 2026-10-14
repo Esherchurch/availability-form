@@ -36,6 +36,7 @@ is proving something throws wraps it in `expectThrow()`.
 | Phone notifications on or off: the switch on Church settings, off to start, a master admin only | `node tests/check-notify-switch.mjs` |
 | The family rule: myFamily (first names, this week, the household both ways), "Your family this week" and Parents' Sunday on Home, the collection code large | `node tests/check-family.mjs` |
 | A young person's own main-rota dates and charters in the Youth app; a youth-only one never gets the Worship & AV charter | `node tests/check-youth-hub.mjs` |
+| Watch live on the app's Home and the hub's front page (player on the hub), "Listen & Watch", the Menu's "Watch" for sermons helpers and master admins only; Meet only on a day with a video meeting in the diary (hub card, tab bar, app Home), Menu > Meetings kept | `node tests/check-watch-meet.mjs` |
 | An empty pin board opens empty and writes nothing; a board with notes is left as it was (A-079) | `node tests/check-board-empty.mjs` |
 | One piece of code decides where a note lands on the corkboard, and stickynotes.html parses | `node tests/check-note-placement.mjs` (a second, no browser) |
 | The pin board on a phone: small post-its, one note filling the screen, comments - the same screen in the app and on the website | `node tests/check-board-on-a-phone.mjs` (add `--shots`) |
@@ -50,6 +51,7 @@ is proving something throws wraps it in `expectThrow()`.
 | An email carries this church's name and address, not one in the code | `node tests/check-email-church-details.mjs` |
 | "Powered by Church HQ" is in its three places and nowhere else | `node tests/check-poweredby.mjs` (add `--shots`) |
 | Phone notifications: call a parent (never the child's name, leaders only), the test, the day before I serve, bookings, a maintenance job, an urgent notice, checks running out - each to the right people, once | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-notify-send.mjs"` |
+| The hourly feed read (feedSync): the sermon podcast and the YouTube channel into sermons and videos; a switched-off part is not fetched; a failed fetch writes its status and nothing else; the copies match the events window's originals | `firebase emulators:exec --config firebase.spare.json --only firestore --project egbc-worship-planner "node tests/check-feeds.mjs"` |
 | Reminder emails go to the right people, once, and nobody else | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-reminders.mjs"` |
 | The login page, which needs both sides signed out | `EGBC_SKIP_SIGNIN=1 node tests/compare-with-original.mjs login.html` |
 | The availability form’s three functions, with nobody signed in | `set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner "node tests/check-availability-form.mjs"` |
