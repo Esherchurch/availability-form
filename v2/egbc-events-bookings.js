@@ -59,15 +59,63 @@
     return { from: Math.floor(a / SLOT), to: Math.ceil(b / SLOT) };
   }
 
+  /* ---- rooms made of other rooms (Martin, 14 Oct 2026) ----
+     Any room can be marked, in Places, as made up of other rooms at its
+     site (rooms.parts, at most 4): a hall bookable whole or as halves.
+     A room with parts HAS NO DAY OF ITS OWN: booking it marks each part's
+     day, and it is free only when every part is. So booking the whole
+     blocks the parts, booking a part blocks the whole, and two rooms that
+     share a part block each other - with no other bookkeeping. A part
+     cannot itself have parts. The rules check the same (firestore.rules,
+     footMarked). */
+  var KNOWN = {};
+  function know(rooms) { (rooms || []).forEach(function (r) { if (r && r.id) KNOWN[r.id] = r; }); return rooms; }
+  function partIds(room) { var p = room && room.parts; return p && p.length ? p.slice(0, 4) : []; }
+  function footprint(room) { var p = partIds(room); return p.length ? p : [room.id]; }
+  /* The rooms a part belongs to, of the rooms this page knows. */
+  function wholesOf(roomId, rooms) {
+    var all = rooms || Object.keys(KNOWN).map(function (k) { return KNOWN[k]; });
+    return all.filter(function (r) { return partIds(r).indexOf(roomId) >= 0; });
+  }
+  function roomById(id) {
+    if (KNOWN[id]) return Promise.resolve(KNOWN[id]);
+    return db().collection('rooms').doc(id).get().then(function (s) {
+      var r = Object.assign({ id: id }, s.exists ? s.data() : {}); KNOWN[id] = r; return r;
+    }).catch(function () { return { id: id }; });
+  }
+  /* The rooms whose days hold a room's time: itself, or its parts. */
+  function footRooms(room) {
+    know([room]);
+    return Promise.all(footprint(room).map(function (id) { return id === room.id ? room : roomById(id); }));
+  }
+  /* Several rooms' days in one transaction: read them all, then change
+     them, then write each once. days: [{ room, day }]. */
+  function readDays(tx, list) {
+    return Promise.all(list.map(function (x) { return tx.get(dayRef(x.room.id, x.day)); })).then(function (snaps) {
+      var m = {};
+      list.forEach(function (x, i) {
+        var k = x.room.id + '_' + x.day;
+        if (!m[k]) m[k] = { room: x.room, day: x.day, slots: snaps[i].exists ? snaps[i].data().slots.slice() : base(x.room, x.day), data: snaps[i].exists ? snaps[i].data() : null };
+      });
+      return m;
+    });
+  }
+  function on(rooms, day) { return rooms.map(function (r) { return { room: r, day: day }; }); }
+  function each(m, rooms, day, fn) { rooms.forEach(function (r) { fn(m[r.id + '_' + day]); }); }
+  function allFree(m, rooms, day, s) { return rooms.every(function (r) { return free(m[r.id + '_' + day].slots, s); }); }
+  function writeDays(tx, m) { Object.keys(m).forEach(function (k) { var x = m[k]; tx.set(dayRef(x.room.id, x.day), dayDoc(x.room, x.day, x.slots)); }); }
+
   /* ---- rota services as a standing weekly pattern ----
      site.rotaBusy: [{ type, roomIds, days: [1..7], from: 'HH:MM', to: 'HH:MM' }]
      -> for one room: { '1': [96], ..., '7': [96] }, the quarter-hours its
      services take on each weekday. */
-  function rotaWeek(rotaBusy, roomId) {
-    var w = {};
+  /* also: the rooms this one is part of - a service in the whole hall
+     takes each half too. */
+  function rotaWeek(rotaBusy, roomId, also) {
+    var w = {}, mine = [roomId].concat(also || []);
     for (var d = 1; d <= 7; d++) w[String(d)] = zeros();
     (rotaBusy || []).forEach(function (r) {
-      if ((r.roomIds || []).indexOf(roomId) < 0) return;
+      if (!(r.roomIds || []).some(function (id) { return mine.indexOf(id) >= 0; })) return;
       var s = slots(toMin(r.from), toMin(r.to), 0, 0);
       if (!s) return;
       (r.days || []).forEach(function (day) {
@@ -85,12 +133,26 @@
 
   /* What is on a room's day, read as anyone may: the day if it exists,
      the standing pattern if not. { roomId: [96] } */
+  /* A room made of parts is its parts' days laid together; each part's
+     own day comes back too, under the part's id. */
+  function oneDay(r, day) {
+    return db().collection('roomDays').doc(r.id + '_' + day).get()
+      .then(function (s) { return s.exists ? s.data().slots : base(r, day); })
+      .catch(function () { return base(r, day); });
+  }
   function loadDays(rooms, day) {
+    know(rooms);
+    var out = {};
     return Promise.all(rooms.map(function (r) {
-      return db().collection('roomDays').doc(r.id + '_' + day).get()
-        .then(function (s) { return s.exists ? s.data().slots : base(r, day); })
-        .catch(function () { return base(r, day); });
-    })).then(function (l) { var out = {}; rooms.forEach(function (r, i) { out[r.id] = l[i]; }); return out; });
+      return footRooms(r).then(function (fr) {
+        return Promise.all(fr.map(function (f) { return oneDay(f, day); })).then(function (l) {
+          if (fr.length === 1 && fr[0].id === r.id) { out[r.id] = l[0]; return; }
+          var u = zeros();
+          l.forEach(function (sl, i) { out[fr[i].id] = out[fr[i].id] || sl; for (var k = 0; k < N; k++) u[k] = Math.max(u[k], sl[k] || 0); });
+          out[r.id] = u;
+        });
+      });
+    })).then(function () { return out; });
   }
 
   function free(daySlots, s) {
@@ -182,19 +244,31 @@
   /* Write the bookings, and for each confirmed one mark its quarter-hours
      on the room's day in the same batch. `days` is what loadDays read. */
   function write(list, days) {
-    var batch = db().batch(), out = [];
-    list.forEach(function (x) {
-      var key = 'bk_' + EGBCEvents.key(28);
-      batch.set(db().collection('bookings').doc(key), x.booking);
-      if (x.booking.status === 'confirmed') {
-        var sl = (days[x.booking.roomId + '_' + x.booking.day] || days[x.booking.roomId]).slice();
-        for (var i = x.booking.slotFrom; i < x.booking.slotTo; i++) sl[i] = 1;
-        batch.set(db().collection('roomDays').doc(x.booking.roomId + '_' + x.booking.day),
-          { slots: sl, lastBooking: key, roomId: x.booking.roomId, day: x.booking.day, siteId: x.booking.siteId });
-      }
-      out.push(Object.assign({ key: key }, x.booking));
+    /* The days each confirmed booking marks: its room's, or each part's
+       (read fresh: the page read the whole room's, not the parts'). */
+    return Promise.all(list.map(function (x) {
+      var b = x.booking;
+      if (b.status !== 'confirmed') return null;
+      return roomById(b.roomId).then(function (room) {
+        if (!partIds(room).length) return [{ id: b.roomId, slots: (days[b.roomId + '_' + b.day] || days[b.roomId]).slice() }];
+        return footRooms(room).then(function (fr) {
+          return Promise.all(fr.map(function (f) { return oneDay(f, b.day).then(function (sl) { return { id: f.id, slots: sl.slice() }; }); }));
+        });
+      });
+    })).then(function (marks) {
+      var batch = db().batch(), out = [];
+      list.forEach(function (x, n) {
+        var key = 'bk_' + EGBCEvents.key(28);
+        batch.set(db().collection('bookings').doc(key), x.booking);
+        (marks[n] || []).forEach(function (m) {
+          for (var i = x.booking.slotFrom; i < x.booking.slotTo; i++) m.slots[i] = 1;
+          batch.set(db().collection('roomDays').doc(m.id + '_' + x.booking.day),
+            { slots: m.slots, lastBooking: key, roomId: m.id, day: x.booking.day, siteId: x.booking.siteId });
+        });
+        out.push(Object.assign({ key: key }, x.booking));
+      });
+      return batch.commit().then(function () { return out; });
     });
-    return batch.commit().then(function () { return out; });
   }
 
   /* ---- the office: approve, decline, cancel, move ----
@@ -222,18 +296,17 @@
 
   function approve(b, room, o) {
     o = o || {};
-    var bref = db().collection('bookings').doc(b.key), ref = dayRef(room.id, b.day), w = who(), over = false;
-    return db().runTransaction(function (tx) {
-      return tx.get(ref).then(function (s) {
-        var sl = s.exists ? s.data().slots.slice() : base(room, b.day);
-        over = !free(sl, { from: b.slotFrom, to: b.slotTo });
+    var bref = db().collection('bookings').doc(b.key), w = who(), over = false;
+    return footRooms(room).then(function (fr) { return db().runTransaction(function (tx) {
+      return readDays(tx, on(fr, b.day)).then(function (m) {
+        over = !allFree(m, fr, b.day, { from: b.slotFrom, to: b.slotTo });
         if (over && !o.override) throw Clash('That time is no longer free.');
-        for (var i = b.slotFrom; i < b.slotTo; i++) sl[i] = (sl[i] || 0) + 1;
-        tx.set(ref, dayDoc(room, b.day, sl));
+        each(m, fr, b.day, function (x) { for (var i = b.slotFrom; i < b.slotTo; i++) x.slots[i] = (x.slots[i] || 0) + 1; });
+        writeDays(tx, m);
         tx.update(bref, { status: 'confirmed', decidedBy: w.uid, decidedByName: w.name, decidedAt: new Date().toISOString(),
                           decisionNote: String(o.note || '').slice(0, 500), override: over });
       });
-    }).then(function () { return Object.assign({}, b, { status: 'confirmed', override: over }); });
+    }); }).then(function () { return Object.assign({}, b, { status: 'confirmed', override: over }); });
   }
 
   function decline(b, note) {
@@ -246,18 +319,17 @@
   /* A cancelled booking gives its time back - one count, so anything else
      still holding those quarter-hours keeps them. */
   function cancel(b, room, note) {
-    var bref = db().collection('bookings').doc(b.key), ref = dayRef(room.id, b.day), w = who();
-    return db().runTransaction(function (tx) {
-      return tx.get(ref).then(function (s) {
+    var bref = db().collection('bookings').doc(b.key), w = who();
+    return footRooms(room).then(function (fr) { return db().runTransaction(function (tx) {
+      return readDays(tx, on(fr, b.day)).then(function (m) {
         if (b.status === 'confirmed') {
-          var sl = s.exists ? s.data().slots.slice() : base(room, b.day);
-          for (var i = b.slotFrom; i < b.slotTo; i++) sl[i] = Math.max(0, (sl[i] || 0) - 1);
-          tx.set(ref, dayDoc(room, b.day, sl));
+          each(m, fr, b.day, function (x) { for (var i = b.slotFrom; i < b.slotTo; i++) x.slots[i] = Math.max(0, (x.slots[i] || 0) - 1); });
+          writeDays(tx, m);
         }
         tx.update(bref, { status: 'cancelled', cancelledAt: new Date().toISOString(), decidedBy: w.uid, decidedByName: w.name,
                           decisionNote: String(note || '').slice(0, 500) });
       });
-    }).then(function () { return Object.assign({}, b, { status: 'cancelled' }); });
+    }); }).then(function () { return Object.assign({}, b, { status: 'cancelled' }); });
   }
 
   /* Move to another time, day or room (at the same site). A confirmed
@@ -267,26 +339,24 @@
     o = o || {};
     var s2 = slots(toMin(n.start), toMin(n.end), b.setupMins || 0, b.packdownMins || 0);
     if (!s2) return Promise.reject(new Error('With its setting up and clearing away, it has to fit within one day.'));
-    var bref = db().collection('bookings').doc(b.key), oldRef = dayRef(from.id, b.day), newRef = dayRef(to.id, n.day);
-    var same = from.id === to.id && b.day === n.day, over = false, w = who();
-    return db().runTransaction(function (tx) {
-      return Promise.all([tx.get(oldRef), same ? null : tx.get(newRef)]).then(function (r) {
-        var oldSl = r[0].exists ? r[0].data().slots.slice() : base(from, b.day), i;
-        var newSl = same ? oldSl : (r[1].exists ? r[1].data().slots.slice() : base(to, n.day));
-        if (b.status === 'confirmed') for (i = b.slotFrom; i < b.slotTo; i++) oldSl[i] = Math.max(0, (oldSl[i] || 0) - 1);
-        over = !free(newSl, s2);
+    /* Old and new may share days (a whole hall to one half, the same
+       day): each day is read once, gives back, takes, and is written once. */
+    var bref = db().collection('bookings').doc(b.key), over = false, w = who();
+    return Promise.all([footRooms(from), footRooms(to)]).then(function (f2) { var fOld = f2[0], fNew = f2[1]; return db().runTransaction(function (tx) {
+      return readDays(tx, on(fOld, b.day).concat(on(fNew, n.day))).then(function (m) {
+        if (b.status === 'confirmed') each(m, fOld, b.day, function (x) { for (var i = b.slotFrom; i < b.slotTo; i++) x.slots[i] = Math.max(0, (x.slots[i] || 0) - 1); });
+        over = !allFree(m, fNew, n.day, s2);
         if (over && !o.override) throw Clash('The new time is not free.');
         if (b.status === 'confirmed') {
-          for (i = s2.from; i < s2.to; i++) newSl[i] = (newSl[i] || 0) + 1;
-          tx.set(oldRef, dayDoc(from, b.day, oldSl));
-          if (!same) tx.set(newRef, dayDoc(to, n.day, newSl));
+          each(m, fNew, n.day, function (x) { for (var i = s2.from; i < s2.to; i++) x.slots[i] = (x.slots[i] || 0) + 1; });
+          writeDays(tx, m);
         }
         tx.update(bref, { roomId: to.id, siteId: to.siteId, day: n.day, startMin: toMin(n.start), endMin: toMin(n.end),
           startLocal: n.day + 'T' + n.start, endLocal: n.day + 'T' + n.end, slotFrom: s2.from, slotTo: s2.to,
           movedAt: new Date().toISOString(), decidedBy: w.uid, decidedByName: w.name,
           decisionNote: String(o.note || '').slice(0, 500), override: over });
       });
-    }).then(function () {
+    }); }).then(function () {
       return Object.assign({}, b, { roomId: to.id, siteId: to.siteId, day: n.day, startMin: toMin(n.start), endMin: toMin(n.end),
         startLocal: n.day + 'T' + n.start, endLocal: n.day + 'T' + n.end, slotFrom: s2.from, slotTo: s2.to, override: over });
     });
@@ -305,19 +375,23 @@
     return true;
   }
   function cancelOwn(b) {
-    var u = (EGBCAuth.user && EGBCAuth.user()) || {}, bref = db().collection('bookings').doc(b.key), ref = dayRef(b.roomId, b.day);
+    var u = (EGBCAuth.user && EGBCAuth.user()) || {}, bref = db().collection('bookings').doc(b.key);
     var patch = { status: 'cancelled', cancelledAt: new Date().toISOString(), cancelledBy: u.uid || '' };
     if (b.status === 'requested') return bref.update(patch).then(function () { return Object.assign({}, b, patch); });
-    return db().runTransaction(function (tx) {
-      return tx.get(ref).then(function (s) {
-        var v = s.exists ? s.data() : null;
-        if (!v || !canSelfCancel(b, v.slots)) { var e = new Error('This booking overlaps one the office made, so the office needs to cancel it.'); e.shared = true; throw e; }
-        var sl = v.slots.slice();
-        for (var i = b.slotFrom; i < b.slotTo; i++) sl[i] = 0;
-        tx.set(ref, { slots: sl, lastBooking: v.lastBooking || '', roomId: v.roomId, day: v.day, siteId: v.siteId, lastCancel: b.key });
+    /* Every day the booking marked: its room's, or each part's. */
+    return roomById(b.roomId).then(footRooms).then(function (fr) { return db().runTransaction(function (tx) {
+      return readDays(tx, on(fr, b.day)).then(function (m) {
+        each(m, fr, b.day, function (x) {
+          if (!x.data || !canSelfCancel(b, x.data.slots)) { var e = new Error('This booking overlaps one the office made, so the office needs to cancel it.'); e.shared = true; throw e; }
+        });
+        each(m, fr, b.day, function (x) {
+          var v = x.data, sl = v.slots.slice();
+          for (var i = b.slotFrom; i < b.slotTo; i++) sl[i] = 0;
+          tx.set(dayRef(x.room.id, b.day), { slots: sl, lastBooking: v.lastBooking || '', roomId: v.roomId, day: v.day, siteId: v.siteId, lastCancel: b.key });
+        });
         tx.update(bref, patch);
       });
-    }).then(function () { return Object.assign({}, b, patch); });
+    }); }).then(function () { return Object.assign({}, b, patch); });
   }
 
   /* ---- the office books (events, F-072a) ----
@@ -327,18 +401,17 @@
      booking; the rules insist on both. */
   function officeBook(d, room, o) {
     o = o || {};
-    var key = 'bk_' + EGBCEvents.key(28), bref = db().collection('bookings').doc(key), ref = dayRef(room.id, d.day), over = false, w = who(), out;
-    return db().runTransaction(function (tx) {
-      return tx.get(ref).then(function (s) {
-        var sl = s.exists ? s.data().slots.slice() : base(room, d.day);
-        over = !free(sl, { from: d.slotFrom, to: d.slotTo });
+    var key = 'bk_' + EGBCEvents.key(28), bref = db().collection('bookings').doc(key), over = false, w = who(), out;
+    return footRooms(room).then(function (fr) { return db().runTransaction(function (tx) {
+      return readDays(tx, on(fr, d.day)).then(function (m) {
+        over = !allFree(m, fr, d.day, { from: d.slotFrom, to: d.slotTo });
         if (over && !(o.override && o.note)) throw Clash(room.name + ' is not free then.');
-        for (var i = d.slotFrom; i < d.slotTo; i++) sl[i] = (sl[i] || 0) + 1;
-        tx.set(ref, dayDoc(room, d.day, sl));
+        each(m, fr, d.day, function (x) { for (var i = d.slotFrom; i < d.slotTo; i++) x.slots[i] = (x.slots[i] || 0) + 1; });
+        writeDays(tx, m);
         out = Object.assign({}, d, over ? { override: true, decisionNote: String(o.note).slice(0, 500), decidedBy: w.uid, decidedByName: w.name, decidedAt: new Date().toISOString() } : {});
         tx.set(bref, out);
       });
-    }).then(function () { return Object.assign({ key: key }, out); });
+    }); }).then(function () { return Object.assign({ key: key }, out); });
   }
 
   /* An event in rooms, as bookings: one per room per day. An event over
@@ -623,11 +696,13 @@
     return out;
   }
   /* { roomId_day: true } for every closed day among these rooms and days. */
+  /* A room made of parts is closed when it is, or when any part is. */
   function closedDays(rooms, days) {
     var asks = [];
-    rooms.forEach(function (r) { days.forEach(function (d) { asks.push([r.id, d]); }); });
+    know(rooms);
+    rooms.forEach(function (r) { [r.id].concat(partIds(r)).forEach(function (id) { days.forEach(function (d) { asks.push([r.id, d, id]); }); }); });
     return Promise.all(asks.map(function (a) {
-      return db().collection('roomClosedDays').doc(a[0] + '_' + a[1]).get()
+      return db().collection('roomClosedDays').doc(a[2] + '_' + a[1]).get()
         .then(function (s) { return s.exists && s.data().on === true; }).catch(function () { return false; });
     })).then(function (l) { var out = {}; asks.forEach(function (a, i) { if (l[i]) out[a[0] + '_' + a[1]] = true; }); return out; });
   }
@@ -648,8 +723,12 @@
     var w = who(), ref = db().collection('roomClosures').doc(), b = db().batch();
     var c = { siteId: o.room.siteId, roomId: o.room.id, roomName: String(o.room.name || '').slice(0, 120), from: o.from, to: o.to, days: days,
               reason: String(o.reason).trim().slice(0, 300), status: 'on', by: w.uid, byName: w.name, at: firebase.firestore.FieldValue.serverTimestamp() };
+    /* Closing a room made of parts closes each part too. */
+    if (partIds(o.room).length) c.partIds = partIds(o.room);
     b.set(ref, c);
-    days.forEach(function (d) { b.set(db().collection('roomClosedDays').doc(o.room.id + '_' + d), { closureId: ref.id, roomId: o.room.id, siteId: o.room.siteId, day: d, on: true }); });
+    [o.room.id].concat(partIds(o.room)).forEach(function (id) {
+      days.forEach(function (d) { b.set(db().collection('roomClosedDays').doc(id + '_' + d), { closureId: ref.id, roomId: id, siteId: o.room.siteId, day: d, on: true }); });
+    });
     return b.commit().then(function () {
       c.id = ref.id;
       return tellClosure(c, o.site, 'closed').catch(function () { return null; }).then(function () { return c; });
@@ -659,11 +738,13 @@
      (a later closure of the same day keeps its own). */
   function liftClosure(c, site) {
     var w = who();
-    return Promise.all(c.days.map(function (d) { return db().collection('roomClosedDays').doc(c.roomId + '_' + d).get(); })).then(function (snaps) {
+    var asks = [];
+    [c.roomId].concat(c.partIds || []).forEach(function (id) { c.days.forEach(function (d) { asks.push([id, d]); }); });
+    return Promise.all(asks.map(function (a) { return db().collection('roomClosedDays').doc(a[0] + '_' + a[1]).get(); })).then(function (snaps) {
       var b = db().batch();
       b.update(db().collection('roomClosures').doc(c.id), { status: 'lifted', liftedBy: w.uid, liftedByName: w.name, liftedAt: firebase.firestore.FieldValue.serverTimestamp() });
       snaps.forEach(function (s, i) {
-        if (s.exists && s.data().closureId === c.id && s.data().on) b.set(s.ref, { closureId: c.id, roomId: c.roomId, siteId: c.siteId, day: c.days[i], on: false });
+        if (s.exists && s.data().closureId === c.id && s.data().on) b.set(s.ref, { closureId: c.id, roomId: asks[i][0], siteId: c.siteId, day: asks[i][1], on: false });
       });
       return b.commit();
     }).then(function () { return tellClosure(c, site, 'lifted').catch(function () { return null; }); });
@@ -733,6 +814,7 @@
               bar: bar, axis: axis, key: key, FROM: FROM, TO: TO,
               MAX: MAX, RULES: RULES, repeatDays: repeatDays, seriesWords: seriesWords, canSelfCancel: canSelfCancel, cancelOwn: cancelOwn,
               emailMany: emailMany, dateList: dateList,
+              know: know, partIds: partIds, footprint: footprint, wholesOf: wholesOf,
               officeBook: officeBook, eventPieces: eventPieces, eventBookings: eventBookings, eventClashes: eventClashes, syncEvent: syncEvent, freeEvent: freeEvent };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCBookings = api;

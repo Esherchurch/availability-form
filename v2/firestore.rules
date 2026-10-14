@@ -2340,6 +2340,53 @@ service cloud.firestore {
     function roomData(roomId) {
       return get(/databases/$(database)/documents/rooms/$(roomId)).data;
     }
+    // ---- rooms made of other rooms (Martin, 14 Oct 2026) ----
+    // A room with parts has no day of its own: its time is held on each
+    // part's day. So booking it needs every part free (and open), and marks
+    // every part; booking a part is checked on the part's day, which the
+    // whole room's bookings have marked. At most 4 parts, written out.
+    function partsOf(roomId) { return roomData(roomId).get('parts', []); }
+    function partFree(roomId, d) {
+      return roomOpen(roomId, d.day) && daySlots(roomId, d.day)[d.slotFrom:d.slotTo].hasOnly([0]);
+    }
+    function partMarked(roomId, d, key) {
+      return roomOpen(roomId, d.day)
+             && getAfter(/databases/$(database)/documents/roomDays/$(roomId + '_' + d.day)).data.lastBooking == key;
+    }
+    function partHeld(roomId, d) {
+      return !getAfter(/databases/$(database)/documents/roomDays/$(roomId + '_' + d.day)).data.slots[d.slotFrom:d.slotTo].hasAny([0]);
+    }
+    function partGivenBack(roomId, b, key) {
+      return getAfter(/databases/$(database)/documents/roomDays/$(roomId + '_' + b.day)).data.get('lastCancel', '') == key;
+    }
+    function footFree(d) {
+      let p = partsOf(d.roomId);
+      return p.size() == 0 ? partFree(d.roomId, d)
+        : (p.size() <= 4 && partFree(p[0], d) && (p.size() < 2 || partFree(p[1], d))
+           && (p.size() < 3 || partFree(p[2], d)) && (p.size() < 4 || partFree(p[3], d)));
+    }
+    function footMarked(d, key) {
+      let p = partsOf(d.roomId);
+      return p.size() == 0 ? partMarked(d.roomId, d, key)
+        : (p.size() <= 4 && partMarked(p[0], d, key) && (p.size() < 2 || partMarked(p[1], d, key))
+           && (p.size() < 3 || partMarked(p[2], d, key)) && (p.size() < 4 || partMarked(p[3], d, key)));
+    }
+    function footHeld(d) {
+      let p = partsOf(d.roomId);
+      return p.size() == 0 ? partHeld(d.roomId, d)
+        : (p.size() <= 4 && partHeld(p[0], d) && (p.size() < 2 || partHeld(p[1], d))
+           && (p.size() < 3 || partHeld(p[2], d)) && (p.size() < 4 || partHeld(p[3], d)));
+    }
+    function footGivenBack(b, key) {
+      let p = partsOf(b.roomId);
+      return p.size() == 0 ? partGivenBack(b.roomId, b, key)
+        : (p.size() <= 4 && partGivenBack(p[0], b, key) && (p.size() < 2 || partGivenBack(p[1], b, key))
+           && (p.size() < 3 || partGivenBack(p[2], b, key)) && (p.size() < 4 || partGivenBack(p[3], b, key)));
+    }
+    // The day a booking may mark: its room's, or (a room made of parts) a part's.
+    function dayOfBooking(roomOnDay, bookingRoom) {
+      return partsOf(bookingRoom).size() == 0 ? roomOnDay == bookingRoom : roomOnDay in partsOf(bookingRoom);
+    }
     function baseSlots(roomId, day) {
       return roomData(roomId).get('rotaWeek', {}).get(string(isoDow(day)), zeros96());
     }
@@ -2420,7 +2467,7 @@ service cloud.firestore {
                && get(/databases/$(database)/documents/roomClosedDays/$(roomId + '_' + day)).data.get('on', false) == true);
     }
     function slotsFree(d) {
-      return roomOpen(d.roomId, d.day) && daySlots(d.roomId, d.day)[d.slotFrom:d.slotTo].hasOnly([0]);
+      return roomOpen(d.roomId, d.day) && footFree(d);
     }
 
     function memberCreate(key) {
@@ -2432,7 +2479,7 @@ service cloud.firestore {
              && (!('bookingType' in d) || d.status == 'requested'
                  || get(/databases/$(database)/documents/bookingTypes/$(d.bookingType)).data.get('charged', false) == false)
              && ((d.status == 'confirmed' && memberInstant(d.roomId) && roomOpen(d.roomId, d.day)
-                  && getAfter(/databases/$(database)/documents/roomDays/$(d.roomId + '_' + d.day)).data.lastBooking == key)
+                  && footMarked(d, key))
                  || (d.status == 'requested' && slotsFree(d)));
     }
 
@@ -2454,7 +2501,7 @@ service cloud.firestore {
     function officeCreate() {
       let d = request.resource.data;
       return theOffice(d.siteId) && d.status == 'confirmed'
-             && !getAfter(/databases/$(database)/documents/roomDays/$(d.roomId + '_' + d.day)).data.slots[d.slotFrom:d.slotTo].hasAny([0])
+             && footHeld(d)
              && (slotsFree(d)
                  || (d.get('override', false) == true && d.get('decisionNote', '') is string && d.get('decisionNote', '').size() > 0));
     }
@@ -2516,12 +2563,12 @@ service cloud.firestore {
       let n = request.resource.data;
       let key = n.lastBooking;
       let b = getAfter(/databases/$(database)/documents/bookings/$(key)).data;
-      let before = resource == null ? baseSlots(b.roomId, b.day) : resource.data.slots;
+      let before = resource == null ? baseSlots(n.roomId, b.day) : resource.data.slots;
       return n.keys().hasOnly(['slots', 'lastBooking', 'roomId', 'day', 'siteId'])
              && key is string && key != ''
              && !exists(/databases/$(database)/documents/bookings/$(key))
              && b.status == 'confirmed'
-             && dayId == b.roomId + '_' + b.day && n.roomId == b.roomId && n.day == b.day && n.siteId == b.siteId
+             && dayOfBooking(n.roomId, b.roomId) && dayId == n.roomId + '_' + b.day && n.day == b.day && n.siteId == b.siteId
              && n.slots is list && n.slots.size() == 96 && before.size() == 96
              && before[b.slotFrom:b.slotTo].hasOnly([0])
              && n.slots[b.slotFrom:b.slotTo].hasOnly([1])
@@ -2542,7 +2589,7 @@ service cloud.firestore {
              && n.diff(b).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy'])
              && n.cancelledBy == request.auth.uid
              && (b.status == 'requested'
-                 || getAfter(/databases/$(database)/documents/roomDays/$(b.roomId + '_' + b.day)).data.get('lastCancel', '') == key);
+                 || footGivenBack(b, key));
     }
     // Giving the time back: only the member's own confirmed booking, being
     // cancelled in this same write; only its own quarter-hours, each from
@@ -2558,7 +2605,7 @@ service cloud.firestore {
              && n.keys().hasOnly(['slots', 'lastBooking', 'roomId', 'day', 'siteId', 'lastCancel'])
              && n.lastBooking == o.lastBooking && n.roomId == o.roomId && n.day == o.day && n.siteId == o.siteId
              && b.get('memberUid', '') == request.auth.uid && b.status == 'confirmed' && a.status == 'cancelled'
-             && dayId == b.roomId + '_' + b.day
+             && dayOfBooking(n.roomId, b.roomId) && dayId == n.roomId + '_' + b.day
              && n.slots is list && n.slots.size() == 96
              && o.slots[b.slotFrom:b.slotTo].hasOnly([1]) && n.slots[b.slotFrom:b.slotTo].hasOnly([0])
              && n.slots[0:b.slotFrom] == o.slots[0:b.slotFrom]
@@ -3339,8 +3386,9 @@ service cloud.firestore {
     function closureShape() {
       let d = request.resource.data;
       return d.keys().hasOnly(['siteId', 'roomId', 'roomName', 'from', 'to', 'days', 'reason', 'status',
-                               'by', 'byName', 'at', 'liftedBy', 'liftedByName', 'liftedAt', 'warnedAt', 'warnedBy', 'warnedCount'])
+                               'by', 'byName', 'at', 'liftedBy', 'liftedByName', 'liftedAt', 'warnedAt', 'warnedBy', 'warnedCount', 'partIds'])
              && d.siteId is string && d.roomId is string && roomData(d.roomId).siteId == d.siteId
+             && d.get('partIds', []) is list && d.get('partIds', []).size() <= 4
              && d.roomName is string && d.roomName.size() <= 120
              && d.from is string && d.from.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
              && d.to is string && d.to.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && d.to >= d.from
@@ -3373,7 +3421,8 @@ service cloud.firestore {
                     && (
                       (request.resource.data.on == true
                        && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.status == 'on'
-                       && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.roomId == request.resource.data.roomId
+                       && (getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.roomId == request.resource.data.roomId
+                           || request.resource.data.roomId in getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.get('partIds', []))
                        && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.siteId == request.resource.data.siteId
                        && request.resource.data.day in getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.days)
                       || (request.resource.data.on == false && resource != null && resource.data.siteId == request.resource.data.siteId

@@ -4301,3 +4301,51 @@ rules to prove it.
   message was caught.
 
 **On switch-over day,** once the rules are live, the page saves for real.
+
+### F-174 — Rooms made of other rooms: any room can be booked whole or in parts (Martin, 14 Oct)
+**What it is:** a general Places feature, for any church.
+- In a room's profile, "Made up of other rooms" lets an admin tick up to
+  4 other rooms at the same site. This is how a hall is bookable whole or
+  as halves.
+- They can change it later, and the diary is redone to match.
+- The profile also lets them change the capacity ("Holds").
+- The room list says "made up of … + …" and "part of …".
+- Nothing about any church is in the code. EGBC's Upper Room (Front +
+  Side) will just be data, set up by the ChurchSuite import.
+
+**How it works:** a room with parts has no day of its own.
+- Booking it marks each part's day.
+- It's free only when every part is.
+- So booking the whole blocks the parts, and booking a part blocks the
+  whole.
+- Two combined rooms sharing a part block each other.
+- This covers members, the office, hirers' requests, approving, moving,
+  cancelling, a member cancelling their own, event bookings, the day
+  chart, book, rooms and hire.
+- Closing a whole room closes its parts. Closing one part makes the
+  whole unavailable.
+- A service on the rota held in the whole room takes each part too.
+
+**The rules** (my section only) check the same thing:
+- a whole-room booking must mark every part
+- a part can't be marked by a booking of another room
+- a request needs every part free
+
+**⚠ BEFORE A COMBINED ROOM IS SET UP ON THE LIVE HUB:** the live
+database still has the old rules. Under them, a member's instant booking
+of a whole room is refused, because it writes the parts' days. Office
+bookings and approvals work either way. So the combined-room rules need
+to be live, at switch-over, before members book the Upper Room as a
+whole. The ChurchSuite import's Upper Room should wait for that, or
+members will be told to ask the office.
+
+**Proved:**
+- `combined-rooms.test.mjs`: 32 checks. An admin builds a combined room
+  from scratch in Places, then members, the office, the day chart,
+  closures, and changing the parts later.
+- Rules: 14 new checks, 1237 in all. Three deliberate breaks, all
+  caught.
+- The browser breaks are still to run. Two of my own leftover processes
+  hold the test ports, and auto mode won't let me stop them.
+
+**For the main window:** none of your files changed.

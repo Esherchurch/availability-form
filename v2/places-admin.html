@@ -472,6 +472,7 @@
         '</div>' +
         '<p class="hint mt-1">' + where +
           (r.capacity ? ' · holds ' + esc(r.capacity) : '') +
+          partWords(r) +
           (r.accessible ? ' · step-free' : '') +
           (R.area(r) ? ' · ' + R.area(r) + ' m²' : '') +
           ((r.photos || []).length ? ' · ' + r.photos.length + ' photo' + (r.photos.length === 1 ? '' : 's') : '') +
@@ -483,6 +484,33 @@
     }).join('');
   }
   $('r-filter').addEventListener('change', drawRooms);
+
+  /* ---- rooms made of other rooms (Martin, 14 Oct 2026) ----
+     Any room can be made up of other rooms at its site (rooms.parts, at
+     most 4): a hall bookable whole or in halves. Booking it takes every
+     part; booking a part makes it unavailable (egbc-events-bookings.js,
+     and the rules). A room that is part of another cannot have parts. */
+  var MAX_PARTS = 4;
+  function nameOf(id) { var r = rooms.find(function (x) { return x.id === id; }); return r ? r.name : '(a room taken away)'; }
+  function wholesOf(id) { return rooms.filter(function (r) { return (r.parts || []).indexOf(id) >= 0; }); }
+  function partWords(r) {
+    var w = (r.parts || []).length ? ' · made up of ' + r.parts.map(function (id) { return esc(nameOf(id)); }).join(' + ') : '';
+    var of = wholesOf(r.id);
+    return w + (of.length ? ' · part of ' + of.map(function (x) { return esc(x.name); }).join(', ') : '');
+  }
+  function partsSection(p) {
+    var of = wholesOf(p.id);
+    if (of.length) return '<h4>Made up of other rooms</h4><p class="hint" id="p-partof">This room is part of ' + of.map(function (x) { return esc(x.name); }).join(', ') +
+      '. A room that is part of another cannot itself be made of parts.</p>';
+    var can = siteRooms(p.siteId).filter(function (r) { return r.id !== p.id && !(r.parts || []).length; });
+    return '<h4>Made up of other rooms</h4>' +
+      '<p class="hint mb-2">If this room can be booked whole or in parts (a hall with a folding wall), tick its parts - at most ' + MAX_PARTS + '. ' +
+      'Booking it then takes all of them, and booking any part makes it unavailable. Leave them all unticked for an ordinary room.</p>' +
+      (can.length ? can.map(function (r) {
+        return '<label class="fac"><input type="checkbox" data-part="' + r.id + '"' + ((p.parts || []).indexOf(r.id) >= 0 ? ' checked' : '') + '> ' + esc(r.name) +
+          (r.capacity ? ' <span class="hint">(' + esc(r.capacity) + ')</span>' : '') + '</label>';
+      }).join('') : '<p class="hint">There are no other rooms at this site to choose.</p>');
+  }
 
   $('r-add').addEventListener('click', function () {
     var name = $('r-name').value.trim();
@@ -725,6 +753,9 @@
       '<div class="flex items-start justify-between gap-3"><div><h3>' + esc(p.name) + '</h3><p class="hint">Everything a hirer sees about this room.</p></div>' +
         '<button class="btn btn-x" id="p-close" aria-label="Close">Close</button></div>' +
 
+      '<h4>Size</h4><label class="lbl" for="p-cap">Holds (people)</label>' +
+      '<input class="inp" style="width:120px" type="number" min="0" id="p-cap" value="' + (Number(p.capacity) || '') + '">' +
+      partsSection(p) +
       '<h4>Photos</h4><p class="hint mb-2">The first is the main picture. Pictures are made smaller before they are stored.</p>' +
       '<div class="ph-grid" id="p-photos">' + (p.photos || []).map(function (ph, i) {
         return '<div class="ph"><img src="' + esc(ph.url) + '" alt="">' +
@@ -803,6 +834,8 @@
     });
     p.description = $('p-desc').value.trim(); p.houseRules = $('p-rules').value.trim(); p.externalCaterers = $('p-cater').checked;
     p.memberBookings = (document.querySelector('input[name="p-mb"]:checked') || {}).value || 'site';
+    p.capacity = Math.round(n('p-cap'));
+    if (!$('p-partof')) p.parts = Array.prototype.map.call(document.querySelectorAll('[data-part]:checked'), function (x) { return x.dataset.part; });
   }
 
   /* Photos are stored straight away, so a long upload is never lost by
@@ -852,12 +885,23 @@
     $('p-save').onclick = function () {
       readProfile();
       var p = PROF;
+      if ((p.parts || []).length > MAX_PARTS) { toast('A room can be made of ' + MAX_PARTS + ' parts at most'); return; }
+      var was = ((rooms.find(function (r) { return r.id === p.id; }) || {}).parts || []).slice().sort().join(),
+          partsChanged = was !== (p.parts || []).slice().sort().join();
       db.collection('rooms').doc(p.id).update({
+        capacity: p.capacity || 0, parts: p.parts || [],
         dims: p.dims, floor: p.floor, toilets: p.toilets, kitchenNote: p.kitchenNote, naturalLight: p.naturalLight,
         accessible: p.accessible, layouts: p.layouts, fireMax: p.fireMax, facilities: p.facilities,
         description: p.description, houseRules: p.houseRules, externalCaterers: p.externalCaterers, memberBookings: p.memberBookings,
         photos: p.photos || [], floorPlan: p.floorPlan || null
-      }).then(function () { toast('Profile saved'); closeProfile(); }).catch(oops);
+      }).then(function () {
+        if (!partsChanged) { toast('Profile saved'); closeProfile(); return; }
+        /* Its parts changed: the bookings already in the diary are marked
+           again the new way. Wait for the room list to have the change. */
+        var siteId = p.siteId; closeProfile(); toast('Profile saved. Bringing the diary up to date…');
+        return new Promise(function (res) { setTimeout(res, 600); }).then(function () { return reworkDiary(siteId); })
+          .then(function (n) { toast('Profile saved; ' + n + ' day' + (n === 1 ? '' : 's') + ' in the diary brought up to date'); });
+      }).catch(oops);
     };
   }
 
@@ -975,6 +1019,41 @@
     if (d.rbsave) saveRota(d.rbsave);
   });
 
+  /* The diary from the bookings themselves: from today, each room's day is
+     its weekly services plus every confirmed booking on it - a booking of
+     a room made of parts counting on each part. Run when a room's parts
+     change. Resolves with the number of days written. */
+  function reworkDiary(siteId) {
+    var rs = siteRooms(siteId), site = sites.find(function (s) { return s.id === siteId; }) || {}, list = site.rotaBusy || [], weeks = {}, b0 = db.batch();
+    rs.forEach(function (r) {
+      weeks[r.id] = B.rotaWeek(list, r.id, wholesOf(r.id).map(function (w) { return w.id; }));
+      b0.update(db.collection('rooms').doc(r.id), { rotaWeek: weeks[r.id] });
+    });
+    return b0.commit().then(function () {
+      return Promise.all([db.collection('roomDays').where('siteId', '==', siteId).get(), db.collection('bookings').where('siteId', '==', siteId).get()]);
+    }).then(function (got) {
+      var from = B.today(), want = {};
+      function day(roomId, d) {
+        var k = roomId + '_' + d;
+        if (!want[k]) { var w = (weeks[roomId] || {})[String(B.dow(d))]; want[k] = { roomId: roomId, day: d, slots: w && w.length === B.N ? w.slice() : B.zeros() }; }
+        return want[k].slots;
+      }
+      got[0].forEach(function (x) { var v = x.data(); if (v.day >= from && weeks[v.roomId]) day(v.roomId, v.day); });
+      got[1].forEach(function (x) {
+        var b = x.data(); if (b.status !== 'confirmed' || b.day < from) return;
+        var room = rs.find(function (r) { return r.id === b.roomId; }) || { id: b.roomId };
+        B.footprint(room).forEach(function (id) { if (!weeks[id]) return; var sl = day(id, b.day); for (var i = b.slotFrom; i < b.slotTo; i++) sl[i] = (sl[i] || 0) + 1; });
+      });
+      var keys = Object.keys(want), jobs = [];
+      for (var i = 0; i < keys.length; i += 400) {
+        var bt = db.batch();
+        keys.slice(i, i + 400).forEach(function (k) { var w = want[k]; bt.set(db.collection('roomDays').doc(k), { slots: w.slots, lastBooking: '', roomId: w.roomId, day: w.day, siteId: siteId }); });
+        jobs.push(bt.commit());
+      }
+      return Promise.all(jobs).then(function () { return keys.length; });
+    });
+  }
+
   function saveRota(siteId) {
     var list = RB[siteId], bad = list.filter(function (r) {
       return !r.type || !r.days.length || !r.roomIds.length || !(B.toMin(r.to) > B.toMin(r.from));
@@ -983,7 +1062,7 @@
     var rs = siteRooms(siteId), before = {}, after = {}, batch = db.batch();
     rs.forEach(function (r) {
       before[r.id] = r.rotaWeek || B.rotaWeek([], r.id);
-      after[r.id] = B.rotaWeek(list, r.id);
+      after[r.id] = B.rotaWeek(list, r.id, wholesOf(r.id).map(function (w) { return w.id; }));
       batch.update(db.collection('rooms').doc(r.id), { rotaWeek: after[r.id] });
     });
     batch.update(db.collection('sites').doc(siteId), { rotaBusy: list });

@@ -3422,6 +3422,65 @@ await check('  while making the same record without it is fine', 'allow',
   () => setDoc(doc(asNewcomer('u_fam_new2', 'fam.new2@example.invalid'), 'users', 'u_fam_new2'),
     { status: 'pending', teams: [], adminFor: [], masterAdmin: false }));
 
+// ── EVENTS (events window) ── rooms made of other rooms (Martin, 14 Oct 2026)
+// A test hall bookable whole or as two halves. The whole has no day of its
+// own: it marks each half's.
+{
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    const R = (name, extra) => ({ name, kind: 'room', siteId: 'site_bk', capacity: 20, active: true, bookableByMembers: true, ...(extra || {}) });
+    await setDoc(doc(d, 'rooms', 'room_whole'), R('Test hall (whole)', { capacity: 45, parts: ['room_halfA', 'room_halfB'] }));
+    await setDoc(doc(d, 'rooms', 'room_halfA'), R('Test hall, front half'));
+    await setDoc(doc(d, 'rooms', 'room_halfB'), R('Test hall, back half'));
+  });
+  const KK = (n) => ('bk_cr_' + n).padEnd(31, '0');
+  const BK = (room, day, start, end, extra) => ({ kind: 'member', status: 'confirmed', siteId: 'site_bk', roomId: room, groupId: '', day, startMin: start, endMin: end,
+    startLocal: day + 'T00:00', endLocal: day + 'T00:00', slotFrom: Math.floor(start / 15), slotTo: Math.ceil(end / 15), setupMins: 0, packdownMins: 0,
+    title: 'Test', people: 6, layout: '', av: { needed: false, what: '' }, refreshments: { needed: false }, resources: [], notes: '',
+    requester: { name: 'Samy', email: 'samy@example.invalid', phone: '', org: '' }, memberUid: 'u_samy', memberName: 'Samy', createdAt: 'x', ...(extra || {}) });
+  const dayNow = async (id) => { let sl; await env.withSecurityRulesDisabled(async (c) => { const s = await getDoc(doc(c.firestore(), 'roomDays', id)); sl = s.exists() ? s.data().slots : Array(96).fill(0); }); return sl; };
+  /* A confirmed booking, marking the days named (each as it is now). */
+  const bookOn = async (dbx, key, b, dayRooms) => {
+    const x = writeBatch(dbx);
+    x.set(doc(dbx, 'bookings', key), b);
+    for (const r of dayRooms) {
+      const sl = (await dayNow(r + '_' + b.day)).slice();
+      for (let i = b.slotFrom; i < b.slotTo; i++) sl[i] = 1;
+      x.set(doc(dbx, 'roomDays', r + '_' + b.day), { slots: sl, lastBooking: key, roomId: r, day: b.day, siteId: 'site_bk' });
+    }
+    return x.commit();
+  };
+  const D = '2026-12-02';
+  await check('combined room: a member books the WHOLE hall, marking both halves', 'allow', () => bookOn(as('samy'), KK('w10'), BK('room_whole', D, 600, 660), ['room_halfA', 'room_halfB']));
+  await check('  not marking only one half', 'deny', () => bookOn(as('samy'), KK('w12a'), BK('room_whole', D, 720, 780), ['room_halfA']));
+  await check('  not marking the whole room’s own day instead of the halves', 'deny', () => bookOn(as('samy'), KK('w12b'), BK('room_whole', D, 720, 780), ['room_whole']));
+  await check('  a HALF cannot be booked while the whole is', 'deny', () => bookOn(as('samy'), KK('a10'), BK('room_halfA', D, 630, 690), ['room_halfA']));
+  await check('  nor asked for', 'deny', () => setDoc(doc(as('samy'), 'bookings', KK('a10r')), BK('room_halfA', D, 630, 690, { status: 'requested' })));
+  await check('  a half at a free time is fine', 'allow', () => bookOn(as('samy'), KK('a14'), BK('room_halfA', D, 840, 900), ['room_halfA']));
+  await check('  then the WHOLE cannot be booked over that half', 'deny', () => bookOn(as('samy'), KK('w14'), BK('room_whole', D, 840, 900), ['room_halfA', 'room_halfB']));
+  await check('  nor asked for (a request is checked against both halves)', 'deny', () => setDoc(doc(as('samy'), 'bookings', KK('w14r')),
+    BK('room_whole', D, 840, 900, { status: 'requested' })));
+  await check('  a booking of one half cannot mark the OTHER half’s day too', 'deny', () => bookOn(as('samy'), KK('a15x'), BK('room_halfA', D, 1200, 1260), ['room_halfA', 'room_halfB']));
+  await check('  while the OTHER half at that time is fine', 'allow', () => bookOn(as('samy'), KK('b14'), BK('room_halfB', D, 840, 900), ['room_halfB']));
+  await check('  the office books the whole, holding both halves', 'allow', () => bookOn(as('karen'), KK('ow16'), BK('room_whole', D, 960, 1020, { kind: 'office', memberUid: '', memberName: '' }), ['room_halfA', 'room_halfB']));
+  await check('  but not holding only one', 'deny', () => bookOn(as('karen'), KK('ow18'), BK('room_whole', D, 1080, 1140, { kind: 'office', memberUid: '', memberName: '' }), ['room_halfA']));
+  /* The member gives back their whole-hall booking: both halves, in the same write. */
+  const giveBack = async (dbx, key, b, dayRooms) => {
+    const x = writeBatch(dbx);
+    x.update(doc(dbx, 'bookings', key), { status: 'cancelled', cancelledAt: 'x', cancelledBy: 'u_samy' });
+    for (const r of dayRooms) {
+      const before = await dayNow(r + '_' + b.day), sl = before.slice();
+      for (let i = b.slotFrom; i < b.slotTo; i++) sl[i] = 0;
+      let last = ''; await env.withSecurityRulesDisabled(async (c) => { const s = await getDoc(doc(c.firestore(), 'roomDays', r + '_' + b.day)); last = s.exists() ? s.data().lastBooking : ''; });
+      x.set(doc(dbx, 'roomDays', r + '_' + b.day), { slots: sl, lastBooking: last, roomId: r, day: b.day, siteId: 'site_bk', lastCancel: key });
+    }
+    return x.commit();
+  };
+  await check('  a member cancels their whole-hall booking: not giving back only one half', 'deny', () => giveBack(as('samy'), KK('w10'), BK('room_whole', D, 600, 660), ['room_halfA']));
+  await check('  giving back both halves is fine', 'allow', () => giveBack(as('samy'), KK('w10'), BK('room_whole', D, 600, 660), ['room_halfA', 'room_halfB']));
+  await check('  and the half is free again', 'allow', () => bookOn(as('samy'), KK('a10b'), BK('room_halfA', D, 600, 660), ['room_halfA']));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 
