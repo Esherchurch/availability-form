@@ -328,10 +328,10 @@
      looks for it when it mounts to make the order draggable - without it
      the planner still works, with no drag handle. -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="egbc-core-planner.js?v=202610131430"></script>
+<script src="egbc-core-planner.js?v=202610141400"></script>
 <script src="egbc-core-meetings.js?v=202610141000"></script>
-<script src="egbc-care.js?v=202610141200"></script>
-<script src="egbc-core-rota.js?v=202610111900"></script>
+<script src="egbc-care.js?v=202610141600"></script>
+<script src="egbc-core-rota.js?v=202610141400"></script>
 <script>
 /* ---- the screens that open a page which already does the job -------
    APP-DESIGN-BRIEF §5, and A1 counted 11 of the mock-up's 24 this way.
@@ -354,7 +354,13 @@ function careSheet() {
     + card(list.map(function (c) { return row(c.icon, c.title, c.sub, null, 'open:' + c.url); }).join(''));
 }
 A.sheet('care', careSheet());
-if (window.EGBCCare) EGBCCare.prayerReady().then(function (yes) { if (yes) { A.sheet('care', careSheet()); A.draw(); } });
+/* Redrawn only if the sheet is open: this answers at load, before anybody is
+   signed in, and a whole draw then started Home's server calls with no user. */
+if (window.EGBCCare) EGBCCare.prayerReady().then(function (yes) {
+  if (!yes) return;
+  A.sheet('care', careSheet());
+  if (A.state && A.state().sheet === 'care') A.draw();
+});
 const next = A.next;
 /* Home reads the rota and the notices itself. The same named app every
    page uses, so the emulator hook in egbc-auth.js applies here too. */

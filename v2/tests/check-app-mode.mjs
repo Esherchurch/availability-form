@@ -289,8 +289,8 @@ const offMachine = u => {
       header: vis(top),
       title: top ? (top.querySelector('.am-title') || {}).textContent || '' : '',
       back: vis(back),
-      /* §24: "I'm worried about someone" is on every version of the
-         app. It has to be ON SCREEN and TAPPABLE, not merely present -
+      /* §24: Care & support (it was "I'm worried about someone", 14 Oct
+         2026) is on every version of the app. It has to be ON SCREEN and TAPPABLE, not merely present -
          a 44px target the app's own header cannot be covering. */
       worry: (() => {
         const w = top && top.querySelector('a.am-worry');
@@ -300,7 +300,7 @@ const offMachine = u => {
         if (r.width < 40 || r.height < 40) return 'only ' + Math.round(r.width) + 'x' + Math.round(r.height);
         const hit = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
         if (!(hit && (hit === w || w.contains(hit)))) return 'covered';
-        if (!/worried.html/.test(w.getAttribute('href') || '')) return 'goes to ' + w.getAttribute('href');
+        if (!/care.html/.test(w.getAttribute('href') || '')) return 'goes to ' + w.getAttribute('href');
         if (!(w.getAttribute('aria-label') || '').trim()) return 'no aria-label';
         return 'ok';
       })(),
@@ -516,8 +516,8 @@ const offMachine = u => {
        a button that reloads the page you are already on is a dead end
        with a label. Asserted the other way round, so taking it off a
        page by accident still fails. */
-    if (page === 'worried.html') {
-      if (r.worry === 'ok') bad.worry.push(page + ' -> offers Worried? on the Worried page itself');
+    if (page === 'worried.html' || page === 'care.html') {
+      if (r.worry === 'ok') bad.worry.push(page + ' -> offers Care & support on a page it leads to');
     } else if (r.worry !== 'ok') {
       bad.worry.push(page + ' -> ' + r.worry);
     }
@@ -575,7 +575,7 @@ const offMachine = u => {
     + (known.length ? ' (except ' + [...new Set(known)].join(', ') + ')' : ''),
     realCovered.length === 0, realCovered.join('\n          '));
   [...new Set(known)].forEach(k => console.log('        known  ' + k + ' — ' + KNOWN[k]));
-  ok('“I’m worried about someone” is on every one of them, and tappable',
+  ok('Care & support is on every one of them, and tappable',
     bad.worry.length === 0, bad.worry.join('\n          '));
   ok('and nothing scrolls sideways at ' + WIDTH + 'px', bad.wide.length === 0, bad.wide.join(', '));
 

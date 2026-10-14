@@ -331,6 +331,10 @@ const MEASURE = "(function(){var out={};" +
     console.log('\nscreenshots in tests/shots/');
   }
 
+  /* Today's meeting goes again: left behind, it is a meeting in every
+     Worship Team member's diary for the checks that come after this one. */
+  await rest('DELETE', docPath('events/home_ev_today'));
+
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
   process.exit(R.some(v => !v) ? 1 : 0);

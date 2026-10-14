@@ -520,8 +520,10 @@ async function seed() {
       + 'if(!c) return "(no toolbar)";'
       + 'var b=c.parentElement.querySelectorAll("button");'
       + 'return Array.prototype.map.call(b,function(x){return x.textContent.trim()}).join("|")})()'));
-    ok('  the toolbar is there, with its six buttons in order',
-      toolbar === 'Populate|Auto-Fill|+ Practices|+ Service|Gather Avail|Hide Assigned', toolbar);
+    /* "Show past dates" since 14 Oct 2026 (Martin; the events window's
+       F-171): past dates are hidden until it is pressed. */
+    ok('  the toolbar is there, with its seven buttons in order',
+      toolbar === 'Populate|Auto-Fill|+ Practices|+ Service|Gather Avail|Hide Assigned|Show past dates', toolbar);
 
     const terms = Number(await ev('document.querySelectorAll("#eventList button[onclick^=\'toggleTermCollapse\']").length'));
     ok('  the rota is drawn, by term', terms >= 1, terms + ' terms');

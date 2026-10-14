@@ -120,6 +120,13 @@
       '#egbc-bar .eb-k,#egbc-bar .eb-who,#egbc-bar .eb-lbl{display:none}',
       '#egbc-bar .eb-care .eb-care-l{display:none}#egbc-bar .eb-care .eb-care-s{display:inline}',
       '#egbc-bar a.eb-b,#egbc-bar button.eb-b{padding:0 10px}',
+      /* ROOM FOR "CARE" WITHOUT CUTTING THE PAGE'S NAME (14 Oct 2026). On
+         a phone the page's name is itself the link to the hub, so the
+         separate Hub button and the small logo beside the name go, and
+         Care & support takes their place. Nothing is lost: the name still
+         goes home. */
+      '#egbc-bar .eb-home,#egbc-bar .eb-l img{display:none}',
+      '#egbc-bar button.eb-b.eb-care{padding:0 8px;gap:5px}',
       /* THE PAGE'S NAME GETS THE ROOM (Martin, 11 Oct 2026: the bar
          "truncates the page title to Ho…"). The buttons are already
          icons only on a phone; what was left squeezing the title was

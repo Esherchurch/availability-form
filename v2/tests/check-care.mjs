@@ -119,6 +119,10 @@ const offMachine = u => {
   /* The safeguarding settings are shared with other checks: only this
      check's lead site is written, and put back afterwards. */
   const sgBefore = await req(8181, 'GET', DOCS + '/safeguardingSettings/defaults', undefined, OWNER);
+  /* And the server's note of it (careRouting/status), which this check's
+     changes rewrite: left as found, or every master admin in the checks
+     after this one is warned "No safeguarding lead set" on the hub. */
+  const statusBefore = await req(8181, 'GET', DOCS + '/careRouting/status', undefined, OWNER);
   await req(8181, 'PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId',
     { fields: fields({ leadSiteId: SITE }) }, OWNER);
   const at = new Date();
@@ -184,12 +188,21 @@ const offMachine = u => {
   await launch();
   const evl = makeEval(send, 'care');
   const width = (w) => send('Emulation.setDeviceMetricsOverride', { width: w, height: w < 700 ? 812 : 900, deviceScaleFactor: 1, mobile: w < 700 });
+  /* Signed in AS THAT PERSON, checked, three tries. The auth emulator now
+     and then answers a sign-in with a network error; carried on regardless,
+     the next person's checks ran as the last one and failed for nothing. */
   const signIn = async (a) => {
-    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
-    await sleep(2500);
-    await evl('firebase.auth(EGBCAuth.app).signOut()', true); await sleep(300);
-    await evl('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(a.email) + ',' + JSON.stringify(PW) + ')', true);
-    await sleep(800);
+    for (let tries = 0; tries < 3; tries++) {
+      await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' });
+      await sleep(2500);
+      await evl('firebase.auth(EGBCAuth.app).signOut()', true); await sleep(300);
+      await evl('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(a.email) + ',' + JSON.stringify(PW) + ')', true);
+      await sleep(800);
+      if (String(await evl('((firebase.auth(EGBCAuth.app).currentUser)||{}).email||""')) === a.email) return;
+      console.log('          [sign-in as ' + a.email + ' did not take - trying again]');
+      await sleep(2000);
+    }
+    console.log('          [could not sign in as ' + a.email + ']');
   };
   const go = async (page, waitFor, extra) => {
     /* Through a blank page, as check-home-fits does, so the last page's
@@ -466,6 +479,14 @@ const offMachine = u => {
   const before = JSON.parse(sgBefore.body || '{}').fields || {};
   await req(8181, 'PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId',
     { fields: before.leadSiteId ? { leadSiteId: before.leadSiteId } : {} }, OWNER);
+  /* The trigger rewrites careRouting/status after that; wait for it, then
+     put the note back as it was (or take it away if there was none). */
+  await sleep(4000);
+  if (statusBefore.status === 200) {
+    await req(8181, 'PATCH', DOCS + '/careRouting/status', { fields: JSON.parse(statusBefore.body).fields || {} }, OWNER);
+  } else {
+    await del('careRouting/status');
+  }
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
   process.exit(R.some(v => !v) ? 1 : 0);

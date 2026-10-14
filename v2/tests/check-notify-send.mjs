@@ -195,7 +195,7 @@ const londonDate = (n) => {
   await put('kidsFamilies/fam_a', { email: P.mum.email, email2: P.dad.email, siteId: SITE });
   await put('kidsFamilies/fam_b', { email: P.stranger.email, siteId: SITE });
   const CHILD = 'Ada Zebedee Synthetic';
-  await put('checkins/ck_a', { kind: 'child', state: 'in', name: CHILD, siteId: SITE, groupId: 'g_ns', familyId: 'fam_a', pickupCode: 'K7P2' });
+  await put('checkins/ck_a', { kind: 'child', state: 'in', name: CHILD, siteId: SITE, groupId: 'g_ns', familyId: 'fam_a', pickupCode: 'K7P2', screenNo: '14' });
   await put('checkins/ck_b', { kind: 'child', state: 'in', name: 'Ben Synthetic', siteId: SITE, groupId: 'g_ns', familyId: 'fam_b', pickupCode: 'Q9W3' });
   await put('checkins/ck_out', { kind: 'child', state: 'out', name: 'Cy Synthetic', siteId: SITE, groupId: 'g_ns', familyId: 'fam_a', pickupCode: 'Z1Z1' });
   await put('checkins/ck_c', { kind: 'child', state: 'in', name: 'Di Synthetic', siteId: SITE, groupId: 'g_other', familyId: 'fam_a', pickupCode: 'M4M4' });
@@ -211,7 +211,11 @@ const londonDate = (n) => {
     c1.phones === 1 && c1.emailed === 1, JSON.stringify(c1));
   const o1 = await settle((g) => g.push.length >= 1 && g.mail.length >= 1);
   const pushed = JSON.stringify(o1.push);
-  ok('  it says the group and the code', /Please come to Little Ones/.test(pushed) && /Collection code K7P2/.test(pushed), pushed);
+  ok('  it says the group and the number on the screen', /Please come to Little Ones/.test(pushed) && /Number 14 on the screen/.test(pushed), pushed);
+  /* F-175: the collection code never leaves the parent's slip. */
+  ok('  and NEVER THE COLLECTION CODE: not on the phone, not in the email, not in the log',
+    !/K7P2/.test(pushed) && !/K7P2/.test(JSON.stringify(o1.mail)) && !/K7P2/.test(JSON.stringify(await list('notifyLog'))),
+    pushed + JSON.stringify(o1.mail));
   ok('  and NEVER THE CHILD\'S NAME, on the phone or in the email',
     !/Ada|Zebedee/.test(pushed) && !/Ada|Zebedee/.test(JSON.stringify(o1.mail)), pushed + JSON.stringify(o1.mail));
   ok('  it goes as urgent', o1.push.every((x) => x.urgency === 'high'), pushed);
@@ -300,7 +304,11 @@ const londonDate = (n) => {
     JSON.stringify(ob.push));
   await sleep(2000);
   const ob2 = await newSince();
-  ok('  no phone: NOT emailed, because the page emails booking news already', ob2.mail.length === 0, JSON.stringify(ob2.mail));
+  /* Only the notification sender's own emails: the events window's
+     public-mail triggers (F-168) email the office about a new booking
+     request, which is theirs and right. */
+  const notifyMail = ob2.mail.filter((m) => /^notify-/.test(m.kind || ''));
+  ok('  no phone: NOT emailed, because the page emails booking news already', notifyMail.length === 0, JSON.stringify(notifyMail));
   mark();
   await rest('PATCH', DOCS + '/bookings/bk_a?updateMask.fieldPaths=note', { fields: fields({ note: 'synthetic' }) });
   const ob3 = await settle(() => false, 6);
@@ -471,9 +479,9 @@ const londonDate = (n) => {
   ok('  the log holds counts only: no sender, no words', clog.length >= 6 && clog.every((l) => !l.by) && !JSON.stringify(clog).includes(SECRET),
     JSON.stringify(clog).slice(0, 300));
 
-  /* A VISITOR'S HELLO: the welcomers are told; the copy, with the details,
-     goes to the church's chosen address - or the office's, the one kind
-     that may. */
+  /* A VISITOR'S HELLO: the welcomers are told, with no details. The
+     church's copy, WITH the details, is the events window's
+     publicMailNewHere (F-168) - so it arrives once, not twice. */
   mark();
   await put('welcomeSettings/public', { notifyEmail: 'welcome@example.invalid' });
   await put('welcomes/h_ns_1', { name: 'Visitor Synthetic', email: 'visitor@example.invalid', phone: '', message: 'Hello from a synthetic visitor',
@@ -482,16 +490,10 @@ const londonDate = (n) => {
   ok('  a hello: the welcomers are told "A visitor has said hello", and nothing more',
     tokensOf(g7).join() === 'tok-welcomer-aaaaaaaaaaaaaaaaaaaaaa' && g7.push.every((x) => x.data.title === 'A visitor has said hello'
       && !/Visitor Synthetic|synthetic visitor/.test(JSON.stringify(x.data))), JSON.stringify(g7.push.map((x) => x.data)));
-  ok('  and the church\'s copy, with the details, goes to its chosen address - from the server',
-    g7.mail.length === 1 && g7.mail[0].to[0] === 'welcome@example.invalid' && /Visitor Synthetic/.test(g7.mail[0].html)
-      && /Hello from a synthetic visitor/.test(g7.mail[0].html), JSON.stringify(g7.mail.map((m) => [m.to, m.subject])));
+  const copies = g7.mail.filter((m) => /Visitor Synthetic/.test(m.html || '') || /Visitor Synthetic/.test(m.subject || ''));
+  ok('  and the church gets its copy ONCE - the events window\'s, not a second from the alert',
+    copies.length === 1, JSON.stringify(g7.mail.map((m) => [m.to, m.subject])));
   await rest('DELETE', DOCS + '/welcomeSettings/public');
-  mark();
-  await put('welcomes/h_ns_2', { name: 'Second Visitor Synthetic', email: '', phone: '07000 000009', message: '',
-    contactMe: true, uid: '', at: new Date(), status: 'new' });
-  const g8 = await settled((g) => g.mail.length >= 1);
-  ok('  with no address chosen, the copy falls back to the office - a hello is the one kind that may',
-    mailTo(g8).join() === OFFICE, JSON.stringify(mailTo(g8)));
 
   /* IS A LEAD SET? careRouting/status, for the forms. */
   const status = async () => { const r = await rest('GET', DOCS + '/careRouting/status'); const f = (JSON.parse(r.body || '{}').fields || {}).leadSet; return f ? f.booleanValue : undefined; };

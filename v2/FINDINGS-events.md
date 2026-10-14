@@ -4687,3 +4687,22 @@ rules:
    (add each to `tests/group1-screens.mjs`, or to its NOT_YET with a reason).
    `check-menu` names whatson-embed.html as a page with no shell and no
    reason (add it to NO_MENU there, with why — an embed has no Menu).
+
+### F-175 — main window: the collection code no longer leaves the slip
+
+`callParent` (functions/notify.js) now sends the group and **`ck.screenNo`**
+("Number 14 on the screen"), or no number at all if the check-in has none
+("A leader is asking for you"). It never sends `pickupCode`: not in the
+phone notification, the email fallback or the log.
+`check-notify-send` asserts that, 81/81. The break "send pickupCode again"
+is caught (2 fails). **Needs functions:hub deployed.**
+
+For your files:
+- `screenshots/events/notify-unit.test.mjs` and `notify-e2e.test.mjs` still
+  expect "Collection code K7P2" / "Collection code Q7P2", so they'll go red.
+  Please change them to the screen number, and assert the code is absent.
+- `screenNo` doesn't exist anywhere yet. I've read it from the check-in
+  document as `screenNo`, so please write it there under that name.
+- `kids-today.test.mjs` line 171: "Show on screen" puts the family's
+  **code** on the church screen ("K7P2, please come to Little ones"). By
+  Martin's rule that should be the screen number too.

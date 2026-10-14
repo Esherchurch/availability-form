@@ -19,7 +19,7 @@
 <script src="egbc-auth.js?v=202610141200"></script>
 <!-- watchLive() for the front page's Watch card (F-164). -->
 <script src="egbc-events-home.js?v=202610141000"></script>
-<script src="egbc-care.js?v=202610141200"></script>
+<script src="egbc-care.js?v=202610141600"></script>
 <script src="egbc-ui.js?v=202610062000"></script>
 <!-- The shared HTML cleaner, which the notices and the charter use. -->
 <script src="egbc-share.js?v=202610121200"></script>
@@ -451,7 +451,14 @@
   /* Care & support in the header: in words; "Care" on a phone. */
   .care-btn{color:var(--brand);font-weight:600;min-height:44px}
   .care-btn .care-s{display:none}
-  @media(max-width:700px){.care-btn .care-l{display:none}.care-btn .care-s{display:inline}}
+  @media(max-width:700px){.care-btn .care-l{display:none}.care-btn .care-s{display:inline}
+    .bar .care-btn{padding:0 8px;gap:4px}
+    /* Room for "Care" on a phone (14 Oct 2026): the logo stays and still goes
+       home; the words "EGBC Hub" beside it go. */
+    .bar .brand > div{display:none}}
+  /* Narrow phones: a little less padding on every header button, so a
+     master admin with the team switch and Administration still fits. */
+  @media(max-width:420px){.bar .bar-r .btn{padding-left:8px;padding-right:8px}.bar{padding:0 8px}.bar .bar-r{gap:3px}}
 </style>
 </head>
 <body>

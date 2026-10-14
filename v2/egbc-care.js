@@ -83,7 +83,7 @@
     'color:#8a1c12;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.4}',
     '.egbc-care-danger b{font-weight:600}',
     '.egbc-care-list{display:grid;gap:8px;margin-top:12px}',
-    '.egbc-care-opt{display:flex;gap:12px;align-items:center;min-height:56px;padding:10px 14px;border:1px solid #e5e7eb;',
+    '.egbc-care-opt{display:flex;gap:12px;align-items:flex-start;min-height:56px;padding:10px 14px;border:1px solid #e5e7eb;',
     'border-radius:12px;background:#fff;color:#111827;text-decoration:none}',
     '.egbc-care-opt:hover{background:#f3f4f6}',
     '.egbc-care-opt:focus-visible{outline:2px solid var(--egbc-brand,#3d6263);outline-offset:2px}',

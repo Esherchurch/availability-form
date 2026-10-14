@@ -336,10 +336,12 @@ export async function callParent(deps, { uid, checkinId, now = new Date() }) {
   }
 
   const g = ck.groupId ? await db.collection('kidsGroups').doc(ck.groupId).get() : null;
-  /* THE GROUP AND THE CODE, AND NOTHING ELSE (N-2). The child's name is
-     on the check-in; it is not passed on. */
+  /* THE GROUP AND THE SCREEN NUMBER, AND NOTHING ELSE (N-2; F-175). The
+     child's name is on the check-in; it is not passed on. NOR IS THE
+     COLLECTION CODE (pickupCode): it never leaves the parent's slip,
+     because a notification shows on a lock screen. */
   return send(deps, { uids, type: 'callParent', by: uid, siteId: ck.siteId, now,
-    data: { group: g && g.exists ? g.data().name : '', code: ck.pickupCode || '', tag: id } });
+    data: { group: g && g.exists ? g.data().name : '', screen: ck.screenNo ? String(ck.screenNo) : '', tag: id } });
 }
 
 /* ------------------------------------------------- the day before I serve */

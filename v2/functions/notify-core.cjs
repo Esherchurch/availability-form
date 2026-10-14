@@ -89,7 +89,12 @@
   /* Each builder takes ONLY what may be shown on a locked phone. */
   var SAYS = {
     /* N-2: the code and the group. The builder is never given a name. */
-    callParent: function (d) { return { title: 'Please come to ' + cut(d.group || 'your child\'s group', 40), body: 'Collection code ' + cut(d.code, 12), url: d.url || 'app.html' }; },
+    /* NEVER THE COLLECTION CODE (the events window, F-175): it shows on a
+       lock screen, and whoever reads it there could collect the child. The
+       number on the church's screen, if the check-in has one; otherwise no
+       number at all. */
+    callParent: function (d) { return { title: 'Please come to ' + cut(d.group || 'your child\'s group', 40),
+      body: d.screen ? 'Number ' + cut(d.screen, 12) + ' on the screen' : 'A leader is asking for you', url: d.url || 'app.html' }; },
     rota: function (d) {
       return { title: 'You are serving tomorrow', body: cut([(d.roles || []).join(', '), d.arrive ? 'arrive ' + d.arrive : '', d.place].filter(Boolean).join(' · '), 160),
                url: d.url || 'app.html' };
