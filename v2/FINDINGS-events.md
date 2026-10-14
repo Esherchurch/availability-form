@@ -4636,3 +4636,14 @@ ON SWITCH-OVER DAY, only after the rules are deployed:
   - Either part, or the whole, run again makes nothing new.
   - Both refusals work.
 - Five more deliberate breaks, all caught.
+
+**F-177: THE PUBLIC PART IS LIVE (14 Oct, run by the reviewing window).**
+- **Made:** site 1, rooms 9, places 2, pictures 4, events 47, sign-up
+  counters 5, event bookings 23.
+- **A second run made nothing.**
+- **Checked signed out:** What's On shows 48 dates and 7 pictures, and no
+  private items.
+
+**The private part waits for switch-over day (NEXT-BRIEF §26 item 15).**
+Run it only after the rules deploy, with the second command above and
+`--rules-locked`.
