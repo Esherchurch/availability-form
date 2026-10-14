@@ -4474,3 +4474,80 @@ Nothing about any church is in the code.
 **Also, rooms made of parts (F-174):** all six browser breaks now run and
 are caught. The first one exposed a gap in my test: it only ever booked
 the front half. It now also books the back half alone.
+
+### F-177 — The ChurchSuite import: ready for Martin's yes, then the reviewing window runs it live (Martin, 14 Oct)
+**The tool:** `tools/import-churchsuite.mjs` writes; `tools/churchsuite-plan.mjs`
+works out what to make, holding nothing about any church.
+- **What it reads:** the church's own files, kept privately and never in
+  the repo: `rooms.md`, `cs-embed.json` and `cs-nonpublic.md`.
+- **What it makes, in this order:**
+  1. the building
+  2. its rooms (the Upper Room made of Front + Side, as data)
+  3. the places that aren't rooms ("Off site" for homes)
+  4. the 4 pictures into the library
+  5. the events: one per date, joined as series, each pointing to its
+     library picture
+  6. the room bookings: the events' own rooms, plus the hires, with the
+     hirer's name only
+  7. the small groups, with their dates and members-only kept
+  8. the maintenance job
+- **It never makes:** Sunday services (it lists them for the rota) or
+  people.
+- **Safety:**
+  - With no `--write` it only prints.
+  - It never writes live without `--live`.
+  - Every id comes from ChurchSuite's, so running it twice makes nothing
+    twice.
+- Everything it makes is ordinary hub data, edited afterwards on the
+  ordinary pages.
+
+**THE LIVE RUN (the reviewing window, after Martin says yes),** from the
+v2 folder:
+```
+gcloud auth application-default login
+node tools/import-churchsuite.mjs --from "C:\Users\marti\OneDrive\Documents\New hub\churchsuite-import" --rota-category Sundays --as-maintenance "PAT Testing" --as-booking "Riverside Drive AGM Meeting" --place "Riverside Drive AGM Meeting=<ROOM MARTIN NAMES>"
+(look at it again; then the same with --live --write)
+```
+
+**Waiting on Martin:**
+1. **Which room the Riverside Drive AGM is in.** ChurchSuite gave none.
+   Without `--place`, that one booking is left out, and the run says so.
+2. **"Youth worship practice"** had sign-ups with no limit. The hub needs
+   a number, so it's imported with sign-ups off; set them in the editor.
+3. **"Office Closed" from 28 Dec** has no end date. It's shown until
+   31 Dec.
+4. **Bereavement Cafe had three pictures** across its dates. The first is
+   used for every date (one library picture).
+5. **The Upper Room as a whole:** members booking it themselves needs the
+   new rules live (F-174). Office bookings work now.
+
+**For the main window, the rota (not made as events):**
+
+| Date | Time | Service | Speaker |
+|---|---|---|---|
+| 18 Oct | 10:00 | Morning Worship | Ryan Ahern |
+| 25 Oct | 10:00 | Morning Worship | Ryan Ahern |
+| 1 Nov | 10:00 | International Day of Prayer for the Persecuted Church | |
+| 8 Nov | 10:00 | Remembrance Sunday | |
+| 15 Nov | 10:00 | Shoebox Sunday | Matt Stott |
+| 22 Nov | 10:00 | Morning Worship | Jeanette Holt |
+| 29 Nov | 10:00 | Baptism Sunday! | |
+| 6 Dec | 10:00 | Morning Worship | James Griffin |
+| 13 Dec | 10:00 | Family Nativity Service | |
+| 20 Dec | 18:30 | Carol Service | |
+| 25 Dec | 10:00 | Christmas Day Family Celebration Service | |
+| 27 Dec | | No Service Today | |
+
+**There's no event-to-group link in the hub.** The youth events (ReNu,
+Lazers, Puppet Practice, Youth worship practice) are linked by their
+team's label and organiser name. If you'd like a real field, I'll fill
+it.
+
+**Proved:**
+- `churchsuite-import.test.mjs`: 35 checks, on invented files of the same
+  shape, running the real tool. It covers the dry run, the building
+  first, ChurchShow's page listing it, rooms made of parts, London times,
+  series, the pictures once each, the events' rooms taken, hires with the
+  name only, homes never named, members-only kept, nothing made twice,
+  and an admin editing an imported event.
+- Seven deliberate breaks, all caught.
