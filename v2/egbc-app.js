@@ -414,8 +414,15 @@
       + (unseenNotices() ? '<span class="badge">' + (unseenNotices() > 9 ? '9+' : unseenNotices())
           + '</span>' : '')
       + '</button>'
-      + '<button class="worry" data-act="open:worried.html" aria-label="I am worried about someone">'
-      + ic('heart-handshake', 17) + '<span>Worried?</span></button></div>';
+      /* CARE & SUPPORT (Martin, 14 Oct 2026) replaces "Worried?": the
+         same short choice as the website (egbc-care.js), as a sheet, in
+         words - "Care" on a narrow phone. Never hidden by a person's own
+         Home choices; only by the church switching off the whole care
+         part (feature 'care'). */
+      + ((global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care')) ? ''
+        : '<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
+          + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
+      + '</div>';
 
     /* The row of spaces, only when there is more than one. Somebody on no
        team gets no row, not an empty one. */

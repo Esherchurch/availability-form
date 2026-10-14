@@ -209,8 +209,15 @@
        may notice that somebody has stopped coming, and they are not
        necessarily on a team. Its own entry rather than inside Resources,
        because somebody looking for it is not browsing. */
-    { title: "I'm worried about someone", url: 'worried.html', icon: 'heart-handshake',
-      description: 'Tell the pastoral team, or the safeguarding lead, about somebody' },
+    /* CARE & SUPPORT (Martin, 14 Oct 2026): pastoral care for yourself,
+       "I'm worried about someone", and prayer - one short choice. Gated on
+       nothing but the church's own switch for the whole care part. The
+       readers' inbox beside it, for the Pastoral team and the safeguarding
+       lead and deputy only. */
+    { title: 'Care & support', url: 'care.html', icon: 'hand-heart', feature: 'care',
+      description: 'Pastoral care for you, or tell us you are worried about someone' },
+    { title: 'Care & support: what has come in', url: 'care-inbox.html', icon: 'inbox', feature: 'care', careReader: true,
+      description: 'For the pastoral team and the safeguarding lead and deputy' },
 
     { title: 'Resources', icon: 'folder-open', children: [
       /* "Pin boards", plural, because there are five of them now and the old
@@ -265,6 +272,7 @@
         !node.adminOf.some(function (t) { return (who.adminFor || []).indexOf(t) !== -1; })) return false;
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
     if (node.sermons && !who.isSermons) return false;
+    if (node.careReader && !who.isCareReader) return false;
     /* `runs` NAMES A RUNNING THINGS TAB (NEXT-BRIEF §25): the same four the
        app's Running things space has, answered by the same helper. A node
        carrying one is shown to whoever that tab is for, whatever else the
@@ -796,7 +804,8 @@
            which is the safe way round. */
         isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true,
         /* sermonShow/access, read with the profile by egbc-auth.js. */
-        isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin())
+        isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
+        isCareReader: !!(A && A.isCareReader && A.isCareReader())
       };
     },
 

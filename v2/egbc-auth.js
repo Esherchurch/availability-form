@@ -272,6 +272,26 @@
      events window's; the rules' sermonAdmin()). Read once with the profile
      so the Menu can offer "Watch" to them without a read of its own.
      Unread means "not one" - the safe way round. */
+  /* THE SAFEGUARDING LEAD AND DEPUTY (the rules' sgLeadOrDeputy()), so the
+     Menu can offer them "Care & support: what has come in". Unread means
+     "not one". */
+  var careLead = false;
+  function loadCareLead(memberId) {
+    if (!memberId) { careLead = false; return Promise.resolve(false); }
+    /* careRouting/status, kept by the server: the lead and deputy, readable
+       by anyone signed in - the safeguarding settings are a volunteer's. */
+    var lead = db.collection('careRouting').doc('status').get().then(function (d) {
+      return ((d.exists && d.data().leadIds) || []).indexOf(memberId) !== -1;
+    });
+    /* Named in "Who gets told" for requests for care or pastoral concerns. */
+    var named = db.collection('careRouting').doc('main').get().then(function (d) {
+      var r = d.exists ? (d.data() || {}) : {};
+      return ['care', 'pastoral'].some(function (k) { return ((r[k] || {}).memberIds || []).indexOf(memberId) !== -1; });
+    });
+    return Promise.all([lead.catch(function () { return false; }), named.catch(function () { return false; })])
+      .then(function (x) { careLead = !!(x[0] || x[1]); return careLead; });
+  }
+
   var sermonsAdmin = false;
   function loadSermonsAdmin(memberId) {
     if (!memberId) { sermonsAdmin = false; return Promise.resolve(false); }
@@ -892,7 +912,8 @@
             var profile = both[0];
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
-            return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId)])
+            return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
+                                loadCareLead(profile && profile.memberId)])
               .then(function () { return both; });
           }).then(function (both) {
             var profile = both[0];
@@ -1189,6 +1210,15 @@
     /* Looks after sermons and Watch: named in sermonShow/access, or a
        master admin. */
     isSermonsAdmin: function () { return EGBCAuth.isMaster() || sermonsAdmin; },
+
+    /* Reads Care & support's inbox: the Pastoral team, or the safeguarding
+       lead or deputy. NOT a master admin as such - the rules do not let
+       one read it, so the Menu does not offer it. View-as honoured through
+       effectiveTeams; the lead is never previewed into. */
+    isCareReader: function () {
+      if (EGBCAuth.viewingAs && EGBCAuth.viewingAs()) return (EGBCAuth.effectiveTeams() || []).indexOf('Pastoral') !== -1;
+      return careLead || (EGBCAuth.effectiveTeams() || []).indexOf('Pastoral') !== -1;
+    },
 
     runsTabs: function () {
       var ORDER = ['today', 'people', 'bookings', 'send'];

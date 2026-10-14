@@ -567,19 +567,69 @@ service cloud.firestore {
     }
     function onPastoral() { return onTeam('Pastoral'); }
 
+    // WHO GETS TOLD (Martin, 14 Oct 2026; NEXT-BRIEF §24): the people the
+    // church names for each kind (careRouting/main, a master admin's), and
+    // NEVER the church office or any admin inbox. A person named for a
+    // kind reads that kind.
+    function careNamed(kind) {
+      return active() && exists(/databases/$(database)/documents/careRouting/main)
+             && me().get('memberId', '-') in get(/databases/$(database)/documents/careRouting/main).data
+                  .get(kind, {}).get('memberIds', []);
+    }
+    // A safeguarding lead is set. Without one a concern or a request for
+    // care could reach nobody, so it is refused (the form says so, and
+    // master admins are warned).
+    function sgLeadSet() {
+      return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
+             && get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', '') != ''
+             && exists(/databases/$(database)/documents/bookingSettings/$(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.leadSiteId))
+             && get(/databases/$(database)/documents/bookingSettings/$(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingLead', '') != '';
+    }
+    function careKinds(d) {
+      return d.keys().hasOnly(['memberIds', 'email'])
+             && d.get('memberIds', []) is list && d.get('memberIds', []).size() <= 20
+             && d.get('email', '') is string && d.get('email', '').size() <= 200
+             && (d.get('email', '') == '' || d.get('email', '').matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'));
+    }
+    match /careRouting/{id} {
+      // Which members are named, and a church address: nothing private, and
+      // every reader's page needs it to know what is theirs.
+      allow read: if (id == 'main' && active())
+                  // status: is a safeguarding lead set? Written by the
+                  // server only (careStatusSync), read by anyone signed in,
+                  // so a form can say "this cannot be sent" before it is.
+                  || (id == 'status' && active());
+      allow write: if id == 'main' && isMaster()
+                   && request.resource.data.keys().hasOnly(['care', 'pastoral', 'prayer', 'updatedAt', 'updatedBy'])
+                   && careKinds(request.resource.data.get('care', {}))
+                   && careKinds(request.resource.data.get('pastoral', {}))
+                   && careKinds(request.resource.data.get('prayer', {}))
+                   && request.resource.data.updatedBy == request.auth.uid;
+    }
+
     function concernShape(d) {
       return d.keys().hasOnly(['kind', 'aboutMemberId', 'aboutName', 'noticed',
                                'happyToBeContacted', 'by', 'byName', 'at',
                                'dealtWith', 'dealtNote', 'dealtBy', 'dealtAt'])
-             && (d.kind == 'pastoral' || d.kind == 'safeguarding')
+             // 'care': "I'd like some pastoral care" (Care & support, Martin
+             // 14 Oct 2026) - somebody asking for themselves. Read exactly
+             // as a pastoral concern is, below.
+             && (d.kind == 'pastoral' || d.kind == 'safeguarding' || d.kind == 'care')
              // Who it is about: picked from the address book, or typed.
              // One of the two has to say something, or the concern names
              // nobody and cannot be acted on.
              && (d.get('aboutName', '').size() > 0 || d.get('aboutMemberId', '').size() > 0)
              && d.get('aboutName', '').size() <= 120
              && d.get('aboutMemberId', '').size() <= 80
-             && d.noticed is string && d.noticed.size() >= 5 && d.noticed.size() <= 4000
+             && d.noticed is string && d.noticed.size() <= 4000
              && d.happyToBeContacted is bool
+             // A concern says what was noticed. Somebody asking for care
+             // need not say why - but it is about THEM (their own record,
+             // never somebody else's), and asking is agreeing to be
+             // contacted.
+             && ((d.kind != 'care' && d.noticed.size() >= 5)
+                 || (d.kind == 'care' && d.get('aboutMemberId', '') == me().get('memberId', '')
+                     && d.happyToBeContacted == true))
              && d.by == request.auth.uid
              && d.byName is string && d.byName.size() <= 120
              && d.at == request.time
@@ -598,16 +648,21 @@ service cloud.firestore {
       // Anybody in the address book may raise one. Someone noticing that a
       // neighbour has stopped coming is exactly who this is for, and they
       // are not necessarily on a team.
-      allow create: if active() && concernShape(request.resource.data);
+      allow create: if active() && concernShape(request.resource.data) && sgLeadSet();
 
       allow read: if (resource.data.kind == 'safeguarding' && sgLeadOrDeputy())
-                  || (resource.data.kind == 'pastoral' && (onPastoral() || sgLeadOrDeputy()));
+                  || ((resource.data.kind == 'pastoral' || resource.data.kind == 'care')
+                      && (onPastoral() || sgLeadOrDeputy() || careNamed(resource.data.kind)));
 
       // Marking it dealt with, and nothing else. Not the words of the
       // concern, not who it is about, not who raised it - an account of
       // what somebody was worried about should not be editable after the
       // fact, by anyone.
-      allow update: if sgLeadOrDeputy()
+      // The pastoral team closes what it reads (care-inbox.html); never a
+      // safeguarding concern, which it cannot read either.
+      allow update: if (sgLeadOrDeputy()
+                        || ((resource.data.kind == 'pastoral' || resource.data.kind == 'care')
+                            && (onPastoral() || careNamed(resource.data.kind))))
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['dealtWith', 'dealtNote', 'dealtBy', 'dealtAt'])
                     && request.resource.data.dealtBy == request.auth.uid

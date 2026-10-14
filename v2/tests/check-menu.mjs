@@ -73,8 +73,11 @@ const APPROVED = [
     ['Admin', [['Backup & Restore'], ['Church settings']]]
   ]],
   /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
-     is not inside any of the lists below. */
-  ["I'm worried about someone"],
+     is not inside any of the lists below. "Care & support" since 14 Oct
+     2026 (it was "I'm worried about someone"); the inbox beside it is for
+     the people who read what comes in. */
+  ['Care & support'],
+  ['Care & support: what has come in'],
   ['Resources', [['Pin boards'], ['Apps and downloads'], ['Team Resources'], ['Team Videos']]]
 ];
 
@@ -107,6 +110,10 @@ const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler'];
 /* Watch (F-164): master admins and the people named in sermonShow/access.
    None of the people here is named there, so it is the master admin's. */
 const SERMONS_ONLY = ['Watch'];
+/* The Care & support inbox: the Pastoral team, the people named in Who gets
+   told, and the safeguarding lead and deputy. None of the people here is
+   any of those. */
+const CARE_READERS_ONLY = ['Care & support: what has come in'];
 /* The heading the church administrator passes THROUGH to reach them, the
    same way a bookings admin passes through to Room bookings. They get the
    heading and not its page - the Core Team charter is not theirs. */
@@ -429,6 +436,7 @@ const READ_MENU = `(() => {
     const expected = want
       .filter(w => !(OFFICE_ONLY.includes(w) && !office))
       .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
+      .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
       .filter(w => !(WORSHIP_ONLY.includes(w) && !worship))

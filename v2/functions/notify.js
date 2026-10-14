@@ -456,6 +456,148 @@ export async function onMaintJob(deps, jobId, job) {
   return { ...out, emailed: out.emailed + extra };
 }
 
+/* ----------------- who gets told: care, concerns, prayer, hellos ---- */
+
+/* Martin, 14 Oct 2026 (NEXT-BRIEF §24, "WHO GETS TOLD"). When something
+   arrives, the people the church named for it are told WHICH KIND, and
+   nothing else - never who, never the words. "This was in the original
+   concerns spec and was never built."
+
+     request for pastoral care   careRouting/main.care     people + address
+     pastoral concern            careRouting/main.pastoral people + address
+     safeguarding concern        the safeguarding lead and deputy ONLY
+     prayer request              careRouting/main.prayer   people + address,
+                                 and the prayer team if the person chose it
+     a visitor's hello           the welcomers (welcomeSettings/main)
+
+   NEVER THE CHURCH OFFICE OR ANY ADMIN INBOX for the first four: they can
+   involve domestic violence or abuse, and the office may be a part-time
+   volunteer. Nobody named and no address -> the safeguarding lead and
+   deputy. No lead either -> nobody, and the rules refuse the message in
+   the first place (sgLeadSet). Only a hello may fall back to the office's
+   enquiry address, for its copy.
+
+   Never the person who raised it or the person it is about. The log
+   records no sender. A part the church has switched off sends nothing; the
+   master switch makes it a dry run - for the named addresses too. */
+async function featureOff(db, name) {
+  try {
+    const f = await db.collection('churchSettings').doc('features').get();
+    return f.exists && f.data()[name] === false;
+  } catch (e) { return false; }
+}
+async function teamUids(db, team) {
+  if (!team) return [];
+  const snap = await db.collection('users').where('teams', 'array-contains', team).get();
+  return snap.docs.filter((d) => d.data().status === 'active').map((d) => d.id);
+}
+/* The safeguarding lead and deputy, as uids. */
+async function leadUids(db) {
+  const sg = await db.collection('safeguardingSettings').doc('defaults').get();
+  const site = sg.exists ? String(sg.data().leadSiteId || '') : '';
+  if (!site) return [];
+  const b = await db.collection('bookingSettings').doc(site).get();
+  const ids = b.exists ? ['safeguardingLead', 'safeguardingDeputy'].map((k) => b.data()[k]).filter(Boolean) : [];
+  return Object.values(await uidsForMembers(db, ids));
+}
+/* The people and the address named for one kind. */
+async function named(db, kind) {
+  const r = await db.collection('careRouting').doc('main').get();
+  const k = (r.exists && r.data()[kind]) || {};
+  const ids = Array.isArray(k.memberIds) ? k.memberIds.filter(Boolean) : [];
+  return { uids: Object.values(await uidsForMembers(db, ids)), email: String(k.email || '').trim() };
+}
+/* Tell them. An address is emailed the same plain words as a phone. */
+async function careSend(deps, { what, uids, email, not }) {
+  const keep = [...new Set(uids)].filter((u) => u && !not.includes(u));
+  const out = await send(deps, { uids: keep, type: 'care', by: '', siteId: '', data: { what } });
+  if (email) {
+    if (deps.dryRun) {
+      out.wouldEmail = (out.wouldEmail || 0) + 1;
+    } else {
+      const words = Core.message('care', { what });
+      const link = deps.hub + words.url;
+      const r = await deps.email({ to: [email], subject: words.title,
+        html: '<p style="font-size:16px">' + esc(words.title) + '.</p><p><a href="' + esc(link) + '">Open it to read it</a></p>' },
+        { kind: 'notify-care-address' });
+      if (r && r.ok) out.emailed = (out.emailed || 0) + 1;
+    }
+  }
+  return out;
+}
+
+export async function onWorry(deps, id, w) {
+  const { db } = deps;
+  if (!w || ['pastoral', 'care', 'safeguarding'].indexOf(w.kind) === -1) return null;
+  if (await featureOff(db, 'care')) return null;
+  if (!(await once(db, 'worry_' + id, {}, deps.dryRun))) return null;
+  const about = w.aboutMemberId ? Object.values(await uidsForMembers(db, [w.aboutMemberId])) : [];
+  const not = [w.by].concat(about);
+  const what = w.kind === 'care' ? 'care' : 'concern';
+  if (w.kind === 'safeguarding') return careSend(deps, { what, uids: await leadUids(db), email: '', not });
+  const n = await named(db, w.kind);
+  if (!n.uids.length && !n.email) return careSend(deps, { what, uids: await leadUids(db), email: '', not });
+  return careSend(deps, { what, uids: n.uids, email: n.email, not });
+}
+
+export async function onPrayer(deps, id, p) {
+  const { db } = deps;
+  if (!p) return null;
+  if (await featureOff(db, 'prayer')) return null;
+  if (!(await once(db, 'prayer_' + id, {}, deps.dryRun))) return null;
+  const n = await named(db, 'prayer');
+  let uids = n.uids;
+  if (p.share === 'prayerTeam') {
+    const s = await db.collection('prayerSettings').doc('main').get();
+    uids = uids.concat(await teamUids(db, s.exists ? String(s.data().prayerTeam || '') : ''));
+  }
+  if (!uids.length && !n.email) uids = await leadUids(db);
+  return careSend(deps, { what: 'prayer', uids, email: n.email, not: [p.by] });
+}
+
+/* A visitor's hello (newhere.html): the welcomers the church chose
+   (welcomeSettings/main) are told one has come - no details. The church's
+   copy WITH the details is the events window's publicMailNewHere
+   (functions/public-mail.js, F-168), so it is not sent here too. */
+export async function onHello(deps, id, h) {
+  const { db } = deps;
+  if (!h) return null;
+  if (await featureOff(db, 'newHere')) return null;
+  if (!(await once(db, 'hello_' + id, {}, deps.dryRun))) return null;
+  const m = await db.collection('welcomeSettings').doc('main').get();
+  const ids = m.exists && Array.isArray(m.data().memberIds) ? m.data().memberIds : [];
+  const out = await careSend(deps, { what: 'hello', uids: Object.values(await uidsForMembers(db, ids)), email: '', not: [h.uid || ''] });
+  return out;
+}
+
+/* IS A SAFEGUARDING LEAD SET? careRouting/status, which anyone signed in
+   may read, so a form can say "this cannot be sent" before it is - the
+   safeguarding settings themselves are a volunteer's to read. Written only
+   when the answer changes. */
+export async function refreshCareStatus(db) {
+  /* As the rules' sgLeadSet() asks it: a lead named on the lead site,
+     whether or not they have signed in yet. leadIds are the lead's and
+     deputy's address book ids - not private (the 999 line names the lead) -
+     so a page can tell its reader is one of them without the safeguarding
+     settings, which are a volunteer's to read. */
+  const sg = await db.collection('safeguardingSettings').doc('defaults').get();
+  const site = sg.exists ? String(sg.data().leadSiteId || '') : '';
+  let leadSet = false, leadIds = [];
+  if (site) {
+    const b = await db.collection('bookingSettings').doc(site).get();
+    if (b.exists) {
+      leadSet = !!b.data().safeguardingLead;
+      leadIds = ['safeguardingLead', 'safeguardingDeputy'].map((k) => b.data()[k]).filter(Boolean);
+    }
+  }
+  const ref = db.collection('careRouting').doc('status');
+  const now = await ref.get();
+  if (now.exists && now.data().leadSet === leadSet
+      && JSON.stringify(now.data().leadIds || []) === JSON.stringify(leadIds)) return leadSet;
+  await ref.set({ leadSet, leadIds, at: new Date().toISOString() });
+  return leadSet;
+}
+
 /* -------------------------------------------------- an urgent notice */
 
 /* Everyone the notice is for, as the hub's forMe() decides it: a notice

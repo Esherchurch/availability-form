@@ -3296,6 +3296,12 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     at: new Date(), dealtWith: false };
   await setDoc(doc(db, 'worries', 'c_pastoral'), { ...base, kind: 'pastoral' });
   await setDoc(doc(db, 'worries', 'c_safeguarding'), { ...base, kind: 'safeguarding' });
+  /* "I'd like some pastoral care": worried asking for themselves, and
+     about asking for themselves. */
+  await setDoc(doc(db, 'worries', 'c_care'), { ...base, kind: 'care', aboutMemberId: 'm_u_worried',
+    aboutName: 'Worried Synthetic', noticed: '' });
+  await setDoc(doc(db, 'worries', 'c_care_about'), { ...base, kind: 'care', aboutMemberId: 'm_u_about',
+    aboutName: 'About Synthetic', noticed: 'Things are hard at home.', by: 'u_about', byName: 'About Synthetic' });
 });
 PEOPLE.pastor = { uid: 'u_pastor' };
 PEOPLE.worried = { uid: 'u_worried' };
@@ -3361,6 +3367,104 @@ await check('and a pastoral one too', 'allow',
 /* The strict reading of "only the safeguarding lead and deputy". */
 await check('A MASTER ADMIN IS NOT A READER of a safeguarding concern', 'deny',
   () => getDoc(doc(as('martin'), 'worries', 'c_safeguarding')));
+
+/* ---- "I'd like some pastoral care" (Care & support, 14 Oct 2026) ---- */
+const care = (extra) => concern('care', { aboutMemberId: 'm_u_worried', aboutName: 'Worried Synthetic', noticed: '', ...(extra || {}) });
+await check('anybody may ask for pastoral care for themselves, saying nothing more', 'allow',
+  () => setDoc(doc(as('worried'), 'worries', 'c_care_new1'), care()));
+await check('  or saying why', 'allow',
+  () => setDoc(doc(as('worried'), 'worries', 'c_care_new2'), care({ noticed: 'I have had a hard few weeks.' })));
+await check('  BUT NOT IN SOMEBODY ELSE\'S NAME: care is asked for yourself', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_care_new3'), care({ aboutMemberId: 'm_u_about', aboutName: 'About Synthetic' })));
+await check('  and asking is agreeing to be contacted', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_care_new4'), care({ happyToBeContacted: false })));
+await check('  a stranger cannot ask', 'deny',
+  () => setDoc(doc(anon(), 'worries', 'c_care_new5'), care()));
+await check('  and no kind the page does not know', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_care_new6'), concern('other')));
+await check('a concern still has to say what was noticed', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_new8'), concern('pastoral', { noticed: '' })));
+await check('THE PASTORAL TEAM READS A REQUEST FOR CARE', 'allow',
+  () => getDoc(doc(as('pastor'), 'worries', 'c_care')));
+await check('  and the safeguarding lead', 'allow',
+  () => getDoc(doc(as('karen'), 'worries', 'c_care')));
+await check('  an ordinary member cannot', 'deny',
+  () => getDoc(doc(as('samy'), 'worries', 'c_care')));
+await check('  nor a team leader', 'deny',
+  () => getDoc(doc(as('isla'), 'worries', 'c_care')));
+await check('  nor a master admin who is not on the pastoral team', 'deny',
+  () => getDoc(doc(as('martin'), 'worries', 'c_care')));
+await check('  NOR THE PERSON WHO ASKED, reading it back', 'deny',
+  () => getDoc(doc(as('worried'), 'worries', 'c_care')));
+await check('  NOR ANYBODY ELSE WHO HAS ASKED, reading another person\'s', 'deny',
+  () => getDoc(doc(as('worried'), 'worries', 'c_care_about')));
+await check('the pastoral team lists what it may read (care-inbox.html)', 'allow',
+  () => getDocs(query(collection(as('pastor'), 'worries'), where('kind', 'in', ['pastoral', 'care']))));
+await check('  but not the whole collection, which holds safeguarding concerns', 'deny',
+  () => getDocs(collection(as('pastor'), 'worries')));
+await check('  the safeguarding lead lists all three kinds', 'allow',
+  () => getDocs(query(collection(as('karen'), 'worries'), where('kind', 'in', ['pastoral', 'care', 'safeguarding'])))) ;
+await check('  an ordinary member lists nothing', 'deny',
+  () => getDocs(query(collection(as('samy'), 'worries'), where('kind', 'in', ['pastoral', 'care']))));
+await check('the pastoral team marks a request for care dealt with', 'allow',
+  () => updateDoc(doc(as('pastor'), 'worries', 'c_care'),
+    { dealtWith: true, dealtNote: 'Rang on Wednesday.', dealtBy: 'u_pastor', dealtAt: serverTimestamp() }));
+await check('  but cannot change what was asked', 'deny',
+  () => updateDoc(doc(as('pastor'), 'worries', 'c_care_about'), { noticed: 'Something else.' }));
+
+/* ---- who gets told: named people, never the office (Martin, 14 Oct) -- */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 'users', 'u_carer'), {
+    memberId: 'm_u_carer', name: 'Carer Synthetic', teams: [], adminFor: [],
+    masterAdmin: false, attender: true, churchMember: true, status: 'active' });
+  await setDoc(doc(db, 'careRouting', 'main'), { care: { memberIds: ['m_u_carer'], email: '' },
+    pastoral: { memberIds: [], email: '' }, prayer: { memberIds: [], email: '' } });
+});
+PEOPLE.carer = { uid: 'u_carer' };
+await check('somebody NAMED for requests for care reads one, though on no team', 'allow',
+  () => getDoc(doc(as('carer'), 'worries', 'c_care')));
+await check('  but not a pastoral concern, which they are not named for', 'deny',
+  () => getDoc(doc(as('carer'), 'worries', 'c_pastoral')));
+await check('  nor a safeguarding one', 'deny',
+  () => getDoc(doc(as('carer'), 'worries', 'c_safeguarding')));
+await check('  and lists the requests for care', 'allow',
+  () => getDocs(query(collection(as('carer'), 'worries'), where('kind', '==', 'care'))));
+await check('  reads who is named, to know what is theirs', 'allow',
+  () => getDoc(doc(as('carer'), 'careRouting', 'main')));
+await check('a stranger cannot read who is named', 'deny',
+  () => getDoc(doc(anon(), 'careRouting', 'main')));
+await check('only a master admin names them', 'allow',
+  () => setDoc(doc(as('martin'), 'careRouting', 'main'), { care: { memberIds: ['m_u_carer'], email: 'pastoral@example.invalid' },
+    pastoral: { memberIds: [], email: '' }, prayer: { memberIds: [], email: '' }, updatedAt: 'x', updatedBy: 'u_martin' }));
+await check('  not the safeguarding lead', 'deny',
+  () => setDoc(doc(as('karen'), 'careRouting', 'main'), { care: { memberIds: [], email: '' }, updatedBy: 'u_karen' }));
+await check('  nor the church office', 'deny',
+  () => setDoc(doc(as('officeAdmin'), 'careRouting', 'main'), { care: { memberIds: [], email: '' }, updatedBy: PEOPLE.officeAdmin.uid }));
+await check('  and an address that is not an address is refused', 'deny',
+  () => setDoc(doc(as('martin'), 'careRouting', 'main'), { care: { memberIds: [], email: 'not an address' }, updatedBy: 'u_martin' }));
+await check('anyone signed in reads whether a lead is set (careRouting/status)', 'allow',
+  () => getDoc(doc(as('samy'), 'careRouting', 'status')));
+await check('  but nobody writes it from a page', 'deny',
+  () => setDoc(doc(as('martin'), 'careRouting', 'status'), { leadSet: true }));
+
+/* NO SAFEGUARDING LEAD: nothing is sent to nobody. */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'safeguardingSettings', 'defaults_saved'),
+    (await getDoc(doc(ctx.firestore(), 'safeguardingSettings', 'defaults'))).data() || {});
+  await updateDoc(doc(ctx.firestore(), 'safeguardingSettings', 'defaults'), { leadSiteId: '' });
+});
+await check('WITH NO SAFEGUARDING LEAD SET, a request for care is refused', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_nolead1'), care()));
+await check('  and a concern', 'deny',
+  () => setDoc(doc(as('worried'), 'worries', 'c_nolead2'), concern('pastoral')));
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const saved = (await getDoc(doc(ctx.firestore(), 'safeguardingSettings', 'defaults_saved'))).data() || {};
+  await setDoc(doc(ctx.firestore(), 'safeguardingSettings', 'defaults'), saved);
+  await deleteDoc(doc(ctx.firestore(), 'safeguardingSettings', 'defaults_saved'));
+});
+await check('  and allowed again once one is', 'allow',
+  () => setDoc(doc(as('worried'), 'worries', 'c_nolead3'), care()));
 
 /* ---- marking it dealt with ----------------------------------------- */
 await check('the safeguarding lead marks one dealt with, with a note', 'allow',

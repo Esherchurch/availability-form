@@ -88,9 +88,12 @@
     'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     /* The same size and shape as the back arrow, on the other side, so
        the two read as a pair and both clear 44px (§7). */
-    '#egbc-am-top a.am-worry{width:44px;height:44px;border-radius:10px;',
+    '#egbc-am-top a.am-worry{min-width:44px;height:44px;border-radius:10px;padding:0 10px;gap:5px;',
     'border:1px solid var(--am-line);background:var(--am-surface);color:var(--am-brand);',
-    'display:grid;place-items:center;flex:none;text-decoration:none}',
+    'display:inline-flex;align-items:center;justify-content:center;flex:none;text-decoration:none;',
+    'font-size:13px;font-weight:600;white-space:nowrap}',
+    /* Icon-only ONLY when the page's name would not otherwise fit (fit()). */
+    '#egbc-am-top.am-tight a.am-worry .am-wl{display:none}#egbc-am-top.am-tight a.am-worry{padding:0}',
 
     '#egbc-am-tabs{position:fixed;left:0;right:0;bottom:0;z-index:9500;background:var(--am-surface);',
     'border-top:1px solid var(--am-line);display:flex;',
@@ -272,11 +275,16 @@
        a 360px phone, with the aria-label carrying the words. Not on
        worried.html itself: a button that reloads the page you are on is
        a dead end with a label. */
+    /* CARE & SUPPORT (Martin, 14 Oct 2026) replaces "Worried?": the same
+       short choice as everywhere else (care.html), in words - "Care" -
+       unless the page's name needs the room. Not on the pages the choice
+       leads to. Switched off only with the church's whole care part. */
     var here = String(location.pathname || '').split('/').pop().toLowerCase();
-    var worry = here === 'worried.html' ? ''
-      : '<a class="am-worry" href="worried.html?app=1"'
-        + ' aria-label="I am worried about someone" title="I am worried about someone">'
-        + ic('heart-handshake') + '</a>';
+    var careOff = global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care');
+    var worry = (careOff || here === 'care.html' || here === 'worried.html') ? ''
+      : '<a class="am-worry" href="care.html?app=1"'
+        + ' aria-label="Care and support" title="Care and support">'
+        + ic('hand-heart') + '<span class="am-wl">Care</span></a>';
 
     var top = document.createElement('div');
     top.id = 'egbc-am-top';
@@ -298,6 +306,13 @@
     var fit = function () {
       var t = document.getElementById('egbc-am-top');
       var b = document.getElementById('egbc-am-tabs');
+      /* "Care" in words unless the page's name would be cut short by it:
+         measured with the words in, and only then without. */
+      if (t) {
+        t.classList.remove('am-tight');
+        var tt = t.querySelector('.am-title');
+        if (tt && t.querySelector('.am-worry') && tt.scrollWidth > tt.clientWidth + 1) t.classList.add('am-tight');
+      }
       topH = t ? t.offsetHeight : 0;
       bottomH = b ? b.offsetHeight : 0;
       document.documentElement.style.setProperty('--am-top', topH + 'px');

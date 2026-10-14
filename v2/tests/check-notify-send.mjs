@@ -380,6 +380,136 @@ const londonDate = (n) => {
   const oc2 = await settle(() => false, 6);
   ok('  run again the same fortnight: nothing', oc2.push.length === 0 && oc2.mail.length === 0, JSON.stringify(oc2));
 
+  /* ---- 7b. WHO GETS TOLD (Martin, 14 Oct 2026) -----------------------
+     The people the church names are told WHICH KIND has come in, and
+     nothing else. Never the church office for a request for care, a
+     concern or a prayer request. Never the person who raised it or the
+     person it is about. Nobody named -> the safeguarding lead and deputy. */
+  console.log('\nwho gets told: named people only, never the office, no details');
+  await person('carer', { tokens: ['tok-carer-aaaaaaaaaaaaaaaaaaaaaaaaaa'], name: 'Carer Synthetic' });
+  await person('carerAsks', { tokens: ['tok-carerasks-aaaaaaaaaaaaaaaaaaaaa'], name: 'Asking Carer Synthetic' });
+  await person('carerAbout', { tokens: ['tok-carerabout-aaaaaaaaaaaaaaaaaaaa'], name: 'Named Carer Synthetic' });
+  await person('carerNoPhone', { name: 'Emailed Carer Synthetic' });
+  await person('teamOnly', { teams: ['Pastoral'], tokens: ['tok-teamonly-aaaaaaaaaaaaaaaaaaaaaa'], name: 'Team Only Synthetic' });
+  await person('intercessor', { teams: ['Prayer Team'], tokens: ['tok-intercessor-aaaaaaaaaaaaaaaaaa'], name: 'Intercessor Synthetic' });
+  await person('welcomer', { tokens: ['tok-welcomer-aaaaaaaaaaaaaaaaaaaaaa'], name: 'Welcomer Synthetic' });
+  await put('pushTokens/' + P.sglead.uid + '_phone0aaaaaaaa', { uid: P.sglead.uid, token: 'tok-sglead-aaaaaaaaaaaaaaaaaaaaaaaaa',
+    platform: 'android', createdAt: new Date(), lastSeen: new Date() });
+  await put('safeguardingSettings/defaults', { dbsYears: 3, trainingYears: 3, leadSiteId: SITE });
+  await put('prayerSettings/main', { prayerTeam: 'Prayer Team' });
+  await put('welcomeSettings/main', { memberIds: [P.welcomer.member] });
+  await put('churchSettings/details', { name: 'Synthetic Church', enquiryEmail: 'office@example.invalid' });
+  const OFFICE = 'office@example.invalid', PASTORAL_ADDRESS = 'pastoral@example.invalid';
+  const ROUTING = { care: { memberIds: [P.carer.member, P.carerAsks.member, P.carerNoPhone.member], email: PASTORAL_ADDRESS },
+    pastoral: { memberIds: [P.carer.member, P.carerAbout.member], email: '' },
+    prayer: { memberIds: [P.carer.member], email: '' } };
+  await put('careRouting/main', ROUTING);
+  const SECRET = 'Synthetic secret words that must never travel';
+  const worry = (id, o) => put('worries/' + id, Object.assign({ aboutMemberId: '', aboutName: 'Subject Synthetic', noticed: SECRET,
+    happyToBeContacted: true, by: P.leader.uid, byName: 'Leader Synthetic', at: new Date(), dealtWith: false }, o));
+  const prayer = (id, o) => put('prayers/' + id, Object.assign({ by: P.leader.uid, byName: 'Leader Synthetic', text: SECRET,
+    share: 'pastoral', at: new Date(), answered: false, answer: '' }, o));
+  const tokensOf = (g) => g.push.flatMap((x) => x.tokens).sort();
+  const mailTo = (g) => g.mail.map((m) => m.to[0]).sort();
+  const quiet = (g) => !JSON.stringify(g).includes(SECRET) && !/Subject Synthetic|Leader Synthetic|Asking Carer|Named Carer/.test(JSON.stringify(g));
+  const settled = async (want) => { await settle(want, 30); await sleep(2500); return newSince(); };
+
+  mark();
+  await worry('w_ns_care', { kind: 'care', aboutMemberId: P.carerAsks.member, aboutName: 'Asking Carer Synthetic', by: P.carerAsks.uid });
+  const g1 = await settled((g) => g.push.length >= 1 && g.mail.length >= 2);
+  ok('  "I\'d like some pastoral care": the people named for it - not the person who asked',
+    tokensOf(g1).join() === 'tok-carer-aaaaaaaaaaaaaaaaaaaaaaaaaa', JSON.stringify(tokensOf(g1)));
+  ok('  NOT the Pastoral team as such, who were not named for it', !tokensOf(g1).includes('tok-teamonly-aaaaaaaaaaaaaaaaaaaaaa'));
+  ok('  the named person with no phone is emailed, and so is the dedicated address',
+    mailTo(g1).join() === [P.carerNoPhone.email, PASTORAL_ADDRESS].sort().join(), JSON.stringify(mailTo(g1)));
+  ok('  NEVER THE CHURCH OFFICE', !mailTo(g1).includes(OFFICE));
+  ok('  "A new request for pastoral care has been raised", and a link - and no details anywhere',
+    g1.push.every((x) => x.data.title === 'A new request for pastoral care has been raised' && x.data.body === 'Open it to read it.'
+      && x.data.url === 'care-inbox.html') && g1.mail.every((m) => m.subject === 'A new request for pastoral care has been raised') && quiet(g1),
+    JSON.stringify(g1).slice(0, 500));
+
+  mark();
+  await worry('w_ns_pastoral', { kind: 'pastoral', aboutMemberId: P.carerAbout.member, aboutName: 'Named Carer Synthetic' });
+  const g2 = await settled((g) => g.push.length >= 1);
+  ok('  a pastoral concern: the people named for it - NOT the person it is about, though named',
+    tokensOf(g2).join() === 'tok-carer-aaaaaaaaaaaaaaaaaaaaaaaaaa', JSON.stringify(tokensOf(g2)));
+  ok('  "A new concern has been raised"; never the office; no details',
+    g2.push.every((x) => x.data.title === 'A new concern has been raised') && !mailTo(g2).includes(OFFICE) && quiet(g2), JSON.stringify(g2).slice(0, 300));
+
+  mark();
+  await worry('w_ns_sg', { kind: 'safeguarding' });
+  const g3 = await settled((g) => g.push.length >= 1);
+  ok('  a SAFEGUARDING concern: the safeguarding lead ONLY - not the people named for pastoral care',
+    tokensOf(g3).join() === 'tok-sglead-aaaaaaaaaaaaaaaaaaaaaaaaa', JSON.stringify(tokensOf(g3)));
+  ok('  and no address at all: not the pastoral address, not the office', g3.mail.length === 0, JSON.stringify(mailTo(g3)));
+
+  mark();
+  await prayer('p_ns_pastoral', { share: 'pastoral' });
+  const g4 = await settled((g) => g.push.length >= 1);
+  ok('  a prayer request: the people named for prayer, and not the prayer team when not chosen',
+    tokensOf(g4).join() === 'tok-carer-aaaaaaaaaaaaaaaaaaaaaaaaaa', JSON.stringify(tokensOf(g4)));
+  ok('  "A new prayer request has been raised", linking to prayer.html, no details',
+    g4.push.every((x) => x.data.title === 'A new prayer request has been raised' && x.data.url === 'prayer.html') && quiet(g4) && !mailTo(g4).includes(OFFICE));
+  mark();
+  await prayer('p_ns_team', { share: 'prayerTeam', by: P.carer.uid, byName: 'Carer Synthetic' });
+  const g5 = await settled((g) => g.push.length >= 1);
+  ok('  shared with the prayer team: the prayer team too - and not the person who asked',
+    tokensOf(g5).join() === 'tok-intercessor-aaaaaaaaaaaaaaaaaa', JSON.stringify(tokensOf(g5)));
+
+  /* NOBODY NAMED: the safeguarding lead and deputy. Never the office. */
+  await put('careRouting/main', { care: { memberIds: [], email: '' }, pastoral: { memberIds: [], email: '' }, prayer: { memberIds: [], email: '' } });
+  mark();
+  await worry('w_ns_care2', { kind: 'care', by: P.leader.uid });
+  await prayer('p_ns_none', {});
+  const g6 = await settled((g) => g.push.length >= 2);
+  ok('  with nobody named, a request for care and a prayer request go to the safeguarding lead',
+    tokensOf(g6).join() === 'tok-sglead-aaaaaaaaaaaaaaaaaaaaaaaaa,tok-sglead-aaaaaaaaaaaaaaaaaaaaaaaaa', JSON.stringify(tokensOf(g6)));
+  ok('  AND STILL NEVER THE CHURCH OFFICE', !mailTo(g6).includes(OFFICE), JSON.stringify(mailTo(g6)));
+  await put('careRouting/main', ROUTING);
+
+  const clog = (await list('notifyLog')).filter((l) => l.type === 'care');
+  ok('  the log holds counts only: no sender, no words', clog.length >= 6 && clog.every((l) => !l.by) && !JSON.stringify(clog).includes(SECRET),
+    JSON.stringify(clog).slice(0, 300));
+
+  /* A VISITOR'S HELLO: the welcomers are told; the copy, with the details,
+     goes to the church's chosen address - or the office's, the one kind
+     that may. */
+  mark();
+  await put('welcomeSettings/public', { notifyEmail: 'welcome@example.invalid' });
+  await put('welcomes/h_ns_1', { name: 'Visitor Synthetic', email: 'visitor@example.invalid', phone: '', message: 'Hello from a synthetic visitor',
+    contactMe: true, uid: '', at: new Date(), status: 'new' });
+  const g7 = await settled((g) => g.push.length >= 1 && g.mail.length >= 1);
+  ok('  a hello: the welcomers are told "A visitor has said hello", and nothing more',
+    tokensOf(g7).join() === 'tok-welcomer-aaaaaaaaaaaaaaaaaaaaaa' && g7.push.every((x) => x.data.title === 'A visitor has said hello'
+      && !/Visitor Synthetic|synthetic visitor/.test(JSON.stringify(x.data))), JSON.stringify(g7.push.map((x) => x.data)));
+  ok('  and the church\'s copy, with the details, goes to its chosen address - from the server',
+    g7.mail.length === 1 && g7.mail[0].to[0] === 'welcome@example.invalid' && /Visitor Synthetic/.test(g7.mail[0].html)
+      && /Hello from a synthetic visitor/.test(g7.mail[0].html), JSON.stringify(g7.mail.map((m) => [m.to, m.subject])));
+  await rest('DELETE', DOCS + '/welcomeSettings/public');
+  mark();
+  await put('welcomes/h_ns_2', { name: 'Second Visitor Synthetic', email: '', phone: '07000 000009', message: '',
+    contactMe: true, uid: '', at: new Date(), status: 'new' });
+  const g8 = await settled((g) => g.mail.length >= 1);
+  ok('  with no address chosen, the copy falls back to the office - a hello is the one kind that may',
+    mailTo(g8).join() === OFFICE, JSON.stringify(mailTo(g8)));
+
+  /* IS A LEAD SET? careRouting/status, for the forms. */
+  const status = async () => { const r = await rest('GET', DOCS + '/careRouting/status'); const f = (JSON.parse(r.body || '{}').fields || {}).leadSet; return f ? f.booleanValue : undefined; };
+  const waitStatus = async (want) => { let v; for (let i = 0; i < 30; i++) { v = await status(); if (v === want) return v; await sleep(500); } return v; };
+  await rest('PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: '' }) });
+  ok('  with no safeguarding lead set, careRouting/status says so', (await waitStatus(false)) === false);
+  await rest('PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: SITE }) });
+  ok('  and changes back when one is', (await waitStatus(true)) === true);
+
+  /* A part the church does not use sends nothing. */
+  await put('churchSettings/features', { prayer: false });
+  mark();
+  await prayer('p_ns_off', {});
+  await sleep(6000);
+  const g9 = await newSince();
+  ok('  with prayer switched off for the church, a prayer request alerts nobody', g9.push.length === 0 && g9.mail.length === 0, JSON.stringify(g9.push));
+  await rest('DELETE', DOCS + '/churchSettings/features');
+
   /* ---- 8. THE MASTER SWITCH OFF (A-081) -------------------------------
      The default. Every timer and trigger works out what it WOULD send,
      logs the counts, and sends nothing - no push, no email of any kind.
@@ -412,6 +542,8 @@ const londonDate = (n) => {
   await put('maintJobs/job_ns_off', { siteId: SITE, roomId: 'room_ns', where: 'Porch', what: 'Off switch job',
     details: '', photoPath: '', status: 'todo', reportedBy: P.leader.uid, reportedByName: 'Leader Synthetic', reportedAt: new Date() });
   await put('news/n_ns_off', { title: 'Off switch urgent', body: '<p>x</p>', teams: ['Kids Church'], urgent: true });
+  await put('worries/w_ns_off', { kind: 'care', aboutMemberId: '', aboutName: 'Off Synthetic', noticed: '',
+    happyToBeContacted: true, by: P.leader.uid, byName: 'Leader Synthetic', at: new Date(), dealtWith: false });
   await runSchedule('checksReminders');
   await sleep(6000);
   const offOut = await newSince();
@@ -420,8 +552,8 @@ const londonDate = (n) => {
     offOut.mail.length === 0, JSON.stringify(offOut.mail.map((m) => [m.to, m.subject])));
   const dry = (await list('notifyLog')).slice(0).filter((l) => l.dryRun === true);
   const kinds = [...new Set(dry.map((l) => l.type))].sort().join(',');
-  ok('  each one logged what it WOULD have sent: rota, booking, maintenance job, urgent notice, checks',
-    ['booking', 'checks', 'maintJob', 'rota', 'urgent'].every((k) => kinds.split(',').includes(k)), kinds);
+  ok('  each one logged what it WOULD have sent: rota, booking, maintenance job, urgent notice, checks, a request for care',
+    ['booking', 'care', 'checks', 'maintJob', 'rota', 'urgent'].every((k) => kinds.split(',').includes(k)), kinds);
   ok('  as counts, never a token or an address', !/tok-|@/.test(JSON.stringify(dry)), JSON.stringify(dry).slice(0, 300));
   ok('  and the log did grow', (await list('notifyLog')).length > logsBefore);
 

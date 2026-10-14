@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610141200"></script>
+<script src="egbc-shell.js?v=202610141200" data-title="Care &amp; support"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Care &amp; support — EGBC</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- NO SIGN-IN NEEDED TO SEE THE CHOICE. The 999 line must reach anybody
+     who lands here; the pages it leads to ask for a sign-in themselves. -->
+<script src="egbc-care.js?v=202610141200"></script>
+<style>
+  :root{ --canvas:#f6f7f7; --ink:#111827; --body:#374151; --muted:#6b7280; --brand:#3d6263; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 6px;letter-spacing:-.01em}
+  .lede{margin:0 0 16px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Care &amp; support</h1>
+  <p class="lede">For you, or for somebody you are worried about. Whatever you choose is private.</p>
+  <div id="care"></div>
+</div>
+<script>
+/* CARE & SUPPORT AS A PAGE (Martin, 14 Oct 2026). The Menu's entry, the
+   app-mode header and the website bar's fallback all land here; the bar
+   and the hub usually open the same thing as a dialog instead. One list
+   (egbc-care.js), so the two cannot say different things. In app mode the
+   pages it leads to stay in the app. */
+(function () {
+  var app = /[?&]app=1\b/.test(location.search) || (window.EGBCAppMode && EGBCAppMode.on && EGBCAppMode.on());
+  EGBCCare.render(document.getElementById('care'), function (u) {
+    return app ? u + (u.indexOf('?') === -1 ? '?' : '&') + 'app=1' : u;
+  });
+})();
+</script>
+</body>
+</html>

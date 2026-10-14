@@ -72,6 +72,10 @@
       /* The menu is the point of the bar, so it is the one solid button. */
       '#egbc-bar button.eb-nav{background:var(--egbc-brand);color:#fff;border-color:var(--egbc-brand)}',
       '#egbc-bar button.eb-nav:hover{background:var(--egbc-brand-dark);border-color:var(--egbc-brand-dark)}',
+      /* CARE & SUPPORT, in words (Martin, 14 Oct 2026: easy to see on every
+         page, never icon-only on a computer). "Care" on a phone. */
+      '#egbc-bar .eb-b.eb-care{color:var(--egbc-brand);font-weight:600;min-height:44px}',
+      '#egbc-bar .eb-care .eb-care-s{display:none}',
       '#egbc-bar .eb-av{width:32px;height:32px;border-radius:50%;background:var(--egbc-tint);color:var(--egbc-brand-dark);',
       'display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;margin-left:4px;'
       + 'border:0;padding:0;font-family:inherit;cursor:pointer}',
@@ -114,6 +118,7 @@
       '@media(max-width:700px){',
       '#egbc-bar{padding:6px 8px}',
       '#egbc-bar .eb-k,#egbc-bar .eb-who,#egbc-bar .eb-lbl{display:none}',
+      '#egbc-bar .eb-care .eb-care-l{display:none}#egbc-bar .eb-care .eb-care-s{display:inline}',
       '#egbc-bar a.eb-b,#egbc-bar button.eb-b{padding:0 10px}',
       /* THE PAGE'S NAME GETS THE ROOM (Martin, 11 Oct 2026: the bar
          "truncates the page title to Ho…"). The buttons are already
@@ -172,6 +177,19 @@
     var right = '';
     right += '<a class="eb-b eb-home" href="hub.html" title="Back to the Team Hub">' + ic('house', 16) + '<span class="eb-lbl">Hub</span></a>';
     if (profile) right += '<button class="eb-b eb-nav" id="egbc-nav-btn">' + ic('layout-grid', 16) + '<span class="eb-lbl">Menu</span></button>';
+    /* CARE & SUPPORT (NEXT-BRIEF §24, Martin 14 Oct 2026), beside the
+       initials on every page, signed in or not. It is never hidden - not
+       by a person's own Home choices, and by the church only if it has
+       switched off the whole care and safeguarding part (feature 'care').
+       Not on the pages it leads to: a button that reopens where you are
+       is a dead end. */
+    var herePage = String(location.pathname || '').split('/').pop().toLowerCase();
+    var careOff = window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care');
+    if (!careOff && herePage !== 'care.html') {
+      right += '<button type="button" class="eb-b eb-care" id="egbc-care-btn" aria-haspopup="dialog" aria-expanded="false"'
+             + ' aria-label="Care and support">' + ic('hand-heart', 16)
+             + '<span class="eb-care-l">Care &amp; support</span><span class="eb-care-s">Care</span></button>';
+    }
     if (profile) {
       var who = String(profile.name || profile.email).replace(/</g, '&lt;');
       /* THE INITIALS OPEN THE "YOU" MENU (Martin, 13 Oct 2026): Notifications,
@@ -198,6 +216,11 @@
 
     var nb = document.getElementById('egbc-nav-btn');
     if (nb) nb.addEventListener('click', openNav);
+    var cb = document.getElementById('egbc-care-btn');
+    if (cb) cb.addEventListener('click', function () {
+      loadCare().then(function () { EGBCCare.open(cb); },
+        function () { location.href = 'care.html'; });
+    });
     var yb = document.getElementById('egbc-you-btn');
     if (yb) yb.addEventListener('click', function () {
       loadMenuScript().then(function () {
@@ -316,6 +339,22 @@
       s.onload = res; s.onerror = function () { res(); };
       document.head.appendChild(s);
     });
+  }
+
+  /* The Care & support choice, the first time somebody asks for it. If
+     it will not load, care.html is the same choice as a page. */
+  var careLoading = null;
+  function loadCare() {
+    if (window.EGBCCare) return Promise.resolve();
+    if (careLoading) return careLoading;
+    careLoading = new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = sibling('egbc-care.js');
+      s.onload = function () { window.EGBCCare ? res() : rej(new Error('no EGBCCare')); };
+      s.onerror = function () { careLoading = null; rej(new Error('could not load ' + s.src)); };
+      document.head.appendChild(s);
+    });
+    return careLoading;
   }
 
   function loadMenuScript() {

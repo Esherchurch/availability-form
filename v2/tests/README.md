@@ -37,6 +37,7 @@ is proving something throws wraps it in `expectThrow()`.
 | The family rule: myFamily (first names, this week, the household both ways), "Your family this week" and Parents' Sunday on Home, the collection code large | `node tests/check-family.mjs` |
 | A young person's own main-rota dates and charters in the Youth app; a youth-only one never gets the Worship & AV charter | `node tests/check-youth-hub.mjs` |
 | Watch live on the app's Home and the hub's front page (player on the hub), "Listen & Watch", the Menu's "Watch" for sermons helpers and master admins only; Meet only on a day with a video meeting in the diary (hub card, tab bar, app Home), Menu > Meetings kept | `node tests/check-watch-meet.mjs` |
+| Care & support: the button in words on every page (computer and 375px), the 999-first choice, the hub, app and app-mode headers, "I'd like some pastoral care", the inbox per reader, Church settings › Who gets told (never the office), and no safeguarding lead → no send and a warning | `node tests/check-care.mjs` |
 | An empty pin board opens empty and writes nothing; a board with notes is left as it was (A-079) | `node tests/check-board-empty.mjs` |
 | One piece of code decides where a note lands on the corkboard, and stickynotes.html parses | `node tests/check-note-placement.mjs` (a second, no browser) |
 | The pin board on a phone: small post-its, one note filling the screen, comments - the same screen in the app and on the website | `node tests/check-board-on-a-phone.mjs` (add `--shots`) |

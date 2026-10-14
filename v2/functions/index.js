@@ -647,6 +647,27 @@ export const urgentNotice = onDocumentWritten({ document: 'news/{id}', region: T
   await Notify.onNotice(await notifyDeps(), event.params.id, before, after);
 });
 
+/* Who gets told (Martin, 14 Oct 2026): the people the church named are
+   told which kind has come in, and no more (notify.js onWorry, onPrayer,
+   onHello). Never the office, except a hello's copy. */
+export const worryNotify = onDocumentCreated({ document: 'worries/{id}', region: TRIGGER_REGION }, async (event) => {
+  if (!event.data) return;
+  await Notify.onWorry(await notifyDeps(), event.params.id, event.data.data());
+});
+export const prayerNotify = onDocumentCreated({ document: 'prayers/{id}', region: TRIGGER_REGION }, async (event) => {
+  if (!event.data) return;
+  await Notify.onPrayer(await notifyDeps(), event.params.id, event.data.data());
+});
+export const helloNotify = onDocumentCreated({ document: 'welcomes/{id}', region: TRIGGER_REGION }, async (event) => {
+  if (!event.data) return;
+  await Notify.onHello(await notifyDeps(), event.params.id, event.data.data());
+});
+/* Is a safeguarding lead set? Kept in careRouting/status for the forms. */
+export const careStatusFromSettings = onDocumentWritten({ document: 'safeguardingSettings/{id}', region: TRIGGER_REGION },
+  async () => { await Notify.refreshCareStatus(db); });
+export const careStatusFromSite = onDocumentWritten({ document: 'bookingSettings/{id}', region: TRIGGER_REGION },
+  async () => { await Notify.refreshCareStatus(db); });
+
 /* DBS checks and training running out, every Monday morning. */
 export const checksReminders = onSchedule(
   { schedule: '0 9 * * 1', timeZone: 'Europe/London', retryCount: 2 },

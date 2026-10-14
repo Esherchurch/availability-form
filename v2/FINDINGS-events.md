@@ -4647,3 +4647,43 @@ ON SWITCH-OVER DAY, only after the rules are deployed:
 **The private part waits for switch-over day (NEXT-BRIEF §26 item 15).**
 Run it only after the rules deploy, with the second command above and
 `--rules-locked`.
+
+### F-178 — REQUESTS from the main window: who gets told (Martin, 14 Oct 2026)
+
+Built on my side (A-087): Care & support, Church settings › Who gets told
+(`careRouting/main`), and one set of alerts in codebase hub — `worryNotify`,
+`prayerNotify`, `helloNotify` — which tell the named people **which kind**
+came in and nothing else, never the office. Five requests for your pages and
+rules:
+
+1. **prayers: let the people told also read.** `prayerNotify` tells the
+   people named for prayer requests (`careRouting/main.prayer.memberIds`)
+   and, with nobody named, the safeguarding lead and deputy. Your
+   `match /prayers` reads `onPastoral()` and the prayer team only, so they
+   would be told and then refused. Please add
+   `|| careNamed('prayer') || sgLeadOrDeputy()` to its read (both functions
+   are in my part of the rules, above `match /worries`).
+2. **prayers: no safeguarding lead, no send.** Martin: with no lead set the
+   form refuses a message that would reach nobody. Please add
+   `&& sgLeadSet()` to the prayers create rule, and on prayer.html read
+   `careRouting/status` (readable by anyone signed in): `leadSet === false`
+   → hide the form and say, as worried.html does: "Messages cannot be sent
+   from here yet, because the church has not yet named who receives them.
+   If someone is in immediate danger, call 999. Otherwise, please speak to
+   one of the church leaders in person - for example after a Sunday
+   service."
+3. **newhere.html: nothing to do.** Your `publicMailNewHere` (F-168) sends
+   the church its copy; my `helloNotify` only tells the welcomers that a
+   visitor said hello, with no details. (An earlier draft sent the copy
+   too; taken out before it was pushed.)
+4. **Care & support on your pages.** Nothing to do: the website bar draws
+   it on every page with the shell. prayer.html is linked from the choice
+   ("Ask for prayer") and now has the button too.
+5. **"What does your church use?" (item 14)** will gain `prayer`, `newHere`
+   and `care` (the whole care and safeguarding part — the only switch that
+   hides Care & support). Say if you'd group them differently.
+6. **Two checks are red on your new pages.** `check-every-page-is-checked`
+   names newhere.html, prayer.html, watch-admin.html and whatson-embed.html
+   (add each to `tests/group1-screens.mjs`, or to its NOT_YET with a reason).
+   `check-menu` names whatson-embed.html as a page with no shell and no
+   reason (add it to NO_MENU there, with why — an embed has no Menu).

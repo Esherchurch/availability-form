@@ -160,6 +160,14 @@ export const PAGES = [
       ['a safeguarding concern', "(()=>{const b=document.querySelector('.kind[data-kind=safeguarding]');if(b)b.click();return 1})()"],
       ['thank you', "(()=>{document.getElementById('form').classList.add('hidden');document.getElementById('thanks').classList.remove('hidden');return 1})()"]
     ] },
+  /* Care & support (14 Oct 2026): the choice as a page, and what has come
+     in. "I'd like some pastoral care" is worried.html, measured above. */
+  { page: 'care.html', wait: 6000, states: [
+      ['the choice', '1']
+    ] },
+  { page: 'care-inbox.html', wait: 9000, states: [
+      ['what has come in', '1']
+    ] },
   { page: 'login.html', wait: 8000, signedOut: true, states: [
       ['the sign-in box', '1']
     ] },

@@ -17,6 +17,9 @@
      maintJob    a new maintenance job (the Maintenance team)
      urgent      an urgent notice from the office
      checks      my DBS check or training is running out (§24)
+     care        a new prayer request, request for pastoral care, concern or
+                 visitor's hello, to the people the church named for it -
+                 WHICH KIND, AND NOTHING ELSE
 
    EMAIL IS THE FALLBACK: someone with no phone set up gets the message by
    email instead - except where the page already emails them (a booking),
@@ -43,9 +46,17 @@
     maintJob:   { label: 'A new maintenance job', help: 'For the Maintenance team.', on: true, loud: false, email: true },
     urgent:     { label: 'Urgent notices from the office', help: 'Rare: a service moved, the building closed.', on: true, loud: true, email: true },
     checks:     { label: 'My DBS check or training is running out', help: 'For anyone who helps with under-18s.', on: true, loud: false, email: true },
+    care:       { label: 'Something new for me to look after', help: 'A prayer request, a request for care, a concern or a visitor\u2019s hello, if the church has named you for it. It never says who or why.', on: true, loud: false, email: true },
     test:       { label: 'A test message', help: '', on: true, loud: true, email: false, hidden: true }
   };
   var QUIET = { from: '21:30', to: '07:30' };
+  /* The words for each kind of 'care' message, and where it opens. */
+  var CARE_KINDS = {
+    prayer:  ['A new prayer request has been raised', 'prayer.html'],
+    care:    ['A new request for pastoral care has been raised', 'care-inbox.html'],
+    concern: ['A new concern has been raised', 'care-inbox.html'],
+    hello:   ['A visitor has said hello', 'newhere.html']
+  };
 
   /* A person's switches, with the defaults filled in. */
   function prefsOf(saved) {
@@ -93,6 +104,13 @@
       var what = d.what === 'dbs' ? 'DBS check' : 'safeguarding training';
       return { title: 'Your ' + what + (d.state === 'out' ? ' has run out' : ' runs out soon'), body: (d.state === 'out' ? 'It ran out on ' : 'It runs out on ') + d.ends + '. The safeguarding lead can renew it.',
                url: d.url || 'safeguarding.html' };
+    },
+    /* WHICH KIND, AND NOTHING ELSE (Martin, 14 Oct 2026): no name, no
+       words from it - a phone's lock screen is read by whoever holds it,
+       and an email can be forwarded. */
+    care: function (d) {
+      var k = CARE_KINDS[d.what] || CARE_KINDS.concern;
+      return { title: k[0], body: 'Open it to read it.', url: k[1] };
     },
     test: function () { return { title: 'Notifications are on', body: 'This is a test from the church hub.', url: 'notifications.html' }; }
   };

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610141200"></script>
+<script src="egbc-shell.js?v=202610141200" data-title="Care &amp; support: what has come in"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Care &amp; support: what has come in — EGBC</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610141200"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
+<style>
+  :root{
+    --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
+    --faint:#9ca3af; --line:#e5e7eb; --line-2:#d1d5db; --brand:#3d6263; --brand-dark:#2a4a4b;
+    --tint:#eef5f4; --ring:rgba(61,98,99,.15); --danger:#b0392c; --ok:#15803d; --ok-tint:#ecfdf3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 6px;letter-spacing:-.01em}
+  .lede{margin:0 0 6px;color:var(--muted)}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0}
+  .bar b{color:var(--ink)}
+  .tick{display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer}
+  .tick input{width:18px;height:18px;accent-color:var(--brand)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        box-shadow:0 1px 2px rgba(16,24,40,.05);padding:16px;margin-bottom:12px}
+  .empty{color:var(--muted)}
+  .item .k{font-size:12px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.04em}
+  .item.sg .k{color:var(--danger)}
+  .item h2{font-size:17px;font-weight:600;color:var(--ink);margin:4px 0 6px}
+  .words{white-space:pre-wrap;margin:0 0 8px;color:var(--body)}
+  .words.quiet{color:var(--muted)}
+  .meta{font-size:13px;color:var(--muted);margin:0}
+  .done{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--ok-tint);color:var(--ok);text-transform:none;letter-spacing:0}
+  .note{margin:8px 0 0;padding:10px;border-radius:8px;background:var(--tint);white-space:pre-wrap}
+  .act{margin-top:10px}
+  label.fl{display:block;font-weight:500;color:var(--ink);margin:0 0 6px}
+  label.fl .opt{font-weight:400;color:var(--faint)}
+  textarea{width:100%;min-height:70px;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;
+           font:400 14px/1.5 Inter,system-ui,sans-serif;color:var(--ink);resize:vertical}
+  textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;margin-top:8px;
+       padding:0 18px;border-radius:8px;border:1px solid var(--line-2);background:#fff;
+       color:var(--ink);font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn[disabled]{opacity:.55;cursor:default}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Care &amp; support: what has come in</h1>
+  <p class="lede" id="who">Only the pastoral team and the safeguarding lead and deputy can read these.</p>
+  <div class="bar">
+    <b id="count" role="status"></b>
+    <label class="tick"><input type="checkbox" id="showDone"> Show the ones dealt with</label>
+  </div>
+  <div id="list"><div class="card empty">Loading…</div></div>
+</div>
+<script>
+/* CARE & SUPPORT: WHAT HAS COME IN (Martin, 14 Oct 2026).
+   Until now a concern raised on worried.html was saved and then read by
+   nobody: no page listed them. This is that page, and the only one.
+
+   WHO SEES WHAT - the rules decide, not this page (firestore.rules,
+   match /worries):
+     - the pastoral team: pastoral concerns, and people asking for
+       pastoral care for themselves;
+     - the safeguarding lead and deputy: those, and safeguarding concerns.
+   Nobody else, not a master admin, not the person who raised it, not the
+   person it is about. The page asks for exactly what the reader may have,
+   because a query the rules cannot prove is refused whole. */
+const db = firebase.firestore(EGBCAuth.app);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const KIND_WORDS = {
+  care: 'Asked for pastoral care',
+  pastoral: 'A pastoral concern',
+  safeguarding: 'A safeguarding concern'
+};
+let SG = false, PASTORAL = false, SHOW_DONE = false, ROWS = [];
+
+async function amSafeguarding() {
+  try {
+    const me = EGBCAuth.profile() || {};
+    if (!me.memberId) return false;
+    /* careRouting/status, kept by the server: who the lead and deputy are,
+       readable by anyone signed in (the safeguarding settings are not). */
+    const s = (await db.collection('careRouting').doc('status').get()).data() || {};
+    return (s.leadIds || []).indexOf(me.memberId) !== -1;
+  } catch (e) { return false; }
+}
+
+/* The kinds this person is named for in "Who gets told" (careRouting/main).
+   Only the people named in it may read it, so a refusal means "none". */
+async function namedKinds() {
+  try {
+    const me = EGBCAuth.profile() || {};
+    const r = (await db.collection('careRouting').doc('main').get()).data() || {};
+    return ['care', 'pastoral'].filter(k => ((r[k] || {}).memberIds || []).indexOf(me.memberId) !== -1);
+  } catch (e) { return []; }
+}
+
+let KINDS = [];
+async function load() {
+  SG = await amSafeguarding();
+  PASTORAL = (EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : []).indexOf('Pastoral') !== -1;
+  const named = await namedKinds();
+  KINDS = SG ? ['pastoral', 'care', 'safeguarding']
+    : [...new Set((PASTORAL ? ['pastoral', 'care'] : []).concat(named))];
+  if (!KINDS.length) {
+    $('list').innerHTML = '<div class="card empty">This is for the people the church has named to look after care and concerns, '
+      + 'and the safeguarding lead. If you need care or support yourself, <a href="care.html">start here</a>.</div>';
+    return;
+  }
+  $('who').textContent = SG ? 'You are the safeguarding lead or deputy: you see everything that comes in.'
+    : 'You see ' + (KINDS.indexOf('pastoral') !== -1 && KINDS.indexOf('care') !== -1 ? 'pastoral concerns and requests for care'
+        : KINDS.indexOf('care') !== -1 ? 'requests for pastoral care' : 'pastoral concerns')
+      + '. Safeguarding concerns go only to the safeguarding lead and deputy.';
+  try {
+    /* By kind, always: the rules refuse a query they cannot prove for every
+       document it might return. */
+    const q = db.collection('worries').where('kind', 'in', KINDS);
+    const snap = await q.get();
+    ROWS = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.at && b.at.toMillis ? b.at.toMillis() : 0) - (a.at && a.at.toMillis ? a.at.toMillis() : 0));
+    draw();
+  } catch (e) {
+    console.error('care-inbox: could not load', e);
+    $('list').innerHTML = '<div class="card empty">These could not be loaded. Please try again.</div>';
+  }
+}
+
+function when(t) {
+  const d = t && t.toDate ? t.toDate() : null;
+  return d ? d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+}
+
+function draw() {
+  const rows = ROWS.filter(r => SHOW_DONE || !r.dealtWith);
+  const open = ROWS.filter(r => !r.dealtWith).length;
+  $('count').textContent = open === 1 ? '1 still to deal with' : open + ' still to deal with';
+  if (!rows.length) {
+    $('list').innerHTML = '<div class="card empty">' + (ROWS.length ? 'Nothing still to deal with.' : 'Nothing has come in.') + '</div>';
+    return;
+  }
+  $('list').innerHTML = rows.map(r => {
+    const mine = r.kind === 'care';
+    return `<article class="card item${r.kind === 'safeguarding' ? ' sg' : ''}" data-id="${esc(r.id)}">
+      <div class="k">${esc(KIND_WORDS[r.kind] || r.kind)}${r.dealtWith ? ' <span class="done">Dealt with</span>' : ''}</div>
+      <h2>${mine ? esc(r.aboutName) + ' would like some pastoral care' : 'About ' + esc(r.aboutName)}</h2>
+      ${r.noticed ? `<p class="words">${esc(r.noticed)}</p>` : (mine ? '<p class="words quiet">They did not say more. Please get in touch.</p>' : '')}
+      <p class="meta">${mine ? '' : 'From ' + esc(r.byName || 'someone') + ' &middot; '}${esc(when(r.at))}
+        ${mine ? '' : (r.happyToBeContacted ? ' &middot; happy to be contacted' : ' &middot; would rather not be contacted')}</p>
+      ${r.dealtWith ? (r.dealtNote ? `<p class="note">${esc(r.dealtNote)}</p>` : '')
+        : `<div class="act"><label class="fl" for="n_${esc(r.id)}">What was done <span class="opt">(optional, only readers of this page see it)</span></label>
+           <textarea id="n_${esc(r.id)}" maxlength="2000"></textarea>
+           <button type="button" class="btn primary" data-done="${esc(r.id)}">Mark as dealt with</button></div>`}
+    </article>`;
+  }).join('');
+}
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-done]');
+  if (!b) return;
+  const id = b.dataset.done;
+  b.disabled = true;
+  try {
+    await db.collection('worries').doc(id).update({
+      dealtWith: true, dealtNote: ($('n_' + id) || {}).value || '',
+      dealtBy: EGBCAuth.user().uid, dealtAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    const r = ROWS.find(x => x.id === id);
+    if (r) { r.dealtWith = true; r.dealtNote = ($('n_' + id) || {}).value || ''; }
+    draw();
+  } catch (err) {
+    b.disabled = false;
+    console.error('care-inbox: could not mark dealt with', err);
+    alert('That did not save. Please try again.');
+  }
+});
+$('showDone').addEventListener('change', (e) => { SHOW_DONE = e.target.checked; draw(); });
+document.addEventListener('egbc-ready', load);
+</script>
+</body>
+</html>

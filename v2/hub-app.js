@@ -123,6 +123,7 @@ function applyTeam() {
   renderNoticesCard();
   renderWatch();
   renderWaiting();
+  checkSgLead();
   renderServing();
   renderMyEvents();
   renderTools();
@@ -1355,8 +1356,28 @@ window.addEventListener('resize', () => { try { renderNavigation(); } catch (e) 
    since said not to build it (NEXT-BRIEF Â§10), so it is not here. Forms,
    approvals and payments arrive with their own chunks; each adds to the
    list below rather than to a page of its own. */
+/* NO SAFEGUARDING LEAD SET (Martin, 14 Oct 2026): concerns and requests
+   for care can reach nobody, so Care & support refuses to send them - and
+   a master admin is told here until one is set. careRouting/status is kept
+   by the server (careStatusFromSettings / careStatusFromSite). */
+let NO_SG_LEAD = false;
+async function checkSgLead() {
+  if (!EGBCAuth.isMaster()) return;
+  try {
+    const s = await db.collection('careRouting').doc('status').get();
+    NO_SG_LEAD = s.exists && s.data().leadSet === false;
+  } catch (e) { NO_SG_LEAD = false; }
+  if (NO_SG_LEAD) renderWaiting();
+}
+
 function waitingItems() {
   const out = [];
+  if (NO_SG_LEAD) out.push({
+    icon: 'shield-alert',
+    what: 'No safeguarding lead set — concerns can’t reach anyone',
+    why: 'Care &amp; support will not send a concern or a request for care until one is set',
+    go: '<a class="btn sm" href="safeguarding-settings.html">Set one</a>'
+  });
   NEWS.filter(n => n.requireAck && !ACKED.has(n.id)).forEach(n => {
     out.push({
       icon: 'megaphone',

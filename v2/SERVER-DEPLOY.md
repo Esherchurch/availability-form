@@ -466,6 +466,21 @@ Two more, created by the same command:
 | `myYouthHub` | **Yes.** The Youth app's "My rota and charters": a young person's (or adult's) own rota slots and their own charters. Reads only |
 | `feedSync` (timer, every 60 minutes) | **Yes.** Reads the sermon podcast feed and the YouTube channel feed into `sermons` and `videos` (F-164). Adds and updates; never deletes, never touches the live link. Does nothing for a part with no address set, or switched off |
 
+### Added 14 Oct 2026: who gets told (Care & support, prayer, hellos)
+
+Five more, created by the same `functions:hub` deploy:
+
+| Function | Safe before switch-over? |
+|---|---|
+| `worryNotify` (trigger on `worries`) | **Yes.** A request for pastoral care or a concern: the people named in Church settings › Who gets told are told **which kind** came in, nothing more. Safeguarding concerns: the safeguarding lead and deputy only. Nobody named: the lead and deputy. **Never the church office.** A dry run while the notifications switch is off |
+| `prayerNotify` (trigger on `prayers`) | **Yes.** The same for a prayer request, plus the prayer team when the person chose it |
+| `helloNotify` (trigger on `welcomes`) | **Yes.** Tells the welcomers a visitor said hello, with no details. The church's copy of the hello is the events window's `publicMailNewHere` (F-168, already live), not this |
+| `careStatusFromSettings`, `careStatusFromSite` (triggers on `safeguardingSettings`, `bookingSettings`) | **Yes.** Keep `careRouting/status` (is a safeguarding lead set, and who) for the forms and the hub's warning. Write nothing else |
+
+**After the deploy:** open Safeguarding settings and press Save once, so `careRouting/status` is written for the first time. Until then the forms still work (the rules decide), but the hub's "No safeguarding lead set" warning cannot appear.
+
+**For Calla's sendEmail (the known-recipient check):** the addresses the church can choose here are `careRouting/main.care.email`, `careRouting/main.pastoral.email`, `careRouting/main.prayer.email` (`welcomeSettings/public.notifyEmail` is the events window's, for its own copy). They need to count as known recipients, or those emails will be refused once the open path closes.
+
 ### Deploying N-4, step by step (Martin, with a window watching)
 
 1. In the `v2` folder: `git pull`, so the code is today's.

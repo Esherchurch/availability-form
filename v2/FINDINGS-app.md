@@ -2859,3 +2859,70 @@ e6ba75eb.
 
 **Checks:** `check-watch-meet` 24/24, nine breaks all caught; `check-feeds`
 17/17 (spare emulator, two breaks caught earlier).
+
+### A-087 — Care & support, and who gets told (Martin, 14 Oct 2026)
+
+**Found first:** a concern raised on worried.html was saved and then read by
+nobody. No page listed them and nothing told anyone ("in the original
+concerns spec and never built" — Martin).
+
+**Care & support** replaces "Worried?":
+- **Where:** a button in words on every page with the website bar, beside
+  the initials. It reads "Care" on a phone. It's also in the hub's own
+  header, the app's header and the app-mode header.
+  - In the app-mode header it goes icon-only only when the page's name
+    would not otherwise fit, and is still named for a screen reader.
+- **What it opens:** one short choice (`egbc-care.js`, also `care.html` for
+  the Menu): "If someone is in immediate danger, call 999" first, then "I'd
+  like some pastoral care", "I'm worried about someone", and "Ask for
+  prayer" once prayer.html answers.
+- **Never hideable:** feature `care` is the only switch, for the whole care
+  and safeguarding part.
+
+**"I'd like some pastoral care"** (`worried.html?for=me`):
+- It's about the person themselves (the rules insist) and counts as agreeing
+  to be contacted.
+- It's read exactly as a pastoral concern is.
+
+**The inbox** (`care-inbox.html`, Menu › "Care & support: what has come in"):
+- the Pastoral team, and the people named for a kind, read that kind;
+- the safeguarding lead and deputy read all three;
+- whoever reads it can mark it dealt with.
+
+**Who gets told** (Church settings, master admin only, `careRouting/main`):
+- For each of requests for care, pastoral concerns and prayer requests:
+  people from the address book and/or a dedicated address.
+- **Never the church office.** The office's enquiry address is refused on the
+  page, and the server never falls back to it.
+- **Safeguarding concerns:** the lead and deputy only.
+- **Nobody named:** the lead and deputy.
+- **No lead set:** the rules refuse every concern and request
+  (`sgLeadSet()`), the form says so with 999 and "speak to a church leader in
+  person", and a master admin sees "No safeguarding lead set — concerns
+  can't reach anyone" on the hub and on Church settings.
+
+**The alerts** (codebase hub; **needs a deploy**):
+- `worryNotify`, `prayerNotify` and `helloNotify` say **which kind** came in
+  ("A new request for pastoral care has been raised") and a link, nothing
+  else.
+- The phone notification falls back to email for anyone without a phone.
+- They never reach the person who raised it or the person it's about.
+- The log holds no sender. A dry run while the master switch is off, and
+  nothing for a switched-off part.
+- `helloNotify` tells the welcomers a visitor said hello, with no details.
+  The church's copy of the hello is the events window's publicMailNewHere
+  (F-168), not this.
+- `careStatusFrom*` keep `careRouting/status` (is a lead set, and who) for
+  the forms.
+
+**Checks:**
+- `check-care` 54/54: every page at 1280px and 375px, the choice, the hub,
+  the app, app mode, the for-me form, the inbox per reader, Who gets told,
+  no lead.
+- `check-notify-send` 81/81, five breaks caught: the office as fallback,
+  words in the alert, the person named told, the prayer team always told,
+  safeguarding to the pastoral people.
+- Rules 1236/1236.
+
+**For Calla:** the chosen addresses that must pass sendEmail's
+known-recipient check are listed in SERVER-DEPLOY.md.

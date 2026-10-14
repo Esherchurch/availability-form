@@ -6,12 +6,12 @@
 <title>Church details</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610141000" data-title="Church details"></script>
+<script src="egbc-shell.js?v=202610141200" data-title="Church details"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610141000"></script>
+<script src="egbc-auth.js?v=202610141200"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <!-- An admin, OR the Church office. The office are the people who know
      the church's bank details, which now live on this page, and they are
@@ -50,6 +50,17 @@
   .sw[aria-checked="true"] .track::after{left:23px}
   .sw:disabled{opacity:.55;cursor:wait}
   .logo{width:96px;height:96px;object-fit:contain;border:1px solid var(--line);border-radius:12px;background:#fff;display:block;margin-bottom:8px}
+  /* Who gets told. */
+  fieldset.ck{border:1px solid var(--line);border-radius:10px;padding:12px;margin:0 0 12px}
+  fieldset.ck legend{font-weight:600;color:var(--ink);padding:0 4px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+  .chip{display:inline-flex;align-items:center;gap:4px;background:var(--tint);color:var(--brand-dark);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px}
+  .chip .x{width:32px;height:32px;border:0;background:transparent;font-size:18px;cursor:pointer;color:var(--brand-dark)}
+  .addrow{display:flex;gap:8px}
+  .addrow .inp{flex:1;min-width:0}
+  .addrow .btn{height:40px}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .warn{background:#fdecea;border:1px solid #f5c2bd;color:#8a1c12;border-radius:10px;padding:10px 12px;margin:0 0 12px}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none}
 </style>
 </head>
@@ -69,6 +80,14 @@
   <h1 style="font-size:18px;margin:22px 0 4px" id="notify-h" hidden>Phone notifications</h1>
   <p class="sub" id="notify-sub" hidden>Rota reminders, booking news, new maintenance jobs, urgent notices and DBS and training reminders, by phone, and by email for anyone without the app.</p>
   <div class="card" id="notify-form" hidden></div>
+
+  <!-- WHO GETS TOLD (Martin, 14 Oct 2026; NEXT-BRIEF §24). Requests for
+       pastoral care, concerns and prayer requests go ONLY to people the
+       church names here - never the church office or any admin inbox. A
+       master admin only, as the rules say (careRouting/main). -->
+  <h1 style="font-size:18px;margin:22px 0 4px" id="care-h" hidden>Who gets told</h1>
+  <p class="sub" id="care-sub" hidden>When somebody asks for pastoral care, raises a concern or asks for prayer, the people named here are told that something has come in &mdash; never who or what. They can involve abuse, so they never go to the church office. With nobody named, they go to the safeguarding lead and deputy.</p>
+  <div class="card" id="care-form" hidden></div>
 </div>
 <div id="toast"></div>
 <script>
@@ -225,6 +244,110 @@
       .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
   }
 
+  /* ---- who gets told (Martin, 14 Oct 2026) --------------------------
+
+     For each kind, PEOPLE from the address book (a phone notification,
+     or an email if they have no phone set up) and/or one dedicated
+     address. Safeguarding concerns are not here: they go to the
+     safeguarding lead and deputy only, from the safeguarding settings,
+     and this card says who they are - or warns that there is nobody. */
+  var CARE_KINDS = [
+    ['care', 'Requests for pastoral care', 'Somebody asking for care for themselves.'],
+    ['pastoral', 'Concerns about someone (pastoral)', 'Somebody worried that another person is struggling.'],
+    ['prayer', 'Prayer requests', 'The prayer team is told as well when the person chooses it.']
+  ];
+  var R = {}, BOOK = {}, LEAD = { set: false, names: [] };
+  function nameOf(id) { return (BOOK[id] && BOOK[id].name) || 'Somebody no longer in the address book'; }
+  function drawCare() {
+    ['care-h', 'care-sub', 'care-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+    var opts = Object.keys(BOOK).filter(function (id) { return !BOOK[id].archived && !BOOK[id].isMinor; })
+      .sort(function (a, b) { return BOOK[a].name.localeCompare(BOOK[b].name); })
+      .map(function (id) { return '<option value="' + esc(BOOK[id].name) + '"></option>'; }).join('');
+    document.getElementById('care-form').innerHTML =
+      (LEAD.set ? '' : '<p class="warn" id="care-warn" role="alert"><b>No safeguarding lead set &mdash; concerns can’t reach anyone.</b> '
+        + 'Until one is set in Safeguarding settings, the Care &amp; support forms say so and send nothing.</p>') +
+      '<datalist id="care-people">' + opts + '</datalist>' +
+      CARE_KINDS.map(function (k) {
+        var r = R[k[0]] || { memberIds: [], email: '' };
+        return '<fieldset class="ck" data-kind="' + k[0] + '"><legend>' + esc(k[1]) + '</legend>' +
+          '<p class="hint" style="margin:0 0 8px">' + esc(k[2]) + '</p>' +
+          '<div class="chips">' + ((r.memberIds || []).length ? r.memberIds.map(function (id) {
+            return '<span class="chip">' + esc(nameOf(id)) + ' <button type="button" class="x" data-rm="' + esc(k[0]) + '|' + esc(id) + '" aria-label="Take ' + esc(nameOf(id)) + ' off">&times;</button></span>';
+          }).join('') : '<span class="hint">Nobody named' + (r.email ? '' : ' &mdash; these go to the safeguarding lead and deputy') + '.</span>') + '</div>' +
+          '<div class="addrow"><label class="sr" for="add-' + k[0] + '">Add a person</label>' +
+            '<input class="inp" id="add-' + k[0] + '" list="care-people" placeholder="Add a person: start typing a name">' +
+            '<button type="button" class="btn sec" data-add="' + k[0] + '">Add</button></div>' +
+          '<div class="field" style="margin:10px 0 0"><label for="em-' + k[0] + '">A dedicated address <span class="hint">(optional)</span></label>' +
+            '<input class="inp" id="em-' + k[0] + '" type="email" maxlength="200" value="' + esc(r.email || '') + '" placeholder="For example a pastoral team address - never the office"></div>' +
+        '</fieldset>';
+      }).join('') +
+      '<fieldset class="ck"><legend>Safeguarding concerns</legend><p class="hint" style="margin:0">' +
+        (LEAD.set ? 'Only the safeguarding lead and deputy: ' + esc(LEAD.names.join(' and ')) + '. Change them in Safeguarding settings.'
+          : 'Only the safeguarding lead and deputy &mdash; and none is set yet.') + '</p></fieldset>' +
+      '<button class="btn" id="care-save">Save who gets told</button>';
+    document.querySelectorAll('[data-add]').forEach(function (b) {
+      b.onclick = function () {
+        var k = b.getAttribute('data-add'), v = document.getElementById('add-' + k).value.trim().toLowerCase();
+        var id = Object.keys(BOOK).filter(function (x) { return BOOK[x].name.toLowerCase() === v; })[0];
+        if (!id) { toast('Pick somebody from the list.'); return; }
+        keepEmails();
+        R[k] = R[k] || { memberIds: [], email: '' };
+        if (R[k].memberIds.indexOf(id) === -1) R[k].memberIds.push(id);
+        drawCare();
+      };
+    });
+    document.querySelectorAll('[data-rm]').forEach(function (b) {
+      b.onclick = function () {
+        var p = b.getAttribute('data-rm').split('|');
+        keepEmails();
+        R[p[0]].memberIds = R[p[0]].memberIds.filter(function (x) { return x !== p[1]; });
+        drawCare();
+      };
+    });
+    document.getElementById('care-save').onclick = saveCare;
+  }
+  function keepEmails() {
+    CARE_KINDS.forEach(function (k) {
+      var el = document.getElementById('em-' + k[0]);
+      if (el) { R[k[0]] = R[k[0]] || { memberIds: [], email: '' }; R[k[0]].email = el.value.trim().toLowerCase(); }
+    });
+  }
+  function saveCare() {
+    keepEmails();
+    var office = String(D.enquiryEmail || '').trim().toLowerCase();
+    for (var i = 0; i < CARE_KINDS.length; i++) {
+      var e = (R[CARE_KINDS[i][0]] || {}).email || '';
+      if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { toast('That address does not look right: ' + e); return; }
+      /* NEVER THE OFFICE (Martin): the enquiry address is refused here. */
+      if (e && office && e === office) { toast('Not the church office’s address: these can involve abuse. Name people, or a pastoral address.'); return; }
+    }
+    var u = EGBCAuth.user() || {}, body = { updatedAt: new Date().toISOString(), updatedBy: u.uid || '' };
+    CARE_KINDS.forEach(function (k) { var r = R[k[0]] || {}; body[k[0]] = { memberIds: (r.memberIds || []).slice(0, 20), email: r.email || '' }; });
+    document.getElementById('care-save').disabled = true;
+    db().collection('careRouting').doc('main').set(body).then(function () { toast('Saved.'); drawCare(); })
+      .catch(function (e) { document.getElementById('care-save').disabled = false; toast('Could not save: ' + (e.message || e)); });
+  }
+  function loadCare() {
+    return Promise.all([
+      db().collection('careRouting').doc('main').get().catch(function () { return null; }),
+      db().collection('addressBook').get(),
+      db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; })
+    ]).then(function (x) {
+      R = (x[0] && x[0].exists && x[0].data()) || {};
+      BOOK = {};
+      x[1].forEach(function (d) { var b = d.data() || {}; BOOK[d.id] = { name: String(b.name || b.fullName || d.id), archived: b.archived === true, isMinor: b.isMinor === true }; });
+      var site = x[2] && x[2].exists ? String(x[2].data().leadSiteId || '') : '';
+      if (!site) { LEAD = { set: false, names: [] }; return; }
+      return db().collection('bookingSettings').doc(site).get().then(function (b) {
+        var s = b.exists ? b.data() : {};
+        LEAD = { set: !!s.safeguardingLead, names: [s.safeguardingLead, s.safeguardingDeputy].filter(Boolean).map(nameOf) };
+      });
+    }).then(drawCare).catch(function (e) {
+      ['care-h', 'care-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+      document.getElementById('care-form').innerHTML = '<p>Could not load who gets told: ' + esc(e.message || e) + '</p>';
+    });
+  }
+
   /* THE NAME, EMAIL AND LOGO ARE AN ADMIN'S, and the rules say so:
      `details` is writable by isAdmin() only. A Church office member who
      is not an admin may open this page for the giving details, so their
@@ -247,6 +370,7 @@
       db().collection('churchSettings').doc('notifications').get().then(function (n) {
         N = (n.exists && n.data()) || { live: false }; drawNotify();
       }).catch(function () { N = { live: false }; drawNotify(); });
+      loadCare();
     }
     if (!mayGive()) return null;
     return db().collection('churchSettings').doc('giving').get().then(function (g) {
