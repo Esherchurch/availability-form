@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610141200"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-events.js?v=202610141900"></script>
@@ -72,6 +73,20 @@
      "not for you" - so the page and the rules can never disagree. */
   var E = window.EGBCEvents, esc = E.esc;
   var ME = {}, MASTER = false, TEAM = '', TAB = 'ask', MINE = [], ANSWERS = [], FORUS = null, SENT = false;
+  /* F-179: until the locked rules are on (churchSettings/launch.rulesLocked),
+     anything saved here could be read by anyone, so nothing is: no request,
+     no answer, no shared answer. Asked when the page opens, and again at
+     the moment of saving. */
+  var LAUNCH = { locked: false, opensOn: '' };
+  function launch() { return window.EGBCLaunch ? EGBCLaunch.check() : Promise.resolve({ locked: false, opensOn: '' }); }
+  function notYet() { return window.EGBCLaunch ? EGBCLaunch.notYet(LAUNCH.opensOn) : 'This form is not open yet.'; }
+  /* Before every save: still not open means nothing is written. */
+  function mayWrite() {
+    return launch().then(function (L) {
+      LAUNCH = L;
+      if (!L.locked) { draw(); toast('Not saved: this form is not open yet.'); throw new Error('not open'); }
+    });
+  }
   function db() { return EGBCAuth.db; }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
   function now() { return firebase.firestore.FieldValue.serverTimestamp(); }
@@ -92,6 +107,7 @@
     wire();
   }
   function askCard() {
+    if (!LAUNCH.locked) return '<div class="card" id="ask"><h2>What would you like prayer for?</h2><p class="said" id="not-yet" role="status">' + esc(notYet()) + '</p></div>';
     if (SENT) return '<div class="card" id="ask"><div class="done" id="sent">Thank you. Your request has been passed on, and you will be prayed for.</div>' +
       '<div class="acts"><button class="btn sec" id="again">Ask for something else</button></div></div>';
     return '<div class="card" id="ask"><h2>What would you like prayer for?</h2>' +
@@ -109,10 +125,10 @@
         '<div class="m">' + esc(when(p.at)) + ' · ' + (p.share === 'prayerTeam' ? 'pastoral team and ' + esc(TEAM || 'prayer team') : 'pastoral team') +
         (p.answered ? ' · <span class="pill ok">Answered</span>' : '') + '</div>' +
         (p.answered && p.answer ? '<div class="w" style="margin-top:6px">' + esc(p.answer) + '</div>' : '') +
-        (p.answered ? '' : '<label class="l" for="an-' + esc(p.id) + '">Has it been answered? Say how (optional)</label><textarea id="an-' + esc(p.id) + '" maxlength="2000" style="min-height:70px"></textarea>' +
+        (p.answered || !LAUNCH.locked ? '' : '<label class="l" for="an-' + esc(p.id) + '">Has it been answered? Say how (optional)</label><textarea id="an-' + esc(p.id) + '" maxlength="2000" style="min-height:70px"></textarea>' +
           '<label class="radio"><input type="checkbox" id="sh-' + esc(p.id) + '"><span>Share the answer with the church, to encourage others</span></label>' +
           '<label class="radio"><input type="checkbox" id="nm-' + esc(p.id) + '" checked><span>with my name</span></label>') +
-        '<div class="acts">' + (p.answered ? '' : '<button class="btn small" data-answer="' + esc(p.id) + '">It has been answered</button>') +
+        '<div class="acts">' + (p.answered || !LAUNCH.locked ? '' : '<button class="btn small" data-answer="' + esc(p.id) + '">It has been answered</button>') +
         '<button class="btn sec small" data-withdraw="' + esc(p.id) + '">Take it back</button></div></div>';
     }).join('') : '<p class="said">Nothing yet.</p>') + '</div>';
   }
@@ -122,10 +138,11 @@
         return '<div class="item" data-answer-of="' + esc(a.id) + '"><div class="w">' + esc(a.text) + '</div><div class="m">' + esc(a.byName || 'Shared without a name') + ' · ' + esc(when(a.at)) + '</div>' +
           (FORUS && FORUS.pastoral ? '<div class="acts"><button class="btn sec small" data-hide="' + esc(a.id) + '">Hide it</button></div>' : '') + '</div>';
       }).join('') : '<p class="said">None shared yet.</p>') +
+      (!LAUNCH.locked ? '<p class="said" id="not-yet-share" role="status">Sharing an answer to prayer opens when the new church hub opens.</p></div>' :
       '<label class="l" for="sh-text">Share an answer to prayer</label><textarea id="sh-text" maxlength="2000" style="min-height:90px"></textarea>' +
       '<button class="speak" id="sh-speak" type="button" aria-pressed="false">🎤 Speak</button><p class="said" id="sh-said" role="status"></p>' +
       '<label class="radio"><input type="checkbox" id="sh-name" checked><span>with my name</span></label>' +
-      '<div class="acts"><button class="btn" id="sh-go">Share it</button></div></div>';
+      '<div class="acts"><button class="btn" id="sh-go">Share it</button></div></div>');
   }
   function forUsCard() {
     var list = FORUS.list;
@@ -161,16 +178,16 @@
     var text = ($('pr-text').value || '').trim(), share = (document.querySelector('input[name="pr-share"]:checked') || {}).value || 'pastoral';
     if (text.length < 3) { toast('Write or say a few words first'); return; }
     $('pr-go').disabled = true;
-    db().collection('prayers').add({ by: uid(), byName: (ME.name || '').slice(0, 120), text: text.slice(0, 4000), share: share, at: now(), answered: false, answer: '', answeredAt: null })
+    mayWrite().then(function () { return db().collection('prayers').add({ by: uid(), byName: (ME.name || '').slice(0, 120), text: text.slice(0, 4000), share: share, at: now(), answered: false, answer: '', answeredAt: null }); })
       .then(function () { SENT = true; return load(); })
-      .catch(function (e) { $('pr-go').disabled = false; toast('Could not send it: ' + (e.message || e)); });
+      .catch(function (e) { if (e && e.message === 'not open') return; $('pr-go').disabled = false; toast('Could not send it: ' + (e.message || e)); });
   }
   function answered(id) {
     var ans = ($('an-' + id).value || '').trim().slice(0, 2000), sh = $('sh-' + id).checked, nm = $('nm-' + id).checked;
-    db().collection('prayers').doc(id).update({ answered: true, answer: ans, answeredAt: now() })
+    mayWrite().then(function () { return db().collection('prayers').doc(id).update({ answered: true, answer: ans, answeredAt: now() }); })
       .then(function () { return sh && ans.length >= 3 ? share(ans, nm) : true; })
       .then(function () { toast(sh && ans.length >= 3 ? 'Marked answered, and shared. Thank you.' : 'Marked answered.'); return load(); })
-      .catch(function (e) { toast('Could not: ' + (e.message || e)); });
+      .catch(function (e) { if (e && e.message === 'not open') return; toast('Could not: ' + (e.message || e)); });
   }
   function withdraw(id) {
     if (!confirm('Take this request back? The pastoral team will no longer see it.')) return;
@@ -179,8 +196,8 @@
   function share(text, withName) {
     text = String(text || '').trim();
     if (text.length < 3) { toast('Write or say a few words first'); return Promise.resolve(false); }
-    return db().collection('prayerAnswers').add({ by: uid(), byName: withName ? (ME.name || '').slice(0, 120) : '', text: text.slice(0, 2000), at: now(), hidden: false })
-      .then(function () { return true; }, function (e) { toast('Could not share it: ' + (e.message || e)); return false; });
+    return mayWrite().then(function () { return db().collection('prayerAnswers').add({ by: uid(), byName: withName ? (ME.name || '').slice(0, 120) : '', text: text.slice(0, 2000), at: now(), hidden: false }); })
+      .then(function () { return true; }, function (e) { if (!(e && e.message === 'not open')) toast('Could not share it: ' + (e.message || e)); return false; });
   }
   function hide(id) { db().collection('prayerAnswers').doc(id).update({ hidden: true }).then(function () { toast('Hidden.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); }); }
   function saveTeam() {
@@ -214,7 +231,7 @@
     ME = p || {};
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
     if (/[?&]tab=(mine|answers|forus)\b/.test(location.search)) TAB = location.search.match(/tab=(\w+)/)[1];
-    return load();
+    return launch().then(function (L) { LAUNCH = L; return load(); });
   }).catch(function (e) { $('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();
 </script>

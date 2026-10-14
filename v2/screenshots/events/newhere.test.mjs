@@ -18,7 +18,10 @@
      5. "just saying hello" needs no contact details; asking for contact
         needs an email or phone; a robot filling the hidden field is turned
         away
-     6. switched off for the church: not available */
+     6. switched off for the church: not available
+     7. F-179: BEFORE SWITCH-OVER (churchSettings/launch.rulesLocked not
+        true) there is no form and NOTHING IS SAVED; asked again at the
+        moment of sending, so a page opened earlier saves nothing either */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -105,7 +108,7 @@ async function page(who, o) {
     await p.evaluate((e) => firebase.auth(firebase.app('egbc')).signInWithEmailAndPassword(e, 'synthetic-only-123'), P[who].email);
   }
   await p.goto(URLB + 'newhere.html', { waitUntil: 'networkidle2' });
-  await p.waitForFunction(() => document.getElementById('f') || /Not available/.test(document.getElementById('main').textContent), { timeout: 20000 });
+  await p.waitForFunction(() => document.getElementById('f') || document.getElementById('not-yet') || /Not available/.test(document.getElementById('main').textContent), { timeout: 20000 });
   if (!P[who] && (await p.evaluate(() => EGBCAuth.db._delegate._settings.host)) !== 'localhost:8182') throw new Error('Not on the events emulator');
   return p;
 }
@@ -114,6 +117,14 @@ const text = (p, sel) => p.$eval(sel || 'body', e => e.innerText.replace(/\s+/g,
 const storage = (p) => p.evaluate(() => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!/firebase|egbc_fresh|egbc_app/i.test(k)) o[k] = localStorage.getItem(k); } return o; });
 
 try {
+  /* ---------- 7. before switch-over: no form, nothing saved ---------- */
+  const N = await page('early');
+  const early = await text(N, '#main');
+  ok('7. BEFORE SWITCH-OVER: no form, and the words instead', !(await N.$('#f')) && /call 999/.test(early) && /opens when the new church hub opens/.test(early), early);
+  ok('   NOTHING SAVED', (await list('welcomes')).length === 0);
+  await N.screenshot({ path: path.join(HERE, 'newhere-not-yet-375.png'), fullPage: true });
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'churchSettings', 'launch'), { rulesLocked: true, opensOn: '' }); });
+
   /* ---------- 1, 2. a visitor, signed out ---------- */
   const V = await page('visitor');
   ok('1. A VISITOR, NOT SIGNED IN: the welcome card, never a sign-in', /Welcome!/.test(await text(V)) && !/sign in/i.test(await text(V)) && !(await V.$('#egbc-bar')));
@@ -195,6 +206,17 @@ try {
   /* ---------- 6. switched off ---------- */
   const F = await page('visitor4', { off: true });
   ok('6. switched off for the church: not available', /Not available/.test(await text(F, '#main')) && !(await F.$('#f')));
+
+  /* ---------- 7. asked again at the moment of sending ---------- */
+  const S = await page('late');
+  await val(S, '#n-name', 'Sam Sooner (invented)');
+  await val(S, '#n-email', 'sam.sooner@example.invalid');
+  await sleep(2700);
+  await S.evaluate(() => { EGBCLaunch.check = () => Promise.resolve({ locked: false, opensOn: '1 November 2026' }); });
+  await S.$eval('#n-go', b => b.click());
+  await until(() => S.$('#not-yet'));
+  await sleep(800);
+  ok('7. NOT OPEN AT THE MOMENT OF SENDING: nothing saved, and it says when it opens', !(await list('welcomes')).some(w => /Sam Sooner/.test(w.name)) && /opens on 1 November 2026/.test(await text(S, '#main')), await text(S, '#main'));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

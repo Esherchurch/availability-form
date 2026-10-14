@@ -4906,3 +4906,26 @@ people. The screens hint at them (questions 6 and 7 at the end):
    setting)?
 9. Does the safeguarding team **send from its shared email address**?
 10. The **Tidio chat** on the website isn't ChurchSuite. Keep it?
+
+### F-179 answered — prayer.html and newhere.html save nothing before switch-over
+Both pages load `egbc-launch.js?v=202610141700` and use `EGBCLaunch.check()`
+twice: when the page opens, and again at the moment of saving.
+- **prayer.html.** With `churchSettings/launch.rulesLocked` not true:
+  - "Ask for prayer" shows the `notYet()` words instead of the form.
+  - "Answers to prayer" lists what is there, but there is no sharing form.
+  - "My requests" has no "It has been answered" controls.
+  - All three saves (a request, marking it answered, sharing an answer)
+    ask again first, and save nothing if it isn't open.
+- **newhere.html.** With the flag not true the form never appears. Instead
+  it shows the `notYet()` words and "Or say hello to someone on a Sunday".
+  Send asks again first. The welcomers' own card (the hellos list and who
+  gets them) is unchanged; it isn't a form a visitor fills in.
+
+**Proved:**
+- `prayer.test.mjs` 23/23 and `newhere.test.mjs` 26/26.
+  - With the flag unset: no form, the words, and nothing saved.
+  - With it set: everything saves as before.
+  - A page opened while open, then closed at the moment of sending
+    (`opensOn` 1 November), saves nothing and says when it opens.
+- 5 deliberate breaks, all caught. The one that matters: a prayer request
+  saved without asking again at the moment of sending.

@@ -16,7 +16,11 @@
         ONLY THOSE SHARED WITH IT; anyone else, none
      4. the person marks it answered and shares the answer with the church;
         everyone signed in reads it; the pastoral team can hide one
-     5. switched off for the church: not used */
+     5. switched off for the church: not used
+     6. F-179: BEFORE SWITCH-OVER (churchSettings/launch.rulesLocked not
+        true): no request form and no sharing, and NOTHING IS SAVED; asked
+        again at the moment of sending, so a page opened earlier saves
+        nothing either */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -127,6 +131,17 @@ const text = (p, sel) => p.$eval(sel || 'body', e => e.innerText.replace(/\s+/g,
 const tab = async (p, t) => { await tap(p, '[data-tab="' + t + '"]'); await sleep(300); };
 
 try {
+  /* ---------- 6. before switch-over ---------- */
+  const B = await as('oli');
+  const before = await text(B, '#ask');
+  ok('6. BEFORE SWITCH-OVER: no request form, the words instead', !(await B.$('#pr-go')) && !(await B.$('#pr-text')) && /call 999/.test(before) && /opens when the new church hub opens/.test(before), before);
+  await tab(B, 'answers');
+  ok('   and no sharing an answer', !(await B.$('#sh-go')) && /opens when the new church hub opens/.test(await text(B, '#answers')));
+  ok('   NOTHING SAVED', (await list('prayers')).length === 1 && (await list('prayerAnswers')).length === 0);
+  await tab(B, 'ask');
+  await B.screenshot({ path: path.join(HERE, 'prayer-not-yet-375.png'), fullPage: true });
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'churchSettings', 'launch'), { rulesLocked: true, opensOn: '' }); });
+
   /* ---------- 1. Speak ---------- */
   const A = await as('ann');
   const big = await A.$eval('#pr-speak', b => { const r = b.getBoundingClientRect(); return { h: r.height, w: r.width, shown: getComputedStyle(b).display !== 'none', words: b.textContent }; });
@@ -190,6 +205,15 @@ try {
   const N = await as('oli', { listen: false });
   const no = await N.evaluate(() => ({ btn: getComputedStyle(document.getElementById('pr-speak')).display, said: document.getElementById('pr-said').textContent }));
   ok('1. A PHONE THAT CANNOT LISTEN: no dead button, and where the keyboard microphone is', no.btn === 'none' && /microphone on your phone's keyboard/.test(no.said), J(no));
+
+  /* ---------- 6. asked again at the moment of sending ---------- */
+  const L = await as('oli');
+  await L.$eval('#pr-text', t => { t.value = 'LATE: sent after the form closed (invented)'; });
+  await L.evaluate(() => { EGBCLaunch.check = () => Promise.resolve({ locked: false, opensOn: '1 November 2026' }); });
+  await tap(L, '#pr-go');
+  await until(() => L.$('#ask #not-yet'));
+  await sleep(800);
+  ok('6. NOT OPEN AT THE MOMENT OF SENDING: nothing saved, and it says when it opens', !(await list('prayers')).some(p => /LATE/.test(p.text)) && /opens on 1 November 2026/.test(await text(L, '#ask')), await text(L, '#ask'));
 
   /* ---------- 5. switched off ---------- */
   const F = await as('ann', { off: true });

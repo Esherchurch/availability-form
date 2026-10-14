@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610141200"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-events.js?v=202610141900"></script>
@@ -99,6 +100,16 @@
       '<p class="hint">We keep only what you send, to reply to you. Nothing is saved until you press Send.</p>' +
       '<div id="n-err"></div><button class="btn" id="n-go" type="submit">Send</button></form>';
   }
+  /* F-179: until the locked rules are on (churchSettings/launch.rulesLocked),
+     a hello saved here could be read by anyone, so none is. Asked when the
+     page opens, and again at the moment of sending. Readable signed out. */
+  function launch() { return window.EGBCLaunch ? EGBCLaunch.check() : Promise.resolve({ locked: false, opensOn: '' }); }
+  function notYetCard(L) {
+    var church = EGBCChurch.name() || 'our church';
+    return '<h1>Welcome!</h1><p class="sub">We are glad you are here.</p>' +
+      '<div class="card"><p id="not-yet" role="status">' + esc(window.EGBCLaunch ? EGBCLaunch.notYet(L.opensOn) : 'This form is not open yet.') + '</p>' +
+      '<p class="hint">' + esc('Or say hello to someone from ' + church + ' on a Sunday - we would love to meet you.') + '</p></div>';
+  }
   function fail(m) { $('n-err').innerHTML = '<p class="err">' + esc(m) + '</p>'; $('n-go').disabled = false; }
 
   function send(ev) {
@@ -114,6 +125,12 @@
     var user = EGBCAuth.user && EGBCAuth.user();
     var hello = { name: name.slice(0, 120), email: email.slice(0, 200), phone: phone.slice(0, 40), message: msg.slice(0, 2000), contactMe: contact,
       uid: user ? user.uid : '', at: now(), status: 'new' };
+    launch().then(function (L) {
+      if (!L.locked) { $('main').innerHTML = notYetCard(L); return; }
+      return sendHello(hello, name, contact);
+    });
+  }
+  function sendHello(hello, name, contact) {
     /* The copy by email to the address the church chose, so nothing waits on
        somebody opening the hub, is sent by the hub's server once this is saved
        (functions/public-mail.js, F-168, F-170): a page with nobody signed in
@@ -176,9 +193,15 @@
   function start() {
     if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('newHere')) { $('main').innerHTML = '<div class="card">Not available.</div>'; return; }
     $('head').innerHTML = (EGBCChurch.logo() ? '<img src="' + esc(EGBCChurch.logo()) + '" alt="">' : '') + '<b>' + esc(EGBCChurch.name() || '') + '</b>';
-    $('main').innerHTML = card();
-    EGBCSpeak.attach($('n-speak'), $('n-msg'), { status: $('n-said') });
-    $('f').onsubmit = send;
+    /* The form only once it is known to be open. The welcomers' card below
+       is not a form a visitor fills in, so it shows either way. */
+    launch().then(function (L) {
+      if (!L.locked) { $('main').innerHTML = notYetCard(L); return; }
+      $('main').innerHTML = card();
+      opened = Date.now();
+      EGBCSpeak.attach($('n-speak'), $('n-msg'), { status: $('n-said') });
+      $('f').onsubmit = send;
+    });
     if (ME) {
       MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
       (MASTER ? db().collection('addressBook').get().then(function (s) { s.docs.forEach(function (d) { var x = d.data(); if (x.name && !x.archived) PEOPLE[d.id] = x.name; }); }).catch(function () {}) : Promise.resolve()).then(loadTeam);
