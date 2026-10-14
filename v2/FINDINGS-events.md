@@ -4971,175 +4971,198 @@ twice: when the page opens, and again at the moment of saving.
 The one that matters: a request accepted with no safeguarding lead.
 **Not deployed**: the rules go live at switch-over.
 
-### F-181 — PLAN: paying for event tickets by card, through each church's OWN Stripe account (Martin's decision, 14 Oct). PLAN ONLY: no payment code until it is reviewed
-**Martin:** "We are not taking the payments. We won't use our account."
-Church HQ never receives, holds or passes on money, and takes no cut.
-Each church connects its own Stripe account, and money goes straight
-there.
+### F-181 — PLAN: taking money online through each church's OWN accounts - Stripe (card) and GoCardless (bank) (Martin, 14 Oct; revised twice)
+**The rule (Martin):** "We are not taking the payments. We won't use our
+account."
+- Church HQ never receives, holds or passes on money, takes no fee, and
+  depends on **no approval** from Stripe or GoCardless.
+- Each church uses **its own** Stripe and/or GoCardless account. It
+  pastes in its own key once, and the money goes straight to it.
+- **No Stripe Connect and no platform account.** Stripe never issued Calla
+  platform access, so nothing here may depend on it. This replaces the
+  Connect plan.
 
-**Feature name `cardPayments`** (rule 12). Off for every church until that
-church connects a Stripe account; the switch can't be on without one.
+**Feature names (rule 12):** `cardPayments` (Stripe) and `bankPayments`
+(GoCardless). Each is off for every church until that church adds working
+details for it, and can't be switched on without them.
 
-#### 1. How a church connects: Stripe Connect, Standard accounts
-- **Church settings › Payments:**
-  - **"Connect with Stripe"** sends a master admin to Stripe's own sign-in
-    (Stripe Connect OAuth). There they sign in to the **church's** Stripe
-    account, or make one, and agree.
-  - Stripe sends them back. The card then shows **"Connected: <the account's
-    name> (acct_…1234)"**, who connected it, and when.
-  - **"Disconnect"** asks first on the page, then tells Stripe and switches
-    card payments off. Events that took card payments keep their records.
-- **Standard accounts:** the church owns its Stripe account outright. It
-  has its own dashboard, bank details, payouts, refunds and disputes. The
-  hub only holds the account's id (`acct_…`, which is not a secret).
-- **No platform fee:** the hub never sets `application_fee_amount`. A test
-  proves no request ever carries one. Stripe charges the church its own
-  normal rate, and nothing else is taken.
-- **One thing HQ does need:** Stripe Connect needs a **platform** Stripe
-  account to register the "Connect with Stripe" button. That gives the hub
-  its Connect client id and its server key.
-  - With Standard accounts and direct charges, **no money ever passes
-    through it**: payments are made on the church's own account.
-  - It costs nothing, but someone must own it (question 1).
-  - Stripe also offers a newer onboarding flow (Account Links). OAuth is
-    the one made for "connect an existing Standard account", which is what
-    churches will mostly have. The plan uses OAuth, with Account Links as
-    the fallback if Stripe asks for it when the platform is set up.
+#### 1. Who may set it up
+- A **master admin**, or the church's **treasurer**: anyone on the money
+  team the master admin names. The team is called "Finance" unless the
+  church changes it.
+- The server checks this on every call. Nobody else sees the Payments
+  page's controls.
 
-#### 2. How someone pays
-- **Each ticket type gets "How do people pay?":** on the day (as now,
-  F-183), online by card, or either (they choose).
-- **Signing up to a card ticket:**
-  1. The sign-up is saved and takes its place, exactly as now, and the
-     page asks the server for a payment page.
-  2. The server works out the price **itself**, from the event's ticket
-     types and the number of places. The page can't change what it costs.
-  3. It makes a **Stripe Checkout** page **on the church's account** (a
-     direct charge). The page sends the person there.
-  4. Card details are typed into Stripe's page and never touch the hub.
-- **The place is held for 30 minutes** (the Checkout page's own expiry).
-  - Paid: Stripe tells the server, and the place is confirmed, "Paid
-    £12.00 by card".
-  - Not paid in time: Stripe tells the server the page expired, and the
-    server cancels the sign-up and gives the place back.
-- **The confirmation email** says "Paid £12.00 by card", or "To pay on the
-  day" as now.
-- **A whole series** (F-184) is one payment for all the dates with places.
+#### 2. The Payments page (`payments.html`, mine)
+Two cards, Stripe and GoCardless, each with **a plain step-by-step guide
+for a treasurer, with screenshots**.
 
-#### 3. Refunds: in the church's own Stripe dashboard
-- The church refunds there, as it would any Stripe payment. The hub never
-  starts a refund.
-- Stripe tells the server, and the hub shows **"Refunded £12.00"** (or
-  "Part refunded £5.00") on Who is coming, "my place" and the totals.
-- **When someone cancels a paid place,** the hub gives the place back.
-  - The office is told: "Pat Payer cancelled a place paid by card: refund
-    £12.00 in Stripe if your policy allows".
-  - Each event shows its refund policy in words, written by the office.
+**Stripe card:**
+1. "In your Stripe dashboard, make a **restricted key** with only these
+   permissions":
+   - Checkout Sessions: write
+   - Account / balance: read (so the hub can show which account it is)
+   - Charges and refunds: read
+   - Events: read
+2. "Paste it here" (the box hides what is typed). Press **Check and save**.
+3. "In Stripe, add a **webhook** pointing at
+   `https://…/stripeWebhook` for these events":
+   - `checkout.session.completed`
+   - `checkout.session.expired`
+   - `charge.refunded`
+   - `charge.dispute.created`
+4. "Paste its **signing secret** (`whsec_…`) here." Press **Check and
+   save**.
 
-#### 4. Who sees money
-- **Event admins and leaders:** paid by card / on the day / refunded, per
-  place, and the event's totals, as F-183 does now.
-- **The church's Stripe dashboard:** everything else (payouts, fees,
-  disputes), as the church's own records.
-- **Nobody, ever:** card numbers. The hub never has them.
-- **Gift Aid:** none on tickets (a ticket isn't a gift).
+**GoCardless card:**
+1. "In GoCardless, Developers › Create › **Access token**, read-write."
+2. "Paste it here." Press **Check and save**.
+3. "Developers › Create › **Webhook endpoint**, URL
+   `https://…/gocardlessWebhook`; paste its **secret** here."
 
-#### 5. Secrets and safety
-- **Server-side only, in Secret Manager, never in the repo or a page:**
-  - the platform's Stripe secret key (`STRIPE_SECRET_KEY`)
-  - the Connect webhook's signing secret (`STRIPE_CONNECT_WEBHOOK_SECRET`)
-  - The Connect client id (`ca_…`) is not secret but is kept with them.
-- **Webhooks verified:** every one is checked against the raw body and
-  its `Stripe-Signature` header (Stripe's `constructEvent`). Anything
-  unsigned or out of date is refused.
-  - Each event is acted on once, by its id, so Stripe's retries change
-    nothing.
-  - Each event's `account` must be the church's connected account, or it
-    is ignored.
-- **Connecting is guarded:**
-  - The "state" Stripe sends back is a one-time value made for that admin.
-    It expires in 10 minutes and is used once.
-  - Only a master admin may connect or disconnect.
-- **The rules:** everything about card payments is written by the server
-  alone. No page can mark a place "paid by card" or change a refund. The
-  door's own "Paid" (F-183) stays as it is, for cash, card at the door and
-  bank transfer.
+**After saving** the page shows, never the key itself:
+- "Connected: Esher Green Baptist Church, acct …1234, **live** (real
+  money)" or "**test** (no real money)"
+- "added by Pat Treasurer on 14 Oct 2026"
+- the webhook: "set" or "not set yet, so payments can't be confirmed"
+- **Replace** and **Remove** (asks first, on the page)
 
-#### 6. What the MAIN WINDOW must build on the server (functions, codebase hub)
-1. **`stripeConnectStart`** (callable, master admin only). Makes the
-   one-time state (`stripeStates/{state}`: uid, expiry), and returns
-   Stripe's sign-in address (client id, `scope=read_write`, state,
-   redirect address).
-2. **`stripeConnectReturn`** (HTTPS, where Stripe sends the admin back).
-   - Checks the state.
-   - Swaps the one-time code for the church's account id (Stripe's OAuth
-     token call, with the platform key).
-   - Reads the account's display name.
-   - Writes `paymentSettings/main`: `{ accountId, accountName,
-     connectedAt, connectedBy, connected: true }`.
-   - Sends the admin back to Church settings › Payments with "Connected".
-3. **`stripeDisconnect`** (callable, master admin only). Stripe's
-   deauthorize call; then `paymentSettings/main.connected = false`, and
-   `cardPayments` off.
-4. **`ticketCheckout`** (callable, anyone signing up, signed in or not).
-   - Input: the sign-up key (unguessable).
-   - Checks the sign-up exists, is confirmed, is unpaid, and that its
-     event's ticket type takes card.
-   - Works out the amount; for a whole series, from `seriesSignups`.
-   - Makes a Checkout Session **on the connected account**
-     (`stripeAccount: acct_…`):
-     - no application fee, 30-minute expiry
-     - `metadata { signupKey, calEventId, keys }`
-     - success and cancel addresses back to "my place"
-   - Writes `signupPayments/{key}`: `{ method: 'card-online', status:
-     'awaiting', amount, checkoutId }`, and returns the page address.
-5. **`stripeWebhook`** (HTTPS, the Connect webhook). Verifies, acts once
-   per event id, then handles:
-   - `checkout.session.completed`: paid (amount, payment id) on every key
-     in the booking.
-   - `checkout.session.expired`: the sign-ups cancelled and their places
-     given back (with `lastCancelled`, as the counter rule wants).
-   - `charge.refunded`: refunded or part refunded, with the amount.
-   - `account.application.deauthorized`: the church disconnected from
-     Stripe's side, so mark disconnected and switch `cardPayments` off.
-6. **Rules** (theirs or mine, by section):
-   - `paymentSettings/main`: admins read; never written by a page.
-   - `stripeStates`: no page at all.
-   - `signupPayments`: my F-183 rule refuses `card-online` and the
-     Stripe fields from pages, so only the server writes them. I'll change
-     my rule for that when the code comes.
-7. **Tests** with a stand-in Stripe and **no network**, as every test here:
-   - a forged webhook is refused
-   - a webhook for another account is ignored
-   - a retried webhook acts once
-   - no request ever carries an application fee
-   - an expired page gives the place back
+Nothing can be read back. A key leaves the page once, to the server, and
+is never sent to any page again.
 
-#### 7. Mine, once the plan is agreed (pages and tests)
-- **Each ticket type's "How do people pay?"** in events-admin. Card is
-  only offered once the church is connected.
-- **signup.html:** "Pay £12.00 by card" sends them to Stripe; coming back,
-  "Paid, thank you", or "Not paid: your place is held until 18:42". On the
-  day stays as F-183.
-- **my-signup.html:** paid by card / refunded / still to pay, and "Pay now"
-  while held.
-- **events-admin › Who is coming and the totals:** card, on the day,
-  refunded; and the office's note when a paid place is cancelled.
-- **Church settings › Payments** (Connect / Disconnect / connected
-  account): church-settings.html is mostly the main window's. They can
-  build the card, or tell me to (question 4).
+**Screenshots for the guide:** Stripe's and GoCardless's own dashboards
+can't be photographed here (no network, and no real accounts). So the
+guide is written step by step now, with a box where each screenshot goes.
+Martin, or a treasurer with a **test** account, takes them once, and the
+guide shows them (question 2).
 
-#### Questions before any code
-1. **Who owns HQ's Stripe *platform* account** (needed only so churches
-   can connect; no money goes through it)? It's free to open; Stripe asks
-   for the platform's business details.
-2. **Card, on the day, or either:** should a church choose that per ticket
-   type, as planned?
-3. **30 minutes to pay** before the place goes back: right?
-4. **Church settings › Payments:** the main window's to build, or mine?
+#### 3. Keys are kept on the server only
+- Saving calls a function (`paymentsSave`) with the key. It **checks the
+  key with the provider first**, then stores it.
+  - Stripe: `GET /v1/account` gives the account id and name. A key
+    starting `rk_test_` / `sk_test_` is test mode, `rk_live_` /
+    `sk_live_` is live.
+  - GoCardless: `GET /creditors` gives the creditor's name. A key starting
+    `sandbox_` is test, anything else live.
+  - A key that doesn't work is not saved, and the page says why in words.
+- **Where:** `paymentSecrets/{stripe|gocardless}`, a collection the rules
+  deny to everyone (`allow read, write: if false`). Only functions (the
+  Admin SDK) read it.
+  - The key is **also encrypted** (AES-256-GCM) with one master key held
+    in **Secret Manager** (`PAYMENTS_KEY`, set once at deploy). Even a
+    copy of the database alone holds nothing usable.
+- What pages may read is `paymentSettings/{provider}`: connected, account
+  name, the last 4 of the account id, live/test, who added it and when,
+  and whether the webhook is set. Server-written; readable by admins and
+  the treasurer.
+- **Webhooks verified, per church:**
+  - Stripe: the `Stripe-Signature` HMAC-SHA256 over `timestamp.body`
+    with the church's `whsec_`, at most 5 minutes old.
+  - GoCardless: the `Webhook-Signature` HMAC-SHA256 of the body with the
+    church's secret.
+  - Anything unsigned, wrong or late is refused.
+  - Each event is acted on once (by its id), so retries change nothing.
+- No new packages: the calls are plain `fetch`, and the signature checks
+  are written out and tested against known values.
+- **No fee ever:** no application fee or app fee is ever sent. A test
+  proves no request carries one.
 
-The earlier plan (other providers, the hub doing refunds, a Finance role
-seeing payouts) is replaced by this one.
+#### 4. Tickets: on the day / card / bank, any mix
+- Each ticket type gets **"How people can pay"** (one or more):
+  - On the day (as now, F-183)
+  - Card (Stripe), offered only while `cardPayments` is on
+  - Bank (GoCardless Instant Bank Pay), offered only while `bankPayments`
+    is on
+- **Paying online:**
+  1. The sign-up is saved and takes its place, as now.
+  2. "Pay £12.00 by card" or "Pay by bank" asks the server for a payment
+     page.
+  3. **The server works out the price itself** from the event's ticket
+     types and the places (a whole series: all its dates with places).
+  4. **Card:** a Stripe Checkout page made with the church's own key.
+     **Bank:** a GoCardless Billing Request with a payment request
+     (Instant Bank Pay), and its hosted flow.
+  5. The person pays on the provider's own page. The hub never sees card
+     or bank details.
+- **Held for 30 minutes.** Paid: "Paid £12.00 by card / by bank". Not paid
+  in time: the place goes back (the Checkout page's expiry; for bank, the
+  server's own check of payments still waiting).
+- **Refunds** are done in the church's own dashboard; the webhook tells
+  the hub, which shows "Refunded £12.00". If someone cancels a paid place,
+  the office is told: "refund £12.00 in Stripe / GoCardless if your
+  policy allows".
+- Door payments (F-183) are unchanged.
+
+#### 5. Regular giving by Direct Debit (GoCardless), with Gift Aid
+- On the Give screen, **"Give regularly by Direct Debit"** goes to my
+  page `give-regularly.html`:
+  - how much
+  - monthly, or every 4 weeks
+  - which day of the month
+  - "Add Gift Aid" (if they are a UK taxpayer), which records a Gift Aid
+    declaration exactly as `giftaid.html` does (F-169)
+- The server makes a **GoCardless Billing Request with a mandate request**
+  (Bacs). The person sets up the mandate on GoCardless's own page.
+- Once the mandate is active, the server makes a **subscription** for that
+  amount and timing.
+- Each collected payment (the `payments.confirmed` / `paid_out` webhook)
+  is recorded as a **donation**, with whether Gift Aid applies, so the
+  Gift Aid report (F-169) can claim it. Failed or cancelled payments and
+  mandates are recorded too.
+- **The giver's own page** ("my regular giving", through their emailed
+  link, or signed in): amount, next date, **Change amount**, **Stop**.
+  Stopping cancels the subscription. The mandate is left, which is the
+  usual way, and the page says so.
+- **Who sees giving:** the treasurer only (the money team). Not event
+  admins, and not the office.
+- **The Give screen (`give.html`) is the main window's.** It needs one
+  link to my page (question 4).
+
+#### 6. The server (all mine; one new file, `functions/payments.js`)
+- **Callables:**
+  - `paymentsSave` (check and save a key or webhook secret)
+  - `paymentsRemove`
+  - `ticketPay` (card or bank, for a sign-up key)
+  - `giveRegularly`, `givingChange`, `givingStop`
+- **HTTPS:** `stripeWebhook` and `gocardlessWebhook`, each verified as
+  above.
+- **Scheduled:** `paymentsTidy` every 10 minutes. It gives back places
+  still unpaid after 30 minutes (bank payments; Stripe tells us itself).
+- Calls go to the providers through one base address each, so the tests
+  point them at a **stand-in Stripe and stand-in GoCardless** on the
+  emulator, with no network.
+- **Rules** (my section):
+  - `paymentSecrets`: nobody.
+  - `paymentSettings`, `donations`, `regularGifts`: server-written;
+    readable by the treasurer (the giver reads their own gift by its key).
+  - `signupPayments`: the card and bank fields are server-only.
+- **One line outside my files:** `export * from './payments.js'` in
+  `functions/index.js`, as `public-mail.js` is exported. I'll add that
+  line myself and say so, unless you'd rather the main window did.
+
+#### 7. Building order
+1. **Stripe:**
+   - the Payments page (Stripe card and its guide), keys, webhook,
+     tickets by card
+   - a stand-in Stripe, tests and breaks
+   - report
+2. **GoCardless:**
+   - the GoCardless card and its guide
+   - Instant Bank Pay for tickets
+   - Direct Debit giving with Gift Aid and its page
+   - a stand-in GoCardless, tests and breaks
+   - report
+
+#### Questions
+1. **The treasurer:** is "the master admin, or anyone on a team the master
+   admin names (default 'Finance')" right?
+2. **Screenshots:** they need a real (test-mode) Stripe and GoCardless
+   dashboard. Can Martin take them, or open test accounts I can describe
+   step by step?
+3. **Direct Debit timing:** monthly on a chosen day, and every 4 weeks.
+   Anything else (weekly, yearly)?
+4. **The Give screen's link** to "Give regularly": the main window adds it
+   to `give.html`, or I do?
 
 ### F-182 — SPEC for the main window (R7): a calendar people can subscribe to, that works
 Martin tried ChurchSuite's calendar feed and **it didn't work**, so ours
@@ -5432,3 +5455,35 @@ that is mine.
 - Everything else (rotas, texts, My details, the directory, My messages,
   the church-wide communication list, team addresses) is the main
   window's, R1 to R11.
+
+### F-190 — Safeguarding settings: set the lead and deputy there (Martin pressed "Set one" and found no way)
+- A new card, **"Who looks after safeguarding"**, at the top of
+  safeguarding-settings.html. For each building it has **Safeguarding
+  lead** and **Deputy** pickers, and with more than one building, which
+  building's lead the forms reach first. There's also the lead's phone
+  number for the "I'm worried" form.
+- **Adults only:** anyone marked **UNDER 16** in the address book isn't
+  offered. The address book has no other age, so a 16- or 17-year-old not
+  marked is still offered.
+- **Saving writes `bookingSettings/<site>.safeguardingLead` /
+  `safeguardingDeputy`** (the same fields Places shows, so both pages
+  agree), and `safeguardingSettings/defaults.leadSiteId`, `leadName` and
+  `leadPhone`. The server's own trigger then sets `careRouting/status`
+  (`leadSet: true`).
+- The lead and the deputy can't be the same person.
+- **A bug fixed:** saving this page used to drop `leadSiteId`, `leadName`
+  and `leadPhone` (it wrote the whole document without them). Now they are
+  always kept, including when the lead (not an admin) saves.
+- **The lead, not an admin,** sees who the lead is and can't change it
+  (only admins may write `bookingSettings`, as before).
+- **The hub's "Set one"** goes to safeguarding-settings.html again.
+  - I changed one line of `hub-app.js` (yours), as asked, and bumped its
+    `?v=` in `hub.html` so browsers fetch it.
+
+**Proved:**
+- `sg-lead.test.mjs` 14/14, with the hub's **real** functions on the
+  emulator (`careStatusFromSite` sets `leadSet: true`).
+- 4 deliberate breaks, all caught. The one that matters: the lead saved
+  somewhere Places and the server don't read.
+  - My first check let "dropping the lead on save" through, because as an
+    admin the card re-supplies it. The test now saves as the lead too.

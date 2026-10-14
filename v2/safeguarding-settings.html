@@ -77,6 +77,51 @@
   'use strict';
   var E = window.EGBCEvents, F = window.EGBCForms, SG = window.EGBCSafeguarding, esc = E.esc;
   var ADMIN = false, LEADSITES = [], SAVED = null, DIRTY = false, FORMS_TO = [], EVENTS_TO = [];
+  /* WHO LOOKS AFTER SAFEGUARDING (Martin, 14 Oct 2026: he pressed the hub's
+     "Set one" and found no way to set a name). Each building's lead and
+     deputy are bookingSettings/<site>.safeguardingLead/Deputy - the same
+     fields Places shows - and leadSiteId says which building's lead the
+     forms reach first. Adults only: anyone marked UNDER 16 in the address
+     book is not offered (the address book holds no other age). */
+  var SITES = [], BS = {}, PEOPLE = [];
+  function adultOpts(sel, id) {
+    return '<select id="' + id + '"><option value="">Nobody set</option>' + PEOPLE.map(function (p) {
+      return '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') +
+      (sel && !PEOPLE.some(function (p) { return p.id === sel; }) ? '<option value="' + esc(sel) + '" selected>(someone not offered here)</option>' : '') + '</select>';
+  }
+  function leadSiteNow() {
+    var named = SITES.filter(function (x) { return (BS[x.id] || {}).safeguardingLead; })[0];
+    return (SAVED && SAVED.leadSiteId) || (named || SITES[0] || {}).id || '';
+  }
+  function whoCard() {
+    var head = '<div class="card" id="who"><h2><span class="badge">' + ico('shield-check', 17) + '</span>Who looks after safeguarding</h2>';
+    if (!SITES.length) return head + '<p class="hint">Add your building in Places first.</p></div>';
+    if (!ADMIN) {
+      return head + '<p>' + (SAVED && SAVED.leadName ? 'The safeguarding lead is <b>' + esc(SAVED.leadName) + '</b>.' : 'No safeguarding lead is named yet.') +
+        '</p><p class="hint">An admin changes who it is.</p></div>';
+    }
+    var first = leadSiteNow();
+    return head + '<p class="hint" style="margin-top:0">Concerns, requests for care and prayer requests go to the lead and the deputy. Until a lead is named, those forms cannot be sent. Only adults are offered.</p>' +
+      SITES.map(function (x) {
+        var b = BS[x.id] || {};
+        return '<div data-site="' + esc(x.id) + '" style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">' +
+          (SITES.length > 1 ? '<label class="check" style="margin:0 0 6px"><input type="radio" name="leadSite" value="' + esc(x.id) + '"' + (x.id === first ? ' checked' : '') + '><b>' + esc(x.name || x.id) + '</b>: the lead the forms reach first</label>' : '<b>' + esc(x.name || x.id) + '</b>') +
+          '<div class="two"><div class="field"><label for="lead_' + esc(x.id) + '">Safeguarding lead</label>' + adultOpts(b.safeguardingLead || '', 'lead_' + x.id) + '</div>' +
+          '<div class="field"><label for="dep_' + esc(x.id) + '">Deputy</label>' + adultOpts(b.safeguardingDeputy || '', 'dep_' + x.id) + '</div></div></div>';
+      }).join('') +
+      '<div class="field" style="margin-top:10px"><label for="leadPhone">The lead\'s phone number (optional)</label><input class="inp" id="leadPhone" type="tel" maxlength="30" value="' + esc((SAVED && SAVED.leadPhone) || '') + '">' +
+      '<p class="hint" style="margin:4px 0 0">Shown beside "call 999" on the "I\'m worried" form, so people can ring them if it cannot wait.</p></div></div>';
+  }
+  /* Who leads where, as the page shows it now. */
+  function readWho() {
+    var out = { sites: {}, leadSiteId: leadSiteNow() };
+    SITES.forEach(function (x) {
+      var l = document.getElementById('lead_' + x.id), d = document.getElementById('dep_' + x.id);
+      if (l) out.sites[x.id] = { safeguardingLead: l.value, safeguardingDeputy: d.value };
+    });
+    var r = document.querySelector('input[name="leadSite"]:checked'); if (r) out.leadSiteId = r.value;
+    return out;
+  }
   var KEEP = [[3, '3 months'], [6, '6 months'], [12, '1 year'], [24, '2 years'], [36, '3 years'], [72, '6 years']];
 
   function db() { return EGBCAuth.db; }
@@ -119,6 +164,7 @@
       '<p class="sub">The periods and rules every new form and event starts with, in one place.</p>' +
       (SAVED && SAVED.updatedAt ? '<p class="hint" style="margin-top:-8px">Last changed ' + esc(E.fmtDate(SAVED.updatedAt)) + (SAVED.updatedByName ? ' by ' + esc(SAVED.updatedByName) : '') + '.</p>' : '') +
 
+      whoCard() +
       '<div class="card"><h2><span class="badge">' + ico('file-text', 17) + '</span>Forms</h2>' +
         '<p class="hint" style="margin-top:-4px">For each kind of form: how long an answer counts, and how long it is kept after that before it is due for deletion.</p>' +
         F.TEMPLATES.map(function (t) {
@@ -187,9 +233,25 @@
   function save() {
     var d = read(), u = EGBCAuth.user() || {}, p = EGBCAuth.profile() || {};
     d.updatedAt = new Date().toISOString(); d.updatedBy = u.uid || ''; d.updatedByName = p.name || '';
+    /* Who leads is kept, whoever saves: before, saving here dropped it. */
+    d.leadSiteId = (SAVED && SAVED.leadSiteId) || ''; d.leadName = (SAVED && SAVED.leadName) || ''; d.leadPhone = (SAVED && SAVED.leadPhone) || '';
     if (!ADMIN) d.leadSiteId = LEADSITES[0];
+    var who = ADMIN && SITES.length && document.getElementById('lead_' + SITES[0].id) ? readWho() : null, sites = [];
+    if (who) {
+      var bad = '';
+      Object.keys(who.sites).forEach(function (sid) { var x = who.sites[sid]; if (x.safeguardingLead && x.safeguardingLead === x.safeguardingDeputy) bad = 'The lead and the deputy must be two different people.'; });
+      if (bad) { toast(bad); return; }
+      sites = Object.keys(who.sites).filter(function (sid) { var b = BS[sid] || {}, x = who.sites[sid]; return (b.safeguardingLead || '') !== x.safeguardingLead || (b.safeguardingDeputy || '') !== x.safeguardingDeputy; });
+      var lead = (who.sites[who.leadSiteId] || {}).safeguardingLead || '';
+      d.leadSiteId = who.leadSiteId;
+      d.leadName = lead ? ((PEOPLE.filter(function (x) { return x.id === lead; })[0] || {}).name || d.leadName) : '';
+      d.leadPhone = lead ? document.getElementById('leadPhone').value.trim().slice(0, 30) : '';
+    }
     document.getElementById('save').disabled = true;
-    db().collection('safeguardingSettings').doc('defaults').set(d).then(function () {
+    Promise.all(sites.map(function (sid) { return db().collection('bookingSettings').doc(sid).set(who.sites[sid], { merge: true }); })).then(function () {
+      sites.forEach(function (sid) { BS[sid] = Object.assign({}, BS[sid] || {}, who.sites[sid]); });
+      return db().collection('safeguardingSettings').doc('defaults').set(d);
+    }).then(function () {
       SAVED = d; DIRTY = false; toast('Saved.'); draw();
     }).catch(function (e) {
       document.getElementById('save').disabled = false;
@@ -287,7 +349,18 @@
       return;
     }
     SAVED = r[1] && r[1].exists ? r[1].data() : null;
-    draw();
+    return Promise.all([
+      db().collection('sites').get().catch(function () { return { docs: [] }; }),
+      db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
+      ADMIN ? db().collection('addressBook').get().catch(function () { return { docs: [] }; }) : Promise.resolve({ docs: [] })
+    ]).then(function (w) {
+      SITES = w[0].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }).filter(function (x) { return x.active !== false; })
+        .sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.name || '').localeCompare(String(b.name || '')); });
+      w[1].docs.forEach(function (x) { BS[x.id] = x.data(); });
+      PEOPLE = w[2].docs.map(function (x) { var v = x.data(); return { id: x.id, name: (v.name || '').trim(), minor: v.isMinor === true, archived: !!v.archived }; })
+        .filter(function (p) { return p.name && !p.minor && !p.archived; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      draw();
+    });
   }).catch(function (e) {
     document.getElementById('wrap').innerHTML = '<div class="card"><div class="banner warn">' + esc(e.message || e) + '</div></div>';
   });

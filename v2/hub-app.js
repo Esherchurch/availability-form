@@ -1391,9 +1391,9 @@ function waitingItems() {
     icon: 'shield-alert',
     what: 'No safeguarding lead set — concerns can’t reach anyone',
     why: 'Care &amp; support will not send a concern or a request for care until one is set',
-    /* The lead is chosen on the building, in Places, until Safeguarding
-       settings gets its own pickers (requested of the main window). */
-    go: '<a class="btn sm" href="places-admin.html">Set one in Places</a>'
+    /* Safeguarding settings has its own lead and deputy pickers now
+       (events window, F-190); they write the same fields Places shows. */
+    go: '<a class="btn sm" href="safeguarding-settings.html">Set one</a>'
   });
   NEWS.filter(n => n.requireAck && !ACKED.has(n.id)).forEach(n => {
     out.push({
