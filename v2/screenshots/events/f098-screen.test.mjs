@@ -183,6 +183,23 @@ try {
   ok('   checked in with a SCREEN NUMBER: three digits, not the collection code', /^[0-9]{3}$/.test(SCREEN || '') && SCREEN !== CODE, J({ SCREEN, CODE }));
   ok('   printed on the parent\'s slip, beside the collection code', (await until(() => S.$eval('[data-slip] [data-screenno]', e => e.textContent).catch(() => ''))).includes('Screen number ' + SCREEN));
 
+  /* NO TWO FAMILIES SHARE A SCREEN NUMBER (Martin, 14 Oct 2026: random ones
+     clashed about one Sunday in three). The page's own code, as a lead. */
+  const sixty = await S.evaluate(async (day) => { const out = []; for (let i = 0; i < 60; i++) out.push(await EGBCCheckin.screenNoFor('site_t', day, 'fam_sixty_' + i, '')); return out; }, DAY);
+  ok('   SIXTY FAMILIES IN: sixty different screen numbers', sixty.length === 60 && new Set(sixty.concat([SCREEN])).size === 61 && sixty.every(n => /^[0-9]{3}$/.test(n)), J(sixty.slice(0, 8)) + '…');
+  const atOnce = await S.evaluate(async (day) => Promise.all(Array.from({ length: 10 }, (x, i) => EGBCCheckin.screenNoFor('site_t', day, 'fam_rush_' + i, ''))), DAY);
+  ok('   ten more at the same moment (two desks): still no two the same', new Set(sixty.concat(atOnce, [SCREEN])).size === 71, J(atOnce));
+  ok('   a family asking again keeps its own number', (await S.evaluate((day) => EGBCCheckin.screenNoFor('site_t', day, 'fam_sixty_7', ''), DAY)) === sixty[7]);
+  /* A building with every number but one taken: the next family gets that one. */
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'kidsSettings', 'site_full'), { teams: ['Kids Church'] });
+    const ws = [];
+    for (let n = 100; n <= 999; n++) if (n !== 618) ws.push(setDoc(doc(db, 'kidsScreenNos', 'site_full_' + DAY + '_' + n), { siteId: 'site_full', day: DAY, n: String(n), familyId: 'fam_x' + n, groupId: '', at: 'x' }));
+    await Promise.all(ws);
+  });
+  ok('   with 899 of the 900 numbers taken, the next family gets the one that is free', (await S.evaluate((day) => EGBCCheckin.screenNoFor('site_full', day, 'fam_last', ''), DAY)) === '618');
+
   /* ---------- 2. Show on screen ---------- */
   const lB = await as('lou', 375); const L = lB.page;
   await go(L, 'kids-checkin.html', '[data-more="kc_ada"]');

@@ -1740,7 +1740,9 @@ service cloud.firestore {
              // The screen number (Martin, 14 Oct 2026): three digits, never
              // the collection code. All the service screen may ever show.
              && d.get('screenNo', '') is string
-             && (d.get('screenNo', '') == '' || (d.get('screenNo', '').matches('[0-9]{3}') && d.get('screenNo', '') != d.pickupCode))
+             && (d.get('screenNo', '') == '' || (d.get('screenNo', '').matches('[0-9]{3}') && d.get('screenNo', '') != d.pickupCode
+                 // reserved for THIS family at this site today, so no two share one
+                 && getAfter(/databases/$(database)/documents/kidsScreenNos/$(d.siteId + '_' + d.day + '_' + d.get('screenNo', ''))).data.familyId == d.familyId))
              && kidsCkTeam(d);
     }
     // Who may collect: someone listed on the child's record (as it is
@@ -2798,6 +2800,23 @@ service cloud.firestore {
              && kidsSettingsOf(siteId).get('formId', '') == formId
              && kidsLead(siteId);
     }
+    // ---- screen numbers: one family each, per site per day (Martin, 14 Oct 2026) ----
+    // Reserved once and never changed, so two families can never share one,
+    // even from two desks at the same moment. A number and a family id, no
+    // names: the number is shown on a public screen anyway.
+    match /kidsScreenNos/{id} {
+      allow read: if active();
+      allow create: if request.resource.data.keys().hasOnly(['siteId', 'day', 'n', 'familyId', 'groupId', 'at'])
+                    && request.resource.data.siteId is string && request.resource.data.n is string && request.resource.data.n.matches('[0-9]{3}')
+                    && request.resource.data.day is string && request.resource.data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+                    && request.resource.data.familyId is string && request.resource.data.familyId.size() > 0
+                    && id == request.resource.data.siteId + '_' + request.resource.data.day + '_' + request.resource.data.n
+                    && (kidsLead(request.resource.data.siteId) || kidsSessionLeaderNow(request.resource.data.siteId)
+                        || (kidsGroupLeader(request.resource.data.get('groupId', ''))
+                            && get(/databases/$(database)/documents/kidsGroups/$(request.resource.data.get('groupId', ''))).data.get('siteId', '') == request.resource.data.siteId));
+      allow update, delete: if false;
+    }
+
     match /kidsSettings/{siteId} {
       allow read: if volunteer();
       // Who the leads are is set by a master admin or the safeguarding lead.

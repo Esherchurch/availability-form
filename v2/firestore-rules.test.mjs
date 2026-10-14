@@ -1588,11 +1588,23 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('nor keep a morning open for days', 'deny', () => setDoc(mref(ctx('u_kim')), MORNING({ expiresAt: soon(48) })));
   await check('a lead opens the morning, with the rota\u2019s Session Leader', 'allow', () => setDoc(mref(ctx('u_kim')), MORNING()));
 
+  /* Screen numbers are reserved, one family each, per site per day (Martin, 14 Oct 2026). */
+  const SNO = (n, fam) => ({ siteId: 'site_kids', day: TODAY, n, familyId: fam, groupId: '', at: 'x' });
+  const SREF = (who, n) => doc(who, 'kidsScreenNos', 'site_kids_' + TODAY + '_' + n);
+  await check('a lead reserves screen number 427 for a family this morning', 'allow', () => setDoc(SREF(ctx('u_kim'), '427'), SNO('427', 'fam_2')));
+  await check('ANOTHER FAMILY CANNOT HAVE 427 TOO', 'deny', () => setDoc(SREF(ctx('u_kim'), '427'), SNO('427', 'fam_9')));
+  await check('  nor can it be given back and used again today', 'deny', () => deleteDoc(SREF(ctx('u_kim'), '427')));
+  await check('someone outside the children\u2019s team cannot reserve one', 'deny', () => setDoc(SREF(ctx('u_wes'), '555'), SNO('555', 'fam_9')));
+  await check('  nor under another number than its own name says', 'deny', () => setDoc(SREF(ctx('u_kim'), '556'), SNO('557', 'fam_9')));
+
   const CKID = (kid, g) => 'kids_' + g + '_' + TODAY + '__' + kid + '__0';
   const CK = (kid, g) => ({ calEventId: 'kids_' + g + '_' + TODAY, signupKey: kid, attendeeIndex: 0, name: kid === 'kid_cat' ? 'Cat Synthetic' : 'Dan Synthetic', kind: 'child', state: 'in',
     inAt: 'x', inBy: 'x', inByName: 'x', roomId: '', day: TODAY, updatedAt: 'x', groupId: g, siteId: 'site_kids', familyId: 'fam_2', pickupCode: 'Q7P2', screenNo: '427' });
   const ROLL = (kid, g, extra) => ({ siteId: 'site_kids', day: TODAY, groupId: g, groupName: 'x', childId: kid, name: CK(kid, g).name, state: 'in', inAt: 'x', outAt: '', roomId: '', updatedAt: 'x', ...(extra || {}) });
   const both = (who, kid, g, rollExtra) => { const b = writeBatch(who); b.set(doc(who, 'checkins', CKID(kid, g)), CK(kid, g)); b.set(doc(who, 'kidsRoll', CKID(kid, g)), ROLL(kid, g, rollExtra)); return b.commit(); };
+  await check('a check-in may not carry a screen number nobody reserved for its family', 'deny', () => {
+    const k = ctx('u_kim'), b = writeBatch(k); b.set(doc(k, 'checkins', CKID('kid_cat', 'grp_junior')), { ...CK('kid_cat', 'grp_junior'), screenNo: '558' });
+    b.set(doc(k, 'kidsRoll', CKID('kid_cat', 'grp_junior')), ROLL('kid_cat', 'grp_junior')); return b.commit(); });
   await check('a roll-call copy must say what the check-in says', 'deny', () => both(ctx('u_kim'), 'kid_cat', 'grp_junior', { name: 'Someone Else' }));
   await check('the desk checks Cat in, with her roll-call copy, in one write', 'allow', () => both(ctx('u_kim'), 'kid_cat', 'grp_junior'));
   const roll = (who, day) => getDocs(query(collection(who, 'kidsRoll'), where('siteId', '==', 'site_kids'), where('day', '==', day || TODAY)));

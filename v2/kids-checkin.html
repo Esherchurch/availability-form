@@ -314,20 +314,21 @@
     var ck = Object.keys(CKS).map(function (k) { return CKS[k]; }).filter(function (x) { return x.familyId === familyId && x.day === DAY; })[0];
     return ck ? ck.pickupCode : K.pickupCode();
   }
-  /* And one screen number per family per morning, the same way. */
-  function familyScreenToday(familyId) {
+  /* And one screen number per family per morning, never another family's
+     at this site today (reserved: C.screenNoFor). A promise. */
+  function familyScreenToday(familyId, groupId) {
     var ck = Object.keys(CKS).map(function (k) { return CKS[k]; }).filter(function (x) { return x.familyId === familyId && x.day === DAY && x.screenNo; })[0];
-    return ck ? ck.screenNo : K.screenNumber();
+    return ck ? Promise.resolve(ck.screenNo) : C.screenNoFor(V.site, DAY, familyId, groupId);
   }
   function checkInFamily(familyId, btn) {
     var ids = [].slice.call(document.querySelectorAll('[data-fam="' + familyId + '"] .d-tick:checked')).map(function (x) { return x.value; });
     if (!ids.length) { toast('Tick the children who are here'); return; }
     btn.disabled = true;
-    var code = familyCodeToday(familyId), scr = familyScreenToday(familyId);
-    Promise.all(ids.map(function (id) {
+    var code = familyCodeToday(familyId), scr = '';
+    familyScreenToday(familyId, (child(ids[0]) || {}).groupId).then(function (n) { scr = n; return Promise.all(ids.map(function (id) {
       var c = child(id), g = group(c.groupId), ck = ckOf(c);
       return C.kidsIn(c, g, DAY, ck ? ck.pickupCode : code, ck, scr);
-    })).then(function () {
+    })); }).then(function () {
       V.labels = { familyId: familyId, ids: ids, code: code, screen: scr };
       toast('Checked in: ' + ids.length);
       drawResults();
@@ -436,9 +437,13 @@
         responseId: '', updatedAt: now, updatedBy: uid() });
       made.push(Object.assign({ id: id }, d));
     });
-    var code = K.pickupCode(), scr = K.screenNumber();
+    var code = K.pickupCode(), scr = '';
     batch.commit().then(function () {
       CHILDREN = CHILDREN.concat(made);
+      var first = made.filter(function (c) { return group(c.groupId); })[0];
+      return first ? familyScreenToday(famId, first.groupId) : '';
+    }).then(function (n) {
+      scr = n;
       return Promise.all(made.filter(function (c) { return group(c.groupId); }).map(function (c) { return C.kidsIn(c, group(c.groupId), DAY, code, null, scr); }));
     }).then(function () {
       V.labels = { familyId: famId, ids: made.map(function (c) { return c.id; }), code: code, screen: scr };
@@ -500,8 +505,8 @@
     box.querySelectorAll('[data-gin]').forEach(function (b) {
       b.onclick = function () {
         var c = child(b.dataset.gin); b.disabled = true;
-        var code = familyCodeToday(c.familyId), scr = familyScreenToday(c.familyId);
-        C.kidsIn(c, g, DAY, code, null, scr).then(function () {
+        var code = familyCodeToday(c.familyId), scr = '';
+        familyScreenToday(c.familyId, g.id).then(function (n) { scr = n; return C.kidsIn(c, g, DAY, code, null, scr); }).then(function () {
           openModal('<h2 style="margin:0 0 6px;font-size:17px;color:var(--ink)">' + esc(c.name) + ' is in</h2><p class="hint">Their collection code is below. Give it to the parent, with the label.</p>' +
             '<div id="labels">' + labelsHtml({ familyId: c.familyId, ids: [c.id], code: code, screen: scr }) + '</div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn sec" id="m-print">Print</button><button class="btn" id="m-done">Done</button></div>');
           document.getElementById('m-print').onclick = function () { window.print(); };

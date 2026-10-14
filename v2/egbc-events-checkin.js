@@ -249,6 +249,41 @@
     return { siteId: ck.siteId, day: ck.day, groupId: ck.groupId, groupName: groupName || '', childId: ck.signupKey, name: ck.name,
       state: ck.state, inAt: ck.inAt || '', outAt: ck.state === 'out' ? (ck.outAt || '') : '', roomId: ck.roomId || '', updatedAt: ck.updatedAt };
   }
+  /* A SCREEN NUMBER NO OTHER FAMILY HAS at this site today (Martin, 14 Oct
+     2026: random numbers clashed, and the wrong parent came). Each number is
+     reserved once, by one family: kidsScreenNos/<site>_<day>_<n>. A second
+     family's reservation is refused by the rules, so two desks at the same
+     moment cannot share one either; this re-rolls. A family keeps its number
+     all morning. groupId: the group being checked in to (a group leader's
+     right to reserve). Resolves with the number, as three digits. */
+  function screenNoFor(siteId, day, familyId, groupId) {
+    var col = db().collection('kidsScreenNos');
+    return col.where('siteId', '==', siteId).where('day', '==', day).get().then(function (s) {
+      var taken = {}, mine = '';
+      s.forEach(function (d) { var v = d.data(); if (v.familyId === familyId) mine = v.n; else taken[v.n] = true; });
+      if (mine) return mine;
+      var tries = 0;
+      var attempt = function () {
+        var free = [];
+        for (var k = 100; k <= 999; k++) if (!taken[String(k)]) free.push(String(k));
+        if (!free.length) throw new Error('Every screen number is in use at this site today.');
+        var n = free[Math.floor(Math.random() * free.length)], ref = col.doc(siteId + '_' + day + '_' + n);
+        return db().runTransaction(function (tx) {
+          return tx.get(ref).then(function (x) {
+            if (x.exists) { if (x.data().familyId === familyId) return n; taken[n] = true; return ''; }
+            tx.set(ref, { siteId: siteId, day: day, n: n, familyId: familyId, groupId: groupId || '', at: now() });
+            return n;
+          });
+        }).then(function (got) {
+          if (got) return got;
+          if (++tries > 25) throw new Error('Could not find a free screen number.');
+          return attempt();
+        });
+      };
+      return attempt();
+    });
+  }
+
   /* screenNo: the family's screen number this morning (never the code). */
   function kidsIn(child, group, day, code, existing, screenNo) {
     var who = me(), at = now();
@@ -314,7 +349,7 @@
     codeFor: codeFor, parseCode: parseCode, checkinId: checkinId,
     people: people, isListedCollector: isListedCollector, splitNames: splitNames,
     meaningful: meaningful, answerText: answerText, headcount: headcount, isMedical: isMedical,
-    checkIn: checkIn, checkOut: checkOut, walkIn: walkIn, today: today, kidsIn: kidsIn, kidsOut: kidsOut,
+    checkIn: checkIn, checkOut: checkOut, walkIn: walkIn, today: today, kidsIn: kidsIn, kidsOut: kidsOut, screenNoFor: screenNoFor,
     logDownload: logDownload, csvText: csvText, saveFile: saveFile, KEY_PART: KEY_PART
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

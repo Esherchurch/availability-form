@@ -4415,3 +4415,22 @@ change it.
 - Rules: 1243, including 6 new.
 - Eight deliberate breaks, all caught.
 - `k2-sunday`: 38/38. Its "Page a parent" check became "Ring".
+
+**F-175, 14 Oct: screen numbers can no longer clash.** The reviewing
+window's catch: with about 30 families in, random numbers would match
+roughly one Sunday in three, and the wrong parent would come.
+- Each number is now reserved once, by one family, per site per day
+  (`kidsScreenNos/<site>_<day>_<n>`).
+- The rules refuse a second family's reservation, so even two desks at
+  the same moment can't share one. The page re-rolls.
+- The rules also refuse a check-in whose screen number isn't reserved for
+  its own family.
+- **Proved:**
+  - 60 families in: 60 different numbers
+  - ten more at the same moment: still all different
+  - a family asking again keeps its number
+  - with 899 of the 900 taken, the next family gets the free one
+  - Rules: 1249 in all. Four deliberate breaks, all caught.
+- **For the main window, the app's family check-in:** get the number with
+  `EGBCCheckin.screenNoFor(siteId, day, familyId, groupId)`, not
+  `EGBCKids.screenNumber()`. Then pass it to `kidsIn` as its last argument.
