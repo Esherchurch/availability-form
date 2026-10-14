@@ -17,7 +17,7 @@
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610142300"></script>
+<script src="egbc-events.js?v=202610150900"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
@@ -203,6 +203,8 @@
   var U18 = false, U18_WAS = false;
   /* Pay on the day (F-183): who has paid, by sign-up key. */
   var PAYS = {};
+  /* F-181: can this church take card payments at all (paymentSettings/public). */
+  var PAYPUB = {};
   var SIGNUPS = [], CHECK = null, NOTES = '', CHANGES = [], COMMS = [], CSET = {};
 
   function db() { return EGBCAuth.db; }
@@ -679,7 +681,14 @@
           '<div class="field"><label>Name</label><input class="inp tt-name" data-i="' + i + '" value="' + esc(t.name || '') + '"></div>' +
           '<div class="field" style="max-width:130px"><label>Price (£)</label><input class="inp tt-price" type="number" min="0" step="0.01" data-i="' + i + '" value="' + (t.price || 0) + '"></div>' +
           '<div class="field" style="max-width:130px"><label>Places</label><input class="inp tt-cap" type="number" min="0" data-i="' + i + '" value="' + (t.capacity || 0) + '"></div>' +
-        '</div><button class="btn ghost sm tt-del" data-id="' + esc(t.id) + '">Remove</button></div>';
+        '</div>' +
+        /* F-181: how people can pay for this ticket. Card only once the church
+           has set up its own Stripe account (Payments). */
+        '<div class="field tt-pay" data-i="' + i + '"><label>How people can pay</label><div style="display:flex;flex-wrap:wrap;gap:12px">' +
+          '<label class="check" style="margin:0"><input type="checkbox" class="tt-by" data-i="' + i + '" value="day"' + (E.payBy(t).indexOf('day') >= 0 ? ' checked' : '') + '>On the day</label>' +
+          '<label class="check" style="margin:0"><input type="checkbox" class="tt-by" data-i="' + i + '" value="card"' + (E.payBy(t).indexOf('card') >= 0 ? ' checked' : '') + (PAYPUB.card ? '' : ' disabled') + '>Card, online</label>' +
+        '</div>' + (PAYPUB.card ? '' : '<p class="hint" style="margin:4px 0 0">Card payments: set up the church\'s own Stripe account on <a href="payments.html">Payments</a> first.</p>') + '</div>' +
+        '<button class="btn ghost sm tt-del" data-id="' + esc(t.id) + '">Remove</button></div>';
       }).join('') + '</div>' +
       '<button class="btn sec sm" id="ttAdd"><i data-lucide="plus" style="width:15px;height:15px"></i>Add a ticket type</button>' +
 
@@ -776,7 +785,9 @@
             '<td>' + esc(s.email) + '</td><td>' + (s.places || 1) + '</td>' +
             (priced ? '<td data-pay="' + esc(s.key) + '">' + (function () {
               var due = E.toPay(s, TT), p = PAYS[s.key];
-              if (p && p.paid) return '<span class="flag pub">Paid ' + E.money(p.amount) + '</span>';
+              if (p && (p.status === 'refunded' || p.status === 'part-refunded')) return '<span class="flag">' + (p.status === 'refunded' ? 'Refunded ' : 'Part refunded ') + E.money(p.refunded || p.amount) + '</span>';
+              if (p && p.paid) return '<span class="flag pub">Paid ' + E.money(p.amount) + (p.method === 'card-online' ? ' by card' : '') + '</span>';
+              if (p && p.method === 'card-online' && p.status === 'awaiting') return E.money(due) + '<br><span class="m">waiting for card payment</span>';
               return due ? E.money(due) : '';
             })() + '</td>' : '') +
             '<td>' + (s.attendees || []).map(function (a) { return esc(a.name); }).join(', ') +
@@ -1249,6 +1260,8 @@
       TT[i].name = el.value.trim();
       TT[i].price = Number(document.querySelector('.tt-price[data-i="' + i + '"]').value) || 0;
       TT[i].capacity = parseInt(document.querySelector('.tt-cap[data-i="' + i + '"]').value, 10) || 0;
+      var by = [].slice.call(document.querySelectorAll('.tt-by[data-i="' + i + '"]:checked')).map(function (c) { return c.value; });
+      TT[i].payBy = by.length ? by : ['day'];
     });
     document.querySelectorAll('.q-label').forEach(function (el) {
       var i = +el.getAttribute('data-i');
@@ -1380,7 +1393,7 @@
     }).then(function () {
       return Promise.all(TT.map(function (t) {
         return db().collection('calEvents').doc(id).collection('ticketTypes').doc(t.id || ('tt_' + E.key(8)))
-          .set({ name: t.name, price: t.price || 0, capacity: t.capacity || 0, order: t.order || 1 }, { merge: true });
+          .set({ name: t.name, price: t.price || 0, capacity: t.capacity || 0, order: t.order || 1, payBy: E.payBy(t) }, { merge: true });
       }).concat(QS.map(function (q) {
         return db().collection('calEvents').doc(id).collection('questions').doc(q.id || ('q_' + E.key(8)))
           .set({ label: q.label, kind: q.kind || 'text', per: q.per || 'booking',
@@ -1929,6 +1942,7 @@
   };
 
   EGBCAuth.require().then(function () {
+    db().collection('paymentSettings').doc('public').get().then(function (s) { PAYPUB = s.exists ? s.data() : {}; }, function () {});
     return Promise.all([E.lookups(), loadTemplates(),
       db().collection('sites').get(), db().collection('rooms').get(), db().collection('venues').get()]);
   }).then(function (r) {

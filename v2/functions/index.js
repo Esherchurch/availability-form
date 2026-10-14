@@ -722,3 +722,5 @@ export const feedSync = onSchedule(
 
 /* The seven public pages' emails, sent by the server (F-168, the events window's file). */
 export * from './public-mail.js';
+/* Taking money through each church's own Stripe account (F-181), the events window's file. */
+export * from './payments.js';

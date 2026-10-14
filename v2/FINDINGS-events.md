@@ -5048,9 +5048,12 @@ guide shows them (question 2).
 - **Where:** `paymentSecrets/{stripe|gocardless}`, a collection the rules
   deny to everyone (`allow read, write: if false`). Only functions (the
   Admin SDK) read it.
-  - The key is **also encrypted** (AES-256-GCM) with one master key held
-    in **Secret Manager** (`PAYMENTS_KEY`, set once at deploy). Even a
-    copy of the database alone holds nothing usable.
+  - **As built (F-191): no Secret Manager secret, for now.** A secret
+    named in a function must exist before **any** `functions:hub` deploy,
+    or every deploy fails. So the keys sit only in this rules-locked
+    collection, which Firestore encrypts on disk as it does everything.
+    Adding a Secret Manager master key on top (AES-256-GCM, `PAYMENTS_KEY`)
+    is a small change, for when Martin has set that secret.
 - What pages may read is `paymentSettings/{provider}`: connected, account
   name, the last 4 of the account id, live/test, who added it and when,
   and whether the webhook is set. Server-written; readable by admins and
@@ -5487,3 +5490,103 @@ that is mine.
   somewhere Places and the server don't read.
   - My first check let "dropping the lead on save" through, because as an
     admin the card re-supplies it. The test now saves as the lead too.
+
+### F-191 — Card payments, built: each church's OWN Stripe account (F-181), on the emulator with a stand-in Stripe
+**For the treasurer: `payments.html` (new, mine).**
+- The Stripe card has a step-by-step guide:
+  - make a **restricted key** with only the permissions listed
+  - paste it
+  - add the **webhook** at the address shown
+  - paste its signing secret
+  - choose which tickets take card
+  - refund in Stripe's own dashboard
+- There's a box for a screenshot at each step. It shows "Picture to come"
+  until someone with a test account takes them (F-181 question 2); they
+  go in `screenshots/payments/`.
+- **"Check and save":**
+  - the key goes once to the server (`paymentsSave`)
+  - the server asks Stripe (`GET /v1/account`) whether it works
+  - only then is it kept, in `paymentSecrets/stripe`, which the rules
+    refuse to everyone, master admins included
+- **The page then shows** "Connected: <the account's name>, account
+  …1234, test (no real money) / live (real money). Added by … on …".
+  The key itself never comes back. **Replace** (paste a new one) and
+  **Remove** (asks first).
+- **Card payment is offered only once both the key and the webhook are
+  set.**
+- **Who:** master admins, and the money team, "Finance" unless a master
+  admin names another (`paymentsTeam`). The server checks every call.
+
+**Tickets** (events-admin): each ticket type has **"How people can pay":
+On the day / Card, online**. Card can only be ticked once the church is
+connected; until then the page points to Payments.
+
+**Paying** (signup.html, my-signup.html):
+- "To pay: £12.00, by card online straight after you sign up" (or "…or at
+  the door on the day" when both are allowed).
+- After signing up: "Pay £12.00 by card", and "Your place is held for 30
+  minutes".
+- `ticketPay` works out the price **on the server** from the event's own
+  ticket types (a whole series: every date with a place). It makes a
+  Stripe Checkout page **with the church's own key**, expiring in 31
+  minutes, Stripe's shortest.
+- **No fee:** no application fee, `transfer_data` or `on_behalf_of`, ever.
+- "My place" shows:
+  - "To pay … Pay £12.00 by card" while held
+  - "Confirming your payment" on the way back from Stripe, until Stripe's
+    message lands
+  - "Paid £12.00 by card"
+  - "Refunded £12.00"
+- **Events › Who is coming:** "Paid £12.00 by card", "waiting for card
+  payment", "Refunded £12.00".
+
+**Stripe's messages (`stripeWebhook`):**
+- **Checked:** the `Stripe-Signature` HMAC-SHA256 over `t.body` with the
+  church's `whsec_`, at most 5 minutes old. One for another account is
+  ignored.
+- **Acted on once:** each event is marked done in `paymentEvents` only
+  after it has been handled, so a failure is retried by Stripe, not lost.
+- **The events:**
+  - `checkout.session.completed`: paid
+  - `checkout.session.expired`: the booking cancelled and its place given
+    back
+  - `charge.refunded`: refunded or part refunded
+  - `charge.dispute.created`: disputed
+
+**Files and lines outside my own:**
+- `functions/payments.js` is new, mine.
+- One line in `functions/index.js`: `export * from './payments.js'`, the
+  way `public-mail.js` is exported.
+- Each function names its region (`europe-west2`) itself. Without that
+  they came up in us-central1, because `index.js` sets the region only
+  after my file has been read.
+- No new packages: plain `fetch`, and the signature check written out.
+
+**Rules (my section):**
+- `paymentSecrets` and `paymentEvents`: nobody.
+- `paymentSettings`: `public` for everyone, the rest for admins and the
+  money team; written by the server only.
+- A page still cannot mark a place "paid by card online".
+- **Not deployed.**
+
+**Proved:**
+- `stripe.test.mjs` 32/32, with the hub's real functions and a stand-in
+  Stripe on this machine:
+  - not a key, and a key Stripe refuses, are both turned away in words
+  - the right key gives "Connected …1234, test"
+  - the key is nowhere a page can read
+  - the money team may set it up; anyone else is refused
+  - 2 × £6 = 1200p, worked out on the server
+  - Stripe's own page; the place held
+  - forged, hour-old and other-account messages are refused or ignored;
+    the real one marks it paid, and a repeat acts once
+  - unpaid in time, the place goes back
+  - refunded shows as refunded
+  - removed: card is no longer offered
+- Rules: 10 new, 1348 in all.
+- 8 deliberate breaks, all caught. The one that matters: Stripe's messages
+  believed without checking the signature.
+
+**To go live:** Martin deploys `functions:hub` and, at switch-over, the
+rules. Each church then follows the guide on the Payments page. No HQ
+account is needed.

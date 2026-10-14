@@ -3958,6 +3958,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- taking money: each church's own Stripe account (F-181) ----------
+    // The keys: NOBODY. Only the server's functions (the Admin SDK) read
+    // them; a key goes in once, through paymentsSave, and never comes out.
+    match /paymentSecrets/{id} {
+      allow read, write: if false;
+    }
+    // Which events were already acted on: the server's own record.
+    match /paymentEvents/{id} {
+      allow read, write: if false;
+    }
+    // What a page may know. 'public' (can card payments be taken at all) is
+    // for everyone; the account's name, live or test, and who added it are
+    // for admins and the church's money team. Written by the server only.
+    function onMoneyTeam() {
+      return active() && me().get('teams', []).hasAny([
+        (exists(/databases/$(database)/documents/paymentSettings/team)
+          ? get(/databases/$(database)/documents/paymentSettings/team).data.get('team', 'Finance') : 'Finance')]);
+    }
+    match /paymentSettings/{id} {
+      allow read: if id == 'public' || isAdmin() || onMoneyTeam();
+      allow write: if false;
+    }
+
     // ---- invitations (F-187) ----------------------------------------------
     // One per person invited, under an unguessable key that is in their
     // email's links. An admin sends them and sees them all. The person, by

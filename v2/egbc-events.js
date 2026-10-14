@@ -562,6 +562,26 @@
     return Math.round(price * Math.max(1, parseInt(su.places || 1, 10)) * 100) / 100;
   }
 
+  /* How a ticket may be paid (F-181): on the day, card (the church's own
+     Stripe), bank (the church's own GoCardless), any mix. Unset: on the day. */
+  function payBy(t) { var p = (t && Array.isArray(t.payBy) && t.payBy.length) ? t.payBy : ['day']; return p; }
+  /* One of the hub's functions, signed in or not (a guest paying for a
+     ticket is not signed in, so EGBCAuth.call cannot be used). */
+  function callPublic(name, data) {
+    var o = (global.firebase && firebase.app('egbc').options) || {};
+    var local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    var base = local ? 'http://localhost:' + (location.port === '5601' ? 5102 : 5101) + '/' + o.projectId + '/europe-west2/'
+      : 'https://europe-west2-' + o.projectId + '.cloudfunctions.net/';
+    var u = EGBCAuth.user && EGBCAuth.user();
+    return (u ? u.getIdToken() : Promise.resolve('')).then(function (t) {
+      var h = { 'Content-Type': 'application/json' }; if (t) h.Authorization = 'Bearer ' + t;
+      return fetch(base + name, { method: 'POST', headers: h, body: JSON.stringify({ data: data || {} }) });
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.error) throw new Error(j.error.message || 'That could not be done.');
+      return j ? j.result : null;
+    });
+  }
+
   function confirmationEmail(o) {
     var ev = o.ev, where = o.where || '', waiting = o.status === 'waiting';
     /* The whole series (F-184): one email listing every date. */
@@ -699,6 +719,8 @@
     DEFAULT_CATEGORIES: DEFAULT_CATEGORIES,
     catOf: catOf,
     money: money,
+    payBy: payBy,
+    callPublic: callPublic,
     toPay: toPay,
     loadCategories: loadCategories
   };

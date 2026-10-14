@@ -3717,6 +3717,29 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  not signed out', 'deny', () => getDoc(doc(env.unauthenticatedContext().firestore(), 'labelSettings', 'main')));
 }
 
+// Taking money through the church's own Stripe account (F-181).
+{
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    await setDoc(doc(db, 'paymentSecrets', 'stripe'), { secretKey: 'rk_test_secret', webhookSecret: 'whsec_secret' });
+    await setDoc(doc(db, 'paymentSettings', 'stripe'), { connected: true, accountName: 'Test', accountLast4: '1234', mode: 'test' });
+    await setDoc(doc(db, 'paymentSettings', 'public'), { card: true });
+    await setDoc(doc(db, 'paymentEvents', 'stripe_evt_1'), { at: 'x' });
+    await setDoc(doc(db, 'users', 'u_fin'), { uid: 'u_fin', memberId: 'm_fin', status: 'active', name: 'Fin', teams: ['Finance'], adminFor: [], masterAdmin: false, attender: true });
+  });
+  const fin = () => env.authenticatedContext('u_fin').firestore();
+  await check('PAYMENTS: the key is refused to everyone, a master admin included', 'deny', () => getDoc(doc(as('martin'), 'paymentSecrets', 'stripe')));
+  await check('  and to the money team', 'deny', () => getDoc(doc(fin(), 'paymentSecrets', 'stripe')));
+  await check('  nobody writes one from a page', 'deny', () => setDoc(doc(as('martin'), 'paymentSecrets', 'stripe'), { secretKey: 'rk_test_mine' }));
+  await check('  whether card payments are taken: anyone, signed out too', 'allow', () => getDoc(doc(env.unauthenticatedContext().firestore(), 'paymentSettings', 'public')));
+  await check('  the connected account: an admin reads it', 'allow', () => getDoc(doc(as('karen'), 'paymentSettings', 'stripe')));
+  await check('  and the money team', 'allow', () => getDoc(doc(fin(), 'paymentSettings', 'stripe')));
+  await check('  not anyone else', 'deny', () => getDoc(doc(as('member'), 'paymentSettings', 'stripe')));
+  await check('  nobody changes the settings from a page, not even a master admin', 'deny', () => setDoc(doc(as('martin'), 'paymentSettings', 'public'), { card: false }));
+  await check('  the server\'s record of messages is nobody\'s', 'deny', () => getDoc(doc(as('martin'), 'paymentEvents', 'stripe_evt_1')));
+  await check('  A PAGE CANNOT MARK A PLACE "paid by card online"', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), { calEventId: 'ev_pay', paid: true, amount: 12, method: 'card-online', by: 'u_samy', byName: 'S', at: serverTimestamp() }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

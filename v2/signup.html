@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610142300"></script>
+<script src="egbc-events.js?v=202610150900"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -109,6 +109,19 @@
   /* The whole series (F-184): every date this sign-up is for, when the event
      says "sign up to the whole series". null: just this date. */
   var SERIES = null;
+  /* Card payment (F-181): can this church take it (paymentSettings/public),
+     and may the chosen ticket be paid that way. */
+  var PAYPUB = {};
+  function chosenTicket() { var id = (document.getElementById('tt') || {}).value || (TT[0] ? TT[0].id : ''); return TT.filter(function (t) { return t.id === id; })[0] || TT[0] || null; }
+  function cardOk(t) { return !!PAYPUB.card && E.payBy(t).indexOf('card') >= 0; }
+  function dayOk(t) { return E.payBy(t).indexOf('day') >= 0 || !cardOk(t); }
+  function payCard(key, btn) {
+    btn.disabled = true; btn.textContent = 'Opening the payment page…';
+    E.callPublic('ticketPay', { key: key, method: 'card' }).then(function (r) { location.href = r.url; }, function (e) {
+      btn.disabled = false; btn.textContent = 'Pay by card';
+      var m = document.getElementById('payMsg'); if (m) m.textContent = e.message || String(e);
+    });
+  }
   var openedAt = Date.now();          /* for the minimum fill time */
   var attendees = [{ name: '' }];
 
@@ -280,7 +293,9 @@
   function showDue() {
     var el = document.getElementById('due'); if (!el) return;
     var d = dueNow();
-    el.textContent = d ? 'To pay on the day: ' + E.money(d) + '. Pay at the door when you arrive.' : '';
+    var t = chosenTicket();
+    el.textContent = !d ? '' : cardOk(t) && dayOk(t) ? 'To pay: ' + E.money(d) + ', by card online after you sign up, or at the door on the day.'
+      : cardOk(t) ? 'To pay: ' + E.money(d) + ', by card online straight after you sign up.' : 'To pay on the day: ' + E.money(d) + '. Pay at the door when you arrive.';
   }
 
   function wireDrops() {
@@ -382,8 +397,10 @@
     });
   }
 
+  var chosenTicketDone = null;
   function done(manageKey, waiting, due, series) {
     inviteAnswered(manageKey);
+    chosenTicketDone = chosenTicket();
     var url = E.manageUrl(manageKey);
     document.getElementById('signupCard').innerHTML =
       '<h2>' + (series ? 'You are signed up to all ' + series.dates + ' dates' : waiting ? 'You are on the waiting list' : 'You are signed up') + '</h2>' +
@@ -391,13 +408,18 @@
       '<div class="banner ok">' + (waiting
         ? 'An email saying so is on its way to you. We will email you again if a place comes free.'
         : 'That is booked. A confirmation is on its way to you by email, and should arrive in the next few minutes.') + '</div>' +
-      (due ? '<p id="dueDone"><strong>To pay on the day: ' + E.money(due) + '</strong>. Pay at the door when you arrive.</p>' : '') +
+      (due && cardOk(chosenTicketDone) ? '<div class="card" id="payBox" style="background:var(--tint,#eef5f4);margin:10px 0"><p style="margin:0 0 8px"><strong>To pay: ' + E.money(due) + '</strong>' +
+          (dayOk(chosenTicketDone) ? '. Pay now by card, or at the door on the day.' : '. Your place is held for 30 minutes while you pay.') + '</p>' +
+          '<button class="btn" id="payCard">Pay ' + E.money(due) + ' by card</button><p class="hint" id="payMsg" role="status"></p>' +
+          '<p class="hint" style="margin:6px 0 0">You pay on Stripe\'s secure page. The money goes straight to the church.</p></div>'
+       : due ? '<p id="dueDone"><strong>To pay on the day: ' + E.money(due) + '</strong>. Pay at the door when you arrive.</p>' : '') +
       '<p>Keep this link to view or cancel your place. It works even if the email has not arrived:</p>' +
       '<p><a href="' + esc(url) + '" style="color:var(--brand);word-break:break-all">' + esc(url) + '</a></p>' +
       '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +
         '<button class="btn sec" id="ics2"><i data-lucide="calendar-plus" style="width:15px;height:15px"></i>Add to calendar</button>' +
         '<a class="btn ghost" href="whatson.html">What\'s on</a></div>';
     document.getElementById('ics2').onclick = function () { EGBCICS.download(EV.title || 'event', E.icsFor(EV, WHERE)); };
+    var pc = document.getElementById('payCard'); if (pc) pc.onclick = function () { payCard(manageKey, pc); };
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
     window.scrollTo({ top: document.getElementById('signupCard').offsetTop - 20, behavior: 'smooth' });
   }
@@ -408,6 +430,7 @@
   }
 
   EGBCAuth.optional().then(function () {
+    EGBCAuth.db.collection('paymentSettings').doc('public').get().then(function (s) { PAYPUB = s.exists ? s.data() : {}; showDue(); }, function () {});
     return Promise.all([E.load(ID), E.lookups()]);
   }).then(function (r) {
     if (!r[0]) {

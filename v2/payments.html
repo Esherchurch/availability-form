@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payments</title>
+<!-- Taking money online through the church's OWN accounts (F-181; Martin,
+     14 Oct 2026: "We are not taking the payments. We won't use our
+     account."). The treasurer pastes the church's own Stripe key and webhook
+     secret once; they go to the server and never come back to any page.
+     For a master admin and the church's money team. Events window. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610141800" data-title="Payments"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610141800"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610150900"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold-bg:#fdf8ee;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 10px}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:10px 0 5px}
+  .inp{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;
+       border:1px solid transparent;background:var(--brand);color:#fff;margin:8px 8px 0 0}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#f1c9c2}
+  .btn:disabled{opacity:.55;cursor:default}
+  .hint{color:var(--muted);font-size:13px}
+  .ok{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:10px 12px;font-weight:500}
+  .warn{background:var(--gold-bg);color:#8a5f1e;border-radius:10px;padding:10px 12px}
+  .err{background:var(--danger-bg);color:var(--danger);border-radius:10px;padding:10px 12px}
+  ol.guide{padding-left:22px;margin:8px 0}
+  ol.guide li{margin:0 0 12px}
+  .shot{border:2px dashed var(--line-2);border-radius:10px;padding:14px;color:var(--muted);font-size:13px;margin-top:6px;background:#fafafa}
+  .shot img{max-width:100%;border-radius:8px;display:block}
+  code{background:var(--tint);border-radius:5px;padding:1px 5px;font-size:13px;overflow-wrap:anywhere}
+  details summary{cursor:pointer;font-weight:600;color:var(--ink);min-height:44px;display:flex;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var STRIPE = null, TEAM = 'Finance', MASTER = false;
+  function db() { return EGBCAuth.db; }
+  function say(id, cls, m) { var el = document.getElementById(id); if (el) { el.className = cls; el.textContent = m; } }
+  function when(ts) { var d = ts && ts.toDate ? ts.toDate() : null; return d ? E.fmtDate(d) : ''; }
+  function webhookUrl() {
+    var o = (firebase.app('egbc').options || {});
+    return location.port === '5601' ? 'http://localhost:5102/' + o.projectId + '/europe-west2/stripeWebhook'
+      : 'https://europe-west2-' + o.projectId + '.cloudfunctions.net/stripeWebhook';
+  }
+  /* A screenshot for the guide, once someone with a test account has taken
+     it (F-181 question 2): screenshots/payments/<name>.png. Until then the
+     box says what it will show. */
+  function shot(name, words) {
+    return '<div class="shot" data-shot="' + name + '"><img src="screenshots/payments/' + name + '.png" alt="' + esc(words) + '" onerror="this.parentNode.textContent=\'Picture to come: \' + this.alt"></div>';
+  }
+
+  function stripeCard() {
+    var s = STRIPE || {}, on = !!s.connected;
+    return '<div class="card" id="stripe"><h2>Card payments, through your own Stripe account</h2>' +
+      '<p class="hint" style="margin-top:0">People pay for tickets by card on Stripe\'s own page. The money goes straight into your church\'s Stripe account. ' +
+      'The hub never sees a card number and takes nothing: Stripe charges your church its normal fee, and that is all.</p>' +
+      (on ? '<div class="ok" id="stripeStatus">Connected: ' + esc(s.accountName || 'your Stripe account') + ', account …' + esc(s.accountLast4 || '') + ', ' +
+              (s.mode === 'live' ? '<b>live</b> (real money)' : '<b>test</b> (no real money)') +
+              (s.addedByName ? '. Added by ' + esc(s.addedByName) + (s.addedAt ? ' on ' + esc(when(s.addedAt)) : '') : '') + '.</div>' +
+            (s.webhookSet ? '<p class="hint" id="hookStatus">The webhook is set, so payments are confirmed as they happen.</p>'
+                          : '<div class="warn" id="hookStatus" style="margin-top:8px">Not finished: add the webhook (step 3 below). Until then nobody is offered card payment, because the hub could not tell when they have paid.</div>')
+          : '<p id="stripeStatus" class="hint"><b>Not connected.</b> Follow the steps below; it takes about ten minutes.</p>') +
+      '<details' + (on && s.webhookSet ? '' : ' open') + ' style="margin-top:8px"><summary>' + (on ? 'Replace the key or the webhook' : 'Set it up, step by step') + '</summary>' +
+      '<ol class="guide">' +
+        '<li><b>Sign in to your church\'s Stripe dashboard</b> at dashboard.stripe.com. No Stripe account yet? Make one there first, in the church\'s name, with the church\'s bank account.' + shot('stripe-1-dashboard', 'The Stripe dashboard, signed in') + '</li>' +
+        '<li><b>Make a restricted key.</b> Go to Developers, then API keys, then <i>Create restricted key</i>. Name it "Church hub". Give it only these permissions, and leave everything else as None:' +
+          '<ul><li>Checkout Sessions: <b>Write</b></li><li>Account (or Balance): <b>Read</b></li><li>Charges and Refunds: <b>Read</b></li><li>Events: <b>Read</b></li></ul>' +
+          'Press <i>Create key</i>, then copy it (it starts <code>rk_live_</code>, or <code>rk_test_</code> while you try it out).' + shot('stripe-2-restricted-key', 'Making a restricted key in Stripe') +
+          '<label for="stripeKey">Paste the key here</label><input class="inp" id="stripeKey" type="password" autocomplete="off" spellcheck="false" placeholder="rk_live_…">' +
+          '<button class="btn" id="saveKey">Check and save the key</button><p id="keyMsg" role="status"></p></li>' +
+        '<li><b>Add the webhook.</b> In Stripe go to Developers, then Webhooks, then <i>Add endpoint</i>. For the address, copy this:' +
+          '<p><code id="hookUrl">' + esc(webhookUrl()) + '</code></p>' +
+          'Choose these events: <code>checkout.session.completed</code>, <code>checkout.session.expired</code>, <code>charge.refunded</code> and <code>charge.dispute.created</code>. ' +
+          'Press <i>Add endpoint</i>, then <i>Reveal</i> the <b>signing secret</b> and copy it (it starts <code>whsec_</code>).' + shot('stripe-3-webhook', 'Adding the webhook in Stripe') +
+          '<label for="hookSecret">Paste the signing secret here</label><input class="inp" id="hookSecret" type="password" autocomplete="off" spellcheck="false" placeholder="whsec_…">' +
+          '<button class="btn" id="saveHook">Save the signing secret</button><p id="hookMsg" role="status"></p></li>' +
+        '<li><b>Choose which tickets can be paid by card</b>: in Events, each ticket type has "How people can pay".</li>' +
+        '<li><b>Refunds</b> are made in your Stripe dashboard (Payments, then the payment, then Refund). The hub shows them by itself.</li>' +
+      '</ol></details>' +
+      (on ? '<button class="btn danger" id="removeStripe">Remove card payments</button><p id="removeMsg" role="status"></p>' : '') +
+      '<p class="hint" style="margin-bottom:0">The key and the signing secret go to the hub\'s server once and are never shown again, to anyone. To change them, paste new ones.</p></div>';
+  }
+  function teamCard() {
+    return '<div class="card" id="team"><h2>Who can set this up</h2><p class="hint" style="margin-top:0">Master admins, and anyone on the church\'s money team: <b id="teamName">' + esc(TEAM) + '</b>.</p>' +
+      (MASTER ? '<label for="teamInp">The money team</label><input class="inp" id="teamInp" maxlength="60" value="' + esc(TEAM) + '"><button class="btn sec" id="saveTeam">Save</button><p id="teamMsg" role="status"></p>' : '') + '</div>';
+  }
+  function draw() {
+    document.getElementById('wrap').innerHTML = '<h1>Payments</h1><p class="sub">Taking money online, straight into the church\'s own accounts.</p>' + stripeCard() + teamCard();
+    var k = document.getElementById('saveKey');
+    if (k) k.onclick = function () { save('key', document.getElementById('stripeKey').value, 'keyMsg', k); };
+    var h = document.getElementById('saveHook');
+    if (h) h.onclick = function () { save('webhook', document.getElementById('hookSecret').value, 'hookMsg', h); };
+    var r = document.getElementById('removeStripe');
+    if (r) r.onclick = function () {
+      if (!confirm('Remove card payments? Nobody will be offered card payment until a key is added again. Payments already made are kept.')) return;
+      r.disabled = true;
+      EGBCAuth.call('paymentsRemove', { provider: 'stripe' }).then(function () { return load(); }, function (e) { r.disabled = false; say('removeMsg', 'err', e.message || String(e)); });
+    };
+    var t = document.getElementById('saveTeam');
+    if (t) t.onclick = function () {
+      EGBCAuth.call('paymentsTeam', { team: document.getElementById('teamInp').value }).then(function (res) { TEAM = res.team; say('teamMsg', 'ok', 'Saved: ' + res.team + ' can set up payments.'); document.getElementById('teamName').textContent = res.team; },
+        function (e) { say('teamMsg', 'err', e.message || String(e)); });
+    };
+  }
+  function save(kind, value, msgId, btn) {
+    value = String(value || '').trim();
+    if (!value) { say(msgId, 'err', 'Paste it first.'); return; }
+    btn.disabled = true; say(msgId, 'hint', kind === 'key' ? 'Checking it with Stripe…' : 'Saving…');
+    EGBCAuth.call('paymentsSave', { provider: 'stripe', kind: kind, value: value }).then(function () {
+      return load().then(function () { say(kind === 'key' ? 'keyMsg' : 'hookMsg', 'ok', kind === 'key' ? 'Saved. Stripe knows this key.' : 'Saved.'); });
+    }, function (e) { btn.disabled = false; say(msgId, 'err', e.message || String(e)); });
+  }
+  function load() {
+    return Promise.all([
+      db().collection('paymentSettings').doc('stripe').get(),
+      db().collection('paymentSettings').doc('team').get().catch(function () { return null; })
+    ]).then(function (r) {
+      STRIPE = r[0].exists ? r[0].data() : null;
+      TEAM = r[1] && r[1].exists ? (r[1].data().team || 'Finance') : 'Finance';
+      draw();
+    });
+  }
+  EGBCAuth.require().then(function () {
+    MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+    return load();
+  }).catch(function (e) {
+    var denied = /permission|insufficient/i.test(String(e && (e.code || e.message)));
+    document.getElementById('wrap').innerHTML = '<div class="card"><h1>Payments</h1><p>' + (denied ? 'This page is for master admins and the church\'s money team.' : esc(e.message || e)) + '</p></div>';
+  });
+})();
+</script>
+</body>
+</html>
