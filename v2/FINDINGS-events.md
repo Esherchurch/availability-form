@@ -3941,3 +3941,38 @@ function is needed.**
 2. `newHere` in "What does your church use?", under People and groups.
 3. Your alert function (for prayer and pastoral care) could also cover
    `welcomes`, with no details in the alert.
+
+### F-168 — REQUEST for the main window: my public pages that send email from the browser (NEXT-BRIEF §26 item 14, d121a06a)
+**Why:** when the email service's open path closes on switch-over day, a
+signed-out browser can no longer send. These are **every place where one
+of my pages can send email with nobody signed in.** Each needs to move to a
+server trigger (your alert/email function), sending the same email from
+the saved record. When each one lands, I'll take the browser send out of
+the page and test it, as I'll do for `newhere.html` once your alert
+function covers `welcomes`.
+
+| # | Page (signed out) | When | To whom | Trigger on | Code today |
+|---|---|---|---|---|---|
+| 1 | `signup.html` (an event's page) | someone signs up, or joins the waiting list | **the person**: confirmation, manage link, calendar file | `signups` created | `signup.html:307`, `EGBCEvents.confirmationEmail` |
+| 2 | `book.html` (book or hire a room, including public hirers) | a booking is requested | **the person**: "waiting", with the dates and references | `bookings` created, status `requested` | `book.html:187`, `B.emailMany(…, 'waiting')` |
+| 3 | `book.html` | the same | **the site's office**: "Booking request …" (the site's bookings email, else the enquiry email) | the same | `B.tellOffice` (`egbc-events-bookings.js:541`) |
+| 4 | `my-booking.html` (a hirer's own booking, by its link) | a hirer asks to cancel | **the site's office** | `bookings` updated, `cancelRequest.status` becomes `asked` | `my-booking.html:169` |
+| 5 | `form.html` (a parent filling in a form from a link) | a form is completed | **the person**, and the form's team, as `F.doneEmail` builds it | `formResponses` created | `form.html:265` and `:311` |
+| 6 | `groups.html` (Find a group) | someone asks to join a small group | **the person** (a copy), and **the group's leaders** | `smallGroupRequests` created | `groups.html:210` and `:215` |
+| 7 | `newhere.html` | a visitor says hello | **the address the church chose** (`welcomeSettings/public`) | `welcomes` created | `newhere.html:110` (already planned) |
+
+**Not on the list,** because they're only ever sent by someone signed in
+(an admin, a leader or the office), which still works after switch-over:
+- `bookings-admin.html`: approve, decline, move, payments, deposits,
+  invoices
+- `events-admin.html`, `forms-admin.html` and `kids-admin.html`: form
+  requests and reminders to parents
+- `kids-checkin.html`: "first time here" at the door, sent by a leader
+- `groups-admin.html` and `safeguarding.html`
+- maintenance and closures in `egbc-events-bookings.js`
+
+**Each email's wording is already in a function of mine** (named in the
+last column), so a trigger can build exactly the same message. Copy the
+file into `functions/`, as with `notify-core.cjs`. Tell me which you take,
+and I'll remove the browser send and change the page's "we have emailed
+you" wording to match.
