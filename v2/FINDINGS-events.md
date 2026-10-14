@@ -4070,3 +4070,132 @@ the Finance group):
 - **The church's name** on the declaration comes from Church details. If
   HMRC knows the church by another name (its registered charity name), it
   should be set there.
+
+### F-170 — F-168 done on the server: `functions/public-mail.js`, ready to deploy (NEXT-BRIEF §26 item 14)
+**What it is:** one new file of mine, `functions/public-mail.js`, with
+the seven emails from F-168 as Firestore triggers on what the pages save:
+
+| Trigger | Fires when | Sends |
+|---|---|---|
+| `publicMailSignup` | `signups` created | the sign-up confirmation, with its calendar file and check-in codes |
+| `publicMailBookingAsked` | `bookings` created, status `requested` | "your booking is waiting" to the person |
+| `publicMailBookingOffice` | the same | "Booking request" to the site's bookings address, else the enquiry email |
+| `publicMailCancelAsk` | `bookings` updated, `cancelRequest.status` becomes `asked` | "Asking to cancel" to the same office address |
+| `publicMailFormDone` | `formRequests` updated to `done` | "Received", with the private link to what was sent |
+| `publicMailGroupAsk` | `smallGroupRequests` created | a copy to the person, and the group's leaders |
+| `publicMailNewHere` | `welcomes` created | "Someone new said hello" to the address the church chose |
+
+**For the main window: one line at the end of `functions/index.js`.**
+```js
+export * from './public-mail.js';
+```
+Nothing else of yours changes. My test runs your functions from a
+scratch copy with exactly this line added, so I never edit `index.js`.
+
+**How it sends.** It uses the server's Google identity, exactly as your
+`sendOne` does, and writes the same `emailOutbox` row, plus `source`,
+`kind` and `ref`. **There is one difference: it carries attachments.**
+`sendOne` sends none, and the sign-up confirmation needs its calendar
+file and check-in codes. So `public-mail.js` has its own copy of
+`sendOne` with attachments added.
+- If you would rather `sendOne` took attachments, say so and I'll call
+  yours instead.
+- Two things go in the outbox row differently. Attachments are listed by
+  name only. A link to someone's medical answers (`&s=…`) is written as
+  `&s=(hidden)`, because not everyone who may read the outbox may read
+  those answers.
+- My check compares my `SEND_EMAIL_URL` with yours and fails if they
+  ever differ.
+
+**The words are the pages' own.**
+- `functions/public-mail-pages.cjs` is my page files, copied word for
+  word by `screenshots/events/public-mail-pages.mjs`. Your
+  `egbc-email.js` is included for `wrap`; it's read, never changed.
+- They run in a sandbox that keeps English time. In June, 19:30 is
+  19:30 in the email and 18:30 UTC in the calendar file. In December,
+  19:30 is 19:30 UTC.
+- If you change `egbc-email.js`, my check says the copy is stale and I
+  re-run the copy. There's nothing for you to do.
+
+**The switches,** each `churchSettings/features.<name>`, false = off:
+
+| Switch | Covers |
+|---|---|
+| `events` | the sign-up |
+| `roomBookings` | booking waiting, booking request, asking to cancel |
+| `forms` | form received |
+| `smallGroups` | asking to join a small group |
+| `newHere` | "I'm new here" |
+
+The first four are new names, for "What does your church use?".
+
+**"I'm new here": I send it, not your alert function.** One of us, not
+both. If your alert function already sends a copy for `welcomes`, please
+take that part out.
+
+**Two things that change.**
+- `rooms.html` (signed in) also made "waiting" and "Booking request"
+  emails for a member's request. The same trigger now sends those, so
+  there are no doubles. `rooms.html` still sends its own "confirmed"
+  email.
+- **A small group's leaders are now always told.** Before, the page could
+  only tell them when a member asked, because a guest can't read the
+  leaders' addresses.
+
+**Order on the day. THIS MATTERS:**
+1. Martin deploys the functions, with the one line added.
+2. **Then** the page changes go live. They are pushed, but on the branch
+   `events-f168-pages`, not on main. If the pages stopped sending before
+   the triggers existed, guests would get no emails at all. If the
+   triggers come first, the worst is a few minutes of duplicates.
+3. I merge the branch when told the deploy is done, and run the checks
+   again.
+
+**Proved:**
+- `public-mail.test.mjs` (41 checks) runs the real functions in my
+  functions emulator. It covers:
+  - the seven, with the right words and addresses
+  - a walk-in at the door, which is never emailed
+  - one email for a repeating booking
+  - every switch
+  - a trigger run twice sends once
+  - **with sendEmail's open path OFF:** a stand-in sendEmail that refuses
+    anything without a Google identity token. With the server's token
+    the email goes, attachments and all. Without it, it's refused and
+    the refusal is recorded.
+- The page checks (e1, e2, c5, c7, r2, r3, newhere) now prove each page
+  sends nothing itself, then check the email the server's own code
+  builds. e1 reads the server's check-in codes back in a browser.
+
+### F-171 — NOTICE for the main window: I'm about to change your rota and planner files (Martin's job, 14 Oct)
+**Martin has asked me to do this while you're busy:**
+1. Rotas hide past dates.
+2. UK dates in the planners.
+
+He approved changes to the ORIGINAL site, outside v2, for exactly these
+pages, and nothing else.
+
+**Your files I'll edit:**
+- `egbc-core-rota.js`:
+  - a "Show past dates" toggle, after Hide Assigned
+  - past dates hidden by default
+  - opens at the next date
+- `egbc-core-planner.js`:
+  - "Service date" becomes a list of the coming services, with ◀ ▶ and
+    "Pick another date"
+  - the email shows "Sunday 11 October 2026"
+  - `#spDate` keeps the same yyyy-mm-dd value underneath
+- v2 pages: `Planner.html`, `view-only-rota.html`,
+  `SundayServicePlanner.html`, `youthserviceplanner.html`,
+  `song-summary.html` (the date it shows)
+- The same pages at the root, plus the root `CoreTeamApp.html`
+
+**Please don't edit these until I push.** I'll add a line here when it's
+in.
+
+**One thing for you afterwards:** bump the `?v=` on `egbc-core-rota.js`
+and `egbc-core-planner.js` in `CoreTeamApp.html` and `app.html` (yours),
+so phones fetch the new copies.
+
+Nothing about editing, assigning, archiving or terms changes.
+`worshiphubapp.html` isn't touched.
