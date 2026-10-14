@@ -3995,3 +3995,78 @@ last column), so a trigger can build exactly the same message. Copy the
 file into `functions/`, as with `notify-core.cjs`. Tell me which you take,
 and I'll remove the browser send and change the page's "we have emailed
 you" wording to match.
+
+### F-169 — Gift Aid declarations (NEXT-BRIEF §24 item 6)
+Feature name **`giftAid`**. The page is `giftaid.html`, signed in, and it
+works in app mode. **No server function is needed.**
+
+**A person declares in the app:**
+- They see HMRC's standard wording in the church's own name: "I want to
+  Gift Aid any donations I make in the future, and have made in the past 4
+  years, to … I am a UK taxpayer and understand…".
+- The fields: name (filled from their record), house name or number, the
+  rest of the address (optional), and postcode.
+- A **"Yes, I am a UK taxpayer…" tick is required.**
+- The exact words they agreed to are kept with the declaration.
+- Afterwards: "You have a Gift Aid declaration from …", with "Change my
+  name or address" and "I no longer pay enough tax, or want to stop".
+  Cancelling takes effect from today and doesn't change what's been
+  claimed.
+
+**The office records paper declarations:**
+- They pick the person from the address book and enter the date on the
+  form.
+- A **"The signed paper declaration is held by the church" tick is
+  required.**
+
+**The office and the treasurer** (master admins, the Church office group,
+the Finance group):
+- They get the list of active declarations, and the cancelled ones kept
+  separately.
+- **"Download the list (CSV)"** gives: title, first name, last name, house
+  name or number, postcode, declaration date, how made (online or paper),
+  status, cancelled on.
+  - The donor columns are in the order HMRC's claim schedule asks for.
+  - Cells are guarded against spreadsheet formulas.
+
+**The rules (`giftAid`), tight because this is sensitive:**
+- **Read by the person (their own) and the office and treasurer only.**
+  Not another member, not an admin of another area, and not signed out.
+- **In the app, only for yourself,** with the taxpayer tick and the words.
+  "On paper" only by the office, with the paper held.
+- What was declared, when, how and by whom never changes. Only the
+  person's name and address can be kept up to date.
+- **Cancelling can't be undone.** Declaring again makes a new record.
+- **Nobody deletes one, not even a master admin.** HMRC expects them kept
+  (at least six years after the last claim that relies on one). Removing
+  old ones would be a scheduled job, once the treasurer decides the
+  period.
+
+**Proved:**
+- **Rules:** 21 new checks, 1222 in all.
+- `giftaid.test.mjs`: 20 checks at 375px.
+- **9 deliberate breaks, all caught:**
+  - **the one that matters:** any member reads every declaration (caught
+    by the browser test and by the rules tests)
+  - an admin of another area reads them
+  - a master admin can delete one
+  - a cancelled declaration brought back
+  - declaring without the taxpayer tick
+  - "on paper" without the paper held
+  - the CSV columns out of order
+  - Gift Aid showing when switched off
+
+**For the main window:**
+1. "Gift Aid" (`giftaid.html`) on the app's Me tab and in the Menu, for
+   everyone signed in. The office and treasurer's list is on the same
+   page.
+2. `giftAid` in "What does your church use?", under Giving and money.
+3. The Give page (yours) could link to it: "If you pay UK tax, add Gift
+   Aid".
+
+**For Martin and the treasurer:**
+- **Who sees the list:** the Church office and Finance groups. Check their
+  members.
+- **The church's name** on the declaration comes from Church details. If
+  HMRC knows the church by another name (its registered charity name), it
+  should be set there.

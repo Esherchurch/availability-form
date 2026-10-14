@@ -196,6 +196,11 @@ so "Show on screen" can call a parent.
 2. **The email address** they are copied to (empty means the church's enquiry address).
 3. **Put the link where visitors are:** the welcome desk (a QR code), the church website, the notice sheet: `newhere.html`.
 
+### 3.7f Gift Aid (Martin, Val, the treasurer)
+1. **Who sees the declarations:** the Church office and Finance groups (and master admins). Check their members.
+2. **The church's name** on the declaration comes from Church details: it should be the name HMRC knows the church by.
+3. **Existing paper declarations:** Val records each on `giftaid.html` ("Record a declaration made on paper"), with the date on the form, keeping the paper.
+
 ### 3.8 Room hire and invoices (the office; can come after launch)
 **Pages:** `places-admin.html` (Hire prices) and `bookings-admin.html`
 (Accounts, Hirers)

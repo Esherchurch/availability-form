@@ -2364,6 +2364,45 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a master admin does', 'allow', () => setDoc(doc(as('martin'), 'welcomeSettings', 'public'), { notifyEmail: 'welcome@example.invalid', updatedAt: serverTimestamp(), updatedBy: 'u_martin' }));
 }
 
+// ── EVENTS (events window) ── Gift Aid declarations (NEXT-BRIEF §24 item 6; F-169)
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const guest = () => env.unauthenticatedContext().firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const U = (uid, mid, teams) => setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor: [], masterAdmin: false, attender: true });
+    await U('u_giver', 'm_giver', []);
+    await U('u_nosy', 'm_nosy', []);
+    await U('u_office', 'm_office', ['Church office']);
+    await U('u_treas', 'm_treas', ['Finance']);
+    await U('u_kadmin', 'm_kadmin', []);
+  });
+  const GA = (who, mid, extra) => ({ memberId: mid, title: 'Mrs', firstName: 'Gina', lastName: 'Giver (invented)', house: '12', address: 'Invented Road, Esher', postcode: 'KT10 9AA',
+    source: 'app', taxpayer: true, wording: 'I want to Gift Aid any donations I make in the future, and have made in the past 4 years, to Test Green Church. I am a UK taxpayer…',
+    declaredOn: '2026-10-14', declaredAt: serverTimestamp(), paperHeld: false, cancelled: false, cancelledOn: '', recordedBy: who, updatedAt: serverTimestamp(), updatedBy: who, ...(extra || {}) });
+  await check('GIFT AID: a person declares, in the app, for themselves', 'allow', () => setDoc(doc(ctx('u_giver'), 'giftAid', 'ga_1'), GA('u_giver', 'm_giver')));
+  await check('not for someone else', 'deny', () => setDoc(doc(ctx('u_nosy'), 'giftAid', 'ga_2'), GA('u_nosy', 'm_giver')));
+  await check('not without saying they are a UK taxpayer', 'deny', () => setDoc(doc(ctx('u_giver'), 'giftAid', 'ga_3'), GA('u_giver', 'm_giver', { taxpayer: false })));
+  await check('not without the words they agreed to', 'deny', () => setDoc(doc(ctx('u_giver'), 'giftAid', 'ga_4'), GA('u_giver', 'm_giver', { wording: '' })));
+  await check('not with a postcode that is not one', 'deny', () => setDoc(doc(ctx('u_giver'), 'giftAid', 'ga_5'), GA('u_giver', 'm_giver', { postcode: 'nowhere' })));
+  await check('not "on paper" by themselves', 'deny', () => setDoc(doc(ctx('u_giver'), 'giftAid', 'ga_6'), GA('u_giver', 'm_giver', { source: 'paper', paperHeld: true })));
+  await check('not signed out', 'deny', () => setDoc(doc(guest(), 'giftAid', 'ga_7'), GA('x', 'm_giver')));
+  await check('the person reads their own', 'allow', () => getDocs(query(collection(ctx('u_giver'), 'giftAid'), where('memberId', '==', 'm_giver'))));
+  await check('THE DECLARATION IS NOT READ BY ANOTHER MEMBER', 'deny', () => getDoc(doc(ctx('u_nosy'), 'giftAid', 'ga_1')));
+  await check('NOR BY AN ADMIN OF ANOTHER AREA', 'deny', () => getDoc(doc(as('karen'), 'giftAid', 'ga_1')));
+  await check('nor signed out', 'deny', () => getDoc(doc(guest(), 'giftAid', 'ga_1')));
+  await check('the church office reads them all', 'allow', () => getDocs(collection(ctx('u_office'), 'giftAid')));
+  await check('the treasurer (Finance) reads them all', 'allow', () => getDocs(collection(ctx('u_treas'), 'giftAid')));
+  await check('the office records a paper declaration, with the paper held', 'allow', () => setDoc(doc(ctx('u_office'), 'giftAid', 'ga_p'), GA('u_office', 'm_nosy', { source: 'paper', paperHeld: true, wording: '', declaredOn: '2024-03-01' })));
+  await check('not without the paper held', 'deny', () => setDoc(doc(ctx('u_office'), 'giftAid', 'ga_p2'), GA('u_office', 'm_nosy', { source: 'paper', paperHeld: false, wording: '' })));
+  await check('the person updates their address', 'allow', () => updateDoc(doc(ctx('u_giver'), 'giftAid', 'ga_1'), { house: '14', postcode: 'KT10 9AB', updatedAt: serverTimestamp(), updatedBy: 'u_giver' }));
+  await check('but never what was declared, or when', 'deny', () => updateDoc(doc(ctx('u_giver'), 'giftAid', 'ga_1'), { declaredOn: '2020-01-01', updatedAt: serverTimestamp(), updatedBy: 'u_giver' }));
+  await check('the person cancels it, from a date', 'allow', () => updateDoc(doc(ctx('u_giver'), 'giftAid', 'ga_1'), { cancelled: true, cancelledOn: '2026-10-20', updatedAt: serverTimestamp(), updatedBy: 'u_giver' }));
+  await check('A CANCELLED ONE CANNOT BE BROUGHT BACK (declare again instead)', 'deny', () => updateDoc(doc(ctx('u_giver'), 'giftAid', 'ga_1'), { cancelled: false, cancelledOn: '', updatedAt: serverTimestamp(), updatedBy: 'u_giver' }));
+  await check('declaring again makes a new one', 'allow', () => setDoc(doc(ctx('u_giver'), 'giftAid', 'ga_8'), GA('u_giver', 'm_giver', { declaredOn: '2026-11-01' })));
+  await check('NOBODY DELETES ONE, not even a master admin (HMRC expects them kept)', 'deny', () => deleteDoc(doc(as('martin'), 'giftAid', 'ga_1')));
+}
+
 // ── EVENTS (events window) ── phone notifications (NEXT-BRIEF §23; F-144)
 {
   const ctx = (uid) => env.authenticatedContext(uid).firestore();

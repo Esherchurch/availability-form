@@ -3681,6 +3681,55 @@ service cloud.firestore {
                            && (request.resource.data.notifyEmail == '' || request.resource.data.notifyEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))));
     }
 
+    // ---- Gift Aid declarations (NEXT-BRIEF §24 item 6; F-169) ------------
+    // SENSITIVE: a name, a home address and a tax status. Read by the person
+    // (their own) and by the office and the treasurer - master admins, the
+    // Church office group and the Finance group - and nobody else.
+    // EACH DECLARATION IS ITS OWN RECORD AND IS NEVER DELETED: HMRC expects
+    // them kept. Cancelling marks it, from a date, and cannot be undone;
+    // declaring again makes a new one. What was declared, when, how and by
+    // whom never changes; only the person's name and address can be kept up
+    // to date (HMRC asks people to tell the church when they change).
+    function giftAidOffice() { return isMaster() || onTeam('Church office') || onTeam('Finance'); }
+    function gaName(d) {
+      return d.title in ['', 'Mr', 'Mrs', 'Miss', 'Ms', 'Mx', 'Dr', 'Rev']
+             && d.firstName is string && d.firstName.size() >= 1 && d.firstName.size() <= 60
+             && d.lastName is string && d.lastName.size() >= 1 && d.lastName.size() <= 60
+             && d.house is string && d.house.size() >= 1 && d.house.size() <= 60
+             && d.address is string && d.address.size() <= 200
+             && d.postcode is string && d.postcode.matches('^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$');
+    }
+    match /giftAid/{id} {
+      allow read: if (active() && resource.data.memberId == me().get('memberId', '-')) || giftAidOffice();
+      allow create: if active()
+                    && request.resource.data.keys().hasOnly(['memberId', 'title', 'firstName', 'lastName', 'house', 'address', 'postcode', 'source', 'taxpayer', 'wording',
+                                                             'declaredOn', 'declaredAt', 'paperHeld', 'cancelled', 'cancelledOn', 'recordedBy', 'updatedAt', 'updatedBy'])
+                    && gaName(request.resource.data)
+                    && request.resource.data.taxpayer == true
+                    && request.resource.data.declaredOn is string && request.resource.data.declaredOn.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                    && request.resource.data.declaredAt == request.time
+                    && request.resource.data.cancelled == false && request.resource.data.cancelledOn == ''
+                    && request.resource.data.recordedBy == request.auth.uid
+                    && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time
+                    && request.resource.data.wording is string && request.resource.data.wording.size() <= 1000
+                    // In the app: only for yourself, with the words you agreed to.
+                    && ((request.resource.data.source == 'app' && request.resource.data.memberId == me().get('memberId', '-')
+                         && request.resource.data.paperHeld == false && request.resource.data.wording.size() > 50)
+                        // On paper: the office, for someone, with the paper held.
+                        || (request.resource.data.source == 'paper' && giftAidOffice() && request.resource.data.paperHeld == true
+                            && request.resource.data.memberId is string && request.resource.data.memberId.size() > 0));
+      allow update: if ((active() && resource.data.memberId == me().get('memberId', '-')) || giftAidOffice())
+                    && resource.data.cancelled == false
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'firstName', 'lastName', 'house', 'address', 'postcode',
+                                                                                       'cancelled', 'cancelledOn', 'updatedAt', 'updatedBy'])
+                    && gaName(request.resource.data)
+                    && (request.resource.data.cancelled == false
+                        || (request.resource.data.cancelled == true && request.resource.data.cancelledOn is string
+                            && request.resource.data.cancelledOn.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+                    && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ---- everything else --------------------------------------------
