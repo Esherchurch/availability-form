@@ -71,6 +71,9 @@
   .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 
   .row{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+  /* A checklist task on a phone (F-188): the task across the top, then who, when and the buttons. */
+  #ckList .row{flex-wrap:wrap;row-gap:4px}
+  @media (max-width:560px){#ckList .row label.check{flex:1 1 100% !important}#ckList .row .m{text-align:left !important;flex:1 1 auto}}
   .row:first-child{border-top:none}
   .row .ib{width:36px;height:36px;border-radius:8px;background:var(--tint);color:var(--brand);
            display:flex;align-items:center;justify-content:center;flex:none}
@@ -117,6 +120,7 @@
     <a class="btn ghost" href="whatson.html"><i data-lucide="external-link" style="width:15px;height:15px"></i>What people see</a>
   </div>
 
+  <div id="mytasks"></div>
   <div id="list" class="card"><div class="hint">Loading…</div></div>
   <div id="editor"></div>
 
@@ -405,8 +409,8 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
-  function open(id) {
-    TAB = 'details';
+  function open(id, tab) {
+    TAB = tab || 'details';
     if (!id) { CUR = blank(); TT = []; QS = []; CAP = null; SIGNUPS = []; CHECK = null; NOTES = ''; CHANGES = []; COMMS = []; U18 = U18_WAS = false; return drawEditor(); }
     E.load(id).then(function (r) {
       CUR = r.ev; TT = r.ticketTypes; QS = r.questions; CAP = r.capacity;
@@ -701,27 +705,61 @@
       '<button class="btn sec sm" id="qsAdd"><i data-lucide="plus" style="width:15px;height:15px"></i>Add a question</button>';
   }
 
+  /* CHECKLISTS (F-188; ChurchSuite's event checklists, and better). Each task
+     may have who does it (from the address book, told by email), when it is
+     due (days before the event, so a template works for any date), and a
+     note. Overdue tasks are red; the list says how far along it is; tasks
+     can be moved up and down and changed. A template can be the default for
+     a category: every new event in that category starts with it. */
+  var CK_WHEN = [['', 'Any time'], ['0', 'On the day'], ['1', '1 day before'], ['2', '2 days before'], ['3', '3 days before'], ['7', '1 week before'], ['14', '2 weeks before'], ['28', '4 weeks before']];
+  var CK_EDIT = -1;
+  function dueDate(t) {
+    if (t.dueDays === null || t.dueDays === undefined || t.dueDays === '' || !CUR || !CUR.startUtc) return null;
+    var d = new Date(CUR.startUtc); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - Number(t.dueDays)); return d;
+  }
+  function overdue(t) { var d = dueDate(t); if (!d || t.done) return false; var end = new Date(d); end.setDate(end.getDate() + 1); return Date.now() >= end.getTime(); }
+  function taskOf(x) { return typeof x === 'string' ? { text: x, done: false } : x; }
   function checklistTab() {
-    var tasks = (CHECK && CHECK.tasks) || [];
-    return '<p class="hint" style="margin-top:0">What has to be done before the day. Members can see it; admins tick it.</p>' +
+    var tasks = ((CHECK && CHECK.tasks) || []).map(taskOf);
+    var done = tasks.filter(function (t) { return t.done; }).length, late = tasks.filter(overdue).length;
+    var ed = CK_EDIT >= 0 ? tasks[CK_EDIT] || {} : {};
+    return '<p class="hint" style="margin-top:0">What has to be done before the day, who is doing it, and by when. Members can see it; admins tick it.</p>' +
+      (tasks.length ? '<p id="ckSum" style="margin:0 0 8px;font-weight:600">' + done + ' of ' + tasks.length + ' done' + (late ? ' · <span style="color:var(--danger)">' + late + ' overdue</span>' : '') + '</p>' : '') +
       '<div id="ckList">' + (tasks.length ? tasks.map(function (t, i) {
-        return '<div class="row"><label class="check" style="margin:0;flex:1">' +
+        var d = dueDate(t), late1 = overdue(t);
+        return '<div class="row" data-task="' + i + '"><label class="check" style="margin:0;flex:1;min-width:0">' +
           '<input type="checkbox" class="ck" data-i="' + i + '"' + (t.done ? ' checked' : '') + '>' +
-          '<span style="' + (t.done ? 'color:var(--muted);text-decoration:line-through' : '') + '">' + esc(t.text) + '</span></label>' +
-          '<span class="m">' + (t.done ? esc((t.by || '') + (t.at ? ' · ' + E.fmtDateShort(t.at) : '')) : '') + '</span>' +
-          '<button class="btn ghost sm ck-del" data-i="' + i + '"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>';
+          '<span style="' + (t.done ? 'color:var(--muted);text-decoration:line-through' : '') + '">' + esc(t.text) +
+          (t.note ? '<br><span class="m">' + esc(t.note) + '</span>' : '') + '</span></label>' +
+          '<span class="m" style="text-align:right">' +
+            (t.whoName ? '<span class="flag pub" data-who>' + esc(t.whoName) + '</span> ' : '') +
+            (d ? '<span data-due' + (late1 ? ' class="flag" style="background:var(--danger-bg,#fde8e8);color:var(--danger)"' : '') + '>' + (late1 ? 'Overdue: ' : 'Due ') + esc(E.fmtDateShort(d)) + '</span>' : '') +
+            (t.done ? '<br>' + esc((t.by || '') + (t.at ? ' · ' + E.fmtDateShort(t.at) : '')) : '') + '</span>' +
+          '<button class="btn ghost sm ck-up" data-i="' + i + '" aria-label="Move up"' + (i ? '' : ' disabled') + '>↑</button>' +
+          '<button class="btn ghost sm ck-down" data-i="' + i + '" aria-label="Move down"' + (i < tasks.length - 1 ? '' : ' disabled') + '>↓</button>' +
+          '<button class="btn ghost sm ck-edit" data-i="' + i + '">Change</button>' +
+          '<button class="btn ghost sm ck-del" data-i="' + i + '" aria-label="Remove"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>';
       }).join('') : '<p class="hint">Nothing on the list yet.</p>') + '</div>' +
-      '<div class="two" style="margin-top:14px">' +
-        '<div class="field"><input class="inp" id="ckNew" placeholder="Add a task" maxlength="160"></div>' +
-        '<div class="field" style="flex:none"><button class="btn sec" id="ckAdd">Add</button></div>' +
+      '<div class="card" style="margin-top:14px;padding:12px;background:var(--tint)"><b>' + (CK_EDIT >= 0 ? 'Change the task' : 'Add a task') + '</b>' +
+        '<div class="field" style="margin-top:6px"><label for="ckNew">Task</label><input class="inp" id="ckNew" maxlength="160" value="' + esc(ed.text || '') + '" placeholder="e.g. Chairs out in the hall"></div>' +
+        '<div class="two">' +
+          '<div class="field"><label for="ckWho">Who (optional)</label><input class="inp" id="ckWho" list="ckPeople" value="' + esc(ed.whoName || '') + '" placeholder="Start typing a name">' +
+            '<datalist id="ckPeople">' + (ADDR || []).map(function (p) { return '<option value="' + esc(p.name) + '">'; }).join('') + '</datalist></div>' +
+          '<div class="field"><label for="ckWhen">When</label><select id="ckWhen">' + CK_WHEN.map(function (w) {
+            return '<option value="' + w[0] + '"' + (String(ed.dueDays === undefined || ed.dueDays === null ? '' : ed.dueDays) === w[0] ? ' selected' : '') + '>' + w[1] + '</option>'; }).join('') + '</select></div>' +
+        '</div>' +
+        '<div class="field"><label for="ckNote">Note (optional)</label><input class="inp" id="ckNote" maxlength="300" value="' + esc(ed.note || '') + '"></div>' +
+        '<label class="check" style="margin:0 0 8px"><input type="checkbox" id="ckTell" checked>Email them about it</label>' +
+        '<button class="btn sec" id="ckAdd">' + (CK_EDIT >= 0 ? 'Save the change' : 'Add') + '</button>' + (CK_EDIT >= 0 ? ' <button class="btn ghost" id="ckCancelEdit">Cancel</button>' : '') +
       '</div>' +
       '<div class="two">' +
         '<div class="field"><label for="ckTpl">Use a template</label><select id="ckTpl"><option value="">Choose…</option>' +
-          (window.__TPL || []).map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.name) + '</option>'; }).join('') +
+          (window.__TPL || []).map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.name) + (t.category ? ' (every new ' + esc(E.catOf(t.category).name) + ' event)' : '') + '</option>'; }).join('') +
         '</select></div>' +
         '<div class="field"><label for="ckTplName">Save this list as a template</label>' +
-          '<div style="display:flex;gap:8px"><input class="inp" id="ckTplName" placeholder="Template name">' +
-          '<button class="btn sec" id="ckTplSave">Save</button></div></div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap"><input class="inp" id="ckTplName" placeholder="Template name" style="flex:1;min-width:140px">' +
+          '<button class="btn sec" id="ckTplSave">Save</button></div>' +
+          '<label class="check" style="margin:6px 0 0"><input type="checkbox" id="ckTplCat">Start every new ' + esc(E.catOf(CUR.category).name) + ' event with it</label></div>' +
       '</div>';
   }
 
@@ -1021,6 +1059,7 @@
     wireEditor();
     if (TAB === 'photos') loadPhotos();
     if (TAB === 'invites' && CUR.id) loadInvites();
+    if (TAB === 'checklist' && !ADDR) ensureAddr().then(function () { if (TAB === 'checklist') drawEditor(); });
     icons();
     document.getElementById('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -1354,6 +1393,14 @@
     }).then(function () {
       return isNew ? makeSeries(id) : null;
     }).then(function (ids) {
+      /* F-188: a new event starts with its category's checklist, if it has one. */
+      var t = isNew ? (window.__TPL || []).filter(function (x) { return x.category && x.category === (CUR.category || 'other'); })[0] : null;
+      if (!t) return ids;
+      return Promise.all([id].concat(ids || []).map(function (eid) {
+        var tasks = fromTemplate(t), who = {}; tasks.forEach(function (x) { if (x.who) who[x.who] = 1; });
+        return db().collection('eventChecklists').doc(eid).set({ tasks: tasks, assignees: Object.keys(who), calEventId: eid, startUtc: CUR.startUtc || 0, title: String(CUR.title || '').slice(0, 140) });
+      })).then(function () { return ids; });
+    }).then(function (ids) {
       return syncRooms([id].concat(ids || [])).then(function () { return under18([id].concat(ids || [])); });
     }).then(function (u18msg) {
       toast(u18msg || 'Saved.');
@@ -1582,13 +1629,31 @@
     var ca = document.getElementById('ckAdd');
     if (ca) ca.onclick = function () {
       var v = document.getElementById('ckNew').value.trim();
-      if (!v) return;
-      CHECK.tasks = (CHECK.tasks || []).concat([{ text: v, done: false }]);
-      saveChecklist();
+      if (!v) { toast('Write the task first.'); return; }
+      var whoName = document.getElementById('ckWho').value.trim(), p = (ADDR || []).filter(function (x) { return x.name === whoName; })[0];
+      if (whoName && !p) { toast('Choose who from the list, or leave it empty.'); return; }
+      var w = document.getElementById('ckWhen').value, note = document.getElementById('ckNote').value.trim();
+      CHECK.tasks = (CHECK.tasks || []).map(taskOf);
+      var before = CK_EDIT >= 0 ? CHECK.tasks[CK_EDIT] : null;
+      var t = Object.assign({}, before || { done: false }, { text: v.slice(0, 160), who: p ? p.id : '', whoName: p ? p.name : '', dueDays: w === '' ? null : +w, note: note.slice(0, 300) });
+      if (before) CHECK.tasks[CK_EDIT] = t; else CHECK.tasks.push(t);
+      var tell = document.getElementById('ckTell').checked && p && p.email && (!before || before.who !== t.who);
+      CK_EDIT = -1;
+      saveChecklist().then(function () { if (tell) tellTask(t, p); });
     };
+    var ce = document.getElementById('ckCancelEdit'); if (ce) ce.onclick = function () { CK_EDIT = -1; drawEditor(); };
+    document.querySelectorAll('.ck-edit').forEach(function (b) { b.onclick = function () { CK_EDIT = +b.getAttribute('data-i'); ensureAddr().then(drawEditor); }; });
+    document.querySelectorAll('.ck-up, .ck-down').forEach(function (b) {
+      b.onclick = function () {
+        var i = +b.getAttribute('data-i'), j = b.classList.contains('ck-up') ? i - 1 : i + 1, l = (CHECK.tasks || []).map(taskOf);
+        if (j < 0 || j >= l.length) return;
+        var x = l[i]; l[i] = l[j]; l[j] = x; CHECK.tasks = l; saveChecklist();
+      };
+    });
     document.querySelectorAll('.ck').forEach(function (b) {
       b.onchange = function () {
         var i = +b.getAttribute('data-i');
+        CHECK.tasks = (CHECK.tasks || []).map(taskOf);
         CHECK.tasks[i].done = b.checked;
         CHECK.tasks[i].by = b.checked ? ((EGBCAuth.profile() || {}).name || '') : '';
         CHECK.tasks[i].at = b.checked ? new Date().toISOString() : '';
@@ -1596,22 +1661,24 @@
       };
     });
     document.querySelectorAll('.ck-del').forEach(function (b) {
-      b.onclick = function () { CHECK.tasks.splice(+b.getAttribute('data-i'), 1); saveChecklist(); };
+      b.onclick = function () { CHECK.tasks.splice(+b.getAttribute('data-i'), 1); CK_EDIT = -1; saveChecklist(); };
     });
     var tpl = document.getElementById('ckTpl');
     if (tpl) tpl.onchange = function () {
       var t = (window.__TPL || []).filter(function (x) { return x.id === tpl.value; })[0];
       if (!t) return;
-      CHECK.tasks = (CHECK.tasks || []).concat((t.tasks || []).map(function (x) { return { text: x, done: false }; }));
+      CHECK.tasks = (CHECK.tasks || []).map(taskOf).concat(fromTemplate(t));
       saveChecklist();
     };
     var ts = document.getElementById('ckTplSave');
     if (ts) ts.onclick = function () {
       var name = document.getElementById('ckTplName').value.trim();
       if (!name) { toast('Give the template a name.'); return; }
+      var forCat = document.getElementById('ckTplCat').checked ? (CUR.category || 'other') : '';
       db().collection('checklistTemplates').add({
-        name: name, tasks: (CHECK.tasks || []).map(function (t) { return t.text; })
-      }).then(function () { toast('Template saved.'); return loadTemplates(); }).then(drawEditor);
+        name: name, category: forCat,
+        tasks: (CHECK.tasks || []).map(taskOf).map(function (t) { return { text: t.text, who: t.who || '', whoName: t.whoName || '', dueDays: t.dueDays === undefined ? null : t.dueDays, note: t.note || '' }; })
+      }).then(function () { toast(forCat ? 'Template saved: every new ' + E.catOf(forCat).name + ' event starts with it.' : 'Template saved.'); return loadTemplates(); }).then(drawEditor);
     };
 
     document.querySelectorAll('.mark').forEach(function (b) {
@@ -1636,8 +1703,32 @@
     var ma = document.getElementById('mailAll'); if (ma) ma.onclick = emailEveryone;
   }
 
+  /* assignees: who has a task on this list, so "Your tasks" can find them. */
+  function checklistDoc(tasks) {
+    var l = (tasks || []).map(taskOf), who = {};
+    l.forEach(function (t) { if (t.who) who[t.who] = 1; });
+    return { tasks: l, assignees: Object.keys(who), calEventId: CUR.id, startUtc: CUR.startUtc || 0, title: String(CUR.title || '').slice(0, 140) };
+  }
+  function fromTemplate(t) {
+    return (t.tasks || []).map(function (x) { return typeof x === 'string' ? { text: x, done: false } : Object.assign({}, x, { done: false, by: '', at: '' }); });
+  }
+  function ensureAddr() {
+    if (ADDR) return Promise.resolve(ADDR);
+    return db().collection('addressBook').get().then(function (s) { ADDR = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (p) { return !p.archived && p.name; }); return ADDR; }, function () { ADDR = []; return ADDR; });
+  }
+  /* The person given a task is told, once, by email. */
+  function tellTask(t, p) {
+    var d = dueDate(t);
+    return EGBCChurch.send({
+      to: [p.email], subject: 'A task for ' + CUR.title + ': ' + t.text,
+      html: EGBCChurch.wrap('A task for you',
+        '<p>Dear ' + esc(String(p.name || '').split(' ')[0]) + ',</p><p>You have been asked to do this for <strong>' + esc(CUR.title) + '</strong> (' + esc(E.fmtWhen(CUR)) + '):</p>' +
+        '<p style="font-size:16px"><strong>' + esc(t.text) + '</strong>' + (d ? '<br>By ' + esc(E.fmtDate(d)) : '') + (t.note ? '<br>' + esc(t.note) : '') + '</p>'),
+      log: { calEventId: CUR.id, kind: 'checklist task' }
+    }).then(function () { toast('Added, and ' + p.name + ' has been told.'); }, function () { toast('Added. The email to ' + p.name + ' could not be sent.'); });
+  }
   function saveChecklist() {
-    return db().collection('eventChecklists').doc(CUR.id).set({ tasks: CHECK.tasks || [] }, { merge: true })
+    return db().collection('eventChecklists').doc(CUR.id).set(checklistDoc(CHECK.tasks), { merge: true })
       .then(function () { drawEditor(); })
       .catch(function (e) { toast('Could not save the checklist: ' + (e.message || e)); });
   }
@@ -1788,6 +1879,34 @@
   };
   document.getElementById('catsCard').addEventListener('toggle', function () { if (this.open) { CATDRAFT = null; drawCatCard(); } });
 
+  /* ---- Your tasks (F-188): the checklist tasks given to the person signed
+     in, on events still to come, overdue first. */
+  function drawMyTasks() {
+    var box = document.getElementById('mytasks'), me = (EGBCAuth.profile() || {}).memberId;
+    if (!box || !me) return;
+    db().collection('eventChecklists').where('assignees', 'array-contains', me).get().then(function (s) {
+      var mine = [];
+      s.docs.forEach(function (d) {
+        var ev = ALL.filter(function (e) { return e.id === d.id; })[0]; if (!ev || (ev.startUtc || 0) < Date.now() - 6 * 3600e3) return;
+        (d.data().tasks || []).forEach(function (t) {
+          if (typeof t === 'string' || t.who !== me || t.done) return;
+          var due = null; if (t.dueDays !== null && t.dueDays !== undefined && t.dueDays !== '') { due = new Date(ev.startUtc); due.setHours(0, 0, 0, 0); due.setDate(due.getDate() - Number(t.dueDays)); }
+          var end = due ? new Date(due.getTime() + 864e5) : null;
+          mine.push({ ev: ev, t: t, due: due, late: !!(end && Date.now() >= end.getTime()) });
+        });
+      });
+      mine.sort(function (a, b) { return (b.late - a.late) || ((a.due ? a.due.getTime() : a.ev.startUtc) - (b.due ? b.due.getTime() : b.ev.startUtc)); });
+      box.innerHTML = mine.length ? '<div class="card" style="margin-bottom:14px"><h2><span class="badge"><i data-lucide="list-checks" style="width:17px;height:17px"></i></span>Your tasks<span class="spacer"></span><span class="hint">' + mine.length + '</span></h2>' +
+        mine.map(function (x) {
+          return '<div class="row" data-mytask><span style="flex:1;min-width:0"><b>' + esc(x.t.text) + '</b><br><span class="m">' + esc(x.ev.title) + ' · ' + esc(E.fmtDateShort(new Date(x.ev.startUtc))) + '</span></span>' +
+            (x.due ? '<span class="m"' + (x.late ? ' style="color:var(--danger);font-weight:600"' : '') + '>' + (x.late ? 'Overdue: ' : 'Due ') + esc(E.fmtDateShort(x.due)) + '</span>' : '') +
+            '<button class="btn ghost sm mt-open" data-ev="' + esc(x.ev.id) + '">Open</button></div>';
+        }).join('') + '</div>' : '';
+      box.querySelectorAll('.mt-open').forEach(function (b) { b.onclick = function () { open(b.getAttribute('data-ev'), 'checklist'); }; });
+      icons();
+    }).catch(function () { box.innerHTML = ''; });
+  }
+
   function refresh() {
     /* Everything, not just what is coming up: the admin list has a past
        view, and `audience` already decides what this person may read. */
@@ -1797,7 +1916,7 @@
     return db().collection('calEvents').where('audience', 'array-contains-any', ['unlisted'].concat(E.myAudiences()).slice(0, 30)).get()
       .then(function (snap) {
         ALL = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-        drawList(); drawNotices();
+        drawList(); drawNotices(); drawMyTasks();
       });
   }
 

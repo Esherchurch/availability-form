@@ -226,6 +226,15 @@
           '<button class="btn sec" id="ics"><i data-lucide="calendar-plus" style="width:15px;height:15px"></i>Add to calendar</button>' +
           /* Not for an event that is not announced yet. */
           (EV.status === 'pending' ? '' : '<button class="btn sec" id="share"><i data-lucide="share-2" style="width:15px;height:15px"></i>Share on WhatsApp</button>') +
+          /* F-188 (Martin: as ChurchSuite does, and better): Facebook, X and
+             email, on a computer too - but only for an event anyone may see,
+             since a members' event's link means nothing to the public. */
+          (EV.status !== 'pending' && EV.status !== 'cancelled' && EV.visibility === 'public' ? (function () {
+            var u = encodeURIComponent(E.eventUrl(EV.id)), t = encodeURIComponent((EV.title || '') + ' - ' + E.fmtWhen(EV));
+            return '<a class="btn ghost" id="shareFb" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=' + u + '">Facebook</a>' +
+              '<a class="btn ghost" id="shareX" target="_blank" rel="noopener" href="https://x.com/intent/post?text=' + t + '&url=' + u + '">X</a>' +
+              '<a class="btn ghost" id="shareMail" href="mailto:?subject=' + encodeURIComponent(EV.title || '') + '&body=' + t + '%0A' + u + '">Email</a>';
+          })() : '') +
           '<a class="btn ghost" href="whatson.html"><i data-lucide="arrow-left" style="width:15px;height:15px"></i>What\'s on</a>' +
         '</div>' +
       '</div>' +

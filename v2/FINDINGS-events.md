@@ -5265,3 +5265,51 @@ A new **"Invitations"** tab on each event in events-admin.
   - My first key check let one break through. It only changed the name,
     so it was refused for a different reason. It now gives a proper answer
     and a new name together, which only the "answer only" rule refuses.
+
+### F-188 — Checklists at least as good as ChurchSuite's; and the four confirmations
+**Checklists, compared:**
+
+| ChurchSuite | The hub now |
+|---|---|
+| Tasks on an event, ticked off with who and when | Same (as before) |
+| Assigned to a person, who is told | Same. Who (from the address book) is told by email once; changing the task doesn't email them again |
+| Due a set time before the event | Same. "On the day", "2 days before", "1 week before"… worked out from the event's date, so a template fits any date |
+| Templates | Same, and they keep who, when and the note |
+| A default checklist for a category | Same. Tick "Start every new Social event with it" when saving a template; every new event in that category, including every date of a new series, starts with it |
+| Reminder emails as a task falls due | **Not yet.** It needs a scheduled server job: request **R11** |
+| (not in ChurchSuite) | **Better:** overdue in red; "2 of 5 done · 1 overdue"; move tasks up and down; change a task; a note on each; **"Your tasks"** at the top of Events, which lists the tasks given to you on coming events, overdue first, with "Open" going straight to that event's checklist |
+
+On a phone each task wraps: the task across the top, then who, when and
+the buttons.
+
+**The four Martin asked me to confirm:**
+- **Sign up to the whole series:** built today, F-184 (it had been offered
+  but did nothing, F-030).
+- **Letting people cancel:** covered. "People may cancel their own place"
+  on each event; the confirmation email's "View or cancel your place"
+  button; whole-series bookings can "Cancel all" (F-184).
+- **Pay-on-arrival tickets:** built today, F-183. Before, the price showed
+  and nothing else.
+- **Sharing an event to social media:**
+  - On a phone, the share button opens the phone's own share menu, which
+    reaches Facebook and everything else.
+  - **Added today:** on the event's own page (signup.html), **Facebook, X
+    and Email** links, so a computer can share too. Only for public
+    events: a members' event's link means nothing to the public.
+  - The WhatsApp share is the main window's `egbc-share.js`, unchanged.
+
+**REQUEST for the main window: R11.** A daily job (alongside the rota
+reminders) that emails each checklist task's person the day before it is
+due, and again if it goes overdue, unless it's ticked.
+- `eventChecklists/{calEventId}` holds `tasks[]`, each `{ text, who (a
+  memberId), whoName, dueDays, note, done }`.
+- It also holds `assignees` (memberIds), `startUtc` and `title`.
+- The due day is the event's day minus `dueDays`.
+
+**Proved:**
+- `checklist.test.mjs` 16/16.
+- `parity.test.mjs` 38/38 (with the sharing checks).
+- bulk 14/14, invites 15/15, series 15/15, r3-event-rooms 20/20,
+  unchanged.
+- 7 deliberate breaks, all caught. The one that matters: an overdue task
+  not shown as overdue in "Your tasks".

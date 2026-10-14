@@ -173,6 +173,17 @@ try {
   await sleep(800);
   ok('   switched off for the church: nothing at all', /Not available/.test(await text(O, '#box')) && !/Film/.test(await text(O, '#box')));
 
+  /* ---------- 1b. sharing a public event, on a computer too (F-188) ---------- */
+  await G.goto(URLB + 'signup.html?event=f_fair', { waitUntil: 'networkidle2' });
+  await until(() => G.$('#shareFb'));
+  const sh = await G.evaluate(() => ({ fb: document.getElementById('shareFb').href, x: document.getElementById('shareX').href, mail: document.getElementById('shareMail').href }));
+  ok('1b. SHARING A PUBLIC EVENT: Facebook, X and Email, each with the event\'s own page',
+    sh.fb === 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(URLB + 'signup.html?event=f_fair') &&
+    sh.x.startsWith('https://x.com/intent/post?text=Autumn') && sh.x.includes(encodeURIComponent(URLB + 'signup.html?event=f_fair')) && sh.mail.startsWith('mailto:?subject=Autumn'), J(sh));
+  await M.goto(URLB + 'signup.html?event=f_mem', { waitUntil: 'networkidle2' });
+  await until(() => M.$('#share'));
+  ok('   NOT for a members\' event: its link means nothing to the public', !(await M.$('#shareFb')) && !(await M.$('#shareX')));
+
   /* ---------- 2. events-admin: the code, and the notices ---------- */
   await M.goto(URLB + 'events-admin.html', { waitUntil: 'networkidle2' });
   await M.waitForSelector('#newEv');
