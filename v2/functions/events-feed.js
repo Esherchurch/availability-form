@@ -1,0 +1,193 @@
+/* ===================================================================
+   EGBC — a calendar people can subscribe to, that works (R7; F-182)
+   ===================================================================
+
+   Martin tried ChurchSuite's calendar feed and it did not work. This one
+   is written to the letter of the calendar standard, so Google, Apple and
+   Outlook all keep it:
+
+     https://…/eventsFeed?church=1[&cat=a,b]   public events only, anyone
+     https://…/eventsFeed?k=<key>[&cat=a,b]    what that person may see
+
+   - One VEVENT per date, UID <calEventId>@<hub host>, never changed, so a
+     calendar never shows the same date twice.
+   - Times in Europe/London with a VTIMEZONE block (Outlook drops a feed
+     without one); all-day dates as VALUE=DATE.
+   - CRLF line ends, long lines folded at 75 BYTES (not characters, or an
+     accented name breaks Outlook), text escaped.
+   - A cancelled date stays, marked STATUS:CANCELLED, so calendars cross
+     it out; SEQUENCE and LAST-MODIFIED from updatedAt, so changes show.
+   - Never a not-listed or not-yet-public event; never another team's.
+   - From 30 days ago to 18 months ahead.
+
+     myEventsFeed   callable: the signed-in person's own link (and Reset)
+
+   The events window's file. Exported from index.js the way public-mail.js
+   is.
+   =================================================================== */
+
+import crypto from 'node:crypto';
+import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { hubUrl } from './notify.js';
+
+const db = () => getFirestore();
+const REGION = 'europe-west2';
+const CRLF = '\r\n';
+
+/* ------------------------------------------------------------ writing */
+
+export function esc(s) {
+  return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+/* Fold at 75 octets, never splitting a character. */
+export function fold(line) {
+  const out = []; let cur = '', bytes = 0;
+  for (const ch of line) {
+    const b = Buffer.byteLength(ch, 'utf8');
+    if (bytes + b > (out.length ? 74 : 75)) { out.push(cur); cur = ''; bytes = 0; }
+    cur += ch; bytes += b;
+  }
+  out.push(cur);
+  return out.join(CRLF + ' ');
+}
+const two = (n) => String(n).padStart(2, '0');
+/* "2026-06-20T19:30" (London wall time, as the event stores it) -> 20260620T193000 */
+export function local(isoLocal) {
+  const m = String(isoLocal || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  return m ? m[1] + m[2] + m[3] + 'T' + m[4] + m[5] + '00' : '';
+}
+function utcStamp(ms) { const d = new Date(ms); return d.getUTCFullYear() + two(d.getUTCMonth() + 1) + two(d.getUTCDate()) + 'T' + two(d.getUTCHours()) + two(d.getUTCMinutes()) + two(d.getUTCSeconds()) + 'Z'; }
+function dateOnly(isoLocal) { return String(isoLocal || '').slice(0, 10).replace(/-/g, ''); }
+function dayAfter(isoLocal) { const [y, m, d] = String(isoLocal).slice(0, 10).split('-').map(Number); const t = new Date(Date.UTC(y, m - 1, d + 1)); return t.getUTCFullYear() + two(t.getUTCMonth() + 1) + two(t.getUTCDate()); }
+export function plain(html) {
+  return String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d)>/gi, '\n').replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n').trim();
+}
+const VTIMEZONE = [
+  'BEGIN:VTIMEZONE', 'TZID:Europe/London',
+  'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0000', 'TZOFFSETTO:+0100', 'TZNAME:BST', 'DTSTART:19700329T010000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT',
+  'BEGIN:STANDARD', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0000', 'TZNAME:GMT', 'DTSTART:19701025T020000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD',
+  'END:VTIMEZONE'
+];
+
+export function whereOf(ev, look) {
+  const loc = ev.location || {};
+  if (loc.kind === 'online') return 'Online';
+  if (loc.kind === 'venue') return look.venues[loc.venueId] || loc.venueName || '';
+  const rooms = (loc.roomIds || []).map((r) => look.rooms[r]).filter(Boolean);
+  const site = look.sites[loc.siteId] || loc.siteName || '';
+  return rooms.length ? rooms.join(', ') + (site ? ', ' + site : '') : site;
+}
+
+/* The whole calendar, as text. Pure: the tests call it directly. */
+export function buildEventsFeed({ events, look, calName, host, hub, now }) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Church hub//What\'s on//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'X-WR-CALNAME:' + esc(calName), 'X-WR-TIMEZONE:Europe/London', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H'].concat(VTIMEZONE);
+  const stamp = utcStamp(now || Date.now());
+  events.slice().sort((a, b) => (a.startUtc || 0) - (b.startUtc || 0)).forEach((ev) => {
+    const mod = Date.parse(ev.updatedAt || ev.createdAt || '') || 0;
+    const url = hub + 'signup.html?event=' + encodeURIComponent(ev.id);
+    const words = plain(ev.description);
+    lines.push('BEGIN:VEVENT', 'UID:' + ev.id + '@' + host, 'DTSTAMP:' + stamp);
+    if (ev.allDay) {
+      lines.push('DTSTART;VALUE=DATE:' + dateOnly(ev.startLocal), 'DTEND;VALUE=DATE:' + dayAfter(ev.endLocal || ev.startLocal));
+    } else {
+      lines.push('DTSTART;TZID=Europe/London:' + local(ev.startLocal), 'DTEND;TZID=Europe/London:' + local(ev.endLocal || ev.startLocal));
+    }
+    lines.push(fold('SUMMARY:' + esc(ev.title || 'Event')));
+    const where = whereOf(ev, look);
+    if (where) lines.push(fold('LOCATION:' + esc(where)));
+    lines.push(fold('DESCRIPTION:' + esc((words ? words + '\n\n' : '') + 'More, and signing up: ' + url)));
+    lines.push(fold('URL:' + url));
+    if (mod) lines.push('LAST-MODIFIED:' + utcStamp(mod), 'SEQUENCE:' + Math.max(0, Math.floor((mod - Date.UTC(2024, 0, 1)) / 60000)));
+    lines.push('STATUS:' + (ev.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED'), 'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join(CRLF) + CRLF;
+}
+
+/* Who may see what: the audiences a person's record opens, as the pages
+   work them out (E.myAudiences). Public feeds: 'public' alone. */
+export function audiencesFor(user) {
+  if (!user) return ['public'];
+  const out = new Set(['public', 'members']);
+  (user.teams || []).forEach((t) => out.add(t));
+  (user.adminFor || []).forEach((t) => out.add(t));
+  if (user.churchMember === true) out.add('churchMembers');
+  return [...out];
+}
+export function visible(ev, audiences, cats) {
+  if (!ev || ev.visibility === 'unlisted' || ev.status === 'pending') return false;
+  const aud = Array.isArray(ev.audience) ? ev.audience : [];
+  if (aud.includes('unlisted') || !aud.some((a) => audiences.includes(a))) return false;
+  if (cats && cats.length && !cats.includes(ev.category || 'other')) return false;
+  return true;
+}
+
+/* ------------------------------------------------------------ serving */
+
+async function lookups() {
+  const look = { sites: {}, rooms: {}, venues: {} };
+  const [s, r, v] = await Promise.all(['sites', 'rooms', 'venues'].map((c) => db().collection(c).get()));
+  s.docs.forEach((d) => { look.sites[d.id] = d.data().name || ''; });
+  r.docs.forEach((d) => { look.rooms[d.id] = d.data().name || ''; });
+  v.docs.forEach((d) => { look.venues[d.id] = d.data().name || ''; });
+  return look;
+}
+
+export const eventsFeed = onRequest({ region: REGION, cors: false, invoker: 'public' }, async (req, res) => {
+  const no = () => { res.set('Cache-Control', 'no-store'); res.status(404).type('text/plain').send('Not found'); };
+  try {
+    const key = String(req.query.k || '').trim(), pub = String(req.query.church || '') === '1';
+    const cats = String(req.query.cat || '').split(',').map((c) => c.trim()).filter((c) => /^[a-z0-9-]{1,40}$/.test(c)).slice(0, 20);
+    let audiences = ['public'], who = '';
+    if (key) {
+      if (!/^[A-Za-z0-9]{24,64}$/.test(key)) return no();
+      const f = await db().collection('eventFeeds').doc(key).get();
+      if (!f.exists) return no();
+      const u = await db().collection('users').doc(f.data().uid).get();
+      if (!u.exists || u.data().status !== 'active') return no();
+      audiences = audiencesFor(u.data()); who = ' (mine)';
+    } else if (!pub) return no();
+    const now = Date.now();
+    const snap = await db().collection('calEvents').where('startUtc', '>=', now - 30 * 864e5).where('startUtc', '<=', now + 548 * 864e5).get();
+    const events = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => visible(e, audiences, cats));
+    const church = await db().collection('churchSettings').doc('details').get();
+    const name = (church.exists && church.data().name) || 'Church';
+    let catNames = '';
+    if (cats.length) {
+      const cs = await db().collection('eventCategories').get(), names = {};
+      cs.docs.forEach((d) => { names[d.id] = d.data().name; });
+      catNames = ' - ' + cats.map((c) => names[c] || c).join(', ');
+    }
+    const hub = await hubUrl(db());
+    let host = 'church-hub'; try { host = new URL(hub).host || host; } catch (e) {}
+    const body = buildEventsFeed({ events, look: await lookups(), calName: name + ' \u2013 What\'s on' + catNames + who, host, hub, now });
+    res.set('Content-Type', 'text/calendar; charset=utf-8');
+    res.set('Content-Disposition', 'inline; filename="whats-on.ics"');
+    res.set('Cache-Control', 'public, max-age=900');
+    res.status(200).send(body);
+  } catch (e) {
+    console.error('eventsFeed', e);
+    res.set('Cache-Control', 'no-store'); res.status(500).type('text/plain').send('Could not build the calendar');
+  }
+});
+
+/* The signed-in person's own link: made once, kept, and Reset makes a new
+   one (the old link stops working at once). */
+export const myEventsFeed = onCall({ region: REGION }, async (req) => {
+  const uid = req.auth && req.auth.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const u = await db().collection('users').doc(uid).get();
+  if (!u.exists || u.data().status !== 'active') throw new HttpsError('permission-denied', 'Your account is not active.');
+  const mine = await db().collection('eventFeeds').where('uid', '==', uid).get();
+  if (mine.size && !(req.data && req.data.reset)) return { key: mine.docs[0].id };
+  const batch = db().batch();
+  mine.docs.forEach((d) => batch.delete(d.ref));
+  const key = crypto.randomBytes(24).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
+  batch.set(db().collection('eventFeeds').doc(key), { uid, createdAt: FieldValue.serverTimestamp() });
+  await batch.commit();
+  return { key, reset: !!(req.data && req.data.reset) };
+});

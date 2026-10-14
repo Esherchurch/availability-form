@@ -3756,6 +3756,14 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nor changes a regular gift', 'deny', () => updateDoc(doc(as('martin'), 'regularGifts', 'rg_' + 'K'.repeat(28)), { amount: 1 }));
 }
 
+// The What's on calendar feed keys (R7).
+{
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'eventFeeds', 'K'.repeat(32)), { uid: 'u_samy' }); });
+  await check('FEED KEYS: nobody reads one from a page, not even its owner or a master admin', 'deny', () => getDoc(doc(as('samy'), 'eventFeeds', 'K'.repeat(32))));
+  await check('  nor lists them', 'deny', () => getDocs(collection(as('martin'), 'eventFeeds')));
+  await check('  nor makes one', 'deny', () => setDoc(doc(as('samy'), 'eventFeeds', 'M'.repeat(32)), { uid: 'u_samy' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

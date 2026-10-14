@@ -726,3 +726,5 @@ export * from './public-mail.js';
 export * from './payments.js';
 /* ...and its own GoCardless account: bank payments and Direct Debit giving. */
 export * from './gocardless.js';
+/* The What's on calendar people subscribe to (R7, F-182), the events window's file. */
+export * from './events-feed.js';

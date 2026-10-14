@@ -5668,3 +5668,47 @@ signed in or not):
 **REQUEST for the main window:** the Give screen (`give.html`, yours)
 needs one link, **"Give regularly by Direct Debit" → give-regularly.html**,
 shown when `paymentSettings/public.bank` is true. Or tell me to add it.
+
+### F-193 — R7 built: the What's on calendar people subscribe to, that works (spec F-182)
+New file `functions/events-feed.js` (mine), exported from `index.js`.
+- **`eventsFeed`** (public HTTPS, no sign-in, as `rotaFeed`):
+  - `?church=1`: public events only
+  - `?k=<key>`: what that person may see (public, attenders', church
+    members' if they are one, their teams' and the teams they lead)
+  - `&cat=a,b`: just those categories, named in the calendar's title
+  - **Never** a not-listed, not-yet-public or other team's event. A person
+    whose account has gone gets nothing.
+- **To the letter:**
+  - a `VTIMEZONE` for Europe/London (Outlook drops a feed without one)
+  - times in London wall time, the night the clocks change included
+  - all-day dates end the day after
+  - one `UID` per date (`<calEventId>@<hub host>`), never changed
+  - CRLF line ends
+  - lines folded at **75 bytes without splitting a letter** (the rota
+    feed folds by characters, which an accented name would break)
+  - cancelled dates kept as `STATUS:CANCELLED`
+  - `SEQUENCE` / `LAST-MODIFIED` from `updatedAt`
+  - from 30 days ago to 18 months ahead
+  - cached 15 minutes
+- **`myEventsFeed`** (callable): the signed-in person's own link, made once.
+  **Reset** makes a new one, and the old one stops at once. Keys are in
+  `eventFeeds`, which no page may read or write (new rule, my section;
+  **not deployed**).
+- **What's on › Subscribe:**
+  - public events only, or "Everything I can see here (my own link)"
+  - which categories (none ticked: everything)
+  - **Add to Google Calendar** (`calendar.google.com/calendar/r?cid=webcal://…`)
+  - **Apple or Outlook** (`webcal://`)
+  - **Copy the link**
+  - Reset
+  - It says Google can take a few hours to catch up, which is Google.
+- **What it can't prove here:** that Google, Apple and Outlook each accept
+  it. No real calendar app can reach the emulator. The test reads the feed
+  with a strict reader of its own. Once deployed, a person adds the link in
+  each app once.
+
+**Proved:**
+- `events-feed.test.mjs` 18/18, with the hub's real functions.
+- Rules 1358/1358 (3 new).
+- 7 deliberate breaks, all caught. The one that matters: members' and team
+  events reaching the public feed.

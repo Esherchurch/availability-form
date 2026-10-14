@@ -3981,6 +3981,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- the What's on calendar feed (R7, F-182) -------------------------
+    // A person's own feed key: the server makes it (myEventsFeed) and reads
+    // it (eventsFeed). No page reads or writes one.
+    match /eventFeeds/{key} {
+      allow read, write: if false;
+    }
+
     // ---- regular giving by Direct Debit (F-181, GoCardless) ---------------
     // A giver's regular gift, under an unguessable key that is in their own
     // link: they read theirs by it. The treasurer and the office (the same
