@@ -297,7 +297,7 @@
     return names.join(', ') + (site ? ', ' + site : '');
   }
 
-  /* EVENT CATEGORIES (F-178). Every church starts with these eight. Once an
+  /* EVENT CATEGORIES (F-180). Every church starts with these eight. Once an
      admin saves the church's own list (events-admin, "Event categories"),
      eventCategories/{id} holds it - name, colour, order, retired - and
      CATEGORIES becomes that list, changed in place so every page that

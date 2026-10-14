@@ -3615,7 +3615,7 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  and the half is free again', 'allow', () => bookOn(as('samy'), KK('a10b'), BK('room_halfA', D, 600, 660), ['room_halfA']));
 }
 
-// Deleted events: what, when and who (F-178, ChurchSuite's "deleted events").
+// Deleted events: what, when and who (F-180, ChurchSuite's "deleted events").
 {
   const DEL = (by, extra) => ({ title: 'Film club (invented)', startUtc: 1, endUtc: 2, seriesId: 'ser_x', count: 3, byUid: PEOPLE[by].uid, byName: 'Someone', at: serverTimestamp(), ...(extra || {}) });
   await check('deleted events: an admin records the series they delete', 'allow', () => setDoc(doc(as('karen'), 'calEventsDeleted', 'd1'), DEL('karen')));
@@ -3630,7 +3630,7 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  NOR REMOVES ONE', 'deny', () => deleteDoc(doc(as('martin'), 'calEventsDeleted', 'd1')));
 }
 
-// The church's own event categories (F-178).
+// The church's own event categories (F-180).
 {
   const CAT = (extra) => ({ name: 'Art Club', colour: '#aa3366', order: 3, retired: false, ...(extra || {}) });
   await check('event categories: an admin adds one', 'allow', () => setDoc(doc(as('karen'), 'eventCategories', 'art-club'), CAT()));

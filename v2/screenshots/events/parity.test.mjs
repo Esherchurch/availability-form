@@ -1,4 +1,4 @@
-/* The ChurchSuite parity check (F-178): the two things EGBC uses in
+/* The ChurchSuite parity check (F-180): the two things EGBC uses in
    ChurchSuite's Calendar that the hub did not have yet.
    Events window. Invented people and events only, events emulators only,
    network guard, no email leaves the machine.

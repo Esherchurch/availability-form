@@ -3891,7 +3891,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ---- deleted events: what, when, and who deleted them (F-178) -------
+    // ---- deleted events: what, when, and who deleted them (F-180) -------
     // ChurchSuite's "deleted events" report. Written by events-admin just
     // before it deletes a series; only an admin may write one, in their own
     // name and at the server's time; nobody may change or remove one.
@@ -3909,7 +3909,7 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ---- the church's own event categories (F-178) ----------------------
+    // ---- the church's own event categories (F-180) ----------------------
     // A name, a colour, an order and "retired". Anyone may read them: the
     // public What's on shows an event's category. Admins write them. None
     // is ever deleted - retired instead - so no event loses its category.

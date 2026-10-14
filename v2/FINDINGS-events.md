@@ -4883,7 +4883,7 @@ people. The screens hint at them (questions 6 and 7 at the end):
 **Proved:**
 - `parity.test.mjs`: 36 checks, at a computer's width and at 375px, signed
   out and as a master admin.
-- Rules: 19 new checks, 1268 in all.
+- Rules: 19 new checks; 1307 in all with the main window's newest.
 - 17 deliberate breaks, all caught. The one that matters: the notices
   letting not-listed and held events through.
 
