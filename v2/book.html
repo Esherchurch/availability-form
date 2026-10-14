@@ -183,8 +183,10 @@
         if (qt) x.booking.quote = { lines: qt.lines, subtotal: qt.subtotal, vat: qt.vat, vatRate: qt.vatRate, total: qt.total, deposit: qt.deposit, damageDeposit: qt.damageDeposit, by: 'price list' };
       });
     } catch (e) { toast(e.message); go.disabled = false; go.textContent = 'Send the request'; return; }
+    /* Both emails, theirs and the office's, are sent by the hub's server once this is saved (functions/public-mail.js,
+       F-168): a page with nobody signed in may not send email. */
     B.write(list, plan.days).then(function (made) {
-      return Promise.all([B.emailMany(made, r.name, 'waiting'), B.tellOffice(made, r.name, SITES[r.siteId])]).then(function () { thanks(made, r); });
+      thanks(made, r);
     }).catch(function (e) {
       toast(/permission/i.test(String(e && (e.code || e.message))) ? 'That time has just been taken. Please look again.' : 'Sorry, that could not be sent. Please try again.');
       go.disabled = false; go.textContent = 'Send the request';
@@ -196,7 +198,7 @@
     var b = made[0];
     document.getElementById('wrap').innerHTML = '<h1>Thank you</h1><div class="card" id="done">' +
       '<p style="margin:0 0 8px">We have your request for <b>' + esc(r.name) + '</b>' + (b ? (made.length > 1 ? ', ' + made.length + ' dates from ' : ', ') + esc(B.when(b)) : '') + '.</p>' +
-      '<p style="margin:0 0 8px">Nothing is booked yet. We will look at it and email you either way.</p>' +
+      '<p style="margin:0 0 8px">Nothing is booked yet. A copy of your request is on its way to you by email, and we will email you again when we have looked at it.</p>' +
       (b ? '<p class="hint" style="margin:0">Your reference' + (made.length > 1 ? 's are' : ' is') + ' <b id="ref">' + made.map(function (x) { return esc(B.ref(x)); }).join(', ') + '</b>.</p>' : '') + '</div>' +
       '<p><a href="room.html?id=' + encodeURIComponent(r.id) + '" style="color:var(--brand)">Back to ' + esc(r.name) + '</a></p>';
   }

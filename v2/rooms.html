@@ -336,18 +336,19 @@
       });
     } catch (e) { toast(e.message); go.disabled = false; return; }
     B.write(list, plan.days).then(function (made) {
-      /* One email per room: every date in it, and one calendar file. */
+      /* One email per room: every date in it, and one calendar file. One that
+         waits for the office is emailed, to them and to the office, by the
+         hub's server (functions/public-mail.js, F-168), as book.html's are. */
       return Promise.all(v.rooms.map(function (id) {
         var these = made.filter(function (b) { return b.roomId === id; }), name = roomById(id).name;
-        return these[0].status === 'confirmed' ? B.emailMany(these, name, 'confirmed')
-          : Promise.all([B.emailMany(these, name, 'waiting'), B.tellOffice(these, name, site())]);
+        return these[0].status === 'confirmed' ? B.emailMany(these, name, 'confirmed') : null;
       })).then(function () { return made; });
     }).then(function (made) {
       var waits = made.some(function (b) { return b.status !== 'confirmed'; });
       document.getElementById('sheet').innerHTML = '<h3>' + (waits ? 'Asked' : 'Booked') + '</h3>' + made.map(function (b) {
         return '<div class="st ' + (b.status === 'confirmed' ? 'ok' : 'wait') + '" data-made="' + esc(b.status) + '"><b>' + esc(roomById(b.roomId).name) + '</b>, ' + esc(B.when(b)) + ': ' +
           (b.status === 'confirmed' ? 'confirmed.' : 'waiting for the office to approve.') + ' Reference ' + esc(B.ref(b)) + '.</div>';
-      }).join('') + '<p class="hint">' + (waits ? 'We have emailed you, and will email again when the office decides.' : 'We have emailed you the details, with a calendar file.') + '</p>' +
+      }).join('') + '<p class="hint">' + (waits ? 'An email saying so is on its way to you, and we will email again when the office decides.' : 'We have emailed you the details, with a calendar file.') + '</p>' +
         '<div style="text-align:right"><button class="btn" id="f-done">Done</button></div>';
       document.getElementById('f-done').onclick = closeSheet;
       return loadMine().then(drawCal);

@@ -164,13 +164,9 @@
       ag.disabled = true; document.getElementById('askMsg').textContent = 'Sending…';
       var why = document.getElementById('askWhy').value.trim().slice(0, 1000);
       db().collection('bookings').doc(KEY).update({ cancelRequest: { status: 'asked', at: firebase.firestore.FieldValue.serverTimestamp(), reason: why } })
-        .then(function () {
-          var to = (SITE && SITE.bookingsEmail) || EGBCChurch.email(), r = BK.requester || {};
-          return to ? EGBCChurch.send({ to: [to], subject: 'Asking to cancel: ' + (ROOM ? ROOM.name + ', ' : '') + B.when(BK),
-            html: EGBCChurch.wrap('A hirer is asking to cancel', '<p>' + esc(r.name || BK.memberName || '') + (r.org ? ' (' + esc(r.org) + ')' : '') + ' asks to cancel <strong>' + esc(BK.title || 'a booking') +
-              '</strong>, ' + esc(ROOM ? ROOM.name : '') + ', ' + esc(B.when(BK)) + ' (reference ' + esc(B.ref(BK)) + ').</p>' + (why ? '<p>' + esc(why) + '</p>' : '') +
-              '<p>Open <strong>Room bookings</strong> in the hub to cancel it or keep it.</p>') }).catch(function () {}) : null;
-        }).then(load).catch(function () { ag.disabled = false; document.getElementById('askMsg').textContent = 'That could not be sent. Please reply to our email instead.'; });
+        /* The office is emailed by the hub's server once this is saved (functions/public-mail.js,
+       F-168): a page with nobody signed in may not send email. */
+        .then(load).catch(function () { ag.disabled = false; document.getElementById('askMsg').textContent = 'That could not be sent. Please reply to our email instead.'; });
     };
     var p = document.getElementById('print'); if (p) p.onclick = function () { window.print(); };
     var ag = document.getElementById('agree'); if (ag) ag.onchange = function () { document.getElementById('acceptMsg').textContent = ''; };

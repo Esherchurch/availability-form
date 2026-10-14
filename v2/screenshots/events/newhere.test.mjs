@@ -29,6 +29,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDocs, collection } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
+import { serverMail, find } from './server-mail.mjs';
 const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -130,7 +131,8 @@ try {
   ok('1. sent: "Thank you … Someone will be in touch soon"', /Thank you, Vera Visitor \(invented\)\. Someone will be in touch soon/.test(await text(V, '#thanks')));
   const h = (await list('welcomes'))[0];
   ok('   kept: name, email, words, asked to be contacted; nothing more', h && h.name === 'Vera Visitor (invented)' && h.email === 'vera.visitor@example.invalid' && h.contactMe === true && h.status === 'new' && h.uid === '', J(h));
-  const mail = await until(() => V.evaluate(() => (window.__egbcOutbox || []).map(m => m.payload)).then(l => l.find(m => /Someone new said hello/.test(m.subject))));
+  ok('   the page itself sends no email (F-168)', (await V.evaluate(() => (window.__egbcOutbox || []).length)) === 0);
+  const mail = (await serverMail('newHere', { id: h.id }))[0];
   ok('3. emailed to the address the church chose', mail && mail.to[0] === 'welcome@example.invalid' && /vera\.visitor@example\.invalid/.test(mail.html), J(mail));
 
   /* ---------- 3, 4. who reads it ---------- */

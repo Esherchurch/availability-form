@@ -299,14 +299,10 @@
       status: waiting ? 'waiting' : 'confirmed'
     };
 
+    /* The confirmation is emailed by the hub's server once this is saved (functions/public-mail.js,
+       F-168): a page with nobody signed in may not send email. */
     E.signUp(payload).then(function (res) {
-      var mail = E.confirmationEmail({
-        ev: EV, where: WHERE, email: email, places: who.length,
-        attendees: who, manageKey: res.manageKey, status: payload.status
-      });
-      return EGBCChurch.send(mail).then(function (sent) { return { res: res, sent: sent }; });
-    }).then(function (out) {
-      done(out.res.manageKey, waiting, out.sent);
+      done(res.manageKey, waiting);
     }).catch(function (err) {
       var m = String(err && (err.message || err));
       /* The rules refuse the whole batch when the last place went while
@@ -320,16 +316,14 @@
     });
   }
 
-  function done(manageKey, waiting, sent) {
+  function done(manageKey, waiting) {
     var url = E.manageUrl(manageKey);
     document.getElementById('signupCard').innerHTML =
       '<h2>' + (waiting ? 'You are on the waiting list' : 'You are signed up') + '</h2>' +
       '<div class="banner ok">' + (waiting
-        ? 'We will email you if a place comes free.'
-        : 'That is booked. We have emailed you a confirmation.') + '</div>' +
-      (sent && sent.stubbed ? '<div class="banner info">Development: the confirmation was composed but not sent.</div>' : '') +
-      (sent && !sent.ok ? '<div class="banner warn">We could not email the confirmation. Keep this link: it is the only way back to your booking.</div>' : '') +
-      '<p>Keep this link to view or cancel your place:</p>' +
+        ? 'An email saying so is on its way to you. We will email you again if a place comes free.'
+        : 'That is booked. A confirmation is on its way to you by email, and should arrive in the next few minutes.') + '</div>' +
+      '<p>Keep this link to view or cancel your place. It works even if the email has not arrived:</p>' +
       '<p><a href="' + esc(url) + '" style="color:var(--brand);word-break:break-all">' + esc(url) + '</a></p>' +
       '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +
         '<button class="btn sec" id="ics2"><i data-lucide="calendar-plus" style="width:15px;height:15px"></i>Add to calendar</button>' +

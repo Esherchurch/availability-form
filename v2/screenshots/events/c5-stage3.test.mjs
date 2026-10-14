@@ -30,6 +30,7 @@ import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
+import { serverMail, find } from './server-mail.mjs';
 const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -268,6 +269,9 @@ try {
   await G.waitForSelector('#asked', { timeout: 15000 });
   const a2 = await get('bookings', KA2);
   ok('5. asking to cancel records the ask, at the server\'s time, and cancels nothing', a2.cancelRequest.status === 'asked' && typeof a2.cancelRequest.at.toDate === 'function' && a2.status === 'confirmed');
+  ok('   the page itself sends no email (F-168)', (await outbox(G)).length === 0);
+  const askMail = await serverMail('cancelAsk', { key: KA2 });
+  ok('   the office is told, by the server, with the reason', askMail.length === 1 && /^Asking to cancel: /.test(askMail[0].subject) && /half term/.test(askMail[0].html), JSON.stringify(askMail.result));
   await go(L, 'bookings-admin.html', `[data-ask="${KA2}"]`);
   ok('   the office sees it in Waiting, with the reason', /half term/.test(await L.$eval(`[data-ask="${KA2}"]`, e => e.innerText)));
   await L.evaluate(() => EGBCEmail.clearOutbox());
