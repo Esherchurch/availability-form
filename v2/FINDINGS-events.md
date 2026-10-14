@@ -5712,3 +5712,33 @@ New file `functions/events-feed.js` (mine), exported from `index.js`.
 - Rules 1358/1358 (3 new).
 - 7 deliberate breaks, all caught. The one that matters: members' and team
   events reaching the public feed.
+
+### F-194 — R11 built: checklist reminders as a task falls due
+New file `functions/checklist-reminders.js` (mine), exported from
+`index.js`. **`checklistReminders`** runs every morning at 8, London time.
+- **Who gets an email:** each checklist task with a person named and a due
+  date (days before its event), not ticked, on a coming event that isn't
+  cancelled:
+  - **the day before** it is due: "Due tomorrow: Chairs out (Harvest
+    supper)", with the task, the note, the date and the event
+  - **the day after** it was due: "Overdue: …"
+- **Each is sent once.** The record is `checklistReminders/{event}_{task}_{kind}`.
+  The task's id is its words, who and when, so moving it up the list
+  doesn't send again.
+- Someone with no email address is recorded, not lost.
+- **Dates are London dates:** the event's own day, minus the task's days.
+- Tasks are found by their **events'** own dates, so a moved event moves
+  its reminders.
+- Sent through the hub's own sender (`makeSender`, as F-170), so each
+  lands in `emailOutbox` like every other server email.
+- **New rule `checklistReminders`:** nobody (my section). **Not deployed.**
+
+**Proved:**
+- `checklist-reminders.test.mjs` 11/11. The job is run on chosen days,
+  through a stand-in sender that only records.
+- Rules 1360/1360 (2 new).
+- 6 deliberate breaks, all caught. The one that matters: reminders sent
+  again every morning.
+  - My first London-date check let "dates in UTC" through, because every
+    time I'd chosen fell on the same date in both. It now also runs at
+    23:30 UTC on Friday 23 October, which is already Saturday in London.

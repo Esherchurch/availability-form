@@ -3981,6 +3981,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- checklist reminders (R11) -----------------------------------------
+    // Which reminders the morning job has sent: its own record, nobody else's.
+    match /checklistReminders/{id} {
+      allow read, write: if false;
+    }
+
     // ---- the What's on calendar feed (R7, F-182) -------------------------
     // A person's own feed key: the server makes it (myEventsFeed) and reads
     // it (eventsFeed). No page reads or writes one.

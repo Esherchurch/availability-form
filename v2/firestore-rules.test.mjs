@@ -3764,6 +3764,13 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nor makes one', 'deny', () => setDoc(doc(as('samy'), 'eventFeeds', 'M'.repeat(32)), { uid: 'u_samy' }));
 }
 
+// Checklist reminders' own records (R11).
+{
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'checklistReminders', 'ev_x_abc_tomorrow'), { ok: true }); });
+  await check('CHECKLIST REMINDERS: their record is nobody\'s to read, not even a master admin\'s', 'deny', () => getDoc(doc(as('martin'), 'checklistReminders', 'ev_x_abc_tomorrow')));
+  await check('  nor to write', 'deny', () => setDoc(doc(as('martin'), 'checklistReminders', 'ev_y'), { ok: true }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 
