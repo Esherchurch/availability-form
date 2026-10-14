@@ -691,3 +691,6 @@ export const feedSync = onSchedule(
   { schedule: 'every 60 minutes', timeZone: 'Europe/London', retryCount: 1 },
   async () => { await runFeeds(db, { now: new Date() }); }
 );
+
+/* The seven public pages' emails, sent by the server (F-168, the events window's file). */
+export * from './public-mail.js';
