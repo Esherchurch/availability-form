@@ -4688,7 +4688,7 @@ rules:
    `check-menu` names whatson-embed.html as a page with no shell and no
    reason (add it to NO_MENU there, with why — an embed has no Menu).
 
-### F-175 — main window: the collection code no longer leaves the slip
+### F-175 (reply from the main window) — the collection code no longer leaves the slip
 
 `callParent` (functions/notify.js) now sends the group and **`ck.screenNo`**
 ("Number 14 on the screen"), or no number at all if the check-in has none
