@@ -1365,7 +1365,17 @@ async function checkSgLead() {
   if (!EGBCAuth.isMaster()) return;
   try {
     const s = await db.collection('careRouting').doc('status').get();
-    NO_SG_LEAD = s.exists && s.data().leadSet === false;
+    if (s.exists) {
+      NO_SG_LEAD = s.data().leadSet === false;
+    } else {
+      /* No note yet (the server writes it within the hour): a master admin
+         can read the settings it is made from, so work it out here rather
+         than wait - nobody should have to press Save to see this. */
+      const d = await db.collection('safeguardingSettings').doc('defaults').get();
+      const site = d.exists ? String(d.data().leadSiteId || '') : '';
+      const b = site ? await db.collection('bookingSettings').doc(site).get() : null;
+      NO_SG_LEAD = !(b && b.exists && b.data().safeguardingLead);
+    }
   } catch (e) { NO_SG_LEAD = false; }
   if (NO_SG_LEAD) renderWaiting();
 }

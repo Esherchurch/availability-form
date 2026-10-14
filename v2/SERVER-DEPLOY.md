@@ -476,8 +476,9 @@ Five more, created by the same `functions:hub` deploy:
 | `prayerNotify` (trigger on `prayers`) | **Yes.** The same for a prayer request, plus the prayer team when the person chose it |
 | `helloNotify` (trigger on `welcomes`) | **Yes.** Tells the welcomers a visitor said hello, with no details. The church's copy of the hello is the events window's `publicMailNewHere` (F-168, already live), not this |
 | `careStatusFromSettings`, `careStatusFromSite` (triggers on `safeguardingSettings`, `bookingSettings`) | **Yes.** Keep `careRouting/status` (is a safeguarding lead set, and who) for the forms and the hub's warning. Write nothing else |
+| `careStatusSync` (timer, every 60 minutes) | **Yes.** The same note, by itself: written the first time and whenever the answer changes, so no church ever has to press Save to make it work |
 
-**After the deploy:** open Safeguarding settings and press Save once, so `careRouting/status` is written for the first time. Until then the forms still work (the rules decide), but the hub's "No safeguarding lead set" warning cannot appear.
+**Nothing to press after the deploy.** `careStatusSync` (every 60 minutes) writes `careRouting/status` by itself the first time and whenever the answer changes, and the hub's warning works it out directly until then.
 
 **For Calla's sendEmail (the known-recipient check):** the addresses the church can choose here are `careRouting/main.care.email`, `careRouting/main.pastoral.email`, `careRouting/main.prayer.email` (`welcomeSettings/public.notifyEmail` is the events window's, for its own copy). They need to count as known recipients, or those emails will be refused once the open path closes.
 

@@ -81,6 +81,14 @@
   <p class="sub" id="notify-sub" hidden>Rota reminders, booking news, new maintenance jobs, urgent notices and DBS and training reminders, by phone, and by email for anyone without the app.</p>
   <div class="card" id="notify-form" hidden></div>
 
+  <!-- SWITCH-OVER: THE PRIVATE FORMS (14 Oct 2026). Until the locked rules
+       are on, the live database is readable signed out, so Care & support,
+       prayer requests and "I'm new here" save nothing. A master admin turns
+       this on straight after the rules deploy (NEXT-BRIEF §26). -->
+  <h1 style="font-size:18px;margin:22px 0 4px" id="launch-h" hidden>Private forms</h1>
+  <p class="sub" id="launch-sub" hidden>Care &amp; support, prayer requests and &ldquo;I&rsquo;m new here&rdquo;. Until switch-over they save nothing, because the database is not locked yet: they show 999 and when they open.</p>
+  <div class="card" id="launch-form" hidden></div>
+
   <!-- WHO GETS TOLD (Martin, 14 Oct 2026; NEXT-BRIEF §24). Requests for
        pastoral care, concerns and prayer requests go ONLY to people the
        church names here - never the church office or any admin inbox. A
@@ -244,6 +252,36 @@
       .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
   }
 
+  /* ---- switch-over: the private forms (14 Oct 2026) ----------------
+
+     OFF unless it says on, like the notifications switch. Turning it on
+     says "the locked rules are deployed": before that, whatever these
+     forms saved could be read by anybody. */
+  var L = { rulesLocked: false, opensOn: '' };
+  function drawLaunch() {
+    ['launch-h', 'launch-sub', 'launch-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+    var on = L.rulesLocked === true;
+    document.getElementById('launch-form').innerHTML =
+      '<button type="button" class="sw" id="l-switch" role="switch" aria-checked="' + on + '" aria-describedby="l-state">' +
+        '<span class="track" aria-hidden="true"></span><span>Open the private forms</span></button>' +
+      '<p class="hint" id="l-state" style="margin:10px 0 12px">' + (on
+        ? '<b style="color:var(--ink)">Open.</b> They save, and the people named in Who gets told are told.'
+        : '<b style="color:var(--ink)">Not yet.</b> Turn this on only after the locked rules are deployed on switch-over day.') + '</p>' +
+      '<div class="field" style="margin:0"><label for="l-on">When they open, in words <span class="hint">(shown on the forms until then)</span></label>' +
+        '<div class="addrow"><input class="inp" id="l-on" maxlength="40" placeholder="For example 1 November 2026" value="' + esc(L.opensOn || '') + '">' +
+        '<button type="button" class="btn sec" id="l-save">Save</button></div></div>';
+    document.getElementById('l-switch').onclick = function () { setLaunch(!on, L.opensOn); };
+    document.getElementById('l-save').onclick = function () { setLaunch(on, document.getElementById('l-on').value.trim()); };
+  }
+  function setLaunch(locked, opensOn) {
+    if (locked && !L.rulesLocked && !confirm('Only once the locked rules are deployed.\n\nUntil then anything these forms save can be read by anybody. Open them now?')) return;
+    var u = EGBCAuth.user() || {};
+    db().collection('churchSettings').doc('launch').set({ rulesLocked: locked, opensOn: String(opensOn || '').slice(0, 40),
+      updatedAt: new Date().toISOString(), updatedBy: u.uid || '' })
+      .then(function () { L = { rulesLocked: locked, opensOn: String(opensOn || '').slice(0, 40) }; toast('Saved.'); drawLaunch(); })
+      .catch(function (e) { toast('Could not change it: ' + (e.message || e)); });
+  }
+
   /* ---- who gets told (Martin, 14 Oct 2026) --------------------------
 
      For each kind, PEOPLE from the address book (a phone notification,
@@ -370,6 +408,9 @@
       db().collection('churchSettings').doc('notifications').get().then(function (n) {
         N = (n.exists && n.data()) || { live: false }; drawNotify();
       }).catch(function () { N = { live: false }; drawNotify(); });
+      db().collection('churchSettings').doc('launch').get().then(function (s) {
+        L = (s.exists && s.data()) || { rulesLocked: false, opensOn: '' }; drawLaunch();
+      }).catch(function () { drawLaunch(); });
       loadCare();
     }
     if (!mayGive()) return null;

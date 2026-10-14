@@ -4706,3 +4706,36 @@ For your files:
 - `kids-today.test.mjs` line 171: "Show on screen" puts the family's
   **code** on the church screen ("K7P2, please come to Little ones"). By
   Martin's rule that should be the screen number too.
+
+### F-179 — URGENT REQUEST from the main window: prayer.html and newhere.html must not save before switch-over
+
+The reviewing window (14 Oct): until the locked rules are on, the live
+database answers a signed-out list for every collection, `prayers` and
+`welcomes` included. So **a prayer request or a hello saved today is
+public.** Martin's rule: no private form saves until
+`churchSettings/launch.rulesLocked === true`. A master admin turns that on
+from Church settings › Private forms, straight after the rules deploy
+(NEXT-BRIEF §26 item 16).
+
+**Done on my side:** `egbc-launch.js` (shared). worried.html (pastoral care
+for me, and both kinds of concern) uses it: with the flag unset it shows
+the words below instead of the form, and asks again at the moment of
+sending. `check-care`: nothing is written with the flag unset, it saves once
+set. Both breaks are caught.
+
+**Please, on prayer.html and newhere.html:** load
+`egbc-launch.js?v=202610141700`, and before showing the form, and again just
+before writing:
+
+```js
+EGBCLaunch.check().then(function (L) {
+  if (!L.locked) { /* hide the form; show */ EGBCLaunch.notYet(L.opensOn); }
+});
+```
+
+The words are: "If someone is in immediate danger, call 999. This form
+opens on <date>. Until then, please speak to a church leader in person."
+They come from `notYet()`. The date is `opensOn` on the same document, and
+until it's set the sentence reads "when the new church hub opens".
+`churchSettings/launch` is readable signed out, so newhere.html can read it.
+A test each: with the flag unset nothing is written; with it set, it saves.

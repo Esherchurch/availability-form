@@ -123,6 +123,11 @@ const offMachine = u => {
      changes rewrite: left as found, or every master admin in the checks
      after this one is warned "No safeguarding lead set" on the hub. */
   const statusBefore = await req(8181, 'GET', DOCS + '/careRouting/status', undefined, OWNER);
+  /* THE PRIVATE FORMS ARE OPEN for everything up to section 9, which closes
+     them: as after switch-over (churchSettings/launch.rulesLocked). Put back
+     as found at the end. */
+  const launchBefore = await req(8181, 'GET', DOCS + '/churchSettings/launch', undefined, OWNER);
+  await put('churchSettings/launch', { rulesLocked: true, opensOn: '' });
   await req(8181, 'PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId',
     { fields: fields({ leadSiteId: SITE }) }, OWNER);
   const at = new Date();
@@ -473,7 +478,56 @@ const offMachine = u => {
   await go('hub.html', '#careBtn', 3500);
   ok('  and not once one is', !/No safeguarding lead set/.test(String(await evl('(document.getElementById("waitingCard")||{}).innerText||""'))));
 
+  /* ---- 9. before switch-over: nothing is saved ------------------------ */
+  console.log('\nbefore switch-over (churchSettings/launch not set): the private forms save nothing');
+  await put('churchSettings/launch', { rulesLocked: false, opensOn: '1 November 2026' });
+  await signIn(ACCOUNTS.pat);
+  await width(375);
+  const countMine = async () => (JSON.parse((await req(8181, 'POST', DOCS + ':runQuery', { structuredQuery: { from: [{ collectionId: 'worries' }],
+    where: { fieldFilter: { field: { fieldPath: 'by' }, op: 'EQUAL', value: { stringValue: ACCOUNTS.pat.uid } } } } }, OWNER)).body || '[]')
+    .filter((x) => x.document).length);
+  const beforeN = await countMine();
+  for (const page of ['worried.html?for=me', 'worried.html']) {
+    await go(page, '#notyet', 2000);
+    const nt = String(await evl('(document.getElementById("notyet")||{}).innerText||""'));
+    ok('  ' + page + ': not offered - 999, when it opens, and "speak to a church leader in person"',
+      /call 999/.test(nt) && /opens on 1 November 2026/.test(nt) && /in person/.test(nt)
+        && (await evl('document.getElementById("form").classList.contains("hidden")')) === true, nt);
+    /* And pressing Send anyway (the button is still in the page). */
+    await evl('(function(){var k=document.querySelector(".kind[data-kind=pastoral]");if(k)k.click();'
+      + 'var w=document.getElementById("who");if(w)w.value="Somebody Synthetic";'
+      + 'document.getElementById("noticed").value="Synthetic words that must not be saved";'
+      + 'document.getElementById("send").click();return 1})()');
+    await sleep(2500);
+  }
+  ok('  NOTHING WAS WRITTEN, even pressing Send', (await countMine()) === beforeN, (await countMine()) + ' vs ' + beforeN);
+  await go('hub.html', '#careBtn', 2000);
+  await evl('document.getElementById("careBtn").click();1'); await sleep(800);
+  ok('  the Care & support button and its choices still show',
+    Number(await evl('document.querySelectorAll("#egbc-care-dlg .egbc-care-opt").length')) >= 2);
+
+  console.log('\nswitch-over: a master admin opens them on Church settings');
+  await signIn(ACCOUNTS.mo);
+  await go('church-settings.html', '#l-switch', 2000);
+  await evl('window.confirm=function(){return true};document.getElementById("l-switch").click();1'); await sleep(1500);
+  const lf = JSON.parse((await req(8181, 'GET', DOCS + '/churchSettings/launch', undefined, OWNER)).body || '{}').fields || {};
+  ok('  the switch sets churchSettings/launch.rulesLocked', unval(lf.rulesLocked) === true, JSON.stringify(lf));
+  await signIn(ACCOUNTS.pat);
+  await go('worried.html?for=me', '#send', 2000);
+  ok('  and the form is offered again', (await evl('!document.getElementById("notyet") && !document.getElementById("form").classList.contains("hidden")')) === true);
+  await evl('document.getElementById("send").click();1'); await sleep(2500);
+  ok('  and saves', (await countMine()) === beforeN + 1, (await countMine()) + ' vs ' + beforeN);
+
   /* ---- tidy ------------------------------------------------------------ */
+  const mineNow = JSON.parse((await req(8181, 'POST', DOCS + ':runQuery', { structuredQuery: { from: [{ collectionId: 'worries' }],
+    where: { fieldFilter: { field: { fieldPath: 'by' }, op: 'EQUAL', value: { stringValue: ACCOUNTS.pat.uid } } } } }, OWNER)).body || '[]')
+    .filter((x) => x.document).map((x) => x.document.name.split('/').pop());
+  for (const id of mineNow) await del('worries/' + id);
+  if (launchBefore.status === 200) {
+    await req(8181, 'PATCH', DOCS + '/churchSettings/launch', { fields: JSON.parse(launchBefore.body).fields || {} }, OWNER);
+  } else {
+    await del('churchSettings/launch');
+  }
   for (const w of all) await del('worries/' + w.id);
   for (const p of ['worries/w_cr_pastoral', 'worries/w_cr_sg', 'bookingSettings/' + SITE]) await del(p);
   const before = JSON.parse(sgBefore.body || '{}').fields || {};

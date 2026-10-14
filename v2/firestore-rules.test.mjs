@@ -3466,6 +3466,16 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 await check('  and allowed again once one is', 'allow',
   () => setDoc(doc(as('worried'), 'worries', 'c_nolead3'), care()));
 
+/* ---- switch-over: churchSettings/launch (14 Oct 2026) --------------- */
+await check('anybody, signed out too, reads whether the private forms are open', 'allow',
+  () => getDoc(doc(anon(), 'churchSettings', 'launch')));
+await check('a master admin opens them, after the rules deploy', 'allow',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'launch'), { rulesLocked: true, opensOn: '1 November 2026', updatedAt: 'x', updatedBy: 'u_martin' }));
+await check('  nobody else', 'deny',
+  () => setDoc(doc(as('karen'), 'churchSettings', 'launch'), { rulesLocked: true, updatedBy: 'u_karen' }));
+await check('  and not the church office', 'deny',
+  () => setDoc(doc(as('officeAdmin'), 'churchSettings', 'launch'), { rulesLocked: true }));
+
 /* ---- marking it dealt with ----------------------------------------- */
 await check('the safeguarding lead marks one dealt with, with a note', 'allow',
   () => updateDoc(doc(as('karen'), 'worries', 'c_pastoral'),

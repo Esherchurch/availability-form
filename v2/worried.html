@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610141200"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 
 <style>
   :root{
@@ -221,16 +222,31 @@ document.querySelectorAll('.kind').forEach(b => {
 const NOBODY = 'Messages cannot be sent from here yet, because the church has not yet named who receives them. '
   + 'If someone is in immediate danger, call 999. Otherwise, please speak to one of the church leaders in person - '
   + 'for example after a Sunday service.';
-function refuse() {
+function refuse(words, id) {
   $('form').classList.add('hidden');
+  if (document.getElementById(id || 'nobody')) return;
   const n = document.createElement('div');
-  n.className = 'card'; n.id = 'nobody'; n.setAttribute('role', 'status');
-  n.textContent = NOBODY;
+  n.className = 'card'; n.id = id || 'nobody'; n.setAttribute('role', 'status');
+  n.textContent = words || NOBODY;
   $('form').insertAdjacentElement('afterend', n);
+}
+
+/* NOT BEFORE SWITCH-OVER (the reviewing window, 14 Oct 2026). Until the
+   locked rules are on, the live database is readable signed out, so a
+   concern or a request for care saved now would be public. Nothing is
+   saved until churchSettings/launch.rulesLocked is true (egbc-launch.js);
+   the page says when it opens and shows 999. Asked again at the moment of
+   sending, so a quick tap cannot get in before the answer. */
+async function launchOpen() {
+  const L = window.EGBCLaunch ? await EGBCLaunch.check() : { locked: false, opensOn: '' };
+  if (!L.locked) refuse(window.EGBCLaunch ? EGBCLaunch.notYet(L.opensOn)
+    : 'If someone is in immediate danger, call 999. This form is not open yet. Until then, please speak to a church leader in person.', 'notyet');
+  return L.locked;
 }
 
 document.addEventListener('egbc-ready', async () => {
   ME = EGBCAuth.profile() || {};
+  if (!(await launchOpen())) return;
   try {
     const st = await db.collection('careRouting').doc('status').get();
     if (st.exists && st.data().leadSet === false) refuse();
@@ -302,6 +318,7 @@ $('form').addEventListener('submit', async (e) => {
 
 async function sendIt(what) {
   $('send').disabled = true;
+  if (!(await launchOpen())) return;
   say('Sending…');
 
   try {

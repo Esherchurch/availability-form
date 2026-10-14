@@ -667,6 +667,13 @@ export const careStatusFromSettings = onDocumentWritten({ document: 'safeguardin
   async () => { await Notify.refreshCareStatus(db); });
 export const careStatusFromSite = onDocumentWritten({ document: 'bookingSettings/{id}', region: TRIGGER_REGION },
   async () => { await Notify.refreshCareStatus(db); });
+/* AND BY ITSELF, every hour (Martin, 14 Oct 2026: "we can't do this for
+   every church" - no church is ever told to press Save to make something
+   work). A new church, or a deploy before anybody has touched the
+   safeguarding settings, has its note within the hour; it is written only
+   when the answer changes. */
+export const careStatusSync = onSchedule({ schedule: 'every 60 minutes', timeZone: 'Europe/London', retryCount: 1 },
+  async () => { await Notify.refreshCareStatus(db); });
 
 /* DBS checks and training running out, every Monday morning. */
 export const checksReminders = onSchedule(

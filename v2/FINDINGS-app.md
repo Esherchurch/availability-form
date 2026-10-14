@@ -2926,3 +2926,26 @@ concerns spec and never built" — Martin).
 
 **For Calla:** the chosen addresses that must pass sendEmail's
 known-recipient check are listed in SERVER-DEPLOY.md.
+
+### A-088 — the private forms save nothing before switch-over; the status note works itself out (14 Oct 2026)
+
+- **Why:** until the locked rules deploy, the live database is readable
+  signed out (the reviewing window checked it). So Care & support's forms
+  now save nothing until `churchSettings/launch.rulesLocked` is true.
+  - The page shows: "If someone is in immediate danger, call 999. This form
+    opens on <date>. Until then, please speak to a church leader in person."
+  - It asks again at the moment of sending.
+  - The Care & support button and its choices still show.
+- **The switch:** Church settings › Private forms (master admin, the rules
+  agree). It goes on straight after the rules deploy (NEXT-BRIEF §26 item 16).
+- **prayer.html and newhere.html** are the events window's: request F-179
+  (urgent). **Until they change, those two still save.**
+- **No manual steps** (HANDOVER-MAIN rule 13): `careStatusSync`, every hour,
+  writes `careRouting/status` by itself. The hub's warning works it out
+  directly until the note exists. The "press Save once" step is gone from
+  SERVER-DEPLOY.
+- **Every page gets a Menu entry** (HANDOVER-MAIN rule 14). Next job.
+- **Checks:** check-care 61/61, and two breaks caught (the flag ignored, and
+  no second look at sending). Rules: the launch switch is a master admin's,
+  and anybody can read it.
+- **Needs functions:hub deployed** (`careStatusSync`).
