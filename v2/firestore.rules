@@ -3817,6 +3817,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- the ChurchSuite import's record of what it made (F-177) --------
+    // A readable name for each booking it made ("cs_<name>_<date>_<room>")
+    // and the booking's own random key. A booking's key lets anyone read
+    // the booking, so this list of them is for admins only, and only the
+    // tool (with the Admin SDK) writes it.
+    match /importKeys/{importKey} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ---- the picture library (Martin, 14 Oct 2026) ----------------------
     // One shared store of pictures, each with a name and tags. Events point
     // to a picture (calEvents.imageLibId) rather than copying it. Anyone

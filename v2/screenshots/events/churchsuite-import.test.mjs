@@ -110,7 +110,9 @@ const EMBED = [
   ev('Test Film Night', 'Film Club', plus(15), '18:00', '20:00', 'Chapel', Object.assign({ capacity: 60, signup_options: { signup_enabled: '1', signup_cancel: '1' } }, pic('film'))),
   ev('Morning Worship - speaker Test Speaker', 'Sundays', plus(16), '10:00', '11:30', 'Old Hall'),
   ev('Test House Group Meeting', 'Small Groups', plus(17), '20:00', '21:30', 'Various'),
-  ev('Test House Group Meeting', 'Small Groups', plus(31), '20:00', '21:30', 'Various')
+  ev('Test House Group Meeting', 'Small Groups', plus(31), '20:00', '21:30', 'Various'),
+  /* Sign-ups with no limit in ChurchSuite: a limit given on the command line. */
+  ev('Test Choir Practice', 'Worship', plus(18), '17:30', '19:00', 'Old Hall', { signup_options: { signup_enabled: '1', signup_cancel: '1' } })
 ];
 fs.writeFileSync(path.join(DIR, 'cs-embed.json'), JSON.stringify(EMBED));
 const H = [plus(1), plus(29)];
@@ -122,7 +124,7 @@ fs.writeFileSync(path.join(DIR, 'cs-nonpublic.md'), [
   '- Test Residents Meeting x1 (' + dow(plus(5)) + ' ' + words(plus(5)) + ' 7:30-10pm) — Admin — members only (Full View)',
   '- Test Home Group x2 (' + dow(plus(6)) + ' 7:30-9pm, ' + words(plus(6)) + '..' + words(plus(20)) + ') — Lounge (TE5 7AA) [a home] — Small Groups — members only', ''].join('\n'));
 const RUN = ['tools/import-churchsuite.mjs', '--from', DIR, '--rota-category', 'Sundays', '--as-booking', 'Test Residents Meeting', '--as-maintenance', 'Test Kit Check',
-  '--place', 'Test Residents Meeting=Main Hall', '--until', YEAR_END.slice(0, 4) + 1 + '-12-31'];
+  '--place', 'Test Residents Meeting=Main Hall', '--capacity', 'Test Choir Practice=30', '--until', YEAR_END.slice(0, 4) + 1 + '-12-31'];
 /* Not execFileSync: the tool fetches its pictures from this test's own server, which must keep answering. */
 const tool = (extra) => new Promise((res, rej) => execFile(process.execPath, RUN.concat(extra || []), { cwd: V2, encoding: 'utf8', env: process.env, maxBuffer: 1 << 24 },
   (e, out, err) => (e ? rej(Object.assign(e, { stderr: err })) : res(out))));
@@ -133,7 +135,8 @@ const env = await initializeTestEnvironment({ projectId: PROJECT,
 await env.clearFirestore();
 await fetch(`http://127.0.0.1:9098/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
 const P = { ava: { email: 'ava.av@example.invalid', name: 'Ava AV (invented)', mid: 'm_ava', teams: ['AV Team'], adminFor: ['AV Team'] },
-  martin: { email: 'martin.import@example.invalid', name: 'Martin Import (invented)', mid: 'm_martin', teams: [], adminFor: [], master: true } };
+  martin: { email: 'martin.import@example.invalid', name: 'Martin Import (invented)', mid: 'm_martin', teams: [], adminFor: [], master: true },
+  mo: { email: 'mo.member@example.invalid', name: 'Mo Member (invented)', mid: 'm_mo', teams: [], adminFor: [] } };
 for (const k of Object.keys(P)) {
   P[k].uid = (await (await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: P[k].email, password: 'synthetic-only-123', returnSecureToken: true }) })).json()).localId;
@@ -150,7 +153,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(async (c) => { out = await fn(c.firestore()); }); return out; };
 const all = (c) => readDb(db => getDocs(collection(db, c))).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
 const get = (c, id) => readDb(db => getDoc(doc(db, c, id)).then(s => s.exists() ? s.data() : null));
-const COLS = ['sites', 'rooms', 'venues', 'pictureLibrary', 'calEvents', 'capacity', 'bookings', 'roomDays', 'smallGroups', 'smallGroupPrivate', 'smallGroupMeetings', 'maintJobs', 'signups', 'contacts', 'addressBook'];
+const COLS = ['importKeys', 'sites', 'rooms', 'venues', 'pictureLibrary', 'calEvents', 'capacity', 'bookings', 'roomDays', 'smallGroups', 'smallGroupPrivate', 'smallGroupMeetings', 'maintJobs', 'signups', 'contacts', 'addressBook'];
 const counts = async () => { const o = {}; for (const c of COLS) o[c] = (await all(c)).length; return o; };
 
 const errors = [], browsers = [];
@@ -224,7 +227,39 @@ try {
   ok('8. a maintenance job', jobs.length === 1 && jobs[0].what === 'Test Kit Check' && jobs[0].status === 'todo');
   ok('   and no event made of the Sunday service (it is for the rota)', !evs.some(e => /Morning Worship/.test(e.title)));
   const c1 = await counts();
-  ok('9. NEVER PEOPLE: no sign-ups or contacts, and the address book untouched', c1.signups === 0 && c1.contacts === 0 && c1.addressBook === 2, J(c1));
+  ok('9. NEVER PEOPLE: no sign-ups or contacts, and the address book untouched', c1.signups === 0 && c1.contacts === 0 && c1.addressBook === 3, J(c1));
+  const choir = E('Test Choir Practice')[0];
+  ok('   --capacity: sign-ups ON with the limit given on the command line', choir && choir.signupOn === true && choir.capacity === 30 && ((await get('capacity', choir.id)) || {}).capacity === 30, J(choir && [choir.signupOn, choir.capacity]));
+
+  /* ---------- KEYS: nothing private can be read by working out its id ---------- */
+  const allBk = await all('bookings'), keys = await all('importKeys');
+  const daysOf = allBk.map(b => b.day.replace(/-/g, '')), roomSlugs = rooms.map(r => r.id.replace(/^room_cs_/, ''));
+  ok('A. EVERY IMPORTED BOOKING HAS A RANDOM KEY, like a real one ("bk_" + 28)', allBk.length > 0 && allBk.every(b => /^bk_[a-z0-9]{28}$/.test(b.id)), J(allBk.slice(0, 3).map(b => b.id)));
+  /* Its own name, date and room are not in it, nor its readable import name;
+     and no two runs of the same plan would give the same key (they are random). */
+  const slugOf = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const wrong = allBk.filter(b => { const k = keys.find(x => x.bookingId === b.id) || {};
+    return b.id.indexOf(b.day.replace(/-/g, '')) >= 0 || b.id.indexOf(slugOf(b.title)) >= 0 || b.id.indexOf(b.roomId.replace(/^room_cs_/, '')) >= 0 || (k.id && b.id.indexOf(k.id) >= 0); });
+  ok('   none can be worked out from its name, date or room', !wrong.length && new Set(allBk.map(b => b.id)).size === allBk.length, J(wrong.slice(0, 2).map(b => b.id)));
+  ok('   each one\'s readable name is kept apart, pointing to it', keys.length === allBk.length && allBk.every(b => keys.some(k => k.collection === 'bookings' && k.bookingId === b.id)), J(keys.slice(0, 2)));
+  const anon = env.unauthenticatedContext().firestore(), member = env.authenticatedContext(P.mo.uid).firestore();
+  const tryGet = (dbx, c, id) => getDoc(doc(dbx, c, id)).then(s => (s.exists() ? 'read' : 'missing'), e => e.code);
+  const oldStyle = 'bk_cs_test-club-room-hire_' + hire[0].day.replace(/-/g, '') + '_1900_big-east';
+  ok('   the old readable key finds nothing', (await tryGet(anon, 'bookings', oldStyle)) === 'missing');
+  ok('   the list of import names: not signed out, not a member, only an admin', /permission/.test(await tryGet(anon, 'importKeys', keys[0].id)) && /permission/.test(await tryGet(member, 'importKeys', keys[0].id)));
+  const clean = E('Test Clean')[0], job = jobs[0], homeGid = groups.find(g => g.name === 'Test Home Group').id;
+  const meet = (await all('smallGroupMeetings')).find(m => m.groupId === homeGid);
+  const signedOut = {
+    'a members-only event': await tryGet(anon, 'calEvents', clean.id),
+    'a members-only small group': await tryGet(anon, 'smallGroups', homeGid),
+    'a small group\'s private part': await tryGet(anon, 'smallGroupPrivate', homeGid),
+    'a small group\'s dates': await tryGet(anon, 'smallGroupMeetings', meet.id),
+    'a maintenance job': await tryGet(anon, 'maintJobs', job.id),
+    'a place that is not a room': await tryGet(anon, 'venues', 'venue_cs_off-site'),
+    'the picture library': await tryGet(anon, 'pictureLibrary', lib[0].id)
+  };
+  ok('B. SIGNED OUT, NONE OF THE PRIVATE ONES CAN BE READ, even knowing the id', Object.values(signedOut).every(v => /permission/.test(v)), J(signedOut));
+  ok('   while the public ones can (that is what public means)', (await tryGet(anon, 'calEvents', art.id)) === 'read');
 
   /* ---------- 10. twice ---------- */
   const daysBefore = J((await all('roomDays')).map(d => [d.id, d.slots]));

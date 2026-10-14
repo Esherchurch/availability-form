@@ -37,6 +37,7 @@
      --as-booking "Name"              make room bookings of it (any category with "hire" already is)
      --as-maintenance "Name"          make a maintenance job of it
      --place "Name=Room"              the room for a booking ChurchSuite gave no place for
+     --capacity "Name=30"             sign-ups on, with this many places (ChurchSuite gave no limit)
      --today YYYY-MM-DD, --until YYYY-MM-DD    the window (default: today to the end of the year)
      --project ID, --bucket NAME      (default egbc-worship-planner, <project>.firebasestorage.app)
    =================================================================== */
@@ -69,10 +70,12 @@ const TEAMS = [], UNDER18 = [];
 
 const place = {};
 opts('--place').forEach((p) => { const i = p.indexOf('='); if (i > 0) place[p.slice(0, i).trim()] = p.slice(i + 1).trim(); });
+const capacity = {};
+opts('--capacity').forEach((p) => { const i = p.lastIndexOf('='); if (i > 0) capacity[p.slice(0, i).trim()] = parseInt(p.slice(i + 1), 10) || 0; });
 const NOW = new Date().toISOString();
 const P = plan({ roomsMd: read('rooms.md'), embed: JSON.parse(read('cs-embed.json')), nonPublicMd: read('cs-nonpublic.md') }, {
   today: opt('--today') || NOW.slice(0, 10), until: opt('--until') || '', nowIso: NOW, teams: TEAMS, under18: UNDER18,
-  rotaCategories: opts('--rota-category'), asBooking: opts('--as-booking'), asMaintenance: opts('--as-maintenance'), place
+  rotaCategories: opts('--rota-category'), asBooking: opts('--as-booking'), asMaintenance: opts('--as-maintenance'), place, capacity
 });
 console.log(words(P));
 if (!WRITE) { console.log('\nThis was the dry run: nothing has been written. Add --write to make it.'); process.exit(0); }
@@ -144,6 +147,8 @@ for (const e of P.events) {
    write, only when the booking is new; anything already there is booked
    over with a note, never moved. */
 const pad = (n) => (n < 10 ? '0' : '') + n;
+/* 28 random characters, as EGBCEvents.key makes them: 'bk_' + 28 is a page's own booking key. */
+const bookingKey = () => { const A = 'abcdefghijklmnopqrstuvwxyz0123456789', b = crypto.randomBytes(28); let s = ''; for (let i = 0; i < 28; i++) s += A[b[i] % 36]; return s; };
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 const isoDow = (day) => { const g = new Date(day + 'T12:00:00Z').getUTCDay(); return g === 0 ? 7 : g; };
 for (const b of P.eventBookings.concat(P.bookings)) {
@@ -152,9 +157,13 @@ for (const b of P.eventBookings.concat(P.bookings)) {
   const startMin = toMin(b.start), endMin = Math.min(1440, toMin(b.end) + (b.end === '23:59' ? 1 : 0));
   const from = Math.floor(startMin / 15), to = Math.ceil(endMin / 15);
   const foot = (room.parts && room.parts.length ? room.parts : [roomId]).map((id) => ROOMS[id] || { id, siteId });
-  const ref = db.collection('bookings').doc(b.id);
+  /* A RANDOM KEY, like every booking's: its id is the private key that lets
+     anyone holding it read the booking, so it must not be worked out from
+     its name, date or room. The readable import key goes in importKeys,
+     which only admins may read, and is how a second run knows it. */
+  const ref = db.collection('bookings').doc('bk_' + bookingKey()), seen = db.collection('importKeys').doc(b.importKey);
   await db.runTransaction(async (tx) => {
-    const have = await tx.get(ref);
+    const have = await tx.get(seen);
     if (have.exists) { count(b.kind === 'event' ? 'event booking' : 'room booking', false); return; }
     const days = await Promise.all(foot.map((f) => tx.get(db.collection('roomDays').doc(f.id + '_' + b.day))));
     let over = false;
@@ -171,6 +180,7 @@ for (const b of P.eventBookings.concat(P.bookings)) {
     if (b.calEventId) d.calEventId = b.calEventId;
     if (over) Object.assign(d, { override: true, decisionNote: 'Imported from ChurchSuite: it overlaps something already booked.', decidedBy: IMPORTER, decidedByName: 'ChurchSuite import', decidedAt: NOW });
     tx.create(ref, d);
+    tx.create(seen, { collection: 'bookings', bookingId: ref.id, source: 'churchsuite', at: NOW });
     foot.forEach((f, i) => tx.set(db.collection('roomDays').doc(f.id + '_' + b.day), { slots: sl[i], lastBooking: '', roomId: f.id, day: b.day, siteId }));
     if (over) console.log('   ! ' + b.name + ' on ' + b.day + ' overlaps something already booked in ' + room.name + ': booked over it, with a note');
     count(b.kind === 'event' ? 'event booking' : 'room booking', true);

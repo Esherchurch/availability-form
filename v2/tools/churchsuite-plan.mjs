@@ -185,7 +185,7 @@ export function parseNonPublic(md, o) {
 
 /* ------------------------------------------------------------ the plan */
 export function plan(input, options) {
-  const o = Object.assign({ rotaCategories: [], asBooking: [], asMaintenance: [], place: {}, teams: [], today: new Date().toISOString().slice(0, 10) }, options || {});
+  const o = Object.assign({ rotaCategories: [], asBooking: [], asMaintenance: [], place: {}, capacity: {}, teams: [], today: new Date().toISOString().slice(0, 10) }, options || {});
   o.until = o.until || (String(o.today).slice(0, 4) + '-12-31');
   const nowIso = o.nowIso || new Date().toISOString();
   const R = parseRooms(input.roomsMd);
@@ -321,7 +321,10 @@ export function plan(input, options) {
       const loc = locationOf(places, x.name);
       if (loc.kind !== 'room' || !loc.roomIds.length) { P.warnings.push(x.name + ': NO ROOM GIVEN, so no booking is made. Say which room with --place "' + x.name + '=Room name".'); return; }
       x.items.forEach((it) => loc.roomIds.forEach((roomId) => {
-        P.bookings.push({ id: ('bk_cs_' + slug(x.name) + '_' + it.day.replace(/-/g, '') + '_' + (it.start || '').replace(':', '') + '_' + slug(roomId.replace(/^room_cs_/, ''))).slice(0, 120),
+        /* NOT the booking's id: a booking's id is its private key (anyone
+           holding it may read the booking), so the writer gives each a random
+           one, as a real booking has, and keeps this only to know it again. */
+        P.bookings.push({ importKey: ('cs_' + slug(x.name) + '_' + it.day.replace(/-/g, '') + '_' + (it.start || '').replace(':', '') + '_' + slug(roomId.replace(/^room_cs_/, ''))).slice(0, 120),
           name: x.name, hirer, roomId, day: it.day, start: it.allDay ? '00:00' : it.start, end: it.allDay ? '23:59' : it.end, kind: 'office' });
       }));
       return;
@@ -351,7 +354,9 @@ export function plan(input, options) {
       P.pictures.push(pic);
       if (x.imageCount > 1) P.warnings.push(x.name + ': ChurchSuite had ' + x.imageCount + ' different pictures across its dates; the first is used for every date (one library picture).');
     }
-    if (x.signup.on && !x.signup.capacity) P.warnings.push(x.name + ': sign-ups were on in ChurchSuite with no limit. The hub needs a number of places, so sign-ups are left OFF: set them in the event editor.');
+    const given = Object.keys(o.capacity).find((k) => norm(k) === norm(x.name));
+    if (given) { x.signup.on = true; x.signup.capacity = +o.capacity[given] || 0; P.warnings.push(x.name + ': sign-ups ON, ' + x.signup.capacity + ' places (from --capacity).'); }
+    if (x.signup.on && !x.signup.capacity) P.warnings.push(x.name + ': sign-ups were on in ChurchSuite with no limit. The hub needs a number of places, so sign-ups are left OFF: set them in the event editor, or give a limit with --capacity "' + x.name + '=30".');
     const vis = x.visibility === 'public' ? 'public' : 'members';
     x.items.forEach((it) => {
       const id = 'cev_cs_' + slug(it.id);
@@ -365,7 +370,7 @@ export function plan(input, options) {
         donationsOn: false, signupScope: 'date', image: '', imageLibId: pic ? pic.id : '', seriesId,
         createdBy: IMPORTER, createdAt: nowIso, updatedAt: nowIso, importedFrom: { churchsuite: it.id } } });
       if (loc.kind === 'room' && !it.allDay) loc.roomIds.forEach((roomId) => {
-        P.eventBookings.push({ id: ('bk_cs_ev_' + slug(it.id) + '_' + slug(roomId.replace(/^room_cs_/, ''))).slice(0, 120), calEventId: id, name: x.name, hirer: team || '', roomId, day: it.day, start: it.start, end: it.end, kind: 'event' });
+        P.eventBookings.push({ importKey: ('cs_ev_' + slug(it.id) + '_' + slug(roomId.replace(/^room_cs_/, ''))).slice(0, 120), calEventId: id, name: x.name, hirer: team || '', roomId, day: it.day, start: it.start, end: it.end, kind: 'event' });
       });
     });
   });

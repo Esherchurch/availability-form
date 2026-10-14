@@ -4551,3 +4551,36 @@ it.
   name only, homes never named, members-only kept, nothing made twice,
   and an admin editing an imported event.
 - Seven deliberate breaks, all caught.
+
+**F-177, 14 Oct (after review): booking keys fixed; Martin's answers in.**
+- **Imported bookings were readable by anyone who guessed them.** Their
+  ids were made from the name, date and room (`bk_cs_…`), and a booking's
+  id is the private key that lets anyone read it.
+  - Now every imported booking, event bookings included, gets a random
+    key like a real one: `bk_` plus 28 random characters.
+  - The readable name lives in `importKeys/<name>` as
+    `{ collection, bookingId, source, at }`. That's how a second run knows
+    the booking. The tool writes it; only admins may read it (rule in the
+    events section).
+- **Checked: nothing else the import makes is readable signed out by its
+  id.** Members-only events, a members-only small group, small groups'
+  private parts and dates, maintenance jobs, places and the picture
+  library all refuse a signed-out reader. Public events stay public.
+  Capacity counters, room days, sites and rooms were already public by
+  design, and hold no names.
+- **New choice:** `--capacity "Name=30"`. It turns sign-ups on with that
+  limit, for an event ChurchSuite gave no limit.
+- **THE LIVE RUN, final (the reviewing window, from v2, after Martin's
+  yes):**
+```
+gcloud auth application-default login
+node tools/import-churchsuite.mjs --from "C:\Users\marti\OneDrive\Documents\New hub\churchsuite-import" --rota-category Sundays --as-maintenance "PAT Testing" --as-booking "Riverside Drive AGM Meeting" --place "Riverside Drive AGM Meeting=Sanctuary" --capacity "Youth worship practice=30"
+(look at it again; then the same with --live --write)
+```
+- **Proved:**
+  - `churchsuite-import.test.mjs`: 43 checks. They include random keys,
+    no key that can be worked out from the name, date or room, the old
+    readable key finding nothing, `importKeys` refused to a member and
+    signed out, every private item refused signed out, `--capacity`, and
+    a second run still making nothing.
+  - Five more deliberate breaks, all caught. Rules: 1249.
