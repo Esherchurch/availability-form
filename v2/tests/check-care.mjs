@@ -428,8 +428,10 @@ const offMachine = u => {
     /Nobody named — these go to the safeguarding lead and deputy/.test(String(await evl('document.querySelector("[data-kind=care]").innerText'))));
   await evl('document.getElementById("em-care").value="office@example.invalid";document.getElementById("care-save").click();1');
   await sleep(1200);
-  ok('  THE OFFICE\'S ADDRESS IS REFUSED', /Not the church office/.test(String(await evl('document.getElementById("toast").textContent')))
-    && (await req(8181, 'GET', DOCS + '/careRouting/main', undefined, OWNER)).status === 404);
+  /* Martin, 14 Oct 2026: never a DEFAULT to the office, but a church may
+     choose it on purpose (the vicar can be the lead and read that inbox). */
+  ok('  THE OFFICE\'S ADDRESS, CHOSEN ON PURPOSE, SAVES WITH A REMINDER', /also the church office/.test(String(await evl('document.getElementById("toast").textContent')))
+    && (await req(8181, 'GET', DOCS + '/careRouting/main', undefined, OWNER)).status === 200);
   await evl('document.getElementById("em-care").value="";document.getElementById("add-care").value="Pat Asker Synthetic";'
     + 'document.querySelector("[data-add=care]").click();1'); await sleep(400);
   await evl('document.getElementById("care-save").click();1'); await sleep(1500);

@@ -352,17 +352,22 @@
   }
   function saveCare() {
     keepEmails();
-    var office = String(D.enquiryEmail || '').trim().toLowerCase();
+    var office = String(D.enquiryEmail || '').trim().toLowerCase(), isOffice = false;
     for (var i = 0; i < CARE_KINDS.length; i++) {
       var e = (R[CARE_KINDS[i][0]] || {}).email || '';
       if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { toast('That address does not look right: ' + e); return; }
-      /* NEVER THE OFFICE (Martin): the enquiry address is refused here. */
-      if (e && office && e === office) { toast('Not the church office’s address: these can involve abuse. Name people, or a pastoral address.'); return; }
+      /* NEVER A DEFAULT TO THE OFFICE, BUT THE CHURCH MAY CHOOSE IT (Martin,
+         14 Oct 2026): "I said it cannot default to that. Some churches the
+         vicar is the safeguarding lead and the church office address."
+         Nothing ever falls back to the office; a church that types it in on
+         purpose may, with a reminder of who reads it. */
+      if (e && office && e === office) isOffice = true;
     }
+    var savedMsg = isOffice ? 'Saved. That is also the church office’s address: make sure only the right person reads that inbox.' : 'Saved.';
     var u = EGBCAuth.user() || {}, body = { updatedAt: new Date().toISOString(), updatedBy: u.uid || '' };
     CARE_KINDS.forEach(function (k) { var r = R[k[0]] || {}; body[k[0]] = { memberIds: (r.memberIds || []).slice(0, 20), email: r.email || '' }; });
     document.getElementById('care-save').disabled = true;
-    db().collection('careRouting').doc('main').set(body).then(function () { toast('Saved.'); drawCare(); })
+    db().collection('careRouting').doc('main').set(body).then(function () { toast(savedMsg); drawCare(); })
       .catch(function (e) { document.getElementById('care-save').disabled = false; toast('Could not save: ' + (e.message || e)); });
   }
   function loadCare() {
