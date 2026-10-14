@@ -438,6 +438,22 @@ const offMachine = u => {
   const saved = JSON.parse((await req(8181, 'GET', DOCS + '/careRouting/main', undefined, OWNER)).body || '{}').fields || {};
   ok('  a person picked from the address book is saved for requests for care',
     JSON.stringify(saved.care || {}).indexOf('ab_cr_pat') !== -1, JSON.stringify(saved).slice(0, 300));
+  /* MARTIN'S WAY (e058838b): a name picked into the box, and Save pressed
+     without Add. It was lost - careRouting saved nobody for all three. */
+  await evl('document.getElementById("add-pastoral").value="Priya Pastoral Synthetic";document.getElementById("care-save").click();1');
+  await sleep(1500);
+  const saved2 = JSON.parse((await req(8181, 'GET', DOCS + '/careRouting/main', undefined, OWNER)).body || '{}').fields || {};
+  ok('  a name picked and Save pressed without Add: the name is saved',
+    JSON.stringify(saved2.pastoral || {}).indexOf('ab_cr_pastor') !== -1, JSON.stringify(saved2.pastoral || {}).slice(0, 200));
+  await evl('document.getElementById("add-prayer").value="Nobody Madeup Synthetic";document.getElementById("toast").textContent="";'
+    + 'document.getElementById("care-save").click();1');
+  await sleep(1200);
+  const saved3 = JSON.parse((await req(8181, 'GET', DOCS + '/careRouting/main', undefined, OWNER)).body || '{}').fields || {};
+  ok('  a made-up name left in the box: Save refuses, "not in the address book", and saves nothing',
+    /not in the address book/.test(String(await evl('document.getElementById("toast").textContent')))
+      && JSON.stringify(saved3.prayer || {}).indexOf('Nobody') === -1 && JSON.stringify(saved3) === JSON.stringify(saved2),
+    String(await evl('document.getElementById("toast").textContent')));
+  await evl('document.getElementById("add-prayer").value="";1');
   ok('  and the page fits at 375px', (await evl('document.documentElement.scrollWidth<=innerWidth+1')) === true);
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
