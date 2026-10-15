@@ -293,6 +293,16 @@
       .then(function (x) { careLead = !!(x[0] || x[1]); return careLead; });
   }
 
+  /* THE MONEY TEAM'S NAME (F-200): paymentSettings/public.moneyTeam, which
+     anyone may read; 'Finance' until a master admin renames it. For the
+     Menu's Payments. */
+  var moneyTeam = 'Finance';
+  function loadMoneyTeam() {
+    return db.collection('paymentSettings').doc('public').get().then(function (s) {
+      moneyTeam = String((s.exists && s.data().moneyTeam) || 'Finance');
+    }, function () { moneyTeam = 'Finance'; });
+  }
+
   var sermonsAdmin = false;
   function loadSermonsAdmin(memberId) {
     if (!memberId) { sermonsAdmin = false; return Promise.resolve(false); }
@@ -914,7 +924,7 @@
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
             return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
-                                loadCareLead(profile && profile.memberId)])
+                                loadCareLead(profile && profile.memberId), loadMoneyTeam()])
               .then(function () { return both; });
           }).then(function (both) {
             var profile = both[0];
@@ -1211,6 +1221,9 @@
     /* Looks after sermons and Watch: named in sermonShow/access, or a
        master admin. */
     isSermonsAdmin: function () { return EGBCAuth.isMaster() || sermonsAdmin; },
+
+    /* The money team's name (Payments in the Menu). */
+    moneyTeam: function () { return moneyTeam; },
 
     /* The safeguarding lead or deputy (careRouting/status, kept by the
        server). For the Menu's Safeguarding; never previewed into. */

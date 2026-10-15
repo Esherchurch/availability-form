@@ -62,9 +62,11 @@
     /* Martin, 15 Oct 2026: "there is no link to see the guidance for
        Stripe etc" - and "that shouldn't be seen by anyone other than the
        admin or designated people". Master admins (onTeam lets them through)
-       and the money team only; 'Finance' is the default money team, as in
-       functions/payments.js. Not under Admin, which is Core-only. */
-    { title: 'Payments', url: 'payments.html', icon: 'credit-card', team: ['Finance'],
+       and the money team only - BY ITS NAME, which the server writes to
+       paymentSettings/public.moneyTeam (F-200; 'Finance' until a master admin
+       renames it), read once with the profile (EGBCAuth.moneyTeam()). Not
+       under Admin, which is Core-only. */
+    { title: 'Payments', url: 'payments.html', icon: 'credit-card', money: true,
       description: 'Card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
     /* Phone notifications (FINDINGS-notify N-5): for everybody signed in,
        the person's own switches. Feature 'notifications'. */
@@ -336,6 +338,9 @@
     /* Safeguarding: the lead and deputy (careRouting/status, kept by the
        server) or anybody who administers something. */
     if (node.sg && !who.isAdmin && !who.isSgLead) return false;
+    /* On the money team, by whatever name the church gives it, or a master
+       admin (who.isMaster honours "View the site as"). */
+    if (node.money && !who.isMaster && (who.teams || []).indexOf(who.moneyTeam || 'Finance') === -1) return false;
     /* `runs` NAMES A RUNNING THINGS TAB (NEXT-BRIEF §25): the same four the
        app's Running things space has, answered by the same helper. A node
        carrying one is shown to whoever that tab is for, whatever else the
@@ -884,7 +889,8 @@
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),
-        isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead())
+        isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead()),
+        moneyTeam: (A && A.moneyTeam && A.moneyTeam()) || 'Finance'
       };
     },
 

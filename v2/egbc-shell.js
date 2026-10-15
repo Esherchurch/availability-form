@@ -323,6 +323,13 @@
      a page nobody remembered to update. */
 
   var MENU_SRC = 'egbc-menu.js';
+  /* THE MENU'S OWN STAMP (the reviewing window, 15 Oct 2026: Martin could
+     not see Payments until his browser happened to fetch the new Menu).
+     Change it whenever egbc-menu.js changes - tests/check-stamps.mjs fails
+     until you do, because MENU_FINGERPRINT must match the file. The hub
+     loads the Menu itself with the same stamp. */
+  var MENU_V = '202610151200';
+  var MENU_FINGERPRINT = 'adaf8be3db46';
   var POWERED_SRC = 'egbc-poweredby.js';
   var menuLoading = null;
 
@@ -369,7 +376,7 @@
     if (menuLoading) return menuLoading;
     menuLoading = new Promise(function (res, rej) {
       var s = document.createElement('script');
-      s.src = sibling(MENU_SRC);
+      s.src = sibling(MENU_SRC).split('?')[0] + '?v=' + MENU_V;
       s.onload = res;
       s.onerror = function () { rej(new Error('could not load ' + s.src)); };
       document.head.appendChild(s);

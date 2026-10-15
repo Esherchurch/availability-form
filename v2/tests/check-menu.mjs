@@ -224,8 +224,13 @@ const PEOPLE = {
     bookingsAdmin: true,
     sees: ['Book a room', 'Core Team', 'Events and rooms', 'Room bookings'],
     doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Admin',
-              'Backup & Restore', 'Kids Church', "Children's register", 'Sunday check-in'] }
+              'Backup & Restore', 'Kids Church', "Children's register", 'Sunday check-in'] },
+  /* F-200: the church renamed its money team "Treasury" (this check sets
+     paymentSettings/public.moneyTeam). Payments follows the NAME. */
+  'the treasurer, on a renamed money team': { teams: ['Treasury'], adminFor: [], masterAdmin: false,
+    sees: ['Payments'], doesNot: ['Core Team', 'Admin', 'Emails sent'] }
 };
+const MONEY_TEAM = 'Treasury';
 
 const flat = (nodes, out = []) => {
   for (const [title, kids] of nodes) { out.push(title); if (kids) flat(kids, out); }
@@ -411,6 +416,9 @@ const READ_MENU = `(() => {
   const want = flat(APPROVED);
   console.log('the approved structure has ' + want.length + ' names\n');
 
+  /* The money team's name, as the server writes it (F-200). */
+  await rest('PATCH', `/v1/projects/${PROJECT}/databases/(default)/documents/paymentSettings/public?updateMask.fieldPaths=moneyTeam`,
+    { fields: { moneyTeam: val(MONEY_TEAM) } });
   for (const [label, p] of Object.entries(PEOPLE)) {
     /* Rewrite who this person is, then reload the hub. */
     /* THE ADDRESS BOOK FIRST, BECAUSE IT WINS.
@@ -497,7 +505,7 @@ const READ_MENU = `(() => {
     const expected = want
       .filter(w => !(OFFICE_ONLY.includes(w) && !office))
       .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
-      .filter(w => !(MONEY_ONLY.includes(w) && !p.masterAdmin && !(p.teams || []).includes('Finance')))
+      .filter(w => !(MONEY_ONLY.includes(w) && !p.masterAdmin && !(p.teams || []).includes(MONEY_TEAM)))
       .filter(w => !(MASTER_ONLY.includes(w) && !p.masterAdmin))
       .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
