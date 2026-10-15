@@ -38,6 +38,8 @@ import { gcSaveToken, gcSaveWebhook, gcRemove, gcReady, bankPage } from './gocar
 
 const db = () => getFirestore();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+import { paymentsShut } from './payments-gate.js';
+const SHUT_MSG = 'Online payments open when the church switches over to the new hub.';
 /* The hub's region. Set on each function here: index.js sets it globally,
    but after this file has already been read. */
 const REGION = 'europe-west2';
@@ -145,6 +147,7 @@ async function priceOf(key, method) {
 /* ------------------------------------------------------- the callables */
 
 export const paymentsSave = onCall({ region: REGION }, async (req) => {
+  if (paymentsShut()) throw new HttpsError('failed-precondition', SHUT_MSG);
   const uid = req.auth && req.auth.uid;
   if (!(await isTreasurer(uid))) throw new HttpsError('permission-denied', 'Only a master admin or the church\'s money team can set up payments.');
   const provider = String(req.data && req.data.provider || ''), kind = String(req.data && req.data.kind || ''), value = String(req.data && req.data.value || '').trim();
@@ -212,6 +215,7 @@ async function publish() {
 /* A payment page for a booking. Anyone holding the booking's key (the
    person who just signed up, signed in or not). */
 export const ticketPay = onCall({ region: REGION }, async (req) => {
+  if (paymentsShut()) throw new HttpsError('failed-precondition', SHUT_MSG);
   const key = String(req.data && req.data.key || ''), method = String(req.data && req.data.method || '');
   if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
   if (method !== 'card' && method !== 'bank') throw new HttpsError('invalid-argument', 'Not a way of paying the hub knows.');
@@ -318,6 +322,7 @@ export async function handleStripe(event, accountId) {
 }
 
 export const stripeWebhook = onRequest({ region: REGION }, async (req, res) => {
+  if (paymentsShut()) { res.status(503).send('Not open yet'); return; }
   if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
   const sec = await db().collection('paymentSecrets').doc('stripe').get();
   const secret = sec.exists ? sec.data().webhookSecret : '';

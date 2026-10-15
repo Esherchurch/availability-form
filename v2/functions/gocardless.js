@@ -25,6 +25,7 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
+import { paymentsShut } from './payments-gate.js';
 
 const db = () => getFirestore();
 const REGION = 'europe-west2';
@@ -115,6 +116,7 @@ function newKey() { const b = crypto.randomBytes(28); let s = 'rg_'; for (let i 
 const INTERVALS = { monthly: { interval_unit: 'monthly', interval: 1 }, four_weekly: { interval_unit: 'weekly', interval: 4 } };
 
 export const giveRegularly = onCall({ region: REGION }, async (req) => {
+  if (paymentsShut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.');
   const d = req.data || {};
   if (!(await gcReady())) throw new HttpsError('failed-precondition', 'This church does not take Direct Debits online yet.');
   const pub = await db().collection('paymentSettings').doc('public').get();
@@ -156,6 +158,7 @@ async function giftByKey(key) {
   return { ref, d: s.data() };
 }
 export const givingChange = onCall({ region: REGION }, async (req) => {
+  if (paymentsShut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.');
   const { ref, d } = await giftByKey(req.data && req.data.key);
   const amount = Math.round(Number(req.data && req.data.amount) * 100);
   if (!(amount >= 100 && amount <= 1000000)) throw new HttpsError('invalid-argument', 'Give at least £1.');
@@ -165,6 +168,7 @@ export const givingChange = onCall({ region: REGION }, async (req) => {
   return { ok: true, amount: amount / 100 };
 });
 export const givingStop = onCall({ region: REGION }, async (req) => {
+  if (paymentsShut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.');
   const { ref, d } = await giftByKey(req.data && req.data.key);
   if (d.subscriptionId && d.status === 'active') await gc((await secrets()).token, 'POST', '/subscriptions/' + d.subscriptionId + '/actions/cancel', { data: {} });
   await ref.update({ status: 'stopped', stoppedAt: FieldValue.serverTimestamp() });
@@ -241,6 +245,7 @@ export async function handleGc(ev) {
 }
 
 export const gocardlessWebhook = onRequest({ region: REGION }, async (req, res) => {
+  if (paymentsShut()) { res.status(503).send('Not open yet'); return; }
   if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
   const s = await secrets();
   const raw = req.rawBody ? req.rawBody.toString('utf8') : '';
