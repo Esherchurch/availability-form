@@ -43,6 +43,10 @@
   .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
   .btn.small{min-height:40px;font-size:14px;padding:0 12px}
   .btn:disabled{opacity:.55}
+  .btn.closed:disabled{opacity:1;background:#e5e7eb;color:#374151;border-color:#d1d5db;cursor:not-allowed;white-space:normal;text-align:center}
+  .danger999{font-size:15px;font-weight:600;color:var(--ink);margin:12px 0 0}
+  select.sun{min-height:40px;border:1px solid var(--line-2);border-radius:10px;padding:0 10px;font:inherit;background:#fff;color:var(--ink)}
+  @media print{.tabs,#pr-settings,.noprint{display:none!important}.card{border:none}}
   .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .item{padding:12px 0;border-top:1px solid var(--line)}.item:first-of-type{border-top:none}
   .item .w{white-space:pre-wrap;overflow-wrap:break-word;color:var(--ink)}
@@ -85,6 +89,17 @@
   var NOBODY = false;
   var NOBODY_WORDS = 'Messages cannot be sent from here yet, because the church has not yet named who receives them. ' +
     'If someone is in immediate danger, call 999. Otherwise, please speak to one of the church leaders in person - for example after a Sunday service.';
+  /* SUNDAY (Martin, 15 Oct): "Happy for this to be prayed for in the Sunday
+     service?" No unless the person says yes; with or without their name.
+     Saved as sunday: 'no' | 'named' | 'anon'. Never read out unless yes. */
+  var SUNDAY = [['no', 'No'], ['named', 'Yes, with my name'], ['anon', 'Yes, without my name']];
+  function sundayOf(p) { return p && (p.sunday === 'named' || p.sunday === 'anon') ? p.sunday : 'no'; }
+  function sundayWords(p) { var v = sundayOf(p); return v === 'named' ? 'Sunday: yes, with the name' : v === 'anon' ? 'Sunday: yes, without the name' : 'Not for Sunday'; }
+  /* Before switch-over the whole form shows; only the button is shut. */
+  function closedWords() { return 'Prayer requests open ' + (LAUNCH.opensOn ? 'on ' + LAUNCH.opensOn : 'when the new church hub opens'); }
+  function closedBit() {
+    return '<p class="danger999" id="pr-999">' + esc(window.EGBCLaunch ? EGBCLaunch.DANGER : 'If someone is in immediate danger, call 999.') + ' Until then, please speak to a church leader in person.</p>';
+  }
   function launch() { return window.EGBCLaunch ? EGBCLaunch.check() : Promise.resolve({ locked: false, opensOn: '' }); }
   function notYet() { return window.EGBCLaunch ? EGBCLaunch.notYet(LAUNCH.opensOn) : 'This form is not open yet.'; }
   /* Before every save: still not open means nothing is written. */
@@ -107,15 +122,15 @@
   function draw() {
     if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('prayer')) { $('main').innerHTML = '<div class="card">Prayer requests are not used by this church.</div>'; return; }
     var tabs = [['ask', 'Prayer request'], ['mine', 'My requests'], ['answers', 'Praise reports']];
-    if (FORUS) tabs.push(['forus', FORUS.pastoral ? 'Requests to pray for' : 'Prayer team']);
+    if (FORUS) tabs.push(['forus', FORUS.pastoral ? 'Requests to pray for' : 'Prayer team'], ['sunday', 'For Sunday']);
+    if (TAB === 'sunday' && !FORUS) TAB = 'ask';
     $('main').innerHTML = '<div class="tabs" role="tablist">' + tabs.map(function (t) {
       return '<button data-tab="' + t[0] + '" aria-pressed="' + (TAB === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>' +
-      (TAB === 'ask' ? askCard() : TAB === 'mine' ? mineCard() : TAB === 'answers' ? answersCard() : forUsCard()) + (MASTER ? settingsCard() : '');
+      (TAB === 'ask' ? askCard() : TAB === 'mine' ? mineCard() : TAB === 'answers' ? answersCard() : TAB === 'sunday' ? sundayCard() : forUsCard()) + (MASTER ? settingsCard() : '');
     wire();
   }
   function askCard() {
-    if (!LAUNCH.locked) return '<div class="card" id="ask"><h2>What would you like prayer for?</h2><p class="said" id="not-yet" role="status">' + esc(notYet()) + '</p></div>';
-    if (NOBODY) return '<div class="card" id="ask"><h2>What would you like prayer for?</h2><p class="said" id="nobody" role="status">' + esc(NOBODY_WORDS) + '</p></div>';
+    if (NOBODY && LAUNCH.locked) return '<div class="card" id="ask"><h2>What would you like prayer for?</h2><p class="said" id="nobody" role="status">' + esc(NOBODY_WORDS) + '</p></div>';
     if (SENT) return '<div class="card" id="ask"><div class="done" id="sent">Thank you. Your request has been passed on, and you will be prayed for.</div>' +
       '<div class="acts"><button class="btn sec" id="again">Ask for something else</button></div></div>';
     return '<div class="card" id="ask"><h2>What would you like prayer for?</h2>' +
@@ -125,13 +140,19 @@
       '<label class="radio"><input type="radio" name="pr-share" value="pastoral" checked><span><b>The pastoral team only</b></span></label>' +
       (TEAM ? '<label class="radio"><input type="radio" name="pr-share" value="prayerTeam"><span><b>The pastoral team and the ' + esc(TEAM) + '</b>, who pray for requests together</span></label>' : '') +
       '<p class="said">Nobody else sees it. Your name goes with it, so they can pray for you by name.</p>' +
-      '<div class="acts"><button class="btn" id="pr-go">Send my request</button></div></div>';
+      '<label class="l">Happy for this to be prayed for in the Sunday service?</label>' +
+      SUNDAY.map(function (o) { return '<label class="radio"><input type="radio" name="pr-sunday" value="' + o[0] + '"' + (o[0] === 'no' ? ' checked' : '') + '><span>' + o[1] + '</span></label>'; }).join('') +
+      '<p class="said">Only if you say yes. You can change your mind later, under My requests.</p>' +
+      (LAUNCH.locked ? '<div class="acts"><button class="btn" id="pr-go">Send my request</button></div></div>'
+        : closedBit() + '<div class="acts"><button class="btn closed" id="pr-go" disabled aria-disabled="true">' + esc(closedWords()) + '</button></div></div>');
   }
   function mineCard() {
     return '<div class="card" id="mine"><h2>My requests</h2>' + (MINE.length ? MINE.map(function (p) {
       return '<div class="item" data-mine="' + esc(p.id) + '"><div class="w">' + esc(p.text) + '</div>' +
         '<div class="m">' + esc(when(p.at)) + ' · ' + (p.share === 'prayerTeam' ? 'pastoral team and ' + esc(TEAM || 'prayer team') : 'pastoral team') +
         (p.answered ? ' · <span class="pill ok">Answered</span>' : '') + '</div>' +
+        '<div class="m"><label>In the Sunday service? <select class="sun" data-sunday="' + esc(p.id) + '"' + (LAUNCH.locked ? '' : ' disabled') + '>' +
+          SUNDAY.map(function (o) { return '<option value="' + o[0] + '"' + (sundayOf(p) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>' +
         (p.answered && p.answer ? '<div class="w" style="margin-top:6px">' + esc(p.answer) + '</div>' : '') +
         (p.answered || !LAUNCH.locked ? '' : '<label class="l" for="an-' + esc(p.id) + '">Has it been answered? Say how (optional)</label><textarea id="an-' + esc(p.id) + '" maxlength="2000" style="min-height:70px"></textarea>' +
           '<label class="radio"><input type="checkbox" id="sh-' + esc(p.id) + '"><span>Share the answer with the church, to encourage others</span></label>' +
@@ -146,11 +167,11 @@
         return '<div class="item" data-answer-of="' + esc(a.id) + '"><div class="w">' + esc(a.text) + '</div><div class="m">' + esc(a.byName || 'Shared without a name') + ' · ' + esc(when(a.at)) + '</div>' +
           (FORUS && FORUS.pastoral ? '<div class="acts"><button class="btn sec small" data-hide="' + esc(a.id) + '">Hide it</button></div>' : '') + '</div>';
       }).join('') : '<p class="said">None shared yet.</p>') +
-      (!LAUNCH.locked ? '<p class="said" id="not-yet-share" role="status">Sharing an answer to prayer opens when the new church hub opens.</p></div>' :
-      '<label class="l" for="sh-text">Share an answer to prayer</label><textarea id="sh-text" maxlength="2000" style="min-height:90px"></textarea>' +
+      ('<label class="l" for="sh-text">Share an answer to prayer</label><textarea id="sh-text" maxlength="2000" style="min-height:90px"></textarea>' +
       '<button class="speak" id="sh-speak" type="button" aria-pressed="false">🎤 Speak</button><p class="said" id="sh-said" role="status"></p>' +
       '<label class="radio"><input type="checkbox" id="sh-name" checked><span>with my name</span></label>' +
-      '<div class="acts"><button class="btn" id="sh-go">Share it</button></div></div>');
+      (LAUNCH.locked ? '<div class="acts"><button class="btn" id="sh-go">Share it</button></div></div>'
+        : closedBit() + '<div class="acts"><button class="btn closed" id="sh-go" disabled aria-disabled="true">' + esc('Sharing opens ' + (LAUNCH.opensOn ? 'on ' + LAUNCH.opensOn : 'when the new church hub opens')) + '</button></div></div>'));
   }
   function forUsCard() {
     var list = FORUS.list;
@@ -159,8 +180,28 @@
       (list.length ? list.map(function (p) {
         return '<div class="item" data-forus="' + esc(p.id) + '"><div class="w">' + esc(p.text) + '</div><div class="m">' + esc(p.byName || '') + ' · ' + esc(when(p.at)) +
           (FORUS.pastoral ? ' · ' + (p.share === 'prayerTeam' ? 'shared with the ' + esc(TEAM || 'prayer team') : 'pastoral only') : '') +
+          ' · <span class="pill' + (sundayOf(p) === 'no' ? '' : ' ok') + '" data-sun="' + sundayOf(p) + '">' + esc(sundayWords(p)) + '</span>' +
           (p.answered ? ' · <span class="pill ok">Answered</span>' : '') + '</div>' + (p.answered && p.answer ? '<div class="w" style="margin-top:6px">' + esc(p.answer) + '</div>' : '') + '</div>';
       }).join('') : '<p class="said">None at the moment.</p>') + '</div>';
+  }
+  /* FOR SUNDAY: only requests the person said yes to, not yet answered,
+     from the last four weeks, newest first - with the name only when they
+     chose "with my name". For the service leader or the pastor to read out. */
+  function forSunday() {
+    var since = Date.now() - 28 * 864e5;
+    return (FORUS ? FORUS.list : []).filter(function (p) {
+      var t = p.at && p.at.toMillis ? p.at.toMillis() : Date.now();
+      return sundayOf(p) !== 'no' && !p.answered && t >= since;
+    });
+  }
+  function sundayCard() {
+    var list = forSunday();
+    return '<div class="card" id="sunday"><h2>For Sunday</h2>' +
+      '<p class="said" style="margin:0 0 8px">Requests people are happy to have prayed for in the Sunday service, from the last four weeks. A name only where they asked for it.</p>' +
+      (list.length ? list.map(function (p) {
+        return '<div class="item" data-sunday-item="' + esc(p.id) + '"><div class="w">' + esc(p.text) + '</div>' +
+          '<div class="m">' + (sundayOf(p) === 'named' ? esc(p.byName || '') : 'No name given') + ' · ' + esc(when(p.at)) + '</div></div>';
+      }).join('') + '<div class="acts noprint"><button class="btn sec" id="sun-print">Print</button></div>' : '<p class="said">None for this Sunday.</p>') + '</div>';
   }
   function settingsCard() {
     return '<div class="card" id="pr-settings"><h2>The prayer team</h2><p class="said" style="margin:0 0 6px">If the church has a prayer team, name it here (its team or group, exactly as in the address book), and people can choose to share a request with it too. Leave it empty for none.</p>' +
@@ -179,14 +220,18 @@
     document.querySelectorAll('[data-hide]').forEach(function (b) { b.onclick = function () { hide(b.dataset.hide); }; });
     if ($('sh-go')) $('sh-go').onclick = function () { share($('sh-text').value, $('sh-name').checked).then(function (ok) { if (ok) { toast('Shared. Thank you.'); load(); } }); };
     if ($('pt-go')) $('pt-go').onclick = saveTeam;
+    if ($('sun-print')) $('sun-print').onclick = function () { window.print(); };
+    document.querySelectorAll('[data-sunday]').forEach(function (s) { s.onchange = function () { setSunday(s.dataset.sunday, s.value); }; });
   }
 
   /* ---------------- saving ---------------- */
   function send() {
     var text = ($('pr-text').value || '').trim(), share = (document.querySelector('input[name="pr-share"]:checked') || {}).value || 'pastoral';
+    var sunday = (document.querySelector('input[name="pr-sunday"]:checked') || {}).value || 'no';
+    if (['no', 'named', 'anon'].indexOf(sunday) < 0) sunday = 'no';
     if (text.length < 3) { toast('Write or say a few words first'); return; }
     $('pr-go').disabled = true;
-    mayWrite().then(function () { return db().collection('prayers').add({ by: uid(), byName: (ME.name || '').slice(0, 120), text: text.slice(0, 4000), share: share, at: now(), answered: false, answer: '', answeredAt: null }); })
+    mayWrite().then(function () { return db().collection('prayers').add({ by: uid(), byName: (ME.name || '').slice(0, 120), text: text.slice(0, 4000), share: share, sunday: sunday, at: now(), answered: false, answer: '', answeredAt: null }); })
       .then(function () { SENT = true; return load(); })
       .catch(function (e) { if (e && e.message === 'not open') return; $('pr-go').disabled = false; toast('Could not send it: ' + (e.message || e)); });
   }
@@ -195,6 +240,11 @@
     mayWrite().then(function () { return db().collection('prayers').doc(id).update({ answered: true, answer: ans, answeredAt: now() }); })
       .then(function () { return sh && ans.length >= 3 ? share(ans, nm) : true; })
       .then(function () { toast(sh && ans.length >= 3 ? 'Marked answered, and shared. Thank you.' : 'Marked answered.'); return load(); })
+      .catch(function (e) { if (e && e.message === 'not open') return; toast('Could not: ' + (e.message || e)); });
+  }
+  function setSunday(id, v) {
+    mayWrite().then(function () { return db().collection('prayers').doc(id).update({ sunday: v }); })
+      .then(function () { toast(v === 'no' ? 'It will not be read out on Sunday.' : 'Saved: it may be prayed for on Sunday, ' + (v === 'named' ? 'with your name.' : 'without your name.')); return load(); })
       .catch(function (e) { if (e && e.message === 'not open') return; toast('Could not: ' + (e.message || e)); });
   }
   function withdraw(id) {
@@ -238,7 +288,7 @@
   EGBCAuth.require().then(function (p) {
     ME = p || {};
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
-    if (/[?&]tab=(mine|answers|forus)\b/.test(location.search)) TAB = location.search.match(/tab=(\w+)/)[1];
+    if (/[?&]tab=(mine|answers|forus|sunday)\b/.test(location.search)) TAB = location.search.match(/tab=(\w+)/)[1];
     return launch().then(function (L) {
       LAUNCH = L;
       return db().collection('careRouting').doc('status').get().then(function (s) { NOBODY = s.exists && s.data().leadSet === false; }, function () {});

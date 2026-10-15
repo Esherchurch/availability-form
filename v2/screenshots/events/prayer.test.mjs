@@ -18,9 +18,14 @@
         everyone signed in reads it; the pastoral team can hide one
      5. switched off for the church: not used
      6. F-179: BEFORE SWITCH-OVER (churchSettings/launch.rulesLocked not
-        true): no request form and no sharing, and NOTHING IS SAVED; asked
-        again at the moment of sending, so a page opened earlier saves
-        nothing either */
+        true): the whole form shows (Martin, 15 Oct), only the button is
+        shut ("Prayer requests open ..."), with the 999 line above it, and
+        NOTHING IS SAVED - asked again at the moment of sending, so a page
+        opened earlier, or the button forced on, saves nothing either
+     3b. SUNDAY (Martin, 15 Oct): "Happy for this to be prayed for in the
+        Sunday service?" No (to start with) / Yes, with my name / Yes,
+        without my name; the readers see the choice; "For Sunday" lists only
+        the yes ones, a name only where asked; changing to No takes it off */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -86,7 +91,10 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'safeguardingSettings', 'defaults'), { leadSiteId: 'site_main' });
   await setDoc(doc(db, 'prayerSettings', 'main'), { prayerTeam: 'Prayer Team', updatedAt: 'x', updatedBy: 'x' });
   /* Someone else's, for the pastoral team only. */
-  await setDoc(doc(db, 'prayers', 'pr_private'), { by: P.oli.uid, byName: 'Oli Other', text: 'PASTORAL ONLY: a hard week at home (invented).', share: 'pastoral', at: new Date(), answered: false, answer: '', answeredAt: null });
+  await setDoc(doc(db, 'prayers', 'pr_private'), { by: P.oli.uid, byName: 'Oli Other', text: 'PASTORAL ONLY: a hard week at home (invented).', share: 'pastoral', sunday: 'named', at: new Date(), answered: false, answer: '', answeredAt: null });
+  /* Shared with the prayer team but NOT for Sunday; and an old Sunday one. */
+  await setDoc(doc(db, 'prayers', 'pr_nosun'), { by: P.oli.uid, byName: 'Oli Other', text: 'NOT FOR SUNDAY: my private worry (invented).', share: 'prayerTeam', sunday: 'no', at: new Date(), answered: false, answer: '', answeredAt: null });
+  await setDoc(doc(db, 'prayers', 'pr_old'), { by: P.oli.uid, byName: 'Oli Other', text: 'OLD SUNDAY: from two months ago (invented).', share: 'prayerTeam', sunday: 'named', at: new Date(Date.now() - 60 * 864e5), answered: false, answer: '', answeredAt: null });
 });
 const list = async (c) => { let out = []; await env.withSecurityRulesDisabled(async (x) => { out = (await getDocs(collection(x.firestore(), c))).docs.map(d => ({ id: d.id, ...d.data() })); }); return out; };
 const SAID = 'please pray for my job interview on Friday';
@@ -137,12 +145,21 @@ try {
   /* ---------- 6. before switch-over ---------- */
   const B = await as('oli');
   const before = await text(B, '#ask');
-  ok('6. BEFORE SWITCH-OVER: no request form, the words instead', !(await B.$('#pr-go')) && !(await B.$('#pr-text')) && /call 999/.test(before) && /opens when the new church hub opens/.test(before), before);
-  await tab(B, 'answers');
-  ok('   and no sharing an answer', !(await B.$('#sh-go')) && /opens when the new church hub opens/.test(await text(B, '#answers')));
-  ok('   NOTHING SAVED', (await list('prayers')).length === 1 && (await list('prayerAnswers')).length === 0);
-  await tab(B, 'ask');
+  const shut = await B.evaluate(() => { const b = document.getElementById('pr-go'), n = document.getElementById('pr-999');
+    return { box: !!document.getElementById('pr-text'), speak: !!document.getElementById('pr-speak'), who: document.querySelectorAll('input[name="pr-share"]').length, sun: document.querySelectorAll('input[name="pr-sunday"]').length,
+      dis: !!b && b.disabled, words: b ? b.textContent : '', above: !!n && !!b && (n.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 }; });
+  ok('6. BEFORE SWITCH-OVER (Martin, 15 Oct): THE WHOLE FORM SHOWS - the box, Speak, who sees it, the Sunday question', shut.box && shut.speak && shut.who >= 1 && shut.sun === 3, J(shut));
+  ok('   only the button is shut: "Prayer requests open when the new church hub opens"', shut.dis && /^Prayer requests open when the new church hub opens$/.test(shut.words.trim()), J(shut));
+  ok('   with the 999 line above it', shut.above && /If someone is in immediate danger, call 999/.test(before), before);
   await B.screenshot({ path: path.join(HERE, 'prayer-not-yet-375.png'), fullPage: true });
+  /* The button forced back on: the check at the moment of sending still saves nothing. */
+  await B.$eval('#pr-text', t => { t.value = 'FORCED: sent before switch-over (invented)'; });
+  await B.$eval('#pr-go', b => { b.disabled = false; b.click(); });
+  await sleep(1200);
+  await tab(B, 'answers');
+  const shs = await B.evaluate(() => { const b = document.getElementById('sh-go'); return { box: !!document.getElementById('sh-text'), dis: !!b && b.disabled, words: b ? b.textContent : '' }; });
+  ok('   praise reports: the box shows, the button shut ("Sharing opens when ...")', shs.box && shs.dis && /Sharing opens when the new church hub opens/.test(shs.words), J(shs));
+  ok('   NOTHING SAVED, even with the button forced on', (await list('prayers')).length === 3 && !(await list('prayers')).some(p => /FORCED/.test(p.text)) && (await list('prayerAnswers')).length === 0);
   await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'churchSettings', 'launch'), { rulesLocked: true, opensOn: '' }); });
 
   /* ---------- 1. Speak ---------- */
@@ -160,6 +177,11 @@ try {
   /* ---------- 2. the request ---------- */
   ok('2. the choice: pastoral team only (the first), or the prayer team too', /pastoral team only/.test(await text(A, '#ask')) && /the Prayer Team/.test(await text(A, '#ask')));
   await A.$eval('input[name="pr-share"][value="prayerTeam"]', r => r.click());
+  const sq = await A.evaluate(() => ({ words: document.getElementById('ask').innerText, def: (document.querySelector('input[name="pr-sunday"]:checked') || {}).value,
+    opts: [...document.querySelectorAll('input[name="pr-sunday"]')].map(r => r.parentElement.innerText.trim()) }));
+  ok('2. SUNDAY: "Happy for this to be prayed for in the Sunday service?" No / Yes, with my name / Yes, without my name', /Happy for this to be prayed for in the Sunday service\?/.test(sq.words) && J(sq.opts) === J(['No', 'Yes, with my name', 'Yes, without my name']), J(sq));
+  ok('   No unless the person says yes (No is chosen to start with)', sq.def === 'no', J(sq));
+  await A.$eval('input[name="pr-sunday"][value="anon"]', r => r.click());
   await tap(A, '#pr-go');
   await A.waitForSelector('#sent');
   ok('   sent: "Thank you. Your request has been passed on"', /Thank you\. Your request has been passed on/.test(await text(A, '#sent')));
@@ -181,6 +203,32 @@ try {
   const O = await as('oli');
   await sleep(800);
   ok('   anyone else: no list of requests at all', !(await O.$('[data-tab="forus"]')) && !(await text(O)).includes(SAID));
+
+  /* ---------- 3b. FOR SUNDAY ---------- */
+  ok('3b. saved with the choice: Sunday, without her name', mine.sunday === 'anon', J(mine));
+  ok('   the readers see the choice on each request', /Sunday: yes, without the name/.test(pt) && /Sunday: yes, with the name/.test(pt) && /Not for Sunday/.test(pt), pt);
+  await tab(PA, 'sunday');
+  const ps = await text(PA, '#sunday');
+  const annItem = await PA.$eval('[data-sunday-item="' + mine.id + '"]', e => e.innerText).catch(() => '');
+  ok('   "For Sunday" for the pastoral team: the ones marked yes', ps.includes(SAID) && /PASTORAL ONLY/.test(ps), ps);
+  ok('   WITHOUT HER NAME, as she chose ("No name given")', /No name given/.test(annItem) && !/Ann Asker/.test(annItem), annItem);
+  ok('   with his, as he chose (Oli Other)', /Oli Other/.test(await PA.$eval('[data-sunday-item="pr_private"]', e => e.innerText).catch(() => '')));
+  ok('   NEVER ONE MARKED NO', !/NOT FOR SUNDAY/.test(ps), ps);
+  ok('   nor one from two months ago', !/OLD SUNDAY/.test(ps), ps);
+  await PA.screenshot({ path: path.join(HERE, 'prayer-sunday-375.png'), fullPage: true });
+  await tab(PI, 'sunday');
+  const is = await text(PI, '#sunday');
+  ok('   the prayer team\'s "For Sunday": only what it may read already (not the pastoral-only one)', is.includes(SAID) && !/PASTORAL ONLY|NOT FOR SUNDAY/.test(is), is);
+  ok('   someone who reads no requests has no "For Sunday"', !(await O.$('[data-tab="sunday"]')));
+  /* She changes her mind. */
+  await tab(A, 'mine');
+  await A.waitForSelector('[data-sunday="' + mine.id + '"]');
+  await A.select('[data-sunday="' + mine.id + '"]', 'no');
+  await until(async () => ((await list('prayers')).find(p => p.id === mine.id) || {}).sunday === 'no');
+  await PA.reload({ waitUntil: 'networkidle2' }); await PA.waitForSelector('[data-tab="sunday"]');
+  await tab(PA, 'sunday');
+  ok('   SHE CHANGES HER MIND (My requests: No): it leaves "For Sunday"', !(await text(PA, '#sunday')).includes(SAID) && ((await list('prayers')).find(p => p.id === mine.id) || {}).sunday === 'no');
+  await tab(A, 'ask');
 
   /* ---------- 4. answered ---------- */
   await tab(A, 'mine');
@@ -214,9 +262,9 @@ try {
   await L.$eval('#pr-text', t => { t.value = 'LATE: sent after the form closed (invented)'; });
   await L.evaluate(() => { EGBCLaunch.check = () => Promise.resolve({ locked: false, opensOn: '1 November 2026' }); });
   await tap(L, '#pr-go');
-  await until(() => L.$('#ask #not-yet'));
+  await until(() => L.$('#ask #pr-go[disabled]'));
   await sleep(800);
-  ok('6. NOT OPEN AT THE MOMENT OF SENDING: nothing saved, and it says when it opens', !(await list('prayers')).some(p => /LATE/.test(p.text)) && /opens on 1 November 2026/.test(await text(L, '#ask')), await text(L, '#ask'));
+  ok('6. NOT OPEN AT THE MOMENT OF SENDING: nothing saved, and the button says when it opens', !(await list('prayers')).some(p => /LATE/.test(p.text)) && /Prayer requests open on 1 November 2026/.test(await text(L, '#pr-go')), await text(L, '#ask'));
 
   /* ---------- 7. F-178: no safeguarding lead named ---------- */
   await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'careRouting', 'status'), { leadSet: false }); });

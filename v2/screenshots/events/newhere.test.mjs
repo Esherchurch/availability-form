@@ -20,7 +20,8 @@
         away
      6. switched off for the church: not available
      7. F-179: BEFORE SWITCH-OVER (churchSettings/launch.rulesLocked not
-        true) there is no form and NOTHING IS SAVED; asked again at the
+        true) the whole form shows (Martin, 15 Oct), only Send is shut, with
+        the 999 line above it, and NOTHING IS SAVED; asked again at the
         moment of sending, so a page opened earlier saves nothing either */
 
 import fs from 'node:fs';
@@ -120,8 +121,18 @@ try {
   /* ---------- 7. before switch-over: no form, nothing saved ---------- */
   const N = await page('early');
   const early = await text(N, '#main');
-  ok('7. BEFORE SWITCH-OVER: no form, and the words instead', !(await N.$('#f')) && /call 999/.test(early) && /opens when the new church hub opens/.test(early), early);
-  ok('   NOTHING SAVED', (await list('welcomes')).length === 0);
+  const nf = await N.evaluate(() => { const b = document.getElementById('n-go'), n = document.getElementById('n-999');
+    return { form: !!document.getElementById('f'), name: !!document.getElementById('n-name'), email: !!document.getElementById('n-email'), msg: !!document.getElementById('n-msg'),
+      dis: !!b && b.disabled, words: b ? b.textContent.trim() : '', above: !!n && !!b && (n.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 }; });
+  ok('7. BEFORE SWITCH-OVER (Martin, 15 Oct): THE WHOLE FORM SHOWS (name, email, message)', nf.form && nf.name && nf.email && nf.msg, J(nf));
+  ok('   only Send is shut: "Sending opens when the new church hub opens", with the 999 line above it', nf.dis && nf.words === 'Sending opens when the new church hub opens' && nf.above && /call 999/.test(early), J(nf) + ' ' + early);
+  await val(N, '#n-name', 'Forced Early (invented)');
+  await val(N, '#n-email', 'forced.early@example.invalid');
+  await sleep(2700);
+  await N.$eval('#n-go', b => { b.disabled = false; b.click(); });
+  await sleep(1500);
+  ok('   NOTHING SAVED, even with Send forced on', (await list('welcomes')).length === 0);
+  await N.reload({ waitUntil: 'networkidle2' }); await until(() => N.$('#n-go'));
   await N.screenshot({ path: path.join(HERE, 'newhere-not-yet-375.png'), fullPage: true });
   await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'churchSettings', 'launch'), { rulesLocked: true, opensOn: '' }); });
 

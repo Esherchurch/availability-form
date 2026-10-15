@@ -2343,6 +2343,15 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('the person marks it answered', 'allow', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_1'), { answered: true, answer: 'Went well (invented).', answeredAt: serverTimestamp() }));
   await check('but cannot change what was asked, or who sees it', 'deny', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_1'), { share: 'prayerTeam' }));
   await check('the pastoral team cannot change it', 'deny', () => updateDoc(doc(ctx('u_pasto'), 'prayers', 'pr_1'), { answered: false, answer: '', answeredAt: serverTimestamp() }));
+  // Sunday (Martin, 15 Oct)
+  await check('PRAYER, SUNDAY: a request may say yes, with the name', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun1'), PR('u_asker', 'pastoral', { sunday: 'named' })));
+  await check('  or without it', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun2'), PR('u_asker', 'pastoral', { sunday: 'anon' })));
+  await check('  or no', 'allow', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun3'), PR('u_asker', 'pastoral', { sunday: 'no' })));
+  await check('  but nothing else', 'deny', () => setDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun4'), PR('u_asker', 'pastoral', { sunday: 'everyone' })));
+  await check('  the person changes their mind', 'allow', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun1'), { sunday: 'no' }));
+  await check('  THE PASTORAL TEAM CANNOT MARK ONE FOR SUNDAY', 'deny', () => updateDoc(doc(ctx('u_pasto'), 'prayers', 'pr_sun3'), { sunday: 'named' }));
+  await check('  nor change the person’s choice of name', 'deny', () => updateDoc(doc(ctx('u_pasto'), 'prayers', 'pr_sun2'), { sunday: 'named' }));
+  await check('  and Sunday is not a way to change the words', 'deny', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun2'), { sunday: 'named', text: 'changed' }));
   await check('nor delete it', 'deny', () => deleteDoc(doc(ctx('u_pasto'), 'prayers', 'pr_1')));
   await check('the person takes it back', 'allow', () => deleteDoc(doc(ctx('u_asker'), 'prayers', 'pr_2')));
 

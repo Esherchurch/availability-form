@@ -6728,3 +6728,45 @@ name, as now.
 
 **Proved:** fire-rollcall.test 24/24; rules suite 1415/1415; 8
 deliberate breaks, all caught.
+
+### F-217 — Prayer: the whole form before switch-over, and "For Sunday" (Martin, 15 Oct)
+
+Martin: "no where to put in the details of the prayer. Also need a tick
+to say if happy to share it on Sunday or not."
+
+**Done (prayer.html, newhere.html: mine):**
+- **Before switch-over the whole form shows.** Only the button is shut:
+  "Prayer requests open on <date>" (or "when the new church hub opens";
+  the date is churchSettings/launch.opensOn). Above it: "If someone is
+  in immediate danger, call 999. Until then, please speak to a church
+  leader in person." Praise reports and newhere.html are the same
+  ("Sharing opens…", "Sending opens…"). Nothing is saved: the check at
+  the moment of sending is kept, and the test forces the button on to
+  prove it.
+- **"Happy for this to be prayed for in the Sunday service?"** No (to
+  start with) / Yes, with my name / Yes, without my name. It's saved as
+  `prayers.sunday` = 'no' | 'named' | 'anon'; missing means no. The
+  person can change it under My requests. Nobody else can (rules).
+- **The readers** see the choice on each request. A new **"For Sunday"**
+  tab lists only the yes ones that aren't answered yet, from the last
+  four weeks, with the name only where the person asked for it, and a
+  Print button. Each reader sees only what they can already read: the
+  prayer team, only the ones shared with it.
+
+**Rules (events section):** prayers create allows `sunday` (no, named or
+anon only); the owner alone may change `sunday`, on its own.
+
+**For the main window, please:**
+1. worried.html and care.html (yours) still hide the form before
+   switch-over. Martin wants them the same: show the whole form, shut
+   only the button ("… open on <date>"), with the 999 line above it.
+   `EGBCLaunch.DANGER` has the 999 words.
+2. Add prayer.html (the Sunday question, "For Sunday", the shut button)
+   and newhere.html to tests/audit-everything.mjs when it lands. I'll
+   add my pages' own breaks once I can see its shape.
+
+**Open question for Martin:** who reads "For Sunday" out? Today it's
+whoever already reads requests (the pastoral team, the prayer team for
+the ones shared with it, and the people named in Who gets told). If the
+service leader isn't one of them, they won't see it. Should there be a
+named "Sunday service leader" who sees the For Sunday list only?

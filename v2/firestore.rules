@@ -3799,8 +3799,11 @@ service cloud.firestore {
     function onPrayerTeam() { return prayerTeamName() != '' && onTeam(prayerTeamName()); }
     match /prayers/{id} {
       allow create: if active()
-                    && request.resource.data.keys().hasOnly(['by', 'byName', 'text', 'share', 'at', 'answered', 'answer', 'answeredAt'])
+                    && request.resource.data.keys().hasOnly(['by', 'byName', 'text', 'share', 'sunday', 'at', 'answered', 'answer', 'answeredAt'])
                     && request.resource.data.by == request.auth.uid
+                    // Sunday (Martin, 15 Oct): prayed for in the service only if the
+                    // person says yes, with or without their name. Missing means no.
+                    && request.resource.data.get('sunday', 'no') in ['no', 'named', 'anon']
                     && request.resource.data.byName is string && request.resource.data.byName.size() <= 120
                     && request.resource.data.text is string && request.resource.data.text.size() >= 3 && request.resource.data.text.size() <= 4000
                     && request.resource.data.share in ['pastoral', 'prayerTeam']
@@ -3815,10 +3818,13 @@ service cloud.firestore {
                                   || (resource.data.share == 'prayerTeam' && onPrayerTeam())
                                   || careNamed('prayer') || sgLeadOrDeputy());
       allow update: if active() && resource.data.by == request.auth.uid
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answered', 'answer', 'answeredAt'])
-                    && request.resource.data.answered is bool
-                    && request.resource.data.answer is string && request.resource.data.answer.size() <= 2000
-                    && request.resource.data.answeredAt == request.time;
+                    && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answered', 'answer', 'answeredAt'])
+                         && request.resource.data.answered is bool
+                         && request.resource.data.answer is string && request.resource.data.answer.size() <= 2000
+                         && request.resource.data.answeredAt == request.time)
+                        // the person changes their mind about Sunday; nobody else may
+                        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sunday'])
+                            && request.resource.data.sunday in ['no', 'named', 'anon']));
       allow delete: if active() && resource.data.by == request.auth.uid;
     }
     match /prayerAnswers/{id} {

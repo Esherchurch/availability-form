@@ -43,6 +43,8 @@
   .btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 22px;border-radius:12px;font:600 16px Inter,sans-serif;cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff}
   .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}.btn.small{min-height:40px;font-size:14px;padding:0 12px}
   .btn:disabled{opacity:.55}
+  .btn.closed:disabled{opacity:1;background:#e5e7eb;color:#374151;border-color:#d1d5db;cursor:not-allowed;white-space:normal;text-align:center}
+  .danger999{font-size:15px;font-weight:600;color:#111827;margin:12px 0 8px}
   .done{background:var(--ok-bg);color:var(--ok);border-radius:12px;padding:14px;font-size:16px}
   .err{color:#b0392c;font-size:14px;margin:8px 0 0}
   .okmsg{color:var(--ok);font-size:14px;margin:8px 0 0}
@@ -82,7 +84,10 @@
   }
   function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
 
-  function card() {
+  /* Before switch-over (Martin, 15 Oct) the whole form shows, so people
+     can see what it asks; only Send is shut, with the 999 line above it. */
+  function card(L) {
+    var closed = L && !L.locked;
     var church = EGBCChurch.name() || 'our church';
     return '<h1>Welcome!</h1><p class="sub">We are glad you are here. Say hello, and if you would like, someone from ' + esc(church) + ' will get in touch.</p>' +
       '<form class="card" id="f" novalidate>' +
@@ -98,7 +103,10 @@
       '<button class="speak" id="n-speak" type="button" aria-pressed="false">🎤 Speak</button><p class="hint" id="n-said" role="status"></p>' +
       '<div class="hp" aria-hidden="true"><label>Leave this empty<input id="website" tabindex="-1" autocomplete="off"></label></div>' +
       '<p class="hint">We keep only what you send, to reply to you. Nothing is saved until you press Send.</p>' +
-      '<div id="n-err"></div><button class="btn" id="n-go" type="submit">Send</button></form>';
+      '<div id="n-err"></div>' +
+      (closed ? '<p class="danger999" id="n-999">' + esc((window.EGBCLaunch ? EGBCLaunch.DANGER : 'If someone is in immediate danger, call 999.') + ' Until then, please speak to someone from ' + church + ' in person.') + '</p>' +
+        '<button class="btn closed" id="n-go" type="submit" disabled aria-disabled="true">' + esc('Sending opens ' + (L.opensOn ? 'on ' + L.opensOn : 'when the new church hub opens')) + '</button>'
+        : '<button class="btn" id="n-go" type="submit">Send</button>') + '</form>';
   }
   /* F-179: until the locked rules are on (churchSettings/launch.rulesLocked),
      a hello saved here could be read by anyone, so none is. Asked when the
@@ -196,8 +204,7 @@
     /* The form only once it is known to be open. The welcomers' card below
        is not a form a visitor fills in, so it shows either way. */
     launch().then(function (L) {
-      if (!L.locked) { $('main').innerHTML = notYetCard(L); return; }
-      $('main').innerHTML = card();
+      $('main').innerHTML = card(L);
       opened = Date.now();
       EGBCSpeak.attach($('n-speak'), $('n-msg'), { status: $('n-said') });
       $('f').onsubmit = send;
