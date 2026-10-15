@@ -129,6 +129,9 @@
     var ca = document.getElementById('cancelAll');
     if (ca) ca.onclick = cancelAll;
     drawUsualCard();
+    /* "My messages" (R6, F-206): signed in, what the church has emailed me. */
+    if (E.signedIn() && !document.getElementById('msgsLink')) document.getElementById('wrap').insertAdjacentHTML('beforeend',
+      '<p style="margin:14px 0 0"><a id="msgsLink" href="my-messages.html" style="color:var(--brand,#3d6263);font-weight:600">My messages: what the church has emailed me</a></p>');
     [['payNow', 'card'], ['payNowBank', 'bank']].forEach(function (x) {
       var pn = document.getElementById(x[0]);
       if (pn) pn.onclick = function () {

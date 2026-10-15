@@ -243,5 +243,14 @@
     }).catch(function () { return null; });
   }
 
-  global.EGBCEventsHome = { myEvents: myEvents, myGroupsNext: myGroupsNext, myFamilyThisSunday: myFamilyThisSunday, officeQueue: officeQueue, officeToday: officeToday, watchLive: watchLive };
+  /* "My messages" (R6, F-206): what the church's server has emailed ME, the
+     outline only, newest first: [{ at, what, subject, ok }]. From the
+     myMessages function, which reads only the signed-in person's own
+     addresses. For my-messages.html, and for the app's Me tab to draw. */
+  function myMessages() {
+    if (!uid()) return Promise.resolve([]);
+    return EGBCAuth.call('myMessages', {}).then(function (r) { return (r && r.rows) || []; });
+  }
+
+  global.EGBCEventsHome = { myEvents: myEvents, myGroupsNext: myGroupsNext, myFamilyThisSunday: myFamilyThisSunday, officeQueue: officeQueue, officeToday: officeToday, watchLive: watchLive, myMessages: myMessages };
 })(typeof window !== 'undefined' ? window : this);

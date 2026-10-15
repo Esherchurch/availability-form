@@ -6181,3 +6181,120 @@ admins and rota team leaders), and a link from the Planner if wanted.
 **Proved:** rota-reports.test 21/21, including a role holding two people,
 an archived service, a practice, a future date, two area leaders and an
 attender. The page writes nothing (the services are unchanged after).
+
+### F-206 — R6 built: "My messages" (what the church has sent ME)
+
+ChurchSuite's "My Communication". Moved from the main window's list.
+- **my-messages.html** (new, mine): the signed-in person's emails from the
+  church's server in the last year, newest first: when, what kind
+  ("Sign-up confirmation", "Booking: waiting for approval"...), the
+  subject, and "it could not be sent" where it failed.
+- **From a new callable, myMessages** (functions/comms.js, mine): it
+  reads emailOutbox, which no page may read, and hands back the outline
+  only (when, what, subject, whether it went). Never the email, its
+  links or attachments, and never who else it went to.
+- **Own emails only:** the person's addresses are the one on their record,
+  and the one they sign in with if their email provider confirmed it.
+  Nothing in the request can change that. Capitals don't matter
+  (MARY@... counts as mary@...).
+- **Where:** a link on my place (my-signup.html) when signed in, and
+  `EGBCEventsHome.myMessages()` for the app's Me tab to draw.
+- **Not listed yet:** emails sent through Calla's sendEmail straight from
+  pages (rota emails from the Planner, group emails from EmailBuilder2):
+  they aren't logged in this database. The page says so.
+
+**For the main window:**
+- a row on the app's Me tab: "My messages", drawn from
+  `EGBCEventsHome.myMessages()` (or a link to my-messages.html)
+- app.html and hub.html: `egbc-events-home.js?v=202610152100`
+- if wanted, log the outline of the pages' own sends (rota, group emails)
+  to emailOutbox, and they'll appear here and on Emails sent
+
+**Proved:** my-messages.test 14/14 with the hub's real functions.
+
+### F-207 — R9 plan: sending as a team's shared address (PLAN ONLY, for review)
+
+ChurchSuite lets a user group (EGBC: Eldership, Finance, Safeguarding)
+have its own shared email address and send as it (F-180, question 9).
+Nothing is built yet; this is the plan for the reviewing window and
+Martin.
+
+**What can and can't change, with Calla's sendEmail as it is.**
+- Every email leaves from **one fixed address**, `EGBCWorship@callasuite.uk`
+  (the planners say so: "Sends from EGBCWorship@callasuite.uk - replies go
+  to you"). The hub can't make the From line say
+  `safeguarding@esherchurch.org`. A real From for each address needs
+  Calla's mail service to prove the church owns that address (its
+  domain's sending records). That's Calla's to say, not the hub's.
+- What sendEmail already takes: `to`, `subject`, `html`, `replyTo`,
+  `attachments`. So **"send as a team" here means:**
+  1. **Reply-To** is the team's shared address, so replies go to the
+     team's mailbox, never to the sender's own and never into the hub.
+  2. **The name** the person sees: the subject starts "Safeguarding team:",
+     and the email opens and closes as from the team ("From the
+     Safeguarding team, Esher Green Baptist Church"). If Calla adds a
+     from-name field, the From line can read "Safeguarding team (Esher
+     Green Baptist Church)" while the address stays Calla's (question C1).
+  3. **A copy to the shared address** (as a separate recipient), so the
+     team's mailbox holds everything sent in its name, whoever sent it.
+
+**Which address.** A new record per team, set by a master admin only:
+`teamMailboxes/{team}` = { address, displayName, senders: [memberIds],
+copyToSelf: true, updatedBy, updatedAt }. Examples: Safeguarding ->
+safeguarding@esherchurch.org; Finance -> finance@...; Eldership ->
+elders@... These mailboxes (or forwarders) must already exist at the
+church's email host; the hub doesn't create them (question M2). For any
+church: nothing is built in for EGBC, and a church with no shared
+addresses sees nothing new. Feature name **teamMailboxes**.
+
+**Who may send as it.** Default: master admins, and that team's admins
+(`adminFor` includes the team). A master admin may add named senders.
+**Safeguarding:** only the safeguarding lead and deputies (the settings
+F-190 built), not every Safeguarding team admin, unless Martin says
+otherwise (question M3).
+
+**How it's sent: through a hub function, never the browser.**
+`sendAsTeam` (callable, mine, functions/team-mail.js):
+- checks the signed-in person may send as that team, on the server
+- sets replyTo to the shared address and adds the copy to it
+- sends with the server's identity token, like F-168's emails
+- **Recipients:** only people the hub can send to (sendEmail's
+  KNOWN_SOURCES and hourly cap still apply). The shared address must
+  count as a known recipient for the copy (question C2).
+- **Logs** to emailOutbox with `asTeam` and the sender's name, so Emails
+  sent shows "Safeguarding team (sent by Sam)". **For Safeguarding, the
+  outline only**: no html is kept in the outbox, because a safeguarding
+  email may hold sensitive details and the outbox is read by more
+  people than the safeguarding team (question M4). "My messages"
+  (F-206) shows the recipient the outline as usual.
+
+**Where the choice appears:** a "Send as" picker (Myself / the teams I
+may send as) in the hub's email writers:
+- events-admin's "Email everyone" (mine)
+- the safeguarding pages (mine: a lead writing to a family or a volunteer)
+- the main window's EmailBuilder2 (theirs: a request, once this exists)
+
+**Before switch-over:** `teamMailboxes` holds only addresses and names,
+nothing private, but it would be writable by anyone until the rules
+deploy. So, like payments (F-196): `sendAsTeam` refuses on the live site
+until rulesLocked, and the settings card says "Opens when the church
+switches over".
+
+**Questions**
+- **For Calla:** (C1) can sendEmail take a from-name, so the From line
+  can name the team? (C2) does it check replyTo against known addresses,
+  and can each team's shared address be added? (C3) is a real From per
+  address (domain checks) possible later, and what does the church need
+  to do? (C4) is the hourly cap per sender or for the whole church?
+- **For Martin:** (M1) which teams need a shared address: Eldership,
+  Finance, Safeguarding, others? (M2) do those mailboxes exist already, and
+  what are the addresses? (M3) who sends for each (Safeguarding: the lead
+  and deputies only?) (M4) keep only the outline of Safeguarding emails
+  in the hub (recommended), or the whole email like the rest?
+  (M5) the copy to the shared mailbox: yes (recommended)?
+
+**Proposed build, once agreed** (about one job): the teamMailboxes
+settings card, the rule (events section), sendAsTeam with its tests
+(who may and may not send, the reply-to, the copy, the outline-only log,
+refused before switch-over), and the picker in events-admin and
+safeguarding. Stopping here for review.

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My messages</title>
+<!-- What the church has sent ME (R6; ChurchSuite's "My Communication";
+     F-206). The outline only, from the myMessages function: when, what,
+     subject, whether it went. My own emails only. Events window. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610141800" data-title="My messages"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610141800"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610151900"></script>
+<script src="egbc-events-home.js?v=202610152100"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--canvas:#f6f7f7;--danger:#b0392c;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:6px 16px;margin-bottom:14px}
+  .msg{padding:12px 0;border-top:1px solid var(--line)}
+  .msg:first-child{border-top:0}
+  .msg b{display:block;color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+  .m{color:var(--muted);font-size:13px}
+  .bad{color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card m" style="padding:16px">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  function when(iso) { var d = new Date(iso); return isNaN(d) ? '' : E.fmtDateShort(d) + ', ' + E.fmtTime(d); }
+  EGBCAuth.require().then(function () {
+    return EGBCEventsHome.myMessages();
+  }).then(function (rows) {
+    document.getElementById('wrap').innerHTML = '<h1>My messages</h1><p class="sub">What the church has emailed you in the last year: sign-ups, bookings, forms, reminders and the like. Open the email itself to read it.</p>' +
+      (rows.length ? '<div class="card" id="list">' + rows.map(function (r) {
+        return '<div class="msg" data-msg><b>' + esc(r.subject || r.what) + '</b><span class="m">' + esc(when(r.at)) + ' · ' + esc(r.what) + (r.ok ? '' : ' · <span class="bad">it could not be sent</span>') + '</span></div>';
+      }).join('') + '</div>' : '<div class="card" style="padding:16px" id="none">Nothing yet.</div>') +
+      '<p class="m">Emails your team leaders send from their own email, and rota emails, are not listed here yet.</p>';
+  }).catch(function (e) { document.getElementById('wrap').innerHTML = '<div class="card" style="padding:16px">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>
