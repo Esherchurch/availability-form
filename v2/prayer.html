@@ -59,7 +59,7 @@
 <body>
 <div class="wrap">
   <h1>Prayer</h1>
-  <p class="sub">Ask for prayer at any time, and share how prayers have been answered.</p>
+  <p class="sub">Prayer requests at any time, and praise reports: how prayers have been answered.</p>
   <div id="main"><div class="card">Loading…</div></div>
 </div>
 <div id="toast"></div>
@@ -106,7 +106,7 @@
   /* ---------------- drawing ---------------- */
   function draw() {
     if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('prayer')) { $('main').innerHTML = '<div class="card">Prayer requests are not used by this church.</div>'; return; }
-    var tabs = [['ask', 'Ask for prayer'], ['mine', 'My requests'], ['answers', 'Answers to prayer']];
+    var tabs = [['ask', 'Prayer request'], ['mine', 'My requests'], ['answers', 'Praise reports']];
     if (FORUS) tabs.push(['forus', FORUS.pastoral ? 'Requests to pray for' : 'Prayer team']);
     $('main').innerHTML = '<div class="tabs" role="tablist">' + tabs.map(function (t) {
       return '<button data-tab="' + t[0] + '" aria-pressed="' + (TAB === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>' +
@@ -141,7 +141,7 @@
     }).join('') : '<p class="said">Nothing yet.</p>') + '</div>';
   }
   function answersCard() {
-    return '<div class="card" id="answers"><h2>Answers to prayer</h2><p class="said" style="margin:0 0 8px">Shared by people at church, to encourage each other.</p>' +
+    return '<div class="card" id="answers"><h2>Praise reports</h2><p class="said" style="margin:0 0 8px">Shared by people at church, to encourage each other.</p>' +
       (ANSWERS.length ? ANSWERS.map(function (a) {
         return '<div class="item" data-answer-of="' + esc(a.id) + '"><div class="w">' + esc(a.text) + '</div><div class="m">' + esc(a.byName || 'Shared without a name') + ' · ' + esc(when(a.at)) + '</div>' +
           (FORUS && FORUS.pastoral ? '<div class="acts"><button class="btn sec small" data-hide="' + esc(a.id) + '">Hide it</button></div>' : '') + '</div>';

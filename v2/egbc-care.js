@@ -60,7 +60,7 @@
     ];
     if (prayer === true) {
       list.push({ key: 'prayer', icon: 'church', url: PRAYER_URL,
-        title: 'Ask for prayer', sub: 'A prayer request, for you or for someone else.' });
+        title: 'Prayer requests and praise reports', sub: 'Ask for prayer, for you or someone else, or share how God has answered.' });
     }
     return list;
   }

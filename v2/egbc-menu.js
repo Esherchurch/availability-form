@@ -294,7 +294,7 @@
     /* PRAYER (the events window's prayer.html, F-166): your requests, and
        answers to prayer. For everybody signed in; feature 'prayer'. */
     { title: 'Prayer', url: 'prayer.html', icon: 'church', feature: 'prayer',
-      description: 'Ask for prayer, and see answers to prayer' },
+      description: 'Prayer requests and praise reports' },
 
     { title: 'Resources', icon: 'folder-open', children: [
       /* "Pin boards", plural, because there are five of them now and the old
