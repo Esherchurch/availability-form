@@ -6688,7 +6688,7 @@ own full-screen button is taken away (`fs=0`). Under the video there is a
 button, Esc, and the phone's back all close it, and back stays in the
 app. On Android it asks the screen to turn sideways. Where it can't (an
 iPhone, or an upright phone that won't turn), the picture itself is
-turned sideways to fill the screen. Proved: watch.test 43/43, with 9
+turned sideways to fill the screen. Proved: watch.test 45/45, with 9
 deliberate breaks.
 
 **For the main window, please:**
