@@ -303,7 +303,47 @@
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
   }
 
+  /* ---- a picture, whole (Martin, 15 Oct 2026) ------------------------
+     In a list of notices a picture is a small banner (each page's CSS);
+     tapping it shows the whole picture over the page. zoomIn(selector)
+     makes every <img> inside matching elements open this way. */
+  var zoomSel = [];
+  function zoomOpen(src, alt) {
+    if (document.getElementById('egbc-zoom')) return;
+    var back = document.createElement('div');
+    back.id = 'egbc-zoom';
+    back.setAttribute('role', 'dialog'); back.setAttribute('aria-modal', 'true');
+    back.setAttribute('aria-label', alt ? 'Picture: ' + alt : 'Picture');
+    back.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(17,24,39,.88);display:flex;'
+      + 'align-items:center;justify-content:center;padding:16px;cursor:zoom-out';
+    var img = document.createElement('img');
+    img.src = src; img.alt = alt || '';
+    img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;background:#fff';
+    var x = document.createElement('button');
+    x.type = 'button'; x.setAttribute('aria-label', 'Close the picture'); x.textContent = '×';
+    x.style.cssText = 'position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;border:0;'
+      + 'background:#fff;color:#111827;font-size:26px;line-height:1;cursor:pointer';
+    function close() { back.remove(); document.removeEventListener('keydown', key, true); }
+    function key(e) { if (e.key === 'Escape') { e.preventDefault(); close(); } }
+    back.addEventListener('click', close);
+    back.appendChild(img); back.appendChild(x);
+    document.body.appendChild(back);
+    document.addEventListener('keydown', key, true);
+    x.focus();
+  }
+  document.addEventListener('click', function (e) {
+    if (!zoomSel.length || !e.target || e.target.tagName !== 'IMG') return;
+    for (var i = 0; i < zoomSel.length; i++) {
+      if (e.target.closest(zoomSel[i])) {
+        e.preventDefault(); e.stopPropagation();
+        zoomOpen(e.target.currentSrc || e.target.src, e.target.alt);
+        return;
+      }
+    }
+  }, true);
+  function zoomIn(sel) { if (zoomSel.indexOf(sel) === -1) zoomSel.push(sel); }
+
   window.EGBCUI = {
-    APPS: APPS, icon: icon, pageIcon: pageIcon, refresh: refresh };
+    APPS: APPS, icon: icon, pageIcon: pageIcon, refresh: refresh, zoomIn: zoomIn, zoomOpen: zoomOpen };
   load();
 })();

@@ -48,7 +48,7 @@
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
 <script src="egbc-guard.js?v=202610131500" data-allow-pending="parent"></script>
-<script src="egbc-ui.js?v=202610091200"></script>
+<script src="egbc-ui.js?v=202610150900"></script>
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
      suite has rather than trusting it or flattening it. -->
@@ -155,6 +155,13 @@
          border:1px solid var(--line);border-radius:10px;background:var(--surface);
          color:var(--brand);font-size:13px;font-weight:500;flex:none;white-space:nowrap}
   .worry:active{opacity:.65}
+  /* A PICTURE IN A NOTICE IS A BANNER (Martin, 15 Oct 2026: the Christmas
+     choir picture filled the screen). At most 180px tall on a phone and
+     220px on a computer, cropped to fit, rounded, never wider than the
+     words; tap it to see the whole picture (EGBCUI.zoomIn). */
+  .notice-body img{display:block!important;width:100%!important;max-width:100%!important;height:auto!important;max-height:180px!important;
+       object-fit:cover!important;border-radius:10px!important;margin:8px 0!important;cursor:zoom-in}
+  @media(min-width:700px){.notice-body img{max-height:220px!important}}
   /* "Care & support" in full where it fits; "Care" on a narrow phone. */
   .worry .ws{display:none}
   @media(max-width:400px){.worry .wl{display:none}.worry .ws{display:inline}}
@@ -342,6 +349,8 @@
    later stages. A tab with no screen behind it is not drawn at all. */
 
 const A = EGBCApp, row = A.row, sec = A.sec, card = A.card, head = A.head, ic = A.ic;
+/* A notice's picture opens whole when tapped (egbc-ui.js). */
+if (window.EGBCUI && EGBCUI.zoomIn) EGBCUI.zoomIn('.notice-body');
 
 /* CARE & SUPPORT, the app's sheet of the one choice (egbc-care.js). On
    every space, from the header; "Ask for prayer" joins it by itself once
@@ -595,7 +604,7 @@ function noticesSheet() {
       + '<div style="font-weight:600;color:var(--ink);font-size:14px;flex:1">' + A.esc(n.title || 'Notice') + '</div>'
       + '<div style="font-size:12px;color:var(--muted);white-space:nowrap">' + A.esc(label) + '</div>'
       + '</div>'
-      + '<div class="rich" style="font-size:13.5px;color:var(--body);margin-top:6px">' + body + '</div>'
+      + '<div class="rich notice-body" style="font-size:13.5px;color:var(--body);margin-top:6px">' + body + '</div>'
       + '</div>';
   }).join('');
   return out + CLOSE;

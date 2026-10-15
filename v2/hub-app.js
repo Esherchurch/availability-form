@@ -124,6 +124,8 @@ function applyTeam() {
   renderWatch();
   renderWaiting();
   checkSgLead();
+  /* A notice's picture is a banner; tapped, it opens whole (egbc-ui.js). */
+  if (window.EGBCUI && EGBCUI.zoomIn) ['.nw .bd', '.pin .bd', '#noticesCard'].forEach(EGBCUI.zoomIn);
   renderServing();
   renderMyEvents();
   renderTools();
