@@ -4088,6 +4088,16 @@ service cloud.firestore {
                     && request.resource.data.path.matches('library/' + picId + '/[^/]+');
       allow delete: if isAdmin();
     }
+    // "My usual people" (usualPeople; Martin, 15 Oct): the names a person has
+    // taken off their own "same as last time" list. Theirs alone: nobody
+    // else reads or writes it, an admin included. The names themselves come
+    // from the person's own sign-ups (the signups list rule above).
+    match /signupUsual/{uid} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && request.resource.data.keys().hasOnly(['hidden', 'updatedAt'])
+                            && request.resource.data.hidden is list && request.resource.data.hidden.size() <= 200;
+    }
 
     // ── end EVENTS ──────────────────────────────────────────────────
 

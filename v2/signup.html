@@ -15,6 +15,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610151700"></script>
+<script src="egbc-events-usual.js?v=202610151800"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,6 +34,13 @@
         padding:20px;margin-bottom:14px}
   h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 6px}
   h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  /* "Same as last time" (usualPeople) */
+  .usual{background:var(--tint);border:1px solid #cfe0de;border-radius:10px;padding:12px;margin:0 0 14px}
+  .usual .btn{min-height:44px}
+  .usual .ticks{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px}
+  .usual .ticks label{display:flex;gap:6px;align-items:center;min-height:40px;font-weight:500}
+  .prefill .inp,.prefill select{background:var(--gold-bg);border-color:var(--gold)}
+  .prefill .from{display:block;font-size:12px;color:var(--gold);margin-top:3px}
   /* The event's picture, WHOLE (Martin, 15 Oct): EGBCEvents.picFigure on a
      phone; on a computer, two columns, the picture on the left at its own
      shape. */
@@ -148,8 +156,9 @@
      removing a person redrew every person's answers empty - so a parent who
      wrote one child's allergy and then added a second child lost the
      allergy without being told (FINDINGS-events.md F-026). */
-  function questionField(q, idPrefix, value) {
+  function questionField(q, idPrefix, value, pre) {
     var id = idPrefix + q.id;
+    if (pre) return questionField(q, idPrefix, value).replace('<div class="field">', '<div class="field prefill" data-prefill="' + esc(q.id) + '">').replace(/<\/div>$/, '<span class="from">From last time: please check it is still right.</span></div>');
     var v = value == null ? '' : String(value);
     var sel = function (o) { return o === v ? ' selected' : ''; };
     var lab = '<label for="' + id + '">' + esc(q.label || 'Question') + (q.required ? ' *' : '') + '</label>';
@@ -174,11 +183,11 @@
     return attendees.map(function (a, i) {
       return '<div class="att">' +
         '<div class="field"><label for="att' + i + '">Person ' + (i + 1) + '</label>' +
-        '<input class="inp" id="att' + i + '" value="' + esc(a.name || '') + '" placeholder="Name" maxlength="120"></div>' +
+        '<input class="inp" id="att' + i + '" value="' + esc(a.name || '') + '" placeholder="Name" maxlength="120" list="usualNames" autocomplete="off"></div>' +
         (i > 0 ? '<button type="button" class="btn ghost" data-drop="' + i + '" aria-label="Remove">' +
                  '<i data-lucide="x" style="width:16px;height:16px"></i></button>' : '') +
         '</div>' +
-        perAtt.map(function (q) { return questionField(q, 'a' + i + '_', a['q_' + q.id]); }).join('');
+        perAtt.map(function (q) { return questionField(q, 'a' + i + '_', a['q_' + q.id], a._pre && a._pre[q.id]); }).join('');
     }).join('');
   }
 
@@ -190,7 +199,7 @@
       '<h2>' + (waiting ? 'Join the waiting list' : 'Sign up') + '</h2>' +
       (waiting ? '<div class="banner info">This event is full. Join the waiting list and we will be in touch if a place comes free.</div>' : '') +
       (p ? '<div class="banner info">Signed in as ' + esc(p.name || p.email) + '. Your sign-up will be linked to your record.</div>' : '') +
-      '<form id="f" novalidate>' +
+      '<form id="f" novalidate><div id="usualBox"></div><datalist id="usualNames"></datalist>' +
         '<div class="two">' +
           '<div class="field"><label for="nm">Your name *</label>' +
             '<input class="inp" id="nm" maxlength="120" required value="' + esc(p ? (p.name || '') : '') + '"></div>' +
@@ -218,7 +227,7 @@
            filled in impossibly fast. Neither is a wall; both are free. */
         '<div class="hp" aria-hidden="true"><label>Leave this empty<input id="website" tabindex="-1" autocomplete="off"></label></div>' +
         '<p class="hint" id="due" role="status"></p>' +
-        '<div id="err"></div>' +
+        '<div id="usualCheck"></div><div id="err"></div>' +
         '<button class="btn" id="go" type="submit">' +
           '<i data-lucide="check" style="width:16px;height:16px"></i>' +
           (SERIES ? 'Sign up to all ' + SERIES.length + ' dates' : waiting ? 'Join the waiting list' : 'Sign up') + '</button>' +
@@ -271,6 +280,92 @@
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
     wire();
     applyInvite();
+    drawUsual();
+  }
+
+  /* ---- "Same as last time" (usualPeople; Martin, 15 Oct) ---------------
+     EGBCUsual (egbc-events-usual.js) reads the person's OWN past sign-ups;
+     this fills the form with them, for checking. Nothing is sent until
+     they press Sign up, and nobody added is emailed. */
+  var USUAL = null;
+  function drawUsual() {
+    var box = document.getElementById('usualBox');
+    if (!box || !window.EGBCUsual || !EGBCUsual.on()) return;
+    EGBCUsual.load().then(function (u) {
+      USUAL = u;
+      box = document.getElementById('usualBox'); if (!box) return;
+      var dl = document.getElementById('usualNames');
+      if (dl) dl.innerHTML = u.names.concat(u.household).filter(function (n, i, all) { return all.map(EGBCUsual.key).indexOf(EGBCUsual.key(n)) === i; })
+        .map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+      var me = E.signedIn() ? ((EGBCAuth.profile() || {}).name || '') : '';
+      var house = u.household.length ? [me].concat(u.household).filter(Boolean) : [];
+      if (!u.last && !house.length) { box.innerHTML = ''; return; }
+      box.innerHTML = '<div class="usual" id="usual">' +
+        (u.last ? '<button type="button" class="btn sec" id="usualSame">Same as last time: ' + esc(EGBCUsual.listWords(u.last.names)) + '</button>' +
+          (!u.signedIn ? ' <button type="button" class="btn ghost" id="usualClear">Not you? Clear</button>' : '') : '') +
+        (house.length ? '<p class="hint" style="margin:10px 0 0">Who is coming from your household?</p><div class="ticks" id="usualHouse">' + house.map(function (n) {
+          return '<label><input type="checkbox" data-usual-name="' + esc(n) + '"' + (hasName(n) ? ' checked' : '') + '>' + esc(n) + '</label>'; }).join('') + '</div>' : '') +
+        '</div>';
+      var same = document.getElementById('usualSame'); if (same) same.onclick = sameAsLast;
+      var clr = document.getElementById('usualClear'); if (clr) clr.onclick = function () { EGBCUsual.deviceClear(); USUAL = null; box.innerHTML = ''; if (dl) dl.innerHTML = ''; };
+      box.querySelectorAll('[data-usual-name]').forEach(function (c) { c.onchange = function () { tickPerson(c.getAttribute('data-usual-name'), c.checked); }; });
+    }).catch(function () {});
+  }
+  /* A household tick box holds a first name ("Natasha"); the form may hold her
+     full name from last time. Either counts as her. */
+  function samePerson(full, n) {
+    var a = EGBCUsual.key(full), k = EGBCUsual.key(n);
+    return a === k || (k.indexOf(' ') < 0 && a.split(' ')[0] === k);
+  }
+  function hasName(n) { return readAttendees().some(function (a) { return samePerson(a.name, n); }); }
+  function redrawPeople() {
+    document.getElementById('atts').innerHTML = attendeeRows();
+    if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
+    wireDrops(); showDue();
+  }
+  function tickPerson(n, on) {
+    readAttendees();
+    var k = EGBCUsual.key(n);
+    if (on && !attendees.some(function (a) { return samePerson(a.name, n); })) {
+      var blank = attendees.filter(function (a) { return !a.name; })[0];
+      if (blank) blank.name = n; else if (attendees.length < 20) attendees.push({ name: n });
+    }
+    if (!on) { attendees = attendees.filter(function (a) { return !samePerson(a.name, n); }); if (!attendees.length) attendees = [{ name: '' }]; }
+    redrawPeople();
+  }
+  function sameAsLast() {
+    var L = USUAL && USUAL.last; if (!L) return;
+    var now = Date.now(), health = false;
+    var perAtt = QS.filter(function (q) { return q.per === 'attendee'; }), perBooking = QS.filter(function (q) { return q.per !== 'attendee'; });
+    attendees = L.names.slice(0, 20).map(function (n) {
+      var a = { name: n }, theirs = L.people[EGBCUsual.key(n)] || {};
+      perAtt.forEach(function (q) {
+        var v = theirs[EGBCUsual.key(q.label)];
+        if (v && EGBCUsual.mayFill(q.label, L.at, now)) { a['q_' + q.id] = v; (a._pre = a._pre || {})[q.id] = 1; if (EGBCUsual.isHealth(q.label)) health = true; }
+      });
+      return a;
+    });
+    /* The ticket, by its name (each event has its own tickets). */
+    var tt = document.getElementById('tt');
+    if (tt && L.ticketName) TT.forEach(function (t) { if (EGBCUsual.key(t.name) === EGBCUsual.key(L.ticketName)) tt.value = t.id; });
+    perBooking.forEach(function (q) {
+      var v = L.booking[EGBCUsual.key(q.label)], el = document.getElementById('b_' + q.id);
+      if (!el || !v || el.value || !EGBCUsual.mayFill(q.label, L.at, now)) return;
+      el.value = v;
+      var fld = el.closest('.field'); if (fld && !fld.classList.contains('prefill')) { fld.classList.add('prefill'); fld.setAttribute('data-prefill', q.id); fld.insertAdjacentHTML('beforeend', '<span class="from">From last time: please check it is still right.</span>'); }
+      if (EGBCUsual.isHealth(q.label)) health = true;
+    });
+    redrawPeople();
+    document.querySelectorAll('#usualHouse [data-usual-name]').forEach(function (c) { c.checked = hasName(c.getAttribute('data-usual-name')); });
+    var ck = document.getElementById('usualCheck');
+    if (ck) ck.innerHTML = health ? '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:500"><input type="checkbox" id="usualChecked" style="margin-top:3px">I have checked the health answers filled in from last time (allergies, medical, dietary) and they are still right.</label>' : '';
+    var first = document.querySelector('.prefill .inp, .prefill select'); if (first) first.focus();
+  }
+  /* Signed out: this device remembers the names (only), for next time. */
+  function rememberHere(who, ticketTypeId) {
+    if (E.signedIn() || !window.EGBCUsual || !EGBCUsual.on()) return;
+    var t = TT.filter(function (x) { return x.id === ticketTypeId; })[0];
+    EGBCUsual.deviceSave(who.map(function (a) { return a.name; }), t ? t.name : '');
   }
 
   function wire() {
@@ -329,6 +424,7 @@
     attendees = attendees.map(function (a, i) {
       var el = document.getElementById('att' + i);
       var out = { name: el ? el.value.trim() : (a.name || '') };
+      if (a._pre) out._pre = a._pre;
       QS.filter(function (q) { return q.per === 'attendee'; }).forEach(function (q) {
         var qe = document.getElementById('a' + i + '_' + q.id);
         if (qe) out['q_' + q.id] = qe.value;
@@ -357,8 +453,12 @@
     if (!name) return fail('Please put your name in.');
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail('That email address does not look right.');
 
+    /* Answers filled in from last time are never sent unseen. */
+    var chk = document.getElementById('usualChecked');
+    if (chk && !chk.checked) return fail('Please check the answers filled in from last time, then tick to say you have.');
+
     readAttendees();
-    var who = attendees.filter(function (a) { return a.name; });
+    var who = attendees.filter(function (a) { return a.name; }).map(function (a) { var o = Object.assign({}, a); delete o._pre; return o; });
     if (!who.length) who = [{ name: name }];
 
     var answers = {};
@@ -387,6 +487,7 @@
     if (SERIES) {
       /* Every date at once; a full date puts them on its waiting list. */
       E.signUpSeries(payload, SERIES).then(function (res) {
+        rememberHere(who, payload.ticketTypeId);
         var waitingOn = res.signups.filter(function (s) { return s.status === 'waiting'; }).length;
         var each = E.toPay({ status: 'confirmed', places: who.length, ticketTypeId: payload.ticketTypeId }, TT);
         done(res.keys[0], false, each * (SERIES.length - waitingOn), { dates: SERIES.length, waitingOn: waitingOn });
@@ -397,6 +498,7 @@
       return;
     }
     E.signUp(payload).then(function (res) {
+      rememberHere(who, payload.ticketTypeId);
       done(res.manageKey, waiting, waiting ? 0 : E.toPay({ status: 'confirmed', places: who.length, ticketTypeId: payload.ticketTypeId }, TT));
     }).catch(function (err) {
       var m = String(err && (err.message || err));

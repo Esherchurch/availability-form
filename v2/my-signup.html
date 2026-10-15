@@ -15,6 +15,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-events.js?v=202610151700"></script>
+<script src="egbc-events-usual.js?v=202610151800"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -126,6 +127,7 @@
     if (c) c.onclick = doCancel;
     var ca = document.getElementById('cancelAll');
     if (ca) ca.onclick = cancelAll;
+    drawUsualCard();
     [['payNow', 'card'], ['payNowBank', 'bank']].forEach(function (x) {
       var pn = document.getElementById(x[0]);
       if (pn) pn.onclick = function () {
@@ -215,6 +217,24 @@
     document.getElementById('wrap').innerHTML =
       '<div class="card">This link is missing its key. Use the link in your confirmation email.</div>';
     return;
+  }
+
+  /* "My usual people" (usualPeople; Martin, 15 Oct): the names "Same as
+     last time" and the suggestions come from, signed in only. Taking one
+     off keeps it out of both; nothing else changes. */
+  function drawUsualCard() {
+    if (!E.signedIn() || !window.EGBCUsual || !EGBCUsual.on()) return;
+    EGBCUsual.manage().then(function (m) {
+      if (!m.names.length && !m.hidden.length) return;
+      var old = document.getElementById('usualCard'); if (old) old.remove();
+      document.getElementById('wrap').insertAdjacentHTML('beforeend', '<div class="card" id="usualCard"><h2 style="margin:0 0 6px;font-size:16px">My usual people</h2>' +
+        '<p class="m" style="margin:0 0 10px">The names offered when you sign up again ("Same as last time"), from your own sign-ups. Take off anyone you no longer sign up.</p>' +
+        m.names.map(function (n) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px;border-top:1px solid #e5e7eb" data-usual-row><span>' + E.esc(n) + '</span><button class="btn ghost" data-usual-hide="' + E.esc(n) + '">Remove</button></div>'; }).join('') +
+        (m.hidden.length ? '<p class="m" style="margin:10px 0 4px">Taken off:</p>' + m.hidden.map(function (n) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px" data-usual-hidden><span class="m">' + E.esc(n) + '</span><button class="btn ghost" data-usual-show="' + E.esc(n) + '">Put back</button></div>'; }).join('') : '') +
+        '</div>');
+      document.querySelectorAll('[data-usual-hide]').forEach(function (b) { b.onclick = function () { b.disabled = true; EGBCUsual.hide(b.getAttribute('data-usual-hide')).then(drawUsualCard, function () { b.disabled = false; }); }; });
+      document.querySelectorAll('[data-usual-show]').forEach(function (b) { b.onclick = function () { b.disabled = true; EGBCUsual.unhide(b.getAttribute('data-usual-show')).then(drawUsualCard, function () { b.disabled = false; }); }; });
+    }).catch(function () {});
   }
 
   EGBCAuth.optional().then(function () {
