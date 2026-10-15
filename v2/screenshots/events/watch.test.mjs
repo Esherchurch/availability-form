@@ -192,7 +192,59 @@ try {
   ok('   the player is a whole 16:9 picture, full width, with its name and Close under it', shape.ratio === 0.56 && shape.w > 300 && shape.close && shape.holds, J(shape));
   ok('   nothing scrolls sideways at 375px', (await A.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth)) <= 0);
   await A.screenshot({ path: path.join(HERE, 'watch-375.png'), fullPage: true });
-  const home = await A.evaluate(() => EGBCEventsHome.watchLive().then(r => r && { state: r.state, videoId: r.videoId, embed: r.embed }));
+
+  /* ---------- 2b. FULL SCREEN (Martin, 15 Oct: "it doesn't go landscape and then you can't close it") ---------- */
+  const vsrc = await A.$eval('#lis-video', e => e.getAttribute('src'));
+  ok('2b. FULL SCREEN: YouTube\'s own full-screen button is taken away (fs=0) - inside it there was no way back', /[?&]fs=0(&|$)/.test(vsrc), vsrc);
+  await A.evaluate(() => { document.getElementById('lis-video').__same = 'yes'; });
+  const appUrl = A.url();
+  const big = async () => A.evaluate(() => {
+    const box = document.getElementById('lis-vbox'), inn = document.getElementById('lis-vin'), x = box.querySelector('.lis-vx'), r = box.getBoundingClientRect(), xr = x.getBoundingClientRect();
+    const hit = (px, py) => { const e = document.elementFromPoint(px, py); return !!e && box.contains(e); };
+    return { big: box.classList.contains('big'), rot: box.classList.contains('rot'), full: Math.round(r.left) <= 0 && Math.round(r.top) <= 0 && Math.round(r.width) >= innerWidth && Math.round(r.height) >= innerHeight,
+      wide: inn.offsetWidth > inn.offsetHeight, inW: inn.offsetWidth, inH: inn.offsetHeight, xSeen: xr.width >= 44 && xr.height >= 44 && hit(xr.left + xr.width / 2, xr.top + xr.height / 2),
+      onTop: hit(innerWidth / 2, innerHeight - 20) && hit(innerWidth / 2, 20), same: document.getElementById('lis-video').__same === 'yes', lisBig: !!(history.state && history.state.lisBig) };
+  });
+  const fsBtn = await A.$('[data-l="player"] [data-lact="vbig"]');
+  ok('   a "Full screen" button under the video, big enough to tap', !!fsBtn && (await fsBtn.boundingBox()).height >= 44);
+  await A.click('[data-l="player"] [data-lact="vbig"]');
+  await sleep(600);
+  let b1 = await big();
+  ok('   tapped, upright: the video fills the whole screen, over the header and the tab bar', b1.big && b1.full && b1.onTop, J(b1));
+  ok('   AND GOES LANDSCAPE: the picture is wide (' + b1.inW + ' by ' + b1.inH + '), turned to fill the upright phone', b1.rot && b1.wide && b1.inW >= 800 && b1.inH >= 370, J(b1));
+  ok('   a close button is always there, 44px or more, and nothing covers it', b1.xSeen, J(b1));
+  ok('   the same player carries on (not reloaded)', b1.same);
+  await A.screenshot({ path: path.join(HERE, 'watch-full-375.png') });
+  await A.click('#lis-vbox .lis-vx');
+  await sleep(500);
+  let b2 = await big();
+  ok('   AND IT CLOSES: tapping the close button puts the video back in its card, still playing', !b2.big && !b2.rot && !b2.full && b2.same && !(await A.evaluate(() => !!document.fullscreenElement)), J(b2));
+  ok('   and leaves nothing behind for back to trip over', !b2.lisBig && A.url() === appUrl, A.url());
+  await A.click('[data-l="player"] [data-lact="vbig"]'); await sleep(400);
+  await A.keyboard.press('Escape'); await sleep(500);
+  ok('   Esc closes it too (a computer)', !(await big()).big);
+  await A.click('[data-l="player"] [data-lact="vbig"]'); await sleep(400);
+  ok('   (open again)', (await big()).big);
+  await A.goBack(); await sleep(700);
+  const b3 = await big();
+  ok('   the phone\'s BACK closes it too, and stays in the app (does not leave it)', !b3.big && b3.same && A.url() === appUrl, J(b3) + ' ' + A.url());
+  await A.setViewport({ width: 812, height: 375 }); await sleep(300);
+  await A.click('[data-l="player"] [data-lact="vbig"]'); await sleep(500);
+  const b4 = await big();
+  ok('   held sideways: fills the screen, not turned again', b4.big && b4.full && !b4.rot && b4.wide && b4.xSeen, J(b4));
+  await A.click('#lis-vbox .lis-vx'); await sleep(400);
+  await A.setViewport({ width: 375, height: 812 }); await sleep(300);
+  ok('   and back to the card', !(await big()).big);
+  /* AN IPHONE: no full screen for a page's own box, so ours has to cover
+     the header and tab bar by itself, and still turn and still close. */
+  await A.evaluate(() => { Element.prototype.requestFullscreen = undefined; Element.prototype.webkitRequestFullscreen = undefined; });
+  await A.click('[data-l="player"] [data-lact="vbig"]'); await sleep(500);
+  const b5 = await big();
+  ok('   ON AN IPHONE (no real full screen): it still covers the header and tab bar, goes landscape, and the close button shows', b5.big && b5.full && b5.onTop && b5.rot && b5.wide && b5.xSeen && b5.same, J(b5));
+  await A.click('#lis-vbox .lis-vx'); await sleep(400);
+  ok('   and closes', !(await big()).big && !(await A.evaluate(() => !!(history.state && history.state.lisBig))));
+
+  const home =await A.evaluate(() => EGBCEventsHome.watchLive().then(r => r && { state: r.state, videoId: r.videoId, embed: r.embed }));
   ok('   Home\'s helper: "live", for the main window\'s card', home && home.state === 'live' && home.videoId === 'llllllllll1', J(home));
   const C = await as('cam');
   await C.goto(URLB + app, { waitUntil: 'networkidle2' });

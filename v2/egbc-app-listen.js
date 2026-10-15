@@ -50,7 +50,7 @@
   var H = null, STARTED = false, LOADED = false, FAILED = false;
   var D = { sermons: [], series: {}, show: null };
   var PROG = {};                         /* sermonId -> { pos, dur, done, at (ms) } */
-  var VIEW = { mode: 'home', seriesId: '', q: '', part: 'listen', video: '' };
+  var VIEW = { mode: 'home', seriesId: '', q: '', part: 'listen', video: '', big: false, real: false };
   var WD = { loaded: false, failed: false, live: null, members: [], channel: [] };
   var BASE = (function () { var sc = global.document && global.document.currentScript; return sc && sc.src ? sc.src.replace(/[^/]*$/, '').replace(/\?.*$/, '') : ''; })();
   function usesWatch() { return !global.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses('watch'); }
@@ -272,7 +272,15 @@
     return '<div data-lact="' + esc(lact) + '">' + H.row(icon, title, sub) + '</div>';
   }
   var STYLE = '<style>.lis-list>[data-lact]+[data-lact]{border-top:1px solid var(--line)}.lis-q{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;background:var(--surface,#fff);color:var(--ink)}' +
-    '.lis-seek{width:100%;accent-color:var(--brand)}.lis-time{font-size:12.5px;color:var(--muted)}</style>';
+    '.lis-seek{width:100%;accent-color:var(--brand)}.lis-time{font-size:12.5px;color:var(--muted)}' +
+    /* The video box, and the same box full screen (see bigOn). */
+    '.lis-vbox{position:relative;aspect-ratio:16/9;background:#000;border-radius:13px 13px 0 0;overflow:hidden}' +
+    '.lis-vin{position:absolute;top:0;left:0;width:100%;height:100%}.lis-vin iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}' +
+    '.lis-vx{display:none}' +
+    '.lis-vbox.big{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;aspect-ratio:auto;border-radius:0;z-index:2147483000}' +
+    '.lis-vbox.big .lis-vx{display:flex;align-items:center;justify-content:center;position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:2;' +
+      'width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.75);background:rgba(0,0,0,.65);color:#fff;font:inherit;cursor:pointer}' +
+    '.lis-vbox.rot .lis-vin{top:50%;left:50%;transform:translate(-50%,-50%) rotate(90deg)}</style>';
 
   function nowCard() {
     var s = sermon(NOW); if (!s) return '';
@@ -328,13 +336,61 @@
      is a grid, and while it sizes its rows a percentage width is not known
      yet, so a 16:9 video sized by its own width counted as no height at all
      and its card came out one line tall (seen at 375px, 14 Oct). */
+  /* FULL SCREEN IS OURS, NOT YOUTUBE'S (Martin, 15 Oct: "it doesn't go
+     landscape and then you can't close it"). The app is held upright, so
+     YouTube's own full-screen button stayed upright, and inside it there
+     was no way back. So fs=0 takes YouTube's button away, and "Full
+     screen" here fills the screen with the same player and a big close
+     button that is always there. Back and Esc close it too. On Android
+     the screen turns sideways; where it can't (an iPhone), the picture is
+     turned sideways instead, so either way the video fills the screen. */
   function player(id, title) {
     return '<div class="card" data-l="player" style="padding:0">' +
-      '<div style="position:relative;aspect-ratio:16/9;background:#000;border-radius:13px 13px 0 0;overflow:hidden">' +
-      '<iframe id="lis-video" src="' + esc(EGBCWatch.embedUrl(id) + '&autoplay=1') + '" title="' + esc(title || 'Video') + '" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" ' +
-      'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>' +
-      '<div style="padding:12px 14px;display:flex;gap:10px;align-items:center"><p style="margin:0;flex:1;min-width:0;font-weight:600;color:var(--ink)">' + esc(title || '') + '</p>' +
-      act('vclose', 'Close', false, 'x') + '</div></div>';
+      '<div class="lis-vbox' + (VIEW.big ? ' big' : '') + '" id="lis-vbox"><div class="lis-vin" id="lis-vin">' +
+      '<iframe id="lis-video" src="' + esc(EGBCWatch.embedUrl(id) + '&autoplay=1&fs=0') + '" title="' + esc(title || 'Video') + '" ' +
+      'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>' +
+      '<button type="button" class="lis-vx" data-lact="vsmall" aria-label="Close full screen">' +
+        /* Drawn here, not by the icon library: this button must never be blank. */
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>' +
+      '<div style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><p style="margin:0;flex:1;min-width:0;font-weight:600;color:var(--ink)">' + esc(title || '') + '</p>' +
+      act('vbig', 'Full screen', false, 'maximize') + act('vclose', 'Close', false, 'x') + '</div></div>';
+  }
+
+  function fsEl() { var d = global.document; return d.fullscreenElement || d.webkitFullscreenElement || null; }
+  /* Upright screen while full: turn the picture. */
+  function fit() {
+    var box = global.document.getElementById('lis-vbox'), inn = global.document.getElementById('lis-vin');
+    if (!box || !inn) return;
+    var turn = !!VIEW.big && global.innerHeight > global.innerWidth;
+    box.classList.toggle('rot', turn);
+    inn.style.width = turn ? box.clientHeight + 'px' : '';
+    inn.style.height = turn ? box.clientWidth + 'px' : '';
+  }
+  function bigOn() {
+    var box = global.document.getElementById('lis-vbox'); if (!box || VIEW.big) return;
+    VIEW.big = true; VIEW.real = false; box.classList.add('big'); fit();
+    /* Back (the phone's back gesture) closes full screen, not the app. */
+    try { global.history.pushState({ lisBig: 1 }, ''); } catch (e) {}
+    var rf = box.requestFullscreen || box.webkitRequestFullscreen;
+    if (!rf) return;
+    try {
+      var p = rf.call(box);
+      var then = function () {
+        VIEW.real = !!fsEl(); fit();
+        try { var o = global.screen && global.screen.orientation; if (o && o.lock) o.lock('landscape').then(fit, fit); } catch (e) {}
+      };
+      if (p && p.then) p.then(then, fit); else setTimeout(then, 0);
+    } catch (e) {}
+  }
+  function bigOff(fromBack) {
+    if (!VIEW.big) return;
+    VIEW.big = false; VIEW.real = false;
+    var box = global.document.getElementById('lis-vbox');
+    if (box) box.classList.remove('big', 'rot');
+    fit();
+    try { var o = global.screen && global.screen.orientation; if (o && o.unlock) o.unlock(); } catch (e) {}
+    if (fsEl()) { try { var x = global.document.exitFullscreen ? global.document.exitFullscreen() : global.document.webkitExitFullscreen(); if (x && x.catch) x.catch(function () {}); } catch (e) {} }
+    if (!fromBack) { try { if (global.history.state && global.history.state.lisBig) global.history.back(); } catch (e) {} }
   }
   /* "Watch live" while the link is showing; "Watch again" after, if the
      church chose that. Signed-in people only: the link is read nowhere else. */
@@ -405,10 +461,13 @@
     if (a.indexOf('play:') === 0) { play(a.slice(5)); return; }
     if (a.indexOf('series:') === 0) { VIEW.mode = 'series'; VIEW.seriesId = a.slice(7); redraw(); return; }
     if (a === 'home') { VIEW.mode = 'home'; redraw(); return; }
+    if (a.indexOf('part:') === 0 || a.indexOf('video:') === 0 || a === 'vlive') bigOff(false);
     if (a.indexOf('part:') === 0) { VIEW.part = a.slice(5) === 'watch' ? 'watch' : 'listen'; VIEW.video = ''; redraw(); return; }
     if (a.indexOf('video:') === 0) { if (A && !A.paused) A.pause(); VIEW.part = 'watch'; VIEW.video = a.slice(6); redraw(); return; }
     if (a === 'vlive') { if (A && !A.paused) A.pause(); VIEW.video = 'live'; redraw(); return; }
-    if (a === 'vclose') { VIEW.video = ''; redraw(); return; }
+    if (a === 'vbig') { bigOn(); return; }
+    if (a === 'vsmall') { bigOff(false); return; }
+    if (a === 'vclose') { bigOff(false); VIEW.video = ''; redraw(); return; }
     if (a === 'toggle') { toggle(); return; }
     if (a === 'back') { skip(-15); return; }
     if (a === 'fwd') { skip(30); return; }
@@ -424,6 +483,13 @@
         var b = e.target.closest && e.target.closest('[data-lact]');
         if (b) { e.preventDefault(); doAct(b.getAttribute('data-lact')); }
       });
+      /* Leaving full screen any way at all - the close button, Esc, back,
+         or the phone's own gesture - puts the video back in its card. */
+      doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && VIEW.big) bigOff(false); });
+      global.addEventListener('popstate', function () { if (VIEW.big) bigOff(true); });
+      var fsc = function () { if (VIEW.big && VIEW.real && !fsEl()) bigOff(false); else fit(); };
+      doc.addEventListener('fullscreenchange', fsc); doc.addEventListener('webkitfullscreenchange', fsc);
+      global.addEventListener('resize', fit);
       doc.addEventListener('input', function (e) {
         if (e.target && e.target.id === 'lis-q') { VIEW.q = e.target.value; var r = doc.getElementById('lis-res'); if (r) r.innerHTML = results(); }
         if (e.target && e.target.id === 'lis-seek' && A && NOW) { A.currentTime = +e.target.value; live(); }

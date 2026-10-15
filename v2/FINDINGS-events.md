@@ -6674,3 +6674,34 @@ list).
 **For the main window:** egbc-events-checkin.js changed (check-ins now
 record their building). My pages load ?v=202610152300; app.html still
 loads ?v=202610101200 - please bump it when you next touch app.html.
+
+### F-215 — A YouTube video full screen didn't go landscape and couldn't be closed (Martin, 15 Oct)
+
+**Why:** the installed app is held upright (the manifests say
+`"orientation": "portrait"`), so YouTube's own full-screen button stayed
+upright, and inside YouTube's full screen there was no way back.
+
+**Done (events window, egbc-app-listen.js, "Listen & Watch"):** YouTube's
+own full-screen button is taken away (`fs=0`). Under the video there is a
+"Full screen" button of ours. It fills the screen with the same player
+(not reloaded) and a big close button that is always on top. The close
+button, Esc, and the phone's back all close it, and back stays in the
+app. On Android it asks the screen to turn sideways. Where it can't (an
+iPhone, or an upright phone that won't turn), the picture itself is
+turned sideways to fill the screen. Proved: watch.test 43/43, with 9
+deliberate breaks.
+
+**For the main window, please:**
+1. Bump `egbc-app-listen.js?v=` in app.html to 202610152330.
+2. The hub's Watch card (hub-app.js about line 1522): its iframe `allow`
+   has no `fullscreen`, so the same problem waits there. Either add the
+   same pattern there, or add `&fs=0` and a link to the app's player. I
+   haven't touched hub-app.js.
+3. Optional: `"orientation": "any"` in manifest-app.json and
+   manifest-hub.json would let the whole app turn with the phone. Not
+   needed for the video now.
+
+**Still to check on a real phone (Martin):** a real phone can't be
+emulated here. Open the app, Me, Listen & Watch, play a video, then
+Full screen. Does it go sideways, and does the close button bring you
+back?
