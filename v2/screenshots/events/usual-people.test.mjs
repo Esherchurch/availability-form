@@ -182,7 +182,10 @@ try {
   ok('3. EDITED, THEN SENT: what he changed is what is saved', saved && J(saved.attendees.map(a => a.name)) === J(['Martin (invented)', 'Natasha (invented)', 'Daniel J (invented)']) && saved.attendees[2].q_n_all === 'Dairy and eggs' && saved.answers.n_diet === 'Vegetarian' && saved.ticketTypeId === 'tt_n_fam' && !J(saved).includes('_pre'), J(saved).slice(0, 500));
 
   /* ---------- 11. nobody added is emailed ---------- */
-  const mails = await until(async () => { const r = (await db.collection('emailOutbox').get()).docs.map(d => d.data()).filter(m => m.at >= sentFrom); return r.length ? r : null; }, 15000) || [];
+  const mails = await until(async () => { const r = (await db.collection('emailOutbox').get()).docs.map(d => d.data()).filter(m => m.at >= sentFrom && /autumn/i.test(m.subject + m.html)); return r.length ? r : null; }, 15000) || [];
+  /* (Only this event's emails: the invented past sign-ups' own confirmations can arrive late.) */
+  await sleep(2000);
+  mails.splice(0, mails.length, ...(await db.collection('emailOutbox').get()).docs.map(d => d.data()).filter(m => /autumn/i.test(m.subject + m.html)));
   ok('11. NOBODY ADDED IS EMAILED: one confirmation, to Martin only', mails.length === 1 && J(mails[0].to) === J([P.martin.email]), J(mails.map(m => m.to)));
 
   /* ---------- 4-6. never anyone else's; household; suggestions ---------- */
@@ -271,6 +274,8 @@ try {
   await until(() => M.$('#healthLater'));
   ok('12. BEFORE SWITCH-OVER: the health questions are not asked (even required ones); the others are', !(await M.$('#a0_o_all')) && !(await M.$('#b_o_diet')) && !!(await M.$('#a0_o_col')));
   ok('    and the page says: "Please tell the organiser about any health needs (allergies, medical, dietary) directly until 1 November."', (await text(M, '#healthLater')) === 'Please tell the organiser about any health needs (allergies, medical, dietary) directly until 1 November.', await text(M, '#healthLater'));
+  const notesWords = await text(M, '#notesLater').catch(e => e.message);
+  ok('    and under "Anything we should know?": "Please don\'t put health details here yet - tell the organiser directly until 1 November."', notesWords === 'Please don\'t put health details here yet - tell the organiser directly until 1 November.' && (await M.$eval('#notes', t => t.getAttribute('aria-describedby'))) === 'notesLater', notesWords);
   await until(() => M.$('#usualSame'));
   await tap(M, '#usualSame');
   await until(async () => (await val(M, '#att1').catch(() => '')) === 'Natasha (invented)');
@@ -295,7 +300,7 @@ try {
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: true, opensOn: '1 November' });
   await open(M, 'ev_off');
   await until(() => M.$('#a0_o_all'));
-  ok('    SWITCHED OVER (rulesLocked true): the health questions are asked again, and the note is gone', !!(await M.$('#a0_o_all')) && !!(await M.$('#b_o_diet')) && !(await M.$('#healthLater')));
+  ok('    SWITCHED OVER (rulesLocked true): the health questions are asked again, and the note is gone', !!(await M.$('#a0_o_all')) && !!(await M.$('#b_o_diet')) && !(await M.$('#healthLater')) && !(await M.$('#notesLater')));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

@@ -226,7 +226,9 @@
           '<input class="inp" id="don" type="number" min="0" step="1"></div>' +
           '<p class="hint">Separate from any ticket, and entirely optional. We will be in touch about how to give it.</p>' : '') +
         '<div class="field"><label for="notes">Anything we should know? (optional)</label>' +
-          '<textarea id="notes" maxlength="2000"></textarea></div>' +
+          '<textarea id="notes" maxlength="2000"' + (LAUNCH.locked ? '' : ' aria-describedby="notesLater"') + '></textarea>' +
+          /* Before switch-over (F-203): this box is saved too, and can be read by anybody until then. */
+          (LAUNCH.locked ? '' : '<p class="hint" id="notesLater" style="margin:4px 0 0">Please don\'t put health details here yet - tell the organiser directly until ' + esc(LAUNCH.opensOn || 'the new church hub opens') + '.</p>') + '</div>' +
         /* Spam defence, §7.2: a field no person sees, and a form that was
            filled in impossibly fast. Neither is a wall; both are free. */
         '<div class="hp" aria-hidden="true"><label>Leave this empty<input id="website" tabindex="-1" autocomplete="off"></label></div>' +

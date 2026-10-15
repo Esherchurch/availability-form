@@ -6074,6 +6074,8 @@ exactly true counts as "not yet".
   helper itself refuses to write. Signed out, the device-only memory
   carries on.
 
+- **Under "Anything we should know?"** (Martin, 15 Oct): "Please don't put health details here yet - tell the organiser directly until 1 November." (or "until the new church hub opens"), linked to the box for screen readers.
+
 **From rulesLocked true:** everything as F-201.
 
 Only signup.html saves sign-up answers (checked: no other page calls
@@ -6082,3 +6084,63 @@ lock on, because it saves allergy answers.
 
 **Proved:** usual-people.test 36/36: everything with the lock on, then
 off (section 12), then on again.
+
+### F-204 — Rotas: ChurchSuite compared with the hub (for the main window)
+
+Read-only, from FINDINGS, the briefs and the code; nothing changed.
+Rotas are the main window's. ChurchSuite's side comes from F-180 (Martin's
+login, 14 Oct) and EVENTS-BOOKINGS-BRIEF §9. Anything marked **(check)**
+I couldn't confirm from those, and the reviewing window may want to look
+through Martin's login.
+
+Remember **Martin's decision F-018 (NEXT-BRIEF §10):** "Rota parity: not
+wanted ... Do not build accept/decline, swaps, self sign-up, reminders
+or clash reports." The day-before reminder was later added for launch
+(§26). So below, **Decided** means "different on purpose, don't build".
+
+**Where the hub's rota lives:** Planner.html (computer), egbc-core-rota.js
+(the same planner in CoreTeamApp and the app), view-only-rota.html,
+egbc-rota-pdf.js, the availability form (index.html + functions
+availability-form.js), functions rota-feed.js / notify.js / family.js.
+Each service is one `events/{id}` with `roles[]` and
+`assignments{role: person | [people]}`.
+
+| ChurchSuite tab / feature | The hub today | Gap |
+|---|---|---|
+| **ROTAS** | | |
+| A rota for each ministry (14 ministries, 10 rotas) | Worship, AV and Core Team (with Kids Church slots on the Sunday) | **MISSING for 7+ rotas** (After Service Prayer, Creche, Flowers, Garden, Lazers Sunday, Police bakes, Preacher/Service Leader, Small Group Leaders, Stewards, Tea & Coffee, Welcome). R1, question 3: which, and when |
+| Adding dates (one, or repeating) | "+ Service"; "Populate" a term of Sundays; "Add Practices" (Thursdays); new-event defaults per type | **Partial:** no general repeat (weekly/monthly/nth Sunday) and no editable templates; the roles per type are fixed in code (Planner 38–84) |
+| Roles per date; more than one person in a role | roles per event, + / x per event. The data allows a list of people per role | **Partial:** no way on screen to put a second person in one role (numbered slots instead). Where a list does exist, three places only read one person, so the people in it are missed: **the Excel export prints blank, and the day-before reminder and myFamily read `who.id`** (Planner 798; notify.js 357–385; family.js 140). Worth fixing even if lists are never used on screen |
+| Notes on a date | one Notes box per event, Service Leader, Speaker | Same |
+| Copy a rota / dates | "Sync" copies a Sunday's people to its practice | **MISSING:** copy a date or a term (check if wanted) |
+| Draft / publish | team sign-off per term; editing withdraws it; "Send all rotas" waits for every team | Same in effect. `draft` is read by feeds and reminders but no screen sets it: harmless, worth a comment |
+| Ministry overseers manage their own rota | each area admin edits only its own slots on the page | **Partial:** the page limits it, **the rules don't**: `events` can be written by any admin or any member of a listed team (firestore.rules 531–533). Worth tightening at switch-over |
+| Group email to a rota | "Send all rotas" (PDF + .ics), one person's rota | Same for the rota itself; a free-text email to everyone on a rota: part of "better group emails" (after launch, item 1) |
+| Accept / decline | none | **Decided (F-018)**; ChurchSuite had it off anyway |
+| Swaps between members | none (the email says "get in touch") | **Decided (F-018)** |
+| Members signing up to open dates | none | **Decided (F-018)**; "Fill a rota gap" is after-launch item 4, to discuss with Martin |
+| **MEMBERS** | | |
+| Who is in each ministry, with their roles | address book markers/teams; instruments and kids roles per person; max serving per month and per team | Same or better |
+| Inactive members | address book `archived` | **Gap:** the Planner and core rota lists don't leave out archived people (myFamily does) |
+| Team leader shown per ministry | area admins (`adminFor`) | Same in effect; no "leader" label on a team (check if wanted) |
+| **SERVICES** (ChurchSuite: none used) | Sunday and youth service planners: order of service, songs and keys, notes per role, linked to that date's rota | Better (not used in ChurchSuite) |
+| **MINISTRIES** | teams with a `parent` (e.g. Choir under Worship), `rota: false` for groups without one | Same in effect |
+| Per-ministry privacy | Worship and AV see each other's; Youth sees Worship; the rest by team | Same (check ChurchSuite's settings per ministry) |
+| **UNAVAILABILITY** | one answer per person per date (available / not), from the availability form; "Gather Avail" asks a term at a time and only re-asks new dates | **Partial:** no date ranges ("away 1–14 Aug"), no repeating ("never the first Sunday"), no reason. **No warning when assigning someone who said they can't** (only labels in the phone view). F-180 called this "Same": it is, for how EGBC uses it, but ranges would save people answering date by date |
+| Clashes (one person on two rotas at once) | auto-fill avoids two slots in one event | **Decided (F-018)** for the clash report; but a simple **warning on assigning** someone already on another rota that day would be cheap (check if wanted) |
+| **REPORTS** | "Sundays served this month" per person in the Planner | **MISSING (R2):** not on any rota, serving frequency over a period, personal serving history, not in a ministry, unfilled slots (only a green dot when the must-have roles are filled), demographics. Exports: Excel only, no CSV |
+| **REMINDERS** | "You are serving tomorrow" at 17:00 London, phone notification or email | Same, except **texts (R3, question 2)** and the time (ChurchSuite 8am; hub 5pm the day before) |
+| **MY ROTAS** (volunteers) | next three dates on Home and the app's Rota tab; view-only rota; calendar feeds (me / household / full); family's week; the availability form | Same. "My unavailability" as one list to see and change: **Partial** (the form shows the term's dates) |
+
+**Suggested order, if Martin wants any of it** (none is mine to build):
+1. Fix the three places that miss people when a role holds a list
+   (export, reminder, myFamily): small, and a reminder silently not sent
+   is the worst kind of gap.
+2. Tighten the `events` write rule to match the page (an area admin only
+   for their own slots) at switch-over.
+3. Leave archived people out of the rota lists.
+4. A warning (not a block) when assigning someone who said they can't,
+   or who is already serving elsewhere that day.
+5. R1: more ministries' rotas, starting with whichever Martin names.
+6. R2 reports: not on any rota, serving frequency, personal history.
+7. Unavailability as date ranges.
