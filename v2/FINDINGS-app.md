@@ -3042,3 +3042,31 @@ a concern would have been refused even though the hub said a lead was set.
   `paymentSettings/public.bank` is true. check-give 43/43.
 - **Still to do from Martin's 14 Oct note:** the "Viewing as" strip at the
   top of every page.
+
+### A-093 — a role with several people: everybody in it counts (F-204, the real fault)
+
+The planners write a list when a role holds more than one person. Four
+readers only looked for one person, so everybody after the first was
+missed:
+- **the day-before reminder** (notify.js `runRotaReminders`). With two
+  people in a role, **neither** was reminded, silently.
+- **"Your family this week"** (`myFamily`, family.js);
+- **the Youth app's "My rota"** (`myYouthHub`, youth-hub.js). Not in
+  F-204's list; found while fixing it;
+- **the Rota Planner's Excel export** (Planner.html), which left the cell
+  blank.
+
+All four now read every person in the role. Checks:
+- `check-notify-send` 83/83 (two people in one role both get the reminder);
+- `check-family` 40/40;
+- the new `check-rota-shared-roles` (the export names both; myYouthHub finds
+  the second).
+
+Four breaks, all caught.
+
+**Needs functions:hub deployed** (`rotaReminders`, `myFamily`, `myYouthHub`).
+
+**Also found:** the Firestore emulator stopped mid-test on 15 Oct because
+the disk was 98% full. The emulators had run with `--debug` (a 22 GB log),
+plus a 10.5 GB `v2/firestore-debug.log` (git-ignored). Both were deleted
+(73 GB free now), and the emulators run without `--debug`.

@@ -66,8 +66,9 @@ export async function myYouthHub(db, { uid, now = new Date() }) {
     const ev = d.data();
     if (ev.archived || ev.draft) return;
     const roles = Object.keys(ev.assignments || {}).filter((r) => {
-      const who = ev.assignments[r];
-      return who && who.id === memberId;
+      /* A role can hold several people (F-204). */
+      const raw = ev.assignments[r];
+      return (Array.isArray(raw) ? raw : [raw]).some((who) => who && who.id === memberId);
     });
     if (roles.length) rota.push({ date: ev.date, roles, title: String(ev.type || ''), time: String(ev.startTime || '') });
   });

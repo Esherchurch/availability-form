@@ -135,7 +135,9 @@ const offMachine = u => {
   const ev = (id, o) => put('events/' + id, Object.assign({ termLabel: 'Synthetic', teams: ['Worship Team'], roles: [],
     archived: false, draft: false, startTime: '10:30', type: 'Sunday Morning Worship', assignments: {} }, o));
   const by = (id) => ({ id, name: BOOK[id].name });
-  await ev('ev_fam_d3', { date: D3, assignments: { Drums: by('ab_fam_oliver'), Guitar: by('ab_fam_zed'), 'Session Leader': by('ab_fam_karen') } });
+  await ev('ev_fam_d3', { date: D3, assignments: { Drums: by('ab_fam_oliver'), Guitar: by('ab_fam_zed'), 'Session Leader': by('ab_fam_karen'),
+    /* F-204: a role holding two people - somebody outside the family first. */
+    'Backing vocals': [by('ab_fam_zed'), by('ab_fam_matei')] } });
   await ev('ev_fam_d2_draft', { date: D2, draft: true, type: 'Prayer', assignments: { Keyboard: by('ab_fam_oliver') } });
   await ev('ev_fam_d10', { date: D10, assignments: { Drums: by('ab_fam_oliver') } });
   await put('rooms/room_fam_upper', { name: 'Upper room', siteId: SITE });
@@ -157,6 +159,8 @@ const offMachine = u => {
   ok('  her household: Matei and Oliver, and not herself', kMembers === 'Matei,Oliver', JSON.stringify(k));
   const kw = k.week || [];
   ok('  Oliver on drums this week', kw.some((w) => w.kind === 'serving' && w.firstName === 'Oliver' && w.date === D3 && (w.roles || []).includes('Drums')), JSON.stringify(kw));
+  ok('  and Matei, second of two in Backing vocals (a role can hold several people, F-204)',
+    kw.some((w) => w.kind === 'serving' && w.firstName === 'Matei' && (w.roles || []).includes('Backing vocals')), JSON.stringify(kw));
   ok('  and his ReNu, with where', kw.some((w) => w.kind === 'group' && w.group === 'ReNu' && w.date === D2 && w.time === '19:00' && w.where === 'Upper room'), JSON.stringify(kw));
   ok('  NOT next week\u2019s slot, a draft, a held event or a cancelled one',
     !kw.some((w) => w.date === D10 || (w.roles || []).includes('Keyboard') || /trip|social/.test(w.title || '')), JSON.stringify(kw));

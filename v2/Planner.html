@@ -798,7 +798,9 @@
         window.exportToExcel = () => {
             const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
             const wb = XLSX.utils.book_new();
-            const data = activeEvents.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, p.name])) }));
+            /* A role can hold several people (F-204): all of them, by name. */
+            const names = (p) => (Array.isArray(p) ? p : [p]).map(x => x && x.name).filter(Boolean).join(', ');
+            const data = activeEvents.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, names(p)])) }));
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Rota");
             XLSX.writeFile(wb, "EGBC_Rota.xlsx");
         };

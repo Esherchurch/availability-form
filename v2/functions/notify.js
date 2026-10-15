@@ -364,12 +364,17 @@ export async function runRotaReminders(deps, runAt = new Date()) {
     if (ev.archived || ev.draft) return;
     const where = [ev.type, ev.startTime].filter(Boolean).join(', ');
     Object.keys(ev.assignments || {}).forEach((role) => {
-      const who = ev.assignments[role];
-      const mid = who && who.id;
-      if (!mid) return;
-      const m = byMember[mid] = byMember[mid] || { roles: [], places: [] };
-      if (!m.roles.includes(role)) m.roles.push(role);
-      if (where && !m.places.includes(where)) m.places.push(where);
+      /* A ROLE CAN HOLD SEVERAL PEOPLE (F-204): the planners write a list
+         when it does. Reading only one meant everybody else in that role
+         silently got no reminder. */
+      const raw = ev.assignments[role];
+      (Array.isArray(raw) ? raw : [raw]).forEach((who) => {
+        const mid = who && who.id;
+        if (!mid) return;
+        const m = byMember[mid] = byMember[mid] || { roles: [], places: [] };
+        if (!m.roles.includes(role)) m.roles.push(role);
+        if (where && !m.places.includes(where)) m.places.push(where);
+      });
     });
   });
   const uidOf = await uidsForMembers(db, Object.keys(byMember));

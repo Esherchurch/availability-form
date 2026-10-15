@@ -263,16 +263,24 @@ const londonDate = (n) => {
   await person('quiet', { teams: ['Worship Team'], tokens: ['tok-quiet-aaaaaaaaaaaaaaaaaaaaaaaaaa'],
     prefs: { types: { rota: false }, quietFrom: '21:30', quietTo: '07:30' } });
   await person('drafted', { teams: ['Worship Team'], tokens: ['tok-drafted-aaaaaaaaaaaaaaaaaaaaaaaa'] });
+  /* F-204: TWO PEOPLE IN ONE ROLE. The planners write a list; the reminder
+     read only one, so the others silently got nothing. */
+  await person('vox1', { teams: ['Worship Team'], tokens: ['tok-vox1-aaaaaaaaaaaaaaaaaaaaaaaaaaa'] });
+  await person('vox2', { teams: ['Worship Team'], tokens: ['tok-vox2-aaaaaaaaaaaaaaaaaaaaaaaaaaa'] });
   const by = (k) => ({ id: P[k].member, name: P[k].key });
   await put('events/ev_ns_am', { date: TOM, type: 'Sunday Morning Worship', startTime: '10:30', archived: false, draft: false,
-    assignments: { 'Guitar': by('guitar'), 'Drums': by('drums'), 'Keyboard': by('quiet') } });
+    assignments: { 'Guitar': by('guitar'), 'Drums': by('drums'), 'Keyboard': by('quiet'), 'Backing vocals': [by('vox1'), by('vox2')] } });
   await put('events/ev_ns_pm', { date: TOM, type: 'Sunday Evening Worship', startTime: '18:30', archived: false, draft: false,
     assignments: { 'Vocals': by('guitar') } });
   await put('events/ev_ns_draft', { date: TOM, type: 'Prayer', startTime: '08:00', archived: false, draft: true,
     assignments: { 'Leader': by('drafted') } });
   mark();
   await runSchedule('rotaReminders');
-  const or1 = await settle((g) => g.push.length >= 1 && g.mail.length >= 1);
+  const or1 = await settle((g) => g.push.length >= 3 && g.mail.length >= 1);
+  const vox = (t) => or1.push.filter((x) => x.tokens.includes(t) && /Backing vocals/.test(x.data.body));
+  ok('  TWO PEOPLE IN ONE ROLE: both get the reminder (F-204)',
+    vox('tok-vox1-aaaaaaaaaaaaaaaaaaaaaaaaaaa').length === 1 && vox('tok-vox2-aaaaaaaaaaaaaaaaaaaaaaaaaaa').length === 1,
+    JSON.stringify(or1.push.map((x) => [x.tokens, x.data.body])));
   const gp = or1.push.filter((x) => x.tokens.includes('tok-guitar-aaaaaaaaaaaaaaaaaaaaaaaaa'));
   ok('  somebody on twice that day gets ONE message with both roles',
     gp.length === 1 && /Guitar/.test(gp[0].data.body) && /Vocals/.test(gp[0].data.body), JSON.stringify(gp));

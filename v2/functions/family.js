@@ -138,8 +138,11 @@ export async function myFamily(db, { uid, now = new Date() }) {
     if (ev.archived || ev.draft) return;
     const mine = {};
     Object.keys(ev.assignments || {}).forEach((role) => {
-      const who = ev.assignments[role];
-      if (who && who.id && nameOf[who.id] !== undefined) (mine[who.id] = mine[who.id] || []).push(role);
+      /* A role can hold several people (F-204): each of them counts. */
+      const raw = ev.assignments[role];
+      (Array.isArray(raw) ? raw : [raw]).forEach((who) => {
+        if (who && who.id && nameOf[who.id] !== undefined && !(mine[who.id] || []).includes(role)) (mine[who.id] = mine[who.id] || []).push(role);
+      });
     });
     Object.keys(mine).forEach((id) => {
       week.push({ kind: 'serving', id, firstName: nameOf[id], date: ev.date, roles: mine[id],
