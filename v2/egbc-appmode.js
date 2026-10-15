@@ -250,6 +250,10 @@
   var started = false;
   function start(opts) {
     if (!on() || started) return false;
+    /* NEVER ON THE APP ITSELF. "Back to the app" lands on app.html with the
+       flag still set, and the app then wore a page's bar on top of its own
+       header: Care twice and a second row of tabs (Martin, 15 Oct 2026). */
+    if (/^app\.html$/i.test(String(location.pathname || '').split('/').pop())) return false;
     if (!document.body) return false;
     started = true;
     opts = opts || {};
