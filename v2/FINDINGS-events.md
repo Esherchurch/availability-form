@@ -5850,3 +5850,70 @@ Martin (see the report for the steps).
 
 **Proved:** `phone-subscribe.test.mjs` 14/14, at 375px, with an iPhone's
 and an Android's browser names and the hub's real functions.
+
+### F-198 — Subscribe on Android (Martin's phone); the k3 register; the phone-subscribe flake
+
+**Android** (Martin, 15 Oct: "Add to my phone's calendar" seemed to work,
+but no calendar appeared. Android has no webcal handler, and Google
+Calendar and Outlook can't subscribe from a link on the phone.)
+- The card now tells iPhone, Android and computers apart.
+- **Android, first thing in the card:** "Everything coming up is always
+  in What's on in this app." (on whatson.html: "...always here, in
+  What's on."). Underneath, as optional: "Also in Google Calendar or
+  Outlook (optional)", "add it once on a computer and it appears on your
+  phone", a big Copy, "Email me the link", the Google steps
+  (calendar.google.com > Other calendars + > From URL), the Outlook steps
+  (outlook.com > Add calendar > Subscribe from web), and "Then on your
+  phone: Google Calendar > Settings > the new calendar > Sync on".
+- No webcal button on Android. No second app needed. The one-off .ics
+  download is never offered as "subscribe".
+- **iPhone:** keeps the big webcal button (Martin: fine). **Computers:**
+  as before.
+- **Email me the link:** a new callable, `emailMyFeedLink`
+  (`functions/events-feed.js`, mine). It sends only to the signed-in
+  person's own address on their account; nothing in the request can
+  change who it goes to. The server builds the link itself (their own
+  link when they chose it). 5 an hour at most. Signed out: refused, and
+  the button isn't shown. Logged in emailOutbox; Emails sent calls it
+  "Calendar link (to themselves)". Rules: `feedLinkSent` has no rule, so
+  only the server can touch it.
+
+**The phone-subscribe flake (test 5).** `EGBCAuth.call` uses the current
+user straight away; just after a page opens the sign-in hasn't settled,
+so "my own link" failed quietly. The card now waits for the sign-in
+before any call. The test asks the moment the app opens, and passes.
+
+**k3-morning ("the date").** The register drew twice when the period
+changed ("This term", then "Choose the dates"), and the slower, longer
+load landed last, showing 3/9 to 15/10 instead of 1/10 to 15/10. Only
+the latest draw may fill the table now. It depended on how many weeks
+the term had so far, which is why it looked like a date fault. The other
+k3 check ("ask the office") failed once and passed 5 times since; the
+test now prints what the page showed if it ever fails again.
+
+**Proved:** phone-subscribe.test 27/27, k3-morning 31/31 (5 runs).
+6 deliberate breaks, all caught. The one that matters: Android getting
+the webcal button again.
+
+### F-199 — Event pictures in the app and on a phone
+
+Martin, 15 Oct: "the pictures are not showing against the events on the
+phone app. Just a date card."
+- **The app's What's on** (`egbc-app-whatson.js`):
+  - list: an event with a picture shows it as a 56px rounded square,
+    cropped to fit, where the icon was; others keep the icon
+  - the event's own view: the picture as a banner at the top, at most
+    200px tall, cropped to fit; tap it to see the whole picture
+- **whatson.html on a phone** hid pictures entirely (a rule below 420px).
+  Now the picture takes the date card's place (56px); events without one
+  keep the date card; the date is in the line under the title anyway.
+  Computers: as before.
+- Only a web address is drawn as a picture. whatson.html used to draw
+  any address, which showed a broken picture.
+- **Other places in the app:** Home shows no event cards (the hub's Home
+  has the Watch card; the app's Home is rotas). Nothing for the main
+  window.
+- **app.html (main window's):** please bump `egbc-app-whatson.js` and
+  `egbc-events.js` to `?v=202610151500`.
+
+**Proved:** app-pictures.test 13/13 at 375px; app-whatson.test 15/15.

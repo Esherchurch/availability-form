@@ -174,7 +174,7 @@ try {
   await KA.screenshot({ path: path.join(HERE, 'k3-not-set-up-375.png'), fullPage: true });
   await KA.setViewport({ width: 1100, height: 900 });
   await go(N, 'kids-admin.html', '#notsetup');
-  ok('   someone who is not an admin is told to ask the office', /Please ask the church office/.test(await text(N, '#notsetup')) && !(await N.$('#ns-places')));
+  ok('   someone who is not an admin is told to ask the office', /Please ask the church office/.test(await text(N, '#notsetup')) && !(await N.$('#ns-places')), await text(N, 'body'));
   await go(KA, 'kids-checkin.html', '#notsetup');
   await go(N, 'kids-checkin.html', '#notsetup');
   ok('   the same on Sunday check-in', !!(await KA.$('#ns-places')) && /ask the church office/.test(await text(N, '#notsetup')));

@@ -20,7 +20,9 @@
    - Never a not-listed or not-yet-public event; never another team's.
    - From 30 days ago to 18 months ahead.
 
-     myEventsFeed   callable: the signed-in person's own link (and Reset)
+     myEventsFeed      callable: the signed-in person's own link (and Reset)
+     emailMyFeedLink   callable: email the link to the signed-in person's OWN
+                       address, to add on a computer (Android, F-198)
 
    The events window's file. Exported from index.js the way public-mail.js
    is.
@@ -30,6 +32,7 @@ import crypto from 'node:crypto';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
+import { makeSender } from './public-mail.js';
 
 const db = () => getFirestore();
 const REGION = 'europe-west2';
@@ -177,17 +180,66 @@ export const eventsFeed = onRequest({ region: REGION, cors: false, invoker: 'pub
 
 /* The signed-in person's own link: made once, kept, and Reset makes a new
    one (the old link stops working at once). */
-export const myEventsFeed = onCall({ region: REGION }, async (req) => {
+async function activeUser(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const u = await db().collection('users').doc(uid).get();
   if (!u.exists || u.data().status !== 'active') throw new HttpsError('permission-denied', 'Your account is not active.');
+  return { uid, user: u.data() };
+}
+async function keyFor(uid, reset) {
   const mine = await db().collection('eventFeeds').where('uid', '==', uid).get();
-  if (mine.size && !(req.data && req.data.reset)) return { key: mine.docs[0].id };
+  if (mine.size && !reset) return mine.docs[0].id;
   const batch = db().batch();
   mine.docs.forEach((d) => batch.delete(d.ref));
   const key = crypto.randomBytes(24).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
   batch.set(db().collection('eventFeeds').doc(key), { uid, createdAt: FieldValue.serverTimestamp() });
   await batch.commit();
-  return { key, reset: !!(req.data && req.data.reset) };
+  return key;
+}
+export const myEventsFeed = onCall({ region: REGION }, async (req) => {
+  const { uid } = await activeUser(req);
+  const reset = !!(req.data && req.data.reset);
+  return { key: await keyFor(uid, reset), ...(reset ? { reset: true } : {}) };
+});
+
+/* The feed's own address, as the pages build it (egbc-events.js feedUrl). */
+export function feedLink({ project, emulator, key, cats }) {
+  const base = emulator ? 'http://localhost:5102/' + project + '/europe-west2/eventsFeed' : 'https://europe-west2-' + project + '.cloudfunctions.net/eventsFeed';
+  return base + (key ? '?k=' + encodeURIComponent(key) : '?church=1') + (cats.length ? '&cat=' + cats.join(',') : '');
+}
+const htmlEsc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+export function feedLinkEmail({ link, church, mine }) {
+  const a = '<a href="' + htmlEsc(link) + '">' + htmlEsc(link) + '</a>';
+  return {
+    subject: (church ? church + ': ' : '') + 'your What\'s on calendar link',
+    html: '<p>Here is the link to What\'s on, to add to your calendar. Open this email on a computer.</p>' +
+      '<p style="font-size:15px;word-break:break-all">' + a + '</p>' +
+      '<p><b>Google Calendar</b></p><ol><li>Go to calendar.google.com</li><li>Next to "Other calendars", click +, then "From URL"</li><li>Paste the link and click "Add calendar"</li></ol>' +
+      '<p><b>Outlook</b></p><ol><li>Go to outlook.com and open Calendar</li><li>Click "Add calendar", then "Subscribe from web"</li><li>Paste the link, give it a name, and click "Import"</li></ol>' +
+      '<p><b>Then on your phone:</b> Google Calendar &gt; Settings &gt; the new calendar &gt; Sync on.</p>' +
+      (mine ? '<p>This is your own link: it shows members\' and team events, so please keep it to yourself.</p>' : '') +
+      '<p style="color:#6b7280">You asked for this on the church hub. If you did not, you can ignore it.</p>'
+  };
+}
+/* Only ever to the signed-in person's own address: nothing in the request
+   can choose who it goes to. A few an hour at most. */
+export const emailMyFeedLink = onCall({ region: REGION }, async (req) => {
+  const { uid, user } = await activeUser(req);
+  const to = String(user.email || (req.auth.token && req.auth.token.email) || '').trim();
+  if (!/^[^@\s]+@[^@\s]+$/.test(to)) throw new HttpsError('failed-precondition', 'There is no email address on your account.');
+  const ref = db().collection('feedLinkSent').doc(uid), now = Date.now();
+  const times = ((await ref.get()).data() || {}).times || [];
+  const recent = times.filter((t) => t > now - 3600e3);
+  if (recent.length >= 5) throw new HttpsError('resource-exhausted', 'That has been sent a few times already. Look in your email, or try again in an hour.');
+  const d = req.data || {};
+  const cats = (Array.isArray(d.cats) ? d.cats : []).map(String).filter((c) => /^[a-z0-9-]{1,40}$/.test(c)).slice(0, 20);
+  const mine = d.mine === true;
+  const link = feedLink({ project: process.env.GCLOUD_PROJECT || JSON.parse(process.env.FIREBASE_CONFIG || '{}').projectId, emulator: process.env.FUNCTIONS_EMULATOR === 'true', key: mine ? await keyFor(uid, false) : '', cats });
+  const church = await db().collection('churchSettings').doc('details').get();
+  const msg = feedLinkEmail({ link, church: church.exists ? church.data().name : '', mine });
+  await ref.set({ times: recent.concat([now]) });
+  const out = await makeSender({ db: db() })({ to: [to], subject: msg.subject, html: msg.html }, { source: 'events-feed', kind: 'calendar link' });
+  if (!out.ok) throw new HttpsError('unavailable', 'The email could not be sent. Copy the link instead.');
+  return { ok: true };
 });

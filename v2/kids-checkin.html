@@ -15,7 +15,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610151200"></script>
+<script src="egbc-events.js?v=202610151500"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
 <script src="egbc-events-kids.js?v=202610141700"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
@@ -606,7 +606,12 @@
   }
 
   /* ================= registers ================= */
+  /* Only the latest draw may fill the table: changing "Which weeks" then
+     the dates starts two loads, and the slower (longer) one used to land
+     last and show the wrong weeks. */
+  var REG_DRAW = 0;
   function drawRegister(el) {
+    var drawNo = ++REG_DRAW;
     var gs = visibleGroups();
     if (!gs.length) { el.innerHTML = '<div class="card hint">No groups yet.</div>'; return; }
     if (!V.rgroup || !gs.some(function (g) { return g.id === V.rgroup; })) V.rgroup = gs[0].id;
@@ -636,6 +641,7 @@
       var q = LEAD ? db().collection('checkins').where('siteId', '==', V.site).where('day', '==', d) : db().collection('checkins').where('groupId', '==', g.id).where('day', '==', d);
       return q.get().then(all).then(function (l) { return l.filter(function (k) { return k.groupId === g.id; }); });
     })).then(function (lists) {
+      if (drawNo !== REG_DRAW) return;
       var reg = K.register(CHILDREN.filter(function (c) { return c.groupId === g.id; }), [].concat.apply([], lists), dates);
       var short = function (d) { return +d.slice(8, 10) + '/' + +d.slice(5, 7); };
       var b = document.getElementById('reg-body'); if (!b) return;

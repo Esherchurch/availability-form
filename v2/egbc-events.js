@@ -587,13 +587,19 @@
     });
   }
 
-  /* ---- Subscribe in your own calendar (R7, F-182; on phones F-197) ----
+  /* ---- Subscribe in your own calendar (R7, F-182; phones F-197, F-198) ----
      One card for whatson.html and the app's What's on. The host keeps the
      state { signedIn, mine, cats, msg, copied } and draws subscribeHtml
      again after subscribeAct. Buttons and boxes carry ATTR="sub:...".
-     On a phone: one big "Add to my phone's calendar" (the webcal:// link:
-     iPhone's Calendar, and on Android whichever calendar app takes it),
-     then Google Calendar and "Copy the link" for when nothing opens. */
+       iPhone    one big "Add to my phone's calendar" (webcal://): iPhone's
+                 Calendar asks "Subscribe?"
+       Android   NO webcal button: Android has no webcal handler, and
+                 neither Google Calendar nor Outlook can subscribe from a
+                 link on the phone (Martin's phone, 15 Oct). It leads with
+                 "Everything coming up is always in What's on"; then, as
+                 optional, add it once on a computer: the steps, a big
+                 Copy, and "Email me the link" (own address only)
+       computer  Google / Apple or Outlook / Copy, as before */
   function feedBase() {
     var o = (global.firebase && firebase.apps.some(function (a) { return a.name === 'egbc'; }) ? firebase.app('egbc').options : {}) || {};
     var h = global.location.hostname, local = h === 'localhost' || h === '127.0.0.1';
@@ -604,35 +610,70 @@
     var mine = st.signedIn && st.mine;
     return feedBase() + (mine ? '?k=' + encodeURIComponent(st.mine) : '?church=1') + (st.cats && st.cats.length ? '&cat=' + st.cats.join(',') : '');
   }
-  function isPhone() {
+  function deviceKind() {
     var ua = (global.navigator && navigator.userAgent) || '';
-    return /iPhone|iPad|iPod|Android/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (/Android/i.test(ua)) return 'android';
+    if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iphone';
+    return 'computer';
   }
-  function subscribeHtml(st, used, attr, phone) {
-    attr = attr || 'data-sub'; if (phone == null) phone = isPhone();
+  function isPhone() { return deviceKind() !== 'computer'; }
+  /* Callables need the sign-in settled: straight after a page opens it is
+     not yet, and EGBCAuth.call then fails (seen as a flake in
+     phone-subscribe.test, 15 Oct). */
+  function whenSignedIn() {
+    return new Promise(function (resolve) {
+      try { var a = firebase.auth(firebase.app('egbc')), off = a.onAuthStateChanged(function (u) { off(); resolve(u); }); }
+      catch (e) { resolve(null); }
+    });
+  }
+  function callSignedIn(name, data) {
+    return whenSignedIn().then(function (u) { if (!u) throw new Error('Sign in first.'); return global.EGBCAuth.call(name, data); });
+  }
+  function subscribeHtml(st, used, attr, kind) {
+    attr = attr || 'data-sub'; kind = kind || deviceKind();
     var mine = !!(st.signedIn && st.mine), url = feedUrl(st), web = url.replace(/^https?:/, 'webcal:');
     var google = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(web);
     var tick = 'style="display:flex;gap:8px;align-items:center;min-height:44px"';
-    return '<h2 style="margin:0 0 6px;font-size:16px">Subscribe in your own calendar</h2>' +
+    var big = 'display:flex;width:100%;justify-content:center;align-items:center;min-height:52px;font-size:16px;margin-top:10px;text-decoration:none';
+    var copy = function (cls, style) { return '<button class="btn ' + cls + '" id="subCopy" ' + attr + '="sub:copy"' + (style ? ' style="' + style + '"' : '') + '>' + (st.copied ? 'Copied' : 'Copy the link') + '</button>'; };
+    var reset = mine ? '<button class="btn ghost" id="subReset" ' + attr + '="sub:reset">Reset my link</button>' : '';
+    var ways;
+    if (kind === 'iphone') ways =
+      '<a class="btn primary" id="subPhone" href="' + esc(web) + '" style="' + big + ';margin-top:12px">Add to my phone\'s calendar</a>' +
+      '<p class="hint" style="margin:6px 0 0">Tap Subscribe when your iPhone asks.</p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' +
+        '<a class="btn sec" id="subGoogle" target="_blank" rel="noopener" href="' + esc(google) + '">Google Calendar</a>' + copy('sec') + reset + '</div>';
+    else if (kind === 'android') ways =
+      '<div id="subAndroid" style="margin-top:12px">' +
+      '<p class="hint" style="margin:0">On Android, add it once on a computer and it appears on your phone. Google Calendar and Outlook can\'t add it from a link on the phone itself.</p>' +
+      copy('sec', big) +
+      (st.signedIn ? '<button class="btn sec" id="subEmail" ' + attr + '="sub:email" style="' + big + ';margin-top:8px">Email me the link</button>' +
+        '<p class="hint" style="margin:4px 0 0">It goes to your own email address, so you can open it on a computer.</p>' : '') +
+      '<p style="margin:12px 0 2px;font-weight:600">Google Calendar, on a computer</p><ol style="margin:0;padding-left:22px">' +
+        '<li>Go to calendar.google.com</li><li>Next to "Other calendars", click +, then "From URL"</li><li>Paste the link and click "Add calendar"</li></ol>' +
+      '<p style="margin:10px 0 2px;font-weight:600">Outlook, on a computer</p><ol style="margin:0;padding-left:22px">' +
+        '<li>Go to outlook.com and open Calendar</li><li>Click "Add calendar", then "Subscribe from web"</li><li>Paste the link, give it a name, and click "Import"</li></ol>' +
+      '<p style="margin:10px 0 0"><b>Then on your phone:</b> Google Calendar &gt; Settings &gt; the new calendar &gt; Sync on.</p>' +
+      (reset ? '<div style="margin-top:8px">' + reset + '</div>' : '') + '</div>';
+    else ways =
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+        '<a class="btn" id="subGoogle" target="_blank" rel="noopener" href="' + esc(google) + '">Add to Google Calendar</a>' +
+        '<a class="btn sec" id="subApple" href="' + esc(web) + '">Apple or Outlook</a>' + copy('sec') + reset + '</div>';
+    /* Martin, 15 Oct: on Android, lead with the app; the calendar set-up is
+       optional, never a second app required, and never the one-off .ics
+       offered as "subscribe". */
+    var head = kind === 'android'
+      ? '<p id="subLead" style="margin:0 0 14px;font-weight:600;font-size:17px;color:var(--ink,#111827)">' + (attr === 'data-wact' ? 'Everything coming up is always in What\'s on in this app.' : 'Everything coming up is always here, in What\'s on.') + '</p>' +
+        '<h2 style="margin:0 0 6px;font-size:15px">Also in Google Calendar or Outlook (optional)</h2>'
+      : '<h2 style="margin:0 0 6px;font-size:16px">Subscribe in your own calendar</h2>';
+    return head +
       '<p class="hint" style="margin:0 0 8px">Your calendar app keeps it up to date by itself: new events appear, and changes and cancellations follow. Google can take a few hours to catch up; that is Google.</p>' +
       (st.signedIn ? '<label class="check" ' + tick + '><input type="radio" name="subWho" value="public" ' + attr + '="sub:who:public"' + (mine ? '' : ' checked') + '>Public events only</label>' +
         '<label class="check" ' + tick + '><input type="radio" name="subWho" value="mine" ' + attr + '="sub:who:mine"' + (mine ? ' checked' : '') + '>Everything I can see here (my own link)</label>' : '') +
       '<p style="margin:8px 0 4px;font-weight:600">Which events</p><div style="display:flex;flex-wrap:wrap;gap:10px">' +
         CATEGORIES.filter(function (c) { return used[c.id]; }).map(function (c) {
           return '<label class="check" style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" class="subCat" value="' + esc(c.id) + '" ' + attr + '="sub:cat:' + esc(c.id) + '"' + ((st.cats || []).indexOf(c.id) >= 0 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') +
-      '</div><p class="hint" style="margin:0">None ticked: everything.</p>' +
-      (phone
-        ? '<a class="btn primary" id="subPhone" href="' + esc(web) + '" style="display:flex;width:100%;justify-content:center;align-items:center;min-height:52px;font-size:16px;margin-top:12px;text-decoration:none">Add to my phone\'s calendar</a>' +
-          '<p class="hint" style="margin:6px 0 0">iPhone: tap Subscribe when it asks. Android: if nothing opens, use Google Calendar below, or copy the link.</p>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' +
-            '<a class="btn sec" id="subGoogle" target="_blank" rel="noopener" href="' + esc(google) + '">Google Calendar</a>' +
-            '<button class="btn sec" id="subCopy" ' + attr + '="sub:copy">' + (st.copied ? 'Copied' : 'Copy the link') + '</button>' +
-            (mine ? '<button class="btn ghost" id="subReset" ' + attr + '="sub:reset">Reset my link</button>' : '') + '</div>'
-        : '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
-            '<a class="btn" id="subGoogle" target="_blank" rel="noopener" href="' + esc(google) + '">Add to Google Calendar</a>' +
-            '<a class="btn sec" id="subApple" href="' + esc(web) + '">Apple or Outlook</a>' +
-            '<button class="btn sec" id="subCopy" ' + attr + '="sub:copy">' + (st.copied ? 'Copied' : 'Copy the link') + '</button>' +
-            (mine ? '<button class="btn ghost" id="subReset" ' + attr + '="sub:reset">Reset my link</button>' : '') + '</div>') +
+      '</div><p class="hint" style="margin:0">None ticked: everything.</p>' + ways +
       '<p class="hint" id="subUrl" style="overflow-wrap:anywhere;margin:8px 0 0">' + esc(url) + '</p><p class="hint" id="subMsg" role="status">' + esc(st.msg || '') + '</p>' +
       (mine ? '<p class="hint" style="margin:4px 0 0">Your own link shows members\' and team events, so keep it to yourself. Reset makes a new one and the old one stops working.</p>' : '');
   }
@@ -645,16 +686,21 @@
       return Promise.resolve();
     }
     if (a === 'who:public') { st.mine = ''; return Promise.resolve(); }
-    if (a === 'who:mine') return global.EGBCAuth.call('myEventsFeed', {}).then(function (x) { st.mine = x.key; }, function (e) { st.msg = e.message || String(e); });
+    if (a === 'who:mine') return callSignedIn('myEventsFeed', {}).then(function (x) { st.mine = x.key; }, function (e) { st.msg = e.message || String(e); });
     if (a === 'copy') {
       var url = feedUrl(st);
       return (global.navigator && navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () {
         st.copied = true; st.msg = 'Copied. In Google Calendar on a computer: Other calendars, +, From URL, then paste it.';
       }, function () { st.msg = 'Copy this link: ' + url; });
     }
+    if (a === 'email') {
+      return callSignedIn('emailMyFeedLink', { mine: !!(st.signedIn && st.mine), cats: (st.cats || []).slice() }).then(function () {
+        st.msg = 'Sent to your email. Open it on a computer and follow the steps.';
+      }, function (e) { st.msg = e.message || String(e); });
+    }
     if (a === 'reset') {
       if (!global.confirm('Make a new link? The old one stops working, in every calendar it is in.')) return Promise.resolve();
-      return global.EGBCAuth.call('myEventsFeed', { reset: true }).then(function (x) { st.mine = x.key; st.msg = 'A new link: add it to your calendar again.'; }, function (e) { st.msg = e.message || String(e); });
+      return callSignedIn('myEventsFeed', { reset: true }).then(function (x) { st.mine = x.key; st.msg = 'A new link: add it to your calendar again.'; }, function (e) { st.msg = e.message || String(e); });
     }
     return Promise.resolve();
   }
@@ -810,6 +856,7 @@
     callPublic: callPublic,
     feedUrl: feedUrl,
     isPhone: isPhone,
+    deviceKind: deviceKind,
     subscribeHtml: subscribeHtml,
     subscribeAct: subscribeAct,
     CLOSED_WORDS: CLOSED_WORDS,

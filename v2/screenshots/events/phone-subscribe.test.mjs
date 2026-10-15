@@ -10,21 +10,29 @@
    browser names:
      1. the app's What's on: "Add What's on to my phone's calendar", which
         opens the Subscribe card
-     2. on a phone, ONE BIG BUTTON, "Add to my phone's calendar": the
+     2. on an iPhone, ONE BIG BUTTON, "Add to my phone's calendar": the
         webcal:// link, for the public events to start with
      3. the link really is a calendar: what the phone's calendar would
         fetch is text/calendar with the public events, and nothing else
      4. categories: ticking Music narrows the link and the calendar
      5. "my own link": the button now carries the person's own key, and
-        that calendar has their team's event too
+        that calendar has their team's event too; asked for the moment
+        the app opens (before the sign-in has settled), it still comes
      6. "Copy the link" puts the very same link on the clipboard (for
         Google Calendar, which takes it on a computer)
-     7. Android gets the same big button
-     8. the hub's What's on page (whatson.html) on a phone: the same big
-        button; on a computer it keeps Google / Apple or Outlook / Copy
+     7. ANDROID (F-198; Martin's phone: webcal does nothing there): no
+        webcal button. "Add it once on a computer", the Google and Outlook
+        steps, the https link, a big Copy, and "Then on your phone ...
+        Sync on"
+     8. "Email me the link": to the signed-in person's OWN address only,
+        whatever the page asks; their own link in it when chosen; refused
+        signed out; a few an hour at most
+     9. the hub's What's on page (whatson.html): the iPhone button on an
+        iPhone, the Android steps on Android (no email button signed
+        out), and on a computer Google / Apple or Outlook / Copy
 
    What it cannot prove: the hand-off itself (iPhone's "Subscribe to
-   calendar?" and Android's choice of app). That needs a real phone. */
+   calendar?"). That needs a real phone (Martin's iPhone: fine). */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -140,11 +148,18 @@ try {
   /* ---------- 5. my own link ---------- */
   await tap(W, 'input[name="subWho"][value="mine"]');
   await until(async () => /[?]k=/.test(await href(W)));
-  const h3 = await href(W);
+  const h3 = await href(W), m3 = await text(W, '#subMsg').catch(() => '');
   const c3 = await calendar(h3);
-  ok('5. MY OWN LINK: the button carries Wendy\'s own key, and her calendar has her team\'s briefing', /^webcal:\/\/localhost:5102\/.*eventsFeed\?k=[A-Za-z0-9]{20,}$/.test(h3) && /WELCOME TEAM briefing/.test(c3.text) && /Harvest supper/.test(c3.text), h3);
+  ok('5. MY OWN LINK: the button carries Wendy\'s own key, and her calendar has her team\'s briefing', /^webcal:\/\/localhost:5102\/.*eventsFeed\?k=[A-Za-z0-9]{20,}$/.test(h3) && /WELCOME TEAM briefing/.test(c3.text) && /Harvest supper/.test(c3.text), h3 + ' | message: ' + m3);
   ok('   with "keep it to yourself" and Reset', /keep it to yourself/.test(await text(W, '[data-w="subscribe"]')) && !!(await W.$('#subReset')));
   await W.screenshot({ path: path.join(HERE, 'phone-subscribe-app-375.png'), fullPage: true });
+
+  /* The flake (15 Oct): asked before the sign-in has settled. */
+  const R = await browser('wendy', IPHONE);
+  await R.goto(URLB + app, { waitUntil: 'domcontentloaded' });
+  await R.waitForFunction(() => window.EGBCEvents && EGBCEvents.subscribeAct);
+  const early = await R.evaluate(() => { const st = { signedIn: true, mine: '', cats: [] }; const before = !!(firebase.auth(firebase.app('egbc')).currentUser); return EGBCEvents.subscribeAct('sub:who:mine', st).then(() => ({ before, mine: st.mine, msg: st.msg })); });
+  ok('   ASKED THE MOMENT THE APP OPENS (sign-in not settled yet): the own link still comes', /^[A-Za-z0-9]{20,}$/.test(early.mine), JSON.stringify(early));
 
   /* ---------- 6. copy ---------- */
   await tap(W, '#subCopy');
@@ -157,24 +172,62 @@ try {
   await A.goto(URLB + app, { waitUntil: 'networkidle2' });
   await until(() => A.$('[data-wact="subscribe"]'));
   await tap(A, '[data-wact="subscribe"]');
-  await until(() => A.$('#subPhone'));
-  ok('7. ANDROID: the same big button, with Google Calendar and Copy beside it', (await href(A)).startsWith('webcal://') && !!(await A.$('#subGoogle')) && !!(await A.$('#subCopy')) && /Android: if nothing opens/.test(await text(A, '[data-w="subscribe"]')));
+  await until(() => A.$('#subAndroid'));
+  const at = await text(A, '[data-w="subscribe"]');
+  ok('7. ANDROID: NO webcal button; "add it once on a computer and it appears on your phone"', !(await A.$('#subPhone')) && !(await A.$('#subApple')) && !(await A.$('a[href^="webcal:"]')) && /On Android, add it once on a computer and it appears on your phone/.test(at), at.slice(0, 300));
+  ok('   IT LEADS WITH THE APP: "Everything coming up is always in What\'s on in this app." first; the computer set-up underneath, marked optional', /^Everything coming up is always in What's on in this app\.$/.test(await A.$eval('[data-w="subscribe"] > :first-child', e => e.textContent)) && /Also in Google Calendar or Outlook \(optional\)/.test(at) && at.indexOf('always in What') < at.indexOf('Google Calendar or Outlook (optional)'), at.slice(0, 300));
+  ok('   NEVER the one-off .ics download as subscribe: no download, no .ics, no data: link in the card', !(await A.$('[data-w="subscribe"] a[download], [data-w="subscribe"] a[href*=".ics"], [data-w="subscribe"] a[href^="data:"], [data-w="subscribe"] a[href^="blob:"]')) && !/Add to my calendar/.test(at));
+  ok('   the Google steps (calendar.google.com, Other calendars +, From URL) and Outlook\'s (outlook.com, Add calendar, Subscribe from web)', /calendar\.google\.com/.test(at) && /"Other calendars", click \+, then "From URL"/.test(at) && /outlook\.com/.test(at) && /"Add calendar", then "Subscribe from web"/.test(at), at);
+  ok('   and "Then on your phone: Google Calendar > Settings > the new calendar > Sync on"', /Then on your phone: Google Calendar > Settings > the new calendar > Sync on/.test(at));
+  const au = await A.$eval('#subUrl', e => e.textContent);
+  const cb = await A.$eval('#subCopy', b => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height, primary: b.classList.contains('primary') }; });
+  ok('   the https link shown, and a BIG Copy button', /^http:\/\/localhost:5102\/.*eventsFeed\?church=1$/.test(au) && !cb.primary && cb.w > 300 && cb.h >= 52, au + ' ' + JSON.stringify(cb));
+  await tap(A, '#subCopy');
+  await until(async () => /Copied/.test(await text(A, '#subCopy')));
+  const aclip = await A.evaluate(() => navigator.clipboard.readText()).catch(e => 'unreadable: ' + e.message);
+  ok('   Copy puts that same https link on the clipboard', aclip === au, aclip);
 
-  /* ---------- 8. the hub's What's on page ---------- */
+  /* ---------- 8. email me the link ---------- */
+  await tap(A, 'input[name="subWho"][value="mine"]');
+  await until(async () => /k=/.test(await A.$eval('#subUrl', e => e.textContent)));
+  const own = await A.$eval('#subUrl', e => e.textContent);
+  await A.screenshot({ path: path.join(HERE, 'phone-subscribe-android-375.png'), fullPage: true });
+  await tap(A, '#subEmail');
+  await until(async () => /Sent to your email/.test(await text(A, '#subMsg')));
+  const rows = async () => (await db.collection('emailOutbox').where('kind', '==', 'calendar link').get()).docs.map(d => d.data());
+  const m1 = (await until(async () => { const r = await rows(); return r.length ? r : null; })) || [];
+  ok('8. EMAIL ME THE LINK: sent to Wendy\'s own address, with her own link and the steps', m1.length === 1 && JSON.stringify(m1[0].to) === JSON.stringify([P.wendy.email]) && m1[0].html.includes(own) && /From URL/.test(m1[0].html) && /Subscribe from web/.test(m1[0].html) && /keep it to yourself/.test(m1[0].html) && /Sent to your email/.test(await text(A, '#subMsg')), JSON.stringify(m1).slice(0, 400));
+  const sneaky = await A.evaluate(() => EGBCAuth.call('emailMyFeedLink', { mine: false, to: 'someone.else@example.invalid', email: 'someone.else@example.invalid' }).then(() => 'sent', e => e.message));
+  const m2 = await until(async () => { const r = await rows(); return r.length === 2 ? r : null; }) || await rows();
+  ok('   ASKED TO SEND IT TO SOMEONE ELSE: it still goes only to Wendy (the public link this time)', sneaky === 'sent' && m2.length === 2 && m2.every(r => JSON.stringify(r.to) === JSON.stringify([P.wendy.email])) && m2.some(r => /church=1/.test(r.html)) && !JSON.stringify(m2).includes('someone.else'), JSON.stringify(m2.map(r => r.to)));
+  const lots = []; for (let i = 0; i < 4; i++) lots.push(await A.evaluate(() => EGBCAuth.call('emailMyFeedLink', {}).then(() => 'sent', e => e.message)));
+  ok('   a few an hour at most: the 6th is refused, in words', lots.slice(0, 3).every(x => x === 'sent') && /sent a few times already/.test(lots[3]), JSON.stringify(lots));
+  const anon = await fetch('http://127.0.0.1:5102/' + PROJECT + '/europe-west2/emailMyFeedLink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: {} }) }).then(r => r.json());
+  ok('   signed out: refused', anon.error && /UNAUTHENTICATED/.test(anon.error.status), JSON.stringify(anon));
+  ok('   logged for Emails sent (source events-feed, kind calendar link)', m1[0] && m1[0].source === 'events-feed');
+
+  /* ---------- 9. the hub's What's on page ---------- */
   const G = await browser('guest', IPHONE);
   await G.goto(URLB + 'whatson.html', { waitUntil: 'networkidle2' });
   await until(() => G.$('#subBtn'));
   await tap(G, '#subBtn');
   await until(() => G.$('#subPhone'));
   const h4 = await href(G);
-  ok('8. WHAT\'S ON (whatson.html) ON A PHONE: the same big button, public events', h4.startsWith('webcal://localhost:5102/') && /church=1/.test(h4) && !(await G.$('#subApple')), h4);
+  ok('9. WHAT\'S ON (whatson.html) ON AN IPHONE: the big webcal button, public events', h4.startsWith('webcal://localhost:5102/') && /church=1/.test(h4) && !(await G.$('#subApple')) && !(await G.$('#subAndroid')), h4);
   await G.screenshot({ path: path.join(HERE, 'phone-subscribe-whatson-375.png'), fullPage: true });
+  const GA = await browser('guest', ANDROID);
+  await GA.goto(URLB + 'whatson.html', { waitUntil: 'networkidle2' });
+  await until(() => GA.$('#subBtn'));
+  await tap(GA, '#subBtn');
+  await until(() => GA.$('#subAndroid'));
+  ok('   ON ANDROID: the steps and Copy, no webcal button, and no "Email me" when signed out', !(await GA.$('#subPhone')) && !!(await GA.$('#subCopy')) && !(await GA.$('#subEmail')) && /add it once on a computer/.test(await text(GA, '#subscribe')) && /^Everything coming up is always here, in What's on.$/.test(await GA.$eval('#subLead', e => e.textContent)));
+  await GA.screenshot({ path: path.join(HERE, 'phone-subscribe-whatson-android-375.png'), fullPage: true });
   const C = await browser('guest', null, 1100);
   await C.goto(URLB + 'whatson.html', { waitUntil: 'networkidle2' });
   await until(() => C.$('#subBtn'));
   await tap(C, '#subBtn');
   await until(() => C.$('#subApple'));
-  ok('   on a computer it keeps Google / Apple or Outlook / Copy, no phone button', !!(await C.$('#subGoogle')) && !!(await C.$('#subCopy')) && !(await C.$('#subPhone')));
+  ok('   on a computer it keeps Google / Apple or Outlook / Copy, no phone button', !!(await C.$('#subGoogle')) && !!(await C.$('#subCopy')) && !(await C.$('#subPhone')) && !(await C.$('#subAndroid')));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
