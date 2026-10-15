@@ -42,6 +42,8 @@ const ACCOUNT = {
 const APPROVED = [
   ['Dashboard'],
   ['Rota'],
+  /* F-210: for the people who make rotas. */
+  ['Rota reports'],
   ['Meetings'],
   /* Watch (F-164, Martin 14 Oct 2026): master admins and the people who
      look after sermons, so it is here for the master admin this reads as. */
@@ -77,7 +79,7 @@ const APPROVED = [
     ['People and email', [['Address Book'], ['Email Compiler']]],
     ['Music', [['Music Upload']]],
     ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library']]],
-    ['Admin', [['Backup & Restore'], ['Church settings'], ['Emails sent']]]
+    ['Admin', [['Backup & Restore'], ['Church settings'], ['Emails sent'], ['Team emails']]]
   ]],
   /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
      is not inside any of the lists below. "Care & support" since 14 Oct
@@ -122,7 +124,10 @@ const SERMONS_ONLY = ['Watch', 'Sermons'];
 /* Payments: the money team (Finance) or a master admin. */
 const MONEY_ONLY = ['Payments'];
 /* Emails sent: master admins only (Martin, 15 Oct 2026). */
-const MASTER_ONLY = ['Emails sent'];
+const MASTER_ONLY = ['Emails sent', 'Team emails'];
+/* Rota reports: admins of a rota team, or a master admin. */
+const ROTA_LEADS_ONLY = ['Rota reports'];
+const ROTA_TEAMS = ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'];
 /* The Care & support inbox: the Pastoral team, the people named in Who gets
    told, and the safeguarding lead and deputy. None of the people here is
    any of those. */
@@ -315,7 +320,8 @@ const READ_MENU = `(() => {
     'mix-builder.html': 'Martin\'s mix tools, out of scope', 'mix-player.html': 'Martin\'s mix tools, out of scope',
     'mix-analyser.html': 'Martin\'s mix tools, out of scope',
     'Handover.html': 'a one-off note, not part of the suite', 'SharepointHeader.html': 'a fragment, not a page',
-    'give-regularly.html': 'linked from Give, when the church takes Direct Debits'
+    'give-regularly.html': 'linked from Give, when the church takes Direct Debits',
+    'my-messages.html': 'the "you" menu (My messages) and the app\'s Me tab'
   };
   {
     const src = fs.readFileSync(path.join(V2, 'egbc-menu.js'), 'utf8');
@@ -507,6 +513,7 @@ const READ_MENU = `(() => {
       .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
       .filter(w => !(MONEY_ONLY.includes(w) && !p.masterAdmin && !(p.teams || []).includes(MONEY_TEAM)))
       .filter(w => !(MASTER_ONLY.includes(w) && !p.masterAdmin))
+      .filter(w => !(ROTA_LEADS_ONLY.includes(w) && !p.masterAdmin && !(p.adminFor || []).some(t => ROTA_TEAMS.includes(t))))
       .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
@@ -571,7 +578,7 @@ const READ_MENU = `(() => {
       ...(onCore && anAdmin ? ['Events', 'Places'] : []),
       ...(books ? ['Room bookings'] : []),
       ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Backup & Restore', 'Church settings'] : []),
-      ...(onCore && p.masterAdmin ? ['Emails sent'] : [])
+      ...(onCore && p.masterAdmin ? ['Emails sent', 'Team emails'] : [])
     ];
     ok("  the sidebar lists what they look after, in the Menu's order",
       sidebar === wantAdmin.join('|'),

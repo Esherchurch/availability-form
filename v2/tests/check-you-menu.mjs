@@ -40,8 +40,8 @@ const PEOPLE = {
   master: { email: 'you.master@example.invalid', name: 'Max Master Synthetic', member: 'ab_you_master',
             teams: ['Worship Team'], masterAdmin: true },
 };
-const ORDER = 'notifications,details,groups,calendar,availability,give,signout';
-const ORDER_MASTER = 'notifications,details,groups,calendar,availability,give,viewas,signout';
+const ORDER = 'notifications,details,messages,groups,calendar,availability,give,signout';
+const ORDER_MASTER = 'notifications,details,messages,groups,calendar,availability,give,viewas,signout';
 
 const R = [];
 const ok = (n, v, x) => {
@@ -256,7 +256,7 @@ const offMachine = u => {
   console.log('\na church that does not use notifications');
   await ev('window.EGBCChurch={uses:function(n){return n!=="notifications"}};1');
   await click('#av'); h = await waitOpen('#av');
-  ok('  Notifications is not in the menu', h.keys === 'details,groups,calendar,availability,give,signout', h.keys);
+  ok('  Notifications is not in the menu', h.keys === 'details,messages,groups,calendar,availability,give,signout', h.keys);
   await key('Escape', 'Escape');
 
   /* ---- a master admin ------------------------------------------------- */

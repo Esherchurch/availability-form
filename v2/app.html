@@ -1261,6 +1261,9 @@ A.screen('me', 'me', function (me) {
   return head(me.first, whoIAm(me))
     + card(
         row('users', 'My groups', 'Your groups, and finding one', null, 'open:groups.html') +
+        /* MY MESSAGES (the events window's my-messages.html, R6/F-206): what
+           the church has emailed this person. */
+        row('inbox', 'My messages', 'What the church has emailed you', null, 'open:my-messages.html') +
         row('calendar-check-2', 'My availability', 'Opens the form you already use', null, 'open:index.html') +
         row('calendar-plus', 'Add to my calendar', 'Just me, my household, or the whole rota',
             null, 'sheet:calendar') +

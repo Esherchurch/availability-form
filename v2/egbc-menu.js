@@ -35,6 +35,12 @@
       description: 'Your own page: what is coming up and what needs you' },
     { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days',
       description: 'Who is on, week by week' },
+    /* ROTA REPORTS (the events window's rota-reports.html, F-210): clashes
+       and an overview, for the people who make rotas - admins of the rota
+       teams - and master admins. Feature 'rotaReports'. */
+    { title: 'Rota reports', url: 'rota-reports.html', icon: 'clipboard-list', feature: 'rotaReports',
+      adminOf: ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'],
+      description: 'Clashes, gaps and who is serving how often' },
     { title: 'Meetings', url: 'meeting.html', icon: 'video',
       description: 'Set one up, join a call, every meeting room' },
     /* WATCH (F-164): the live link, the full services and the channel.
@@ -259,7 +265,11 @@
              only ("shouldn't be seen by anyone other than the admin or
              designated people"). */
           { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true, master: true,
-            description: 'Every email the church sent, and any that failed' }
+            description: 'Every email the church sent, and any that failed' },
+          /* The events window's team-mail.html (F-207): which address each
+             team sends from. Master admins; feature 'teamMail'. */
+          { title: 'Team emails', url: 'team-mail.html', icon: 'at-sign', core: true, admin: true, master: true, feature: 'teamMail',
+            description: 'Which address each team\u2019s emails come from' }
         ] }
       ] },
 
@@ -678,6 +688,9 @@
       items.push({ key: 'notifications', label: 'Notifications', sub: 'On this phone, and which ones you get', icon: 'bell-ring', href: 'notifications.html' });
     }
     items.push({ key: 'details', label: 'My details', sub: 'What the church has on file', icon: 'id-card', act: 'details' });
+    /* MY MESSAGES (the events window's my-messages.html, R6/F-206): what the
+       church has emailed me. */
+    items.push({ key: 'messages', label: 'My messages', sub: 'What the church has emailed you', icon: 'inbox', href: 'my-messages.html' });
     /* My groups and Give, as on the app's Me tab (the reviewing window,
        13 Oct 2026). "Open the full website" stays the app's own. */
     items.push({ key: 'groups', label: 'My groups', sub: 'Your groups, and finding one', icon: 'users', href: 'groups.html' });
