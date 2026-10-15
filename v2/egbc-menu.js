@@ -244,10 +244,7 @@
             description: 'How many came on a Sunday, week by week' },
           /* F-176: the pictures events use again and again. */
           { title: 'Picture library', url: 'picture-library.html', icon: 'images', core: true, admin: true, feature: 'pictureLibrary',
-            description: 'Pictures the church uses again and again' },
-          /* The events window's comms.html: every email the church sent. */
-          { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true,
-            description: 'Every email the church sent, and any that failed' }
+            description: 'Pictures the church uses again and again' }
         ] },
         { title: 'Admin', icon: 'settings', core: true, admin: true, children: [
           { title: 'Backup & Restore', url: 'data-tools.html', icon: 'database-backup', core: true, admin: true,

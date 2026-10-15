@@ -76,8 +76,8 @@ const APPROVED = [
     ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
     ['People and email', [['Address Book'], ['Email Compiler']]],
     ['Music', [['Music Upload']]],
-    ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library'], ['Emails sent']]],
-    ['Admin', [['Backup & Restore'], ['Church settings']]]
+    ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library']]],
+    ['Admin', [['Backup & Restore'], ['Church settings'], ['Emails sent']]]
   ]],
   /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
      is not inside any of the lists below. "Care & support" since 14 Oct
@@ -121,6 +121,8 @@ const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler'];
 const SERMONS_ONLY = ['Watch', 'Sermons'];
 /* Payments: the money team (Finance) or a master admin. */
 const MONEY_ONLY = ['Payments'];
+/* Emails sent: master admins only (Martin, 15 Oct 2026). */
+const MASTER_ONLY = ['Emails sent'];
 /* The Care & support inbox: the Pastoral team, the people named in Who gets
    told, and the safeguarding lead and deputy. None of the people here is
    any of those. */
@@ -496,6 +498,7 @@ const READ_MENU = `(() => {
       .filter(w => !(OFFICE_ONLY.includes(w) && !office))
       .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
       .filter(w => !(MONEY_ONLY.includes(w) && !p.masterAdmin && !(p.teams || []).includes('Finance')))
+      .filter(w => !(MASTER_ONLY.includes(w) && !p.masterAdmin))
       .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
@@ -559,7 +562,8 @@ const READ_MENU = `(() => {
       ...(anAdmin ? ['Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Small groups', 'Forms'] : []),
       ...(onCore && anAdmin ? ['Events', 'Places'] : []),
       ...(books ? ['Room bookings'] : []),
-      ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Emails sent', 'Backup & Restore', 'Church settings'] : [])
+      ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Backup & Restore', 'Church settings'] : []),
+      ...(onCore && p.masterAdmin ? ['Emails sent'] : [])
     ];
     ok("  the sidebar lists what they look after, in the Menu's order",
       sidebar === wantAdmin.join('|'),
