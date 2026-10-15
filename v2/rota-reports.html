@@ -17,7 +17,7 @@
 <script src="egbc-auth.js?v=202610141800"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-events.js?v=202610151900"></script>
-<script src="egbc-rota-reports.js?v=202610152000"></script>
+<script src="egbc-rota-reports.js?v=202610152200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -50,7 +50,7 @@
 (function () {
   'use strict';
   var E = window.EGBCEvents, R = window.EGBCRotaReports, esc = E.esc;
-  var TABS = [['gaps', 'Unfilled slots'], ['often', 'How often people serve'], ['person', 'One person\'s serving'], ['none', 'Not on the rota']];
+  var TABS = [['overview', 'Overview'], ['gaps', 'Unfilled slots'], ['clash', 'Clashes'], ['often', 'How often people serve'], ['person', 'One person\'s serving'], ['none', 'Not on the rota']];
   var S = { tab: 'gaps', from: '', to: '', team: '', practices: false, person: '' };
   var DATA = null, MINE = null, ROWS = null;
   function db() { return EGBCAuth.db; }
@@ -84,6 +84,14 @@
       ROWS = S.person ? R.history(DATA, S.person, opt) : [];
       html = S.person ? '<p id="sum" style="font-weight:600;margin:0 0 8px">' + ROWS.length + ' time' + (ROWS.length === 1 ? '' : 's') + ' in these dates.</p>' +
         table(['Date', 'Service', 'Slot', 'Team'], ROWS.map(function (r) { return [fmt(r.date), r.service, r.role, r.team]; })) : '<p class="m">Choose someone above.</p>';
+    } else if (S.tab === 'overview') {
+      ROWS = R.overview(DATA, opt);
+      html = '<p id="sum" style="font-weight:600;margin:0 0 8px">' + ROWS.length + ' service' + (ROWS.length === 1 ? '' : 's') + ': ' + ROWS.reduce(function (n, r) { return n + r.filled; }, 0) + ' of ' + ROWS.reduce(function (n, r) { return n + r.slots; }, 0) + ' slots filled.</p>' +
+        table(['Date', 'Service', 'Time', 'Filled', 'Still empty'], ROWS.map(function (r) { return [fmt(r.date), r.service, r.time, r.filled + ' of ' + r.slots, r.gaps]; }));
+    } else if (S.tab === 'clash') {
+      ROWS = R.clashes(DATA, opt);
+      html = '<p id="sum" style="font-weight:600;margin:0 0 8px">' + (ROWS.length ? ROWS.length + ' clash' + (ROWS.length === 1 ? '' : 'es') + ': someone in two places at once.' : 'No clashes: nobody is in two places at once.') + '</p>' +
+        table(['Date', 'Name', 'One slot', 'The other', 'Why'], ROWS.map(function (r) { return [fmt(r.date), r.name, r.first, r.second, r.why]; }));
     } else {
       ROWS = R.notOnRota(DATA, opt);
       html = '<p id="sum" style="font-weight:600;margin:0 0 8px">' + (ROWS.length ? ROWS.length + ' people on a rota team were not on the rota in these dates.' : 'Everyone on a rota team served in these dates.') + '</p>' +

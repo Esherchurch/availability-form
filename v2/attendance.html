@@ -16,8 +16,14 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610151900"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
+<script src="egbc-door-sheet.js?v=202610152200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* The door sheet (F-210): shown under the page; printed on its own. */
+  #printArea{display:none;margin:18px auto;max-width:860px;padding:0 16px 40px}
+  body.door-on #printArea{display:block}
+  #printArea .door-bar{display:flex;gap:8px;margin:0 0 12px}
+  @media print{ body.door-on > *:not(#printArea){display:none !important} body.door-on #printArea{margin:0;padding:0;max-width:none} #printArea .door-bar{display:none} body{background:#fff !important} }
   :root{
     --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
     --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -69,13 +75,14 @@
 <body>
 <div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
 <div id="toast"></div>
+<div id="printArea" aria-label="Door sheet"></div>
 
 <script>
 (function () {
   'use strict';
   var E = window.EGBCEvents, C = window.EGBCCheckin, esc = E.esc;
   var EVID = new URLSearchParams(location.search).get('event') || '';
-  var EV = null, QS = [], TT = [], SIGNUPS = [], CHECKINS = [], SETTINGS = {}, LOOK = {}, ROWS = [];
+  var EV = null, QS = [], TT = [], SIGNUPS = [], CHECKINS = [], SETTINGS = {}, LOOK = {}, ROWS = [], PAYS = {};
   var SERIES = null;   /* { events: [...], byEvent: { id: { signups, checkins } } } */
 
   function db() { return EGBCAuth.db; }
@@ -160,6 +167,16 @@
         '</div>' +
       '</div>' +
 
+      '<div class="card" id="doorCard"><h2><span class="badge">' + ico('clipboard-check', 17) + '</span>Door sheet</h2>' +
+        '<p class="hint" style="margin-top:0">A sign-up list to print for the door: by surname, a tick box for each person, their ticket, places, and what is still to pay. It is not kept as a record of who came.</p>' +
+        '<p class="hint" style="margin:0 0 4px">Also show:</p><div class="cols">' +
+          '<label class="check"><input type="checkbox" id="dsPhone">Phone</label>' +
+          QS.map(function (q) { var med = C.isMedical(q, SETTINGS); return '<label class="check"><input type="checkbox" class="dsQ" value="' + esc(q.id) + '"' + (med ? ' data-med="1"' : '') + '>' + esc(q.label) + (med ? '<span class="flag warn">Medical</span>' : '') + '</label>'; }).join('') +
+        '</div>' +
+        (QS.some(function (q) { return C.isMedical(q, SETTINGS); }) ? '<div class="banner info">Medical answers are for the people looking after this event. A door sheet that includes one is recorded: who, when and which columns.</div>' : '') +
+        '<div class="bar"><button class="btn sec" id="dsShow">' + ico('printer') + 'Show and print</button><button class="btn sec" id="dsPdf">' + ico('file-down') + 'Door sheet (PDF)</button></div>' +
+      '</div>' +
+
       '<div class="card"><h2><span class="badge">' + ico('printer', 17) + '</span>Printed registers</h2>' +
         '<p class="hint" style="margin-top:0">For when there is no signal: a page with tick boxes for in and out, and a sheet for walk-ins to write their names.</p>' +
         '<div class="bar">' +
@@ -172,6 +189,8 @@
       (EV.seriesId ? '<div class="card" id="seriesCard"><h2><span class="badge">' + ico('calendar-range', 17) + '</span>Across the series</h2>' +
         '<div id="seriesBody"><p class="hint">Loading…</p></div></div>' : '');
 
+    document.getElementById('dsShow').onclick = function () { doorSheet('print'); };
+    document.getElementById('dsPdf').onclick = function () { doorSheet('pdf'); };
     document.getElementById('dlCsv').onclick = function () { download('csv'); };
     document.getElementById('dlXlsx').onclick = function () { download('xlsx'); };
     document.getElementById('pdfReg').onclick = function () { registerPdf([{ ev: EV, rows: ROWS }]); };
@@ -191,6 +210,26 @@
   }
 
   /* ---------- downloads ---------- */
+
+  /* ---------- the door sheet (F-210) ---------- */
+  function doorSheet(how) {
+    var qids = [].slice.call(document.querySelectorAll('.dsQ:checked')).map(function (c) { return c.value; });
+    var cols = [{ label: 'Name' }].concat(QS.filter(function (q) { return qids.indexOf(q.id) >= 0; }).map(function (q) { return { label: q.label, sensitive: C.isMedical(q, SETTINGS) }; }));
+    var m = EGBCDoorSheet.model({ ev: EV, signups: SIGNUPS, tt: TT, qs: QS, pays: PAYS, where: E.locationText(EV, LOOK), cols: { phone: document.getElementById('dsPhone').checked, q: qids } });
+    /* Medical answers only after the download is recorded; no record, no sheet. */
+    logged('door sheet', how === 'pdf' ? 'pdf' : 'print', cols).then(function () {
+      if (how === 'pdf') return lib('pdf').then(function () {
+        var doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        EGBCDoorSheet.pdf(doc, m); doc.save(fileBase() + ' door sheet.pdf');
+      });
+      var pa = document.getElementById('printArea');
+      pa.innerHTML = '<div class="door-bar"><button class="btn" id="dsPrint">' + ico('printer') + 'Print</button><button class="btn ghost" id="dsClose">Close</button></div>' + EGBCDoorSheet.html(m);
+      document.body.classList.add('door-on'); icons();
+      document.getElementById('dsPrint').onclick = function () { window.print(); };
+      document.getElementById('dsClose').onclick = function () { document.body.classList.remove('door-on'); pa.innerHTML = ''; };
+      pa.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }).catch(function (e) { toast(e.message || String(e)); });
+  }
 
   function table(cols) {
     return { head: cols.map(function (c) { return c.label; }), rows: ROWS.map(function (r) { return cols.map(function (c) { return c.get(r); }); }) };
@@ -431,7 +470,8 @@
       E.load(EVID), E.lookups(),
       db().collection('checkinSettings').doc(EVID).get(),
       db().collection('signups').where('calEventId', '==', EVID).get(),
-      db().collection('checkins').where('calEventId', '==', EVID).get()
+      db().collection('checkins').where('calEventId', '==', EVID).get(),
+      db().collection('signupPayments').where('calEventId', '==', EVID).get().catch(function () { return { docs: [] }; })
     ]);
   }).then(function (r) {
     if (!r[0]) throw new Error('That event could not be found.');
@@ -439,6 +479,7 @@
     SETTINGS = r[2].exists ? r[2].data() : {};
     SIGNUPS = r[3].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); });
     CHECKINS = r[4].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    PAYS = {}; (r[5] ? r[5].docs : []).forEach(function (d) { PAYS[d.id] = d.data(); });
     ROWS = C.people(EVID, SIGNUPS, QS, SETTINGS);
     var known = {};
     ROWS.forEach(function (x) { known[x.id] = 1; });

@@ -6417,3 +6417,40 @@ GoCardless that remember each payment, and no webhook secret ever set: a
 full card payment ends in "paid"; paid but never came back; time up
 (closed at Stripe, place given back); refunded; disputed; bank paid;
 bank paid with the time up (kept); a gift started and collected once.
+
+### F-210 — The door sheet; rota clashes and an overview (Martin, 15 Oct)
+
+**The door sheet.** "Can I download a check-in list of attendees for an
+event like I can with ChurchSuite?" On Registers and downloads
+(attendance.html) there's now a **Door sheet** card, made by
+**egbc-door-sheet.js** (new, mine):
+- **a clean A4 page** ("Show and print": printing prints only the sheet)
+  **and a PDF** ("Door sheet (PDF)")
+- bookings **by the surname** of the person who booked, A to Z
+- **a tick box for each named person**, on their own line; places booked
+  without names shown once as "+ 2 more (no name given)"
+- each booking's **ticket, places, "To pay £10.00" / "Paid £15.00 (card)"
+  and notes appear once**, on its first line, so nobody pays twice
+- **the total:** "6 places booked in 3 bookings · £10.00 to collect · 1
+  on the waiting list". Waiting and cancelled people aren't on it.
+- **optional columns,** ticked first: Phone, and each question. **Medical
+  answers** (check-in's medical words, or a question flagged in
+  check-in settings) are marked Medical, and the sheet is made only once
+  the download is recorded (who, when, which columns), like every other
+  download on this page. No record, no sheet.
+- **a sign-up list, not an attendance record** (Martin's rule): it writes
+  nothing about who came. The sheet says so at the bottom.
+
+**Rota reports: two more** (ChurchSuite's; R2 is mine now, so in my page):
+- **Clashes:** someone in two places at once: two slots of different
+  teams at one service (Sound and the Kids Church Session Leader), or
+  two services on the same day whose times overlap. Two slots of the
+  same team at one service (a worship leader who also sings) isn't
+  counted: that's usually meant. A service with no times counts as
+  overlapping anything that day.
+- **Overview** of the dates: each service, its time, "4 of 5" slots
+  filled, and what's still empty.
+- Both have a CSV download.
+
+**Proved:** door-sheet.test 17/17 (A4 screenshot door-sheet-a4.png);
+rota-reports.test 26/26 (was 21).

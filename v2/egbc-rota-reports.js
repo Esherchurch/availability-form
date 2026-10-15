@@ -11,6 +11,8 @@
      frequency(data, opt)          -> [{ key, name, services, slots, teams, last }]
      history(data, key, opt)       -> [{ date, service, role, team }]
      notOnRota(data, opt)          -> [{ key, name, teams }]
+     clashes(data, opt)            -> [{ date, name, first, second, why }]
+     overview(data, opt)           -> [{ date, service, time, filled, slots, people, gaps }]
      services(data, opt)           -> how many services the others counted
      csv(tab, rows)                -> { name, text }
 
@@ -126,6 +128,51 @@
     }).filter(function (p) { return p.teams.length; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
   }
 
+  /* CLASHES (ChurchSuite's "Clashes"; F-210): someone in two places at
+     once - two slots of DIFFERENT teams at the same service (Sound and the
+     Kids Church Session Leader), or two services on the same day whose
+     times overlap. Two slots of the same team at one service (a worship
+     leader who also sings) is often meant, so it is not counted. */
+  function mins(t) { var m = /^(\d{1,2}):(\d{2})/.exec(String(t || '')); return m ? +m[1] * 60 + +m[2] : null; }
+  function overlap(a, b) {
+    var as = mins(a.startTime), ae = mins(a.endTime), bs = mins(b.startTime), be = mins(b.endTime);
+    if (as === null || bs === null) return true;   /* no times given: the same day counts */
+    if (ae === null) ae = as + 90;
+    if (be === null) be = bs + 90;
+    return as < be && bs < ae;
+  }
+  function clashes(data, opt) {
+    var byDay = {}, out = [], seen = {}, evById = {};
+    data.events.forEach(function (ev) { evById[ev.id] = ev; });
+    slotsFor(data, opt).forEach(function (s) { (byDay[s.key + '|' + s.date] = byDay[s.key + '|' + s.date] || []).push(s); });
+    var names = {}; (data.people || []).forEach(function (x) { names[x.key] = x.name; });
+    Object.keys(byDay).forEach(function (k) {
+      var list = byDay[k];
+      for (var i = 0; i < list.length; i++) for (var j = i + 1; j < list.length; j++) {
+        var a = list[i], b = list[j], why = '';
+        if (a.eventId === b.eventId) { if (a.team !== b.team) why = 'the same service'; }
+        else if (overlap(evById[a.eventId], evById[b.eventId])) why = 'at the same time';
+        if (!why) continue;
+        var id = [a.key, a.eventId, a.role, b.eventId, b.role].join('|');
+        if (seen[id]) continue; seen[id] = 1;
+        out.push({ date: a.date, name: names[a.key] || a.name, first: a.role + ' (' + a.service + ')', second: b.role + ' (' + b.service + ')', why: why });
+      }
+    });
+    return out.sort(function (x, y) { return byDate(x, y) || x.name.localeCompare(y.name); });
+  }
+
+  /* OVERVIEW of a date range: each service, how full its slots are, and
+     what is still empty. */
+  function overview(data, opt) {
+    return counted(data, opt).map(function (ev) {
+      var roles = rolesOf(ev).filter(function (r) { return shows(r, opt); });
+      if (!roles.length) return null;
+      var empty = roles.filter(function (r) { return !people((ev.assignments || {})[r]).length; });
+      var who = {}; roles.forEach(function (r) { people((ev.assignments || {})[r]).forEach(function (p) { who[p.key] = 1; }); });
+      return { date: ev.date, service: serviceName(ev), time: String(ev.startTime || ''), filled: roles.length - empty.length, slots: roles.length, people: Object.keys(who).length, gaps: empty.join(', ') };
+    }).filter(Boolean);
+  }
+
   function services(data, opt) {
     return counted(data, opt).filter(function (ev) { return rolesOf(ev).some(function (r) { return shows(r, opt); }); }).length;
   }
@@ -136,10 +183,12 @@
       gaps: ['Unfilled slots', ['Date', 'Service', 'Slot', 'Team'], function (r) { return [r.date, r.service, r.role, r.team]; }],
       often: ['How often people serve', ['Name', 'Services', 'Slots', 'Teams', 'Last served'], function (r) { return [r.name, r.services, r.slots, r.teams.join('; '), r.last]; }],
       person: ['Serving history', ['Date', 'Service', 'Slot', 'Team'], function (r) { return [r.date, r.service, r.role, r.team]; }],
-      none: ['Not on the rota', ['Name', 'Teams'], function (r) { return [r.name, r.teams.join('; ')]; }]
+      none: ['Not on the rota', ['Name', 'Teams'], function (r) { return [r.name, r.teams.join('; ')]; }],
+      clash: ['Clashes', ['Date', 'Name', 'One slot', 'The other', 'Why'], function (r) { return [r.date, r.name, r.first, r.second, r.why]; }],
+      overview: ['Overview', ['Date', 'Service', 'Time', 'Slots filled', 'Slots', 'People', 'Still empty'], function (r) { return [r.date, r.service, r.time, r.filled, r.slots, r.people, r.gaps]; }]
     }[tab];
     return { name: spec[0], text: [spec[1].join(',')].concat(rows.map(function (r) { return spec[2](r).map(q).join(','); })).join('\r\n') };
   }
 
-  global.EGBCRotaReports = { ROTA_TEAMS: ROTA_TEAMS, people: people, load: load, unfilled: unfilled, frequency: frequency, history: history, notOnRota: notOnRota, services: services, csv: csv };
+  global.EGBCRotaReports = { ROTA_TEAMS: ROTA_TEAMS, people: people, load: load, unfilled: unfilled, frequency: frequency, history: history, notOnRota: notOnRota, clashes: clashes, overview: overview, services: services, csv: csv };
 })(typeof window !== 'undefined' ? window : this);

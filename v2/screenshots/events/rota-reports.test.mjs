@@ -91,7 +91,7 @@ await db.collection('events').doc('evp').set(EV(DP, 'Sunday Team Practice', ['Wo
 await db.collection('events').doc('ev4').set(EV(D4, 'Sunday Morning Worship', ['Worship Leader', 'Keyboard', 'Helper 1'], { 'Worship Leader': p('m_g', 'Gina Guitar (invented)') }));
 await db.collection('events').doc('ev5').set(EV(day(-3), 'Sunday Morning Worship', ['Keyboard'], { Keyboard: p('m_h', 'ARCHIVED SERVICE (invented)') }, { archived: true }));
 await db.collection('events').doc('ev6').set(EV(day(-200), 'Sunday Morning Worship', ['Keyboard'], { Keyboard: p('m_d', 'Dan Descant (invented)') }));
-const before = J((await db.collection('events').get()).docs.map(d => [d.id, d.data()]));
+let before = J((await db.collection('events').get()).docs.map(d => [d.id, d.data()]));
 
 const errors = [], browsers = [];
 async function browser(who, width) {
@@ -179,6 +179,34 @@ try {
   const K = await browser('kim');
   await open(K);
   ok('   THE KIDS CHURCH LEADER: only Helper 1', J((await rows(K)).map(r => r[2])) === J(['Helper 1']));
+
+  /* ---------- 10-11. clashes and the overview (F-210) ---------- */
+  /* Bob: Sound at 10:00-11:30 AND a Kids Church helper at the café, 10:30.
+     Cara: Session Leader AND Sound at the same service (two teams).
+     Gina: Singer at 10:00 and Worship Leader at 18:30 - no clash.
+     Alice: Worship Leader and Singer 1 at one service, one team - no clash. */
+  await db.collection('events').doc('ev7').set(EV(D1, 'Café', ['Helper 2'], { 'Helper 2': p('m_b', 'Bob Board (invented)') }, { startTime: '10:30', endTime: '12:00' }));
+  await db.collection('events').doc('ev9').set(EV(D1, 'Evening Worship', ['Worship Leader'], { 'Worship Leader': p('m_g', 'Gina Guitar (invented)') }, { startTime: '18:30', endTime: '19:30' }));
+  await db.collection('events').doc('ev2').update({ 'assignments.Sound': p('m_c', 'Cara Kids (invented)') });
+  before = J((await db.collection('events').get()).docs.map(d => [d.id, d.data()]));
+  await open(M);
+  await tab(M, 'clash');
+  const cl = await rows(M);
+  ok('10. CLASHES: Bob (Sound, and a Kids Church helper at the café at the same time) and Cara (two teams at one service)',
+    cl.length === 2 && cl.some(r => /^Bob/.test(r[1]) && /Sound \(Sunday Morning Worship\)/.test(r[2] + r[3]) && /Helper 2 \(Café\)/.test(r[2] + r[3]) && r[4] === 'at the same time') &&
+    cl.some(r => /^Cara/.test(r[1]) && /Session Leader/.test(r[2] + r[3]) && /Sound/.test(r[2] + r[3]) && r[4] === 'the same service'), J(cl));
+  ok('    not a clash: Alice leading and singing at one service (one team); Gina morning and evening', !cl.some(r => /Alice|Gina/.test(r[1])), J(cl));
+  const c5 = await csvOf(M);
+  ok('    CSV: Clashes', c5 && c5.lines[0] === 'Date,Name,One slot,The other,Why' && c5.lines.length === 3, c5 && J(c5.lines));
+  await tab(M, 'overview');
+  const ov = await rows(M);
+  const ov1 = ov.find(r => r[1] === 'Sunday Morning Worship' && r[3] === '4 of 5');
+  ok('11. OVERVIEW of the dates: each service, slots filled, what is still empty (the first Sunday: 4 of 5, Keyboard)', ov.length === 5 && ov1 && ov1[4] === 'Keyboard' && /5 services: \d+ of \d+ slots filled/.test(await text(M, '#sum')), J(ov));
+  const c6 = await csvOf(M);
+  ok('    CSV: Overview', c6 && c6.lines[0] === 'Date,Service,Time,Slots filled,Slots,People,Still empty' && c6.lines.length === 6, c6 && J(c6.lines));
+  await M.setViewport({ width: 375, height: 800 });
+  await M.screenshot({ path: path.join(HERE, 'rota-reports-overview-375.png'), fullPage: true });
+  await M.setViewport({ width: 1100, height: 900 });
 
   /* ---------- 8. nobody else ---------- */
   const A = await browser('ann');
