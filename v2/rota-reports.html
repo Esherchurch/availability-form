@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rota reports</title>
+<!-- Rota reports (R2, ChurchSuite's "Reports" on Rotas; F-204, F-205).
+     Read-only. Master admins see every team; an area leader sees only the
+     slots of the teams they lead (EGBCAuth.roleTeam, the Planner's own
+     answer to "whose slot is this?"). Serving records only: no
+     attendance of adults. Events window. Feature name: rotaReports. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610141800" data-title="Rota reports"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610141800"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610151900"></script>
+<script src="egbc-rota-reports.js?v=202610152000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--danger:#b0392c;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 5px}
+  select,input[type=date]{min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font:400 14px Inter,sans-serif;background:#fff}
+  .tick{display:flex;gap:8px;align-items:center;min-height:44px;font-weight:500}
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+  .tabs button{flex:none;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:#fff;font:500 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .tabs button[aria-selected="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;border:1px solid var(--line-2);background:#fff;color:var(--ink)}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%}
+  th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
+  td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
+  .m{color:var(--muted);font-size:12px}
+  .gap{color:var(--danger);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card m">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, R = window.EGBCRotaReports, esc = E.esc;
+  var TABS = [['gaps', 'Unfilled slots'], ['often', 'How often people serve'], ['person', 'One person\'s serving'], ['none', 'Not on the rota']];
+  var S = { tab: 'gaps', from: '', to: '', team: '', practices: false, person: '' };
+  var DATA = null, MINE = null, ROWS = null;
+  function db() { return EGBCAuth.db; }
+  function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function fmt(day) { var d = new Date(day + 'T12:00:00'); return isNaN(d) ? day : E.fmtDateShort(d); }
+
+  function load() {
+    document.getElementById('out').innerHTML = '<p class="m">Loading…</p>';
+    return R.load({ db: db(), from: S.from, to: S.to }).then(function (d) { DATA = d; draw(); })
+      .catch(function (e) { document.getElementById('out').innerHTML = '<p class="gap">' + esc(e.message || e) + '</p>'; });
+  }
+  function teamsShown() { return S.team ? [S.team] : MINE; }
+  function draw() {
+    document.querySelectorAll('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === S.tab)); });
+    document.getElementById('personBox').style.display = S.tab === 'person' ? '' : 'none';
+    if (!DATA) return;
+    var opt = { teams: teamsShown(), practices: S.practices };
+    var out = document.getElementById('out'), html = '';
+    if (S.tab === 'gaps') {
+      ROWS = R.unfilled(DATA, opt);
+      html = '<p id="sum" style="font-weight:600;margin:0 0 8px">' + (ROWS.length ? ROWS.length + ' unfilled slot' + (ROWS.length === 1 ? '' : 's') : 'Every slot is filled.') + '</p>' +
+        table(['Date', 'Service', 'Slot', 'Team'], ROWS.map(function (r) { return [fmt(r.date), r.service, r.role, r.team]; }));
+    } else if (S.tab === 'often') {
+      ROWS = R.frequency(DATA, opt);
+      html = '<p id="sum" style="font-weight:600;margin:0 0 8px">' + ROWS.length + ' people served on ' + R.services(DATA, opt) + ' services.</p>' +
+        table(['Name', 'Services', 'Slots', 'Teams', 'Last served'], ROWS.map(function (r) { return [r.name, r.services, r.slots, r.teams.join(', '), r.last ? fmt(r.last) : '']; }));
+    } else if (S.tab === 'person') {
+      var people = R.frequency(DATA, opt), sel = document.getElementById('person');
+      sel.innerHTML = '<option value="">Choose someone…</option>' + people.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
+        .map(function (p) { return '<option value="' + esc(p.key) + '"' + (p.key === S.person ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
+      ROWS = S.person ? R.history(DATA, S.person, opt) : [];
+      html = S.person ? '<p id="sum" style="font-weight:600;margin:0 0 8px">' + ROWS.length + ' time' + (ROWS.length === 1 ? '' : 's') + ' in these dates.</p>' +
+        table(['Date', 'Service', 'Slot', 'Team'], ROWS.map(function (r) { return [fmt(r.date), r.service, r.role, r.team]; })) : '<p class="m">Choose someone above.</p>';
+    } else {
+      ROWS = R.notOnRota(DATA, opt);
+      html = '<p id="sum" style="font-weight:600;margin:0 0 8px">' + (ROWS.length ? ROWS.length + ' people on a rota team were not on the rota in these dates.' : 'Everyone on a rota team served in these dates.') + '</p>' +
+        table(['Name', 'Teams'], ROWS.map(function (r) { return [r.name, r.teams.join(', ')]; }));
+    }
+    out.innerHTML = html + (ROWS && ROWS.length ? '<div style="margin-top:12px"><button class="btn" id="csv">Download (CSV)</button></div>' : '');
+    var c = document.getElementById('csv'); if (c) c.onclick = csv;
+  }
+  function table(head, rows) {
+    if (!rows.length) return '';
+    return '<div class="scroll"><table id="table"><thead><tr>' + head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr data-row>' + r.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+  }
+  function csv() {
+    var f = R.csv(S.tab, ROWS);
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + f.text], { type: 'text/csv;charset=utf-8' }));
+    a.download = f.name + ' ' + S.from + ' to ' + S.to + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  EGBCAuth.require().then(function () {
+    var master = EGBCAuth.isMaster && EGBCAuth.isMaster(), areas = (EGBCAuth.adminAreas && EGBCAuth.adminAreas()) || [];
+    if (!master && !areas.length) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>This page is for master admins and the leaders of rota teams.</p></div>'; return; }
+    if (window.EGBCChurch && EGBCChurch.uses && EGBCChurch.uses('rotaReports') === false) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>Rota reports are switched off for this church.</p></div>'; return; }
+    /* An area leader: only the rota teams they lead. */
+    MINE = master ? null : areas.filter(function (t) { return R.ROTA_TEAMS.indexOf(t) >= 0; });
+    if (MINE && !MINE.length) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>You lead no team with a rota, so there is nothing to show.</p></div>'; return; }
+    var now = new Date(), back = new Date(); back.setMonth(back.getMonth() - 3);
+    var ahead = new Date(); ahead.setMonth(ahead.getMonth() + 3);
+    S.from = ymd(back); S.to = ymd(ahead);
+    var teams = MINE || R.ROTA_TEAMS;
+    document.getElementById('wrap').innerHTML = '<h1>Rota reports</h1><p class="sub">Who serves, how often, and the gaps' + (MINE ? ': ' + esc(MINE.join(', ')) : '') + '. From the rotas as they are saved; nothing else.</p>' +
+      '<div class="tabs" role="tablist">' + TABS.map(function (t) { return '<button role="tab" data-tab="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>' +
+      '<div class="card"><div class="bar">' +
+        '<div><label for="from">From</label><input type="date" id="from" value="' + S.from + '"></div>' +
+        '<div><label for="to">To</label><input type="date" id="to" value="' + S.to + '"></div>' +
+        (teams.length > 1 ? '<div><label for="team">Team</label><select id="team"><option value="">' + (MINE ? 'All my teams' : 'All teams') + '</option>' + teams.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('') + '</select></div>' : '') +
+        '<div id="personBox" style="display:none"><label for="person">Who</label><select id="person"></select></div>' +
+        '<label class="tick"><input type="checkbox" id="practices">Include practices</label>' +
+      '</div></div><div class="card" id="out"></div>';
+    document.querySelectorAll('.tabs button').forEach(function (b) { b.onclick = function () { S.tab = b.getAttribute('data-tab'); draw(); }; });
+    document.getElementById('from').onchange = function () { S.from = this.value; load(); };
+    document.getElementById('to').onchange = function () { S.to = this.value; load(); };
+    var t = document.getElementById('team'); if (t) t.onchange = function () { S.team = this.value; draw(); };
+    document.getElementById('person').onchange = function () { S.person = this.value; draw(); };
+    document.getElementById('practices').onchange = function () { S.practices = this.checked; draw(); };
+    return load();
+  }).catch(function (e) { document.getElementById('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

@@ -6144,3 +6144,40 @@ Each service is one `events/{id}` with `roles[]` and
 5. R1: more ministries' rotas, starting with whichever Martin names.
 6. R2 reports: not on any rota, serving frequency, personal history.
 7. Unavailability as date ranges.
+
+### F-205 — R2 built: rota reports (moved from the main window's list)
+
+**rota-reports.html** (new, mine) with **egbc-rota-reports.js** (new,
+mine). Read-only, for master admins and the leaders of rota teams.
+Feature name **rotaReports**.
+- **Unfilled slots** in the dates chosen: date, service, slot, team.
+- **How often people serve:** services and slots per person, their teams,
+  and when they last served (never a date still to come).
+- **One person's serving:** date by date.
+- **Not on the rota:** people on a rota team (Choir counts as Worship)
+  who weren't on it in those dates. Archived people are left out.
+- **CSV download** of each, the same as the screen. A cell starting with
+  = + - @ gets a ' in front so a spreadsheet won't run it as a formula.
+- **Dates:** three months back to three months ahead to start with; any
+  range can be chosen. Practices are left out unless "Include practices"
+  is ticked, because a practice copies the Sunday's people and would
+  count everyone twice.
+
+**Read as the planners save them:** `events` (date, type, roles,
+assignments), skipping archived and draft services. **A role may hold
+one person or a list** (F-204's fault): every count reads every person
+in it. Whose slot is whose comes from `EGBCAuth.roleTeam`, the Planner's
+own answer, not a copy.
+
+**Who sees what:** a master admin sees every team. An area leader
+(`adminFor`) sees only the rota teams they lead: Worship, AV or Kids
+Church slots and people. Anyone else is turned away. The rules already
+allow these reads (events: volunteers; address book: admins). Serving
+records only: nothing about who came to church.
+
+**For the main window:** a Menu entry for rota-reports.html (master
+admins and rota team leaders), and a link from the Planner if wanted.
+
+**Proved:** rota-reports.test 21/21, including a role holding two people,
+an archived service, a practice, a future date, two area leaders and an
+attender. The page writes nothing (the services are unchanged after).
