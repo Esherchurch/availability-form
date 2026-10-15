@@ -313,6 +313,18 @@ const offMachine = u => {
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
   await put('churchSettings/giving', GIVING);
 
+  /* ---- "Give regularly by Direct Debit" (15 Oct 2026) ------------- */
+  console.log('\ngiving regularly by Direct Debit');
+  await put('paymentSettings/public', { bank: false });
+  state = await openPage('give.html'); await sleep(1500);
+  ok('  not offered while the church does not take Direct Debits',
+    String(await ev('!!document.getElementById("dd-link")')) === 'false');
+  await put('paymentSettings/public', { bank: true });
+  state = await openPage('give.html'); await sleep(1500);
+  ok('  offered once it does, and goes to give-regularly.html',
+    String(await ev('(document.querySelector("#dd-link a")||{}).getAttribute ? document.querySelector("#dd-link a").getAttribute("href") : ""')) === 'give-regularly.html');
+  await del('paymentSettings/public');
+
   /* ---- who may set them ------------------------------------------ */
   console.log('\nthe settings card, on the church details page');
   await signInAs('office');

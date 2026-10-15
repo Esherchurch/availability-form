@@ -244,7 +244,10 @@
             description: 'How many came on a Sunday, week by week' },
           /* F-176: the pictures events use again and again. */
           { title: 'Picture library', url: 'picture-library.html', icon: 'images', core: true, admin: true, feature: 'pictureLibrary',
-            description: 'Pictures the church uses again and again' }
+            description: 'Pictures the church uses again and again' },
+          /* The events window's comms.html: every email the church sent. */
+          { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true,
+            description: 'Every email the church sent, and any that failed' }
         ] },
         { title: 'Admin', icon: 'settings', core: true, admin: true, children: [
           { title: 'Backup & Restore', url: 'data-tools.html', icon: 'database-backup', core: true, admin: true,
@@ -659,8 +662,16 @@
     const A = window.EGBCAuth;
     return p || (A && A.profile && A.profile()) || {};
   }
+  /* A PAGE'S OWN ITEMS, at the top (15 Oct 2026). The hub's top bar has no
+     room on a phone for Latest notices, Edit and Administration, so on a
+     phone they come here instead: window.EGBC_YOU_EXTRA() returns
+     [{ key: 'x-...', label, sub, icon, run }]. */
+  function youExtra() {
+    try { return (typeof window.EGBC_YOU_EXTRA === 'function' ? window.EGBC_YOU_EXTRA() : []) || []; } catch (e) { return []; }
+  }
   function youItems(p) {
     const me = youWho(p), items = [];
+    youExtra().forEach(function (x) { items.push({ key: x.key, label: x.label, sub: x.sub || '', icon: x.icon || 'circle', act: x.key }); });
     if (!window.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses('notifications')) {
       items.push({ key: 'notifications', label: 'Notifications', sub: 'On this phone, and which ones you get', icon: 'bell-ring', href: 'notifications.html' });
     }
@@ -763,6 +774,12 @@
   }
   function youAct(key) {
     if (key === 'back') { youDraw('menu'); return; }
+    if (String(key).indexOf('x-') === 0) {
+      const x = youExtra().filter(function (i) { return i.key === key; })[0];
+      youClose(false);
+      if (x && x.run) x.run();
+      return;
+    }
     if (key === 'details') { youDraw('details'); return; }
     if (key === 'signout') { youClose(false); if (window.EGBCAuth) EGBCAuth.signOut(); return; }
     if (key === 'calendar') {

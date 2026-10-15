@@ -54,6 +54,7 @@ const APPROVED = [
   ['Give'],
   /* Gift Aid (F-169): each person's own declaration. */
   ['Gift Aid'],
+  ['Payments'],
   /* Notifications (FINDINGS-notify N-5), for everybody signed in. */
   ['Notifications'],
   ['Hire our rooms'],
@@ -75,7 +76,7 @@ const APPROVED = [
     ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
     ['People and email', [['Address Book'], ['Email Compiler']]],
     ['Music', [['Music Upload']]],
-    ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library']]],
+    ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library'], ['Emails sent']]],
     ['Admin', [['Backup & Restore'], ['Church settings']]]
   ]],
   /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
@@ -103,7 +104,7 @@ const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & A
 const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Planner',
   'Availability form', 'Music',
   'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings',
-  'Event check-in', 'Registers', 'Headcounts', 'Picture library'];
+  'Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Emails sent'];
 /* NEXT-BRIEF §25: the Address Book and the Email Compiler left CORE_ONLY.
    They follow the Running things tabs - People and Send - which come from a
    group, because the church administrator may not be on Core Team and a
@@ -118,6 +119,8 @@ const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler'];
 /* Watch (F-164): master admins and the people named in sermonShow/access.
    None of the people here is named there, so it is the master admin's. */
 const SERMONS_ONLY = ['Watch', 'Sermons'];
+/* Payments: the money team (Finance) or a master admin. */
+const MONEY_ONLY = ['Payments'];
 /* The Care & support inbox: the Pastoral team, the people named in Who gets
    told, and the safeguarding lead and deputy. None of the people here is
    any of those. */
@@ -141,7 +144,7 @@ function firstDifference(seen, expected) {
 }
 
 const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings',
-  'Event check-in', 'Registers', 'Headcounts', 'Picture library',
+  'Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Emails sent',
   /* Any admin (none of these people is the safeguarding lead, who would
      see Safeguarding too). */
   'Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Groups and forms', 'Small groups', 'Forms',
@@ -304,7 +307,8 @@ const READ_MENU = `(() => {
     'socialmaker.html': 'Calla Design, out of scope', 'Videoeditor.html': 'Calla Design, out of scope',
     'mix-builder.html': 'Martin\'s mix tools, out of scope', 'mix-player.html': 'Martin\'s mix tools, out of scope',
     'mix-analyser.html': 'Martin\'s mix tools, out of scope',
-    'Handover.html': 'a one-off note, not part of the suite', 'SharepointHeader.html': 'a fragment, not a page'
+    'Handover.html': 'a one-off note, not part of the suite', 'SharepointHeader.html': 'a fragment, not a page',
+    'give-regularly.html': 'linked from Give, when the church takes Direct Debits'
   };
   {
     const src = fs.readFileSync(path.join(V2, 'egbc-menu.js'), 'utf8');
@@ -491,6 +495,7 @@ const READ_MENU = `(() => {
     const expected = want
       .filter(w => !(OFFICE_ONLY.includes(w) && !office))
       .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
+      .filter(w => !(MONEY_ONLY.includes(w) && !p.masterAdmin && !(p.teams || []).includes('Finance')))
       .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
@@ -554,7 +559,7 @@ const READ_MENU = `(() => {
       ...(anAdmin ? ['Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Small groups', 'Forms'] : []),
       ...(onCore && anAdmin ? ['Events', 'Places'] : []),
       ...(books ? ['Room bookings'] : []),
-      ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Backup & Restore', 'Church settings'] : [])
+      ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Emails sent', 'Backup & Restore', 'Church settings'] : [])
     ];
     ok("  the sidebar lists what they look after, in the Menu's order",
       sidebar === wantAdmin.join('|'),

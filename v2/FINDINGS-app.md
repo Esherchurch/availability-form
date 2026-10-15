@@ -3016,3 +3016,29 @@ a concern would have been refused even though the hub said a lead was set.
 
 **Needs functions:hub deployed** (`careStatusFromSettings`,
 `careStatusFromSite` and `careStatusSync` all run it).
+
+### A-092 — the hub's top bar fits a phone; notice pictures; Payments and Emails sent (15 Oct 2026)
+
+- **The hub's top bar on a phone** (Martin's 412px phone: the initials were
+  cut off):
+  - Menu, Care (in words) and the initials stay in the bar.
+  - The team button reads **"Home shows: Worship"** on a computer. On a
+    phone it moves under the banner as "Home: Worship · Change". The picker
+    says "This changes what Home shows first. It doesn't change what you
+    can open."
+  - Latest notices, Edit and Administration go into the "you" menu on a
+    phone (`window.EGBC_YOU_EXTRA`, egbc-menu.js).
+  - The banner's words are smaller on a phone.
+  - check-hub-phone-bar 28/28 at 360, 375 and 412px, plus 1280. Two breaks
+    caught. Screenshots in tests/shots/hub-phone-bar--*.png.
+- **Notice pictures are banners:** at most 180px tall on a phone and 220px on
+  a computer, cropped, rounded, and never wider than the words. Tap one to
+  see it whole (`EGBCUI.zoomIn`). This applies to the app's Notices and the
+  hub's Latest and pinned notices. check-notice-pictures 18/18, two breaks
+  caught.
+- **Menu:** Payments (the money team, Finance, or a master admin) and Emails
+  sent (under Events and rooms). Give regularly is reached from Give.
+- **The Give page** links "Give regularly by Direct Debit" when
+  `paymentSettings/public.bank` is true. check-give 43/43.
+- **Still to do from Martin's 14 Oct note:** the "Viewing as" strip at the
+  top of every page.

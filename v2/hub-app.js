@@ -113,8 +113,19 @@ function applyTeam() {
   const btn = document.getElementById('teamSwitch');
   if (availableTeams().length > 1) {
     btn.style.display = '';
-    btn.innerHTML = `<span class="dot" style="background:${c.colour}"></span><span>${esc(c.label)}</span>` +
+    /* "HOME SHOWS: WORSHIP" (Martin, 14 Oct 2026): he read "Worship" as who
+       he was signed in as, while View the site as said Myself. It is only
+       what Home puts first. */
+    btn.innerHTML = `<span class="dot" style="background:${c.colour}"></span><span>Home shows: ${esc(c.label)}</span>` +
       '<i data-lucide="chevron-down" style="width:15px;height:15px;color:var(--muted)"></i>';
+    btn.title = 'What Home shows first. It does not change what you can open.';
+    /* On a phone it lives under the banner instead of in the top bar. */
+    const hs = document.getElementById('homeShows');
+    if (hs) {
+      hs.hidden = false;
+      hs.innerHTML = `<span class="dot" style="width:8px;height:8px;border-radius:50%;background:${c.colour}"></span>` +
+        `<span>Home: <b>${esc(c.label)}</b></span><button class="btn sm ghost" onclick="openTeamPicker()">Change</button>`;
+    }
   }
   loadHero();
   loadCharter();
@@ -124,6 +135,25 @@ function applyTeam() {
   renderWatch();
   renderWaiting();
   checkSgLead();
+  /* ON A PHONE the top bar keeps only Menu, Care and the initials; these
+     come into the "you" menu instead (egbc-menu.js EGBC_YOU_EXTRA). */
+  window.EGBC_YOU_EXTRA = function () {
+    if ((window.innerWidth || 1024) > 700) return [];
+    const out = [];
+    const unread = String((document.getElementById('latestCount') || {}).textContent || '').trim();
+    out.push({ key: 'x-latest', label: 'Latest notices' + (unread && unread !== '0' ? ' (' + unread + ' new)' : ''),
+      sub: 'From the church and your teams', icon: 'megaphone', run: function () { openLatest(); } });
+    const ed = document.getElementById('editModeBtn');
+    if (ed && ed.style.display !== 'none') {
+      out.push({ key: 'x-edit', label: (ed.textContent || 'Edit').trim() || 'Edit', sub: 'Change what this page shows', icon: 'pencil',
+        run: function () { toggleEditMode(); } });
+    }
+    const ad = document.getElementById('adminBtn');
+    if (ad && ad.style.display !== 'none') {
+      out.push({ key: 'x-admin', label: 'Administration', sub: 'The settings you look after', icon: 'settings', run: function () { openAdmin(); } });
+    }
+    return out;
+  };
   /* A notice's picture is a banner; tapped, it opens whole (egbc-ui.js). */
   if (window.EGBCUI && EGBCUI.zoomIn) ['.nw .bd', '.pin .bd', '#noticesCard'].forEach(EGBCUI.zoomIn);
   renderServing();

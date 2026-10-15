@@ -169,7 +169,10 @@ const offMachine = u => {
     + 'var items=m?[].slice.call(m.querySelectorAll("[role=menuitem]")):[];'
     + 'var r=m?m.getBoundingClientRect():null;'
     + 'return JSON.stringify({ open: !!m, expanded: b && b.getAttribute("aria-expanded"), popup: b && b.getAttribute("aria-haspopup"),'
-    + ' role: m && m.getAttribute("role"), keys: items.map(function(i){return i.getAttribute("data-you")}).join(","),'
+    /* keys: the shared menu. A page's own extras (x-..., the hub's Latest
+       notices and Edit on a phone - EGBC_YOU_EXTRA) are counted apart. */
+    + ' role: m && m.getAttribute("role"), keys: items.map(function(i){return i.getAttribute("data-you")}).filter(function(k){return k.indexOf("x-")!==0}).join(","),'
+    + ' extra: items.map(function(i){return i.getAttribute("data-you")}).filter(function(k){return k.indexOf("x-")===0}).join(","),'
     + ' minH: items.length ? Math.min.apply(null, items.map(function(i){return i.getBoundingClientRect().height})) : 0,'
     + ' left: r ? Math.round(r.left) : 0, right: r ? Math.round(r.right) : 0, vw: window.innerWidth,'
     + ' sideways: document.documentElement.scrollWidth > window.innerWidth,'
@@ -240,6 +243,9 @@ const offMachine = u => {
   await click('#av');
   let h = await waitOpen('#av');
   ok('  they open THE SAME menu, in the same order', h.open && h.keys === ORDER && h.expanded === 'true', JSON.stringify(h));
+  /* 15 Oct 2026: on a phone the hub's top bar keeps only Menu, Care and the
+     initials, so Latest notices comes here, first. */
+  ok('  and on a phone, the hub adds Latest notices at the top', h.vw > 700 || /^x-latest/.test(h.extra || ''), JSON.stringify({ vw: h.vw, extra: h.extra }));
   await click('#egbc-you [data-you=calendar]'); await sleep(1500);
   ok('  Add to my calendar opens the sheet right there',
     (await ev('document.getElementById("calendarModal").classList.contains("on")')) === true);
