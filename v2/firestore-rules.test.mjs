@@ -3268,6 +3268,32 @@ await check('  and a made-up tab is refused', 'deny',
   () => setDoc(doc(as('martin'), 'teams', 'Elders'),
     { name: 'Elders', label: 'Elders', rota: false, runs: ['everything'] }));
 
+/* TEAMS & GROUPS (Martin, 15 Oct 2026): the Church office looks after the
+   list too - add, rename, recolour, order, archive - but never `runs`, which
+   is what a group may do. That stays a master admin's. */
+await check('the office adds a group with no tabs', 'allow',
+  () => setDoc(doc(as('officeAdmin'), 'teams', 'Welcome team'),
+    { name: 'Welcome team', label: 'Welcome team', colour: '#0f766e', rota: false,
+      under18: false, order: 9, archived: false }));
+await check('  and relabels, recolours, orders and archives it', 'allow',
+  () => updateDoc(doc(as('officeAdmin'), 'teams', 'Welcome team'),
+    { label: 'Welcome', colour: '#b45309', order: 3, archived: true }));
+await check('  but cannot add one that runs things', 'deny',
+  () => setDoc(doc(as('officeAdmin'), 'teams', 'Treasury'),
+    { name: 'Treasury', label: 'Treasury', rota: false, runs: ['send'] }));
+await check('  nor give an existing one tabs', 'deny',
+  () => updateDoc(doc(as('officeAdmin'), 'teams', 'Welcome team'), { runs: ['people'] }));
+await check('  nor take tabs away', 'deny',
+  () => updateDoc(doc(as('officeAdmin'), 'teams', 'Church office'), { runs: [] }));
+await check('  but can relabel a group that does run things', 'allow',
+  () => updateDoc(doc(as('officeAdmin'), 'teams', 'Church office'), { label: 'Church office' }));
+await check('  and never deletes one: archive, so markers and history stay', 'deny',
+  () => deleteDoc(doc(as('officeAdmin'), 'teams', 'Welcome team')));
+await check('  nor a master admin', 'deny',
+  () => deleteDoc(doc(as('martin'), 'teams', 'Welcome team')));
+await check('an unknown field is refused', 'deny',
+  () => updateDoc(doc(as('martin'), 'teams', 'Welcome team'), { secret: 1 }));
+
 /* THE ONE THAT MATTERS. `runs` is mirrored onto users/{uid} so the app and
    the Menu can read it without a second query - and a mirror is only safe
    if the person cannot write their own. */

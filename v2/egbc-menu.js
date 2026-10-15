@@ -224,7 +224,12 @@
           { title: 'Address Book', url: 'addressbook.html', icon: 'book-user', runs: 'people',
             description: 'Who is on which team, and how to reach them' },
           { title: 'Email Compiler', url: 'EmailBuilder2.html', icon: 'mail', runs: 'send',
-            description: 'Write and send to a team' }
+            description: 'Write and send to a team' },
+          /* Martin, 15 Oct 2026: the one list of teams and groups, kept by
+             master admins and the Church office (the page's guard and
+             firestore.rules say the same). */
+          { title: 'Teams & groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',
+            description: 'Add, rename, recolour, order and archive teams' }
         ] },
         { title: 'Music', icon: 'music-2', core: true, children: [
           { title: 'Music Upload', url: 'music-uploader.html', icon: 'file-music', core: true,

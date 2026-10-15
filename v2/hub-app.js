@@ -65,9 +65,17 @@ const TEAM_KEY = 'egbc_hub_team';
 let TEAM = null;
 
 function availableTeams() {
-  return EGBCAuth.isMaster()
-    ? Object.keys(EGBCAuth.TEAMS).filter(t => !EGBCAuth.TEAMS[t].parent)
-    : EGBCAuth.tabTeams();
+  /* Every team and group this person is in (every one, for a master
+     admin), from the one list (Teams & groups), in the church's order. */
+  return EGBCAuth.homeChoices ? EGBCAuth.homeChoices()
+    : (EGBCAuth.isMaster() ? Object.keys(EGBCAuth.TEAMS).filter(t => !EGBCAuth.TEAMS[t].parent) : EGBCAuth.tabTeams());
+}
+/* "EVERYONE" (Martin, 15 Oct 2026): what a member on no team sees - first in
+   the Home choices, for everybody. */
+const EVERYONE = (window.EGBCAuth && EGBCAuth.EVERYONE) || '__everyone';
+function teamLook(t) {
+  if (t === EVERYONE) return { label: 'Everyone', colour: '#9ca3af' };
+  return EGBCAuth.TEAMS[t] || { label: t, colour: 'var(--brand)' };
 }
 
 function openTeamPicker() {
@@ -79,16 +87,18 @@ function openTeamPicker() {
     ? 'Notices from all your teams show either way.'
     : "You're on more than one. You can switch whenever you like.";
 
-  document.getElementById('pickList').innerHTML = teams.map(t => {
-    const c = EGBCAuth.TEAMS[t] || { label: t, colour: 'var(--brand)' };
+  document.getElementById('pickList').innerHTML = [EVERYONE].concat(teams).map(t => {
+    const c = teamLook(t);
     /* No "N tools" any more. It counted registry entries whose team matched,
        and it read 0 for every team, because this picker opens before the
        registry has loaded. It would be wrong even once it loaded: since Step N
        the Menu is not grouped by team - everybody sees the same structure, and
        only Core Team adds to it - so a per-team count says nothing true. What
        the team changes is which notices you see, which the line below says. */
-    return `<button class="pick-t" onclick="chooseTeam('${t}')">
-      <span style="width:10px;height:10px;border-radius:50%;background:${c.colour};flex-shrink:0;margin:0 4px"></span>
+    /* The id rides in data-team, not inside the onclick: teams are named on
+       Teams & groups now, and "Men's breakfast" would end the string. */
+    return `<button class="pick-t" data-team="${esc(t)}" onclick="chooseTeam(this.dataset.team)">
+      <span style="width:10px;height:10px;border-radius:50%;background:${esc(c.colour)};flex-shrink:0;margin:0 4px"></span>
       <span style="flex:1"><span class="nm">${esc(c.label)}</span></span>
       <i data-lucide="chevron-right" style="width:16px;height:16px;color:var(--faint)"></i>
     </button>`;
@@ -109,9 +119,10 @@ function chooseTeam(t) {
 }
 
 function applyTeam() {
-  const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM, colour: 'var(--brand)' };
+  const c = teamLook(TEAM);
   const btn = document.getElementById('teamSwitch');
-  if (availableTeams().length > 1) {
+  /* Everyone plus at least one team is a choice. */
+  if (availableTeams().length >= 1) {
     btn.style.display = '';
     /* "HOME SHOWS: WORSHIP" (Martin, 14 Oct 2026): he read "Worship" as who
        he was signed in as, while View the site as said Myself. It is only
@@ -183,8 +194,10 @@ EGBCAuth.require().then(async profile => {
 
   const teams = availableTeams();
   const saved = localStorage.getItem(TEAM_KEY);
-  if (teams.length === 1) { TEAM = teams[0]; }
-  else if (saved && teams.includes(saved)) { TEAM = saved; }
+  /* On no team: Everyone, with nothing to choose. */
+  if (!teams.length) { TEAM = EVERYONE; }
+  else if (saved && (saved === EVERYONE || teams.includes(saved))) { TEAM = saved; }
+  else if (teams.length === 1) { TEAM = teams[0]; }
 
   if (!TEAM && teams.length > 1) openTeamPicker();
   else applyTeam();

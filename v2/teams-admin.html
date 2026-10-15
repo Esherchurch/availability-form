@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610141200"></script>
+<script src="egbc-shell.js?v=202610151900" data-title="Teams &amp; groups"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Teams &amp; groups — EGBC</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-guard.js?v=202610121600" data-team="Church office"></script>
+<style>
+  :root{
+    --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
+    --faint:#9ca3af; --line:#e5e7eb; --line-2:#d1d5db; --brand:#3d6263; --brand-dark:#2a4a4b;
+    --tint:#eef5f4; --ring:rgba(61,98,99,.15); --danger:#b0392c; --ok:#15803d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:15px;font-weight:600;color:var(--ink);margin:22px 0 8px}
+  .lede{margin:0 0 6px;color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        box-shadow:0 1px 2px rgba(16,24,40,.05);padding:14px 16px;margin-bottom:10px}
+  .empty{color:var(--muted)}
+  .team{display:grid;grid-template-columns:auto 1fr auto;gap:10px 12px;align-items:center}
+  .team.gone{opacity:.65}
+  .sw{width:44px;height:44px;border:1px solid var(--line-2);border-radius:10px;padding:2px;background:#fff;cursor:pointer}
+  .name input{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;
+              font:500 15px Inter,system-ui,sans-serif;color:var(--ink)}
+  .name input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
+  .name .id{display:block;font-size:12px;color:var(--faint);margin-top:3px}
+  .move{display:flex;gap:6px}
+  .ic{width:44px;height:44px;border-radius:8px;border:1px solid var(--line-2);background:#fff;color:var(--ink);
+      font:600 16px Inter,system-ui,sans-serif;cursor:pointer}
+  .ic[disabled]{opacity:.35;cursor:default}
+  .opts{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:4px 18px;align-items:center}
+  .tick{display:inline-flex;gap:8px;align-items:center;min-height:44px;cursor:pointer;color:var(--ink)}
+  .tick input{width:18px;height:18px;accent-color:var(--brand)}
+  .tick input[disabled]{cursor:default}
+  .fixed{font-size:13px;color:var(--muted)}
+  .runs{grid-column:1 / -1;font-size:13px;color:var(--muted)}
+  .runs .tick{color:var(--body);margin-right:14px}
+  .saved{grid-column:1 / -1;font-size:12px;color:var(--ok);min-height:0;margin:0}
+  .saved.err{color:var(--danger)}
+  .add{display:flex;gap:8px;flex-wrap:wrap}
+  .add input{flex:1 1 220px;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;
+             font:400 15px Inter,system-ui,sans-serif;color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:8px;
+       border:1px solid var(--brand);background:var(--brand);color:#fff;font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
+  .note{font-size:13px;color:var(--muted);margin:6px 0 0}
+  .bar{display:flex;justify-content:flex-end;margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Teams &amp; groups</h1>
+  <p class="lede">Every team and group the church has. This is the one list: the Home choices,
+    "View the site as", the address book ticks and the events pages all read it.</p>
+  <p class="lede">Changes save as you make them. Archiving hides a team from choices but never takes it off
+    anybody, so nothing is lost and it can be brought back.</p>
+
+  <h2>Add a team or group</h2>
+  <div class="card">
+    <form class="add" id="addForm">
+      <label for="newName" class="fixed" style="flex-basis:100%">Its name can't be changed later (its label can)</label>
+      <input id="newName" maxlength="40" placeholder="For example, Hospitality" autocomplete="off">
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <label class="tick"><input type="checkbox" id="newIsGroup"> A group, not a rota team (like Elders or Finance)</label>
+    <p class="saved" id="addMsg" role="status"></p>
+  </div>
+
+  <h2 id="listHead">The list</h2>
+  <div class="bar"><label class="tick"><input type="checkbox" id="showGone"> Show archived</label></div>
+  <div id="list"><div class="card empty">Loading…</div></div>
+</div>
+<script>
+/* TEAMS & GROUPS (Martin, 15 Oct 2026).
+   The one list of the church's teams and groups, kept in the `teams`
+   collection. egbc-auth.js's TEAMS table is only the fallback for a team
+   nobody has saved here yet; saving any change writes the team down.
+
+   FIELD NAMES ARE SHARED: the events window reads label, name, archived and
+   order (F-211). Never rename them. A team's id is its name and is never
+   changed - archive it and add a new one instead, because the id is what
+   every address book record, rota and marker points at.
+
+   WHO: master admins and the Church office (firestore.rules, match /teams).
+   The office cannot change `runs` - what a group may run - which stays a
+   master admin's. Nobody deletes a team; archiving keeps every marker.
+
+   "Works with under-18s" is SHOWN, not edited: the rules hold the same
+   list (they cannot read this collection), and a tick here alone would
+   say a team is protected when it is not. check-under18-teams-agree. */
+const db = firebase.firestore(EGBCAuth.app);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const RUNS = [['today', 'Today'], ['people', 'People'], ['bookings', 'Bookings'], ['send', 'Send']];
+let MASTER = false, SHOW_GONE = false, ROWS = [];
+
+async function load() {
+  MASTER = EGBCAuth.isMaster();
+  const T = EGBCAuth.TEAMS || {};
+  let saved = {};
+  try {
+    const snap = await db.collection('teams').get();
+    snap.forEach(d => { saved[d.id] = d.data(); });
+  } catch (e) {
+    console.error('teams-admin: could not load', e);
+    $('list').innerHTML = '<div class="card empty">The list could not be loaded. Please try again.</div>';
+    return;
+  }
+  const ids = [...new Set(Object.keys(T).concat(Object.keys(saved)))];
+  ROWS = ids.map(id => {
+    const d = saved[id] || {}, t = T[id] || {};
+    return {
+      id, saved: !!saved[id],
+      label: d.label || t.label || id,
+      colour: d.colour || t.colour || '#3d6263',
+      order: typeof d.order === 'number' ? d.order : (typeof t.order === 'number' ? t.order : 999),
+      rota: d.rota !== undefined ? d.rota !== false : t.rota !== false,
+      under18: t.under18 === true,
+      parent: d.parent || t.parent || '',
+      runs: Array.isArray(d.runs) ? d.runs : (t.runs || []),
+      archived: d.archived === true
+    };
+  });
+  sortRows();
+  draw();
+}
+
+function sortRows() {
+  ROWS.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+}
+
+function shown() { return ROWS.filter(r => SHOW_GONE || !r.archived); }
+
+function draw() {
+  const rows = shown();
+  if (!rows.length) { $('list').innerHTML = '<div class="card empty">No teams yet.</div>'; return; }
+  $('list').innerHTML = rows.map((r, i) => `
+    <article class="card team${r.archived ? ' gone' : ''}" data-id="${esc(r.id)}">
+      <input type="color" class="sw" value="${esc(r.colour)}" data-f="colour" aria-label="Colour for ${esc(r.label)}">
+      <div class="name">
+        <input value="${esc(r.label)}" maxlength="40" data-f="label" aria-label="Label for ${esc(r.id)}">
+        <span class="id">${r.label === r.id ? '' : 'Name: ' + esc(r.id) + ' · '}${r.parent ? 'part of ' + esc((ROWS.find(x => x.id === r.parent) || {}).label || r.parent) + ' · ' : ''}${r.rota ? 'rota team' : 'group'}${r.archived ? ' · archived' : ''}</span>
+      </div>
+      <div class="move">
+        <button type="button" class="ic" data-move="-1" aria-label="Move ${esc(r.label)} up" ${i === 0 ? 'disabled' : ''}>&uarr;</button>
+        <button type="button" class="ic" data-move="1" aria-label="Move ${esc(r.label)} down" ${i === rows.length - 1 ? 'disabled' : ''}>&darr;</button>
+      </div>
+      <div class="opts">
+        <label class="tick"><input type="checkbox" data-f="rota" ${r.rota ? 'checked' : ''}> Has a rota</label>
+        <label class="tick"><input type="checkbox" data-f="archived" ${r.archived ? 'checked' : ''}> Archived</label>
+        <span class="fixed">${r.under18 ? 'Works with under-18s (DBS needed)' : ''}</span>
+      </div>
+      <div class="runs">Runs: ${RUNS.map(([k, w]) => `<label class="tick"><input type="checkbox" data-run="${k}" ${r.runs.indexOf(k) !== -1 ? 'checked' : ''} ${MASTER ? '' : 'disabled'}> ${w}</label>`).join('')}
+        ${MASTER ? '' : '<span class="fixed">(a master admin sets these)</span>'}</div>
+      <p class="saved" role="status"></p>
+    </article>`).join('');
+}
+
+/* Every write carries the name (the rules check it is the id) and who
+   made it. `runs` is sent only when it changes, so the office's writes
+   leave it exactly as it was. */
+async function save(r, fields, card) {
+  const msg = card && card.querySelector('.saved');
+  try {
+    await db.collection('teams').doc(r.id).set(Object.assign({
+      name: r.id,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: EGBCAuth.user().uid
+    }, fields), { merge: true });
+    r.saved = true;
+    if (msg) { msg.className = 'saved'; msg.textContent = 'Saved'; setTimeout(() => { if (msg.textContent === 'Saved') msg.textContent = ''; }, 2000); }
+    return true;
+  } catch (e) {
+    console.error('teams-admin: could not save', e);
+    if (msg) { msg.className = 'saved err'; msg.textContent = 'That did not save. Please try again.'; }
+    return false;
+  }
+}
+
+/* A team saved for the first time takes everything it shows, so the list
+   in the collection matches what the person saw. */
+function whole(r) {
+  const o = { label: r.label, colour: r.colour, order: r.order, rota: r.rota, archived: r.archived };
+  if (r.parent) o.parent = r.parent;
+  if (r.under18) o.under18 = true;
+  if (MASTER) o.runs = r.runs;
+  return o;
+}
+
+$('list').addEventListener('change', async (e) => {
+  const card = e.target.closest('[data-id]'); if (!card) return;
+  const r = ROWS.find(x => x.id === card.dataset.id); if (!r) return;
+  const f = e.target.dataset.f, run = e.target.dataset.run;
+  if (f === 'label') {
+    const v = e.target.value.trim();
+    if (!v) { e.target.value = r.label; return; }
+    r.label = v;
+  } else if (f === 'colour') r.colour = e.target.value;
+  else if (f === 'rota') r.rota = e.target.checked;
+  else if (f === 'archived') r.archived = e.target.checked;
+  else if (run && MASTER) {
+    r.runs = RUNS.map(x => x[0]).filter(k => card.querySelector('[data-run="' + k + '"]').checked);
+  } else return;
+  const fields = r.saved ? (run ? { runs: r.runs } : { [f]: r[f] }) : whole(r);
+  if (await save(r, fields, card) && (f === 'archived' || f === 'rota')) draw();
+});
+
+/* Up and down: the shown list is renumbered 1, 2, 3... and every team whose
+   number changed is written in one go. */
+$('list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-move]'); if (!b) return;
+  const card = b.closest('[data-id]');
+  const rows = shown();
+  const i = rows.findIndex(x => x.id === card.dataset.id), j = i + Number(b.dataset.move);
+  if (i < 0 || j < 0 || j >= rows.length) return;
+  [rows[i], rows[j]] = [rows[j], rows[i]];
+  const batch = db.batch(), changed = [];
+  rows.forEach((r, k) => {
+    if (r.order === k + 1 && r.saved) return;
+    r.order = k + 1; changed.push(r);
+    batch.set(db.collection('teams').doc(r.id), Object.assign({ name: r.id,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: EGBCAuth.user().uid },
+      r.saved ? { order: r.order } : whole(r)), { merge: true });
+  });
+  try { await batch.commit(); changed.forEach(r => { r.saved = true; }); }
+  catch (err) { console.error('teams-admin: could not reorder', err); alert('That did not save. Please try again.'); return load(); }
+  sortRows(); draw();
+  const again = document.querySelector('[data-id="' + CSS.escape(card.dataset.id) + '"] [data-move="' + b.dataset.move + '"]');
+  if (again && !again.disabled) again.focus();
+});
+
+$('addForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = $('newName').value.trim().replace(/\s+/g, ' ');
+  const msg = $('addMsg');
+  if (!name) return;
+  if (/[\/]/.test(name) || name === '.' || name === '..' || name.startsWith('__')) {
+    msg.className = 'saved err'; msg.textContent = 'Please use letters, numbers and spaces.'; return;
+  }
+  const same = ROWS.find(r => r.id.toLowerCase() === name.toLowerCase() || r.label.toLowerCase() === name.toLowerCase());
+  if (same) {
+    msg.className = 'saved err';
+    msg.textContent = same.archived ? same.label + ' is already here, archived. Tick "Show archived" to bring it back.'
+      : same.label + ' is already on the list.';
+    return;
+  }
+  const r = { id: name, saved: false, label: name, colour: '#3d6263', rota: !$('newIsGroup').checked,
+    under18: false, parent: '', runs: [], archived: false,
+    order: ROWS.reduce((m, x) => Math.max(m, x.order === 999 ? 0 : x.order), 0) + 1 };
+  const o = whole(r); delete o.runs;
+  if (await save(r, o, null)) {
+    ROWS.push(r); sortRows(); draw();
+    $('newName').value = ''; $('newIsGroup').checked = false;
+    msg.className = 'saved'; msg.textContent = name + ' added.';
+  } else { msg.className = 'saved err'; msg.textContent = 'That did not save. Please try again.'; }
+});
+
+$('showGone').addEventListener('change', (e) => { SHOW_GONE = e.target.checked; draw(); });
+document.addEventListener('egbc-ready', load);
+</script>
+</body>
+</html>

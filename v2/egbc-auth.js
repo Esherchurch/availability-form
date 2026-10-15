@@ -241,6 +241,25 @@
   var teamsLoaded = false;
   var teamsPromise = null;
 
+  /* "EVERYONE" (Martin, 15 Oct 2026): what a church member on no team sees.
+     A Home choice for everybody, and a "View the site as" choice. Not a team:
+     nobody is ever ticked into it. */
+  var EVERYONE = '__everyone';
+  function vaEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  /* Teams to offer as a choice, in the church's order (teams/{id}.order,
+     then the label): no sub-teams, nothing archived. */
+  function teamChoices(ids) {
+    return ids.filter(function (t) { return TEAMS[t] && !TEAMS[t].parent && !TEAMS[t].archived; })
+      .sort(function (a, b) {
+        var oa = typeof TEAMS[a].order === 'number' ? TEAMS[a].order : 999, ob = typeof TEAMS[b].order === 'number' ? TEAMS[b].order : 999;
+        return oa - ob || String(TEAMS[a].label || a).localeCompare(String(TEAMS[b].label || b));
+      });
+  }
+
   function mergeTeam(id, d) {
     var base = TEAMS[id] || {};
     TEAMS[id] = {
@@ -796,6 +815,11 @@
        anything draws. */
     if (document.documentElement.hasAttribute('data-egbc-app-mode')) return;
 
+    /* The choices come from the one list (Teams & groups). Pages that never
+       asked for it would offer only the built-in table, so ask, and draw
+       again once it is here. */
+    if (!teamsLoaded) loadTeams().then(function () { if (teamsLoaded) mountViewAsBar(); });
+
     var bar = document.getElementById('egbc-viewas');
     if (!bar) {
       bar = document.createElement('div');
@@ -822,18 +846,23 @@
       'font-size:13px;font-weight:500;box-shadow:0 -1px 2px rgba(16,24,40,.05);' +
       (v ? 'background:#b07d2e;color:#fff' : 'background:#fff;color:#374151;border-top:1px solid #e5e7eb');
 
-    var teams = Object.keys(TEAMS).filter(function (t) { return !TEAMS[t].parent; });
-    var opts = teams.map(function (t) {
-      return '<option value="' + t + '"' + (v && v.team === t ? ' selected' : '') + '>' +
-             (TEAMS[t].label || t) + '</option>';
+    /* THE ONE LIST (Martin, 15 Oct 2026): every team and group the church
+       has (the teams collection, Teams & groups), in its order, archived ones
+       left out - and "Everyone", a church member on no team. */
+    var opts = '<option value="' + EVERYONE + '"' + (v && v.team === EVERYONE ? ' selected' : '') + '>Everyone (no team)</option>'
+      + teamChoices(Object.keys(TEAMS)).map(function (t) {
+      /* Escaped: the office names teams now, on Teams & groups. */
+      return '<option value="' + vaEsc(t) + '"' + (v && v.team === t ? ' selected' : '') + '>' +
+             vaEsc(TEAMS[t].label || t) + '</option>';
     }).join('');
 
     bar.innerHTML =
       '<span style="font-weight:600;white-space:nowrap;margin:0;padding:0' + (narrow ? ';flex:none' : '') + '">' +
         (narrow
           ? (v ? 'Seeing as' : 'View as')
-          : (v ? 'Seeing the site as a ' + (TEAMS[v.team] ? TEAMS[v.team].label : v.team) +
-                 ' ' + (v.admin ? 'admin' : 'member')
+          : (v ? (v.team === EVERYONE ? 'Seeing the site as a church member on no team'
+                 : 'Seeing the site as a ' + (TEAMS[v.team] ? TEAMS[v.team].label : v.team) +
+                 ' ' + (v.admin ? 'admin' : 'member'))
                : 'View the site as')) +
       '</span>' +
       '<select id="egbc-va-team" style="font-family:inherit;font-size:13px;font-weight:500;' +
@@ -891,6 +920,48 @@
       try { sessionStorage.removeItem(VIEW_KEY); } catch (e) {}
       location.reload();
     };
+    viewAsTop(v);
+  }
+
+  /* "VIEWING AS", AT THE TOP OF EVERY PAGE (Martin, 14 Oct 2026: he thought
+     permissions were broken - the strip at the bottom was easy to miss).
+     While a master admin is looking at the site as somebody else, a strip
+     across the very top says so in plain words, with the way back. Part of
+     the page, not floating, so it covers nothing. */
+  function viewAsTop(v) {
+    var top = document.getElementById('egbc-viewas-top');
+    if (!v) { if (top) top.remove(); return; }
+    var who = v.team === EVERYONE ? 'church member on no team' : String(v.team) + (v.admin ? ' admin' : ' member');
+    if (!top) {
+      top = document.createElement('div');
+      top.id = 'egbc-viewas-top';
+      top.setAttribute('role', 'status');
+      document.body.insertBefore(top, document.body.firstChild);
+    }
+    /* THE VERY TOP: the website bar puts itself first too, so this goes back
+       above it once the page has drawn. */
+    [0, 400, 1500].forEach(function (t) {
+      setTimeout(function () { var x = document.getElementById('egbc-viewas-top'); if (x && document.body.firstChild !== x) document.body.insertBefore(x, document.body.firstChild); }, t);
+    });
+    top.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;'
+      + 'padding:8px 12px;background:#b07d2e;color:#fff;font-family:Inter,system-ui,sans-serif;'
+      + 'font-size:14px;font-weight:600;line-height:1.3;text-align:center;box-sizing:border-box;width:100%;position:relative;z-index:96';
+    top.innerHTML = '<span>Viewing as ' + (/^[aeiou]/i.test(who) ? 'an ' : 'a ') + who.replace(/[<>&]/g, '') + '</span>'
+      + '<button type="button" id="egbc-viewas-back" style="font:600 13px Inter,system-ui,sans-serif;min-height:36px;'
+      + 'padding:0 14px;border-radius:8px;border:0;background:#fff;color:#7a5418;cursor:pointer">Back to me</button>';
+    document.getElementById('egbc-viewas-back').onclick = function () {
+      try { sessionStorage.removeItem(VIEW_KEY); } catch (e) {}
+      location.reload();
+    };
+    /* THE VERY TOP AND THE FULL WIDTH, whatever padding the page puts round
+       itself (view-only-rota.html has some): pulled out by the same amount,
+       and the space given back underneath. */
+    try {
+      var cs = getComputedStyle(document.body), n = function (v) { return parseFloat(v) || 0; };
+      var t = n(cs.paddingTop) + n(cs.marginTop), l = n(cs.paddingLeft) + n(cs.marginLeft), r = n(cs.paddingRight) + n(cs.marginRight);
+      top.style.margin = '-' + t + 'px -' + r + 'px ' + t + 'px -' + l + 'px';
+      top.style.width = 'calc(100% + ' + (l + r) + 'px)';
+    } catch (e) {}
   }
 
   var EGBCAuth = {
@@ -1080,7 +1151,7 @@
        untouched on the profile, because the rota still needs them. */
     effectiveTeams: function () {
       var v = viewAs();
-      if (v) return [v.team];
+      if (v) return v.team === EVERYONE ? [] : [v.team];
       if (!currentProfile) return [];
       var out = [];
       (currentProfile.teams || []).forEach(function (t) {
@@ -1093,6 +1164,14 @@
 
     /* Content tabs. Children fold into their parent; Core Team is not a
        content team, so it is handled separately as the Admin tab. */
+    EVERYONE: EVERYONE,
+    /* The Home choices (the hub's "Home shows"): every team and group this
+       person is in - every one there is for a master admin - in the
+       church's order. "Everyone" is added by the page, first. */
+    homeChoices: function () {
+      return reallyMaster() && !viewAs() ? teamChoices(Object.keys(TEAMS)) : teamChoices(EGBCAuth.tabTeams());
+    },
+
     tabTeams: function () {
       var out = EGBCAuth.effectiveTeams().filter(function (t) {
         return TEAMS[t] && !TEAMS[t].parent;

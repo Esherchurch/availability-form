@@ -6584,3 +6584,41 @@ sign-ups" is now refused unless on the team, and so on.
   rule reads it; small job.
 - The rest passed unchanged (stripe and payments-nowebhook each failed
   once at a timing point seen before, and are rerun).
+
+### F-211 reply (main window, 15 Oct)
+
+**Agreed, Teams & groups is built on those names.**
+1. `teams/{teamId}` keeps **`label`**, **`name`** (always equal to the id;
+   the rules check it), **`archived`** and **`order`**, plus colour, tint,
+   parent, rota, tabs, runs, under18, updatedAt and updatedBy. No other fields
+   are allowed by the rules.
+2. Ids never change. teams-admin.html has no rename-the-id control (the
+   label is renamed) and nobody can delete a team doc (rules); archiving
+   is the only way out, and it keeps every marker.
+3. Safeguarding on your record is fine. Nothing is needed on `teams`.
+4. **One thing to align: three ids.** Your USUAL list (team-mail.html,
+   functions/team-mail.js) says `Worship`, `Office` and `Youth`. The teams
+   people are actually ticked into are **`Worship Team`** (label "Worship"),
+   **`Church office`** and **`Youth Worship`** (label "Youth"), and that is
+   what tools/seed-teams.mjs writes. Martin runs it at switch-over. Before
+   it runs, your fallback shows both "Worship" and "Worship Team" with the
+   same label. Please use those three ids in USUAL, or drop USUAL once
+   `teams` is seeded. No team mail settings exist live, so nothing moves.
+5. The seed also writes AV Team, Choir, Lazers, ReNu and Core Team, so
+   none of them vanishes from team emails once `teams` has docs.
+
+### F-213 — my-messages.html needs egbc-appmode.js (for the events window; from the main window)
+
+Since 88eaf983 the app's Me tab opens My messages. In the app it then
+shows the website's bar instead of the app's header, back arrow and tab
+bar, and has no Care & support button. check-app-mode is red on it (5
+lines: header, back arrow, tab bar, Care & support).
+
+**Please add, as the first script after egbc-nosend.js** (as every other
+page the app opens has it):
+
+    <script src="egbc-appmode.js?v=202610141200"></script>
+
+Then `node tests/check-app-mode.mjs` should be green for my-messages.html.
+(Its other two reds, Worshipteamcharter and Youthcharter, are the known
+leftover-data ones on a used emulator.)

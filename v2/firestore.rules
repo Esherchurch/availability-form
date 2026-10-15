@@ -694,7 +694,12 @@ service cloud.firestore {
       allow read: if active();
       // Adding a team gives access to whoever is ticked into it, and `runs`
       // decides who runs things - neither is an ordinary admin job.
-      allow write: if isMaster()
+      // TEAMS & GROUPS (Martin, 15 Oct 2026): master admins and the Church
+      // office group keep the list (teams-admin.html). The office may not
+      // change `runs` - who runs things stays a master admin's - and nobody
+      // deletes one: archive, never remove (markers and history stay).
+      allow write: if (isMaster() || (onTeam('Church office')
+                        && request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))))
                    && request.resource.data.keys().hasOnly(['name', 'label', 'colour', 'tint',
                         'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived',
                         'updatedAt', 'updatedBy'])

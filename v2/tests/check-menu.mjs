@@ -76,7 +76,7 @@ const APPROVED = [
   ['Groups and forms', [['Small groups'], ['Forms']]],
   ['Core Team', [
     ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
-    ['People and email', [['Address Book'], ['Email Compiler']]],
+    ['People and email', [['Address Book'], ['Email Compiler'], ['Teams & groups']]],
     ['Music', [['Music Upload']]],
     ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library']]],
     ['Admin', [['Backup & Restore'], ['Church settings'], ['Emails sent'], ['Team emails']]]
@@ -117,7 +117,7 @@ const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Plan
    it when neither child shows - a Core Team member sees no empty heading
    where the address book used to be. It follows its children, so it belongs
    with them. */
-const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler'];
+const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler', 'Teams & groups'];
 /* Watch (F-164): master admins and the people named in sermonShow/access.
    None of the people here is named there, so it is the master admin's. */
 const SERMONS_ONLY = ['Watch', 'Sermons'];
