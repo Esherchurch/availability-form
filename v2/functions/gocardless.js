@@ -30,6 +30,17 @@ import { paymentsShut } from './payments-gate.js';
 const db = () => getFirestore();
 const REGION = 'europe-west2';
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+
+/* The gate, plus a switch for the tests: on the emulator only,
+   paymentSecrets/config.shutForTest makes the callables refuse as the live
+   site does now, so the pages' "switches over" words can be tested. The live
+   site never reads it (paymentsShut decides there). */
+async function shut() {
+  if (paymentsShut()) return true;
+  if (!EMULATOR) return false;
+  const c = await db().collection('paymentSecrets').doc('config').get();
+  return !!(c.exists && c.data().shutForTest === true);
+}
 export const HOLD_MS = 31 * 60 * 1000;
 
 export function gcMode(token) {
@@ -116,7 +127,7 @@ function newKey() { const b = crypto.randomBytes(28); let s = 'rg_'; for (let i 
 const INTERVALS = { monthly: { interval_unit: 'monthly', interval: 1 }, four_weekly: { interval_unit: 'weekly', interval: 4 } };
 
 export const giveRegularly = onCall({ region: REGION }, async (req) => {
-  if (paymentsShut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.');
+  if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.', { shut: true });
   const d = req.data || {};
   if (!(await gcReady())) throw new HttpsError('failed-precondition', 'This church does not take Direct Debits online yet.');
   const pub = await db().collection('paymentSettings').doc('public').get();
@@ -158,7 +169,7 @@ async function giftByKey(key) {
   return { ref, d: s.data() };
 }
 export const givingChange = onCall({ region: REGION }, async (req) => {
-  if (paymentsShut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.');
+  if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.', { shut: true });
   const { ref, d } = await giftByKey(req.data && req.data.key);
   const amount = Math.round(Number(req.data && req.data.amount) * 100);
   if (!(amount >= 100 && amount <= 1000000)) throw new HttpsError('invalid-argument', 'Give at least £1.');
@@ -168,7 +179,7 @@ export const givingChange = onCall({ region: REGION }, async (req) => {
   return { ok: true, amount: amount / 100 };
 });
 export const givingStop = onCall({ region: REGION }, async (req) => {
-  if (paymentsShut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.');
+  if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.', { shut: true });
   const { ref, d } = await giftByKey(req.data && req.data.key);
   if (d.subscriptionId && d.status === 'active') await gc((await secrets()).token, 'POST', '/subscriptions/' + d.subscriptionId + '/actions/cancel', { data: {} });
   await ref.update({ status: 'stopped', stoppedAt: FieldValue.serverTimestamp() });

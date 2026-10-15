@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610141800"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610150900"></script>
+<script src="egbc-events.js?v=202610151000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -156,7 +156,7 @@
     if (rg) rg.onclick = function () {
       if (!confirm('Remove bank payments and Direct Debit? Nobody will be offered them until a token is added again. Gifts already running in GoCardless keep running there.')) return;
       rg.disabled = true;
-      EGBCAuth.call('paymentsRemove', { provider: 'gocardless' }).then(function () { return load(); }, function (e) { rg.disabled = false; say('removeGcMsg', 'err', e.message || String(e)); });
+      EGBCAuth.call('paymentsRemove', { provider: 'gocardless' }).then(function () { return load(); }, function (e) { rg.disabled = false; say('removeGcMsg', 'err', E.payProblem(e)); });
     };
     var gc = document.getElementById('gaCsv');
     if (gc) gc.onclick = giftAidCsv;
@@ -168,7 +168,7 @@
     if (r) r.onclick = function () {
       if (!confirm('Remove card payments? Nobody will be offered card payment until a key is added again. Payments already made are kept.')) return;
       r.disabled = true;
-      EGBCAuth.call('paymentsRemove', { provider: 'stripe' }).then(function () { return load(); }, function (e) { r.disabled = false; say('removeMsg', 'err', e.message || String(e)); });
+      EGBCAuth.call('paymentsRemove', { provider: 'stripe' }).then(function () { return load(); }, function (e) { r.disabled = false; say('removeMsg', 'err', E.payProblem(e)); });
     };
     var t = document.getElementById('saveTeam');
     if (t) t.onclick = function () {
@@ -184,7 +184,7 @@
     btn.disabled = true; say(msgId, 'hint', kind === 'key' ? 'Checking it with ' + who + '…' : 'Saving…');
     EGBCAuth.call('paymentsSave', { provider: provider, kind: kind, value: value }).then(function () {
       return load().then(function () { say(msgId, 'ok', kind === 'key' ? 'Saved. ' + who + ' knows this ' + (provider === 'gocardless' ? 'token.' : 'key.') : 'Saved.'); });
-    }, function (e) { btn.disabled = false; say(msgId, 'err', e.message || String(e)); });
+    }, function (e) { btn.disabled = false; say(msgId, 'err', E.payProblem(e)); });
   }
   function giftAidCsv() {
     db().collection('giftAid').where('source', '==', 'regular-giving').get().then(function (s) {

@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610150900"></script>
+<script src="egbc-events.js?v=202610151000"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -122,7 +122,7 @@
     var was = btn.textContent; btn.disabled = true; btn.textContent = 'Opening the payment page…';
     E.callPublic('ticketPay', { key: key, method: method || 'card' }).then(function (r) { location.href = r.url; }, function (e) {
       btn.disabled = false; btn.textContent = was;
-      var m = document.getElementById('payMsg'); if (m) m.textContent = e.message || String(e);
+      var m = document.getElementById('payMsg'); if (m) m.textContent = E.payProblem(e);
     });
   }
   var openedAt = Date.now();          /* for the minimum fill time */

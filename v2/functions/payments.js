@@ -40,6 +40,17 @@ const db = () => getFirestore();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 import { paymentsShut } from './payments-gate.js';
 const SHUT_MSG = 'Online payments open when the church switches over to the new hub.';
+
+/* The gate, plus a switch for the tests: on the emulator only,
+   paymentSecrets/config.shutForTest makes the callables refuse as the live
+   site does now, so the pages' "switches over" words can be tested. The live
+   site never reads it (paymentsShut decides there). */
+async function shut() {
+  if (paymentsShut()) return true;
+  if (!EMULATOR) return false;
+  const c = await db().collection('paymentSecrets').doc('config').get();
+  return !!(c.exists && c.data().shutForTest === true);
+}
 /* The hub's region. Set on each function here: index.js sets it globally,
    but after this file has already been read. */
 const REGION = 'europe-west2';
@@ -147,7 +158,7 @@ async function priceOf(key, method) {
 /* ------------------------------------------------------- the callables */
 
 export const paymentsSave = onCall({ region: REGION }, async (req) => {
-  if (paymentsShut()) throw new HttpsError('failed-precondition', SHUT_MSG);
+  if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const uid = req.auth && req.auth.uid;
   if (!(await isTreasurer(uid))) throw new HttpsError('permission-denied', 'Only a master admin or the church\'s money team can set up payments.');
   const provider = String(req.data && req.data.provider || ''), kind = String(req.data && req.data.kind || ''), value = String(req.data && req.data.value || '').trim();
@@ -215,7 +226,7 @@ async function publish() {
 /* A payment page for a booking. Anyone holding the booking's key (the
    person who just signed up, signed in or not). */
 export const ticketPay = onCall({ region: REGION }, async (req) => {
-  if (paymentsShut()) throw new HttpsError('failed-precondition', SHUT_MSG);
+  if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const key = String(req.data && req.data.key || ''), method = String(req.data && req.data.method || '');
   if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
   if (method !== 'card' && method !== 'bank') throw new HttpsError('invalid-argument', 'Not a way of paying the hub knows.');

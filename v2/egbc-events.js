@@ -577,10 +577,25 @@
       var h = { 'Content-Type': 'application/json' }; if (t) h.Authorization = 'Bearer ' + t;
       return fetch(base + name, { method: 'POST', headers: h, body: JSON.stringify({ data: data || {} }) });
     }).then(function (r) { return r.json(); }).then(function (j) {
-      if (j && j.error) throw new Error(j.error.message || 'That could not be done.');
+      if (j && j.error) {
+        var e = new Error(j.error.message || 'That could not be done.');
+        if (j.error.status) e.code = String(j.error.status).toLowerCase().replace(/_/g, '-');
+        e.shut = !!(j.error.details && j.error.details.shut);
+        throw e;
+      }
       return j ? j.result : null;
     });
   }
+  /* PAYMENTS SHUT UNTIL SWITCH-OVER (bcbe6d7e, payments-gate.js): the server
+     refuses with failed-precondition and the mark shut. EGBCAuth.call keeps
+     the code but not the mark, so the gate's own words count too. Other
+     failed-preconditions ("This ticket is not paid by card") keep their own
+     words. */
+  var CLOSED_WORDS = 'Online payments open when the church switches over.';
+  function paymentsClosed(e) {
+    return !!(e && (e.shut || (/failed-precondition/i.test(e.code || '') && /switches over/i.test(e.message || ''))));
+  }
+  function payProblem(e) { return paymentsClosed(e) ? CLOSED_WORDS : ((e && e.message) || String(e)); }
 
   function confirmationEmail(o) {
     var ev = o.ev, where = o.where || '', waiting = o.status === 'waiting';
@@ -721,6 +736,9 @@
     money: money,
     payBy: payBy,
     callPublic: callPublic,
+    CLOSED_WORDS: CLOSED_WORDS,
+    paymentsClosed: paymentsClosed,
+    payProblem: payProblem,
     toPay: toPay,
     loadCategories: loadCategories
   };

@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610150900"></script>
+<script src="egbc-events.js?v=202610151000"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -131,7 +131,7 @@
       if (pn) pn.onclick = function () {
         pn.disabled = true;
         E.callPublic('ticketPay', { key: KEY, method: x[1] }).then(function (res) { location.href = res.url; },
-          function (e) { pn.disabled = false; document.getElementById('payMsg').textContent = ' ' + (e.message || e); });
+          function (e) { pn.disabled = false; document.getElementById('payMsg').textContent = ' ' + E.payProblem(e); });
       };
     });
     /* Back from Stripe: the payment is confirmed by Stripe's message to the

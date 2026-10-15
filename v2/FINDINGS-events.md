@@ -5774,3 +5774,38 @@ church rather than one event at a time.
 - `comms.test.mjs` 10/10, with the hub's real functions.
 - 5 deliberate breaks, all caught. The one that matters: the whole email,
   private links and all, handed to the page.
+
+### F-196 — Payments shut until switch-over: what people see (after bcbe6d7e)
+
+The reviewing window shut payments on the live site (`payments-gate.js`,
+`PAYMENTS_LIVE = false`). The pages now say so in plain words.
+
+- **The words:** "Online payments open when the church switches over."
+  They appear on:
+  - the Payments page: "Check and save" (Remove is not shut, so it still works)
+  - the pay buttons straight after signing up (card and bank)
+  - the pay buttons on "my place" (card and bank)
+  - Give regularly: set up, change and stop
+- **How a page knows it is the gate.** The gate's refusals now carry a
+  mark, `{ shut: true }` (`payments.js`, `gocardless.js`). The server
+  has other failed-precondition refusals with useful words of their own,
+  for example "This ticket is not paid by card" or "This gift is not
+  running". Those keep their own words. Only the gate's refusal gets the
+  switch-over words.
+  - `E.callPublic` now carries the code and the mark.
+  - `EGBCAuth.call` (main window's) keeps the code but not the mark, so
+    `E.paymentsClosed` also accepts failed-precondition plus the gate's
+    own "switches over" words. The Payments page relies on that.
+  - One helper, `E.payProblem(e)`, used by all four pages.
+- **A switch for the tests, emulator only.** The emulator never runs
+  shut, so `paymentSecrets/config.shutForTest` makes the callables refuse
+  as the live site does now. It is read only when `FUNCTIONS_EMULATOR`
+  is true, in the same way `stripeApi` is. `payments-gate.js` is
+  untouched. The live site goes on deciding by `PAYMENTS_LIVE` alone.
+- `egbc-events.js?v=202610151000` on every page that loads it, except
+  app.html (main window's; still 202610101800, as asked before).
+
+**Proved:**
+- `payments-shut.test.mjs` 11/11, with the real functions.
+- 7 deliberate breaks (see the report). The one that matters: the
+  Payments page showing the server's own long words.

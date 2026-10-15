@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610141800"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610150900"></script>
+<script src="egbc-events.js?v=202610151000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -86,7 +86,7 @@
         name: document.getElementById('nm').value, email: document.getElementById('em').value,
         giftAid: ga.checked, house: document.getElementById('house').value, address: document.getElementById('addr').value,
         postcode: document.getElementById('pc').value, wording: ga.checked ? wording() : ''
-      }).then(function (r) { location.href = r.url; }, function (e) { b.disabled = false; m.textContent = e.message || String(e); });
+      }).then(function (r) { location.href = r.url; }, function (e) { b.disabled = false; m.textContent = E.payProblem(e); });
     };
   }
 
@@ -108,13 +108,13 @@
       c.disabled = true;
       E.callPublic('givingChange', { key: KEY, amount: document.getElementById('newAmt').value }).then(function (r) {
         return load().then(function () { document.getElementById('msg').textContent = 'Changed: ' + E.money(r.amount) + ' from the next collection.'; });
-      }, function (e) { c.disabled = false; document.getElementById('msg').textContent = e.message || String(e); });
+      }, function (e) { c.disabled = false; document.getElementById('msg').textContent = E.payProblem(e); });
     };
     var s = document.getElementById('stop');
     if (s) s.onclick = function () {
       if (!confirm('Stop your regular gift?')) return;
       s.disabled = true;
-      E.callPublic('givingStop', { key: KEY }).then(load, function (e) { s.disabled = false; document.getElementById('msg').textContent = e.message || String(e); });
+      E.callPublic('givingStop', { key: KEY }).then(load, function (e) { s.disabled = false; document.getElementById('msg').textContent = E.payProblem(e); });
     };
   }
 
