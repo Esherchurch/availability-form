@@ -2,7 +2,7 @@
    also goes to NAMED people"). Events window. Invented people only, events
    emulators only (with the rules), network guard.
 
-     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage \
+     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage,functions \
        --project egbc-worship-planner "node screenshots/events/fire-rollcall.test.mjs"
 
    What it proves:
@@ -13,7 +13,10 @@
         and how many - names, nothing else (no answers, no medical)
      4. a warden for one building sees that building only
      5. AN EVENT TEAM MEMBER OF A DIFFERENT EVENT does not get it
-     6. THE WARDEN CANNOT SEE SIGN-UP ANSWERS */
+     6. THE WARDEN CANNOT SEE SIGN-UP ANSWERS
+     7-11. CHILDREN AS NUMBERS (F-216): a count per group for each building,
+        no names; a warden sees their own building's and nothing of any child;
+        live as children go home. Needs the functions emulator. */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -168,6 +171,51 @@ try {
   await W.goto(URLB + 'attendance.html?event=ev_film', { waitUntil: 'networkidle2' });
   await until(async () => /for its event team/.test(await text(W)));
   ok('   nor the lists or the door sheet', /The lists for this event are for its event team/.test(await text(W)) && !/SECRET-ASTHMA/.test(await text(W)));
+
+  /* ---------- 7. CHILDREN, AS NUMBERS (F-216) ---------- */
+  const KID = (id, site, gid, gname, state) => ({ ck: { calEventId: 'kids_' + gid + '_' + TODAY, signupKey: id, attendeeIndex: 0, name: id[4].toUpperCase() + id.slice(5) + ' Synthetic-Child', kind: 'child', state, inAt: 'x', inBy: P.martin.uid, roomId: '', day: TODAY, groupId: gid, siteId: site, familyId: 'fam_' + id, pickupCode: '1234' },
+    roll: { siteId: site, day: TODAY, groupId: gid, groupName: gname, childId: id, name: id[4].toUpperCase() + id.slice(5) + ' Synthetic-Child', state, inAt: 'x', outAt: '', roomId: '', updatedAt: new Date().toISOString() } });
+  const KIDS = [['kid_cat', 'site_a', 'grp_jun', 'Juniors', 'in'], ['kid_dan', 'site_a', 'grp_jun', 'Juniors', 'in'], ['kid_eve', 'site_a', 'grp_cre', 'Creche', 'in'],
+    ['kid_fay', 'site_a', 'grp_cre', 'Creche', 'out'], ['kid_gus', 'site_b', 'grp_junb', 'Juniors', 'in']];
+  await db.collection('kidsSettings').doc('site_a').set({ teams: [] });   // so a master admin sees the main building's children by name
+  for (const [id, site, gid, gname, state] of KIDS) {
+    const k = KID(id, site, gid, gname, state);
+    await db.collection('checkins').doc(id + '_' + TODAY).set(k.ck);
+    await db.collection('kidsRoll').doc(id + '_' + TODAY).set(k.roll);
+  }
+  const ca = await until(async () => { const c = await data('kidsCounts', 'site_a__' + TODAY); return c && c.total === 3 ? c : null; });
+  const cb = await until(async () => { const c = await data('kidsCounts', 'site_b__' + TODAY); return c && c.total === 1 ? c : null; });
+  ok('7. CHILDREN AS NUMBERS: the function keeps a count per group (Creche 1, Juniors 2; the one gone home is not counted)', ca && J(ca.groups.map(g => [g.name, g.n])) === J([['Creche', 1], ['Juniors', 2]]) && cb && cb.total === 1, J(ca) + ' ' + J(cb));
+  ok('   and the count holds no names', !/Synthetic|kid_/.test(J(ca) + J(cb)), J(ca));
+  await W.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
+  await until(async () => /total 3/.test(await text(W, '#wrap')) && /total 1/.test(await text(W, '#wrap')) && /Quentin/.test(await text(W, '#wrap')));
+  const wk = await text(W, '#wrap');
+  ok('8. THE WARDEN SEES THE COUNTS: "Creche 1 · Juniors 2 · total 3" in the main building, "Juniors 1 · total 1" in the annex', /Main building \(invented\).*Creche 1 · Juniors 2 · total 3/.test(wk) && /Hall annex \(invented\).*Juniors 1 · total 1/.test(wk), wk.slice(0, 600));
+  ok('   and the children are in "People in the building" (3 adults + 4 children = 7)', /\b7\b People in the building/.test(wk), wk.slice(0, 300));
+  ok('   NO CHILD\'S NAME on the page', !/Synthetic-Child/.test(wk));
+  await W.screenshot({ path: path.join(HERE, 'fire-rollcall-children-390.png'), fullPage: true });
+  const wr = await W.evaluate((d) => Promise.all([
+    EGBCAuth.db.collection('kidsRoll').where('siteId', '==', 'site_a').where('day', '==', d).get().then(() => 'read', e => e.code),
+    EGBCAuth.db.collection('checkins').where('siteId', '==', 'site_a').where('day', '==', d).get().then(() => 'read', e => e.code),
+    EGBCAuth.db.collection('checkins').doc('kid_cat_' + d).get().then(() => 'read', e => e.code),
+    EGBCAuth.db.collection('kidsRoll').doc('kid_cat_' + d).get().then(() => 'read', e => e.code)]), TODAY);
+  ok('9. THE WARDEN CANNOT READ ANY CHILD\'S NAME OR RECORD (the roll, the check-ins, one child\'s, by list or by id)', wr.every(x => /permission/.test(x)), J(wr));
+  await S.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
+  await until(async () => /total 1/.test(await text(S, '#wrap')));
+  await sleep(1500);
+  const sk = await text(S, '#wrap');
+  ok('10. A ONE-BUILDING WARDEN sees their building\'s rooms only (the annex: Juniors 1), not the main building\'s', /Juniors 1 · total 1/.test(sk) && !/total 3|Creche/.test(sk), sk.slice(0, 500));
+  const sa = await S.evaluate((d) => EGBCAuth.db.collection('kidsCounts').doc('site_a__' + d).get().then(() => 'read', e => e.code), TODAY);
+  ok('    and the rules refuse the main building\'s count', /permission/.test(sa), sa);
+  const qk = await Q.evaluate((d) => EGBCAuth.db.collection('kidsCounts').doc('site_b__' + d).get().then(() => 'read', e => e.code), TODAY);
+  ok('    someone not named gets no count either', /permission/.test(qk), qk);
+  await db.collection('checkins').doc('kid_cat_' + TODAY).set({ state: 'out', outAt: 'x' }, { merge: true });
+  await db.collection('kidsRoll').doc('kid_cat_' + TODAY).set({ state: 'out', outAt: 'x', updatedAt: new Date().toISOString() }, { merge: true });
+  ok('11. LIVE: a child collected, and the warden\'s count goes down (Juniors 1 · total 2)', !!(await until(async () => /Creche 1 · Juniors 1 · total 2/.test(await text(W, '#wrap')))), (await text(W, '#wrap')).slice(0, 400));
+  await M.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
+  await until(async () => /Dan Synthetic-Child/.test(await text(M, '#wrap')) && /total 2/.test(await text(M, '#wrap')));
+  const mk = await text(M, '#wrap');
+  ok('    a master admin still has the names, counted once (3 adults + 3 children = 6)', /Dan Synthetic-Child/.test(mk) && /\b6\b People in the building/.test(mk), mk.slice(250, 1400));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

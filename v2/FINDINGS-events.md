@@ -6705,3 +6705,26 @@ deliberate breaks.
 emulated here. Open the app, Me, Listen & Watch, play a video, then
 Full screen. Does it go sideways, and does the close button bring you
 back?
+
+### F-216 — Fire wardens see a count of children per room (Martin, 15 Oct)
+
+**Done:** the fire roll-call shows, for each building, "Creche 1 ·
+Juniors 2 · total 3". Numbers only: no names, nothing about any child.
+Kids Church leaders keep the names. Children are added into "People in
+the building", counted once, including for master admins, who still see
+the names.
+
+**How:** a new function of mine, `kidsCountsKeep` (functions/kids-counts.js,
+exported from functions/index.js), watches each child's roll-call copy
+(kidsRoll). It writes `kidsCounts/<siteId>__<day>` = { siteId, day,
+total, groups: [{ groupId, name, roomId, n }] }. It counts again in full
+every time, so the numbers can't drift. Rules (events section): master
+admins, the site's Kids Church leads and its fire wardens read it;
+nobody writes it but the function.
+
+**Martin deploys:** the function and the rules, at switch-over. Until
+then wardens see the adults only, and master admins see the children by
+name, as now.
+
+**Proved:** fire-rollcall.test 24/24; rules suite 1415/1415; 8
+deliberate breaks, all caught.

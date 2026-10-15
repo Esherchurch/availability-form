@@ -4180,6 +4180,14 @@ service cloud.firestore {
                    && request.resource.data.memberIds is list && request.resource.data.allSites is list
                    && request.resource.data.bySite is map && request.resource.data.updatedBy == request.auth.uid;
     }
+    // Children's counts for the fire roll-call (F-216; Martin, 15 Oct):
+    // numbers only, per group, kept by the kidsCountsKeep function from
+    // kidsRoll. A warden reads their own building's; the names stay in
+    // kidsRoll, for Kids Church leaders.
+    match /kidsCounts/{id} {
+      allow read: if isMaster() || kidsLead(resource.data.siteId) || fireWarden(resource.data.siteId);
+      allow write: if false;
+    }
 
     // ── end EVENTS ──────────────────────────────────────────────────
 

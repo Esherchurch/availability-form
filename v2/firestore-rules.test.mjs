@@ -3876,6 +3876,20 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  someone not on it does not', 'deny', () => getDoc(doc(ctx('u_quinn'), 'fireRollCall', 'main')));
   await check('  nor does a warden change it', 'deny', () => setDoc(doc(ctx('u_wanda'), 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_quinn'], allSites: ['m_wanda', 'm_quinn'], bySite: {}, updatedBy: 'u_wanda', updatedByName: 'x', updatedAt: 'x' }));
   await check('  a master admin does', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_sid'], allSites: ['m_wanda'], bySite: { site_b: ['m_sid'] }, updatedBy: 'u_martin', updatedByName: 'Martin', updatedAt: 'x' }));
+  // Children as numbers (F-216): kidsCounts, kept by a function.
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'kidsCounts', 'site_a__' + DAYF), { siteId: 'site_a', day: DAYF, total: 3, groups: [{ groupId: 'g', name: 'Juniors', roomId: '', n: 3 }], updatedAt: 'x' });
+    await setDoc(doc(c.firestore(), 'kidsCounts', 'site_b__' + DAYF), { siteId: 'site_b', day: DAYF, total: 1, groups: [{ groupId: 'g2', name: 'Creche', roomId: '', n: 1 }], updatedAt: 'x' });
+  });
+  await check('CHILDREN AS NUMBERS: a warden for every building reads a count', 'allow', () => getDoc(doc(ctx('u_wanda'), 'kidsCounts', 'site_a__' + DAYF)));
+  await check('  and lists today\'s', 'allow', () => getDocs(query(collection(ctx('u_wanda'), 'kidsCounts'), where('day', '==', DAYF))));
+  await check('  a building-B warden reads building B\'s', 'allow', () => getDoc(doc(ctx('u_sid'), 'kidsCounts', 'site_b__' + DAYF)));
+  await check('  but not building A\'s', 'deny', () => getDoc(doc(ctx('u_sid'), 'kidsCounts', 'site_a__' + DAYF)));
+  await check('  someone not named reads none', 'deny', () => getDoc(doc(ctx('u_quinn'), 'kidsCounts', 'site_b__' + DAYF)));
+  await check('  a master admin reads them', 'allow', () => getDoc(doc(as('martin'), 'kidsCounts', 'site_a__' + DAYF)));
+  await check('  nobody writes one, not even a master admin (only the function)', 'deny', () => setDoc(doc(as('martin'), 'kidsCounts', 'site_a__' + DAYF), { siteId: 'site_a', day: DAYF, total: 99, groups: [], updatedAt: 'x' }));
+  await check('  nor a warden', 'deny', () => setDoc(doc(ctx('u_wanda'), 'kidsCounts', 'site_a__' + DAYF), { siteId: 'site_a', day: DAYF, total: 0, groups: [], updatedAt: 'x' }));
+  await check('  THE WARDEN READS NO CHILD\'S ROLL-CALL COPY (names)', 'deny', () => getDocs(query(collection(ctx('u_wanda'), 'kidsRoll'), where('siteId', '==', 'site_a'), where('day', '==', DAYF))));
   await check('  a check-in may carry its building (buildingId)', 'allow', () => setDoc(doc(as('martin'), 'checkins', 'ev_fa__su_fa_1__1'), { calEventId: 'ev_fa', signupKey: 'su_fa_1', attendeeIndex: 1, name: 'Abe', kind: 'booked', state: 'in', inAt: 'x', inBy: 'u_martin', inByName: 'M', roomId: '', day: DAYF, buildingId: 'site_a', updatedAt: 'x' }));
 }
 

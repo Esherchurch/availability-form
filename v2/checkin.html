@@ -665,7 +665,14 @@
     who = who || { all: true };
     var lookups = E.lookups();
     var evCache = {};
+    /* CHILDREN, AS NUMBERS (F-216; Martin, 15 Oct): kidsCounts/<site>__<day>,
+       each group and how many, kept by the kidsCountsKeep function. No
+       names: those stay with the Kids Church leaders. Master admins also
+       see them below by name; the total takes a building's count where
+       there is one and its names where there is not, never both. */
+    var KC = {}, LAST = [];
     function render(cks) {
+      LAST = cks;
       var ins = cks.filter(function (c) { return c.state === 'in'; });
       var need = ins.filter(function (c) { return c.kind !== 'child'; }).map(function (c) { return c.calEventId; }).filter(function (id, i, a) { return a.indexOf(id) === i && !evCache[id]; });
       return Promise.all(need.map(function (id) {
@@ -683,13 +690,26 @@
         var names = Object.keys(groups).sort();
         var total = ins.filter(function (c) { return c.kind !== 'leader'; }).length;
         var leaders = ins.length - total;
+        var kc = Object.keys(KC).map(function (k) { return KC[k]; }).filter(function (c) { return c && c.total > 0; })
+          .sort(function (a, b) { return String(a.siteId).localeCompare(String(b.siteId)); });
+        var counted = {};
+        Object.keys(KC).forEach(function (k) { if (KC[k]) counted[KC[k].siteId] = 1; });
+        total = ins.filter(function (c) { return c.kind !== 'leader' && !(c.kind === 'child' && counted[c.siteId]); }).length +
+          kc.reduce(function (t, c) { return t + (c.total || 0); }, 0);
+        var kidsCards = kc.map(function (c) {
+          var site = (look.sites && look.sites[c.siteId]) || '';
+          return '<div class="card room" data-kids-count="' + esc(c.siteId) + '"><h2><span class="badge">' + ico('baby', 17) + '</span>Children in Sunday groups' + (site ? ': ' + esc(site) : '') +
+            '<span class="spacer"></span><span class="hint">' + c.total + '</span></h2>' +
+            '<p class="kidsline" style="font-size:17px;font-weight:600;margin:4px 0">' + (c.groups || []).map(function (g) { return esc(g.name) + ' ' + (+g.n || 0); }).join(' \u00b7 ') + ' \u00b7 total ' + c.total + '</p>' +
+            '<p class="hint">Numbers only. The Kids Church leaders have the names.</p></div>';
+        }).join('');
         var where = who.all ? '' : who.sites.map(function (sid) { return (look.sites && look.sites[sid]) || 'your building'; }).join(', ');
         document.getElementById('wrap').innerHTML =
           '<h1>Fire roll-call</h1><p class="sub">' + (where ? esc(where) + ': e' : 'E') + 'veryone checked in today and not yet checked out. ' +
           'Updated live · ' + E.fmtTime(new Date()) + '</p>' +
           '<div class="tiles" style="grid-template-columns:repeat(2,1fr)">' + tile('in', total, 'People in the building') + tile('', leaders, 'Leaders') + '</div>' +
           '<div class="bar noprint"><button class="btn sec" onclick="window.print()">' + ico('printer', 15) + 'Print</button>' +
-          '<a class="btn ghost" href="checkin.html">' + ico('arrow-left', 15) + 'Check-in</a></div>' +
+          '<a class="btn ghost" href="checkin.html">' + ico('arrow-left', 15) + 'Check-in</a></div>' + kidsCards +
           (names.length ? names.map(function (n) {
             var g = groups[n];
             var list = function (arr) {
@@ -705,7 +725,7 @@
               (g.leaders.length ? '<h4>' + ico('badge-check', 15) + 'Leaders</h4>' + list(g.leaders) : '') +
               (g.people.length ? '<h4 style="margin-top:10px">' + ico('users', 15) + 'Everyone else</h4>' + list(g.people) : '') +
               '</div>';
-          }).join('') : '<div class="card"><p class="hint">Nobody is checked in right now.</p></div>');
+          }).join('') : (kc.length ? '' : '<div class="card"><p class="hint">Nobody is checked in right now.</p></div>'));
         icons();
       });
     }
@@ -725,6 +745,15 @@
     /* A warden for one building: that building's check-ins only. */
     else who.sites.forEach(function (sid) {
       listen('events_' + sid, db().collection('checkins').where('day', '==', C.today()).where('kind', 'in', ['booked', 'walkin', 'leader']).where('buildingId', '==', sid));
+    });
+    /* The children's counts: every building's, or the warden's own. */
+    var kcSnap = function (snap) {
+      (snap.docs || [snap]).forEach(function (d) { if (d.exists) KC[d.id] = d.data(); });
+      render(LAST);
+    };
+    if (who.all) db().collection('kidsCounts').where('day', '==', C.today()).onSnapshot(function (snap) { KC = {}; kcSnap(snap); }, function () {});
+    else who.sites.forEach(function (sid) {
+      db().collection('kidsCounts').doc(sid + '__' + C.today()).onSnapshot(function (d) { if (!d.exists) delete KC[d.id]; kcSnap(d); }, function () {});
     });
     if (!(EGBCAuth.isMaster && EGBCAuth.isMaster()) && !who.kidsLead) return;
     db().collection('kidsSettings').get().then(function (s) {
