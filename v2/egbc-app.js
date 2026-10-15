@@ -451,8 +451,13 @@
         }).join('') + '</nav>';
 
     if (S.sheet && SHEETS[S.sheet]) {
+      /* A ✕ that stays at the top however long the sheet is, and the
+         handle can be dragged down to close (Martin, 15 Oct 2026: "you
+         can't close it easily. You can't pull the drawer back down"). */
       html += '<div class="sheet-back" data-act="close"><div class="sheet" role="dialog" aria-modal="true">'
-        + '<div class="grab"></div>' + SHEETS[S.sheet] + '</div></div>';
+        + '<div class="sheet-top"><div class="grab"></div>'
+        + '<button type="button" class="sheet-x" data-act="close" aria-label="Close">' + ic('x', 20) + '</button></div>'
+        + SHEETS[S.sheet] + '</div></div>';
     }
     if (S.toast) html += '<div class="toast" role="status">' + esc(S.toast) + '</div>';
 
@@ -554,6 +559,35 @@
      Navigation is the shell's, so the back behaviour and the scroll reset
      live in one place. A screen's own buttons use their own handlers -
      delegated, because the DOM is rebuilt on every render (F-131). */
+
+  /* PULL A SHEET DOWN TO CLOSE IT (Martin, 15 Oct 2026). From the handle
+     strip at any time, or from anywhere in the sheet once it is scrolled
+     to the top - so reading a long notice never closes it by accident.
+     Past 90px, or a quick flick, it closes; otherwise it springs back. */
+  var drag = null;
+  document.addEventListener('touchstart', function (e) {
+    var sh = e.target.closest && e.target.closest('.sheet');
+    if (!sh || e.touches.length !== 1) { drag = null; return; }
+    var onTop = !!e.target.closest('.sheet-top');
+    if (!onTop && sh.scrollTop > 0) { drag = null; return; }
+    drag = { sh: sh, y0: e.touches[0].clientY, t0: Date.now(), dy: 0, onTop: onTop };
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (!drag) return;
+    var dy = e.touches[0].clientY - drag.y0;
+    if (dy <= 0 && !drag.onTop) { drag.dy = 0; drag.sh.style.transform = ''; return; }
+    drag.dy = Math.max(0, dy);
+    drag.sh.style.transition = 'none';
+    drag.sh.style.transform = 'translateY(' + drag.dy + 'px)';
+  }, { passive: true });
+  document.addEventListener('touchend', function () {
+    if (!drag) return;
+    var d = drag; drag = null;
+    var flick = d.dy > 40 && (Date.now() - d.t0) < 250;
+    if (d.dy > 90 || flick) { S.sheet = null; draw(); return; }
+    d.sh.style.transition = 'transform .18s ease';
+    d.sh.style.transform = '';
+  });
 
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-space],[data-tab],[data-act]');
