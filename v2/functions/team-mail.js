@@ -54,7 +54,7 @@ const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 const SHUT_MSG = 'Team emails open when the church switches over to the new hub.';
 const MAX_TO = 300;
 /* Martin's list (15 Oct), offered to a church with none yet. */
-export const USUAL_TEAMS = ['Safeguarding', 'Worship', 'Pastoral', 'Office', 'Admin', 'Hospitality', 'Kids Church', 'Youth', 'Welcome team', 'Maintenance'];
+export const USUAL_TEAMS = ['Safeguarding', 'Worship Team', 'Pastoral', 'Church office', 'Admin', 'Hospitality', 'Kids Church', 'Youth Worship', 'Welcome team', 'Maintenance'];
 
 /* The live site: shut until switch-over. The emulator: open, unless a
    test asks (teamMailSettings/config.shutForTest, never read live). */

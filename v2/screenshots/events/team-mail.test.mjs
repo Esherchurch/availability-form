@@ -147,7 +147,7 @@ try {
   await until(() => M.$('[data-team]'));
   ok('2. SWITCHED OVER: no shut note', !(await M.$('#shut')));
   const cards0 = await M.$$eval('[data-team]', cs => cs.map(c => c.getAttribute('data-team')));
-  ok('   UNTIL TEAMS & GROUPS LANDS (no teams yet): the hub\'s built-in teams plus Martin\'s ten, each once', ['Worship Team', 'AV Team', 'Kids Church', 'Maintenance', 'Safeguarding', 'Pastoral', 'Office', 'Welcome team'].every(t => cards0.includes(t)) && new Set(cards0).size === cards0.length, J(cards0));
+  ok('   UNTIL TEAMS & GROUPS LANDS (no teams yet): the hub\'s built-in teams plus Martin\'s ten, each once', ['Worship Team', 'AV Team', 'Kids Church', 'Maintenance', 'Safeguarding', 'Pastoral', 'Church office', 'Welcome team'].every(t => cards0.includes(t)) && new Set(cards0).size === cards0.length, J(cards0));
   ok('   NO WAY TO ADD, RENAME OR REMOVE A TEAM HERE; it says where', !(await M.$('#addTeam')) && !(await M.$('#usual')) && !(await M.$('.tRemove')) && !(await M.$('input.tName')) && /Teams & Groups/.test(await text(M, '#teamsFrom')));
   /* The main window's Teams & Groups page lands: the one list. */
   for (const [id, x] of [['Safeguarding', { name: 'Safeguarding', label: 'Safeguarding', rota: false, order: 1 }], ['Worship Team', { name: 'Worship Team', label: 'Worship', rota: true, order: 2 }],

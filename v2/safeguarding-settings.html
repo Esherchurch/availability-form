@@ -15,7 +15,7 @@
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610152300"></script>
-<script src="egbc-events-checkin.js?v=202610141700"></script>
+<script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
 <script src="egbc-events-safeguarding.js?v=202610111200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -84,6 +84,8 @@
      forms reach first. Adults only: anyone marked UNDER 16 in the address
      book is not offered (the address book holds no other age). */
   var SITES = [], BS = {}, PEOPLE = [];
+  /* THE FIRE ROLL-CALL (F-214): who may open it, set by a master admin. */
+  var FIRE = { people: [] };
   function adultOpts(sel, id) {
     return '<select id="' + id + '"><option value="">Nobody set</option>' + PEOPLE.map(function (p) {
       return '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') +
@@ -113,6 +115,60 @@
       '<p class="hint" style="margin:4px 0 0">Shown beside "call 999" on the "I\'m worried" form, so people can ring them if it cannot wait.</p></div></div>';
   }
   /* Who leads where, as the page shows it now. */
+  /* ---- THE FIRE ROLL-CALL (F-214; Martin, 15 Oct) ----
+     Named people (adults) who may open the fire roll-call: who is checked
+     in at today's events and how many, names only. Each for every building
+     or one. Master admins only change this; it saves on its own. */
+  function fireCard() {
+    if (!(EGBCAuth.isMaster && EGBCAuth.isMaster())) return '';
+    var list = FIRE.people || [], have = list.map(function (p) { return p.memberId; });
+    return '<div class="card" id="fireCard"><h2><span class="badge">' + ico('flame', 17) + '</span>Fire roll-call</h2>' +
+      '<p class="hint" style="margin-top:-4px">The people who may open the fire roll-call for today\'s events: who is checked in, and how many. Names only: no answers, no medical details, no contact details. For example the fire wardens and the duty steward. Master admins always can.</p>' +
+      '<div id="fireList">' + (list.length ? list.map(function (p) {
+        return '<div class="apply" data-fire="' + esc(p.memberId) + '"><span class="t"><strong>' + esc(p.name) + '</strong></span>' +
+          '<select class="fireSite" aria-label="Which building for ' + esc(p.name) + '"><option value="">All buildings</option>' +
+            SITES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (p.siteId === x.id ? ' selected' : '') + '>' + esc(x.name || x.id) + '</option>'; }).join('') + '</select>' +
+          '<button class="btn ghost" data-firedrop="' + esc(p.memberId) + '">Remove</button></div>';
+      }).join('') : '<p class="hint" id="fireNone">Nobody named yet: only master admins can open it.</p>') + '</div>' +
+      '<div class="row"><div class="f"><label for="fireAdd">Add someone</label><select id="fireAdd"><option value="">Choose someone\u2026</option>' +
+        PEOPLE.filter(function (p) { return have.indexOf(p.id) < 0; }).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="bar"><button class="btn" id="fireSave">' + ico('check') + 'Save the fire roll-call list</button><span class="hint" id="fireMsg" role="status"></span></div></div>';
+  }
+  function redrawFire(msg) {
+    var c = document.getElementById('fireCard'); if (!c) return;
+    c.outerHTML = fireCard(); wireFire(); icons();
+    if (msg) document.getElementById('fireMsg').textContent = msg;
+  }
+  function wireFire() {
+    var c = document.getElementById('fireCard'); if (!c) return;
+    var add = document.getElementById('fireAdd');
+    add.onchange = function () {
+      var p = PEOPLE.filter(function (x) { return x.id === add.value; })[0]; if (!p) return;
+      FIRE.people = (FIRE.people || []).concat([{ memberId: p.id, name: p.name, siteId: '' }]);
+      redrawFire('Not saved yet.');
+    };
+    c.querySelectorAll('.fireSite').forEach(function (s) {
+      s.onchange = function () {
+        var id = s.closest('[data-fire]').getAttribute('data-fire');
+        FIRE.people.forEach(function (p) { if (p.memberId === id) p.siteId = s.value; });
+        document.getElementById('fireMsg').textContent = 'Not saved yet.';
+      };
+    });
+    c.querySelectorAll('[data-firedrop]').forEach(function (b) {
+      b.onclick = function () { var id = b.getAttribute('data-firedrop'); FIRE.people = FIRE.people.filter(function (p) { return p.memberId !== id; }); redrawFire('Not saved yet.'); };
+    });
+    document.getElementById('fireSave').onclick = function () {
+      var btn = this, people = (FIRE.people || []).slice(0, 60), bySite = {};
+      people.forEach(function (p) { if (p.siteId) (bySite[p.siteId] = bySite[p.siteId] || []).push(p.memberId); });
+      btn.disabled = true;
+      db().collection('fireRollCall').doc('main').set({
+        people: people, memberIds: people.map(function (p) { return p.memberId; }),
+        allSites: people.filter(function (p) { return !p.siteId; }).map(function (p) { return p.memberId; }), bySite: bySite,
+        updatedBy: EGBCAuth.user().uid, updatedByName: (EGBCAuth.profile() || {}).name || '', updatedAt: new Date().toISOString()
+      }).then(function () { btn.disabled = false; redrawFire('Saved.'); }, function (e) { btn.disabled = false; document.getElementById('fireMsg').textContent = 'Not saved: ' + (e.message || e); });
+    };
+  }
+
   function readWho() {
     var out = { sites: {}, leadSiteId: leadSiteNow() };
     SITES.forEach(function (x) {
@@ -164,7 +220,7 @@
       '<p class="sub">The periods and rules every new form and event starts with, in one place.</p>' +
       (SAVED && SAVED.updatedAt ? '<p class="hint" style="margin-top:-8px">Last changed ' + esc(E.fmtDate(SAVED.updatedAt)) + (SAVED.updatedByName ? ' by ' + esc(SAVED.updatedByName) : '') + '.</p>' : '') +
 
-      whoCard() +
+      whoCard() + fireCard() +
       '<div class="card"><h2><span class="badge">' + ico('file-text', 17) + '</span>Forms</h2>' +
         '<p class="hint" style="margin-top:-4px">For each kind of form: how long an answer counts, and how long it is kept after that before it is due for deletion.</p>' +
         F.TEMPLATES.map(function (t) {
@@ -204,7 +260,8 @@
         markDirty();
       };
     });
-    document.querySelectorAll('#wrap input, #wrap select').forEach(function (el) { el.addEventListener('change', markDirty); el.addEventListener('input', markDirty); });
+    document.querySelectorAll('#wrap input, #wrap select').forEach(function (el) { if (el.closest('#fireCard')) return; el.addEventListener('change', markDirty); el.addEventListener('input', markDirty); });
+    wireFire();
     document.getElementById('save').onclick = save;
     icons();
     drawAlready();
@@ -352,8 +409,10 @@
     return Promise.all([
       db().collection('sites').get().catch(function () { return { docs: [] }; }),
       db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
-      ADMIN ? db().collection('addressBook').get().catch(function () { return { docs: [] }; }) : Promise.resolve({ docs: [] })
+      ADMIN ? db().collection('addressBook').get().catch(function () { return { docs: [] }; }) : Promise.resolve({ docs: [] }),
+      (EGBCAuth.isMaster && EGBCAuth.isMaster()) ? db().collection('fireRollCall').doc('main').get().catch(function () { return null; }) : Promise.resolve(null)
     ]).then(function (w) {
+      if (w[3] && w[3].exists) FIRE = w[3].data();
       SITES = w[0].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }).filter(function (x) { return x.active !== false; })
         .sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.name || '').localeCompare(String(b.name || '')); });
       w[1].docs.forEach(function (x) { BS[x.id] = x.data(); });

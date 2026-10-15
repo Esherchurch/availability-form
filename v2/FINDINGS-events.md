@@ -6622,3 +6622,55 @@ page the app opens has it):
 Then `node tests/check-app-mode.mjs` should be green for my-messages.html.
 (Its other two reds, Worshipteamcharter and Youthcharter, are the known
 leftover-data ones on a used emulator.)
+
+### F-213 (the main window's request) — my-messages.html loads egbc-appmode.js
+
+Done: `egbc-appmode.js?v=202610141200` straight after egbc-nosend.js, as
+the other app pages. **check-app-mode: please rerun on your side.** I
+started it from my clone, and it found another window's emulators on
+your ports (9099), so its 19/20 isn't a clean answer for this change. It
+uses invented people only.
+
+Also: team emails' fallback list now uses the real `teams` ids ("Worship
+Team", "Church office", "Youth Worship"), though with `teams` seeded the
+fallback isn't used.
+
+### F-214 — The fire roll-call goes to named people (Martin, 15 Oct)
+
+- **Safeguarding settings, "Fire roll-call"** (master admins only; it
+  saves on its own, apart from the safeguarding settings): pick people
+  from the address book (adults only), each for **All buildings** or one
+  building (site). For example the fire wardens and the duty steward.
+- **They, and master admins,** open the fire roll-call
+  (checkin.html?view=rollcall, now titled "Fire roll-call"): who is
+  checked in at today's events and how many. A one-building warden
+  sees that building only (the page says which). Names and "in since"
+  only: no answers, no medical details, no contact details.
+- **Each event check-in now records its building** (`buildingId`, the
+  event's site), so the rules can give a warden their building's
+  check-ins and nobody else's. (`siteId` is a children's-check-in field,
+  so it couldn't be used.) Check-ins made before this have no building:
+  an all-buildings warden sees them; a one-building warden doesn't.
+- **Rules** (live at switch-over): `fireRollCall/main` = { people,
+  memberIds, allSites, bySite: { siteId: [memberId] } }, master admins
+  write it, the people on it read it. `fireWarden(buildingId)`; check-ins
+  readable by a warden **by kind: booked, walk-in, leader**, never a
+  child's check-in (kind "child", which holds collection codes). Adult
+  leaders at a children's session show, which an evacuation needs.
+- **Not included: children in the Sunday groups.** Their check-ins carry
+  collection codes, so a warden doesn't get them; the children's leads
+  have their own register in each room. **Question for Martin:** should
+  wardens see a COUNT of children per room (no names, no codes)? That
+  needs a small separate count kept by check-in; say if wanted.
+- Also: the warden can't see sign-ups, their answers, the lists or the
+  door sheet.
+
+**Proved:** fire-rollcall.test 13/13; rules suite 1406/1406 (a new
+block: a warden for every building; one for building B, refused A; an
+event team member of another event refused; the warden refused sign-up
+answers and the children's check-ins; only a master admin changes the
+list).
+
+**For the main window:** egbc-events-checkin.js changed (check-ins now
+record their building). My pages load ?v=202610152300; app.html still
+loads ?v=202610101200 - please bump it when you next touch app.html.

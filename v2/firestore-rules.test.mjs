@@ -3845,6 +3845,40 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nor touch an event she does not run', 'deny', () => updateDoc(doc(ctx('u_natasha'), 'calEvents', 'ev_quiz2'), { title: 'x' }));
 }
 
+// THE FIRE ROLL-CALL (F-214; Martin, 15 Oct): named people see who is in.
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const DAYF = '2026-11-21';
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const U = (uid, mid, teams, adminFor) => setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor, masterAdmin: false });
+    await U('u_wanda', 'm_wanda', [], []);   // fire warden, every building
+    await U('u_sid', 'm_sid', [], []);       // fire warden, building B only
+    await U('u_quinn', 'm_quinn', [], []);   // runs a different event
+    await setDoc(doc(db, 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_sid'], allSites: ['m_wanda'], bySite: { site_b: ['m_sid'] }, updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' });
+    await setDoc(doc(db, 'calEvents', 'ev_fa'), { title: 'Film Club A (invented)', audience: ['members'], visibility: 'members', status: 'confirmed', createdBy: 'u_martin', teamMemberIds: [], teamUids: ['u_natasha'] });
+    await setDoc(doc(db, 'calEvents', 'ev_qz'), { title: 'Quiz (invented)', audience: ['members'], visibility: 'members', status: 'confirmed', createdBy: 'u_martin', teamMemberIds: ['m_quinn'], teamUids: [] });
+    await setDoc(doc(db, 'signups', 'su_fa_1'), { calEventId: 'ev_fa', name: 'Ann Answer (invented)', email: 'ann@example.invalid', places: 1, status: 'confirmed', answers: { q_med: 'SECRET-ASTHMA' } });
+    await setDoc(doc(db, 'checkins', 'ev_fa__su_fa_1__0'), { calEventId: 'ev_fa', signupKey: 'su_fa_1', attendeeIndex: 0, name: 'Ann', kind: 'booked', state: 'in', inAt: 'x', inBy: 'u_natasha', day: DAYF, buildingId: 'site_a', roomId: '' });
+    await setDoc(doc(db, 'checkins', 'ev_qz__su_qz_1__0'), { calEventId: 'ev_qz', signupKey: 'su_qz_1', attendeeIndex: 0, name: 'Quinn guest', kind: 'booked', state: 'in', inAt: 'x', inBy: 'u_quinn', day: DAYF, buildingId: 'site_b', roomId: '' });
+  });
+  const roll = (uid, extra) => getDocs(extra ? query(collection(ctx(uid), 'checkins'), where('day', '==', DAYF), where('kind', 'in', ['booked', 'walkin', 'leader']), where('buildingId', '==', extra))
+                                              : query(collection(ctx(uid), 'checkins'), where('day', '==', DAYF), where('kind', 'in', ['booked', 'walkin', 'leader'])));
+  await check('FIRE ROLL-CALL: a warden for every building sees today\'s check-ins', 'allow', () => roll('u_wanda'));
+  await check('  a warden for building B sees building B\'s', 'allow', () => roll('u_sid', 'site_b'));
+  await check('  but not building A\'s', 'deny', () => roll('u_sid', 'site_a'));
+  await check('  nor every building\'s', 'deny', () => roll('u_sid'));
+  await check('AN EVENT TEAM MEMBER OF A DIFFERENT EVENT does not get the roll-call', 'deny', () => roll('u_quinn'));
+  await check('  nor Film Club\'s check-ins', 'deny', () => getDocs(query(collection(ctx('u_quinn'), 'checkins'), where('calEventId', '==', 'ev_fa'))));
+  await check('THE WARDEN CANNOT SEE SIGN-UP ANSWERS', 'deny', () => getDocs(query(collection(ctx('u_wanda'), 'signups'), where('calEventId', '==', 'ev_fa'))));
+  await check('  nor the children\'s Sunday check-ins', 'deny', () => getDocs(query(collection(ctx('u_wanda'), 'checkins'), where('calEventId', '==', 'kids_grp_junior_' + DAYF))));
+  await check('  a warden reads the list they are on', 'allow', () => getDoc(doc(ctx('u_wanda'), 'fireRollCall', 'main')));
+  await check('  someone not on it does not', 'deny', () => getDoc(doc(ctx('u_quinn'), 'fireRollCall', 'main')));
+  await check('  nor does a warden change it', 'deny', () => setDoc(doc(ctx('u_wanda'), 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_quinn'], allSites: ['m_wanda', 'm_quinn'], bySite: {}, updatedBy: 'u_wanda', updatedByName: 'x', updatedAt: 'x' }));
+  await check('  a master admin does', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_sid'], allSites: ['m_wanda'], bySite: { site_b: ['m_sid'] }, updatedBy: 'u_martin', updatedByName: 'Martin', updatedAt: 'x' }));
+  await check('  a check-in may carry its building (buildingId)', 'allow', () => setDoc(doc(as('martin'), 'checkins', 'ev_fa__su_fa_1__1'), { calEventId: 'ev_fa', signupKey: 'su_fa_1', attendeeIndex: 1, name: 'Abe', kind: 'booked', state: 'in', inAt: 'x', inBy: 'u_martin', inByName: 'M', roomId: '', day: DAYF, buildingId: 'site_a', updatedAt: 'x' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

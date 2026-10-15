@@ -1768,7 +1768,7 @@ service cloud.firestore {
       return d.keys().hasOnly(['calEventId', 'signupKey', 'attendeeIndex', 'name', 'kind', 'state',
                                'inAt', 'inBy', 'inByName', 'outAt', 'outBy', 'outByName',
                                'collectedBy', 'collectorListed', 'overrideReason',
-                               'roomId', 'day', 'updatedAt',
+                               'roomId', 'day', 'updatedAt', 'buildingId',
                                'groupId', 'siteId', 'familyId', 'pickupCode', 'codeGiven', 'screenNo'])
              && d.calEventId is string && d.calEventId.size() > 0
              && d.signupKey is string && d.signupKey.size() > 0
@@ -1854,6 +1854,12 @@ service cloud.firestore {
       // by group or site.)
       allow read: if ((runsEventId(resource.data.calEventId) || isEventLeader(resource.data.calEventId))
                       && (resource.data.kind in ['booked', 'walkin', 'leader'] || !resource.data.calEventId.matches('kids_.*')))
+                  // The fire roll-call (F-214): the people named for it, for
+                  // their building (or every building). By kind: never a
+                  // child's check-in (kind 'child', which holds collection
+                  // codes); adult leaders and booked people only.
+                  || (resource.data.kind in ['booked', 'walkin', 'leader']
+                      && fireWarden(resource.data.get('buildingId', '')))
                   || kidsLead(resource.data.get('siteId', ''))
                   || kidsGroupLeader(resource.data.get('groupId', ''));
       // A child arrives: their own record says this group, this site, and
@@ -4148,6 +4154,31 @@ service cloud.firestore {
     match /teamMailSettings/{id} {
       allow read: if isMaster() && id == 'main';
       allow write: if false;
+    }
+
+    // ---- THE FIRE ROLL-CALL (F-214; Martin, 15 Oct) --------------------
+    // Named people - fire wardens, the duty steward - and master admins see
+    // who is checked in at today's events: names and how many. A master
+    // admin names them (adults), each for every building or one building.
+    // fireRollCall/main = { people: [{ memberId, name, siteId }], memberIds,
+    // allSites: [memberId], bySite: { siteId: [memberId] }, updatedBy... }
+    function fireDoc() {
+      return get(/databases/$(database)/documents/fireRollCall/main).data;
+    }
+    function fireWarden(buildingId) {
+      return active() && exists(/databases/$(database)/documents/fireRollCall/main)
+             && (me().get('memberId', '') in fireDoc().get('allSites', [])
+                 || (buildingId is string && buildingId != ''
+                     && me().get('memberId', '') in fireDoc().get('bySite', {}).get(buildingId, [])));
+    }
+    match /fireRollCall/{id} {
+      allow read: if isMaster()
+                  || (id == 'main' && active() && me().get('memberId', '') in resource.data.get('memberIds', []));
+      allow write: if isMaster() && id == 'main'
+                   && request.resource.data.keys().hasOnly(['people', 'memberIds', 'allSites', 'bySite', 'updatedBy', 'updatedByName', 'updatedAt'])
+                   && request.resource.data.people is list && request.resource.data.people.size() <= 60
+                   && request.resource.data.memberIds is list && request.resource.data.allSites is list
+                   && request.resource.data.bySite is map && request.resource.data.updatedBy == request.auth.uid;
     }
 
     // ── end EVENTS ──────────────────────────────────────────────────

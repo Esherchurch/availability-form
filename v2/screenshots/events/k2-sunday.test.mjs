@@ -263,7 +263,7 @@ try {
      master admins only now (an area admin no longer sees other events'). */
   await W.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
   await until(async () => /roll-call is for master admins/.test(await text(W, '#wrap')));
-  ok('   the roll-call is for master admins now (F-212), and says so; no child shown', /The roll-call is for master admins/.test(await text(W, '#wrap')) && !/Ben Synthetic/.test(await text(W, '#wrap')), await text(W, '#wrap'));
+  ok('   the roll-call is for master admins now (F-212), and says so; no child shown', /The fire roll-call is for master admins/.test(await text(W, '#wrap')) && !/Ben Synthetic/.test(await text(W, '#wrap')), await text(W, '#wrap'));
   await wB.close();
   const kB = await as('karen'); const KA = kB.page;
   await go(KA, 'checkin.html?view=rollcall', '#wrap h1');

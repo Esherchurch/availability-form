@@ -57,7 +57,7 @@
   var PEOPLE = [], TEAMS = [], MAIL = {}, WHO = {}, SHUT = false;
   /* Until Teams & Groups lands (an empty `teams` collection): the hub's
      built-in teams plus Martin's ten (15 Oct). */
-  var USUAL = ['Safeguarding', 'Worship', 'Pastoral', 'Office', 'Admin', 'Hospitality', 'Kids Church', 'Youth', 'Welcome team', 'Maintenance'];
+  var USUAL = ['Safeguarding', 'Worship Team', 'Pastoral', 'Church office', 'Admin', 'Hospitality', 'Kids Church', 'Youth Worship', 'Welcome team', 'Maintenance'];
   function teamList(snap) {
     if (snap.size) return snap.docs.map(function (d) { var x = d.data() || {}; return { id: d.id, name: x.label || x.name || d.id, archived: x.archived === true, order: typeof x.order === 'number' ? x.order : 999 }; })
       .filter(function (t) { return !t.archived; });

@@ -15,7 +15,7 @@
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610152300"></script>
-<script src="egbc-events-checkin.js?v=202610141700"></script>
+<script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-labels.js?v=202610142300"></script>
 <script src="egbc-events-safeguarding.js?v=202610111200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -647,7 +647,22 @@
 
   /* ---------- roll-call ---------- */
 
-  function rollCall() {
+  /* Who may open the roll-call, and for which buildings:
+     { all: true } or { sites: [siteId] }, or null. */
+  function mayRollCall() {
+    if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return Promise.resolve({ all: true });
+    var mid = (EGBCAuth.profile() || {}).memberId || '';
+    if (!mid) return Promise.resolve(null);
+    return db().collection('fireRollCall').doc('main').get().then(function (s) {
+      if (!s.exists) return null;
+      var f = s.data() || {};
+      if ((f.allSites || []).indexOf(mid) >= 0) return { all: true };
+      var sites = Object.keys(f.bySite || {}).filter(function (k) { return (f.bySite[k] || []).indexOf(mid) >= 0; });
+      return sites.length ? { sites: sites } : null;
+    }, function () { return null; });
+  }
+  function rollCall(who) {
+    who = who || { all: true };
     var lookups = E.lookups();
     var evCache = {};
     function render(cks) {
@@ -668,8 +683,9 @@
         var names = Object.keys(groups).sort();
         var total = ins.filter(function (c) { return c.kind !== 'leader'; }).length;
         var leaders = ins.length - total;
+        var where = who.all ? '' : who.sites.map(function (sid) { return (look.sites && look.sites[sid]) || 'your building'; }).join(', ');
         document.getElementById('wrap').innerHTML =
-          '<h1>Roll-call</h1><p class="sub">Everyone checked in today and not yet checked out. ' +
+          '<h1>Fire roll-call</h1><p class="sub">' + (where ? esc(where) + ': e' : 'E') + 'veryone checked in today and not yet checked out. ' +
           'Updated live · ' + E.fmtTime(new Date()) + '</p>' +
           '<div class="tiles" style="grid-template-columns:repeat(2,1fr)">' + tile('in', total, 'People in the building') + tile('', leaders, 'Leaders') + '</div>' +
           '<div class="bar noprint"><button class="btn sec" onclick="window.print()">' + ico('printer', 15) + 'Print</button>' +
@@ -705,7 +721,12 @@
         if (key === 'events') document.getElementById('wrap').innerHTML = '<div class="banner warn">Could not load the roll-call: ' + esc(e.message || e) + '</div>';
       });
     }
-    listen('events', db().collection('checkins').where('day', '==', C.today()).where('kind', 'in', ['booked', 'walkin', 'leader']));
+    if (who.all) listen('events', db().collection('checkins').where('day', '==', C.today()).where('kind', 'in', ['booked', 'walkin', 'leader']));
+    /* A warden for one building: that building's check-ins only. */
+    else who.sites.forEach(function (sid) {
+      listen('events_' + sid, db().collection('checkins').where('day', '==', C.today()).where('kind', 'in', ['booked', 'walkin', 'leader']).where('buildingId', '==', sid));
+    });
+    if (!(EGBCAuth.isMaster && EGBCAuth.isMaster()) && !who.kidsLead) return;
     db().collection('kidsSettings').get().then(function (s) {
       s.docs.forEach(function (d) { listen('kids_' + d.id, db().collection('checkins').where('siteId', '==', d.id).where('day', '==', C.today())); });
     }).catch(function () {});
@@ -719,9 +740,13 @@
   EGBCAuth.require().then(function () {
     ADMIN = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
     if (VIEW === 'rollcall') {
-      /* Every event's check-ins for the day: master admins (F-212). */
-      if (!(EGBCAuth.isMaster && EGBCAuth.isMaster())) throw new Error('The roll-call is for master admins. An event\'s team and leaders see who is in on that event\'s own check-in.');
-      return rollCall();
+      /* THE FIRE ROLL-CALL (F-214): master admins, and the people a master
+         admin named for it in Safeguarding settings - each for every
+         building or their own. */
+      return mayRollCall().then(function (w) {
+        if (!w) throw new Error('The fire roll-call is for master admins and the people named for it in Safeguarding settings.');
+        return rollCall(w);
+      });
     }
     if (!EVID) return pickEvent();
     return Promise.all([SG.leadersOf(EVID), SG.myLeadSites()]).then(function (who) {

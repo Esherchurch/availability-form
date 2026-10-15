@@ -170,6 +170,9 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
   function roomOf(ev) { return ((ev.location || {}).roomIds || [])[0] || ''; }
+  /* The building (site), so the fire roll-call can show a warden their own
+     building's check-ins and nobody else's (F-214). */
+  function buildingOf(ev) { return String((ev.location || {}).siteId || ''); }
 
   /* First arrival creates the record; coming back after being checked out
      updates it. Arriving twice is refused by the rules, and the page turns
@@ -178,13 +181,13 @@
     var who = me(), at = now();
     var ref = db().collection('checkins').doc(row.id);
     if (existing) {
-      return ref.update({ state: 'in', inAt: at, inBy: who.uid, inByName: who.name, day: today(), updatedAt: at });
+      return ref.update({ state: 'in', inAt: at, inBy: who.uid, inByName: who.name, day: today(), buildingId: buildingOf(ev), updatedAt: at });
     }
     return ref.set({
       calEventId: ev.id, signupKey: row.signupKey, attendeeIndex: row.index,
       name: row.name, kind: row.kind || 'booked', state: 'in',
       inAt: at, inBy: who.uid, inByName: who.name,
-      roomId: roomOf(ev), day: today(), updatedAt: at
+      roomId: roomOf(ev), day: today(), buildingId: buildingOf(ev), updatedAt: at
     });
   }
 
@@ -211,7 +214,7 @@
       calEventId: ev.id, signupKey: key, attendeeIndex: 0, name: o.name,
       kind: leader ? 'leader' : 'walkin', state: 'in',
       inAt: at, inBy: who.uid, inByName: who.name,
-      roomId: roomOf(ev), day: today(), updatedAt: at
+      roomId: roomOf(ev), day: today(), buildingId: buildingOf(ev), updatedAt: at
     };
     if (leader) return db().collection('checkins').doc(id).set(ck).then(function () { return { id: id }; });
 
