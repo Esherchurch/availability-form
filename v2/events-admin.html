@@ -118,7 +118,7 @@
     <button class="btn" id="newEv"><i data-lucide="plus" style="width:16px;height:16px"></i>New event</button>
     <button class="btn sec" id="showPast"><i data-lucide="history" style="width:15px;height:15px"></i>Show past events</button>
     <a class="btn ghost" href="whatson.html"><i data-lucide="external-link" style="width:15px;height:15px"></i>What people see</a>
-    <a class="btn ghost" href="comms.html"><i data-lucide="mail" style="width:15px;height:15px"></i>Emails sent</a>
+    <a class="btn ghost" href="comms.html" id="commsLink" style="display:none"><i data-lucide="mail" style="width:15px;height:15px"></i>Emails sent</a>
   </div>
 
   <div id="mytasks"></div>
@@ -1944,6 +1944,8 @@
   };
 
   EGBCAuth.require().then(function () {
+    /* Emails sent is for master admins only (Martin, 15 Oct; da5cc4af). */
+    if (EGBCAuth.isMaster && EGBCAuth.isMaster()) document.getElementById('commsLink').style.display = '';
     db().collection('paymentSettings').doc('public').get().then(function (s) { PAYPUB = s.exists ? s.data() : {}; }, function () {});
     return Promise.all([E.lookups(), loadTemplates(),
       db().collection('sites').get(), db().collection('rooms').get(), db().collection('venues').get()]);

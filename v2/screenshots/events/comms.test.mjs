@@ -60,14 +60,15 @@ await fetch(`http://127.0.0.1:8182/emulator/v1/projects/${PROJECT}/databases/(de
 await fetch(`http://127.0.0.1:9098/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
 const P = {
   martin: { email: 'martin.master@example.invalid', name: 'Martin Master', mid: 'm_martin', master: true, teams: ['Core Team'] },
-  ann:    { email: 'ann.attender@example.invalid', name: 'Ann Attender', mid: 'm_ann', teams: [] }
+  ann:    { email: 'ann.attender@example.invalid', name: 'Ann Attender', mid: 'm_ann', teams: [] },
+  kate:   { email: 'kate.kidsadmin@example.invalid', name: 'Kate Kidsadmin (invented)', mid: 'm_kate', teams: ['Kids Church'], adminFor: ['Kids Church'] }
 };
 for (const k of Object.keys(P)) {
   P[k].uid = (await (await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: P[k].email, password: 'synthetic-only-123', returnSecureToken: true }) })).json()).localId;
   const x = P[k];
-  await db.collection('addressBook').doc(x.mid).set({ name: x.name, email: x.email, markers: x.teams, adminFor: [], masterAdmin: !!x.master });
-  await db.collection('users').doc(x.uid).set({ memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: [], masterAdmin: !!x.master, attender: true, status: 'active' });
+  await db.collection('addressBook').doc(x.mid).set({ name: x.name, email: x.email, markers: x.teams, adminFor: x.adminFor || [], masterAdmin: !!x.master });
+  await db.collection('users').doc(x.uid).set({ memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: x.adminFor || [], masterAdmin: !!x.master, attender: true, status: 'active' });
 }
 const ago = (days, h) => { const d = new Date(); d.setDate(d.getDate() - days); d.setHours(h || 10, 0, 0, 0); return d.toISOString(); };
 const SECRETLINK = 'https://example.invalid/hub/my-signup.html?key=PRIVATEKEY0000000000000000000000';
@@ -98,6 +99,9 @@ const text = (p, sel) => p.$eval(sel || 'body', e => e.innerText.replace(/\s+/g,
 
 try {
   const M = await browser('martin');
+  await M.goto(URLB + 'events-admin.html', { waitUntil: 'networkidle2' });
+  await until(async () => M.$eval('#commsLink', a => getComputedStyle(a).display !== 'none'), 10000);
+  ok('0. EVENTS: a master admin has the "Emails sent" button', await M.$eval('#commsLink', a => getComputedStyle(a).display !== 'none'));
   await M.goto(URLB + 'comms.html', { waitUntil: 'networkidle2' });
   await until(() => M.$('[data-row]'));
   const rows = await M.$$eval('[data-row]', r => r.map(x => x.innerText.replace(/\s+/g, ' ')));
@@ -122,6 +126,17 @@ try {
   await A.goto(URLB + 'comms.html', { waitUntil: 'networkidle2' });
   await sleep(1500);
   ok('   and the page says it is for master admins', /This page is for master admins/.test(await text(A)));
+
+  /* Martin, 15 Oct (da5cc4af): master admins only, so an admin for one team is turned away too. */
+  const K = await browser('kate');
+  const kr = await K.evaluate(() => EGBCAuth.call('commsReport', { from: '2026-01-01', to: '2026-12-31' }).then(() => 'given', e => e.message));
+  ok('   AN ADMIN WHO IS NOT A MASTER ADMIN (Kids Church): the server refuses', /for master admins/.test(kr), kr);
+  await K.goto(URLB + 'events-admin.html', { waitUntil: 'networkidle2' });
+  await until(() => K.$('#list .ev, #list [data-id], #list .hint'), 10000); await sleep(1500);
+  ok('   on Events she has no "Emails sent" button', await K.$eval('#commsLink', a => getComputedStyle(a).display === 'none').catch(() => true));
+  await K.goto(URLB + 'comms.html', { waitUntil: 'networkidle2' });
+  await until(async () => /This page is for master admins/.test(await text(K)), 8000);
+  ok('   and the page says it is for master admins', /This page is for master admins/.test(await text(K)) && !(await K.$('[data-row]')));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

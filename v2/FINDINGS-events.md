@@ -5917,3 +5917,27 @@ phone app. Just a date card."
   `egbc-events.js` to `?v=202610151500`.
 
 **Proved:** app-pictures.test 13/13 at 375px; app-whatson.test 15/15.
+
+### F-200 — After da5cc4af (Payments and Emails sent: only the right people)
+
+- **comms.test** reran: 14/14. It now also proves that an admin for one
+  team (not a master admin) is turned away by the server and the page.
+- **events-admin.html** showed an "Emails sent" button to every events
+  admin. It now shows only for master admins (comms.test checks both).
+- **check-menu: not run by me.** It needs the main window's emulators
+  (9099), and another window was running check-menu at the time, on its
+  own ports. Running it alongside would have clashed and written into
+  their emulator. Please run it there.
+- **The money team's name in the Menu.** `paymentsTeam` now also writes
+  the team's NAME (only the name, not who is on it) to
+  `paymentSettings/public.moneyTeam`, which anyone may read. The team
+  record itself stays private (stripe.test checks both). For the main
+  window, in egbc-menu.js, the cheap way is one read before deciding
+  Payments:
+
+      db.collection('paymentSettings').doc('public').get()
+        .then(s => (s.exists && s.data().moneyTeam) || 'Finance')
+      // then: show Payments if masterAdmin, or teams includes that name
+
+  Until a master admin renames the team, moneyTeam is absent: 'Finance'.
+- stripe.test 34/34, gocardless.test 33/33.

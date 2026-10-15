@@ -171,6 +171,14 @@ try {
   const A = await browser('ann');
   const annTry = await A.evaluate((k) => EGBCAuth.call('paymentsSave', { provider: 'stripe', kind: 'key', value: k }).then(() => 'saved', e => e.message), GOOD);
   ok('   ANYONE ELSE IS REFUSED by the server', /Only a master admin or the church's money team/.test(annTry), annTry);
+  /* A renamed money team: its NAME (not who is on it) is where the Menu can read it (da5cc4af). */
+  const renamed = await M.evaluate(() => EGBCAuth.call('paymentsTeam', { team: 'Treasury' }).then(r => r.team, e => e.message));
+  const seen = await A.evaluate(() => EGBCAuth.db.collection('paymentSettings').doc('public').get().then(s => s.data().moneyTeam, e => e.code));
+  const hidden = await A.evaluate(() => EGBCAuth.db.collection('paymentSettings').doc('team').get().then(() => 'read', e => e.code));
+  ok('   THE MONEY TEAM RENAMED ("Treasury"): its name is in the public settings for the Menu; the team record itself stays private', renamed === 'Treasury' && seen === 'Treasury' && /permission/.test(hidden), renamed + ' ' + seen + ' ' + hidden);
+  const annTeam = await A.evaluate(() => EGBCAuth.call('paymentsTeam', { team: 'Ann\'s team' }).then(() => 'renamed', e => e.message));
+  ok('   only a master admin may rename it', /Only a master admin names the money team/.test(annTeam), annTeam);
+  await M.evaluate(() => EGBCAuth.call('paymentsTeam', { team: 'Finance' }));
   await A.goto(URLB + 'payments.html', { waitUntil: 'networkidle2' });
   await sleep(1500);
   ok('   and the page says it is not for them', /master admins and the church's money team/.test(await text(A)));

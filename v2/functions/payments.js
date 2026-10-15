@@ -211,6 +211,9 @@ export const paymentsTeam = onCall({ region: REGION }, async (req) => {
   const team = String(req.data && req.data.team || '').trim().slice(0, 60);
   if (!team) throw new HttpsError('invalid-argument', 'Name a team.');
   await db().collection('paymentSettings').doc('team').set({ team, updatedAt: FieldValue.serverTimestamp() });
+  /* The name only (not who is on it), where the Menu can read it: so a
+     renamed money team still sees Payments in the Menu (da5cc4af). */
+  await db().collection('paymentSettings').doc('public').set({ moneyTeam: team }, { merge: true });
   return { ok: true, team };
 });
 
