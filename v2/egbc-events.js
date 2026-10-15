@@ -677,6 +677,55 @@
       '<p class="hint" id="subUrl" style="overflow-wrap:anywhere;margin:8px 0 0">' + esc(url) + '</p><p class="hint" id="subMsg" role="status">' + esc(st.msg || '') + '</p>' +
       (mine ? '<p class="hint" style="margin:4px 0 0">Your own link shows members\' and team events, so keep it to yourself. Reset makes a new one and the old one stops working.</p>' : '');
   }
+  /* ---- An event's picture, WHOLE (Martin, 15 Oct: a wide banner cut off
+     the Bereavement Cafe poster's times; "it needs the full image when you
+     open it, without making the page too big"). Used by signup.html and
+     the app's event view.
+       picFigure(src)  the whole picture (never cropped), on a blurred,
+                       darkened copy of itself; a button: tap to open
+       picOpen(btn)    full screen: the whole picture on dark, X and Esc
+                       close it, and the focus goes back to the picture
+     Only a web address is ever drawn (safePic). */
+  function safePic(u) { u = String(u || '').trim(); return /^(https?:\/\/|\/|[a-z0-9_-]+\/)/i.test(u) ? u : ''; }
+  function picStyle() {
+    if (document.getElementById('egbc-pic-css')) return;
+    var st = document.createElement('style'); st.id = 'egbc-pic-css';
+    st.textContent = '.egbc-pic{position:relative;display:block;width:100%;padding:0;margin:0 0 14px;border:0;border-radius:14px;overflow:hidden;background:#1f2937;cursor:zoom-in;line-height:0}' +
+      '.egbc-pic .bg{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(20px) brightness(.5);transform:scale(1.05)}' +
+      '.egbc-pic .whole{position:relative;display:block;margin:0 auto;max-width:100%;max-height:50vh;width:auto;height:auto;object-fit:contain}' +
+      '.egbc-pic:focus-visible{outline:3px solid #3d6263;outline-offset:3px}' +
+      '#egbc-picview{position:fixed;inset:0;z-index:9999;background:rgba(10,12,16,.94);display:flex;align-items:center;justify-content:center;padding:16px}' +
+      '#egbc-picview img{max-width:100%;max-height:100%;object-fit:contain}' +
+      '#egbc-picview button{position:absolute;top:12px;right:12px;width:48px;height:48px;border-radius:24px;border:0;background:rgba(255,255,255,.16);color:#fff;font:600 24px/48px Inter,system-ui,sans-serif;cursor:pointer}' +
+      '#egbc-picview button:focus-visible{outline:3px solid #fff}';
+    document.head.appendChild(st);
+  }
+  function picFigure(src, attrs) {
+    src = safePic(src); if (!src) return '';
+    picStyle();
+    return '<button type="button" class="egbc-pic" data-pic="' + esc(src) + '" aria-label="See the whole picture"' + (attrs ? ' ' + attrs : '') + '>' +
+      '<img class="bg" src="' + esc(src) + '" alt="" aria-hidden="true"><img class="whole" src="' + esc(src) + '" alt=""></button>';
+  }
+  function picOpen(btn) {
+    var src = btn && safePic(btn.getAttribute('data-pic')); if (!src) return;
+    picStyle();
+    var old = document.getElementById('egbc-picview'); if (old) old.remove();
+    var v = document.createElement('div'); v.id = 'egbc-picview';
+    v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true'); v.setAttribute('aria-label', 'The picture');
+    v.innerHTML = '<img src="' + esc(src) + '" alt=""><button type="button" aria-label="Close">✕</button>';
+    var key = function (e) { if (e.key === 'Escape') { e.preventDefault(); close(); } else if (e.key === 'Tab') { e.preventDefault(); v.querySelector('button').focus(); } };
+    var close = function () {
+      document.removeEventListener('keydown', key, true); v.remove();
+      /* The page may have drawn itself again meanwhile: the same picture's button. */
+      var back = document.body.contains(btn) ? btn : document.querySelector('.egbc-pic');
+      if (back) back.focus();
+    };
+    v.addEventListener('click', function (e) { e.stopPropagation(); if (e.target === v || e.target.tagName === 'BUTTON') close(); });
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(v);
+    v.querySelector('button').focus();
+  }
+
   /* What a "sub:..." does to the state. Resolves when it is time to draw again. */
   function subscribeAct(a, st) {
     a = String(a || '').replace(/^sub:/, ''); st.msg = ''; st.copied = false;
@@ -857,6 +906,9 @@
     feedUrl: feedUrl,
     isPhone: isPhone,
     deviceKind: deviceKind,
+    safePic: safePic,
+    picFigure: picFigure,
+    picOpen: picOpen,
     subscribeHtml: subscribeHtml,
     subscribeAct: subscribeAct,
     CLOSED_WORDS: CLOSED_WORDS,

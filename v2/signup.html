@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610151500"></script>
+<script src="egbc-events.js?v=202610151700"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +33,16 @@
         padding:20px;margin-bottom:14px}
   h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 6px}
   h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
-  .hero{width:100%;max-height:260px;object-fit:cover;border-radius:14px;border:1px solid var(--line);margin-bottom:14px;display:block}
+  /* The event's picture, WHOLE (Martin, 15 Oct): EGBCEvents.picFigure on a
+     phone; on a computer, two columns, the picture on the left at its own
+     shape. */
+  @media (min-width:900px){
+    .wrap.has-pic{max-width:1180px}
+    .evgrid.has-pic{display:grid;grid-template-columns:35% minmax(0,1fr);gap:24px;align-items:start}
+    .evgrid .egbc-pic{position:sticky;top:16px;background:none;margin:0}
+    .evgrid .egbc-pic .bg{display:none}
+    .evgrid .egbc-pic .whole{width:100%;max-height:70vh;object-fit:contain;border-radius:14px}
+  }
   .meta{color:var(--muted);font-size:14px;margin:0 0 4px;display:flex;gap:8px;align-items:flex-start}
   .meta i{flex:none;margin-top:2px;color:var(--brand)}
   .desc{margin-top:14px;color:var(--body);line-height:1.6}
@@ -220,8 +229,8 @@
     var cat = catOf(EV);
     var l = left();
     var closed = EV.status === 'cancelled' || !EV.signupOn;
-    var html =
-      (EV.image ? '<img class="hero" src="' + esc(EV.image) + '" alt="">' : '') +
+    var pic = E.picFigure(EV.image, 'id="picOpen"');
+    var html = '<div class="evgrid' + (pic ? ' has-pic' : '') + '">' + pic + '<div class="evmain">' +
       '<div class="card">' +
         (EV.status === 'cancelled' ? '<div class="banner warn">This event has been cancelled.</div>' : '') +
         (EV.status === 'pending' ? '<div class="banner info">Not announced yet — you are seeing it because you are signed in.</div>' : '') +
@@ -254,9 +263,11 @@
           '<a class="btn ghost" href="whatson.html"><i data-lucide="arrow-left" style="width:15px;height:15px"></i>What\'s on</a>' +
         '</div>' +
       '</div>' +
-      (closed ? '' : formHtml());
+      (closed ? '' : formHtml()) + '</div></div>';
 
     document.getElementById('wrap').innerHTML = html;
+    document.getElementById('wrap').classList.toggle('has-pic', !!pic);
+    var po = document.getElementById('picOpen'); if (po) po.onclick = function () { E.picOpen(po); };
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
     wire();
     applyInvite();

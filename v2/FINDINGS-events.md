@@ -5941,3 +5941,28 @@ phone app. Just a date card."
 
   Until a master admin renames the team, moneyTeam is absent: 'Finance'.
 - stripe.test 34/34, gocardless.test 33/33.
+
+**F-199, changed the same day (Martin, 15 Oct): the WHOLE picture.** The
+event page cropped the picture as a wide banner and cut off the
+Bereavement Cafe poster's times. "It needs the full image when you open
+it, without making the page too big."
+- One shared piece in egbc-events.js (`picFigure`, `picOpen`, `safePic`),
+  used by the event page and the app's event view.
+- **Phone:** the whole picture (never cropped), at most half the screen
+  tall, centred on a blurred, darkened copy of itself filling the width;
+  the details start straight underneath.
+- **Computer (900px and wider):** two columns: the picture on the left at
+  its own shape (35%, at most 70% of the screen tall), the title, details,
+  buttons, description and sign-up on the right.
+- **Tap or click it:** full screen, the whole picture on dark; X and Esc
+  close it, and the focus goes back to the picture.
+- No picture: the page as before.
+- The app's separate "whole picture" page is gone; it uses the same full
+  screen view.
+- Screenshots: signup-picture-bereavement / -film at 375 and 1440,
+  app-pictures-event-375, app-pictures-full-375.
+
+**Proved:** app-pictures.test 26/26. 7 deliberate breaks, all caught; the
+one that matters: the picture cropped as a banner again. The event page's
+other tests still pass: pay-on-day 18, series 15, invites 15, stripe 34,
+events-feed 18, phone-subscribe 27.

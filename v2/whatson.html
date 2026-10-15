@@ -17,7 +17,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610151200"></script>
+<script src="egbc-events.js?v=202610151700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -85,7 +85,8 @@
   .empty{padding:36px 16px;text-align:center;color:var(--muted);font-size:14px}
   .note{background:var(--tint);border:1px solid #cfe0de;border-radius:8px;padding:10px 12px;
         font-size:13px;color:var(--body);margin-bottom:16px}
-  @media (max-width:420px){ .thumb{display:none} }
+  /* On a phone the picture takes the date card's place (Martin, 15 Oct: "just a date card"); the date is in the line under the title. */
+  @media (max-width:420px){ .thumb{width:56px;height:56px;border-radius:10px} .ev.has-pic .when{display:none} }
 </style>
 </head>
 <body>
@@ -137,8 +138,8 @@
     var d = new Date(ev.startLocal || ev.startUtc);
     var cat = catOf(ev);
     var where = E.locationText(ev, LOOK);
-    var img = ev.image ? '<img class="thumb" src="' + esc(ev.image) + '" alt="">' : '';
-    return '<button class="ev" onclick="location.href=\'signup.html?event=' + esc(ev.id) + '\'">' +
+    var img = E.safePic(ev.image) ? '<img class="thumb" src="' + esc(ev.image) + '" alt="">' : '';
+    return '<button class="ev' + (img ? ' has-pic' : '') + '" onclick="location.href=\'signup.html?event=' + esc(ev.id) + '\'">' +
       '<span class="when"><span class="w">' + E.fmtDateShort(d).split(' ')[0] + '</span>' +
       '<span class="d">' + d.getDate() + '</span>' +
       '<span class="m">' + E.fmtDateShort(d).split(' ')[2] + '</span></span>' +

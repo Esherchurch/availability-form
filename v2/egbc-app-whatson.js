@@ -106,8 +106,19 @@
   function rowAct(wact, icon, title, sub, right) {
     return '<div data-wact="' + esc(wact) + '">' + H.row(icon, title, sub, right || null) + '</div>';
   }
+  /* An event's picture (Martin, 15 Oct: "the pictures are not showing
+     against the events on the phone app"). Only a web address is used. */
+  function picOf(e) { return E.safePic(e && e.image); }
+  /* The row with the picture where the icon would be: a 56px rounded square. */
+  function picRow(row, src) {
+    return row.replace(/<span class="ic">[\s\S]*?<\/span><span class="tx">/, function () {
+      return '<span class="ic wo-pic"><img src="' + esc(src) + '" alt="" loading="lazy"></span><span class="tx">';
+    });
+  }
   var STYLE = '<style>.wo-list>[data-wact]+[data-wact]{border-top:1px solid var(--line)}.wo-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}' +
-    '.wo-chips .btn{flex:none}.wo-chips .btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}.wo-words{white-space:pre-wrap;margin:0}</style>';
+    '.wo-chips .btn{flex:none}.wo-chips .btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}.wo-words{white-space:pre-wrap;margin:0}' +
+    '.ic.wo-pic{flex:none;width:56px;height:56px;padding:0;border-radius:10px;overflow:hidden;background:var(--line)}.ic.wo-pic img{width:56px;height:56px;max-width:none;object-fit:cover;display:block}' +
+    '.wo-pichold{margin-top:10px}</style>';
 
   function pillFor(e) {
     if (D.mine[e.id]) return '<span class="pill">' + (D.mine[e.id].waiting ? 'Waiting list' : 'Booked') + '</span>';
@@ -133,7 +144,8 @@
       }).join('') + '</div>' +
       (list.length ? '<div class="card list wo-list" data-w="events">' + list.map(function (e) {
         var where = E.locationText(e, D.look), only = onlyFor(e);
-        return rowAct('event:' + e.id, ICON[e.category || 'other'] || 'calendar-days', e.title || 'Untitled event', [E.fmtWhen(e), where, only].filter(Boolean).join(' · '), pillFor(e));
+        var r = rowAct('event:' + e.id, ICON[e.category || 'other'] || 'calendar-days', e.title || 'Untitled event', [E.fmtWhen(e), where, only].filter(Boolean).join(' · '), pillFor(e));
+        return picOf(e) ? picRow(r, picOf(e)) : r;
       }).join('') + '</div>'
         : '<div class="card" style="padding:14px" data-w="none"><p style="margin:0">' + (VIEW.filter ? 'Nothing here. Try another one above.' : 'Nothing coming up yet.') + '</p></div>') +
       H.sec('Rooms', '<div class="card list wo-list">' + rowAct('rooms', 'door-open', 'Book a room', 'See what is free and book it. No need to ask the office.') + '</div>') +
@@ -156,7 +168,11 @@
     if (e.status !== 'cancelled') rows.push(rowAct('ics', 'calendar-plus', 'Add to my calendar', 'Google, iPhone or Outlook'));
     rows.push(rowAct('share', 'share-2', 'Share on WhatsApp', e.status === 'cancelled' ? 'Let people know' : 'Invite a friend'));
     rows.push(rowAct('open:' + BASE + 'signup.html?event=' + encodeURIComponent(e.id), 'external-link', 'The full page', 'Everything about it'));
-    return '<div>' + act('list', 'What\'s on', false, 'arrow-left') + '<p class="hello" style="margin-top:10px">' + esc(e.title || 'Untitled event') + '</p>' +
+    var pic = picOf(e);
+    return '<div>' + act('list', 'What\'s on', false, 'arrow-left') +
+      /* The WHOLE picture, never cropped (Martin, 15 Oct), as on the event page; tap: full screen. */
+      (pic ? '<div class="wo-pichold">' + E.picFigure(pic, 'data-wact="picture" data-w="banner"') + '</div>' : '') +
+      '<p class="hello" style="margin-top:10px">' + esc(e.title || 'Untitled event') + '</p>' +
       '<p class="sub">' + esc([E.fmtWhen(e), where].filter(Boolean).join(' · ')) + '</p></div>' +
       (e.status === 'cancelled' ? '<div class="card" style="padding:14px"><p style="margin:0"><b>This has been cancelled.</b></p></div>' : '') +
       (only ? '<p class="sub" style="margin:0">' + esc(only) + '</p>' : '') +
@@ -200,6 +216,7 @@
     if (a === 'list') { VIEW.mode = 'list'; redraw(); return; }
     if (a === 'rooms') { VIEW.mode = 'rooms'; redraw(); return; }
     if (a === 'subscribe') { VIEW.mode = 'subscribe'; redraw(); return; }
+    if (a === 'picture') { E.picOpen(global.document.querySelector('[data-w="banner"]')); return; }
     if (a.indexOf('sub:') === 0) { E.subscribeAct(a, SUB).then(redraw); return; }
     if (a.indexOf('open:') === 0) { global.location.href = a.slice(5); return; }
     if (a === 'share') {
