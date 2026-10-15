@@ -68,6 +68,7 @@ const URLB = 'http://localhost:5601/';
 
 /* ---------- the stand-in GoCardless ---------- */
 const GOOD = 'sandbox_' + 'G'.repeat(30), CALLS = [];
+let subs = 0;
 let n = 0;
 const stand = http.createServer((req, res) => {
   let body = ''; req.on('data', c => { body += c; }); req.on('end', () => {
@@ -79,7 +80,7 @@ const stand = http.createServer((req, res) => {
     if (req.url === '/creditors') return json(200, { creditors: [{ id: 'CR000TEST1234', name: 'Test Green Church (invented)' }] });
     if (req.url === '/billing_requests' && req.method === 'POST') { n++; return json(201, { billing_requests: { id: 'BRQ' + n } }); }
     if (req.url === '/billing_request_flows' && req.method === 'POST') { const b = JSON.parse(body); return json(201, { billing_request_flows: { authorisation_url: 'http://localhost:5651/flow/' + b.billing_request_flows.links.billing_request } }); }
-    if (req.url === '/subscriptions' && req.method === 'POST') { return json(201, { subscriptions: { id: 'SB1' } }); }
+    if (req.url === '/subscriptions' && req.method === 'POST') { subs++; return json(201, { subscriptions: { id: 'SB' + subs } }); }
     if (req.url.startsWith('/subscriptions/')) return json(200, { subscriptions: { id: 'SB1' } });
     if (req.url.startsWith('/payments/')) return json(200, { payments: { id: req.url.split('/')[2], amount: 2000, charge_date: '2026-11-01' } });
     json(404, { error: { message: 'not here' } });
@@ -225,7 +226,9 @@ try {
   ok('   THE MANDATE IS READY, SO THE GIFT STARTS: £20 a month on the 1st, on that mandate', live && live.subscriptionId === 'SB1' && sb.amount === 2000 && sb.interval_unit === 'monthly' && sb.day_of_month === 1 && sb.links.mandate === 'MD1', sub && sub.body);
   await D.goto(URLB + 'give-regularly.html?key=' + gift.id, { waitUntil: 'networkidle2' });
   await until(() => D.$('#gift'));
-  ok('   the giver\'s own page: £20.00 every month, on the 1st; Gift Aid; running', /£20\.00 every month, on the 1st/.test(await text(D, '#gift')) && /Yes, thank you/.test(await text(D, '#gift')) && /Running/.test(await text(D, '#gStatus')));
+  const gmail = await until(async () => (await db.collection('emailOutbox').where('kind', '==', 'regular gift set up').get()).docs.map(d => d.data())[0]);
+  ok('   THE CONFIRMATION EMAIL, to the giver only: "£20.00 monthly, on the 1st of the month", Gift Aid, and the link to change it', gmail && J(gmail.to) === J(['gill.giver@example.invalid']) && /Your regular gift is set up/.test(gmail.subject) && /£20\.00 monthly, on the 1st of the month<\/b>, by Direct Debit, with Gift Aid/.test(gmail.html) && gmail.html.includes('give-regularly.html?key=' + gift.id), gmail && (gmail.subject + ' ' + gmail.html).slice(0, 400));
+  ok('   the giver\'s own page: £20.00 monthly, on the 1st of the month; Gift Aid; running', /£20\.00 monthly, on the 1st of the month/.test(await text(D, '#gift')) && /Yes, thank you/.test(await text(D, '#gift')) && /Running/.test(await text(D, '#gStatus')));
 
   /* ---------- 5. each gift collected, once ---------- */
   await send([{ id: 'EV3', resource_type: 'payments', action: 'confirmed', links: { payment: 'PM9', subscription: 'SB1' } }]);
@@ -240,7 +243,7 @@ try {
   await D.$eval('#newAmt', e => { e.value = '25'; }); await D.$eval('#change', b => b.click());
   await until(async () => (await data('regularGifts', gift.id)).amount === 25);
   const put = CALLS.slice(b4).find(c => c.method === 'PUT' && c.url === '/subscriptions/SB1');
-  ok('6. CHANGED TO £25: GoCardless told, and the page says so', put && JSON.parse(put.body).subscriptions.amount === 2500 && /Changed: £25\.00/.test(await text(D, '#msg')));
+  ok('6. CHANGED TO £25: GoCardless told, and the page says so', put && JSON.parse(put.body).subscriptions.amount === 2500 && /Changed: £25\.00/.test(await text(D, '#msg')), 'page: ' + (await text(D, '#gift').catch(e => e.message)) + ' | calls: ' + J(CALLS.slice(b4).map(c => c.method + ' ' + c.url)));
 
   /* ---------- 7. the treasurer ---------- */
   await T.goto(URLB + 'payments.html', { waitUntil: 'networkidle2' });
@@ -251,6 +254,45 @@ try {
   const csv = await until(() => T.evaluate(async () => window.__blob ? { name: window.__dl, text: await window.__blob.text() } : null));
   const rows = csv ? csv.text.replace(/^\ufeff/, '').split('\r\n') : [];
   ok('   the Gift Aid gifts for the claim: name, house, postcode, date, amount', csv && csv.name === 'Gift Aid gifts.csv' && rows[0] === 'First name,Last name,House name or number,Postcode,Date,Amount' && rows[1] === 'Gill Giver,(invented),12,KT10 8NP,2026-11-01,20.00', J(rows));
+
+  /* ---------- 7b. how often, changed later (Martin, 15 Oct) ---------- */
+  await D.goto(URLB + 'give-regularly.html?key=' + gift.id, { waitUntil: 'networkidle2' });
+  await until(() => D.$('#newOften'));
+  ok('7b. THE GIVER\'S PAGE OFFERS "How often?": Monthly (chosen), with the day; or Every 4 weeks', (await D.$eval('#newOften', s => s.value)) === 'monthly' && (await D.$eval('#newDay', s => s.value)) === '1' && /Every 4 weeks/.test(await text(D, '#newOften')));
+  const b6 = CALLS.length;
+  await D.select('#newOften', 'four_weekly');
+  ok('    the day goes away for every 4 weeks', await D.$eval('#newDayBox', e => e.style.display === 'none'));
+  await D.$eval('#change', b => b.click());
+  const ch = await until(async () => { const d = await data('regularGifts', gift.id); return d.interval === 'four_weekly' ? d : null; });
+  const newSub = CALLS.slice(b6).find(c => c.url === '/subscriptions' && c.method === 'POST');
+  const ns = newSub ? JSON.parse(newSub.body).subscriptions : {};
+  ok('    CHANGED TO EVERY 4 WEEKS: a new collection on the same bank authority (weekly x4, £25, no day), and the old one cancelled', ch && ch.subscriptionId === 'SB2' && ns.interval_unit === 'weekly' && ns.interval === 4 && ns.day_of_month === undefined && ns.amount === 2500 && ns.links.mandate === 'MD1' && CALLS.slice(b6).some(c => c.url === '/subscriptions/SB1/actions/cancel'), J({ ch, ns }));
+  await until(async () => /every 4 weeks/.test(await text(D, '#msg')));
+  ok('    the page says so: "£25.00 every 4 weeks"', /£25\.00 every 4 weeks/.test(await text(D, '#gift')) && /Changed: £25\.00 every 4 weeks/.test(await text(D, '#msg')), await text(D, '#gift'));
+  const cmail = await until(async () => (await db.collection('emailOutbox').where('kind', '==', 'regular gift changed').get()).docs.map(d => d.data()).find(m => /every 4 weeks/.test(m.html)));
+  ok('    and an email: "Your regular gift has changed", £25.00 every 4 weeks', cmail && J(cmail.to) === J(['gill.giver@example.invalid']) && /has changed/.test(cmail.subject) && /£25\.00 every 4 weeks<\/b>/.test(cmail.html), cmail && cmail.html.slice(0, 300));
+  await D.screenshot({ path: path.join(HERE, 'give-regularly-change-390.png'), fullPage: true });
+
+  /* A second giver chooses Every 4 weeks from the start. */
+  const D2 = await browser('giver2', 390);
+  await D2.goto(URLB + 'give-regularly.html', { waitUntil: 'networkidle2' });
+  await until(() => D2.$('#go'));
+  ok('    THE FORM ASKS "How often?": Monthly or Every 4 weeks', /How often\?/.test(await text(D2)) && J(await D2.$$eval('#often option', os => os.map(o => o.textContent))) === J(['Monthly', 'Every 4 weeks']));
+  await D2.$eval('#amt', e => { e.value = '10'; }); await D2.select('#often', 'four_weekly');
+  await D2.$eval('#nm', e => { e.value = 'Fran Fourweekly (invented)'; }); await D2.$eval('#em', e => { e.value = 'fran.four@example.invalid'; });
+  await D2.$eval('#go', b => b.click());
+  await until(() => D2.$('#standin'), 20000);
+  const g2 = (await db.collection('regularGifts').where('email', '==', 'fran.four@example.invalid').get()).docs[0];
+  const b7 = CALLS.length;
+  await send([{ id: 'EV9', resource_type: 'billing_requests', action: 'fulfilled', links: { billing_request: g2.data().billingRequest, mandate_request_mandate: 'MD2' } }]);
+  await until(async () => (await data('regularGifts', g2.id)).status === 'active');
+  const s2 = CALLS.slice(b7).find(c => c.url === '/subscriptions' && c.method === 'POST');
+  const s2b = s2 ? JSON.parse(s2.body).subscriptions : {};
+  const fmail = await until(async () => (await db.collection('emailOutbox').where('to', 'array-contains', 'fran.four@example.invalid').get()).docs.map(d => d.data())[0]);
+  ok('    EVERY 4 WEEKS FROM THE START: GoCardless weekly x4, no day; the email says "£10.00 every 4 weeks"', s2b.interval_unit === 'weekly' && s2b.interval === 4 && s2b.day_of_month === undefined && s2b.amount === 1000 && fmail && /£10\.00 every 4 weeks<\/b>, by Direct Debit\./.test(fmail.html), J({ s2b, html: fmail && fmail.html.slice(0, 200) }));
+  await D2.goto(URLB + 'give-regularly.html?key=' + g2.id, { waitUntil: 'networkidle2' });
+  await until(() => D2.$('#gift'));
+  ok('    and her page: "£10.00 every 4 weeks"', /£10\.00 every 4 weeks/.test(await text(D2, '#gift')));
 
   /* ---------- 8. no fee; nobody else; stop; remove ---------- */
   ok('8. NO FEE: no request to GoCardless carried an app fee', CALLS.length > 0 && !CALLS.some(c => /app_fee/.test(c.body + c.url)), J(CALLS.map(c => c.url)));
@@ -264,7 +306,7 @@ try {
   const b5 = CALLS.length;
   await D.$eval('#stop', b => b.click());
   await until(async () => (await data('regularGifts', gift.id)).status === 'stopped');
-  ok('   THE GIVER STOPS IT: GoCardless told to cancel it, and it says Stopped', CALLS.slice(b5).some(c => c.url === '/subscriptions/SB1/actions/cancel') && !!(await until(async () => /Stopped/.test(await text(D, '#gStatus')))));
+  ok('   THE GIVER STOPS IT: GoCardless told to cancel it, and it says Stopped', CALLS.slice(b5).some(c => c.url === '/subscriptions/SB2/actions/cancel') && !!(await until(async () => /Stopped/.test(await text(D, '#gStatus')))));
   await T.goto(URLB + 'payments.html', { waitUntil: 'networkidle2' });
   await until(() => T.$('#removeGc'));
   await T.$eval('#removeGc', b => b.click());

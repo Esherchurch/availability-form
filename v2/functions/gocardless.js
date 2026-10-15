@@ -25,6 +25,7 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
+import { makeSender } from './public-mail.js';
 import { paymentsShut } from './payments-gate.js';
 
 const db = () => getFirestore();
@@ -125,6 +126,32 @@ export async function bankPage(p, key) {
 const KEYCHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
 function newKey() { const b = crypto.randomBytes(28); let s = 'rg_'; for (let i = 0; i < 28; i++) s += KEYCHARS[b[i] % KEYCHARS.length]; return s; }
 const INTERVALS = { monthly: { interval_unit: 'monthly', interval: 1 }, four_weekly: { interval_unit: 'weekly', interval: 4 } };
+/* How often, in words (Martin, 15 Oct: the giver chooses Monthly or Every
+   4 weeks; shown on the form, in the email and on their page). */
+const ordinal = (n) => (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+export function howOften(x) { return x.interval === 'monthly' ? 'monthly, on the ' + x.day + ordinal(x.day) + ' of the month' : 'every 4 weeks'; }
+const pounds = (n) => '\u00a3' + Number(n || 0).toFixed(2);
+const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* The giver's own email: started, or changed. To the address they gave, and nobody else. */
+export function giftEmail({ x, key, hub, church, changed }) {
+  const link = hub + 'give-regularly.html?key=' + key;
+  return {
+    to: [x.email],
+    subject: (changed ? 'Your regular gift has changed' : 'Your regular gift is set up') + (church ? ': ' + church : ''),
+    html: '<p>Dear ' + esc(String(x.name || '').split(/\s+/)[0]) + ',</p>' +
+      '<p>' + (changed ? 'Your regular gift' + (church ? ' to ' + esc(church) : '') + ' is now:' : 'Thank you. Your regular gift' + (church ? ' to ' + esc(church) : '') + ' is set up:') + '</p>' +
+      '<p style="font-size:16px"><b>' + pounds(x.amount) + ' ' + esc(howOften(x)) + '</b>, by Direct Debit' + (x.giftAid ? ', with Gift Aid' : '') + '.</p>' +
+      '<p>To change how much, how often, or to stop it: <a href="' + esc(link) + '">' + esc(link) + '</a></p>' +
+      '<p style="color:#6b7280">Keep this email: the link is how you change your gift.</p>'
+  };
+}
+async function sendGiftEmail(x, key, changed) {
+  try {
+    const church = await db().collection('churchSettings').doc('details').get();
+    const m = giftEmail({ x, key, hub: await hubUrl(db()), church: church.exists ? church.data().name || '' : '', changed });
+    await makeSender({ db: db() })({ to: m.to, subject: m.subject, html: m.html }, { source: 'regular-giving', kind: changed ? 'regular gift changed' : 'regular gift set up', ref: key });
+  } catch (e) { console.warn('[giving] email', e.message); }
+}
 
 export const giveRegularly = onCall({ region: REGION }, async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.', { shut: true });
@@ -174,9 +201,31 @@ export const givingChange = onCall({ region: REGION }, async (req) => {
   const amount = Math.round(Number(req.data && req.data.amount) * 100);
   if (!(amount >= 100 && amount <= 1000000)) throw new HttpsError('invalid-argument', 'Give at least £1.');
   if (d.status !== 'active' || !d.subscriptionId) throw new HttpsError('failed-precondition', 'This gift is not running, so it cannot be changed.');
-  await gc((await secrets()).token, 'PUT', '/subscriptions/' + d.subscriptionId, { subscriptions: { amount } });
-  await ref.update({ amount: amount / 100, changedAt: FieldValue.serverTimestamp() });
-  return { ok: true, amount: amount / 100 };
+  /* How often may change too. GoCardless cannot change how often a
+     subscription collects, so a new one starts on the same mandate (the
+     giver's bank authority) and the old one is cancelled: nothing for the
+     giver to do at their bank. */
+  const interval = INTERVALS[req.data && req.data.interval] ? req.data.interval : d.interval;
+  const day = interval === 'monthly' ? parseInt((req.data && req.data.day) || d.day, 10) : null;
+  if (interval === 'monthly' && !(day >= 1 && day <= 28)) throw new HttpsError('invalid-argument', 'Choose a day of the month, 1 to 28.');
+  const token = (await secrets()).token;
+  let subscriptionId = d.subscriptionId;
+  if (interval !== d.interval || (interval === 'monthly' && day !== d.day)) {
+    const iv = INTERVALS[interval], n = (d.subscriptions || 1) + 1;
+    const sub = await gc(token, 'POST', '/subscriptions', { subscriptions: {
+      amount, currency: 'GBP', interval_unit: iv.interval_unit, interval: iv.interval,
+      day_of_month: interval === 'monthly' ? day : undefined, name: 'Regular gift', metadata: { regularGift: ref.id }, links: { mandate: d.mandateId }
+    } }, 'sub_' + ref.id + '_' + n);
+    await gc(token, 'POST', '/subscriptions/' + d.subscriptionId + '/actions/cancel', { data: {} });
+    subscriptionId = sub.subscriptions.id;
+    await ref.update({ interval, day, subscriptionId, subscriptions: n, amount: amount / 100, changedAt: FieldValue.serverTimestamp() });
+  } else {
+    await gc(token, 'PUT', '/subscriptions/' + d.subscriptionId, { subscriptions: { amount } });
+    await ref.update({ amount: amount / 100, changedAt: FieldValue.serverTimestamp() });
+  }
+  const now = { ...d, amount: amount / 100, interval, day };
+  await sendGiftEmail(now, ref.id, true);
+  return { ok: true, amount: amount / 100, interval, day, often: howOften(now) };
 });
 export const givingStop = onCall({ region: REGION }, async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the church switches over to the new hub.', { shut: true });
@@ -220,6 +269,7 @@ export async function handleGc(ev) {
         day_of_month: x.interval === 'monthly' ? x.day : undefined, name: 'Regular gift', metadata: { regularGift: g.id }, links: { mandate: L.mandate_request_mandate }
       } }, 'sub_' + g.id);
       await g.ref.update({ status: 'active', mandateId: L.mandate_request_mandate, subscriptionId: sub.subscriptions.id, startedAt: FieldValue.serverTimestamp() });
+      await sendGiftEmail(x, g.id, false);
       return 'gift started';
     }
     return 'nothing waiting';

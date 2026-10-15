@@ -5966,3 +5966,83 @@ it, without making the page too big."
 one that matters: the picture cropped as a banner again. The event page's
 other tests still pass: pay-on-day 18, series 15, invites 15, stripe 34,
 events-feed 18, phone-subscribe 27.
+
+### F-201 — "My usual people": remember who I usually sign up (usualPeople)
+
+Martin, 15 Oct: "I really like that you can open the event and sign up
+easily - a big improvement over ChurchSuite." Then: remember who I
+usually sign up. For any church; feature name **usualPeople** (rule 12).
+
+**Signed in** (`egbc-events-usual.js`, new, mine; signup.html):
+- At the top of the form: **"Same as last time: Martin, Natasha and
+  Daniel"**, from the person's own most recent sign-up. One tap fills
+  the names, the ticket (matched by its name, since each event has its
+  own tickets) and the answers (matched by question). Everything stays
+  editable.
+- **Answers from last time are marked** in gold: "From last time: please
+  check it is still right." If any health answer (allergies, medical,
+  dietary and similar) was filled in, a tick just above Sign up must be
+  ticked first: "I have checked the health answers...". Without it,
+  nothing is sent.
+- **A health answer older than six months is not filled in at all.**
+  Other answers are.
+- **Household tick boxes:** the person, then their household's first
+  names (the main window's `myFamily`, which gives first names only). A
+  box counts as ticked when the form already has that person, by full or
+  first name.
+- **Names from their own past sign-ups offered as they type** (a list on
+  each name box).
+- **"My usual people"** on my place (my-signup.html, signed in): each
+  name with Remove; removed names under "Taken off" with Put back.
+  Stored in `signupUsual/{uid}.hidden`.
+
+**Only their own.** Names come only from sign-ups with their own
+memberUid, through the existing signups list rule, so nobody else's can
+come back. New rule (events section): `signupUsual/{uid}`, read and
+write only by that uid, an admin included; only `hidden` (at most 200
+names) and `updatedAt`.
+
+**Signed out:** the last sign-up's NAMES only, on that device only
+(localStorage `egbc_usual_v1`, inside try/catch), with **"Not you?
+Clear"**. No email, no answers, nothing on the server.
+
+**No new emails:** this only fills in the form. The one confirmation
+still goes to the person signing up, nobody added (as always, never to
+under-18s).
+
+**Proved:** usual-people.test 28/28 at 375px, with the real functions.
+7 deliberate breaks, all caught. The one that matters: the rule opened
+so anyone can read anyone's list. The sign-up page's other tests: pay-on-day
+18, series 15, invites 15, stripe 34, app-pictures 26.
+
+### F-202 — Regular giving: the giver chooses how often (Martin, 15 Oct)
+
+Martin's answers to the F-181 defaults: the treasurer is master admins
+plus the Finance team (as built); "Give regularly" on the Give screen is
+the main window's link (as asked).
+
+**How often:** the giver chooses **Monthly** (with the day) or **Every
+4 weeks** (GoCardless monthly, or weekly x4).
+- **The form** asks "How often?": Monthly / Every 4 weeks.
+- **The email** (new: there was none): "Your regular gift is set up",
+  sent when GoCardless confirms the Direct Debit, to the address the
+  giver gave and nobody else: "£20.00 monthly, on the 1st of the month,
+  by Direct Debit, with Gift Aid", and the link to change it.
+- **Their page:** "£20.00 monthly, on the 1st of the month" or "£10.00
+  every 4 weeks".
+- **Changeable later:** on their page, the amount AND how often (and the
+  day). GoCardless can't change how often an existing collection runs,
+  so a new one starts on the same mandate (the giver's bank authority,
+  nothing to do at their bank) and the old one is cancelled. An email
+  says "Your regular gift has changed".
+- Emails sent shows them as "Regular gift: set up" / "changed".
+
+**Proved:** gocardless.test 42/42 (was 33): both frequencies from the
+start, and a change from monthly to every 4 weeks.
+
+**Seen, not fixed:** gocardless.test failed at three different points in
+2 of 6 runs (waiting for the form; the bank pay step; the amount
+change), each time while another window was running its own tests; it
+passed the other 4 runs, including 2 back to back once things were
+quiet. It looks like timing under load. I'm noting it here rather than
+hiding it.

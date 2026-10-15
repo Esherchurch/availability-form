@@ -56,7 +56,8 @@
     return 'I want to Gift Aid any donations I make in the future, and have made in the past 4 years, to ' + church() + '. ' +
       'I am a UK taxpayer and understand that if I pay less Income Tax and/or Capital Gains Tax in the current tax year than the amount of Gift Aid claimed on all my donations, it is my responsibility to pay any difference.';
   }
-  function howOften(g) { return g.interval === 'monthly' ? 'every month, on the ' + g.day + ordinal(g.day) : 'every 4 weeks'; }
+  function howOften(g) { return g.interval === 'monthly' ? 'monthly, on the ' + g.day + ordinal(g.day) + ' of the month' : 'every 4 weeks'; }
+  function dayOptions(sel) { var o = ''; for (var i = 1; i <= 28; i++) o += '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + i + ordinal(i) + '</option>'; return o; }
   function ordinal(n) { return (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th'; }
 
   function form(p) {
@@ -64,7 +65,7 @@
     document.getElementById('wrap').innerHTML = '<h1>Give regularly</h1><p class="sub">By Direct Debit, straight to ' + esc(church()) + '. You can change or stop it at any time.</p>' +
       '<div class="card" id="giveForm">' +
         '<label for="amt">How much (£)</label><input class="inp" id="amt" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 20">' +
-        '<label for="often">How often</label><select id="often"><option value="monthly">Every month</option><option value="four_weekly">Every 4 weeks</option></select>' +
+        '<label for="often">How often?</label><select id="often"><option value="monthly">Monthly</option><option value="four_weekly">Every 4 weeks</option></select>' +
         '<div id="dayBox"><label for="day">On which day of the month</label><select id="day">' + days + '</select></div>' +
         '<label for="nm">Your name</label><input class="inp" id="nm" maxlength="120" autocomplete="name" value="' + esc(p && p.name || '') + '">' +
         '<label for="em">Your email</label><input class="inp" id="em" type="email" maxlength="200" autocomplete="email" value="' + esc(p && p.email || '') + '">' +
@@ -99,6 +100,8 @@
         '<div class="row"><span class="k">Gift Aid</span><span>' + (g.giftAid ? 'Yes, thank you' : 'No') + '</span></div>' +
         '<div class="row"><span class="k">Now</span><span id="gStatus">' + st + '</span></div>' +
         (g.status === 'active' ? '<label for="newAmt">Change the amount (£)</label><input class="inp" id="newAmt" type="number" min="1" step="1" value="' + g.amount + '">' +
+          '<label for="newOften">How often?</label><select class="inp" id="newOften"><option value="monthly"' + (g.interval === 'monthly' ? ' selected' : '') + '>Monthly</option><option value="four_weekly"' + (g.interval === 'four_weekly' ? ' selected' : '') + '>Every 4 weeks</option></select>' +
+          '<div id="newDayBox"' + (g.interval === 'monthly' ? '' : ' style="display:none"') + '><label for="newDay">On which day of the month?</label><select class="inp" id="newDay">' + dayOptions(g.day || 1) + '</select></div>' +
           '<button class="btn sec" id="change">Change it</button><button class="btn danger" id="stop">Stop my gift</button>' : '') +
         '<p id="msg" role="status"></p>' +
         (g.status === 'active' ? '<p class="hint">Stopping ends the regular gift. Your Direct Debit authority stays with your bank, unused, until you cancel it there if you wish.</p>' : '') +
@@ -106,10 +109,12 @@
     var c = document.getElementById('change');
     if (c) c.onclick = function () {
       c.disabled = true;
-      E.callPublic('givingChange', { key: KEY, amount: document.getElementById('newAmt').value }).then(function (r) {
-        return load().then(function () { document.getElementById('msg').textContent = 'Changed: ' + E.money(r.amount) + ' from the next collection.'; });
+      E.callPublic('givingChange', { key: KEY, amount: document.getElementById('newAmt').value, interval: document.getElementById('newOften').value, day: document.getElementById('newDay').value }).then(function (r) {
+        return load().then(function () { document.getElementById('msg').textContent = 'Changed: ' + E.money(r.amount) + ' ' + r.often + ', from the next collection. An email saying so is on its way.'; });
       }, function (e) { c.disabled = false; document.getElementById('msg').textContent = E.payProblem(e); });
     };
+    var no = document.getElementById('newOften');
+    if (no) no.onchange = function () { document.getElementById('newDayBox').style.display = no.value === 'monthly' ? '' : 'none'; };
     var s = document.getElementById('stop');
     if (s) s.onclick = function () {
       if (!confirm('Stop your regular gift?')) return;

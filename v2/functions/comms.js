@@ -29,7 +29,8 @@ const WHAT = {
   signup: 'Sign-up confirmation', 'booking waiting': 'Booking: waiting for approval', 'booking request': 'Booking request to the office',
   'cancel ask': 'Booking: asked to cancel', 'form received': 'Form received', 'group ask': 'Asked to join a small group', 'group ask leaders': 'Small group: leaders told', 'new here': 'Someone new said hello',
   'checklist tomorrow': 'Checklist: due tomorrow', 'checklist overdue': 'Checklist: overdue',
-  'calendar link': 'Calendar link (to themselves)'
+  'calendar link': 'Calendar link (to themselves)',
+  'regular gift set up': 'Regular gift: set up', 'regular gift changed': 'Regular gift: changed'
 };
 export function whatOf(row) {
   const k = String(row.kind || '').trim();
