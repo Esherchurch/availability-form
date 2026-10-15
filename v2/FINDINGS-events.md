@@ -6454,3 +6454,55 @@ event like I can with ChurchSuite?" On Registers and downloads
 
 **Proved:** door-sheet.test 17/17 (A4 screenshot door-sheet-a4.png);
 rota-reports.test 26/26 (was 21).
+
+### F-211 — Team emails use the one list of teams (for the main window: field names)
+
+The reviewing window, 15 Oct: the main window is building Teams & Groups
+over the `teams` collection egbc-auth.js already reads. Team emails no
+longer keep a second list.
+
+**What changed (team-mail.html, functions/team-mail.js):**
+- **No adding, renaming or removing teams in team emails.** The page
+  shows the teams and says "add, rename or archive a team there"
+  (Teams & Groups).
+- **Which teams:** while `teams` is empty (Teams & Groups not landed), the
+  hub's built-in list (EGBCAuth.TEAMS) plus Martin's ten. As soon as
+  `teams` has any teams, exactly those, without archived ones.
+- **My record keeps only the mail settings,** keyed by the team's id:
+
+      teamMailboxes/{teamId} = { address, leads: [memberId], deputies: [memberId],
+                                 safeguarding: true|false, updatedBy, updatedAt }
+      teamMailSettings/main  = { pastor: memberId, officeAdmin: memberId }
+
+  No name, no order, no archived flag: those are yours.
+- **The name shown** on the page, in Send as and in the emails is
+  `teams/{teamId}.label`, else `.name`, else the id. Renaming there
+  renames it everywhere here at once.
+- **Archived** (`teams/{teamId}.archived == true`): not shown, not
+  offered in Send as, and sendAsTeam refuses ("That team has been
+  archived"). Its mail settings are kept, so un-archiving brings it back
+  as it was.
+- **Every team on the list can be sent as** by the Pastor and the office
+  admin (and its leads and deputies once set), even with no mail
+  settings yet: replies then go to the sender. Safeguarding as before:
+  its lead and deputy only.
+- "Clear these settings" removes a team's mail settings; the team stays
+  on your list.
+
+**Field names to agree with the main window:**
+1. `teams/{teamId}`: the id is the team's name as the rules spell it
+   (as egbc-auth.js has it). I read **`label`** (shown), **`name`**, and
+   **`archived`**, and **`order`** to sort. Please keep those names.
+2. **Safeguarding** is marked on my record (`teamMailboxes/{id}.safeguarding`),
+   a mail rule, not a team fact, so it needs nothing on yours. If you'd
+   rather the team carry it (say `teams/{id}.safeguarding`), say so and
+   I'll read yours instead.
+3. If a team's id ever changes, its mail settings stay under the old
+   id. Please archive-and-create as egbc-auth.js says (never change an
+   id), or tell me and I'll move them.
+
+**Live:** no team mail settings exist on the live site yet (saving is
+shut until switch-over), so nothing to move.
+
+**Proved:** team-mail.test 36/36, including the switch from the built-in
+list to `teams`, a rename and an archive made on `teams`, and Clear.

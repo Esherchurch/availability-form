@@ -29,7 +29,15 @@
      sendAsTeam     callable: { teamId, to: [{ email, name }], subject,
                     text, calEventId? }
 
-   Settings: teamMailboxes/{id}, teamMailSettings/main. Written by these
+   ONE LIST OF TEAMS (the reviewing window, 15 Oct): the teams themselves -
+   their names, adding, renaming, archiving - are the main window's Teams &
+   Groups page, over the `teams` collection egbc-auth.js already reads. This
+   file keeps ONLY each team's mail settings, keyed by the team's id (the
+   `teams` document id: the team's name as the rules spell it):
+     teamMailboxes/{teamId} = { address, leads, deputies, safeguarding,
+                                updatedBy, updatedAt }
+   The name shown is teams/{teamId}.label (or .name, or the id).
+   teamMailSettings/main = { pastor, officeAdmin }. Written by these
    functions only (rules: no writes from pages). Feature name teamMail.
    The events window's file. Exported from index.js.
    =================================================================== */
@@ -80,9 +88,23 @@ export function maySend(team, settings, memberId) {
   if (settings && settings.officeAdmin && settings.officeAdmin === memberId) return true;
   return false;
 }
+/* A team's name, from the one list of teams (teams/{id}). */
+async function namesOf() {
+  const t = await db().collection('teams').get(), out = {};
+  t.docs.forEach((d) => { const x = d.data() || {}; out[d.id] = { name: String(x.label || x.name || d.id), archived: x.archived === true, order: typeof x.order === 'number' ? x.order : 999 }; });
+  return out;
+}
 async function loadAll() {
-  const [t, s] = await Promise.all([db().collection('teamMailboxes').get(), db().collection('teamMailSettings').doc('main').get()]);
-  return { teams: t.docs.map((d) => ({ id: d.id, ...d.data() })), settings: s.exists ? s.data() : {} };
+  const [t, s, names] = await Promise.all([db().collection('teamMailboxes').get(), db().collection('teamMailSettings').doc('main').get(), namesOf()]);
+  /* Every team on the one list, with its mail settings if it has any (a
+     team with none: no address, no leads - the Pastor and the office admin
+     may still send as it, replies going to them). */
+  const mail = {}; t.docs.forEach((d) => { mail[d.id] = d.data(); });
+  const idsAll = Array.from(new Set(Object.keys(names).concat(Object.keys(mail))));
+  return {
+    teams: idsAll.map((id) => ({ id, leads: [], deputies: [], ...(mail[id] || {}), name: (names[id] || {}).name || id, archived: !!(names[id] || {}).archived, order: (names[id] || {}).order || 999 })),
+    settings: s.exists ? s.data() : {}
+  };
 }
 
 export const teamMailMine = onCall({ region: REGION }, async (req) => {
@@ -90,7 +112,7 @@ export const teamMailMine = onCall({ region: REGION }, async (req) => {
   const { teams, settings } = await loadAll();
   return {
     shut: await shut(),
-    teams: teams.filter((t) => maySend(t, settings, me.memberId)).sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name)))
+    teams: teams.filter((t) => !t.archived && maySend(t, settings, me.memberId)).sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name)))
       .map((t) => ({ id: t.id, name: t.name, hasAddress: !!t.address, safeguarding: !!t.safeguarding }))
   };
 });
@@ -106,28 +128,16 @@ export const teamMailSave = onCall({ region: REGION }, async (req) => {
     await db().collection('teamMailSettings').doc('main').set({ pastor: ids([d.settings.pastor])[0] || '', officeAdmin: ids([d.settings.officeAdmin])[0] || '', ...by });
     return { ok: true };
   }
-  if (d.usual) {
-    const have = await db().collection('teamMailboxes').get();
-    if (have.size) throw new HttpsError('failed-precondition', 'There are teams already.');
-    const b = db().batch();
-    USUAL_TEAMS.forEach((name, i) => b.set(db().collection('teamMailboxes').doc(), { name, address: '', leads: [], deputies: [], safeguarding: name === 'Safeguarding', order: i, ...by }));
-    await b.commit();
-    return { ok: true, added: USUAL_TEAMS.length };
-  }
-  if (d.remove) {
-    await db().collection('teamMailboxes').doc(String(d.remove)).delete();
-    return { ok: true };
-  }
-  const t = d.team || {};
-  const name = String(t.name || '').trim().slice(0, 60), address = String(t.address || '').trim().toLowerCase().slice(0, 200);
-  if (!name) throw new HttpsError('invalid-argument', 'Give the team a name.');
+  /* Teams are added, renamed and removed on Teams & Groups, never here:
+     this saves (or clears) one team's mail settings, by the team's id. */
+  const teamId = String((d.team && d.team.id) || d.clear || '').trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9 &'()._-]{0,79}$/.test(teamId)) throw new HttpsError('invalid-argument', 'Which team?');
+  const ref = db().collection('teamMailboxes').doc(teamId);
+  if (d.clear) { await ref.delete(); return { ok: true }; }
+  const t = d.team, address = String(t.address || '').trim().toLowerCase().slice(0, 200);
   if (address && !emailOk(address)) throw new HttpsError('invalid-argument', 'That email address does not look right.');
-  const ref = t.id ? db().collection('teamMailboxes').doc(String(t.id)) : db().collection('teamMailboxes').doc();
-  const old = t.id ? await ref.get() : null;
-  if (t.id && !old.exists) throw new HttpsError('not-found', 'That team is not there any more.');
-  await ref.set({ name, address, leads: ids(t.leads), deputies: ids(t.deputies), safeguarding: t.safeguarding === true,
-    order: old && old.exists ? (old.data().order || 0) : Date.now(), ...by });
-  return { ok: true, id: ref.id };
+  await ref.set({ address, leads: ids(t.leads), deputies: ids(t.deputies), safeguarding: t.safeguarding === true, ...by });
+  return { ok: true, id: teamId };
 });
 
 /* The email itself, built here from plain words (nobody's HTML). */
@@ -145,9 +155,14 @@ export const sendAsTeam = onCall({ region: REGION }, async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const me = await whoAmI(req);
   const d = req.data || {};
-  const ts = await db().collection('teamMailboxes').doc(String(d.teamId || '_')).get();
-  if (!ts.exists) throw new HttpsError('not-found', 'That team is not there any more.');
-  const team = { id: ts.id, ...ts.data() };
+  const teamId = String(d.teamId || '');
+  if (!/^[A-Za-z0-9][A-Za-z0-9 &'()._-]{0,79}$/.test(teamId)) throw new HttpsError('not-found', 'That team is not there any more.');
+  const [ts, tn] = await Promise.all([db().collection('teamMailboxes').doc(teamId).get(), db().collection('teams').doc(teamId).get()]);
+  /* A team on the one list, or one with mail settings. */
+  if (!ts.exists && !tn.exists) throw new HttpsError('not-found', 'That team is not there any more.');
+  const tx = tn.exists ? tn.data() || {} : {};
+  if (tx.archived === true) throw new HttpsError('failed-precondition', 'That team has been archived.');
+  const team = { id: teamId, leads: [], deputies: [], ...(ts.exists ? ts.data() : {}), name: String(tx.label || tx.name || teamId) };
   const settings = (await db().collection('teamMailSettings').doc('main').get()).data() || {};
   if (!maySend(team, settings, me.memberId)) throw new HttpsError('permission-denied', 'You can\'t send as the ' + team.name + ' team.');
   const seen = {}, to = (Array.isArray(d.to) ? d.to : []).map((x) => ({ email: String((x && x.email) || '').trim(), name: String((x && x.name) || '').slice(0, 120) }))

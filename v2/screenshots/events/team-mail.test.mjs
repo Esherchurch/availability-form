@@ -8,9 +8,11 @@
    What it proves:
      1. SHUT until switch-over: the settings page says so; nothing saves;
         nobody can send as a team (the live site's state)
-     2. a master admin starts with the usual teams (Martin's ten), names
-        the Pastor and the office admin, and sets a team's address, leads
-        and deputies
+     2. ONE LIST OF TEAMS: until Teams & Groups lands, the hub's built-in
+        teams plus Martin's ten; once `teams` has teams, exactly those, by
+        their names, archived ones left out. Nothing here adds, renames or
+        removes a team. A master admin names the Pastor and the office
+        admin, and sets a team's address, leads and deputies
      3. WHO MAY SEND: leads and deputies; the Pastor and the office admin
         for every team but Safeguarding. SAFEGUARDING: its lead and deputy
         ONLY - the Pastor, the office admin and a master admin are refused
@@ -22,8 +24,9 @@
         person may use; sent as the Worship team
      7. Emails sent shows "Team email: Safeguarding", sent by Sally (as the
         Safeguarding team)
-     8. rename and remove a team; only a master admin may change anything;
-        no page may write the settings directly; others can't read them
+     8. renamed or archived on Teams & Groups: team emails follow; clear a
+        team's settings; only a master admin may change anything; no page
+        may write the settings directly; others can't read them
      9. bad addresses dropped, the same person once, at most 300 */
 
 import fs from 'node:fs';
@@ -119,7 +122,6 @@ async function browser(who, width) {
 const text = (pg, sel) => pg.$eval(sel || 'body', e => e.innerText.replace(/\s+/g, ' '));
 const call = (pg, name, data) => pg.evaluate((n, d) => EGBCAuth.call(n, d).then(r => ({ ok: true, r }), e => ({ ok: false, code: e.code, msg: e.message })), name, data);
 const teams = async () => (await db.collection('teamMailboxes').get()).docs.map(d => ({ id: d.id, ...d.data() }));
-const teamId = async (name) => ((await teams()).find(t => t.name === name) || {}).id;
 const outbox = async (filter) => (await db.collection('emailOutbox').get()).docs.map(d => d.data()).filter(m => m.source === 'team-mail' && (!filter || filter(m)));
 
 try {
@@ -129,49 +131,57 @@ try {
   await M.goto(URLB + 'team-mail.html', { waitUntil: 'networkidle2' });
   await until(() => M.$('#shut'));
   ok('1. SHUT UNTIL SWITCH-OVER: the page says "Team emails open when the church switches over to the new hub"', /Team emails open when the church switches over to the new hub/.test(await text(M, '#shut')));
-  await M.$eval('#usual', b => b.click());
-  await until(async () => /switches over/.test(await text(M, '#usualMsg')));
-  ok('   nothing saves (the usual teams are refused, in those words)', (await teams()).length === 0 && /switches over/.test(await text(M, '#usualMsg')));
-  await db.collection('teamMailboxes').doc('tm_pre').set({ name: 'Worship', address: '', leads: ['m_wendy'], deputies: [], safeguarding: false, order: 0 });
+  await until(() => M.$('[data-team="Safeguarding"] .tSave'));
+  await M.$eval('[data-team="Safeguarding"] .tSave', b => b.click());
+  await until(async () => /switches over/.test(await text(M, '[data-team="Safeguarding"] .tMsg')));
+  ok('   nothing saves (refused, in those words)', (await teams()).length === 0 && /switches over/.test(await text(M, '[data-team="Safeguarding"] .tMsg')));
+  await db.collection('teamMailboxes').doc('Worship Team').set({ address: '', leads: ['m_wendy'], deputies: [], safeguarding: false });
   const W0 = await browser('wendy');
-  const pre = await call(W0, 'sendAsTeam', { teamId: 'tm_pre', subject: 'x', text: 'x', to: [{ email: 'amy.attendee@example.invalid' }] });
+  const pre = await call(W0, 'sendAsTeam', { teamId: 'Worship Team', subject: 'x', text: 'x', to: [{ email: 'amy.attendee@example.invalid' }] });
   ok('   and nobody can send as a team, even its lead', !pre.ok && /switches over/.test(pre.msg) && (await outbox()).length === 0, J(pre));
-  await db.collection('teamMailboxes').doc('tm_pre').delete();
+  await db.collection('teamMailboxes').doc('Worship Team').delete();
   await SHUTDOC.set({ shutForTest: false });
 
-  /* ---------- 2. settings ---------- */
+  /* ---------- 2. one list of teams; the settings ---------- */
   await M.goto(URLB + 'team-mail.html', { waitUntil: 'networkidle2' });
-  await until(() => M.$('#usual'));
+  await until(() => M.$('[data-team]'));
   ok('2. SWITCHED OVER: no shut note', !(await M.$('#shut')));
-  await M.$eval('#usual', b => b.click());
-  await until(async () => (await M.$$('[data-team]')).length === 10);
-  const names = (await teams()).sort((a, b) => a.order - b.order).map(t => t.name);
-  ok('   "Start with the usual teams": Martin\'s ten, Safeguarding marked', J(names) === J(['Safeguarding', 'Worship', 'Pastoral', 'Office', 'Admin', 'Hospitality', 'Kids Church', 'Youth', 'Welcome team', 'Maintenance']) && (await teams()).find(t => t.name === 'Safeguarding').safeguarding === true, J(names));
+  const cards0 = await M.$$eval('[data-team]', cs => cs.map(c => c.getAttribute('data-team')));
+  ok('   UNTIL TEAMS & GROUPS LANDS (no teams yet): the hub\'s built-in teams plus Martin\'s ten, each once', ['Worship Team', 'AV Team', 'Kids Church', 'Maintenance', 'Safeguarding', 'Pastoral', 'Office', 'Welcome team'].every(t => cards0.includes(t)) && new Set(cards0).size === cards0.length, J(cards0));
+  ok('   NO WAY TO ADD, RENAME OR REMOVE A TEAM HERE; it says where', !(await M.$('#addTeam')) && !(await M.$('#usual')) && !(await M.$('.tRemove')) && !(await M.$('input.tName')) && /Teams & Groups/.test(await text(M, '#teamsFrom')));
+  /* The main window's Teams & Groups page lands: the one list. */
+  for (const [id, x] of [['Safeguarding', { name: 'Safeguarding', label: 'Safeguarding', rota: false, order: 1 }], ['Worship Team', { name: 'Worship Team', label: 'Worship', rota: true, order: 2 }],
+    ['Office', { name: 'Office', label: 'Office', rota: false, order: 3 }], ['Old Group', { name: 'Old Group', label: 'Old Group', rota: false, archived: true, order: 4 }]]) await db.collection('teams').doc(id).set(x);
+  await M.goto(URLB + 'team-mail.html', { waitUntil: 'networkidle2' });
+  await until(() => M.$('[data-team]'));
+  const cards1 = await M.$$eval('[data-team]', cs => cs.map(c => c.getAttribute('data-team') + '=' + c.querySelector('.tName').textContent));
+  ok('   ONCE IT LANDS: exactly its teams, by their names (Worship Team shows as "Worship"), the archived one left out', J(cards1) === J(['Safeguarding=Safeguarding', 'Worship Team=Worship', 'Office=Office']), J(cards1));
   await M.select('#pastor', 'm_pat'); await M.select('#office', 'm_olive');
   await M.$eval('#saveWho', b => b.click());
   await until(async () => /Saved/.test(await text(M, '#whoMsg')));
   const who = (await db.collection('teamMailSettings').doc('main').get()).data();
   ok('   the Pastor and the office admin, named people', who.pastor === 'm_pat' && who.officeAdmin === 'm_olive', J(who));
-  const SG = await teamId('Safeguarding');
+  const SG = 'Safeguarding';
   const card = '[data-team="' + SG + '"]';
   await M.$eval(card + ' .tAddr', e => { e.value = 'safeguarding@example.invalid'; });
   await M.select(card + ' [data-add="leads"]', 'm_sally');
   await M.select(card + ' [data-add="deputies"]', 'm_dave');
+  await M.$eval(card + ' .tSafe', c => { if (!c.checked) c.click(); });
   ok('   Safeguarding says who may send: "Only its lead and deputy ... not the Pastor, the office admin or a master admin"', /Only its lead and deputy may send as this team: not the Pastor, the office admin or a master admin/.test(await text(M, card)));
   await M.$eval(card + ' .tSave', b => b.click());
   await until(async () => /Saved/.test(await text(M, card + ' .tMsg')));
   const sg = (await db.collection('teamMailboxes').doc(SG).get()).data();
-  ok('   saved: the address, Sally as lead, Dave as deputy', sg.address === 'safeguarding@example.invalid' && J(sg.leads) === J(['m_sally']) && J(sg.deputies) === J(['m_dave']) && sg.safeguarding === true, J(sg));
+  ok('   saved under the team\'s own id: the address, Sally as lead, Dave as deputy - and no team name kept here', sg.address === 'safeguarding@example.invalid' && J(sg.leads) === J(['m_sally']) && J(sg.deputies) === J(['m_dave']) && sg.safeguarding === true && !('name' in sg), J(sg));
   await M.screenshot({ path: path.join(HERE, 'team-mail-settings.png'), fullPage: true });
-  const WO = await teamId('Worship');
-  const w1 = await call(M, 'teamMailSave', { team: { id: WO, name: 'Worship', address: '', leads: ['m_wendy'], deputies: [], safeguarding: false } });
+  const WO = 'Worship Team';
+  const w1 = await call(M, 'teamMailSave', { team: { id: WO, address: '', leads: ['m_wendy'], deputies: [], safeguarding: false } });
   ok('   Worship: Wendy leads, no address', w1.ok, J(w1));
 
   /* ---------- 3. who may send ---------- */
   const mine = async (who) => { const pg = await browser(who); const r = await call(pg, 'teamMailMine', {}); return { pg, names: r.ok ? r.r.teams.map(t => t.name) : r.msg }; };
   const S = await mine('sally'), D = await mine('dave'), PT = await mine('pat'), O = await mine('olive'), W = await mine('wendy'), SM = await mine('sam');
   const MM = { pg: M, names: (await call(M, 'teamMailMine', {})).r.teams.map(t => t.name) };
-  const nine = names.filter(n => n !== 'Safeguarding');
+  const nine = ['Worship', 'Office'];
   ok('3. WHO MAY SEND: Sally and Dave - Safeguarding only; Wendy - Worship only', J(S.names) === J(['Safeguarding']) && J(D.names) === J(['Safeguarding']) && J(W.names) === J(['Worship']), J([S.names, D.names, W.names]));
   ok('   the Pastor and the office admin: every team BUT Safeguarding', J(PT.names) === J(nine) && J(O.names) === J(nine), J([PT.names, O.names]));
   ok('   a master admin, as such, and someone on nothing: no team', J(MM.names) === '[]' && J(SM.names) === '[]', J([MM.names, SM.names]));
@@ -209,7 +219,7 @@ try {
   await O.pg.$eval('#mailAll', b => b.click());
   await until(() => O.pg.$('#mailAs'));
   const asOpts = await O.pg.$$eval('#mailAs option', os => os.map(o => o.textContent));
-  ok('6. EVENTS "Email everyone": Send as lists Myself and the teams Olive may use - never Safeguarding', asOpts[0] === 'Myself (replies come to me)' && asOpts.length === 10 && !asOpts.some(o => /Safeguarding/.test(o)) && asOpts.includes('The Worship team (replies come to me)'), J(asOpts));
+  ok('6. EVENTS "Email everyone": Send as lists Myself and the teams Olive may use - never Safeguarding', asOpts[0] === 'Myself (replies come to me)' && asOpts.length === 3 && !asOpts.some(o => /Safeguarding/.test(o)) && asOpts.includes('The Worship team (replies come to me)'), J(asOpts));
   await O.pg.screenshot({ path: path.join(HERE, 'team-mail-send-as.png') });
   await O.pg.select('#mailAs', WO);
   await O.pg.$eval('#mailText', e => { e.value = 'See you on Friday.'; });
@@ -223,12 +233,18 @@ try {
   const rows = await M.$$eval('[data-row]', r => r.map(x => x.innerText.replace(/\s+/g, ' ')));
   ok('7. EMAILS SENT: "Team email: Safeguarding", sent by Sally (as the Safeguarding team)', rows.some(r => /Team email: Safeguarding/.test(r) && /Sally Sglead \(invented\) \(as the Safeguarding team\)/.test(r)), J(rows.slice(0, 4)));
 
-  /* ---------- 8. rename, remove, who may change ---------- */
-  const AD = await teamId('Admin'), MA = await teamId('Maintenance');
-  await call(M, 'teamMailSave', { team: { id: AD, name: 'Administration', address: '', leads: [], deputies: [] } });
-  await call(M, 'teamMailSave', { remove: MA });
-  const after = (await teams()).map(t => t.name);
-  ok('8. RENAMED (Admin -> Administration) and REMOVED (Maintenance)', after.includes('Administration') && !after.includes('Admin') && !after.includes('Maintenance') && after.length === 9, J(after));
+  /* ---------- 8. renamed or archived on Teams & Groups; cleared ---------- */
+  await db.collection('teams').doc('Worship Team').update({ label: 'Worship & Music' });
+  await db.collection('teams').doc('Office').update({ archived: true });
+  const W8 = (await call(W.pg, 'teamMailMine', {})).r.teams.map(t => t.name), O8 = (await call(O.pg, 'teamMailMine', {})).r.teams.map(t => t.name);
+  const ro8 = await call(O.pg, 'sendAsTeam', { teamId: 'Office', subject: 'x', text: 'x', to: [{ email: 'amy.attendee@example.invalid' }] });
+  ok('8. RENAMED ON TEAMS & GROUPS ("Worship & Music") and ARCHIVED (Office): team emails follow, and nobody sends as an archived team', J(W8) === J(['Worship & Music']) && J(O8) === J(['Worship & Music']) && !ro8.ok && /archived/.test(ro8.msg), J([W8, O8, ro8.msg]));
+  await M.goto(URLB + 'team-mail.html', { waitUntil: 'networkidle2' });
+  await until(() => M.$('[data-team]'));
+  ok('   and the settings page shows the new name, without the archived team', J(await M.$$eval('[data-team] .tName', t => t.map(x => x.textContent))) === J(['Safeguarding', 'Worship & Music']));
+  await M.$eval('[data-team="Worship Team"] .tClear', b => b.click());
+  await until(async () => !(await db.collection('teamMailboxes').doc('Worship Team').get()).exists);
+  ok('   "Clear these settings": the mail settings go; the team stays on the one list', !(await db.collection('teamMailboxes').doc('Worship Team').get()).exists && (await db.collection('teams').doc('Worship Team').get()).exists);
   const nm = await call(PT.pg, 'teamMailSave', { team: { id: SG, name: 'Safeguarding', address: '', leads: ['m_pat'], deputies: [], safeguarding: true } });
   ok('   ONLY A MASTER ADMIN may change anything (the Pastor can\'t make themselves Safeguarding lead)', !nm.ok && /Only a master admin/.test(nm.msg) && J((await db.collection('teamMailboxes').doc(SG).get()).data().leads) === J(['m_sally']), J(nm));
   const direct = await M.evaluate((id) => EGBCAuth.db.collection('teamMailboxes').doc(id).update({ leads: ['m_martin'] }).then(() => 'written', e => e.code), SG);
