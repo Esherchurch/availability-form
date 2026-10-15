@@ -840,10 +840,13 @@ A.screen('me', 'home', function (me) {
 
   /* Notices */
   if (HOME.news.length) {
+    /* Tapping a notice opens the whole of it (Martin, 15 Oct 2026: "you
+       tap on it and nothing happens"). The card was only ever a preview;
+       the full notices live in the sheet the bell opens. */
     out += sec('Notices', '<div class="card">' + HOME.news.map(function (n) {
-      return '<div class="notice"><b>' + A.esc(n.title) + '</b>'
+      return '<div class="notice" data-act="sheet:notices" role="button" tabindex="0" style="cursor:pointer"><b>' + A.esc(n.title) + '</b>'
         + (n.body ? '<p>' + A.esc(n.body.slice(0, 140)) + '</p>' : '') + '</div>';
-    }).join('') + '</div>');
+    }).join('') + '</div>', ['All notices', 'sheet:notices']);
   }
 
   /* Your groups */
