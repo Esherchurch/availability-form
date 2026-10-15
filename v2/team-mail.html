@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team emails</title>
+<!-- Sending as a team (R9; F-207 plan, F-208 built). Master admins set
+     who the Pastor and the office admin are, and each team's optional
+     shared address, leads and deputies. Saved through teamMailSave (the
+     server checks the master admin); shut on the live site until
+     switch-over, like payments. Events window. Feature name teamMail. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610141800" data-title="Team emails"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610141800"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610151900"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--danger:#b0392c;--gold:#b07d2e;--gold-bg:#fdf8ee;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:24px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 10px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;margin-bottom:14px}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:10px 0 5px}
+  input[type=text],input[type=email],select{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font:400 14px Inter,sans-serif;background:#fff}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:560px){ .two{grid-template-columns:1fr} }
+  .tick{display:flex;gap:8px;align-items:center;min-height:44px;font-weight:500;margin:6px 0 0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tint);border-radius:999px;padding:4px 6px 4px 12px}
+  .chip button{border:0;background:none;cursor:pointer;font-size:16px;min-width:32px;min-height:32px}
+  .btn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:#fff}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.ghost{background:none;border-color:transparent;color:var(--danger)}
+  .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+  .m{color:var(--muted);font-size:13px}
+  .ok{color:var(--ok)} .err{color:var(--danger)}
+  .sg{background:var(--gold-bg);border:1px solid var(--gold);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:13px}
+  .shut{background:var(--gold-bg);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;margin:0 0 14px}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card m">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, esc = E.esc;
+  var PEOPLE = [], TEAMS = [], WHO = {}, SHUT = false;
+  function db() { return EGBCAuth.db; }
+  function nameOf(id) { var p = PEOPLE.filter(function (x) { return x.id === id; })[0]; return p ? p.name : '(not in the address book)'; }
+  function options(sel, skip) {
+    return '<option value="">' + esc(sel) + '</option>' + PEOPLE.filter(function (p) { return (skip || []).indexOf(p.id) < 0; })
+      .map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('');
+  }
+  function say(el, cls, t) { el.className = 'm ' + cls; el.textContent = t; }
+  function problem(e) { return (e && e.message) || String(e); }
+
+  function load() {
+    return Promise.all([
+      db().collection('teamMailboxes').get(),
+      db().collection('teamMailSettings').doc('main').get(),
+      EGBCAuth.call('teamMailMine', {}).catch(function () { return { shut: false }; })
+    ]).then(function (r) {
+      TEAMS = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name)); });
+      WHO = r[1].exists ? r[1].data() : {};
+      SHUT = !!(r[2] && r[2].shut);
+      draw();
+    });
+  }
+
+  function personPicker(t, kind, label) {
+    var list = t[kind] || [];
+    return '<label>' + esc(label) + '</label><div class="chips" data-chips="' + kind + '">' + list.map(function (id) {
+      return '<span class="chip" data-person="' + esc(id) + '">' + esc(nameOf(id)) + '<button type="button" aria-label="Take off ' + esc(nameOf(id)) + '" data-drop="' + kind + ':' + esc(id) + '">×</button></span>'; }).join('') +
+      '</div><select data-add="' + kind + '" aria-label="Add a ' + esc(label.toLowerCase()) + '">' + options('Add someone…', list) + '</select>';
+  }
+  function teamCard(t) {
+    return '<div class="card" data-team="' + esc(t.id || '') + '">' +
+      '<div class="two"><div><label>Team name</label><input type="text" class="tName" maxlength="60" value="' + esc(t.name || '') + '"></div>' +
+      '<div><label>Shared email address (optional)</label><input type="email" class="tAddr" maxlength="200" value="' + esc(t.address || '') + '" placeholder="With none, replies go to the sender"></div></div>' +
+      '<div class="two"><div>' + personPicker(t, 'leads', 'Leads') + '</div><div>' + personPicker(t, 'deputies', 'Deputies') + '</div></div>' +
+      '<label class="tick"><input type="checkbox" class="tSafe"' + (t.safeguarding ? ' checked' : '') + '>Safeguarding</label>' +
+      '<div class="sg tSafeNote"' + (t.safeguarding ? '' : ' style="display:none"') + '>Only its lead and deputy may send as this team: not the Pastor, the office admin or a master admin. The hub keeps only the outline of each email (when, who, subject).</div>' +
+      '<p class="m">' + (t.safeguarding ? 'Who may send as it: its leads and deputies.' : 'Who may send as it: its leads and deputies, the Pastor and the office admin.') + '</p>' +
+      '<div class="row"><button class="btn tSave">Save</button>' + (t.id ? '<button class="btn ghost tRemove">Remove this team</button>' : '') + '<span class="m tMsg" role="status"></span></div></div>';
+  }
+  function draw() {
+    document.getElementById('wrap').innerHTML = '<h1>Team emails</h1>' +
+      '<p class="sub">A team can send emails as itself: the email says it is from the team, replies go to the team\'s own address (or to the sender, if it has none), and the team\'s mailbox gets a copy. Emails still leave from the hub\'s one sending address.</p>' +
+      (SHUT ? '<div class="shut" id="shut">Team emails open when the church switches over to the new hub. Until then nothing here can be saved, and nobody can send as a team.</div>' : '') +
+      '<div class="card" id="whoCard"><h2>The Pastor and the office admin</h2><p class="m" style="margin:0">They may send as any team except Safeguarding.</p>' +
+        '<div class="two"><div><label for="pastor">Pastor</label><select id="pastor">' + options('Nobody chosen') + '</select></div>' +
+        '<div><label for="office">Office admin</label><select id="office">' + options('Nobody chosen') + '</select></div></div>' +
+        '<div class="row"><button class="btn" id="saveWho">Save</button><span class="m" id="whoMsg" role="status"></span></div></div>' +
+      '<h2 style="margin-top:20px">Teams</h2><div id="teams">' + TEAMS.map(teamCard).join('') + '</div>' +
+      (TEAMS.length ? '' : '<div class="card" id="none"><p style="margin:0 0 10px">No teams yet.</p><button class="btn" id="usual">Start with the usual teams</button> <span class="m" id="usualMsg"></span></div>') +
+      '<button class="btn sec" id="addTeam">Add a team</button>';
+    document.getElementById('pastor').value = WHO.pastor || '';
+    document.getElementById('office').value = WHO.officeAdmin || '';
+    document.getElementById('saveWho').onclick = function () {
+      var b = this, m = document.getElementById('whoMsg'); b.disabled = true;
+      EGBCAuth.call('teamMailSave', { settings: { pastor: document.getElementById('pastor').value, officeAdmin: document.getElementById('office').value } })
+        .then(function () { b.disabled = false; say(m, 'ok', 'Saved.'); }, function (e) { b.disabled = false; say(m, 'err', problem(e)); });
+    };
+    var u = document.getElementById('usual');
+    if (u) u.onclick = function () { u.disabled = true; EGBCAuth.call('teamMailSave', { usual: true }).then(load, function (e) { u.disabled = false; say(document.getElementById('usualMsg'), 'err', problem(e)); }); };
+    document.getElementById('addTeam').onclick = function () {
+      var n = document.getElementById('none'); if (n) n.remove();
+      document.getElementById('teams').insertAdjacentHTML('beforeend', teamCard({ name: '', leads: [], deputies: [] }));
+      wireCards();
+    };
+    wireCards();
+  }
+  function cardState(card) {
+    var ids = function (kind) { return [].slice.call(card.querySelectorAll('[data-chips="' + kind + '"] [data-person]')).map(function (c) { return c.getAttribute('data-person'); }); };
+    return { id: card.getAttribute('data-team') || '', name: card.querySelector('.tName').value, address: card.querySelector('.tAddr').value,
+      leads: ids('leads'), deputies: ids('deputies'), safeguarding: card.querySelector('.tSafe').checked };
+  }
+  function wireCards() {
+    document.querySelectorAll('[data-team]').forEach(function (card) {
+      if (card.__wired) return; card.__wired = true;
+      card.querySelector('.tSafe').onchange = function () { card.querySelector('.tSafeNote').style.display = this.checked ? '' : 'none'; };
+      card.addEventListener('change', function (e) {
+        var s = e.target.closest('[data-add]'); if (!s || !s.value) return;
+        var kind = s.getAttribute('data-add'), id = s.value;
+        card.querySelector('[data-chips="' + kind + '"]').insertAdjacentHTML('beforeend', '<span class="chip" data-person="' + esc(id) + '">' + esc(nameOf(id)) + '<button type="button" aria-label="Take off ' + esc(nameOf(id)) + '" data-drop="' + kind + ':' + esc(id) + '">×</button></span>');
+        s.value = '';
+      });
+      card.addEventListener('click', function (e) {
+        var d = e.target.closest('[data-drop]'); if (d) { d.closest('.chip').remove(); return; }
+      });
+      card.querySelector('.tSave').onclick = function () {
+        var b = this, m = card.querySelector('.tMsg'), st = cardState(card); b.disabled = true;
+        EGBCAuth.call('teamMailSave', { team: st }).then(function (r) { card.setAttribute('data-team', r.id); b.disabled = false; say(m, 'ok', 'Saved.'); },
+          function (e) { b.disabled = false; say(m, 'err', problem(e)); });
+      };
+      var rm = card.querySelector('.tRemove');
+      if (rm) rm.onclick = function () {
+        if (!confirm('Remove the ' + (card.querySelector('.tName').value || 'this') + ' team? Nobody will be able to send as it.')) return;
+        EGBCAuth.call('teamMailSave', { remove: card.getAttribute('data-team') }).then(load, function (e) { say(card.querySelector('.tMsg'), 'err', problem(e)); });
+      };
+    });
+  }
+
+  EGBCAuth.require().then(function () {
+    if (!(EGBCAuth.isMaster && EGBCAuth.isMaster())) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Team emails</h1><p>This page is for master admins.</p></div>'; return; }
+    if (window.EGBCChurch && EGBCChurch.uses && EGBCChurch.uses('teamMail') === false) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Team emails</h1><p>Team emails are switched off for this church.</p></div>'; return; }
+    return db().collection('addressBook').get().then(function (s) {
+      PEOPLE = s.docs.map(function (d) { return { id: d.id, name: d.data().name || '', archived: d.data().archived === true }; }).filter(function (p) { return p.name && !p.archived; })
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      return load();
+    });
+  }).catch(function (e) { document.getElementById('wrap').innerHTML = '<div class="card">' + esc(problem(e)) + '</div>'; });
+})();
+</script>
+</body>
+</html>

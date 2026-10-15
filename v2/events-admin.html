@@ -1555,11 +1555,48 @@
   function emailEveryone() {
     var live = SIGNUPS.filter(function (s) { return s.status === 'confirmed'; });
     if (!live.length) { toast('Nobody has signed up yet.'); return; }
-    var msg = prompt('What do you want to say to the ' + live.length + ' people coming?');
-    if (!msg) return;
+    /* "Send as" a team (teamMail, F-208): only the teams the server says
+       this person may send as. With none, it is as before: as yourself. */
+    var mine = (EGBCAuth.call ? EGBCAuth.call('teamMailMine', {}) : Promise.reject()).catch(function () { return { teams: [], shut: false }; });
+    mine.then(function (m) {
+      var teams = (m && m.teams) || [];
+      var dlg = document.createElement('dialog'); dlg.id = 'mailDlg';
+      dlg.style.cssText = 'border:1px solid #e5e7eb;border-radius:14px;padding:18px;width:min(520px,calc(100vw - 32px));max-width:none';
+      dlg.innerHTML = '<form method="dialog" id="mailForm"><h2 style="margin:0 0 10px;font-size:17px">Email the ' + live.length + ' people coming</h2>' +
+        (teams.length ? '<div class="field"><label for="mailAs">Send as</label><select id="mailAs"><option value="">Myself (replies come to me)</option>' +
+          teams.map(function (t) { return '<option value="' + esc(t.id) + '">The ' + esc(t.name) + ' team' + (t.hasAddress ? '' : ' (replies come to me)') + '</option>'; }).join('') + '</select>' +
+          (m.shut ? '<p class="hint" id="mailShut">Sending as a team opens when the church switches over.</p>' : '') + '</div>' : '') +
+        '<div class="field"><label for="mailSubj">Subject</label><input class="inp" id="mailSubj" maxlength="150" value="' + esc(CUR.title) + '"></div>' +
+        '<div class="field"><label for="mailText">Message</label><textarea id="mailText" maxlength="5000" rows="6"></textarea></div>' +
+        '<p class="hint" id="mailMsg" role="status"></p>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn ghost" id="mailCancel">Cancel</button><button type="button" class="btn" id="mailSend">Send</button></div></form>';
+      document.body.appendChild(dlg);
+      var close = function () { dlg.close(); dlg.remove(); };
+      document.getElementById('mailCancel').onclick = close;
+      var btn = document.getElementById('mailSend');
+      btn.onclick = function () {
+        var msg = document.getElementById('mailText').value.trim(), subj = document.getElementById('mailSubj').value.trim();
+        var as = (document.getElementById('mailAs') || {}).value || '', say = document.getElementById('mailMsg');
+        if (!msg || !subj) { say.textContent = 'Write a subject and a message.'; return; }
+        btn.disabled = true;
+        if (as) {
+          EGBCAuth.call('sendAsTeam', { teamId: as, subject: subj, text: msg, about: 'About ' + CUR.title + ', ' + E.fmtWhen(CUR) + '.', calEventId: CUR.id,
+            to: live.map(function (s) { return { email: s.email, name: s.name }; }).filter(function (x) { return x.email; }) }).then(function (r) {
+            close(); toast('Sent to ' + r.sent + (r.failed ? ' (' + r.failed + ' could not be sent)' : '') + (r.copied ? ', with a copy to the team' : '') + '.');
+            return open(CUR.id);
+          }, function (e) { btn.disabled = false; say.textContent = e.message || String(e); });
+          return;
+        }
+        close();
+        sendAsMe(subj, msg, live);
+      };
+      dlg.showModal();
+    });
+  }
+  function sendAsMe(subject, msg, live) {
     EGBCChurch.send({
       to: live.map(function (s) { return s.email; }).filter(Boolean),
-      subject: CUR.title,
+      subject: subject,
       html: EGBCChurch.wrap(CUR.title, '<p>' + esc(msg).replace(/\n/g, '<br>') + '</p>' +
         '<p style="color:#6b7280;font-size:13px">About ' + esc(E.fmtWhen(CUR)) + '.</p>'),
       log: { calEventId: CUR.id, kind: 'message to attendees' }

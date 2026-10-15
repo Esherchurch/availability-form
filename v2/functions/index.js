@@ -732,3 +732,4 @@ export * from './events-feed.js';
 export * from './checklist-reminders.js';
 /* Every email the church sent, and the ones that failed (R8), the events window's file. */
 export * from './comms.js';
+export * from './team-mail.js';

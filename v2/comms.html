@@ -61,7 +61,7 @@
     ]).then(function (r) {
       var titles = {}; r[2].docs.forEach(function (d) { titles[d.id] = d.data().title || ''; });
       var server = (r[0].rows || []).map(function (x) {
-        return { at: x.at, what: x.what, subject: x.subject, to: x.to.length, first: x.to[0] || '', by: 'The hub', ok: x.ok, error: x.error, test: x.test };
+        return { at: x.at, what: x.what, subject: x.subject, to: x.to.length, first: x.to[0] || '', by: x.by || 'The hub', ok: x.ok, error: x.error, test: x.test };
       });
       var pages = r[1].docs.map(function (d) {
         var x = d.data();

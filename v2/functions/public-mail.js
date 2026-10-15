@@ -64,7 +64,9 @@ export function makeSender({ db, url = SEND_EMAIL_URL, auth, emulator = onEmulat
   return async function send(msg, meta) {
     const row = {
       to: msg.to || [], subject: msg.subject || '', replyTo: msg.replyTo || '',
-      html: String(msg.html || '').replace(/([?&]s=)[A-Za-z0-9]+/g, '$1(hidden)'),
+      /* meta.outlineOnly (a Safeguarding team email, F-208): the hub keeps
+         when, who and the subject, never the email itself. */
+      html: meta && meta.outlineOnly ? '' : String(msg.html || '').replace(/([?&]s=)[A-Za-z0-9]+/g, '$1(hidden)'),
       attachments: (msg.attachments || []).map(a => ({ filename: a.filename || '', type: a.type || '' })),
       ...meta, at: new Date().toISOString(), stubbed: emulator()
     };

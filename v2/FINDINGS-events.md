@@ -6298,3 +6298,72 @@ settings card, the rule (events section), sendAsTeam with its tests
 (who may and may not send, the reply-to, the copy, the outline-only log,
 refused before switch-over), and the picker in events-admin and
 safeguarding. Stopping here for review.
+
+### F-208 — R9 built: sending as a team (Martin's answers, 15 Oct)
+
+As planned in F-207, with Martin's answers and his firm correction on
+Safeguarding. Feature name **teamMail**.
+
+**What "as a team" means.** Calla's From is fixed ("EGBC Worship & AV
+<EGBCWorship@callasuite.uk>") and can't change. So:
+- the subject starts with the team's name ("Safeguarding: Your DBS
+  check"), and the email opens "From the Safeguarding team, <church>" and
+  closes "<sender>, for the Safeguarding team"
+- **replies** go to the team's address, or to the sender when the team
+  has none
+- **one email per person**, so nobody sees anyone else's address
+- **a copy** to the team's mailbox, when it has one ("A copy for the
+  Safeguarding team: sent by Sally to 2 people")
+- at most 300 people at once (the whole church shares 2000 an hour);
+  the same address once; a bad address dropped
+
+**Who may send as a team** (decided on the server, never the page):
+- any team: its **leads and deputies**, the **Pastor** and the **office
+  admin**
+- **Safeguarding: its lead and deputy ONLY** (Martin, firm): not the
+  Pastor, not the office admin, not a master admin
+- being a master admin never counts on its own
+- the Pastor and the office admin are named people on the settings page,
+  not built in
+
+**Safeguarding emails: the hub keeps the outline only** (when, who it
+went to, who sent it, the subject), never the email. A new option on the
+shared sender, `outlineOnly`.
+
+**Settings: team-mail.html** (new, mine; master admins):
+- the Pastor and the office admin
+- "Start with the usual teams": Safeguarding, Worship, Pastoral, Office,
+  Admin, Hospitality, Kids Church, Youth, Welcome team, Maintenance
+- for each team: name (rename), shared address (optional), leads,
+  deputies, Safeguarding; remove; add a team (any church)
+- saved only through `teamMailSave`, which checks for a master admin.
+  The rules let master admins read `teamMailboxes` and
+  `teamMailSettings/main`, and let no page write them, a master admin
+  included
+
+**Sending:** events-admin's "Email everyone" now opens a small form:
+Send as (Myself, or only the teams the server says this person may use),
+Subject, Message. "Myself" works as before. A team goes through
+`sendAsTeam`.
+
+**Shut on the live site until switch-over**, like payments: the same
+switch (`payments-gate.js` PAYMENTS_LIVE) opens both. Until then the
+settings page says "Team emails open when the church switches over to
+the new hub", nothing saves, and nobody can send as a team. The emulator
+can be shut for a test (`teamMailSettings/config.shutForTest`, never
+read live).
+
+**Emails sent** shows "Team email: Safeguarding", sent by "Sally (as the
+Safeguarding team)".
+
+**New files:** functions/team-mail.js (exported from index.js),
+team-mail.html. **Changed:** public-mail.js (outlineOnly), comms.js and
+comms.html (the team and the sender), events-admin.html (Send as), the
+rules (events section).
+
+**For the main window:** a Menu entry for team-mail.html (master admins);
+the same "Send as" in EmailBuilder2 if wanted (call `teamMailMine`, then
+`sendAsTeam`).
+
+**Proved:** team-mail.test 32/32, including the Pastor, a master admin
+and the office admin each refused as Safeguarding.

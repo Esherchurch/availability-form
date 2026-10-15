@@ -30,7 +30,8 @@ const WHAT = {
   'cancel ask': 'Booking: asked to cancel', 'form received': 'Form received', 'group ask': 'Asked to join a small group', 'group ask leaders': 'Small group: leaders told', 'new here': 'Someone new said hello',
   'checklist tomorrow': 'Checklist: due tomorrow', 'checklist overdue': 'Checklist: overdue',
   'calendar link': 'Calendar link (to themselves)',
-  'regular gift set up': 'Regular gift: set up', 'regular gift changed': 'Regular gift: changed'
+  'regular gift set up': 'Regular gift: set up', 'regular gift changed': 'Regular gift: changed',
+  'team email': 'Team email', 'team email copy': 'Team email: copy to the team'
 };
 export function whatOf(row) {
   const k = String(row.kind || '').trim();
@@ -44,7 +45,7 @@ export async function report({ from, to }) {
     const r = d.data();
     /* The outline only: never the email itself, its attachments or links. */
     return { at: r.at || '', to: Array.isArray(r.to) ? r.to.slice(0, 50) : [], subject: String(r.subject || '').slice(0, 200),
-      what: whatOf(r), source: String(r.source || ''), ok: r.ok === true, error: String(r.error || '').slice(0, 300), test: r.stubbed === true };
+      what: whatOf(r) + (r.asTeam ? ': ' + String(r.asTeam).slice(0, 60) : ''), by: r.asTeam ? String(r.sentBy || '').slice(0, 120) + ' (as the ' + String(r.asTeam).slice(0, 60) + ' team)' : '', source: String(r.source || ''), ok: r.ok === true, error: String(r.error || '').slice(0, 300), test: r.stubbed === true };
   });
 }
 

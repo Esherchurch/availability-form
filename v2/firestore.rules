@@ -4098,6 +4098,19 @@ service cloud.firestore {
                             && request.resource.data.keys().hasOnly(['hidden', 'updatedAt'])
                             && request.resource.data.hidden is list && request.resource.data.hidden.size() <= 200;
     }
+    // Sending as a team (teamMail; R9, F-208): each team's address, leads and
+    // deputies, and who the Pastor and the office admin are. Master admins
+    // read them on the settings page; only the hub's functions write them
+    // (teamMailSave checks the master admin), and only the functions decide
+    // who may send (sendAsTeam). Nothing here for a page to change.
+    match /teamMailboxes/{id} {
+      allow read: if isMaster();
+      allow write: if false;
+    }
+    match /teamMailSettings/{id} {
+      allow read: if isMaster() && id == 'main';
+      allow write: if false;
+    }
 
     // ── end EVENTS ──────────────────────────────────────────────────
 
