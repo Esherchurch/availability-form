@@ -86,6 +86,8 @@ for (const k of Object.keys(P)) {
 await db.collection('addressBook').doc('m_natasha').set({ name: 'Natasha Usual (invented)', email: '', householdId: 'm_martin', markers: [], adminFor: [], masterAdmin: false });
 await db.collection('addressBook').doc('m_daniel').set({ name: 'Daniel Usual (invented)', email: '', householdId: 'm_martin', isMinor: true, markers: [], adminFor: [], masterAdmin: false });
 await db.collection('churchSettings').doc('details').set({ name: 'Test Green Church', enquiryEmail: 'office@example.invalid', hubUrl: URLB });
+/* After switch-over (the locked rules on) for 1-11; 12 is before it (F-203). */
+await db.collection('churchSettings').doc('launch').set({ rulesLocked: true, opensOn: '' });
 
 const day = (n, h) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(h, 0, 0, 0); return d; };
 const EV = (title, when, extra) => ({ title, description: '', category: 'kids', labels: [], visibility: 'public', status: 'confirmed', audience: ['public', 'members'], teams: [], featured: false, allDay: false,
@@ -259,6 +261,41 @@ try {
   ok('    Clear: gone, from the page and the device', !(await G.$('#usualSame')) && (await G.evaluate(() => localStorage.getItem('egbc_usual_v1'))) === null);
   const usualDocs = (await db.collection('signupUsual').get()).docs.map(d => d.id);
   ok('    nothing kept on the server for a signed-out person (only Martin\'s own record exists)', J(usualDocs) === J([P.martin.uid]), J(usualDocs));
+
+  /* ---------- 12. BEFORE SWITCH-OVER (F-203): rulesLocked not true ---------- */
+  await db.collection('churchSettings').doc('launch').set({ rulesLocked: false, opensOn: '1 November' });
+  await event('ev_off', 'Kids club winter (invented)', day(12, 10),
+    [{ id: 'o_all', label: 'Allergies', kind: 'text', per: 'attendee', order: 1, required: true }, { id: 'o_col', label: 'Favourite colour', kind: 'text', per: 'attendee', order: 2 }, { id: 'o_diet', label: 'Dietary needs', kind: 'text', per: 'booking', order: 3, required: true }],
+    [{ id: 'tt_o_fam', name: 'Family', price: 0, order: 1 }]);
+  await open(M, 'ev_off');
+  await until(() => M.$('#healthLater'));
+  ok('12. BEFORE SWITCH-OVER: the health questions are not asked (even required ones); the others are', !(await M.$('#a0_o_all')) && !(await M.$('#b_o_diet')) && !!(await M.$('#a0_o_col')));
+  ok('    and the page says: "Please tell the organiser about any health needs (allergies, medical, dietary) directly until 1 November."', (await text(M, '#healthLater')) === 'Please tell the organiser about any health needs (allergies, medical, dietary) directly until 1 November.', await text(M, '#healthLater'));
+  await until(() => M.$('#usualSame'));
+  await tap(M, '#usualSame');
+  await until(async () => (await val(M, '#att1').catch(() => '')) === 'Natasha (invented)');
+  ok('    "Same as last time" fills the names and the colour, no health answers, and no health tick', (await val(M, '#a1_o_col')) === 'Green' && !(await M.$('#usualChecked')) && !/Peanuts|Dairy|Vegetarian/.test(await M.content()));
+  await M.screenshot({ path: path.join(HERE, 'usual-people-before-switchover-375.png'), fullPage: true });
+  await sleep(2700);
+  await tap(M, '#go');
+  const off = await until(async () => (await signupsOf('ev_off'))[0]);
+  ok('    THE SIGN-UP STILL WORKS, and NO HEALTH ANSWER IS SAVED (the colour is)', off && off.attendees.length === 3 && off.attendees[1].q_o_col === 'Green' && !J(off).includes('q_o_all') && !('o_diet' in (off.answers || {})) && !/Peanuts|Dairy|Vegetarian/.test(J(off)), J(off).slice(0, 400));
+  await M.goto(URLB + 'my-signup.html?key=' + off.id, { waitUntil: 'networkidle2' });
+  await until(() => M.$('#usualCard'));
+  ok('    "My usual people": nothing can be taken off yet ("You can take names off from 1 November.")', /You can take names off from 1 November\./.test(await text(M, '#usualCard')) && !(await M.$('[data-usual-hide]')));
+  const tried = await M.evaluate(() => EGBCUsual.hide('Natasha (invented)').then(() => 'saved', e => e.message));
+  ok('    and the list is not saved on the server, even if asked', /from 1 November/.test(tried) && J(((await db.collection('signupUsual').doc(P.martin.uid).get()).data() || {}).hidden) === '[]', tried);
+  const G2 = await browser('guest2');
+  await open(G2, 'ev_off');
+  await until(() => G2.$('#healthLater'));
+  await G2.type('#nm', 'Gwen Guest (invented)'); await G2.type('#em', 'gwen.guest@example.invalid'); await G2.type('#att0', 'Gwen Guest (invented)');
+  await sleep(2700); await tap(G2, '#go');
+  await until(async () => /You are signed up/.test(await text(G2, '#signupCard')));
+  ok('    signed out: the device memory still works ("this device only" is fine)', /Gwen Guest/.test(await G2.evaluate(() => localStorage.getItem('egbc_usual_v1') || '')));
+  await db.collection('churchSettings').doc('launch').set({ rulesLocked: true, opensOn: '1 November' });
+  await open(M, 'ev_off');
+  await until(() => M.$('#a0_o_all'));
+  ok('    SWITCHED OVER (rulesLocked true): the health questions are asked again, and the note is gone', !!(await M.$('#a0_o_all')) && !!(await M.$('#b_o_diet')) && !(await M.$('#healthLater')));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

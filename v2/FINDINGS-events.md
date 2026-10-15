@@ -6046,3 +6046,39 @@ change), each time while another window was running its own tests; it
 passed the other 4 runs, including 2 back to back once things were
 quiet. It looks like timing under load. I'm noting it here rather than
 hiding it.
+
+### F-203 — Before switch-over: no health answers saved, and no "My usual people" on the server
+
+The reviewing window, 15 Oct: until the locked rules deploy, anybody can
+read the live database, and sign-ups save names and answers there.
+`egbc-launch.js` (churchSettings/launch.rulesLocked) decides; anything but
+exactly true counts as "not yet".
+
+**Until rulesLocked is true:**
+- **The sign-up page doesn't ask health questions at all**, even required
+  ones, so they can't block a sign-up. Health means the question's
+  wording: check-in's medical words (allergy, medical, health,
+  condition, asthma, diabetes, epilepsy, EpiPen, disability, additional
+  needs, first aid) plus diet, food and intolerance
+  (`EGBCEvents.isHealthQuestion`). Leaving out too much is the safe way
+  to be wrong.
+- In their place: **"Please tell the organiser about any health needs
+  (allergies, medical, dietary) directly until 1 November."** (the
+  opensOn date; without one, "until the new church hub opens").
+- The sign-up still works; other questions are asked and saved. As a
+  second guard, health answers are stripped before saving.
+- "Same as last time" fills in no health answers, so there's no health
+  tick.
+- **"My usual people" isn't saved on the server:** no Remove button on
+  my place ("You can take names off from 1 November."), and the
+  helper itself refuses to write. Signed out, the device-only memory
+  carries on.
+
+**From rulesLocked true:** everything as F-201.
+
+Only signup.html saves sign-up answers (checked: no other page calls
+signUp), so nothing else needed changing. e1-checkin.test now sets the
+lock on, because it saves allergy answers.
+
+**Proved:** usual-people.test 36/36: everything with the lock on, then
+off (section 12), then on again.

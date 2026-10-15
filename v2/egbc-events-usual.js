@@ -32,7 +32,7 @@
   var LS = 'egbc_usual_v1';
   var SIX_MONTHS = 183 * 864e5;
   /* Questions whose answers are about someone's health. */
-  var HEALTH = /allerg|medic|health|diet|food|intoleran|condition|asthma|epipen|epi-pen|needs|disab/i;
+  var HEALTH = /allerg|medic|health|diet|food|intoleran|condition|asthma|epipen|epi-pen|needs|disab|diabet|epilep|first aid/i;
 
   function db() { return global.EGBCAuth.db; }
   function uid() { var u = global.EGBCAuth && EGBCAuth.user && EGBCAuth.user(); return u ? u.uid : ''; }
@@ -59,7 +59,15 @@
   /* ---------------- the person's own (signed in) ---------------- */
   function hiddenRef() { return db().collection('signupUsual').doc(uid()); }
   function hiddenNames() { return hiddenRef().get().then(function (s) { return s.exists ? (s.data().hidden || []) : []; }, function () { return []; }); }
-  function setHidden(list) { return hiddenRef().set({ hidden: list.slice(-200), updatedAt: new Date().toISOString() }); }
+  /* Not saved on the server until the locked rules are on (F-203): until
+     then anybody could read it. */
+  function locked() { return global.EGBCLaunch ? EGBCLaunch.check().then(function (l) { return l; }) : Promise.resolve({ locked: false, opensOn: '' }); }
+  function setHidden(list) {
+    return locked().then(function (l) {
+      if (!l.locked) throw new Error('You can take names off from ' + (l.opensOn || 'when the new church hub opens') + '.');
+      return hiddenRef().set({ hidden: list.slice(-200), updatedAt: new Date().toISOString() });
+    });
+  }
   function hide(name) {
     return hiddenNames().then(function (h) { if (h.map(key).indexOf(key(name)) < 0) h.push(norm(name)); return setHidden(h); });
   }
@@ -146,8 +154,8 @@
   /* "My usual people": their past names, and the ones taken off. */
   function manage() {
     if (!uid()) return Promise.resolve({ names: [], hidden: [] });
-    return Promise.all([mySignups().catch(function () { return []; }), hiddenNames()]).then(function (r) {
-      return { names: pastNames(r[0], r[1].map(key)), hidden: r[1].map(norm) };
+    return Promise.all([mySignups().catch(function () { return []; }), hiddenNames(), locked()]).then(function (r) {
+      return { names: pastNames(r[0], r[1].map(key)), hidden: r[1].map(norm), canSave: r[2].locked, opensOn: r[2].opensOn };
     });
   }
 

@@ -726,6 +726,17 @@
     v.querySelector('button').focus();
   }
 
+  /* ---- Is a sign-up question about health? (Until switch-over, F-203) ----
+     The live database can be read by anybody until the locked rules
+     deploy, so answers about health are not saved before then. By the
+     question's words (check-in's medical words, plus diet), as check-in's
+     downloads do: leaving out too much is the safe way to be wrong. */
+  var HEALTH_WORDS = /allerg|medic|health|condition|asthma|diabet|epilep|epi-?pen|disabilit|additional need|first aid|diet|food|intoleran/i;
+  function isHealthQuestion(q) { return !!q && (q.health === true || HEALTH_WORDS.test(String(q.label || ''))); }
+  function healthLaterWords(opensOn) {
+    return 'Please tell the organiser about any health needs (allergies, medical, dietary) directly until ' + (opensOn ? opensOn : 'the new church hub opens') + '.';
+  }
+
   /* What a "sub:..." does to the state. Resolves when it is time to draw again. */
   function subscribeAct(a, st) {
     a = String(a || '').replace(/^sub:/, ''); st.msg = ''; st.copied = false;
@@ -907,6 +918,8 @@
     isPhone: isPhone,
     deviceKind: deviceKind,
     safePic: safePic,
+    isHealthQuestion: isHealthQuestion,
+    healthLaterWords: healthLaterWords,
     picFigure: picFigure,
     picOpen: picOpen,
     subscribeHtml: subscribeHtml,

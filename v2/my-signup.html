@@ -14,8 +14,9 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610151700"></script>
-<script src="egbc-events-usual.js?v=202610151800"></script>
+<script src="egbc-events.js?v=202610151900"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
+<script src="egbc-events-usual.js?v=202610151900"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -229,7 +230,9 @@
       var old = document.getElementById('usualCard'); if (old) old.remove();
       document.getElementById('wrap').insertAdjacentHTML('beforeend', '<div class="card" id="usualCard"><h2 style="margin:0 0 6px;font-size:16px">My usual people</h2>' +
         '<p class="m" style="margin:0 0 10px">The names offered when you sign up again ("Same as last time"), from your own sign-ups. Take off anyone you no longer sign up.</p>' +
-        m.names.map(function (n) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px;border-top:1px solid #e5e7eb" data-usual-row><span>' + E.esc(n) + '</span><button class="btn ghost" data-usual-hide="' + E.esc(n) + '">Remove</button></div>'; }).join('') +
+        /* F-203: nothing saved on the server for this until switch-over. */
+        (m.canSave ? '' : '<p class="m" id="usualLater" style="margin:0 0 10px">You can take names off from ' + E.esc(m.opensOn || 'when the new church hub opens') + '.</p>') +
+        m.names.map(function (n) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px;border-top:1px solid #e5e7eb" data-usual-row><span>' + E.esc(n) + '</span>' + (m.canSave ? '<button class="btn ghost" data-usual-hide="' + E.esc(n) + '">Remove</button>' : '') + '</div>'; }).join('') +
         (m.hidden.length ? '<p class="m" style="margin:10px 0 4px">Taken off:</p>' + m.hidden.map(function (n) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px" data-usual-hidden><span class="m">' + E.esc(n) + '</span><button class="btn ghost" data-usual-show="' + E.esc(n) + '">Put back</button></div>'; }).join('') : '') +
         '</div>');
       document.querySelectorAll('[data-usual-hide]').forEach(function (b) { b.onclick = function () { b.disabled = true; EGBCUsual.hide(b.getAttribute('data-usual-hide')).then(drawUsualCard, function () { b.disabled = false; }); }; });

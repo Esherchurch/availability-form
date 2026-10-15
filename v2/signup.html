@@ -14,8 +14,9 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610151700"></script>
-<script src="egbc-events-usual.js?v=202610151800"></script>
+<script src="egbc-events.js?v=202610151900"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
+<script src="egbc-events-usual.js?v=202610151900"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -123,6 +124,8 @@
     EGBCAuth.db.collection('eventInvites').doc(INVKEY).update({ response: 'yes', respondedAt: firebase.firestore.FieldValue.serverTimestamp(), signupKey: key }).catch(function () {});
   }
   var EV = null, TT = [], QS = [], CAP = null, LOOK = {}, WHERE = '';
+  /* The health questions set aside until switch-over, and the launch state. */
+  var HELD = [], LAUNCH = { locked: false, opensOn: '' };
   /* The whole series (F-184): every date this sign-up is for, when the event
      says "sign up to the whole series". null: just this date. */
   var SERIES = null;
@@ -217,6 +220,7 @@
         '<div class="field"><label>Who is coming</label><div id="atts">' + attendeeRows() + '</div>' +
           '<button type="button" class="btn sec sm" id="addAtt"><i data-lucide="plus" style="width:15px;height:15px"></i>Add someone else</button>' +
         '</div>' +
+        (HELD.length ? '<div class="banner info" id="healthLater">' + esc(E.healthLaterWords(LAUNCH.opensOn)) + '</div>' : '') +
         perBooking.map(function (q) { return questionField(q, 'b_'); }).join('') +
         (EV.donationsOn ? '<div class="field"><label for="don">Optional donation (£)</label>' +
           '<input class="inp" id="don" type="number" min="0" step="1"></div>' +
@@ -458,7 +462,7 @@
     if (chk && !chk.checked) return fail('Please check the answers filled in from last time, then tick to say you have.');
 
     readAttendees();
-    var who = attendees.filter(function (a) { return a.name; }).map(function (a) { var o = Object.assign({}, a); delete o._pre; return o; });
+    var who = attendees.filter(function (a) { return a.name; }).map(function (a) { var o = Object.assign({}, a); delete o._pre; HELD.forEach(function (q) { delete o['q_' + q.id]; }); return o; });
     if (!who.length) who = [{ name: name }];
 
     var answers = {};
@@ -470,6 +474,7 @@
       answers[q.id] = v;
     });
     if (bad) return fail('Please answer: ' + bad);
+    HELD.forEach(function (q) { delete answers[q.id]; });
 
     var waiting = full();
     var payload = {
@@ -550,7 +555,7 @@
 
   EGBCAuth.optional().then(function () {
     EGBCAuth.db.collection('paymentSettings').doc('public').get().then(function (s) { PAYPUB = s.exists ? s.data() : {}; showDue(); }, function () {});
-    return Promise.all([E.load(ID), E.lookups()]);
+    return Promise.all([E.load(ID), E.lookups(), window.EGBCLaunch ? EGBCLaunch.check() : { locked: false, opensOn: '' }]);
   }).then(function (r) {
     if (!r[0]) {
       document.getElementById('wrap').innerHTML =
@@ -559,6 +564,12 @@
       return;
     }
     EV = r[0].ev; TT = r[0].ticketTypes; QS = r[0].questions; CAP = r[0].capacity;
+    /* UNTIL SWITCH-OVER (F-203): the live database can be read by anybody
+       until the locked rules deploy (churchSettings/launch.rulesLocked), so
+       questions about health are not asked or saved before then. The
+       sign-up still works; the page says to tell the organiser directly. */
+    LAUNCH = r[2] || { locked: false, opensOn: '' };
+    if (!LAUNCH.locked) { HELD = QS.filter(E.isHealthQuestion); QS = QS.filter(function (q) { return !E.isHealthQuestion(q); }); }
     LOOK = r[1]; WHERE = E.locationText(EV, LOOK);
     return loadInvite().then(function () { return r; });
   }).then(function (r) {

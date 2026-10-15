@@ -139,6 +139,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     location: { kind: 'room', siteId: 'site_t', roomIds: ['room_hall'] }, organiserName: 'Admin One',
     overseers: [], overseerUids: [], signupOn: true, capacity: 4, allowSelfCancel: true, donationsOn: false,
     signupScope: 'date', image: '', seriesId: 'ser_test', createdBy: ADMIN1.uid, updatedAt: new Date().toISOString() });
+  /* After switch-over: health answers are saved (F-203; before it they are not). */
+  await setDoc(doc(db, 'churchSettings', 'launch'), { rulesLocked: true, opensOn: '' });
   await setDoc(doc(db, 'calEvents', 'ev_e1'), ev('ev_e1', TODAY, startUtc));
   await setDoc(doc(db, 'calEvents', 'ev_e1b'), ev('ev_e1b', NEXTDAY, startUtc + 7 * 864e5));
   await setDoc(doc(db, 'capacity', 'ev_e1'), { calEventId: 'ev_e1', taken: 0, capacity: 4 });
