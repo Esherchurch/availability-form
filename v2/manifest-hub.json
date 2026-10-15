@@ -6,7 +6,7 @@
   "id": "/availability-form/v2/hub.html",
   "scope": "https://esherchurch.github.io/availability-form/v2/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#3d6263",
   "theme_color": "#3d6263",
   "icons": [
