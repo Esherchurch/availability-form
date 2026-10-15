@@ -118,10 +118,10 @@ try {
 
   const A = await browser('ann');
   const refused = await A.evaluate(() => EGBCAuth.call('commsReport', { from: '2026-01-01', to: '2026-12-31' }).then(() => 'given', e => e.message));
-  ok('4. NOT AN ADMIN: the server refuses', /for admins/.test(refused), refused);
+  ok('4. NOT AN ADMIN: the server refuses', /for master admins/.test(refused), refused);
   await A.goto(URLB + 'comms.html', { waitUntil: 'networkidle2' });
   await sleep(1500);
-  ok('   and the page says it is for admins', /This page is for admins/.test(await text(A)));
+  ok('   and the page says it is for master admins', /This page is for master admins/.test(await text(A)));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

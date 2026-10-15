@@ -217,7 +217,17 @@
   }
   EGBCAuth.require().then(function () {
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
-    return load();
+    /* THE PAGE TURNS AWAY EVERYONE ELSE ITSELF (Martin, 15 Oct 2026: "that
+       shouldn't be seen by anyone other than the admin or designated
+       people"). Until switch-over the rules don't, so the page must. Master
+       admins and the money team only, as isTreasurer() on the server. */
+    if (MASTER) return load();
+    return db().collection('paymentSettings').doc('team').get().catch(function () { return null; }).then(function (t) {
+      var team = (t && t.exists && t.data().team) || 'Finance';
+      var mine = (EGBCAuth.inTeam && EGBCAuth.inTeam(team)) || (EGBCAuth.isAdminOf && EGBCAuth.isAdminOf(team));
+      if (!mine) { var err = new Error('permission'); err.code = 'permission-denied'; throw err; }
+      return load();
+    });
   }).catch(function (e) {
     var denied = /permission|insufficient/i.test(String(e && (e.code || e.message)));
     document.getElementById('wrap').innerHTML = '<div class="card"><h1>Payments</h1><p>' + (denied ? 'This page is for master admins and the church\'s money team.' : esc(e.message || e)) + '</p></div>';

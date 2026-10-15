@@ -50,7 +50,7 @@ export const commsReport = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   const u = uid ? await db().collection('users').doc(uid).get() : null;
   const d = u && u.exists ? u.data() : null;
-  const admin = !!(d && d.status === 'active' && (d.masterAdmin === true || (d.adminFor || []).length > 0));
-  if (!admin) throw new HttpsError('permission-denied', 'The list of emails sent is for admins.');
+  const admin = !!(d && d.status === 'active' && d.masterAdmin === true);
+  if (!admin) throw new HttpsError('permission-denied', 'The list of emails sent is for master admins.'); // Martin, 15 Oct 2026: who was sent what, master admins only
   return { rows: await report({ from: String(req.data && req.data.from || ''), to: String(req.data && req.data.to || '') }) };
 });

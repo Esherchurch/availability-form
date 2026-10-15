@@ -94,7 +94,7 @@
   }
 
   EGBCAuth.require().then(function () {
-    if (!(EGBCAuth.isAdmin && EGBCAuth.isAdmin())) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Emails sent</h1><p>This page is for admins.</p></div>'; return; }
+    if (!(EGBCAuth.isMaster && EGBCAuth.isMaster())) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Emails sent</h1><p>This page is for master admins.</p></div>'; return; }
     document.getElementById('wrap').innerHTML = '<h1>Emails sent</h1><p class="sub">Every email the hub sent for the church, and any that failed: sign-up confirmations, bookings, forms, reminders, and the emails sent from events.</p>' +
       '<div class="card"><div class="bar"><div><label for="days">When</label><select id="days"><option value="7">The last week</option><option value="30" selected>The last 30 days</option><option value="92">The last 3 months</option></select></div>' +
       '<label class="tick"><input type="checkbox" id="failed">Only the ones that failed</label><button class="btn" id="csv">Download</button></div>' +

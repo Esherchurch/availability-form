@@ -16,6 +16,7 @@
  *   (nothing)      everyone who is signed in
  *   core: true     somebody on Core Team
  *   admin: true    somebody who administers at least one area
+ *   master: true   a master admin only
  *   adminOf: [..]  an admin of one of those areas, or a master admin
  *   bookings: true an admin, or a bookings admin for any site
  *   feature: 'x'   only when the church uses that part (HANDOVER-MAIN
@@ -58,6 +59,13 @@
        For everybody signed in; feature 'giftAid'. */
     { title: 'Gift Aid', url: 'giftaid.html', icon: 'receipt', feature: 'giftAid',
       description: 'Your Gift Aid declaration' },
+    /* Martin, 15 Oct 2026: "there is no link to see the guidance for
+       Stripe etc" - and "that shouldn't be seen by anyone other than the
+       admin or designated people". Master admins (onTeam lets them through)
+       and the money team only; 'Finance' is the default money team, as in
+       functions/payments.js. Not under Admin, which is Core-only. */
+    { title: 'Payments', url: 'payments.html', icon: 'credit-card', team: ['Finance'],
+      description: 'Card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
     /* Phone notifications (FINDINGS-notify N-5): for everybody signed in,
        the person's own switches. Feature 'notifications'. */
     { title: 'Notifications', url: 'notifications.html', icon: 'bell-ring', feature: 'notifications',
@@ -245,13 +253,10 @@
              here, and the page had no way in from the Menu at all. */
           { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', core: true, admin: true,
             description: 'The church\'s name and logo, giving details, and phone notifications on or off' },
-          /* Martin, 15 Oct 2026: "there is no link to see the guidance for
-             Stripe etc". The setup guides are on this page. The Finance
-             team can use the page too; a Menu way in for them (not admins,
-             not Core) is the main window's to add with its own flag. */
-          { title: 'Payments', url: 'payments.html', icon: 'credit-card', core: true, admin: true,
-            description: 'Take card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
-          { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true,
+          /* Martin, 15 Oct 2026: who was sent what is for master admins
+             only ("shouldn't be seen by anyone other than the admin or
+             designated people"). */
+          { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true, master: true,
             description: 'Every email the church sent, and any that failed' }
         ] }
       ] },
@@ -344,6 +349,7 @@
        the wall this replaced. The page turns away anyone who gets there
        another way. */
     if (node.team && !onTeam(node.team, who)) return false;
+    if (node.master && !who.isMaster) return false;
     return true;
   }
 
