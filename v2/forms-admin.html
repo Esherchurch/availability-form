@@ -345,7 +345,8 @@
     Promise.all([
       E.load(EVID),
       db().collection('eventForms').doc(EVID).get(),
-      db().collection('signups').where('calEventId', '==', EVID).get(),
+      /* F-212: an event's sign-ups are for its team and master admins. */
+      db().collection('signups').where('calEventId', '==', EVID).get().catch(function () { throw new Error('Who is coming to this event is for its event team (and master admins), so its forms are sent from there. Ask whoever runs it to add you to its team.'); }),
       requestsWhere(EVID).then(function (docs) { return { docs: docs }; })
     ]).then(function (r) {
       EV = r[0].ev;

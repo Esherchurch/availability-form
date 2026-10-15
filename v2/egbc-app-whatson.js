@@ -76,11 +76,15 @@
     Promise.all([
       E.listUpcoming({ limit: 200 }),
       E.lookups().catch(function () { return { sites: {}, rooms: {}, venues: {} }; }),
-      global.EGBCEventsHome ? EGBCEventsHome.myEvents().catch(function () { return []; }) : Promise.resolve([])
+      global.EGBCEventsHome ? EGBCEventsHome.myEvents().catch(function () { return []; }) : Promise.resolve([]),
+      /* Events I run (F-212): the events whose team I am on. */
+      E.eventsIRun ? E.eventsIRun().catch(function () { return []; }) : Promise.resolve([])
     ]).then(function (r) {
       D.events = r[0].filter(function (e) { return e.status !== 'pending'; });
       D.look = r[1];
       D.mine = {}; r[2].forEach(function (m) { D.mine[m.id] = m; });
+      var since = Date.now() - 6 * 3600e3;
+      D.run = (r[3] || []).filter(function (e) { return (e.endUtc || e.startUtc || 0) >= since && e.status !== 'cancelled'; });
       LOADED = true; redraw();
     }).catch(function () { FAILED = true; LOADED = true; redraw(); });
   }
@@ -148,6 +152,9 @@
         return picOf(e) ? picRow(r, picOf(e)) : r;
       }).join('') + '</div>'
         : '<div class="card" style="padding:14px" data-w="none"><p style="margin:0">' + (VIEW.filter ? 'Nothing here. Try another one above.' : 'Nothing coming up yet.') + '</p></div>') +
+      (D.run && D.run.length ? H.sec('Events I run', '<div class="card list wo-list" data-w="run">' + D.run.map(function (e) {
+        return rowAct('open:' + BASE + 'events-admin.html?open=' + encodeURIComponent(e.id), 'clipboard-list', e.title || 'Untitled event', E.fmtWhen(e) + ' · change it, see who is coming');
+      }).join('') + '</div>') : '') +
       H.sec('Rooms', '<div class="card list wo-list">' + rowAct('rooms', 'door-open', 'Book a room', 'See what is free and book it. No need to ask the office.') + '</div>') +
       H.sec('Your calendar', '<div class="card list wo-list">' + rowAct('subscribe', 'calendar-sync', 'Add What\'s on to my phone\'s calendar', 'It keeps itself up to date: new events, changes, cancellations') + '</div>');
   }

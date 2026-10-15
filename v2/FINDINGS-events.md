@@ -6506,3 +6506,81 @@ shut until switch-over), so nothing to move.
 
 **Proved:** team-mail.test 36/36, including the switch from the built-in
 list to `teams`, a rename and an archive made on `teams`, and Clear.
+
+### F-212 — The event team (Martin, 15 Oct: "if I run Film Club only me, Natasha and Val should be able to edit things and download lists")
+
+**Before:** overseers were free-text names with no powers (overseerUids
+never filled); canEditEvent also needed an admin role; ticket types and
+questions were writable by ANY admin; and any admin of any area could
+list every event's sign-ups.
+
+**Now, for any church:**
+- **"Event team"** on each event (events-admin, Details), instead of the
+  overseers box: people picked from the address book, adults only
+  (`isMinor` left out). Stored as `teamMemberIds`, `teamUids` (their
+  accounts, looked up when saved) and `teamNames`. **The maker is on a new
+  event's team.** Duplicating, and every new date of a series, keeps the
+  team (they're saved through the same function).
+- **Old overseer names:** a name that exactly matches one adult in the
+  address book joins the team; the rest are shown ("Named before as
+  overseers, not on the team yet: ...") for someone to choose.
+- **The team (no admin role needed), plus master admins,** can: change the
+  event; its ticket types and questions; see who is coming, download it,
+  print the door sheet; check people in; email them; see payments. Also
+  its notes, checklist, change history and capacity.
+- **Nobody else sees an event's sign-ups.** "Any admin" is gone from
+  sign-ups (list, change, delete), payments, check-ins, check-in settings
+  and invitations. Kept: the event's leaders (`eventLeaders`) and the
+  site's safeguarding lead (under-18 events), and a person listing their
+  own sign-ups. An event made before teams can still be changed by the
+  admin who made it (`createdBy`), so nothing live is orphaned.
+- **An admin who doesn't run the event** (say the Maintenance admin, on an
+  event tagged Maintenance) sees it, and is told: "Only this event's team
+  (and master admins) can change it or see who is coming." No Save, no
+  lists, no door sheet, no check-in.
+- **"Events I run":** events-admin for someone on a team who isn't an
+  admin: only their events, no New event (still an admin's job). Rooms,
+  times and "Works with under-18s" are shown but not changed by them on
+  an event with rooms (room bookings and safeguarding stay with admins).
+  The app's What's on shows "Events I run" too, opening the event
+  (`events-admin.html?open=<id>`). Helper: `EGBCEvents.eventsIRun()`.
+- **Check-in:** the event's team and leaders (was: any admin). The
+  cross-event **roll-call is now master admins only** (an area admin can
+  no longer see every event's check-ins).
+
+**The rules** (go live at switch-over): helpers `onEventTeam`,
+`eventTeamOf`, `runsThisEvent`, `runsEventId`. **Edited outside the events
+section, as this job asked** (rules elsewhere can't take away a broader
+allow): `canSeeEvent` (the team may read its event, even unlisted),
+`canEditEvent`, ticketTypes and questions write, capacity create/update,
+signups list/update/delete, eventChecklists, eventNotes, eventChanges and
+commsLog. Inside the section: checkins, checkinSettings, signupPayments,
+eventInvites. Rules suite: 1384/1384, with a new block (Natasha edits Film
+Club; the Maintenance admin can't see its list; someone who runs another
+event can't; a master admin can; Natasha can't make a new event).
+Five old checks changed meaning and were updated: "an admin lists the
+sign-ups" is now refused unless on the team, and so on.
+
+**For the main window:**
+- the Menu's Events entry for anyone on an event's team, not only admins
+  (`EGBCEvents.eventsIRun()` says whether they are on one)
+- the app's Me tab, if wanted: the same list
+- (Done, mine) forms-admin.html now says in words that an event's
+  sign-ups are for its team, instead of showing the refusal;
+  safeguarding.html already copes (it leaves the list out).
+
+**Proved:** event-team.test 20/20; the rules suite 1384/1384.
+
+**F-212, the older tests it touched** (30 rerun):
+- e2-forms and e3-safeguarding: their "ordinary admin" now has to be on
+  the event's team to open its forms or check-in; I put them on it, so
+  those tests still prove what they were for (an ordinary admin can't see
+  medical answers). e3-safeguarding's refusal words updated.
+- k2-sunday: **the fire roll-call** (everyone checked in across the day's
+  events) **is master admins only now**, because the rules no longer let
+  an area admin see every event's check-ins. **Question for Martin:** a
+  roll-call is a safety tool. Should named people (fire wardens, the
+  duty steward) have it too? If so, a short list in settings, and the
+  rule reads it; small job.
+- The rest passed unchanged (stripe and payments-nowebhook each failed
+  once at a timing point seen before, and are rerun).

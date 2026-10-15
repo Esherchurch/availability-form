@@ -259,10 +259,11 @@ try {
   await tap(S, '[data-checkin="fam_1"]');
   const benBack = await until(async () => { const c = await get('checkins', ben.id); return c.state === 'in' ? c : null; });
   ok('   (Ben back in later: the same record, the same code)', benBack && benBack.pickupCode === CODE);
-  await go(W, 'checkin.html?view=rollcall', '#wrap h1');
-  await until(async () => /Roll-call/.test(await text(W, '#wrap')));
-  await sleep(800);
-  ok('   the fire roll-call still opens for that admin, without the children in it', /Roll-call/.test(await text(W, '#wrap')) && !/Ben Synthetic/.test(await text(W, '#wrap')) && !/Could not load/.test(await text(W, '#wrap')), await text(W, '#wrap'));
+  /* F-212: the roll-call shows every event's check-ins for the day, so it is
+     master admins only now (an area admin no longer sees other events'). */
+  await W.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
+  await until(async () => /roll-call is for master admins/.test(await text(W, '#wrap')));
+  ok('   the roll-call is for master admins now (F-212), and says so; no child shown', /The roll-call is for master admins/.test(await text(W, '#wrap')) && !/Ben Synthetic/.test(await text(W, '#wrap')), await text(W, '#wrap'));
   await wB.close();
   const kB = await as('karen'); const KA = kB.page;
   await go(KA, 'checkin.html?view=rollcall', '#wrap h1');

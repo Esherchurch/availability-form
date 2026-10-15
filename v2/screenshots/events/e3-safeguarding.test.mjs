@@ -128,7 +128,9 @@ await env.withSecurityRulesDisabled(async (ctx2) => {
   const ev = (d, title) => ({ title, description: '', category: 'kids', labels: [], visibility: 'members', status: 'confirmed',
     audience: ['members'], teams: [], featured: false, startLocal: ymd(d) + 'T10:00', startUtc: new Date(ymd(d) + 'T10:00').getTime(), endLocal: '',
     endUtc: new Date(ymd(d) + 'T10:00').getTime(), allDay: false, location: { kind: 'room', siteId: 'site_t', roomIds: [] }, signupOn: true, capacity: 20, createdBy: P.master.uid });
-  await setDoc(doc(db, 'calEvents', 'ev_x'), ev(X_DAY, 'Test Kids Club'));
+  /* F-212: the ordinary admin is on this event's team (so can check in), but
+     still not the safeguarding lead (so cannot see medical details). */
+  await setDoc(doc(db, 'calEvents', 'ev_x'), { ...ev(X_DAY, 'Test Kids Club'), teamMemberIds: ['m_av'], teamUids: [] });
   await setDoc(doc(db, 'calEvents', 'ev_y'), ev(Y_DAY, 'Test Kids Club, week two'));
   await setDoc(doc(db, 'calEvents', 'ev_unled'), ev(X_DAY, 'Test Youth Night'));
   for (const [k, d] of [
@@ -276,7 +278,7 @@ try {
   await tap(O, '[data-close]');
   await O.screenshot({ path: path.join(HERE, 'e3-checkin-leader-375.png'), fullPage: true });
   await go(O, 'checkin.html?event=ev_unled', '.banner');
-  ok('but not at an event he does not lead', /for admins and the event's leaders/.test(await text(O)));
+  ok('but not at an event he does not lead', /for its event team and its leaders/.test(await text(O)), await text(O));
 
   /* ---------- 3. the ordinary admin ---------- */
   const aB = await as('av'); const A = aB.page;

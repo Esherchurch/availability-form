@@ -129,6 +129,37 @@
     return typeof EGBCAuth !== 'undefined' && !!EGBCAuth.profile && !!EGBCAuth.profile();
   }
 
+  /* ---- THE EVENT TEAM (F-212) ----------------------------------------
+     Martin, 15 Oct: "if I run Film Club only me, Natasha and Val should be
+     able to edit things and download lists". Each event names its team
+     (teamMemberIds, teamUids, teamNames). Being on it needs no admin role.
+     The same answer as the rules' runsThisEvent(): a master admin, the
+     event's team, or (for an event made before teams) the admin who made
+     it. Being an admin of some area is not enough. */
+  function myIds() {
+    var p = signedIn() ? EGBCAuth.profile() : null, u = typeof EGBCAuth !== 'undefined' && EGBCAuth.user ? EGBCAuth.user() : null;
+    return { mid: (p && p.memberId) || '', uid: (u && u.uid) || '', master: !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()) };
+  }
+  function onTeam(ev) {
+    var me = myIds();
+    return !!ev && ((me.mid && (ev.teamMemberIds || []).indexOf(me.mid) >= 0) || (me.uid && (ev.teamUids || []).indexOf(me.uid) >= 0));
+  }
+  function runsEvent(ev) {
+    var me = myIds();
+    return !!ev && (me.master || onTeam(ev) || (me.admin && !!me.uid && ev.createdBy === me.uid));
+  }
+  /* "Events I run": every event whose team I am on, soonest first. */
+  function eventsIRun() {
+    var me = myIds(), c = db().collection('calEvents'), qs = [];
+    if (me.mid) qs.push(c.where('teamMemberIds', 'array-contains', me.mid).get());
+    if (me.uid) qs.push(c.where('teamUids', 'array-contains', me.uid).get());
+    return Promise.all(qs.map(function (q) { return q.catch(function () { return { docs: [] }; }); })).then(function (r) {
+      var seen = {}, out = [];
+      r.forEach(function (s) { s.docs.forEach(function (d) { if (!seen[d.id]) { seen[d.id] = 1; out.push(Object.assign({ id: d.id }, d.data())); } }); });
+      return out.sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); });
+    });
+  }
+
   /* The audiences this reader may ask for. Signed out it is one value;
      signed in it is 'members' plus their teams, which is what makes an
      array-contains-any query come back with only documents the rules
@@ -888,6 +919,9 @@
     audienceFor: audienceFor,
     myAudiences: myAudiences,
     signedIn: signedIn,
+    onTeam: onTeam,
+    runsEvent: runsEvent,
+    eventsIRun: eventsIRun,
     listUpcoming: listUpcoming,
     load: load,
     placesLeft: placesLeft,

@@ -12,7 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610151200"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-guard.js?v=202610121600" data-admin="any"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610151900"></script>
 <script src="egbc-events-checkin.js?v=202610141700"></script>
@@ -466,6 +466,14 @@
 
   EGBCAuth.require().then(function () {
     if (!EVID) throw new Error('Open this from an event: Events, then Who is coming, then Registers and downloads.');
+    /* F-212: the lists are for the event's team and master admins (and its
+       leaders), not every admin. Asked first, so the answer is in words. */
+    return Promise.all([E.load(EVID), db().collection('eventLeaders').doc(EVID).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; })]).then(function (x) {
+      if (!x[0]) throw new Error('That event could not be found.');
+      var leads = !!(x[1] && (x[1].leaderUids || []).indexOf((EGBCAuth.user() || {}).uid) >= 0);
+      if (!E.runsEvent(x[0].ev) && !leads) throw new Error('The lists for this event are for its event team. Ask whoever runs it to add you to its team.');
+    });
+  }).then(function () {
     return Promise.all([
       E.load(EVID), E.lookups(),
       db().collection('checkinSettings').doc(EVID).get(),

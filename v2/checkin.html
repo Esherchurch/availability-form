@@ -134,6 +134,7 @@
   /* Stage 3: event leaders who are not admins use this page too, and the
      children's consent forms add collectors and medical flags. */
   var SG = window.EGBCSafeguarding, ADMIN = false, FORMINFO = { children: {} };
+  var LEADS = false;   /* leads this event (eventLeaders) */
 
   function db() { return EGBCAuth.db; }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
@@ -151,10 +152,12 @@
     var from = Date.now() - 12 * 3600 * 1000;
     E.listUpcoming({ from: from, limit: 60 }).then(function (list) {
       var soon = list.filter(function (e) { return e.status !== 'cancelled' && e.startUtc < Date.now() + 8 * 24 * 3600 * 1000; });
-      if (ADMIN) return soon;
+      /* The events this person runs (F-212: master admins, the event's
+         team) or leads; not every event because they are an admin. */
+      if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return soon;
       var uid = SG.me().uid;
       return Promise.all(soon.map(function (e) { return SG.leadersOf(e.id); })).then(function (ls) {
-        return soon.filter(function (e, i) { return ls[i] && (ls[i].leaderUids || []).indexOf(uid) >= 0; });
+        return soon.filter(function (e, i) { return E.runsEvent(e) || (ls[i] && (ls[i].leaderUids || []).indexOf(uid) >= 0); });
       });
     }).then(function (soon) {
       document.getElementById('wrap').innerHTML =
@@ -716,13 +719,14 @@
   EGBCAuth.require().then(function () {
     ADMIN = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
     if (VIEW === 'rollcall') {
-      if (!ADMIN) throw new Error('The roll-call is for admins. Leaders see who is in on their own event\'s check-in.');
+      /* Every event's check-ins for the day: master admins (F-212). */
+      if (!(EGBCAuth.isMaster && EGBCAuth.isMaster())) throw new Error('The roll-call is for master admins. An event\'s team and leaders see who is in on that event\'s own check-in.');
       return rollCall();
     }
     if (!EVID) return pickEvent();
     return Promise.all([SG.leadersOf(EVID), SG.myLeadSites()]).then(function (who) {
       var leader = who[0] && (who[0].leaderUids || []).indexOf(SG.me().uid) >= 0;
-      if (!ADMIN && !leader) throw new Error('Check-in for this event is for admins and the event\'s leaders.');
+      LEADS = leader;
       return Promise.all([
         E.load(EVID),
         E.lookups(),
@@ -731,6 +735,8 @@
       ]);
     }).then(function (r) {
       if (!r[0]) throw new Error('That event could not be found.');
+      /* F-212: the event's team, master admins, and its leaders. */
+      if (!LEADS && !E.runsEvent(r[0].ev)) throw new Error('Check-in for this event is for its event team and its leaders. Ask whoever runs it to add you to its team.');
       EV = r[0].ev; QS = r[0].questions; LOOK = r[1]; TT = r[0].ticketTypes || [];
       SETTINGS = r[2].exists ? r[2].data() : {};
       var site = (EV.location || {}).siteId || '';

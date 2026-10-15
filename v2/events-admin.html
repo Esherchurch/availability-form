@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610151200"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-guard.js?v=202610121600" data-admin="any"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
@@ -101,6 +101,10 @@
   .banner.ok{background:var(--ok-bg);color:var(--ok)}
   .banner.info{background:var(--tint);color:var(--body);border:1px solid #cfe0de}
   .hint{font-size:13px;color:var(--muted)}
+  /* The event team (F-212) */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tint,#eef5f4);border-radius:999px;padding:4px 6px 4px 12px;font-size:14px}
+  .chip button{border:0;background:none;cursor:pointer;min-width:32px;min-height:32px;font-size:16px}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
          padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none}
   table{width:100%;border-collapse:collapse}
@@ -111,8 +115,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Events</h1>
-  <p class="sub">Create events, open sign-ups and see who is coming.</p>
+  <h1 id="pageTitle">Events</h1>
+  <p class="sub" id="pageSub">Create events, open sign-ups and see who is coming.</p>
 
   <div class="bar">
     <button class="btn" id="newEv"><i data-lucide="plus" style="width:16px;height:16px"></i>New event</button>
@@ -199,7 +203,10 @@
   var E = window.EGBCEvents, esc = E.esc;
   var ALL = [], LOOK = { sites: {}, rooms: {}, venues: {} }, SITES = [], ROOMS = [], VENUES = [];
   var CUR = null, TT = [], QS = [], CAP = null, ED = null, TAB = 'details', showPast = false;
-  var PAYASKED = {};  /* events whose online payments were asked about this visit (F-209) */
+  var PAYASKED = {};
+  /* THE EVENT TEAM (F-212): who I am, and whether I am an admin at all.
+     Someone on an event's team who is not an admin sees "Events I run". */
+  var IS_ADMIN = false, MY_MID = '', MY_NAME = '', NOSEE = false;  /* events whose online payments were asked about this visit (F-209) */
   /* §24: whether the event works with under-18s lives on its safeguarding
      record (eventLeaders), where the rules check its leaders and helpers. */
   var U18 = false, U18_WAS = false;
@@ -403,6 +410,7 @@
       startLocal: isoLocal(s), endLocal: isoLocal(e), allDay: false,
       location: { kind: 'room', siteId: SITES[0] ? SITES[0].id : '', roomIds: [], venueId: '', videoRoom: '' },
       organiserName: (EGBCAuth.profile() || {}).name || '', overseers: [], overseerUids: [],
+      teamMemberIds: MY_MID ? [MY_MID] : [], teamUids: [uid()], teamNames: MY_MID ? [MY_NAME] : [],
       signupOn: false, capacity: 50, allowSelfCancel: true, donationsOn: false,
       signupScope: 'date', image: ''
     };
@@ -421,7 +429,7 @@
       return db().collection('eventLeaders').doc(id).get().then(function (s) { U18 = U18_WAS = !!(s.exists && s.data().under18); }, function () { U18 = U18_WAS = false; });
     }).then(function () {
       return Promise.all([
-        db().collection('signups').where('calEventId', '==', id).get(),
+        db().collection('signups').where('calEventId', '==', id).get().then(function (s) { NOSEE = false; return s; }, function () { NOSEE = true; return { docs: [] }; }),
         db().collection('eventChecklists').doc(id).get(),
         db().collection('eventNotes').doc(id).get(),
         db().collection('eventChanges').where('calEventId', '==', id).get(),
@@ -510,14 +518,94 @@
       '<div class="field" id="teamsBox"></div>' +
       '<div class="two">' +
         '<div class="field"><label for="f_org">Organiser</label><input class="inp" id="f_org" value="' + esc(CUR.organiserName || '') + '" maxlength="120"></div>' +
-        '<div class="field"><label for="f_over">Overseers (names, comma separated)</label><input class="inp" id="f_over" value="' + esc((CUR.overseers || []).join(', ')) + '"></div>' +
       '</div>' +
+      '<div class="field" id="teamField"></div>' +
       '<div class="field"><label for="f_labels">Labels (comma separated)</label><input class="inp" id="f_labels" value="' + esc((CUR.labels || []).join(', ')) + '"></div>' +
       '<label class="check"><input type="checkbox" id="f_feat"' + (CUR.featured ? ' checked' : '') + '>Feature this on the hub and at the top of What\'s on</label>' +
       '<label class="check"><input type="checkbox" id="f_u18"' + (U18 ? ' checked' : '') + '><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</label>' +
       pictureField() +
-      '<div class="field"><label for="f_notes">Internal notes (admins and overseers only)</label>' +
+      '<div class="field"><label for="f_notes">Internal notes (the event team only)</label>' +
         '<textarea id="f_notes" maxlength="4000">' + esc(NOTES) + '</textarea></div>';
+  }
+
+  /* ---------- THE EVENT TEAM (F-212) ----------
+     People from the address book (adults only). They - and master admins -
+     change this event and its form, see and download who is coming, check
+     people in, email them and see payments. No admin role is needed. */
+  function drawTeam() {
+    var el = document.getElementById('teamField'); if (!el) return;
+    var ids = CUR.teamMemberIds || (CUR.teamMemberIds = []), names = CUR.teamNames || (CUR.teamNames = []);
+    var adults = (ADDR || []).filter(function (p) { return !p.isMinor && !p.archived && p.name; });
+    /* Overseers named before teams: an exact name match joins the team; the
+       rest are shown for someone to pick. */
+    var left = [];
+    (CUR.overseers || []).forEach(function (n) {
+      var hit = adults.filter(function (p) { return p.name.trim().toLowerCase() === String(n).trim().toLowerCase(); });
+      if (hit.length === 1) { if (ids.indexOf(hit[0].id) < 0) { ids.push(hit[0].id); names[ids.length - 1] = hit[0].name; } }
+      else left.push(n);
+    });
+    if (ADDR) CUR.overseers = left;
+    var nameOf = function (id, i) { var p = adults.filter(function (x) { return x.id === id; })[0]; return names[i] || (p && p.name) || 'Someone'; };
+    el.innerHTML = '<label>Event team</label>' +
+      '<p class="hint" style="margin:0 0 6px">They can change this event and its sign-up form, see and download who is coming, check people in, email them and see payments. No admin role is needed. Nobody else sees who has signed up (master admins can).</p>' +
+      '<div class="chips" id="teamChips">' + ids.map(function (id, i) {
+        return '<span class="chip" data-tm="' + esc(id) + '">' + esc(nameOf(id, i)) + '<button type="button" data-tmdrop="' + esc(id) + '" aria-label="Take ' + esc(nameOf(id, i)) + ' off the team">×</button></span>';
+      }).join('') + (ids.length ? '' : '<span class="hint" id="teamNone">Nobody yet: only master admins can change it.</span>') + '</div>' +
+      (ADDR ? '<select class="inp" id="teamAdd" aria-label="Add someone to the event team"><option value="">Add someone…</option>' +
+        adults.filter(function (p) { return ids.indexOf(p.id) < 0; }).sort(function (a, b) { return a.name.localeCompare(b.name); })
+          .map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select>'
+        : '<p class="hint" style="margin:0">Loading the address book…</p>') +
+      (left.length ? '<p class="hint" id="teamLegacy" style="margin:6px 0 0">Named before as overseers, not on the team yet (choose them above): ' + esc(left.join(', ')) + '</p>' : '');
+    var add = document.getElementById('teamAdd');
+    if (add) add.onchange = function () {
+      var p = adults.filter(function (x) { return x.id === add.value; })[0]; if (!p) return;
+      ids.push(p.id); names[ids.length - 1] = p.name; drawTeam();
+    };
+    el.querySelectorAll('[data-tmdrop]').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-tmdrop'), i = ids.indexOf(id);
+        if (id === MY_MID && !(EGBCAuth.isMaster && EGBCAuth.isMaster()) && !confirm('Take yourself off? You will not be able to change this event or see who is coming.')) return;
+        if (i >= 0) { ids.splice(i, 1); names.splice(i, 1); }
+        drawTeam();
+      };
+    });
+  }
+  /* The team's accounts, for the rules: looked up when it is saved. */
+  function teamUids() {
+    var ids = (CUR.teamMemberIds || []).slice(0, 30), chunks = [];
+    for (var i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
+    if (!chunks.length) { CUR.teamUids = []; return Promise.resolve(); }
+    return Promise.all(chunks.map(function (c) {
+      return db().collection('users').where('memberId', 'in', c).get().then(function (s) { return s.docs.map(function (d) { return d.id; }); }, function () { return null; });
+    })).then(function (r) {
+      if (r.some(function (x) { return x === null; })) return;   /* could not look: keep what was there */
+      var u = [].concat.apply([], r);
+      if (MY_MID && ids.indexOf(MY_MID) >= 0 && u.indexOf(uid()) < 0) u.push(uid());
+      CUR.teamUids = u;
+    });
+  }
+  /* Someone on the team who is not an admin: rooms, times and under-18s
+     are an admin's (they book rooms and safeguarding), so they are shown,
+     not changed, on an event that has rooms. And anyone who does not run
+     this event (an admin of another area) sees it but cannot change it. */
+  function lockForTeam() {
+    var off = function (el) { if (el) el.disabled = true; };
+    if (CUR.id && !E.runsEvent(CUR)) {
+      document.querySelectorAll('#tabBody input, #tabBody select, #tabBody textarea, #tabBody button').forEach(off);
+      var sv = document.getElementById('save'); if (sv) sv.style.display = 'none';
+      var tb = document.getElementById('tabBody');
+      if (tb && !document.getElementById('notYours')) tb.insertAdjacentHTML('afterbegin', '<div class="banner info" id="notYours">Only this event\'s team (and master admins) can change it or see who is coming. Ask whoever runs it to add you to its team.</div>');
+      return;
+    }
+    if (IS_ADMIN) return;
+    off(document.getElementById('f_u18'));
+    var rooms = CUR.location && CUR.location.kind === 'room' && (CUR.location.roomIds || []).length;
+    if (rooms) {
+      ['f_where', 'f_start', 'f_end', 'f_allday'].forEach(function (id) { off(document.getElementById(id)); });
+      document.querySelectorAll('#whereBox input, #whereBox select').forEach(off);
+      var w = document.getElementById('whereBox');
+      if (w && !document.getElementById('roomsNote')) w.insertAdjacentHTML('beforebegin', '<p class="hint" id="roomsNote">The rooms and times are booked by the office or an admin: ask them to change these.</p>');
+    }
   }
 
   function whereBox() {
@@ -784,6 +872,7 @@
   }
 
   function peopleTab() {
+    if (NOSEE) return '<div class="banner info" id="noList">Who is coming is for this event\'s team (and master admins). Ask whoever runs it to add you to its team.</div>';
     var live = SIGNUPS.filter(function (s) { return s.status === 'confirmed'; });
     var wait = SIGNUPS.filter(function (s) { return s.status === 'waiting'; });
     var gone = SIGNUPS.filter(function (s) { return s.status === 'cancelled'; });
@@ -1074,7 +1163,9 @@
       ED = EGBCEditor.mount(document.getElementById('f_desc'), {
         html: CUR.description || '', placeholder: 'What is it, and who is it for?'
       });
-      whereBox(); teamsBox();
+      whereBox(); teamsBox(); drawTeam();
+      if (!ADDR) ensureAddr().then(function () { if (TAB === 'details') drawTeam(); });
+      lockForTeam();
       document.getElementById('f_where').onchange = whereBox;
       document.getElementById('f_vis').onchange = teamsBox;
     }
@@ -1239,7 +1330,6 @@
     CUR.featured = document.getElementById('f_feat').checked;
     U18 = !!(document.getElementById('f_u18') || {}).checked;
     CUR.organiserName = document.getElementById('f_org').value.trim();
-    CUR.overseers = document.getElementById('f_over').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     CUR.labels = document.getElementById('f_labels').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     CUR.teams = [].slice.call(document.querySelectorAll('.f_team:checked')).map(function (c) { return c.value; });
     NOTES = document.getElementById('f_notes').value;
@@ -1300,6 +1390,9 @@
       location: ev.location || {},
       organiserName: ev.organiserName || '',
       overseers: ev.overseers || [], overseerUids: ev.overseerUids || [],
+      /* THE EVENT TEAM (F-212): what the rules read. Copies and new dates of
+         a series go through here too, so they keep the team. */
+      teamMemberIds: (ev.teamMemberIds || []).slice(0, 30), teamUids: (ev.teamUids || []).slice(0, 30), teamNames: (ev.teamNames || []).slice(0, 30),
       signupOn: !!ev.signupOn, capacity: ev.capacity || 0,
       allowSelfCancel: ev.allowSelfCancel !== false, donationsOn: !!ev.donationsOn,
       signupScope: ev.signupScope || 'date',
@@ -1387,7 +1480,7 @@
     var id = CUR.id || ('cev_' + E.key(14));
     if (isNew) CUR.createdBy = uid();
 
-    uploadImage(id).then(function (url) {
+    teamUids().then(function () { return uploadImage(id); }).then(function (url) {
       if (url) CUR.image = url;
       var d = docFor(CUR);
       if (isNew) d.createdBy = uid(), d.createdAt = new Date().toISOString();
@@ -1425,6 +1518,8 @@
         return db().collection('eventChecklists').doc(eid).set({ tasks: tasks, assignees: Object.keys(who), calEventId: eid, startUtc: CUR.startUtc || 0, title: String(CUR.title || '').slice(0, 140) });
       })).then(function () { return ids; });
     }).then(function (ids) {
+      /* Rooms and under-18s are an admin's (lockForTeam). */
+      if (!IS_ADMIN) return '';
       return syncRooms([id].concat(ids || [])).then(function () { return under18([id].concat(ids || [])); });
     }).then(function (u18msg) {
       toast(u18msg || 'Saved.');
@@ -1974,6 +2069,7 @@
     /* Plus 'unlisted' (F-165): asked for here and nowhere else, so a
        not-listed event is in this list and in no reader's. The rules let
        admins read every event, which is who this page is for. */
+    if (!IS_ADMIN) return E.eventsIRun().then(function (list) { ALL = list; drawList(); drawMyTasks(); });
     return db().collection('calEvents').where('audience', 'array-contains-any', ['unlisted'].concat(E.myAudiences()).slice(0, 30)).get()
       .then(function (snap) {
         ALL = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
@@ -1990,6 +2086,20 @@
   };
 
   EGBCAuth.require().then(function () {
+    var me = EGBCAuth.profile() || {};
+    IS_ADMIN = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()); MY_MID = me.memberId || ''; MY_NAME = me.name || '';
+    if (!IS_ADMIN) {
+      /* "Events I run" (F-212): someone on an event's team who is not an
+         admin. No new events (an admin's job), no church-wide settings. */
+      document.getElementById('pageTitle').textContent = 'Events I run';
+      document.getElementById('pageSub').textContent = 'The events you are on the team for: change them, see who is coming, check people in.';
+      ['newEv', 'embeds'].forEach(function (id) { var x = document.getElementById(id); if (x) x.style.display = 'none'; });
+      return E.eventsIRun().then(function (mine) {
+        if (!mine.length) { document.getElementById('list').innerHTML = '<p id="noneRun">You are not on any event\'s team yet. Ask whoever runs an event to add you to its team.</p>'; throw { quiet: true }; }
+      }).then(function () {
+        return Promise.all([E.lookups(), loadTemplates(), db().collection('sites').get().catch(function () { return { docs: [] }; }), db().collection('rooms').get().catch(function () { return { docs: [] }; }), db().collection('venues').get().catch(function () { return { docs: [] }; })]);
+      });
+    }
     /* Emails sent is for master admins only (Martin, 15 Oct; da5cc4af). */
     if (EGBCAuth.isMaster && EGBCAuth.isMaster()) document.getElementById('commsLink').style.display = '';
     db().collection('paymentSettings').doc('public').get().then(function (s) { PAYPUB = s.exists ? s.data() : {}; }, function () {});
@@ -2002,8 +2112,13 @@
     ROOMS = r[3].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
       .filter(function (s) { return s.active !== false; });
     VENUES = r[4].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-    return refresh();
+    /* ?open=<event id>: straight to one event ("Events I run" in the app). */
+    return refresh().then(function () {
+      var want = new URLSearchParams(location.search).get('open');
+      if (want && ALL.some(function (e) { return e.id === want; })) open(want);
+    });
   }).catch(function (e) {
+    if (e && e.quiet) return;
     document.getElementById('list').innerHTML = '<div class="banner warn">Could not load the events: ' + esc(e.message || e) + '</div>';
   });
 })();

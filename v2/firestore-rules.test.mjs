@@ -284,7 +284,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'contacts', 'c_guest'), { name: 'Guest Synthetic', email: 'guest@example.invalid', source: 'signup' });
   await setDoc(doc(db, 'calEvents', 'ev_public'), {
     title: 'Test Carols', visibility: 'public', status: 'confirmed', audience: ['public'],
-    startLocal: '2026-12-20T18:00', startUtc: 1766253600000, createdBy: 'u_martin', teams: [], signupOn: true, capacity: 10 });
+    startLocal: '2026-12-20T18:00', startUtc: 1766253600000, createdBy: 'u_martin', teams: [], signupOn: true, capacity: 10,
+    /* F-212: Karen is on this event's team. */ teamUids: ['u_karen'], teamMemberIds: [] });
   await setDoc(doc(db, 'calEvents', 'ev_members'), {
     title: 'Test Members Night', visibility: 'members', status: 'confirmed', audience: ['members'],
     startLocal: '2026-11-01T19:00', startUtc: 1761937200000, createdBy: 'u_martin', teams: [], signupOn: true, capacity: 5 });
@@ -778,7 +779,8 @@ await check('a master admin edits any event', 'allow', () => updateDoc(doc(as('m
 await check('the public reads the ticket types', 'allow', () => getDoc(doc(anon(), 'calEvents', 'ev_public', 'ticketTypes', 'tt_free')));
 await check('the public reads the questions', 'allow', () => getDoc(doc(anon(), 'calEvents', 'ev_public', 'questions', 'q_diet')));
 await check('the public cannot change a ticket type', 'deny', () => setDoc(doc(anon(), 'calEvents', 'ev_public', 'ticketTypes', 'tt_free'), { name: 'Free', price: 0 }));
-await check('an admin adds a ticket type', 'allow', () => setDoc(doc(as('karen'), 'calEvents', 'ev_public', 'ticketTypes', 'tt_paid'), { name: 'Standard', price: 5, capacity: 10 }));
+await check('the event team adds a ticket type (F-212)', 'allow', () => setDoc(doc(as('karen'), 'calEvents', 'ev_public', 'ticketTypes', 'tt_paid'), { name: 'Standard', price: 5, capacity: 10 }));
+await check('AN ADMIN NOT ON THE EVENT\'S TEAM cannot (F-212)', 'deny', () => setDoc(doc(as('karen'), 'calEvents', 'ev_members', 'ticketTypes', 'tt_x'), { name: 'Standard', price: 5, capacity: 10 }));
 
 /* ---- capacity: the last place ---------------------------------------
    ev_public has 9 of 10 taken. A sign-up is a batch: the sign-up document
@@ -824,7 +826,9 @@ await check('a sign-up cannot be written as already cancelled', 'deny', () => se
 await check('the key opens that one sign-up', 'allow', () => getDoc(doc(anon(), 'signups', 'key_already_here_0000000000000000')));
 await check('nobody can list the sign-ups without an account', 'deny', () => getDocs(collection(anon(), 'signups')));
 await check('an ordinary member cannot list the sign-ups either', 'deny', () => getDocs(collection(as('samy'), 'signups')));
-await check('an admin lists the sign-ups', 'allow', () => getDocs(collection(as('karen'), 'signups')));
+await check('NOT EVERY ADMIN LISTS EVERY SIGN-UP any more (F-212)', 'deny', () => getDocs(collection(as('karen'), 'signups')));
+await check('the event team lists its own event\'s sign-ups', 'allow', () => getDocs(query(collection(as('karen'), 'signups'), where('calEventId', '==', 'ev_public'))));
+await check('but not another event\'s, though an admin (F-212)', 'deny', () => getDocs(query(collection(as('karen'), 'signups'), where('calEventId', '==', 'ev_members'))));
 /* My events on the hub: a member asks for their own and gets them; the
    same question about somebody else is refused. */
 await check('a member lists their own sign-ups', 'allow', () => getDocs(query(collection(as('samy'), 'signups'), where('memberUid', '==', 'u_samy'))));
@@ -903,7 +907,7 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a walk-in cannot take a place that is not there', 'deny', () => walkIn(as('karen'), 2));
 
   await check('a member cannot read the check-in settings', 'deny', () => getDoc(doc(as('samy'), 'checkinSettings', 'ev_kids')));
-  await check('an admin sets who may collect', 'allow', () => setDoc(doc(as('karen'), 'checkinSettings', 'ev_public'), { checkoutRequired: false, collectorsQuestionId: '', flagQuestionIds: ['q_diet'] }));
+  await check('the event team sets who may collect', 'allow', () => setDoc(doc(as('karen'), 'checkinSettings', 'ev_public'), { checkoutRequired: false, collectorsQuestionId: '', flagQuestionIds: ['q_diet'] }));
   await check('check-in settings hold only their own fields', 'deny', () => setDoc(doc(as('karen'), 'checkinSettings', 'ev_public'), { checkoutRequired: false, anything: 1 }));
 
   await check('an admin logs their own download', 'allow', () => setDoc(doc(as('karen'), 'downloadsLog', 'dl2'), { by: 'u_karen', byName: 'Karen', at: '2026-11-14T12:01:00Z', calEventId: 'ev_kids', what: 'register', format: 'pdf', columns: ['Name'], sensitive: false }));
@@ -1544,7 +1548,7 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('A WORSHIP ADMIN SEES NO CHILD\u2019S CHECK-IN', 'deny', () => getDoc(doc(ctx('u_wes'), 'checkins', id('kid_cat', 'grp_junior'))));
   await check('nor lists the Sunday session', 'deny', () => getDocs(query(collection(ctx('u_wes'), 'checkins'), where('calEventId', '==', 'kids_grp_junior_' + DAY))));
   await check('nor sees children in a roll-call that asks for the whole day', 'deny', () => getDocs(query(collection(ctx('u_wes'), 'checkins'), where('day', '==', DAY))));
-  await check('but the roll-call of event check-ins still works for admins (by day and kind)', 'allow', () => getDocs(query(collection(ctx('u_wes'), 'checkins'), where('day', '==', DAY), where('kind', 'in', ['booked', 'walkin', 'leader']))));
+  await check('AND AN AREA ADMIN NO LONGER SEES EVERY EVENT\'S CHECK-INS for the day (F-212: only the events they run)', 'deny', () => getDocs(query(collection(ctx('u_wes'), 'checkins'), where('day', '==', DAY), where('kind', 'in', ['booked', 'walkin', 'leader']))));
   await check('an admin cannot write a Sunday check-in as an event one', 'deny', () => setDoc(doc(ctx('u_wes'), 'checkins', id('kid_cat', 'grp_little')), CK('kid_cat', 'grp_little', { kind: 'booked' })));
   await check('someone on Kids Church who leads no group cannot check a child in', 'deny', () => put(ctx('u_sid'), 'kid_dan', 'grp_junior'));
   await check('a lead lists the whole site\u2019s day', 'allow', () => getDocs(query(collection(ctx('u_kim'), 'checkins'), where('siteId', '==', 'site_kids'), where('day', '==', DAY))));
@@ -3674,13 +3678,14 @@ await check('  while making the same record without it is fine', 'allow',
 {
   await env.withSecurityRulesDisabled(async (c) => {
     const db = c.firestore();
+    await setDoc(doc(db, 'calEvents', 'ev_pay'), { title: 'Barn dance (invented)', audience: ['public'], visibility: 'public', status: 'confirmed', createdBy: 'u_martin', teamUids: ['u_karen'] });
     await setDoc(doc(db, 'signups', 'sp_key_1'), { calEventId: 'ev_pay', name: 'Pat Payer (invented)', email: 'pat@example.invalid', places: 2, status: 'confirmed' });
     await setDoc(doc(db, 'eventLeaders', 'ev_pay'), { leaderUids: ['u_samy'] });
     await setDoc(doc(db, 'signups', 'sp_key_2'), { calEventId: 'ev_pay', name: 'Pip Payer (invented)', email: 'pip@example.invalid', places: 1, status: 'confirmed' });
   });
   const PAY = (by, extra) => ({ calEventId: 'ev_pay', paid: true, amount: 12, method: 'cash', by: PEOPLE[by].uid, byName: 'Someone', at: serverTimestamp(), ...(extra || {}) });
   await check('PAID ON THE DAY: the event\'s leader marks a place paid at the door', 'allow', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), PAY('samy')));
-  await check('  and an admin can', 'allow', () => setDoc(doc(as('karen'), 'signupPayments', 'sp_key_1'), PAY('karen', { method: 'card' })));
+  await check('  and the event team can (F-212)', 'allow', () => setDoc(doc(as('karen'), 'signupPayments', 'sp_key_1'), PAY('karen', { method: 'card' })));
   await check('  somebody who is not its leader or an admin cannot', 'deny', () => setDoc(doc(as('member'), 'signupPayments', 'sp_key_1'), PAY('member')));
   await check('  not for a sign-up to another event', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_key_1'), PAY('samy', { calEventId: 'ev_other' })));
   await check('  not for a sign-up that does not exist', 'deny', () => setDoc(doc(as('samy'), 'signupPayments', 'sp_nobody'), PAY('samy')));
@@ -3769,6 +3774,49 @@ await check('  while making the same record without it is fine', 'allow',
   await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'checklistReminders', 'ev_x_abc_tomorrow'), { ok: true }); });
   await check('CHECKLIST REMINDERS: their record is nobody\'s to read, not even a master admin\'s', 'deny', () => getDoc(doc(as('martin'), 'checklistReminders', 'ev_x_abc_tomorrow')));
   await check('  nor to write', 'deny', () => setDoc(doc(as('martin'), 'checklistReminders', 'ev_y'), { ok: true }));
+}
+
+// THE EVENT TEAM (F-212; Martin, 15 Oct: "if I run Film Club only me,
+// Natasha and Val should be able to edit things and download lists").
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const U = (uid, mid, teams, adminFor) => setDoc(doc(db, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor, masterAdmin: false });
+    await U('u_natasha', 'm_natasha', [], []);              // no admin role at all
+    await U('u_val', 'm_val', ['Kids Church'], []);          // on the team by her account only
+    await U('u_mo', 'm_mo', ['Maintenance'], ['Maintenance']); // the Maintenance admin, not on the team
+    await U('u_quiz', 'm_quiz', [], []);                     // runs a different event
+    await setDoc(doc(db, 'calEvents', 'ev_film'), { title: 'Film Club (invented)', audience: ['unlisted'], visibility: 'unlisted', status: 'confirmed',
+      createdBy: 'u_martin', teams: ['Maintenance'], teamMemberIds: ['m_natasha'], teamUids: ['u_val'], signupOn: true, capacity: 20 });
+    await setDoc(doc(db, 'calEvents', 'ev_quiz2'), { title: 'Quiz (invented)', audience: ['members'], visibility: 'members', status: 'confirmed',
+      createdBy: 'u_martin', teams: [], teamMemberIds: ['m_quiz'], teamUids: [] });
+    await setDoc(doc(db, 'signups', 'su_film_1'), { calEventId: 'ev_film', name: 'Fay Filmgoer (invented)', email: 'fay@example.invalid', places: 2, status: 'confirmed' });
+    await setDoc(doc(db, 'signupPayments', 'su_film_1'), { calEventId: 'ev_film', paid: false, amount: 6, method: 'card-online', status: 'awaiting' });
+    await setDoc(doc(db, 'checkins', 'ev_film__su_film_1__0'), { calEventId: 'ev_film', signupKey: 'su_film_1', attendeeIndex: 0, name: 'Fay', kind: 'booked', state: 'in', inAt: 'x', inBy: 'u_martin', day: '2026-11-20' });
+  });
+  const film = (uid) => getDocs(query(collection(ctx(uid), 'signups'), where('calEventId', '==', 'ev_film')));
+  await check('EVENT TEAM: Natasha (no admin role) opens Film Club, though it is not listed', 'allow', () => getDoc(doc(ctx('u_natasha'), 'calEvents', 'ev_film')));
+  await check('  and edits it', 'allow', () => updateDoc(doc(ctx('u_natasha'), 'calEvents', 'ev_film'), { title: 'Film Club: Paddington (invented)' }));
+  await check('  its ticket types', 'allow', () => setDoc(doc(ctx('u_natasha'), 'calEvents', 'ev_film', 'ticketTypes', 'tt_child'), { name: 'Child', price: 2, capacity: 0 }));
+  await check('  and its questions', 'allow', () => setDoc(doc(ctx('u_natasha'), 'calEvents', 'ev_film', 'questions', 'q_snack'), { label: 'Popcorn?', kind: 'yesno' }));
+  await check('  sees its sign-ups (the lists and the door sheet)', 'allow', () => film('u_natasha'));
+  await check('  and its payments', 'allow', () => getDocs(query(collection(ctx('u_natasha'), 'signupPayments'), where('calEventId', '==', 'ev_film'))));
+  await check('  checks people in at the door', 'allow', () => setDoc(doc(ctx('u_natasha'), 'checkins', 'ev_film__su_film_1__1'), { calEventId: 'ev_film', signupKey: 'su_film_1', attendeeIndex: 1, name: 'Finn', kind: 'booked', state: 'in', inAt: 'x', inBy: 'u_natasha', inByName: 'Natasha', roomId: '', day: '2026-11-20', updatedAt: 'x' }));
+  await check('  sees who is in', 'allow', () => getDocs(query(collection(ctx('u_natasha'), 'checkins'), where('calEventId', '==', 'ev_film'))));
+  await check('  and logs the emails she sends them', 'allow', () => setDoc(doc(ctx('u_natasha'), 'commsLog', 'cl_film'), { calEventId: 'ev_film', kind: 'email', subject: 'Popcorn', to: 2, failed: 0, by: 'Natasha', at: 'x' }));
+  await check('VAL, ON THE TEAM BY HER ACCOUNT, sees the sign-ups too', 'allow', () => film('u_val'));
+  await check('THE MAINTENANCE ADMIN (the event is tagged Maintenance, she is not on its team) CANNOT SEE FILM CLUB\'S LIST', 'deny', () => film('u_mo'));
+  await check('  nor edit it', 'deny', () => updateDoc(doc(ctx('u_mo'), 'calEvents', 'ev_film'), { title: 'x' }));
+  await check('  nor its ticket types', 'deny', () => setDoc(doc(ctx('u_mo'), 'calEvents', 'ev_film', 'ticketTypes', 'tt_mo'), { name: 'x', price: 0 }));
+  await check('  nor its payments', 'deny', () => getDocs(query(collection(ctx('u_mo'), 'signupPayments'), where('calEventId', '==', 'ev_film'))));
+  await check('  nor who is in', 'deny', () => getDocs(query(collection(ctx('u_mo'), 'checkins'), where('calEventId', '==', 'ev_film'))));
+  await check('SOMEONE WHO RUNS ANOTHER EVENT cannot see Film Club\'s list', 'deny', () => film('u_quiz'));
+  await check('  but sees their own', 'allow', () => getDocs(query(collection(ctx('u_quiz'), 'signups'), where('calEventId', '==', 'ev_quiz2'))));
+  await check('A MASTER ADMIN sees it', 'allow', () => film('u_martin'));
+  await check('AN ORDINARY MEMBER does not', 'deny', () => film('u_samy'));
+  await check('NATASHA CANNOT MAKE A NEW EVENT (still an admin\'s job)', 'deny', () => setDoc(doc(ctx('u_natasha'), 'calEvents', 'ev_new_n'), { title: 'x', audience: ['members'], visibility: 'members', status: 'confirmed', createdBy: 'u_natasha' }));
+  await check('  nor touch an event she does not run', 'deny', () => updateDoc(doc(ctx('u_natasha'), 'calEvents', 'ev_quiz2'), { title: 'x' }));
 }
 
 // Nothing else is open.

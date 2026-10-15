@@ -1507,7 +1507,38 @@ service cloud.firestore {
       return eventAudience().hasAny(['public'])
              || (active() && (eventAudience().hasAny(['members'])
                               || eventAudience().hasAny(me().get('teams', []))
-                              || isAdmin()));
+                              || isAdmin()))
+             || onEventTeam(resource.data);
+    }
+
+    // ---- THE EVENT TEAM (F-212; Martin, 15 Oct: "if I run Film Club only
+    // me, Natasha and Val should be able to edit things and download
+    // lists") - events window. Each event names its own team, by address
+    // book id (teamMemberIds) and, where they have one, account (teamUids).
+    // Being on it needs no admin role. With master admins, the team edits
+    // the event and its form, and is the only one who sees its sign-ups.
+    function onEventTeam(ev) {
+      return active()
+             && (me().get('memberId', '') in ev.get('teamMemberIds', [])
+                 || request.auth.uid in ev.get('teamUids', []));
+    }
+    function eventTeamOf(calEventId) {
+      return calEventId is string && calEventId != ''
+             && exists(/databases/$(database)/documents/calEvents/$(calEventId))
+             && onEventTeam(get(/databases/$(database)/documents/calEvents/$(calEventId)).data);
+    }
+    // Master admins, the team, and (for events made before teams) the
+    // admin who made it. Not "an admin of a team it belongs to" any more:
+    // being an admin elsewhere gives nothing here (F-212).
+    function runsThisEvent(ev) {
+      return isMaster() || onEventTeam(ev)
+             || (isAdmin() && ev.get('createdBy', '') == request.auth.uid);
+    }
+    function runsEventId(calEventId) {
+      return isMaster()
+             || (calEventId is string && calEventId != ''
+                 && exists(/databases/$(database)/documents/calEvents/$(calEventId))
+                 && runsThisEvent(get(/databases/$(database)/documents/calEvents/$(calEventId)).data));
     }
 
     function audienceAgrees() {
@@ -1518,13 +1549,10 @@ service cloud.firestore {
       return held ? !a.hasAny(['public']) : (pub ? a.hasAny(['public']) : !a.hasAny(['public']));
     }
 
-    // An event is edited by the person who made it, anyone named as an
-    // overseer, an admin of a team it belongs to, or a master admin.
+    // An event is edited by its team (F-212), a master admin, or (for an
+    // event from before teams) the admin who made it.
     function canEditEvent() {
-      return isAdmin() && (isMaster()
-             || resource.data.get('createdBy', '') == request.auth.uid
-             || request.auth.uid in resource.data.get('overseerUids', [])
-             || resource.data.get('teams', []).hasAny(me().get('adminFor', [])));
+      return runsThisEvent(resource.data);
     }
 
     match /calEvents/{calEventId} {
@@ -1539,11 +1567,11 @@ service cloud.firestore {
       // price, a capacity, a question.
       match /ticketTypes/{ticketTypeId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if runsEventId(calEventId);   // the event team (F-212)
       }
       match /questions/{questionId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if runsEventId(calEventId);   // the event team (F-212)
       }
     }
 
@@ -1567,11 +1595,11 @@ service cloud.firestore {
 
     match /capacity/{calEventId} {
       allow read: if true;
-      allow create: if isAdmin();
+      allow create: if isAdmin() || runsEventId(calEventId);
       // Going up is the sign-up's job and is checked on the sign-up itself.
       // Going down has to name the sign-up that was cancelled, and that
       // sign-up has to actually be cancelled in the same write.
-      allow update: if isAdmin()
+      allow update: if isAdmin() || runsEventId(calEventId)
                     || (request.resource.data.capacity == resource.data.capacity
                         && request.resource.data.taken > resource.data.taken
                         && request.resource.data.taken <= resource.data.capacity)
@@ -1619,7 +1647,10 @@ service cloud.firestore {
       // name the person, so every document that comes back already belongs
       // to them. This is what lets "My events" exist on the hub without a
       // second collection, and it is the only widening of list here.
-      allow list: if isAdmin()
+      // F-212: NOT every admin any more - the event's team and master
+      // admins (and, in the events section, its leaders and the site's
+      // safeguarding lead).
+      allow list: if runsEventId(resource.data.calEventId)
                   || (active() && resource.data.get('memberUid', '') == request.auth.uid);
       // F-115, the events window's request. Without the last clause anybody
       // holding an event's id could sign up to it, signed in or not, including
@@ -1630,12 +1661,12 @@ service cloud.firestore {
                     && canSignUpTo(request.resource.data.calEventId);
       // The key-holder may cancel, and that is all they may do. An admin may
       // change anything.
-      allow update: if isAdmin()
+      allow update: if runsEventId(resource.data.calEventId)
                     || (request.resource.data.status == 'cancelled'
                         && request.resource.data.calEventId == resource.data.calEventId
                         && request.resource.data.places == resource.data.places
                         && request.resource.data.email == resource.data.email);
-      allow delete: if isAdmin();
+      allow delete: if runsEventId(resource.data.calEventId);
     }
 
     // ---- the admin's side of an event --------------------------------
@@ -1643,23 +1674,25 @@ service cloud.firestore {
     // history and the log of what was emailed. None of it is for members.
 
     match /eventChecklists/{calEventId} {
-      allow read: if volunteer();
-      allow write: if isAdmin();
+      allow read: if volunteer() || runsEventId(calEventId);
+      allow write: if isAdmin() || runsEventId(calEventId);
     }
     match /checklistTemplates/{templateId} {
       allow read: if volunteer();
       allow write: if isAdmin();
     }
     match /eventNotes/{calEventId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAdmin() || runsEventId(calEventId);
     }
     // Append-only on purpose: a history that can be edited is not a history.
     match /eventChanges/{changeId} {
-      allow read, create: if isAdmin();
+      allow read: if isAdmin() || runsEventId(resource.data.get('calEventId', ''));
+      allow create: if isAdmin() || runsEventId(request.resource.data.get('calEventId', ''));
       allow update, delete: if false;
     }
     match /commsLog/{entryId} {
-      allow read, create: if isAdmin();
+      allow read: if isAdmin() || runsEventId(resource.data.get('calEventId', ''));
+      allow create: if isAdmin() || runsEventId(request.resource.data.get('calEventId', ''));
       allow update, delete: if false;
     }
 
@@ -1814,7 +1847,7 @@ service cloud.firestore {
       // children's leads and the group's leaders, nobody else. (Either half
       // can be proved from a list that asks by event, by day and kind, or
       // by group or site.)
-      allow read: if ((isAdmin() || isEventLeader(resource.data.calEventId))
+      allow read: if ((runsEventId(resource.data.calEventId) || isEventLeader(resource.data.calEventId))
                       && (resource.data.kind in ['booked', 'walkin', 'leader'] || !resource.data.calEventId.matches('kids_.*')))
                   || kidsLead(resource.data.get('siteId', ''))
                   || kidsGroupLeader(resource.data.get('groupId', ''));
@@ -1841,10 +1874,10 @@ service cloud.firestore {
                     && kidsCkTeam(resource.data);
       // You arrive before you leave.
       allow create: if eventCk(request.resource.data)
-                    && (isAdmin() || isEventLeader(request.resource.data.calEventId)) && checkinShape() && checkinIdAgrees(checkinId)
+                    && (runsEventId(request.resource.data.calEventId) || isEventLeader(request.resource.data.calEventId)) && checkinShape() && checkinIdAgrees(checkinId)
                     && request.resource.data.state == 'in';
       allow update: if eventCk(resource.data) && eventCk(request.resource.data)
-                    && (isAdmin() || isEventLeader(resource.data.calEventId)) && checkinShape()
+                    && (runsEventId(resource.data.calEventId) || isEventLeader(resource.data.calEventId)) && checkinShape()
                     && request.resource.data.calEventId == resource.data.calEventId
                     && request.resource.data.signupKey == resource.data.signupKey
                     && request.resource.data.attendeeIndex == resource.data.attendeeIndex
@@ -1859,8 +1892,8 @@ service cloud.firestore {
     // Per event: does check-out need a collector, which question holds the
     // collectors' names, which questions are shown as a flag at the door.
     match /checkinSettings/{calEventId} {
-      allow read: if isAdmin() || isEventLeader(calEventId);
-      allow write: if isAdmin()
+      allow read: if runsEventId(calEventId) || isEventLeader(calEventId);
+      allow write: if runsEventId(calEventId)
                    && request.resource.data.keys().hasOnly(['checkoutRequired', 'collectorsQuestionId',
                                                              'flagQuestionIds', 'updatedAt', 'updatedBy'])
                    && request.resource.data.get('checkoutRequired', false) is bool
@@ -3952,8 +3985,8 @@ service cloud.firestore {
     }
     match /signupPayments/{manageKey} {
       allow get: if true;
-      allow list: if isAdmin() || isEventLeader(resource.data.calEventId);
-      allow create, update: if (isAdmin() || isEventLeader(request.resource.data.calEventId)) && paymentShape(manageKey)
+      allow list: if runsEventId(resource.data.calEventId) || isEventLeader(resource.data.calEventId);
+      allow create, update: if (runsEventId(request.resource.data.calEventId) || isEventLeader(request.resource.data.calEventId)) && paymentShape(manageKey)
                             && (resource == null || resource.data.calEventId == request.resource.data.calEventId);
       allow delete: if false;
     }
@@ -4016,19 +4049,19 @@ service cloud.firestore {
     // time, and the sign-up it led to - and change nothing else.
     match /eventInvites/{inviteKey} {
       allow get: if true;
-      allow list: if isAdmin();
-      allow create: if isAdmin()
+      allow list: if runsEventId(resource.data.calEventId);
+      allow create: if runsEventId(request.resource.data.calEventId)
                     && request.resource.data.keys().hasOnly(['calEventId', 'memberId', 'name', 'email', 'sentAt', 'by', 'byName', 'response', 'respondedAt', 'signupKey', 'reminded'])
                     && request.resource.data.calEventId is string && request.resource.data.email is string && request.resource.data.email.size() <= 200
                     && request.resource.data.name is string && request.resource.data.name.size() <= 120
                     && request.resource.data.by == request.auth.uid && request.resource.data.sentAt == request.time
                     && request.resource.data.response == '' && request.resource.data.signupKey == '';
-      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reminded']))
+      allow update: if (runsEventId(resource.data.calEventId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reminded']))
                     || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response', 'respondedAt', 'signupKey'])
                         && request.resource.data.response in ['yes', 'no']
                         && request.resource.data.respondedAt == request.time
                         && request.resource.data.signupKey is string && request.resource.data.signupKey.size() <= 40);
-      allow delete: if isAdmin();
+      allow delete: if runsEventId(resource.data.calEventId);
     }
 
     // ---- label size (F-185) ----------------------------------------------

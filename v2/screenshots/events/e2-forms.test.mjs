@@ -104,7 +104,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   const ev = (d) => ({ title: 'Test Kids Club ' + d.getDate(), description: '', category: 'kids', labels: [], visibility: 'public', status: 'confirmed',
     audience: ['public', 'members'], teams: [], featured: false, startLocal: iso(d), startUtc: d.getTime(), endLocal: '', endUtc: d.getTime(),
     allDay: false, location: { kind: 'room', siteId: 'site_t', roomIds: [] }, signupOn: true, capacity: 20, createdBy: MASTER.uid });
-  await setDoc(doc(db, 'calEvents', 'ev_a'), ev(A_DAY));
+  /* F-212: the ordinary (AV) admin is on this event's team, so may open its
+     forms; still not cleared to see medical answers. */
+  await setDoc(doc(db, 'calEvents', 'ev_a'), { ...ev(A_DAY), teamUids: [AVADMIN.uid], teamMemberIds: [] });
   await setDoc(doc(db, 'calEvents', 'ev_b'), ev(B_DAY));
   for (const [k, d] of [
     signup('ev_a', 'key_fam_a_0000000000000000000000', 'Parent Synthetic', 'parent@example.invalid', ['Child One', 'Child Two']),
