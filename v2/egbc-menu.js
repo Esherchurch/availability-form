@@ -244,7 +244,15 @@
           /* Martin, 13 Oct 2026: the switch for phone notifications is
              here, and the page had no way in from the Menu at all. */
           { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', core: true, admin: true,
-            description: 'The church\'s name and logo, giving details, and phone notifications on or off' }
+            description: 'The church\'s name and logo, giving details, and phone notifications on or off' },
+          /* Martin, 15 Oct 2026: "there is no link to see the guidance for
+             Stripe etc". The setup guides are on this page. The Finance
+             team can use the page too; a Menu way in for them (not admins,
+             not Core) is the main window's to add with its own flag. */
+          { title: 'Payments', url: 'payments.html', icon: 'credit-card', core: true, admin: true,
+            description: 'Take card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
+          { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true,
+            description: 'Every email the church sent, and any that failed' }
         ] }
       ] },
 
