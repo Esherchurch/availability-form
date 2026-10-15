@@ -5809,3 +5809,44 @@ The reviewing window shut payments on the live site (`payments-gate.js`,
 - `payments-shut.test.mjs` 11/11, with the real functions.
 - 7 deliberate breaks (see the report). The one that matters: the
   Payments page showing the server's own long words.
+
+### F-197 — Subscribe from a phone (Martin: "there is no link to that calendar from the phone")
+
+- **One Subscribe card, shared.** It now lives in `egbc-events.js`
+  (`feedUrl`, `isPhone`, `subscribeHtml`, `subscribeAct`). Both
+  whatson.html and the app's What's on draw it, so they can't drift apart.
+- **On a phone** (an iPhone, iPad or Android browser):
+  - one big button, **"Add to my phone's calendar"**, the full width of
+    the card. It opens the `webcal://` link: iPhone's Calendar asks
+    "Subscribe?"; on Android, whichever calendar app takes webcal.
+  - under it: "iPhone: tap Subscribe when it asks. Android: if nothing
+    opens, use Google Calendar below, or copy the link."
+  - **Google Calendar** and **Copy the link**. After copying it says how
+    to use it: "In Google Calendar on a computer: Other calendars, +,
+    From URL, then paste it." (Google's phone app can't add a calendar
+    from a link; only the website can.)
+- **On a computer:** as before: Add to Google Calendar, Apple or Outlook,
+  Copy the link.
+- **Public events or "my own link"**, and the categories, as before.
+- **The app's What's on** (`egbc-app-whatson.js`, events window): a new
+  row, "Add What's on to my phone's calendar", opens the card. It
+  replaces the old line "Calendar: add your rota and events to your
+  phone's calendar from Me".
+- **The hub's What's on on a phone** is whatson.html, which already had
+  Subscribe; it now shows the big button there too.
+- `egbc-events.js?v=202610151200` on my pages.
+
+**Waiting on the main window (app.html):** two ?v= bumps, so phones get
+the new files:
+`egbc-events.js?v=202610151200` (now 202610101800) and
+`egbc-app-whatson.js?v=202610151200` (now 202610101800). The request
+named app.html, but the safety check on this machine stopped me editing
+a main-window file, so it's listed here for whoever does.
+
+**Not proved here: the hand-off itself.** A test can check the link and
+that the calendar behind it is real, but not iPhone's "Subscribe to
+calendar?" or Android's choice of app. That needs a real phone with
+Martin (see the report for the steps).
+
+**Proved:** `phone-subscribe.test.mjs` 14/14, at 375px, with an iPhone's
+and an Android's browser names and the hub's real functions.

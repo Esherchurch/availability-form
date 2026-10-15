@@ -586,6 +586,78 @@
       return j ? j.result : null;
     });
   }
+
+  /* ---- Subscribe in your own calendar (R7, F-182; on phones F-197) ----
+     One card for whatson.html and the app's What's on. The host keeps the
+     state { signedIn, mine, cats, msg, copied } and draws subscribeHtml
+     again after subscribeAct. Buttons and boxes carry ATTR="sub:...".
+     On a phone: one big "Add to my phone's calendar" (the webcal:// link:
+     iPhone's Calendar, and on Android whichever calendar app takes it),
+     then Google Calendar and "Copy the link" for when nothing opens. */
+  function feedBase() {
+    var o = (global.firebase && firebase.apps.some(function (a) { return a.name === 'egbc'; }) ? firebase.app('egbc').options : {}) || {};
+    var h = global.location.hostname, local = h === 'localhost' || h === '127.0.0.1';
+    return local ? 'http://localhost:' + (global.location.port === '5601' ? 5102 : 5101) + '/' + o.projectId + '/europe-west2/eventsFeed'
+      : 'https://europe-west2-' + o.projectId + '.cloudfunctions.net/eventsFeed';
+  }
+  function feedUrl(st) {
+    var mine = st.signedIn && st.mine;
+    return feedBase() + (mine ? '?k=' + encodeURIComponent(st.mine) : '?church=1') + (st.cats && st.cats.length ? '&cat=' + st.cats.join(',') : '');
+  }
+  function isPhone() {
+    var ua = (global.navigator && navigator.userAgent) || '';
+    return /iPhone|iPad|iPod|Android/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  }
+  function subscribeHtml(st, used, attr, phone) {
+    attr = attr || 'data-sub'; if (phone == null) phone = isPhone();
+    var mine = !!(st.signedIn && st.mine), url = feedUrl(st), web = url.replace(/^https?:/, 'webcal:');
+    var google = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(web);
+    var tick = 'style="display:flex;gap:8px;align-items:center;min-height:44px"';
+    return '<h2 style="margin:0 0 6px;font-size:16px">Subscribe in your own calendar</h2>' +
+      '<p class="hint" style="margin:0 0 8px">Your calendar app keeps it up to date by itself: new events appear, and changes and cancellations follow. Google can take a few hours to catch up; that is Google.</p>' +
+      (st.signedIn ? '<label class="check" ' + tick + '><input type="radio" name="subWho" value="public" ' + attr + '="sub:who:public"' + (mine ? '' : ' checked') + '>Public events only</label>' +
+        '<label class="check" ' + tick + '><input type="radio" name="subWho" value="mine" ' + attr + '="sub:who:mine"' + (mine ? ' checked' : '') + '>Everything I can see here (my own link)</label>' : '') +
+      '<p style="margin:8px 0 4px;font-weight:600">Which events</p><div style="display:flex;flex-wrap:wrap;gap:10px">' +
+        CATEGORIES.filter(function (c) { return used[c.id]; }).map(function (c) {
+          return '<label class="check" style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" class="subCat" value="' + esc(c.id) + '" ' + attr + '="sub:cat:' + esc(c.id) + '"' + ((st.cats || []).indexOf(c.id) >= 0 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') +
+      '</div><p class="hint" style="margin:0">None ticked: everything.</p>' +
+      (phone
+        ? '<a class="btn primary" id="subPhone" href="' + esc(web) + '" style="display:flex;width:100%;justify-content:center;align-items:center;min-height:52px;font-size:16px;margin-top:12px;text-decoration:none">Add to my phone\'s calendar</a>' +
+          '<p class="hint" style="margin:6px 0 0">iPhone: tap Subscribe when it asks. Android: if nothing opens, use Google Calendar below, or copy the link.</p>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' +
+            '<a class="btn sec" id="subGoogle" target="_blank" rel="noopener" href="' + esc(google) + '">Google Calendar</a>' +
+            '<button class="btn sec" id="subCopy" ' + attr + '="sub:copy">' + (st.copied ? 'Copied' : 'Copy the link') + '</button>' +
+            (mine ? '<button class="btn ghost" id="subReset" ' + attr + '="sub:reset">Reset my link</button>' : '') + '</div>'
+        : '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+            '<a class="btn" id="subGoogle" target="_blank" rel="noopener" href="' + esc(google) + '">Add to Google Calendar</a>' +
+            '<a class="btn sec" id="subApple" href="' + esc(web) + '">Apple or Outlook</a>' +
+            '<button class="btn sec" id="subCopy" ' + attr + '="sub:copy">' + (st.copied ? 'Copied' : 'Copy the link') + '</button>' +
+            (mine ? '<button class="btn ghost" id="subReset" ' + attr + '="sub:reset">Reset my link</button>' : '') + '</div>') +
+      '<p class="hint" id="subUrl" style="overflow-wrap:anywhere;margin:8px 0 0">' + esc(url) + '</p><p class="hint" id="subMsg" role="status">' + esc(st.msg || '') + '</p>' +
+      (mine ? '<p class="hint" style="margin:4px 0 0">Your own link shows members\' and team events, so keep it to yourself. Reset makes a new one and the old one stops working.</p>' : '');
+  }
+  /* What a "sub:..." does to the state. Resolves when it is time to draw again. */
+  function subscribeAct(a, st) {
+    a = String(a || '').replace(/^sub:/, ''); st.msg = ''; st.copied = false;
+    if (a.indexOf('cat:') === 0) {
+      var c = a.slice(4), i = (st.cats = st.cats || []).indexOf(c);
+      if (i >= 0) st.cats.splice(i, 1); else st.cats.push(c);
+      return Promise.resolve();
+    }
+    if (a === 'who:public') { st.mine = ''; return Promise.resolve(); }
+    if (a === 'who:mine') return global.EGBCAuth.call('myEventsFeed', {}).then(function (x) { st.mine = x.key; }, function (e) { st.msg = e.message || String(e); });
+    if (a === 'copy') {
+      var url = feedUrl(st);
+      return (global.navigator && navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () {
+        st.copied = true; st.msg = 'Copied. In Google Calendar on a computer: Other calendars, +, From URL, then paste it.';
+      }, function () { st.msg = 'Copy this link: ' + url; });
+    }
+    if (a === 'reset') {
+      if (!global.confirm('Make a new link? The old one stops working, in every calendar it is in.')) return Promise.resolve();
+      return global.EGBCAuth.call('myEventsFeed', { reset: true }).then(function (x) { st.mine = x.key; st.msg = 'A new link: add it to your calendar again.'; }, function (e) { st.msg = e.message || String(e); });
+    }
+    return Promise.resolve();
+  }
   /* PAYMENTS SHUT UNTIL SWITCH-OVER (bcbe6d7e, payments-gate.js): the server
      refuses with failed-precondition and the mark shut. EGBCAuth.call keeps
      the code but not the mark, so the gate's own words count too. Other
@@ -736,6 +808,10 @@
     money: money,
     payBy: payBy,
     callPublic: callPublic,
+    feedUrl: feedUrl,
+    isPhone: isPhone,
+    subscribeHtml: subscribeHtml,
+    subscribeAct: subscribeAct,
     CLOSED_WORDS: CLOSED_WORDS,
     paymentsClosed: paymentsClosed,
     payProblem: payProblem,

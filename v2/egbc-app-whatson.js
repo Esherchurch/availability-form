@@ -47,6 +47,8 @@
   var H = null, STARTED = false, LOADED = false, FAILED = false;
   var D = { events: [], look: { sites: {}, rooms: {}, venues: {} }, mine: {}, rooms: [], sites: {}, today: {}, closed: {}, roomsLoaded: false };
   var VIEW = { mode: 'list', filter: '', eventId: '' };
+  /* Subscribe (R7 on the phone, F-197): the same card as whatson.html. */
+  var SUB = { cats: [], mine: '', signedIn: true, msg: '' };
   /* Pages live beside this file, wherever the shell itself is. */
   var BASE = (function () {
     var s = global.document && global.document.currentScript;
@@ -135,7 +137,13 @@
       }).join('') + '</div>'
         : '<div class="card" style="padding:14px" data-w="none"><p style="margin:0">' + (VIEW.filter ? 'Nothing here. Try another one above.' : 'Nothing coming up yet.') + '</p></div>') +
       H.sec('Rooms', '<div class="card list wo-list">' + rowAct('rooms', 'door-open', 'Book a room', 'See what is free and book it. No need to ask the office.') + '</div>') +
-      '<p class="example">Calendar: add your rota and events to your phone\'s calendar from Me.</p>';
+      H.sec('Your calendar', '<div class="card list wo-list">' + rowAct('subscribe', 'calendar-sync', 'Add What\'s on to my phone\'s calendar', 'It keeps itself up to date: new events, changes, cancellations') + '</div>');
+  }
+
+  function subscribeView() {
+    var used = {}; D.events.forEach(function (e) { used[e.category || 'other'] = 1; });
+    return '<div>' + act('list', 'What\'s on', false, 'arrow-left') + '</div>' +
+      '<div class="card" style="padding:14px" data-w="subscribe">' + E.subscribeHtml(SUB, used, 'data-wact') + '</div>';
   }
 
   function eventView() {
@@ -180,6 +188,7 @@
     if (!LOADED) return STYLE + head + '<div class="card" style="padding:14px"><p class="sub" style="margin:0">Loading what\'s on…</p></div>';
     if (FAILED) return STYLE + head + '<div class="card" style="padding:14px"><p style="margin:0">What\'s on could not be loaded. Check the signal and try again.</p></div>';
     if (VIEW.mode === 'event') return STYLE + eventView();
+    if (VIEW.mode === 'subscribe') return STYLE + subscribeView();
     return STYLE + head + listView();
   }
 
@@ -190,6 +199,8 @@
     if (a.indexOf('event:') === 0) { VIEW.mode = 'event'; VIEW.eventId = a.slice(6); redraw(); return; }
     if (a === 'list') { VIEW.mode = 'list'; redraw(); return; }
     if (a === 'rooms') { VIEW.mode = 'rooms'; redraw(); return; }
+    if (a === 'subscribe') { VIEW.mode = 'subscribe'; redraw(); return; }
+    if (a.indexOf('sub:') === 0) { E.subscribeAct(a, SUB).then(redraw); return; }
     if (a.indexOf('open:') === 0) { global.location.href = a.slice(5); return; }
     if (a === 'share') {
       var se = ev(VIEW.eventId); if (!se) return;
