@@ -74,15 +74,16 @@
     return '<div class="card" id="gocardless"><h2>Bank payments and Direct Debit, through your own GoCardless account</h2>' +
       '<p class="hint" style="margin-top:0">People pay for tickets straight from their bank (Instant Bank Pay), and give regularly by Direct Debit, with Gift Aid. ' +
       'The money goes straight into your church\'s GoCardless account. The hub never sees bank details and takes nothing: GoCardless charges your church its normal fee, and that is all.</p>' +
-      (on ? statusLine(s, 'gcStatus') + (s.webhookSet ? '<p class="hint" id="gcHookStatus">The webhook is set, so payments are confirmed as they happen.</p>'
-            : '<div class="warn" id="gcHookStatus" style="margin-top:8px">Not finished: add the webhook (step 3 below). Until then nobody is offered bank payment or Direct Debit.</div>')
+      /* The webhook is OPTIONAL (Martin, 15 Oct; F-209). */
+      (on ? statusLine(s, 'gcStatus') + (s.webhookSet ? '<p class="hint" id="gcHookStatus">The webhook is set, so payments show as they happen.</p>'
+            : '<p class="hint" id="gcHookStatus">Bank payments and Direct Debit are on. The hub checks with GoCardless itself, every few minutes. The webhook (optional, step 3) makes payments show straight away.</p>')
           : '<p id="gcStatus" class="hint"><b>Not connected.</b> Follow the steps below.</p>') +
-      '<details' + (on && s.webhookSet ? '' : ' open') + ' style="margin-top:8px"><summary>' + (on ? 'Replace the token or the webhook' : 'Set it up, step by step') + '</summary><ol class="guide">' +
+      '<details' + (on ? '' : ' open') + ' style="margin-top:8px"><summary>' + (on ? 'Replace the token, or add the optional webhook' : 'Set it up, step by step') + '</summary><ol class="guide">' +
         '<li><b>Sign in to your church\'s GoCardless dashboard</b> at manage.gocardless.com (no account yet? make one there, in the church\'s name, with the church\'s bank account).' + shot('gc-1-dashboard', 'The GoCardless dashboard, signed in') + '</li>' +
         '<li><b>Make an access token.</b> Go to Developers, then <i>Create</i>, then <i>Access token</i>. Name it "Church hub" and choose <b>Read-write access</b>. Copy it (it starts <code>live_</code>, or <code>sandbox_</code> in GoCardless\'s sandbox while you try it out).' + shot('gc-2-token', 'Making an access token in GoCardless') +
           '<label for="gcKey">Paste the token here</label><input class="inp" id="gcKey" type="password" autocomplete="off" spellcheck="false" placeholder="live_…">' +
           '<button class="btn" id="gcSaveKey">Check and save the token</button><p id="gcKeyMsg" role="status"></p></li>' +
-        '<li><b>Add the webhook.</b> In GoCardless go to Developers, then <i>Create</i>, then <i>Webhook endpoint</i>. Give it this address:' +
+        '<li><b>Optional: makes payments show straight away.</b> Without it, the hub asks GoCardless every few minutes, so everything still works. To add it: in GoCardless go to Developers, then <i>Create</i>, then <i>Webhook endpoint</i>. Give it this address:' +
           '<p><code id="gcHookUrl">' + esc(webhookUrl('gocardlessWebhook')) + '</code></p>Make up a long secret, or let GoCardless make one, and copy it.' + shot('gc-3-webhook', 'Adding the webhook endpoint in GoCardless') +
           '<label for="gcHookSecret">Paste the webhook secret here</label><input class="inp" id="gcHookSecret" type="password" autocomplete="off" spellcheck="false">' +
           '<button class="btn" id="gcSaveHook">Save the webhook secret</button><p id="gcHookMsg" role="status"></p></li>' +
@@ -119,18 +120,18 @@
       (on ? '<div class="ok" id="stripeStatus">Connected: ' + esc(s.accountName || 'your Stripe account') + ', account …' + esc(s.accountLast4 || '') + ', ' +
               (s.mode === 'live' ? '<b>live</b> (real money)' : '<b>test</b> (no real money)') +
               (s.addedByName ? '. Added by ' + esc(s.addedByName) + (s.addedAt ? ' on ' + esc(when(s.addedAt)) : '') : '') + '.</div>' +
-            (s.webhookSet ? '<p class="hint" id="hookStatus">The webhook is set, so payments are confirmed as they happen.</p>'
-                          : '<div class="warn" id="hookStatus" style="margin-top:8px">Not finished: add the webhook (step 3 below). Until then nobody is offered card payment, because the hub could not tell when they have paid.</div>')
+            (s.webhookSet ? '<p class="hint" id="hookStatus">The webhook is set, so payments show as they happen.</p>'
+                          : '<p class="hint" id="hookStatus">Card payments are on. The hub checks with Stripe itself: when someone comes back from paying, and every few minutes. The webhook (optional, step 3) makes payments show straight away.</p>')
           : '<p id="stripeStatus" class="hint"><b>Not connected.</b> Follow the steps below; it takes about ten minutes.</p>') +
-      '<details' + (on && s.webhookSet ? '' : ' open') + ' style="margin-top:8px"><summary>' + (on ? 'Replace the key or the webhook' : 'Set it up, step by step') + '</summary>' +
+      '<details' + (on ? '' : ' open') + ' style="margin-top:8px"><summary>' + (on ? 'Replace the key, or add the optional webhook' : 'Set it up, step by step') + '</summary>' +
       '<ol class="guide">' +
         '<li><b>Sign in to your church\'s Stripe dashboard</b> at dashboard.stripe.com. No Stripe account yet? Make one there first, in the church\'s name, with the church\'s bank account.' + shot('stripe-1-dashboard', 'The Stripe dashboard, signed in') + '</li>' +
         '<li><b>Make a restricted key.</b> Go to Developers, then API keys, then <i>Create restricted key</i>. Name it "Church hub". Give it only these permissions, and leave everything else as None:' +
-          '<ul><li>Checkout Sessions: <b>Write</b></li><li>Account (or Balance): <b>Read</b></li><li>Charges and Refunds: <b>Read</b></li><li>Events: <b>Read</b></li></ul>' +
+          '<ul><li>Checkout Sessions: <b>Write</b></li><li>Payment Intents: <b>Read</b></li><li>Charges and Refunds: <b>Read</b></li><li>Account (or Balance): <b>Read</b></li></ul>' +
           'Press <i>Create key</i>, then copy it (it starts <code>rk_live_</code>, or <code>rk_test_</code> while you try it out).' + shot('stripe-2-restricted-key', 'Making a restricted key in Stripe') +
           '<label for="stripeKey">Paste the key here</label><input class="inp" id="stripeKey" type="password" autocomplete="off" spellcheck="false" placeholder="rk_live_…">' +
           '<button class="btn" id="saveKey">Check and save the key</button><p id="keyMsg" role="status"></p></li>' +
-        '<li><b>Add the webhook.</b> In Stripe go to Developers, then Webhooks, then <i>Add endpoint</i>. For the address, copy this:' +
+        '<li><b>Optional: makes payments show straight away.</b> You can skip this: without it the hub asks Stripe itself (when someone comes back from paying, and every few minutes), so everything still works. To add it: in Stripe go to Developers, then Webhooks, then <i>Add endpoint</i>. For the address, copy this:' +
           '<p><code id="hookUrl">' + esc(webhookUrl()) + '</code></p>' +
           'Choose these events: <code>checkout.session.completed</code>, <code>checkout.session.expired</code>, <code>charge.refunded</code> and <code>charge.dispute.created</code>. ' +
           'Press <i>Add endpoint</i>, then <i>Reveal</i> the <b>signing secret</b> and copy it (it starts <code>whsec_</code>).' + shot('stripe-3-webhook', 'Adding the webhook in Stripe') +
@@ -140,7 +141,7 @@
         '<li><b>Refunds</b> are made in your Stripe dashboard (Payments, then the payment, then Refund). The hub shows them by itself.</li>' +
       '</ol></details>' +
       (on ? '<button class="btn danger" id="removeStripe">Remove card payments</button><p id="removeMsg" role="status"></p>' : '') +
-      '<p class="hint" style="margin-bottom:0">The key and the signing secret go to the hub\'s server once and are never shown again, to anyone. To change them, paste new ones.</p></div>';
+      '<p class="hint" style="margin-bottom:0">The key (and the signing secret, if you add the webhook) go to the hub\'s server once and are never shown again, to anyone. To change them, paste new ones.</p></div>';
   }
   function teamCard() {
     return '<div class="card" id="team"><h2>Who can set this up</h2><p class="hint" style="margin-top:0">Master admins, and anyone on the church\'s money team: <b id="teamName">' + esc(TEAM) + '</b>.</p>' +

@@ -100,7 +100,9 @@ export async function gcRemove(who) {
 }
 export async function gcReady() {
   const s = await secrets(), shown = await db().collection('paymentSettings').doc('gocardless').get();
-  return !!(s.token && s.webhookSecret && shown.exists && shown.data().connected);
+  /* The webhook is OPTIONAL (Martin, 15 Oct; F-209): without it the hub
+     asks GoCardless itself (checkBank, pollGifts). */
+  return !!(s.token && shown.exists && shown.data().connected);
 }
 
 /* ------------------------------------------- Instant Bank Pay, tickets */
@@ -327,10 +329,70 @@ export const gocardlessWebhook = onRequest({ region: REGION }, async (req, res) 
 
 /* Bank payments not made in 30 minutes: give the places back (Stripe's
    pages expire by themselves and tell us; GoCardless's do not). */
+/* ------------------------------------------- without the webhook (F-209)
+   Martin, 15 Oct: the hub must not depend on a webhook. Each of these asks
+   GoCardless directly and then does exactly what the webhook would have
+   done (handleGc), so the two can never disagree, and with a webhook they
+   simply find the work already done. */
+
+/* One bank booking: paid yet? refunded or failed since? */
+export async function checkBank(x) {
+  const s = await secrets(); if (!s.token) return 'no token';
+  if (x.status === 'awaiting' && x.checkoutId) {
+    const b = (await gc(s.token, 'GET', '/billing_requests/' + encodeURIComponent(x.checkoutId))).billing_requests || {};
+    if (b.status === 'fulfilled') return handleGc({ resource_type: 'billing_requests', action: 'fulfilled', links: { billing_request: x.checkoutId, payment_request_payment: (b.links || {}).payment_request_payment || '' } });
+    return 'waiting';
+  }
+  if (x.status === 'paid' && x.paymentRef) {
+    const p = (await gc(s.token, 'GET', '/payments/' + encodeURIComponent(x.paymentRef))).payments || {};
+    if (p.status === 'failed' || p.status === 'cancelled' || p.status === 'charged_back') return handleGc({ resource_type: 'payments', action: 'failed', links: { payment: x.paymentRef } });
+    if (Number(p.amount_refunded) > 0) return handleGc({ resource_type: 'refunds', action: 'created', links: { payment: x.paymentRef } });
+    return 'paid';
+  }
+  return 'nothing';
+}
+
+/* Unpaid bank bookings whose 30 minutes are up: asked first (it may have
+   been paid with no webhook to say so), then the place is given back. */
 export async function tidyBank(now) {
   const due = (await db().collection('signupPayments').where('status', '==', 'awaiting').get()).docs
     .filter((d) => d.data().method === 'bank-online' && (d.data().holdUntil || 0) < (now || Date.now()));
-  for (const d of due) await release(d.id);
-  return due.length;
+  let released = 0;
+  for (const d of due) {
+    const r = await checkBank(d.data()).catch(() => 'unknown');
+    if (/^paid/.test(String(r))) continue;
+    await release(d.id); released++;
+  }
+  return released;
 }
-export const paymentsTidy = onSchedule({ region: REGION, schedule: 'every 10 minutes', timeZone: 'Europe/London', retryCount: 1 }, async () => { await tidyBank(); });
+
+/* Regular gifts with no webhook: a Direct Debit set up (start the gift),
+   and each gift collected or failed. A running gift is asked every six
+   hours at most. */
+export async function pollGifts(now, force) {
+  const s = await secrets(); if (!s.token) return 0;
+  now = now || Date.now();
+  let n = 0;
+  const gifts = (await db().collection('regularGifts').where('status', 'in', ['setting-up', 'active']).get()).docs;
+  for (const g of gifts) {
+    const x = g.data();
+    try {
+      if (x.status === 'setting-up' && x.billingRequest) {
+        const b = (await gc(s.token, 'GET', '/billing_requests/' + encodeURIComponent(x.billingRequest))).billing_requests || {};
+        const mandate = (b.links || {}).mandate_request_mandate;
+        if (b.status === 'fulfilled' && mandate) { await handleGc({ resource_type: 'billing_requests', action: 'fulfilled', links: { billing_request: x.billingRequest, mandate_request_mandate: mandate } }); n++; }
+      } else if (x.status === 'active' && x.subscriptionId && (force || (x.polledAt || 0) < now - 6 * 3600e3)) {
+        const ps = (await gc(s.token, 'GET', '/payments?subscription=' + encodeURIComponent(x.subscriptionId) + '&limit=50')).payments || [];
+        for (const p of ps) {
+          if (p.status === 'confirmed' || p.status === 'paid_out') { if ((await handleGc({ resource_type: 'payments', action: 'confirmed', links: { payment: p.id, subscription: x.subscriptionId } })) === 'gift recorded') n++; }
+          else if (p.status === 'failed' && !(x.failedSeen || []).includes(p.id)) {
+            await handleGc({ resource_type: 'payments', action: 'failed', links: { payment: p.id, subscription: x.subscriptionId } });
+            await g.ref.update({ failedSeen: FieldValue.arrayUnion(p.id) });
+          }
+        }
+        await g.ref.update({ polledAt: now });
+      }
+    } catch (e) { console.warn('[pollGifts]', g.id, e.message); }
+  }
+  return n;
+}

@@ -44,6 +44,10 @@ const { initializeApp } = fnRequire('firebase-admin/app');
 const { getFirestore } = fnRequire('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore();
+/* This process runs gocardless.js's tidy itself, which now asks GoCardless
+   (F-209): it must count as the emulator, so it asks the stand-in, never
+   the real GoCardless. */
+process.env.FUNCTIONS_EMULATOR = 'true';
 const GCMOD = await import(pathToFileURL(path.join(V2, 'functions', 'gocardless.js')).href);
 const HOOK = 'http://127.0.0.1:5102/' + PROJECT + '/europe-west2/gocardlessWebhook';
 

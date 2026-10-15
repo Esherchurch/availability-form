@@ -199,6 +199,7 @@
   var E = window.EGBCEvents, esc = E.esc;
   var ALL = [], LOOK = { sites: {}, rooms: {}, venues: {} }, SITES = [], ROOMS = [], VENUES = [];
   var CUR = null, TT = [], QS = [], CAP = null, ED = null, TAB = 'details', showPast = false;
+  var PAYASKED = {};  /* events whose online payments were asked about this visit (F-209) */
   /* §24: whether the event works with under-18s lives on its safeguarding
      record (eventLeaders), where the rules check its leaders and helpers. */
   var U18 = false, U18_WAS = false;
@@ -435,6 +436,14 @@
          written by several pages over time. Small lists, so sort in the
          page and keep them all. */
       PAYS = {}; (r[6] ? r[6].docs : []).forEach(function (d) { PAYS[d.id] = d.data(); });
+      /* NO WEBHOOK NEEDED (F-209): once a visit, the hub asks Stripe and
+         GoCardless about this event's online payments (paid, refunded,
+         disputed, time up); if anything changed, the event is drawn again. */
+      var online = Object.keys(PAYS).some(function (k) { var p = PAYS[k]; return (p.method === 'card-online' || p.method === 'bank-online') && ['awaiting', 'paid', 'part-refunded'].indexOf(p.status) >= 0; });
+      if (online && !PAYASKED[id] && EGBCAuth.call) {
+        PAYASKED[id] = true;
+        EGBCAuth.call('paymentCheckEvent', { calEventId: id }).then(function (x) { if (x && x.changed && CUR && CUR.id === id) open(id, TAB); }, function () {});
+      }
       SIGNUPS = r[0].docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); })
         .sort(function (a, b) { return String(a.createdAt || '').localeCompare(String(b.createdAt || '')); });
       CHECK = r[1].exists ? r[1].data() : { tasks: [] };

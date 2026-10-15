@@ -148,6 +148,21 @@
         if (s.exists && s.data().paid) { PAY = s.data(); stop(); draw(); }
       }, function () {});
     }
+    /* NO WEBHOOK NEEDED (F-209): the hub asks Stripe or GoCardless itself -
+       has it been paid, refunded, or has the time run out? Once a visit;
+       straight back from paying, a few times until it says paid. */
+    if (!draw.asked && PAY && (PAY.method === 'card-online' || PAY.method === 'bank-online') && ['awaiting', 'paid', 'part-refunded'].indexOf(PAY.status) >= 0) {
+      draw.asked = true;
+      var tries = PAIDBACK && !PAY.paid ? 6 : 1;
+      (function ask() {
+        E.callPublic('paymentCheck', { key: KEY }).then(function (r) {
+          if (r && r.status && r.status !== PAY.status) {
+            return EGBCAuth.db.collection('signupPayments').doc(KEY).get().then(function (s) { if (s.exists) { PAY = s.data(); draw(); } });
+          }
+          if (--tries > 0 && !(PAY && PAY.paid)) setTimeout(ask, 3000);
+        }, function () {});
+      })();
+    }
   }
 
   function seriesCard() {

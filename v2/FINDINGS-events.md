@@ -6367,3 +6367,53 @@ the same "Send as" in EmailBuilder2 if wanted (call `teamMailMine`, then
 
 **Proved:** team-mail.test 32/32, including the Pastor, a master admin
 and the office admin each refused as Safeguarding.
+
+### F-209 — Payments without a webhook (Martin, 15 Oct)
+
+Stripe's webhook was "the thing I couldn't get them to give me" (for
+Calla). It's self-service in an ordinary Stripe account, but the hub
+must not depend on it. **Now both webhooks are optional.**
+
+**Card (Stripe), with no webhook.** The hub asks Stripe itself, with the
+church's key, then does exactly what the webhook would have done (the
+same `handleStripe`), so the two can never disagree:
+- **back from paying:** my place asks (`paymentCheck`), and a few times
+  more if Stripe is a moment behind: "Paid £6.00 by card"
+- **every 5 minutes** (`paymentsTidy`, was 10): unpaid held places are
+  asked about; paid ones are marked paid; when the time is up, the
+  session is **closed at Stripe first** (so nobody can pay for a place
+  that has been given back), then the place is given back
+- **refunds and disputes:** checked when my place opens, and when Who
+  is coming opens (`paymentCheckEvent`, the event's admins)
+
+**Found on the way:** an unpaid card place was only ever given back by
+the webhook's "session expired". With no webhook it would have been
+held for good. The 5-minute check now does it.
+
+**Bank and Direct Debit (GoCardless), with no webhook:**
+- a bank payment is asked about the same way ("Paid £8.00 by bank")
+- **before a bank place is given back** when its time is up, GoCardless
+  is asked first: if it was paid, it's kept
+- **regular gifts:** a Direct Debit being set up is checked until it's
+  ready, then the gift starts (with its email); a running gift's
+  collections are checked every six hours at most, each recorded once,
+  and failures noted once
+
+**With a webhook as well,** it works as before, just quicker.
+
+**The Payments page and the treasurer guide:**
+- the key alone turns card payments on; the token alone, bank payments
+- the webhook step is now "Optional: makes payments show straight
+  away", after the key
+- the status says "Card payments are on. The hub checks with Stripe
+  itself..." instead of "Not finished"
+- **the Stripe key's permissions changed:** Checkout Sessions Write,
+  **Payment Intents Read** (new: for refunds), Charges and Refunds Read,
+  Account Read. "Events: Read" is no longer needed. Nobody has made a live
+  key yet (payments are shut until switch-over), so nothing to redo.
+
+**Proved:** payments-nowebhook.test 17/17, with stand-in Stripe and
+GoCardless that remember each payment, and no webhook secret ever set: a
+full card payment ends in "paid"; paid but never came back; time up
+(closed at Stripe, place given back); refunded; disputed; bank paid;
+bank paid with the time up (kept); a gift started and collected once.

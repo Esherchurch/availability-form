@@ -150,7 +150,7 @@ try {
   await pasteKey(M, GOOD);
   await until(async () => /Connected/.test(await text(M, '#stripeStatus')));
   ok('   THE CHURCH\'S OWN KEY: checked with Stripe, then "Connected: name, account …1234, test"', /Connected: Test Green Church \(invented\), account …1234, test \(no real money\)\. Added by Martin Master/.test(await text(M, '#stripeStatus')), await text(M, '#stripeStatus'));
-  ok('   not yet offered to anyone: the webhook is not set', /Not finished: add the webhook/.test(await text(M, '#hookStatus')) && !((await data('paymentSettings', 'public')) || {}).card);
+  ok('   OFFERED STRAIGHT AWAY, no webhook needed (F-209): "Card payments are on ... The webhook (optional)"', /Card payments are on\. The hub checks with Stripe itself/.test(await text(M, '#hookStatus')) && /optional/.test(await text(M, '#hookStatus')) && ((await data('paymentSettings', 'public')) || {}).card === true, await text(M, '#hookStatus'));
 
   /* ---------- 2. the key never comes back ---------- */
   ok('2. THE KEY IS NOWHERE A PAGE CAN READ: not in the settings, not on the page, and the box is empty again', !(await allDocsText()).includes(GOOD) && !(await M.content()).includes(GOOD) && (await M.$eval('#stripeKey', e => e.value)) === '');
@@ -160,7 +160,7 @@ try {
   await M.$eval('#hookSecret', (e, v) => { e.value = v; }, WHSEC);
   await M.$eval('#saveHook', b => b.click());
   await until(async () => /webhook is set/.test(await text(M, '#hookStatus')));
-  ok('   THE WEBHOOK\'S SIGNING SECRET: saved the same way; now card payment is offered', ((await data('paymentSettings', 'public')) || {}).card === true && !(await allDocsText()).includes(WHSEC));
+  ok('   THE WEBHOOK\'S SIGNING SECRET (optional): saved the same way, never readable; card payment still offered', ((await data('paymentSettings', 'public')) || {}).card === true && !(await allDocsText()).includes(WHSEC));
   await M.screenshot({ path: path.join(HERE, 'stripe-payments-page.png'), fullPage: true });
 
   /* ---------- 3. who may ---------- */

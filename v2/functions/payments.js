@@ -34,7 +34,8 @@ import crypto from 'node:crypto';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
-import { gcSaveToken, gcSaveWebhook, gcRemove, gcReady, bankPage } from './gocardless.js';
+import { gcSaveToken, gcSaveWebhook, gcRemove, gcReady, bankPage, checkBank, tidyBank, pollGifts } from './gocardless.js';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 const db = () => getFirestore();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
@@ -222,7 +223,8 @@ async function publish() {
   const s = await db().collection('paymentSettings').doc('stripe').get();
   const d = s.exists ? s.data() : {};
   const g = await db().collection('paymentSettings').doc('gocardless').get(), gd = g.exists ? g.data() : {};
-  await db().collection('paymentSettings').doc('public').set({ card: !!(d.connected && d.webhookSet), cardMode: d.connected ? d.mode || '' : '',
+  /* The webhook is OPTIONAL (F-209): connected is enough. */
+  await db().collection('paymentSettings').doc('public').set({ card: !!d.connected, cardMode: d.connected ? d.mode || '' : '',
     bank: await gcReady(), bankMode: gd.connected ? gd.mode || '' : '' }, { merge: true });
 }
 
@@ -334,6 +336,87 @@ export async function handleStripe(event, accountId) {
   }
   return 'not needed';
 }
+
+/* ------------------------------------------- without the webhook (F-209)
+   Martin, 15 Oct: Stripe's webhook was "the thing I couldn't get them to
+   give me". The hub must not depend on it. So it asks Stripe itself, with
+   the church's key, and then does exactly what the webhook would have done
+   (handleStripe): when the person comes back from paying, every few
+   minutes for unpaid held places, and for refunds when "my place" or Who
+   is coming opens. With a webhook as well, it is simply quicker. */
+async function stripeSecret() { const s = await db().collection('paymentSecrets').doc('stripe').get(); return s.exists ? s.data() : {}; }
+export async function checkCard(x, now) {
+  if (x.method !== 'card-online' || !x.checkoutId) return 'not card';
+  const sec = await stripeSecret(); if (!sec.secretKey) return 'no key';
+  const id = encodeURIComponent(x.checkoutId);
+  if (x.status === 'awaiting') {
+    const s = await stripe(sec.secretKey, 'GET', '/v1/checkout/sessions/' + id);
+    if (s.payment_status === 'paid' || s.payment_status === 'no_payment_required') return handleStripe({ type: 'checkout.session.completed', data: { object: s } }, '');
+    if (s.status === 'expired') return handleStripe({ type: 'checkout.session.expired', data: { object: s } }, '');
+    /* Time up and still open: close it at Stripe first, so nobody can pay
+       for a place that has been given back. */
+    if (s.status === 'open' && (x.holdUntil || 0) + 5 * 60 * 1000 < (now || Date.now())) {
+      const e = await stripe(sec.secretKey, 'POST', '/v1/checkout/sessions/' + id + '/expire', {});
+      if (e.payment_status === 'paid') return handleStripe({ type: 'checkout.session.completed', data: { object: e } }, '');
+      return handleStripe({ type: 'checkout.session.expired', data: { object: e.metadata ? e : s } }, '');
+    }
+    return 'open';
+  }
+  if ((x.status === 'paid' || x.status === 'part-refunded') && x.paymentRef) {
+    const pi = await stripe(sec.secretKey, 'GET', '/v1/payment_intents/' + encodeURIComponent(x.paymentRef) + '?expand[]=latest_charge');
+    const ch = (pi && typeof pi.latest_charge === 'object' && pi.latest_charge) || {};
+    if (ch.disputed) return handleStripe({ type: 'charge.dispute.created', data: { object: { payment_intent: x.paymentRef } } }, '');
+    if (Number(ch.amount_refunded) > 0) return handleStripe({ type: 'charge.refunded', data: { object: { payment_intent: x.paymentRef, amount_refunded: ch.amount_refunded } } }, '');
+    return 'paid';
+  }
+  return 'nothing';
+}
+async function checkOne(x, now) {
+  if (x.method === 'card-online') return checkCard(x, now);
+  if (x.method === 'bank-online') return checkBank(x);
+  return 'nothing';
+}
+/* Every few minutes: unpaid card places, asked; time up, given back. */
+export async function tidyCard(now) {
+  const due = (await db().collection('signupPayments').where('status', '==', 'awaiting').get()).docs.filter((d) => d.data().method === 'card-online');
+  let n = 0;
+  for (const d of due) { try { const r = await checkCard(d.data(), now); if (r !== 'open') n++; } catch (e) { console.warn('[tidyCard]', d.id, e.message); } }
+  return n;
+}
+export const paymentsTidy = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 1 }, async () => {
+  await tidyCard(); await tidyBank(); await pollGifts();
+});
+
+/* The person back from paying, or opening "my place": anyone holding the
+   booking's key, as ticketPay. */
+export const paymentCheck = onCall({ region: REGION }, async (req) => {
+  if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
+  const key = String(req.data && req.data.key || '');
+  if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
+  const ref = db().collection('signupPayments').doc(key), s = await ref.get();
+  if (!s.exists) return { status: '' };
+  try { await checkOne(s.data()); } catch (e) { console.warn('[paymentCheck]', e.message); }
+  const now = (await ref.get()).data() || {};
+  return { status: now.status || '', paid: now.paid === true };
+});
+
+/* Who is coming: an event's online payments, asked (refunds, disputes,
+   still unpaid). The event's admins only. */
+export const paymentCheckEvent = onCall({ region: REGION }, async (req) => {
+  if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
+  const u = await userOf(req.auth && req.auth.uid);
+  if (!u || u.status !== 'active' || !(u.masterAdmin === true || (u.adminFor || []).length)) throw new HttpsError('permission-denied', 'For the event\'s admins.');
+  const ev = String(req.data && req.data.calEventId || '');
+  const docs = (await db().collection('signupPayments').where('calEventId', '==', ev).get()).docs
+    .filter((d) => ['card-online', 'bank-online'].includes(d.data().method) && ['awaiting', 'paid', 'part-refunded'].includes(d.data().status)).slice(0, 100);
+  let changed = 0;
+  for (const d of docs) {
+    const before = d.data().status;
+    try { await checkOne(d.data()); } catch (e) { continue; }
+    if (((await d.ref.get()).data() || {}).status !== before) changed++;
+  }
+  return { checked: docs.length, changed };
+});
 
 export const stripeWebhook = onRequest({ region: REGION }, async (req, res) => {
   if (paymentsShut()) { res.status(503).send('Not open yet'); return; }
