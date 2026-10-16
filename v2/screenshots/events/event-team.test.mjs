@@ -91,6 +91,8 @@ await db.collection('calEvents').doc('ev_film').set(EV('Film Club (invented)', {
   teamMemberIds: ['m_martin', 'm_natasha'], teamUids: [P.martin.uid, P.natasha.uid], teamNames: ['Martin Master', 'Natasha Film (invented)'],
   overseers: ['Val Viewer (invented)', 'Unknown Person (invented)'] }));
 await db.collection('calEvents').doc('ev_quiz').set(EV('Quiz night (invented)', { teamMemberIds: [], teamUids: [], teamNames: [] }));
+/* A Sunday service copied from the rota by the server (F-218, main window). */
+await db.collection('calEvents').doc('rota_svc1').set({ ...EV('Sunday morning service (invented)', { teamMemberIds: [], teamUids: [], teamNames: [] }), source: 'rota', rotaId: 'svc1', speaker: 'Pat Preacher (invented)', createdBy: 'rota' });
 for (const id of ['ev_film', 'ev_quiz']) await db.collection('capacity').doc(id).set({ calEventId: id, taken: 3, capacity: 30 });
 await db.collection('calEvents').doc('ev_film').collection('ticketTypes').doc('tt_a').set({ name: 'Adult', price: 0, capacity: 0, order: 1 });
 const SU = (name, email, atts) => ({ calEventId: 'ev_film', personKind: 'contacts', personId: 'c_' + email, name, email, phone: '', attendees: atts.map(n => ({ name: n })), answers: {}, places: atts.length, ticketTypeId: 'tt_a', status: 'confirmed', donation: 0, notes: '', memberUid: '', createdAt: new Date().toISOString() });
@@ -202,6 +204,13 @@ try {
   ok('7. "EVENTS I RUN" IN THE APP (What\'s on), opening it on the Events page', /Film Club: Paddington/.test(await text(N, '[data-w="run"]')) && (await N.$$eval('[data-w="run"] [data-wact]', e => e.map(x => x.getAttribute('data-wact')))).some(w => w.endsWith('events-admin.html?open=ev_film')), await N.$eval('[data-w="run"]', e => e.outerHTML.slice(0, 400)).catch(e => 'none: ' + e.message));
   await N.screenshot({ path: path.join(HERE, 'event-team-app-390.png'), fullPage: true });
 
+  /* 8. a rota service is shown, not edited (F-218) */
+  await M.goto(URLB + 'events-admin.html', { waitUntil: 'networkidle2' });
+  await until(() => M.$('.open[data-id="rota_svc1"]'));
+  await M.$eval('.open[data-id="rota_svc1"]', e => e.click());
+  await until(() => M.$('#rotaOnly'));
+  const ro = await text(M, '#rotaOnly');
+  ok('8. A SUNDAY SERVICE FROM THE ROTA: shown, not edited ("Change it in the Rota Planner"), no Save', /Change it in the Rota Planner/.test(ro) && /Pat Preacher/.test(ro) && !(await M.$('#save')) && !(await M.$('#f_title')), ro);
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

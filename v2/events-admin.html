@@ -17,13 +17,13 @@
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
 <script src="egbc-picture-library.js?v=202610141900"></script>
 <script src="egbc-events-bookings.js?v=202610141700"></script>
-<script src="egbc-events-safeguarding.js?v=202610111200"></script>
+<script src="egbc-events-safeguarding.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -255,7 +255,9 @@
       '<div id="bulk"></div>' +
       (rows.length ? rows.map(function (e) {
         return '<div class="row">' +
-          '<input type="checkbox" class="pick" data-pick="' + esc(e.id) + '" aria-label="Choose ' + esc(e.title || 'this event') + '"' + (PICKED[e.id] ? ' checked' : '') + ' style="width:22px;height:22px;flex:none">' +
+          /* The tick's own 44px tap area (audit 15 Oct: 22px was too small to hit). */
+          '<label class="pickhit" style="display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex:none;margin:-8px 0 -8px -10px;cursor:pointer">' +
+          '<input type="checkbox" class="pick" data-pick="' + esc(e.id) + '" aria-label="Choose ' + esc(e.title || 'this event') + '"' + (PICKED[e.id] ? ' checked' : '') + ' style="width:22px;height:22px;flex:none"></label>' +
           '<span class="ib"><i data-lucide="calendar" style="width:17px;height:17px"></i></span>' +
           '<button class="open" data-id="' + esc(e.id) + '">' +
             '<span class="n">' + esc(e.title || 'Untitled') + flags(e) + '</span><br>' +
@@ -425,6 +427,10 @@
     TAB = tab || 'details';
     if (!id) { CUR = blank(); TT = []; QS = []; CAP = null; SIGNUPS = []; CHECK = null; NOTES = ''; CHANGES = []; COMMS = []; U18 = U18_WAS = false; return drawEditor(); }
     E.load(id).then(function (r) {
+      /* A SUNDAY SERVICE FROM THE ROTA (F-218 from the main window): the server
+         copies it from the Rota Planner and overwrites it at every change
+         there, so it is shown, not edited. The rules refuse a change anyway. */
+      if (r && r.ev && (r.ev.source === 'rota' || String(r.ev.id || id).indexOf('rota_') === 0)) { drawRota(r.ev); return new Promise(function () {}); }
       CUR = r.ev; TT = r.ticketTypes; QS = r.questions; CAP = r.capacity;
       return db().collection('eventLeaders').doc(id).get().then(function (s) { U18 = U18_WAS = !!(s.exists && s.data().under18); }, function () { U18 = U18_WAS = false; });
     }).then(function () {
@@ -1135,6 +1141,16 @@
       }).join('') : '<p class="hint">Nothing sent yet.</p>');
   }
 
+  function drawRota(ev) {
+    document.getElementById('editor').innerHTML = '<div class="card" id="rotaOnly"><h2><span class="badge"><i data-lucide="calendar-check" style="width:17px;height:17px"></i></span>' + esc(ev.title || 'Sunday service') +
+      '<span class="spacer"></span><button class="btn ghost sm" id="close" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button></h2>' +
+      '<p class="m">' + esc(E.fmtWhen(ev)) + (ev.speaker ? ' · Speaker: ' + esc(ev.speaker) : '') + '</p>' +
+      '<p>This is a Sunday service from the rota. Change it in the Rota Planner: anything changed here would be overwritten at the next change there.</p>' +
+      '<div class="bar"><a class="btn" href="Planner.html">Open the Rota Planner</a></div></div>';
+    document.getElementById('close').onclick = function () { document.getElementById('editor').innerHTML = ''; };
+    if (window.lucide) lucide.createIcons();
+    document.getElementById('editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   function drawEditor() {
     var body = TAB === 'details' ? detailsTab()
       : TAB === 'signups' ? signupsTab()
@@ -2095,7 +2111,7 @@
       document.getElementById('pageSub').textContent = 'The events you are on the team for: change them, see who is coming, check people in.';
       ['newEv', 'embeds'].forEach(function (id) { var x = document.getElementById(id); if (x) x.style.display = 'none'; });
       return E.eventsIRun().then(function (mine) {
-        if (!mine.length) { document.getElementById('list').innerHTML = '<p id="noneRun">You are not on any event\'s team yet. Ask whoever runs an event to add you to its team.</p>'; throw { quiet: true }; }
+        if (!mine.length) { E.refused(); document.getElementById('list').innerHTML = '<p id="noneRun">You are not on any event\'s team yet. Ask whoever runs an event to add you to its team.</p>'; throw { quiet: true }; }
       }).then(function () {
         return Promise.all([E.lookups(), loadTemplates(), db().collection('sites').get().catch(function () { return { docs: [] }; }), db().collection('rooms').get().catch(function () { return { docs: [] }; }), db().collection('venues').get().catch(function () { return { docs: [] }; })]);
       });

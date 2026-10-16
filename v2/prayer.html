@@ -15,7 +15,7 @@
 <script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-speak.js?v=202610141400"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -37,7 +37,7 @@
          background:var(--tint);color:var(--brand-dark);font:700 20px Inter,sans-serif;cursor:pointer}
   .speak[aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:#fff}
   .said{font-size:14px;color:var(--muted);min-height:20px;margin:6px 0 0}
-  .radio{display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-size:15px}.radio input{margin-top:4px;width:18px;height:18px}
+  .radio{display:flex;gap:10px;align-items:center;margin:2px 0;font-size:15px;min-height:44px}.radio input{width:18px;height:18px;flex:none}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 18px;border-radius:10px;font:600 15px Inter,sans-serif;
        cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff}
   .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
@@ -77,6 +77,17 @@
      "not for you" - so the page and the rules can never disagree. */
   var E = window.EGBCEvents, esc = E.esc;
   var ME = {}, MASTER = false, TEAM = '', TAB = 'ask', MINE = [], ANSWERS = [], FORUS = null, SENT = false;
+  /* F-222 (Martin, 16 Oct): the service leader for the coming Sunday (from
+     the Wednesday before) and the Pastor read that Sunday's list, kept by
+     the server (prayerSundayList/<date>): only the yes ones, a name only
+     where asked. They read no other request. null: not for this person. */
+  var SUNLIST = null;
+  function comingSunday() {
+    var t = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    var p = t.split('-').map(Number), d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+    d.setUTCDate(d.getUTCDate() + (7 - d.getUTCDay()) % 7);
+    return d.toISOString().slice(0, 10);
+  }
   /* F-179: until the locked rules are on (churchSettings/launch.rulesLocked),
      anything saved here could be read by anyone, so nothing is: no request,
      no answer, no shared answer. Asked when the page opens, and again at
@@ -122,8 +133,9 @@
   function draw() {
     if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('prayer')) { $('main').innerHTML = '<div class="card">Prayer requests are not used by this church.</div>'; return; }
     var tabs = [['ask', 'Prayer request'], ['mine', 'My requests'], ['answers', 'Praise reports']];
-    if (FORUS) tabs.push(['forus', FORUS.pastoral ? 'Requests to pray for' : 'Prayer team'], ['sunday', 'For Sunday']);
-    if (TAB === 'sunday' && !FORUS) TAB = 'ask';
+    if (FORUS) tabs.push(['forus', FORUS.pastoral ? 'Requests to pray for' : 'Prayer team']);
+    if (FORUS || SUNLIST) tabs.push(['sunday', 'For Sunday']);
+    if (TAB === 'sunday' && !FORUS && !SUNLIST) TAB = 'ask';
     $('main').innerHTML = '<div class="tabs" role="tablist">' + tabs.map(function (t) {
       return '<button data-tab="' + t[0] + '" aria-pressed="' + (TAB === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>' +
       (TAB === 'ask' ? askCard() : TAB === 'mine' ? mineCard() : TAB === 'answers' ? answersCard() : TAB === 'sunday' ? sundayCard() : forUsCard()) + (MASTER ? settingsCard() : '');
@@ -195,8 +207,13 @@
     });
   }
   function sundayCard() {
-    var list = forSunday();
-    return '<div class="card" id="sunday"><h2>For Sunday</h2>' +
+    /* Someone who reads requests makes the list from them; the service
+       leader and the Pastor are given it, already made. */
+    var list = FORUS ? forSunday() : ((SUNLIST && SUNLIST.items) || []).map(function (x, i) {
+      return { id: 'sl' + i, text: x.text, byName: x.name, sunday: x.name ? 'named' : 'anon', at: { toDate: function () { return new Date(x.at); } } };
+    });
+    var day = SUNLIST && !FORUS ? ' ' + E.fmtDateShort(SUNLIST.sunday + 'T12:00') : '';
+    return '<div class="card" id="sunday"><h2>For Sunday' + esc(day) + '</h2>' +
       '<p class="said" style="margin:0 0 8px">Requests people are happy to have prayed for in the Sunday service, from the last four weeks. A name only where they asked for it.</p>' +
       (list.length ? list.map(function (p) {
         return '<div class="item" data-sunday-item="' + esc(p.id) + '"><div class="w">' + esc(p.text) + '</div>' +
@@ -271,14 +288,17 @@
       pr.where('by', '==', uid()).get().catch(function () { return { docs: [] }; }),
       db().collection('prayerAnswers').where('hidden', '==', false).get().catch(function () { return { docs: [] }; }),
       /* Asked, not guessed: the Pastoral group may list them all ... */
-      pr.get().then(function (s) { return { pastoral: true, list: all(s) }; }, function () { return null; })
+      /* A preview (view as) can't be refused by the rules, so it doesn't ask. */
+      E.viewing() ? null : pr.get().then(function (s) { return { pastoral: true, list: all(s) }; }, function () { return null; }),
+      E.viewing() ? null : db().collection('prayerSundayList').doc(comingSunday()).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; })
     ]).then(function (r) {
+      SUNLIST = r[4] || null;
       TEAM = r[0] && r[0].exists ? (r[0].data().prayerTeam || '') : '';
       MINE = all(r[1]).sort(newest);
       ANSWERS = all(r[2]).sort(newest);
       if (r[3]) return r[3];
       /* ... and the prayer team, those shared with it. */
-      return TEAM ? pr.where('share', '==', 'prayerTeam').get().then(function (s) { return { pastoral: false, list: all(s) }; }, function () { return null; }) : null;
+      return TEAM && !E.viewing() ? pr.where('share', '==', 'prayerTeam').get().then(function (s) { return { pastoral: false, list: all(s) }; }, function () { return null; }) : null;
     }).then(function (us) {
       FORUS = us ? { pastoral: us.pastoral, list: us.list.sort(newest) } : null;
       draw();

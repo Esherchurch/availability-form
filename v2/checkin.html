@@ -14,10 +14,10 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-labels.js?v=202610142300"></script>
-<script src="egbc-events-safeguarding.js?v=202610111200"></script>
+<script src="egbc-events-safeguarding.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -155,7 +155,7 @@
       /* The events this person runs (F-212: master admins, the event's
          team) or leads; not every event because they are an admin. */
       if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return soon;
-      var uid = SG.me().uid;
+      var uid = E.myUid() || '-';   /* view as: nobody's leader */
       return Promise.all(soon.map(function (e) { return SG.leadersOf(e.id); })).then(function (ls) {
         return soon.filter(function (e, i) { return E.runsEvent(e) || (ls[i] && (ls[i].leaderUids || []).indexOf(uid) >= 0); });
       });
@@ -651,7 +651,7 @@
      { all: true } or { sites: [siteId] }, or null. */
   function mayRollCall() {
     if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return Promise.resolve({ all: true });
-    var mid = (EGBCAuth.profile() || {}).memberId || '';
+    var mid = E.asSeen().memberId || '';
     if (!mid) return Promise.resolve(null);
     return db().collection('fireRollCall').doc('main').get().then(function (s) {
       if (!s.exists) return null;
@@ -773,13 +773,13 @@
          admin named for it in Safeguarding settings - each for every
          building or their own. */
       return mayRollCall().then(function (w) {
-        if (!w) throw new Error('The fire roll-call is for master admins and the people named for it in Safeguarding settings.');
+        if (!w) { E.refused(); throw new Error('The fire roll-call is for master admins and the people named for it in Safeguarding settings.'); }
         return rollCall(w);
       });
     }
     if (!EVID) return pickEvent();
     return Promise.all([SG.leadersOf(EVID), SG.myLeadSites()]).then(function (who) {
-      var leader = who[0] && (who[0].leaderUids || []).indexOf(SG.me().uid) >= 0;
+      var leader = !!E.myUid() && who[0] && (who[0].leaderUids || []).indexOf(E.myUid()) >= 0;
       LEADS = leader;
       return Promise.all([
         E.load(EVID),
@@ -790,7 +790,7 @@
     }).then(function (r) {
       if (!r[0]) throw new Error('That event could not be found.');
       /* F-212: the event's team, master admins, and its leaders. */
-      if (!LEADS && !E.runsEvent(r[0].ev)) throw new Error('Check-in for this event is for its event team and its leaders. Ask whoever runs it to add you to its team.');
+      if (!LEADS && !E.runsEvent(r[0].ev)) { E.refused(); throw new Error('Check-in for this event is for its event team and its leaders. Ask whoever runs it to add you to its team.'); }
       EV = r[0].ev; QS = r[0].questions; LOOK = r[1]; TT = r[0].ticketTypes || [];
       SETTINGS = r[2].exists ? r[2].data() : {};
       var site = (EV.location || {}).siteId || '';

@@ -424,17 +424,37 @@
     return out;
   }
 
+  /* LATEST (F-219 from the main window; Martin, 15 Oct: members thought
+     nothing was there, because the tab opened on an empty Listen): the
+     newest video and the newest sermon side by side, above the switch, as
+     the website's Watch & Listen has them. */
+  function latestStrip() {
+    if (!usesWatch()) return '';
+    var v = WD.loaded ? WD.members.concat(WD.channel).sort(function (a, b) { return String(b.date || b.published || '').localeCompare(String(a.date || a.published || '')); })[0] : null;
+    var s = LOADED && D.sermons.length ? D.sermons[0] : null;
+    if (!v && !s) return '';
+    var tile = function (lact, icon, kind, title, sub) {
+      return '<button class="card" data-lact="' + esc(lact) + '" style="text-align:left;padding:12px;min-height:44px;cursor:pointer;font:inherit;color:inherit">' +
+        '<p class="sub" style="margin:0">' + (H ? H.ic(icon, 14) + ' ' : '') + kind + '</p><h4 style="margin:2px 0 0;font-size:14.5px">' + esc(title) + '</h4>' + (sub ? '<p class="sub" style="margin:2px 0 0">' + esc(sub) + '</p>' : '') + '</button>';
+    };
+    return '<div data-l="latest" style="display:grid;grid-template-columns:' + (v && s ? '1fr 1fr' : '1fr') + ';gap:10px">' +
+      (v ? tile('video:' + v.videoId, 'tv', 'Latest video', v.title, said(String(v.date || v.published || '').slice(0, 10))) : '') +
+      (s ? tile('play:' + s.id, 'headphones', 'Latest sermon', s.title, said(s.date)) : '') + '</div>';
+  }
   function screen() {
     start();
     startWatch();
     var title = usesWatch() ? 'Listen &amp; Watch' : 'Listen';
+    /* Open on whichever part has something: while there are no sermons,
+       Watch - unless the person chose Listen themselves. */
+    if (usesWatch() && !VIEW.chosen && LOADED && !D.sermons.length) VIEW.part = 'watch';
     if (usesWatch() && VIEW.part === 'watch') {
-      return STYLE + '<div><p class="hello">' + title + '</p><p class="sub">Sunday\'s services and the church\'s videos</p></div>' + partSwitch() + liveCard() + watchView();
+      return STYLE + '<div><p class="hello">' + title + '</p><p class="sub">Sunday\'s services and the church\'s videos</p></div>' + latestStrip() + partSwitch() + liveCard() + watchView();
     }
-    var head = '<div><p class="hello">' + title + '</p><p class="sub">Sunday\'s sermons, here and on Spotify</p></div>' + partSwitch() + liveCard();
+    var head = '<div><p class="hello">' + title + '</p><p class="sub">Sunday\'s sermons, here and on Spotify</p></div>' + latestStrip() + partSwitch() + liveCard();
     if (!LOADED) return STYLE + head + '<div class="card" style="padding:14px"><p class="sub" style="margin:0">Loading the sermons…</p></div>';
     if (FAILED) return STYLE + head + '<div class="card" style="padding:14px"><p style="margin:0">The sermons could not be loaded. Check the signal and try again.</p></div>';
-    if (!D.sermons.length) return STYLE + head + '<div class="card" style="padding:14px" data-l="none"><p style="margin:0">No sermons yet. Sunday\'s will be here after it is put up.</p></div>';
+    if (!D.sermons.length) return STYLE + head + '<div class="card" style="padding:14px" data-l="none"><p style="margin:0">Sermons will appear here once they are put up.</p></div>';
     if (VIEW.mode === 'series' && D.series[VIEW.seriesId]) return STYLE + seriesView();
     var latest = D.sermons[0], ser = seriesOf(latest), dm = dayMon(latest.date);
     var latestCard = latest.id === NOW ? '' : H.next(dm[0], dm[1], latest.title, subOf(latest),
@@ -458,11 +478,11 @@
   /* ---------------- actions (data-lact) ---------------- */
 
   function doAct(a) {
-    if (a.indexOf('play:') === 0) { play(a.slice(5)); return; }
+    if (a.indexOf('play:') === 0) { if (VIEW.part === 'watch') { VIEW.part = 'listen'; VIEW.chosen = true; VIEW.video = ''; } play(a.slice(5)); return; }
     if (a.indexOf('series:') === 0) { VIEW.mode = 'series'; VIEW.seriesId = a.slice(7); redraw(); return; }
     if (a === 'home') { VIEW.mode = 'home'; redraw(); return; }
     if (a.indexOf('part:') === 0 || a.indexOf('video:') === 0 || a === 'vlive') bigOff(false);
-    if (a.indexOf('part:') === 0) { VIEW.part = a.slice(5) === 'watch' ? 'watch' : 'listen'; VIEW.video = ''; redraw(); return; }
+    if (a.indexOf('part:') === 0) { VIEW.chosen = true; VIEW.part = a.slice(5) === 'watch' ? 'watch' : 'listen'; VIEW.video = ''; redraw(); return; }
     if (a.indexOf('video:') === 0) { if (A && !A.paused) A.pause(); VIEW.part = 'watch'; VIEW.video = a.slice(6); redraw(); return; }
     if (a === 'vlive') { if (A && !A.paused) A.pause(); VIEW.video = 'live'; redraw(); return; }
     if (a === 'vbig') { bigOn(); return; }

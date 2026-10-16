@@ -15,7 +15,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-labels.js?v=202610142300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
@@ -94,6 +94,7 @@
     document.getElementById('main').innerHTML = K.notSetUpHtml({ admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()), noSite: noSite, canChooseTeam: canChoose });
   }
   function noAccess() {
+    E.refused();
     document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team leads and each group\'s leaders. If you lead a children\'s group, ask a lead to add you to it.</div>';
   }
 
@@ -440,12 +441,14 @@
   function begin() {
     var mid = ME.memberId || '-', adminFor = ME.adminFor || [];
     return Promise.all([db().collection('sites').get(), db().collection('rooms').get(), db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
-                        db().collection('kidsSettings').get().catch(function () { return { docs: [] }; }),
+                        /* Refused (not on the children's team): say so, not "not set up". */
+                        db().collection('kidsSettings').get().catch(function () { return { docs: [], refused: true }; }),
                         db().collection('kidsGroups').where('leaderIds', 'array-contains', mid).get().catch(function () { return { docs: [] }; }),
                         db().collection('addressBook').get().catch(function () { return { docs: [] }; })]).then(function (r) {
       var bs = {}, ks = {};
       all(r[2]).forEach(function (s) { bs[s.id] = s; }); all(r[3]).forEach(function (s) { ks[s.id] = s; });
       MYGROUPS = all(r[4]);
+      if (r[3].refused && !MYGROUPS.length) return noAccess();
       PEOPLE = all(r[5]).map(function (p) { return { id: p.id, name: String(p.name || p.fullName || '').trim() }; }).filter(function (p) { return p.name; })
         .sort(function (a, b) { return a.name.localeCompare(b.name); });
       /* Not set up yet: no site in Places, or no children's team chosen. */
@@ -470,7 +473,7 @@
   }
 
   EGBCAuth.require().then(function (profile) {
-    ME = profile || {};
+    ME = E.asSeen(profile || {});   /* view as: the person being viewed */
     return begin();
   }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();

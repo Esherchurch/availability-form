@@ -19,7 +19,7 @@
 <script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-speak.js?v=202610141400"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -37,7 +37,7 @@
   .inp,textarea{width:100%;min-height:50px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 16px Inter,sans-serif;color:var(--ink);background:#fff}
   textarea{padding:10px 12px;min-height:100px;line-height:1.5}
   .hint{font-size:14px;color:var(--muted)}
-  .radio{display:flex;gap:10px;align-items:flex-start;margin:8px 0}.radio input{margin-top:4px;width:18px;height:18px}
+  .radio{display:flex;gap:10px;align-items:center;margin:2px 0;min-height:44px}.radio input{width:18px;height:18px;flex:none}
   .speak{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;margin-top:8px;border-radius:12px;border:2px solid var(--brand);background:var(--tint);color:var(--brand-dark);font:700 18px Inter,sans-serif;cursor:pointer}
   .speak[aria-pressed="true"]{background:#b0392c;border-color:#b0392c;color:#fff}
   .btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 22px;border-radius:12px;font:600 16px Inter,sans-serif;cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff}
@@ -209,7 +209,8 @@
       EGBCSpeak.attach($('n-speak'), $('n-msg'), { status: $('n-said') });
       $('f').onsubmit = send;
     });
-    if (ME) {
+    /* A preview (view as) is nobody's welcomer: the hellos are not asked for. */
+    if (ME && !E.viewing()) {
       MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
       (MASTER ? db().collection('addressBook').get().then(function (s) { s.docs.forEach(function (d) { var x = d.data(); if (x.name && !x.archived) PEOPLE[d.id] = x.name; }); }).catch(function () {}) : Promise.resolve()).then(loadTeam);
     }

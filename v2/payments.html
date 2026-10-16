@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -173,6 +173,10 @@
     };
     var t = document.getElementById('saveTeam');
     if (t) t.onclick = function () {
+      var v = document.getElementById('teamInp').value.trim();
+      if (!v) { say('teamMsg', 'err', 'Type the team\'s name first.'); return; }
+      if (v === TEAM) { say('teamMsg', 'ok', 'Nothing to save: ' + TEAM + ' is already the money team.'); return; }
+      say('teamMsg', 'ok', 'Saving…');
       EGBCAuth.call('paymentsTeam', { team: document.getElementById('teamInp').value }).then(function (res) { TEAM = res.team; say('teamMsg', 'ok', 'Saved: ' + res.team + ' can set up payments.'); document.getElementById('teamName').textContent = res.team; },
         function (e) { say('teamMsg', 'err', e.message || String(e)); });
     };

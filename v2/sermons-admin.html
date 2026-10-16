@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -121,6 +121,7 @@
 
   function draw() {
     if (!MAY) {
+      E.refused();
       $('main').innerHTML = '<div class="card"><h2>Only the people named can look after sermons</h2><p>A master admin names who adds the series and passages. Ask the office if it should be you.</p></div>';
       return;
     }

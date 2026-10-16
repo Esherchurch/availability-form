@@ -136,9 +136,55 @@
      The same answer as the rules' runsThisEvent(): a master admin, the
      event's team, or (for an event made before teams) the admin who made
      it. Being an admin of some area is not enough. */
+  /* VIEW AS (audit 15 Oct, section 4): a master admin previewing someone
+     else must get that person's page, not their own. EGBCAuth answers
+     isMaster / isAdmin / adminAreas / effectiveTeams as the person being
+     viewed; but the profile and the sign-in are still the master admin's,
+     and a page that read those for WHO MAY SEE THIS showed its full admin
+     view. So every access decision on the events pages comes through
+     here: while viewing as, no personal ids at all (nobody's event team,
+     nobody's leader, nobody's safeguarding lead - the Menu never previews
+     into those either), and only the viewed team's rights.
+     Writes still carry the real uid (the rules check it); only "who may
+     see this" changes. */
+  function viewing() { return !!(typeof EGBCAuth !== 'undefined' && EGBCAuth.viewingAs && EGBCAuth.viewingAs()); }
+  function asSeen(p) {
+    p = p || (typeof EGBCAuth !== 'undefined' && EGBCAuth.profile && EGBCAuth.profile()) || {};
+    if (!viewing()) return p;
+    return { name: p.name || '', email: p.email || '', status: p.status, memberId: '', masterAdmin: false, viewingAs: true,
+      adminFor: (EGBCAuth.adminAreas && EGBCAuth.adminAreas()) || [], teams: (EGBCAuth.effectiveTeams && EGBCAuth.effectiveTeams()) || [] };
+  }
+  /* The page's start, after the sign-in check. A page the guard turned
+     away (egbc-guard.js data-admin..., marked data-egbc-blocked on the body)
+     goes no further: its own code would only write into the elements the
+     "Admins only" screen replaced - the audit's "Cannot set properties of
+     null" (15 Oct). The promise never settles, so nothing after it runs.
+     It asks with the same rule as the page's guard tag (data-admin,
+     data-team, data-also-team): a bare require() answers at once, before
+     the guard has turned anyone away, and the page ran on regardless. */
+  function guardOpts() {
+    var g = document.querySelector('script[src*="egbc-guard.js"]'), o = {};
+    if (!g) return undefined;
+    if (g.getAttribute('data-admin') === 'any') o.adminAny = true;
+    if (g.getAttribute('data-team')) o.team = g.getAttribute('data-team');
+    if (g.getAttribute('data-also-team')) o.alsoTeam = g.getAttribute('data-also-team');
+    return Object.keys(o).length ? o : undefined;
+  }
+  function ready(opts) {
+    var blocked = function () { return !!(document.body && document.body.hasAttribute('data-egbc-blocked')); };
+    var never = function () { return new Promise(function () {}); };
+    return EGBCAuth.require(opts || guardOpts()).then(function (p) { return blocked() ? never() : p; },
+      function (e) { if (blocked()) return never(); throw e; });
+  }
+  /* THE PAGE TURNED SOMEONE AWAY (audit 16 Oct, access): the page's own
+     words stay as they are; this marks the page refused the way the shared
+     guard does (data-egbc-blocked), so a checker - and anything else that
+     looks - can tell "not for you" from a page that opened. */
+  function refused() { if (document.body) document.body.setAttribute('data-egbc-blocked', 'refused by the page'); }
+  function myUid() { if (viewing()) return ''; var u = typeof EGBCAuth !== 'undefined' && EGBCAuth.user ? EGBCAuth.user() : null; return (u && u.uid) || ''; }
   function myIds() {
-    var p = signedIn() ? EGBCAuth.profile() : null, u = typeof EGBCAuth !== 'undefined' && EGBCAuth.user ? EGBCAuth.user() : null;
-    return { mid: (p && p.memberId) || '', uid: (u && u.uid) || '', master: !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()) };
+    var p = signedIn() ? asSeen() : null;
+    return { mid: (p && p.memberId) || '', uid: myUid(), master: !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()) };
   }
   function onTeam(ev) {
     var me = myIds();
@@ -919,7 +965,7 @@
     audienceFor: audienceFor,
     myAudiences: myAudiences,
     signedIn: signedIn,
-    onTeam: onTeam,
+    onTeam: onTeam, ready: ready, refused: refused, viewing: viewing, asSeen: asSeen, myUid: myUid,
     runsEvent: runsEvent,
     eventsIRun: eventsIRun,
     listUpcoming: listUpcoming,

@@ -1562,10 +1562,12 @@ service cloud.firestore {
 
     match /calEvents/{calEventId} {
       allow get, list: if canSeeEvent();
-      allow create: if isAdmin() && audienceAgrees()
+      // A Sunday service from the rota (calEvents/rota_<id>) is the server's
+      // (rotaWhatsOn, F-218 from the main window): no page writes one.
+      allow create: if isAdmin() && audienceAgrees() && !calEventId.matches('rota_.*')
                     && request.resource.data.get('createdBy', '') == request.auth.uid;
-      allow update: if canEditEvent() && audienceAgrees();
-      allow delete: if canEditEvent();
+      allow update: if canEditEvent() && audienceAgrees() && !calEventId.matches('rota_.*');
+      allow delete: if canEditEvent() && !calEventId.matches('rota_.*');
 
       // Ticket types and questions are part of the sign-up form, so a guest
       // has to be able to read them. They hold no personal data: a name, a
@@ -4192,6 +4194,23 @@ service cloud.firestore {
     // kidsRoll, for Kids Church leaders.
     match /kidsCounts/{id} {
       allow read: if isMaster() || kidsLead(resource.data.siteId) || fireWarden(resource.data.siteId);
+      allow write: if false;
+    }
+    // FOR SUNDAY (F-222; Martin, 16 Oct): the prayer list for the service,
+    // kept by prayerSundayDaily/OnPrayer/OnRota - only the requests marked
+    // yes, a name only where asked. The Pastor (teamMailSettings/main.pastor,
+    // the one setting team mail uses) reads every Sunday's; that Sunday's
+    // service leader reads that one, from the Wednesday before until the
+    // Sunday ends. Neither may read prayers itself (that rule is unchanged).
+    function isPastor() {
+      return active() && me().get('memberId', '') != ''
+             && exists(/databases/$(database)/documents/teamMailSettings/main)
+             && get(/databases/$(database)/documents/teamMailSettings/main).data.get('pastor', '') == me().get('memberId', '');
+    }
+    match /prayerSundayList/{sunday} {
+      allow read: if isPastor()
+                  || (active() && me().get('memberId', '') in resource.data.get('leaderMemberIds', [])
+                      && request.time >= resource.data.from && request.time <= resource.data.until);
       allow write: if false;
     }
 

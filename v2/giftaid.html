@@ -14,7 +14,7 @@
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c}
@@ -193,7 +193,8 @@
     return Promise.all([
       db().collection('giftAid').where('memberId', '==', ME.memberId || '-').get().catch(function () { return { docs: [] }; }),
       /* Asked, not guessed: the office and the treasurer may list them all. */
-      db().collection('giftAid').get().then(all, function () { return null; })
+      /* Asked, not guessed - but a preview (view as) can't be refused by the rules, so it doesn't ask. */
+      E.viewing() ? null : db().collection('giftAid').get().then(all, function () { return null; })
     ]).then(function (r) {
       MINE = all(r[0]).sort(function (a, b) { return String(b.declaredOn).localeCompare(String(a.declaredOn)); });
       OFFICE = r[1] ? r[1].sort(function (a, b) { return String(a.lastName).localeCompare(String(b.lastName)); }) : null;
@@ -204,7 +205,7 @@
       drawOffice();
     });
   }
-  EGBCAuth.require().then(function (p) { ME = p || {}; return EGBCChurch.load(); }).then(load)
+  EGBCAuth.require().then(function (p) { ME = E.asSeen(p || {}); return EGBCChurch.load(); }).then(load)
     .catch(function (e) { $('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();
 </script>

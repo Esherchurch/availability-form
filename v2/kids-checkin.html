@@ -15,7 +15,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
 <script src="egbc-events-kids.js?v=202610141700"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
@@ -141,6 +141,7 @@
     document.getElementById('main').innerHTML = K.notSetUpHtml({ admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()), noSite: noSite, canChooseTeam: canChoose });
   }
   function noAccess() {
+    E.refused();
     document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team leads and each group\'s leaders. If you lead a children\'s group, ask a lead to add you to it on the Children\'s register.</div>';
   }
 
@@ -852,7 +853,8 @@
   function begin() {
     var mid = ME.memberId || '-', adminFor = ME.adminFor || [];
     return Promise.all([db().collection('sites').get(), db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
-                        db().collection('kidsSettings').get().catch(function () { return { docs: [] }; }),
+                        /* Refused (not on the children's team): say so, not "not set up". */
+                        db().collection('kidsSettings').get().catch(function () { return { docs: [], refused: true }; }),
                         db().collection('kidsGroups').where('leaderIds', 'array-contains', mid).get().catch(function () { return { docs: [] }; })]).then(function (r) {
       var bs = {}, ks = {};
       all(r[1]).forEach(function (s) { bs[s.id] = s; }); all(r[2]).forEach(function (s) { ks[s.id] = s; });
@@ -866,6 +868,7 @@
       })); }).then(function (ms) { return { r: r, ms: ms, bs: bs, ks: ks }; });
     }).then(function (x) {
       var r = x.r, bs = x.bs, ks = x.ks, mid = ME.memberId || '-', adminFor = ME.adminFor || [];
+      if (r[2].refused && !MYGROUPS.length) return noAccess();
       /* Not set up yet: no site in Places, or no children's team chosen. */
       var live = all(r[0]).filter(function (s) { return s.active !== false; });
       var anyTeam = live.some(function (s) { return ((ks[s.id] || {}).teams || []).length > 0; });
@@ -889,7 +892,7 @@
   }
 
   EGBCAuth.require().then(function (profile) {
-    ME = profile || {};
+    ME = E.asSeen(profile || {});   /* view as: the person being viewed */
     /* F-185: print on the church's label size. */
     if (window.EGBCLabels) EGBCLabels.load().then(EGBCLabels.apply);
     return begin();

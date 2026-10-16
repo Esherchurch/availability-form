@@ -2300,6 +2300,12 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('NOT LISTED: an admin makes a not-listed event (a church meeting)', 'allow', () => setDoc(doc(as('martin'), 'calEvents', 'ev_unl'), EV('Church meeting (invented)', 'unlisted', ['unlisted'])));
   await check('one marked not listed cannot also be public', 'deny', () => setDoc(doc(as('martin'), 'calEvents', 'ev_unl2'), EV('AA (invented)', 'unlisted', ['unlisted', 'public'])));
   await check('a public one', 'allow', () => setDoc(doc(as('martin'), 'calEvents', 'ev_pubw'), EV('Harvest supper (invented)', 'public', ['public', 'members'])));
+  // A Sunday service from the rota is the server's (rotaWhatsOn; F-218 from the main window).
+  await check('ROTA SERVICE: not even a master admin makes one by hand (rota_...)', 'deny', () => setDoc(doc(as('martin'), 'calEvents', 'rota_svc1'), EV('Morning service (invented)', 'public', ['public', 'members'])));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'calEvents', 'rota_svc2'), { ...EV('Morning service (invented)', 'public', ['public', 'members']), source: 'rota', createdBy: 'rota' }); });
+  await check('  nor changes one', 'deny', () => updateDoc(doc(as('martin'), 'calEvents', 'rota_svc2'), { title: 'Changed' }));
+  await check('  nor deletes one', 'deny', () => deleteDoc(doc(as('martin'), 'calEvents', 'rota_svc2')));
+  await check('  but everyone reads it (it is public)', 'allow', () => getDoc(doc(as('martin'), 'calEvents', 'rota_svc2')));
   await check('NOBODY SIGNED OUT READS THE NOT-LISTED ONE', 'deny', () => getDoc(doc(guest(), 'calEvents', 'ev_unl')));
   await check('nor an attender', 'deny', () => getDoc(doc(ctx('u_watcher'), 'calEvents', 'ev_unl')));
   await check('the admins read it (events-admin)', 'allow', () => getDoc(doc(as('karen'), 'calEvents', 'ev_unl')));
@@ -2351,6 +2357,31 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('  the person changes their mind', 'allow', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun1'), { sunday: 'no' }));
   await check('  THE PASTORAL TEAM CANNOT MARK ONE FOR SUNDAY', 'deny', () => updateDoc(doc(ctx('u_pasto'), 'prayers', 'pr_sun3'), { sunday: 'named' }));
   await check('  nor change the person’s choice of name', 'deny', () => updateDoc(doc(ctx('u_pasto'), 'prayers', 'pr_sun2'), { sunday: 'named' }));
+  // For Sunday (F-222): the service leader and the Pastor read the list, never the requests.
+  {
+    const { Timestamp } = await import('firebase/firestore');
+    await env.withSecurityRulesDisabled(async (c) => {
+      const d = c.firestore();
+      await setDoc(doc(d, 'users', 'u_sally'), { uid: 'u_sally', memberId: 'm_sally', status: 'active', name: 'Sally', teams: [], adminFor: [], masterAdmin: false });
+      await setDoc(doc(d, 'users', 'u_lou'), { uid: 'u_lou', memberId: 'm_lou', status: 'active', name: 'Lou', teams: [], adminFor: [], masterAdmin: false });
+      await setDoc(doc(d, 'users', 'u_pat'), { uid: 'u_pat', memberId: 'm_pat', status: 'active', name: 'Pat', teams: [], adminFor: [], masterAdmin: false });
+      await setDoc(doc(d, 'teamMailSettings', 'main'), { pastor: 'm_pat', officeAdmin: '' });
+      await setDoc(doc(d, 'prayerSundayList', 'now'), { sunday: 'x', from: Timestamp.fromMillis(Date.now() - 864e5), until: Timestamp.fromMillis(Date.now() + 864e5), leaderMemberIds: ['m_sally'], items: [], updatedAt: 'x' });
+      await setDoc(doc(d, 'prayerSundayList', 'last'), { sunday: 'y', from: Timestamp.fromMillis(Date.now() - 9 * 864e5), until: Timestamp.fromMillis(Date.now() - 4 * 864e5), leaderMemberIds: ['m_lou'], items: [], updatedAt: 'x' });
+      await setDoc(doc(d, 'prayerSundayList', 'next'), { sunday: 'z', from: Timestamp.fromMillis(Date.now() + 2 * 864e5), until: Timestamp.fromMillis(Date.now() + 6 * 864e5), leaderMemberIds: ['m_sally'], items: [], updatedAt: 'x' });
+    });
+    await check('FOR SUNDAY: this Sunday’s service leader reads its list, in its window', 'allow', () => getDoc(doc(ctx('u_sally'), 'prayerSundayList', 'now')));
+    await check('  but not before the Wednesday', 'deny', () => getDoc(doc(ctx('u_sally'), 'prayerSundayList', 'next')));
+    await check('  LAST WEEK’S SERVICE LEADER IS REFUSED', 'deny', () => getDoc(doc(ctx('u_lou'), 'prayerSundayList', 'last')));
+    await check('  nor this Sunday’s list, not being its leader', 'deny', () => getDoc(doc(ctx('u_lou'), 'prayerSundayList', 'now')));
+    await check('  the service leader reads no prayer request', 'deny', () => getDoc(doc(ctx('u_sally'), 'prayers', 'pr_sun3')));
+    await check('  THE PASTOR reads For Sunday, any week', 'allow', () => getDoc(doc(ctx('u_pat'), 'prayerSundayList', 'last')));
+    await check('  and next week’s', 'allow', () => getDoc(doc(ctx('u_pat'), 'prayerSundayList', 'next')));
+    await check('  the Pastor reads no prayer request either', 'deny', () => getDoc(doc(ctx('u_pat'), 'prayers', 'pr_sun3')));
+    await check('  someone else reads none', 'deny', () => getDoc(doc(ctx('u_other'), 'prayerSundayList', 'now')));
+    await check('  a master admin as such reads none', 'deny', () => getDoc(doc(as('martin'), 'prayerSundayList', 'now')));
+    await check('  nobody writes one (only the server)', 'deny', () => setDoc(doc(ctx('u_pat'), 'prayerSundayList', 'now'), { sunday: 'x', items: [] }));
+  }
   await check('  and Sunday is not a way to change the words', 'deny', () => updateDoc(doc(ctx('u_asker'), 'prayers', 'pr_sun2'), { sunday: 'named', text: 'changed' }));
   await check('nor delete it', 'deny', () => deleteDoc(doc(ctx('u_pasto'), 'prayers', 'pr_1')));
   await check('the person takes it back', 'allow', () => deleteDoc(doc(ctx('u_asker'), 'prayers', 'pr_2')));

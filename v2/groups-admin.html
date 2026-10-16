@@ -15,10 +15,10 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610081729"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-groups.js?v=202610091600"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-safeguarding.js?v=202610111200"></script>
+<script src="egbc-events-safeguarding.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -540,7 +540,7 @@
   function noAccess(msg) { document.getElementById('main').innerHTML = '<div class="card" id="noaccess">' + msg + '</div>'; }
 
   EGBCAuth.require().then(function (profile) {
-    ME = profile || {};
+    ME = E.asSeen(profile || {});   /* view as: the person being viewed */
     MASTER = !!ME.masterAdmin;
     return Promise.all([db().collection('groupsSettings').doc('main').get().catch(function () { return null; }),
       db().collection('smallGroups').where('leaderIds', 'array-contains', ME.memberId || '-').get().catch(function () { return { docs: [] }; }),

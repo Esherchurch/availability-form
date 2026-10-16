@@ -13,7 +13,7 @@
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-watch.js?v=202610141000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -47,7 +47,7 @@
   .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.off{background:#f3f4f6;color:var(--muted)}
   .hint{font-size:13px;color:var(--muted)}
   .st{border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0}.st.ok{background:var(--ok-bg);color:var(--ok)}.st.no{background:var(--danger-bg);color:var(--danger)}.st.warn{background:var(--gold-bg);color:var(--gold)}
-  .radio{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:14px}.radio input{margin-top:3px}
+  .radio{display:flex;gap:8px;align-items:center;margin:2px 0;font-size:14px;min-height:44px}.radio input{flex:none}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
 </style>
 </head>
@@ -87,7 +87,7 @@
     if (!(window.EGBCChurch && EGBCChurch.uses ? EGBCChurch.uses('watch') : true)) {
       $('main').innerHTML = '<div class="card"><h2>Watch is switched off for this church</h2><p>It can be switched on in "What does your church use?".</p></div>'; return;
     }
-    if (!MAY) { $('main').innerHTML = '<div class="card"><h2>Only the people who look after sermons can do this</h2><p>Ask the office if it should be you.</p></div>'; return; }
+    if (!MAY) { E.refused(); $('main').innerHTML = '<div class="card"><h2>Only the people who look after sermons can do this</h2><p>Ask the office if it should be you.</p></div>'; return; }
     $('main').innerHTML = liveCard() + membersCard() + channelCard() + settingsCard();
     wire();
   }
@@ -130,7 +130,7 @@
       '<label class="l" for="mv-title">Its name</label><input class="inp" id="mv-title" maxlength="200" placeholder="Morning service, 11 October">' +
       '<div class="two"><div><label class="l" for="mv-date">Date</label><input class="inp" type="date" id="mv-date" value="' + today() + '"></div>' +
       '<div><label class="l" for="mv-who">Who sees it</label><select id="mv-who"><option value="signedIn">Everyone signed in</option><option value="churchMembers">Church members only</option></select></div></div>' +
-      '<div class="acts"><button class="btn" id="mv-go">Add it</button></div></div>';
+      '<div class="acts"><button class="btn" id="mv-go">Add it</button></div><p class="said" id="mv-msg" role="status"></p></div>';
   }
 
   /* (a) The church's channel */
@@ -162,7 +162,7 @@
       '<label class="l">Then</label>' +
       '<label class="radio"><input type="radio" name="df-after" value="disappear"' + (SET.after !== 'again' ? ' checked' : '') + '> The card disappears</label>' +
       '<label class="radio"><input type="radio" name="df-after" value="again"' + (SET.after === 'again' ? ' checked' : '') + '> It becomes “Watch again” for <input class="inp" type="number" min="1" max="31" id="df-days" value="' + SET.againDays + '" style="width:80px;min-height:40px;display:inline-block"> days</label>' +
-      '<div class="acts"><button class="btn" id="df-go">Save</button></div></div>';
+      '<div class="acts"><button class="btn" id="df-go">Save</button></div><p class="said" id="df-msg" role="status"></p></div>';
   }
 
   function wire() {
@@ -173,7 +173,8 @@
     document.querySelectorAll('[data-yt]').forEach(function (b) { b.onclick = function () { setHidden(b.dataset.yt, b.dataset.hide === '1'); }; });
     $('ch-go').onclick = function () { saveSettings({ channelId: val('ch-id') }); };
     $('df-go').onclick = function () {
-      if (val('df-from') >= val('df-time')) { toast('“Shown from” must be before “Until”'); return; }
+      if (val('df-from') >= val('df-time')) { sayAt('df-msg', '“Shown from” must be before “Until”'); return; }
+      sayAt('df-msg', 'Saving…');
       saveSettings({ untilDay: +val('df-day'), fromTime: val('df-from'), untilTime: val('df-time'), after: (document.querySelector('input[name="df-after"]:checked') || {}).value || 'disappear', againDays: +val('df-days') || 7 });
     };
   }
@@ -196,12 +197,14 @@
     db().collection('watchShow').doc('live').set({ url: '', updatedAt: now(), updatedBy: uid() })
       .then(function () { toast('Taken down.'); return load(); }).catch(function (e) { toast('Could not: ' + (e.message || e)); });
   }
+  function sayAt(id, m) { var e = $(id); if (e) e.textContent = m; }
   function addMembers() {
     if (BUSY) return;
     var url = val('mv-url'), vid = W.videoIdFromUrl(url), title = val('mv-title'), date = val('mv-date');
-    if (!vid) { toast('That is not a YouTube video link'); return; }
-    if (!title) { toast('Give it a name'); return; }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Give its date'); return; }
+    if (!vid) { sayAt('mv-msg', url ? 'That is not a YouTube video link.' : 'Paste the YouTube link first.'); return; }
+    if (!title) { sayAt('mv-msg', 'Give it a name.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { sayAt('mv-msg', 'Give its date.'); return; }
+    sayAt('mv-msg', 'Adding…');
     BUSY = true;
     db().collection('videos').doc('mv_' + vid).set({ source: 'members', videoId: vid, url: url, title: title.slice(0, 200), date: date, audience: val('mv-who') === 'churchMembers' ? 'churchMembers' : 'signedIn',
       note: '', hidden: false, addedBy: uid(), addedAt: now(), updatedAt: now() })

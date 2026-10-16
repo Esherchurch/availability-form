@@ -18,7 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -120,7 +120,7 @@
     document.getElementById('pastor').value = WHO.pastor || '';
     document.getElementById('office').value = WHO.officeAdmin || '';
     document.getElementById('saveWho').onclick = function () {
-      var b = this, m = document.getElementById('whoMsg'); b.disabled = true;
+      var b = this, m = document.getElementById('whoMsg'); b.disabled = true; say(m, 'ok', 'Saving…');
       EGBCAuth.call('teamMailSave', { settings: { pastor: document.getElementById('pastor').value, officeAdmin: document.getElementById('office').value } })
         .then(function () { b.disabled = false; say(m, 'ok', 'Saved.'); }, function (e) { b.disabled = false; say(m, 'err', problem(e)); });
     };
@@ -145,7 +145,7 @@
         var d = e.target.closest('[data-drop]'); if (d) { d.closest('.chip').remove(); return; }
       });
       card.querySelector('.tSave').onclick = function () {
-        var b = this, m = card.querySelector('.tMsg'), st = cardState(card); b.disabled = true;
+        var b = this, m = card.querySelector('.tMsg'), st = cardState(card); b.disabled = true; say(m, 'ok', 'Saving…');
         EGBCAuth.call('teamMailSave', { team: st }).then(function () { b.disabled = false; say(m, 'ok', 'Saved.'); },
           function (e) { b.disabled = false; say(m, 'err', problem(e)); });
       };

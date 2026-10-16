@@ -16,9 +16,9 @@
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-email.js?v=202610081729"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-safeguarding.js?v=202610111200"></script>
+<script src="egbc-events-safeguarding.js?v=202610161700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -89,7 +89,9 @@
   .entry .b{white-space:pre-wrap;color:var(--ink)}
   .modal-back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;
               padding:40px 12px;z-index:80;overflow:auto}
-  .modal{background:#fff;border-radius:14px;max-width:520px;width:100%;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.15)}
+  .modal{background:#fff;border-radius:14px;max-width:520px;width:100%;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.15);position:relative}
+  /* A close that stays in view however far the sheet is scrolled (audit 16 Oct). */
+  .modal .mx{position:sticky;top:0;float:right;width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2,#d1d5db);background:#fff;font-size:18px;line-height:1;cursor:pointer;z-index:2;margin:-6px -6px 0 8px}
   .modal h3{font-size:17px;font-weight:600;color:var(--ink);margin:0 0 14px;display:flex;align-items:center;gap:8px}
   .modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
@@ -127,7 +129,7 @@
   function when(iso) { return iso ? E.fmtDate(iso) + ', ' + E.fmtTime(iso) : ''; }
   function siteName(id) { var s = SITES.filter(function (x) { return x.id === id; })[0]; return s ? s.name : 'this site'; }
   function modal(html) {
-    document.getElementById('modal').innerHTML = html;
+    document.getElementById('modal').innerHTML = '<button type="button" class="mx" data-close aria-label="Close">✕</button>' + html;
     document.getElementById('mBack').style.display = 'flex';
     document.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = closeModal; });
     icons();
@@ -594,7 +596,7 @@
     var events = E.listUpcoming({ limit: 60 }).then(function (list) {
       list = list.filter(function (e) { return e.status !== 'cancelled' && e.startUtc < Date.now() + 31 * 864e5; });
       return Promise.all(list.map(function (e) { return SG.leadersOf(e.id); })).then(function (ls) {
-        return list.map(function (e, i) { e._leaders = ls[i] ? (ls[i].leaders || []).length : 0; e._mine = ls[i] && (ls[i].leaderUids || []).indexOf(ME.uid) >= 0; return e; })
+        return list.map(function (e, i) { e._leaders = ls[i] ? (ls[i].leaders || []).length : 0; e._mine = !!E.myUid() && !!ls[i] && (ls[i].leaderUids || []).indexOf(E.myUid()) >= 0; return e; })
           .filter(function (e) { return ADMIN || e._mine || LEADSITES.indexOf((e.location || {}).siteId) >= 0; });
       });
     });
@@ -603,7 +605,8 @@
     var checks = (ADMIN ? db().collection('leaderChecks').get().then(function (q) { return q.docs; })
       : Promise.all(LEADSITES.map(function (sid) { return db().collection('leaderChecks').where('siteId', '==', sid).get().then(function (q) { return q.docs; }, function () { return []; }); }))
           .then(function (l) { return [].concat.apply([], l); })).catch(function () { return []; });
-    var mine = ME.memberId ? db().collection('leaderChecks').doc(ME.memberId).get().then(function (d) { return d.exists ? [d] : []; }, function () { return []; }) : Promise.resolve([]);
+    var myMid = E.asSeen().memberId;   /* view as: nobody's own checks */
+    var mine = myMid ? db().collection('leaderChecks').doc(myMid).get().then(function (d) { return d.exists ? [d] : []; }, function () { return []; }) : Promise.resolve([]);
     return Promise.all([concerns, events, checks, mine]).then(function (r) {
       var y = { dbsYears: SGDEF.dbsYears || 3, trainingYears: SGDEF.trainingYears || 3 }, today = new Date().toISOString().slice(0, 10);
       var rows = function (docs) { var seen = {}; return docs.filter(function (d) { if (seen[d.id]) return false; seen[d.id] = 1; return true; }).map(function (d) { return Object.assign({ memberId: d.id }, d.data()); }); };
@@ -650,7 +653,7 @@
       ISLEAD = LEADSITES.indexOf(SITE) >= 0;
       return SG.leadersOf(EVID);
     }).then(function (l) {
-      LEAD = l; LEADER = !!(l && (l.leaderUids || []).indexOf(ME.uid) >= 0);
+      LEAD = l; LEADER = !!(E.myUid() && l && (l.leaderUids || []).indexOf(E.myUid()) >= 0);
       if (!ADMIN && !ISLEAD && !LEADER) {
         document.getElementById('wrap').innerHTML = '<div class="card"><h1>' + esc(EV.title) + '</h1>' +
           '<p>This page is for the event\'s leaders, admins and the safeguarding lead. You can still report a concern.</p>' +

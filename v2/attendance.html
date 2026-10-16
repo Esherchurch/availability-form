@@ -14,7 +14,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
-<script src="egbc-events.js?v=202610152300"></script>
+<script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-door-sheet.js?v=202610152200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -42,7 +42,7 @@
   .badge{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--brand);
          display:inline-flex;align-items:center;justify-content:center;flex:none}
   .spacer{flex:1}
-  .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--body);margin:0}
+  .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--body);margin:0;min-height:44px}
   .check input{width:16px;height:16px;accent-color:var(--brand);flex:none}
   .cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 16px;margin-bottom:14px}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;
@@ -470,8 +470,8 @@
        leaders), not every admin. Asked first, so the answer is in words. */
     return Promise.all([E.load(EVID), db().collection('eventLeaders').doc(EVID).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; })]).then(function (x) {
       if (!x[0]) throw new Error('That event could not be found.');
-      var leads = !!(x[1] && (x[1].leaderUids || []).indexOf((EGBCAuth.user() || {}).uid) >= 0);
-      if (!E.runsEvent(x[0].ev) && !leads) throw new Error('The lists for this event are for its event team. Ask whoever runs it to add you to its team.');
+      var leads = !!(E.myUid() && x[1] && (x[1].leaderUids || []).indexOf(E.myUid()) >= 0);
+      if (!E.runsEvent(x[0].ev) && !leads) { E.refused(); throw new Error('The lists for this event are for its event team. Ask whoever runs it to add you to its team.'); }
     });
   }).then(function () {
     return Promise.all([

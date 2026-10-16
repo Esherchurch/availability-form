@@ -35,6 +35,8 @@
 
   /* The sites this person is safeguarding lead or deputy for. */
   function myLeadSites() {
+    /* View as: the lead is never previewed into (as the Menu). */
+    if (EGBCEvents.viewing && EGBCEvents.viewing()) return Promise.resolve([]);
     var m = me().memberId;
     if (!m) return Promise.resolve([]);
     return db().collection('bookingSettings').get().then(function (snap) {

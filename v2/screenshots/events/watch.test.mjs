@@ -143,7 +143,7 @@ try {
   await val(O, '#mv-title', 'Nope');
   await tap(O, '#mv-go');
   await sleep(800);
-  ok('   a link that is not YouTube is refused, and nothing is saved', !(await get('videos', 'mv_')) && /not a YouTube video link/.test(await text(O, '#toast')), await text(O, '#toast'));
+  ok('   a link that is not YouTube is refused, and nothing is saved', !(await get('videos', 'mv_')) && /not a YouTube video link/.test(await text(O, '#mv-msg')), await text(O, '#mv-msg'));
   await val(O, '#mv-url', MEM); await val(O, '#mv-title', 'Full service, 11 Oct (invented)'); await val(O, '#mv-date', '2026-10-11');
   await tap(O, '#mv-go');
   await until(() => get('videos', 'mv_mmmmmmmmmm1'));
@@ -170,6 +170,16 @@ try {
   ok('2. THE APP: "Listen & Watch", with a Listen / Watch switch', /Listen & Watch/.test(head) && !!(await A.$('[data-lact="part:watch"]')), head.slice(0, 200));
   ok('   the "Watch live" card, with its name', /Watch live/.test(await text(A, '[data-l="live"]')) && /Sunday morning \(invented\)/.test(await text(A, '[data-l="live"]')));
   await A.screenshot({ path: path.join(HERE, 'watch-live-375.png'), fullPage: true });
+  /* F-219 (main window; Martin, 15 Oct): no sermons yet, so it opens on Watch, with "Latest" on top. */
+  await until(() => A.$('[data-l="latest"]'));
+  ok('   NO SERMONS YET: it opens on WATCH, not an empty Listen', (await A.$eval('[data-lact="part:watch"]', b => b.getAttribute('aria-pressed'))) === 'true' && !!(await A.$('[data-l="channel"], [data-l="members"]')));
+  const lat = await text(A, '[data-l="latest"]');
+  ok('   a "Latest" strip on top: the newest video', /Latest video/.test(lat) && /Newest: youth night/.test(lat), lat);
+  await A.evaluate(() => document.querySelector('[data-lact="part:listen"]').click());
+  await until(async () => /Sermons will appear here once they are put up/.test(await text(A, '#egbc-content')));
+  ok('   Listen, chosen: "Sermons will appear here once they are put up."', /Sermons will appear here once they are put up\./.test(await text(A, '#egbc-content')));
+  await A.evaluate(() => document.querySelector('[data-lact="part:watch"]').click());
+  await sleep(300);
   await A.evaluate(() => document.querySelector('[data-lact="vlive"]').click());
   await until(() => A.$('#lis-video'));
   const src = await A.$eval('#lis-video', e => e.getAttribute('src'));
@@ -181,8 +191,8 @@ try {
   ok('   Watch: the full service for everyone signed in', /Full service, 11 Oct \(invented\)/.test(mem), mem);
   ok('   NOT the church members\' one, for an attender', !/Church meeting/.test(mem));
   ok('   the channel, newest first, never the hidden one', /Newest: youth night.*Harvest Sunday/.test(chan) && !/to hide/.test(chan), chan);
-  await A.evaluate(() => document.querySelector('[data-lact="video:dddddddddd4"]').click());
-  await until(() => A.$('#lis-video'));
+  await A.evaluate(() => document.querySelector('[data-l="channel"] [data-lact="video:dddddddddd4"]').click());
+  await until(async () => /dddddddddd4/.test(await A.$eval('#lis-video', e => e.getAttribute('src')).catch(() => '')));
   ok('   a channel video plays in place too', (await A.$eval('#lis-video', e => e.getAttribute('src'))).indexOf('/embed/dddddddddd4?') > 0);
   const shape = await A.evaluate(() => { const f = document.getElementById('lis-video').getBoundingClientRect(), c = document.querySelector('[data-l="player"] [data-lact="vclose"]').getBoundingClientRect();
     const card = document.querySelector('[data-l="player"]').getBoundingClientRect();

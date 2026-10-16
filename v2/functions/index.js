@@ -738,3 +738,5 @@ export { kidsCountsKeep } from './kids-counts.js';
 /* Enter a Sunday once: a rota service ticked "In What's On" is copied to
    calEvents/rota_<id> for What's On, the app, the embed and the feed. */
 export { rotaWhatsOn } from './rota-whatson.js';
+/* For Sunday: the prayer list for the service leader and the Pastor (F-222), the events window's file. */
+export { prayerSundayOnPrayer, prayerSundayOnRota, prayerSundayDaily } from './prayer-sunday.js';
