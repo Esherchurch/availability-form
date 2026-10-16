@@ -42,6 +42,7 @@ const ACCOUNT = {
 const APPROVED = [
   ['Dashboard'],
   ['Rota'],
+  ['Preaching plan'],
   /* F-210: for the people who make rotas. */
   ['Rota reports'],
   ['Meetings'],
@@ -174,7 +175,7 @@ const KIDS_ONLY = ['Kids Church', "Children's register", 'Sunday check-in'];
 const YOUTH_TEAMS = ['Youth Worship', 'Lazers', 'ReNu'];
 const YOUTH_ONLY = ['Youth', 'Youth Service Planner'];
 /* ...and the team videos, resources and pin boards: anybody on a team. */
-const ANY_TEAM_ONLY = ['Rota', 'Pin boards', 'Team Resources', 'Team Videos'];
+const ANY_TEAM_ONLY = ['Rota', 'Preaching plan', 'Pin boards', 'Team Resources', 'Team Videos'];
 /* The Music Uploader is for Worship leaders, as its page's guard says
    (data-role="leader"): a Worship admin, Core Team, or a master admin. None
    of the people here has a leader role on their record. */

@@ -388,12 +388,12 @@ const offMachine = u => {
        counted there silently - but it was refused to Core Team for a
        second reason that the list above cannot see, so it gets its own
        line. If somebody puts the role back, this says which page. */
-    const eb = PAGES.filter(p2 => p2.file === 'EmailBuilder2.html')[0];
-    ok('  EmailBuilder2 asks for Core Team and nothing more',
-      !!eb && eb.teams.join(',') === 'Core Team' && !eb.role,
-      eb ? ('team=' + eb.teams.join(',') + ' role=' + (eb.role || '(none)')) : 'not guarded at all');
+    /* WHO MAY EMAIL (Martin, 16 Oct 2026) replaced "anyone on Core Team":
+       the Email Compiler is for team leaders and the church office (and
+       master admins), so a Core Team member who leads nothing is turned
+       away - by the page and by the hub, which sends (check-who-may). */
     const ebState = await openPage('EmailBuilder2.html');
-    ok('  and a Core Team member opens it', ebState === 'open', ebState);
+    ok('  the Email Compiler turns away a Core Team member who leads nothing', ebState !== 'open', ebState);
     /* AND THE DRAFTS BEHIND THE DOOR. A page that opens onto data the
        rules refuse is the same fault one step further in, and it is the
        one that would have been left: emailDrafts was isAdmin(). Asked
@@ -402,14 +402,14 @@ const offMachine = u => {
       'EGBCAuth.db.collection("emailDrafts").limit(1).get()'
       + '.then(function(){ return "read"; })'
       + '.catch(function(e){ return "refused: " + e.code; })', true));
-    ok('  and can read the drafts behind it', drafts === 'read', drafts);
+    ok('  nor can they read the drafts behind it', drafts !== 'read', drafts);
     const wrote = String(await ev(
       'EGBCAuth.db.collection("emailDrafts").doc("_walk_check").set('
       + '{ subject: "walk check", updatedBy: "check-core-covers-worship", updatedAt: "now" })'
       + '.then(function(){ return EGBCAuth.db.collection("emailDrafts").doc("_walk_check").delete(); })'
       + '.then(function(){ return "wrote"; })'
       + '.catch(function(e){ return "refused: " + e.code; })', true));
-    ok('  and write one, which is the whole job', wrote === 'wrote', wrote);
+    ok('  nor write one', wrote !== 'wrote', wrote);
 
     /* THE OTHER DIRECTION. A cover that lets Core Team into everything is
        not a cover, it is a master key with a different name. */

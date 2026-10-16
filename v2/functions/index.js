@@ -745,3 +745,6 @@ export { bibleKeySave, bibleKeyStatus, bibleFetch } from './bible.js';
 export { planSend } from './planner.js';
 /* A session plan for a paired ChurchShow computer (F-225, egbc-lesson/1), the events window's file. */
 export { lessonFor } from './lesson.js';
+/* Who may email whom (Martin, 16 Oct 2026): the Email Compiler sends through
+   the hub, which checks the sender's teams; logged to emailOutbox. */
+export { compilerSend } from './compiler-send.js';

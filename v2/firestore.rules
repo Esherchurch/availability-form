@@ -486,7 +486,28 @@ service cloud.firestore {
       // Once the page knows the id, `allow get` above lets it read that one
       // record - its own.
       allow list: if isAdmin() || volunteer();
-      allow write: if isAdmin();
+      // WHO MAY CHANGE A RECORD (Martin, 16 Oct 2026): the church office and
+      // master admins, anyone; a team leader, the people on their teams -
+      // adding or taking away only their own teams' ticks, and never the
+      // admin, master or under-18 ticks. A new person they add is on their
+      // teams only. Removing somebody is the office's, or the leader's when
+      // the person is on no team but theirs.
+      allow write: if isMaster() || onTeam('Church office') || bookLeaderOk();
+    }
+
+    function bookLeaderOk() {
+      let mine = me().get('adminFor', []);
+      let was = resource == null ? [] : resource.data.get('markers', []);
+      let now = request.resource == null ? [] : request.resource.data.get('markers', []);
+      return isAdmin()
+        && (request.resource == null
+              ? was.size() > 0 && was.hasOnly(mine)
+              : ((resource == null ? now.size() > 0 && now.hasOnly(mine) : was.hasAny(mine))
+                 && now.toSet().difference(was.toSet()).hasOnly(mine)
+                 && was.toSet().difference(now.toSet()).hasOnly(mine)
+                 && request.resource.data.get('adminFor', []) == (resource == null ? [] : resource.data.get('adminFor', []))
+                 && request.resource.data.get('masterAdmin', false) == (resource == null ? false : resource.data.get('masterAdmin', false))
+                 && request.resource.data.get('isMinor', false) == (resource == null ? false : resource.data.get('isMinor', false))));
     }
 
     // Two collections the availability form's function keeps for itself. The
@@ -532,6 +553,26 @@ service cloud.firestore {
       allow write: if (isAdmin()
                        || onAnyTeam(request.resource.data.get('teams', ['Worship Team'])))
                    && safeguardingOk();
+      // THE PREACHING PLAN (Martin, 15 Oct 2026): the Pastor, named by a
+      // master admin in churchSettings/preaching, reads the services and
+      // changes the four preaching fields - what the Sunday is, the speaker,
+      // the service leader and the readers - and nothing else: no roles,
+      // no people on the rota, no dates. Whether or not they are on a team.
+      allow read: if isPastor();
+      allow update: if isPastor()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['publicTitle', 'speaker', 'serviceLeader', 'readers', 'updatedAt', 'updatedBy'])
+                    && request.resource.data.get('publicTitle', '') is string
+                    && request.resource.data.get('publicTitle', '').size() <= 140
+                    && request.resource.data.get('readers', []) is list
+                    && request.resource.data.get('readers', []).size() <= 12;
+    }
+
+    // Named in churchSettings/preaching.pastorIds (a master admin's choice).
+    function isPastor() {
+      return active() && me().get('memberId', '') != ''
+             && exists(/databases/$(database)/documents/churchSettings/preaching)
+             && me().get('memberId', '') in get(/databases/$(database)/documents/churchSettings/preaching).data.get('pastorIds', []);
     }
 
     // ---- "I'M WORRIED ABOUT SOMEONE" (NEXT-BRIEF §24) ------------------
@@ -1055,14 +1096,26 @@ service cloud.firestore {
              || (resource != null && resource.data.get('urgent', false) == true)
              || isMaster() || onTeam('Church office');
     }
+    // WHO MAY POST A NOTICE (Martin, 16 Oct 2026, any church): the church
+    // office and master admins, to anyone (teams [] is everyone); a team
+    // leader - somebody who administers a team - only to their own teams,
+    // never to everyone. Changing or removing one follows the same line:
+    // a leader only touches notices that are wholly their teams'.
+    function noticeTeamsMine(teams) {
+      return teams is list && teams.size() > 0 && teams.hasOnly(me().get('adminFor', []));
+    }
+    function mayNoticeTo(teams) {
+      return isMaster() || onTeam('Church office') || (isAdmin() && noticeTeamsMine(teams));
+    }
     match /news/{itemId} {
       allow read: if active();
-      allow create: if isAdmin() && urgentOk();
-      allow delete: if isAdmin();
+      allow create: if mayNoticeTo(request.resource.data.get('teams', [])) && urgentOk();
+      allow delete: if mayNoticeTo(resource.data.get('teams', []));
 
       // Anyone active may add themselves to ackedBy, and nothing else -
       // that is the "I have read it" button.
-      allow update: if (isAdmin() && urgentOk())
+      allow update: if (mayNoticeTo(resource.data.get('teams', []))
+                        && mayNoticeTo(request.resource.data.get('teams', [])) && urgentOk())
                     || (active()
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ackedBy'])
                         && request.resource.data.ackedBy.hasAll(resource.data.get('ackedBy', [])));
@@ -1376,8 +1429,11 @@ service cloud.firestore {
     // time, not stored here - so Core Team reading and writing all of them
     // is the right shape, and that is why this is not narrowed to the
     // person who wrote it.
+    // The Email Compiler's drafts follow who may email (Martin, 16 Oct 2026,
+    // which replaces 11 Oct's "anyone on Core Team"): team leaders, the
+    // church office and master admins.
     match /emailDrafts/{draftId} {
-      allow read, write: if isAdmin() || onTeam('Core Team');
+      allow read, write: if isMaster() || isAdmin() || onTeam('Church office');
     }
 
     // The practice copies of the tools write here rather than into the real
@@ -2394,6 +2450,12 @@ service cloud.firestore {
       // THE NOTIFICATIONS MASTER SWITCH (A-081): whether the timers and
       // triggers really send. A master admin only - it is the one setting
       // that starts the church being emailed and buzzed.
+      // THE PREACHING PLAN's Pastor (or Pastors): member ids, a master
+      // admin's choice. Readable as the rest of churchSettings is: ids only.
+      allow write: if (isMaster() && id == 'preaching'
+                       && request.resource.data.keys().hasOnly(['pastorIds', 'updatedAt', 'updatedBy'])
+                       && request.resource.data.pastorIds is list
+                       && request.resource.data.pastorIds.size() <= 5);
       allow write: if (isMaster() && id == 'notifications'
                        && request.resource.data.keys().hasOnly(['live', 'updatedAt', 'updatedBy'])
                        && request.resource.data.live is bool);

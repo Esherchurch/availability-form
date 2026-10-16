@@ -167,6 +167,9 @@
         EGBCAuth.mountUserChip('userChip');
       }
 
+      /* Remembered as well as announced: a page whose script runs after this
+         can tell it has already happened. */
+      window.EGBC_READY = true;
       document.dispatchEvent(new CustomEvent('egbc-ready', { detail: profile }));
     }).catch(function (e) {
       settled = true;

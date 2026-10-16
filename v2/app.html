@@ -43,12 +43,12 @@
      one-time offer on Home, and Kids Church Today's "Call on their phone". -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610160500"></script>
+<script src="egbc-auth.js?v=202610160800"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
-<script src="egbc-guard.js?v=202610131500" data-allow-pending="parent"></script>
+<script src="egbc-guard.js?v=202610160810" data-allow-pending="parent"></script>
 <script src="egbc-ui.js?v=202610150900"></script>
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
@@ -1928,8 +1928,11 @@ A.screen('core', 'team', function () {
        Performance Notes (G-1 option a): an app that is already on the
        phone and already does the job. It becomes a tab here when the
        compiler is shared the way the planner now is. */
-    row('mail', 'Email the church', 'Write and send it, in the Core Team app', null,
-        'open:CoreTeamApp.html') +
+    /* The Email Compiler fits a phone now (audit, 16 Oct 2026), so it opens
+       here in app mode rather than the old Core Team app. Only for those
+       who may email (WHO MAY): team leaders, the office, master admins. */
+    ((EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office') || (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : []).length)
+      ? row('mail', 'Send an email', 'To your team, or to anyone for the office', null, 'open:EmailBuilder2.html') : '') +
     row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html') +
     row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html'));
 });

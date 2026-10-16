@@ -3063,16 +3063,18 @@ await check('  and SAVES a Worship service, not only reads it', 'allow',
   () => setDoc(doc(as('core'), 'events', 'e_core_saves'),
     { date: '2026-11-01', roles: ['Guitar'], teams: ['Worship Team'] }));
 
-/* ---- the church email's drafts (Martin, 11 Oct 2026) ---------------
-   "ANYONE on Core Team, as on the old portal." EmailBuilder2.html was
-   gated data-role="leader" and emailDrafts was isAdmin(), so a Core Team
-   member was stopped twice. Both have gone. */
-await check('a Core Team member reads the email drafts', 'allow',
+/* ---- the church email's drafts --------------------------------------
+   11 Oct 2026 said "anyone on Core Team"; 16 Oct replaced it: the Email
+   Compiler is for team leaders, the church office and master admins (WHO
+   MAY), and its drafts follow. */
+await check('a Core Team member who leads nothing does not read the drafts', 'deny',
   () => getDoc(doc(as('core'), 'emailDrafts', 'd1')));
+await check('  the church office does', 'allow',
+  () => getDoc(doc(as('churchOffice'), 'emailDrafts', 'd1')));
 await check('  and writes one', 'allow',
-  () => setDoc(doc(as('core'), 'emailDrafts', 'd_core'),
-    { subject: 'This Sunday', updatedBy: 'u_core', updatedAt: 'now' }));
-await check('  an admin still can, as before', 'allow',
+  () => setDoc(doc(as('churchOffice'), 'emailDrafts', 'd_office'),
+    { subject: 'This Sunday', updatedBy: 'u_church_office', updatedAt: 'now' }));
+await check('  a team leader does, as before', 'allow',
   () => getDoc(doc(as('karen'), 'emailDrafts', 'd1')));
 await check('BUT A WORSHIP-ONLY MEMBER CANNOT', 'deny',
   () => getDoc(doc(as('samy'), 'emailDrafts', 'd1')));
@@ -3307,6 +3309,40 @@ await check('  but the id has to be the name, or two names mean one group', 'den
 await check('  and a made-up tab is refused', 'deny',
   () => setDoc(doc(as('martin'), 'teams', 'Elders'),
     { name: 'Elders', label: 'Elders', rota: false, runs: ['everything'] }));
+
+/* THE PREACHING PLAN (Martin, 15 Oct 2026). The Pastor is named in
+   churchSettings/preaching by a master admin, and may then change the four
+   preaching fields of a service - and nothing else - team or no team. The
+   attender is the Pastor here BECAUSE they are on no team: it proves the
+   rule, not the team membership, lets them in. */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'events', 'ev_preach'), { date: '2026-11-15', type: 'Sunday Morning Worship',
+    teams: ['Worship Team'], roles: ['Keyboard'], archived: false, speaker: '', serviceLeader: '' });
+});
+await check('nobody but a master admin names the Pastor', 'deny',
+  () => setDoc(doc(as('karen'), 'churchSettings', 'preaching'), { pastorIds: ['m_u_karen'] }));
+await check('a master admin does', 'allow',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'preaching'), { pastorIds: ['m_u_attender'] }));
+await check('  with nothing else on it', 'deny',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'preaching'), { pastorIds: ['m_u_attender'], other: 1 }));
+await check('the Pastor reads the services', 'allow',
+  () => getDoc(doc(as('attender'), 'events', 'ev_preach')));
+await check('  and sets the speaker, leader, description and readers', 'allow',
+  () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { speaker: 'Guest Synthetic', serviceLeader: 'Leader Synthetic',
+    publicTitle: 'Shoebox Sunday', readers: [{ name: 'Reader Synthetic', passage: 'John 3:1-17' }] }));
+await check('  but not who is on the rota', 'deny',
+  () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { assignments: { Keyboard: { id: 'm_x', name: 'X' } } }));
+await check('  nor the date', 'deny',
+  () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { date: '2026-11-22' }));
+await check('  nor delete it', 'deny',
+  () => deleteDoc(doc(as('attender'), 'events', 'ev_preach')));
+await check('somebody not named cannot', 'deny',
+  () => updateDoc(doc(as('parent'), 'events', 'ev_preach'), { speaker: 'Nobody Synthetic' }));
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'churchSettings', 'preaching'), { pastorIds: [] });
+});
+await check('taken off the list, the Pastor cannot', 'deny',
+  () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { speaker: 'Too Late Synthetic' }));
 
 /* TEAMS & GROUPS (Martin, 15 Oct 2026): the Church office looks after the
    list too - add, rename, recolour, order, archive - but never `runs`, which
@@ -3607,8 +3643,76 @@ await check('  the office makes an existing notice urgent', 'allow',
   () => updateDoc(doc(as('officeAdmin'), 'news', 'u_plain'), { urgent: true }));
 await check('  and any admin may still edit it afterwards, which sends nothing', 'allow',
   () => updateDoc(doc(as('karen'), 'news', 'u_plain'), { title: 'Plain, edited' }));
-await check('  urgent false may be set by any admin', 'allow',
-  () => setDoc(doc(as('karen'), 'news', 'u_false'), { title: 'Not', body: 'x', teams: [], ackedBy: [], urgent: false }));
+/* urgent:false is no gate - but since 16 Oct a team leader posts to their
+   own team, not to everyone (WHO MAY, below). */
+await check('  urgent false may be set by a team leader, on their own team', 'allow',
+  () => setDoc(doc(as('karen'), 'news', 'u_false'), { title: 'Not', body: 'x', teams: ['Kids Church'], ackedBy: [], urgent: false }));
+
+/* WHO MAY POST A NOTICE (Martin, 16 Oct 2026). Team leaders (adminFor) to
+   their own teams; the church office and master admins to anyone; nobody
+   else. Karen leads Kids Church; officeAdmin is in the Church office (and
+   leads Kids Church too); samy is on teams but leads none. */
+await check('WHO MAY: a team leader posts to their own team', 'allow',
+  () => setDoc(doc(as('karen'), 'news', 'wm_k1'), { title: 'Kids', body: 'x', teams: ['Kids Church'], ackedBy: [] }));
+await check('  not to everyone', 'deny',
+  () => setDoc(doc(as('karen'), 'news', 'wm_k2'), { title: 'All', body: 'x', teams: [], ackedBy: [] }));
+await check('  nor to a team they do not lead', 'deny',
+  () => setDoc(doc(as('karen'), 'news', 'wm_k3'), { title: 'Worship', body: 'x', teams: ['Worship Team'], ackedBy: [] }));
+await check('  nor to theirs and another', 'deny',
+  () => setDoc(doc(as('karen'), 'news', 'wm_k4'), { title: 'Both', body: 'x', teams: ['Kids Church', 'Worship Team'], ackedBy: [] }));
+await check('somebody on a team who leads none posts nothing', 'deny',
+  () => setDoc(doc(as('samy'), 'news', 'wm_s1'), { title: 'Mine', body: 'x', teams: ['Worship Team'], ackedBy: [] }));
+await check('the church office posts to everyone', 'allow',
+  () => setDoc(doc(as('churchOffice'), 'news', 'wm_o1'), { title: 'All', body: 'x', teams: [], ackedBy: [] }));
+await check('  and to any team', 'allow',
+  () => setDoc(doc(as('churchOffice'), 'news', 'wm_o2'), { title: 'Worship', body: 'x', teams: ['Worship Team'], ackedBy: [] }));
+await check('a master admin posts to everyone', 'allow',
+  () => setDoc(doc(as('martin'), 'news', 'wm_m1'), { title: 'All', body: 'x', teams: [], ackedBy: [] }));
+await check('a leader cannot change a notice for everyone', 'deny',
+  () => updateDoc(doc(as('karen'), 'news', 'wm_o1'), { title: 'Mine now' }));
+await check('  nor move their own notice to everyone', 'deny',
+  () => updateDoc(doc(as('karen'), 'news', 'wm_k1'), { teams: [] }));
+await check('  but edits their own team\'s', 'allow',
+  () => updateDoc(doc(as('karen'), 'news', 'wm_k1'), { title: 'Kids, edited' }));
+await check('  and takes it down', 'allow',
+  () => deleteDoc(doc(as('karen'), 'news', 'wm_k1')));
+await check('  not the office\'s notice for Worship', 'deny',
+  () => deleteDoc(doc(as('karen'), 'news', 'wm_o2')));
+await check('the office takes down any notice', 'allow',
+  () => deleteDoc(doc(as('churchOffice'), 'news', 'wm_o2')));
+await check('anybody still says they have read one', 'allow',
+  () => updateDoc(doc(as('samy'), 'news', 'wm_o1'), { ackedBy: ['u_samy'] }));
+
+/* WHO MAY CHANGE AN ADDRESS BOOK RECORD (16 Oct). A leader: the people on
+   their teams, only their own teams' ticks, never the admin ticks; the
+   office and master admins: anyone. */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const d = ctx.firestore();
+  await setDoc(doc(d, 'addressBook', 'wm_both'), { name: 'Both Synthetic', email: 'both@example.invalid', markers: ['Kids Church', 'Worship Team'], adminFor: [], archived: false, isMinor: false });
+  await setDoc(doc(d, 'addressBook', 'wm_both2'), { name: 'Both Two Synthetic', email: 'both2@example.invalid', markers: ['Kids Church', 'Worship Team'], adminFor: [], archived: false, isMinor: false });
+  await setDoc(doc(d, 'addressBook', 'wm_worship'), { name: 'Worship Synthetic', email: 'w@example.invalid', markers: ['Worship Team'], adminFor: [], archived: false, isMinor: false });
+  await setDoc(doc(d, 'addressBook', 'wm_kids'), { name: 'Kids Synthetic', email: 'k@example.invalid', markers: ['Kids Church'], adminFor: [], archived: false, isMinor: false });
+});
+await check('WHO MAY (address book): a leader changes somebody on their team', 'allow',
+  () => updateDoc(doc(as('karen'), 'addressBook', 'wm_both'), { name: 'Both Synthetic, renamed' }));
+await check('  and takes their own team\'s tick off', 'allow',
+  () => updateDoc(doc(as('karen'), 'addressBook', 'wm_both'), { markers: ['Worship Team'] }));
+await check('  but not another team\'s', 'deny',
+  () => updateDoc(doc(as('karen'), 'addressBook', 'wm_both2'), { markers: ['Kids Church'] }));
+await check('  nor somebody on no team of theirs', 'deny',
+  () => updateDoc(doc(as('karen'), 'addressBook', 'wm_worship'), { name: 'Not mine' }));
+await check('  nor gives them an admin tick', 'deny',
+  () => updateDoc(doc(as('karen'), 'addressBook', 'wm_kids'), { adminFor: ['Kids Church'] }));
+await check('  adds a new person on their team', 'allow',
+  () => setDoc(doc(as('karen'), 'addressBook', 'wm_new'), { name: 'New Synthetic', email: 'n@example.invalid', markers: ['Kids Church'], adminFor: [], archived: false, isMinor: false }));
+await check('  not on somebody else\'s team', 'deny',
+  () => setDoc(doc(as('karen'), 'addressBook', 'wm_new2'), { name: 'New Synthetic', email: 'n2@example.invalid', markers: ['Worship Team'], adminFor: [], archived: false, isMinor: false }));
+await check('  removes somebody only on their team', 'allow',
+  () => deleteDoc(doc(as('karen'), 'addressBook', 'wm_kids')));
+await check('the office changes anyone', 'allow',
+  () => updateDoc(doc(as('churchOffice'), 'addressBook', 'wm_worship'), { name: 'Worship Synthetic, by the office' }));
+await check('somebody who leads nothing changes nobody', 'deny',
+  () => updateDoc(doc(as('samy'), 'addressBook', 'wm_worship'), { name: 'Samy was here' }));
 
 // ---- the notifications master switch (A-081) ----------------------------
 await check('the master admin switches phone notifications on', 'allow',

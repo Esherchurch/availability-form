@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610160500" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202610160600" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610160500"></script>
-<script src="egbc-guard.js?v=202610121600" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
+<script src="egbc-auth.js?v=202610160800"></script>
+<script src="egbc-guard.js?v=202610160810" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -195,11 +195,14 @@
                 if (done) {
                     const title = 'Signed off by ' + (done.by || 'someone').replace(/"/g, '');
                     h += '<button title="' + title + '" ' +
-                         (canPress ? 'onclick="setSignoff(\'' + term + '\',\'' + t + '\',false)"' : 'disabled') +
+                         (canPress ? 'onclick="this.disabled=true;this.textContent=\'Saving…\';setSignoff(\'' + term + '\',\'' + t + '\',false)"' : 'disabled') +
                          ' class="text-[13px] font-medium bg-[#eef5f4] text-[#3d6263] border border-[#cfe0de] px-3 py-1 rounded-[8px]">'
                        + '&#10003; ' + label + '</button>';
                 } else if (canPress) {
-                    h += '<button onclick="setSignoff(\'' + term + '\',\'' + t + '\',true)" ' +
+                    /* "Saving…" at once: the button changes for real only when the
+                       save comes back, and on a phone that pause read as a dead
+                       button (audit, 16 Oct 2026). */
+                    h += '<button onclick="this.disabled=true;this.textContent=\'Saving…\';setSignoff(\'' + term + '\',\'' + t + '\',true)" ' +
                          'class="text-[13px] font-medium bg-white text-[#6b7280] border border-[#e5e7eb] px-3 py-1 rounded-[8px] hover:bg-[#f3f4f6]">'
                        + label + ' not done</button>';
                 } else {
@@ -258,6 +261,10 @@
             return `${term} ${year}`;
         }
 
+        /* Read nothing until the page's guard has let this person in: a
+           refused visitor's reads were refused too, and filled the console
+           under the "not for you" card (audit, 16 Oct 2026). */
+        const egbcStart = () => {
         onSnapshot(collection(db, "addressBook"), (snap) => {
             addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             const select = document.getElementById('memberPdfSelect');
@@ -288,6 +295,8 @@
             populateSendTermSelect();
             loadSignoffs().then(renderPlanner);
         });
+        };
+        if (window.EGBC_READY) egbcStart(); else document.addEventListener('egbc-ready', egbcStart, { once: true });
 
         // ── POPULATE TERM SELECT IN SEND MODAL ─────────────────────────
         function populateSendTermSelect() {
@@ -1920,5 +1929,124 @@
        class="fixed bottom-6 right-6 w-9 h-9 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-semibold text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">
         ?
     </a>
+<!-- ================================================================
+     THE ROTA PLANNER ON A PHONE (Martin approved the mock, 16 Oct 2026:
+     design-mocks/core-team/rota-planner-375.png). Below 700px:
+       - a slim bar: Term, + Service, More. More opens a sheet holding the
+         page's own header - every button the computer has, the same
+         buttons, not copies, so nothing is lost;
+       - each service is a card with a summary line (date, type, time,
+         leader, speaker) and opens on a tap to everything it had before;
+       - 44px fields.
+     The computer layout is untouched: at 700px and over none of this runs.
+     ================================================================ -->
+<style>
+  #ppBar, #ppSheet, #ppScrim { display: none; }
+  @media (max-width: 700px) {
+    body { padding: 12px !important; }
+    #ppBar { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+    #ppBar select, #ppBar button { min-height: 44px; border-radius: 10px; border: 1px solid #d1dfdf; background: #fff; color: #14201f; font: 500 14px Inter, system-ui, sans-serif; padding: 0 12px; }
+    #ppBar select { flex: 1; min-width: 0; }
+    #ppBar .pp-new { background: #3d6263; border-color: #3d6263; color: #fff; }
+    body.pp-phone > div > header { display: none !important; }
+    #ppScrim.on { display: block; position: fixed; inset: 0; background: rgba(17,24,39,.4); z-index: 9000; }
+    #ppSheet.on { display: block; position: fixed; left: 0; right: 0; bottom: 0; max-height: 86vh; overflow: auto; background: #fff; z-index: 9001; border-radius: 18px 18px 0 0; padding: 0 12px 24px; }
+    #ppSheet .pp-sh { position: sticky; top: 0; z-index: 2; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-bottom: 1px solid #e5e7eb; margin: 0 -12px 10px; padding-left: 16px; padding-right: 12px; }
+    #ppSheet .pp-sh b { font-size: 16px; color: #14201f; }
+    #ppSheet .pp-x { width: 44px; height: 44px; border: 1px solid #d1dfdf; border-radius: 10px; background: #fff; font-size: 18px; }
+    #ppSheet header { display: flex !important; flex-direction: column; gap: 12px; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+    #ppSheet header > div { padding: 10px !important; gap: 8px !important; width: 100%; }
+    #ppSheet header button, #ppSheet header select, #ppSheet header input { min-height: 44px; }
+    #ppSheet header input { min-width: 0 !important; }
+    /* the cards */
+    #eventList [data-date] { padding: 0 !important; overflow: hidden !important; }
+    .pp-sum { display: flex; gap: 12px; align-items: center; width: 100%; min-height: 64px; padding: 12px 14px; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+    .pp-sum .dc { width: 46px; flex: none; text-align: center; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; background: #fff; }
+    .pp-sum .dc .m { background: #3d6263; color: #fff; font-size: 11px; font-weight: 600; }
+    .pp-sum .dc .d { font-size: 18px; font-weight: 700; color: #14201f; }
+    .pp-sum .t { flex: 1; min-width: 0; }
+    .pp-sum .t b { display: block; color: #14201f; font-weight: 600; }
+    .pp-sum .t small { display: block; color: #6b7280; font-size: 13px; }
+    .pp-sum .chev { color: #9ca3af; font-size: 18px; transition: transform .15s; }
+    [data-date].pp-open .pp-sum .chev { transform: rotate(90deg); }
+    [data-date]:not(.pp-open) > :not(.pp-sum) { display: none !important; }
+    [data-date].pp-open > :not(.pp-sum) { padding: 0 14px 14px; }
+    [data-date].pp-open input, [data-date].pp-open select, [data-date].pp-open textarea { min-height: 44px; max-width: 100%; }
+    [data-date].pp-open input:not([type=checkbox]):not([type=radio]), [data-date].pp-open select, [data-date].pp-open textarea { width: 100% !important; }
+    [data-date].pp-open label { min-height: 44px; }
+    [data-date].pp-open button { min-height: 44px; min-width: 44px; }
+    #eventList button, #eventList select { min-height: 44px; }
+  }
+</style>
+<div id="ppScrim"></div>
+<div id="ppSheet" role="dialog" aria-label="More"><div class="pp-sh"><b>More</b><button type="button" class="pp-x" aria-label="Close">&#x2715;</button></div></div>
+<script>
+(function () {
+  var mq = window.matchMedia('(max-width: 700px)');
+  var header = document.querySelector('body > div > header');
+  var home = header ? header.parentNode : null, next = header ? header.nextSibling : null;
+  var term = document.getElementById('termSelect');
+  var termHome = term ? term.parentNode : null, termNext = term ? term.nextSibling : null;
+  var sheet = document.getElementById('ppSheet'), scrim = document.getElementById('ppScrim');
+  var OPEN = {};
+  var MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+  /* The bar, made once, above the list. */
+  var bar = document.createElement('div'); bar.id = 'ppBar';
+  bar.innerHTML = '<button type="button" class="pp-new">+ Service</button><button type="button" class="pp-more">More</button>';
+  var list = document.getElementById('eventList');
+  if (list) list.parentNode.insertBefore(bar, list);
+  bar.querySelector('.pp-new').onclick = function () { if (window.addSingleLine) window.addSingleLine(); };
+  bar.querySelector('.pp-more').onclick = function () { openSheet(true); };
+  function openSheet(on) { sheet.classList.toggle('on', on); scrim.classList.toggle('on', on); }
+  scrim.onclick = function () { openSheet(false); };
+  sheet.querySelector('.pp-x').onclick = function () { openSheet(false); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') openSheet(false); });
+
+  /* Phone: the header goes into the sheet and Term into the bar. Computer:
+     both go back exactly where they were. */
+  function place() {
+    var phone = mq.matches;
+    document.body.classList.toggle('pp-phone', phone);
+    if (!header) return;
+    if (phone) {
+      if (header.parentNode !== sheet) sheet.appendChild(header);
+      if (term && term.parentNode !== bar) bar.insertBefore(term, bar.firstChild);
+    } else {
+      openSheet(false);
+      if (header.parentNode !== home) home.insertBefore(header, next);
+      if (term && term.parentNode !== termHome) termHome.insertBefore(term, termNext);
+    }
+    cards();
+  }
+
+  /* A summary line on each service, from what the card already shows. */
+  function idOf(card) { var m = /updateField\('([^']+)'/.exec(card.innerHTML); return m ? m[1] : card.getAttribute('data-date'); }
+  function val(card, sel) { var e = card.querySelector(sel); return e ? (e.value || '').trim() : ''; }
+  function cards() {
+    if (!mq.matches || !list) return;
+    list.querySelectorAll('[data-date]').forEach(function (card) {
+      var id = idOf(card), d = card.getAttribute('data-date') || '';
+      var sum = card.querySelector(':scope > .pp-sum');
+      if (!sum) {
+        sum = document.createElement('button'); sum.type = 'button'; sum.className = 'pp-sum';
+        card.insertBefore(sum, card.firstChild);
+        sum.onclick = function () { OPEN[id] = !OPEN[id]; card.classList.toggle('pp-open', !!OPEN[id]); };
+      }
+      card.classList.toggle('pp-open', !!OPEN[id]);
+      var parts = d.split('-'), type = val(card, 'select[onchange*="\'type\'"]') || 'Service';
+      var time = val(card, 'select[onchange*="startTime"]'), lead = val(card, 'input[onblur*="serviceLeader"]'), spk = val(card, 'input[onblur*="speaker"]');
+      var html = '<span class="dc"><div class="m">' + (MONTHS[+parts[1] - 1] || '') + '</div><div class="d">' + (+parts[2] || '') + '</div></span>'
+        + '<span class="t"><b>' + esc(type) + '</b><small>' + esc([time, lead ? 'Leader: ' + lead : '', spk ? 'Speaker: ' + spk : ''].filter(Boolean).join(' \u00b7 ')) + '</small></span>'
+        + '<span class="chev">\u203a</span>';
+      if (sum.innerHTML !== html) sum.innerHTML = html;
+    });
+  }
+  function esc(x) { return String(x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  if (list && window.MutationObserver) new MutationObserver(function () { clearTimeout(cards.t); cards.t = setTimeout(cards, 60); }).observe(list, { childList: true, subtree: true });
+  mq.addEventListener ? mq.addEventListener('change', place) : mq.addListener(place);
+  place();
+})();
+</script>
 </body>
 </html>

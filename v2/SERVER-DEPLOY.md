@@ -492,6 +492,14 @@ One more, created by the same `functions:hub` deploy:
 
 **Nothing to press after the deploy.** It acts on the next change to each service.
 
+### Added 16 Oct 2026: who may email whom
+
+One more, created by the same `functions:hub` deploy:
+
+| Function | Safe before switch-over? |
+|---|---|
+| `compilerSend` (callable) | **Yes.** The Email Compiler sends through it: the church office and master admins to anyone, a team leader to the people on their teams (and themselves), anybody else refused. Each email is logged in `emailOutbox` (Emails sent). Until it is deployed the page falls back to the old direct send (no check), so deploy it with this push. |
+
 ### Deploying N-4, step by step (Martin, with a window watching)
 
 1. In the `v2` folder: `git pull`, so the code is today's.

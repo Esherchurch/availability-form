@@ -7387,3 +7387,36 @@ made with the paired computer's own sign-in.
 - **Deploy:** `lessonFor` (changed), with the rules (planGroups may now hold `siteId`).
 - **Before a group shows in ChurchShow,** a master admin sets its building in the planner's
   ⚙ Groups.
+
+### F-229 — Who may post and email (Martin, 16 Oct); pages that ignore "View as" (for the events window; from the main window)
+
+**Martin's decision, now in the rules, the hub and the server (any church):**
+team leaders (adminFor a team) post a notice to THEIR teams and email
+THEIR team's people; the church office (Church office group) and master
+admins post to everyone and email anyone; nobody else gets either button.
+- `news` (firestore.rules): create/update/delete by `mayNoticeTo(teams)`:
+  master, Church office, or an admin whose `adminFor` holds every team on
+  it. A leader can't post to everyone (`teams: []`).
+- `addressBook` write: master and the office, anyone; a leader, records on
+  their teams, adding or removing only their own teams' ticks, never
+  adminFor/masterAdmin/isMinor; new people on their teams only.
+- The Email Compiler now sends through the hub (`compilerSend`), which
+  checks every recipient against the sender's teams and logs to
+  emailOutbox (so it shows in Emails sent). **Team emails (`sendAsTeam`,
+  yours)** has its own leads/deputies list; worth checking it agrees with
+  this rule (a team's leads there vs `adminFor` here).
+
+**Your pages that show the real master admin's view while "View as" is on**
+(the reviewing window's audit, §4): Room bookings (approve/decline),
+Small groups (Oversight, Settings), Children's register, Safeguarding
+settings, Event check-in, Registers. They ask who is really signed in;
+please ask `EGBCAuth.isMaster()` / `isAdminOf()` / `effectiveTeams()`,
+which honour View as. (Mine fixed the same way: care-inbox.html.)
+
+**Refused pages:** egbc-auth's refusal card no longer wipes the page (its
+content goes into a hidden, inert box), so a page's own script no longer
+throws "Cannot set properties of null" behind it. Pages that read data
+should still wait for the guard: `egbc-db.js` now exports `allowed`
+(settled on `egbc-ready`; only for pages WITH a guard), and egbc-guard sets
+`window.EGBC_READY`. audit-everything now fails a refused page that logs
+errors.

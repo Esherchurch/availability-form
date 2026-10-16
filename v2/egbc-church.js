@@ -163,7 +163,7 @@
      before they are drawn. The per-church switch comes after launch;
      until it exists every part is on. A page that does not load this
      file should ask `!window.EGBCChurch || EGBCChurch.uses(name)`.
-     Names so far: 'notifications'; 'sundaysInWhatsOn' (rota services in
+     Names so far: 'notifications'; 'preachingPlan'; 'sundaysInWhatsOn' (rota services in
      What's On - the server reads churchSettings/features.sundaysInWhatsOn,
      false meaning off). */
   function uses(name) { return true; }

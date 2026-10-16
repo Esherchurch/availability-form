@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610152310"></script>
-<script src="egbc-shell.js?v=202610160500" data-title="Address Book"></script>
+<script src="egbc-shell.js?v=202610160600" data-title="Address Book"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610160500"></script>
-<script src="egbc-guard.js?v=202610121600" data-admin="any"></script>
+<script src="egbc-auth.js?v=202610160800"></script>
+<script src="egbc-guard.js?v=202610160810" data-admin="any" data-also-team="Church office"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Address Book - Master Manager</title>
@@ -150,7 +150,16 @@
             
             const allMembers = [];
             memberCache = {};
-            snapshot.forEach((d) => allMembers.push({id: d.id, ...d.data()}));
+            /* WHO SEES WHOM (Martin, 16 Oct 2026, any church): a team leader
+               sees the people on THEIR teams; the church office and master
+               admins see everyone. Changing a record follows the same line in
+               the rules (firestore.rules, bookLeaderOk). */
+            const seesAll = EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office');
+            const mine = EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : [];
+            snapshot.forEach((d) => {
+                const m = {id: d.id, ...d.data()};
+                if (seesAll || (m.markers || []).some(t => mine.includes(t))) allMembers.push(m);
+            });
 
             allMembers.forEach((member) => {
                 memberCache[member.id] = member;
@@ -258,11 +267,11 @@
    records outside their areas. */
 function canEditMember(m){
   if(typeof EGBCAuth==='undefined'||!EGBCAuth.profile())return true;
-  if(EGBCAuth.isMaster())return true;
+  if(EGBCAuth.isMaster()||EGBCAuth.inTeam('Church office'))return true;
   const mine=EGBCAuth.adminAreas();
   const theirs=Array.isArray(m.markers)?m.markers:[];
-  // A brand new person belongs to nobody yet, so any admin may set them up.
-  if(!theirs.length)return true;
+  // On nobody's team yet: the office's to set up (the rules agree, 16 Oct 2026).
+  if(!theirs.length)return false;
   return theirs.some(t=>mine.includes(t));
 }
 
@@ -273,7 +282,8 @@ function applyAdminScope(){
   const mine=EGBCAuth.adminAreas();
 
   document.querySelectorAll('.marker').forEach(cb=>{
-    const allowed=master||mine.includes(cb.value);
+    /* The church office ticks any team (16 Oct 2026); a leader, their own. */
+    const allowed=master||EGBCAuth.inTeam('Church office')||mine.includes(cb.value);
     cb.disabled=!allowed;
     const l=cb.closest('label');
     if(l){l.style.opacity=allowed?'':'0.35';l.title=allowed?'':'You do not administer this team';}

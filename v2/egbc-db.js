@@ -139,3 +139,13 @@ export function connectionInfo() {
   catch (e) {}
   return { app: app.name, host: host, emulator: usingEmulator, uid: (auth.currentUser && auth.currentUser.uid) || null };
 }
+
+/* ALLOWED: settled when the page's guard (egbc-guard.js) has let this person
+   in. A page that has a guard awaits it before reading anything, so a
+   refused visitor's reads are never sent - they were refused anyway, and
+   filled the console under the "not for you" card (audit, 16 Oct 2026).
+   Only for pages WITH a guard: without one it never settles. */
+export const allowed = new Promise((res) => {
+  if (window.EGBC_READY) res();
+  else document.addEventListener('egbc-ready', () => res(), { once: true });
+});

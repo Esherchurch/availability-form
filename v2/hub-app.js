@@ -968,10 +968,17 @@ function noticeWhen(n) {
 
 /* Anybody who can edit a notice can write one. canEditNews() answers it
    for a notice that exists; this is the same question with none. */
+/* WHO MAY POST A NOTICE (Martin, 16 Oct 2026, any church - the rules say
+   the same, firestore.rules match /news): the church office and master
+   admins, to anyone; a team leader (adminFor), to their own teams only;
+   nobody else sees the button. */
+function mayNoticeEveryone() {
+  return !!window.EGBCAuth && (EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'));
+}
 function canPostNotice() {
   if (!window.EGBCAuth) return false;
-  if (EGBCAuth.isMaster()) return true;
-  return (EGBCAuth.profile() && (EGBCAuth.profile().adminFor || []).length > 0);
+  if (mayNoticeEveryone()) return true;
+  return (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : ((EGBCAuth.profile() || {}).adminFor || [])).length > 0;
 }
 
 function renderNoticesCard() {
@@ -1294,11 +1301,13 @@ function textOf(raw) {
 
 /* Karen may remove a Kids Church notice, not an AV one. Church-wide notices
    belong to master admins. */
+/* A leader changes a notice only when it is wholly their teams' - one
+   that also reaches another team, or everyone, is the office's. */
 function canEditNews(n) {
-  if (EGBCAuth.isMaster()) return true;
+  if (mayNoticeEveryone()) return true;
   const teams = n.teams || [];
   if (!teams.length) return false;
-  return teams.some(t => EGBCAuth.isAdminOf(t));
+  return teams.every(t => EGBCAuth.isAdminOf(t));
 }
 
 /* â”€â”€ My events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1916,8 +1925,9 @@ function openNewsEditor(id) {
      to the whole church should be a deliberate act - otherwise every notice
      goes to everybody and people stop reading them. Everyone is still there
      for the things that genuinely are church-wide, like the bulletin. */
-  const areas = EGBCAuth.isMaster() ? Object.keys(EGBCAuth.TEAMS) : EGBCAuth.adminAreas();
-  const selectable = areas.filter(t => !EGBCAuth.TEAMS[t].parent);
+  const everyoneOk = mayNoticeEveryone();
+  const areas = everyoneOk ? Object.keys(EGBCAuth.TEAMS) : EGBCAuth.adminAreas();
+  const selectable = areas.filter(t => EGBCAuth.TEAMS[t] && !EGBCAuth.TEAMS[t].parent);
 
   let on;
   if (n) {
@@ -1925,15 +1935,17 @@ function openNewsEditor(id) {
   } else if (TEAM && selectable.includes(TEAM)) {
     on = new Set([TEAM]);
   } else {
-    on = new Set();
+    /* A leader cannot post to everyone, so a new notice starts on one of
+       their own teams rather than on a choice the church will refuse. */
+    on = new Set(everyoneOk || !selectable.length ? [] : [selectable[0]]);
   }
 
   document.getElementById('nwTeams').innerHTML =
     selectable.map(t =>
       `<button class="chip ${on.has(t) ? 'on' : ''}" data-team="${t}" onclick="pickTeam(this)">${esc(EGBCAuth.TEAMS[t].label)}</button>`
     ).join('') +
-    `<button class="chip ${!on.size ? 'on' : ''}" data-team="" onclick="pickTeam(this)"
-      style="margin-left:6px;border-style:dashed">Everyone</button>`;
+    (everyoneOk ? `<button class="chip ${!on.size ? 'on' : ''}" data-team="" onclick="pickTeam(this)"
+      style="margin-left:6px;border-style:dashed">Everyone</button>` : '');
 
   document.getElementById('newsModal').classList.add('on');
 }
@@ -1965,7 +1977,8 @@ function pickTeam(el) {
     document.querySelectorAll('#nwTeams .chip').forEach(c => c.classList.toggle('on', c === el));
   } else {
     el.classList.toggle('on');
-    document.querySelector('#nwTeams .chip[data-team=""]').classList.remove('on');
+    const all = document.querySelector('#nwTeams .chip[data-team=""]');   /* none for a leader */
+    if (all) all.classList.remove('on');
   }
 }
 
@@ -1977,6 +1990,7 @@ async function saveNews() {
   const teams = Array.from(document.querySelectorAll('#nwTeams .chip.on'))
     .map(c => c.dataset.team).filter(Boolean);
 
+  if (!teams.length && !mayNoticeEveryone()) { alert('Choose which of your teams this is for.'); return; }
   if (!teams.length && !confirm('This will go to everyone in the church, on every team.\n\nPost it church-wide?')) return;
 
   const urgentBox = document.getElementById('nwUrgent');

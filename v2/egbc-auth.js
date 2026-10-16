@@ -1543,7 +1543,33 @@
          clean 0 on a page it had never opened. One attribute settles it. */
       document.body.setAttribute('data-egbc-blocked', title || 'blocked');
 
-      document.body.innerHTML =
+      /* THE PAGE IS PUT AWAY, NOT DELETED (the reviewing window's audit,
+         15 Oct 2026: Planner, Sunday Service Planner, Forms and others threw
+         "Cannot set properties of null" underneath this card, because their
+         own scripts carried on and found their elements gone). Its content
+         goes into a hidden, inert box - still in the document for those
+         scripts, never seen or reachable - and the card goes on top. The
+         website's own bars stay, so there is still a way on. */
+      var keep = { 'egbc-bar': 1, 'egbc-viewas': 1, 'egbc-viewas-top': 1, 'egbc-tabbar': 1 };
+      var away = document.getElementById('egbc-blocked-page');
+      if (!away) {
+        away = document.createElement('div');
+        away.id = 'egbc-blocked-page';
+        away.hidden = true;
+        away.setAttribute('inert', '');
+        away.setAttribute('aria-hidden', 'true');
+        Array.prototype.slice.call(document.body.childNodes).forEach(function (n) {
+          if (n.nodeType === 1 && (keep[n.id] || n.tagName === 'SCRIPT' || n.tagName === 'STYLE')) return;
+          away.appendChild(n);
+        });
+        document.body.appendChild(away);
+      }
+      var old = document.getElementById('egbc-blocked-card');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+      var card = document.createElement('div');
+      card.id = 'egbc-blocked-card';
+      document.body.appendChild(card);
+      card.innerHTML =
         '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
         'font-family:Montserrat,system-ui,sans-serif;background:#eef4f3;color:#14201f">' +
           '<div style="background:#fff;border:1px solid #dde7e6;border-radius:24px;padding:48px;max-width:460px;text-align:center;' +

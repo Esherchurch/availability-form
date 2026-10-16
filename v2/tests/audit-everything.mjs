@@ -307,6 +307,7 @@ const CONTROLS = `(function(){
     var href = el.getAttribute('href') || '';
     list.push({ i: i, sig: el.tagName + '|' + words + '|' + href + '|' + (el.getAttribute('data-act') || el.getAttribute('data-lact') || ''), words: words, href: href,
       tel: /^(mailto|tel|sms|webcal|intent|whatsapp|geo):/i.test(href),
+      needsSel: el.hasAttribute('data-needs-selection'),
       chosen: el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-selected') === 'true' || !!el.getAttribute('aria-current') || /(^| )(on|active|selected|is-active|current)( |$)/.test(typeof el.className === 'string' ? el.className : '') });
   });
   return JSON.stringify(list);
@@ -458,6 +459,7 @@ async function tapAll(B, url, reopen) {
        stops every later tap reaching the page. */
     if (next.tel) continue;
     if (next.chosen) continue;      /* the choice already made: tapping it rightly changes nothing */
+    if (next.needsSel) continue;    /* Bold, Italic...: they act on selected text, and there is none */
     if (SKIP_TAP.test(next.words) || (LIVE && SKIP_LIVE.test(next.words))) { skipped.push(next.words || next.href); continue; }
     n++;
     const sel = '(document.querySelectorAll("a[href],button,[role=button],[data-act],[data-lact],[data-mact],[onclick],summary")[' + next.i + '])';
@@ -635,10 +637,55 @@ async function backToApp(B, { role, size, from }) {
   record({ screen: 'back to the app from ' + from, role, size, pass: !why.length, why, skipped: [] });
 }
 
+/* FINDABILITY (Martin, 16 Oct 2026): any everyday job within 2 taps of
+   Home. For each job this person can do, the fewest taps from the hub:
+   1 for a shortcut on Home (the phone's tab bar, the computer's sidebar, a
+   Home button such as "Post a notice"); otherwise 1 to open the Menu, 1 for
+   each heading to open, 1 for the item. Over 2 fails. */
+const JOBS = [
+  ['Send an email', 'EmailBuilder2.html', /send an email/i], ['Post a notice', null, /post a notice/i],
+  ['Rota', 'view-only-rota.html'], ['Rota planner', 'Planner.html'], ['Sunday service plan', 'SundayServicePlanner.html'],
+  ['Preaching plan', 'preaching-plan.html'], ['Address book', 'addressbook.html'], ['Team emails', 'team-mail.html'],
+  ['Events', 'events-admin.html'], ['Places', 'places-admin.html'], ['Room bookings', 'bookings-admin.html'],
+  ['Check-in', 'checkin.html'], ['Registers', 'attendance.html'], ['Headcounts', 'headcounts.html'],
+  ['Picture library', 'picture-library.html'], ['Church settings', 'church-settings.html'], ['Teams and groups', 'teams-admin.html'],
+  ['Payments', 'payments.html'], ['Safeguarding', 'safeguarding.html'], ['Emails sent', 'comms.html'], ['Backup', 'data-tools.html'],
+  ["What's on", 'whatson.html'], ['Watch & Listen', 'watch.html'], ['Give', 'give.html']
+];
+const FIND = `JSON.stringify((function(){
+  var depth = {};
+  (function walk(nodes, level){ nodes.forEach(function(n){
+    if (n.url) { var u = String(n.url).split('?')[0]; if (depth[u] === undefined || depth[u] > level) depth[u] = level; }
+    if (n.children) walk(n.children, level + 1); }); })(EGBCMenu.forPerson(EGBCMenu.who()), 0);
+  function vis(el){ var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
+  var direct = {};
+  [].forEach.call(document.querySelectorAll('#egbc-tabbar a, #sidebar a'), function(a){ if (vis(a)) direct[String(a.getAttribute('href')||'').split('?')[0]] = 1; });
+  var buttons = [].filter.call(document.querySelectorAll('button, a'), vis).map(function(b){ return (b.textContent||'').replace(/\\s+/g,' ').trim(); });
+  return { depth: depth, direct: direct, buttons: buttons };
+})())`;
+async function findability(B, role, size, base) {
+  await B.size(...ALL_SIZES[size]);
+  await B.go(base + 'hub.html');
+  await sleep(1500);
+  const f = JSON.parse((await B.ev(FIND)) || '{"depth":{},"direct":{},"buttons":[]}');
+  const why = [], seen = [];
+  for (const [job, url, button] of JOBS) {
+    let taps = null;
+    if (button && f.buttons.some(t => button.test(t))) taps = 1;
+    if (url && f.direct[url]) taps = 1;
+    if (taps === null && url && f.depth[url] !== undefined) taps = 2 + f.depth[url];
+    if (taps === null) continue;                    /* not a job this person has */
+    seen.push(job + ' ' + taps);
+    if (taps > 2) why.push('findability: ' + job + ' is ' + taps + ' taps from Home');
+  }
+  record({ screen: 'findability (taps from Home)', role, size, pass: !why.length, why, skipped: [], jobs: seen });
+}
+
 async function runRole(B, role, size, base, shared) {
   const tapsHere = !NO_TAPS && String(size) === TAP_SIZE;
   await signIn(B, base, role);
   await B.size(...ALL_SIZES[size]);
+  if (!NO_SITE && (String(size) === TAP_SIZE || size === '1440')) await findability(B, role, size, base);
   /* ---- website ---- */
   if (!NO_SITE) {
     const menu = await menuFor(B, base);
@@ -652,8 +699,12 @@ async function runRole(B, role, size, base, shared) {
         await B.go(base + page);
         const m = JSON.parse((await B.ev(MEASURE)) || '{}');
         const refused = m.blocked || m.softRefused || /login\.html$/.test(m.path || '');
-        record({ screen: page + ' (not in their Menu)', role, size, pass: !!refused,
-          why: refused ? [] : ['access: opens for ' + role + ', whose Menu does not offer it (it says: "' + (m.text || '') + '")'], skipped: [], m });
+        /* A refusal must not throw underneath (the reviewing window's audit,
+           15 Oct 2026: 'Cannot set properties of null' on refused pages). */
+        const errs = B.errors.slice();
+        const why = (refused ? [] : ['access: opens for ' + role + ', whose Menu does not offer it (it says: "' + (m.text || '') + '")'])
+          .concat(errs.length ? ['console: ' + errs[0] + (errs.length > 1 ? ' (+' + (errs.length - 1) + ' more)' : '')] : []);
+        record({ screen: page + ' (not in their Menu)', role, size, pass: !why.length, why, skipped: [], m });
         continue;
       }
       const key = page;

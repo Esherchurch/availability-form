@@ -37,6 +37,10 @@
        refuse it to anyone else, so Everyone was offered an error (audit). */
     { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days', anyTeam: true,
       description: 'Who is on, week by week' },
+    /* The Preaching plan (Ryan, the Pastor): speakers, leaders, readers.
+       For people on a team; the Pastor named on the page changes it. */
+    { title: 'Preaching plan', url: 'preaching-plan.html', icon: 'book-open', anyTeam: true, feature: 'preachingPlan',
+      description: 'Who is preaching, leading and reading' },
     /* ROTA REPORTS (the events window's rota-reports.html, F-210): clashes
        and an overview, for the people who make rotas - admins of the rota
        teams - and master admins. Feature 'rotaReports'. */

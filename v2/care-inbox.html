@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-appmode.js?v=202610152310"></script>
-<script src="egbc-shell.js?v=202610160500" data-title="Care &amp; support: what has come in"></script>
+<script src="egbc-shell.js?v=202610160600" data-title="Care &amp; support: what has come in"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Care &amp; support: what has come in — EGBC</title>
@@ -13,8 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610160500"></script>
-<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-auth.js?v=202610160800"></script>
+<script src="egbc-guard.js?v=202610160810"></script>
 <style>
   :root{
     --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
@@ -112,9 +112,13 @@ async function namedKinds() {
 
 let KINDS = [];
 async function load() {
-  SG = await amSafeguarding();
+  /* VIEWING AS somebody (the reviewing window's audit, 15 Oct 2026): what that
+     team would see, not what the master admin is named for - being the
+     safeguarding lead or named in Who gets told belongs to the person. */
+  const previewing = !!(EGBCAuth.viewingAs && EGBCAuth.viewingAs());
+  SG = previewing ? false : await amSafeguarding();
   PASTORAL = (EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : []).indexOf('Pastoral') !== -1;
-  const named = await namedKinds();
+  const named = previewing ? [] : await namedKinds();
   KINDS = SG ? ['pastoral', 'care', 'safeguarding']
     : [...new Set((PASTORAL ? ['pastoral', 'care'] : []).concat(named))];
   if (!KINDS.length) {

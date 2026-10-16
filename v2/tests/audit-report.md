@@ -1,94 +1,110 @@
 # Audit report
 
-Run 2026-10-16 01:50 UTC, on the emulator. Roles: master, areaAdmin, core, kids, worship, everyone. Sizes: 360, 375, 412, 1440. Taps at 375.
+Run 2026-10-16 10:13 UTC, on the emulator. Roles: master, areaAdmin, core, kids, worship, everyone. Sizes: 360, 375, 412, 1440. Taps at 375.
 
-**211 failing, 1481 passing, of 1692 screens.**
+**199 failing, 1537 passing, of 1736 screens.**
 
 Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<size>/.
 
 | Screen | Role | Size | Result | Why |
 |---|---|---|---|---|
-| addressbook.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Address Book Care AA Team directory + Add a person AA Audit Area admin (Worship) Synthetic audit.areaadmin@example.invalid — P: S: Edit × AC Audit Core Team Syn") |
+| addressbook.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Address Book Care AA Team directory + Add a person AB Ada Bandleader Synthetic — — P: S: Edit × AV App View Master Synthetic ava.master@example.invalid — P: S: ") |
+| addressbook.html (not in their Menu) | everyone | 375 | **FAIL** | console: [2026-10-16T11:45:02.672Z]  @firebase/firestore: Firestore (10.7.1): Uncaught Error in snapshot listener: FirebaseError: [code=permission-denied]: 
+evaluation error at L488:22 for 'list' @ L488, false |
 | app: core / plan | core | 360 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24) |
-| app: core / plan | core | 375 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24); dead: "+ Item" does nothing |
+| app: core / plan | core | 375 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24) |
 | app: core / plan | core | 412 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24) |
 | app: core / plan | master | 360 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24) |
-| app: core / plan | master | 375 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24); dead: "+ Item" does nothing |
+| app: core / plan | master | 375 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24) |
 | app: core / plan | master | 412 | **FAIL** | small: 1 control is under 30px to tap (Pick another date 113x24) |
-| app: core / rota | core | 360 | **FAIL** | small: 44 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
-| app: core / rota | core | 375 | **FAIL** | small: 44 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26); sheet: "New service or meeting Pick a date and a type" opens a sheet (cr-new-event) with no visible close after scrolling it; covered: "Populate" is under DIV#cr-new-event.cr-overlay; covered: "Auto-Fill" is under DIV#cr-new-event.cr-overlay; covered: "+ Practices" is under DIV.cr-sheet; covered: "+ Service" is under DIV.cr-sheet; covered: "Gather Avail" is under DIV.cr-sheet; covered: "Hide Assigned" is under DIV.cr-title; covered: "Show past dates" is under DIV.cr-title; covered: "Audit" is under DIV.cr-sheet; covered: "−" is under LABEL.cr-label; covered: "" is under SELECT#new-event-type.cr-select; covered: "Close" is under SELECT#new-event-type.cr-select; covered: "Audit Worship member Synthetic" is under SELECT#new-event-type.cr-select; covered: "Tap to assign" is under SELECT#new-event-type.cr-select; covered: "Autumn 2026" is under SELECT#new-event-type.cr-select; covered: "Plan" is under BUTTON.cr-btn; covered: "Meetings" is under BUTTON#event-modal-btn.cr-btn; covered: "Team" is under BUTTON#event-modal-btn.cr-btn |
-| app: core / rota | core | 412 | **FAIL** | small: 44 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
-| app: core / rota | master | 360 | **FAIL** | small: 16 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
-| app: core / rota | master | 375 | **FAIL** | small: 44 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26); sheet: "New service or meeting Pick a date and a type" opens a sheet (cr-new-event) with no visible close after scrolling it; covered: "Populate" is under DIV#cr-new-event.cr-overlay; covered: "Auto-Fill" is under DIV#cr-new-event.cr-overlay; covered: "+ Practices" is under DIV.cr-sheet; covered: "+ Service" is under DIV.cr-sheet; covered: "Gather Avail" is under DIV.cr-sheet; covered: "Hide Assigned" is under DIV.cr-title; covered: "Audit" is under DIV.cr-sheet; covered: "−" is under LABEL.cr-label; covered: "" is under SELECT#new-event-type.cr-select; covered: "Close" is under SELECT#new-event-type.cr-select; covered: "Audit Worship member Synthetic" is under SELECT#new-event-type.cr-select; covered: "Tap to assign" is under SELECT#new-event-type.cr-select; covered: "Autumn 2026" is under SELECT#new-event-type.cr-select; covered: "Plan" is under BUTTON.cr-btn; covered: "Meetings" is under BUTTON#event-modal-btn.cr-btn; covered: "Team" is under BUTTON#event-modal-btn.cr-btn |
-| app: core / rota | master | 412 | **FAIL** | small: 44 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
-| app: me / home | worship | 360 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: me / home | worship | 375 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: me / home | worship | 412 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | areaAdmin | 360 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | areaAdmin | 375 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | areaAdmin | 412 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | core | 360 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | core | 375 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | core | 412 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | master | 360 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | master | 375 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | master | 412 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | worship | 360 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | worship | 375 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
-| app: worship / rota | worship | 412 | **FAIL** | small: 1 control is under 30px to tap (Whole rota 68x20) |
+| app: core / rota | core | 360 | **FAIL** | small: 523 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
+| app: core / rota | core | 375 | **FAIL** | small: 549 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
+| app: core / rota | core | 412 | **FAIL** | small: 549 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
+| app: core / rota | master | 360 | **FAIL** | small: 497 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
+| app: core / rota | master | 375 | **FAIL** | small: 537 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
+| app: core / rota | master | 412 | **FAIL** | small: 549 controls are under 30px to tap (Audit 46x22; Archive 68x28; − 26x26) |
 | attendance.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Registers Care AA Open this from an event: Events, then Who is coming, then Registers and downloads. Events") |
 | attendance.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Registers Care AC Open this from an event: Events, then Who is coming, then Registers and downloads. Events") |
 | attendance.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Registers Care AE Open this from an event: Events, then Who is coming, then Registers and downloads. Events") |
 | attendance.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Registers Care AK Open this from an event: Events, then Who is coming, then Registers and downloads. Events") |
 | attendance.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Registers Care AW Open this from an event: Events, then Who is coming, then Registers and downloads. Events") |
-| back to the app from CoreTeamApp.html | core | 360 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from CoreTeamApp.html | core | 375 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from CoreTeamApp.html | core | 412 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from CoreTeamApp.html | core | 1440 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from CoreTeamApp.html | master | 360 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from CoreTeamApp.html | master | 375 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from CoreTeamApp.html | master | 412 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from CoreTeamApp.html | master | 1440 | **FAIL** | chrome: no "Back to the app" arrow on CoreTeamApp.html |
-| back to the app from EGBC-PlayThrough.html | master | 1440 | **FAIL** | chrome: no "Back to the app" arrow on EGBC-PlayThrough.html |
-| back to the app from EGBC-Training-Worship.html | master | 412 | **FAIL** | chrome: no "Back to the app" arrow on EGBC-Training-Worship.html |
 | checkin.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Check-in Care AA Check-in Choose the event you are checking people in to. Roll-call: who is in now Today and this week Nothing in the next week.") |
 | checkin.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Check-in Care AC Check-in Choose the event you are checking people in to. These are the events you lead. Today and this week Nothing in the next week.") |
 | checkin.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Check-in Care AE Check-in Choose the event you are checking people in to. These are the events you lead. Today and this week Nothing in the next week.") |
 | checkin.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Check-in Care AK Check-in Choose the event you are checking people in to. These are the events you lead. Today and this week Nothing in the next week.") |
 | checkin.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Check-in Care AW Check-in Choose the event you are checking people in to. These are the events you lead. Today and this week Nothing in the next week.") |
 | church-settings.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Church details Care AA Church details The name, enquiry email and logo shown on the public room-hire pages and in emails. Change them here, once. Church name En") |
-| data-tools.html | master | 360 | **FAIL** | small: 31 controls are under 30px to tap (INPUT 123x17; INPUT 123x17; INPUT 123x17) |
-| data-tools.html | master | 375 | **FAIL** | small: 31 controls are under 30px to tap (INPUT 131x17; INPUT 131x17; INPUT 131x17); console: unhandled rejection: srcConfig is not defined |
-| data-tools.html | master | 412 | **FAIL** | small: 31 controls are under 30px to tap (INPUT 149x17; INPUT 149x17; INPUT 149x17) |
+| Coreteamcharter.html (not in their Menu) | everyone | 375 | **FAIL** | console: Charter load failed FirebaseError: 
+evaluation error at L1416:22 for 'get' @ L1416, false for 'get' @ L4264, false for 'get' @ L1416, false for 'get' @ L4264 |
+| data-tools.html | master | 360 | **FAIL** | small: 1 control is under 30px to tap (Clear 26x15) |
+| data-tools.html | master | 375 | **FAIL** | small: 1 control is under 30px to tap (Clear 26x15) |
+| data-tools.html | master | 412 | **FAIL** | small: 1 control is under 30px to tap (Clear 26x15) |
 | EGBC-HowTo-AV.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Camera setup" does nothing; dead: "EQ settings" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing |
-| EGBC-PlayThrough.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Way Maker" does nothing; dead: "Keyboard intro" does nothing; dead: "Guitar chorus" does nothing; dead: "Intros" does nothing; dead: "Chorus" does nothing; dead: "Full Songs" does nothing; dead: "A" does nothing; dead: "B♭" does nothing; dead: "B" does nothing; dead: "C" does nothing; dead: "D" does nothing; dead: "E" does nothing; dead: "F" does nothing; dead: "G" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing |
-| EGBC-Training-Worship.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Keys playing" does nothing; dead: "Stage presence" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing |
+| EGBC-PlayThrough.html | areaAdmin | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| EGBC-PlayThrough.html | areaAdmin | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24) |
+| EGBC-PlayThrough.html | areaAdmin | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| EGBC-PlayThrough.html | core | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| EGBC-PlayThrough.html | core | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24) |
+| EGBC-PlayThrough.html | core | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| EGBC-PlayThrough.html | master | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| EGBC-PlayThrough.html | master | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24); dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Way Maker" does nothing; dead: "Keyboard intro" does nothing; dead: "Guitar chorus" does nothing; dead: "Intros" does nothing; dead: "Chorus" does nothing; dead: "Full Songs" does nothing; dead: "A" does nothing; dead: "B♭" does nothing; dead: "B" does nothing; dead: "C" does nothing; dead: "D" does nothing; dead: "E" does nothing; dead: "F" does nothing; dead: "G" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "All Songs 1 item" does nothing; sheet: "Published playthrough" opens a sheet (modal) with no visible close after scrolling it |
+| EGBC-PlayThrough.html | master | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| EGBC-PlayThrough.html | worship | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| EGBC-PlayThrough.html | worship | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24) |
+| EGBC-PlayThrough.html | worship | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| EGBC-Training-Worship.html | areaAdmin | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| EGBC-Training-Worship.html | areaAdmin | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24) |
+| EGBC-Training-Worship.html | areaAdmin | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
+| EGBC-Training-Worship.html | core | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| EGBC-Training-Worship.html | core | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24) |
+| EGBC-Training-Worship.html | core | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
+| EGBC-Training-Worship.html | master | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| EGBC-Training-Worship.html | master | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24); dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Keys playing" does nothing; dead: "Stage presence" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "All Content 1 item" does nothing; sheet: "Video Published training" opens a sheet (modal) with no visible close after scrolling it |
+| EGBC-Training-Worship.html | master | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
+| EGBC-Training-Worship.html | worship | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| EGBC-Training-Worship.html | worship | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24) |
+| EGBC-Training-Worship.html | worship | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
 | EGBC-Troubleshoot-AV.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Black screen" does nothing; dead: "Mic feedback" does nothing; dead: "Projector" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "Add by URL instead" does nothing |
-| EmailBuilder2.html | master | 360 | **FAIL** | overflow: the page is 696px wide on a 360px screen (div#compiler-window 696px); small: 10 controls are under 30px to tap (B 32x28; I 32x28; •≡ 32x28); hidden: the end of the page is under the bottom bar |
-| EmailBuilder2.html | master | 375 | **FAIL** | overflow: the page is 696px wide on a 375px screen (div#compiler-window 696px); small: 10 controls are under 30px to tap (B 32x28; I 32x28; •≡ 32x28); hidden: the end of the page is under the bottom bar; dead: "Hub" does nothing; dead: "Menu" does nothing; dead: "Care and support Care" does nothing; dead: "You: Audit Master admin Synthetic AM" does nothing; dead: "B" does nothing; dead: "I" does nothing; dead: "•≡" does nothing; dead: "⤓ Fix spacing" does nothing; dead: "a control" does nothing; dead: "⤢ Resize" does nothing; dead: "Pick individual people" does nothing; dead: "Open saved drafts" does nothing; dead: "change" does nothing; dead: "Open instructions ?" does nothing |
-| EmailBuilder2.html | master | 412 | **FAIL** | overflow: the page is 696px wide on a 412px screen (div#compiler-window 696px); small: 11 controls are under 30px to tap (B 32x28; I 32x28; •≡ 32x28); hidden: the end of the page is under the bottom bar |
-| EmailBuilder2.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Email Compiler Care AC Email Builder B I •≡ Size Small Normal Large Huge Font Arial Georgia Trebuchet Verdana Times Courier Spacing Tight Normal Roomy ⤓ Fix spa") |
-| events-admin.html | master | 360 | **FAIL** | small: 1 control is under 30px to tap (Choo e Audit Coffee Morn 22x22); hidden: the end of the page is under the bottom bar |
-| events-admin.html | master | 375 | **FAIL** | small: 2 controls are under 30px to tap (Choo e Sunday Morning Wo 22x22; Choo e Audit Coffee Morn 22x22); hidden: the end of the page is under the bottom bar; sheet: "Share on WhatsApp" opens a sheet (egbc-share-back) with no visible close after scrolling it |
-| events-admin.html | master | 412 | **FAIL** | small: 2 controls are under 30px to tap (Choo e Sunday Morning Wo 22x22; Choo e Audit Coffee Morn 22x22); hidden: the end of the page is under the bottom bar |
+| EmailBuilder2.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Email Compiler Care AA Email Builder B I •≡ Size Small Normal Large Huge Font Arial Georgia Trebuchet Verdana Times Courier Spacing Tight Normal Roomy ⤓ Fix spa") |
+| events-admin.html | master | 360 | **FAIL** | small: 5 controls are under 30px to tap (Choo e Sunday Morning Wo 22x22; Choo e Sunday Morning Wo 22x22; Choo e Sunday Morning Wo 22x22); hidden: the end of the page is under the bottom bar |
+| events-admin.html | master | 375 | **FAIL** | small: 6 controls are under 30px to tap (Choo e Sunday Morning Wo 22x22; Choo e Sunday Morning Wo 22x22; Choo e Sunday Morning Wo 22x22); hidden: the end of the page is under the bottom bar; sheet: "Share on WhatsApp" opens a sheet (egbc-share-back) with no visible close after scrolling it |
+| events-admin.html | master | 412 | **FAIL** | small: 6 controls are under 30px to tap (Choo e Sunday Morning Wo 22x22; Choo e Sunday Morning Wo 22x22; Choo e Sunday Morning Wo 22x22); hidden: the end of the page is under the bottom bar |
 | events-admin.html | master | 1440 | **FAIL** | hidden: the end of the page is under the bottom bar |
-| events-admin.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Events Care AA Events Create events, open sign-ups and see who is coming. New event Show past events What people see Coming up 2 Choose all 2 Sunday Morning Wor") |
+| events-admin.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Events Care AA Events Create events, open sign-ups and see who is coming. New event Show past events What people see Coming up 6 Choose all 6 Sunday Morning Wor") |
 | events-admin.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Events Care AC Events I run The events you are on the team for: change them, see who is coming, check people in. Show past events What people see You are not on") |
 | events-admin.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Events Care AE Events I run The events you are on the team for: change them, see who is coming, check people in. Show past events What people see You are not on") |
 | events-admin.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Events Care AK Events I run The events you are on the team for: change them, see who is coming, check people in. Show past events What people see You are not on") |
 | events-admin.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Events Care AW Events I run The events you are on the team for: change them, see who is coming, check people in. Show past events What people see You are not on") |
-| from the app: CoreTeamApp.html | core | 360 | **FAIL** | small: 2 controls are under 30px to tap (INPUT 16x16; Don't  how thi  again 132x16) |
-| from the app: CoreTeamApp.html | core | 375 | **FAIL** | small: 2 controls are under 30px to tap (INPUT 16x16; Don't  how thi  again 132x16) |
-| from the app: CoreTeamApp.html | core | 412 | **FAIL** | small: 2 controls are under 30px to tap (INPUT 16x16; Don't  how thi  again 132x16) |
-| from the app: CoreTeamApp.html | master | 360 | **FAIL** | small: 2 controls are under 30px to tap (INPUT 16x16; Don't  how thi  again 132x16); chrome: the website’s "View as" bar is showing inside the app |
-| from the app: CoreTeamApp.html | master | 375 | **FAIL** | small: 2 controls are under 30px to tap (INPUT 16x16; Don't  how thi  again 132x16); chrome: the website’s "View as" bar is showing inside the app; covered: "" is under DIV.tour-dismiss-layer; covered: "Service Planner Build & manage service orders" is under DIV.tour-dismiss-layer; covered: "Rota Planner Assign team to services" is under DIV.tour-dismiss-layer; covered: "Meetings Join video calls & see upcoming online meetings" is under DIV.tour-dismiss-layer |
-| from the app: CoreTeamApp.html | master | 412 | **FAIL** | small: 2 controls are under 30px to tap (INPUT 16x16; Don't  how thi  again 132x16); chrome: the website’s "View as" bar is showing inside the app |
-| from the app: CoreTeamApp.html | master | 1440 | **FAIL** | chrome: the website’s "View as" bar is showing inside the app |
+| findability (taps from Home) | areaAdmin | 375 | **FAIL** | findability: Room bookings is 4 taps from Home |
+| findability (taps from Home) | core | 375 | **FAIL** | findability: Rota planner is 4 taps from Home; findability: Sunday service plan is 4 taps from Home |
+| findability (taps from Home) | core | 1440 | **FAIL** | findability: Rota planner is 4 taps from Home; findability: Sunday service plan is 4 taps from Home |
+| findability (taps from Home) | master | 375 | **FAIL** | findability: Send an email is 4 taps from Home; findability: Rota planner is 4 taps from Home; findability: Sunday service plan is 4 taps from Home; findability: Address book is 4 taps from Home; findability: Team emails is 4 taps from Home; findability: Events is 4 taps from Home; findability: Places is 4 taps from Home; findability: Room bookings is 4 taps from Home; findability: Check-in is 4 taps from Home; findability: Registers is 4 taps from Home; findability: Headcounts is 4 taps from Home; findability: Picture library is 4 taps from Home; findability: Church settings is 4 taps from Home; findability: Teams and groups is 4 taps from Home; findability: Emails sent is 4 taps from Home; findability: Backup is 4 taps from Home |
+| findability (taps from Home) | master | 1440 | **FAIL** | findability: Send an email is 4 taps from Home; findability: Rota planner is 4 taps from Home; findability: Sunday service plan is 4 taps from Home; findability: Address book is 4 taps from Home; findability: Teams and groups is 4 taps from Home |
 | from the app: EGBC-HowTo-AV.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Camera setup" does nothing; dead: "EQ settings" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "People" does nothing; dead: "Bookings" does nothing |
-| from the app: EGBC-PlayThrough.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Way Maker" does nothing; dead: "Keyboard intro" does nothing; dead: "Guitar chorus" does nothing; dead: "Intros" does nothing; dead: "Chorus" does nothing; dead: "Full Songs" does nothing; dead: "A" does nothing; dead: "B♭" does nothing; dead: "B" does nothing; dead: "C" does nothing; dead: "D" does nothing; dead: "E" does nothing; dead: "F" does nothing; dead: "G" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "People" does nothing; dead: "Bookings" does nothing |
-| from the app: EGBC-PlayThrough.html | master | 1440 | **FAIL** | console: EGBCAuth profile load failed FirebaseError: Failed to get document because the client is offline. |
-| from the app: EGBC-Training-Worship.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Keys playing" does nothing; dead: "Stage presence" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "People" does nothing; dead: "Bookings" does nothing |
-| from the app: EGBC-Training-Worship.html | master | 412 | **FAIL** | console: EGBCAuth profile load failed FirebaseError: Failed to get document because the client is offline. |
+| from the app: EGBC-PlayThrough.html | areaAdmin | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| from the app: EGBC-PlayThrough.html | areaAdmin | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24) |
+| from the app: EGBC-PlayThrough.html | areaAdmin | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| from the app: EGBC-PlayThrough.html | core | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| from the app: EGBC-PlayThrough.html | core | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24) |
+| from the app: EGBC-PlayThrough.html | core | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| from the app: EGBC-PlayThrough.html | master | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| from the app: EGBC-PlayThrough.html | master | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24); dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Way Maker" does nothing; dead: "Keyboard intro" does nothing; dead: "Guitar chorus" does nothing; dead: "Intros" does nothing; dead: "Chorus" does nothing; dead: "Full Songs" does nothing; dead: "A" does nothing; dead: "B♭" does nothing; dead: "B" does nothing; dead: "C" does nothing; dead: "D" does nothing; dead: "E" does nothing; dead: "F" does nothing; dead: "G" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "All Songs 1 item" does nothing; sheet: "Published playthrough" opens a sheet (modal) with no visible close after scrolling it |
+| from the app: EGBC-PlayThrough.html | master | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| from the app: EGBC-PlayThrough.html | worship | 360 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 312x24) |
+| from the app: EGBC-PlayThrough.html | worship | 375 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 327x24) |
+| from the app: EGBC-PlayThrough.html | worship | 412 | **FAIL** | small: 1 control is under 30px to tap (All Song 1 item 364x24) |
+| from the app: EGBC-Training-Worship.html | areaAdmin | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| from the app: EGBC-Training-Worship.html | areaAdmin | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24) |
+| from the app: EGBC-Training-Worship.html | areaAdmin | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
+| from the app: EGBC-Training-Worship.html | core | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| from the app: EGBC-Training-Worship.html | core | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24) |
+| from the app: EGBC-Training-Worship.html | core | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
+| from the app: EGBC-Training-Worship.html | master | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| from the app: EGBC-Training-Worship.html | master | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24); dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Keys playing" does nothing; dead: "Stage presence" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "All Content 1 item" does nothing; sheet: "Video Published training" opens a sheet (modal) with no visible close after scrolling it |
+| from the app: EGBC-Training-Worship.html | master | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
+| from the app: EGBC-Training-Worship.html | worship | 360 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 312x24) |
+| from the app: EGBC-Training-Worship.html | worship | 375 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 327x24) |
+| from the app: EGBC-Training-Worship.html | worship | 412 | **FAIL** | small: 1 control is under 30px to tap (All Content1 item 364x24) |
 | from the app: EGBC-Troubleshoot-AV.html | master | 375 | **FAIL** | dead: "Search" does nothing; dead: "Clear" does nothing; dead: "Black screen" does nothing; dead: "Mic feedback" does nothing; dead: "Projector" does nothing; dead: "Upload and publish" does nothing; dead: "Replace video file" does nothing; dead: "a control" does nothing; dead: "Categories" does nothing; dead: "Manage" does nothing; dead: "Add by URL instead" does nothing; dead: "People" does nothing; dead: "Bookings" does nothing |
 | from the app: groups.html | areaAdmin | 360 | **FAIL** | small: 1 control is under 30px to tap (INPUT 157x20) |
 | from the app: groups.html | areaAdmin | 375 | **FAIL** | small: 1 control is under 30px to tap (INPUT 157x20) |
@@ -110,27 +126,16 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | from the app: groups.html | worship | 412 | **FAIL** | small: 1 control is under 30px to tap (INPUT 157x20) |
 | from the app: safeguarding.html | kids | 375 | **FAIL** | sheet: "Report a concern" opens a sheet (mBack) with no visible close after scrolling it |
 | headcounts.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Headcounts Care AA Headcounts A quick count for each Sunday service or event: how many adults, children and people online. Numbers only, no names. Add a count D") |
-| hub.html | areaAdmin | 360 | **FAIL** | small: 5 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Safeguardin 14x14; Show or hide Group  and  14x14) |
-| hub.html | areaAdmin | 375 | **FAIL** | small: 5 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Safeguardin 14x14; Show or hide Group  and  14x14) |
-| hub.html | areaAdmin | 412 | **FAIL** | small: 5 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Safeguardin 14x14; Show or hide Group  and  14x14) |
-| hub.html | core | 360 | **FAIL** | small: 3 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Core Team 14x14; Show or hide Re ource 14x14) |
-| hub.html | core | 375 | **FAIL** | small: 3 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Core Team 14x14; Show or hide Re ource 14x14) |
-| hub.html | core | 412 | **FAIL** | small: 3 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Core Team 14x14; Show or hide Re ource 14x14) |
-| hub.html | everyone | 360 | **FAIL** | small: 1 control is under 30px to tap (Show or hide Re ource 14x14) |
-| hub.html | everyone | 375 | **FAIL** | small: 1 control is under 30px to tap (Show or hide Re ource 14x14) |
-| hub.html | everyone | 412 | **FAIL** | small: 1 control is under 30px to tap (Show or hide Re ource 14x14) |
-| hub.html | kids | 360 | **FAIL** | small: 2 controls are under 30px to tap (Show or hide Kid  Church 14x14; Show or hide Re ource 14x14) |
-| hub.html | kids | 375 | **FAIL** | small: 2 controls are under 30px to tap (Show or hide Kid  Church 14x14; Show or hide Re ource 14x14) |
-| hub.html | kids | 412 | **FAIL** | small: 2 controls are under 30px to tap (Show or hide Kid  Church 14x14; Show or hide Re ource 14x14) |
-| hub.html | worship | 360 | **FAIL** | small: 2 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Re ource 14x14) |
-| hub.html | worship | 375 | **FAIL** | small: 2 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Re ource 14x14) |
-| hub.html | worship | 412 | **FAIL** | small: 2 controls are under 30px to tap (Show or hide Wor hip & A 14x14; Show or hide Re ource 14x14) |
-| hubresources.html | master | 375 | **FAIL** | sheet: "Admin Login" opens a sheet (admin-login-modal) with no visible close after scrolling it |
+| hubresources.html | master | 360 | **FAIL** | console: TypeError: Cannot read properties of null (reading 'appendChild'); console: unhandled rejection: Cannot read properties of null (reading 'appendChild') |
 | index.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Esher Green Baptist Church Availability Form Worship & AV Member Login Check My Services Choices are saved instantly as you click.") |
 | index.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Esher Green Baptist Church Availability Form Worship & AV Member Login Check My Services Choices are saved instantly as you click.") |
 | index.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Esher Green Baptist Church Availability Form Worship & AV Member Login Check My Services Choices are saved instantly as you click.") |
 | index.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Esher Green Baptist Church Availability Form Worship & AV Member Login Check My Services Choices are saved instantly as you click.") |
-| inventory-system-2.html | master | 375 | **FAIL** | sheet: "＋ Add Item" opens a sheet (itemOverlay) with no visible close after scrolling it |
+| inventory-system-2.html (not in their Menu) | everyone | 375 | **FAIL** | console: [2026-10-16T11:43:49.506Z]  @firebase/firestore: Firestore (10.12.2): Uncaught Error in snapshot listener: FirebaseError: [code=permission-denied]: 
+evaluation error at L1389:22 for 'list' @ L1389, fa |
+| kids-admin.html | master | 360 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 290x21; INPUT 290x21; INPUT 290x21) |
+| kids-admin.html | master | 375 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 305x21; INPUT 305x21; INPUT 305x21) |
+| kids-admin.html | master | 412 | **FAIL** | small: 5 controls are under 30px to tap (INPUT 342x21; INPUT 342x21; INPUT 342x21) |
 | kids-admin.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Children's register Care AA Children's register Sunday groups, the children registered for them, and registration: the parent consent form, once a year. Not set") |
 | kids-admin.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Children's register Care AC Children's register Sunday groups, the children registered for them, and registration: the parent consent form, once a year. Not set") |
 | kids-admin.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Children's register Care AE Children's register Sunday groups, the children registered for them, and registration: the parent consent form, once a year. Not set") |
@@ -139,19 +144,15 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | kids-checkin.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Sunday check-in Care AC Sunday check-in Children into their groups, labels with a collection code, and home again only with someone on their list or with that c") |
 | kids-checkin.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Sunday check-in Care AE Sunday check-in Children into their groups, labels with a collection code, and home again only with someone on their list or with that c") |
 | kids-checkin.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Sunday check-in Care AW Sunday check-in Children into their groups, labels with a collection code, and home again only with someone on their list or with that c") |
+| Library.html (not in their Menu) | everyone | 375 | **FAIL** | console: FirebaseError:  |
 | music-uploader.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Music Upload Esher Green Baptist Church Hub Menu Care & support AA Upload Song Drag & Drop or tap here to select files File Type Key Upload") |
 | payments.html | master | 375 | **FAIL** | dead: "Save" does nothing |
 | picture-library.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Picture library Care AA Picture library Pictures the church uses again and again. Choose one in an event with "Choose from library"; every date of a repeating e") |
 | places-admin.html | master | 360 | **FAIL** | hidden: the end of the page is under the bottom bar |
 | places-admin.html | master | 375 | **FAIL** | hidden: the end of the page is under the bottom bar |
+| places-admin.html | master | 412 | **FAIL** | hidden: the end of the page is under the bottom bar |
 | places-admin.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Places Care AA Places Sites, rooms, bookable kit and outside venues. Everything else refers to these by their record, never by name — so renaming is always safe") |
-| Planner.html | core | 360 | **FAIL** | overflow: the page is 404px wide on a 360px screen (div.flex.flex-wrap 403px); small: 28 controls are under 30px to tap (All active term AuditAut 160x28; Audit 36x21; Wor hip not done 136x30) |
-| Planner.html | core | 375 | **FAIL** | overflow: the page is 404px wide on a 375px screen (div.flex.flex-wrap 403px); small: 28 controls are under 30px to tap (All active term AuditAut 160x28; Audit 36x21; Wor hip not done 136x30) |
-| Planner.html | core | 412 | **FAIL** | small: 28 controls are under 30px to tap (All active term AuditAut 160x28; Audit 36x21; Wor hip not done 136x30) |
-| Planner.html | master | 360 | **FAIL** | overflow: the page is 404px wide on a 360px screen (div.flex.flex-wrap 403px); small: 15 controls are under 30px to tap (All active term Audit 160x28; Audit 36x21; Wor hip not done 136x30) |
-| Planner.html | master | 375 | **FAIL** | overflow: the page is 404px wide on a 375px screen (div.flex.flex-wrap 403px); small: 15 controls are under 30px to tap (All active term Audit 160x28; Audit 36x21; Wor hip not done 136x30); dead: "You: Audit Master admin Synthetic AM" does nothing; dead: "Indiv" does nothing; dead: "Home" does nothing; dead: "Wall" does nothing; dead: "Worship not done" does nothing; dead: "AV not done" does nothing; dead: "Autumn 2026" does nothing; dead: "?" does nothing |
-| Planner.html | master | 412 | **FAIL** | small: 28 controls are under 30px to tap (All active term AuditAut 160x28; Audit 36x21; Wor hip not done 136x30) |
-| Planner.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Rota Planner Care AA Term Spring Summer Autumn Populate Auto-Populate Add Practices + Service Gather Avail Hide Assigned Show past dates Sending as Send term Al") |
+| Planner.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Rota Planner Care AA Term Spring Summer Autumn + Service More Audit Worship not done AV waiting Archive October 2026 OCT 25 Sunday Morning Worship 08:00 · Speak") |
 | prayer.html | areaAdmin | 360 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 294x23; INPUT 294x23; INPUT 294x23) |
 | prayer.html | areaAdmin | 375 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 309x23; INPUT 309x23; INPUT 309x23) |
 | prayer.html | areaAdmin | 412 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 346x23; INPUT 346x23; INPUT 346x23) |
@@ -170,6 +171,8 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | prayer.html | worship | 360 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 294x23; INPUT 294x23; INPUT 294x23) |
 | prayer.html | worship | 375 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 309x23; INPUT 309x23; INPUT 309x23) |
 | prayer.html | worship | 412 | **FAIL** | small: 4 controls are under 30px to tap (INPUT 346x23; INPUT 346x23; INPUT 346x23) |
+| safeguarding-settings.html | areaAdmin | 412 | **FAIL** | small: 1 control is under 30px to tap (INPUT 342x21) |
+| safeguarding-settings.html | master | 412 | **FAIL** | small: 1 control is under 30px to tap (INPUT 342x21) |
 | safeguarding-settings.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Safeguarding settings Care AC Safeguarding settings These are set by admins and the safeguarding lead.") |
 | safeguarding-settings.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Safeguarding settings Care AE Safeguarding settings These are set by admins and the safeguarding lead.") |
 | safeguarding-settings.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Safeguarding settings Care AK Safeguarding settings These are set by admins and the safeguarding lead.") |
@@ -179,35 +182,23 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | safeguarding.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Safeguarding Care AE Safeguarding Leaders, ratios, checks, incidents and concerns. Report a concern Coming up No events for you here.") |
 | safeguarding.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Safeguarding Care AK Safeguarding Leaders, ratios, checks, incidents and concerns. Report a concern Coming up No events for you here.") |
 | safeguarding.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Safeguarding Care AW Safeguarding Leaders, ratios, checks, incidents and concerns. Report a concern Coming up No events for you here.") |
+| schematic.html (not in their Menu) | everyone | 375 | **FAIL** | console: [2026-10-16T11:43:53.859Z]  @firebase/firestore: Firestore (10.12.2): Uncaught Error in snapshot listener: FirebaseError: [code=permission-denied]: 
+evaluation error at L1394:22 for 'get' @ L1394, fal (+2 more) |
 | sermons-admin.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Sermons Care AA Sermons Sunday's sermons come in from Val's podcast on Spotify by themselves. Add the series and the Bible passage here. The live service and th") |
 | sermons-admin.html (not in their Menu) | core | 375 | **FAIL** | access: opens for core, whose Menu does not offer it (it says: "Sermons Care AC Sermons Sunday's sermons come in from Val's podcast on Spotify by themselves. Add the series and the Bible passage here. The live service and th") |
 | sermons-admin.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Sermons Care AE Sermons Sunday's sermons come in from Val's podcast on Spotify by themselves. Add the series and the Bible passage here. The live service and th") |
 | sermons-admin.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Sermons Care AK Sermons Sunday's sermons come in from Val's podcast on Spotify by themselves. Add the series and the Bible passage here. The live service and th") |
 | sermons-admin.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Sermons Care AW Sermons Sunday's sermons come in from Val's podcast on Spotify by themselves. Add the series and the Bible passage here. The live service and th") |
-| stickynotes.html | areaAdmin | 360 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | areaAdmin | 375 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | areaAdmin | 412 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | core | 360 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | core | 375 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | core | 412 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | kids | 360 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | kids | 375 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | kids | 412 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | master | 360 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | master | 375 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27); sheet: "Add Note" opens a sheet (noteModal) with no visible close after scrolling it; sheet: "Report" opens a sheet (reportModal) with no visible close after scrolling it; covered: "＋" is under rect; sheet: "Add an idea" opens a sheet (noteModal) with no visible close after scrolling it |
-| stickynotes.html | master | 412 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | worship | 360 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | worship | 375 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| stickynotes.html | worship | 412 | **FAIL** | small: 8 controls are under 30px to tap (General Board 120x29; All 64x27; Song 86x27) |
-| SundayServicePlanner.html | core | 360 | **FAIL** | small: 17 controls are under 30px to tap (Pick another date 113x24; ▼ 5x29; × 3x32) |
-| SundayServicePlanner.html | core | 375 | **FAIL** | small: 17 controls are under 30px to tap (Pick another date 113x24; ▼ 5x29; × 3x32) |
-| SundayServicePlanner.html | core | 412 | **FAIL** | small: 17 controls are under 30px to tap (Pick another date 113x24; ▼ 7x29; × 4x32) |
-| SundayServicePlanner.html | master | 360 | **FAIL** | small: 17 controls are under 30px to tap (Pick another date 113x24; ▼ 5x29; × 3x32) |
-| SundayServicePlanner.html | master | 375 | **FAIL** | small: 17 controls are under 30px to tap (Pick another date 113x24; ▼ 5x29; × 3x32); dead: "The service before ◀" does nothing; dead: "+ Add Item" does nothing; sheet: "Email Team" opens a sheet (emailModal) with no visible close after scrolling it |
-| SundayServicePlanner.html | master | 412 | **FAIL** | small: 17 controls are under 30px to tap (Pick another date 113x24; ▼ 7x29; × 4x32) |
-| SundayServicePlanner.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Sunday Service Planner Care AA ? Worship Planner Leader: None ◀ Fri 16 Oct 2026 · Sunday Morning Worship Sun 25 Oct 2026 · Sunday Morning Worship ▶ Pick another") |
+| SundayServicePlanner.html | core | 360 | **FAIL** | small: 5 controls are under 30px to tap (Pick another date 113x24; × 13x32; ▼ 5x29) |
+| SundayServicePlanner.html | core | 375 | **FAIL** | small: 5 controls are under 30px to tap (Pick another date 113x24; × 14x32; ▼ 5x29) |
+| SundayServicePlanner.html | core | 412 | **FAIL** | small: 5 controls are under 30px to tap (Pick another date 113x24; × 16x32; ▼ 7x29) |
+| SundayServicePlanner.html | master | 360 | **FAIL** | small: 22 controls are under 30px to tap (Pick another date 113x24; ▼ 5x29; × 3x32) |
+| SundayServicePlanner.html | master | 375 | **FAIL** | small: 22 controls are under 30px to tap (Pick another date 113x24; ▼ 5x29; × 3x32); sheet: "Email Team" opens a sheet (emailModal) with no visible close after scrolling it |
+| SundayServicePlanner.html | master | 412 | **FAIL** | small: 5 controls are under 30px to tap (Pick another date 113x24; × 16x32; ▼ 7x29) |
+| SundayServicePlanner.html (not in their Menu) | areaAdmin | 375 | **FAIL** | access: opens for areaAdmin, whose Menu does not offer it (it says: "Sunday Service Planner Care AA ? Worship Planner Leader: None ◀ Fri 16 Oct 2026 · Sunday Morning Worship Sun 18 Oct 2026 · Sunday Morning Worship Mon 19 Oct 202") |
 | team-mail.html | master | 375 | **FAIL** | dead: "Save" does nothing |
-| teams-admin.html | master | 375 | **FAIL** | dead: "Add" does nothing |
+| view-only-rota.html (not in their Menu) | everyone | 375 | **FAIL** | console: [2026-10-16T11:42:14.340Z]  @firebase/firestore: Firestore (10.7.1): Uncaught Error in snapshot listener: FirebaseError: [code=permission-denied]: 
+evaluation error at L488:22 for 'list' @ L488, false (+3 more) |
 | watch-admin.html | master | 360 | **FAIL** | small: 3 controls are under 30px to tap (INPUT 294x21; INPUT 294x21; INPUT 294x21) |
 | watch-admin.html | master | 375 | **FAIL** | small: 3 controls are under 30px to tap (INPUT 309x21; INPUT 309x21; INPUT 309x21); dead: "Add it" does nothing; dead: "Save" does nothing |
 | watch-admin.html | master | 412 | **FAIL** | small: 3 controls are under 30px to tap (INPUT 346x21; INPUT 346x21; INPUT 346x21) |
@@ -216,15 +207,18 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | watch-admin.html (not in their Menu) | everyone | 375 | **FAIL** | access: opens for everyone, whose Menu does not offer it (it says: "Watch Care AE Watch The live service, full services for the church, and the church's YouTube channel, in "Listen & Watch" in the app. Sermons are on their own p") |
 | watch-admin.html (not in their Menu) | kids | 375 | **FAIL** | access: opens for kids, whose Menu does not offer it (it says: "Watch Care AK Watch The live service, full services for the church, and the church's YouTube channel, in "Listen & Watch" in the app. Sermons are on their own p") |
 | watch-admin.html (not in their Menu) | worship | 375 | **FAIL** | access: opens for worship, whose Menu does not offer it (it says: "Watch Care AW Watch The live service, full services for the church, and the church's YouTube channel, in "Listen & Watch" in the app. Sermons are on their own p") |
-| youthserviceplanner.html | master | 360 | **FAIL** | small: 8 controls are under 30px to tap (Pick another date 113x24; ▼ 24x29; ▶ 29x24) |
-| youthserviceplanner.html | master | 375 | **FAIL** | small: 8 controls are under 30px to tap (Pick another date 113x24; ▼ 24x29; ▶ 29x24); dead: "The service before ◀" does nothing; dead: "The next service ▶" does nothing; dead: "+ Add Item" does nothing; dead: "▼" does nothing; dead: "×" does nothing; dead: "▶" does nothing; dead: "Save Schedule" does nothing; dead: "Email Team" does nothing |
-| youthserviceplanner.html | master | 412 | **FAIL** | small: 8 controls are under 30px to tap (Pick another date 113x24; ▼ 24x29; ▶ 29x24) |
+| Worshipteamcharter.html (not in their Menu) | everyone | 375 | **FAIL** | console: Charter load failed FirebaseError: 
+evaluation error at L1416:22 for 'get' @ L1416, false for 'get' @ L4264, false for 'get' @ L1416, false for 'get' @ L4264 |
+| Youthcharter.html (not in their Menu) | everyone | 375 | **FAIL** | console: Charter load failed FirebaseError: 
+evaluation error at L1416:22 for 'get' @ L1416, false for 'get' @ L4264, false for 'get' @ L1416, false for 'get' @ L4264 |
+| youthserviceplanner.html | master | 360 | **FAIL** | small: 8 controls are under 30px to tap (Pick another date 113x24; ▼ 24x29; ▼ 24x29) |
+| youthserviceplanner.html | master | 375 | **FAIL** | small: 8 controls are under 30px to tap (Pick another date 113x24; ▼ 24x29; ▼ 24x29); sheet: "Email Team" opens a sheet (emailModal) with no visible close after scrolling it |
+| youthserviceplanner.html | master | 412 | **FAIL** | small: 8 controls are under 30px to tap (Pick another date 113x24; ▼ 24x29; ▼ 24x29) |
 | addressbook.html | master | 360 | pass |  |
 | addressbook.html | master | 375 | pass |  |
 | addressbook.html | master | 412 | pass |  |
 | addressbook.html | master | 1440 | pass |  |
 | addressbook.html (not in their Menu) | core | 375 | pass |  |
-| addressbook.html (not in their Menu) | everyone | 375 | pass |  |
 | addressbook.html (not in their Menu) | kids | 375 | pass |  |
 | addressbook.html (not in their Menu) | worship | 375 | pass |  |
 | app: core / meetings | core | 360 | pass |  |
@@ -283,6 +277,9 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | app: me / home | master | 375 | pass |  |
 | app: me / home | master | 412 | pass |  |
 | app: me / home | master | 1440 | pass |  |
+| app: me / home | worship | 360 | pass |  |
+| app: me / home | worship | 375 | pass |  |
+| app: me / home | worship | 412 | pass |  |
 | app: me / home | worship | 1440 | pass |  |
 | app: me / listen | areaAdmin | 360 | pass |  |
 | app: me / listen | areaAdmin | 375 | pass |  |
@@ -384,9 +381,21 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | app: worship / learn | worship | 375 | pass |  |
 | app: worship / learn | worship | 412 | pass |  |
 | app: worship / learn | worship | 1440 | pass |  |
+| app: worship / rota | areaAdmin | 360 | pass |  |
+| app: worship / rota | areaAdmin | 375 | pass |  |
+| app: worship / rota | areaAdmin | 412 | pass |  |
 | app: worship / rota | areaAdmin | 1440 | pass |  |
+| app: worship / rota | core | 360 | pass |  |
+| app: worship / rota | core | 375 | pass |  |
+| app: worship / rota | core | 412 | pass |  |
 | app: worship / rota | core | 1440 | pass |  |
+| app: worship / rota | master | 360 | pass |  |
+| app: worship / rota | master | 375 | pass |  |
+| app: worship / rota | master | 412 | pass |  |
 | app: worship / rota | master | 1440 | pass |  |
+| app: worship / rota | worship | 360 | pass |  |
+| app: worship / rota | worship | 375 | pass |  |
+| app: worship / rota | worship | 412 | pass |  |
 | app: worship / rota | worship | 1440 | pass |  |
 | app: worship / sunday | areaAdmin | 360 | pass |  |
 | app: worship / sunday | areaAdmin | 375 | pass |  |
@@ -428,6 +437,10 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | back to the app from addressbook.html | master | 375 | pass |  |
 | back to the app from addressbook.html | master | 412 | pass |  |
 | back to the app from addressbook.html | master | 1440 | pass |  |
+| back to the app from bookings-admin.html | master | 360 | pass |  |
+| back to the app from bookings-admin.html | master | 375 | pass |  |
+| back to the app from bookings-admin.html | master | 412 | pass |  |
+| back to the app from bookings-admin.html | master | 1440 | pass |  |
 | back to the app from Coreteamcharter.html | core | 360 | pass |  |
 | back to the app from Coreteamcharter.html | core | 375 | pass |  |
 | back to the app from Coreteamcharter.html | core | 412 | pass |  |
@@ -463,6 +476,7 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | back to the app from EGBC-PlayThrough.html | master | 360 | pass |  |
 | back to the app from EGBC-PlayThrough.html | master | 375 | pass |  |
 | back to the app from EGBC-PlayThrough.html | master | 412 | pass |  |
+| back to the app from EGBC-PlayThrough.html | master | 1440 | pass |  |
 | back to the app from EGBC-PlayThrough.html | worship | 360 | pass |  |
 | back to the app from EGBC-PlayThrough.html | worship | 375 | pass |  |
 | back to the app from EGBC-PlayThrough.html | worship | 412 | pass |  |
@@ -477,6 +491,7 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | back to the app from EGBC-Training-Worship.html | core | 1440 | pass |  |
 | back to the app from EGBC-Training-Worship.html | master | 360 | pass |  |
 | back to the app from EGBC-Training-Worship.html | master | 375 | pass |  |
+| back to the app from EGBC-Training-Worship.html | master | 412 | pass |  |
 | back to the app from EGBC-Training-Worship.html | master | 1440 | pass |  |
 | back to the app from EGBC-Training-Worship.html | worship | 360 | pass |  |
 | back to the app from EGBC-Training-Worship.html | worship | 375 | pass |  |
@@ -498,6 +513,10 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | back to the app from EGBC-Troubleshoot-AV.html | worship | 375 | pass |  |
 | back to the app from EGBC-Troubleshoot-AV.html | worship | 412 | pass |  |
 | back to the app from EGBC-Troubleshoot-AV.html | worship | 1440 | pass |  |
+| back to the app from EmailBuilder2.html | master | 360 | pass |  |
+| back to the app from EmailBuilder2.html | master | 375 | pass |  |
+| back to the app from EmailBuilder2.html | master | 412 | pass |  |
+| back to the app from EmailBuilder2.html | master | 1440 | pass |  |
 | back to the app from groups.html | areaAdmin | 360 | pass |  |
 | back to the app from groups.html | areaAdmin | 375 | pass |  |
 | back to the app from groups.html | areaAdmin | 412 | pass |  |
@@ -670,6 +689,10 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | back to the app from view-only-rota.html | core | 375 | pass |  |
 | back to the app from view-only-rota.html | core | 412 | pass |  |
 | back to the app from view-only-rota.html | core | 1440 | pass |  |
+| back to the app from view-only-rota.html | kids | 360 | pass |  |
+| back to the app from view-only-rota.html | kids | 375 | pass |  |
+| back to the app from view-only-rota.html | kids | 412 | pass |  |
+| back to the app from view-only-rota.html | kids | 1440 | pass |  |
 | back to the app from view-only-rota.html | master | 360 | pass |  |
 | back to the app from view-only-rota.html | master | 375 | pass |  |
 | back to the app from view-only-rota.html | master | 412 | pass |  |
@@ -793,7 +816,6 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | Coreteamcharter.html | master | 412 | pass |  |
 | Coreteamcharter.html | master | 1440 | pass |  |
 | Coreteamcharter.html (not in their Menu) | areaAdmin | 375 | pass |  |
-| Coreteamcharter.html (not in their Menu) | everyone | 375 | pass |  |
 | Coreteamcharter.html (not in their Menu) | kids | 375 | pass |  |
 | Coreteamcharter.html (not in their Menu) | worship | 375 | pass |  |
 | data-tools.html | master | 1440 | pass |  |
@@ -819,37 +841,15 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | EGBC-HowTo-AV.html | worship | 1440 | pass |  |
 | EGBC-HowTo-AV.html (not in their Menu) | everyone | 375 | pass |  |
 | EGBC-HowTo-AV.html (not in their Menu) | kids | 375 | pass |  |
-| EGBC-PlayThrough.html | areaAdmin | 360 | pass |  |
-| EGBC-PlayThrough.html | areaAdmin | 375 | pass |  |
-| EGBC-PlayThrough.html | areaAdmin | 412 | pass |  |
 | EGBC-PlayThrough.html | areaAdmin | 1440 | pass |  |
-| EGBC-PlayThrough.html | core | 360 | pass |  |
-| EGBC-PlayThrough.html | core | 375 | pass |  |
-| EGBC-PlayThrough.html | core | 412 | pass |  |
 | EGBC-PlayThrough.html | core | 1440 | pass |  |
-| EGBC-PlayThrough.html | master | 360 | pass |  |
-| EGBC-PlayThrough.html | master | 412 | pass |  |
 | EGBC-PlayThrough.html | master | 1440 | pass |  |
-| EGBC-PlayThrough.html | worship | 360 | pass |  |
-| EGBC-PlayThrough.html | worship | 375 | pass |  |
-| EGBC-PlayThrough.html | worship | 412 | pass |  |
 | EGBC-PlayThrough.html | worship | 1440 | pass |  |
 | EGBC-PlayThrough.html (not in their Menu) | everyone | 375 | pass |  |
 | EGBC-PlayThrough.html (not in their Menu) | kids | 375 | pass |  |
-| EGBC-Training-Worship.html | areaAdmin | 360 | pass |  |
-| EGBC-Training-Worship.html | areaAdmin | 375 | pass |  |
-| EGBC-Training-Worship.html | areaAdmin | 412 | pass |  |
 | EGBC-Training-Worship.html | areaAdmin | 1440 | pass |  |
-| EGBC-Training-Worship.html | core | 360 | pass |  |
-| EGBC-Training-Worship.html | core | 375 | pass |  |
-| EGBC-Training-Worship.html | core | 412 | pass |  |
 | EGBC-Training-Worship.html | core | 1440 | pass |  |
-| EGBC-Training-Worship.html | master | 360 | pass |  |
-| EGBC-Training-Worship.html | master | 412 | pass |  |
 | EGBC-Training-Worship.html | master | 1440 | pass |  |
-| EGBC-Training-Worship.html | worship | 360 | pass |  |
-| EGBC-Training-Worship.html | worship | 375 | pass |  |
-| EGBC-Training-Worship.html | worship | 412 | pass |  |
 | EGBC-Training-Worship.html | worship | 1440 | pass |  |
 | EGBC-Training-Worship.html (not in their Menu) | everyone | 375 | pass |  |
 | EGBC-Training-Worship.html (not in their Menu) | kids | 375 | pass |  |
@@ -870,11 +870,21 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | EGBC-Troubleshoot-AV.html | worship | 1440 | pass |  |
 | EGBC-Troubleshoot-AV.html (not in their Menu) | everyone | 375 | pass |  |
 | EGBC-Troubleshoot-AV.html (not in their Menu) | kids | 375 | pass |  |
+| EmailBuilder2.html | master | 360 | pass |  |
+| EmailBuilder2.html | master | 375 | pass |  |
+| EmailBuilder2.html | master | 412 | pass |  |
 | EmailBuilder2.html | master | 1440 | pass |  |
-| EmailBuilder2.html (not in their Menu) | areaAdmin | 375 | pass |  |
+| EmailBuilder2.html (not in their Menu) | core | 375 | pass |  |
 | EmailBuilder2.html (not in their Menu) | everyone | 375 | pass |  |
 | EmailBuilder2.html (not in their Menu) | kids | 375 | pass |  |
 | EmailBuilder2.html (not in their Menu) | worship | 375 | pass |  |
+| findability (taps from Home) | areaAdmin | 1440 | pass |  |
+| findability (taps from Home) | everyone | 375 | pass |  |
+| findability (taps from Home) | everyone | 1440 | pass |  |
+| findability (taps from Home) | kids | 375 | pass |  |
+| findability (taps from Home) | kids | 1440 | pass |  |
+| findability (taps from Home) | worship | 375 | pass |  |
+| findability (taps from Home) | worship | 1440 | pass |  |
 | forms-admin.html | areaAdmin | 360 | pass |  |
 | forms-admin.html | areaAdmin | 375 | pass |  |
 | forms-admin.html | areaAdmin | 412 | pass |  |
@@ -891,7 +901,10 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | from the app: addressbook.html | master | 375 | pass |  |
 | from the app: addressbook.html | master | 412 | pass |  |
 | from the app: addressbook.html | master | 1440 | pass |  |
-| from the app: CoreTeamApp.html | core | 1440 | pass |  |
+| from the app: bookings-admin.html | master | 360 | pass |  |
+| from the app: bookings-admin.html | master | 375 | pass |  |
+| from the app: bookings-admin.html | master | 412 | pass |  |
+| from the app: bookings-admin.html | master | 1440 | pass |  |
 | from the app: Coreteamcharter.html | core | 360 | pass |  |
 | from the app: Coreteamcharter.html | core | 375 | pass |  |
 | from the app: Coreteamcharter.html | core | 412 | pass |  |
@@ -915,33 +928,13 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | from the app: EGBC-HowTo-AV.html | worship | 375 | pass |  |
 | from the app: EGBC-HowTo-AV.html | worship | 412 | pass |  |
 | from the app: EGBC-HowTo-AV.html | worship | 1440 | pass |  |
-| from the app: EGBC-PlayThrough.html | areaAdmin | 360 | pass |  |
-| from the app: EGBC-PlayThrough.html | areaAdmin | 375 | pass |  |
-| from the app: EGBC-PlayThrough.html | areaAdmin | 412 | pass |  |
 | from the app: EGBC-PlayThrough.html | areaAdmin | 1440 | pass |  |
-| from the app: EGBC-PlayThrough.html | core | 360 | pass |  |
-| from the app: EGBC-PlayThrough.html | core | 375 | pass |  |
-| from the app: EGBC-PlayThrough.html | core | 412 | pass |  |
 | from the app: EGBC-PlayThrough.html | core | 1440 | pass |  |
-| from the app: EGBC-PlayThrough.html | master | 360 | pass |  |
-| from the app: EGBC-PlayThrough.html | master | 412 | pass |  |
-| from the app: EGBC-PlayThrough.html | worship | 360 | pass |  |
-| from the app: EGBC-PlayThrough.html | worship | 375 | pass |  |
-| from the app: EGBC-PlayThrough.html | worship | 412 | pass |  |
+| from the app: EGBC-PlayThrough.html | master | 1440 | pass |  |
 | from the app: EGBC-PlayThrough.html | worship | 1440 | pass |  |
-| from the app: EGBC-Training-Worship.html | areaAdmin | 360 | pass |  |
-| from the app: EGBC-Training-Worship.html | areaAdmin | 375 | pass |  |
-| from the app: EGBC-Training-Worship.html | areaAdmin | 412 | pass |  |
 | from the app: EGBC-Training-Worship.html | areaAdmin | 1440 | pass |  |
-| from the app: EGBC-Training-Worship.html | core | 360 | pass |  |
-| from the app: EGBC-Training-Worship.html | core | 375 | pass |  |
-| from the app: EGBC-Training-Worship.html | core | 412 | pass |  |
 | from the app: EGBC-Training-Worship.html | core | 1440 | pass |  |
-| from the app: EGBC-Training-Worship.html | master | 360 | pass |  |
 | from the app: EGBC-Training-Worship.html | master | 1440 | pass |  |
-| from the app: EGBC-Training-Worship.html | worship | 360 | pass |  |
-| from the app: EGBC-Training-Worship.html | worship | 375 | pass |  |
-| from the app: EGBC-Training-Worship.html | worship | 412 | pass |  |
 | from the app: EGBC-Training-Worship.html | worship | 1440 | pass |  |
 | from the app: EGBC-Troubleshoot-AV.html | areaAdmin | 360 | pass |  |
 | from the app: EGBC-Troubleshoot-AV.html | areaAdmin | 375 | pass |  |
@@ -958,6 +951,10 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | from the app: EGBC-Troubleshoot-AV.html | worship | 375 | pass |  |
 | from the app: EGBC-Troubleshoot-AV.html | worship | 412 | pass |  |
 | from the app: EGBC-Troubleshoot-AV.html | worship | 1440 | pass |  |
+| from the app: EmailBuilder2.html | master | 360 | pass |  |
+| from the app: EmailBuilder2.html | master | 375 | pass |  |
+| from the app: EmailBuilder2.html | master | 412 | pass |  |
+| from the app: EmailBuilder2.html | master | 1440 | pass |  |
 | from the app: groups.html | areaAdmin | 1440 | pass |  |
 | from the app: groups.html | core | 1440 | pass |  |
 | from the app: groups.html | everyone | 1440 | pass |  |
@@ -1111,6 +1108,10 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | from the app: view-only-rota.html | core | 375 | pass |  |
 | from the app: view-only-rota.html | core | 412 | pass |  |
 | from the app: view-only-rota.html | core | 1440 | pass |  |
+| from the app: view-only-rota.html | kids | 360 | pass |  |
+| from the app: view-only-rota.html | kids | 375 | pass |  |
+| from the app: view-only-rota.html | kids | 412 | pass |  |
+| from the app: view-only-rota.html | kids | 1440 | pass |  |
 | from the app: view-only-rota.html | master | 360 | pass |  |
 | from the app: view-only-rota.html | master | 375 | pass |  |
 | from the app: view-only-rota.html | master | 412 | pass |  |
@@ -1227,14 +1228,29 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | hire.html | worship | 375 | pass |  |
 | hire.html | worship | 412 | pass |  |
 | hire.html | worship | 1440 | pass |  |
+| hub.html | areaAdmin | 360 | pass |  |
+| hub.html | areaAdmin | 375 | pass |  |
+| hub.html | areaAdmin | 412 | pass |  |
 | hub.html | areaAdmin | 1440 | pass |  |
+| hub.html | core | 360 | pass |  |
+| hub.html | core | 375 | pass |  |
+| hub.html | core | 412 | pass |  |
 | hub.html | core | 1440 | pass |  |
+| hub.html | everyone | 360 | pass |  |
+| hub.html | everyone | 375 | pass |  |
+| hub.html | everyone | 412 | pass |  |
 | hub.html | everyone | 1440 | pass |  |
+| hub.html | kids | 360 | pass |  |
+| hub.html | kids | 375 | pass |  |
+| hub.html | kids | 412 | pass |  |
 | hub.html | kids | 1440 | pass |  |
 | hub.html | master | 360 | pass |  |
 | hub.html | master | 375 | pass |  |
 | hub.html | master | 412 | pass |  |
 | hub.html | master | 1440 | pass |  |
+| hub.html | worship | 360 | pass |  |
+| hub.html | worship | 375 | pass |  |
+| hub.html | worship | 412 | pass |  |
 | hub.html | worship | 1440 | pass |  |
 | hubresources.html | areaAdmin | 360 | pass |  |
 | hubresources.html | areaAdmin | 375 | pass |  |
@@ -1252,7 +1268,7 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | hubresources.html | kids | 375 | pass |  |
 | hubresources.html | kids | 412 | pass |  |
 | hubresources.html | kids | 1440 | pass |  |
-| hubresources.html | master | 360 | pass |  |
+| hubresources.html | master | 375 | pass |  |
 | hubresources.html | master | 412 | pass |  |
 | hubresources.html | master | 1440 | pass |  |
 | hubresources.html | worship | 360 | pass |  |
@@ -1272,19 +1288,16 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | inventory-system-2.html | core | 412 | pass |  |
 | inventory-system-2.html | core | 1440 | pass |  |
 | inventory-system-2.html | master | 360 | pass |  |
+| inventory-system-2.html | master | 375 | pass |  |
 | inventory-system-2.html | master | 412 | pass |  |
 | inventory-system-2.html | master | 1440 | pass |  |
 | inventory-system-2.html (not in their Menu) | areaAdmin | 375 | pass |  |
-| inventory-system-2.html (not in their Menu) | everyone | 375 | pass |  |
 | inventory-system-2.html (not in their Menu) | kids | 375 | pass |  |
 | inventory-system-2.html (not in their Menu) | worship | 375 | pass |  |
 | kids-admin.html | kids | 360 | pass |  |
 | kids-admin.html | kids | 375 | pass |  |
 | kids-admin.html | kids | 412 | pass |  |
 | kids-admin.html | kids | 1440 | pass |  |
-| kids-admin.html | master | 360 | pass |  |
-| kids-admin.html | master | 375 | pass |  |
-| kids-admin.html | master | 412 | pass |  |
 | kids-admin.html | master | 1440 | pass |  |
 | kids-checkin.html | kids | 360 | pass |  |
 | kids-checkin.html | kids | 375 | pass |  |
@@ -1310,7 +1323,6 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | Library.html | worship | 375 | pass |  |
 | Library.html | worship | 412 | pass |  |
 | Library.html | worship | 1440 | pass |  |
-| Library.html (not in their Menu) | everyone | 375 | pass |  |
 | Library.html (not in their Menu) | kids | 375 | pass |  |
 | maintenance.html | areaAdmin | 360 | pass |  |
 | maintenance.html | areaAdmin | 375 | pass |  |
@@ -1344,6 +1356,10 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | meeting.html | core | 375 | pass |  |
 | meeting.html | core | 412 | pass |  |
 | meeting.html | core | 1440 | pass |  |
+| meeting.html | everyone | 360 | pass |  |
+| meeting.html | everyone | 375 | pass |  |
+| meeting.html | everyone | 412 | pass |  |
+| meeting.html | everyone | 1440 | pass |  |
 | meeting.html | kids | 360 | pass |  |
 | meeting.html | kids | 375 | pass |  |
 | meeting.html | kids | 412 | pass |  |
@@ -1356,7 +1372,6 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | meeting.html | worship | 375 | pass |  |
 | meeting.html | worship | 412 | pass |  |
 | meeting.html | worship | 1440 | pass |  |
-| meeting.html (not in their Menu) | everyone | 375 | pass |  |
 | MonitorStageMap.html | areaAdmin | 360 | pass |  |
 | MonitorStageMap.html | areaAdmin | 375 | pass |  |
 | MonitorStageMap.html | areaAdmin | 412 | pass |  |
@@ -1426,13 +1441,18 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | picture-library.html (not in their Menu) | everyone | 375 | pass |  |
 | picture-library.html (not in their Menu) | kids | 375 | pass |  |
 | picture-library.html (not in their Menu) | worship | 375 | pass |  |
-| places-admin.html | master | 412 | pass |  |
 | places-admin.html | master | 1440 | pass |  |
 | places-admin.html (not in their Menu) | core | 375 | pass |  |
 | places-admin.html (not in their Menu) | everyone | 375 | pass |  |
 | places-admin.html (not in their Menu) | kids | 375 | pass |  |
 | places-admin.html (not in their Menu) | worship | 375 | pass |  |
+| Planner.html | core | 360 | pass |  |
+| Planner.html | core | 375 | pass |  |
+| Planner.html | core | 412 | pass |  |
 | Planner.html | core | 1440 | pass |  |
+| Planner.html | master | 360 | pass |  |
+| Planner.html | master | 375 | pass |  |
+| Planner.html | master | 412 | pass |  |
 | Planner.html | master | 1440 | pass |  |
 | Planner.html (not in their Menu) | everyone | 375 | pass |  |
 | Planner.html (not in their Menu) | kids | 375 | pass |  |
@@ -1443,6 +1463,27 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | prayer.html | kids | 1440 | pass |  |
 | prayer.html | master | 1440 | pass |  |
 | prayer.html | worship | 1440 | pass |  |
+| preaching-plan.html | areaAdmin | 360 | pass |  |
+| preaching-plan.html | areaAdmin | 375 | pass |  |
+| preaching-plan.html | areaAdmin | 412 | pass |  |
+| preaching-plan.html | areaAdmin | 1440 | pass |  |
+| preaching-plan.html | core | 360 | pass |  |
+| preaching-plan.html | core | 375 | pass |  |
+| preaching-plan.html | core | 412 | pass |  |
+| preaching-plan.html | core | 1440 | pass |  |
+| preaching-plan.html | kids | 360 | pass |  |
+| preaching-plan.html | kids | 375 | pass |  |
+| preaching-plan.html | kids | 412 | pass |  |
+| preaching-plan.html | kids | 1440 | pass |  |
+| preaching-plan.html | master | 360 | pass |  |
+| preaching-plan.html | master | 375 | pass |  |
+| preaching-plan.html | master | 412 | pass |  |
+| preaching-plan.html | master | 1440 | pass |  |
+| preaching-plan.html | worship | 360 | pass |  |
+| preaching-plan.html | worship | 375 | pass |  |
+| preaching-plan.html | worship | 412 | pass |  |
+| preaching-plan.html | worship | 1440 | pass |  |
+| preaching-plan.html (not in their Menu) | everyone | 375 | pass |  |
 | resources.html | areaAdmin | 360 | pass |  |
 | resources.html | areaAdmin | 375 | pass |  |
 | resources.html | areaAdmin | 412 | pass |  |
@@ -1514,11 +1555,9 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | rota-reports.html (not in their Menu) | worship | 375 | pass |  |
 | safeguarding-settings.html | areaAdmin | 360 | pass |  |
 | safeguarding-settings.html | areaAdmin | 375 | pass |  |
-| safeguarding-settings.html | areaAdmin | 412 | pass |  |
 | safeguarding-settings.html | areaAdmin | 1440 | pass |  |
 | safeguarding-settings.html | master | 360 | pass |  |
 | safeguarding-settings.html | master | 375 | pass |  |
-| safeguarding-settings.html | master | 412 | pass |  |
 | safeguarding-settings.html | master | 1440 | pass |  |
 | safeguarding.html | areaAdmin | 360 | pass |  |
 | safeguarding.html | areaAdmin | 375 | pass |  |
@@ -1543,16 +1582,30 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | schematic.html | worship | 375 | pass |  |
 | schematic.html | worship | 412 | pass |  |
 | schematic.html | worship | 1440 | pass |  |
-| schematic.html (not in their Menu) | everyone | 375 | pass |  |
 | schematic.html (not in their Menu) | kids | 375 | pass |  |
 | sermons-admin.html | master | 360 | pass |  |
 | sermons-admin.html | master | 375 | pass |  |
 | sermons-admin.html | master | 412 | pass |  |
 | sermons-admin.html | master | 1440 | pass |  |
+| stickynotes.html | areaAdmin | 360 | pass |  |
+| stickynotes.html | areaAdmin | 375 | pass |  |
+| stickynotes.html | areaAdmin | 412 | pass |  |
 | stickynotes.html | areaAdmin | 1440 | pass |  |
+| stickynotes.html | core | 360 | pass |  |
+| stickynotes.html | core | 375 | pass |  |
+| stickynotes.html | core | 412 | pass |  |
 | stickynotes.html | core | 1440 | pass |  |
+| stickynotes.html | kids | 360 | pass |  |
+| stickynotes.html | kids | 375 | pass |  |
+| stickynotes.html | kids | 412 | pass |  |
 | stickynotes.html | kids | 1440 | pass |  |
+| stickynotes.html | master | 360 | pass |  |
+| stickynotes.html | master | 375 | pass |  |
+| stickynotes.html | master | 412 | pass |  |
 | stickynotes.html | master | 1440 | pass |  |
+| stickynotes.html | worship | 360 | pass |  |
+| stickynotes.html | worship | 375 | pass |  |
+| stickynotes.html | worship | 412 | pass |  |
 | stickynotes.html | worship | 1440 | pass |  |
 | stickynotes.html (not in their Menu) | everyone | 375 | pass |  |
 | SundayServicePlanner.html | core | 1440 | pass |  |
@@ -1569,6 +1622,7 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | team-mail.html (not in their Menu) | kids | 375 | pass |  |
 | team-mail.html (not in their Menu) | worship | 375 | pass |  |
 | teams-admin.html | master | 360 | pass |  |
+| teams-admin.html | master | 375 | pass |  |
 | teams-admin.html | master | 412 | pass |  |
 | teams-admin.html | master | 1440 | pass |  |
 | teams-admin.html (not in their Menu) | areaAdmin | 375 | pass |  |
@@ -1617,7 +1671,6 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | view-only-rota.html | worship | 375 | pass |  |
 | view-only-rota.html | worship | 412 | pass |  |
 | view-only-rota.html | worship | 1440 | pass |  |
-| view-only-rota.html (not in their Menu) | everyone | 375 | pass |  |
 | watch-admin.html | master | 1440 | pass |  |
 | watch.html | areaAdmin | 360 | pass |  |
 | watch.html | areaAdmin | 375 | pass |  |
@@ -1683,7 +1736,6 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | Worshipteamcharter.html | worship | 375 | pass |  |
 | Worshipteamcharter.html | worship | 412 | pass |  |
 | Worshipteamcharter.html | worship | 1440 | pass |  |
-| Worshipteamcharter.html (not in their Menu) | everyone | 375 | pass |  |
 | Worshipteamcharter.html (not in their Menu) | kids | 375 | pass |  |
 | Youthcharter.html | master | 360 | pass |  |
 | Youthcharter.html | master | 375 | pass |  |
@@ -1691,7 +1743,6 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 | Youthcharter.html | master | 1440 | pass |  |
 | Youthcharter.html (not in their Menu) | areaAdmin | 375 | pass |  |
 | Youthcharter.html (not in their Menu) | core | 375 | pass |  |
-| Youthcharter.html (not in their Menu) | everyone | 375 | pass |  |
 | Youthcharter.html (not in their Menu) | kids | 375 | pass |  |
 | Youthcharter.html (not in their Menu) | worship | 375 | pass |  |
 | youthserviceplanner.html | master | 1440 | pass |  |
@@ -1706,14 +1757,15 @@ Made by `node tests/audit-everything.mjs`. Pictures: tests/shots/audit/<role>/<s
 - Rota Planner Build the term and send the rotas
 - Email Compiler Write and send to a team
 - Teams & groups Add, rename, recolour, order and archive team
+- Remove reader 1 ×
+- Delete Song
 - DELETE ALL DATA
 - Remove
+- Disconnect
 - Send
-- Send all rotas
 - Archive
 - Review & Send
 - Deleted events
 - Send phone notifications
 - Sign out You stay signed in until you do
-- Email the church Write and send it, in the Core Team app
-- Email Compiler Draft & send team updates
+- Send an email To your team, or to anyone for the office
