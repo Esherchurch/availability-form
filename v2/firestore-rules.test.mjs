@@ -3310,8 +3310,8 @@ await check('  and a made-up tab is refused', 'deny',
   () => setDoc(doc(as('martin'), 'teams', 'Elders'),
     { name: 'Elders', label: 'Elders', rota: false, runs: ['everything'] }));
 
-/* THE PREACHING PLAN (Martin, 15 Oct 2026). The Pastor is named in
-   churchSettings/preaching by a master admin, and may then change the four
+/* THE PREACHING PLAN (Martin, 15 Oct 2026). The Pastor is the one named in
+   Team emails (teamMailSettings/main.pastor), and may change the four
    preaching fields of a service - and nothing else - team or no team. The
    attender is the Pastor here BECAUSE they are on no team: it proves the
    rule, not the team membership, lets them in. */
@@ -3319,16 +3319,21 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(ctx.firestore(), 'events', 'ev_preach'), { date: '2026-11-15', type: 'Sunday Morning Worship',
     teams: ['Worship Team'], roles: ['Keyboard'], archived: false, speaker: '', serviceLeader: '' });
 });
-await check('nobody but a master admin names the Pastor', 'deny',
-  () => setDoc(doc(as('karen'), 'churchSettings', 'preaching'), { pastorIds: ['m_u_karen'] }));
-await check('a master admin does', 'allow',
+await check('nobody names the Pastor here (Team emails does, through the server)', 'deny',
   () => setDoc(doc(as('martin'), 'churchSettings', 'preaching'), { pastorIds: ['m_u_attender'] }));
-await check('  with nothing else on it', 'deny',
-  () => setDoc(doc(as('martin'), 'churchSettings', 'preaching'), { pastorIds: ['m_u_attender'], other: 1 }));
+await check('somebody not the Pastor cannot read who is', 'deny',
+  () => getDoc(doc(as('attender'), 'teamMailSettings', 'main')));
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'teamMailSettings', 'main'), { pastor: 'm_u_attender', officeAdmin: '' });
+});
+await check('the Pastor reads that they are (so the page knows)', 'allow',
+  () => getDoc(doc(as('attender'), 'teamMailSettings', 'main')));
+await check('  and nobody else does', 'deny',
+  () => getDoc(doc(as('parent'), 'teamMailSettings', 'main')));
 await check('the Pastor reads the services', 'allow',
   () => getDoc(doc(as('attender'), 'events', 'ev_preach')));
 await check('  and sets the speaker, leader, description and readers', 'allow',
-  () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { speaker: 'Guest Synthetic', serviceLeader: 'Leader Synthetic',
+  () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { speaker: 'Guest Synthetic', speakerId: '', serviceLeader: 'Leader Synthetic', serviceLeaderId: 'm_u_samy',
     publicTitle: 'Shoebox Sunday', readers: [{ name: 'Reader Synthetic', passage: 'John 3:1-17' }] }));
 await check('  but not who is on the rota', 'deny',
   () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { assignments: { Keyboard: { id: 'm_x', name: 'X' } } }));
@@ -3339,9 +3344,9 @@ await check('  nor delete it', 'deny',
 await check('somebody not named cannot', 'deny',
   () => updateDoc(doc(as('parent'), 'events', 'ev_preach'), { speaker: 'Nobody Synthetic' }));
 await env.withSecurityRulesDisabled(async (ctx) => {
-  await setDoc(doc(ctx.firestore(), 'churchSettings', 'preaching'), { pastorIds: [] });
+  await setDoc(doc(ctx.firestore(), 'teamMailSettings', 'main'), { pastor: '', officeAdmin: '' });
 });
-await check('taken off the list, the Pastor cannot', 'deny',
+await check('somebody else chosen, the old Pastor cannot', 'deny',
   () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { speaker: 'Too Late Synthetic' }));
 
 /* TEAMS & GROUPS (Martin, 15 Oct 2026): the Church office looks after the

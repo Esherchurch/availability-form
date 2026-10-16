@@ -300,6 +300,10 @@
       '  padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));',
       '  font:400 14px Inter,system-ui,sans-serif;color:#374151;max-height:88vh;overflow:auto}',
       '@media(min-width:620px){.egbc-share{border-radius:14px}}',
+      /* The title and a close stay at the top while the sheet scrolls (the
+         audit, 16 Oct 2026: the only way out was Cancel, below the fold). */
+      '.egbc-share .es-head{position:sticky;top:-18px;z-index:2;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-18px -16px 4px;padding:12px 10px 6px 16px}',
+      '.egbc-share .es-x{flex:none;width:44px;height:44px;border:1px solid #d1d5db;border-radius:10px;background:#fff;color:#374151;font-size:18px;cursor:pointer}',
       '.egbc-share h2{margin:0 0 4px;font-size:17px;font-weight:600;color:#111827}',
       '.egbc-share p.sub{margin:0 0 12px;font-size:13px;color:#6b7280}',
       '.egbc-share textarea{width:100%;min-height:180px;border:1px solid #d1d5db;border-radius:8px;',
@@ -333,7 +337,7 @@
     back.className = 'egbc-share-back';
     back.innerHTML =
       '<div class="egbc-share" role="dialog" aria-modal="true" aria-label="Share on WhatsApp">'
-      + '<h2>Share on WhatsApp</h2>'
+      + '<div class="es-head"><h2 style="margin:0">Share on WhatsApp</h2><button class="es-x" data-close="1" aria-label="Close">&#x2715;</button></div>'
       + '<p class="sub">This is exactly what will be sent. Change it here if you like, '
       + 'then pick the group in WhatsApp.</p>'
       + '<textarea aria-label="The message">' + esc(text) + '</textarea>'

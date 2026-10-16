@@ -139,6 +139,17 @@ async function tidy() {
     ok('  unticking saves', (await waitDoc('events/' + PUB, (d) => d.whatsOn?.booleanValue === false))?.whatsOn?.booleanValue === false);
     await evl('(function(){var c=document.querySelector(\'' + box + ' [data-f=whatsOn]\');if(!c.checked){c.checked=true;c.dispatchEvent(new Event("change"))}return 1})()');
     ok('  and ticking again', (await waitDoc('events/' + PUB, (d) => d.whatsOn?.booleanValue === true))?.whatsOn?.booleanValue === true);
+    /* The service leader and speaker come from the address book with their
+       id (Martin, 16 Oct 2026; For Sunday matches by it); a guest speaker
+       is typed and has none. */
+    const person = (f, v) => '(function(){var i=document.querySelector(\'input[onblur*="' + PUB + '"][onblur*="\\\'' + f + '\\\'"]\');if(!i)return 0;'
+      + 'i.value=' + JSON.stringify(v) + ';i.dispatchEvent(new Event("blur"));return 1})()';
+    const offered = String(await evl('[].some.call(document.querySelectorAll("#ppPeople option"),function(o){return o.value===' + JSON.stringify(ME.name) + '})'));
+    ok('  the leader and speaker boxes suggest the address book', offered === 'true');
+    await evl(person('serviceLeader', ME.name)); await evl(person('speaker', 'Guest Speaker Synthetic'));
+    f = await waitDoc('events/' + PUB, (d) => d.serviceLeader?.stringValue === ME.name && d.speaker?.stringValue === 'Guest Speaker Synthetic');
+    ok('  the leader is kept with their id; the guest speaker has none', f && f.serviceLeaderId?.stringValue === ME.member && f.speakerId?.stringValue === '',
+      JSON.stringify(f && { l: f.serviceLeader, li: f.serviceLeaderId, s: f.speaker, si: f.speakerId }));
     await evl('(function(){var r=document.querySelector(\'' + box + '\');if(r)r.scrollIntoView({block:"center"});return 1})()'); await sleep(400);
     const shot = await send('Page.captureScreenshot', { format: 'png' });
     fs.writeFileSync(path.join(SHOTS, 'sunday-once--planner-1440.png'), Buffer.from(shot.data, 'base64'));

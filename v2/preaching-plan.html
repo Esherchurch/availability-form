@@ -95,8 +95,9 @@
    all have it. Names are free text with suggestions from the address book:
    a guest speaker can always be typed.
 
-   WHO EDITS: master admins, the Pastor (or Pastors) named here by a master
-   admin (churchSettings/preaching.pastorIds), and the admins of Worship
+   WHO EDITS: master admins, the Pastor - the one chosen in Team emails
+   (teamMailSettings/main.pastor, which For Sunday uses too; one place to
+   name them, not two) - and the admins of Worship
    and Core Team, who run the Sunday rota. Anybody else on a team reads it.
    The rules say the same (firestore.rules, match /events: the Pastor may
    change these four fields and nothing else).
@@ -112,7 +113,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
 const SERVICE_TYPES = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-let ROWS = [], SHOW_PAST = false, CAN_EDIT = false, PASTORS = [], PEOPLE = [];
+let ROWS = [], SHOW_PAST = false, CAN_EDIT = false, PASTOR = '', PEOPLE = [];
 
 function iso(d) { const p = (x) => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 function ukDate(s) { const d = new Date(s + 'T12:00:00'); return isNaN(d) ? s : DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
@@ -120,17 +121,19 @@ const TODAY = iso(new Date());
 const UNTIL = (() => { const d = new Date(); d.setMonth(d.getMonth() + 3); return iso(d); })();
 const SINCE = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return iso(d); })();
 
-function amPastor() { const me = EGBCAuth.profile() || {}; return !!me.memberId && PASTORS.indexOf(me.memberId) !== -1; }
+function amPastor() { const me = EGBCAuth.profile() || {}; return !!me.memberId && PASTOR === me.memberId; }
 function mayEdit() {
   return EGBCAuth.isMaster() || amPastor()
     || ['Worship Team', 'Core Team'].some(t => EGBCAuth.isAdminOf && EGBCAuth.isAdminOf(t));
 }
 
 async function load() {
+  /* Readable by master admins and by the Pastor; anybody else is refused,
+     which simply means they are not the Pastor. */
   try {
-    const s = await db.collection('churchSettings').doc('preaching').get();
-    PASTORS = (s.exists && Array.isArray(s.data().pastorIds)) ? s.data().pastorIds : [];
-  } catch (e) { PASTORS = []; }
+    const s = await db.collection('teamMailSettings').doc('main').get();
+    PASTOR = (s.exists && s.data().pastor) || '';
+  } catch (e) { PASTOR = ''; }
   CAN_EDIT = mayEdit();
   $('who').textContent = CAN_EDIT
     ? 'Who is preaching and leading, what each Sunday is, and who is reading what. Changes save as you make them, and the Rota Planner and What’s On show them too.'
@@ -163,24 +166,11 @@ async function loadPeople() {
 
 function drawSettings() {
   if (!EGBCAuth.isMaster()) { $('settings').innerHTML = ''; return; }
-  const name = (id) => (PEOPLE.find(p => p.id === id) || {}).name || id;
+  const who = PASTOR ? ((PEOPLE.find(p => p.id === PASTOR) || {}).name || 'Somebody no longer in the address book') : '';
   $('settings').innerHTML = `<div class="card settings" data-pp="settings"><h2>The Pastor</h2>
-    <p class="lede" style="margin:0">Can change this plan without being an admin. Master admins only see this.</p>
-    <div class="chips">${PASTORS.map(id => `<span class="chip">${esc(name(id))}<button type="button" data-unpastor="${esc(id)}" aria-label="Take ${esc(name(id))} off">&times;</button></span>`).join('') || '<span class="ro none">Nobody named yet</span>'}</div>
-    <input class="in" id="pastorPick" list="people" placeholder="Type a name to add" style="max-width:360px" aria-label="Add a Pastor">
-    <p class="saved" id="pastorMsg" role="status"></p></div>`;
-}
-
-async function savePastors(list, msg) {
-  try {
-    await db.collection('churchSettings').doc('preaching').set({ pastorIds: list,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: EGBCAuth.user().uid });
-    PASTORS = list; drawSettings();
-    const m = $('pastorMsg'); if (m) { m.className = 'saved'; m.textContent = msg; }
-  } catch (e) {
-    console.error('preaching-plan: could not save the Pastor', e);
-    const m = $('pastorMsg'); if (m) { m.className = 'saved err'; m.textContent = 'That did not save. Please try again.'; }
-  }
+    <p class="lede" style="margin:0">Can change this plan without being an admin, and gets For Sunday's prayer list. Master admins only see this.</p>
+    <p class="ro${who ? '' : ' none'}" data-pastor>${esc(who || 'Nobody chosen yet')}</p>
+    <a class="add" href="team-mail.html">Choose the Pastor in Team emails</a></div>`;
 }
 
 function field(r, f, label) {
@@ -235,19 +225,17 @@ function readersOf(tr) {
 
 document.addEventListener('change', (e) => {
   if (e.target.id === 'showPast') { SHOW_PAST = e.target.checked; draw(); return; }
-  if (e.target.id === 'pastorPick') {
-    const p = PEOPLE.find(x => x.name === e.target.value.trim());
-    if (!p) { $('pastorMsg').className = 'saved err'; $('pastorMsg').textContent = 'Choose somebody from the list.'; return; }
-    if (PASTORS.indexOf(p.id) === -1) savePastors(PASTORS.concat([p.id]), p.name + ' can now change the plan.');
-    return;
-  }
   const tr = e.target.closest('tr[data-id]'); if (!tr || !CAN_EDIT) return;
-  if (e.target.dataset.f) save(tr.dataset.id, { [e.target.dataset.f]: e.target.value.trim() }, tr);
+  if (e.target.dataset.f === 'speaker' || e.target.dataset.f === 'serviceLeader') {
+    /* From the address book, with the person's id (the Rota Planner does
+       the same); a guest speaker is typed and has no id. */
+    const name = e.target.value.trim(), f = e.target.dataset.f;
+    const hits = PEOPLE.filter(p => (p.name || '').trim().toLowerCase() === name.toLowerCase());
+    save(tr.dataset.id, { [f]: name, [f + 'Id']: name && hits.length === 1 ? hits[0].id : '' }, tr);
+  } else if (e.target.dataset.f) save(tr.dataset.id, { [e.target.dataset.f]: e.target.value.trim() }, tr);
   else if (e.target.dataset.r) save(tr.dataset.id, { readers: readersOf(tr).filter(x => x.name || x.passage) }, tr);
 });
 document.addEventListener('click', (e) => {
-  const un = e.target.closest('[data-unpastor]');
-  if (un) { savePastors(PASTORS.filter(x => x !== un.dataset.unpastor), 'Taken off.'); return; }
   const tr = e.target.closest('tr[data-id]'); if (!tr || !CAN_EDIT) return;
   const r = ROWS.find(x => x.id === tr.dataset.id); if (!r) return;
   if (e.target.closest('[data-addreader]')) {

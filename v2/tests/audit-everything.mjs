@@ -59,12 +59,18 @@ import path from 'node:path';
 import os from 'node:os';
 
 const V2 = path.resolve('.');
-const OUT = path.join(V2, 'tests', 'shots', 'audit');
-const REPORT = path.join(V2, 'tests', 'audit-report.md');
+/* --emulators=events (F-224): the events window runs its own emulators
+   (firebase.events.json: Firestore 8182, Auth 9098) and pages served from
+   localhost:5601 talk to them (egbc-auth.js, egbc-db.js). Its report and
+   pictures are kept apart, so neither window overwrites the other's. */
+const EVENTS = process.argv.includes('--emulators=events');
+const FS_PORT = EVENTS ? 8182 : 8181, AUTH_PORT = EVENTS ? 9098 : 9099;
+const OUT = path.join(V2, 'tests', 'shots', EVENTS ? 'audit-events' : 'audit');
+const REPORT = path.join(V2, 'tests', EVENTS ? 'audit-report-events.md' : 'audit-report.md');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const DOCS = '/v1/projects/egbc-worship-planner/databases/(default)/documents';
 const PW = 'test-only-password';
-const SERVE0 = Number((process.argv.find(a => a.startsWith('--port=')) || '--port=9100').slice(7));
+const SERVE0 = Number((process.argv.find(a => a.startsWith('--port=')) || ('--port=' + (EVENTS ? 5601 : 9100))).slice(7));
 const SERVE = SERVE0, PORT0 = SERVE0 + 10;      /* --port=9200 to run a second audit beside one already running */
 
 /* ---------------- options ---------------- */
@@ -110,17 +116,17 @@ const val = (v) => typeof v === 'boolean' ? { booleanValue: v } : typeof v === '
   : Array.isArray(v) ? { arrayValue: { values: v.map(val) } } : (v && typeof v === 'object') ? { mapValue: { fields: fields(v) } } : { stringValue: String(v) };
 const fields = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, val(v)]));
 const OWNER = { Authorization: 'Bearer owner' };
-const put = (p, o) => req(8181, 'PATCH', DOCS + '/' + p, { fields: fields(o) }, OWNER);
-const del = (p) => req(8181, 'DELETE', DOCS + '/' + p, undefined, OWNER);
+const put = (p, o) => req(FS_PORT, 'PATCH', DOCS + '/' + p, { fields: fields(o) }, OWNER);
+const del = (p) => req(FS_PORT, 'DELETE', DOCS + '/' + p, undefined, OWNER);
 const dayIso = (n) => { const d = new Date(Date.now() + n * 86400000), p = (x) => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
 
 async function seed() {
   for (const [key, r] of Object.entries(ROLES_ALL)) {
     r.email = 'audit.' + key.toLowerCase() + '@example.invalid'; r.member = 'ab_audit_' + key.toLowerCase(); r.name = 'Audit ' + r.label + ' Synthetic';
-    let up = JSON.parse((await req(9099, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
-    if (!up.localId) up = JSON.parse((await req(9099, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
+    let up = JSON.parse((await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
+    if (!up.localId) up = JSON.parse((await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
     r.uid = up.localId;
-    await req(9099, 'POST', '/identitytoolkit.googleapis.com/v1/projects/egbc-worship-planner/accounts:update', { localId: r.uid, emailVerified: true }, OWNER);
+    await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/projects/egbc-worship-planner/accounts:update', { localId: r.uid, emailVerified: true }, OWNER);
     await put('addressBook/' + r.member, { name: r.name, email: r.email, markers: r.teams, adminFor: r.adminFor, masterAdmin: r.masterAdmin, archived: false, isMinor: false, churchMember: true });
     await put('users/' + r.uid, { uid: r.uid, email: r.email, name: r.name, memberId: r.member, status: 'active', linkedBy: 'admin',
       teams: r.teams, adminFor: r.adminFor, masterAdmin: r.masterAdmin, churchMember: true });
@@ -204,7 +210,11 @@ const MEASURE = `(function(){
   /* The layout viewport: a phone zooms out a page that is too wide, and
      innerWidth grows with it, which would hide exactly the fault. */
   var iw = document.documentElement.clientWidth, ih = document.documentElement.clientHeight, out = {};
-  function vis(el) { if (!el || !el.getBoundingClientRect) return false; var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
+  function vis(el) { if (!el || !el.getBoundingClientRect) return false;
+    /* Inside a closed <details>, only its summary is on screen (F-224: Chrome
+       lays the rest out with a size, so it read as content under the bar). */
+    var dt = el.closest && el.closest('details:not([open])'); if (dt && !(el.closest('summary') && el.closest('summary').parentElement === dt)) return false;
+    var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
     var s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return false;
     for (var p = el.parentElement; p; p = p.parentElement) { var ps = getComputedStyle(p); if (ps.display === 'none' || ps.visibility === 'hidden' || +ps.opacity === 0) return false; }
     return true; }
@@ -296,7 +306,8 @@ const SHEET_CLOSE = `(function(){
 })()`;
 
 const CONTROLS = `(function(){
-  function vis(el) { var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
+  function vis(el) { var dt = el.closest('details:not([open])'); if (dt && !(el.closest('summary') && el.closest('summary').parentElement === dt)) return false;
+    var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
     for (var p = el; p; p = p.parentElement) { var s = getComputedStyle(p); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return false; } return true; }
   var list = [];
   document.querySelectorAll('a[href],button,[role=button],[data-act],[data-lact],[data-mact],[onclick],summary').forEach(function (el, i) {

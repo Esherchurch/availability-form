@@ -267,6 +267,12 @@
         const egbcStart = () => {
         onSnapshot(collection(db, "addressBook"), (snap) => {
             addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            /* Names to choose the service leader and speaker from (Martin,
+               16 Oct 2026); adults only, archived left out. */
+            let dl = document.getElementById('ppPeople');
+            if (!dl) { dl = document.createElement('datalist'); dl.id = 'ppPeople'; document.body.appendChild(dl); }
+            dl.innerHTML = addressBook.filter(m => m.name && m.archived !== true && m.isMinor !== true)
+                .map(m => '<option value="' + String(m.name).replace(/"/g, '&quot;') + '">').join('');
             const select = document.getElementById('memberPdfSelect');
             if (select) {
                 const currentVal = select.value;
@@ -336,6 +342,17 @@
         window.toggleBucket = (eventId) => {
             openBuckets.has(eventId) ? openBuckets.delete(eventId) : openBuckets.add(eventId);
             renderPlanner();
+        };
+
+        /* THE SERVICE LEADER AND SPEAKER, CHOSEN FROM THE ADDRESS BOOK (Martin,
+           16 Oct 2026). The name is kept as typed; when it is exactly one
+           person in the address book their id goes with it (serviceLeaderId,
+           speakerId) - For Sunday's prayer list matches by it. A guest
+           speaker is typed and has no id. */
+        window.updatePerson = async (id, field, value) => {
+            const name = String(value || '').trim();
+            const hits = addressBook.filter(m => (m.name || '').trim().toLowerCase() === name.toLowerCase() && m.archived !== true);
+            await updateDoc(doc(db, "events", id), { [field]: name, [field + 'Id']: name && hits.length === 1 ? hits[0].id : '' });
         };
 
         window.updateField = async (id, field, value) => {
@@ -1451,8 +1468,8 @@
             // ── Service Leader & Speaker quick-fields ──
             const svcLeaderVal = ev.serviceLeader || '';
             const speakerVal = ev.speaker || '';
-            html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" onblur="updateField(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
-            html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" onblur="updateField(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
+            html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" list="ppPeople" autocomplete="off" onblur="updatePerson(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
+            html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" list="ppPeople" autocomplete="off" onblur="updatePerson(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
             // ── ENTER A SUNDAY ONCE (Martin, 15 Oct 2026) ──
             // Ticked, this service is what What's On, the app and the website
             // show (functions/rota-whatson.js copies it): the public title, the

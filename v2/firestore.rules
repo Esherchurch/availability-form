@@ -553,27 +553,22 @@ service cloud.firestore {
       allow write: if (isAdmin()
                        || onAnyTeam(request.resource.data.get('teams', ['Worship Team'])))
                    && safeguardingOk();
-      // THE PREACHING PLAN (Martin, 15 Oct 2026): the Pastor, named by a
-      // master admin in churchSettings/preaching, reads the services and
+      // THE PREACHING PLAN (Martin, 15 Oct 2026): the Pastor - the one named
+      // in Team emails (teamMailSettings/main.pastor; isPastor() is with
+      // For Sunday, under EVENTS) - reads the services and
       // changes the four preaching fields - what the Sunday is, the speaker,
       // the service leader and the readers - and nothing else: no roles,
       // no people on the rota, no dates. Whether or not they are on a team.
       allow read: if isPastor();
       allow update: if isPastor()
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['publicTitle', 'speaker', 'serviceLeader', 'readers', 'updatedAt', 'updatedBy'])
+                         .hasOnly(['publicTitle', 'speaker', 'speakerId', 'serviceLeader', 'serviceLeaderId', 'readers', 'updatedAt', 'updatedBy'])
                     && request.resource.data.get('publicTitle', '') is string
                     && request.resource.data.get('publicTitle', '').size() <= 140
                     && request.resource.data.get('readers', []) is list
                     && request.resource.data.get('readers', []).size() <= 12;
     }
 
-    // Named in churchSettings/preaching.pastorIds (a master admin's choice).
-    function isPastor() {
-      return active() && me().get('memberId', '') != ''
-             && exists(/databases/$(database)/documents/churchSettings/preaching)
-             && me().get('memberId', '') in get(/databases/$(database)/documents/churchSettings/preaching).data.get('pastorIds', []);
-    }
 
     // ---- "I'M WORRIED ABOUT SOMEONE" (NEXT-BRIEF §24) ------------------
     // Martin: "We are not tracking it, but if someone notices that X has
@@ -2450,12 +2445,6 @@ service cloud.firestore {
       // THE NOTIFICATIONS MASTER SWITCH (A-081): whether the timers and
       // triggers really send. A master admin only - it is the one setting
       // that starts the church being emailed and buzzed.
-      // THE PREACHING PLAN's Pastor (or Pastors): member ids, a master
-      // admin's choice. Readable as the rest of churchSettings is: ids only.
-      allow write: if (isMaster() && id == 'preaching'
-                       && request.resource.data.keys().hasOnly(['pastorIds', 'updatedAt', 'updatedBy'])
-                       && request.resource.data.pastorIds is list
-                       && request.resource.data.pastorIds.size() <= 5);
       allow write: if (isMaster() && id == 'notifications'
                        && request.resource.data.keys().hasOnly(['live', 'updatedAt', 'updatedBy'])
                        && request.resource.data.live is bool);
@@ -4223,6 +4212,10 @@ service cloud.firestore {
     }
     match /teamMailSettings/{id} {
       allow read: if isMaster() && id == 'main';
+      // The Pastor reads it too, so the Preaching plan knows them: member
+      // ids only (the Pastor and the office admin).
+      allow read: if id == 'main' && active() && me().get('memberId', '') != ''
+                  && resource.data.get('pastor', '') == me().get('memberId', '');
       allow write: if false;
     }
 

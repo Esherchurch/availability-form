@@ -2,7 +2,8 @@
  *
  *   node tests/check-preaching-plan.mjs      (from v2/, the dev emulators up)
  *
- * - A master admin names the Pastor on the page (churchSettings/preaching).
+ * - The Pastor is the one chosen in Team emails (teamMailSettings/main.pastor);
+ *   a master admin sees who, with the way there.
  * - The table is the services on the rota for the next three months, in UK
  *   dates, not practices; past ones only with "Show past services".
  * - The Pastor (not an admin) changes the description, the speaker - a
@@ -62,12 +63,12 @@ const EV = { soon: 'pp_soon', past: 'pp_past', far: 'pp_far', practice: 'pp_prac
 let hadPreaching = null;
 async function tidy() {
   for (const id of Object.values(EV)) await del('events/' + id);
-  if (hadPreaching) await put('churchSettings/preaching', hadPreaching); else await del('churchSettings/preaching');
+  if (hadPreaching) await put('teamMailSettings/main', hadPreaching); else await del('teamMailSettings/main');
 }
 
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
-  hadPreaching = await get('churchSettings/preaching');
+  hadPreaching = await get('teamMailSettings/main');
   for (const p of Object.values(PEOPLE)) {
     let up = JSON.parse((await req(9099, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email: p.email, password: PW, returnSecureToken: true })).body || '{}');
     if (!up.localId) up = JSON.parse((await req(9099, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email: p.email, password: PW, returnSecureToken: true })).body || '{}');
@@ -77,7 +78,7 @@ async function tidy() {
     await put('users/' + p.uid, { uid: p.uid, email: p.email, name: p.name, memberId: p.member, status: 'active', linkedBy: 'admin',
       teams: p.teams, adminFor: p.adminFor, masterAdmin: p.masterAdmin, churchMember: true });
   }
-  await del('churchSettings/preaching');
+  await put('teamMailSettings/main', { pastor: PEOPLE.pastor.member, officeAdmin: '' });
   const svc = (date, extra) => Object.assign({ date, type: 'Sunday Morning Worship', termLabel: 'Synthetic', teams: ['Worship Team'], roles: ['Keyboard'],
     archived: false, startTime: '08:00', serviceTime: '10:00' }, extra || {});
   await put('events/' + EV.soon, svc(day(10), { speaker: 'Synthetic Booked Speaker' }));
@@ -128,14 +129,14 @@ async function tidy() {
   const typeIn = (id, sel, v) => evl('(function(){var i=' + row(id) + '.querySelector(\'' + sel + '\');i.value=' + JSON.stringify(v) + ';i.dispatchEvent(new Event("change",{bubbles:true}));return 1})()');
 
   try {
-    console.log('A master admin names the Pastor (1440px)');
+    console.log('A master admin sees who the Pastor is (1440px)');
     await signIn(PEOPLE.master);
     watch.reset();
     await open('preaching-plan.html', 1440, 9000);
     ok('  the Pastor box is there for a master admin', String(await evl('!!document.querySelector(\'[data-pp="settings"]\')')) === 'true');
-    await evl('(function(){var i=document.getElementById("pastorPick");i.value=' + JSON.stringify(PEOPLE.pastor.name) + ';i.dispatchEvent(new Event("change",{bubbles:true}));return 1})()');
-    const pr = await waitFor('churchSettings/preaching', (d) => (d.pastorIds || []).includes(PEOPLE.pastor.member));
-    ok('  picking a name saves them, at once', pr && (pr.pastorIds || []).includes(PEOPLE.pastor.member), JSON.stringify(pr));
+    const pb = await J('JSON.stringify({who:(document.querySelector("[data-pastor]")||{}).textContent||"",href:(document.querySelector(\'[data-pp="settings"] a\')||{}).getAttribute&&document.querySelector(\'[data-pp="settings"] a\').getAttribute("href")})');
+    ok('  named, from Team emails (one place to choose them)', pb.who === PEOPLE.pastor.name, JSON.stringify(pb));
+    ok('  with the way to change it', pb.href === 'team-mail.html', JSON.stringify(pb));
     ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
     console.log('\nThe Pastor (1440px)');
@@ -157,6 +158,11 @@ async function tidy() {
     let d = await waitFor('events/' + EV.soon, (x) => x.speaker === 'Guest Speaker Nobody Knows' && x.publicTitle === 'Synthetic Harvest Sunday' && x.serviceLeader === PEOPLE.member.name);
     ok('  a guest speaker, the description and the leader save to the rota\'s own fields', d && d.speaker === 'Guest Speaker Nobody Knows'
       && d.publicTitle === 'Synthetic Harvest Sunday' && d.serviceLeader === PEOPLE.member.name, JSON.stringify(d));
+    /* Martin, 16 Oct 2026: chosen from the address book, with the person's id
+       (For Sunday's prayer list matches by it); a guest speaker has none. */
+    d = await waitFor('events/' + EV.soon, (x) => x.serviceLeaderId === PEOPLE.member.member);
+    ok('  the leader, chosen from the address book, is kept with their id; the guest has none',
+      d && d.serviceLeaderId === PEOPLE.member.member && d.speakerId === '', JSON.stringify({ l: d && d.serviceLeaderId, s: d && d.speakerId }));
     await evl(row(EV.soon) + '.querySelector("[data-addreader]").click();1'); await sleep(300);
     await typeIn(EV.soon, '.reader:last-child [data-r="name"]', 'Synthetic Reader');
     await typeIn(EV.soon, '.reader:last-child [data-r="passage"]', 'John 3:1-17');
