@@ -396,6 +396,39 @@ service firebase.storage {
       allow delete: if adminHere();
     }
 
+    // THE SESSION PLANNER (F-223; Martin, 16 Oct): a session's files -
+    // worksheets, PowerPoints, pictures, programme videos - at
+    // planner/<group>/<session>/<file>. The group's leaders put them up;
+    // its leaders and its team read them; master admins too. Video up to
+    // 500 MB (programme downloads), anything else up to 50 MB.
+    function planGroupHere(groupId) {
+      return firestore.get(/databases/(default)/documents/planGroups/$(groupId)).data;
+    }
+    function planActive() {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && storageMe().status == 'active';
+    }
+    function planLeaderHere(groupId) {
+      return planActive() && firestore.exists(/databases/(default)/documents/planGroups/$(groupId))
+             && storageMe().get('memberId', '-') in planGroupHere(groupId).get('leaderIds', []);
+    }
+    function planReaderHere(groupId) {
+      return planActive() && firestore.exists(/databases/(default)/documents/planGroups/$(groupId))
+             && (storageMe().get('masterAdmin', false) == true
+                 || storageMe().get('memberId', '-') in planGroupHere(groupId).get('leaderIds', [])
+                 || planGroupHere(groupId).get('teamName', '-') in storageMe().get('teams', []));
+    }
+    match /planner/{groupId}/{sessionId}/{fileName} {
+      allow read: if planReaderHere(groupId);
+      allow write: if planLeaderHere(groupId)
+                   && (request.resource.contentType.matches('video/.*') ? request.resource.size < 500 * 1024 * 1024
+                                                                        : request.resource.size < 50 * 1024 * 1024)
+                   && (request.resource.contentType.matches('(image|video|audio)/.*')
+                       || request.resource.contentType.matches('application/(pdf|vnd.openxmlformats-officedocument..*|vnd.ms-powerpoint|msword|vnd.oasis.opendocument..*)'));
+      allow delete: if planLeaderHere(groupId);
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────

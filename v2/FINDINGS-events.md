@@ -6939,7 +6939,7 @@ started once the last is in use.
 **Feature names (rule 12):** `sessionPlanner`, `present` and `quiz`, each off for a church
 that doesn't use it.
 
-## Part 1 — The planner (`planner.html`)
+## Part 1 — The planner (`session-planner.html`; not planner.html, which on Windows is the same file as the Rota Planner)
 
 **Groups (settings, master admins), `planGroups/{id}`:**
 - name, kind (children, youth, sermon or other), ages from/to, day and time
@@ -7193,3 +7193,145 @@ let me run the real one.
 **app.html bumps, please:** `egbc-events.js?v=202610161700` (it now holds `asSeen`, `ready`,
 `refused` and `myUid`) and `egbc-app-listen.js` (F-219: Latest, opens on Watch). My pages are
 bumped already.
+
+### F-225 — Martin's answers (16 Oct), and the formats to agree: planner data, ChurchShow import, rota ids
+
+**Done:**
+- **Places and the Picture library:** the church office, bookings admins and master admins
+  only. They use `EGBCEvents.mayRunPlaces()`: EGBCAuth's "bookings" part of Running things,
+  which follows View as.
+- **Headcounts:** Kids Church leads (who administer a team the children's settings name) and
+  master admins only, through `EGBCEvents.mayHeadcount()`.
+- The three pages now refuse in the page, and their guards ask only for a signed-in person,
+  so a non-admin in the church office isn't turned away first. admin-pages.test 22/22.
+- **The rules aren't narrowed.** They still let any admin read or write headcounts and
+  pictures: "bookings admin of any site" can't be checked by the rules without reading every
+  site. The pages and the Menu agree, as asked.
+- **For the main window:** please make the Menu use the same answers. Places and Picture
+  library: `EGBCAuth.runsTabs().indexOf('bookings') >= 0`, or a master admin. Headcounts:
+  `EGBCEvents.mayHeadcount()`.
+
+**Service leader and speaker by id:**
+- prayer-sunday.js now matches `serviceLeaderId`, or `serviceLeader` given as `{id, name}`,
+  by address-book id. It falls back to the typed name only where a service has no id.
+- **Proposal for the field names** (please confirm, or tell me yours):
+  `events.serviceLeaderId` and `events.speakerId`, kept next to the typed names (which stay
+  for older services and for printing).
+- The planner's sermon mode will use `speakerId` the same way.
+
+**Planner data model (part 1)**, kept open for the follow-on idea:
+- `planGroups/{id}`:
+  - name, kind (`children` | `youth` | `sermon` | `other`), ageFrom, ageTo, day, time
+  - leaderIds [address-book ids], teamName, email list
+  - programmes [{prefix, name, link}], parts [names]
+  - usesOffice365 (bool, from Church settings)
+- `planSessions/{id}`:
+  - groupId, date, special (`''` | a note | `none`), title
+  - programme, lessonCode, lessonLink
+  - passage {ref, version, source, text, copyright}
+  - onIds, awayIds
+  - parts []
+  - updatedBy, updatedByName, updatedAt
+- **Each part:** {id, kind, title, minutes, notes, links[], files[], bring[], show[]}
+- **Each `show` step:** {id, type, …}, where type is one of
+  `verses | video | youtube | picture | song | memory | timer | text | quiz | pptx | link`.
+
+**THE CHURCHSHOW IMPORT FORMAT** (to agree with the reviewing window and the ChurchShow
+window). A paired ChurchShow device asks the hub for a session, and gets back:
+
+    { format: 'egbc-lesson/1',
+      id, group: { id, name, ages }, date, title,
+      programme, lessonCode, lessonLink,
+      passage: { ref, version, source, text, copyright },
+      steps: [ { part: 'Story', partId, n,          // in order, every part's show[]
+                 type, ... } ] }
+
+The step types, as ChurchShow would use them:
+- `verses` {ref, version, source: 'bundled' | 'apibible' | 'biblegateway', text, copyright}:
+  for `biblegateway` only ref and version, and ChurchShow fetches it itself, as it already does
+- `song` {songId, title, ccli}: ChurchShow shows the words from the hub's song list and
+  records CCLI
+- `video` {url, name, seconds}: an uploaded file (no adverts)
+- `youtube` {videoId, start}
+- `picture` {url}
+- `pptx` {officeUrl, fileUrl, name}: the OneDrive or SharePoint link, and an uploaded copy if
+  there is one, so ChurchShow can run it in real PowerPoint or Impress
+- `text` {words}, `memory` {ref, text}, `timer` {seconds}
+- `quiz` {questions: [{q, answers[4], right, seconds}]}
+- `link` {url, label}
+
+Leaders' notes are not sent to the screen device. "Things to bring" is for the print only.
+**For the reviewing window:** the read would be a new callable in my functions
+(`lessonFor`), checking the device's pairing the way churchshow.js does, so the paired-device
+code itself isn't changed. Or, if you'd rather, sessions are added to what churchshow.js
+already serves. Your call.
+
+**PowerPoint (part 2, Martin's answer 6):** a `pptx` step holds the deck's OneDrive or
+SharePoint link. Present shows Microsoft's embed player full screen (animations, transitions,
+video in slides). The clicker or arrow keys step the slides; the leader's phone says
+"PowerPoint showing - use the clicker", and Next moves on to the following lesson step.
+"Uses Office 365" is a Church settings tick (yes for EGBC). Without it: "Run this lesson in
+ChurchShow". **For the trial I need 2-3 of Karen's real decks as OneDrive links** (Share,
+then "Embed", or "Anyone with the link can view"). Martin, please send them when part 2
+starts.
+
+**Bibles (answer 1):** all 11 of ChurchShow's free Bibles (AKJV, ASV, BBE, BSB, Darby, DRC,
+Geneva 1599, KJV, NHEB, Webster, YLT), one file per book, with the church's usual Bible
+Gateway versions offered as links. **API.Bible (answer 2):** a box in Church settings where a
+master admin pastes the key. It's stored in `privateSettings/apiBible` (no page can read it),
+never shown again ("A key is saved. Paste a new one to replace it."), and used only by the
+`bibleFetch` function. **Away (answer 3):** from the availability form. **Storage (answer
+4):** a planner section in storage.rules, deployed at switch-over. **Quiz (answer 5):**
+anonymous sign-in for players - for the main window: Firebase Auth's anonymous provider needs
+switching on in the console at part 3.
+
+### F-226 — Session planner, part 1, built (`session-planner.html`)
+
+**What's there:**
+- **One page with a group picker:**
+  - ⚙ Groups (master admins): name, kind, ages, day, leaders, team, email list, programmes
+    (`name | link`, where `{code}` in the link becomes the lesson code), and the parts of a
+    session.
+  - **The term:** a table of weeks, like Karen's (code + title, who's on, who's away, special
+    weeks, "no session").
+  - **A week:** date, special week or none, title, programme + lesson code + link; the Bible
+    passage; who's on (the rota's roles for the group's team on that date) and who's away
+    (the availability form for that date's services), both editable; "Last changed by".
+- **Parts:** dragged to reorder (SortableJS 1.15.0, pointer mode for phones), saved in the
+  dropped order. Each part has notes, things to bring (all gathered at the top and in the
+  print), links, uploaded files (Storage `planner/<group>/<session>/`), and "show on screen"
+  steps, also draggable. The step kinds: Bible verses, video file, YouTube, picture, song
+  (the hub's song id), memory verse, timer, text, quiz (written as plain lines), PowerPoint
+  (the OneDrive or SharePoint link), and a link ("Open Urban Saints").
+- **Bible:** one picker, three sources.
+  - **Free Bibles:** all 11 of ChurchShow's, in `bibles/`, one file per book.
+  - **API.Bible:** the church's key, through `bibleFetch`.
+  - **Bible Gateway:** a link only. The plan keeps the reference; the test proves no text is
+    saved.
+  - The key box is in Church settings, for master admins (`bibleKeySave` / `bibleKeyStatus`;
+    the key itself is in `privateSettings/apiBible`, which no page can read).
+- **Who:** every leader of a group edits every plan of it; its team reads; master admins set
+  up groups. The rules (events section) and storage.rules (events section) both say so.
+- **Email:** `planSend` (functions/planner.js) builds the email from the saved plan and sends
+  one to every leader (on that week or not), that week's team and the group's list. It's
+  shut on the live site until switch-over, like team mail.
+- **Print:** one clean page, with no buttons and no chips.
+
+**Proved:**
+- session-planner.test 29/29
+- admin-pages.test 22/22
+- prayer-sunday.test 25/25 (by id)
+- the rules suite (planner block added)
+- deliberate breaks (see the report)
+
+**For the main window, please:**
+1. **Menu:** "Session planner" (session-planner.html) for the leaders and teams of any
+   planGroup and master admins, and the app's spaces. The page refuses anyone else (marked
+   refused).
+2. **Feature name `sessionPlanner`** for the "What does your church use?" list (rule 12).
+3. **sw.js:** please don't precache `bibles/` (47 MB). Cache a book when it's fetched, if
+   anything.
+4. **Deploy at switch-over:** the rules, storage.rules and functions `bibleKeySave`,
+   `bibleKeyStatus`, `bibleFetch` and `planSend`. bibleFetch and the key box are safe before
+   switch-over: only master admins and group leaders can use them.
+5. **The Preaching-plan fields** (F-225: `serviceLeaderId`, `speakerId`).

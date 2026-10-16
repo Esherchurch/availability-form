@@ -20,8 +20,8 @@
    items: the requests marked yes, not answered, made in the four weeks
    up to that Sunday, newest first; name '' unless "with my name".
    from / until: Wednesday 00:00 to Sunday 23:59:59, church (UK) time.
-   leaderMemberIds: every service that Sunday's typed service leader,
-   matched to the address book by name.
+   leaderMemberIds: every service that Sunday's service leader, by their
+   address-book id (serviceLeaderId); by the typed name only where no id.
    The rules let the Pastor read any of them, and a service leader the
    one naming them, between from and until. Nobody writes them but this.
 
@@ -74,10 +74,20 @@ export async function buildSunday(db, sunday) {
     db.collection('prayers').where('sunday', 'in', ['named', 'anon']).get(),
     db.collection('addressBook').get()
   ]);
-  const names = [];
-  evs.docs.forEach(d => { [].concat(d.data().serviceLeader || []).forEach(n => { if (norm(n)) names.push(norm(n)); }); });
+  /* BY ID, NOT BY NAME (Martin, 16 Oct): the rota keeps the service leader's
+     address-book id (serviceLeaderId, or serviceLeader as {id, name}); a
+     typed name is matched only where there is no id yet (older services). */
+  const names = [], ids = [];
+  evs.docs.forEach(d => {
+    const e = d.data();
+    [].concat(e.serviceLeaderId || []).forEach(i => { if (typeof i === 'string' && i) ids.push(i); });
+    [].concat(e.serviceLeader || []).forEach(n => {
+      if (n && typeof n === 'object') { if (n.id) ids.push(String(n.id)); }
+      else if (!e.serviceLeaderId && norm(n)) names.push(norm(n));
+    });
+  });
   const leaderMemberIds = [];
-  if (names.length) ab.docs.forEach(d => { const x = d.data(); if (!x.archived && names.includes(norm(x.name))) leaderMemberIds.push(d.id); });
+  ab.docs.forEach(d => { const x = d.data(); if (x.archived) return; if (ids.includes(d.id) || (names.length && names.includes(norm(x.name)))) leaderMemberIds.push(d.id); });
   const ms = (v) => (v && v.toMillis ? v.toMillis() : (typeof v === 'string' ? Date.parse(v) : (v instanceof Date ? v.getTime() : 0))) || 0;
   const items = prs.docs.map(d => d.data())
     .filter(p => !p.answered && ms(p.at) >= since && ms(p.at) <= w.until)

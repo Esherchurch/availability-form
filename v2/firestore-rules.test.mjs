@@ -3933,6 +3933,43 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  a check-in may carry its building (buildingId)', 'allow', () => setDoc(doc(as('martin'), 'checkins', 'ev_fa__su_fa_1__1'), { calEventId: 'ev_fa', signupKey: 'su_fa_1', attendeeIndex: 1, name: 'Abe', kind: 'booked', state: 'in', inAt: 'x', inBy: 'u_martin', inByName: 'M', roomId: '', day: DAYF, buildingId: 'site_a', updatedAt: 'x' }));
 }
 
+// THE SESSION PLANNER (F-223, F-225): each group's leaders edit its plans; its team reads.
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    const U = (uid, mid, teams) => setDoc(doc(d, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor: [], masterAdmin: false });
+    await U('u_samy', 'm_samy', ['Kids Church']);
+    await U('u_tomk', 'm_tomk', ['Kids Church']);
+    await U('u_yola', 'm_yola', ['Youth']);
+    await U('u_nobo', 'm_nobo', []);
+    await setDoc(doc(d, 'planGroups', 'pg_kids'), { name: 'Kids Church', kind: 'children', leaderIds: ['m_samy'], teamName: 'Kids Church' });
+    await setDoc(doc(d, 'planGroups', 'pg_youth'), { name: 'Youth', kind: 'youth', leaderIds: ['m_yola'], teamName: 'Youth' });
+    await setDoc(doc(d, 'planSessions', 'ps_1'), { groupId: 'pg_kids', date: '2026-11-01', title: 'Born again?', parts: [], updatedBy: 'u_samy' });
+    await setDoc(doc(d, 'privateSettings', 'apiBible'), { key: 'SYNTHETIC-KEY' });
+  });
+  const PS = (uid, extra) => ({ groupId: 'pg_kids', date: '2026-11-08', title: 'Valued', parts: [{ id: 'a', title: 'Welcome' }], updatedBy: uid, updatedByName: 'x', updatedAt: 'x', ...(extra || {}) });
+  await check('PLANNER: a group leader writes a plan for the group', 'allow', () => setDoc(doc(ctx('u_samy'), 'planSessions', 'ps_2'), PS('u_samy')));
+  await check('  and changes one', 'allow', () => setDoc(doc(ctx('u_samy'), 'planSessions', 'ps_1'), PS('u_samy', { date: '2026-11-01' })));
+  await check('  but not in someone else\u2019s name', 'deny', () => setDoc(doc(ctx('u_samy'), 'planSessions', 'ps_3'), PS('u_tomk')));
+  await check('  nor moves a plan to another group', 'deny', () => setDoc(doc(ctx('u_samy'), 'planSessions', 'ps_1'), PS('u_samy', { groupId: 'pg_youth' })));
+  await check('  the team reads the plans', 'allow', () => getDoc(doc(ctx('u_tomk'), 'planSessions', 'ps_1')));
+  await check('  and lists the group\u2019s', 'allow', () => getDocs(query(collection(ctx('u_tomk'), 'planSessions'), where('groupId', '==', 'pg_kids'))));
+  await check('  A TEAM MEMBER CANNOT CHANGE A PLAN', 'deny', () => updateDoc(doc(ctx('u_tomk'), 'planSessions', 'ps_1'), { title: 'Tom was here', updatedBy: 'u_tomk' }));
+  await check('  ANOTHER GROUP\u2019S LEADER CANNOT CHANGE IT', 'deny', () => setDoc(doc(ctx('u_yola'), 'planSessions', 'ps_1'), PS('u_yola', { date: '2026-11-01' })));
+  await check('  nor read it', 'deny', () => getDoc(doc(ctx('u_yola'), 'planSessions', 'ps_1')));
+  await check('  someone in no group reads nothing', 'deny', () => getDoc(doc(ctx('u_nobo'), 'planSessions', 'ps_1')));
+  await check('  a master admin reads', 'allow', () => getDoc(doc(as('martin'), 'planSessions', 'ps_1')));
+  await check('  a leader deletes a plan of the group', 'allow', () => deleteDoc(doc(ctx('u_samy'), 'planSessions', 'ps_2')));
+  await check('  a team member does not', 'deny', () => deleteDoc(doc(ctx('u_tomk'), 'planSessions', 'ps_1')));
+  await check('PLANNER GROUPS: a master admin sets one up', 'allow', () => setDoc(doc(as('martin'), 'planGroups', 'pg_new'), { name: 'Lazers', kind: 'youth', leaderIds: ['m_samy'], teamName: 'Lazers', updatedBy: 'u_martin', updatedAt: 'x' }));
+  await check('  a group\u2019s own leader cannot change who leads it', 'deny', () => setDoc(doc(ctx('u_samy'), 'planGroups', 'pg_kids'), { name: 'Kids Church', kind: 'children', leaderIds: ['m_samy', 'm_nobo'], teamName: 'Kids Church' }));
+  await check('  its team reads the group', 'allow', () => getDoc(doc(ctx('u_tomk'), 'planGroups', 'pg_kids')));
+  await check('  someone else does not', 'deny', () => getDoc(doc(ctx('u_nobo'), 'planGroups', 'pg_kids')));
+  await check('API.BIBLE\u2019S KEY: not even a master admin\u2019s page reads where it is kept', 'deny', () => getDoc(doc(as('martin'), 'privateSettings', 'apiBible')));
+  await check('  nor writes it (only the server)', 'deny', () => setDoc(doc(as('martin'), 'privateSettings', 'apiBible'), { key: 'x' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

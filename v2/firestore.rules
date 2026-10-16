@@ -4207,6 +4207,54 @@ service cloud.firestore {
              && exists(/databases/$(database)/documents/teamMailSettings/main)
              && get(/databases/$(database)/documents/teamMailSettings/main).data.get('pastor', '') == me().get('memberId', '');
     }
+    // THE SESSION PLANNER (F-223, F-225; Martin, 16 Oct). A group (Kids
+    // Church, Lazers, Youth, the preaching team) is set up by a master
+    // admin. Every one of its leaders edits every plan of the group (Samy
+    // writes it, Karen picks it up); its team reads them; nobody else.
+    function planGroup(gid) {
+      return get(/databases/$(database)/documents/planGroups/$(gid)).data;
+    }
+    function leadsPlanGroup(gid) {
+      return active() && gid is string && gid != ''
+             && exists(/databases/$(database)/documents/planGroups/$(gid))
+             && me().get('memberId', '-') in planGroup(gid).get('leaderIds', []);
+    }
+    function readsPlanGroup(gid) {
+      return isMaster() || leadsPlanGroup(gid)
+             || (active() && gid is string && gid != ''
+                 && exists(/databases/$(database)/documents/planGroups/$(gid))
+                 && planGroup(gid).get('teamName', '-') in me().get('teams', []));
+    }
+    match /planGroups/{gid} {
+      allow read: if isMaster()
+                  || (active() && (me().get('memberId', '-') in resource.data.get('leaderIds', [])
+                                   || resource.data.get('teamName', '-') in me().get('teams', [])));
+      allow write: if isMaster()
+                   && request.resource.data.keys().hasOnly(['name', 'kind', 'ageFrom', 'ageTo', 'day', 'time', 'leaderIds', 'teamName', 'emails', 'programmes', 'parts', 'order', 'archived', 'updatedBy', 'updatedAt'])
+                   && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
+                   && request.resource.data.kind in ['children', 'youth', 'sermon', 'other']
+                   && request.resource.data.leaderIds is list && request.resource.data.leaderIds.size() <= 30;
+      allow delete: if isMaster();
+    }
+    function planSessionShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['groupId', 'date', 'special', 'title', 'programme', 'lessonCode', 'lessonLink', 'passage', 'onIds', 'awayIds', 'parts', 'speakerId', 'series', 'updatedBy', 'updatedByName', 'updatedAt', 'createdAt'])
+             && d.groupId is string && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+             && d.get('title', '') is string && d.get('title', '').size() <= 120
+             && d.get('parts', []) is list && d.get('parts', []).size() <= 40
+             && d.updatedBy == request.auth.uid;
+    }
+    match /planSessions/{sid} {
+      allow read: if readsPlanGroup(resource.data.groupId);
+      allow create: if leadsPlanGroup(request.resource.data.groupId) && planSessionShape();
+      allow update: if leadsPlanGroup(resource.data.groupId) && planSessionShape()
+                    && request.resource.data.groupId == resource.data.groupId;
+      allow delete: if leadsPlanGroup(resource.data.groupId) || isMaster();
+    }
+    // The church's API.Bible key (F-225): the bible.js functions only.
+    match /privateSettings/{id} {
+      allow read, write: if false;
+    }
     match /prayerSundayList/{sunday} {
       allow read: if isPastor()
                   || (active() && me().get('memberId', '') in resource.data.get('leaderMemberIds', [])

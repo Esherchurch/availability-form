@@ -177,6 +177,10 @@ try {
   ok('   a new service leader typed on the rota gets it (Oli), and Sally no longer', !!L2);
   if (INWINDOW) ok('   (Oli can read it now; Sally cannot)', (await read(O, 'prayerSundayList', SUN)) === 'read' && /permission/.test(await read(S, 'prayerSundayList', SUN)));
 
+  /* 8. by id, not by name (Martin, 16 Oct) */
+  await db.collection('events').doc('svc_this').update({ serviceLeaderId: 'm_nell', serviceLeader: 'Oli Other (invented)' });
+  const L3 = await until(async () => { const d = (await db.collection('prayerSundayList').doc(SUN).get()).data(); return d && J(d.leaderMemberIds) === J(['m_nell']) ? d : null; });
+  ok('8. THE SERVICE LEADER BY ID: the rota’s id (Nell) wins over a typed name (Oli)', !!L3, J(L3));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

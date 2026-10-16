@@ -740,3 +740,6 @@ export { kidsCountsKeep } from './kids-counts.js';
 export { rotaWhatsOn } from './rota-whatson.js';
 /* For Sunday: the prayer list for the service leader and the Pastor (F-222), the events window's file. */
 export { prayerSundayOnPrayer, prayerSundayOnRota, prayerSundayDaily } from './prayer-sunday.js';
+/* The session planner's Bible (API.Bible, the church's key) and its plan email (F-223), the events window's files. */
+export { bibleKeySave, bibleKeyStatus, bibleFetch } from './bible.js';
+export { planSend } from './planner.js';

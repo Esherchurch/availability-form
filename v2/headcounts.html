@@ -12,7 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-church.js?v=202610121600"></script>
-<script src="egbc-guard.js?v=202610121600" data-admin="any"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
@@ -204,6 +204,13 @@
   }
 
   E.ready().then(function () {
+    return E.mayHeadcount();
+  }).then(function (may) {
+    if (!may) {
+      E.refused();
+      document.querySelector('.wrap').innerHTML = '<h1>Headcounts</h1><div class="card"><p>This page is for the Kids Church leads and master admins.</p></div>';
+      return new Promise(function () {});
+    }
     return E.listUpcoming({ from: Date.now() - 21 * 24 * 3600 * 1000, limit: 60 }).catch(function () { return []; });
   }).then(function (evs) {
     RECENT = evs.filter(function (e) { return e.startUtc <= Date.now() + 24 * 3600 * 1000 && e.status !== 'cancelled'; }).reverse();

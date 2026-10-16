@@ -181,6 +181,26 @@
      guard does (data-egbc-blocked), so a checker - and anything else that
      looks - can tell "not for you" from a page that opened. */
   function refused() { if (document.body) document.body.setAttribute('data-egbc-blocked', 'refused by the page'); }
+  /* WHO MAY OPEN WHICH ADMIN PAGE (Martin, 16 Oct; the Menu asks the same):
+       - Places and the Picture library: the church office, master admins
+         and bookings admins - everyone EGBCAuth gives the "bookings" part
+         of Running things (master admins, the office group, any site's
+         bookings admin)
+       - Headcounts: the Kids Church leads (who administer a team the
+         children's settings name) and master admins
+     Both follow View as, through EGBCAuth's own answers. */
+  function mayRunPlaces() {
+    if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return true;
+    return !!(EGBCAuth.runsTabs && EGBCAuth.runsTabs().indexOf('bookings') >= 0);
+  }
+  function mayHeadcount() {
+    if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return Promise.resolve(true);
+    var areas = (EGBCAuth.adminAreas && EGBCAuth.adminAreas()) || [];
+    if (!areas.length) return Promise.resolve(false);
+    return db().collection('kidsSettings').get().then(function (s) {
+      return s.docs.some(function (d) { return ((d.data() || {}).teams || []).some(function (t) { return areas.indexOf(t) >= 0; }); });
+    }, function () { return false; });
+  }
   function myUid() { if (viewing()) return ''; var u = typeof EGBCAuth !== 'undefined' && EGBCAuth.user ? EGBCAuth.user() : null; return (u && u.uid) || ''; }
   function myIds() {
     var p = signedIn() ? asSeen() : null;
@@ -965,7 +985,7 @@
     audienceFor: audienceFor,
     myAudiences: myAudiences,
     signedIn: signedIn,
-    onTeam: onTeam, ready: ready, refused: refused, viewing: viewing, asSeen: asSeen, myUid: myUid,
+    onTeam: onTeam, ready: ready, refused: refused, mayRunPlaces: mayRunPlaces, mayHeadcount: mayHeadcount, viewing: viewing, asSeen: asSeen, myUid: myUid,
     runsEvent: runsEvent,
     eventsIRun: eventsIRun,
     listUpcoming: listUpcoming,

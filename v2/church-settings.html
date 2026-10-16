@@ -96,6 +96,13 @@
   <h1 style="font-size:18px;margin:22px 0 4px" id="care-h" hidden>Who gets told</h1>
   <p class="sub" id="care-sub" hidden>When somebody asks for pastoral care, raises a concern or asks for prayer, the people named here are told that something has come in &mdash; never who or what. They can involve abuse, so they never go to the church office by default: only if you type its address here on purpose. With nobody named, they go to the safeguarding lead and deputy.</p>
   <div class="card" id="care-form" hidden></div>
+
+  <!-- API.BIBLE (Martin, 16 Oct; F-225, events window): the church's own key,
+       pasted here by a master admin, kept by the server and never shown
+       again. The session planner fetches Bible passages with it. -->
+  <h1 style="font-size:18px;margin:22px 0 4px" id="bible-h" hidden>API.Bible</h1>
+  <p class="sub" id="bible-sub" hidden>The church's own key for API.Bible, so the session planner can bring in passages from the Bibles on it (for example the NIV, if the key allows it). It is kept by the hub's server and never shown again.</p>
+  <div class="card" id="bible-form" hidden></div>
 </div>
 <div id="toast"></div>
 <script>
@@ -417,6 +424,36 @@
      is not an admin may open this page for the giving details, so their
      half of it is drawn and the other half is not. Drawing a form that
      Save would refuse is the fault this project keeps finding. */
+  /* ---- API.Bible's key (F-225, events window) ----------------------
+     Asked of the server (bibleKeyStatus): saved or not, never the key. */
+  function drawBible(msg) {
+    ['bible-h', 'bible-sub', 'bible-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+    var el = document.getElementById('bible-form');
+    el.innerHTML = '<p class="hint" id="bk-state">Checking…</p>';
+    EGBCAuth.call('bibleKeyStatus', {}).then(function (r) { r = (r && r.data !== undefined) ? r.data : r; return r || {}; }, function () { return { error: true }; }).then(function (st) {
+      el.innerHTML = '<p class="hint" id="bk-state" style="margin:0 0 10px">' + (st.error ? 'The hub could not say whether a key is saved.'
+          : st.saved ? '<b style="color:var(--ink)">A key is saved</b>' + (st.savedByName ? ' (by ' + esc(st.savedByName) + ')' : '') + '. Paste a new one to replace it.'
+          : '<b style="color:var(--ink)">No key yet.</b> Without one, the planner still has the free Bibles and Bible Gateway links.') + '</p>' +
+        '<label for="bk-key" style="display:block;font-weight:500;margin:0 0 4px">API.Bible key</label>' +
+        '<input id="bk-key" type="password" autocomplete="off" spellcheck="false" style="width:100%;min-height:48px;border:1px solid var(--line-2,#d1d5db);border-radius:10px;padding:0 12px;font:inherit">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="btn" id="bk-save">Save the key</button>' +
+        (st.saved ? '<button type="button" class="btn sec" id="bk-del">Remove the key</button>' : '') + '</div>' +
+        '<p class="hint" id="bk-msg" role="status" style="margin:8px 0 0">' + esc(msg || '') + '</p>';
+      document.getElementById('bk-save').onclick = function () {
+        var k = document.getElementById('bk-key').value.trim();
+        if (!k) { document.getElementById('bk-msg').textContent = 'Paste the key first.'; return; }
+        saveBibleKey(k);
+      };
+      var del = document.getElementById('bk-del');
+      if (del) del.onclick = function () { if (confirm('Remove the API.Bible key? The planner will offer only the free Bibles and Bible Gateway links.')) saveBibleKey(''); };
+    });
+  }
+  function saveBibleKey(k) {
+    document.getElementById('bk-msg').textContent = 'Saving…';
+    EGBCAuth.call('bibleKeySave', { key: k }).then(function (r) { r = (r && r.data !== undefined) ? r.data : r; drawBible(r && r.saved ? 'Saved. It will not be shown again.' : 'Removed.'); },
+      function (e) { document.getElementById('bk-msg').textContent = 'Not saved: ' + (e.message || e); });
+  }
+
   function mayDetails() { return !!EGBCAuth.isAdmin(); }
 
   EGBCAuth.require({ adminAny: true, alsoTeam: 'Church office' }).then(function () {
@@ -438,6 +475,7 @@
         L = (s.exists && s.data()) || { rulesLocked: false, opensOn: '' }; drawLaunch();
       }).catch(function () { drawLaunch(); });
       loadCare();
+      drawBible();
     }
     if (!mayGive()) return null;
     return db().collection('churchSettings').doc('giving').get().then(function (g) {

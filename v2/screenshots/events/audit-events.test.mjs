@@ -112,7 +112,7 @@ const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html',
   'church-settings.html', 'comms.html', 'events-admin.html', 'forms-admin.html', 'giftaid.html', 'give-regularly.html', 'groups-admin.html', 'groups.html',
   'headcounts.html', 'hire.html', 'kids-admin.html', 'kids-checkin.html', 'maintenance.html', 'my-messages.html', 'newhere.html', 'notifications.html',
   'payments.html', 'picture-library.html', 'places-admin.html', 'prayer.html', 'retention.html', 'room.html?id=room_a', 'rooms.html', 'rota-reports.html',
-  'safeguarding-settings.html', 'safeguarding.html', 'sermons-admin.html', 'signup.html?event=ev_a', 'team-mail.html', 'watch-admin.html', 'whatson.html'
+  'safeguarding-settings.html', 'safeguarding.html', 'sermons-admin.html', 'session-planner.html', 'signup.html?event=ev_a', 'team-mail.html', 'watch-admin.html', 'whatson.html'
 ].filter(p => !ONLY || p.startsWith(ONLY));
 /* Every page is held to it (the audit named events-admin, check-in and the picture library; Martin's floor is for all). */
 
@@ -204,7 +204,10 @@ try {
     const T = {};
     for (const [who, pg] of WHO) {
       await open(pg, page);
-      T[who] = await seen(pg);
+      /* A page that moves itself on while it is read (a redirect, a
+         reload) is opened once more, not counted as a crash. */
+      try { T[who] = await seen(pg); }
+      catch (e) { if (!/detached|context was destroyed/i.test(String(e && e.message))) throw e; await sleep(1500); await open(pg, page); T[who] = await seen(pg); }
       const errs = pg._errs.slice();
       ok('AUDIT ' + page + ' ' + who + ' no-js-error', errs.length === 0, errs.join(' | '));
       const sw = await sideways(pg);

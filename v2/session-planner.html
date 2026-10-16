@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Session planner</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610152310"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Session planner"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610161700"></script>
+<script src="egbc-bible.js?v=202610161700"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;
+        --canvas:#f6f7f7;--ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--gold:#b07d2e;--gold-bg:#fdf8ee}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:18px 16px calc(80px + env(safe-area-inset-bottom))}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 2px}
+  .sub{color:var(--muted);margin:0 0 12px;font-size:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .spacer{flex:1}
+  .chips{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px}
+  .chip{flex:none;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:#fff;font:600 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 16px;border-radius:10px;font:600 15px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.small{min-height:44px;font-size:14px;padding:0 12px}
+  .btn.danger{background:#fff;color:var(--danger);border-color:#e7c3be}
+  .btn:disabled{opacity:.55}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  label.l{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:10px 0 4px}
+  .inp,select,textarea{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:inherit;background:#fff;color:var(--ink)}
+  textarea{padding:10px 12px;min-height:70px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:520px){.grid2{grid-template-columns:1fr}}
+  .wk{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:10px 4px;border-top:1px solid var(--line);min-height:44px;cursor:pointer;border-radius:8px}
+  .wk:first-of-type{border-top:0}.wk:hover{background:var(--tint)}
+  .d{font-weight:700;color:var(--ink);font-size:14px}.d small{display:block;font-weight:500;color:var(--muted)}
+  .t{color:var(--ink);font-weight:600}.m{font-size:13px;color:var(--muted)}
+  .code{display:inline-block;padding:0 8px;border-radius:6px;background:var(--tint);color:var(--brand-dark);font-weight:700;font-size:12px;margin-right:6px}
+  .away{color:var(--danger)}
+  .special{background:var(--gold-bg);border-radius:10px;padding:6px 10px;color:#7a5a1f;font-weight:600;font-size:14px;display:inline-block}
+  .part{border:1px solid var(--line);border-radius:12px;margin:8px 0;background:#fff}
+  .part .ph{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:4px;min-height:52px;padding:4px 8px 4px 0;cursor:pointer}
+  .handle{display:grid;place-items:center;min-height:44px;color:var(--muted);font-size:20px;cursor:grab;touch-action:none}
+  .part .pb{padding:0 12px 12px;border-top:1px solid var(--line)}
+  .step{display:grid;grid-template-columns:44px 1fr auto;gap:4px;align-items:center;border:1px solid var(--line);border-radius:10px;margin:6px 0;padding:4px 6px 4px 0;background:var(--canvas)}
+  .tag{font-size:12px;border:1px solid var(--line);border-radius:8px;padding:2px 8px;background:var(--canvas);display:inline-block;margin:2px 4px 2px 0}
+  .pill{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 4px 0 10px;border-radius:999px;background:var(--tint);color:var(--brand-dark);font-size:13px;font-weight:600;margin:2px 4px 2px 0}
+  .pill.away{background:#fdecea;color:var(--danger)}
+  .pill button{border:0;background:none;min-width:36px;min-height:36px;cursor:pointer;color:inherit;font-size:16px}
+  .said{font-size:13px;color:var(--muted);min-height:18px;margin:6px 0 0}
+  .verse{font-family:Georgia,serif;font-size:15px;color:var(--ink);line-height:1.6}
+  .verse sup{color:var(--brand);font:700 10px Inter,sans-serif;margin-right:2px}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line-2);border-radius:10px;overflow:hidden;margin:0 0 10px}
+  .seg button{min-height:48px;border:0;background:#fff;font:600 13px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
+  .back{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+  @media (min-width:700px){.back{align-items:center}}
+  .sheet{background:#fff;width:100%;max-width:620px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px;position:relative}
+  @media (min-width:700px){.sheet{border-radius:16px}}
+  .sheet .x{position:sticky;top:0;float:right;width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:#fff;font-size:18px;cursor:pointer;z-index:2}
+  .ro .edit{display:none}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
+  @media print{
+    body{background:#fff}.wrap{padding:0;max-width:none}.chips,.noprint,.handle,#toast,#egbc-viewas,#egbc-viewas-top{display:none!important}
+    .card,.part{border:none;padding:0;margin:0 0 10px}.part .pb{border:0;padding:0}.part .ph{grid-template-columns:1fr auto;min-height:0}
+    .inp,select,textarea{border:0;padding:0;min-height:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card">Loading…</div></div>
+<div id="toast"></div>
+<script>
+(function () {
+  'use strict';
+  /* THE SESSION PLANNER (F-223, F-225; Martin, 16 Oct), feature name
+     'sessionPlanner'. Groups (Kids Church, Lazers, Youth, the preaching
+     team) are set up by a master admin; each group's leaders edit every
+     plan of it, its team reads them. Copied in approach from the Sunday
+     Service Planner - one document per plan, the parts an array inside it,
+     dragged to reorder with SortableJS and saved in the dropped order.
+     (session-planner.html, not planner.html: on Windows that is the same
+     file as the Rota Planner, Planner.html.) */
+  var E = window.EGBCEvents, B = window.EGBCBible, esc = E.esc;
+  var ME = {}, MASTER = false, GROUPS = [], G = null, SESS = [], S = null, PEOPLE = {}, MARKERS = {}, TEAMMEM = [], VIEW = 'term', DIRTY = false, OPEN = {};
+  var KINDS = ['Welcome', 'Game', 'Story', 'Video', 'Craft', 'Worship', 'Prayer', 'Quiz', 'Talk', 'Discussion', 'Other'];
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var STEP_TYPES = [['verses', 'Bible verses'], ['video', 'Video file'], ['youtube', 'YouTube'], ['picture', 'Picture'], ['song', 'Song'], ['memory', 'Memory verse'],
+    ['timer', 'Timer'], ['text', 'Text slide'], ['quiz', 'Quiz'], ['pptx', 'PowerPoint'], ['link', 'Open a link (e.g. Urban Saints)']];
+  function db() { return EGBCAuth.db; }
+  function $(id) { return document.getElementById(id); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+  function realUid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function rid() { return Math.random().toString(36).slice(2, 10); }
+  function canEdit() { return !!G && (G.leaderIds || []).indexOf(ME.memberId || '-') >= 0; }
+  function dayOf(d) { var p = String(d).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
+  function dm(d) { var x = dayOf(d); return [x.getUTCDate() + ' ' + x.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }), x.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })]; }
+  function longDay(d) { return dayOf(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }); }
+  function today() { var n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())).toISOString().slice(0, 10); }
+  function nextDate(after, dow) {
+    var x = dayOf(after || today());
+    if (after) x.setUTCDate(x.getUTCDate() + 1);
+    while (x.getUTCDay() !== (dow == null ? 0 : dow)) x.setUTCDate(x.getUTCDate() + 1);
+    return x.toISOString().slice(0, 10);
+  }
+  function names(ids) { return (ids || []).map(function (i) { return PEOPLE[i] || ''; }).filter(Boolean).join(', '); }
+
+  /* ---------------- the page ---------------- */
+  function draw() {
+    if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('sessionPlanner')) { $('wrap').innerHTML = '<div class="card">The session planner is not used by this church.</div>'; return; }
+    if (!GROUPS.length && !MASTER) {
+      E.refused();
+      $('wrap').innerHTML = '<h1>Session planner</h1><div class="card"><p>This page is for the leaders and teams of the groups that plan their sessions here (for example Kids Church). Ask a master admin to add you to a group.</p></div>';
+      return;
+    }
+    var chips = '<div class="chips noprint" role="tablist">' + GROUPS.map(function (g) {
+      return '<button class="chip" data-g="' + esc(g.id) + '" aria-pressed="' + (!!G && G.id === g.id && VIEW !== 'groups') + '">' + esc(g.name) + '</button>';
+    }).join('') + (MASTER ? '<button class="chip" data-v="groups" aria-pressed="' + (VIEW === 'groups') + '">⚙ Groups</button>' : '') + '</div>';
+    var body = VIEW === 'groups' ? groupsView() : !G ? '<div class="card"><p>No groups yet. Add one under ⚙ Groups.</p></div>' : VIEW === 'session' && S ? sessionView() : termView();
+    $('wrap').innerHTML = chips + body;
+    wire();
+  }
+
+  /* ---- the term: a table of weeks like Karen's ---- */
+  function termView() {
+    var rows = SESS.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    return '<h1>' + esc(G.name) + '</h1><p class="sub">' + esc([G.ageFrom || G.ageTo ? 'ages ' + (G.ageFrom || '?') + '-' + (G.ageTo || '?') : '', canEdit() ? 'you lead this group' : 'you can read the plans'].filter(Boolean).join(' · ')) + '</p>' +
+      '<div class="card" id="term"><h2>The term<span class="spacer"></span><span class="m">' + rows.length + ' plan' + (rows.length === 1 ? '' : 's') + '</span></h2>' +
+      (rows.length ? rows.map(function (s) {
+        var d = dm(s.date);
+        return '<div class="wk" data-s="' + esc(s.id) + '" role="button" tabindex="0"><div class="d">' + esc(d[0]) + '<small>' + esc(d[1]) + '</small></div><div>' +
+          (s.special === 'none' ? '<span class="special">No ' + esc(G.name) + (s.title ? ': ' + esc(s.title) : '') + '</span>'
+            : (s.special ? '<span class="special">★ ' + esc(s.special) + '</span><br>' : '') + '<span class="t">' + (s.lessonCode ? '<span class="code">' + esc(s.lessonCode) + '</span>' : '') + esc(s.title || 'Untitled') + '</span>') +
+          ((s.onIds || []).length ? '<div class="m">On: ' + esc(names(s.onIds)) + '</div>' : '') +
+          ((s.awayIds || []).length ? '<div class="m away">Away: ' + esc(names(s.awayIds)) + '</div>' : '') + '</div></div>';
+      }).join('') : '<p class="m">No plans yet.</p>') +
+      '<div class="row noprint" style="margin-top:10px">' + (canEdit() ? '<button class="btn" id="addWeek">+ Add a ' + esc(DAYS[G.day == null ? 0 : +G.day]) + '</button>' : '') +
+        '<button class="btn sec" id="printTerm">Print the term</button></div></div>';
+  }
+
+  /* ---- one week ---- */
+  function sessionView() {
+    var ro = !canEdit(), dis = ro ? ' disabled' : '';
+    var progs = G.programmes || [];
+    var bring = [].concat.apply([], (S.parts || []).map(function (p) { return p.bring || []; })).filter(Boolean);
+    var specialSel = S.special === 'none' ? 'none' : (S.special ? 'note' : '');
+    return '<div class="' + (ro ? 'ro' : '') + '" id="session">' +
+      '<div class="row noprint" style="margin:0 0 8px"><button class="btn sec small" id="toTerm">← The term</button></div>' +
+      '<h1>' + esc(S.title || (S.special === 'none' ? 'No session' : 'New plan')) + '</h1><p class="sub">' + esc(longDay(S.date)) + ' · ' + esc(G.name) + '</p>' +
+      '<div class="card">' +
+        '<div class="grid2"><div><label class="l" for="sDate">Date</label><input class="inp" type="date" id="sDate" value="' + esc(S.date) + '"' + dis + '></div>' +
+        '<div><label class="l" for="sSpecial">This week</label><select id="sSpecial"' + dis + '><option value="">A normal session</option><option value="note"' + (specialSel === 'note' ? ' selected' : '') + '>A special week (say what)</option><option value="none"' + (specialSel === 'none' ? ' selected' : '') + '>No session this week</option></select></div></div>' +
+        '<div id="specialBox"' + (specialSel === 'note' ? '' : ' hidden') + '><label class="l" for="sSpecialText">What is special</label><input class="inp" id="sSpecialText" maxlength="120" value="' + esc(specialSel === 'note' ? S.special.trim() : '') + '"' + dis + '></div>' +
+        '<label class="l" for="sTitle">' + (S.special === 'none' ? 'Why (e.g. family nativity service)' : 'Lesson title') + '</label><input class="inp" id="sTitle" maxlength="120" value="' + esc(S.title || '') + '"' + dis + '>' +
+        '<div class="grid2"><div><label class="l" for="sProg">Programme</label><select id="sProg"' + dis + '><option value="">(none)</option>' +
+          progs.map(function (p) { return '<option value="' + esc(p.name) + '"' + (S.programme === p.name ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></div>' +
+        '<div><label class="l" for="sCode">Lesson code</label><input class="inp" id="sCode" maxlength="20" placeholder="e.g. EJ03" value="' + esc(S.lessonCode || '') + '"' + dis + '></div></div>' +
+        '<label class="l" for="sLink">Link to the lesson</label><input class="inp" id="sLink" type="url" placeholder="https://" value="' + esc(S.lessonLink || '') + '"' + dis + '>' +
+        (S.lessonLink ? '<p class="said"><a href="' + esc(S.lessonLink) + '" target="_blank" rel="noopener">Open the lesson ↗</a></p>' : '') +
+        '<label class="l">Bible passage</label><div id="passageBox">' + passageHtml(S.passage) + '</div>' +
+        (ro ? '' : '<div class="row noprint edit" style="margin-top:6px"><button class="btn sec small" id="pickPassage">' + (S.passage && S.passage.ref ? 'Change the passage' : 'Choose a passage') + '</button></div>') +
+        '<label class="l">On this week (from the rota)</label><div id="onBox">' + peopleChips('on', S.onIds, ro) + '</div>' +
+        '<label class="l">Away (from the availability form)</label><div id="awayBox">' + peopleChips('away', S.awayIds, ro) + '</div>' +
+        (ro ? '' : '<div class="row noprint edit" style="margin-top:6px"><button class="btn sec small" id="fromRota">Fill in from the rota</button><select id="addPerson" style="width:auto;min-width:170px"><option value="">Add someone…</option>' +
+          TEAMMEM.concat(Object.keys(PEOPLE).filter(function (i) { return (G.leaderIds || []).indexOf(i) >= 0 && !TEAMMEM.some(function (t) { return t.id === i; }); }).map(function (i) { return { id: i, name: PEOPLE[i] }; }))
+            .map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select><select id="addAs" style="width:auto"><option value="on">as on</option><option value="away">as away</option></select></div>') +
+        (S.updatedByName ? '<p class="said" id="lastBy">Last changed by ' + esc(S.updatedByName) + (S.updatedAt ? ', ' + esc(new Date(S.updatedAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })) : '') + '</p>' : '') +
+      '</div>' +
+      (bring.length ? '<div class="card" id="bringAll"><h2>Things to bring</h2><p style="margin:0">' + esc(bring.join(', ')) + '</p></div>' : '') +
+      (S.special === 'none' ? '' : '<div class="card"><h2>The session<span class="spacer"></span><span class="m noprint">' + (ro ? '' : 'drag ⠿ to reorder') + '</span></h2><div id="parts">' +
+        (S.parts || []).map(partHtml).join('') + '</div>' +
+        (ro ? '' : '<div class="row noprint edit"><select id="newPart" style="width:auto"><option value="">+ Add a part…</option>' + (G.parts && G.parts.length ? G.parts : KINDS).map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('') + '</select></div>') + '</div>') +
+      '<div class="row noprint" style="margin-bottom:6px">' + (ro ? '' : '<button class="btn" id="save">Save</button><button class="btn sec" id="email">Email the plan</button>') +
+        '<button class="btn sec" id="print">Print</button>' + (ro || !S.id ? '' : '<button class="btn danger" id="del">Delete this plan</button>') + '</div><p class="said noprint" id="sMsg" role="status"></p></div>';
+  }
+  function passageHtml(p) {
+    if (!p || !p.ref) return '<p class="m" style="margin:0">None yet.</p>';
+    return '<p style="margin:0"><b>' + esc(p.ref) + '</b> (' + esc(p.version || '') + ')' + (p.source === 'biblegateway' && p.link ? ' · <a href="' + esc(p.link) + '" target="_blank" rel="noopener">Read it on Bible Gateway ↗</a>' : '') + '</p>' +
+      (p.text ? '<div class="verse" style="margin-top:4px">' + esc(p.text).replace(/(^|\s)(\d+)\s/g, '$1<sup>$2</sup>') + '</div>' : '') +
+      (p.copyright ? '<p class="said">' + esc(p.copyright) + '</p>' : '');
+  }
+  function peopleChips(kind, ids, ro) {
+    if (!(ids || []).length) return '<p class="m" style="margin:0">' + (kind === 'away' ? 'Nobody away.' : 'Nobody yet.') + '</p>';
+    return ids.map(function (i) { return '<span class="pill' + (kind === 'away' ? ' away' : '') + '">' + esc(PEOPLE[i] || 'Someone') + (ro ? '' : '<button class="edit noprint" data-drop="' + kind + ':' + esc(i) + '" aria-label="Take off ' + esc(PEOPLE[i] || '') + '">×</button>') + '</span>'; }).join('');
+  }
+  function stepSummary(st) {
+    var t = (STEP_TYPES.filter(function (x) { return x[0] === st.type; })[0] || [0, st.type])[1];
+    var d = st.ref || st.name || st.title || st.label || st.words || st.url || (st.questions ? st.questions.length + ' questions' : '') || (st.seconds ? Math.round(st.seconds / 60) + ' min' : '');
+    return t + (d ? ': ' + String(d).slice(0, 70) : '');
+  }
+  function partHtml(p, i) {
+    var ro = !canEdit(), open = !!OPEN[p.id], dis = ro ? ' disabled' : '';
+    var tags = [].concat((p.show || []).map(function (s) { return '📺 ' + stepSummary(s); }), (p.files || []).map(function (f) { return '📄 ' + f.name; }), (p.bring || []).length ? ['To bring: ' + p.bring.join(', ')] : []);
+    return '<div class="part" data-p="' + esc(p.id) + '">' +
+      '<div class="ph" data-toggle="' + esc(p.id) + '"><span class="handle noprint" aria-label="Drag to reorder">' + (ro ? '' : '⠿') + '</span>' +
+        '<div><span class="t">' + (i + 1) + '. ' + esc(p.title || p.kind) + '</span>' + (p.minutes ? ' <span class="m">· ' + (+p.minutes) + ' min</span>' : '') +
+        (!open && p.notes ? '<div class="m">' + esc(String(p.notes).slice(0, 90)) + '</div>' : '') + (!open && tags.length ? '<div>' + tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' : '') + '</div>' +
+        '<span class="m noprint" style="padding:0 6px" aria-hidden="true">' + (open ? '▲' : '▼') + '</span></div>' +
+      (open ? '<div class="pb">' +
+        '<div class="grid2"><div><label class="l">Title</label><input class="inp" data-f="title" value="' + esc(p.title || p.kind) + '"' + dis + '></div>' +
+        '<div><label class="l">Minutes</label><input class="inp" type="number" min="0" max="180" data-f="minutes" value="' + esc(p.minutes || '') + '"' + dis + '></div></div>' +
+        '<label class="l">Leader\'s notes</label><textarea data-f="notes"' + dis + '>' + esc(p.notes || '') + '</textarea>' +
+        '<label class="l">Things to bring (commas between)</label><input class="inp" data-f="bring" value="' + esc((p.bring || []).join(', ')) + '"' + dis + '>' +
+        '<label class="l">Links, one a line (YouTube, websites)</label><textarea data-f="links"' + dis + '>' + esc((p.links || []).map(function (l) { return l.url || l; }).join('\n')) + '</textarea>' +
+        '<label class="l">Files</label><div>' + ((p.files || []).map(function (f, fi) { return '<span class="pill"><a href="' + esc(f.url) + '" target="_blank" rel="noopener" style="color:inherit">' + esc(f.name) + '</a>' + (ro ? '' : '<button class="edit noprint" data-fdel="' + fi + '" aria-label="Remove ' + esc(f.name) + '">×</button>') + '</span>'; }).join('') || '<span class="m">None.</span>') + '</div>' +
+        (ro ? '' : '<div class="noprint edit" style="margin-top:6px"><label class="btn sec small" style="cursor:pointer">Upload a file<input type="file" data-upload="1" hidden accept=".pdf,.ppt,.pptx,.doc,.docx,.odp,.odt,image/*,video/*,audio/*"></label> <span class="said" data-upmsg="1"></span></div>') +
+        '<label class="l">Show on screen, in this order</label><div data-steps="1">' + ((p.show || []).map(function (st, si) {
+          return '<div class="step" data-st="' + si + '"><span class="handle noprint">' + (ro ? '' : '⠿') + '</span><span>' + esc(stepSummary(st)) + '</span>' + (ro ? '<span></span>' : '<button class="btn sec small edit noprint" data-stdel="' + si + '" aria-label="Remove">×</button>') + '</div>';
+        }).join('') || '<p class="m" style="margin:0">Nothing yet.</p>') + '</div>' +
+        (ro ? '' : '<div class="row noprint edit" style="margin-top:6px"><select data-addstep="1" style="width:auto"><option value="">+ Show something…</option>' + STEP_TYPES.map(function (x) { return '<option value="' + x[0] + '">' + esc(x[1]) + '</option>'; }).join('') + '</select>' +
+          '<button class="btn danger small" data-pdel="1">Remove this part</button></div>') +
+      '</div>' : '') + '</div>';
+  }
+
+  /* ---- groups (master admins) ---- */
+  function groupsView() {
+    var opts = Object.keys(PEOPLE).sort(function (a, b) { return PEOPLE[a].localeCompare(PEOPLE[b]); }).map(function (i) { return '<option value="' + esc(i) + '">' + esc(PEOPLE[i]) + '</option>'; }).join('');
+    return '<h1>Groups</h1><p class="sub">Each group plans its own sessions. Its leaders edit every plan and get every plan by email; its team reads them.</p>' +
+      GROUPS.concat([{ id: '', name: '', kind: 'children', leaderIds: [], programmes: [], parts: KINDS.slice(0, 8), day: 0 }]).map(function (g) {
+        return '<div class="card" data-gform="' + esc(g.id) + '"><h2>' + (g.id ? esc(g.name) : '+ A new group') + '</h2>' +
+          '<div class="grid2"><div><label class="l">Name</label><input class="inp" data-gf="name" maxlength="60" value="' + esc(g.name || '') + '" placeholder="e.g. Kids Church"></div>' +
+          '<div><label class="l">Kind</label><select data-gf="kind">' + [['children', 'Children'], ['youth', 'Youth'], ['sermon', 'Sermons (the preaching team)'], ['other', 'Other']].map(function (k) { return '<option value="' + k[0] + '"' + (g.kind === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') + '</select></div></div>' +
+          '<div class="grid2"><div><label class="l">Ages from</label><input class="inp" type="number" data-gf="ageFrom" value="' + esc(g.ageFrom || '') + '"></div><div><label class="l">Ages to</label><input class="inp" type="number" data-gf="ageTo" value="' + esc(g.ageTo || '') + '"></div></div>' +
+          '<div class="grid2"><div><label class="l">Meets on</label><select data-gf="day">' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (+(g.day || 0) === i ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
+          '<div><label class="l">The team (reads the plans; its rota roles are who\'s on)</label><input class="inp" data-gf="teamName" maxlength="60" value="' + esc(g.teamName || '') + '" placeholder="e.g. Kids Church"></div></div>' +
+          '<label class="l">Leaders (edit every plan; every plan is emailed to them)</label><div data-gleaders="1">' + (g.leaderIds || []).map(function (i) { return '<span class="pill">' + esc(PEOPLE[i] || i) + '<button data-gldrop="' + esc(i) + '" aria-label="Take off">×</button></span>'; }).join('') + '</div>' +
+          '<select data-gladd="1" style="margin-top:6px"><option value="">Add a leader…</option>' + opts + '</select>' +
+          '<label class="l">Also email every plan to (addresses, commas between)</label><input class="inp" data-gf="emails" value="' + esc((g.emails || []).join(', ')) + '">' +
+          '<label class="l">Programmes, one a line: name | link (e.g. Urban Saints | https://…)</label><textarea data-gf="programmes">' + esc((g.programmes || []).map(function (p) { return p.name + (p.link ? ' | ' + p.link : ''); }).join('\n')) + '</textarea>' +
+          '<label class="l">The parts of a session (commas between)</label><input class="inp" data-gf="parts" value="' + esc((g.parts || []).join(', ')) + '">' +
+          '<div class="row" style="margin-top:10px"><button class="btn" data-gsave="1">' + (g.id ? 'Save' : 'Add the group') + '</button>' + (g.id ? '<button class="btn danger" data-gdel="1">Remove the group</button>' : '') + '</div><p class="said" data-gmsg="1" role="status"></p></div>';
+      }).join('');
+  }
+
+  /* ---------------- wiring ---------------- */
+  function wire() {
+    document.querySelectorAll('[data-g]').forEach(function (b) { b.onclick = function () { if (DIRTY && !confirm('Leave without saving?')) return; pick(b.getAttribute('data-g')); }; });
+    document.querySelectorAll('[data-v="groups"]').forEach(function (b) { b.onclick = function () { if (DIRTY && !confirm('Leave without saving?')) return; DIRTY = false; VIEW = 'groups'; draw(); }; });
+    document.querySelectorAll('.wk[data-s]').forEach(function (r) { r.onclick = r.onkeydown = function (e) { if (e.type === 'keydown' && e.key !== 'Enter') return; openSession(r.getAttribute('data-s')); }; });
+    if ($('addWeek')) $('addWeek').onclick = addWeek;
+    if ($('printTerm')) $('printTerm').onclick = function () { window.print(); };
+    if (VIEW === 'groups') wireGroups();
+    if (VIEW === 'session' && S) wireSession();
+  }
+  function wireSession() {
+    $('toTerm').onclick = function () { if (DIRTY && !confirm('Leave without saving?')) return; DIRTY = false; VIEW = 'term'; S = null; draw(); };
+    $('print').onclick = function () { readTop(); window.print(); };
+    if (!canEdit()) return;
+    var touch = function () { DIRTY = true; };
+    ['sDate', 'sTitle', 'sCode', 'sLink', 'sSpecialText'].forEach(function (id) { var el = $(id); if (el) { el.oninput = touch; el.onchange = touch; } });
+    $('sSpecial').onchange = function () { readTop(); DIRTY = true; draw(); };
+    $('sProg').onchange = function () { var p = (G.programmes || []).filter(function (x) { return x.name === $('sProg').value; })[0]; if (p && p.link && !$('sLink').value) $('sLink').value = p.link.replace('{code}', $('sCode').value || ''); DIRTY = true; };
+    if ($('pickPassage')) $('pickPassage').onclick = function () { readTop(); biblePicker(function (p) { S.passage = p; DIRTY = true; draw(); }); };
+    if ($('fromRota')) $('fromRota').onclick = function () { readTop(); say('Asking the rota…'); fromRota().then(function () { DIRTY = true; draw(); say('Filled in from the rota and the availability form.'); }, function (e) { say('The rota could not be read: ' + (e.message || e)); }); };
+    if ($('addPerson')) $('addPerson').onchange = function () { var id = this.value; if (!id) return; readTop(); var k = $('addAs').value === 'away' ? 'awayIds' : 'onIds', o = k === 'onIds' ? 'awayIds' : 'onIds'; S[o] = (S[o] || []).filter(function (x) { return x !== id; }); S[k] = (S[k] || []).filter(function (x) { return x !== id; }).concat([id]); DIRTY = true; draw(); };
+    document.querySelectorAll('[data-drop]').forEach(function (b) { b.onclick = function (e) { e.stopPropagation(); readTop(); var x = b.getAttribute('data-drop').split(':'), k = x[0] === 'away' ? 'awayIds' : 'onIds'; S[k] = (S[k] || []).filter(function (i) { return i !== x[1]; }); DIRTY = true; draw(); }; });
+    if ($('newPart')) $('newPart').onchange = function () { if (!this.value) return; readTop(); var p = { id: rid(), kind: this.value, title: this.value, minutes: 10, notes: '', links: [], files: [], bring: [], show: [] }; S.parts = (S.parts || []).concat([p]); OPEN[p.id] = true; DIRTY = true; draw(); };
+    document.querySelectorAll('[data-toggle]').forEach(function (h) { h.onclick = function (e) { if (e.target.closest('.handle')) return; readTop(); OPEN[h.getAttribute('data-toggle')] = !OPEN[h.getAttribute('data-toggle')]; draw(); }; });
+    /* Drag to reorder, as the service planner does; saved in the dropped order. */
+    if (window.Sortable && $('parts')) Sortable.create($('parts'), { handle: '.handle', animation: 150, forceFallback: true, onEnd: function () {
+      readTop(); var order = [].map.call($('parts').querySelectorAll('.part'), function (el) { return el.getAttribute('data-p'); });
+      S.parts.sort(function (a, b) { return order.indexOf(a.id) - order.indexOf(b.id); }); DIRTY = true; draw(); } });
+    document.querySelectorAll('.part').forEach(function (el) {
+      var p = (S.parts || []).filter(function (x) { return x.id === el.getAttribute('data-p'); })[0]; if (!p || !OPEN[p.id]) return;
+      el.querySelectorAll('[data-f]').forEach(function (inp) { inp.oninput = touch; });
+      var steps = el.querySelector('[data-steps]');
+      if (window.Sortable && steps && (p.show || []).length > 1) Sortable.create(steps, { handle: '.handle', animation: 150, forceFallback: true, onEnd: function () {
+        readTop(); var order = [].map.call(steps.querySelectorAll('.step'), function (s) { return +s.getAttribute('data-st'); });
+        p.show = order.map(function (i) { return p.show[i]; }); DIRTY = true; draw(); } });
+      var add = el.querySelector('[data-addstep]'); if (add) add.onchange = function () { var t = this.value; if (!t) return; readTop(); this.value = ''; stepEditor(t, function (st) { p.show = (p.show || []).concat([st]); DIRTY = true; draw(); }, p); };
+      el.querySelectorAll('[data-stdel]').forEach(function (b) { b.onclick = function () { readTop(); p.show.splice(+b.getAttribute('data-stdel'), 1); DIRTY = true; draw(); }; });
+      el.querySelectorAll('[data-fdel]').forEach(function (b) { b.onclick = function () { readTop(); p.files.splice(+b.getAttribute('data-fdel'), 1); DIRTY = true; draw(); }; });
+      var pd = el.querySelector('[data-pdel]'); if (pd) pd.onclick = function () { if (!confirm('Remove this part from the plan?')) return; readTop(); S.parts = S.parts.filter(function (x) { return x.id !== p.id; }); DIRTY = true; draw(); };
+      var up = el.querySelector('[data-upload]'); if (up) up.onchange = function () { readTop(); upload(p, up.files[0], el.querySelector('[data-upmsg]')); };
+    });
+    $('save').onclick = function () { save().catch(function () {}); };
+    $('email').onclick = function () { (DIRTY || !S.id ? save() : Promise.resolve()).then(sendPlan, function () {}); };
+    if ($('del')) $('del').onclick = function () { if (!confirm('Delete this plan? This cannot be undone.')) return; db().collection('planSessions').doc(S.id).delete().then(function () { DIRTY = false; S = null; VIEW = 'term'; return loadSessions(); }).then(draw, function (e) { say('Not deleted: ' + (e.message || e)); }); };
+  }
+  /* Read what is on the screen into S, so a redraw loses nothing. */
+  function readTop() {
+    if (!S || !$('sDate') || !canEdit()) return;
+    S.date = $('sDate').value || S.date;
+    S.title = $('sTitle').value.trim();
+    S.lessonCode = $('sCode').value.trim();
+    S.lessonLink = $('sLink').value.trim();
+    S.programme = $('sProg').value;
+    var sp = $('sSpecial').value;
+    S.special = sp === 'none' ? 'none' : sp === 'note' ? (($('sSpecialText') && $('sSpecialText').value.trim()) || ' ') : '';
+    document.querySelectorAll('.part').forEach(function (el) {
+      var p = (S.parts || []).filter(function (x) { return x.id === el.getAttribute('data-p'); })[0]; if (!p || !OPEN[p.id]) return;
+      var v = function (f) { var x = el.querySelector('[data-f="' + f + '"]'); return x ? x.value : ''; };
+      p.title = v('title').trim() || p.kind; p.minutes = +v('minutes') || 0; p.notes = v('notes');
+      p.bring = v('bring').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+      p.links = v('links').split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return /^https?:\/\//.test(x); }).map(function (u) { return { url: u }; });
+    });
+  }
+  function say(m) { var e = $('sMsg'); if (e) e.textContent = m; }
+
+  /* ---- saving ---- */
+  function clean(p) {
+    return { id: p.id, kind: p.kind || '', title: String(p.title || '').slice(0, 80), minutes: +p.minutes || 0, notes: String(p.notes || '').slice(0, 4000),
+      links: (p.links || []).slice(0, 20), files: (p.files || []).slice(0, 20), bring: (p.bring || []).slice(0, 30), show: (p.show || []).slice(0, 40) };
+  }
+  function save() {
+    readTop();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(S.date)) { say('Give the date.'); return Promise.reject(new Error('date')); }
+    var doc = { groupId: G.id, date: S.date, special: S.special === ' ' ? '' : (S.special || ''), title: S.title || '', programme: S.programme || '', lessonCode: S.lessonCode || '',
+      lessonLink: S.lessonLink || '', passage: S.passage || null, onIds: S.onIds || [], awayIds: S.awayIds || [], parts: (S.parts || []).map(clean),
+      updatedBy: realUid(), updatedByName: String(ME.name || '').slice(0, 120), updatedAt: new Date().toISOString() };
+    say('Saving…');
+    var ref = S.id ? db().collection('planSessions').doc(S.id) : db().collection('planSessions').doc();
+    return ref.set(doc).then(function () { S.id = ref.id; S.updatedByName = doc.updatedByName; S.updatedAt = doc.updatedAt; DIRTY = false; return loadSessions(); })
+      .then(function () { draw(); say('Saved.'); }, function (e) { say('Not saved: ' + (/permission/i.test(String(e && (e.code || e.message))) ? 'only this group\'s leaders can change its plans.' : (e.message || e))); throw e; });
+  }
+  function sendPlan() {
+    if (!S.id) { say('Save the plan first.'); return; }
+    say('Sending…');
+    EGBCAuth.call('planSend', { sessionId: S.id }).then(function (r) { r = r && r.data !== undefined ? r.data : r; say('Sent to ' + r.sent + ' ' + (r.sent === 1 ? 'person' : 'people') + ': every leader of ' + G.name + ' and this week\'s team.'); },
+      function (e) { say('Not sent: ' + (e.message || e)); });
+  }
+  function upload(p, file, msg) {
+    if (!file) return;
+    var big = /^video\//.test(file.type) ? 500 : 50;
+    if (file.size > big * 1024 * 1024) { msg.textContent = 'That file is over ' + big + ' MB.'; return; }
+    if (!S.id) { msg.textContent = 'Save the plan first, then add files.'; return; }
+    var name = file.name.replace(/[^\w.\- ]+/g, '_').slice(-80), path = 'planner/' + G.id + '/' + S.id + '/' + Date.now() + '-' + name;
+    msg.textContent = 'Uploading…';
+    var task = EGBCAuth.storage().ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
+    task.on('state_changed', function (s) { msg.textContent = 'Uploading… ' + Math.round(100 * s.bytesTransferred / Math.max(1, s.totalBytes)) + '%'; });
+    task.then(function (s) { return s.ref.getDownloadURL(); }).then(function (url) {
+      p.files = (p.files || []).concat([{ name: file.name.slice(0, 80), path: path, url: url, type: file.type || '', size: file.size }]); DIRTY = true; draw(); toast('Uploaded. Save to keep it.');
+    }, function (e) { msg.textContent = 'Not uploaded: ' + (/unauthorized|permission/i.test(String(e && (e.code || e.message))) ? 'only this group\'s leaders can add files.' : (e.message || e)); });
+  }
+
+  /* ---- who's on, who's away (the rota and the availability form) ---- */
+  function fromRota() {
+    return db().collection('events').where('date', '==', S.date).get().then(function (snap) {
+      var evs = all(snap).filter(function (e) { return !e.archived; }), on = [];
+      evs.forEach(function (e) {
+        Object.keys(e.assignments || {}).forEach(function (role) {
+          var team = EGBCAuth.roleTeam ? EGBCAuth.roleTeam(role) : '';
+          if (G.teamName && team !== G.teamName) return;
+          [].concat(e.assignments[role] || []).forEach(function (a) { var id = a && (a.id || a.memberId); if (id && on.indexOf(String(id)) < 0) on.push(String(id)); });
+        });
+      });
+      return Promise.all(evs.slice(0, 10).map(function (e) { return db().collection('availability').where('eventId', '==', e.id).get().catch(function () { return { docs: [] }; }); }))
+        .then(function (r) {
+          var team = TEAMMEM.map(function (p) { return p.id; }).concat(G.leaderIds || []), away = [];
+          r.forEach(function (s) { all(s).forEach(function (a) { if ((a.status === 'unavailable' || a.status === 'not-avail') && (team.indexOf(a.memberId) >= 0 || on.indexOf(a.memberId) >= 0) && away.indexOf(a.memberId) < 0) away.push(a.memberId); }); });
+          S.onIds = on.filter(function (i) { return away.indexOf(i) < 0; }); S.awayIds = away;
+        });
+    });
+  }
+
+  /* ---- a sheet, with a close that stays in view ---- */
+  function sheet(html) {
+    var back = document.createElement('div'); back.className = 'back';
+    back.innerHTML = '<div class="sheet" role="dialog" aria-modal="true"><button class="x" type="button" aria-label="Close">✕</button>' + html + '</div>';
+    document.body.appendChild(back);
+    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    var close = function () { back.remove(); document.removeEventListener('keydown', onKey); };
+    document.addEventListener('keydown', onKey);
+    back.querySelector('.x').onclick = close;
+    back.onclick = function (e) { if (e.target === back) close(); };
+    return { el: back, close: close, q: function (id) { return back.querySelector('#' + id); } };
+  }
+
+  /* ---- the Bible picker: three sources, one sheet ---- */
+  function biblePicker(done, opts) {
+    opts = opts || {};
+    var src = 'bundled', got = null;
+    var sh = sheet('<h2 style="margin:0 0 4px">' + esc(opts.title || 'Bible passage') + '</h2><p class="m" style="margin:0 0 10px">Choose a version and a passage, then bring it into the plan.</p>' +
+      '<div class="seg"><button type="button" data-src="bundled" aria-pressed="true">Free Bibles<br>(on the hub)</button><button type="button" data-src="apibible" aria-pressed="false">API.Bible<br>(church key)</button><button type="button" data-src="biblegateway" aria-pressed="false">Bible Gateway<br>(link only)</button></div>' +
+      '<label class="l" for="bpVer">Version</label><select id="bpVer"><option>Loading…</option></select>' +
+      '<label class="l" for="bpRef">Passage</label><input class="inp" id="bpRef" placeholder="e.g. John 3:16-21" value="' + esc((S && S.passage && S.passage.ref) || '') + '">' +
+      '<div class="row" style="margin-top:10px"><button type="button" class="btn sec" id="bpShow">Show it</button></div><div id="bpOut" style="margin-top:10px"></div>');
+    var fill = function () {
+      got = null; sh.q('bpOut').innerHTML = '';
+      var v = sh.q('bpVer');
+      if (src === 'bundled') B.versions().then(function (l) { v.innerHTML = l.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join(''); if (l.some(function (x) { return x.id === 'BSB'; })) v.value = 'BSB'; }, function (e) { v.innerHTML = '<option value="">' + esc(e.message || e) + '</option>'; });
+      else if (src === 'apibible') { v.innerHTML = '<option value="">Asking API.Bible…</option>'; B.apiVersions().then(function (l) { v.innerHTML = l.map(function (x) { return '<option value="' + esc(x.id) + '" data-ab="' + esc(x.abbrev) + '">' + esc(x.name + (x.lang && x.lang !== 'English' ? ' (' + x.lang + ')' : '')) + '</option>'; }).join('') || '<option value="">No Bibles on the key</option>'; }, function (e) { v.innerHTML = '<option value="">' + esc(e.message || 'Not available') + '</option>'; }); }
+      else v.innerHTML = B.GATEWAY_VERSIONS.map(function (x) { return '<option>' + esc(x) + '</option>'; }).join('');
+    };
+    sh.el.querySelectorAll('[data-src]').forEach(function (b) { b.onclick = function () { src = b.getAttribute('data-src'); sh.el.querySelectorAll('[data-src]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); fill(); }; });
+    fill();
+    var use = function () { var u = sh.q('bpUse'); if (u) u.onclick = function () { if (got) { sh.close(); done(got); } }; };
+    sh.q('bpShow').onclick = function () {
+      var ref = sh.q('bpRef').value, out = sh.q('bpOut'), v = sh.q('bpVer');
+      if (!B.parse(ref)) { out.innerHTML = '<p class="said">That passage was not understood. Try, for example, "John 3:16-21" or "Mark 4".</p>'; return; }
+      if (src === 'biblegateway') {
+        var link = B.gatewayLink(ref, v.value);
+        /* A link only: the plan keeps the reference, never Bible Gateway's text. */
+        got = { ref: B.refText(B.parse(ref)), version: v.value, source: 'biblegateway', link: link, text: '', copyright: '' };
+        out.innerHTML = '<p>Bible Gateway\'s text is not copied into the plan: the plan keeps the reference and a link.</p><p><a class="btn sec" href="' + esc(link) + '" target="_blank" rel="noopener">Open ' + esc(got.ref) + ' (' + esc(v.value) + ') ↗</a></p><button type="button" class="btn" id="bpUse">Use this reference</button>';
+        use(); return;
+      }
+      out.innerHTML = '<p class="said">Fetching…</p>';
+      var opt = v.selectedOptions && v.selectedOptions[0];
+      (src === 'bundled' ? B.passage(v.value, ref) : B.apiPassage(v.value, ref, opt ? opt.getAttribute('data-ab') : '')).then(function (p) {
+        got = { ref: p.ref, version: p.version, versionId: p.versionId, source: p.source, text: p.text.slice(0, 8000), copyright: p.copyright };
+        out.innerHTML = '<div class="verse">' + p.verses.slice(0, 80).map(function (x) { return '<sup>' + x.v + '</sup>' + esc(x.text); }).join(' ') + '</div><p class="said">' + esc(p.copyright) + '</p><button type="button" class="btn" id="bpUse">Import into the plan</button>';
+        use();
+      }, function (e) { out.innerHTML = '<p class="said">' + esc(e.message || e) + '</p>'; });
+    };
+  }
+
+  /* ---- "show on screen": one small form per kind of step ---- */
+  function stepEditor(type, done, part) {
+    if (type === 'verses' || type === 'memory') return biblePicker(function (p) { done({ id: rid(), type: type, ref: p.ref, version: p.version, versionId: p.versionId || '', source: p.source, text: p.text, copyright: p.copyright, link: p.link || '' }); }, { title: type === 'memory' ? 'The memory verse' : 'Bible verses to show' });
+    var files = function (kind) { return (part.files || []).filter(function (f) { return new RegExp('^' + kind + '/').test(f.type || ''); }); };
+    var forms = {
+      video: function () { var v = files('video'); return v.length ? '<label class="l" for="stF">Which video (from this part\'s files)</label><select id="stF">' + v.map(function (f, i) { return '<option value="' + i + '">' + esc(f.name) + '</option>'; }).join('') + '</select><p class="said">An uploaded video never has adverts.</p>' : '<p>Upload the video to this part first (programme downloads have no adverts).</p>'; },
+      picture: function () { var v = files('image'); return v.length ? '<label class="l" for="stF">Which picture</label><select id="stF">' + v.map(function (f, i) { return '<option value="' + i + '">' + esc(f.name) + '</option>'; }).join('') + '</select>' : '<p>Upload the picture to this part first.</p>'; },
+      youtube: function () { return '<label class="l" for="stU">The YouTube link</label><input class="inp" id="stU" placeholder="https://www.youtube.com/watch?v=…"><label class="l" for="stS">Start at (seconds, optional)</label><input class="inp" type="number" id="stS" min="0"><p class="said">YouTube may show an advert. An uploaded video file never does.</p>'; },
+      song: function () { return '<label class="l" for="stSong">Song (from the hub\'s song list)</label><input class="inp" id="stSong" list="songList" placeholder="Start typing the title"><datalist id="songList"></datalist>'; },
+      timer: function () { return '<label class="l" for="stM">Minutes</label><input class="inp" type="number" id="stM" min="1" max="60" value="5">'; },
+      text: function () { return '<label class="l" for="stT">The words on the screen</label><textarea id="stT" maxlength="400"></textarea>'; },
+      quiz: function () { return '<p class="m">Up to 12 questions. For each: the question, then four answers with the right one first (they are mixed up on the screen). A blank line between questions.</p><textarea id="stQ" style="min-height:180px" placeholder="When did Nicodemus come to Jesus?&#10;At night&#10;In the morning&#10;At noon&#10;He never came"></textarea>'; },
+      pptx: function () { return '<label class="l" for="stU">The PowerPoint\'s OneDrive or SharePoint link</label><input class="inp" id="stU" placeholder="https://…sharepoint.com/… or https://onedrive.live.com/…"><label class="l" for="stN">Name</label><input class="inp" id="stN" placeholder="e.g. EJ03 slides"><p class="said">On the screen it plays in PowerPoint for the web, animations and all; the clicker moves the slides.</p>'; },
+      link: function () { return '<label class="l" for="stU">Link</label><input class="inp" id="stU" value="' + esc((S && S.lessonLink) || '') + '"><label class="l" for="stN">What it says</label><input class="inp" id="stN" value="Open Urban Saints">'; }
+    };
+    var title = (STEP_TYPES.filter(function (x) { return x[0] === type; })[0] || [0, type])[1];
+    var sh = sheet('<h2 style="margin:0 0 6px">' + esc(title) + '</h2>' + (forms[type] ? forms[type]() : '') + '<div class="row" style="margin-top:12px"><button type="button" class="btn" id="stAdd">Add it</button></div><p class="said" id="stMsg" role="status"></p>');
+    if (type === 'song') db().collection('songs').get().then(function (s) { var dl = sh.q('songList'); if (dl) dl.innerHTML = s.docs.slice(0, 3000).map(function (d) { return '<option value="' + esc((d.data().title || d.id) + ' · ' + d.id) + '">'; }).join(''); }).catch(function () {});
+    sh.q('stAdd').onclick = function () {
+      var bad = function (m) { sh.q('stMsg').textContent = m; }, q = sh.q, st = { id: rid(), type: type };
+      if (type === 'video' || type === 'picture') { var f = files(type === 'video' ? 'video' : 'image')[+((q('stF') || {}).value)]; if (!q('stF') || !f) return bad('Upload it to this part first.'); st.name = f.name; st.url = f.url; st.path = f.path; }
+      if (type === 'youtube') { var m = q('stU').value.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/); if (!m) return bad('That is not a YouTube video link.'); st.videoId = m[1]; st.start = +q('stS').value || 0; st.title = 'YouTube ' + m[1]; }
+      if (type === 'song') { var sm = q('stSong').value.match(/^(.*) · ([\w-]+)$/); if (!sm) return bad('Choose a song from the list.'); st.title = sm[1]; st.songId = sm[2]; }
+      if (type === 'timer') st.seconds = Math.max(1, Math.min(60, +q('stM').value || 5)) * 60;
+      if (type === 'text') { st.words = q('stT').value.trim(); if (!st.words) return bad('Type the words first.'); }
+      if (type === 'quiz') {
+        var qs = q('stQ').value.split(/\n\s*\n/).map(function (b) { return b.split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }).filter(function (b) { return b.length >= 3; });
+        if (!qs.length) return bad('Write at least one question with its answers.');
+        st.questions = qs.slice(0, 12).map(function (b) { return { q: b[0].slice(0, 160), answers: b.slice(1, 5).map(function (a) { return a.slice(0, 60); }), right: 0, seconds: 20 }; });
+        st.title = st.questions.length + ' question' + (st.questions.length === 1 ? '' : 's');
+      }
+      if (type === 'pptx') { st.officeUrl = q('stU').value.trim(); st.name = q('stN').value.trim() || 'Slides'; if (!/^https:\/\/[\w.-]*(sharepoint\.com|onedrive\.live\.com|1drv\.ms|office\.com)\//i.test(st.officeUrl)) return bad('Paste the deck\'s OneDrive or SharePoint link.'); }
+      if (type === 'link') { st.url = q('stU').value.trim(); st.label = q('stN').value.trim() || 'Open'; if (!/^https?:\/\//.test(st.url)) return bad('Paste the link first.'); }
+      sh.close(); done(st);
+    };
+  }
+
+  /* ---- groups: saving (master admins) ---- */
+  function wireGroups() {
+    document.querySelectorAll('[data-gform]').forEach(function (card) {
+      var gid = card.getAttribute('data-gform'), g = GROUPS.filter(function (x) { return x.id === gid; })[0] || { leaderIds: [] };
+      card._leaders = (g.leaderIds || []).slice();
+      var redraw = function () {
+        var box = card.querySelector('[data-gleaders]');
+        box.innerHTML = card._leaders.map(function (i) { return '<span class="pill">' + esc(PEOPLE[i] || i) + '<button data-gldrop="' + esc(i) + '" aria-label="Take off">×</button></span>'; }).join('');
+        box.querySelectorAll('[data-gldrop]').forEach(function (b) { b.onclick = function () { card._leaders = card._leaders.filter(function (x) { return x !== b.getAttribute('data-gldrop'); }); redraw(); }; });
+      };
+      redraw();
+      card.querySelector('[data-gladd]').onchange = function () { var id = this.value; if (id && card._leaders.indexOf(id) < 0) card._leaders.push(id); this.value = ''; redraw(); };
+      card.querySelector('[data-gsave]').onclick = function () {
+        var v = function (f) { return card.querySelector('[data-gf="' + f + '"]').value; }, msg = card.querySelector('[data-gmsg]');
+        var name = v('name').trim(); if (!name) { msg.textContent = 'Give the group a name.'; return; }
+        var doc = { name: name.slice(0, 60), kind: v('kind'), ageFrom: +v('ageFrom') || 0, ageTo: +v('ageTo') || 0, day: +v('day') || 0, time: g.time || '',
+          leaderIds: card._leaders.slice(0, 30), teamName: v('teamName').trim().slice(0, 60),
+          emails: v('emails').split(',').map(function (x) { return x.trim().toLowerCase(); }).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); }).slice(0, 20),
+          programmes: v('programmes').split('\n').map(function (l) { var p = l.split('|'); return { name: (p[0] || '').trim().slice(0, 60), link: (p[1] || '').trim().slice(0, 300) }; }).filter(function (p) { return p.name; }).slice(0, 12),
+          parts: v('parts').split(',').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 20), order: g.order || GROUPS.length + 1, archived: false,
+          updatedBy: realUid(), updatedAt: new Date().toISOString() };
+        msg.textContent = 'Saving…';
+        var ref = gid ? db().collection('planGroups').doc(gid) : db().collection('planGroups').doc();
+        ref.set(doc).then(loadGroups).then(function () { draw(); toast('Saved.'); }, function (e) { msg.textContent = 'Not saved: ' + (e.message || e); });
+      };
+      var del = card.querySelector('[data-gdel]'); if (del) del.onclick = function () { if (!confirm('Remove this group? Its plans stay, but nobody can open them from here.')) return; db().collection('planGroups').doc(gid).delete().then(loadGroups).then(function () { G = GROUPS[0] || null; draw(); }); };
+    });
+  }
+
+  /* ---------------- loading ---------------- */
+  function loadGroups() {
+    var c = db().collection('planGroups');
+    var qs = MASTER ? [c.get()] : [c.where('leaderIds', 'array-contains', ME.memberId || '-').get()].concat(
+      (ME.teams || []).length ? [c.where('teamName', 'in', (ME.teams || []).slice(0, 10)).get()] : []);
+    return Promise.all(qs.map(function (q) { return q.catch(function () { return { docs: [] }; }); })).then(function (r) {
+      var seen = {}; GROUPS = [];
+      r.forEach(function (s) { all(s).forEach(function (g) { if (!seen[g.id] && !g.archived) { seen[g.id] = 1; GROUPS.push(g); } }); });
+      GROUPS.sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name)); });
+      if (G) G = GROUPS.filter(function (g) { return g.id === G.id; })[0] || null;
+    });
+  }
+  function loadSessions() {
+    if (!G) { SESS = []; return Promise.resolve(); }
+    return db().collection('planSessions').where('groupId', '==', G.id).get().then(function (s) { SESS = all(s); }, function () { SESS = []; });
+  }
+  function loadTeam() {
+    TEAMMEM = Object.keys(PEOPLE).filter(function (id) { return G && G.teamName && (MARKERS[id] || []).indexOf(G.teamName) >= 0; }).map(function (id) { return { id: id, name: PEOPLE[id] }; })
+      .sort(function (a, b) { return a.name.localeCompare(b.name); });
+  }
+  function pick(gid) {
+    G = GROUPS.filter(function (g) { return g.id === gid; })[0] || null; VIEW = 'term'; S = null; DIRTY = false;
+    try { localStorage.setItem('egbc_planner_group', gid || ''); } catch (e) {}
+    loadTeam();
+    return loadSessions().then(draw);
+  }
+  function openSession(id) {
+    var s = SESS.filter(function (x) { return x.id === id; })[0]; if (!s) return;
+    S = JSON.parse(JSON.stringify(s)); S.parts = S.parts || []; OPEN = {}; VIEW = 'session'; DIRTY = false; draw(); window.scrollTo(0, 0);
+  }
+  function addWeek() {
+    var last = SESS.map(function (s) { return s.date; }).sort().pop();
+    S = { id: '', groupId: G.id, date: nextDate(last && last >= today() ? last : null, G.day == null ? 0 : +G.day), special: '', title: '', programme: (G.programmes && G.programmes[0] && G.programmes[0].name) || '',
+      lessonCode: '', lessonLink: '', passage: null, onIds: [], awayIds: [], parts: (G.parts && G.parts.length ? G.parts : KINDS.slice(0, 6)).map(function (k) { return { id: rid(), kind: k, title: k, minutes: 10, notes: '', links: [], files: [], bring: [], show: [] }; }) };
+    OPEN = {}; VIEW = 'session'; DIRTY = true;
+    fromRota().catch(function () {}).then(function () { draw(); window.scrollTo(0, 0); });
+  }
+
+  E.ready().then(function (profile) {
+    ME = E.asSeen(profile || {});
+    MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+    return Promise.all([
+      db().collection('addressBook').get().then(function (s) { s.docs.forEach(function (d) { var x = d.data(); if (x.name && !x.archived) { PEOPLE[d.id] = x.name; MARKERS[d.id] = x.markers || []; } }); }).catch(function () {}),
+      EGBCChurch.load ? EGBCChurch.load().catch(function () {}) : null
+    ]).then(loadGroups);
+  }).then(function () {
+    var want = (location.search.match(/[?&]s=([\w-]+)/) || [])[1];
+    var keep = ''; try { keep = localStorage.getItem('egbc_planner_group') || ''; } catch (e) {}
+    if (want) return db().collection('planSessions').doc(want).get().then(function (d) {
+      if (!d.exists) return pick((GROUPS[0] || {}).id);
+      return pick(d.data().groupId).then(function () { openSession(want); });
+    }, function () { return pick((GROUPS[0] || {}).id); });
+    var g = GROUPS.filter(function (x) { return x.id === keep; })[0] || GROUPS[0];
+    /* No group yet: a master admin starts on setting one up. */
+    if (!g) { if (MASTER) VIEW = 'groups'; draw(); return; }
+    return pick(g.id);
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+  window.addEventListener('beforeunload', function (e) { if (DIRTY) { e.preventDefault(); e.returnValue = ''; } });
+})();
+</script>
+</body>
+</html>
