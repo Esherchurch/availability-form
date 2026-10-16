@@ -241,6 +241,27 @@
       else t = list.filter(function (op) { return op.value.split('|')[0] < d; }).pop();
       if (t) { sel.value = t.value; choose(t.value); }
     }
+    /* At the first or last service there is nothing to step to: say so by
+       greying the arrow out, rather than a button that does nothing (audit,
+       15 Oct 2026). */
+    function target(k) {
+      var list = real(), i = list.map(function (op) { return op.value; }).indexOf(sel.value), d = input.value;
+      if (i >= 0) return list[i + k] || null;
+      return k > 0 ? (list.filter(function (op) { return op.value.split('|')[0] > d; })[0] || null)
+                   : (list.filter(function (op) { return op.value.split('|')[0] < d; }).pop() || null);
+    }
+    function paintEnds() {
+      [['prev', -1], ['next', 1]].forEach(function (p) {
+        var b = wrap.querySelector('[data-uk="' + p[0] + '"]'); if (!b) return;
+        var none = !target(p[1]);
+        b.disabled = none; b.style.opacity = none ? '.35' : ''; b.style.cursor = none ? 'default' : '';
+        b.title = none ? (p[1] < 0 ? 'No earlier service on the rota' : 'No later service on the rota') : '';
+      });
+    }
+    try { new MutationObserver(paintEnds).observe(sel, { childList: true }); } catch (e) {}
+    sel.addEventListener('change', paintEnds);
+    input.addEventListener('change', paintEnds);
+    setTimeout(paintEnds, 0);
     input.addEventListener('change', sync);
     sel.addEventListener('change', function () { if (sel.value) choose(sel.value); });
     wrap.querySelector('[data-uk="prev"]').onclick = function () { step(-1); };
@@ -602,6 +623,12 @@
       +   '<div id="sp-files-' + id + '"></div>'
       + '</div>';
     container.appendChild(div);
+    /* Tapped "+": show the new row and put the cursor in it - at the foot of
+       a long plan it was added out of sight, and the button seemed to do
+       nothing (audit, 15 Oct 2026). Not while a saved plan is being drawn. */
+    if (window.event && window.event.type === 'click') {
+      try { div.scrollIntoView({ block: 'center', behavior: 'smooth' }); var nIn = div.querySelector('input'); if (nIn) nIn.focus({ preventScroll: true }); } catch (e) {}
+    }
     spUpdateNumbers();
     return id;
   }
@@ -616,6 +643,12 @@
       + '<input value="' + String(val).replace(/"/g, '&quot;') + '" class="item-title" placeholder="Service Item Name...">'
       + '<button onclick="this.parentElement.remove()" class="sp-remove-btn">&times;</button>';
     document.getElementById('sp-order').appendChild(div);
+    /* Tapped "+": show the new row and put the cursor in it - at the foot of
+       a long plan it was added out of sight, and the button seemed to do
+       nothing (audit, 15 Oct 2026). Not while a saved plan is being drawn. */
+    if (window.event && window.event.type === 'click') {
+      try { div.scrollIntoView({ block: 'center', behavior: 'smooth' }); var nIn = div.querySelector('input'); if (nIn) nIn.focus({ preventScroll: true }); } catch (e) {}
+    }
   }
 
   async function spShowKeyInfo(id, title) {

@@ -6770,3 +6770,93 @@ whoever already reads requests (the pastoral team, the prayer team for
 the ones shared with it, and the people named in Who gets told). If the
 service leader isn't one of them, they won't see it. Should there be a
 named "Sunday service leader" who sees the For Sunday list only?
+
+### F-218 — Rota services in What's On: `calEvents/rota_<id>` is the server's (for the events window; from the main window)
+
+"Enter a Sunday once" (Martin, 15 Oct): a rota service (`events/{id}`)
+ticked **In What's On** in the Rota Planner is copied by the hub
+function `rotaWhatsOn` to **`calEvents/rota_<id>`**:
+title, description (a public line plus "Speaker: ..."), `category:
+'service'`, `visibility: 'public'`, `audience: ['public','members']`,
+`status: 'confirmed'`, startLocal/endLocal, **startUtc/endUtc in ms**
+(as `E.utcOf`), `location: {kind:'room', siteId: <first site>}`,
+`signupOn: false`, plus `source: 'rota'`, `rotaId`, `speaker`,
+`createdBy: 'rota'`. The trigger rewrites the whole document at each
+change on the rota, and deletes it when unticked, archived or deleted.
+
+**Two requests:**
+1. **events-admin.html:** show a `source: 'rota'` event read-only, with
+   "This is a Sunday service from the rota. Change it in the Rota Planner"
+   (and a link to Planner.html). Any change made there is overwritten at
+   the next change on the rota.
+2. **firestore.rules, calEvents (your section):** refuse client
+   create/update/delete of ids starting `rota_` (the server writes them;
+   it bypasses rules), e.g. `&& !calEventId.matches('rota_.*')`.
+
+Proved here: check-rota-whatson 20/20 (what is copied, and that notes,
+role names and the service leader never are), check-rota-whatson-live
+8/8 (the trigger), check-sunday-once 11/11 (shows ONCE in What's On and
+the embed, follows a renamed title, a non-public service never shows).
+
+### F-219 — The app's Listen & Watch opens on an empty Listen (for the events window; Martin, 15 Oct)
+
+Martin, viewing as a member: the channel's videos DO show under Watch,
+but the tab opens on **Listen**, which says "No sermons yet..." (no
+sermons until `sermonShow/feed.url` is set; Martin is getting Val's
+feed). So members think nothing is there. In egbc-app-listen.js:
+1. **Open on whichever part has something:** while there are no
+   sermons, open on Watch.
+2. **Better: a "Latest" strip at the top**, the newest video and the
+   newest sermon side by side, then the Listen / Watch switch below.
+3. Empty Listen: "Sermons will appear here once they are put up."
+
+**The website now has the same** (main window, watch.html, "Watch &
+Listen", Menu for everyone and a "Watch" tab on the hub's phone bar). It
+reads exactly what the app reads (sermons published, sermonSeries,
+watchShow/live and settings, videos members/feed) and uses egbc-watch.js
+(`liveState`, `embedUrl`, `videoIdFromUrl`, `settingsOf`) unchanged. It
+opens on Watch while there are no sermons, and has the Latest strip, so
+the app and the website can match. The Menu entries for your admin pages
+are now "Manage Watch" and "Manage sermons".
+
+### F-220 — audit-everything: your pages' reds, and how to run it (for the events window; from the main window)
+
+Martin, 15 Oct: "go through everything and properly audit it, or get code
+to do it." `tests/audit-everything.mjs` is that code. Every Menu page and
+every app screen and app-opened page, as six real seeded users (everyone,
+worship, kids, core, areaAdmin, master), at 360/375/412/1440, every control
+tapped once at 375. It runs before every report from now on, yours too.
+
+    node tests/audit-everything.mjs --pages=events-admin.html,places-admin.html --roles=master,everyone
+    node tests/audit-everything.mjs --quick              (375 only, every role)
+    node tests/audit-everything.mjs --self-test          (each rule caught by its break)
+    --port=9200 to run beside another one; the table is tests/audit-report.md.
+
+Rules: console, overflow, bars (fixed bars over 25% of a phone), chrome
+(two Care / two tab bars / website bar in the app), dead (a tap that does
+nothing), covered, sheet (no close in view after scrolling it), hidden
+(content under a bar), small (under 30px to tap on a phone), access.
+
+**Your pages' reds in the final run (16 Oct, emulator):**
+1. **Opens for people whose Menu doesn't offer it** (signed in as them, not
+   View as). Each shows "nothing for you" in its own words, so it's your
+   call whether each should refuse outright instead:
+   attendance.html, checkin.html, events-admin.html (Events I run: by
+   design?), kids-admin.html, kids-checkin.html, safeguarding.html,
+   safeguarding-settings.html, headcounts.html, picture-library.html,
+   places-admin.html. **sermons-admin.html and watch-admin.html open their
+   full admin screens for anyone signed in** (writes are refused by the
+   rules, but the screens shouldn't be there).
+2. **events-admin.html, places-admin.html:** the end of the page is under
+   the bottom bar for a master admin (the "View as" bar), at every size.
+3. **Sheets with no close in view:** safeguarding.html "Report a concern"
+   (mBack); events-admin.html "Share on WhatsApp" (egbc-share-back).
+4. **A button that does nothing:** watch-admin.html "Add it" with the box
+   empty; payments.html "Save" and team-mail.html "Save" with nothing
+   changed or filled. Say what's needed, or grey them out.
+5. **Under 30px to tap on a phone:** prayer.html (4 checkbox rows 23px),
+   watch-admin.html (3, 21px), groups.html from the app (1, 20px),
+   events-admin.html (a 22px checkbox).
+6. Mine, fixed in the same push (for you to know): the app's rows with no
+   action are no longer buttons (egbc-app.js row(): a div, no chevron; Listen's
+   and Maintenance's wrapped rows keep their chevron by CSS).

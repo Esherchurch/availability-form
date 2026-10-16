@@ -51,7 +51,8 @@
                 const url = await getDownloadURL(logoRef);
                 document.querySelectorAll('.egbc-logo').forEach(img => img.src = url);
             } catch (error) {
-                console.error("Logo fetch failed:", error);
+                /* The logo is a nicety: missing, the form still works. */
+                console.warn("Logo fetch failed:", error);
             }
         }
         loadLogo();
@@ -59,8 +60,19 @@
         function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
         window.loginMember = async () => {
-            const emailInput = document.getElementById('memberEmail').value.toLowerCase().trim();
-            if (!emailInput) return;
+            const emailEl = document.getElementById('memberEmail');
+            const emailInput = emailEl.value.toLowerCase().trim();
+            /* Nothing typed: say so, rather than a button that does nothing
+               (audit, 15 Oct 2026). */
+            let hint = document.getElementById('loginHint');
+            if (!emailInput) {
+                if (!hint) { hint = document.createElement('p'); hint.id = 'loginHint'; hint.setAttribute('role', 'status');
+                    hint.className = 'text-center text-sm text-[#b0392c]'; emailEl.parentNode.appendChild(hint); }
+                hint.textContent = 'Type the email address the church has for you first.';
+                emailEl.focus();
+                return;
+            }
+            if (hint) hint.textContent = '';
 
             let found;
             try {

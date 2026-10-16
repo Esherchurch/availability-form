@@ -33,7 +33,9 @@
   const TREE = [
     { title: 'Dashboard', url: 'hub.html', icon: 'layout-dashboard',
       description: 'Your own page: what is coming up and what needs you' },
-    { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days',
+    /* anyTeam: the rota is for people on a team - the rules (volunteer())
+       refuse it to anyone else, so Everyone was offered an error (audit). */
+    { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days', anyTeam: true,
       description: 'Who is on, week by week' },
     /* ROTA REPORTS (the events window's rota-reports.html, F-210): clashes
        and an overview, for the people who make rotas - admins of the rota
@@ -46,11 +48,16 @@
     /* WATCH (F-164): the live link, the full services and the channel.
        For master admins and the people who look after sermons; feature
        'watch'. "Sermons" joins it when its own Menu entry is built. */
-    { title: 'Watch', url: 'watch-admin.html', icon: 'tv', feature: 'watch', sermons: true,
+    /* WATCH & LISTEN for everyone (Martin, 15 Oct 2026: "The podcast/YouTube
+       admin is so everyone else can watch and listen"): the live link on
+       the day, the services and videos, and the sermons. */
+    { title: 'Watch & Listen', url: 'watch.html', icon: 'circle-play',
+      description: 'Sunday services, videos and sermons' },
+    { title: 'Manage Watch', url: 'watch-admin.html', icon: 'tv', feature: 'watch', sermons: true,
       description: 'This week\u2019s live link, the full services and the channel' },
     /* SERMONS (the events window's sermons-admin.html): the same people as
        Watch - master admins and sermonShow/access. Feature 'sermons'. */
-    { title: 'Sermons', url: 'sermons-admin.html', icon: 'book-open-text', feature: 'sermons', sermons: true,
+    { title: 'Manage sermons', url: 'sermons-admin.html', icon: 'book-open-text', feature: 'sermons', sermons: true,
       description: 'The series and passages, and the podcast feed' },
     { title: "What's on", url: 'whatson.html', icon: 'calendar-heart',
       description: 'Church events, and signing up' },
@@ -111,7 +118,8 @@
           { title: 'Music Databases', icon: 'library', children: [
             { title: 'Music Database', url: 'Library.html', icon: 'list-music',
               description: 'Every song, with its keys and files' },
-            { title: 'Music Uploader', url: 'batchupload.html', icon: 'upload',
+            /* leaderOf: the page is for Worship leaders (data-role="leader"). */
+            { title: 'Music Uploader', url: 'batchupload.html', icon: 'upload', leaderOf: 'Worship Team',
               description: 'Add several songs at once' }
           ] }
         ] },
@@ -121,7 +129,8 @@
           { title: 'AV Troubleshoot', url: 'EGBC-Troubleshoot-AV.html', icon: 'wrench',
             description: 'When something is not working' },
           { title: 'Equipment', icon: 'package', children: [
-            { title: 'Inventory', url: 'inventory-system-2.html', icon: 'boxes',
+            /* leaderOf: the page is for AV leaders (data-role="leader"). */
+            { title: 'Inventory', url: 'inventory-system-2.html', icon: 'boxes', leaderOf: 'AV Team',
               description: 'What we have and where it lives' },
             { title: 'AV Infrastructure Mapper', url: 'schematic.html', icon: 'network',
               description: 'What is plugged into what' },
@@ -137,10 +146,13 @@
         ] }
       ] },
 
-    { title: 'Youth', url: 'Youthcharter.html', icon: 'users',
+    /* The youth teams and their leaders (Martin, 15 Oct 2026: "Everyone"
+       could see all the youth stuff). A team heading: off the team, nothing
+       under it either. The planner is Youth Worship's, as its page says. */
+    { title: 'Youth', url: 'Youthcharter.html', icon: 'users', team: ['Youth Worship', 'Lazers', 'ReNu'],
       description: 'What the youth team is for, and how it works',
       children: [
-        { title: 'Youth Service Planner', url: 'youthserviceplanner.html', icon: 'clipboard-list',
+        { title: 'Youth Service Planner', url: 'youthserviceplanner.html', icon: 'clipboard-list', team: 'Youth Worship',
           description: 'Plan a youth service' }
       ] },
 
@@ -238,7 +250,9 @@
         /* The events window's pages go here (F-031): Check-in, Registers and
            Safeguarding under this heading when they ship. */
         { title: 'Events and rooms', icon: 'calendar-cog', core: true, admin: true, children: [
-          { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', core: true, admin: true,
+          /* eventTeam (F-212): also for anybody on an event's team, who may
+             administer nothing - they get "Events I run" there. */
+          { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', core: true, admin: true, eventTeam: true,
             description: 'Make an event, see who is coming' },
           { title: 'Places', url: 'places-admin.html', icon: 'map-pin', core: true, admin: true,
             description: 'Sites, rooms and what is in them' },
@@ -299,13 +313,14 @@
     { title: 'Resources', icon: 'folder-open', children: [
       /* "Pin boards", plural, because there are five of them now and the old
          name read as one (Martin, 10 Oct 2026). */
-      { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note',
+      /* anyTeam: for people who serve on a team (Martin, 15 Oct 2026). */
+      { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note', anyTeam: true,
         description: 'Anything anybody wants to raise' },
       { title: 'Apps and downloads', url: 'hubresources.html', icon: 'smartphone',
         description: 'Put the apps on your phone, and the files you may need' },
-      { title: 'Team Resources', url: 'resources.html', icon: 'file-text',
+      { title: 'Team Resources', url: 'resources.html', icon: 'file-text', anyTeam: true,
         description: 'Charters, policies and the papers that go with them' },
-      { title: 'Team Videos', url: 'videos.html', icon: 'clapperboard',
+      { title: 'Team Videos', url: 'videos.html', icon: 'clapperboard', anyTeam: true,
         description: 'Recordings worth keeping' }
       /* "Report a concern" goes here, for everyone, when it ships (F-031). */
     ] }
@@ -332,6 +347,9 @@
        egbc-church.js counts it as used, which is what everything is until
        the per-church switch exists. */
     if (node.feature && window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses(node.feature)) return false;
+    /* On an event's team (F-212): that is enough for the entry that says so,
+       whatever the flags below would say. */
+    if (node.eventTeam && who.isEventTeam) return true;
     if (node.core && !who.isCore) return false;
     /* Section 21: members-only things do not appear for an Attender, with no
        locked door. prune() then drops a heading left with nothing under it,
@@ -370,6 +388,10 @@
        another way. */
     if (node.team && !onTeam(node.team, who)) return false;
     if (node.master && !who.isMaster) return false;
+    /* A leader of that team, as the page's own guard decides it. */
+    if (node.leaderOf && !who.isMaster && !(window.EGBCAuth && EGBCAuth.isLeaderOf && EGBCAuth.isLeaderOf(node.leaderOf))) return false;
+    /* On any team, administering one, or a master admin. */
+    if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     return true;
   }
 
@@ -458,7 +480,7 @@
     '.egbc-menu .grp:hover{color:#111827}',
     '.egbc-menu .grp .cnt{margin-left:auto;font-weight:500;color:#9ca3af}',
     '.egbc-menu .grp .arw{display:inline-flex;align-items:center;color:#9ca3af;transition:transform .18s;',
-    '  border:0;background:none;padding:0;cursor:pointer}',
+    '  border:0;background:none;padding:0;cursor:pointer;min-width:44px;min-height:44px;justify-content:center;margin:-12px -10px -12px -6px}',
     '.egbc-menu .grp.open .arw{transform:rotate(90deg)}',
     /* A heading that is also a page: the words open the charter, the arrow
        expands the group. */
@@ -715,7 +737,13 @@
     '#egbc-you{position:fixed;z-index:9600;background:#fff;border:1px solid #e5e7eb;border-radius:12px;',
     'box-shadow:0 12px 32px rgba(17,24,39,.16);padding:6px;font-family:Inter,system-ui,sans-serif;color:#111827;',
     'box-sizing:border-box;max-height:calc(100vh - 80px);overflow-y:auto}',
-    '#egbc-you .ey-h{padding:8px 10px 10px;border-bottom:1px solid #e5e7eb;margin-bottom:4px}',
+    /* The heading stays at the top of the panel with its close (audit, 15 Oct
+       2026: scrolled down on a phone there was no way to shut it but to
+       guess and tap outside). */
+    '#egbc-you .ey-h{position:sticky;top:-6px;z-index:1;background:#fff;display:flex;align-items:flex-start;gap:8px;padding:8px 4px 10px 10px;border-bottom:1px solid #e5e7eb;margin:-6px -6px 4px;border-radius:12px 12px 0 0}',
+    '#egbc-you .ey-hw{flex:1;min-width:0}',
+    '#egbc-you .ey-x{flex:none;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;background:none;color:#6b7280;cursor:pointer}',
+    '#egbc-you .ey-x:hover{background:#f3f4f6;color:#111827}',
     '#egbc-you .ey-h b{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}',
     '#egbc-you .ey-h span{display:block;font-size:12px;color:#6b7280;overflow-wrap:anywhere}',
     '#egbc-you [role=menuitem]{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:48px;',
@@ -757,7 +785,8 @@
   }
   function youDraw(view) {
     const me = youWho(YOU.profile);
-    let html = '<div class="ey-h"><b>' + esc(me.name || 'You') + '</b><span>' + esc(me.email || '') + '</span></div>';
+    let html = '<div class="ey-h"><div class="ey-hw"><b>' + esc(me.name || 'You') + '</b><span>' + esc(me.email || '') + '</span></div>'
+      + '<button type="button" class="ey-x" data-you="close" aria-label="Close">' + youIc('x') + '</button></div>';
     if (view === 'details') {
       const A = window.EGBCAuth;
       const teams = (me.teams || []).map((t) => (A && A.TEAMS && A.TEAMS[t] && A.TEAMS[t].label) || t);
@@ -801,6 +830,7 @@
       return;
     }
     if (key === 'details') { youDraw('details'); return; }
+    if (key === 'close') { youClose(true); return; }
     if (key === 'signout') { youClose(false); if (window.EGBCAuth) EGBCAuth.signOut(); return; }
     if (key === 'calendar') {
       youClose(false);
@@ -906,6 +936,7 @@
         isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true,
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
+        isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),
         isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead()),
         moneyTeam: (A && A.moneyTeam && A.moneyTeam()) || 'Finance'

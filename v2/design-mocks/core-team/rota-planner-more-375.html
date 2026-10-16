@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rota Planner, phone (mock)</title>
+<style>
+:root{--canvas:#f6f7f7;--surface:#fff;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--brand:#3d6263;--tint:#eef5f4;--warn:#b45309;--warn-t:#fef3c7}
+*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.45 Inter,system-ui,-apple-system,sans-serif}
+.am{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:8px 12px;height:56px}
+.am .bk{width:40px;height:40px;border:1px solid var(--line-2);border-radius:10px;display:grid;place-items:center}
+.am b{flex:1;font-size:16px;color:var(--ink)}
+.am .care{height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:10px;display:flex;align-items:center;gap:6px;font-weight:500;color:var(--ink)}
+.bar{display:flex;gap:8px;padding:12px 12px 6px;align-items:center}
+.sel{flex:1;min-height:44px;border:1px solid var(--line-2);border-radius:10px;background:#fff;padding:0 12px;display:flex;align-items:center;justify-content:space-between;color:var(--ink);font-weight:500}
+.btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:#fff;color:var(--ink);font:500 14px Inter,system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px}
+.btn.p{background:var(--brand);border-color:var(--brand);color:#fff}
+.meta{padding:2px 14px 8px;color:var(--muted);font-size:13px}
+.term{padding:8px 14px 6px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin:0 12px 10px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.svc{display:flex;gap:12px;padding:12px 14px;align-items:flex-start}
+.dc{width:48px;flex:none;border-radius:10px;overflow:hidden;text-align:center;border:1px solid var(--line)}
+.dc .m{background:var(--brand);color:#fff;font-size:11px;font-weight:600;padding:2px 0}.dc .d{font-size:18px;font-weight:700;color:var(--ink);padding:2px 0}
+.svc .t{flex:1;min-width:0}.svc .t b{display:block;color:var(--ink);font-weight:600}.svc .t small{display:block;color:var(--muted);font-size:13px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;margin-top:6px}
+.ok{background:#ecfdf3;color:#15803d}.gap{background:var(--warn-t);color:var(--warn)}
+.chev{color:var(--faint);align-self:center}
+.open{border-color:var(--brand)}
+.sec{border-top:1px solid var(--line);padding:12px 14px}
+.sec h4{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.f{display:grid;grid-template-columns:1fr 1fr;gap:8px}.f label{font-size:12px;color:var(--muted)}
+.in{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 10px;font:400 14px Inter,system-ui,sans-serif;background:#fff;display:flex;align-items:center;color:var(--ink)}
+.role{display:flex;align-items:center;gap:8px;margin-bottom:8px}.role span{width:100px;flex:none;font-size:13px;color:var(--ink);font-weight:500}
+.role .in{flex:1}.role .in.empty{color:var(--faint)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line-2);display:inline-flex;align-items:center;font-size:13px}.chip.on{background:var(--tint);border-color:var(--brand);color:var(--brand);font-weight:600}
+.tick{display:flex;align-items:center;gap:8px;min-height:44px;color:var(--ink)}.tick i{width:20px;height:20px;border-radius:5px;background:var(--brand);display:inline-block}
+.tabs{position:fixed;left:0;right:0;bottom:0;height:62px;background:#fff;border-top:1px solid var(--line);display:flex}
+.tabs div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--muted);gap:3px}.tabs div.on{color:var(--brand);font-weight:600}
+.tabs div i{width:20px;height:20px;border-radius:6px;background:currentColor;opacity:.35;display:block}.tabs div.on i{opacity:1}
+.note{position:fixed;left:8px;top:64px;background:#111827;color:#fff;font-size:11px;padding:3px 8px;border-radius:6px;opacity:.85}
+/* the More sheet */
+.scrim{position:fixed;inset:0;background:rgba(17,24,39,.4)}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:86%;background:#fff;border-radius:18px 18px 0 0;overflow:auto}
+.sh{position:sticky;top:0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.sh b{font-size:16px;color:var(--ink)}.x{width:44px;height:44px;border-radius:10px;border:1px solid var(--line-2);display:grid;place-items:center;font-size:20px}
+.grp{padding:10px 16px}.grp h4{margin:6px 0 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.row{display:flex;align-items:center;justify-content:space-between;min-height:48px;border-bottom:1px solid var(--line);color:var(--ink)}
+.row small{color:var(--muted)}
+</style></head>
+<body>
+<div class="am"><div class="bk">‹</div><b>Rota Planner</b><div class="care">♡ Care</div></div>
+<div class="bar">
+  <div class="sel">Autumn 2026 <span>▾</span></div>
+  <div class="btn p">+ Service</div>
+  <div class="btn">More</div>
+</div>
+<div class="meta">14 services · 3 still need people · <u>Show past dates</u></div>
+
+<div class="term">October</div>
+<div class="card"><div class="svc"><div class="dc"><div class="m">OCT</div><div class="d">18</div></div>
+  <div class="t"><b>Morning Worship</b><small>Sun 10:00 · Leader: Ryan Ahern · Speaker: Ryan Ahern</small><span class="pill ok">All 8 roles filled</span></div><div class="chev">›</div></div></div>
+
+<div class="card open"><div class="svc"><div class="dc"><div class="m">OCT</div><div class="d">25</div></div>
+  <div class="t"><b>Morning Worship</b><small>Sun 10:00 · Leader: — · Speaker: Ryan Ahern</small><span class="pill gap">2 of 8 roles still open: Drums, Words</span></div><div class="chev">⌄</div></div>
+  <div class="sec"><h4>Details</h4>
+    <div class="f"><div><label>Date</label><div class="in">Sun 25 Oct 2026</div></div><div><label>Type</label><div class="in">Sunday Morning…</div></div>
+    <div><label>Team arrives</label><div class="in">08:00 – 11:30</div></div><div><label>Video call</label><div class="in">None</div></div></div></div>
+  <div class="sec"><h4>Who's leading · What's On</h4>
+    <div class="f"><div><label>Service leader</label><div class="in empty" style="color:#9ca3af">Choose or type</div></div><div><label>Speaker</label><div class="in">Ryan Ahern</div></div></div>
+    <div class="tick"><i></i> In What's On, starts 10:00</div><div class="in" style="color:#9ca3af">Title in What's On (optional)</div></div>
+  <div class="sec"><h4>Roles</h4>
+    <div class="role"><span>Worship Leader</span><div class="in">Sam Synthetic ▾</div></div>
+    <div class="role"><span>Keyboard</span><div class="in">Alex Synthetic ▾</div></div>
+    <div class="role"><span>Drums</span><div class="in empty">Nobody yet ▾</div></div>
+    <div class="role"><span>Words</span><div class="in empty">Nobody yet ▾</div></div>
+    <div style="color:var(--brand);font-weight:500;padding:6px 0">Show the other 4 roles</div></div>
+  <div class="sec"><h4>Teams</h4><div class="chips"><span class="chip on">Worship Team</span><span class="chip on">AV Team</span><span class="chip">Core Team</span><span class="chip">Choir</span><span class="chip">Youth</span><span class="chip">Kids Church</span></div></div>
+  <div class="sec" style="display:flex;gap:8px"><div class="btn">Auto-fill</div><div class="btn">Notes</div><div class="btn" style="margin-left:auto;color:#b0392c">Delete</div></div>
+</div>
+<div style="height:80px"></div>
+<div class="tabs"><div class="on"><i></i>Rota</div><div><i></i>Plan</div><div><i></i>Meetings</div><div><i></i>Team</div></div>
+<div class="note">MOCK · 375px</div>
+<div class="scrim"></div><div class="sheet"><div class="sh"><b>More</b><div class="x">✕</div></div><div class="grp"><h4>Build the term</h4><div class="row">Populate the term <small>every Sunday</small></div><div class="row">Auto-populate <small>fill roles from availability</small></div><div class="row">Add Thursday practices</div><div class="row">Gather availability</div></div><div class="grp"><h4>Show</h4><div class="row">Hide assigned roles <small>off</small></div><div class="row">Show past dates <small>off</small></div></div><div class="grp"><h4>Send the rotas</h4><div class="row">Sending as <small>office@…</small></div><div class="row">Which term <small>All active terms</small></div><div class="row" style="color:#3d6263;font-weight:600">Send all rotas</div></div><div class="grp"><h4>Print and export</h4><div class="row">Full PDF</div><div class="row">Excel</div></div><div class="grp"><h4>One person’s rota</h4><div class="row">Choose a person <small>▾</small></div><div class="row">Individual · Home · Wall PDF</div><div class="row">Send it to them</div></div><div style="height:24px"></div></div></body></html>

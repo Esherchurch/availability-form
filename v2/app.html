@@ -43,7 +43,8 @@
      one-time offer on Home, and Kids Church Today's "Call on their phone". -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
+<script src="egbc-orientation.js?v=202610160500"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
@@ -118,6 +119,18 @@
 
   *{box-sizing:border-box}
   html,body{height:100%}
+  /* "VIEWING AS", across the top of the app (Martin, 15 Oct 2026): the
+     website's strip, the same colour and words. Outside #egbc-app, so the
+     app's redraws never remove it; it takes the status bar's space, and
+     the app's own top bar gives that up while it is there. */
+  #app-viewas{display:none}
+  body.viewing{display:flex;flex-direction:column}
+  body.viewing #app-viewas{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;
+    background:#b07d2e;color:#fff;padding:calc(6px + env(safe-area-inset-top)) 16px 6px;font:600 13px/1.3 Inter,system-ui,sans-serif}
+  body.viewing #app-viewas button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.7);
+    background:#fff;color:#7a5520;font:600 13px Inter,system-ui,sans-serif;cursor:pointer;flex:none}
+  body.viewing #egbc-app{flex:1;min-height:0;height:auto}
+  body.viewing .top{padding-top:14px}
   body{margin:0;background:var(--bg);color:var(--body);
        font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
   button{font:inherit;color:inherit;cursor:pointer}
@@ -187,7 +200,7 @@
   .sec{display:grid;gap:8px}
   .sec-h{display:flex;align-items:baseline;justify-content:space-between}
   .sec-h h3{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
-  .sec-h button{border:0;background:none;color:var(--brand);font-size:13px;font-weight:500;padding:0}
+  .sec-h button{border:0;background:none;color:var(--brand);font-size:13px;font-weight:500;padding:0 4px;min-height:44px;margin:-12px -4px}
 
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 
@@ -224,6 +237,13 @@
   .row{display:flex;gap:12px;align-items:center;padding:12px 14px;border:0;background:none;
        text-align:left;width:100%}
   .row + .row{border-top:1px solid var(--line)}
+  /* A row with no action of its own is plain content (egbc-app.js row()).
+     Inside a wrapper that does act - Listen's and Maintenance's - it keeps
+     its chevron and the pointer. */
+  [data-lact]>.row.still,[data-mact]>.row.still{cursor:pointer}
+  [data-lact]>.row.still::after,[data-mact]>.row.still::after{content:"";flex:none;width:16px;height:16px;background:currentColor;opacity:.45;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center/contain no-repeat}
   .row .ic{width:36px;height:36px;border-radius:10px;background:var(--ct,var(--brand-tint));
            color:var(--c,var(--brand));display:grid;place-items:center;flex:none}
   .row .tx{flex:1;min-width:0}
@@ -288,6 +308,7 @@
 </style>
 </head>
 <body>
+<div id="app-viewas" role="status"><span id="app-viewas-who"></span><button type="button" id="app-viewas-back">Back to me</button></div>
 <div id="egbc-app"></div>
 
 <!-- ONE NOTE, FILLING THE SCREEN (APP-DESIGN-BRIEF §7f). Outside
@@ -328,7 +349,7 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610111300"></script>
-<script src="egbc-app.js?v=202610152200"></script>
+<script src="egbc-app.js?v=202610160130"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
@@ -343,10 +364,10 @@
      looks for it when it mounts to make the order draggable - without it
      the planner still works, with no drag handle. -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="egbc-core-planner.js?v=202610141400"></script>
+<script src="egbc-core-planner.js?v=202610160420"></script>
 <script src="egbc-core-meetings.js?v=202610141000"></script>
 <script src="egbc-care.js?v=202610152215"></script>
-<script src="egbc-core-rota.js?v=202610141400"></script>
+<script src="egbc-core-rota.js?v=202610160410"></script>
 <script>
 /* ---- the screens that open a page which already does the job -------
    APP-DESIGN-BRIEF §5, and A1 counted 11 of the mock-up's 24 this way.
@@ -1160,24 +1181,58 @@ function idFromKey(k) {
 }
 
 /* ---- View as, ON ME, master admin only (§7e) ------------------------
-   Where the website's strip across every screen used to be. It writes
-   the same sessionStorage key the website's own bar uses, so the two
-   cannot disagree about who is being looked at. */
-A.sheet('viewas',
-  '<h3>View as somebody else</h3>'
-  + '<p>See what a member of another team sees. It changes nothing for them, '
-  + 'and it lasts until you turn it off.</p>'
-  + '<div class="card list">'
-  + Object.keys(A.SPACES).filter(function (k) { return (A.SPACES[k].teams || []).length; })
-      .map(function (k) {
-        var s = A.SPACES[k];
-        return row('eye', s.label, 'As a member of ' + s.label, null,
-                   'viewas:' + k, s.colour, s.tint);
+   THE WEBSITE'S LIST (Martin, 15 Oct 2026): Everyone (no team) first,
+   then every team and group from Teams & groups, and "as an admin". It
+   writes the same sessionStorage key, in the same shape ({team, admin}),
+   so the app and the website cannot disagree about who is being looked
+   at. Built each time Me is drawn, because the teams list arrives after
+   the page loads. Each choice is keyed by letters only (the shell allows
+   viewas:[a-z]+ and no free text), and the key is looked up again here. */
+var VA_EVERYONE = (window.EGBCAuth && EGBCAuth.EVERYONE) || '__everyone';
+function vaKey(i) { var s = ''; i += 1; while (i > 0) { s = String.fromCharCode(97 + (i - 1) % 26) + s; i = Math.floor((i - 1) / 26); } return s; }
+function vaChoices() {
+  return [VA_EVERYONE].concat(EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : []);
+}
+function vaTeamFor(key) {
+  var list = vaChoices();
+  for (var i = 0; i < list.length; i++) if (vaKey(i) === key) return list[i];
+  return '';
+}
+function vaLabel(t) { return t === VA_EVERYONE ? 'Everyone (no team)' : ((EGBCAuth.TEAMS[t] || {}).label || t); }
+function viewAsSheet() {
+  var v = EGBCAuth.viewingAs ? EGBCAuth.viewingAs() : null;
+  return '<h3>View as somebody else</h3>'
+    + '<p>See what another person sees: a church member on no team, or somebody on a team. '
+    + 'It changes nothing for them, and lasts until you press Back to me or close the app.</p>'
+    + '<label style="display:flex;align-items:center;gap:10px;min-height:44px;margin:0 0 8px"><input type="checkbox" id="va-admin" style="width:20px;height:20px"'
+    + (v && v.admin ? ' checked' : '') + '> As an admin of that team</label>'
+    + '<div class="card list" data-va="list">'
+    + vaChoices().map(function (t, i) {
+        var c = EGBCAuth.TEAMS[t] || {};
+        return row(t === VA_EVERYONE ? 'users' : 'eye', vaLabel(t),
+                   t === VA_EVERYONE ? 'A church member on no team' : 'As somebody on ' + vaLabel(t),
+                   v && v.team === t ? '<span class="chev">✓</span>' : null,
+                   'viewas:' + vaKey(i), c.colour, c.tint);
       }).join('')
-  + '</div>'
-  + '<div class="actions">'
-  + '<button class="btn primary" data-act="viewas:off">Stop viewing as somebody else</button>'
-  + '<button class="btn" data-act="close">Close</button></div>');
+    + '</div>'
+    + '<div class="actions">'
+    + (v ? '<button class="btn primary" data-act="viewas:off">Back to me</button>' : '')
+    + '<button class="btn" data-act="close">Close</button></div>';
+}
+
+/* The strip, while viewing. */
+function paintViewAs() {
+  var v = window.EGBCAuth && EGBCAuth.isReallyMaster && EGBCAuth.isReallyMaster() && EGBCAuth.viewingAs ? EGBCAuth.viewingAs() : null;
+  document.body.classList.toggle('viewing', !!v);
+  if (!v) return;
+  var who = v.team === VA_EVERYONE ? 'a church member on no team'
+    : (/^[aeiou]/i.test(vaLabel(v.team)) ? 'an ' : 'a ') + vaLabel(v.team) + (v.admin ? ' admin' : ' member');
+  document.getElementById('app-viewas-who').textContent = 'Viewing as ' + who;
+}
+document.getElementById('app-viewas-back').addEventListener('click', function () {
+  try { sessionStorage.removeItem('egbc_view_as'); } catch (err) {}
+  location.reload();
+});
 
 /* The two actions those sheets need. Handled here rather than in the
    shell, because they are this screen's business - the shell knows
@@ -1244,10 +1299,16 @@ document.addEventListener('click', function (e) {
 
   if (a.indexOf('viewas:') === 0) {
     var which = a.slice(7);
+    if (!EGBCAuth.isReallyMaster || !EGBCAuth.isReallyMaster()) return;
     try {
       if (which === 'off') sessionStorage.removeItem('egbc_view_as');
-      else sessionStorage.setItem('egbc_view_as',
-        JSON.stringify({ team: (A.SPACES[which] || {}).teams[0], role: 'member' }));
+      else {
+        var team = vaTeamFor(which);
+        if (!team) return;
+        var adm = document.getElementById('va-admin');
+        sessionStorage.setItem('egbc_view_as',
+          JSON.stringify({ team: team, admin: team !== VA_EVERYONE && !!(adm && adm.checked) }));
+      }
     } catch (err) {}
     /* A reload, because who you are is decided while the page loads -
        the profile, the teams, the spaces and the Menu all read it once. */
@@ -1284,8 +1345,10 @@ A.screen('me', 'me', function (me) {
     /* "Open the full website" is the ONLY route to the hub from the app
        (§7d), and it says what it is. */
     + card(row('monitor', 'Open the full website', 'Everything, on a computer', null, 'open:hub.html'))
-    + (me.isMaster
-        ? card(row('eye', 'View as somebody else', 'See what another team sees', null, 'sheet:viewas'))
+    /* isReallyMaster, not me.isMaster: while viewing as somebody you are not
+       a master admin to the app, and Back to me has to stay reachable. */
+    + (EGBCAuth.isReallyMaster && EGBCAuth.isReallyMaster()
+        ? (A.sheet('viewas', viewAsSheet()), card(row('eye', 'View as somebody else', 'See what Everyone or a team sees', null, 'sheet:viewas')))
         : '')
     + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'))
     + A.empty('hammer', 'My details and my household arrive in the next stages.');
@@ -1935,6 +1998,7 @@ document.addEventListener('egbc-ready', function () {
   try {
     if (window.EGBCAppEvents && EGBCAppEvents.mountAll) EGBCAppEvents.mountAll(EGBCApp);
   } catch (e) { console.warn('app: the events screens did not mount', e); }
+  paintViewAs();
   EGBCApp.start();
 });
 </script>

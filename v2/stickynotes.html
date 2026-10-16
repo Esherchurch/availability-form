@@ -3,12 +3,12 @@
 <head>
 <script src="egbc-board-phone.js?v=202610121900"></script>
 <script src="egbc-appmode.js?v=202610152310"></script>
-<script src="egbc-shell.js?v=202610151900" data-title="Ideas pin board"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Ideas pin board"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
-<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
+<script src="egbc-guard.js?v=202610152345" data-any-team></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suggestions Board</title>
@@ -353,6 +353,8 @@
      here is how THIS page decides to show it. */
   .pb-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
 
+  /* On a phone the chips, page tabs and board switch are 44px taps (audit, 15 Oct 2026). */
+  @media (max-width:700px){ .filter-chip, .page-tab, .board-picker { min-height:44px; } }
 </style>
 </head>
 <body>
@@ -1540,17 +1542,28 @@ function whenSignedIn() {
    the phone app (egbc-appmode.js), and 0 otherwise, so one sum covers
    both. data-am-own tells app mode to leave these four alone: they
    have already counted it, and being shifted again would double it. */
+/* THE WEBSITE'S BAR TOO (audit, 15 Oct 2026: on a phone the "+" for a new
+   page sat under the Archive button). egbc-shell.js pushes fixed bars down
+   once, by the height they had then, and pins them with an inline top. The
+   header here grows afterwards as its buttons arrive, so the bars below it,
+   already pinned, ended up underneath. Now this stack counts the website's
+   bar (--egbc-bar) itself and asks the shell to leave it alone
+   (data-egbc-overlay), so there is one sum and it is redone as things
+   change. */
 function snStack() {
   var root = document.documentElement;
   var am = parseFloat(getComputedStyle(root).getPropertyValue("--am-top")) || 0;
   var amB = parseFloat(getComputedStyle(root).getPropertyValue("--am-bottom")) || 0;
+  var site = parseFloat(getComputedStyle(root).getPropertyValue("--egbc-bar")) || 0;
   var bars = [document.querySelector("header"),
               document.querySelector(".pages-bar"),
               document.querySelector(".filter-bar")];
-  var y = am;
+  var y = am + site;
   for (var i = 0; i < bars.length; i++) {
     if (!bars[i]) continue;
     bars[i].setAttribute("data-am-own", "1");
+    bars[i].setAttribute("data-egbc-overlay", "1");
+    bars[i].style.top = y + "px";
     root.style.setProperty("--sn-top-" + i, y + "px");
     var cs = getComputedStyle(bars[i]);
     if (cs.display !== "none") y += bars[i].offsetHeight;
@@ -1558,7 +1571,12 @@ function snStack() {
   root.style.setProperty("--sn-top-3", y + "px");
   root.style.setProperty("--sn-bottom", amB + "px");
   var outer = document.querySelector(".board-outer");
-  if (outer) outer.setAttribute("data-am-own", "1");
+  if (outer) {
+    outer.setAttribute("data-am-own", "1");
+    outer.setAttribute("data-egbc-overlay", "1");
+    outer.style.top = y + "px";
+    outer.style.height = "";
+  }
 }
 snStack();
 window.addEventListener("resize", snStack);

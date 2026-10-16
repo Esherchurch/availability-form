@@ -482,6 +482,16 @@ Five more, created by the same `functions:hub` deploy:
 
 **For Calla's sendEmail (the known-recipient check):** the addresses the church can choose here are `careRouting/main.care.email`, `careRouting/main.pastoral.email`, `careRouting/main.prayer.email` (`welcomeSettings/public.notifyEmail` is the events window's, for its own copy). They need to count as known recipients, or those emails will be refused once the open path closes.
 
+### Added 15 Oct 2026: enter a Sunday once
+
+One more, created by the same `functions:hub` deploy:
+
+| Function | Safe before switch-over? |
+|---|---|
+| `rotaWhatsOn` (trigger on `events`, the rota) | **Yes.** A rota service ticked "In What's On" with a service time is copied to `calEvents/rota_<id>` (public: title, a line, the speaker, the time). Unticked, archived or deleted: the copy is removed. Writes nothing else. Existing services have no tick, so nothing appears until somebody ticks one (or the F-177 Sundays script runs) |
+
+**Nothing to press after the deploy.** It acts on the next change to each service.
+
 ### Deploying N-4, step by step (Martin, with a window watching)
 
 1. In the `v2` folder: `git pull`, so the code is today's.

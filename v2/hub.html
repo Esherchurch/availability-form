@@ -16,7 +16,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <!-- Step R: myCalendarLink is a callable, so the hub needs the functions SDK. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
+<script src="egbc-orientation.js?v=202610160500"></script>
+<script src="egbc-fullvideo.js?v=202610160500"></script>
 <!-- watchLive() for the front page's Watch card (F-164). -->
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-care.js?v=202610152215"></script>
@@ -24,7 +26,7 @@
 <!-- The shared HTML cleaner, which the notices and the charter use. -->
 <script src="egbc-share.js?v=202610121200"></script>
 <!-- Step N: the Menu's structure, shared by the Menu, the sidebar and Where to? -->
-<script src="egbc-menu.js?v=202610151900"></script>
+<script src="egbc-menu.js?v=202610160500"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
 <script src="egbc-editor.js?v=202610062000"></script>
 <style>
@@ -399,7 +401,7 @@
   .grp:hover{color:var(--ink)}
   .grp .cnt{margin-left:auto;font-weight:500;color:var(--faint)}
   .grp .arw{display:inline-flex;align-items:center;color:var(--faint);transition:transform .18s;
-            border:0;background:none;padding:0;cursor:pointer}
+            border:0;background:none;padding:0;cursor:pointer;min-width:44px;min-height:44px;justify-content:center;margin:-12px -10px -12px -6px}
   .grp.open .arw{transform:rotate(90deg)}
   /* A heading that is also a page: the words open the charter, the arrow
      expands the group. */
@@ -432,6 +434,11 @@
   .modal{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:110;display:none;overflow-y:auto;padding:24px 16px}
   .modal.on{display:block}
   .modal .box{background:#fff;border-radius:14px;max-width:940px;margin:0 auto;padding:24px;box-shadow:var(--sh-lg)}
+  /* The heading row with its close stays at the top while a long form
+     scrolls under it (audit, 15 Oct 2026: scrolled down there was no way
+     out but to guess). */
+  .modal .box>:first-child:has(.btn.x){position:sticky;top:-24px;z-index:2;background:#fff;margin:-24px -24px 8px;padding:16px 24px 10px;border-radius:14px 14px 0 0}
+  .modal .btn.x{min-width:44px;min-height:44px}
   .modal h2{font-size:17px;font-weight:600}
   .fld{width:100%;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;background:#fff;
        font:400 14px Inter,sans-serif;color:var(--ink);outline:none;margin-bottom:10px}
@@ -453,7 +460,13 @@
   /* team picker */
   .pick{position:fixed;inset:0;z-index:120;background:var(--canvas);display:none;align-items:center;justify-content:center;padding:24px}
   .pick.on{display:flex}
-  .pick-box{background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px 32px;max-width:420px;width:100%;box-shadow:var(--sh-lg);text-align:center}
+  .pick-box{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px 32px;max-width:420px;width:100%;box-shadow:var(--sh-lg);text-align:center}
+  /* A long list of teams (a master admin's) is taller than a phone: the
+     picker scrolls, and its close stays at the top of the screen. */
+  .pick{overflow-y:auto}
+  .pick-box{margin:auto}
+  .pick-x{position:sticky;top:0;z-index:2;display:grid;place-items:center;margin:-24px -16px 0 auto;width:44px;height:44px;border:0;border-radius:10px;background:#fff;color:var(--muted);cursor:pointer}
+  .pick-x:hover{background:var(--tint)}
   .pick-box img{width:56px;height:56px;border-radius:12px;object-fit:cover;border:1px solid var(--line);margin-bottom:16px}
   .pick-box h1{font-size:20px;font-weight:600;margin-bottom:6px}
   .pick-box p{font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 20px}
@@ -500,6 +513,7 @@
 
 <div class="pick" id="teamPicker">
   <div class="pick-box">
+    <button type="button" class="pick-x" onclick="closeTeamPicker()" aria-label="Close"><i data-lucide="x" style="width:20px;height:20px"></i></button>
     <img id="pickLogo" alt="EGBC">
     <h1 id="pickTitle">Which team today?</h1>
     <p id="pickSub">You're on more than one. You can switch whenever you like.</p>
@@ -879,7 +893,7 @@
 
 
 <nav id="egbc-tabbar" aria-label="Main"></nav>
-<script src="hub-app.js?v=202610151900"></script>
+<script src="hub-app.js?v=202610160500"></script>
 <!-- The one service worker on the v2 scope, so a phone with only the
      installed EGBC Hub can receive notifications (FINDINGS-notify N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>

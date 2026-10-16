@@ -219,7 +219,7 @@ const offMachine = u => {
   ok('  the Video meetings card, with tonight’s Join',
     (await has('#meetingsCard a[href="meeting.html?room=Worship-AV&event=ev_wm_today"]')) === true);
   ok('  but not the one later in the week', (await has('#meetingsCard a[href*="ev_wm_later"]')) === false);
-  ok('  the Menu has no "Watch" for Pat (not a sermons helper)', (await menuHas('Watch')) === false);
+  ok('  the Menu has no "Manage Watch" for Pat (not a sermons helper)', (await menuHas('Manage Watch')) === false);
   ok('  "Meet" in the sidebar', (await has('#sidebar a[href="meeting.html"]')) === true);
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
   await phone();
@@ -246,10 +246,10 @@ const offMachine = u => {
   console.log('\nthe Menu’s "Watch"');
   await signIn(ACCOUNTS.sam);
   await openHub();
-  ok('  there for Sam, named in sermonShow/access', (await menuHas('Watch')) === true);
+  ok('  there for Sam, named in sermonShow/access', (await menuHas('Manage Watch')) === true);
   await signIn(ACCOUNTS.mo);
   await openHub();
-  ok('  there for Mo, a master admin', (await menuHas('Watch')) === true);
+  ok('  there for Mo, a master admin', (await menuHas('Manage Watch')) === true);
 
   for (const p of ['events/ev_wm_later', 'watchShow/live', 'sermonShow/access']) await del(p);
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');

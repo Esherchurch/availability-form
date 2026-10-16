@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610151900" data-title="Youth Service Planner"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Youth Service Planner"></script>
 <!-- Sign-in. The page reads the address book to build its name list and the
      events collection for its dates; both are shut to strangers now
      (PRIVACY-OPEN-COLLECTIONS.md), so it has to know who is asking. The guard
@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Youth Worship"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
 <meta charset="UTF-8">
@@ -256,6 +256,20 @@
     .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
     @keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
     @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+    /* ON A PHONE (audit, Martin 15 Oct 2026: 598px wide at 375). A song's
+       top line wraps: the title takes the line, the three keys share the
+       next one, and the remove button stays a real 44px target. */
+    @media (max-width: 700px) {
+      .song-block { padding: 14px; }
+      .song-block > div.flex:first-child { flex-wrap: wrap; gap: 8px; }
+      .song-block > div.flex:first-child > .relative.flex-grow { flex: 1 1 100%; order: 5; }
+      .song-block > div.flex:first-child > .flex.gap-1 { flex: 1 1 100%; order: 6; }
+      .song-block .song-key { flex: 1 1 0; width: auto; min-width: 0; }
+      .service-block button.text-2xl { min-width: 44px; min-height: 44px; }
+      .service-block input { min-width: 0; }
+      .item-block { padding: 12px; gap: 8px; }
+      .item-block > .w-6 { display: none; }
+    }
 
     /* Readability pass (additive, brand-safe): lift small faint labels to a legible minimum */
     .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size: 12px !important; }
@@ -417,6 +431,12 @@ window.addSong = () => {
         </div>
     `;
     container.appendChild(div);
+    /* Tapped "+": show the new row and put the cursor in it - at the foot of
+       a long plan it was added out of sight, and the button seemed to do
+       nothing (audit, 15 Oct 2026). Not while a saved plan is being drawn. */
+    if (window.event && window.event.type === 'click') {
+      try { div.scrollIntoView({ block: 'center', behavior: 'smooth' }); var nIn = div.querySelector('input'); if (nIn) nIn.focus({ preventScroll: true }); } catch (e) {}
+    }
     updateSongNumbers();
     return id;
 };
@@ -619,6 +639,12 @@ window.addItem = (val="") => {
         <button onclick="this.parentElement.remove()" class="text-[#d1dfdf] hover:text-red-500 text-2xl font-semibold">&times;</button>
     `;
     document.getElementById('service-order').appendChild(div);
+    /* Tapped "+": show the new row and put the cursor in it - at the foot of
+       a long plan it was added out of sight, and the button seemed to do
+       nothing (audit, 15 Oct 2026). Not while a saved plan is being drawn. */
+    if (window.event && window.event.type === 'click') {
+      try { div.scrollIntoView({ block: 'center', behavior: 'smooth' }); var nIn = div.querySelector('input'); if (nIn) nIn.focus({ preventScroll: true }); } catch (e) {}
+    }
 };
 
 window.loadRota = async () => {
@@ -1283,6 +1309,27 @@ window.emailSchedule = async () => {
       else t = list.filter(function (op) { return op.value.split('|')[0] < d; }).pop();
       if (t) { sel.value = t.value; choose(t.value); }
     }
+    /* At the first or last service there is nothing to step to: say so by
+       greying the arrow out, rather than a button that does nothing (audit,
+       15 Oct 2026). */
+    function target(k) {
+      var list = real(), i = list.map(function (op) { return op.value; }).indexOf(sel.value), d = input.value;
+      if (i >= 0) return list[i + k] || null;
+      return k > 0 ? (list.filter(function (op) { return op.value.split('|')[0] > d; })[0] || null)
+                   : (list.filter(function (op) { return op.value.split('|')[0] < d; }).pop() || null);
+    }
+    function paintEnds() {
+      [['prev', -1], ['next', 1]].forEach(function (p) {
+        var b = wrap.querySelector('[data-uk="' + p[0] + '"]'); if (!b) return;
+        var none = !target(p[1]);
+        b.disabled = none; b.style.opacity = none ? '.35' : ''; b.style.cursor = none ? 'default' : '';
+        b.title = none ? (p[1] < 0 ? 'No earlier service on the rota' : 'No later service on the rota') : '';
+      });
+    }
+    try { new MutationObserver(paintEnds).observe(sel, { childList: true }); } catch (e) {}
+    sel.addEventListener('change', paintEnds);
+    input.addEventListener('change', paintEnds);
+    setTimeout(paintEnds, 0);
     input.addEventListener('change', sync);
     sel.addEventListener('change', function () { if (sel.value) choose(sel.value); });
     wrap.querySelector('[data-uk="prev"]').onclick = function () { step(-1); };
@@ -1391,9 +1438,9 @@ window.emailSchedule = async () => {
     </div>
 
     <div class="space-y-6">
-        <div class="flex justify-between items-center px-4">
+        <div class="flex flex-wrap gap-3 justify-between items-center px-4">
             <h2 class="text-2xl font-semibold text-[#14201f] tracking-tight">Order of Service</h2>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <button id="addSongBtn" onclick="addSong()" class="btn-secondary text-sm !py-2">+ Add Song</button>
                 <button id="addItemBtn" onclick="addItem()" class="btn-secondary text-sm !py-2">+ Add Item</button>
                 <a href="sundayplannersonglibrary.html" target="_blank" class="btn-secondary text-sm !py-2">Songs Database</a>

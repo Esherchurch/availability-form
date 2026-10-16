@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610152310"></script>
-<script src="egbc-shell.js?v=202610151900" data-title="How-To AV"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="How-To AV"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-kbupload.js?v=202610062000"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="AV Team"></script>
 <script src="egbc-kbadmin.js?v=202609041833" data-admin-team="AV Team"></script>
@@ -274,7 +274,9 @@ function closeModal(e){
 }
 
 function doSearch(){
-  const query=document.getElementById('searchInput').value.trim();if(!query)return;
+  const si=document.getElementById('searchInput'), query=si.value.trim();
+  /* Nothing typed: put the cursor there and say what to do (audit, 15 Oct 2026). */
+  if(!query){si.focus();si.placeholder='Type what you are looking for, then Search';return;}
   currentQuery=query;
 
   // Score each asset by relevance to query

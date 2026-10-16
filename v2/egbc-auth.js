@@ -332,6 +332,22 @@
     }).catch(function () { sermonsAdmin = false; return false; });
   }
 
+  /* ON AN EVENT'S TEAM (F-212, events window): somebody who runs Film Club
+     without administering anything still needs Events in the Menu. The same
+     two questions EGBCEvents.eventsIRun() asks, one answer each is enough.
+     Anybody who administers something sees Events already, so they are
+     not asked. Never rejects. */
+  var eventTeam = false;
+  function loadEventTeam(profile, uid) {
+    eventTeam = false;
+    if (!profile || profile.masterAdmin || (profile.adminFor || []).length) return Promise.resolve(false);
+    var c = db.collection('calEvents'), qs = [];
+    if (profile.memberId) qs.push(c.where('teamMemberIds', 'array-contains', profile.memberId).limit(1).get());
+    if (uid) qs.push(c.where('teamUids', 'array-contains', uid).limit(1).get());
+    return Promise.all(qs.map(function (q) { return q.catch(function () { return { empty: true }; }); }))
+      .then(function (r) { eventTeam = r.some(function (x) { return !x.empty; }); return eventTeam; });
+  }
+
   function loadBookingsAdmin(memberId) {
     if (!memberId) return Promise.resolve([]);
     return db.collection('bookingSettings').get().then(function (snap) {
@@ -995,7 +1011,8 @@
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
             return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
-                                loadCareLead(profile && profile.memberId), loadMoneyTeam()])
+                                loadCareLead(profile && profile.memberId), loadMoneyTeam(),
+                                loadEventTeam(profile, user && user.uid)])
               .then(function () { return both; });
           }).then(function (both) {
             var profile = both[0];
@@ -1062,6 +1079,25 @@
                 'Admins only',
                 'This page is for people who manage a team. If you think you should ' +
                 'have access, ask a member of the Core Team.',
+                profile
+              );
+              return;
+            }
+
+            /* ON ANY TEAM (opts.anyTeam): team things - videos, resources,
+               pin boards - are for the people who serve, not for a member on
+               no team (Martin, 15 Oct 2026). effectiveTeams and adminAreas
+               honour "View the site as", so "Everyone" is turned away too. */
+            if (opts.anyTeam && !alsoOk && !EGBCAuth.isMaster()
+                && !EGBCAuth.effectiveTeams().length
+                && !((EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : profile.adminFor) || []).length
+                /* A parent whose child is in a group reads that group's board
+                   (6c): familyGroups, put on their record by the server. */
+                && !(!(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && (profile.familyGroups || []).length)) {
+              EGBCAuth._blockPage(
+                'For the church’s teams',
+                'This page is for people who serve on one of the church’s teams. ' +
+                'If you have joined a team, ask its leader to add you.',
                 profile
               );
               return;
@@ -1168,6 +1204,10 @@
     /* The Home choices (the hub's "Home shows"): every team and group this
        person is in - every one there is for a master admin - in the
        church's order. "Everyone" is added by the page, first. */
+    /* "View as" choices, the website's and the app's: every team and group
+       in the church's order, nothing archived. Everyone is added first by
+       whoever draws the list. */
+    viewAsChoices: function () { return teamChoices(Object.keys(TEAMS)); },
     homeChoices: function () {
       return reallyMaster() && !viewAs() ? teamChoices(Object.keys(TEAMS)) : teamChoices(EGBCAuth.tabTeams());
     },
@@ -1197,6 +1237,17 @@
     },
 
     /* Can act on this area: either they administer it, or they are on it. */
+    /* A LEADER OF THIS TEAM, as a page's data-role="leader" guard decides it
+       (require() below): a master admin, the team's leader or admin, or Core
+       Team for the teams Core covers. The Menu asks this, so it never offers
+       a page that then says "Not enough permissions" (audit, 15 Oct 2026). */
+    isLeaderOf: function (team) {
+      if (EGBCAuth.isMaster()) return true;
+      var p = currentProfile || {};
+      if (!(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && roleAtLeast(p.roles, team, 'leader')) return true;
+      if (EGBCAuth.isAdminOf(team)) return true;
+      return CORE_COVERS.indexOf(team) !== -1 && EGBCAuth.effectiveTeams().indexOf('Core Team') !== -1;
+    },
     hasRole: function (team) {
       return EGBCAuth.isAdminOf(team) || EGBCAuth.inTeam(team);
     },
@@ -1300,6 +1351,8 @@
     /* Looks after sermons and Watch: named in sermonShow/access, or a
        master admin. */
     isSermonsAdmin: function () { return EGBCAuth.isMaster() || sermonsAdmin; },
+    /* On the team of at least one event (F-212). Not while previewing. */
+    isOnEventTeam: function () { return !viewAs() && eventTeam; },
 
     /* The money team's name (Payments in the Menu). */
     moneyTeam: function () { return moneyTeam; },

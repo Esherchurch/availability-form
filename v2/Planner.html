@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610151900" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
@@ -42,6 +42,11 @@
         const MANDATORY_SUNDAY_ROLES = ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass", "Sound", "Words", "Cameras"];
         const EVENT_TYPES = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
         const AV_ROLES = ["Sound", "Words", "Cameras"];
+        // A part the church has switched off is not offered (HANDOVER-MAIN rule 12).
+        const EGBCChurchUses = (n) => !window.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses(n);
+        // ENTER A SUNDAY ONCE: a new Sunday service is in What's On at 10:00
+        // unless somebody unticks it or changes the time on its row.
+        const SUNDAY_PUBLIC = { whatsOn: true, serviceTime: "10:00" };
 
         // Video meetings (Daily.co) — keep in sync with CoreTeamApp.html. Plain "knock to join" links only; never put host tokens here.
         const VIDEO_BASE = 'https://egbc.daily.co/';
@@ -501,7 +506,8 @@
             const dateStr = new Date().toISOString().split('T')[0];
             await addDoc(collection(db, "events"), {
                 date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
+                teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false,
+                ...SUNDAY_PUBLIC
             });
         };
 
@@ -516,7 +522,8 @@
                 const dateStr = curr.toISOString().split('T')[0];
                 await addDoc(collection(db, "events"), {
                     date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                    teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false
+                    teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false,
+                    ...SUNDAY_PUBLIC
                 });
                 curr.setDate(curr.getDate() + 7);
             }
@@ -1437,6 +1444,20 @@
             const speakerVal = ev.speaker || '';
             html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" onblur="updateField(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
             html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" onblur="updateField(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
+            // ── ENTER A SUNDAY ONCE (Martin, 15 Oct 2026) ──
+            // Ticked, this service is what What's On, the app and the website
+            // show (functions/rota-whatson.js copies it): the public title, the
+            // time the public come (not the team's call time), a line about it,
+            // and the speaker. Saved as each is changed, like the rest of the row.
+            if (EGBCChurchUses('sundaysInWhatsOn')) {
+                const pubEsc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                html += '<div data-whatson="' + ev.id + '" class="flex flex-wrap items-center gap-2 bg-white px-3 py-1 rounded-[14px] border border-[#d1dfdf] shadow-sm" onclick="event.stopPropagation()">';
+                html += '<label class="text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer text-[#3d6263] min-h-[44px]"><input type="checkbox" data-f="whatsOn" onchange="updateField(\'' + ev.id + '\',\'whatsOn\',this.checked)" ' + (ev.whatsOn === true ? 'checked' : '') + ' class="w-4 h-4 accent-[#3d6263]"><span>In What&rsquo;s On</span></label>';
+                html += '<input data-f="publicTitle" value="' + pubEsc(ev.publicTitle) + '" maxlength="140" placeholder="' + pubEsc(ev.type || 'Title') + '" aria-label="Title in What\'s On" onblur="updateField(\'' + ev.id + '\',\'publicTitle\',this.value.trim())" class="bg-white px-3 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-48">';
+                html += '<label class="text-[10px] font-semibold uppercase text-[#3d6263] flex items-center gap-1">Starts <select data-f="serviceTime" aria-label="Service time" onchange="updateField(\'' + ev.id + '\',\'serviceTime\',this.value)" class="' + timeSelectStyle + '">' + (ev.serviceTime ? '' : '<option value="" selected>—</option>') + buildTimeOptions(ev.serviceTime || '') + '</select></label>';
+                html += '<input data-f="publicDescription" value="' + pubEsc(ev.publicDescription) + '" maxlength="300" placeholder="A line for the public (optional)" aria-label="Description in What\'s On" onblur="updateField(\'' + ev.id + '\',\'publicDescription\',this.value.trim())" class="bg-white px-3 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-56">';
+                html += '</div>';
+            }
             html += '<div class="flex flex-wrap gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
             ["Core Team", "Worship Team", "AV Team", "Choir", "Youth", "Kids Church"].forEach(t => {
                 html += '<label class="text-[9px] font-semibold uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t + '</span></label>';

@@ -186,10 +186,16 @@
        glyph is the colour. One grey tint behind every row is a good part
        of why the cards all looked the same (§7e). */
     var c = colour ? ' style="--c:' + esc(colour) + (tint ? ';--ct:' + esc(tint) : '') + '"' : '';
-    return '<button class="row"' + a + c + '><span class="ic">' + ic(icon) + '</span>'
+    /* NOTHING TO DO, NOTHING TO TAP (audit, Martin 15 Oct 2026): a row with
+       no action was a button with a chevron that did nothing - the rota's
+       dates, the Sunday's songs and people. Now it is plain content, with
+       no chevron. A row inside something that does act (a data-lact
+       wrapper) still takes the tap through its wrapper. */
+    var tag = a ? 'button' : 'div';
+    return '<' + tag + ' class="row' + (a ? '' : ' still') + '"' + a + c + '><span class="ic">' + ic(icon) + '</span>'
       + '<span class="tx"><b>' + esc(title) + '</b>'
       + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>'
-      + (right || '<span class="chev">' + ic('chevron-right', 16) + '</span>') + '</button>';
+      + (right || (a ? '<span class="chev">' + ic('chevron-right', 16) + '</span>' : '')) + '</' + tag + '>';
   }
 
   /* A titled section. title is TEXT; inner is HTML. */

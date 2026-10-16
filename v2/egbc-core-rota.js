@@ -658,6 +658,9 @@
      CoreTeamApp's .modal-overlay / .modal-sheet / .form-* / .btn-*, which
      could not move because nine other modals on that page use them. */
   var FORM_CSS = [
+    '.cr-head{position:sticky;top:-20px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;',
+    'background:var(--white,#fff);margin:0 -16px 12px;padding:6px 12px 10px 16px}',
+    '.cr-x{width:44px;height:44px;flex:none;display:grid;place-items:center;border:0;border-radius:12px;background:none;color:#6b7280;cursor:pointer}',
     '.cr-overlay{display:none;position:fixed;inset:0;background:rgba(20,32,31,.45);',
     'backdrop-filter:blur(4px);z-index:9100;align-items:flex-end;justify-content:center}',
     '.cr-overlay.open{display:flex}',
@@ -691,7 +694,11 @@
   function formHtml() {
     return '<div class="cr-sheet">'
       + '<div class="cr-handle"></div>'
-      + '<div class="cr-title">New Event</div>'
+      /* The heading and its close stay at the top while the form scrolls
+         (audit, 15 Oct 2026: there was no way out but tapping the dim edge). */
+      + '<div class="cr-head"><div class="cr-title" style="margin:0">New Event</div>'
+      + '<button type="button" class="cr-x" onclick="closeNewEventForm()" aria-label="Close">'
+      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'
       + '<div style="display:flex;flex-direction:column;gap:12px;">'
       + '<div class="cr-field"><label class="cr-label">Date</label>'
       + '<input type="date" class="cr-input" id="new-event-date"></div>'
@@ -724,6 +731,7 @@
       el.innerHTML = formHtml();
       el.onclick = function (e) { if (e.target === el) closeNewEventForm(); };
       document.body.appendChild(el);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && el.classList.contains('open')) closeNewEventForm(); });
     }
     return el;
   }

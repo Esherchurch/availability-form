@@ -735,3 +735,6 @@ export * from './comms.js';
 export * from './team-mail.js';
 /* Children's counts for the fire roll-call (F-216), the events window's file. */
 export { kidsCountsKeep } from './kids-counts.js';
+/* Enter a Sunday once: a rota service ticked "In What's On" is copied to
+   calEvents/rota_<id> for What's On, the app, the embed and the feed. */
+export { rotaWhatsOn } from './rota-whatson.js';

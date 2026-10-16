@@ -107,6 +107,13 @@ function openTeamPicker() {
   document.getElementById('teamPicker').classList.add('on');
 }
 
+/* Closed without choosing: what Home shows stays as it was - or Everyone,
+   if nothing was chosen yet. */
+function closeTeamPicker() {
+  if (!TEAM) { chooseTeam(EVERYONE); return; }
+  document.getElementById('teamPicker').classList.remove('on');
+}
+
 function chooseTeam(t) {
   TEAM = t;
   /* Picking a team still moves the charter card with it. The card's own
@@ -235,7 +242,17 @@ function setEditButton() {
 
 let TEAMCONTENT = {};
 
+/* On a team, administering one, or a master admin: what the rules call a
+   volunteer(). Somebody on no team ("Everyone") may not read the rota or
+   the team panels, so the hub does not ask - a refused read is an error on
+   the console and nothing more. */
+function isVolunteer() {
+  const me = EGBCAuth.profile() || {};
+  return !!me.masterAdmin || !!(me.teams || []).length || !!(me.adminFor || []).length;
+}
+
 async function loadTeamPanels() {
+  if (!isVolunteer()) { renderTeamPanels(); return; }
   try {
     const snap = await db.collection('teamContent').get();
     snap.docs.forEach(d => { TEAMCONTENT[d.id] = d.data(); });
@@ -662,7 +679,8 @@ async function saveCharter() {
 
 async function loadHero() {
   try {
-    const d = (await db.collection('portal').doc('dashboardContent').get()).data() || {};
+    /* portal is for volunteers (the rules): on no team, the plain banner. */
+    const d = isVolunteer() ? ((await db.collection('portal').doc('dashboardContent').get()).data() || {}) : {};
     const church = d.hero || {};
     const t = (TEAMCONTENT[TEAM] || {});
 
@@ -1071,6 +1089,7 @@ function meetingForMe(ev) {
 }
 
 async function loadMeetings() {
+  if (!isVolunteer()) { UPCOMING = []; MEETINGS = []; return; }
   try {
     const today = new Date().toISOString().split('T')[0];
     const snap = await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
@@ -1322,6 +1341,9 @@ function navPlaces() {
     { url: 'hub.html', label: 'Home', icon: 'house', always: true },
     { url: 'whatson.html', label: "What's on", icon: 'calendar-days' },
     { url: 'meeting.html', label: 'Meet', icon: 'video', today: true },
+    /* Watch & Listen, for everybody (Martin, 15 Oct 2026: the installed hub
+       had no way to the services and sermons). "Watch" to fit six tabs. */
+    { url: 'watch.html', label: 'Watch', icon: 'circle-play' },
     { url: 'view-only-rota.html', label: 'My serving', icon: 'calendar-check' }
   ];
   /* Switched off in the registry still means switched off. */
@@ -1519,8 +1541,12 @@ async function renderWatch() {
     box.innerHTML = `<div class="card watch-card">
       <div class="ch"><div class="ic"><i data-lucide="tv" style="width:18px;height:18px"></i></div>
         <div><h2>${live ? 'Watch live' : 'Watch again'}</h2><div class="sub">${esc(w.title || (live ? 'The service, live' : 'This week\u2019s service'))}</div></div></div>
-      <div class="watch-frame"><iframe src="${esc(w.embed)}" title="${esc(w.title || 'The service')}" loading="lazy"
-        allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div></div>`;
+      ${window.EGBCFullVideo
+        /* The app's full screen (F-215): one that always closes, and goes
+           sideways on Android. */
+        ? EGBCFullVideo.html(w.embed, w.title || 'The service')
+        : `<div class="watch-frame"><iframe src="${esc(w.embed)}" title="${esc(w.title || 'The service')}" loading="lazy"
+        allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`}</div>`;
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
   }
   if (!WATCH_TIMER) WATCH_TIMER = setInterval(renderWatch, 5 * 60 * 1000);

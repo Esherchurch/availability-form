@@ -6,9 +6,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 
-<script src="egbc-shell.js?v=202610151900" data-title="Email Compiler"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Email Compiler"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Core Team"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -120,7 +120,7 @@
         .modal { display: none; position: fixed; inset: 0; background: rgba(20,40,40,0.55); z-index: 2000;
             align-items: center; justify-content: center; padding: 20px; }
         .modal.active { display: flex; }
-        .modal-box { background: #fff; border-radius: 16px; padding: 28px; width: 560px; max-width: 100%;
+        .modal-box { box-sizing: border-box; background: #fff; border-radius: 16px; padding: 28px; width: 560px; max-width: 100%;
             max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 70px rgba(0,0,0,0.35); }
         .modal-box.wide { width: 860px; }
         .modal-box h3 { color: var(--brand); font-weight:600; margin: 0 0 6px; font-size:19px; }
@@ -491,10 +491,23 @@ db.collection("addressBook").onSnapshot(snap => {
 });
 
 // ── Who are you ──────────────────────────────────────────────────────────────
+/* The name on drafts. The person is signed in, so the hub already knows
+   it: asking "Who are you?" in a box over the whole page (the audit, 15 Oct
+   2026: on a phone it covered everything at load) is only for when there is
+   no name to be had. */
 function initUser() {
     const stored = localStorage.getItem('egbc_email_user');
-    if (stored) { currentUser = stored; $('currentUserLabel').textContent = currentUser; }
-    else { $('whoModal').classList.add('active'); setTimeout(() => $('whoInput').focus(), 100); }
+    if (stored) { currentUser = stored; $('currentUserLabel').textContent = currentUser; return; }
+    const fromProfile = () => {
+        const p = (window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) || null;
+        const first = p && p.name ? String(p.name).trim().split(/\s+/)[0] : '';
+        if (first) { currentUser = first; localStorage.setItem('egbc_email_user', first); $('currentUserLabel').textContent = first; return true; }
+        return false;
+    };
+    if (fromProfile()) return;
+    const ask = () => { if (!fromProfile()) { $('whoModal').classList.add('active'); setTimeout(() => $('whoInput').focus(), 100); } };
+    if (window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) ask();
+    else document.addEventListener('egbc-ready', ask, { once: true });
 }
 function saveWhoAndContinue() {
     const name = $('whoInput').value.trim();

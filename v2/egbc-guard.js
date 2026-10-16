@@ -47,6 +47,10 @@
      lets in a verified address the church holds no record for, as a
      parent, to Parents' Sunday and Notifications and nothing else. */
   var allowPending = script ? script.getAttribute('data-allow-pending') : null;
+  /* data-any-team — on any team at all, or administering one, or a master
+     admin (Martin, 15 Oct 2026: a member on no team was shown the team
+     videos, resources and pin boards). Honours "View the site as". */
+  var anyTeam = script ? script.hasAttribute('data-any-team') : false;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');
@@ -147,6 +151,7 @@
     if (adminAny) opts.adminAny = true;
     if (alsoTeam) opts.alsoTeam = alsoTeam;
     if (allowPending) opts.allowPending = allowPending;
+    if (anyTeam) opts.anyTeam = true;
 
     setTimeout(sayStuck, SETTLE_MS);
 

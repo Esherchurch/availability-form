@@ -1,11 +1,11 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202610151900" data-title="Backup and Restore"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Backup and Restore"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Core Team" data-role="admin"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,6 +23,8 @@
   .progress-track{height:6px;background:var(--hairline);border-radius:999px;overflow:hidden}
   .progress-fill{height:100%;background:var(--brand);transition:width .2s;border-radius:999px}
   ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#c9d8d6;border-radius:999px}
+/* On a phone each collection row is a 44px tap (audit, 15 Oct 2026). */
+@media (max-width:700px){ #colList label{min-height:44px} #colList input{width:20px;height:20px} }
 </style>
 </head>
 <body class="p-6 lg:p-10 min-h-screen">
@@ -132,6 +134,10 @@ const COLLECTIONS=[
  The RESTORE target below is a different matter: it deliberately opens a
  second app against another project, and stays. */
 const srcApp=EGBCAuth.app;
+/* The project this hub runs on - the backup says which, and Restore warns
+   before writing over it. It was used but never defined, so Backup stopped
+   with "srcConfig is not defined" (audit, 15 Oct 2026). */
+const srcConfig=srcApp.options;
 const srcDb=EGBCAuth.db;
 
 let BACKUP=null;

@@ -5,9 +5,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 
-<script src="egbc-shell.js?v=202610151900" data-title="EGBC Inventory"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="EGBC Inventory"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="AV Team" data-role="leader"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -113,6 +113,14 @@ header {
   font-weight: 600;
 }
 .stat-pill span { color: var(--green); font-weight: 800; }
+/* ON A PHONE (audit, Martin 15 Oct 2026: 463px wide at 375). The page's own
+   bar wraps instead of pushing the page sideways, and scrolls away with the
+   page rather than pinning under the hub's bar. */
+@media (max-width: 700px) {
+  header { position: static; height: auto; flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+  .header-stats { flex-wrap: wrap; gap: 8px; }
+  .btn-add { min-height: 44px; }
+}
 .btn-add {
   background: var(--green);
   color: #fff;

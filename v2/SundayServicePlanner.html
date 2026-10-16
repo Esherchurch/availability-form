@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610151900" data-title="Sunday Service Planner"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Sunday Service Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600" data-team="Worship Team" data-role="leader"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-service.json">
@@ -54,7 +54,9 @@
     .serve-count-badge.hidden-badge { visibility: hidden; }
     #emailModal { display: none; position: fixed; inset: 0; background: rgba(20,32,31,0.45); z-index: 1000; align-items: center; justify-content: center; }
     #emailModal.active { display: flex; }
-    #emailModalBox { background: var(--surface); border-radius: var(--r-lg); padding: 2rem; max-width: 420px; width: 90%; box-shadow: var(--shadow-lg); font-family: Inter, system-ui, sans-serif; }
+    #emailModalBox { background: var(--surface); border-radius: var(--r-lg); padding: 2rem; max-width: 420px; width: 90%; box-shadow: var(--shadow-lg); font-family: Inter, system-ui, sans-serif; box-sizing: border-box; max-height: 88vh; overflow-y: auto; }
+    /* On a phone the box scrolls inside the screen, so Cancel is always reachable (audit, 15 Oct 2026). */
+    #modalCancelBtn { min-height: 44px; }
     #helpBtn { position: fixed; bottom: 24px; right: 24px; z-index: 900; width: 38px; height: 38px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--hairline-strong); color: var(--brand); font-family: Inter, system-ui, sans-serif; font-weight:600; font-size: 15px; cursor: pointer; box-shadow: var(--shadow); transition: all 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
     #helpBtn:hover { background: var(--brand); color: #ffffff; border-color: var(--brand); box-shadow: var(--shadow-lg); transform: translateY(-1px); }
     .sk { background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sh 1.4s ease infinite; border-radius: 6px; }
@@ -186,6 +188,12 @@ window.addSong = () => {
         </div>
     `;
     container.appendChild(div);
+    /* Tapped "+": show the new row and put the cursor in it - at the foot of
+       a long plan it was added out of sight, and the button seemed to do
+       nothing (audit, 15 Oct 2026). Not while a saved plan is being drawn. */
+    if (window.event && window.event.type === 'click') {
+      try { div.scrollIntoView({ block: 'center', behavior: 'smooth' }); var nIn = div.querySelector('input'); if (nIn) nIn.focus({ preventScroll: true }); } catch (e) {}
+    }
     updateSongNumbers();
     return id;
 };
@@ -379,6 +387,12 @@ window.addItem = (val="") => {
     div.className = "service-block item-block bg-[#f0f6f6] p-4 mb-4 rounded-2xl flex gap-4 items-center border border-transparent hover:border-[#d1dfdf] transition-colors";
     div.innerHTML = `<div class="drag-handle">⠿</div><div class="w-6"></div><input value="${escapeHtml(val)}" class="item-title flex-grow bg-transparent font-medium text-[#3d6263] focus:outline-none text-lg" placeholder="Service Item Name..."><button onclick="this.parentElement.remove()" class="text-[#d1dfdf] hover:text-red-500 text-2xl font-medium">&times;</button>`;
     document.getElementById('service-order').appendChild(div);
+    /* Tapped "+": show the new row and put the cursor in it - at the foot of
+       a long plan it was added out of sight, and the button seemed to do
+       nothing (audit, 15 Oct 2026). Not while a saved plan is being drawn. */
+    if (window.event && window.event.type === 'click') {
+      try { div.scrollIntoView({ block: 'center', behavior: 'smooth' }); var nIn = div.querySelector('input'); if (nIn) nIn.focus({ preventScroll: true }); } catch (e) {}
+    }
 };
 
 window.loadRota = async () => {
@@ -1022,6 +1036,27 @@ window.emailSchedule = async () => {
       else t = list.filter(function (op) { return op.value.split('|')[0] < d; }).pop();
       if (t) { sel.value = t.value; choose(t.value); }
     }
+    /* At the first or last service there is nothing to step to: say so by
+       greying the arrow out, rather than a button that does nothing (audit,
+       15 Oct 2026). */
+    function target(k) {
+      var list = real(), i = list.map(function (op) { return op.value; }).indexOf(sel.value), d = input.value;
+      if (i >= 0) return list[i + k] || null;
+      return k > 0 ? (list.filter(function (op) { return op.value.split('|')[0] > d; })[0] || null)
+                   : (list.filter(function (op) { return op.value.split('|')[0] < d; }).pop() || null);
+    }
+    function paintEnds() {
+      [['prev', -1], ['next', 1]].forEach(function (p) {
+        var b = wrap.querySelector('[data-uk="' + p[0] + '"]'); if (!b) return;
+        var none = !target(p[1]);
+        b.disabled = none; b.style.opacity = none ? '.35' : ''; b.style.cursor = none ? 'default' : '';
+        b.title = none ? (p[1] < 0 ? 'No earlier service on the rota' : 'No later service on the rota') : '';
+      });
+    }
+    try { new MutationObserver(paintEnds).observe(sel, { childList: true }); } catch (e) {}
+    sel.addEventListener('change', paintEnds);
+    input.addEventListener('change', paintEnds);
+    setTimeout(paintEnds, 0);
     input.addEventListener('change', sync);
     sel.addEventListener('change', function () { if (sel.value) choose(sel.value); });
     wrap.querySelector('[data-uk="prev"]').onclick = function () { step(-1); };

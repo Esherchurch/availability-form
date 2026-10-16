@@ -33,6 +33,15 @@ const listOnly = process.argv.includes('--list');
 /* Checks that need a command of their own. Each says why and how, so
    nobody has to go and find out. */
 const NEEDS_ITS_OWN_COMMAND = {
+  'audit-everything.mjs':
+    'the click-through audit, hours long: node tests/audit-everything.mjs (see HANDOVER-MAIN rule 15)',
+  'check-sundays-f177.mjs':
+    'needs the spare emulator: firebase emulators:exec --config firebase.spare.json --only firestore '
+    + '--project egbc-worship-planner "node tests/check-sundays-f177.mjs"',
+  'check-rota-whatson-live.mjs':
+    'needs the spare emulator and functions: set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec '
+    + '--config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner '
+    + '"node tests/check-rota-whatson-live.mjs"',
   'check-rota-feed.mjs':
     'needs the functions emulator: set FUNCTIONS_EMULATOR_PORT=5191 && firebase emulators:exec '
     + '--config firebase.spare.json --only firestore,auth,functions --project egbc-worship-planner '
@@ -96,7 +105,7 @@ const began = Date.now();
 for (const f of toRun) {
   const t0 = Date.now();
   const r = spawnSync(process.execPath, [path.join('tests', f)], {
-    encoding: 'utf8', timeout: 15 * 60 * 1000,
+    encoding: 'utf8', timeout: 25 * 60 * 1000,   /* check-menu now takes about 15 minutes */
   });
   const out = String(r.stdout || '') + String(r.stderr || '');
   /* The tally each check prints, so the table says 60/60 and not just

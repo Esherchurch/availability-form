@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sunday Service Planner, phone (mock)</title>
+<style>
+:root{--canvas:#f6f7f7;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--brand:#3d6263;--tint:#eef5f4}
+*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.45 Inter,system-ui,-apple-system,sans-serif}
+.am{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:8px 12px;height:56px}
+.am .bk{width:40px;height:40px;border:1px solid var(--line-2);border-radius:10px;display:grid;place-items:center}
+.am b{flex:1;font-size:16px;color:var(--ink)}.am .care{height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:10px;display:flex;align-items:center;font-weight:500;color:var(--ink)}
+.date{display:flex;gap:8px;padding:12px 12px 4px;align-items:center}
+.sq{width:44px;height:44px;flex:none;border:1px solid var(--line-2);border-radius:10px;background:#fff;display:grid;place-items:center;color:var(--ink);font-size:16px}
+.sel{flex:1;min-height:44px;border:1px solid var(--line-2);border-radius:10px;background:#fff;padding:0 12px;display:flex;align-items:center;justify-content:space-between;color:var(--ink);font-weight:600}
+.sub{padding:2px 14px 10px;color:var(--muted);font-size:13px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin:0 12px 10px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.ch{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;min-height:52px}
+.ch b{color:var(--ink);font-size:15px}.ch small{color:var(--muted);font-size:13px}
+.body{border-top:1px solid var(--line);padding:12px 14px}
+.in{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:10px;background:#fff;color:var(--ink)}
+.in.ph{color:var(--faint)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kv label{font-size:12px;color:var(--muted)}
+.song{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.song .top{display:flex;align-items:center;gap:8px}.song .n{width:24px;color:var(--muted);font-weight:600}.song b{flex:1;color:var(--ink)}
+.drag{color:var(--faint)}
+.keys{display:flex;gap:6px;margin-top:8px}.keys span{flex:1;min-height:40px;border:1px solid var(--line-2);border-radius:8px;display:grid;place-items:center;font-size:13px}
+.keys span.on{border-color:var(--brand);background:var(--tint);color:var(--brand);font-weight:600}
+.item{display:flex;align-items:center;gap:8px;border:1px dashed var(--line-2);border-radius:12px;padding:10px 12px;margin-bottom:8px;color:var(--ink)}
+.add{display:flex;gap:8px}.btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:#fff;color:var(--ink);font:500 14px Inter,system-ui,sans-serif;display:inline-flex;align-items:center}
+.btn.p{background:var(--brand);border-color:var(--brand);color:#fff}
+.tabs{position:fixed;left:0;right:0;bottom:0;height:62px;background:#fff;border-top:1px solid var(--line);display:flex}
+.tabs div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--muted);gap:3px}.tabs div.on{color:var(--brand);font-weight:600}
+.tabs div i{width:20px;height:20px;border-radius:6px;background:currentColor;opacity:.35;display:block}.tabs div.on i{opacity:1}
+.note{position:fixed;left:8px;top:64px;background:#111827;color:#fff;font-size:11px;padding:3px 8px;border-radius:6px;opacity:.85}
+</style></head>
+<body>
+<div class="am"><div class="bk">‹</div><b>Sunday plan</b><div class="care">♡ Care</div></div>
+<div class="date"><div class="sq">◀</div><div class="sel">Sun 18 Oct · Morning Worship <span>▾</span></div><div class="sq">▶</div></div>
+<div class="sub">Leader: Ryan Ahern · Communion · <u>Change the service</u></div>
+
+<div class="card"><div class="ch"><div><b>Opening remarks</b><br><small>Goes at the top of the team email</small></div><span>⌄</span></div>
+  <div class="body"><div class="in ph">This text appears at the start of the team email…</div></div></div>
+
+<div class="card"><div class="ch"><div><b>Key roles</b><br><small>Service leader, worship leader, speaker</small></div><span>›</span></div></div>
+
+<div class="card"><div class="ch"><div><b>Order of service</b><br><small>3 songs, 2 items</small></div><span>⌄</span></div>
+  <div class="body">
+    <div class="item"><span class="drag">⠿</span> Welcome and notices</div>
+    <div class="song"><div class="top"><span class="drag">⠿</span><span class="n">1.</span><b>10,000 Reasons</b><span>›</span></div>
+      <div class="keys"><span class="on">G</span><span>A</span><span>Key 3</span></div></div>
+    <div class="song"><div class="top"><span class="drag">⠿</span><span class="n">2.</span><b>Cornerstone</b><span>›</span></div>
+      <div class="keys"><span class="on">C</span><span>D</span><span>Key 3</span></div></div>
+    <div class="add"><div class="btn p">+ Song</div><div class="btn">+ Item</div><div class="btn">Songs database</div></div>
+  </div></div>
+
+<div class="card"><div class="ch"><div><b>Team and roles</b><br><small>6 of 8 filled</small></div><span>›</span></div></div>
+<div class="card"><div class="ch"><div><b>Notes and closing words</b></div><span>›</span></div></div>
+<div class="card" style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap"><div class="btn p">Save</div><div class="btn">Email the plan</div><div class="btn">PDF</div></div>
+<div style="height:80px"></div>
+<div class="tabs"><div><i></i>Rota</div><div class="on"><i></i>Plan</div><div><i></i>Meetings</div><div><i></i>Team</div></div>
+<div class="note">MOCK · 375px</div>
+</body></html>

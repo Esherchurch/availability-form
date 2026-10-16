@@ -47,8 +47,11 @@ const APPROVED = [
   ['Meetings'],
   /* Watch (F-164, Martin 14 Oct 2026): master admins and the people who
      look after sermons, so it is here for the master admin this reads as. */
-  ['Watch'],
-  ['Sermons'],
+  /* Watch & Listen, for everybody (Martin, 15 Oct 2026); the pages that
+     manage it are the sermons people's. */
+  ['Watch & Listen'],
+  ['Manage Watch'],
+  ['Manage sermons'],
   ["What's on"],
   /* Give (Martin, 12 Oct 2026). Gated on nothing - giving is for
      everybody signed in - so it sits out here with the other ungated
@@ -120,7 +123,7 @@ const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Plan
 const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler', 'Teams & groups'];
 /* Watch (F-164): master admins and the people named in sermonShow/access.
    None of the people here is named there, so it is the master admin's. */
-const SERMONS_ONLY = ['Watch', 'Sermons'];
+const SERMONS_ONLY = ['Manage Watch', 'Manage sermons'];
 /* Payments: the money team (Finance) or a master admin. */
 const MONEY_ONLY = ['Payments'];
 /* Emails sent: master admins only (Martin, 15 Oct 2026). */
@@ -166,6 +169,18 @@ const BOOKINGS_ONLY = ['Room bookings'];
    the person who administers it, or a master admin. Deliberately not every
    admin: whoever looks after Worship is not the children's team. */
 const KIDS_ONLY = ['Kids Church', "Children's register", 'Sunday check-in'];
+/* Martin, 15 Oct 2026 ("Everyone" saw all the youth stuff): the youth teams
+   and their admins; the planner is Youth Worship's. */
+const YOUTH_TEAMS = ['Youth Worship', 'Lazers', 'ReNu'];
+const YOUTH_ONLY = ['Youth', 'Youth Service Planner'];
+/* ...and the team videos, resources and pin boards: anybody on a team. */
+const ANY_TEAM_ONLY = ['Rota', 'Pin boards', 'Team Resources', 'Team Videos'];
+/* The Music Uploader is for Worship leaders, as its page's guard says
+   (data-role="leader"): a Worship admin, Core Team, or a master admin. None
+   of the people here has a leader role on their record. */
+const WORSHIP_LEADERS_ONLY = ['Music Uploader'];
+/* The Inventory likewise, for AV leaders: an AV admin, Core Team, a master admin. */
+const AV_LEADERS_ONLY = ['Inventory'];
 /* Martin's decision (fd2ff569, 8f5519bf): Worship & AV is a team section like
    Kids Church, so somebody who is only on Kids Church does not see it - and a
    team heading that does not match hides its whole subtree, not just its own
@@ -179,7 +194,7 @@ const WORSHIP_ONLY = ['Worship & AV', 'Worship', 'Play-Through', 'Worship Traini
 
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
-    sees: ['Worship & AV', 'Youth', 'Resources'], doesNot: ['Core Team'] },
+    sees: ['Worship & AV', 'Resources', 'Pin boards', 'Team Videos'], doesNot: ['Core Team', 'Youth'] },
   /* NEXT-BRIEF §25 CHANGED THIS PERSON, and the change is the point.
      "People and email" - the Address Book and the Email Compiler - used to
      come with Core Team. Martin: the church administrator may not be on
@@ -233,7 +248,14 @@ const PEOPLE = {
   /* F-200: the church renamed its money team "Treasury" (this check sets
      paymentSettings/public.moneyTeam). Payments follows the NAME. */
   'the treasurer, on a renamed money team': { teams: ['Treasury'], adminFor: [], masterAdmin: false,
-    sees: ['Payments'], doesNot: ['Core Team', 'Admin', 'Emails sent'] }
+    sees: ['Payments'], doesNot: ['Core Team', 'Admin', 'Emails sent'] },
+  /* F-212: runs Film Club, administers nothing. Events (where "Events I
+     run" is) and the two headings above it, and nothing else in them. */
+  "somebody on an event's team": { teams: [], adminFor: [], masterAdmin: false,
+    eventTeam: true,
+    sees: ['Core Team', 'Events and rooms', 'Events'],
+    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Places', 'Room bookings', 'Registers',
+              'Admin', 'Backup & Restore'] }
 };
 const MONEY_TEAM = 'Treasury';
 
@@ -455,6 +477,12 @@ const READ_MENU = `(() => {
     await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/bookingSettings/synthetic_site', {
       fields: { bookingsAdmins: val(p.bookingsAdmin ? ['ab_tester'] : []) }
     });
+    /* An event's team is a list on the event (F-212), written the same way. */
+    await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/calEvents/cev_menu_team', {
+      fields: { title: val('Menu Film Club Synthetic'), audience: val(['members']), visibility: val('members'),
+        status: val('confirmed'), startUtc: { timestampValue: '2027-01-15T19:00:00Z' },
+        teamMemberIds: val(p.eventTeam ? ['ab_tester'] : []), teamUids: val(p.eventTeam ? [uid] : []) }
+    });
 
     watch.reset();
     await send('Page.navigate', { url: 'about:blank' }); await sleep(400);
@@ -497,6 +525,8 @@ const READ_MENU = `(() => {
        and must get nothing else from inside them, not even the Core Team
        charter the heading itself links to. */
     const OPENED_FOR_BOOKINGS = ['Core Team', 'Events and rooms'];
+    /* F-212: on an event's team - Events and the headings above it. */
+    const OPENED_FOR_EVENT_TEAM = ['Core Team', 'Events and rooms', 'Events'];
     /* On Kids Church, administers it, or a master admin (F-089). */
     const kids = p.teams.includes('Kids Church') ||
                  p.adminFor.includes('Kids Church') || !!p.masterAdmin;
@@ -517,10 +547,17 @@ const READ_MENU = `(() => {
       .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
+      .filter(w => !(YOUTH_ONLY.includes(w) && !p.masterAdmin
+                     && !YOUTH_TEAMS.some(t => p.teams.includes(t) || p.adminFor.includes(t))))
+      .filter(w => !(ANY_TEAM_ONLY.includes(w) && !p.masterAdmin && !p.teams.length && !p.adminFor.length))
+      .filter(w => !(WORSHIP_LEADERS_ONLY.includes(w) && !p.masterAdmin && !p.adminFor.includes('Worship Team') && !p.teams.includes('Core Team')))
+      .filter(w => !(AV_LEADERS_ONLY.includes(w) && !p.masterAdmin && !p.adminFor.includes('AV Team') && !p.teams.includes('Core Team')))
       .filter(w => !(WORSHIP_ONLY.includes(w) && !worship))
       .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w))
+                   || (p.eventTeam && OPENED_FOR_EVENT_TEAM.includes(w))
                    || (office && OPENED_FOR_OFFICE.includes(w)))
-      .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w)));
+      .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w))
+                   || (p.eventTeam && OPENED_FOR_EVENT_TEAM.includes(w)));
     ok('  the names are the approved ones, in order',
       JSON.stringify(seen) === JSON.stringify(expected),
       JSON.stringify(seen) === JSON.stringify(expected)
@@ -575,7 +612,8 @@ const READ_MENU = `(() => {
       ...(worshipAV && anAdmin ? ['Connect ChurchShow'] : []),
       /* 14 Oct 2026: Safeguarding (sg) and Groups and forms (admin), any admin. */
       ...(anAdmin ? ['Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Small groups', 'Forms'] : []),
-      ...(onCore && anAdmin ? ['Events', 'Places'] : []),
+      /* F-212: somebody on an event's team looks after Events too. */
+      ...(onCore && anAdmin ? ['Events', 'Places'] : p.eventTeam ? ['Events'] : []),
       ...(books ? ['Room bookings'] : []),
       ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Backup & Restore', 'Church settings'] : []),
       ...(onCore && p.masterAdmin ? ['Emails sent', 'Team emails'] : [])
@@ -594,6 +632,8 @@ const READ_MENU = `(() => {
         Buffer.from(r.data, 'base64'));
     }
   }
+  /* Leave the emulator as found: nobody on the test event's team. */
+  await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/calEvents/cev_menu_team');
 
   /* ============== THE SAME MENU ON EVERY PAGE ========================
 

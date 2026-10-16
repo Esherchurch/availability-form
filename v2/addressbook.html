@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610152310"></script>
-<script src="egbc-shell.js?v=202610151900" data-title="Address Book"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Address Book"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610151900"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600" data-admin="any"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -62,6 +62,16 @@
                 holder.appendChild(label);
             });
         }
+
+        /* A blank form for a new person ("Add a person" on a phone). It must
+           forget who was being edited, or saving would overwrite them. */
+        window.clearMemberForm = () => {
+            editingId = null;
+            ['fullName', 'email', 'relatedTo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            document.querySelectorAll('#entryFields input[type="checkbox"]').forEach(cb => cb.checked = false);
+            const btn = document.getElementById('saveBtn');
+            if (btn) { btn.innerText = 'Add to Address Book'; btn.classList.remove('bg-[#9bc34a]'); btn.classList.add('bg-[#3d6263]'); btn.disabled = false; }
+        };
 
         // 2. EDIT - look up member by id (Unicode-safe, no btoa)
         window.editMember = (id) => {
@@ -232,6 +242,8 @@
                 btn.classList.remove('bg-[#9bc34a]');
                 btn.classList.add('bg-[#3d6263]');
                 btn.disabled = false;
+                /* Saved: on a phone, back to the list. */
+                if (window.abForm && window.matchMedia('(max-width: 1279px)').matches) window.abForm(false);
             } catch (e) { console.error(e); btn.disabled = false; }
         };
 
@@ -460,6 +472,43 @@ document.addEventListener('egbc-ready',()=>{
            panels, is an 8px control instead. */
         html .card .rounded-full:not(.w-7):not(.h-7), html table .rounded-full { border-radius: 8px !important; }
 
+        /* ON A PHONE OR TABLET (Martin, 15 Oct 2026): the list first, with a
+           search; "Add a person" opens the form, and so does Edit. The form
+           never pins over the list and is never a screen tall; on a computer
+           it is the column it always was. */
+        #abTools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 18px; }
+        #abSearch { flex: 1 1 220px; min-height: 44px; border: 1px solid #d1dfdf; border-radius: 8px; padding: 0 12px; font-size: 15px; }
+        #abAdd, #abClose { display: none; min-height: 44px; padding: 0 16px; border-radius: 8px; font-weight: 500; }
+        #abAdd { background: #3d6263; color: #fff; }
+        #abClose { background: #fff; color: #14201f; border: 1px solid #d1dfdf; margin-left: auto; }
+        @media (min-width: 1280px) {
+            #entryCard { height: calc(100vh - 6rem - var(--egbc-bar, 0px)); }
+        }
+        @media (max-width: 1279px) {
+            #entryCard { display: none; height: auto; }
+            #entryCard #entryFields { overflow: visible; }
+            #entryCard .sticky-footer { position: static; }
+            body.ab-form-open #entryCard { display: flex; }
+            #listCard { order: -1; padding: 18px; }
+            #abAdd, #abClose { display: inline-flex; align-items: center; justify-content: center; }
+            .ab-head { display: flex; align-items: center; gap: 10px; }
+        }
+        /* A CARD PER PERSON on a phone: name and email, then family,
+           instruments and how often, with Edit in reach - not a table to
+           scroll sideways to find the Edit button. */
+        @media (max-width: 768px) {
+            #listCard .table-container { overflow: visible; }
+            #listCard table { min-width: 0 !important; }
+            #listCard thead { display: none; }
+            #memberListBody > tr { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; padding: 12px 0; }
+            #memberListBody > tr > td { display: block; padding: 2px 0 !important; text-align: left !important; }
+            #memberListBody > tr > td:nth-child(1) { grid-column: 1; }
+            #memberListBody > tr > td:nth-child(2), #memberListBody > tr > td:nth-child(3), #memberListBody > tr > td:nth-child(4) { grid-column: 1; font-size: 13px; }
+            #memberListBody > tr > td:nth-child(2)::before { content: "Family: "; color: #6b7280; }
+            #memberListBody > tr > td:nth-child(4)::before { content: "Most a month: "; color: #6b7280; }
+            #memberListBody > tr > td:nth-child(5) { grid-column: 2; grid-row: 1 / span 4; align-self: start; }
+            #memberListBody > tr > td:nth-child(5) button { min-width: 44px; min-height: 44px; }
+        }
         @media (max-width: 768px) {
             table { min-width: 560px; }
             #memberListBody td { padding: 12px 10px !important; }
@@ -472,9 +521,9 @@ document.addEventListener('egbc-ready',()=>{
         
         <!-- The height allows for the navigation bar, which the shell
              reports as --egbc-bar, so the Save button stays on screen. -->
-        <div class="xl:col-span-1 card p-5 sm:p-8 xl:sticky xl:top-12 flex flex-col"
-             style="height: calc(100vh - 6rem - var(--egbc-bar, 0px))">
-            <h1 class="text-3xl font-semibold text-[#14201f] tracking-tight mb-8 shrink-0">Member entry</h1>
+        <div id="entryCard" class="xl:col-span-1 card p-5 sm:p-8 xl:sticky xl:top-12 flex flex-col">
+            <div class="ab-head mb-8 shrink-0"><h1 class="text-3xl font-semibold text-[#14201f] tracking-tight">Member entry</h1>
+              <button type="button" id="abClose" onclick="abForm(false)">Close</button></div>
             
             <div id="entryFields" class="space-y-6 overflow-y-auto pr-2 flex-grow">
                 <div>
@@ -633,8 +682,13 @@ document.addEventListener('egbc-ready',()=>{
             </div>
         </div>
 
-        <div class="xl:col-span-3 card p-10">
-            <h2 class="text-3xl font-semibold text-[#14201f] tracking-tight mb-8 border-b border-[#dde7e6] pb-8">Team directory</h2>
+        <div id="listCard" class="xl:col-span-3 card p-10">
+            <h2 class="text-3xl font-semibold text-[#14201f] tracking-tight mb-6 border-b border-[#dde7e6] pb-6">Team directory</h2>
+            <div id="abTools">
+              <input id="abSearch" type="search" placeholder="Search by name, email or team" aria-label="Search the address book" autocomplete="off">
+              <button type="button" id="abAdd" onclick="abForm(true, true)">+ Add a person</button>
+            </div>
+            <p id="abNone" class="text-sm text-gray-500" style="display:none">Nobody matches that.</p>
             <div class="table-container">
                 <table class="w-full text-left">
                     <thead>
@@ -652,5 +706,41 @@ document.addEventListener('egbc-ready',()=>{
         </div>
 
     </div>
+<script>
+/* The list first on a phone (see the CSS above). abForm(true) shows the
+   form and takes you to it; abForm(true, true) also clears it, for a new
+   person; abForm(false) puts it away. Edit opens it too. */
+(function () {
+  function narrow() { return window.matchMedia('(max-width: 1279px)').matches; }
+  window.abForm = function (open, fresh) {
+    if (fresh && typeof window.clearMemberForm === 'function') window.clearMemberForm();
+    document.body.classList.toggle('ab-form-open', !!open);
+    if (open && narrow()) {
+      var c = document.getElementById('entryCard');
+      if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'start' }); var n = document.getElementById('fullName'); if (n) setTimeout(function () { n.focus({ preventScroll: true }); }, 300); }
+    } else if (!open) {
+      var l = document.getElementById('listCard'); if (l && narrow()) l.scrollIntoView({ block: 'start' });
+    }
+  };
+  /* Edit, wherever it is in the list, opens the form on a phone. */
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('[onclick*="editMember"]') && narrow()) setTimeout(function () { window.abForm(true); }, 0);
+  });
+  /* Search: every row whose words include what is typed. Kept as the list
+     redraws. */
+  var q = '';
+  function apply() {
+    var body = document.getElementById('memberListBody'); if (!body) return;
+    var shown = 0, rows = body.querySelectorAll(':scope > tr');
+    rows.forEach(function (tr) { var hit = !q || (tr.textContent || '').toLowerCase().indexOf(q) !== -1; tr.style.display = hit ? '' : 'none'; if (hit) shown++; });
+    var none = document.getElementById('abNone'); if (none) none.style.display = q && rows.length && !shown ? '' : 'none';
+  }
+  document.addEventListener('input', function (e) { if (e.target && e.target.id === 'abSearch') { q = e.target.value.trim().toLowerCase(); apply(); } });
+  document.addEventListener('DOMContentLoaded', function () {
+    var body = document.getElementById('memberListBody');
+    if (body && window.MutationObserver) new MutationObserver(function () { if (q) apply(); }).observe(body, { childList: true });
+  });
+})();
+</script>
 </body>
 </html>
