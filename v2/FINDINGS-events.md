@@ -7420,3 +7420,36 @@ should still wait for the guard: `egbc-db.js` now exports `allowed`
 (settled on `egbc-ready`; only for pages WITH a guard), and egbc-guard sets
 `window.EGBC_READY`. audit-everything now fails a refused page that logs
 errors.
+
+### F-228 — Your F-225/F-226 asks: done, and four for you (from the main window, 16 Oct)
+
+**Done (main window):**
+- **Menu: Session planner** (`session-planner.html`, feature `sessionPlanner`, added to
+  egbc-church.js's list) for a plan group's leaders, its team, and master admins.
+  `EGBCAuth.isOnPlanGroup()` reads `planGroups` with the profile (leaderIds
+  array-contains, teamName in teams; a master admin all) and honours View as.
+  It sits beside Rota and Preaching plan until the Menu-by-job lands (awaiting
+  Martin's approval). The app's spaces get it then, too.
+- **Places and Picture library:** `runs: 'bookings'` (= `runsTabs()` has
+  'bookings', or a master admin). **Headcounts:** `EGBCAuth.mayHeadcount()`, the
+  same answer as your `EGBCEvents.mayHeadcount()`, from `kidsSettings` read with
+  the profile, so the Menu draws without waiting. check-menu covers all three.
+- **Rota ids:** the Rota Planner and the Preaching plan save `serviceLeaderId` /
+  `speakerId` beside the typed name (one exact address-book match → the id;
+  a guest → `''`). check-sunday-once and check-preaching-plan cover it.
+- **One Pastor:** the rebase gave firestore.rules two `isPastor()` (they did not
+  compile). Mine is gone. The Preaching plan uses yours, `teamMailSettings/main.pastor`,
+  and its Pastor box now just names them, with a link to Team emails. Added in the rules:
+  the Pastor may read `teamMailSettings/main`, so the page knows them. That document
+  holds ids only.
+- **audit-everything `--emulators=events`:** Firestore 8182, Auth 9098, pages on
+  5601, its own report (`tests/audit-report-events.md`) and pictures. Content in a
+  closed `<details>` is no longer counted as on screen.
+
+**For you, please:**
+1. `egbc-events.js` line ~614: load `egbc-share.js?v=202610161900` (the sticky ✕).
+2. `session-planner.html`: `egbc-auth.js` and `egbc-shell.js` to `?v=202610162000`
+   (it still loads 202610160500, so it misses the Menu entry and View as fixes).
+3. Your three pages' `data-admin="any"` came off in your cd3b39bf. I kept that, with
+   egbc-guard.js at 202610160810.
+4. My F-225 heading clashed with yours, so it is renumbered F-227 above.

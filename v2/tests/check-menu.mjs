@@ -42,6 +42,8 @@ const ACCOUNT = {
 const APPROVED = [
   ['Dashboard'],
   ['Rota'],
+  /* F-226: the events window's session planner, for plan groups. */
+  ['Session planner'],
   ['Preaching plan'],
   /* F-210: for the people who make rotas. */
   ['Rota reports'],
@@ -109,8 +111,18 @@ const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & A
    what the answer should be is not a check. */
 const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Planner',
   'Availability form', 'Music',
-  'Music Upload', 'Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings',
-  'Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Emails sent'];
+  'Music Upload', 'Events and rooms', 'Events', 'Admin', 'Backup & Restore', 'Church settings',
+  'Event check-in', 'Registers', 'Emails sent'];
+/* F-226 (the events window's pages, the pages' own tests): Places and the
+   Picture library for whoever has the "bookings" part of Running things -
+   master admins, the Church office group, a site's bookings admin;
+   Headcounts for an admin of a team the children's settings name (seeded
+   below: Kids Church) and master admins; the Session planner for a plan
+   group's leaders and its team (seeded: Kids Church) and master admins. */
+const RUNS_BOOKINGS_ONLY = ['Places', 'Picture library'];
+const HEADCOUNT_ONLY = ['Headcounts'];
+const PLAN_GROUP_ONLY = ['Session planner'];
+const PLAN_TEAM = 'Kids Church', KIDS_SETTINGS_TEAM = 'Kids Church';
 /* NEXT-BRIEF §25: the Address Book and the Email Compiler left CORE_ONLY.
    They follow the Running things tabs - People and Send - which come from a
    group, because the church administrator may not be on Core Team and a
@@ -154,8 +166,8 @@ function firstDifference(seen, expected) {
     + '\n          ' + seen.length + ' names on screen, ' + expected.length + ' approved';
 }
 
-const ADMIN_ONLY = ['Events and rooms', 'Events', 'Places', 'Admin', 'Backup & Restore', 'Church settings',
-  'Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Emails sent',
+const ADMIN_ONLY = ['Events and rooms', 'Events', 'Admin', 'Backup & Restore', 'Church settings',
+  'Event check-in', 'Registers', 'Emails sent',
   /* Any admin (none of these people is the safeguarding lead, who would
      see Safeguarding too). */
   'Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Groups and forms', 'Small groups', 'Forms',
@@ -211,7 +223,7 @@ const PEOPLE = {
      team at all, in the Church office group. They reach "Core Team" as a
      heading on the way - and must not thereby be handed its charter. */
   'the church administrator': { teams: ['Church office'], adminFor: [], masterAdmin: false,
-    sees: ['People and email', 'Address Book', 'Email Compiler'],
+    sees: ['People and email', 'Address Book', 'Email Compiler', 'Places', 'Picture library'],
     doesNot: ['Planning', 'Rota Planner', 'Worship & AV'] },
   'a master admin': { teams: ['Core Team'], adminFor: ['Core Team'], masterAdmin: true,
     sees: ['Core Team', 'Events and rooms', 'Admin', 'Backup & Restore', 'Kids Church'], doesNot: [] },
@@ -219,7 +231,7 @@ const PEOPLE = {
      and must still reach the register - which is the whole reason it is a
      team heading beside Youth rather than buried under Core Team. */
   'a Kids Church leader': { teams: ['Kids Church'], adminFor: [], masterAdmin: false,
-    sees: ['Kids Church', "Children's register", 'Sunday check-in'],
+    sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Session planner'],
     /* Worship & AV too: a team section they are not on, and the whole subtree
        goes with the heading - Play-Through and the rest, not just the name. */
     doesNot: ['Core Team', 'Planning', 'Rota Planner', 'Events and rooms', 'Admin',
@@ -233,8 +245,8 @@ const PEOPLE = {
      the rule a heading opened only by its children follows, and there is an
      assertion for exactly that below. */
   'Karen, who administers Kids Church': { teams: [], adminFor: ['Kids Church'], masterAdmin: false,
-    sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Room bookings'],
-    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places',
+    sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Room bookings', 'Headcounts'],
+    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Picture library', 'Session planner',
               'Admin', 'Backup & Restore', 'Worship & AV', 'Play-Through'] },
   /* The person F-067 is about: looks after one site's room bookings, is on
      Worship, is on neither Core Team nor any team's admin list. The entry
@@ -243,8 +255,8 @@ const PEOPLE = {
      anything else underneath. */
   'a bookings admin who is not Core Team': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
     bookingsAdmin: true,
-    sees: ['Book a room', 'Core Team', 'Events and rooms', 'Room bookings'],
-    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Admin',
+    sees: ['Book a room', 'Core Team', 'Events and rooms', 'Room bookings', 'Places', 'Picture library'],
+    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Headcounts', 'Admin',
               'Backup & Restore', 'Kids Church', "Children's register", 'Sunday check-in'] },
   /* F-200: the church renamed its money team "Treasury" (this check sets
      paymentSettings/public.moneyTeam). Payments follows the NAME. */
@@ -256,7 +268,13 @@ const PEOPLE = {
     eventTeam: true,
     sees: ['Core Team', 'Events and rooms', 'Events'],
     doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Places', 'Room bookings', 'Registers',
-              'Admin', 'Backup & Restore'] }
+              'Admin', 'Backup & Restore'] },
+  /* F-226: leads a plan group (the Lazers, say) and is on no team. The
+     Session planner, and none of the team pages. */
+  'a plan group leader on no team': { teams: [], adminFor: [], masterAdmin: false,
+    planLeader: true,
+    sees: ['Session planner'],
+    doesNot: ['Rota', 'Preaching plan', 'Pin boards', 'Core Team', 'Kids Church', 'Headcounts'] }
 };
 const MONEY_TEAM = 'Treasury';
 
@@ -478,6 +496,15 @@ const READ_MENU = `(() => {
     await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/bookingSettings/synthetic_site', {
       fields: { bookingsAdmins: val(p.bookingsAdmin ? ['ab_tester'] : []) }
     });
+    /* A plan group (F-226): its leaders by member id, and its team. */
+    await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/planGroups/menu_group', {
+      fields: { name: val('Menu Group Synthetic'), kind: val('children'), teamName: val(PLAN_TEAM),
+        leaderIds: val(p.planLeader ? ['ab_tester'] : []), archived: val(false) }
+    });
+    /* The children's settings name the team whose admins count heads. */
+    await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/kidsSettings/menu_site', {
+      fields: { teams: val([KIDS_SETTINGS_TEAM]) }
+    });
     /* An event's team is a list on the event (F-212), written the same way. */
     await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/calEvents/cev_menu_team', {
       fields: { title: val('Menu Film Club Synthetic'), audience: val(['members']), visibility: val('members'),
@@ -539,6 +566,10 @@ const READ_MENU = `(() => {
        Written out here rather than read from egbc-auth.js, so the check
        cannot agree with the thing it is checking. */
     const office = (p.teams || []).includes('Church office') || !!p.masterAdmin;
+    const runsBookings = office || !!p.bookingsAdmin;
+    const counts = !!p.masterAdmin || p.adminFor.includes(KIDS_SETTINGS_TEAM);
+    const plans = !!p.masterAdmin || !!p.planLeader || p.teams.includes(PLAN_TEAM);
+    const OPENED_FOR_EVENTS_ROOMS = ['Core Team', 'Events and rooms'];
     const expected = want
       .filter(w => !(OFFICE_ONLY.includes(w) && !office))
       .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
@@ -547,6 +578,9 @@ const READ_MENU = `(() => {
       .filter(w => !(ROTA_LEADS_ONLY.includes(w) && !p.masterAdmin && !(p.adminFor || []).some(t => ROTA_TEAMS.includes(t))))
       .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
       .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
+      .filter(w => !(RUNS_BOOKINGS_ONLY.includes(w) && !runsBookings))
+      .filter(w => !(HEADCOUNT_ONLY.includes(w) && !counts))
+      .filter(w => !(PLAN_GROUP_ONLY.includes(w) && !plans))
       .filter(w => !(KIDS_ONLY.includes(w) && !kids))
       .filter(w => !(YOUTH_ONLY.includes(w) && !p.masterAdmin
                      && !YOUTH_TEAMS.some(t => p.teams.includes(t) || p.adminFor.includes(t))))
@@ -556,9 +590,11 @@ const READ_MENU = `(() => {
       .filter(w => !(WORSHIP_ONLY.includes(w) && !worship))
       .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w))
                    || (p.eventTeam && OPENED_FOR_EVENT_TEAM.includes(w))
+                   || ((runsBookings || counts) && OPENED_FOR_EVENTS_ROOMS.includes(w))
                    || (office && OPENED_FOR_OFFICE.includes(w)))
       .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w))
-                   || (p.eventTeam && OPENED_FOR_EVENT_TEAM.includes(w)));
+                   || (p.eventTeam && OPENED_FOR_EVENT_TEAM.includes(w))
+                   || ((runsBookings || counts) && OPENED_FOR_EVENTS_ROOMS.includes(w)));
     ok('  the names are the approved ones, in order',
       JSON.stringify(seen) === JSON.stringify(expected),
       JSON.stringify(seen) === JSON.stringify(expected)
@@ -614,9 +650,14 @@ const READ_MENU = `(() => {
       /* 14 Oct 2026: Safeguarding (sg) and Groups and forms (admin), any admin. */
       ...(anAdmin ? ['Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Small groups', 'Forms'] : []),
       /* F-212: somebody on an event's team looks after Events too. */
-      ...(onCore && anAdmin ? ['Events', 'Places'] : p.eventTeam ? ['Events'] : []),
+      ...(onCore && anAdmin ? ['Events'] : p.eventTeam ? ['Events'] : []),
+      /* F-226: Places, Headcounts and the Picture library by their own tests. */
+      ...(runsBookings ? ['Places'] : []),
       ...(books ? ['Room bookings'] : []),
-      ...(onCore && anAdmin ? ['Event check-in', 'Registers', 'Headcounts', 'Picture library', 'Backup & Restore', 'Church settings'] : []),
+      ...(onCore && anAdmin ? ['Event check-in', 'Registers'] : []),
+      ...(counts ? ['Headcounts'] : []),
+      ...(runsBookings ? ['Picture library'] : []),
+      ...(onCore && anAdmin ? ['Backup & Restore', 'Church settings'] : []),
       ...(onCore && p.masterAdmin ? ['Emails sent', 'Team emails'] : [])
     ];
     ok("  the sidebar lists what they look after, in the Menu's order",
@@ -635,6 +676,8 @@ const READ_MENU = `(() => {
   }
   /* Leave the emulator as found: nobody on the test event's team. */
   await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/calEvents/cev_menu_team');
+  await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/planGroups/menu_group');
+  await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/kidsSettings/menu_site');
 
   /* ============== THE SAME MENU ON EVERY PAGE ========================
 

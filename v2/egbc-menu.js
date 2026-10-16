@@ -39,6 +39,11 @@
       description: 'Who is on, week by week' },
     /* The Preaching plan (Ryan, the Pastor): speakers, leaders, readers.
        For people on a team; the Pastor named on the page changes it. */
+    /* The events window's session planner (F-226): for the leaders and
+       teams of a plan group (Kids Church, Lazers, Youth, the preaching
+       team) and master admins - the page's own test. */
+    { title: 'Session planner', url: 'session-planner.html', icon: 'notebook-pen', planGroup: true, feature: 'sessionPlanner',
+      description: 'Plan each week\u2019s session, with your team' },
     { title: 'Preaching plan', url: 'preaching-plan.html', icon: 'book-open', anyTeam: true, feature: 'preachingPlan',
       description: 'Who is preaching, leading and reading' },
     /* ROTA REPORTS (the events window's rota-reports.html, F-210): clashes
@@ -258,7 +263,10 @@
              administer nothing - they get "Events I run" there. */
           { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', core: true, admin: true, eventTeam: true,
             description: 'Make an event, see who is coming' },
-          { title: 'Places', url: 'places-admin.html', icon: 'map-pin', core: true, admin: true,
+          /* Places and the Picture library: whoever has the "bookings" part
+             of Running things (master admins, the office, a site's bookings
+             admin) - the pages' own test (F-226). */
+          { title: 'Places', url: 'places-admin.html', icon: 'map-pin', runs: 'bookings',
             description: 'Sites, rooms and what is in them' },
           /* Not `admin`: a site's bookings admin looks after that site's
              bookings without administering a team, and gating this on admin
@@ -271,10 +279,11 @@
             description: 'Check people in at an event, with its tickets' },
           { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', core: true, admin: true,
             description: 'Who came to an event or a series, to download' },
-          { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', core: true, admin: true,
+          /* The Kids Church leads and master admins (F-226). */
+          { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', headcount: true,
             description: 'How many came on a Sunday, week by week' },
           /* F-176: the pictures events use again and again. */
-          { title: 'Picture library', url: 'picture-library.html', icon: 'images', core: true, admin: true, feature: 'pictureLibrary',
+          { title: 'Picture library', url: 'picture-library.html', icon: 'images', runs: 'bookings', feature: 'pictureLibrary',
             description: 'Pictures the church uses again and again' }
         ] },
         { title: 'Admin', icon: 'settings', core: true, admin: true, children: [
@@ -396,6 +405,8 @@
     if (node.leaderOf && !who.isMaster && !(window.EGBCAuth && EGBCAuth.isLeaderOf && EGBCAuth.isLeaderOf(node.leaderOf))) return false;
     /* On any team, administering one, or a master admin. */
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
+    if (node.planGroup && !who.isPlanGroup) return false;
+    if (node.headcount && !who.mayHeadcount) return false;
     return true;
   }
 
@@ -941,6 +952,8 @@
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),
+        isPlanGroup: !!(A && A.isOnPlanGroup && A.isOnPlanGroup()),
+        mayHeadcount: !!(A && A.mayHeadcount && A.mayHeadcount()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),
         isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead()),
         moneyTeam: (A && A.moneyTeam && A.moneyTeam()) || 'Finance'

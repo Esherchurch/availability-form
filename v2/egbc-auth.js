@@ -348,6 +348,36 @@
       .then(function (r) { eventTeam = r.some(function (x) { return !x.empty; }); return eventTeam; });
   }
 
+  /* THE SESSION PLANNER AND HEADCOUNTS, FOR THE MENU (F-226; the events
+     window's pages). Plan groups this person leads or whose team they are
+     on (a master admin reads them all, for View as), and the teams the
+     children's settings name (Headcounts is for their admins). Read once
+     with the profile; never rejects - nothing read means "not one". */
+  var planGroups = [], kidsTeams = [];
+  function loadPlanGroups(profile) {
+    planGroups = [];
+    if (!profile) return Promise.resolve([]);
+    var c = db.collection('planGroups'), qs = [], teams = (profile.teams || []).slice(0, 30);
+    if (profile.masterAdmin) qs.push(c.get());
+    else {
+      if (profile.memberId) qs.push(c.where('leaderIds', 'array-contains', profile.memberId).get());
+      if (teams.length) qs.push(c.where('teamName', 'in', teams).get());
+    }
+    return Promise.all(qs.map(function (q) { return q.catch(function () { return { docs: [] }; }); })).then(function (r) {
+      var seen = {};
+      r.forEach(function (s) { s.docs.forEach(function (d) { if (!seen[d.id]) { seen[d.id] = 1; var g = d.data() || {}; if (g.archived !== true) planGroups.push({ leaderIds: g.leaderIds || [], teamName: g.teamName || '' }); } }); });
+      return planGroups;
+    });
+  }
+  function loadKidsTeams(profile) {
+    kidsTeams = [];
+    if (!profile || (!profile.masterAdmin && !(profile.adminFor || []).length)) return Promise.resolve([]);
+    return db.collection('kidsSettings').get().then(function (s) {
+      s.docs.forEach(function (d) { ((d.data() || {}).teams || []).forEach(function (t) { if (kidsTeams.indexOf(t) === -1) kidsTeams.push(t); }); });
+      return kidsTeams;
+    }).catch(function () { return []; });
+  }
+
   function loadBookingsAdmin(memberId) {
     if (!memberId) return Promise.resolve([]);
     return db.collection('bookingSettings').get().then(function (snap) {
@@ -1012,7 +1042,7 @@
                Running things tabs are decided before the page draws. */
             return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
                                 loadCareLead(profile && profile.memberId), loadMoneyTeam(),
-                                loadEventTeam(profile, user && user.uid)])
+                                loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile)])
               .then(function () { return both; });
           }).then(function (both) {
             var profile = both[0];
@@ -1353,6 +1383,23 @@
     isSermonsAdmin: function () { return EGBCAuth.isMaster() || sermonsAdmin; },
     /* On the team of at least one event (F-212). Not while previewing. */
     isOnEventTeam: function () { return !viewAs() && eventTeam; },
+
+    /* Leads a plan group or is on its team (session-planner.html), or a
+       master admin. Viewing as a team: whether that team plans with it. */
+    isOnPlanGroup: function () {
+      if (EGBCAuth.isMaster()) return true;
+      var teams = EGBCAuth.effectiveTeams() || [];
+      var mid = viewAs() ? '' : ((currentProfile || {}).memberId || '');
+      return planGroups.some(function (g) { return (mid && g.leaderIds.indexOf(mid) !== -1) || (g.teamName && teams.indexOf(g.teamName) !== -1); });
+    },
+
+    /* Headcounts (headcounts.html): a master admin, or an admin of a team
+       the children's settings name - EGBCEvents.mayHeadcount()'s answer,
+       without a read of its own, so the Menu can draw at once. */
+    mayHeadcount: function () {
+      if (EGBCAuth.isMaster()) return true;
+      return (EGBCAuth.adminAreas() || []).some(function (t) { return kidsTeams.indexOf(t) !== -1; });
+    },
 
     /* The money team's name (Payments in the Menu). */
     moneyTeam: function () { return moneyTeam; },

@@ -1400,7 +1400,9 @@ function renderNavigation() {
            site's bookings admin looks after, and they administer no team. */
         /* `sg` too (14 Oct 2026): Safeguarding is looked after by the lead and
            deputy and the admins, and it is exactly what this list is for. */
-        if (n.url && (n.admin || n.bookings || n.sg)) admin.push({ url: n.url, title: n.title, icon: n.icon });
+        /* And Places, the Picture library (runs: 'bookings') and Headcounts,
+           which follow the events window's own tests since F-226. */
+        if (n.url && (n.admin || n.bookings || n.sg || n.headcount || n.runs === 'bookings')) admin.push({ url: n.url, title: n.title, icon: n.icon });
         if (n.children) walk(n.children);
       });
     })(EGBCMenu.forPerson(EGBCMenu.who()));
