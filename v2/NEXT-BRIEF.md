@@ -268,6 +268,16 @@ The order for the main window from here:
 
 The events window builds its own screens inside the spaces (APP-DESIGN-BRIEF §8), after "Who can come". **Sermons (Listen)** are now before launch too.
 
+## 27. Outstanding - agreed, not yet scheduled (Martin, 16 Oct 2026)
+
+Kept here so nothing agreed is lost. Each is briefed when Martin says go.
+
+1. **Quiz answers on phones in ChurchShow Lesson mode** (children/youth answer on their own phones, nickname only). Lesson mode's first build shows the quiz only (Martin: "yes but add to the outstanding list"). The hub's web Present quiz phones mode is part 3 of the session planner.
+2. **E-news in the hub, "way 3"**: hub templates and automatic event cards, Val's Canva designs (animated GIFs) pulled in through Canva's API, the hub sending (unsubscribe + consent, subscribers list, esherchurch.org sending domain, scheduling, web version without members-only items), run alongside Mailchimp, then retire Mailchimp. Needs Val's sample cards and her Canva plan first.
+3. **Val's card maker**: templates in her style, filled from What's On, every size, simple animations (GIF for email, video for social/screens).
+4. **The session planner's PowerPoint trial**: 2-3 of Karen's real decks as OneDrive links ("anyone with the link can view").
+5. **After switch-over**: Martin pastes the API.Bible key in Church settings (saving is held until then); turns on Firebase anonymous sign-in when the quiz phones mode is built.
+
 ## 26. Must be on the launch checklist (Q) — collected as we go
 
 The reviewing window adds to this list whenever a report says "before this goes live". Step Q copies every line into the checklist page and Martin's plain-words switch-over steps.
