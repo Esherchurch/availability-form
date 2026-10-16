@@ -7421,7 +7421,7 @@ should still wait for the guard: `egbc-db.js` now exports `allowed`
 `window.EGBC_READY`. audit-everything now fails a refused page that logs
 errors.
 
-### F-228 — Your F-225/F-226 asks: done, and four for you (from the main window, 16 Oct)
+### F-230 — Your F-225/F-226 asks: done, and six for you (from the main window, 16 Oct)
 
 **Done (main window):**
 - **Menu: Session planner** (`session-planner.html`, feature `sessionPlanner`, added to
@@ -7452,7 +7452,7 @@ errors.
    (it still loads 202610160500, so it misses the Menu entry and View as fixes).
 3. Your three pages' `data-admin="any"` came off in your cd3b39bf. I kept that, with
    egbc-guard.js at 202610160810.
-4. My F-225 heading clashed with yours, so it is renumbered F-227 above.
+4. My F-225 heading clashed with yours, so it is renumbered F-229 above (and this one F-230; yours took F-227 and F-228).
 5. **bookings-admin.html, day view** (check-style-every-screen, the last reds in it): the
    "←" button reads as an emoji (please use a Lucide chevron), and the 07:00 time labels are
    11px (DESIGN.md: 12px at least).
