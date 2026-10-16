@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=1540"><title>Choosing a song, step by step (mock)</title>
+<style>
+:root{--ink:#111827;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--brand:#3d6263;--tint:#eef5f4}
+*{box-sizing:border-box}body{margin:0;background:#dfe5e5;font:400 14px/1.45 Inter,system-ui,sans-serif;color:#374151;display:flex;gap:10px;padding:10px}
+.ph{width:375px;height:812px;background:#f6f7f7;border-radius:18px;overflow:hidden;position:relative;flex:none;border:1px solid #cfd8d8}
+.step{position:absolute;top:8px;left:8px;z-index:20;background:#111827;color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px}
+.am{background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:8px 12px;height:56px;padding-top:40px;height:84px}
+.am b{flex:1;color:var(--ink);font-size:16px}.sq{width:40px;height:40px;border:1px solid var(--line-2);border-radius:10px;display:grid;place-items:center;background:#fff}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin:10px 12px;padding:12px 14px}
+.card h4{margin:0 0 8px;color:var(--ink);font-size:15px}
+.song{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:#fff}
+.song .t{display:flex;gap:8px;align-items:center}.song b{flex:1;color:var(--ink)}.n{color:var(--muted);width:22px}
+.keys{display:flex;gap:6px;margin-top:8px}.keys span{flex:1;min-height:44px;border:1px solid var(--line-2);border-radius:8px;display:grid;place-items:center;font-size:13px;background:#fff}
+.keys span.on{border-color:var(--brand);background:var(--tint);color:var(--brand);font-weight:700}
+.keys span.have{position:relative}.keys span.have::after{content:"chords";position:absolute;bottom:2px;font-size:9px;color:var(--muted)}
+.btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:#fff;display:inline-flex;align-items:center;font-weight:500;color:var(--ink)}
+.btn.p{background:var(--brand);border-color:var(--brand);color:#fff}.btn.big{width:100%;justify-content:center;font-size:15px}
+.ring{box-shadow:0 0 0 3px #f59e0b;}
+.scrim{position:absolute;inset:0;background:rgba(17,24,39,.4)}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:120px;background:#fff;border-radius:18px 18px 0 0;overflow:hidden}
+.sh{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}.sh b{font-size:16px;color:var(--ink)}
+.x{width:44px;height:44px;border:1px solid var(--line-2);border-radius:10px;display:grid;place-items:center}
+.q{margin:12px 16px;min-height:48px;border:2px solid var(--brand);border-radius:12px;display:flex;align-items:center;padding:0 12px;color:var(--ink);font-size:16px}
+.q.ph0{border:1px solid var(--line-2);color:var(--faint)}
+.lab{padding:4px 16px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.res{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 16px;border-bottom:1px solid var(--line)}
+.res b{display:block;color:var(--ink)}.res small{color:var(--muted)}.res .add{margin-left:auto;width:40px;height:40px;border-radius:10px;background:var(--tint);color:var(--brand);display:grid;place-items:center;font-weight:700;font-size:20px}
+mark{background:#fef3c7;color:inherit;padding:0}
+.toast{position:absolute;left:16px;right:16px;bottom:80px;background:#111827;color:#fff;border-radius:10px;padding:12px 14px;font-weight:500}
+.cap{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px;font-size:13px;color:var(--ink);min-height:64px}
+</style></head><body>
+
+<!-- 1 -->
+<div class="ph"><div class="step">1 · Tap “+ Song”</div>
+  <div class="am"><div class="sq">‹</div><b>Sunday plan · 18 Oct</b></div>
+  <div class="card"><h4>Order of service</h4>
+    <div class="song"><div class="t"><span class="n">1.</span><b>10,000 Reasons</b>›</div><div class="keys"><span class="on">G</span><span>A</span><span>—</span></div></div>
+    <div style="display:flex;gap:8px"><div class="btn p ring">+ Song</div><div class="btn">+ Item</div></div></div>
+  <div class="cap">“+ Song” opens the song library. Nothing to type into a blank box.</div></div>
+
+<!-- 2 -->
+<div class="ph"><div class="step">2 · Recent and most used first</div>
+  <div class="am"><div class="sq">‹</div><b>Sunday plan · 18 Oct</b></div>
+  <div class="scrim"></div><div class="sheet"><div class="sh"><b>Add a song</b><div class="x">✕</div></div>
+    <div class="q ph0">🔍 Title or a line from the song</div>
+    <div class="lab">Used recently</div>
+    <div class="res"><div><b>Cornerstone</b><small>Last sung 4 Oct · keys C, D</small></div><div class="add">+</div></div>
+    <div class="res"><div><b>Way Maker</b><small>Last sung 27 Sep · key E</small></div><div class="add">+</div></div>
+    <div class="lab">Most used</div>
+    <div class="res"><div><b>Build My Life</b><small>Sung 14 times · keys A, B♭</small></div><div class="add">+</div></div>
+    <div class="res"><div><b>Living Hope</b><small>Sung 11 times · key C</small></div><div class="add">+</div></div>
+  </div></div>
+
+<!-- 3 -->
+<div class="ph"><div class="step">3 · Type a title or a line</div>
+  <div class="am"><div class="sq">‹</div><b>Sunday plan · 18 Oct</b></div>
+  <div class="scrim"></div><div class="sheet"><div class="sh"><b>Add a song</b><div class="x">✕</div></div>
+    <div class="q">no other <span style="opacity:.4">|</span></div>
+    <div class="lab">2 songs</div>
+    <div class="res ring" style="margin:0 6px;border-radius:10px"><div><b>In Christ Alone</b><small>“…<mark>no other</mark> foundation…” · keys D, E</small></div><div class="add">+</div></div>
+    <div class="res"><div><b>No Other Name</b><small>title · key A</small></div><div class="add">+</div></div>
+    <div class="lab" style="margin-top:8px">Not in the library?</div>
+    <div class="res"><div><b>Add “no other” as a new song</b><small>You can add its keys and files later</small></div><div class="add">+</div></div>
+  </div></div>
+
+<!-- 4 -->
+<div class="ph"><div class="step">4 · It’s added: now pick the key</div>
+  <div class="am"><div class="sq">‹</div><b>Sunday plan · 18 Oct</b></div>
+  <div class="card"><h4>Order of service</h4>
+    <div class="song"><div class="t"><span class="n">1.</span><b>10,000 Reasons</b>›</div><div class="keys"><span class="on">G</span><span>A</span><span>—</span></div></div>
+    <div class="song ring"><div class="t"><span class="n">2.</span><b>In Christ Alone</b>›</div>
+      <div class="keys"><span class="have on">D</span><span class="have">E</span><span>Other…</span></div></div>
+    <div style="display:flex;gap:8px"><div class="btn p">+ Song</div><div class="btn">+ Item</div></div></div>
+  <div class="toast">“In Christ Alone” added as song 2</div>
+  <div class="cap">The keys we have chord sheets in come first; tap one. “Other…” for any key.</div></div>
+</body></html>
