@@ -920,7 +920,8 @@
            `.inp,select,textarea{min-height:48px;width:100%}`, which
            pushed the strip onto its own line and made it 61px instead
            of 45. Said here rather than hoped for. */
-        'width:auto;min-width:0;max-width:52vw;min-height:0;box-sizing:border-box;flex:none;' +
+        /* margin:0 too: Library gives every select margin-bottom:20px. */
+        'width:auto;min-width:0;max-width:52vw;min-height:0;margin:0;box-sizing:border-box;flex:none;' +
         'height:32px;border-radius:8px;padding:0 10px;border:1px solid ' +
         (v ? 'rgba(255,255,255,.45)' : '#d1d5db') + '">' +
         '<option value="">Myself</option>' + opts +

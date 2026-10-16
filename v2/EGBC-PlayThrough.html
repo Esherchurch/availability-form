@@ -7,7 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610162000"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
 <script src="egbc-kbupload.js?v=202610062000"></script>
 <script src="egbc-guard.js?v=202610160810" data-team="Worship Team"></script>
 <script src="egbc-kbadmin.js?v=202609041833" data-admin-team="Worship Team"></script>
@@ -380,16 +380,16 @@ function renderContent(assets,highlight=''){
   categories.forEach(cat=>{
     const items=grouped[cat]||[];if(!items.length)return;
     const sid='sec_'+safeid(cat);
-    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#3d6263] rounded-lg"></div><h2 class="font-semibold text-sm">${cat}</h2><span class="text-[12px] font-semibold opacity-40">${items.length} item${items.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none min-h-[44px]" role="button" tabindex="0" aria-expanded="true" aria-controls="${sid}" onclick="toggleSec('${sid}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSec('${sid}')}"><div class="w-1.5 h-6 bg-[#3d6263] rounded-lg"></div><h2 class="font-semibold text-sm">${cat}</h2><span class="text-[12px] font-semibold opacity-40">${items.length} item${items.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${items.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
   });
   if(uncat.length){
     const label=categories.length?'Uncategorised':'All Songs';const sid='sec_uncategorised';
-    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none" onclick="toggleSec('${sid}')"><div class="w-1.5 h-6 bg-[#d1dfdf] rounded-lg"></div><h2 class="font-semibold text-sm opacity-50">${label}</h2><span class="text-[12px] font-semibold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
+    html+=`<div class="mb-10"><div class="flex items-center gap-3 mb-5 cursor-pointer select-none min-h-[44px]" role="button" tabindex="0" aria-expanded="true" aria-controls="${sid}" onclick="toggleSec('${sid}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSec('${sid}')}"><div class="w-1.5 h-6 bg-[#d1dfdf] rounded-lg"></div><h2 class="font-semibold text-sm opacity-50">${label}</h2><span class="text-[12px] font-semibold opacity-40">${uncat.length} item${uncat.length!==1?'s':''}</span><svg id="chv_${sid}" class="w-4 h-4 opacity-40 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div id="${sid}" class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">${uncat.map(a=>cardHTML(a,highlight)).join('')}</div></div>`;
   }
   area.innerHTML=html;
 }
 
-function toggleSec(id){const el=document.getElementById(id);const chv=document.getElementById('chv_'+id);if(!el)return;const h=el.classList.toggle('hidden');if(chv)chv.style.transform=h?'rotate(-90deg)':'rotate(0deg)';}
+function toggleSec(id){const el=document.getElementById(id);const chv=document.getElementById('chv_'+id);if(!el)return;const h=el.classList.toggle('hidden');const hd=document.querySelector('[aria-controls="'+id+'"]');if(hd)hd.setAttribute('aria-expanded',String(!h));if(chv)chv.style.transform=h?'rotate(-90deg)':'rotate(0deg)';}
 function safeid(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
 
 function cardHTML(a,highlight=''){

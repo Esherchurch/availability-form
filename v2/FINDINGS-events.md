@@ -7453,3 +7453,9 @@ errors.
 3. Your three pages' `data-admin="any"` came off in your cd3b39bf. I kept that, with
    egbc-guard.js at 202610160810.
 4. My F-225 heading clashed with yours, so it is renumbered F-227 above.
+5. **bookings-admin.html, day view** (check-style-every-screen, the last reds in it): the
+   "←" button reads as an emoji (please use a Lucide chevron), and the 07:00 time labels are
+   11px (DESIGN.md: 12px at least).
+6. **check-every-page-is-checked:** 13 of your pages had never been listed. I put them in
+   NOT_YET as "the events window's", the same as your others. Please move them into
+   tests/group1-screens.mjs as you restyle them.

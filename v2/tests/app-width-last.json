@@ -1,19 +1,5 @@
 [
  {
-  "page": "CoreTeamApp.html",
-  "over": 0,
-  "client": 375,
-  "worst": "div#tour-highlight.tour-highlight",
-  "worstW": 387,
-  "websiteBar": false,
-  "menu": false,
-  "widestTable": 0,
-  "clipped": [],
-  "tinyText": 0,
-  "blocked": "",
-  "title": "EGBC Worship Planner"
- },
- {
   "page": "Coreteamcharter.html",
   "over": 0,
   "client": 375,
@@ -25,7 +11,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Core Team charter"
+  "title": "Core Team Charter"
  },
  {
   "page": "EGBC-HowTo-AV.html",
@@ -84,6 +70,20 @@
   "title": "EGBC — AV Troubleshoot"
  },
  {
+  "page": "EmailBuilder2.html",
+  "over": 0,
+  "client": 375,
+  "worst": null,
+  "worstW": 0,
+  "websiteBar": true,
+  "menu": false,
+  "widestTable": 0,
+  "clipped": [],
+  "tinyText": 0,
+  "blocked": "",
+  "title": "Worship & AV Team | Email Builder"
+ },
+ {
   "page": "Library.html",
   "over": 1,
   "client": 980,
@@ -109,7 +109,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Worship & AV charter"
+  "title": "Worship & AV Team Charter"
  },
  {
   "page": "Youthcharter.html",
@@ -123,24 +123,18 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Youth charter"
+  "title": "Youth Worship & AV Charter"
  },
  {
   "page": "addressbook.html",
   "over": 0,
   "client": 375,
-  "worst": "table.w-full",
-  "worstW": 560,
+  "worst": null,
+  "worstW": 0,
   "websiteBar": true,
   "menu": false,
-  "widestTable": 560,
-  "clipped": [
-   "Family",
-   "Instruments",
-   "Ben Lineage Synthetic Family",
-   "Sarah Lineage Synthetic Fami",
-   "Karen Familia Synthetic Fami"
-  ],
+  "widestTable": 313,
+  "clipped": [],
   "tinyText": 0,
   "blocked": "",
   "title": "EGBC Address Book - Master Manager"
@@ -157,7 +151,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Room bookings — Synthetic Road Community Church"
+  "title": "Room bookings"
  },
  {
   "page": "groups.html",
@@ -171,7 +165,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Find a group — Synthetic Road Community Church"
+  "title": "Find a group"
  },
  {
   "page": "hub.html",
@@ -183,11 +177,7 @@
   "menu": false,
   "widestTable": 0,
   "clipped": [
-   "· Sunday 18 October",
-   "Thursdays at 7",
-   "No audition",
-   "Sent from Val: val.somebody-",
-   "· 3 days ago"
+   "Nothing new"
   ],
   "tinyText": 0,
   "blocked": "",
@@ -219,7 +209,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Children's register — Synthetic Road Community Church"
+  "title": "Children's register"
  },
  {
   "page": "kids-checkin.html",
@@ -233,7 +223,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Sunday check-in — Synthetic Road Community Church"
+  "title": "Sunday check-in"
  },
  {
   "page": "login.html",
@@ -245,11 +235,7 @@
   "menu": false,
   "widestTable": 0,
   "clipped": [
-   "· Sunday 18 October",
-   "Thursdays at 7",
-   "No audition",
-   "Sent from Val: val.somebody-",
-   "· 3 days ago"
+   "Nothing new"
   ],
   "tinyText": 0,
   "blocked": "",
@@ -267,7 +253,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Maintenance — Synthetic Road Community Church"
+  "title": "Maintenance"
  },
  {
   "page": "meeting.html",
@@ -282,6 +268,20 @@
   "tinyText": 0,
   "blocked": "",
   "title": "Meeting — EGBC"
+ },
+ {
+  "page": "my-messages.html",
+  "over": 0,
+  "client": 375,
+  "worst": null,
+  "worstW": 0,
+  "websiteBar": true,
+  "menu": false,
+  "widestTable": 0,
+  "clipped": [],
+  "tinyText": 0,
+  "blocked": "",
+  "title": "My messages"
  },
  {
   "page": "notifications.html",
@@ -323,7 +323,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Book a room — Synthetic Road Community Church"
+  "title": "Book a room"
  },
  {
   "page": "safeguarding.html",
@@ -337,7 +337,7 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "Safeguarding — Synthetic Road Community Church"
+  "title": "Safeguarding"
  },
  {
   "page": "song-summary.html",
@@ -393,6 +393,6 @@
   "clipped": [],
   "tinyText": 0,
   "blocked": "",
-  "title": "What's on — Synthetic Road Community Church"
+  "title": "What's on"
  }
 ]

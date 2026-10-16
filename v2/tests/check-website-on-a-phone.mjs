@@ -207,7 +207,10 @@ const offMachine = u => {
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       if (r.height < 4) continue;
       h = { text: (el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 30),
-            top: Math.round(r.top), bottom: Math.round(r.bottom) };
+            /* Where it sits with the page at the top: a page may scroll itself
+               on purpose (the rota opens at the next Sunday), which is not
+               the bar covering its heading. */
+            top: Math.round(r.top + window.scrollY), bottom: Math.round(r.bottom + window.scrollY) };
       break;
     }
     const nr = n ? n.getBoundingClientRect() : null;

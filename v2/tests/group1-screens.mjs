@@ -322,6 +322,13 @@ export const PAGES = [
       ['a code refused', "(()=>{try{show('enterView');msg('That code is not valid. Ask your leader for a new one.',false)}catch(e){return 'no msg'}return 1})()"],
       ['working on it', "(()=>{try{show('busyView')}catch(e){return 'no show'}return 1})()"],
       ['let in', "(()=>{try{show('doneView');const n=document.getElementById('doneName');if(n)n.textContent='Synthetic Person';}catch(e){return 'no show'}return 1})()"]
-    ] }
+    ] },
+  /* The main window's pages since 15 Oct 2026, which had been left off. */
+  { page: 'preaching-plan.html', wait: 9000, states: [
+      ['main', '1'],
+      ['past services shown', "(()=>{const c=document.getElementById('showPast');if(!c)return 'no tick';c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));return 1})()"]
+    ] },
+  { page: 'teams-admin.html', wait: 9000, states: [['main', '1']] },
+  { page: 'watch.html', wait: 9000, states: [['main', '1']] }
 ];
 

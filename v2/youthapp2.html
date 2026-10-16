@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610162000"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
 
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-youth.json">
@@ -915,6 +915,8 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .mine-charter { background: #fff; border: 1px solid var(--hairline, #e5e7eb); border-radius: 12px; margin-bottom: 12px; }
 .mine-charter summary { min-height: 48px; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 600; cursor: pointer; }
 .mine-charter-body { padding: 0 14px 14px; font-size: 14px; line-height: 1.6; }
+/* The charter comes from the server as it was written; its headings at the app's weight. */
+.mine-charter-body h1, .mine-charter-body h2, .mine-charter-body h3 { font-size: 15px; font-weight: 600; margin: 14px 0 6px; }
 </style>
 <script src="egbc-ui.js?v=202610150900"></script>
 </head>

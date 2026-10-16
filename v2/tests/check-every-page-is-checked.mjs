@@ -64,6 +64,20 @@ const NOT_YET = {
   "signup.html": "the events window's",
   "sermons-admin.html": "the events window's (F-132) - and not in the Menu yet, A-061",
   "whatson.html": "the events window's",
+  /* Theirs too, made since this list was last brought up to date. */
+  "comms.html": "the events window's (Emails sent)",
+  "giftaid.html": "the events window's (F-169)",
+  "give-regularly.html": "the events window's",
+  "my-messages.html": "the events window's (F-206)",
+  "newhere.html": "the events window's",
+  "payments.html": "the events window's",
+  "picture-library.html": "the events window's (F-176)",
+  "prayer.html": "the events window's",
+  "rota-reports.html": "the events window's (F-210)",
+  "session-planner.html": "the events window's (F-226)",
+  "team-mail.html": "the events window's (F-207)",
+  "watch-admin.html": "the events window's (F-164)",
+  "whatson-embed.html": "the events window's",
   /* All three were here as "Step M (Restyle Group 3)". Step M restyled them,
      so they are in tests/group1-screens.mjs now and the style check asserts
      on them - and the emoji tick A-046 named is a Lucide icon. */

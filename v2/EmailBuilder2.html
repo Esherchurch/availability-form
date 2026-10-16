@@ -7,7 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610162000"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
 
 <script src="egbc-shell.js?v=202610162000" data-title="Email Compiler"></script>
 <script src="egbc-guard.js?v=202610160810" data-admin="any" data-also-team="Church office"></script>
@@ -127,7 +127,8 @@
         /* Every box has a close that stays at its top while it scrolls (audit,
            15 Oct 2026: some had only "Let's go" or a Cancel below the fold). */
         .mx { position: sticky; top: -28px; float: right; z-index: 2; margin: -20px -20px 0 8px; width: 44px; height: 44px;
-            border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--brand); font-size: 18px; cursor: pointer; }
+            border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--brand); font-size: 18px; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center; }
         .modal-box { box-sizing: border-box; background: #fff; border-radius: 16px; padding: 28px; width: 560px; max-width: 100%;
             max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 70px rgba(0,0,0,0.35); }
         .modal-box.wide { width: 860px; }
@@ -1331,7 +1332,7 @@ initUser();
   function shut(m) { m.classList.remove('active'); }
   document.querySelectorAll('.modal').forEach(function (m) {
     var box = m.querySelector('.modal-box'); if (!box || box.querySelector('.mx')) return;
-    var b = document.createElement('button'); b.type = 'button'; b.className = 'mx'; b.setAttribute('aria-label', 'Close'); b.textContent = '\u2715';
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'mx'; b.setAttribute('aria-label', 'Close'); b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
     b.onclick = function () { shut(m); };
     box.insertBefore(b, box.firstChild);
   });
