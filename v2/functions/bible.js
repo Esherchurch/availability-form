@@ -18,6 +18,7 @@
    "no script" image address it gives, requested once.
    =================================================================== */
 
+import { paymentsShut } from './payments-gate.js';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -65,6 +66,10 @@ function fums(meta) {
 export const bibleKeySave = onCall({ region: REGION }, async (req) => {
   const me = await who(req);
   if (!me.master) throw new HttpsError('permission-denied', 'Only a master admin can set the API.Bible key.');
+  /* NOT BEFORE SWITCH-OVER (reviewing window, 16 Oct 2026). Until the locked
+     rules deploy, privateSettings is readable by anybody, so a key saved now
+     would be public. The same code switch as payments, for the same reason. */
+  if (paymentsShut()) throw new HttpsError('failed-precondition', 'The API.Bible key can be saved when the church switches over to the new hub.', { shut: true });
   const k = String((req.data || {}).key || '').trim();
   if (k && !/^[A-Za-z0-9_-]{16,128}$/.test(k)) throw new HttpsError('invalid-argument', 'That does not look like an API.Bible key.');
   if (!k) { await db().collection('privateSettings').doc('apiBible').delete(); return { saved: false }; }
