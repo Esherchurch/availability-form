@@ -431,6 +431,8 @@
     var el = document.getElementById('bible-form');
     el.innerHTML = '<p class="hint" id="bk-state">Checking…</p>';
     EGBCAuth.call('bibleKeyStatus', {}).then(function (r) { r = (r && r.data !== undefined) ? r.data : r; return r || {}; }, function () { return { error: true }; }).then(function (st) {
+      /* Shut until switch-over (the server says so): no box to paste into. */
+      if (st.shut) { el.innerHTML = '<p class="hint" id="bk-state" style="margin:0"><b style="color:var(--ink)">' + esc(SHUT_WORDS) + '</b> Until then the planner has the free Bibles and Bible Gateway links.</p>'; return; }
       el.innerHTML = '<p class="hint" id="bk-state" style="margin:0 0 10px">' + (st.error ? 'The hub could not say whether a key is saved.'
           : st.saved ? '<b style="color:var(--ink)">A key is saved</b>' + (st.savedByName ? ' (by ' + esc(st.savedByName) + ')' : '') + '. Paste a new one to replace it.'
           : '<b style="color:var(--ink)">No key yet.</b> Without one, the planner still has the free Bibles and Bible Gateway links.') + '</p>' +
@@ -448,10 +450,11 @@
       if (del) del.onclick = function () { if (confirm('Remove the API.Bible key? The planner will offer only the free Bibles and Bible Gateway links.')) saveBibleKey(''); };
     });
   }
+  var SHUT_WORDS = 'The API.Bible key can be saved when the church switches over.';
   function saveBibleKey(k) {
     document.getElementById('bk-msg').textContent = 'Saving…';
     EGBCAuth.call('bibleKeySave', { key: k }).then(function (r) { r = (r && r.data !== undefined) ? r.data : r; drawBible(r && r.saved ? 'Saved. It will not be shown again.' : 'Removed.'); },
-      function (e) { document.getElementById('bk-msg').textContent = 'Not saved: ' + (e.message || e); });
+      function (e) { if (/failed-precondition/.test(String(e && e.code))) { drawBible(); return; } document.getElementById('bk-msg').textContent = 'Not saved: ' + (e.message || e); });
   }
 
   function mayDetails() { return !!EGBCAuth.isAdmin(); }

@@ -236,6 +236,15 @@ try {
   ok('6. BIBLE GATEWAY: the plan keeps the reference and a link, NEVER THE TEXT', p2.passage.source === 'biblegateway' && p2.passage.text === '' && /biblegateway\.com\/passage\/\?search=John%203%3A16&version=NIVUK/.test(p2.passage.link) && /biblegateway/.test(gwLink), J(p2.passage));
 
   /* ---------- 7. API.Bible's key ---------- */
+  /* Before switch-over the key can't be saved (privateSettings is readable until the rules deploy). */
+  await db.collection('teamMailSettings').doc('config').set({ shutForTest: true });
+  await M.goto(URLB + 'church-settings.html', { waitUntil: 'networkidle2' });
+  await until(async () => /switches over/.test(await text(M, '#bible-form')));
+  ok('7. BEFORE SWITCH-OVER: Church settings says "The API.Bible key can be saved when the church switches over", with no box to paste into',
+    /The API\.Bible key can be saved when the church switches over\./.test(await text(M, '#bible-form')) && !(await M.$('#bk-key')), await text(M, '#bible-form'));
+  const shutSave = await M.evaluate(() => EGBCAuth.call('bibleKeySave', { key: 'synthetic-key-0123456789abcdef' }).then(() => 'saved', e => e.code || e.message));
+  ok('   and the server refuses to save one, so nothing is kept', /failed-precondition/.test(shutSave) && !(await db.collection('privateSettings').doc('apiBible').get()).exists, shutSave);
+  await db.collection('teamMailSettings').doc('config').delete();
   await M.goto(URLB + 'church-settings.html', { waitUntil: 'networkidle2' });
   await until(async () => /No key yet/.test(await text(M, '#bible-form')));
   await setVal(M, '#bk-key', 'synthetic-key-0123456789abcdef');
@@ -277,6 +286,33 @@ try {
   const p3 = await plan();
   ok('   a leader uploads a worksheet to a part, and it is kept with the plan', !!p3.parts.find(x => (x.files || []).some(f => f.name === 'worksheet-EJ03.pdf' && /^planner\//.test(f.path))), J(p3.parts.map(x => x.files)));
   ok('   nothing scrolls sideways at 375px', (await SA.evaluate(() => document.scrollingElement.scrollWidth - innerWidth)) <= 0);
+
+  /* ---------- 10. a paired ChurchShow computer asks for the lesson (egbc-lesson/1) ---------- */
+  const { getAuth } = fnRequire('firebase-admin/auth');
+  const devUid = 'churchshow-site_a';
+  await db.collection('devices').doc(devUid).set({ active: true, siteId: 'site_a' });
+  const asDevice = async (uidX, claims) => {
+    const ct = await getAuth().createCustomToken(uidX, claims);
+    const r = await (await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=fake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: ct, returnSecureToken: true }) })).json();
+    return r.idToken;
+  };
+  const callFn = async (tok, data) => {
+    const r = await fetch('http://127.0.0.1:5102/' + PROJECT + '/europe-west2/lessonFor', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ data }) });
+    return r.json();
+  };
+  const dtok = await asDevice(devUid, { device: 'churchshow', siteId: 'site_a' });
+  const day = await callFn(dtok, { date: SUN });
+  ok('10. CHURCHSHOW: a paired computer lists that day\'s lessons', day.result && day.result.lessons.length === 1 && day.result.lessons[0].group === 'Kids Church', J(day));
+  const les = (await callFn(dtok, { sessionId: p1.id })).result || {};
+  ok('    and gets one as egbc-lesson/1: group, code, link, the steps in order', les.format === 'egbc-lesson/1' && les.group.name === 'Kids Church' && les.lessonCode === 'EJ03' && les.steps.length >= 1 && les.steps[0].type === 'text' && les.steps[0].n === 1, J(les).slice(0, 400));
+  ok('    a Bible Gateway passage is the reference only (ChurchShow fetches it)', les.passage && les.passage.source === 'biblegateway' && les.passage.text === undefined, J(les.passage));
+  ok('    LEADERS\' NOTES AND "THINGS TO BRING" ARE NOT SENT TO A SCREEN', !/dark cloth|"notes"|"bring"/.test(J(les)), J(les).slice(0, 300));
+  await db.collection('devices').doc(devUid).update({ active: false });
+  const off = await callFn(dtok, { sessionId: p1.id });
+  ok('    DISCONNECTED on the hub: refused at once', off.error && /PERMISSION_DENIED/.test(off.error.status), J(off));
+  const mtok = await asDevice(P.samy.uid, {});
+  const notDev = await callFn(mtok, { sessionId: p1.id });
+  ok('    a person (even the group\'s leader) is not a ChurchShow computer', notDev.error && /PERMISSION_DENIED/.test(notDev.error.status), J(notDev));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

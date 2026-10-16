@@ -25,6 +25,15 @@ import { getFirestore } from 'firebase-admin/firestore';
 const REGION = 'europe-west2';
 const BASE = 'https://api.scripture.api.bible';
 const db = () => getFirestore();
+const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
+/* Shut until switch-over (payments' switch). On the emulator a test can
+   shut it too, with the same test-only flag team mail uses. */
+async function keyShut() {
+  if (paymentsShut()) return true;
+  if (!EMULATOR) return false;
+  const c = await db().collection('teamMailSettings').doc('config').get();
+  return !!(c.exists && c.data().shutForTest === true);
+}
 
 async function who(req) {
   const uid = req.auth && req.auth.uid;
@@ -69,7 +78,7 @@ export const bibleKeySave = onCall({ region: REGION }, async (req) => {
   /* NOT BEFORE SWITCH-OVER (reviewing window, 16 Oct 2026). Until the locked
      rules deploy, privateSettings is readable by anybody, so a key saved now
      would be public. The same code switch as payments, for the same reason. */
-  if (paymentsShut()) throw new HttpsError('failed-precondition', 'The API.Bible key can be saved when the church switches over to the new hub.', { shut: true });
+  if (await keyShut()) throw new HttpsError('failed-precondition', 'The API.Bible key can be saved when the church switches over to the new hub.', { shut: true });
   const k = String((req.data || {}).key || '').trim();
   if (k && !/^[A-Za-z0-9_-]{16,128}$/.test(k)) throw new HttpsError('invalid-argument', 'That does not look like an API.Bible key.');
   if (!k) { await db().collection('privateSettings').doc('apiBible').delete(); return { saved: false }; }
@@ -81,7 +90,7 @@ export const bibleKeyStatus = onCall({ region: REGION }, async (req) => {
   const me = await who(req);
   if (!me.master) throw new HttpsError('permission-denied', 'Only a master admin can see this.');
   const d = (await db().collection('privateSettings').doc('apiBible').get()).data() || {};
-  return { saved: !!d.key, savedAt: d.savedAt || '', savedByName: d.savedByName || '' };   // never the key
+  return { saved: !!d.key, savedAt: d.savedAt || '', savedByName: d.savedByName || '', shut: await keyShut() };   // never the key
 });
 
 export const bibleFetch = onCall({ region: REGION }, async (req) => {

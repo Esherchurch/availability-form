@@ -743,3 +743,5 @@ export { prayerSundayOnPrayer, prayerSundayOnRota, prayerSundayDaily } from './p
 /* The session planner's Bible (API.Bible, the church's key) and its plan email (F-223), the events window's files. */
 export { bibleKeySave, bibleKeyStatus, bibleFetch } from './bible.js';
 export { planSend } from './planner.js';
+/* A session plan for a paired ChurchShow computer (F-225, egbc-lesson/1), the events window's file. */
+export { lessonFor } from './lesson.js';

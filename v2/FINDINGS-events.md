@@ -7335,3 +7335,25 @@ switching on in the console at part 3.
    `bibleKeyStatus`, `bibleFetch` and `planSend`. bibleFetch and the key box are safe before
    switch-over: only master admins and group leaders can use them.
 5. **The Preaching-plan fields** (F-225: `serviceLeaderId`, `speakerId`).
+
+### F-227 — lessonFor (egbc-lesson/1, agreed), and the API.Bible key before switch-over
+
+- **`lessonFor`** (functions/lesson.js; churchshow.js unchanged):
+  - **Who may ask:** only a paired ChurchShow computer. The token claim `device ==
+    'churchshow'` and `devices/<uid>.active`, read on every call, so Disconnect stops it at
+    once.
+  - **`{ date }`:** that day's lessons.
+  - **`{ sessionId }`:** the plan as egbc-lesson/1, exactly as F-225: every part's "show on
+    screen" steps in order. A Bible Gateway passage goes as the reference only. Leaders'
+    notes and "things to bring" are never sent.
+  - **For the ChurchShow window:** call it with the device's own sign-in (Firebase callable,
+    europe-west2).
+- **API.Bible key before switch-over (your 9753fa95):** `bibleKeyStatus` now also says
+  `shut`. Church settings then shows "The API.Bible key can be saved when the church switches
+  over." with no box to paste into, and the same words if a save is refused. On the emulator
+  the shut can be tested with the same test-only flag team mail uses
+  (`teamMailSettings/config.shutForTest`).
+- **Proved:** session-planner.test 37/37 (the shut key; lessonFor listing, format, Bible
+  Gateway reference only, no notes, disconnected refused, a person refused); 6 deliberate
+  breaks, all caught.
+- **Deploy:** `lessonFor`, and `bibleKeyStatus` / `bibleKeySave` again (they changed).
