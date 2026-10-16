@@ -1,64 +1,97 @@
 /* ===================================================================
-   EGBC — a session plan for ChurchShow (F-225, agreed 16 Oct)
+   EGBC — the day's lessons for ChurchShow (F-225, F-228; agreed 16 Oct)
    ===================================================================
 
-     lessonFor   callable, a PAIRED ChurchShow device only:
-                   { date: 'YYYY-MM-DD' }  -> { lessons: [{ id, group, title, date }] }
-                   { sessionId }           -> the plan as 'egbc-lesson/1'
+     lessonFor   callable, a PAIRED ChurchShow computer only:
+                   { date: 'YYYY-MM-DD', groupId? }
+                   -> { date, siteId, lessons: [ egbc-lesson/1, ... ] }
+
+   ONLY THE COMPUTER'S OWN BUILDING. A paired computer is one building
+   (churchshow-<siteId>); it gets that date's plans of the groups that meet
+   in that building (planGroups.siteId), and nothing of any other. Asking
+   for another building's group by its id is refused.
 
    The device is checked the way churchshow.js and the rules' churchShow()
-   do: signed in with the token claim device == 'churchshow', and
-   devices/<uid>.active true - read on every call, so Disconnect on the hub
-   stops it at once. churchshow.js is not changed.
+   do: the token claim device == 'churchshow', and devices/<uid>.active true
+   - read on every call, so Disconnect on the hub stops it at once. Its
+   building is the one on the device record (and the token must agree).
+   churchshow.js is not changed.
 
-   THE FORMAT (egbc-lesson/1, F-225):
+   FILES AND VIDEO come as SHORT-LIVED download links (signed, three hours:
+   long enough for a morning), never the plan's own long-lived links.
+   LEADERS' NOTES and "things to bring" are never sent to a screen device.
+
+   egbc-lesson/1 (F-225):
      { format, id, group: { id, name, ages }, date, title, programme,
        lessonCode, lessonLink, passage: { ref, version, source, text,
        copyright }, steps: [ { part, partId, n, type, ... } ] }
-   Every part's "show on screen" steps, in order. A Bible Gateway passage
-   carries only ref and version (ChurchShow fetches it itself). Leaders'
-   notes and "things to bring" are not sent to a screen device.
+   A Bible Gateway passage carries only ref and version (ChurchShow
+   fetches it itself).
    =================================================================== */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
+const LINK_MS = 3 * 60 * 60 * 1000;
+const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
 
 async function device(req) {
   const a = req.auth;
-  if (!a || !a.token || a.token.device !== 'churchshow') throw new HttpsError('permission-denied', 'Only a paired ChurchShow computer can ask for a lesson.');
+  if (!a || !a.token || a.token.device !== 'churchshow') throw new HttpsError('permission-denied', 'Only a paired ChurchShow computer can ask for lessons.');
   const d = await db().collection('devices').doc(a.uid).get();
-  if (!d.exists || d.data().active !== true) throw new HttpsError('permission-denied', 'This ChurchShow computer has been disconnected on the hub.');
-  return d.data();
+  const x = d.exists ? d.data() : null;
+  if (!x || x.active !== true) throw new HttpsError('permission-denied', 'This ChurchShow computer has been disconnected on the hub.');
+  const siteId = String(x.siteId || '');
+  if (!siteId || (a.token.siteId && String(a.token.siteId) !== siteId)) throw new HttpsError('permission-denied', 'This ChurchShow computer is not paired to a building.');
+  return { siteId };
+}
+
+/* A short-lived link to a file the plan holds (by its Storage path). */
+async function link(path) {
+  if (!path || !/^planner\//.test(path)) return '';
+  const file = getStorage().bucket().file(path);
+  const expires = Date.now() + LINK_MS;
+  if (EMULATOR) {
+    /* The Storage emulator cannot sign; it serves the file by its path. The
+       test checks the path and the expiry are what a real link would carry. */
+    const b = getStorage().bucket().name;
+    return 'http://' + (process.env.FIREBASE_STORAGE_EMULATOR_HOST || '127.0.0.1:9198') + '/v0/b/' + b + '/o/' + encodeURIComponent(path) + '?alt=media&expires=' + expires;
+  }
+  const [url] = await file.getSignedUrl({ action: 'read', expires });
+  return url;
 }
 
 const KEEP = {
   verses: ['ref', 'version', 'source', 'text', 'copyright'],
-  song: ['songId', 'title', 'ccli'],
-  video: ['url', 'name', 'seconds'],
-  youtube: ['videoId', 'start'],
-  picture: ['url', 'name'],
-  pptx: ['officeUrl', 'fileUrl', 'name'],
-  text: ['words'],
   memory: ['ref', 'version', 'source', 'text', 'copyright'],
+  song: ['songId', 'title', 'ccli'],
+  video: ['name', 'seconds'],
+  picture: ['name'],
+  youtube: ['videoId', 'start'],
+  pptx: ['officeUrl', 'name'],
+  text: ['words'],
   timer: ['seconds'],
   quiz: ['questions'],
   link: ['url', 'label']
 };
-export function step(st, part, n) {
+export async function step(st, part, n) {
   const keep = KEEP[st.type]; if (!keep) return null;
   const out = { part: String(part.title || part.kind || ''), partId: String(part.id || ''), n, type: st.type };
   keep.forEach(k => { if (st[k] !== undefined && st[k] !== null && st[k] !== '') out[k] = st[k]; });
   /* Bible Gateway: the reference only, never text. */
   if ((st.type === 'verses' || st.type === 'memory') && st.source === 'biblegateway') { delete out.text; delete out.copyright; }
+  /* Files and video: a fresh short-lived link, never the stored one. */
+  if (st.type === 'video' || st.type === 'picture') { out.url = await link(st.path); out.expiresInMinutes = LINK_MS / 60000; }
+  if (st.type === 'pptx' && st.path) out.fileUrl = await link(st.path);
   return out;
 }
-export function lessonOf(id, s, g) {
+export async function lessonOf(id, s, g) {
   let n = 0;
   const steps = [];
-  (s.parts || []).forEach(p => (p.show || []).forEach(st => { const x = step(st, p, ++n); if (x) steps.push(x); }));
+  for (const p of (s.parts || [])) for (const st of (p.show || [])) { const x = await step(st, p, ++n); if (x) steps.push(x); }
   const pa = s.passage || null;
   return {
     format: 'egbc-lesson/1', id, group: { id: s.groupId, name: g.name || '', ages: [g.ageFrom || 0, g.ageTo || 0] },
@@ -70,26 +103,29 @@ export function lessonOf(id, s, g) {
 }
 
 export const lessonFor = onCall({ region: REGION }, async (req) => {
-  await device(req);
+  const dev = await device(req);
   const d = req.data || {};
-  if (d.date !== undefined) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date))) throw new HttpsError('invalid-argument', 'A date, as YYYY-MM-DD.');
-    const snap = await db().collection('planSessions').where('date', '==', d.date).get();
-    const groups = {};
-    const out = [];
+  const date = String(d.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpsError('invalid-argument', 'A date, as YYYY-MM-DD.');
+  /* This building's groups only. */
+  const gs = await db().collection('planGroups').where('siteId', '==', dev.siteId).get();
+  const groups = {};
+  gs.docs.forEach(x => { if (!x.data().archived) groups[x.id] = x.data(); });
+  if (d.groupId !== undefined && d.groupId !== '') {
+    const gid = String(d.groupId);
+    if (!groups[gid]) throw new HttpsError('permission-denied', 'That group does not meet in this computer\'s building.');
+    Object.keys(groups).forEach(k => { if (k !== gid) delete groups[k]; });
+  }
+  const ids = Object.keys(groups);
+  const lessons = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    const snap = await db().collection('planSessions').where('date', '==', date).where('groupId', 'in', ids.slice(i, i + 10)).get();
     for (const doc of snap.docs) {
       const s = doc.data();
       if (s.special === 'none') continue;
-      if (!groups[s.groupId]) groups[s.groupId] = (await db().collection('planGroups').doc(String(s.groupId)).get()).data() || {};
-      out.push({ id: doc.id, group: groups[s.groupId].name || '', title: s.title || '', date: s.date });
+      lessons.push(await lessonOf(doc.id, s, groups[s.groupId] || {}));
     }
-    return { lessons: out };
   }
-  const id = String(d.sessionId || '');
-  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new HttpsError('invalid-argument', 'Which lesson?');
-  const doc = await db().collection('planSessions').doc(id).get();
-  if (!doc.exists) throw new HttpsError('not-found', 'That lesson could not be found.');
-  const s = doc.data();
-  const g = (await db().collection('planGroups').doc(String(s.groupId)).get()).data() || {};
-  return lessonOf(id, s, g);
+  lessons.sort((a, b) => a.group.name.localeCompare(b.group.name));
+  return { date, siteId: dev.siteId, lessons };
 });

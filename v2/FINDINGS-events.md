@@ -7357,3 +7357,33 @@ switching on in the console at part 3.
   Gateway reference only, no notes, disconnected refused, a person refused); 6 deliberate
   breaks, all caught.
 - **Deploy:** `lessonFor`, and `bibleKeyStatus` / `bibleKeySave` again (they changed).
+
+### F-228 — lessonFor, as agreed for ChurchShow Lesson mode (replaces F-227's first version)
+
+**Call:** `lessonFor({ date: 'YYYY-MM-DD', groupId? })`, a Firebase callable in europe-west2,
+made with the paired computer's own sign-in.
+**Returns:** `{ date, siteId, lessons: [ egbc-lesson/1, … ] }`.
+
+- **Paired computers only,** checked as churchshow.js and the rules' `churchShow()` do: the
+  token claim `device == 'churchshow'`, and `devices/<uid>.active` read on every call, so
+  Disconnect stops it at once. churchshow.js isn't changed.
+- **Its own building only.** A plan group now has a building (`planGroups.siteId`, chosen in
+  ⚙ Groups: "Meets in"). A computer gets that date's lessons of the groups that meet in its
+  building, from the device record's `siteId`. A sign-in claiming another building is
+  refused. Asking for another building's group by id is refused.
+- **Files and video** come as short-lived signed download links (3 hours,
+  `expiresInMinutes: 180`), never the plan's own long-lived links. A PowerPoint step keeps
+  its `officeUrl`, plus a short-lived `fileUrl` if a copy was uploaded.
+- **Never sent:** leaders' notes and "things to bring". A Bible Gateway passage is the
+  reference and version only.
+- **Proved:** session-planner.test 42/42, including:
+  - another building's computer gets none, and is refused by group id
+  - an unpaired computer, one claiming the wrong building, a disconnected one and a person
+    are all refused
+  - links are short-lived
+  - notes are absent
+
+  Deliberate breaks: see the report.
+- **Deploy:** `lessonFor` (changed), with the rules (planGroups may now hold `siteId`).
+- **Before a group shows in ChurchShow,** a master admin sets its building in the planner's
+  ⚙ Groups.

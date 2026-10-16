@@ -86,6 +86,8 @@ for (const k of Object.keys(P)) {
 }
 for (const name of ['Core Team', 'Kids Church']) await db.collection('teams').doc(name).set({ name, label: name, rota: true, order: 1 });
 await db.collection('churchSettings').doc('details').set({ name: 'Test Green Church', enquiryEmail: 'office@example.invalid' });
+await db.collection('sites').doc('site_a').set({ name: 'Main building (invented)', active: true, order: 1 });
+await db.collection('sites').doc('site_b').set({ name: 'Hall annex (invented)', active: true, order: 2 });
 /* The coming Sunday, on the rota: Tom on Kids Church, Ava marked away. */
 const d0 = new Date(); d0.setDate(d0.getDate() + ((7 - d0.getDay()) % 7 || 7));
 const SUN = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
@@ -124,12 +126,13 @@ try {
   await setVal(M, nf + '[data-gf="name"]', 'Kids Church');
   await setVal(M, nf + '[data-gf="ageFrom"]', '4'); await setVal(M, nf + '[data-gf="ageTo"]', '10');
   await setVal(M, nf + '[data-gf="teamName"]', 'Kids Church');
+  await M.select(nf + '[data-gf="siteId"]', 'site_a');
   for (const id of ['m_samy', 'm_karen', 'm_lois']) await M.select(nf + '[data-gladd]', id);
   await setVal(M, nf + '[data-gf="programmes"]', 'Urban Saints | https://example.invalid/lesson/{code}');
   await setVal(M, nf + '[data-gf="parts"]', 'Welcome, Game, Story, Craft, Prayer');
   await tap(M, nf + '[data-gsave]');
   const grp = await until(async () => { const s = await db.collection('planGroups').get(); return s.docs[0] ? { id: s.docs[0].id, ...s.docs[0].data() } : null; });
-  ok('1. A MASTER ADMIN SETS UP A GROUP: Kids Church, three leaders, its team, Urban Saints and its link, the parts', grp && grp.name === 'Kids Church' && J(grp.leaderIds) === J(['m_samy', 'm_karen', 'm_lois']) && grp.teamName === 'Kids Church'
+  ok('1. A MASTER ADMIN SETS UP A GROUP: Kids Church, three leaders, its team, Urban Saints and its link, the parts', grp && grp.name === 'Kids Church' && J(grp.leaderIds) === J(['m_samy', 'm_karen', 'm_lois']) && grp.teamName === 'Kids Church' && grp.siteId === 'site_a'
     && grp.programmes[0].name === 'Urban Saints' && J(grp.parts) === J(['Welcome', 'Game', 'Story', 'Craft', 'Prayer']), J(grp));
   await M.screenshot({ path: path.join(HERE, 'planner-groups-375.png'), fullPage: true });
 
@@ -224,12 +227,13 @@ try {
   await tap(SA, '#pickPassage');
   await until(() => SA.$('[data-src="biblegateway"]'));
   await tap(SA, '[data-src="biblegateway"]');
-  await until(() => SA.$('#bpVer option[value="NIVUK"], #bpVer option'));
+  await until(() => SA.$('#bpVer option[value="NIVUK"]'));
   await setVal(SA, '#bpRef', 'John 3:16');
   await tap(SA, '#bpShow');
   await until(() => SA.$('#bpUse'));
   const gwLink = await SA.$eval('#bpOut a', a => a.href);
   await tap(SA, '#bpUse');
+  await until(async () => /John 3:16/.test(await text(SA, '#passageBox')) && /NIVUK/.test(await text(SA, '#passageBox')));
   await tap(SA, '#save');
   await until(async () => /Saved/.test(await text(SA, '#sMsg')));
   const p2 = await plan();
@@ -287,32 +291,48 @@ try {
   ok('   a leader uploads a worksheet to a part, and it is kept with the plan', !!p3.parts.find(x => (x.files || []).some(f => f.name === 'worksheet-EJ03.pdf' && /^planner\//.test(f.path))), J(p3.parts.map(x => x.files)));
   ok('   nothing scrolls sideways at 375px', (await SA.evaluate(() => document.scrollingElement.scrollWidth - innerWidth)) <= 0);
 
-  /* ---------- 10. a paired ChurchShow computer asks for the lesson (egbc-lesson/1) ---------- */
+  /* ---------- 10. ChurchShow's lessons: its own building only (F-228) ---------- */
   const { getAuth } = fnRequire('firebase-admin/auth');
-  const devUid = 'churchshow-site_a';
-  await db.collection('devices').doc(devUid).set({ active: true, siteId: 'site_a' });
+  /* a leader's note, things to bring, and a video step, to see what is NOT sent and how files go */
+  const p4 = await plan();
+  const craft = p4.parts.find(x => x.title === 'Craft'), wsheet = (craft.files || [])[0];
+  p4.parts.forEach(x => { if (x.title === 'Craft') { x.notes = 'SECRET LEADER NOTE (invented)'; x.show = (x.show || []).concat([{ id: 'v1', type: 'video', name: 'clip.mp4', path: wsheet.path, url: wsheet.url }]); } });
+  await db.collection('planSessions').doc(p1.id).update({ parts: p4.parts });
   const asDevice = async (uidX, claims) => {
     const ct = await getAuth().createCustomToken(uidX, claims);
     const r = await (await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=fake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: ct, returnSecureToken: true }) })).json();
     return r.idToken;
   };
-  const callFn = async (tok, data) => {
-    const r = await fetch('http://127.0.0.1:5102/' + PROJECT + '/europe-west2/lessonFor', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ data }) });
-    return r.json();
-  };
-  const dtok = await asDevice(devUid, { device: 'churchshow', siteId: 'site_a' });
-  const day = await callFn(dtok, { date: SUN });
-  ok('10. CHURCHSHOW: a paired computer lists that day\'s lessons', day.result && day.result.lessons.length === 1 && day.result.lessons[0].group === 'Kids Church', J(day));
-  const les = (await callFn(dtok, { sessionId: p1.id })).result || {};
-  ok('    and gets one as egbc-lesson/1: group, code, link, the steps in order', les.format === 'egbc-lesson/1' && les.group.name === 'Kids Church' && les.lessonCode === 'EJ03' && les.steps.length >= 1 && les.steps[0].type === 'text' && les.steps[0].n === 1, J(les).slice(0, 400));
+  const callFn = async (tok, data) => (await fetch('http://127.0.0.1:5102/' + PROJECT + '/europe-west2/lessonFor', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ data }) })).json();
+  await db.collection('devices').doc('churchshow-site_a').set({ kind: 'churchshow', siteId: 'site_a', active: true });
+  await db.collection('devices').doc('churchshow-site_b').set({ kind: 'churchshow', siteId: 'site_b', active: true });
+  const ta = await asDevice('churchshow-site_a', { device: 'churchshow', siteId: 'site_a' });
+  const tb = await asDevice('churchshow-site_b', { device: 'churchshow', siteId: 'site_b' });
+  const day = (await callFn(ta, { date: SUN })).result || {};
+  const les = (day.lessons || [])[0] || {};
+  ok('10. CHURCHSHOW: the Main building\u2019s computer gets that Sunday\u2019s lessons of its own groups, as egbc-lesson/1', day.lessons && day.lessons.length === 1 && les.format === 'egbc-lesson/1' && les.group.name === 'Kids Church' && les.lessonCode === 'EJ03' && les.steps[0].type === 'text', J(day).slice(0, 400));
+  const one = (await callFn(ta, { date: SUN, groupId: grp.id })).result || {};
+  ok('    or one group\u2019s, by its id', one.lessons && one.lessons.length === 1);
+  const vid = les.steps.find(x => x.type === 'video') || {};
+  ok('    FILES AND VIDEO: a short-lived link (3 hours), never the plan\u2019s own long-lived one', /expires=\d+/.test(vid.url || '') && vid.url.indexOf(encodeURIComponent(wsheet.path)) > 0 && vid.expiresInMinutes === 180 && !/token=/.test(J(les)), J(vid));
+  ok('    LEADERS\u2019 NOTES AND "THINGS TO BRING" ARE NEVER SENT', !/SECRET LEADER NOTE|dark cloth|"notes"|"bring"/.test(J(day)), J(les).slice(0, 300));
   ok('    a Bible Gateway passage is the reference only (ChurchShow fetches it)', les.passage && les.passage.source === 'biblegateway' && les.passage.text === undefined, J(les.passage));
-  ok('    LEADERS\' NOTES AND "THINGS TO BRING" ARE NOT SENT TO A SCREEN', !/dark cloth|"notes"|"bring"/.test(J(les)), J(les).slice(0, 300));
-  await db.collection('devices').doc(devUid).update({ active: false });
-  const off = await callFn(dtok, { sessionId: p1.id });
+  const other = (await callFn(tb, { date: SUN })).result || {};
+  ok('    ANOTHER BUILDING\u2019S COMPUTER gets none of them', other.lessons && other.lessons.length === 0, J(other));
+  const otherG = await callFn(tb, { date: SUN, groupId: grp.id });
+  ok('    and is refused when it asks for this building\u2019s group by id', otherG.error && /PERMISSION_DENIED/.test(otherG.error.status), J(otherG));
+  const tc = await asDevice('churchshow-site_c', { device: 'churchshow', siteId: 'site_c' });
+  const unpaired = await callFn(tc, { date: SUN });
+  ok('    AN UNPAIRED COMPUTER is refused', unpaired.error && /PERMISSION_DENIED/.test(unpaired.error.status), J(unpaired));
+  const tlie = await asDevice('churchshow-site_b', { device: 'churchshow', siteId: 'site_a' });
+  const lie = await callFn(tlie, { date: SUN });
+  ok('    a computer whose sign-in claims another building than it was paired to is refused', lie.error && /PERMISSION_DENIED/.test(lie.error.status), J(lie));
+  await db.collection('devices').doc('churchshow-site_a').update({ active: false });
+  const off = await callFn(ta, { date: SUN });
   ok('    DISCONNECTED on the hub: refused at once', off.error && /PERMISSION_DENIED/.test(off.error.status), J(off));
   const mtok = await asDevice(P.samy.uid, {});
-  const notDev = await callFn(mtok, { sessionId: p1.id });
-  ok('    a person (even the group\'s leader) is not a ChurchShow computer', notDev.error && /PERMISSION_DENIED/.test(notDev.error.status), J(notDev));
+  const notDev = await callFn(mtok, { date: SUN });
+  ok('    a person (even the group\u2019s leader) is not a ChurchShow computer', notDev.error && /PERMISSION_DENIED/.test(notDev.error.status), J(notDev));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

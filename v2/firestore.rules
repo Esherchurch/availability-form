@@ -4230,7 +4230,7 @@ service cloud.firestore {
                   || (active() && (me().get('memberId', '-') in resource.data.get('leaderIds', [])
                                    || resource.data.get('teamName', '-') in me().get('teams', [])));
       allow write: if isMaster()
-                   && request.resource.data.keys().hasOnly(['name', 'kind', 'ageFrom', 'ageTo', 'day', 'time', 'leaderIds', 'teamName', 'emails', 'programmes', 'parts', 'order', 'archived', 'updatedBy', 'updatedAt'])
+                   && request.resource.data.keys().hasOnly(['name', 'kind', 'ageFrom', 'ageTo', 'day', 'time', 'siteId', 'leaderIds', 'teamName', 'emails', 'programmes', 'parts', 'order', 'archived', 'updatedBy', 'updatedAt'])
                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
                    && request.resource.data.kind in ['children', 'youth', 'sermon', 'other']
                    && request.resource.data.leaderIds is list && request.resource.data.leaderIds.size() <= 30;

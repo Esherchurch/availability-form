@@ -96,7 +96,7 @@
      (session-planner.html, not planner.html: on Windows that is the same
      file as the Rota Planner, Planner.html.) */
   var E = window.EGBCEvents, B = window.EGBCBible, esc = E.esc;
-  var ME = {}, MASTER = false, GROUPS = [], G = null, SESS = [], S = null, PEOPLE = {}, MARKERS = {}, TEAMMEM = [], VIEW = 'term', DIRTY = false, OPEN = {};
+  var SITES = [], ME = {}, MASTER = false, GROUPS = [], G = null, SESS = [], S = null, PEOPLE = {}, MARKERS = {}, TEAMMEM = [], VIEW = 'term', DIRTY = false, OPEN = {};
   var KINDS = ['Welcome', 'Game', 'Story', 'Video', 'Craft', 'Worship', 'Prayer', 'Quiz', 'Talk', 'Discussion', 'Other'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var STEP_TYPES = [['verses', 'Bible verses'], ['video', 'Video file'], ['youtube', 'YouTube'], ['picture', 'Picture'], ['song', 'Song'], ['memory', 'Memory verse'],
@@ -236,6 +236,7 @@
           '<div class="grid2"><div><label class="l">Name</label><input class="inp" data-gf="name" maxlength="60" value="' + esc(g.name || '') + '" placeholder="e.g. Kids Church"></div>' +
           '<div><label class="l">Kind</label><select data-gf="kind">' + [['children', 'Children'], ['youth', 'Youth'], ['sermon', 'Sermons (the preaching team)'], ['other', 'Other']].map(function (k) { return '<option value="' + k[0] + '"' + (g.kind === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') + '</select></div></div>' +
           '<div class="grid2"><div><label class="l">Ages from</label><input class="inp" type="number" data-gf="ageFrom" value="' + esc(g.ageFrom || '') + '"></div><div><label class="l">Ages to</label><input class="inp" type="number" data-gf="ageTo" value="' + esc(g.ageTo || '') + '"></div></div>' +
+          '<label class="l">Meets in (the building: the ChurchShow computer there gets the lessons of this group)</label><select data-gf="siteId"><option value="">(not set)</option>' + SITES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (g.siteId === x.id ? ' selected' : '') + '>' + esc(x.name || x.id) + '</option>'; }).join('') + '</select>' +
           '<div class="grid2"><div><label class="l">Meets on</label><select data-gf="day">' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (+(g.day || 0) === i ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
           '<div><label class="l">The team (reads the plans; its rota roles are who\'s on)</label><input class="inp" data-gf="teamName" maxlength="60" value="' + esc(g.teamName || '') + '" placeholder="e.g. Kids Church"></div></div>' +
           '<label class="l">Leaders (edit every plan; every plan is emailed to them)</label><div data-gleaders="1">' + (g.leaderIds || []).map(function (i) { return '<span class="pill">' + esc(PEOPLE[i] || i) + '<button data-gldrop="' + esc(i) + '" aria-label="Take off">×</button></span>'; }).join('') + '</div>' +
@@ -395,7 +396,7 @@
       var v = sh.q('bpVer');
       if (src === 'bundled') B.versions().then(function (l) { v.innerHTML = l.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join(''); if (l.some(function (x) { return x.id === 'BSB'; })) v.value = 'BSB'; }, function (e) { v.innerHTML = '<option value="">' + esc(e.message || e) + '</option>'; });
       else if (src === 'apibible') { v.innerHTML = '<option value="">Asking API.Bible…</option>'; B.apiVersions().then(function (l) { v.innerHTML = l.map(function (x) { return '<option value="' + esc(x.id) + '" data-ab="' + esc(x.abbrev) + '">' + esc(x.name + (x.lang && x.lang !== 'English' ? ' (' + x.lang + ')' : '')) + '</option>'; }).join('') || '<option value="">No Bibles on the key</option>'; }, function (e) { v.innerHTML = '<option value="">' + esc(e.message || 'Not available') + '</option>'; }); }
-      else v.innerHTML = B.GATEWAY_VERSIONS.map(function (x) { return '<option>' + esc(x) + '</option>'; }).join('');
+      else v.innerHTML = B.GATEWAY_VERSIONS.map(function (x) { return '<option value="' + esc(x) + '">' + esc(x) + '</option>'; }).join('');
     };
     sh.el.querySelectorAll('[data-src]').forEach(function (b) { b.onclick = function () { src = b.getAttribute('data-src'); sh.el.querySelectorAll('[data-src]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); fill(); }; });
     fill();
@@ -472,7 +473,7 @@
       card.querySelector('[data-gsave]').onclick = function () {
         var v = function (f) { return card.querySelector('[data-gf="' + f + '"]').value; }, msg = card.querySelector('[data-gmsg]');
         var name = v('name').trim(); if (!name) { msg.textContent = 'Give the group a name.'; return; }
-        var doc = { name: name.slice(0, 60), kind: v('kind'), ageFrom: +v('ageFrom') || 0, ageTo: +v('ageTo') || 0, day: +v('day') || 0, time: g.time || '',
+        var doc = { name: name.slice(0, 60), kind: v('kind'), ageFrom: +v('ageFrom') || 0, ageTo: +v('ageTo') || 0, day: +v('day') || 0, time: g.time || '', siteId: v('siteId'),
           leaderIds: card._leaders.slice(0, 30), teamName: v('teamName').trim().slice(0, 60),
           emails: v('emails').split(',').map(function (x) { return x.trim().toLowerCase(); }).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); }).slice(0, 20),
           programmes: v('programmes').split('\n').map(function (l) { var p = l.split('|'); return { name: (p[0] || '').trim().slice(0, 60), link: (p[1] || '').trim().slice(0, 300) }; }).filter(function (p) { return p.name; }).slice(0, 12),
@@ -529,7 +530,8 @@
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
     return Promise.all([
       db().collection('addressBook').get().then(function (s) { s.docs.forEach(function (d) { var x = d.data(); if (x.name && !x.archived) { PEOPLE[d.id] = x.name; MARKERS[d.id] = x.markers || []; } }); }).catch(function () {}),
-      EGBCChurch.load ? EGBCChurch.load().catch(function () {}) : null
+      EGBCChurch.load ? EGBCChurch.load().catch(function () {}) : null,
+      db().collection('sites').get().then(function (s) { SITES = all(s).filter(function (x) { return x.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); }); }).catch(function () {})
     ]).then(loadGroups);
   }).then(function () {
     var want = (location.search.match(/[?&]s=([\w-]+)/) || [])[1];
