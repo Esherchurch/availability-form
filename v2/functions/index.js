@@ -780,3 +780,4 @@ export { peepTodayDaily, peepTodayOnCheckin, peepTodayOnPeep, peepTodayOnRollCal
    unsubscribe, Resend's bounce webhook, the office's add-by-hand. Sends
    through Church HQ's Resend (hq-mail.js); shut until switch-over (enews-gate.js). */
 export { enewsSignup, enewsConfirm, enewsUnsubscribe, hqMailEvents, enewsSubscriberSave } from './enews.js';
+export { enewsSendDue, enewsTest } from './enews-send.js';

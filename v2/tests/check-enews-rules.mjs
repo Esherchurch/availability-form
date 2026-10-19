@@ -43,6 +43,8 @@ async function run(rules) {
     }
     await setDoc(doc(db, 'enewsIssues', 'sent1'), issue('en_office', { status: 'sent' }));
     await setDoc(doc(db, 'enewsIssues', 'draft1'), issue('en_office'));
+    await setDoc(doc(db, 'enewsWeb', 'w1'), { subject: 'Weekly news', html: '<p>Hi</p>', sentAt: 'x' });
+    await setDoc(doc(db, 'enewsIssues', 'sent1', 'sends', 'a'), { ok: true });
     await setDoc(doc(db, 'enewsSubscribers', 's1'), { email: 'sub@example.invalid', status: 'subscribed', token: 'x'.repeat(32) });
     await setDoc(doc(db, 'enewsSettings', 'main'), { template: 'classic', colours: {}, church: {}, updatedAt: 'x', updatedBy: 'en_office' });
   });
@@ -67,6 +69,12 @@ async function run(rules) {
   await t('office can save the look and footer', assertSucceeds(setDoc(doc(as('office'), 'enewsSettings', 'main'), { template: 'green', colours: { bar: '#123456' }, church: { address: '1 Test Lane' }, updatedAt: 'x', updatedBy: 'en_office' })));
   await t('a church member cannot change the look', assertFails(setDoc(doc(as('member'), 'enewsSettings', 'main'), { template: 'green', colours: {}, church: {}, updatedAt: 'x', updatedBy: 'en_member' })));
   await t('settings only take the known footer fields', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'main'), { template: 'green', colours: {}, church: { apiKey: 'x' }, updatedAt: 'x', updatedBy: 'en_office' })));
+  await t('scheduling needs both finished copies', assertFails(setDoc(doc(as('office'), 'enewsIssues', 'o5'), issue('en_office', { status: 'scheduled', sendAt: '2026-10-22T16:00' }))));
+  await t('scheduled with both copies is fine', assertSucceeds(setDoc(doc(as('office'), 'enewsIssues', 'o6'), issue('en_office', { status: 'scheduled', sendAt: '2026-10-22T16:00', htmlMembers: '<p>m</p>', htmlEveryone: '<p>e</p>' }))));
+  await t('anyone can read the web version (no sign-in)', assertSucceeds(getDoc(doc(anon, 'enewsWeb', 'w1'))));
+  await t('nobody writes the web version from a page', assertFails(setDoc(doc(as('master'), 'enewsWeb', 'w2'), { subject: 'x', html: 'x', sentAt: 'x' })));
+  await t('the office can see who an issue went to', assertSucceeds(getDocs(collection(as('office'), 'enewsIssues', 'sent1', 'sends'))));
+  await t('a church member cannot', assertFails(getDocs(collection(as('member'), 'enewsIssues', 'sent1', 'sends'))));
   await t('office can read the subscriber list', assertSucceeds(getDocs(collection(as('office'), 'enewsSubscribers'))));
   await t('a church member cannot read subscribers', assertFails(getDoc(doc(as('member'), 'enewsSubscribers', 's1'))));
   await t('nobody signed out reads subscribers', assertFails(getDoc(doc(anon, 'enewsSubscribers', 's1'))));
@@ -82,6 +90,8 @@ const R = await run(RULES);
 report(R);
 
 const BREAKS = [
+  ['scheduled without copies', "&& (d.status != 'scheduled' ||", "&& (true ||", 'scheduling needs both finished copies'],
+  ['anybody may write the web version', 'allow write: if false;          // web version: the sender only', 'allow write: if true;           // web version: the sender only', 'nobody writes the web version'],
   ['the office may write subscribers from a page', 'allow write: if false;          // subscribers: functions only', 'allow write: if enewsOffice(); // subscribers: functions only', 'not even the office writes'],
   ['church members may read subscribers', 'allow read: if enewsOffice();   // subscribers: the office', 'allow read: if active();        // subscribers: the office', 'a church member cannot read subscribers'],
   ['any admin may read issues', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\'); }', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\') || isAdmin(); }', 'an admin of a team'],

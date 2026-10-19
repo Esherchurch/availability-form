@@ -230,7 +230,24 @@ function serveAuth(src) {
     const after = ((await list('enewsIssues'))[0] || {}).blocks || [];
     ok('the verse is saved', after.some(b => b.type === 'verse' && b.ref === '1 Peter 5:7'), after.filter(b => b.type === 'verse'));
 
-    /* 7. A phone: nothing scrolls sideways, and nothing threw. */
+    /* 7. Schedule: the two finished copies go on the issue; "don't send
+       yet" takes them off again. */
+    await ev('window.confirm=function(){return true},[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
+    await shot('send');
+    await ev('document.getElementById("when").value="2030-01-03T16:00";document.getElementById("sched").click(),1');
+    await sleep(2500);
+    let is = (await list('enewsIssues'))[0] || {};
+    ok('Schedule: scheduled, with the time', is.status === 'scheduled' && is.sendAt === '2030-01-03T16:00', [is.status, is.sendAt]);
+    ok('Schedule: the members’ copy has the members prayer evening', String(is.htmlMembers || '').includes('Synthetic members prayer'));
+    ok('Schedule: everybody else’s copy does not', String(is.htmlEveryone || '').length > 500 && !String(is.htmlEveryone).includes('Synthetic members prayer'));
+    ok('Schedule: each person’s link is left for the sender to fill', String(is.htmlEveryone || '').includes('{{unsubscribe_url}}'));
+    ok('the page says it is scheduled', /Scheduled/.test(await text()));
+    await ev('document.getElementById("unsched").click(),1'); await sleep(2000);
+    is = (await list('enewsIssues'))[0] || {};
+    ok('"Don’t send yet": a draft again, with no copies to send', is.status === 'draft' && !is.htmlMembers && !is.htmlEveryone, is.status);
+    await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Build").click(), 1'); await sleep(500);
+
+    /* 8. A phone: nothing scrolls sideways, and nothing threw. */
     const w = await ev('document.documentElement.scrollWidth');
     ok('fits 375px (no sideways scroll)', w <= 375, w);
     const small = await ev('[...document.querySelectorAll("#wrap button, #wrap a, #wrap input, #wrap select")].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.height&&(r.height<30)}).map(e=>(e.textContent||e.id).trim().slice(0,20)+" "+Math.round(e.getBoundingClientRect().height))');

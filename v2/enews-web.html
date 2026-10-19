@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The e-news</title>
+<!-- THE E-NEWS ON THE WEB (comms window; FINDINGS-comms C-18). Public, no
+     sign-in: "View this e-news in your browser" in every e-news, and the
+     archive of past ones. Reached from the e-news and the church website,
+     so not in the Menu. It shows enewsWeb/{id}, which the sender writes
+     from EVERYBODY ELSE'S copy only - the members-only blocks (YouTube
+     live link, Zoom passcodes) are never in it. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-enews-public.js?v=202610192000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="egbc-enews-public.css?v=202610192000">
+<style>
+  .issue{display:block;border-top:1px solid var(--line);padding:12px 0;min-height:52px;text-decoration:none;color:inherit}
+  .issue b{color:var(--ink)}
+  .web{display:block;width:100%;border:0;min-height:80vh}
+  main.wide{max-width:680px;padding:12px 8px 40px}
+</style>
+</head>
+<body>
+<div class="ch" id="ch"></div>
+<main id="main"><p class="lead">Loading&hellip;</p></main>
+<script>
+(function () {
+  'use strict';
+  var P = window.EGBCEnewsPublic, esc = P.esc, main = document.getElementById('main');
+  P.header(document.getElementById('ch'));
+  var db = EGBCAuth.db, id = new URLSearchParams(location.search).get('issue');
+  function archive() {
+    db.collection('enewsWeb').orderBy('sentAt', 'desc').limit(30).get().then(function (s) {
+      main.innerHTML = '<h1>The e-news</h1><p class="lead">Past issues. <a href="enews-signup.html">Get it by email</a>.</p>' +
+        (s.empty ? '<p class="lead">None yet.</p>' : s.docs.map(function (d) {
+          var x = d.data();
+          return '<a class="issue" href="?issue=' + encodeURIComponent(d.id) + '"><b>' + esc(x.subject || 'E-news') + '</b><br><span class="lead" style="font-size:13px">' +
+            esc(new Date(x.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) + '</span></a>';
+        }).join(''));
+    }, function () { main.innerHTML = '<h1>The e-news</h1><p class="lead">Couldn’t load the past issues just now.</p>'; });
+  }
+  if (!id) { archive(); return; }
+  db.collection('enewsWeb').doc(id).get().then(function (d) {
+    if (!d.exists) { main.innerHTML = '<h1>Not found</h1><p class="lead">That e-news isn’t here. <a href="enews-web.html">All past issues</a>.</p>'; return; }
+    main.className = 'wide';
+    main.innerHTML = '<p style="margin:0 0 8px;padding:0 8px"><a href="enews-web.html">All past issues</a> · <a href="enews-signup.html">Get it by email</a></p><iframe class="web" title="' + esc(d.data().subject || 'E-news') + '" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" id="w"></iframe>';
+    var f = document.getElementById('w');
+    f.srcdoc = String(d.data().html || '').replace('<head>', '<head><base target="_blank">');
+    f.onload = function () { try { f.style.height = (f.contentDocument.documentElement.scrollHeight + 20) + 'px'; } catch (e) {} };
+  }, function () { main.innerHTML = '<h1>Couldn’t load it</h1><p class="lead">Try again in a moment.</p>'; });
+})();
+</script>
+</body>
+</html>

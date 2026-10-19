@@ -14,9 +14,11 @@
      never builds email HTML itself. "New e-news" drafts one from What's On,
      the rota and the notices; Val adds the verse and anything else.
 
-     Not here yet (later steps, FINDINGS-comms "Order of work"): sending
-     and scheduling through the hub's server, subscribers, sign-up and
-     unsubscribe, the web version and archive. -->
+     Sending: Schedule saves the two finished copies on the issue and the
+     hub's server sends them when the time comes (functions/enews-send.js),
+     to confirmed subscribers only; "Send me a test" sends the members' copy
+     to you. Subscribers: the list, and "Add someone", through the hub's
+     functions (functions/enews.js). Both shut until switch-over. -->
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-shell.js?v=202610162000" data-title="E-news"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -139,11 +141,13 @@
     history.replaceState(null, '', location.pathname);
     wrap.innerHTML = '<h1>E-news</h1><p class="sub">The weekly e-news. Start one and the hub fills in What’s On, Sunday and the notices for you.</p>' +
       '<div class="row" style="margin:0 0 12px"><button class="btn" id="new"><i data-lucide="plus" style="width:16px;height:16px"></i>New e-news</button>' +
-      '<button class="btn sec" id="look"><i data-lucide="palette" style="width:16px;height:16px"></i>Look and footer</button></div>' +
+      '<button class="btn sec" id="look"><i data-lucide="palette" style="width:16px;height:16px"></i>Look and footer</button>' +
+      '<button class="btn sec" id="subsb"><i data-lucide="users" style="width:16px;height:16px"></i>Subscribers</button></div>' +
       '<div class="card"><h2>Recent</h2><div class="list" id="issues"><p class="m">Loading…</p></div></div>';
     icons();
     document.getElementById('new').onclick = newIssue;
     document.getElementById('look').onclick = lookSheet;
+    document.getElementById('subsb').onclick = showSubscribers;
     db().collection('enewsIssues').orderBy('createdAt', 'desc').limit(30).get().then(function (s) {
       var el = document.getElementById('issues');
       if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">None yet. “New e-news” starts the first.</p>'; return; }
@@ -227,6 +231,11 @@
       template: ISSUE.template === 'green' ? 'green' : 'classic', blocks: ISSUE.blocks || [],
       status: ISSUE.status === 'scheduled' ? 'scheduled' : 'draft', sendAt: ISSUE.sendAt || ''
     }, stamp());
+    /* A scheduled issue carries its two finished copies, made again on every
+       save, so what is sent is always what is on the screen. A draft
+       carries none. */
+    data.htmlMembers = data.status === 'scheduled' ? finalCopy('members') : '';
+    data.htmlEveryone = data.status === 'scheduled' ? finalCopy('everyone') : '';
     var ref = ISSUE_ID ? db().collection('enewsIssues').doc(ISSUE_ID) : db().collection('enewsIssues').doc();
     if (!ISSUE_ID) { data.createdAt = new Date().toISOString(); data.createdBy = data.updatedBy; }
     return ref.set(data, { merge: true }).then(function () {
@@ -301,6 +310,14 @@
       version: version, church: CHURCH, unsubscribeUrl: hubBase() + '/enews-unsubscribe.html', webUrl: hubBase() + '/enews.html'
     });
   }
+  /* The copies the server sends: each person's own unsubscribe link goes in
+     place of MB.PLACEHOLDER as it sends (functions/enews-send.js). */
+  function finalCopy(version) {
+    return MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), {
+      version: version, church: CHURCH, unsubscribeUrl: MB.PLACEHOLDER,
+      webUrl: ISSUE_ID ? hubBase() + '/enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) : ''
+    });
+  }
   function drawPreview(w) {
     var v = document.getElementById('view');
     var who = drawPreview.who || 'members';
@@ -317,14 +334,83 @@
   }
 
   function drawSend() {
-    var v = document.getElementById('view');
+    var v = document.getElementById('view'), st = ISSUE.status || 'draft';
+    var nice = function (t) { return t ? new Date(t).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }) : ''; };
+    var c = ISSUE.counts || {};
     v.innerHTML = '<div class="card"><h2>Send</h2>' +
-      '<p class="m" style="margin:0 0 6px">To: e-news subscribers. Church members get the members-only blocks; everyone else doesn’t.</p>' +
-      '<label for="when">When</label><input type="datetime-local" id="when" value="' + esc(ISSUE.sendAt || '') + '"' + (editable() ? '' : ' disabled') + '>' +
-      '<p class="m">Sending through the hub comes with the next step (subscribers, sign-up and unsubscribe). Until then this saves the time only, and nothing is sent.</p>' +
-      '<div class="row"><button class="btn sec" id="keep"' + (editable() ? '' : ' disabled') + '>Save the time</button></div></div>';
-    var k = document.getElementById('keep');
-    if (k) k.onclick = function () { ISSUE.sendAt = document.getElementById('when').value; save().catch(function (e) { toast('Not saved: ' + (e.message || e)); }); };
+      '<p class="m" style="margin:0 0 6px" id="who">To: e-news subscribers…</p>' +
+      (st === 'sent' ? '<p><b style="color:var(--ink)">Sent</b> ' + esc(String(ISSUE.sentAt || '').slice(0, 16).replace('T', ' ')) + ' to ' + esc(String(c.sent || 0)) + ' people' +
+          (c.failed ? ', ' + esc(String(c.failed)) + ' could not be sent' : '') + '. <a href="enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) + '">The web version</a>.</p>'
+       : st === 'sending' ? '<p><b style="color:var(--ink)">Sending now.</b></p>'
+       : st === 'scheduled' ? '<p style="background:#ecfdf3;color:var(--ok);border-radius:10px;padding:10px 12px;margin:8px 0"><b>Scheduled</b> for ' + esc(nice(ISSUE.sendAt)) + '. Changes you make before then are sent too.</p>' +
+          '<div class="row"><button class="btn sec" id="unsched">Don’t send yet (back to a draft)</button></div>'
+       : '<label for="when">When to send</label><input type="datetime-local" id="when" value="' + esc(ISSUE.sendAt || '') + '">' +
+          '<p class="m">Church members get the members-only blocks; everyone else, and the web version, don’t. Each person gets their own unsubscribe link.</p>' +
+          '<div class="row"><button class="btn" id="sched">Schedule</button></div>') +
+      '</div>' +
+      (st === 'draft' || st === 'scheduled' ? '<div class="card"><h2>Try it first</h2><p class="m" style="margin:0 0 8px">The members’ copy, to your own email address.</p><button class="btn sec" id="test">Send me a test</button><p class="m" id="testmsg" role="status"></p></div>' : '');
+    db().collection('enewsSubscribers').where('status', '==', 'subscribed').get().then(function (s) {
+      var n = s.docs.filter(function (d) { return (d.data().lists || {}).weekly === true; }).length;
+      var el = document.getElementById('who'); if (el) el.textContent = 'To: ' + n + ' e-news subscriber' + (n === 1 ? '' : 's') + '.';
+    }, function () {});
+    var b;
+    if ((b = document.getElementById('sched'))) b.onclick = function () {
+      var t = document.getElementById('when').value;
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) { toast('Choose the day and time to send it.'); return; }
+      if (!confirm('Send this e-news to every subscriber on ' + nice(t) + '?\n\nYou can still change it, or stop it, until then.')) return;
+      ISSUE.sendAt = t; ISSUE.status = 'scheduled';
+      save().then(function () { draw(); }, function (e) { ISSUE.status = 'draft'; toast('Not scheduled: ' + (e.message || e)); });
+    };
+    if ((b = document.getElementById('unsched'))) b.onclick = function () {
+      ISSUE.status = 'draft';
+      save().then(function () { toast('Back to a draft. Nothing will be sent.'); draw(); }, function (e) { ISSUE.status = 'scheduled'; toast('Not changed: ' + (e.message || e)); });
+    };
+    if ((b = document.getElementById('test'))) b.onclick = function () {
+      var m = document.getElementById('testmsg'), btn = this; btn.disabled = true; m.textContent = 'Sending…';
+      (DIRTY ? save(true) : Promise.resolve()).then(function () {
+        return EGBCAuth.call('enewsTest', { issueId: ISSUE_ID, html: finalCopy('members') });
+      }).then(function (r) { r = (r && r.data !== undefined) ? r.data : r; btn.disabled = false; m.textContent = 'Sent to ' + ((r && r.to) || 'you') + '.'; },
+        function (e) { btn.disabled = false; m.textContent = 'Not sent: ' + (e.message || e); });
+    };
+  }
+
+  /* ---- the subscribers (C-10): the office sees them; every change goes
+     through the hub's functions, which keep the history ------------------ */
+  function showSubscribers() {
+    wrap.innerHTML = '<div class="row" style="margin:0 0 10px"><button class="btn sec" id="back"><i data-lucide="chevron-left" style="width:16px;height:16px"></i>E-news</button></div>' +
+      '<h1>Subscribers</h1><p class="sub">Everyone who gets the e-news, and everyone who has asked not to. People who unsubscribe are kept as “unsubscribed” so they are never emailed again.</p>' +
+      '<div class="row" style="margin:0 0 12px"><button class="btn" id="addsub"><i data-lucide="user-plus" style="width:16px;height:16px"></i>Add someone</button></div>' +
+      '<div class="card"><div class="list" id="subs"><p class="m">Loading…</p></div></div>';
+    icons();
+    document.getElementById('back').onclick = showList;
+    document.getElementById('addsub').onclick = addSubscriber;
+    db().collection('enewsSubscribers').orderBy('email').limit(1000).get().then(function (s) {
+      var el = document.getElementById('subs'), W = { subscribed: 'Subscribed', pending: 'Waiting to confirm', unsubscribed: 'Unsubscribed', bounced: 'Bounced', complained: 'Marked as spam' };
+      if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">Nobody yet. People join on the sign-up page (enews-signup.html); the Mailchimp list comes in at switch-over.</p>'; return; }
+      var n = s.docs.filter(function (d) { return d.data().status === 'subscribed'; }).length;
+      el.innerHTML = '<p class="m" style="margin:0 0 6px">' + n + ' subscribed, ' + (s.size - n) + ' others.</p>' + s.docs.map(function (d) {
+        var x = d.data(), k = x.consent || {};
+        return '<div class="srow" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 0;border-top:1px solid var(--line)"><span style="min-width:0;flex:1"><b style="word-break:break-all;color:var(--ink)">' + esc(x.email) + '</b><br><span class="m">' +
+          esc([x.firstName, k.how ? 'agreed: ' + k.how + (k.confirmedAt ? ', ' + String(k.confirmedAt).slice(0, 10) : '') : ''].filter(Boolean).join(' · ')) + '</span></span>' +
+          '<span class="st' + (x.status === 'subscribed' ? ' sent' : '') + '">' + esc(W[x.status] || x.status) + '</span></div>';
+      }).join('');
+    }).catch(function (e) { document.getElementById('subs').innerHTML = '<p class="m">Could not load: ' + esc(e.message || e) + '</p>'; });
+  }
+  function addSubscriber() {
+    sheet('Add someone',
+      field('a-email', 'Email', '', 'email') + field('a-first', 'First name (optional)', '') +
+      '<label for="a-how">How did they agree?</label><select id="a-how"><option value="">Choose…</option><option value="paper">On a paper form</option><option value="person">They asked in person</option><option value="email">They asked by email</option><option value="phone">They asked by phone</option></select>' +
+      field('a-note', 'A note (optional)', '') +
+      '<label class="tick"><input type="checkbox" id="a-special"> Special notices too</label>' +
+      '<label class="tick"><input type="checkbox" id="a-again"> They unsubscribed before, and have asked to come back</label>' +
+      '<p class="m">Only add people who have asked. The date, how they agreed and who added them are kept with their record.</p>',
+      function (s) {
+        var how = val(s, 'a-how');
+        if (!how) { toast('Say how they agreed.'); return false; }
+        EGBCAuth.call('enewsSubscriberSave', { email: val(s, 'a-email'), firstName: val(s, 'a-first'), how: how, note: val(s, 'a-note'),
+          special: s.querySelector('#a-special').checked, confirmAgain: s.querySelector('#a-again').checked })
+          .then(function () { toast('Added.'); showSubscribers(); }, function (e) { toast(e.message || String(e)); });
+      });
   }
 
   /* ---- editing one block, in a sheet ----------------------------------- */

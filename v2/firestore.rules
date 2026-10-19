@@ -1455,6 +1455,7 @@ service cloud.firestore {
     function enewsIssueOk() {
       let d = request.resource.data;
       return d.keys().hasOnly(['subject', 'preheader', 'template', 'colours', 'blocks', 'status', 'sendAt',
+                               'htmlMembers', 'htmlEveryone',
                                'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
         && d.status in ['draft', 'scheduled']
         && d.subject is string && d.subject.size() <= 200
@@ -1462,9 +1463,19 @@ service cloud.firestore {
         && d.get('template', 'classic') in ['classic', 'green']
         && d.blocks is list && d.blocks.size() <= 80
         && d.get('sendAt', '') is string && d.get('sendAt', '').size() <= 40
+        // The two finished copies, saved by Schedule (functions/enews-send.js
+        // sends them); a scheduled issue must have both.
+        && d.get('htmlMembers', '') is string && d.get('htmlMembers', '').size() <= 600000
+        && d.get('htmlEveryone', '') is string && d.get('htmlEveryone', '').size() <= 600000
+        && (d.status != 'scheduled' || (d.get('htmlMembers', '').size() > 0 && d.get('htmlEveryone', '').size() > 0))
         && d.updatedBy == request.auth.uid;
     }
     match /enewsIssues/{id} {
+      // Who was sent this issue, written by the sender as it goes.
+      match /sends/{subId} {
+        allow read: if enewsOffice();
+        allow write: if false;
+      }
       allow read: if enewsOffice();
       allow create: if enewsOffice() && enewsIssueOk() && request.resource.data.createdBy == request.auth.uid;
       allow update: if enewsOffice() && enewsIssueOk()
@@ -1481,6 +1492,13 @@ service cloud.firestore {
     match /enewsSubscribers/{id} {
       allow read: if enewsOffice();   // subscribers: the office
       allow write: if false;          // subscribers: functions only
+    }
+    // THE WEB VERSION AND ARCHIVE: everybody else's copy of each sent
+    // e-news, without the members-only blocks, written by the sender.
+    // Public, like the e-news was on Mailchimp - and never the members' copy.
+    match /enewsWeb/{id} {
+      allow read: if true;
+      allow write: if false;          // web version: the sender only
     }
     match /hqMailEvents/{id} {
       allow read, write: if false;
