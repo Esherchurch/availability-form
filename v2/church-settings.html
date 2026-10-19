@@ -11,8 +11,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610192130"></script>
-<script src="egbc-church.js?v=202610191600"></script>
+<script src="egbc-auth.js?v=202610192300"></script>
+<script src="egbc-church.js?v=202610192300"></script>
 <!-- An admin, OR the Church office. The office are the people who know
      the church's bank details, which now live on this page, and they are
      not necessarily admins of anything. Each half of the page is drawn
@@ -276,7 +276,7 @@
     document.getElementById('feat-form').innerHTML = list.map(function (f) {
       return '<button type="button" class="sw" role="switch" data-feature="' + esc(f.name) + '" aria-checked="' + f.on + '" style="margin:4px 0">' +
         '<span class="track" aria-hidden="true"></span><span>' + esc(f.label) +
-        (f.byDefault ? '' : ' <small style="color:var(--muted);font-weight:400">add-on</small>') + '</span></button>';
+        (f.addOn ? ' <small style="color:var(--muted);font-weight:400">add-on</small>' : '') + '</span></button>';
     }).join('');
     [].forEach.call(document.querySelectorAll('[data-feature]'), function (b) {
       b.onclick = function () { setFeature(b.dataset.feature, b.getAttribute('aria-checked') !== 'true', b); };

@@ -347,13 +347,19 @@
     { name: 'newHere', label: '\u201cI\u2019m new here\u201d', on: true },
     { name: 'usualPeople', label: 'Usual people on the rota', on: true },
     { name: 'screenPaging', label: 'Paging parents on the screen', on: true },
-    /* Off until the church switches them on: the add-ons (the events
-       window's F-230; Martin decides when the session planner goes on). */
-    { name: 'sessionPlanner', label: 'Session planner', on: false },
-    { name: 'buildingCompliance', label: 'Building checks', on: false },
-    { name: 'enews', label: 'E-news', on: false },
-    { name: 'cardMaker', label: 'Card maker', on: false },
-    { name: 'canva', label: 'Canva', on: false }
+    /* THE ADD-ONS (addOn: true). Martin, 19 Oct 2026: at EGBC every switch
+       starts ON, add-ons included; a new church's add-ons can start off
+       (that is what addOn marks, for when there is more than one church).
+       ONE EXCEPTION FOR NOW: building compliance starts OFF, because it
+       puts peep.html, risk.html, compliance.html and building.html in the
+       Menu, and the events window's gate (no private writes before
+       switch-over - peep.html saves to /peeps) is not live yet. Martin
+       switches it on in Church settings once it is. */
+    { name: 'sessionPlanner', label: 'Session planner', on: true, addOn: true },
+    { name: 'buildingCompliance', label: 'Building checks', on: false, addOn: true },
+    { name: 'enews', label: 'E-news', on: true, addOn: true },
+    { name: 'cardMaker', label: 'Card maker', on: true, addOn: true },
+    { name: 'canva', label: 'Canva', on: true, addOn: true }
   ];
   var featureSwitches = {};
   function loadFeatures() {
@@ -1440,7 +1446,7 @@
        with each one's default and what is stored, for Church settings. */
     uses: function (name) { return usesFeature(name); },
     features: function () {
-      return FEATURES.map(function (f) { return { name: f.name, label: f.label, byDefault: f.on, on: usesFeature(f.name) }; });
+      return FEATURES.map(function (f) { return { name: f.name, label: f.label, byDefault: f.on, addOn: !!f.addOn, on: usesFeature(f.name) }; });
     },
     reloadFeatures: function () { return loadFeatures(); },
 
