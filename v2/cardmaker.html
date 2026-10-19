@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card maker</title>
+<!-- VAL'S CARD MAKER (comms window; FINDINGS-comms C-17, decision 5).
+     Feature name cardMaker: off until a master admin turns it on. For the
+     Church office and master admins.
+
+     Pick an event from What's On, a size, a style and a movement; the card
+     is drawn here (a canvas, nothing sent anywhere) and saved as an
+     animated GIF for the e-news, a short video for social media and the
+     screens, or a picture (PNG) for anything else and print.
+
+     A NEW HUB PAGE, NOT CALLA DESIGN. Social Media Maker and Calla Photo
+     are not touched (decision 5). The video is made the way Social Media
+     Maker makes its (MediaRecorder from the canvas); the GIF uses the
+     Email Compiler's GIF maker, now shared as egbc-gif.js.
+
+     MOVEMENT NEVER HIDES THE WORDS. Outlook on Windows shows only a GIF's
+     first frame, so every movement here moves the photo or the button and
+     the words are all there from the first frame (C-8).
+
+     "Save to library": the picture (PNG) for every size, now. GIFs and
+     videos go in once the picture library keeps them whole (C-16, a
+     request to the events window); until then they download. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610162000" data-title="Card maker"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-picture-library.js?v=202610141900"></script>
+<script src="egbc-comms.js?v=202610192100"></script>
+<script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
+<script src="egbc-gif.js?v=202610192100"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--ok:#15803d;--danger:#b0392c;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:16px 16px 96px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .sub{color:var(--muted);margin:0 0 14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:14px;margin-bottom:12px}
+  label.f{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:12px 0 5px}
+  select,input[type=text],input[type=color]{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font:400 14px Inter,sans-serif;background:#fff;color:var(--ink)}
+  input[type=color]{width:60px;padding:3px}
+  .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+  .chips button{flex:none;min-height:46px;border:1px solid var(--line-2);border-radius:8px;background:#fff;padding:4px 10px;font:500 13px Inter,sans-serif;color:var(--ink);cursor:pointer;line-height:1.2}
+  .chips button small{display:block;color:var(--muted);font-size:11px;font-weight:400}
+  .chips button[aria-pressed="true"]{border-color:var(--brand);background:var(--tint);color:var(--brand)}
+  .stage{background:#e9ecec;border-radius:12px;padding:10px;display:grid;place-items:center;margin:12px 0}
+  .stage canvas{max-width:100%;max-height:60vh;height:auto;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:#fff}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .m{color:var(--muted);font-size:13px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  @media (max-width:480px){.two{grid-template-columns:1fr}}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:90vw}
+  #toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card m">Loading…</div></div>
+<div id="toast" role="status"></div>
+<script>
+(function () {
+  'use strict';
+  var wrap = document.getElementById('wrap');
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.className = 'on'; clearTimeout(toast.h); toast.h = setTimeout(function () { el.className = ''; }, 3200); }
+
+  /* ---- what can be made ------------------------------------------------- */
+  var SIZES = {
+    enews:    { label: 'E-news', w: 940, h: 788, gif: true },
+    insta:    { label: 'Instagram', w: 1080, h: 1080, video: true },
+    facebook: { label: 'Facebook', w: 1200, h: 630, video: true },
+    screen:   { label: 'Screen', w: 1920, h: 1080, video: true },
+    a5:       { label: 'A5 print', w: 1748, h: 2480, print: true }
+  };
+  var STYLES = {
+    shade: 'Words on the photo',
+    panel: 'Colour panel beside',
+    below: 'Words below the photo'
+  };
+  /* Each moves the photo or the button; the words never move (C-8). */
+  var MOVES = { none: 'None', zoom: 'Gentle zoom', pan: 'Slow pan', pulse: 'Button pulse' };
+  var S = { size: 'enews', style: 'shade', move: 'zoom', accent: '#3d6263', ev: null, photo: null,
+            words: { kicker: '', title: '', when: '', button: '' } };
+  var EVENTS = [];
+
+  /* ---- drawing one frame (t from 0 to 1; 0 is the first frame) ----------- */
+  function wrapLines(ctx, text, maxW, maxLines) {
+    var words = String(text || '').split(/\s+/).filter(Boolean), lines = [], line = '';
+    for (var i = 0; i < words.length; i++) {
+      var tryLine = line ? line + ' ' + words[i] : words[i];
+      if (ctx.measureText(tryLine).width > maxW && line) { lines.push(line); line = words[i]; } else line = tryLine;
+    }
+    if (line) lines.push(line);
+    return lines.length <= maxLines ? lines : null;
+  }
+  function fitTitle(ctx, text, maxW, size, maxLines) {
+    for (var s = size; s > size * 0.45; s *= 0.92) {
+      ctx.font = '700 ' + Math.round(s) + 'px Inter, Arial, sans-serif';
+      var l = wrapLines(ctx, text, maxW, maxLines);
+      if (l) return { size: Math.round(s), lines: l };
+    }
+    ctx.font = '700 ' + Math.round(size * 0.45) + 'px Inter, Arial, sans-serif';
+    return { size: Math.round(size * 0.45), lines: (wrapLines(ctx, text, maxW, 99) || [text]).slice(0, maxLines) };
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function photo(ctx, x, y, w, h, t) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.translate(x, y);
+    if (S.photo) {
+      var wave = Math.sin(Math.PI * t);                 /* 0 -> 1 -> 0: loops smoothly */
+      EGBCGif.drawCover(ctx, S.photo, w, h, S.move === 'zoom' ? 1 + 0.06 * wave : 1, S.move === 'pan' ? (wave * 2 - 1) * 0.6 : 0);
+    } else {
+      var g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, S.accent); g.addColorStop(1, '#16282a');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    }
+    ctx.restore();
+  }
+  /* THE WORDS ALWAYS FIT THEIR SPACE. Measured first at full size; if the
+     block is taller than its space, or any line wider, everything shrinks
+     together until it fits (to half size at most). LAST holds the box of
+     the last words drawn, so the check can ask whether they fitted. */
+  var LAST = null;
+  function layout(ctx, maxW, base, boxH) {
+    var W = S.words;
+    for (var k = 1; k >= 0.5; k -= 0.05) {
+      var b = base * k, gap = b * 0.018;
+      var title = fitTitle(ctx, W.title || 'Your event', maxW, b * 0.085, 3);
+      var kick = Math.round(b * 0.034), when = Math.round(b * 0.042), btn = Math.round(b * 0.04);
+      ctx.font = '500 ' + when + 'px Inter, Arial, sans-serif';
+      var whenW = W.when ? ctx.measureText(W.when).width : 0;
+      ctx.font = '600 ' + kick + 'px Inter, Arial, sans-serif';
+      var kickW = W.kicker ? ctx.measureText(W.kicker).width : 0;
+      ctx.font = '700 ' + btn + 'px Inter, Arial, sans-serif';
+      var bw = W.button ? ctx.measureText(W.button).width + btn * 1.6 : 0;
+      var h = (W.kicker ? kick + gap : 0) + title.lines.length * title.size * 1.1 + (W.when ? gap + when * 1.25 : 0) + (W.button ? gap * 2 + btn * 2.2 : 0);
+      var widest = Math.max(whenW, kickW, bw);
+      ctx.font = '700 ' + title.size + 'px Inter, Arial, sans-serif';
+      title.lines.forEach(function (l) { widest = Math.max(widest, ctx.measureText(l).width); });
+      var fits = h <= boxH && widest <= maxW;
+      if (fits || k <= 0.5) return { b: b, gap: gap, title: title, kick: kick, when: when, btn: btn, bw: bw, h: h, widest: widest, fits: fits };
+    }
+  }
+  function words(ctx, x, y, maxW, base, colour, buttonFill, buttonText, t, anchorBottom, boxH) {
+    var W = S.words, L = layout(ctx, maxW, base, boxH);
+    var gap = L.gap, cy = anchorBottom ? y - L.h : y + Math.max(0, (boxH - L.h) / 2);
+    LAST = { x: x, top: cy, bottom: cy + L.h, right: x + L.widest, maxW: maxW, boxTop: anchorBottom ? y - boxH : y, boxBottom: anchorBottom ? y : y + boxH, fits: L.fits };
+    ctx.fillStyle = colour; ctx.textBaseline = 'top';
+    if (W.kicker) { ctx.font = '600 ' + L.kick + 'px Inter, Arial, sans-serif'; ctx.globalAlpha = 0.92; ctx.fillText(W.kicker, x, cy); ctx.globalAlpha = 1; cy += L.kick + gap; }
+    ctx.font = '700 ' + L.title.size + 'px Inter, Arial, sans-serif';
+    L.title.lines.forEach(function (l) { ctx.fillText(l, x, cy); cy += L.title.size * 1.1; });
+    if (W.when) { cy += gap; ctx.font = '500 ' + L.when + 'px Inter, Arial, sans-serif'; ctx.fillText(W.when, x, cy); cy += L.when * 1.25; }
+    if (W.button) {
+      cy += gap * 2;
+      ctx.font = '700 ' + L.btn + 'px Inter, Arial, sans-serif';
+      var bw = L.bw, bh = L.btn * 2.2;
+      var pulse = S.move === 'pulse' ? 1 + 0.07 * Math.sin(Math.PI * t) : 1;
+      ctx.save(); ctx.translate(x + bw / 2, cy + bh / 2); ctx.scale(pulse, pulse);
+      roundRect(ctx, -bw / 2, -bh / 2, bw, bh, L.b * 0.012); ctx.fillStyle = buttonFill; ctx.fill();
+      ctx.fillStyle = buttonText; ctx.textBaseline = 'middle'; ctx.fillText(W.button, -bw / 2 + L.btn * 0.8, 0);
+      ctx.restore();
+    }
+  }
+  function draw(ctx, w, h, t) {
+    var base = Math.min(w, h) * (h > w * 1.2 ? 1.15 : 1), p = Math.round(Math.min(w, h) * 0.06);
+    ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+    if (S.style === 'panel') {
+      var side = w >= h, pw = side ? Math.round(w * 0.46) : w, ph = side ? h : Math.round(h * 0.45);
+      photo(ctx, side ? pw : 0, side ? 0 : 0, side ? w - pw : w, side ? h : h - ph, t);
+      ctx.fillStyle = S.accent; ctx.fillRect(0, side ? 0 : h - ph, pw, ph);
+      words(ctx, p, side ? p : h - ph + p, pw - 2 * p, base, '#ffffff', '#ffffff', S.accent, t, false, ph - 2 * p);
+    } else if (S.style === 'below') {
+      var top = Math.round(h * (h > w ? 0.6 : 0.58));
+      photo(ctx, 0, 0, w, top, t);
+      ctx.fillStyle = '#fbf8f2'; ctx.fillRect(0, top, w, h - top);
+      words(ctx, p, top + p * 0.8, w - 2 * p, base, '#1e3a3a', S.accent, '#ffffff', t, false, h - top - 1.6 * p);
+    } else {
+      photo(ctx, 0, 0, w, h, t);
+      /* "Text on busy photos without a dark overlay" is a DESIGN.md don't. */
+      var g = ctx.createLinearGradient(0, h * 0.3, 0, h);
+      g.addColorStop(0, 'rgba(10,25,26,0)'); g.addColorStop(0.45, 'rgba(10,25,26,.55)'); g.addColorStop(1, 'rgba(10,25,26,.88)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      words(ctx, p, h - p, w - 2 * p, base, '#ffffff', '#ffffff', '#2a4a4b', t, true, Math.round(h * 0.62));
+    }
+  }
+  /* For the checks: draw a frame into any canvas, as the page would. */
+  window.EGBCCards = { draw: function (c, t) { draw(c.getContext('2d'), c.width, c.height, t || 0); return LAST; }, state: S, SIZES: SIZES };
+
+  /* ---- the frames ---------------------------------------------------------- */
+  var N = 14;
+  function frames(sz) {
+    var c = document.createElement('canvas'); c.width = sz.w; c.height = sz.h;
+    var ctx = c.getContext('2d', { willReadFrequently: true }), out = [];
+    var n = S.move === 'none' ? 1 : N;
+    for (var i = 0; i < n; i++) { draw(ctx, sz.w, sz.h, n === 1 ? 0 : i / (n - 1)); out.push(ctx.getImageData(0, 0, sz.w, sz.h).data); }
+    return out;
+  }
+  function blobOf(canvas, type) { return new Promise(function (res) { canvas.toBlob(res, type || 'image/png'); }); }
+  function stillPng(sz) {
+    var c = document.createElement('canvas'); c.width = sz.w; c.height = sz.h; draw(c.getContext('2d'), sz.w, sz.h, 0);
+    return blobOf(c, 'image/png');
+  }
+  function makeGif(sz) {
+    var f = frames(sz);
+    /* About 1.3 seconds of movement, then a pause on the full card. */
+    var delays = f.map(function (_, i) { return i === f.length - 1 ? 150 : 9; });
+    return EGBCGif.encode(f, sz.w, sz.h, { delays: delays, dither: true });
+  }
+  function makeVideo(sz) {
+    var c = document.createElement('canvas'); c.width = sz.w; c.height = sz.h;
+    var ctx = c.getContext('2d');
+    if (!c.captureStream || !window.MediaRecorder) return Promise.reject(new Error('This browser can’t make videos. Try Chrome or Safari.'));
+    var types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    var type = types.filter(function (x) { return MediaRecorder.isTypeSupported(x); })[0] || '';
+    var rec = new MediaRecorder(c.captureStream(30), type ? { mimeType: type, videoBitsPerSecond: 6000000 } : undefined), parts = [];
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) parts.push(e.data); };
+    return new Promise(function (res) {
+      rec.onstop = function () { res(new Blob(parts, { type: (type || 'video/webm').split(';')[0] })); };
+      rec.start();
+      var t0 = performance.now(), LEN = 6000, CYCLE = 3000;
+      (function tick() {
+        var ms = performance.now() - t0;
+        draw(ctx, sz.w, sz.h, S.move === 'none' ? 0 : (ms % CYCLE) / CYCLE);
+        if (ms < LEN) requestAnimationFrame(tick); else rec.stop();
+      })();
+    });
+  }
+  function fileName(kind, sz, ext) {
+    var t = String(S.words.title || 'card').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'card';
+    return t + '-' + kind + '-' + sz.w + 'x' + sz.h + '.' + ext;
+  }
+  function download(blob, name) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  }
+
+  /* ---- the page ------------------------------------------------------------ */
+  function preview() {
+    var sz = SIZES[S.size], c = document.getElementById('cv');
+    if (!c) return;
+    c.width = sz.w; c.height = sz.h;
+    cancelAnimationFrame(preview.raf);
+    var ctx = c.getContext('2d'), t0 = performance.now();
+    (function tick() {
+      draw(ctx, sz.w, sz.h, S.move === 'none' ? 0 : ((performance.now() - t0) % 3000) / 3000);
+      if (S.move !== 'none') preview.raf = requestAnimationFrame(tick);
+    })();
+  }
+  function setPhoto(url) {
+    S.photo = null; preview();
+    if (!url) return;
+    var img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = function () { S.photo = img; preview(); };
+    img.onerror = function () { toast('The event’s photo couldn’t be loaded; the card uses a colour instead.'); };
+    img.src = url;
+  }
+  /* "6:30pm", "10am": as the e-news writes times. */
+  function clock(d) {
+    var o = {}; new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23', timeZone: 'Europe/London' }).formatToParts(d).forEach(function (x) { o[x.type] = x.value; });
+    var h = +o.hour, m = +o.minute;
+    return (h % 12 || 12) + (m ? ':' + (m < 10 ? '0' : '') + m : '') + (h < 12 ? 'am' : 'pm');
+  }
+  function chooseEvent(id) {
+    var e = EVENTS.filter(function (x) { return x.id === id; })[0];
+    S.ev = e || null;
+    if (e) {
+      var d = new Date(e.startUtc);
+      S.words.title = String(e.title || '');
+      S.words.kicker = (e.labels && e.labels[0]) || '';
+      S.words.when = d.toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) +
+        (e.allDay ? '' : ' · ' + clock(d));
+      S.words.button = e.signupOn === true ? 'Sign up' : '';
+    }
+    ['kicker', 'title', 'when', 'button'].forEach(function (k) { var el = document.getElementById('w-' + k); if (el) el.value = S.words[k]; });
+    setPhoto(e && e.image);
+  }
+  function chips(id, map, key, extra) {
+    return '<div class="chips" id="' + id + '">' + Object.keys(map).map(function (k) {
+      var v = map[k], label = typeof v === 'string' ? v : v.label;
+      return '<button type="button" data-v="' + k + '" aria-pressed="' + (S[key] === k) + '">' + esc(label) + (extra ? '<small>' + esc(extra(v)) + '</small>' : '') + '</button>';
+    }).join('') + '</div>';
+  }
+  function wire(id, key) {
+    Array.prototype.forEach.call(document.querySelectorAll('#' + id + ' button'), function (b) {
+      b.onclick = function () {
+        S[key] = b.getAttribute('data-v');
+        Array.prototype.forEach.call(document.querySelectorAll('#' + id + ' button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        preview(); outputs();
+      };
+    });
+  }
+  function outputs() {
+    var sz = SIZES[S.size], el = document.getElementById('outs');
+    el.innerHTML =
+      (sz.gif ? '<button class="btn" id="o-gif">Animated GIF (for the e-news)</button>' : '') +
+      (sz.video ? '<button class="btn" id="o-vid">Short video</button>' : '') +
+      '<button class="btn sec" id="o-png">Picture (PNG)</button>' +
+      '<button class="btn sec" id="o-lib">Save every size to the picture library</button>';
+    var b;
+    if ((b = document.getElementById('o-gif'))) b.onclick = function () { busy(this, 'Making the GIF…', function () { var blob = makeGif(sz); download(blob, fileName('gif', sz, 'gif')); return blob; }, function (blob) { return 'GIF ready (' + (blob.size / 1048576).toFixed(1) + ' MB).'; }); };
+    if ((b = document.getElementById('o-vid'))) b.onclick = function () { var self = this; busy(self, 'Recording (6 seconds)…', function () { return makeVideo(sz).then(function (blob) { download(blob, fileName('video', sz, /mp4/.test(blob.type) ? 'mp4' : 'webm')); return blob; }); }, function (blob) { return (/mp4/.test(blob.type) ? 'MP4' : 'WebM') + ' video ready.'; }); };
+    document.getElementById('o-png').onclick = function () { var self = this; busy(self, 'Making the picture…', function () { return stillPng(sz).then(function (blob) { download(blob, fileName('picture', sz, 'png')); return blob; }); }, function () { return 'Picture ready.'; }); };
+    document.getElementById('o-lib').onclick = function () { var self = this; busy(self, 'Saving…', saveAll, function (n) { return n + ' pictures saved to the library.'; }); };
+  }
+  function busy(btn, words, work, done) {
+    var was = btn.textContent; btn.disabled = true; btn.textContent = words;
+    setTimeout(function () {
+      Promise.resolve().then(work).then(function (r) { btn.disabled = false; btn.textContent = was; toast(done(r)); },
+        function (e) { btn.disabled = false; btn.textContent = was; toast('That didn’t work: ' + (e.message || e)); });
+    }, 30);
+  }
+  /* Every size as a picture, named and tagged with the event, so the
+     e-news, the event page, the app and the screens can pick it up. */
+  function saveAll() {
+    if (!window.EGBCPictures) return Promise.reject(new Error('the picture library is not available here'));
+    var keys = Object.keys(SIZES), n = 0;
+    return keys.reduce(function (p, k) {
+      return p.then(function () {
+        return stillPng(SIZES[k]).then(function (blob) {
+          var file = new File([blob], fileName(k, SIZES[k], 'png'), { type: 'image/png' });
+          return EGBCPictures.add(file, { name: (S.words.title || 'Card') + ' · ' + SIZES[k].label, tags: ['card', SIZES[k].label].concat(S.words.title ? [S.words.title.slice(0, 40)] : []) });
+        }).then(function () { n++; });
+      });
+    }, Promise.resolve()).then(function () { return n; });
+  }
+
+  function page() {
+    wrap.innerHTML = '<h1>Card maker</h1><p class="sub">Pick an event, a size and a style. The card is made here, in every size you need.</p>' +
+      '<div class="card"><label class="f" for="ev" style="margin-top:0">Event from What’s On</label><select id="ev"><option value="">None (type the words below)</option>' +
+        EVENTS.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.title || 'Untitled') + ' · ' + esc(new Date(e.startUtc).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })) + '</option>'; }).join('') + '</select>' +
+      '<label class="f">Size</label>' + chips('sizes', SIZES, 'size', function (v) { return v.print ? 'print' : v.w + '×' + v.h; }) +
+      '<div class="stage"><canvas id="cv" aria-label="The card"></canvas></div>' +
+      '<label class="f">Style</label>' + chips('styles', STYLES, 'style') +
+      '<label class="f">Movement</label>' + chips('moves', MOVES, 'move') +
+      '<p class="m">Movements move the photo or the button; the words stay still, so email programs that show only the first picture still show them.</p></div>' +
+      '<div class="card"><h2>Words</h2><p class="m" style="margin:0">From What’s On. Change them here for this card only.</p>' +
+        '<div class="two"><div><label class="f" for="w-kicker">Small line above</label><input type="text" id="w-kicker" maxlength="40"></div>' +
+        '<div><label class="f" for="w-button">Button words (blank for none)</label><input type="text" id="w-button" maxlength="24"></div></div>' +
+        '<label class="f" for="w-title">Title</label><input type="text" id="w-title" maxlength="80">' +
+        '<label class="f" for="w-when">When and where</label><input type="text" id="w-when" maxlength="80">' +
+        '<label class="f" for="w-accent">Colour</label><input type="color" id="w-accent" value="' + esc(S.accent) + '"></div>' +
+      '<div class="card"><h2>Save</h2><div class="row" id="outs"></div>' +
+        '<p class="m">GIF for the e-news; video for Instagram, Facebook and the screens; the picture for print and anywhere else. GIFs and videos download for now: the picture library keeps them once it can (FINDINGS-comms C-16).</p></div>';
+    document.getElementById('ev').onchange = function () { chooseEvent(this.value); };
+    ['kicker', 'title', 'when', 'button'].forEach(function (k) { document.getElementById('w-' + k).oninput = function () { S.words[k] = this.value; preview(); }; });
+    document.getElementById('w-accent').oninput = function () { S.accent = this.value; preview(); };
+    wire('sizes', 'size'); wire('styles', 'style'); wire('moves', 'move');
+    outputs();
+    var first = new URLSearchParams(location.search).get('event');
+    if (first && EVENTS.some(function (e) { return e.id === first; })) { document.getElementById('ev').value = first; chooseEvent(first); }
+    else if (EVENTS[0]) { document.getElementById('ev').value = EVENTS[0].id; chooseEvent(EVENTS[0].id); }
+    else preview();
+  }
+
+  EGBCAuth.require().then(function () {
+    if (!EGBCComms.mayOffice()) { wrap.innerHTML = '<div class="card"><h1>Card maker</h1><p>This page is for the church office and master admins.</p></div>'; return; }
+    if (!(EGBCAuth.uses && EGBCAuth.uses('cardMaker'))) { wrap.innerHTML = '<div class="card"><h1>Card maker</h1><p>The card maker is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
+    if (window.EGBCChurch) EGBCChurch.load().then(function () {}, function () {});
+    var now = Date.now();
+    return EGBCComms.eventsBetween(now - 86400000, now + 90 * 86400000, 150).then(function (evs) {
+      EVENTS = evs.filter(function (e) { return e.status !== 'cancelled' && e.source !== 'rota' && e.visibility !== 'unlisted' && e.visibility !== 'team'; });
+      page();
+    });
+  }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

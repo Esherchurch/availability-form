@@ -28,6 +28,7 @@
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610121200"></script>
 <script src="egbc-mailblocks.js?v=202610191900"></script>
+<script src="egbc-comms.js?v=202610192100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -125,10 +126,10 @@
 
   function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.className = 'on'; clearTimeout(toast.h); toast.h = setTimeout(function () { el.className = ''; }, 2600); }
   function icons() { if (window.lucide && lucide.createIcons) try { lucide.createIcons(); } catch (e) {} }
-  function may() { return !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || !!(EGBCAuth.inTeam && EGBCAuth.inTeam('Church office')); }
+  function may() { return EGBCComms.mayOffice(); }
   function usesEnews() { return !!(EGBCAuth.uses && EGBCAuth.uses('enews')); }
   function stamp() { var u = EGBCAuth.user() || {}; return { updatedAt: new Date().toISOString(), updatedBy: u.uid || '' }; }
-  function hubBase() { return location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, ''); }
+  var hubBase = EGBCComms.hubBase;
   function londonIso(d) {
     var f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' });
     var o = {}; f.formatToParts(d).forEach(function (x) { o[x.type] = x.value; });
@@ -170,24 +171,8 @@
     }).catch(function (e) { document.getElementById('issues').innerHTML = '<p class="m">Could not load: ' + esc(e.message || e) + '</p>'; });
   }
 
-  /* What's On between two times, asked the way What's On asks (the rules
-     only answer a list that names its audiences): public and members'
-     events, and church members' events for those who may read them.
-     Team and not-listed events are never asked for. */
-  function eventsBetween(from, to, limit) {
-    var ask = function (aud) {
-      return db().collection('calEvents').where('audience', 'array-contains-any', aud)
-        .where('startUtc', '>=', from).where('startUtc', '<', to).orderBy('startUtc').limit(limit || 200).get()
-        .then(function (s) { return s.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); }, function () { return []; });
-    };
-    var p = (EGBCAuth.profile && EGBCAuth.profile()) || {};
-    var cm = p.churchMember === true || (EGBCAuth.isAdmin && EGBCAuth.isAdmin()) || (EGBCAuth.isMaster && EGBCAuth.isMaster());
-    return Promise.all([ask(['public', 'members']), cm ? ask(['churchMembers']) : []]).then(function (r) {
-      var seen = {}, out = [];
-      r[0].concat(r[1]).forEach(function (e) { if (!seen[e.id]) { seen[e.id] = 1; out.push(e); } });
-      return out.sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); });
-    });
-  }
+  /* What's On, read the way What's On reads it (egbc-comms.js). */
+  var eventsBetween = EGBCComms.eventsBetween;
 
   /* ---- a new issue, drafted from What's On, the rota and the notices ---- */
   /* The Monday of this week, in London, as YYYY-MM-DD: an issue made on or
