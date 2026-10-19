@@ -6,13 +6,13 @@
 <title>Church details</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610191200202610162000" data-title="Church details"></script>
+<script src="egbc-shell.js?v=202610191600" data-title="Church details"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610162100"></script>
-<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-auth.js?v=202610191600"></script>
+<script src="egbc-church.js?v=202610191600"></script>
 <!-- An admin, OR the Church office. The office are the people who know
      the church's bank details, which now live on this page, and they are
      not necessarily admins of anything. Each half of the page is drawn
@@ -80,6 +80,13 @@
   <h1 style="font-size:18px;margin:22px 0 4px" id="notify-h" hidden>Phone notifications</h1>
   <p class="sub" id="notify-sub" hidden>Rota reminders, booking news, new maintenance jobs, urgent notices and DBS and training reminders, by phone, and by email for anyone without the app.</p>
   <div class="card" id="notify-form" hidden></div>
+
+  <!-- WHAT DOES YOUR CHURCH USE? (item 14; the events window's F-230,
+       19 Oct 2026). One switch per part; a part switched off leaves the
+       Menu, the app and Home everywhere. A master admin only. -->
+  <h1 style="font-size:18px;margin:22px 0 4px" id="feat-h" hidden>What does your church use?</h1>
+  <p class="sub" id="feat-sub" hidden>Switch a part off and it goes from the Menu, the app and Home for everyone. The add-ons start off until you switch them on.</p>
+  <div class="card" id="feat-form" hidden></div>
 
   <!-- SWITCH-OVER: THE PRIVATE FORMS (14 Oct 2026). Until the locked rules
        are on, the live database is readable signed out, so Care & support,
@@ -256,6 +263,32 @@
     var u = EGBCAuth.user() || {};
     db().collection('churchSettings').doc('notifications').set({ live: live, updatedAt: new Date().toISOString(), updatedBy: u.uid || '' })
       .then(function () { N.live = live; toast(live ? 'Phone notifications are on.' : 'Phone notifications are off.'); drawNotify(); })
+      .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
+  }
+
+  /* ---- what does your church use? (F-230) --------------------------
+     Each part's switch, from EGBCAuth.features() (the one list, with each
+     part's default). Saved as it is pressed (rule 13): churchSettings/
+     features, { name: true|false }, merged. */
+  function drawFeatures() {
+    ['feat-h', 'feat-sub', 'feat-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+    var list = EGBCAuth.features ? EGBCAuth.features() : [];
+    document.getElementById('feat-form').innerHTML = list.map(function (f) {
+      return '<button type="button" class="sw" role="switch" data-feature="' + esc(f.name) + '" aria-checked="' + f.on + '" style="margin:4px 0">' +
+        '<span class="track" aria-hidden="true"></span><span>' + esc(f.label) +
+        (f.byDefault ? '' : ' <small style="color:var(--muted);font-weight:400">add-on</small>') + '</span></button>';
+    }).join('');
+    [].forEach.call(document.querySelectorAll('[data-feature]'), function (b) {
+      b.onclick = function () { setFeature(b.dataset.feature, b.getAttribute('aria-checked') !== 'true', b); };
+    });
+  }
+  function setFeature(name, on, b) {
+    b.disabled = true;
+    var u = EGBCAuth.user() || {};
+    var patch = { updatedAt: new Date().toISOString(), updatedBy: u.uid || '' }; patch[name] = on;
+    db().collection('churchSettings').doc('features').set(patch, { merge: true })
+      .then(function () { return EGBCAuth.reloadFeatures(); })
+      .then(function () { toast(on ? 'Switched on.' : 'Switched off.'); drawFeatures(); })
       .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
   }
 
@@ -479,6 +512,7 @@
       }).catch(function () { drawLaunch(); });
       loadCare();
       drawBible();
+      drawFeatures();
     }
     if (!mayGive()) return null;
     return db().collection('churchSettings').doc('giving').get().then(function (g) {

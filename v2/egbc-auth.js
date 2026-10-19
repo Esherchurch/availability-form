@@ -322,6 +322,52 @@
     }, function () { moneyTeam = 'Finance'; });
   }
 
+  /* WHAT THIS CHURCH USES (HANDOVER-MAIN rule 12; NEXT-BRIEF item 14; the
+     events window's F-230). churchSettings/features holds a master admin's
+     switches, { name: true|false }. A feature with no switch stored takes
+     its default: on for everything built before the switches existed, OFF
+     for the add-ons, so a new add-on never turns up at a church that has
+     not asked for it. Read with the profile, so the Menu draws once and
+     right; EGBCAuth.uses(name) answers, and EGBCChurch.uses asks it. */
+  var FEATURES = [
+    /* On unless the church switches it off: everything built before the
+       switches existed, so nothing anybody uses today disappears. */
+    { name: 'care', label: 'Care & support', on: true },
+    { name: 'prayer', label: 'Prayer requests', on: true },
+    { name: 'notifications', label: 'Phone notifications', on: true },
+    { name: 'watch', label: 'Watch & Listen', on: true },
+    { name: 'sermons', label: 'Sermons and the podcast', on: true },
+    { name: 'giftAid', label: 'Gift Aid', on: true },
+    { name: 'teamMail', label: 'Team email addresses', on: true },
+    { name: 'rotaReports', label: 'Rota reports', on: true },
+    { name: 'preachingPlan', label: 'Preaching plan', on: true },
+    { name: 'pictureLibrary', label: 'Picture library', on: true },
+    { name: 'publicWhatson', label: 'Public What\u2019s on', on: true },
+    { name: 'sundaysInWhatsOn', label: 'Sunday services in What\u2019s on', on: true },
+    { name: 'newHere', label: '\u201cI\u2019m new here\u201d', on: true },
+    { name: 'usualPeople', label: 'Usual people on the rota', on: true },
+    { name: 'screenPaging', label: 'Paging parents on the screen', on: true },
+    /* Off until the church switches them on: the add-ons (the events
+       window's F-230; Martin decides when the session planner goes on). */
+    { name: 'sessionPlanner', label: 'Session planner', on: false },
+    { name: 'buildingCompliance', label: 'Building checks', on: false },
+    { name: 'enews', label: 'E-news', on: false },
+    { name: 'cardMaker', label: 'Card maker', on: false },
+    { name: 'canva', label: 'Canva', on: false }
+  ];
+  var featureSwitches = {};
+  function loadFeatures() {
+    return db.collection('churchSettings').doc('features').get().then(function (s) {
+      featureSwitches = (s.exists && s.data()) || {};
+    }, function () { featureSwitches = {}; });
+  }
+  function usesFeature(name) {
+    var v = featureSwitches[name];
+    if (typeof v === 'boolean') return v;
+    for (var i = 0; i < FEATURES.length; i++) if (FEATURES[i].name === name) return FEATURES[i].on;
+    return true;   /* a name nobody listed: as before the switches */
+  }
+
   var sermonsAdmin = false;
   function loadSermonsAdmin(memberId) {
     if (!memberId) { sermonsAdmin = false; return Promise.resolve(false); }
@@ -1042,7 +1088,7 @@
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
             return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
-                                loadCareLead(profile && profile.memberId), loadMoneyTeam(),
+                                loadCareLead(profile && profile.memberId), loadMoneyTeam(), loadFeatures(),
                                 loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile)])
               .then(function () { return both; });
           }).then(function (both) {
@@ -1384,6 +1430,14 @@
     isSermonsAdmin: function () { return EGBCAuth.isMaster() || sermonsAdmin; },
     /* On the team of at least one event (F-212). Not while previewing. */
     isOnEventTeam: function () { return !viewAs() && eventTeam; },
+
+    /* Whether this church uses a part (above). features() lists them all,
+       with each one's default and what is stored, for Church settings. */
+    uses: function (name) { return usesFeature(name); },
+    features: function () {
+      return FEATURES.map(function (f) { return { name: f.name, label: f.label, byDefault: f.on, on: usesFeature(f.name) }; });
+    },
+    reloadFeatures: function () { return loadFeatures(); },
 
     /* Leads a plan group or is on its team (session-planner.html), or a
        master admin. Viewing as a team: whether that team plans with it. */

@@ -402,6 +402,11 @@ const READ_MENU = `(() => {
   /* The Church office group has to exist for the church administrator to
      be in one (NEXT-BRIEF §25). A group is a team with rota:false carrying
      the Running things tabs its members get. */
+  /* The session planner is an add-on, off until a church switches it on
+     (F-230); this church has, so its people's Menu has it. Put back after. */
+  const hadFeatures = await rest('GET', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features');
+  await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features?updateMask.fieldPaths=sessionPlanner',
+    { fields: { sessionPlanner: { booleanValue: true } } });
   await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/teams/'
     + encodeURIComponent('Church office'), { fields: {
       name: val('Church office'), label: val('Church office'), colour: val('#111827'),
@@ -702,6 +707,8 @@ const READ_MENU = `(() => {
      report the retired page as missing from v2 on its next run - a true
      statement about data this check had planted. */
   await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/hubPages/stale_portal_row');
+  if (hadFeatures.status === 200) await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features', { fields: JSON.parse(hadFeatures.body).fields || {} });
+  else await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features');
   await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/bookingSettings/synthetic_site');
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');

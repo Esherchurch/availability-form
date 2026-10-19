@@ -191,7 +191,7 @@
        Not on the pages it leads to: a button that reopens where you are
        is a dead end. */
     var herePage = String(location.pathname || '').split('/').pop().toLowerCase();
-    var careOff = window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care');
+    var careOff = window.EGBCAuth && EGBCAuth.uses && !EGBCAuth.uses('care');   /* the stored switch (F-230) */
     if (!careOff && herePage !== 'care.html') {
       right += '<button type="button" class="eb-b eb-care" id="egbc-care-btn" aria-haspopup="dialog" aria-expanded="false"'
              + ' aria-label="Care and support">' + ic('hand-heart', 16)
@@ -328,8 +328,8 @@
      Change it whenever egbc-menu.js changes - tests/check-stamps.mjs fails
      until you do, because MENU_FINGERPRINT must match the file. The hub
      loads the Menu itself with the same stamp. */
-  var MENU_V = '202610191200';
-  var MENU_FINGERPRINT = '319bef2a9871';
+  var MENU_V = '202610191600';
+  var MENU_FINGERPRINT = 'a8b326ed8e25';
   var POWERED_SRC = 'egbc-poweredby.js';
   var menuLoading = null;
 

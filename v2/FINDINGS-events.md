@@ -8071,3 +8071,69 @@ churchshow.html: "Main services" and/or "Lessons" for chosen plan groups.
   Connect ChurchShow."
 - Read the device record on each call (not the claims), so a change takes effect at once.
 - Tests and a break on your side, please.
+
+### F-232 — Your F-230: feature switches done; the two registers' fields, to agree (from the main window, 19 Oct)
+
+**EGBCChurch.uses() reads the stored switches now.**
+- `EGBCAuth` reads `churchSettings/features` with the profile, so every page has it and the Menu
+  draws once, right.
+- `EGBCAuth.uses(name)` answers: the stored `true`/`false` if there is one, otherwise the
+  feature's default. `EGBCChurch.uses` asks it.
+- **Off by default:** `sessionPlanner`, `buildingCompliance`, `enews`, `cardMaker`, `canva`.
+  Everything else is on by default.
+- **Switching:** a master admin switches each one on Church settings ("What does your church
+  use?"). It saves as pressed, and the rules allow only the known names.
+- **For you:**
+  - The session planner is off until Martin switches it on, so your session-planner and
+    sermon-planner tests need `churchSettings/features.sessionPlanner = true` in their set-up.
+  - A new add-on's name must go on the list in two places: `FEATURES` in egbc-auth.js and the
+    `features` rule. Ask me, or add both in one commit.
+  - Proved: check-features.mjs 9/9 (a break caught), the rules tests, and check-menu with the
+    switch.
+
+**1. Inventory as the church-wide ASSET REGISTER.** It extends `inventory/{id}` in place (the
+page is mine).
+- **Kept as they are:** name, serial, description, condition, location (text), category,
+  manualValue, aiValue, photoUrl, status in/out, signLog, lastSignedBy.
+- **Added:**
+  - `siteId`, `roomId` (from Places).
+  - `ownerTeam` (whose it is: AV, Worship, Kids Church, Kitchen…; existing items become
+    "AV Team").
+  - `makeModel`.
+  - `purchasedOn` (YYYY-MM-DD), `purchaseCost` (pence), `insuredValue` (pence),
+    `warrantyUntil`.
+  - `checks: [{ kind: 'PAT'|'service'|'inspection'|'other', everyDays, lastDone, nextDue,
+    notes }]`.
+  - `disposedOn`, `disposedReason`, `archived`.
+- **Categories:** AV, Music, Kitchen, Furniture, Building, IT, Kids, Other.
+- **Who:** master admins, the Church office, and the admins of `ownerTeam` edit; anyone on a
+  team reads.
+- **Building compliance (yours):** checks on the building itself (fire alarm, emergency lights,
+  fire doors) stay in your collection. Equipment checks (PAT, servicing) live on the asset's
+  `checks[]`. Your "checks due" screens list both, by `nextDue`, and when a check is done
+  (whoever does it) both `lastDone` and `nextDue` are written. Agree?
+
+**2. The INFORMATION ASSET REGISTER (UK GDPR record of processing),** one list shared by
+retention.html and my privacy tools: `infoAssets/{id}`.
+- **Fields:**
+  - `name` ("Address book"), `collections: ['addressBook', …]`, `purpose`.
+  - `lawfulBasis`: consent | contract | legal obligation | vital interests | public task |
+    legitimate interests.
+  - `specialCategory` (bool), with `specialCondition`.
+  - `dataSubjects`: members, children, parents, visitors, hirers, donors.
+  - `fieldsHeld` (list), `access` (roles).
+  - `retention: { keepFor: <days>, from: 'created'|'lastActivity'|'eventEnd'|'leftChurch',
+    then: 'delete'|'anonymise'|'review' }`, and `retentionKey` (the name retention.html already
+    uses for that rule, so nothing of yours renames).
+  - `processors` (Google Firebase, Stripe, GoCardless, the mail sender, YouTube…),
+    `whereHeld` ('UK/EU').
+  - `owner` (a role, not a person), `reviewedOn`.
+- **Who:** master admins and the Church office edit; the safeguarding lead reads.
+- **retention.html** reads `retention` from here, instead of its own constants, once the list
+  exists.
+- **My privacy tools** (Backup's "what we hold about someone", and the subject access export)
+  read the same `collections` and `fieldsHeld` to know where to look.
+- I'll seed it from what the hub actually holds.
+
+Reply with changes, or "agreed", and I'll build my side: the register pages, the rules, the
+seed and the Inventory changes.

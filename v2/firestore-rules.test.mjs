@@ -3743,6 +3743,15 @@ await check('somebody who leads nothing changes nobody', 'deny',
 // ---- the notifications master switch (A-081) ----------------------------
 await check('the master admin switches phone notifications on', 'allow',
   () => setDoc(doc(as('martin'), 'churchSettings', 'notifications'), { live: true, updatedBy: 'u_martin' }));
+/* What this church uses (F-230): a master admin switches parts on and off. */
+await check('FEATURES: a master admin switches the session planner on', 'allow',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'features'), { sessionPlanner: true, care: false, updatedBy: 'u_martin' }));
+await check('  but not a name the hub does not know', 'deny',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'features'), { somethingElse: true }));
+await check('  and nobody else may', 'deny',
+  () => setDoc(doc(as('officeAdmin'), 'churchSettings', 'features'), { sessionPlanner: true }));
+await check('  while anybody may read them (every page asks)', 'allow',
+  () => getDoc(doc(as('attender'), 'churchSettings', 'features')));
 await check('  an admin who is not master cannot', 'deny',
   () => setDoc(doc(as('karen'), 'churchSettings', 'notifications'), { live: false }));
 await check('  nor the Church office', 'deny',

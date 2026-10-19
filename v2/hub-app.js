@@ -2091,7 +2091,7 @@ function openNewsEditor(id) {
 }
 /* The hub does not load egbc-church.js, so a missing helper counts as on,
    which is what every feature is until the per-church switch exists. */
-function notificationsOn() { return !window.EGBCChurch || EGBCChurch.uses('notifications'); }
+function notificationsOn() { return !window.EGBCAuth || !EGBCAuth.uses || EGBCAuth.uses('notifications'); }
 function mayMarkUrgent() { return EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'); }
 function closeNewsEditor() { document.getElementById('newsModal').classList.remove('on'); }
 

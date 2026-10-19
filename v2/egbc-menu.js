@@ -277,7 +277,9 @@
     /* A part the church does not use is not drawn at all. A page without
        egbc-church.js counts it as used, which is what everything is until
        the per-church switch exists. */
-    if (node.feature && window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses(node.feature)) return false;
+    /* EGBCAuth.uses, which every page has (the switches, F-230); a page
+       without it counts the part as used, as before. */
+    if (node.feature && window.EGBCAuth && EGBCAuth.uses && !EGBCAuth.uses(node.feature)) return false;
     /* On an event's team (F-212): that is enough for the entry that says so,
        whatever the flags below would say. */
     if (node.eventTeam && who.isEventTeam) return true;

@@ -163,10 +163,13 @@
      before they are drawn. The per-church switch comes after launch;
      until it exists every part is on. A page that does not load this
      file should ask `!window.EGBCChurch || EGBCChurch.uses(name)`.
-     Names so far: 'notifications'; 'preachingPlan'; 'sessionPlanner'; 'sundaysInWhatsOn' (rota services in
-     What's On - the server reads churchSettings/features.sundaysInWhatsOn,
-     false meaning off). */
-  function uses(name) { return true; }
+     THE SWITCHES ARE REAL NOW (the events window's F-230, 19 Oct 2026):
+     EGBCAuth reads churchSettings/features with the profile and knows each
+     feature's default - on for what existed before, off for the add-ons
+     (sessionPlanner, buildingCompliance, enews, cardMaker, canva). This
+     asks it, so every page answers alike. The server reads the same
+     document (sundaysInWhatsOn, false meaning off). */
+  function uses(name) { return global.EGBCAuth && EGBCAuth.uses ? EGBCAuth.uses(name) : true; }
 
   var api = {
     load: load, wrap: wrap, send: send, header: header, title: title, closeOnLeave: closeOnLeave, uses: uses,
