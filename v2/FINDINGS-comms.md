@@ -70,6 +70,62 @@ That one test answers every "very likely" above.
 
 ---
 
+## BUILT, 19 Oct 2026 evening (comms window)
+
+All eight steps of the plan are built and checked, on emulators of this window's own (never another window's, never live). **They are held on this window's computer, not pushed**, until the main window pushes its "What does your church use?" switches (F-230) and its new Menu by job: the Menu entries for these pages belong inside that Menu, and until those switches are live a Menu entry would show on the live site even though the pages themselves say "switched off".
+
+| What | Files | Check (all on this window's own emulators) |
+|---|---|---|
+| The e-news's blocks and both looks | `egbc-mailblocks.js` | check-enews-blocks 30/30, 7/7 breaks |
+| The e-news page: draft, edit, previews, schedule, test, subscribers | `enews.html`, `egbc-comms.js` | check-enews-page 26/26 at 375; breaks switch, office, weekly each red |
+| This week's draft makes itself (rule 13) | `enews.html` | in check-enews-page |
+| Sign-up, confirm, unsubscribe, bounces | `functions/enews.js`, `functions/hq-mail.js`, `functions/enews-gate.js`, `enews-signup/confirm/unsubscribe.html`, `egbc-enews-public.*` | check-enews-subscribe 47/47, 4/4 breaks |
+| Sending, once, the right copy to each person; the web version | `functions/enews-send.js`, `enews-web.html` | check-enews-send 23/23, 4/4 breaks |
+| The rules (go live at switch-over) | `firestore.rules` | check-enews-rules 30/30, 9/9 breaks |
+| The Mailchimp import | `tools/import-mailchimp.mjs` | check-import-mailchimp 20/20, 3/3 breaks |
+| Card maker | `cardmaker.html`, `egbc-gif.js` | check-cardmaker 18/18 at 375; breaks fade, switch, nofit each red |
+| Canva | `functions/canva-core.js`, `functions/canva.js`, `canva.html` | check-canva 20/20 (a pretend Canva), 3/3 breaks; check-canva-page 9/9 |
+
+**Changes from the plan, found while building:**
+
+- **C-22. The card maker's movements move the photo or the button, never the words** (gentle zoom, slow pan, button pulse). The mock-up's "Fade in" and "Slide up" would leave Outlook readers (who see only a GIF's first frame) with no words.
+- **C-23. The weekly draft has no timer.** The first time the office opens E-news in a week, the draft makes itself (rule 13).
+- **C-24. "Church member" for the e-news means the address book's church-member tick (§21).** Only those addresses get the members-only blocks. Someone on a team without the tick gets everybody else's copy. Say if team members should count too.
+- **C-25. The unsubscribe page unsubscribes as soon as it opens.** That's one tap from the email, as the mock-up showed, and its own script does it, so link-checkers that don't run scripts can't. Re-subscribe is one tap on the same page.
+- **C-26. Saving to the picture library is PNGs only for now.** GIFs and videos download, until the library keeps them whole (C-16). The library's rules let admins write; the Church office group may need adding (part of the C-16 request).
+- **C-27. The Email Compiler's GIF maker is now shared as `egbc-gif.js`**, but the Compiler still has its own copy until it's switched over. That's one small commit once the main window's pending edits to EmailBuilder2.html are pushed.
+
+**Waiting on others:**
+- the main window's push, which unblocks the Menu entries and the check-menu lines for the four public pages (reached from email and the website);
+- the C-16 request to the events window, raised once its file is free of the main window's pending edits;
+- Calla's nothing: the e-news no longer uses sendEmail.
+
+### Martin's Canva test (C-21), click by click
+
+You do the clicks and sign in yourself. Nobody asks for your password.
+
+1. Sign in at **canva.com** with your own free account. Turn on two-step sign-in: your picture → **Settings** → **Login & security** → **Two-step verification** → on. Canva requires this for anyone making an integration.
+2. Go to **canva.dev** → **Developer Portal** → **Integrations** → **Create an integration**.
+   - Choose **Public**. "Private" is Enterprise only.
+   - Name: `Church HQ`.
+   - Agree to the terms.
+3. **Scopes:** tick only **design:meta → Read** and **design:content → Read**. Nothing else.
+4. **Authentication → Redirect URLs.** Add both:
+   - `https://europe-west2-egbc-worship-planner.cloudfunctions.net/canvaCallback`
+   - `http://127.0.0.1:5101/egbc-worship-planner/europe-west2/canvaCallback` (for a test on a PC before switch-over)
+5. **Configuration:** copy the **Client ID**. Press **Generate secret** and copy it; it is shown once. **Don't press "Submit for review".**
+6. In the `v2` folder, run:
+   ```
+   firebase functions:secrets:set CANVA_CLIENT_ID
+   firebase functions:secrets:set CANVA_CLIENT_SECRET
+   ```
+   Paste each when asked.
+7. **The test itself.**
+   - **Before switch-over:** on a PC running the emulators (the reviewing window sets that up), open **From Canva**, press **Connect Canva**, sign in to Canva, check your designs appear, and import one animated design.
+   - **After switch-over:** `CANVA_LIVE = true` in `functions/canva.js`, deploy functions:hub, and do the same on the live site.
+
+---
+
 ## Part 1: for Martin, in plain words
 
 ### What you'd get
