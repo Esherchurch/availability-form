@@ -1444,6 +1444,46 @@ service cloud.firestore {
       allow read, write: if isMaster() || isAdmin() || onTeam('Church office');
     }
 
+    // THE E-NEWS (comms window, 19 Oct 2026; FINDINGS-comms). The office
+    // and master admins write issues as drafts or scheduled; only the
+    // hub's server moves one to sending or sent, and a sent issue is
+    // never changed or deleted - it is the record of what went out.
+    // Settings are the church's look and footer. Neither is public: the
+    // web version is a separate, server-written copy without the
+    // members-only blocks (later step).
+    function enewsOffice() { return isMaster() || onTeam('Church office'); }
+    function enewsIssueOk() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['subject', 'preheader', 'template', 'colours', 'blocks', 'status', 'sendAt',
+                               'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.status in ['draft', 'scheduled']
+        && d.subject is string && d.subject.size() <= 200
+        && d.get('preheader', '') is string && d.get('preheader', '').size() <= 200
+        && d.get('template', 'classic') in ['classic', 'green']
+        && d.blocks is list && d.blocks.size() <= 80
+        && d.get('sendAt', '') is string && d.get('sendAt', '').size() <= 40
+        && d.updatedBy == request.auth.uid;
+    }
+    match /enewsIssues/{id} {
+      allow read: if enewsOffice();
+      allow create: if enewsOffice() && enewsIssueOk() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if enewsOffice() && enewsIssueOk()
+                    && resource.data.status in ['draft', 'scheduled']
+                    && request.resource.data.get('createdAt', '') == resource.data.get('createdAt', '')
+                    && request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '');
+      allow delete: if enewsOffice() && resource.data.status == 'draft';
+    }
+    match /enewsSettings/{id} {
+      allow read: if enewsOffice();
+      allow write: if enewsOffice() && id == 'main'
+                   && request.resource.data.keys().hasOnly(['template', 'colours', 'church', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.template in ['classic', 'green']
+                   && request.resource.data.colours is map && request.resource.data.colours.size() <= 20
+                   && request.resource.data.church is map
+                   && request.resource.data.church.keys().hasOnly(['address', 'charityNo', 'phone', 'hours'])
+                   && request.resource.data.updatedBy == request.auth.uid;
+    }
+
     // The practice copies of the tools write here rather than into the real
     // collections. Anyone learning the system may scribble on it.
     match /training_portal/{docId} {
