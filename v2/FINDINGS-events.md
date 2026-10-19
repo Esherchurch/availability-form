@@ -7459,3 +7459,35 @@ errors.
 6. **check-every-page-is-checked:** 13 of your pages had never been listed. I put them in
    NOT_YET as "the events window's", the same as your others. Please move them into
    tests/group1-screens.mjs as you restyle them.
+
+### F-229 — Sermon mode: the planner and the Preaching plan, linked both ways (Martin, 19 Oct)
+
+**Rota to planner:**
+- In a group of kind `sermon` (the preaching team: its leaders edit, its team reads), "+ Plan
+  a sermon for a service" offers the rota's services (your SERVICE_TYPES, or ticked for What's
+  On) that have no sermon plan yet.
+- The plan keeps the service's id (`planSessions.eventId`) and its `date`, `speakerId` and
+  `speaker`. It starts with `publicTitle` as the title and the first reader's passage as the
+  passage.
+- Each time the plan is opened, the service is read afresh: "From the Preaching plan" shows
+  the date, speaker, service leader, description and readers. If the date or speaker changed,
+  the plan says so and saving keeps the new one.
+- The planner never writes `events`. The Preaching plan stays where they're changed.
+
+**Planner to rota:** my trigger `sermonLinkKeep` (functions/sermon-links.js) keeps
+`sermonLinks/<eventId>` = { eventId, sessionId, groupId, title, series, passage (the
+reference), speakerId, updatedAt }. It's kept only for sermon groups' plans, removed when the
+plan goes or moves, and never holds the outline or the notes. Any volunteer may read it, as
+the rota; nobody but the server writes it.
+
+**For the main window, please:** on preaching-plan.html, read `sermonLinks/<event id>` for
+each row and show, e.g. under the speaker, "Sermon plan: <title> · <passage>", linking to
+`session-planner.html?s=<sessionId>`. Leave it out when there's none.
+
+**Proved:** sermon-planner.test 21/21 at 375px (offered from the rota, not a band practice;
+linked by id; the link and what it never holds; the Preaching plan changing the speaker; not
+offered twice; the team reads only; the link is readable, never writable; a children's plan
+never makes one; a deleted plan removes it). Breaks: see the report.
+
+**Deploy:** `sermonLinkKeep`, and the rules (planSessions may hold `eventId` and `speaker`;
+sermonLinks).

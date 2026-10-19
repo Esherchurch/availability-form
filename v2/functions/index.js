@@ -748,3 +748,5 @@ export { lessonFor } from './lesson.js';
 /* Who may email whom (Martin, 16 Oct 2026): the Email Compiler sends through
    the hub, which checks the sender's teams; logged to emailOutbox. */
 export { compilerSend } from './compiler-send.js';
+/* Sermon plans, the other way: sermonLinks for the Preaching plan (F-229), the events window's file. */
+export { sermonLinkKeep } from './sermon-links.js';

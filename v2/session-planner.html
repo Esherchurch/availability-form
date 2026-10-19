@@ -97,6 +97,17 @@
      file as the Rota Planner, Planner.html.) */
   var E = window.EGBCEvents, B = window.EGBCBible, esc = E.esc;
   var SITES = [], ME = {}, MASTER = false, GROUPS = [], G = null, SESS = [], S = null, PEOPLE = {}, MARKERS = {}, TEAMMEM = [], VIEW = 'term', DIRTY = false, OPEN = {};
+  /* SERMON MODE (Martin, 16 Oct): a group of kind 'sermon' (the preaching
+     team) plans sermons. Each plan is made from a service on the rota and
+     keeps its id (eventId): the date, the speaker (events.speakerId) and the
+     readers' passages come from the rota / Preaching plan, read afresh each
+     time; the plan adds the title, series, passage and the outline. The
+     other way, a server trigger (sermonLinkKeep) keeps sermonLinks/<event>
+     for the Preaching plan to show and link to. */
+  var SERVICE_TYPES = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
+  var SERMON_PARTS = ['Introduction', 'Point 1', 'Point 2', 'Point 3', 'Application', 'Response'];
+  var EVENT = null;
+  function sermon() { return !!G && G.kind === 'sermon'; }
   var KINDS = ['Welcome', 'Game', 'Story', 'Video', 'Craft', 'Worship', 'Prayer', 'Quiz', 'Talk', 'Discussion', 'Other'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var STEP_TYPES = [['verses', 'Bible verses'], ['video', 'Video file'], ['youtube', 'YouTube'], ['picture', 'Picture'], ['song', 'Song'], ['memory', 'Memory verse'],
@@ -146,10 +157,11 @@
         return '<div class="wk" data-s="' + esc(s.id) + '" role="button" tabindex="0"><div class="d">' + esc(d[0]) + '<small>' + esc(d[1]) + '</small></div><div>' +
           (s.special === 'none' ? '<span class="special">No ' + esc(G.name) + (s.title ? ': ' + esc(s.title) : '') + '</span>'
             : (s.special ? '<span class="special">★ ' + esc(s.special) + '</span><br>' : '') + '<span class="t">' + (s.lessonCode ? '<span class="code">' + esc(s.lessonCode) + '</span>' : '') + esc(s.title || 'Untitled') + '</span>') +
+          (sermon() && (s.speaker || s.speakerId) ? '<div class="m">Speaker: ' + esc(s.speaker || PEOPLE[s.speakerId] || '') + (s.series ? ' · ' + esc(s.series) : '') + '</div>' : '') +
           ((s.onIds || []).length ? '<div class="m">On: ' + esc(names(s.onIds)) + '</div>' : '') +
           ((s.awayIds || []).length ? '<div class="m away">Away: ' + esc(names(s.awayIds)) + '</div>' : '') + '</div></div>';
       }).join('') : '<p class="m">No plans yet.</p>') +
-      '<div class="row noprint" style="margin-top:10px">' + (canEdit() ? '<button class="btn" id="addWeek">+ Add a ' + esc(DAYS[G.day == null ? 0 : +G.day]) + '</button>' : '') +
+      '<div class="row noprint" style="margin-top:10px">' + (canEdit() ? '<button class="btn" id="addWeek">' + (sermon() ? '+ Plan a sermon for a service' : '+ Add a ' + esc(DAYS[G.day == null ? 0 : +G.day])) + '</button>' : '') +
         '<button class="btn sec" id="printTerm">Print the term</button></div></div>';
   }
 
@@ -164,33 +176,46 @@
       '<h1>' + esc(S.title || (S.special === 'none' ? 'No session' : 'New plan')) + '</h1><p class="sub">' + esc(longDay(S.date)) + ' · ' + esc(G.name) + '</p>' +
       '<div class="card">' +
         '<div class="grid2"><div><label class="l" for="sDate">Date</label><input class="inp" type="date" id="sDate" value="' + esc(S.date) + '"' + dis + '></div>' +
-        '<div><label class="l" for="sSpecial">This week</label><select id="sSpecial"' + dis + '><option value="">A normal session</option><option value="note"' + (specialSel === 'note' ? ' selected' : '') + '>A special week (say what)</option><option value="none"' + (specialSel === 'none' ? ' selected' : '') + '>No session this week</option></select></div></div>' +
+        '<div' + (sermon() ? ' hidden' : '') + '><label class="l" for="sSpecial">This week</label><select id="sSpecial"' + dis + '><option value="">A normal session</option><option value="note"' + (specialSel === 'note' ? ' selected' : '') + '>A special week (say what)</option><option value="none"' + (specialSel === 'none' ? ' selected' : '') + '>No session this week</option></select></div></div>' +
         '<div id="specialBox"' + (specialSel === 'note' ? '' : ' hidden') + '><label class="l" for="sSpecialText">What is special</label><input class="inp" id="sSpecialText" maxlength="120" value="' + esc(specialSel === 'note' ? S.special.trim() : '') + '"' + dis + '></div>' +
-        '<label class="l" for="sTitle">' + (S.special === 'none' ? 'Why (e.g. family nativity service)' : 'Lesson title') + '</label><input class="inp" id="sTitle" maxlength="120" value="' + esc(S.title || '') + '"' + dis + '>' +
-        '<div class="grid2"><div><label class="l" for="sProg">Programme</label><select id="sProg"' + dis + '><option value="">(none)</option>' +
+        '<label class="l" for="sTitle">' + (S.special === 'none' ? 'Why (e.g. family nativity service)' : sermon() ? 'Sermon title' : 'Lesson title') + '</label><input class="inp" id="sTitle" maxlength="120" value="' + esc(S.title || '') + '"' + dis + '>' +
+        (sermon() ? fromPlanCard() + '<label class="l" for="sSeries">Series</label><input class="inp" id="sSeries" maxlength="80" value="' + esc(S.series || '') + '"' + dis + '>' : '') +
+        (sermon() ? '' : '<div class="grid2"><div><label class="l" for="sProg">Programme</label><select id="sProg"' + dis + '><option value="">(none)</option>' +
           progs.map(function (p) { return '<option value="' + esc(p.name) + '"' + (S.programme === p.name ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></div>' +
         '<div><label class="l" for="sCode">Lesson code</label><input class="inp" id="sCode" maxlength="20" placeholder="e.g. EJ03" value="' + esc(S.lessonCode || '') + '"' + dis + '></div></div>' +
         '<label class="l" for="sLink">Link to the lesson</label><input class="inp" id="sLink" type="url" placeholder="https://" value="' + esc(S.lessonLink || '') + '"' + dis + '>' +
-        (S.lessonLink ? '<p class="said"><a href="' + esc(S.lessonLink) + '" target="_blank" rel="noopener">Open the lesson ↗</a></p>' : '') +
+        (S.lessonLink ? '<p class="said"><a href="' + esc(S.lessonLink) + '" target="_blank" rel="noopener">Open the lesson ↗</a></p>' : '')) +
         '<label class="l">Bible passage</label><div id="passageBox">' + passageHtml(S.passage) + '</div>' +
         (ro ? '' : '<div class="row noprint edit" style="margin-top:6px"><button class="btn sec small" id="pickPassage">' + (S.passage && S.passage.ref ? 'Change the passage' : 'Choose a passage') + '</button></div>') +
-        '<label class="l">On this week (from the rota)</label><div id="onBox">' + peopleChips('on', S.onIds, ro) + '</div>' +
-        '<label class="l">Away (from the availability form)</label><div id="awayBox">' + peopleChips('away', S.awayIds, ro) + '</div>' +
-        (ro ? '' : '<div class="row noprint edit" style="margin-top:6px"><button class="btn sec small" id="fromRota">Fill in from the rota</button><select id="addPerson" style="width:auto;min-width:170px"><option value="">Add someone…</option>' +
+        (sermon() ? '' : '<label class="l">On this week (from the rota)</label><div id="onBox">' + peopleChips('on', S.onIds, ro) + '</div>' +
+        '<label class="l">Away (from the availability form)</label><div id="awayBox">' + peopleChips('away', S.awayIds, ro) + '</div>') +
+        (ro || sermon() ? '' : '<div class="row noprint edit" style="margin-top:6px"><button class="btn sec small" id="fromRota">Fill in from the rota</button><select id="addPerson" style="width:auto;min-width:170px"><option value="">Add someone…</option>' +
           TEAMMEM.concat(Object.keys(PEOPLE).filter(function (i) { return (G.leaderIds || []).indexOf(i) >= 0 && !TEAMMEM.some(function (t) { return t.id === i; }); }).map(function (i) { return { id: i, name: PEOPLE[i] }; }))
             .map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select><select id="addAs" style="width:auto"><option value="on">as on</option><option value="away">as away</option></select></div>') +
         (S.updatedByName ? '<p class="said" id="lastBy">Last changed by ' + esc(S.updatedByName) + (S.updatedAt ? ', ' + esc(new Date(S.updatedAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })) : '') + '</p>' : '') +
       '</div>' +
       (bring.length ? '<div class="card" id="bringAll"><h2>Things to bring</h2><p style="margin:0">' + esc(bring.join(', ')) + '</p></div>' : '') +
-      (S.special === 'none' ? '' : '<div class="card"><h2>The session<span class="spacer"></span><span class="m noprint">' + (ro ? '' : 'drag ⠿ to reorder') + '</span></h2><div id="parts">' +
+      (S.special === 'none' ? '' : '<div class="card"><h2>' + (sermon() ? 'The outline' : 'The session') + '<span class="spacer"></span><span class="m noprint">' + (ro ? '' : 'drag ⠿ to reorder') + '</span></h2><div id="parts">' +
         (S.parts || []).map(partHtml).join('') + '</div>' +
         (ro ? '' : '<div class="row noprint edit"><select id="newPart" style="width:auto"><option value="">+ Add a part…</option>' + (G.parts && G.parts.length ? G.parts : KINDS).map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('') + '</select></div>') + '</div>') +
       '<div class="row noprint" style="margin-bottom:6px">' + (ro ? '' : '<button class="btn" id="save">Save</button><button class="btn sec" id="email">Email the plan</button>') +
         '<button class="btn sec" id="print">Print</button>' + (ro || !S.id ? '' : '<button class="btn danger" id="del">Delete this plan</button>') + '</div><p class="said noprint" id="sMsg" role="status"></p></div>';
   }
+  /* The rota's side of a sermon plan, read afresh: it is the Preaching plan's to change. */
+  function fromPlanCard() {
+    var e = EVENT || {};
+    var rd = (e.readers || []).filter(function (x) { return x && (x.name || x.passage); });
+    return '<div class="card" id="fromPlan" style="background:var(--tint);border-color:#cfe1df;margin:10px 0 0"><h2 style="margin:0 0 4px">From the Preaching plan</h2>' +
+      (S.eventId && !EVENT ? '<p class="m" style="margin:0">Loading the service…</p>' : !S.eventId ? '<p class="m" style="margin:0">Not linked to a service on the rota.</p>' :
+      '<p style="margin:0"><b>' + esc(longDay(e.date || S.date)) + '</b>' + (e.type ? ' · ' + esc(e.type) : '') + '</p>' +
+      '<p style="margin:2px 0 0">Speaker: <b id="planSpeaker">' + esc(e.speaker || PEOPLE[e.speakerId] || 'not set yet') + '</b>' + (e.serviceLeader ? ' · Service leader: ' + esc(e.serviceLeader) : '') + '</p>' +
+      (e.publicTitle ? '<p style="margin:2px 0 0">Description: ' + esc(e.publicTitle) + '</p>' : '') +
+      (rd.length ? '<p style="margin:2px 0 0">Readers: ' + esc(rd.map(function (x) { return x.name + (x.passage ? ' (' + x.passage + ')' : ''); }).join(', ')) + '</p>' : '') +
+      '<p class="said" style="margin:6px 0 0">The date, speaker and readers are changed in the <a href="preaching-plan.html">Preaching plan</a>.</p>') + '</div>';
+  }
   function passageHtml(p) {
     if (!p || !p.ref) return '<p class="m" style="margin:0">None yet.</p>';
-    return '<p style="margin:0"><b>' + esc(p.ref) + '</b> (' + esc(p.version || '') + ')' + (p.source === 'biblegateway' && p.link ? ' · <a href="' + esc(p.link) + '" target="_blank" rel="noopener">Read it on Bible Gateway ↗</a>' : '') + '</p>' +
+    return '<p style="margin:0"><b>' + esc(p.ref) + '</b> ' + (p.source === 'rota' ? '<span class="m">(from the readers on the rota: choose a Bible to bring in the text)</span>' : '(' + esc(p.version || '') + ')') + (p.source === 'biblegateway' && p.link ? ' · <a href="' + esc(p.link) + '" target="_blank" rel="noopener">Read it on Bible Gateway ↗</a>' : '') + '</p>' +
       (p.text ? '<div class="verse" style="margin-top:4px">' + esc(p.text).replace(/(^|\s)(\d+)\s/g, '$1<sup>$2</sup>') + '</div>' : '') +
       (p.copyright ? '<p class="said">' + esc(p.copyright) + '</p>' : '');
   }
@@ -243,7 +268,7 @@
           '<select data-gladd="1" style="margin-top:6px"><option value="">Add a leader…</option>' + opts + '</select>' +
           '<label class="l">Also email every plan to (addresses, commas between)</label><input class="inp" data-gf="emails" value="' + esc((g.emails || []).join(', ')) + '">' +
           '<label class="l">Programmes, one a line: name | link (e.g. Urban Saints | https://…)</label><textarea data-gf="programmes">' + esc((g.programmes || []).map(function (p) { return p.name + (p.link ? ' | ' + p.link : ''); }).join('\n')) + '</textarea>' +
-          '<label class="l">The parts of a session (commas between)</label><input class="inp" data-gf="parts" value="' + esc((g.parts || []).join(', ')) + '">' +
+          '<label class="l">The parts of a session (commas between; for sermons, e.g. Introduction, Point 1, Point 2, Application)</label><input class="inp" data-gf="parts" value="' + esc((g.parts || []).join(', ')) + '">' +
           '<div class="row" style="margin-top:10px"><button class="btn" data-gsave="1">' + (g.id ? 'Save' : 'Add the group') + '</button>' + (g.id ? '<button class="btn danger" data-gdel="1">Remove the group</button>' : '') + '</div><p class="said" data-gmsg="1" role="status"></p></div>';
       }).join('');
   }
@@ -263,9 +288,9 @@
     $('print').onclick = function () { readTop(); window.print(); };
     if (!canEdit()) return;
     var touch = function () { DIRTY = true; };
-    ['sDate', 'sTitle', 'sCode', 'sLink', 'sSpecialText'].forEach(function (id) { var el = $(id); if (el) { el.oninput = touch; el.onchange = touch; } });
+    ['sDate', 'sTitle', 'sCode', 'sLink', 'sSpecialText', 'sSeries'].forEach(function (id) { var el = $(id); if (el) { el.oninput = touch; el.onchange = touch; } });
     $('sSpecial').onchange = function () { readTop(); DIRTY = true; draw(); };
-    $('sProg').onchange = function () { var p = (G.programmes || []).filter(function (x) { return x.name === $('sProg').value; })[0]; if (p && p.link && !$('sLink').value) $('sLink').value = p.link.replace('{code}', $('sCode').value || ''); DIRTY = true; };
+    if ($('sProg')) $('sProg').onchange = function () { var p = (G.programmes || []).filter(function (x) { return x.name === $('sProg').value; })[0]; if (p && p.link && !$('sLink').value) $('sLink').value = p.link.replace('{code}', $('sCode').value || ''); DIRTY = true; };
     if ($('pickPassage')) $('pickPassage').onclick = function () { readTop(); biblePicker(function (p) { S.passage = p; DIRTY = true; draw(); }); };
     if ($('fromRota')) $('fromRota').onclick = function () { readTop(); say('Asking the rota…'); fromRota().then(function () { DIRTY = true; draw(); say('Filled in from the rota and the availability form.'); }, function (e) { say('The rota could not be read: ' + (e.message || e)); }); };
     if ($('addPerson')) $('addPerson').onchange = function () { var id = this.value; if (!id) return; readTop(); var k = $('addAs').value === 'away' ? 'awayIds' : 'onIds', o = k === 'onIds' ? 'awayIds' : 'onIds'; S[o] = (S[o] || []).filter(function (x) { return x !== id; }); S[k] = (S[k] || []).filter(function (x) { return x !== id; }).concat([id]); DIRTY = true; draw(); };
@@ -298,9 +323,10 @@
     if (!S || !$('sDate') || !canEdit()) return;
     S.date = $('sDate').value || S.date;
     S.title = $('sTitle').value.trim();
-    S.lessonCode = $('sCode').value.trim();
-    S.lessonLink = $('sLink').value.trim();
-    S.programme = $('sProg').value;
+    if ($('sCode')) S.lessonCode = $('sCode').value.trim();
+    if ($('sLink')) S.lessonLink = $('sLink').value.trim();
+    if ($('sProg')) S.programme = $('sProg').value;
+    if ($('sSeries')) S.series = $('sSeries').value.trim();
     var sp = $('sSpecial').value;
     S.special = sp === 'none' ? 'none' : sp === 'note' ? (($('sSpecialText') && $('sSpecialText').value.trim()) || ' ') : '';
     document.querySelectorAll('.part').forEach(function (el) {
@@ -323,6 +349,7 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(S.date)) { say('Give the date.'); return Promise.reject(new Error('date')); }
     var doc = { groupId: G.id, date: S.date, special: S.special === ' ' ? '' : (S.special || ''), title: S.title || '', programme: S.programme || '', lessonCode: S.lessonCode || '',
       lessonLink: S.lessonLink || '', passage: S.passage || null, onIds: S.onIds || [], awayIds: S.awayIds || [], parts: (S.parts || []).map(clean),
+      eventId: S.eventId || '', speakerId: S.speakerId || '', speaker: String(S.speaker || '').slice(0, 120), series: String(S.series || '').slice(0, 80),
       updatedBy: realUid(), updatedByName: String(ME.name || '').slice(0, 120), updatedAt: new Date().toISOString() };
     say('Saving…');
     var ref = S.id ? db().collection('planSessions').doc(S.id) : db().collection('planSessions').doc();
@@ -515,9 +542,46 @@
   }
   function openSession(id) {
     var s = SESS.filter(function (x) { return x.id === id; })[0]; if (!s) return;
-    S = JSON.parse(JSON.stringify(s)); S.parts = S.parts || []; OPEN = {}; VIEW = 'session'; DIRTY = false; draw(); window.scrollTo(0, 0);
+    S = JSON.parse(JSON.stringify(s)); S.parts = S.parts || []; OPEN = {}; VIEW = 'session'; DIRTY = false; EVENT = null; draw(); window.scrollTo(0, 0);
+    if (S.eventId) loadEvent().then(function () { if (VIEW === 'session' && S && S.id === id) { readTop(); draw(); if (DIRTY) say('The Preaching plan has changed the date or the speaker since this was saved. Save to keep the new one.'); } });
+  }
+  function addSermon() {
+    var since = today();
+    db().collection('events').where('date', '>=', since).orderBy('date').limit(60).get().then(function (snap) {
+      var taken = SESS.map(function (x) { return x.eventId; });
+      var list = all(snap).filter(function (e) { return !e.archived && (SERVICE_TYPES.indexOf(e.type) >= 0 || e.whatsOn === true) && taken.indexOf(e.id) < 0; });
+      var sh = sheet('<h2 style="margin:0 0 6px">Which service?</h2><p class="m" style="margin:0 0 10px">The services on the rota without a sermon plan yet.</p>' +
+        (list.length ? list.map(function (e) {
+          return '<button type="button" class="btn sec" data-ev="' + esc(e.id) + '" style="width:100%;justify-content:flex-start;text-align:left;margin:0 0 8px;height:auto;padding:10px 12px;flex-direction:column;align-items:flex-start">' +
+            '<b>' + esc(longDay(e.date)) + (e.type ? ' · ' + esc(e.type) : '') + '</b><span class="m">' + esc([e.publicTitle, e.speaker ? 'Speaker: ' + e.speaker : ''].filter(Boolean).join(' · ') || 'No speaker yet') + '</span></button>';
+        }).join('') : '<p>Every service on the rota already has one, or there are none yet.</p>'));
+      sh.el.querySelectorAll('[data-ev]').forEach(function (b) { b.onclick = function () {
+        var e = list.filter(function (x) { return x.id === b.getAttribute('data-ev'); })[0]; sh.close();
+        EVENT = e;
+        var rp = ((e.readers || []).filter(function (x) { return x && x.passage; })[0] || {}).passage || '';
+        S = { id: '', groupId: G.id, date: e.date, eventId: e.id, speakerId: e.speakerId || '', speaker: e.speaker || '', series: '', special: '', title: e.publicTitle || '',
+          programme: '', lessonCode: '', lessonLink: '', onIds: [], awayIds: [],
+          passage: rp ? { ref: rp, version: '', source: 'rota', text: '', copyright: '' } : null,
+          parts: (G.parts && G.parts.length ? G.parts : SERMON_PARTS).map(function (k) { return { id: rid(), kind: k, title: k, minutes: 5, notes: '', links: [], files: [], bring: [], show: [] }; }) };
+        OPEN = {}; VIEW = 'session'; DIRTY = true; draw(); window.scrollTo(0, 0);
+      }; });
+    }, function (e) { toast('The rota could not be read: ' + (e.message || e)); });
+  }
+  /* The service, afresh: the Preaching plan may have changed the speaker or the date. */
+  function loadEvent() {
+    EVENT = null;
+    if (!S || !S.eventId) return Promise.resolve();
+    return db().collection('events').doc(S.eventId).get().then(function (d) {
+      EVENT = d.exists ? Object.assign({ id: d.id }, d.data()) : { gone: true };
+      if (d.exists && canEdit()) {
+        var e = EVENT;
+        if (e.date && e.date !== S.date) { S.date = e.date; DIRTY = true; }
+        if ((e.speakerId || '') !== (S.speakerId || '') || (e.speaker || '') !== (S.speaker || '')) { S.speakerId = e.speakerId || ''; S.speaker = e.speaker || ''; DIRTY = true; }
+      }
+    }, function () { EVENT = { gone: true }; });
   }
   function addWeek() {
+    if (sermon()) return addSermon();
     var last = SESS.map(function (s) { return s.date; }).sort().pop();
     S = { id: '', groupId: G.id, date: nextDate(last && last >= today() ? last : null, G.day == null ? 0 : +G.day), special: '', title: '', programme: (G.programmes && G.programmes[0] && G.programmes[0].name) || '',
       lessonCode: '', lessonLink: '', passage: null, onIds: [], awayIds: [], parts: (G.parts && G.parts.length ? G.parts : KINDS.slice(0, 6)).map(function (k) { return { id: rid(), kind: k, title: k, minutes: 10, notes: '', links: [], files: [], bring: [], show: [] }; }) };
