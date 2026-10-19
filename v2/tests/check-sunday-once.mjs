@@ -155,6 +155,36 @@ async function tidy() {
     fs.writeFileSync(path.join(SHOTS, 'sunday-once--planner-1440.png'), Buffer.from(shot.data, 'base64'));
     ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
+    /* "+ SERVICE" ASKS FIRST (the reviewing window, 19 Oct 2026): a tap
+       used to save a service dated today. Now nothing is saved until Add. */
+    console.log('\n"+ Service" (1440, then the phone bar at 375)');
+    const ADD_DATE = '2031-05-04';
+    const eventsOn = async (date) => {
+      const r = await req(8181, 'POST', DOCS + ':runQuery', { structuredQuery: { from: [{ collectionId: 'events' }],
+        where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL', value: { stringValue: date } } } } }, OWNER);
+      return JSON.parse(r.body || '[]').filter(x => x.document).map(x => ({ id: x.document.name.split('/').pop(), type: (x.document.fields.type || {}).stringValue }));
+    };
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const beforeToday = (await eventsOn(todayIso)).length;
+    await evl('(function(){var b=document.querySelector(\'button[onclick="addSingleLine()"]\');b.click();return 1})()'); await sleep(1500);
+    ok('  a tap opens a sheet asking the date and the kind', String(await evl('!!document.getElementById("ppAddService") && !!document.getElementById("ppAddDate") && !!document.getElementById("ppAddType")')) === 'true');
+    ok('  and saves nothing', (await eventsOn(todayIso)).length === beforeToday);
+    await evl('(function(){document.querySelector("#ppAddService [data-close]").click();return 1})()'); await sleep(800);
+    ok('  Cancel closes it, still having saved nothing', String(await evl('!document.getElementById("ppAddService")')) === 'true' && (await eventsOn(todayIso)).length === beforeToday);
+    for (const e of await eventsOn(ADD_DATE)) await del('events/' + e.id);
+    await evl('(function(){document.querySelector(\'button[onclick="addSingleLine()"]\').click();return 1})()'); await sleep(1200);
+    await evl('(function(){document.getElementById("ppAddDate").value=' + JSON.stringify(ADD_DATE) + ';document.getElementById("ppAddType").value="Special Service";document.getElementById("ppAddGo").click();return 1})()');
+    let added = []; for (let i = 0; i < 20 && !added.length; i++) { await sleep(300); added = await eventsOn(ADD_DATE); }
+    ok('  Add saves one service, on the date and of the kind chosen', added.length === 1 && added[0].type === 'Special Service', JSON.stringify(added));
+    for (const e of added) await del('events/' + e.id);
+    await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
+    await open('Planner.html', 375, 12000);
+    await evl('(function(){var b=document.querySelector("#ppBar .pp-new");if(b)b.click();return b?1:0})()'); await sleep(1500);
+    ok('  on a phone, the bar\u2019s "+ Service" asks too, and saves nothing', String(await evl('!!document.getElementById("ppAddService")')) === 'true' && (await eventsOn(todayIso)).length === beforeToday);
+    const small = Number(await evl('[].filter.call(document.querySelectorAll("#ppAddService button, #ppAddService input, #ppAddService select"),function(x){return x.getBoundingClientRect().height<44}).length'));
+    ok('  everything in it is 44px', small === 0, String(small));
+    await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+
     /* What the trigger writes, from the rota as the Planner left it. */
     f = await getDoc('events/' + PUB);
     const rotaNow = Object.assign({}, base, { whatsOn: f.whatsOn.booleanValue, serviceTime: f.serviceTime.stringValue,

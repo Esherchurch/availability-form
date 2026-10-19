@@ -694,18 +694,20 @@ async function loadHero() {
 
     /* A team's own banner wins where it has one, so Kids Church do not land
        on a photograph of the worship band. */
-    const title = t.heroTitle || church.title || 'EGBC Hub';
-    const sub = t.heroSub !== undefined && t.heroSub !== '' ? t.heroSub : (church.subtitle || '');
+    /* THE HEADING (Martin, 19 Oct 2026): the team's own banner title if it
+       has set one; otherwise "Welcome, <first name>"; with no name, the
+       church's name from its settings. NEVER hero.title or hero.subtitle:
+       those are the ORIGINAL site's Worship & AV portal heading ("Welcome
+       to the EGBC Worship & AV Portal"), on the same document and still
+       used there. v2's church-wide line is hero.hubSubtitle. */
+    const title = (t.heroTitle || '').trim() || welcomeLine();
+    const sub = t.heroSub !== undefined && t.heroSub !== '' ? t.heroSub : (church.hubSubtitle || '');
     const img = t.heroImage || church.bgImage || '';
 
-    /* HOME BY JOB: a greeting, and the coming Sunday under it. A banner
-       an admin has titled keeps its title, above the greeting. */
-    const kicker = document.getElementById('heroKicker');
-    const custom = (t.heroTitle || church.title || '').trim();
-    if (kicker) { kicker.textContent = custom && custom !== 'EGBC Hub' ? custom : ''; kicker.hidden = !kicker.textContent; }
-    document.getElementById('heroTitle').textContent = greeting();
-    document.getElementById('heroSub').textContent = HERO_SUNDAY || sub;
-    void title;
+    /* The coming Sunday under it (Home by job), unless the team wrote its
+       own line. */
+    document.getElementById('heroTitle').textContent = title;
+    document.getElementById('heroSub').textContent = (t.heroSub ? sub : (HERO_SUNDAY || sub));
 
     const hero = document.getElementById('hero');
     const c = EGBCAuth.TEAMS[TEAM];
@@ -723,7 +725,7 @@ async function loadHero() {
 
   } catch (e) {
     console.error('Hero load failed', e);
-    document.getElementById('heroTitle').textContent = 'EGBC Hub';
+    document.getElementById('heroTitle').textContent = welcomeLine();
   }
 }
 
@@ -762,7 +764,9 @@ function editHero() {
     HERO_SCOPE === 'team' ? `${TEAM} banner` : 'Church-wide banner';
   document.getElementById('heroScope').textContent = HERO_SCOPE === 'team'
     ? `Only ${TEAM} see this one.`
-    : 'Every team without a banner of their own falls back to this.';
+    : 'Every team without a banner of their own falls back to this. Its heading is "Welcome" and each person\u2019s name.';
+  ['hrTitle'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = HERO_SCOPE !== 'team'; });
+  const tl = document.querySelector('label[for="hrTitle"]'); if (tl) tl.hidden = HERO_SCOPE !== 'team';
 
   if (HERO_SCOPE === 'team') {
     document.getElementById('hrTitle').value = t.heroTitle || '';
@@ -771,8 +775,10 @@ function editHero() {
   } else {
     db.collection('portal').doc('dashboardContent').get().then(d => {
       const h = (d.data() || {}).hero || {};
-      document.getElementById('hrTitle').value = h.title || '';
-      document.getElementById('hrSub').value = h.subtitle || '';
+      /* No heading church-wide: it is "Welcome, <name>". The line is v2's
+         own (hubSubtitle), so the old site's portal heading never changes. */
+      document.getElementById('hrTitle').value = '';
+      document.getElementById('hrSub').value = h.hubSubtitle || '';
       setHeroPreview(h.bgImage || '', h.zoom, h.bgX, h.bgPosition);
     });
   }
@@ -907,7 +913,7 @@ async function saveHero() {
       TEAMCONTENT[TEAM] = { ...(TEAMCONTENT[TEAM] || {}), ...patch };
     } else {
       await db.collection('portal').doc('dashboardContent')
-        .set({ hero: { title, subtitle: sub, bgImage: HERO_IMG,
+        .set({ hero: { hubSubtitle: sub, bgImage: HERO_IMG,
                        zoom: HERO_ZOOM, bgX: HERO_X, bgPosition: HERO_Y } }, { merge: true });
     }
     closeHeroEditor();
@@ -1586,11 +1592,20 @@ async function renderWatch() {
    is shown only to somebody who may use it - the same answers the Menu
    gives (EGBCMenu.forPerson), so Home and the Menu cannot disagree. */
 let HERO_SUNDAY = '';
-function greeting() {
-  const h = new Date().getHours();
+/* "Welcome, <first name>" (Martin, 19 Oct 2026), from the profile's name -
+   which is the address book's; with no name, the church's name (never a
+   name written into the code). */
+function welcomeLine() {
   const first = String((ME && ME.name) || '').trim().split(/\s+/)[0];
-  return (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + (first ? ', ' + first : '');
+  if (first) return 'Welcome, ' + first;
+  return (window.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || CHURCH_NAME || '';
 }
+let CHURCH_NAME = '';
+db.collection('churchSettings').doc('details').get().then(s => {
+  CHURCH_NAME = (s.exists && s.data().name) || '';
+  const h = document.getElementById('heroTitle');
+  if (h && !h.textContent.trim()) h.textContent = welcomeLine();
+}).catch(() => {});
 function menuHas(url) {
   let found = false;
   (function walk(nodes) { nodes.forEach(n => { if (n.url === url) found = true; if (n.children) walk(n.children); }); })(EGBCMenu.forPerson(EGBCMenu.who()));

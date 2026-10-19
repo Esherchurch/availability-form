@@ -61,6 +61,9 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
 /* Next Sunday, and an invented service on it. */
 const SUN = (() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7)); return d.toISOString().slice(0, 10); })();
 const EV = 'hj_sunday', SV = 'hj_service', CE = 'hj_public';
+/* The ORIGINAL site's portal heading, on the same document v2's banner
+   picture lives in (portal/dashboardContent.hero). Synthetic stand-in. */
+const OLD_HEADING = 'Welcome to the Old Portal Synthetic';
 
 (async () => {
   for (const p of Object.values(PEOPLE)) {
@@ -75,6 +78,12 @@ const EV = 'hj_sunday', SV = 'hj_service', CE = 'hj_public';
   await put('events/' + EV, { date: SUN, type: 'Sunday Morning Worship', termLabel: 'Synthetic', teams: ['Worship Team'], roles: ['Keyboard', 'Sound'],
     assignments: { Keyboard: { id: 'ab_hj_core', name: 'Cass Synthetic' } }, serviceLeader: 'Leader Synthetic', speaker: 'Speaker Synthetic',
     archived: false, startTime: '08:00', serviceTime: '10:30' });
+  const hadPortal = await req(8181, 'GET', DOCS + '/portal/dashboardContent', undefined, OWNER);
+  const hadKids = await req(8181, 'GET', DOCS + '/teamContent/' + encodeURIComponent('Kids Church'), undefined, OWNER);
+  await req(8181, 'PATCH', DOCS + '/portal/dashboardContent?updateMask.fieldPaths=hero', { fields: { hero: { mapValue: { fields: {
+    title: { stringValue: OLD_HEADING }, subtitle: { stringValue: 'Old portal line synthetic' } } } } } }, OWNER);
+  await req(8181, 'PATCH', DOCS + '/teamContent/' + encodeURIComponent('Kids Church') + '?updateMask.fieldPaths=heroTitle',
+    { fields: { heroTitle: { stringValue: 'Kids Banner Synthetic' } } }, OWNER);
   await put('services/' + SV, { date: SUN, worshipLeader: 'Leader Synthetic', order: [{ type: 'song', title: 'Song Alpha Synthetic', keys: ['G'] }, { type: 'song', title: 'Song Beta Synthetic', keys: ['C'] }] });
   await put('calEvents/' + CE, { title: 'Harvest Supper Synthetic', category: 'social', status: 'confirmed', visibility: 'public', audience: ['public', 'members'],
     startUtc: Date.now() + 5 * 86400000, endUtc: Date.now() + 5 * 86400000 + 7200000, teams: [], featured: false });
@@ -124,7 +133,7 @@ const EV = 'hj_sunday', SV = 'hj_service', CE = 'hj_public';
     await size(1280); await signIn(PEOPLE.leader); watch.reset();
     await open('hub.html', 11000);
     const hero = await text('heroTitle');
-    ok('  a greeting, by first name', /^Good (morning|afternoon|evening), Lena$/.test(hero), hero);
+    ok('  their team\u2019s own banner title wins', hero === 'Kids Banner Synthetic', hero);
     const q1 = await quick();
     ok('  Send an email and Post a notice, to their own team', q1.includes('Send an emailyour team') || (q1.some(t => /^Send an email ?your team$/.test(t)) && q1.some(t => /^Post a notice ?your team$/.test(t))), JSON.stringify(q1));
     ok('  and no Rota planner, which is not theirs', !q1.some(t => /Rota planner/.test(t)), JSON.stringify(q1));
@@ -144,6 +153,13 @@ const EV = 'hj_sunday', SV = 'hj_service', CE = 'hj_public';
     await open('hub.html', 11000);
     const q3 = await quick();
     ok('  no quick buttons at all', q3.length === 0, JSON.stringify(q3));
+    /* THE HEADING (Martin, 19 Oct 2026): "Welcome, <first name>" - never
+       the old site's portal heading, which stays as it is. */
+    const h3 = await text('heroTitle');
+    ok('  the heading is "Welcome, Mo", not the old site\u2019s portal heading', h3 === 'Welcome, Mo', h3);
+    const oldHero = await req(8181, 'GET', DOCS + '/portal/dashboardContent', undefined, OWNER);
+    const oldTitle = ((((JSON.parse(oldHero.body || '{}').fields || {}).hero || {}).mapValue || {}).fields || {}).title;
+    ok('  and the old site\u2019s heading is untouched', oldTitle && oldTitle.stringValue === OLD_HEADING, JSON.stringify(oldTitle));
     const sub = await text('heroSub');
     ok('  the coming Sunday under the greeting, with who is preaching', sub.includes('Morning Worship at 10:30') && sub.includes('Speaker Synthetic preaching'), sub);
     await open('hub.html?notice=new', 11000);
@@ -176,6 +192,9 @@ const EV = 'hj_sunday', SV = 'hj_service', CE = 'hj_public';
     ok('  nothing on the console', watch.errors.length === 0, watch.summary());
   } finally {
     for (const p of ['events/' + EV, 'services/' + SV, 'calEvents/' + CE]) await del(p);
+    for (const [p, had] of [['portal/dashboardContent', hadPortal], ['teamContent/' + encodeURIComponent('Kids Church'), hadKids]]) {
+      if (had.status === 200) await req(8181, 'PATCH', DOCS + '/' + p, { fields: JSON.parse(had.body).fields || {} }, OWNER); else await del(p);
+    }
     server.close(); chrome.kill();
   }
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');

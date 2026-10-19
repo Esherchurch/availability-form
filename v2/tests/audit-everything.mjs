@@ -99,7 +99,19 @@ const MAX_TAPS = Number(opt('max-taps') || 40);
 /* Never tapped: things that change the world for somebody else. In --live,
    nothing that saves, sends or books either. */
 const SKIP_TAP = /sign ?out|log ?out|back to me|stop viewing|delete|remove|archive|clear |reset|unsubscribe|\bsend\b|disconnect|withdraw|decline|cancel (my|this|the) /i;
-const SKIP_LIVE = /save|submit|book|sign ?up|register|\badd\b|create|upload|\bpay\b|give now|confirm|approve|accept|post|publish|mark as|tick|import|generate|sync/i;
+const SKIP_LIVE = /save|submit|book|sign ?up|register|\badd\b|create|upload|\bpay\b|give now|confirm|approve|accept|post|publish|mark as|tick|import|generate|sync|\+ ?service|not done|auto-?populate|restore/i;
+/* BUTTONS THAT WRITE TO THE LIVE CHURCH, which a --live run must never
+   press (the reviewing window, 19 Oct 2026: the 15 Oct live audit pressed
+   the Rota Planner's "+ Service" and left an empty Sunday Morning Worship
+   on the live rota; "Worship not done" writes the sign-off). Checked by
+   --self-test and --live-words: each of these must match SKIP_LIVE. */
+const LIVE_MUST_SKIP = ['+ Service', '+Service', 'Worship not done', 'AV not done', 'Kids Church not done', 'Auto-Populate', 'Autopopulate',
+  'Restore', 'Save', 'Add', 'Post a notice', 'Send', 'Generate term', 'Import', 'Approve'];
+function liveWordsCheck() {
+  const missed = LIVE_MUST_SKIP.filter(w => !SKIP_LIVE.test(w) && !SKIP_TAP.test(w));
+  console.log('  ' + (missed.length ? 'FAIL' : 'PASS') + '  a live run presses none of the buttons that write: ' + (missed.length ? 'would press ' + missed.join(', ') : LIVE_MUST_SKIP.length + ' checked'));
+  return missed.length === 0;
+}
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const slug = (s) => String(s).replace(/^https?:\/\/[^/]+\//, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 80) || 'screen';
@@ -766,6 +778,7 @@ async function runRole(B, role, size, base, shared) {
 
 async function selfTest(base) {
   console.log('Self-test: every rule fails on a page broken that way, and a clean page passes\n');
+  const liveOk = liveWordsCheck();
   const B = await browser(PORT0, 'self');
   const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small' };
   let bad = 0;
@@ -785,6 +798,7 @@ async function selfTest(base) {
     console.log('  ' + (a2 ? 'PASS' : 'FAIL') + '  a page a role should see, that refuses, is caught by "access"');
     console.log('  ' + (a3 ? 'PASS' : 'FAIL') + '  and the right way round passes');
     if (!a1 || !a2 || !a3) bad++;
+    if (!liveOk) bad++;
   } finally { B.close(); }
   console.log('\n' + (bad ? bad + ' rule(s) did not catch their break' : 'every rule caught its break'));
   process.exit(bad ? 1 : 0);
@@ -806,6 +820,9 @@ function writeReport(started) {
   fs.writeFileSync(REPORT, md.join('\n'));
   fs.writeFileSync(path.join(OUT, 'audit.json'), JSON.stringify(RESULTS.map(({ m, ...r }) => r), null, 1));
 }
+
+/* --live-words: only the check above, in a second (run-all runs it). */
+if (flag('live-words')) { process.exit(liveWordsCheck() ? 0 : 1); }
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });

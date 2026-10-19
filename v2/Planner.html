@@ -528,13 +528,55 @@
             }
         };
 
-        window.addSingleLine = async () => {
-            const dateStr = new Date().toISOString().split('T')[0];
-            await addDoc(collection(db, "events"), {
-                date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false,
-                ...SUNDAY_PUBLIC
-            });
+        /* "+ SERVICE" ASKS FIRST (the reviewing window, 19 Oct 2026): it used
+           to save a Sunday Morning Worship dated TODAY the moment it was
+           tapped - one mis-tap on the phone bar, or the live audit, put a
+           real empty service on the rota. Now a small sheet asks the date
+           (next Sunday to start with) and the type, and nothing is saved
+           until "Add". Cancel, the X, a tap outside or Escape save nothing. */
+        const SERVICE_KINDS = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
+        const nextSundayIso = () => { const d = new Date(); d.setHours(12, 0, 0, 0); while (d.getDay() !== 0) d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; };
+        const closeAddService = () => { const s = document.getElementById('ppAddService'); if (s) s.remove(); document.removeEventListener('keydown', addServiceKey); };
+        const addServiceKey = (e) => { if (e.key === 'Escape') closeAddService(); };
+        window.addSingleLine = () => {
+            closeAddService();
+            const wrap = document.createElement('div');
+            wrap.id = 'ppAddService'; wrap.setAttribute('data-egbc-overlay', '');
+            wrap.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(17,24,39,.4);display:flex;align-items:flex-end;justify-content:center';
+            wrap.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="ppAddT" style="background:#fff;width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:16px 16px 20px;font-family:Inter,system-ui,sans-serif">'
+              + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><b id="ppAddT" style="font-size:16px;color:#111827">Add a service</b>'
+              + '<button type="button" data-close="1" aria-label="Close" style="width:44px;height:44px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer;font-size:18px;color:#3d6263">&times;</button></div>'
+              + '<label for="ppAddDate" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Date</label>'
+              + '<input id="ppAddDate" type="date" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:12px">'
+              + '<label for="ppAddType" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">What kind</label>'
+              + '<select id="ppAddType" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:16px;background:#fff">'
+              + EVENT_TYPES.map(t => '<option' + (t === 'Sunday Morning Worship' ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>'
+              + '<div style="display:flex;gap:8px"><button type="button" data-close="1" style="flex:1;min-height:48px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Cancel</button>'
+              + '<button type="button" id="ppAddGo" style="flex:1;min-height:48px;border:0;border-radius:12px;background:#3d6263;color:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Add</button></div>'
+              + '<p id="ppAddMsg" role="status" style="margin:10px 0 0;font-size:13px;color:#b0392c;min-height:1em"></p></div>';
+            document.body.appendChild(wrap);
+            if (window.matchMedia('(min-width:700px)').matches) { wrap.style.alignItems = 'center'; wrap.firstChild.style.borderRadius = '18px'; }
+            document.getElementById('ppAddDate').value = nextSundayIso();
+            wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-close]')) closeAddService(); });
+            document.addEventListener('keydown', addServiceKey);
+            document.getElementById('ppAddGo').onclick = async () => {
+                const dateStr = document.getElementById('ppAddDate').value, type = document.getElementById('ppAddType').value;
+                const msg = document.getElementById('ppAddMsg');
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { msg.textContent = 'Choose the date first.'; return; }
+                const go = document.getElementById('ppAddGo'); go.disabled = true; go.textContent = 'Adding\u2026';
+                try {
+                    await addDoc(collection(db, "events"), Object.assign({
+                        date: dateStr, termLabel: getTermLabel(dateStr), type, description: "",
+                        teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30",
+                        roles: SERVICE_KINDS.includes(type) ? MANDATORY_SUNDAY_ROLES : [], archived: false
+                    }, SERVICE_KINDS.includes(type) ? SUNDAY_PUBLIC : {}));
+                    closeAddService();
+                } catch (e) {
+                    console.error('Planner: could not add the service', e);
+                    msg.textContent = 'That did not save. Please try again.'; go.disabled = false; go.textContent = 'Add';
+                }
+            };
+            setTimeout(() => { try { document.getElementById('ppAddDate').focus(); } catch (e) {} }, 50);
         };
 
         window.generateTerm = async () => {

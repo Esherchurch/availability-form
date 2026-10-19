@@ -238,7 +238,6 @@
      what it can show than to a desk monitor. */
   .side{display:none}
   /* HOME BY JOB (19 Oct 2026) */
-  .hero .kicker{margin:0 0 4px;font-size:13px;font-weight:600;opacity:.8}
   .search-btn{display:none}
   #quickRow:empty{display:none}
   .qrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:0 0 16px}
@@ -601,7 +600,6 @@
     <div class="bg" id="heroBg"></div>
     <button class="edit edit-only" id="heroEdit" style="display:none" onclick="editHero()"><i data-lucide="image" style="width:15px;height:15px"></i>Edit banner</button>
     <div class="in">
-      <p id="heroKicker" class="kicker" hidden></p>
       <h1 id="heroTitle">&nbsp;</h1>
       <p id="heroSub"></p>
     </div>
@@ -951,7 +949,7 @@
 
 
 <nav id="egbc-tabbar" aria-label="Main"></nav>
-<script src="hub-app.js?v=202610191900"></script>
+<script src="hub-app.js?v=202610192100"></script>
 <!-- The one service worker on the v2 scope, so a phone with only the
      installed EGBC Hub can receive notifications (FINDINGS-notify N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>

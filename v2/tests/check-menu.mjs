@@ -685,8 +685,10 @@ const READ_MENU = `(() => {
       continue;
     }
     if (JSON.stringify(got.titles) !== JSON.stringify(reference)) {
-      differs.push(page + ': ' + got.titles.slice(0, 6).join(' > ') +
-        (got.titles.length > 6 ? ' …' : '') + '  (' + got.titles.length + ' names, hub has ' + reference.length + ')');
+      /* Where they part company, not the first six names (which agreed). */
+      const missing = reference.filter(t => got.titles.indexOf(t) === -1), extra = got.titles.filter(t => reference.indexOf(t) === -1);
+      differs.push(page + ': ' + (missing.length ? 'missing ' + missing.join(', ') : '') + (extra.length ? ' extra ' + extra.join(', ') : '')
+        + (missing.length || extra.length ? '' : 'same names, another order') + '  (' + got.titles.length + ' names, hub has ' + reference.length + ')');
     }
   }
 
