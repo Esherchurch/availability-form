@@ -4170,6 +4170,25 @@ await check('  while making the same record without it is fine', 'allow',
   await check('    but does not change it', 'deny', () => updateDoc(doc(ctx('u_cmval'), 'fireEquipment', 'fe_1'), { removed: true }));
   await check('    nobody deletes one (marked removed)', 'deny', () => deleteDoc(doc(as('martin'), 'fireEquipment', 'fe_1')));
   await check('  the office says what kind of room it is', 'allow', () => setDoc(doc(ctx('u_cmoff'), 'roomProfiles', 'cs_a_kit'), { siteId: 'cs_a', kind: 'kitchen', updatedAt: 'x' }));
+
+  // Stage 3 (F-233): the colour, the reminders' markers, the trustees' sign-off
+  const ST3 = { siteId: 'cs_a', rag: 'red', counts: { red: 1, amber: 0, green: 2, grey: 0 }, safetyJobs: 0, at: 'x' };
+  await check('  THE COLOUR for bookings: the office writes it', 'allow', () => setDoc(doc(ctx('u_cmoff'), 'complianceStatus', 'cs_a'), ST3));
+  await check('    anyone signed in reads it (a colour and numbers only)', 'allow', () => getDoc(doc(ctx('u_cmvol'), 'complianceStatus', 'cs_a')));
+  await check('    a stranger does not', 'deny', () => getDoc(doc(anon(), 'complianceStatus', 'cs_a')));
+  await check('    a volunteer cannot change it', 'deny', () => setDoc(doc(ctx('u_cmval'), 'complianceStatus', 'cs_a'), { ...ST3, rag: 'green' }));
+  await check('    nor can it carry anything but the colour and numbers', 'deny', () => setDoc(doc(ctx('u_cmoff'), 'complianceStatus', 'cs_a'), { ...ST3, items: ['Gas safety'] }));
+  await check('  the reminders’ markers: the server only', 'deny', () => getDoc(doc(as('martin'), 'complianceReminders', 'x')));
+  const SO = (uid, extra) => ({ year: 2026, by: uid, byName: uid, at: serverTimestamp(), note: '', snapshot: { cs_a: { rag: 'red' } }, ...(extra || {}) });
+  await check('  THE SIGN-OFF: a trustee (an Elder) signs off for the year', 'allow', () => setDoc(doc(ctx('u_cmeld'), 'complianceSignoffs', 'so_1'), SO('u_cmeld')));
+  await check('    and it is in the log', 'allow', () => setDoc(doc(ctx('u_cmeld'), 'complianceLog', 'cl_so'), { siteId: '', what: 'signoff', by: 'u_cmeld', byName: 'x', at: 'x', detail: { year: 2026 } }));
+  await check('    not in someone else’s name', 'deny', () => setDoc(doc(ctx('u_cmeld'), 'complianceSignoffs', 'so_2'), SO('u_martin')));
+  await check('    the office does not sign off (the trustees do)', 'deny', () => setDoc(doc(ctx('u_cmoff'), 'complianceSignoffs', 'so_3'), SO('u_cmoff')));
+  await check('    nor Val', 'deny', () => setDoc(doc(ctx('u_cmval'), 'complianceSignoffs', 'so_4'), SO('u_cmval')));
+  await check('    nobody changes a sign-off', 'deny', () => updateDoc(doc(as('martin'), 'complianceSignoffs', 'so_1'), { note: 'changed' }));
+  await check('    nor deletes one', 'deny', () => deleteDoc(doc(as('martin'), 'complianceSignoffs', 'so_1')));
+  await check('    the office reads them', 'allow', () => getDoc(doc(ctx('u_cmoff'), 'complianceSignoffs', 'so_1')));
+  await check('    Val does not', 'deny', () => getDoc(doc(ctx('u_cmval'), 'complianceSignoffs', 'so_1')));
 }
 
 // Nothing else is open.

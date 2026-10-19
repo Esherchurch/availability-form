@@ -7823,3 +7823,49 @@ the gate report).
 - the trustee report with each check's label
 - "fixing a safety job marks its check done" in the same step
 - the switch
+
+### F-233 — Building compliance, Stage 3: connections and reports (19 Oct)
+
+**Built:**
+- **`functions/compliance.js`, `complianceDaily`:** runs every morning at 7 (London time).
+  - **What it does for each building that is set up:**
+    - writes its colour to `complianceStatus/<site>` (a colour and numbers only)
+    - emails each check's responsible people "Due soon" when the check turns amber, and "Overdue" when it turns red
+  - **Each reminder goes once per due date** (`complianceReminders`, server only).
+  - **On the 1st of the month,** one summary of everything amber or red goes to the Church office, the Elders and master admins.
+  - **Off unless the church has the add-on.** `churchSettings/features.buildingCompliance` must be exactly true, as the server already reads `features` for notifications. Off, the run writes nothing and sends nothing.
+  - **Mail goes through `makeSender`,** like every other hub email.
+  - **Exported from index.js.** It needs deploying at switch-over with the rest.
+- **The same engine on the server:**
+  - `tools/sync-compliance.mjs` copies `egbc-compliance.js` and `egbc-compliance-store.js` byte for byte into `functions/` (as `.cjs`), because only `functions/` is deployed.
+  - compliance-stage3.test fails if a copy differs, so it is still one schedule engine.
+- **The room bookings screen (`bookings-admin.html`):** a dot beside the site, with "Building checks: something is overdue (a warning only; bookings carry on)" and a link to the building.
+  - **Shown only while the add-on is on.**
+  - **Nothing about a booking reads it.** Approving, declining and moving are exactly as before.
+  - **Bookings admins who are not compliance people see the colour,** never the checks.
+- **The trustee report (`compliance.html`, "Trustee report and sign-off"):**
+  - each building's counts, then every check with its label, how often, last done, next due, status and open actions
+  - "Print or save as PDF" (the browser's print, with the buttons hidden)
+  - "Download CSV"
+- **The yearly sign-off:**
+  - **A trustee signs off:** an Elder, or a master admin, ticks "I have reviewed the building compliance for 2026", with an optional note.
+  - **What is kept** (`complianceSignoffs`): their name, the server's time and a snapshot of each building's colours.
+  - **It is logged, and never changed or deleted.** The office sees the report but does not sign off.
+- **Maintenance (`maintenance.html`), Martin's step:** when a job raised from a check is marked done, the page asks "Also record '<check>' as done today?". Only the people the rules let record that check are asked (the office, or the check's own people). Everyone else marks the job done exactly as before.
+- **The office page** also writes a building's colour when it opens it (while the add-on is on), so the dot is fresh before the next morning.
+
+**The proofs (compliance-stage3.test, 30/30):**
+- **Add-on off:** the run does nothing, no dot shows (even with a colour on file), and a booking is approved as before.
+- **Add-on on:**
+  - A check made overdue on purpose turns Bea's bookings dot red, and the booking is still approved.
+  - A reminder goes for the overdue check and not for the in-date one, once only, plus "due soon" when amber.
+  - The monthly summary reaches the office, the trustees and master admins, not Val or Bea.
+- **The report and sign-off:** the report, the CSV with labels and the trustee's sign-off all work, and the office has no sign-off.
+- **The Maintenance step:** a fixed safety job records its check, and the next run turns the hall back from red.
+
+**For the main window:** the switch is read as `churchSettings/features.buildingCompliance === true`, server and pages alike. When `EGBCChurch.uses()` reads stored switches (F-230), it should read that same field, defaulting to OFF for this one.
+
+**Found and not fixed:**
+- **Reminders are email only.** A phone notification could be added through notify.js; I did not, to keep to one channel until asked.
+- **"Not recorded yet" checks get no reminder.** They have no date to be due by. They show amber on the screens and in the monthly summary.
+- **The trustee report is the browser's print, not a generated PDF file.**

@@ -4463,12 +4463,44 @@ service cloud.firestore {
                             && request.resource.data.removed is bool;
       allow delete: if false;           // marked removed, never deleted
     }
+    // STAGE 3 (F-233). A building's colour for the room bookings screen: a
+    // colour and numbers only, so anyone signed in may see it (the people who
+    // look after bookings are not all compliance admins). Written by the daily
+    // run, and by the office's page when it opens a building. A warning only:
+    // nothing about a booking reads it to refuse.
+    match /complianceStatus/{siteId} {
+      allow read: if active();
+      allow create, update: if cmpAdmin()
+                            && request.resource.data.keys().hasOnly(['siteId', 'rag', 'counts', 'safetyJobs', 'at'])
+                            && request.resource.data.siteId == siteId
+                            && request.resource.data.rag in ['red', 'amber', 'green', 'grey']
+                            && request.resource.data.counts is map && request.resource.data.safetyJobs is int;
+      allow delete: if false;
+    }
+    // Which reminders have gone (the daily run only).
+    match /complianceReminders/{id} {
+      allow read, write: if false;
+    }
+    // THE TRUSTEES' YEARLY SIGN-OFF: a trustee records that they have
+    // reviewed the building compliance, in their own name, now. Never
+    // changed or deleted.
+    match /complianceSignoffs/{id} {
+      allow read: if cmpSees();
+      allow create: if cmpTrustee()
+                    && request.resource.data.keys().hasOnly(['year', 'by', 'byName', 'at', 'note', 'snapshot'])
+                    && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
+                    && request.resource.data.year is int && request.resource.data.year >= 2026 && request.resource.data.year <= 2100
+                    && request.resource.data.get('note', '') is string && request.resource.data.get('note', '').size() <= 1000
+                    && request.resource.data.get('snapshot', {}) is map;
+      allow update, delete: if false;
+    }
     // THE AUDIT LOG: append only. Nobody - not a master admin - changes or deletes it.
     match /complianceLog/{id} {
       allow read: if cmpSees();
       allow create: if request.resource.data.keys().hasOnly(['siteId', 'what', 'by', 'byName', 'at', 'detail'])
                     && request.resource.data.by == request.auth.uid
-                    && (cmpAdmin() || (active() && request.resource.data.what in ['done', 'job']));
+                    && (cmpAdmin() || (cmpTrustee() && request.resource.data.what == 'signoff')
+                        || (active() && request.resource.data.what in ['done', 'job']));
       allow update, delete: if false;
     }
 

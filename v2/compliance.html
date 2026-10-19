@@ -61,6 +61,9 @@
   .rec{border-top:1px solid var(--line);padding:8px 0}.rec:first-of-type{border-top:0}
   .notice{background:var(--amber-bg);color:#7a5a1f;border-radius:10px;padding:10px 12px;margin:0 0 12px}
   .said{font-size:13px;color:var(--muted);min-height:18px;margin:6px 0 0}
+  .rep{width:100%;border-collapse:collapse;font-size:13px}.rep th,.rep td{text-align:left;padding:6px 6px;border-top:1px solid var(--line);vertical-align:top}
+  .rep th{font-size:12px;color:var(--muted);font-weight:600}.repwrap{overflow-x:auto}
+  @media print{.noprint,#toast,.tabs{display:none!important}body{background:#fff}.card{border:0;padding:0}.wrap{padding:0;max-width:none}.rep{font-size:11px}}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
 </style>
 </head>
@@ -77,6 +80,7 @@
      building", building.html). The rules say the same.
      Due dates and colours come only from EGBCCompliance.schedule(). */
   var E = window.EGBCEvents, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = E.esc;
+  var REPORT = false, FEATURE = false, CHURCH = '', SIGNOFFS = [];
   var ME = {}, ADMIN = false, TRUSTEE = false, SITES = [], ROOMS = [], PEOPLE = {}, TEMPLATES = [], SITE = null, B = null, VIEW = 'checks', F = { area: '', person: '', rag: '' };
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   function db() { return EGBCAuth.db; }
@@ -109,17 +113,85 @@
   /* ---------------- drawing ---------------- */
   function draw() {
     var html = '<h1>Building compliance</h1><p class="guide" id="guide">' + esc(T.GUIDANCE) + '</p>';
-    if (!SITE) html += overview();
+    if (REPORT) html += report();
+    else if (!SITE) html += overview();
     else html += building();
     $('wrap').innerHTML = html;
     wire();
   }
   function overview() {
-    return '<p class="sub">Each building: what is in date, due soon and overdue.</p><div class="card" id="buildings">' + SITES.map(function (s) {
+    return '<p class="sub">Each building: what is in date, due soon and overdue.</p>' +
+      '<div class="row noprint" style="margin:0 0 12px"><button class="btn sec" id="toReport">Trustee report and sign-off</button></div><div class="card" id="buildings">' + SITES.map(function (s) {
       var r = s._sched;
       return '<div class="bld" data-site="' + esc(s.id) + '" role="button" tabindex="0"><span class="dot ' + (r ? r.rag : 'grey') + '"></span><div><div class="t" style="color:var(--ink);font-weight:600">' + esc(s.name || s.id) + '</div>' +
         '<div class="m">' + (!s._profile ? 'Not set up yet' : r.counts.red + ' overdue · ' + r.counts.amber + ' due soon · ' + r.counts.green + ' in date' + (r.safetyJobs.length ? ' · ' + r.safetyJobs.length + ' safety job' + (r.safetyJobs.length === 1 ? '' : 's') : '')) + '</div></div><span class="m">›</span></div>';
     }).join('') + '</div>';
+  }
+  /* ---- THE TRUSTEE REPORT (Stage 3; F-233): every building, every check,
+     with its label, last done, next due and open actions; printed (or saved
+     as a PDF) and as a CSV for meetings. And the yearly sign-off. ---- */
+  var STATUS_WORDS = { red: 'Overdue', amber: 'Due soon', green: 'In date', grey: 'Off' };
+  function reportRows() {
+    var rows = [];
+    SITES.forEach(function (s) {
+      if (!s._sched) return;
+      s._sched.items.filter(function (i) { return i.state !== 'removed'; }).forEach(function (i) {
+        rows.push({ building: s.name || s.id, area: i.area, check: i.title, label: C.BASIS[i.basis] || '', every: every(i.every), lastDone: i.lastDone || '', nextDue: i.nextDue || '',
+          status: i.state === 'off' ? 'Switched off' : (i.rag === 'amber' && !i.lastDone && !i.nextDue ? 'Not recorded yet' : STATUS_WORDS[i.rag]), rag: i.rag, actions: i.openActions || 0 });
+      });
+    });
+    return rows;
+  }
+  function report() {
+    var rows = reportRows(), year = +TODAY.slice(0, 4), mine = SIGNOFFS.filter(function (x) { return x.year === year; });
+    return '<div class="row noprint" style="margin:0 0 8px"><button class="btn sec small" id="repBack">← All buildings</button><button class="btn sec small" id="repPrint">Print or save as PDF</button><button class="btn sec small" id="repCsv">Download CSV</button></div>' +
+      '<div class="card" id="report"><h2>Trustee report' + (CHURCH ? ': ' + esc(CHURCH) : '') + '</h2><p class="m" style="margin:0 0 8px">' + esc(day(TODAY)) + '</p>' +
+      SITES.map(function (s) {
+        var r = s._sched; if (!r) return '<p><b>' + esc(s.name || s.id) + '</b>: not set up yet.</p>';
+        return '<p style="margin:12px 0 4px"><span class="dot ' + r.rag + '"></span> <b style="color:var(--ink)">' + esc(s.name || s.id) + '</b>: ' + r.counts.red + ' overdue, ' + r.counts.amber + ' due soon, ' + r.counts.green + ' in date' + (r.safetyJobs.length ? ', ' + r.safetyJobs.length + ' open safety job' + (r.safetyJobs.length === 1 ? '' : 's') : '') + '</p>';
+      }).join('') +
+      '<div class="repwrap"><table class="rep" id="repTable"><thead><tr><th>Building</th><th>Check</th><th>Label</th><th>How often</th><th>Last done</th><th>Next due</th><th>Status</th><th>Open actions</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr data-rag="' + r.rag + '"><td>' + esc(r.building) + '</td><td>' + esc(r.check) + '</td><td>' + esc(r.label) + '</td><td>' + esc(r.every) + '</td><td>' + esc(day(r.lastDone)) + '</td><td>' + esc(day(r.nextDue)) + '</td><td>' + esc(r.status) + '</td><td>' + (r.actions || '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div><p class="m" style="margin-top:8px">' + esc(T.GUIDANCE) + '</p></div>' +
+      '<div class="card" id="signoff"><h2>The trustees’ sign-off</h2>' +
+      (SIGNOFFS.length ? SIGNOFFS.map(function (x) { return '<div class="rec"><b>' + esc(x.year) + '</b>: reviewed by ' + esc(x.byName || '') + (x.atDay ? ', ' + esc(day(x.atDay)) : '') + (x.note ? '<div class="m">' + esc(x.note) + '</div>' : '') + '</div>'; }).join('') : '<p class="m">No sign-off yet.</p>') +
+      (TRUSTEE ? '<div class="noprint">' + (mine.length ? '<p class="m">Signed off for ' + year + '.</p>' : '') +
+        '<label class="l" for="soNote">Note (optional)</label><textarea id="soNote" maxlength="1000"></textarea>' +
+        '<label class="chk"><input type="checkbox" id="soYes"> I have reviewed the building compliance for ' + year + '.</label>' +
+        '<div class="row"><button class="btn" id="soGo">Sign off for ' + year + '</button></div><p class="said" id="soMsg" role="status"></p></div>' : '<p class="m">The trustees (the Elders) sign off.</p>') + '</div>';
+  }
+  function csv() {
+    var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var rows = reportRows(), head = ['Building', 'Area', 'Check', 'Label', 'How often', 'Last done', 'Next due', 'Status', 'Open actions'];
+    return [head].concat(rows.map(function (r) { return [r.building, r.area, r.check, r.label, r.every, r.lastDone, r.nextDue, r.status, r.actions]; })).map(function (r) { return r.map(q).join(','); }).join('\r\n');
+  }
+  function wireReport() {
+    $('repBack').onclick = function () { REPORT = false; draw(); };
+    $('repPrint').onclick = function () { window.print(); };
+    $('repCsv').onclick = function () {
+      var a = document.createElement('a'), blob = new Blob(['\ufeff' + csv()], { type: 'text/csv' });
+      a.href = URL.createObjectURL(blob); a.download = 'building-compliance-' + TODAY + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+    };
+    if ($('soGo')) $('soGo').onclick = function () {
+      if (!$('soYes').checked) { $('soMsg').textContent = 'Tick to say you have reviewed it.'; return; }
+      var year = +TODAY.slice(0, 4), snap = {};
+      SITES.forEach(function (s) { if (s._sched) snap[s.id] = { rag: s._sched.rag, red: s._sched.counts.red, amber: s._sched.counts.amber, green: s._sched.counts.green }; });
+      $('soMsg').textContent = 'Saving…';
+      db().collection('complianceSignoffs').doc().set({ year: year, by: who().uid, byName: who().name, at: firebase.firestore.FieldValue.serverTimestamp(), note: $('soNote').value.trim().slice(0, 1000), snapshot: snap })
+        .then(function () { return db().collection('complianceLog').doc().set({ siteId: '', what: 'signoff', by: who().uid, byName: who().name, at: new Date().toISOString(), detail: { year: year } }); })
+        .then(loadSignoffs).then(function () { draw(); toast('Signed off for ' + year + '.'); }, function (e) { $('soMsg').textContent = 'Not saved: ' + (e.message || e); });
+    };
+  }
+  function loadSignoffs() {
+    return db().collection('complianceSignoffs').get().then(function (s) {
+      SIGNOFFS = all(s).map(function (x) { x.atDay = x.at && x.at.toDate ? new Date(x.at.toDate().getTime() - x.at.toDate().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : ''; return x; })
+        .sort(function (a, b) { return b.year - a.year || String(b.atDay).localeCompare(String(a.atDay)); });
+    }, function () { SIGNOFFS = []; });
+  }
+  /* The colour the room bookings screen shows (only while the add-on is on). */
+  function writeStatus(siteId, r) {
+    if (!ADMIN || !FEATURE || !r) return;
+    db().collection('complianceStatus').doc(siteId).set({ siteId: siteId, rag: r.rag, counts: r.counts, safetyJobs: r.safetyJobs.length, at: new Date().toISOString() }).catch(function () {});
   }
   function building() {
     var r = sched(B), tabs = [['checks', 'Checks'], ['profile', 'The building'], ['register', 'Extinguishers'], ['history', 'History']];
@@ -246,6 +318,8 @@
 
   /* ---------------- wiring ---------------- */
   function wire() {
+    if (REPORT) return wireReport();
+    if ($('toReport')) $('toReport').onclick = function () { REPORT = true; loadAll().then(loadSignoffs).then(draw); };
     document.querySelectorAll('[data-site]').forEach(function (r) { r.onclick = r.onkeydown = function (e) { if (e.type === 'keydown' && e.key !== 'Enter') return; openSite(r.getAttribute('data-site')); }; });
     if ($('toAll')) $('toAll').onclick = function () { SITE = null; B = null; history.replaceState(null, '', 'compliance.html'); loadAll().then(draw); };
     document.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { VIEW = b.getAttribute('data-v'); draw(); if (VIEW === 'history') drawHistory(); }; });
@@ -286,7 +360,7 @@
   function drawHistory() {
     db().collection('complianceLog').where('siteId', '==', SITE.id).get().then(function (s) {
       var l = all(s).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); }).slice(0, 200);
-      var words = { profile: 'Answers changed', edit: 'Check changed', add: 'Own check added', done: 'Check done', work: 'Building work recorded', template: 'Followed the updated guidance', job: 'Job raised' };
+      var words = { profile: 'Answers changed', edit: 'Check changed', add: 'Own check added', done: 'Check done', work: 'Building work recorded', template: 'Followed the updated guidance', signoff: 'Trustees signed off', job: 'Job raised' };
       $('history').innerHTML = '<h2>History</h2>' + (l.length ? l.map(function (x) { return '<div class="rec"><b>' + esc(words[x.what] || x.what) + '</b> · ' + esc(x.byName || '') + '<div class="m">' + esc(new Date(x.at).toLocaleString('en-GB')) + '</div></div>'; }).join('') : '<p class="m">Nothing yet.</p>');
     }, function () { $('history').innerHTML = '<p class="m">The history could not be read.</p>'; });
   }
@@ -301,7 +375,7 @@
      the engine shows it at once; an admin's visit also writes it down, logged. */
   function reload() {
     return loadBuilding(SITE.id).then(function (b) {
-      B = b;
+      B = b; writeStatus(SITE.id, sched(b));
       if (!ADMIN || !ST.templateUpdates(TEMPLATES, b.checks).length) return;
       return ST.followTemplates(db(), C, TEMPLATES, b.checks, who()).then(function () { return loadBuilding(SITE.id).then(function (b2) { B = b2; }); }, function () {});
     });
@@ -312,7 +386,7 @@
     VIEW = 'checks'; reload().then(draw);
   }
   function loadAll() {
-    return Promise.all(SITES.map(function (s) { return loadBuilding(s.id).then(function (b) { s._profile = b.profile && b.profile.siteId ? b.profile : null; s._sched = s._profile ? sched(b) : null; }); }));
+    return Promise.all(SITES.map(function (s) { return loadBuilding(s.id).then(function (b) { s._profile = b.profile && b.profile.siteId ? b.profile : null; s._sched = s._profile ? sched(b) : null; if (s._sched) writeStatus(s.id, s._sched); }); }));
   }
 
   E.ready().then(function (profile) {
@@ -328,8 +402,12 @@
     return Promise.all([
       db().collection('sites').get(), db().collection('rooms').get(),
       db().collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
-      db().collection('addressBook').get().catch(function () { return { docs: [] }; })
+      db().collection('addressBook').get().catch(function () { return { docs: [] }; }),
+      db().collection('churchSettings').doc('features').get().catch(function () { return null; }),
+      db().collection('churchSettings').doc('details').get().catch(function () { return null; })
     ]).then(function (r) {
+      FEATURE = !!(r[4] && r[4].exists && r[4].data().buildingCompliance === true);
+      CHURCH = (r[5] && r[5].exists && r[5].data().name) || '';
       SITES = all(r[0]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       ROOMS = all(r[1]).filter(function (x) { return x.active !== false; });
       TEMPLATES = all(r[2]).length ? all(r[2]) : T.TEMPLATES;

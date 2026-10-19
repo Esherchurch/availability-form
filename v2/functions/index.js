@@ -750,3 +750,5 @@ export { lessonFor } from './lesson.js';
 export { compilerSend } from './compiler-send.js';
 /* Sermon plans, the other way: sermonLinks for the Preaching plan (F-229), the events window's file. */
 export { sermonLinkKeep } from './sermon-links.js';
+/* Building compliance: the colour for bookings, reminders and the monthly summary (F-233), the events window's file. */
+export { complianceDaily } from './compliance.js';

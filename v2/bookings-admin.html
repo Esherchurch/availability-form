@@ -121,6 +121,27 @@
     pageLink: function (b) { return pageLink(b); },
     reload: function (o) { o = o || {}; if (o.tab) V.tab = o.tab; return load().then(function () { if (o.open) MONEY.drawHirers(document.getElementById('list'), o.open); }); } };
   var MONEY = EGBCMoney(MCTX);
+  /* BUILDING COMPLIANCE (F-233): the building's colour, beside the site -
+     A WARNING ONLY. Nothing here reads it to refuse, hold or cancel a
+     booking. Shown only while the church has the add-on
+     (churchSettings/features.buildingCompliance exactly true), and only
+     once the building has a colour; any failure to read it shows nothing. */
+  var CMP = null, CMP_ON = null;
+  function cmpLoad() {
+    var on = CMP_ON !== null ? Promise.resolve(CMP_ON) : db().collection('churchSettings').doc('features').get()
+      .then(function (f) { return (CMP_ON = !!(f.exists && f.data().buildingCompliance === true)); }, function () { return (CMP_ON = false); });
+    return on.then(function (yes) {
+      if (!yes) return null;
+      return db().collection('complianceStatus').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; });
+    }).then(function (x) { CMP = x; }, function () { CMP = null; });
+  }
+  function cmpDot() {
+    if (!CMP || !/^(red|amber|green)$/.test(CMP.rag)) return '';
+    var w = { red: 'Building checks: something is overdue', amber: 'Building checks: something is due soon', green: 'Building checks: all in date' }[CMP.rag];
+    var c = { red: '#b0392c', amber: '#b07d2e', green: '#15803d' }[CMP.rag];
+    return '<a id="cmpDot" data-rag="' + CMP.rag + '" href="compliance.html?site=' + encodeURIComponent(V.site) + '" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:var(--ink);text-decoration:none">' +
+      '<span style="width:12px;height:12px;border-radius:50%;background:' + c + ';flex:none"></span>' + esc(w) + (CMP.rag === 'green' ? '' : ' (a warning only; bookings carry on)') + '</a>';
+  }
   function load() {
     return Promise.all([db().collection('bookings').where('siteId', '==', V.site).get(),
                         db().collection('charges').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
@@ -136,7 +157,7 @@
       ACC = r[4];
       CHARGES = {}; r[1].docs.forEach(function (d) { CHARGES[d.data().bookingKey] = Object.assign({ id: d.id }, d.data()); });
       LIST = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }).sort(byTime);
-      draw();
+      return cmpLoad().then(draw, draw);
     }).catch(function (e) { document.getElementById('list').innerHTML = '<div class="card">Could not load: ' + esc(e.message || e) + '</div>'; });
   }
 
@@ -148,7 +169,7 @@
                 ['invoices', 'Invoices'], ['hirers', 'Hirers'], ['accounts', 'Accounts'], ['past', 'Past and cancelled']];
     document.getElementById('main').innerHTML =
       '<div class="row">' + (SITES.length > 1 ? '<div class="f"><label class="l" for="a-site">Site</label><select id="a-site">' + SITES.map(function (s) {
-        return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div>' : '<h2 style="margin:0">' + esc(site().name) + '</h2>') + '</div>' +
+        return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div>' : '<h2 style="margin:0">' + esc(site().name) + '</h2>') + '</div>' + cmpDot() +
       '<div class="tabs">' + tabs.map(function (t) {
         return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>'; }).join('') + '</div>' +
       '<div id="list"></div>';

@@ -195,7 +195,26 @@
     var note = prompt('Done. Anything to add? (optional)') || '';
     btn.disabled = true;
     db().collection('maintJobs').doc(id).update({ status: 'done', doneBy: uid(), doneByName: ME.name || '', doneAt: firebase.firestore.FieldValue.serverTimestamp(), doneNote: note.slice(0, 500) })
-      .then(function () { toast('Marked done'); return load(); }).catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
+      .then(function () { return alsoCheck(id, note); })
+      .then(function (m) { toast(m || 'Marked done'); return load(); }).catch(function (e) { btn.disabled = false; toast('Could not: ' + (e.message || e)); });
+  }
+  /* BUILDING COMPLIANCE (Martin, 19 Oct; F-233): a job raised from a building
+     check, once fixed, can mark that check done in the same step - for the
+     people the rules let record it (the office, or the check's own people).
+     Anyone else simply marks the job done, as before. */
+  function alsoCheck(jobId, note) {
+    var j = JOBS.filter(function (x) { return x.id === jobId; })[0];
+    if (!j || !j.checkId) return Promise.resolve('');
+    return db().collection('buildingChecks').doc(j.checkId).get().then(function (d) {
+      if (!d.exists || d.data().state !== 'on') return '';
+      var c = d.data();
+      if (!confirm('Also record "' + c.title + '" as done today?')) return '';
+      var today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), ref = db().collection('checkRecords').doc();
+      return ref.set({ checkId: j.checkId, siteId: c.siteId, doneOn: today, doneBy: uid(), doneByName: ME.name || '', notes: ('Fixed: ' + j.what + (note ? '. ' + note : '')).slice(0, 2000),
+        files: [], certExpiry: '', items: [], jobId: jobId, at: new Date().toISOString() })
+        .then(function () { return db().collection('complianceLog').doc().set({ siteId: c.siteId, what: 'done', by: uid(), byName: ME.name || '', at: new Date().toISOString(), detail: { checkId: j.checkId, recordId: ref.id, jobId: jobId } }); })
+        .then(function () { return 'Marked done, and the check recorded'; });
+    }, function () { return ''; });
   }
   function reopen(id, btn) {
     btn.disabled = true;
