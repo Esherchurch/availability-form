@@ -11,8 +11,10 @@
    page draws the issue twice with egbc-mailblocks.js - the members' copy
    and everybody else's - and saves both on the issue. This file never
    builds email; it only chooses which copy each person gets:
-     the members' copy  -> an address with the office's "church member"
-                            tick in the address book (§21)
+     the members' copy  -> an address book person with the office's
+                            "church member" tick, OR on a team (Martin,
+                            19 Oct: team members get them too; §21 -
+                            Pending and Attender never)
      everybody else's   -> everyone else, and the web version
    So the one place that decides what is members-only stays the one place.
 
@@ -64,11 +66,17 @@ export function letterFor(issue, sub, isMember, o = {}) {
   };
 }
 
-/* Who is a church member, by email: the address book's tick (§21). */
+/* Who gets the members' copy, by email: in the address book (not
+   archived) with the church-member tick, or on at least one team (its
+   markers). An Attender - in the address book, no tick, no team - and
+   anyone not in the address book get everybody else's. */
+export function getsMembersCopy(x) {
+  return !!x && x.archived !== true && (x.churchMember === true || (Array.isArray(x.markers) && x.markers.filter(Boolean).length > 0));
+}
 async function memberEmails(db) {
-  const s = await db.collection('addressBook').where('churchMember', '==', true).get();
+  const s = await db.collection('addressBook').get();
   const out = new Set();
-  s.docs.forEach(d => { const x = d.data(); if (x.archived !== true && x.email) out.add(String(x.email).trim().toLowerCase()); });
+  s.docs.forEach(d => { const x = d.data(); if (x.email && getsMembersCopy(x)) out.add(String(x.email).trim().toLowerCase()); });
   return out;
 }
 

@@ -13,15 +13,14 @@ Do the steps in order and tick each one.
 
 > **DONE, 19 Oct 2026 (Martin and the reviewing window): parts A, B and C.**
 > - Resend account "churchhq"; domain `mail.churchhq.co.uk`, Ireland (eu-west-1), **Verified**.
-> - Cloudflare records as Resend showed them:
->   - DKIM TXT `resend._domainkey.mail`;
->   - CNAMEs `send.mail` and `rsend.mail` (DNS only);
->   - MX `mail` → `inbound-smtp.eu-west-1.amazonaws.com` (10);
->   - `_dmarc` TXT `v=DMARC1; p=none;`.
+> - Cloudflare records: see Part C (what is actually there).
 > - The root's Cloudflare email routing is untouched.
-> - **Still to do:** parts D and E, at switch-over.
+> - **Still to do: parts D and E, Martin's, at switch-over.**
+> - **esherchurch.org's DNS is NOT needed.** Every church sends from
+>   mail.churchhq.co.uk. A church's own domain is only for a church that
+>   later wants to send from its own address (see the end).
 
-## Part A: the Resend account (10 min)
+## Part A: the Resend account (DONE, 19 Oct 2026)
 
 - [ ] **A1.** Go to **resend.com** and choose **Sign up**. Use a Church HQ email
       address you'll keep (not a personal one), and a strong password.
@@ -34,7 +33,7 @@ Do the steps in order and tick each one.
         with no daily limit). That covers many churches' weekly e-news.
         This is the cost to build into the Church HQ subscription.
 
-## Part B: add the sending address (5 min)
+## Part B: add the sending address (DONE and VERIFIED, 19 Oct 2026)
 
 - [ ] **B1.** In Resend, open **Domains** → **Add domain**.
 - [ ] **B2.** Type exactly: `mail.churchhq.co.uk`
@@ -45,51 +44,25 @@ Do the steps in order and tick each one.
 - [ ] **B5.** Press **Add**. Resend now shows a list of records for Part C.
       Leave the page open.
 
-## Part C: the Cloudflare records (10 min)
+## Part C: the Cloudflare records (DONE and VERIFIED, 19 Oct 2026)
 
-**The easy way (try this first):**
+What is actually in Cloudflare for churchhq.co.uk. Resend now gives CNAMEs
+for sending, not the SPF TXT this guide first said.
 
-- [ ] **C1.** On the Resend domain page, press **Sign in to Cloudflare**. Sign
-      in, choose **churchhq.co.uk**, and press **Authorize**. Resend adds
-      the records itself. Then go to **C6**.
-
-**By hand, if the easy way isn't offered or fails:**
-
-- [ ] **C2.** In another tab: **dash.cloudflare.com** → **churchhq.co.uk** →
-      **DNS** → **Records** → **Add record**, once for each line below.
-      Copy the **values** from the Resend page; they're unique to us.
-      In the **Name** box, type only what's shown below. Cloudflare adds
-      `.churchhq.co.uk` itself.
-
-| # | Type | Name | Content / value | Priority | Proxy |
-|---|---|---|---|---|---|
-| C3 | **MX** | `send.mail` | the MX value Resend shows (looks like `feedback-smtp.eu-west-1.amazonses.com`) | `10` | (MX has none) |
-| C4 | **TXT** | `send.mail` | `v=spf1 include:amazonses.com ~all` (as Resend shows it) | | **DNS only** (grey cloud) |
-| C5 | **TXT** | `resend._domainkey.mail` | the long value Resend shows, starting `p=` | | **DNS only** (grey cloud) |
+| Type | Name | Content | Priority | Proxy |
+|---|---|---|---|---|
+| **TXT** | `resend._domainkey.mail` | the DKIM key Resend gave (starts `p=`) | | DNS only |
+| **CNAME** | `send.mail` | `send.forge.rmta.net` | | **DNS only** |
+| **CNAME** | `rsend.mail` | `rsend-euw1.forge.rmta.net` | | **DNS only** |
+| **MX** | `mail` | `inbound-smtp.eu-west-1.amazonaws.com` | `10` | |
+| **TXT** | `_dmarc` (the root, so it covers `mail.` too) | `v=DMARC1; p=none;` | | |
 
 In plain words:
-- **C3/C4 (SPF)** say "Resend is allowed to send for mail.churchhq.co.uk", and give returned mail somewhere to go.
-- **C5 (DKIM)** is the signature that proves an email really came from us.
+- **DKIM (TXT)** is the signature that proves an email really came from us.
+- **The two CNAMEs** let Resend send for mail.churchhq.co.uk and handle returned mail.
+- **DMARC** tells Gmail and others what to do with fakes. `p=none` means "watch only" for now. After a month of clean sending it can become `p=quarantine`, a one-word edit.
 
-- [ ] **C6. DMARC** (tells Gmail and others what to do with fakes). Add one more:
-
-| Type | Name | Content | Proxy |
-|---|---|---|---|
-| **TXT** | `_dmarc.mail` | `v=DMARC1; p=none; rua=mailto:dmarc@churchhq.co.uk` | DNS only |
-
-  - If churchhq.co.uk has no `dmarc@` mailbox: in Cloudflare, use the left
-    menu **Email** → **DMARC Management** → **Enable**. Cloudflare gives you
-    its own `rua` address to paste in place of `mailto:dmarc@…`, and shows
-    the reports as charts. Free.
-  - `p=none` means "watch only" for now. After a month of clean reports we
-    can change it to `p=quarantine`. That's a one-word edit, and I'll remind
-    you.
-  - **Don't change** any existing `_dmarc` record on churchhq.co.uk itself.
-    This one only covers `mail.`.
-
-- [ ] **C7.** Back in Resend, press **Verify DNS Records**. It usually turns
-      green within minutes; it can take up to 72 hours. All lines should say
-      **Verified**.
+Nothing more to do here.
 
 ## Part D: the key, into the key box (at switch-over; 5 min)
 
@@ -128,6 +101,13 @@ Sending stays held until switch-over too: `ENEWS_LIVE = false` in
       - **email.failed**
 - [ ] **E2.** Copy the **Signing secret** it shows (starts `whsec_`). Paste
       it into the key box's **Resend webhook signing secret**, then press **Save**.
+- [ ] **E3. Switch click tracking OFF.** Resend switched it on for this
+      domain. It can only be changed per domain, not per email, and the hub's
+      key can only send, so this one is a click:
+      Resend → **Domains** → **mail.churchhq.co.uk** → **Configuration** →
+      tracking → **click tracking off** (and open tracking off).
+      Tracking rewrites every link in the e-news and marks who opened what.
+      A church e-news doesn't need that, and it can push emails into spam.
 
 Then a bounced address is marked "bounced" for **that church only**, and is
 never sent to again. Someone who presses "spam" is unsubscribed from that
@@ -144,7 +124,9 @@ church's e-news.
   bottom, and the "Unsubscribe" button Gmail and Apple Mail show at the
   top. It unsubscribes the person from that church's e-news only.
 - **A church's own domain** (e.g. sending as news@esherchurch.org) can be
-  an optional extra later. It's never needed.
+  an optional extra later. It's never needed. **That is the only time a
+  church's own DNS (e.g. esherchurch.org's) is involved; nothing is needed
+  there now.**
 
 ## If something goes wrong
 

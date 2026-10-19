@@ -53,7 +53,9 @@ const SUBS = {
   s_spec: { email: 'spec.send@example.invalid', status: 'subscribed', lists: { weekly: false, special: true }, token: 'tokspec000000000000000000000000000' },
   s_pend: { email: 'pend.send@example.invalid', status: 'pending', lists: { weekly: true }, token: 'tokpend000000000000000000000000000' },
   s_uns: { email: 'uns.send@example.invalid', status: 'unsubscribed', lists: { weekly: false }, token: 'tokuns0000000000000000000000000000' },
-  s_bnc: { email: 'bnc.send@example.invalid', status: 'bounced', lists: { weekly: false }, token: 'tokbnc0000000000000000000000000000' }
+  s_bnc: { email: 'bnc.send@example.invalid', status: 'bounced', lists: { weekly: false }, token: 'tokbnc0000000000000000000000000000' },
+  s_team: { email: 'team.send@example.invalid', status: 'subscribed', lists: { weekly: true }, token: 'tokteam000000000000000000000000000' },
+  s_old: { email: 'old.send@example.invalid', status: 'subscribed', lists: { weekly: true }, token: 'tokold0000000000000000000000000000' }
 };
 
 async function scenario(S) {
@@ -67,7 +69,9 @@ async function scenario(S) {
   await db.collection('churchSettings').doc('details').set({ name: church.name, enquiryEmail: church.email });
   for (const [id, x] of Object.entries(SUBS)) await db.collection('enewsSubscribers').doc(id).set(x);
   await db.collection('addressBook').doc('ab_mem').set({ name: 'Mem Synthetic', email: 'MEM.send@example.invalid', churchMember: true });
-  await db.collection('addressBook').doc('ab_pub').set({ name: 'Pub Synthetic', email: 'pub.send@example.invalid', churchMember: false });
+  await db.collection('addressBook').doc('ab_pub').set({ name: 'Pub Synthetic', email: 'pub.send@example.invalid', churchMember: false, markers: [] });
+  await db.collection('addressBook').doc('ab_team').set({ name: 'Team Synthetic', email: 'team.send@example.invalid', churchMember: false, markers: ['Welcome team'] });
+  await db.collection('addressBook').doc('ab_old').set({ name: 'Old Synthetic', email: 'old.send@example.invalid', churchMember: true, markers: ['Worship Team'], archived: true });
   const now = new Date('2026-10-22T15:05:00Z');                                  /* 16:05 in London */
   await db.collection('enewsIssues').doc('due').set(Object.assign({}, ISSUE, copies, { status: 'scheduled', sendAt: '2026-10-22T16:00' }));
   await db.collection('enewsIssues').doc('later').set(Object.assign({}, ISSUE, copies, { status: 'scheduled', sendAt: '2026-10-22T17:00' }));
@@ -89,7 +93,7 @@ async function scenario(S) {
   t('one Idempotency-Key per person per issue', pub.idempotencyKey === 'enews-due-s_pub');
   t('from the church’s name, replies to the church', pub.fromName === church.name && pub.replyTo === church.email);
   const due = (await db.collection('enewsIssues').doc('due').get()).data();
-  t('the issue is marked sent, with counts', due.status === 'sent' && due.counts && due.counts.sent === 2, due.counts);
+  t('the issue is marked sent, with counts', due.status === 'sent' && due.counts && due.counts.sent === 4, due.counts);
   t('a later issue waits', (await db.collection('enewsIssues').doc('later').get()).data().status === 'scheduled');
   t('a draft is never sent', (await db.collection('enewsIssues').doc('draft').get()).data().status === 'draft' && got.every(g => g.meta.issueId !== 'draft'));
   const web = (await db.collection('enewsWeb').doc('due').get()).data() || {};
@@ -103,7 +107,11 @@ async function scenario(S) {
   const mem = got.find(g => g.to === 'mem.send@example.invalid' && g.meta.issueId === 'again') || {};
   t('a church member (the address book’s tick, any capitals) gets the members’ copy', mem.html && mem.html.includes(ZOOM) && mem.meta.copy === 'members');
   const pub2 = got.find(g => g.to === 'pub.send@example.invalid' && g.meta.issueId === 'again') || {};
-  t('someone in the address book without the tick does not', pub2.html && !pub2.html.includes(ZOOM));
+  t('an Attender (in the address book, no tick, no team) does not', pub2.html && !pub2.html.includes(ZOOM));
+  const team = got.find(g => g.to === 'team.send@example.invalid' && g.meta.issueId === 'again') || {};
+  t('someone on a team without the tick DOES (Martin, 19 Oct)', team.html && team.html.includes(ZOOM) && team.meta.copy === 'members');
+  const old = got.find(g => g.to === 'old.send@example.invalid' && g.meta.issueId === 'again') || {};
+  t('someone archived in the address book does not', old.html && !old.html.includes(ZOOM));
   t('a second run sends nothing more', got.every(g => g.meta.issueId === 'again'));
   got.length = 0;
   await S.runEnewsSend({ db, send, now, gap: 0 });
@@ -124,6 +132,8 @@ console.log('-- deliberate breaks --');
 const BREAKS = [
   ['the members’ copy sent to everyone', "const html = String(isMember ? issue.htmlMembers : issue.htmlEveryone || '')", "const html = String(issue.htmlMembers || '')", 'everyone else’s copy has no members-only words'],
   ['the web version made from the members’ copy', "html: String(issue.htmlEveryone).split(PLACEHOLDER)", "html: String(issue.htmlMembers).split(PLACEHOLDER)", 'the web version has no members-only words'],
+  ['team members left out', "(x.churchMember === true || (Array.isArray(x.markers) && x.markers.filter(Boolean).length > 0))", "(x.churchMember === true)", 'on a team without the tick DOES'],
+  ['archived people let in', "return !!x && x.archived !== true &&", "return !!x &&", 'archived in the address book does not'],
   ['already-sent people sent again', "if (already.has(s.id)) { sent++; continue; }", '', 'not sent it again'],
   ['the one-click header left off', "'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'", "'X-Nothing': ''", 'the one-click header']
 ];
