@@ -291,6 +291,23 @@ try {
   const tm = await TO.evaluate((id) => EGBCAuth.call('planSend', { sessionId: id }).then(() => 'sent', e => e.code || e.message), p1.id);
   ok('   a team member cannot send it', /permission/.test(tm), tm);
 
+  /* ---------- 8b. a master admin edits any group's plan (Martin, 19 Oct) ---------- */
+  await M.goto(URLB + 'session-planner.html?s=' + p1.id, { waitUntil: 'networkidle2' });
+  await until(() => M.$('#save'));
+  ok('8b. A MASTER ADMIN (not a leader of Kids Church) CAN EDIT ITS PLAN: Save is there, the boxes open', !!(await M.$('#save')) && !(await M.$eval('#sTitle', e => e.disabled)));
+  await setVal(M, '#sTitle', 'Born again? (Martin’s tweak)');
+  await tap(M, '#save');
+  await until(async () => /Saved/.test(await text(M, '#sMsg')));
+  const pm = await plan();
+  ok('    and saves it, as himself ("Last changed by Martin")', /Martin’s tweak/.test(pm.title) && pm.updatedBy === P.martin.uid, J({ t: pm.title, by: pm.updatedByName }));
+  const n0 = (await outbox()).filter(m => m.kind === 'session plan').length;
+  await tap(M, '#email');
+  await until(async () => /Sent to/.test(await text(M, '#sMsg')));
+  const mm = (await outbox()).filter(m => m.kind === 'session plan').slice(n0).map(m => m.to[0]).sort();
+  ok('    he may send it - and it goes to the leaders and the week’s team, NOT to him (not a leader)', mm.length >= 3 && !mm.includes(P.martin.email) && mm.includes(P.samy.email), J(mm));
+  const yo = await M.evaluate(() => EGBCAuth.db.collection('planSessions').doc().set({ groupId: 'nope', date: '2026-11-01', title: 'x', parts: [], updatedBy: EGBCAuth.user().uid }).then(() => 'written', e => e.code));
+  ok('    but not a plan for a group that does not exist', /permission/.test(yo), yo);
+
   /* ---------- 9. print, and a file ---------- */
   await SA.emulateMediaType('print');
   const hidden = await SA.evaluate(() => ['#save', '#email', '.chips'].every(s => { const e = document.querySelector(s); return !e || e.getClientRects().length === 0; }));

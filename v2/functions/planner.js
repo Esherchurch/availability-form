@@ -89,7 +89,8 @@ export const planSend = onCall({ region: REGION }, async (req) => {
   if (!s) throw new HttpsError('not-found', 'That plan could not be found.');
   const group = (await db().collection('planGroups').doc(String(s.groupId)).get()).data();
   if (!group) throw new HttpsError('not-found', 'That plan\'s group could not be found.');
-  if ((group.leaderIds || []).indexOf(String(me.memberId || '-')) < 0) throw new HttpsError('permission-denied', 'Only the group\'s leaders send its plans.');
+  /* The group's leaders send it, and master admins (who edit any group's plans; Martin, 19 Oct). */
+  if ((group.leaderIds || []).indexOf(String(me.memberId || '-')) < 0 && me.masterAdmin !== true) throw new HttpsError('permission-denied', 'Only the group\'s leaders send its plans.');
 
   const ids = Array.from(new Set([...(group.leaderIds || []), ...(s.onIds || []), ...(s.awayIds || [])])).slice(0, 200);
   const names = {}, emails = {};

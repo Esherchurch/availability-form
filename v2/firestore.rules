@@ -4274,6 +4274,12 @@ service cloud.firestore {
              && exists(/databases/$(database)/documents/planGroups/$(gid))
              && me().get('memberId', '-') in planGroup(gid).get('leaderIds', []);
     }
+    /* Master admins edit any group's plans too (Martin, 19 Oct), without
+       being leaders - so without the plan emails, which go to leaders. */
+    function editsPlanGroup(gid) {
+      return leadsPlanGroup(gid)
+             || (isMaster() && gid is string && gid != '' && exists(/databases/$(database)/documents/planGroups/$(gid)));
+    }
     function readsPlanGroup(gid) {
       return isMaster() || leadsPlanGroup(gid)
              || (active() && gid is string && gid != ''
@@ -4301,15 +4307,15 @@ service cloud.firestore {
     }
     match /planSessions/{sid} {
       allow read: if readsPlanGroup(resource.data.groupId);
-      allow create: if leadsPlanGroup(request.resource.data.groupId) && planSessionShape();
-      allow update: if leadsPlanGroup(resource.data.groupId)
+      allow create: if editsPlanGroup(request.resource.data.groupId) && planSessionShape();
+      allow update: if editsPlanGroup(resource.data.groupId)
                     && ((planSessionShape() && request.resource.data.groupId == resource.data.groupId)
                         // the live rota's who's on / away, brought up to date by a
                         // leader's visit: those alone, not "Last changed by"
                         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['onIds', 'awayIds', 'rotaAt'])
                             && request.resource.data.onIds is list && request.resource.data.onIds.size() <= 40
                             && request.resource.data.awayIds is list && request.resource.data.awayIds.size() <= 40));
-      allow delete: if leadsPlanGroup(resource.data.groupId) || isMaster();
+      allow delete: if editsPlanGroup(resource.data.groupId);
     }
     // SERMON PLANS, the other way (F-229): what the Preaching plan shows of a
     // sermon plan - its title, series and passage, and where it is - kept by

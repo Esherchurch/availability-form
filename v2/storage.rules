@@ -411,7 +411,8 @@ service firebase.storage {
     }
     function planLeaderHere(groupId) {
       return planActive() && firestore.exists(/databases/(default)/documents/planGroups/$(groupId))
-             && storageMe().get('memberId', '-') in planGroupHere(groupId).get('leaderIds', []);
+             && (storageMe().get('memberId', '-') in planGroupHere(groupId).get('leaderIds', [])
+                 || storageMe().get('masterAdmin', false) == true);
     }
     function planReaderHere(groupId) {
       return planActive() && firestore.exists(/databases/(default)/documents/planGroups/$(groupId))

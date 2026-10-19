@@ -118,7 +118,8 @@
   function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
   function realUid() { return (EGBCAuth.user() || {}).uid || ''; }
   function rid() { return Math.random().toString(36).slice(2, 10); }
-  function canEdit() { return !!G && (G.leaderIds || []).indexOf(ME.memberId || '-') >= 0; }
+  /* The group's leaders - and master admins, for any group (Martin, 19 Oct). */
+  function canEdit() { return !!G && (MASTER || (G.leaderIds || []).indexOf(ME.memberId || '-') >= 0); }
   function dayOf(d) { var p = String(d).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
   function dm(d) { var x = dayOf(d); return [x.getUTCDate() + ' ' + x.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }), x.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })]; }
   function longDay(d) { return dayOf(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }); }
