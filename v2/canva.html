@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Canva</title>
+<!-- CANVA (comms window; FINDINGS-comms C-15, C-21). Feature name canva:
+     off until a master admin turns it on. For the Church office and master
+     admins.
+
+     "Connect Canva" sends you to Canva to sign in yourself - the hub never
+     sees a password - and Canva sends you back here. Then your designs are
+     listed, and "Import" brings a finished one into the picture library as
+     an animated GIF or a picture (PNG), ready for the e-news, events, the
+     app and the screens. Nothing in Canva is changed.
+
+     The hub's functions do the talking to Canva (functions/canva.js); the
+     tokens never reach a page. Shut on the live site until switch-over.
+
+     IF CANVA WON'T CONNECT (decision 3's fallback): download the design
+     from Canva yourself and drop the file in below. That needs nothing
+     from Canva at all. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-shell.js?v=202610162000" data-title="From Canva"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
+<script src="egbc-comms.js?v=202610192100"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--ok:#15803d;--danger:#b0392c;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 16px 80px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .sub{color:var(--muted);margin:0 0 14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:14px;margin-bottom:12px}
+  .ok{background:#ecfdf3;color:var(--ok);border-radius:10px;padding:10px 12px;margin:0 0 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:#fff}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btn.link{background:none;border:0;color:var(--brand);padding:0 6px;text-decoration:underline;min-height:44px}
+  .btn:disabled{opacity:.55;cursor:default}
+  input[type=search]{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;margin:0 0 12px}
+  .d{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+  .d:first-child{border-top:0}
+  .d img,.d .ph{width:72px;height:60px;border-radius:8px;object-fit:cover;background:#e9ecec;flex:none}
+  .d .t{flex:1;min-width:0}.d b{display:block;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .d .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .m{color:var(--muted);font-size:13px}
+  .drop{display:block;border:1.5px dashed var(--line-2);border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;min-height:56px}
+  .drop.on{border-color:var(--brand);background:var(--tint)}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:90vw}
+  #toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card m">Loading…</div></div>
+<div id="toast" role="status"></div>
+<script>
+(function () {
+  'use strict';
+  var wrap = document.getElementById('wrap'), MORE = '', QUERY = '';
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.className = 'on'; clearTimeout(toast.h); toast.h = setTimeout(function () { el.className = ''; }, 3600); }
+  function call(name, data) { return EGBCAuth.call(name, data || {}).then(function (r) { return (r && r.data !== undefined) ? r.data : r; }); }
+  function words(e) { return String((e && e.message) || e || '').replace(/^.*?:\s*(?=[A-Z])/, ''); }
+
+  function shell(inner) {
+    wrap.innerHTML = '<h1>From Canva</h1><p class="sub">Bring finished Canva designs into the picture library, ready for the e-news, events, the app and the screens.</p>' + inner +
+      '<div class="card"><h2>Or drop in a file</h2><p class="m" style="margin:0 0 8px">Downloaded a design from Canva yourself? Drop the GIF or PNG here (or choose it). Animated GIFs stay animated.</p>' +
+      '<label class="drop" id="drop" for="file">Drop a GIF or PNG here, or tap to choose<input type="file" id="file" accept="image/gif,image/png,image/jpeg" hidden></label></div>';
+    var drop = document.getElementById('drop'), file = document.getElementById('file');
+    ['dragenter', 'dragover'].forEach(function (k) { drop.addEventListener(k, function (e) { e.preventDefault(); drop.className = 'drop on'; }); });
+    ['dragleave', 'drop'].forEach(function (k) { drop.addEventListener(k, function (e) { e.preventDefault(); drop.className = 'drop'; }); });
+    drop.addEventListener('drop', function (e) { var f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) upload(f); });
+    file.onchange = function () { if (file.files[0]) upload(file.files[0]); };
+  }
+
+  /* THE FALLBACK: a file kept exactly as it is (an animated GIF stays
+     animated), into the library's own folder. */
+  function upload(f) {
+    if (!/^image\/(gif|png|jpeg)$/.test(f.type)) { toast('Choose a GIF, PNG or JPEG.'); return; }
+    if (f.size > 8 * 1048576) { toast('That file is over 8 MB.'); return; }
+    var id = 'pic_canva_' + Math.random().toString(36).slice(2, 12), ext = f.type === 'image/gif' ? 'gif' : f.type === 'image/png' ? 'png' : 'jpg';
+    var path = 'library/' + id + '/canva.' + ext, u = EGBCAuth.user() || {};
+    toast('Uploading…');
+    var ref = EGBCAuth.storage().ref(path);
+    ref.put(f, { contentType: f.type }).then(function () { return ref.getDownloadURL(); }).then(function (url) {
+      var now = new Date().toISOString();
+      return EGBCAuth.db.collection('pictureLibrary').doc(id).set({ name: f.name.replace(/\.[a-z]+$/i, '').slice(0, 80) || 'Canva design', tags: ['canva'], url: url, path: path, width: 0, height: 0,
+        kind: ext === 'gif' ? 'animated' : 'still', source: 'canva (file)', createdAt: now, createdBy: u.uid || '', updatedAt: now, updatedBy: u.uid || '' });
+    }).then(function () { toast('In the picture library.'); }, function (e) { toast('Not saved: ' + words(e)); });
+  }
+
+  function notConnected(msg) {
+    shell('<div class="card"><h2>Connect Canva</h2><p class="m" style="margin:0 0 10px">You sign in on Canva’s own page; the hub never sees your password. Do it once, and your designs appear here.</p>' +
+      (msg ? '<p class="m" style="color:var(--danger)">' + esc(msg) + '</p>' : '') +
+      '<button class="btn" id="connect">Connect Canva</button></div>');
+    document.getElementById('connect').onclick = function () {
+      var b = this; b.disabled = true; b.textContent = 'Opening Canva…';
+      call('canvaStart', { returnTo: location.href.replace(/[?#].*$/, '') }).then(function (r) { location.href = r.url; },
+        function (e) { b.disabled = false; b.textContent = 'Connect Canva'; toast(words(e)); });
+    };
+  }
+
+  function connected(st) {
+    shell('<div class="ok"><span>Connected to Canva' + (st.since ? ' since ' + esc(new Date(st.since).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })) : '') + '.</span><button class="btn link" id="dis">Disconnect</button></div>' +
+      '<div class="card"><input type="search" id="q" placeholder="Search your designs" aria-label="Search your designs" value="' + esc(QUERY) + '"><div id="list"><p class="m">Loading your designs…</p></div>' +
+      '<div class="row" id="morerow"></div></div>');
+    document.getElementById('dis').onclick = function () {
+      if (!confirm('Disconnect Canva? Anything already imported stays in the picture library.')) return;
+      call('canvaDisconnect').then(function () { notConnected(); toast('Canva disconnected.'); }, function (e) { toast(words(e)); });
+    };
+    var t;
+    document.getElementById('q').oninput = function () { var v = this.value; clearTimeout(t); t = setTimeout(function () { QUERY = v.trim(); load(false); }, 400); };
+    load(false);
+  }
+
+  function load(more) {
+    var list = document.getElementById('list');
+    if (!more) { MORE = ''; list.innerHTML = '<p class="m">Loading your designs…</p>'; }
+    call('canvaDesigns', { query: QUERY, continuation: more ? MORE : '' }).then(function (r) {
+      var html = (r.items || []).map(function (d) {
+        return '<div class="d">' + (d.thumb ? '<img src="' + esc(d.thumb) + '" alt="">' : '<span class="ph"></span>') +
+          '<div class="t"><b>' + esc(d.title) + '</b><span class="m">' + (d.updated ? 'Edited ' + esc(new Date(d.updated * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) : '') + '</span></div>' +
+          '<div class="acts"><button class="btn sec" data-id="' + esc(d.id) + '" data-k="gif" data-t="' + esc(d.title) + '">GIF</button><button class="btn sec" data-id="' + esc(d.id) + '" data-k="png" data-t="' + esc(d.title) + '">PNG</button></div></div>';
+      }).join('');
+      if (!more) list.innerHTML = html || '<p class="m">' + (QUERY ? 'No designs match.' : 'No designs in this Canva account yet.') + '</p>';
+      else list.insertAdjacentHTML('beforeend', html);
+      MORE = r.continuation || '';
+      document.getElementById('morerow').innerHTML = MORE ? '<button class="btn sec" id="more">More designs</button>' : '';
+      if (MORE) document.getElementById('more').onclick = function () { load(true); };
+      Array.prototype.forEach.call(list.querySelectorAll('[data-k]'), function (b) {
+        if (b.onclick) return;
+        b.onclick = function () {
+          b.disabled = true; var was = b.textContent; b.textContent = 'Importing…';
+          call('canvaImport', { designId: b.getAttribute('data-id'), kind: b.getAttribute('data-k'), title: b.getAttribute('data-t') }).then(function () {
+            b.textContent = 'Imported ✓'; toast('In the picture library.');
+          }, function (e) { b.disabled = false; b.textContent = was; toast(words(e)); });
+        };
+      });
+    }, function (e) {
+      if (/connect/i.test(words(e))) notConnected(words(e)); else list.innerHTML = '<p class="m">' + esc(words(e)) + '</p>';
+    });
+  }
+
+  EGBCAuth.require().then(function () {
+    if (!EGBCComms.mayOffice()) { wrap.innerHTML = '<div class="card"><h1>From Canva</h1><p>This page is for the church office and master admins.</p></div>'; return; }
+    if (!(EGBCAuth.uses && EGBCAuth.uses('canva'))) { wrap.innerHTML = '<div class="card"><h1>From Canva</h1><p>Canva is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
+    return call('canvaStatus').then(function (st) {
+      if (/[?&]connected=1/.test(location.search)) { toast('Canva is connected.'); history.replaceState(null, '', location.pathname); }
+      if (st && st.connected) connected(st); else notConnected();
+    }, function (e) { notConnected(words(e)); });
+  }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

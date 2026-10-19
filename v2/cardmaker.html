@@ -339,7 +339,8 @@
   }
 
   function page() {
-    wrap.innerHTML = '<h1>Card maker</h1><p class="sub">Pick an event, a size and a style. The card is made here, in every size you need.</p>' +
+    wrap.innerHTML = '<h1>Card maker</h1><p class="sub">Pick an event, a size and a style. The card is made here, in every size you need.' +
+      (EGBCAuth.uses && EGBCAuth.uses('canva') ? ' Made it in Canva instead? <a href="canva.html">From Canva</a>.' : '') + '</p>' +
       '<div class="card"><label class="f" for="ev" style="margin-top:0">Event from What’s On</label><select id="ev"><option value="">None (type the words below)</option>' +
         EVENTS.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.title || 'Untitled') + ' · ' + esc(new Date(e.startUtc).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })) + '</option>'; }).join('') + '</select>' +
       '<label class="f">Size</label>' + chips('sizes', SIZES, 'size', function (v) { return v.print ? 'print' : v.w + '×' + v.h; }) +

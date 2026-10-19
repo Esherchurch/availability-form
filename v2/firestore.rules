@@ -1501,6 +1501,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;          // web version: the sender only
     }
+    // CANVA'S TOKENS AND SIGN-IN STATE (comms window; functions/canva.js):
+    // the server's alone, never a page - not even a master admin's.
+    match /integrationSecrets/{id} {
+      allow read, write: if false;    // integration secrets: the server only
+    }
     match /hqMailEvents/{id} {
       allow read, write: if false;
     }
