@@ -7651,7 +7651,8 @@ the gate report).
 | smoke-alarms (house) | 1 month | Recommended standard | Smoke and Carbon Monoxide Alarm (England) Regulations 2015 (amended 2022): working on the day a tenancy begins, repaired when reported; no testing interval. Fire and rescue services' advice is to test monthly. **Not labelled legal**, because the law sets no frequency | 19 Oct 2026 |
 | co-alarm (house) | 1 month | Recommended standard | As smoke-alarms | 19 Oct 2026 |
 | evac-chair | 6 months | Good practice | No official frequency found (manufacturers' service intervals) | 19 Oct 2026 |
-| refuge-points | 1 month | Good practice | BS 5839-9 sets the refuge call system's maintenance; its interval was **not** confirmed (paywalled). The gov.uk guide's weekly voice-alarm check is for voice alarms, not refuge calls. **To verify** | 19 Oct 2026 |
+| refuge-points | 1 week | Recommended standard | BS 5839-9 (emergency voice communication, refuge calls): a weekly user test, like the fire alarm (the reviewing window's check, 19 Oct; the standard itself is paywalled) | 19 Oct 2026 |
+| refuge-service | 6 months | Recommended standard | BS 5839-9: periodic servicing by a competent person. The interval is not seen directly; **6 months taken, the stricter**, to match the fire alarm's service under BS 5839-1. **To verify** | 19 Oct 2026 |
 | visual-alarms | 1 week | Recommended standard | Part of the weekly fire alarm test (gov.uk guide, BS 5839-1) | 19 Oct 2026 |
 | peeps-review | 1 year | Good practice | The gov.uk guide sets no interval | 19 Oct 2026 |
 | geep-review | 1 year | Good practice | As peeps-review | 19 Oct 2026 |
@@ -7667,9 +7668,10 @@ the gate report).
 | asbestos-survey | once, kept | **Legal requirement** | Control of Asbestos Regulations 2012 reg. 4 (the duty to manage): find out whether asbestos is present, and keep a record and a plan | 19 Oct 2026 |
 | asbestos-reinspect | 1 year | Recommended standard | HSE guidance (HSG227 and the duty-to-manage pages, quoted by councils and surveyors): known asbestos re-inspected at least every 12 months (secondary) | 19 Oct 2026 |
 | lightning | 1 year | Recommended standard | BS EN 62305-3 Table E.2 varies by protection level. **The stricter is taken:** installers quoting it give yearly (secondary) | 19 Oct 2026 |
-| roof-gutters | 1 year | Good practice | No official frequency. Church Buildings Council advice is spring and autumn (twice a year). **Say if you want 6 months** | 19 Oct 2026 |
+| roof-gutters | 6 months | Good practice | No official frequency. Church Buildings Council advice: spring and autumn. Martin chose 6 months (19 Oct) | 19 Oct 2026 |
 | lift (incl. stairlift) | 6 months | **Legal requirement** | LOLER 1998 reg. 9. HSE: thorough examination every 6 months for equipment lifting people, 12 months for other lifting equipment, unless an examination scheme says otherwise. A stairlift carries people. It applies where the lift is work equipment (staff or volunteers working there) | 19 Oct 2026 |
-| play-routine | 1 month | Recommended standard | BS EN 1176-7: routine and operational inspections between weekly and quarterly. **The stricter end used (monthly) for the operational check** (secondary, not seen directly) | 19 Oct 2026 |
+| play-visual | 1 week | Recommended standard | BS EN 1176-7: the routine visual inspection, daily to weekly by use. The stricter end for a church's occasional use is weekly (the reviewing window's correction, 19 Oct; secondary) | 19 Oct 2026 |
+| play-routine | 1 month | Recommended standard | BS EN 1176-7: the operational inspection, every 1 to 3 months; the stricter end, monthly (secondary, not seen directly) | 19 Oct 2026 |
 | play | 1 year | Recommended standard | BS EN 1176-7: the annual main inspection (secondary: parish councils' RPII inspections) | 19 Oct 2026 |
 | walk-round | 1 month | Good practice | | 19 Oct 2026 |
 | boundaries | 1 year | Good practice | | 19 Oct 2026 |
@@ -7691,7 +7693,7 @@ the gate report).
 | fridge-temps | 1 week (recorded); checked daily | Recommended standard | FSA "Safer food, better business": fridge temperatures in the opening checks each day food is prepared. Recorded weekly, with the note "Check each day food is prepared; record it here once a week". **For Martin:** you had said weekly; as escape-routes | 19 Oct 2026 |
 | allergens | 1 year (and on change) | Good practice | Food Information Regulations 2014: accurate at all times; no interval | 19 Oct 2026 |
 | insurance | 1 year | Good practice | The policy term | 19 Oct 2026 |
-| rebuild-value | 5 years | Good practice | Martin's figure. RICS guidance suggests a reinstatement cost assessment every 3 years with index-linking between. **Say if you want 3** | 19 Oct 2026 |
+| rebuild-value | 3 years | Good practice | RICS guidance: a reinstatement cost assessment every 3 years, index-linked between. Martin chose 3 years (19 Oct) | 19 Oct 2026 |
 | public-liability | 1 year | Good practice | The policy term | 19 Oct 2026 |
 | employers-liability | 1 year | **Legal requirement** | Employers' Liability (Compulsory Insurance) Act 1969: cover must be in force while anyone is employed. The law sets continuous cover; the yearly renewal is the policy term | 19 Oct 2026 |
 | music-licence | 1 year | **Legal requirement** | Copyright, Designs and Patents Act 1988: permission is needed for non-worship music; TheMusicLicence (PPL PRS) is annual | 19 Oct 2026 |
@@ -7725,7 +7727,9 @@ the gate report).
 | link-hirers (link) | kept in Bookings | Good practice | | 19 Oct 2026 |
 | link-ccli (link) | kept in Church settings | **Legal requirement** | Copyright, Designs and Patents Act 1988: song words and streaming need the licences; renewal is yearly | 19 Oct 2026 |
 
-**Five for Martin to decide** (each is a one-line change in the data):
+**Martin's answers (19 Oct), now in templates version 3:** escape routes and fridges stay weekly with "look each day"; legionella stays 2 years, Good practice; roof and gutters 6 months; rebuild valuation 3 years; no six-monthly emergency lighting test (monthly and annual are current). Defibrillator and extinguisher walk-round stay weekly. The reviewing window's corrections: play equipment is now a weekly quick look plus a monthly working check; refuge points are tested weekly, with a 6-monthly service.
+
+**The five as they were asked** (answered above):
 1. **Escape routes and fridge temperatures:** the guidance says *daily*. They are recorded weekly with a "look each day" note. Should they have a "each day the building is used" clock?
 2. **Legionella review:** Good practice, 2 years. Is that OK, or do you want a source?
 3. **Roof and gutters:** twice a year (Church Buildings Council)?

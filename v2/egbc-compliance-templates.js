@@ -29,7 +29,9 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = 2;   // 2: frequencies from the law and the standards; basis on every check (19 Oct)
+  var VERSION = 3;   // 2: frequencies from the law and the standards; basis on every check (19 Oct)
+                     // 3: Martin's decisions and the review (19 Oct): roof 6 months, rebuild 3 years,
+                     //    play split weekly / monthly, refuge points weekly plus a service
 
   var GUIDANCE = 'These checks are guidance to help you. Your trustees remain responsible for your building’s safety.';
 
@@ -98,7 +100,8 @@
     { id: 'smoke-alarms', basis: 'standard', area: 'Fire', title: 'Test the smoke alarms', every: M(1), when: ['type=house'] },
     { id: 'co-alarm', basis: 'standard', area: 'Fire', title: 'Test the carbon monoxide alarm', every: M(1), when: ['type=house', 'gas|woodBurner'] },
     { id: 'evac-chair', basis: 'practice', area: 'Fire', title: 'Evacuation chair in place and inspected, and who is trained to use it', every: M(6), when: ['evacChair'] },
-    { id: 'refuge-points', basis: 'practice', area: 'Fire', title: 'Refuge points signed and clear, and their call system works', every: M(1), when: ['refugePoints'] },
+    { id: 'refuge-points', basis: 'standard', area: 'Fire', title: 'Refuge points signed and clear, and test their call system', every: W(1), when: ['refugePoints'], note: 'With the weekly fire alarm test.' },
+    { id: 'refuge-service', basis: 'standard', area: 'Fire', title: 'Refuge call system serviced by an engineer', every: M(6), when: ['refugePoints'] },
     { id: 'visual-alarms', basis: 'standard', area: 'Fire', title: 'Test the visual or vibrating fire alarms', every: W(1), when: ['visualAlarms'], note: 'With the weekly fire alarm test.' },
     { id: 'peeps-review', basis: 'practice', area: 'Fire', title: 'Review personal evacuation plans (for people who need help to get out)', every: Y(1), when: [] },
     { id: 'geep-review', basis: 'practice', area: 'Fire', title: 'Review the building’s evacuation plan for visitors who need help', every: Y(1), when: [] },
@@ -119,9 +122,10 @@
     { id: 'asbestos-reinspect', basis: 'standard', area: 'Asbestos', title: 'Re-inspect known asbestos', every: Y(1), when: ['pre2000'] },
     /* Building and grounds */
     { id: 'lightning', basis: 'standard', area: 'Building', title: 'Lightning protection inspection', every: Y(1), when: ['lightning'] },
-    { id: 'roof-gutters', basis: 'practice', area: 'Building', title: 'Roof, gutters and drains check', every: Y(1), when: [] },
+    { id: 'roof-gutters', basis: 'practice', area: 'Building', title: 'Roof, gutters and drains check', every: M(6), when: [], note: 'Spring and autumn.' },
     { id: 'lift', basis: 'legal', area: 'Building', title: 'Lift or stairlift thorough examination', every: M(6), when: ['lift'], note: 'By a competent person (often the insurer’s engineer).' },
-    { id: 'play-routine', basis: 'standard', area: 'Building', title: 'Play equipment: look for wear, damage and loose parts', every: M(1), when: ['play'] },
+    { id: 'play-visual', basis: 'standard', area: 'Building', title: 'Play equipment: a quick look for damage, litter and hazards', every: W(1), when: ['play'] },
+    { id: 'play-routine', basis: 'standard', area: 'Building', title: 'Play equipment working check: wear, moving parts, loose fixings', every: M(1), when: ['play'] },
     { id: 'play', basis: 'standard', area: 'Building', title: 'Play equipment yearly inspection', every: Y(1), when: ['play'] },
     { id: 'walk-round', basis: 'practice', area: 'Building', title: 'Monthly walk-round of the building', every: M(1), when: [] },
     { id: 'boundaries', basis: 'practice', area: 'Building', title: 'Boundary walls, paths and steps checked', every: Y(1), when: [] },
@@ -146,7 +150,7 @@
     { id: 'allergens', basis: 'practice', area: 'Food', title: 'Allergen information up to date', every: Y(1), when: ['food'], note: 'And whenever a recipe or supplier changes.' },
     /* Admin, insurance and licences */
     { id: 'insurance', basis: 'practice', area: 'Admin', title: 'Buildings insurance renewal', every: Y(1), when: [] },
-    { id: 'rebuild-value', basis: 'practice', area: 'Admin', title: 'Rebuild valuation for the insurance', every: Y(5), when: [] },
+    { id: 'rebuild-value', basis: 'practice', area: 'Admin', title: 'Rebuild valuation for the insurance', every: Y(3), when: [] },
     { id: 'public-liability', basis: 'practice', area: 'Admin', title: 'Public liability insurance renewal', every: Y(1), when: [] },
     { id: 'employers-liability', basis: 'legal', area: 'Admin', title: 'Employers’ liability insurance renewal', every: Y(1), when: ['employees'], note: 'It must be in force all the time anyone is employed.' },
     { id: 'music-licence', basis: 'legal', area: 'Admin', title: 'Music licence for events that are not worship', every: Y(1), when: ['filmOrMusic'] },
