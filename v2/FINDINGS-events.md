@@ -7491,3 +7491,107 @@ never makes one; a deleted plan removes it). Breaks: see the report.
 
 **Deploy:** `sermonLinkKeep`, and the rules (planSessions may hold `eventId` and `speaker`;
 sermonLinks).
+
+### F-230 — Building compliance, Stage 1: the data and the schedule engine (Martin, 19 Oct)
+
+**The six things the brief says to establish first (read from the code):**
+1. **Buildings and rooms:** `sites/<id>` and `rooms/<id>` (siteId), made and changed in Places
+   (places-admin.html). Compliance hangs off them: no second list.
+2. **People and roles:** `addressBook` (ids are memberIds), `users/<uid>` (memberId, teams,
+   adminFor, masterAdmin, status); teams are the `teams` collection. **Trustees:** taken as the
+   Elders group plus master admins, for Martin to confirm (Stage 2, in the rules).
+3. **Email and notifications:** `functions/public-mail.js` makeSender (and notify.js for phone
+   notifications). Stage 3's reminders will use them; no second mailer.
+4. **Uploads:** Firebase Storage with rules per path. **There is no per-tier storage allowance
+   in the hub**, so nothing to count against. Recorded; certificates simply go to Storage
+   (Stage 2).
+5. **Add-on switch:** `EGBCChurch.uses(name)` returns true for everything today (no stored
+   switches yet). The reviewing window's reading: a `buildingCompliance` switch, OFF by
+   default. **For the main window:** make `uses()` read the church's switches
+   (churchSettings) so a switch can default to off; until then my pages will check
+   `churchSettings/features.buildingCompliance === true` themselves (Stage 3).
+6. **Tasks:** the Maintenance jobs (`maintJobs`). Martin: one list, never two. A follow-up on a
+   check IS a job carrying `checkId`; a job has a `safety` tick (suggested from its words) and
+   a `due`. Only safety jobs change a colour.
+
+**Built (all new files; nothing existing changed):**
+- **`egbc-compliance.js`, THE schedule engine (one function, used everywhere):**
+  - `schedule()`: profile, templates, the church's copies, records, jobs and triggers give
+    the items, each with next due and red/amber/green.
+  - `applies()`, `nextDue()` (from the day DONE; a certificate's own expiry wins).
+  - `reconcile()`: an answer changed means checks are added, removed (history kept) or
+    restored.
+  - `register()`: the extinguisher register, room by room, amber where a suggested type is
+    missing.
+  - `suggestSafety()`: the safety tick suggested from a job's words.
+  - It loads in a page and in node: the server will use the same file.
+- **`egbc-compliance-templates.js`, the starter templates as DATA:** 88 checks, 31 profile
+  questions, version 1.
+  - It holds the brief's table, plus Martin's additions: passive fire, the extinguisher and
+    fire blanket register (kinds of room, the guide), Martyn's Law, H&S, food, licences,
+    security, accessibility, heating, evacuation (PEEP and GEEP reviews, refuge points,
+    evacuation chair), safeguarding yearly checks, lone working, transport, contractors,
+    events, winter and storms, and data protection.
+  - "Only when needed" checks (fire stopping after building work, contractor work, a large
+    event, a storm, a leaver) appear when the thing is recorded.
+  - Links, not copies: Safeguarding, hirers' documents, CCLI.
+- **`egbc-compliance-store.js`, where it is kept** (on the existing sites and rooms):
+  - **Templates and answers:** `complianceTemplates` (global, versioned) and
+    `buildingProfiles/<siteId>`.
+  - **The church's copies:** `buildingChecks/<siteId>__<templateId>`.
+  - **What happened:** `checkRecords` (never deleted) and `buildingWork` (what an "only when
+    needed" check waits for).
+  - **Rooms and the register:** `roomProfiles/<roomId>` (the kind of room) and
+    `fireEquipment` (the register).
+  - **The audit:** `complianceLog` (append only).
+  - **Follow-ups:** `maintJobs`, as above.
+  - **Functions:** apply a profile, edit a copy (never the template; switching off needs a
+    reason), add the church's own check, record done, record building work, offer and apply
+    a template update (keeping what the church changed).
+- **`tools/seed-compliance.mjs`:** the templates into `complianceTemplates` (`--live` for
+  Martin at launch), and the synthetic test church on the emulator only: a Church of England
+  church built before 2000 with gas and lightning protection, a public hall with food and play
+  equipment and no gas, and a let house with gas.
+- **Val's "The building" phone screens, designed first** (375px mocks, not built yet):
+  `screenshots/events/building-mock-home-375.png` (checks due, jobs to do, a big "Report a
+  problem"), `-check-`, `-walk-` (the extinguisher tick-list) and `-done-`.
+
+**Read as the brief allows (the reading that builds least):**
+- A check never recorded is amber ("Not recorded yet"), not red, so a new church isn't all
+  red on day one.
+- A follow-up raised from a check starts with the safety tick on, so the brief's "an open
+  follow-up past due is red" holds through Martin's safety rule.
+- "Every 12 months, or after major changes" (the fire risk assessment) is yearly; "after
+  major changes" becomes building work recorded (fire stopping), as the same trigger.
+- Starter frequencies Martin didn't give (ladders 6 months, rebuild valuation 5 years,
+  defibrillator monthly, fridge temperatures weekly) are marked for him to confirm with the
+  rest.
+
+**Legal references (kept OUT of the product, here only):** the "legal requirement" on the
+let-house gas safety check is the landlord's annual gas safety duty. Martyn's Law is the name
+people know (the regulator's register is expected around spring 2027). "ICO" is the data
+protection regulator's name, not a citation. No regulation numbers appear in code, data or
+screens; the test checks.
+
+**For the main window (agree the shared fields):**
+- **Inventory** (inventory-system-2.html, yours) is to become the church-wide asset register
+  feeding the compliance checks (PAT, ladders, evacuation chair, defibrillator). Proposal:
+  you keep the page; each item gains `roomId` (Places), `value`, `serial`, and `inspections:
+  { pat, ladder, … : nextDue }`. I read those into the schedule; one record per item.
+- **retention.html (mine) and your privacy tools (§24 item 8)** for the information asset
+  register: proposal `dataAssets/<id>` = { name, where, owner, purpose, lawfulReason,
+  retention, sharedWith, collection (if it's one of the hub's) }, and `suppliers/<id>` = {
+  name, role, agreementPath, reviewDue }.
+- **`EGBCChurch.uses()`** to read stored switches (above).
+
+**Later stages, as briefed and gated:**
+- **Stage 2:** the screens and the rules (assigned people see only theirs).
+- **Stage 3:** bookings dot, reminders, trustee report, the switch.
+- **Stage 4:** the live risk register, with Martin's wording on every screen, PEEPs and GEEPs.
+- **Stage 5:** importing with AI, never auto-applied.
+- Also to come: safeguarding activity assessments (lead and deputy, master admins, and each
+  activity's own leaders), lone-worker "I'm in / I've left", the information asset register,
+  breaches and requests (lead and master admins only).
+
+**Proved:** compliance-stage1.test 41/41 on the emulator; 9 deliberate breaks, all caught (see
+the gate report).
