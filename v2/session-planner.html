@@ -156,7 +156,7 @@
         var d = dm(s.date);
         return '<div class="wk" data-s="' + esc(s.id) + '" role="button" tabindex="0"><div class="d">' + esc(d[0]) + '<small>' + esc(d[1]) + '</small></div><div>' +
           (s.special === 'none' ? '<span class="special">No ' + esc(G.name) + (s.title ? ': ' + esc(s.title) : '') + '</span>'
-            : (s.special ? '<span class="special">★ ' + esc(s.special) + '</span><br>' : '') + '<span class="t">' + (s.lessonCode ? '<span class="code">' + esc(s.lessonCode) + '</span>' : '') + esc(s.title || 'Untitled') + '</span>') +
+            : (s.special ? '<span class="special">★ ' + esc(s.special) + '</span>' + (s.title || s.lessonCode ? '<br>' : '') : '') + (s.special && !s.title && !s.lessonCode ? '' : '<span class="t">' + (s.lessonCode ? '<span class="code">' + esc(s.lessonCode) + '</span>' : '') + esc(s.title || 'Untitled') + '</span>')) +
           (sermon() && (s.speaker || s.speakerId) ? '<div class="m">Speaker: ' + esc(s.speaker || PEOPLE[s.speakerId] || '') + (s.series ? ' · ' + esc(s.series) : '') + '</div>' : '') +
           ((s.onIds || []).length ? '<div class="m">On: ' + esc(names(s.onIds)) + '</div>' : '') +
           ((s.awayIds || []).length ? '<div class="m away">Away: ' + esc(names(s.awayIds)) + '</div>' : '') + '</div></div>';
