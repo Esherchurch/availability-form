@@ -165,8 +165,7 @@
      file should ask `!window.EGBCChurch || EGBCChurch.uses(name)`.
      THE SWITCHES ARE REAL NOW (the events window's F-230, 19 Oct 2026):
      EGBCAuth reads churchSettings/features with the profile and knows each
-     feature's default - at EGBC everything on, add-ons included, except
-     buildingCompliance until the events window's gate is live. This
+     feature's default - at EGBC everything on, add-ons included. This
      asks it, so every page answers alike. The server reads the same
      document (sundaysInWhatsOn, false meaning off). */
   function uses(name) { return global.EGBCAuth && EGBCAuth.uses ? EGBCAuth.uses(name) : true; }

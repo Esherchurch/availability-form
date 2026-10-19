@@ -62,8 +62,10 @@ const APPROVED = [
     ['Events', c => (c.core && c.admin) || c.eventTeam], ['Places', c => c.runsBookings], ['Room bookings', c => c.books],
     ['Check-in', c => c.core && c.admin], ['Registers', c => c.core && c.admin], ['Headcounts', c => c.counts],
     ['Picture library', c => c.runsBookings], ['Book a room'], ['Hire our rooms'], ['Maintenance'],
-    /* An add-on this church has not switched on (buildingCompliance). */
-    ['Building compliance', c => false], ['The building', c => false]]],
+    /* The building compliance add-on (on at EGBC): the register for the
+       office and the Elders, the checks for Maintenance and the office. */
+    ['Building compliance', c => c.on('Church office') || c.on('Elders')], ['The building', c => c.on('Maintenance') || c.on('Church office')],
+    ['Live risk register', c => c.on('Church office') || c.on('Elders')], ['My evacuation plan']]],
   ['Church admin', null, [
     ['Church settings', c => c.core && c.admin], ['Teams and groups', c => c.office],
     ['Payments', c => c.money], ['Safeguarding', c => c.admin], ['Safeguarding settings', c => c.admin],

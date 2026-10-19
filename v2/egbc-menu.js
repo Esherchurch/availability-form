@@ -158,7 +158,16 @@
         description: 'Every check the building needs, when it is due, and who does it' },
       { title: 'The building', url: 'building.html', icon: 'building-2', feature: 'buildingCompliance',
         team: ['Maintenance', 'Church office'],
-        description: 'The checks given to you, and reporting a problem' }
+        description: 'The checks given to you, and reporting a problem' },
+      /* F-234: always "Live risk register", never "Risk assessment" on its
+         own - it supplements the professional assessments. The office, the
+         Elders and master admins. */
+      { title: 'Live risk register', url: 'risk.html', icon: 'shield-alert', feature: 'buildingCompliance',
+        team: ['Church office', 'Elders'],
+        description: 'How the risks in our professional assessments are managed, day to day' },
+      /* Anyone signed in: their own personal emergency evacuation plan. */
+      { title: 'My evacuation plan', url: 'peep.html', icon: 'door-open', feature: 'buildingCompliance',
+        description: 'If you would need help to leave the building in an emergency' }
     ] },
 
     { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [

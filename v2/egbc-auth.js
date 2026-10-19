@@ -350,13 +350,10 @@
     /* THE ADD-ONS (addOn: true). Martin, 19 Oct 2026: at EGBC every switch
        starts ON, add-ons included; a new church's add-ons can start off
        (that is what addOn marks, for when there is more than one church).
-       ONE EXCEPTION FOR NOW: building compliance starts OFF, because it
-       puts peep.html, risk.html, compliance.html and building.html in the
-       Menu, and the events window's gate (no private writes before
-       switch-over - peep.html saves to /peeps) is not live yet. Martin
-       switches it on in Church settings once it is. */
+       Building compliance too, now that the events window's gate is live
+       (6f3ab9b2: nothing private is saved before switch-over). */
     { name: 'sessionPlanner', label: 'Session planner', on: true, addOn: true },
-    { name: 'buildingCompliance', label: 'Building checks', on: false, addOn: true },
+    { name: 'buildingCompliance', label: 'Building checks', on: true, addOn: true },
     { name: 'enews', label: 'E-news', on: true, addOn: true },
     { name: 'cardMaker', label: 'Card maker', on: true, addOn: true },
     { name: 'canva', label: 'Canva', on: true, addOn: true }

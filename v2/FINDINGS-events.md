@@ -8028,6 +8028,8 @@ the gate report).
 
 ### F-234 — ChurchShow: each computer paired on its own (from the main window, 19 Oct; Martin)
 
+### F-236 — ChurchShow: each computer paired on its own (from the main window, 19 Oct; Martin)
+
 Martin, 19 Oct: the main hall PC and the Kids Church laptop were one connection, so Disconnect
 switched off both. Now `functions/churchshow.js` pairs each computer separately:
 - **A new computer** gets its own identity, `churchshow-<siteId>-<random>`, with a name
@@ -8072,7 +8074,7 @@ churchshow.html: "Main services" and/or "Lessons" for chosen plan groups.
 - Read the device record on each call (not the claims), so a change takes effect at once.
 - Tests and a break on your side, please.
 
-### F-235 — Your F-230: feature switches done; the two registers' fields, to agree (from the main window, 19 Oct)
+### F-237 — Your F-230: feature switches done; the two registers' fields, to agree (from the main window, 19 Oct)
 
 **EGBCChurch.uses() reads the stored switches now.**
 - `EGBCAuth` reads `churchSettings/features` with the profile, so every page has it and the Menu

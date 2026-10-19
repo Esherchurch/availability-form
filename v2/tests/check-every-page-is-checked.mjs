@@ -80,6 +80,8 @@ const NOT_YET = {
   "whatson-embed.html": "the events window's",
   "building.html": "the events window's (building compliance, F-231)",
   "compliance.html": "the events window's (building compliance, F-231)",
+  "peep.html": "the events window's (building compliance, F-234)",
+  "risk.html": "the events window's (building compliance, F-234)",
   /* All three were here as "Step M (Restyle Group 3)". Step M restyled them,
      so they are in tests/group1-screens.mjs now and the style check asserts
      on them - and the emoji tick A-046 named is a Lucide icon. */

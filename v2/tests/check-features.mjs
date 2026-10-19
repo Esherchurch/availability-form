@@ -4,12 +4,11 @@
  *
  * As an invented master admin:
  *   with nothing stored, everything is on at EGBC, add-ons included
- *     (Session planner in the Menu) - except building compliance, off until
- *     the events window's gate is live (Martin, 19 Oct 2026);
+ *     (Session planner and Building compliance in the Menu; Martin, 19 Oct
+ *     2026);
  *   Church settings lists the switches, and pressing one saves it at once;
- *   switched off, the Session planner leaves the Menu; building compliance
- *     switched on joins it; Preaching plan switched off leaves it, and its
- *     page says so.
+ *   switched off, the Session planner and Building compliance leave the
+ *     Menu; Preaching plan switched off leaves it, and its page says so.
  * The rule (master admins only, known names only): firestore-rules.test.mjs.
  */
 import { spawn } from 'node:child_process';
@@ -112,17 +111,17 @@ const getDoc = async (p) => { const r = await req(8181, 'GET', DOCS + '/' + p, u
     await open('hub.html', 11000);
     let m = await menu();
     ok('  an add-on is on at EGBC: the Session planner is in the Menu', m.includes('Session planner'), JSON.stringify(m.slice(0, 12)));
-    ok('  except building compliance, off until its gate is live', !m.includes('Building compliance') && !m.includes('The building'), JSON.stringify(m));
+    ok('  building compliance too', m.includes('Building compliance') && m.includes('The building'), JSON.stringify(m));
     ok('  everything that was there before is on: Preaching plan is', m.includes('Preaching plan'));
 
     console.log('\nChurch settings');
     await open('church-settings.html', 10000);
     const sw = await J('JSON.stringify([].map.call(document.querySelectorAll("[data-feature]"),function(b){return b.dataset.feature+":"+b.getAttribute("aria-checked")}))');
-    ok('  lists the switches: all on but building compliance', sw.includes('sessionPlanner:true') && sw.includes('preachingPlan:true') && sw.includes('enews:true') && sw.includes('buildingCompliance:false'), JSON.stringify(sw));
+    ok('  lists the switches, every one on', sw.length > 10 && sw.every(x => /:true$/.test(x)), JSON.stringify(sw));
     await press('sessionPlanner'); await sleep(2500);
     ok('  pressing one saves it at once', (await stored('sessionPlanner')) === false, String(await stored('sessionPlanner')));
     await press('buildingCompliance'); await sleep(2500);
-    ok('  and building compliance switches on', (await stored('buildingCompliance')) === true, String(await stored('buildingCompliance')));
+    ok('  and building compliance switches off', (await stored('buildingCompliance')) === false, String(await stored('buildingCompliance')));
     await press('preachingPlan'); await sleep(2500);
     ok('  and another', (await stored('preachingPlan')) === false, String(await stored('preachingPlan')));
     ok('  nothing on the console', watch.errors.length === 0, watch.summary());
@@ -131,7 +130,7 @@ const getDoc = async (p) => { const r = await req(8181, 'GET', DOCS + '/' + p, u
     await open('hub.html', 11000);
     m = await menu();
     ok('  the Session planner, switched off, is not', !m.includes('Session planner'), JSON.stringify(m));
-    ok('  building compliance, switched on, is', m.includes('Building compliance'), JSON.stringify(m));
+    ok('  nor building compliance', !m.includes('Building compliance') && !m.includes('The building'), JSON.stringify(m));
     ok('  the Preaching plan, switched off, is not', !m.includes('Preaching plan'), JSON.stringify(m));
     await open('preaching-plan.html', 9000);
     const pp = String(await evl('document.body.innerText'));
