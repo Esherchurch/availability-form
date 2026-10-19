@@ -15,6 +15,7 @@
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-compliance.js?v=202610191800"></script>
 <script src="egbc-compliance-templates.js?v=202610191800"></script>
@@ -51,6 +52,7 @@
   .done{background:var(--green-bg);border-radius:16px;padding:22px 16px;text-align:center;color:var(--green)}.done b{display:block;font-size:22px;margin:6px 0}
   .guide{font-size:12.5px;color:var(--muted);text-align:center;margin:12px 4px 0}
   .said{font-size:14px;color:var(--muted);min-height:20px;margin:4px 0 0}
+  .held{background:#eef5f4;color:#2a4a4b;border-radius:12px;padding:12px;margin:0 0 10px}
   .chk{display:flex;gap:10px;align-items:center;min-height:48px}.chk input{width:22px;height:22px}
 </style>
 </head>
@@ -65,7 +67,7 @@
      refuse the rest. Due dates and colours come only from
      EGBCCompliance.schedule(). A follow-up IS a Maintenance job. */
   var E = window.EGBCEvents, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = E.esc;
-  var ME = {}, MID = '', SITES = {}, ROOMS = [], TEMPLATES = [], CHECKS = [], RECORDS = [], JOBS = [], EQUIP = [], KINDS = {}, ITEMS = [];
+  var HELD = '', ME = {}, MID = '', SITES = {}, ROOMS = [], TEMPLATES = [], CHECKS = [], RECORDS = [], JOBS = [], EQUIP = [], KINDS = {}, ITEMS = [];
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   function db() { return EGBCAuth.db; }
   function $(id) { return document.getElementById(id); }
@@ -105,12 +107,12 @@
     if (c.kind === 'register') return walk(it, c);
     show(bar(it.title, true) + '<p class="sub">' + esc(site(c.siteId)) + ' · ' + esc(C.everyWords(it.every)) + (it.lastDone ? ' · last done ' + esc(day(it.lastDone)) : '') + '</p>' +
       '<p>' + label(it) + '</p>' + (it.note ? '<div class="card"><div class="t">How</div><div class="m">' + esc(it.note) + '</div></div>' : '') +
-      '<div class="card"><label class="l" for="dOn">Done on</label><input class="inp" type="date" id="dOn" value="' + TODAY + '" max="' + TODAY + '">' +
+      (HELD ? '<div class="held" id="held">' + esc(HELD) + '</div>' : '<div class="card"><label class="l" for="dOn">Done on</label><input class="inp" type="date" id="dOn" value="' + TODAY + '" max="' + TODAY + '">' +
       '<label class="l" for="dFile">Photo or certificate (optional)</label><input class="inp" type="file" id="dFile" accept="image/*,.pdf" style="padding-top:10px">' +
       '<label class="l" for="dNotes">Note (optional)</label><textarea id="dNotes" maxlength="2000"></textarea></div>' +
-      '<button class="btn" id="dGo">✓ Done</button><button class="btn sec2" id="wrong">⚠ Something is wrong</button><p class="said" id="dMsg" role="status"></p>' +
+      '<button class="btn" id="dGo">✓ Done</button>') + '<button class="btn sec2" id="wrong">⚠ Something is wrong</button><p class="said" id="dMsg" role="status"></p>' +
       '<p class="guide">"Something is wrong" makes a Maintenance job for it, marked safety.</p>');
-    $('dGo').onclick = function () {
+    if ($('dGo')) $('dGo').onclick = function () {
       var f = $('dFile').files[0]; $('dGo').disabled = true; $('dMsg').textContent = 'Saving…';
       (f ? upload(c, f) : Promise.resolve([])).then(function (files) {
         return ST.recordDone(db(), c, { doneOn: $('dOn').value, notes: $('dNotes').value, files: files }, who());
@@ -133,10 +135,10 @@
           eq.map(function (e) { return '<label class="tick"><input type="checkbox" data-eq="' + esc(e.id) + '"><div><div class="t">' + esc(name(e.type)) + (e.label ? ' · ' + esc(e.label) : '') + '</div>' + (e.nextService ? '<div class="m">Service due ' + esc(day(e.nextService)) + '</div>' : '') + '</div></label>'; }).join('') +
           (r.missing.length ? '<div class="warn">The guide suggests ' + esc(r.missing.map(function (m) { return String(m).split('|').map(name).join(' or '); }).join(', ')) + ' here. ' + esc(T.FIRE_GUIDE_NOTE.split('.')[0]) + '.</div>' : '') + '</div>';
       }).join('') + (EQUIP.some(function (e) { return rooms.some(function (r) { return r.id === e.roomId; }); }) ? '' : '<div class="card">Nothing is on the register for this building yet. The office adds them.</div>') +
-      '<button class="btn" id="wGo">✓ Done</button><button class="btn sec2" id="wrong">⚠ One is missing or used</button><p class="said" id="dMsg" role="status"></p>');
-    var count = function () { var n = document.querySelectorAll('[data-eq]').length, k = document.querySelectorAll('[data-eq]:checked').length; $('wGo').textContent = '✓ Done' + (n ? ': ' + k + ' of ' + n + ' ' + (service ? 'serviced' : 'seen') : ''); };
+      (HELD ? '<div class="held" id="held">' + esc(HELD) + '</div>' : '<button class="btn" id="wGo">✓ Done</button>') + '<button class="btn sec2" id="wrong">⚠ One is missing or used</button><p class="said" id="dMsg" role="status"></p>');
+    var count = function () { if (!$('wGo')) return; var n = document.querySelectorAll('[data-eq]').length, k = document.querySelectorAll('[data-eq]:checked').length; $('wGo').textContent = '✓ Done' + (n ? ': ' + k + ' of ' + n + ' ' + (service ? 'serviced' : 'seen') : ''); };
     document.querySelectorAll('[data-eq]').forEach(function (b) { b.onchange = count; }); count();
-    $('wGo').onclick = function () {
+    if ($('wGo')) $('wGo').onclick = function () {
       var items = [].map.call(document.querySelectorAll('[data-eq]'), function (b) { return { id: b.getAttribute('data-eq'), ok: b.checked }; });
       $('wGo').disabled = true; $('dMsg').textContent = 'Saving…';
       ST.recordDone(db(), c, { doneOn: TODAY, items: items, notes: items.filter(function (i) { return !i.ok; }).length ? items.filter(function (i) { return !i.ok; }).length + ' not ticked' : '' }, who())
@@ -224,6 +226,15 @@
 
   E.ready().then(function (profile) {
     ME = E.asSeen(profile || {}); MID = ME.memberId || '';
+    return ST.gate(db(), window.EGBCLaunch).then(function (g) {
+      if (!g.on) { E.refused(); $('wrap').innerHTML = '<div class="card" id="off">' + esc(ST.OFF_WORDS) + '</div>'; return null; }
+      /* Until switch-over no check record is saved (F-235); Report a problem
+         still goes to Maintenance, as the Maintenance page does. */
+      if (!g.locked) HELD = ST.heldWords('Checks', g.opensOn);
+      return start();
+    });
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+  function start() {
     return Promise.all([
       db().collection('sites').get().then(all, function () { return []; }),
       db().collection('rooms').get().then(all, function () { return []; }),
@@ -234,7 +245,7 @@
       TEMPLATES = r[2].length ? r[2] : T.TEMPLATES;
       return load();
     }).then(home);
-  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+  }
 })();
 </script>
 </body>

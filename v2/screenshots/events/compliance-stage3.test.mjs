@@ -89,6 +89,9 @@ for (const k of Object.keys(P)) {
 for (const name of ['Core Team', 'Church office', 'Elders', 'Maintenance', 'Welcome']) await db.collection('teams').doc(name).set({ name, label: name, rota: false, order: 1 });
 await db.collection('churchSettings').doc('details').set({ name: 'Test Green Church', enquiryEmail: 'office@example.invalid' });
 await seedTemplates(db, T, true);
+/* The locked rules are on (switch-over), so private records may be saved (F-235). */
+await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
+
 const who = { uid: 'seed', name: 'Setup' };
 for (const s of FIXTURES.sites) {
   await db.collection('sites').doc(s.id).set({ name: s.name, active: true, order: FIXTURES.sites.indexOf(s) + 1 });

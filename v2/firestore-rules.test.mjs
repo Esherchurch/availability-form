@@ -4221,6 +4221,9 @@ await check('  while making the same record without it is fine', 'allow',
   await check('    not a trustee', 'deny', () => getDoc(doc(ctx('u_peld'), 'peeps', 'm_ppat')));
   await check('  nor writes one for someone else', 'deny', () => setDoc(doc(ctx('u_poth'), 'peeps', 'm_ppat'), PEEP('u_poth')));
   await check('  a master admin reads it', 'allow', () => getDoc(doc(as('martin'), 'peeps', 'm_ppat')));
+  await check('  A MASTER ADMIN ENTERS A PLAN FOR SOMEONE only recording it (entered by, with their agreement)', 'allow', () => setDoc(doc(as('martin'), 'peeps', 'm_ppat'), PEEP('u_martin', { madeBy: 'master', enteredBy: 'u_martin', enteredByName: 'Martin Master' })));
+  await check('    not without saying who entered it', 'deny', () => setDoc(doc(as('martin'), 'peeps', 'm_ppat'), PEEP('u_martin', { madeBy: 'master' })));
+  await check('    nor in someone else’s name', 'deny', () => setDoc(doc(as('martin'), 'peeps', 'm_ppat'), PEEP('u_martin', { madeBy: 'master', enteredBy: 'u_poff', enteredByName: 'Olive' })));
   await check('TODAY’S PLANS: A WARDEN (a reader today) SEES THEM', 'allow', () => getDoc(doc(ctx('u_pwar'), 'peepToday', '2026-10-19')));
   await check('  A STEWARD NOT ON DUTY (not a reader) DOES NOT', 'deny', () => getDoc(doc(ctx('u_pste'), 'peepToday', '2026-10-19')));
   await check('  nor anyone else', 'deny', () => getDoc(doc(ctx('u_poth'), 'peepToday', '2026-10-19')));

@@ -88,6 +88,10 @@ for (const k of Object.keys(P)) {
 for (const name of ['Core Team', 'Church office', 'Elders', 'Maintenance', 'Welcome']) await db.collection('teams').doc(name).set({ name, label: name, rota: false, order: 1 });
 await db.collection('churchSettings').doc('details').set({ name: 'Test Green Church', enquiryEmail: 'office@example.invalid' });
 await seedTemplates(db, T, true);
+await db.collection('churchSettings').doc('features').set({ buildingCompliance: true });
+/* The locked rules are on (switch-over), so private records may be saved (F-235). */
+await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
+
 /* The church and the manse are set up already; the hall is not (the office answers for it in the browser). */
 for (const s of FIXTURES.sites) {
   await db.collection('sites').doc(s.id).set({ name: s.name, active: true, order: FIXTURES.sites.indexOf(s) + 1 });

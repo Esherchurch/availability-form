@@ -158,6 +158,29 @@
       .then(function (r) { return { profile: r[0].exists ? r[0].data() : {}, checks: r[1], records: r[2], jobs: r[3], triggers: r[4], equipment: r[5] }; });
   }
 
-  return { checkId: checkId, copyOf: copyOf, applyProfile: applyProfile, editCheck: editCheck, addCustomCheck: addCustomCheck, recordDone: recordDone,
+  /* MAY THESE PAGES BE USED, AND MAY THEY SAVE ANYTHING PRIVATE? (the
+     reviewing window, 19 Oct; F-235)
+       on      the church has the add-on: churchSettings/features
+               .buildingCompliance exactly true. Off, the four pages
+               (compliance, building, risk, peep) show nothing else.
+       locked  the locked rules are on: churchSettings/launch.rulesLocked
+               exactly true (egbc-launch.js, as the other private forms).
+               UNTIL THEN THE LIVE DATABASE IS READABLE SIGNED OUT, so no
+               private write: no evacuation plan, no uploaded report or
+               certificate, no hazard, no check record. The pages say why,
+               with nothing to type into or upload.
+     Anything missing or unreadable: off, and not locked. */
+  function gate(db, launch) {
+    var feat = db.collection('churchSettings').doc('features').get().then(function (d) { return !!(d.exists && d.data().buildingCompliance === true); }, function () { return false; });
+    var lock = launch && launch.check ? launch.check().then(function (x) { return x || {}; }, function () { return {}; }) : Promise.resolve({});
+    return Promise.all([feat, lock]).then(function (r) { return { on: r[0], locked: r[1].locked === true, opensOn: r[1].opensOn || '' }; });
+  }
+  var OFF_WORDS = 'Building compliance is not switched on for this church.';
+  function heldWords(what, opensOn) {
+    return what + ' can be saved here ' + (opensOn ? 'from ' + opensOn : 'when the church switches over to the new hub') +
+      '. Until then the hub’s database is not yet private, so nothing is saved here. Keep your paper record for now.';
+  }
+
+  return { gate: gate, OFF_WORDS: OFF_WORDS, heldWords: heldWords, checkId: checkId, copyOf: copyOf, applyProfile: applyProfile, editCheck: editCheck, addCustomCheck: addCustomCheck, recordDone: recordDone,
     recordWork: recordWork, templateUpdates: templateUpdates, applyUpdate: applyUpdate, followTemplates: followTemplates, load: load };
 });

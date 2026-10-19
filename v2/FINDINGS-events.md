@@ -7927,3 +7927,33 @@ the gate report).
   - Menu entries for "Live risk register" (`risk.html`, office, Elders and master admins) and "My evacuation plan" (`peep.html`, anyone in the address book).
   - The same `buildingCompliance` switch.
 - **For Martin to deploy at switch-over:** the rules and the `peepToday*` functions. The functions start doing anything only once the add-on is switched on.
+
+### F-235 — Must-fix: nothing private is saved before switch-over; plans by building; "entered by" (19 Oct)
+
+**Why.** The reviewing window found that peep.html was live on GitHub Pages, ungated, and saved to `/peeps`. Until switch-over, though, the live database is readable signed out, and a PEEP is disability information. They checked live: peeps, peepToday, peepLog, hazards and reports were all empty, so nothing was exposed.
+
+**Fixed:**
+- **One gate for all four pages** (compliance, building, risk, peep): `EGBCComplianceStore.gate()` reads the same two settings as the other private forms.
+  - **The add-on switch, `churchSettings/features.buildingCompliance`.** Unless it is exactly true, each page shows only "Building compliance is not switched on for this church."
+  - **The locked rules, `churchSettings/launch.rulesLocked`** (egbc-launch.js). Until it is exactly true, every private write in Stages 2–4 is held, and the page says why, with nothing to type into or upload:
+    - **peep.html:** no form at all; "please tell a steward or the church office in person".
+    - **risk.html:** read only. No report upload, no hazards (adding, the starter list or changing one), no snapshot, no visitors' plan to write.
+    - **compliance.html:** no certificate or photo upload.
+    - **building.html:** no check record or photo. "Report a problem" still goes to Maintenance, exactly as the live Maintenance page already does.
+- **Plans by building** (Martin): the server now writes `peepToday/<day>__<siteId>`, one list per building.
+  - **Readers of each list:** the wardens named for that building or for every building, and that building's duty stewards who are on the rota today.
+  - **Which building:** a person checked in counts for the building of their event; a person on the rota counts for the rota event's building. The rota has no building today, so that is the church's first building (Places order).
+  - **The roll-call** reads only the buildings in the person's scope, and the rules refuse the rest.
+- **Entered by** (Martin): a master admin can choose "Whose plan?" on peep.html and enter a plan for someone, with their agreement.
+  - **What the rules require:** `enteredBy` (their own uid) and `enteredByName`.
+  - **Where it shows:** the plan reads "Entered by <name> with their agreement" (the person sees "with your agreement"), and so does the roll-call.
+
+**Proved:**
+- **compliance-gate.test (17/17):** on the live-like setup (rules not locked):
+  - signed out, there is no form
+  - signed in, each page explains why and has no inputs
+  - nothing is written: no plans, reports, hazards, snapshots or records, and nothing in Storage under `compliance/`
+  - with the add-on off, all four pages show only the "not switched on" line
+  - once rules are locked, the form appears
+- **compliance-stage4.test (41/41):** Hal, a warden for the hall only, sees no church plans and the rules refuse him the church's list; Martin's entry for Quinn is recorded and shown to both.
+- **Rules:** a master admin's entry without "entered by", or in someone else's name, is refused.

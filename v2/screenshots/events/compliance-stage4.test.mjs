@@ -78,6 +78,7 @@ const P = {
   olive:  { name: 'Olive Office (invented)', mid: 'm_olive', teams: ['Church office'] },
   eli:    { name: 'Eli Elder (invented)', mid: 'm_eli', teams: ['Elders'] },
   wendy:  { name: 'Wendy Warden (invented)', mid: 'm_wendy', teams: ['Welcome'] },
+  hal:    { name: 'Hal Hall-warden (invented)', mid: 'm_hal', teams: ['Welcome'] },
   stan:   { name: 'Stan Steward (invented)', mid: 'm_stan', teams: ['Welcome'] },
   sue:    { name: 'Sue Steward (invented)', mid: 'm_sue', teams: ['Welcome'] },
   pat:    { name: 'Pat Person (invented)', mid: 'm_pat', teams: [] },
@@ -95,6 +96,9 @@ for (const k of Object.keys(P)) {
 for (const name of ['Core Team', 'Church office', 'Elders', 'Welcome']) await db.collection('teams').doc(name).set({ name, label: name, rota: false, order: 1 });
 await db.collection('churchSettings').doc('details').set({ name: 'Test Green Church', enquiryEmail: 'office@example.invalid' });
 await seedTemplates(db, T, true);
+/* The locked rules are on (switch-over), so private records may be saved (F-235). */
+await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
+
 for (const s of FIXTURES.sites) {
   await db.collection('sites').doc(s.id).set({ name: s.name, active: true, order: FIXTURES.sites.indexOf(s) + 1 });
   for (const [id, name, kind] of s.rooms) {
@@ -106,8 +110,9 @@ for (const s of FIXTURES.sites) {
 const TODAY = (() => { const d = new Date(), p = (n) => (n < 10 ? '0' : '') + n; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); })();
 const addDays = (d, n) => new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 /* The roll-call list: Wendy a fire warden; Stan and Sue duty stewards. */
-await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_wendy', name: P.wendy.name, siteId: '', role: 'warden' }, { memberId: 'm_stan', name: P.stan.name, siteId: '', role: 'steward' }, { memberId: 'm_sue', name: P.sue.name, siteId: '', role: 'steward' }],
-  memberIds: ['m_wendy', 'm_stan', 'm_sue'], allSites: ['m_wendy', 'm_stan', 'm_sue'], bySite: {}, stewards: ['m_stan', 'm_sue'], updatedBy: 'seed', updatedByName: 'x', updatedAt: 'x' });
+/* Hal is a fire warden for the hall only (Martin, 19 Oct: their building only). */
+await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_hal', name: P.hal.name, siteId: 'cmp_hall', role: 'warden' }, { memberId: 'm_wendy', name: P.wendy.name, siteId: '', role: 'warden' }, { memberId: 'm_stan', name: P.stan.name, siteId: '', role: 'steward' }, { memberId: 'm_sue', name: P.sue.name, siteId: '', role: 'steward' }],
+  memberIds: ['m_hal', 'm_wendy', 'm_stan', 'm_sue'], allSites: ['m_wendy', 'm_stan', 'm_sue'], bySite: { cmp_hall: ['m_hal'] }, stewards: ['m_stan', 'm_sue'], updatedBy: 'seed', updatedByName: 'x', updatedAt: 'x' });
 /* Today: Pat checked in at an event in the church; Rob and Sue on the rota; Quinn not here. */
 await db.collection('calEvents').doc('ce_today').set({ title: 'Coffee morning (invented)', startLocal: TODAY + 'T10:00', location: { siteId: 'cmp_church' } });
 await db.collection('signups').doc('su_pat_00000000000000000000000000').set({ calEventId: 'ce_today', personKind: 'addressBook', personId: 'm_pat', name: P.pat.name, status: 'confirmed', places: 1, memberUid: P.pat.uid });
@@ -167,12 +172,32 @@ try {
   ok('   the page asks for no medical details', /Please do not put medical details here/.test(await text(pat)));
   await pat.screenshot({ path: path.join(HERE, 'peep-mine-375.png') });
 
+  /* Martin enters a plan for Quinn, who asked: it says so (Martin, 19 Oct). */
+  const mar = await as('martin');
+  await mar.goto(URLB + 'peep.html', { waitUntil: 'networkidle2' });
+  await until(() => mar.$('#forWho'));
+  await setVal(mar, '#forWho', 'm_quinn');
+  await until(async () => /What help would Quinn Away/.test(await text(mar)));
+  await setVal(mar, '#needs', 'Uses a wheelchair; needs the ramp (invented)');
+  await mar.$eval('#agree', e => { e.checked = true; });
+  await tap(mar, '#save');
+  const qp = await until(async () => { const d = (await db.collection('peeps').doc('m_quinn').get()).data(); return d && d.enteredByName ? d : null; });
+  ok('   A MASTER ADMIN ENTERS A PLAN FOR SOMEONE: recorded "entered by Martin Master with their agreement"', qp && qp.enteredBy === P.martin.uid && qp.enteredByName === 'Martin Master' && qp.madeBy === 'master', J(qp));
+  ok('   and shown on the plan', /Entered by Martin Master with their agreement/.test(await text(mar, '#enteredBy')));
+  await mar.browser().close();
+  const quinn = await as('quinn');
+  await quinn.goto(URLB + 'peep.html', { waitUntil: 'networkidle2' }); await until(() => quinn.$('#enteredBy'));
+  ok('   Quinn sees it on her own plan: "Entered by Martin Master with your agreement"', /Entered by Martin Master with your agreement/.test(await text(quinn, '#enteredBy')));
+  await quinn.browser().close();
+
   /* ---------- 1, 2. who sees which plans ---------- */
   const r = await runPeepToday({ db, today: TODAY });
-  const names = r.entries.map(e => e.memberId).sort();
+  const ch = (x) => (x.docs || {}).cmp_church || { entries: [], readers: [] };
+  const names = ch(r).entries.map(e => e.memberId).sort();
   ok('1. TODAY\u2019S PLANS: Pat (checked in) and Rob (on the rota) - NOT QUINN, who is not here', J(names) === J(['m_pat', 'm_rob']), J(names));
-  ok('   each says why: "Checked in" (with the building) or "On the rota"', r.entries.find(e => e.memberId === 'm_pat').why === 'Checked in' && /St Example/.test(r.entries.find(e => e.memberId === 'm_pat').building) && r.entries.find(e => e.memberId === 'm_rob').why === 'On the rota');
-  ok('2. WHO MAY READ THEM: the warden, and Sue (a steward ON THE ROTA today) - NOT STAN (a steward not on duty)', J([...r.readers].sort()) === J(['m_sue', 'm_wendy']), J(r.readers));
+  ok('   each says why: "Checked in" (with the building) or "On the rota"', ch(r).entries.find(e => e.memberId === 'm_pat').why === 'Checked in' && /St Example/.test(ch(r).entries.find(e => e.memberId === 'm_pat').building) && ch(r).entries.find(e => e.memberId === 'm_rob').why === 'On the rota');
+  ok('2. WHO MAY READ THEM: the warden, and Sue (a steward ON THE ROTA today) - NOT STAN (a steward not on duty)', J([...ch(r).readers].sort()) === J(['m_sue', 'm_wendy']), J(ch(r).readers));
+  ok('   THEIR BUILDING ONLY: Hal (a warden for the hall) is not a reader of the church’s plans', !ch(r).readers.includes('m_hal') && !Object.keys(r.docs).includes('cmp_hall'), J(Object.keys(r.docs)));
   const wendy = await as('wendy');
   await wendy.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
   await until(() => wendy.$('#peeps'));
@@ -190,18 +215,26 @@ try {
   await until(async () => /Fire roll-call/.test(await text(stan)));
   await sleep(1500);
   ok('   STAN (a steward not on duty) opens the roll-call but SEES NO PLANS', /Fire roll-call/.test(await text(stan)) && !(await stan.$('#peeps')) && !/Cannot use stairs/.test(await text(stan)));
-  const sRaw = await stan.evaluate((d) => EGBCAuth.db.collection('peepToday').doc(d).get().then(() => 'read', e => e.code), TODAY);
+  const sRaw = await stan.evaluate((d) => EGBCAuth.db.collection('peepToday').doc(d + '__cmp_church').get().then(() => 'read', e => e.code), TODAY);
   ok('   and the rules refuse him today\u2019s plans', sRaw === 'permission-denied', sRaw);
   const sue = await as('sue');
   await sue.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
   await until(() => sue.$('#peeps'));
   ok('   SUE (a steward on the rota today) sees them', /Pat Person/.test(await text(sue, '#peeps')));
+  const hal = await as('hal');
+  await hal.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
+  await until(async () => /Fire roll-call/.test(await text(hal)));
+  await sleep(1500);
+  ok('   HAL (a warden for the hall) sees no plans for the church', !(await hal.$('#peeps')) && !/Cannot use stairs/.test(await text(hal)));
+  const hRaw = await hal.evaluate((d) => EGBCAuth.db.collection('peepToday').doc(d + '__cmp_church').get().then(() => 'read', e => e.code), TODAY);
+  ok('   and the rules refuse him the church’s list', hRaw === 'permission-denied', hRaw);
+  await hal.browser().close();
   /* Done with Stan and Sue: their browsers closed now, not at the end (memory). */
   await stan.browser().close(); await sue.browser().close();
   /* Pat goes home: checked out, and her plan is gone from today's. */
   await db.collection('checkins').doc('ck_pat').update({ state: 'out' });
   const r2 = await runPeepToday({ db, today: TODAY });
-  ok('   PAT CHECKS OUT: her plan leaves today\u2019s list', !r2.entries.some(e => e.memberId === 'm_pat') && r2.entries.some(e => e.memberId === 'm_rob'));
+  ok('   PAT CHECKS OUT: her plan leaves today\u2019s list', !ch(r2).entries.some(e => e.memberId === 'm_pat') && ch(r2).entries.some(e => e.memberId === 'm_rob'));
   await db.collection('checkins').doc('ck_pat').update({ state: 'in' });
   await runPeepToday({ db, today: TODAY });
 
@@ -296,7 +329,7 @@ try {
   ok('4. PAT DELETES HER PLAN when it is no longer needed; made and deleted are logged', !(await db.collection('peeps').doc('m_pat').get()).exists &&
     (await db.collection('peepLog').where('memberId', '==', 'm_pat').get()).docs.map(d => d.data().what).filter(w => w === 'made' || w === 'deleted').length === 2);
   const r3 = await runPeepToday({ db, today: TODAY });
-  ok('   and it is gone from today\u2019s', !r3.entries.some(e => e.memberId === 'm_pat'));
+  ok('   and it is gone from today\u2019s', !ch(r3).entries.some(e => e.memberId === 'm_pat'));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack);

@@ -15,6 +15,7 @@
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-compliance.js?v=202610191800"></script>
 <script src="egbc-compliance-templates.js?v=202610191800"></script>
@@ -81,7 +82,7 @@
      building", building.html). The rules say the same.
      Due dates and colours come only from EGBCCompliance.schedule(). */
   var E = window.EGBCEvents, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = E.esc;
-  var REPORT = false, FEATURE = false, CHURCH = '', SIGNOFFS = [];
+  var HELD = '', REPORT = false, FEATURE = false, CHURCH = '', SIGNOFFS = [];
   var ME = {}, ADMIN = false, TRUSTEE = false, SITES = [], ROOMS = [], PEOPLE = {}, TEMPLATES = [], SITE = null, B = null, VIEW = 'checks', F = { area: '', person: '', rag: '' };
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   function db() { return EGBCAuth.db; }
@@ -259,7 +260,7 @@
       (c.state === 'on' && (ADMIN || assigned(c)) ? '<div class="card"><h2>Record it done</h2><div class="grid2"><div><label class="l" for="dOn">Done on</label><input class="inp" type="date" id="dOn" value="' + TODAY + '"></div>' +
         '<div><label class="l" for="dExp">Certificate expires (if it says)</label><input class="inp" type="date" id="dExp"></div></div>' +
         '<label class="l" for="dNotes">Notes</label><textarea id="dNotes" maxlength="2000"></textarea>' +
-        '<label class="l" for="dFile">Certificate or photo (optional)</label><input class="inp" type="file" id="dFile" accept="image/*,.pdf" style="padding-top:8px">' +
+        (HELD ? '<p class="m" id="heldFile">' + esc(HELD) + '</p>' : '<label class="l" for="dFile">Certificate or photo (optional)</label><input class="inp" type="file" id="dFile" accept="image/*,.pdf" style="padding-top:8px">') +
         '<div class="row" style="margin-top:8px"><button class="btn" id="dGo">Done</button></div><p class="said" id="dMsg" role="status"></p></div>' : '') +
       (c.state === 'on' && (ADMIN || assigned(c)) ? '<div class="card"><h2>Something needs doing</h2><p class="m" style="margin:0 0 6px">A follow-up is a Maintenance job: one list.</p><label class="l" for="jWhat">What</label><input class="inp" id="jWhat" maxlength="200" placeholder="e.g. Replace two emergency light fittings">' +
         '<div class="grid2"><div><label class="l" for="jDue">Due</label><input class="inp" type="date" id="jDue"></div><div><label class="l" for="jOwner">Who</label><select id="jOwner"><option value="">Choose…</option>' + opts.map(function (p) { return '<option value="' + esc(p) + '">' + esc(PEOPLE[p]) + '</option>'; }).join('') + '</select></div></div>' +
@@ -278,7 +279,7 @@
         '<p class="m">The church’s own copy: the starter guidance is not changed.</p><p class="said" id="eMsg" role="status"></p></div>' : ''));
     var after = function (m) { sh.close(); return reload().then(function () { draw(); toast(m); }); };
     if (sh.q('dGo')) sh.q('dGo').onclick = function () {
-      var f = sh.q('dFile').files[0], msg = sh.q('dMsg');
+      var f = sh.q('dFile') ? sh.q('dFile').files[0] : null, msg = sh.q('dMsg');
       msg.textContent = 'Saving…';
       var up = f ? uploadFile(c, f) : Promise.resolve([]);
       up.then(function (files) { return ST.recordDone(db(), c, { doneOn: sh.q('dOn').value, notes: sh.q('dNotes').value, certExpiry: sh.q('dExp').value, files: files }, who()); })
@@ -401,6 +402,14 @@
       $('wrap').innerHTML = '<h1>Building compliance</h1><div class="card"><p>This page is for the church office, the trustees and master admins. If a check has been given to you, it is in <a href="building.html">The building</a>.</p></div>';
       return null;
     }
+    return ST.gate(db(), window.EGBCLaunch).then(function (g) {
+      if (!g.on) { E.refused(); $('wrap').innerHTML = '<h1>Building compliance</h1><div class="card" id="off">' + esc(ST.OFF_WORDS) + '</div>'; return null; }
+      /* Until switch-over no certificate is uploaded (F-235). */
+      if (!g.locked) HELD = ST.heldWords('Certificates and photos', g.opensOn);
+      return start();
+    });
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+  function start() {
     return Promise.all([
       db().collection('sites').get(), db().collection('rooms').get(),
       db().collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
@@ -418,7 +427,7 @@
       if (want && SITES.some(function (s) { return s.id === want; })) { SITE = SITES.filter(function (s) { return s.id === want; })[0]; return reload(); }
       return loadAll();
     }).then(draw);
-  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+  }
 })();
 </script>
 </body>

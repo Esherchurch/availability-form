@@ -14,7 +14,9 @@
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610161700"></script>
+<script src="egbc-compliance-store.js?v=202610200100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--red:#b0392c}
@@ -25,12 +27,14 @@
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
   label.l{display:block;font-size:14px;font-weight:600;color:var(--ink);margin:12px 0 4px}
   .hint{font-size:13px;color:var(--muted);margin:2px 0 0}
-  textarea{width:100%;min-height:72px;border:1px solid var(--line-2);border-radius:12px;padding:10px 12px;font:inherit;color:var(--ink)}
+  textarea,select{width:100%;min-height:48px;border:1px solid var(--line-2);border-radius:12px;padding:10px 12px;font:inherit;color:var(--ink);background:#fff}
+  textarea{min-height:72px}
   .chk{display:flex;gap:10px;align-items:flex-start;min-height:48px;margin-top:12px}.chk input{width:22px;height:22px;flex:none;margin-top:2px}
   .btn{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:12px;font:700 16px Inter,sans-serif;background:var(--brand);color:#fff;border:0;width:100%;margin:8px 0;cursor:pointer}
   .btn.sec{background:#fff;color:var(--red);border:1px solid #e7c3be}
   .said{font-size:14px;color:var(--muted);min-height:20px}
   .warn{background:#fdf6e9;color:#7a5a1f;border-radius:10px;padding:10px 12px;margin:0 0 12px}
+  .held{background:#eef5f4;color:#2a4a4b;border-radius:10px;padding:12px;margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -44,51 +48,87 @@
      it; it is reviewed yearly; they delete it when it is no longer needed.
      Only they and master admins can open it here. On the day they are in -
      checked in, or on the rota - the fire wardens and the duty stewards on
-     duty see it on the fire roll-call, and nobody else. Never in an email.
-     Every change is logged. */
-  var E = window.EGBCEvents, esc = E.esc, ME = {}, MID = '', P = null;
+     duty for that building see it on the fire roll-call, and nobody else.
+     Never in an email. Every change is logged.
+     A master admin may enter a plan for someone, with their agreement: the
+     plan then says "Entered by <name> with their agreement" (Martin, 19 Oct).
+     HELD UNTIL SWITCH-OVER (F-235): a PEEP is disability information, and
+     until the locked rules are on the live database is readable signed
+     out. Until churchSettings/launch.rulesLocked is true the page says why,
+     and there is nothing to type into. Off with the building compliance
+     add-on. */
+  var E = window.EGBCEvents, ST = window.EGBCComplianceStore, esc = E.esc, ME = {}, MID = '', FOR = null, P = null, MASTER = false, PEOPLE = [];
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   function db() { return EGBCAuth.db; }
   function $(id) { return document.getElementById(id); }
   function day(s) { var p = String(s).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }); }
   function nextYear() { var p = TODAY.split('-').map(Number); return new Date(Date.UTC(p[0] + 1, p[1] - 1, p[2])).toISOString().slice(0, 10); }
-  function log(what) { return db().collection('peepLog').doc().set({ what: what, memberId: MID, by: EGBCAuth.user().uid, byName: ME.name || '', at: new Date().toISOString() }).catch(function () {}); }
+  function log(what, mid) { return db().collection('peepLog').doc().set({ what: what, memberId: mid, by: EGBCAuth.user().uid, byName: (EGBCAuth.profile() || {}).name || '', at: new Date().toISOString() }).catch(function () {}); }
   function field(id, label, hint, v) { return '<label class="l" for="' + id + '">' + label + '</label><textarea id="' + id + '" maxlength="300">' + esc(v || '') + '</textarea><p class="hint">' + hint + '</p>'; }
+  function head() { return '<h1>My evacuation plan</h1><p class="sub">If you would need help to get out of the building in a fire, a short plan means the people on duty know what to do. It is yours: change it or delete it whenever you like.</p>'; }
+
+  /* Whose plan: their own, or (a master admin) someone they enter it for. */
   function draw() {
-    var p = P || {};
-    $('wrap').innerHTML = '<h1>My evacuation plan</h1><p class="sub">If you would need help to get out of the building in a fire, a short plan means the people on duty know what to do. It is yours: change it or delete it whenever you like.</p>' +
-      (P && P.reviewDue && P.reviewDue < TODAY ? '<div class="warn" id="reviewDue">Please check your plan is still right, and save it again.</div>' : '') +
+    var p = P || {}, mine = !FOR, name = mine ? (ME.name || '') : FOR.name;
+    $('wrap').innerHTML = head() +
+      (MASTER ? '<div class="card"><label class="l" for="forWho">Whose plan?</label><select id="forWho"><option value="">My own</option>' +
+        PEOPLE.map(function (x) { return '<option value="' + esc(x.id) + '"' + (FOR && FOR.id === x.id ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' +
+        '<p class="hint">A master admin may enter a plan for someone who asks, with their agreement.</p></div>' : '') +
+      (P && P.enteredByName ? '<p class="hint" id="enteredBy">Entered by ' + esc(P.enteredByName) + ' with ' + (mine ? 'your' : 'their') + ' agreement.</p>' : '') +
+      (P && P.reviewDue && P.reviewDue < TODAY ? '<div class="warn" id="reviewDue">Please check this plan is still right, and save it again.</div>' : '') +
       '<div class="card">' +
-      field('needs', 'What help would you need to get out quickly?', 'For example: "I use a wheelchair and cannot use stairs." Please do not put medical details here.', p.needs) +
-      field('helpers', 'Who helps you? (optional)', 'For example: "My husband, or a steward."', p.helpers) +
-      field('route', 'Where do you go? (optional)', 'For example: "The ground floor side exit", or "the refuge on the landing".', p.route) +
+      field('needs', 'What help would ' + (mine ? 'you' : esc(name)) + ' need to get out quickly?', 'For example: "I use a wheelchair and cannot use stairs." Please do not put medical details here.', p.needs) +
+      field('helpers', 'Who helps? (optional)', 'For example: "My husband, or a steward."', p.helpers) +
+      field('route', 'Where do they go? (optional)', 'For example: "The ground floor side exit", or "the refuge on the landing".', p.route) +
       field('equipment', 'Any equipment? (optional)', 'For example: "the evacuation chair".', p.equipment) +
-      '<label class="chk"><input type="checkbox" id="agree"' + (P ? ' checked' : '') + '> <span>I agree that the fire wardens and the duty stewards on duty may see this plan on the fire roll-call when I am in the building. Nobody else sees it, and it is never emailed.</span></label>' +
-      '</div><button class="btn" id="save">' + (P ? 'Save my plan' : 'Make my plan') + '</button>' +
-      (P ? '<button class="btn sec" id="del">Delete my plan (I no longer need it)</button><p class="hint">Saved. Review it by ' + esc(day(P.reviewDue)) + '.</p>' : '') +
+      '<label class="chk"><input type="checkbox" id="agree"' + (P ? ' checked' : '') + '> <span>' + (mine ? 'I agree' : esc(name) + ' has agreed') +
+        ' that the fire wardens and the duty stewards on duty may see this plan on the fire roll-call when ' + (mine ? 'I am' : 'they are') + ' in the building. Nobody else sees it, and it is never emailed.</span></label>' +
+      '</div><button class="btn" id="save">' + (P ? 'Save the plan' : 'Make the plan') + '</button>' +
+      (P ? '<button class="btn sec" id="del">Delete the plan (no longer needed)</button><p class="hint">Review it by ' + esc(day(P.reviewDue)) + '.</p>' : '') +
       '<p class="said" id="msg" role="status"></p>';
+    if ($('forWho')) $('forWho').onchange = function () {
+      var id = $('forWho').value; FOR = id ? PEOPLE.filter(function (x) { return x.id === id; })[0] : null; load();
+    };
     $('save').onclick = function () {
       var needs = $('needs').value.trim();
-      if (!needs) { $('msg').textContent = 'Say what help you would need.'; return; }
+      if (!needs) { $('msg').textContent = 'Say what help is needed.'; return; }
       if (!$('agree').checked) { $('msg').textContent = 'Tick to agree, or the plan cannot be shown to the people on duty.'; return; }
-      var d = { memberId: MID, name: ME.name || '', agreed: true, agreedAt: (P && P.agreedAt) || new Date().toISOString(), needs: needs.slice(0, 300),
+      var mid = mine ? MID : FOR.id, made = !P;
+      var d = { memberId: mid, name: name, agreed: true, agreedAt: (P && P.agreedAt) || new Date().toISOString(), needs: needs.slice(0, 300),
         helpers: $('helpers').value.trim().slice(0, 300), route: $('route').value.trim().slice(0, 300), equipment: $('equipment').value.trim().slice(0, 300),
-        reviewDue: nextYear(), madeBy: 'self', updatedBy: EGBCAuth.user().uid, updatedAt: new Date().toISOString() };
-      var made = !P;
-      db().collection('peeps').doc(MID).set(d).then(function () { P = d; return log(made ? 'made' : 'changed'); }).then(function () { draw(); $('msg').textContent = 'Saved.'; }, function (e) { $('msg').textContent = 'Not saved: ' + (e.message || e); });
+        reviewDue: nextYear(), madeBy: mine ? 'self' : 'master', updatedBy: EGBCAuth.user().uid, updatedAt: new Date().toISOString() };
+      if (!mine) { d.enteredBy = EGBCAuth.user().uid; d.enteredByName = (EGBCAuth.profile() || {}).name || ''; }
+      else if (P && P.enteredBy) { d.enteredBy = P.enteredBy; d.enteredByName = P.enteredByName; }
+      db().collection('peeps').doc(mid).set(d).then(function () { P = d; return log(made ? 'made' : 'changed', mid); }).then(function () { draw(); $('msg').textContent = 'Saved.'; }, function (e) { $('msg').textContent = 'Not saved: ' + (e.message || e); });
     };
     if ($('del')) $('del').onclick = function () {
-      if (!confirm('Delete your evacuation plan?')) return;
-      db().collection('peeps').doc(MID).delete().then(function () { P = null; return log('deleted'); }).then(function () { draw(); $('msg').textContent = 'Deleted.'; }, function (e) { $('msg').textContent = 'Not deleted: ' + (e.message || e); });
+      if (!confirm('Delete this evacuation plan?')) return;
+      var mid = mine ? MID : FOR.id;
+      db().collection('peeps').doc(mid).delete().then(function () { P = null; return log('deleted', mid); }).then(function () { draw(); $('msg').textContent = 'Deleted.'; }, function (e) { $('msg').textContent = 'Not deleted: ' + (e.message || e); });
     };
+  }
+  function load() {
+    var mid = FOR ? FOR.id : MID;
+    return db().collection('peeps').doc(mid).get().then(function (d) { P = d.exists ? d.data() : null; draw(); });
   }
   E.ready().then(function (profile) {
     ME = E.asSeen(profile || {}); MID = ME.memberId || '';
-    /* "View as": the page a member with no plan sees - and nothing saves
-       (it would be the master admin's own plan, under someone else's view). */
-    if (E.viewing()) { P = null; draw(); $('save').onclick = function () { $('msg').textContent = 'Not while viewing as someone else.'; }; return; }
-    if (!MID) { $('wrap').innerHTML = '<h1>My evacuation plan</h1><div class="card">This is for people in the church’s address book. Ask the church office.</div>'; return; }
-    return db().collection('peeps').doc(MID).get().then(function (d) { P = d.exists ? d.data() : null; draw(); });
+    return ST.gate(db(), window.EGBCLaunch).then(function (g) {
+      if (!g.on) { E.refused(); $('wrap').innerHTML = '<h1>My evacuation plan</h1><div class="card" id="off">' + esc(ST.OFF_WORDS) + '</div>'; return; }
+      /* Until switch-over: why, and nothing to type into. */
+      if (!g.locked) {
+        $('wrap').innerHTML = head() + '<div class="held" id="held">' + esc('Your evacuation plan can be made here ' + (g.opensOn ? 'from ' + g.opensOn : 'when the church switches over to the new hub') +
+          '. Until then the hub’s database is not yet private, and a plan like this must be kept private. If you would need help to get out of the building, please tell a steward or the church office in person.') + '</div>';
+        return;
+      }
+      /* "View as": the page a member with no plan sees - and nothing saves. */
+      if (E.viewing()) { P = null; draw(); $('save').onclick = function () { $('msg').textContent = 'Not while viewing as someone else.'; }; return; }
+      if (!MID) { $('wrap').innerHTML = '<h1>My evacuation plan</h1><div class="card">This is for people in the church’s address book. Ask the church office.</div>'; return; }
+      MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+      return (MASTER ? db().collection('addressBook').get().then(function (s) {
+        PEOPLE = s.docs.filter(function (d) { return d.data().archived !== true && d.data().isMinor !== true; }).map(function (d) { return { id: d.id, name: d.data().name || '' }; }).filter(function (x) { return x.name && x.id !== MID; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      }, function () {}) : Promise.resolve()).then(load);
+    });
   }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();
 </script>

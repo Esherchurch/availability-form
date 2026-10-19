@@ -4550,7 +4550,7 @@ service cloud.firestore {
     // read peepToday, below.
     function peepShape(mid) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['memberId', 'name', 'agreed', 'agreedAt', 'needs', 'helpers', 'route', 'equipment', 'reviewDue', 'madeBy', 'updatedBy', 'updatedAt'])
+      return d.keys().hasOnly(['memberId', 'name', 'agreed', 'agreedAt', 'needs', 'helpers', 'route', 'equipment', 'reviewDue', 'madeBy', 'enteredBy', 'enteredByName', 'updatedBy', 'updatedAt'])
              && d.memberId == mid && d.agreed == true
              && d.name is string && d.name.size() <= 120
              && d.needs is string && d.needs.size() > 0 && d.needs.size() <= 300
@@ -4563,7 +4563,12 @@ service cloud.firestore {
     function ownPeep(mid) { return active() && me().get('memberId', '') == mid && mid != ''; }
     match /peeps/{mid} {
       allow read: if ownPeep(mid) || isMaster();
-      allow create, update: if (ownPeep(mid) || isMaster()) && peepShape(mid);
+      // A master admin entering a plan for someone records it: 'Entered by <name>
+      // with their agreement' (Martin, 19 Oct).
+      allow create, update: if peepShape(mid)
+                            && (ownPeep(mid)
+                                || (isMaster() && request.resource.data.get('enteredBy', '') == request.auth.uid
+                                    && request.resource.data.get('enteredByName', '') is string && request.resource.data.get('enteredByName', '').size() > 0));
       allow delete: if ownPeep(mid) || isMaster();
     }
     // Today's plans for the roll-call: ONLY the people in today, read ONLY by

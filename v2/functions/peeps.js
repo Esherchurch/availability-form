@@ -9,11 +9,11 @@
    The rules let only the person and master admins read peeps/.
 
    THE ROLL-CALL GETS ONLY TODAY'S, AND ONLY FOR TODAY'S PEOPLE (Martin,
-   19 Oct). This builds peepToday/<London day>:
+   19 Oct), BUILDING BY BUILDING. This builds peepToday/<London day>__<site>:
      entries  the agreed plans of the people who are IN TODAY - checked in at
               one of today's events, or on today's rota - and nobody else
-     readers  the fire wardens named on the roll-call list, and the duty
-              stewards ON THE ROTA TODAY (a steward not on duty: not a reader)
+     readers  the fire wardens named for THAT building (or every building), and
+              its duty stewards ON THE ROTA TODAY (a steward not on duty: not a reader)
    The rules let only those readers and master admins read it. Yesterday's
    is deleted. Rebuilt whenever someone checks in or out, a plan changes,
    the roll-call list or the rota changes, and every morning.
@@ -37,21 +37,33 @@ const people = (raw) => (Array.isArray(raw) ? raw : [raw]).filter(Boolean);
 
 export async function runPeepToday({ db, today }) {
   today = today || londonDay(new Date());
-  const ref = db.collection('peepToday').doc(today);
-  /* Yesterday's (and older) go: "deleted when no longer needed". */
+  /* One list per building (Martin, 19 Oct): peepToday/<day>__<siteId>.
+     Yesterday's (and older) go: "deleted when no longer needed". Off: all go. */
+  const on = await featureOn(db);
   const old = await db.collection('peepToday').get();
-  for (const d of old.docs) if (d.id !== today) await d.ref.delete();
-  if (!(await featureOn(db))) { await ref.delete().catch(() => {}); return { off: true }; }
+  for (const d of old.docs) if (!on || !d.id.startsWith(today + '__')) await d.ref.delete();
+  if (!on) return { off: true };
 
-  /* Who is in today: on the rota... */
-  const rota = {};
+  const siteDocs = (await db.collection('sites').get()).docs.filter((d) => d.data().active !== false)
+    .sort((a, b) => (a.data().order || 0) - (b.data().order || 0));
+  const sites = {}; siteDocs.forEach((d) => { sites[d.id] = d.data().name || d.id; });
+  /* The rota's services are in the church's first building unless the rota
+     event names one (F-235). */
+  const MAIN = siteDocs.length ? siteDocs[0].id : '';
+
+  /* Who is in today, and where: on the rota... */
+  const rota = {}, where = {};
   (await db.collection('events').where('date', '==', today).get()).docs.forEach((d) => {
     const ev = d.data();
     if (ev.archived || ev.draft) return;
-    Object.keys(ev.assignments || {}).forEach((role) => people(ev.assignments[role]).forEach((p) => { if (p && p.id) rota[p.id] = (rota[p.id] || []).concat(role); }));
+    const site = String(ev.siteId || (ev.location && ev.location.siteId) || MAIN);
+    Object.keys(ev.assignments || {}).forEach((role) => people(ev.assignments[role]).forEach((p) => {
+      if (!p || !p.id) return;
+      rota[p.id] = (rota[p.id] || []).concat(role);
+      (where[p.id] = where[p.id] || {})[site] = 'On the rota';
+    }));
   });
   /* ...or checked in at one of today's events (members, through their sign-up). */
-  const inToday = {};
   const cks = (await db.collection('checkins').where('day', '==', today).get()).docs.map((d) => d.data()).filter((c) => c.state === 'in');
   for (const c of cks) {
     if (!c.signupKey || c.kind === 'child') continue;
@@ -60,27 +72,35 @@ export async function runPeepToday({ db, today }) {
     const s = su.data();
     let mid = s.personKind === 'addressBook' ? s.personId : '';
     if (!mid && s.memberUid) { const u = await db.collection('users').doc(s.memberUid).get(); mid = u.exists ? (u.data().memberId || '') : ''; }
-    if (mid) inToday[mid] = c.buildingId || inToday[mid] || '';
+    if (mid) (where[mid] = where[mid] || {})[c.buildingId || MAIN] = 'Checked in';
   }
 
-  const sites = {}; (await db.collection('sites').get()).docs.forEach((d) => { sites[d.id] = d.data().name || d.id; });
-  const entries = [];
-  for (const mid of [...new Set(Object.keys(inToday).concat(Object.keys(rota)))]) {
+  /* The plans, building by building. */
+  const bySite = {};
+  for (const mid of Object.keys(where)) {
     const p = await db.collection('peeps').doc(mid).get();
     if (!p.exists || p.data().agreed !== true) continue;
     const x = p.data();
-    entries.push({ memberId: mid, name: x.name || '', why: mid in inToday ? 'Checked in' : 'On the rota', building: inToday[mid] ? (sites[inToday[mid]] || '') : '',
-      needs: x.needs || '', helpers: x.helpers || '', route: x.route || '', equipment: x.equipment || '', reviewDue: x.reviewDue || '' });
+    Object.keys(where[mid]).forEach((site) => {
+      (bySite[site] = bySite[site] || []).push({ memberId: mid, name: x.name || '', why: where[mid][site], building: sites[site] || '',
+        needs: x.needs || '', helpers: x.helpers || '', route: x.route || '', equipment: x.equipment || '', reviewDue: x.reviewDue || '',
+        enteredByName: x.enteredByName || '' });
+    });
   }
-  entries.sort((a, b) => a.name.localeCompare(b.name));
 
-  /* Who may read it: the fire wardens, and the duty stewards on duty today. */
+  /* Who may read each: the fire wardens for that building (or every
+     building), and the duty stewards for it who are on the rota today. */
   const f = await db.collection('fireRollCall').doc('main').get();
   const fire = f.exists ? f.data() : {};
-  const stewards = fire.stewards || [];
-  const readers = (fire.memberIds || []).filter((m) => stewards.indexOf(m) < 0 || m in rota);
-  await ref.set({ day: today, readers, entries, at: new Date().toISOString() });
-  return { off: false, readers, entries };
+  const stewards = fire.stewards || [], all = fire.allSites || [], per = fire.bySite || {};
+  const docs = {};
+  for (const site of Object.keys(bySite)) {
+    const entries = bySite[site].sort((a, b) => a.name.localeCompare(b.name));
+    const readers = [...new Set(all.concat(per[site] || []))].filter((m) => stewards.indexOf(m) < 0 || m in rota);
+    await db.collection('peepToday').doc(today + '__' + site).set({ day: today, siteId: site, readers, entries, at: new Date().toISOString() });
+    docs[site] = { readers, entries };
+  }
+  return { off: false, docs };
 }
 
 const rebuild = async () => { await runPeepToday({ db: getFirestore() }); };

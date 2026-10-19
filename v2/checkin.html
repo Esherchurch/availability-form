@@ -677,7 +677,7 @@
        wardens, the duty stewards on duty today and master admins read it;
        anyone else gets nothing and sees no card. Opening a plan is logged.
        And each building's GEEP, for visitors who need help. */
-    var PEEP = null, GEEPS = [];
+    var PEEP = null, PEEPS = {}, GEEPS = [];
     function peepCard(look) {
       var es = (PEEP && PEEP.entries) || [];
       var g = GEEPS.filter(function (x) { return who.all || (who.sites || []).indexOf(x.siteId) >= 0; });
@@ -686,7 +686,8 @@
         es.map(function (e) {
           return '<details class="peep" data-peep="' + esc(e.memberId) + '" style="border-top:1px solid var(--line);padding:8px 0"><summary style="min-height:44px;cursor:pointer"><strong>' + esc(e.name) + '</strong> <span class="hint">' + esc(e.why) + (e.building ? ', ' + esc(e.building) : '') + '</span></summary>' +
             '<p style="margin:4px 0"><strong>Help needed:</strong> ' + esc(e.needs) + '</p>' + (e.helpers ? '<p style="margin:4px 0"><strong>Who helps:</strong> ' + esc(e.helpers) + '</p>' : '') +
-            (e.route ? '<p style="margin:4px 0"><strong>Where:</strong> ' + esc(e.route) + '</p>' : '') + (e.equipment ? '<p style="margin:4px 0"><strong>Equipment:</strong> ' + esc(e.equipment) + '</p>' : '') + '</details>';
+            (e.route ? '<p style="margin:4px 0"><strong>Where:</strong> ' + esc(e.route) + '</p>' : '') + (e.equipment ? '<p style="margin:4px 0"><strong>Equipment:</strong> ' + esc(e.equipment) + '</p>' : '') +
+            (e.enteredByName ? '<p class="hint" style="margin:4px 0">Entered by ' + esc(e.enteredByName) + ' with their agreement.</p>' : '') + '</details>';
         }).join('') + '</div>' : '') +
         g.map(function (x) {
           var site = (look.sites && look.sites[x.siteId]) || '';
@@ -703,8 +704,19 @@
         });
       });
     }
-    db().collection('peepToday').doc(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))
-      .onSnapshot(function (d) { PEEP = d.exists ? d.data() : null; render(LAST); }, function () { PEEP = null; });
+    /* One list per building (Martin, 19 Oct): a warden or steward for one
+       building reads that building's only; the rules refuse the others. */
+    var peepDay = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    lookups.then(function (look) {
+      var ids = who.all ? Object.keys(look.sites || {}) : (who.sites || []);
+      ids.forEach(function (sid) {
+        db().collection('peepToday').doc(peepDay + '__' + sid).onSnapshot(function (d) {
+          if (d.exists) PEEPS[sid] = d.data(); else delete PEEPS[sid];
+          PEEP = { entries: [].concat.apply([], Object.keys(PEEPS).map(function (k) { return PEEPS[k].entries || []; })) };
+          render(LAST);
+        }, function () { delete PEEPS[sid]; });
+      });
+    });
     db().collection('geeps').get().then(function (q) { GEEPS = q.docs.map(function (d) { return Object.assign({ siteId: d.id }, d.data()); }); render(LAST); }, function () {});
     function render(cks) {
       LAST = cks;

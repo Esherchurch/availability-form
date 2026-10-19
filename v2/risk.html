@@ -15,6 +15,7 @@
 <script src="egbc-auth.js?v=202610160500"></script>
 <script src="egbc-guard.js?v=202610121600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-compliance.js?v=202610192300"></script>
 <script src="egbc-compliance-templates.js?v=202610192300"></script>
@@ -52,6 +53,7 @@
   .sheet{background:#fff;width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px}
   @media (min-width:700px){.sheet{border-radius:16px}}
   .sheet .x{position:sticky;top:0;float:right;width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:#fff;font-size:18px;cursor:pointer}
+  .held{background:#eef5f4;color:#2a4a4b;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
   .said{font-size:13px;color:var(--muted);min-height:18px;margin:6px 0 0}
   .chk{display:flex;gap:10px;align-items:center;min-height:44px}.chk input{width:20px;height:20px;flex:none}
   @media print{.noprint,.tabs{display:none!important}body{background:#fff}.card{border:0}}
@@ -77,7 +79,7 @@
      The office (master admins, Church office) keeps it; the trustees (the
      Elders, master admins) see it and take snapshots. The rules say so. */
   var E = window.EGBCEvents, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = E.esc;
-  var ME = {}, ADMIN = false, TRUSTEE = false, CHURCH = '', SITES = [], SITE = null, TEMPLATES = [], B = null, VIEW = 'hazards';
+  var HELD = '', ME = {}, ADMIN = false, TRUSTEE = false, CHURCH = '', SITES = [], SITE = null, TEMPLATES = [], B = null, VIEW = 'hazards';
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   function db() { return EGBCAuth.db; }
   function $(id) { return document.getElementById(id); }
@@ -116,7 +118,7 @@
 
   /* ---------------- drawing ---------------- */
   function draw() {
-    var html = '<h1>Live risk register</h1><p class="banner" id="riskBanner">' + esc(T.riskBanner(CHURCH)) + '</p>';
+    var html = '<h1>Live risk register</h1><p class="banner" id="riskBanner">' + esc(T.riskBanner(CHURCH)) + '</p>' + (HELD ? '<p class="held" id="held">' + esc(HELD) + '</p>' : '');
     html += '<div class="tabs" id="sites">' + SITES.map(function (s) { return '<button data-site="' + esc(s.id) + '" aria-pressed="' + (SITE && SITE.id === s.id) + '">' + esc(s.name || s.id) + '</button>'; }).join('') + '</div>';
     if (!SITE) { $('wrap').innerHTML = html + '<div class="card">No buildings yet.</div>'; return wire(); }
     var tabs = [['hazards', 'Hazards'], ['reports', 'Professional assessments'], ['changes', 'Changes since'], ['snapshots', 'Snapshots'], ['geep', 'Visitors who need help (GEEP)']];
@@ -270,6 +272,14 @@
       $('wrap').innerHTML = '<h1>Live risk register</h1><div class="card"><p>This page is for the church office, the trustees and master admins.</p></div>';
       return null;
     }
+    return ST.gate(db(), window.EGBCLaunch).then(function (g) {
+      if (!g.on) { E.refused(); $('wrap').innerHTML = '<h1>Live risk register</h1><div class="card" id="off">' + esc(ST.OFF_WORDS) + '</div>'; return null; }
+      /* Until switch-over nothing private is saved (F-235): read only. */
+      if (!g.locked) { ADMIN = false; TRUSTEE = false; HELD = ST.heldWords('Reports, hazards, snapshots and the plan for visitors', g.opensOn); }
+      return start();
+    });
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+  function start() {
     return Promise.all([db().collection('sites').get(), db().collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
       db().collection('churchSettings').doc('details').get().catch(function () { return null; })]).then(function (r) {
       SITES = all(r[0]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
@@ -279,7 +289,7 @@
       SITE = SITES.filter(function (s) { return s.id === want; })[0] || SITES[0] || null;
       return SITE ? load() : null;
     }).then(draw);
-  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+  }
 })();
 </script>
 </body>
