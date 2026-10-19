@@ -367,6 +367,11 @@
     for (var i = 0; i < FEATURES.length; i++) if (FEATURES[i].name === name) return FEATURES[i].on;
     return true;   /* a name nobody listed: as before the switches */
   }
+  /* Straight away, on every page: some pages never take the profile step
+     above (Care & support, forms, Give regularly, Small groups), and they
+     drew the Menu with only the defaults - no Session planner where the
+     church had switched it on (check-menu, 19 Oct 2026). */
+  loadFeatures();
 
   var sermonsAdmin = false;
   function loadSermonsAdmin(memberId) {
