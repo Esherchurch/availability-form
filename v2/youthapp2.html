@@ -425,6 +425,9 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .note-card {
   border-radius: 16px; padding: 14px; position: relative;
   cursor: pointer;
+  /* A border, so every note reads as something to tap - a General note
+     has no colour of its own (check-icon-buttons, 19 Oct 2026). */
+  border: 1px solid rgba(17,24,39,.12);
   transition: transform 0.1s, box-shadow 0.1s;
 }
 .note-card:active { transform: scale(0.98); box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
@@ -1974,7 +1977,7 @@ function renderNotes() {
     }).join('');
     // Truncate body for card preview
     const bodyPreview = (n.body || '').length > 120 ? (n.body||'').substring(0,120) + '…' : (n.body||'');
-    return `<div class="note-card ${meta.cls} fade-in" onclick="openNoteDetail('${n.id}')">
+    return `<div class="note-card ${meta.cls} fade-in" role="button" tabindex="0" onclick="openNoteDetail('${n.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openNoteDetail('${n.id}')}">
       <div class="note-card-cat">${meta.emoji} ${meta.label}</div>
       ${n.title ? `<div class="note-card-title">${esc(n.title)}</div>` : ''}
       ${n.body ? `<div class="note-card-body">${esc(bodyPreview)}</div>` : ''}

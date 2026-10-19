@@ -534,7 +534,10 @@ async function seed() {
 
     /* 1. A SERVICE'S ASSIGNMENTS. Opens the sheet and reads it; the
        sheet is closed again without choosing anybody. */
-    await ev('(function(){var b=document.querySelectorAll("#eventList [onclick^=\\"roleTap(\\"]");'
+    /* ITS OWN SERVICE, not whichever is first: another check's leftover
+       service on an earlier date sat first and had nobody to offer. */
+    await ev('(function(){var b=document.querySelectorAll("#eventList [data-date=\\"' + SUNDAY + '\\"] [onclick^=\\"roleTap(\\"]");'
+      + 'if(!b.length) b=document.querySelectorAll("#eventList [onclick^=\\"roleTap(\\"]");'
       + 'if(!b.length) return "none"; b[0].click(); return "tapped"})()');
     await until('  tapping a role opens the assignment sheet',
       '!!document.getElementById("rota-sheet") ? "yes" : "no"', 20);

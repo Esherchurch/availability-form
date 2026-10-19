@@ -174,8 +174,11 @@ const offMachine = u => {
   const opts = String(await ev(
     'Array.from(document.querySelectorAll("#site option")).map(o => o.textContent.trim()).join("|")'));
   ok('the building is in the picker', opts.includes(SITE_NAME), opts.slice(0, 160));
-  ok('and nothing is connected yet',
-    /No projection computer is connected/i.test(String(await ev('document.getElementById("devices").innerText'))),
+  /* This building's computers only: other checks leave theirs (each
+     computer is a row of its own since 19 Oct 2026). */
+  const mineRows = 'Array.from(document.querySelectorAll("#devices [data-dev]")).filter(r => r.innerText.includes(' + JSON.stringify(SITE_NAME) + '))';
+  ok('and nothing is connected yet in this building',
+    String(await ev(mineRows + '.length')) === '0',
     String(await ev('document.getElementById("devices").innerText')).slice(0, 160));
   await shot('1-before');
 
@@ -230,7 +233,7 @@ const offMachine = u => {
   const after = String(await ev('document.getElementById("devices").innerText'));
   ok('and the page says so', /\bOff\b/.test(after), after.slice(0, 200));
   ok('with no Disconnect button left on it',
-    (await ev('!Array.from(document.querySelectorAll("#devices button")).some(b => /Disconnect/i.test(b.textContent))')) === true,
+    (await ev('!' + mineRows + '.some(r => Array.from(r.querySelectorAll("button")).some(b => /Disconnect/i.test(b.textContent)))')) === true,
     after.slice(0, 160));
   await shot('4-off');
 

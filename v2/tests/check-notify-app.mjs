@@ -231,7 +231,7 @@ const offMachine = u => {
   /* THE FEATURE OFF (HANDOVER-MAIN rule 12). */
   console.log('\nwith the church not using notifications');
   await ev('try{localStorage.removeItem("egbc.notify.offer")}catch(e){};'
-    + 'EGBCChurch.uses=function(n){return n!=="notifications"};1');
+    + 'EGBCChurch.uses=function(n){return n!=="notifications"};EGBCAuth.uses=EGBCChurch.uses;1');
   await go('me', 'home');
   ok('  no offer on Home', (await has(OFFER)) === false);
   await go('me', 'me');
@@ -247,7 +247,7 @@ const offMachine = u => {
     + 'EGBCMenu.forPerson(EGBCMenu.who()));return out.join("|")})()');
   ok('  Notifications is in the Menu for somebody signed in', String(await names('')).split('|').indexOf('Notifications') !== -1);
   ok('  and not when the church does not use them',
-    String(await names('window.EGBCChurch={uses:function(n){return n!=="notifications"}};')).split('|').indexOf('Notifications') === -1);
+    String(await names('window.EGBCChurch={uses:function(n){return n!=="notifications"}};EGBCAuth.uses=EGBCChurch.uses;')).split('|').indexOf('Notifications') === -1);
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
   /* ---- 4. a parent who is not in the address book -------------------- */

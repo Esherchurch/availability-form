@@ -619,7 +619,9 @@
 
        A page that has not loaded the snippet simply has no credit, which is
        better than the Menu failing to draw. */
-    if (window.EGBCPoweredBy) {
+    /* Not in the hub's left column, which sits beside the page's own
+       credit (check-poweredby). */
+    if (window.EGBCPoweredBy && !(opts && opts.noCredit)) {
       el.insertAdjacentHTML('beforeend', EGBCPoweredBy.html({ padding: '18px 12px 10px' }));
     }
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();

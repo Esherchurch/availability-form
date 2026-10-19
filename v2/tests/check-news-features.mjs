@@ -322,7 +322,7 @@ const offMachine = u => {
 
   /* The church does not use notifications: no tick, and no urgent field
      even if the box were somehow ticked. */
-  await ev("window.__realChurch=window.EGBCChurch;window.EGBCChurch={uses:function(n){return n!=='notifications'}};"
+  await ev("window.__realChurch=window.EGBCChurch;window.EGBCChurch={uses:function(n){return n!=='notifications'}};window.__realUses=EGBCAuth.uses;EGBCAuth.uses=function(n){return n!=='notifications'};"
     + "closeNewsEditor();openNewsEditor();1"); await sleep(900);
   ok('  a church that does not use notifications is not offered it',
     (await ev("document.getElementById('nwUrgentRow').hidden")) === true);
@@ -334,7 +334,7 @@ const offMachine = u => {
   ok('  and nothing it saves is marked urgent', !!off && !('urgent' in (off.fields || {})),
     off ? Object.keys(off.fields || {}).join(',') : 'not saved');
   if (off) { await ev("deleteNews('" + off.name.split('/').pop() + "')", true); await sleep(2500); }
-  await ev("window.EGBCChurch=window.__realChurch;1");
+  await ev("window.EGBCChurch=window.__realChurch;EGBCAuth.uses=window.__realUses;1");
 
   /* ---- a save that fails says so -------------------------------------- */
   console.log('\na save that fails says so');

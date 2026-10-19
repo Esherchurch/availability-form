@@ -153,9 +153,13 @@ ok('churchShow() checks the device document, not just the claim',
   /function churchShow\(\)[\s\S]{0,400}devices\/\$\(request\.auth\.uid\)[\s\S]{0,200}active/.test(SRC));
 for (const name of DEVICE) {
   const r = (readRules(name) || []).map(x => x.clause).join(' ');
-  ok('the projection PC may read ' + name, /churchShow\(\)/.test(r), r);
+  /* churchShowServices() since 19 Oct 2026: a computer doing main services
+     (its job), which is churchShow() and more - asserted below. */
+  ok('the projection PC may read ' + name, /churchShow(Services)?\(\)/.test(r), r);
 }
-const dev = (readRules('devices') || []).map(x => x.clause).join(' ');
+ok('a computer doing main services is a paired, switched-on computer first, with that job on its record',
+  /function churchShowServices\(\)[\s\S]{0,120}churchShow\(\)[\s\S]{0,200}jobs/.test(SRC));
+const dev =(readRules('devices') || []).map(x => x.clause).join(' ');
 ok('what is paired is visible to an admin and nobody else', /isAdmin\(\)/.test(dev), dev);
 
 console.log('\nsign-ups check who an event is for (F-115)');

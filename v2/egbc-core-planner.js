@@ -391,7 +391,28 @@
     'color:var(--teal);outline:none;resize:none;overflow:hidden}',
     '.sp-actions{display:flex;gap:10px;padding:16px 12px;flex-wrap:wrap}',
     '.sp-actions button{flex:1;min-width:120px;padding:14px;border:none;border-radius:12px;',
-    'font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;min-height:48px}'
+    'font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;min-height:48px}',
+    /* CHOOSING A SONG (Martin approved the mock-up, 19 Oct 2026:
+       design-mocks/core-team/song-flow-1540). */
+    '.sp-pick{position:fixed;inset:0;z-index:1000;background:rgba(17,24,39,.4);display:flex;align-items:flex-end;justify-content:center}',
+    '.sp-pick-box{background:#fff;width:100%;max-width:560px;height:calc(100% - 64px);max-height:720px;border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden}',
+    '@media(min-width:700px){.sp-pick{align-items:center}.sp-pick-box{border-radius:18px;height:80vh}}',
+    '.sp-pick-h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}',
+    '.sp-pick-h b{font-size:16px;color:var(--ink,#111827)}',
+    '.sp-pick-x{width:44px;height:44px;border:1px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;display:grid;place-items:center;color:var(--teal)}',
+    '.sp-pick-q{margin:12px 16px;min-height:48px;border:2px solid var(--teal);border-radius:12px;padding:0 12px;font:500 16px var(--font);color:var(--ink,#111827);outline:none}',
+    '.sp-pick-list{overflow-y:auto;flex:1;padding-bottom:16px}',
+    '.sp-pick-lab{padding:8px 16px 4px;font-size:12px;font-weight:600;color:var(--muted)}',
+    '.sp-pick-row{display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:8px 16px;border:0;border-bottom:1px solid var(--border);background:#fff;text-align:left;cursor:pointer;font-family:var(--font)}',
+    '.sp-pick-row:hover{background:var(--bg)}',
+    '.sp-pick-row b{display:block;color:var(--ink,#111827);font-size:14px}.sp-pick-row small{color:var(--muted);font-size:12px}',
+    '.sp-pick-row .add{margin-left:auto;flex:none;width:40px;height:40px;border-radius:10px;background:var(--teal-light);color:var(--teal);display:grid;place-items:center;font-size:20px;font-weight:600}',
+    '.sp-pick-row mark{background:#fef3c7;color:inherit;padding:0}',
+    '.sp-keybtns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}',
+    '.sp-keybtns button{flex:1 1 70px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font:600 13px var(--font);color:var(--ink,#111827);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}',
+    '.sp-keybtns button small{font-size:10px;font-weight:500;color:var(--muted)}',
+    '.sp-keybtns button.on{border-color:var(--teal);background:var(--teal-light);color:var(--teal)}',
+    '.sp-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;z-index:1001;background:#111827;color:#fff;border-radius:10px;padding:12px 16px;font:500 14px var(--font);max-width:calc(100% - 32px)}'
   ].join('');
 
   /* ---- the planner's markup, from CoreTeamApp's #screen-service ------
@@ -415,7 +436,7 @@
     + '<div class="sp-section-header">'
     +   '<h2>Order of Service</h2>'
     +   '<div class="sp-btn-row">'
-    +     '<button class="sp-btn" onclick="spAddSong()">+ Song</button>'
+    +     '<button class="sp-btn" onclick="spPickSong()">+ Song</button>'
     +     '<button class="sp-btn" onclick="spAddItem()">+ Item</button>'
     +     '<a href="sundayplannersonglibrary.html" target="_blank" class="sp-btn">Songs DB</a>'
     +   '</div>'
@@ -631,6 +652,152 @@
     }
     spUpdateNumbers();
     return id;
+  }
+
+  /* ==== CHOOSING A SONG (Martin, 16 Oct 2026: "can't make out how you
+     actually choose the song"; the mock-up approved 19 Oct) ===============
+     "+ Song" opens the song library, not a blank box: what was sung
+     recently and what is sung most come first; typing a title or a line
+     finds it (the line shown, so you know it is the right one); one tap
+     adds it, opens it and offers its keys - the ones with chord sheets
+     first, "Other..." for any. A song not in the library can still be
+     added by name. The history is read from the saved plans (services). */
+  var SP_LIB = null;
+  function spLibrary() {
+    if (SP_LIB) return SP_LIB;
+    SP_LIB = Promise.all([db().collection('songs').get(), db().collection('services').get()]).then(function (r) {
+      var songs = r[0].docs.map(function (d) { var x = d.data() || {}; x._id = d.id; return x; }).filter(function (s) { return s.title; });
+      var used = {}, today = new Date().toISOString().slice(0, 10);
+      r[1].docs.forEach(function (d) {
+        var sv = d.data() || {}; if (!sv.date || sv.date > today) return;
+        (sv.order || []).forEach(function (it) {
+          if (!it || it.type !== 'song' || !it.title) return;
+          var k = String(it.title).trim().toLowerCase(), u = used[k] || (used[k] = { last: '', count: 0, keys: {} });
+          u.count++; if (sv.date > u.last) u.last = sv.date;
+          (it.keys || []).forEach(function (x) { if (x) u.keys[x] = 1; });
+        });
+      });
+      return { songs: songs, used: used };
+    }, function () { SP_LIB = null; return { songs: [], used: {} }; });
+    return SP_LIB;
+  }
+  function spEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function spChordKeys(s) {
+    var k = (s.files || []).filter(function (f) { return f && f.type === 'Chord Sheet' && f.key; }).map(function (f) { return f.key; });
+    return k.filter(function (x, i) { return k.indexOf(x) === i; });
+  }
+  function spUkDate(iso) { var d = new Date(iso + 'T12:00'); return isNaN(d) ? iso : d.getDate() + ' ' + d.toLocaleDateString('en-GB', { month: 'short' }); }
+  function spPickRow(s, sub) {
+    return '<button type="button" class="sp-pick-row" data-song="' + spEsc(s.title) + '"><span style="min-width:0"><b>' + spEsc(s.title) + '</b><small>' + sub + '</small></span><span class="add" aria-hidden="true">+</span></button>';
+  }
+  function spPickDraw(q) {
+    var list = document.getElementById('sp-pick-list'); if (!list) return;
+    spLibrary().then(function (L) {
+      var keysOf = function (s) { var k = spChordKeys(s); return k.length ? (k.length > 1 ? 'keys ' : 'key ') + k.join(', ') : 'no chord sheets yet'; };
+      var html = '';
+      q = String(q || '').trim().toLowerCase();
+      if (q.length < 2) {
+        var withUse = L.songs.map(function (s) { return { s: s, u: L.used[s.title.trim().toLowerCase()] }; }).filter(function (x) { return x.u; });
+        /* Recently: sung in the last four weeks. Most used: the rest, by how often. */
+        var since = new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10);
+        var recent = withUse.filter(function (x) { return x.u.last >= since; }).sort(function (a, b) { return b.u.last.localeCompare(a.u.last); }).slice(0, 5);
+        var taken = recent.map(function (x) { return x.s.title; });
+        var most = withUse.filter(function (x) { return taken.indexOf(x.s.title) === -1; }).sort(function (a, b) { return b.u.count - a.u.count; }).slice(0, 5);
+        if (recent.length) html += '<div class="sp-pick-lab">Used recently</div>' + recent.map(function (x) { return spPickRow(x.s, 'Last sung ' + spEsc(spUkDate(x.u.last)) + ' \u00b7 ' + spEsc(keysOf(x.s))); }).join('');
+        if (most.length) html += '<div class="sp-pick-lab">Most used</div>' + most.map(function (x) { return spPickRow(x.s, 'Sung ' + x.u.count + (x.u.count === 1 ? ' time' : ' times') + ' \u00b7 ' + spEsc(keysOf(x.s))); }).join('');
+        if (!html) html = '<div class="sp-pick-lab">Type a title, or a line from the song</div>';
+      } else {
+        var words = q.split(/\s+/).filter(Boolean);
+        var hits = L.songs.map(function (s) {
+          var t = s.title.toLowerCase(), ly = String(s.lyrics || '').replace(/\s+/g, ' ');
+          var inTitle = words.every(function (w) { return t.indexOf(w) !== -1; });
+          var at = ly.toLowerCase().indexOf(q);
+          return { s: s, inTitle: inTitle, at: at, ly: ly };
+        }).filter(function (h) { return h.inTitle || h.at !== -1; })
+          .sort(function (a, b) { return (b.inTitle - a.inTitle) || a.s.title.localeCompare(b.s.title); }).slice(0, 20);
+        html += '<div class="sp-pick-lab">' + hits.length + (hits.length === 1 ? ' song' : ' songs') + '</div>';
+        html += hits.map(function (h) {
+          var sub;
+          if (h.at !== -1 && !h.inTitle) {
+            var from = Math.max(0, h.at - 18), to = Math.min(h.ly.length, h.at + q.length + 24);
+            sub = '\u201c' + (from ? '\u2026' : '') + spEsc(h.ly.slice(from, h.at)) + '<mark>' + spEsc(h.ly.slice(h.at, h.at + q.length)) + '</mark>'
+              + spEsc(h.ly.slice(h.at + q.length, to)) + (to < h.ly.length ? '\u2026' : '') + '\u201d \u00b7 ' + spEsc(keysOf(h.s));
+          } else sub = 'title \u00b7 ' + spEsc(keysOf(h.s));
+          return spPickRow(h.s, sub);
+        }).join('');
+        var raw = document.getElementById('sp-pick-q').value.trim();
+        html += '<div class="sp-pick-lab">Not in the library?</div>'
+          + '<button type="button" class="sp-pick-row" data-new="' + spEsc(raw) + '"><span style="min-width:0"><b>Add \u201c' + spEsc(raw) + '\u201d as a new song</b><small>You can add its keys and files later</small></span><span class="add" aria-hidden="true">+</span></button>';
+      }
+      list.innerHTML = html;
+    });
+  }
+  function spPickClose() {
+    var p = document.getElementById('sp-pick'); if (p) p.remove();
+    document.removeEventListener('keydown', spPickKey);
+    if (SP_PICK_FROM) try { SP_PICK_FROM.focus(); } catch (e) {}
+  }
+  function spPickKey(e) { if (e.key === 'Escape') spPickClose(); }
+  var SP_PICK_FROM = null;
+  function spPickSong() {
+    spPickClose();
+    SP_PICK_FROM = document.activeElement;
+    var p = document.createElement('div');
+    p.className = 'sp-pick'; p.id = 'sp-pick'; p.setAttribute('data-egbc-overlay', '');
+    p.innerHTML = '<div class="sp-pick-box" role="dialog" aria-modal="true" aria-labelledby="sp-pick-t">'
+      + '<div class="sp-pick-h"><b id="sp-pick-t">Add a song</b><button type="button" class="sp-pick-x" aria-label="Close" data-close="1">'
+      + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>'
+      + '<input id="sp-pick-q" class="sp-pick-q" type="search" placeholder="Title or a line from the song" autocomplete="off" aria-label="Find a song by its title or a line from it">'
+      + '<div class="sp-pick-list" id="sp-pick-list"><div class="sp-pick-lab">Loading the song library\u2026</div></div></div>';
+    document.body.appendChild(p);
+    p.addEventListener('click', function (e) {
+      if (e.target === p || e.target.closest('[data-close]')) { spPickClose(); return; }
+      var row = e.target.closest('[data-song],[data-new]'); if (!row) return;
+      spPickAdd(row.getAttribute('data-song') || row.getAttribute('data-new'), !!row.getAttribute('data-song'));
+    });
+    var q = document.getElementById('sp-pick-q');
+    q.addEventListener('input', function () { spPickDraw(q.value); });
+    document.addEventListener('keydown', spPickKey);
+    setTimeout(function () { try { q.focus(); } catch (e) {} }, 50);
+    spPickDraw('');
+  }
+  function spPickAdd(title, inLibrary) {
+    title = String(title || '').trim(); if (!title) return;
+    spPickClose();
+    var id = spAddSong();
+    var block = document.getElementById('sp-files-' + id).closest('.song-block');
+    block.querySelector('.song-title').value = title;
+    /* Open, with its keys: the one just added is the one being worked on. */
+    block.classList.remove('is-collapsed');
+    var content = block.querySelector('.song-content'); if (content) content.classList.remove('hidden');
+    var n = document.querySelectorAll('#sp-order .song-block').length;
+    if (inLibrary) spShowKeyInfo(id, title);
+    spKeyChanged(id);
+    spLibrary().then(function (L) {
+      var s = L.songs.filter(function (x) { return x.title === title; })[0] || {};
+      var chord = spChordKeys(s);
+      var row = document.createElement('div');
+      row.className = 'sp-keybtns'; row.setAttribute('role', 'group'); row.setAttribute('aria-label', 'Key for ' + title);
+      row.innerHTML = chord.slice(0, 4).map(function (k) { return '<button type="button" data-key="' + spEsc(k) + '">' + spEsc(k) + '<small>chords</small></button>'; }).join('')
+        + '<button type="button" data-key="">Other\u2026</button>';
+      var keysRow = block.querySelector('.sp-keys-row');
+      if (chord.length) keysRow.style.display = 'none';
+      keysRow.parentNode.insertBefore(row, keysRow);
+      row.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-key]'); if (!b) return;
+        var k = b.getAttribute('data-key');
+        if (!k) { keysRow.style.display = ''; var sel = keysRow.querySelector('.song-key'); if (sel) sel.focus(); return; }
+        var sels = [].slice.call(block.querySelectorAll('.song-key'));
+        var already = sels.filter(function (x) { return x.value === k; })[0];
+        if (already) { already.value = ''; b.classList.remove('on'); }
+        else { var free = sels.filter(function (x) { return !x.value; })[0] || sels[0]; free.value = k; b.classList.add('on'); }
+        spKeyChanged(id);
+      });
+    });
+    try { block.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+    var t = document.createElement('div'); t.className = 'sp-toast'; t.setAttribute('role', 'status');
+    t.textContent = '\u201c' + title + '\u201d added as song ' + n;
+    document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3000);
   }
 
   function spAddItem(val) {
@@ -1090,6 +1257,7 @@
   global.spToggle = spToggle;
   global.spAddSong = spAddSong;
   global.spAddItem = spAddItem;
+  global.spPickSong = spPickSong;
   global.spShowKeyInfo = spShowKeyInfo;
   global.spSearch = spSearch;
   global.spSelectSong = spSelectSong;

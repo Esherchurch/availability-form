@@ -425,6 +425,8 @@ const devB7 = await getOne('devices/' + B.deviceId);
 ok('and pairing again keeps the job', devB7 && devB7.fields.jobs.mapValue.fields.services.booleanValue === false, devB7 && JSON.stringify(devB7.fields.jobs));
 
 console.log('\nwhat was paired before 19 Oct keeps working');
+/* Tidied at the end: the hub's page lists every computer, and a page check
+   on the same emulator should not find this one's. */
 await put('devices/' + OLD_UID, { kind: 'churchshow', siteId: SITE, siteName: SITE_NAME, active: true, pairedBy: av.uid });
 const oldAgain = (await call(av.idToken, 'churchShowPairingCode', { deviceId: OLD_UID })).result || {};
 ok('the building\u2019s old connection pairs again as itself', oldAgain.deviceId === OLD_UID && typeof oldAgain.code === 'string', JSON.stringify(oldAgain).slice(0, 200));
@@ -435,6 +437,9 @@ const devOld = await getOne('devices/' + OLD_UID), devB4 = await getOne('devices
 ok('the old call, by building, still switches the old connection off', oldOff.ok === true && devOld && plain(devOld.fields.active) === false, JSON.stringify(oldOff));
 ok('and only that: the new computers stay on', devB4 && plain(devB4.fields.active) === true, devB4 && JSON.stringify(devB4.fields.active));
 
+for (const d of await listDocs('devices')) {
+  if (plain((d.fields || {}).siteId) === SITE) await fsReq('DELETE', DOCS + '/devices/' + d.name.split('/').pop());
+}
 const failed = R.filter(v => !v).length;
 console.log('\n' + (R.length - failed) + '/' + R.length + ' passed');
 process.exit(failed ? 1 : 0);

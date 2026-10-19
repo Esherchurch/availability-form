@@ -1428,7 +1428,7 @@ function renderNavigation() {
        every one of those pages is in the Menu. */
     void admin;
     side.innerHTML = '<div id="sideMenu"></div>';
-    EGBCMenu.paint(document.getElementById('sideMenu'), { here: here, unfold: true, noQuick: true });
+    EGBCMenu.paint(document.getElementById('sideMenu'), { here: here, unfold: true, noQuick: true, noCredit: true });
   }
 
   /* The view-as strip is fixed to the bottom too. Measure it rather than
