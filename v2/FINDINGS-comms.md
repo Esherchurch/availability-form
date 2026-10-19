@@ -16,7 +16,7 @@ These replace anything below that disagrees.
    - Unsubscribe, bounces and complaints are handled **per church**.
    - A church's own domain is an optional extra later, never required.
    - Martin's steps are in `CHURCHHQ-EMAIL-SETUP.md`.
-   - The key lives in Google Secret Manager (`RESEND_API_KEY`), never in Firestore or a page. Sending is held by `functions/enews-gate.js` (`ENEWS_LIVE = false`) until switch-over.
+   - **Updated 19 Oct:** the key goes into the **key box** in Church settings. Martin pastes it there himself. It is kept in `privateSettings/churchHqMail`, which no page can read, and is never shown again (`functions/hq-mail-key.js`). Sending is held by `functions/enews-gate.js` (`ENEWS_LIVE = false`) until switch-over.
    - The unsubscribe header and bounce handling live in the **hub's own** sending path, not Calla's.
    - **This replaces C-2, C-12 and C-13 below.** Calla's sendEmail is not changed for the e-news.
 3. **Canva is tested on Martin's own FREE Canva account.**
@@ -31,7 +31,7 @@ These replace anything below that disagrees.
 ### C-20. Moving hub email off Calla's sendEmail, later (plan; e-news first)
 
 - **Stage 1 (now): the e-news only.**
-  - A new hub module, `functions/hq-mail.js`, sends through Church HQ's Resend with the key from Secret Manager.
+  - A new hub module, `functions/hq-mail.js`, sends through Church HQ's Resend with the key from the key box.
   - It has `List-Unsubscribe` and `List-Unsubscribe-Post` headers, a `tags` entry carrying the church id and subscriber id (so a bounce report knows whose it is), and an `Idempotency-Key` per person per issue (so a retry never sends twice).
   - It writes the same `emailOutbox` rows as `makeSender` does today, so "Emails sent" (comms.html) shows e-news sends too.
   - A webhook function, `hqMailEvents`, checks Resend's signature (svix, raw body) and ignores repeats (`svix-id`). It then marks that church's subscriber `bounced` or `complained`.
@@ -69,6 +69,12 @@ These replace anything below that disagrees.
 That one test answers every "very likely" above.
 
 ---
+
+## DECIDED, 19 Oct 2026 late (Martin and the reviewing window)
+
+- **Church HQ's Resend is set up and verified** (`CHURCHHQ-EMAIL-SETUP.md`, parts A-C done).
+- **The original site stays on Calla's sendEmail. v2 uses Church HQ's Resend:** the e-news first, then the hub's other emails one kind at a time, with Calla's as a fallback for a few weeks. Everything is moved by switch-over (C-20 brought forward: stage 2 and 3 before switch-over, not after).
+- **The key goes into a key box, never a chat.** Built: Church settings → **Email and Canva keys** (master admins). It holds the Resend key, its webhook signing secret, and the Canva client ID and secret. It refuses to save until switch-over (`ENEWS_LIVE`), and never sends a key back to a page. check-hqmail-key 22/22, 4/4 breaks; check-keybox-page 8/8 at 375, break refill red.
 
 ## BUILT, 19 Oct 2026 evening (comms window)
 
@@ -114,12 +120,7 @@ You do the clicks and sign in yourself. Nobody asks for your password.
    - `https://europe-west2-egbc-worship-planner.cloudfunctions.net/canvaCallback`
    - `http://127.0.0.1:5101/egbc-worship-planner/europe-west2/canvaCallback` (for a test on a PC before switch-over)
 5. **Configuration:** copy the **Client ID**. Press **Generate secret** and copy it; it is shown once. **Don't press "Submit for review".**
-6. In the `v2` folder, run:
-   ```
-   firebase functions:secrets:set CANVA_CLIENT_ID
-   firebase functions:secrets:set CANVA_CLIENT_SECRET
-   ```
-   Paste each when asked.
+6. Paste both into **Church settings → Email and Canva keys** (Canva client ID, Canva client secret), then press **Save**. The box takes them from switch-over; before then, on a test PC, the reviewing window puts them in the emulator's `functions/.env.local`.
 7. **The test itself.**
    - **Before switch-over:** on a PC running the emulators (the reviewing window sets that up), open **From Canva**, press **Connect Canva**, sign in to Canva, check your designs appear, and import one animated design.
    - **After switch-over:** `CANVA_LIVE = true` in `functions/canva.js`, deploy functions:hub, and do the same on the live site.
@@ -369,8 +370,7 @@ Remake them with `node design-mocks/comms/shoot.mjs` (from `v2/`). Made-up names
   - Martin turns on `enews` in Church settings;
   - runs `tools/import-mailchimp.mjs --live`, then `--live --write`;
   - checks the sign-up page on esherchurch.org.
-- Church HQ's Resend is set up (`CHURCHHQ-EMAIL-SETUP.md`, parts A-E): `mail.churchhq.co.uk` verified; `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` in Secret Manager; the webhook pointing at `hqMailEvents`. Then `ENEWS_LIVE = true` in `functions/enews-gate.js`, and deploy functions:hub.
-  - **Part D has to be done before the first functions:hub deploy that contains the e-news senders.** The deploy asks for any secret that isn't set.
+- Church HQ's Resend is set up (`CHURCHHQ-EMAIL-SETUP.md`, parts A-E): `mail.churchhq.co.uk` verified; the Resend key and signing secret pasted into the key box (parts D and E); the webhook pointing at `hqMailEvents`. Then `ENEWS_LIVE = true` in `functions/enews-gate.js`, and deploy functions:hub.
 - `CANVA_LIVE = true` in `functions/canva-gate.js`, then deploy functions:hub, then Val connects Canva.
 - E-news and Mailchimp run side by side for 3-4 weeks. Retire Mailchimp only when the hub's sends show no bounce or complaint problems (Resend: bounces under 4%, complaints under 0.08%).
 

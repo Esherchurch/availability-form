@@ -174,11 +174,19 @@ const outbox = async kind => (await list('emailOutbox')).filter(r => !kind || r.
   r = await fn('enewsUnsubscribe', { t: s.token, action: 'resubscribe' });
   ok('the page can re-subscribe them', r.json && r.json.ok && (await subOf(A)).status === 'subscribed');
 
-  const hook = async (type, to, id) => {
+  /* The signing secret Martin pastes in the key box (privateSettings/
+     churchHqMail.hook) is the one the webhook uses; the .env.local one is
+     only for when the box is empty. */
+  const BOXED = 'whsec_' + Buffer.from('boxed-test-only-secret').toString('base64');
+  await put('privateSettings/churchHqMail', { hook: BOXED });
+  const hookWith = async (secret, type, to, id) => {
     const body = JSON.stringify({ type, created_at: new Date().toISOString(), data: { to: [to], tags: { sub: '' } } });
     const ts = String(Math.floor(Date.now() / 1000));
-    return req(FN, 'POST', BASE + 'hqMailEvents', body, { 'svix-id': id, 'svix-timestamp': ts, 'svix-signature': sign(SECRET, id, ts, body) }, 'json');
+    return req(FN, 'POST', BASE + 'hqMailEvents', body, { 'svix-id': id, 'svix-timestamp': ts, 'svix-signature': sign(secret, id, ts, body) }, 'json');
   };
+  const hook = (type, to, id) => hookWith(BOXED, type, to, id);
+  r = await hookWith(SECRET, 'email.complained', A, 'msg_old');
+  ok('with a secret in the key box, the .env.local one is refused', r.status === 401 && (await subOf(A)).status === 'subscribed', r.status);
   r = await req(FN, 'POST', BASE + 'hqMailEvents', JSON.stringify({ type: 'email.complained', data: { to: [A] } }), { 'svix-id': 'fake', 'svix-timestamp': String(Math.floor(Date.now() / 1000)), 'svix-signature': 'v1,AAAA' }, 'json');
   ok('an unsigned "complaint" is refused, and changes nothing', r.status === 401 && (await subOf(A)).status === 'subscribed', r.status);
   r = await hook('email.complained', A, 'msg_c1');

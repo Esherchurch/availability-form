@@ -35,7 +35,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { enewsShut } from './enews-gate.js';
-import { makeHqSender, hqSecrets } from './hq-mail.js';
+import { makeHqSender } from './hq-mail.js';
 
 const REGION = 'europe-west2';
 const HUB = 'https://esherchurch.github.io/availability-form/v2';
@@ -125,14 +125,14 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
   return { results };
 }
 
-export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 0, timeoutSeconds: 540, secrets: hqSecrets() }, async () => {
+export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 0, timeoutSeconds: 540 }, async () => {
   const db = getFirestore();
   await runEnewsSend({ db, send: makeHqSender({ db }) });
 });
 
 /* The office sends the members' copy to their own address, from the
    address book, to see it in a real inbox. Their own link only. */
-export const enewsTest = onCall({ region: REGION, secrets: hqSecrets() }, async (req) => {
+export const enewsTest = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore();

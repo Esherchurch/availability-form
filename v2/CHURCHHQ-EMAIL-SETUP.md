@@ -11,6 +11,16 @@ Do the steps in order and tick each one.
 
 ---
 
+> **DONE, 19 Oct 2026 (Martin and the reviewing window): parts A, B and C.**
+> - Resend account "churchhq"; domain `mail.churchhq.co.uk`, Ireland (eu-west-1), **Verified**.
+> - Cloudflare records as Resend showed them:
+>   - DKIM TXT `resend._domainkey.mail`;
+>   - CNAMEs `send.mail` and `rsend.mail` (DNS only);
+>   - MX `mail` → `inbound-smtp.eu-west-1.amazonaws.com` (10);
+>   - `_dmarc` TXT `v=DMARC1; p=none;`.
+> - The root's Cloudflare email routing is untouched.
+> - **Still to do:** parts D and E, at switch-over.
+
 ## Part A: the Resend account (10 min)
 
 - [ ] **A1.** Go to **resend.com** and choose **Sign up**. Use a Church HQ email
@@ -81,11 +91,15 @@ In plain words:
       green within minutes; it can take up to 72 hours. All lines should say
       **Verified**.
 
-## Part D: the key, kept on the server (5 min)
+## Part D: the key, into the key box (at switch-over; 5 min)
 
-The key lets anyone send email as Church HQ, so it **never goes in a page,
-an email, a chat or the repository**. It goes straight into Google's secret
-store from your own computer.
+The key lets anyone send email as Church HQ, so it **never goes in a chat,
+an email, a page or the repository**. You paste it into the hub's **key
+box**, which hands it to the server and never shows it again.
+
+**The box refuses until switch-over.** Until then the database can be read
+by anybody, so a key saved now wouldn't be safe. The box just says so, and
+there's nothing to do. On switch-over day, after the rules:
 
 - [ ] **D1.** In Resend: **API Keys** → **Create API key**.
       - Name: `church-hq-hub`
@@ -93,37 +107,27 @@ store from your own computer.
       - Domain: **mail.churchhq.co.uk**
 
       Press **Add**, then **copy** the key. It is shown only once.
-- [ ] **D2.** On your PC, in the `v2` folder, run:
-      ```
-      firebase functions:secrets:set RESEND_API_KEY
-      ```
-      When it asks, paste the key and press Enter. Nothing shows on screen
-      while you paste; that's normal.
+- [ ] **D2.** In the hub: **Menu → Church settings → Email and Canva keys**
+      (master admins only). Paste it into **Resend API key**, press **Save**.
+      It says "Saved. It will not be shown again" and shows **saved** beside
+      the name.
 - [ ] **D3.** Close the Resend tab. The key isn't needed anywhere else.
 
-**Held until switch-over:** the hub's sending code has a switch
-(`functions/enews-gate.js`, `ENEWS_LIVE = false`). Until it's turned on
-at switch-over, the live functions won't send an e-news even though the
-key is there. On the emulator, nothing is ever really sent.
+Sending stays held until switch-over too: `ENEWS_LIVE = false` in
+`functions/enews-gate.js`. On the emulator, nothing is ever really sent.
 
-## Part E: bounces and complaints (after the first deploy; 5 min)
+## Part E: bounces and complaints (at switch-over; 5 min)
 
-This step needs the hub's address for receiving Resend's reports. That
-address only exists after the reviewing window deploys `functions:hub` with
-the e-news code. I'll give you the exact address then.
-
-- [ ] **E1.** Resend → **Webhooks** → **Add endpoint**. Paste the address I give you.
+- [ ] **E1.** Resend → **Webhooks** → **Add endpoint**. Paste:
+      `https://europe-west2-egbc-worship-planner.cloudfunctions.net/hqMailEvents`
       Tick these events:
       - **email.bounced**
       - **email.complained**
       - **email.delivery_delayed**
       - **email.suppressed**
       - **email.failed**
-- [ ] **E2.** Copy the **Signing secret** it shows (starts `whsec_`). Then in `v2`:
-      ```
-      firebase functions:secrets:set RESEND_WEBHOOK_SECRET
-      ```
-      Paste it and press Enter.
+- [ ] **E2.** Copy the **Signing secret** it shows (starts `whsec_`). Paste
+      it into the key box's **Resend webhook signing secret**, then press **Save**.
 
 Then a bounced address is marked "bounced" for **that church only**, and is
 never sent to again. Someone who presses "spam" is unsubscribed from that

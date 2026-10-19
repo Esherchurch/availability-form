@@ -17,30 +17,25 @@
                 idempotencyKey }
         meta: written to the emailOutbox row (kind, issueId ...)
      verifySvix(secret, headers, rawBody)   Resend's webhook signature
-     hqSecrets() / hookSecrets()            what a function declares
+     the key: the key box (hq-mail-key.js)
 
-   THE KEY. In Google Secret Manager (RESEND_API_KEY), never in Firestore,
-   a page or the repository. A function only declares it while
-   ENEWS_LIVE is true (enews-gate.js), so deploying functions:hub never
-   asks for it before switch-over.
+   THE KEY. Martin pastes it into Church settings (the key box,
+   hq-mail-key.js); it is kept in privateSettings/churchHqMail, which no
+   page can read, and read here on the server only. Never in a page, a
+   chat or the repository. The box refuses to save until switch-over.
 
    THE OUTBOX keeps when, who, the subject and whether it went - not the
    e-news itself (the issue holds that), so a weekly send to hundreds
    does not copy the whole email hundreds of times.
    =================================================================== */
 
-import { defineSecret } from 'firebase-functions/params';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { ENEWS_LIVE } from './enews-gate.js';
+import { storedKeys } from './hq-mail-key.js';
 
-export const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
-export const RESEND_WEBHOOK_SECRET = defineSecret('RESEND_WEBHOOK_SECRET');
 export const SENDING_DOMAIN = 'mail.churchhq.co.uk';
 const API = 'https://api.resend.com/emails';
 const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
 
-export function hqSecrets() { return ENEWS_LIVE ? [RESEND_API_KEY] : []; }
-export function hookSecrets() { return ENEWS_LIVE ? [RESEND_WEBHOOK_SECRET] : []; }
 
 /* The name in "From": the church's, with anything that could break the
    header taken out. */
@@ -67,8 +62,8 @@ export function makeHqSender({ db, emulator = onEmulator, fetchFn, key } = {}) {
     }
     let out;
     try {
-      const k = key || process.env.RESEND_API_KEY || '';
-      if (!k) throw new Error('no RESEND_API_KEY (CHURCHHQ-EMAIL-SETUP.md part D)');
+      const k = key || (await storedKeys(db)).key || '';
+      if (!k) throw new Error('no Church HQ email key yet (Church settings, the key box)');
       const body = { from: fromFor(msg.fromName), to: [to], subject: row.subject, html: String(msg.html || '') };
       if (msg.replyTo) body.reply_to = msg.replyTo;
       if (msg.headers && Object.keys(msg.headers).length) body.headers = msg.headers;

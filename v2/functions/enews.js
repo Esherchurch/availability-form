@@ -37,7 +37,8 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { randomBytes } from 'node:crypto';
 import { enewsShut } from './enews-gate.js';
-import { makeHqSender, hqSecrets, hookSecrets, verifySvix } from './hq-mail.js';
+import { makeHqSender, verifySvix } from './hq-mail.js';
+import { storedKeys } from './hq-mail-key.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -113,7 +114,7 @@ function confirmEmail(church, link) {
 }
 
 /* ---- sign-up ----------------------------------------------------------- */
-export const enewsSignup = onRequest({ region: REGION, cors: [/^https:\/\/esherchurch\.github\.io$/, /^http:\/\/(localhost|127\.0\.0\.1):\d+$/], invoker: 'public', secrets: hqSecrets() }, async (req, res) => {
+export const enewsSignup = onRequest({ region: REGION, cors: [/^https:\/\/esherchurch\.github\.io$/, /^http:\/\/(localhost|127\.0\.0\.1):\d+$/], invoker: 'public' }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
   const b = req.body || {};
   const S = await settings();
@@ -215,9 +216,11 @@ export const enewsUnsubscribe = onRequest({ region: REGION, cors: true, invoker:
 
 /* ---- bounces and complaints, from Resend -------------------------------- */
 const HOOK_STATUS = { 'email.bounced': 'bounced', 'email.complained': 'complained', 'email.suppressed': 'bounced' };
-export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'public', secrets: hookSecrets() }, async (req, res) => {
+export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'public' }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('');
-  const secret = process.env.RESEND_WEBHOOK_SECRET || (EMULATOR() ? process.env.TEST_WEBHOOK_SECRET : '');
+  /* The signing secret from the key box; on the emulator a test may give
+     one in functions/.env.local instead. */
+  const secret = (await storedKeys(db())).hook || (EMULATOR() ? process.env.TEST_WEBHOOK_SECRET || '' : '');
   const raw = req.rawBody ? req.rawBody.toString('utf8') : '';
   if (!verifySvix(secret, req.headers, raw)) return res.status(401).send('');
   const id = String(req.get('svix-id') || '');

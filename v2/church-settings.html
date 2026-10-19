@@ -110,6 +110,15 @@
   <h1 style="font-size:18px;margin:22px 0 4px" id="bible-h" hidden>API.Bible</h1>
   <p class="sub" id="bible-sub" hidden>The church's own key for API.Bible, so the session planner can bring in passages from the Bibles on it (for example the NIV, if the key allows it). It is kept by the hub's server and never shown again.</p>
   <div class="card" id="bible-form" hidden></div>
+  <!-- ── COMMS (comms window) ── THE KEY BOX (Martin, 19 Oct 2026): Church
+       HQ's Resend key and the Canva integration's ID and secret, pasted
+       here by a master admin, kept by the server (privateSettings, which no
+       page can read) and never shown again. Saving is held until
+       switch-over, like payments (functions/hq-mail-key.js). -->
+  <h1 style="font-size:18px;margin:22px 0 4px" id="keys-h" hidden>Email and Canva keys</h1>
+  <p class="sub" id="keys-sub" hidden>The keys Church HQ uses to send the e-news (Resend) and to bring in Canva designs. Paste each one once; the hub's server keeps them and never shows them again.</p>
+  <div class="card" id="keys-form" hidden></div>
+  <!-- ── end COMMS ── -->
 </div>
 <div id="toast"></div>
 <script>
@@ -520,6 +529,67 @@
     });
   }).catch(function (e) { document.getElementById('form').innerHTML = '<p>' + esc(e.message || e) + '</p>'; });
 })();
+</script>
+<script>
+/* ── COMMS (comms window) ── THE KEY BOX. Its own script, so it shares no
+   lines with the rest of the page. Master admins only; asked of the
+   server (hqMailKeyStatus): saved or not, never a key. While it is shut
+   (until switch-over) there is no box to paste into, just the words. */
+(function () {
+  'use strict';
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function data(r) { return (r && r.data !== undefined) ? r.data : r; }
+  var FIELDS = [
+    ['key', 'Resend API key', 'Starts re_. In Resend: API Keys → Create API key, sending access only.', 'saved'],
+    ['hook', 'Resend webhook signing secret', 'Starts whsec_. In Resend: Webhooks → your endpoint → Signing secret.', 'hookSaved'],
+    ['canvaId', 'Canva client ID', 'From the Canva Developer Portal → your integration → Configuration.', 'canvaSaved'],
+    ['canvaSecret', 'Canva client secret', 'From the same page: Generate secret. Shown by Canva once.', 'canvaSaved']
+  ];
+  function draw(msg) {
+    ['keys-h', 'keys-sub', 'keys-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+    var el = document.getElementById('keys-form');
+    el.innerHTML = '<p class="hint" id="ky-state">Checking…</p>';
+    EGBCAuth.call('hqMailKeyStatus', {}).then(data, function () { return { error: true }; }).then(function (st) {
+      st = st || {};
+      if (st.shut) {
+        el.innerHTML = '<p class="hint" id="ky-state" style="margin:0"><b style="color:var(--ink)">These keys can be saved when the church switches over to the new hub.</b> Until then the database can be read by anybody, so a key saved now would not be safe. Nothing needs doing yet.</p>';
+        return;
+      }
+      el.innerHTML = '<p class="hint" id="ky-state" style="margin:0 0 6px">' + (st.error ? 'The hub could not say which keys are saved.' : 'Paste a key and press Save. A saved key is never shown again; paste a new one to replace it.') + '</p>' +
+        FIELDS.map(function (f) {
+          var saved = !!st[f[3]];
+          return '<div class="field" style="margin:12px 0 0"><label for="ky-' + f[0] + '" style="display:block;font-weight:500;margin:0 0 4px">' + esc(f[1]) +
+            ' <span class="hint" id="ky-st-' + f[0] + '">' + (saved ? '— saved' : '— not yet') + '</span></label>' +
+            '<input id="ky-' + f[0] + '" type="password" autocomplete="off" spellcheck="false" style="width:100%;min-height:48px;border:1px solid var(--line-2,#d1d5db);border-radius:10px;padding:0 12px;font:inherit">' +
+            '<p class="hint" style="margin:4px 0 0">' + esc(f[2]) + '</p></div>';
+        }).join('') +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" class="btn" id="ky-save">Save</button></div>' +
+        '<p class="hint" id="ky-msg" role="status" style="margin:8px 0 0">' + esc(msg || '') + (st.savedByName ? (msg ? ' ' : '') + 'Last changed by ' + esc(st.savedByName) + '.' : '') + '</p>';
+      document.getElementById('ky-save').onclick = function () {
+        var patch = {};
+        FIELDS.forEach(function (f) { var v = document.getElementById('ky-' + f[0]).value.trim(); if (v) patch[f[0]] = v; });
+        if (!Object.keys(patch).length) { document.getElementById('ky-msg').textContent = 'Paste a key first.'; return; }
+        var b = this; b.disabled = true; document.getElementById('ky-msg').textContent = 'Saving…';
+        EGBCAuth.call('hqMailKeySave', patch).then(function () {
+          /* The boxes are emptied: a saved key is never put back on the page. */
+          draw('Saved. It will not be shown again.');
+        }, function (e) {
+          b.disabled = false;
+          if (/failed-precondition/.test(String(e && e.code)) && /switches over/.test(String(e && e.message))) { draw(); return; }
+          document.getElementById('ky-msg').textContent = 'Not saved: ' + String((e && e.message) || e).replace(/^.*?:\s*(?=[A-Z])/, '');
+        });
+      };
+    });
+  }
+  /* The page's own sign-in check (above) loads the profile; wait for it
+     rather than asking twice. */
+  var tries = 0;
+  (function wait() {
+    if (EGBCAuth.profile && EGBCAuth.profile()) { if (EGBCAuth.isMaster && EGBCAuth.isMaster()) draw(); return; }
+    if (++tries < 100) setTimeout(wait, 300);
+  })();
+})();
+/* ── end COMMS ── */
 </script>
 </body>
 </html>

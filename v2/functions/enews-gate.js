@@ -7,11 +7,10 @@
  * So while this is false, on the live site: the sign-up saves nothing and
  * says when it opens, and nothing is sent.
  *
- * It is ALSO what asks Google for the Church HQ Resend key. While false,
- * no function declares the secret, so a deploy of functions:hub never
- * needs it - the reviewing window can deploy before Martin has done
- * CHURCHHQ-EMAIL-SETUP.md part D. Set it to true at switch-over, after the
- * rules and after part D, then deploy functions:hub.
+ * The Church HQ Resend key is pasted into Church settings' key box
+ * (hq-mail-key.js), which refuses to save while this is false. Set it to
+ * true at switch-over, after the rules, then deploy functions:hub, then
+ * paste the key (CHURCHHQ-EMAIL-SETUP.md parts D and E).
  *
  * The emulator always runs everything (sending is a stub there), so the
  * tests are unaffected. */
