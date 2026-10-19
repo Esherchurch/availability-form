@@ -1455,7 +1455,7 @@ service cloud.firestore {
     function enewsIssueOk() {
       let d = request.resource.data;
       return d.keys().hasOnly(['subject', 'preheader', 'template', 'colours', 'blocks', 'status', 'sendAt',
-                               'htmlMembers', 'htmlEveryone',
+                               'htmlMembers', 'htmlEveryone', 'week',
                                'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
         && d.status in ['draft', 'scheduled']
         && d.subject is string && d.subject.size() <= 200
@@ -1463,6 +1463,7 @@ service cloud.firestore {
         && d.get('template', 'classic') in ['classic', 'green']
         && d.blocks is list && d.blocks.size() <= 80
         && d.get('sendAt', '') is string && d.get('sendAt', '').size() <= 40
+        && d.get('week', '') is string && d.get('week', '').size() <= 10
         // The two finished copies, saved by Schedule (functions/enews-send.js
         // sends them); a scheduled issue must have both.
         && d.get('htmlMembers', '') is string && d.get('htmlMembers', '').size() <= 600000

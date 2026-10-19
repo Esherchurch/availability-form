@@ -91,7 +91,8 @@ let STANDIN = false;
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   switch: ["function usesEnews() { return !!(EGBCAuth.uses && EGBCAuth.uses('enews')); }", 'function usesEnews() { return true; }'],
-  office: ['function may() { return', 'function may() { return true; return']
+  office: ['function may() { return', 'function may() { return true; return'],
+  weekly: ['if (!thisWeek && !showList.autoTried) {', 'if (!showList.autoTried || true) {']
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 function serveAuth(src) {
@@ -192,13 +193,17 @@ function serveAuth(src) {
     await signIn('member'); await open();
     ok('a church member is told it is for the office', /for the church office/.test(await text()), await text());
 
-    /* 4. The office: the list, then an automatic draft. */
+    /* 4. The office: nothing made this week, so the week's draft makes
+       itself the first time they open the page (rule 13), once. */
     await signIn('office'); await open();
-    ok('the office sees the list', /New e-news/.test(await text()), await text());
-    await shot('list');
-    await ev('document.getElementById("new").click(), 1');
     await until('!!document.querySelector(".blk")', 15000); await sleep(1500);
+    ok('this week’s draft is made by itself on first opening', (await ev('document.querySelectorAll(".blk").length')) > 3);
     await shot('draft');
+    await open(); await sleep(1500);
+    ok('opening again does not make a second one', (await list('enewsIssues')).length === 1 && /New e-news/.test(await text()), (await list('enewsIssues')).length);
+    await shot('list');
+    await ev('[...document.querySelectorAll("#issues a")][0].click(), 1');
+    await until('!!document.querySelector(".blk")', 15000); await sleep(800);
     const issues = await list('enewsIssues');
     const dr = issues[0] || {};
     const blocks = dr.blocks || [];

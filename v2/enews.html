@@ -150,6 +150,13 @@
     document.getElementById('subsb').onclick = showSubscribers;
     db().collection('enewsIssues').orderBy('createdAt', 'desc').limit(30).get().then(function (s) {
       var el = document.getElementById('issues');
+      /* THIS WEEK'S DRAFT MAKES ITSELF (HANDOVER-MAIN rule 13; C-18). The
+         first time the office opens the e-news in a week, if nothing has
+         been started since Monday, the week's draft is made from What's On,
+         the rota and the notices, and opened. Nobody has to remember. */
+      var mon = weekOf(new Date());
+      var thisWeek = s.docs.some(function (d) { return String(d.data().createdAt || '').slice(0, 10) >= mon; });
+      if (!thisWeek && !showList.autoTried) { showList.autoTried = true; newIssue({ auto: true }); return; }
       if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">None yet. “New e-news” starts the first.</p>'; return; }
       el.innerHTML = s.docs.map(function (d) {
         var x = d.data(), st = x.status || 'draft';
@@ -183,8 +190,16 @@
   }
 
   /* ---- a new issue, drafted from What's On, the rota and the notices ---- */
-  function newIssue() {
-    var b = document.getElementById('new'); b.disabled = true; b.textContent = 'Drafting…';
+  /* The Monday of this week, in London, as YYYY-MM-DD: an issue made on or
+     after it is this week's. */
+  function weekOf(d) {
+    var t = new Date(londonIso(d) + 'T12:00:00Z');
+    t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7));
+    return t.toISOString().slice(0, 10);
+  }
+  function newIssue(opts) {
+    opts = opts || {};
+    var b = document.getElementById('new'); if (b) { b.disabled = true; b.textContent = 'Drafting…'; }
     var now = new Date(), from = now.getTime() - 86400000, to = now.getTime() + 15 * 86400000;
     var today = londonIso(now);
     /* The coming Sunday (today, if it is Sunday). */
@@ -205,11 +220,11 @@
       } : null;
       var blocks = MB.draft({ now: now, events: r[0], sunday: sunday, notices: r[2], base: hubBase() });
       var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long' }).format(now);
-      ISSUE = { subject: 'Weekly news · ' + p, preheader: 'What’s happening this week', template: SET.template || 'classic', blocks: blocks, status: 'draft' };
+      ISSUE = { subject: 'Weekly news · ' + p, preheader: 'What’s happening this week', template: SET.template || 'classic', blocks: blocks, status: 'draft', week: weekOf(now) };
       ISSUE_ID = ''; DIRTY = true;
       return save(true);
-    }).then(function () { VIEW = 'build'; draw(); })
-      .catch(function (e) { b.disabled = false; b.textContent = 'New e-news'; toast('Could not draft it: ' + (e.message || e)); });
+    }).then(function () { VIEW = 'build'; draw(); if (opts.auto) toast('This week’s e-news is drafted for you.'); })
+      .catch(function (e) { if (b) { b.disabled = false; b.textContent = 'New e-news'; } toast('Could not draft it: ' + (e.message || e)); });
   }
 
   function openIssue(id) {
@@ -229,7 +244,8 @@
     var data = Object.assign({
       subject: String(ISSUE.subject || '').slice(0, 200), preheader: String(ISSUE.preheader || '').slice(0, 200),
       template: ISSUE.template === 'green' ? 'green' : 'classic', blocks: ISSUE.blocks || [],
-      status: ISSUE.status === 'scheduled' ? 'scheduled' : 'draft', sendAt: ISSUE.sendAt || ''
+      status: ISSUE.status === 'scheduled' ? 'scheduled' : 'draft', sendAt: ISSUE.sendAt || '',
+      week: String(ISSUE.week || '').slice(0, 10)
     }, stamp());
     /* A scheduled issue carries its two finished copies, made again on every
        save, so what is sent is always what is on the screen. A draft
