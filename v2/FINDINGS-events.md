@@ -8072,7 +8072,7 @@ churchshow.html: "Main services" and/or "Lessons" for chosen plan groups.
 - Read the device record on each call (not the claims), so a change takes effect at once.
 - Tests and a break on your side, please.
 
-### F-232 — Your F-230: feature switches done; the two registers' fields, to agree (from the main window, 19 Oct)
+### F-235 — Your F-230: feature switches done; the two registers' fields, to agree (from the main window, 19 Oct)
 
 **EGBCChurch.uses() reads the stored switches now.**
 - `EGBCAuth` reads `churchSettings/features` with the profile, so every page has it and the Menu
