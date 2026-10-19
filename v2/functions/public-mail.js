@@ -42,6 +42,7 @@ import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/fire
 import { getFirestore } from 'firebase-admin/firestore';
 import { emailAuthHeader, idTokenClient } from './id-token.js';
 import { hubUrl } from './notify.js';
+import * as MailRoute from './mail-route.js';
 
 const require = createRequire(import.meta.url);
 const PAGES = require('./public-mail-pages.cjs');
@@ -57,8 +58,15 @@ const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
 /* sendOne's twin, with attachments. emailOutbox gets the same row sendOne
    writes, plus where it came from; the attachments by name only, and any
    private link to medical answers (&s=) hidden, because the people who may
-   read the outbox are not all people who may read those. */
-export function makeSender({ db, url = SEND_EMAIL_URL, auth, emulator = onEmulator, fetchFn } = {}) {
+   read the outbox are not all people who may read those.
+
+   THE ROUTE (comms window, 19 Oct 2026; mail-route.js). Each email goes
+   to Calla's sendEmail exactly as before UNLESS its kind is on Martin's
+   list, the key is in the key box and the switch is open (shut until
+   switch-over) - then to Church HQ's Resend, with Calla's protections
+   kept, and back to Calla's if Resend fails. Every row says which way it
+   went (via). route and resendFetch are for the checks. */
+export function makeSender({ db, url = SEND_EMAIL_URL, auth, emulator = onEmulator, fetchFn, route = MailRoute, resendFetch } = {}) {
   const client = idTokenClient(url);
   const header = auth || (() => emailAuthHeader(client));
   return async function send(msg, meta) {
@@ -74,10 +82,28 @@ export function makeSender({ db, url = SEND_EMAIL_URL, auth, emulator = onEmulat
       await db.collection('emailOutbox').add({ ...row, ok: false, error: 'no address' });
       return { ok: false, error: 'no address' };
     }
+    const way = await route.routeFor(db, meta).catch(e => ({ route: 'calla', why: 'route check failed: ' + (e.message || e) }));
+    if (way.route === 'churchhq') {
+      /* Calla's protections, on this side. A refusal is final: it is not
+         passed to Calla's either. */
+      const check = await route.checkRecipients(db, row.to).catch(() => ({ refused: 'Could not check recipients' }));
+      const refused = check.refused || (!(await route.reserve(db, row.to.length)) ? 'Hourly limit reached' : '');
+      if (refused) {
+        await db.collection('emailOutbox').add({ ...row, via: 'churchhq', ok: false, error: refused });
+        return { ok: false, error: refused, via: 'churchhq' };
+      }
+      const r = emulator() && !resendFetch ? { ok: true, stubbed: true }
+        : await route.sendViaResend({ db, key: way.key, msg, fetchFn: resendFetch });
+      await db.collection('emailOutbox').add({ ...row, via: 'churchhq', ok: r.ok, error: r.error || '', resendId: r.id || '' });
+      if (r.ok) return { ok: true, via: 'churchhq', stubbed: !!r.stubbed };
+      /* Resend failed: the same email to Calla's, for the first weeks. */
+      row.fallbackFrom = 'churchhq';
+    }
+    row.via = 'calla';
     if (emulator()) {
       await db.collection('emailOutbox').add({ ...row, ok: true });
       console.info('[public-mail] emulator: not sent -', row.subject, '->', row.to.join(', '));
-      return { ok: true, stubbed: true };
+      return { ok: true, stubbed: true, via: 'calla' };
     }
     let out;
     try {
@@ -93,7 +119,7 @@ export function makeSender({ db, url = SEND_EMAIL_URL, auth, emulator = onEmulat
       out = { ok: false, error: e.message || String(e) };
     }
     await db.collection('emailOutbox').add({ ...row, ok: out.ok, error: out.error || '' });
-    return out;
+    return Object.assign({ via: 'calla' }, out);
   };
 }
 

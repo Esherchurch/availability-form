@@ -76,6 +76,69 @@ That one test answers every "very likely" above.
 - **The original site stays on Calla's sendEmail. v2 uses Church HQ's Resend:** the e-news first, then the hub's other emails one kind at a time, with Calla's as a fallback for a few weeks. Everything is moved by switch-over (C-20 brought forward: stage 2 and 3 before switch-over, not after).
 - **The key goes into a key box, never a chat.** Built: Church settings → **Email and Canva keys** (master admins). It holds the Resend key, its webhook signing secret, and the Canva client ID and secret. It refuses to save until switch-over (`ENEWS_LIVE`), and never sends a key back to a page. check-hqmail-key 22/22, 4/4 breaks; check-keybox-page 8/8 at 375, break refill red.
 
+## C-28. Moving v2's emails to Church HQ's Resend, one kind at a time (built 19 Oct late; nothing moved yet)
+
+**What's built.** `functions/mail-route.js`, and one change to `public-mail.js` `makeSender` (no other window had edits to it, pushed or not). Calla's sendEmail is not touched, and the original site keeps using it.
+
+**When an email goes to Church HQ's Resend.** Only when all three are true:
+1. Its kind (or its source) is on Martin's list, `churchSettings/mailRoute.kinds`. The list is **empty** to start.
+2. The key is in the key box.
+3. The switch is open (`ENEWS_LIVE`, shut until switch-over).
+
+Otherwise it goes to Calla's exactly as today.
+
+**Protections on the Resend path** (Calla's, kept on this side):
+- Known recipients only, from the same 17 sources. The check compares the list with Calla's own file.
+- **No under-18 address.** An address on an address-book record ticked isMinor is refused. Calla's sendEmail doesn't check this; hub rule 7 says it must never happen.
+- A cap of 2,000 recipients an hour across all instances.
+- outlineOnly: a Safeguarding team's email keeps no body in the outbox.
+
+A refusal is final: it is **not** passed to Calla's.
+
+**Who it comes from.** `"<church name from Church settings>" <hub@mail.churchhq.co.uk>`, with Reply-To the sender's chosen address, else the church's enquiry email.
+
+**If Resend fails,** the same email goes to Calla's, and both attempts are in the outbox (`via: 'churchhq'`, then `via: 'calla'` with `fallbackFrom`). Every outbox row now says `via`.
+
+**Checks:** check-mail-route 26/26, 5/5 breaks:
+- every kind counted as listed;
+- under-18 addresses let through;
+- the protections switched off;
+- no fallback on failure;
+- a Safeguarding body kept.
+
+**Not yet routed, and needs one more step:**
+- **`index.js` `sendOne`** (reminders and notifications) is the main window's file, with unpushed edits. Moving it is a one-line change, `sendOne` calling `makeSender`. I'll raise it once the main window has pushed.
+- **The browser senders** (stage 3) go through Calla's legacy path until a hub callable takes them.
+- **There's no page yet for Martin's list.** Server side only, as asked. A switch per kind can go in the key box section when wanted.
+
+### Every kind of email v2 sends, and a suggested order to move them
+
+Each kind is moved by adding it to the list. Safeguarding and care go last. A kind written with a variable part (e.g. `checklist due`) can be listed exactly, or all at once by its source (`checklist`).
+
+| # | Kind (or source) | Sent by | What it is |
+|---|---|---|---|
+| 1 | `calendar link` | events-feed.js (makeSender) | The person's own calendar link, sent when they ask |
+| 2 | `session plan` | planner.js (makeSender) | A session plan to a plan group |
+| 3 | `compliance due`, `compliance summary` (source `compliance`) | compliance.js (makeSender) | Building checks, to the people responsible |
+| 4 | `checklist …` (source `checklist`) | checklist-reminders.js (makeSender) | Checklist reminders |
+| 5 | `regular gift set up`, `regular gift changed` (source `regular-giving`) | gocardless.js (makeSender) | Giving confirmations |
+| 6 | `signup` | public-mail.js | Event sign-up confirmation, with the calendar file |
+| 7 | `booking waiting`, `booking request`, `cancel ask` | public-mail.js | Room hire: to the hirer, and to the office |
+| 8 | `form received` | public-mail.js | A form done |
+| 9 | `group ask`, `group ask leaders` | public-mail.js | Asking to join a small group |
+| 10 | `new here` | public-mail.js | A visitor's hello, to the address the church chose |
+| 11 | source `emailCompiler` | compiler-send.js (makeSender) | The Email Compiler (up to 50 people) |
+| 12 | `team email`, `team email copy` (not the Safeguarding team) | team-mail.js (makeSender) | Sending as a team |
+| 13 | `booking-reminder`, `document-expiry`, `document-expiry-office` | index.js **sendOne** (needs the one-line step) | Hire reminders |
+| 14 | `notify-rota`, `notify-booking`, `notify-maintJob`, `notify-maintJob-office`, `notify-urgent`, `notify-callParent` | notify.js through index.js **sendOne** | The email copy of a notification, for people without the app |
+| 15 | The browser senders: Planner and Core Team rota emails, the Sunday and Youth service planners, events-admin ("email everyone", cancellations), bookings-admin, forms-admin, groups-admin, kids-admin and kids-checkin, egbc-events-money receipts, hub-app, youthapp2 | pages through egbc-email.js (Calla's legacy path) | Stage 3: a hub callable first, then the same list |
+| **16 (last)** | `notify-care-address` | notify.js through sendOne | Care & support, worries, prayer: "something has come in", to the address the church chose |
+| **17 (last)** | `notify-checks-lead` | notify.js through sendOne | DBS and training reminders, to the safeguarding lead |
+| **18 (last)** | `team email` for the **Safeguarding** team (outlineOnly) | team-mail.js | Safeguarding team email, no body kept |
+| **19 (last)** | safeguarding.html's emails | browser | Safeguarding, from its page |
+
+Already on Church HQ's Resend, through its own sender (hq-mail.js), not this list: `enews`, `enews confirm`, `enews test`.
+
 ## BUILT, 19 Oct 2026 evening (comms window)
 
 All eight steps of the plan are built and checked, on emulators of this window's own (never another window's, never live). **They are held on this window's computer, not pushed**, until the main window pushes its "What does your church use?" switches (F-230) and its new Menu by job: the Menu entries for these pages belong inside that Menu, and until those switches are live a Menu entry would show on the live site even though the pages themselves say "switched off".

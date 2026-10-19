@@ -39,9 +39,9 @@ const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
 
 /* The name in "From": the church's, with anything that could break the
    header taken out. */
-export function fromFor(name) {
+export function fromFor(name, local) {
   const clean = String(name || '').replace(/["<>\r\n\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
-  return (clean ? '"' + clean + '" ' : '') + '<news@' + SENDING_DOMAIN + '>';
+  return (clean ? '"' + clean + '" ' : '') + '<' + (local === 'hub' ? 'hub' : 'news') + '@' + SENDING_DOMAIN + '>';
 }
 /* Resend tags allow letters, numbers, _ and - only. */
 const tagValue = v => String(v || '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 256);
