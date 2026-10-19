@@ -209,7 +209,9 @@
     var db = EGBCAuth.db;
     return Promise.all([db.collection('rooms').where('active', '==', true).get(), db.collection('sites').where('active', '==', true).get(),
                         db.collection('menus').where('active', '==', true).get().catch(function () { return { docs: [] }; }),
-                        db.collection('bookingTypes').where('active', '==', true).get().catch(function () { return { docs: [] }; })]);
+                        db.collection('bookingTypes').where('active', '==', true).get().catch(function () { return { docs: [] }; }),
+                        /* The kit, for the room card (F-236): church members only (the rules); a hirer sees the room without it. */
+                        db.collection('bookableResources').get().catch(function () { return { docs: [] }; })]);
   }).then(function (r) {
     r[1].docs.forEach(function (d) { SITES[d.id] = Object.assign({ id: d.id }, d.data()); });
     ROOMS = R.hireable(r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
@@ -223,7 +225,7 @@
     if (!ROOMS.length) { document.getElementById('wrap').innerHTML = '<div class="card">No rooms are open for hire just now.</div>'; return; }
     var want = Q.get('room') || Q.get('id') || '';
     EGBCBookForm.render(form(), { rooms: ROOMS, multi: false, chosen: [roomById(want) ? want : ROOMS[0].id], day: Q.get('day') || '',
-      start: Q.get('start') || '', end: Q.get('end') || '', menus: MENUS, kit: null, contact: true, onChange: check });
+      start: Q.get('start') || '', end: Q.get('end') || '', menus: MENUS, kit: null, allKit: r[4].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }), contact: true, onChange: check });
     document.getElementById('f-go').onclick = submit;
     check(EGBCBookForm.values(form()));
   }).catch(function () {

@@ -100,7 +100,7 @@
       (r.description ? '<div class="card"><p class="words" style="margin:0">' + esc(r.description) + '</p></div>' : '') +
       '<div class="card"><h2><span class="badge">' + ico('ruler') + '</span>The room</h2><div class="facts">' +
         fact('Floor area', a ? a + ' m²' : '') +
-        fact('Size', d.length && d.width ? d.length + ' m by ' + d.width + ' m' : '') +
+        fact('Size', d.length && d.width ? d.length + ' m by ' + d.width + ' m' + (r.sizeNote ? ' (' + r.sizeNote + ')' : '') : '') +
         fact('Ceiling height', d.height ? d.height + ' m' : '') +
         fact('Floor', floor && r.floor ? floor : '') +
         fact('Natural light', r.naturalLight ? 'Yes' : '') +

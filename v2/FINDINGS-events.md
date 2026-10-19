@@ -7957,3 +7957,71 @@ the gate report).
   - once rules are locked, the form appears
 - **compliance-stage4.test (41/41):** Hal, a warden for the hall only, sees no church plans and the rules refuse him the church's list; Martin's entry for Quinn is recorded and shown to both.
 - **Rules:** a master admin's entry without "entered by", or in someone else's name, is refused.
+
+### F-236 — Rooms: photos and kit where a room is booked; the area as given; Martin's photos, sizes and plans (19–20 Oct)
+
+**1. The room at a glance where it is booked** (the reviewing window: §6.18).
+- **The gap:** Martin saw no photos or equipment on the booking pages. The members' booking (rooms.html, which the app's "Book a room" opens) and the public hire form (book.html) never showed the room.
+- **Now the shared form (`egbc-events-bookform.js`) shows a card for each chosen room,** drawn by `EGBCRooms.card()` (`egbc-events-rooms.js`), the same facts as room.html:
+  - the main photo (a grey square where there is none)
+  - how many it holds set out the way asked ("Holds 80 set out cabaret", or "Holds up to 170"); it changes with the layout
+  - the floor area
+  - the facilities, with icons
+  - the kit in the room, and the kit that can be brought in (movable, same site)
+  - "More about this room"
+- **The kit is shown to church members only,** because the rules keep `bookableResources` to them. A hirer on book.html sees the room without it.
+- **It fits at 375px.**
+
+**2. The area as given** (Martin, 19 Oct). `dims.area`, for an L-shaped room, a room with a bay or an architect's figure, wins over length × width, everywhere.
+- **On the room pages:** `EGBCRooms.area`.
+- **In Places:** a "Floor area as given (m², optional)" field and "About the size" (`sizeNote`), shown on room.html beside the size.
+- **Kept when saved:** saving a room in Places keeps both (tested). Emptied, the area is worked out from length × width again.
+
+**3. `tools/room-photos.mjs`** (dry run first; `--live --write` with Martin's OK):
+- **Photos:** made smaller exactly as Places does (its own `shrink()`, in Chrome) and stored where Places stores them, the first being the main one. Each remembers its file, so running twice adds nothing twice.
+  - **Live since 20 Oct** (run by the reviewing window with Martin's OK): Sanctuary (sanctuary-inside, outside-rear-hall), Creche Room (lounge-sofas), Upper Room – Side and Upper Room (upstairs-folding-doors).
+- **`--sizes`:** Martin's measurements (from the 2013 plan's 1:50 scale bar, about ±0.1 m; ceiling heights and the fire-safety maximum left empty).
+
+  | Room | Length × width | Area | Note |
+  |---|---|---|---|
+  | Sanctuary | 12.6 × 10 m | 132 m², the architect's | Plus a 2.4 m dais at the front; theatre layout 170 |
+  | Upper Room | 11.4 × 7.2 m | 62 m², as given | L-shaped |
+  | Upper Room – Front | 6.5 × 7.2 m | 43 m², as given | Less the lift corner |
+  | Upper Room – Side | 5.0 × 3.8 m | from length × width | |
+  | Creche Room | 5.5 × 3.7 m | from length × width | |
+  | Youth Room (rear) | 5.0 × 4.1 m | 21 m², as given | Plus a small bay |
+  | Kitchen | 3.7 × 2.9 m | from length × width | |
+
+  **This can now go live** (`--live --write --sizes`), since Places keeps the area as given.
+- **`--plans`:** each room's own plan (sizes marked, scale bar).
+  - **Where:** stored at `roomPlans/<room>/`, never the public `rooms/`, and no download link is kept on the room. Each is "members and office" by default (`floorPlanWho`).
+  - **When:** the tool refuses until `churchSettings/launch.rulesLocked` is true, i.e. after switch-over.
+  - **Still to come:** the storage rule and the "who sees the floor plan" setting in Places are the next job.
+- **`--hire`:** the church's own picture (outside-front.jpg) as the "Hire our rooms" header.
+  - **Where it is kept:** `churchSettings/hire`, its own document, because saving Church settings replaces `details` whole and would wipe it.
+  - **Not yet live:** `--live --write --hire` with Martin's OK.
+- **Room names match whatever the dash:** the live names use an en dash ("Upper Room – Front").
+
+**4. The 2013 floor plan's numbers and the hub's rooms** (Martin confirmed, 19 Oct). Keep these tied: the room plans, "where to find it" and the GEEP all rest on them.
+
+| On the 2013 plan | The hub's room | Floor |
+|---|---|---|
+| 1 Main Hall | Sanctuary | Ground |
+| 2 Kitchen | Kitchen | Ground |
+| 3 Lounge | Creche Room | Ground |
+| 4 Meeting Room (by the Pastor's office) | Youth Room (rear) | First |
+| 5 Snug | Upper Room – Side | First |
+| 6 Front Room | Upper Room – Front | First |
+| 5 + 6 opened up | Upper Room | First |
+| (not on the plan) | Upstairs Kitchen, Garden | |
+
+- **The Sanctuary is ONE room:** "Room G1" is the architect's label for its back half; there is no divider in use.
+- **The pictures and plans stay off the public repo:** they live in Martin's OneDrive (Documents\New hub\rooms, and plans\).
+
+**Proved:**
+- **room-card.test.mjs (25/25), with 9 breaks caught:**
+  - **rooms.html:** card, photo, holds and layout, facilities with icons, kit in and movable, a second room's own card, no sideways scroll
+  - **book.html signed out:** the card without kit
+  - **The tool on the emulator:** photos shrunk to 1600 px, en dashes, sizes, the plans held then put up privately, the hire header, nothing twice
+  - **Places keeps the area as given and the note,** saves a changed note, and the room page shows them
+  - **The hire header shows**

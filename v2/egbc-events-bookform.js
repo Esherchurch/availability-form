@@ -81,7 +81,7 @@
           : '<input type="hidden" class="bf-room1" value="' + esc(chosen[0] || '') + '">');
 
     el.innerHTML =
-      roomPick +
+      roomPick + '<div id="bf-roomcards"></div>' +
       '<div class="two">' +
         '<div class="field"><label class="l" for="bf-day">Date</label><input class="inp" type="date" id="bf-day" value="' + esc(o.day || '') + '" min="' + EGBCBookings.today() + '"></div>' +
         '<div class="field"><label class="l" for="bf-start">Start</label><select id="bf-start">' + times(360, 1425, o.start || '19:00') + '</select></div>' +
@@ -150,7 +150,17 @@
       if (this.value && !q('#bf-until').value && q('#bf-day').value) q('#bf-until').value = EGBCBookings.addDays(q('#bf-day').value, 7 * 9);
     });
     if (q('#bf-ref')) q('#bf-ref').onchange = function () { q('#bf-ref-more').classList.toggle('hidden', !this.checked); };
-    el.oninput = el.onchange = function () {
+    /* The chosen room(s) at a glance: photo, how many it holds set out as
+       asked, facilities, kit (F-236). Redrawn when the room or layout changes. */
+    function cards() {
+      var box = q('#bf-roomcards'); if (!box || !R || !R.card) return;
+      var v = values(el), lay = v.layout;
+      box.innerHTML = (v.rooms || []).map(function (id) { return R.card(rooms.filter(function (r) { return r.id === id; })[0], { layout: lay, kit: o.allKit || o.kit }); }).join('');
+      if (global.EGBCUI && EGBCUI.icons) EGBCUI.icons(); else if (global.lucide && lucide.createIcons) lucide.createIcons();
+    }
+    cards();
+    el.oninput = el.onchange = function (e) {
+      if (!e || !e.target || /bf-room|bf-layout/.test(e.target.className + ' ' + e.target.id)) cards();
       var v = values(el);
       if (q('#bf-late')) {
         var late = v.refreshments.needed ? EGBCBookings.lateItems(v.refreshments.items, o.menus, v.day) : [];

@@ -61,11 +61,13 @@
   /* Marked out as buttons, so they read as things to click (F-067). */
   .ch-back{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;background:#fff;font-size:13px;font-weight:500;color:var(--brand);text-decoration:none}
   .ch-back:hover{background:var(--tint)}
+  .hirehead{width:100%;max-height:240px;object-fit:cover;border-radius:12px;display:block;margin:0 0 14px}
 </style>
 </head>
 <body>
 <header class="chead" id="chead"></header>
 <div class="wrap">
+  <div id="hireHead"></div>
   <h1>Hire our rooms</h1>
   <p class="sub" id="sub">Rooms for meetings, parties, classes and groups. Tell us what you need and we will show the rooms that fit.</p>
   <div class="card search" id="search"></div>
@@ -176,6 +178,12 @@
     if (c.name) document.getElementById('sub').textContent = 'Rooms at ' + c.name + ' for meetings, parties, classes and groups. Tell us what you need and we will show the rooms that fit.';
     EGBCChurch.title('Hire our rooms');
     var db = EGBCAuth.db;
+    /* The church's own picture at the top (churchSettings/hire.photoUrl;
+       F-236): Martin's photo of the church front. A picture only. */
+    db.collection('churchSettings').doc('hire').get().then(function (h) {
+      var u = h.exists && h.data().photoUrl;
+      if (u && /^https?:\/\//.test(u)) document.getElementById('hireHead').innerHTML = '<img class="hirehead" id="hirePhoto" src="' + String(u).replace(/"/g, '&quot;') + '" alt="' + (c.name ? String(c.name).replace(/[<>"]/g, '') : 'The church') + '">';
+    }).catch(function () {});
     return Promise.all([db.collection('rooms').where('active', '==', true).get(), db.collection('sites').where('active', '==', true).get()]);
   }).then(function (r) {
     r[1].docs.forEach(function (d) { SITES[d.id] = d.data().name || ''; });

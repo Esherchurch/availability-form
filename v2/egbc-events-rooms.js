@@ -49,9 +49,12 @@
 
   function num(v) { var n = Number(v); return isFinite(n) && n > 0 ? n : 0; }
 
-  /* Floor area in square metres, to one decimal place, or 0 if not known. */
+  /* Floor area in square metres, to one decimal place, or 0 if not known.
+     An area AS GIVEN (dims.area: an L-shaped room, a room with a bay, an
+     architect's figure; Martin, 19 Oct; F-236) wins over length x width. */
   function area(room) {
     var d = (room && room.dims) || {};
+    if (num(d.area)) return Math.round(num(d.area) * 10) / 10;
     var a = num(d.length) * num(d.width);
     return a ? Math.round(a * 10) / 10 : 0;
   }
@@ -119,7 +122,45 @@
     });
   }
 
-  var api = { LAYOUTS: LAYOUTS, FACILITIES: FACILITIES, FLOORS: FLOORS, area: area, has: has, holds: holds,
+  /* THE ROOM AT A GLANCE, where a room is chosen to book (the reviewing
+     window, 19 Oct; brief §6.18): its main photo, how many it holds set out
+     the way asked, its floor area, its facilities, and the kit in it or
+     movable to it - the same facts as room.html, at 375px. */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function kitFor(room, kit) {
+    kit = kit || [];
+    return {
+      here: kit.filter(function (k) { return k.active !== false && k.homeRoomId === room.id; }),
+      movable: kit.filter(function (k) { return k.active !== false && k.movable && k.homeRoomId !== room.id && (!k.siteId || !room.siteId || k.siteId === room.siteId); })
+    };
+  }
+  var CARD_CSS = '.rcard{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:start;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin:0 0 12px}' +
+    '.rcard img{width:96px;height:72px;object-fit:cover;border-radius:8px;display:block}.rcard .noph{width:96px;height:72px;border-radius:8px;background:#e5e7eb}' +
+    '.rcard b{color:#111827}.rcard .rf{font-size:13px;color:#4b5563;margin:2px 0}.rcard .chips{display:flex;flex-wrap:wrap;gap:4px 10px;margin:4px 0 0}' +
+    '.rcard .chip{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:#374151}.rcard .chip i,.rcard .chip svg{width:14px;height:14px}' +
+    '.rcard a{color:#3d6263;font-size:13px;font-weight:600}';
+  function card(room, o) {
+    o = o || {};
+    if (!room) return '';
+    if (typeof document !== 'undefined' && !document.getElementById('rcard-css')) {
+      var st = document.createElement('style'); st.id = 'rcard-css'; st.textContent = CARD_CSS; document.head.appendChild(st);
+    }
+    var ph = mainPhoto(room), lay = o.layout && LAYOUTS.filter(function (x) { return x.id === o.layout; })[0], n = holds(room, o.layout), a = area(room), k = kitFor(room, o.kit);
+    var facs = FACILITIES.filter(function (x) { return has(room, x.id); });
+    var kitWords = function (list) { return list.map(function (x) { return esc(x.name) + (x.unlimited ? '' : ' (' + (+x.quantity || 0) + ')'); }).join(', '); };
+    return '<div class="rcard" data-roomcard="' + esc(room.id) + '">' +
+      (ph ? '<img src="' + esc(ph.url) + '" alt="' + esc(room.name) + '">' : '<div class="noph" aria-hidden="true"></div>') +
+      '<div><b>' + esc(room.name) + '</b>' +
+      '<div class="rf" data-holds="' + n + '">' + (n ? (lay ? 'Holds ' + n + ' set out ' + lay.label.toLowerCase() : 'Holds up to ' + n) : (lay ? 'Not set out ' + lay.label.toLowerCase() + ' here' : '')) +
+        (a ? (n || lay ? ' · ' : '') + a + ' m²' : '') + '</div>' +
+      (facs.length ? '<div class="chips">' + facs.map(function (x) { var c = (room.facilities || {})[x.id];
+        return '<span class="chip" data-fac="' + x.id + '"><i data-lucide="' + x.icon + '"></i>' + esc(x.label) + (x.count ? ' ' + c : '') + '</span>'; }).join('') + '</div>' : '') +
+      (k.here.length ? '<div class="rf" data-kithere>In the room: ' + kitWords(k.here) + '</div>' : '') +
+      (k.movable.length ? '<div class="rf" data-kitmove>Can be brought in: ' + kitWords(k.movable) + '</div>' : '') +
+      '<a href="room.html?id=' + encodeURIComponent(room.id) + '" target="_blank" rel="noopener">More about this room</a></div></div>';
+  }
+
+  var api = { card: card, kitFor: kitFor, LAYOUTS: LAYOUTS, FACILITIES: FACILITIES, FLOORS: FLOORS, area: area, has: has, holds: holds,
               fit: fit, hireable: hireable, mainPhoto: mainPhoto, shrink: shrink };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCRooms = api;

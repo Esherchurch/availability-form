@@ -776,7 +776,12 @@
         profField('Length (metres)', 'p-len', d.length, 'number', ' min="0" step="0.1"') +
         profField('Width (metres)', 'p-wid', d.width, 'number', ' min="0" step="0.1"') +
         profField('Ceiling height (metres)', 'p-hgt', d.height, 'number', ' min="0" step="0.1"') +
-      '</div><p class="hint mt-1" id="p-area">' + (R.area(p) ? 'Floor area ' + R.area(p) + ' m²' : 'The floor area is worked out from the length and width.') + '</p>' +
+      '</div><div class="grid sm:grid-cols-3 gap-3 mt-2">' +
+        /* AN AREA AS GIVEN (F-236): an L-shaped room, a room with a bay, an
+           architect's figure. It wins over length x width, and is kept. */
+        profField('Floor area as given (m², optional)', 'p-areag', d.area, 'number', ' min="0" step="0.1"') +
+        '<div class="sm:col-span-2">' + profField('About the size (optional)', 'p-sizenote', p.sizeNote || '', 'text', ' maxlength="200" placeholder="L-shaped; plus a small bay"') + '</div>' +
+      '</div><p class="hint mt-1" id="p-area">' + (R.area(p) ? 'Floor area ' + R.area(p) + ' m²' : 'The floor area is worked out from the length and width, unless one is given.') + '</p>' +
       '<div class="grid sm:grid-cols-2 gap-3 mt-2">' +
         '<div><label class="lbl" for="p-floor">Floor</label><select id="p-floor" class="inp">' + R.FLOORS.map(function (o) {
           return '<option value="' + o[0] + '"' + ((p.floor || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
@@ -825,6 +830,8 @@
   function readProfile() {
     var p = PROF, n = function (id) { var v = Number($(id).value); return isFinite(v) && v > 0 ? v : 0; };
     p.dims = { length: n('p-len'), width: n('p-wid'), height: n('p-hgt') };
+    if (n('p-areag')) p.dims.area = n('p-areag');
+    p.sizeNote = $('p-sizenote').value.trim().slice(0, 200);
     p.floor = $('p-floor').value; p.toilets = $('p-toilets').value.trim(); p.kitchenNote = $('p-kitchen').value.trim();
     p.naturalLight = $('p-light').checked; p.accessible = $('p-acc').checked;
     p.layouts = {}; R.LAYOUTS.forEach(function (x) { var v = n('p-lay-' + x.id); if (v) p.layouts[x.id] = Math.round(v); });
@@ -855,9 +862,9 @@
 
   function wireProfile() {
     $('p-close').onclick = closeProfile; $('p-cancel').onclick = closeProfile;
-    ['p-len', 'p-wid'].forEach(function (id) { $(id).addEventListener('input', function () {
-      var a = R.area({ dims: { length: $('p-len').value, width: $('p-wid').value } });
-      $('p-area').textContent = a ? 'Floor area ' + a + ' m²' : 'The floor area is worked out from the length and width.';
+    ['p-len', 'p-wid', 'p-areag'].forEach(function (id) { $(id).addEventListener('input', function () {
+      var a = R.area({ dims: { length: $('p-len').value, width: $('p-wid').value, area: $('p-areag').value } });
+      $('p-area').textContent = a ? 'Floor area ' + a + ' m²' : 'The floor area is worked out from the length and width, unless one is given.';
     }); });
     $('p-add').onchange = function () {
       var files = [].slice.call(this.files);
@@ -891,7 +898,7 @@
           partsChanged = was !== (p.parts || []).slice().sort().join();
       db.collection('rooms').doc(p.id).update({
         capacity: p.capacity || 0, parts: p.parts || [],
-        dims: p.dims, floor: p.floor, toilets: p.toilets, kitchenNote: p.kitchenNote, naturalLight: p.naturalLight,
+        dims: p.dims, sizeNote: p.sizeNote || '', floor: p.floor, toilets: p.toilets, kitchenNote: p.kitchenNote, naturalLight: p.naturalLight,
         accessible: p.accessible, layouts: p.layouts, fireMax: p.fireMax, facilities: p.facilities,
         description: p.description, houseRules: p.houseRules, externalCaterers: p.externalCaterers, memberBookings: p.memberBookings,
         photos: p.photos || [], floorPlan: p.floorPlan || null
