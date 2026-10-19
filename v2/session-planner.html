@@ -158,8 +158,8 @@
           (s.special === 'none' ? '<span class="special">No ' + esc(G.name) + (s.title ? ': ' + esc(s.title) : '') + '</span>'
             : (s.special ? '<span class="special">★ ' + esc(s.special) + '</span>' + (s.title || s.lessonCode ? '<br>' : '') : '') + (s.special && !s.title && !s.lessonCode ? '' : '<span class="t">' + (s.lessonCode ? '<span class="code">' + esc(s.lessonCode) + '</span>' : '') + esc(s.title || 'Untitled') + '</span>')) +
           (sermon() && (s.speaker || s.speakerId) ? '<div class="m">Speaker: ' + esc(s.speaker || PEOPLE[s.speakerId] || '') + (s.series ? ' · ' + esc(s.series) : '') + '</div>' : '') +
-          ((s.onIds || []).length ? '<div class="m">On: ' + esc(names(s.onIds)) + '</div>' : '') +
-          ((s.awayIds || []).length ? '<div class="m away">Away: ' + esc(names(s.awayIds)) + '</div>' : '') + '</div></div>';
+          (((LIVE[s.date] || s).onIds || []).length ? '<div class="m">On: ' + esc(names((LIVE[s.date] || s).onIds)) + '</div>' : '') +
+          (((LIVE[s.date] || s).awayIds || []).length ? '<div class="m away">Away: ' + esc(names((LIVE[s.date] || s).awayIds)) + '</div>' : '') + '</div></div>';
       }).join('') : '<p class="m">No plans yet.</p>') +
       '<div class="row noprint" style="margin-top:10px">' + (canEdit() ? '<button class="btn" id="addWeek">' + (sermon() ? '+ Plan a sermon for a service' : '+ Add a ' + esc(DAYS[G.day == null ? 0 : +G.day])) + '</button>' : '') +
         '<button class="btn sec" id="printTerm">Print the term</button></div></div>';
@@ -376,23 +376,63 @@
     }, function (e) { msg.textContent = 'Not uploaded: ' + (/unauthorized|permission/i.test(String(e && (e.code || e.message))) ? 'only this group\'s leaders can add files.' : (e.message || e)); });
   }
 
-  /* ---- who's on, who's away (the rota and the availability form) ---- */
-  function fromRota() {
-    return db().collection('events').where('date', '==', S.date).get().then(function (snap) {
-      var evs = all(snap).filter(function (e) { return !e.archived; }), on = [];
+  /* ---- who's on, who's away: READ LIVE (Martin, 19 Oct) ----------------
+     The rota and the availability form are the truth; a plan only keeps a
+     copy (onIds, awayIds) for when the rota has no service that date. Every
+     time the planner opens, the term's dates are read from the rota in one
+     go, and a leader's visit quietly brings the stored copies up to date
+     (the rules allow a leader that one change - onIds, awayIds, rotaAt -
+     without it counting as "Last changed by"). LIVE[date] = { onIds,
+     awayIds } for a date the rota has a service on; none for a date it
+     hasn't, and the stored copy shows. */
+  var LIVE = {};
+  function liveRota(dates) {
+    dates = (dates || []).filter(Boolean).sort();
+    if (!dates.length || !G || sermon()) return Promise.resolve({});
+    return db().collection('events').where('date', '>=', dates[0]).where('date', '<=', dates[dates.length - 1]).get().then(function (snap) {
+      var evs = all(snap).filter(function (e) { return !e.archived && dates.indexOf(e.date) >= 0; }), byDate = {};
       evs.forEach(function (e) {
+        var d = byDate[e.date] = byDate[e.date] || { on: [], ids: [] };
+        d.ids.push(e.id);
         Object.keys(e.assignments || {}).forEach(function (role) {
           var team = EGBCAuth.roleTeam ? EGBCAuth.roleTeam(role) : '';
           if (G.teamName && team !== G.teamName) return;
-          [].concat(e.assignments[role] || []).forEach(function (a) { var id = a && (a.id || a.memberId); if (id && on.indexOf(String(id)) < 0) on.push(String(id)); });
+          [].concat(e.assignments[role] || []).forEach(function (a) { var id = a && (a.id || a.memberId); if (id && d.on.indexOf(String(id)) < 0) d.on.push(String(id)); });
         });
       });
-      return Promise.all(evs.slice(0, 10).map(function (e) { return db().collection('availability').where('eventId', '==', e.id).get().catch(function () { return { docs: [] }; }); }))
-        .then(function (r) {
-          var team = TEAMMEM.map(function (p) { return p.id; }).concat(G.leaderIds || []), away = [];
-          r.forEach(function (s) { all(s).forEach(function (a) { if ((a.status === 'unavailable' || a.status === 'not-avail') && (team.indexOf(a.memberId) >= 0 || on.indexOf(a.memberId) >= 0) && away.indexOf(a.memberId) < 0) away.push(a.memberId); }); });
-          S.onIds = on.filter(function (i) { return away.indexOf(i) < 0; }); S.awayIds = away;
-        });
+      var ids = [].concat.apply([], Object.keys(byDate).map(function (k) { return byDate[k].ids; })), chunks = [];
+      for (var i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+      return Promise.all(chunks.map(function (c) { return db().collection('availability').where('eventId', 'in', c).get().catch(function () { return { docs: [] }; }); })).then(function (r) {
+        var team = TEAMMEM.map(function (p) { return p.id; }).concat(G.leaderIds || []), awayBy = {};
+        r.forEach(function (sn) { all(sn).forEach(function (a) {
+          if (a.status !== 'unavailable' && a.status !== 'not-avail') return;
+          Object.keys(byDate).forEach(function (dt) {
+            var d = byDate[dt]; if (d.ids.indexOf(a.eventId) < 0) return;
+            if (team.indexOf(a.memberId) < 0 && d.on.indexOf(a.memberId) < 0) return;
+            var aw = awayBy[dt] = awayBy[dt] || []; if (aw.indexOf(a.memberId) < 0) aw.push(a.memberId);
+          });
+        }); });
+        var out = {};
+        Object.keys(byDate).forEach(function (dt) { var aw = awayBy[dt] || []; out[dt] = { onIds: byDate[dt].on.filter(function (i) { return aw.indexOf(i) < 0; }), awayIds: aw }; });
+        return out;
+      });
+    }).catch(function () { return {}; });
+  }
+  function same(a, b) { return JSON.stringify((a || []).slice().sort()) === JSON.stringify((b || []).slice().sort()); }
+  /* A leader's visit brings the stored copies up to date (the fallback). */
+  function refreshCopies() {
+    if (!canEdit()) return;
+    SESS.forEach(function (s) {
+      var l = LIVE[s.date]; if (!l || (same(l.onIds, s.onIds) && same(l.awayIds, s.awayIds))) return;
+      s.onIds = l.onIds; s.awayIds = l.awayIds;
+      db().collection('planSessions').doc(s.id).update({ onIds: l.onIds, awayIds: l.awayIds, rotaAt: new Date().toISOString() }).catch(function () {});
+    });
+  }
+  function fromRota() {
+    return liveRota([S.date]).then(function (m) {
+      var l = m[S.date];
+      if (l) { LIVE[S.date] = l; S.onIds = l.onIds; S.awayIds = l.awayIds; }
+      else { S.onIds = S.onIds || []; S.awayIds = S.awayIds || []; }
     });
   }
 
@@ -528,7 +568,8 @@
   }
   function loadSessions() {
     if (!G) { SESS = []; return Promise.resolve(); }
-    return db().collection('planSessions').where('groupId', '==', G.id).get().then(function (s) { SESS = all(s); }, function () { SESS = []; });
+    return db().collection('planSessions').where('groupId', '==', G.id).get().then(function (s) { SESS = all(s); }, function () { SESS = []; })
+      .then(function () { return liveRota(SESS.map(function (x) { return x.date; })); }).then(function (m) { LIVE = m || {}; refreshCopies(); });
   }
   function loadTeam() {
     TEAMMEM = Object.keys(PEOPLE).filter(function (id) { return G && G.teamName && (MARKERS[id] || []).indexOf(G.teamName) >= 0; }).map(function (id) { return { id: id, name: PEOPLE[id] }; })
@@ -543,6 +584,7 @@
   function openSession(id) {
     var s = SESS.filter(function (x) { return x.id === id; })[0]; if (!s) return;
     S = JSON.parse(JSON.stringify(s)); S.parts = S.parts || []; OPEN = {}; VIEW = 'session'; DIRTY = false; EVENT = null; draw(); window.scrollTo(0, 0);
+    if (!sermon() && LIVE[S.date]) { S.onIds = LIVE[S.date].onIds.slice(); S.awayIds = LIVE[S.date].awayIds.slice(); draw(); }
     if (S.eventId) loadEvent().then(function () { if (VIEW === 'session' && S && S.id === id) { readTop(); draw(); if (DIRTY) say('The Preaching plan has changed the date or the speaker since this was saved. Save to keep the new one.'); } });
   }
   function addSermon() {

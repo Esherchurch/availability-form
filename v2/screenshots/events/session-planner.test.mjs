@@ -221,6 +221,22 @@ try {
   const mr = await MI.evaluate((id) => EGBCAuth.db.collection('planSessions').doc(id).get().then(() => 'read', e => e.code), p1.id);
   ok('   and the rules refuse to read it', /permission/.test(mr), mr);
 
+  /* ---------- 5b. WHO'S ON IS READ LIVE (Martin, 19 Oct) ---------- */
+  const before5b = await plan();
+  await db.collection('events').doc('svc1').update({ assignments: { 'Leader (Younger)': { id: 'm_lois', name: 'Lois Leader (invented)' }, 'Helper 1': { id: 'm_tom', name: 'Tom Team (invented)' } } });
+  await SA.goto(URLB + 'session-planner.html', { waitUntil: 'networkidle2' });
+  await until(async () => /Lois Leader/.test(await text(SA, '#term')));
+  const live = await text(SA, '#term');
+  ok('5b. THE ROTA CHANGES (Lois put on Kids Church): Samy reopens it, the term shows it, read live', /On: .*Lois Leader/.test(live) && /Tom Team/.test(live), live.slice(0, 300));
+  await tap(SA, '.wk[data-s]');
+  await until(async () => /Lois Leader/.test(await text(SA, '#onBox')));
+  ok('    and the week opens with it too', /Lois Leader/.test(await text(SA, '#onBox')));
+  const after5b = await until(async () => { const p = await plan(); return p.onIds.includes('m_lois') ? p : null; });
+  ok('    the stored copy is brought up to date by the leader\'s visit (the fallback)', !!after5b && after5b.onIds.includes('m_lois') && !!after5b.rotaAt, J(after5b && after5b.onIds));
+  ok('    WITHOUT counting as a change: "Last changed by" stays who really changed it', after5b && after5b.updatedByName === before5b.updatedByName && after5b.updatedBy === before5b.updatedBy, J({ was: before5b.updatedByName, now: after5b && after5b.updatedByName }));
+  const tr = await TO.evaluate((id) => EGBCAuth.db.collection('planSessions').doc(id).update({ onIds: [], awayIds: [], rotaAt: 'x' }).then(() => 'written', e => e.code), p1.id);
+  ok('    a team member\'s visit changes nothing (the rules refuse even that)', /permission/.test(tr), tr);
+
   /* ---------- 6. Bible Gateway, a link only ---------- */
   await SA.goto(URLB + 'session-planner.html?s=' + p1.id, { waitUntil: 'networkidle2' });
   await until(() => SA.$('#pickPassage'));
