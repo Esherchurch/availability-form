@@ -126,6 +126,7 @@
       '<p class="hint" style="margin-top:-4px">The people who may open the fire roll-call for today\'s events: who is checked in, and how many. Names only: no answers, no medical details, no contact details. For example the fire wardens and the duty steward. Master admins always can.</p>' +
       '<div id="fireList">' + (list.length ? list.map(function (p) {
         return '<div class="apply" data-fire="' + esc(p.memberId) + '"><span class="t"><strong>' + esc(p.name) + '</strong></span>' +
+          '<select class="fireRole" aria-label="Fire warden or duty steward: ' + esc(p.name) + '"><option value="warden">Fire warden</option><option value="steward"' + (p.role === 'steward' ? ' selected' : '') + '>Duty steward</option></select>' +
           '<select class="fireSite" aria-label="Which building for ' + esc(p.name) + '"><option value="">All buildings</option>' +
             SITES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (p.siteId === x.id ? ' selected' : '') + '>' + esc(x.name || x.id) + '</option>'; }).join('') + '</select>' +
           '<button class="btn ghost" data-firedrop="' + esc(p.memberId) + '">Remove</button></div>';
@@ -147,6 +148,15 @@
       FIRE.people = (FIRE.people || []).concat([{ memberId: p.id, name: p.name, siteId: '' }]);
       redrawFire('Not saved yet.');
     };
+    /* A duty steward sees people's evacuation plans only on a day they are
+       on the rota; a fire warden on any day they are needed (F-234). */
+    c.querySelectorAll('.fireRole').forEach(function (s) {
+      s.onchange = function () {
+        var id = s.closest('[data-fire]').getAttribute('data-fire');
+        FIRE.people.forEach(function (p) { if (p.memberId === id) p.role = s.value; });
+        document.getElementById('fireMsg').textContent = 'Not saved yet.';
+      };
+    });
     c.querySelectorAll('.fireSite').forEach(function (s) {
       s.onchange = function () {
         var id = s.closest('[data-fire]').getAttribute('data-fire');
@@ -164,6 +174,7 @@
       db().collection('fireRollCall').doc('main').set({
         people: people, memberIds: people.map(function (p) { return p.memberId; }),
         allSites: people.filter(function (p) { return !p.siteId; }).map(function (p) { return p.memberId; }), bySite: bySite,
+        stewards: people.filter(function (p) { return p.role === 'steward'; }).map(function (p) { return p.memberId; }),
         updatedBy: EGBCAuth.user().uid, updatedByName: (EGBCAuth.profile() || {}).name || '', updatedAt: new Date().toISOString()
       }).then(function () { btn.disabled = false; redrawFire('Saved.'); }, function (e) { btn.disabled = false; document.getElementById('fireMsg').textContent = 'Not saved: ' + (e.message || e); });
     };

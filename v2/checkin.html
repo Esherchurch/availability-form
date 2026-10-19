@@ -671,6 +671,41 @@
        see them below by name; the total takes a building's count where
        there is one and its names where there is not, never both. */
     var KC = {}, LAST = [];
+    /* PERSONAL EVACUATION PLANS (Stage 4, F-234; Martin, 19 Oct): today's
+       only, for the people in today (checked in, or on the rota), kept by
+       the peeps.js function in peepToday/<day>. The rules let only the fire
+       wardens, the duty stewards on duty today and master admins read it;
+       anyone else gets nothing and sees no card. Opening a plan is logged.
+       And each building's GEEP, for visitors who need help. */
+    var PEEP = null, GEEPS = [];
+    function peepCard(look) {
+      var es = (PEEP && PEEP.entries) || [];
+      var g = GEEPS.filter(function (x) { return who.all || (who.sites || []).indexOf(x.siteId) >= 0; });
+      return (es.length ? '<div class="card room" id="peeps"><h2><span class="badge">' + ico('accessibility', 17) + '</span>People who need help to get out<span class="spacer"></span><span class="hint">' + es.length + '</span></h2>' +
+        '<p class="hint" style="margin-top:-4px">Their own plans, for today only. Do not copy or share them.</p>' +
+        es.map(function (e) {
+          return '<details class="peep" data-peep="' + esc(e.memberId) + '" style="border-top:1px solid var(--line);padding:8px 0"><summary style="min-height:44px;cursor:pointer"><strong>' + esc(e.name) + '</strong> <span class="hint">' + esc(e.why) + (e.building ? ', ' + esc(e.building) : '') + '</span></summary>' +
+            '<p style="margin:4px 0"><strong>Help needed:</strong> ' + esc(e.needs) + '</p>' + (e.helpers ? '<p style="margin:4px 0"><strong>Who helps:</strong> ' + esc(e.helpers) + '</p>' : '') +
+            (e.route ? '<p style="margin:4px 0"><strong>Where:</strong> ' + esc(e.route) + '</p>' : '') + (e.equipment ? '<p style="margin:4px 0"><strong>Equipment:</strong> ' + esc(e.equipment) + '</p>' : '') + '</details>';
+        }).join('') + '</div>' : '') +
+        g.map(function (x) {
+          var site = (look.sites && look.sites[x.siteId]) || '';
+          return '<div class="card room" data-geep="' + esc(x.siteId) + '"><h2><span class="badge">' + ico('door-open', 17) + '</span>Visitors who need help' + (site ? ': ' + esc(site) : '') + '</h2>' +
+            (x.identify ? '<p style="margin:4px 0"><strong>Finding them:</strong> ' + esc(x.identify) + '</p>' : '') + (x.refuges ? '<p style="margin:4px 0"><strong>Where they wait:</strong> ' + esc(x.refuges) + '</p>' : '') +
+            (x.helpers ? '<p style="margin:4px 0"><strong>Who helps:</strong> ' + esc(x.helpers) + '</p>' : '') + (x.equipment ? '<p style="margin:4px 0"><strong>Equipment:</strong> ' + esc(x.equipment) + '</p>' : '') + '</div>';
+        }).join('');
+    }
+    function wirePeeps() {
+      document.querySelectorAll('[data-peep]').forEach(function (d) {
+        d.addEventListener('toggle', function () {
+          if (!d.open || d._logged) return; d._logged = true;
+          db().collection('peepLog').doc().set({ what: 'view', memberId: d.getAttribute('data-peep'), by: EGBCAuth.user().uid, byName: (EGBCAuth.profile() || {}).name || '', at: new Date().toISOString() }).catch(function () {});
+        });
+      });
+    }
+    db().collection('peepToday').doc(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))
+      .onSnapshot(function (d) { PEEP = d.exists ? d.data() : null; render(LAST); }, function () { PEEP = null; });
+    db().collection('geeps').get().then(function (q) { GEEPS = q.docs.map(function (d) { return Object.assign({ siteId: d.id }, d.data()); }); render(LAST); }, function () {});
     function render(cks) {
       LAST = cks;
       var ins = cks.filter(function (c) { return c.state === 'in'; });
@@ -709,7 +744,7 @@
           'Updated live · ' + E.fmtTime(new Date()) + '</p>' +
           '<div class="tiles" style="grid-template-columns:repeat(2,1fr)">' + tile('in', total, 'People in the building') + tile('', leaders, 'Leaders') + '</div>' +
           '<div class="bar noprint"><button class="btn sec" onclick="window.print()">' + ico('printer', 15) + 'Print</button>' +
-          '<a class="btn ghost" href="checkin.html">' + ico('arrow-left', 15) + 'Check-in</a></div>' + kidsCards +
+          '<a class="btn ghost" href="checkin.html">' + ico('arrow-left', 15) + 'Check-in</a></div>' + peepCard(look) + kidsCards +
           (names.length ? names.map(function (n) {
             var g = groups[n];
             var list = function (arr) {
@@ -726,7 +761,7 @@
               (g.people.length ? '<h4 style="margin-top:10px">' + ico('users', 15) + 'Everyone else</h4>' + list(g.people) : '') +
               '</div>';
           }).join('') : (kc.length ? '' : '<div class="card"><p class="hint">Nobody is checked in right now.</p></div>'));
-        icons();
+        icons(); wirePeeps();
       });
     }
     /* Event check-ins for every admin. Children in Sunday groups (Chunk 6)

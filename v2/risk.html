@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Live risk register</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610152310"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Live risk register"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610161700"></script>
+<script src="egbc-compliance.js?v=202610192300"></script>
+<script src="egbc-compliance-templates.js?v=202610192300"></script>
+<script src="egbc-compliance-store.js?v=202610192300"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --red:#b0392c;--amber:#b07d2e;--green:#15803d;--grey:#9ca3af}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:18px 16px calc(80px + env(safe-area-inset-bottom))}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 8px}
+  .banner{background:#e8eefb;color:#1e3a8a;border-left:4px solid #1e3a8a;border-radius:10px;padding:10px 12px;font-size:14px;margin:0 0 12px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .tabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px}
+  .tabs button{flex:none;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:#fff;font:600 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .tabs button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 16px;border-radius:10px;font:600 15px Inter,sans-serif;cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}.btn.small{min-height:44px;font-size:14px;padding:0 12px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  label.l{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:10px 0 4px}
+  .inp,select,textarea{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:inherit;background:#fff;color:var(--ink)}
+  textarea{padding:10px 12px;min-height:70px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none}
+  .red{background:var(--red)}.amber{background:var(--amber)}.green{background:var(--green)}.grey{background:var(--grey)}
+  .hz{display:grid;grid-template-columns:14px 1fr auto;gap:12px;align-items:start;padding:10px 4px;border-top:1px solid var(--line);cursor:pointer}
+  .hz:first-of-type{border-top:0}.t{color:var(--ink);font-weight:600}.m{font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--tint);color:var(--brand)}
+  .pill.High{background:#fdecea;color:var(--red)}.pill.Medium{background:#fdf6e9;color:#7a5a1f}
+  .rec{border-top:1px solid var(--line);padding:8px 0}.rec:first-of-type{border-top:0}
+  .back{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+  @media (min-width:700px){.back{align-items:center}}
+  .sheet{background:#fff;width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px}
+  @media (min-width:700px){.sheet{border-radius:16px}}
+  .sheet .x{position:sticky;top:0;float:right;width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:#fff;font-size:18px;cursor:pointer}
+  .said{font-size:13px;color:var(--muted);min-height:18px;margin:6px 0 0}
+  .chk{display:flex;gap:10px;align-items:center;min-height:44px}.chk input{width:20px;height:20px;flex:none}
+  @media print{.noprint,.tabs{display:none!important}body{background:#fff}.card{border:0}}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  /* THE LIVE RISK REGISTER (Stage 4; Martin, 19 Oct; F-234). A management
+     tool that SUPPLEMENTS the church's professional Health, Safety and Fire
+     risk assessments - never replaces them, and never called "Risk
+     assessment" on its own. Martin's banner, word for word, heads every
+     screen of it and every snapshot.
+       - the professional reports: date, assessor, next review (the next
+         review IS a check: recording a report records the review check)
+       - hazards with ratings; THEIR CONTROLS ARE THE CHECKS; their issues
+         are the safety jobs on those checks, open or resolved
+       - changes since the professional assessment
+       - the trustees' dated snapshots
+       - the building's GEEP (visitors who need help to get out)
+     The office (master admins, Church office) keeps it; the trustees (the
+     Elders, master admins) see it and take snapshots. The rules say so. */
+  var E = window.EGBCEvents, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = E.esc;
+  var ME = {}, ADMIN = false, TRUSTEE = false, CHURCH = '', SITES = [], SITE = null, TEMPLATES = [], B = null, VIEW = 'hazards';
+  var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  function db() { return EGBCAuth.db; }
+  function $(id) { return document.getElementById(id); }
+  function all(s) { return s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); }
+  function who() { return { uid: (EGBCAuth.user() || {}).uid || '', name: ME.name || '' }; }
+  function day(s) { if (!s) return ''; var p = String(s).slice(0, 10).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+  function addYears(d, n) { var p = d.split('-').map(Number); return new Date(Date.UTC(p[0] + n, p[1] - 1, p[2])).toISOString().slice(0, 10); }
+  function toast(m) { var t = $('said'); if (t) t.textContent = m; }
+  function sheet(html) {
+    var back = document.createElement('div'); back.className = 'back';
+    back.innerHTML = '<div class="sheet" role="dialog" aria-modal="true"><button class="x" type="button" aria-label="Close">✕</button>' + html + '</div>';
+    document.body.appendChild(back);
+    var close = function () { back.remove(); };
+    back.querySelector('.x').onclick = close; back.onclick = function (e) { if (e.target === back) close(); };
+    return { el: back, close: close, q: function (id) { return back.querySelector('#' + id); } };
+  }
+  var KINDS = { fire: 'Fire risk assessment (professional)', hs: 'Health and safety risk assessment (professional)' };
+  var REVIEW_CHECK = { fire: 'fire-ra', hs: 'hs-ra' };
+
+  /* ---------------- reading one building ---------------- */
+  function load() {
+    var q = function (c) { return db().collection(c).where('siteId', '==', SITE.id).get().then(all, function () { return []; }); };
+    return Promise.all([ST.load(db(), SITE.id), q('raReports'), q('hazards'), q('riskSnapshots'), db().collection('geeps').doc(SITE.id).get(), q('complianceLog')]).then(function (r) {
+      B = r[0]; B.reports = r[1].sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+      B.hazards = r[2]; B.snaps = r[3].sort(function (a, b) { return (b.at && b.at.toMillis ? b.at.toMillis() : 0) - (a.at && a.at.toMillis ? a.at.toMillis() : 0); });
+      B.geep = r[4].exists ? r[4].data() : null; B.log = r[5];
+      B.sched = C.schedule({ profile: B.profile, templates: TEMPLATES, checks: B.checks, records: B.records, jobs: B.jobs, triggers: B.triggers, today: TODAY });
+      B.hz = C.hazards({ hazards: B.hazards, items: B.sched.items, jobs: B.jobs, today: TODAY });
+    });
+  }
+  function latest(kind) { return B.reports.filter(function (r) { return r.kind === kind; })[0] || null; }
+  function since() {
+    var dates = ['fire', 'hs'].map(latest).filter(Boolean).map(function (r) { return r.date; }).sort();
+    return dates.length ? dates[0] : '';
+  }
+
+  /* ---------------- drawing ---------------- */
+  function draw() {
+    var html = '<h1>Live risk register</h1><p class="banner" id="riskBanner">' + esc(T.riskBanner(CHURCH)) + '</p>';
+    html += '<div class="tabs" id="sites">' + SITES.map(function (s) { return '<button data-site="' + esc(s.id) + '" aria-pressed="' + (SITE && SITE.id === s.id) + '">' + esc(s.name || s.id) + '</button>'; }).join('') + '</div>';
+    if (!SITE) { $('wrap').innerHTML = html + '<div class="card">No buildings yet.</div>'; return wire(); }
+    var tabs = [['hazards', 'Hazards'], ['reports', 'Professional assessments'], ['changes', 'Changes since'], ['snapshots', 'Snapshots'], ['geep', 'Visitors who need help (GEEP)']];
+    html += '<div class="tabs" id="views">' + tabs.map(function (t) { return '<button data-v="' + t[0] + '" aria-pressed="' + (VIEW === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>';
+    html += VIEW === 'reports' ? reportsView() : VIEW === 'changes' ? changesView() : VIEW === 'snapshots' ? snapsView() : VIEW === 'geep' ? geepView() : hazardsView();
+    html += '<p class="said" id="said" role="status"></p>';
+    $('wrap').innerHTML = html; wire();
+  }
+  function hazardsView() {
+    var order = { red: 0, amber: 1, green: 2, grey: 3 };
+    var list = B.hz.slice().sort(function (a, b) { return order[a.rag] - order[b.rag] || T.rating(b.l, b.s).score - T.rating(a.l, a.s).score; });
+    return '<div class="card" id="hazards"><h2>Hazards</h2><p class="m" style="margin:0 0 6px">Each hazard is controlled by the building’s checks. Its colour is theirs, and the safety jobs on them are its issues.</p>' +
+      (list.length ? list.map(function (h) {
+        var r = T.rating(h.l, h.s);
+        return '<div class="hz" data-hz="' + esc(h.id) + '" data-rag="' + h.rag + '" role="button" tabindex="0"><span class="dot ' + h.rag + '" style="margin-top:5px"></span><div><div class="t">' + esc(h.hazard) + '</div>' +
+          '<div class="m">' + esc(h.area || '') + ' · ' + esc(h.who || '') + '</div><div><span class="pill ' + r.band + '">' + r.band + ' (' + r.score + ')</span> <span class="m">' + esc(h.why) + ' · ' + h.controls.length + ' control' + (h.controls.length === 1 ? '' : 's') + ' · ' + h.open.length + ' open, ' + h.resolved.length + ' resolved</span></div></div><span class="m">›</span></div>';
+      }).join('') : '<p class="m">No hazards yet.</p>') + '</div>' +
+      (ADMIN ? '<div class="row noprint"><button class="btn sec" id="addStarter">Add the starter hazards</button><button class="btn sec" id="addHz">+ Add a hazard</button></div>' : '');
+  }
+  function reportsView() {
+    return '<div class="card" id="reports"><h2>The professional risk assessments</h2>' + ['fire', 'hs'].map(function (k) {
+      var r = latest(k), due = r && r.nextReview, rag = !r ? 'amber' : due < TODAY ? 'red' : C._dates.between(TODAY, due) <= 30 ? 'amber' : 'green';
+      return '<div class="rec" data-kind="' + k + '" data-rag="' + rag + '"><span class="dot ' + rag + '"></span> <b style="color:var(--ink)">' + esc(KINDS[k]) + '</b><div class="m">' +
+        (r ? 'Done ' + esc(day(r.date)) + ' by ' + esc(r.assessor) + ' · next review ' + esc(day(r.nextReview)) + ((r.files || []).length ? ' · 📄 ' + esc(r.files[0].name) : '') : 'Not uploaded yet') + '</div></div>';
+    }).join('') + (B.reports.length > 2 ? '<p class="m">Earlier reports: ' + B.reports.slice(2).map(function (r) { return esc(KINDS[r.kind].split(' (')[0]) + ' ' + esc(day(r.date)); }).join(', ') + '</p>' : '') + '</div>' +
+      (ADMIN ? '<div class="card noprint" id="addReport"><h2>Put up a report</h2><label class="l" for="rKind">Which</label><select id="rKind"><option value="fire">' + esc(KINDS.fire) + '</option><option value="hs">' + esc(KINDS.hs) + '</option></select>' +
+        '<div class="grid2"><div><label class="l" for="rDate">Done on</label><input class="inp" type="date" id="rDate" max="' + TODAY + '"></div><div><label class="l" for="rNext">Next review</label><input class="inp" type="date" id="rNext"></div></div>' +
+        '<label class="l" for="rWho">The assessor</label><input class="inp" id="rWho" maxlength="120" placeholder="Name and company">' +
+        '<label class="l" for="rFile">The report (PDF)</label><input class="inp" type="file" id="rFile" accept=".pdf,image/*" style="padding-top:8px">' +
+        '<div class="row" style="margin-top:10px"><button class="btn" id="rGo">Put it up</button></div><p class="m">Its next review date becomes the review check’s due date.</p></div>' : '');
+  }
+  function changesView() {
+    var d = since();
+    if (!d) return '<div class="card" id="changes"><h2>Changes since the professional assessment</h2><p class="m">No professional report is up yet, so there is nothing to compare with.</p></div>';
+    var words = { edit: 'A check was changed', add: 'The church added its own check', work: 'Building work recorded', profile: 'The answers about the building changed', template: 'A check followed new guidance' };
+    var hz = B.hazards.filter(function (h) { return String(h.updatedAt || h.createdAt || '') > d; });
+    var lg = B.log.filter(function (l) { return words[l.what] && String(l.at) > d; }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    return '<div class="card" id="changes"><h2>Changes since the professional assessment (' + esc(day(d)) + ')</h2><p class="m" style="margin:0 0 6px">Tell your assessor about these at the next review.</p>' +
+      (hz.length + lg.length ? hz.map(function (h) { return '<div class="rec"><b>Hazard ' + (String(h.createdAt) > d ? 'added' : 'changed') + ':</b> ' + esc(h.hazard) + '<div class="m">' + esc(day(h.updatedAt || h.createdAt)) + '</div></div>'; }).join('') +
+        lg.map(function (l) { return '<div class="rec"><b>' + esc(words[l.what]) + '</b> · ' + esc(l.byName || '') + '<div class="m">' + esc(day(l.at)) + '</div></div>'; }).join('') : '<p class="m">Nothing has changed since.</p>') + '</div>';
+  }
+  function snapsView() {
+    return '<div class="card" id="snapshots"><h2>Dated snapshots</h2>' + (B.snaps.length ? B.snaps.map(function (s, i) {
+      return '<div class="rec"><b>' + esc(day(s.at && s.at.toDate ? s.at.toDate().toISOString() : '')) + '</b> · signed off by ' + esc(s.byName || '') + ' <button class="btn sec small" data-snap="' + i + '">Open</button></div>';
+    }).join('') : '<p class="m">None yet.</p>') + '</div>' +
+      (TRUSTEE ? '<div class="card noprint"><h2>Sign off and keep a snapshot</h2><p class="m">A trustee reviews the register; a copy as it is today is kept, dated, with your name.</p><label class="l" for="snNote">Note (optional)</label><textarea id="snNote" maxlength="1000"></textarea><div class="row"><button class="btn" id="snGo">Sign off and keep a snapshot</button></div></div>' : '');
+  }
+  function geepView() {
+    var g = B.geep || {};
+    var f = function (id, label, v) { return '<label class="l" for="g_' + id + '">' + label + '</label>' + (ADMIN ? '<textarea id="g_' + id + '" maxlength="1000">' + esc(v || '') + '</textarea>' : '<p>' + esc(v || '—') + '</p>'); };
+    return '<div class="card" id="geep"><h2>Visitors who need help to get out (GEEP)</h2><p class="m" style="margin:0 0 6px">The building’s plan for anyone without their own plan: a visitor, a hirer’s guest. The duty team see it on the fire roll-call.</p>' +
+      f('identify', 'How we find out who needs help', g.identify) + f('refuges', 'Where they wait, and how they call for help', g.refuges) + f('helpers', 'Who helps them', g.helpers) + f('equipment', 'Equipment (e.g. evacuation chair)', g.equipment) +
+      (g.reviewDue ? '<p class="m">Review by ' + esc(day(g.reviewDue)) + '</p>' : '') + (ADMIN ? '<div class="row"><button class="btn" id="gGo">Save the GEEP</button></div>' : '') + '</div>';
+  }
+
+  /* ---------------- a hazard ---------------- */
+  function openHazard(id) {
+    var h = B.hz.filter(function (x) { return x.id === id; })[0]; if (!h) return;
+    var checks = B.sched.items.filter(function (i) { return i.state === 'on'; }), r = T.rating(h.l, h.s);
+    var opt = function (n, v) { var o = ''; for (var i = 1; i <= 5; i++) o += '<option' + (i === v ? ' selected' : '') + '>' + i + '</option>'; return o; };
+    var sh = sheet('<h2 style="margin:0 0 4px"><span class="dot ' + h.rag + '"></span> ' + esc(h.hazard) + '</h2><p class="m">' + esc(h.who || '') + ' · <span class="pill ' + r.band + '">' + r.band + ' (' + r.score + ')</span></p>' +
+      '<div class="card"><h2>Controls (the checks)</h2>' + (h.controls.length ? h.controls.map(function (i) { return '<div class="rec"><span class="dot ' + i.rag + '"></span> ' + esc(i.title) + ' <span class="m">' + esc(i.why) + '</span></div>'; }).join('') : '<p class="m">No control in place yet.</p>') + '</div>' +
+      '<div class="card"><h2>Issues (safety jobs on those checks)</h2>' + (h.open.length + h.resolved.length ? h.open.map(function (j) { return '<div class="rec"><b>Open:</b> ' + esc(j.what) + (j.due ? ' <span class="m">due ' + esc(day(j.due)) + '</span>' : '') + '</div>'; }).join('') +
+        h.resolved.map(function (j) { return '<div class="rec"><b>Resolved:</b> ' + esc(j.what) + '</div>'; }).join('') : '<p class="m">None.</p>') + '</div>' +
+      (ADMIN ? '<div class="card"><h2>Change it</h2><div class="grid2"><div><label class="l" for="hL">Likelihood (1 to 5)</label><select id="hL">' + opt('l', h.l) + '</select></div><div><label class="l" for="hS">Severity (1 to 5)</label><select id="hS">' + opt('s', h.s) + '</select></div></div>' +
+        '<label class="l" for="hC">Controls (the building’s checks)</label><select id="hC" multiple style="min-height:140px">' + checks.map(function (i) { return '<option value="' + esc(i.id) + '"' + ((h.controls || []).some(function (c) { return c.id === i.id; }) ? ' selected' : '') + '>' + esc(i.title) + '</option>'; }).join('') + '</select>' +
+        '<label class="l" for="hN">Notes</label><textarea id="hN" maxlength="1000">' + esc(h.notes || '') + '</textarea>' +
+        '<div class="row" style="margin-top:8px"><button class="btn" id="hGo">Save</button>' + (h.status !== 'closed' ? '<button class="btn sec" id="hClose">Close the hazard</button>' : '') + '</div><p class="said" id="hMsg"></p></div>' : ''));
+    if (sh.q('hGo')) sh.q('hGo').onclick = function () {
+      saveHazard(h.id, { l: +sh.q('hL').value, s: +sh.q('hS').value, controls: [].map.call(sh.q('hC').selectedOptions, function (o) { return o.value; }), notes: sh.q('hN').value.trim().slice(0, 1000) })
+        .then(function () { sh.close(); return load(); }).then(draw, function (e) { sh.q('hMsg').textContent = 'Not saved: ' + (e.message || e); });
+    };
+    if (sh.q('hClose')) sh.q('hClose').onclick = function () { saveHazard(h.id, { status: 'closed' }).then(function () { sh.close(); return load(); }).then(draw); };
+  }
+  function hazardDoc(x) {
+    return { siteId: SITE.id, area: x.area || '', hazard: String(x.hazard || '').slice(0, 200), who: String(x.who || '').slice(0, 200), l: +x.l || 1, s: +x.s || 1, controls: (x.controls || []).slice(0, 40),
+      notes: x.notes || '', status: x.status || 'open', source: x.source || 'added', starterId: x.starterId || '', createdAt: x.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), updatedBy: who().uid };
+  }
+  function saveHazard(id, ch) {
+    var h = B.hazards.filter(function (x) { return x.id === id; })[0];
+    return db().collection('hazards').doc(id).set(hazardDoc(Object.assign({}, h, ch)));
+  }
+
+  /* ---------------- wiring ---------------- */
+  function wire() {
+    document.querySelectorAll('[data-site]').forEach(function (b) { b.onclick = function () { SITE = SITES.filter(function (s) { return s.id === b.getAttribute('data-site'); })[0]; load().then(draw); }; });
+    document.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { VIEW = b.getAttribute('data-v'); draw(); }; });
+    document.querySelectorAll('[data-hz]').forEach(function (r) { r.onclick = r.onkeydown = function (e) { if (e.type === 'keydown' && e.key !== 'Enter') return; openHazard(r.getAttribute('data-hz')); }; });
+    if ($('addStarter')) $('addStarter').onclick = function () {
+      var have = B.hazards.map(function (h) { return h.starterId; }), ids = B.checks.filter(function (c) { return c.state === 'on'; }).map(function (c) { return c.id; });
+      var add = T.STARTER_HAZARDS.filter(function (h) { return have.indexOf(h.id) < 0; }).map(function (h) {
+        return hazardDoc({ area: h.area, hazard: h.hazard, who: h.who, l: h.l, s: h.s, source: 'starter', starterId: h.id,
+          controls: h.controls.map(function (t) { return ST.checkId(SITE.id, t); }).filter(function (id) { return ids.indexOf(id) >= 0; }) });
+      });
+      Promise.all(add.map(function (h) { return db().collection('hazards').doc(SITE.id + '__' + h.starterId).set(h); })).then(load).then(function () { draw(); toast(add.length + ' hazards added, each with this building’s checks as its controls.'); }, function (e) { toast('Not added: ' + (e.message || e)); });
+    };
+    if ($('addHz')) $('addHz').onclick = function () {
+      var sh = sheet('<h2>A hazard</h2><label class="l" for="nH">What could go wrong</label><input class="inp" id="nH" maxlength="200"><label class="l" for="nW">Who could be hurt</label><input class="inp" id="nW" maxlength="200">' +
+        '<div class="grid2"><div><label class="l" for="nL">Likelihood (1 to 5)</label><input class="inp" type="number" min="1" max="5" id="nL" value="2"></div><div><label class="l" for="nS">Severity (1 to 5)</label><input class="inp" type="number" min="1" max="5" id="nS" value="3"></div></div>' +
+        '<div class="row" style="margin-top:10px"><button class="btn" id="nGo">Add it</button></div>');
+      sh.q('nGo').onclick = function () {
+        if (!sh.q('nH').value.trim()) return;
+        db().collection('hazards').doc().set(hazardDoc({ hazard: sh.q('nH').value.trim(), who: sh.q('nW').value.trim(), l: Math.min(5, Math.max(1, +sh.q('nL').value || 1)), s: Math.min(5, Math.max(1, +sh.q('nS').value || 1)) }))
+          .then(function () { sh.close(); return load(); }).then(draw);
+      };
+    };
+    if ($('rGo')) $('rGo').onclick = function () {
+      var kind = $('rKind').value, date = $('rDate').value, next = $('rNext').value, by = $('rWho').value.trim(), f = $('rFile').files[0];
+      if (!date || !next || !by) { toast('Give the date, the next review date and the assessor.'); return; }
+      $('rGo').disabled = true; toast('Putting it up…');
+      var path = f ? 'compliance/' + SITE.id + '/risk-' + kind + '/' + Date.now() + '-' + f.name.replace(/[^\w.\- ]+/g, '_').slice(-80) : '';
+      (f ? EGBCAuth.storage().ref(path).put(f, { contentType: f.type || 'application/pdf' }) : Promise.resolve()).then(function () {
+        var files = f ? [{ name: f.name.slice(0, 80), path: path, type: f.type || '' }] : [];
+        return db().collection('raReports').doc().set({ siteId: SITE.id, kind: kind, date: date, assessor: by, nextReview: next, files: files, by: who().uid, byName: who().name, at: new Date().toISOString() }).then(function () {
+          /* THE REVIEW DATE IS ITSELF A CHECK: record the review check done on the
+             report's date, its "certificate" running to the next review. */
+          var c = B.checks.filter(function (x) { return x.templateId === REVIEW_CHECK[kind] && x.state === 'on'; })[0];
+          return c ? ST.recordDone(db(), c, { doneOn: date, certExpiry: next, notes: 'Professional report by ' + by, files: files }, who()) : null;
+        });
+      }).then(load).then(function () { draw(); toast('Put up. The review check is recorded, due again ' + day(next) + '.'); }, function (e) { $('rGo').disabled = false; toast('Not put up: ' + (e.message || e)); });
+    };
+    if ($('snGo')) $('snGo').onclick = function () {
+      var snap = { siteId: SITE.id, banner: T.riskBanner(CHURCH), by: who().uid, byName: who().name, at: firebase.firestore.FieldValue.serverTimestamp(), note: $('snNote').value.trim().slice(0, 1000),
+        reports: ['fire', 'hs'].map(latest).filter(Boolean).map(function (r) { return { kind: r.kind, date: r.date, assessor: r.assessor, nextReview: r.nextReview }; }),
+        hazards: B.hz.map(function (h) { var r = T.rating(h.l, h.s); return { hazard: h.hazard, band: r.band, score: r.score, rag: h.rag, why: h.why, controls: h.controls.map(function (i) { return i.title + ': ' + i.why; }), open: h.open.length, resolved: h.resolved.length }; }),
+        changes: since() };
+      db().collection('riskSnapshots').doc().set(snap).then(function () { return db().collection('complianceLog').doc().set({ siteId: SITE.id, what: 'snapshot', by: who().uid, byName: who().name, at: new Date().toISOString(), detail: {} }); })
+        .then(load).then(function () { draw(); toast('Signed off. The snapshot is kept, dated.'); }, function (e) { toast('Not saved: ' + (e.message || e)); });
+    };
+    document.querySelectorAll('[data-snap]').forEach(function (b) { b.onclick = function () {
+      var s = B.snaps[+b.getAttribute('data-snap')];
+      sheet('<div id="snapView"><h2>Live risk register: ' + esc(SITE.name || '') + '</h2><p class="banner">' + esc(s.banner) + '</p><p class="m">Signed off by ' + esc(s.byName) + ', ' + esc(day(s.at && s.at.toDate ? s.at.toDate().toISOString() : '')) + (s.note ? ' · ' + esc(s.note) : '') + '</p>' +
+        (s.reports || []).map(function (r) { return '<p>' + esc(KINDS[r.kind]) + ': ' + esc(day(r.date)) + ', ' + esc(r.assessor) + ', next review ' + esc(day(r.nextReview)) + '</p>'; }).join('') +
+        (s.hazards || []).map(function (h) { return '<div class="rec"><span class="dot ' + h.rag + '"></span> <b>' + esc(h.hazard) + '</b> <span class="pill ' + h.band + '">' + h.band + '</span><div class="m">' + esc(h.why) + ' · ' + h.open + ' open, ' + h.resolved + ' resolved</div></div>'; }).join('') +
+        '<div class="row noprint" style="margin-top:10px"><button class="btn sec" onclick="window.print()">Print or save as PDF</button></div></div>');
+    }; });
+    if ($('gGo')) $('gGo').onclick = function () {
+      var g = { siteId: SITE.id, reviewDue: addYears(TODAY, 1), updatedBy: who().uid, updatedByName: who().name, updatedAt: new Date().toISOString() };
+      ['identify', 'refuges', 'helpers', 'equipment'].forEach(function (k) { g[k] = $('g_' + k).value.trim().slice(0, 1000); });
+      db().collection('geeps').doc(SITE.id).set(g).then(load).then(function () { draw(); toast('The GEEP is saved; review it by ' + day(g.reviewDue) + '.'); }, function (e) { toast('Not saved: ' + (e.message || e)); });
+    };
+  }
+
+  E.ready().then(function (profile) {
+    ME = E.asSeen(profile || {});
+    var master = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), teams = EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : [];
+    ADMIN = master || teams.indexOf('Church office') >= 0;
+    TRUSTEE = master || teams.indexOf('Elders') >= 0;
+    if (!ADMIN && !TRUSTEE) {
+      E.refused();
+      $('wrap').innerHTML = '<h1>Live risk register</h1><div class="card"><p>This page is for the church office, the trustees and master admins.</p></div>';
+      return null;
+    }
+    return Promise.all([db().collection('sites').get(), db().collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
+      db().collection('churchSettings').doc('details').get().catch(function () { return null; })]).then(function (r) {
+      SITES = all(r[0]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      TEMPLATES = all(r[1]).length ? all(r[1]) : T.TEMPLATES;
+      CHURCH = (r[2] && r[2].exists && r[2].data().name) || '';
+      var want = (location.search.match(/[?&]site=([\w-]+)/) || [])[1];
+      SITE = SITES.filter(function (s) { return s.id === want; })[0] || SITES[0] || null;
+      return SITE ? load() : null;
+    }).then(draw);
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

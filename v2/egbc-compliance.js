@@ -235,10 +235,39 @@
     });
   }
 
+  /* ---- THE LIVE RISK REGISTER (Stage 4; F-234): a hazard's state ----
+     THE CONTROLS ARE THE CHECKS: hazard.controls are the building's check
+     ids. Its colour is the worst of its checks (switched-off and removed
+     ones aside), and its ISSUES are the safety jobs on those checks: open
+     ones make it amber, past due red; resolved ones are listed as resolved.
+     A hazard whose controls are all missing is amber ("No control in
+     place yet"). Closed hazards are grey.
+       hazards({ hazards, items (from schedule), jobs }) -> [{ ...hazard, rag, controls, open, resolved, why }] */
+  function hazards(o) {
+    o = o || {};
+    var byId = {}, order = { grey: 0, green: 1, amber: 2, red: 3 }, today = o.today || iso(new Date());
+    (o.items || []).forEach(function (i) { byId[i.id] = i; });
+    return (o.hazards || []).map(function (h) {
+      var ctl = (h.controls || []).map(function (id) { return byId[id]; }).filter(function (i) { return i && i.state === 'on'; });
+      var ids = ctl.map(function (i) { return i.id; });
+      var jobs = (o.jobs || []).filter(function (j) { return j.safety && ids.indexOf(j.checkId) >= 0; });
+      var open = jobs.filter(function (j) { return j.status !== 'done'; }), resolved = jobs.filter(function (j) { return j.status === 'done'; });
+      var rag = 'green', why = 'Controls in date';
+      if (h.status === 'closed') { rag = 'grey'; why = 'Closed'; }
+      else if (!ctl.length) { rag = 'amber'; why = 'No control in place yet'; }
+      else {
+        ctl.forEach(function (i) { if (order[i.rag] > order[rag]) rag = i.rag; });
+        open.forEach(function (j) { var r = j.due && String(j.due) < today ? 'red' : 'amber'; if (order[r] > order[rag]) rag = r; });
+        why = rag === 'red' ? 'A control is overdue, or an issue is past due' : rag === 'amber' ? (open.length ? open.length + ' open issue' + (open.length === 1 ? '' : 's') : 'A control is due soon') : 'Controls in date';
+      }
+      return Object.assign({}, h, { rag: rag, why: why, controls: ctl, open: open, resolved: resolved });
+    });
+  }
+
   /* A job's words suggest the safety tick (the person can change it). */
   var SAFETY_WORDS = /\b(fire|smoke|alarm|extinguish\w*|blanket|exit|escape|emergency light\w*|light(s|ing)?|bulb|electric\w*|socket|wir(e|es|ing)|fuse|spark\w*|shock|gas|boiler|carbon monoxide|water|leak\w*|flood\w*|taps?|legionella|trip|slip|steps?|stair\w*|handrail)\b/i;
   function suggestSafety(text) { return SAFETY_WORDS.test(String(text || '')); }
 
-  return { BASIS: BASIS, days: days, everyWords: everyWords, allowEvery: allowEvery, effective: effective, applies: applies, suggestSafety: suggestSafety, nextDue: nextDue, reconcile: reconcile, schedule: schedule, register: register,
+  return { hazards: hazards, BASIS: BASIS, days: days, everyWords: everyWords, allowEvery: allowEvery, effective: effective, applies: applies, suggestSafety: suggestSafety, nextDue: nextDue, reconcile: reconcile, schedule: schedule, register: register,
     _dates: { addDays: addDays, addMonths: addMonths, between: between } };
 });

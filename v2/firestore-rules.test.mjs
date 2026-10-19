@@ -4191,6 +4191,65 @@ await check('  while making the same record without it is fine', 'allow',
   await check('    Val does not', 'deny', () => getDoc(doc(ctx('u_cmval'), 'complianceSignoffs', 'so_1')));
 }
 
+// ── EVENTS (events window) ── STAGE 4 (F-234): the live risk register, PEEPs and GEEPs
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    const U = (uid, mid, teams) => setDoc(doc(d, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor: [], masterAdmin: false });
+    await U('u_pwar', 'm_pwar', ['Welcome']);     // a fire warden
+    await U('u_pste', 'm_pste', ['Welcome']);     // a duty steward, NOT on duty today
+    await U('u_ppat', 'm_ppat', []);              // a person with a plan
+    await U('u_poth', 'm_poth', ['Welcome']);     // anyone else
+    await U('u_poff', 'm_poff', ['Church office']);
+    await U('u_peld', 'm_peld', ['Elders']);
+    await setDoc(doc(d, 'sites', 'ps_a'), { name: 'Test church (invented)' });
+    await setDoc(doc(d, 'peeps', 'm_ppat'), { memberId: 'm_ppat', name: 'Pat (invented)', agreed: true, agreedAt: 'x', needs: 'Cannot use stairs (invented)', helpers: '', route: '', equipment: '', reviewDue: '2027-10-19', madeBy: 'self', updatedBy: 'u_ppat', updatedAt: 'x' });
+    await setDoc(doc(d, 'peepToday', '2026-10-19'), { day: '2026-10-19', readers: ['m_pwar'], entries: [{ memberId: 'm_ppat', name: 'Pat (invented)', needs: 'Cannot use stairs (invented)' }], at: 'x' });
+    await setDoc(doc(d, 'peepLog', 'pl_1'), { what: 'view', memberId: 'm_ppat', by: 'u_pwar', byName: 'x', at: 'x' });
+    await setDoc(doc(d, 'hazards', 'hz_1'), { siteId: 'ps_a', hazard: 'Fire (invented)', l: 2, s: 5, controls: [], status: 'open', updatedBy: 'u_poff' });
+  });
+  const PEEP = (uid, extra) => ({ memberId: 'm_ppat', name: 'Pat (invented)', agreed: true, agreedAt: 'x', needs: 'Cannot use stairs (invented)', helpers: 'A steward', route: '', equipment: '', reviewDue: '2027-10-19', madeBy: 'self', updatedBy: uid, updatedAt: 'y', ...(extra || {}) });
+  await check('PEEPS: the person reads their own plan', 'allow', () => getDoc(doc(ctx('u_ppat'), 'peeps', 'm_ppat')));
+  await check('  and changes it', 'allow', () => setDoc(doc(ctx('u_ppat'), 'peeps', 'm_ppat'), PEEP('u_ppat')));
+  await check('  NOT WITHOUT THEIR AGREEMENT', 'deny', () => setDoc(doc(ctx('u_ppat'), 'peeps', 'm_ppat'), PEEP('u_ppat', { agreed: false })));
+  await check('  NO MEDICAL HISTORY: no field for it', 'deny', () => setDoc(doc(ctx('u_ppat'), 'peeps', 'm_ppat'), PEEP('u_ppat', { medical: 'Epilepsy (invented)' })));
+  await check('  A FIRE WARDEN DOES NOT READ ANYONE’S PLAN DIRECTLY', 'deny', () => getDoc(doc(ctx('u_pwar'), 'peeps', 'm_ppat')));
+  await check('    nor list the plans', 'deny', () => getDocs(collection(ctx('u_pwar'), 'peeps')));
+  await check('  nobody else reads it', 'deny', () => getDoc(doc(ctx('u_poth'), 'peeps', 'm_ppat')));
+  await check('    not the office', 'deny', () => getDoc(doc(ctx('u_poff'), 'peeps', 'm_ppat')));
+  await check('    not a trustee', 'deny', () => getDoc(doc(ctx('u_peld'), 'peeps', 'm_ppat')));
+  await check('  nor writes one for someone else', 'deny', () => setDoc(doc(ctx('u_poth'), 'peeps', 'm_ppat'), PEEP('u_poth')));
+  await check('  a master admin reads it', 'allow', () => getDoc(doc(as('martin'), 'peeps', 'm_ppat')));
+  await check('TODAY’S PLANS: A WARDEN (a reader today) SEES THEM', 'allow', () => getDoc(doc(ctx('u_pwar'), 'peepToday', '2026-10-19')));
+  await check('  A STEWARD NOT ON DUTY (not a reader) DOES NOT', 'deny', () => getDoc(doc(ctx('u_pste'), 'peepToday', '2026-10-19')));
+  await check('  nor anyone else', 'deny', () => getDoc(doc(ctx('u_poth'), 'peepToday', '2026-10-19')));
+  await check('  nor a stranger', 'deny', () => getDoc(doc(anon(), 'peepToday', '2026-10-19')));
+  await check('  nobody writes it from a page (the server works it out)', 'deny', () => setDoc(doc(as('martin'), 'peepToday', '2026-10-19'), { day: '2026-10-19', readers: ['m_poth'], entries: [] }));
+  await check('  THE LOG: a look at a plan is written down', 'allow', () => setDoc(doc(ctx('u_pwar'), 'peepLog', 'pl_2'), { what: 'view', memberId: 'm_ppat', by: 'u_pwar', byName: 'x', at: 'x' }));
+  await check('    never changed', 'deny', () => updateDoc(doc(as('martin'), 'peepLog', 'pl_1'), { what: 'changed' }));
+  await check('    nor deleted', 'deny', () => deleteDoc(doc(as('martin'), 'peepLog', 'pl_1')));
+  await check('    the warden does not read the log', 'deny', () => getDoc(doc(ctx('u_pwar'), 'peepLog', 'pl_1')));
+  await check('  the person deletes their plan when it is no longer needed', 'allow', () => deleteDoc(doc(ctx('u_ppat'), 'peeps', 'm_ppat')));
+
+  await check('LIVE RISK REGISTER: the office keeps a hazard', 'allow', () => setDoc(doc(ctx('u_poff'), 'hazards', 'hz_2'), { siteId: 'ps_a', area: 'Fire', hazard: 'Blocked exit (invented)', who: 'Everyone', l: 2, s: 4, controls: ['ps_a__escape-routes'], notes: '', status: 'open', source: 'added', starterId: '', createdAt: 'x', updatedAt: 'x', updatedBy: 'u_poff' }));
+  await check('  a rating outside 1 to 5 is refused', 'deny', () => setDoc(doc(ctx('u_poff'), 'hazards', 'hz_3'), { siteId: 'ps_a', hazard: 'x', l: 9, s: 4, controls: [], status: 'open', updatedBy: 'u_poff' }));
+  await check('  a trustee reads it', 'allow', () => getDoc(doc(ctx('u_peld'), 'hazards', 'hz_1')));
+  await check('  a volunteer does not', 'deny', () => getDoc(doc(ctx('u_poth'), 'hazards', 'hz_1')));
+  await check('  nobody deletes a hazard (closed, never deleted)', 'deny', () => deleteDoc(doc(as('martin'), 'hazards', 'hz_1')));
+  await check('  the office puts up the professional fire risk assessment', 'allow', () => setDoc(doc(ctx('u_poff'), 'raReports', 'ra_1'), { siteId: 'ps_a', kind: 'fire', date: '2026-03-01', assessor: 'A. Assessor Ltd (invented)', nextReview: '2027-03-01', files: [], by: 'u_poff', byName: 'x', at: 'x' }));
+  await check('    never changed afterwards', 'deny', () => updateDoc(doc(as('martin'), 'raReports', 'ra_1'), { nextReview: '2030-01-01' }));
+  const SN = (uid, banner) => ({ siteId: 'ps_a', banner, by: uid, byName: uid, at: serverTimestamp(), note: '', reports: [], hazards: [], changes: '' });
+  await check('  A TRUSTEE KEEPS A DATED SNAPSHOT, under Martin’s banner', 'allow', () => setDoc(doc(ctx('u_peld'), 'riskSnapshots', 'rs_1'), SN('u_peld', 'Live risk management: how Test church (invented) manages, day to day, ...')));
+  await check('    NOT CALLED A "RISK ASSESSMENT" (no banner, no snapshot)', 'deny', () => setDoc(doc(ctx('u_peld'), 'riskSnapshots', 'rs_2'), SN('u_peld', 'Risk assessment for Test church')));
+  await check('    the office does not sign off', 'deny', () => setDoc(doc(ctx('u_poff'), 'riskSnapshots', 'rs_3'), SN('u_poff', 'Live risk management: x')));
+  await check('    a snapshot is never changed', 'deny', () => updateDoc(doc(as('martin'), 'riskSnapshots', 'rs_1'), { note: 'changed' }));
+  await check('  THE GEEP: the office writes the building’s plan for visitors', 'allow', () => setDoc(doc(ctx('u_poff'), 'geeps', 'ps_a'), { siteId: 'ps_a', identify: 'Ask at the door (invented)', refuges: '', helpers: '', equipment: '', reviewDue: '2027-10-19', updatedBy: 'u_poff', updatedByName: 'x', updatedAt: 'x' }));
+  await check('    anyone signed in reads it (it names nobody)', 'allow', () => getDoc(doc(ctx('u_poth'), 'geeps', 'ps_a')));
+  await check('    a volunteer does not change it', 'deny', () => setDoc(doc(ctx('u_poth'), 'geeps', 'ps_a'), { siteId: 'ps_a', identify: 'x' }));
+  await check('  THE ROLL-CALL LIST names duty stewards (a master admin)', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: [{ memberId: 'm_pwar', name: 'W', siteId: '', role: 'warden' }, { memberId: 'm_pste', name: 'S', siteId: '', role: 'steward' }], memberIds: ['m_pwar', 'm_pste'], allSites: ['m_pwar', 'm_pste'], bySite: {}, stewards: ['m_pste'], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

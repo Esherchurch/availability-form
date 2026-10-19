@@ -7869,3 +7869,61 @@ the gate report).
 - **Reminders are email only.** A phone notification could be added through notify.js; I did not, to keep to one channel until asked.
 - **"Not recorded yet" checks get no reminder.** They have no date to be due by. They show amber on the screens and in the monthly summary.
 - **The trustee report is the browser's print, not a generated PDF file.**
+
+### F-234 — Building compliance, Stage 4: the live risk register, PEEPs and GEEPs (19 Oct)
+
+**Labelled as Martin asked: a management tool that SUPPLEMENTS the professional risk assessments, never replaces them.**
+- **The name:** it is always called the "Live risk register" (page title, heading, Menu wording to come), never "Risk assessment" on its own.
+- **The banner:** Martin's banner, word for word, heads every screen of the register, every snapshot and the trustee report:
+  > Live risk management: how <church> manages, day to day, the risks identified in its professional Health, Safety and Fire risk assessments. It records the checks, issues, actions and reviews that show those risks are being controlled. It supplements those assessments; it does not replace them. Your trustees remain responsible for your building's safety.
+- **Kept the same everywhere:** the banner is kept once, in `egbc-compliance-templates.js` (`riskBanner`). The test holds Martin's words separately, so any change to them is caught.
+- **The rules check it too:** they refuse a snapshot whose banner does not begin "Live risk management:".
+
+**Built:**
+- **`risk.html`, the Live risk register:** for the office, the trustees and master admins, building by building.
+  - **The professional assessments:** the Fire and the Health and Safety reports, with their date, assessor, next review date and file.
+    - **Putting one up records the review check done** (the fire or H&S review). The next review date becomes that check's due date, so the review date is itself a check, with reminders and colour like any other.
+  - **Hazards:** each has a rating (likelihood × severity, 1 to 5 each: Low, Medium, High).
+    - **The controls are the building's own checks.** A hazard's colour is the worst of its checks, so an overdue check turns its hazard red.
+    - **Its issues are the safety jobs on those checks,** open (amber, or red past due) or resolved.
+    - **A starter list** of 14 hazards, each mapped to the building's checks, can be added in one tap, then changed.
+    - **Hazards are closed, never deleted.**
+  - **Changes since the professional assessment:** hazards added or changed, checks changed, building work and new answers since the latest report, "to tell your assessor at the next review".
+  - **Snapshots:** a trustee signs off, and a dated copy is kept in their name: the banner, the reports, every hazard with its colour, controls and issues. It can be opened and printed (or saved as a PDF), and is never changed.
+  - **The GEEP:** each building's plan for visitors who need help (how they are identified, where they wait, who helps, what equipment), with a review date. The office writes it; anyone signed in may read it, because it names nobody. It shows on the fire roll-call.
+- **`peep.html`, "My evacuation plan":** the person's own plan.
+  - **What it asks:** what help they need, who helps, where they go, and any equipment.
+  - **No medical details:** the page asks for none, and the rules allow no field for them.
+  - **Only with their agreement,** given by ticking that the wardens and the duty stewards on duty may see it on the roll-call.
+  - **Reviewed yearly:** the page asks them to check it once the year is up.
+  - **They delete it when it is no longer needed.**
+  - **Every making, change, deletion and look is logged** (`peepLog`, append only, read by master admins).
+- **`functions/peeps.js`, today's plans for the roll-call:** it builds `peepToday/<day>`, rebuilt when someone checks in or out, a plan changes, the roll-call list changes, the rota changes, and every morning.
+  - **Whose plans are in it:** only the people in today, meaning checked in at one of today's events (members, through their sign-up) or on today's rota.
+  - **Who may read it:** the fire wardens, and the duty stewards on the rota today. A steward not on duty is not a reader.
+  - **Each day stands alone:** yesterday's is deleted, and nothing is built while the add-on is off.
+  - **It sends nothing.**
+- **The roll-call (`checkin.html?view=rollcall`):** "People who need help to get out" lists today's plans, each opened with a tap. Each look is logged. Below it, each building's GEEP.
+- **Safeguarding settings, the roll-call list:** each person is now a "Fire warden" or a "Duty steward" (`fireRollCall.stewards`).
+- **Rules:**
+  - **`peeps`:** read and written only by the person and master admins. A warden never reads them directly, and neither do the office or the trustees. The plan must be agreed and carry only the plan's own fields.
+  - **`peepToday`:** read only by its readers and master admins; written by the server only.
+  - **`peepLog`:** append only.
+  - **`raReports`:** the office puts them up, the trustees and the office read them, and they are never changed.
+  - **`hazards`:** the office keeps them (ratings 1 to 5); the trustees read them; never deleted.
+  - **`riskSnapshots`:** the trustees take them, with the banner; never changed.
+  - **`geeps`:** the office writes them; anyone signed in reads them.
+
+**Martin's three proofs, in compliance-stage4.test (35/35):**
+- **A warden sees a PEEP only for someone in today.** Pat (checked in) and Rob (on the rota) are shown, Quinn (not here) is not, and Pat drops off when she checks out.
+- **A steward not on duty doesn't see them.** Stan opens the roll-call and sees no plans, and the rules refuse him. Sue, on the rota today, sees them.
+- **A PEEP never appears in any email.** The test checks every email the compliance run makes, including a reminder to a warden who reads plans, and that no server file but `peeps.js` reads the plans (`peeps.js` sends nothing).
+
+**Read as the brief allows, and not done:**
+- **A warden named for one building sees today's plans for every building** (each entry names its building). Narrowing them by building is a small step if Martin wants it.
+- **Children's plans are not included.** Children are checked in by their leaders, and a child cannot agree to or edit their own plan; their care plans stay with Kids Church. Leaders checked in as walk-ins (with no sign-up) can't be matched to a plan unless they are on the rota.
+- **No phone notification about plans.** That is deliberate: they are never sent anywhere.
+- **For the main window:**
+  - Menu entries for "Live risk register" (`risk.html`, office, Elders and master admins) and "My evacuation plan" (`peep.html`, anyone in the address book).
+  - The same `buildingCompliance` switch.
+- **For Martin to deploy at switch-over:** the rules and the `peepToday*` functions. The functions start doing anything only once the add-on is switched on.

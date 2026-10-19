@@ -752,3 +752,5 @@ export { compilerSend } from './compiler-send.js';
 export { sermonLinkKeep } from './sermon-links.js';
 /* Building compliance: the colour for bookings, reminders and the monthly summary (F-233), the events window's file. */
 export { complianceDaily } from './compliance.js';
+/* Personal evacuation plans on the fire roll-call: today's only, for today's people (F-234), the events window's file. */
+export { peepTodayDaily, peepTodayOnCheckin, peepTodayOnPeep, peepTodayOnRollCall, peepTodayOnRota } from './peeps.js';

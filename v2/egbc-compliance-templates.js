@@ -201,5 +201,40 @@
   var FIRE_GUIDE = { kitchen: ['wetChemical', 'fireBlanket'], hall: ['water|foam'], office: ['water|foam'], av: ['co2'], store: [], plant: [], other: [] };
   var FIRE_GUIDE_NOTE = 'Your fire risk assessment decides; this is a guide. Plant and boiler rooms: as your fire risk assessment says.';
 
-  return { VERSION: VERSION, BASIS: BASIS, GUIDANCE: GUIDANCE, QUESTIONS: QUESTIONS, TEMPLATES: TEMPLATES, ROOM_KINDS: ROOM_KINDS, EQUIPMENT: EQUIPMENT, FIRE_GUIDE: FIRE_GUIDE, FIRE_GUIDE_NOTE: FIRE_GUIDE_NOTE };
+  /* ---- STAGE 4: LIVE RISK MANAGEMENT (Martin, 19 Oct; F-234) ----
+     Never called "Risk assessment" on its own: it is a management tool
+     that SUPPLEMENTS the church's professional Health, Safety and Fire risk
+     assessments. Martin's words, exactly, on every screen of it, every
+     snapshot and the trustee report. */
+  function riskBanner(church) {
+    return 'Live risk management: how ' + (church || 'the church') + ' manages, day to day, the risks identified in its professional Health, Safety and Fire risk assessments. ' +
+      'It records the checks, issues, actions and reviews that show those risks are being controlled. It supplements those assessments; it does not replace them. ' +
+      "Your trustees remain responsible for your building's safety.";
+  }
+  /* Starter hazards. The CONTROLS ARE THE CHECKS (template ids): a hazard's
+     colour is its checks' colours and the open safety jobs on them. The
+     ratings are a starting point (likelihood and severity, 1 to 5 each, with
+     the controls in place); the professional assessment decides. */
+  var STARTER_HAZARDS = [
+    { id: 'fire', area: 'Fire', hazard: 'A fire starts and people cannot get out safely', who: 'Everyone in the building', l: 2, s: 5,
+      controls: ['fire-ra', 'fire-alarm-test', 'fire-alarm-service', 'emlight-quick', 'emlight-full', 'ext-in-place', 'ext-service', 'fire-doors', 'escape-routes', 'fire-signs', 'fire-drill', 'peeps-review', 'geep-review', 'refuge-points'] },
+    { id: 'slips', area: 'Building', hazard: 'Slips and trips on floors, steps and paths', who: 'Everyone, especially older people', l: 3, s: 3, controls: ['walk-round', 'boundaries', 'winter'] },
+    { id: 'electric', area: 'Electrical', hazard: 'Electric shock, or a fire from wiring or appliances', who: 'Everyone; volunteers using equipment', l: 2, s: 5, controls: ['eicr', 'eicr-let', 'pat'] },
+    { id: 'gas', area: 'Gas', hazard: 'A gas leak or carbon monoxide', who: 'Everyone in the building', l: 1, s: 5, controls: ['gas-service', 'gas-safety', 'co-alarm'] },
+    { id: 'water', area: 'Water', hazard: 'Legionella bacteria in the water system', who: 'Anyone using showers or taps', l: 2, s: 4, controls: ['legionella-ra', 'water-temps', 'flush-taps'] },
+    { id: 'asbestos', area: 'Asbestos', hazard: 'Disturbing asbestos during work', who: 'Contractors, volunteers doing repairs', l: 1, s: 5, controls: ['asbestos-survey', 'asbestos-reinspect', 'contractors'] },
+    { id: 'height', area: 'Health and safety', hazard: 'A fall when working at height (ladders, staging)', who: 'Volunteers and staff', l: 2, s: 4, controls: ['ladders'] },
+    { id: 'food', area: 'Food', hazard: 'Food poisoning or an allergic reaction', who: 'Anyone eating food served here', l: 2, s: 4, controls: ['food-hygiene', 'fridge-temps', 'allergens', 'food-reg'] },
+    { id: 'lone', area: 'Health and safety', hazard: 'Someone working alone is hurt and nobody knows', who: 'Cleaners, caretakers, people opening up', l: 2, s: 4, controls: ['lone-working'] },
+    { id: 'safeguarding', area: 'Safeguarding', hazard: 'Harm to children or adults at risk', who: 'Children, young people and adults at risk', l: 1, s: 5, controls: ['sg-policy', 'sg-audit', 'sg-recruitment'] },
+    { id: 'play', area: 'Building', hazard: 'An injury on play equipment', who: 'Children', l: 2, s: 3, controls: ['play-visual', 'play-routine', 'play'] },
+    { id: 'security', area: 'Security', hazard: 'A security incident at a large gathering', who: 'Everyone at a large event', l: 1, s: 5, controls: ['ml-plans', 'ml-briefing', 'ml-ra'] },
+    { id: 'handling', area: 'Health and safety', hazard: 'A strain from moving chairs, staging and kit', who: 'Volunteers setting up', l: 3, s: 2, controls: ['manual-handling'] },
+    { id: 'firstaid', area: 'Health and safety', hazard: 'An injury or a cardiac arrest with no help to hand', who: 'Everyone', l: 2, s: 5, controls: ['first-aid-kits', 'first-aiders', 'defib'] }
+  ];
+  /* A rating from likelihood and severity (1 to 5 each). */
+  function rating(l, s) { var n = (+l || 1) * (+s || 1); return { score: n, band: n >= 15 ? 'High' : n >= 5 ? 'Medium' : 'Low' }; }
+
+  return { VERSION: VERSION, BASIS: BASIS, GUIDANCE: GUIDANCE, QUESTIONS: QUESTIONS, TEMPLATES: TEMPLATES, ROOM_KINDS: ROOM_KINDS, EQUIPMENT: EQUIPMENT, FIRE_GUIDE: FIRE_GUIDE, FIRE_GUIDE_NOTE: FIRE_GUIDE_NOTE,
+    riskBanner: riskBanner, STARTER_HAZARDS: STARTER_HAZARDS, rating: rating };
 });
