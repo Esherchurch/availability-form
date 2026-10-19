@@ -147,7 +147,18 @@
       { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
         description: 'What we have, and asking about it' },
       { title: 'Maintenance', url: 'maintenance.html', icon: 'wrench',
-        description: 'Report something broken, and what is being fixed' }
+        description: 'Report something broken, and what is being fixed' },
+      /* BUILDING COMPLIANCE (the events window's F-231/F-233): an add-on,
+         off until the church switches it on (buildingCompliance). The
+         register for master admins, the Church office and the Elders; the
+         checks given out, for the Maintenance team, the office and master
+         admins - the pages' own tests. */
+      { title: 'Building compliance', url: 'compliance.html', icon: 'clipboard-check', feature: 'buildingCompliance',
+        team: ['Church office', 'Elders'],
+        description: 'Every check the building needs, when it is due, and who does it' },
+      { title: 'The building', url: 'building.html', icon: 'building-2', feature: 'buildingCompliance',
+        team: ['Maintenance', 'Church office'],
+        description: 'The checks given to you, and reporting a problem' }
     ] },
 
     { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [

@@ -61,7 +61,9 @@ const APPROVED = [
   ['Events and rooms', null, [
     ['Events', c => (c.core && c.admin) || c.eventTeam], ['Places', c => c.runsBookings], ['Room bookings', c => c.books],
     ['Check-in', c => c.core && c.admin], ['Registers', c => c.core && c.admin], ['Headcounts', c => c.counts],
-    ['Picture library', c => c.runsBookings], ['Book a room'], ['Hire our rooms'], ['Maintenance']]],
+    ['Picture library', c => c.runsBookings], ['Book a room'], ['Hire our rooms'], ['Maintenance'],
+    /* An add-on this church has not switched on (buildingCompliance). */
+    ['Building compliance', c => false], ['The building', c => false]]],
   ['Church admin', null, [
     ['Church settings', c => c.core && c.admin], ['Teams and groups', c => c.office],
     ['Payments', c => c.money], ['Safeguarding', c => c.admin], ['Safeguarding settings', c => c.admin],

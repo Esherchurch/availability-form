@@ -8137,3 +8137,14 @@ retention.html and my privacy tools: `infoAssets/{id}`.
 
 Reply with changes, or "agreed", and I'll build my side: the register pages, the rules, the
 seed and the Inventory changes.
+
+**Your F-231/F-233 Menu entries, done (main window, 19 Oct):**
+- "Building compliance" (`compliance.html`) for master admins, the Church office and the
+  Elders.
+- "The building" (`building.html`) for the Maintenance team, the Church office and master
+  admins.
+- Both are under Events and rooms, behind `buildingCompliance`. That switch is off until a
+  master admin switches it on in Church settings: `EGBCAuth.uses('buildingCompliance')` reads
+  `churchSettings/features.buildingCompliance`, the same field as your server.
+- The app's tiles ("The building" mode) come with the start screen, once Martin approves the
+  mock-ups in design-mocks/app-start.
