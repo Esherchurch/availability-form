@@ -33,5 +33,15 @@ ok('  the shell loads the Menu with it', /sibling\(MENU_SRC\)\.split\('\?'\)\[0\
 const hub = (read('hub.html').match(/egbc-menu\.js\?v=(\d{12})/) || [])[1];
 ok('  and the hub loads the Menu with the same stamp', hub === v, 'hub.html has ' + hub + ', MENU_V is ' + v);
 
+/* EVERY STAMP IS ONE STAMP (19 Oct 2026): a bump that found no old stamp to
+   replace glued the new one onto the front of every page's
+   egbc-shell.js?v=…, 24 digits, and nothing noticed - the browser loads it
+   happily, it just never matches a cache again. Twelve digits, always. */
+const bad = [];
+for (const f of fs.readdirSync(V2).filter(n => /\.html$/i.test(n))) {
+  for (const m of read(f).matchAll(/\.(?:js|css)\?v=(\d+)/g)) if (m[1].length !== 12) bad.push(f + ' ' + m[0]);
+}
+ok('every ?v= stamp on every page is twelve digits', bad.length === 0, bad.slice(0, 6).join(' | ') + (bad.length > 6 ? ' … ' + bad.length : ''));
+
 console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
 process.exit(R.some(x => !x) ? 1 : 0);

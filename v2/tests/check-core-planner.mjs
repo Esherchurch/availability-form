@@ -320,9 +320,16 @@ async function seed() {
       p1.songs + ' songs, items: ' + p1.items);
     ok('  and the songs are numbered', /^Song 1$/.test(p1.numbered), p1.numbered);
 
-    /* + Song really adds one. */
-    await ev('document.querySelector(\'[onclick="spAddSong()"]\').click();1');
-    await sleep(400);
+    /* + Song really adds one - through the song library since 19 Oct 2026
+       (choosing a song, check-song-pick.mjs has the rest of it): it opens,
+       and adding a name from it makes the row. */
+    await ev('document.querySelector(\'[onclick="spPickSong()"]\').click();1');
+    await sleep(800);
+    ok('  "+ Song" opens the song library', String(await ev('!!document.getElementById("sp-pick")')) === 'true');
+    await ev('(function(){var q=document.getElementById("sp-pick-q");q.value="Placeholder Synthetic";q.dispatchEvent(new Event("input",{bubbles:true}));return 1})()');
+    await sleep(1500);
+    await ev('(function(){var b=document.querySelector("#sp-pick-list [data-new]");if(b)b.click();return 1})()');
+    await sleep(800);
     const after = await planner(label);
     ok('  "+ Song" adds a song', after.songs === p1.songs + 1, after.songs + ' songs');
 
