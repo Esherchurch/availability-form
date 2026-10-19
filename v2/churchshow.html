@@ -6,7 +6,7 @@
 <title>Connect ChurchShow</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610162000" data-title="Connect ChurchShow"></script>
+<script src="egbc-shell.js?v=202610191200202610162000" data-title="Connect ChurchShow"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -61,6 +61,15 @@
   .tag.on{background:var(--ok-bg);color:var(--ok)}
   .tag.off{background:#f3f4f6;color:var(--muted)}
   .empty{text-align:center;padding:22px 8px;color:var(--muted);font-size:13px}
+  .row .acts{display:flex;flex-wrap:wrap;gap:6px}
+  .row .rn{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .row .rn[hidden],.row .jb[hidden]{display:none}
+  .row .jb{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+  .row .jb label{display:flex;align-items:center;gap:8px;min-height:40px;font-size:14px;cursor:pointer}
+  .row .jb input{width:18px;height:18px}
+  .row .jb-b{display:flex;gap:6px;margin-top:4px}
+  .row .rn .inp{flex:1 1 160px;min-width:0}
+  @media(max-width:600px){.row{flex-wrap:wrap}.row .acts{width:100%}}
   .empty i{color:var(--faint);margin-bottom:8px;display:block}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none}
 </style>
@@ -68,7 +77,7 @@
 <body>
 <div class="wrap">
   <h1>Connect ChurchShow</h1>
-  <p class="sub">The projection computer signs in to the hub once, with a code you read off this screen.</p>
+  <p class="sub">Each projection computer signs in to the hub once, with a code you read off this screen.</p>
 
   <div class="card">
     <div class="card-h">
@@ -78,6 +87,12 @@
     <div class="field">
       <label for="site">Which building is the screen in?</label>
       <select id="site" class="inp"><option value="">Loading…</option></select>
+    </div>
+    <!-- EACH COMPUTER ON ITS OWN (Martin, 19 Oct 2026): a name, so the list
+         below says which one is which and each can be disconnected alone. -->
+    <div class="field">
+      <label for="devName">What shall we call this computer?</label>
+      <input id="devName" class="inp" maxlength="40" placeholder="For example: Main hall PC, Kids Church laptop" autocomplete="off">
     </div>
     <button class="btn" id="makeBtn" onclick="makeCode()">
       <i data-lucide="key-round" style="width:15px;height:15px"></i>Make pairing code
@@ -116,10 +131,11 @@
     </div>
     <p class="hint">ChurchShow reads the service plan and the song words from the hub. Until it is
       connected it cannot, so the screens would be empty on Sunday.</p>
-    <p class="hint" style="margin-top:8px">One connection covers a building, not a computer, so the
-      spare machine can use its own code without stopping the main one. <strong>Disconnect</strong>
-      switches the whole building off straight away — use it if a computer goes missing, then
-      connect again when it is back.</p>
+    <p class="hint" style="margin-top:8px">Each computer has its own connection, so a building can
+      have several - the main hall PC and the Kids Church laptop, say. <strong>Disconnect</strong>
+      switches that one computer off straight away and leaves the others alone - use it if a
+      computer goes missing. <strong>Pair again</strong> makes a new code for the same computer,
+      if it has lost its sign-in.</p>
   </div>
 </div>
 
@@ -166,10 +182,13 @@ async function loadSites() {
 async function makeCode() {
   const siteId = document.getElementById('site').value;
   if (!siteId) { toast('Choose a building first.'); return; }
+  const name = document.getElementById('devName').value.trim();
+  if (!name) { toast('Give the computer a name first.'); document.getElementById('devName').focus(); return; }
   const btn = document.getElementById('makeBtn');
   btn.disabled = true;
   try {
-    const r = await EGBCAuth.call('churchShowPairingCode', { siteId });
+    const r = await EGBCAuth.call('churchShowPairingCode', { siteId, name });
+    document.getElementById('devName').value = '';
     show(r.code, r.expiresAt);
     await loadDevices();
   } catch (e) {
@@ -214,42 +233,122 @@ async function loadDevices() {
     const snap = await db.collection('devices').get();
     const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(d => d.kind === 'churchshow')
-      .sort((a, b) => String(a.siteName || a.siteId || '').localeCompare(String(b.siteName || b.siteId || '')));
+      .sort((a, b) => String(a.siteName || a.siteId || '').localeCompare(String(b.siteName || b.siteId || ''))
+        || String(a.name || '').localeCompare(String(b.name || '')));
     if (!rows.length) {
       box.innerHTML = '<p class="empty"><i data-lucide="monitor-off" style="width:26px;height:26px"></i>'
         + 'No projection computer is connected yet.</p>';
       return;
     }
+    DEVICES = rows;
     box.innerHTML = rows.map(d => {
       const on = d.active === true;
-      return '<div class="row">'
+      /* The building's one shared connection from before 19 Oct 2026 has no
+         name until somebody gives it one. */
+      const name = d.name || 'Paired before 19 Oct 2026';
+      return '<div class="row" data-dev="' + esc(d.id) + '">'
         + '<span class="ic"><i data-lucide="' + (on ? 'monitor-play' : 'monitor-off')
         + '" style="width:17px;height:17px"></i></span>'
-        + '<div class="grow"><div class="t">' + esc(d.siteName || d.siteId) + '</div>'
-        + '<div class="s">' + (on
+        + '<div class="grow"><div class="t">' + esc(name) + '</div>'
+        + '<div class="s">' + esc(d.siteName || d.siteId) + ' \u00b7 ' + (on
             ? 'Connected' + (d.pairedAt ? ' ' + esc(when(d.pairedAt)) : '')
             : 'Disconnected' + (d.disconnectedAt ? ' ' + esc(when(d.disconnectedAt)) : ''))
-        + '</div></div>'
+        + '</div>'
+        + '<div class="s job">Job: ' + esc(jobWords(d)) + '</div>'
+        + (EGBCAuth.isMaster() ? '<div class="jb" hidden>'
+            + '<label><input type="checkbox" data-job="services"' + (jobsOf(d).services ? ' checked' : '') + '> Main services</label>'
+            + GROUPS.map(g => '<label><input type="checkbox" data-job="lesson" value="' + esc(g.id) + '"'
+                + (jobsOf(d).lessonGroups.includes(g.id) ? ' checked' : '') + '> Lessons: ' + esc(g.name || g.id) + '</label>').join('')
+            + '<div class="jb-b"><button class="btn sm" data-act="jobsave">Save the job</button><button class="btn sec sm" data-act="jobcancel">Cancel</button></div></div>' : '')
+        + '<div class="rn" hidden><input class="inp" maxlength="40" value="' + esc(d.name || '') + '" aria-label="New name for ' + esc(name) + '">'
+        + '<button class="btn sm" data-act="save">Save</button><button class="btn sec sm" data-act="cancel">Cancel</button></div>'
+        + '</div>'
         + '<span class="tag ' + (on ? 'on' : 'off') + '">'
         + '<i data-lucide="' + (on ? 'check' : 'minus') + '" style="width:13px;height:13px"></i>'
         + (on ? 'On' : 'Off') + '</span>'
-        + (on ? '<button class="btn sec sm" onclick="disconnect(\'' + esc(d.siteId)
-                + '\',\'' + esc(d.siteName || d.siteId) + '\')">'
-                + '<i data-lucide="unplug" style="width:14px;height:14px"></i>Disconnect</button>' : '')
-        + '</div>';
+        + '<div class="acts">'
+        + (EGBCAuth.isMaster() ? '<button class="btn sec sm" data-act="job"><i data-lucide="list-checks" style="width:14px;height:14px"></i>Job</button>' : '')
+        + '<button class="btn sec sm" data-act="rename"><i data-lucide="pencil" style="width:14px;height:14px"></i>Rename</button>'
+        + '<button class="btn sec sm" data-act="again"><i data-lucide="key-round" style="width:14px;height:14px"></i>Pair again</button>'
+        + (on ? '<button class="btn sec sm" data-act="off"><i data-lucide="unplug" style="width:14px;height:14px"></i>Disconnect</button>' : '')
+        + '</div></div>';
     }).join('');
   } catch (e) {
     box.innerHTML = '<p class="empty">Could not read what is connected.</p>';
   }
 }
 
-async function disconnect(siteId, siteName) {
-  if (!confirm('Disconnect ChurchShow for ' + siteName + '?\n\n'
-    + 'The screens there stop reading the hub straight away. Connect it again with a new code '
-    + 'when you want it back.')) return;
+/* One computer at a time (Martin, 19 Oct 2026). */
+let DEVICES = [];
+/* ITS JOB (Martin, 19 Oct 2026): Main services and/or Lessons for chosen
+   plan groups, set by a master admin. No jobs on file = main services. */
+let GROUPS = [];
+function jobsOf(d) {
+  const j = d.jobs || {};
+  return { services: j.services === undefined ? true : j.services === true, lessonGroups: Array.isArray(j.lessonGroups) ? j.lessonGroups : [] };
+}
+function jobWords(d) {
+  const j = jobsOf(d), out = [];
+  if (j.services) out.push('Main services');
+  if (j.lessonGroups.length) out.push('Lessons: ' + j.lessonGroups.map(id => (GROUPS.find(g => g.id === id) || {}).name || id).join(', '));
+  return out.join(' and ') || 'Nothing';
+}
+async function loadGroups() {
+  if (!EGBCAuth.isMaster()) return;
   try {
-    await EGBCAuth.call('churchShowDisconnect', { siteId });
-    toast('Disconnected ' + siteName + '.');
+    const s = await db.collection('planGroups').get();
+    GROUPS = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(g => g.archived !== true)
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  } catch (e) { GROUPS = []; }
+}
+const devName = (d) => d.name || ('the computer paired before 19 Oct 2026 in ' + (d.siteName || d.siteId));
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const row = b.closest('[data-dev]'); if (!row) return;
+  const d = DEVICES.find(x => x.id === row.dataset.dev); if (!d) return;
+  const rn = row.querySelector('.rn');
+  if (b.dataset.act === 'rename') { rn.hidden = false; rn.querySelector('input').focus(); return; }
+  if (b.dataset.act === 'cancel') { rn.hidden = true; return; }
+  const jb = row.querySelector('.jb');
+  if (b.dataset.act === 'job' && jb) { jb.hidden = false; return; }
+  if (b.dataset.act === 'jobcancel' && jb) { jb.hidden = true; return; }
+  if (b.dataset.act === 'jobsave' && jb) {
+    const services = !!jb.querySelector('[data-job=services]').checked;
+    const lessonGroups = [].filter.call(jb.querySelectorAll('[data-job=lesson]'), c => c.checked).map(c => c.value);
+    if (!services && !lessonGroups.length) { toast('Choose at least one job.'); return; }
+    b.disabled = true;
+    try { await EGBCAuth.call('churchShowSetJob', { deviceId: d.id, services, lessonGroups }); toast('Saved. It takes effect straight away.'); await loadDevices(); }
+    catch (err) { toast(err.message || 'Could not save that just now.'); b.disabled = false; }
+    return;
+  }
+  if (b.dataset.act === 'save') {
+    const name = rn.querySelector('input').value.trim();
+    if (!name) { toast('Give it a name.'); return; }
+    b.disabled = true;
+    try { await EGBCAuth.call('churchShowRename', { deviceId: d.id, name }); toast('Renamed.'); await loadDevices(); }
+    catch (err) { toast(err.message || 'Could not rename it just now.'); b.disabled = false; }
+    return;
+  }
+  if (b.dataset.act === 'again') {
+    b.disabled = true;
+    try {
+      const r = await EGBCAuth.call('churchShowPairingCode', { deviceId: d.id });
+      show(r.code, r.expiresAt);
+      document.getElementById('codeWrap').scrollIntoView({ block: 'center' });
+      await loadDevices();
+    } catch (err) { toast(err.message || 'Could not make a code just now.'); b.disabled = false; }
+    return;
+  }
+  if (b.dataset.act === 'off') disconnect(d);
+});
+async function disconnect(d) {
+  const label = devName(d);
+  if (!confirm('Disconnect ' + label + '?\n\n'
+    + 'That computer stops reading the hub straight away; any others stay connected. Pair it again '
+    + 'with a new code when you want it back.')) return;
+  try {
+    await EGBCAuth.call('churchShowDisconnect', { deviceId: d.id });
+    toast('Disconnected ' + label + '.');
     document.getElementById('codeWrap').style.display = 'none';
     if (TICK) { clearInterval(TICK); TICK = null; }
     await loadDevices();
@@ -259,6 +358,7 @@ async function disconnect(siteId, siteName) {
 }
 
 document.addEventListener('egbc-ready', async () => {
+  await loadGroups();
   await loadSites();
   await loadDevices();
 });

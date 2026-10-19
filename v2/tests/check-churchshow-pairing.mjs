@@ -73,7 +73,10 @@ const authPost = (path, body, asOwner) =>
 
 const SITE = 'site_cs_synth';
 const SITE_NAME = 'Synthetic Church Hall';
-const DEVICE_UID = 'churchshow-' + SITE;
+/* The building's old shared identity, from before 19 Oct 2026; and the
+   computer this check pairs, whose id the hub chooses (one per computer). */
+const OLD_UID = 'churchshow-' + SITE;
+let DEVICE_UID = '';
 
 async function account(email, { master, adminFor }) {
   let up = await authPost('/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
@@ -112,9 +115,11 @@ const redeemCall = async (body, method) => {
 await put('sites/' + SITE, { name: SITE_NAME, active: true });
 /* Clear anything a previous run left: codes are burnt once, so they have to
    be fresh, and the device has to start unpaired for the first assertion. */
-await fsReq('DELETE', DOCS + '/devices/' + DEVICE_UID);
+for (const d of await listDocs('devices')) {
+  if (plain((d.fields || {}).siteId) === SITE) await fsReq('DELETE', DOCS + '/devices/' + d.name.split('/').pop());
+}
 for (const d of await listDocs('deviceCodes')) {
-  if (plain((d.fields || {}).uid) === DEVICE_UID)
+  if (plain((d.fields || {}).siteId) === SITE)
     await fsReq('DELETE', DOCS + '/deviceCodes/' + d.name.split('/').pop());
 }
 
@@ -129,13 +134,15 @@ const noAuth = await req('localhost', FN_PORT, 'POST',
   `/${PROJECT}/${REGION}/churchShowPairingCode`, { data: { siteId: SITE } });
 ok('and nobody signed in certainly cannot', /UNAUTHENTICATED/.test(noAuth.body), noAuth.body.slice(0, 160));
 
-const badSite = await call(av.idToken, 'churchShowPairingCode', { siteId: 'site_does_not_exist' });
+const badSite = await call(av.idToken, 'churchShowPairingCode', { siteId: 'site_does_not_exist', name: 'Nowhere PC' });
 ok('a site that does not exist is refused',
   !!(badSite.error && badSite.error.status === 'NOT_FOUND'), JSON.stringify(badSite).slice(0, 200));
 
 console.log('\nmaking a code');
-const made = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE })).result || {};
+const made = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE, name: 'Main hall Synthetic' })).result || {};
 const CODE = made.code;
+DEVICE_UID = made.deviceId || '';
+ok('a computer of its own, not the building\u2019s', /^churchshow-site_cs_synth-[a-z0-9]{10}$/.test(DEVICE_UID), DEVICE_UID);
 ok('an AV admin gets a code', typeof CODE === 'string' && CODE.length === 8, JSON.stringify(made));
 ok('from the alphabet ChurchShow expects, with no I, L, O, 0 or 1',
   /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/.test(String(CODE)), CODE);
@@ -220,7 +227,7 @@ ok('and the code records when it was used', burnt && plain(burnt.fields.usedAt) 
   burnt && JSON.stringify(plain(burnt.fields.usedAt)));
 
 console.log('\na code that has run out');
-const stale = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE })).result || {};
+const stale = (await call(av.idToken, 'churchShowPairingCode', { deviceId: DEVICE_UID })).result || {};
 const staleDocs = (await listDocs('deviceCodes')).filter(d =>
   plain((d.fields || {}).uid) === DEVICE_UID && plain((d.fields || {}).usedAt) === null);
 ok('a fresh code was made to expire', staleDocs.length === 1, 'found ' + staleDocs.length);
@@ -232,13 +239,13 @@ const expired = await redeemCall({ code: stale.code });
 ok('an expired code is refused', expired.status === 400, expired.status + ' ' + expired.raw);
 
 console.log('\ndisconnecting');
-const dRefused = await call(nobody.idToken, 'churchShowDisconnect', { siteId: SITE });
+const dRefused = await call(nobody.idToken, 'churchShowDisconnect', { deviceId: DEVICE_UID });
 ok('somebody who administers nothing cannot disconnect it',
   !!(dRefused.error && dRefused.error.status === 'PERMISSION_DENIED'), JSON.stringify(dRefused).slice(0, 200));
 
 /* A live, unused code, to prove Disconnect clears it. */
-const live = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE })).result || {};
-const off = (await call(av.idToken, 'churchShowDisconnect', { siteId: SITE })).result || {};
+const live = (await call(av.idToken, 'churchShowPairingCode', { deviceId: DEVICE_UID })).result || {};
+const off = (await call(av.idToken, 'churchShowDisconnect', { deviceId: DEVICE_UID })).result || {};
 ok('an AV admin disconnects it', off.ok === true, JSON.stringify(off));
 const devOff = await getOne('devices/' + DEVICE_UID);
 ok('AND THE DEVICE DOCUMENT SAYS SO AT ONCE, which is what the rules read',
@@ -257,7 +264,7 @@ ok('so a code written down before the disconnect is worthless', deadCode.status 
    does both - a deliberate break that removed the device check failed
    nothing. So: make a code, switch the device off by hand WITHOUT clearing
    the codes, and the code must still be refused. */
-const liveAgain = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE })).result || {};
+const liveAgain = (await call(av.idToken, 'churchShowPairingCode', { deviceId: DEVICE_UID })).result || {};
 await fsReq('PATCH', DOCS + '/devices/' + DEVICE_UID + '?updateMask.fieldPaths=active',
   { fields: fields({ active: false }) });
 const codeStillThere = (await listDocs('deviceCodes')).filter(d =>
@@ -269,7 +276,7 @@ ok('is refused BECAUSE THE DEVICE IS OFF, not because the code went',
   offRefused.status === 400, offRefused.status + ' ' + offRefused.raw);
 
 console.log('\nand connecting it again');
-const back = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE })).result || {};
+const back = (await call(av.idToken, 'churchShowPairingCode', { deviceId: DEVICE_UID })).result || {};
 ok('pairing again gives a new code', typeof back.code === 'string' && back.code !== CODE, back.code);
 const devBack = await getOne('devices/' + DEVICE_UID);
 ok('and switches the device back on', devBack && plain(devBack.fields.active) === true,
@@ -351,6 +358,82 @@ codeDoc.usedAt = null;
 const fine = await redeem(fakeDb, workingAuth, { code: R7_CODE, nowMs: Date.now() });
 ok('and the same path answers 200 when signing works',
   fine.status === 200 && fine.body.customToken === 'a.b.c', JSON.stringify(fine).slice(0, 160));
+
+/* ---- EACH COMPUTER ON ITS OWN (Martin, 19 Oct 2026) ---------------------
+   The main hall PC and the Kids Church laptop were one connection, so
+   Disconnect switched both off. Now each is paired, named and disconnected
+   alone - and what was paired before keeps working. */
+console.log('\neach computer on its own');
+const nameless = await call(av.idToken, 'churchShowPairingCode', { siteId: SITE });
+ok('a new computer needs a name', !!(nameless.error && nameless.error.status === 'INVALID_ARGUMENT'), JSON.stringify(nameless).slice(0, 200));
+const A = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE, name: 'Kids laptop Synthetic' })).result || {};
+const B = (await call(av.idToken, 'churchShowPairingCode', { siteId: SITE, name: 'Main hall Synthetic' })).result || {};
+ok('two computers in one building are two devices', A.deviceId && B.deviceId && A.deviceId !== B.deviceId, A.deviceId + ' / ' + B.deviceId);
+const devA = await getOne('devices/' + A.deviceId), devB = await getOne('devices/' + B.deviceId);
+ok('each with its own name', devA && plain(devA.fields.name) === 'Kids laptop Synthetic' && devB && plain(devB.fields.name) === 'Main hall Synthetic',
+  JSON.stringify([devA && plain(devA.fields.name), devB && plain(devB.fields.name)]));
+const offA = (await call(av.idToken, 'churchShowDisconnect', { deviceId: A.deviceId })).result || {};
+const devA2 = await getOne('devices/' + A.deviceId), devB2 = await getOne('devices/' + B.deviceId);
+ok('disconnecting one switches that one off', offA.ok === true && devA2 && plain(devA2.fields.active) === false, JSON.stringify(offA));
+ok('AND LEAVES THE OTHER ON', devB2 && plain(devB2.fields.active) === true, devB2 && JSON.stringify(devB2.fields.active));
+const redeemB = await redeemCall({ code: B.code });
+ok('the other one still connects', redeemB.status === 200 && redeemB.body && redeemB.body.siteId === SITE, redeemB.status + ' ' + redeemB.raw.slice(0, 120));
+const redeemA = await redeemCall({ code: A.code });
+ok('the one switched off does not', redeemA.status === 400, redeemA.status + ' ' + redeemA.raw.slice(0, 120));
+const rnNo = await call(nobody.idToken, 'churchShowRename', { deviceId: B.deviceId, name: 'Hijacked' });
+ok('somebody who administers nothing cannot rename one', !!(rnNo.error && rnNo.error.status === 'PERMISSION_DENIED'), JSON.stringify(rnNo).slice(0, 160));
+const rn = (await call(av.idToken, 'churchShowRename', { deviceId: B.deviceId, name: '  Main hall   PC  ' })).result || {};
+const devB3 = await getOne('devices/' + B.deviceId);
+ok('an admin renames one, tidily', rn.ok === true && devB3 && plain(devB3.fields.name) === 'Main hall PC', JSON.stringify(rn));
+const againA = (await call(av.idToken, 'churchShowPairingCode', { deviceId: A.deviceId })).result || {};
+const devA3 = await getOne('devices/' + A.deviceId);
+ok('pairing one again keeps its name and switches it back on', againA.deviceId === A.deviceId && devA3
+  && plain(devA3.fields.active) === true && plain(devA3.fields.name) === 'Kids laptop Synthetic', JSON.stringify(againA).slice(0, 200));
+
+/* ---- ITS JOB (Martin, 19 Oct 2026) -----------------------------------
+   Main services and/or Lessons for chosen plan groups, set by a master
+   admin; the record (which the rules read) and the claims both carry it. */
+console.log('\neach computer\u2019s job');
+const master = await account('cs.master@example.invalid', { master: true });
+await put('planGroups/pg_cs_synth', { name: 'Kids Church Synthetic', kind: 'children', leaderIds: [], siteId: SITE });
+const devB5 = await getOne('devices/' + B.deviceId);
+ok('a new computer does main services, and no lessons', devB5 && JSON.stringify(devB5.fields.jobs || null).includes('"services":{"booleanValue":true}'),
+  devB5 && JSON.stringify(devB5.fields.jobs));
+const jobNo = await call(av.idToken, 'churchShowSetJob', { deviceId: B.deviceId, services: false, lessonGroups: ['pg_cs_synth'] });
+ok('an AV admin cannot set a computer\u2019s job - a master admin does', !!(jobNo.error && jobNo.error.status === 'PERMISSION_DENIED'), JSON.stringify(jobNo).slice(0, 160));
+const jobNone = await call(master.idToken, 'churchShowSetJob', { deviceId: B.deviceId, services: false, lessonGroups: [] });
+ok('a job of nothing at all is refused', !!(jobNone.error && jobNone.error.status === 'INVALID_ARGUMENT'), JSON.stringify(jobNone).slice(0, 160));
+const jobGhost = await call(master.idToken, 'churchShowSetJob', { deviceId: B.deviceId, services: false, lessonGroups: ['pg_not_there'] });
+ok('and so is a group that does not exist', !!(jobGhost.error && jobGhost.error.status === 'INVALID_ARGUMENT'), JSON.stringify(jobGhost).slice(0, 160));
+const jobOk = (await call(master.idToken, 'churchShowSetJob', { deviceId: B.deviceId, services: false, lessonGroups: ['pg_cs_synth'] })).result || {};
+const devB6 = await getOne('devices/' + B.deviceId);
+const jf = devB6 && devB6.fields.jobs && devB6.fields.jobs.mapValue.fields;
+ok('a master admin makes it a Lessons-only computer, on its record at once', jobOk.ok === true && jf
+  && jf.services.booleanValue === false && JSON.stringify(jf.lessonGroups).includes('pg_cs_synth'), JSON.stringify(jf));
+const whoB = await req(AUTH[0], Number(AUTH[1] || 9099), 'POST',
+  '/identitytoolkit.googleapis.com/v1/projects/' + PROJECT + '/accounts:lookup', { localId: [B.deviceId] }, { Authorization: 'Bearer owner' });
+const claimsB = JSON.parse(((JSON.parse(whoB.body || '{}').users || [])[0] || {}).customAttributes || '{}');
+ok('and its account\u2019s claims say so', claimsB.services === false && JSON.stringify(claimsB.lessons) === '["pg_cs_synth"]', JSON.stringify(claimsB));
+const pairB = (await call(av.idToken, 'churchShowPairingCode', { deviceId: B.deviceId })).result || {};
+const redB = await redeemCall({ code: pairB.code });
+const sB = JSON.parse((await authPost('/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=fake-api-key',
+  { token: (redB.body || {}).customToken, returnSecureToken: true })).body || '{}');
+const tB = sB.idToken ? JSON.parse(Buffer.from(String(sB.idToken).split('.')[1], 'base64').toString('utf8')) : {};
+ok('paired again, its token carries the job: no services, lessons for that group', tB.services === false && JSON.stringify(tB.lessons) === '["pg_cs_synth"]',
+  JSON.stringify({ services: tB.services, lessons: tB.lessons }));
+const devB7 = await getOne('devices/' + B.deviceId);
+ok('and pairing again keeps the job', devB7 && devB7.fields.jobs.mapValue.fields.services.booleanValue === false, devB7 && JSON.stringify(devB7.fields.jobs));
+
+console.log('\nwhat was paired before 19 Oct keeps working');
+await put('devices/' + OLD_UID, { kind: 'churchshow', siteId: SITE, siteName: SITE_NAME, active: true, pairedBy: av.uid });
+const oldAgain = (await call(av.idToken, 'churchShowPairingCode', { deviceId: OLD_UID })).result || {};
+ok('the building\u2019s old connection pairs again as itself', oldAgain.deviceId === OLD_UID && typeof oldAgain.code === 'string', JSON.stringify(oldAgain).slice(0, 200));
+const oldRedeem = await redeemCall({ code: oldAgain.code });
+ok('and signs in as it always did', oldRedeem.status === 200, oldRedeem.status + ' ' + oldRedeem.raw.slice(0, 120));
+const oldOff = (await call(av.idToken, 'churchShowDisconnect', { siteId: SITE })).result || {};
+const devOld = await getOne('devices/' + OLD_UID), devB4 = await getOne('devices/' + B.deviceId);
+ok('the old call, by building, still switches the old connection off', oldOff.ok === true && devOld && plain(devOld.fields.active) === false, JSON.stringify(oldOff));
+ok('and only that: the new computers stay on', devB4 && plain(devB4.fields.active) === true, devB4 && JSON.stringify(devB4.fields.active));
 
 const failed = R.filter(v => !v).length;
 console.log('\n' + (R.length - failed) + '/' + R.length + ' passed');

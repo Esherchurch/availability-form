@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-appmode.js?v=202610152310"></script>
-<script src="egbc-shell.js?v=202610162000" data-title="Preaching plan"></script>
+<script src="egbc-shell.js?v=202610191200202610162000" data-title="Preaching plan"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Preaching plan — EGBC</title>
@@ -42,6 +42,7 @@
   .in{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font:400 14px Inter,system-ui,sans-serif;color:var(--ink);background:#fff}
   .in:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
   .ro{color:var(--ink);min-height:20px;display:block}
+  .sermon{display:inline-flex;align-items:center;min-height:32px;margin-top:4px;font-size:13px;color:var(--brand);text-decoration:underline;text-underline-offset:3px}
   .ro.none{color:var(--faint)}
   .reader{display:grid;grid-template-columns:1fr 1fr 44px;gap:6px;margin-bottom:6px}
   .x,.add{min-height:44px;border-radius:8px;border:1px solid var(--line-2);background:#fff;color:var(--ink);font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
@@ -114,6 +115,10 @@ const SERVICE_TYPES = ['Sunday Morning Worship', 'Evening Carol Service', 'Midni
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 let ROWS = [], SHOW_PAST = false, CAN_EDIT = false, PASTOR = '', PEOPLE = [];
+/* THE SERMON PLAN for a service, where the preaching team has made one
+   (the events window's F-229): sermonLinks/<event id>, kept by its server,
+   { sessionId, title, passage }. Read-only here; it links to the plan. */
+let SERMONS = {};
 
 function iso(d) { const p = (x) => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 function ukDate(s) { const d = new Date(s + 'T12:00:00'); return isNaN(d) ? s : DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
@@ -150,6 +155,7 @@ async function load() {
   if (CAN_EDIT) loadPeople();
   drawSettings();
   draw();
+  loadSermons();
 }
 
 /* Suggestions for the name boxes: adults in the address book. Anything can
@@ -171,6 +177,26 @@ function drawSettings() {
     <p class="lede" style="margin:0">Can change this plan without being an admin, and gets For Sunday's prayer list. Master admins only see this.</p>
     <p class="ro${who ? '' : ' none'}" data-pastor>${esc(who || 'Nobody chosen yet')}</p>
     <a class="add" href="team-mail.html">Choose the Pastor in Team emails</a></div>`;
+}
+
+async function loadSermons() {
+  const ids = ROWS.map(r => r.id);
+  const out = {};
+  try {
+    for (let i = 0; i < ids.length; i += 30) {
+      const snap = await db.collection('sermonLinks')
+        .where(firebase.firestore.FieldPath.documentId(), 'in', ids.slice(i, i + 30)).get();
+      snap.docs.forEach(d => { out[d.id] = d.data() || {}; });
+    }
+  } catch (e) { return; }   /* no links is the same as none made */
+  SERMONS = out;
+  if (Object.keys(out).length) draw();
+}
+function sermon(r) {
+  const s = SERMONS[r.id];
+  if (!s || !s.sessionId) return '';
+  const words = [s.title, s.passage].filter(Boolean).join(' \u00b7 ') || 'open it';
+  return `<a class="sermon" href="session-planner.html?s=${encodeURIComponent(s.sessionId)}">Sermon plan: ${esc(words)}</a>`;
 }
 
 function field(r, f, label) {
@@ -199,7 +225,7 @@ function draw() {
   $('rows').innerHTML = rows.map(r => `<tr data-id="${esc(r.id)}" class="${r.date < TODAY ? 'past' : ''}">
       <td class="date"><b>${esc(ukDate(r.date))}</b><small>${esc(r.serviceTime || '')}${r.serviceTime && r.type ? ' · ' : ''}${esc(r.type || '')}</small></td>
       <td>${field(r, 'publicTitle', 'Description')}</td>
-      <td>${field(r, 'speaker', 'Speaker')}</td>
+      <td>${field(r, 'speaker', 'Speaker')}${sermon(r)}</td>
       <td>${field(r, 'serviceLeader', 'Service leader')}</td>
       <td>${readers(r)}<p class="saved" role="status"></p></td></tr>`).join('');
 }

@@ -19,6 +19,8 @@
  *   master: true   a master admin only
  *   adminOf: [..]  an admin of one of those areas, or a master admin
  *   bookings: true an admin, or a bookings admin for any site
+ *   messages: true master admins, the Church office and team leaders -
+ *                  who may email and post notices (WHO MAY, 16 Oct 2026)
  *   feature: 'x'   only when the church uses that part (HANDOVER-MAIN
  *                  rule 12, EGBCChurch.uses); everything is on until the
  *                  per-church switch exists
@@ -30,302 +32,217 @@
 (function () {
   'use strict';
 
+  /* THE MENU BY JOB (Martin approved the mock-ups, 19 Oct 2026:
+     design-mocks/navigation). The same in the website's Menu, the hub's
+     left column and the app: the everyday things first, then a section
+     for each job - Sundays, People and messages, Events and rooms, Church
+     admin - then each team's own area, then Resources.
+
+     A SECTION (`section: true`) is a label with its pages under it, always
+     open. `fold: true` sections (Events and rooms, Church admin) fold away
+     when they hold more than FOLD_OVER pages, so the office's Menu is not a
+     wall; whoever has only a few of them sees them open. Each section is
+     drawn only for somebody who can use something in it (prune()).
+
+     Every page and every gate the 8 Oct Menu had is still here - nothing
+     was taken away, only moved. Address book and Send an email follow WHO
+     MAY (16 Oct): master admins, the Church office and team leaders
+     (`messages: true`), which is what their pages' guards already say. */
   const TREE = [
-    { title: 'Dashboard', url: 'hub.html', icon: 'layout-dashboard',
+    { title: 'Home', url: 'hub.html', icon: 'house',
       description: 'Your own page: what is coming up and what needs you' },
-    /* anyTeam: the rota is for people on a team - the rules (volunteer())
-       refuse it to anyone else, so Everyone was offered an error (audit). */
-    { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days', anyTeam: true,
-      description: 'Who is on, week by week' },
-    /* The Preaching plan (Ryan, the Pastor): speakers, leaders, readers.
-       For people on a team; the Pastor named on the page changes it. */
-    /* The events window's session planner (F-226): for the leaders and
-       teams of a plan group (Kids Church, Lazers, Youth, the preaching
-       team) and master admins - the page's own test. */
-    { title: 'Session planner', url: 'session-planner.html', icon: 'notebook-pen', planGroup: true, feature: 'sessionPlanner',
-      description: 'Plan each week\u2019s session, with your team' },
-    { title: 'Preaching plan', url: 'preaching-plan.html', icon: 'book-open', anyTeam: true, feature: 'preachingPlan',
-      description: 'Who is preaching, leading and reading' },
-    /* ROTA REPORTS (the events window's rota-reports.html, F-210): clashes
-       and an overview, for the people who make rotas - admins of the rota
-       teams - and master admins. Feature 'rotaReports'. */
-    { title: 'Rota reports', url: 'rota-reports.html', icon: 'clipboard-list', feature: 'rotaReports',
-      adminOf: ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'],
-      description: 'Clashes, gaps and who is serving how often' },
-    { title: 'Meetings', url: 'meeting.html', icon: 'video',
-      description: 'Set one up, join a call, every meeting room' },
-    /* WATCH (F-164): the live link, the full services and the channel.
-       For master admins and the people who look after sermons; feature
-       'watch'. "Sermons" joins it when its own Menu entry is built. */
-    /* WATCH & LISTEN for everyone (Martin, 15 Oct 2026: "The podcast/YouTube
-       admin is so everyone else can watch and listen"): the live link on
-       the day, the services and videos, and the sermons. */
-    { title: 'Watch & Listen', url: 'watch.html', icon: 'circle-play',
-      description: 'Sunday services, videos and sermons' },
-    { title: 'Manage Watch', url: 'watch-admin.html', icon: 'tv', feature: 'watch', sermons: true,
-      description: 'This week\u2019s live link, the full services and the channel' },
-    /* SERMONS (the events window's sermons-admin.html): the same people as
-       Watch - master admins and sermonShow/access. Feature 'sermons'. */
-    { title: 'Manage sermons', url: 'sermons-admin.html', icon: 'book-open-text', feature: 'sermons', sermons: true,
-      description: 'The series and passages, and the podcast feed' },
     { title: "What's on", url: 'whatson.html', icon: 'calendar-heart',
       description: 'Church events, and signing up' },
-    /* No team on it: giving is for everybody signed in. It is not on the
-       public side of the Menu because the bank details are not readable
-       until you have signed in - the rules say so, and a Menu item that
-       led to a refusal would be worse than none. */
+    /* WATCH & LISTEN for everyone (Martin, 15 Oct 2026). */
+    { title: 'Watch & Listen', url: 'watch.html', icon: 'circle-play',
+      description: 'Sunday services, videos and sermons' },
+    /* No team on it: giving is for everybody signed in (the bank details
+       are not readable until you have signed in). */
     { title: 'Give', url: 'give.html', icon: 'hand-coins',
       description: 'The church’s bank details, and Gift Aid' },
-    /* GIFT AID (the events window's giftaid.html, F-169): each person's own
-       declaration, and the office's and treasurer's list on the same page.
-       For everybody signed in; feature 'giftAid'. */
+    /* GIFT AID (the events window's giftaid.html, F-169): your own
+       declaration. Feature 'giftAid'. */
     { title: 'Gift Aid', url: 'giftaid.html', icon: 'receipt', feature: 'giftAid',
       description: 'Your Gift Aid declaration' },
-    /* Martin, 15 Oct 2026: "there is no link to see the guidance for
-       Stripe etc" - and "that shouldn't be seen by anyone other than the
-       admin or designated people". Master admins (onTeam lets them through)
-       and the money team only - BY ITS NAME, which the server writes to
-       paymentSettings/public.moneyTeam (F-200; 'Finance' until a master admin
-       renames it), read once with the profile (EGBCAuth.moneyTeam()). Not
-       under Admin, which is Core-only. */
-    { title: 'Payments', url: 'payments.html', icon: 'credit-card', money: true,
-      description: 'Card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
-    /* Phone notifications (FINDINGS-notify N-5): for everybody signed in,
-       the person's own switches. Feature 'notifications'. */
-    { title: 'Notifications', url: 'notifications.html', icon: 'bell-ring', feature: 'notifications',
-      description: 'On this phone, and which ones you get' },
-    { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
-      description: 'What we have, and asking about it' },
-    { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',
-      description: 'See what is free and book it' },
-    /* The events window's page (F-123). No team on it, because the page
-       itself is open to anyone signed in: reporting something broken is for
-       everybody, and only the Maintenance team can mark it done. */
-    { title: 'Maintenance', url: 'maintenance.html', icon: 'wrench',
-      description: 'Report something broken, and what is being fixed' },
-
-    /* Worship and AV people (Choir folds into Worship). Not Kids Church
-       (Martin, 8 Oct 2026: "Kids church still sees all the menu items for
-       worship").
-
-       CORE TEAM IS NOT LISTED HERE ANY MORE, and that is not a removal.
-       It used to be a third name in this list, which is a second copy of
-       a rule that lives in egbc-auth.js (CORE_COVERS). onTeam() below now
-       asks EGBCAuth.inTeam, which carries the cover, so Core Team still
-       gets this heading - by the same answer the page guards give, rather
-       than by a list that could be corrected in one place and not the
-       other. */
-    { title: 'Worship & AV', url: 'Worshipteamcharter.html', icon: 'music',
-      team: ['Worship Team', 'AV Team'],
-      description: 'What the team is for, and how it works',
-      children: [
-        { title: 'Worship', icon: 'mic-vocal', children: [
-          { title: 'Play-Through', url: 'EGBC-PlayThrough.html', icon: 'play-circle',
-            description: 'Listen through a song before Sunday' },
-          { title: 'Worship Training', url: 'EGBC-Training-Worship.html', icon: 'graduation-cap',
-            description: 'How we do what we do' },
-          { title: 'Music Databases', icon: 'library', children: [
-            { title: 'Music Database', url: 'Library.html', icon: 'list-music',
-              description: 'Every song, with its keys and files' },
-            /* leaderOf: the page is for Worship leaders (data-role="leader"). */
-            { title: 'Music Uploader', url: 'batchupload.html', icon: 'upload', leaderOf: 'Worship Team',
-              description: 'Add several songs at once' }
-          ] }
-        ] },
-        { title: 'AV', icon: 'sliders-horizontal', children: [
-          { title: 'How-To AV', url: 'EGBC-HowTo-AV.html', icon: 'book-open',
-            description: 'Step by step, for the desk and the screens' },
-          { title: 'AV Troubleshoot', url: 'EGBC-Troubleshoot-AV.html', icon: 'wrench',
-            description: 'When something is not working' },
-          { title: 'Equipment', icon: 'package', children: [
-            /* leaderOf: the page is for AV leaders (data-role="leader"). */
-            { title: 'Inventory', url: 'inventory-system-2.html', icon: 'boxes', leaderOf: 'AV Team',
-              description: 'What we have and where it lives' },
-            { title: 'AV Infrastructure Mapper', url: 'schematic.html', icon: 'network',
-              description: 'What is plugged into what' },
-            { title: 'Monitor Setup', url: 'MonitorStageMap.html', icon: 'speaker',
-              description: 'Who hears what on stage' }
-          ] },
-          /* The projection computer signs in to the hub with a code read off
-             this page. Admins only: the page turns a member away and the
-             function refuses them again. FINDINGS-churchshow.md R1-R3. */
-          { title: 'Connect ChurchShow', url: 'churchshow.html', icon: 'monitor-play',
-            admin: true, adminOf: ['AV Team', 'Worship Team'],
-            description: 'Sign the projection computer in to the hub' }
-        ] }
-      ] },
-
-    /* The youth teams and their leaders (Martin, 15 Oct 2026: "Everyone"
-       could see all the youth stuff). A team heading: off the team, nothing
-       under it either. The planner is Youth Worship's, as its page says. */
-    { title: 'Youth', url: 'Youthcharter.html', icon: 'users', team: ['Youth Worship', 'Lazers', 'ReNu'],
-      description: 'What the youth team is for, and how it works',
-      children: [
-        { title: 'Youth Service Planner', url: 'youthserviceplanner.html', icon: 'clipboard-list', team: 'Youth Worship',
-          description: 'Plan a youth service' }
-      ] },
-
-    /* KIDS CHURCH, beside Youth rather than inside Core Team.
-
-       F-089 asked for "Children's register ... near Safeguarding", and
-       Safeguarding was pencilled in under Core Team > Events and rooms
-       (F-031). That heading is for rooms and events - Events, Places, Room
-       bookings - and a children's register is neither. More to the point,
-       THE PEOPLE WHO NEED IT ARE NOT ON CORE TEAM: a Kids Church leader
-       would reach their own register through a heading called Core Team and
-       another called Events and rooms, neither of which is about their work
-       or says what they are looking for. That is the exact complaint Martin
-       made about the old Menu.
-
-       Room bookings already had to be bent into that shape - it sits under
-       those two headings and is not gated on `core`, so its people get
-       through headings that are not theirs. Once is a workaround; twice
-       would be the wrong structure.
-
-       So: a team heading, like Worship & AV and Youth. Kids Church has a
-       charter but no page of its own, so the heading is only a heading.
-       Safeguarding and Check-in belong here too when they ship. */
-    { title: 'Kids Church', icon: 'baby', team: 'Kids Church',
-      description: "The children's team, and the children in their care",
-      children: [
-        { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', team: 'Kids Church',
-          description: 'The children, their groups, and who may collect them' },
-        /* THE SUNDAY DESK (kids-checkin.html), which is what the app's Kids
-           Church opens too. It pointed at checkin.html - the check-in for an
-           EVENT - which is now under Events and rooms as Event check-in. */
-        { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', team: 'Kids Church',
-          description: 'The desk on a Sunday: check children in and out, labels and the fire roll-call' }
-      ] },
-
-    /* SAFEGUARDING (Martin, 14 Oct 2026: he could not find Safeguarding
-       settings - neither page was in the Menu). For the safeguarding lead and
-       deputy and anybody who administers something: the leaders' checks, the
-       exceptions, and the settings. A heading of its own, not under Kids
-       Church: it covers everybody who works with under-18s. */
-    { title: 'Safeguarding', url: 'safeguarding.html', icon: 'shield-check', sg: true,
-      description: 'Leaders\u2019 DBS checks and training, and exceptions',
-      children: [
-        { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', sg: true,
-          description: 'Who the lead is, how long checks last, and the ratios' },
-        { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', sg: true,
-          description: 'Records whose keeping time is up, to check and delete' }
-      ] },
-
-    /* GROUPS AND FORMS: run by whoever administers a team (the pages say
-       which groups and forms are theirs), so for any admin rather than
-       Core Team only. */
-    { title: 'Groups and forms', icon: 'users-round', admin: true, children: [
-        { title: 'Small groups', url: 'groups-admin.html', icon: 'users-round', admin: true,
-          description: 'Groups, their leaders, members and meetings' },
-        { title: 'Forms', url: 'forms-admin.html', icon: 'list-checks', admin: true,
-          description: 'Consent and sign-up forms, and their answers' }
-      ] },
-
-    { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', core: true,
-      description: 'What Core Team is for, and how it works',
-      children: [
-        { title: 'Planning', icon: 'calendar-range', core: true, children: [
-          { title: 'Rota Planner', url: 'Planner.html', icon: 'calendar-plus', core: true,
-            description: 'Build the term and send the rotas' },
-          { title: 'Sunday Service Planner', url: 'SundayServicePlanner.html', icon: 'list-ordered', core: true,
-            description: 'The order of service, songs and keys' },
-          { title: 'Availability form', url: 'index.html', icon: 'check-square', core: true,
-            description: 'What the team fills in each term' }
-        ] },
-        { title: 'People and email', icon: 'contact', core: true, children: [
-          /* `runs`, NOT `core` (NEXT-BRIEF §25). These were Core Team's,
-             and Martin's point is that the church administrator may not be
-             on Core Team while a Worship admin, who is, has no business in
-             People and Send. Membership of the Church office group decides
-             it now, and the phone's Running things asks the same helper.
-
-             WHEN THIS GOES LIVE the Church office group has to exist with
-             people in it, or the office loses these two from the Menu. A
-             master admin still sees everything. */
-          { title: 'Address Book', url: 'addressbook.html', icon: 'book-user', runs: 'people',
-            description: 'Who is on which team, and how to reach them' },
-          { title: 'Email Compiler', url: 'EmailBuilder2.html', icon: 'mail', runs: 'send',
-            description: 'Write and send to a team' },
-          /* Martin, 15 Oct 2026: the one list of teams and groups, kept by
-             master admins and the Church office (the page's guard and
-             firestore.rules say the same). */
-          { title: 'Teams & groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',
-            description: 'Add, rename, recolour, order and archive teams' }
-        ] },
-        { title: 'Music', icon: 'music-2', core: true, children: [
-          { title: 'Music Upload', url: 'music-uploader.html', icon: 'file-music', core: true,
-            description: 'Add one song, with its files' }
-        ] },
-        /* The events window's pages go here (F-031): Check-in, Registers and
-           Safeguarding under this heading when they ship. */
-        { title: 'Events and rooms', icon: 'calendar-cog', core: true, admin: true, children: [
-          /* eventTeam (F-212): also for anybody on an event's team, who may
-             administer nothing - they get "Events I run" there. */
-          { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', core: true, admin: true, eventTeam: true,
-            description: 'Make an event, see who is coming' },
-          /* Places and the Picture library: whoever has the "bookings" part
-             of Running things (master admins, the office, a site's bookings
-             admin) - the pages' own test (F-226). */
-          { title: 'Places', url: 'places-admin.html', icon: 'map-pin', runs: 'bookings',
-            description: 'Sites, rooms and what is in them' },
-          /* Not `admin`: a site's bookings admin looks after that site's
-             bookings without administering a team, and gating this on admin
-             alone hid the page from the very people it is for. The page turns
-             anybody else away politely, so a wrong guess here is a wasted
-             click and not a leak. */
-          { title: 'Room bookings', url: 'bookings-admin.html', icon: 'calendar-check-2', bookings: true,
-            description: 'Requests to approve, and what is booked' },
-          { title: 'Event check-in', url: 'checkin.html', icon: 'user-check', core: true, admin: true,
-            description: 'Check people in at an event, with its tickets' },
-          { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', core: true, admin: true,
-            description: 'Who came to an event or a series, to download' },
-          /* The Kids Church leads and master admins (F-226). */
-          { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', headcount: true,
-            description: 'How many came on a Sunday, week by week' },
-          /* F-176: the pictures events use again and again. */
-          { title: 'Picture library', url: 'picture-library.html', icon: 'images', runs: 'bookings', feature: 'pictureLibrary',
-            description: 'Pictures the church uses again and again' }
-        ] },
-        { title: 'Admin', icon: 'settings', core: true, admin: true, children: [
-          { title: 'Backup & Restore', url: 'data-tools.html', icon: 'database-backup', core: true, admin: true,
-            description: 'Take a copy of everything, or put one back' },
-          /* Martin, 13 Oct 2026: the switch for phone notifications is
-             here, and the page had no way in from the Menu at all. */
-          { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', core: true, admin: true,
-            description: 'The church\'s name and logo, giving details, and phone notifications on or off' },
-          /* Martin, 15 Oct 2026: who was sent what is for master admins
-             only ("shouldn't be seen by anyone other than the admin or
-             designated people"). */
-          { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true, master: true,
-            description: 'Every email the church sent, and any that failed' },
-          /* The events window's team-mail.html (F-207): which address each
-             team sends from. Master admins; feature 'teamMail'. */
-          { title: 'Team emails', url: 'team-mail.html', icon: 'at-sign', core: true, admin: true, master: true, feature: 'teamMail',
-            description: 'Which address each team\u2019s emails come from' }
-        ] }
-      ] },
-
-    /* NEXT-BRIEF §24. Gated on nothing: anybody who comes to this church
-       may notice that somebody has stopped coming, and they are not
-       necessarily on a team. Its own entry rather than inside Resources,
-       because somebody looking for it is not browsing. */
     /* CARE & SUPPORT (Martin, 14 Oct 2026): pastoral care for yourself,
-       "I'm worried about someone", and prayer - one short choice. Gated on
-       nothing but the church's own switch for the whole care part. The
-       readers' inbox beside it, for the Pastoral team and the safeguarding
-       lead and deputy only. */
+       "I'm worried about someone", and prayer. Gated on nothing but the
+       church's switch; the readers' inbox for the Pastoral team and the
+       safeguarding lead and deputy only. */
     { title: 'Care & support', url: 'care.html', icon: 'hand-heart', feature: 'care',
       description: 'Pastoral care for you, or tell us you are worried about someone' },
     { title: 'Care & support: what has come in', url: 'care-inbox.html', icon: 'inbox', feature: 'care', careReader: true,
       description: 'For the pastoral team and the safeguarding lead and deputy' },
-    /* PRAYER (the events window's prayer.html, F-166): your requests, and
-       answers to prayer. For everybody signed in; feature 'prayer'. */
+    /* PRAYER (the events window's prayer.html, F-166). Feature 'prayer'. */
     { title: 'Prayer', url: 'prayer.html', icon: 'church', feature: 'prayer',
       description: 'Prayer requests and praise reports' },
+    /* Phone notifications (FINDINGS-notify N-5): your own switches. */
+    { title: 'Notifications', url: 'notifications.html', icon: 'bell-ring', feature: 'notifications',
+      description: 'On this phone, and which ones you get' },
 
-    { title: 'Resources', icon: 'folder-open', children: [
-      /* "Pin boards", plural, because there are five of them now and the old
-         name read as one (Martin, 10 Oct 2026). */
+    { title: 'Sundays', section: true, icon: 'calendar-days', children: [
+      /* anyTeam: the rota is for people on a team - the rules refuse it
+         to anyone else. */
+      { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days', anyTeam: true,
+        description: 'Who is on, week by week' },
+      { title: 'Rota planner', url: 'Planner.html', icon: 'calendar-plus', core: true,
+        description: 'Build the term, send the rotas' },
+      { title: 'Sunday service plan', url: 'SundayServicePlanner.html', icon: 'list-ordered', core: true,
+        description: 'Songs, keys and the order' },
+      /* The Preaching plan (Ryan, the Pastor). */
+      { title: 'Preaching plan', url: 'preaching-plan.html', icon: 'book-open', anyTeam: true, feature: 'preachingPlan',
+        description: 'Speakers, readers, passages' },
+      /* The events window's session planner (F-226): a plan group's
+         leaders and team, and master admins. */
+      { title: 'Session planner', url: 'session-planner.html', icon: 'notebook-pen', planGroup: true, feature: 'sessionPlanner',
+        description: 'Plan each week’s session, with your team' },
+      /* ROTA REPORTS (the events window's, F-210): admins of the rota
+         teams and master admins. */
+      { title: 'Rota reports', url: 'rota-reports.html', icon: 'clipboard-list', feature: 'rotaReports',
+        adminOf: ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'],
+        description: 'Clashes, gaps and who is serving how often' },
+      { title: 'Availability form', url: 'index.html', icon: 'check-square', core: true,
+        description: 'What the team fills in each term' }
+    ] },
+
+    { title: 'People and messages', section: true, icon: 'contact', children: [
+      { title: 'Address book', url: 'addressbook.html', icon: 'book-user', messages: true,
+        description: 'Who is on which team, and how to reach them' },
+      { title: 'Send an email', url: 'EmailBuilder2.html', icon: 'mail', messages: true,
+        description: 'Write to your team, or (the office) anyone' },
+      /* The events window's team-mail.html (F-207): which address each
+         team sends from. Master admins; feature 'teamMail'. */
+      { title: 'Team emails', url: 'team-mail.html', icon: 'at-sign', master: true, feature: 'teamMail',
+        description: 'Which address each team’s emails come from' },
+      /* The hub's notices: post one (the editor opens), or manage them. */
+      { title: 'Notices', url: 'hub.html?notices=1', icon: 'megaphone', messages: true,
+        description: 'Post one, or manage them' },
+      { title: 'Meetings', url: 'meeting.html', icon: 'video',
+        description: 'Set one up, join a call, every meeting room' }
+    ] },
+
+    { title: 'Events and rooms', section: true, fold: true, icon: 'calendar-cog', children: [
+      /* eventTeam (F-212): also for anybody on an event's team. */
+      { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', core: true, admin: true, eventTeam: true,
+        description: 'Make an event, see who is coming' },
+      /* The "bookings" part of Running things (F-226). */
+      { title: 'Places', url: 'places-admin.html', icon: 'map-pin', runs: 'bookings',
+        description: 'Sites, rooms and what is in them' },
+      /* Not `admin`: a site's bookings admin often administers no team. */
+      { title: 'Room bookings', url: 'bookings-admin.html', icon: 'calendar-check-2', bookings: true,
+        description: 'Requests to approve, and what is booked' },
+      { title: 'Check-in', url: 'checkin.html', icon: 'user-check', core: true, admin: true,
+        description: 'Check people in at an event, with its tickets' },
+      { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', core: true, admin: true,
+        description: 'Who came to an event or a series, to download' },
+      /* The Kids Church leads and master admins (F-226). */
+      { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', headcount: true,
+        description: 'How many came on a Sunday, week by week' },
+      /* F-176. */
+      { title: 'Picture library', url: 'picture-library.html', icon: 'images', runs: 'bookings', feature: 'pictureLibrary',
+        description: 'Pictures the church uses again and again' },
+      /* For everybody: booking, hiring, and reporting something broken
+         (the events window's maintenance.html, F-123). */
+      { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',
+        description: 'See what is free and book it' },
+      { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
+        description: 'What we have, and asking about it' },
+      { title: 'Maintenance', url: 'maintenance.html', icon: 'wrench',
+        description: 'Report something broken, and what is being fixed' }
+    ] },
+
+    { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [
+      { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', core: true, admin: true,
+        description: 'The church\'s name and logo, giving details, and phone notifications on or off' },
+      /* Master admins and the Church office (Martin, 15 Oct 2026). */
+      { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',
+        description: 'Add, rename, recolour, order and archive teams' },
+      /* The money team, by its name (F-200), and master admins. */
+      { title: 'Payments', url: 'payments.html', icon: 'credit-card', money: true,
+        description: 'Card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
+      /* The safeguarding lead and deputy and anybody who administers
+         something (Martin, 14 Oct 2026). */
+      { title: 'Safeguarding', url: 'safeguarding.html', icon: 'shield-check', sg: true,
+        description: 'Leaders’ DBS checks and training, and exceptions' },
+      { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', sg: true,
+        description: 'Who the lead is, how long checks last, and the ratios' },
+      { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', sg: true,
+        description: 'Records whose keeping time is up, to check and delete' },
+      /* Run by whoever administers a team. */
+      { title: 'Small groups', url: 'groups-admin.html', icon: 'users-round', admin: true,
+        description: 'Groups, their leaders, members and meetings' },
+      { title: 'Forms', url: 'forms-admin.html', icon: 'list-checks', admin: true,
+        description: 'Consent and sign-up forms, and their answers' },
+      /* Master admins only (Martin, 15 Oct 2026). */
+      { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true, master: true,
+        description: 'Every email the church sent, and any that failed' },
+      /* Master admins and the people who look after sermons (F-164). */
+      { title: 'Manage Watch', url: 'watch-admin.html', icon: 'tv', feature: 'watch', sermons: true,
+        description: 'This week’s live link, the full services and the channel' },
+      { title: 'Manage sermons', url: 'sermons-admin.html', icon: 'book-open-text', feature: 'sermons', sermons: true,
+        description: 'The series and passages, and the podcast feed' },
+      { title: 'Backup', url: 'data-tools.html', icon: 'database-backup', core: true, admin: true,
+        description: 'Take a copy of everything, or put one back' }
+    ] },
+
+    /* EACH TEAM'S OWN AREA. A team heading: off the team, nothing under it
+       either (prune()). Core Team still gets Worship & AV, through
+       EGBCAuth.inTeam's cover (CORE_COVERS), not a list kept here. A
+       heading that is also a page opens its charter. */
+    { title: 'My teams', section: true, icon: 'users', children: [
+      { title: 'Worship & AV', url: 'Worshipteamcharter.html', icon: 'music',
+        team: ['Worship Team', 'AV Team'],
+        description: 'What the team is for, and how it works',
+        children: [
+          { title: 'Play-Through', url: 'EGBC-PlayThrough.html', icon: 'play-circle',
+            description: 'Listen through a song before Sunday' },
+          { title: 'Worship Training', url: 'EGBC-Training-Worship.html', icon: 'graduation-cap',
+            description: 'How we do what we do' },
+          { title: 'Music Database', url: 'Library.html', icon: 'list-music',
+            description: 'Every song, with its keys and files' },
+          /* leaderOf: the page is for Worship leaders (data-role="leader"). */
+          { title: 'Music Uploader', url: 'batchupload.html', icon: 'upload', leaderOf: 'Worship Team',
+            description: 'Add several songs at once' },
+          { title: 'How-To AV', url: 'EGBC-HowTo-AV.html', icon: 'book-open',
+            description: 'Step by step, for the desk and the screens' },
+          { title: 'AV Troubleshoot', url: 'EGBC-Troubleshoot-AV.html', icon: 'wrench',
+            description: 'When something is not working' },
+          /* leaderOf: the page is for AV leaders (data-role="leader"). */
+          { title: 'Inventory', url: 'inventory-system-2.html', icon: 'boxes', leaderOf: 'AV Team',
+            description: 'What we have and where it lives' },
+          { title: 'AV Infrastructure Mapper', url: 'schematic.html', icon: 'network',
+            description: 'What is plugged into what' },
+          { title: 'Monitor Setup', url: 'MonitorStageMap.html', icon: 'speaker',
+            description: 'Who hears what on stage' },
+          /* Admins of AV or Worship only (FINDINGS-churchshow.md R1-R3). */
+          { title: 'Connect ChurchShow', url: 'churchshow.html', icon: 'monitor-play',
+            admin: true, adminOf: ['AV Team', 'Worship Team'],
+            description: 'Sign the projection computers in to the hub' }
+        ] },
+      /* The youth teams and their leaders (Martin, 15 Oct 2026). */
+      { title: 'Youth', url: 'Youthcharter.html', icon: 'users', team: ['Youth Worship', 'Lazers', 'ReNu'],
+        description: 'What the youth team is for, and how it works',
+        children: [
+          { title: 'Youth Service Planner', url: 'youthserviceplanner.html', icon: 'clipboard-list', team: 'Youth Worship',
+            description: 'Plan a youth service' }
+        ] },
+      /* KIDS CHURCH (F-089): the children's team's own area. */
+      { title: 'Kids Church', icon: 'baby', team: 'Kids Church',
+        description: "The children's team, and the children in their care",
+        children: [
+          { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', team: 'Kids Church',
+            description: 'The children, their groups, and who may collect them' },
+          { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', team: 'Kids Church',
+            description: 'The desk on a Sunday: check children in and out, labels and the fire roll-call' }
+        ] },
+      { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', core: true,
+        description: 'What Core Team is for, and how it works',
+        children: [
+          { title: 'Music Upload', url: 'music-uploader.html', icon: 'file-music', core: true,
+            description: 'Add one song, with its files' }
+        ] }
+    ] },
+
+    { title: 'Resources', section: true, icon: 'folder-open', children: [
       /* anyTeam: for people who serve on a team (Martin, 15 Oct 2026). */
       { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note', anyTeam: true,
         description: 'Anything anybody wants to raise' },
@@ -335,9 +252,10 @@
         description: 'Charters, policies and the papers that go with them' },
       { title: 'Team Videos', url: 'videos.html', icon: 'clapperboard', anyTeam: true,
         description: 'Recordings worth keeping' }
-      /* "Report a concern" goes here, for everyone, when it ships (F-031). */
     ] }
   ];
+  /* A fold section with more pages than this folds away. */
+  const FOLD_OVER = 4;
 
   /* Pages that are NOT in the Menu, and the reason, so nobody puts them back
      without knowing why. Each opens from inside the tool that needs it. */
@@ -407,6 +325,7 @@
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     if (node.planGroup && !who.isPlanGroup) return false;
     if (node.headcount && !who.mayHeadcount) return false;
+    if (node.messages && !who.mayMessage) return false;
     return true;
   }
 
@@ -525,7 +444,15 @@
        is exactly what the icon check calls "icon on its own line", and it
        said so. */
     '.egbc-menu .tool em{font-size:11px;font-style:normal;color:#3d6263;font-weight:600;margin-left:6px}',
-    '.egbc-menu .mt-empty{padding:22px 10px;text-align:center;font-size:13px;color:#6b7280}'
+    '.egbc-menu .mt-empty{padding:22px 10px;text-align:center;font-size:13px;color:#6b7280}',
+    /* Menu by job (19 Oct 2026): a section's label, and the two quick
+       buttons at the top for whoever may email and post. */
+    '.egbc-menu .sec-h{padding:16px 8px 4px;font:600 12px Inter,system-ui,sans-serif;color:#6b7280}',
+    '.egbc-menu .quick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0 8px}',
+    '.egbc-menu .quick a{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:10px;background:#eef5f4;color:#111827;',
+    '  font:600 14px Inter,system-ui,sans-serif;text-decoration:none}',
+    '.egbc-menu .quick a:hover{background:#e2eeec}',
+    '.egbc-menu .quick svg,.egbc-menu .quick i{color:#3d6263;flex-shrink:0}'
   ].join('\n');
 
   function css() {
@@ -641,20 +568,35 @@
       return found || isHere(n);
     };
 
-    return tree.map(function (n, i) {
+    /* The two jobs Home has buttons for, at the top of the Menu too, for
+       whoever may do them (WHO MAY). Not while searching. */
+    const quick = who.mayMessage && !opts.noQuick
+      ? '<div class="quick">' +
+          '<a href="EmailBuilder2.html">' + icon('mail', 16) + '<span>Send an email</span></a>' +
+          '<a href="hub.html?notice=new">' + icon('megaphone', 16) + '<span>Post a notice</span></a>' +
+        '</div>'
+      : '';
+
+    return quick + tree.map(function (n, i) {
       if (!n.children) return row(n, 0);
-      const open = holdsHere(n) || (who.isCore ? n.title === 'Core Team' : n.title === 'Worship & AV');
       const count = inner(n.children, 0).split('class="tool').length - 1;
+      /* A SECTION: its label and its pages, open - unless it is one that
+         folds and holds more than FOLD_OVER pages for this person, and not
+         the page being looked at. */
+      if (n.section && (opts.unfold || !(n.fold && count > FOLD_OVER && !holdsHere(n)))) {
+        return '<div class="sec-h">' + esc(n.title) + '</div>' + inner(n.children, 0);
+      }
+      const open = holdsHere(n);
       /* A heading that is ALSO a page - Worship & AV, Youth, Core Team - opens
          its charter, as on the original. So the words are a link and the arrow
          is what expands it. */
       const head = n.url
         ? '<a class="grp-link" href="' + esc(n.url) + '" title="' + esc(n.description || '') + '">' + esc(n.title) + '</a>'
         : '<span>' + esc(n.title) + '</span>';
-      return '<div class="grp' + (open ? ' open' : '') + '">' +
+      return '<div class="grp' + (n.section ? ' fold' : '') + (open ? ' open' : '') + '">' +
           '<button class="arw" onclick="EGBCMenu.toggleGroup(this.parentElement)" aria-label="Show or hide ' + esc(n.title) + '">' +
             icon('chevron-right', 14) + '</button>' +
-          '<span class="dot"></span>' + head +
+          (n.section ? '' : '<span class="dot"></span>') + head +
           '<span class="cnt">' + count + '</span>' +
         '</div>' +
         '<div class="grp-body' + (open ? ' open' : '') + '">' + inner(n.children, 0) + '</div>';
@@ -952,6 +894,10 @@
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),
+        /* WHO MAY email and post a notice (16 Oct 2026): master admins, the
+           Church office, and anybody who leads a team - adminFor as seen,
+           so View as answers for the person being viewed as. */
+        mayMessage: !!(A && A.isMaster && A.isMaster()) || !!(A && A.inTeam && A.inTeam('Church office')) || adminFor.length > 0,
         isPlanGroup: !!(A && A.isOnPlanGroup && A.isOnPlanGroup()),
         mayHeadcount: !!(A && A.mayHeadcount && A.mayHeadcount()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),

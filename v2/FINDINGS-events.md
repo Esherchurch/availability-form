@@ -8025,3 +8025,49 @@ the gate report).
   - **The tool on the emulator:** photos shrunk to 1600 px, en dashes, sizes, the plans held then put up privately, the hire header, nothing twice
   - **Places keeps the area as given and the note,** saves a changed note, and the room page shows them
   - **The hire header shows**
+
+### F-234 — ChurchShow: each computer paired on its own (from the main window, 19 Oct; Martin)
+
+Martin, 19 Oct: the main hall PC and the Kids Church laptop were one connection, so Disconnect
+switched off both. Now `functions/churchshow.js` pairs each computer separately:
+- **A new computer** gets its own identity, `churchshow-<siteId>-<random>`, with a name
+  ("Main hall PC"). There can be several in a building.
+- **Disconnect** (`{ deviceId }`) and the new **`churchShowRename`** act on one computer.
+  `churchShowPairingCode({ deviceId })` pairs the same computer again.
+- **What was paired before keeps working.** `churchshow-<siteId>` is just one of the devices
+  ("Paired before 19 Oct 2026" on the page until someone names it).
+  `churchShowDisconnect({ siteId })` still means that old connection.
+- **The claims and the device document are as before:** `device: 'churchshow'`, `siteId`, and
+  `devices/<uid>.active`, read by the rules' `churchShow()` with no change.
+
+**lessonFor:** nothing to change. It already reads `devices/<token uid>` and takes `siteId` from
+it, so each computer gets its own building's lessons, and disconnecting one stops only that one.
+Only its header comment still says `(churchshow-<siteId>)`; it could say "the paired computer's
+own device". check-churchshow-pairing.mjs proves two computers in one building are independent
+(66/66, and a deliberate break caught).
+
+**Deploy:** functions:hub (`churchShowPairingCode`, `churchShowDisconnect`, the new
+`churchShowRename`). No rules change.
+
+**ADDED THE SAME DAY: each computer's JOB (Martin, 19 Oct).** A master admin sets it on
+churchshow.html: "Main services" and/or "Lessons" for chosen plan groups.
+- **Where it lives:** `devices/<uid>.jobs = { services: bool, lessonGroups: [planGroups ids] }`.
+  The claims carry it too (`services`, `lessons`), from the next token.
+- **Default:** a record with no `jobs` (everything paired before) does main services and **no**
+  lessons. `jobsOf(d)` in functions/churchshow.js normalises it; import it rather than
+  re-reading the shape.
+- **Services side, done:** a new `churchShowServices()` in the rules gates `services`, `songs`,
+  `songSummaries` and `events` for devices. A Lessons-only computer reads none of them.
+  Rules tests cover it (1501/1501, break caught). `screenPages` still uses `churchShow()`.
+- **Changing a job** is `churchShowSetJob`, master admins only. Proved in
+  check-churchshow-pairing.mjs (74/74, break caught).
+
+**For you, please (lessonFor, functions/lesson.js):** respect the job.
+- Read `jobsOf(devices/<token uid>)`.
+- Give only the lessons of groups in `lessonGroups`: drop other groups, and refuse a
+  `groupId` that isn't in the list.
+- Refuse a computer whose `lessonGroups` is empty (services only, which every existing pairing
+  is): "This ChurchShow computer is not set up for lessons - a master admin can change that on
+  Connect ChurchShow."
+- Read the device record on each call (not the claims), so a change takes effect at once.
+- Tests and a break on your side, please.

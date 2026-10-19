@@ -30,7 +30,8 @@ const PW = 'test-only-password';
 const EMAIL = 'cspage.av@example.invalid';
 const SITE = 'site_cspage';
 const SITE_NAME = 'Page Test Hall';
-const DEVICE_UID = 'churchshow-' + SITE;
+/* Each computer has its own id now (19 Oct 2026); found after pairing. */
+let DEVICE_UID = '';
 
 const R = [];
 const ok = (n, v, x) => { R.push(v); console.log('  ' + (v ? 'PASS  ' : 'FAIL  ') + n + (v ? '' : (x !== undefined ? '\n          ' + String(x).slice(0, 400) : ''))); };
@@ -82,9 +83,10 @@ const offMachine = u => {
   if (wantShots) fs.mkdirSync(SHOTS, { recursive: true });
 
   await put('sites/' + SITE, { name: SITE_NAME, active: true });
-  await fsReq('DELETE', DOCS + '/devices/' + DEVICE_UID);
+  for (const d of await listDocs('devices'))
+    if (plain((d.fields || {}).siteId) === SITE) await fsReq('DELETE', DOCS + '/devices/' + d.name.split('/').pop());
   for (const d of await listDocs('deviceCodes'))
-    if (plain((d.fields || {}).uid) === DEVICE_UID)
+    if (plain((d.fields || {}).siteId) === SITE)
       await fsReq('DELETE', DOCS + '/deviceCodes/' + d.name.split('/').pop());
 
   let up = JSON.parse((await req(9099, 'POST',
@@ -179,8 +181,16 @@ const offMachine = u => {
 
   console.log('\nmaking a code, from the page');
   await ev('document.getElementById("site").value = ' + JSON.stringify(SITE));
+  /* Without a name, it asks for one rather than making a code. */
+  await ev('window.makeCode()', true);
+  await sleep(1500);
+  ok('it asks what to call the computer first', String(await ev('document.getElementById("codeWrap").style.display')) === 'none'
+    && /name/i.test(String(await ev('document.getElementById("toast").textContent'))), String(await ev('document.getElementById("toast").textContent')));
+  await ev('document.getElementById("devName").value = "Main hall Synthetic"');
   await ev('window.makeCode()', true);
   await sleep(4000);
+  for (const d of await listDocs('devices'))
+    if (plain((d.fields || {}).siteId) === SITE) DEVICE_UID = d.name.split('/').pop();
   const shown = String(await ev('document.getElementById("codeText").textContent'));
   ok('A CODE APPEARS ON SCREEN', /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/.test(shown), shown
     + ' | said: ' + String(await ev('JSON.stringify(window.__said||[])')));
@@ -202,7 +212,8 @@ const offMachine = u => {
   await ev('window.loadDevices()', true);
   await sleep(2500);
   const devText = String(await ev('document.getElementById("devices").innerText'));
-  ok('the building is listed as connected', devText.includes(SITE_NAME) && /\bOn\b/.test(devText), devText.slice(0, 200));
+  ok('the computer is listed by its name, in its building, as connected', devText.includes('Main hall Synthetic') && devText.includes(SITE_NAME) && /\bOn\b/.test(devText), devText.slice(0, 200));
+  ok('with its job: main services, until a master admin says otherwise', /Job: Main services/.test(devText), devText.slice(0, 200));
   ok('with a way to disconnect it',
     (await ev('!!Array.from(document.querySelectorAll("#devices button")).find(b => /Disconnect/i.test(b.textContent))')) === true,
     devText.slice(0, 200));

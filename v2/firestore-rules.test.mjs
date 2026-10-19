@@ -2731,6 +2731,27 @@ await check('DISCONNECTED: a switched-off device reads nothing', 'deny', () => g
 await check('nor the songs', 'deny', () => getDoc(doc(csOff(), 'songs', 'sg_cs')));
 await check('nor the rota', 'deny', () => getDoc(doc(csOff(), 'events', 'e1')));
 
+/* A COMPUTER'S JOB (Martin, 19 Oct 2026). A Lessons-only computer - the
+   Kids Church laptop - reads no service plan, song or rota; one doing main
+   services does; one paired before jobs existed does main services. */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'devices', 'churchshow-site_main-lessons'), {
+    kind: 'churchshow', siteId: 'site_main', active: true, name: 'Kids laptop Synthetic',
+    jobs: { services: false, lessonGroups: ['pg_kids'] } });
+  await setDoc(doc(ctx.firestore(), 'devices', 'churchshow-site_main-both'), {
+    kind: 'churchshow', siteId: 'site_main', active: true, name: 'Hall PC Synthetic',
+    jobs: { services: true, lessonGroups: ['pg_kids'] } });
+});
+const csLessons = () => device('churchshow-site_main-lessons', 'site_main');
+const csBoth = () => device('churchshow-site_main-both', 'site_main');
+await check('JOBS: a Lessons-only computer reads no service plan', 'deny', () => getDoc(doc(csLessons(), 'services', 's1')));
+await check('  no songs', 'deny', () => getDoc(doc(csLessons(), 'songs', 'sg_cs')));
+await check('  no song list for a Sunday', 'deny', () => getDoc(doc(csLessons(), 'songSummaries', '2026-10-11')));
+await check('  and no rota', 'deny', () => getDoc(doc(csLessons(), 'events', 'e1')));
+await check('a computer doing main services and lessons reads the plan', 'allow', () => getDoc(doc(csBoth(), 'services', 's1')));
+await check('  and the songs', 'allow', () => getDoc(doc(csBoth(), 'songs', 'sg_cs')));
+await check('one paired before jobs existed does main services, as always', 'allow', () => getDoc(doc(csMain(), 'services', 's1')));
+
 /* A device uid with no device document at all - a token from before the
    record was written, or a uid somebody guessed. */
 await check('a device with no record at all reads nothing', 'deny',

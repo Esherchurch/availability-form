@@ -29,7 +29,7 @@ import {
   whoAmI as whoAmIIn, callerIp
 } from './availability-form.js';
 import {
-  pairingCode as pairingCodeIn, redeem as redeemIn, disconnect as disconnectIn,
+  pairingCode as pairingCodeIn, redeem as redeemIn, disconnect as disconnectIn, rename as renameIn, setJob as setJobIn,
   SETUP_FAILED
 } from './churchshow.js';
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
@@ -518,9 +518,10 @@ export const whoAmI = onCall(async (request) => {
 
 export const churchShowPairingCode = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const d = request.data || {};
   return orThrow(await pairingCodeIn(db, getAuth(), {
     uid: request.auth.uid,
-    siteId: (request.data || {}).siteId,
+    siteId: d.siteId, deviceId: d.deviceId, name: d.name,
     nowMs: Date.now()
   }));
 });
@@ -529,7 +530,28 @@ export const churchShowDisconnect = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   return orThrow(await disconnectIn(db, getAuth(), {
     uid: request.auth.uid,
-    siteId: (request.data || {}).siteId
+    siteId: (request.data || {}).siteId,
+    deviceId: (request.data || {}).deviceId
+  }));
+});
+
+/* What one computer does - Main services, Lessons for chosen groups
+   (Martin, 19 Oct 2026). Master admins. */
+export const churchShowSetJob = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const d = request.data || {};
+  return orThrow(await setJobIn(db, getAuth(), {
+    uid: request.auth.uid, deviceId: d.deviceId, services: d.services, lessonGroups: d.lessonGroups
+  }));
+});
+
+/* One computer's name (Martin, 19 Oct 2026: each named on its own). */
+export const churchShowRename = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return orThrow(await renameIn(db, {
+    uid: request.auth.uid,
+    deviceId: (request.data || {}).deviceId,
+    name: (request.data || {}).name
   }));
 });
 

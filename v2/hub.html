@@ -26,7 +26,7 @@
 <!-- The shared HTML cleaner, which the notices and the charter use. -->
 <script src="egbc-share.js?v=202610161900"></script>
 <!-- Step N: the Menu's structure, shared by the Menu, the sidebar and Where to? -->
-<script src="egbc-menu.js?v=202610162000"></script>
+<script src="egbc-menu.js?v=202610191200"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
 <script src="egbc-editor.js?v=202610062000"></script>
 <style>
@@ -195,7 +195,10 @@
   .nx-d{font-size:12px;color:var(--faint);margin-left:auto;white-space:nowrap;flex:none}
   .nx-b{font-size:12px;color:var(--muted);line-height:1.35;margin-top:2px;
         overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-  #waitingCard{order:-2} #pinned{order:-1}
+  #quickRow{order:-3} #waitingCard{order:-2} #pinned{order:-1}
+  /* Home by job, on a phone: Coming up first; the Sundays jobs after the
+     notices, which must be seen without scrolling (Martin, 12 Oct 2026). */
+  #comingCard{order:0} #sundaysCard{order:4} #sundayCard{order:1}
   /* NOTICES THIRD ON A PHONE, above the pin board and the charter.
      Martin, 12 Oct 2026: "I specifically said the notices need to be
      seen, not hidden" - and below the charter, which is a long read, is
@@ -207,6 +210,7 @@
     .home{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 16px;align-items:start}
     .home .hcol{display:block;min-width:0}
     .home>#teamPanels{grid-column:1/-1}
+    .home>#quickRow{grid-column:1/-1}
   }
   @media(max-width:900px){.wrap{grid-template-columns:1fr;gap:20px}.top{padding:16px 12px 0}.wrap{padding:16px 12px 48px}.hero{padding:14px 16px}}
   .lab{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 10px}
@@ -233,6 +237,23 @@
      tab bar does the job - a laptop at that width is closer to a phone in
      what it can show than to a desk monitor. */
   .side{display:none}
+  /* HOME BY JOB (19 Oct 2026) */
+  .hero .kicker{margin:0 0 4px;font-size:13px;font-weight:600;opacity:.8}
+  .search-btn{display:none}
+  #quickRow:empty{display:none}
+  .qrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:0 0 16px}
+  .qrow a,.qrow button{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 14px;border-radius:12px;border:1px solid var(--line,#e5e7eb);
+    background:#fff;color:var(--ink,#111827);font:600 14px Inter,system-ui,sans-serif;text-decoration:none;cursor:pointer;text-align:left}
+  .qrow a:hover,.qrow button:hover{border-color:var(--brand,#3d6263)}
+  .qrow .qi{width:30px;height:30px;border-radius:8px;background:var(--tint,#eef5f4);display:flex;align-items:center;justify-content:center;color:var(--brand,#3d6263);flex:none}
+  .qrow .qs{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted,#6b7280)}
+  .jobs a{display:flex;align-items:center;min-height:44px;border-top:1px solid var(--line,#e5e7eb);color:var(--ink,#111827);text-decoration:none;font-size:14px}
+  .jobs a:first-child{border-top:0}
+  .sun-line{font-size:14px;color:var(--ink,#111827);padding:10px 0;border-top:1px solid var(--line,#e5e7eb)}
+  .sun-line:first-child{border-top:0}
+  @media(max-width:700px){.qrow{grid-template-columns:1fr 1fr}.qrow .wide-only{display:none}.qrow .qs{display:none}#sundayCard{display:none}}
+
+  @media(min-width:1101px){#sundaysCard{display:none}}
   .side .sgrp{font-size:12px;font-weight:600;color:var(--muted);margin:18px 0 6px}
   .side a,.side button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border-radius:8px;
     font:500 14px Inter,sans-serif;color:var(--body);text-decoration:none;background:none;border:none;
@@ -261,8 +282,26 @@
     body{padding-bottom:72px}
   }
   @media(min-width:1101px){
-    .wrap{grid-template-columns:210px minmax(0,1fr)}
+    .wrap{grid-template-columns:230px minmax(0,1fr)}
     .side{display:block;position:sticky;top:16px;align-self:start}
+    /* The Menu by job is the left column: its own scroll, names without
+       their descriptions, and Search in the bar instead of Menu. */
+    /* The column is as tall as the cards beside it (stretch), and the Menu
+       sticks inside it with its own scroll: a column as tall as the window
+       made the page taller than the screen (check-home-fits). */
+    .side{position:relative;top:auto;align-self:stretch;contain:size}
+    #sideMenu{position:sticky;top:16px;max-height:min(calc(100vh - 32px),100%);overflow-y:auto;overscroll-behavior:contain}
+    .side .egbc-menu .tool{padding:6px 8px;gap:10px}
+    .side .egbc-menu .tool .ds{display:none}
+    .side .egbc-menu .tool .ic{width:28px;height:28px}
+    .side .egbc-menu .tool em{display:none}
+    .side .egbc-menu .sec-h{padding:14px 8px 2px}
+    .bar .menu-btn{display:none}
+    .bar .search-btn{display:inline-flex}
+    /* The meeting page says how knocking works; on a computer the Home
+       keeps to one screen (check-home-fits). */
+    #meetingsCard .knock{display:none}
+    .wrap{padding-bottom:8px}
   }
 
   /* ---- cards ---- */
@@ -538,7 +577,10 @@
          frees up page real estate?" It did - it was a 340px column. The count
          is how many notices this person has not opened yet. -->
     <button class="btn ghost" id="latestBtn" onclick="openLatest()" title="Latest notices"><i data-lucide="megaphone" style="width:16px;height:16px"></i><span class="hide-sm">Latest</span><span class="cnt" id="latestCount" style="display:none"></span></button>
-    <button class="btn primary" onclick="openTools()"><i data-lucide="layout-grid" style="width:16px;height:16px"></i><span class="hide-sm">Menu</span></button>
+    <button class="btn primary menu-btn" onclick="openTools()"><i data-lucide="layout-grid" style="width:16px;height:16px"></i><span class="hide-sm">Menu</span></button>
+    <!-- On a computer the Menu is the left column (Menu by job, 19 Oct
+         2026), so the bar offers its search instead. -->
+    <button class="btn ghost search-btn" onclick="openTools()"><i data-lucide="search" style="width:16px;height:16px"></i><span>Search</span></button>
     <button class="btn ghost" id="editModeBtn" style="display:none" onclick="toggleEditMode()"></button>
     <button class="btn ghost icon" id="adminBtn" style="display:none" onclick="openAdmin()" title="Administration"><i data-lucide="settings" style="width:18px;height:18px"></i></button>
     <!-- CARE & SUPPORT (Martin, 14 Oct 2026), beside the initials, in words;
@@ -559,6 +601,7 @@
     <div class="bg" id="heroBg"></div>
     <button class="edit edit-only" id="heroEdit" style="display:none" onclick="editHero()"><i data-lucide="image" style="width:15px;height:15px"></i>Edit banner</button>
     <div class="in">
+      <p id="heroKicker" class="kicker" hidden></p>
       <h1 id="heroTitle">&nbsp;</h1>
       <p id="heroSub"></p>
     </div>
@@ -572,13 +615,28 @@
 <div class="wrap">
   <aside class="side" id="sidebar"></aside>
   <div class="home">
+    <!-- HOME BY JOB (Martin approved the mock-ups, 19 Oct 2026): the jobs
+         this person has, one tap away - Send an email and Post a notice for
+         whoever may (WHO MAY), and on a computer New event and Rota planner
+         for the people who make them. -->
+    <div id="quickRow"></div>
     <!-- Watch live, on the day of the service (F-164). Empty otherwise. -->
     <div id="watchCard"></div>
-    <div id="waitingCard"></div>
     <div id="pinned"></div>
 
     <div class="hcol">
+    <!-- Waiting for you, at the top of this column rather than a grid cell of
+         its own: as a cell it pushed the Notices column a whole row down,
+         below the screen (check-news-features). On a phone `order` places it. -->
+    <div id="waitingCard"></div>
+    <!-- This Sunday, for the people who plan it; Coming up, for somebody on
+         no team (renderHomeJobs). -->
+    <div id="sundayCard"></div>
+    <div id="comingCard"></div>
     <div id="servingCard"></div>
+    <!-- On a phone, the Sundays jobs this person has (the computer has the
+         Menu down the side). -->
+    <div id="sundaysCard"></div>
 
     <div class="card flush" id="charterCard" style="display:none">
       <div class="ch">
@@ -893,7 +951,7 @@
 
 
 <nav id="egbc-tabbar" aria-label="Main"></nav>
-<script src="hub-app.js?v=202610162000"></script>
+<script src="hub-app.js?v=202610191400"></script>
 <!-- The one service worker on the v2 scope, so a phone with only the
      installed EGBC Hub can receive notifications (FINDINGS-notify N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>

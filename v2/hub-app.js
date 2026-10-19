@@ -175,6 +175,7 @@ function applyTeam() {
   /* A notice's picture is a banner; tapped, it opens whole (egbc-ui.js). */
   if (window.EGBCUI && EGBCUI.zoomIn) ['.nw .bd', '.pin .bd', '#noticesCard'].forEach(EGBCUI.zoomIn);
   renderServing();
+  renderHomeJobs();
   renderMyEvents();
   renderTools();
   renderNavigation();
@@ -198,6 +199,13 @@ EGBCAuth.require().then(async profile => {
   }
 
   await Promise.all([loadNews(), loadPages(), loadTeamPanels(), loadMeetings(), loadBookingsAdmin()]);
+  /* The Menu's "Post a notice" and "Notices" (Menu by job, 19 Oct 2026)
+     land here: the editor for whoever may post, else the list. */
+  (function () {
+    const q = new URLSearchParams(location.search);
+    if (q.get('notice') === 'new' && canPostNotice()) setTimeout(function () { openNewsEditor(); }, 0);
+    else if (q.get('notice') === 'new' || q.get('notices') === '1') setTimeout(function () { openLatest(); }, 0);
+  })();
 
   const teams = availableTeams();
   const saved = localStorage.getItem(TEAM_KEY);
@@ -690,8 +698,14 @@ async function loadHero() {
     const sub = t.heroSub !== undefined && t.heroSub !== '' ? t.heroSub : (church.subtitle || '');
     const img = t.heroImage || church.bgImage || '';
 
-    document.getElementById('heroTitle').textContent = title;
-    document.getElementById('heroSub').textContent = sub;
+    /* HOME BY JOB: a greeting, and the coming Sunday under it. A banner
+       an admin has titled keeps its title, above the greeting. */
+    const kicker = document.getElementById('heroKicker');
+    const custom = (t.heroTitle || church.title || '').trim();
+    if (kicker) { kicker.textContent = custom && custom !== 'EGBC Hub' ? custom : ''; kicker.hidden = !kicker.textContent; }
+    document.getElementById('heroTitle').textContent = greeting();
+    document.getElementById('heroSub').textContent = HERO_SUNDAY || sub;
+    void title;
 
     const hero = document.getElementById('hero');
     const c = EGBCAuth.TEAMS[TEAM];
@@ -992,7 +1006,9 @@ function renderNoticesCard() {
     const pin = n => (n.pinned ? 0 : 1);
     return pin(a) - pin(b) || newsMillis(b) - newsMillis(a);
   });
-  const show = ordered.slice(0, 3);
+  /* Two (the Home mock-up Martin approved, 19 Oct 2026); "See all" in the
+     header is the way to the rest - said once, not twice. */
+  const show = ordered.slice(0, 2);
   const canPost = canPostNotice();
 
   if (!show.length && !canPost) { card.innerHTML = ''; return; }
@@ -1006,7 +1022,7 @@ function renderNoticesCard() {
       <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         ${canPost ? '<button class="btn sm solid" onclick="openNewsEditor()">'
           + '<i data-lucide="plus" style="width:14px;height:14px"></i>Post a notice</button>' : ''}
-        ${live.length > 3 ? '<button class="btn sm ghost" onclick="openLatest()">See all</button>' : ''}
+        ${live.length > 2 ? '<button class="btn sm ghost" onclick="openLatest()">See all ' + live.length + '</button>' : ''}
       </div>
     </div>`;
 
@@ -1029,8 +1045,6 @@ function renderNoticesCard() {
         <div class="nx-b">${esc(noticePreview(n))}</div>
       </button>`).join('')}
     </div>
-    ${live.length > 3 ? `<button class="btn sm ghost" style="margin-top:8px" onclick="openLatest()">
-      See all ${live.length} notices</button>` : ''}
   </div>`;
   if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
@@ -1114,6 +1128,7 @@ async function loadMeetings() {
   /* "Meet" in the tab bar and sidebar comes and goes with today's meetings. */
   try { renderNavigation(); } catch (e) {}
   try { renderServing(); } catch (e) {}
+  try { renderHomeJobs(); } catch (e) {}
   /* console.error, not warn: a card that fails to draw is a card nobody sees,
      and the checks here treat an error as a failure and a warning as noise.
      This one drew nothing at all for a while because its icon helper was out
@@ -1188,7 +1203,7 @@ function renderMeetings() {
               pushed the notices down the page - which is the thing
               Martin asked not to happen (12 Oct 2026: "shrink other
               widgets before hiding notices"). */''}
-        ${MEETINGS.length ? '<div class="note">Type your name and knock &mdash; the host will let you in.</div>' : ''}
+        ${MEETINGS.length ? '<div class="note knock">Type your name and knock &mdash; the host will let you in.</div>' : ''}
       </div>
     </div>`;
 }
@@ -1247,8 +1262,8 @@ async function renderPinBoardCard() {
   box.innerHTML = `<div class="card flush">
       <div class="ch">
         <div class="ic">${I('sticky-note', 18)}</div>
-        <h2>Pin board</h2>
-        <div class="sub">${esc(board.title)} &middot; anything anybody wants to raise</div>
+        <div style="flex:1;min-width:0"><h2>Pin board</h2>
+        <div class="sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(board.title)} &middot; anything anybody wants to raise</div></div>
         <div class="sp">
           <a class="btn sm" href="stickynotes.html?add=1">${I('plus', 15)}<span class="hide-sm">Add an idea</span></a>
           <a class="btn sm ghost" href="stickynotes.html">Open the pin board</a>
@@ -1406,13 +1421,14 @@ function renderNavigation() {
         if (n.children) walk(n.children);
       });
     })(EGBCMenu.forPerson(EGBCMenu.who()));
-    side.innerHTML =
-      places.map(p => `<a href="${p.url}" class="${p.url.toLowerCase() === here ? 'on' : ''}">${I(p.icon)}<span>${esc(p.label)}</span></a>`).join('') +
-      `<button onclick="openMenuHere()">${I('menu')}<span>Everything else</span></button>` +
-      (admin.length
-        ? '<div class="sgrp">What you look after</div>' +
-          admin.map(p => `<a href="${esc(p.url)}">${I(p.icon || 'file-text')}<span>${esc(p.title)}</span></a>`).join('')
-        : '');
+    /* MENU BY JOB (Martin approved, 19 Oct 2026): on a computer the left
+       column IS the Menu - the same one, drawn by the same code - open
+       rather than folded, and without the two quick buttons, which are on
+       the page itself. `admin` above is what this column used to list;
+       every one of those pages is in the Menu. */
+    void admin;
+    side.innerHTML = '<div id="sideMenu"></div>';
+    EGBCMenu.paint(document.getElementById('sideMenu'), { here: here, unfold: true, noQuick: true });
   }
 
   /* The view-as strip is fixed to the bottom too. Measure it rather than
@@ -1561,6 +1577,128 @@ async function renderWatch() {
     if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
   }
   if (!WATCH_TIMER) WATCH_TIMER = setInterval(renderWatch, 5 * 60 * 1000);
+}
+
+/* ==== HOME BY JOB (Martin approved the mock-ups, 19 Oct 2026) ==========
+   design-mocks/navigation: a greeting with the coming Sunday; the jobs this
+   person has, one tap away; This Sunday for the people who plan it; the
+   Sundays jobs on a phone; Coming up for somebody on no team. Every button
+   is shown only to somebody who may use it - the same answers the Menu
+   gives (EGBCMenu.forPerson), so Home and the Menu cannot disagree. */
+let HERO_SUNDAY = '';
+function greeting() {
+  const h = new Date().getHours();
+  const first = String((ME && ME.name) || '').trim().split(/\s+/)[0];
+  return (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + (first ? ', ' + first : '');
+}
+function menuHas(url) {
+  let found = false;
+  (function walk(nodes) { nodes.forEach(n => { if (n.url === url) found = true; if (n.children) walk(n.children); }); })(EGBCMenu.forPerson(EGBCMenu.who()));
+  return found;
+}
+const SUNDAY_TYPES = ['Sunday Morning Worship', 'Special Service', 'Evening Carol Service', 'LOUD Worship'];
+function nextSunday() {
+  return UPCOMING.find(ev => SUNDAY_TYPES.indexOf(ev.type) !== -1 && new Date(ev.date + 'T12:00').getDay() === 0) || null;
+}
+function sundayLine(date, time, title, speaker) {
+  const d = new Date(date + 'T12:00');
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }) +
+    ' \u00b7 ' + (title || 'Morning Worship') + (time ? ' at ' + time : '') + (speaker ? ' \u00b7 ' + speaker + ' preaching' : '');
+}
+async function renderHomeJobs() {
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 16}px;height:${s || 16}px"></i>`;
+  const who = EGBCMenu.who();
+  const everyone = mayNoticeEveryone();
+
+  /* The quick row. */
+  const q = [];
+  if (who.mayMessage) {
+    q.push(`<a href="EmailBuilder2.html"><span class="qi">${I('mail')}</span>Send an email<span class="qs">${everyone ? 'anyone' : 'your team'}</span></a>`);
+    q.push(`<button type="button" onclick="openNewsEditor()"><span class="qi">${I('megaphone')}</span>Post a notice<span class="qs">${everyone ? 'everyone' : 'your team'}</span></button>`);
+  }
+  if (menuHas('events-admin.html') && (who.isAdmin || who.isMaster))
+    q.push(`<a class="wide-only" href="events-admin.html"><span class="qi">${I('calendar-plus')}</span>New event</a>`);
+  if (menuHas('Planner.html'))
+    q.push(`<a class="wide-only" href="Planner.html"><span class="qi">${I('calendar-range')}</span>Rota planner</a>`);
+  const qr = document.getElementById('quickRow');
+  if (qr) qr.innerHTML = q.length ? '<div class="qrow">' + q.join('') + '</div>' : '';
+
+  /* The coming Sunday, under the greeting. */
+  const sun = nextSunday();
+  if (sun) HERO_SUNDAY = sundayLine(sun.date, sun.serviceTime || sun.startTime, sun.publicTitle || '', sun.speaker || '');
+
+  /* This Sunday: for whoever plans Sundays (the Sunday service plan is in
+     their Menu). */
+  const sc = document.getElementById('sundayCard');
+  if (sc) {
+    if (sun && menuHas('SundayServicePlanner.html')) {
+      const roles = Array.isArray(sun.roles) ? sun.roles : [];
+      const filled = roles.filter(r => { const a = (sun.assignments || {})[r]; return Array.isArray(a) ? a.length : !!a; }).length;
+      const bits = [sun.serviceLeader ? 'Leader: ' + esc(sun.serviceLeader) : '', sun.speaker ? 'Speaker: ' + esc(sun.speaker) : '',
+        roles.length ? filled + ' of ' + roles.length + ' roles filled' : ''].filter(Boolean);
+      let songs = '';
+      try {
+        const s = await db.collection('services').where('date', '==', sun.date).limit(1).get();
+        const order = s.empty ? [] : (s.docs[0].data().order || []);
+        const list = order.filter(i => i && i.type === 'song' && i.title)
+          .map(i => esc(i.title) + ((i.keys && i.keys[0]) || i.key ? ' (' + esc((i.keys && i.keys[0]) || i.key) + ')' : ''));
+        songs = list.length ? list.slice(0, 2).join(' \u00b7 ') + (list.length > 2 ? ' \u00b7 ' + (list.length - 2) + ' more' : '') : 'No songs chosen yet';
+      } catch (e) { songs = ''; }
+      sc.innerHTML = `<div class="card flush">
+        <div class="ch"><div class="ic">${I('calendar-days', 18)}</div>
+          <div><h2>This Sunday</h2><div class="sub">${esc(sundayLine(sun.date, sun.serviceTime || sun.startTime, sun.publicTitle || '', ''))}</div></div>
+          <div class="sp"><a class="btn sm ghost" href="SundayServicePlanner.html">Sunday service plan</a></div></div>
+        <div class="cb" style="padding-top:4px;padding-bottom:12px">
+          ${bits.length ? '<div class="sun-line">' + bits.join(' \u00b7 ') + '</div>' : ''}
+          ${songs ? '<div class="sun-line">' + songs + '</div>' : ''}
+        </div></div>`;
+    } else sc.innerHTML = '';
+  }
+
+  /* The Sundays jobs, on a phone. */
+  const jc = document.getElementById('sundaysCard');
+  if (jc) {
+    const jobs = [['Planner.html', 'Rota planner'], ['SundayServicePlanner.html', 'Sunday service plan'], ['preaching-plan.html', 'Preaching plan'],
+      ['session-planner.html', 'Session planner']].filter(j => menuHas(j[0]));
+    jc.innerHTML = jobs.length ? `<div class="card flush">
+        <div class="ch"><div class="ic">${I('calendar-range', 18)}</div><h2>Sundays</h2>
+          <div class="sp"><button type="button" class="btn sm ghost" onclick="openTools()">All</button></div></div>
+        <div class="cb jobs" style="padding-top:2px;padding-bottom:8px">${jobs.map(j => `<a href="${j[0]}">${esc(j[1])}</a>`).join('')}</div></div>` : '';
+  }
+
+  /* Coming up: for somebody on no team, who has no rota to read - the
+     public What's On, Sundays included (rotaWhatsOn). */
+  const cc = document.getElementById('comingCard');
+  if (cc) {
+    if (!isVolunteer()) {
+      let list = [];
+      try {
+        const s = await db.collection('calEvents').where('audience', 'array-contains-any', ['public', 'members'])
+          .where('startUtc', '>=', Date.now()).orderBy('startUtc').limit(6).get();
+        list = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => e.status === 'confirmed').slice(0, 3);
+      } catch (e) { list = []; }
+      const svc = list.find(e => e.category === 'service');
+      if (svc && !HERO_SUNDAY) {
+        const d = new Date(svc.startUtc);
+        HERO_SUNDAY = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }) + ' \u00b7 ' + svc.title + ' at ' +
+          d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        const hs = document.getElementById('heroSub'); if (hs) hs.textContent = HERO_SUNDAY;
+      }
+      cc.innerHTML = list.length ? `<div class="card flush">
+        <div class="ch"><div class="ic">${I('calendar-heart', 18)}</div><h2>Coming up</h2>
+          <div class="sp"><a class="btn sm ghost" href="whatson.html">What\u2019s on</a></div></div>
+        <div class="cb" style="padding-top:6px;padding-bottom:14px">${list.map(e => {
+          const d = new Date(e.startUtc);
+          return `<a class="meet" href="whatson.html?event=${encodeURIComponent(e.id)}" style="text-decoration:none;color:inherit">
+            <div class="dt"><div class="m">${d.toLocaleDateString('en-GB', { month: 'short' })}</div><div class="d">${d.getDate()}</div></div>
+            <div style="flex:1;min-width:0"><div class="t">${esc(e.title || '')}</div>
+              <div class="s">${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div></div></a>`;
+        }).join('')}</div></div>` : '';
+    } else cc.innerHTML = '';
+  }
+  const ht = document.getElementById('heroSub');
+  if (ht && HERO_SUNDAY) ht.textContent = HERO_SUNDAY;
+  if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
 
 function renderServing() {
@@ -2695,7 +2833,8 @@ function renderTools() {
   const sw = document.getElementById('panelTeam');
   if (sw) {
     const teams = availableTeams();
-    const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM || '-', colour: 'var(--brand)' };
+    /* Everyone is a choice, not a team: its name, not its key. */
+    const c = EGBCAuth.TEAMS[TEAM] || { label: TEAM === EVERYONE ? 'Everyone' : (TEAM || '-'), colour: 'var(--brand)' };
     sw.innerHTML = teams.length > 1
       ? `<button class="switch-row" onclick="openTeamPicker()">
            <span style="width:10px;height:10px;border-radius:50%;background:${c.colour};flex-shrink:0;margin:0 2px"></span>

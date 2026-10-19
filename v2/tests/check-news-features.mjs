@@ -408,7 +408,7 @@ const offMachine = u => {
       if (r.bottom < 0) return 'above the screen';
       var mid = document.elementFromPoint(Math.round(r.left + r.width / 2),
         Math.round(Math.min(Math.max(r.top + 20, 1), window.innerHeight - 1)));
-      return (mid && c.contains(mid)) ? 'seen at ' + Math.round(r.top) : 'covered';
+      return (mid && c.contains(mid)) ? 'seen at ' + Math.round(r.top) : 'covered by ' + (mid ? mid.tagName + '#' + mid.id + '.' + String(mid.className).slice(0, 40) : 'nothing') + ' at ' + Math.round(r.top);
     })()`));
   };
   const onDesktop = await seenAt(1920, 945);

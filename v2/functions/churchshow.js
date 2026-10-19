@@ -16,12 +16,21 @@
  *   churchShowRedeem       onRequest, public, ChurchShow posts the code
  *                          -> 200 { customToken, siteId, siteName }
  *                          -> 400 { error: "<one plain sentence>" }
- *   churchShowDisconnect   onCall, an admin switches the site off
+ *   churchShowDisconnect   onCall, an admin switches one computer off
+ *   churchShowRename       onCall, an admin renames one computer
  *
- * ONE IDENTITY PER SITE, not per computer: `churchshow-<siteId>`. The main
- * and the spare projection PC at one site both sign in as the same device, so
- * pairing again does not break the other one. Disconnect switches off the
- * whole site, which is what you want if a laptop goes missing.
+ * ONE IDENTITY PER COMPUTER (Martin, 19 Oct 2026: "pair each DEVICE
+ * separately" - the main hall PC and the Kids Church laptop were one
+ * connection, so Disconnect switched both off). Each pairing makes a device
+ * of its own, `churchshow-<siteId>-<random>`, with a name somebody gave it
+ * ("Main hall PC"), and Disconnect switches off that one only. Several can
+ * be on in one building.
+ *
+ * WHAT WAS PAIRED BEFORE KEEPS WORKING. The old one-per-building identity,
+ * `churchshow-<siteId>`, is simply one of the devices: still on, listed on
+ * the page as "Paired before 19 Oct 2026" until somebody names it, and
+ * disconnected, renamed or paired again like any other. Nothing in the rules
+ * changed - churchShow() always read the signed-in device's own document.
  *
  * THE PLAIN CODE IS NEVER STORED. `deviceCodes` is keyed by its sha256, so a
  * leak of that collection - which is shut to everything but the Admin SDK
@@ -75,7 +84,45 @@ export const REFUSAL = "That code isn't valid or has run out \u2014 make a new o
 export const SETUP_FAILED = "The hub couldn't finish connecting ChurchShow \u2014 "
   + "ask the hub admin to check the server setup (SERVER-DEPLOY.md).";
 
+/* The identity every computer in a building shared before 19 Oct 2026. */
 export const uidFor = (siteId) => 'churchshow-' + String(siteId);
+/* A new computer's own identity: the building, and something random so two
+   computers named alike are still two devices. */
+export const newDeviceUid = (siteId) => {
+  let r = '';
+  for (let i = 0; i < 10; i++) r += 'abcdefghijkmnpqrstuvwxyz23456789'[randomInt(32)];
+  return 'churchshow-' + String(siteId) + '-' + r;
+};
+/* A name somebody can recognise on the page: "Main hall PC". */
+export const cleanName = (name) => String(name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+/* A COMPUTER'S JOB (Martin, 19 Oct 2026): "Main services" and/or "Lessons"
+   for chosen plan groups (Kids Church, Lazers), set by a master admin.
+   { services: true|false, lessonGroups: [planGroups ids] }. A record with
+   no jobs - everything paired before - does main services and no lessons,
+   which is what it always did. The rules (churchShowServices()) read
+   jobs.services off the record on every request; lessonFor (the events
+   window's) reads jobs.lessonGroups. The claims carry the same, for anything
+   that only has the token. */
+export const DEFAULT_JOBS = Object.freeze({ services: true, lessonGroups: [] });
+export function jobsOf(d) {
+  const j = (d && d.jobs) || {};
+  return {
+    services: j.services === undefined ? true : j.services === true,
+    lessonGroups: Array.isArray(j.lessonGroups) ? j.lessonGroups.filter(x => typeof x === 'string' && x).slice(0, 20) : []
+  };
+}
+export const claimsFor = (siteId, jobs) =>
+  ({ device: 'churchshow', siteId, services: jobs.services, lessons: jobs.lessonGroups });
+
+/* One of ours, in that building? Answers the device's data, or null. */
+async function churchShowDevice(db, deviceUid) {
+  const id = String(deviceUid || '');
+  if (!/^churchshow-/.test(id)) return null;
+  const snap = await db.collection('devices').doc(id).get();
+  if (!snap.exists) return null;
+  const d = snap.data() || {};
+  return d.kind === 'churchshow' ? d : null;
+}
 export const hashCode = (code) => createHash('sha256').update('egbc-churchshow:' + code).digest('hex');
 
 /* Upper case, and nothing that is not in the alphabet. ChurchShow normalises
@@ -105,19 +152,34 @@ export async function mayPair(db, uid) {
 
 /* ------------------------------------------------- R1: make a code ----- */
 
-export async function pairingCode(db, auth, { uid, siteId, nowMs }) {
+/* A NEW COMPUTER: { siteId, name }. THE SAME COMPUTER AGAIN (it lost its
+   sign-in, or was disconnected): { deviceId } - its name and building stay,
+   unless a new name comes with it. */
+export async function pairingCode(db, auth, { uid, siteId, deviceId, name, nowMs }) {
   if (!await mayPair(db, uid)) {
     return { error: 'permission-denied', message: 'Only an AV or Worship admin can connect ChurchShow.' };
   }
 
-  const id = String(siteId || '').trim();
-  if (!id) return { error: 'invalid-argument', message: 'Which site is the screen in?' };
+  let id = String(siteId || '').trim();
+  let deviceUid, deviceName = cleanName(name);
+  if (deviceId) {
+    const d = await churchShowDevice(db, deviceId);
+    if (!d) return { error: 'not-found', message: 'That computer is not on file any more.' };
+    if (id && id !== d.siteId) return { error: 'invalid-argument', message: 'That computer is in another building.' };
+    id = d.siteId;
+    deviceUid = String(deviceId);
+    deviceName = deviceName || cleanName(d.name);
+  } else {
+    if (!id) return { error: 'invalid-argument', message: 'Which site is the screen in?' };
+    if (!deviceName) return { error: 'invalid-argument', message: 'Give the computer a name, such as “Main hall PC”.' };
+    deviceUid = newDeviceUid(id);
+  }
   const site = await db.collection('sites').doc(id).get();
   if (!site.exists) return { error: 'not-found', message: 'There is no site with that id.' };
   const siteName = String((site.data() || {}).name || id);
-
-  const deviceUid = uidFor(id);
-  const claims = { device: 'churchshow', siteId: id };
+  const prior = await db.collection('devices').doc(deviceUid).get();
+  const jobs = jobsOf(prior.exists ? prior.data() : null);
+  const claims = claimsFor(id, jobs);
 
   /* The Auth user, once per site. Created with no email and no password: it
      is a computer, and there is nobody to send a reset to. */
@@ -126,7 +188,7 @@ export async function pairingCode(db, auth, { uid, siteId, nowMs }) {
     await auth.setCustomUserClaims(deviceUid, claims);
   } catch (e) {
     if (e && e.code === 'auth/user-not-found') {
-      await auth.createUser({ uid: deviceUid, displayName: 'ChurchShow \u2013 ' + siteName });
+      await auth.createUser({ uid: deviceUid, displayName: 'ChurchShow \u2013 ' + siteName + (deviceName ? ' \u2013 ' + deviceName : '') });
       await auth.setCustomUserClaims(deviceUid, claims);
     } else {
       throw e;
@@ -140,15 +202,16 @@ export async function pairingCode(db, auth, { uid, siteId, nowMs }) {
   const existing = await db.collection('devices').doc(deviceUid).get();
   const firstPairedAt = (existing.exists && (existing.data() || {}).firstPairedAt)
     || new Date(nowMs);
-  await db.collection('devices').doc(deviceUid).set({
+  await db.collection('devices').doc(deviceUid).set(Object.assign({
     kind: 'churchshow',
     siteId: id,
     siteName,
     active: true,
     pairedBy: uid,
     pairedAt: new Date(nowMs),
-    firstPairedAt
-  }, { merge: true });
+    firstPairedAt,
+    jobs
+  }, deviceName ? { name: deviceName } : {}), { merge: true });
 
   const code = makeCode();
   const expiresAt = new Date(nowMs + CODE_LIFE_MS);
@@ -160,7 +223,7 @@ export async function pairingCode(db, auth, { uid, siteId, nowMs }) {
 
   /* The code goes back to the admin's screen and nowhere else. It is not
      stored, not logged and not emailed. */
-  return { code, expiresAt: expiresAt.toISOString(), siteId: id, siteName };
+  return { code, expiresAt: expiresAt.toISOString(), siteId: id, siteName, deviceId: deviceUid, name: deviceName };
 }
 
 /* ------------------------------------------------- R2: redeem it ------- */
@@ -188,6 +251,7 @@ export async function redeem(db, auth, { code, nowMs }) {
     tx.update(ref, { usedAt: new Date(nowMs) });
     return { uid: d.uid, siteId: d.siteId, siteName: d.siteName || d.siteId };
   });
+  let jobs = DEFAULT_JOBS;
 
   if (outcome.no) return { status: 400, body: { error: REFUSAL } };
 
@@ -197,6 +261,7 @@ export async function redeem(db, auth, { code, nowMs }) {
   if (!dev.exists || (dev.data() || {}).active !== true) {
     return { status: 400, body: { error: REFUSAL } };
   }
+  jobs = jobsOf(dev.data());
 
   /* CAUGHT HERE, not in the function wrapper, so it can be tested without
      one - and so the code has already been marked used by the transaction
@@ -206,9 +271,7 @@ export async function redeem(db, auth, { code, nowMs }) {
      a new code once the setup is fixed, which is what the sentence says. */
   let customToken;
   try {
-    customToken = await auth.createCustomToken(outcome.uid, {
-      device: 'churchshow', siteId: outcome.siteId
-    });
+    customToken = await auth.createCustomToken(outcome.uid, claimsFor(outcome.siteId, jobs));
   } catch (e) {
     console.error('[churchShowRedeem] could not sign a custom token \u2014 '
       + 'is Service Account Token Creator granted? ', e);
@@ -223,16 +286,17 @@ export async function redeem(db, auth, { code, nowMs }) {
 
 /* ------------------------------------------------- R3: disconnect ------ */
 
-export async function disconnect(db, auth, { uid, siteId }) {
+/* ONE COMPUTER: { deviceId }. { siteId } alone still means the building's
+   old shared identity, which is what it always meant. */
+export async function disconnect(db, auth, { uid, siteId, deviceId }) {
   if (!await mayPair(db, uid)) {
     return { error: 'permission-denied', message: 'Only an AV or Worship admin can disconnect ChurchShow.' };
   }
   const id = String(siteId || '').trim();
-  if (!id) return { error: 'invalid-argument', message: 'Which site?' };
+  if (!id && !deviceId) return { error: 'invalid-argument', message: 'Which computer?' };
 
-  const deviceUid = uidFor(id);
-  const dev = await db.collection('devices').doc(deviceUid).get();
-  if (!dev.exists) return { error: 'not-found', message: 'Nothing is connected for that site.' };
+  const deviceUid = deviceId ? String(deviceId) : uidFor(id);
+  if (!await churchShowDevice(db, deviceUid)) return { error: 'not-found', message: 'Nothing is connected by that name.' };
 
   /* The document first, because that is what takes effect immediately: the
      rules read it on every request. Revoking the refresh token stops it
@@ -250,4 +314,45 @@ export async function disconnect(db, auth, { uid, siteId }) {
   for (const c of codes.docs) await c.ref.delete();
 
   return { ok: true, codesCleared: codes.size };
+}
+
+/* ------------------------------------------------- its job ------------- */
+
+/* A MASTER ADMIN ONLY (Martin, 19 Oct 2026). At least one job; lesson
+   groups must be plan groups that exist. The record changes at once (the
+   rules read it); the account's claims change for its next token. */
+export async function setJob(db, auth, { uid, deviceId, services, lessonGroups }) {
+  const me = uid ? await db.collection('users').doc(uid).get() : null;
+  const u = me && me.exists ? (me.data() || {}) : {};
+  if (u.status !== 'active' || u.masterAdmin !== true) {
+    return { error: 'permission-denied', message: 'Only a master admin can set what a ChurchShow computer does.' };
+  }
+  const d = await churchShowDevice(db, deviceId);
+  if (!d) return { error: 'not-found', message: 'That computer is not on file any more.' };
+  const groups = [...new Set((Array.isArray(lessonGroups) ? lessonGroups : []).map(String).filter(Boolean))].slice(0, 20);
+  for (const g of groups) {
+    const s = await db.collection('planGroups').doc(g).get();
+    if (!s.exists) return { error: 'invalid-argument', message: 'One of those groups is not on file.' };
+  }
+  const jobs = { services: services === true, lessonGroups: groups };
+  if (!jobs.services && !jobs.lessonGroups.length) {
+    return { error: 'invalid-argument', message: 'Choose at least one: Main services, or Lessons for a group.' };
+  }
+  await db.collection('devices').doc(String(deviceId)).set({ jobs, jobsBy: uid, jobsAt: new Date() }, { merge: true });
+  try { await auth.setCustomUserClaims(String(deviceId), claimsFor(d.siteId, jobs)); }
+  catch (e) { if (!e || e.code !== 'auth/user-not-found') throw e; }
+  return { ok: true, jobs };
+}
+
+/* ------------------------------------------------- renaming one -------- */
+
+export async function rename(db, { uid, deviceId, name }) {
+  if (!await mayPair(db, uid)) {
+    return { error: 'permission-denied', message: 'Only an AV or Worship admin can rename a ChurchShow computer.' };
+  }
+  const n = cleanName(name);
+  if (!n) return { error: 'invalid-argument', message: 'Give the computer a name.' };
+  if (!await churchShowDevice(db, deviceId)) return { error: 'not-found', message: 'That computer is not on file any more.' };
+  await db.collection('devices').doc(String(deviceId)).set({ name: n, renamedBy: uid, renamedAt: new Date() }, { merge: true });
+  return { ok: true, name: n };
 }

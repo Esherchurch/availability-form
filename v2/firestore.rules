@@ -201,6 +201,19 @@ service cloud.firestore {
              && get(/databases/$(database)/documents/devices/$(request.auth.uid))
                   .data.get('active', false) == true;
     }
+    // A COMPUTER'S JOB (Martin, 19 Oct 2026): "Main services" and/or
+    // "Lessons" for chosen plan groups, set by a master admin on
+    // churchshow.html. Only a computer doing main services reads the service
+    // plans, the songs and the rota; a Lessons-only one gets none of them
+    // (its lessons come through lessonFor). Read off the device's own
+    // record on every request, like `active`, so a change takes effect at
+    // once. A record with no jobs - everything paired before - does main
+    // services, which is what it always did.
+    function churchShowServices() {
+      return churchShow()
+             && get(/databases/$(database)/documents/devices/$(request.auth.uid))
+                  .data.get('jobs', {}).get('services', true) == true;
+    }
 
     // The paired computers, and the one-time pairing codes. Written by the
     // functions with the Admin SDK, which does not come through here; an
@@ -542,7 +555,7 @@ service cloud.firestore {
       // person sees who is serving, by name, on every service - no telephone
       // number, no address, no email, because events carries none. Said out
       // loud in YOUTH-ACCESS.md rather than left to be discovered.
-      allow read: if volunteer() || churchShow() || youthGranted();
+      allow read: if volunteer() || churchShowServices() || youthGranted();
       // SAFEGUARDING IS A SEPARATE GATE, and it applies to admins too. The
       // line above says who may touch the rota; safeguardingOk() says who
       // may be put on it. A master admin is not exempt - the exception
@@ -869,7 +882,7 @@ service cloud.firestore {
     match /songs/{docId} {
       // The projection PC reads the words and the chords. See churchShow().
       // The youth app picks from the same library. See youthGranted().
-      allow read: if volunteer() || churchShow() || youthGranted();
+      allow read: if volunteer() || churchShowServices() || youthGranted();
       allow write: if isAdmin();
     }
 
@@ -1350,7 +1363,7 @@ service cloud.firestore {
     match /services/{serviceId} {
       // The projection PC reads the service plan. See churchShow().
       // The youth app reads it to plan a youth service. See youthGranted().
-      allow read: if volunteer() || churchShow() || youthGranted() || onThePlan();
+      allow read: if volunteer() || churchShowServices() || youthGranted() || onThePlan();
       allow write: if (canAct('Worship Team') || canAct('Youth Worship'))
                    && audienceShape(request.resource.data);
     }
@@ -1368,7 +1381,7 @@ service cloud.firestore {
       // The same audience as the service it belongs to: the link in the
       // plan email goes here, so this is the document a preacher who is
       // on no team actually opens.
-      allow read: if volunteer() || churchShow() || onThePlan();
+      allow read: if volunteer() || churchShowServices() || onThePlan();
       allow write: if (canAct('Worship Team') || canAct('Youth Worship'))
                    && audienceShape(request.resource.data);
     }

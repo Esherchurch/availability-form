@@ -36,66 +36,101 @@ const ACCOUNT = {
   pw: process.env.EGBC_EMU_PW || 'test-only-password'
 };
 
-/* The approved structure, written out again here on purpose. If this file and
-   egbc-menu.js were the same list, the check would only be proving that a list
-   equals itself. This is NEXT-BRIEF §16, copied by hand. */
+/* THE APPROVED STRUCTURE - the Menu by job, approved by Martin on 19 Oct
+   2026 (design-mocks/navigation) - written out again here on purpose. If
+   this file and egbc-menu.js were the same list, the check would only prove
+   that a list equals itself.
+
+   Each entry: [title, who sees it (a test on the person, c below; none =
+   everybody), children]. A section or a heading with no page of its own
+   has page: false. A team heading (gate) hides everything under it from
+   somebody off the team. What is on screen is read in order: a section's
+   label, then its pages; a heading that is also a page, inside a section,
+   reads twice (its label, then the charter it opens). */
+const all = () => true;
 const APPROVED = [
-  ['Dashboard'],
-  ['Rota'],
-  /* F-226: the events window's session planner, for plan groups. */
-  ['Session planner'],
-  ['Preaching plan'],
-  /* F-210: for the people who make rotas. */
-  ['Rota reports'],
-  ['Meetings'],
-  /* Watch (F-164, Martin 14 Oct 2026): master admins and the people who
-     look after sermons, so it is here for the master admin this reads as. */
-  /* Watch & Listen, for everybody (Martin, 15 Oct 2026); the pages that
-     manage it are the sermons people's. */
-  ['Watch & Listen'],
-  ['Manage Watch'],
-  ['Manage sermons'],
-  ["What's on"],
-  /* Give (Martin, 12 Oct 2026). Gated on nothing - giving is for
-     everybody signed in - so it sits out here with the other ungated
-     entries rather than inside a team's list. */
-  ['Give'],
-  /* Gift Aid (F-169): each person's own declaration. */
-  ['Gift Aid'],
-  ['Payments'],
-  /* Notifications (FINDINGS-notify N-5), for everybody signed in. */
-  ['Notifications'],
-  ['Hire our rooms'],
-  ['Book a room'],
-  ['Maintenance'],
-  ['Worship & AV', [
-    ['Worship', [['Play-Through'], ['Worship Training'],
-      ['Music Databases', [['Music Database'], ['Music Uploader']]]]],
-    ['AV', [['How-To AV'], ['AV Troubleshoot'],
-      ['Equipment', [['Inventory'], ['AV Infrastructure Mapper'], ['Monitor Setup']]],
-      ['Connect ChurchShow']]]
-  ]],
-  ['Youth', [['Youth Service Planner']]],
-  ['Kids Church', [["Children's register"], ['Sunday check-in']]],
-  /* 14 Oct 2026: Martin could not find Safeguarding settings. */
-  ['Safeguarding', [['Safeguarding settings'], ['Due for deletion']]],
-  ['Groups and forms', [['Small groups'], ['Forms']]],
-  ['Core Team', [
-    ['Planning', [['Rota Planner'], ['Sunday Service Planner'], ['Availability form']]],
-    ['People and email', [['Address Book'], ['Email Compiler'], ['Teams & groups']]],
-    ['Music', [['Music Upload']]],
-    ['Events and rooms', [['Events'], ['Places'], ['Room bookings'], ['Event check-in'], ['Registers'], ['Headcounts'], ['Picture library']]],
-    ['Admin', [['Backup & Restore'], ['Church settings'], ['Emails sent'], ['Team emails']]]
-  ]],
-  /* NEXT-BRIEF §24, gated on nothing: everybody sees it, which is why it
-     is not inside any of the lists below. "Care & support" since 14 Oct
-     2026 (it was "I'm worried about someone"); the inbox beside it is for
-     the people who read what comes in. */
-  ['Care & support'],
-  ['Care & support: what has come in'],
-  ['Prayer'],
-  ['Resources', [['Pin boards'], ['Apps and downloads'], ['Team Resources'], ['Team Videos']]]
+  ['Home'], ["What's on"], ['Watch & Listen'], ['Give'], ['Gift Aid'], ['Care & support'],
+  ['Care & support: what has come in', c => c.careReader], ['Prayer'], ['Notifications'],
+  ['Sundays', null, [
+    ['Rota', c => c.anyTeam], ['Rota planner', c => c.core], ['Sunday service plan', c => c.core],
+    ['Preaching plan', c => c.anyTeam], ['Session planner', c => c.plans], ['Rota reports', c => c.rotaLead],
+    ['Availability form', c => c.core]]],
+  ['People and messages', null, [
+    ['Address book', c => c.messages], ['Send an email', c => c.messages], ['Team emails', c => c.master],
+    ['Notices', c => c.messages], ['Meetings']]],
+  ['Events and rooms', null, [
+    ['Events', c => (c.core && c.admin) || c.eventTeam], ['Places', c => c.runsBookings], ['Room bookings', c => c.books],
+    ['Check-in', c => c.core && c.admin], ['Registers', c => c.core && c.admin], ['Headcounts', c => c.counts],
+    ['Picture library', c => c.runsBookings], ['Book a room'], ['Hire our rooms'], ['Maintenance']]],
+  ['Church admin', null, [
+    ['Church settings', c => c.core && c.admin], ['Teams and groups', c => c.office],
+    ['Payments', c => c.money], ['Safeguarding', c => c.admin], ['Safeguarding settings', c => c.admin],
+    ['Due for deletion', c => c.admin], ['Small groups', c => c.admin], ['Forms', c => c.admin],
+    ['Emails sent', c => c.core && c.admin && c.master], ['Manage Watch', c => c.master], ['Manage sermons', c => c.master],
+    ['Backup', c => c.core && c.admin]]],
+  ['My teams', null, [
+    ['Worship & AV', all, [
+      ['Play-Through'], ['Worship Training'], ['Music Database'], ['Music Uploader', c => c.worshipLead],
+      ['How-To AV'], ['AV Troubleshoot'], ['Inventory', c => c.avLead], ['AV Infrastructure Mapper'], ['Monitor Setup'],
+      ['Connect ChurchShow', c => c.admin && (c.master || c.p.adminFor.some(t => ['AV Team', 'Worship Team'].includes(t)))]],
+      c => c.worship],
+    ['Youth', all, [['Youth Service Planner', c => c.master || c.on('Youth Worship')]], c => c.youth],
+    ['Kids Church', false, [["Children's register"], ['Sunday check-in']], c => c.kids],
+    ['Core Team', c => c.core, [['Music Upload', c => c.core]]]]],
+  ['Resources', null, [
+    ['Pin boards', c => c.anyTeam], ['Apps and downloads'], ['Team Resources', c => c.anyTeam], ['Team Videos', c => c.anyTeam]]]
 ];
+/* The plan group and the children's settings this check seeds. */
+const PLAN_TEAM = 'Kids Church', KIDS_SETTINGS_TEAM = 'Kids Church';
+const ROTA_TEAMS = ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'];
+const YOUTH_TEAMS = ['Youth Worship', 'Lazers', 'ReNu'];
+/* What the person is, written out here rather than read from egbc-auth.js,
+   so the check cannot agree with the thing it is checking. */
+function ctx(p) {
+  const master = !!p.masterAdmin;
+  const on = (t) => master || p.teams.includes(t) || p.adminFor.includes(t);
+  const office = on('Church office');
+  const admin = master || p.adminFor.length > 0;
+  const core = master || p.teams.includes('Core Team');
+  return {
+    p, on, master, office, admin, core,
+    anyTeam: master || p.teams.length > 0 || p.adminFor.length > 0,
+    messages: master || p.teams.includes('Church office') || p.adminFor.length > 0,
+    books: admin || !!p.bookingsAdmin,
+    runsBookings: master || p.teams.includes('Church office') || !!p.bookingsAdmin,
+    counts: master || p.adminFor.includes(KIDS_SETTINGS_TEAM),
+    plans: master || !!p.planLeader || p.teams.includes(PLAN_TEAM),
+    eventTeam: !!p.eventTeam,
+    money: master || p.teams.includes(MONEY_TEAM),
+    careReader: p.teams.includes('Pastoral'),
+    rotaLead: master || p.adminFor.some(t => ROTA_TEAMS.includes(t)),
+    /* Core Team is covered for Worship & AV (CORE_COVERS in egbc-auth.js). */
+    worship: master || ['Worship Team', 'AV Team', 'Core Team'].some(t => p.teams.includes(t) || p.adminFor.includes(t)),
+    worshipLead: master || p.adminFor.includes('Worship Team') || p.teams.includes('Core Team'),
+    avLead: master || p.adminFor.includes('AV Team') || p.teams.includes('Core Team'),
+    youth: master || YOUTH_TEAMS.some(t => p.teams.includes(t) || p.adminFor.includes(t)),
+    kids: on('Kids Church')
+  };
+}
+/* The names this person should see, in order. */
+function expectedFor(p) {
+  const c = ctx(p);
+  const walk = (nodes, inside) => {
+    const out = [];
+    for (const [title, who, kids, gate] of nodes) {
+      if (gate && !gate(c)) continue;
+      const below = kids ? walk(kids, true) : [];
+      const page = who !== null && who !== false;
+      const self = page && (typeof who === 'function' ? who(c) : true);
+      if (!self && !below.length) continue;
+      if (kids && inside && self) out.push(title, title);   /* label, then its charter */
+      else out.push(title);
+      out.push(...below);
+    }
+    return out;
+  };
+  return walk(APPROVED, false);
+}
 
 /* Taken out, and they must stay out.
    `exact` ones are compared against a heading's own words, not searched for in
@@ -106,56 +141,7 @@ const GONE_ANYWHERE = ['Song Library - quick view', 'Song Summary', 'Worship & A
   'Worship & AV Hub',
   'sundayplannersonglibrary', 'song-summary.html'];
 
-/* Which of those names are gated, written out here rather than read from the
-   structure, for the same reason the structure is: a check that asks the code
-   what the answer should be is not a check. */
-const CORE_ONLY = ['Core Team', 'Planning', 'Rota Planner', 'Sunday Service Planner',
-  'Availability form', 'Music',
-  'Music Upload', 'Events and rooms', 'Events', 'Admin', 'Backup & Restore', 'Church settings',
-  'Event check-in', 'Registers', 'Emails sent'];
-/* F-226 (the events window's pages, the pages' own tests): Places and the
-   Picture library for whoever has the "bookings" part of Running things -
-   master admins, the Church office group, a site's bookings admin;
-   Headcounts for an admin of a team the children's settings name (seeded
-   below: Kids Church) and master admins; the Session planner for a plan
-   group's leaders and its team (seeded: Kids Church) and master admins. */
-const RUNS_BOOKINGS_ONLY = ['Places', 'Picture library'];
-const HEADCOUNT_ONLY = ['Headcounts'];
-const PLAN_GROUP_ONLY = ['Session planner'];
-const PLAN_TEAM = 'Kids Church', KIDS_SETTINGS_TEAM = 'Kids Church';
-/* NEXT-BRIEF §25: the Address Book and the Email Compiler left CORE_ONLY.
-   They follow the Running things tabs - People and Send - which come from a
-   group, because the church administrator may not be on Core Team and a
-   Worship admin should not get them for looking after Worship.
-
-   "People and email" IS IN HERE TOO, which took a failing run to get right.
-   It is the heading above them and has no page of its own, so prune() drops
-   it when neither child shows - a Core Team member sees no empty heading
-   where the address book used to be. It follows its children, so it belongs
-   with them. */
-const OFFICE_ONLY = ['People and email', 'Address Book', 'Email Compiler', 'Teams & groups'];
-/* Watch (F-164): master admins and the people named in sermonShow/access.
-   None of the people here is named there, so it is the master admin's. */
-const SERMONS_ONLY = ['Manage Watch', 'Manage sermons'];
-/* Payments: the money team (Finance) or a master admin. */
-const MONEY_ONLY = ['Payments'];
-/* Emails sent: master admins only (Martin, 15 Oct 2026). */
-const MASTER_ONLY = ['Emails sent', 'Team emails'];
-/* Rota reports: admins of a rota team, or a master admin. */
-const ROTA_LEADS_ONLY = ['Rota reports'];
-const ROTA_TEAMS = ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'];
-/* The Care & support inbox: the Pastoral team, the people named in Who gets
-   told, and the safeguarding lead and deputy. None of the people here is
-   any of those. */
-const CARE_READERS_ONLY = ['Care & support: what has come in'];
-/* The heading the church administrator passes THROUGH to reach them, the
-   same way a bookings admin passes through to Room bookings. They get the
-   heading and not its page - the Core Team charter is not theirs. */
-const OPENED_FOR_OFFICE = ['Core Team'];
-/* WHERE THEY FIRST DIFFER, not the first 150 characters of each. The Menu is
-   long enough that two lists agreeing for 150 characters tells you nothing,
-   and that is exactly what the old report did: it showed the matching part
-   twice and cut off before the difference. */
+/* WHERE THEY FIRST DIFFER, not the first 150 characters of each. */
 function firstDifference(seen, expected) {
   let i = 0;
   while (i < seen.length && i < expected.length && seen[i] === expected[i]) i++;
@@ -166,48 +152,9 @@ function firstDifference(seen, expected) {
     + '\n          ' + seen.length + ' names on screen, ' + expected.length + ' approved';
 }
 
-const ADMIN_ONLY = ['Events and rooms', 'Events', 'Admin', 'Backup & Restore', 'Church settings',
-  'Event check-in', 'Registers', 'Emails sent',
-  /* Any admin (none of these people is the safeguarding lead, who would
-     see Safeguarding too). */
-  'Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Groups and forms', 'Small groups', 'Forms',
-  /* admin: true on the Menu node. It also sits under the Worship & AV team
-     heading, so it is in WORSHIP_ONLY too - both gates apply and a name has
-     to be in both lists or the expectation is wrong for somebody. */
-  'Connect ChurchShow'];
-/* "Room bookings" is the one entry that is not gated on Core Team or on
-   administering a team: a site's bookings admin is usually neither (F-067). */
-const BOOKINGS_ONLY = ['Room bookings'];
-/* The children's team's own section (F-089). Only somebody on Kids Church,
-   the person who administers it, or a master admin. Deliberately not every
-   admin: whoever looks after Worship is not the children's team. */
-const KIDS_ONLY = ['Kids Church', "Children's register", 'Sunday check-in'];
-/* Martin, 15 Oct 2026 ("Everyone" saw all the youth stuff): the youth teams
-   and their admins; the planner is Youth Worship's. */
-const YOUTH_TEAMS = ['Youth Worship', 'Lazers', 'ReNu'];
-const YOUTH_ONLY = ['Youth', 'Youth Service Planner'];
-/* ...and the team videos, resources and pin boards: anybody on a team. */
-const ANY_TEAM_ONLY = ['Rota', 'Preaching plan', 'Pin boards', 'Team Resources', 'Team Videos'];
-/* The Music Uploader is for Worship leaders, as its page's guard says
-   (data-role="leader"): a Worship admin, Core Team, or a master admin. None
-   of the people here has a leader role on their record. */
-const WORSHIP_LEADERS_ONLY = ['Music Uploader'];
-/* The Inventory likewise, for AV leaders: an AV admin, Core Team, a master admin. */
-const AV_LEADERS_ONLY = ['Inventory'];
-/* Martin's decision (fd2ff569, 8f5519bf): Worship & AV is a team section like
-   Kids Church, so somebody who is only on Kids Church does not see it - and a
-   team heading that does not match hides its whole subtree, not just its own
-   line. Written out by hand, as the rest of this list is. */
-const WORSHIP_ONLY = ['Worship & AV', 'Worship', 'Play-Through', 'Worship Training',
-  'Music Databases', 'Music Database', 'Music Uploader', 'AV', 'How-To AV',
-  'AV Troubleshoot', 'Equipment', 'Inventory', 'AV Infrastructure Mapper', 'Monitor Setup',
-  /* Narrower still: admin: true, so an ordinary Worship or AV member does
-     not see it either. The per-person expectations below carry that. */
-  'Connect ChurchShow'];
-
 const PEOPLE = {
   'a Worship member': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
-    sees: ['Worship & AV', 'Resources', 'Pin boards', 'Team Videos'], doesNot: ['Core Team', 'Youth'] },
+    sees: ['Worship & AV', 'Resources', 'Pin boards', 'Team Videos', 'Sundays'], doesNot: ['Core Team', 'Youth', 'Send an email', 'Address book'] },
   /* NEXT-BRIEF §25 CHANGED THIS PERSON, and the change is the point.
      "People and email" - the Address Book and the Email Compiler - used to
      come with Core Team. Martin: the church administrator may not be on
@@ -215,18 +162,18 @@ const PEOPLE = {
      looking after Worship. So those two follow the Church office group
      now, and Core Team on its own carries neither. */
   'somebody on Core Team': { teams: ['Core Team'], adminFor: [], masterAdmin: false,
-    sees: ['Core Team', 'Planning'],
+    sees: ['Core Team', 'Rota planner', 'Sunday service plan'],
     /* Not even the heading: it has no page of its own, so with both its
        children gone there is nothing to draw. */
-    doesNot: ['Events and rooms', 'Admin', 'People and email', 'Address Book', 'Email Compiler'] },
+    doesNot: ['Church admin', 'Church settings', 'Address book', 'Send an email', 'Events'] },
   /* ...and this is who does get them: the church administrator, on no rota
      team at all, in the Church office group. They reach "Core Team" as a
      heading on the way - and must not thereby be handed its charter. */
   'the church administrator': { teams: ['Church office'], adminFor: [], masterAdmin: false,
-    sees: ['People and email', 'Address Book', 'Email Compiler', 'Places', 'Picture library'],
-    doesNot: ['Planning', 'Rota Planner', 'Worship & AV'] },
+    sees: ['People and messages', 'Address book', 'Send an email', 'Notices', 'Places', 'Picture library', 'Teams and groups'],
+    doesNot: ['Rota planner', 'Worship & AV', 'Core Team'] },
   'a master admin': { teams: ['Core Team'], adminFor: ['Core Team'], masterAdmin: true,
-    sees: ['Core Team', 'Events and rooms', 'Admin', 'Backup & Restore', 'Kids Church'], doesNot: [] },
+    sees: ['Core Team', 'Events and rooms', 'Church admin', 'Backup', 'Kids Church', 'Send an email'], doesNot: [] },
   /* F-089. A children's leader is on no other team and administers nothing,
      and must still reach the register - which is the whole reason it is a
      team heading beside Youth rather than buried under Core Team. */
@@ -234,7 +181,7 @@ const PEOPLE = {
     sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Session planner'],
     /* Worship & AV too: a team section they are not on, and the whole subtree
        goes with the heading - Play-Through and the rest, not just the name. */
-    doesNot: ['Core Team', 'Planning', 'Rota Planner', 'Events and rooms', 'Admin',
+    doesNot: ['Core Team', 'Rota planner', 'Church admin', 'Send an email',
               'Worship & AV', 'Play-Through', 'How-To AV', 'Monitor Setup'] },
   /* Karen: administers Kids Church without being on its rota.
 
@@ -245,9 +192,11 @@ const PEOPLE = {
      the rule a heading opened only by its children follows, and there is an
      assertion for exactly that below. */
   'Karen, who administers Kids Church': { teams: [], adminFor: ['Kids Church'], masterAdmin: false,
-    sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Room bookings', 'Headcounts'],
-    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Places', 'Picture library', 'Session planner',
-              'Admin', 'Backup & Restore', 'Worship & AV', 'Play-Through'] },
+    sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Room bookings', 'Headcounts',
+           /* WHO MAY: a team leader emails and posts to their team. */
+           'Send an email', 'Address book', 'Notices'],
+    doesNot: ['Rota planner', 'Events', 'Places', 'Picture library', 'Session planner',
+              'Church settings', 'Backup', 'Worship & AV', 'Play-Through'] },
   /* The person F-067 is about: looks after one site's room bookings, is on
      Worship, is on neither Core Team nor any team's admin list. The entry
      lives under Core Team > Events and rooms, so the two headings above it
@@ -255,20 +204,20 @@ const PEOPLE = {
      anything else underneath. */
   'a bookings admin who is not Core Team': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
     bookingsAdmin: true,
-    sees: ['Book a room', 'Core Team', 'Events and rooms', 'Room bookings', 'Places', 'Picture library'],
-    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Events', 'Headcounts', 'Admin',
-              'Backup & Restore', 'Kids Church', "Children's register", 'Sunday check-in'] },
+    sees: ['Book a room', 'Events and rooms', 'Room bookings', 'Places', 'Picture library'],
+    doesNot: ['Rota planner', 'Address book', 'Events', 'Headcounts', 'Church admin',
+              'Backup', 'Kids Church', "Children's register", 'Sunday check-in', 'Core Team'] },
   /* F-200: the church renamed its money team "Treasury" (this check sets
      paymentSettings/public.moneyTeam). Payments follows the NAME. */
   'the treasurer, on a renamed money team': { teams: ['Treasury'], adminFor: [], masterAdmin: false,
-    sees: ['Payments'], doesNot: ['Core Team', 'Admin', 'Emails sent'] },
+    sees: ['Payments', 'Church admin'], doesNot: ['Core Team', 'Emails sent', 'Send an email'] },
   /* F-212: runs Film Club, administers nothing. Events (where "Events I
      run" is) and the two headings above it, and nothing else in them. */
   "somebody on an event's team": { teams: [], adminFor: [], masterAdmin: false,
     eventTeam: true,
-    sees: ['Core Team', 'Events and rooms', 'Events'],
-    doesNot: ['Planning', 'Rota Planner', 'Address Book', 'Places', 'Room bookings', 'Registers',
-              'Admin', 'Backup & Restore'] },
+    sees: ['Events and rooms', 'Events'],
+    doesNot: ['Rota planner', 'Address book', 'Places', 'Room bookings', 'Registers',
+              'Church admin', 'Backup', 'Core Team'] },
   /* F-226: leads a plan group (the Lazers, say) and is on no team. The
      Session planner, and none of the team pages. */
   'a plan group leader on no team': { teams: [], adminFor: [], masterAdmin: false,
@@ -279,7 +228,7 @@ const PEOPLE = {
 const MONEY_TEAM = 'Treasury';
 
 const flat = (nodes, out = []) => {
-  for (const [title, kids] of nodes) { out.push(title); if (kids) flat(kids, out); }
+  for (const [title, , kids] of nodes) { out.push(title); if (kids) flat(kids, out); }
   return out;
 };
 
@@ -321,7 +270,7 @@ const READ_MENU = `(() => {
      "grp-link"> when it is also a page. Reading only the spans lost Worship &
      AV, Youth and Core Team - the three that open a charter - and reported
      them as missing from the Menu they were sitting in. */
-  el.querySelectorAll('.grp > span:not(.arw):not(.dot):not(.cnt), .grp .grp-link, .grp-body .sub, .grp-body .tool .nm, .tool > .tx > .nm')
+  el.querySelectorAll('.sec-h, .grp > span:not(.arw):not(.dot):not(.cnt), .grp .grp-link, .sub, .grp-body .tool .nm, .tool > .tx > .nm')
     .forEach(n => { const t = (n.textContent || '').trim(); if (t) titles.push(t); });
   /* top-level pages that are not in a group are plain .tool children of #toolList */
   const top = [...el.children].filter(c => c.classList && c.classList.contains('tool'))
@@ -540,61 +489,7 @@ const READ_MENU = `(() => {
        what is on the screen - name for name, in order. Comparing two lists
        that had both been filtered by "is it on the screen" was no test at all:
        it could only ever agree with itself. */
-    const onCore = p.teams.includes('Core Team');
-    const anAdmin = !!p.adminFor.length || !!p.masterAdmin;
-    const books = anAdmin || !!p.bookingsAdmin;
-    /* The Worship & AV heading's teams, which is what lets the subtree
-       through at all - a Kids Church admin never reaches Connect ChurchShow. */
-    const worshipAV = p.teams.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t))
-                      || p.adminFor.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t))
-                      || !!p.masterAdmin;
-    /* The two headings Room bookings sits under. A bookings admin who is on
-       neither Core Team nor any admin list still has to get through them -
-       and must get nothing else from inside them, not even the Core Team
-       charter the heading itself links to. */
-    const OPENED_FOR_BOOKINGS = ['Core Team', 'Events and rooms'];
-    /* F-212: on an event's team - Events and the headings above it. */
-    const OPENED_FOR_EVENT_TEAM = ['Core Team', 'Events and rooms', 'Events'];
-    /* On Kids Church, administers it, or a master admin (F-089). */
-    const kids = p.teams.includes('Kids Church') ||
-                 p.adminFor.includes('Kids Church') || !!p.masterAdmin;
-    /* Worship & AV: on Worship, AV or Core Team, or a master admin. */
-    const worship = p.teams.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t)) ||
-                    p.adminFor.some(t => ['Worship Team', 'AV Team', 'Core Team'].includes(t)) ||
-                    !!p.masterAdmin;
-    /* In a group that carries the People or Send tab, or a master admin.
-       Written out here rather than read from egbc-auth.js, so the check
-       cannot agree with the thing it is checking. */
-    const office = (p.teams || []).includes('Church office') || !!p.masterAdmin;
-    const runsBookings = office || !!p.bookingsAdmin;
-    const counts = !!p.masterAdmin || p.adminFor.includes(KIDS_SETTINGS_TEAM);
-    const plans = !!p.masterAdmin || !!p.planLeader || p.teams.includes(PLAN_TEAM);
-    const OPENED_FOR_EVENTS_ROOMS = ['Core Team', 'Events and rooms'];
-    const expected = want
-      .filter(w => !(OFFICE_ONLY.includes(w) && !office))
-      .filter(w => !(SERMONS_ONLY.includes(w) && !p.masterAdmin))
-      .filter(w => !(MONEY_ONLY.includes(w) && !p.masterAdmin && !(p.teams || []).includes(MONEY_TEAM)))
-      .filter(w => !(MASTER_ONLY.includes(w) && !p.masterAdmin))
-      .filter(w => !(ROTA_LEADS_ONLY.includes(w) && !p.masterAdmin && !(p.adminFor || []).some(t => ROTA_TEAMS.includes(t))))
-      .filter(w => !(CARE_READERS_ONLY.includes(w) && !(p.teams || []).includes('Pastoral')))
-      .filter(w => !(BOOKINGS_ONLY.includes(w) && !books))
-      .filter(w => !(RUNS_BOOKINGS_ONLY.includes(w) && !runsBookings))
-      .filter(w => !(HEADCOUNT_ONLY.includes(w) && !counts))
-      .filter(w => !(PLAN_GROUP_ONLY.includes(w) && !plans))
-      .filter(w => !(KIDS_ONLY.includes(w) && !kids))
-      .filter(w => !(YOUTH_ONLY.includes(w) && !p.masterAdmin
-                     && !YOUTH_TEAMS.some(t => p.teams.includes(t) || p.adminFor.includes(t))))
-      .filter(w => !(ANY_TEAM_ONLY.includes(w) && !p.masterAdmin && !p.teams.length && !p.adminFor.length))
-      .filter(w => !(WORSHIP_LEADERS_ONLY.includes(w) && !p.masterAdmin && !p.adminFor.includes('Worship Team') && !p.teams.includes('Core Team')))
-      .filter(w => !(AV_LEADERS_ONLY.includes(w) && !p.masterAdmin && !p.adminFor.includes('AV Team') && !p.teams.includes('Core Team')))
-      .filter(w => !(WORSHIP_ONLY.includes(w) && !worship))
-      .filter(w => !CORE_ONLY.includes(w) || onCore || (books && OPENED_FOR_BOOKINGS.includes(w))
-                   || (p.eventTeam && OPENED_FOR_EVENT_TEAM.includes(w))
-                   || ((runsBookings || counts) && OPENED_FOR_EVENTS_ROOMS.includes(w))
-                   || (office && OPENED_FOR_OFFICE.includes(w)))
-      .filter(w => !ADMIN_ONLY.includes(w) || anAdmin || (books && OPENED_FOR_BOOKINGS.includes(w))
-                   || (p.eventTeam && OPENED_FOR_EVENT_TEAM.includes(w))
-                   || ((runsBookings || counts) && OPENED_FOR_EVENTS_ROOMS.includes(w)));
+    const expected = expectedFor(p);
     ok('  the names are the approved ones, in order',
       JSON.stringify(seen) === JSON.stringify(expected),
       JSON.stringify(seen) === JSON.stringify(expected)
@@ -627,44 +522,19 @@ const READ_MENU = `(() => {
       toOldPortal || 'no link to EGBCWorship&AV.html anywhere on the hub');
     ok('  the things taken out stay out', stillHere.length === 0,
       stillHere.join(', ') || 'the Apps group, the song library quick view, Song Summary and "(old)" are all gone');
-    /* One structure, not two: the sidebar's "What you look after" must hold
-       the admin pages the Menu holds, in the Menu's order. It used to come
-       from the registry sorted alphabetically, which is a second arrangement
-       of the same pages - the thing Step N exists to stop. */
-    const sidebar = String(await ev(
-      "(()=>{const el=document.getElementById('sidebar');if(!el)return '';" +
-      "const i=[...el.children].findIndex(c=>c.className==='sgrp');" +
-      "return i===-1?'':[...el.children].slice(i+1).map(a=>(a.textContent||'').trim()).join('|')})()"));
-    /* What this person actually looks after, in the Menu's order. Not a flat
-       list for "any admin": Events, Places and Backup & Restore are Core Team
-       pages as well as admin ones, so Karen - who administers Kids Church and
-       is on no team - looks after Room bookings and nothing else. Asserting
-       the flat list said she should see three pages she cannot reach. */
-    const wantAdmin = [
-      /* Connect ChurchShow is admin: true and sits under Worship & AV, so
-         the sidebar picks it up - it walks the pruned Menu for anything
-         with admin or bookings on it (hub-app.js ~1162). It comes FIRST
-         because that is where the Menu has it, and "in the Menu's order"
-         is the whole point of this check. */
-      ...(worshipAV && anAdmin ? ['Connect ChurchShow'] : []),
-      /* 14 Oct 2026: Safeguarding (sg) and Groups and forms (admin), any admin. */
-      ...(anAdmin ? ['Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Small groups', 'Forms'] : []),
-      /* F-212: somebody on an event's team looks after Events too. */
-      ...(onCore && anAdmin ? ['Events'] : p.eventTeam ? ['Events'] : []),
-      /* F-226: Places, Headcounts and the Picture library by their own tests. */
-      ...(runsBookings ? ['Places'] : []),
-      ...(books ? ['Room bookings'] : []),
-      ...(onCore && anAdmin ? ['Event check-in', 'Registers'] : []),
-      ...(counts ? ['Headcounts'] : []),
-      ...(runsBookings ? ['Picture library'] : []),
-      ...(onCore && anAdmin ? ['Backup & Restore', 'Church settings'] : []),
-      ...(onCore && p.masterAdmin ? ['Emails sent', 'Team emails'] : [])
-    ];
-    ok("  the sidebar lists what they look after, in the Menu's order",
-      sidebar === wantAdmin.join('|'),
-      wantAdmin.length
-        ? 'sidebar: ' + (sidebar || '(nothing)') + '   menu order: ' + wantAdmin.join('|')
-        : 'nothing to look after, and nothing listed');
+    /* THE LEFT COLUMN IS THE MENU (Menu by job, 19 Oct 2026): on a
+       computer the hub draws the same Menu down the side, open, so the
+       names there must be the approved ones too, in the same order. */
+    const side = JSON.parse(String(await ev(
+      "(()=>{const el=document.getElementById('sideMenu');if(!el)return '[]';const t=[];" +
+      "el.querySelectorAll('.sec-h, .grp > span:not(.arw):not(.dot):not(.cnt), .grp .grp-link, .sub, .grp-body .tool .nm, .tool > .tx > .nm')" +
+      ".forEach(n=>{const x=(n.textContent||'').trim();if(x)t.push(x)});return JSON.stringify(t)})()")) || '[]');
+    ok('  the left column is the same Menu, in the same order',
+      JSON.stringify(side) === JSON.stringify(expected),
+      JSON.stringify(side) === JSON.stringify(expected) ? side.length + ' names' : firstDifference(side, expected));
+    /* And no folded section there: on a computer everything is in view. */
+    const folded = String(await ev("document.querySelectorAll('#sideMenu .grp.fold').length"));
+    ok('  nothing folded away in it', folded === '0', folded + ' folded');
 
     ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
@@ -731,7 +601,7 @@ const READ_MENU = `(() => {
     const el = document.querySelector('.egbc-menu');
     if (!el) return JSON.stringify({ none: true });
     const titles = [];
-    el.querySelectorAll('.grp > span:not(.arw):not(.dot):not(.cnt), .grp .grp-link, .grp-body .sub, .grp-body .tool .nm, .tool > .tx > .nm')
+    el.querySelectorAll('.sec-h, .grp > span:not(.arw):not(.dot):not(.cnt), .grp .grp-link, .sub, .grp-body .tool .nm, .tool > .tx > .nm')
       .forEach(n => { const t = (n.textContent || '').trim(); if (t) titles.push(t); });
     return JSON.stringify({ titles });
   })()`;
