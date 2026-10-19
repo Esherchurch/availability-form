@@ -5,6 +5,71 @@ Feature names: `enews`, `cardMaker`, `canva`. All three stay **off** until Marti
 
 ---
 
+## DECIDED (19 Oct 2026; plan bebcbd9e accepted by the reviewing window and Martin)
+
+These replace anything below that disagrees.
+
+1. **The e-news is a new page** that shares the Email Compiler's blocks.
+2. **Sending is one Church HQ Resend account for every church.**
+   - Martin sets it up and pays for it inside the subscription.
+   - Each church sends as `"<Church name>" <news@mail.churchhq.co.uk>`, with Reply-To set to the church's own address.
+   - Unsubscribe, bounces and complaints are handled **per church**.
+   - A church's own domain is an optional extra later, never required.
+   - Martin's steps are in `CHURCHHQ-EMAIL-SETUP.md`.
+   - The key lives in Google Secret Manager (`RESEND_API_KEY`), never in Firestore or a page. Sending is held by `functions/enews-gate.js` (`ENEWS_LIVE = false`) until switch-over.
+   - The unsubscribe header and bounce handling live in the **hub's own** sending path, not Calla's.
+   - **This replaces C-2, C-12 and C-13 below.** Calla's sendEmail is not changed for the e-news.
+3. **Canva is tested on Martin's own FREE Canva account.**
+   - The page shows "Connect Canva" and Martin signs in himself. Nobody asks for a password.
+   - **No Autofill**: Canva's docs contradict each other on which plan it needs.
+   - The fallback is download from Canva, then drag in.
+   - What a free account can do is in C-21.
+4. **Both looks as templates** (the Mailchimp look and the hub's green). The colours are a **church setting**, so any church can set its own.
+5. **A new hub card maker.** Calla Design's files are not touched.
+6. **Build and test now.** Running alongside Mailchimp starts on switch-over day (C-1).
+
+### C-20. Moving hub email off Calla's sendEmail, later (plan; e-news first)
+
+- **Stage 1 (now): the e-news only.**
+  - A new hub module, `functions/hq-mail.js`, sends through Church HQ's Resend with the key from Secret Manager.
+  - It has `List-Unsubscribe` and `List-Unsubscribe-Post` headers, a `tags` entry carrying the church id and subscriber id (so a bounce report knows whose it is), and an `Idempotency-Key` per person per issue (so a retry never sends twice).
+  - It writes the same `emailOutbox` rows as `makeSender` does today, so "Emails sent" (comms.html) shows e-news sends too.
+  - A webhook function, `hqMailEvents`, checks Resend's signature (svix, raw body) and ignores repeats (`svix-id`). It then marks that church's subscriber `bounced` or `complained`.
+- **Stage 2 (after switch-over, Martin decides when): the server's own emails.**
+  - These are the reminders, notifications, public-page mail (§26 item 14) and `compilerSend`. Each moves from `makeSender` to `hq-mail.js`, one at a time.
+  - `makeSender` gets the same shape so each move is a one-line change, with a check for each.
+  - Transactional mail has **no** unsubscribe header, but still the church's name and Reply-To.
+- **Stage 3: the browser senders.**
+  - `egbc-email.js` (rotas, Planner, Sunday plans) today posts straight to Calla's sendEmail.
+  - These move to a hub callable that checks who's signed in, then sends through `hq-mail.js`. That also closes the email lock (§26 item 4).
+- **Calla's sendEmail keeps working throughout.** It's retired only when nothing calls it: check `emailOutbox` and Calla's logs for 4 weeks of silence.
+- **Rotas and the rest stay on Calla's for now**, as Martin said.
+
+### C-21. Canva on a FREE account (what to expect; Martin's test confirms)
+
+| Part | Free account? | Source |
+|---|---|---|
+| Making the integration (Developer Portal) | Yes. Any account can, but **two-step sign-in must be on** for the REST APIs. | canva.dev authentication docs (the research's reading) |
+| Using it before Canva reviews it | **Very likely yes, for the account that made it.** Canva's own quickstart has you sign in to your unreviewed integration on your own account. Others can't use it until reviewed. | canva.dev/docs/connect/quickstart |
+| A **private** (our-church-only) integration | **No.** Enterprise only. So it's a "public" integration we never submit for review while only Martin and Val use it. If Val needs it on her own account, it's submitted then. | canva.dev creating-integrations |
+| List your designs | Yes | List designs API, no plan noted |
+| Export PNG, JPG, PDF | Yes | Export API |
+| Export **GIF** and **MP4** | Yes. Not limited to Pro. A design with **paid (Pro) elements** may refuse to export at top quality ("license_required"). | Export API |
+| Bigger-than-design exports | Limited on free (×1.125) | Export API |
+| Autofill and brand templates | Not planned (decision 3) | |
+
+**Martin's test, when the page is ready:**
+1. Turn on two-step sign-in in Canva.
+2. Make the integration in the Developer Portal. I'll write those clicks then, with the exact redirect address.
+3. Open the hub page and press "Connect Canva".
+4. Sign in to Canva yourself.
+5. Check that your designs appear.
+6. Import one animated design.
+
+That one test answers every "very likely" above.
+
+---
+
 ## Part 1: for Martin, in plain words
 
 ### What you'd get
@@ -248,7 +313,8 @@ Remake them with `node design-mocks/comms/shoot.mjs` (from `v2/`). Made-up names
   - Martin turns on `enews` in Church settings;
   - runs `tools/import-mailchimp.mjs --live`, then `--live --write`;
   - checks the sign-up page on esherchurch.org.
-- Calla deploys the C-12 sendEmail changes. The `news.esherchurch.org` DNS records are in place and verified in Resend. The Resend plan can take the weekly send.
+- Church HQ's Resend is set up (`CHURCHHQ-EMAIL-SETUP.md`, parts A-E): `mail.churchhq.co.uk` verified; `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` in Secret Manager; the webhook pointing at `hqMailEvents`. Then `ENEWS_LIVE = true` in `functions/enews-gate.js`, and deploy functions:hub.
+  - **Part D has to be done before the first functions:hub deploy that contains the e-news senders.** The deploy asks for any secret that isn't set.
 - `CANVA_LIVE = true` in `functions/canva-gate.js`, then deploy functions:hub, then Val connects Canva.
 - E-news and Mailchimp run side by side for 3-4 weeks. Retire Mailchimp only when the hub's sends show no bounce or complaint problems (Resend: bounces under 4%, complaints under 0.08%).
 
