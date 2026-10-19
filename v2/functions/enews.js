@@ -53,7 +53,7 @@ export const WORDING = {
   'signup-1': 'Yes, send me the weekly e-news. About one email a week. Every email has an unsubscribe link.'
 };
 
-export const newToken = () => randomBytes(24).toString('base64url').replace(/[^a-z0-9]/gi, '').slice(0, 32);
+export const newToken = () => randomBytes(48).toString('base64url').replace(/[^a-z0-9]/gi, '').slice(0, 32);
 export const normEmail = e => String(e || '').trim().toLowerCase();
 const mask = e => { const [u, d] = String(e).split('@'); return (u || '').slice(0, 2) + '…@' + (d || ''); };
 const now = () => new Date().toISOString();

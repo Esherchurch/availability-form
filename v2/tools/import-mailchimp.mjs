@@ -98,7 +98,7 @@ const EMAIL = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}$/i;
 const mask = e => { const [u, d] = String(e).split('@'); return (u || '').slice(0, 2) + '\u2026@' + (d || ''); };
 /* Mailchimp writes "2024-03-01 10:22:13" (UTC). */
 const when = s => { const t = String(s || '').trim(); if (!t) return ''; const d = new Date(t.replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(t) ? '' : 'Z')); return isNaN(d) ? '' : d.toISOString(); };
-const newToken = () => randomBytes(24).toString('base64url').replace(/[^a-z0-9]/gi, '').slice(0, 32);
+const newToken = () => randomBytes(48).toString('base64url').replace(/[^a-z0-9]/gi, '').slice(0, 32);
 
 /* The decision for one address. Pure. */
 export function decide(kind, mc, hub) {
