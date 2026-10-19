@@ -1473,6 +1473,18 @@ service cloud.firestore {
                     && request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '');
       allow delete: if enewsOffice() && resource.data.status == 'draft';
     }
+    // SUBSCRIBERS (C-10): people's email addresses and the record of how
+    // each agreed. The office reads them; NOBODY writes them from a page -
+    // sign-up, confirm, unsubscribe, bounces and the office's "add by hand"
+    // all go through the hub's functions (functions/enews.js), which keep
+    // the history. Webhook receipts (hqMailEvents) are the server's alone.
+    match /enewsSubscribers/{id} {
+      allow read: if enewsOffice();   // subscribers: the office
+      allow write: if false;          // subscribers: functions only
+    }
+    match /hqMailEvents/{id} {
+      allow read, write: if false;
+    }
     match /enewsSettings/{id} {
       allow read: if enewsOffice();
       allow write: if enewsOffice() && id == 'main'

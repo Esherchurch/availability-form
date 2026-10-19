@@ -43,6 +43,7 @@ async function run(rules) {
     }
     await setDoc(doc(db, 'enewsIssues', 'sent1'), issue('en_office', { status: 'sent' }));
     await setDoc(doc(db, 'enewsIssues', 'draft1'), issue('en_office'));
+    await setDoc(doc(db, 'enewsSubscribers', 's1'), { email: 'sub@example.invalid', status: 'subscribed', token: 'x'.repeat(32) });
     await setDoc(doc(db, 'enewsSettings', 'main'), { template: 'classic', colours: {}, church: {}, updatedAt: 'x', updatedBy: 'en_office' });
   });
   const as = w => env.authenticatedContext(PEOPLE[w].uid).firestore();
@@ -66,6 +67,12 @@ async function run(rules) {
   await t('office can save the look and footer', assertSucceeds(setDoc(doc(as('office'), 'enewsSettings', 'main'), { template: 'green', colours: { bar: '#123456' }, church: { address: '1 Test Lane' }, updatedAt: 'x', updatedBy: 'en_office' })));
   await t('a church member cannot change the look', assertFails(setDoc(doc(as('member'), 'enewsSettings', 'main'), { template: 'green', colours: {}, church: {}, updatedAt: 'x', updatedBy: 'en_member' })));
   await t('settings only take the known footer fields', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'main'), { template: 'green', colours: {}, church: { apiKey: 'x' }, updatedAt: 'x', updatedBy: 'en_office' })));
+  await t('office can read the subscriber list', assertSucceeds(getDocs(collection(as('office'), 'enewsSubscribers'))));
+  await t('a church member cannot read subscribers', assertFails(getDoc(doc(as('member'), 'enewsSubscribers', 's1'))));
+  await t('nobody signed out reads subscribers', assertFails(getDoc(doc(anon, 'enewsSubscribers', 's1'))));
+  await t('not even the office writes a subscriber from a page (functions only)', assertFails(setDoc(doc(as('office'), 'enewsSubscribers', 's2'), { email: 'x@example.invalid', status: 'subscribed' })));
+  await t('nobody signed out can add themselves directly', assertFails(setDoc(doc(anon, 'enewsSubscribers', 's3'), { email: 'x@example.invalid', status: 'pending' })));
+  await t('Resend receipts are the server’s alone', assertFails(getDocs(collection(as('master'), 'hqMailEvents'))));
   await env.cleanup();
   return R;
 }
@@ -75,6 +82,8 @@ const R = await run(RULES);
 report(R);
 
 const BREAKS = [
+  ['the office may write subscribers from a page', 'allow write: if false;          // subscribers: functions only', 'allow write: if enewsOffice(); // subscribers: functions only', 'not even the office writes'],
+  ['church members may read subscribers', 'allow read: if enewsOffice();   // subscribers: the office', 'allow read: if active();        // subscribers: the office', 'a church member cannot read subscribers'],
   ['any admin may read issues', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\'); }', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\') || isAdmin(); }', 'an admin of a team'],
   ['a sent issue may be changed', "&& resource.data.status in ['draft', 'scheduled']", '', 'a sent issue cannot be changed'],
   ['the office may mark an issue sent', "&& d.status in ['draft', 'scheduled']", "&& d.status in ['draft', 'scheduled', 'sent']", 'the office cannot mark an issue sent'],

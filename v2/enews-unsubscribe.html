@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unsubscribe from the e-news</title>
+<!-- The unsubscribe link in every e-news (comms window; C-11). Public, no
+     sign-in, nothing to type; reached only from an e-news, so not in the
+     Menu. The page's own script posts the unsubscribe, so a link-checker
+     that opens links without running scripts can't unsubscribe anyone by
+     accident. Mail apps' own "Unsubscribe" button posts straight to the
+     function (List-Unsubscribe-Post, RFC 8058) and never comes here. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-enews-public.js?v=202610192000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="egbc-enews-public.css?v=202610192000">
+</head>
+<body>
+<div class="ch" id="ch"></div>
+<main id="main"><p class="lead">Unsubscribing&hellip;</p></main>
+<script>
+(function () {
+  'use strict';
+  var P = window.EGBCEnewsPublic, esc = P.esc, main = document.getElementById('main');
+  P.header(document.getElementById('ch'));
+  var t = new URLSearchParams(location.search).get('t') || '';
+  function act(action) { return P.post('enewsUnsubscribe', { t: t, action: action }); }
+  function fail() { main.innerHTML = '<h1>Couldn’t reach the church’s system</h1><p class="lead">Check your connection and open the link again.</p>'; }
+  function draw(r) {
+    if (!r || !r.ok) {
+      main.innerHTML = '<h1>That link didn’t work</h1><p class="lead">It may have been cut short by your email program. Reply to any e-news and ask to be taken off, and the church office will do it.</p>';
+      return;
+    }
+    var off = r.status === 'unsubscribed', special = !!(r.lists && r.lists.special && !r.lists.weekly);
+    main.innerHTML = '<div class="chk" aria-hidden="true">✓</div>' +
+      (off ? '<h1>You’re unsubscribed</h1><p class="lead">' + esc(r.email) + ' won’t get the weekly e-news any more. You didn’t need to sign in or type anything.</p>'
+           : special ? '<h1>Special notices only</h1><p class="lead">' + esc(r.email) + ' will get the occasional special notice, and not the weekly e-news.</p>'
+           : '<h1>You’re back on the list</h1><p class="lead">' + esc(r.email) + ' will get the weekly e-news again.</p>') +
+      '<div class="card"><h2>Changed your mind?</h2>' +
+      (off || special ? '<button class="btn sec" id="re">Re-subscribe to the weekly e-news</button>' : '<button class="btn sec" id="un">Unsubscribe again</button>') +
+      (off ? '<button class="btn sec" id="sp">Just the special notices (a few a year)</button>' : '') + '</div>' +
+      '<p class="fine">Rota and team emails from church are separate and not affected.</p>';
+    var b;
+    if ((b = document.getElementById('re'))) b.onclick = function () { this.disabled = true; act('resubscribe').then(draw, fail); };
+    if ((b = document.getElementById('un'))) b.onclick = function () { this.disabled = true; act('unsubscribe').then(draw, fail); };
+    if ((b = document.getElementById('sp'))) b.onclick = function () { this.disabled = true; act('specialOnly').then(draw, fail); };
+  }
+  act('unsubscribe').then(draw, fail);
+})();
+</script>
+</body>
+</html>

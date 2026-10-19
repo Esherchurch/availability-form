@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get our weekly e-news</title>
+<!-- THE E-NEWS SIGN-UP (comms window; FINDINGS-comms C-11). Public, no
+     sign-in; reached from the church website (a link or an embed), so not
+     in the Menu. Saves nothing itself: functions/enews.js enewsSignup makes
+     a "pending" record and emails a confirm link (double opt-in). Until
+     switch-over the function says when it opens and saves nothing (C-1).
+     The tick's words are WORDING['signup-1'] in functions/enews.js: change
+     both together, as a new version, so each consent records what was said. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-enews-public.js?v=202610192000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="egbc-enews-public.css?v=202610192000">
+</head>
+<body>
+<div class="ch" id="ch"></div>
+<main id="main">
+  <h1>Get our weekly e-news</h1>
+  <p class="lead">What&rsquo;s on, Sunday&rsquo;s service and news from church, once a week. Free, and you can stop any time.</p>
+  <form id="f" novalidate>
+    <label class="f" for="first">Your first name</label><input type="text" id="first" autocomplete="given-name" maxlength="60">
+    <label class="f" for="email">Your email</label><input type="email" id="email" autocomplete="email" maxlength="200" required>
+    <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" tabindex="-1" autocomplete="off"></div>
+    <label class="tick"><input type="checkbox" id="weekly" checked disabled><span>Yes, send me the weekly e-news<small>About one email a week. Every email has an unsubscribe link.</small></span></label>
+    <label class="tick"><input type="checkbox" id="special"><span>Also send me the occasional special notice<small>For example Christmas and Easter services. Optional.</small></span></label>
+    <button class="btn" id="go" type="submit">Sign me up</button>
+    <p class="err" id="err" role="alert" hidden></p>
+  </form>
+  <p class="fine">We&rsquo;ll email you a link to confirm, so nobody can sign you up without you knowing. We only use your email for the e-news.</p>
+</main>
+<script>
+(function () {
+  'use strict';
+  var P = window.EGBCEnewsPublic, esc = P.esc;
+  P.header(document.getElementById('ch'));
+  var f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
+  function say(t) { err.textContent = t; err.hidden = !t; }
+  function again() { go.disabled = false; go.textContent = 'Sign me up'; }
+  f.onsubmit = function (e) {
+    e.preventDefault(); say('');
+    var email = document.getElementById('email').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { say('That email address doesn’t look right.'); document.getElementById('email').focus(); return; }
+    go.disabled = true; go.textContent = 'Signing you up…';
+    P.post('enewsSignup', { email: email, firstName: document.getElementById('first').value.trim(), special: document.getElementById('special').checked,
+      website: document.getElementById('website').value, wording: 'signup-1' }).then(function (r) {
+      if (r && r.ok) {
+        document.getElementById('main').innerHTML = '<div class="chk" aria-hidden="true">✓</div><h1>Nearly done, check your email</h1>' +
+          '<p class="lead">We’ve sent a link to <b style="color:#111827">' + esc(email) + '</b>. Tap it and you’re on the list. The link works for 7 days.</p>' +
+          '<div class="card"><h2>Not there?</h2>Look in your spam or “Promotions” folder. Still nothing after 10 minutes? Sign up again and we’ll send another.</div>';
+        return;
+      }
+      again();
+      if (r && r.shut) say('The e-news sign-up opens soon' + (r.opensOn ? ' (' + r.opensOn + ')' : '') + '. Nothing has been saved.');
+      else if (r && r.off) say('This church doesn’t send an e-news from here.');
+      else if (r && r.error === 'email') say('That email address doesn’t look right.');
+      else if (r && r.error === 'busy') say('Lots of people are signing up just now. Please try again in an hour.');
+      else say('That didn’t work. Please try again in a moment.');
+    }, function () { again(); say('Couldn’t reach the church’s system. Check your connection and try again.'); });
+  };
+})();
+</script>
+</body>
+</html>

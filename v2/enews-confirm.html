@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirm your e-news sign-up</title>
+<!-- The link in the e-news confirm email (comms window; C-11). Public;
+     reached only from that email, so not in the Menu. Posts the token to
+     functions/enews.js enewsConfirm, which marks the person subscribed and
+     records when they confirmed. -->
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610162100"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-enews-public.js?v=202610192000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="egbc-enews-public.css?v=202610192000">
+</head>
+<body>
+<div class="ch" id="ch"></div>
+<main id="main"><p class="lead">Confirming&hellip;</p></main>
+<script>
+(function () {
+  'use strict';
+  var P = window.EGBCEnewsPublic, esc = P.esc, main = document.getElementById('main');
+  P.header(document.getElementById('ch'));
+  var t = new URLSearchParams(location.search).get('t') || '';
+  P.post('enewsConfirm', { t: t }).then(function (r) {
+    if (r && r.ok) {
+      main.innerHTML = '<div class="chk" aria-hidden="true">✓</div><h1>You’re on the list</h1><p class="lead">The weekly e-news will come to ' + esc(r.email || 'you') + '. Every one has an unsubscribe link at the bottom.</p>';
+    } else if (r && r.error === 'expired') {
+      main.innerHTML = '<h1>That link has run out</h1><p class="lead">Links work for 7 days. <a href="enews-signup.html">Sign up again</a> and we’ll send a new one.</p>';
+    } else if (r && r.shut) {
+      main.innerHTML = '<h1>Not open yet</h1><p class="lead">The e-news sign-up opens soon. Nothing has been saved.</p>';
+    } else {
+      main.innerHTML = '<h1>That link didn’t work</h1><p class="lead">It may have been used already, or cut short by your email program. <a href="enews-signup.html">Sign up again</a> if you need to.</p>';
+    }
+  }, function () { main.innerHTML = '<h1>Couldn’t reach the church’s system</h1><p class="lead">Check your connection and open the link again.</p>'; });
+})();
+</script>
+</body>
+</html>

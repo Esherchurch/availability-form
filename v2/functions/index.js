@@ -776,3 +776,7 @@ export { sermonLinkKeep } from './sermon-links.js';
 export { complianceDaily } from './compliance.js';
 /* Personal evacuation plans on the fire roll-call: today's only, for today's people (F-234), the events window's file. */
 export { peepTodayDaily, peepTodayOnCheckin, peepTodayOnPeep, peepTodayOnRollCall, peepTodayOnRota } from './peeps.js';
+/* The e-news's subscribers (comms window, FINDINGS-comms): sign-up, confirm,
+   unsubscribe, Resend's bounce webhook, the office's add-by-hand. Sends
+   through Church HQ's Resend (hq-mail.js); shut until switch-over (enews-gate.js). */
+export { enewsSignup, enewsConfirm, enewsUnsubscribe, hqMailEvents, enewsSubscriberSave } from './enews.js';
