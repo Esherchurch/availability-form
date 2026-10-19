@@ -130,6 +130,9 @@
     return out;
   }
 
+  /* How near is "due soon"? A weekly check is not amber all week. */
+  function soon(every, amberDays) { var d = days(every); return d === Infinity ? amberDays : Math.min(amberDays, Math.max(1, Math.round(d / 4))); }
+
   /* ---- the building's answers changed: which copies to add, remove, restore ----
      A removed check keeps its history: it is marked removed, never deleted. */
   function reconcile(profile, templates, checks) {
@@ -157,7 +160,8 @@
      triggers:  on-demand events { kind ('buildingWork'), on }
      -> items, each with lastDone, nextDue, rag:
           green  in date
-          amber  due within amberDays (30), or never recorded yet
+          amber  due soon - within a quarter of its gap, at most amberDays (30):
+                 weekly 2 days, monthly 8, yearly 30 - or never recorded yet
           red    overdue, or an open safety job for it past its due date
           grey   switched off, removed, or not applicable */
   function schedule(o) {
@@ -197,7 +201,7 @@
       if (it.rag !== 'green') {
         if (!it.nextDue && !it.lastDone) { it.rag = 'amber'; it.why = 'Not recorded yet'; }
         else if (it.nextDue < today) { it.rag = 'red'; it.why = 'Overdue since ' + it.nextDue; }
-        else if (between(today, it.nextDue) <= amberDays) { it.rag = 'amber'; it.why = 'Due ' + it.nextDue; }
+        else if (between(today, it.nextDue) <= soon(every, amberDays)) { it.rag = 'amber'; it.why = 'Due ' + it.nextDue; }
         else { it.rag = 'green'; it.why = 'Next due ' + it.nextDue; }
       }
       var late = (open[c.id] || []).filter(function (f) { return f.safety && f.due && String(f.due) < today; });

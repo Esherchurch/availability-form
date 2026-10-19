@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Building compliance</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610152310"></script>
+<script src="egbc-shell.js?v=202610160500" data-title="Building compliance"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610160500"></script>
+<script src="egbc-guard.js?v=202610121600"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-events.js?v=202610161700"></script>
+<script src="egbc-compliance.js?v=202610191800"></script>
+<script src="egbc-compliance-templates.js?v=202610191800"></script>
+<script src="egbc-compliance-store.js?v=202610191800"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --red:#b0392c;--red-bg:#fdecea;--amber:#b07d2e;--amber-bg:#fdf6e9;--green:#15803d;--green-bg:#ecfdf3;--grey:#9ca3af}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 15px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:18px 16px calc(80px + env(safe-area-inset-bottom))}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 2px}
+  .sub{color:var(--muted);margin:0 0 12px;font-size:14px}
+  .guide{background:var(--tint);border-radius:10px;padding:8px 12px;font-size:13.5px;color:var(--brand-dark);margin:0 0 12px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .spacer{flex:1}
+  .tabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px}
+  .tabs button{flex:none;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:#fff;font:600 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .tabs button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 16px;border-radius:10px;font:600 15px Inter,sans-serif;cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}.btn.small{min-height:44px;font-size:14px;padding:0 12px}
+  .btn.danger{background:#fff;color:var(--red);border-color:#e7c3be}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  label.l{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:10px 0 4px}
+  .inp,select,textarea{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:inherit;background:#fff;color:var(--ink)}
+  textarea{padding:10px 12px;min-height:70px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none}
+  .red{background:var(--red)}.amber{background:var(--amber)}.green{background:var(--green)}.grey{background:var(--grey)}
+  .bld{display:grid;grid-template-columns:14px 1fr auto;gap:12px;align-items:center;min-height:60px;padding:8px 4px;border-top:1px solid var(--line);cursor:pointer}
+  .bld:first-of-type{border-top:0}
+  .it{display:grid;grid-template-columns:14px 1fr auto;gap:12px;align-items:center;min-height:56px;padding:8px 4px;border-top:1px solid var(--line);cursor:pointer}
+  .it:first-of-type{border-top:0}.it .t{color:var(--ink);font-weight:600}.m{font-size:13px;color:var(--muted)}
+  .area{font:700 12.5px Inter;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:14px 2px 2px}
+  .pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--tint);color:var(--brand)}
+  .pill.basis-legal{background:#e8eefb;color:#1e3a8a}.pill.basis-practice{background:#f3f4f6;color:#4b5563}
+  .chk{display:flex;gap:10px;align-items:center;min-height:44px;font-size:15px}.chk input{width:20px;height:20px;flex:none}
+  .back{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+  @media (min-width:700px){.back{align-items:center}}
+  .sheet{background:#fff;width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px;position:relative}
+  @media (min-width:700px){.sheet{border-radius:16px}}
+  .sheet .x{position:sticky;top:0;float:right;width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:#fff;font-size:18px;cursor:pointer;z-index:2}
+  .rec{border-top:1px solid var(--line);padding:8px 0}.rec:first-of-type{border-top:0}
+  .notice{background:var(--amber-bg);color:#7a5a1f;border-radius:10px;padding:10px 12px;margin:0 0 12px}
+  .said{font-size:13px;color:var(--muted);min-height:18px;margin:6px 0 0}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card">Loading…</div></div>
+<div id="toast"></div>
+<script>
+(function () {
+  'use strict';
+  /* BUILDING COMPLIANCE (Stage 2; F-230, F-231), feature 'buildingCompliance'.
+     Admins (master admins and the church office) set up buildings and edit
+     schedules; trustees (the Elders and master admins) see everything;
+     people a check is assigned to see and complete theirs (in "The
+     building", building.html). The rules say the same.
+     Due dates and colours come only from EGBCCompliance.schedule(). */
+  var E = window.EGBCEvents, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = E.esc;
+  var ME = {}, ADMIN = false, TRUSTEE = false, SITES = [], ROOMS = [], PEOPLE = {}, TEMPLATES = [], SITE = null, B = null, VIEW = 'checks', F = { area: '', person: '', rag: '' };
+  var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  function db() { return EGBCAuth.db; }
+  function $(id) { return document.getElementById(id); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function all(s) { return s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); }
+  function who() { return { uid: (EGBCAuth.user() || {}).uid || '', name: ME.name || '' }; }
+  function day(s) { if (!s) return ''; var p = String(s).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+  function every(e) { e = e || {}; return e.unit === 'once' ? 'Once, then keep' : e.unit === 'demand' ? 'Only when needed' : 'Every ' + (e.n > 1 ? e.n + ' ' + e.unit + 's' : e.unit); }
+  function sched(b) { return C.schedule({ profile: b.profile, templates: TEMPLATES, checks: b.checks, records: b.records, jobs: b.jobs, triggers: b.triggers, today: TODAY }); }
+  /* The label beside every check, in plain words (Martin, 19 Oct). */
+  function label(i) { return '<span class="pill basis-' + esc(i.basis || 'practice') + '" data-basis="' + esc(i.basis || 'practice') + '">' + esc(C.BASIS[i.basis] || C.BASIS.practice) + '</span>'; }
+
+  /* ---- who may do what (the rules say the same) ---- */
+  function isOffice() { return (EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : []).indexOf('Church office') >= 0; }
+  function isElder() { return (EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : []).indexOf('Elders') >= 0; }
+
+  function sheet(html) {
+    var back = document.createElement('div'); back.className = 'back';
+    back.innerHTML = '<div class="sheet" role="dialog" aria-modal="true"><button class="x" type="button" aria-label="Close">✕</button>' + html + '</div>';
+    document.body.appendChild(back);
+    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    var close = function () { back.remove(); document.removeEventListener('keydown', onKey); };
+    document.addEventListener('keydown', onKey);
+    back.querySelector('.x').onclick = close;
+    back.onclick = function (e) { if (e.target === back) close(); };
+    return { el: back, close: close, q: function (id) { return back.querySelector('#' + id); } };
+  }
+
+  /* ---------------- drawing ---------------- */
+  function draw() {
+    var html = '<h1>Building compliance</h1><p class="guide" id="guide">' + esc(T.GUIDANCE) + '</p>';
+    if (!SITE) html += overview();
+    else html += building();
+    $('wrap').innerHTML = html;
+    wire();
+  }
+  function overview() {
+    return '<p class="sub">Each building: what is in date, due soon and overdue.</p><div class="card" id="buildings">' + SITES.map(function (s) {
+      var r = s._sched;
+      return '<div class="bld" data-site="' + esc(s.id) + '" role="button" tabindex="0"><span class="dot ' + (r ? r.rag : 'grey') + '"></span><div><div class="t" style="color:var(--ink);font-weight:600">' + esc(s.name || s.id) + '</div>' +
+        '<div class="m">' + (!s._profile ? 'Not set up yet' : r.counts.red + ' overdue · ' + r.counts.amber + ' due soon · ' + r.counts.green + ' in date' + (r.safetyJobs.length ? ' · ' + r.safetyJobs.length + ' safety job' + (r.safetyJobs.length === 1 ? '' : 's') : '')) + '</div></div><span class="m">›</span></div>';
+    }).join('') + '</div>';
+  }
+  function building() {
+    var r = sched(B), tabs = [['checks', 'Checks'], ['profile', 'The building'], ['register', 'Extinguishers'], ['history', 'History']];
+    return '<div class="row" style="margin:0 0 8px"><button class="btn sec small" id="toAll">← All buildings</button></div>' +
+      '<h1 style="font-size:20px"><span class="dot ' + r.rag + '" id="bldRag" data-rag="' + r.rag + '"></span> ' + esc(SITE.name || SITE.id) + '</h1>' +
+      '<p class="sub">' + r.counts.red + ' overdue · ' + r.counts.amber + ' due soon · ' + r.counts.green + ' in date</p>' +
+      '<div class="tabs">' + tabs.map(function (t) { return '<button data-v="' + t[0] + '" aria-pressed="' + (VIEW === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      (VIEW === 'profile' ? profileView() : VIEW === 'register' ? registerView() : VIEW === 'history' ? '<div class="card" id="history"><p class="m">Loading…</p></div>' : checksView(r));
+  }
+  function checksView(r) {
+    var areas = Array.from(new Set(r.items.map(function (i) { return i.area; }))), people = {};
+    r.items.forEach(function (i) { (i.responsibleIds || []).forEach(function (p) { people[p] = PEOPLE[p] || p; }); });
+    var items = r.items.filter(function (i) {
+      return (!F.area || i.area === F.area) && (!F.person || (i.responsibleIds || []).indexOf(F.person) >= 0) && (!F.rag || i.rag === F.rag) && (F.rag === 'grey' || i.state !== 'removed');
+    });
+    var groups = {}; items.forEach(function (i) { (groups[i.area] = groups[i.area] || []).push(i); });
+    var order = { red: 0, amber: 1, green: 2, grey: 3 };
+    return '<div class="card"><div class="grid2"><div><label class="l" for="fArea">Area</label><select id="fArea"><option value="">All</option>' + areas.map(function (a) { return '<option' + (F.area === a ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="l" for="fRag">Status</label><select id="fRag"><option value="">All</option>' + [['red', 'Overdue'], ['amber', 'Due soon or not recorded'], ['green', 'In date'], ['grey', 'Off or no longer applies']].map(function (x) { return '<option value="' + x[0] + '"' + (F.rag === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div></div>' +
+      (Object.keys(people).length ? '<label class="l" for="fPerson">Person</label><select id="fPerson"><option value="">Anyone</option>' + Object.keys(people).map(function (p) { return '<option value="' + esc(p) + '"' + (F.person === p ? ' selected' : '') + '>' + esc(people[p]) + '</option>'; }).join('') + '</select>' : '') + '</div>' +
+      (r.safetyJobs.length ? '<div class="card" id="safetyJobs"><h2>Safety jobs</h2>' + r.safetyJobs.map(function (j) { return '<div class="it"><span class="dot ' + j.rag + '"></span><div><div class="t">' + esc(j.what) + '</div><div class="m">' + (j.due ? 'Due ' + esc(day(j.due)) : 'No due date') + '</div></div><a class="m" href="maintenance.html#' + esc(j.id) + '">Open ›</a></div>'; }).join('') + '</div>' : '') +
+      '<div class="card" id="checks">' + Object.keys(groups).sort().map(function (a) {
+        return '<div class="area">' + esc(a) + '</div>' + groups[a].sort(function (x, y) { return order[x.rag] - order[y.rag] || String(x.nextDue || '').localeCompare(String(y.nextDue || '')); }).map(function (i) {
+          return '<div class="it" data-check="' + esc(i.id) + '" data-rag="' + i.rag + '" role="button" tabindex="0"><span class="dot ' + i.rag + '"></span><div><div class="t">' + esc(i.title) + '</div><div>' + label(i) + '</div>' +
+            '<div class="m">' + esc(i.why) + ' · ' + esc(every(i.every)) + (i.guidance ? ' · ' + esc(i.guidance) : '') + ((i.responsibleIds || []).length ? ' · ' + esc(i.responsibleIds.map(function (p) { return PEOPLE[p] || p; }).join(', ')) : '') + '</div></div><span class="m">›</span></div>';
+        }).join('');
+      }).join('') + (items.length ? '' : '<p class="m">Nothing here.</p>') + '</div>' +
+      (ADMIN ? '<div class="row"><button class="btn sec" id="addOwn">+ Add the church’s own check</button><button class="btn sec" id="addWork">Record building work</button></div>' : '');
+  }
+  function profileView() {
+    var p = B.profile || {}, ro = !ADMIN;
+    return '<div class="card" id="profileCard"><h2>About this building</h2><p class="m" style="margin:0 0 6px">The answers decide which checks it needs. Changing one adds or removes checks; a removed check keeps its history.</p>' +
+      T.QUESTIONS.map(function (q) {
+        if (q.choices) return '<label class="l" for="q_' + q.id + '">' + esc(q.q) + '</label><select id="q_' + q.id + '" data-q="' + q.id + '"' + (ro ? ' disabled' : '') + '>' + q.choices.map(function (c) { return '<option value="' + c[0] + '"' + (p[q.id] === c[0] ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select>';
+        return '<label class="chk"><input type="checkbox" data-q="' + q.id + '"' + (p[q.id] === true ? ' checked' : '') + (ro ? ' disabled' : '') + '> ' + esc(q.q) + '</label>' + (q.note ? '<p class="m" style="margin:-4px 0 6px 30px">' + esc(q.note) + '</p>' : '');
+      }).join('') +
+      (ro ? '' : '<div class="row" style="margin-top:10px"><button class="btn" id="saveProfile">Save the answers</button></div><p class="said" id="pMsg" role="status"></p>') + '</div>';
+  }
+  function registerView() {
+    var rooms = ROOMS.filter(function (x) { return x.siteId === SITE.id; }), kinds = {};
+    (B.roomProfiles || []).forEach(function (r) { kinds[r.id] = r.kind; });
+    var reg = C.register({ rooms: rooms, roomKinds: kinds, equipment: B.equipment || [], guide: T.FIRE_GUIDE });
+    var label = function (t) { return ((T.EQUIPMENT.filter(function (x) { return x[0] === t; })[0]) || [0, t])[1]; };
+    return '<p class="guide">' + esc(T.FIRE_GUIDE_NOTE) + '</p><div class="card" id="register">' + reg.map(function (r) {
+      var eq = (B.equipment || []).filter(function (e) { return e.roomId === r.roomId && !e.removed; });
+      return '<div style="border-top:1px solid var(--line);padding:10px 0" data-room="' + esc(r.roomId) + '" data-rag="' + r.rag + '"><div class="row"><span class="dot ' + r.rag + '"></span><b style="color:var(--ink)">' + esc(r.name) + '</b><span class="spacer"></span>' +
+        (ADMIN ? '<select data-kind="' + esc(r.roomId) + '" style="width:auto"><option value="">Kind of room…</option>' + T.ROOM_KINDS.map(function (k) { return '<option value="' + k[0] + '"' + (r.kind === k[0] ? ' selected' : '') + '>' + esc(k[1]) + '</option>'; }).join('') + '</select>' : '<span class="m">' + esc(((T.ROOM_KINDS.filter(function (k) { return k[0] === r.kind; })[0]) || [0, ''])[1]) + '</span>') + '</div>' +
+        (r.missing.length ? '<p class="m" style="color:#7a5a1f;margin:4px 0">The guide suggests: ' + esc(r.missing.map(function (m) { return String(m).split('|').map(label).join(' or '); }).join(', ')) + '</p>' : '') +
+        (eq.length ? eq.map(function (e) { return '<div class="m">' + esc(label(e.type)) + (e.size ? ' · ' + esc(e.size) : '') + (e.label ? ' · ' + esc(e.label) : '') + (e.nextService ? ' · service ' + esc(day(e.nextService)) : '') + '</div>'; }).join('') : '<div class="m">None listed.</div>') +
+        (ADMIN ? '<button class="btn sec small" data-addeq="' + esc(r.roomId) + '" style="margin-top:6px">+ Add an extinguisher or blanket</button>' : '') + '</div>';
+    }).join('') + (reg.length ? '' : '<p class="m">This building has no rooms in Places yet.</p>') + '</div>';
+  }
+
+  /* ---------------- a check ---------------- */
+  function openCheck(id) {
+    var c = B.checks.filter(function (x) { return x.id === id; })[0]; if (!c) return;
+    var it = sched(B).items.filter(function (x) { return x.id === id; })[0];
+    var recs = B.records.filter(function (x) { return x.checkId === id; }).sort(function (a, b) { return String(b.doneOn).localeCompare(String(a.doneOn)); });
+    var jobs = B.jobs.filter(function (j) { return j.checkId === id; });
+    var opts = Object.keys(PEOPLE).sort(function (a, b) { return PEOPLE[a].localeCompare(PEOPLE[b]); });
+    var sh = sheet('<h2 style="margin:0 0 2px"><span class="dot ' + it.rag + '"></span> ' + esc(it.title) + '</h2><p style="margin:0 0 4px">' + label(it) + '</p><p class="m" style="margin:0 0 8px">' + esc(it.why) + ' · ' + esc(every(it.every)) + (it.note ? ' · ' + esc(it.note) : '') + '</p>' +
+      (it.guidance ? '<p class="notice" id="guidanceNote">' + esc(it.guidance) + '</p>' : '') + (c.lengthenReason ? '<p class="m">Checked less often than the standard because: ' + esc(c.lengthenReason) + '</p>' : '') +
+      (c.state === 'on' && (ADMIN || assigned(c)) ? '<div class="card"><h2>Record it done</h2><div class="grid2"><div><label class="l" for="dOn">Done on</label><input class="inp" type="date" id="dOn" value="' + TODAY + '"></div>' +
+        '<div><label class="l" for="dExp">Certificate expires (if it says)</label><input class="inp" type="date" id="dExp"></div></div>' +
+        '<label class="l" for="dNotes">Notes</label><textarea id="dNotes" maxlength="2000"></textarea>' +
+        '<label class="l" for="dFile">Certificate or photo (optional)</label><input class="inp" type="file" id="dFile" accept="image/*,.pdf" style="padding-top:8px">' +
+        '<div class="row" style="margin-top:8px"><button class="btn" id="dGo">Done</button></div><p class="said" id="dMsg" role="status"></p></div>' : '') +
+      (c.state === 'on' && (ADMIN || assigned(c)) ? '<div class="card"><h2>Something needs doing</h2><p class="m" style="margin:0 0 6px">A follow-up is a Maintenance job: one list.</p><label class="l" for="jWhat">What</label><input class="inp" id="jWhat" maxlength="200" placeholder="e.g. Replace two emergency light fittings">' +
+        '<div class="grid2"><div><label class="l" for="jDue">Due</label><input class="inp" type="date" id="jDue"></div><div><label class="l" for="jOwner">Who</label><select id="jOwner"><option value="">Choose…</option>' + opts.map(function (p) { return '<option value="' + esc(p) + '">' + esc(PEOPLE[p]) + '</option>'; }).join('') + '</select></div></div>' +
+        '<label class="chk"><input type="checkbox" id="jSafety" checked> A safety job (it changes the building’s colour)</label><div class="row"><button class="btn sec" id="jGo">Raise the job</button></div><p class="said" id="jMsg" role="status"></p></div>' : '') +
+      (jobs.length ? '<div class="card"><h2>Jobs from this check</h2>' + jobs.map(function (j) { return '<div class="rec"><b>' + esc(j.what) + '</b><div class="m">' + (j.status === 'done' ? 'Done' : 'To do') + (j.due ? ' · due ' + esc(day(j.due)) : '') + (j.safety ? ' · safety' : '') + '</div></div>'; }).join('') + '</div>' : '') +
+      '<div class="card" id="recHistory"><h2>History</h2>' + (recs.length ? recs.map(function (r) {
+        return '<div class="rec"><b>' + esc(day(r.doneOn)) + '</b> · ' + esc(r.doneByName || '') + (r.certExpiry ? ' · certificate to ' + esc(day(r.certExpiry)) : '') + (r.notes ? '<div class="m">' + esc(r.notes) + '</div>' : '') +
+          ((r.files || []).length ? '<div class="m">' + r.files.map(function (f) { return '📄 ' + esc(f.name); }).join(' ') + '</div>' : '') + '</div>';
+      }).join('') : '<p class="m">Not recorded yet.</p>') + '</div>' +
+      (ADMIN ? '<div class="card"><h2>The church’s copy</h2><div class="grid2"><div><label class="l" for="eN">Every</label><input class="inp" type="number" min="1" id="eN" value="' + esc((it.every || {}).n || 1) + '"' + (/^(once|demand)$/.test((it.every || {}).unit) ? ' disabled' : '') + '></div>' +
+        '<div><label class="l" for="eU">&nbsp;</label><select id="eU">' + [['week', 'weeks'], ['month', 'months'], ['year', 'years'], ['once', 'once, then keep'], ['demand', 'only when needed']].map(function (u) { return '<option value="' + u[0] + '"' + ((it.every || {}).unit === u[0] ? ' selected' : '') + '>' + u[1] + '</option>'; }).join('') + '</select></div></div>' +
+        '<label class="l" for="eWho">Responsible</label><select id="eWho" multiple style="min-height:110px">' + opts.map(function (p) { return '<option value="' + esc(p) + '"' + ((c.responsibleIds || []).indexOf(p) >= 0 ? ' selected' : '') + '>' + esc(PEOPLE[p]) + '</option>'; }).join('') + '</select>' +
+        (it.basis === 'standard' ? '<label class="l" for="eWhy">If less often than the standard, why?</label><input class="inp" id="eWhy" maxlength="300" value="' + esc(c.lengthenReason || '') + '">' : '') +
+        '<p class="m">' + (it.basis === 'legal' ? 'A legal requirement: it can be checked more often, never less often.' : it.basis === 'standard' ? 'The recommended standard: less often only with a reason.' : 'Good practice: the church decides.') + '</p>' +
+        '<div class="row" style="margin-top:8px"><button class="btn sec" id="eGo">Save the copy</button>' + (c.state === 'on' && it.basis !== 'legal' ? '<button class="btn danger" id="eOff">Switch it off…</button>' : c.state === 'off' ? '<button class="btn sec" id="eOn">Switch it on</button>' : '') + '</div>' +
+        '<p class="m">The church’s own copy: the starter guidance is not changed.</p><p class="said" id="eMsg" role="status"></p></div>' : ''));
+    var after = function (m) { sh.close(); return reload().then(function () { draw(); toast(m); }); };
+    if (sh.q('dGo')) sh.q('dGo').onclick = function () {
+      var f = sh.q('dFile').files[0], msg = sh.q('dMsg');
+      msg.textContent = 'Saving…';
+      var up = f ? uploadFile(c, f) : Promise.resolve([]);
+      up.then(function (files) { return ST.recordDone(db(), c, { doneOn: sh.q('dOn').value, notes: sh.q('dNotes').value, certExpiry: sh.q('dExp').value, files: files }, who()); })
+        .then(function () { return after('Recorded.'); }, function (e) { msg.textContent = 'Not saved: ' + (e.message || e); });
+    };
+    if (sh.q('jGo')) sh.q('jGo').onclick = function () {
+      var what = sh.q('jWhat').value.trim(), msg = sh.q('jMsg');
+      if (!what) { msg.textContent = 'Say what needs doing.'; return; }
+      msg.textContent = 'Raising…';
+      raiseJob({ siteId: c.siteId, what: what, checkId: c.id, due: sh.q('jDue').value, ownerId: sh.q('jOwner').value, safety: sh.q('jSafety').checked })
+        .then(function () { return after('The job is on the Maintenance list.'); }, function (e) { msg.textContent = 'Not raised: ' + (e.message || e); });
+    };
+    if (sh.q('eGo')) sh.q('eGo').onclick = function () {
+      var u = sh.q('eU').value, ne = /^(once|demand)$/.test(u) ? Object.assign({}, it.every, { unit: u }) : { n: Math.max(1, +sh.q('eN').value || 1), unit: u },
+        ch = { responsibleIds: [].map.call(sh.q('eWho').selectedOptions, function (o) { return o.value; }), reason: sh.q('eWhy') ? sh.q('eWhy').value : '' };
+      if (C.days(ne) !== C.days(it.every) || ne.unit !== (it.every || {}).unit) ch.every = ne;
+      ST.editCheck(db(), c.id, ch, who(), C).then(function () { return after('Saved: the church’s copy.'); }, function (e) { sh.q('eMsg').textContent = 'Not saved: ' + (e.message || e); });
+    };
+    if (sh.q('eOff')) sh.q('eOff').onclick = function () {
+      var why = prompt('Why is it switched off for this building?'); if (why === null) return;
+      ST.editCheck(db(), c.id, { state: 'off', offReason: why }, who(), C).then(function () { return after('Switched off.'); }, function (e) { sh.q('eMsg').textContent = e.message || e; });
+    };
+    if (sh.q('eOn')) sh.q('eOn').onclick = function () { ST.editCheck(db(), c.id, { state: 'on' }, who(), C).then(function () { return after('Switched on.'); }); };
+  }
+  function assigned(c) { return (c.responsibleIds || []).indexOf(ME.memberId || '-') >= 0; }
+  function uploadFile(c, f) {
+    if (f.size > 20 * 1024 * 1024) return Promise.reject(new Error('That file is over 20 MB.'));
+    var path = 'compliance/' + c.siteId + '/' + c.id + '/' + Date.now() + '-' + f.name.replace(/[^\w.\- ]+/g, '_').slice(-80);
+    return EGBCAuth.storage().ref(path).put(f, { contentType: f.type || 'application/octet-stream' }).then(function () { return [{ name: f.name.slice(0, 80), path: path, type: f.type || '' }]; });
+  }
+  /* A follow-up IS a Maintenance job (Martin, 19 Oct): one list. */
+  function raiseJob(j) {
+    var ref = db().collection('maintJobs').doc(), room = ROOMS.filter(function (r) { return r.id === j.roomId; })[0];
+    return ref.set({ siteId: j.siteId, roomId: j.roomId || '', where: room ? room.name : (SITE ? SITE.name : ''), what: j.what.slice(0, 200), details: '', photoPath: '', status: 'todo',
+      checkId: j.checkId || '', safety: !!j.safety, due: j.due || '', ownerId: j.ownerId || '',
+      reportedBy: (EGBCAuth.user() || {}).uid, reportedByName: ME.name || '', reportedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      .then(function () { return db().collection('complianceLog').doc().set({ siteId: j.siteId, what: 'job', by: who().uid, byName: who().name, at: new Date().toISOString(), detail: { jobId: ref.id, checkId: j.checkId || '' } }); });
+  }
+
+  /* ---------------- wiring ---------------- */
+  function wire() {
+    document.querySelectorAll('[data-site]').forEach(function (r) { r.onclick = r.onkeydown = function (e) { if (e.type === 'keydown' && e.key !== 'Enter') return; openSite(r.getAttribute('data-site')); }; });
+    if ($('toAll')) $('toAll').onclick = function () { SITE = null; B = null; history.replaceState(null, '', 'compliance.html'); loadAll().then(draw); };
+    document.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { VIEW = b.getAttribute('data-v'); draw(); if (VIEW === 'history') drawHistory(); }; });
+    document.querySelectorAll('[data-check]').forEach(function (r) { r.onclick = r.onkeydown = function (e) { if (e.type === 'keydown' && e.key !== 'Enter') return; openCheck(r.getAttribute('data-check')); }; });
+    ['fArea', 'fRag', 'fPerson'].forEach(function (id) { if ($(id)) $(id).onchange = function () { F.area = $('fArea').value; F.rag = $('fRag').value; F.person = $('fPerson') ? $('fPerson').value : ''; draw(); }; });
+    if ($('saveProfile')) $('saveProfile').onclick = function () {
+      var ans = {};
+      T.QUESTIONS.forEach(function (q) { var el = document.querySelector('[data-q="' + q.id + '"]'); if (!el) return; ans[q.id] = q.choices ? el.value : el.checked; });
+      $('pMsg').textContent = 'Saving…';
+      ST.applyProfile(db(), C, SITE.id, ans, TEMPLATES, who()).then(function (r) { return reload().then(function () { VIEW = 'checks'; draw(); toast('Saved: ' + r.added + ' check' + (r.added === 1 ? '' : 's') + ' added, ' + r.removed + ' no longer apply' + (r.restored ? ', ' + r.restored + ' back' : '') + '.'); }); },
+        function (e) { $('pMsg').textContent = 'Not saved: ' + (e.message || e); });
+    };
+    document.querySelectorAll('[data-kind]').forEach(function (s) { s.onchange = function () {
+      db().collection('roomProfiles').doc(s.getAttribute('data-kind')).set({ siteId: SITE.id, kind: s.value, updatedAt: new Date().toISOString() }).then(reload).then(draw);
+    }; });
+    document.querySelectorAll('[data-addeq]').forEach(function (b) { b.onclick = function () { addEquipment(b.getAttribute('data-addeq')); }; });
+    if ($('addOwn')) $('addOwn').onclick = addOwn;
+    if ($('addWork')) $('addWork').onclick = function () {
+      var sh = sheet('<h2>Record building work</h2><p class="m">Checks that wait for building work (for example fire stopping) become due.</p><label class="l" for="wOn">When</label><input class="inp" type="date" id="wOn" value="' + TODAY + '"><label class="l" for="wNote">What was done</label><input class="inp" id="wNote" maxlength="300"><div class="row" style="margin-top:10px"><button class="btn" id="wGo">Record it</button></div>');
+      sh.q('wGo').onclick = function () { ST.recordWork(db(), SITE.id, 'buildingWork', sh.q('wOn').value, sh.q('wNote').value, who()).then(function () { sh.close(); return reload(); }).then(function () { draw(); toast('Recorded.'); }); };
+    };
+  }
+  function addOwn() {
+    var sh = sheet('<h2>The church’s own check</h2><label class="l" for="oT">What</label><input class="inp" id="oT" maxlength="140"><label class="l" for="oA">Area</label><input class="inp" id="oA" value="Building" maxlength="60">' +
+      '<div class="grid2"><div><label class="l" for="oN">Every</label><input class="inp" type="number" id="oN" min="1" value="1"></div><div><label class="l" for="oU">&nbsp;</label><select id="oU"><option value="month">months</option><option value="year" selected>years</option><option value="week">weeks</option></select></div></div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn" id="oGo">Add it</button></div><p class="said" id="oMsg"></p>');
+    sh.q('oGo').onclick = function () { ST.addCustomCheck(db(), SITE.id, { title: sh.q('oT').value, area: sh.q('oA').value, every: { n: +sh.q('oN').value || 1, unit: sh.q('oU').value } }, who()).then(function () { sh.close(); return reload(); }).then(draw, function (e) { sh.q('oMsg').textContent = e.message || e; }); };
+  }
+  function addEquipment(roomId) {
+    var sh = sheet('<h2>An extinguisher or fire blanket</h2><label class="l" for="qT">Type</label><select id="qT">' + T.EQUIPMENT.map(function (e) { return '<option value="' + e[0] + '">' + esc(e[1]) + '</option>'; }).join('') + '</select>' +
+      '<div class="grid2"><div><label class="l" for="qS">Size</label><input class="inp" id="qS" maxlength="20" placeholder="e.g. 6 litre"></div><div><label class="l" for="qL">Label or number</label><input class="inp" id="qL" maxlength="20"></div></div>' +
+      '<label class="l" for="qN">Next service</label><input class="inp" type="date" id="qN"><div class="row" style="margin-top:10px"><button class="btn" id="qGo">Add it</button></div>');
+    sh.q('qGo').onclick = function () {
+      db().collection('fireEquipment').doc().set({ siteId: SITE.id, roomId: roomId, type: sh.q('qT').value, size: sh.q('qS').value.trim(), label: sh.q('qL').value.trim(), nextService: sh.q('qN').value, removed: false, updatedAt: new Date().toISOString() })
+        .then(function () { sh.close(); return reload(); }).then(draw, function (e) { toast('Not added: ' + (e.message || e)); });
+    };
+  }
+  function drawHistory() {
+    db().collection('complianceLog').where('siteId', '==', SITE.id).get().then(function (s) {
+      var l = all(s).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); }).slice(0, 200);
+      var words = { profile: 'Answers changed', edit: 'Check changed', add: 'Own check added', done: 'Check done', work: 'Building work recorded', template: 'Followed the updated guidance', job: 'Job raised' };
+      $('history').innerHTML = '<h2>History</h2>' + (l.length ? l.map(function (x) { return '<div class="rec"><b>' + esc(words[x.what] || x.what) + '</b> · ' + esc(x.byName || '') + '<div class="m">' + esc(new Date(x.at).toLocaleString('en-GB')) + '</div></div>'; }).join('') : '<p class="m">Nothing yet.</p>');
+    }, function () { $('history').innerHTML = '<p class="m">The history could not be read.</p>'; });
+  }
+
+  /* ---------------- loading ---------------- */
+  function loadBuilding(siteId) {
+    return ST.load(db(), siteId).then(function (b) {
+      return db().collection('roomProfiles').where('siteId', '==', siteId).get().then(function (s) { b.roomProfiles = all(s); return b; }, function () { b.roomProfiles = []; return b; });
+    });
+  }
+  /* A changed law or standard reaches the church's copies by itself (Martin, 19 Oct):
+     the engine shows it at once; an admin's visit also writes it down, logged. */
+  function reload() {
+    return loadBuilding(SITE.id).then(function (b) {
+      B = b;
+      if (!ADMIN || !ST.templateUpdates(TEMPLATES, b.checks).length) return;
+      return ST.followTemplates(db(), C, TEMPLATES, b.checks, who()).then(function () { return loadBuilding(SITE.id).then(function (b2) { B = b2; }); }, function () {});
+    });
+  }
+  function openSite(id) {
+    SITE = SITES.filter(function (s) { return s.id === id; })[0] || null; if (!SITE) return;
+    history.replaceState(null, '', 'compliance.html?site=' + encodeURIComponent(id));
+    VIEW = 'checks'; reload().then(draw);
+  }
+  function loadAll() {
+    return Promise.all(SITES.map(function (s) { return loadBuilding(s.id).then(function (b) { s._profile = b.profile && b.profile.siteId ? b.profile : null; s._sched = s._profile ? sched(b) : null; }); }));
+  }
+
+  E.ready().then(function (profile) {
+    ME = E.asSeen(profile || {});
+    var master = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+    ADMIN = master || isOffice();
+    TRUSTEE = master || isElder();
+    if (!ADMIN && !TRUSTEE) {
+      E.refused();
+      $('wrap').innerHTML = '<h1>Building compliance</h1><div class="card"><p>This page is for the church office, the trustees and master admins. If a check has been given to you, it is in <a href="building.html">The building</a>.</p></div>';
+      return null;
+    }
+    return Promise.all([
+      db().collection('sites').get(), db().collection('rooms').get(),
+      db().collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
+      db().collection('addressBook').get().catch(function () { return { docs: [] }; })
+    ]).then(function (r) {
+      SITES = all(r[0]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      ROOMS = all(r[1]).filter(function (x) { return x.active !== false; });
+      TEMPLATES = all(r[2]).length ? all(r[2]) : T.TEMPLATES;
+      all(r[3]).forEach(function (p) { if (p.name && !p.archived && p.isMinor !== true) PEOPLE[p.id] = p.name; });
+      var want = (location.search.match(/[?&]site=([\w-]+)/) || [])[1];
+      if (want && SITES.some(function (s) { return s.id === want; })) { SITE = SITES.filter(function (s) { return s.id === want; })[0]; return reload(); }
+      return loadAll();
+    }).then(draw);
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

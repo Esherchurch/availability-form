@@ -430,6 +430,29 @@ service firebase.storage {
       allow delete: if planLeaderHere(groupId);
     }
 
+    // Building compliance certificates and photos (F-231): at
+    // compliance/<site>/<check>/<file>. The compliance admins (master admins,
+    // the Church office) and the check's own people put them up; those and the
+    // trustees (Elders) read them. Images and PDFs, up to 20 MB. Never deleted.
+    function cmpCheckHere(checkId) {
+      return firestore.get(/databases/(default)/documents/buildingChecks/$(checkId)).data;
+    }
+    function cmpWho() {
+      return planActive() && (storageMe().get('masterAdmin', false) == true || 'Church office' in storageMe().get('teams', []));
+    }
+    function cmpMine(siteId, checkId) {
+      return planActive() && firestore.exists(/databases/(default)/documents/buildingChecks/$(checkId))
+             && cmpCheckHere(checkId).siteId == siteId
+             && storageMe().get('memberId', '-') in cmpCheckHere(checkId).get('responsibleIds', []);
+    }
+    match /compliance/{siteId}/{checkId}/{fileName} {
+      allow read: if cmpWho() || (planActive() && 'Elders' in storageMe().get('teams', [])) || cmpMine(siteId, checkId);
+      allow create: if (cmpWho() || cmpMine(siteId, checkId))
+                    && request.resource.size < 20 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*|application/pdf');
+      allow update, delete: if false;
+    }
+
     // ── end EVENTS ──────────────────────────────────────────────────
 
     // ── Everything else is closed ─────────────────────────────────────

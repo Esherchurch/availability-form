@@ -79,6 +79,9 @@ try {
   await S.recordDone(db, e, { doneOn: '2020-03-01', certExpiry: '2026-09-30' }, who);
   const e1 = (await sched('cmp_church')).items.find(i => i.id === eicrId);
   ok('   a certificate’s own expiry wins (30 Sep 2026): overdue, red', e1.nextDue === '2026-09-30' && e1.rag === 'red', J(e1));
+  const wk = (done) => E.schedule({ checks: [{ id: 'w', title: 'w', every: { n: 1, unit: 'week' }, state: 'on' }], records: done ? [{ checkId: 'w', doneOn: done }] : [], today: TODAY }).items[0].rag;
+  ok('   "DUE SOON" FITS THE CHECK: a weekly one done today is green, not amber all week; 6 days on, amber; a yearly one is amber 30 days ahead', wk(TODAY) === 'green' && wk('2026-10-13') === 'amber' && wk('2026-10-11') === 'red'
+    && E.schedule({ checks: [{ id: 'y', title: 'y', every: { n: 1, unit: 'year' }, state: 'on' }], records: [{ checkId: 'y', doneOn: '2025-11-15' }], today: TODAY }).items[0].rag === 'amber', [wk(TODAY), wk('2026-10-13'), wk('2026-10-11')].join());
   ok('   month ends: 31 Jan + 1 month = 28 Feb', E.nextDue({ n: 1, unit: 'month' }, '2026-01-31') === '2026-02-28' && E.nextDue({ n: 1, unit: 'week' }, '2026-10-19') === '2026-10-26');
 
   /* ---------- 3. the church's copy, never the template ---------- */

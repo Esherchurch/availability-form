@@ -7739,3 +7739,83 @@ the gate report).
 - play
 - intruder alarm
 - safeguarding policy
+
+### F-231 — Building compliance, Stage 2: the screens and the rules (Martin, 19 Oct)
+
+**Built:**
+- **`compliance.html`, for the office, the trustees and master admins:**
+  - **Every building with its colour.** "Not set up yet" until the office answers about it.
+  - **Checks:**
+    - filters for area, status and person
+    - each check labelled Legal requirement / Recommended standard / Good practice (F-232)
+    - the building's safety jobs listed
+  - **The building:** the plain questions. Saving them adds or removes checks, with each frequency already set.
+  - **Extinguishers:** room by room, with the kind of room and the guide ("Your fire risk assessment decides; this is a guide").
+  - **History:** the log.
+  - **A check opens as a sheet:**
+    - record it done, with a certificate or photo (Storage)
+    - "Something needs doing", which raises a Maintenance job: the check, the safety tick, a due date and who
+    - the church's copy: how often, who is responsible, switch off (not for a legal check)
+    - a reason box when a recommended standard is lengthened
+    - the "guidance changed" note
+  - The church's own check, and recording building work.
+- **`building.html`, "The building", Val's screens from the mock-ups:**
+  - **Home:** "Hello Val", a big red "Report a problem", then Due now, Jobs to do and Coming up. Only her own checks, each with its label.
+  - **A check:** done on, a photo or certificate, a note, Done, and "Something is wrong" (a safety job tied to the check).
+  - **The extinguisher walk-round:** room by room, tick each one. It says "1 of 2 seen", and the record keeps each item. The guide's note shows where a suggested type is missing.
+  - **Report a problem:** building, room, what. The safety tick is suggested from the words. It becomes a Maintenance job, the one list.
+- **Rules (events section):**
+  - **Who:**
+    - compliance admins = master admins and the Church office
+    - trustees = the Elders and master admins
+    - assigned people = the check's `responsibleIds`
+  - **Reading:** admins and trustees read everything. An assigned person reads only their checks and those checks' records.
+  - **Doing:**
+    - admins write the answers and the checks
+    - admins, or the check's own person, add records, in their own name, never changed or deleted
+    - building work is admins only
+    - room kinds and the register are written by admins and read by anyone signed in
+    - templates are server only
+  - **The log** is append only; not even a master admin changes it.
+  - **F-232's floor:**
+    - A legal check can't be made less frequent, put on "only when needed", or switched off.
+    - A recommended one is lengthened only with a reason.
+  - **maintJobs** gains `checkId`, `safety`, `due` and `ownerId`:
+    - Only an admin or the check's own person ties a job to a check.
+    - Admins set the safety tick, the due date and the owner.
+- **Storage:** `compliance/<site>/<check>/<file>` takes images and PDFs up to 20 MB.
+  - Put up by admins or the check's own person.
+  - Read by those people and the trustees.
+  - Never deleted.
+- **The engine:** "due soon" now fits the check. It is a quarter of the gap, at most 30 days: weekly 2 days, monthly 8, yearly 30. A weekly check done today is green, not amber all week (found by the browser walk).
+
+**The address and test logins (emulator only):**
+- **Run the walk:** `npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage --project egbc-worship-planner "node screenshots/events/compliance-stage2.test.mjs"`
+- **The pages:** http://localhost:5601/compliance.html and http://localhost:5601/building.html
+- **The test church:** St Example's Church, Example Hall and The Manse, all invented.
+- **Logins** (password `synthetic-only-123`):
+  - `olive.cmp@example.invalid`: the office
+  - `eli.cmp@example.invalid`: an Elder
+  - `val.cmp@example.invalid`: the caretaker
+  - `vic.cmp@example.invalid`: a volunteer
+  - `nina.cmp@example.invalid`: an Attender
+- **Screenshots:**
+  - `screenshots/events/compliance-overview-375.png`
+  - `compliance-checks-375.png`
+  - `compliance-check-375.png`
+  - `building-home-375.png`
+  - `building-walk-375.png`
+  - `building-done-375.png`
+
+**For the main window:**
+- **Menu entries:**
+  - "Building compliance" (`compliance.html`), for master admins, the Church office and the Elders
+  - "The building" (`building.html`), for anyone a check is given to. It is simplest to show it to the Maintenance team, the office and master admins. A volunteer with nothing given sees "Nothing has been given to you yet", plus Report a problem.
+- **The `buildingCompliance` switch:** still waits on `EGBCChurch.uses()` reading stored switches (F-230). The pages are not in any menu until then, so they stay out of sight. Stage 3 adds the switch check to both pages.
+
+**Still to come (Stage 3):**
+- the bookings dot
+- the reminders
+- the trustee report with each check's label
+- "fixing a safety job marks its check done" in the same step
+- the switch

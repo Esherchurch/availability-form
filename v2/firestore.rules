@@ -3533,7 +3533,14 @@ service cloud.firestore {
     function maintShape() {
       let d = request.resource.data;
       return d.keys().hasOnly(['siteId', 'roomId', 'where', 'what', 'details', 'photoPath', 'status',
-                               'reportedBy', 'reportedByName', 'reportedAt', 'doneBy', 'doneByName', 'doneAt', 'doneNote'])
+                               'reportedBy', 'reportedByName', 'reportedAt', 'doneBy', 'doneByName', 'doneAt', 'doneNote',
+                               'checkId', 'safety', 'due', 'ownerId'])
+             // Building compliance (Martin, 19 Oct): a follow-up on a check IS a
+             // job - its check, the safety tick, a due date and who owns it.
+             && d.get('checkId', '') is string && d.get('checkId', '').size() <= 160
+             && d.get('safety', false) is bool
+             && d.get('due', '') is string && (d.get('due', '') == '' || d.get('due', '').matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
+             && d.get('ownerId', '') is string && d.get('ownerId', '').size() <= 80
              && d.siteId is string && d.roomId is string
              && d.where is string && d.where.size() <= 120
              && d.what is string && d.what.size() > 0 && d.what.size() <= 200
@@ -3547,7 +3554,12 @@ service cloud.firestore {
       allow create: if active() && maintShape() && request.resource.data.status == 'todo'
                     && request.resource.data.reportedBy == request.auth.uid && request.resource.data.reportedAt == request.time
                     && request.resource.data.get('photoPath', '') in ['', 'maintJobs/' + jobId + '/photo']
-                    && !request.resource.data.keys().hasAny(['doneBy', 'doneAt']);
+                    && !request.resource.data.keys().hasAny(['doneBy', 'doneAt'])
+                    // tied to a check: only the compliance admins or the check's own people
+                    && (request.resource.data.get('checkId', '') == ''
+                        || (exists(/databases/$(database)/documents/buildingChecks/$(request.resource.data.checkId))
+                            && cmpCheck(request.resource.data.checkId).siteId == request.resource.data.siteId
+                            && (cmpAdmin() || cmpAssigned(cmpCheck(request.resource.data.checkId)))));
       allow update: if maintShape()
                     && request.resource.data.reportedBy == resource.data.reportedBy && request.resource.data.reportedAt == resource.data.reportedAt
                     && (
@@ -3555,6 +3567,9 @@ service cloud.firestore {
                       (resource.data.status == 'todo' && request.resource.data.status == 'todo' && resource.data.reportedBy == request.auth.uid
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['what', 'details', 'where', 'roomId', 'siteId', 'photoPath'])
                         && request.resource.data.get('photoPath', '') in ['', 'maintJobs/' + jobId + '/photo'])
+                      // The compliance admins: the safety tick, the due date and the owner.
+                      || (cmpAdmin() && resource.data.status == 'todo'
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['safety', 'due', 'ownerId']))
                       // The Maintenance team or the office: done (in their name, now), or open again.
                       || ((maintTeam() || maintOffice(resource.data.siteId))
                           && ((resource.data.status == 'todo' && request.resource.data.status == 'done'
@@ -4334,6 +4349,127 @@ service cloud.firestore {
                   || (active() && me().get('memberId', '') in resource.data.get('leaderMemberIds', [])
                       && request.time >= resource.data.from && request.time <= resource.data.until);
       allow write: if false;
+    }
+
+    // ---- BUILDING COMPLIANCE (Stage 2; F-230, F-231, F-232) -----------------
+    // Who (Martin, 19 Oct):
+    //   compliance admins  master admins and the Church office: set up the
+    //                      buildings, edit the church's copies of the checks
+    //   trustees           the Elders and master admins: see everything
+    //   assigned people    a check's responsibleIds (e.g. Val): see and record
+    //                      only theirs - never the others
+    // History is never changed or deleted: records and the log are append only.
+    // A LEGAL REQUIREMENT IS A FLOOR (F-232): never less often than the law,
+    // never switched off; a recommended standard is lengthened only with a
+    // reason. The same test as egbc-compliance.js allowEvery().
+    function cmpAdmin() { return isMaster() || onTeam('Church office'); }
+    function cmpTrustee() { return isMaster() || onTeam('Elders'); }
+    function cmpSees() { return cmpAdmin() || cmpTrustee(); }
+    function cmpCheck(id) { return get(/databases/$(database)/documents/buildingChecks/$(id)).data; }
+    function cmpAssigned(c) { return active() && me().get('memberId', '-') in c.get('responsibleIds', []); }
+    function cmpDays(e) {
+      return e.get('unit', '') == 'week' ? 7 * e.get('n', 1)
+           : e.get('unit', '') == 'month' ? 30.4375 * e.get('n', 1)
+           : e.get('unit', '') == 'year' ? 365.25 * e.get('n', 1) : 1000000;
+    }
+    function cmpEveryOk(e) {
+      return e is map && e.keys().hasOnly(['n', 'unit', 'trigger', 'triggerWords'])
+             && e.get('unit', '') in ['week', 'month', 'year', 'once', 'demand']
+             && (!('n' in e) || (e.n is int && e.n >= 1 && e.n <= 120));
+    }
+    function cmpCheckShape(siteId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['siteId', 'templateId', 'templateVersion', 'area', 'title', 'every', 'kind', 'basis', 'legal', 'baseEvery', 'lengthenReason',
+                               'note', 'state', 'offReason', 'responsibleIds', 'custom', 'edited', 'createdAt', 'updatedAt'])
+             && d.siteId == siteId && exists(/databases/$(database)/documents/sites/$(siteId))
+             && d.templateId is string && d.title is string && d.title.size() > 0 && d.title.size() <= 140
+             && cmpEveryOk(d.every)
+             && d.state in ['on', 'off', 'removed']
+             && d.get('offReason', '') is string && d.get('offReason', '').size() <= 300
+             && d.get('lengthenReason', '') is string && d.get('lengthenReason', '').size() <= 300
+             && d.get('responsibleIds', []) is list && d.get('responsibleIds', []).size() <= 10
+             && d.get('note', '') is string && d.get('note', '').size() <= 300
+             && (d.state != 'off' || d.get('offReason', '').size() > 0);
+    }
+    // The law's floor, against the template as it is now.
+    function cmpFloorOk() {
+      let d = request.resource.data;
+      let tp = /databases/$(database)/documents/complianceTemplates/$(d.templateId);
+      return d.templateId == '' || !exists(tp)
+             || (get(tp).data.get('basis', 'practice') == 'legal'
+                   ? (cmpDays(d.every) <= cmpDays(get(tp).data.every) && d.state != 'off')
+                 : get(tp).data.get('basis', 'practice') == 'standard'
+                   ? (cmpDays(d.every) <= cmpDays(get(tp).data.every) || d.get('lengthenReason', '').size() > 0)
+                 : true);
+    }
+    match /complianceTemplates/{id} {
+      allow read: if active();
+      allow write: if false;            // the seeding tool (Admin SDK) only
+    }
+    match /buildingProfiles/{siteId} {
+      allow read: if cmpSees();
+      allow create, update: if cmpAdmin() && request.resource.data.siteId == siteId
+                            && exists(/databases/$(database)/documents/sites/$(siteId));
+      allow delete: if false;
+    }
+    match /buildingChecks/{id} {
+      allow read: if cmpSees() || cmpAssigned(resource.data);
+      allow create: if cmpAdmin() && cmpCheckShape(request.resource.data.siteId)
+                    && (id == request.resource.data.siteId + '__' + request.resource.data.templateId
+                        || (request.resource.data.templateId == '' && id.matches(request.resource.data.siteId + '__c_[a-z0-9]{4,16}')))
+                    && cmpFloorOk();
+      allow update: if cmpAdmin() && cmpCheckShape(resource.data.siteId)
+                    && request.resource.data.templateId == resource.data.templateId
+                    && cmpFloorOk();
+      allow delete: if false;           // removed, never deleted: its history stays
+    }
+    function cmpRecordShape() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['checkId', 'siteId', 'doneOn', 'doneBy', 'doneByName', 'notes', 'files', 'certExpiry', 'items', 'jobId', 'at'])
+             && d.checkId is string && exists(/databases/$(database)/documents/buildingChecks/$(d.checkId))
+             && d.siteId == cmpCheck(d.checkId).siteId
+             && d.doneOn is string && d.doneOn.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+             && d.doneBy == request.auth.uid
+             && d.get('notes', '') is string && d.get('notes', '').size() <= 2000
+             && d.get('files', []) is list && d.get('files', []).size() <= 10
+             && d.get('items', []) is list && d.get('items', []).size() <= 200
+             && d.get('certExpiry', '') is string;
+    }
+    match /checkRecords/{id} {
+      allow read: if cmpSees() || cmpAssigned(cmpCheck(resource.data.checkId));
+      allow create: if cmpRecordShape()
+                    && (cmpAdmin() || (cmpAssigned(cmpCheck(request.resource.data.checkId)) && cmpCheck(request.resource.data.checkId).state == 'on'));
+      allow update, delete: if false;   // what was done stays done
+    }
+    match /buildingWork/{id} {
+      allow read: if cmpSees();
+      allow create: if cmpAdmin() && request.resource.data.keys().hasOnly(['siteId', 'kind', 'on', 'note', 'by', 'at'])
+                    && request.resource.data.by == request.auth.uid && request.resource.data.siteId is string
+                    && request.resource.data.on is string && request.resource.data.on.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow update, delete: if false;
+    }
+    match /roomProfiles/{roomId} {
+      allow read: if active();
+      allow create, update: if cmpAdmin() && request.resource.data.keys().hasOnly(['siteId', 'kind', 'updatedAt'])
+                            && exists(/databases/$(database)/documents/rooms/$(roomId))
+                            && request.resource.data.kind in ['', 'kitchen', 'hall', 'office', 'av', 'store', 'plant', 'other'];
+      allow delete: if false;
+    }
+    match /fireEquipment/{id} {
+      allow read: if active();
+      allow create, update: if cmpAdmin()
+                            && request.resource.data.keys().hasOnly(['siteId', 'roomId', 'type', 'size', 'label', 'nextService', 'removed', 'updatedAt'])
+                            && request.resource.data.type in ['water', 'foam', 'co2', 'powder', 'wetChemical', 'fireBlanket']
+                            && request.resource.data.removed is bool;
+      allow delete: if false;           // marked removed, never deleted
+    }
+    // THE AUDIT LOG: append only. Nobody - not a master admin - changes or deletes it.
+    match /complianceLog/{id} {
+      allow read: if cmpSees();
+      allow create: if request.resource.data.keys().hasOnly(['siteId', 'what', 'by', 'byName', 'at', 'detail'])
+                    && request.resource.data.by == request.auth.uid
+                    && (cmpAdmin() || (active() && request.resource.data.what in ['done', 'job']));
+      allow update, delete: if false;
     }
 
     // ── end EVENTS ──────────────────────────────────────────────────

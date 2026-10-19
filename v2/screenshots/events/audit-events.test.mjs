@@ -108,8 +108,8 @@ for (const i of [1, 2, 3]) {
 await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_martin', name: 'Martin Master', siteId: '' }], memberIds: ['m_martin'], allSites: ['m_martin'], bySite: {}, updatedBy: P.martin.uid, updatedByName: 'x', updatedAt: 'x' });
 
 /* ---------- the pages ---------- */
-const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html', 'checkin.html', 'checkin.html?event=ev_a', 'checkin.html?view=rollcall',
-  'church-settings.html', 'comms.html', 'events-admin.html', 'forms-admin.html', 'giftaid.html', 'give-regularly.html', 'groups-admin.html', 'groups.html',
+const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html', 'building.html', 'checkin.html', 'checkin.html?event=ev_a', 'checkin.html?view=rollcall',
+  'church-settings.html', 'comms.html', 'compliance.html', 'events-admin.html', 'forms-admin.html', 'giftaid.html', 'give-regularly.html', 'groups-admin.html', 'groups.html',
   'headcounts.html', 'hire.html', 'kids-admin.html', 'kids-checkin.html', 'maintenance.html', 'my-messages.html', 'newhere.html', 'notifications.html',
   'payments.html', 'picture-library.html', 'places-admin.html', 'prayer.html', 'retention.html', 'room.html?id=room_a', 'rooms.html', 'rota-reports.html',
   'safeguarding-settings.html', 'safeguarding.html', 'sermons-admin.html', 'session-planner.html', 'signup.html?event=ev_a', 'team-mail.html', 'watch-admin.html', 'whatson.html'

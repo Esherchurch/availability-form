@@ -310,6 +310,25 @@ await check('nor a signed-in listener', 'deny', () => getBytes(ref(st('u_lst'), 
 await check('the uploader does, to check it', 'allow', () => getBytes(ref(st('u_prc'), 'sermons/srm_new/audio')));
 await check('a sermon’s audio is never deleted from a page', 'deny', () => deleteObject(ref(as('martin'), 'sermons/srm_pub/audio')));
 await check('the uploader puts up a series picture', 'allow', () => put(st('u_prc'), 'sermonSeries/ser_neh/artwork', { type: 'image/png' }));
+// ── EVENTS (events window) ── building compliance certificates (F-231)
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  const U = (uid, mid, teams) => setDoc(doc(db, 'users', uid), { memberId: mid, teams, adminFor: [], masterAdmin: false, status: 'active' });
+  await U('u_cso', 'm_cso', ['Church office']); await U('u_cse', 'm_cse', ['Elders']); await U('u_csv', 'm_csv', ['Maintenance']); await U('u_csx', 'm_csx', ['Welcome']);
+  await setDoc(doc(db, 'buildingChecks', 'cs_b__eicr'), { siteId: 'cs_b', templateId: 'eicr', responsibleIds: ['m_csv'], state: 'on' });
+  await setDoc(doc(db, 'buildingChecks', 'cs_b__gas-safety'), { siteId: 'cs_b', templateId: 'gas-safety', responsibleIds: [], state: 'on' });
+});
+await check('COMPLIANCE: the Church office puts up a certificate', 'allow', () => put(st('u_cso'), 'compliance/cs_b/cs_b__gas-safety/cert.pdf', { type: 'application/pdf' }));
+await check('  the check’s own person (Val) puts up a photo for hers', 'allow', () => put(st('u_csv'), 'compliance/cs_b/cs_b__eicr/photo.jpg', { type: 'image/jpeg' }));
+await check('  NOT FOR A CHECK THAT IS NOT HERS', 'deny', () => put(st('u_csv'), 'compliance/cs_b/cs_b__gas-safety/x.jpg', { type: 'image/jpeg' }));
+await check('  nor under another building', 'deny', () => put(st('u_csv'), 'compliance/cs_other/cs_b__eicr/x.jpg', { type: 'image/jpeg' }));
+await check('  a trustee (an Elder) reads the certificate', 'allow', () => getBytes(ref(st('u_cse'), 'compliance/cs_b/cs_b__gas-safety/cert.pdf')));
+await check('  Val does not read a certificate for a check not hers', 'deny', () => getBytes(ref(st('u_csv'), 'compliance/cs_b/cs_b__gas-safety/cert.pdf')));
+await check('  another volunteer reads nothing', 'deny', () => getBytes(ref(st('u_csx'), 'compliance/cs_b/cs_b__eicr/photo.jpg')));
+await check('  nor the public', 'deny', () => getBytes(ref(anon(), 'compliance/cs_b/cs_b__eicr/photo.jpg')));
+await check('  only pictures and PDFs', 'deny', () => put(st('u_cso'), 'compliance/cs_b/cs_b__gas-safety/run.exe', { type: 'application/octet-stream' }));
+await check('  not over 20 MB', 'deny', () => put(st('u_cso'), 'compliance/cs_b/cs_b__gas-safety/big.pdf', { type: 'application/pdf', bytes: 21 * 1024 * 1024 }));
+await check('  a certificate is never deleted from a page', 'deny', () => deleteObject(ref(as('martin'), 'compliance/cs_b/cs_b__gas-safety/cert.pdf')));
 // ── end EVENTS ──
 // ── end EVENTS ──
 

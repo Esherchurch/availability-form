@@ -4079,6 +4079,99 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nor writes it (only the server)', 'deny', () => setDoc(doc(as('martin'), 'privateSettings', 'apiBible'), { key: 'x' }));
 }
 
+// ── EVENTS (events window) ── BUILDING COMPLIANCE, Stage 2 (F-231, F-232): who sees and does what
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    const U = (uid, mid, teams, extra) => setDoc(doc(d, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor: [], masterAdmin: false, ...(extra || {}) });
+    await U('u_cmoff', 'm_cmoff', ['Church office']);
+    await U('u_cmeld', 'm_cmeld', ['Elders']);
+    await U('u_cmval', 'm_cmval', ['Maintenance']);
+    await U('u_cmvol', 'm_cmvol', ['Welcome']);
+    await setDoc(doc(d, 'sites', 'cs_a'), { name: 'Test church (invented)' });
+    await setDoc(doc(d, 'rooms', 'cs_a_kit'), { siteId: 'cs_a', name: 'Kitchen' });
+    await setDoc(doc(d, 'complianceTemplates', 'gas-safety'), { id: 'gas-safety', basis: 'legal', every: { n: 1, unit: 'year' }, version: 2 });
+    await setDoc(doc(d, 'complianceTemplates', 'water-temps'), { id: 'water-temps', basis: 'standard', every: { n: 1, unit: 'month' }, version: 2 });
+    await setDoc(doc(d, 'complianceTemplates', 'walk-round'), { id: 'walk-round', basis: 'practice', every: { n: 1, unit: 'month' }, version: 2 });
+    const CK = (tid, every, resp, basis) => ({ siteId: 'cs_a', templateId: tid, templateVersion: 2, area: 'Fire', title: 'Check ' + tid, every, kind: 'check', basis, legal: basis === 'legal', baseEvery: every, lengthenReason: '', note: '', state: 'on', offReason: '', responsibleIds: resp, custom: false, edited: [], createdAt: 'x', updatedAt: 'x' });
+    await setDoc(doc(d, 'buildingChecks', 'cs_a__gas-safety'), CK('gas-safety', { n: 1, unit: 'year' }, [], 'legal'));
+    await setDoc(doc(d, 'buildingChecks', 'cs_a__water-temps'), CK('water-temps', { n: 1, unit: 'month' }, ['m_cmval'], 'standard'));
+    await setDoc(doc(d, 'buildingChecks', 'cs_a__walk-round'), CK('walk-round', { n: 1, unit: 'month' }, [], 'practice'));
+    await setDoc(doc(d, 'checkRecords', 'cr_gas'), { checkId: 'cs_a__gas-safety', siteId: 'cs_a', doneOn: '2026-01-10', doneBy: 'u_cmoff' });
+    await setDoc(doc(d, 'checkRecords', 'cr_water'), { checkId: 'cs_a__water-temps', siteId: 'cs_a', doneOn: '2026-10-01', doneBy: 'u_cmval' });
+    await setDoc(doc(d, 'buildingProfiles', 'cs_a'), { siteId: 'cs_a', gas: true });
+    await setDoc(doc(d, 'complianceLog', 'cl_1'), { siteId: 'cs_a', what: 'profile', by: 'u_cmoff', byName: 'x', at: 'x', detail: {} });
+  });
+  const ck = (db, id, ch) => updateDoc(doc(db, 'buildingChecks', id), { ...ch, updatedAt: 'y' });
+  const REC = (uid, checkId, extra) => ({ checkId, siteId: 'cs_a', doneOn: '2026-10-19', doneBy: uid, doneByName: uid, notes: '', files: [], certExpiry: '', items: [], jobId: '', at: 'x', ...(extra || {}) });
+
+  // who sees
+  await check('COMPLIANCE: the Church office reads every check', 'allow', () => getDocs(query(collection(ctx('u_cmoff'), 'buildingChecks'), where('siteId', '==', 'cs_a'))));
+  await check('  a trustee (an Elder) reads every check', 'allow', () => getDocs(query(collection(ctx('u_cmeld'), 'buildingChecks'), where('siteId', '==', 'cs_a'))));
+  await check('  and the history (the audit log)', 'allow', () => getDocs(query(collection(ctx('u_cmeld'), 'complianceLog'), where('siteId', '==', 'cs_a'))));
+  await check('  a master admin reads the building’s answers', 'allow', () => getDoc(doc(as('martin'), 'buildingProfiles', 'cs_a')));
+  await check('  AN ASSIGNED VOLUNTEER (Val) READS HER OWN CHECK', 'allow', () => getDoc(doc(ctx('u_cmval'), 'buildingChecks', 'cs_a__water-temps')));
+  await check('  and lists hers', 'allow', () => getDocs(query(collection(ctx('u_cmval'), 'buildingChecks'), where('responsibleIds', 'array-contains', 'm_cmval'))));
+  await check('  and its records', 'allow', () => getDocs(query(collection(ctx('u_cmval'), 'checkRecords'), where('checkId', '==', 'cs_a__water-temps'))));
+  await check('  AN ASSIGNED VOLUNTEER CANNOT SEE A CHECK NOT ASSIGNED TO HER', 'deny', () => getDoc(doc(ctx('u_cmval'), 'buildingChecks', 'cs_a__gas-safety')));
+  await check('  nor list the building’s checks', 'deny', () => getDocs(query(collection(ctx('u_cmval'), 'buildingChecks'), where('siteId', '==', 'cs_a'))));
+  await check('  nor that check’s records', 'deny', () => getDoc(doc(ctx('u_cmval'), 'checkRecords', 'cr_gas')));
+  await check('  nor the building’s answers, nor the audit log', 'deny', () => getDoc(doc(ctx('u_cmval'), 'buildingProfiles', 'cs_a')));
+  await check('  (the audit log)', 'deny', () => getDoc(doc(ctx('u_cmval'), 'complianceLog', 'cl_1')));
+  await check('  A NON-MEMBER (signed in, no record) SEES NOTHING: no check', 'deny', () => getDoc(doc(ctx('u_nobody_cmp'), 'buildingChecks', 'cs_a__water-temps')));
+  await check('    no record', 'deny', () => getDoc(doc(ctx('u_nobody_cmp'), 'checkRecords', 'cr_water')));
+  await check('    not the templates', 'deny', () => getDoc(doc(ctx('u_nobody_cmp'), 'complianceTemplates', 'gas-safety')));
+  await check('    not the extinguisher register', 'deny', () => getDocs(collection(ctx('u_nobody_cmp'), 'fireEquipment')));
+  await check('  a volunteer with no checks reads none', 'deny', () => getDoc(doc(ctx('u_cmvol'), 'buildingChecks', 'cs_a__water-temps')));
+  await check('  a stranger, nothing', 'deny', () => getDoc(doc(anon(), 'buildingChecks', 'cs_a__water-temps')));
+
+  // who does
+  await check('  VAL RECORDS HER OWN CHECK DONE', 'allow', () => setDoc(doc(ctx('u_cmval'), 'checkRecords', 'cr_v1'), REC('u_cmval', 'cs_a__water-temps')));
+  await check('  but not in someone else’s name', 'deny', () => setDoc(doc(ctx('u_cmval'), 'checkRecords', 'cr_v2'), REC('u_cmoff', 'cs_a__water-temps')));
+  await check('  nor a check not hers', 'deny', () => setDoc(doc(ctx('u_cmval'), 'checkRecords', 'cr_v3'), REC('u_cmval', 'cs_a__gas-safety')));
+  await check('  WHAT WAS DONE STAYS DONE: nobody changes a record', 'deny', () => updateDoc(doc(as('martin'), 'checkRecords', 'cr_water'), { doneOn: '2026-10-18' }));
+  await check('    nor deletes one', 'deny', () => deleteDoc(doc(as('martin'), 'checkRecords', 'cr_water')));
+  await check('  Val cannot change her check’s frequency', 'deny', () => ck(ctx('u_cmval'), 'cs_a__water-temps', { every: { n: 2, unit: 'month' } }));
+  await check('  the office assigns a check to Val', 'allow', () => ck(ctx('u_cmoff'), 'cs_a__walk-round', { responsibleIds: ['m_cmval'] }));
+  await check('  a trustee cannot edit a check (they see; the office does)', 'deny', () => ck(ctx('u_cmeld'), 'cs_a__walk-round', { responsibleIds: [] }));
+  await check('  nobody deletes a check (removed, its history kept)', 'deny', () => deleteDoc(doc(as('martin'), 'buildingChecks', 'cs_a__walk-round')));
+
+  // F-232: the law is a floor
+  await check('  A LEGAL REQUIREMENT MADE LESS FREQUENT: REFUSED (gas safety every 2 years)', 'deny', () => ck(as('martin'), 'cs_a__gas-safety', { every: { n: 2, unit: 'year' }, lengthenReason: 'We would rather (invented)' }));
+  await check('    nor "only when needed"', 'deny', () => ck(as('martin'), 'cs_a__gas-safety', { every: { unit: 'demand' } }));
+  await check('    nor switched off', 'deny', () => ck(as('martin'), 'cs_a__gas-safety', { state: 'off', offReason: 'Not needed (invented)' }));
+  await check('    MORE OFTEN is allowed (every 6 months)', 'allow', () => ck(as('martin'), 'cs_a__gas-safety', { every: { n: 6, unit: 'month' } }));
+  await check('    12 months is a year: allowed', 'allow', () => ck(as('martin'), 'cs_a__gas-safety', { every: { n: 12, unit: 'month' } }));
+  await check('  a RECOMMENDED STANDARD lengthened with no reason: refused', 'deny', () => ck(ctx('u_cmoff'), 'cs_a__water-temps', { every: { n: 2, unit: 'month' } }));
+  await check('    with a reason: allowed', 'allow', () => ck(ctx('u_cmoff'), 'cs_a__water-temps', { every: { n: 2, unit: 'month' }, lengthenReason: 'Used once a month (invented)' }));
+  await check('  GOOD PRACTICE: the church decides', 'allow', () => ck(ctx('u_cmoff'), 'cs_a__walk-round', { every: { n: 1, unit: 'year' } }));
+  await check('  nobody writes the templates from a page (the law’s frequencies)', 'deny', () => setDoc(doc(as('martin'), 'complianceTemplates', 'gas-safety'), { id: 'gas-safety', basis: 'legal', every: { n: 5, unit: 'year' } }));
+
+  // the audit log
+  await check('  THE AUDIT LOG: a church user cannot edit it', 'deny', () => updateDoc(doc(ctx('u_cmoff'), 'complianceLog', 'cl_1'), { what: 'nothing' }));
+  await check('    not even a master admin', 'deny', () => updateDoc(doc(as('martin'), 'complianceLog', 'cl_1'), { what: 'nothing' }));
+  await check('    nor deletes from it', 'deny', () => deleteDoc(doc(as('martin'), 'complianceLog', 'cl_1')));
+  await check('    the office adds to it, in their own name', 'allow', () => setDoc(doc(ctx('u_cmoff'), 'complianceLog', 'cl_2'), { siteId: 'cs_a', what: 'edit', by: 'u_cmoff', byName: 'x', at: 'x', detail: {} }));
+  await check('    not in someone else’s', 'deny', () => setDoc(doc(ctx('u_cmoff'), 'complianceLog', 'cl_3'), { siteId: 'cs_a', what: 'edit', by: 'u_martin', byName: 'x', at: 'x', detail: {} }));
+
+  // follow-ups are Maintenance jobs
+  const JOB = (uid, extra) => ({ siteId: 'cs_a', roomId: '', where: 'Kitchen', what: 'Thermostatic valve sticking (invented)', details: '', photoPath: '', status: 'todo', reportedBy: uid, reportedByName: uid, reportedAt: serverTimestamp(), ...(extra || {}) });
+  await check('  A FOLLOW-UP IS A MAINTENANCE JOB: Val raises one on her check (safety, due, owner)', 'allow', () => setDoc(doc(ctx('u_cmval'), 'maintJobs', 'mj_c1'), JOB('u_cmval', { checkId: 'cs_a__water-temps', safety: true, due: '2026-11-01', ownerId: 'm_cmval' })));
+  await check('    not on a check that is not hers', 'deny', () => setDoc(doc(ctx('u_cmval'), 'maintJobs', 'mj_c2'), JOB('u_cmval', { checkId: 'cs_a__gas-safety', safety: true })));
+  await check('    anyone still reports a plain job (with the safety tick)', 'allow', () => setDoc(doc(ctx('u_cmvol'), 'maintJobs', 'mj_c3'), JOB('u_cmvol', { safety: true })));
+  await check('    a bad due date is refused', 'deny', () => setDoc(doc(ctx('u_cmvol'), 'maintJobs', 'mj_c4'), JOB('u_cmvol', { due: 'soon' })));
+  await check('    the office sets its due date', 'allow', () => updateDoc(doc(ctx('u_cmoff'), 'maintJobs', 'mj_c3'), { due: '2026-11-05' }));
+  await check('    a volunteer does not', 'deny', () => updateDoc(doc(ctx('u_cmvol'), 'maintJobs', 'mj_c1'), { due: '2027-01-01' }));
+
+  // the register
+  await check('  the extinguisher register: the office adds one', 'allow', () => setDoc(doc(ctx('u_cmoff'), 'fireEquipment', 'fe_1'), { siteId: 'cs_a', roomId: 'cs_a_kit', type: 'wetChemical', size: '2 l', label: 'K1', nextService: '2027-01-01', removed: false, updatedAt: 'x' }));
+  await check('    a volunteer reads it (for the walk-round)', 'allow', () => getDoc(doc(ctx('u_cmval'), 'fireEquipment', 'fe_1')));
+  await check('    but does not change it', 'deny', () => updateDoc(doc(ctx('u_cmval'), 'fireEquipment', 'fe_1'), { removed: true }));
+  await check('    nobody deletes one (marked removed)', 'deny', () => deleteDoc(doc(as('martin'), 'fireEquipment', 'fe_1')));
+  await check('  the office says what kind of room it is', 'allow', () => setDoc(doc(ctx('u_cmoff'), 'roomProfiles', 'cs_a_kit'), { siteId: 'cs_a', kind: 'kitchen', updatedAt: 'x' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 
