@@ -102,7 +102,8 @@ const day = (n) => { const d = new Date(Date.now() + n * 86400000), p = (x) => S
   const rows = String(await evl('(function(){if(typeof XLSX==="undefined"||!window.exportToExcel)return "no export";var got=null;'
     + 'var j=XLSX.utils.json_to_sheet;XLSX.utils.json_to_sheet=function(d){got=d;return j.apply(this,arguments)};XLSX.writeFile=function(){};'
     + 'exportToExcel();XLSX.utils.json_to_sheet=j;return JSON.stringify((got||[]).filter(function(r){return r.Date===' + JSON.stringify(day(5)) + '}))})()'));
-  let row = null; try { row = JSON.parse(rows)[0]; } catch (e) { /* the message is in rows */ }
+  /* ITS OWN ROW: another check's service can share the date and come first. */
+  let row = null; try { const all = JSON.parse(rows); row = all.find(r => 'Backing vocals' in r) || all[0]; } catch (e) { /* the message is in rows */ }
   ok('  both people in Backing vocals are in the export', !!row && row['Backing vocals'] === 'First Singer Synthetic, Second Singer Synthetic', rows.slice(0, 300));
 
   await req(8181, 'DELETE', DOCS + '/events/ev_rsr_1', undefined, OWNER);
