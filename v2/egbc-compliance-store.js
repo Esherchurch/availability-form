@@ -46,7 +46,7 @@
   /* The church's copy of a template, for one building. */
   function copyOf(t, siteId) {
     return { siteId: siteId, templateId: t.id, templateVersion: t.version || 1, area: t.area, title: t.title, every: t.every || {}, kind: t.kind || 'check',
-      legal: !!t.legal, note: t.note || '', state: 'on', offReason: '', responsibleIds: [], custom: false, edited: [], createdAt: now(), updatedAt: now() };
+      basis: t.basis || (t.legal ? 'legal' : 'practice'), legal: t.basis === 'legal' || !!t.legal, baseEvery: t.every || {}, lengthenReason: '', note: t.note || '', state: 'on', offReason: '', responsibleIds: [], custom: false, edited: [], createdAt: now(), updatedAt: now() };
   }
 
   /* THE BUILDING'S ANSWERS: saved, then its checks follow them - a new answer
@@ -66,10 +66,14 @@
   }
 
   /* THE CHURCH CHANGES ITS COPY: the frequency, who is responsible, switching
-     it off (a reason is needed) or on. Never the template. */
-  function editCheck(db, id, changes, who) {
+     it off (a reason is needed) or on. Never the template.
+     A frequency is checked against the law or standard (E.allowEvery, with the
+     template as it is now): a 'Legal requirement' is never made less frequent;
+     a 'Recommended standard' is lengthened only with a reason, which is kept.
+     The rules refuse the same. */
+  function editCheck(db, id, changes, who, E) {
     var ok = {}, edited = [];
-    if (changes.every) { ok.every = changes.every; edited.push('every'); }
+    if (changes.every) { ok.every = { n: Math.max(1, +changes.every.n || 1), unit: changes.every.unit }; if (changes.every.trigger) { ok.every.trigger = changes.every.trigger; ok.every.triggerWords = changes.every.triggerWords || ''; } edited.push('every'); }
     if (changes.responsibleIds) { ok.responsibleIds = changes.responsibleIds.slice(0, 10); edited.push('responsible'); }
     if (changes.title) { ok.title = String(changes.title).slice(0, 140); edited.push('title'); }
     if (changes.state === 'off') {
@@ -81,9 +85,20 @@
     return ref.get().then(function (d) {
       if (!d.exists) throw new Error('No such check.');
       var c = d.data();
+      if (ok.state === 'off' && (c.basis === 'legal' || c.legal)) throw new Error('This is a legal requirement: it cannot be switched off. If it does not apply to this building, change the answers about the building.');
+      if (!ok.every || !c.templateId) return c;
+      return db.collection('complianceTemplates').doc(c.templateId).get().then(function (t) { return t.exists ? t.data() : null; }, function () { return null; }).then(function (tpl) {
+        var base = tpl ? tpl.every : (c.baseEvery || c.every), basis = tpl ? (tpl.basis || (tpl.legal ? 'legal' : 'practice')) : (c.basis || 'practice');
+        var why = E ? E.allowEvery(basis, base, ok.every, changes.reason) : null;
+        if (!E && basis !== 'practice') why = 'The frequency cannot be checked here.';
+        if (why) throw new Error(why);
+        ok.lengthenReason = E && E.days(ok.every) > E.days(base) ? String(changes.reason || '').slice(0, 300) : '';
+        return c;
+      });
+    }).then(function (c) {
       ok.edited = Array.from(new Set((c.edited || []).concat(edited)));
       ok.updatedAt = now();
-      return ref.update(ok).then(function () { return log(db, c.siteId, 'edit', who, { checkId: id, changes: edited }); });
+      return ref.update(ok).then(function () { return log(db, c.siteId, 'edit', who, { checkId: id, changes: edited, reason: ok.lengthenReason || '' }); });
     });
   }
 
@@ -91,7 +106,7 @@
   function addCustomCheck(db, siteId, f, who) {
     var id = siteId + '__c_' + rid();
     var c = { siteId: siteId, templateId: '', templateVersion: 0, area: String(f.area || 'Other').slice(0, 60), title: String(f.title || '').slice(0, 140), every: f.every || { n: 1, unit: 'year' },
-      kind: 'check', legal: false, note: String(f.note || '').slice(0, 300), state: 'on', offReason: '', responsibleIds: (f.responsibleIds || []).slice(0, 10), custom: true, edited: [], createdAt: now(), updatedAt: now() };
+      kind: 'check', basis: 'practice', legal: false, baseEvery: f.every || { n: 1, unit: 'year' }, lengthenReason: '', note: String(f.note || '').slice(0, 300), state: 'on', offReason: '', responsibleIds: (f.responsibleIds || []).slice(0, 10), custom: true, edited: [], createdAt: now(), updatedAt: now() };
     if (!c.title) return Promise.reject(new Error('Give the check a name.'));
     return db.collection('buildingChecks').doc(id).set(c).then(function () { return log(db, siteId, 'add', who, { checkId: id }); }).then(function () { return id; });
   }
@@ -115,19 +130,25 @@
       .then(function () { return log(db, siteId, 'work', who, { kind: kind, on: on }); });
   }
 
-  /* Template updates: the church's copies made from an older version. The
-     church chooses; applying takes the new wording and frequency only where
-     the church has not changed its own. */
+  /* Template updates: the church's copies made from an older version. They
+     FOLLOW AUTOMATICALLY (Martin, 19 Oct): the engine's effective() shows the
+     new guidance at once, to everyone; followTemplates() then writes it to the
+     copies (on an admin's visit, or the seeding tool), logged - the church's
+     stricter frequency kept, with a note. No confirmation step. */
   function templateUpdates(templates, checks) {
     var by = {}; (templates || []).forEach(function (t) { by[t.id] = t; });
     return (checks || []).filter(function (c) { var t = by[c.templateId]; return t && !c.custom && (t.version || 1) > (c.templateVersion || 1); })
       .map(function (c) { return { check: c, template: by[c.templateId] }; });
   }
-  function applyUpdate(db, check, t, who) {
-    var ch = { templateVersion: t.version || 1, updatedAt: now(), note: t.note || '' };
-    if ((check.edited || []).indexOf('title') < 0) ch.title = t.title;
-    if ((check.edited || []).indexOf('every') < 0) ch.every = t.every;
-    return db.collection('buildingChecks').doc(check.id).update(ch).then(function () { return log(db, check.siteId, 'template', who, { checkId: check.id, version: t.version }); });
+  function applyUpdate(db, E, check, t, who) {
+    var e = E.effective(check, t);
+    var ch = { templateVersion: t.version || 1, updatedAt: now(), note: e.note || '', basis: e.basis, legal: e.basis === 'legal', baseEvery: t.every || {}, every: e.every, title: e.title, area: e.area || check.area || '' };
+    if (e.every !== check.every && E.days(e.every) !== E.days(check.every)) ch.lengthenReason = '';
+    return db.collection('buildingChecks').doc(check.id).update(ch).then(function () { return log(db, check.siteId, 'template', who, { checkId: check.id, version: t.version, guidance: e.guidance || '' }); });
+  }
+  function followTemplates(db, E, templates, checks, who) {
+    var ups = templateUpdates(templates, checks);
+    return ups.reduce(function (p, u) { return p.then(function () { return applyUpdate(db, E, u.check, u.template, who); }); }, Promise.resolve()).then(function () { return ups.length; });
   }
 
   /* Everything one building needs, read once, then THE schedule. */
@@ -138,5 +159,5 @@
   }
 
   return { checkId: checkId, copyOf: copyOf, applyProfile: applyProfile, editCheck: editCheck, addCustomCheck: addCustomCheck, recordDone: recordDone,
-    recordWork: recordWork, templateUpdates: templateUpdates, applyUpdate: applyUpdate, load: load };
+    recordWork: recordWork, templateUpdates: templateUpdates, applyUpdate: applyUpdate, followTemplates: followTemplates, load: load };
 });

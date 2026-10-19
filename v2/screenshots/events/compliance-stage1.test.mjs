@@ -84,12 +84,35 @@ try {
   /* ---------- 3. the church's copy, never the template ---------- */
   const tplBefore = (await db.collection('complianceTemplates').doc('water-temps').get()).data();
   const wt = S.checkId('cmp_hall', 'water-temps');
-  await S.editCheck(db, wt, { every: { n: 2, unit: 'month' }, responsibleIds: ['m_val'] }, who);
+  let why0 = '';
+  try { await S.editCheck(db, wt, { every: { n: 2, unit: 'month' } }, who, E); } catch (x) { why0 = x.message; }
+  ok('   a RECOMMENDED STANDARD made less frequent WITHOUT a reason: refused, in plain words', /recommended standard \(every month\)\. Say why/.test(why0), why0);
+  await S.editCheck(db, wt, { every: { n: 2, unit: 'month' }, reason: 'Hall used once a month (invented)', responsibleIds: ['m_val'] }, who, E);
   const tplAfter = (await db.collection('complianceTemplates').doc('water-temps').get()).data();
   const hallCopy = (await db.collection('buildingChecks').doc(wt).get()).data(), churchCopy = (await db.collection('buildingChecks').doc(S.checkId('cmp_church', 'water-temps')).get()).data();
   ok('3. THE CHURCH EDITS ITS COPY (every 2 months, Val responsible): its copy changes', hallCopy.every.n === 2 && J(hallCopy.responsibleIds) === J(['m_val']) && hallCopy.edited.includes('every'));
   ok('   THE GLOBAL TEMPLATE IS UNCHANGED', J(tplBefore) === J(tplAfter) && tplAfter.every.n === 1, J(tplAfter.every));
   ok('   and so is another building’s copy', churchCopy.every.n === 1);
+  ok('   the reason is kept on the check and in the log', hallCopy.lengthenReason === 'Hall used once a month (invented)' && (await all('complianceLog', 'cmp_hall')).some(l => l.what === 'edit' && l.detail.reason === hallCopy.lengthenReason));
+
+  /* ---------- 3b. Martin, 19 Oct: the law's frequency is a floor ---------- */
+  const gs = S.checkId('cmp_house', 'gas-safety');
+  let whyL = '';
+  try { await S.editCheck(db, gs, { every: { n: 2, unit: 'year' }, reason: 'We would rather (invented)' }, who, E); } catch (x) { whyL = x.message; }
+  ok('3b. LENGTHENING A LEGAL CHECK IS REFUSED, even with a reason (gas safety, every 2 years)', /legal requirement: it can be checked more often, never less often than every year/.test(whyL), whyL);
+  ok('    and nothing was written', (await db.collection('buildingChecks').doc(gs).get()).data().every.n === 1 && !(await db.collection('buildingChecks').doc(gs).get()).data().edited.includes('every'));
+  let whyL2 = '';
+  try { await S.editCheck(db, gs, { every: { unit: 'demand' } }, who, E); } catch (x) { whyL2 = x.message; }
+  ok('    nor "only when needed" (never on a clock)', /legal requirement/.test(whyL2), whyL2);
+  let whyOff = '';
+  try { await S.editCheck(db, gs, { state: 'off', offReason: 'Not needed (invented)' }, who, E); } catch (x) { whyOff = x.message; }
+  ok('    nor switched off (change the answers about the building instead)', /cannot be switched off/.test(whyOff), whyOff);
+  await S.editCheck(db, gs, { every: { n: 6, unit: 'month' } }, who, E);
+  ok('    MORE OFTEN is allowed (every 6 months)', (await db.collection('buildingChecks').doc(gs).get()).data().every.n === 6);
+  ok('    12 months is the same as a year (allowed); 53 weeks is not', E.allowEvery('legal', { n: 1, unit: 'year' }, { n: 12, unit: 'month' }) === null && !!E.allowEvery('legal', { n: 1, unit: 'year' }, { n: 53, unit: 'week' }));
+  ok('    GOOD PRACTICE: the church decides (no reason needed)', E.allowEvery('practice', { n: 1, unit: 'month' }, { n: 1, unit: 'year' }) === null);
+  const gsItem = (await sched('cmp_house')).items.find(i => i.id === gs);
+  ok('    each check carries its label in plain words', gsItem.basisLabel === 'Legal requirement' && (await sched('cmp_hall')).items.find(i => i.templateId === 'water-temps').basisLabel === 'Recommended standard' && (await sched('cmp_hall')).items.find(i => i.templateId === 'walk-round').basisLabel === 'Good practice');
   let refused = '';
   try { await S.editCheck(db, wt, { state: 'off' }, who); } catch (x) { refused = x.message; }
   ok('   switching a check off needs a reason', /Say why/.test(refused));
@@ -97,13 +120,22 @@ try {
   ok('   with one, it is off and says why (grey)', (await sched('cmp_hall')).items.find(i => i.id === wt).rag === 'grey');
   const custom = await S.addCustomCheck(db, 'cmp_hall', { area: 'Building', title: 'Check the car park lights (invented)', every: { n: 3, unit: 'month' } }, who);
   ok('   the church adds its own check', (await all('buildingChecks', 'cmp_hall')).some(c => c.id === custom && c.custom));
-  /* a template update is offered, and applying it keeps what the church changed */
-  const newer = T.TEMPLATES.map(t => t.id === 'water-temps' || t.id === 'flush-taps' ? { ...t, version: 2, title: t.title + ' (updated wording)' } : t);
-  const ups = S.templateUpdates(newer, await all('buildingChecks', 'cmp_hall'));
-  ok('   A TEMPLATE UPDATED: the church is told (2 of its checks), and chooses', ups.length === 2, J(ups.map(u => u.check.templateId)));
-  for (const u of ups) await S.applyUpdate(db, u.check, u.template, who);
-  const wt2 = (await db.collection('buildingChecks').doc(wt).get()).data();
-  ok('   applied: the new wording, but the church’s own frequency kept', /updated wording/.test(wt2.title) && wt2.every.n === 2 && wt2.templateVersion === 2);
+  /* ---------- 3c. a law or standard changes: the checks FOLLOW AUTOMATICALLY (Martin, 19 Oct) ---------- */
+  const V = T.VERSION + 1, ft = S.checkId('cmp_hall', 'flush-taps');
+  await db.collection('buildingChecks').doc(S.checkId('cmp_church', 'gas-service')).update({ every: { n: 6, unit: 'month' }, edited: ['every'] });   // the church checks MORE often than yearly
+  const newer = T.TEMPLATES.map(t => t.id === 'flush-taps' ? { ...t, version: V, title: t.title + ' (updated wording)', every: { n: 2, unit: 'week' } }
+    : t.id === 'gas-service' ? { ...t, version: V, every: { n: 9, unit: 'month' } } : t.id === 'water-temps' ? { ...t, version: V, every: { n: 2, unit: 'week' } } : t);
+  const unedited = (await sched('cmp_hall')).items.find(i => i.id === ft);
+  const followed = E.schedule({ ...(await S.load(db, 'cmp_hall')), templates: newer, today: TODAY }).items.find(i => i.id === ft);
+  ok('3c. THE STANDARD CHANGES (flushing every 2 weeks): an unchanged check follows AT ONCE, no confirmation step', unedited.every.n === 1 && followed.every.n === 2 && /updated wording/.test(followed.title), J(followed.every));
+  const cs = E.schedule({ ...(await S.load(db, 'cmp_church')), templates: newer, today: TODAY }).items.find(i => i.templateId === 'gas-service');
+  ok('    THE CHURCH CHECKS MORE OFTEN (6 months) than the new guidance (9): it keeps its stricter one, and sees a note', cs.every.n === 6 && /now every 9 months. You check it more often, so yours is kept/.test(cs.guidance), J(cs));
+  const hw = E.schedule({ ...(await S.load(db, 'cmp_hall')), templates: newer, today: TODAY }).items.find(i => i.id === wt);
+  ok('    a church that had LENGTHENED it (2 months, with a reason) follows the changed, stricter standard (2 weeks)', hw.every.n === 2 && hw.every.unit === 'week' && /guidance changed/.test(hw.guidance), J(hw));
+  const n = await S.followTemplates(db, E, newer, await all('buildingChecks', 'cmp_hall'), who);
+  const ft2 = (await db.collection('buildingChecks').doc(ft).get()).data();
+  ok('    and it is written to the church’s copies (logged), still never touching the template', n >= 2 && ft2.every.n === 2 && ft2.templateVersion === V && /updated wording/.test(ft2.title)
+    && (await all('complianceLog', 'cmp_hall')).some(l => l.what === 'template') && (await db.collection('complianceTemplates').doc('flush-taps').get()).data().every.n === 1);
 
   /* ---------- 4. removing keeps history ---------- */
   const lp = S.checkId('cmp_church', 'lightning');
@@ -165,6 +197,14 @@ try {
   ok('9. EVERY CHANGE IS LOGGED (profiles, edits, done, work, templates)', ['profile', 'edit', 'add', 'done', 'work', 'template'].every(w => lg.some(l => l.what === w)), J([...new Set(lg.map(l => l.what))]));
   const words = JSON.stringify(T) + fs.readFileSync(path.join(V2, 'egbc-compliance.js'), 'utf8') + fs.readFileSync(path.join(V2, 'egbc-compliance-store.js'), 'utf8');
   ok('   NO REGULATION NUMBERS OR LEGAL CITATIONS in the templates or the engine', !/\b(regulation \d|reg\.\s?\d|section \d|s\.\s?\d+|BS\s?\d{3,}|\d{4}\/\d{2,}|Act \d{4}|\bSI \d)/i.test(words));
+  /* ---------- 10. Martin, 19 Oct: every template labelled, every one sourced in FINDINGS ---------- */
+  const unl = T.TEMPLATES.filter(t => !T.BASIS[t.basis]);
+  ok('10. EVERY TEMPLATE HAS A LABEL (Legal requirement / Recommended standard / Good practice)', unl.length === 0 && T.TEMPLATES.every(t => t.legal === (t.basis === 'legal')), unl.map(t => t.id).join(', '));
+  const F = fs.readFileSync(path.join(V2, 'FINDINGS-events.md'), 'utf8').replace(/\r\n/g, '\n'), table = F.slice(F.indexOf('### F-232'));
+  const rowOf = (id) => table.split('\n').find(l => l.startsWith('| ' + id + ' ') || l.startsWith('| ' + id + ':'));
+  const noRow = T.TEMPLATES.filter(t => { const r = rowOf(t.id); return !r || r.split('|')[3].replace(/\*/g, '').trim() !== T.BASIS[t.basis] || (!r.split('|')[4].trim() && t.basis !== 'practice'); });
+  ok('    AND A SOURCE ROW IN FINDINGS (F-232) with the same label (legal and standard rows name their source)', table.length > 100 && noRow.length === 0, noRow.map(t => t.id).join(', '));
+  ok('    nothing says the frequencies wait for Martin to confirm', !/STARTER VALUES FOR MARTIN TO CONFIRM|Martin confirms the starter/i.test(fs.readFileSync(path.join(V2, 'egbc-compliance-templates.js'), 'utf8')));
   ok('   the guidance line, word for word', T.GUIDANCE === 'These checks are guidance to help you. Your trustees remain responsible for your building’s safety.');
   ok('   the starter frequencies are data (the templates file), not code', T.TEMPLATES.every(t => t.kind === 'link' || (t.every && t.every.unit)) && !/unit: 'year'.*12/.test(fs.readFileSync(path.join(V2, 'egbc-compliance.js'), 'utf8')));
 } catch (e) {

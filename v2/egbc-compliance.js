@@ -18,6 +18,8 @@
      EGBCCompliance.schedule({ profile, templates, checks, records,
                     followUps, triggers, today, amberDays })
                     -> { items: [...], rag, counts }
+     EGBCCompliance.allowEvery(basis, base, next, reason) -> null | why not
+     EGBCCompliance.effective(check, template)  -> the check as it stands today
      EGBCCompliance.register({ rooms, roomKinds, equipment, guide })
                     -> [{ roomId, kind, has, missing, rag }]
 
@@ -74,6 +76,60 @@
     return null;   // 'once' and 'demand': not again on a clock
   }
 
+  /* ---- HOW OFTEN, AS A NUMBER OF DAYS (to compare two frequencies) ----
+     'once' and 'demand' are never again on a clock: the longest of all. */
+  function days(e) {
+    e = e || {}; var n = +e.n || 1;
+    return e.unit === 'week' ? 7 * n : e.unit === 'month' ? 365.25 / 12 * n : e.unit === 'year' ? 365.25 * n : Infinity;
+  }
+  var BASIS = { legal: 'Legal requirement', standard: 'Recommended standard', practice: 'Good practice' };
+  function basisOf(c) { return BASIS[c && c.basis] ? c.basis : (c && c.legal ? 'legal' : 'practice'); }
+  function everyWords(e) {
+    e = e || {}; var n = +e.n || 1;
+    if (e.unit === 'once') return 'once, then kept';
+    if (e.unit === 'demand') return 'only when needed';
+    return n === 1 ? 'every ' + e.unit : 'every ' + n + ' ' + e.unit + 's';
+  }
+
+  /* ---- MAY THE CHURCH CHANGE A CHECK'S FREQUENCY? (Martin, 19 Oct) ----
+     base: the frequency the law or standard sets (the template's).
+     A 'Legal requirement' may be made MORE frequent, never less: refused.
+     A 'Recommended standard' may be lengthened only with a reason.
+     'Good practice': the church decides.
+     -> null when allowed, else the plain reason it is not. */
+  function allowEvery(basis, base, next, reason) {
+    if (!base || days(next) <= days(base)) return null;
+    if (basis === 'legal') return 'This is a legal requirement: it can be checked more often, never less often than ' + everyWords(base) + '.';
+    if (basis === 'standard' && !String(reason || '').trim()) return 'This is the recommended standard (' + everyWords(base) + '). Say why your church will check it less often.';
+    return null;
+  }
+
+  /* ---- THE CHECK AS IT STANDS TODAY: the church's copy following the template ----
+     When the template changes (a law or standard changed) the copy FOLLOWS IT
+     AUTOMATICALLY - wording, basis and frequency - unless the church made the
+     check more frequent than the new guidance: then its stricter one is kept,
+     with a note. A church's lengthened 'standard' check (with its reason)
+     stands until the standard itself changes. Never less often than the law. */
+  function effective(c, t) {
+    var out = Object.assign({}, c);
+    out.basis = basisOf(c); out.note = c.note || ''; out.guidance = '';
+    if (!t || c.custom) return out;
+    var edited = c.edited || [], changed = (t.version || 1) > (c.templateVersion || 1);
+    out.basis = basisOf(t);
+    if (edited.indexOf('title') < 0) { out.title = t.title; out.area = t.area; }
+    out.note = t.note || '';
+    var mine = c.every || {}, theirs = t.every || {}, base = c.baseEvery || theirs;
+    if (edited.indexOf('every') < 0) out.every = theirs;
+    else if (days(mine) < days(theirs)) {
+      out.every = mine;
+      if (changed && days(base) !== days(theirs)) out.guidance = 'The guidance is now ' + everyWords(theirs) + '. You check it more often, so yours is kept.';
+    } else if (out.basis === 'legal' || days(base) !== days(theirs)) {
+      out.every = theirs;
+      if (days(mine) !== days(theirs)) out.guidance = 'The guidance changed: now ' + everyWords(theirs) + '.';
+    } else out.every = mine;
+    return out;
+  }
+
   /* ---- the building's answers changed: which copies to add, remove, restore ----
      A removed check keeps its history: it is marked removed, never deleted. */
   function reconcile(profile, templates, checks) {
@@ -119,10 +175,12 @@
       if (j.checkId) (open[j.checkId] = open[j.checkId] || []).push(j);
       if (j.safety) safetyOpen.push(j);
     });
+    var tpl = {}; (o.templates || []).forEach(function (t) { tpl[t.id] = t; });
     var triggers = (o.triggers || []).slice().sort(function (a, b) { return String(b.on).localeCompare(String(a.on)); });
-    var items = (o.checks || []).map(function (c) {
+    var items = (o.checks || []).map(function (c0) {
+      var c = effective(c0, tpl[c0.templateId]);
       var last = byCheck[c.id] || null, every = c.every || {}, it = {
-        id: c.id, templateId: c.templateId || '', title: c.title, area: c.area || '', every: every, legal: !!c.legal,
+        id: c.id, templateId: c.templateId || '', title: c.title, area: c.area || '', every: every, basis: c.basis, basisLabel: BASIS[c.basis], legal: c.basis === 'legal', note: c.note, guidance: c.guidance,
         state: c.state || 'on', responsibleIds: c.responsibleIds || [], lastDone: last ? String(last.doneOn).slice(0, 10) : null,
         nextDue: null, rag: 'grey', why: ''
       };
@@ -177,6 +235,6 @@
   var SAFETY_WORDS = /\b(fire|smoke|alarm|extinguish\w*|blanket|exit|escape|emergency light\w*|light(s|ing)?|bulb|electric\w*|socket|wir(e|es|ing)|fuse|spark\w*|shock|gas|boiler|carbon monoxide|water|leak\w*|flood\w*|taps?|legionella|trip|slip|steps?|stair\w*|handrail)\b/i;
   function suggestSafety(text) { return SAFETY_WORDS.test(String(text || '')); }
 
-  return { applies: applies, suggestSafety: suggestSafety, nextDue: nextDue, reconcile: reconcile, schedule: schedule, register: register,
+  return { BASIS: BASIS, days: days, everyWords: everyWords, allowEvery: allowEvery, effective: effective, applies: applies, suggestSafety: suggestSafety, nextDue: nextDue, reconcile: reconcile, schedule: schedule, register: register,
     _dates: { addDays: addDays, addMonths: addMonths, between: between } };
 });

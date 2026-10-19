@@ -7499,7 +7499,7 @@ sermonLinks).
    (places-admin.html). Compliance hangs off them: no second list.
 2. **People and roles:** `addressBook` (ids are memberIds), `users/<uid>` (memberId, teams,
    adminFor, masterAdmin, status); teams are the `teams` collection. **Trustees:** taken as the
-   Elders group plus master admins, for Martin to confirm (Stage 2, in the rules).
+   Elders group plus master admins (Martin confirmed, 19 Oct; Stage 2, in the rules).
 3. **Email and notifications:** `functions/public-mail.js` makeSender (and notify.js for phone
    notifications). Stage 3's reminders will use them; no second mailer.
 4. **Uploads:** Firebase Storage with rules per path. **There is no per-tier storage allowance
@@ -7563,9 +7563,8 @@ sermonLinks).
   follow-up past due is red" holds through Martin's safety rule.
 - "Every 12 months, or after major changes" (the fire risk assessment) is yearly; "after
   major changes" becomes building work recorded (fire stopping), as the same trigger.
-- Starter frequencies Martin didn't give (ladders 6 months, rebuild valuation 5 years,
-  defibrillator monthly, fridge temperatures weekly) are marked for him to confirm with the
-  rest.
+- Frequencies: now the law's or the standard's, put in automatically, each labelled; see
+  F-232 (this replaces "for Martin to confirm").
 
 **Legal references (kept OUT of the product, here only):** the "legal requirement" on the
 let-house gas safety check is the landlord's annual gas safety duty. Martyn's Law is the name
@@ -7595,3 +7594,148 @@ screens; the test checks.
 
 **Proved:** compliance-stage1.test 41/41 on the emulator; 9 deliberate breaks, all caught (see
 the gate report).
+
+### F-232 — Compliance frequencies: the law's, or the standard's (Martin, 19 Oct). For the reviewing window to verify
+
+**What changed:**
+- **The frequencies are put in automatically.** Each check takes the legal frequency, or the recognised standard's, when a building's profile is answered. No one confirms them first.
+  - "Martin confirms the starter frequencies before launch" is gone from the brief, the templates, F-230 and the screens.
+  - **Instead, please verify the "Legal requirement" rows below against the sources.**
+- **Every check carries a label**, shown in plain words beside it (and on the trustee report, Stage 3):
+  - **Legal requirement:** UK law sets the frequency.
+  - **Recommended standard:** the law says "maintain" or "review regularly", and a British Standard or official guidance sets the frequency.
+  - **Good practice:** neither exists, so the frequency is kept modest.
+- **The law is a floor.**
+  - A church may make any check MORE frequent.
+  - **Legal requirement:** it can't be made less frequent, put on "only when needed", or switched off. Each is refused with a plain reason. If the check doesn't apply, the church changes the answers about the building instead.
+  - **Recommended standard:** it can be lengthened only with a reason, which is kept on the check and in the log.
+  - **Good practice:** the church decides.
+  - The store and the engine (`allowEvery`) refuse this now. The Stage 2 rules will refuse the same.
+- **When the guidance changes, the checks follow it automatically** (a new template VERSION):
+  - The engine's `effective()` shows the new guidance at once, to everyone.
+  - `followTemplates()` writes it to the church's copies, and it is logged.
+  - **The church's stricter choice is kept.** If the church had made a check more frequent than the new guidance, it keeps its own and sees a note: "The guidance is now every 9 months. You check it more often, so yours is kept."
+  - **A lengthened check follows the change.** If the church had lengthened a recommended check (with a reason), it follows the changed standard.
+  - **The legal floor holds.** A legal check never stays less frequent than the law.
+- **Templates are now version 2:**
+  - 90 checks, with two new: `eicr-let` (the let house's own legal electrical inspection) and `play-routine` (the monthly play equipment check).
+  - **Changed from version 1, following the standards:**
+    - extinguishers and blankets in place: monthly to **weekly**
+    - fire blanket: monthly to **weekly**
+    - visual and vibrating alarms: monthly to **weekly**, with the alarm test
+    - defibrillator: monthly to **weekly**
+    - intruder alarm service: yearly to **every 6 months**
+
+**How the sources were checked (19 Oct 2026):**
+- **Official pages:** gov.uk, hse.gov.uk and legislation-based guidance pages were read directly where they could be fetched.
+- **Paywalled standards:** BSI's documents are paywalled, so for those I used summaries from installers or councils that quote the standard.
+- **Marked "secondary":** the rows that rest on such summaries. Those are the ones to look at hardest.
+- **Where sources disagree, I took the stricter**, and each row says so.
+
+| Check (id) | Frequency | Label | Source | Checked |
+|---|---|---|---|---|
+| fire-ra: review the fire risk assessment | 1 year (and after major change) | Good practice | Fire Safety Order 2005 art. 9: keep under review, no interval. gov.uk "Fire safety risk assessment: small and medium places of assembly" (2024): "keep your assessment under review", no interval. Yearly is the common practice. The professional report's own next-review date is a check from Stage 4 | 19 Oct 2026 |
+| fire-alarm-test | 1 week | Recommended standard | gov.uk places-of-assembly guide: "Test fire detection and warning systems… weekly" (BS 5839-1). The same guide also says the control panel is checked every 24 hours. Not a schedule item: noted for the alarm's own log | 19 Oct 2026 |
+| fire-alarm-service | 6 months | Recommended standard | gov.uk places-of-assembly guide: six-monthly test and maintenance by a competent person (BS 5839-1) | 19 Oct 2026 |
+| emlight-quick | 1 month | Recommended standard | gov.uk places-of-assembly guide: monthly function test (BS 5266-1). The guide's checklist also lists a six-monthly test from the older standard. The current BS 5266-1 needs monthly and annual only, so not added. **Say if you want it** | 19 Oct 2026 |
+| emlight-full | 1 year | Recommended standard | gov.uk places-of-assembly guide: annual full-duration test by a competent person (BS 5266-1) | 19 Oct 2026 |
+| ext-in-place (register) | 1 week | Recommended standard | **Sources disagree; the stricter is taken.** The gov.uk guide's checklist says weekly ("correctly located and in apparent working order"). Its Part 2 text and BS 5306-3 say "monthly should be enough" | 19 Oct 2026 |
+| ext-service (register) | 1 year | Recommended standard | gov.uk places-of-assembly guide: "Maintenance by a competent person should be carried out annually" (BS 5306-3) | 19 Oct 2026 |
+| fire-doors | 1 month | Recommended standard | gov.uk places-of-assembly guide: monthly check that fire doors close correctly, frames and seals intact | 19 Oct 2026 |
+| fire-doors-detailed | 6 months | Recommended standard | **The stricter is taken.** The gov.uk guide says an annual fit check. BS 9999 says 6-monthly (secondary) | 19 Oct 2026 |
+| escape-routes | 1 week (recorded); looked at daily | Recommended standard | gov.uk places-of-assembly guide: escape routes and exit doors checked **daily**. The engine has no daily clock, so the check says "Look each day the building is in use; record it here once a week". **For Martin:** that is weaker than the guide as a recorded frequency | 19 Oct 2026 |
+| fire-signs | 1 month | Good practice | No fixed frequency found | 19 Oct 2026 |
+| fire-blanket | 1 week | Recommended standard | gov.uk guide checklist: firefighting equipment weekly (as ext-in-place) | 19 Oct 2026 |
+| fire-drill | 1 year | Recommended standard | gov.uk places-of-assembly guide: "at least annually or as determined by your fire risk assessment" | 19 Oct 2026 |
+| fire-marshals: training | 3 years | Good practice | The gov.uk guide says "refresher sessions at pre-determined intervals", no interval | 19 Oct 2026 |
+| smoke-alarms (house) | 1 month | Recommended standard | Smoke and Carbon Monoxide Alarm (England) Regulations 2015 (amended 2022): working on the day a tenancy begins, repaired when reported; no testing interval. Fire and rescue services' advice is to test monthly. **Not labelled legal**, because the law sets no frequency | 19 Oct 2026 |
+| co-alarm (house) | 1 month | Recommended standard | As smoke-alarms | 19 Oct 2026 |
+| evac-chair | 6 months | Good practice | No official frequency found (manufacturers' service intervals) | 19 Oct 2026 |
+| refuge-points | 1 month | Good practice | BS 5839-9 sets the refuge call system's maintenance; its interval was **not** confirmed (paywalled). The gov.uk guide's weekly voice-alarm check is for voice alarms, not refuge calls. **To verify** | 19 Oct 2026 |
+| visual-alarms | 1 week | Recommended standard | Part of the weekly fire alarm test (gov.uk guide, BS 5839-1) | 19 Oct 2026 |
+| peeps-review | 1 year | Good practice | The gov.uk guide sets no interval | 19 Oct 2026 |
+| geep-review | 1 year | Good practice | As peeps-review | 19 Oct 2026 |
+| fire-stopping | after building work | Good practice | Building Regulations (fire compartments must be kept); no interval: on demand | 19 Oct 2026 |
+| eicr (not a let house) | 5 years | Recommended standard | Church Buildings Council guidance via Ecclesiastical's church electrical guidance: churches every five years, to IET Guidance Note 3. GN3's own table was not seen (paywalled). **To verify** | 19 Oct 2026 |
+| eicr-let (let house) | 5 years | **Legal requirement** | Electrical Safety Standards in the Private Rented Sector (England) Regulations 2020. gov.uk guide for landlords: "at least every 5 years by a properly qualified person". A shorter interval applies if the report says so (a certificate's own date wins in the engine) | 19 Oct 2026 |
+| pat | 1 year | Recommended standard | HSE: no law sets a frequency; by risk. IET Code of Practice for In-service Inspection and Testing: equipment used by the public is tested yearly (secondary) | 19 Oct 2026 |
+| gas-service | 1 year | Recommended standard | Gas Safety (Installation and Use) Regulations 1998 reg. 35: an employer keeps appliances in safe condition, no interval. HSE and Gas Safe advise a yearly service | 19 Oct 2026 |
+| gas-safety (let house) | 1 year | **Legal requirement** | Gas Safety (Installation and Use) Regulations 1998 reg. 36: a landlord's gas safety check every 12 months, with a copy to tenants | 19 Oct 2026 |
+| legionella-ra | 2 years | Good practice | HSE ACoP L8: review "regularly", and when there is reason to suspect it is no longer valid; the old 2-year figure was dropped in 2013. Secondary sources vary from quarterly to 2 years. **For Martin:** you listed this as a "recommended standard"; I found no official number, so it is Good practice, with a modest 2 years | 19 Oct 2026 |
+| water-temps | 1 month | Recommended standard | HSE (hse.gov.uk/legionnaires): "Check water temperature at sentinel outlets on a monthly basis" (HSG274 Part 2) | 19 Oct 2026 |
+| flush-taps | 1 week | Recommended standard | HSE: "For infrequently used outlets, instigate a programme of regular flushing (weekly)" | 19 Oct 2026 |
+| asbestos-survey | once, kept | **Legal requirement** | Control of Asbestos Regulations 2012 reg. 4 (the duty to manage): find out whether asbestos is present, and keep a record and a plan | 19 Oct 2026 |
+| asbestos-reinspect | 1 year | Recommended standard | HSE guidance (HSG227 and the duty-to-manage pages, quoted by councils and surveyors): known asbestos re-inspected at least every 12 months (secondary) | 19 Oct 2026 |
+| lightning | 1 year | Recommended standard | BS EN 62305-3 Table E.2 varies by protection level. **The stricter is taken:** installers quoting it give yearly (secondary) | 19 Oct 2026 |
+| roof-gutters | 1 year | Good practice | No official frequency. Church Buildings Council advice is spring and autumn (twice a year). **Say if you want 6 months** | 19 Oct 2026 |
+| lift (incl. stairlift) | 6 months | **Legal requirement** | LOLER 1998 reg. 9. HSE: thorough examination every 6 months for equipment lifting people, 12 months for other lifting equipment, unless an examination scheme says otherwise. A stairlift carries people. It applies where the lift is work equipment (staff or volunteers working there) | 19 Oct 2026 |
+| play-routine | 1 month | Recommended standard | BS EN 1176-7: routine and operational inspections between weekly and quarterly. **The stricter end used (monthly) for the operational check** (secondary, not seen directly) | 19 Oct 2026 |
+| play | 1 year | Recommended standard | BS EN 1176-7: the annual main inspection (secondary: parish councils' RPII inspections) | 19 Oct 2026 |
+| walk-round | 1 month | Good practice | | 19 Oct 2026 |
+| boundaries | 1 year | Good practice | | 19 Oct 2026 |
+| trees | 1 year | Good practice | No fixed frequency (the National Tree Safety Group: by risk zone) | 19 Oct 2026 |
+| oil | 1 year | Recommended standard | OFTEC: yearly service of oil boilers and tanks (BS 5410) | 19 Oct 2026 |
+| wood-burner | 1 year | Recommended standard | HETAS and fire and rescue services: sweep at least once a year. HETAS says up to four times a year in heavy use, so it can be made more frequent | 19 Oct 2026 |
+| accessibility | 1 year | Good practice | | 19 Oct 2026 |
+| hearing-loop | 1 month | Good practice | | 19 Oct 2026 |
+| hs-ra | 1 year | Good practice | Management of Health and Safety at Work Regulations 1999 reg. 3: review when no longer valid; no interval. HSE: "review regularly" | 19 Oct 2026 |
+| hs-policy | 1 year | Good practice | Health and Safety at Work Act 1974 s.2(3): revise "as often as may be appropriate" (5+ employees) | 19 Oct 2026 |
+| chemicals | 1 year | Good practice | COSHH 2002: review the assessment regularly; no interval | 19 Oct 2026 |
+| ladders | 6 months | Good practice | HSE INDG455: a pre-use check each time, and detailed inspections "at regular intervals" (per the manufacturer). Martin's figure | 19 Oct 2026 |
+| first-aid-kits | 1 month | Good practice | HSE L74: check contents "frequently" | 19 Oct 2026 |
+| first-aiders | 3 years | Recommended standard | HSE L74: first aid at work certificates last 3 years (an annual refresher is strongly advised) | 19 Oct 2026 |
+| accident-book | 1 year | Good practice | RIDDOR keeps records 3 years; no review interval | 19 Oct 2026 |
+| defib | 1 week | Recommended standard | **The stricter is taken.** NHS ambulance service schemes (London Ambulance Service accreditation): a visual check at least weekly, and a switch-on test monthly, recorded. Others say "by the manufacturer". This replaces version 1's monthly (Martin's earlier figure) | 19 Oct 2026 |
+| food-reg | once, kept | **Legal requirement** | Retained Regulation (EC) 852/2004 art. 6: register with the council at least 28 days before starting. **Councils differ** on whether occasional church catering needs it; the check's note says the council decides | 19 Oct 2026 |
+| food-hygiene | 3 years | Good practice | The law requires handlers to be supervised and trained, with no interval. The 3-year certificate is common | 19 Oct 2026 |
+| fridge-temps | 1 week (recorded); checked daily | Recommended standard | FSA "Safer food, better business": fridge temperatures in the opening checks each day food is prepared. Recorded weekly, with the note "Check each day food is prepared; record it here once a week". **For Martin:** you had said weekly; as escape-routes | 19 Oct 2026 |
+| allergens | 1 year (and on change) | Good practice | Food Information Regulations 2014: accurate at all times; no interval | 19 Oct 2026 |
+| insurance | 1 year | Good practice | The policy term | 19 Oct 2026 |
+| rebuild-value | 5 years | Good practice | Martin's figure. RICS guidance suggests a reinstatement cost assessment every 3 years with index-linking between. **Say if you want 3** | 19 Oct 2026 |
+| public-liability | 1 year | Good practice | The policy term | 19 Oct 2026 |
+| employers-liability | 1 year | **Legal requirement** | Employers' Liability (Compulsory Insurance) Act 1969: cover must be in force while anyone is employed. The law sets continuous cover; the yearly renewal is the policy term | 19 Oct 2026 |
+| music-licence | 1 year | **Legal requirement** | Copyright, Designs and Patents Act 1988: permission is needed for non-worship music; TheMusicLicence (PPL PRS) is annual | 19 Oct 2026 |
+| film-licence | 1 year | **Legal requirement** | Copyright, Designs and Patents Act 1988: public showing needs a licence; the umbrella licences are annual | 19 Oct 2026 |
+| event-notice | per event | **Legal requirement** | Licensing Act 2003: a Temporary Event Notice at least 10 working days before | 19 Oct 2026 |
+| cofe-architect | 5 years | **Legal requirement** | Care of Churches and Ecclesiastical Jurisdiction Measure 2018 (diocesan schemes): every church inspected at least once in every five-year period | 19 Oct 2026 |
+| intruder-alarm | 6 months | Recommended standard | **The stricter is taken.** PD 6662 and BS 9263 (NSI and SSAIB): two maintenance visits a year with remote signalling, one if bells only (secondary). The note says so | 19 Oct 2026 |
+| cctv | 1 year | Recommended standard | ICO CCTV guidance and the Surveillance Camera Code: review the system and its need at least annually | 19 Oct 2026 |
+| key-holders | 1 year | Good practice | | 19 Oct 2026 |
+| ml-notify | once (and on change) | **Legal requirement** | Terrorism (Protection of Premises) Act 2025 (standard tier, 200+): tell the regulator (SIA). The duties start after the implementation period (expected spring 2027) | 19 Oct 2026 |
+| ml-plans | 1 year | Good practice | The same Act: procedures "so far as reasonably practicable", kept up to date; no interval | 19 Oct 2026 |
+| ml-briefing | 1 year | Good practice | | 19 Oct 2026 |
+| ml-ra | 1 year | Good practice | The standard tier has no risk-assessment duty (the enhanced tier has) | 19 Oct 2026 |
+| sg-policy | 1 year | Recommended standard | Charity Commission safeguarding guidance for trustees: review the policy at least annually (law firms' summaries; the Commission's own wording was **not** seen. **To verify**) | 19 Oct 2026 |
+| sg-audit | 1 year | Good practice | | 19 Oct 2026 |
+| sg-recruitment | 1 year | Good practice | | 19 Oct 2026 |
+| lone-working | 1 year | Good practice | HSE INDG73: no interval | 19 Oct 2026 |
+| manual-handling | 1 year | Good practice | Manual Handling Operations Regulations 1992: no interval | 19 Oct 2026 |
+| transport | 1 year | Good practice | | 19 Oct 2026 |
+| contractors | before the work | Recommended standard | HSE INDG368 "Using contractors": check competence and insurance before work | 19 Oct 2026 |
+| event-ra | per event | Good practice | | 19 Oct 2026 |
+| winter | 1 year | Good practice | | 19 Oct 2026 |
+| storm | after a storm | Good practice | | 19 Oct 2026 |
+| ico-fee | 1 year | **Legal requirement** | Data Protection (Charges and Information) Regulations 2018: the fee is paid yearly unless exempt. The not-for-profit exemption is narrow; the ICO's self-assessment decides, and the note says so | 19 Oct 2026 |
+| privacy-notice | 1 year | Good practice | UK GDPR arts. 13–14: kept accurate; ICO "review regularly" | 19 Oct 2026 |
+| data-register | 1 year | Good practice | UK GDPR art. 30 (records of processing: a church processes religious belief, so it is not exempt): kept up to date; no interval | 19 Oct 2026 |
+| dp-training | 2 years | Good practice | The ICO Accountability and Audit Framework says refresher training "at regular intervals", no number | 19 Oct 2026 |
+| devices | 1 year | Good practice | | 19 Oct 2026 |
+| leavers | when someone leaves | Good practice | | 19 Oct 2026 |
+| link-safeguarding (link) | kept in Safeguarding | Recommended standard | DBS renewals and training are on the Safeguarding page, not here | 19 Oct 2026 |
+| link-hirers (link) | kept in Bookings | Good practice | | 19 Oct 2026 |
+| link-ccli (link) | kept in Church settings | **Legal requirement** | Copyright, Designs and Patents Act 1988: song words and streaming need the licences; renewal is yearly | 19 Oct 2026 |
+
+**Five for Martin to decide** (each is a one-line change in the data):
+1. **Escape routes and fridge temperatures:** the guidance says *daily*. They are recorded weekly with a "look each day" note. Should they have a "each day the building is used" clock?
+2. **Legionella review:** Good practice, 2 years. Is that OK, or do you want a source?
+3. **Roof and gutters:** twice a year (Church Buildings Council)?
+4. **Rebuild valuation:** 3 years (RICS)?
+5. **Emergency lighting:** add the older six-monthly test?
+
+**To verify hardest:** the rows marked secondary or "To verify":
+- refuge points
+- the church EICR (5 years)
+- lightning
+- play
+- intruder alarm
+- safeguarding policy
