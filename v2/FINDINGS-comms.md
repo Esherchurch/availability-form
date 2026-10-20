@@ -5,49 +5,63 @@ Feature names: `enews`, `cardMaker`, `canva`. All three stay **off** until Marti
 
 ---
 
-## PLAN, 20 Oct late: the e-news, made to work the same as Mailchimp (for review)
+## PLAN, 20 Oct late: the e-news editor working the same way as Mailchimp's (for review)
 
-One plan from the reviewing window's six messages of 20 Oct. Two parts are already built: **Add a meeting** (C-35) and **no emails to under-18s** (C-36). Everything below waits for your yes. Nothing in sections B to E is built yet.
+One plan from the reviewing window's messages of 20 Oct. Two parts are already built: **Add a meeting** (C-35) and **no emails to under-18s** (C-36). Everything below waits for your yes. Nothing in sections A to D is built yet.
 
-**Mock-ups of the editor** (the email in them is drawn by the real e-news code; the content is made up):
-- [Computer: the Content panel](design-mocks/comms/editor/editor-computer-content.png): the email on the left, blocks to drag on the right, and hovering a block shows Move / Edit / Duplicate / Delete.
-- [Computer: editing a card](design-mocks/comms/editor/editor-computer-edit.png): the card's editor in the right panel, with the toolbar, the church's colours, caption position, image width, members-only, and Save & Close.
-- [Phone, 375](design-mocks/comms/editor/editor-375.png): one column; the block's editor opens as a sheet from the bottom.
+**The model is Mailchimp's NEW email builder**, which Martin's account opens. Val's issues came from the Classic one, which Mailchimp is retiring.
 
-**Mailchimp's own screens beside them: I can't make these.** I have no Mailchimp sign-in, and I won't ask for one. Could Val or Martin send four screenshots from Val's account? They should show:
-1. the classic editor with a campaign open;
-2. the Content tab's block list;
-3. an Image + Caption block open for editing (its Content, Style and Settings tabs);
-4. the text toolbar.
+**Mock-ups** (the email in them is drawn by the real e-news code; the content is made up), in `design-mocks/comms/editor/`:
 
-I'll put each one next to the matching mock-up and change anything that doesn't match.
+| Mailchimp's screen (Martin's screenshots) | Ours |
+|---|---|
+| 1 Overview, and 4 All content blocks | [builder-1-add.png](design-mocks/comms/editor/builder-1-add.png) |
+| 2 Text block selected | [builder-2-text-selected.png](design-mocks/comms/editor/builder-2-text-selected.png) |
+| 3 Word selected, "Add link" | [builder-3-word-selected.png](design-mocks/comms/editor/builder-3-word-selected.png) (with the church's colours open as well) |
+| 5 Styles | [builder-4-styles.png](design-mocks/comms/editor/builder-4-styles.png) |
+| (phone) | [builder-5-phone-375.png](design-mocks/comms/editor/builder-5-phone-375.png) |
 
-### A. What "the same as Mailchimp" means here
+**Side by side, Mailchimp above and ours below:** `OneDrive\Documents\New hub\mocks\mailchimp-editor\compare\compare-1.png` to `compare-5.png`. They sit next to Martin's screenshots on this PC, not in the public repo, because the Mailchimp screens are from his account.
 
-Martin: "it needs to work in the same way as Mailchimp", so Val's habits carry over unchanged. The model is Mailchimp's **classic** editor, the one Val's template was built in (her blocks are mcnCaptionBlock, mcnImageCardBlock and mcnTextBlock).
+### A. The editor, the same way as Mailchimp's
 
-- **The page:**
-  - The email on the left. The panel on the right has two tabs:
-    - **Content:** the blocks, which you drag onto the email;
-    - **Design:** colours, fonts and spacing. Today's "Look and footer" moves here.
-  - The top bar: **Preview** (desktop or mobile), **Send a test email**, then **Schedule** or **Send**. Send stays shut until go-live, as now.
-- **Mailchimp's block names and behaviour:** Text, Boxed Text, Divider, Image, Image Group, Image Card, Image + Caption, Button, Social Follow, Social Share, Footer, Video.
-- **The hub's own blocks,** in a second group, without changing those habits:
-  - Event (fills itself from What's On);
-  - Bible verse (from the hub's Bible);
-  - Meeting (Join, church members only);
-  - Dates for the diary;
-  - This Sunday;
-  - Notices.
-- **Hovering a block** shows Move / Edit / Duplicate / Delete. **Clicking it** opens its editor in the right panel:
-  - the text editor, with Mailchimp's toolbar: format, bold, italic, underline, text colour, link, bulleted and numbered lists, align, emoji;
-  - the block's settings;
-  - **Save & Close**.
-- **Image Card and Image + Caption settings as Mailchimp's:** caption position (top, bottom, left, right) and image width. Val's event cards are Image + Caption, caption on the right, image one third.
-- **Every card's words are full rich text** (the same editor as the Text block), not one line. Val's cards are paragraphs with bold, links, emoji and lists.
-- **Drag to reorder.** The arrows stay too, for keyboard and phone. Plus **Undo**, and autosave showing **Saved**.
-- **Phone:** one column, the same steps. The block's editor opens as a sheet from the bottom.
-- **One conflict between your messages:** the first asked to type ON the email itself; the second asked for "the same as Mailchimp", which edits in the right panel. I've planned the second, because it's the later and more exact ask. Say if you want both.
+- **Top bar:**
+  - the issue's name;
+  - **Changes saved** (autosave);
+  - **Send test**;
+  - **Save and exit** (its arrow gives Schedule; Send stays shut until go-live).
+- **Under the top bar:**
+  - the **computer/phone switch** in the middle;
+  - **undo/redo** and **Preview** on the right.
+- **Left rail: Add, Styles, Check.** Check is our version of Mailchimp's Optimize: links that don't work, pictures missing, events missing a write-up, and "Pick the meeting".
+- **Add** is a grid of blocks you **drag onto the email**:
+  - **Mailchimp's names:** Image, Heading, Paragraph, Button, Divider, Spacer, Video, Social, Logo, Footer.
+  - **"The church's own":** Event (from What's On), Bible verse, This Sunday, Meeting, Dates for the diary, Notices.
+  - **Blank columns:** 1, 2, 3.
+  - **Prebuilt rows:** Image & Text (Val's event card), Text & Image, Two pictures.
+  - Mailchimp's shop blocks (Survey, Code, Apps, Product) are left out. A church has no use for them, and Code would let raw HTML into an email.
+- **The email in the middle.** Click a block and you get:
+  - a **teal outline**;
+  - a **"TEXT ⠿"** label, which is its drag handle;
+  - **Move / Duplicate / Delete** on its right;
+  - **typing in place**, on the email itself.
+- **Editing text: the toolbar runs across the top.**
+  - **Tools:** paragraph style, font, size, text colour, highlight, **B I U S**, link, image, emoji, align, line height, letter spacing.
+  - **Selecting a word** offers **Add link**.
+  - **Text colour** is the church's palette (the look's teal, orange, green and dark, plus a few). Only those colours are kept when sending, as an inline style, so Outlook and dark mode don't break.
+- **The left panel becomes the block's settings,** with **‹ Done** back to Add.
+  - The **Styles** tab: background, border, rounded corners, padding, and phone and computer linked or separate.
+  - **Clear styles** and **Apply to all**.
+  - The **Visibility** tab: computer/phone, and **church members only**. Meetings start ticked; the CMM can't be unticked.
+- **Styles** is the whole email's design:
+  - **Mailchimp's sections:** Background, Text, Link, Button, Divider, Image, Logo.
+  - **"The church's own":** Footer (name, address, charity number), Social icons, Section bar.
+  - Today's "Look and footer" moves here.
+- **Every card's words are full rich text** (paragraphs, bold, links, emoji, lists), not one line.
+- **Reordering:** drag, as Mailchimp. Keyboard and phone keep up and down arrows.
+- **Phone (375):** one column, the same.
+  - The email is full width, and the toolbar sits above the keyboard.
+  - A dock at the bottom has **Add, Styles, This block, Check**. "This block" opens its settings as a sheet.
 
 ### B. The email itself (egbc-mailblocks.js)
 
@@ -89,10 +103,11 @@ Martin: "it needs to work in the same way as Mailchimp", so Val's habits carry o
 1. **B and C first** (the email and the draft: smaller, and they show at once in what people receive), with the side-by-side check (D9) growing as each lands.
 2. **Then A, the editor** (the large piece), built behind the e-news switch on the existing page, so nothing changes for anyone until it's ready.
 3. **Then the ease test (D10),** before the editor replaces today's.
+4. **Then templates and one-off emails** (F).
 
-### F. Not received
+### F. One-off emails and templates
 
-The plan you mentioned for **one-off emails and templates (CMM, ministry update, and so on)** hasn't reached this window; only the "Add a meeting" message did. Please resend it. The **Church members' meeting** starter (C-35) is my reading of "the CMM template" until then.
+The main window's plan for these is in [design-mocks/mailings/PLAN.md](design-mocks/mailings/PLAN.md). It gives this window templates (section 2) and one-off emails (section 3), after the e-news work. The **Church members' meeting** starter here (C-35) becomes that plan's "Church members' meeting" template, filling in from the main window's members' meeting page once it exists. The plan's "never under-18s" uses the under-18 rule built here (C-36: Under 16 or Under 18).
 
 ---
 
@@ -343,7 +358,7 @@ Val's Zoom details, her personal email and phone number are blocked out in those
   - check-enews-blocks 49/49, 13/13 breaks (new: meetings let into everyone's copy; the CMM let out when unticked);
   - check-enews-meeting (new) 17/17 at 375, breaks old and notice red.
 
-**Not received:** the earlier plan for one-off emails and templates ("CMM, ministry update, etc."). Only the "Add a meeting" message arrived, so the CMM starter above is my reading of "the CMM template". Please resend the plan.
+**The CMM template:** the main window's mailings plan (design-mocks/mailings/PLAN.md) has a "Church members' meeting" template that fills in from its members' meeting page. This starter becomes that template when it is built (PLAN, section F).
 
 ### C-36. No emails to anyone under 18 (reviewing window, 20 Oct)
 
