@@ -362,17 +362,55 @@
     return (m <= 4 ? 'Spring' : m <= 8 ? 'Summer' : 'Autumn') + ' ' + y;
   }
 
+  /* A LISTENER THAT IS REFUSED STAYS REFUSED (the audit's red at 360, 20 Oct
+     2026): Firestore drops a listener for good on its first error, and with
+     no error callback the rota silently stopped updating and the console
+     said "Uncaught Error in snapshot listener". A refusal can be passing -
+     the person's own record being rewritten while it is asked, a sign-in
+     still settling - so each listener keeps what it last drew, says so
+     quietly, and asks again a few times before giving up in words. */
+  var rotaListenErrors = {};
+  function listen(name, query, onData) {
+    query.onSnapshot(function (snap) {
+      if (rotaListenErrors[name]) { delete rotaListenErrors[name]; paintListenNote(); }
+      onData(snap);
+    }, function (e) {
+      var n = (rotaListenErrors[name] || 0) + 1;
+      rotaListenErrors[name] = n;
+      try { console.warn('Rota: the ' + name + ' listener was refused (' + n + '):', e && e.code); } catch (x) {}
+      paintListenNote();
+      if (n <= 5) setTimeout(function () { listen(name, query, onData); }, 1500 * n);
+    });
+  }
+  function paintListenNote() {
+    var list = document.getElementById('eventList');
+    if (!list || !list.parentNode) return;
+    var note = document.getElementById('rotaListenNote');
+    var bad = Object.keys(rotaListenErrors);
+    var gaveUp = bad.some(function (k) { return rotaListenErrors[k] > 5; });
+    if (!bad.length) { if (note) note.remove(); return; }
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'rotaListenNote'; note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:0 0 10px;padding:8px 12px;border-radius:10px;background:#fff7ed;color:#9a3412;font:500 13px/1.4 Inter,system-ui,sans-serif';
+      list.parentNode.insertBefore(note, list);
+    }
+    note.textContent = gaveUp
+      ? 'The rota could not be kept up to date. Reload the page to try again.'
+      : 'Reconnecting to the rota… what is shown may be a moment out of date.';
+  }
+
   // Real-time listeners — start when the rota is first shown
   var rotaListenersStarted = false;
   function startRotaListeners() {
     if (rotaListenersStarted) return;
     rotaListenersStarted = true;
-    db().collection('addressBook').onSnapshot(function (snap) {
+    listen('people', db().collection('addressBook'), function (snap) {
       allMembers = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       if (H.onMembers) H.onMembers(allMembers);
       renderPlanner();
     });
-    db().collection('availability').onSnapshot(function (snap) {
+    listen('availability', db().collection('availability'), function (snap) {
       rotaAvailability = {};
       snap.forEach(function (d) {
         var data = d.data();
@@ -381,7 +419,7 @@
       });
       renderPlanner();
     });
-    db().collection('events').orderBy('date').onSnapshot(function (snap) {
+    listen('dates', db().collection('events').orderBy('date'), function (snap) {
       cachedEvents = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       renderPlanner();
       if (H.onEvents) H.onEvents(cachedEvents);
@@ -791,10 +829,81 @@
     }
   };
 
-  global.addSingleLine = async function () {
-    var d = new Date().toISOString().split('T')[0];
-    await db().collection('events').add({ date: d, termLabel: getTermLabel(d), type: 'Sunday Morning Worship', description: '', teams: ['Worship Team', 'AV Team'], startTime: '08:00', endTime: '11:30', roles: MANDATORY_SUNDAY_ROLES.slice(), archived: false });
+  /* + SERVICE ASKS FIRST, as the Planner's does (the reviewing window,
+     19 Oct 2026; the audit's "no change" red here, 20 Oct). It used to save
+     a Sunday Morning Worship dated TODAY the moment it was tapped: one
+     mis-tap put a real empty service on the rota, and on a phone the new
+     line landed out of sight - in a folded term, with the redraw jumping
+     to the next date - so nothing seemed to happen. Now a small sheet asks
+     the date (next Sunday to start with) and the kind; nothing is saved
+     until "Add"; then the new line is opened, scrolled to and lit. The
+     same fields as Planner.html's sheet, so a service is the same service
+     whichever page added it. */
+  var SERVICE_KINDS = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
+  var SUNDAY_PUBLIC = { whatsOn: true, serviceTime: '10:00' };
+  var justAdded = null;
+  function nextSundayIso() {
+    var d = new Date(); d.setHours(12, 0, 0, 0);
+    while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function closeAddService() {
+    var w = document.getElementById('crAddService'); if (w) w.remove();
+    document.removeEventListener('keydown', addServiceKey);
+  }
+  function addServiceKey(e) { if (e.key === 'Escape') closeAddService(); }
+  global.addSingleLine = function () {
+    closeAddService();
+    var wrap = document.createElement('div');
+    wrap.id = 'crAddService'; wrap.setAttribute('data-egbc-overlay', '');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(17,24,39,.4);display:flex;align-items:flex-end;justify-content:center';
+    wrap.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="crAddT" style="background:#fff;width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:16px 16px 20px;font-family:Inter,system-ui,sans-serif;box-sizing:border-box">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><b id="crAddT" style="font-size:16px;color:#111827">Add a service</b>'
+      + '<button type="button" data-close="1" aria-label="Close" style="width:44px;height:44px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer;font-size:18px;color:#3d6263">&times;</button></div>'
+      + '<label for="crAddDate" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Date</label>'
+      + '<input id="crAddDate" type="date" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:12px">'
+      + '<label for="crAddType" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">What kind</label>'
+      + '<select id="crAddType" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:16px;background:#fff">'
+      + EVENT_TYPES_LIST.map(function (t) { return '<option' + (t === 'Sunday Morning Worship' ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select>'
+      + '<div style="display:flex;gap:8px"><button type="button" data-close="1" style="flex:1;min-height:48px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Cancel</button>'
+      + '<button type="button" id="crAddGo" style="flex:1;min-height:48px;border:0;border-radius:12px;background:#3d6263;color:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Add</button></div>'
+      + '<p id="crAddMsg" role="status" style="margin:10px 0 0;font-size:13px;color:#b0392c;min-height:1em"></p></div>';
+    document.body.appendChild(wrap);
+    if (global.matchMedia && global.matchMedia('(min-width:700px)').matches) { wrap.style.alignItems = 'center'; wrap.firstChild.style.borderRadius = '18px'; }
+    document.getElementById('crAddDate').value = nextSundayIso();
+    wrap.addEventListener('click', function (e) { if (e.target === wrap || e.target.closest('[data-close]')) closeAddService(); });
+    document.addEventListener('keydown', addServiceKey);
+    document.getElementById('crAddGo').onclick = async function () {
+      var d = document.getElementById('crAddDate').value, type = document.getElementById('crAddType').value;
+      var msg = document.getElementById('crAddMsg');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { msg.textContent = 'Choose the date first.'; return; }
+      var go = document.getElementById('crAddGo'); go.disabled = true; go.textContent = 'Adding\u2026';
+      var service = SERVICE_KINDS.indexOf(type) >= 0;
+      var ref = db().collection('events').doc();
+      justAdded = ref.id;
+      rotaCollapsedTerms.delete(getTermLabel(d));
+      try {
+        await ref.set(Object.assign({ date: d, termLabel: getTermLabel(d), type: type, description: '', teams: ['Worship Team', 'AV Team'], startTime: '08:00', endTime: '11:30',
+          roles: service ? MANDATORY_SUNDAY_ROLES.slice() : [], archived: false }, service ? SUNDAY_PUBLIC : {}));
+        closeAddService();
+        toast(type + ' added.');
+      } catch (e) {
+        justAdded = null;
+        try { console.warn('Rota: could not add the service', e && e.code); } catch (x) {}
+        msg.textContent = 'That did not save. Please try again.'; go.disabled = false; go.textContent = 'Add';
+      }
+    };
+    setTimeout(function () { try { document.getElementById('crAddDate').focus(); } catch (e) {} }, 50);
   };
+  function showJustAdded(container) {
+    var row = justAdded && container.querySelector('[data-ev="' + justAdded + '"]');
+    if (!row) return false;
+    justAdded = null;
+    row.scrollIntoView({ block: 'center' });
+    row.style.boxShadow = '0 0 0 3px #f59e0b';
+    setTimeout(function () { row.style.boxShadow = ''; }, 2500);
+    return true;
+  }
 
   function termBounds(term) {
     var year = new Date().getFullYear();
@@ -1043,7 +1152,7 @@
     if (!container) return;
     container.innerHTML = '';
     /* Opens at the next date (Martin, 14 Oct 2026): after this redraw, for the first few seconds. */
-    setTimeout(function () { EGBCUKDates.openAtNext(container); }, 0);
+    setTimeout(function () { if (!showJustAdded(container)) EGBCUKDates.openAtNext(container); }, 0);
     var grouped = {};
     cachedEvents.forEach(function (ev) {
       if (ev.archived) return;
@@ -1121,7 +1230,7 @@
     var isExp = rotaExpandedEvents.has(ev.id) || isSunday;
     var bg = !isSunday ? '#f8fafc' : (blockIdx % 2 === 0 ? 'white' : '#f9fbfb');
 
-    var html = '<div data-date="' + ev.date + '" style="background:' + bg + ';border:1px solid #d1dfdf;border-radius:12px;padding:10px;margin-bottom:8px;">';
+    var html = '<div data-date="' + ev.date + '" data-ev="' + ev.id + '" style="background:' + bg + ';border:1px solid #d1dfdf;border-radius:12px;padding:10px;margin-bottom:8px;">';
     html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">';
     html += '<button onclick="toggleEventExpand(\'' + ev.id + '\')" style="width:26px;height:26px;border-radius:8px;background:white;border:1px solid #d1dfdf;color:#3d6263;font-weight:600;font-size:13px;cursor:pointer;flex-shrink:0;">' + (isExp ? '−' : '+') + '</button>';
     html += '<input type="date" value="' + ev.date + '" onchange="updateField(\'' + ev.id + '\',\'date\',this.value)" style="background:' + (isSunday ? '#3d6263' : '#d1dfdf') + ';color:' + (isSunday ? 'white' : '#3d6263') + ';border:none;padding:5px 8px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:500;font-size:13px;">';

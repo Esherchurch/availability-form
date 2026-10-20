@@ -690,7 +690,8 @@ async function backToApp(B, { role, size, from }) {
    Home. For each job this person can do, the fewest taps from the hub:
    1 for a shortcut on Home (the phone's tab bar, the computer's sidebar, a
    Home button such as "Post a notice"); otherwise 1 to open the Menu, 1 for
-   each heading to open, 1 for the item. Over 2 fails. */
+   each FOLDED group to open (a section label drawn open costs nothing),
+   1 for the item. Over 2 fails. */
 const JOBS = [
   ['Send an email', 'EmailBuilder2.html', /send an email/i], ['Post a notice', null, /post a notice/i],
   ['Rota', 'view-only-rota.html'], ['Rota planner', 'Planner.html'], ['Sunday service plan', 'SundayServicePlanner.html'],
@@ -702,10 +703,18 @@ const JOBS = [
   ["What's on", 'whatson.html'], ['Watch & Listen', 'watch.html'], ['Give', 'give.html']
 ];
 const FIND = `JSON.stringify((function(){
-  var depth = {};
-  (function walk(nodes, level){ nodes.forEach(function(n){
-    if (n.url) { var u = String(n.url).split('?')[0]; if (depth[u] === undefined || depth[u] > level) depth[u] = level; }
-    if (n.children) walk(n.children, level + 1); }); })(EGBCMenu.forPerson(EGBCMenu.who()), 0);
+  /* The Menu as it is drawn for this person (EGBCMenu.panelHtml), not the
+     tree's depth: a section such as Sundays is a label drawn open, so its
+     pages need no extra tap; only a page inside a folded group (Events and
+     rooms, Church admin, over FOLD_OVER pages) needs one to open it. The
+     tree's depth counted every label as a tap (20 Oct 2026: a master
+     admin's Rota planner "3 taps" when it is the Menu's first screen). */
+  var depth = {}, box = document.createElement('div');
+  box.innerHTML = EGBCMenu.panelHtml({ who: EGBCMenu.who(), here: 'hub.html' });
+  [].forEach.call(box.querySelectorAll('a[href]'), function(a){
+    var u = String(a.getAttribute('href')).split('?')[0], body = a.closest('.grp-body');
+    var level = body && !body.classList.contains('open') ? 1 : 0;
+    if (depth[u] === undefined || depth[u] > level) depth[u] = level; });
   function vis(el){ var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
   var direct = {};
   [].forEach.call(document.querySelectorAll('#egbc-tabbar a, #sidebar a'), function(a){ if (vis(a)) direct[String(a.getAttribute('href')||'').split('?')[0]] = 1; });

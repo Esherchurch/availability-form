@@ -522,7 +522,7 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
      It was inline in this file until 11 Oct 2026. -->
 <script src="egbc-core-planner.js?v=202610191900"></script>
 <script src="egbc-core-meetings.js?v=202610210900"></script>
-<script src="egbc-core-rota.js?v=202610210900"></script>
+<script src="egbc-core-rota.js?v=202610211600"></script>
 </head>
 <body>
 
@@ -1045,11 +1045,22 @@ function saveWho() {
 }
 
 // ── LOAD MEMBERS ──────────────────────────────────────────────────────────
-function loadMembers() {
-  if (allMembers.length) return;
+/* With an error callback (the audit's red, 20 Oct 2026): a refusal - the
+   person's access changing while the page is open - dropped this listener
+   for good with "Uncaught Error in snapshot listener". It keeps the list it
+   has and asks again a few times, as egbc-core-rota.js's listeners do. */
+let membersListening = false;
+function loadMembers(tries) {
+  if (membersListening) return;
+  membersListening = true;
   db.collection('addressBook').onSnapshot(snap => {
     allMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     populateLeaderDropdown();
+  }, e => {
+    membersListening = false;
+    const n = (tries || 0) + 1;
+    console.warn('Core Team: the people listener was refused (' + n + '):', e && e.code);
+    if (n <= 5) setTimeout(() => loadMembers(n), 1500 * n);
   });
 }
 

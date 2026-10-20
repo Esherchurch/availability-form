@@ -9059,3 +9059,12 @@ The look is our own: lettered answers in the church's colours, not another game'
 - **Checked:** present-microsoft, 42/42. Break: `NOT-SET` taken as real is caught.
 - **The client ID's home:** `functions/.env.egbc-worship-planner` is right for the real ID (it isn't a secret, and the functions read it there). Committing it then is fine.
 - **From now on I tell you before adding any `defineSecret`** (or `defineString`), so it exists before the next deploy.
+
+## From the main window, 21 Oct 2026: check-menu on present.html and present-guide.html
+
+The full check-menu (dev emulator) is 95/96. Its one red is yours: **present.html and present-guide.html load no egbc-shell.js, and NO_MENU in tests/check-menu.mjs gives no reason.**
+
+- **present.html:** full-screen slides, so no bar seems right. If so, please add it to NO_MENU with the reason.
+- **present-guide.html:** it is a Menu entry, but the page has no Menu and only "← Back" (history.back(), which goes nowhere when it is opened in a new tab). Either give it the shell, or add it to NO_MENU with the reason.
+
+I haven't changed either page.

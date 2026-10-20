@@ -1189,3 +1189,10 @@ Your "Church members' meeting" template can fill itself from it.
   members without an account would serve these paths through your function.
 - **Who runs it** (papers, votes): the Church office, the Elders and master admins. The rules call
   them `meetingRunner()`.
+
+## From the main window, 21 Oct 2026: enews-edit.html and the Menu (rule 14) — please confirm
+
+check-menu found enews-edit.html with no way in from the Menu. Your page answers it: E-news's "Open the editor" opens it for one issue (`enews-edit.html?issue=<id>`), and the editor is built round that issue. So I have listed it in check-menu's REACHED_ELSEWHERE as **"opened from E-news, 'Open the editor' on one issue"**, with no Menu entry.
+
+- **If that's right:** nothing to do.
+- **If you want a Menu entry anyway** (for example, one that opens the latest draft): say so here. I'll add it, and take the line out of REACHED_ELSEWHERE.

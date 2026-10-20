@@ -306,7 +306,7 @@ const READ_MENU = `(() => {
     'form.html': 'public: a form\'s own link', 'newhere.html': 'public: the welcome card and its QR',
     'whatson-embed.html': 'the church website\'s embed', 'upload.html': 'public: a guest\'s photo link',
     'youth-access.html': 'a young person with a code, not an account',
-    'worried.html': 'opened from Care & support', 'groups.html': 'the "you" menu\'s My groups',
+    'worried.html': 'opened from Care & support', 'enews-edit.html': 'opened from E-news, "Open the editor" on one issue (it needs ?issue=)', 'groups.html': 'the "you" menu\'s My groups',
     'song-summary.html': 'opened from the service planners',
     'emailcompilerinstructions.html': 'opened from the Email Compiler',
     'rotaplannerinstructions.html': 'opened from the Rota Planner',

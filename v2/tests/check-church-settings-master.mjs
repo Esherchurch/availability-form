@@ -80,7 +80,9 @@ const look = async (p) => {
   await evl('firebase.auth(EGBCAuth.app).signOut()', true); await sleep(300);
   await evl('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(p.email) + ',' + JSON.stringify(PW) + ').then(function(){return 1})', true); await sleep(800);
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/church-settings.html' }); await sleep(7000);
-  const page = JSON.parse(String(await evl('JSON.stringify({blocked:document.body.getAttribute("data-egbc-blocked")||"",card:(document.getElementById("egbc-blocked-card")||{innerText:""}).innerText})')));
+  const page = JSON.parse(String(await evl('JSON.stringify({blocked:document.body.getAttribute("data-egbc-blocked")||"",card:(document.getElementById("egbc-blocked-card")||{innerText:""}).innerText,'
+    + 'm365:(function(){var m=document.getElementById("m365");return m&&!m.hidden&&m.offsetParent?m.innerText.slice(0,200):""})(),'
+    + 'wide:document.documentElement.scrollWidth})')));
   /* Their Menu, as the hub draws it. */
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hub.html?app=0' }); await sleep(6000);
   page.menu = String(await evl('(function(){var u=[];(function w(n){(n||[]).forEach(function(x){if(x.url)u.push(x.url);w(x.children)})})(EGBCMenu.forPerson(EGBCMenu.who()));return u.indexOf("church-settings.html")>-1})()')) === 'true';
@@ -92,6 +94,7 @@ try {
   ok('  and their Menu does not offer it', L.menu === false);
   L = await look(PEOPLE.office);
   ok('a Church office member is refused too', !!L.blocked && /Master admins only/.test(L.card), JSON.stringify(L));
+  ok('  and is shown no Microsoft 365 card', L.m365 === '', JSON.stringify(L.m365));
   ok('  and their Menu does not offer it', L.menu === false);
   L = await look(PEOPLE.coreAdmin);
   ok('a Core Team member who leads Worship is refused', !!L.blocked && /Master admins only/.test(L.card), JSON.stringify(L));
@@ -99,6 +102,10 @@ try {
   L = await look(PEOPLE.master);
   ok('a master admin opens it', !L.blocked, JSON.stringify(L));
   ok('  and the Menu offers it', L.menu === true);
+  /* F-253 (the events window): their "Connect Microsoft 365" card, for
+     master admins - the page is theirs only, so the others never reach it. */
+  ok('  with the Microsoft 365 card for Present, asked of the hub', /Microsoft 365 for Present/.test(L.m365) && !/Checking Microsoft 365/.test(L.m365), JSON.stringify(L.m365));
+  ok('  and the page still fits 375px', L.wide <= 375, String(L.wide));
 } finally { server.close(); chrome.kill(); }
 console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
 process.exit(R.some(v => !v) ? 1 : 0);
