@@ -9068,3 +9068,104 @@ The full check-menu (dev emulator) is 95/96. Its one red is yours: **present.htm
 - **present-guide.html:** it is a Menu entry, but the page has no Menu and only "← Back" (history.back(), which goes nowhere when it is opened in a new tab). Either give it the shell, or add it to NO_MENU with the reason.
 
 I haven't changed either page.
+
+### F-257 — Deploy day: the converter and Microsoft 365, step by step (for the reviewer and Martin) (the events window, 21 Oct)
+
+This **brings F-253 and F-254 together, in order**, for Church HQ's real tenant (Martin's free Azure sign-up as **hello@churchhq.co.uk**). It takes about an hour. Nothing here touches the rules: they go live at switch-over, as before.
+
+**Why the converter is proved with a tool, not through Present:** Present will not make slides before switch-over (the live Storage is not private yet). So `tools/converter-smoke.mjs` sends an **invented** deck, or a share link, straight to the deployed converter, checks the result, and deletes everything it made. It's a dry run unless given `--live --write`. I ran it end to end here: the emulators, a local converter and the real LibreOffice gave 3 slides in 5.9 s, the layout sample picture was taken off, and nothing was left.
+
+---
+
+**A. Church HQ's tenant and app (Martin, in a browser, about 20 minutes)**
+1. **Find the tenant.** Sign in at **entra.microsoft.com** as hello@churchhq.co.uk. The free Azure sign-up made a directory (usually called "Default Directory"). On **Overview**, note its **Primary domain** (something like `hellochurchhqco.onmicrosoft.com`) and its **Tenant ID**. Write both here for the record: the domain's name is the "actual tenant name" the reviewer asked for.
+2. **Name it:** Overview → **Properties** → Name: **Church HQ** → Save.
+3. **Church HQ's own administrator** (so the app isn't tied to the sign-up account): **Users → New user → Create new user**:
+   - `admin@<primary domain>`, display name "Church HQ admin"
+   - **Assignments: Global Administrator**
+
+   Sign in as it, change the password, and set up Microsoft Authenticator. hello@churchhq.co.uk stays as the spare way in.
+4. **Optional, nicer for churches:** **Domain names → Add custom domain → churchhq.co.uk**, then put the TXT record it shows into churchhq.co.uk's DNS, and Verify. The app's publisher then shows churchhq.co.uk instead of the onmicrosoft.com name.
+5. **The app, as Church HQ admin:** **App registrations → New registration:**
+   - Name **Church HQ slides**
+   - **"Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)"**
+   - Redirect URI, platform **Web**: `https://europe-west2-egbc-worship-planner.cloudfunctions.net/m365Callback`
+6. **API permissions → Add a permission → Microsoft Graph:**
+   - **Application → Sites.Selected**
+   - **Delegated → Sites.FullControl.All**
+
+   Do **not** grant consent here.
+7. **Certificates & secrets → New client secret:** "converter", **24 months**. Copy the **Value** now (shown once). Put a calendar reminder at 23 months.
+8. **Overview:** copy the **Application (client) ID**.
+
+**B. Give the hub the app (the reviewer)**
+
+9. The secret, replacing the placeholder:
+   ```
+   firebase functions:secrets:set MS_HQ_CLIENT_SECRET --project egbc-worship-planner
+   ```
+   Paste the Value.
+10. The client ID (not a secret): in `v2/functions/.env.egbc-worship-planner`, set `MS_HQ_CLIENT_ID=<application (client) id>` (instead of NOT-SET), and commit that file.
+
+**C. The converter (the reviewer)**
+
+11. Its service account, with only what it needs:
+    ```
+    gcloud iam service-accounts create egbc-converter --display-name "EGBC Present converter" --project egbc-worship-planner
+    gcloud projects add-iam-policy-binding egbc-worship-planner --member serviceAccount:egbc-converter@egbc-worship-planner.iam.gserviceaccount.com --role roles/datastore.user
+    gcloud projects add-iam-policy-binding egbc-worship-planner --member serviceAccount:egbc-converter@egbc-worship-planner.iam.gserviceaccount.com --role roles/storage.objectAdmin
+    gcloud secrets add-iam-policy-binding MS_HQ_CLIENT_SECRET --member serviceAccount:egbc-converter@egbc-worship-planner.iam.gserviceaccount.com --role roles/secretmanager.secretAccessor --project egbc-worship-planner
+    ```
+12. Deploy, from `v2/converter`:
+    ```
+    gcloud run deploy egbc-converter --source . --region europe-west2 --project egbc-worship-planner \
+      --service-account egbc-converter@egbc-worship-planner.iam.gserviceaccount.com \
+      --no-allow-unauthenticated --memory 4Gi --cpu 2 --timeout 900 --concurrency 1 \
+      --min-instances 0 --max-instances 2 \
+      --set-env-vars BUCKET=egbc-worship-planner.firebasestorage.app,MS_CLIENT_ID=<application (client) id> \
+      --set-secrets MS_CLIENT_SECRET=MS_HQ_CLIENT_SECRET:latest
+    ```
+    The first build takes about 10 minutes (LibreOffice, poppler, ffmpeg, fonts). Note the service URL it prints.
+13. Let the hub's functions call it. The project number comes from `gcloud projects describe egbc-worship-planner --format "value(projectNumber)"`.
+    ```
+    gcloud run services add-iam-policy-binding egbc-converter --region europe-west2 --project egbc-worship-planner --member serviceAccount:<project number>-compute@developer.gserviceaccount.com --role roles/run.invoker
+    ```
+    Let yourself call it too, for the smoke test:
+    ```
+    gcloud run services add-iam-policy-binding egbc-converter --region europe-west2 --project egbc-worship-planner --member user:<your google account> --role roles/run.invoker
+    ```
+14. Tell the functions where it is: add `CONVERTER_URL=<the service URL>` to `v2/functions/.env.egbc-worship-planner`.
+
+**D. The functions (Martin, as usual)**
+
+15. Deploy `presentConvert`, `presentFromLink`, `presentSweep`, `m365Start`, `m365Callback`, `m365Status` and `m365Disconnect`. The two m365 functions already deployed need it again, to pick up the real secret and ID.
+
+**E. Proving it (the reviewer, with the tool; it writes only its own smoke-* records and deletes them)**
+
+16. `node tools/converter-smoke.mjs` (a dry run: it should find the converter).
+17. `node tools/converter-smoke.mjs --live --write --compare`
+    - **Expect:** 3 slides; renderer libreoffice; "layout sample pictures taken off: 1"; fidelity **under 6** on each slide (the real pdftoppm now, against PowerPoint's own pictures in the repo); "Cleaned up: nothing left".
+18. `node tools/converter-smoke.mjs --live --write --link "<the 729 MB deck's Can-view link, ChurchShow F-CS8b>"`
+    - **Expect:** "fetching 729 MB", then 4 slides; media on slide 4: a video of 450 s, on click, with a light copy; about 4–6 minutes.
+19. **Connect EGBC's Microsoft 365.** EGBC's own Global administrator (in EGBC's Microsoft 365, **not** hello@churchhq.co.uk): Church settings → **Connect Microsoft 365** → read the plain screen → Continue → approve "Church HQ slides" → sign in once more → back to **"Connected: esherchurch.sharepoint.com"**.
+20. `node tools/converter-smoke.mjs --live --write --compare` again.
+    - **Expect: renderer microsoft**, and fidelity close to 0 (Microsoft draws it as PowerPoint does).
+    - **If it says libreoffice,** `fallbackWhy` says why. The likely ones: the grant not yet active (wait a minute, try again), or the secret/ID not picked up (step 15).
+21. **Optional:** in EGBC's Entra → Enterprise applications → Church HQ slides → Permissions, remove the delegated **Sites.FullControl.All**. Run step 20 again: still microsoft.
+
+**F. If something goes wrong**
+- **The converter's log:**
+  ```
+  gcloud run services logs read egbc-converter --region europe-west2 --project egbc-worship-planner --limit 50
+  ```
+- **Microsoft failing never stops slides:** LibreOffice takes over, and the deck says why.
+- **To stop using Microsoft:** Disconnect on the card, or set the secret back to NOT-SET and redeploy.
+- **A kept smoke run:** delete it with `node tools/converter-smoke.mjs --live --write --delete smoke-<time>`.
+
+**Costs** (as in F-251)
+- **The converter** costs nothing while idle. A deck is about 0.2p, or about 2–3p with a long video, within the free allowance.
+- **Storage:** about 1.8p a GB a month.
+- **Streaming a video:** about 9.5p a GB.
+- **Microsoft:** nothing beyond EGBC's licence.
+
+**After switch-over:** the real test in Present itself (a deck by upload, the 729 MB link in the planner, presenting with the video) uses the same converter. Nothing more to deploy then except the rules, which go live with switch-over.
