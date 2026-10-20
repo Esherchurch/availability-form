@@ -3634,6 +3634,15 @@ await check('  nobody else', 'deny',
 await check('  and not the church office', 'deny',
   () => setDoc(doc(as('officeAdmin'), 'churchSettings', 'launch'), { rulesLocked: true }));
 
+/* ---- churchSettings/video: the church's rooms (21 Oct 2026) ----------
+   Made by the hub's server (functions/video.js, Church HQ's Daily
+   account); pages only read them. Their addresses are not secret -
+   knowing one only lets you knock. */
+await check('a signed-in member reads the church\'s meeting rooms', 'allow',
+  () => getDoc(doc(as('karen'), 'churchSettings', 'video')));
+await check('  but no page writes them, not even a master admin', 'deny',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'video'), { rooms: [{ key: 'x', url: 'https://evil.example/x' }] }));
+
 /* ---- marking it dealt with ----------------------------------------- */
 await check('the safeguarding lead marks one dealt with, with a note', 'allow',
   () => updateDoc(doc(as('karen'), 'worries', 'c_pastoral'),

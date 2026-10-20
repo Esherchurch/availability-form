@@ -272,7 +272,9 @@ const offMachine = u => {
      here whatever this says. What is being asserted is what the pages
      ATTEMPTED, and two attempts are expected and understood:
 
-       egbc.daily.co                  the video call itself, on meeting.html
+       <room>.daily.co                the video call itself, on meeting.html -
+                                      the church's room in Church HQ's Daily
+                                      account (21 Oct 2026; egbc.daily.co before)
        firebasestorage.googleapis.com the brand logo, hard-coded as a live
                                       Storage URL in egbc-shell.js:30 and so
                                       on every page. A public image with a
@@ -284,7 +286,7 @@ const offMachine = u => {
 
      Anything else is a page reaching somewhere nobody decided it should. */
   const EXPECTED_OFF = ['egbc.daily.co', 'firebasestorage.googleapis.com'];
-  const unexpected = [...new Set(reachedOff)].filter(h => !EXPECTED_OFF.includes(h));
+  const unexpected = [...new Set(reachedOff)].filter(h => !EXPECTED_OFF.includes(h) && !/.daily.co$/.test(h));
   ok('no page reached anywhere off this machine that is not accounted for',
     unexpected.length === 0, unexpected.join(', '));
 

@@ -1091,16 +1091,10 @@ function forMe(n) {
    picked. Keep these rules in step with CoreTeamApp.html and Planner.html.
    Only the plain knock-to-join links live here - host links carry owner
    tokens and must never be in this public repo. */
-const VIDEO_BASE = 'https://egbc.daily.co/';
-const VIDEO_DEFAULT_BY_TYPE = {
-  'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
-  'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV',
-};
-const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
-const VIDEO_ROOM_LABELS = {
-  'Worship-AV': 'Worship & AV', 'worship-core-team': 'Worship Core Team', 'Prayer': 'Prayer',
-  'Eldership': 'Eldership', 'CMM': 'CMM', 'kids-ministries': 'Kids Ministries', 'interviews': 'Interviews',
-};
+/* The church's own rooms and their names (egbc-video.js, churchSettings/
+   video; Church HQ's Daily account since 21 Oct 2026) - no copy here. */
+const videoRoomFor = ev => window.EGBCVideo ? EGBCVideo.roomFor(ev) : (ev.videoRoom || '');
+const videoRoomLabel = r => window.EGBCVideo ? EGBCVideo.label(r) : r;
 let MEETINGS = [];
 let UPCOMING = [];   /* every rota date from today on, before the meetings filter */
 
@@ -1118,6 +1112,7 @@ function meetingForMe(ev) {
 async function loadMeetings() {
   if (!isVolunteer()) { UPCOMING = []; MEETINGS = []; return; }
   try {
+    if (window.EGBCVideo) await EGBCVideo.load();
     const today = new Date().toISOString().split('T')[0];
     const snap = await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
     UPCOMING = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(ev => !ev.archived);
@@ -1183,7 +1178,7 @@ function renderMeetings() {
         <div class="dt"><div class="m">${mon}</div><div class="d">${d.getDate()}</div></div>
         <div style="flex:1;min-width:0">
           <div class="t">${esc(ev.type)}${ev.description ? ' &middot; ' + esc(ev.description) : ''}</div>
-          <div class="s">${I('clock')}${dow}${time ? ' ' + time : ''} <span>&middot;</span> ${I('video')}${esc(VIDEO_ROOM_LABELS[videoRoomFor(ev)] || videoRoomFor(ev))}</div>
+          <div class="s">${I('clock')}${dow}${time ? ' ' + time : ''} <span>&middot;</span> ${I('video')}${esc(videoRoomLabel(videoRoomFor(ev)))}</div>
         </div>
         ${ev.date === today ? '<span class="pill">Today</span>' : ''}
         <a class="btn sm primary" href="${link}">Join</a>

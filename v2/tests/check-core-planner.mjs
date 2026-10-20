@@ -482,8 +482,10 @@ async function seed() {
     ok('  Join opens the EGBC meeting page, with the room on it',
       links.join.length >= 7 && links.join.every(h => /^meeting\.html\?room=/.test(h)),
       links.join.slice(0, 3).join(' | '));
+    /* The church's own room in Church HQ's Daily account (21 Oct 2026;
+       egbc.daily.co before): <churchId>-<room>. */
     ok('  and Copy link copies the plain room address',
-      links.copy.length >= 7 && links.copy.every(h => /copyMeetingLink\('https:\/\/egbc\.daily\.co\//.test(h)),
+      links.copy.length >= 7 && links.copy.every(h => /copyMeetingLink\('https:\/\/[a-z0-9-]+\.daily\.co\/egbc-/.test(h)),
       links.copy.slice(0, 2).join(' | '));
     /* NO HOST TOKEN, EVER. Anybody with one walks in as the host. The
        comment saying so travelled with the code; this is the check that

@@ -171,8 +171,10 @@ const offMachine = u => {
   console.log('\nas an admin who is not master admin');
   await signInAs('admin');
   await openSettings();
-  ok('  the page opens for them', String(await ev('document.body.getAttribute("data-egbc-blocked")||""')) === '');
-  ok('  but there is no switch - only a master admin may change it', String(await sw()) === 'none');
+  /* Church settings is for master admins only since 21 Oct 2026: they are
+     refused the page, so there is no switch for them either. */
+  ok('  the page refuses them (master admins only)', String(await ev('document.body.getAttribute("data-egbc-blocked")||""')) !== '');
+  ok('  and there is no switch for them', String(await sw()) === 'none');
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();

@@ -157,19 +157,17 @@ export function rolesVisible(ev, allowedTeams, scope) {
    description underneath carries the whole name. */
 export const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 
-const VIDEO_BASE = 'https://egbc.daily.co/';
-/* Same defaults as Planner.html. videoRoom absent means "use the default for
-   this kind of event"; videoRoom set to '' means "no call", which is not the
-   same thing and must not be collapsed into it. */
-const VIDEO_DEFAULT_BY_TYPE = {
-  'Core Team Meeting': 'worship-core-team',
-  'Worship and AV Team Meeting': 'Worship-AV',
-  'Worship Team Meeting': 'Worship-AV',
-  'AV Team Meeting': 'Worship-AV'
-};
-export function videoLinkFor(ev) {
-  const room = ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
-  return room ? VIDEO_BASE + room : '';
+import { EGBC_BY_TYPE, HUB } from './video.js';
+
+/* The meeting's page on the hub, not a Daily address (21 Oct 2026: every
+   church's rooms are Church HQ's now, made per church, and the hub page is
+   where the host gets their key). videoRoom absent means "use the default
+   for this kind of event"; videoRoom set to '' means "no call", which is not
+   the same thing and must not be collapsed into it. The defaults are the
+   one list in video.js. */
+export function videoLinkFor(ev, byType = EGBC_BY_TYPE) {
+  const room = ev.videoRoom !== undefined ? ev.videoRoom : (byType[ev.type] || '');
+  return room ? HUB + '/meeting.html?room=' + encodeURIComponent(room) + (ev.id ? '&event=' + encodeURIComponent(ev.id) : '') : '';
 }
 
 /* ------------------------------------------------------------ the calendar */

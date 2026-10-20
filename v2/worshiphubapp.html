@@ -4,8 +4,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610201600"></script>
-<script src="egbc-guard.js?v=202610201600" data-team="Worship Team"></script>
+<script src="egbc-auth.js?v=202610210900"></script>
+<script src="egbc-video.js?v=202610210900"></script>
+<script>document.addEventListener('egbc-ready', function () { if (window.EGBCVideo) EGBCVideo.load(); });</script>
+<script src="egbc-guard.js?v=202610210900" data-team="Worship Team"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-worship.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -2324,10 +2326,10 @@ function downloadICS(type) {
       : Object.entries(e.assignments||{}).filter(([r,p]) => [memberId,...(member.relatedTo||[])].includes(p.id)).map(([r,p]) => `${p.name.split(' ')[0]}: ${r}`).join(', ');
     const date = e.date.replace(/-/g,'');
     const uid = `${date}-${e.id}@egbc.worshiphub`;
-    // Video call link — same rules as CoreTeamApp.html / Planner.html (ev.videoRoom, else default for the meeting type)
-    const videoDefaults = { 'Core Team Meeting':'worship-core-team', 'Worship and AV Team Meeting':'Worship-AV', 'Worship Team Meeting':'Worship-AV', 'AV Team Meeting':'Worship-AV' };
-    const videoRoom = e.videoRoom !== undefined ? e.videoRoom : (videoDefaults[e.type] || '');
-    const videoLink = videoRoom ? `https://egbc.daily.co/${videoRoom}` : '';
+    // Video call link: the church's own room (egbc-video.js), as the hub's meeting page, in full -
+    // the host gets their key there (Church HQ's Daily account since 21 Oct 2026).
+    const videoRoom = window.EGBCVideo ? EGBCVideo.roomFor(e) : (e.videoRoom || '');
+    const videoLink = videoRoom && window.EGBCVideo ? new URL(EGBCVideo.link(videoRoom, e), location.href).href : '';
     const videoLines = videoLink ? `\\n\\nJoin the video call: ${videoLink}\nLOCATION:${videoLink}\nURL:${videoLink}` : '';
     ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART;VALUE=DATE:${date}\nSUMMARY:EGBC Serving: ${roles || e.type}\nDESCRIPTION:Service: ${e.type}\\nNotes: ${e.description||''}${videoLines}\nEND:VEVENT\n`;
   });

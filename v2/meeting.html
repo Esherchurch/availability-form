@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610201600" data-title="Meeting" data-width="full"></script>
+<script src="egbc-shell.js?v=202610210900" data-title="Meeting" data-width="full"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Meeting — EGBC</title>
@@ -16,7 +16,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610201600"></script>
+<script src="egbc-auth.js?v=202610210900"></script>
+<script src="egbc-video.js?v=202610210900"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
 <style>
   :root{--canvas:#f6f7f7;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;
@@ -41,6 +42,9 @@
   .msg .t{font-size:20px;font-weight:600}
   .msg .s{font-size:14px;color:var(--muted);max-width:420px;line-height:1.5}
   .msg .btn{background:#fff;border-color:var(--line-2);color:var(--ink)}
+  /* "Start as host" is the one to press (21 Oct 2026); 44px for a thumb. */
+  .msg .btn{min-height:44px}
+  .msg .btn.solid{background:var(--brand);border-color:var(--brand);color:#fff}
   #lobby{width:100%;max-width:920px;margin:0 auto}
   body.lobby-mode .strip{width:100%;max-width:920px;margin:12px auto 0;box-sizing:border-box}
   .lab{font-size:12px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
@@ -77,18 +81,25 @@
 
    Address:  meeting.html?room=CMM[&event=<events doc id>][&t=<host token>]
 
-   - room must be one of VIDEO_ROOMS - keep in step with CoreTeamApp.html,
-     Planner.html and hub-app.js.
+   - room is one of the church's own rooms (churchSettings/video, through
+     egbc-video.js): every church's rooms live in Church HQ's Daily account
+     since 21 Oct 2026, so no page keeps a list or a Daily address.
    - event, when given, titles the page from the rota.
-   - t is a host's meeting token. It arrives in the address the host was
-     sent privately and is passed straight to Daily; it is never stored, and
-     host tokens must never be written into this public repo. */
+   - t is a host's meeting token, as before. Since 21 Oct 2026 nobody needs
+     one sent to them: the meeting's organiser, a leader of the room's team
+     and a master admin get "Start as host", which asks the hub
+     (meetingHostToken, functions/video.js) for a short-lived owner token
+     and joins with it. Never stored, never in this public repo.
 
-const VIDEO_BASE = 'https://egbc.daily.co/';
-const VIDEO_ROOMS = {
-  'Worship-AV': 'Worship & AV', 'worship-core-team': 'Worship Core Team', 'Prayer': 'Prayer',
-  'Eldership': 'Eldership', 'CMM': 'CMM', 'kids-ministries': 'Kids Ministries', 'interviews': 'Interviews',
-};
+   START AS HOST (Martin, 20 Oct 2026): he set a meeting up, joined, and was
+   told to knock and wait for a host - with nobody to let him in, because he
+   WAS the host. Everyone else still knocks. */
+
+/* The church's own rooms (egbc-video.js). */
+const roomLabel = r => window.EGBCVideo ? EGBCVideo.label(r) : r;
+const roomUrl = r => window.EGBCVideo ? EGBCVideo.url(r) : '';
+const roomExists = r => !!window.EGBCVideo && EGBCVideo.rooms().some(x => x.key === r);
+const roomList = () => window.EGBCVideo ? EGBCVideo.rooms().map(x => [x.key, x.label]) : [];
 
 /* The site's own colours on Daily's controls and backgrounds (Martin: make
    it look part of the page, not embedded). Daily Prebuilt only takes
@@ -104,7 +115,7 @@ const THEME = { colors: {
 const params = new URLSearchParams(location.search);
 const room = params.get('room') || '';
 const eventId = params.get('event') || '';
-const hostToken = params.get('t') || '';
+let hostToken = params.get('t') || '';
 let frame = null;
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
@@ -120,7 +131,7 @@ function showMsg(title, sub, buttons) {
 }
 
 async function copyInvite() {
-  const link = VIDEO_BASE + room;
+  const link = roomUrl(room);
   try { await navigator.clipboard.writeText(link); alert('Invite link copied:\n' + link); }
   catch { prompt('Copy this invite link:', link); }
 }
@@ -128,7 +139,7 @@ async function copyInvite() {
 /* In a call every pixel goes to the video. The title strip is hidden and its
    job moves into the EGBC bar: the meeting's name and date replace "Meeting /
    Esher Green Baptist Church", and Copy invite link and Full screen sit beside
-   Hub and Menu. The bar is drawn by egbc-shell.js?v=202610201600 once the person is known,
+   Hub and Menu. The bar is drawn by egbc-shell.js?v=202610210900 once the person is known,
    so wait for it. */
 function callBar() {
   const bar = document.getElementById('egbc-bar');
@@ -156,7 +167,7 @@ function callBar() {
 }
 
 async function describe(db) {
-  document.getElementById('mtTitle').textContent = VIDEO_ROOMS[room];
+  document.getElementById('mtTitle').textContent = roomLabel(room);
   document.getElementById('mtSub').textContent = hostToken ? 'You are the host' : 'Video meeting';
   callBar();
   if (!eventId) return;
@@ -167,7 +178,7 @@ async function describe(db) {
     const day = new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
     const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
     document.getElementById('mtTitle').textContent = ev.type + (ev.description ? ' · ' + ev.description : '');
-    document.getElementById('mtSub').textContent = `${day}${time} · ${VIDEO_ROOMS[room]}${hostToken ? ' · You are the host' : ''}`;
+    document.getElementById('mtSub').textContent = `${day}${time} · ${roomLabel(room)}${hostToken ? ' · You are the host' : ''}`;
     document.title = ev.type + ' — EGBC';
     callBar();
   } catch (e) { console.warn('Could not load event', e); }
@@ -175,11 +186,7 @@ async function describe(db) {
 
 /* Opened with no room (from the hub menu or "All rooms"): list my upcoming
    online meetings and every room. Same "is it mine" rule as hub-app.js. */
-const VIDEO_DEFAULT_BY_TYPE = {
-  'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
-  'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV',
-};
-const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
+const videoRoomFor = ev => window.EGBCVideo ? EGBCVideo.roomFor(ev) : (ev.videoRoom || '');
 
 async function lobby(profile) {
   document.getElementById('stage').style.display = 'none';
@@ -207,7 +214,7 @@ async function lobby(profile) {
     if (!me.masterAdmin && !(me.teams || []).length && !(me.adminFor || []).length) throw { quiet: true };
     const snap = await EGBCAuth.db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
     upcoming = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(ev => !ev.archived && VIDEO_ROOMS[videoRoomFor(ev)] && forMe(ev)
+      .filter(ev => !ev.archived && roomExists(videoRoomFor(ev)) && forMe(ev)
                     && EGBCAuth.mayJoinRoom(videoRoomFor(ev)))
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
   } catch (e) { if (!e || !e.quiet) console.error('Could not load meetings', e); }
@@ -223,15 +230,15 @@ async function lobby(profile) {
     const day = new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
     html += `<div class="row"><div class="ic">${I('calendar-clock')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(ev.type)}${ev.description ? ' · ' + esc(ev.description) : ''}</div>
-      <div class="s">${esc(day + time)} · ${esc(VIDEO_ROOMS[r])}</div></div>
+      <div class="s">${esc(day + time)} · ${esc(roomLabel(r))}</div></div>
       <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}&event=${encodeURIComponent(ev.id)}">Join</a></div>`;
   });
 
   html += '<div class="lab">All meeting rooms</div>';
   /* A members' meeting is not offered to somebody who is not a member, and
      is not shown locked either - section 21: it simply is not there. */
-  Object.entries(VIDEO_ROOMS).filter(([r]) => EGBCAuth.mayJoinRoom(r)).forEach(([r, label]) => {
-    html += `<div class="row"><div class="ic">${I('video')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div><div class="s">${esc(VIDEO_BASE + r)}</div></div>
+  roomList().filter(([r]) => EGBCAuth.mayJoinRoom(r)).forEach(([r, label]) => {
+    html += `<div class="row"><div class="ic">${I('video')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div><div class="s">${esc(roomUrl(r))}</div></div>
       <button class="btn sm" onclick="copyLink('${r}')">${I('link', 15)}Copy invite link</button>
       <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}">Join</a></div>`;
   });
@@ -289,7 +296,7 @@ function openNewMeeting() {
       <div style="flex:1;min-width:100px"><label style="${label}">End</label><input id="nmEnd" type="time" value="21:00" style="${field}"></div>
     </div>
     <label style="${label}">Video room</label>
-    <select id="nmRoom" style="${field}"><option value="">No video call</option>${Object.entries(VIDEO_ROOMS).map(([r, l]) => `<option value="${r}">${l}</option>`).join('')}</select>
+    <select id="nmRoom" style="${field}"><option value="">No video call</option>${roomList().map(([r, l]) => `<option value="${esc(r)}">${esc(l)}</option>`).join('')}</select>
     <label style="${label}">Who is it for?</label>
     <div id="nmTeams" style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-weight:700;color:var(--ink)">
       ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${t}" style="width:18px;height:18px;accent-color:#3d6263">${t}</label>`).join('')}
@@ -305,7 +312,7 @@ function openNewMeeting() {
 
 function nmTypeChanged() {
   const type = document.getElementById('nmType').value;
-  document.getElementById('nmRoom').value = VIDEO_DEFAULT_BY_TYPE[type] || '';
+  document.getElementById('nmRoom').value = (window.EGBCVideo ? EGBCVideo.byType()[type] : '') || '';
   const want = TEAMS_BY_TYPE[type] || [];
   document.querySelectorAll('#nmTeams input').forEach(c => { c.checked = want.includes(c.value); });
 }
@@ -328,6 +335,8 @@ async function saveNewMeeting() {
       description: document.getElementById('nmDesc').value.trim(),
       teams, startTime, endTime: endTime || startTime,
       roles: [], videoRoom: document.getElementById('nmRoom').value,
+      /* Who set it up: they may start the call as host (functions/video.js). */
+      organiserUid: (EGBCAuth.user() || {}).uid || '',
       archived: false,
     });
     lobby(CURRENT_PROFILE);
@@ -339,17 +348,18 @@ async function saveNewMeeting() {
 }
 
 async function copyLink(r) {
-  const link = VIDEO_BASE + r;
+  const link = roomUrl(r);
   try { await navigator.clipboard.writeText(link); alert('Invite link copied:\n' + link); }
   catch { prompt('Copy this invite link:', link); }
 }
 
 let CURRENT_PROFILE = null;
 
-function start(profile) {
+async function start(profile) {
   CURRENT_PROFILE = profile;
+  if (window.EGBCVideo) await EGBCVideo.load();
   if (!room) { lobby(profile); return; }
-  if (!VIDEO_ROOMS[room]) {
+  if (!roomExists(room)) {
     showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
     return;
   }
@@ -363,16 +373,62 @@ function start(profile) {
       '<a class="btn" href="hub.html">Back to hub</a>');
     return;
   }
+  /* The organiser, a leader of the room's team or a master admin chooses;
+     everyone else knocks, as before. */
+  if (!hostToken && await mayHostHere(profile)) { askHost(profile); return; }
+  join(profile);
+}
+
+/* A hint for the page only: the hub decides (meetingHostToken refuses
+   anyone else). Master admin; an admin of one of the room's teams; or
+   whoever set this meeting up, in this room. */
+async function mayHostHere(profile) {
+  if (EGBCAuth.isMaster()) return true;
+  const adminFor = (EGBCAuth.adminAreas && EGBCAuth.adminAreas()) || (profile && profile.adminFor) || [];
+  const teams = window.EGBCVideo ? EGBCVideo.teams(room) : [];
+  if (teams.some(t => adminFor.includes(t))) return true;
+  if (!eventId) return false;
+  try {
+    const d = await EGBCAuth.db.collection('events').doc(eventId).get();
+    const ev = d.exists ? d.data() : null;
+    const me = EGBCAuth.user();
+    return !!(ev && me && ev.organiserUid === me.uid && videoRoomFor(ev) === room);
+  } catch (e) { return false; }
+}
+
+function askHost(profile) {
+  describe(EGBCAuth.db);
+  showMsg('You can host this meeting',
+    'As the host you let people in when they knock, and share your screen or slides.',
+    '<button class="btn solid" id="mtHost">Start as host</button><button class="btn" id="mtGuest">Join as a guest</button>');
+  document.getElementById('mtGuest').onclick = () => join(profile);
+  document.getElementById('mtHost').onclick = async (e) => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Starting\u2026';
+    try {
+      const r = await EGBCAuth.call('meetingHostToken', { room, event: eventId });
+      hostToken = r.token;
+      join(profile);
+    } catch (err) {
+      showMsg('Could not start as host', (err && err.message) || '',
+        '<button class="btn" id="mtGuest2">Join as a guest</button>');
+      document.getElementById('mtGuest2').onclick = () => join(profile);
+    }
+  };
+}
+
+function join(profile) {
   document.body.classList.add('in-call');
+  document.body.classList.toggle('hosting', !!hostToken);
   describe(EGBCAuth.db);
 
   if (!window.DailyIframe) {
     showMsg('The video service did not load', 'Check your internet connection, or open the meeting directly.',
-      `<a class="btn" href="${VIDEO_BASE + room}${hostToken ? '?t=' + encodeURIComponent(hostToken) : ''}">Open meeting directly</a>`);
+      `<a class="btn" href="${roomUrl(room)}${hostToken ? '?t=' + encodeURIComponent(hostToken) : ''}">Open meeting directly</a>`);
     return;
   }
 
   document.getElementById('msg')?.remove();
+  document.querySelector('#stage .msg')?.remove();
   frame = DailyIframe.createFrame(document.getElementById('stage'), {
     showLeaveButton: true,
     showFullscreenButton: true,
@@ -387,7 +443,7 @@ function start(profile) {
     showMsg('The meeting could not start', (e && e.errorMsg) || '', `<button class="btn" onclick="location.reload()">Try again</button>`);
   });
 
-  const opts = { url: VIDEO_BASE + room, userName: (profile && profile.name) || '' };
+  const opts = { url: roomUrl(room), userName: (profile && profile.name) || '' };
   if (hostToken) opts.token = hostToken;
   frame.join(opts).catch(e => console.error('join failed', e));
 }

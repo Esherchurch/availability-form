@@ -24,7 +24,10 @@
 
    VIDEO_ROOMS and the default-by-type table are also what the rota
    planner reads when somebody picks a video room on a meeting, so they
-   are exported rather than kept private.
+   are exported rather than kept private. Since 21 Oct 2026 both are the
+   church's own (churchSettings/video, through egbc-video.js): every
+   church's rooms are made in Church HQ's Daily account, and no page keeps
+   a copy of the list or of egbc.daily.co.
 
    HOW TO USE IT:
 
@@ -35,24 +38,14 @@
 (function (global) {
   'use strict';
 
-  var VIDEO_BASE = 'https://egbc.daily.co/';
-  var VIDEO_ROOMS = [
-    ['Worship-AV', 'Worship & AV'], ['worship-core-team', 'Worship Core Team'], ['Prayer', 'Prayer'],
-    ['Eldership', 'Eldership'], ['CMM', 'CMM'], ['kids-ministries', 'Kids Ministries'], ['interviews', 'Interviews']
-  ];
-  var VIDEO_DEFAULT_BY_TYPE = {
-    'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
-    'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV'
-  };
+  var V = function () { return global.EGBCVideo || null; };
+  /* [key, label] pairs, as the rota planner has always read them. */
+  var roomPairs = function () { return V() ? V().rooms().map(function (r) { return [r.key, r.label]; }) : []; };
   // ev.videoRoom: room name, '' = no call, undefined = use the default for the event type
-  var videoRoomFor = function (ev) {
-    return ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
-  };
-  var videoLinkFor = function (ev) { var r = videoRoomFor(ev); return r ? VIDEO_BASE + r : ''; };
-  var videoRoomLabel = function (room) {
-    for (var i = 0; i < VIDEO_ROOMS.length; i++) if (VIDEO_ROOMS[i][0] === room) return VIDEO_ROOMS[i][1];
-    return room;
-  };
+  var videoRoomFor = function (ev) { return V() ? V().roomFor(ev) : (ev.videoRoom || ''); };
+  /* The room's own address: the invite for somebody with no hub login. */
+  var videoLinkFor = function (ev) { var r = videoRoomFor(ev); return r && V() ? V().url(r) : ''; };
+  var videoRoomLabel = function (room) { return V() ? V().label(room) : room; };
 
   var H = {
     toast: function (m) { try { console.log('[meetings] ' + m); } catch (e) {} },
@@ -123,9 +116,9 @@
     });
 
     html += heading('All meeting rooms');
-    VIDEO_ROOMS.forEach(function (pair) {
+    roomPairs().forEach(function (pair) {
       var room = pair[0], label = pair[1];
-      var link = VIDEO_BASE + room;
+      var link = V() ? V().url(room) : '';
       html += '<div style="' + card + '"><div style="flex:1;min-width:160px;">'
         + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);">' + esc(label) + '</div>'
         + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);opacity:0.6;word-break:break-all;">'
@@ -152,6 +145,24 @@
     }, function () { return []; });
   }
 
+  /* The church's rooms (egbc-video.js), fetched by this file when the page
+     did not load it, so no page has to remember to. */
+  var videoReady = null;
+  function rooms() {
+    if (videoReady) return videoReady;
+    videoReady = new Promise(function (ok) {
+      if (global.EGBCVideo) return ok();
+      var here = document.currentScript && document.currentScript.src;
+      var me = document.querySelector('script[src*="egbc-core-meetings.js"]');
+      var base = (here || (me && me.src) || '').replace(/[^/]*$/, '');
+      var t = document.createElement('script');
+      t.src = base + 'egbc-video.js?v=202610210900';
+      t.onload = ok; t.onerror = ok;
+      document.head.appendChild(t);
+    }).then(function () { return global.EGBCVideo ? global.EGBCVideo.load() : []; });
+    return videoReady;
+  }
+
   function mount(opts) {
     opts = opts || {};
     var into = opts.into;
@@ -159,11 +170,12 @@
     if (opts.toast) H.toast = opts.toast;
     if (opts.events) {
       render(into, opts.events);
+      rooms().then(function () { render(into, opts.events); });
       return into;
     }
     into.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--muted,#6b7280)">'
       + 'Finding the meetings…</div>';
-    loadEvents().then(function (evs) { render(into, evs); });
+    Promise.all([loadEvents(), rooms()]).then(function (r) { render(into, r[0]); });
     return into;
   }
 
@@ -220,10 +232,12 @@
 
   global.EGBCCoreMeetings = {
     mount: mount,
+    /* The rooms, loaded (for the Core Team rota's room picker). */
+    rooms: rooms,
     render: render,
-    VIDEO_BASE: VIDEO_BASE,
-    VIDEO_ROOMS: VIDEO_ROOMS,
-    VIDEO_DEFAULT_BY_TYPE: VIDEO_DEFAULT_BY_TYPE,
+    /* Read when asked, so they are the church's rooms once loaded. */
+    get VIDEO_ROOMS() { return roomPairs(); },
+    get VIDEO_DEFAULT_BY_TYPE() { return V() ? V().byType() : {}; },
     videoRoomFor: videoRoomFor,
     videoLinkFor: videoLinkFor,
     videoRoomLabel: videoRoomLabel,

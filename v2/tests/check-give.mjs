@@ -330,32 +330,23 @@ const offMachine = u => {
   await signInAs('office');
   watch.reset();
   state = await openPage('church-settings.html');
-  ok('  the Church office can open the church details page', state === 'open', state);
+  /* MASTER ADMINS ONLY since 21 Oct 2026 (the reviewing window: Church
+     settings opened for any area admin). The office keeps the right to save
+     the giving details in the rules, but this page now refuses them - said
+     in the report to Martin, with a page of its own for the office offered. */
+  ok('  the Church office is refused Church settings now (master admins only)', /Master admins only/.test(state), state);
   await sleep(1500);
-  ok('  and the Giving card is there for them',
-    String(await ev('!!document.getElementById("g-save")')) === 'true');
-  ok('  with the details already in it, not blank',
-    String(await ev('(document.getElementById("g-acct")||{}).value || ""')) === GIVING.accountNumber);
-  /* They are the people who would know them, so they can save. */
-  const saved = String(await ev('(function(){'
-    + 'document.getElementById("g-ref").value="YOUR NAME AGAIN";'
-    + 'document.getElementById("g-save").click();return "clicked"})()'));
-  await sleep(2000);
-  const back = JSON.parse((await req(8181, 'GET', docPath('churchSettings/giving'))).body || '{}');
-  ok('  and the save goes through for them',
-    (((back.fields || {}).reference || {}).stringValue) === 'YOUR NAME AGAIN',
-    saved + ' -> ' + JSON.stringify((back.fields || {}).reference));
-  await put('churchSettings/giving', GIVING);
+  /* What they can SEE: the refusal, and no Giving card on the screen. */
+  ok('  and no Giving card on their screen',
+    String(await ev('(function(){var b=document.getElementById("g-save");return !!(b&&b.offsetParent)})()')) === 'false');
   ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
   await signInAs('kids');
   watch.reset();
   state = await openPage('church-settings.html');
-  ok('  a Kids Church admin still opens the page, for the name and logo',
-    state === 'open', state);
+  ok('  a Kids Church admin is refused it too (master admins only, 21 Oct 2026)',
+    /Master admins only/.test(state), state);
   await sleep(1500);
-  ok('  the church name field is there for them',
-    String(await ev('!!document.getElementById("c-name")')) === 'true');
   /* THE ONE THAT MATTERS. The rules refuse them, so the card must not be
      drawn - otherwise they type the church's bank details in and Save is
      refused. */

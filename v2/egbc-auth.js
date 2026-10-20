@@ -1175,6 +1175,19 @@
               return EGBCAuth.inTeam(t.trim());
             });
 
+            /* data-master: master admins and nobody else (the reviewing
+               window, 21 Oct 2026: Church settings opened for any area
+               admin by its address). No team or group waives it, and View
+               as counts as the person being viewed (isMaster honours it). */
+            if (opts.master && !EGBCAuth.isMaster()) {
+              EGBCAuth._blockPage(
+                'Master admins only',
+                'This page holds the whole church’s settings, so only a master admin can open it.',
+                profile
+              );
+              return;
+            }
+
             if (opts.adminAny && !EGBCAuth.isAdmin() && !alsoOk) {
               EGBCAuth._blockPage(
                 'Admins only',

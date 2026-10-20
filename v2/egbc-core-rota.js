@@ -337,7 +337,12 @@
     return global.EGBCCoreMeetings ? EGBCCoreMeetings.videoRoomFor(ev)
       : (ev.videoRoom !== undefined ? ev.videoRoom : '');
   }
-  function rooms() { return global.EGBCCoreMeetings ? EGBCCoreMeetings.VIDEO_ROOMS : []; }
+  /* The church's rooms (egbc-video.js); asking starts the load, so they are
+     there by the time somebody opens a meeting to pick one. */
+  function rooms() {
+    if (global.EGBCCoreMeetings && EGBCCoreMeetings.rooms) EGBCCoreMeetings.rooms();
+    return global.EGBCCoreMeetings ? EGBCCoreMeetings.VIDEO_ROOMS : [];
+  }
   function defaultRoomFor(type) {
     return (global.EGBCCoreMeetings ? EGBCCoreMeetings.VIDEO_DEFAULT_BY_TYPE : {})[type] || '';
   }
@@ -773,6 +778,8 @@
         startTime: d.startTime || '19:30', endTime: d.endTime || '21:00',
         roles: d.roles || [],
         videoRoom: document.getElementById('new-event-video').value,
+        /* Who set it up: they may start its call as host (functions/video.js). */
+        organiserUid: (global.EGBCAuth && EGBCAuth.user && EGBCAuth.user() && EGBCAuth.user().uid) || '',
         archived: false
       });
       closeNewEventForm();

@@ -180,7 +180,7 @@
     ] },
 
     { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [
-      { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', core: true, admin: true,
+      { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', master: true,
         description: 'The church\'s name and logo, giving details, and notifications on or off' },
       /* Master admins and the Church office (Martin, 15 Oct 2026). */
       { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',

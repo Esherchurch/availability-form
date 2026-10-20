@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610201600" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202610210900" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610201600"></script>
-<script src="egbc-guard.js?v=202610201600" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
+<script src="egbc-auth.js?v=202610210900"></script>
+<script src="egbc-video.js?v=202610210900"></script>
+<script src="egbc-guard.js?v=202610210900" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -48,19 +49,14 @@
         // unless somebody unticks it or changes the time on its row.
         const SUNDAY_PUBLIC = { whatsOn: true, serviceTime: "10:00" };
 
-        // Video meetings (Daily.co) — keep in sync with CoreTeamApp.html. Plain "knock to join" links only; never put host tokens here.
-        const VIDEO_BASE = 'https://egbc.daily.co/';
-        const VIDEO_ROOMS = [
-            ['Worship-AV', 'Worship & AV'], ['worship-core-team', 'Worship Core Team'], ['Prayer', 'Prayer'],
-            ['Eldership', 'Eldership'], ['CMM', 'CMM'], ['kids-ministries', 'Kids Ministries'], ['interviews', 'Interviews'],
-        ];
-        const VIDEO_DEFAULT_BY_TYPE = {
-            'Core Team Meeting': 'worship-core-team', 'Worship and AV Team Meeting': 'Worship-AV',
-            'Worship Team Meeting': 'Worship-AV', 'AV Team Meeting': 'Worship-AV',
-        };
+        // Video meetings: the church's own rooms (egbc-video.js, churchSettings/video; Church HQ's
+        // Daily account since 21 Oct 2026). No copy of the list or of a Daily address here.
+        const V = () => window.EGBCVideo || null;
         // ev.videoRoom: room name, '' = no call, undefined = use the default for the event type
-        const videoRoomFor = ev => ev.videoRoom !== undefined ? ev.videoRoom : (VIDEO_DEFAULT_BY_TYPE[ev.type] || '');
-        const videoLinkFor = ev => { const r = videoRoomFor(ev); return r ? VIDEO_BASE + r : ''; };
+        const videoRoomFor = ev => V() ? V().roomFor(ev) : (ev.videoRoom || '');
+        // The hub's meeting page, in full for calendar files: the host gets their key there.
+        const videoLinkFor = ev => { const r = videoRoomFor(ev); return r && V() ? new URL(V().link(r, ev), location.href).href : ''; };
+        if (V()) V().load().then(() => { try { if (typeof renderPlanner === 'function') renderPlanner(); } catch (e) { /* drawn on the next change */ } });
 
         // Who gets an event in their rota email/ICS: anyone with a role, plus — for meetings — everyone in the ticked teams
         const isMeeting = ev => /Meeting/.test(ev.type || '');
@@ -1502,11 +1498,11 @@
             const vRoom = videoRoomFor(ev);
             html += '<select title="Video call" onclick="event.stopPropagation()" onchange="updateField(\'' + ev.id + '\', \'videoRoom\', this.value)" class="' + (vRoom ? 'bg-[#3d6263] text-white' : 'bg-white text-[#3d6263]') + ' px-4 py-2 rounded-full font-medium text-[11px] border border-[#d1dfdf] outline-none">';
             html += '<option value=""' + (vRoom ? '' : ' selected') + '>No video call</option>';
-            VIDEO_ROOMS.forEach(([r, label]) => {
+            (V() ? V().rooms() : []).forEach(({ key: r, label }) => {
                 html += '<option value="' + r + '"' + (vRoom === r ? ' selected' : '') + '>' + label + '</option>';
             });
             html += '</select>';
-            if (vRoom) html += '<a href="' + VIDEO_BASE + vRoom + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="bg-green-600 text-white px-4 py-2 rounded-full font-semibold text-[10px] uppercase shadow-sm hover:bg-black transition-all">Join</a>';
+            if (vRoom && V()) html += '<a href="' + V().link(vRoom, ev) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="bg-green-600 text-white px-4 py-2 rounded-full font-semibold text-[10px] uppercase shadow-sm hover:bg-black transition-all">Join</a>';
             // ── Service Leader & Speaker quick-fields ──
             const svcLeaderVal = ev.serviceLeader || '';
             const speakerVal = ev.speaker || '';

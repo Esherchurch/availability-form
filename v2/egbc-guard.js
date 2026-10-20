@@ -56,6 +56,8 @@
      the page says so, kindly, instead of opening from an old bookmark.
      Nothing is deleted; switching it back on brings it all back. */
   var feature = script ? script.getAttribute('data-feature') : null;
+  /* data-master - master admins only (Church settings; 21 Oct 2026). */
+  var masterOnly = script ? script.hasAttribute('data-master') : false;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');
@@ -157,6 +159,7 @@
     if (alsoTeam) opts.alsoTeam = alsoTeam;
     if (allowPending) opts.allowPending = allowPending;
     if (anyTeam) opts.anyTeam = true;
+    if (masterOnly) opts.master = true;
 
     setTimeout(sayStuck, SETTLE_MS);
 
