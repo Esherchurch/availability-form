@@ -260,6 +260,107 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, stage 2 of the plan (20 Oct): the editor (A), and social posts step 1 (H). For review
+
+**Same step, different look:** Martin's Mailchimp screenshots above the editor as built, at `OneDrive\Documents\New hub\mocks\mailchimp-editor\built\built-1.png` (adding blocks) and `built-2.png` (typing on the email, a word selected). They are on this PC only.
+
+### The editor (enews-edit.html), the same steps as Mailchimp's in the hub's own look
+
+- **How you get there:** E-news → an issue → **Open the editor**. Today's Build view stays until the ease test is passed (plan D10).
+- **The screen:**
+  - **Top bar:** ‹ E-news, the subject (typed in place), **Saved** (it saves as you go), **Send me a test** (held until Check is clear), **Done**. Done offers: Schedule it (the E-news page's Send tab), Back to this e-news, All e-news.
+  - **Under the top bar:** computer/phone, **undo / redo** (also Ctrl+Z / Ctrl+Y), **Preview**. Preview shows "Church members see" and "Everyone else sees", on a computer or a phone.
+  - **Left rail:** **Add**, **Look**, **Check**.
+- **Add:**
+  - **The blocks:** Picture, Heading, Words, Button, Line, Space, Video, Social links, Logo, Footer.
+  - **From the hub:** Event (What's On), Bible verse, This Sunday (from the rota), Meeting, Dates for the diary, Notices.
+  - **Layouts:** 1, 2 and 3 columns, Picture and words (Val's card), Words and picture, Two pictures.
+  - **Drag** a block onto the email where you want it, or **tap** it: it goes after the block you picked.
+  - **Footer** opens Look, because the footer belongs to the church, not to each email.
+- **On the email:**
+  - Tap a block: a teal outline, a **"⠿ Words"** handle to drag it, and **Move up, Move down, Copy, Delete** beside it. Deleting says "Undo brings it back".
+  - **Type on the words where they are.**
+  - Gold edge: a block for church members only.
+- **The words toolbar** runs across the top while typing:
+  - normal words, heading or small heading;
+  - **B I U S**;
+  - **colour** (the church's palette only);
+  - **link**;
+  - **emoji**;
+  - bullet and numbered lists;
+  - plain words.
+  - Selecting a word offers **Make it a link**.
+- **The block's settings** (left, with ‹ Back to blocks):
+  - **Content:** picture (a link or the picture library), button, title, the Bible picker for the verse, the meeting, how far ahead for the diary, and so on.
+  - **Style:** background (the church's tints and colours), border, corners, space around, **Reset**, **Use on all**.
+  - **Who sees it:** church members only. The CMM always is.
+- **Look:**
+  - this issue's top line;
+  - the starting look and colours, footer details, social links and the diary button. These are shared by every issue.
+- **Check:**
+  - the week's picture or verse still missing;
+  - a meeting not picked;
+  - events missing a picture or write-up;
+  - links that don't work;
+  - empty pictures or videos;
+  - how many blocks are members-only.
+  - Each has **Go to it**.
+- **Phone (375):** one column. A dock has **Add, Look, This block, Check**. Tap a block, then **This block** for its settings: the sheet stays closed while you type, so the email is never covered.
+- **One difference from the mock-up, on purpose:** the toolbar has no font, size, line height, letter spacing or highlight. Those are set once for the whole email in Look, so every issue keeps Val's measured look (stage 1) and nothing in an inbox breaks. Say if you want them per word.
+- **What's kept:** the same issue document and rules as the E-news page. Scheduling and subscribers stay on the E-news page.
+
+### Social posts, step 1 (in the card maker, behind the card maker's switch)
+
+- **Sizes:** **Instagram** is now the church's portrait **1080 × 1350**, plus square, Facebook and **Story 1080 × 1920**. Every style fits its words in every size (checked).
+- **Social post:**
+  - **The caption is written the church's way:**
+    - a first line;
+    - then 📅 the day ("Saturday 10th October"), 🕝 the time, 📍 where, 🎟 Book your place here: (or ℹ️ More details:), 👉 the link;
+    - then the hashtags.
+  - All of it can be changed.
+  - **Hashtags** are kept per event (or series), and as the church's usual set.
+  - **Copy caption**.
+  - **Share** opens the phone's own share sheet with the picture (Instagram, Facebook, WhatsApp). Where a browser can't share a picture, the caption is copied and the picture downloads.
+  - **Download the pictures** gives all four sizes.
+- **Countdown:**
+  - tick the days (a week before, 3 days, 2 days, the day before, on the day), each with its own first line ("One week to go!", "TOMORROW!"…);
+  - **Save the countdown**: each day's post waits in **Today's posts** on its day, ready to Copy, Share or Download, then **Posted ✓**.
+- **A Bible verse:**
+  - the same Bible picker as the e-news (BSB and KJV free, the church's API.Bible versions with their copyright line);
+  - four designs of the hub's own (plain colour, on a photo, framed, a band), in the church's colour;
+  - the version's copyright on the picture where the version needs one.
+- **Verse of the day:**
+  - the hub's own list of 366 verses, one for each day, every one checked in the BSB (`egbc-votd.js`, check-votd);
+  - Christmas Day is Luke 2:10-11, and Advent leads up to it;
+  - turned on, it is ready in Today's posts each morning: the BSB (or the church's version), the chosen design, a library picture (a different one each day), a credit line if wanted.
+- **The 7am reminder** (`functions/social.js`):
+  - one short email, only to people who ticked **Email me each morning** themselves, only if they are the church office (never an under-18), and only when there is something to post;
+  - through the hub's ordinary email path.
+- **Not built yet, and why:**
+  - **Unsplash pictures** need Church HQ's own Unsplash app key. It would go in the key box, with its credit and download rules as in the plan. Shall I add it next?
+  - **"A verse from the current sermon series"**: the rota doesn't store a sermon's passage yet.
+  - **Step 2** (posting straight to the church's Page): not now (Martin).
+
+### To deploy, and when
+
+- **`firebase deploy --only functions:hub`**: the new `socialMorning` timer. It sends nothing until someone ticks the reminder.
+- **The rules** (`socialPosts`, `socialSettings`, the e-news footer settings) go live at **switch-over** with the rest. Until then, saving a countdown, hashtags or the verse of the day's settings will be refused on the live site. Making, copying, sharing and downloading posts work now.
+
+### Checks (on b51fb878, this window's own emulators)
+
+| Check | Result |
+|---|---|
+| check-enews-editor (new) | 37/37 at a computer's width and at 375; breaks typing, undo, drop each red |
+| check-cardmaker (social added) | 33/33; breaks fade, switch, nofit, details, versefit each red |
+| check-social (new: the 7am reminder) | 13/13, including 3 breaks |
+| check-votd (new: 366 verses, all in the BSB) | 5/5; break typo red |
+| check-enews-rules | 42/42; 12/12 breaks red (new: anyone may read the social posts) |
+| Also passing | blocks 66/66 (18 breaks), side-by-side 5/5 (3 breaks), layout 11/11 (3), page 47/47 (5), meeting 17/17 (2), addressbook 18/18 (5), subscribe 58/58, send 29/29, import 22/22, mail-route 27/27 (now 18 kinds, with "social reminder"), canva 20/20, hqmail-key 22/22, canva-page 9/9, keybox-page 8/8, stamps 6/6, features-agree 18, compiler-send 12/12 |
+
+**Next, if you agree:** the ease test (plan D10). Someone who knows Mailchimp makes a normal week's e-news in the editor without help, in under 30 minutes, and we write down every place they hesitate. Then templates and one-off emails.
+
+---
+
 ## BUILT, stage 1 of the plan (20 Oct): the email and the weekly draft (B and C), with the side-by-side check (D9). For review
 
 **Side by side, Val's page and ours** (her own words and pictures through our code), at 375 and 600, top and end: `OneDrive\Documents\New hub\mocks\val-side-by-side\side-375-top.png`, `side-375-end.png`, `side-600-top.png`, `side-600-end.png`. They are on this PC only, not in the repo.
@@ -312,6 +413,7 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 ## FOR THE MAIN WINDOW: the comms window's edits to your files (20 Oct)
 
 Small and self-contained. Please keep them when you edit these files:
+- **functions/index.js:** one export line, `socialMorning` from social.js (stage 2).
 - **addressbook.html:**
   - one script tag after egbc-guard: `egbc-enews-ab.js` ("Gets the e-news" on each person, for the office; C-30);
   - the **UNDER 18** tick under UNDER 16, with its note;
