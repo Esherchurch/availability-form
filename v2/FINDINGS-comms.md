@@ -166,13 +166,14 @@ Martin thinks Val may use Mailchimp's social posts. In Mailchimp (his screenshot
 - **Each day the hub reminds the office** with that day's post ready: Copy caption, then Share or Download. After step 2 it can post by itself instead.
 - **Hashtag sets** are saved per event or series (e.g. #KidsFilmClub #FreeFamilyFun #SaturdayFun), plus the church's usual ones (#Esher #WhatsOnElmbridge #EsherMums #FamilyDayOut #esherchurch). They are added to every caption and can be edited.
 
-**2. Bible verse posts:** designed verse posters with the verse and its reference, on plain type, a photo or a colour background.
-- **"Verse post":**
-  - the same Bible picker as the e-news (type a reference, choose the version);
-  - a set of typographic designs in the card maker, several styles, in the church's fonts and colours;
-  - sizes 1080 × 1350 and Story 1080 × 1920;
-  - or bring a finished design in from Canva.
-- **The version's copyright line** is put on the picture, small, where the version needs it.
+**2. Verse of the day:** posted daily, with the caption just "Verse of the day". Martin thinks the pictures come from a daily devotional service (for example UCB's Word for Today), so they are someone else's designs.
+- **A daily "Verse of the day" slot:**
+  - bring in the day's picture: upload it, or take it from Canva;
+  - a **credit line**, shown in the caption when filled in. The church sets its usual credit once (e.g. the service's name);
+  - the caption is remembered from day to day;
+  - **a daily reminder** with the ready post: Copy caption, then Share or Download. After step 2, it is scheduled instead.
+- **For a church without a service:** make one from the same Bible picker as the e-news, with a few typographic designs in the card maker, in the church's fonts and colours. Sizes 1080 × 1350 and Story 1080 × 1920. The version's copyright line goes on it, small, where the version needs it.
+- **No service's designs are copied.** The hub's own designs are its own.
 
 **Step 1, now (does not wait for Meta): "Make a social post"** from an event or an e-news item.
 - **The picture** comes from the card maker, in each size:
