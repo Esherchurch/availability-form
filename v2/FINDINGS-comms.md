@@ -260,6 +260,46 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## READY, 20 Oct late: the ease test on this PC (for the reviewing window to run for Martin)
+
+**One command, from the repo's `v2` folder:** `node ease-test/run.mjs`. The full steps are in [ease-test/README.md](ease-test/README.md).
+
+- **Its own emulator** (`firebase.ease.json`: Firestore 8392, Auth 9392, functions 5393), so no other window's emulator or check is disturbed.
+- **A made-up church week:**
+  - four What's On events, two with pictures;
+  - Sunday's service and a notice;
+  - six drawn pictures in the picture library.
+- **This week's e-news drafted** as the hub does it.
+- **Chrome** opens with a fresh profile of its own, signed in as the church office on the hub's home page.
+- **"Inbox (this PC)",** a second tab, where "Send me a test" arrives. Nothing leaves the PC.
+- **Test login,** if it ever asks: `tester@example.invalid`, password `ease-test-only`. It exists only in that emulator.
+- **The person watching** opens http://localhost:5701/ease-test/observer.html in their own browser. Their notes stay there after the test stops.
+- **Ctrl+C or closing Chrome stops everything,** including the emulator's Java, which can outlive its parent. Run the command again for the next tester: it starts afresh.
+- **The tester's sheet** now says the test email arrives in the Inbox tab on this PC.
+
+**Checked:**
+- `node ease-test/run.mjs --self-check` gives 12/12:
+  - the draft is made from What's On, Sunday and the notices;
+  - the hub opens signed in, with E-news offered;
+  - the editor opens the draft, with the six pictures offered;
+  - the Bible loads, for the verse;
+  - a test email reaches this PC's functions and lands in the Inbox, and the Inbox page shows it;
+  - the sheets are served;
+  - no errors are thrown.
+- **Deliberate breaks:** `--break=fn` (the page not pointed at this emulator's functions) and `--break=draft` (no draft made) each turn it red.
+- **The visible mode, tried end to end:** Chrome opened with the hub and Inbox tabs, and closing Chrome stopped Chrome, the emulator and the server, leaving no port or process behind.
+
+### What's left in the plan (20 Oct)
+
+1. **Papers for members without a hub account** (mailings plan §3.3; the main window's note of 21 Oct): each member's email carries their own link, expiring 30 days after the meeting, served by a function, with no public file address. **Next, being built now.**
+2. **The automatic welcomes:** "New subscriber welcome" sent by itself when someone confirms, and "Newcomer welcome" linked to "I'm new here". Today they are starters only.
+3. **Event invitation filled from a What's On event:** its picture, day and time, place, and the Sign up button.
+4. **Small gaps:** letter spacing in the toolbar (plan A), and a `{date}` subject pattern for templates.
+5. **After the ease test:** the new editor replaces today's (E3).
+6. **Social posts step 2:** only if Martin sets up Meta.
+
+---
+
 ## BUILT, stage 3 (20–21 Oct): toolbar styles, the ease test's papers, one-off emails and templates (F, G), pictures from Unsplash. For review
 
 ### Toolbar styles (Martin: "as Mailchimp's, starting from the church's Look")
