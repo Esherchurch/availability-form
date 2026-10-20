@@ -8221,3 +8221,53 @@ today, but it is a second list of rules).
 - A new switch still goes in three places in one commit: `FEATURES` in egbc-auth.js,
   `FEATURES` in functions/features.js, and the `features` rule. The check catches the first two
   disagreeing.
+
+### F-240 — Fill in your rooms; step-free access four ways; which floor; floor plans in Places (20 Oct)
+
+**Martin's answers (20 Oct):**
+- **The enquiry email** (martin@prosserconsulting.uk) is his, for testing, on purpose. SWITCHOVER-events.md 3.1 now says: "Church settings > enquiry email -> the church office address".
+- **"How many it holds"** with no layouts now falls back to "Holds up to <capacity>" on room.html, as the booking card does (Creche Room: 14).
+- **Step-free access is now four ways** (`room.access`): Step-free, Step-free by the lift, Not step-free, and Not checked yet.
+  - **A room nobody has set shows "Not checked yet",** never "No". The old tick still reads as step-free.
+  - **Places** has a select for it, and the room list and room.html say it in words.
+- **`tools/room-photos.mjs --access`** (dry run first; the reviewing window runs it live):
+  - Sanctuary, Kitchen, Creche Room: step-free
+  - Upper Room, Upper Room – Front, Upper Room – Side, Youth Room (rear), Upstairs Kitchen: step-free, by the lift
+  - Garden: left "Not checked yet"
+  - The live dry run finds all 8.
+
+**Built:**
+- **"Fill in your rooms" in Places** (above the room list), for each room in use, with "Fill in" opening its profile and "N of M rooms have everything" at the top. It says what is still missing:
+  - a main photo
+  - its size
+  - how many it holds
+  - its facilities
+  - a description
+  - step-free access (not checked yet)
+  - which floor it is on
+  - the fire-safety maximum (from the fire risk assessment)
+  - a floor plan
+- **Where to find it:** each room's floor (`room.level`: ground, first, second, lower ground, outside), set in Places and shown on room.html.
+- **Who sees the floor plan** (`floorPlanWho`), set in Places: anyone, members and the office (the default), or the office only. The storage rules already enforce it (F-237).
+- **Floor plans put up in Places** now go to the private `roomPlans/<room>/`, with no public link kept on the room. Places shows them through Storage. Until switch-over Places offers no plan upload and says why.
+
+**Not done yet** (asked for on 19 Oct):
+- **A crop of the whole-building plan with each room marked,** for "where to find it". This needs each room's box on Martin's whole-building plan. I will add it to the tool as `--where`, held until switch-over like the plans, since they are members and office only.
+- **The GEEP's link to the whole-building plan** (office and wardens only, after switch-over).
+
+**Proved:** room-card.test 55/55, three clean runs in a row. Its new checks:
+- the checklist and its flags
+- "Fill in"
+- saving the floor
+- `--access`, including leaving the Garden and running twice
+- the room page saying "Step-free", "Step-free, by the lift" and "Not checked yet", never "No"
+- "Holds up to 14"
+- "Outside"
+- no plan upload before switch-over
+- a plan put up in Places at the private path, and "who sees it" saved
+
+**7 breaks caught.** The one that matters: a room nobody has checked saying step-free "No".
+
+**A flaky check found and fixed:** book.html's card was sometimes checked before its photo appeared. The test now waits for the photo itself.
+
+**r1-rooms updated:** it now tests Places after switch-over (rules locked). Its plan goes to the private roomPlans/, and its photos stay in rooms/.

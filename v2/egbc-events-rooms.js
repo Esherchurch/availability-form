@@ -165,7 +165,43 @@
       '<a data-more href="room.html?id=' + encodeURIComponent(room.id) + (o.member ? '&member=1' : '') + '" target="_blank" rel="noopener">More about this room</a></div></div>';
   }
 
-  var api = { card: card, kitFor: kitFor, LAYOUTS: LAYOUTS, FACILITIES: FACILITIES, FLOORS: FLOORS, area: area, has: has, holds: holds,
+  /* STEP-FREE ACCESS (Martin, 20 Oct; F-240): room.access
+       'stepfree'  Step-free
+       'lift'      Step-free, by the lift
+       'no'        Not step-free
+       ''          Not checked yet - what a room nobody has set shows; NEVER "No"
+     The old tick (accessible: true) still reads as step-free. */
+  var ACCESS = [['', 'Not checked yet'], ['stepfree', 'Step-free'], ['lift', 'Step-free, by the lift'], ['no', 'Not step-free']];
+  function access(room) {
+    var a = room && room.access;
+    if (a === 'stepfree' || a === 'lift' || a === 'no') return a;
+    return room && room.accessible === true ? 'stepfree' : '';
+  }
+  function accessWords(room) { var k = access(room); return ACCESS.filter(function (x) { return x[0] === k; })[0][1]; }
+
+  /* WHERE TO FIND IT: the room's floor (room.level). */
+  var LEVELS = [['', 'Not said'], ['ground', 'Ground floor'], ['first', 'First floor'], ['second', 'Second floor'], ['lower', 'Lower ground floor'], ['outside', 'Outside']];
+  function levelWords(room) { var k = (room && room.level) || ''; return (LEVELS.filter(function (x) { return x[0] === k; })[0] || LEVELS[0])[1]; }
+  /* WHO SEES THE FLOOR PLAN (room.floorPlanWho; the storage rules say the same). */
+  var PLAN_WHO = [['public', 'Anyone (public)'], ['members', 'Members and the office'], ['office', 'The office only']];
+
+  /* "FILL IN YOUR ROOMS" (the reviewing window, 19 Oct): what a room still
+     needs before members and hirers can see it properly. */
+  function missing(room) {
+    var out = [], r = room || {};
+    if (!(r.photos || []).length) out.push(['photo', 'a main photo']);
+    if (!area(r) && !((r.dims || {}).length && (r.dims || {}).width)) out.push(['size', 'its size']);
+    if (!holds(r)) out.push(['holds', 'how many it holds']);
+    if (!FACILITIES.some(function (x) { return has(r, x.id); })) out.push(['facilities', 'its facilities']);
+    if (!String(r.description || '').trim()) out.push(['description', 'a description']);
+    if (!access(r)) out.push(['access', 'step-free access (not checked yet)']);
+    if (!r.level) out.push(['level', 'which floor it is on']);
+    if (!r.fireMax) out.push(['fireMax', 'the fire-safety maximum (from the fire risk assessment)']);
+    if (!r.floorPlan) out.push(['plan', 'a floor plan']);
+    return out;
+  }
+
+  var api = { LEVELS: LEVELS, levelWords: levelWords, PLAN_WHO: PLAN_WHO, missing: missing, ACCESS: ACCESS, access: access, accessWords: accessWords, card: card, kitFor: kitFor, LAYOUTS: LAYOUTS, FACILITIES: FACILITIES, FLOORS: FLOORS, area: area, has: has, holds: holds,
               fit: fit, hireable: hireable, mainPhoto: mainPhoto, shrink: shrink };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCRooms = api;

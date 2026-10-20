@@ -33,6 +33,7 @@
      --sizes           also the sizes and the theatre layout
      --plans           also the floor plans (only once the rules are locked)
      --hire            also the church's picture, the "Hire our rooms" header
+     --access          also step-free access (ground floor; the first floor by the lift)
      --from=<folder>   where the pictures are (default: Martin's OneDrive
                        Documents\New hub\rooms - never the repo; plans in plans/)
 
@@ -76,6 +77,12 @@ export const PLANS = {
   'Creche Room': 'creche-room.png', 'Youth Room (rear)': 'youth-room-rear.png', 'Kitchen': 'kitchen.png'
 };
 const SIZES_ON = process.argv.includes('--sizes'), PLANS_ON = process.argv.includes('--plans'), HIRE_ON = process.argv.includes('--hire');
+/* Step-free access (Martin, 20 Oct): the whole ground floor, and a lift to the first. The Garden is left "Not checked yet". */
+export const ACCESS = {
+  'Sanctuary': 'stepfree', 'Kitchen': 'stepfree', 'Creche Room': 'stepfree',
+  'Upper Room': 'lift', 'Upper Room - Front': 'lift', 'Upper Room - Side': 'lift', 'Youth Room (rear)': 'lift', 'Upstairs Kitchen': 'lift'
+};
+const ACCESS_ON = process.argv.includes('--access');
 /* The church's own picture, the "Hire our rooms" header (Martin, 19 Oct): public. */
 export const HIRE_PHOTO = 'outside-front.jpg';
 
@@ -151,6 +158,15 @@ export async function run(o) {
     log('  ' + (done ?'size already    ' : write ? 'SIZE            ' : 'would size      ') + name.padEnd(18) + ' ' + z.length + ' x ' + z.width + ' m' + (z.area ? ', ' + z.area + ' m2 (as given)' : '') + (z.layouts ? ', theatre ' + z.layouts.theatre : ''));
     if (!done) sizes.push({ id: r[0].id, ch });
   }
+  /* Step-free access. */
+  const acc = [];
+  if (o.access) for (const [name, a] of Object.entries(ACCESS)) {
+    const r = rooms.filter(x => same(x.name, name));
+    if (r.length !== 1) { log('  NO ROOM: ' + name); continue; }
+    const done = r[0].access === a;
+    log('  ' + (done ? 'access already  ' : write ? 'ACCESS          ' : 'would set       ') + name.padEnd(18) + ' ' + (a === 'lift' ? 'Step-free, by the lift' : 'Step-free'));
+    if (!done) acc.push({ id: r[0].id, ch: { access: a, accessible: true } });
+  }
   /* The floor plans: only once the rules are locked. */
   const plans = [];
   if (o.plans) {
@@ -175,7 +191,7 @@ export async function run(o) {
     else if (h.exists && h.data().source === HIRE_PHOTO) log('  hire picture already there');
     else { log('  ' + (write ? 'HIRE PICTURE    ' : 'would add       ') + '"Hire our rooms" header <- ' + HIRE_PHOTO); hire = full; }
   }
-  if (!write) return { plan, added: 0, missingRooms, missingFiles, sizes: sizes.length, plans: plans.length, hire: hire ? 1 : 0 };
+  if (!write) return { plan, added: 0, missingRooms, missingFiles, sizes: sizes.length, plans: plans.length, hire: hire ? 1 : 0, access: acc.length };
   if (hire) {
     const s = (await shrinkAll([hire]))[hire], token = crypto.randomUUID(), where = 'rooms/_church/hire-' + Date.now() + '.jpg';
     await bucket.file(where).save(Buffer.from(s.b64, 'base64'), { contentType: 'image/jpeg', metadata: { metadata: { firebaseStorageDownloadTokens: token } } });
@@ -183,6 +199,7 @@ export async function run(o) {
     await db.collection('churchSettings').doc('hire').set({ photoUrl: host + '/v0/b/' + bucket.name + '/o/' + encodeURIComponent(where) + '?alt=media&token=' + token, photoPath: where, source: HIRE_PHOTO, width: s.width, height: s.height });
   }
   for (const z of sizes) await db.collection('rooms').doc(z.id).update(z.ch);
+  for (const z of acc) await db.collection('rooms').doc(z.id).update(z.ch);
   if (plans.length) {
     const sp = await shrinkAll(plans.map(p => p.full));
     for (const p of plans) {
@@ -206,13 +223,13 @@ export async function run(o) {
     }
     await db.collection('rooms').doc(roomId).update({ photos });
   }
-  return { plan, added, missingRooms, missingFiles, sizes: sizes.length, plans: plans.length };
+  return { plan, added, missingRooms, missingFiles, sizes: sizes.length, plans: plans.length, access: acc.length };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   if (!getApps().length) initializeApp({ projectId: PROJECT, storageBucket: BUCKET });
   console.log((LIVE ? 'LIVE hub' : 'events emulator') + ' - ' + (WRITE ? 'WRITING' : 'dry run, nothing written') + ' - pictures from ' + FROM);
-  const r = await run({ db: getFirestore(), bucket: getStorage().bucket(), from: FROM, write: WRITE, sizes: SIZES_ON, plans: PLANS_ON, hire: HIRE_ON });
+  const r = await run({ db: getFirestore(), bucket: getStorage().bucket(), from: FROM, write: WRITE, sizes: SIZES_ON, plans: PLANS_ON, hire: HIRE_ON, access: ACCESS_ON });
   console.log(WRITE ? r.added + ' photo(s) added, ' + r.sizes + ' room(s) sized, ' + r.plans + ' plan(s) put up.' : 'Dry run: nothing written. Add --write to do it.');
   process.exit(0);
 }

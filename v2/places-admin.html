@@ -12,6 +12,7 @@
 <script src="egbc-events-bookings.js?v=202610141700"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <script src="egbc-guard.js?v=202610160810"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610161700"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -154,6 +155,7 @@
         <h2 class="text-sm font-semibold">Rooms</h2>
         <select id="r-filter" class="inp" style="width:auto;min-width:160px"></select>
       </div>
+      <div id="rooms-check"></div>
       <div id="rooms-list"></div>
     </div>
   </section>
@@ -447,6 +449,7 @@
       return r.siteId === f;
     });
     var box = $('rooms-list');
+    drawCheck(list);
     if (!list.length) { box.innerHTML = '<p class="hint py-3">No rooms here yet.</p>'; return; }
     box.innerHTML = list.slice().sort(byOrder).map(function (r) {
       var site = sites.find(function (s) { return s.id === r.siteId; });
@@ -474,7 +477,7 @@
         '<p class="hint mt-1">' + where +
           (r.capacity ? ' · holds ' + esc(r.capacity) : '') +
           partWords(r) +
-          (r.accessible ? ' · step-free' : '') +
+          (R.access(r) ? ' · ' + R.accessWords(r).toLowerCase() : '') +
           (R.area(r) ? ' · ' + R.area(r) + ' m²' : '') +
           ((r.photos || []).length ? ' · ' + r.photos.length + ' photo' + (r.photos.length === 1 ? '' : 's') : '') +
           ' · ' + (r.bookableByMembers === false ? 'members cannot book' : 'members may book') +
@@ -485,6 +488,24 @@
     }).join('');
   }
   $('r-filter').addEventListener('change', drawRooms);
+
+  /* ---- "FILL IN YOUR ROOMS" (F-240): what each room in use still needs.
+     Tap "Fill in" for its profile. Step-free access nobody has checked is
+     "not checked yet" - never "no" - and is flagged here. ---- */
+  function drawCheck(list) {
+    var box = $('rooms-check'); if (!box) return;
+    var rs = list.filter(function (r) { return r.kind !== 'online' && r.active !== false; }).slice().sort(byOrder);
+    if (!rs.length) { box.innerHTML = ''; return; }
+    var done = rs.filter(function (r) { return !R.missing(r).length; }).length;
+    box.innerHTML = '<div class="card" id="fillIn" style="margin:0 0 12px"><h3 style="margin:0 0 4px">Fill in your rooms</h3>' +
+      '<p class="hint" style="margin:0 0 6px">' + done + ' of ' + rs.length + ' room' + (rs.length === 1 ? ' has' : 's have') + ' everything members and hirers see.</p>' +
+      rs.map(function (r) {
+        var m = R.missing(r);
+        return '<div class="row" data-fill="' + esc(r.id) + '" style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">' +
+          '<div style="flex:1;min-width:180px"><b>' + esc(r.name) + '</b><div class="hint">' + (m.length ? 'Still needs: ' + m.map(function (x) { return '<span data-miss="' + x[0] + '">' + esc(x[1]) + '</span>'; }).join(', ') : 'All filled in') + '</div></div>' +
+          (m.length ? '<button class="btn btn-x" data-prof="' + r.id + '">Fill in</button>' : '') + '</div>';
+      }).join('') + '</div>';
+  }
 
   /* ---- rooms made of other rooms (Martin, 14 Oct 2026) ----
      Any room can be made up of other rooms at its site (rooms.parts, at
@@ -768,9 +789,16 @@
       '<label class="btn btn-2 mt-2" style="cursor:pointer">Add photos<input type="file" id="p-add" accept="image/*" multiple style="display:none"></label>' +
       '<span class="hint ml-2" id="p-busy"></span>' +
 
+      '<h4>Where to find it</h4><div class="grid sm:grid-cols-2 gap-3"><div><label class="lbl" for="p-level">Which floor</label><select id="p-level" class="inp">' +
+        R.LEVELS.map(function (o) { return '<option value="' + o[0] + '"' + ((p.level || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div></div>' +
       '<h4>Floor plan (optional)</h4>' +
-      (p.floorPlan ? '<div class="ph"><img src="' + esc(p.floorPlan.url) + '" alt=""><button class="btn btn-x mt-1" id="p-plandel">Remove</button></div>'
-        : '<label class="btn btn-2" style="cursor:pointer">Add a floor plan<input type="file" id="p-plan" accept="image/*" style="display:none"></label>') +
+      '<label class="lbl" for="p-planwho">Who sees the floor plan</label><select id="p-planwho" class="inp" style="max-width:320px">' +
+        R.PLAN_WHO.map(function (o) { return '<option value="' + o[0] + '"' + ((p.floorPlanWho || 'members') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      /* Plans are kept at roomPlans/<room>/ (never the public rooms/), and put
+         up only once the locked rules are on: until then Storage is open. */
+      (p.floorPlan ? '<div class="ph mt-2"><img id="p-planimg" alt="Floor plan"><button class="btn btn-x mt-1" id="p-plandel">Remove</button></div>'
+        : (PLANS_OK ? '<label class="btn btn-2 mt-2" style="cursor:pointer">Add a floor plan<input type="file" id="p-plan" accept="image/*" style="display:none"></label>'
+          : '<p class="hint mt-2" id="p-planheld">Floor plans can be put up when the church switches over to the new hub. Until then the hub’s storage is not yet private.</p>')) +
 
       '<h4>Size and setting</h4><div class="grid sm:grid-cols-3 gap-3">' +
         profField('Length (metres)', 'p-len', d.length, 'number', ' min="0" step="0.1"') +
@@ -790,7 +818,7 @@
       '</div>' +
       '<div class="flex flex-wrap gap-4 mt-3 text-sm">' +
         '<label class="fac"><input type="checkbox" id="p-light"' + (p.naturalLight ? ' checked' : '') + '> Natural light</label>' +
-        '<label class="fac"><input type="checkbox" id="p-acc"' + (p.accessible ? ' checked' : '') + '> Step-free access</label>' +
+        '<label class="fac" style="display:block"><span class="lbl">Step-free access</span><select id="p-access" class="inp">' + R.ACCESS.map(function (o) { return '<option value="' + o[0] + '"' + (R.access(p) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
       '</div>' +
 
       '<h4>How many it holds</h4><p class="hint mb-2">Leave a layout empty if the room cannot be set out that way.</p><div class="grid grid-cols-2 sm:grid-cols-3 gap-3">' +
@@ -833,7 +861,8 @@
     if (n('p-areag')) p.dims.area = n('p-areag');
     p.sizeNote = $('p-sizenote').value.trim().slice(0, 200);
     p.floor = $('p-floor').value; p.toilets = $('p-toilets').value.trim(); p.kitchenNote = $('p-kitchen').value.trim();
-    p.naturalLight = $('p-light').checked; p.accessible = $('p-acc').checked;
+    p.level = $('p-level').value; p.floorPlanWho = $('p-planwho').value || 'members';
+    p.naturalLight = $('p-light').checked; p.access = $('p-access').value; p.accessible = p.access === 'stepfree' || p.access === 'lift';
     p.layouts = {}; R.LAYOUTS.forEach(function (x) { var v = n('p-lay-' + x.id); if (v) p.layouts[x.id] = Math.round(v); });
     p.fireMax = Math.round(n('p-fire'));
     p.facilities = {}; R.FACILITIES.forEach(function (x) {
@@ -858,9 +887,21 @@
         .then(function (url) { return { url: url, path: path, width: img.width, height: img.height }; });
     });
   }
+  /* A floor plan: the private path, and no download link kept on the room
+     (the room is public; the storage rules decide who may fetch it). */
+  function storePlan(file) {
+    return R.shrink(file, 1600).then(function (img) {
+      var path = 'roomPlans/' + PROF.id + '/plan-' + Date.now() + '.jpg', ref = EGBCAuth.storage().ref(path);
+      return ref.put(img.blob, { contentType: 'image/jpeg' }).then(function () { return { path: path, width: img.width, height: img.height }; });
+    });
+  }
+  var PLANS_OK = false;
+  if (window.EGBCLaunch) EGBCLaunch.check().then(function (x) { PLANS_OK = !!(x && x.locked); });
   function unstore(ph) { if (ph && ph.path) EGBCAuth.storage().ref(ph.path).delete().catch(function () {}); }
 
   function wireProfile() {
+    var pimg = $('p-planimg'), fp = PROF && PROF.floorPlan;
+    if (pimg && fp) { if (fp.url) pimg.src = fp.url; else if (fp.path) EGBCAuth.storage().ref(fp.path).getDownloadURL().then(function (u) { pimg.src = u; }, function () {}); }
     $('p-close').onclick = closeProfile; $('p-cancel').onclick = closeProfile;
     ['p-len', 'p-wid', 'p-areag'].forEach(function (id) { $(id).addEventListener('input', function () {
       var a = R.area({ dims: { length: $('p-len').value, width: $('p-wid').value, area: $('p-areag').value } });
@@ -878,7 +919,7 @@
     var plan = $('p-plan');
     if (plan) plan.onchange = function () {
       readProfile();
-      store(this.files[0], 'plan-').then(function (ph) { PROF.floorPlan = ph; return savePhotos(); })
+      storePlan(this.files[0]).then(function (ph) { PROF.floorPlan = ph; return savePhotos(); })
         .then(function () { toast('Floor plan added'); drawProfile(); }).catch(function (e) { toast(e.message || String(e)); });
     };
     var pd = $('p-plandel');
@@ -899,7 +940,7 @@
       db.collection('rooms').doc(p.id).update({
         capacity: p.capacity || 0, parts: p.parts || [],
         dims: p.dims, sizeNote: p.sizeNote || '', floor: p.floor, toilets: p.toilets, kitchenNote: p.kitchenNote, naturalLight: p.naturalLight,
-        accessible: p.accessible, layouts: p.layouts, fireMax: p.fireMax, facilities: p.facilities,
+        accessible: p.accessible, access: p.access || '', level: p.level || '', floorPlanWho: p.floorPlanWho || 'members', layouts: p.layouts, fireMax: p.fireMax, facilities: p.facilities,
         description: p.description, houseRules: p.houseRules, externalCaterers: p.externalCaterers, memberBookings: p.memberBookings,
         photos: p.photos || [], floorPlan: p.floorPlan || null
       }).then(function () {

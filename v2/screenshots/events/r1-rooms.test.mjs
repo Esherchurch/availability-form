@@ -68,6 +68,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'addressBook', 'm_admin'), { name: ADMIN.name, email: ADMIN.email, markers: ['Core Team'], adminFor: [], masterAdmin: true });
   await setDoc(doc(db, 'users', ADMIN.uid), { memberId: 'm_admin', linkedBy: 'admin', name: ADMIN.name, email: ADMIN.email, teams: ['Core Team'], adminFor: [], masterAdmin: true, status: 'active' });
   await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });
+  /* After switch-over: floor plans may be put up (before it, Places holds them; room-card.test proves that). */
+  await setDoc(doc(db, 'churchSettings', 'launch'), { rulesLocked: true });
   await setDoc(doc(db, 'rooms', 'room_hall'), ROOM('Test Hall', { order: 1 }));
   await setDoc(doc(db, 'rooms', 'room_lounge'), ROOM('Test Lounge', { order: 2, capacity: 25, layouts: { cabaret: 20 }, facilities: { wifi: true } }));
   await setDoc(doc(db, 'rooms', 'room_office'), ROOM('Test Office', { order: 3, bookableByHirers: false }));
@@ -154,7 +156,9 @@ try {
     hall.layouts.theatre === 100 && hall.layouts.cabaret === 48 && hall.facilities.projector === true && hall.facilities.loop === true &&
     hall.facilities.chairs === 80 && /bright hall/.test(hall.description) && /confetti/.test(hall.houseRules) && hall.externalCaterers === true, JSON.stringify(hall));
   ok('the name and everything from Chunk 1 is untouched', hall.name === 'Test Hall' && hall.bookableByHirers === true && hall.siteId === 'site_t' && hall.active === true);
-  ok('the files are in storage', (await (await fetch(`http://127.0.0.1:9198/v0/b/${BUCKET}/o?prefix=${encodeURIComponent('rooms/room_hall/')}`, { headers: { Authorization: 'Bearer owner' } })).json()).items.length === 3);
+  const inFolder = async (pre) => ((await (await fetch(`http://127.0.0.1:9198/v0/b/${BUCKET}/o?prefix=${encodeURIComponent(pre)}`, { headers: { Authorization: 'Bearer owner' } })).json()).items || []).length;
+  /* The photos in the public rooms/; the floor plan in the private roomPlans/ (F-240). */
+  ok('the files are in storage: two photos in rooms/, the floor plan in the private roomPlans/', (await inFolder('rooms/room_hall/')) === 2 && (await inFolder('roomPlans/room_hall/')) === 1);
 
   /* ---------- 2. menu and kit ---------- */
   await tap(A, '.tab[data-tab="catering"]');

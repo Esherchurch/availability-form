@@ -151,7 +151,7 @@ try {
   /* ---------- 2. the public hire form ---------- */
   const out = await as('');
   await out.goto(URLB + 'book.html?room=room_sanc', { waitUntil: 'networkidle2' });
-  await until(() => out.$('[data-roomcard="room_sanc"]'));
+  await until(() => out.$('[data-roomcard="room_sanc"] img'), 30000);
   const c3 = await text(out, '[data-roomcard="room_sanc"]');
   ok('2. BOOK.HTML, signed out: the same card - photo, holds, facilities', /Holds up to 170/.test(c3) && !!(await out.$('[data-roomcard="room_sanc"] img')) && /Projector and screen/.test(c3), c3);
   ok('   but NO KIT (church members only, by the rules)', !/Stacking chairs|Portable projector/.test(c3), c3);
@@ -246,7 +246,7 @@ try {
   await db.collection('rooms').doc('room_sanc').update({ floorPlanWho: 'public' });
   const pub = await as('');
   await pub.goto(URLB + 'room.html?id=room_sanc', { waitUntil: 'networkidle2' });
-  await until(() => pub.$('#plan img'));
+  await until(() => pub.$('#plan img'), 30000);
   ok('   "PUBLIC": the public page shows it, signed out', !!(await pub.$('#plan img')));
   await pub.browser().close();
   await db.collection('rooms').doc('room_sanc').update({ floorPlanWho: 'members' });
@@ -276,6 +276,65 @@ try {
   await until(async () => /Floor area/.test(await text(mar)));
   const rp = await text(mar);
   ok('   THE ROOM PAGE: 132 m\u00b2 as given, and the size note', /Floor area 132 m\u00b2/.test(rp) && /12\.6 m by 10 m \(Plus a 2\.4 m dais at the front\. Area as marked by the architect\.\)/.test(rp), rp.slice(0, 400));
+
+  /* ---------- 7. fill in your rooms; step-free; where to find it (F-240) ---------- */
+  await db.collection('rooms').doc('room_garden').set({ name: 'Garden', siteId: 'site_t', active: true, kind: 'room', order: 9, capacity: 30 });
+  await db.collection('rooms').doc('room_ustk').set({ name: 'Upstairs Kitchen', siteId: 'site_t', active: true, kind: 'room', order: 8 });
+  await mar.goto(URLB + 'places-admin.html', { waitUntil: 'networkidle2' });
+  await mar.waitForSelector('.tab[data-tab="rooms"]'); await tap(mar, '.tab[data-tab="rooms"]');
+  await until(() => mar.$('#fillIn [data-fill="room_garden"]'));
+  const gm = await mar.$$eval('#fillIn [data-fill="room_garden"] [data-miss]', es => es.map(e => e.getAttribute('data-miss')));
+  ok('7. "FILL IN YOUR ROOMS": the Garden still needs its photo, size, facilities, description, step-free access, floor, fire maximum and plan', J(gm) === J(['photo', 'size', 'facilities', 'description', 'access', 'level', 'fireMax', 'plan']), J(gm));
+  ok('   step-free access nobody has checked is flagged as "not checked yet"', /step-free access \(not checked yet\)/.test(await text(mar, '#fillIn [data-fill="room_garden"]')));
+  ok('   and it says how many rooms have everything', /\d+ of \d+ rooms have everything/.test(await text(mar, '#fillIn')));
+  await mar.$eval('#fillIn [data-fill="room_garden"] [data-prof]', e => e.click());
+  await until(() => mar.$('#p-level'));
+  ok('   "Fill in" opens the room’s profile', (await mar.$eval('#p-access', e => e.value)) === '' && !!(await mar.$('#p-planwho')));
+  await setVal(mar, '#p-level', 'outside');
+  await tap(mar, '#p-save');
+  await until(async () => (await room('room_garden')).level === 'outside');
+  await until(async () => !(await mar.$$eval('#fillIn [data-fill="room_garden"] [data-miss="level"]', es => es.length)));
+  ok('   saved "Outside": the checklist no longer asks for the floor; step-free still "not checked yet"', (await room('room_garden')).level === 'outside' && (await room('room_garden')).access === '' && !!(await mar.$('#fillIn [data-fill="room_garden"] [data-miss="access"]')));
+  await mar.screenshot({ path: path.join(HERE, 'rooms-fill-in-375.png') });
+  /* --access, as Martin confirmed: the ground floor step-free; the first floor by the lift; the Garden left alone. */
+  const ta = await roomTool({ db, bucket, from, write: true, access: true, log: quiet });
+  ok('   THE TOOL’S --access: 8 rooms set; the Garden left "not checked yet"', ta.access === 8 && (await room('room_kit')).access === 'stepfree' && (await room('room_ustk')).access === 'lift' && (await room('room_side')).access === 'lift' && !(await room('room_garden')).access, J(ta));
+  const ta2 = await roomTool({ db, bucket, from, write: true, access: true, log: quiet });
+  ok('   run twice: nothing twice', ta2.access === 0);
+  for (const [id, words] of [['room_kit', 'Step-free'], ['room_upper', 'Step-free, by the lift'], ['room_garden', 'Not checked yet']]) {
+    await mar.goto(URLB + 'room.html?id=' + id + '&member=1', { waitUntil: 'networkidle2' });
+    await until(async () => /Step-free access/.test(await text(mar)));
+    const t = await text(mar);
+    ok('   THE ROOM PAGE: ' + id + ' says "' + words + '" (never "No")', new RegExp('Step-free access ' + words.replace(/[,]/g, '\\$&') + '(?! by)').test(t) && !/Step-free access No/.test(t), (t.match(/Step-free access [^.]{0,40}/) || [''])[0]);
+  }
+  await mar.goto(URLB + 'room.html?id=room_creche&member=1', { waitUntil: 'networkidle2' });
+  await until(async () => /How many it holds/.test(await text(mar)));
+  ok('   NO LAYOUTS: "Holds up to 14" (as the booking card)', (await text(mar, '#holdsUpTo')) === 'Holds up to 14', await text(mar, '#holdsUpTo'));
+  await mar.goto(URLB + 'room.html?id=room_garden&member=1', { waitUntil: 'networkidle2' });
+  await until(async () => /Where to find it/.test(await text(mar)));
+  ok('   WHERE TO FIND IT: "Outside"', /Where to find it Outside/.test(await text(mar)));
+  /* Before switch-over Places offers no plan upload (Storage is open until then). */
+  await db.collection('churchSettings').doc('launch').set({ rulesLocked: false });
+  await mar.goto(URLB + 'places-admin.html', { waitUntil: 'networkidle2' });
+  await mar.waitForSelector('.tab[data-tab="rooms"]'); await tap(mar, '.tab[data-tab="rooms"]');
+  await mar.waitForSelector('[data-prof="room_garden"]'); await sleep(800); await tap(mar, '#rooms-list [data-prof="room_garden"]');
+  await until(() => mar.$('#p-planheld'));
+  ok('   BEFORE SWITCH-OVER: no floor plan upload in Places, and it says why', !(await mar.$('#p-plan')) && /when the church switches over/.test(await text(mar, '#p-planheld')));
+  await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
+  /* A floor plan put up in Places (the rules are locked by now): the private path, no public link. */
+  const planPic = path.join(TMP, 'plan-garden.png');
+  fs.copyFileSync(path.join(from, 'plans', 'kitchen.png'), planPic);
+  await mar.goto(URLB + 'places-admin.html', { waitUntil: 'networkidle2' });
+  await mar.waitForSelector('.tab[data-tab="rooms"]'); await tap(mar, '.tab[data-tab="rooms"]');
+  await mar.waitForSelector('[data-prof="room_garden"]'); await tap(mar, '#rooms-list [data-prof="room_garden"]');
+  await until(() => mar.$('#p-plan'));
+  await setVal(mar, '#p-planwho', 'office');
+  await (await mar.$('#p-plan')).uploadFile(planPic);
+  const gp = await until(async () => (await room('room_garden')).floorPlan);
+  ok('   PLACES PUTS A PLAN UP at roomPlans/ with no public link', gp && /^roomPlans\/room_garden\//.test(gp.path) && !gp.url, J(gp));
+  await until(() => mar.$('#p-save')); await tap(mar, '#p-save');
+  await until(async () => (await room('room_garden')).floorPlanWho === 'office');
+  ok('   and "who sees the floor plan" is saved ("The office only")', (await room('room_garden')).floorPlanWho === 'office');
 
   /* ---------- 5. the hire page ---------- */
   await mar.goto(URLB + 'hire.html', { waitUntil: 'networkidle2' });

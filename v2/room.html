@@ -112,14 +112,17 @@
         fact('Floor area', a ? a + ' m²' : '') +
         fact('Size', d.length && d.width ? d.length + ' m by ' + d.width + ' m' + (r.sizeNote ? ' (' + r.sizeNote + ')' : '') : '') +
         fact('Ceiling height', d.height ? d.height + ' m' : '') +
+        fact('Where to find it', r.level ? R.levelWords(r) : '') +
         fact('Floor', floor && r.floor ? floor : '') +
         fact('Natural light', r.naturalLight ? 'Yes' : '') +
-        fact('Step-free access', r.accessible ? 'Yes' : 'No') +
+        fact('Step-free access', R.accessWords(r)) +
         fact('Nearest toilets', r.toilets) + fact('Nearest kitchen', r.kitchenNote) +
       '</div></div>' +
       '<div class="card"><h2><span class="badge">' + ico('users') + '</span>How many it holds</h2><table>' +
         R.LAYOUTS.filter(function (x) { return (r.layouts || {})[x.id]; }).map(function (x) {
           return '<tr><td>' + x.label + ' <span class="hint">· ' + esc(x.hint) + '</span></td><td class="r">' + R.holds(r, x.id) + '</td></tr>'; }).join('') +
+        /* No layouts yet: "Holds up to" its capacity, as the booking card does (Martin, 20 Oct). */
+        (!R.LAYOUTS.some(function (x) { return (r.layouts || {})[x.id]; }) && R.holds(r) ? '<tr id="holdsUpTo"><td>Holds up to</td><td class="r">' + R.holds(r) + '</td></tr>' : '') +
         (r.fireMax ? '<tr><td>Most allowed, for fire safety</td><td class="r" id="fireMax">' + r.fireMax + '</td></tr>' : '') +
       '</table></div>' +
       '<div class="card"><h2><span class="badge">' + ico('list-checks') + '</span>Facilities</h2><div class="facs">' +

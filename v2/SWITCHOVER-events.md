@@ -48,6 +48,9 @@ before. F-011 says a first sign-in might be refused under the new rules.
 - **Church name**, **Enquiry email** and **Logo**.
 - **The enquiry email is office@esherchurch.org** (Martin, F-058). It must
   be typed here, because no page has it built in.
+- **Church settings > enquiry email -> the church office address.** Until
+  switch-over it is Martin's own address, on purpose, for testing (Martin,
+  20 Oct). Change it to office@esherchurch.org on the day.
 - **If it's left blank:**
   - public room requests email nobody
   - maintenance emails have nowhere to fall back to
