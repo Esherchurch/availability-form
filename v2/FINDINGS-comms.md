@@ -7,7 +7,7 @@ Feature names: `enews`, `cardMaker`, `canva`. All three stay **off** until Marti
 
 ## PLAN, 20 Oct late: the e-news editor working the same way as Mailchimp's (for review)
 
-One plan from the reviewing window's messages of 20 Oct. Two parts are already built: **Add a meeting** (C-35) and **no emails to under-18s** (C-36). Everything below waits for your yes. Nothing in sections A to D is built yet.
+One plan from the reviewing window's messages of 20 Oct: the editor (A), the email (B), the draft (C), proof (D), order (E), one-off emails (F), templates (G), Facebook and Instagram (H). Two parts are already built: **Add a meeting** (C-35) and **no emails to under-18s** (C-36). Everything below waits for your yes. Nothing in sections A to D is built yet.
 
 **The model is Mailchimp's NEW email builder**, which Martin's account opens. Val's issues came from the Classic one, which Mailchimp is retiring.
 
@@ -103,11 +103,98 @@ One plan from the reviewing window's messages of 20 Oct. Two parts are already b
 1. **B and C first** (the email and the draft: smaller, and they show at once in what people receive), with the side-by-side check (D9) growing as each lands.
 2. **Then A, the editor** (the large piece), built behind the e-news switch on the existing page, so nothing changes for anyone until it's ready.
 3. **Then the ease test (D10),** before the editor replaces today's.
-4. **Then templates and one-off emails** (F).
+4. **Social posts, step 1 (H)**: small, it reuses the card maker, and can go alongside B and C.
+5. **Then templates (G) and one-off emails (F).**
+6. **Social posts, step 2 (H)**, only if Martin decides to set up Meta.
 
 ### F. One-off emails and templates
 
 The main window's plan for these is in [design-mocks/mailings/PLAN.md](design-mocks/mailings/PLAN.md). It gives this window templates (section 2) and one-off emails (section 3), after the e-news work. The **Church members' meeting** starter here (C-35) becomes that plan's "Church members' meeting" template, filling in from the main window's members' meeting page once it exists. The plan's "never under-18s" uses the under-18 rule built here (C-36: Under 16 or Under 18).
+
+### G. Starter templates for any church (the reviewing window went through all 382 of Mailchimp's)
+
+Generic wording that any church can edit. Each one follows a Mailchimp template, named in brackets, so its layout is one people already know. These replace the six starters in the mailings plan (design-mocks/mailings/PLAN.md, section 2); everything else in that plan stands: templates keep blocks, look, audience, subject pattern and "must fill before Send".
+
+| Starter | Follows Mailchimp's | Notes |
+|---|---|---|
+| Weekly news | (Val's layout) | EGBC's is Val's exactly |
+| Monthly news | Monthly newsletter | |
+| Letter from the minister | Simple Text | |
+| Story / ministry update | Tell a story | |
+| Meet our team | Meet the team | |
+| Event invitation, with RSVP | Event invitation | the What's On event's Sign up button |
+| What's on this month | Event calendar | fills itself from What's On |
+| Holiday club / weekend away | Multi-day event | |
+| Carol service / concert | Performance invite | |
+| Guest speaker | Event speakers | |
+| Church members' meeting | Event Agenda | agenda and documents, plus the Meeting block; members only |
+| After the event | Thanks for attending | |
+| Service change | Short service update | |
+| Sermon video | Video service update | |
+| Gift day / appeal | Fundraising Letter | |
+| Thank you | Thanks for your support | |
+| New subscriber welcome | (automatic, after sign-up) | sent by itself once someone confirms |
+| Newcomer welcome | Friendly welcome | linked to "I'm new here" |
+| Course welcome | Class welcome | |
+| Reminder | (reminder) | |
+
+**What Mailchimp hasn't got: the church year.** Advent & Christmas, Lent & Easter, Harvest, Remembrance Sunday, Mothering Sunday.
+
+Mailchimp's shop templates (sales, products, baskets) are left out.
+
+### H. Facebook and Instagram posts, in two steps
+
+Martin thinks Val may use Mailchimp's social posts. In Mailchimp (his screenshots 6 and 7) the steps are Network → Design → Customize → Schedule & Confirm. Ours follow the same steps.
+
+**Step 1, now (does not wait for Meta): "Make a social post"** from an event or an e-news item.
+- **The picture** comes from the card maker, in each size:
+
+  | For | Size |
+  |---|---|
+  | Instagram square | 1080 × 1080 |
+  | Instagram portrait | 1080 × 1350 |
+  | Facebook | 1200 × 630 |
+  | Story | 1080 × 1920 |
+
+  The words are fitted to each size, as the card maker already does.
+- **A caption** is written from the event (what, when, where, the link), and can be edited.
+- **Copy caption**, then **Share** (the phone's own share sheet, straight into Facebook or Instagram) or **Download** (all the sizes).
+- Nothing connects to Meta. The person posts from their own phone or computer, as they do now.
+
+**Step 2, later: post and schedule straight to the church's own Facebook Page and Instagram.** You'd connect once, like Canva. This needs Church HQ's own Meta app to pass Meta's app review.
+
+What Martin would have to set up, so he can decide. Meta changes these rules; I'll check each one against Meta's documents again before we start.
+1. **A Meta Business account (Business Portfolio) for Church HQ**, with **business verification**: the company's legal name, address and phone, a document that shows them, and a website on Church HQ's domain.
+2. **A Meta developer account** (Martin's own Facebook login, with two-step sign-in), and in it **an app of the Business type** for Church HQ.
+3. **On the app:** Facebook Login for Business, and the Instagram API (with Facebook Login).
+4. **Permissions that need Meta's app review** (Advanced Access):
+   - `pages_show_list`
+   - `pages_read_engagement`
+   - `pages_manage_posts`
+   - `instagram_basic`
+   - `instagram_content_publish`
+   - possibly `business_management`
+5. **For the review itself**, Martin submits:
+   - a privacy policy page;
+   - terms of service;
+   - a data-deletion page or callback;
+   - an app icon;
+   - for each permission, a short screen recording of the hub using it, with written steps a reviewer can follow, and a test login.
+
+   Reviews usually take days to a few weeks, and can come back asking for changes.
+6. **Each church, once:**
+   - a Facebook **Page**;
+   - an Instagram **professional** account (Business or Creator) linked to that Page;
+   - the person connecting must be an admin of the Page.
+7. **What the hub then does:**
+   - keeps the Page's token on the server only (like Canva's);
+   - posts the picture and caption;
+   - for scheduled posts, Facebook schedules them itself, but Instagram's API has no scheduling, so the hub holds the post and publishes it at the time.
+
+   Instagram also has a daily limit on posts made this way.
+8. **Every year,** Meta's "data use checkup" for the app.
+
+**Recommendation:** build step 1 now, and decide step 2 after seeing how much Val actually posts from Mailchimp.
 
 ---
 
