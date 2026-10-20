@@ -43,7 +43,7 @@ const fnRequire = createRequire(path.join(V2, 'functions', 'index.js'));
 const { initializeApp, getApps } = fnRequire('firebase-admin/app');
 const { getFirestore } = fnRequire('firebase-admin/firestore');
 const { getStorage } = fnRequire('firebase-admin/storage');
-if (!getApps().length) initializeApp({ projectId: PROJECT, storageBucket: PROJECT + '.appspot.com' });
+if (!getApps().length) initializeApp({ projectId: PROJECT, storageBucket: 'egbc-worship-planner.firebasestorage.app' });   // the pages' own bucket
 const db = getFirestore(), bucket = getStorage().bucket();
 
 const results = [];
@@ -131,6 +131,9 @@ try {
   await until(() => mia.$('[data-roomcard="room_sanc"]'));
   const c1 = await text(mia, '[data-roomcard="room_sanc"]');
   ok('1. ROOMS.HTML (the app\u2019s Book a room): THE CHOSEN ROOM\u2019S CARD - its main photo', opened && (await mia.$eval('[data-roomcard="room_sanc"] img', e => e.src)) === PHOTO, c1);
+  const fit = await mia.$eval('[data-roomcard="room_sanc"] img', e => { const c = e.parentElement.getBoundingClientRect(), i = e.getBoundingClientRect(), cs = getComputedStyle(e.parentElement);
+    return { full: Math.abs(i.width - (c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth))) < 2, lazy: e.getAttribute('loading') === 'lazy', w: i.width, h: i.height }; });
+  ok('   ON A PHONE THE PHOTO IS THE CARD’S FULL WIDTH, at its own shape (375 x 600 kept), and loads lazily', fit.full && fit.lazy && Math.abs(fit.h / fit.w - 600 / 375) < 0.02, JSON.stringify(fit));
   ok('   how many it holds ("Holds up to 170")', /Holds up to 170/.test(c1), c1);
   ok('   its facilities, with icons', (await mia.$$eval('[data-roomcard="room_sanc"] [data-fac] svg, [data-roomcard="room_sanc"] [data-fac] i', es => es.length)) === 4 && (await mia.$$eval('[data-roomcard="room_sanc"] [data-fac]', es => es.map(e => e.getAttribute('data-fac')).join())) === 'projector,pa,loop,chairs' && /Chairs 120/.test(c1), c1);
   ok('   the kit in it, and the kit that can be brought in (not the urn, which stays in the kitchen)', /In the room: Stacking chairs \(120\)/.test(c1) && /Can be brought in: Portable projector \(1\)/.test(c1) && !/Tea urn/.test(c1), c1);
@@ -152,6 +155,8 @@ try {
   const c3 = await text(out, '[data-roomcard="room_sanc"]');
   ok('2. BOOK.HTML, signed out: the same card - photo, holds, facilities', /Holds up to 170/.test(c3) && !!(await out.$('[data-roomcard="room_sanc"] img')) && /Projector and screen/.test(c3), c3);
   ok('   but NO KIT (church members only, by the rules)', !/Stacking chairs|Portable projector/.test(c3), c3);
+  ok('   the photo full width there too', await out.$eval('[data-roomcard="room_sanc"] img', e => { const c = e.parentElement.getBoundingClientRect(), cs = getComputedStyle(e.parentElement);
+    return Math.abs(e.getBoundingClientRect().width - (c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth))) < 2 && e.getAttribute('loading') === 'lazy'; }));
   ok('   at 375px nothing scrolls sideways', (await sideways(out)) <= 0);
   await out.screenshot({ path: path.join(HERE, 'room-card-hire-375.png') });
 
@@ -181,6 +186,70 @@ try {
   const t3 = await roomTool({ db, bucket, from, write: true, plans: true, log: quiet });
   const plan = (await room('room_sanc')).floorPlan;
   ok('   ONCE THE RULES ARE LOCKED the plans go up: at roomPlans/ (not the public rooms/), members and office, NO public link kept', t3.plans === 7 && plan && /^roomPlans\/room_sanc\//.test(plan.path) && !plan.url && (await room('room_sanc')).floorPlanWho === 'members', J(plan));
+
+  /* ---------- 6. the members' room page (the reviewing window, 20 Oct) ---------- */
+  /* No room is for hire on the live hub yet: here only the Sanctuary and
+     the Creche Room are, so the other seven must still open for a member. */
+  for (const id of ['room_upper', 'room_side', 'room_front', 'room_youth', 'room_kit']) await db.collection('rooms').doc(id).update({ bookableByHirers: false });
+  const mem = await as('mia');
+  await mem.goto(URLB + 'rooms.html', { waitUntil: 'networkidle2' });
+  await mem.evaluate(() => { const b = [...document.querySelectorAll('button,a')].find(x => /^\s*Book a room\s*$/i.test(x.textContent)); if (b) b.click(); });
+  await until(() => mem.$('#f .bf-room'));
+  await mem.$$eval('#f .bf-room', es => es.forEach(e => { e.checked = true; e.dispatchEvent(new Event('change', { bubbles: true })); }));
+  await until(async () => (await mem.$$('[data-roomcard]')).length === 7);
+  const links = await mem.$$eval('[data-roomcard] [data-more]', es => es.map(e => e.getAttribute('href')));
+  ok('6. EVERY ROOM’S "MORE ABOUT THIS ROOM" on the members’ booking goes to the MEMBERS’ page', links.length === 7 && links.every(h => /^room\.html\?id=room_[a-z]+&member=1$/.test(h)), JSON.stringify(links));
+  let openedAll = 0; const bad = [];
+  for (const h of links) {
+    await mem.goto(URLB + h, { waitUntil: 'networkidle2' });
+    const t = await until(async () => { const x = await text(mem); return /could not be found|How many it holds/.test(x) ? x : ''; });
+    if (t && !/could not be found/.test(t) && /How many it holds/.test(t)) openedAll++; else bad.push(h);
+  }
+  ok('   AS A MEMBER, EVERY ONE OPENS - for hire or not (photos, size, layouts, facilities)', openedAll === 7, bad.join(', '));
+  await mem.goto(URLB + 'room.html?id=room_upper&member=1', { waitUntil: 'networkidle2' });
+  await until(async () => /How many it holds/.test(await text(mem)));
+  ok('   it shows the kit (the projector that lives there, and what can be brought in)', /In the room: Portable projector \(1\)/.test(await text(mem, '#kit')), await text(mem, '#kit'));
+  ok('   and offers "Book a room" (the members’ booking), not the hirers’ form', (await mem.$eval('#ask', e => e.getAttribute('href'))) === 'rooms.html');
+  await mem.screenshot({ path: path.join(HERE, 'room-member-page-375.png') });
+  /* The floor plan, as its setting allows (put up by the tool above: 'members'). */
+  await mem.goto(URLB + 'room.html?id=room_sanc&member=1', { waitUntil: 'networkidle2' });
+  await until(() => mem.$('#plan img'));
+  ok('   THE FLOOR PLAN ("members and office", the default): a member sees it', !!(await mem.$('#plan img')));
+  await mem.browser().close();
+  const anon = await as('');
+  await anon.goto(URLB + 'room.html?id=room_upper', { waitUntil: 'networkidle2' });
+  await until(async () => /could not be found|How many it holds/.test(await text(anon)));
+  ok('   SIGNED OUT, a room not for hire is still refused on the public page', /could not be found, or is not for hire/.test(await text(anon)));
+  await anon.goto(URLB + 'room.html?id=room_upper&member=1', { waitUntil: 'networkidle2' });
+  await sleep(2500);
+  ok('   and the members’ address does not show it to someone signed out', !/How many it holds/.test(await text(anon)));
+  await anon.goto(URLB + 'room.html?id=room_sanc', { waitUntil: 'networkidle2' });
+  await until(async () => /How many it holds/.test(await text(anon)));
+  ok('   the public page of a room for hire shows no members-only floor plan', !(await anon.$('#plan')));
+  const pRaw = await anon.evaluate((p) => EGBCAuth.storage().ref(p).getDownloadURL().then(() => 'read', e => e.code), (await room('room_sanc')).floorPlan.path);
+  ok('   and Storage refuses it to someone signed out', /unauthorized|permission/.test(pRaw), pRaw);
+  await anon.browser().close();
+  await db.collection('rooms').doc('room_sanc').update({ floorPlanWho: 'office' });
+  const mem2 = await as('mia');
+  await mem2.goto(URLB + 'room.html?id=room_sanc&member=1', { waitUntil: 'networkidle2' });
+  await until(async () => /How many it holds/.test(await text(mem2)));
+  await sleep(1000);
+  ok('   "OFFICE ONLY": a member no longer sees it', !(await mem2.$('#plan')));
+  const mRaw = await mem2.evaluate((p) => EGBCAuth.storage().ref(p).getDownloadURL().then(() => 'read', e => e.code), (await room('room_sanc')).floorPlan.path);
+  ok('   and Storage itself refuses it to her (two guards: the page, and the rules)', /unauthorized|permission/.test(mRaw), mRaw);
+  await mem2.browser().close();
+  const off = await as('martin');
+  await off.goto(URLB + 'room.html?id=room_sanc&member=1', { waitUntil: 'networkidle2' });
+  await until(() => off.$('#plan img'));
+  ok('   the office (a master admin) does', !!(await off.$('#plan img')));
+  await off.browser().close();
+  await db.collection('rooms').doc('room_sanc').update({ floorPlanWho: 'public' });
+  const pub = await as('');
+  await pub.goto(URLB + 'room.html?id=room_sanc', { waitUntil: 'networkidle2' });
+  await until(() => pub.$('#plan img'));
+  ok('   "PUBLIC": the public page shows it, signed out', !!(await pub.$('#plan img')));
+  await pub.browser().close();
+  await db.collection('rooms').doc('room_sanc').update({ floorPlanWho: 'members' });
 
   /* ---------- 3. the area as given, kept by Places ---------- */
   const mar = await as('martin');

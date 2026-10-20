@@ -217,7 +217,7 @@
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn sec" id="f-cancel">Close</button><button class="btn" id="f-go" disabled>Book it</button></div>';
     EGBCBookForm.render(document.getElementById('f'), {
       rooms: rs, multi: true, chosen: o.room ? [o.room] : [], day: o.day, start: o.start, end: o.end,
-      menus: MENUS, kit: KIT, contact: false, onChange: check
+      menus: MENUS, kit: KIT, contact: false, member: true, onChange: check
     });
     document.getElementById('back').style.display = 'block';
     document.getElementById('f-cancel').onclick = closeSheet;

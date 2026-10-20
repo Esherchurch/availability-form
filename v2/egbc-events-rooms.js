@@ -134,8 +134,11 @@
       movable: kit.filter(function (k) { return k.active !== false && k.movable && k.homeRoomId !== room.id && (!k.siteId || !room.siteId || k.siteId === room.siteId); })
     };
   }
-  var CARD_CSS = '.rcard{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:start;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin:0 0 12px}' +
-    '.rcard img{width:96px;height:72px;object-fit:cover;border-radius:8px;display:block}.rcard .noph{width:96px;height:72px;border-radius:8px;background:#e5e7eb}' +
+  /* On a phone the photo is the card's full width, at its own shape (the
+     reviewing window, 20 Oct); beside the words on a wider screen. */
+  var CARD_CSS = '.rcard{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin:0 0 12px}' +
+    '.rcard img{width:100%;height:auto;border-radius:8px;display:block;background:#e5e7eb}.rcard .noph{width:100%;height:56px;border-radius:8px;background:#e5e7eb}' +
+    '@media (min-width:700px){.rcard{grid-template-columns:200px 1fr}.rcard .noph{height:120px}}' +
     '.rcard b{color:#111827}.rcard .rf{font-size:13px;color:#4b5563;margin:2px 0}.rcard .chips{display:flex;flex-wrap:wrap;gap:4px 10px;margin:4px 0 0}' +
     '.rcard .chip{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:#374151}.rcard .chip i,.rcard .chip svg{width:14px;height:14px}' +
     '.rcard a{color:#3d6263;font-size:13px;font-weight:600}';
@@ -149,7 +152,7 @@
     var facs = FACILITIES.filter(function (x) { return has(room, x.id); });
     var kitWords = function (list) { return list.map(function (x) { return esc(x.name) + (x.unlimited ? '' : ' (' + (+x.quantity || 0) + ')'); }).join(', '); };
     return '<div class="rcard" data-roomcard="' + esc(room.id) + '">' +
-      (ph ? '<img src="' + esc(ph.url) + '" alt="' + esc(room.name) + '">' : '<div class="noph" aria-hidden="true"></div>') +
+      (ph ? '<img src="' + esc(ph.url) + '" alt="' + esc(room.name) + '" loading="lazy"' + (ph.width && ph.height ? ' width="' + (+ph.width) + '" height="' + (+ph.height) + '" style="aspect-ratio:' + (+ph.width) + '/' + (+ph.height) + '"' : '') + '>' : '<div class="noph" aria-hidden="true"></div>') +
       '<div><b>' + esc(room.name) + '</b>' +
       '<div class="rf" data-holds="' + n + '">' + (n ? (lay ? 'Holds ' + n + ' set out ' + lay.label.toLowerCase() : 'Holds up to ' + n) : (lay ? 'Not set out ' + lay.label.toLowerCase() + ' here' : '')) +
         (a ? (n || lay ? ' · ' : '') + a + ' m²' : '') + '</div>' +
@@ -157,7 +160,9 @@
         return '<span class="chip" data-fac="' + x.id + '"><i data-lucide="' + x.icon + '"></i>' + esc(x.label) + (x.count ? ' ' + c : '') + '</span>'; }).join('') + '</div>' : '') +
       (k.here.length ? '<div class="rf" data-kithere>In the room: ' + kitWords(k.here) + '</div>' : '') +
       (k.movable.length ? '<div class="rf" data-kitmove>Can be brought in: ' + kitWords(k.movable) + '</div>' : '') +
-      '<a href="room.html?id=' + encodeURIComponent(room.id) + '" target="_blank" rel="noopener">More about this room</a></div></div>';
+      /* Members get the full room page, for hire or not (the reviewing
+         window, 20 Oct: the hire-only page was a dead end for every room). */
+      '<a data-more href="room.html?id=' + encodeURIComponent(room.id) + (o.member ? '&member=1' : '') + '" target="_blank" rel="noopener">More about this room</a></div></div>';
   }
 
   var api = { card: card, kitFor: kitFor, LAYOUTS: LAYOUTS, FACILITIES: FACILITIES, FLOORS: FLOORS, area: area, has: has, holds: holds,

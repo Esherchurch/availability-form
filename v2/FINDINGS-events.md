@@ -8148,3 +8148,42 @@ seed and the Inventory changes.
   `churchSettings/features.buildingCompliance`, the same field as your server.
 - The app's tiles ("The building" mode) come with the start screen, once Martin approves the
   mock-ups in design-mocks/app-start.
+
+### F-237 — The members' room page; private floor plans; the card's photo full width (20 Oct)
+
+**From Martin's live check at 412px:**
+1. **BUG, fixed.** "More about this room" on the members' booking opened room.html, which refuses any room not for hire. No room is for hire yet, so it was a dead end for every room.
+   - **The members' booking now links with `&member=1`.** room.html then asks who is signed in.
+   - **An active church member, or the office** (admins, the site's bookings admins), gets the full page for any active room, for hire or not:
+     - photos, size, layouts and facilities
+     - **the kit** in the room and what can be brought in
+     - **the floor plan** as the room's `floorPlanWho` allows
+     - **"Book a room"** (the members' booking), not the hirers' form
+   - **Without `member=1` room.html stays the public, hire-only page.** Signed out, `member=1` shows nothing but the sign-in.
+2. **The card's photo is the card's full width on a phone,** at its own shape, and loads lazily. At 700px and wider it sits beside the words.
+
+**Private floor plans.** A Storage rule at `roomPlans/<room>/`:
+- `floorPlanWho` **'public':** anyone
+- **'members' (the default):** anyone signed in and active, and the office
+- **'office':** admins and the site's bookings admins
+- **Who puts them up:** admins.
+- **Two guards, each tested on its own:** the page asks only when allowed, and Storage refuses anyone else.
+- **What goes up and when:** the tool's `--plans` puts them there only after switch-over. The Places setting for `floorPlanWho` is the next job (with the "fill in your rooms" checklist and "where to find it").
+
+**Live** (the reviewing window ran the tool with Martin's OK): the sizes for all 7 rooms, the Sanctuary's theatre 170, and the hire header. Floor plans are still held. "Holds 80 set out cabaret" was emulator test data only; no layout figure is ever invented live.
+
+**The tool and the test now use the pages' own bucket** (`egbc-worship-planner.firebasestorage.app`) everywhere. The test had found plans put up off-live landing in a different bucket from the one the pages read.
+
+**Proved:** room-card.test 40/40. As a member:
+- **Every room opens:** each of the 7 rooms' "More about this room" goes to the members' page, and every one opens, for hire or not.
+- **The page:** kit is shown, the button is "Book a room", and a members' plan is visible.
+
+The other side:
+- **Signed out:** a room not for hire is refused on the public page and not shown at the members' address, and Storage refuses the plan.
+- **Office only:** a member doesn't see the plan and Storage refuses her, while a master admin does see it.
+- **Public:** the public page shows the plan, signed out.
+- **The photo:** full width at 375px on both booking pages, lazy.
+
+5 breaks caught. The one that matters: members sent to the hire-only page.
+
+**r1-rooms updated to the agreed default:** a floor plan is kept back from the public page unless the room says "public".

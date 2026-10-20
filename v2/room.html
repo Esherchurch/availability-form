@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610192330"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
@@ -76,6 +77,14 @@
   /* ?id= is the address the church website uses; ?r= still works. */
   var Q = new URLSearchParams(location.search), ID = Q.get('id') || Q.get('r') || '';
   var ROOM = null, SITE = null, SHOWN = 0;
+  /* ?member=1 (from the members' booking): THE MEMBERS' PAGE (the reviewing
+     window, 20 Oct). A signed-in church member - or the office - sees any
+     room, for hire or not, with its kit and its floor plan as the room's
+     floorPlanWho allows (public / members and office / office only).
+     Without it this stays the public page: rooms for hire only. */
+  var MEMBER = Q.get('member') === '1', SIGNED = false, OFFICE = false, KIT = [], PLAN_URL = '';
+  function planWho() { return ROOM.floorPlanWho || 'members'; }
+  function mayPlan() { var w = planWho(); return w === 'public' || (w === 'members' && (SIGNED || OFFICE)) || (w === 'office' && OFFICE); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
   function ico(n, px) { return '<i data-lucide="' + n + '" style="width:' + (px || 17) + 'px;height:' + (px || 17) + 'px"></i>'; }
@@ -93,7 +102,8 @@
           return '<button data-i="' + i + '" class="' + (i === SHOWN ? 'on' : '') + '" aria-label="Photo ' + (i + 1) + '"><img src="' + esc(p.url) + '" alt=""></button>'; }).join('') + '</div>' : '')
         : '') +
       '<div style="margin:16px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
-        '<a class="btn" id="ask" href="book.html?room=' + encodeURIComponent(r.id) + '">' + ico('calendar-plus', 16) + 'Ask to book this room</a>' +
+        (MEMBER ? '<a class="btn" id="ask" href="rooms.html">' + ico('calendar-plus', 16) + 'Book a room</a>'
+          : '<a class="btn" id="ask" href="book.html?room=' + encodeURIComponent(r.id) + '">' + ico('calendar-plus', 16) + 'Ask to book this room</a>') +
         (mail ? '<span class="hint">Questions? <a href="mailto:' + esc(mail) + '?subject=' + encodeURIComponent(r.name) + '" style="color:var(--brand)">' + esc(mail) + '</a></span>' : '') +
       '</div>' +
       '<div class="card" id="week"><h2><span class="badge">' + ico('calendar') + '</span>When it is free</h2><p class="hint">Loading…</p></div>' +
@@ -118,7 +128,10 @@
           return '<div class="fac">' + ico(x.icon, 18) + x.label + (x.count ? ': ' + n : '') + '</div>'; }).join('') +
         (r.externalCaterers ? '<div class="fac">' + ico('utensils', 18) + 'You may bring your own caterers</div>' : '') +
       '</div></div>' +
-      (r.floorPlan ? '<div class="card"><h2><span class="badge">' + ico('map') + '</span>Floor plan</h2><img src="' + esc(r.floorPlan.url) + '" alt="Floor plan" style="max-width:100%;border-radius:8px"></div>' : '') +
+      (MEMBER ? (function () { var k = R.kitFor(r, KIT); return (k.here.length || k.movable.length) ? '<div class="card" id="kit"><h2><span class="badge">' + ico('package') + '</span>Kit</h2>' +
+        (k.here.length ? '<p style="margin:0 0 6px"><strong>In the room:</strong> ' + k.here.map(function (x) { return esc(x.name) + (x.unlimited ? '' : ' (' + (+x.quantity || 0) + ')'); }).join(', ') + '</p>' : '') +
+        (k.movable.length ? '<p style="margin:0"><strong>Can be brought in:</strong> ' + k.movable.map(function (x) { return esc(x.name) + (x.unlimited ? '' : ' (' + (+x.quantity || 0) + ')'); }).join(', ') + '</p>' : '') + '</div>' : ''; })() : '') +
+      (r.floorPlan && PLAN_URL ? '<div class="card" id="plan"><h2><span class="badge">' + ico('map') + '</span>Floor plan</h2><img src="' + esc(PLAN_URL) + '" alt="Floor plan" loading="lazy" style="max-width:100%;border-radius:8px"></div>' : '') +
       (r.houseRules ? '<div class="card"><h2><span class="badge">' + ico('scroll-text') + '</span>House rules</h2><p class="words" style="margin:0">' + esc(r.houseRules) + '</p></div>' : '');
     document.querySelectorAll('.thumbs button').forEach(function (b) { b.onclick = function () { SHOWN = +b.getAttribute('data-i'); draw(); }; });
     icons();
@@ -151,11 +164,31 @@
 
   EGBCChurch.load().then(function () { EGBCChurch.header(document.getElementById('chead'), { back: true }); });
   if (!ID) return none();
-  EGBCChurch.load().then(function () { return EGBCAuth.db.collection('rooms').doc(ID).get(); }).then(function (s) {
+  /* The members' page asks who is signed in; the public one never does. */
+  var who = MEMBER ? EGBCAuth.require().then(function (p) {
+    SIGNED = !!(p && p.status === 'active');
+    if (!SIGNED) return;
+    var mid = p.memberId || '-';
+    OFFICE = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
+    return Promise.all([
+      EGBCAuth.db.collection('bookableResources').get().then(function (q) { KIT = q.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }, function () {}),
+      EGBCAuth.db.collection('rooms').doc(ID).get().then(function (s) {
+        var site = s.exists ? s.data().siteId : '';
+        return site ? EGBCAuth.db.collection('bookingSettings').doc(site).get().then(function (b) { if (b.exists && (b.data().bookingsAdmins || []).indexOf(mid) >= 0) OFFICE = true; }, function () {}) : null;
+      }, function () {})
+    ]);
+  }) : Promise.resolve();
+  who.then(function () { return EGBCChurch.load(); }).then(function () { return EGBCAuth.db.collection('rooms').doc(ID).get(); }).then(function (s) {
     if (!s.exists) return none();
     ROOM = Object.assign({ id: s.id }, s.data());
-    if (!R.hireable([ROOM]).length) return none();
-    return EGBCAuth.db.collection('sites').doc(ROOM.siteId).get().then(function (x) { SITE = x.exists ? x.data() : null; }).catch(function () {}).then(draw);
+    if (!(MEMBER && (SIGNED || OFFICE)) && !R.hireable([ROOM]).length) return none();
+    if (MEMBER && (SIGNED || OFFICE) && ROOM.active === false) return none();
+    /* The floor plan, as its setting allows: an old public link, or the
+       private path, which Storage only hands to the people allowed. */
+    var fp = ROOM.floorPlan, plan = !fp || !mayPlan() ? Promise.resolve('') : fp.url ? Promise.resolve(fp.url)
+      : (fp.path && EGBCAuth.storage ? EGBCAuth.storage().ref(fp.path).getDownloadURL().catch(function () { return ''; }) : Promise.resolve(''));
+    return plan.then(function (u) { PLAN_URL = u || ''; return EGBCAuth.db.collection('sites').doc(ROOM.siteId).get(); })
+      .then(function (x) { SITE = x.exists ? x.data() : null; }).catch(function () {}).then(draw);
   }).catch(none);
 })();
 </script>

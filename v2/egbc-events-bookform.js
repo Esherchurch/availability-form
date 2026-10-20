@@ -155,7 +155,7 @@
     function cards() {
       var box = q('#bf-roomcards'); if (!box || !R || !R.card) return;
       var v = values(el), lay = v.layout;
-      box.innerHTML = (v.rooms || []).map(function (id) { return R.card(rooms.filter(function (r) { return r.id === id; })[0], { layout: lay, kit: o.allKit || o.kit }); }).join('');
+      box.innerHTML = (v.rooms || []).map(function (id) { return R.card(rooms.filter(function (r) { return r.id === id; })[0], { layout: lay, kit: o.allKit || o.kit, member: !!o.member }); }).join('');
       if (global.EGBCUI && EGBCUI.icons) EGBCUI.icons(); else if (global.lucide && lucide.createIcons) lucide.createIcons();
     }
     cards();

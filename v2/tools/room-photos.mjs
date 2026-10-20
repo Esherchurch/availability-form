@@ -210,7 +210,7 @@ export async function run(o) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  if (!getApps().length) initializeApp({ projectId: PROJECT, storageBucket: LIVE ? BUCKET : PROJECT + '.appspot.com' });
+  if (!getApps().length) initializeApp({ projectId: PROJECT, storageBucket: BUCKET });
   console.log((LIVE ? 'LIVE hub' : 'events emulator') + ' - ' + (WRITE ? 'WRITING' : 'dry run, nothing written') + ' - pictures from ' + FROM);
   const r = await run({ db: getFirestore(), bucket: getStorage().bucket(), from: FROM, write: WRITE, sizes: SIZES_ON, plans: PLANS_ON, hire: HIRE_ON });
   console.log(WRITE ? r.added + ' photo(s) added, ' + r.sizes + ' room(s) sized, ' + r.plans + ' plan(s) put up.' : 'Dry run: nothing written. Add --write to do it.');

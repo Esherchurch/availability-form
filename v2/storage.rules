@@ -445,6 +445,24 @@ service firebase.storage {
              && cmpCheckHere(checkId).siteId == siteId
              && storageMe().get('memberId', '-') in cmpCheckHere(checkId).get('responsibleIds', []);
     }
+    // ROOM FLOOR PLANS (F-237): at roomPlans/<room>/, never the public
+    // rooms/. Who sees one is the room's floorPlanWho: 'public' anyone;
+    // 'members' (the default) anyone signed in and active, and the office;
+    // 'office' the admins and the site's bookings admins. Admins put them up.
+    function roomHere(roomId) { return firestore.get(/databases/(default)/documents/rooms/$(roomId)).data; }
+    function planOffice(roomId) {
+      return planActive() && (adminHere()
+             || (firestore.exists(/databases/(default)/documents/bookingSettings/$(roomHere(roomId).get('siteId', '-')))
+                 && storageMe().get('memberId', '-') in firestore.get(/databases/(default)/documents/bookingSettings/$(roomHere(roomId).get('siteId', '-'))).data.get('bookingsAdmins', [])));
+    }
+    match /roomPlans/{roomId}/{fileName} {
+      allow read: if firestore.exists(/databases/(default)/documents/rooms/$(roomId))
+                  && (roomHere(roomId).get('floorPlanWho', 'members') == 'public'
+                      || (roomHere(roomId).get('floorPlanWho', 'members') == 'members' && planActive())
+                      || planOffice(roomId));
+      allow write: if adminHere() && request.resource.size < 8 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+      allow delete: if adminHere();
+    }
     match /compliance/{siteId}/{checkId}/{fileName} {
       allow read: if cmpWho() || (planActive() && 'Elders' in storageMe().get('teams', [])) || cmpMine(siteId, checkId);
       allow create: if (cmpWho() || cmpMine(siteId, checkId))
