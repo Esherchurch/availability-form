@@ -8292,3 +8292,109 @@ today, but it is a second list of rules).
    clear them.
 2. **FINDINGS numbering:** your members' room page note (22465c9a) is headed **F-237**, which is
    already my ChurchShow note (line ~8029). Please renumber yours. F-238, F-239 and F-241 are mine.
+
+### F-242 — PRESENT: one engine for the session planner and video meetings: PLAN (Martin, 20 Oct) - for review before building
+
+**What Martin asked for:** Teams' "PowerPoint Live", in our own meetings and on the session TV. It is a headline feature ("a selling point on its own"), so it must be polished, not a basic share.
+- Everyone moves to the next slide smoothly and at the same moment.
+- It works on weak church Wi-Fi.
+- The presenter sees the slide, what's next, their notes, a timer, and the people's faces (and any raised hands).
+- There is a 2-minute "how to present" guide.
+
+**Mock-ups** (invented content; screenshots/events/):
+- **The people in the meeting:**
+  - `present-mock-viewer-desk.png`: the slide large, the faces in a strip beside, a progress line, "Following Martin"
+  - `present-mock-viewer-browse.png`: looking back on your own, with "Back to presenter"
+  - `present-mock-viewer-375.png`: on a phone, the slide on top and the faces below
+- **The presenter:**
+  - `present-mock-presenter-desk.png`: everyone sees this; a thumbnail strip; up next; notes; total and per-slide timer; the faces with "1 hand up"; big Next, Back and Stop
+  - `present-mock-presenter-375.png`: the same on a phone, with the faces in a sideways strip
+- **`present-mock-takeover-375.png`:** a second person takes over.
+- **`present-mock-guide.png`:** "How to present", five steps.
+
+**1. One engine: `egbc-present.js`.** It is used by two hosts:
+- **The session planner:** `present.html?s=...` on the TV or laptop, and the leader's phone as the remote (F-223 Part 2). Slides are one kind of step there, beside Bible verses, video, YouTube, pictures, text, timer and the quiz.
+- **A video meeting:** `meeting.html` (the main window's page) mounts it through a small hook (section 6).
+
+The engine draws the stage, the presenter view, the browse-on-your-own mode, take-over, the keys and clicker, and preloading. The hosts only say who may see and who may present.
+
+**2. Where the slides come from.** I recommend **(b+), which needs no server and works for any church:**
+- **Save your slides as a PDF** (PowerPoint, Keynote, Google Slides and LibreOffice all can) and add it.
+  - **It becomes pictures in the browser** (pdf.js), one per slide: 1920 px for the screen, plus a 320 px preview.
+  - **About 150-300 KB a slide.**
+- **Add the .pptx as well, and the speaker notes come with it.** They are read in the browser from the file itself (it is a zip; JSZip), matched to the slides. No PowerPoint notes? You can type notes per slide.
+- **Or a folder of pictures** (PowerPoint's "Export as PNG").
+- **What a church without Microsoft 365 gets:** everything. PDF export is in every presentation app. Nothing here needs Microsoft.
+- **(a) A server converter** (LibreOffice on Cloud Run, .pptx straight to pictures) is for later, only if churches find the PDF step a nuisance.
+  - It costs a little to run, and you would deploy it.
+  - Fonts may differ from PowerPoint's.
+  - Until then, a .pptx added on its own gives the notes, and the page asks for the PDF too.
+- **A OneDrive link** (Martin's answer 6, F-225) stays for the session TV: Microsoft's own player, with animations and video in slides, and the clicker drives it.
+  - **In a meeting it cannot be shared slide by slide:** Microsoft's player runs separately on each person's screen, and nothing tells the others which slide the presenter is on.
+  - **So in meetings the PDF route is the shared one;** a OneDrive link shows as "Open the slides" for everyone to follow on their own.
+
+**3. Kept in step: one tiny shared state.** It is a single document, `presentNow/{key}`:
+- **`key`:** `ps_<sessionId>` for a session, or `mtg_<room>_<event id, or the date>` for a meeting.
+- **What it holds:** `deckId`, `slide` (or `step`), `presenterUid` and name, `startedAt`, `slideAt`, and `blank`.
+
+**How the change reaches everyone:**
+- **The presenter's Next writes one number.** Everyone's screen hears it at once, in a fraction of a second, and crossfades (0.2 s) to a picture it already has.
+- **Weak Wi-Fi:** the whole deck is fetched in the background when it opens, smallest previews first (12 slides is about 3 MB), so a slide change downloads nothing.
+- **If a full picture isn't there yet,** the preview shows and sharpens.
+- **If the Wi-Fi drops,** the screen keeps what it has, and catches up on the right slide when it's back.
+- **No video stream is involved at all** (no screen share).
+
+**Browse on your own:** look back or ahead on your own screen only, then **"Back to presenter"**.
+
+**Take over:** a second person (for a meeting, an invitee; for a session, any of the group's leaders) presses "Take over presenting". The first presenter sees "Karen is presenting now".
+
+**4. The presenter view:**
+- the current slide ("Everyone sees this")
+- next
+- notes
+- the timer: total, and on this slide
+- a thumbnail strip to jump
+- Next and Back (also the arrow keys, the space bar and a clicker)
+- Blank
+- Stop presenting
+- **the faces, with raised hands** (Martin, 20 Oct): on a computer in a panel, on a phone in a sideways strip
+
+**5. In a meeting:**
+- **On a computer:** the slides large, the faces in a strip beside.
+- **On a phone:** the slides on top, the faces below.
+- **No screen share.**
+- **The faces are Daily's.** Two ways:
+  - **Step 1, quick and safe:** keep Daily's ready-made screen (Prebuilt) and narrow it into the strip. It shows its own tiles, raised hands, mute and controls, but in Daily's look, not ours.
+  - **Step 2, the polish in the mock-ups:** our own tiles from Daily's call object, with names, the presenter's green edge and the gold "Hand up" badge. Hands are raised through Daily's own raise-hand state.
+
+  I recommend Step 1 first and Step 2 straight after. Step 2 is what makes it look like the mock-ups, but it changes more of meeting.html.
+
+**6. The hook in meeting.html (the main window's page: please agree or counter):**
+- **A "Present" button.** It is shown to anyone who may present in the room (section 7).
+- **`EGBCPresent.attachMeeting({ room, eventId, el: <a div beside #stage>, call: frame })`.** The engine listens to `presentNow/mtg_...`. While someone is presenting it adds `body.presenting`, and meeting.html's CSS turns the page into the slides plus the strip (Step 1: the Daily iframe becomes the strip). When they stop it removes the class, back to the faces.
+- **In all:** about 10 lines and the CSS in meeting.html, and the rest in my file. For Step 2, the call object, we would agree more: I would draw the tiles, and you would keep the join, admit and leave logic.
+
+**7. Private** (meeting decks may be confidential, e.g. the Eldership):
+- **Decks:** `presentDecks/{deckId}` = { name, `context` (a meeting: room and event; or a session: group), slide count, made by }. The pictures go at `present/{deckId}/...` in Storage.
+- **Who may read them:** only the meeting's invitees (for a session, the group's leaders and team), by the rules and by Storage. That needs one rule function from the main window: **`meetingInvitee(room)`**, the same "is it mine" test meeting.html uses today (e.g. the Eldership room for the Elders). Please add it in your part of the rules, and I will call it.
+- **Held until going live:** today the live database and Storage are readable signed out. So, as F-235, until `churchSettings/launch.rulesLocked` is true, "Add slides" says why and uploads nothing. A OneDrive link works meanwhile: the file stays in Microsoft, under its own sharing settings.
+- **A meeting deck is deleted after the meeting** unless the presenter keeps it (question 3).
+- **Notes are the presenter's only:** they are kept in a separate document, read by whoever is presenting, never by viewers.
+
+**8. "How to present"** (mock): five short steps on one screen, reached from the Present button and the planner.
+
+**What it needs from Martin:** nothing to switch on. Present uses the normal sign-in, not anonymous sign-in (the quiz's phones mode will; I will say when).
+
+**The order I suggest:**
+1. The engine, plus present.html for sessions (TV and the leader's phone), with the PDF route and notes from the .pptx.
+2. The meeting hook (Step 1), once the main window agrees section 6 and adds `meetingInvitee`.
+3. Step 2, our own tiles.
+4. Then the quiz (Part 3).
+
+Each with tests (two browsers following one presenter; Wi-Fi dropped and back; take-over; a non-invitee refused the deck and its pictures; nothing uploaded before switch-over), breaks and 375px, and stopping for review after Present.
+
+**Questions:**
+1. In meetings: Daily's ready-made tiles first (Step 1), then our own (Step 2)?
+2. Who may present in a meeting: any invitee, or the host (with any invitee able to take over when the host allows)?
+3. Meeting decks: deleted when the meeting ends unless kept, or kept for a set time?
+4. A OneDrive link in a meeting: is "everyone opens it themselves" enough, with the PDF the shared route?
