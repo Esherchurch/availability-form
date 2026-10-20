@@ -132,7 +132,32 @@ const put = (p, o) => req(FS_PORT, 'PATCH', DOCS + '/' + p, { fields: fields(o) 
 const del = (p) => req(FS_PORT, 'DELETE', DOCS + '/' + p, undefined, OWNER);
 const dayIso = (n) => { const d = new Date(Date.now() + n * 86400000), p = (x) => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
 
+/* THE CHURCH'S SWITCHES, PUT BACK BEFORE EVERY PAGE (20 Oct 2026). The
+   audit presses every control, and on Church settings that is every
+   switch: the first run with Church settings in it switched every part
+   off, and each page after it was measured with the church using nothing
+   (access reds on Notifications, Notices and the pin board). A copy is
+   taken at the start and laid back before each page, so no page's taps
+   change what the next page is measured with. The emulator only. */
+const SETTINGS_DOCS = ['features', 'notifications', 'launch'];
+let SETTINGS_SNAP = null;
+async function snapSettings() {
+  SETTINGS_SNAP = {};
+  for (const d of SETTINGS_DOCS) {
+    const r = await req(FS_PORT, 'GET', DOCS + '/churchSettings/' + d, undefined, OWNER);
+    SETTINGS_SNAP[d] = r.status === 200 ? (JSON.parse(r.body).fields || {}) : null;
+  }
+}
+async function restoreSettings() {
+  if (!SETTINGS_SNAP) return;
+  for (const d of SETTINGS_DOCS) {
+    if (SETTINGS_SNAP[d]) await req(FS_PORT, 'PATCH', DOCS + '/churchSettings/' + d, { fields: SETTINGS_SNAP[d] }, OWNER);
+    else await del('churchSettings/' + d);
+  }
+}
+
 async function seed() {
+  await snapSettings();
   for (const [key, r] of Object.entries(ROLES_ALL)) {
     r.email = 'audit.' + key.toLowerCase() + '@example.invalid'; r.member = 'ab_audit_' + key.toLowerCase(); r.name = 'Audit ' + r.label + ' Synthetic';
     let up = JSON.parse((await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
@@ -542,6 +567,7 @@ const RESULTS = [];
 function record(r) { RESULTS.push(r); const mark = r.pass ? 'PASS' : 'FAIL'; console.log('  ' + mark + '  ' + r.role + ' ' + r.size + ' ' + r.screen + (r.pass ? '' : '\n          ' + r.why.join('\n          '))); }
 
 async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName }) {
+  if (!LIVE) await restoreSettings();
   const [w, h] = ALL_SIZES[size];
   await B.size(w, h);
   await B.go(url);
@@ -715,6 +741,7 @@ async function runRole(B, role, size, base, shared) {
     const allPages = [...new Set(['hub.html'].concat(menu.all))].filter(u => !ONLY_PAGES || ONLY_PAGES.includes(u.split('?')[0]));
     const mine = new Set(['hub.html'].concat(menu.mine));
     for (const page of allPages) {
+      if (!LIVE) await restoreSettings();
       const should = mine.has(page);
       if (!should && String(size) !== TAP_SIZE) continue;      /* access is checked once */
       if (!should) {
