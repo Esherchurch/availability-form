@@ -14,12 +14,16 @@
        --min-instances 0 --max-instances 2
    then give the hub's functions its address (CONVERTER_URL) and the
    "Cloud Run Invoker" role on it.
+   Fonts a deck uses but does not carry (Aptos, Office's own cloud font):
+   put the font files the church may use in Storage at converter-fonts/
+   (Firebase console, Storage, a folder of that name). A new instance adds
+   them before its first deck.
    =================================================================== */
 import http from 'node:http';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { convertDeck } from './convert.mjs';
+import { convertDeck, loadChurchFonts } from './convert.mjs';
 
 const BUCKET = process.env.BUCKET || 'egbc-worship-planner.firebasestorage.app';
 if (!getApps().length) initializeApp({ storageBucket: BUCKET });
@@ -34,6 +38,7 @@ export function makeServer({ render } = {}) {
       let deckId = '';
       try { deckId = String(JSON.parse(raw || '{}').deckId || ''); } catch (e) { return done(400, { error: 'bad request' }); }
       if (!/^[A-Za-z0-9_-]{6,60}$/.test(deckId)) return done(400, { error: 'which deck?' });
+      if (!render) await loadChurchFonts(getStorage().bucket());
       try { done(200, await convertDeck({ db: getFirestore(), bucket: getStorage().bucket(), deckId, render })); }
       catch (e) { done(422, { error: String(e.message || e) }); }
     });

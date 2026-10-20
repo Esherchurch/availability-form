@@ -8558,3 +8558,73 @@ This is F-242's Part 2 for the session planner. The meeting side waits for the m
   - (a) Martin deploys the converter and tries one real deck, or
   - (b) LibreOffice is installed on this PC so I can run `converter/convert.mjs` on a real deck locally.
 - **The only Windows-specific part** is the `soffice` path. Say which you prefer.
+
+### F-250 — Present: real PowerPoint decks through the real LibreOffice, and what was wrong (the events window, 20 Oct)
+
+LibreOffice 26.8.1.1 is on this PC now. I put real decks through the converter's own path and compared every slide with **PowerPoint's own picture of it**. I exported those pictures from PowerPoint on this PC with `tools/pptx-reference.ps1`, which opens a copy read-only. The score is the share of each slide that clearly differs. No real deck or picture of one is in the repo.
+
+**The decks I could reach**
+- **The 729 MB Presentation1.pptx is not on this PC.** The only file of that name is 0.6 MB, from 2012. The "Presentation1" open in PowerPoint was the Strategy Day deck: 1.2 MB, never saved; I saved a copy without touching the open one.
+- **OneDrive is not running,** so cloud-only files could not be opened. Where is the 729 MB file?
+
+| Deck | Before the fix | After the fix |
+|---|---|---|
+| Worship Team Leaders Strategy Day (26 slides) | median 35.8% different; 23 slides over 8% | median **3.9%**; 8 over 8% (all Aptos, below) |
+| Esher 26 (60 slides, made in Canva, 17 embedded fonts) | 29 slides over 8%; text overlapping | 23 over 8%; **no overlapping text**; the rest are small wrap differences, and PowerPoint itself gets some of these slides wrong |
+| Worship & AV Team Training Day (7) | median 1.4% | unchanged: nothing to fix |
+
+**Cause 1 — the lighthouse (Martin's screenshot).**
+- Slide 1 uses the layout "Title, Photo 1". That layout's picture placeholder (`ph type="pic" idx="13"`) carries a sample picture as its fill, and the slide never uses that placeholder.
+- PowerPoint never draws a layout's placeholders on a slide. LibreOffice drew the sample picture.
+- **Fixed in the converter:** before LibreOffice, picture fills come off every placeholder in the layouts and masters. A slide's own pictures are untouched.
+- "Hide background graphics" was already respected by LibreOffice. The test proves it.
+
+**Cause 2 — overlapping text in Canva decks.**
+- The slides ask for "Canva Sans Bold", "DM Sans Bold" and "Placard Next Wide Bold". The font embedded for each calls itself "Canva Sans" (and so on), weight bold.
+- LibreOffice 26.8 does load embedded fonts, compressed ones too, but under the name the deck's font list gives. It found no "Canva Sans Bold" and used Arial Black, which is wider, so the text overlapped.
+- **Fixed in the converter:** such text gets the font's own name, set bold, and the deck's font list is made to match: the "Bold" file becomes the bold face of "Canva Sans".
+- Proof from the PDF: Arial Black gone; CanvaSans-Bold, DMSans-Bold, PlacardNext and RobotoCondensed-Bold used.
+
+**Cause 3 — fonts the deck does not carry: Aptos.**
+- Office's default font since 2023 is **Aptos**. PowerPoint downloads it from Microsoft and does not embed it, so LibreOffice substitutes. The title wraps differently ("Worship Team / Leaders Strategy Day"), and on slides 15 to 24 the substitute is heavy.
+- **This cannot be fixed by tidying the file:** the converter needs the font itself.
+- **Built:** the container has the free fonts made to Office's measurements (Carlito for Calibri, Liberation, Caladea, Noto). It also loads any font files put in Storage at `converter-fonts/`. Only the server reads there; the Storage rules close it to pages.
+- **Decision for Martin:** may the church put Aptos there? Microsoft offers it as a free download, but whether it may be used on a server is a licence question, so it's his call, not mine.
+
+**Also done**
+- **Video and sound** in a deck are emptied before LibreOffice. The slides are pictures, and a big video no longer weighs on the converter.
+- **The tidy-up never blocks a deck:** anything it cannot do, it leaves, and the original is rendered. What it did is kept on the deck (`prepared`).
+
+**Videos and the 100 MB limit (decision)**
+- Present shows a video slide as its picture, not playing. That's the same as any picture route.
+- Uploads and OneDrive fetches stop at **100 MB** (Storage rule and `presentFromLink`), so a 729 MB deck is refused before conversion. Raising it to 1 GB needs the converter at `--memory 4Gi` (it holds the file while it converts).
+- **Shall I raise it?** The rule goes live at switch-over like the rest.
+
+**The fidelity check (committed):** `screenshots/events/present-fidelity.test.mjs`, 13/13.
+- **The deck:** invented, built by PowerPoint itself (`fixtures/present-fidelity.pptx`): a layout with a sample picture, and slides with the background graphics hidden and shown. Beside it are PowerPoint's pictures of it (`present-fidelity-ppt-s1..3.png`).
+- **Without LibreOffice** it tests the tidy-up itself: the sample picture off, the font renaming and font list on an invented embedded font, video emptied, every other part copied byte for byte.
+- **With LibreOffice** it renders the converter's way and scores each slide against PowerPoint's: 1.3%, 3.7%, 3.8% (limit 6%). It also renders WITHOUT the tidy-up, which must fail: slide 1 is 34.4%.
+- On a computer without LibreOffice that part says SKIPPED.
+- **Breaks, 5 of 5 caught:**
+  - sample pictures left on
+  - the font list left
+  - renamed text not set bold
+  - every run made bold
+  - video kept
+
+**Can LibreOffice match PowerPoint?**
+- For decks whose fonts are embedded, or are common, yes: within a few per cent, as above.
+- For decks in **Aptos or other Office cloud fonts**, only if the converter is given the font. Without it the words are right but wrap and weigh differently.
+
+**The Microsoft 365 route (planned, not built) — for churches with Microsoft 365, drawn by Microsoft:**
+- **How:** Microsoft Graph converts a file to PDF with PowerPoint's own renderer (`GET /drives/{drive}/items/{item}/content?format=pdf`). Fonts, Aptos included, and layouts come out as PowerPoint draws them. The converter then makes pictures with pdftoppm exactly as now, and the notes are still read from the file.
+- **Needs:**
+  - a Microsoft 365 organisation (the nonprofit plans are free or cheap)
+  - an app registration with `Sites.Selected` limited to one folder ("Present conversions"), consented by the church's Microsoft admin
+  - its secret kept in Secret Manager
+- **The flow:** upload the deck to that folder (an upload session for big files), ask for the PDF, delete the copy.
+- **A OneDrive link** from the same organisation converts in place, with no upload.
+- **Personal OneDrive** (a personal Microsoft account) cannot be used this way: that needs each presenter to sign in to Microsoft.
+- **Choice and fallback:** a church setting picks "Microsoft" or "LibreOffice". If Microsoft fails or isn't set up, LibreOffice does it.
+- **Cost:** none beyond the church's Microsoft licence. To check: Graph's size limit for conversion.
+- **Question for Martin:** does EGBC have Microsoft 365 for the church (not personal)? If so, I can build this next to LibreOffice.
