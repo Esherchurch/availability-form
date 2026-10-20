@@ -309,8 +309,10 @@ const offMachine = u => {
   })()`));
   ok('the Bookings tab draws something for a Bookings group member',
     drew && drew !== '(nothing)' && !/THREW/.test(drew), drew);
-  ok('  and the tab bar shows exactly the one tab',
-    (await onScreen()) === 'bookings', await onScreen());
+  /* The one tab they run. In front of it, since 20 Oct 2026, the Church
+     office mode's own Home - the mode's, not a Running things tab. */
+  ok('  and the tab bar shows exactly the one tab (after the mode\'s Home)',
+    String(await onScreen()).replace(/^home,/, '') === 'bookings', await onScreen());
 
   /* VIEW-AS. A master admin looking through somebody else's eyes must see
      what they see, or the feature cannot be used to check any of this. */

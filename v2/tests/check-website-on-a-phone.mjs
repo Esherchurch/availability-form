@@ -118,6 +118,11 @@ const offMachine = u => {
     uid, email: ME.email, name: ME.name, memberId: ME.member, status: 'active',
     linkedBy: 'admin', teams, adminFor: teams, masterAdmin: true,
     attender: true, churchMember: true });
+  /* Building compliance stored ON, as it is live: building.html reads the
+     stored field itself until F-239, and could not be read when an earlier
+     check had left it unstored (20 Oct 2026). */
+  await req(8181, 'PATCH', DOCS + '/churchSettings/features?updateMask.fieldPaths=buildingCompliance',
+    { fields: { buildingCompliance: { booleanValue: true } } }, { Authorization: 'Bearer owner' });
 
   const server = http.createServer((q, s) => {
     const url = decodeURIComponent(q.url.split('?')[0]);

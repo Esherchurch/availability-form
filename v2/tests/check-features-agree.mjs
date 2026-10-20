@@ -103,5 +103,16 @@ const done = Object.keys(WAITING).filter((f) => !ownWay.includes(f));
 ok(!done.length, 'every file on the WAITING list still needs it (take changed-over ones off)', done.join(', '));
 for (const f of WRITERS) ok(!readsItself(read(f)), f + ' only writes the switches; it reads them through EGBCAuth');
 
+console.log('\n5. Every switch does something');
+/* A switch nothing reads is a switch that hides nothing (the reviewing
+   window, 20 Oct 2026: "switching one off hides it everywhere"). Each name
+   must be used somewhere beyond the two lists and the rules' list of
+   names: a Menu entry, the app, Home, a page's guard, or a function. */
+const LISTS = new Set(['egbc-auth.js', 'functions/features.js']);
+const corpus = files.filter((f) => !LISTS.has(f)).map((f) => read(f)).join('\n')
+  + '\n' + read('egbc-auth.js').replace(listSrc, '');
+const idle = PAGE.map((f) => f.name).filter((n) => !new RegExp("['\"]" + n + "['\"]").test(corpus));
+ok(!idle.length, 'every one of the ' + PAGE.length + ' switches is read somewhere (Menu, app, Home, a guard or a function)', 'used nowhere: ' + idle.join(', '));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

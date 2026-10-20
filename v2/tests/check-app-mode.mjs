@@ -192,6 +192,12 @@ const offMachine = u => {
     uid, email: ME.email, name: ME.name, memberId: ME.member, status: 'active',
     linkedBy: 'admin', teams, adminFor: teams, masterAdmin: true,
     attender: true, churchMember: true });
+  /* BUILDING COMPLIANCE STORED ON, as it is live (the reviewing window
+     stored every default, 20 Oct 2026): building.html and compliance.html
+     read the stored field themselves until F-239, and refused when an
+     earlier check had left it unstored. */
+  await req(8181, 'PATCH', DOCS + '/churchSettings/features?updateMask.fieldPaths=buildingCompliance',
+    { fields: { buildingCompliance: { booleanValue: true } } }, { Authorization: 'Bearer owner' });
 
   const server = http.createServer((q, s) => {
     const url = decodeURIComponent(q.url.split('?')[0]);
@@ -612,7 +618,9 @@ const offMachine = u => {
   }
   ok('  the app drew', drawn.indexOf(uid + ':') === 0, 'data-drawn: ' + (drawn || '(none)'));
   await ev('EGBCApp.go("worship","team");1'); await sleep(900);
-  const WORSHIP_TABS = Number(await ev('EGBCApp.tabsFor("worship").length')) || 0;
+  /* The tabs the app SHOWS for the space: since 20 Oct 2026 a mode's Home
+     comes first (Sunday worship's, for Worship & AV). */
+  const WORSHIP_TABS = Number(await ev('EGBCApp.shownTabs("worship").length')) || 0;
   /* The row is tapped, not the function called: what is being checked is
      that a real tap carries app mode with it. */
   /* The tap first, THEN the address. location.href still says app.html

@@ -334,7 +334,7 @@
        switches existed, so nothing anybody uses today disappears. */
     { name: 'care', label: 'Care & support', on: true },
     { name: 'prayer', label: 'Prayer requests', on: true },
-    { name: 'notifications', label: 'Phone notifications', on: true },
+    { name: 'notifications', label: 'Notifications (phones and computers)', on: true },
     { name: 'watch', label: 'Watch & Listen', on: true },
     { name: 'sermons', label: 'Sermons and the podcast', on: true },
     { name: 'giftAid', label: 'Gift Aid', on: true },
@@ -347,6 +347,22 @@
     { name: 'newHere', label: '\u201cI\u2019m new here\u201d', on: true },
     { name: 'usualPeople', label: 'Usual people on the rota', on: true },
     { name: 'screenPaging', label: 'Paging parents on the screen', on: true },
+    /* EVERY PART HAS A SWITCH (the reviewing window, 20 Oct 2026), so a
+       church can switch off what it does not use - it goes from the Menu,
+       the app and Home; nothing is deleted. On at EGBC, as everything. */
+    { name: 'maintenance', label: 'Maintenance', on: true },
+    { name: 'events', label: 'Events: sign-ups, check-in, registers and headcounts', on: true },
+    { name: 'roomBookings', label: 'Room bookings and hire', on: true },
+    { name: 'kids', label: 'Kids: the children\u2019s register, Sunday check-in and labels', on: true },
+    { name: 'smallGroups', label: 'Small groups', on: true },
+    { name: 'forms', label: 'Forms', on: true },
+    { name: 'payments', label: 'Payments and Give', on: true },
+    { name: 'safeguarding', label: 'Safeguarding: DBS and training', on: true },
+    { name: 'pinBoards', label: 'Pin boards', on: true },
+    { name: 'meetings', label: 'Meetings', on: true },
+    { name: 'notices', label: 'Notices', on: true },
+    { name: 'churchShow', label: 'ChurchShow', on: true },
+    { name: 'availability', label: 'Availability form', on: true },
     /* THE ADD-ONS (addOn: true). Martin, 19 Oct 2026: at EGBC every switch
        starts ON, add-ons included; a new church's add-ons can start off
        (that is what addOn marks, for when there is more than one church).

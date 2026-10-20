@@ -43,12 +43,12 @@
      one-time offer on Home, and Kids Church Today's "Call on their phone". -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610192330"></script>
+<script src="egbc-auth.js?v=202610201600"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
-<script src="egbc-guard.js?v=202610160810" data-allow-pending="parent"></script>
+<script src="egbc-guard.js?v=202610201600" data-allow-pending="parent"></script>
 <script src="egbc-ui.js?v=202610150900"></script>
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
@@ -199,14 +199,14 @@
   /* minmax(0,1fr): the grid's column would otherwise grow to the title's
      whole width, and at 360px the bar was 12px wider than the phone. */
   .mode-top{background:var(--md);border-bottom-color:transparent;grid-template-columns:minmax(0,1fr)}
-  @media(max-width:400px){.mode-top .top-row{gap:8px}.switch{padding:0 9px;gap:4px}}
+  @media(max-width:560px){.mode-top .top-row{gap:8px}.switch{padding:0 9px;gap:4px}}
   /* Two lines rather than "Sunday wo…" on a narrow phone. */
-  .mode-top .top-title{color:#fff;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
+  .mode-top .top-title{color:#fff;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:normal;word-break:normal}
   .mode-ic{display:grid;place-items:center;flex:none;color:#fff}
-  /* On a phone the mode's name needs the room: "Care", not "Care &
-     support", and no icon beside the name (at 412px the name was down to
-     "Sunda y..."). */
-  @media(max-width:560px){.mode-ic{display:none}.mode-top .worry .wl{display:none}.mode-top .worry .ws{display:inline}}
+  /* On a phone the mode's name needs the room: no icon beside it, and it
+     wraps between words (at 412px it had broken to "Sunda y..."). "Care &
+     support" stays in words above 400px, as everywhere (check-care). */
+  @media(max-width:560px){.mode-ic{display:none}}
   .mode-top .icon-btn,.mode-top .worry{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45);color:#fff}
   .switch{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:10px;
           border:1px solid var(--line);background:var(--surface);color:var(--brand);font-weight:600;font-size:13px;
@@ -414,8 +414,8 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610111300"></script>
-<script src="egbc-menu.js?v=202610201200"></script>
-<script src="egbc-app.js?v=202610201500"></script>
+<script src="egbc-menu.js?v=202610201600"></script>
+<script src="egbc-app.js?v=202610201600"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
@@ -848,7 +848,7 @@ function homeWatch(act) {
     HOME.watch.state === 'live' ? '<span class="pill">Live</span>' : null, act)));
 }
 function homeMeet() {
-  if (!HOME.meetToday.length) return '';
+  if (!HOME.meetToday.length || !A.uses('meetings')) return '';
   return sec(HOME.meetToday.length === 1 ? 'Video meeting today' : 'Video meetings today', card(HOME.meetToday.map(function (m) {
     return row('video', m.title,
       (m.startTime ? m.startTime + (m.endTime ? '\u2013' + m.endTime : '') + ' \u00b7 ' : '') + m.roomLabel,
@@ -859,7 +859,7 @@ function homeMeet() {
    "you tap on it and nothing happens"). The card was only ever a preview;
    the full notices live in the sheet the bell opens. */
 function homeNotices() {
-  if (!HOME.news.length) return '';
+  if (!HOME.news.length || !A.uses('notices')) return '';
   return sec('Notices', '<div class="card">' + HOME.news.map(function (n) {
     return '<div class="notice" data-act="sheet:notices" role="button" tabindex="0" style="cursor:pointer"><b>' + A.esc(n.title) + '</b>'
       + (n.body ? '<p>' + A.esc(n.body.slice(0, 140)) + '</p>' : '') + '</div>';
@@ -970,7 +970,7 @@ A.screen('me', 'home', function (me) {
   if (famRows.length) out += sec('Your family\u2019s groups', card(famRows.join('')));
 
   /* Your events */
-  if (HOME.events.length) {
+  if (HOME.events.length && A.uses('events')) {
     out += sec('Your events', card(HOME.events.slice(0, 3).map(function (e) {
       return row('calendar-heart', e.title || 'An event',
         [e.when, e.where].filter(Boolean).join(' · '),
@@ -1422,7 +1422,7 @@ document.addEventListener('click', function (e) {
 
 A.screen('me', 'me', function (me) {
   var notifyRow = notifyOn()
-    ? row('bell-ring', 'Notifications', 'On this phone, and which ones you get', null, 'open:notifications.html')
+    ? row('bell-ring', 'Notifications', 'On this device, and which ones you get', null, 'open:notifications.html')
     : '';
   /* A parent let in without an address book record (N-5.5): their
      notifications, and the way out. Nothing else on Me is theirs. */
@@ -2107,7 +2107,7 @@ A.modeHome('sunday', function (me) {
   var ready = [];
   if (has('worship')) ready.push(row('headphones', 'Play-through for Sunday\u2019s songs', 'Listen before you come', null, 'open:EGBC-PlayThrough.html'));
   ['worship', 'youth', 'core'].forEach(function (k) {
-    if (has(k) && A.has(k, 'team')) ready.push(row('sticky-note', A.SPACES[k].label + ' pin board', 'The team\u2019s notes', null, 'go:' + k + ':team'));
+    if (has(k)) ready.push(row('sticky-note', A.SPACES[k].label + ' pin board', 'The team\u2019s notes', null, 'sheet:board-' + k));
   });
   if (ready.length) out += sec('Get ready', card(ready.join('')));
   return out + everyday(me);
@@ -2132,7 +2132,7 @@ A.modeHome('kids', function (me) {
     rotaSpace ? ['The rota', 'go:' + rotaSpace + ':rota'] : null);
   var boards = ['kids', 'lazers', 'renu'].filter(function (k) { return has(k) && A.has(k, 'team'); });
   if (boards.length) out += sec('Get ready', card(boards.map(function (k) {
-    return row('sticky-note', A.SPACES[k].label + ' pin board', 'The team\u2019s notes', null, 'go:' + k + ':team');
+    return row('sticky-note', A.SPACES[k].label + ' pin board', 'The team\u2019s notes', null, 'sheet:board-' + k);
   }).join('')));
   return out + everyday(me);
 });
@@ -2199,7 +2199,7 @@ function dueWords(day) {
   if (!day) return '';
   var t = new Date(); t.setHours(0, 0, 0, 0);
   var d = new Date(day + 'T00:00:00');
-  var n = Math.round((d - t) / 86400000);
+  var n = Math.round((d - t) / (24 * 3600 * 1000));
   if (n < 0) return 'Overdue';
   if (n === 0) return 'Today';
   if (n === 1) return 'Tomorrow';

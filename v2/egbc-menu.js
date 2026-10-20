@@ -58,7 +58,7 @@
       description: 'Sunday services, videos and sermons' },
     /* No team on it: giving is for everybody signed in (the bank details
        are not readable until you have signed in). */
-    { title: 'Give', url: 'give.html', icon: 'hand-coins',
+    { title: 'Give', url: 'give.html', icon: 'hand-coins', feature: 'payments',
       description: 'The church’s bank details, and Gift Aid' },
     /* GIFT AID (the events window's giftaid.html, F-169): your own
        declaration. Feature 'giftAid'. */
@@ -77,7 +77,7 @@
       description: 'Prayer requests and praise reports' },
     /* Phone notifications (FINDINGS-notify N-5): your own switches. */
     { title: 'Notifications', url: 'notifications.html', icon: 'bell-ring', feature: 'notifications',
-      description: 'On this phone, and which ones you get' },
+      description: 'On this device, and which ones you get' },
 
     { title: 'Sundays', section: true, icon: 'calendar-days', children: [
       /* anyTeam: the rota is for people on a team - the rules refuse it
@@ -100,7 +100,7 @@
       { title: 'Rota reports', url: 'rota-reports.html', icon: 'clipboard-list', feature: 'rotaReports',
         adminOf: ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'],
         description: 'Clashes, gaps and who is serving how often' },
-      { title: 'Availability form', url: 'index.html', icon: 'check-square', core: true,
+      { title: 'Availability form', url: 'index.html', icon: 'check-square', feature: 'availability', core: true,
         description: 'What the team fills in each term' }
     ] },
 
@@ -114,7 +114,7 @@
       { title: 'Team emails', url: 'team-mail.html', icon: 'at-sign', master: true, feature: 'teamMail',
         description: 'Which address each team’s emails come from' },
       /* The hub's notices: post one (the editor opens), or manage them. */
-      { title: 'Notices', url: 'hub.html?notices=1', icon: 'megaphone', messages: true,
+      { title: 'Notices', url: 'hub.html?notices=1', icon: 'megaphone', feature: 'notices', messages: true,
         description: 'Post one, or manage them' },
       /* The comms window's (FINDINGS-comms, 19 Oct 2026): the Church office
          and master admins; each add-on off until the church switches it on
@@ -125,37 +125,37 @@
         description: 'Event cards in every size, from What’s On' },
       { title: 'From Canva', url: 'canva.html', icon: 'palette', team: 'Church office', feature: 'canva',
         description: 'Bring finished Canva designs into the picture library' },
-      { title: 'Meetings', url: 'meeting.html', icon: 'video',
+      { title: 'Meetings', url: 'meeting.html', icon: 'video', feature: 'meetings',
         description: 'Set one up, join a call, every meeting room' }
     ] },
 
     { title: 'Events and rooms', section: true, fold: true, icon: 'calendar-cog', children: [
       /* eventTeam (F-212): also for anybody on an event's team. */
-      { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', core: true, admin: true, eventTeam: true,
+      { title: 'Events', url: 'events-admin.html', icon: 'calendar-check', feature: 'events', core: true, admin: true, eventTeam: true,
         description: 'Make an event, see who is coming' },
       /* The "bookings" part of Running things (F-226). */
       { title: 'Places', url: 'places-admin.html', icon: 'map-pin', runs: 'bookings',
         description: 'Sites, rooms and what is in them' },
       /* Not `admin`: a site's bookings admin often administers no team. */
-      { title: 'Room bookings', url: 'bookings-admin.html', icon: 'calendar-check-2', bookings: true,
+      { title: 'Room bookings', url: 'bookings-admin.html', icon: 'calendar-check-2', feature: 'roomBookings', bookings: true,
         description: 'Requests to approve, and what is booked' },
-      { title: 'Check-in', url: 'checkin.html', icon: 'user-check', core: true, admin: true,
+      { title: 'Check-in', url: 'checkin.html', icon: 'user-check', feature: 'events', core: true, admin: true,
         description: 'Check people in at an event, with its tickets' },
-      { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', core: true, admin: true,
+      { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', feature: 'events', core: true, admin: true,
         description: 'Who came to an event or a series, to download' },
       /* The Kids Church leads and master admins (F-226). */
-      { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', headcount: true,
+      { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', feature: 'events', headcount: true,
         description: 'How many came on a Sunday, week by week' },
       /* F-176. */
       { title: 'Picture library', url: 'picture-library.html', icon: 'images', runs: 'bookings', feature: 'pictureLibrary',
         description: 'Pictures the church uses again and again' },
       /* For everybody: booking, hiring, and reporting something broken
          (the events window's maintenance.html, F-123). */
-      { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock',
+      { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock', feature: 'roomBookings',
         description: 'See what is free and book it' },
-      { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open',
+      { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open', feature: 'roomBookings',
         description: 'What we have, and asking about it' },
-      { title: 'Maintenance', url: 'maintenance.html', icon: 'wrench',
+      { title: 'Maintenance', url: 'maintenance.html', icon: 'wrench', feature: 'maintenance',
         description: 'Report something broken, and what is being fixed' },
       /* BUILDING COMPLIANCE (the events window's F-231/F-233): an add-on,
          off until the church switches it on (buildingCompliance). The
@@ -181,25 +181,25 @@
 
     { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [
       { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', core: true, admin: true,
-        description: 'The church\'s name and logo, giving details, and phone notifications on or off' },
+        description: 'The church\'s name and logo, giving details, and notifications on or off' },
       /* Master admins and the Church office (Martin, 15 Oct 2026). */
       { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',
         description: 'Add, rename, recolour, order and archive teams' },
       /* The money team, by its name (F-200), and master admins. */
-      { title: 'Payments', url: 'payments.html', icon: 'credit-card', money: true,
+      { title: 'Payments', url: 'payments.html', icon: 'credit-card', feature: 'payments', money: true,
         description: 'Card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
       /* The safeguarding lead and deputy and anybody who administers
          something (Martin, 14 Oct 2026). */
-      { title: 'Safeguarding', url: 'safeguarding.html', icon: 'shield-check', sg: true,
+      { title: 'Safeguarding', url: 'safeguarding.html', icon: 'shield-check', feature: 'safeguarding', sg: true,
         description: 'Leaders’ DBS checks and training, and exceptions' },
-      { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', sg: true,
+      { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', feature: 'safeguarding', sg: true,
         description: 'Who the lead is, how long checks last, and the ratios' },
-      { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', sg: true,
+      { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', feature: 'safeguarding', sg: true,
         description: 'Records whose keeping time is up, to check and delete' },
       /* Run by whoever administers a team. */
-      { title: 'Small groups', url: 'groups-admin.html', icon: 'users-round', admin: true,
+      { title: 'Small groups', url: 'groups-admin.html', icon: 'users-round', feature: 'smallGroups', admin: true,
         description: 'Groups, their leaders, members and meetings' },
-      { title: 'Forms', url: 'forms-admin.html', icon: 'list-checks', admin: true,
+      { title: 'Forms', url: 'forms-admin.html', icon: 'list-checks', feature: 'forms', admin: true,
         description: 'Consent and sign-up forms, and their answers' },
       /* Master admins only (Martin, 15 Oct 2026). */
       { title: 'Emails sent', url: 'comms.html', icon: 'mail-check', core: true, admin: true, master: true,
@@ -243,7 +243,7 @@
           { title: 'Monitor Setup', url: 'MonitorStageMap.html', icon: 'speaker',
             description: 'Who hears what on stage' },
           /* Admins of AV or Worship only (FINDINGS-churchshow.md R1-R3). */
-          { title: 'Connect ChurchShow', url: 'churchshow.html', icon: 'monitor-play',
+          { title: 'Connect ChurchShow', url: 'churchshow.html', icon: 'monitor-play', feature: 'churchShow',
             admin: true, adminOf: ['AV Team', 'Worship Team'],
             description: 'Sign the projection computers in to the hub' }
         ] },
@@ -258,9 +258,9 @@
       { title: 'Kids Church', icon: 'baby', team: 'Kids Church',
         description: "The children's team, and the children in their care",
         children: [
-          { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', team: 'Kids Church',
+          { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', feature: 'kids', team: 'Kids Church',
             description: 'The children, their groups, and who may collect them' },
-          { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', team: 'Kids Church',
+          { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', feature: 'kids', team: 'Kids Church',
             description: 'The desk on a Sunday: check children in and out, labels and the fire roll-call' }
         ] },
       { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', core: true,
@@ -273,7 +273,7 @@
 
     { title: 'Resources', section: true, icon: 'folder-open', children: [
       /* anyTeam: for people who serve on a team (Martin, 15 Oct 2026). */
-      { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note', anyTeam: true,
+      { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note', feature: 'pinBoards', anyTeam: true,
         description: 'Anything anybody wants to raise' },
       { title: 'Apps and downloads', url: 'hubresources.html', icon: 'smartphone',
         description: 'Put the apps on your phone, and the files you may need' },
@@ -604,7 +604,9 @@
     const quick = who.mayMessage && !opts.noQuick
       ? '<div class="quick">' +
           '<a href="EmailBuilder2.html">' + icon('mail', 16) + '<span>Send an email</span></a>' +
-          '<a href="hub.html?notice=new">' + icon('megaphone', 16) + '<span>Post a notice</span></a>' +
+          /* Only while the church uses notices (its switch). */
+          ((window.EGBCAuth && EGBCAuth.uses && !EGBCAuth.uses('notices')) ? ''
+            : '<a href="hub.html?notice=new">' + icon('megaphone', 16) + '<span>Post a notice</span></a>') +
         '</div>'
       : '';
 
@@ -702,7 +704,7 @@
     const me = youWho(p), items = [];
     youExtra().forEach(function (x) { items.push({ key: x.key, label: x.label, sub: x.sub || '', icon: x.icon || 'circle', act: x.key }); });
     if (!window.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses('notifications')) {
-      items.push({ key: 'notifications', label: 'Notifications', sub: 'On this phone, and which ones you get', icon: 'bell-ring', href: 'notifications.html' });
+      items.push({ key: 'notifications', label: 'Notifications', sub: 'On this device, and which ones you get', icon: 'bell-ring', href: 'notifications.html' });
     }
     items.push({ key: 'details', label: 'My details', sub: 'What the church has on file', icon: 'id-card', act: 'details' });
     /* MY MESSAGES (the events window's my-messages.html, R6/F-206): what the

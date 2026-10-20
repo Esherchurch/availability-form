@@ -1629,7 +1629,7 @@ async function renderHomeJobs() {
   const q = [];
   if (who.mayMessage) {
     q.push(`<a href="EmailBuilder2.html"><span class="qi">${I('mail')}</span>Send an email<span class="qs">${everyone ? 'anyone' : 'your team'}</span></a>`);
-    q.push(`<button type="button" onclick="openNewsEditor()"><span class="qi">${I('megaphone')}</span>Post a notice<span class="qs">${everyone ? 'everyone' : 'your team'}</span></button>`);
+    if (hubUses('notices')) q.push(`<button type="button" onclick="openNewsEditor()"><span class="qi">${I('megaphone')}</span>Post a notice<span class="qs">${everyone ? 'everyone' : 'your team'}</span></button>`);
   }
   if (menuHas('events-admin.html') && (who.isAdmin || who.isMaster))
     q.push(`<a class="wide-only" href="events-admin.html"><span class="qi">${I('calendar-plus')}</span>New event</a>`);
@@ -2107,6 +2107,45 @@ function openNewsEditor(id) {
 /* The hub does not load egbc-church.js, so a missing helper counts as on,
    which is what every feature is until the per-church switch exists. */
 function notificationsOn() { return !window.EGBCAuth || !EGBCAuth.uses || EGBCAuth.uses('notifications'); }
+
+/* EVERY PART HAS A SWITCH (the reviewing window, 20 Oct 2026). A part the
+   church has switched off goes from Home as from the Menu and the app:
+   its card, and any link to one of its pages - which switch a page
+   belongs to is the Menu's own answer. Hidden, never deleted. Run on
+   every redraw, because the cards draw as their data arrives. */
+const HUB_CARD_FEATURE = { noticesCard: 'notices', meetingsCard: 'meetings', pinBoardCard: 'pinBoards', myEventsCard: 'events' };
+let HUB_PAGE_FEATURE = null;
+function hubUses(f) { return !window.EGBCAuth || !EGBCAuth.uses || EGBCAuth.uses(f); }
+function applySwitches() {
+  Object.keys(HUB_CARD_FEATURE).forEach(function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const off = !hubUses(HUB_CARD_FEATURE[id]);
+    if (off && el.getAttribute('data-switched-off') !== '1') { el.setAttribute('data-switched-off', '1'); el.style.display = 'none'; }
+    else if (!off && el.getAttribute('data-switched-off') === '1') { el.removeAttribute('data-switched-off'); el.style.display = ''; }
+  });
+  if (!HUB_PAGE_FEATURE && window.EGBCMenu && EGBCMenu.allPages) {
+    HUB_PAGE_FEATURE = {};
+    EGBCMenu.allPages().forEach(function (n) { if (n.url && n.feature) HUB_PAGE_FEATURE[String(n.url)] = n.feature; });
+    HUB_PAGE_FEATURE['hub.html?notice=new'] = 'notices';
+  }
+  if (!HUB_PAGE_FEATURE) return;
+  document.querySelectorAll('main a[href], #sidebar a[href], #egbc-tabbar a[href]').forEach(function (a) {
+    const href = String(a.getAttribute('href') || '');
+    const f = HUB_PAGE_FEATURE[href] || HUB_PAGE_FEATURE[href.split('?')[0].split('#')[0]];
+    if (!f) return;
+    const off = !hubUses(f);
+    if (off && !a.hasAttribute('data-switched-off')) { a.setAttribute('data-switched-off', '1'); a.style.display = 'none'; }
+    else if (!off && a.hasAttribute('data-switched-off')) { a.removeAttribute('data-switched-off'); a.style.display = ''; }
+  });
+}
+(function () {
+  let t = null;
+  const go = function () { clearTimeout(t); t = setTimeout(applySwitches, 60); };
+  document.addEventListener('egbc-ready', go);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  try { new MutationObserver(go).observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
+})();
 function mayMarkUrgent() { return EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'); }
 function closeNewsEditor() { document.getElementById('newsModal').classList.remove('on'); }
 

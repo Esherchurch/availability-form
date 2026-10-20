@@ -406,6 +406,9 @@ export function bookingChange(before, after) {
 export async function onBookingChange(deps, key, before, after, eventId) {
   const status = bookingChange(before, after);
   if (!status || !after.memberUid) return null;
+  /* Every part has a switch (20 Oct 2026); off, nothing is sent and no
+     once-only marker is written, so switching it on later loses nothing. */
+  if (await featureOff(deps.db, 'roomBookings')) return null;
   if (!(await once(deps.db, 'booking_' + key + '_' + (eventId || status), {}, deps.dryRun))) return null;
   const room = after.roomId ? await deps.db.collection('rooms').doc(after.roomId).get() : null;
   const when = [after.day ? dayWords(after.day) : '', String(after.startLocal || '').slice(11, 16)].filter(Boolean).join(' ');
@@ -421,6 +424,7 @@ export async function onBookingChange(deps, key, before, after, eventId) {
    NO PHOTO, and no link to its file (Martin, A-M1). */
 export async function onMaintJob(deps, jobId, job) {
   const { db } = deps;
+  if (await featureOff(db, 'maintenance')) return null;
   if (!(await once(db, 'maintJob_' + jobId, {}, deps.dryRun))) return null;
   const book = await db.collection('addressBook').where('markers', 'array-contains', 'Maintenance').get();
   const members = book.docs.filter((d) => d.data().archived !== true)
@@ -628,6 +632,7 @@ export async function refreshCareStatus(db) {
 export async function onNotice(deps, id, before, after) {
   const { db } = deps;
   if (!after || after.urgent !== true || (before && before.urgent === true)) return null;
+  if (await featureOff(db, 'notices')) return null;
   if (!(await once(db, 'urgent_' + id, {}, deps.dryRun))) return null;
   const teams = Array.isArray(after.teams) ? after.teams.filter(Boolean) : [];
   const users = await db.collection('users').where('status', '==', 'active').get();
@@ -648,6 +653,7 @@ export async function onNotice(deps, id, before, after) {
    lead gets one email listing theirs. */
 export async function runChecksReminders(deps, runAt = new Date()) {
   const { db } = deps;
+  if (await featureOff(db, 'safeguarding')) return { skipped: 'switched off' };
   const today = londonDate(runAt);
   const [checksSnap, setSnap] = await Promise.all([
     db.collection('leaderChecks').get(),

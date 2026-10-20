@@ -98,6 +98,17 @@ if (listOnly) {
   process.exit(0);
 }
 
+/* THE EMULATOR'S SWITCHES AS LIVE HAS THEM: every default stored (the
+   reviewing window stored them live, 20 Oct 2026). A check that leaves one
+   unstored would otherwise refuse the events window's pages, which read the
+   stored field themselves until F-239. The same tool Martin ran, on the
+   emulator; it never changes a stored switch. */
+try {
+  const { execFileSync } = await import('node:child_process');
+  execFileSync(process.execPath, ['tools/store-feature-defaults.mjs', '--write'],
+    { env: Object.assign({}, process.env, { FIRESTORE_EMULATOR_HOST: 'localhost:8181', GCLOUD_PROJECT: 'egbc-worship-planner' }), stdio: 'ignore', timeout: 60000 });
+} catch (e) { console.log('(the switches could not be stored first: ' + e.message.split('\n')[0] + ')'); }
+
 console.log('running ' + toRun.length + ' checks, one at a time\n');
 const rows = [];
 const began = Date.now();

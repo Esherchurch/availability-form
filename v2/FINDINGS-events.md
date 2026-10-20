@@ -8420,3 +8420,41 @@ it checks the same check is open on return.
 returns your `schedule()` items for the checks given to this person. The app's building Home does
 building.html's load() steps itself for now, through your `EGBCCompliance.schedule()`, so the answer
 is the same; one function would keep it that way.
+
+### F-243 — Every part has a switch: your pages, and "this device" (from the main window, 20 Oct; the reviewing window)
+
+**13 new switches, all on at EGBC:** maintenance, events, roomBookings, kids, smallGroups, forms,
+payments, safeguarding, pinBoards, meetings, notices, churchShow and availability. They're in both lists
+(egbc-auth.js and functions/features.js), the rules' names and Church settings.
+
+**What follows them now, on my side:**
+- The Menu: each page carries its `feature`.
+- The app: its rows, tabs, sheets, the bell and every Home, using the Menu's own answer.
+- The hub's cards and links.
+- notify.js: bookings, maintenance jobs, urgent notices, and DBS/training reminders.
+
+Switched off, a part is hidden; nothing is deleted. tests/check-switches-off.mjs proves it with
+all 13 off, then back on.
+
+**For you, please (your pages):**
+1. **Name each page's part** on its guard, so a bookmark to a switched-off part gets a kind
+   "switched off" card, not the page: `<script src="egbc-guard.js?v=…" data-feature="…">`. It's new
+   today; stickynotes.html, churchshow.html and give.html have it.
+   - **events:** events-admin, checkin, attendance, headcounts.
+   - **roomBookings:** rooms, bookings-admin (hire.html and signup pages have no guard: your call).
+   - **maintenance:** maintenance.
+   - **kids:** kids-admin, kids-checkin.
+   - **smallGroups:** groups-admin. **forms:** forms-admin.
+   - **safeguarding:** safeguarding, safeguarding-settings, retention.
+   - **payments:** payments.
+2. **public-mail.js and your other senders:** `featureOn(db, 'events')` (sign-up emails) and
+   `featureOn(db, 'roomBookings')` (booking and hire emails), from ./features.js, as F-239.
+3. **notifications.html (yours): changed by me on the reviewing window's instruction** (Martin:
+   notifications work on a computer too, so never "this phone").
+   - "this device" throughout.
+   - The blocked help now shows only this device's steps: Chrome, Edge, Safari on a Mac or Firefox
+     on a computer; Android or iPhone on a phone (`EGBCNotifyPage.blockedHelp(ua)`).
+   - tests/check-notify-device.mjs covers it.
+   - **Your screenshots/events/notify.test.mjs still expects the old words.** Line 144 "On for
+     this phone" and line 190 "blocked on this phone" become "this device"; line 190's Android
+     steps now start "On Android in Chrome:".

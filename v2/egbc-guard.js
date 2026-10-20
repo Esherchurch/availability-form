@@ -51,6 +51,11 @@
      admin (Martin, 15 Oct 2026: a member on no team was shown the team
      videos, resources and pin boards). Honours "View the site as". */
   var anyTeam = script ? script.hasAttribute('data-any-team') : false;
+  /* data-feature — the part of the church this page is (EGBCAuth.uses; the
+     reviewing window, 20 Oct 2026: every part has a switch). Switched off,
+     the page says so, kindly, instead of opening from an old bookmark.
+     Nothing is deleted; switching it back on brings it all back. */
+  var feature = script ? script.getAttribute('data-feature') : null;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');
@@ -157,6 +162,11 @@
 
     EGBCAuth.require(opts).then(function (profile) {
       settled = true;
+      if (feature && EGBCAuth.uses && !EGBCAuth.uses(feature)) {
+        var f = ((EGBCAuth.features && EGBCAuth.features()) || []).filter(function (x) { return x.name === feature; })[0];
+        EGBCAuth._blockPage('Switched off', ((f && f.label) || 'This part') + ' is switched off for this church. Nothing has been deleted: a master admin can switch it back on in Church settings.', profile);
+        return;
+      }
       reveal();
 
       /* A sign-out chip, but only where there is no shared bar already

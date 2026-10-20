@@ -6,18 +6,18 @@
 <title>Church details</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610192330" data-title="Church details"></script>
+<script src="egbc-shell.js?v=202610201600" data-title="Church details"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610192330"></script>
+<script src="egbc-auth.js?v=202610201600"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <!-- An admin, OR the Church office. The office are the people who know
      the church's bank details, which now live on this page, and they are
      not necessarily admins of anything. Each half of the page is drawn
      only for whoever may actually save it - see mayDetails()/mayGive(). -->
-<script src="egbc-guard.js?v=202610160810" data-admin="any" data-also-team="Church office"></script>
+<script src="egbc-guard.js?v=202610201600" data-admin="any" data-also-team="Church office"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -77,7 +77,7 @@
   <!-- PHONE NOTIFICATIONS, ON OR OFF (Martin, 13 Oct 2026: "I want an on
        off switch please as an admin. I don't want to go in to Firebase to
        do something basic"). A master admin only, as the rules say. -->
-  <h1 style="font-size:18px;margin:22px 0 4px" id="notify-h" hidden>Phone notifications</h1>
+  <h1 style="font-size:18px;margin:22px 0 4px" id="notify-h" hidden>Notifications</h1>
   <p class="sub" id="notify-sub" hidden>Rota reminders, booking news, new maintenance jobs, urgent notices and DBS and training reminders, by phone, and by email for anyone without the app.</p>
   <div class="card" id="notify-form" hidden></div>
 
@@ -85,7 +85,7 @@
        19 Oct 2026). One switch per part; a part switched off leaves the
        Menu, the app and Home everywhere. A master admin only. -->
   <h1 style="font-size:18px;margin:22px 0 4px" id="feat-h" hidden>What does your church use?</h1>
-  <p class="sub" id="feat-sub" hidden>Switch a part off and it goes from the Menu, the app and Home for everyone. The add-ons start off until you switch them on.</p>
+  <p class="sub" id="feat-sub" hidden>Switch off any part your church does not use: it goes from the Menu, the app and Home for everyone. Nothing is deleted, and switching it back on brings it all back. The add-ons are the extras a church may not need.</p>
   <div class="card" id="feat-form" hidden></div>
 
   <!-- SWITCH-OVER: THE PRIVATE FORMS (14 Oct 2026). Until the locked rules
@@ -259,7 +259,7 @@
     var on = N.live === true;
     document.getElementById('notify-form').innerHTML =
       '<button type="button" class="sw" id="n-switch" role="switch" aria-checked="' + on + '" aria-describedby="n-state">' +
-        '<span class="track" aria-hidden="true"></span><span>Send phone notifications</span></button>' +
+        '<span class="track" aria-hidden="true"></span><span>Send notifications</span></button>' +
       '<p class="hint" id="n-state" style="margin:10px 0 0">' + (on
         ? '<b style="color:var(--ink)">On.</b> They are being sent. Each person chooses which ones they get, on their Notifications page.'
         : '<b style="color:var(--ink)">Off.</b> Nothing is sent to anybody. &ldquo;Send me a test&rdquo; on the Notifications page still works, for whoever presses it, so you can try your own phone first.') +
@@ -271,7 +271,7 @@
     var b = document.getElementById('n-switch'); b.disabled = true;
     var u = EGBCAuth.user() || {};
     db().collection('churchSettings').doc('notifications').set({ live: live, updatedAt: new Date().toISOString(), updatedBy: u.uid || '' })
-      .then(function () { N.live = live; toast(live ? 'Phone notifications are on.' : 'Phone notifications are off.'); drawNotify(); })
+      .then(function () { N.live = live; toast(live ? 'Notifications are on.' : 'Notifications are off.'); drawNotify(); })
       .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
   }
 

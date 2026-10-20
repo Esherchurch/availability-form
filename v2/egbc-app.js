@@ -189,8 +189,48 @@
       .test(String(a || ''));
   }
 
-  /* A list row. title and sub are TEXT and are escaped; right is HTML. */
+  /* ---- WHAT THE CHURCH USES (every part has a switch; the reviewing
+     window, 20 Oct 2026). Switched off, a part goes from the app as from
+     the Menu - nothing is deleted. Which switch a page belongs to is the
+     MENU's answer (its entries' feature), so the two cannot disagree; the
+     few pages and the app's own tabs and sheets the Menu does not list are
+     named here. */
+  function uses(name) {
+    return !(global.EGBCAuth && EGBCAuth.uses) || EGBCAuth.uses(name);
+  }
+  var PAGE_EXTRA = { 'groups.html': 'smallGroups', 'signup.html': 'events', 'my-signup.html': 'events',
+    'forms.html': 'forms', 'meeting.html': 'meetings', 'hub.html?notice=new': 'notices' };
+  var TAB_FEATURE = { kids_today: 'kids', kids_children: 'kids', core_meetings: 'meetings',
+    office_bookings: 'roomBookings', maint_jobs: 'maintenance', maint_rooms: 'roomBookings' };
+  var SHEET_FEATURE = { give: 'payments', notices: 'notices' };
+  var PAGE_FEATURE = null;
+  function pageFeature(target) {
+    if (!PAGE_FEATURE) {
+      PAGE_FEATURE = {};
+      if (global.EGBCMenu && EGBCMenu.allPages) EGBCMenu.allPages().forEach(function (n) {
+        if (n.url && n.feature) PAGE_FEATURE[String(n.url)] = n.feature;
+      });
+      Object.keys(PAGE_EXTRA).forEach(function (k) { if (!PAGE_FEATURE[k]) PAGE_FEATURE[k] = PAGE_EXTRA[k]; });
+    }
+    var t = String(target || '');
+    /* The page with its question (hub.html?notices=1 is Notices; hub.html
+       on its own is Home), then the page alone. */
+    return PAGE_FEATURE[t] || (t.indexOf('?') === -1 ? '' : PAGE_FEATURE[t.split('?')[0]] || '') || '';
+  }
+  function actAllowed(a) {
+    a = String(a || '');
+    var f = '';
+    if (a.indexOf('open:') === 0) f = pageFeature(a.slice(5));
+    else if (a.indexOf('sheet:') === 0) f = SHEET_FEATURE[a.slice(6)] || (a.indexOf('sheet:board-') === 0 ? 'pinBoards' : '');
+    else if (a.indexOf('go:') === 0) { var g = a.split(':'); f = TAB_FEATURE[g[1] + '_' + g[2]] || ''; }
+    else if (a.indexOf('tab:') === 0) f = TAB_FEATURE[S.space + '_' + a.slice(4)] || '';
+    return !f || uses(f);
+  }
+
+  /* A list row. title and sub are TEXT and are escaped; right is HTML.
+     A row for a part the church has switched off is not drawn. */
   function row(icon, title, sub, right, act, colour, tint) {
+    if (act && !actAllowed(act)) return '';
     var a = actOk(act) ? ' data-act="' + esc(act) + '"' : '';
     /* --c AND --ct, as the mock-up does: the icon box is the tint and the
        glyph is the colour. One grey tint behind every row is a good part
@@ -210,6 +250,9 @@
 
   /* A titled section. title is TEXT; inner is HTML. */
   function sec(title, inner, more) {
+    /* Nothing left in it (its rows were for switched-off parts): no section. */
+    if (!inner || /^<div class="card list"><\/div>$/.test(inner)) return '';
+    if (more && !actAllowed(more[1])) more = null;
     return '<section class="sec"><div class="sec-h"><h3>' + esc(title) + '</h3>'
       + (more && actOk(more[1]) ? '<button data-act="' + esc(more[1]) + '">' + esc(more[0]) + '</button>' : '')
       + '</div>' + (inner || '') + '</section>';
@@ -224,7 +267,7 @@
       + (actions ? '<div class="actions">' + actions + '</div>' : '') + '</div>';
   }
 
-  function card(inner) { return '<div class="card list">' + (inner || '') + '</div>'; }
+  function card(inner) { return inner ? '<div class="card list">' + inner + '</div>' : ''; }
   function head(title, sub) {
     return '<div><p class="hello">' + esc(title) + '</p>'
       + (sub ? '<p class="sub">' + esc(sub) + '</p>' : '') + '</div>';
@@ -480,7 +523,9 @@
   /* A tab with no screen behind it is not drawn. A tab that leads nowhere
      is worse than a missing one: it reads as a broken app. */
   function tabsFor(space) {
-    var tabs = (SPACES[space].tabs || []).filter(function (t) { return !!V[space + '_' + t[0]]; });
+    var tabs = (SPACES[space].tabs || []).filter(function (t) {
+      return !!V[space + '_' + t[0]] && (!TAB_FEATURE[space + '_' + t[0]] || uses(TAB_FEATURE[space + '_' + t[0]]));
+    });
     /* "LISTEN & WATCH" when the church uses Watch (F-164): one tab, two
        things. Switched off, it is plain Listen, as before. */
     if (space === 'me' && global.EGBCChurch && EGBCChurch.uses && EGBCChurch.uses('watch')) {
@@ -589,12 +634,12 @@
          the screens do, and hand it over here, so the bar and the sheet
          cannot disagree about how many there are. No notices and
          nothing unseen: a plain bell, which still opens the list. */
-      + '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
+      + (!uses('notices') ? '' : '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
       + (unseenNotices() ? ', ' + unseenNotices() + ' you have not seen' : '') + '">'
       + ic('bell', 17)
       + (unseenNotices() ? '<span class="badge">' + (unseenNotices() > 9 ? '9+' : unseenNotices())
           + '</span>' : '')
-      + '</button>'
+      + '</button>')
       /* CARE & SUPPORT (Martin, 14 Oct 2026) replaces "Worried?": the
          same short choice as the website (egbc-care.js), as a sheet, in
          words - "Care" on a narrow phone. Never hidden by a person's own
@@ -727,10 +772,10 @@
     ssPut(MODES_KEY, { current: null, list: modes.map(function (m) { return { key: m.key, label: m.label, icon: m.icon }; }) });
     var html = '<div class="top"><div class="top-row"><span class="logo">EGBC</span>'
       + '<span class="top-title">EGBC Hub</span>'
-      + '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
+      + (!uses('notices') ? '' : '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
       + (unseenNotices() ? ', ' + unseenNotices() + ' you have not seen' : '') + '">' + ic('bell', 17)
       + (unseenNotices() ? '<span class="badge">' + (unseenNotices() > 9 ? '9+' : unseenNotices()) + '</span>' : '')
-      + '</button>'
+      + '</button>')
       + ((global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care')) ? ''
         : '<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
           + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
@@ -890,7 +935,7 @@
       S.sheet = null; return draw();
     }
     if (a.indexOf('tab:') === 0) { S.tab = a.slice(4); S.sheet = null; return draw(); }
-    if (a.indexOf('sheet:') === 0) { S.sheet = a.slice(6); return draw(); }
+    if (a.indexOf('sheet:') === 0) { if (!actAllowed(a)) return; S.sheet = a.slice(6); return draw(); }
     if (a.indexOf('go:') === 0) { var g = a.split(':'); return go(g[1], g[2]); }
     /* open: a page that already does the job (§5). The app does not rebuild
        what v2 already has; it opens it - IN APP MODE (§7d A), so the
@@ -910,6 +955,10 @@
     MODES: MODES, modesFor: function () { return modesFor(spacesFor(who())).map(function (m) { return m.key; }); },
     mode: function (key) { enterMode(key, true); }, buildingPages: buildingPages,
     modeHome: modeHome, switchTo: switchTo, where: whereAll,
+    /* Does the church use this part? And may this action be offered? */
+    uses: uses, allowed: actAllowed,
+    /* The tabs drawn for a space: its mode's Home first, when it has one. */
+    shownTabs: function (space) { return tabsShown(modeOf(space) || modeByKey('me'), space); },
     esc: esc, ic: ic, row: row, sec: sec, next: next, card: card,
     head: head, empty: empty,
     /* A screen's own code sometimes has something to say - "Link copied"

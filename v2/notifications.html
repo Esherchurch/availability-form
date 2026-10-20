@@ -7,12 +7,12 @@
 
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610192330" data-title="Notifications"></script>
+<script src="egbc-shell.js?v=202610201600" data-title="Notifications"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script src="egbc-auth.js?v=202610192330"></script>
+<script src="egbc-auth.js?v=202610201600"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -57,10 +57,10 @@
 <body>
 <div class="wrap">
   <h1>Notifications</h1>
-  <p class="sub">Messages from the church hub on this phone. You choose which.</p>
+  <p class="sub">Messages from the church hub on this device. You choose which.</p>
   <div id="state"><div class="card hint">Loading…</div></div>
   <div id="types"></div>
-  <div class="card"><h2>No phone set up?</h2><p class="hint" style="margin:0">Then we email you instead. Room booking news is emailed to you anyway, so it only comes to your phone.</p></div>
+  <div class="card"><h2>Not set up on any device?</h2><p class="hint" style="margin:0">Then we email you instead. Room booking news is emailed to you anyway, so it only comes to your device.</p></div>
 </div>
 <div id="toast"></div>
 
@@ -113,48 +113,77 @@
       '</ol></div>';
   }
 
-  /* ---- this phone ---- */
+  /* ---- BLOCKED: the steps for THIS device (Martin, 20 Oct 2026:
+     notifications work on a computer too, so never "this phone"; show the
+     steps that fit, never every set of them). ---- */
+  function deviceKind(ua) {
+    ua = String(ua || navigator.userAgent || '');
+    if (/iPhone|iPad|iPod/.test(ua)) return 'iphone';
+    if (/Android/.test(ua)) return 'android';
+    if (/Edg\//.test(ua)) return 'edge';
+    if (/Firefox\//.test(ua)) return 'firefox';
+    if (/Chrome\//.test(ua)) return 'chrome';
+    if (/Safari\//.test(ua) && /Macintosh/.test(ua)) return 'safari';
+    return 'computer';
+  }
+  var STEPS = {
+    iphone: 'On this iPhone: open Settings, then Notifications, then EGBC Hub, and switch on Allow Notifications.',
+    android: 'On Android in Chrome: tap the padlock beside the address, then Permissions, then Notifications, then Allow. In the installed app: Settings, then Apps, then EGBC Hub, then Notifications.',
+    chrome: 'In Chrome on this computer: click the padlock (or the site settings icon) beside the address, then Site settings, and set Notifications to Allow. Then reload this page.',
+    edge: 'In Edge on this computer: click the padlock beside the address, then Permissions for this site, and set Notifications to Allow. Then reload this page.',
+    safari: 'In Safari on this Mac: the Safari menu, then Settings, then Websites, then Notifications; find the church hub and choose Allow.',
+    firefox: 'In Firefox on this computer: click the padlock beside the address, clear Blocked beside Send Notifications, then reload this page and turn them on again.',
+    computer: 'In this browser: click the padlock or site settings beside the address, and set Notifications to Allow. Then reload this page.'
+  };
+  function blockedHelp(ua) {
+    var k = deviceKind(ua);
+    return '<p class="hint" id="blocked-steps" data-device="' + k + '" style="margin:0">' + esc(STEPS[k]) + '</p>';
+  }
+
+  /* ---- this device ---- */
   function drawState() {
     var d = N.device(), html;
     if (d.why === 'iphone-add') html = iphoneGuide();
     else if (d.why === 'iphone-old') html = '<div class="card" id="iphone-old"><h2>Your iPhone needs updating first</h2><p style="margin:0">Notifications need iOS 16.4 or later. ' +
       'To update: Settings, then General, then Software Update. Until then we email you instead.</p></div>';
-    else if (d.why === 'blocked') html = '<div class="card" id="blocked"><h2>Notifications are blocked on this phone</h2>' +
-      '<p style="margin:0 0 6px">They were turned off for the church hub in this phone\'s settings. To allow them:</p>' +
-      '<p class="hint" style="margin:0">On Android in Chrome: tap the padlock beside the address, then Permissions, then Notifications, then Allow. In the installed app: Settings, then Apps, then EGBC Hub, then Notifications.</p></div>';
-    else if (d.why === 'unsupported') html = '<div class="card" id="unsupported"><h2>This browser cannot show notifications</h2><p style="margin:0">Use Chrome on Android, or the hub added to an iPhone\'s Home Screen. Until then we email you instead.</p></div>';
-    else if (N.isOn()) html = '<div class="card" id="on"><h2>On for this phone</h2><p class="st ok" style="margin:0">You will get the messages you have chosen below.</p>' +
-      '<div class="acts"><button class="btn" id="n-test">Send me a test</button><button class="btn sec" id="n-off">Turn off on this phone</button></div><div id="n-out"></div></div>';
-    else html = '<div class="card" id="off"><h2>Turn on notifications</h2><p style="margin:0">Get the messages you choose below on this phone, even when the hub is closed.</p>' +
-      '<div class="acts"><button class="btn" id="n-on">Turn on notifications on this phone</button></div>' +
+    else if (d.why === 'blocked') html = '<div class="card" id="blocked"><h2>Notifications are blocked on this device</h2>' +
+      '<p style="margin:0 0 6px">They were turned off for the church hub in this device\'s settings. To allow them:</p>' +
+      blockedHelp() + '</div>';
+    else if (d.why === 'unsupported') html = '<div class="card" id="unsupported"><h2>This browser cannot show notifications</h2><p style="margin:0">Use Chrome, Edge or Safari on a computer, Chrome on Android, or the hub added to an iPhone\'s Home Screen. Until then we email you instead.</p></div>';
+    else if (N.isOn()) html = '<div class="card" id="on"><h2>On for this device</h2><p class="st ok" style="margin:0">You will get the messages you have chosen below.</p>' +
+      '<div class="acts"><button class="btn" id="n-test">Send me a test</button><button class="btn sec" id="n-off">Turn off on this device</button></div><div id="n-out"></div></div>';
+    else html = '<div class="card" id="off"><h2>Turn on notifications</h2><p style="margin:0">Get the messages you choose below on this device, even when the hub is closed.</p>' +
+      '<div class="acts"><button class="btn" id="n-on">Turn on notifications on this device</button></div>' +
       '<p class="hint" style="margin:10px 0 0">On an iPhone this works in the hub added to your Home Screen (iOS 16.4 or later).</p><div id="n-out"></div></div>';
     $('state').innerHTML = html;
     if ($('n-on')) $('n-on').onclick = turnOn;
     if ($('n-off')) $('n-off').onclick = turnOff;
     if ($('n-test')) $('n-test').onclick = test;
   }
+  /* For checks: the blocked steps for a given browser. */
+  window.EGBCNotifyPage = { blockedHelp: blockedHelp, deviceKind: deviceKind };
   function say(cls, words) { var o = $('n-out'); if (o) o.innerHTML = '<p class="st ' + cls + '">' + esc(words) + '</p>'; }
   function turnOn() {
     if (BUSY) return; BUSY = true; this.disabled = true;
-    N.turnOn().then(function () { BUSY = false; drawState(); toast('Notifications are on for this phone.'); }, function (e) {
+    N.turnOn().then(function () { BUSY = false; drawState(); toast('Notifications are on for this device.'); }, function (e) {
       BUSY = false; drawState();
       var c = e && e.code;
-      say('no', c === 'blocked' ? 'This phone said no. To allow them, see the steps that now show above.'
+      say('no', c === 'blocked' ? 'This device said no. To allow them, see the steps that now show above.'
         : c === 'dismissed' ? 'You said not now. Press the button again whenever you are ready.'
         : c === 'iphone-add' ? 'On an iPhone, add the hub to your Home Screen first.'
-        : 'This phone did not give an address for messages. Try again in a moment.');
+        : 'This device did not give an address for messages. Try again in a moment.');
       if (c === 'blocked') drawState();
     });
   }
   function turnOff() {
     if (BUSY) return; BUSY = true;
-    N.turnOff().then(function () { BUSY = false; drawState(); toast('Turned off on this phone.'); }, function () { BUSY = false; toast('Could not turn them off. Try again.'); });
+    N.turnOff().then(function () { BUSY = false; drawState(); toast('Turned off on this device.'); }, function () { BUSY = false; toast('Could not turn them off. Try again.'); });
   }
   function test() {
     var b = $('n-test'); b.disabled = true;
     N.test().then(function (r) {
       b.disabled = false;
-      if (r.error === 'not-live') say('warn', 'Test messages start once the sending function is live. Everything on this phone is ready.');
+      if (r.error === 'not-live') say('warn', 'Test messages start once the sending function is live. Everything on this device is ready.');
       else if (r.error) say('no', 'The test could not be sent: ' + (r.message || r.error));
       else say('ok', 'Sent. It should arrive in a few seconds.');
     });
