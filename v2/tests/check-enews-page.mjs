@@ -122,6 +122,9 @@ function serveAuth(src) {
     await put('users/' + p.uid, { uid: p.uid, email: p.email, name: 'Enews Synthetic', memberId: p.member, status: 'active', linkedBy: 'admin', teams: p.teams, adminFor: [], masterAdmin: p.master, churchMember: p.churchMember === true, attender: true });
   }
   await put('churchSettings/details', { name: 'Synthetic Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '' });
+  /* Martin, 19 Oct: at EGBC the add-ons start ON when nothing is stored
+     (features.js), so "off" is stored here to prove the page obeys it. */
+  await put('churchSettings/features', { enews: false });
   await put('calEvents/en_pub', Object.assign({ title: 'Synthetic harvest supper', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], signupOn: true, image: '', labels: ['Harvest'] }, evAt(3, '18:30')));
   await put('calEvents/en_mem', Object.assign({ title: 'Synthetic members prayer', visibility: 'members', status: 'confirmed', audience: ['members'], image: '' }, evAt(4, '19:00')));
   await put('calEvents/en_unl', Object.assign({ title: 'Synthetic support group', visibility: 'unlisted', status: 'confirmed', audience: ['unlisted'], image: '' }, evAt(2, '20:00')));

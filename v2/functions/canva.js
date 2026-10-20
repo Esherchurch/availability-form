@@ -30,6 +30,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { randomUUID } from 'node:crypto';
 import * as C from './canva-core.js';
 import { storedKeys } from './hq-mail-key.js';
+import { featureOn } from './features.js';
 
 const REGION = 'europe-west2';
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
@@ -62,10 +63,10 @@ async function office(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore();
-  const [me, f] = await Promise.all([db.collection('users').doc(uid).get(), db.collection('churchSettings').doc('features').get()]);
+  const [me, on] = await Promise.all([db.collection('users').doc(uid).get(), featureOn(db, 'canva')]);
   const p = me.exists ? me.data() : {};
   if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) throw new HttpsError('permission-denied', 'For the church office.');
-  if (!(f.exists && f.data().canva === true)) throw new HttpsError('failed-precondition', 'Canva is switched off for this church.');
+  if (!on) throw new HttpsError('failed-precondition', 'Canva is switched off for this church.');
   if (canvaShut()) throw new HttpsError('failed-precondition', 'Canva connects at switch-over.');
   return uid;
 }

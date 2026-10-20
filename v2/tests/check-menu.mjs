@@ -57,7 +57,10 @@ const APPROVED = [
     ['Availability form', c => c.core]]],
   ['People and messages', null, [
     ['Address book', c => c.messages], ['Send an email', c => c.messages], ['Team emails', c => c.master],
-    ['Notices', c => c.messages], ['Meetings']]],
+    ['Notices', c => c.messages],
+    /* The comms window's add-ons, switched on for this run (below). */
+    ['E-news', c => c.office], ['Card maker', c => c.office], ['From Canva', c => c.office],
+    ['Meetings']]],
   ['Events and rooms', null, [
     ['Events', c => (c.core && c.admin) || c.eventTeam], ['Places', c => c.runsBookings], ['Room bookings', c => c.books],
     ['Check-in', c => c.core && c.admin], ['Registers', c => c.core && c.admin], ['Headcounts', c => c.counts],
@@ -315,7 +318,11 @@ const READ_MENU = `(() => {
     'mix-analyser.html': 'Martin\'s mix tools, out of scope',
     'Handover.html': 'a one-off note, not part of the suite', 'SharepointHeader.html': 'a fragment, not a page',
     'give-regularly.html': 'linked from Give, when the church takes Direct Debits',
-    'my-messages.html': 'the "you" menu (My messages) and the app\'s Me tab'
+    'my-messages.html': 'the "you" menu (My messages) and the app\'s Me tab',
+    'enews-signup.html': 'public: the e-news sign-up, from the church website',
+    'enews-confirm.html': 'public: the link in the e-news confirm email',
+    'enews-unsubscribe.html': 'public: the unsubscribe link in every e-news',
+    'enews-web.html': 'public: "view in your browser" in every e-news, and the archive'
   };
   {
     const src = fs.readFileSync(path.join(V2, 'egbc-menu.js'), 'utf8');
@@ -409,8 +416,8 @@ const READ_MENU = `(() => {
   /* The session planner is an add-on, off until a church switches it on
      (F-230); this church has, so its people's Menu has it. Put back after. */
   const hadFeatures = await rest('GET', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features');
-  await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features?updateMask.fieldPaths=sessionPlanner',
-    { fields: { sessionPlanner: { booleanValue: true } } });
+  await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features?updateMask.fieldPaths=sessionPlanner&updateMask.fieldPaths=enews&updateMask.fieldPaths=cardMaker&updateMask.fieldPaths=canva',
+    { fields: { sessionPlanner: { booleanValue: true }, enews: { booleanValue: true }, cardMaker: { booleanValue: true }, canva: { booleanValue: true } } });
   await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/teams/'
     + encodeURIComponent('Church office'), { fields: {
       name: val('Church office'), label: val('Church office'), colour: val('#111827'),

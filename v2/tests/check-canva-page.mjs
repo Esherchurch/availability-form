@@ -75,6 +75,9 @@ function serveAuth(src) {
   fs.mkdirSync(SHOTS, { recursive: true });
   try { await req(FS, 'GET', '/'); await req(AU, 'GET', '/'); await req(FNP, 'GET', '/'); } catch { console.log('  FAIL  no emulators on ' + FS + '/' + AU + '/' + FNP); process.exit(1); }
   await req(FS, 'DELETE', '/emulator/v1/projects/egbc-worship-planner/databases/(default)/documents');
+  /* Martin, 19 Oct: at EGBC the add-ons start ON when nothing is stored
+     (features.js), so "off" is stored here to prove the page obeys it. */
+  await put('churchSettings/features', { canva: false });
   for (const p of Object.values(PEOPLE)) {
     let up = JSON.parse((await req(AU, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email: p.email, password: PW, returnSecureToken: true })).body || '{}');
     if (!up.localId) up = JSON.parse((await req(AU, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email: p.email, password: PW, returnSecureToken: true })).body || '{}');

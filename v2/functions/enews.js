@@ -39,6 +39,7 @@ import { randomBytes } from 'node:crypto';
 import { enewsShut } from './enews-gate.js';
 import { makeHqSender, verifySvix } from './hq-mail.js';
 import { storedKeys } from './hq-mail-key.js';
+import { featureOn } from './features.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -72,12 +73,14 @@ function baseFrom(req) {
 }
 
 async function settings() {
-  const [launch, features, details] = await Promise.all(['launch', 'features', 'details'].map(id => db().collection('churchSettings').doc(id).get()));
+  /* The e-news switch the way every page and function reads it
+     (features.js: stored true/false, else the default). */
+  const [launch, details, on] = await Promise.all([db().collection('churchSettings').doc('launch').get(), db().collection('churchSettings').doc('details').get(), featureOn(db(), 'enews')]);
   const L = launch.exists ? launch.data() : {};
   return {
     open: !enewsShut() && L.rulesLocked === true,
     opensOn: String(L.opensOn || ''),
-    on: (features.exists ? features.data() : {}).enews === true,
+    on,
     church: details.exists ? details.data() : {}
   };
 }

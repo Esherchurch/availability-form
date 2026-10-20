@@ -133,6 +133,9 @@ const outbox = async kind => (await list('emailOutbox')).filter(r => !kind || r.
   if (!SECRET) { ok('TEST_WEBHOOK_SECRET in functions/.env.local', false); return finish(); }
   await req(FS, 'DELETE', '/emulator/v1/projects/egbc-worship-planner/databases/(default)/documents');
   await put('churchSettings/details', { name: 'Synthetic Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '' });
+  /* Martin, 19 Oct: at EGBC the add-ons start ON when nothing is stored
+     (features.js), so "off" is stored here to prove the page obeys it. */
+  await put('churchSettings/features', { enews: false });
   const A = 'alex.enews@example.invalid';
 
   let r = await fn('enewsSignup', { email: A, firstName: 'Alex' });
