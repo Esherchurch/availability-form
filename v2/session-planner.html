@@ -15,6 +15,7 @@
 <script src="egbc-auth.js?v=202610210900"></script>
 <script src="egbc-guard.js?v=202610210900"></script>
 <script src="egbc-church.js?v=202610121600"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610161700"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -200,7 +201,7 @@
         (S.parts || []).map(partHtml).join('') + '</div>' +
         (ro ? '' : '<div class="row noprint edit"><select id="newPart" style="width:auto"><option value="">+ Add a part…</option>' + (G.parts && G.parts.length ? G.parts : KINDS).map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('') + '</select></div>') + '</div>') +
       '<div class="row noprint" style="margin-bottom:6px">' + (ro ? '' : '<button class="btn" id="save">Save</button><button class="btn sec" id="email">Email the plan</button>') +
-        '<button class="btn sec" id="print">Print</button>' + (ro || !S.id ? '' : '<button class="btn danger" id="del">Delete this plan</button>') + '</div><p class="said noprint" id="sMsg" role="status"></p></div>';
+        '<button class="btn sec" id="print">Print</button>' + (S.id ? '<a class="btn sec" id="present" href="present.html?s=' + encodeURIComponent(S.id) + '" target="_blank" rel="noopener">Present</a>' : '') + (ro || !S.id ? '' : '<button class="btn danger" id="del">Delete this plan</button>') + '</div><p class="said noprint" id="sMsg" role="status"></p></div>';
   }
   /* The rota's side of a sermon plan, read afresh: it is the Preaching plan's to change. */
   function fromPlanCard() {
@@ -501,7 +502,16 @@
       timer: function () { return '<label class="l" for="stM">Minutes</label><input class="inp" type="number" id="stM" min="1" max="60" value="5">'; },
       text: function () { return '<label class="l" for="stT">The words on the screen</label><textarea id="stT" maxlength="400"></textarea>'; },
       quiz: function () { return '<p class="m">Up to 12 questions. For each: the question, then four answers with the right one first (they are mixed up on the screen). A blank line between questions.</p><textarea id="stQ" style="min-height:180px" placeholder="When did Nicodemus come to Jesus?&#10;At night&#10;In the morning&#10;At noon&#10;He never came"></textarea>'; },
-      pptx: function () { return '<label class="l" for="stU">The PowerPoint\'s OneDrive or SharePoint link</label><input class="inp" id="stU" placeholder="https://…sharepoint.com/… or https://onedrive.live.com/…"><label class="l" for="stN">Name</label><input class="inp" id="stN" placeholder="e.g. EJ03 slides"><p class="said">On the screen it plays in PowerPoint for the web, animations and all; the clicker moves the slides.</p>'; },
+      /* THE POWERPOINT (F-242; Martin, 20 Oct): the .pptx itself, or fetched
+         from a OneDrive / SharePoint link - made into slides and speaker notes
+         in one step by the converter, so everyone stays in step. Held until
+         switch-over: until then Storage is readable signed out. */
+      pptx: function () {
+        if (!PPTX_OK) return '<p id="pptxHeld">PowerPoint slides can be added when the church switches over to the new hub. Until then the hub\u2019s storage is not yet private.</p>';
+        return '<label class="l" for="stFile">The PowerPoint file (.pptx)</label><input class="inp" type="file" id="stFile" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="padding-top:8px">' +
+          '<p class="said">Or fetch it from OneDrive or SharePoint (Share it as \u201CAnyone with the link can view\u201D):</p><input class="inp" id="stU" placeholder="https://1drv.ms/… or https://…sharepoint.com/…">' +
+          '<label class="l" for="stN">Name</label><input class="inp" id="stN" placeholder="e.g. EJ03 slides"><p class="said">Keynote or Google Slides? Save it as PowerPoint first. The slides and your speaker notes come from the file.</p>';
+      },
       link: function () { return '<label class="l" for="stU">Link</label><input class="inp" id="stU" value="' + esc((S && S.lessonLink) || '') + '"><label class="l" for="stN">What it says</label><input class="inp" id="stN" value="Open Urban Saints">'; }
     };
     var title = (STEP_TYPES.filter(function (x) { return x[0] === type; })[0] || [0, type])[1];
@@ -520,10 +530,35 @@
         st.questions = qs.slice(0, 12).map(function (b) { return { q: b[0].slice(0, 160), answers: b.slice(1, 5).map(function (a) { return a.slice(0, 60); }), right: 0, seconds: 20 }; });
         st.title = st.questions.length + ' question' + (st.questions.length === 1 ? '' : 's');
       }
-      if (type === 'pptx') { st.officeUrl = q('stU').value.trim(); st.name = q('stN').value.trim() || 'Slides'; if (!/^https:\/\/[\w.-]*(sharepoint\.com|onedrive\.live\.com|1drv\.ms|office\.com)\//i.test(st.officeUrl)) return bad('Paste the deck\'s OneDrive or SharePoint link.'); }
+      if (type === 'pptx') { if (!PPTX_OK) return bad('Not until switch-over.'); return addDeck(sh, q, st, bad, done); }
       if (type === 'link') { st.url = q('stU').value.trim(); st.label = q('stN').value.trim() || 'Open'; if (!/^https?:\/\//.test(st.url)) return bad('Paste the link first.'); }
       sh.close(); done(st);
     };
+  }
+
+  /* A PowerPoint deck: the deck's record, the file, then the converter. */
+  var PPTX_OK = false;
+  if (window.EGBCLaunch) EGBCLaunch.check().then(function (x) { PPTX_OK = !!(x && x.locked); });
+  function addDeck(sh, q, st, bad, done) {
+    var f = q('stFile') && q('stFile').files[0], link = (q('stU').value || '').trim(), name = q('stN').value.trim();
+    if (!f && !link) return bad('Choose the PowerPoint file, or paste its OneDrive link.');
+    if (f && !/\.pptx$/i.test(f.name)) return bad('That is not a PowerPoint (.pptx) file. Keynote or Google Slides: save it as PowerPoint first.');
+    if (f && f.size > 100 * 1024 * 1024) return bad('That PowerPoint is over 100 MB.');
+    if (!S || !S.id || !G) return bad('Save the plan first.');
+    var ref = db().collection('presentDecks').doc(), u = EGBCAuth.user() || {};
+    st.name = name || (f ? f.name.replace(/\.pptx$/i, '') : 'Slides');
+    bad('Making the slides\u2026 (about half a minute)');
+    q('stAdd').disabled = true;
+    ref.set({ context: { type: 'session', groupId: G.id, sessionId: S.id }, name: st.name.slice(0, 120), status: 'uploaded', source: f ? 'upload' : 'onedrive',
+      by: u.uid, byName: ME.name || '', at: new Date().toISOString() })
+      .then(function () {
+        if (f) return EGBCAuth.storage().ref('present/' + ref.id + '/source.pptx').put(f, { contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
+          .then(function () { return EGBCAuth.call('presentConvert', { deckId: ref.id }); });
+        return EGBCAuth.call('presentFromLink', { deckId: ref.id, url: link });
+      })
+      .then(function (r) { r = r && r.data !== undefined ? r.data : r; st.deckId = ref.id; st.count = (r && r.count) || 0; sh.close(); done(st); },
+        function (e) { q('stAdd').disabled = false; bad('The slides could not be made: ' + ((e && e.message) || e)); });
+    return null;
   }
 
   /* ---- groups: saving (master admins) ---- */

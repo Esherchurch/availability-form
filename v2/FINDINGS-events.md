@@ -8513,3 +8513,48 @@ list and read `EGBCVideo.rooms()`. I'll write the exact call here.
   | close-room | 27 |
   | public-mail | 45 |
   | audits: bookings-admin, compliance, building, risk, peep, room | 14, 14, 14, 14, 14, 27 |
+
+### F-249 — Present for sessions: built, waiting for review (the events window, 20 Oct)
+
+This is F-242's Part 2 for the session planner. The meeting side waits for the main window's hosts and invitees (F-247).
+
+**What it is**
+- **One engine:** `egbc-present.js`. The session page is `present.html?s=<session>`, and `&tv=1` gives the TV. meeting.html will use the same engine.
+- **PowerPoint only. No PDF route anywhere.** In the planner, a leader adds a **PowerPoint** step: either the .pptx file or a OneDrive or SharePoint link. Keynote and Google Slides users are told to save it as PowerPoint first.
+- **The converter** (`converter/`, Cloud Run, LibreOffice) makes every slide into a picture, plus a small preview picture. It reads the speaker notes and leaves out hidden slides, as PowerPoint does.
+- **Sync:**
+  - one small document per session (`presentNow/ps_<id>`) says which slide is showing
+  - every screen fetches all the slides first, so a change of slide is a tiny message, even on weak Wi-Fi
+  - on the emulator, Next reached the other phone and the TV in about 170 ms
+- **The presenter view:**
+  - the current slide, Up next, notes, a timer, Blank, Stop, and a filmstrip
+  - keys and clickers work
+  - a sticky control bar on a phone
+  - a slot for the people (meeting tiles) is ready for meeting.html
+- **Viewers:** "Browse on my own" and "Back to presenter". The TV shows a calm wait screen until someone presents.
+- **Handing over:** another leader (or a master admin) can **Take over presenting**.
+- **The guide:** "How to present" (`present-guide.html`) is two minutes long and is linked from the Present screen.
+- **Keeping decks:** session decks are not swept. Meeting decks go 30 days after the meeting unless kept (`presentSweep`, daily).
+
+**Who sees what (rules)**
+- **A session's deck:** the group's leaders (and master admins) add it and present it. The group's team reads the slides. Nobody else does.
+- **Speaker notes:** only the people who may present can read them, never the viewers. Only the converter writes them.
+- **Meetings:** master admins only until the hosts and invitees are agreed (F-247).
+- **Held until switch-over:** adding a deck waits until `launch.rulesLocked`, on the page and on the server. Until then Storage is not private.
+
+**What Martin deploys at switch-over (I deploy nothing)**
+1. **The functions** `presentConvert`, `presentFromLink` and `presentSweep`, with the rules, as usual.
+2. **The converter.** The steps are at the top of `converter/server.mjs`: from inside `v2/converter`: `gcloud run deploy egbc-converter --source . --region europe-west2 --no-allow-unauthenticated --memory 2Gi --cpu 2 --timeout 300 --min-instances 0 --max-instances 2`. Then set `CONVERTER_URL` for the functions, and let the functions' service account invoke it.
+
+**The running cost**
+- **The converter** only runs while it converts, and costs nothing while idle (min-instances 0). A typical deck takes about 20 seconds on 2 CPUs: about 40 CPU-seconds, about 0.1p. The free allowance is about 180,000 CPU-seconds a month (about 4,000 decks), so a church's use is in practice **£0 a month**.
+- **Storage:** about 5p a month.
+- **Showing the slides:** each viewer fetches each picture once. Reads and writes are a handful per slide change, so they are lost in the free allowance.
+
+**When the real LibreOffice is needed**
+- **In the tests,** the converter is stood in for: a stand-in draws each slide in a browser, behind the same HTTP call. Everything around it is the real code: reading the .pptx (order, notes, hidden slides), storing the pictures and notes, the callable, the OneDrive fetch, and the rules.
+- **What only the real LibreOffice proves** is how faithfully real slides come out: fonts, pictures, layout.
+- **That needs one of these:**
+  - (a) Martin deploys the converter and tries one real deck, or
+  - (b) LibreOffice is installed on this PC so I can run `converter/convert.mjs` on a real deck locally.
+- **The only Windows-specific part** is the `soffice` path. Say which you prefer.

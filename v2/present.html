@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Present</title>
+
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610210900"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-events.js?v=202610161700"></script>
+<script src="egbc-present.js?v=202610210100"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#0b1116;color:#e2e8f0;font-family:Inter,system-ui,sans-serif}
+  #app{min-height:100%}
+  .msg{max-width:560px;margin:15vh auto;padding:20px;text-align:center;color:#cbd5e1}
+  .msg a{color:#a7d4d4}
+  .verses .ref{font-size:.55em;letter-spacing:.12em;text-transform:uppercase;color:#a7d4d4;margin:0 0 .6em}
+  .verses .cr{font-size:.32em;color:#94a3b8;margin-top:1em}
+</style>
+</head>
+<body>
+<div id="app"><p class="msg">Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  /* PRESENT A SESSION (F-223 Part 2, F-242): present.html?s=<session>
+     The session's steps in order - its PowerPoint slides, Bible verses,
+     the memory verse, text and pictures - presented with EGBCPresent: the
+     leader's phone (or laptop) presents; the TV (&tv=1) shows the slides
+     full screen; the team follow on their own phones. The group's leaders
+     present (and master admins); its team watch. The rules say the same. */
+  var Q = new URLSearchParams(location.search), SID = Q.get('s') || '', TV = Q.get('tv') === '1';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function msg(t) { document.getElementById('app').innerHTML = '<p class="msg">' + t + '</p>'; }
+  function db() { return EGBCAuth.db; }
+
+  /* The session's steps, as the engine's items - the same list on every screen. */
+  function itemsFor(s) {
+    var out = [], notes = [], decks = [];
+    (s.parts || []).forEach(function (p) {
+      (p.show || []).forEach(function (st) {
+        if (st.type === 'pptx' && st.deckId) { decks.push(st.deckId); out.push({ deck: st.deckId }); return; }
+        if (st.type === 'text') out.push({ kind: 'html', html: '<div>' + esc(st.words).replace(/\n/g, '<br>') + '</div>' });
+        else if (st.type === 'memory' || st.type === 'verses') out.push({ kind: 'html', html: '<div class="verses"><p class="ref">' + esc(st.ref || (s.passage || {}).ref || 'The Bible') + '</p><div>' + esc(st.text || st.words || (s.passage || {}).text || '') + '</div>' + ((s.passage || {}).copyright ? '<p class="cr">' + esc(s.passage.copyright) + '</p>' : '') + '</div>' });
+        else if (st.type === 'picture' && st.url) out.push({ kind: 'image', full: st.url, thumb: st.url });
+        else return;
+      });
+    });
+    /* each deck: its slides, in place */
+    return Promise.all(decks.map(function (id) {
+      return db().collection('presentDecks').doc(id).get().then(function (d) {
+        var x = d.exists ? d.data() : null;
+        return x && x.status === 'ready' ? EGBCPresent.deckItems(id, x.count) : [];
+      }, function () { return []; });
+    })).then(function (got) {
+      var byDeck = {}, all = [], notesOf = [];
+      decks.forEach(function (id, i) { byDeck[id] = got[i]; });
+      out.forEach(function (o) {
+        if (o.deck) (byDeck[o.deck] || []).forEach(function (it, k) { all.push(it); notesOf.push([o.deck, k]); });
+        else { all.push(o); notesOf.push(null); }
+      });
+      var readers = {};
+      return { items: all, notesFor: function (i) { var w = notesOf[i]; if (!w) return Promise.resolve(''); readers[w[0]] = readers[w[0]] || EGBCPresent.notesReader(w[0]); return readers[w[0]](w[1]); } };
+    });
+  }
+
+  /* Someone outside the group, or a master admin viewing as them: the same kind words, never a rules error. */
+  var NOT_YOURS = 'This session belongs to a group you’re not part of, so its slides aren’t shown here.';
+  EGBCAuth.require().then(function (profile) {
+    if (!SID) return msg('Which session? Open Present from the session planner.');
+    /* "View as": the viewed person's rights, as the planner does (asSeen). */
+    var me = EGBCEvents.asSeen(profile || {}), master = !me.viewingAs && !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), mid = me.memberId || '-';
+    return db().collection('planSessions').doc(SID).get().then(function (d) {
+      if (!d.exists) return msg('That session could not be found.');
+      var s = d.data();
+      return db().collection('planGroups').doc(s.groupId).get().then(function (g) {
+        var grp = g.exists ? g.data() : {};
+        var lead = (grp.leaderIds || []).indexOf(mid) >= 0;
+        if (!master && !lead && (me.teams || []).indexOf(grp.teamName || '-') < 0) return msg(NOT_YOURS);
+        var may = master || lead;
+        return itemsFor(s).then(function (x) {
+          if (!x.items.length) return msg('This session has nothing to show yet. In the planner, add slides, verses or a picture to a part.');
+          document.title = (s.title || 'Present') + ' · Present';
+          EGBCPresent.mount(document.getElementById('app'), {
+            key: 'ps_' + SID, context: { type: 'session', groupId: s.groupId, sessionId: SID },
+            items: x.items, notesFor: x.notesFor, title: (grp.name ? grp.name + ' · ' : '') + (s.title || 'Session'),
+            mayPresent: may && !TV, tv: TV
+          });
+        });
+      });
+    });
+  }).catch(function (e) { msg(e && e.code === 'permission-denied' ? NOT_YOURS : 'This could not be opened. Check your connection and try again.'); });
+})();
+</script>
+</body>
+</html>

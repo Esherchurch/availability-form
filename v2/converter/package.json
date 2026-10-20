@@ -1,0 +1,11 @@
+{
+  "name": "egbc-converter",
+  "description": "EGBC Present: PowerPoint files into slide pictures and speaker notes (F-242). Cloud Run.",
+  "type": "module",
+  "private": true,
+  "engines": { "node": "22" },
+  "main": "server.mjs",
+  "dependencies": {
+    "firebase-admin": "^14.5.0"
+  }
+}

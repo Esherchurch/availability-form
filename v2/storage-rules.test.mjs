@@ -329,6 +329,24 @@ await check('  nor the public', 'deny', () => getBytes(ref(anon(), 'compliance/c
 await check('  only pictures and PDFs', 'deny', () => put(st('u_cso'), 'compliance/cs_b/cs_b__gas-safety/run.exe', { type: 'application/octet-stream' }));
 await check('  not over 20 MB', 'deny', () => put(st('u_cso'), 'compliance/cs_b/cs_b__gas-safety/big.pdf', { type: 'application/pdf', bytes: 21 * 1024 * 1024 }));
 await check('  a certificate is never deleted from a page', 'deny', () => deleteObject(ref(as('martin'), 'compliance/cs_b/cs_b__gas-safety/cert.pdf')));
+// ── EVENTS (events window) ── Present: a session's PowerPoint and its slide pictures (F-242)
+const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  const U = (uid, mid, teams) => setDoc(doc(db, 'users', uid), { memberId: mid, teams, adminFor: [], masterAdmin: false, status: 'active' });
+  await U('u_pzl', 'm_pzl', ['Kids Church']); await U('u_pzt', 'm_pzt', ['Kids Church']); await U('u_pzy', 'm_pzy', ['Youth']);
+  await setDoc(doc(db, 'planGroups', 'pg_pz'), { name: 'Kids Church', kind: 'children', leaderIds: ['m_pzl'], teamName: 'Kids Church' });
+  await setDoc(doc(db, 'presentDecks', 'dk_pz'), { context: { type: 'session', groupId: 'pg_pz', sessionId: 'ps_pz' }, name: 'x', status: 'ready' });
+  await uploadBytes(ref(ctx.storage(), 'present/dk_pz/s1.jpg'), PIC(), { contentType: 'image/jpeg' });
+});
+await check('PRESENT: the group’s leader puts up the PowerPoint', 'allow', () => put(st('u_pzl'), 'present/dk_pz/source.pptx', { type: PPTX }));
+await check('  only as source.pptx (the pictures are the converter’s)', 'deny', () => put(st('u_pzl'), 'present/dk_pz/s1.jpg', { type: 'image/jpeg' }));
+await check('  only a PowerPoint (no PDF)', 'deny', () => put(st('u_pzl'), 'present/dk_pz/source.pptx', { type: 'application/pdf' }));
+await check('  not for a deck that does not exist', 'deny', () => put(st('u_pzl'), 'present/dk_none/source.pptx', { type: PPTX }));
+await check('  A TEAM MEMBER CANNOT', 'deny', () => put(st('u_pzt'), 'present/dk_pz/source.pptx', { type: PPTX }));
+await check('  the team sees the slides', 'allow', () => getBytes(ref(st('u_pzt'), 'present/dk_pz/s1.jpg')));
+await check('  another group does not', 'deny', () => getBytes(ref(st('u_pzy'), 'present/dk_pz/s1.jpg')));
+await check('  nor the public', 'deny', () => getBytes(ref(anon(), 'present/dk_pz/s1.jpg')));
 // ── end EVENTS ──
 // ── end EVENTS ──
 

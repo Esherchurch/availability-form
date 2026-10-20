@@ -4116,6 +4116,39 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  someone else does not', 'deny', () => getDoc(doc(ctx('u_nobo'), 'planGroups', 'pg_kids')));
   await check('API.BIBLE\u2019S KEY: not even a master admin\u2019s page reads where it is kept', 'deny', () => getDoc(doc(as('martin'), 'privateSettings', 'apiBible')));
   await check('  nor writes it (only the server)', 'deny', () => setDoc(doc(as('martin'), 'privateSettings', 'apiBible'), { key: 'x' }));
+
+  // PRESENT (F-242): a session's deck, its notes, and which slide everyone is on.
+  const SCTX = { type: 'session', groupId: 'pg_kids', sessionId: 'ps_1' };
+  const DK = (uid, extra) => ({ context: SCTX, name: 'Born again (invented)', status: 'uploaded', source: 'upload', by: uid, byName: 'x', at: 'x', ...(extra || {}) });
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    await setDoc(doc(d, 'presentDecks', 'dk_ready'), { ...DK('u_samy'), status: 'ready', count: 4 });
+    await setDoc(doc(d, 'presentNotes', 'dk_ready'), { context: SCTX, notes: ['Say hello'] });
+  });
+  const NOW = (uid, extra) => ({ context: SCTX, slide: 0, presenterUid: uid, presenterName: 'x', startedAt: 'x', slideAt: 'x', blank: false, updatedBy: uid, ...(extra || {}) });
+  await check('PRESENT: a group leader adds a deck to the group’s session', 'allow', () => setDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_1'), DK('u_samy')));
+  await check('  not in someone else’s name', 'deny', () => setDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_2'), DK('u_tomk')));
+  await check('  not already marked "ready" (only the converter says that)', 'deny', () => setDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_3'), DK('u_samy', { status: 'ready' })));
+  await check('  not for a session of another group', 'deny', () => setDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_4'), DK('u_samy', { context: { ...SCTX, groupId: 'pg_youth' } })));
+  await check('  A TEAM MEMBER CANNOT ADD ONE', 'deny', () => setDoc(doc(ctx('u_tomk'), 'presentDecks', 'dk_5'), DK('u_tomk')));
+  await check('  the team reads the deck', 'allow', () => getDoc(doc(ctx('u_tomk'), 'presentDecks', 'dk_ready')));
+  await check('  another group does not', 'deny', () => getDoc(doc(ctx('u_yola'), 'presentDecks', 'dk_ready')));
+  await check('  the leader renames it, or keeps it', 'allow', () => updateDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_ready'), { name: 'Renamed', keep: true }));
+  await check('  but cannot mark it ready or change its count', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_1'), { status: 'ready', count: 9 }));
+  await check('THE SPEAKER NOTES: the leader reads them', 'allow', () => getDoc(doc(ctx('u_samy'), 'presentNotes', 'dk_ready')));
+  await check('  THE TEAM FOLLOWING DOES NOT', 'deny', () => getDoc(doc(ctx('u_tomk'), 'presentNotes', 'dk_ready')));
+  await check('  nobody writes them from a page (only the converter)', 'deny', () => setDoc(doc(as('martin'), 'presentNotes', 'dk_ready'), { context: SCTX, notes: [] }));
+  await check('WHICH SLIDE: before anyone presents, the team may look (nothing there yet)', 'allow', () => getDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1')));
+  await check('  the leader starts presenting', 'allow', () => setDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), NOW('u_samy')));
+  await check('  under the session’s own key only', 'deny', () => setDoc(doc(ctx('u_samy'), 'presentNow', 'ps_1'), NOW('u_samy')));
+  await check('  the team reads which slide', 'allow', () => getDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1')));
+  await check('  another group does not', 'deny', () => getDoc(doc(ctx('u_yola'), 'presentNow', 'ps_ps_1')));
+  await check('  the presenter moves on', 'allow', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { slide: 1, slideAt: 'y' }));
+  await check('  A TEAM MEMBER CANNOT MOVE THE SLIDES', 'deny', () => updateDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), { slide: 3, slideAt: 'z' }));
+  await check('  nor take over', 'deny', () => setDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), NOW('u_tomk')));
+  await check('  a master admin may take over', 'allow', () => setDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), NOW('u_martin')));
+  await check('  then the leader cannot just move the slides (it is not theirs now)', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { slide: 2, slideAt: 'z' }));
+  await check('  a meeting’s deck is master admins only until the hosts are agreed', 'deny', () => setDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_m'), DK('u_samy', { context: { type: 'meeting', meetingId: 'mt_1' } })));
 }
 
 // ── EVENTS (events window) ── BUILDING COMPLIANCE, Stage 2 (F-231, F-232): who sees and does what

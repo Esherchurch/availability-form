@@ -105,13 +105,15 @@ for (const i of [1, 2, 3]) {
   await db.collection('signups').doc('su_a_' + i + '_000000000000000000000').set({ calEventId: 'ev_a', personKind: 'contacts', personId: 'c_' + i, name: 'Guest ' + i + ' (invented)', email: 'guest' + i + '@example.invalid', phone: '', attendees: [{ name: 'Guest ' + i + ' (invented)' }], answers: {}, places: 1, ticketTypeId: '', status: 'confirmed', donation: 0, notes: '', memberUid: '', createdAt: 'x' });
   await db.collection('pictureLibrary').doc('pic_' + i).set({ name: 'Picture ' + i + ' (invented)', tags: ['test'], url: URLB + 'screenshots/events/watch-375.png', path: 'library/pic_' + i + '/x.png', width: 375, height: 600, createdAt: 'x', createdBy: P.martin.uid, updatedAt: 'x', updatedBy: P.martin.uid });
 }
+await db.collection('planGroups').doc('pg_aud').set({ name: 'Kids Church', kind: 'children', leaderIds: ['m_martin'], teamName: 'Kids Church' });
+await db.collection('planSessions').doc('ps_aud').set({ groupId: 'pg_aud', date: '2026-11-01', title: 'Born again? (invented)', parts: [{ id: 'a', title: 'Welcome', show: [{ type: 'text', words: 'Welcome, everyone' }, { type: 'text', words: 'What does born again mean?' }] }], updatedBy: P.martin.uid });
 await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_martin', name: 'Martin Master', siteId: '' }], memberIds: ['m_martin'], allSites: ['m_martin'], bySite: {}, updatedBy: P.martin.uid, updatedByName: 'x', updatedAt: 'x' });
 
 /* ---------- the pages ---------- */
 const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html', 'building.html', 'checkin.html', 'checkin.html?event=ev_a', 'checkin.html?view=rollcall',
   'church-settings.html', 'comms.html', 'compliance.html', 'events-admin.html', 'forms-admin.html', 'giftaid.html', 'give-regularly.html', 'groups-admin.html', 'groups.html',
   'headcounts.html', 'hire.html', 'kids-admin.html', 'kids-checkin.html', 'maintenance.html', 'my-messages.html', 'newhere.html', 'notifications.html',
-  'payments.html', 'peep.html', 'picture-library.html', 'places-admin.html', 'prayer.html', 'retention.html', 'risk.html', 'room.html?id=room_a', 'rooms.html', 'rota-reports.html',
+  'payments.html', 'peep.html', 'picture-library.html', 'places-admin.html', 'prayer.html', 'present-guide.html', 'present.html?s=ps_aud', 'retention.html', 'risk.html', 'room.html?id=room_a', 'rooms.html', 'rota-reports.html',
   'safeguarding-settings.html', 'safeguarding.html', 'sermons-admin.html', 'session-planner.html', 'signup.html?event=ev_a', 'team-mail.html', 'watch-admin.html', 'whatson.html'
 ].filter(p => !ONLY || p.startsWith(ONLY));
 /* Every page is held to it (the audit named events-admin, check-in and the picture library; Martin's floor is for all). */

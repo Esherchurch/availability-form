@@ -786,3 +786,5 @@ export { enewsSendDue, enewsTest } from './enews-send.js';
 export { canvaStatus, canvaStart, canvaCallback, canvaDesigns, canvaImport, canvaDisconnect } from './canva.js';
 /* Church HQ's Resend key box (comms window): master admins paste the key in Church settings; held until switch-over. */
 export { hqMailKeySave, hqMailKeyStatus } from './hq-mail-key.js';
+/* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */
+export { presentConvert, presentFromLink, presentSweep } from './present.js';

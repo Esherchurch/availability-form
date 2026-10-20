@@ -4689,6 +4689,65 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ---- PRESENT (F-242): a PowerPoint deck, its notes, and who is on which slide ----
+    // The context says whose it is: a session (its planner group) or a
+    // meeting (its room). Session: the group's leaders present, its team
+    // watch. Meeting: the host presents, the invitees watch - until the main
+    // window adds meetingInvitee()/meetingHost() (F-242 section 6), master
+    // admins only.
+    function deckReads(ctx) {
+      return ctx is map && ((ctx.get('type', '') == 'session' && readsPlanGroup(ctx.get('groupId', '')))
+                            || (ctx.get('type', '') == 'meeting' && isMaster()));
+    }
+    function deckPresents(ctx) {
+      return ctx is map && ((ctx.get('type', '') == 'session' && editsPlanGroup(ctx.get('groupId', '')))
+                            || (ctx.get('type', '') == 'meeting' && isMaster()));
+    }
+    function presentCtxOk(ctx) {
+      return ctx.get('type', '') != 'session'
+             || (ctx.get('sessionId', '') is string && exists(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-')))
+                 && get(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-'))).data.get('groupId', '') == ctx.get('groupId', '-'));
+    }
+    match /presentDecks/{deckId} {
+      allow read: if deckReads(resource.data.context);
+      allow create: if deckPresents(request.resource.data.context) && presentCtxOk(request.resource.data.context)
+                    && request.resource.data.keys().hasOnly(['context', 'name', 'status', 'source', 'by', 'byName', 'at'])
+                    && request.resource.data.status == 'uploaded' && request.resource.data.source in ['upload', 'onedrive']
+                    && request.resource.data.by == request.auth.uid
+                    && request.resource.data.name is string && request.resource.data.name.size() <= 120;
+      allow update: if deckPresents(resource.data.context)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'keep'])
+                    && request.resource.data.get('keep', false) is bool;
+      allow delete: if deckPresents(resource.data.context);
+    }
+    // The speaker notes: whoever may present, never the viewers. The converter writes them.
+    match /presentNotes/{deckId} {
+      allow read: if deckPresents(resource.data.context);
+      allow write: if false;
+    }
+    // Which slide everyone is on: one small document per session or meeting.
+    function presentNowShape(key) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['context', 'slide', 'presenterUid', 'presenterName', 'startedAt', 'slideAt', 'blank', 'updatedBy'])
+             && d.slide is int && d.slide >= 0 && d.slide < 1000 && d.blank is bool
+             && d.presenterUid in [request.auth.uid, ''] && d.updatedBy == request.auth.uid
+             && (d.context.get('type', '') != 'session' || key == 'ps_' + d.context.get('sessionId', '-'))
+             && (d.context.get('type', '') != 'meeting' || key.matches('mtg_.*'));
+    }
+    match /presentNow/{key} {
+      // Before anyone presents the document does not exist: anyone signed in
+      // may look (there is nothing to see), so every screen's listener stays
+      // alive and follows the moment someone starts.
+      allow read: if resource == null ? active() : deckReads(resource.data.context);
+      allow create: if deckPresents(request.resource.data.context) && presentCtxOk(request.resource.data.context) && presentNowShape(key);
+      // The presenter moves on, stops, or someone allowed takes over; the context never changes.
+      allow update: if deckPresents(resource.data.context) && request.resource.data.context == resource.data.context
+                    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slide', 'slideAt', 'blank'])
+                          ? resource.data.presenterUid == request.auth.uid
+                          : presentNowShape(key));
+      allow delete: if false;
+    }
+
     // THE AUDIT LOG: append only. Nobody - not a master admin - changes or deletes it.
     match /complianceLog/{id} {
       allow read: if cmpSees();

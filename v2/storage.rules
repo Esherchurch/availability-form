@@ -445,6 +445,30 @@ service firebase.storage {
              && cmpCheckHere(checkId).siteId == siteId
              && storageMe().get('memberId', '-') in cmpCheckHere(checkId).get('responsibleIds', []);
     }
+    // PRESENT (F-242): a deck's source PowerPoint and its slide pictures, at
+    // present/<deck>/. Read by the deck's audience (a session's group;
+    // a meeting's invitees once agreed - master admins until then). The
+    // source is put up by whoever may present; the pictures by the
+    // converter alone. Never readable by anyone else.
+    function deckHere(deckId) { return firestore.get(/databases/(default)/documents/presentDecks/$(deckId)).data; }
+    function deckCtx(deckId) { return deckHere(deckId).get('context', {}); }
+    function deckAudience(deckId) {
+      return firestore.exists(/databases/(default)/documents/presentDecks/$(deckId))
+             && ((deckCtx(deckId).get('type', '') == 'session' && planReaderHere(deckCtx(deckId).get('groupId', '-')))
+                 || (deckCtx(deckId).get('type', '') == 'meeting' && planActive() && storageMe().get('masterAdmin', false) == true));
+    }
+    function deckPresenter(deckId) {
+      return firestore.exists(/databases/(default)/documents/presentDecks/$(deckId))
+             && ((deckCtx(deckId).get('type', '') == 'session' && planLeaderHere(deckCtx(deckId).get('groupId', '-')))
+                 || (deckCtx(deckId).get('type', '') == 'meeting' && planActive() && storageMe().get('masterAdmin', false) == true));
+    }
+    match /present/{deckId}/{fileName} {
+      allow read: if deckAudience(deckId);
+      allow create, update: if fileName == 'source.pptx' && deckPresenter(deckId)
+                            && request.resource.size < 100 * 1024 * 1024
+                            && request.resource.contentType == 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      allow delete: if deckPresenter(deckId);
+    }
     // ROOM FLOOR PLANS (F-243): at roomPlans/<room>/, never the public
     // rooms/. Who sees one is the room's floorPlanWho: 'public' anyone;
     // 'members' (the default) anyone signed in and active, and the office;
