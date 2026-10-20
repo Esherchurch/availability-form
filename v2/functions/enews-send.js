@@ -38,6 +38,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { enewsShut } from './enews-gate.js';
 import { makeHqSender } from './hq-mail.js';
+import { makeSender } from './public-mail.js';
+import { featureOn } from './features.js';
 
 const REGION = 'europe-west2';
 const HUB = 'https://esherchurch.github.io/availability-form/v2';
@@ -138,8 +140,13 @@ export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minu
   await runEnewsSend({ db, send: makeHqSender({ db }) });
 });
 
-/* The office sends the members' copy to their own address, from the
-   address book, to see it in a real inbox. Their own link only. */
+/* "SEND ME A TEST" (Martin, 20 Oct: it must work now). The members'
+   copy, to the signed-in office person's OWN address and nobody else's,
+   through the hub's usual sender (public-mail.js makeSender): with
+   Martin's route list empty that is Calla's sendEmail, where they are a
+   known recipient. So it works before switch-over, while sending to
+   subscribers through Church HQ's Resend stays shut. Its unsubscribe link
+   goes nowhere: a test has no subscriber to unsubscribe. */
 export const enewsTest = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -147,20 +154,22 @@ export const enewsTest = onCall({ region: REGION }, async (req) => {
   const me = await db.collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
   if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) throw new HttpsError('permission-denied', 'For the church office.');
-  if (enewsShut()) throw new HttpsError('failed-precondition', 'Sending opens at switch-over.');
+  if (!(await featureOn(db, 'enews'))) throw new HttpsError('failed-precondition', 'The e-news is switched off for this church.');
   const id = String((req.data || {}).issueId || '');
   const doc = id && await db.collection('enewsIssues').doc(id).get();
   if (!doc || !doc.exists) throw new HttpsError('not-found', 'That e-news is not there.');
-  const issue = Object.assign({}, doc.data(), (req.data || {}).html ? { htmlMembers: String(req.data.html).slice(0, 900000) } : {});
-  if (!issue.htmlMembers) throw new HttpsError('failed-precondition', 'Nothing to send yet.');
-  const email = String(p.email || '').trim();
+  const html = String((req.data || {}).html || doc.data().htmlMembers || '').slice(0, 900000);
+  if (!html) throw new HttpsError('failed-precondition', 'Nothing to send yet.');
+  /* Their own address: their account's, else their address-book record's. */
+  let email = String(p.email || '').trim();
+  if (!email && p.memberId) { const ab = await db.collection('addressBook').doc(String(p.memberId)).get(); email = String((ab.exists && ab.data().email) || '').trim(); }
   if (!email) throw new HttpsError('failed-precondition', 'Your account has no email address.');
   const details = await db.collection('churchSettings').doc('details').get();
   const church = details.exists ? details.data() : {};
-  const letter = letterFor(issue, { email, token: 'test-only', id: 'test' }, true, { issueId: id });
-  letter.subject = '[Test] ' + (issue.subject || '');
-  delete letter.idempotencyKey;
-  const r = await makeHqSender({ db })(Object.assign(letter, { fromName: church.name || '', replyTo: church.enquiryEmail || '' }), { kind: 'enews test', issueId: id, by: uid });
+  const r = await makeSender({ db })({
+    to: [email], subject: '[Test] ' + (doc.data().subject || ''),
+    html: html.split(PLACEHOLDER).join('#test-only-no-unsubscribe'), replyTo: church.enquiryEmail || ''
+  }, { source: 'enews', kind: 'enews test', issueId: id, by: uid });
   if (!r.ok) throw new HttpsError('internal', 'Not sent: ' + (r.error || 'unknown'));
-  return { ok: true, to: email };
+  return { ok: true, to: email, via: r.via || 'calla' };
 });

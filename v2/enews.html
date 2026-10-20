@@ -20,14 +20,16 @@
      to you. Subscribers: the list, and "Add someone", through the hub's
      functions (functions/enews.js). Both shut until switch-over. -->
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610162000" data-title="E-news"></script>
+<script src="egbc-shell.js?v=202610192330" data-title="E-news"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610162100"></script>
+<script src="egbc-auth.js?v=202610192330"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610121200"></script>
-<script src="egbc-mailblocks.js?v=202610191900"></script>
+<script src="egbc-mailblocks.js?v=202610201500"></script>
+<script src="egbc-bible.js?v=202610161700"></script>
+<script src="egbc-share.js?v=202610161900"></script>
 <script src="egbc-comms.js?v=202610192100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -182,6 +184,14 @@
     t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7));
     return t.toISOString().slice(0, 10);
   }
+  /* "10:00" -> "10am", "18:30" -> "6:30pm", as Val writes times. */
+  function clock12(hhmm) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '')); if (!m) return '';
+    var h = +m[1], mm = +m[2];
+    return (h % 12 || 12) + (mm ? ':' + m[2] : '') + (h < 12 ? 'am' : 'pm');
+  }
+  /* The church's short name for the top line ("EGBC"), else its name. */
+  function shortName() { return String((SET.church && SET.church.shortName) || CHURCH.name || '').trim(); }
   function newIssue(opts) {
     opts = opts || {};
     var b = document.getElementById('new'); if (b) { b.disabled = true; b.textContent = 'Drafting…'; }
@@ -200,12 +210,13 @@
       var rota = r[1].sort(function (a, b) { return String(a.serviceTime || '').localeCompare(String(b.serviceTime || '')); })[0];
       var sunday = rota ? {
         title: String(rota.publicTitle || rota.type || 'Sunday service'),
-        when: 'Sunday ' + d.getUTCDate() + ' ' + d.toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' }) + (rota.serviceTime ? ' · ' + rota.serviceTime : ''),
+        date: 'Sunday ' + d.getUTCDate() + ' ' + d.toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' }),
+        time: clock12(rota.serviceTime),
         speaker: String(rota.speaker || '')
       } : null;
       var blocks = MB.draft({ now: now, events: r[0], sunday: sunday, notices: r[2], base: hubBase() });
       var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long' }).format(now);
-      ISSUE = { subject: 'Weekly news · ' + p, preheader: 'What’s happening this week', template: SET.template || 'classic', blocks: blocks, status: 'draft', week: weekOf(now) };
+      ISSUE = { subject: (shortName() + ' e-news ' + p).trim(), preheader: 'What\u2019s happening this week at ' + shortName(), template: SET.template || 'classic', blocks: blocks, status: 'draft', week: weekOf(now) };
       ISSUE_ID = ''; DIRTY = true;
       return save(true);
     }).then(function () { VIEW = 'build'; draw(); if (opts.auto) toast('This week’s e-news is drafted for you.'); })
@@ -253,6 +264,8 @@
     wrap.innerHTML =
       '<div class="row" style="margin:0 0 10px"><button class="btn sec" id="back" aria-label="Back to the list"><i data-lucide="chevron-left" style="width:16px;height:16px"></i>E-news</button></div>' +
       '<label for="subj" style="margin-top:0">Subject</label><input type="text" id="subj" maxlength="200" value="' + esc(ISSUE.subject || '') + '"' + (editable() ? '' : ' disabled') + '>' +
+      '<label for="pre">Top line <span class="m">(the first words people see)</span></label><input type="text" id="pre" maxlength="200" value="' + esc(ISSUE.preheader || '') + '"' + (editable() ? '' : ' disabled') + '>' +
+      readyNote() +
       '<div class="seg" role="tablist" style="margin-top:12px">' + [['build', 'Build'], ['phone', 'Phone'], ['computer', 'Computer'], ['send', 'Send']].map(function (v) {
         return '<button role="tab" data-v="' + v[0] + '" aria-selected="' + (VIEW === v[0]) + '">' + v[1] + '</button>'; }).join('') + '</div>' +
       '<div class="pills"><span class="pill">' + esc(MB.TEMPLATES[ISSUE.template] ? MB.TEMPLATES[ISSUE.template].label : 'Classic') + '</span>' +
@@ -262,10 +275,19 @@
     icons();
     document.getElementById('back').onclick = function () { (DIRTY ? save(true) : Promise.resolve()).then(showList, showList); };
     document.getElementById('subj').oninput = function () { ISSUE.subject = this.value; saveSoon(); };
+    document.getElementById('pre').oninput = function () { ISSUE.preheader = this.value; saveSoon(); };
     Array.prototype.forEach.call(wrap.querySelectorAll('.seg button'), function (b) { b.onclick = function () { VIEW = b.getAttribute('data-v'); draw(); }; });
     ({ build: drawBuild, phone: function () { drawPreview(375); }, computer: function () { drawPreview(640); }, send: drawSend })[VIEW]();
   }
 
+  /* A new week never goes out with an empty top (Martin, 20 Oct). */
+  function readyNote() {
+    if (!editable()) return '';
+    var r = MB.readyToSend(ISSUE);
+    if (r.ok) return '';
+    var words = r.missing.map(function (m) { return m === 'picture' ? 'this week\u2019s picture' : 'this week\u2019s verse'; }).join(' and ');
+    return '<p class="ready" style="background:var(--gold-bg);border:1px solid #e7c98f;border-radius:10px;padding:10px 12px;margin:12px 0 0;color:#7a5512">Add ' + words + ' (or remove ' + (r.missing.length > 1 ? 'them' : 'it') + ') before it can be sent or tested.</p>';
+  }
   function summary(b) {
     switch (b.type) {
       case 'header': return [b.title || '(no title)', b.imageUrl ? 'With a picture' : 'No picture yet'];
@@ -308,7 +330,7 @@
   /* ---- the previews: what the email program will show ------------------- */
   function rendered(version) {
     return MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), {
-      version: version, church: CHURCH, unsubscribeUrl: hubBase() + '/enews-unsubscribe.html', webUrl: hubBase() + '/enews.html'
+      version: version, church: CHURCH, unsubscribeUrl: hubBase() + '/enews-unsubscribe.html', webUrl: hubBase() + '/enews-web.html', preview: true
     });
   }
   /* The copies the server sends: each person's own unsubscribe link goes in
@@ -323,7 +345,7 @@
     var v = document.getElementById('view');
     var who = drawPreview.who || 'members';
     v.innerHTML = '<div class="seg" style="max-width:420px"><button data-w="members" aria-selected="' + (who === 'members') + '">Church members see</button><button data-w="everyone" aria-selected="' + (who === 'everyone') + '">Everyone else sees</button></div>' +
-      '<div class="frame" id="fr"><iframe title="Preview" sandbox="" id="pv"></iframe></div>' +
+      '<div class="frame" id="fr"><iframe title="Preview" sandbox="allow-same-origin" id="pv"></iframe></div>' +
       '<p class="m">Everyone else, and the web version, never get the gold members-only blocks.</p>';
     Array.prototype.forEach.call(v.querySelectorAll('[data-w]'), function (b) { b.onclick = function () { drawPreview.who = b.getAttribute('data-w'); drawPreview(w); }; });
     var fr = document.getElementById('fr'), pv = document.getElementById('pv');
@@ -331,6 +353,7 @@
     pv.style.width = w + 'px'; pv.style.height = '2400px';
     pv.style.transform = 'scale(' + scale + ')'; pv.style.transformOrigin = '0 0';
     fr.style.height = Math.round(2400 * scale + 20) + 'px';
+    pv.onload = function () { try { var h = pv.contentDocument.documentElement.scrollHeight; pv.style.height = h + 'px'; fr.style.height = Math.round(h * scale + 20) + 'px'; } catch (e) {} };
     pv.srcdoc = rendered(who);
   }
 
@@ -339,9 +362,11 @@
     var nice = function (t) { return t ? new Date(t).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }) : ''; };
     var c = ISSUE.counts || {};
     v.innerHTML = '<div class="card"><h2>Send</h2>' +
+      '<p style="background:#eef5f4;border-radius:10px;padding:10px 12px;margin:0 0 10px;color:var(--ink)"><b>Sending to subscribers opens when the church goes live on the new hub.</b> Until then, \u201cSend me a test\u201d sends it to you only.</p>' +
       '<p class="m" style="margin:0 0 6px" id="who">To: e-news subscribers…</p>' +
       (st === 'sent' ? '<p><b style="color:var(--ink)">Sent</b> ' + esc(String(ISSUE.sentAt || '').slice(0, 16).replace('T', ' ')) + ' to ' + esc(String(c.sent || 0)) + ' people' +
-          (c.failed ? ', ' + esc(String(c.failed)) + ' could not be sent' : '') + '. <a href="enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) + '">The web version</a>.</p>'
+          (c.failed ? ', ' + esc(String(c.failed)) + ' could not be sent' : '') + '. <a href="enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) + '">The web version</a>.</p>' +
+          '<div class="row"><button class="btn" id="share"><i data-lucide="share-2" style="width:16px;height:16px"></i>Share to WhatsApp</button></div><p class="m">Shares the web version, which never has the members-only parts.</p>'
        : st === 'sending' ? '<p><b style="color:var(--ink)">Sending now.</b></p>'
        : st === 'scheduled' ? '<p style="background:#ecfdf3;color:var(--ok);border-radius:10px;padding:10px 12px;margin:8px 0"><b>Scheduled</b> for ' + esc(nice(ISSUE.sendAt)) + '. Changes you make before then are sent too.</p>' +
           '<div class="row"><button class="btn sec" id="unsched">Don’t send yet (back to a draft)</button></div>'
@@ -354,7 +379,11 @@
       var n = s.docs.filter(function (d) { return (d.data().lists || {}).weekly === true; }).length;
       var el = document.getElementById('who'); if (el) el.textContent = 'To: ' + n + ' e-news subscriber' + (n === 1 ? '' : 's') + '.';
     }, function () {});
-    var b;
+    var b, ready = MB.readyToSend(ISSUE);
+    icons();
+    if ((b = document.getElementById('share'))) b.onclick = shareIssue;
+    if (!ready.ok) ['sched', 'test'].forEach(function (id) { var x = document.getElementById(id); if (x) { x.disabled = true; x.title = 'Add this week\u2019s picture and verse first'; } });
+    if (!ready.ok && document.getElementById('testmsg')) document.getElementById('testmsg').textContent = 'Add this week\u2019s picture and verse first (or remove them on Build).';
     if ((b = document.getElementById('sched'))) b.onclick = function () {
       var t = document.getElementById('when').value;
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) { toast('Choose the day and time to send it.'); return; }
@@ -380,11 +409,12 @@
   function showSubscribers() {
     wrap.innerHTML = '<div class="row" style="margin:0 0 10px"><button class="btn sec" id="back"><i data-lucide="chevron-left" style="width:16px;height:16px"></i>E-news</button></div>' +
       '<h1>Subscribers</h1><p class="sub">Everyone who gets the e-news, and everyone who has asked not to. People who unsubscribe are kept as “unsubscribed” so they are never emailed again.</p>' +
-      '<div class="row" style="margin:0 0 12px"><button class="btn" id="addsub"><i data-lucide="user-plus" style="width:16px;height:16px"></i>Add someone</button></div>' +
+      '<div class="row" style="margin:0 0 12px"><button class="btn" id="addab"><i data-lucide="book-user" style="width:16px;height:16px"></i>Add from the address book</button><button class="btn sec" id="addsub"><i data-lucide="user-plus" style="width:16px;height:16px"></i>Add someone else</button></div>' +
       '<div class="card"><div class="list" id="subs"><p class="m">Loading…</p></div></div>';
     icons();
     document.getElementById('back').onclick = showList;
     document.getElementById('addsub').onclick = addSubscriber;
+    document.getElementById('addab').onclick = addFromAddressBook;
     db().collection('enewsSubscribers').orderBy('email').limit(1000).get().then(function (s) {
       var el = document.getElementById('subs'), W = { subscribed: 'Subscribed', pending: 'Waiting to confirm', unsubscribed: 'Unsubscribed', bounced: 'Bounced', complained: 'Marked as spam' };
       if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">Nobody yet. People join on the sign-up page (enews-signup.html); the Mailchimp list comes in at switch-over.</p>'; return; }
@@ -400,7 +430,7 @@
   function addSubscriber() {
     sheet('Add someone',
       field('a-email', 'Email', '', 'email') + field('a-first', 'First name (optional)', '') +
-      '<label for="a-how">How did they agree?</label><select id="a-how"><option value="">Choose…</option><option value="paper">On a paper form</option><option value="person">They asked in person</option><option value="email">They asked by email</option><option value="phone">They asked by phone</option></select>' +
+      '<label for="a-how">How did they say yes?</label><select id="a-how"><option value="">Choose…</option>' + HOW_WORDS.map(function (h) { return '<option value="' + h[0] + '">' + esc(h[1]) + '</option>'; }).join('') + '</select>' +
       field('a-note', 'A note (optional)', '') +
       '<label class="tick"><input type="checkbox" id="a-special"> Special notices too</label>' +
       '<label class="tick"><input type="checkbox" id="a-again"> They unsubscribed before, and have asked to come back</label>' +
@@ -412,6 +442,130 @@
           special: s.querySelector('#a-special').checked, confirmAgain: s.querySelector('#a-again').checked })
           .then(function () { toast('Added.'); showSubscribers(); }, function (e) { toast(e.message || String(e)); });
       });
+  }
+
+  /* ---- the verse, through the hub's Bible (egbc-bible.js; Martin, 20 Oct)
+     Type a reference, choose the version, and the verse comes in with its
+     reference and the version's copyright line. Free Bibles always; the
+     church's API.Bible versions (e.g. the NIV) once its key is saved;
+     typing or pasting the verse by hand always works. The church's usual
+     version is remembered (enewsSettings/main.bible): NIV when the
+     church's key has it, otherwise the BSB. */
+  var USUAL_FALLBACK = { source: 'bundled', id: 'BSB', abbrev: 'BSB' };
+  function usualVersion() {
+    if (SET.bible && SET.bible.id) return Promise.resolve(SET.bible);
+    if (!window.EGBCBible) return Promise.resolve(USUAL_FALLBACK);
+    return EGBCBible.apiVersions().then(function (l) {
+      var niv = l.filter(function (x) { return /^NIV(UK)?$/i.test(String(x.abbrev || '')); })[0];
+      return niv ? { source: 'apibible', id: niv.id, abbrev: String(niv.abbrev).toUpperCase() } : USUAL_FALLBACK;
+    }, function () { return USUAL_FALLBACK; });
+  }
+  function verseSheet(i) {
+    var b = ISSUE.blocks[i];
+    var s = sheet('This week’s verse',
+      '<label for="v-ref">Reference</label><div class="row"><input type="text" id="v-ref" placeholder="For example Col 3:23-24" value="' + esc(b.ref || '') + '" style="flex:1;min-width:160px">' +
+      '<select id="v-ver" aria-label="Version" style="flex:1;min-width:150px"><option value="">Loading the Bibles…</option></select>' +
+      '<button type="button" class="btn sec" id="v-get">Bring it in</button></div>' +
+      '<p class="m" id="v-msg" role="status"></p>' +
+      '<label for="f-vt">The verse (you can also type or paste it)</label><textarea id="f-vt" rows="4">' + esc(b.text || '') + '</textarea>' +
+      '<label for="f-copy">Copyright line (from the version)</label><input type="text" id="f-copy" value="' + esc(b.copyright || '') + '">' +
+      '<input type="hidden" id="f-version" value="' + esc(b.version || '') + '">',
+      function (s) {
+        b.text = s.querySelector('#f-vt').value.trim(); b.ref = val(s, 'v-ref'); b.version = val(s, 'f-version'); b.copyright = val(s, 'f-copy'); b.auto = false;
+        saveSoon(); drawBuild();
+      }, '<button class="btn ghost" data-del>Remove the verse</button>');
+    s.querySelector('[data-del]').onclick = function () {
+      if (!confirm('Send this week without a verse?')) return;
+      ISSUE.blocks.splice(i, 1); s.remove(); saveSoon(); drawBuild();
+    };
+    var sel = s.querySelector('#v-ver'), msg = s.querySelector('#v-msg');
+    if (!window.EGBCBible) { sel.innerHTML = '<option value="">The Bibles are not available here</option>'; return; }
+    Promise.all([EGBCBible.versions().catch(function () { return []; }), EGBCBible.apiVersions().catch(function () { return []; }), usualVersion()]).then(function (r) {
+      var opts = r[0].map(function (x) { return '<option value="bundled|' + esc(x.id) + '|' + esc(x.abbrev) + '">' + esc(x.name) + ' (free)</option>'; })
+        .concat(r[1].map(function (x) { return '<option value="apibible|' + esc(x.id) + '|' + esc(String(x.abbrev || '').toUpperCase()) + '">' + esc(x.name) + ' (church key)</option>'; }));
+      sel.innerHTML = opts.join('') || '<option value="">No Bibles found</option>';
+      var u = r[2]; var want = u.source + '|' + u.id + '|' + u.abbrev;
+      if ([].some.call(sel.options, function (o) { return o.value === want; })) sel.value = want;
+      else { var bsb = [].filter.call(sel.options, function (o) { return /\|BSB\|/.test(o.value); })[0]; if (bsb) sel.value = bsb.value; }
+    });
+    s.querySelector('#v-get').onclick = function () {
+      var ref = val(s, 'v-ref'), parts = sel.value.split('|');
+      if (!EGBCBible.parse(ref)) { msg.textContent = 'That reference was not understood. Try, for example, "Col 3:23-24".'; return; }
+      if (!parts[1]) { msg.textContent = 'Choose a version.'; return; }
+      msg.textContent = 'Bringing it in…';
+      (parts[0] === 'apibible' ? EGBCBible.apiPassage(parts[1], ref, parts[2]) : EGBCBible.passage(parts[1], ref)).then(function (p) {
+        s.querySelector('#f-vt').value = (p.verses || []).map(function (x) { return x.text; }).join(' ').replace(/\s+/g, ' ').trim() || p.text;
+        s.querySelector('#v-ref').value = p.ref;
+        s.querySelector('#f-version').value = p.version || parts[2] || '';
+        s.querySelector('#f-copy').value = p.copyright || '';
+        msg.textContent = 'Brought in. You can still change the words.';
+        /* Remember the church's usual version. */
+        var next = { source: parts[0], id: parts[1], abbrev: parts[2] };
+        if (!SET.bible || SET.bible.id !== next.id) {
+          SET.bible = next;
+          db().collection('enewsSettings').doc('main').set(Object.assign({ template: SET.template || 'classic', colours: SET.colours || {}, church: SET.church || {}, bible: next }, stamp())).catch(function () {});
+        }
+      }, function (e) { msg.textContent = (e && e.message) || 'That did not work.'; });
+    };
+  }
+
+  /* ---- add subscribers from the address book (Martin, 20 Oct) -------------
+     Search and tick, or a whole team or group at once. Each person still
+     needs a recorded yes, asked in the same step - never added silently.
+     Under-16s are not offered; anyone who unsubscribed is shown as such
+     and can't be added here (only they can sign up again). */
+  var HOW_WORDS = [['person', 'They told the office'], ['paper', 'On a paper form'], ['email', 'They asked by email'], ['phone', 'They asked by phone'], ['signedUp', 'They signed up themselves']];
+  function addFromAddressBook() {
+    var s = sheet('Add from the address book',
+      '<input type="search" id="ab-q" placeholder="Search names" aria-label="Search names" style="width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px">' +
+      '<label for="ab-team">Or a whole team or group</label><select id="ab-team"><option value="">Choose a team…</option></select>' +
+      '<div id="ab-list" style="max-height:44vh;overflow:auto;margin:10px 0 0"><p class="m">Loading…</p></div>' +
+      '<label for="ab-how">How did they say yes? (all of the ticked people)</label><select id="ab-how"><option value="">Choose…</option>' +
+      HOW_WORDS.map(function (h) { return '<option value="' + h[0] + '">' + esc(h[1]) + '</option>'; }).join('') + '</select>' +
+      '<p class="m">Only tick people who have said yes. When, how and who added them is kept with each one.</p>',
+      function (s) {
+        var how = val(s, 'ab-how');
+        var people = [].filter.call(s.querySelectorAll('[data-ab]'), function (c) { return c.checked; }).map(function (c) { return PEOPLE[+c.getAttribute('data-ab')]; });
+        if (!people.length) { toast('Tick at least one person.'); return false; }
+        if (!how) { toast('Choose how they said yes. Nobody is added without it.'); return false; }
+        EGBCAuth.call('enewsSubscriberSave', { people: people.map(function (p) { return { email: p.email, firstName: p.first, memberId: p.id }; }), how: how, from: 'addressBook' })
+          .then(function (r) { r = (r && r.data !== undefined) ? r.data : r; toast(r.added + ' added' + (r.skipped && r.skipped.length ? ', ' + r.skipped.length + ' not (they show why)' : '') + '.'); showSubscribers(); },
+            function (e) { toast(e.message || String(e)); });
+      });
+    var PEOPLE = [], SUB = {};
+    Promise.all([db().collection('addressBook').get(), db().collection('enewsSubscribers').get()]).then(function (r) {
+      r[1].docs.forEach(function (d) { SUB[String(d.data().email || '').toLowerCase()] = d.data().status; });
+      PEOPLE = r[0].docs.map(function (d) { var x = d.data(); return { id: d.id, name: x.name || '', first: String(x.name || '').split(/\s+/)[0], email: String(x.email || '').trim(), teams: x.markers || [], minor: x.isMinor === true, archived: x.archived === true }; })
+        .filter(function (p) { return p.email && !p.archived && !p.minor; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      var teams = {}; PEOPLE.forEach(function (p) { p.teams.forEach(function (t) { teams[t] = 1; }); });
+      s.querySelector('#ab-team').innerHTML = '<option value="">Choose a team…</option>' + Object.keys(teams).sort().map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('');
+      drawList();
+    });
+    function drawList() {
+      var q = val(s, 'ab-q').toLowerCase();
+      s.querySelector('#ab-list').innerHTML = PEOPLE.map(function (p, k) {
+        if (q && p.name.toLowerCase().indexOf(q) < 0) return '';
+        var st = SUB[p.email.toLowerCase()];
+        var note = st === 'subscribed' ? 'Gets it already' : st === 'unsubscribed' || st === 'complained' ? 'Unsubscribed — only they can sign up again' : st === 'bounced' ? 'Their email bounced' : '';
+        return '<label class="tick" style="margin:0;border-top:1px solid var(--line)"><input type="checkbox" data-ab="' + k + '"' + (note ? ' disabled' : '') + '> <span><b style="color:var(--ink)">' + esc(p.name) + '</b><br><span class="m">' + esc(p.email) + (note ? ' · ' + esc(note) : '') + '</span></span></label>';
+      }).join('') || '<p class="m">Nobody matches.</p>';
+    }
+    s.querySelector('#ab-q').oninput = drawList;
+    s.querySelector('#ab-team').onchange = function () {
+      var t = this.value; if (!t) return;
+      s.querySelector('#ab-q').value = ''; drawList();
+      [].forEach.call(s.querySelectorAll('[data-ab]'), function (c) { var p = PEOPLE[+c.getAttribute('data-ab')]; if (!c.disabled && p.teams.indexOf(t) >= 0) c.checked = true; });
+    };
+  }
+
+  /* ---- Share to WhatsApp (Martin, 20 Oct): a sent issue's web version,
+     which never has the members-only blocks, through the hub's own share
+     code (egbc-share.js): it opens the person's WhatsApp (app, Desktop or
+     Web) with a short line and the link; they choose the group. */
+  function shareIssue() {
+    var link = hubBase() + '/enews-web.html?issue=' + encodeURIComponent(ISSUE_ID);
+    if (!window.EGBCShare) { window.open('https://wa.me/?text=' + encodeURIComponent((ISSUE.subject || 'This week’s e-news') + ' ' + link), '_blank'); return; }
+    EGBCShare.open({ title: ISSUE.subject || 'This week’s e-news', html: '<p>This week’s e-news from ' + esc(CHURCH.name || 'church') + '.</p>', link: link });
   }
 
   /* ---- editing one block, in a sheet ----------------------------------- */
@@ -459,6 +613,7 @@
 
   function editSheet(i) {
     var b = ISSUE.blocks[i], t = b.type, body = '', ed = null;
+    if (t === 'verse') { verseSheet(i); return; }
     if (t === 'header') body = field('f-title', 'Title', b.title) + picField('f-img', 'Picture', b.imageUrl) + field('f-alt', 'Describe the picture (for people who can’t see it)', b.alt);
     else if (t === 'text') body = field('f-title', 'Title (optional)', b.title) + '<label>Words</label><div id="f-html"></div>';
     else if (t === 'event') body = field('f-title', 'Title', b.title) + field('f-kicker', 'Small line above (optional)', b.kicker) + field('f-when', 'When and where', b.when) +
@@ -554,12 +709,12 @@
       '<p class="m">Colours you change here are this church’s, on top of the starting look. “Back to the look’s own colours” undoes them.</p>' +
       '<button type="button" class="btn sec" id="l-reset">Back to the look’s own colours</button>' +
       '<h2 style="margin-top:18px">Footer</h2><p class="m" style="margin:0">The church’s name and email come from Church details.</p>' +
-      field('l-addr', 'Address', c.address) + field('l-charity', 'Charity number', c.charityNo) + field('l-phone', 'Phone', c.phone) + field('l-hours', 'Office hours (optional)', c.hours),
+      field('l-short', 'Short name for the top line (e.g. EGBC)', c.shortName) + field('l-addr', 'Address', c.address) + field('l-charity', 'Charity number', c.charityNo) + field('l-phone', 'Phone', c.phone) + field('l-hours', 'Office hours (optional)', c.hours),
       function (s) {
         var tplNew = val(s, 'l-tpl'), cols = {}, look = MB.TEMPLATES[tplNew] || MB.TEMPLATES.classic;
         Array.prototype.forEach.call(s.querySelectorAll('[data-c]'), function (i) { var k = i.getAttribute('data-c'); if (i.value.toLowerCase() !== String(look[k]).toLowerCase()) cols[k] = i.value.toLowerCase(); });
         if (s.resetColours) cols = {};
-        var next = { template: tplNew, colours: cols, church: { address: val(s, 'l-addr').slice(0, 200), charityNo: val(s, 'l-charity').slice(0, 30), phone: val(s, 'l-phone').slice(0, 40), hours: val(s, 'l-hours').slice(0, 200) } };
+        var next = { template: tplNew, colours: cols, bible: SET.bible || null, church: { shortName: val(s, 'l-short').slice(0, 40), address: val(s, 'l-addr').slice(0, 200), charityNo: val(s, 'l-charity').slice(0, 30), phone: val(s, 'l-phone').slice(0, 40), hours: val(s, 'l-hours').slice(0, 200) } };
         db().collection('enewsSettings').doc('main').set(Object.assign({}, next, stamp())).then(function () {
           SET = next; churchFromSettings(); toast('Saved.');
           if (ISSUE) draw();

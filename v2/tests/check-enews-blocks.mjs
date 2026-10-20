@@ -77,11 +77,11 @@ function checks(M) {
   ok('both copies: the public event card with its words as text', pub.includes('Harvest supper') && mem.includes('Harvest supper'));
   ok('an unknown version is treated as public', !M.render(issue, { version: 'admin', church: CHURCH }).includes(ZOOM));
 
-  ok('an empty verse (drafted for Val) draws nothing', !pub.includes('“”') && M.render({ blocks: [{ type: 'verse', text: '  ' }] }, {}).indexOf('“') < 0);
+  ok('an empty verse (drafted for Val) is never in an email', !pub.includes('class="verse"') && M.render({ blocks: [{ type: 'verse', text: '  ' }] }, {}).indexOf('class="verse"') < 0);
 
   /* Every e-news can be left (C-11), and says who sent it. */
   const empty = M.render({ blocks: [] }, { version: 'everyone', church: CHURCH, unsubscribeUrl: M.PLACEHOLDER });
-  ok('unsubscribe link in every copy, even an empty one', [pub, mem, empty].every(h => h.includes('href="' + M.PLACEHOLDER + '"') && />Unsubscribe</.test(h)));
+  ok('unsubscribe link in every copy, even an empty one', [pub, mem, empty].every(h => h.includes('href="' + M.PLACEHOLDER + '"') && />unsubscribe from this list</.test(h)));
   ok('footer: name, address and charity number', [pub, mem].every(h => h.includes('Synthetic Green Church') && h.includes('1 Test Lane') && h.includes('0000001')));
   const viaBlock = M.render({ blocks: [{ type: 'footer' }, { type: 'text', html: '' }] }, { church: CHURCH, unsubscribeUrl: 'https://example.invalid/u?t=1' });
   ok('a real unsubscribe address is kept', viaBlock.includes('href="https://example.invalid/u?t=1"'));
@@ -111,6 +111,26 @@ function checks(M) {
     EB.includes('<td align="center" bgcolor="#3d6263" style="border-radius:9px;">') && s.button('A', 'https://x.invalid').includes('<td align="center" bgcolor="#3d6263" style="border-radius:9px;">') &&
     EB.includes(s.divider()) && EB.includes(s.spacer()) &&
     EB.includes('<td width="50%" valign="top" style="padding:0 10px 0 0;">Left column…</td>'.replace('…', '…')) && s.columns().includes('Left column'));
+  /* Val's look (C-29): the order, the parts, placeholders only in the
+     preview, the week can't go out with an empty top, and Outlook-safe. */
+  const order = blocks.map(b => b.type).filter(t => t !== 'notices');
+  ok('draft in Val\u2019s order: picture, verse, "Coming up this week", Sunday, events', order.slice(0, 4).join() === 'header,verse,section,sunday' && blocks.find(b => b.type === 'section').label === 'Coming up this week', order.join());
+  const ev1 = M.draft({ now: NOW, events: [Object.assign({}, EVENTS[0], { description: '<p>Bring a <a href="https://example.invalid/food">dish</a> to share.</p>' })], notices: [], base: 'https://x.invalid' }).find(b => b.type === 'event');
+  const evHtml = M.render({ blocks: [ev1] }, { church: CHURCH });
+  ok('an event card carries the event\u2019s own description and its links', /Bring a <a href="https:\/\/example\.invalid\/food"[^>]*color:#17a809/.test(evHtml) && evHtml.includes('Harvest supper'));
+  const rt = M.readyToSend({ blocks });
+  ok('a new week is not ready to send: picture and verse missing', !rt.ok && rt.missing.join() === 'picture,verse', rt);
+  ok('not ready without the verse, once the picture is in', !M.readyToSend({ blocks: blocks.map(b => b.type === 'header' ? Object.assign({}, b, { imageUrl: 'https://x.invalid/p.jpg' }) : b) }).ok);
+  ok('ready once both are in, or both blocks removed', M.readyToSend({ blocks: blocks.map(b => b.type === 'header' ? Object.assign({}, b, { imageUrl: 'https://x.invalid/p.jpg' }) : b.type === 'verse' ? Object.assign({}, b, { text: 'Love one another' }) : b) }).ok &&
+    M.readyToSend({ blocks: blocks.filter(b => b.type !== 'header' && b.type !== 'verse') }).ok);
+  const prev = M.render({ blocks }, { church: CHURCH, preview: true });
+  ok('the preview shows "Add this week\u2019s picture" and "Add this week\u2019s verse"', prev.includes('Add this week\u2019s picture') && prev.includes('Add this week\u2019s verse'));
+  ok('placeholders are never in the copy that is sent', !pub.includes('Add this week') && !mem.includes('Add this week'));
+  ok('fluid: 100% wide up to 600px, a fixed 600px table only for Outlook', pub.includes('class="wrap" width="100%"') && pub.includes('max-width:600px') && pub.includes('<!--[if mso]><table role="presentation" width="600"'));
+  ok('every picture shrinks to the screen (max-width, height:auto, a width)', (pub.match(/<img [^>]*>/g) || []).every(i => /max-width:\d+px/.test(i) && /height:auto/.test(i) && /width="\d+"/.test(i)));
+  ok('Outlook-safe: tables and inline styles, no flex or grid', !/display:\s*(flex|grid)/i.test(pub) && /<td[^>]+style=/.test(pub));
+  ok('Val\u2019s colours and sizes: #202020 15px text, teal titles, #17a809 links, #fe7e07 bar, #222222 top bar', pub.includes('font-size:15px;line-height:150%;color:#202020') && pub.includes('color:#008080') && pub.includes('bgcolor="#fe7e07"') && pub.includes('bgcolor="#222222"'));
+  ok('on a phone: 18px text and stacked event pictures (Val\u2019s phone rules)', pub.includes('@media only screen and (max-width:480px)') && /\.t,\.t p,\.t li\{font-size:18px !important/.test(pub) && /\.cimg\{display:block !important;width:100% !important/.test(pub));
   return R;
 }
 
@@ -122,11 +142,15 @@ R.forEach(r => console.log('  ' + (r.v ? 'PASS  ' : 'FAIL  ') + r.n + (r.v || r.
 const BREAKS = [
   ['members-only blocks let into the public copy', "if (b.members === true && version !== 'members') return false;", '', 'public copy: no members-only words'],
   ['not-listed events allowed in', "return null;   /* 'team', 'unlisted'", "return 'public';   /* 'team', 'unlisted'", 'NOT LISTED'],
-  ['the unsubscribe link dropped from the footer', "'<a href=\"' + (unsub === PLACEHOLDER ? PLACEHOLDER : esc(unsub)) + '\" style=\"color:' + t.footerText + ';\">Unsubscribe</a>' +", '', 'unsubscribe link in every copy'],
+  ['the unsubscribe link dropped from the footer', "'Want to change how you receive these emails?<br>You can <a href=\"' + u + '\" style=\"' + white + '\">update your preferences</a> or <a href=\"' + u + '\" style=\"' + white + '\">unsubscribe from this list</a>.'", "''", 'unsubscribe link in every copy'],
   ['javascript: links allowed', "if (/^https?:\\/\\/[^\\s<>\"]+$/i.test(u)", "if (/^(https?|javascript):[^\\s<>\"]+$/i.test(u)", 'no javascript: links'],
   ['team notices let in', 'if ((n.teams || []).length) return false;', '', 'church-wide notices only'],
-  ['an empty verse drawn', "if (!String(b.text || '').trim()) return '';", '', 'an empty verse'],
-  ['the charity number dropped', "c.charityNo ? 'Registered charity no ' + esc(c.charityNo) : '',", "'',", 'footer: name, address and charity number']
+  ['an empty verse sent', "if (!String(b.text || '').trim()) return o.preview ? row(placeholder('Add this week’s verse', 90), '18px 18px 9px') : '';", '', 'an empty verse'],
+  ['the charity number dropped', "c.charityNo ? 'Registered Charity No ' + esc(c.charityNo) : ''", "''", 'footer: name, address and charity number'],
+  ['ready to send without a verse', "if (b.type === 'verse' && !String(b.text || '').trim()) missing.push('verse');", '', 'not ready without the verse'],
+  ['placeholders sent in the email', "var body = (issue.blocks || [])", "opts = Object.assign({}, opts, { preview: true }); var body = (issue.blocks || [])", 'never in the copy that is sent'],
+  ['events drafted without their description', "html: String(ev.description || '').slice(0, 20000),", "html: '',", 'own description'],
+  ['a fixed 600px width on phones', "class=\"wrap\" width=\"100%\"", "class=\"wrap\" width=\"600\"", 'fluid']
 ];
 let caught = 0;
 for (const [what, from, to, expect] of BREAKS) {

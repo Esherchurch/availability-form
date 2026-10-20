@@ -41,31 +41,35 @@
 
   /* ---- the starting looks (decision 4: both, and the colours are the
      church's to change) ------------------------------------------------
-     'classic' is what the church's readers know from Mailchimp: a grey
-     page, an orange "Coming up this week" bar, teal titles, a dark
-     footer. 'green' is the hub's own colours (DESIGN.md). A church's
-     saved colours (enewsSettings/main.colours) are laid over either. */
+     'classic' IS VAL'S MAILCHIMP TEMPLATE, measured from her 15 Oct 2026
+     e-news (Martin, 20 Oct: "it must look exactly like the Mailchimp
+     version on phone and computer"): grey page #dee0e2, a #222222 top bar,
+     white body, 15px Helvetica at 150% (18px at 125% on a phone), teal
+     #008080 titles and dates, green #17a809 links, the orange #fe7e07 bar,
+     a 2px #eaeaea rule, and a #202020 footer. 'green' is the same layout
+     in the hub's colours. A church's saved colours are laid over either:
+     no church is forced into Val's look, but EGBC starts there. */
   var TEMPLATES = {
     classic: {
       label: 'Classic (as the e-news looks today)',
       font: 'Helvetica,Arial,sans-serif',
-      page: '#dee0e2', paper: '#ffffff', text: '#202020', muted: '#555555',
-      title: '#008080', link: '#17a809', bar: '#fe7e07', barText: '#fffafa',
-      button: '#07a47d', buttonText: '#ffffff', radius: 19,
-      verse: '#202020', verseBg: '#ffffff',
-      footer: '#202020', footerText: '#cccccc', shade: '#0a191a'
+      page: '#dee0e2', paper: '#ffffff', topBar: '#222222', topBarText: '#ffffff',
+      text: '#202020', muted: '#555555', title: '#008080', link: '#17a809',
+      bar: '#fe7e07', barText: '#fffafa', button: '#07a47d', buttonText: '#ffffff', radius: 19,
+      verse: '#000000', verseBg: '#ffffff', rule: '#eaeaea',
+      footer: '#202020', footerText: '#ffffff', shade: '#0a191a'
     },
     green: {
       label: 'Green (the hub’s colours)',
-      font: 'Arial,Helvetica,sans-serif',
-      page: '#eaf2f2', paper: '#ffffff', text: '#1e3a3a', muted: '#5b6b6b',
-      title: '#2a4a4b', link: '#3d6263', bar: '#3d6263', barText: '#ffffff',
-      button: '#3d6263', buttonText: '#ffffff', radius: 9,
-      verse: '#2a4a4b', verseBg: '#eef5f4',
-      footer: '#3d6263', footerText: '#c8dede', shade: '#0a191a'
+      font: 'Helvetica,Arial,sans-serif',
+      page: '#eaf2f2', paper: '#ffffff', topBar: '#2a4a4b', topBarText: '#ffffff',
+      text: '#1e3a3a', muted: '#5b6b6b', title: '#2a4a4b', link: '#3d6263',
+      bar: '#3d6263', barText: '#ffffff', button: '#3d6263', buttonText: '#ffffff', radius: 9,
+      verse: '#2a4a4b', verseBg: '#ffffff', rule: '#dbe6e6',
+      footer: '#2a4a4b', footerText: '#ffffff', shade: '#0a191a'
     }
   };
-  var COLOUR_KEYS = ['page', 'paper', 'text', 'muted', 'title', 'link', 'bar', 'barText', 'button', 'buttonText', 'verse', 'verseBg', 'footer', 'footerText'];
+  var COLOUR_KEYS = ['page', 'paper', 'topBar', 'topBarText', 'text', 'muted', 'title', 'link', 'bar', 'barText', 'button', 'buttonText', 'verse', 'verseBg', 'rule', 'footer', 'footerText'];
   var HEX = /^#[0-9a-f]{6}$/i;
 
   function theme(issue) {
@@ -141,138 +145,156 @@
     }
   };
 
-  /* ---- one block ------------------------------------------------------- */
-  var W = 560;   /* the inside width of the 600px column */
-
-  function pad(inner, extra) { return '<tr><td style="padding:' + (extra || '0 20px 18px') + ';">' + inner + '</td></tr>'; }
-
+  /* ---- one block ---------------------------------------------------------
+     THE LAYOUT IS VAL'S (FINDINGS-comms C-29). Every block is a table row
+     with inline styles (Outlook reads nothing else); widths are fluid -
+     100% up to 600px - and every picture has max-width:100%, height:auto,
+     so nothing is ever wider than the phone (checked at 320, 375 and 414).
+     On a computer an event's picture (176px) sits left of its words, as on
+     her page; below 480px it goes full width above them, and the words
+     grow to 18px, exactly as her template does. */
+  var PAD = '9px 18px';
+  function row(inner, padding, cls) {
+    return '<tr><td' + (cls ? ' class="' + cls + '"' : '') + ' valign="top" style="padding:' + (padding || PAD) + ';">' + inner + '</td></tr>';
+  }
+  function textStyle(t) { return 'font-family:' + t.font + ';font-size:15px;line-height:150%;color:' + t.text + ';text-align:left;word-break:break-word;overflow-wrap:anywhere;'; }
+  function link(href, words, t, bold) {
+    return '<a href="' + esc(href) + '" target="_blank" style="color:' + t.link + ';text-decoration:underline;' + (bold ? 'font-weight:bold;' : '') + '">' + words + '</a>';
+  }
+  /* "Add this week's picture" - shown in the editor's preview only, never
+     in an email (render opts.preview). */
+  function placeholder(words, h) {
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" height="' + h + '" ' +
+      'style="height:' + h + 'px;border:2px dashed #b9b9b9;background:#f4f4f4;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:bold;color:#6b6b6b;text-align:center;">' + esc(words) + '</td></tr></table>';
+  }
+  function image(src, alt, w, radius) {
+    return '<img class="fluid" src="' + esc(src) + '" width="' + w + '" alt="' + esc(alt || '') + '" ' +
+      'style="display:block;width:100%;max-width:' + w + 'px;height:auto;border:0;outline:none;text-decoration:none;' + (radius ? 'border-radius:' + radius + 'px;' : '') + '">';
+  }
+  function rule(t) {
+    return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:2px solid ' + t.rule + ';font-size:1px;line-height:1px;">&nbsp;</td></tr></table>', '18px');
+  }
   function button(b, t) {
     var href = safeUrl(b.url); if (!href || !b.label) return '';
-    return '<table border="0" cellspacing="0" cellpadding="0" style="margin:6px 0 0;"><tr>' +
+    return '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>' +
       '<td align="center" bgcolor="' + t.button + '" style="border-radius:' + t.radius + 'px;">' +
-      '<a href="' + esc(href) + '" target="_blank" style="display:inline-block;padding:11px 22px;font-family:' + t.font + ';font-size:15px;font-weight:bold;color:' + t.buttonText + ';text-decoration:none;border-radius:' + t.radius + 'px;">' + esc(b.label) + '</a>' +
+      '<a href="' + esc(href) + '" target="_blank" style="display:inline-block;padding:14px 18px;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;line-height:100%;color:' + t.buttonText + ';text-decoration:none;border-radius:' + t.radius + 'px;">' + esc(b.label) + '</a>' +
       '</td></tr></table>';
   }
 
-  /* THE EVENT CARD (C-8): the words are real text on the photo, so they
-     can be read with pictures switched off, and the card follows What's
-     On. The photo is the cell's background; old Outlook gets the same
-     picture through VML; with pictures off, a dark colour shows and the
-     words stay readable. */
-  function eventCard(b, t) {
-    var img = safeUrl(b.imageUrl);
-    var words =
-      (b.kicker ? '<div style="font-size:13px;font-weight:bold;opacity:.92;margin:0 0 2px;">' + esc(b.kicker) + '</div>' : '') +
-      '<div style="font-size:24px;line-height:1.15;font-weight:bold;margin:0 0 6px;">' + esc(b.title) + '</div>' +
-      (b.when ? '<div style="font-size:15px;margin:0 0 4px;">' + esc(b.when) + '</div>' : '') +
-      (b.text ? '<div style="font-size:14px;margin:4px 0 0;opacity:.95;">' + esc(b.text) + '</div>' : '');
-    var btn = (safeUrl(b.buttonUrl) && b.buttonLabel)
-      ? '<table border="0" cellspacing="0" cellpadding="0" style="margin:12px 0 0;"><tr><td bgcolor="#ffffff" style="border-radius:8px;">' +
-        '<a href="' + esc(safeUrl(b.buttonUrl)) + '" target="_blank" style="display:inline-block;padding:10px 18px;font-family:' + t.font + ';font-size:15px;font-weight:bold;color:' + t.title + ';text-decoration:none;border-radius:8px;">' + esc(b.buttonLabel) + '</a></td></tr></table>'
-      : '';
-    var style = b.style || 'shade';
-    if (style === 'side' || !img) {
-      /* The Mailchimp layout: picture left, words right; stacks on a phone. */
-      var left = img ? '<td width="176" valign="top" class="stack" style="padding:0 16px 0 0;"><img src="' + esc(img) + '" width="176" alt="' + esc(b.alt || b.title) + '" style="display:block;width:176px;max-width:100%;height:auto;border:0;border-radius:8px;"></td>' : '';
-      return pad('<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' + left +
-        '<td valign="top" class="stack" style="font-family:' + t.font + ';color:' + t.text + ';">' +
-        words.replace('font-size:24px', 'font-size:19px;color:' + t.title).replace(/opacity:\.9\d?;/g, '') +
-        (btn ? button({ label: b.buttonLabel, url: b.buttonUrl }, t) : '') + '</td></tr></table>');
-    }
-    if (style === 'below') {
-      return pad('<img src="' + esc(img) + '" width="' + W + '" alt="' + esc(b.alt || b.title) + '" style="display:block;width:100%;max-width:' + W + 'px;height:auto;border:0;border-radius:10px;">' +
-        '<div style="font-family:' + t.font + ';color:' + t.text + ';padding:10px 2px 0;">' +
-        words.replace('font-size:24px', 'font-size:20px;color:' + t.title).replace(/opacity:\.9\d?;/g, '') +
-        (btn ? button({ label: b.buttonLabel, url: b.buttonUrl }, t) : '') + '</div>');
-    }
-    var h = 470;
-    return pad(
-      '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:12px;overflow:hidden;"><tr>' +
-      '<td background="' + esc(img) + '" bgcolor="' + t.shade + '" valign="bottom" height="' + h + '" style="background-image:url(\'' + esc(img) + '\');background-size:cover;background-position:center;height:' + h + 'px;border-radius:12px;">' +
-      '<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:' + W + 'px;height:' + h + 'px;"><v:fill type="frame" src="' + esc(img) + '" color="' + t.shade + '" /><v:textbox inset="0,0,0,0"><![endif]-->' +
-      '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="200" style="font-size:0;line-height:0;">&nbsp;</td></tr>' +
-      '<tr><td bgcolor="' + t.shade + '" style="background-color:rgba(10,25,26,.78);padding:16px 18px 18px;font-family:' + t.font + ';color:#ffffff;">' +
-      words + btn + '</td></tr></table>' +
-      '<!--[if gte mso 9]></v:textbox></v:rect><![endif]-->' +
-      '</td></tr></table>');
+  /* An item's words: the title in teal and bold (with its day and time, as
+     Val writes them), then the description with its own links, then the
+     sign-up link. */
+  function itemWords(b, t) {
+    var head = [b.title, b.when].filter(Boolean).join(' – ');
+    var signup = safeUrl(b.buttonUrl) && b.buttonLabel ? '<p style="margin:0 0 10px;">' + link(safeUrl(b.buttonUrl), esc(b.buttonLabel), t, true) + '</p>' : '';
+    return (head ? '<p style="margin:0;"><strong style="color:' + t.title + ';">' + esc(head) + '</strong></p>' : '') +
+      (b.html ? cleanHtml(b.html, t) : '') + (b.text ? '<p style="margin:0 0 10px;">' + esc(b.text) + '</p>' : '') + signup;
   }
 
-  function block(b, t) {
+  /* THE EVENT CARD, Val's: picture left (176px) and words right on a
+     computer; picture full width above the words on a phone. With no
+     picture, the words alone, full width. */
+  function eventCard(b, t) {
+    var img = safeUrl(b.imageUrl);
+    var words = itemWords(b, t);
+    if (!img) return row('<div class="t" style="' + textStyle(t) + '">' + words + '</div>', '9px 18px 18px');
+    return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+      '<td class="cimg" width="176" valign="top" style="width:176px;padding:0 36px 0 0;">' + image(img, b.alt || b.title, 176, 8) + '</td>' +
+      '<td class="ctext t" valign="top" style="' + textStyle(t).replace('font-size:15px', 'font-size:14px') + 'padding:0;">' + words + '</td>' +
+      '</tr></table>', '9px 18px 18px');
+  }
+
+  function block(b, t, o) {
     switch (b.type) {
       case 'header':
+        /* Val's hero: the week's picture, full width, no margin. */
         return (safeUrl(b.imageUrl)
-          ? '<tr><td style="padding:0;">' + (safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '">' : '') +
-            '<img src="' + esc(safeUrl(b.imageUrl)) + '" width="600" alt="' + esc(b.alt || b.title || '') + '" style="display:block;width:100%;max-width:600px;height:auto;border:0;">' +
-            (safeUrl(b.link) ? '</a>' : '') + '</td></tr>' : '') +
-          (b.title ? pad('<h1 style="margin:0;font-family:' + t.font + ';font-size:26px;line-height:1.2;color:' + t.title + ';">' + esc(b.title) + '</h1>', '18px 20px 14px') : '');
+          ? row((safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '" target="_blank">' : '') + image(safeUrl(b.imageUrl), b.alt || b.title, 600) + (safeUrl(b.link) ? '</a>' : ''), '9px 0 0')
+          : (o.preview ? row(placeholder('Add this week’s picture', 220), '9px 18px') : '')) +
+          (b.title ? row('<h1 style="margin:0;font-family:' + t.font + ';font-size:22px;line-height:125%;font-weight:bold;color:' + t.title + ';text-align:center;">' + esc(b.title) + '</h1>', '18px 18px 0') : '');
+      case 'verse':
+        /* Val's verse: bold, centred, the reference and version after it. */
+        if (!String(b.text || '').trim()) return o.preview ? row(placeholder('Add this week’s verse', 90), '18px 18px 9px') : '';
+        var ref = [b.ref, b.version].filter(Boolean).join(' ');
+        return row('<div class="verse" style="font-family:' + t.font + ';font-size:18px;line-height:175%;font-weight:bold;color:' + t.verse + ';text-align:center;">' +
+            esc(String(b.text).trim()) + (ref ? ' (' + esc(ref) + ')' : '') + '</div>' +
+            (b.copyright ? '<div style="font-family:' + t.font + ';font-size:11px;line-height:140%;color:' + t.muted + ';text-align:center;padding:6px 0 0;">' + esc(b.copyright) + '</div>' : ''),
+          '18px 18px 9px');
       case 'section':
-        return pad('<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="' + t.bar + '" style="padding:12px;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:' + t.barText + ';text-align:center;">' + esc(b.label) + '</td></tr></table>', '4px 20px 18px');
-      case 'text':
-        return pad('<div style="font-family:' + t.font + ';font-size:15px;line-height:1.5;color:' + t.text + ';">' +
-          (b.title ? '<div style="font-size:18px;font-weight:bold;color:' + t.title + ';margin:0 0 6px;">' + esc(b.title) + '</div>' : '') +
-          cleanHtml(b.html, t) + '</div>');
+        return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="' + t.bar + '" ' +
+          'style="padding:12px 18px;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;line-height:100%;color:' + t.barText + ';text-align:center;">' + esc(b.label) + '</td></tr></table>');
       case 'sunday':
-        return pad('<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="' + t.verseBg + '" style="padding:14px 16px;border-radius:10px;font-family:' + t.font + ';color:' + t.text + ';">' +
-          '<div style="font-size:13px;font-weight:bold;color:' + t.muted + ';margin:0 0 2px;">' + esc(b.heading || 'This Sunday') + '</div>' +
-          '<div style="font-size:19px;font-weight:bold;color:' + t.title + ';">' + esc(b.title) + '</div>' +
-          (b.when ? '<div style="font-size:15px;margin:2px 0 0;">' + esc(b.when) + '</div>' : '') +
-          (b.speaker ? '<div style="font-size:15px;margin:2px 0 0;">' + esc(b.speakerWord || 'Speaker') + ': ' + esc(b.speaker) + '</div>' : '') +
-          (b.text ? '<div style="font-size:14px;margin:6px 0 0;">' + esc(b.text) + '</div>' : '') +
-          '</td></tr></table>');
+        /* Val's Sunday: the date in teal, the service in bold, a line about it. */
+        var dateLine = b.date || b.when || '';
+        var service = [b.time, b.title].filter(Boolean).join(' ');
+        return row('<div class="t" style="' + textStyle(t) + '">' +
+            (dateLine ? '<strong style="color:' + t.title + ';">' + esc(dateLine) + '</strong><br>' : '') +
+            (service ? '<strong>' + esc(service) + '</strong><br>' : '') +
+            (b.speaker ? esc(b.speakerWord || 'Speaker') + ': ' + esc(b.speaker) + (b.text ? '<br>' : '') : '') +
+            (b.text ? esc(b.text) : '') + (b.html ? cleanHtml(b.html, t) : '') + '</div>', '18px 18px 0') + rule(t);
       case 'event':
         return eventCard(b, t);
+      case 'text':
+        return row('<div class="t" style="' + textStyle(t) + '">' + itemWords({ title: b.title, html: b.html }, t) + '</div>', '9px 18px 18px');
       case 'picture':
         if (!safeUrl(b.url)) return '';
-        var pic = '<img src="' + esc(safeUrl(b.url)) + '" width="' + W + '" alt="' + esc(b.alt || '') + '" style="display:block;width:100%;max-width:' + W + 'px;height:auto;border:0;border-radius:10px;">';
-        return pad((safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '">' + pic + '</a>' : pic) +
-          (b.caption ? '<div style="font-family:' + t.font + ';font-size:14px;color:' + t.muted + ';padding:6px 2px 0;">' + esc(b.caption) + '</div>' : ''));
+        var pic = image(safeUrl(b.url), b.alt, 564, 8);
+        return row((safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '" target="_blank">' + pic + '</a>' : pic) +
+          (b.caption ? '<div class="t" style="' + textStyle(t) + 'padding:6px 0 0;">' + esc(b.caption) + '</div>' : ''));
       case 'button':
-        return pad('<div align="center">' + button(b, t) + '</div>');
-      case 'verse':
-        /* Drafted empty for Val to fill; an empty one is not drawn at all. */
-        if (!String(b.text || '').trim()) return '';
-        return pad('<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="' + t.verseBg + '" align="center" style="padding:16px 18px;border-radius:10px;font-family:' + t.font + ';font-size:18px;line-height:1.45;font-weight:bold;color:' + t.verse + ';text-align:center;">' +
-          '“' + esc(b.text) + '”' + (b.ref ? '<div style="font-size:14px;font-weight:normal;margin:6px 0 0;">' + esc(b.ref) + '</div>' : '') +
-          '</td></tr></table>');
+        return row(button(b, t), '18px');
       case 'notices':
         return (b.items || []).map(function (n) {
-          return pad('<div style="font-family:' + t.font + ';font-size:15px;line-height:1.5;color:' + t.text + ';">' +
-            '<div style="font-size:17px;font-weight:bold;color:' + t.title + ';margin:0 0 4px;">' + esc(n.title) + '</div>' + cleanHtml(n.html, t) + '</div>');
+          return row('<div class="t" style="' + textStyle(t) + '">' + itemWords({ title: n.title, html: n.html }, t) + '</div>', '9px 18px 18px');
         }).join('');
       case 'divider':
-        return pad(snippet.divider(), '0 20px');
+        return rule(t);
       case 'spacer':
-        return pad(snippet.spacer(), '0');
+        return row('<div style="height:24px;line-height:24px;font-size:0;">&nbsp;</div>', '0');
       default:
         return '';
     }
   }
 
-  /* ---- the footer: always there, never a block (C-10, C-11) ------------
-     The church's name, address and charity number, the web version, and
-     the unsubscribe link - in every e-news, whatever the blocks say. */
+  /* ---- the top bar and the footer: always there, never blocks ------------
+     The top bar: the preheader words and "View this email in your
+     browser" (Val's). The footer: copyright, the church's name, address,
+     charity number and office hours, its email and phone, and - in every
+     e-news, whatever the blocks say - "update your preferences" and
+     "unsubscribe from this list" (both the person's own link: the page
+     there offers both). */
+  function topBar(t, issue, opts) {
+    var web = safeUrl(opts.webUrl);
+    var words = esc(issue.preheader || '');
+    if (!words && !web) return '';
+    return '<tr><td bgcolor="' + t.topBar + '" style="padding:9px 0;background:' + t.topBar + ';">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+      '<td class="pre col" valign="top" width="60%" style="padding:9px 18px;font-family:' + t.font + ';font-size:11px;line-height:125%;color:' + t.topBarText + ';text-align:left;">' + words + '</td>' +
+      '<td class="pre col prer" valign="top" width="40%" style="padding:9px 18px;font-family:' + t.font + ';font-size:11px;line-height:125%;color:' + t.topBarText + ';text-align:left;">' +
+      (web ? '<a href="' + esc(web) + '" target="_blank" style="color:' + t.topBarText + ';text-decoration:underline;">View this email in your browser</a>' : '') + '</td>' +
+      '</tr></table></td></tr>';
+  }
   function footer(t, church, opts) {
     var c = church || {};
-    var lines = [
-      c.name ? '<b>' + esc(c.name) + '</b>' : '',
-      c.address ? esc(c.address) : '',
-      c.charityNo ? 'Registered charity no ' + esc(c.charityNo) : '',
-      [c.email ? '<a href="mailto:' + esc(c.email) + '" style="color:' + t.footerText + ';">' + esc(c.email) + '</a>' : '', c.phone ? esc(c.phone) : ''].filter(Boolean).join(' &middot; '),
-      c.hours ? esc(c.hours) : ''
-    ].filter(Boolean);
+    var white = 'color:' + t.footerText + ';text-decoration:underline;';
+    var year = (opts.year || new Date().getFullYear());
     var unsub = safeUrl(opts.unsubscribeUrl) || (opts.unsubscribeUrl === PLACEHOLDER ? PLACEHOLDER : '');
-    var web = safeUrl(opts.webUrl);
-    return '<tr><td bgcolor="' + t.footer + '" style="padding:22px 20px;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;color:' + t.footerText + ';text-align:center;">' +
-      lines.join('<br>') +
-      '<div style="margin:12px 0 0;">' +
-      (web ? '<a href="' + esc(web) + '" style="color:' + t.footerText + ';">View this e-news in your browser</a> &middot; ' : '') +
-      '<a href="' + (unsub === PLACEHOLDER ? PLACEHOLDER : esc(unsub)) + '" style="color:' + t.footerText + ';">Unsubscribe</a>' +
-      '</div></td></tr>';
+    var u = unsub === PLACEHOLDER ? PLACEHOLDER : esc(unsub);
+    var parts = [
+      c.name ? '<em>Copyright © ' + year + ' ' + esc(c.name) + ', All rights reserved.</em>' : '',
+      [c.name && c.address ? esc(c.name) + ', ' + esc(c.address) : esc(c.address || ''), c.charityNo ? 'Registered Charity No ' + esc(c.charityNo) : ''].filter(Boolean).join('<br>'),
+      c.hours ? '<strong>' + esc(c.hours) + '</strong>' : '',
+      [c.email ? '<a href="mailto:' + esc(c.email) + '" style="' + white + '">' + esc(c.email) + '</a>' : '', c.phone ? esc(c.phone) : ''].filter(Boolean).join('&nbsp;&nbsp; '),
+      'Want to change how you receive these emails?<br>You can <a href="' + u + '" style="' + white + '">update your preferences</a> or <a href="' + u + '" style="' + white + '">unsubscribe from this list</a>.'
+    ].filter(Boolean);
+    return '<tr><td class="foot" bgcolor="' + t.footer + '" style="padding:27px 18px;background:' + t.footer + ';font-family:' + t.font + ';font-size:11px;line-height:125%;color:' + t.footerText + ';text-align:left;">' +
+      parts.join('<br><br>') + '</td></tr>';
   }
   /* The server puts each person's own link here when it sends (C-11). */
   var PLACEHOLDER = '{{unsubscribe_url}}';
 
-  /* ---- the whole email ------------------------------------------------- */
+  /* ---- the whole email ---------------------------------------------------- */
   function keep(b, version) {
     if (!b || typeof b !== 'object') return false;
     if (b.hidden === true) return false;
@@ -280,22 +302,55 @@
     return true;
   }
 
+  /* opts: { version: 'members'|'everyone', church, unsubscribeUrl, webUrl,
+     preview: true in the editor (placeholders shown), year } */
   function render(issue, opts) {
     issue = issue || {}; opts = opts || {};
     var version = opts.version === 'members' ? 'members' : 'everyone';
     var t = theme(issue);
     var body = (issue.blocks || []).filter(function (b) { return keep(b, version); })
-      .map(function (b) { return block(b, t); }).join('');
-    var pre = issue.preheader ? '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;font-size:1px;line-height:1px;">' + esc(issue.preheader) + '</div>' : '';
+      .map(function (b) { return block(b, t, opts); }).join('');
+    var pre = issue.preheader ? '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;font-size:1px;line-height:1px;color:' + t.page + ';">' + esc(issue.preheader) + '</div>' : '';
     return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<title>' + esc(issue.subject || '') + '</title>' +
-      '<style type="text/css">img{max-width:100%!important;height:auto!important;}' +
-      '@media only screen and (max-width:620px){.container{width:100%!important;}.stack{display:block!important;width:100%!important;padding:0 0 10px!important;}.stack img{width:100%!important;}}</style>' +
-      '</head><body style="margin:0;padding:0;background-color:' + t.page + ';-webkit-text-size-adjust:100%;">' + pre +
-      '<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + t.page + '"><tr><td align="center" style="padding:16px 8px;">' +
-      '<table class="container" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="' + t.paper + '" style="width:100%;max-width:600px;background:' + t.paper + ';">' +
-      body + footer(t, opts.church, opts) +
-      '</table></td></tr></table></body></html>';
+      '<meta name="x-apple-disable-message-reformatting"><title>' + esc(issue.subject || '') + '</title>' +
+      '<!--[if mso]><style type="text/css">body,table,td,p,a,div{font-family:Arial,sans-serif !important;}</style><![endif]-->' +
+      '<style type="text/css">' +
+      'body{margin:0;padding:0;width:100% !important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}' +
+      'table{border-collapse:collapse;mso-table-lspace:0;mso-table-rspace:0;}img{-ms-interpolation-mode:bicubic;}' +
+      '.t p{margin:0 0 10px;}.t,.t a{word-break:break-word;overflow-wrap:anywhere;}' +
+      '@media only screen and (max-width:480px){' +
+        '.wrap{width:100% !important;max-width:100% !important;}' +
+        '.t,.t p,.t li{font-size:18px !important;line-height:125% !important;}' +
+        '.verse{font-size:18px !important;line-height:125% !important;}' +
+        '.pre,.pre a{font-size:14px !important;line-height:115% !important;}' +
+        '.col{display:block !important;width:100% !important;box-sizing:border-box;}' +
+        '.prer{padding-top:0 !important;text-align:center !important;}' +
+        '.foot{font-size:14px !important;line-height:115% !important;}' +
+        '.cimg{display:block !important;width:100% !important;padding:0 !important;}' +
+        '.cimg img{width:100% !important;max-width:100% !important;}' +
+        '.ctext{display:block !important;width:100% !important;padding:9px 18px 0 18px !important;box-sizing:border-box;}' +
+      '}</style></head>' +
+      '<body style="margin:0;padding:0;background-color:' + t.page + ';">' + pre +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + t.page + '" style="background-color:' + t.page + ';"><tr><td align="center" valign="top" style="padding:0;">' +
+      '<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->' +
+      '<table role="presentation" class="wrap" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + t.paper + '" style="width:100%;max-width:600px;background-color:' + t.paper + ';">' +
+      topBar(t, issue, opts) + body + footer(t, opts.church, opts) +
+      '</table>' +
+      '<!--[if mso]></td></tr></table><![endif]-->' +
+      '</td></tr></table></body></html>';
+  }
+
+  /* READY TO SEND? (Martin, 20 Oct): a new week never goes out with an
+     empty top. The week's picture and verse must be filled in - or their
+     blocks deliberately removed - before Schedule or a test send. */
+  function readyToSend(issue) {
+    var missing = [];
+    (issue && issue.blocks || []).forEach(function (b) {
+      if (!b || b.hidden === true) return;
+      if (b.type === 'header' && !safeUrl(b.imageUrl)) missing.push('picture');
+      if (b.type === 'verse' && !String(b.text || '').trim()) missing.push('verse');
+    });
+    return { ok: missing.length === 0, missing: missing };
   }
 
   /* ---- the automatic draft (C-9, C-18) ---------------------------------
@@ -353,12 +408,16 @@
     var from = Date.UTC(p.y, p.m, p.d, 0, 0), to = from + (data.days || 14) * 86400000;
     var base = String(data.base || '').replace(/\/+$/, '');
     var out = [];
-    out.push({ type: 'header', title: data.title || ('Weekly news · ' + p.d + ' ' + MONTHS[p.m]), imageUrl: '', auto: true });
+    /* Val's top: the week's picture (the office adds it), no title. */
+    out.push({ type: 'header', title: data.title || '', imageUrl: '', auto: true });
+    /* Val's order: the picture, the verse, "Coming up this week", then
+       Sunday, then the events. */
+    out.push({ type: 'verse', text: '', ref: '' });
+    out.push({ type: 'section', label: 'Coming up this week', auto: true });
     var sun = data.sunday;
     if (sun && sun.title) {
-      out.push({ type: 'sunday', heading: 'This Sunday', title: sun.title, when: sun.when || '', speaker: sun.speaker || '', auto: true });
+      out.push({ type: 'sunday', heading: 'This Sunday', title: sun.title, date: sun.date || '', time: sun.time || '', when: sun.when || '', speaker: sun.speaker || '', auto: true });
     }
-    out.push({ type: 'verse', text: '', ref: '' });
     var evs = (data.events || []).map(function (ev) {
       var st = startOf(ev), share = eventShare(ev);
       return { ev: ev, st: st, share: share };
@@ -367,7 +426,6 @@
       if (x.ev.source === 'rota') return false;   /* the Sunday block covers services */
       return x.st.ms >= from && x.st.ms < to;
     }).sort(function (a, b) { return a.st.ms - b.st.ms; });
-    if (evs.length) out.push({ type: 'section', label: 'Coming up', auto: true });
     evs.forEach(function (x) {
       var ev = x.ev;
       var signup = ev.signupOn === true && base ? base + '/signup.html?event=' + encodeURIComponent(ev.id || '') : '';
@@ -375,9 +433,11 @@
         type: 'event', auto: true, eventId: ev.id || '', members: x.share === 'members',
         title: String(ev.title || '').slice(0, 140), kicker: (ev.labels && ev.labels[0]) || '',
         when: words(x.st, ev.allDay === true), text: '',
+        /* The event's own description, with its links (C-29: never only a
+           title and a date). Cleaned when it is drawn. */
+        html: String(ev.description || '').slice(0, 20000),
         imageUrl: ev.image || '', alt: String(ev.title || ''),
-        buttonLabel: signup ? 'Sign up' : '', buttonUrl: signup,
-        style: ev.image ? 'shade' : 'side'
+        buttonLabel: signup ? 'Sign up here' : '', buttonUrl: signup
       });
     });
     var today = p.y + '-' + (p.m < 9 ? '0' : '') + (p.m + 1) + '-' + (p.d < 10 ? '0' : '') + p.d;
@@ -398,7 +458,7 @@
 
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
-    render: render, draft: draft, theme: theme, snippet: snippet,
+    render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
     eventShare: eventShare, keep: keep, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

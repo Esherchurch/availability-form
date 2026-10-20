@@ -254,7 +254,47 @@ export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'p
 });
 
 /* ---- the office adds someone by hand ------------------------------------- */
-const HOW = { paper: 'a paper form', person: 'asked in person', email: 'asked by email', phone: 'asked by phone' };
+/* How a person told the church yes, recorded with them (Martin, 20 Oct:
+   "never added silently"): told the office, a paper form, by email, by
+   phone, or signed up themselves. */
+const HOW = { person: 'told the office', paper: 'a paper form', email: 'asked by email', phone: 'asked by phone', signedUp: 'signed up themselves' };
+
+/* One person, added by the office. Refusals, in words, never silent:
+   an under-16 (the hub never emails under-18s), somebody who has
+   unsubscribed or marked it as spam (only they can come back, from the
+   sign-up page - unless the office ticks that they asked again, and never
+   from the address book), and a dead address. */
+async function addOne(person, how, uid, opts) {
+  const email = normEmail(person.email);
+  if (!EMAIL.test(email)) return { email, skipped: 'that email address does not look right' };
+  const minor = await db().collection('addressBook').where('isMinor', '==', true).where('email', '==', email).limit(1).get();
+  if (!minor.empty) return { email, skipped: 'under 16: the hub never emails under-18s' };
+  const doc = await findByEmail(email);
+  const st = doc ? doc.data().status : '';
+  if (st === 'subscribed') return { email, skipped: 'already gets the e-news' };
+  if (st === 'complained') return { email, skipped: 'marked the e-news as spam: only they can sign up again' };
+  if (st === 'unsubscribed' && !(opts.confirmAgain === true && opts.from !== 'addressBook')) return { email, skipped: 'unsubscribed on ' + String(doc.data().updatedAt || '').slice(0, 10) + ': only they can sign up again' };
+  const entry = hist('added by the office (' + HOW[how] + ')', { by: uid, from: opts.from || '' });
+  const data = {
+    email, firstName: String(person.firstName || '').replace(/[<>]/g, '').trim().slice(0, 60) || (doc && doc.data().firstName) || '',
+    status: 'subscribed', lists: { weekly: true, special: opts.special === true },
+    consent: { at: now(), how: 'office: ' + HOW[how], by: uid, note: String(opts.note || '').slice(0, 200), confirmedAt: now() },
+    updatedAt: now()
+  };
+  if (person.memberId) data.memberId = String(person.memberId).slice(0, 80);
+  const ref = doc ? doc.ref : db().collection('enewsSubscribers').doc();
+  if (!doc) Object.assign(data, { createdAt: now(), token: newToken(), history: [entry] });
+  else data.history = (doc.data().history || []).concat([entry]).slice(-50);
+  await ref.set(data, { merge: true });
+  return { email, added: true, id: ref.id };
+}
+
+/*  enewsSubscriberSave (the office), one of:
+      { email, firstName, how, note, special, confirmAgain }   one person
+      { people: [{ email, firstName, memberId }], how, from }  several at
+                                       once (a team, from the address book)
+      { email, action: 'stop' }        the office stops it for them
+                                       (kept as unsubscribed, with who) */
 export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -266,23 +306,23 @@ export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   if (!S.on) throw new HttpsError('failed-precondition', 'The e-news is switched off.');
   if (!S.open) throw new HttpsError('failed-precondition', 'The subscriber list opens at switch-over' + (S.opensOn ? ' (' + S.opensOn + ')' : '') + '.');
   const d = req.data || {};
-  const email = normEmail(d.email);
-  if (!EMAIL.test(email)) throw new HttpsError('invalid-argument', 'That email address does not look right.');
-  if (!HOW[d.how]) throw new HttpsError('invalid-argument', 'Say how they agreed.');
-  const doc = await findByEmail(email);
-  if (doc && ['unsubscribed', 'complained'].includes(doc.data().status) && d.confirmAgain !== true) {
-    throw new HttpsError('failed-precondition', 'They unsubscribed on ' + String(doc.data().updatedAt || '').slice(0, 10) + '. Only add them back if they have asked again, and tick that they have.');
+  if (d.action === 'stop') {
+    const doc = await findByEmail(normEmail(d.email));
+    if (!doc) return { ok: true, stopped: false };
+    const x = doc.data();
+    await doc.ref.set({ status: 'unsubscribed', lists: { weekly: false, special: false }, updatedAt: now(),
+      history: (x.history || []).concat([hist('stopped by the office', { by: uid })]).slice(-50) }, { merge: true });
+    return { ok: true, stopped: true };
   }
-  const entry = hist('added by the office (' + HOW[d.how] + ')', { by: uid });
-  const data = {
-    email, firstName: String(d.firstName || '').replace(/[<>]/g, '').trim().slice(0, 60),
-    status: 'subscribed', lists: { weekly: true, special: d.special === true },
-    consent: { at: now(), how: 'office: ' + HOW[d.how], by: uid, note: String(d.note || '').slice(0, 200), confirmedAt: now() },
-    updatedAt: now()
-  };
-  const ref = doc ? doc.ref : db().collection('enewsSubscribers').doc();
-  if (!doc) Object.assign(data, { createdAt: now(), token: newToken(), history: [entry] });
-  else data.history = (doc.data().history || []).concat([entry]).slice(-50);
-  await ref.set(data, { merge: true });
-  return { ok: true, id: ref.id };
+  if (!HOW[d.how]) throw new HttpsError('invalid-argument', 'Say how they agreed.');
+  const from = d.from === 'addressBook' ? 'addressBook' : 'office';
+  if (Array.isArray(d.people)) {
+    if (d.people.length > 300) throw new HttpsError('invalid-argument', 'At most 300 at once.');
+    const results = [];
+    for (const person of d.people) results.push(await addOne(person || {}, d.how, uid, { from, note: d.note }));
+    return { ok: true, added: results.filter(r => r.added).length, skipped: results.filter(r => r.skipped) };
+  }
+  const r = await addOne({ email: d.email, firstName: d.firstName, memberId: d.memberId }, d.how, uid, { from, note: d.note, special: d.special, confirmAgain: d.confirmAgain });
+  if (r.skipped) throw new HttpsError('failed-precondition', 'Not added: ' + r.skipped + '.');
+  return { ok: true, id: r.id };
 });

@@ -230,20 +230,38 @@ function serveAuth(src) {
     ok('members see the members prayer evening', memHtml.includes('Synthetic members prayer'));
     ok('everyone else does not', !pubHtml.includes('Synthetic members prayer') && pubHtml.includes('Synthetic harvest supper'));
     ok('everyone else does not get the notices (members-only until ticked)', !pubHtml.includes('Synthetic car park notice'));
-    ok('every copy ends with Unsubscribe and the church\u2019s name', [memHtml, pubHtml].every(h => />Unsubscribe</.test(h) && h.includes('Synthetic Green Church')));
+    ok('every copy ends with "unsubscribe from this list" and the church’s name', [memHtml, pubHtml].every(h => /unsubscribe from this list/.test(h) && h.includes('Synthetic Green Church')));
+    ok('the preview shows "Add this week’s picture" and "Add this week’s verse"', memHtml.includes('Add this week’s picture') && memHtml.includes('Add this week’s verse'));
 
-    /* 6. Val adds the verse: edit a block, and it is saved. */
-    await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Build").click(), 1'); await sleep(500);
-    await ev('[...document.querySelectorAll(".blk .c")].find(b=>/Bible verse/.test(b.textContent)).click(), 1'); await sleep(500);
-    await shot('verse-sheet');
-    await ev('document.getElementById("f-vt").value="Cast all your anxiety on him";document.getElementById("f-ref").value="1 Peter 5:7";document.querySelector("[data-done]").click(),1');
-    await sleep(2500);
-    const after = ((await list('enewsIssues'))[0] || {}).blocks || [];
-    ok('the verse is saved', after.some(b => b.type === 'verse' && b.ref === '1 Peter 5:7'), after.filter(b => b.type === 'verse'));
-
-    /* 7. Schedule: the two finished copies go on the issue; "don't send
-       yet" takes them off again. */
+    /* 6. A new week can't go out with an empty top (Martin, 20 Oct). */
     await ev('window.confirm=function(){return true},[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
+    ok('Send says plainly: sending opens when the church goes live; until then a test only', /opens when the church goes live/.test(await text()) && /sends it to you only/.test(await text()));
+    ok('Schedule and "Send me a test" are held until the picture and verse are in', await ev('document.getElementById("sched").disabled && document.getElementById("test").disabled'));
+    ok('and the page says what is missing', /Add this week’s picture and this week’s verse/.test(await text()));
+    await shot('send-held');
+
+    /* 7. Val picks the picture, and brings in the verse from the hub's Bible. */
+    await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Build").click(), 1'); await sleep(500);
+    await ev('[...document.querySelectorAll(".blk .c")].find(b=>/Heading and picture/.test(b.textContent)).click(), 1'); await sleep(600);
+    await ev('document.getElementById("f-img").value="http://localhost:' + SERVE + '/design-mocks/comms/card-photo.svg";document.querySelector("[data-done]").click(),1'); await sleep(1500);
+    await ev('[...document.querySelectorAll(".blk .c")].find(b=>/Bible verse/.test(b.textContent)).click(), 1'); await sleep(600);
+    await until('document.getElementById("v-ver") && [...document.getElementById("v-ver").options].some(o=>o.value==="bundled|BSB|BSB")', 15000);
+    ok('the verse sheet offers the hub’s free Bibles, the BSB chosen as the church’s usual', await ev('document.getElementById("v-ver").value') === 'bundled|BSB|BSB', await ev('document.getElementById("v-ver").value'));
+    await ev('document.getElementById("v-ref").value="Col 3:23-24";document.getElementById("v-get").click(),1');
+    await until('/Whatever you do/.test(document.getElementById("f-vt").value)', 15000);
+    ok('"Col 3:23-24" brings in the verse, its reference and the version’s copyright line',
+      /Whatever you do/.test(await ev('document.getElementById("f-vt").value')) && await ev('document.getElementById("v-ref").value') === 'Colossians 3:23-24' && (await ev('document.getElementById("f-copy").value')).length > 10);
+    await shot('verse-sheet');
+    await ev('document.querySelector("[data-done]").click(),1'); await sleep(2500);
+    const after = ((await list('enewsIssues'))[0] || {}).blocks || [];
+    const vb = after.find(b => b.type === 'verse') || {};
+    ok('the verse is saved with its version and copyright', /Whatever you do/.test(vb.text || '') && vb.ref === 'Colossians 3:23-24' && vb.version === 'BSB' && (vb.copyright || '').length > 10, vb);
+    ok('the church’s usual version is remembered', ((await list('enewsSettings'))[0] || {}).bible && ((await list('enewsSettings'))[0].bible.id === 'BSB'));
+
+    /* 8. Schedule: the two finished copies go on the issue; "don't send
+       yet" takes them off again. */
+    await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
+    ok('with the picture and verse in, Schedule and the test are open', await ev('!document.getElementById("sched").disabled && !document.getElementById("test").disabled'));
     await shot('send');
     await ev('document.getElementById("when").value="2030-01-03T16:00";document.getElementById("sched").click(),1');
     await sleep(2500);
@@ -252,10 +270,22 @@ function serveAuth(src) {
     ok('Schedule: the members’ copy has the members prayer evening', String(is.htmlMembers || '').includes('Synthetic members prayer'));
     ok('Schedule: everybody else’s copy does not', String(is.htmlEveryone || '').length > 500 && !String(is.htmlEveryone).includes('Synthetic members prayer'));
     ok('Schedule: each person’s link is left for the sender to fill', String(is.htmlEveryone || '').includes('{{unsubscribe_url}}'));
+    ok('the copies that are sent never carry the placeholders', !String(is.htmlMembers).includes('Add this week'));
     ok('the page says it is scheduled', /Scheduled/.test(await text()));
     await ev('document.getElementById("unsched").click(),1'); await sleep(2000);
     is = (await list('enewsIssues'))[0] || {};
     ok('"Don’t send yet": a draft again, with no copies to send', is.status === 'draft' && !is.htmlMembers && !is.htmlEveryone, is.status);
+
+    /* 9. A sent issue: Share to WhatsApp, with the web version's link
+       (which never has the members-only parts). */
+    await put('enewsIssues/en_sent', { subject: 'Synthetic sent issue', preheader: '', template: 'classic', blocks: [], status: 'sent', sendAt: '2030-01-01T10:00', sentAt: '2030-01-01T10:00:00Z', counts: { sent: 3, failed: 0, members: 1 }, createdAt: 'x', createdBy: 'x', updatedAt: 'x', updatedBy: 'x' });
+    await open('?issue=en_sent'); await until('!!document.querySelector(".seg")', 15000);
+    await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
+    await ev('document.getElementById("share").click(),1'); await sleep(800);
+    const shareText = await ev('(document.querySelector(".egbc-share textarea")||{}).value||""');
+    ok('Share to WhatsApp opens with the web version’s link', /enews-web\.html\?issue=en_sent/.test(shareText) && /Synthetic sent issue/.test(shareText), shareText);
+    await shot('share');
+    await ev('(document.querySelector(".egbc-share [data-close]")||{click:function(){}}).click(),1');
     await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Build").click(), 1'); await sleep(500);
 
     /* 8. A phone: nothing scrolls sideways, and nothing threw. */

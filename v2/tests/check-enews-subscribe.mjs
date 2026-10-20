@@ -1,5 +1,7 @@
 /* The e-news's subscribers end to end (FINDINGS-comms C-1, C-10, C-11):
  * sign-up with a confirm email, confirm, one-click unsubscribe, the
+ * office adding people (from the address book, each with how they said
+ * yes; under-16s and the unsubscribed skipped) and stopping it, the
  * unsubscribe page, Resend's bounce and complaint reports, and the shut
  * door until switch-over.
  *
@@ -203,6 +205,42 @@ const outbox = async kind => (await list('emailOutbox')).filter(r => !kind || r.
   await fn('enewsSignup', { email: 'bea.enews@example.invalid' });
   r = await hook('email.bounced', 'bea.enews@example.invalid', 'msg_b1');
   ok('a bounce marks that address bounced', (await subOf('bea.enews@example.invalid')).status === 'bounced');
+
+  /* ---- the office adds people (Martin, 20 Oct): from the address book
+     several at once, each with how they said yes; an under-16 and anybody
+     who unsubscribed are skipped, with the reason; the office can stop it. */
+  const signIn = async (email, teams, master) => {
+    let up = (await req(AU, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email, password: 'synthetic-pw-1', returnSecureToken: true })).json || {};
+    if (!up.localId) up = (await req(AU, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email, password: 'synthetic-pw-1', returnSecureToken: true })).json || {};
+    await put('users/' + up.localId, { uid: up.localId, email, status: 'active', teams, masterAdmin: master, adminFor: [] });
+    return up.idToken;
+  };
+  const call = async (token, data) => { const x = await req(FN, 'POST', BASE + 'enewsSubscriberSave', { data }, { Authorization: 'Bearer ' + token }); return x.json || {}; };
+  const OFF = await signIn('office.enews@example.invalid', ['Church office'], false);
+  const MEM = await signIn('member.enews@example.invalid', ['Welcome team'], false);
+  await put('addressBook/ab_kid', { name: 'Kit Synthetic', email: 'kit.enews@example.invalid', isMinor: true, archived: false });
+  r = await call(MEM, { people: [{ email: 'dee.enews@example.invalid' }], how: 'person', from: 'addressBook' });
+  ok('a church member who is not the office cannot add anyone', r.error && /office/i.test(r.error.message) && !(await subOf('dee.enews@example.invalid')), r);
+  r = await call(OFF, { people: [{ email: 'dee.enews@example.invalid', firstName: 'Dee', memberId: 'ab_dee' }], from: 'addressBook' });
+  ok('nobody is added without saying how they said yes', r.error && !(await subOf('dee.enews@example.invalid')), r);
+  await fn('enewsSignup', { email: 'eve.enews@example.invalid' });
+  await req(FS, 'PATCH', DOCS + '/enewsSubscribers/' + (await subOf('eve.enews@example.invalid'))._id + '?updateMask.fieldPaths=status&updateMask.fieldPaths=updatedAt', { fields: { status: fsValue('unsubscribed'), updatedAt: fsValue('2026-10-01T09:00:00Z') } }, OWNER);
+  r = await call(OFF, { people: [
+    { email: 'dee.enews@example.invalid', firstName: 'Dee', memberId: 'ab_dee' },
+    { email: 'fay.enews@example.invalid', firstName: 'Fay', memberId: 'ab_fay' },
+    { email: 'kit.enews@example.invalid', firstName: 'Kit', memberId: 'ab_kid' },
+    { email: 'eve.enews@example.invalid', firstName: 'Eve' }], how: 'person', from: 'addressBook' });
+  const skipped = (r.result && r.result.skipped) || [];
+  ok('from the address book: two added at once', r.result && r.result.added === 2, r);
+  const dee = await subOf('dee.enews@example.invalid');
+  ok('each with how they said yes, who, when, and their address book person', dee && dee.status === 'subscribed' && /told the office/.test(dee.consent.how) && dee.consent.by && dee.consent.at && dee.memberId === 'ab_dee' && /addressBook/.test(JSON.stringify(dee.history)), dee);
+  ok('an under-16 is skipped, and says why', skipped.some(s => s.email === 'kit.enews@example.invalid' && /under 16/.test(s.skipped)) && !(await subOf('kit.enews@example.invalid')), skipped);
+  ok('someone who unsubscribed is skipped: only they can come back', skipped.some(s => s.email === 'eve.enews@example.invalid' && /only they can sign up again/.test(s.skipped)) && (await subOf('eve.enews@example.invalid')).status === 'unsubscribed', skipped);
+  r = await call(OFF, { email: 'eve.enews@example.invalid', how: 'person', from: 'addressBook', confirmAgain: true });
+  ok('not even with "they asked again" from the address book', r.error && (await subOf('eve.enews@example.invalid')).status === 'unsubscribed', r);
+  r = await call(OFF, { email: 'dee.enews@example.invalid', action: 'stop' });
+  const deeStop = await subOf('dee.enews@example.invalid');
+  ok('the office can stop it: kept as unsubscribed, with who', r.result && r.result.stopped === true && deeStop.status === 'unsubscribed' && deeStop.lists.weekly === false && deeStop.history.some(h => /stopped by the office/.test(h.what) && h.by), deeStop.status);
 
   /* ---- 3. the pages, at 375 --------------------------------------------- */
   console.log('-- the pages, at 375 --');

@@ -139,6 +139,113 @@ Each kind is moved by adding it to the list. Safeguarding and care go last. A ki
 
 Already on Church HQ's Resend, through its own sender (hq-mail.js), not this list: `enews`, `enews confirm`, `enews test`.
 
+## BUILT, 20 Oct 2026 (comms window): the e-news looks like Val's
+
+Martin, 20 Oct: the e-news "does not look right at all… looks really poor". It must look exactly like Val's Mailchimp (`mailchi.mp/esherchurch/15oct26`) on a phone and a computer, and never like a downgrade.
+
+### C-29. Val's template, measured from her page
+
+The e-news is now drawn the way Val's Mailchimp page is. Every number below was measured from her 15 Oct page in a browser, at 375 and 600 wide.
+
+| Part | Val's (and now ours) |
+|---|---|
+| Width | 100% up to 600px; a fixed 600 table only for Outlook (inside `<!--[if mso]>`) |
+| Page behind | #dee0e2 |
+| Top bar | #222222. The top line on the left, "View this email in your browser" on the right. 11px on a computer, 14px on a phone |
+| Picture at the top | Full width (600) |
+| Verse | 18px, bold, centred; the reference and version after it; the version's copyright line under it at 11px |
+| Section bar | Orange #fe7e07, "Coming up this week" |
+| Words | Helvetica/Arial, 15px / 150%, #202020. 18px on a phone (below 480px) |
+| Titles and dates | Teal #008080, bold |
+| Links | Green #17a809 |
+| Events, on a computer | Picture 176px wide at x18, words beside it at x230, 14px |
+| Events, on a phone | Picture full width (339px at x18), words under it |
+| Between events | A 2px #eaeaea line |
+| Sign-up button | Green #07a47d pill, "Sign up here" |
+| Footer | #202020. Copyright in italics, the church's name and address, charity number, office hours in bold, email and phone, then "Want to change how you receive these emails? You can update your preferences or unsubscribe from this list." |
+
+- **Each event card carries the event's full description and its links**, not just a title and time.
+- **The order is Val's:** picture, verse, "Coming up this week", Sunday, events, notices.
+- **The colours are still a church setting** (E-news page → **Look and footer**). EGBC's starts as Val's ("Classic"). "Green" has the same layout in the hub's colours.
+- **Outlook-safe:** tables and inline styles only, no flex or grid.
+
+**Side by side, the same week (15 Oct), ours on the left, Val's on the right:**
+- [375 wide, top](design-mocks/comms/compare/ours-vs-mailchimp-375-top.png) and [end](design-mocks/comms/compare/ours-vs-mailchimp-375-end.png)
+- [600 wide, top](design-mocks/comms/compare/ours-vs-mailchimp-600-top.png) and [end](design-mocks/comms/compare/ours-vs-mailchimp-600-end.png)
+
+Val's Zoom details, her personal email and phone number are blocked out in those pictures.
+
+**Where ours still differs, and why (content, not layout):**
+- **Val picks the events by hand; the draft takes every public What's On event in the next fortnight.** The office removes the ones they don't want, as before.
+- **Most events imported from ChurchSuite have no picture and no description**, so a draft looks wordier than Val's until the events get pictures. Once an event has them, its card looks like hers.
+- **Val's footer has a "Dates for the diary" button and social icons; ours doesn't yet.** The button can be added as a Button block now. Social icons need a setting for the church's links; not built.
+
+**For Martin to change:** the live church settings' **enquiry email** is your personal business address. It would be the Reply-To and the footer address on every e-news. Change **Enquiry email** at the top of **Church settings** to the office address before the first real send. (The comparison pictures use office@esherchurch.org instead.)
+
+### C-31. A new week never goes out with an empty top
+
+- A new week's draft opens with **"Add this week's picture"** and **"Add this week's verse"** in the preview, as dashed boxes.
+- **Schedule and "Send me a test" stay greyed out until both are filled in, or deliberately removed.** A gold note under the subject says what is missing.
+- The placeholders are only ever in the preview, never in a copy that is sent (checked both ways).
+
+### C-32. The verse comes from the hub's Bible
+
+- The verse block opens **This week's verse**: type a reference (e.g. "Col 3:23-24"), choose the version, press **Bring it in**.
+  - The verse, the full reference and **the version's copyright line** fill in.
+  - Typing or pasting the verse by hand always works.
+- It is the hub's own Bible code (`egbc-bible.js`, as in the session planner):
+  - **the free Bibles now** (BSB, KJV, NHEB…);
+  - **API.Bible versions such as the NIV once the church's API.Bible key is saved.**
+- **The church's usual version is remembered** (`enewsSettings/main.bible`): the NIV when the church's key allows it, otherwise the BSB. Choosing another version once makes that the usual one.
+
+### C-30. "Gets the e-news" in the address book, and adding from it
+
+**In the address book** (office and master admins only, when the e-news is on):
+- Each person's row says **"Gets the e-news"** or **"Unsubscribed from the e-news"**.
+- Their form shows:
+  - **if they get it:** how they said yes and when, and a **Stop sending it** button. They are kept as unsubscribed, with who stopped it.
+  - **if they don't:** **How did they say yes?** (told the office / paper form / by email / by phone / signed up themselves) and **Add to the e-news**. Nobody is added without the answer.
+  - **if they unsubscribed:** "They can only come back themselves, from the e-news sign-up page." There is nothing to press.
+  - **if they are under 16:** never offered.
+- It is an add-on (`egbc-enews-ab.js`), loaded by **one script tag** in `addressbook.html`. The address book's own code is not changed.
+
+**On the E-news page, Subscribers → Add from the address book:**
+- Search and tick people, or choose a whole team or group to tick everyone in it.
+- One "How did they say yes?" covers everybody ticked, and is recorded with each person.
+- Under-16s and archived people aren't listed. People who already get it, or who unsubscribed, are shown greyed out with the reason.
+
+**The server checks all of it again** (`enewsSubscriberSave`), whatever a page sends:
+- an under-16 is refused;
+- someone who unsubscribed or marked it as spam can't be added from the address book, even with "they asked again";
+- every add records who, when, how and from where.
+
+### C-33. Share to WhatsApp, and the go-live words
+
+- **A sent issue has Share to WhatsApp.** It opens the hub's share sheet (`egbc-share.js`: the WhatsApp app, Desktop or Web) with a short line and the **web version's link**. The web version never has the members-only parts.
+- **The Send tab says plainly:** "Sending to subscribers opens when the church goes live on the new hub. Until then, "Send me a test" sends it to you only."
+
+### C-34. "Send me a test" works now
+
+- It sends the e-news to **the signed-in office person's own address only**, through the hub's existing email service: Calla's, the same route as the hub's other emails today.
+- The subject starts **[Test]**, and its unsubscribe links go nowhere.
+- **Church HQ's Resend stays shut** until go-live (`ENEWS_LIVE = false`), and so does sending to subscribers.
+
+**To deploy (the reviewing window or Martin): `firebase deploy --only functions:hub`.** This puts up `enewsTest` and this round's changes to `enewsSubscriberSave`; `enewsTest` is not deployed yet. **The rules (`firestore.rules`) go live at switch-over only**, as before.
+
+### Checks (this window's own emulators; run on exactly what is pushed)
+
+| Check | Result |
+|---|---|
+| check-enews-blocks | 42/42; 11/11 breaks red |
+| check-enews-layout (new): nothing wider than the screen at 320, 375, 414, 600; Val's phone and computer layout | 10/10; breaks img, fixed, stack each red |
+| check-enews-page (picture and verse held; the Bible; Share) | 36/36 at 375; breaks switch, office each red |
+| check-enews-subscribe (adding from the address book, skips, Stop) | 56/56; 4/4 breaks |
+| check-enews-addressbook (new) | 17/17 at 375; breaks office, unsub, minor, silent each red |
+
+Pictures (made by the checks, not committed): `tests/shots/enews-375-send-held.png`, `enews-375-verse-sheet.png`, `enews-375-share.png`, `enews-ab-375-rows.png`, `enews-ab-375-form-add.png`, `enews-ab-375-form-stopped.png`.
+
+---
+
 ## BUILT, 19 Oct 2026 evening (comms window)
 
 All eight steps of the plan are built and checked, on emulators of this window's own (never another window's, never live). **They are held on this window's computer, not pushed**, until the main window pushes its "What does your church use?" switches (F-230) and its new Menu by job: the Menu entries for these pages belong inside that Menu, and until those switches are live a Menu entry would show on the live site even though the pages themselves say "switched off".

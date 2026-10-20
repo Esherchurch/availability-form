@@ -1512,11 +1512,13 @@ service cloud.firestore {
     match /enewsSettings/{id} {
       allow read: if enewsOffice();
       allow write: if enewsOffice() && id == 'main'
-                   && request.resource.data.keys().hasOnly(['template', 'colours', 'church', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.keys().hasOnly(['template', 'colours', 'church', 'bible', 'updatedAt', 'updatedBy'])
                    && request.resource.data.template in ['classic', 'green']
                    && request.resource.data.colours is map && request.resource.data.colours.size() <= 20
                    && request.resource.data.church is map
-                   && request.resource.data.church.keys().hasOnly(['address', 'charityNo', 'phone', 'hours'])
+                   // the church's usual Bible version for the verse (source, id, abbrev), or null
+                   && (request.resource.data.get('bible', null) == null || (request.resource.data.bible is map && request.resource.data.bible.keys().hasOnly(['source', 'id', 'abbrev'])))
+                   && request.resource.data.church.keys().hasOnly(['shortName', 'address', 'charityNo', 'phone', 'hours'])
                    && request.resource.data.updatedBy == request.auth.uid;
     }
 
