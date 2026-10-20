@@ -9107,7 +9107,7 @@ This **brings F-253 and F-254 together, in order**, for Church HQ's real tenant 
    Paste the Value.
 10. The client ID (not a secret): in `v2/functions/.env.egbc-worship-planner`, set `MS_HQ_CLIENT_ID=<application (client) id>` (instead of NOT-SET), and commit that file.
 
-**C. The converter (the reviewer)**
+**C. The converter (the reviewer, with Martin signed in to gcloud for the Cloud Run deploy)**
 
 11. Its service account, with only what it needs:
     ```
@@ -9136,7 +9136,7 @@ This **brings F-253 and F-254 together, in order**, for Church HQ's real tenant 
     ```
 14. Tell the functions where it is: add `CONVERTER_URL=<the service URL>` to `v2/functions/.env.egbc-worship-planner`.
 
-**D. The functions (Martin, as usual)**
+**D. The functions (the reviewer)**
 
 15. Deploy `presentConvert`, `presentFromLink`, `presentSweep`, `m365Start`, `m365Callback`, `m365Status` and `m365Disconnect`. The two m365 functions already deployed need it again, to pick up the real secret and ID.
 
