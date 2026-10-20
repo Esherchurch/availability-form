@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Join the quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610210900"></script>
+<script src="egbc-church.js?v=202610121600"></script>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:#0b1116;color:#e2e8f0;font:400 16px/1.5 Inter,system-ui,sans-serif}
+  .wrap{max-width:520px;margin:0 auto;padding:20px 16px calc(24px + env(safe-area-inset-bottom));min-height:100vh;display:flex;flex-direction:column;gap:14px}
+  h1{margin:0;color:#fff;font-size:28px}.muted{color:#94a3b8}.small{font-size:14px}
+  .tag{align-self:flex-start;padding:4px 12px;border-radius:999px;background:#1d3b3c;color:#a7d4d4;font:600 13px Inter,sans-serif}
+  label{font-weight:600;display:flex;flex-direction:column;gap:6px}
+  input{min-height:56px;border-radius:14px;border:2px solid #2c3c48;background:#121a21;color:#fff;font:600 20px Inter,sans-serif;padding:0 14px;width:100%}
+  input#code{font:800 30px Inter,sans-serif;letter-spacing:.12em;text-align:center}
+  .go{min-height:60px;border:0;border-radius:16px;background:linear-gradient(180deg,#6aa3a4,#4d7f80);color:#fff;font:700 19px Inter,sans-serif;cursor:pointer}
+  .go:disabled{opacity:.6}
+  .err{color:#fecaca;font-weight:600;margin:0}.err:empty{display:none}
+  .answers{display:grid;grid-template-rows:repeat(4,1fr);gap:12px;flex:1;min-height:360px}
+  .ans{border:0;border-radius:16px;color:#fff;font:700 21px Inter,sans-serif;display:flex;align-items:center;gap:14px;padding:0 18px;text-align:left;cursor:pointer;min-height:64px}
+  .ans .k{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.18);display:grid;place-items:center;font:800 22px Inter,sans-serif;flex:0 0 44px}
+  .a0{background:#3d6b6c}.a1{background:#7a5a3c}.a2{background:#4b5a8a}.a3{background:#6b4a6e}
+  .card{background:#121a21;border:1px solid #22303b;border-radius:16px;padding:16px}
+  .center{text-align:center;align-items:center;justify-content:center;flex:1;display:flex;flex-direction:column;gap:10px}
+  .big{font-size:60px;line-height:1}.row{display:flex;justify-content:space-between;align-items:center}
+  .board div{display:flex;justify-content:space-between;background:#1d3b3c;border-radius:10px;padding:10px 14px;margin:0 0 8px;color:#fff;font-weight:700}
+  .board .me{outline:2px solid #a7d4d4}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="muted">Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  /* THE QUIZ, ON A PLAYER'S PHONE (F-255). No account and nothing to sign:
+     a code and a nickname; the hub's functions do the joining and the
+     answering (functions/quiz.js), and this page follows the quiz's one
+     public document (quizRuns/{runId}: never the right answer before the
+     leader shows it). Anonymous sign-in stays off. Everything is deleted
+     when the quiz ends, or after 24 hours. Reached from the TV's QR code or
+     churchhq.co.uk/quiz?c=<code> (Cloudflare sends it here). */
+  var LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  var FN = LOCAL ? 'http://localhost:' + (location.port === '5601' ? 5102 : 5101) + '/egbc-worship-planner/europe-west2/'
+                 : 'https://europe-west2-egbc-worship-planner.cloudfunctions.net/';
+  var L = ['A', 'B', 'C', 'D'];
+  var app = document.getElementById('app'), Q = new URLSearchParams(location.search);
+  var me = null, run = null, unsub = null, answered = {}, firstSeen = {}, tick = null, note = '';
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function post(name, body) {
+    return fetch(FN + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Something went wrong (' + r.status + ').' }; }); },
+        function () { return { ok: false, error: 'No connection. Try again.' }; });
+  }
+  var KEY = 'egbc_quiz_player';
+  function saved() { try { return JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
+  function save(x) { try { if (x) sessionStorage.setItem(KEY, JSON.stringify(x)); else sessionStorage.removeItem(KEY); } catch (e) {} }
+
+  function joinForm(msg) {
+    if (unsub) { unsub(); unsub = null; } me = null; run = null;
+    var church = (window.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || '';
+    app.innerHTML = (church ? '<p class="tag">' + esc(church) + '</p>' : '') + '<h1>Join the quiz</h1>' +
+      '<label>The code on the screen<input id="code" inputmode="numeric" autocomplete="off" maxlength="7" value="' + esc((Q.get('c') || '').replace(/\D/g, '').replace(/^(\d{3})(\d{3})$/, '$1 $2')) + '"></label>' +
+      '<label>Your first name or a nickname<input id="name" maxlength="20" autocomplete="nickname"></label>' +
+      '<p class="muted small" style="margin:0">No account and nothing to sign. Your nickname and answers are deleted when the quiz ends.</p>' +
+      '<p class="err" id="err">' + esc(msg || '') + '</p><button class="go" id="join">Join ▶</button>';
+    var go = function () {
+      var b = document.getElementById('join'), code = document.getElementById('code').value.replace(/\D/g, ''), name = document.getElementById('name').value;
+      b.disabled = true; b.textContent = 'Joining…';
+      post('quizJoin', { code: code, name: name }).then(function (r) {
+        if (!r.ok) { b.disabled = false; b.textContent = 'Join ▶'; document.getElementById('err').textContent = r.error || 'Please try again.'; return; }
+        me = { runId: r.runId, pid: r.pid, key: r.key, name: r.name, code: code };
+        save(me); follow();
+      });
+    };
+    document.getElementById('join').onclick = go;
+    document.getElementById('name').onkeydown = function (e) { if (e.key === 'Enter') go(); };
+    (document.getElementById('code').value ? document.getElementById('name') : document.getElementById('code')).focus();
+  }
+
+  function follow() {
+    if (unsub) unsub();
+    unsub = EGBCAuth.db.collection('quizRuns').doc(me.runId).onSnapshot(function (d) {
+      if (!d.exists) { save(null); return ended(); }
+      run = d.data(); note = ''; draw();
+    }, function () { save(null); ended(); });
+  }
+  function ended() {
+    if (unsub) { unsub(); unsub = null; }
+    app.innerHTML = '<div class="center"><div class="big">👋</div><h1>Thanks for playing!</h1><p class="muted">The quiz has ended, and everything about it has been deleted.</p><button class="go" id="again" style="width:100%">Join another quiz</button></div>';
+    document.getElementById('again').onclick = function () { joinForm(''); };
+  }
+  function ranked() { return Object.keys(run.players || {}).map(function (p) { return { pid: p, name: run.players[p].name, score: (run.scores || {})[p] || 0 }; }).sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); }); }
+  function place() { var r = ranked(); for (var i = 0; i < r.length; i++) if (r[i].pid === me.pid) return i + 1; return 0; }
+  function nth(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  function left() { var k = run.q; if (!firstSeen[k]) firstSeen[k] = Date.now(); return Math.max(0, Math.ceil(run.question.seconds - (Date.now() - firstSeen[k]) / 1000)); }
+
+  function draw() {
+    clearInterval(tick); tick = null; document.body.style.background = '';
+    if ((run.removed || []).indexOf(me.pid) >= 0 || !(run.players || {})[me.pid]) { save(null); return joinForm('The leader removed that name. Join again with another name.'); }
+    var head = '<div class="row"><span class="tag">' + esc(me.name) + '</span><span class="muted small">' + (run.count || 0) + ' playing</span></div>';
+    if (run.phase === 'join') { app.innerHTML = head + '<div class="center"><div class="big">✓</div><h1>You’re in!</h1><p class="muted">Look up at the screen. The first question is coming.</p></div>'; return; }
+    if (run.phase === 'question' && run.question) {
+      if (answered[run.q] !== undefined) { app.innerHTML = head + '<div class="center"><div class="big">' + L[answered[run.q]] + '</div><h1>Answer in</h1><p class="muted">' + esc(note || 'Look up at the screen for the answer.') + '</p></div>'; return; }
+      app.innerHTML = head + '<div class="row"><span class="tag">Question ' + (run.q + 1) + ' of ' + run.total + '</span><span style="font:800 26px Inter;color:#fff" id="clock">' + left() + '</span></div>' +
+        '<p style="margin:0;color:#fff;font-weight:600;font-size:18px">' + esc(run.question.text) + '</p><p class="err" id="err">' + esc(note) + '</p>' +
+        '<div class="answers">' + run.question.answers.map(function (a, k) { return '<button class="ans a' + k + '" data-a="' + k + '"><span class="k">' + L[k] + '</span>' + esc(a) + '</button>'; }).join('') + '</div>';
+      app.querySelectorAll('[data-a]').forEach(function (b) { b.onclick = function () { answer(+b.getAttribute('data-a')); }; });
+      tick = setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = left(); }, 300);
+      return;
+    }
+    if (run.phase === 'answer' && run.reveal) {
+      var l = (run.last || {})[me.pid] || { right: false, points: 0, choice: -1 }, p = place();
+      document.body.style.background = l.right ? '#0f2a1a' : '#2a1414';
+      app.innerHTML = head + '<div class="center"><div class="big">' + (l.right ? '✓' : (l.choice < 0 ? '⏱' : '✕')) + '</div><h1>' + (l.right ? 'Right!' : (l.choice < 0 ? 'No answer this time' : 'Not this time')) + '</h1>' +
+        (l.right ? '<p style="font-size:22px;margin:0;color:#bbf7d0">+ ' + l.points + (l.points > 750 ? ' for a quick answer' : '') + '</p>' : '<p class="muted" style="margin:0">It was ' + L[run.reveal.right] + ': ' + esc(run.question.answers[run.reveal.right]) + '</p>') +
+        '<div class="card" style="width:100%;text-align:left;margin-top:14px"><div class="row" style="font-size:20px;color:#fff"><span>' + (p ? nth(p) + ' of ' + (run.count || 0) : '') + '</span><b>' + ((run.scores || {})[me.pid] || 0).toLocaleString('en-GB') + '</b></div></div><p class="muted">Look up at the screen.</p></div>';
+      return;
+    }
+    if (run.phase === 'board' || run.phase === 'final') {
+      var r = ranked(), mine = place();
+      app.innerHTML = head + '<h1>' + (run.phase === 'final' ? 'Final scores' : 'After question ' + (run.q + 1)) + '</h1><div class="board">' +
+        r.slice(0, 5).map(function (x, k) { return '<div class="' + (x.pid === me.pid ? 'me' : '') + '"><span>' + (k + 1) + ' · ' + esc(x.name) + '</span><span>' + x.score.toLocaleString('en-GB') + '</span></div>'; }).join('') + '</div>' +
+        (mine > 5 ? '<div class="card row"><span>You: ' + nth(mine) + '</span><b>' + ((run.scores || {})[me.pid] || 0).toLocaleString('en-GB') + '</b></div>' : '') +
+        (run.phase === 'final' ? '<p class="muted">Thanks for playing! Everything is deleted when the leader ends the quiz.</p>' : '');
+      return;
+    }
+    app.innerHTML = head + '<div class="center"><p class="muted">Look up at the screen.</p></div>';
+  }
+  function answer(k) {
+    var q = run.q; answered[q] = k; note = 'Sending…'; draw();
+    post('quizAnswer', { runId: me.runId, pid: me.pid, key: me.key, q: q, choice: k }).then(function (r) {
+      if (r.ok) { note = ''; draw(); return; }
+      if (r.error === 'removed') { save(null); return joinForm(r.words); }
+      if (r.error === 'already') { note = r.words; draw(); return; }
+      delete answered[q]; note = r.words || r.error || 'Not sent. Try again.'; if (run.q === q) draw();
+    });
+  }
+  /* keys on a computer: A-D or 1-4 */
+  document.addEventListener('keydown', function (e) {
+    if (!run || run.phase !== 'question' || answered[run.q] !== undefined || /input/i.test((e.target || {}).tagName || '')) return;
+    var k = 'abcd'.indexOf(String(e.key).toLowerCase()); if (k < 0) k = '1234'.indexOf(e.key);
+    if (k >= 0 && k < run.question.answers.length) answer(k);
+  });
+
+  if (window.EGBCChurch && EGBCChurch.load) EGBCChurch.load().catch(function () {});
+  var was = saved();
+  if (was && (!Q.get('c') || Q.get('c').replace(/\D/g, '') === was.code)) { me = was; follow(); } else joinForm('');
+})();
+</script>
+</body>
+</html>

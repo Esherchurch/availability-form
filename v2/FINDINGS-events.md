@@ -8993,3 +8993,69 @@ The look is our own: lettered answers in the church's colours, not another game'
 2. The quiz address on the TV: the hub's long address plus a QR code (no new domain), or a short link?
 3. TV mode scoring: 1 point a team per right answer (simple), or more for the first team to shout?
 4. Leaving the feature switch as `quiz` (F-223, off for a church until turned on): yes?
+
+### F-256 — The quiz, built (F-255; the reviewer's answers of 21 Oct) — stopped for review (the events window)
+
+**What was built**
+- **In Present** (`egbc-quiz.js`, `egbc-present.js`, `present.html`): a session's Quiz step is one item. The presenter chooses **Teams on the TV** or **Everyone on their phones**. On a computer the leader's controls sit beside the slide; on a phone they come first.
+- **TV mode:**
+  - the question, A–D in a mixed order (the same on every screen), a countdown and the teams' scores
+  - the leader's screen marks the right answer, then "Show the answer on the TV", then taps each team that got it
+  - **1 point a team; an optional bonus point for the first team** (the leader ticks it at the start)
+  - "Show the scores", and the final scores
+  - it lives in `presentNow.quiz`, so it needs nothing stored and nothing deleted; only the presenter changes it (the rules)
+- **Phones mode** (`functions/quiz.js`, `quiz.html`): **anonymous sign-in stays OFF.**
+  - **Joining:** a 6-digit code, **a QR code and churchhq.co.uk/quiz** on the TV. A player opens `quiz.html` (no account), types a first name or nickname (rude ones refused; a taken one numbered "Sam 2") and gets a private player key.
+  - **Answering:** the question on the phones in the TV's order. One answer each, none late; the server keeps the time. 500 points for right, plus up to 500 for speed.
+  - **After each question:** Right/Not this time, points and place on the phone; how many chose each answer, then the top five, on the TV.
+  - **The leader** sees "2 of 3 answered", can show the answer early, and can **remove a name**: that phone is told to join again with another name, and its key stops working.
+  - **The right answer is never readable from a phone** before it's shown: the quiz's public document holds no answer, and the answers, keys, codes and right answers have no rule at all.
+  - **Nothing kept:** "End the quiz" deletes the run, its code, every key and every answer. **The hourly sweep** deletes any run older than 24 hours.
+  - **Held until switch-over,** as the rest of Present; TV mode works now.
+- **The switch:** quiz steps show only when `quiz` is on (page and server). The Present guide has a short "A quiz" step.
+
+**The short address (the reviewer and Martin, on Cloudflare)**
+- **churchhq.co.uk** must be on Cloudflare with a **proxied** DNS record (orange cloud). If it has no website yet: `AAAA @ 100::`, proxied.
+- **Rules → Redirect Rules → Create rule:**
+  - When: Hostname **equals** `churchhq.co.uk` **and** URI Path **starts with** `/quiz`
+  - Then: **Static** redirect to `https://esherchurch.github.io/availability-form/v2/quiz.html`, status **302**, **Preserve query string: ON**
+  - (Add the same for `www.churchhq.co.uk` if it is used.)
+- **What happens:** the TV's QR code is `https://churchhq.co.uk/quiz?c=<code>`, which lands on `quiz.html?c=<code>` with the code filled in. Typing just "churchhq.co.uk/quiz" lands on the same page, which asks for the code.
+- **"The code finds the church's quiz":** today there is one hub, so the redirect goes to EGBC's. With more than one church, the codes must be unique across churches and the address must ask Church HQ which hub has that code (a small lookup). I haven't built that; it's noted for when a second church comes.
+
+**For the main window**
+1. **The `quiz` switch:** please add `{ name: 'quiz', label: 'Quiz', on: true, addOn: true }` to FEATURES in `egbc-auth.js` and to `functions/features.js`. That's on at EGBC and off by default for a new church, as the reviewer set. Until then a name not listed counts as on, so EGBC works today; check-features-agree should then pass with it in both.
+2. **check-menu:** `quiz.html` is a new public page. I added it to `REACHED_ELSEWHERE` in `tests/check-menu.mjs` ("public: the quiz on a player's phone, from the TV's QR code and churchhq.co.uk/quiz"). That's my only change in tests/.
+
+**Tests**
+- **present-quiz: 38/38**, with screenshots of the real thing (`quiz-real-*.png`):
+  - TV mode: TV question; leader at desk and at 375 px
+  - phones mode: TV join with the QR code; phone joining, answering and result; TV leaderboard; leader removing a name at desk and 375 px; leader's phones view
+- **present-quiz: 39/39**, with the switch check: quiz off, the server will not start one.
+- **Rules suite: 1679/1679.**
+  - TV mode: the presenter only, no more than 6 teams, nothing extra.
+  - Phones mode: a run is read by id with no account; nobody lists runs; nobody writes from a page.
+  - The right answers, answers, keys and codes: no page, not even a master admin's.
+- **Audits:** Present pages 40/40, quiz.html 14/14. **check-stamps:** 6/6.
+- **Breaks, 11 of 11 caught:**
+  - the right answer on the phones before it is shown
+  - a second answer accepted
+  - a late answer accepted
+  - a removed key still working
+  - End leaving the answers
+  - the sweep ignoring old runs
+  - a team member changing the TV quiz
+  - anyone running a phones quiz
+  - the leader's order differing from the TV's
+  - no bonus
+  - rude names let through
+- **No new secret:** the quiz declares no `defineSecret` and no `defineString`.
+
+**"NOT-SET" means not set up (the reviewer, 21 Oct)**
+- `MS_HQ_CLIENT_SECRET=NOT-SET` and `MS_HQ_CLIENT_ID=NOT-SET` (or empty) count as "Microsoft 365 isn't set up yet":
+  - `m365Start` answers "Microsoft 365 isn't set up yet: Church HQ hasn't finished setting up its app. Until then Present draws PowerPoint slides itself."
+  - The card says "Not available yet", with no Connect button.
+  - The converter treats `NOT-SET` in `MS_CLIENT_ID`/`MS_CLIENT_SECRET` as no app and uses LibreOffice, even with a saved connection.
+- **Checked:** present-microsoft, 42/42. Break: `NOT-SET` taken as real is caught.
+- **The client ID's home:** `functions/.env.egbc-worship-planner` is right for the real ID (it isn't a secret, and the functions read it there). Committing it then is fine.
+- **From now on I tell you before adding any `defineSecret`** (or `defineString`), so it exists before the next deploy.

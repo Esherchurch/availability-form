@@ -794,3 +794,4 @@ export { unsplashSearch, unsplashUsed } from './unsplash.js';
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */
 export { presentConvert, presentFromLink, presentSweep } from './present.js';
 export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft.js';
+export { quizStart, quizOpen, quizReveal, quizPhase, quizKick, quizEnd, quizJoin, quizAnswer, quizSweep } from './quiz.js';

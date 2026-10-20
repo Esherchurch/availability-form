@@ -26,7 +26,8 @@
      EGBCPresent.mount(el, {
        key,          'ps_<session>' | 'mtg_<room>_<event or day>'
        context,      { type: 'session', groupId, sessionId } | { type: 'meeting', room, eventId, day }
-       items,        [{ kind: 'image', full, thumb, deckId, n, ratio, media: [{ kind, src, light, link,
+       items,        [{ kind: 'quiz', key, title, questions } (egbc-quiz.js, F-255) |
+                     { kind: 'image', full, thumb, deckId, n, ratio, media: [{ kind, src, light, link,
                        youtube, rect: [x, y, w, h], start: 'click'|'auto', loop, volume, seconds,
                        playable }] } | { kind: 'html', html }]
                      (the same list, in the same order, on every screen)
@@ -102,6 +103,7 @@
     var ref = db.collection('presentNow').doc(o.key), items = o.items || [], N = items.length;
     var S = null, browsing = null, cache = {}, notes = {}, unsub = null, tick = null, alive = true;
     /* video: a layer of its own over the slide picture, outside the part that redraws */
+    var quiz = null;   /* egbc-quiz.js, when the page loads it (F-255) */
     var host = document.createElement('div'), mels = {}, mshown = '', sound = !!o.tv || (o.context && o.context.type === 'meeting'), soundBlocked = false, mtick = null, ytReady = {};
     host.className = 'pz-mhost'; host.style.display = 'none'; document.body.appendChild(host);
 
@@ -138,7 +140,8 @@
         ls[nxt].innerHTML = '<img alt="Slide ' + (i + 1) + '" src="' + esc(full || thumb) + '">';
         /* not here yet: the preview now, sharpened when the full picture comes */
         if (!(cache[i] || {}).full && full) { var im = new Image(); im.onload = function () { var g = ls[nxt].querySelector('img'); if (g && st._i === i) g.src = full; }; im.src = full; }
-      } else ls[nxt].innerHTML = '<div class="html">' + (it.html || '') + '</div>';
+      } else if (it.kind === 'quiz') ls[nxt].innerHTML = quiz ? quiz.stage(i, stageId) : '';
+      else ls[nxt].innerHTML = '<div class="html">' + (it.html || '') + '</div>';
       ls[nxt].classList.add('on'); ls[cur].classList.remove('on');
       st._on = nxt; st._i = i;
       if (stageId === 'pzStage') syncMedia();
@@ -297,11 +300,11 @@
         '<span class="pz-timer" data-timer>0:00<small data-slidetime>on this slide 0:00</small></span><button class="pz-btn stop" data-stop>Stop presenting</button></div>' +
         '<div class="pz-pres"><div style="display:flex;flex-direction:column;gap:12px;min-width:0"><p class="pz-lbl"><span class="pz-live"><i></i>Everyone sees this</span>Slide ' + (i + 1) + ' of ' + N + (S.blank ? ' · <span style="color:#fde68a">blanked</span>' : '') + '</p>' +
         stageHtml('pzStage') +
-        '<div class="pz-film" data-film>' + items.map(function (it, k) { return '<button data-jump="' + k + '" class="' + (k === i ? 'on' : '') + '" aria-label="Slide ' + (k + 1) + '">' + (it.kind === 'image' ? '<img alt="" src="' + esc(src(k, 'thumb')) + '">' : '<span class="txt">' + esc(String(it.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</span>') + '<span>' + (k + 1) + '</span>' + (hasMedia(k) ? '<span class="vid">\u25b6 video</span>' : '') + '</button>'; }).join('') + '</div>' +
-        mediaBarHtml(i, true) +
+        '<div class="pz-film" data-film>' + items.map(function (it, k) { return '<button data-jump="' + k + '" class="' + (k === i ? 'on' : '') + '" aria-label="Slide ' + (k + 1) + '">' + (it.kind === 'image' ? '<img alt="" src="' + esc(src(k, 'thumb')) + '">' : '<span class="txt">' + esc(String(it.kind === 'quiz' ? 'Quiz: ' + (it.title || '') : (it.html || '')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</span>') + '<span>' + (k + 1) + '</span>' + (hasMedia(k) ? '<span class="vid">\u25b6 video</span>' : '') + '</button>'; }).join('') + '</div>' +
+        (items[i] && items[i].kind === 'quiz' ? '' : mediaBarHtml(i, true)) +
         '<div class="pz-ctl"><button class="pz-btn back" data-backs aria-label="Back">◀</button><button class="pz-btn go" data-go>' + (i + 1 < N ? 'Next slide ▶' : 'That’s the last slide') + '</button></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="pz-btn" data-blank>' + (S.blank ? 'Show the slide again' : 'Blank the screen') + '</button></div></div>' +
-        '<div class="pz-side" style="display:flex;flex-direction:column;gap:14px;min-width:0"><div class="pz-card pz-next"><p class="pz-lbl">Up next</p>' + (i + 1 < N ? stageHtml('pzNext') : '<p class="pz-cap">The end.</p>') + '</div>' +
+        '<div class="pz-side" style="display:flex;flex-direction:column;gap:14px;min-width:0">' + (items[i] && items[i].kind === 'quiz' && quiz ? quiz.panel(i) : '') + '<div class="pz-card pz-next"><p class="pz-lbl">Up next</p>' + (i + 1 < N ? stageHtml('pzNext') : '<p class="pz-cap">The end.</p>') + '</div>' +
         '<div class="pz-card pz-notescard"><p class="pz-lbl">Your notes</p><div class="pz-notes" data-notes>…</div></div>' +
         (o.faces ? '<div class="pz-card"><p class="pz-lbl" data-faceslbl>In the meeting</p><div class="pz-faces" data-faces></div></div>' : '') + '</div></div>';
       show('pzStage', i, S.blank);
@@ -309,6 +312,7 @@
       syncMedia();
       var k = i; Promise.resolve(notes[k] !== undefined ? notes[k] : (o.notesFor ? o.notesFor(k) : '')).then(function (t) { notes[k] = t || ''; var n = el.querySelector('[data-notes]'); if (n && S && S.slide === k) n.textContent = notes[k] || 'No notes for this slide.'; });
       placeFaces(); wire(); timer();
+      if (quiz && items[i] && items[i].kind === 'quiz') quiz.wire(i);
     }
     function placeFaces() { var f = el.querySelector('[data-faces]'); if (f && o.faces) f.appendChild(o.faces); }
     function timer() {
@@ -382,7 +386,11 @@
       else if (browsing === null) { show('pzStage', S.slide, S.blank); syncMedia(); var p = el.querySelector('.pz-prog i'); if (p) p.style.width = Math.round((S.slide + 1) / Math.max(1, N) * 100) + '%';
         var c = el.querySelector('.pz-cap'); if (c) c.textContent = 'Slide ' + (S.slide + 1) + ' of ' + N; var s = el.querySelector('.pz-top .s'); if (s) s.textContent = (S.presenterName || '') + ' presenting · ' + (S.slide + 1) + ' of ' + N; }
       else draw();
+      if (quiz) quiz.update();
     }, function () { S = null; draw(); });
+    if (global.EGBCQuiz) quiz = EGBCQuiz.attach({ el: el, items: items, ref: ref, getS: function () { return S; },
+      at: function () { return amPresenter() && !o.tv ? (S ? S.slide : 0) : at(); }, isPresenter: function () { return amPresenter() && !o.tv; },
+      tv: !!o.tv, sessionId: (o.context || {}).sessionId || '', redraw: function () { draw(); } });
     preload();
     draw();
     var onPlace = function () { placeHost(); };
@@ -390,7 +398,7 @@
 
     return {
       stop: stop,
-      destroy: function () { alive = false; clearInterval(tick); clearInterval(mtick); if (unsub) unsub(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onPlace); window.removeEventListener('scroll', onPlace, true); Object.keys(mels).forEach(function (k) { if (!mels[k].yt) mels[k].v.pause(); }); host.remove(); el.innerHTML = ''; },
+      destroy: function () { alive = false; clearInterval(tick); clearInterval(mtick); if (unsub) unsub(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onPlace); window.removeEventListener('scroll', onPlace, true); Object.keys(mels).forEach(function (k) { if (!mels[k].yt) mels[k].v.pause(); }); host.remove(); if (quiz) quiz.destroy(); el.innerHTML = ''; },
       state: function () { return S; }
     };
   }

@@ -4835,10 +4835,17 @@ service cloud.firestore {
       return m == null || (m is map && m.keys().hasOnly(['i', 'k', 'state', 'at', 'since'])
              && m.i is int && m.k is int && m.state in ['playing', 'paused'] && (m.at is int || m.at is float) && m.since is string && m.since.size() < 40);
     }
+    // The quiz (F-255): TV mode's teams and scores live here; phones mode
+    // only says which run (its runId and code). Only the presenter changes it.
+    function presentQuizOk(x) {
+      return x == null || (x is map && x.keys().hasOnly(['step', 'mode', 'phase', 'q', 'teams', 'bonus', 'first', 'got', 'openedAt', 'seconds', 'seed', 'runId', 'code'])
+             && x.get('mode', '') in ['tv', 'phones'] && x.get('teams', []) is list && x.get('teams', []).size() <= 6
+             && x.get('got', []) is list && x.get('got', []).size() <= 6);
+    }
     function presentNowShape(key) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['context', 'slide', 'presenterUid', 'presenterName', 'startedAt', 'slideAt', 'blank', 'updatedBy', 'media'])
-             && presentMediaOk(d.get('media', null))
+      return d.keys().hasOnly(['context', 'slide', 'presenterUid', 'presenterName', 'startedAt', 'slideAt', 'blank', 'updatedBy', 'media', 'quiz'])
+             && presentMediaOk(d.get('media', null)) && presentQuizOk(d.get('quiz', null))
              && d.slide is int && d.slide >= 0 && d.slide < 1000 && d.blank is bool
              && d.presenterUid in [request.auth.uid, ''] && d.updatedBy == request.auth.uid
              && (d.context.get('type', '') != 'session' || key == 'ps_' + d.context.get('sessionId', '-'))
@@ -4852,10 +4859,20 @@ service cloud.firestore {
       allow create: if deckPresents(request.resource.data.context) && presentCtxOk(request.resource.data.context) && presentNowShape(key);
       // The presenter moves on, stops, or someone allowed takes over; the context never changes.
       allow update: if deckPresents(resource.data.context) && request.resource.data.context == resource.data.context
-                    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slide', 'slideAt', 'blank', 'media'])
-                          ? resource.data.presenterUid == request.auth.uid && presentMediaOk(request.resource.data.get('media', null))
+                    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slide', 'slideAt', 'blank', 'media', 'quiz'])
+                          ? resource.data.presenterUid == request.auth.uid && presentMediaOk(request.resource.data.get('media', null)) && presentQuizOk(request.resource.data.get('quiz', null))
                           : presentNowShape(key));
       allow delete: if false;
+    }
+    // A phones-mode quiz run (F-255): anyone with its unguessable id may read
+    // it (players have no account - anonymous sign-in stays off); it holds the
+    // question WITHOUT its answer, nicknames and scores. Nobody lists runs,
+    // and only the hub's functions write. Codes, player keys, answers and the
+    // right answers (quizCodes, quizPlayers, quizAnswers, quizSecret) have no
+    // rule, so no page reaches them at all.
+    match /quizRuns/{runId} {
+      allow get: if true;
+      allow list, write: if false;
     }
 
     // THE AUDIT LOG: append only. Nobody - not a master admin - changes or deletes it.

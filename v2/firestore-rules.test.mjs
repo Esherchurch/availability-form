@@ -4192,6 +4192,28 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nothing else in it', 'deny', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { media: MED({ url: 'https://elsewhere.invalid/x.mp4' }) }));
   await check('  A VIEWER CANNOT PLAY, PAUSE OR SKIP IT', 'deny', () => updateDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), { media: MED({ at: 99 }) }));
   await check('  NOR A LEADER WHO IS NOT PRESENTING (take over first)', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { media: MED({ at: 42 }) }));
+  // THE QUIZ (F-255): TV mode in presentNow.quiz; phones mode in quizRuns (the functions write it).
+  const QZ = (extra) => ({ step: 1, mode: 'tv', phase: 'question', q: 0, teams: [{ name: 'Lions', colour: '#7f1d1d', score: 0 }], bonus: false, first: -1, got: [], seed: 7, openedAt: 1, seconds: 20, ...(extra || {}) });
+  await check('THE QUIZ, TV MODE: the presenter runs it', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { quiz: QZ() }));
+  await check('  and clears it', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { quiz: null }));
+  await check('  only "tv" or "phones"', 'deny', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { quiz: QZ({ mode: 'other' }) }));
+  await check('  no more than 6 teams', 'deny', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { quiz: QZ({ teams: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ name: 'T' + n, colour: '#000', score: 0 })) }) }));
+  await check('  nothing else in it', 'deny', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { quiz: QZ({ answer: 0 }) }));
+  await check('  A TEAM MEMBER CANNOT CHANGE THE QUIZ OR THE SCORES', 'deny', () => updateDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), { quiz: QZ({ teams: [{ name: 'Lions', colour: '#7f1d1d', score: 99 }] }) }));
+  await check('  nor a leader who is not presenting', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { quiz: QZ() }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    await setDoc(doc(d, 'quizRuns', 'runInvented0000000000'), { code: '123456', phase: 'join', players: {}, createdAt: 1 });
+    for (const [col, id] of [['quizSecret', 'runInvented0000000000'], ['quizAnswers', 'runInvented0000000000_0_p1'], ['quizPlayers', 'runInvented0000000000_p1'], ['quizCodes', '123456']]) await setDoc(doc(d, col, id), { runId: 'runInvented0000000000' });
+  });
+  await check('THE QUIZ, PHONES MODE: a player with no account reads the quiz by its id', 'allow', () => getDoc(doc(anon(), 'quizRuns', 'runInvented0000000000')));
+  await check('  nobody lists the quizzes, signed in or not', 'deny', () => getDocs(collection(anon(), 'quizRuns')));
+  await check('  not even a master admin', 'deny', () => getDocs(collection(as('martin'), 'quizRuns')));
+  await check('  nobody writes one from a page (only the functions)', 'deny', () => setDoc(doc(as('martin'), 'quizRuns', 'runInvented0000000000'), { phase: 'final' }));
+  for (const [col, id] of [['quizSecret', 'runInvented0000000000'], ['quizAnswers', 'runInvented0000000000_0_p1'], ['quizPlayers', 'runInvented0000000000_p1'], ['quizCodes', '123456']]) {
+    await check('  ' + col + ' (the right answers, the answers, the keys, the codes): no page reads it, not even a master admin', 'deny', () => getDoc(doc(as('martin'), col, id)));
+    await check('  nor a player', 'deny', () => getDoc(doc(anon(), col, id)));
+  }
   await check('  a meeting’s deck is master admins only until the hosts are agreed', 'deny', () => setDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_m'), DK('u_samy', { context: { type: 'meeting', meetingId: 'mt_1' } })));
 }
 

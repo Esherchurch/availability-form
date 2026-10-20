@@ -220,6 +220,18 @@ try {
       for (let i = 0; i < 60; i++) { const t = await pg.$eval('#m365', (e) => e.innerText).catch(() => ''); if (t && !/Checking/.test(t)) return t; await new Promise((r) => setTimeout(r, 200)); }
       return '';
     };
+    /* the reviewer's placeholder (21 Oct): MS_HQ_CLIENT_SECRET = "NOT-SET" is not set up */
+    await db.collection('presentSettings').doc('test').update({ msClientSecret: 'NOT-SET' });
+    await signIn('mia');
+    const notSet = await pg.evaluate(() => EGBCAuth.call('m365Start', {}).then(() => 'started', (e) => e.message));
+    ok('7. A PLACEHOLDER SECRET ("NOT-SET") IS NOT SET UP: m365Start says so plainly, and starts nothing', /isn’t set up yet/.test(notSet) && /draws PowerPoint slides itself/.test(notSet) && (await db.collection('m365Connect').get()).size === 0, notSet);
+    const notSetCard = await card();
+    ok('   and the card says "Not available yet", with no Connect button', /Not available yet/.test(notSetCard) && !(await pg.$('#m365 [data-on]')), notSetCard);
+    /* and the client ID's placeholder (MS_HQ_CLIENT_ID=NOT-SET, the reviewer's deploy copy) */
+    await db.collection('presentSettings').doc('test').update({ msClientSecret: SECRET, msClientId: 'NOT-SET' });
+    const idNotSet = await pg.evaluate(() => EGBCAuth.call('m365Start', {}).then(() => 'started', (e) => e.message));
+    ok('   A PLACEHOLDER CLIENT ID ("NOT-SET") is not set up either', /isn’t set up yet/.test(idNotSet) && (await db.collection('m365Connect').get()).size === 0, idNotSet);
+    await db.collection('presentSettings').doc('test').update({ msClientSecret: SECRET, msClientId: HQ });
     await signIn('tess');
     const tess = await pg.evaluate(() => EGBCAuth.call('m365Start', {}).then(() => 'started', (e) => e.message));
     ok('7. ONLY A MASTER ADMIN may start "Connect Microsoft 365"', /Only a master admin/.test(tess), tess);
@@ -295,6 +307,17 @@ try {
     await pg.click('#m365 [data-off]');
     for (let i = 0; i < 30 && (await db.collection('privateSettings').doc('microsoft365').get()).exists; i++) await new Promise((r) => setTimeout(r, 200));
     ok('   DISCONNECT: the hub forgets it; Present draws slides itself again', !(await db.collection('privateSettings').doc('microsoft365').get()).exists);
+    /* the converter, with a connection saved but the secret a placeholder: LibreOffice */
+    await db.collection('privateSettings').doc('microsoft365').set({ tenantId: TENANT, siteId: 'site-root', domain: 'invented.sharepoint.com' });
+    process.env.MS_CLIENT_SECRET = 'NOT-SET'; forgetMicrosoft();
+    ok('   THE CONVERTER: "NOT-SET" (or empty) is no app at all', msConfig({ MS_TENANT_ID: 't', MS_CLIENT_ID: 'c', MS_CLIENT_SECRET: 'NOT-SET', MS_SITE: 's' }) === null && msConfig({ MS_TENANT_ID: 't', MS_CLIENT_ID: 'c', MS_CLIENT_SECRET: ' ', MS_SITE: 's' }) === null && msConfig({ MS_TENANT_ID: 't', MS_CLIENT_ID: 'NOT-SET', MS_CLIENT_SECRET: 'real', MS_SITE: 's' }) === null);
+    await deck('dk_ms_notset', DECK);
+    const pdfB = MS.pdfAsked.length;
+    await convertDeck({ db, bucket, deckId: 'dk_ms_notset', render: makeRender({ loPdf, toPictures }) });
+    const dn = await read('dk_ms_notset');
+    ok('   so a deck made then is drawn by LibreOffice, and Microsoft is never asked', dn.status === 'ready' && dn.renderer === 'libreoffice' && MS.pdfAsked.length === pdfB, J({ renderer: dn.renderer, why: dn.fallbackWhy }));
+    process.env.MS_CLIENT_SECRET = SECRET;
+    await db.collection('privateSettings').doc('microsoft365').delete();
   } finally { await browser.close(); pages.close(); }
 
   /* ---------- 8. THE CLEAR-OUT ---------- */

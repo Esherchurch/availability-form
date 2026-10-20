@@ -31,9 +31,11 @@
 const CHUNK = 60 * 1024 * 1024;          /* a multiple of 320 KiB, as Graph asks */
 const SIMPLE_MAX = 60 * 1024 * 1024;     /* one PUT up to here; Graph allows 250 MB */
 
+/* A placeholder is not a secret (the reviewer, 21 Oct): "NOT-SET" or empty = not set up, LibreOffice. */
+export const real = (v) => { const t = String(v == null ? '' : v).trim(); return t && t.toUpperCase() !== 'NOT-SET' ? t : ''; };
 export function msConfig(env = process.env) {
-  if (!env.MS_TENANT_ID || !env.MS_CLIENT_ID || !env.MS_CLIENT_SECRET || !env.MS_SITE) return null;
-  return { tenant: env.MS_TENANT_ID, clientId: env.MS_CLIENT_ID, secret: env.MS_CLIENT_SECRET, site: env.MS_SITE.replace(/^https?:\/\//, ''),
+  if (!real(env.MS_TENANT_ID) || !real(env.MS_CLIENT_ID) || !real(env.MS_CLIENT_SECRET) || !real(env.MS_SITE)) return null;
+  return { tenant: real(env.MS_TENANT_ID), clientId: real(env.MS_CLIENT_ID), secret: real(env.MS_CLIENT_SECRET), site: env.MS_SITE.replace(/^https?:\/\//, ''),
     folder: env.MS_FOLDER || 'Present conversions', graph: (env.MS_GRAPH || 'https://graph.microsoft.com/v1.0').replace(/\/$/, ''),
     login: (env.MS_LOGIN || 'https://login.microsoftonline.com').replace(/\/$/, ''),
     simpleMax: +env.MS_SIMPLE_MAX || SIMPLE_MAX, chunk: +env.MS_CHUNK || CHUNK };
@@ -45,7 +47,7 @@ export function msConfig(env = process.env) {
    privateSettings/microsoft365 (made by "Connect Microsoft 365",
    functions/microsoft.js). Not connected, or no app: null (LibreOffice). */
 export async function msConfigFor(db, env = process.env) {
-  if (!env.MS_CLIENT_ID || !env.MS_CLIENT_SECRET) return msConfig(env);
+  if (!real(env.MS_CLIENT_ID) || !real(env.MS_CLIENT_SECRET)) return msConfig(env);
   const d = db ? await db.collection('privateSettings').doc('microsoft365').get().then((x) => (x.exists ? x.data() : null), () => null) : null;
   if (!d || !d.tenantId || !d.siteId) return msConfig(env);
   const c = msConfig(Object.assign({}, env, { MS_TENANT_ID: d.tenantId, MS_SITE: d.siteId }));

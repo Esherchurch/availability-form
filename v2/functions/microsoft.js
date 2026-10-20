@@ -48,16 +48,19 @@ export const MS_HQ_CLIENT_SECRET = defineSecret('MS_HQ_CLIENT_SECRET');
 const HUB = 'https://esherchurch.github.io/availability-form/v2/';
 const PROJECT = process.env.GCLOUD_PROJECT || 'egbc-worship-planner';
 const APP_NAME = 'Church HQ slides';
+/* A placeholder is not a secret: the reviewer set MS_HQ_CLIENT_SECRET to
+   "NOT-SET" so deploys could run (21 Oct). NOT-SET or empty = not set up yet. */
+export const real = (v) => { const t = String(v == null ? '' : v).trim(); return t && t.toUpperCase() !== 'NOT-SET' ? t : ''; };
 
 async function settings() {
   if (EMULATOR) {
     const t = (await db().collection('presentSettings').doc('test').get().catch(() => null));
     const x = t && t.exists ? t.data() : {};
-    return { login: x.msLogin || '', graph: x.msGraph || '', clientId: x.msClientId || '', secret: x.msClientSecret || '', back: x.returnBase || 'http://localhost:5601/',
+    return { login: x.msLogin || '', graph: x.msGraph || '', clientId: real(x.msClientId), secret: real(x.msClientSecret), back: x.returnBase || 'http://localhost:5601/',
       callback: 'http://127.0.0.1:' + (process.env.FUNCTIONS_EMULATOR_PORT || '5102') + '/' + PROJECT + '/' + REGION + '/m365Callback' };
   }
-  let secret = ''; try { secret = MS_HQ_CLIENT_SECRET.value() || ''; } catch (e) {}
-  return { login: 'https://login.microsoftonline.com', graph: 'https://graph.microsoft.com/v1.0', clientId: MS_HQ_CLIENT_ID.value() || '', secret, back: HUB,
+  let secret = ''; try { secret = real(MS_HQ_CLIENT_SECRET.value()); } catch (e) {}
+  return { login: 'https://login.microsoftonline.com', graph: 'https://graph.microsoft.com/v1.0', clientId: real(MS_HQ_CLIENT_ID.value()), secret, back: HUB,
     callback: 'https://' + REGION + '-' + PROJECT + '.cloudfunctions.net/m365Callback' };
 }
 async function master(uid) {
@@ -69,7 +72,7 @@ async function master(uid) {
 
 export const m365Start = onCall({ region: REGION, secrets: [MS_HQ_CLIENT_SECRET] }, async (req) => {
   const u = await master(req.auth && req.auth.uid), s = await settings();
-  if (!s.clientId || !s.secret) throw new HttpsError('failed-precondition', 'Microsoft 365 is not available yet: Church HQ has not set up its app.');
+  if (!s.clientId || !s.secret) throw new HttpsError('failed-precondition', 'Microsoft 365 isn’t set up yet: Church HQ hasn’t finished setting up its app. Until then Present draws PowerPoint slides itself.');
   const state = crypto.randomBytes(24).toString('hex');
   await db().collection('m365Connect').doc(state).set({ uid: req.auth.uid, name: u.name || '', step: 'consent', at: Date.now() });
   const q = new URLSearchParams({ client_id: s.clientId, scope: 'https://graph.microsoft.com/.default', redirect_uri: s.callback, state });
@@ -126,8 +129,8 @@ export const m365Status = onCall({ region: REGION }, async (req) => {
   await master(req.auth && req.auth.uid);
   const d = (await db().collection('privateSettings').doc('microsoft365').get()).data();
   const s = await settings();
-  return d ? { connected: true, available: !!s.clientId, domain: d.domain || '', siteUrl: d.siteUrl || '', by: d.connectedByName || '', at: d.connectedAt || '' }
-    : { connected: false, available: !!s.clientId };
+  return d ? { connected: true, available: !!(s.clientId && s.secret), domain: d.domain || '', siteUrl: d.siteUrl || '', by: d.connectedByName || '', at: d.connectedAt || '' }
+    : { connected: false, available: !!(s.clientId && s.secret) };
 });
 
 export const m365Disconnect = onCall({ region: REGION }, async (req) => {

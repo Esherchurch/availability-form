@@ -14,7 +14,8 @@
 <script src="egbc-auth.js?v=202610210900"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610161700"></script>
-<script src="egbc-present.js?v=202610210100"></script>
+<script src="egbc-quiz.js?v=202610211900"></script>
+<script src="egbc-present.js?v=202610211900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   html,body{margin:0;height:100%;background:#0b1116;color:#e2e8f0;font-family:Inter,system-ui,sans-serif}
@@ -44,9 +45,11 @@
   /* The session's steps, as the engine's items - the same list on every screen. */
   function itemsFor(s) {
     var out = [], notes = [], decks = [];
-    (s.parts || []).forEach(function (p) {
-      (p.show || []).forEach(function (st) {
+    (s.parts || []).forEach(function (p, pi) {
+      (p.show || []).forEach(function (st, si) {
         if (st.type === 'pptx' && st.deckId) { decks.push(st.deckId); out.push({ deck: st.deckId }); return; }
+        /* the quiz (F-255), behind its own switch: off, its steps are left out */
+        if (st.type === 'quiz' && (st.questions || []).length && !(EGBCAuth.uses && !EGBCAuth.uses('quiz'))) { out.push({ kind: 'quiz', key: 'p' + pi + 's' + si, title: st.name || p.title || 'Quiz', questions: st.questions }); return; }
         if (st.type === 'text') out.push({ kind: 'html', html: '<div>' + esc(st.words).replace(/\n/g, '<br>') + '</div>' });
         else if (st.type === 'memory' || st.type === 'verses') out.push({ kind: 'html', html: '<div class="verses"><p class="ref">' + esc(st.ref || (s.passage || {}).ref || 'The Bible') + '</p><div>' + esc(st.text || st.words || (s.passage || {}).text || '') + '</div>' + ((s.passage || {}).copyright ? '<p class="cr">' + esc(s.passage.copyright) + '</p>' : '') + '</div>' });
         else if (st.type === 'picture' && st.url) out.push({ kind: 'image', full: st.url, thumb: st.url });

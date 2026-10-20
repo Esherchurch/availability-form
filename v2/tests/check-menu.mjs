@@ -327,7 +327,8 @@ const READ_MENU = `(() => {
     'enews-signup.html': 'public: the e-news sign-up, from the church website',
     'enews-confirm.html': 'public: the link in the e-news confirm email',
     'enews-unsubscribe.html': 'public: the unsubscribe link in every e-news',
-    'enews-web.html': 'public: "view in your browser" in every e-news, and the archive'
+    'enews-web.html': 'public: "view in your browser" in every e-news, and the archive',
+    'quiz.html': 'public: the quiz on a player’s phone, from the TV’s QR code and churchhq.co.uk/quiz (F-255)'
   };
   {
     const src = fs.readFileSync(path.join(V2, 'egbc-menu.js'), 'utf8');
