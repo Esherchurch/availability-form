@@ -226,10 +226,10 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
     await put('churchMeetings/cm1/private/join', { zoomUrl: 'https://zoom.example.invalid/j/5550001', zoomId: '555 0001', passcode: 'synth1' });
     const id4 = await startFrom('Church members\u2019 meeting');
     const b4 = (await issue(id4)).blocks || [];
-    const when16 = new Date(day(16) + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+    const when16 = new Date(day(16) + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).replace(',', '');
     const z = b4.find(b => b.type === 'meeting') || {}, ag = b4.find(b => b.type === 'button') || {};
     ok('…from Members\u2019 meetings: its day, time and place filled in', JSON.stringify(b4).includes(when16 + ' at 19:30') && JSON.stringify(b4).includes('Synthetic church hall'), JSON.stringify(b4).slice(0, 300));
-    ok('…the agenda button goes to Members\u2019 meetings', /\/church-meeting\.html$/.test(ag.url || '') && ag.label === 'See the agenda and minutes', ag);
+    ok('…the agenda button goes to Members\u2019 meetings, for members only', /\/church-meeting\.html\?meeting=cm1$/.test(ag.url || '') && ag.label === 'See the agenda and minutes' && ag.members === true, ag);
     ok('…a Zoom meeting: Join on Zoom, its ID and passcode, for members only', z.url === 'https://zoom.example.invalid/j/5550001' && z.zoom === true && /555 0001/.test(z.text) && /synth1/.test(z.text) && z.members === true, z);
     const MBv = await ev('(function(){var i=' + JSON.stringify({ subject: 'x', template: 'classic', blocks: b4 }) + ';return [EGBCMailBlocks.render(i,{version:"members",church:{name:"S"}}),EGBCMailBlocks.render(i,{version:"everyone",church:{name:"S"}})]})()');
     ok('…the Zoom details are in the members\u2019 copy, never everyone\u2019s', MBv[0].includes('zoom.example.invalid') && MBv[0].includes('synth1') && !MBv[1].includes('zoom.example.invalid') && !MBv[1].includes('synth1'));

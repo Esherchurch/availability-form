@@ -14,6 +14,7 @@
  * copy; already-sent people sent again) and must turn a named check red.
  */
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
@@ -151,6 +152,34 @@ async function scenario(S) {
   t('someone picked who is not a member gets everyone’s copy', pip.html && !pip.html.includes(ZOOM));
   t('not a subscriber: a "leave me out" email to the office, no one-click header', (pip.html || '').includes('mailto:office@example.invalid?subject=') && pip.headers && !pip.headers['List-Unsubscribe-Post'] && /mailto:/.test(pip.headers['List-Unsubscribe'] || ''), pip.headers);
   t('an email to members, a team or picked people has no public web version', !(await db.collection('enewsWeb').doc('o_mem').get()).exists && !(await db.collection('enewsWeb').doc('o_team').get()).exists);
+
+  /* A members' meeting's papers (meeting-papers.js): a member with no hub
+     account gets their own 30-day link; one with an account, the hub's. */
+  for (const c of ['enewsIssues', 'addressBook', 'users', 'churchMeetings', 'meetingPaperLinks']) for (const d of (await db.collection(c).get()).docs) { const k = await d.ref.collection('sends').get(); for (const x of k.docs) await x.ref.delete(); await d.ref.delete(); }
+  await db.collection('addressBook').doc('a1').set({ name: 'Ada Noaccount', email: 'ada.pp@example.invalid', churchMember: true, markers: [] });
+  await db.collection('addressBook').doc('a2').set({ name: 'Bea Account', email: 'bea.pp@example.invalid', churchMember: true, markers: [] });
+  await db.collection('users').doc('u_bea').set({ memberId: 'a2', email: 'bea.pp@example.invalid', status: 'active' });
+  await db.collection('churchMeetings').doc('cm1').set({ title: 'Church members\u2019 meeting', date: '2026-11-08', time: '19:30', papers: [{ name: 'Agenda.pdf', path: 'churchMeetings/cm1/papers/1-Agenda.pdf' }] });
+  await db.collection('churchMeetings').doc('cm0').set({ title: 'An old meeting', date: '2026-09-01', papers: [] });
+  const HUBM = 'https://hub.example.invalid/v2/church-meeting.html?meeting=';
+  const cmm = (mid) => { const I = { subject: 'Members\u2019 meeting', template: 'classic', kind: 'oneoff', audience: 'members', blocks: [{ type: 'text', html: '<p>Dear {{first_name}},</p>' }, { type: 'button', label: 'See the agenda and minutes', url: HUBM + mid, members: true }] };
+    return Object.assign(I, { htmlMembers: MB.render(I, { version: 'members', church, unsubscribeUrl: MB.PLACEHOLDER }), htmlEveryone: MB.render(I, { version: 'everyone', church, unsubscribeUrl: MB.PLACEHOLDER }), status: 'scheduled', sendAt: '2026-10-22T16:00' }); };
+  await db.collection('enewsIssues').doc('o_cmm').set(cmm('cm1'));
+  got.length = 0;
+  await S.runEnewsSend({ db, send, now, hub: 'https://hub.example.invalid/v2', fnBase: 'https://fn.example.invalid', gap: 0 });
+  const ada = got.find(g => g.to === 'ada.pp@example.invalid') || {}, bea = got.find(g => g.to === 'bea.pp@example.invalid') || {};
+  const tok = (/https:\/\/fn\.example\.invalid\/meetingPapers\?t=([A-Za-z0-9_-]+)/.exec(ada.html || '') || [])[1] || '';
+  t('a member with no hub account: their own link to the papers', !!tok && !(ada.html || '').includes(HUBM + 'cm1'), (ada.html || '').match(/href="[^"]*(meeting|Papers)[^"]*"/g));
+  t('a member with an account: the meeting\u2019s page on the hub (they sign in)', (bea.html || '').includes(HUBM + 'cm1') && !/meetingPapers/.test(bea.html || ''));
+  const L = (await db.collection('meetingPaperLinks').get()).docs;
+  const hash = createHash('sha256').update(tok).digest('hex');
+  t('the link is kept only as its hash, for that person and meeting', L.length === 1 && L[0].id === hash && !JSON.stringify(L[0].data()).includes(tok) && L[0].data().meetingId === 'cm1' && L[0].data().personId === 'a1', L.map(d => d.id));
+  t('it lasts until 30 days after the meeting', L.length === 1 && L[0].data().expires === Date.parse('2026-11-08T23:59:59Z') + 30 * 86400000);
+  await db.collection('enewsIssues').doc('o_old').set(cmm('cm0'));
+  got.length = 0;
+  await S.runEnewsSend({ db, send, now, hub: 'https://hub.example.invalid/v2', fnBase: 'https://fn.example.invalid', gap: 0 });
+  const ada2 = got.find(g => g.to === 'ada.pp@example.invalid') || {};
+  t('a meeting more than 30 days gone: no new links', (ada2.html || '').includes(HUBM + 'cm0') && !/meetingPapers/.test(ada2.html || '') && (await db.collection('meetingPaperLinks').get()).size === 1);
   return out;
 }
 
@@ -169,6 +198,7 @@ const BREAKS = [
   ['a members’ email to everyone in the address book', "(await db.collection('addressBook').where('churchMember', '==', true).get())", "(await db.collection('addressBook').get())", 'to church members: the members'],
   ['a public web version for a members’ email', "if (issue.kind !== 'oneoff' || (issue.audience || 'subscribers') === 'subscribers') await", 'await', 'no public web version'],
   ['an under-18 sent the e-news', "if (minors.has(String(sub.email || '').toLowerCase())) { under18++; continue; }", '', 'never sent to a 17-year-old'],
+  ['no personal link to the papers', "      if (isMember) letter.html = await personalise(db, links, sub, letter.html, { fnBase: fnBase || FN_LIVE, issueId: doc.id });", '', 'their own link to the papers'],
   ['the one-click header left off', "'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'", "'X-Nothing': ''", 'the one-click header']
 ];
 for (const [what, from, to, expect] of BREAKS) {

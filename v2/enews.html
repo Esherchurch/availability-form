@@ -679,12 +679,14 @@
     });
   }
   function fillChurchMeeting(blocks, m) {
-    var when = new Date(m.date + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) + (m.time ? ' at ' + m.time : '');
+    var when = new Date(m.date + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).replace(',', '') + (m.time ? ' at ' + m.time : '');
     var put = function (h) { return String(h || '').split('[day and date at time]').join(esc(when)).split('[place]').join(m.place ? esc(m.place) : '[place]'); };
     var j = m.join || {};
     blocks.forEach(function (b) {
       if (b.type === 'text') b.html = put(b.html);
-      if (b.type === 'button' && /agenda/i.test(b.label || '')) { b.label = 'See the agenda and minutes'; b.url = hubBase().replace(/\/+$/, '') + '/church-meeting.html'; }
+      /* Members only. The server gives a member with no hub account their own
+         30-day link to the papers instead (functions/meeting-papers.js). */
+      if (b.type === 'button' && /agenda/i.test(b.label || '')) { b.label = 'See the agenda and minutes'; b.url = hubBase().replace(/\/+$/, '') + '/church-meeting.html?meeting=' + encodeURIComponent(m.id); b.members = true; }
       if (b.type !== 'meeting') return;
       if (m.joinKind === 'zoom' && /^https:\/\//.test(j.zoomUrl || '')) {
         Object.assign(b, { title: m.title || 'Church members\u2019 meeting', date: m.date, startTime: m.time || '', eventId: '', url: j.zoomUrl, label: 'Join on Zoom', zoom: true,

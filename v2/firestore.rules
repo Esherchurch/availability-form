@@ -1536,6 +1536,10 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid;
     }
     // Unsplash searches kept a day, the hour's count and pings owed (functions/unsplash.js): the server only.
+    // A members' meeting's papers: each member's own link, kept as its hash (functions/meeting-papers.js): the server only.
+    match /meetingPaperLinks/{id} {
+      allow read, write: if false;   // paper links: the server only
+    }
     match /unsplashCache/{id} {
       allow read, write: if false;   // unsplash cache: the server only
     }

@@ -791,6 +791,8 @@ export { hqMailKeySave, hqMailKeyStatus } from './hq-mail-key.js';
 export { socialMorning } from './social.js';
 /* Pictures from Unsplash: search (kept a day, within Demo mode's 50 an hour) and the download ping; the comms window's file (FINDINGS-comms). */
 export { unsplashSearch, unsplashUsed } from './unsplash.js';
+/* A members' meeting's papers for members without a hub account: their own 30-day link (comms window; mailings plan 3.3). */
+export { meetingPapers } from './meeting-papers.js';
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */
 export { presentConvert, presentFromLink, presentSweep } from './present.js';
 export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft.js';

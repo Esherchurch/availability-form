@@ -41,6 +41,7 @@ import { makeHqSender } from './hq-mail.js';
 import { makeSender } from './public-mail.js';
 import { featureOn } from './features.js';
 import { under18Emails } from './under18.js';
+import { paperLinksFor, personalise } from './meeting-papers.js';
 
 const REGION = 'europe-west2';
 const HUB = 'https://esherchurch.github.io/availability-form/v2';
@@ -148,12 +149,16 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
     let sent = 0, failed = 0, toMembers = 0, under18 = 0;
     const people = await recipientsFor(db, issue, subs.docs);
     const toMembersOnly = issue.kind === 'oneoff' && issue.audience === 'members';
+    /* A members' meeting email: members without a hub account get their
+       own link to the papers (meeting-papers.js). */
+    const links = issue.kind === 'oneoff' ? await paperLinksFor(db, issue, now.getTime()) : null;
     for (const sub of people) {
       if (already.has(sub.id)) { sent++; continue; }
       /* Never an under-18, even one on the list (ticked after they joined). */
       if (minors.has(String(sub.email || '').toLowerCase())) { under18++; continue; }
       const isMember = toMembersOnly || members.has(String(sub.email || '').toLowerCase());
       const letter = letterFor(issue, sub, isMember, { hub, fnBase, issueId: doc.id, replyTo: church.enquiryEmail || '' });
+      if (isMember) letter.html = await personalise(db, links, sub, letter.html, { fnBase: fnBase || FN_LIVE, issueId: doc.id });
       const r = await send(Object.assign(letter, { fromName: church.name || '', replyTo: church.enquiryEmail || '' }), { kind: issue.kind === 'oneoff' ? 'mailing' : 'enews', issueId: doc.id, subscriberId: sub.id, copy: isMember ? 'members' : 'everyone' });
       await doc.ref.collection('sends').doc(sub.id).set({ at: new Date().toISOString(), ok: !!r.ok, copy: isMember ? 'members' : 'everyone', error: r.error || '' });
       if (r.ok) { sent++; if (isMember) toMembers++; } else failed++;

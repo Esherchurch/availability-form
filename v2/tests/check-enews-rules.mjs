@@ -116,6 +116,8 @@ async function run(rules) {
   await t('a template is saved as yourself', assertFails(setDoc(doc(as('office'), 'emailTemplates', 't5'), tpl({ updatedBy: 'en_master' }))));
   await t('the Unsplash cache is the server’s: not even a master admin reads it', assertFails(getDoc(doc(as('master'), 'unsplashCache', '_hour'))));
   await t('nobody writes the Unsplash cache from a page', assertFails(setDoc(doc(as('office'), 'unsplashCache', '_hour'), { hour: 'x', used: 0 })));
+  await t('a member’s link to the papers is the server’s: not even a master admin reads them', assertFails(getDocs(collection(as('master'), 'meetingPaperLinks'))));
+  await t('nobody makes a link to the papers from a page', assertFails(setDoc(doc(as('office'), 'meetingPaperLinks', 'x'), { meetingId: 'm', personId: 'p', expires: 1 })));
   /* Under 18 is the office's to tick, like Under 16 (C-36). */
   await t('a team leader cannot tick Under 18 on their team’s person', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
   await t('the office can tick Under 18', assertSucceeds(setDoc(doc(as('office'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
@@ -144,6 +146,7 @@ const BREAKS = [
   ['any audience allowed on an email', "&& d.get('audience', 'subscribers') in ['subscribers', 'members', 'team', 'picked']", "&& true", 'known kind of audience'],
   ['church members may read the templates', 'allow read: if enewsOffice();   // email templates: the office', 'allow read: if active();   // email templates: the office', 'cannot read the templates'],
   ['the office may read the Unsplash cache', 'allow read, write: if false;   // unsplash cache: the server only', 'allow read, write: if enewsOffice();   // unsplash cache: the server only', 'Unsplash cache'],
+  ['the office may read the links to the papers', 'allow read, write: if false;   // paper links: the server only', 'allow read, write: if enewsOffice();   // paper links: the server only', 'link to the papers'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];
 let caught = 0;
