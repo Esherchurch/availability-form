@@ -260,6 +260,56 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 20 Oct late: a members' meeting's papers for members without a hub account (mailings plan 3.3). For review
+
+The main window's note of 21 Oct asked for this. Many members have no hub account, so the members' meeting email now gives each of them their own link to the papers.
+
+- **The email** (the "Church members' meeting" starter, filled from Members' meetings): "See the agenda and minutes" is now **members only** and points at `church-meeting.html?meeting=<id>`.
+- **At send** (enews-send.js with the new functions/meeting-papers.js):
+  - A church member **with** a hub account keeps that link and signs in, as before.
+  - A church member **without** one gets that address swapped in their own copy for `meetingPapers?t=<token>`.
+  - The token is random (24 bytes) and stored only as its SHA-256, in `meetingPaperLinks/<hash>`, with the meeting, the person and the expiry.
+  - It expires **30 days after the meeting**, at the end of that day.
+  - A meeting already more than 30 days gone gets no new links.
+- **`meetingPapers`** (a public function, GET) shows a plain page in the church's name:
+  - the meeting, its day, time and place;
+  - its papers, each served from Storage (`churchMeetings/<id>/papers/…`) with its own type and name;
+  - "No papers yet" if there are none, saying when the link ends, so papers added later still reach people.
+- **`meetingPapers` refuses:**
+  - an unknown or malformed link (404);
+  - a link more than 30 days after the meeting (410), pointing people to the church office;
+  - anyone no longer a church member, archived or under 18 (403);
+  - a meeting that has been taken away;
+  - a paper number that isn't there;
+  - any paper stored outside that meeting's own folder, including a path climbing out of it.
+- **No public file address** exists. The page and files are sent with `no-store`, `noindex` and `no-referrer`.
+- **Rules:** `meetingPaperLinks` is the server's alone.
+- **Dates:** the meeting's date now reads "Sunday 8 November", without the comma, in the email and on the page.
+
+### For the main window
+
+- **functions/index.js:** one more export line under the Unsplash one: `meetingPapers` from meeting-papers.js.
+- **church-meeting.html** is now opened with `?meeting=<id>` from the email. It ignores this and shows the meetings as usual, which is fine. Opening that meeting straight away would be a small kindness, if you want to.
+
+### To deploy, and when
+
+- **`firebase deploy --only functions:hub`:** the new `meetingPapers`, and `enewsSendDue` with the links.
+- **Before any members' meeting email goes out live:**
+  - the rules (switch-over), so the office can save a one-off email at all;
+  - Storage rules for the papers, the main window's (live with theirs).
+  - The function reads Storage with admin rights, so it doesn't wait on those rules.
+
+### Checks (on 837af81b, this window's own emulators; the full run, every check and break green/red as it should be, check-stamps 6/6, the ease self-check 12/12 with its 2 breaks)
+
+| Check | Result |
+|---|---|
+| check-meeting-papers (new) | 21/21, including 4 breaks: links that never expire, anyone with a link, papers from any folder, account holders given tokens |
+| check-enews-send (the papers added) | 45/45, including break "no personal link to the papers" |
+| check-enews-rules | 59/59; 16/16 breaks red (new: the office reading the paper links) |
+| check-enews-emails (the button: members only, `?meeting=`) | 23/23; breaks fill, audience each red |
+
+---
+
 ## READY, 20 Oct late: the ease test on this PC (for the reviewing window to run for Martin)
 
 **One command, from the repo's `v2` folder:** `node ease-test/run.mjs`. The full steps are in [ease-test/README.md](ease-test/README.md).
@@ -291,7 +341,7 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ### What's left in the plan (20 Oct)
 
-1. **Papers for members without a hub account** (mailings plan §3.3; the main window's note of 21 Oct): each member's email carries their own link, expiring 30 days after the meeting, served by a function, with no public file address. **Next, being built now.**
+1. **Papers for members without a hub account** (mailings plan §3.3; the main window's note of 21 Oct): each member's email carries their own link, expiring 30 days after the meeting, served by a function, with no public file address. **Built: see above.**
 2. **The automatic welcomes:** "New subscriber welcome" sent by itself when someone confirms, and "Newcomer welcome" linked to "I'm new here". Today they are starters only.
 3. **Event invitation filled from a What's On event:** its picture, day and time, place, and the Sign up button.
 4. **Small gaps:** letter spacing in the toolbar (plan A), and a `{date}` subject pattern for templates.
