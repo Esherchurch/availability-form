@@ -196,10 +196,17 @@
   /* WHAT ARE YOU DOING? (the start screen; Martin, 19 Oct 2026,
      design-mocks/app-start). A mode wears its colour across the top with
      its name and Switch; Just me keeps the app's own header. */
-  .mode-top{background:var(--md);border-bottom-color:transparent}
-  .mode-top .top-title{color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* minmax(0,1fr): the grid's column would otherwise grow to the title's
+     whole width, and at 360px the bar was 12px wider than the phone. */
+  .mode-top{background:var(--md);border-bottom-color:transparent;grid-template-columns:minmax(0,1fr)}
+  @media(max-width:400px){.mode-top .top-row{gap:8px}.switch{padding:0 9px;gap:4px}}
+  /* Two lines rather than "Sunday wo…" on a narrow phone. */
+  .mode-top .top-title{color:#fff;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
   .mode-ic{display:grid;place-items:center;flex:none;color:#fff}
-  @media(max-width:400px){.mode-ic{display:none}}
+  /* On a phone the mode's name needs the room: "Care", not "Care &
+     support", and no icon beside the name (at 412px the name was down to
+     "Sunda y..."). */
+  @media(max-width:560px){.mode-ic{display:none}.mode-top .worry .wl{display:none}.mode-top .worry .ws{display:inline}}
   .mode-top .icon-btn,.mode-top .worry{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45);color:#fff}
   .switch{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:10px;
           border:1px solid var(--line);background:var(--surface);color:var(--brand);font-weight:600;font-size:13px;

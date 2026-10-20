@@ -212,6 +212,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await setBuilding(bcBefore);
     ok('  nothing on the console', watch.errors.length === 0, watch.summary());
 
+    /* 360px, the narrowest phone the audit measures: the coloured bar
+       (name, bell, Care, Switch) was 12px too wide in every mode. */
+    const wide = [];
+    for (const w of [360, 412]) for (const m of ['sunday', 'kids', 'building', 'office']) {
+      await size(w);
+      await openApp(M);
+      await tap('.tile[data-mode="' + m + '"]'); await sleep(1000);
+      const sw = Number(await evl('document.documentElement.scrollWidth'));
+      if (sw > w + 1) wide.push(m + ' at ' + w + ': ' + sw + 'px');
+    }
+    ok('  360px and 412px: no mode\'s bar goes sideways', !wide.length, wide.join(', '));
     await size(1440);
     await openApp(M);
     L = await J(LOOK);
