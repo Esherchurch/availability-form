@@ -8912,3 +8912,84 @@ This **replaces F-253's "Martin's one-off setup" section.** The Church HQ app li
 *E. Later: another church's hub*
 
 14. Add that hub's callback address (`https://europe-west2-<its project>.cloudfunctions.net/m365Callback`) to the same app: **Authentication → Add URI**. Nothing else changes; the app is one for all.
+
+### F-255 — The quiz (session planner, Part 3): PLAN and mock-ups — for review before building (the events window, 21 Oct)
+
+**What exists already:** the planner's quiz step (F-223) stores up to 12 questions, each with four answers (the right one written first) and 20 seconds. This builds the playing of it, inside Present, so a quiz sits between slides and verses in the same flow.
+
+**Mock-ups** (`v2/screenshots/events/`):
+
+| Mock-up | What it shows |
+|---|---|
+| `quiz-mock-choose-desk.png` | the presenter reaches the quiz: "Teams on the TV" or "Everyone on their phones" |
+| `quiz-mock-tv-question.png` | TV mode: the question, A–D, the timer, the team scores |
+| `quiz-mock-leader-teams-375.png` | TV mode, the leader's phone: the right answer marked, "Show the answer on the TV", tap each team that got it, Next |
+| `quiz-mock-tv-join.png` | phones mode, the TV: the join code and who's here |
+| `quiz-mock-phone-join-375.png` | a player: the code and a nickname, no account |
+| `quiz-mock-phone-answer-375.png` | a player: four whole-width buttons and the timer |
+| `quiz-mock-phone-result-375.png` | a player: right/wrong, points, place |
+| `quiz-mock-tv-leaderboard.png` | phones mode, the TV: how many chose each answer, the top five |
+| `quiz-mock-leader-phones-375.png` | phones mode, the leader: answered 9 of 11, show the answer now, remove a name, end and delete |
+
+The look is our own: lettered answers in the church's colours, not another game's shapes.
+
+**1. Choosing.** On reaching a quiz step, the presenter picks the mode. Nothing starts until they do. The answer order is mixed by a seed in the shared state, so every screen shows the same order.
+
+**2. TV mode (younger groups, no phones)**
+- **The TV shows** the question, A–D, a countdown, and the teams with their scores along the bottom.
+- **The leader's phone shows** the right answer marked. "Show the answer on the TV" highlights it. Then the leader taps each team that got it right (1 point each), and Next.
+- **Teams:** 2 to 6, named and coloured at the start (defaults Lions, Eagles, Bears), with their scores shown at the end.
+- **The data** is all in the existing `presentNow` doc, as a `quiz` field: which step, which question, the phase (question, answer, scores, end), the teams and scores, the seed, and when it opened. Only the presenter writes it, as with the slides and the video (the rules), and every screen follows as it does now. **No new collection; nothing to delete.**
+
+**3. Phones mode (older groups)**
+- **Joining:** the TV shows a 6-digit code, a QR code and the hub's quiz address. A player opens `quiz.html` (public, no account), types the code and a first name or nickname (up to 20 characters; obvious rude words refused), and is in.
+- **Answering:**
+  - The question's text and the mixed answers go on a quiz-run document when the question opens. **The right answer is never there until the leader shows it.**
+  - A phone answers once per question, within the time.
+  - Points: 500 for right, plus up to 500 for speed, timed by the server from when the question opened.
+- **After each question:** the TV shows how many chose each answer, then the top five. Each phone shows right or wrong, its points and its place.
+- **The leader** sees "answered 9 of 11", can show the answer early, and can **remove a name**: that phone is told to join again with another name, and its key stops working.
+- **Nothing is kept:**
+  - "End the quiz" deletes the run, its players and its answers at once.
+  - An hourly sweep deletes any run older than 24 hours.
+  - Nothing but a nickname is ever asked for.
+
+**4. The one decision: how phones join (this is the "anonymous sign-in" question)**
+- **(a) Recommended: no sign-in at all; the functions do the work.**
+  - `quizJoin(code, nickname)` returns the run and a private player key. The key is kept on the phone for that quiz only.
+  - `quizAnswer(run, key, question, choice)` records the answer. The server keeps the times, so the timing is fair.
+  - **Phones read** one document per run, by its unguessable ID: the current question, the counts after the reveal, and the leaderboard of nicknames and scores. **They can read nothing else.**
+  - **The presenter's own functions** (`quizOpen`, `quizReveal`, `quizKick`, `quizEnd`) check that they may present.
+  - **Why recommended:** it needs **no change to Firebase Auth** and **no rules audit**.
+- **(b) Firebase anonymous sign-in.** It works too, but switching it on makes every visitor a "signed-in user". Every rule that only checks "signed in", in firestore.rules and storage.rules (the storage suite itself has "a signed-in member can still upload a banner"), would then let a throwaway visitor through. All of them would need `sign_in_provider != 'anonymous'` first. That's the main window's rules as well as mine, a big audit for little gain.
+- **So:** with (a), **anonymous sign-in is never needed.** If you or Martin prefer (b), I'll list every rule that would need the guard before anything is switched on, and say when to switch it on (not before that audit has landed).
+
+**5. Built in, as Present**
+- one engine, the same on the TV, the leader's phone and the players' phones
+- works on weak Wi-Fi (one small document per run; nothing is downloaded during a question)
+- 375 px and keys (A–D, or 1–4, to answer on a computer)
+- the plain-English "How to run a quiz" added to the Present guide
+
+**6. Tests and breaks, planned**
+- **Tests:**
+  - TV mode: the TV follows, team scores add up, and only the presenter changes anything
+  - phones mode: join with code and nickname; a rude word refused; one answer per question; a late answer refused; points by speed
+  - **the right answer cannot be read from a phone before the reveal**
+  - a removed name's key stops working
+  - "End" deletes everything; the 24-hour sweep deletes a forgotten run
+  - nobody outside reads another run
+  - screenshots of the real thing at 1280×720 and 375 px
+- **Breaks:**
+  - the right answer readable early
+  - a second answer accepted
+  - a late answer accepted
+  - a removed key still works
+  - End leaving data behind
+  - the sweep ignoring old runs
+  - a viewer able to move the quiz on
+
+**7. Questions for Martin and the reviewer**
+1. Phones joining: **(a) functions, no sign-in** (recommended), or (b) anonymous sign-in plus a rules audit?
+2. The quiz address on the TV: the hub's long address plus a QR code (no new domain), or a short link?
+3. TV mode scoring: 1 point a team per right answer (simple), or more for the first team to shout?
+4. Leaving the feature switch as `quiz` (F-223, off for a church until turned on): yes?
