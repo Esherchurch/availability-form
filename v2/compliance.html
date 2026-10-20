@@ -414,10 +414,10 @@
       db().collection('sites').get(), db().collection('rooms').get(),
       db().collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
       db().collection('addressBook').get().catch(function () { return { docs: [] }; }),
-      db().collection('churchSettings').doc('features').get().catch(function () { return null; }),
+      null,   /* the switch: ST.gate() above, EGBCAuth's answer (F-239) */
       db().collection('churchSettings').doc('details').get().catch(function () { return null; })
     ]).then(function (r) {
-      FEATURE = !!(r[4] && r[4].exists && r[4].data().buildingCompliance === true);
+      FEATURE = true;   /* the page only gets here with the add-on on (ST.gate) */
       CHURCH = (r[5] && r[5].exists && r[5].data().name) || '';
       SITES = all(r[0]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       ROOMS = all(r[1]).filter(function (x) { return x.active !== false; });

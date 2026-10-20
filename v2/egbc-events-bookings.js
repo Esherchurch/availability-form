@@ -570,7 +570,7 @@
     '.bk-bar{flex:1;min-width:0;display:flex;height:28px;border:1px solid var(--line,#e5e7eb);border-radius:6px;overflow:hidden;background:#fff}' +
     '.bk-c{flex:1;min-width:0;border-left:1px solid #f1f3f4}.bk-c.h{border-left-color:#d7dcdc}.bk-c[data-slot]{cursor:pointer}.bk-c[data-slot]:hover{background:#eef5f4}' +
     '.bk-c.t{background:#cfd4d8}.bk-c.s{background:#e9d6ad}.bk-c.m{background:#3d6263}.bk-c.p{box-shadow:inset 0 0 0 2px #b07d2e}' +
-    '.bk-ax{display:flex;margin-left:128px;font-size:11px;color:var(--muted,#6b7280)}.bk-ax span{flex:1;min-width:0}' +
+    '.bk-ax{display:flex;margin-left:128px;font-size:12px;color:var(--muted,#6b7280)}.bk-ax span{flex:1;min-width:0}' +
     '.bk-key{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted,#6b7280);margin-top:8px}.bk-key i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid #d1d5db}' +
     /* On a phone (F-150): a room's name on its own line above its bar, whole,
        rather than cut to 72px; it stays in view while a wide chart scrolls. */

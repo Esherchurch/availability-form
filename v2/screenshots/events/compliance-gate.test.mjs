@@ -158,17 +158,18 @@ try {
   for (const pg of ['compliance.html', 'risk.html', 'peep.html', 'building.html']) {
     await o2.goto(URLB + pg, { waitUntil: 'networkidle2' });
     await until(() => o2.$('#off'));
-    ok('4. ADD-ON OFF: ' + pg + ' says only that it is not switched on', /Building compliance is not switched on for this church/.test(await text(o2, '#off')) && (await inputs(o2)) === 0 && !(await o2.$('[data-check],[data-site],[data-hz],#needs')));
+    ok('4. ADD-ON OFF: ' + pg + ' says only that it is not switched on', /Building compliance is not switched on for this church/.test(await text(o2, '#off')) && (await inputs(o2)) === 0 && !(await o2.$('[data-check],[data-site],[data-hz],#needs')), (await text(o2)).slice(0, 300));
   }
   await o2.browser().close();
 
   /* ---------- 5. switch-over: the gate opens ---------- */
-  await db.collection('churchSettings').doc('features').set({ buildingCompliance: true });
+  /* Nothing stored: the add-on is ON, the same answer as the server (F-239). */
+  await db.collection('churchSettings').doc('features').delete();
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
   const p2 = await browser('pat');
   await p2.goto(URLB + 'peep.html', { waitUntil: 'networkidle2' });
   await until(() => p2.$('#needs'));
-  ok('5. RULES LOCKED (switch-over): the plan form is there', !!(await p2.$('#needs')) && !(await p2.$('#held')));
+  ok('5. RULES LOCKED (switch-over), and the switch with nothing stored (on, as the server): the plan form is there', !!(await p2.$('#needs')) && !(await p2.$('#held')));
   await p2.browser().close();
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

@@ -153,6 +153,8 @@ const shot = (pg, name) => pg.screenshot({ path: path.join(HERE, name) });
 
 try {
   /* ---------- 8. Rule Zero ---------- */
+  /* Switched off, as a master admin stores it: with nothing stored, the add-on is ON (Martin, 19 Oct; F-239). */
+  await db.collection('churchSettings').doc('features').set({ buildingCompliance: false });
   const off = await runPeepToday({ db, today: TODAY });
   ok('8. ADD-ON OFF: no plans for the roll-call at all, and yesterday\u2019s is gone', off.off === true && !(await db.collection('peepToday').doc(TODAY).get()).exists && !(await db.collection('peepToday').doc(addDays(TODAY, -1)).get()).exists);
   await db.collection('churchSettings').doc('features').set({ buildingCompliance: true }, { merge: true });

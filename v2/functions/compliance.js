@@ -19,10 +19,9 @@
    Due dates and colours come from THE engine - the very file the pages use,
    copied in by tools/sync-compliance.mjs (a test fails if it differs).
 
-   OFF UNLESS THE CHURCH HAS THE ADD-ON: churchSettings/features
-   .buildingCompliance must be exactly true (the server's half of
-   EGBCChurch.uses('buildingCompliance'), as for notifications). Off, the
-   run does nothing at all - no colour, no email, no marker.
+   ONLY WHILE THE CHURCH USES THE ADD-ON: functions/features.js, the same
+   answer as EGBCAuth.uses('buildingCompliance') on the pages (F-239). Off,
+   the run does nothing at all - no colour, no email, no marker.
 
    The events window's file. Exported from index.js.
    =================================================================== */
@@ -32,6 +31,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
+import { featureOn as switchOn } from './features.js';
 
 const require = createRequire(import.meta.url);
 const E = require('./compliance-engine.cjs');
@@ -45,9 +45,9 @@ const words = (ymd) => { const [y, m, d] = String(ymd).split('-').map(Number); r
 const okMail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e || ''));
 const GUIDANCE = 'These checks are guidance to help you. Your trustees remain responsible for your building’s safety.';
 
+/* The one answer, page and server (functions/features.js; F-239). */
 export async function featureOn(db) {
-  const f = await db.collection('churchSettings').doc('features').get().catch(() => null);
-  return !!(f && f.exists && f.data().buildingCompliance === true);
+  return switchOn(db, 'buildingCompliance');
 }
 
 /* The work, with what it needs passed in, so a test can run it on any day. */

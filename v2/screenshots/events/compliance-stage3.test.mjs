@@ -148,6 +148,8 @@ try {
   ok('7. THE SERVER RUNS THE SAME ENGINE FILE AS THE PAGES (byte for byte)', differs().length === 0, differs().join(', '));
 
   /* ---------- 1. Rule Zero: the add-on off ---------- */
+  /* Switched off, as a master admin stores it: with nothing stored, the add-on is ON (Martin, 19 Oct; F-239). */
+  await db.collection('churchSettings').doc('features').set({ buildingCompliance: false });
   const off = await runCompliance({ db, send, today: TODAY });
   ok('1. ADD-ON OFF: the daily run does nothing - no colour written, no email', off.off === true && !(await status()) && outbox.length === 0 && (await db.collection('complianceReminders').get()).size === 0, J(off));
   await db.collection('complianceStatus').doc('cmp_hall').set({ siteId: 'cmp_hall', rag: 'red', counts: { red: 1, amber: 0, green: 0, grey: 0 }, safetyJobs: 0, at: 'x' });
@@ -241,6 +243,10 @@ try {
   await runCompliance({ db, send, today: TODAY });
   ok('   and the next run turns the hall back from red', (await status()).rag !== 'red', J(await status()));
 
+  /* F-239: nothing stored means ON, on the server as on the pages (functions/features.js). */
+  await db.collection('churchSettings').doc('features').delete();
+  const def = await runCompliance({ db, send, today: TODAY });
+  ok('THE SWITCH WITH NOTHING STORED: the daily run counts the add-on ON, as the pages do', def.off === false && def.status.length > 0, JSON.stringify({ off: def.off }));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack);

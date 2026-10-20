@@ -160,9 +160,9 @@
 
   /* MAY THESE PAGES BE USED, AND MAY THEY SAVE ANYTHING PRIVATE? (the
      reviewing window, 19 Oct; F-235)
-       on      the church has the add-on: churchSettings/features
-               .buildingCompliance exactly true. Off, the four pages
-               (compliance, building, risk, peep) show nothing else.
+       on      the church uses the add-on: EGBCAuth.uses('buildingCompliance'),
+               the same answer as the server's (F-239). Off, the four
+               pages (compliance, building, risk, peep) show nothing else.
        locked  the locked rules are on: churchSettings/launch.rulesLocked
                exactly true (egbc-launch.js, as the other private forms).
                UNTIL THEN THE LIVE DATABASE IS READABLE SIGNED OUT, so no
@@ -171,7 +171,9 @@
                with nothing to type into or upload.
      Anything missing or unreadable: off, and not locked. */
   function gate(db, launch) {
-    var feat = db.collection('churchSettings').doc('features').get().then(function (d) { return !!(d.exists && d.data().buildingCompliance === true); }, function () { return false; });
+    /* The switch: EGBCAuth's answer, the same as the server's (F-239). */
+    var A = typeof EGBCAuth !== 'undefined' ? EGBCAuth : null;
+    var feat = A && A.uses ? Promise.resolve(A.reloadFeatures ? A.reloadFeatures() : null).then(function () { return A.uses('buildingCompliance'); }, function () { return A.uses('buildingCompliance'); }) : Promise.resolve(false);
     var lock = launch && launch.check ? launch.check().then(function (x) { return x || {}; }, function () { return {}; }) : Promise.resolve({});
     return Promise.all([feat, lock]).then(function (r) { return { on: r[0], locked: r[1].locked === true, opensOn: r[1].opensOn || '' }; });
   }
@@ -181,6 +183,41 @@
       '. Until then the hub’s database is not yet private, so nothing is saved here. Keep your paper record for now.';
   }
 
-  return { gate: gate, OFF_WORDS: OFF_WORDS, heldWords: heldWords, checkId: checkId, copyOf: copyOf, applyProfile: applyProfile, editCheck: editCheck, addCustomCheck: addCustomCheck, recordDone: recordDone,
+  /* CHECKS DUE FOR ME (for the app's Building home; the main window, F-241).
+     The checks given to this person (their memberId in responsibleIds), as
+     the schedule sees them today: overdue first, then due soon, then not
+     recorded yet. Only what the rules let them read - their own checks and
+     those checks' records - so it works for Val as for the office.
+       dueForMe(db, E, memberId, { today, templates, all })
+         -> Promise of [{ id, title, siteId, siteName, due, rag, why, basisLabel }]
+     all: true includes the in-date ones too (green), last. */
+  function dueForMe(db, E, memberId, o) {
+    o = o || {};
+    if (!memberId) return Promise.resolve([]);
+    var today = o.today || new Date().toISOString().slice(0, 10);
+    return db.collection('buildingChecks').where('responsibleIds', 'array-contains', memberId).get().then(function (s) {
+      var checks = all(s).filter(function (c) { return c.state === 'on'; });
+      var sites = Array.from(new Set(checks.map(function (c) { return c.siteId; })));
+      return Promise.all([
+        Promise.all(checks.map(function (c) { return db.collection('checkRecords').where('checkId', '==', c.id).get().then(all, function () { return []; }); })),
+        Promise.all(sites.map(function (id) { return db.collection('sites').doc(id).get().then(function (d) { return [id, d.exists ? (d.data().name || id) : id]; }, function () { return [id, id]; }); })),
+        Promise.all(checks.map(function (c) { return db.collection('maintJobs').where('checkId', '==', c.id).get().then(all, function () { return []; }); }))
+      ]).then(function (r) {
+        var records = [].concat.apply([], r[0]), names = {}, jobs = [].concat.apply([], r[2]), out = [];
+        r[1].forEach(function (x) { names[x[0]] = x[1]; });
+        sites.forEach(function (site) {
+          E.schedule({ profile: {}, templates: o.templates || [], checks: checks.filter(function (c) { return c.siteId === site; }), records: records,
+            jobs: jobs.filter(function (j) { return j.siteId === site; }), triggers: [], today: today }).items.forEach(function (i) {
+            if (i.state !== 'on' || (!o.all && i.rag === 'green')) return;
+            out.push({ id: i.id, title: i.title, siteId: site, siteName: names[site], due: i.nextDue || '', rag: i.rag, why: i.why, basisLabel: i.basisLabel || '' });
+          });
+        });
+        var order = { red: 0, amber: 1, green: 2, grey: 3 };
+        return out.sort(function (a, b) { return order[a.rag] - order[b.rag] || String(a.due || '9').localeCompare(String(b.due || '9')); });
+      });
+    });
+  }
+
+  return { dueForMe: dueForMe, gate: gate, OFF_WORDS: OFF_WORDS, heldWords: heldWords, checkId: checkId, copyOf: copyOf, applyProfile: applyProfile, editCheck: editCheck, addCustomCheck: addCustomCheck, recordDone: recordDone,
     recordWork: recordWork, templateUpdates: templateUpdates, applyUpdate: applyUpdate, followTemplates: followTemplates, load: load };
 });

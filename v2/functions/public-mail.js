@@ -43,6 +43,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { emailAuthHeader, idTokenClient } from './id-token.js';
 import { hubUrl } from './notify.js';
 import * as MailRoute from './mail-route.js';
+import { featureOn } from './features.js';   // the one answer, page and server (F-239)
 
 const require = createRequire(import.meta.url);
 const PAGES = require('./public-mail-pages.cjs');
@@ -243,10 +244,6 @@ async function data(db, col, id) {
   if (!id) return null;
   try { const s = await db.collection(col).doc(String(id)).get(); return s.exists ? (s.data() || {}) : null; }
   catch (e) { return null; }
-}
-async function featureOn(db, name) {
-  const f = await data(db, 'churchSettings', 'features');
-  return !(f && f[name] === false);
 }
 async function once(db, id) {
   try { await db.collection('publicMailSent').doc(id).create({ at: new Date().toISOString() }); return true; }

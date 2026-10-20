@@ -78,8 +78,7 @@ console.log('\n4. Nobody reads the switches their own way');
    in FINDINGS-events F-239. Pages: EGBCChurch.uses / EGBCAuth.uses;
    functions: featureOn from ./features.js. */
 const WAITING = {
-  'bookings-admin.html': 'F-239', 'compliance.html': 'F-239', 'egbc-compliance-store.js': 'F-239',
-  'functions/compliance.js': 'F-239', 'functions/public-mail.js': 'F-239'
+  /* The events window's five changed over (20 Oct): none waiting. */
 };
 const OWN = new Set(['egbc-auth.js', 'functions/features.js']);
 /* church-settings.html WRITES the switches (merge) and reads them back

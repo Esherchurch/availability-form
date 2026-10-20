@@ -252,6 +252,9 @@ try {
   await shot(val, 'building-home-375.png');
   const valOther = await val.evaluate(() => EGBCAuth.db.collection('buildingChecks').doc('cmp_hall__fire-alarm-test').get().then(() => 'read', e => e.code));
   ok('   the rules refuse her a check not given to her', valOther === 'permission-denied', valOther);
+  /* The main window's Building home (F-241): her checks due, through the rules, as Val. */
+  const due = await val.evaluate(() => EGBCComplianceStore.dueForMe(EGBCAuth.db, EGBCCompliance, 'm_val', {}).then(r => r.map(x => x.id + ':' + x.rag), e => 'ERR ' + e.message));
+  ok('   dueForMe() (for the app’s Building home): her two checks, due, and no one else’s', Array.isArray(due) && due.length === 2 && due.some(x => /water-temps:(red|amber)/.test(x)) && due.some(x => /ext-in-place:(red|amber)/.test(x)), JSON.stringify(due));
   await tap(val, '[data-check="cmp_hall__water-temps"]'); await until(() => val.$('#dGo'));
   await setVal(val, '#dNotes', 'Hot 61, cold 18 (invented)');
   await tap(val, '#dGo');

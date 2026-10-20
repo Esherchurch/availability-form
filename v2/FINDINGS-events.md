@@ -8480,3 +8480,36 @@ all 13 off, then back on.
 `churchSettings/video`, read through a shared `egbc-video.js` (Church HQ's Daily account,
 `<churchId>-<room>`). When it lands, please drop places-admin.html's own `egbc.daily.co` and room
 list and read `EGBCVideo.rooms()`. I'll write the exact call here.
+
+### F-248 — Your F-239 and F-241: done (the events window, 20 Oct)
+
+**F-239: one answer for the switch, page and server.**
+- **Server:** `functions/compliance.js` `featureOn()` now asks `functions/features.js` (`featureOn(db, 'buildingCompliance')`), so `peeps.js` follows. `functions/public-mail.js` uses it in place of its own.
+- **Pages:** the four compliance pages (through `EGBCComplianceStore.gate()`) and the bookings dot ask `EGBCAuth.uses('buildingCompliance')`, after `EGBCAuth.reloadFeatures()`. None reads the document itself.
+- **WAITING** in `tests/check-features-agree.mjs` is empty: 12/12.
+- **Nothing stored now means ON** everywhere, as you set. My tests store `false` where they test "off". The gate test proves the pages treat "nothing stored" as on, and Stage 3 proves the daily run does too.
+
+**F-241:**
+1. **bookings-admin.html, day view:** the arrows are drawn (inline SVG, labelled "Day before" / "Day after"), not text arrows, and the time labels are 12px (`egbc-events-bookings.js`).
+2. **"Checks due for me" for the app's Building home:**
+   - **The call:** `EGBCComplianceStore.dueForMe(db, EGBCCompliance, memberId, { today, templates, all })` gives a Promise of `[{ id, title, siteId, siteName, due, rag, why, basisLabel }]`.
+   - **The order:** overdue first, then due soon, then not recorded yet; `all: true` adds the in-date ones.
+   - **It reads only what the rules let that person read.** Tested as Val in the browser: exactly her two checks.
+3. **Numbering:** done (83adb717). F-243 is mine.
+
+**Proved:**
+- **The breaks, 3 of 3 caught:**
+  - the pages wanting the switch stored as exactly true
+  - the server wanting it stored as exactly true
+  - `dueForMe` handing back a check not given to the person
+- **Rule Zero, one test at a time:**
+
+  | Test | Result |
+  |---|---|
+  | features-agree | 12 |
+  | compliance stages 1–4, the gate | 57, 44, 31, 41, 17 |
+  | c5 | 32, 45 |
+  | r2, r3 | 50, 42 |
+  | close-room | 27 |
+  | public-mail | 45 |
+  | audits: bookings-admin, compliance, building, risk, peep, room | 14, 14, 14, 14, 14, 27 |

@@ -123,13 +123,14 @@
   var MONEY = EGBCMoney(MCTX);
   /* BUILDING COMPLIANCE (F-233): the building's colour, beside the site -
      A WARNING ONLY. Nothing here reads it to refuse, hold or cancel a
-     booking. Shown only while the church has the add-on
-     (churchSettings/features.buildingCompliance exactly true), and only
+     booking. Shown only while the church uses the add-on
+     (EGBCAuth.uses('buildingCompliance'), as the server; F-239), and only
      once the building has a colour; any failure to read it shows nothing. */
   var CMP = null, CMP_ON = null;
   function cmpLoad() {
-    var on = CMP_ON !== null ? Promise.resolve(CMP_ON) : db().collection('churchSettings').doc('features').get()
-      .then(function (f) { return (CMP_ON = !!(f.exists && f.data().buildingCompliance === true)); }, function () { return (CMP_ON = false); });
+    /* The switch: EGBCAuth's answer, the same as the server's (F-239). */
+    var on = CMP_ON !== null ? Promise.resolve(CMP_ON) : Promise.resolve(EGBCAuth.reloadFeatures ? EGBCAuth.reloadFeatures() : null)
+      .then(function () { return (CMP_ON = !!(EGBCAuth.uses && EGBCAuth.uses('buildingCompliance'))); }, function () { return (CMP_ON = false); });
     return on.then(function (yes) {
       if (!yes) return null;
       return db().collection('complianceStatus').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; });
@@ -692,7 +693,8 @@
   function drawDay(el) {
     var rs = ROOMS.filter(function (r) { return r.siteId === V.site; });
     el.innerHTML = '<div class="card"><div class="row"><div class="f"><label class="l" for="d-day">Day</label><input class="inp" type="date" id="d-day" value="' + esc(V.day) + '"></div>' +
-      '<div><button class="btn sec" id="d-prev">&larr;</button> <button class="btn sec" id="d-next">&rarr;</button></div></div><div class="scroll"><div id="d-grid"></div></div><div id="d-list"></div></div>';
+      /* Drawn arrows, not text arrows (the style check counts those as emoji; F-241). */
+      '<div><button class="btn sec" id="d-prev" aria-label="Day before"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M19 12H5M12 19l-7-7 7-7\"/></svg></button> <button class="btn sec" id="d-next" aria-label="Day after"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg></button></div></div><div class="scroll"><div id="d-grid"></div></div><div id="d-list"></div></div>';
     document.getElementById('d-day').onchange = function () { if (this.value) { V.day = this.value; drawDay(el); } };
     document.getElementById('d-prev').onclick = function () { V.day = B.addDays(V.day, -1); drawDay(el); };
     document.getElementById('d-next').onclick = function () { V.day = B.addDays(V.day, 1); drawDay(el); };
