@@ -168,8 +168,11 @@ const offMachine = u => {
     await evl('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(a.email) + ',' + JSON.stringify(PW) + ')', true);
     await sleep(800);
   };
+  /* Home, by name: since the start screen (20 Oct 2026) somebody on one team
+     opens in their team, and Home is Just me. A full load each time. */
   const openApp = async (a) => {
-    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+    await send('Page.navigate', { url: 'about:blank' }); await sleep(300);
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html#me:home' });
     for (let i = 0; i < 60; i++) {
       await sleep(400);
       const d = String(await evl('(document.getElementById("egbc-app")||{getAttribute:function(){return ""}}).getAttribute("data-drawn")||""'));

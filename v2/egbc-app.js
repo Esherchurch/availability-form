@@ -79,6 +79,16 @@
       tabs: [['jobs', 'Jobs', 'wrench'], ['rooms', 'Rooms', 'door-closed'],
              ['team', 'Team', 'users']]
     },
+    /* THE BUILDING (the start screen, 20 Oct 2026; the events window's
+       F-231/F-233/F-234). Not a team: it is there for whoever the Menu
+       offers The building, Building compliance or the Live risk register,
+       so the app and the computer give one answer (EGBCMenu.forPerson),
+       the buildingCompliance switch included. Its Checks tab opens those
+       pages. The Maintenance team's own space sits beside it. */
+    building: {
+      label: 'The building', colour: '#3d5a80', tint: '#e6ecf5', building: true,
+      tabs: [['checks', 'Checks', 'clipboard-check']]
+    },
     /* CORE TEAM (§7b). Martin, 10 Oct 2026: "why isnt there a core team
        area in the phone app? They will be doing the sunday service plans
        from the phone app. Look at the current core team phone app!" The
@@ -279,6 +289,7 @@
     Object.keys(SPACES).forEach(function (k) {
       var s = SPACES[k];
       if (k === 'me') return;
+      if (s.building) { if (buildingPages().length) out.push(k); return; }
       if (s.runsThings) {
         /* NOT "is an admin of anything, or on Core Team" any more
            (NEXT-BRIEF §25). That was wrong both ways: the church
@@ -310,6 +321,102 @@
       if (mine) out.push(k);
     });
     return out;
+  }
+
+  /* The building pages this person's Menu offers, in the Menu's order. */
+  var BUILDING_PAGES = ['building.html', 'compliance.html', 'risk.html'];
+  function buildingPages() {
+    if (!global.EGBCMenu || !EGBCMenu.forPerson || !EGBCMenu.who) return [];
+    var out = [];
+    (function walk(nodes) {
+      (nodes || []).forEach(function (n) {
+        if (n.url && BUILDING_PAGES.indexOf(n.url) !== -1) out.push(n);
+        if (n.children) walk(n.children);
+      });
+    })(EGBCMenu.forPerson(EGBCMenu.who()));
+    return out;
+  }
+
+  /* ---- what are you doing? (the start screen) ---------------------------
+     Martin, 19 Oct 2026 (design-mocks/app-start): "Choose one and the app
+     becomes just that. Switch whenever you like." Each MODE is a group of
+     the spaces above; inside a mode only its spaces are drawn, under its
+     own coloured bar with a Switch button back to the tiles. Nothing is
+     taken away: every space and tab is still there, in its mode, and
+     Just me is everybody's.
+
+     Who sees the tiles: anybody with more than one. One-role people skip
+     them (the mock-up's note): somebody on one team opens straight into
+     it, an attender or a parent straight into Just me. "Always open here"
+     remembers a mode on this phone; the tiles say so, and offer to stop. */
+  var MODES = [
+    { key: 'sunday', label: 'Sunday worship', icon: 'music', colour: '#3d6263', tint: '#e3eeee',
+      spaces: ['worship', 'core', 'youth'] },
+    { key: 'kids', label: 'Kids and youth', icon: 'baby', colour: '#8a5a32', tint: '#fdeedd',
+      spaces: ['kids', 'lazers', 'renu'] },
+    { key: 'building', label: 'The building', icon: 'building-2', colour: '#3d5a80', tint: '#e6ecf5',
+      spaces: ['building', 'maint'] },
+    { key: 'office', label: 'Church office', icon: 'briefcase', colour: '#5a4a7a', tint: '#efe8f5',
+      spaces: ['office'] },
+    { key: 'me', label: 'Just me', icon: 'smile', colour: '#3d6263', tint: '#f1f3f4', spaces: ['me'] }
+  ];
+  function modeByKey(k) {
+    for (var i = 0; i < MODES.length; i++) if (MODES[i].key === k) return MODES[i];
+    return null;
+  }
+  function modeOf(space) {
+    for (var i = 0; i < MODES.length; i++) if (MODES[i].spaces.indexOf(space) !== -1) return MODES[i];
+    return null;
+  }
+  /* This person's spaces in a mode, in the order the mode lists them. */
+  function modeSpaces(mode, mine) {
+    return mode.spaces.filter(function (k) { return mine.indexOf(k) !== -1; });
+  }
+  function modesFor(mine) {
+    return MODES.filter(function (m) { return modeSpaces(m, mine).length; });
+  }
+  /* The small words under a tile: what is in it for THIS person. */
+  function modeWords(mode, mine) {
+    var have = modeSpaces(mode, mine);
+    if (mode.key === 'building') {
+      return [have.indexOf('building') !== -1 ? 'Checks' : '', have.indexOf('maint') !== -1 ? 'repairs \u00b7 rooms' : '']
+        .filter(Boolean).join(' \u00b7 ');
+    }
+    if (mode.key === 'office' || mode.key === 'me') {
+      return tabsFor(have[0]).filter(function (t) { return t[0] !== 'home'; })
+        .map(function (t) { return t[0] === 'me' ? 'my details' : t[1]; }).join(' \u00b7 ');
+    }
+    return have.map(function (k) { return SPACES[k].label; }).join(' \u00b7 ');
+  }
+
+  /* Remembered on this phone, per account: the last mode, "always open
+     here", and the modes already asked about. A per-viewer convenience -
+     storage that fails or is empty just means the tiles. */
+  function prefsKey() { return 'egbcAppStart:' + (who().uid || '-'); }
+  function prefs() {
+    try { return JSON.parse(global.localStorage.getItem(prefsKey()) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function setPrefs(change) {
+    var p = prefs();
+    Object.keys(change).forEach(function (k) { p[k] = change[k]; });
+    try { global.localStorage.setItem(prefsKey(), JSON.stringify(p)); } catch (e) {}
+  }
+
+  /* Into a mode: its first space (or the one asked for), its first tab. */
+  function enterMode(key, offer) {
+    var me = who(), mine = spacesFor(me), m = modeByKey(key);
+    if (!m || !modeSpaces(m, mine).length) return;
+    S.mode = key;
+    setPrefs({ last: key });
+    var p = prefs();
+    S.offer = (offer && modesFor(mine).length > 1 && p.always !== key && !(p.asked || {})[key]) ? key : null;
+    S.space = modeSpaces(m, mine)[0];
+    var tabs = tabsFor(S.space);
+    S.tab = tabs[0] ? tabs[0][0] : null;
+    S.sheet = null;
+    draw();
+    var c = document.getElementById('egbc-content');
+    if (c) c.scrollTop = 0;
   }
 
   /* ---- the screens --------------------------------------------------- */
@@ -357,7 +464,8 @@
 
   /* ---- where we are -------------------------------------------------- */
 
-  var S = { space: 'me', tab: 'home', sheet: null, toast: null };
+  /* mode null = the tiles. Until start() decides, Just me, as before. */
+  var S = { space: 'me', tab: 'home', sheet: null, toast: null, mode: 'me', offer: null };
   var SHEETS = {};
   function sheet(name, html) { SHEETS[name] = html; }
 
@@ -372,6 +480,8 @@
     if (!SPACES[space]) return;
     var me = who();
     if (spacesFor(me).indexOf(space) === -1) return;
+    var m = modeOf(space);
+    if (m && m.key !== S.mode) { S.mode = m.key; S.offer = null; }
     S.space = space;
     var tabs = tabsFor(space);
     S.tab = (tab && V[space + '_' + tab]) ? tab : (tabs[0] ? tabs[0][0] : null);
@@ -387,20 +497,37 @@
     var me = who();
     var mine = spacesFor(me);
 
-    if (mine.indexOf(S.space) === -1) { S.space = 'me'; S.tab = 'home'; }
+    var modes = modesFor(mine);
+    /* A mode this person no longer has (View as, a team left): the tiles,
+       or Just me when there is nothing to choose between. */
+    if (S.mode && !modeByKey(S.mode)) S.mode = null;
+    if (S.mode && !modeSpaces(modeByKey(S.mode), mine).length) S.mode = null;
+    if (!S.mode && modes.length < 2) S.mode = 'me';
+    if (!S.mode) return drawTiles(app, me, mine, modes);
+    var mode = modeByKey(S.mode);
+    var inMode = modeSpaces(mode, mine);
+    if (inMode.indexOf(S.space) === -1) {
+      S.space = inMode[0];
+      S.tab = (tabsFor(S.space)[0] || [])[0] || null;
+    }
     var space = SPACES[S.space];
     var tabs = tabsFor(S.space);
     if (!V[S.space + '_' + S.tab]) S.tab = tabs[0] ? tabs[0][0] : null;
 
-    var html = '<div class="top" style="--sp:' + esc(space.colour) + '">'
+    /* JUST ME keeps the app's own header; every other mode wears its
+       colour and its name, as the mock-ups (design-mocks/app-start). */
+    var coloured = mode.key !== 'me';
+    var html = '<div class="top' + (coloured ? ' mode-top' : '') + '" style="--sp:' + esc(space.colour)
+      + ';--md:' + esc(mode.colour) + '" data-mode="' + esc(mode.key) + '">'
       /* The mock-up's header: a filled logo square, the title at 16px/600
          in ink, then the buttons. Mine was letter-spaced small caps and a
          muted 13px title, which read as a website strip. */
-      + '<div class="top-row"><span class="logo">EGBC</span>'
+      + '<div class="top-row">'
+      + (coloured ? '<span class="mode-ic">' + ic(mode.icon, 18) + '</span>' : '<span class="logo">EGBC</span>')
       /* "EGBC Hub", as the mock-up has it. The space is named in the
          pills below; putting it in the title too said the same thing
          twice and lost the app's name. */
-      + '<span class="top-title">EGBC Hub</span>'
+      + '<span class="top-title">' + (coloured ? esc(mode.label) : 'EGBC Hub') + '</span>'
       /* "I'M WORRIED ABOUT SOMEONE", on EVERY space (NEXT-BRIEF §24):
          Me and my family, every team space, and Running things. It sits in
          the top bar rather than on a screen for exactly that reason - a
@@ -428,13 +555,16 @@
       + ((global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care')) ? ''
         : '<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
           + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
+      /* Back to the tiles, whenever there is more than one. */
+      + (modes.length > 1 ? '<button class="switch" data-act="mode:switch" aria-label="Switch: choose what you are doing">'
+          + ic('arrow-left-right', 16) + '<span>Switch</span></button>' : '')
       + '</div>';
 
-    /* The row of spaces, only when there is more than one. Somebody on no
-       team gets no row, not an empty one. */
-    if (mine.length > 1) {
+    /* The row of spaces, only when the mode holds more than one of this
+       person's. Somebody on no team gets no row, not an empty one. */
+    if (inMode.length > 1) {
       html += '<div class="spaces" role="group" aria-label="Your spaces">'
-        + mine.map(function (k) {
+        + inMode.map(function (k) {
             return '<button class="space" style="--sp:' + esc(SPACES[k].colour) + '"'
               + ' data-space="' + esc(k) + '" aria-pressed="' + (k === S.space) + '">'
               + '<span class="dot" style="background:' + esc(SPACES[k].colour) + '"></span>'
@@ -445,6 +575,10 @@
 
     var entry = V[S.space + '_' + S.tab];
     html += '<main class="content" id="egbc-content">'
+      + (S.offer === mode.key ? '<div class="offer" role="group" aria-label="Where the app opens">'
+          + '<span>Open the app here every time?</span>'
+          + '<button type="button" class="y" data-act="mode:always">Always open here</button>'
+          + '<button type="button" class="n" data-act="mode:notnow">Not now</button></div>' : '')
       + (entry ? entry.draw(me) : empty('circle-help', 'Nothing here yet.'))
       + '</main>';
 
@@ -509,6 +643,48 @@
         watchingKey = hereKey;
       }
     }
+  }
+
+  /* The tiles. The same header as Just me (logo, bell, Care); no tab bar -
+     there is nothing to be on yet. */
+  function drawTiles(app, me, mine, modes) {
+    if (stopWatching) { try { stopWatching(); } catch (e) {} stopWatching = null; }
+    watchingKey = null;
+    var p = prefs();
+    var always = p.always && modeByKey(p.always);
+    var html = '<div class="top"><div class="top-row"><span class="logo">EGBC</span>'
+      + '<span class="top-title">EGBC Hub</span>'
+      + '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
+      + (unseenNotices() ? ', ' + unseenNotices() + ' you have not seen' : '') + '">' + ic('bell', 17)
+      + (unseenNotices() ? '<span class="badge">' + (unseenNotices() > 9 ? '9+' : unseenNotices()) + '</span>' : '')
+      + '</button>'
+      + ((global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care')) ? ''
+        : '<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
+          + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
+      + '</div></div>'
+      + '<main class="content start" id="egbc-content">'
+      + '<div class="ask"><h1>What are you doing?</h1>'
+      + '<p>Choose one and the app becomes just that. Switch whenever you like.</p></div>'
+      + (always ? '<p class="always">The app opens in <b>' + esc(always.label) + '</b> each time. '
+          + '<button type="button" data-act="mode:ask">Show this screen instead</button></p>' : '')
+      + '<div class="tiles">' + modes.map(function (m) {
+          return '<button type="button" class="tile" data-mode="' + esc(m.key) + '" style="--mc:' + esc(m.colour) + ';--mt:' + esc(m.tint) + '">'
+            + '<span class="ti">' + ic(m.icon, 24) + '</span>'
+            + '<span class="tt"><b>' + esc(m.label) + '</b><small>' + esc(modeWords(m, mine)) + '</small></span>'
+            + (p.last === m.key ? '<span class="last">Last time</span>' : '') + '</button>';
+        }).join('') + '</div></main>';
+    if (S.sheet && SHEETS[S.sheet]) {
+      html += '<div class="sheet-back" data-act="close"><div class="sheet" role="dialog" aria-modal="true">'
+        + '<div class="sheet-top"><div class="grab"></div>'
+        + '<button type="button" class="sheet-x" data-act="close" aria-label="Close">' + ic('x', 20) + '</button></div>'
+        + SHEETS[S.sheet] + '</div></div>';
+    }
+    if (S.toast) html += '<div class="toast" role="status">' + esc(S.toast) + '</div>';
+    app.innerHTML = html;
+    app.setAttribute('data-drawn',
+      ((global.EGBCAuth && EGBCAuth.user && EGBCAuth.user()) ? EGBCAuth.user().uid : '-')
+      + ':start:tiles:' + mine.length);
+    if (global.lucide) global.lucide.createIcons();
   }
 
   /* ---- leaving the app, and coming back (§7d A) -----------------------
@@ -596,9 +772,10 @@
   });
 
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-space],[data-tab],[data-act]');
+    var b = e.target.closest && e.target.closest('[data-mode].tile,[data-space],[data-tab],[data-act]');
     if (!b) return;
 
+    if (b.dataset.mode && b.classList.contains('tile')) return enterMode(b.dataset.mode, true);
     if (b.dataset.space) return go(b.dataset.space);
     if (b.dataset.tab) {
       S.tab = b.dataset.tab; S.sheet = null; draw();
@@ -608,6 +785,13 @@
     }
 
     var a = b.dataset.act || '';
+    if (a === 'mode:switch') { S.mode = null; S.offer = null; S.sheet = null; return draw(); }
+    if (a === 'mode:always') { setPrefs({ always: S.mode }); S.offer = null; S.toast = 'The app will open here.'; draw(); clearTimeout(toastTimer); toastTimer = setTimeout(function () { S.toast = null; draw(); }, 3200); return; }
+    if (a === 'mode:notnow') {
+      var asked = prefs().asked || {}; asked[S.mode] = 1;
+      setPrefs({ asked: asked }); S.offer = null; return draw();
+    }
+    if (a === 'mode:ask') { setPrefs({ always: '' }); return draw(); }
     if (a === 'close') {
       /* THE BACKDROP CLOSES THE SHEET ONLY WHEN THE TAP LANDS ON THE
          BACKDROP. The backdrop carries data-act="close", so closest()
@@ -638,6 +822,8 @@
     SPACES: SPACES,
     screen: screen, has: has, sheet: sheet, refresh: refresh, go: go, draw: draw,
     who: who, spacesFor: spacesFor, tabsFor: tabsFor,
+    MODES: MODES, modesFor: function () { return modesFor(spacesFor(who())).map(function (m) { return m.key; }); },
+    mode: function (key) { enterMode(key, true); }, buildingPages: buildingPages,
     esc: esc, ic: ic, row: row, sec: sec, next: next, card: card,
     head: head, empty: empty,
     /* A screen's own code sometimes has something to say - "Link copied"
@@ -648,15 +834,23 @@
       clearTimeout(toastTimer);
       toastTimer = setTimeout(function () { S.toast = null; draw(); }, 3200);
     },
-    state: function () { return { space: S.space, tab: S.tab, sheet: S.sheet }; },
+    state: function () { return { space: S.space, tab: S.tab, sheet: S.sheet, mode: S.mode }; },
     /* COMING BACK FROM A PAGE lands on app.html#space:tab, and that is
        where the person should be - not on Home, which is where they were
        several taps ago (§7d A: "back to where you were in the app").
        Anything else, or a hash naming a space they are not in, starts on
        Home exactly as before. */
+    /* No hash: the mode chosen with "Always open here", if this person
+       still has it; one choice only, straight into it; otherwise the
+       tiles. */
     start: function () {
       if (fromHash()) return;
-      S.space = 'me'; S.tab = 'home'; draw();
+      var mine = spacesFor(who()), modes = modesFor(mine), p = prefs();
+      var teams = modes.filter(function (m) { return m.key !== 'me'; });
+      var pick = (p.always && modes.some(function (m) { return m.key === p.always; })) ? p.always
+        : teams.length === 0 ? 'me' : teams.length === 1 ? teams[0].key : null;
+      if (pick) return enterMode(pick, false);
+      S.mode = null; S.space = 'me'; S.tab = 'home'; draw();
     }
   };
 })(window);

@@ -108,7 +108,22 @@ const COMING = (() => {
   return d.getFullYear() + '-' + m.padStart(2, '0') + '-' + day.padStart(2, '0');
 })();
 
+/* A PLAN LEFT BY AN EARLIER RUN is cleared first. "A half-written plan
+   survives" saves one, and the next run on the same emulator opened that
+   instead of the default order: 1 song, and another song's keys
+   (20 Oct 2026; green only on a fresh emulator). */
+async function clearPlans(dates) {
+  for (const date of dates) {
+    const r = JSON.parse((await req(8181, 'POST', DOCS + ':runQuery', { structuredQuery: {
+      from: [{ collectionId: 'services' }],
+      where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL', value: { stringValue: date } } } } },
+      { Authorization: 'Bearer owner' })).body || '[]');
+    for (const x of r) if (x.document) await req(8181, 'DELETE', '/v1/' + x.document.name, undefined, { Authorization: 'Bearer owner' });
+  }
+}
+
 async function seed() {
+  await clearPlans([...new Set([SUNDAY, COMING])]);
   let up = JSON.parse((await req(9099, 'POST',
     '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
     { email: ME.email, password: PW, returnSecureToken: true })).body || '{}');

@@ -193,6 +193,47 @@
   .space[aria-pressed="true"]{background:var(--sp,var(--brand));border-color:var(--sp,var(--brand));color:#fff}
   .space[aria-pressed="true"] .dot{background:#fff !important}
 
+  /* WHAT ARE YOU DOING? (the start screen; Martin, 19 Oct 2026,
+     design-mocks/app-start). A mode wears its colour across the top with
+     its name and Switch; Just me keeps the app's own header. */
+  .mode-top{background:var(--md);border-bottom-color:transparent}
+  .mode-top .top-title{color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mode-ic{display:grid;place-items:center;flex:none;color:#fff}
+  @media(max-width:400px){.mode-ic{display:none}}
+  .mode-top .icon-btn,.mode-top .worry{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45);color:#fff}
+  .switch{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:10px;
+          border:1px solid var(--line);background:var(--surface);color:var(--brand);font-weight:600;font-size:13px;
+          flex:none;white-space:nowrap;cursor:pointer}
+  .mode-top .switch{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45);color:#fff}
+  .mode-top .space{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);color:#fff}
+  .mode-top .space[aria-pressed="true"]{background:#fff;border-color:#fff;color:var(--sp)}
+  .mode-top .space[aria-pressed="true"] .dot{background:var(--sp) !important}
+  .content.start{gap:0;padding:0}
+  .ask{padding:18px 16px 6px}
+  .ask h1{margin:0;font-size:22px;color:var(--ink)}
+  .ask p{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.45}
+  .always{margin:6px 16px 0;font-size:13px;color:var(--muted);line-height:1.4}
+  .always button{border:0;background:none;color:var(--brand);font:inherit;font-weight:600;text-decoration:underline;
+                 min-height:44px;padding:0 2px;cursor:pointer}
+  .tiles{display:grid;gap:10px;padding:12px 16px 24px}
+  .tile{display:flex;gap:14px;align-items:center;min-height:86px;padding:14px;border-radius:16px;width:100%;
+        background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgba(16,24,40,.05);
+        position:relative;text-align:left;font:inherit;color:inherit;cursor:pointer}
+  .tile:active{opacity:.7}
+  .tile .ti{width:52px;height:52px;border-radius:14px;flex:none;display:grid;place-items:center;background:var(--mt);color:var(--mc)}
+  .tile .tt{min-width:0;display:grid;gap:3px;padding-right:58px}
+  .tile b{color:var(--ink);font-size:17px}
+  .tile small{color:var(--muted);font-size:13px;line-height:1.35}
+  .tile .last{position:absolute;top:10px;right:12px;font-size:11px;font-weight:600;color:var(--brand);
+              background:#eef5f4;padding:2px 8px;border-radius:999px}
+  @media(min-width:700px){.ask,.always,.tiles{max-width:760px}.tiles{grid-template-columns:1fr 1fr}}
+  .offer{padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);
+         display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .offer span{flex:1 1 100%;color:var(--ink);font-size:14px}
+  .offer button{min-height:44px;padding:0 14px;border-radius:10px;font:inherit;font-size:14px;cursor:pointer}
+  .offer .y{background:var(--brand);color:#fff;border:0;font-weight:600}
+  .offer .n{border:1px solid var(--line);background:var(--surface);color:var(--body)}
+
   .content{flex:1;overflow-y:auto;padding:16px;display:grid;gap:14px;align-content:start}
   .hello{font-size:22px;font-weight:700;color:var(--ink);margin:2px 0 0}
   .sub{color:var(--muted);font-size:13px;margin:0}
@@ -349,7 +390,8 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610111300"></script>
-<script src="egbc-app.js?v=202610160130"></script>
+<script src="egbc-menu.js?v=202610192330"></script>
+<script src="egbc-app.js?v=202610200800"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
@@ -1947,6 +1989,18 @@ A.screen('maint', 'jobs', function () {
 A.screen('maint', 'team', function () {
   return teamTeam('maint',
     row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html'));
+});
+
+/* ---- The building (the start screen, 20 Oct 2026) ------------------------
+   The pages the Menu offers this person - The building, Building
+   compliance, the Live risk register - each opened in app mode. */
+
+A.screen('building', 'checks', function () {
+  var pages = A.buildingPages();
+  return head('The building', 'Checks, the risk register and reporting a problem')
+    + card(pages.map(function (n) {
+        return row(n.icon || 'clipboard-check', n.title, n.description || '', null, 'open:' + n.url, '#3d5a80', '#e6ecf5');
+      }).join(''));
 });
 
 /* ---- Running things --------------------------------------------------- */

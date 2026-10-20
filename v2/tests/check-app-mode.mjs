@@ -112,14 +112,18 @@ function targets() {
    Those pages are still walked, and still measured by the stronger
    claim below - that NOTHING the page draws is covered by the app's
    chrome - which needs no data at all to be true or false. */
+/* THE CHARTERS: their text, wherever it comes from. h1,h2 found the
+   built-in charter's heading and nothing once a charter had been saved
+   without one - check-youth-hub leaves plain words behind, so this went red
+   on any run after it (20 Oct 2026). */
 const MAIN = {
-  'Coreteamcharter.html':      ['the charter text', 'h1,h2'],
+  'Coreteamcharter.html':      ['the charter text', 'h1,h2,#content-display'],
   'EGBC-HowTo-AV.html':        ['a how-to to open', 'a,button,[onclick]'],
   'EGBC-Training-Worship.html':['a training page to open', 'a,button,[onclick]'],
   'EGBC-Troubleshoot-AV.html': ['something to troubleshoot', 'a,button,[onclick]'],
   'Library.html':              ['the song search', 'input'],
-  'Worshipteamcharter.html':   ['the charter text', 'h1,h2'],
-  'Youthcharter.html':         ['the charter text', 'h1,h2'],
+  'Worshipteamcharter.html':   ['the charter text', 'h1,h2,#content-display'],
+  'Youthcharter.html':         ['the charter text', 'h1,h2,#content-display'],
   'addressbook.html':          ['the search box', 'input'],
   'index.html':                ['the availability form', 'input,select,button'],
   'maintenance.html':          ['reporting something broken', 'button,a,[onclick]'],

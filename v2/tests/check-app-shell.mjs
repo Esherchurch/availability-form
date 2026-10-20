@@ -73,7 +73,7 @@ const PEOPLE = {
   two:      { email: 'app.two@example.invalid', teams: ['Worship Team', 'Kids Church'], adminFor: [],
               spaces: ['me', 'worship', 'kids'], note: 'two teams' },
   maint:    { email: 'app.maint@example.invalid', teams: ['Maintenance'], adminFor: [],
-              spaces: ['me', 'maint'], note: 'the new team' },
+              spaces: ['me', 'maint', 'building'], note: 'the new team (and The building, which the Menu gives Maintenance)' },
   /* NEXT-BRIEF §25 CHANGED WHAT THIS PERSON SEES, and that is the point of
      keeping them. Core Team and "Admin for" used to give the whole Running
      things space; they now give nothing at all, because the church
@@ -95,7 +95,7 @@ const PEOPLE = {
               note: 'Core Team: its own space, covers Worship & AV, does not run things' },
   /* ...and this is who does: somebody in the Church office group. */
   admin:    { email: 'app.churchoffice@example.invalid', teams: ['Church office'], adminFor: [],
-              spaces: ['me', 'office'], note: 'in the Church office group' },
+              spaces: ['me', 'building', 'office'], note: 'in the Church office group (and The building, as on the Menu)' },
   /* ON EVERY TEAM. Nobody real is, but "does every team space offer its
      own pin board?" cannot be answered by anyone who is not: go() refuses
      a space you are not in, so a person on two teams can only ever prove
@@ -104,7 +104,7 @@ const PEOPLE = {
   everyteam:{ email: 'app.everyteam@example.invalid',
               teams: ['Worship Team', 'Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Maintenance'],
               adminFor: [],
-              spaces: ['me', 'worship', 'kids', 'youth', 'lazers', 'renu', 'maint'],
+              spaces: ['me', 'worship', 'kids', 'youth', 'lazers', 'renu', 'maint', 'building'],
               note: 'on every team there is' },
 };
 
@@ -406,8 +406,11 @@ const offMachine = u => {
     }
     return drawn;
   };
+  /* THE SPACES THE APP GIVES THIS PERSON. Not the row of pills any more:
+     since the start screen (20 Oct 2026) the row holds only the mode on
+     screen, and the modes are check-app-start.mjs's to prove. */
   const spacesOnScreen = async () => String(await ev(
-    'Array.from(document.querySelectorAll(".space")).map(b => b.dataset.space).join(",")'));
+    'EGBCApp.spacesFor(EGBCApp.who()).join(",")'));
   const tabsOnScreen = async () => String(await ev(
     'Array.from(document.querySelectorAll(".tab")).map(b => b.dataset.tab).join(",")'));
 
@@ -448,6 +451,8 @@ const offMachine = u => {
   ok('no space has more than four tabs',
     Object.values(everySpace).every(t => t.length <= 4), JSON.stringify(everySpace));
   ok('and none has none', Object.values(everySpace).every(t => t.length >= 1), JSON.stringify(everySpace));
+  /* Into Just me first: the start screen has no tab bar. */
+  await ev('EGBCApp.go("me", "home");1'); await sleep(500);
   ok('every tab drawn has a screen behind it', (await ev(`(() => {
     const drawn = Array.from(document.querySelectorAll('.tab')).map(b => b.dataset.tab);
     const have = EGBCApp.tabsFor(EGBCApp.state().space).map(t => t[0]);

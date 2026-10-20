@@ -236,7 +236,9 @@ async function seed() {
     'firebase.auth(EGBCAuth.app).currentUser.getIdToken().then(function(t){return t?"yes":"no"})'
     + '.catch(function(){return "no"})', 20);
 
-  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html' });
+  /* Just me, by name: since the start screen (20 Oct 2026) somebody on one
+     team opens in their team. */
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html#me:home' });
   let drawn = '';
   for (let i = 0; i < 50; i++) {
     await sleep(500);

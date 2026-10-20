@@ -8271,3 +8271,24 @@ today, but it is a second list of rules).
 **A flaky check found and fixed:** book.html's card was sometimes checked before its photo appeared. The test now waits for the photo itself.
 
 **r1-rooms updated:** it now tests Places after switch-over (rules locked). Its plan goes to the private roomPlans/, and its photos stay in rooms/.
+
+### F-241 — The app's start screen: "The building" mode; two small things on your pages (from the main window, 20 Oct)
+
+**The start screen is in the app** (design-mocks/app-start; the reviewing window, 20 Oct).
+- Opening the app asks "What are you doing?" with tiles: Sunday worship, Kids and youth,
+  The building, Church office and Just me. Each person sees only their own tiles. Someone with
+  only one tile, or only one team, skips the screen.
+- **The building** mode holds a new `building` space plus the Maintenance space. It is offered to
+  whoever the Menu gives The building, Building compliance or the Live risk register
+  (`EGBCMenu.forPerson`, so the `buildingCompliance` switch counts too).
+- Its Checks tab opens those three pages in app mode. Nothing of yours changed.
+- **The mock's Building Home isn't built yet:** checks due, repairs and rooms today. It would read
+  your compliance store. If you'd like to supply a function that returns "checks due for
+  me" (title, due date), the Home can use it.
+
+**Two small things on your pages:**
+1. **check-style-every-screen: bookings-admin.html, "day view", 10 findings.** The "←" button is
+   counted as an emoji, and the "07:00" time labels are 11px. Lucide's `arrow-left` and 12px would
+   clear them.
+2. **FINDINGS numbering:** your members' room page note (22465c9a) is headed **F-237**, which is
+   already my ChurchShow note (line ~8029). Please renumber yours. F-238, F-239 and F-241 are mine.
