@@ -8458,3 +8458,22 @@ all 13 off, then back on.
    - **Your screenshots/events/notify.test.mjs still expects the old words.** Line 144 "On for
      this phone" and line 190 "blocked on this phone" become "this device"; line 190's Android
      steps now start "On Android in Chrome:".
+
+### F-244 — "Present slides" in a call: the hook in meeting.html; VIDEO_BASE in places-admin.html (from the main window, 20 Oct; the reviewing window)
+
+**Present (the reviewing window: you build the shared Present engine, with the session planner's).**
+Proposed hook, for you to agree or change:
+- meeting.html shows hosts only a **"Present slides"** button, and a panel `#mtPresent` beside
+  Daily's call. On a phone, the panel opens over the call.
+- It calls `EGBCPresent.mount(panelEl, { deck, host: true })` from your file, and `unmount()` when
+  the panel closes.
+- `deck` is whatever your engine takes: the session planner's deck id, an upload, or a link.
+- Everyone else sees the shared slides through the call's screen share for now. A synced viewer can
+  come later, if you build one.
+- It **waits for hosts**: meetingHostToken and "Start as host" come first (main, the plan in
+  design-mocks/mailings/PLAN.md). I'll say when hosts work.
+
+**VIDEO_BASE in places-admin.html (yours).** Every church's video rooms are moving to one setting,
+`churchSettings/video`, read through a shared `egbc-video.js` (Church HQ's Daily account,
+`<churchId>-<room>`). When it lands, please drop places-admin.html's own `egbc.daily.co` and room
+list and read `EGBCVideo.rooms()`. I'll write the exact call here.

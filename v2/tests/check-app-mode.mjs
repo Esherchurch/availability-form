@@ -187,7 +187,10 @@ const offMachine = u => {
   const teams = ['Core Team', 'Worship Team', 'AV Team', 'Kids Church', 'Youth Worship', 'Maintenance'];
   await put('addressBook/' + ME.member, {
     name: ME.name, email: ME.email, markers: teams, adminFor: teams,
-    churchMember: true, archived: false, isMinor: false });
+    /* masterAdmin HERE TOO: the server copies the address book onto the
+       user record, and without it the copy made them no longer a master
+       admin - compliance.html then refused (20 Oct 2026). */
+    masterAdmin: true, churchMember: true, archived: false, isMinor: false });
   await put('users/' + uid, {
     uid, email: ME.email, name: ME.name, memberId: ME.member, status: 'active',
     linkedBy: 'admin', teams, adminFor: teams, masterAdmin: true,

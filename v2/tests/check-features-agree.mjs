@@ -103,6 +103,34 @@ const done = Object.keys(WAITING).filter((f) => !ownWay.includes(f));
 ok(!done.length, 'every file on the WAITING list still needs it (take changed-over ones off)', done.join(', '));
 for (const f of WRITERS) ok(!readsItself(read(f)), f + ' only writes the switches; it reads them through EGBCAuth');
 
+console.log('\n4b. Switched off, the server sends nothing for it');
+/* notify.js's own senders, each with its part stored OFF: nothing is sent
+   and no once-only marker is written (a database that refuses every
+   write would throw if one were tried). */
+const offDb = (name) => {
+  const writes = [];
+  const db = { collection: (c) => ({
+    doc: (d) => ({ get: async () => { const data = c === 'churchSettings' && d === 'features' ? { [name]: false } : null; return { exists: !!data, data: () => data, get: (k) => data && data[k] }; },
+      create: async () => { writes.push(c + '/' + d); }, set: async () => { writes.push(c + '/' + d); }, update: async () => { writes.push(c + '/' + d); } }),
+    where: () => ({ get: async () => { writes.push('query ' + c); return { docs: [], empty: true, size: 0, forEach() {} }; } }),
+    add: async () => { writes.push('add ' + c); return { id: 'x' }; },
+    get: async () => { writes.push('list ' + c); return { docs: [], empty: true, size: 0, forEach() {} }; } }) };
+  return { db, writes };
+};
+const sent = [];
+const deps = (db) => ({ db, dryRun: false, messaging: { sendEachForMulticast: async () => { sent.push(1); return { responses: [] }; } }, mail: async () => { sent.push(1); } });
+{
+  let x = offDb('notices'); const r1 = await notify.onNotice(deps(x.db), 'n1', null, { urgent: true, title: 'T', teams: [] });
+  ok(r1 === null && !x.writes.length, 'notices off: an urgent notice sends nothing, writes nothing', JSON.stringify(x.writes));
+  x = offDb('maintenance'); const r2 = await notify.onMaintJob(deps(x.db), 'j1', { what: 'Tap', where: 'Hall' });
+  ok(r2 === null && !x.writes.length, 'maintenance off: a new job sends nothing, writes nothing', JSON.stringify(x.writes));
+  x = offDb('roomBookings'); const r3 = await notify.onBookingChange(deps(x.db), 'b1', { status: 'requested' }, { status: 'confirmed', memberUid: 'u1' }, 'e1');
+  ok(r3 === null && !x.writes.length, 'room bookings off: a booking confirmed sends nothing, writes nothing', JSON.stringify(x.writes));
+  x = offDb('safeguarding'); const r4 = await notify.runChecksReminders(deps(x.db), new Date('2026-10-20T08:00:00Z'));
+  ok(r4 && r4.skipped && !x.writes.length, 'safeguarding off: the DBS and training reminders send nothing', JSON.stringify(x.writes));
+  ok(!sent.length, 'and nothing at all went out', sent.length + ' sent');
+}
+
 console.log('\n5. Every switch does something');
 /* A switch nothing reads is a switch that hides nothing (the reviewing
    window, 20 Oct 2026: "switching one off hides it everywhere"). Each name

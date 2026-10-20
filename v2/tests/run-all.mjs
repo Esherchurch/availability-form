@@ -87,6 +87,16 @@ const files = fs.readdirSync(HERE)
   .filter(f => !only || f.includes(only))
   .sort();
 
+/* THE COMMS WINDOW'S CHECKS run on their own emulators, from
+   firebase.comms.json, which lives with them and not in the repo. Here
+   they could only crash at the first line (20 Oct 2026), so they are
+   listed with what they need instead of counted red. */
+for (const f of files) {
+  if (!NEEDS_ITS_OWN_COMMAND[f] && fs.readFileSync(path.join(HERE, f), 'utf8').includes('firebase.comms.json')) {
+    NEEDS_ITS_OWN_COMMAND[f] = 'the comms window’s: needs their emulators (firebase.comms.json)';
+  }
+}
+
 const skipped = files.filter(f => NEEDS_ITS_OWN_COMMAND[f]);
 const toRun = files.filter(f => !NEEDS_ITS_OWN_COMMAND[f]);
 
