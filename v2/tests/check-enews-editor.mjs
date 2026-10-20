@@ -43,7 +43,7 @@ const ok = (n, v, x) => { R.push(!!v); console.log('  ' + (v ? 'PASS  ' : 'FAIL 
 
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
-  typing: ["if (k === 'html') b.html = EGBCEditor.clean(el.innerHTML, palette());", "if (k === 'html') {}"],
+  typing: ["if (k === 'html') b.html = EGBCEditor.clean(el.innerHTML, rules());", "if (k === 'html') {}"],
   undo: ['function remember() { HIST.push(snapshot());', 'function remember() { return; HIST.push(snapshot());'],
   drop: ["if (d.indexOf('add:') === 0) addBlock(d.slice(4), tg.at);", "if (d.indexOf('add:') === 0) addBlock(d.slice(4), ISSUE.blocks.length);"]
 };
@@ -188,7 +188,7 @@ const ISSUE = { subject: 'Synthetic e-news 22 October', preheader: 'This week', 
     ok('while typing, the words toolbar is across the top', await ev('document.getElementById("tool").classList.contains("on")'));
 
     /* 4. The toolbar: bold, the church's colour, and "Make it a link". */
-    const pick = (a, b) => ev(`(function(){var d=${C};var e=d.querySelector('[data-b="3"] [data-edit="html"]');e.focus();var t=e.querySelector('p').firstChild;var r=d.createRange();r.setStart(t,${a});r.setEnd(t,${b});var s=d.getSelection();s.removeAllRanges();s.addRange(r);d.dispatchEvent(new Event('selectionchange'));return 1})()`);
+    const pick = (a, b) => ev(`(function(){var d=${C};var e=d.querySelector('[data-b="3"] [data-edit="html"]');e.focus();var t=d.createTreeWalker(e.querySelector('p'),NodeFilter.SHOW_TEXT).nextNode();var r=d.createRange();r.setStart(t,${a});r.setEnd(t,${b});var s=d.getSelection();s.removeAllRanges();s.addRange(r);d.dispatchEvent(new Event('selectionchange'));return 1})()`);
     await pick(0, 7);
     await ev('document.querySelector(\'#tool [data-cmd="bold"]\').click(),1'); await settle();
     ok('Bold, from the toolbar, is kept', /<(b|strong)>Welcome<\/(b|strong)>/.test(((await issue()).blocks || [])[3].html || ''), ((await issue()).blocks || [])[3].html);
@@ -204,6 +204,25 @@ const ISSUE = { subject: 'Synthetic e-news 22 October', preheader: 'This week', 
     await ev('window.prompt=function(){return "example.invalid/week"},' + C + '.querySelector(".ed-link").click(),1'); await settle();
     ok('the word becomes a link (https:// added)', /<a href="https:\/\/example\.invalid\/week"[^>]*>week<\/a>/.test(((await issue()).blocks || [])[3].html || ''), ((await issue()).blocks || [])[3].html);
     await shot('1440-typing');
+    /* Font, size, line height and highlight (Martin, 20 Oct), from our look. */
+    ok('the toolbar’s font, size and line height start from the church’s look', /Helvetica \(our look\)/.test(await ev('document.getElementById("t-font").options[0].textContent')) && /15 \(our look\)/.test(await ev('document.getElementById("t-size").options[0].textContent')) && /150% \(our look\)/.test(await ev('document.getElementById("t-lh").options[0].textContent')));
+    await drawAgain(); await pick(0, 7);
+    await ev('document.querySelector(\'#tool [data-cmd="highlight"]\').click(),1'); await sleep(200);
+    await ev('document.querySelector(\'#pop-hl [data-hl="#fff3b0"]\').click(),1'); await settle();
+    await pick(0, 7);
+    await ev('var s=document.getElementById("t-size");s.dispatchEvent(new Event("mousedown"));s.value="24";s.dispatchEvent(new Event("change")),1'); await settle();
+    ok('a size from the list is kept on the words', /font-size:24px/.test(((await issue()).blocks || [])[3].html || ''), [((await issue()).blocks || [])[3].html, await ev(C + '.querySelector(\'[data-b="3"] [data-edit]\').innerHTML')]);
+    await pick(0, 7);
+    await ev('var f=document.getElementById("t-font");f.dispatchEvent(new Event("mousedown"));f.value="Georgia";f.dispatchEvent(new Event("change")),1'); await settle();
+    await pick(0, 7);
+    await ev('var l=document.getElementById("t-lh");l.dispatchEvent(new Event("mousedown"));l.value="175%";l.dispatchEvent(new Event("change")),1'); await settle();
+    const sty = ((await issue()).blocks || [])[3].html || '';
+    ok('highlight, size, font and line height are kept, as email-safe styles', /background-color:#fff3b0/.test(sty) && /font-size:24px/.test(sty) && /font-family:Georgia/.test(sty) && /line-height:175%/.test(sty), sty);
+    await shot('1440-styles');
+    await pick(0, 7);
+    await ev('document.querySelector(\'#tool [data-cmd="ourlook"]\').click(),1'); await settle();
+    const back = ((await issue()).blocks || [])[3].html || '';
+    ok('"Back to our look" takes them off the selection', !/background-color|font-size|font-family|line-height/.test(back) && /Welcome/.test(back), back);
 
     /* 5. Add: tap a tile (after the picked block); drag one onto the email. */
     await tap(3); await sleep(400);

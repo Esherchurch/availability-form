@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-news try-out notes</title>
+<!-- The ease test's form for the person watching (FINDINGS-comms plan D10).
+     A timer; each task's finish time; every hesitation, with a note; help
+     asked for; the tester's answers. Nothing is sent anywhere: the notes
+     stay on this computer (kept if the page is reloaded), and "Copy the
+     results" gives them as text to paste into FINDINGS-comms. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--tint:#eef5f4;--gold:#b07d2e;--gold-bg:#fdf8ee}
+  *{box-sizing:border-box}
+  body{margin:0;background:#f6f7f7;color:var(--body);font:400 15px/1.5 Inter,system-ui,sans-serif}
+  .page{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;color:var(--ink);margin:0 0 4px}
+  h2{font-size:16px;color:var(--ink);margin:0 0 10px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0}
+  .m{color:var(--muted);font-size:13px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--brand);background:var(--brand);color:#fff;font:500 14px Inter,sans-serif;cursor:pointer}
+  .btn.sec{background:#fff;color:var(--ink);border-color:#d1d5db}
+  .btn.gold{background:var(--gold-bg);color:var(--gold);border-color:#e7c98f}
+  .btn:disabled{opacity:.5}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .clock{font:700 34px Inter,sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
+  .task{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+  .task:first-child{border-top:0}
+  .task .n{width:28px;height:28px;border-radius:50%;background:var(--tint);color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+  .task.now{background:var(--tint);border-radius:10px;padding:10px}
+  .task .t{flex:1}
+  .task .at{font-variant-numeric:tabular-nums;color:var(--muted);min-width:64px;text-align:right}
+  input[type=text],textarea,select{width:100%;min-height:44px;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  textarea{padding:8px 10px;min-height:70px}
+  label{display:block;font-weight:600;color:var(--ink);font-size:13px;margin:10px 0 4px}
+  .log div{padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+  .before{background:var(--gold-bg);border:1px solid #e7c98f;border-radius:12px;padding:10px 14px;color:#7a5512}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>E-news try-out notes</h1>
+  <p class="m" style="margin:0 0 8px">For the person watching. The tester has the task sheet (task-sheet.html).</p>
+  <div class="before"><b>Before you start.</b> The editor has to be able to save. On the live hub it can't until switch-over, when its rules go live. So try it either on a PC set up with the test emulators (the reviewing window can do this), or after switch-over. Have this week's draft ready, and some pictures in the picture library.</div>
+
+  <div class="card">
+    <div class="row"><input type="text" id="who" placeholder="Who is trying it (initials)" style="flex:1;min-width:180px"><input type="text" id="device" placeholder="Computer or phone" style="flex:1;min-width:160px"></div>
+    <div class="row" style="margin-top:12px"><span class="clock" id="clock">0:00</span><span class="sp" style="flex:1"></span>
+      <button class="btn" id="start">Start</button><button class="btn sec" id="stop" disabled>Stop</button></div>
+    <p class="m" id="aim" style="margin:6px 0 0">Aim: under 30 minutes, without help.</p>
+  </div>
+
+  <div class="card"><h2>The tasks</h2><p class="m" style="margin:0 0 6px">Press "Done" as each is finished. The time is written down.</p><div id="tasks"></div></div>
+
+  <div class="card"><h2>Hesitations and help</h2>
+    <label for="note">What happened (where they looked, what they expected)</label><textarea id="note" placeholder="e.g. looked for the verse under Add, not on the email"></textarea>
+    <div class="row" style="margin-top:8px"><button class="btn gold" id="hes">They hesitated</button><button class="btn sec" id="help">They asked for help</button><button class="btn sec" id="gave">I helped</button></div>
+    <div class="log" id="log" style="margin-top:10px"></div></div>
+
+  <div class="card"><h2>At the end, ask them</h2>
+    <label for="q1">Quicker, slower or about the same as Mailchimp?</label><select id="q1"><option value="">Choose…</option><option>Quicker</option><option>About the same</option><option>Slower</option></select>
+    <label for="q2">What was harder than it should be?</label><textarea id="q2"></textarea>
+    <label for="q3">Anything they liked?</label><textarea id="q3"></textarea></div>
+
+  <div class="row"><button class="btn" id="copy">Copy the results</button><button class="btn sec" id="print">Print</button><button class="btn sec" id="reset">Start again</button></div>
+  <p class="m" id="msg" role="status"></p>
+</div>
+<script>
+(function () {
+  'use strict';
+  var TASKS = ['Open this week’s e-news, then the editor', 'This week’s picture at the top', 'This week’s verse', 'Two events, each with a picture and words', 'One word coloured teal', 'One word made a link', 'A test sent, and arrived'];
+  var KEY = 'egbc-ease-test';
+  var S = load() || { start: 0, stop: 0, done: [], log: [], who: '', device: '', q1: '', q2: '', q3: '' };
+  function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
+  function keep() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function now() { return S.start ? ((S.stop || Date.now()) - S.start) : 0; }
+  function mmss(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function current() { for (var i = 0; i < TASKS.length; i++) if (!S.done[i]) return i; return TASKS.length; }
+  function draw() {
+    document.getElementById('clock').textContent = mmss(now());
+    document.getElementById('aim').textContent = now() > 30 * 60000 ? 'Over 30 minutes.' : 'Aim: under 30 minutes, without help.';
+    document.getElementById('start').disabled = !!S.start && !S.stop;
+    document.getElementById('stop').disabled = !S.start || !!S.stop;
+    var c = current();
+    document.getElementById('tasks').innerHTML = TASKS.map(function (t, i) {
+      return '<div class="task' + (i === c && S.start && !S.stop ? ' now' : '') + '"><span class="n">' + (i + 1) + '</span><span class="t">' + esc(t) + '</span><span class="at">' + (S.done[i] ? mmss(S.done[i]) : '') + '</span>' +
+        (S.done[i] ? '' : '<button class="btn sec" data-done="' + i + '"' + (S.start && !S.stop ? '' : ' disabled') + '>Done</button>') + '</div>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-done]'), function (b) { b.onclick = function () { S.done[+b.getAttribute('data-done')] = now(); keep(); draw(); }; });
+    document.getElementById('log').innerHTML = S.log.map(function (x) { return '<div><b>' + mmss(x.at) + '</b> · task ' + (x.task + 1) + ' · ' + esc(x.kind) + (x.note ? ': ' + esc(x.note) : '') + '</div>'; }).join('') || '<p class="m" style="margin:0">Nothing yet.</p>';
+  }
+  function note(kind) {
+    if (!S.start) { document.getElementById('msg').textContent = 'Press Start first.'; return; }
+    var n = document.getElementById('note');
+    S.log.push({ at: now(), task: Math.min(current(), TASKS.length - 1), kind: kind, note: n.value.trim() }); n.value = ''; keep(); draw();
+  }
+  ['who', 'device', 'q1', 'q2', 'q3'].forEach(function (id) { var el = document.getElementById(id); el.value = S[id] || ''; el.oninput = el.onchange = function () { S[id] = el.value; keep(); }; });
+  document.getElementById('start').onclick = function () { if (!S.start) S.start = Date.now(); else if (S.stop) { S.start += Date.now() - S.stop; S.stop = 0; } keep(); draw(); };
+  document.getElementById('stop').onclick = function () { S.stop = Date.now(); keep(); draw(); };
+  document.getElementById('hes').onclick = function () { note('hesitated'); };
+  document.getElementById('help').onclick = function () { note('asked for help'); };
+  document.getElementById('gave').onclick = function () { note('was helped'); };
+  document.getElementById('print').onclick = function () { window.print(); };
+  document.getElementById('reset').onclick = function () { if (!confirm('Clear these notes and start again?')) return; S = { start: 0, stop: 0, done: [], log: [], who: '', device: '', q1: '', q2: '', q3: '' }; keep(); location.reload(); };
+  document.getElementById('copy').onclick = function () {
+    var helps = S.log.filter(function (x) { return x.kind !== 'hesitated'; }).length, hes = S.log.filter(function (x) { return x.kind === 'hesitated'; }).length;
+    var text = 'E-news try-out (' + (S.who || '?') + ', ' + (S.device || '?') + ', ' + new Date(S.start || Date.now()).toLocaleDateString('en-GB') + ')\n' +
+      'Total: ' + mmss(now()) + (now() <= 30 * 60000 ? ' (under 30 minutes)' : ' (OVER 30 minutes)') + '; ' + hes + ' hesitations; ' + helps + ' times help was asked or given.\n\n' +
+      TASKS.map(function (t, i) { return (i + 1) + '. ' + t + ': ' + (S.done[i] ? mmss(S.done[i]) : 'not done'); }).join('\n') + '\n\n' +
+      'Hesitations and help:\n' + (S.log.map(function (x) { return '- ' + mmss(x.at) + ', task ' + (x.task + 1) + ', ' + x.kind + (x.note ? ': ' + x.note : ''); }).join('\n') || '- none') + '\n\n' +
+      'Compared with Mailchimp: ' + (S.q1 || '?') + '\nHarder than it should be: ' + (S.q2 || '-') + '\nLiked: ' + (S.q3 || '-') + '\n';
+    var done = function () { document.getElementById('msg').textContent = 'Copied. Paste it into FINDINGS-comms, or send it to the reviewing window.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { prompt('Copy this:', text); });
+    else prompt('Copy this:', text);
+  };
+  setInterval(function () { if (S.start && !S.stop) document.getElementById('clock').textContent = mmss(now()); }, 1000);
+  draw();
+})();
+</script>
+</body>
+</html>

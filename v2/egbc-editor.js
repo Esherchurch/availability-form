@@ -12,7 +12,7 @@
        html: '<p>Starting text</p>',
        placeholder: 'What do people need to know?',
        upload: async file => url,    // optional: enables the picture button
-       palette: ['#008080', ...]     // optional: a colour button with only
+       palette: ['#008080', ...]     // optional (or the e-news's style rules): a colour button with only
                                      // these colours (the e-news: the
                                      // church's); coloured words are kept
                                      // only in these, everything else as now
@@ -47,6 +47,10 @@
      a coloured word (a span or font) keeps its colour if it is one of
      those, as <span style="color:#..">; any other colour is dropped. */
   function clean(html, palette) {
+    /* palette: a list of colours, or the e-news's rules (egbc-mailblocks.js
+       styleRules): { colours, highlights, fonts, sizes, lineHeights }. */
+    var R = Array.isArray(palette) ? { colours: palette } : (palette || null);
+    if (R) palette = R.colours || [];
     var doc = new DOMParser().parseFromString('<div id="r">' + (html || '') + '</div>', 'text/html');
     var root = doc.getElementById('r');
 
@@ -61,12 +65,18 @@
         walk(n);
         if (tag === 'H1') { var h = doc.createElement('h2'); h.append.apply(h, n.childNodes); n.replaceWith(h); continue; }
         if (tag === 'H4' || tag === 'H5' || tag === 'H6') { var h3 = doc.createElement('h3'); h3.append.apply(h3, n.childNodes); n.replaceWith(h3); continue; }
-        if ((tag === 'SPAN' || tag === 'FONT') && palette && palette.length) {
-          var hx = hex(n.style && n.style.color) || hex(n.getAttribute('color'));
-          if (hx && palette.indexOf(hx) >= 0) {
-            var sp = doc.createElement('span'); sp.setAttribute('style', 'color:' + hx);
-            sp.append.apply(sp, n.childNodes); n.replaceWith(sp); continue;
-          }
+        if ((tag === 'SPAN' || tag === 'FONT') && R) {
+          var st = n.style || {}, css = '';
+          var hx = hex(st.color) || hex(n.getAttribute('color'));
+          if (hx && (R.colours || []).indexOf(hx) >= 0) css += 'color:' + hx + ';';
+          var bg = hex(st.backgroundColor);
+          if (bg && (R.highlights || []).indexOf(bg) >= 0) css += 'background-color:' + bg + ';';
+          var ff = String(st.fontFamily || n.getAttribute('face') || '').split(',')[0].replace(/["']/g, '').trim();
+          var fk = (R.fonts || []).filter(function (f) { return f.toLowerCase() === ff.toLowerCase(); })[0];
+          if (fk) css += 'font-family:' + fk + ';';
+          var fz = /^(\d{2})px$/.exec(String(st.fontSize || ''));
+          if (fz && (R.sizes || []).indexOf(+fz[1]) >= 0) css += 'font-size:' + fz[1] + 'px;';
+          if (css) { var sp = doc.createElement('span'); sp.setAttribute('style', css); sp.append.apply(sp, n.childNodes); n.replaceWith(sp); continue; }
         }
         if (!KEEP[tag]) {
           /* Unwrap, but keep paragraph breaks where a block was. */
@@ -79,10 +89,13 @@
           }
           continue;
         }
+        /* A paragraph's line height, from the rules' list. */
+        var keepLh = R && R.lineHeights && /^(P|LI|H2|H3)$/.test(tag) && R.lineHeights.indexOf(String(n.style.lineHeight || '')) >= 0 ? n.style.lineHeight : '';
         Array.prototype.slice.call(n.attributes).forEach(function (a) {
           var ok = (tag === 'A' && a.name === 'href') || (tag === 'IMG' && (a.name === 'src' || a.name === 'alt'));
           if (!ok || /^\s*javascript:/i.test(a.value)) n.removeAttribute(a.name);
         });
+        if (keepLh) n.setAttribute('style', 'line-height:' + keepLh);
         if (tag === 'A') { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
         if (tag === 'IMG' && !/^(https?:|data:image\/)/i.test(n.getAttribute('src') || '')) n.remove();
       }

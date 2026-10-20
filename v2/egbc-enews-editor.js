@@ -35,6 +35,7 @@
   function editable() { return !ISSUE.status || ISSUE.status === 'draft' || ISSUE.status === 'scheduled'; }
   function theme() { return MB.theme({ template: ISSUE.template || SET.template || 'classic', colours: SET.colours || {} }); }
   function palette() { return MB.palette(theme()); }
+  function rules() { return MB.styleRules(theme()); }
   function field(id, lab, v, type, extra) { return '<label for="' + id + '">' + esc(lab) + '</label><input type="' + (type || 'text') + '" id="' + id + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '>'; }
   function val(id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; }
   var NAMES = { header: 'The week’s picture', verse: 'Bible verse', section: 'Section bar', sunday: 'This Sunday', event: 'Picture and words', text: 'Words', heading: 'Heading',
@@ -208,10 +209,10 @@
     var tb = el.closest('[data-b]'); if (!tb) return;
     var b = ISSUE.blocks[+tb.getAttribute('data-b')]; if (!b) return;
     var k = el.getAttribute('data-edit');
-    if (k === 'html') b.html = EGBCEditor.clean(el.innerHTML, palette());
+    if (k === 'html') b.html = EGBCEditor.clean(el.innerHTML, rules());
     else if (k === 'text') b.text = el.textContent.replace(/\s+/g, ' ').trim().slice(0, 200);
     else if (k === 'label') b.label = el.textContent.replace(/\s+/g, ' ').trim().slice(0, 120);
-    else if (/^col\d$/.test(k)) { b.cols = b.cols || []; var n = +k.slice(3); b.cols[n] = Object.assign({}, b.cols[n] || {}, { html: EGBCEditor.clean(el.innerHTML, palette()) }); }
+    else if (/^col\d$/.test(k)) { b.cols = b.cols || []; var n = +k.slice(3); b.cols[n] = Object.assign({}, b.cols[n] || {}, { html: EGBCEditor.clean(el.innerHTML, rules()) }); }
     b.auto = false;
   }
 
@@ -263,18 +264,21 @@
   var EMOJI = ['😊', '🙏', '❤️', '🎉', '✨', '👍', '🙌', '😀', '📅', '⏰', '📍', '🎟', '👉', '☕', '🍰', '🥧', '🎵', '🎶', '📖', '✝️', '⛪', '🌿', '🍂', '🎄', '🕯', '🌸', '☀️', '🍪', '🧡', '💚', '⭐', '🎁'];
   function toolbar() {
     return '<div class="tool" id="tool" role="toolbar" aria-label="Words">' +
-      '<select id="t-style" aria-label="Style of words"><option value="p">Normal words</option><option value="h2">Heading</option><option value="h3">Small heading</option></select><span class="sep"></span>' +
+      '<select id="t-style" aria-label="Style of words"><option value="p">Normal words</option><option value="h2">Heading</option><option value="h3">Small heading</option></select>' +
+      /* Font, size and line height start from the church's look (Look);
+         "Our look" puts a selection back to it. */
+      '<select id="t-font" aria-label="Font"></select><select id="t-size" aria-label="Size"></select><select id="t-lh" aria-label="Line height"></select><span class="sep"></span>' +
       [['bold', 'bold', 'Bold'], ['italic', 'italic', 'Italic'], ['underline', 'underline', 'Underline'], ['strikeThrough', 'strikethrough', 'Crossed out'], '|',
-        ['colour', 'baseline', 'Colour'], ['link', 'link', 'Make it a link'], ['emoji', 'smile', 'Emoji'], '|',
-        ['insertUnorderedList', 'list', 'Bullet list'], ['insertOrderedList', 'list-ordered', 'Numbered list'], ['removeFormat', 'remove-formatting', 'Plain words']].map(function (x) {
-        return x === '|' ? '<span class="sep"></span>' : '<button type="button" data-cmd="' + x[0] + '" title="' + x[2] + '" aria-label="' + x[2] + '">' + I(x[1]) + '</button>'; }).join('') +
-      '</div><div class="pop" id="pop-colour" role="menu" aria-label="Colour"></div><div class="pop" id="pop-emoji"><div class="emo">' + EMOJI.map(function (e) { return '<button type="button" data-emo="' + e + '">' + e + '</button>'; }).join('') + '</div></div>';
+        ['colour', 'baseline', 'Colour'], ['highlight', 'highlighter', 'Highlight'], ['link', 'link', 'Make it a link'], ['emoji', 'smile', 'Emoji'], '|',
+        ['insertUnorderedList', 'list', 'Bullet list'], ['insertOrderedList', 'list-ordered', 'Numbered list'], ['ourlook', 'rotate-ccw', 'Back to our look']].map(function (x) {
+        return x === '|' ? '<span class="sep"></span>' : '<button type="button" data-cmd="' + x[0] + '" title="' + x[2] + '" aria-label="' + x[2] + '">' + I(x[1]) + (x[0] === 'ourlook' ? '<span style="margin:0 4px;font-size:12px;font-weight:600">Our look</span>' : '') + '</button>'; }).join('') +
+      '</div><div class="pop" id="pop-colour" role="menu" aria-label="Colour"></div><div class="pop" id="pop-hl" role="menu" aria-label="Highlight"></div><div class="pop" id="pop-emoji"><div class="emo">' + EMOJI.map(function (e) { return '<button type="button" data-emo="' + e + '">' + e + '</button>'; }).join('') + '</div></div>';
   }
   function showTool(on) { var t = document.getElementById('tool'); if (t) t.classList.toggle('on', !!on && editable()); if (!on) Array.prototype.forEach.call(document.querySelectorAll('.pop'), function (p) { p.classList.remove('on'); }); }
   function cdoc() { return CV && CV.contentDocument; }
   function exec(c, v) {
     var d = cdoc(); if (!d) return;
-    try { d.execCommand('styleWithCSS', false, c === 'foreColor'); } catch (e) {}
+    try { d.execCommand('styleWithCSS', false, /^(foreColor|hiliteColor|fontName|fontSize)$/.test(c)); } catch (e) {}
     d.execCommand(c, false, v === undefined ? null : v);
     var el = d.activeElement; if (el && el.getAttribute && el.getAttribute('data-edit')) { if (!typingSnap) { remember(); typingSnap = true; } syncEdit(el); saveSoon(); }
   }
@@ -287,9 +291,19 @@
       if (c === 'colour') return popAt('pop-colour', b);
       if (c === 'emoji') return popAt('pop-emoji', b);
       if (c === 'link') return makeLink();
+      if (c === 'highlight') return popAt('pop-hl', b);
+      if (c === 'ourlook') return ourLook();
       exec(c);
     });
     document.getElementById('t-style').onchange = function () { exec('formatBlock', this.value); };
+    fillLookLists();
+    document.getElementById('t-font').onchange = function () { if (this.value) exec('fontName', this.value); fillLookLists(); };
+    document.getElementById('t-size').onchange = function () { if (this.value) setSize(+this.value); fillLookLists(); };
+    document.getElementById('t-lh').onchange = function () { if (this.value) setLineHeight(this.value); fillLookLists(); };
+    ['t-font', 't-size', 't-lh'].forEach(function (id) { document.getElementById(id).addEventListener('mousedown', function () { keepRange(); }); });
+    var ph = document.getElementById('pop-hl');
+    ph.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    ph.addEventListener('click', function (e) { var b = e.target.closest('[data-hl]'); if (!b) return; exec('hiliteColor', b.getAttribute('data-hl')); ph.classList.remove('on'); });
     var pc = document.getElementById('pop-colour');
     pc.addEventListener('mousedown', function (e) { e.preventDefault(); });
     pc.addEventListener('click', function (e) { var b = e.target.closest('[data-colour]'); if (!b) return; exec('foreColor', b.getAttribute('data-colour')); pc.classList.remove('on'); });
@@ -297,8 +311,57 @@
     pe.addEventListener('mousedown', function (e) { e.preventDefault(); });
     pe.addEventListener('click', function (e) { var b = e.target.closest('[data-emo]'); if (!b) return; exec('insertText', b.getAttribute('data-emo')); pe.classList.remove('on'); });
   }
+  /* The look's own font, size and line height head each list. */
+  function fillLookLists() {
+    var t = theme(), lookFont = String(t.font || '').split(',')[0];
+    var f = document.getElementById('t-font'), z = document.getElementById('t-size'), l = document.getElementById('t-lh');
+    if (!f) return;
+    f.innerHTML = '<option value="">' + esc(lookFont) + ' (our look)</option>' + Object.keys(MB.FONTS).map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+    z.innerHTML = '<option value="">15 (our look)</option>' + MB.SIZES.map(function (n) { return '<option value="' + n + '">' + n + '</option>'; }).join('');
+    l.innerHTML = '<option value="">150% (our look)</option>' + MB.LINE_HEIGHTS.map(function (n) { return '<option value="' + n + '">' + n + ' lines</option>'; }).join('');
+  }
+  /* Selects take the focus from the email: keep the selection, put it back. */
+  var RANGE = null;
+  function keepRange() { var d = cdoc(); if (!d) return; var s = d.getSelection(); if (s && s.rangeCount) RANGE = s.getRangeAt(0).cloneRange(); }
+  function restoreRange() { var d = cdoc(); if (!d || !RANGE) return; var host = RANGE.startContainer.nodeType === 1 ? RANGE.startContainer : RANGE.startContainer.parentElement; var ed = host && host.closest && host.closest('[data-edit]'); if (ed) ed.focus(); var s = d.getSelection(); s.removeAllRanges(); s.addRange(RANGE); }
+  function editHost() { var d = cdoc(); if (!d) return null; var s = d.getSelection(); if (!s || !s.rangeCount) return null; var n = s.getRangeAt(0).commonAncestorContainer; n = n.nodeType === 1 ? n : n.parentElement; return n && n.closest && n.closest('[data-edit]'); }
+  function afterStyle(el) { if (!el) return; if (!typingSnap) { remember(); typingSnap = true; } syncEdit(el); saveSoon(); }
+  /* Size: the browser's own size command, then the size in pixels. */
+  function setSize(px) {
+    restoreRange(); var d = cdoc(); var el = editHost(); if (!d || !el) return;
+    try { d.execCommand('styleWithCSS', false, true); } catch (e) {}
+    d.execCommand('fontSize', false, '7');
+    Array.prototype.forEach.call(el.querySelectorAll('font[size="7"],span[style*="xxx-large"],span[style*="-webkit-xxx-large"]'), function (x) {
+      if (x.tagName === 'FONT') { var sp = d.createElement('span'); sp.append.apply(sp, x.childNodes); x.replaceWith(sp); x = sp; }
+      x.style.fontSize = px + 'px';
+    });
+    afterStyle(el);
+  }
+  /* Line height: the paragraphs the selection is in. */
+  function setLineHeight(v) {
+    restoreRange(); var d = cdoc(); var el = editHost(); if (!d || !el) return;
+    var r = d.getSelection().getRangeAt(0);
+    Array.prototype.forEach.call(el.querySelectorAll('p,li,h2,h3'), function (b) { if (r.intersectsNode(b)) b.style.lineHeight = v; });
+    afterStyle(el);
+  }
+  /* "Back to our look": the selection loses its font, size, line height,
+     highlight and colour (bold, links and lists stay). */
+  function ourLook() {
+    var d = cdoc(); var el = editHost(); if (!d || !el) { toast('Select the words to put back to our look first.'); return; }
+    var r = d.getSelection().getRangeAt(0);
+    for (var round = 0; round < 4; round++) Array.prototype.forEach.call(el.querySelectorAll('span,p,li,h2,h3,font'), function (x) {
+      if (!x.isConnected || !r.intersectsNode(x)) return;
+      ['font-family', 'font-size', 'line-height', 'background-color', 'color'].forEach(function (k) { x.style.removeProperty(k); });
+      if (x.tagName === 'FONT') x.removeAttribute('color'), x.removeAttribute('face'), x.removeAttribute('size');
+      if (!x.getAttribute('style')) x.removeAttribute('style');
+      if ((x.tagName === 'SPAN' || x.tagName === 'FONT') && !x.attributes.length) { var f = d.createDocumentFragment(); while (x.firstChild) f.appendChild(x.firstChild); x.replaceWith(f); }
+    });
+    afterStyle(el); fillLookLists(); toast('Back to our look.');
+  }
   function popAt(id, btn) {
     var p = document.getElementById(id);
+    if (id === 'pop-hl') p.innerHTML = '<p class="m" style="margin:0 0 8px">Highlight</p><div class="sw">' + MB.HIGHLIGHTS.map(function (c) {
+      return '<button type="button" data-hl="' + c + '" title="' + c + '" aria-label="Highlight ' + c + '" style="background:' + c + '"></button>'; }).join('') + '</div>';
     if (id === 'pop-colour') p.innerHTML = '<p class="m" style="margin:0 0 8px">Colour (the church’s)</p><div class="sw">' + palette().map(function (c) {
       return '<button type="button" data-colour="' + c + '" title="' + c + '" aria-label="Colour ' + c + '" style="background:' + c + '"></button>'; }).join('') + '</div>';
     var r = btn.getBoundingClientRect(), host = document.querySelector('.main').getBoundingClientRect();
@@ -314,6 +377,15 @@
       var b = tool.querySelector('[data-cmd="' + c + '"]'); try { if (b) b.classList.toggle('on', doc.queryCommandState(c)); } catch (e) {}
     });
     try { var v = (doc.queryCommandValue('formatBlock') || 'p').toLowerCase(); document.getElementById('t-style').value = /^h[23]$/.test(v) ? v : 'p'; } catch (e) {}
+    try {
+      var s = doc.getSelection(), n = s && s.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
+      var span = n && n.closest && n.closest('span[style]'), blk = n && n.closest && n.closest('p,li,h2,h3');
+      var ff = span && span.style.fontFamily ? span.style.fontFamily.split(',')[0].replace(/["']/g, '').trim() : '';
+      var fz = span && /^(\d+)px$/.exec(span.style.fontSize || '');
+      document.getElementById('t-font').value = MB.FONTS[ff] ? ff : '';
+      document.getElementById('t-size').value = fz && MB.SIZES.indexOf(+fz[1]) >= 0 ? fz[1] : '';
+      document.getElementById('t-lh').value = blk && MB.LINE_HEIGHTS.indexOf(blk.style.lineHeight) >= 0 ? blk.style.lineHeight : '';
+    } catch (e) {}
   }
   /* Selecting a word offers "Make it a link", beside it. */
   function linkOffer(doc) {

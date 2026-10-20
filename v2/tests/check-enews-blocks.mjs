@@ -156,6 +156,11 @@ function checks(M) {
   const coloured = M.cleanHtml('<p><span style="color: rgb(0, 128, 128)">teal</span> <span style="color:#123456">odd</span> <font color="#fe7e07">orange</font> <span style="color:#008080;background:url(x)">x</span></p>', T1);
   ok('a word coloured from the church’s palette keeps its colour (inline, on a span)', coloured.includes('<span style="color:#008080;">teal</span>') && coloured.includes('<span style="color:#fe7e07;">orange</span>'), coloured);
   ok('a colour not in the palette is dropped, and nothing else on a span survives', coloured.includes('<span>odd</span>') && !/background|url\(/.test(coloured), coloured);
+  /* Font, size, line height and highlight, by hand (Martin, 20 Oct). */
+  const styled = M.cleanHtml('<p style="line-height:175%"><span style="background-color: rgb(255, 243, 176); font-family: Georgia; font-size: 24px">a</span><span style="font-family:Comic Sans MS;font-size:60px;background:url(x)">b</span><span style="background-color:#008080">c</span></p>', T1);
+  ok('font, size, line height and highlight are kept, as email-safe styles', styled.includes('<p style="margin:10px 0;line-height:175%;"><span style="background-color:#fff3b0;font-family:Georgia,Times New Roman,serif;font-size:24px;">a</span>'), styled);
+  ok('only fonts every email program has, sizes from the list, light highlights', styled.includes('<span>b</span>') && !/Comic|60px|url\(/.test(styled), styled);
+  ok('a highlight is never taken for the words’ colour', styled.includes('<span>c</span>'), styled);
   ok('the palette is the look’s own colours and a few more', ['#008080', '#17a809', '#fe7e07', '#202020'].every(c => M.palette(T1).includes(c)) && M.palette(T1).length <= 12, M.palette(T1));
   const bare = M.render({ blocks: [{ type: 'event', title: 'Prayer evening', when: 'Monday 2 November · 8pm', moreUrl: 'https://x.invalid/whatson.html?event=e1' }] }, {});
   ok('a bare event is a finished card: its title and day, and "More details" to its page', bare.includes('Prayer evening') && /href="https:\/\/x\.invalid\/whatson\.html\?event=e1"[^>]*>More details</.test(bare));
@@ -192,7 +197,9 @@ const BREAKS = [
   ['meetings let into everyone’s copy', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return false;', 'members-only by default'],
   ['the CMM let out when unticked', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return b.members !== false;', 'the CMM is always members-only'],
   ['card titles left black', "if (!head) body = body.replace(", 'if (false) body = body.replace(', 'first bold line is teal'],
-  ['any colour kept on a span', "return hx && t && palette(t).indexOf(hx) >= 0 ? ", 'return hx ? ', 'not in the palette is dropped'],
+  ['any colour kept on a span', "if (c && t && palette(t).indexOf(c) >= 0) out += ", 'if (c) out += ', 'not in the palette is dropped'],
+  ['any font kept', "    if (f) out += 'font-family:' + f + ';';", "    if (pr['font-family']) out += 'font-family:' + pr['font-family'] + ';';", 'only fonts every email program has'],
+  ['a highlight taken for the words’ colour', "var out = '', c = hexOf(pr.color),", "var out = '', c = hexOf(pr.color || pr['background-color']),", 'never taken for the words'],
   ['bare events left bare', "var more = bare && safeUrl(b.moreUrl) ?", 'var more = false ?', 'finished card'],
   ['members’ events in the diary', "eventShare(x.ev) === 'public' &&", '', 'public events only'],
   ['any network’s icon allowed', "var k = String(x && x.kind || ''); if (!SOCIAL[k]) return '';", "var k = String(x && x.kind || '');", 'only known networks'],
