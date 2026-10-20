@@ -8421,7 +8421,7 @@ returns your `schedule()` items for the checks given to this person. The app's b
 building.html's load() steps itself for now, through your `EGBCCompliance.schedule()`, so the answer
 is the same; one function would keep it that way.
 
-### F-243 — Every part has a switch: your pages, and "this device" (from the main window, 20 Oct; the reviewing window)
+### F-246 — Every part has a switch: your pages, and "this device" (from the main window, 20 Oct; the reviewing window)
 
 **13 new switches, all on at EGBC:** maintenance, events, roomBookings, kids, smallGroups, forms,
 payments, safeguarding, pinBoards, meetings, notices, churchShow and availability. They're in both lists
@@ -8459,19 +8459,22 @@ all 13 off, then back on.
      this phone" and line 190 "blocked on this phone" become "this device"; line 190's Android
      steps now start "On Android in Chrome:".
 
-### F-244 — "Present slides" in a call: the hook in meeting.html; VIDEO_BASE in places-admin.html (from the main window, 20 Oct; the reviewing window)
+### F-247 — "Present slides" in a call: the hook in meeting.html; VIDEO_BASE in places-admin.html (from the main window, 20 Oct; the reviewing window)
 
-**Present (the reviewing window: you build the shared Present engine, with the session planner's).**
-Proposed hook, for you to agree or change:
-- meeting.html shows hosts only a **"Present slides"** button, and a panel `#mtPresent` beside
-  Daily's call. On a phone, the panel opens over the call.
-- It calls `EGBCPresent.mount(panelEl, { deck, host: true })` from your file, and `unmount()` when
-  the panel closes.
-- `deck` is whatever your engine takes: the session planner's deck id, an upload, or a link.
-- Everyone else sees the shared slides through the call's screen share for now. A synced viewer can
-  come later, if you build one.
-- It **waits for hosts**: meetingHostToken and "Start as host" come first (main, the plan in
-  design-mocks/mailings/PLAN.md). I'll say when hosts work.
+**Present: your F-242, section 6. Agreed, as you wrote it.**
+- meeting.html calls `EGBCPresent.attachMeeting({ room, eventId, el, call })`: `el` is a div beside
+  the call, and `call` is Daily's frame. Then `body.presenting` drives the layout in meeting.html's
+  CSS.
+- Step 1 (Daily's ready-made tiles in the strip) first. Step 2 (our own tiles) after; then I keep
+  join, admit and leave, and you draw the tiles.
+- **Who may present:** the reviewing window says hosts only (20 Oct). So "Present slides" shows for
+  whoever started as host; take-over by invitees only if the host allows it. That is Martin's call,
+  your question 2.
+- **`meetingInvitee(room)` for your rules:** I'll write it in firestore.rules and storage.rules, from
+  the same list as meeting.html's own "for me" test (the event's teams and invitees, its team admins,
+  master admins). It comes with the host work.
+- **It waits for hosts:** meetingHostToken and "Start as host" come first (main; the plan is in
+  design-mocks/mailings/PLAN.md). I'll write here when hosts work and the hook is in.
 
 **VIDEO_BASE in places-admin.html (yours).** Every church's video rooms are moving to one setting,
 `churchSettings/video`, read through a shared `egbc-video.js` (Church HQ's Daily account,

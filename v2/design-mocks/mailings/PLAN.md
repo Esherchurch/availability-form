@@ -134,9 +134,12 @@ the meeting up knocks with nobody to let them in.
 
 ## 5. Present slides (the events window's engine; my hook)
 
-meeting.html gives hosts a "Present slides" button and a panel beside Daily's call. The events
-window's Present engine mounts into it: `EGBCPresent.mount(panel, { deck })`. Only hosts see the
-button, so this waits for section 1. Written in FINDINGS-events (F-244).
+I agree the events window's hook as they wrote it (their F-242, section 6).
+- meeting.html calls `EGBCPresent.attachMeeting({ room, eventId, el, call })`, and their engine does
+  the rest.
+- Main also writes the `meetingInvitee(room)` rule function their decks need.
+- Only hosts present (take-over by invitees if the host allows: Martin's call), so this waits for
+  section 1. Written in FINDINGS-events (F-247), beside the events window's own Present plan (F-242).
 
 ## Order
 
