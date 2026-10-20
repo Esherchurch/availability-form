@@ -789,6 +789,8 @@ export { canvaStatus, canvaStart, canvaCallback, canvaDesigns, canvaImport, canv
 export { hqMailKeySave, hqMailKeyStatus } from './hq-mail-key.js';
 /* Social posts, step 1: the 7am reminder for people who asked (comms window, FINDINGS-comms plan H). */
 export { socialMorning } from './social.js';
+/* Pictures from Unsplash: search (kept a day, within Demo mode's 50 an hour) and the download ping; the comms window's file (FINDINGS-comms). */
+export { unsplashSearch, unsplashUsed } from './unsplash.js';
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */
 export { presentConvert, presentFromLink, presentSweep } from './present.js';
 export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft.js';

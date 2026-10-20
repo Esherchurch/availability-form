@@ -124,6 +124,33 @@ async function scenario(S) {
   /* The pure parts. */
   t('London time decides when (sendAt as typed)', S.londonNow(new Date('2026-10-22T15:05:00Z')) === '2026-10-22T16:05' && S.londonNow(new Date('2026-12-01T09:00:00Z')) === '2026-12-01T09:00');
   t('a scheduled issue with no time is never due', !S.isDue({ status: 'scheduled', sendAt: '' }, '2026-10-22T16:05'));
+
+  /* One-off emails (plan F): the server works out who, from the audience. */
+  for (const c of ['enewsIssues', 'enewsWeb', 'addressBook']) for (const d of (await db.collection(c).get()).docs) { const k = await d.ref.collection('sends').get(); for (const x of k.docs) await x.ref.delete(); await d.ref.delete(); }
+  await db.collection('addressBook').doc('m1').set({ name: 'Ann Member', email: 'ann.one@example.invalid', churchMember: true, markers: [] });
+  await db.collection('addressBook').doc('m2').set({ name: 'Old Member', email: 'old.one@example.invalid', churchMember: true, archived: true });
+  await db.collection('addressBook').doc('m3').set({ name: 'Teen Member', email: 'teen.one@example.invalid', churchMember: true, under18: true });
+  await db.collection('addressBook').doc('t1').set({ name: 'Tom Team', email: 'tom.one@example.invalid', churchMember: false, markers: ['Welcome team'] });
+  await db.collection('addressBook').doc('p1').set({ name: 'Pip Picked', email: 'pip.one@example.invalid', churchMember: false, markers: [] });
+  const ONE = { subject: 'Dear {{first_name}}, a note', template: 'classic', kind: 'oneoff', blocks: [{ type: 'text', html: '<p>Dear {{first_name}},</p><p>All welcome</p>' }, { type: 'text', html: '<p>' + ZOOM + '</p>', members: true }] };
+  const oneCopies = { htmlMembers: MB.render(ONE, { version: 'members', church, unsubscribeUrl: MB.PLACEHOLDER }), htmlEveryone: MB.render(ONE, { version: 'everyone', church, unsubscribeUrl: MB.PLACEHOLDER }) };
+  const dueOne = (id, extra) => db.collection('enewsIssues').doc(id).set(Object.assign({}, ONE, oneCopies, { status: 'scheduled', sendAt: '2026-10-22T16:00' }, extra));
+  await dueOne('o_mem', { audience: 'members' });
+  await dueOne('o_team', { audience: 'team', team: 'Welcome team' });
+  await dueOne('o_pick', { audience: 'picked', picked: ['p1', 'm2'] });
+  got.length = 0;
+  await S.runEnewsSend({ db, send, now, hub: 'https://hub.example.invalid/v2', fnBase: 'https://fn.example.invalid', gap: 0 });
+  const by = id => got.filter(g => g.meta.issueId === id).map(g => g.to).sort().join(',');
+  t('to church members: the members, never archived or under 18', by('o_mem') === 'ann.one@example.invalid', by('o_mem'));
+  t('to a team: its people', by('o_team') === 'tom.one@example.invalid', by('o_team'));
+  t('to people picked: those picked (an archived one left out)', by('o_pick') === 'pip.one@example.invalid', by('o_pick'));
+  const ann = got.find(g => g.to === 'ann.one@example.invalid') || {};
+  t('"Dear {{first_name}}" becomes theirs, in the words and the subject', /Dear Ann,/.test(ann.html || '') && ann.subject === 'Dear Ann, a note' && !/\{\{first_name\}\}/.test(ann.html || ''), ann.subject);
+  t('church members get the members’ copy', (ann.html || '').includes(ZOOM) && ann.meta.copy === 'members');
+  const pip = got.find(g => g.to === 'pip.one@example.invalid') || {};
+  t('someone picked who is not a member gets everyone’s copy', pip.html && !pip.html.includes(ZOOM));
+  t('not a subscriber: a "leave me out" email to the office, no one-click header', (pip.html || '').includes('mailto:office@example.invalid?subject=') && pip.headers && !pip.headers['List-Unsubscribe-Post'] && /mailto:/.test(pip.headers['List-Unsubscribe'] || ''), pip.headers);
+  t('an email to members, a team or picked people has no public web version', !(await db.collection('enewsWeb').doc('o_mem').get()).exists && !(await db.collection('enewsWeb').doc('o_team').get()).exists);
   return out;
 }
 
@@ -138,7 +165,9 @@ const BREAKS = [
   ['the web version made from the members’ copy', "html: String(issue.htmlEveryone).split(PLACEHOLDER)", "html: String(issue.htmlMembers).split(PLACEHOLDER)", 'the web version has no members-only words'],
   ['team members left out', "(x.churchMember === true || (Array.isArray(x.markers) && x.markers.filter(Boolean).length > 0))", "(x.churchMember === true)", 'on a team without the tick DOES'],
   ['archived people let in', "return !!x && x.archived !== true &&", "return !!x &&", 'archived in the address book does not'],
-  ['already-sent people sent again', "if (already.has(s.id)) { sent++; continue; }", '', 'not sent it again'],
+  ['already-sent people sent again', "if (already.has(sub.id)) { sent++; continue; }", '', 'not sent it again'],
+  ['a members’ email to everyone in the address book', "(await db.collection('addressBook').where('churchMember', '==', true).get())", "(await db.collection('addressBook').get())", 'to church members: the members'],
+  ['a public web version for a members’ email', "if (issue.kind !== 'oneoff' || (issue.audience || 'subscribers') === 'subscribers') await", 'await', 'no public web version'],
   ['an under-18 sent the e-news', "if (minors.has(String(sub.email || '').toLowerCase())) { under18++; continue; }", '', 'never sent to a 17-year-old'],
   ['the one-click header left off', "'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'", "'X-Nothing': ''", 'the one-click header']
 ];

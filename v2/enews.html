@@ -27,7 +27,8 @@
 <script src="egbc-auth.js?v=202610210900"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610202200"></script>
-<script src="egbc-mailblocks.js?v=202610202200"></script>
+<script src="egbc-mailblocks.js?v=202610210100"></script>
+<script src="egbc-starters.js?v=202610202300"></script>
 <script src="egbc-core-meetings.js?v=202610210900"></script>
 <script src="egbc-meeting-pick.js?v=202610202000"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
@@ -148,6 +149,8 @@
     history.replaceState(null, '', location.pathname);
     wrap.innerHTML = '<h1>E-news</h1><p class="sub">The weekly e-news. Start one and the hub fills in What’s On, Sunday and the notices for you.</p>' +
       '<div class="row" style="margin:0 0 12px"><button class="btn" id="new"><i data-lucide="plus" style="width:16px;height:16px"></i>New e-news</button>' +
+      '<button class="btn sec" id="newmail"><i data-lucide="mail-plus" style="width:16px;height:16px"></i>New email</button>' +
+      '<button class="btn sec" id="tpls"><i data-lucide="layout-template" style="width:16px;height:16px"></i>Templates</button>' +
       '<button class="btn sec" id="newcmm"><i data-lucide="video" style="width:16px;height:16px"></i>Church members\u2019 meeting</button>' +
       '<button class="btn sec" id="look"><i data-lucide="palette" style="width:16px;height:16px"></i>Look and footer</button>' +
       '<button class="btn sec" id="subsb"><i data-lucide="users" style="width:16px;height:16px"></i>Subscribers</button></div>' +
@@ -155,6 +158,8 @@
     icons();
     document.getElementById('new').onclick = newIssue;
     document.getElementById('newcmm').onclick = newCmm;
+    document.getElementById('newmail').onclick = function () { pickTemplate(); };
+    document.getElementById('tpls').onclick = function () { manageTemplates(); };
     document.getElementById('look').onclick = lookSheet;
     document.getElementById('subsb').onclick = showSubscribers;
     db().collection('enewsIssues').orderBy('createdAt', 'desc').limit(30).get().then(function (s) {
@@ -169,7 +174,7 @@
       if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">None yet. “New e-news” starts the first.</p>'; return; }
       el.innerHTML = s.docs.map(function (d) {
         var x = d.data(), st = x.status || 'draft';
-        var word = st === 'sent' ? 'Sent' : st === 'scheduled' ? 'Scheduled' : st === 'sending' ? 'Sending' : 'Draft';
+        var word = (x.kind === 'oneoff' ? 'Email \u00b7 ' : '') + (st === 'sent' ? 'Sent' : st === 'scheduled' ? 'Scheduled' : st === 'sending' ? 'Sending' : 'Draft');
         return '<a href="?issue=' + encodeURIComponent(d.id) + '" data-id="' + esc(d.id) + '"><span><b>' + esc(x.subject || 'Untitled') + '</b><br><span class="m">' +
           esc((x.blocks || []).length + ' blocks' + (x.sendAt ? ' · ' + x.sendAt.replace('T', ' ') : '')) + '</span></span><span class="st ' + st + '">' + word + '</span></a>';
       }).join('');
@@ -251,6 +256,12 @@
       status: ISSUE.status === 'scheduled' ? 'scheduled' : 'draft', sendAt: ISSUE.sendAt || '',
       week: String(ISSUE.week || '').slice(0, 10)
     }, stamp());
+    /* A one-off email: what it is, who it goes to and where it came from. */
+    if (ISSUE.kind === 'oneoff') {
+      var aud = ['subscribers', 'members', 'team', 'picked'].indexOf(ISSUE.audience) >= 0 ? ISSUE.audience : 'subscribers';
+      Object.assign(data, { kind: 'oneoff', audience: aud, team: String(ISSUE.team || '').slice(0, 60),
+        picked: (ISSUE.picked || []).slice(0, 300).map(String), templateId: String(ISSUE.templateId || '').slice(0, 60) });
+    }
     /* A scheduled issue carries its two finished copies, made again on every
        save, so what is sent is always what is on the screen. A draft
        carries none. */
@@ -294,7 +305,7 @@
     if (!editable()) return '';
     var r = MB.readyToSend(ISSUE);
     if (r.ok) return '';
-    var words = r.missing.map(function (m) { return m === 'picture' ? 'this week\u2019s picture' : m === 'meeting' ? 'the meeting' : 'this week\u2019s verse'; }).join(' and ');
+    var words = r.missing.map(function (m) { return m === 'picture' ? 'this week\u2019s picture' : m === 'meeting' ? 'the meeting' : m === 'fill' ? 'the parts in [square brackets] (' + r.prompts.slice(0, 3).map(function (x) { return x; }).join(', ') + (r.prompts.length > 3 ? '\u2026' : '') + ')' : 'this week\u2019s verse'; }).join(' and ');
     return '<p class="ready" style="background:var(--gold-bg);border:1px solid #e7c98f;border-radius:10px;padding:10px 12px;margin:12px 0 0;color:#7a5512">Add ' + words + ' (or remove ' + (r.missing.length > 1 ? 'them' : 'it') + ') before it can be sent or tested.</p>';
   }
   /* Events still missing a picture or a write-up (plan C8): the office
@@ -398,7 +409,7 @@
     var c = ISSUE.counts || {};
     v.innerHTML = '<div class="card"><h2>Send</h2>' +
       '<p style="background:#eef5f4;border-radius:10px;padding:10px 12px;margin:0 0 10px;color:var(--ink)"><b>Sending to subscribers opens when the church goes live on the new hub.</b> Until then, \u201cSend me a test\u201d sends it to you only.</p>' +
-      '<p class="m" style="margin:0 0 6px" id="who">To: e-news subscribers…</p>' +
+      (ISSUE.kind === 'oneoff' ? audienceBox() : '<p class="m" style="margin:0 0 6px" id="who">To: e-news subscribers…</p>') +
       (st === 'sent' ? '<p><b style="color:var(--ink)">Sent</b> ' + esc(String(ISSUE.sentAt || '').slice(0, 16).replace('T', ' ')) + ' to ' + esc(String(c.sent || 0)) + ' people' +
           (c.failed ? ', ' + esc(String(c.failed)) + ' could not be sent' : '') + '. <a href="enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) + '">The web version</a>.</p>' +
           '<div class="row"><button class="btn" id="share"><i data-lucide="share-2" style="width:16px;height:16px"></i>Share to WhatsApp</button></div><p class="m">Shares the web version, which never has the members-only parts.</p>'
@@ -410,19 +421,22 @@
           '<div class="row"><button class="btn" id="sched">Schedule</button></div>') +
       '</div>' +
       (st === 'draft' || st === 'scheduled' ? '<div class="card"><h2>Try it first</h2><p class="m" style="margin:0 0 8px">The members’ copy, to your own email address.</p><button class="btn sec" id="test">Send me a test</button><p class="m" id="testmsg" role="status"></p></div>' : '');
-    db().collection('enewsSubscribers').where('status', '==', 'subscribed').get().then(function (s) {
+    if (ISSUE.kind === 'oneoff') wireAudience();
+    else db().collection('enewsSubscribers').where('status', '==', 'subscribed').get().then(function (s) {
       var n = s.docs.filter(function (d) { return (d.data().lists || {}).weekly === true; }).length;
       var el = document.getElementById('who'); if (el) el.textContent = 'To: ' + n + ' e-news subscriber' + (n === 1 ? '' : 's') + '.';
     }, function () {});
     var b, ready = MB.readyToSend(ISSUE);
     icons();
-    if ((b = document.getElementById('share'))) b.onclick = shareIssue;
+    if ((b = document.getElementById('share'))) { if (ISSUE.kind === 'oneoff' && (ISSUE.audience || 'subscribers') !== 'subscribers') b.parentNode.nextSibling.textContent = 'An email to church members, a team or people picked has no public web version, so nothing to share.', b.remove(); else b.onclick = shareIssue; }
     if (!ready.ok) ['sched', 'test'].forEach(function (id) { var x = document.getElementById(id); if (x) { x.disabled = true; x.title = 'Fill in the yellow note on Build first'; } });
     if (!ready.ok && document.getElementById('testmsg')) document.getElementById('testmsg').textContent = 'First fill in what the yellow note above asks for (or remove it on Build).';
     if ((b = document.getElementById('sched'))) b.onclick = function () {
       var t = document.getElementById('when').value;
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) { toast('Choose the day and time to send it.'); return; }
-      if (!confirm('Send this e-news to every subscriber on ' + nice(t) + '?\n\nYou can still change it, or stop it, until then.')) return;
+      if (!confirm((ISSUE.kind === 'oneoff' ? 'Send this email to ' + AUD_WORDS[ISSUE.audience || 'subscribers'] + (ISSUE.audience === 'team' ? ' (' + (ISSUE.team || '') + ')' : '') : 'Send this e-news to every subscriber') + ' on ' + nice(t) + '?\n\nYou can still change it, or stop it, until then.')) return;
+      if (ISSUE.kind === 'oneoff' && ISSUE.audience === 'team' && !ISSUE.team) { toast('Choose the team or group first.'); return; }
+      if (ISSUE.kind === 'oneoff' && ISSUE.audience === 'picked' && !(ISSUE.picked || []).length) { toast('Pick the people first.'); return; }
       ISSUE.sendAt = t; ISSUE.status = 'scheduled';
       save().then(function () { draw(); }, function (e) { ISSUE.status = 'draft'; toast('Not scheduled: ' + (e.message || e)); });
     };
@@ -630,6 +644,139 @@
   /* The Church members' meeting notice ("the CMM template"): a short
      letter and the next CMM meeting, members-only. Not this week's e-news
      (week: 'notice'), so the weekly draft still makes itself. */
+  /* ---- templates and one-off emails (FINDINGS-comms plan F and G) -----------
+     Any email starts from a template: the starters every church has
+     (egbc-starters.js) and the church's own (emailTemplates, made with
+     "Save as a template" in the editor). A one-off email is an issue with
+     kind 'oneoff' and who it goes to; the server works the list out when
+     it sends (functions/enews-send.js recipientsFor). */
+  var AUD_WORDS = { subscribers: 'everyone on the e-news list', members: 'church members', team: 'a team or group', picked: 'people you pick' };
+  function ours() { return db().collection('emailTemplates').get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id, ours: true }, d.data()); }).filter(function (t) { return t.archived !== true; }); }, function () { return []; }); }
+  function pickTemplate() {
+    var s = sheet('New email: start from a template', '<div id="tp" class="m">Loading\u2026</div>');
+    ours().then(function (O) {
+      var groups = {}; EGBCStarters.LIST.forEach(function (t) { (groups[t.group] = groups[t.group] || []).push(t); });
+      var row = function (t, k) { return '<button type="button" data-t="' + esc(k) + '"' + (t.ours ? ' data-ours="1"' : '') + '>' + esc(t.name) + '<small>' + esc(t.about || AUD_WORDS[t.audience || 'subscribers']) + '</small></button>'; };
+      s.querySelector('#tp').innerHTML = (O.length ? '<h2 style="margin:6px 0">Ours</h2><div class="types">' + O.map(function (t) { return row(t, t.id); }).join('') + '</div>' : '') +
+        Object.keys(groups).map(function (g) { return '<h2 style="margin:14px 0 6px">' + esc(g) + '</h2><div class="types">' + groups[g].map(function (t) { return row(t, t.id); }).join('') + '</div>'; }).join('');
+      Array.prototype.forEach.call(s.querySelectorAll('[data-t]'), function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute('data-t'), t = b.getAttribute('data-ours') ? O.filter(function (x) { return x.id === id; })[0] : EGBCStarters.get(id);
+          s.remove(); newFromTemplate(t);
+        };
+      });
+    });
+  }
+  /* The next members' meeting, from Members' meetings (church-meeting.html,
+     the main window's: churchMeetings, by date). A Zoom one brings its
+     joining details (private/join) - for the members-only block alone. */
+  function nextChurchMeeting() {
+    var today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+    return db().collection('churchMeetings').where('date', '>=', today).orderBy('date').limit(5).get().then(function (s) {
+      var m = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (x) { return x.status !== 'cancelled'; })[0];
+      if (!m || m.joinKind !== 'zoom') return m || null;
+      return db().collection('churchMeetings').doc(m.id).collection('private').doc('join').get().then(function (j) { m.join = j.exists ? j.data() : {}; return m; }, function () { return m; });
+    });
+  }
+  function fillChurchMeeting(blocks, m) {
+    var when = new Date(m.date + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) + (m.time ? ' at ' + m.time : '');
+    var put = function (h) { return String(h || '').split('[day and date at time]').join(esc(when)).split('[place]').join(m.place ? esc(m.place) : '[place]'); };
+    var j = m.join || {};
+    blocks.forEach(function (b) {
+      if (b.type === 'text') b.html = put(b.html);
+      if (b.type === 'button' && /agenda/i.test(b.label || '')) { b.label = 'See the agenda and minutes'; b.url = hubBase().replace(/\/+$/, '') + '/church-meeting.html'; }
+      if (b.type !== 'meeting') return;
+      if (m.joinKind === 'zoom' && /^https:\/\//.test(j.zoomUrl || '')) {
+        Object.assign(b, { title: m.title || 'Church members\u2019 meeting', date: m.date, startTime: m.time || '', eventId: '', url: j.zoomUrl, label: 'Join on Zoom', zoom: true,
+          text: [j.zoomId ? 'Meeting ID: ' + j.zoomId : '', j.passcode ? 'Passcode: ' + j.passcode : ''].filter(Boolean).join(' \u00b7 '), members: true });
+      } else if (m.joinKind !== 'zoom' && !MB.safeUrl(b.url)) {
+        Object.assign(b, MB.meetingFrom({ date: m.date, startTime: m.time, type: m.title || 'Church members\u2019 meeting' }, m.room || 'CMM', hubBase()));
+      }
+    });
+  }
+  /* Starting from a template fills in what it can: the diary from What's
+     On, the next members' meeting; then it opens in the editor. */
+  function newFromTemplate(t) {
+    if (!t) return;
+    if (t.weekly) { newIssue(); return; }
+    var blocks = JSON.parse(JSON.stringify(t.blocks || []));
+    var now = Date.now(), jobs = [];
+    blocks.forEach(function (b) {
+      if (b.type === 'diary') jobs.push(eventsBetween(now - 86400000, now + (b.weeks || 6) * 7 * 86400000, 200).then(function (all) { b.items = MB.diaryItems({ now: new Date(now), weeks: b.weeks || 6, events: all, base: hubBase() }); }, function () {}));
+      if (b.type === 'meeting' && !b.url && window.EGBCMeetingPick) jobs.push(EGBCMeetingPick.upcoming().then(function (rows) {
+        var next = rows.filter(function (r) { return r.room === (b.room || 'CMM'); })[0]; if (next) Object.assign(b, MB.meetingFrom(next.ev, next.room, hubBase()));
+      }, function () {}));
+    });
+    toast('Starting it\u2026');
+    Promise.all(jobs).then(function () {
+      if (t.id === 'cmm') return nextChurchMeeting().then(function (m) { if (m) fillChurchMeeting(blocks, m); }, function () {});
+    }).then(function () {
+      ISSUE = { subject: String(t.subject || t.name || 'Email').replace('[Church]', shortName() || '[Church]'), preheader: t.preheader || '', template: SET.template || 'classic', blocks: blocks,
+        status: 'draft', week: 'notice', kind: 'oneoff', audience: t.audience || 'subscribers', templateId: String(t.id || '').slice(0, 60) };
+      ISSUE_ID = ''; DIRTY = true;
+      return save(true);
+    }).then(function () { location.href = 'enews-edit.html?issue=' + encodeURIComponent(ISSUE_ID); }, function (e) { toast('Could not start it: ' + (e.message || e)); });
+  }
+  function manageTemplates() {
+    var s = sheet('Our templates', '<p class="m" style="margin:0">Made with \u201cSave as a template\u201d in the editor. The starters every church has are under New email.</p><div id="tm" class="list"><p class="m">Loading\u2026</p></div>');
+    var draw = function () {
+      ours().then(function (O) {
+        var el = s.querySelector('#tm');
+        if (!O.length) { el.innerHTML = '<p class="m">None yet. In the editor, Done \u2192 Save as a template.</p>'; return; }
+        el.innerHTML = O.map(function (t) { return '<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0"><span><b style="color:var(--ink)">' + esc(t.name) + '</b><br><span class="m">' + esc(AUD_WORDS[t.audience || 'subscribers']) + '</span></span>' +
+          '<span class="row"><button class="btn sec" data-a="use" data-id="' + esc(t.id) + '">Use</button><button class="btn sec" data-a="ren" data-id="' + esc(t.id) + '">Rename</button><button class="btn sec" data-a="copy" data-id="' + esc(t.id) + '">Copy</button><button class="btn ghost" data-a="arch" data-id="' + esc(t.id) + '">Archive</button></span></div>'; }).join('');
+        Array.prototype.forEach.call(el.querySelectorAll('[data-a]'), function (b) {
+          b.onclick = function () {
+            var t = O.filter(function (x) { return x.id === b.getAttribute('data-id'); })[0], a = b.getAttribute('data-a'), ref = db().collection('emailTemplates').doc(t.id);
+            if (a === 'use') { s.remove(); newFromTemplate(t); return; }
+            var job = a === 'ren' ? (function () { var n = prompt('A new name:', t.name); return n ? ref.set(Object.assign({ name: n.trim().slice(0, 80) }, stamp()), { merge: true }) : null; })()
+              : a === 'copy' ? db().collection('emailTemplates').doc().set(Object.assign({ name: (t.name + ' (copy)').slice(0, 80), about: t.about || '', group: t.group || '', subject: t.subject || '', preheader: t.preheader || '', template: t.template || 'classic', audience: t.audience || 'subscribers', blocks: t.blocks || [], archived: false, createdAt: new Date().toISOString(), createdBy: (EGBCAuth.user() || {}).uid || '' }, stamp()))
+              : confirm('Archive \u201c' + t.name + '\u201d? It goes from the list; emails made from it are kept.') ? ref.set(Object.assign({ archived: true }, stamp()), { merge: true }) : null;
+            if (job) job.then(draw, function (e) { toast('Not saved: ' + (e.message || e)); });
+          };
+        });
+      });
+    };
+    draw();
+  }
+  /* Who it goes to (a one-off email). */
+  function audienceBox() {
+    var a = ISSUE.audience || 'subscribers', ed = editable() && (ISSUE.status || 'draft') === 'draft';
+    return '<label>Who it goes to</label><div class="seg" role="radiogroup" style="flex-wrap:wrap">' + Object.keys(AUD_WORDS).map(function (k) {
+        return '<button type="button" data-aud="' + k + '" aria-selected="' + (a === k) + '"' + (ed ? '' : ' disabled') + '>' + esc(AUD_WORDS[k].replace('everyone on the e-news list', 'E-news list').replace('church members', 'Church members').replace('a team or group', 'A team or group').replace('people you pick', 'People you pick')) + '</button>'; }).join('') + '</div>' +
+      (a === 'team' ? '<label for="aud-team">Which team or group</label><select id="aud-team"' + (ed ? '' : ' disabled') + '><option value="">Choose\u2026</option></select>' : '') +
+      (a === 'picked' ? '<div class="row"><button type="button" class="btn sec" id="aud-pick"' + (ed ? '' : ' disabled') + '>Pick people (' + (ISSUE.picked || []).length + ')</button></div>' : '') +
+      '<p class="m" style="margin:8px 0 6px" id="who">Counting\u2026</p>' +
+      '<p class="m" style="margin:0 0 6px">Never anyone under 18, archived, or without an email address. Church members get the members-only blocks.' + (a === 'subscribers' ? '' : ' Not a public email: there is no web version to share.') + '</p>';
+  }
+  function wireAudience() {
+    var book = db().collection('addressBook').get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (x) { return x.archived !== true && x.email && x.isMinor !== true && x.under18 !== true; }); }, function () { return []; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-aud]'), function (b) {
+      b.onclick = function () { ISSUE.audience = b.getAttribute('data-aud'); DIRTY = true; save(true).then(draw); };
+    });
+    book.then(function (P) {
+      var a = ISSUE.audience || 'subscribers', who = document.getElementById('who');
+      var teams = {}; P.forEach(function (x) { (x.markers || []).forEach(function (t) { teams[t] = (teams[t] || 0) + 1; }); });
+      var sel = document.getElementById('aud-team');
+      if (sel) { sel.innerHTML = '<option value="">Choose\u2026</option>' + Object.keys(teams).sort().map(function (t) { return '<option' + (t === ISSUE.team ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join(''); sel.onchange = function () { ISSUE.team = sel.value; DIRTY = true; save(true).then(draw); }; }
+      var pick = document.getElementById('aud-pick'); if (pick) pick.onclick = function () { pickPeople(P); };
+      if (a === 'subscribers') db().collection('enewsSubscribers').where('status', '==', 'subscribed').get().then(function (s) { var n = s.docs.filter(function (d) { return (d.data().lists || {}).weekly === true; }).length; who.textContent = 'To: ' + n + ' on the e-news list.'; }, function () {});
+      else { var n = a === 'members' ? P.filter(function (x) { return x.churchMember === true; }).length : a === 'team' ? (teams[ISSUE.team] || 0) : (ISSUE.picked || []).length; who.textContent = 'To: ' + n + ' ' + (n === 1 ? 'person' : 'people') + '.'; }
+    });
+  }
+  function pickPeople(P) {
+    var chosen = {}; (ISSUE.picked || []).forEach(function (id) { chosen[id] = 1; });
+    var s = sheet('People you pick', '<input type="search" id="pp-q" placeholder="Search names" aria-label="Search names" style="width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px"><div id="pp" style="max-height:50vh;overflow:auto;margin-top:8px"></div>',
+      function () { ISSUE.picked = Object.keys(chosen).slice(0, 300); DIRTY = true; save(true).then(draw); });
+    var list = P.slice().sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || '')); });
+    var drawP = function () {
+      var q = s.querySelector('#pp-q').value.toLowerCase();
+      s.querySelector('#pp').innerHTML = list.filter(function (x) { return !q || String(x.name || '').toLowerCase().indexOf(q) >= 0; }).map(function (x) {
+        return '<label class="tick" style="margin:0;border-top:1px solid var(--line)"><input type="checkbox" data-p="' + esc(x.id) + '"' + (chosen[x.id] ? ' checked' : '') + '> <span><b style="color:var(--ink)">' + esc(x.name || '') + '</b><br><span class="m">' + esc(x.email) + '</span></span></label>'; }).join('') || '<p class="m">Nobody matches.</p>';
+      Array.prototype.forEach.call(s.querySelectorAll('[data-p]'), function (c) { c.onchange = function () { if (c.checked) chosen[c.getAttribute('data-p')] = 1; else delete chosen[c.getAttribute('data-p')]; }; });
+    };
+    s.querySelector('#pp-q').oninput = drawP; drawP();
+  }
   function newCmm() {
     var b = document.getElementById('newcmm'); if (b) b.disabled = true;
     var up = window.EGBCMeetingPick ? EGBCMeetingPick.upcoming().catch(function () { return []; }) : Promise.resolve([]);

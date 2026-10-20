@@ -52,6 +52,7 @@
 <script src="egbc-gif.js?v=202610192100"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
 <script src="egbc-votd.js?v=202610201900"></script>
+<script src="egbc-unsplash.js?v=202610210100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--ok:#15803d;--danger:#b0392c;--card:0 1px 2px rgba(16,24,40,.05)}
@@ -379,7 +380,8 @@
     return [opening || 'Verse of the day', '\u201c' + String(V.text || '').trim() + '\u201d\n' + [V.ref, V.version].filter(Boolean).join(' '),
       V.copyright ? String(V.copyright) : '', credit || '', SOC.tags].filter(Boolean).join('\n\n');
   }
-  function captionNow() { return S.mode === 'verse' ? verseCaption(S.verse, SOC.open) : eventCaption(S.ev, SOC.open); }
+  function photoCredit() { var c = S.credit && S.credit.url === S.photoUrl && window.EGBCUnsplash ? EGBCUnsplash.creditText(S.credit) : ''; return c ? '\n\n' + c : ''; }
+  function captionNow() { return (S.mode === 'verse' ? verseCaption(S.verse, SOC.open) : eventCaption(S.ev, SOC.open)) + photoCredit(); }
   function refreshCaption(force) {
     var c = document.getElementById('s-cap'); if (!c) return;
     if (force) SOC.capEdited = false;
@@ -415,7 +417,7 @@
       var opening = (document.getElementById('cdl-' + d[0]) || {}).value || d[1];
       var ref = EGBCAuth.db.collection('socialPosts').doc('cd_' + String(e.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) + '_' + d[0]);
       batch.set(ref, Object.assign({ date: day, kind: 'countdown', eventId: String(e.id), title: String(e.title || '').slice(0, 140), opening: String(opening).slice(0, 140),
-        caption: eventCaption(e, opening).slice(0, 2200), status: 'ready', createdBy: u.uid || '', createdAt: new Date().toISOString() }, base));
+        caption: (eventCaption(e, opening) + photoCredit()).slice(0, 2200), status: 'ready', createdBy: u.uid || '', createdAt: new Date().toISOString() }, base));
       n++;
     });
     if (!n) { toast('Those days have gone by.'); return Promise.resolve(0); }
@@ -565,7 +567,8 @@
         '<div><label class="f" for="w-button">Button words (blank for none)</label><input type="text" id="w-button" maxlength="24"></div></div>' +
         '<label class="f" for="w-title">Title</label><input type="text" id="w-title" maxlength="80">' +
         '<label class="f" for="w-when">When and where</label><input type="text" id="w-when" maxlength="80">' +
-        '<label class="f" for="w-accent">Colour</label><input type="color" id="w-accent" value="' + esc(S.accent) + '"></div>' +
+        '<label class="f" for="w-accent">Colour</label><input type="color" id="w-accent" value="' + esc(S.accent) + '">' +
+        (window.EGBCUnsplash ? '<label class="f">Photo</label><div class="row"><button type="button" class="btn sec" id="w-unsplash">Search Unsplash</button></div><p class="m" id="w-credit" role="status"></p>' : '') + '</div>' +
       '<div class="card"><h2>Save</h2><div class="row" id="outs"></div>' +
         '<p class="m">GIF for the e-news; video for Instagram, Facebook and the screens; the picture for print and anywhere else. GIFs and videos download for now: the picture library keeps them once it can (FINDINGS-comms C-16).</p></div>' +
       '<div class="card" id="social"><h2>Social post</h2><p class="m" style="margin:0">For Instagram and Facebook: the picture and its caption, written from the event in the church\u2019s way. Change any of it.</p>' +
@@ -590,6 +593,18 @@
     wireSocial();
     ['kicker', 'title', 'when', 'button'].forEach(function (k) { document.getElementById('w-' + k).oninput = function () { S.words[k] = this.value; preview(); }; });
     document.getElementById('w-accent').oninput = function () { S.accent = this.value; preview(); };
+    /* A photo from Unsplash: shown from there, and its credit goes in the
+       caption ("Photo by <name> on Unsplash"), as Unsplash asks. */
+    var wu = document.getElementById('w-unsplash');
+    if (wu) wu.onclick = function () {
+      EGBCUnsplash.pick({ shape: S.size === 'story' ? 'portrait' : '' }).then(function (p) {
+        if (!p) return;
+        setPhoto(p.regular); S.credit = EGBCUnsplash.credit(p);
+        if (S.mode === 'verse' && S.vstyle !== 'photo' && VSTYLES.photo) { S.vstyle = 'photo'; Array.prototype.forEach.call(document.querySelectorAll('#vstyles button'), function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-v') === 'photo')); }); }
+        document.getElementById('w-credit').textContent = EGBCUnsplash.creditText(S.credit) + ' (in the caption).';
+        EGBCUnsplash.used(p); refreshCaption();
+      });
+    };
     wire('sizes', 'size'); wire('styles', 'style'); wire('moves', 'move'); wire('vstyles', 'vstyle'); wire('modes', 'mode');
     Array.prototype.forEach.call(document.querySelectorAll('#modes button'), function (b) { b.addEventListener('click', function () { SOC.open = ''; var o = document.getElementById('s-open'); if (o) o.value = ''; showMode(); refreshCaption(true); }); });
     Array.prototype.forEach.call(document.querySelectorAll('#vod-style button'), function (b) {

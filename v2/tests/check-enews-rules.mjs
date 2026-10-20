@@ -99,6 +99,23 @@ async function run(rules) {
   await t('a post cannot carry other things', assertFails(setDoc(doc(as('office'), 'socialPosts', 'p2'), post({ recipients: ['x'] }))));
   await t('the office can save the hashtags and the verse of the day', assertSucceeds(setDoc(doc(as('office'), 'socialSettings', 'main'), { usual: '#esherchurch', sets: {}, vod: { on: true }, remind: ['en_office'], updatedAt: 'x', updatedBy: 'en_office' })));
   await t('a church member cannot change them', assertFails(setDoc(doc(as('member'), 'socialSettings', 'main'), { usual: '#x', updatedAt: 'x', updatedBy: 'en_member' })));
+  /* One-off emails and templates (plan F and G). */
+  await t('office can save a one-off email to a team', assertSucceeds(setDoc(doc(as('office'), 'enewsIssues', 'one1'), issue('en_office', { kind: 'oneoff', audience: 'team', team: 'Welcome team', picked: [], templateId: 'invite' }))));
+  await t('office can save one to people picked', assertSucceeds(setDoc(doc(as('office'), 'enewsIssues', 'one2'), issue('en_office', { kind: 'oneoff', audience: 'picked', picked: ['p1', 'p2'] }))));
+  await t('an email goes only to a known kind of audience', assertFails(setDoc(doc(as('office'), 'enewsIssues', 'one3'), issue('en_office', { kind: 'oneoff', audience: 'everyone@example.invalid' }))));
+  await t('picked is a list of people, never one string', assertFails(setDoc(doc(as('office'), 'enewsIssues', 'one4'), issue('en_office', { kind: 'oneoff', audience: 'picked', picked: 'p1,p2' }))));
+  await t('no more than 300 picked', assertFails(setDoc(doc(as('office'), 'enewsIssues', 'one5'), issue('en_office', { kind: 'oneoff', audience: 'picked', picked: Array.from({ length: 301 }, (_, i) => 'p' + i) }))));
+  await t('the kind is an e-news or a one-off email', assertFails(setDoc(doc(as('office'), 'enewsIssues', 'one6'), issue('en_office', { kind: 'bulk' }))));
+  const tpl = (o) => Object.assign({ name: 'Our letter', about: '', group: 'Ours', subject: 'A letter', preheader: '', template: 'classic', audience: 'subscribers', blocks: [{ type: 'text', html: '<p>Hi</p>' }], archived: false, createdAt: 'x', createdBy: 'en_office', updatedAt: 'x', updatedBy: 'en_office' }, o);
+  await t('office can save a template', assertSucceeds(setDoc(doc(as('office'), 'emailTemplates', 't1'), tpl())));
+  await t('office can read the templates', assertSucceeds(getDocs(collection(as('office'), 'emailTemplates'))));
+  await t('a church member cannot read the templates', assertFails(getDocs(collection(as('member'), 'emailTemplates'))));
+  await t('a church member cannot save one', assertFails(setDoc(doc(as('member'), 'emailTemplates', 't2'), tpl({ updatedBy: 'en_member' }))));
+  await t('a template cannot carry other things', assertFails(setDoc(doc(as('office'), 'emailTemplates', 't3'), tpl({ recipients: ['x@example.invalid'] }))));
+  await t('a template needs a name', assertFails(setDoc(doc(as('office'), 'emailTemplates', 't4'), tpl({ name: '' }))));
+  await t('a template is saved as yourself', assertFails(setDoc(doc(as('office'), 'emailTemplates', 't5'), tpl({ updatedBy: 'en_master' }))));
+  await t('the Unsplash cache is the server’s: not even a master admin reads it', assertFails(getDoc(doc(as('master'), 'unsplashCache', '_hour'))));
+  await t('nobody writes the Unsplash cache from a page', assertFails(setDoc(doc(as('office'), 'unsplashCache', '_hour'), { hour: 'x', used: 0 })));
   /* Under 18 is the office's to tick, like Under 16 (C-36). */
   await t('a team leader cannot tick Under 18 on their team’s person', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
   await t('the office can tick Under 18', assertSucceeds(setDoc(doc(as('office'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
@@ -124,6 +141,9 @@ const BREAKS = [
   ['any number of social links', "                   && (request.resource.data.church.get('social', []) is list && request.resource.data.church.get('social', []).size() <= 12)", '', 'no more than 12 social links'],
   ['anyone may read the social posts', 'allow read: if enewsOffice();   // social posts: the office', 'allow read: if true;   // social posts: the office', 'a church member cannot read the posts'],
   ['team leaders may set Under 18', "                 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));", '));', 'cannot tick Under 18'],
+  ['any audience allowed on an email', "&& d.get('audience', 'subscribers') in ['subscribers', 'members', 'team', 'picked']", "&& true", 'known kind of audience'],
+  ['church members may read the templates', 'allow read: if enewsOffice();   // email templates: the office', 'allow read: if active();   // email templates: the office', 'cannot read the templates'],
+  ['the office may read the Unsplash cache', 'allow read, write: if false;   // unsplash cache: the server only', 'allow read, write: if enewsOffice();   // unsplash cache: the server only', 'Unsplash cache'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];
 let caught = 0;

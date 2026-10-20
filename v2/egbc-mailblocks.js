@@ -279,6 +279,17 @@
     return '<img class="fluid" src="' + esc(src) + '" width="' + w + '" alt="' + esc(alt || '') + '" ' +
       'style="display:block;width:100%;max-width:' + w + 'px;height:auto;border:0;outline:none;text-decoration:none;' + (radius ? 'border-radius:' + (typeof radius === 'string' ? radius : radius + 'px') + ';' : '') + '">';
   }
+  /* A picture from Unsplash carries its credit (Unsplash's guidelines):
+     "Photo by <name> on Unsplash", both linked, with Church HQ's UTM tags.
+     Shown only while the picture is still the one credited. */
+  var UNSPLASH_UTM = 'utm_source=church_hq&utm_medium=referral';
+  function creditLine(c, src, t, pad) {
+    if (!c || !c.name || c.url !== src) return '';
+    var prof = /^https:\/\/unsplash\.com\/@[A-Za-z0-9_.-]{1,60}\?utm_source=church_hq&utm_medium=referral$/.test(String(c.profile || '')) ? c.profile : '';
+    if (!prof) return '';
+    var a = function (u, w) { return '<a href="' + esc(u) + '" target="_blank" style="color:' + t.muted + ';text-decoration:underline;">' + esc(w) + '</a>'; };
+    return '<div style="font-family:' + t.font + ';font-size:11px;line-height:140%;color:' + t.muted + ';text-align:right;padding:' + (pad || '4px 0 0') + ';">Photo by ' + a(prof, String(c.name).slice(0, 80)) + ' on ' + a('https://unsplash.com/?' + UNSPLASH_UTM, 'Unsplash') + '</div>';
+  }
   function rule(t) {
     return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:2px solid ' + t.rule + ';font-size:1px;line-height:1px;">&nbsp;</td></tr></table>', '18px');
   }
@@ -378,7 +389,7 @@
       case 'header':
         /* Val's hero: the week's picture, full width, no margin. */
         return (safeUrl(b.imageUrl)
-          ? row((safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '" target="_blank">' : '') + image(safeUrl(b.imageUrl), b.alt || b.title, 600) + (safeUrl(b.link) ? '</a>' : ''), '9px 0 0')
+          ? row((safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '" target="_blank">' : '') + image(safeUrl(b.imageUrl), b.alt || b.title, 600) + (safeUrl(b.link) ? '</a>' : '') + creditLine(b.credit, safeUrl(b.imageUrl), t, '4px 18px 0'), '9px 0 0')
           : (o.preview ? row(placeholder('Add this week’s picture', 220), '9px 18px') : '')) +
           (b.title ? row('<h1 style="margin:0;font-family:' + t.font + ';font-size:22px;line-height:125%;font-weight:bold;color:' + t.title + ';text-align:center;">' + esc(b.title) + '</h1>', '18px 18px 0') : '');
       case 'verse':
@@ -431,7 +442,7 @@
       case 'picture':
         if (!safeUrl(b.url)) return '';
         var pic = image(safeUrl(b.url), b.alt, 564, 8);
-        return row((safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '" target="_blank">' + pic + '</a>' : pic) +
+        return row((safeUrl(b.link) ? '<a href="' + esc(safeUrl(b.link)) + '" target="_blank">' + pic + '</a>' : pic) + creditLine(b.credit, safeUrl(b.url), t) +
           (b.caption ? '<div class="t" style="' + textStyle(t) + 'padding:6px 0 0;">' + esc(b.caption) + '</div>' : ''));
       case 'button':
         return row(button(b, t), '18px');
@@ -448,7 +459,7 @@
             (meetingWhen(b) ? '<p style="margin:0 0 12px;"><strong>' + esc(meetingWhen(b)) + '</strong></p>' : '') +
             (b.text ? '<p style="margin:0 0 12px;">' + esc(b.text) + '</p>' : '') + '</div>' +
             button({ url: b.url, label: b.label || 'Join the meeting' }, t) +
-            '<div style="font-family:' + t.font + ';font-size:12px;line-height:140%;color:' + t.muted + ';text-align:center;padding:8px 0 0;">' + esc(KNOCK) + '</div>', '9px 18px 18px');
+            (b.zoom ? '' : '<div style="font-family:' + t.font + ';font-size:12px;line-height:140%;color:' + t.muted + ';text-align:center;padding:8px 0 0;">' + esc(KNOCK) + '</div>'), '9px 18px 18px');
       case 'divider':
         return rule(t);
       case 'spacer':
@@ -543,6 +554,7 @@
         (h || '<tr><td style="padding:14px 18px;font-family:Arial,sans-serif;font-size:14px;color:#9ca3af;text-align:center;">(' + esc(b.type) + ': nothing in it yet)</td></tr>') + '</table></td></tr>';
     }).join('');
     var pre = issue.preheader ? '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;font-size:1px;line-height:1px;color:' + t.page + ';">' + esc(issue.preheader) + '</div>' : '';
+    if (opts.preview && !opts.edit) body = body.split('{{first_name}}').join('(their first name)');
     return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<meta name="x-apple-disable-message-reformatting"><title>' + esc(issue.subject || '') + '</title>' +
       '<!--[if mso]><style type="text/css">body,table,td,p,a,div{font-family:Arial,sans-serif !important;}</style><![endif]-->' +
@@ -583,7 +595,22 @@
       if (b.type === 'verse' && !String(b.text || '').trim()) missing.push('verse');
       if (b.type === 'meeting' && !safeUrl(b.url)) missing.push('meeting');
     });
-    return { ok: missing.length === 0, missing: missing };
+    /* A template's [parts to fill in] (egbc-starters.js): an email from a
+       template, or a one-off email, waits until none is left. (Not the
+       weekly e-news: an event's own words may have square brackets.) */
+    var prompts = [];
+    if (issue && (issue.kind === 'oneoff' || issue.templateId)) {
+      var seen = {};
+      var look = function (v) { String(v || '').replace(/<[^>]+>/g, ' ').replace(/\[([^\[\]\n]{2,80})\]/g, function (m, w) { if (!seen[w]) { seen[w] = 1; prompts.push(w); } return m; }); };
+      look(issue.subject); look(issue.preheader);
+      (issue.blocks || []).forEach(function (b) {
+        if (!b || b.hidden === true) return;
+        look(b.title); look(b.html); look(b.text); look(b.label); look(b.when); look(b.caption);
+        (b.cols || []).forEach(function (c) { look(c && c.html); });
+      });
+      if (prompts.length) missing.push('fill');
+    }
+    return { ok: missing.length === 0, missing: missing, prompts: prompts };
   }
 
   /* ---- the automatic draft (C-9, C-18) ---------------------------------

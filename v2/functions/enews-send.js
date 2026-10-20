@@ -56,17 +56,49 @@ export function londonNow(d = new Date()) {
 }
 export const isDue = (issue, nowLocal) => issue.status === 'scheduled' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(issue.sendAt || '')) && issue.sendAt <= nowLocal;
 
-/* Which copy, and the person's own links, for one subscriber. Pure. */
+const escHtml = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* Which copy, and the person's own links, for one person. Pure.
+   A subscriber has their own unsubscribe link and the one-click header.
+   Someone sent a one-off email who is not a subscriber (church members, a
+   team, people picked) has a "please leave me out" email to the office
+   instead. "Dear {{first_name}}" becomes theirs ("friend" if none). */
 export function letterFor(issue, sub, isMember, o = {}) {
   const hub = o.hub || HUB, fnBase = o.fnBase || FN_LIVE;
-  const page = hub + '/enews-unsubscribe.html?t=' + encodeURIComponent(sub.token);
-  const html = String(isMember ? issue.htmlMembers : issue.htmlEveryone || '').split(PLACEHOLDER).join(page);
+  const leave = 'mailto:' + String(o.replyTo || '') + '?subject=' + encodeURIComponent('Please leave me out of these emails');
+  const page = sub.token ? hub + '/enews-unsubscribe.html?t=' + encodeURIComponent(sub.token) : leave;
+  const first = escHtml(String(sub.firstName || '').trim().split(/\s+/)[0] || 'friend');
+  const html = String(isMember ? issue.htmlMembers : issue.htmlEveryone || '').split(PLACEHOLDER).join(page).split('{{first_name}}').join(first);
+  const kind = issue.kind === 'oneoff' ? 'mailing' : 'enews';
   return {
-    to: sub.email, subject: issue.subject, html,
-    headers: { 'List-Unsubscribe': '<' + fnBase + '/enewsUnsubscribe?t=' + encodeURIComponent(sub.token) + '>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
-    tags: { kind: 'enews', issue: o.issueId || '', sub: sub.id || '' },
-    idempotencyKey: 'enews-' + (o.issueId || '') + '-' + (sub.id || '')
+    to: sub.email, subject: String(issue.subject || '').split('{{first_name}}').join(first), html,
+    headers: sub.token
+      ? { 'List-Unsubscribe': '<' + fnBase + '/enewsUnsubscribe?t=' + encodeURIComponent(sub.token) + '>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' }
+      : { 'List-Unsubscribe': '<' + leave + '>' },
+    tags: { kind, issue: o.issueId || '', sub: sub.id || '' },
+    idempotencyKey: kind + '-' + (o.issueId || '') + '-' + (sub.id || '')
   };
+}
+
+/* WHO A ONE-OFF EMAIL GOES TO (plan F), worked out here - never from a
+   page: e-news subscribers (as the e-news); church members (the address
+   book's tick); a team or group (its marker); or people picked from the
+   address book. Never archived, never without an address; under-18s are
+   taken out where the list is sent. Each address once. */
+export async function recipientsFor(db, issue, subsDocs) {
+  const out = [], seen = new Set();
+  const add = (r) => { const e = String(r.email || '').trim().toLowerCase(); if (!e || seen.has(e)) return; seen.add(e); out.push(Object.assign({}, r, { email: e })); };
+  const fromBook = (d) => { const x = d.data() || {}; if (x.archived === true) return; add({ id: 'ab_' + d.id, email: x.email, firstName: String(x.name || '').split(/\s+/)[0], token: '', member: x.churchMember === true }); };
+  const aud = issue.kind === 'oneoff' ? (issue.audience || 'subscribers') : 'subscribers';
+  if (aud === 'subscribers') {
+    subsDocs.forEach(s => { const x = s.data(); if (x.lists && x.lists.weekly === true && x.token) add({ id: s.id, email: x.email, firstName: x.firstName || '', token: x.token }); });
+  } else if (aud === 'members') {
+    (await db.collection('addressBook').where('churchMember', '==', true).get()).docs.forEach(fromBook);
+  } else if (aud === 'team' && issue.team) {
+    (await db.collection('addressBook').where('markers', 'array-contains', String(issue.team)).get()).docs.forEach(fromBook);
+  } else if (aud === 'picked') {
+    for (const id of (issue.picked || []).slice(0, 300)) { const d = await db.collection('addressBook').doc(String(id)).get(); if (d.exists) fromBook(d); }
+  }
+  return out;
 }
 
 /* Who gets the members' copy, by email: in the address book (not
@@ -114,24 +146,26 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
     const church = details.exists ? details.data() : {};
     const already = new Set(done.docs.map(d => d.id));
     let sent = 0, failed = 0, toMembers = 0, under18 = 0;
-    for (const s of subs.docs) {
-      const sub = Object.assign({ id: s.id }, s.data());
-      if (!sub.lists || sub.lists.weekly !== true || !sub.token) continue;
-      if (already.has(s.id)) { sent++; continue; }
+    const people = await recipientsFor(db, issue, subs.docs);
+    const toMembersOnly = issue.kind === 'oneoff' && issue.audience === 'members';
+    for (const sub of people) {
+      if (already.has(sub.id)) { sent++; continue; }
       /* Never an under-18, even one on the list (ticked after they joined). */
       if (minors.has(String(sub.email || '').toLowerCase())) { under18++; continue; }
-      const isMember = members.has(String(sub.email || '').toLowerCase());
-      const letter = letterFor(issue, sub, isMember, { hub, fnBase, issueId: doc.id });
-      const r = await send(Object.assign(letter, { fromName: church.name || '', replyTo: church.enquiryEmail || '' }), { kind: 'enews', issueId: doc.id, subscriberId: s.id, copy: isMember ? 'members' : 'everyone' });
-      await doc.ref.collection('sends').doc(s.id).set({ at: new Date().toISOString(), ok: !!r.ok, copy: isMember ? 'members' : 'everyone', error: r.error || '' });
+      const isMember = toMembersOnly || members.has(String(sub.email || '').toLowerCase());
+      const letter = letterFor(issue, sub, isMember, { hub, fnBase, issueId: doc.id, replyTo: church.enquiryEmail || '' });
+      const r = await send(Object.assign(letter, { fromName: church.name || '', replyTo: church.enquiryEmail || '' }), { kind: issue.kind === 'oneoff' ? 'mailing' : 'enews', issueId: doc.id, subscriberId: sub.id, copy: isMember ? 'members' : 'everyone' });
+      await doc.ref.collection('sends').doc(sub.id).set({ at: new Date().toISOString(), ok: !!r.ok, copy: isMember ? 'members' : 'everyone', error: r.error || '' });
       if (r.ok) { sent++; if (isMember) toMembers++; } else failed++;
       if (gap) await sleep(gap);   /* Resend: at most 10 a second */
     }
     /* The web version: everybody else's copy, the unsubscribe link turned
-       into the sign-up page (a web page has no one person to unsubscribe). */
-    await db.collection('enewsWeb').doc(doc.id).set({
+       into the sign-up page (a web page has no one person to unsubscribe).
+       Only for the e-news and emails to subscribers: an email to church
+       members, a team or picked people has no public web version. */
+    if (issue.kind !== 'oneoff' || (issue.audience || 'subscribers') === 'subscribers') await db.collection('enewsWeb').doc(doc.id).set({
       subject: issue.subject || '', sentAt: new Date().toISOString(),
-      html: String(issue.htmlEveryone).split(PLACEHOLDER).join((hub || HUB) + '/enews-signup.html')
+      html: String(issue.htmlEveryone).split(PLACEHOLDER).join((hub || HUB) + '/enews-signup.html').split('{{first_name}}').join('friend')
     });
     await doc.ref.update({ status: 'sent', sentAt: new Date().toISOString(), counts: { sent, failed, members: toMembers, under18 } });
     results.push({ id: doc.id, sent, failed, members: toMembers, under18 });

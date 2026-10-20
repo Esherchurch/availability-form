@@ -520,6 +520,15 @@
 
   /* The picked block's settings: Content, Style, Who sees it. */
   function picField(id, lab, v) { return field(id, lab + ' (a link, or choose one below)', v, 'url', ' placeholder="https://"') + '<div class="pics" id="pics-' + id + '"></div>'; }
+  /* Pictures from Unsplash (egbc-unsplash.js; the server searches): the
+     picture is shown from Unsplash, its credit kept with the block and put
+     under it in the email, and Unsplash told it was used. */
+  function unsplashBtn(b, cur) {
+    if (!window.EGBCUnsplash) return '';
+    var c = b.credit && b.credit.url === cur ? b.credit : null;
+    return '<div style="margin-top:8px"><button type="button" class="b" id="f-unsplash">' + I('search', 16) + 'Search Unsplash</button></div>' +
+      (c ? '<p class="m" id="f-credit">' + esc(EGBCUnsplash.creditText(c)) + ' (shown under it in the email)</p>' : '');
+  }
   function loadPics() {
     if (PICS) return Promise.resolve(PICS);
     return db().collection('pictureLibrary').orderBy('createdAt', 'desc').limit(48).get().then(function (s) {
@@ -528,8 +537,8 @@
   }
   function contentFields(b) {
     var t = b.type;
-    if (t === 'header') return picField('f-img', 'The week’s picture', b.imageUrl) + field('f-alt', 'Describe it (for people who can’t see it)', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url');
-    if (t === 'picture') return picField('f-img', 'Picture', b.url) + field('f-alt', 'Describe it', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url') + field('f-cap', 'Caption (optional)', b.caption);
+    if (t === 'header') return picField('f-img', 'The week’s picture', b.imageUrl) + unsplashBtn(b, b.imageUrl) + field('f-alt', 'Describe it (for people who can’t see it)', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url');
+    if (t === 'picture') return picField('f-img', 'Picture', b.url) + unsplashBtn(b, b.url) + field('f-alt', 'Describe it', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url') + field('f-cap', 'Caption (optional)', b.caption);
     if (t === 'event') return '<p class="m">Type the words on the email. Make the first line bold for a title, as Val does.</p>' + field('f-title', 'Title (optional)', b.title) + field('f-when', 'When and where (optional)', b.when) +
       picField('f-img', 'Picture', b.imageUrl) + '<label class="tick"><input type="checkbox" id="f-right"' + (b.side === 'right' ? ' checked' : '') + '> The picture on the right</label>' +
       field('f-blabel', 'Button words (optional)', b.buttonLabel, 'text', ' placeholder="Sign up here"') + field('f-burl', 'Button link', b.buttonUrl, 'url', ' placeholder="https://"');
@@ -607,6 +616,19 @@
         });
       });
     });
+    var us = document.getElementById('f-unsplash');
+    if (us) us.onclick = function () {
+      EGBCUnsplash.pick({ shape: 'landscape' }).then(function (p) {
+        if (!p) return;
+        change(function () {
+          if (b.type === 'picture') b.url = p.regular; else b.imageUrl = p.regular;
+          b.credit = EGBCUnsplash.credit(p);
+          if (!b.alt) b.alt = String(p.alt || '').slice(0, 200);
+        });
+        EGBCUnsplash.used(p);
+        toast('Picture from Unsplash added, credited to ' + p.name + '.');
+      });
+    };
     var right = document.getElementById('f-right'); if (right) right.onchange = function () { change(function () { b.side = right.checked ? 'right' : ''; }, { panel: false }); };
     Array.prototype.forEach.call(document.querySelectorAll('[data-opt] [data-v]'), function (x) {
       x.onclick = function () { var k = x.parentNode.getAttribute('data-opt'); change(function () { b[k] = x.getAttribute('data-v'); }); };
@@ -697,6 +719,10 @@
       if (m === 'picture') out.push({ lv: 'bad', t: 'Add this week’s picture (or remove that block).', i: idx(function (b) { return b.type === 'header' && !MB.safeUrl(b.imageUrl); }) });
       else if (m === 'verse') out.push({ lv: 'bad', t: 'Add this week’s verse (or remove that block).', i: idx(function (b) { return b.type === 'verse' && !String(b.text || '').trim(); }) });
       else if (m === 'meeting') out.push({ lv: 'bad', t: 'Pick the meeting.', i: idx(function (b) { return b.type === 'meeting' && !MB.safeUrl(b.url); }) });
+      else if (m === 'fill') ready.prompts.forEach(function (w) {
+        out.push({ lv: 'bad', t: 'Fill in \u201c[' + w + ']\u201d.', go: String(ISSUE.subject || '').indexOf('[' + w + ']') >= 0 ? 'subj' : '',
+          i: idx(function (b) { return JSON.stringify([b.title, b.html, b.text, b.label, b.when, b.caption, b.cols]).indexOf('[' + w + ']') >= 0; }) });
+      });
     });
     MB.missing(bl).forEach(function (x) { out.push({ lv: 'warn', t: x.title + ': needs a ' + x.need.join(' and a ') + ' (add it in What’s On).', i: idx(function (b) { return b.type === 'event' && (b.title || '(no title)') === x.title; }) }); });
     bl.forEach(function (b, k) {
@@ -752,8 +778,20 @@
     var old = document.querySelector('.menu'); if (old) { old.remove(); return; }
     var m = document.createElement('div'); m.className = 'menu';
     m.innerHTML = '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '&view=send">' + I('calendar-clock', 17) + 'Schedule it (sending opens at go-live)</a>' +
-      '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '">' + I('chevron-left', 17) + 'Back to this e-news</a><a href="enews.html">' + I('list', 17) + 'All e-news</a>';
+      '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '">' + I('chevron-left', 17) + 'Back to this ' + (ISSUE.kind === 'oneoff' ? 'email' : 'e-news') + '</a><a href="enews.html">' + I('list', 17) + 'All e-news and emails</a>' +
+      '<button type="button" id="save-tpl">' + I('layout-template', 17) + 'Save as a template</button>';
     document.body.appendChild(m); icons(m);
+    /* Save as a template: the blocks, the look and who it goes to, kept
+       for the church (emailTemplates); New email offers it under "Ours". */
+    document.getElementById('save-tpl').onclick = function () {
+      var name = prompt('A name for this template:', String(ISSUE.subject || '').replace(/\s*\d{1,2}\s+\w+\s*$/, '').slice(0, 80));
+      if (!name) return;
+      var u = EGBCAuth.user() || {};
+      db().collection('emailTemplates').doc().set(Object.assign({ name: name.trim().slice(0, 80), about: '', group: 'Ours', subject: String(ISSUE.subject || '').slice(0, 200), preheader: String(ISSUE.preheader || '').slice(0, 200),
+        template: ISSUE.template === 'green' ? 'green' : 'classic', audience: ISSUE.audience || 'subscribers', blocks: (ISSUE.blocks || []).slice(0, 80), archived: false, createdAt: new Date().toISOString(), createdBy: u.uid || '' }, stamp()))
+        .then(function () { toast('Saved as a template: \u201c' + name.trim() + '\u201d.'); }, function (e) { toast('Not saved: ' + (e.message || e)); });
+      m.remove();
+    };
     var links = m.querySelectorAll('a');
     Array.prototype.forEach.call(links, function (a) { a.addEventListener('click', function (ev) { ev.preventDefault(); var to = a.getAttribute('href'); save().then(function () { location.href = to; }); }); });
     setTimeout(function () { document.addEventListener('click', function close() { m.remove(); document.removeEventListener('click', close); }); }, 0);
