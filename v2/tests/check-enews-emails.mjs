@@ -282,7 +282,8 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews.html?welcomes=1' });
     await until('document.querySelectorAll(".sheet [data-k]").length===2', 20000); await sleep(800);
     ok('back on Welcome emails: the newcomer one can be switched on now, the other still can\u2019t', !(await ev('document.querySelector(\'.sheet [data-k="newcomer"] [data-on]\').disabled')) && await ev('document.querySelector(\'.sheet [data-k="subscriber"] [data-on]\').disabled'));
-    await ev('var c=document.querySelector(\'.sheet [data-k="newcomer"] [data-on]\');c.checked=true;c.dispatchEvent(new Event("change")),1'); await sleep(1800);
+    await ev('var c=document.querySelector(\'.sheet [data-k="newcomer"] [data-on]\');c.checked=true;c.dispatchEvent(new Event("change")),1');
+    await until('/On: it sends by itself/.test((document.querySelector(\'.sheet [data-k="newcomer"]\') || {}).innerText || "")', 15000);
     const W = (await list2('enewsSettings')).find(d => d._id === 'welcomes') || {};
     ok('switched on: kept for the server (newcomer on, subscriber off)', W.newcomer === true && W.subscriber === false && /On: it sends by itself/.test(await ev('document.querySelector(\'.sheet [data-k="newcomer"]\').innerText')), W);
     await ev('document.querySelector(".sheet .x").click(),1'); await sleep(1200);

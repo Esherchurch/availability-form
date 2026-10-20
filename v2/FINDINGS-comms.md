@@ -260,6 +260,81 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 21 Oct: the welcome emails, the event invitation from What's On, letter spacing and {date}. For review
+
+The reviewing window's order: 1, then 2, then 3.
+
+### 1. The welcome emails, sent by themselves (plan G)
+
+- **Where:** E-news → **Welcome emails**. There are two, each written in the editor from its starter ("Write it" / "Edit the words") and each switched on by its own tick, "Send it by itself".
+  - **The tick stays greyed out** until the words are complete: the editor keeps the finished email only while nothing is left to fill in. If the words become unfinished while it is on, the sheet says "On, but NOT sending" and the server sends nothing.
+  - The words are kept as two fixed drafts (`enewsIssues/auto_subscriber`, `auto_newcomer`), hidden from the list of e-news and emails.
+  - Their Done menu goes back to Welcome emails, never to Schedule.
+  - The switches are in `enewsSettings/welcomes`, apart from the look's document, so saving the look can't wipe them.
+- **New subscriber welcome** (`welcomeSubscriber`):
+  - **When:** a sign-up changes from pending to subscribed, *confirmed by email*. Not for the office adding someone, an edit or an unsubscribe.
+  - **What:** their first name, their own unsubscribe link and the one-click header, as the e-news.
+- **Newcomer welcome** (`welcomeNewcomer`), when someone says hello on "I'm new here", as you set out:
+  - **only to the address the person gave.** Nothing is sent if they gave none (never to a phone number), and it goes to nobody else, with no copy;
+  - **never to an under-18** (under18.js);
+  - **a welcome, never a care referral.** It reads the hello's name and email and nothing else: never the message, the phone number or "please contact me". It writes nothing to the hello or to any care, pastoral or safeguarding record. The welcomers and the church still hear of a hello exactly as now (notify.js `onHello`, public-mail.js `newHere`, both untouched);
+  - only while "I'm new here" is switched on;
+  - the sheet says all this in plain words.
+- **Both:**
+  - once per person (`welcomeSent`, server only);
+  - Church HQ's sender, like the e-news;
+  - **shut until go-live** with the e-news (enews-gate.js).
+
+### 2. Event invitation, filled from a What's On event
+
+- **"Event invitation"** under New email first asks **which event**:
+  - the next four months of What's On, everyone's and members' events only;
+  - never a not-listed or team event, nor a cancelled or unconfirmed one;
+  - or **Choose later**.
+- **It fills in:**
+  - the event's picture (or no empty picture block), title and own words;
+  - the day and time (e.g. "Friday 23 October, 6:30pm") and the place;
+  - **Sign up here** to its sign-up, or **Find out more** to its What's On page when it takes no sign-ups;
+  - the subject "You're invited: <title>".
+- **A members' event** is for church members, every block members-only.
+- **Anything the event lacks** stays a [part to fill in].
+- It is `fillInvite` in egbc-mailblocks.js: pure, shared, checked in Node.
+
+### 3. Small gaps
+
+- **Letter spacing** in the words toolbar: Normal (our look), 0.5px, 1px, 1.5px, 2px or 3px.
+  - It goes on the chosen words only, across paragraphs, keeping their size and font.
+  - Only these steps survive into the email.
+  - "Back to our look" takes it off.
+- **"Back to our look" fix:** it now finds everything selected *before* changing anything. Before, taking off an outer style could leave an inner one (the new check found this).
+- **`{date}` in a template's subject** becomes the date when an email is started from it:
+  - the event's (invitation);
+  - the meeting's (the members' meeting starter now uses `{date}`, not a [date] to fill in);
+  - otherwise that day.
+  - The Templates sheet says so.
+
+### To deploy, and when
+
+- **`firebase deploy --only functions:hub`:**
+  - the new `welcomeSubscriber` and `welcomeNewcomer` triggers. They send nothing until go-live (the e-news gate), until each is switched on, and until its words are finished.
+  - **functions/index.js:** one more export line under `meetingPapers` (for the main window).
+- **The rules** (`enewsSettings/welcomes`, `welcomeSent`) go live at switch-over with the rest.
+
+### Checks (this window's own emulators)
+
+The full run was on 1db08c2c. Every check was green and all 34 deliberate breaks were red, except one emails step. That step waited a fixed 1.8s for the sheet to save and redraw, which wasn't always enough under load. It now waits for the result: 36/36 twice, and its autocopy break is still red.
+
+| Check | Result |
+|---|---|
+| check-welcome-mail (new) | 26/26, including 6 breaks: the message put in the welcome, a copy to the church, an under-18 welcomed, sent twice, every change to a subscriber welcomed, sent though switched off |
+| check-enews-emails (Welcome emails, the event picker, {date}) | 36/36; breaks autocopy, fill, audience each red |
+| check-enews-blocks (fillInvite, letter spacing) | 78/78; 23/23 breaks red (new: an invitation to a members' event for everyone, an invitation without its sign-up, any letter spacing kept) |
+| check-enews-editor (letter spacing, Our look) | 43/43; breaks typing, undo, drop each red |
+| check-enews-rules | 64/64; 17/17 breaks red (new: anything on the welcome switches) |
+| Also passing | send 45/45, meeting-papers 21/21, unsplash 22/22, unsplash-pages 14/14, page 47/47, layout 11/11, side-by-side 5/5, social 13/13, votd 5/5, meeting 17/17, addressbook 18/18, subscribe 58/58, import 22/22, mail-route 27/27, canva 20/20, hqmail-key 22/22, cardmaker 33/33, canva-page 9/9, keybox-page 8/8, stamps 6/6, features-agree 18, compiler-send 12/12, ease self-check 12/12; every break red |
+
+---
+
 ## BUILT, 20 Oct late: a members' meeting's papers for members without a hub account (mailings plan 3.3). For review
 
 The main window's note of 21 Oct asked for this. Many members have no hub account, so the members' meeting email now gives each of them their own link to the papers.
@@ -342,9 +417,9 @@ The main window's note of 21 Oct asked for this. Many members have no hub accoun
 ### What's left in the plan (20 Oct)
 
 1. **Papers for members without a hub account** (mailings plan §3.3; the main window's note of 21 Oct): each member's email carries their own link, expiring 30 days after the meeting, served by a function, with no public file address. **Built: see above.**
-2. **The automatic welcomes:** "New subscriber welcome" sent by itself when someone confirms, and "Newcomer welcome" linked to "I'm new here". Today they are starters only.
-3. **Event invitation filled from a What's On event:** its picture, day and time, place, and the Sign up button.
-4. **Small gaps:** letter spacing in the toolbar (plan A), and a `{date}` subject pattern for templates.
+2. **(Built 21 Oct.) The automatic welcomes:** "New subscriber welcome" sent by itself when someone confirms, and "Newcomer welcome" linked to "I'm new here". Today they are starters only.
+3. **(Built 21 Oct.) Event invitation filled from a What's On event:** its picture, day and time, place, and the Sign up button.
+4. **(Built 21 Oct.) Small gaps:** letter spacing in the toolbar (plan A), and a `{date}` subject pattern for templates.
 5. **After the ease test:** the new editor replaces today's (E3).
 6. **Social posts step 2:** only if Martin sets up Meta.
 
