@@ -99,6 +99,8 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
   await put('addressBook/p_bob', { name: 'Bob Member', email: 'bob.em@example.invalid', churchMember: true, markers: [], archived: false });
   await put('addressBook/p_kid', { name: 'Kit Young', email: 'kit.em@example.invalid', churchMember: true, under18: true, markers: ['Welcome team'], archived: false });
   await put('events/m_cmm', { date: day(9), type: 'Church Members Meeting', startTime: '19:30', videoRoom: 'CMM', archived: false });
+  await put('calEvents/w2', { title: 'Synthetic members supper', visibility: 'members', status: 'confirmed', audience: ['members'], signupOn: true, location: 'Synthetic church hall', description: '<p>A supper for church members.</p>', image: 'http://localhost:' + SERVE + '/design-mocks/comms/card-photo.svg', startLocal: day(20) + 'T18:30', startUtc: Date.now() + 20 * 86400000 });
+  await put('calEvents/w3', { title: 'Synthetic support group', visibility: 'unlisted', status: 'confirmed', audience: ['unlisted'], startLocal: day(14) + 'T20:00', startUtc: Date.now() + 14 * 86400000 });
   await put('calEvents/w1', { title: 'Synthetic quiz night', visibility: 'public', status: 'confirmed', audience: ['public'], startLocal: day(12) + 'T19:30', startUtc: Date.now() + 12 * 86400000 });
   /* This week's e-news already started, so the list doesn't draft one. */
   await put('enewsIssues/wk', { subject: 'This week', preheader: '', template: 'classic', blocks: [], status: 'draft', week: 'x', createdAt: new Date().toISOString(), createdBy: 'x', updatedAt: 'x', updatedBy: 'x' });
@@ -241,6 +243,24 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
     const id3 = await startFrom('What\u2019s on this month');
     const dy = ((await issue(id3)).blocks || []).find(b => b.type === 'diary') || {};
     ok('"What\u2019s on this month" fills its diary from What\u2019s On', (dy.items || []).some(x => /Synthetic quiz night/.test(x.title)), dy.items);
+    /* The event invitation, filled from a What's On event. */
+    await openList();
+    await ev('document.getElementById("newmail").click(),1'); await until('document.querySelectorAll(".sheet [data-t]").length > 5', 15000);
+    await ev('[...document.querySelectorAll(".sheet [data-t]")].find(b=>b.textContent.startsWith("Event invitation")).click(),1');
+    await until('document.querySelectorAll(".sheet [data-e]").length > 0', 15000); await sleep(600);
+    const offered = await ev('[...document.querySelectorAll(".sheet [data-e]")].map(b=>b.innerText).join("|")');
+    ok('Event invitation asks which event: What\u2019s On\u2019s everyone\u2019s and members\u2019 events, never a not-listed one', /Synthetic quiz night/.test(offered) && /Synthetic members supper[\s\S]*church members/.test(offered) && !/support group/.test(offered), offered);
+    await shot('invite-pick');
+    await ev('[...document.querySelectorAll(".sheet [data-e]")].find(b=>/members supper/.test(b.innerText)).click(),1');
+    await until('location.pathname.endsWith("/enews-edit.html") && ' + C + ' && ' + C + '.querySelectorAll("[data-b]").length > 0', 25000); await sleep(1200);
+    const id5 = new URLSearchParams(await ev('location.search')).get('issue');
+    const i5 = await issue(id5), b5 = i5.blocks || [];
+    ok('…filled from it: picture, title, words, day and place, Sign up, for church members', i5.subject === 'You\u2019re invited: Synthetic members supper' && i5.audience === 'members' &&
+      /card-photo\.svg$/.test((b5.find(b => b.type === 'header') || {}).imageUrl || '') && (b5.find(b => b.type === 'heading') || {}).text === 'Synthetic members supper' &&
+      /A supper for church members[\s\S]*Synthetic church hall/.test(JSON.stringify(b5)) && /\/signup\.html\?event=w2$/.test((b5.find(b => b.type === 'button') || {}).url || '') && b5.every(b => b.members === true), [i5.subject, i5.audience, b5]);
+    await ev('document.querySelector(\'.rail [data-panel="check"]\').click(),1'); await sleep(500);
+    ok('…and nothing is left to fill in', !/Fill in/.test(await ev('document.getElementById("side").innerText')));
+
     /* The welcome emails (plan G: sent by themselves). */
     await openList();
     await ev('document.getElementById("welc").click(),1'); await until('document.querySelectorAll(".sheet [data-k]").length===2', 10000); await sleep(800);

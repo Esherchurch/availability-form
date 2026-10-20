@@ -661,6 +661,41 @@
     return null;   /* 'team', 'unlisted', and anything new: never */
   }
 
+  /* THE EVENT INVITATION, FILLED FROM A WHAT'S ON EVENT (plan G): the
+     starter's blocks (egbc-starters.js 'invite') with the event's picture,
+     title, write-up, day and time, place, and its Sign up button (or Find
+     out more, when it takes no sign-ups). A members' event is for church
+     members. What the event lacks stays a [part to fill in]; with no
+     picture the empty picture block goes. Never a team's or a not-listed
+     event, nor a cancelled or unconfirmed one: null. Pure. */
+  function fillInvite(blocks, ev, base) {
+    var share = eventShare(ev), st = ev && startOf(ev);
+    if (!share || !st) return null;
+    base = String(base || '').replace(/\/+$/, '');
+    var title = String(ev.title || '').trim().slice(0, 140) || '[The event]';
+    var when = words(st, ev.allDay === true).replace(' \u00b7 ', ', ');
+    var img = safeUrl(ev.image);
+    var link = ev.signupOn === true ? { label: 'Sign up here', url: base + '/signup.html?event=' + encodeURIComponent(ev.id || '') }
+      : { label: 'Find out more', url: base + '/whatson.html?event=' + encodeURIComponent(ev.id || '') };
+    var out = [];
+    (blocks || []).forEach(function (b0) {
+      var b = JSON.parse(JSON.stringify(b0));
+      if (b.type === 'header') { if (!img) return; b.imageUrl = img; b.alt = title; }
+      if (b.type === 'heading' && /\[The event\]/.test(b.text || '')) b.text = title;
+      if (b.type === 'text') {
+        var h = String(b.html || '');
+        if (String(ev.description || '').trim()) h = h.replace('<p>[What it is and who it\u2019s for.]</p>', String(ev.description).slice(0, 20000));
+        h = h.replace('[Day, date and time]', esc(when));
+        h = ev.location ? h.replace('[Where]', esc(String(ev.location).slice(0, 200))) : h.replace('<br>[Where]', '');
+        b.html = h;
+      }
+      if (b.type === 'button' && !safeUrl(b.url)) { b.label = link.label; b.url = link.url; }
+      if (share === 'members') b.members = true;
+      out.push(b);
+    });
+    return { blocks: out, subject: 'You\u2019re invited: ' + title, preheader: when, audience: share === 'members' ? 'members' : 'subscribers', eventId: String(ev.id || '') };
+  }
+
   /* The coming weeks' public events for "Dates for the diary": everyone's
      events only (never members' or not-listed ones), a date and a title. */
   function diaryItems(data) {
@@ -747,6 +782,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, keep: keep, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, fillInvite: fillInvite, keep: keep, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

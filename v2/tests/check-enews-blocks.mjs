@@ -175,6 +175,23 @@ function checks(M) {
   ok('the footer opens with "Dates for the diary for the coming weeks", to What’s On', /class="foot"[\s\S]*href="https:\/\/x\.invalid\/whatson\.html"[^>]*>Dates for the diary for the coming weeks</.test(foot));
   ok('social icons: PNG pictures the hub serves, 48px, only known networks and safe links', (foot.match(/img\/social\/[a-z]+\.png/g) || []).join() === 'img/social/facebook.png,img/social/email.png' && /width="48" height="48"/.test(foot) && foot.includes('href="mailto:office@x.invalid"') && !/javascript:|myspace/.test(foot), foot.match(/img\/social\/[a-z]+\.png/g));
   ok('no diary button or icons when the church has none', !/Dates for the diary|img\/social/.test(M.render({ blocks: [] }, { church: CHURCH })));
+
+  /* The event invitation, filled from a What's On event (plan G). */
+  const INV = [{ type: 'header', imageUrl: '', title: '' }, { type: 'heading', text: '[The event]' },
+    { type: 'text', title: '', html: '<p>[What it is and who it\u2019s for.]</p><p><strong>[Day, date and time]</strong><br>[Where]</p>' }, { type: 'button', label: 'Sign up here', url: '' }];
+  const evI = (o) => Object.assign({ id: 'e9', title: 'Synthetic harvest supper', visibility: 'public', status: 'confirmed', startLocal: '2026-10-23T18:30', image: 'https://x.invalid/p.jpg', description: '<p>Supper, then a barn dance.</p>', location: 'The church hall', signupOn: true }, o);
+  const fi = M.fillInvite(INV, evI(), 'https://x.invalid/v2/');
+  ok('an invitation from an event: its picture, title, words, day and time, place', fi && fi.blocks[0].imageUrl === 'https://x.invalid/p.jpg' && fi.blocks[1].text === 'Synthetic harvest supper' &&
+    fi.blocks[2].html === '<p>Supper, then a barn dance.</p><p><strong>Friday 23 October, 6:30pm</strong><br>The church hall</p>' && fi.subject === 'You\u2019re invited: Synthetic harvest supper' && fi.preheader === 'Friday 23 October, 6:30pm', fi);
+  ok('…its Sign up button goes to the event\u2019s sign-up', fi && fi.blocks[3].label === 'Sign up here' && fi.blocks[3].url === 'https://x.invalid/v2/signup.html?event=e9');
+  ok('…complete: nothing left to fill in', fi && M.readyToSend(Object.assign({ kind: 'oneoff', templateId: 'invite' }, fi)).ok);
+  const fb = M.fillInvite(INV, evI({ signupOn: false, image: '', description: '', location: '' }), 'https://x.invalid/v2');
+  ok('no sign-ups: Find out more, to its What\u2019s On page; no picture: no empty picture block', fb && fb.blocks[fb.blocks.length - 1].label === 'Find out more' && /whatson\.html\?event=e9$/.test(fb.blocks[fb.blocks.length - 1].url) && !fb.blocks.some(b => b.type === 'header'), fb && fb.blocks);
+  ok('…what the event lacks stays a [part to fill in], and no "[Where]" left dangling', fb && /\[What it is/.test(JSON.stringify(fb.blocks)) && !/\[Where\]/.test(JSON.stringify(fb.blocks)) && M.readyToSend(Object.assign({ kind: 'oneoff', templateId: 'invite' }, fb)).missing.includes('fill'));
+  const fm = M.fillInvite(INV, evI({ visibility: 'members' }), 'https://x.invalid/v2');
+  ok('a members\u2019 event: for church members, every block members-only', fm && fm.audience === 'members' && fm.blocks.every(b => b.members === true) && !M.render(Object.assign({}, fm, { subject: '', preheader: '' }), { version: 'everyone' }).includes('Synthetic harvest supper'));
+  ok('never a not-listed, team, cancelled or unconfirmed event', ['unlisted', 'team'].every(v => M.fillInvite(INV, evI({ visibility: v }), '') === null) && M.fillInvite(INV, evI({ status: 'cancelled' }), '') === null && M.fillInvite(INV, evI({ status: 'pending' }), '') === null);
+  ok('an event\u2019s title cannot break the email', (M.fillInvite(INV, evI({ title: '<img src=x onerror=alert(1)>' }), '') || {}).blocks && !/<img src=x/.test(M.render(M.fillInvite(INV, evI({ title: '<img src=x onerror=alert(1)>' }), ''), {})));
   return R;
 }
 
@@ -184,6 +201,8 @@ R.forEach(r => console.log('  ' + (r.v ? 'PASS  ' : 'FAIL  ') + r.n + (r.v || r.
 
 /* ---- deliberate breaks: each must turn at least one named check red ---- */
 const BREAKS = [
+  ['an invitation to a members\u2019 event for everyone', "      if (share === 'members') b.members = true;", '', 'every block members-only'],
+  ['an invitation without its sign-up', "    var link = ev.signupOn === true ?", "    var link = false ?", 'goes to the event\u2019s sign-up'],
   ['members-only blocks let into the public copy', "if (membersOnly(b) && version !== 'members') return false;", '', 'public copy: no members-only words'],
   ['not-listed events allowed in', "return null;   /* 'team', 'unlisted'", "return 'public';   /* 'team', 'unlisted'", 'NOT LISTED'],
   ['the unsubscribe link dropped from the footer', "'Want to change how you receive these emails?<br>You can <a href=\"' + u + '\" style=\"' + white + '\">update your preferences</a> or <a href=\"' + u + '\" style=\"' + white + '\">unsubscribe from this list</a>.'", "''", 'unsubscribe link in every copy'],
