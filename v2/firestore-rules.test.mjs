@@ -3643,6 +3643,43 @@ await check('a signed-in member reads the church\'s meeting rooms', 'allow',
 await check('  but no page writes them, not even a master admin', 'deny',
   () => setDoc(doc(as('martin'), 'churchSettings', 'video'), { rooms: [{ key: 'x', url: 'https://evil.example/x' }] }));
 
+/* ---- members' meetings and their votes (21 Oct 2026) ----------------
+   Members read; the Church office, the Elders and master admins run them;
+   a vote is written by a page only as a draft, or for the chair's outcome
+   once closed; ballots and the tally are the hub's alone, and the tally is
+   read by nobody - for a secret vote it is the only place a choice is. */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const d = ctx.firestore();
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1'), { title: 'T', date: '2026-10-29', joinKind: 'zoom', room: 'CMM', papers: [], status: 'planned' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'private', 'join'), { zoomUrl: 'https://zoom.example/x', passcode: '1' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vS'), { question: 'Q', choices: ['Yes', 'No'], secret: true, status: 'open' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vD'), { question: 'Q', choices: ['Yes', 'No'], secret: true, status: 'draft' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vC'), { question: 'Q', choices: ['Yes', 'No'], secret: false, status: 'closed', results: { Yes: 1, No: 0 } });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vS', 'ballots', 'm_u_member'), { at: 'x', name: 'M' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vS', 'ballots', 'm_other'), { at: 'x', name: 'O' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vC', 'ballots', 'm_other'), { at: 'x', name: 'O', choice: 'Yes' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vS', 'tally', 'count'), { Yes: 1, No: 1 });
+});
+const MV = (who, ...p) => doc(as(who), 'churchMeetings', 'rt_m1', ...p);
+await check('a church member reads the members\' meeting', 'allow', () => getDoc(MV('member')));
+await check('  and its Zoom details', 'allow', () => getDoc(MV('member', 'private', 'join')));
+await check('somebody on a team but not a church member does not', 'deny', () => getDoc(MV('worship')));
+await check('  nor its Zoom details', 'deny', () => getDoc(MV('worship', 'private', 'join')));
+await check('the Church office plans one', 'allow', () => setDoc(doc(as('churchOffice'), 'churchMeetings', 'rt_m2'), { title: 'T', date: '2026-11-05', joinKind: 'room', room: 'CMM', papers: [], status: 'planned' }));
+await check('  a member does not', 'deny', () => setDoc(doc(as('member'), 'churchMeetings', 'rt_m3'), { title: 'T', date: '2026-11-05', joinKind: 'room', room: 'CMM', papers: [], status: 'planned' }));
+await check('the office writes a vote as a draft', 'allow', () => setDoc(MV('churchOffice', 'votes', 'vN'), { question: 'Q', choices: ['Yes', 'No'], secret: true, status: 'draft', order: 1, createdAt: 'x', createdBy: 'u' }));
+await check('  but not straight in as open', 'deny', () => setDoc(MV('churchOffice', 'votes', 'vN2'), { question: 'Q', choices: ['Yes', 'No'], secret: true, status: 'open' }));
+await check('  nor opens one from a page (the hub does)', 'deny', () => updateDoc(MV('churchOffice', 'votes', 'vD'), { status: 'open' }));
+await check('  nor writes results onto an open vote', 'deny', () => updateDoc(MV('churchOffice', 'votes', 'vS'), { results: { Yes: 99 } }));
+await check('  the chair\'s outcome, once closed', 'allow', () => updateDoc(MV('churchOffice', 'votes', 'vC'), { outcome: 'Agreed', outcomeBy: 'u', outcomeAt: 'x' }));
+await check('nobody writes a ballot from a page, not even a master admin', 'deny', () => setDoc(MV('martin', 'votes', 'vS', 'ballots', 'm_u_martin'), { at: 'x' }));
+await check('  nor a member their own', 'deny', () => setDoc(MV('member', 'votes', 'vS', 'ballots', 'm_u_member'), { at: 'x', choice: 'Yes' }));
+await check('a member reads their own ballot (to know they voted)', 'allow', () => getDoc(MV('member', 'votes', 'vS', 'ballots', 'm_u_member')));
+await check('  but not somebody else\'s on a secret vote', 'deny', () => getDoc(MV('member', 'votes', 'vS', 'ballots', 'm_other')));
+await check('  and everyone\'s on an OPEN vote once it has closed', 'allow', () => getDoc(MV('member', 'votes', 'vC', 'ballots', 'm_other')));
+await check('the office sees who has voted', 'allow', () => getDoc(MV('churchOffice', 'votes', 'vS', 'ballots', 'm_other')));
+await check('the tally is read by nobody, a master admin included', 'deny', () => getDoc(MV('martin', 'votes', 'vS', 'tally', 'count')));
+
 /* ---- marking it dealt with ----------------------------------------- */
 await check('the safeguarding lead marks one dealt with, with a note', 'allow',
   () => updateDoc(doc(as('karen'), 'worries', 'c_pastoral'),

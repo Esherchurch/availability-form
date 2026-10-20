@@ -57,6 +57,8 @@ const APPROVED = [
     ['Availability form', c => c.core]]],
   ['People and messages', null, [
     ['Address book', c => c.messages], ['Send an email', c => c.messages], ['Team emails', c => c.master],
+    /* Members' meetings (21 Oct 2026): members, and whoever runs them. */
+    ['Members’ meetings', c => c.member || c.master || c.on('Church office') || c.on('Elders')],
     ['Notices', c => c.messages],
     /* The comms window's add-ons, switched on for this run (below). */
     ['E-news', c => c.office], ['Card maker', c => c.office], ['From Canva', c => c.office],
@@ -70,7 +72,8 @@ const APPROVED = [
     ['Building compliance', c => c.on('Church office') || c.on('Elders')], ['The building', c => c.on('Maintenance') || c.on('Church office')],
     ['Live risk register', c => c.on('Church office') || c.on('Elders')], ['My evacuation plan']]],
   ['Church admin', null, [
-    ['Church settings', c => c.core && c.admin], ['Teams and groups', c => c.office],
+    /* Master admins only, and the office's bank details on their own page (21 Oct 2026). */
+    ['Church settings', c => c.master], ['Teams and groups', c => c.office], ['Giving details', c => c.office],
     ['Payments', c => c.money], ['Safeguarding', c => c.admin], ['Safeguarding settings', c => c.admin],
     ['Due for deletion', c => c.admin], ['Small groups', c => c.admin], ['Forms', c => c.admin],
     ['Emails sent', c => c.core && c.admin && c.master], ['Manage Watch', c => c.master], ['Manage sermons', c => c.master],
@@ -101,6 +104,8 @@ function ctx(p) {
   const core = master || p.teams.includes('Core Team');
   return {
     p, on, master, office, admin, core,
+    /* Formally joined the church (the address book's tick). */
+    member: !!p.churchMember,
     anyTeam: master || p.teams.length > 0 || p.adminFor.length > 0,
     messages: master || p.teams.includes('Church office') || p.adminFor.length > 0,
     books: admin || !!p.bookingsAdmin,

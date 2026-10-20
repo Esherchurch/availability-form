@@ -221,6 +221,31 @@ service firebase.storage {
     function formRequest(key) {
       return firestore.get(/databases/(default)/documents/formRequests/$(key)).data;
     }
+    // MEMBERS' MEETINGS' PAPERS (21 Oct 2026): church members and whoever
+    // runs the meetings read them; master admins, the Church office and the
+    // Elders put them up. Never a public file address.
+    function storageMeetingRunner() {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && storageMe().status == 'active'
+             && (storageMe().get('masterAdmin', false) == true
+                 || storageMe().get('teams', []).hasAny(['Church office', 'Elders']));
+    }
+    function storageMeetingMember() {
+      return storageMeetingRunner()
+             || (request.auth != null
+                 && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+                 && storageMe().status == 'active'
+                 && storageMe().get('churchMember', false) == true);
+    }
+    match /churchMeetings/{mid}/papers/{file} {
+      allow read: if storageMeetingMember();
+      allow create, update: if storageMeetingRunner()
+                            && request.resource.size < 20 * 1024 * 1024
+                            && (request.resource.contentType == 'application/pdf'
+                                || request.resource.contentType.matches('image/.*'));
+      allow delete: if storageMeetingRunner();
+    }
     function storageMe() {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
     }

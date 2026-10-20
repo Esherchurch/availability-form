@@ -77,6 +77,9 @@ const exp = Vd.tokenExpiry(events.ev1, Date.parse('2026-10-29T18:00:00Z'));
 ok('the token ends 30 minutes after the meeting (21:30 in London)', new Date(exp * 1000).toISOString() === '2026-10-29T21:30:00.000Z', new Date(exp * 1000).toISOString());
 ok('  and never more than four hours away', Vd.tokenExpiry({ date: '2026-12-25', endTime: '23:00' }, Date.parse('2026-10-29T18:00:00Z')) * 1000 === Date.parse('2026-10-29T22:00:00Z'));
 
+ok('on the emulator Daily is always the stand-in, even with a key set (no real rooms or tokens from a check)',
+  Vd.makeDaily('a-real-looking-key').fake === true);
+
 /* ---- 3. no copies left ---- */
 console.log('\n3. One list, the church\'s');
 const SCAN = ['meeting.html', 'Planner.html', 'hub-app.js', 'egbc-core-meetings.js', 'egbc-core-rota.js', 'worshiphubapp.html', 'CoreTeamApp.html', 'app.html', 'functions/rota-feed.js'];

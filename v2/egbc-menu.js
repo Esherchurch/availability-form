@@ -114,6 +114,11 @@
       { title: 'Team emails', url: 'team-mail.html', icon: 'at-sign', master: true, feature: 'teamMail',
         description: 'Which address each team’s emails come from' },
       /* The hub's notices: post one (the editor opens), or manage them. */
+      /* Members' meetings (21 Oct 2026): agenda, papers, how to join, votes.
+         Church members, and whoever runs them (the Church office, the Elders,
+         master admins) - the same as the page and the rules. */
+      { title: 'Members\u2019 meetings', url: 'church-meeting.html', icon: 'vote', feature: 'meetings', cmm: true,
+        description: 'Agenda, papers, how to join, and the votes' },
       { title: 'Notices', url: 'hub.html?notices=1', icon: 'megaphone', feature: 'notices', messages: true,
         description: 'Post one, or manage them' },
       /* The comms window's (FINDINGS-comms, 19 Oct 2026): the Church office
@@ -186,6 +191,10 @@
       { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',
         description: 'Add, rename, recolour, order and archive teams' },
       /* The money team, by its name (F-200), and master admins. */
+      /* The church's bank details, for the Church office and master admins
+         (21 Oct 2026: Church settings became master admins only). */
+      { title: 'Giving details', url: 'giving-details.html', icon: 'landmark', team: 'Church office', feature: 'payments',
+        description: 'The bank details people see on Give' },
       { title: 'Payments', url: 'payments.html', icon: 'credit-card', feature: 'payments', money: true,
         description: 'Card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
       /* The safeguarding lead and deputy and anybody who administers
@@ -320,6 +329,8 @@
        audience field on resources and news first - but the Menu is where
        they will hang, and the mechanism is tested rather than waiting. */
     if (node.members && !who.isChurchMember) return false;
+    /* Members' meetings: church members and whoever runs them. */
+    if (node.cmm && !who.isChurchMember && !who.isMaster && !onTeam(['Church office', 'Elders'], who)) return false;
     if (node.admin && !who.isAdmin) return false;
     /* adminOf: an admin of one of these areas (or a master admin), the same
        test the page's own guard makes. Plain admin: true lets in an admin of

@@ -43,7 +43,11 @@
     if (!A || !A.db) return Promise.resolve([]);
     loading = A.db.collection('churchSettings').doc('video').get().then(function (s) {
       var v = s.exists ? s.data() : null;
-      var complete = v && Array.isArray(v.rooms) && v.rooms.length && v.rooms.every(function (r) { return r.url; });
+      /* Every room made, and with today's fields (hostTeams, 21 Oct 2026);
+         otherwise the server fills them in, once. */
+      var complete = v && Array.isArray(v.rooms) && v.rooms.length && v.rooms.every(function (r) {
+        return r.url && Array.isArray(r.teams) && Array.isArray(r.hostTeams);
+      });
       if (complete) return settle(v);
       /* Missing, or a room not yet made: the server makes them. */
       if (!A.call) return settle(v);
@@ -65,6 +69,7 @@
     url: function (key) { var r = find(key); return r ? (r.url || '') : ''; },
     members: function (key) { var r = find(key); return !!(r && r.members); },
     teams: function (key) { var r = find(key); return (r && r.teams) || []; },
+    hostTeams: function (key) { var r = find(key); return (r && r.hostTeams) || []; },
     /* videoRoom absent: this kind of meeting's usual room; '' means "no
        call", which is not the same thing. */
     roomFor: function (ev) {

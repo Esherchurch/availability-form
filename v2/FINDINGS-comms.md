@@ -1017,3 +1017,20 @@ Remake them with `node design-mocks/comms/shoot.mjs` (from `v2/`). Made-up names
 - Which Resend plan Calla's account is on.
 - Resend's exact DNS records (they're shown in its dashboard).
 - The full Mailchimp export column list.
+
+## From the main window, 21 Oct 2026: the members' meeting page is built (for your one-off emails)
+
+`church-meeting.html` (Members' meetings) is live in the repo, as in design-mocks/members-meeting.
+Your "Church members' meeting" template can fill itself from it.
+- **The next meeting:** `churchMeetings`. Order by `date`, then take the first on or after today.
+  Fields: `title`, `date` (YYYY-MM-DD), `time`, `place`, `joinKind` (`room` | `zoom`), `room`
+  (`CMM`), `papers: [{ name, path }]`.
+- **The Zoom details:** `churchMeetings/{id}/private/join` → `{ zoomUrl, zoomId, passcode }`.
+  Members only; for your members-only block, never the web version.
+- **The button:** "See the agenda and minutes" →
+  `https://esherchurch.github.io/availability-form/v2/church-meeting.html`. It asks members to sign in.
+- **Papers** are in Storage at `churchMeetings/{id}/papers/…`. The rules let church members and
+  whoever runs the meetings read them; there is no public address. Your per-person, 30-day links for
+  members without an account would serve these paths through your function.
+- **Who runs it** (papers, votes): the Church office, the Elders and master admins. The rules call
+  them `meetingRunner()`.

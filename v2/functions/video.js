@@ -33,7 +33,7 @@
                         ending 30 minutes after the meeting (at most four
                         hours from now). Returned, never stored or logged.
 
-   ON THE EMULATOR, with no key, Daily is pretended (rooms at
+   ON THE EMULATOR Daily is always pretended (key or not) (rooms at
    https://churchhq-test.daily.co/..., tokens "test-owner...") so the
    checks never reach the real Daily.
    =================================================================== */
@@ -57,7 +57,9 @@ export const EGBC_ROOMS = [
   { key: 'worship-core-team', label: 'Worship Core Team', teams: ['Core Team'] },
   { key: 'Prayer', label: 'Prayer', teams: ['Core Team'] },
   { key: 'Eldership', label: 'Eldership', teams: ['Elders'] },
-  { key: 'CMM', label: 'CMM', teams: ['Church office'], members: true },
+  /* hostTeams: anyone ON these teams may host, not just their admins - the
+     members' meeting is chaired by the office or the Elders (21 Oct 2026). */
+  { key: 'CMM', label: 'CMM', teams: ['Church office'], hostTeams: ['Church office', 'Elders'], members: true },
   { key: 'kids-ministries', label: 'Kids Ministries', teams: ['Kids Church'] },
   { key: 'interviews', label: 'Interviews', teams: ['Church office'] }
 ];
@@ -73,7 +75,11 @@ export const dailyName = (churchId, key) =>
 /* Daily, or its stand-in on the emulator. fetchImpl is for the checks. */
 export function makeDaily(key, fetchImpl) {
   const f = fetchImpl || fetch;
-  if (!key) {
+  /* NEVER THE REAL DAILY FROM THE EMULATOR, key or no key (21 Oct 2026: the
+     emulator reads Secret Manager too, and once DAILY_API_KEY was set a
+     check made real rooms and real tokens). A check passes fetchImpl to
+     reach a pretend API on purpose. */
+  if (!key || (EMULATOR() && !fetchImpl)) {
     if (!EMULATOR()) return null;
     return {
       fake: true,
@@ -115,6 +121,10 @@ export async function ensureRooms(db, daily) {
   const rooms = (Array.isArray(cur.rooms) && cur.rooms.length ? cur.rooms : EGBC_ROOMS).map(r => Object.assign({}, r));
   let changed = !snap.exists;
   for (const r of rooms) {
+    /* Fields added since the room was recorded (hostTeams, 21 Oct 2026). */
+    const def = EGBC_ROOMS.find(x => x.key === r.key) || {};
+    if (!Array.isArray(r.teams)) { r.teams = def.teams || []; changed = true; }
+    if (!Array.isArray(r.hostTeams)) { r.hostTeams = def.hostTeams || []; changed = true; }
     if (r.url) continue;
     if (!daily) continue;
     const made = await daily.room(dailyName(churchId, r.key));
@@ -142,6 +152,9 @@ export function mayHost({ user, uid, room, event, byType }) {
   if (user.masterAdmin === true) return true;
   const adminFor = Array.isArray(user.adminFor) ? user.adminFor : [];
   if ((room.teams || []).some(t => adminFor.includes(t))) return true;
+  const hostTeams = room.hostTeams || ((EGBC_ROOMS.find(r => r.key === room.key) || {}).hostTeams) || [];
+  const teams = Array.isArray(user.teams) ? user.teams : [];
+  if (hostTeams.some(t => teams.includes(t))) return true;
   if (event && event.organiserUid && event.organiserUid === uid) {
     const evRoom = event.videoRoom !== undefined ? event.videoRoom : ((byType || {})[event.type] || '');
     return evRoom === room.key;
@@ -182,7 +195,7 @@ export const videoRoomsEnsure = onCall({ region: REGION, secrets: [DAILY_API_KEY
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   const daily = makeDaily(keyNow());
   const v = await ensureRooms(getFirestore(), daily);
-  return { rooms: v.rooms.map(r => ({ key: r.key, label: r.label, url: r.url || '', teams: r.teams || [], members: !!r.members })), byType: v.byType };
+  return { rooms: v.rooms.map(r => ({ key: r.key, label: r.label, url: r.url || '', teams: r.teams || [], hostTeams: r.hostTeams || ((EGBC_ROOMS.find(x => x.key === r.key) || {}).hostTeams) || [], members: !!r.members })), byType: v.byType };
 });
 
 export const meetingHostToken = onCall({ region: REGION, secrets: [DAILY_API_KEY] }, async (req) => {

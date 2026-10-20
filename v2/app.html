@@ -414,7 +414,7 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610111300"></script>
-<script src="egbc-menu.js?v=202610210900"></script>
+<script src="egbc-menu.js?v=202610211500"></script>
 <script src="egbc-app.js?v=202610201600"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
@@ -2152,34 +2152,21 @@ function loadBuildingHome(me) {
   if (BHOME.loaded) return;
   BHOME.loaded = true;
   var today = (function () { var d = new Date(), p = function (x) { return (x < 10 ? '0' : '') + x; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); })();
-  var mid = me.memberId || '-';
+  /* THE EVENTS WINDOW'S OWN ANSWER (their F-241 reply, F-248):
+     EGBCComplianceStore.dueForMe - the checks given to this person, in the
+     schedule's order, with each building's name; only what the rules let
+     them read. One answer for this Home and building.html. */
   var checks = loadScript('egbc-compliance.js?v=202610191800')
     .then(function () { return loadScript('egbc-compliance-templates.js?v=202610191800'); })
-    .then(function () { return Promise.all([
-      db.collection('buildingChecks').where('responsibleIds', 'array-contains', mid).get(),
-      db.collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
-      db.collection('sites').get().catch(function () { return { docs: [] }; })]); })
-    .then(function (r) {
-      var all = function (sn) { return sn.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); };
-      var C = window.EGBCCompliance, T = window.EGBCComplianceTemplates;
-      var mineChecks = all(r[0]).filter(function (c) { return c.state === 'on'; });
-      all(r[2]).forEach(function (x) { BHOME.sites[x.id] = x.name || x.id; });
-      var templates = all(r[1]).length ? all(r[1]) : ((T && T.TEMPLATES) || []);
-      if (!C || !C.schedule || !mineChecks.length) return;
-      return Promise.all(mineChecks.map(function (c) {
-        return db.collection('checkRecords').where('checkId', '==', c.id).get().then(all, function () { return []; });
-      })).then(function (recs) {
-        var records = [].concat.apply([], recs);
-        var sites = Array.from(new Set(mineChecks.map(function (c) { return c.siteId; })));
-        var items = [];
-        sites.forEach(function (sid) {
-          var sc = C.schedule({ profile: {}, templates: templates, checks: mineChecks.filter(function (c) { return c.siteId === sid; }),
-            records: records, jobs: [], triggers: [], today: today });
-          sc.items.forEach(function (i) { i.siteId = sid; items.push(i); });
-        });
-        var order = { red: 0, amber: 1, green: 2, grey: 3 };
-        BHOME.due = items.filter(function (i) { return i.state === 'on' && (i.rag === 'red' || i.rag === 'amber'); })
-          .sort(function (a, b) { return order[a.rag] - order[b.rag] || String(a.nextDue || '').localeCompare(String(b.nextDue || '')); });
+    .then(function () { return loadScript('egbc-compliance-store.js?v=202610201900'); })
+    .then(function () { return db.collection('complianceTemplates').get().catch(function () { return { docs: [] }; }); })
+    .then(function (t) {
+      var S = window.EGBCComplianceStore, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates;
+      if (!S || !S.dueForMe || !C) return;
+      var templates = t.docs.length ? t.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }) : ((T && T.TEMPLATES) || []);
+      return S.dueForMe(db, C, me.memberId || '', { today: today, templates: templates }).then(function (items) {
+        BHOME.due = items || [];
+        BHOME.due.forEach(function (i) { if (i.siteId) BHOME.sites[i.siteId] = i.siteName || i.siteId; });
       });
     }).catch(function () {});
   var jobs = db.collection('maintJobs').get().then(function (sn) {
@@ -2207,7 +2194,7 @@ function dueWords(day) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 /* Never done (EGBCCompliance: "Not recorded yet"): to do now. */
-function checkDue(i) { return i.nextDue ? dueWords(i.nextDue) : (i.lastDone ? 'Due' : 'Not done yet'); }
+function checkDue(i) { return i.due ? dueWords(i.due) : 'Not done yet'; }
 function minWords(m) { m = +m || 0; var h = Math.floor(m / 60), x = m % 60; return h + ':' + (x < 10 ? '0' : '') + x; }
 
 A.modeHome('building', function (me) {

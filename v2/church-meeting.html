@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Members' meetings — EGBC</title>
+<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610211500" data-title="Members' meetings"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="egbc-auth.js?v=202610210900"></script>
+<!-- MEMBERS' MEETINGS (21 Oct 2026; design-mocks/members-meeting, Martin's
+     answers). For church members (the address book's tick) and whoever runs
+     them: master admins, the Church office and the Elders. The page refuses
+     anyone else itself (below); the rules (meetingMember/meetingRunner) and
+     the hub's vote functions (functions/meetings.js) are what hold. -->
+<script src="egbc-guard.js?v=202610210900" data-feature="meetings"></script>
+<script src="egbc-launch.js?v=202610141700"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;
+        --line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--card:0 1px 2px rgba(16,24,40,.05)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 2px}
+  h2{font-size:15px;font-weight:600;color:var(--ink);margin:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .sub{color:var(--muted);margin:0 0 14px}
+  .cols{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+  @media(min-width:1000px){.cols.run{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+  .col{display:grid;gap:14px;align-content:start;min-width:0}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:16px;display:grid;gap:10px;min-width:0}
+  .q{font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+  .hint{font-size:13px;color:var(--muted);margin:0}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#f3f4f6;color:#374151;white-space:nowrap}
+  .pill.open{background:#dcfce7;color:#166534}.pill.secret{background:#ede9fe;color:#5b21b6}.pill.shown{background:#e0f2fe;color:#075985}
+  .choice{min-height:52px;width:100%;border:1px solid var(--line-2);border-radius:12px;background:#fff;color:var(--ink);font:600 15px Inter,sans-serif;text-align:left;padding:0 14px;cursor:pointer}
+  .choice:hover{border-color:var(--brand)}
+  .done{background:var(--tint);border:1px solid #cfe1df;color:var(--brand-dark);border-radius:10px;padding:10px 12px}
+  .res{display:grid;grid-template-columns:minmax(60px,auto) 1fr 40px;gap:8px;align-items:center;color:var(--ink)}
+  .bar{height:10px;border-radius:999px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:var(--brand)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:10px;font:600 14px Inter,sans-serif;
+       cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff;text-decoration:none}
+  .btn:hover{background:var(--brand-dark)} .btn:disabled{opacity:.55;cursor:wait}
+  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line-2)}
+  .btns{display:flex;flex-wrap:wrap;gap:8px}
+  .doc{display:flex;align-items:center;gap:10px;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:6px 10px;color:var(--ink);text-decoration:none;background:#fff;min-width:0}
+  .doc span{overflow-wrap:anywhere;min-width:0}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:0 0 4px}
+  .inp{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  textarea.inp{padding:10px 12px;min-height:70px}
+  .tog{display:flex;border:1px solid var(--line-2);border-radius:10px;overflow:hidden}
+  .tog button{flex:1;min-height:44px;border:0;background:#fff;font:600 14px Inter,sans-serif;color:var(--ink);cursor:pointer}
+  .tog button[aria-pressed="true"]{background:var(--brand);color:#fff}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;min-height:44px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .big{font-size:28px;font-weight:700;color:var(--ink)}
+  .past{background:none;border:0;padding:0;font:inherit;color:var(--brand);text-decoration:underline;cursor:pointer;min-height:44px;text-align:left}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:50;max-width:calc(100% - 32px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="mm-title">Members' meetings</h1>
+  <p class="sub" id="mm-sub">Loading&hellip;</p>
+  <div class="cols" id="mm-cols">
+    <div class="col" id="mm-main"></div>
+    <div class="col" id="mm-run" hidden></div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+<script>
+(function () {
+  'use strict';
+  var A = window.EGBCAuth;
+  function db() { return A.db; }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function today() { var d = new Date(), p = function (x) { return (x < 10 ? '0' : '') + x; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+  function dayWords(ymd) { if (!ymd) return ''; return new Date(ymd + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+
+  /* WHO: a church member votes; whoever runs it (master admins, the Church
+     office, the Elders) runs it. The same answer as firestore.rules. */
+  function isRunner() { return !!(A.isMaster() || A.inTeam('Church office') || A.inTeam('Elders')); }
+  function isMember() { return !!(A.isChurchMember && A.isChurchMember()); }
+  var ME = {}, MEETINGS = [], CUR = null, VOTES = [], MINE = {}, JOIN = null, LAUNCH = { locked: false, opensOn: '' };
+  var stopVotes = null;
+
+  function start(profile) {
+    ME = profile || {};
+    if (!isMember() && !isRunner()) {
+      A._blockPage('Church members only', 'Members’ meetings are for church members. If you have joined the church and this is wrong, ask the church office to tick it against your record.', profile);
+      return;
+    }
+    if (isRunner()) { $('mm-run').hidden = false; $('mm-cols').classList.add('run'); }
+    if (window.EGBCLaunch) EGBCLaunch.check().then(function (l) { LAUNCH = l; drawRun(); });
+    load();
+  }
+
+  function load(selectId) {
+    return db().collection('churchMeetings').orderBy('date', 'desc').limit(30).get().then(function (s) {
+      MEETINGS = s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; });
+      var t = today();
+      var upcoming = MEETINGS.filter(function (m) { return m.date >= t; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      CUR = (selectId && MEETINGS.find(function (m) { return m.id === selectId; })) || upcoming[0] || MEETINGS[0] || null;
+      watch();
+    }, function (e) { $('mm-sub').textContent = 'Could not load the meetings: ' + (e.message || e); });
+  }
+
+  /* The selected meeting's votes, live: a vote opening or closing shows
+     on everybody's screen without a reload. Plus my own ballots, and the
+     Zoom details if it uses Zoom. */
+  function watch() {
+    if (stopVotes) { stopVotes(); stopVotes = null; }
+    VOTES = []; MINE = {}; JOIN = null;
+    if (!CUR) { draw(); return; }
+    var mid = CUR.id;
+    stopVotes = db().collection('churchMeetings').doc(mid).collection('votes').onSnapshot(function (s) {
+      VOTES = s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; })
+        .sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.createdAt || '').localeCompare(String(b.createdAt || '')); });
+      var memberId = ME.memberId || '';
+      Promise.all(VOTES.map(function (v) {
+        if (!memberId) return null;
+        return db().collection('churchMeetings').doc(mid).collection('votes').doc(v.id).collection('ballots').doc(memberId).get()
+          .then(function (b) { MINE[v.id] = b.exists; }, function () {});
+      })).then(draw);
+    }, function () { draw(); });
+    if (CUR.joinKind === 'zoom') {
+      db().collection('churchMeetings').doc(mid).collection('private').doc('join').get()
+        .then(function (j) { JOIN = j.exists ? j.data() : null; draw(); }, function () {});
+    }
+    draw();
+  }
+
+  /* ---- what a member sees ---- */
+  function draw() {
+    if (!CUR) {
+      $('mm-title').textContent = 'Members’ meetings';
+      $('mm-sub').textContent = 'No members’ meeting is planned yet.';
+      $('mm-main').innerHTML = '';
+      drawRun();
+      return;
+    }
+    $('mm-title').textContent = CUR.title || 'Church Members’ Meeting';
+    $('mm-sub').textContent = [dayWords(CUR.date), CUR.time, CUR.place].filter(Boolean).join(' · ');
+    var html = '';
+    VOTES.filter(function (v) { return v.status === 'open'; }).forEach(function (v) {
+      html += '<div class="card" data-vote="' + esc(v.id) + '"><h2>Vote now <span class="pill open">Open</span></h2>'
+        + '<div class="q">' + esc(v.question) + '</div>'
+        + '<p class="hint">' + (v.secret ? 'A secret vote: who has voted is kept, how they voted is never shown to anyone.'
+            : 'An open vote: once it closes, members can see who voted which way.') + '</p>'
+        + (MINE[v.id] ? '<div class="done">✓ You have voted.' + (v.secret ? ' Nobody, the office included, can see how.' : '') + ' Results show here when the vote closes.</div>'
+          : (isMember() ? (v.choices || []).map(function (c) {
+              return '<button type="button" class="choice" data-cast="' + esc(c) + '">' + esc(c) + '</button>';
+            }).join('') + '<p class="hint">One vote each. You can’t change it once cast.</p>'
+            : '<p class="hint">Only church members vote.</p>'))
+        + '</div>';
+    });
+    /* Join: our own room (the chair starts it as host), or Zoom. */
+    html += '<div class="card"><h2>Join <span class="hint">' + (CUR.joinKind === 'zoom' ? 'Zoom' : 'Our own room') + '</span></h2>';
+    if (CUR.joinKind === 'zoom') {
+      html += JOIN && JOIN.zoomUrl
+        ? '<div class="btns"><a class="btn" href="' + esc(JOIN.zoomUrl) + '" target="_blank" rel="noopener">Join on Zoom</a></div>'
+          + '<p class="hint">' + (JOIN.zoomId ? 'Meeting ID ' + esc(JOIN.zoomId) : '') + (JOIN.passcode ? ' · Passcode ' + esc(JOIN.passcode) : '') + '</p>'
+        : '<p class="hint">The Zoom details are not in yet.</p>';
+    } else {
+      html += '<div class="btns"><a class="btn" href="meeting.html?room=' + encodeURIComponent(CUR.room || 'CMM') + '">Join the meeting</a></div>'
+        + '<p class="hint">You knock; the chair lets you in.</p>';
+    }
+    html += '</div>';
+    /* Papers. */
+    var papers = Array.isArray(CUR.papers) ? CUR.papers : [];
+    html += '<div class="card"><h2>Papers <span class="hint">Members only</span></h2>'
+      + (papers.length ? papers.map(function (p, i) {
+          return '<button type="button" class="doc" data-paper="' + i + '" style="cursor:pointer;font:inherit;text-align:left"><span>' + esc(p.name) + '</span></button>';
+        }).join('') : '<p class="hint">No papers yet.</p>') + '</div>';
+    /* Results. */
+    var closed = VOTES.filter(function (v) { return v.status === 'closed'; });
+    closed.forEach(function (v) {
+      var r = v.results || {}, total = Object.keys(r).reduce(function (n, k) { return n + (r[k] || 0); }, 0);
+      html += '<div class="card" data-result="' + esc(v.id) + '"><h2>Results <span class="pill ' + (v.secret ? 'secret' : 'shown') + '">' + (v.secret ? 'Secret vote' : 'Open vote') + '</span></h2>'
+        + '<div class="q">' + esc(v.question) + '</div>'
+        + (v.choices || []).map(function (c) {
+            var n = r[c] || 0, pc = total ? Math.round(n * 100 / total) : 0;
+            return '<div class="res"><span>' + esc(c) + '</span><div class="bar"><i style="width:' + pc + '%"></i></div><b>' + n + '</b></div>';
+          }).join('')
+        + '<p class="hint">' + total + (total === 1 ? ' member' : ' members') + ' voted' + (v.secret ? ' · secret vote: names are not shown' : '') + '</p>'
+        + (v.outcome ? '<div class="done">' + esc(v.outcome) + '</div>' : '')
+        + (!v.secret ? '<button type="button" class="past" data-names="' + esc(v.id) + '">Show who voted which way</button><div data-names-for="' + esc(v.id) + '"></div>' : '')
+        + '</div>';
+    });
+    if (!VOTES.some(function (v) { return v.status !== 'draft'; }) && !papers.length) {
+      html += '<p class="hint">Nothing to vote on yet.</p>';
+    }
+    /* Other meetings. */
+    var others = MEETINGS.filter(function (m) { return m.id !== CUR.id; });
+    if (others.length) {
+      html += '<div class="card"><h2>Other meetings</h2>' + others.map(function (m) {
+        return '<div class="row"><button type="button" class="past" data-meeting="' + esc(m.id) + '">' + esc(dayWords(m.date)) + '</button><span class="hint">' + esc(m.title || '') + '</span></div>';
+      }).join('') + '</div>';
+    }
+    $('mm-main').innerHTML = html;
+    drawRun();
+  }
+
+  /* ---- what whoever runs it sees ---- */
+  function drawRun() {
+    if (!isRunner()) return;
+    var el = $('mm-run'), m = CUR || {};
+    var html = '<div class="card" id="run-meeting"><h2>' + (CUR ? 'The meeting' : 'Plan the next meeting') + '</h2>'
+      + '<div><label for="r-title">Title</label><input class="inp" id="r-title" maxlength="120" value="' + esc(m.title || 'Church Members’ Meeting') + '"></div>'
+      + '<div><label for="r-date">Date</label><input class="inp" id="r-date" type="date" value="' + esc(m.date || '') + '"></div>'
+      + '<div><label for="r-time">Time</label><input class="inp" id="r-time" type="time" value="' + esc(m.time || '19:45') + '"></div>'
+      + '<div><label for="r-place">Where</label><input class="inp" id="r-place" maxlength="120" value="' + esc(m.place || 'In the church and online') + '"></div>'
+      + '<div><label>How people join</label><div class="tog" role="group" aria-label="How people join">'
+      + '<button type="button" id="r-room" aria-pressed="' + (m.joinKind !== 'zoom') + '">Our own room</button>'
+      + '<button type="button" id="r-zoom" aria-pressed="' + (m.joinKind === 'zoom') + '">A Zoom link</button></div></div>'
+      + '<div id="r-zoom-fields"' + (m.joinKind === 'zoom' ? '' : ' hidden') + '>'
+      + '<div><label for="r-zurl">Zoom link</label><input class="inp" id="r-zurl" type="url" placeholder="https://" value="' + esc((JOIN && JOIN.zoomUrl) || '') + '"></div>'
+      + '<div><label for="r-zid">Meeting ID</label><input class="inp" id="r-zid" value="' + esc((JOIN && JOIN.zoomId) || '') + '"></div>'
+      + '<div><label for="r-zpass">Passcode</label><input class="inp" id="r-zpass" value="' + esc((JOIN && JOIN.passcode) || '') + '"></div>'
+      + '<p class="hint">Shown to members only, never on a public page.</p></div>'
+      + '<div class="btns"><button class="btn" id="r-save">' + (CUR ? 'Save the meeting' : 'Plan it') + '</button>'
+      + (CUR ? '<button class="btn sec" id="r-new">Plan another meeting</button>' : '') + '</div></div>';
+    if (CUR) {
+      html += '<div class="card"><h2>Papers</h2>'
+        + (LAUNCH.locked ? '<input class="inp" id="r-file" type="file" accept="application/pdf,image/*" style="padding-top:8px"><div class="btns"><button class="btn sec" id="r-upload">Add the paper</button></div>'
+            : '<p class="hint">Papers can be added when the church switches over to the new hub: until then its files are not yet private.' + (LAUNCH.opensOn ? ' ' + esc(LAUNCH.opensOn) + '.' : '') + '</p>')
+        + '</div>';
+      html += '<div class="card" id="run-newvote"><h2>A new vote</h2>'
+        + '<div><label for="v-q">The question</label><textarea class="inp" id="v-q" maxlength="300"></textarea></div>'
+        + '<div><label for="v-c">Choices, separated by commas</label><input class="inp" id="v-c" value="Yes, No, Abstain"></div>'
+        + '<div><label>Secret or open?</label><div class="tog" role="group" aria-label="Secret or open">'
+        + '<button type="button" id="v-secret" aria-pressed="true">Secret</button><button type="button" id="v-open" aria-pressed="false">Open</button></div>'
+        + '<p class="hint">Secret: who voted is kept, how they voted is never shown, to anyone. Open: members see each person’s vote once it closes.</p></div>'
+        + '<div class="btns"><button class="btn" id="v-add">Save the vote</button></div></div>';
+      VOTES.forEach(function (v) {
+        html += '<div class="card" data-run="' + esc(v.id) + '"><h2>' + (v.status === 'open' ? 'Live' : v.status === 'closed' ? 'Closed' : 'Ready to open')
+          + ' <span class="pill ' + (v.status === 'open' ? 'open' : '') + '">' + (v.secret ? 'Secret' : 'Open vote') + '</span></h2>'
+          + '<div class="q">' + esc(v.question) + '</div>';
+        if (v.status === 'draft') html += '<div class="btns"><button class="btn" data-open="' + esc(v.id) + '">Open the vote</button><button class="btn sec" data-del="' + esc(v.id) + '">Remove</button></div>';
+        if (v.status === 'open') html += '<div class="big">' + (v.voters || 0) + ' <span class="hint" style="font-size:14px">voted so far</span></div>'
+          + '<p class="hint">' + (v.secret ? 'How anyone voted is never shown.' : 'How people voted shows once you close it.') + '</p>'
+          + '<div class="btns"><button class="btn" data-close="' + esc(v.id) + '">Close the vote and show the results</button></div>'
+          + '<button type="button" class="past" data-who="' + esc(v.id) + '">Who has voted</button><div data-who-for="' + esc(v.id) + '"></div>';
+        if (v.status === 'closed') html += '<div><label for="o-' + esc(v.id) + '">The outcome (as the chair announces it)</label>'
+          + '<input class="inp" id="o-' + esc(v.id) + '" maxlength="200" value="' + esc(v.outcome || '') + '"></div>'
+          + '<div class="btns"><button class="btn sec" data-outcome="' + esc(v.id) + '">Save the outcome</button></div>';
+        html += '</div>';
+      });
+    }
+    el.innerHTML = html;
+  }
+
+  /* ---- taps ---- */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('button,a');
+    if (!t) return;
+    var mid = CUR && CUR.id;
+    if (t.dataset.cast) {
+      var card = t.closest('[data-vote]'), vid = card && card.dataset.vote;
+      card.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+      return A.call('castVote', { meeting: mid, vote: vid, choice: t.dataset.cast }).then(function () {
+        MINE[vid] = true; toast('Your vote is in.'); draw();
+      }, function (err) { toast((err && err.message) || 'Could not vote.'); draw(); });
+    }
+    if (t.dataset.meeting) { load(t.dataset.meeting); return; }
+    if (t.dataset.paper !== undefined) {
+      var p = (CUR.papers || [])[Number(t.dataset.paper)];
+      if (p && p.path) firebase.storage(A.app).ref(p.path).getDownloadURL().then(function (u) { window.open(u, '_blank', 'noopener'); },
+        function () { toast('Could not open it.'); });
+      return;
+    }
+    if (t.dataset.names) {
+      var box = document.querySelector('[data-names-for="' + t.dataset.names + '"]');
+      db().collection('churchMeetings').doc(mid).collection('votes').doc(t.dataset.names).collection('ballots').get().then(function (s) {
+        box.innerHTML = s.docs.map(function (d) { var b = d.data(); return '<div class="row"><span>' + esc(b.name) + '</span><b>' + esc(b.choice || '') + '</b></div>'; }).join('') || '<p class="hint">Nobody voted.</p>';
+      }, function () { box.innerHTML = '<p class="hint">Could not show them.</p>'; });
+      return;
+    }
+    if (!isRunner()) return;
+    if (t.id === 'r-room' || t.id === 'r-zoom') {
+      $('r-room').setAttribute('aria-pressed', String(t.id === 'r-room'));
+      $('r-zoom').setAttribute('aria-pressed', String(t.id === 'r-zoom'));
+      $('r-zoom-fields').hidden = t.id !== 'r-zoom';
+      return;
+    }
+    if (t.id === 'v-secret' || t.id === 'v-open') {
+      $('v-secret').setAttribute('aria-pressed', String(t.id === 'v-secret'));
+      $('v-open').setAttribute('aria-pressed', String(t.id === 'v-open'));
+      return;
+    }
+    if (t.id === 'r-new') { CUR = null; VOTES = []; JOIN = null; if (stopVotes) { stopVotes(); stopVotes = null; } draw(); return; }
+    if (t.id === 'r-save') return saveMeeting(t);
+    if (t.id === 'r-upload') return upload(t);
+    if (t.id === 'v-add') return addVote(t);
+    if (t.dataset.open) { t.disabled = true; return A.call('voteOpen', { meeting: mid, vote: t.dataset.open }).then(function () { toast('The vote is open.'); }, function (err) { t.disabled = false; toast(err.message || 'Could not open it.'); }); }
+    if (t.dataset.close) { t.disabled = true; return A.call('voteClose', { meeting: mid, vote: t.dataset.close }).then(function () { toast('Closed. The results are showing.'); }, function (err) { t.disabled = false; toast(err.message || 'Could not close it.'); }); }
+    if (t.dataset.del) { return db().collection('churchMeetings').doc(mid).collection('votes').doc(t.dataset.del).delete().catch(function (err) { toast(err.message); }); }
+    if (t.dataset.who) {
+      var w = document.querySelector('[data-who-for="' + t.dataset.who + '"]');
+      db().collection('churchMeetings').doc(mid).collection('votes').doc(t.dataset.who).collection('ballots').get().then(function (s) {
+        w.innerHTML = '<p class="hint">' + (s.docs.map(function (d) { return esc(d.data().name); }).join(', ') || 'Nobody yet.') + '</p>';
+      });
+      return;
+    }
+    if (t.dataset.outcome) {
+      var u = A.user() || {};
+      return db().collection('churchMeetings').doc(mid).collection('votes').doc(t.dataset.outcome)
+        .update({ outcome: $('o-' + t.dataset.outcome).value.trim(), outcomeBy: u.uid || '', outcomeAt: new Date().toISOString() })
+        .then(function () { toast('Saved.'); }, function (err) { toast(err.message); });
+    }
+  });
+
+  function saveMeeting(btn) {
+    var u = A.user() || {};
+    var zoom = $('r-zoom').getAttribute('aria-pressed') === 'true';
+    var date = $('r-date').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Choose the date first.'); return; }
+    var body = { title: $('r-title').value.trim() || 'Church Members’ Meeting', date: date, time: $('r-time').value,
+      place: $('r-place').value.trim(), joinKind: zoom ? 'zoom' : 'room', room: 'CMM', updatedAt: new Date().toISOString(), updatedBy: u.uid || '' };
+    var zurl = zoom ? $('r-zurl').value.trim() : '';
+    if (zurl && !/^https:\/\/\S+$/.test(zurl)) { toast('The Zoom link should start with https://'); return; }
+    btn.disabled = true;
+    var ref = CUR ? db().collection('churchMeetings').doc(CUR.id) : db().collection('churchMeetings').doc();
+    if (!CUR) { body.papers = []; body.status = 'planned'; body.createdAt = body.updatedAt; body.createdBy = body.updatedBy; }
+    ref.set(body, { merge: true }).then(function () {
+      return zoom ? ref.collection('private').doc('join').set({ zoomUrl: zurl, zoomId: $('r-zid').value.trim(), passcode: $('r-zpass').value.trim(),
+        updatedAt: body.updatedAt, updatedBy: body.updatedBy }) : null;
+    }).then(function () { toast('Saved.'); return load(ref.id); }, function (err) { btn.disabled = false; toast('Could not save: ' + (err.message || err)); });
+  }
+
+  function upload(btn) {
+    var f = $('r-file').files[0];
+    if (!f) { toast('Choose the file first.'); return; }
+    if (f.size > 20 * 1024 * 1024) { toast('That file is too big (20MB at most).'); return; }
+    btn.disabled = true;
+    var path = 'churchMeetings/' + CUR.id + '/papers/' + Date.now() + '-' + f.name.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 80);
+    firebase.storage(A.app).ref(path).put(f, { contentType: f.type }).then(function () {
+      var papers = (CUR.papers || []).concat([{ name: f.name.slice(0, 120), path: path }]);
+      return db().collection('churchMeetings').doc(CUR.id).update({ papers: papers, updatedAt: new Date().toISOString() });
+    }).then(function () { toast('Added.'); return load(CUR.id); }, function (err) { btn.disabled = false; toast('Could not add it: ' + (err.message || err)); });
+  }
+
+  function addVote(btn) {
+    var q = $('v-q').value.trim();
+    var choices = $('v-c').value.split(',').map(function (c) { return c.trim(); }).filter(Boolean).slice(0, 6);
+    if (!q) { toast('Type the question first.'); return; }
+    if (choices.length < 2) { toast('At least two choices.'); return; }
+    var u = A.user() || {};
+    btn.disabled = true;
+    db().collection('churchMeetings').doc(CUR.id).collection('votes').add({ question: q.slice(0, 300), choices: choices,
+      secret: $('v-secret').getAttribute('aria-pressed') === 'true', status: 'draft', order: VOTES.length,
+      createdAt: new Date().toISOString(), createdBy: u.uid || '' })
+      .then(function () { toast('Saved. Open it when the meeting gets to it.'); }, function (err) { btn.disabled = false; toast('Could not save: ' + (err.message || err)); });
+  }
+
+  /* For checks. */
+  window.EGBCMembersMeeting = { state: function () { return { meeting: CUR && CUR.id, votes: VOTES.map(function (v) { return { id: v.id, status: v.status }; }), mine: MINE, runner: isRunner() }; } };
+
+  if (window.EGBC_READY) start(A.profile()); else document.addEventListener('egbc-ready', function (e) { start(e.detail); }, { once: true });
+})();
+</script>
+</body>
+</html>

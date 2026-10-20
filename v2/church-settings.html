@@ -6,7 +6,7 @@
 <title>Church details</title>
 
 <script src="egbc-nosend.js?v=202610072100"></script>
-<script src="egbc-shell.js?v=202610210900" data-title="Church details"></script>
+<script src="egbc-shell.js?v=202610211500" data-title="Church details"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -18,6 +18,7 @@
      not necessarily admins of anything. Each half of the page is drawn
      only for whoever may actually save it - see mayDetails()/mayGive(). -->
 <script src="egbc-guard.js?v=202610210900" data-master></script>
+<script src="egbc-giving-form.js?v=202610211200"></script>
 <script src="egbc-events-rooms.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -179,70 +180,9 @@
     return !!(EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'));
   }
 
-  var G = {};
-
-  function drawGiving() {
-    ['give-h', 'give-sub', 'give-form'].forEach(function (id) {
-      document.getElementById(id).hidden = false;
-    });
-    document.getElementById('give-form').innerHTML =
-      '<div class="field"><label for="g-name">Account name</label>' +
-        '<input class="inp" id="g-name" maxlength="120" autocomplete="off" value="' + esc(G.accountName) + '"></div>' +
-      '<div class="field"><label for="g-sort">Sort code</label>' +
-        '<input class="inp" id="g-sort" maxlength="20" autocomplete="off" inputmode="numeric" value="' + esc(G.sortCode) + '">' +
-        /* NO EXAMPLE DIGITS HERE, not even zeros. An earlier version of
-           this hint carried a sort-code-shaped example and check-give.mjs
-           flagged it - rightly, because it looks for the SHAPE in these
-           pages and an example is indistinguishable from somebody pasting
-           the real one in "just to see". Then the comment explaining that
-           carried the shape too, and was flagged in its turn: the fifth
-           time in this project a check has matched a comment describing
-           the thing it was looking for. The check stays strict; the words
-           give way, both times. */
-        '<p class="hint" style="margin:6px 0 0">Six digits, however you would write it on a form &mdash; with or without the dashes.</p></div>' +
-      '<div class="field"><label for="g-acct">Account number</label>' +
-        '<input class="inp" id="g-acct" maxlength="20" autocomplete="off" inputmode="numeric" value="' + esc(G.accountNumber) + '"></div>' +
-      '<div class="field"><label for="g-ref">Suggested reference</label>' +
-        '<input class="inp" id="g-ref" maxlength="60" autocomplete="off" value="' + esc(G.reference) + '">' +
-        '<p class="hint" style="margin:6px 0 0">What to put in the reference box, so the treasurer can tell who it is from. For example: their own name.</p></div>' +
-      '<div class="field"><label for="g-gastate">Gift Aid</label>' +
-        '<select class="inp" id="g-gastate">' +
-          '<option value="no"' + (G.giftAid ? '' : ' selected') + '>Do not mention Gift Aid</option>' +
-          '<option value="yes"' + (G.giftAid ? ' selected' : '') + '>Mention Gift Aid, with a link to the form</option>' +
-        '</select></div>' +
-      '<div class="field" id="g-url-field"' + (G.giftAid ? '' : ' hidden') + '>' +
-        '<label for="g-url">Link to the Gift Aid form</label>' +
-        '<input class="inp" id="g-url" type="url" maxlength="300" placeholder="https://" value="' + esc(G.giftAidUrl) + '">' +
-        '<p class="hint" style="margin:6px 0 0">Where the declaration form lives. Left empty, the Gift Aid line still appears but without a link.</p></div>' +
-      '<div class="field"><label for="g-note">Anything else to say</label>' +
-        '<input class="inp" id="g-note" maxlength="400" value="' + esc(G.note) + '">' +
-        '<p class="hint" style="margin:6px 0 0">One line, shown under the details. Optional.</p></div>' +
-      '<button class="btn" id="g-save">Save the giving details</button>';
-    document.getElementById('g-gastate').onchange = function () {
-      document.getElementById('g-url-field').hidden = this.value !== 'yes';
-    };
-    document.getElementById('g-save').onclick = saveGiving;
-  }
-
-  function saveGiving() {
-    var v = function (id) { return document.getElementById(id).value.trim(); };
-    var giftAid = document.getElementById('g-gastate').value === 'yes';
-    var url = giftAid ? v('g-url') : '';
-    if (url && !/^https?:\/\/\S+$/.test(url)) { toast('That link does not look right. It should start with https://'); return; }
-    var u = EGBCAuth.user() || {};
-    var body = {
-      accountName: v('g-name'), sortCode: v('g-sort'), accountNumber: v('g-acct'),
-      reference: v('g-ref'), giftAid: giftAid, giftAidUrl: url, note: v('g-note'),
-      updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
-    };
-    document.getElementById('g-save').disabled = true;
-    db().collection('churchSettings').doc('giving').set(body).then(function () {
-      G = body; toast('Saved.'); drawGiving();
-    }).catch(function (e) {
-      document.getElementById('g-save').disabled = false;
-      toast('Could not save: ' + (e.message || e));
-    });
-  }
+  /* The form itself is egbc-giving-form.js, shared with Giving details
+     (giving-details.html), the Church office's page since this one became
+     master admins only (21 Oct 2026). */
 
   /* ---- phone notifications: the master switch (A-081) -------------
 
@@ -524,9 +464,8 @@
       drawFeatures();
     }
     if (!mayGive()) return null;
-    return db().collection('churchSettings').doc('giving').get().then(function (g) {
-      G = (g.exists && g.data()) || {}; drawGiving();
-    });
+    ['give-h', 'give-sub', 'give-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
+    return EGBCGivingForm.mount(document.getElementById('give-form'), { toast: toast });
   }).catch(function (e) { document.getElementById('form').innerHTML = '<p>' + esc(e.message || e) + '</p>'; });
 })();
 </script>

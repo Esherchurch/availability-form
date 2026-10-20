@@ -329,6 +329,10 @@ export const PAGES = [
       ['past services shown', "(()=>{const c=document.getElementById('showPast');if(!c)return 'no tick';c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));return 1})()"]
     ] },
   { page: 'teams-admin.html', wait: 9000, states: [['main', '1']] },
+  /* Giving details (21 Oct 2026): the Church office's bank details. */
+  { page: 'giving-details.html', wait: 9000, states: [['main', '1']] },
+  /* Members' meetings (21 Oct 2026): agenda, papers, how to join, votes. */
+  { page: 'church-meeting.html', wait: 9000, states: [['main', '1']] },
   { page: 'watch.html', wait: 9000, states: [['main', '1']] }
 ];
 

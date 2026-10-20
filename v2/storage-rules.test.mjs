@@ -45,6 +45,10 @@ const PEOPLE = {
      master admin, so he would pass the email-picture tests below without
      the Core clause being there at all. */
   core:   { uid: 'u_core',   teams: ['Core Team'], adminFor: [], masterAdmin: false },
+  /* Members' meetings (21 Oct 2026): the Church office runs them; a church
+     member reads their papers. */
+  office: { uid: 'u_office', teams: ['Church office'], adminFor: [], masterAdmin: false },
+  cmember:{ uid: 'u_cmember', teams: ['Worship Team'], adminFor: [], masterAdmin: false, churchMember: true },
 };
 
 await env.withSecurityRulesDisabled(async (ctx) => {
@@ -52,7 +56,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   for (const p of Object.values(PEOPLE)) {
     await setDoc(doc(db, 'users', p.uid), {
       memberId: 'm_' + p.uid, name: p.uid,
-      teams: p.teams, adminFor: p.adminFor, masterAdmin: p.masterAdmin,
+      teams: p.teams, adminFor: p.adminFor, masterAdmin: p.masterAdmin, churchMember: p.churchMember === true,
       status: (p.teams.length || p.adminFor.length || p.masterAdmin) ? 'active' : 'pending',
     });
   }
@@ -387,6 +391,25 @@ await check('somebody with no account still cannot upload a banner', 'deny',
   () => put(anon(), 'banners/nope.png'));
 await check('nothing may be written outside the paths that are named', 'deny',
   () => put(as('martin'), 'somewhere-else/file.png'));
+
+/* MEMBERS' MEETINGS' PAPERS (21 Oct 2026). */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await uploadBytes(ref(ctx.storage(), 'churchMeetings/m1/papers/agenda.png'), PIC(), { contentType: 'image/png' });
+});
+await check('the Church office puts a members\' meeting paper up', 'allow',
+  () => put(as('office'), 'churchMeetings/m1/papers/minutes.png'));
+await check('  somebody on a team who is not a church member cannot', 'deny',
+  () => put(as('samy'), 'churchMeetings/m1/papers/x.png'));
+await check('  nor a church member', 'deny',
+  () => put(as('cmember'), 'churchMeetings/m1/papers/x.png'));
+await check('a church member reads a paper', 'allow',
+  () => getBytes(ref(as('cmember'), 'churchMeetings/m1/papers/agenda.png')));
+await check('  somebody who is not one does not', 'deny',
+  () => getBytes(ref(as('samy'), 'churchMeetings/m1/papers/agenda.png')));
+await check('  nor anybody signed out', 'deny',
+  () => getBytes(ref(anon(), 'churchMeetings/m1/papers/agenda.png')));
+await check('only a PDF or a picture goes up', 'deny',
+  () => uploadBytes(ref(as('office'), 'churchMeetings/m1/papers/run.exe'), PIC(), { contentType: 'application/octet-stream' }));
 
 await env.cleanup();
 
