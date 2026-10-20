@@ -70,6 +70,13 @@
        every save, so what is sent is what is on the screen. */
     data.htmlMembers = data.status === 'scheduled' ? finalCopy('members') : '';
     data.htmlEveryone = data.status === 'scheduled' ? finalCopy('everyone') : '';
+    /* A welcome email's words (enews.html Welcome emails): its finished
+       copy, kept only while nothing is left to fill in - the server sends
+       this copy, and sends nothing while there is none. No web version. */
+    if (/^auto_/.test(ISSUE_ID)) {
+      data.htmlMembers = '';
+      data.htmlEveryone = MB.readyToSend(ISSUE).ok ? MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), { version: 'everyone', church: CHURCH, unsubscribeUrl: MB.PLACEHOLDER, webUrl: '' }) : '';
+    }
     return db().collection('enewsIssues').doc(ISSUE_ID).set(data, { merge: true }).then(function () { savedState('Saved'); },
       function (e) { savedState('Not saved', 'err'); toast('Not saved: ' + (e.message || e)); });
   }
@@ -777,7 +784,8 @@
     e.stopPropagation();
     var old = document.querySelector('.menu'); if (old) { old.remove(); return; }
     var m = document.createElement('div'); m.className = 'menu';
-    m.innerHTML = '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '&view=send">' + I('calendar-clock', 17) + 'Schedule it (sending opens at go-live)</a>' +
+    m.innerHTML = (/^auto_/.test(ISSUE_ID) ? '<a href="enews.html?welcomes=1">' + I('hand-heart', 17) + 'Back to the welcome emails</a>' :
+      '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '&view=send">' + I('calendar-clock', 17) + 'Schedule it (sending opens at go-live)</a>') +
       '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '">' + I('chevron-left', 17) + 'Back to this ' + (ISSUE.kind === 'oneoff' ? 'email' : 'e-news') + '</a><a href="enews.html">' + I('list', 17) + 'All e-news and emails</a>' +
       '<button type="button" id="save-tpl">' + I('layout-template', 17) + 'Save as a template</button>';
     document.body.appendChild(m); icons(m);

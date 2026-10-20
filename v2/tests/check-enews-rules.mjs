@@ -118,6 +118,13 @@ async function run(rules) {
   await t('nobody writes the Unsplash cache from a page', assertFails(setDoc(doc(as('office'), 'unsplashCache', '_hour'), { hour: 'x', used: 0 })));
   await t('a member’s link to the papers is the server’s: not even a master admin reads them', assertFails(getDocs(collection(as('master'), 'meetingPaperLinks'))));
   await t('nobody makes a link to the papers from a page', assertFails(setDoc(doc(as('office'), 'meetingPaperLinks', 'x'), { meetingId: 'm', personId: 'p', expires: 1 })));
+  /* The welcome emails' switches (plan G). */
+  const welc = (o) => Object.assign({ subscriber: true, newcomer: false, updatedAt: 'x', updatedBy: 'en_office' }, o);
+  await t('the office can switch the welcome emails on and off', assertSucceeds(setDoc(doc(as('office'), 'enewsSettings', 'welcomes'), welc())));
+  await t('a church member cannot switch the welcome emails', assertFails(setDoc(doc(as('member'), 'enewsSettings', 'welcomes'), welc({ updatedBy: 'en_member' }))));
+  await t('a welcome switch is yes or no, nothing else', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'welcomes'), welc({ newcomer: 'everyone@example.invalid' }))));
+  await t('the welcome switches carry nothing else (no extra recipients)', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'welcomes'), welc({ cc: 'x@example.invalid' }))));
+  await t('who has had a welcome is the server’s alone', assertFails(getDocs(collection(as('master'), 'welcomeSent'))));
   /* Under 18 is the office's to tick, like Under 16 (C-36). */
   await t('a team leader cannot tick Under 18 on their team’s person', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
   await t('the office can tick Under 18', assertSucceeds(setDoc(doc(as('office'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
@@ -147,6 +154,7 @@ const BREAKS = [
   ['church members may read the templates', 'allow read: if enewsOffice();   // email templates: the office', 'allow read: if active();   // email templates: the office', 'cannot read the templates'],
   ['the office may read the Unsplash cache', 'allow read, write: if false;   // unsplash cache: the server only', 'allow read, write: if enewsOffice();   // unsplash cache: the server only', 'Unsplash cache'],
   ['the office may read the links to the papers', 'allow read, write: if false;   // paper links: the server only', 'allow read, write: if enewsOffice();   // paper links: the server only', 'link to the papers'],
+  ['anything on the welcome switches', "&& request.resource.data.keys().hasOnly(['subscriber', 'newcomer', 'updatedAt', 'updatedBy'])", '', 'carry nothing else'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];
 let caught = 0;

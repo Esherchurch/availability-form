@@ -153,7 +153,8 @@
       '<button class="btn sec" id="tpls"><i data-lucide="layout-template" style="width:16px;height:16px"></i>Templates</button>' +
       '<button class="btn sec" id="newcmm"><i data-lucide="video" style="width:16px;height:16px"></i>Church members\u2019 meeting</button>' +
       '<button class="btn sec" id="look"><i data-lucide="palette" style="width:16px;height:16px"></i>Look and footer</button>' +
-      '<button class="btn sec" id="subsb"><i data-lucide="users" style="width:16px;height:16px"></i>Subscribers</button></div>' +
+      '<button class="btn sec" id="subsb"><i data-lucide="users" style="width:16px;height:16px"></i>Subscribers</button>' +
+      '<button class="btn sec" id="welc"><i data-lucide="hand-heart" style="width:16px;height:16px"></i>Welcome emails</button></div>' +
       '<div class="card"><h2>Recent</h2><div class="list" id="issues"><p class="m">Loading…</p></div></div>';
     icons();
     document.getElementById('new').onclick = newIssue;
@@ -162,6 +163,7 @@
     document.getElementById('tpls').onclick = function () { manageTemplates(); };
     document.getElementById('look').onclick = lookSheet;
     document.getElementById('subsb').onclick = showSubscribers;
+    document.getElementById('welc').onclick = welcomeSheet;
     db().collection('enewsIssues').orderBy('createdAt', 'desc').limit(30).get().then(function (s) {
       var el = document.getElementById('issues');
       /* THIS WEEK'S DRAFT MAKES ITSELF (HANDOVER-MAIN rule 13; C-18). The
@@ -169,10 +171,12 @@
          been started since Monday, the week's draft is made from What's On,
          the rota and the notices, and opened. Nobody has to remember. */
       var mon = weekOf(new Date());
-      var thisWeek = s.docs.some(function (d) { return d.data().week !== 'notice' && String(d.data().createdAt || '').slice(0, 10) >= mon; });
+      /* The welcome emails' words (auto_...) are kept apart: Welcome emails. */
+      var docs = s.docs.filter(function (d) { return !/^auto_/.test(d.id); });
+      var thisWeek = docs.some(function (d) { return d.data().week !== 'notice' && String(d.data().createdAt || '').slice(0, 10) >= mon; });
       if (!thisWeek && !showList.autoTried) { showList.autoTried = true; newIssue({ auto: true }); return; }
-      if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">None yet. “New e-news” starts the first.</p>'; return; }
-      el.innerHTML = s.docs.map(function (d) {
+      if (!docs.length) { el.innerHTML = '<p class="m" style="margin:0">None yet. “New e-news” starts the first.</p>'; return; }
+      el.innerHTML = docs.map(function (d) {
         var x = d.data(), st = x.status || 'draft';
         var word = (x.kind === 'oneoff' ? 'Email \u00b7 ' : '') + (st === 'sent' ? 'Sent' : st === 'scheduled' ? 'Scheduled' : st === 'sending' ? 'Sending' : 'Draft');
         return '<a href="?issue=' + encodeURIComponent(d.id) + '" data-id="' + esc(d.id) + '"><span><b>' + esc(x.subject || 'Untitled') + '</b><br><span class="m">' +
@@ -182,6 +186,54 @@
         a.onclick = function (e) { e.preventDefault(); openIssue(a.getAttribute('data-id')); };
       });
     }).catch(function (e) { document.getElementById('issues').innerHTML = '<p class="m">Could not load: ' + esc(e.message || e) + '</p>'; });
+  }
+
+  /* ---- the welcome emails (plan G: sent by themselves) ------------------
+     Two emails the server sends by itself (functions/welcome-mail.js), in
+     the church's own words: kept as two fixed drafts (enewsIssues/auto_...),
+     written in the editor, hidden from the list. Each is switched on here
+     (enewsSettings/welcomes) and only once its words are complete: the
+     editor keeps its finished copy only while nothing is left to fill in. */
+  var AUTO = {
+    subscriber: { id: 'auto_subscriber', starter: 'welcome-sub', title: 'New subscriber welcome',
+      when: 'Sent by itself when someone confirms their e-news sign-up by email.' },
+    newcomer: { id: 'auto_newcomer', starter: 'newcomer', title: 'Newcomer welcome',
+      when: 'Sent by itself when someone says hello on \u201cI\u2019m new here\u201d and gives an email address: to that address only, never to anyone under 18. Their message is never in it and it goes to nobody else; the welcomers and the care team hear of a hello just as they do now. It is a welcome, never a referral.' }
+  };
+  function ensureAuto(k) {
+    var A = AUTO[k], ref = db().collection('enewsIssues').doc(A.id);
+    return ref.get().then(function (x) {
+      if (x.exists) return;
+      var t = EGBCStarters.get(A.starter) || { blocks: [] }, u = EGBCAuth.user() || {};
+      return ref.set(Object.assign({ subject: String(t.subject || A.title).replace('[Church]', shortName() || '[Church]').slice(0, 200), preheader: String(t.preheader || '').slice(0, 200),
+        template: SET.template === 'green' ? 'green' : 'classic', blocks: JSON.parse(JSON.stringify(t.blocks || [])), status: 'draft', sendAt: '', week: 'notice',
+        kind: 'oneoff', audience: 'picked', team: '', picked: [], templateId: A.starter, htmlMembers: '', htmlEveryone: '', createdAt: new Date().toISOString(), createdBy: u.uid || '' }, stamp()));
+    });
+  }
+  function welcomeSheet() {
+    var s = sheet('Welcome emails', '<p class="m" style="margin:0">Two emails the hub sends by itself, in the church\u2019s own words. Sending opens at go-live.</p><div id="wl"><p class="m">Loading\u2026</p></div>');
+    var one = function (id) { return db().collection('enewsIssues').doc(id).get().then(function (x) { return x.exists ? x.data() : null; }, function () { return null; }); };
+    var draw = function () {
+      Promise.all([db().collection('enewsSettings').doc('welcomes').get().then(function (x) { return x.exists ? x.data() : {}; }, function () { return {}; }), one(AUTO.subscriber.id), one(AUTO.newcomer.id)]).then(function (r) {
+        var W = r[0], D = { subscriber: r[1], newcomer: r[2] };
+        s.querySelector('#wl').innerHTML = ['subscriber', 'newcomer'].map(function (k) {
+          var A = AUTO[k], d = D[k], ready = !!(d && d.htmlEveryone), on = W[k] === true;
+          var state = !d ? 'Not written yet.' : ready ? (on ? 'On: it sends by itself.' : 'Ready. Off until you tick it.') : (on ? 'On, but NOT sending: there is still something to fill in.' : 'Still something to fill in: open the words and look at Check.');
+          return '<div data-k="' + k + '" style="border-top:1px solid var(--line);padding:12px 0 0;margin:12px 0 0"><b style="color:var(--ink)">' + esc(A.title) + '</b><p class="m" style="margin:4px 0 8px">' + esc(A.when) + '</p>' +
+            '<p style="margin:0 0 8px" data-state>' + esc(state) + '</p><div class="row"><button class="btn sec" data-edit>' + (d ? 'Edit the words' : 'Write it') + '</button>' +
+            '<label style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="checkbox" data-on style="width:20px;height:20px;accent-color:var(--brand)"' + (on ? ' checked' : '') + (ready || on ? '' : ' disabled') + '> Send it by itself</label></div></div>';
+        }).join('');
+        Array.prototype.forEach.call(s.querySelectorAll('[data-k]'), function (row) {
+          var k = row.getAttribute('data-k');
+          row.querySelector('[data-edit]').onclick = function () { ensureAuto(k).then(function () { location.href = 'enews-edit.html?issue=' + AUTO[k].id; }, function (e) { toast('Not started: ' + (e.message || e)); }); };
+          row.querySelector('[data-on]').onchange = function () {
+            var next = { subscriber: W.subscriber === true, newcomer: W.newcomer === true }; next[k] = this.checked;
+            db().collection('enewsSettings').doc('welcomes').set(Object.assign(next, stamp())).then(function () { toast(next[k] ? AUTO[k].title + ': on.' : AUTO[k].title + ': off.'); draw(); }, function (e) { toast('Not saved: ' + (e.message || e)); draw(); });
+          };
+        });
+      });
+    };
+    draw();
   }
 
   /* What's On, read the way What's On reads it (egbc-comms.js). */
@@ -992,7 +1044,9 @@
     ]).then(function () {
       churchFromSettings();
       var id = new URLSearchParams(location.search).get('issue');
-      if (id) openIssue(id); else showList();
+      /* The welcome emails' words come back to Welcome emails, not a Send tab. */
+      if (new URLSearchParams(location.search).get('welcomes') || /^auto_/.test(id || '')) { showList(); welcomeSheet(); }
+      else if (id) openIssue(id); else showList();
     });
   }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();

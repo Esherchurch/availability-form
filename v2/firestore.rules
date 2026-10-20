@@ -1537,6 +1537,10 @@ service cloud.firestore {
     }
     // Unsplash searches kept a day, the hour's count and pings owed (functions/unsplash.js): the server only.
     // A members' meeting's papers: each member's own link, kept as its hash (functions/meeting-papers.js): the server only.
+    // Who has had a welcome email (functions/welcome-mail.js): the server only.
+    match /welcomeSent/{id} {
+      allow read, write: if false;   // welcomes sent: the server only
+    }
     match /meetingPaperLinks/{id} {
       allow read, write: if false;   // paper links: the server only
     }
@@ -1563,6 +1567,11 @@ service cloud.firestore {
     }
     match /enewsSettings/{id} {
       allow read: if enewsOffice();
+      // The welcome emails' switches (enews.html Welcome emails; functions/welcome-mail.js).
+      allow write: if enewsOffice() && id == 'welcomes'
+                   && request.resource.data.keys().hasOnly(['subscriber', 'newcomer', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.get('subscriber', false) is bool && request.resource.data.get('newcomer', false) is bool
+                   && request.resource.data.updatedBy == request.auth.uid;
       allow write: if enewsOffice() && id == 'main'
                    && request.resource.data.keys().hasOnly(['template', 'colours', 'church', 'bible', 'updatedAt', 'updatedBy'])
                    && request.resource.data.template in ['classic', 'green']

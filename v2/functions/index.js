@@ -793,6 +793,8 @@ export { socialMorning } from './social.js';
 export { unsplashSearch, unsplashUsed } from './unsplash.js';
 /* A members' meeting's papers for members without a hub account: their own 30-day link (comms window; mailings plan 3.3). */
 export { meetingPapers } from './meeting-papers.js';
+/* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */
+export { welcomeSubscriber, welcomeNewcomer } from './welcome-mail.js';
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */
 export { presentConvert, presentFromLink, presentSweep } from './present.js';
 export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft.js';

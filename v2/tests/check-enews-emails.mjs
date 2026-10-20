@@ -12,7 +12,11 @@
  * and counted; the members' meeting starter picks the next members'
  * meeting; "What's on this month" fills its diary. Read back from the data.
  *
- * DELIBERATE BREAKS: --break=fill (the [parts] don't hold it);
+ * The welcome emails: written from their starters, kept apart from the
+ * list, switched on only once their words are complete.
+ *
+ * DELIBERATE BREAKS: --break=autocopy (a welcome's finished copy not kept);
+ * --break=fill (the [parts] don't hold it);
  * --break=audience (who it goes to isn't kept). Each must turn this red.
  */
 import { spawn } from 'node:child_process';
@@ -36,7 +40,8 @@ const ok = (n, v, x) => { R.push(!!v); console.log('  ' + (v ? 'PASS  ' : 'FAIL 
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   fill: ['egbc-mailblocks.js', "      if (prompts.length) missing.push('fill');", ''],
-  audience: ['enews.html', "b.onclick = function () { ISSUE.audience = b.getAttribute('data-aud'); DIRTY = true; save(true).then(draw); };", 'b.onclick = function () {};']
+  audience: ['enews.html', "b.onclick = function () { ISSUE.audience = b.getAttribute('data-aud'); DIRTY = true; save(true).then(draw); };", 'b.onclick = function () {};'],
+  autocopy: ['egbc-enews-editor.js', "    if (/^auto_/.test(ISSUE_ID)) {", '    if (false) {']
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 
@@ -236,6 +241,29 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
     const id3 = await startFrom('What\u2019s on this month');
     const dy = ((await issue(id3)).blocks || []).find(b => b.type === 'diary') || {};
     ok('"What\u2019s on this month" fills its diary from What\u2019s On', (dy.items || []).some(x => /Synthetic quiz night/.test(x.title)), dy.items);
+    /* The welcome emails (plan G: sent by themselves). */
+    await openList();
+    await ev('document.getElementById("welc").click(),1'); await until('document.querySelectorAll(".sheet [data-k]").length===2', 10000); await sleep(800);
+    ok('Welcome emails: both, off and not yet written, and they can\u2019t be switched on yet', (await ev('[...document.querySelectorAll(".sheet [data-on]")].every(c=>c.disabled&&!c.checked)')) && /Not written yet/.test(await ev('document.querySelector(".sheet").innerText')));
+    ok('the newcomer welcome says who it goes to: that address only, never under 18, never a referral', /to that address only, never to anyone under 18/.test(await ev('document.querySelector(\'.sheet [data-k="newcomer"]\').innerText')) && /never a referral/.test(await ev('document.querySelector(\'.sheet [data-k="newcomer"]\').innerText')));
+    await shot('welcomes');
+    await ev('document.querySelector(\'.sheet [data-k="newcomer"] [data-edit]\').click(),1');
+    await until('location.pathname.endsWith("/enews-edit.html") && ' + C + ' && ' + C + '.querySelectorAll("[data-b]").length > 0', 25000); await sleep(1500);
+    let au = await issue('auto_newcomer');
+    ok('"Write it" starts the newcomer welcome from its starter, in the editor', au.templateId === 'newcomer' && au.kind === 'oneoff' && au.status === 'draft' && (au.blocks || []).length === 2 && au.htmlEveryone === '', [au.templateId, au.kind]);
+    ok('…and its Done menu goes back to Welcome emails, never Schedule', await ev('document.getElementById("done").click(),[...document.querySelectorAll(".menu a")].map(a=>a.textContent).join("|")').then(x => /Back to the welcome emails/.test(x) && !/Schedule/.test(x)));
+    await ev('document.querySelector(".menu") && document.querySelector(".menu").remove(),1');
+    await ev(`(function(){var d=${C};[].forEach.call(d.querySelectorAll('[data-edit="html"]'),function(e){e.focus();e.innerHTML=e.innerHTML.replace(/\\[([^\\[\\]]{2,80})\\]/g,'Synthetic words');e.dispatchEvent(new Event('input',{bubbles:true}));});return 1})()`); await sleep(2500);
+    au = await issue('auto_newcomer');
+    ok('filled in: its finished copy is kept, Dear {{first_name}} left for the server, no web version link', String(au.htmlEveryone || '').length > 500 && /Dear \{\{first_name\}\}/.test(au.htmlEveryone) && !/\[[^\[\]]{2,80}\]/.test(au.htmlEveryone.replace(/<[^>]*>/g, '')) && !/enews-web\.html/.test(au.htmlEveryone), String(au.htmlEveryone || '').length);
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews.html?welcomes=1' });
+    await until('document.querySelectorAll(".sheet [data-k]").length===2', 20000); await sleep(800);
+    ok('back on Welcome emails: the newcomer one can be switched on now, the other still can\u2019t', !(await ev('document.querySelector(\'.sheet [data-k="newcomer"] [data-on]\').disabled')) && await ev('document.querySelector(\'.sheet [data-k="subscriber"] [data-on]\').disabled'));
+    await ev('var c=document.querySelector(\'.sheet [data-k="newcomer"] [data-on]\');c.checked=true;c.dispatchEvent(new Event("change")),1'); await sleep(1800);
+    const W = (await list2('enewsSettings')).find(d => d._id === 'welcomes') || {};
+    ok('switched on: kept for the server (newcomer on, subscriber off)', W.newcomer === true && W.subscriber === false && /On: it sends by itself/.test(await ev('document.querySelector(\'.sheet [data-k="newcomer"]\').innerText')), W);
+    await ev('document.querySelector(".sheet .x").click(),1'); await sleep(1200);
+    ok('the welcome emails\u2019 words are not in the list of e-news and emails', !/Lovely to meet you/.test(await ev('document.getElementById("issues").innerText')));
     ok('no errors thrown', errors.length === 0, errors);
   } catch (e) {
     ok('the run finished', false, e.message);
