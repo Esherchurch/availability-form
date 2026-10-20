@@ -5,6 +5,97 @@ Feature names: `enews`, `cardMaker`, `canva`. All three stay **off** until Marti
 
 ---
 
+## PLAN, 20 Oct late: the e-news, made to work the same as Mailchimp (for review)
+
+One plan from the reviewing window's six messages of 20 Oct. Two parts are already built: **Add a meeting** (C-35) and **no emails to under-18s** (C-36). Everything below waits for your yes. Nothing in sections B to E is built yet.
+
+**Mock-ups of the editor** (the email in them is drawn by the real e-news code; the content is made up):
+- [Computer: the Content panel](design-mocks/comms/editor/editor-computer-content.png): the email on the left, blocks to drag on the right, and hovering a block shows Move / Edit / Duplicate / Delete.
+- [Computer: editing a card](design-mocks/comms/editor/editor-computer-edit.png): the card's editor in the right panel, with the toolbar, the church's colours, caption position, image width, members-only, and Save & Close.
+- [Phone, 375](design-mocks/comms/editor/editor-375.png): one column; the block's editor opens as a sheet from the bottom.
+
+**Mailchimp's own screens beside them: I can't make these.** I have no Mailchimp sign-in, and I won't ask for one. Could Val or Martin send four screenshots from Val's account? They should show:
+1. the classic editor with a campaign open;
+2. the Content tab's block list;
+3. an Image + Caption block open for editing (its Content, Style and Settings tabs);
+4. the text toolbar.
+
+I'll put each one next to the matching mock-up and change anything that doesn't match.
+
+### A. What "the same as Mailchimp" means here
+
+Martin: "it needs to work in the same way as Mailchimp", so Val's habits carry over unchanged. The model is Mailchimp's **classic** editor, the one Val's template was built in (her blocks are mcnCaptionBlock, mcnImageCardBlock and mcnTextBlock).
+
+- **The page:**
+  - The email on the left. The panel on the right has two tabs:
+    - **Content:** the blocks, which you drag onto the email;
+    - **Design:** colours, fonts and spacing. Today's "Look and footer" moves here.
+  - The top bar: **Preview** (desktop or mobile), **Send a test email**, then **Schedule** or **Send**. Send stays shut until go-live, as now.
+- **Mailchimp's block names and behaviour:** Text, Boxed Text, Divider, Image, Image Group, Image Card, Image + Caption, Button, Social Follow, Social Share, Footer, Video.
+- **The hub's own blocks,** in a second group, without changing those habits:
+  - Event (fills itself from What's On);
+  - Bible verse (from the hub's Bible);
+  - Meeting (Join, church members only);
+  - Dates for the diary;
+  - This Sunday;
+  - Notices.
+- **Hovering a block** shows Move / Edit / Duplicate / Delete. **Clicking it** opens its editor in the right panel:
+  - the text editor, with Mailchimp's toolbar: format, bold, italic, underline, text colour, link, bulleted and numbered lists, align, emoji;
+  - the block's settings;
+  - **Save & Close**.
+- **Image Card and Image + Caption settings as Mailchimp's:** caption position (top, bottom, left, right) and image width. Val's event cards are Image + Caption, caption on the right, image one third.
+- **Every card's words are full rich text** (the same editor as the Text block), not one line. Val's cards are paragraphs with bold, links, emoji and lists.
+- **Drag to reorder.** The arrows stay too, for keyboard and phone. Plus **Undo**, and autosave showing **Saved**.
+- **Phone:** one column, the same steps. The block's editor opens as a sheet from the bottom.
+- **One conflict between your messages:** the first asked to type ON the email itself; the second asked for "the same as Mailchimp", which edits in the right panel. I've planned the second, because it's the later and more exact ask. Say if you want both.
+
+### B. The email itself (egbc-mailblocks.js)
+
+1. **Card titles teal and bold,** as Val's: the card's first bold line is teal (#008080), and so is the block's title.
+2. **Card spacing to Val's measurements:**
+   - the picture inset with a white margin and rounded corners;
+   - the words further in (about 38px each side on a phone);
+   - measured from her page at 375 and 600, and **checked by computed style, not by eye**.
+3. **Line height and paragraph spacing exactly Val's,** measured and checked the same way.
+4. **Text colour:**
+   - a colour button in the editor, with the church's palette (the look's teal, orange, green and dark, plus a few);
+   - sent as an inline style on a span, and only palette colours are kept, so nothing breaks in Outlook or dark mode;
+   - bold, italic, underline, links and lists work as now;
+   - the test: colour a word teal, and it is teal in the sent copy and the web version.
+5. **Footer, as Val's:**
+   - **Social icons** from a church setting: Facebook, YouTube, website and Instagram, and any church can add others. Small white icons on the dark footer, as PNG pictures (not fonts or SVG) so Outlook shows them.
+   - **"Dates for the diary for the coming weeks"** opens the church's public What's On page. No PDF to upload each week, unlike Val's Dates.275.pdf.
+   - An optional **Dates for the diary** block lists the coming weeks' public events (date and title) from What's On, by itself.
+   - Both are in the EGBC template by default, in Val's style.
+
+### C. The weekly draft
+
+6. **Each event card uses its What's On picture, full write-up and links.** The live draft looked poor because ChurchSuite's events have none, so the cards were bare titles.
+7. **An event with no picture or write-up becomes a tidy, finished card:** date, title and a **More details** link to its page. It never looks like a gap.
+8. **"Events missing a picture or write-up"**: a list at the top of the draft, so the office can add them in What's On before sending.
+
+### D. Proof
+
+9. **The side-by-side check, kept for good:**
+   - Val's real 15 Oct issue (the reviewing window's `enews-side-by-side.html`) drawn by our code next to her page, at 375 and 600, with screenshots of both in FINDINGS;
+   - computed-style comparisons: sizes, line heights, paragraph spacing, card insets, footer icons, the diary button;
+   - personal details are blocked out in anything committed, as before.
+10. **The ease test:**
+    - Someone who knows Mailchimp makes this week's issue without help, and we record the time and every place they hesitate.
+    - It is **ready when it's as quick as Mailchimp.** That needs Val's usual time in Mailchimp as the measure: could she time her next issue?
+
+### E. Order of work, if you agree
+
+1. **B and C first** (the email and the draft: smaller, and they show at once in what people receive), with the side-by-side check (D9) growing as each lands.
+2. **Then A, the editor** (the large piece), built behind the e-news switch on the existing page, so nothing changes for anyone until it's ready.
+3. **Then the ease test (D10),** before the editor replaces today's.
+
+### F. Not received
+
+The plan you mentioned for **one-off emails and templates (CMM, ministry update, and so on)** hasn't reached this window; only the "Add a meeting" message did. Please resend it. The **Church members' meeting** starter (C-35) is my reading of "the CMM template" until then.
+
+---
+
 ## DECIDED (19 Oct 2026; plan bebcbd9e accepted by the reviewing window and Martin)
 
 These replace anything below that disagrees.
