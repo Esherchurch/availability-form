@@ -251,6 +251,12 @@ try {
   await X.$eval('[data-mv="rooms"][data-id="room_hall"][data-d="-1"] [data-lucide], [data-mv="rooms"][data-id="room_hall"][data-d="-1"] svg', e => e.dispatchEvent(new MouseEvent('click', { bubbles: true })));
   const after = await until(async () => { const o = await readDb(async (db) => (await getDocs(collection(db, 'rooms'))).docs.map(d => [d.id, d.data().order]).sort((a, b) => a[1] - b[1]).map(x => x[0]).join()); return o !== before ? o : null; });
   ok('   a tap on the icon itself still moves the room', after === 'room_hall,room_band', after + ' (was ' + before + ')');
+  /* Church details is master admins only (main, 20 Oct): only they are shown the way there. */
+  ok('7. CHURCH DETAILS: a master admin is shown the link', await X.$eval('#churchLink', e => !e.hidden && e.offsetParent !== null && /Church details/.test(e.innerText)).catch(() => false));
+  const LN = L;
+  await go(LN, 'places-admin.html', 'body');
+  await until(() => LN.$('[data-mv="rooms"]'));
+  ok('   A BOOKINGS ADMIN IS NOT (church-settings.html would refuse her)', await LN.$eval('#churchLink', e => e.hidden && e.offsetParent === null).catch(() => false) && !(await LN.$$eval('a[href^="church-settings"]', as => as.some(a => a.offsetParent !== null))));
 
   ok('errors on the pages', errors.length === 0, errors.join(' | '));
 } catch (e) {
