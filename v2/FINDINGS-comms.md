@@ -175,6 +175,19 @@ Martin thinks Val may use Mailchimp's social posts. In Mailchimp (his screenshot
 - **For a church without a service:** make one from the same Bible picker as the e-news, with a few typographic designs in the card maker, in the church's fonts and colours. Sizes 1080 × 1350 and Story 1080 × 1920. The version's copyright line goes on it, small, where the version needs it.
 - **No service's designs are copied.** The hub's own designs are its own.
 
+**YouVersion's Verse of the Day: checked 20 Oct, before building anything.** Martin thinks the church's daily images are YouVersion's.
+- **The hub can't fetch them automatically.**
+  - **YouVersion's developer platform** (developers.youversion.com) is free, with an app key. Its Verse of the Day calls give only **the day and a reference** (e.g. `JHN.3.16`). There is **no picture**, and no picture call anywhere in it.
+  - **It is for non-commercial apps only:** "no advertisements/paywalls/subscriptions", or the app is removed. Church HQ is a paid subscription, so it doesn't qualify unless YouVersion agrees in writing.
+  - **The Bible App's own terms** (bible.com/terms) forbid any "robot, spider, or other automatic device … to access YouVersion … including … copying any of the material". Content is Life.Church's (and its licensors'), for personal, non-commercial or a non-profit church's internal use. The YouVersion name and logo need Life.Church's written permission.
+  - **So the hub must not copy YouVersion's verse images, by any route.**
+- **What is fine:** the person who posts each day uses the Bible App's own Share button on their phone, as they do now. Or they save the image and bring it into the manual slot, with a credit line such as "Verse image: YouVersion Bible App".
+  - YouVersion's terms don't spell out the credit, so it is the church's to set once.
+  - The translation's own rules still apply (e.g. the NIV's).
+- **So "Verse of the day" is the manual slot** described above: the picture brought in, a credit line, a daily reminder.
+- **Plus the hub's own, for any church:** a year of verse references chosen by the hub (a list of references copies nobody), the text from a free Bible (BSB) or the church's API.Bible versions, in the hub's own designs. That one can fill itself each morning.
+- **If Martin wants YouVersion's verse itself:** write to YouVersion's platform team (platform.youversion.com/support) and ask whether a church-management subscription may use the platform. Nothing is built for that.
+
 **Step 1, now (does not wait for Meta): "Make a social post"** from an event or an e-news item.
 - **The picture** comes from the card maker, in each size:
 
