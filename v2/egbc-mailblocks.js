@@ -142,8 +142,49 @@
         '<td width="50%" valign="top" style="padding:0 10px 0 0;">' + (left == null ? 'Left column…' : left) + '</td>' +
         '<td width="50%" valign="top" style="padding:0 0 0 10px;">' + (right == null ? 'Right column…' : right) + '</td>' +
         '</tr></table>';
+    },
+    /* A meeting (meetingFrom), as the Compiler's other snippets look. */
+    meeting: function (m, colour) {
+      var href = safeUrl(m && m.url); if (!href) return '';
+      return '<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:18px 0;"><tr><td style="padding:14px 16px;border:1px solid #dbe6e6;border-radius:12px;font-family:Arial,sans-serif;">' +
+        '<p style="margin:0;font-size:16px;font-weight:bold;color:' + (colour || '#3d6263') + ';">' + esc(m.title || 'Meeting') + '</p>' +
+        (meetingWhen(m) ? '<p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#333333;">' + esc(meetingWhen(m)) + '</p>' : '') +
+        snippet.button(m.label || 'Join the meeting', href, '#15803d') +
+        '<p style="margin:0;font-size:12px;color:#6b7280;text-align:center;">' + esc(KNOCK) + '</p>' +
+        '</td></tr></table>';
     }
   };
+
+  /* ---- meetings (Martin, 20 Oct): one from the hub's Meetings list (rota
+     events with a video room, egbc-core-meetings.js). Join is the hub's own
+     meeting page - knock and the host lets you in - never a host link.
+     Members-only unless the office unticks it; the CMM room always is
+     (EGBCAuth.MEMBERS_ONLY_ROOMS). */
+  var MEMBERS_ONLY_ROOMS = ['CMM'];
+  var KNOCK = 'Type your name and knock; the host lets you in.';
+  function clock(hhmm) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '')); if (!m) return '';
+    var h = +m[1];
+    return (h % 12 || 12) + (+m[2] ? ':' + m[2] : '') + (h < 12 ? 'am' : 'pm');
+  }
+  function meetingWhen(m) {
+    var day = /^\d{4}-\d{2}-\d{2}$/.test(String(m.date || ''))
+      ? new Date(m.date + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
+    var time = clock(m.startTime) + (clock(m.endTime) ? '–' + clock(m.endTime) : '');
+    return [day, time].filter(Boolean).join(' · ');
+  }
+  /* ev: an `events` document (with its id); room: its video room; base:
+     where the hub is (e.g. https://esherchurch.github.io/availability-form/v2). */
+  function meetingFrom(ev, room, base) {
+    ev = ev || {};
+    return {
+      type: 'meeting', eventId: String(ev.id || ''), room: String(room || ''),
+      title: [ev.type, ev.description].filter(Boolean).join(' · ').slice(0, 160) || 'Meeting',
+      date: String(ev.date || ''), startTime: String(ev.startTime || ''), endTime: String(ev.endTime || ''),
+      url: String(base || '').replace(/\/+$/, '') + '/meeting.html?room=' + encodeURIComponent(room || '') + (ev.id ? '&event=' + encodeURIComponent(ev.id) : ''),
+      members: true
+    };
+  }
 
   /* ---- one block ---------------------------------------------------------
      THE LAYOUT IS VAL'S (FINDINGS-comms C-29). Every block is a table row
@@ -248,6 +289,16 @@
         return (b.items || []).map(function (n) {
           return row('<div class="t" style="' + textStyle(t) + '">' + itemWords({ title: n.title, html: n.html }, t) + '</div>', '9px 18px 18px');
         }).join('');
+      case 'meeting':
+        /* A meeting from the hub's Meetings list: its name, day and time,
+           and Join (the hub's meeting page: type your name and knock). */
+        if (!safeUrl(b.url)) return o.preview ? row(placeholder('Pick the meeting', 90), '9px 18px 18px') : '';
+        return row('<div class="t" style="' + textStyle(t) + '">' +
+            '<p style="margin:0;"><strong style="color:' + t.title + ';">' + esc(b.title || 'Meeting') + '</strong></p>' +
+            (meetingWhen(b) ? '<p style="margin:0 0 12px;"><strong>' + esc(meetingWhen(b)) + '</strong></p>' : '') +
+            (b.text ? '<p style="margin:0 0 12px;">' + esc(b.text) + '</p>' : '') + '</div>' +
+            button({ url: b.url, label: b.label || 'Join the meeting' }, t) +
+            '<div style="font-family:' + t.font + ';font-size:12px;line-height:140%;color:' + t.muted + ';text-align:center;padding:8px 0 0;">' + esc(KNOCK) + '</div>', '9px 18px 18px');
       case 'divider':
         return rule(t);
       case 'spacer':
@@ -298,8 +349,15 @@
   function keep(b, version) {
     if (!b || typeof b !== 'object') return false;
     if (b.hidden === true) return false;
-    if (b.members === true && version !== 'members') return false;
+    if (membersOnly(b) && version !== 'members') return false;
     return true;
+  }
+  /* Members-only: a block ticked so, and a meeting unless the office
+     unticked it - never a members-only room (the CMM), whatever the tick. */
+  function membersOnly(b) {
+    if (b.members === true) return true;
+    if (b.type !== 'meeting') return false;
+    return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;
   }
 
   /* opts: { version: 'members'|'everyone', church, unsubscribeUrl, webUrl,
@@ -349,6 +407,7 @@
       if (!b || b.hidden === true) return;
       if (b.type === 'header' && !safeUrl(b.imageUrl)) missing.push('picture');
       if (b.type === 'verse' && !String(b.text || '').trim()) missing.push('verse');
+      if (b.type === 'meeting' && !safeUrl(b.url)) missing.push('meeting');
     });
     return { ok: missing.length === 0, missing: missing };
   }
@@ -459,6 +518,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, keep: keep, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, keep: keep, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

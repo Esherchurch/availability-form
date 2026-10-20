@@ -27,7 +27,9 @@
 <script src="egbc-auth.js?v=202610201600"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610121200"></script>
-<script src="egbc-mailblocks.js?v=202610201500"></script>
+<script src="egbc-mailblocks.js?v=202610202000"></script>
+<script src="egbc-core-meetings.js?v=202610141000"></script>
+<script src="egbc-meeting-pick.js?v=202610202000"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
 <script src="egbc-share.js?v=202610161900"></script>
 <script src="egbc-comms.js?v=202610192100"></script>
@@ -121,6 +123,7 @@
     verse: ['Bible verse', 'In a box'],
     section: ['Section bar', 'For example “Coming up this week”'],
     sunday: ['This Sunday', 'The service and the speaker'],
+    meeting: ['A meeting', 'From Meetings, with a Join button (church members only)'],
     notices: ['Notices', 'From this week’s notices'],
     divider: ['Line', 'A thin line between parts'],
     spacer: ['Space', 'A gap']
@@ -144,11 +147,13 @@
     history.replaceState(null, '', location.pathname);
     wrap.innerHTML = '<h1>E-news</h1><p class="sub">The weekly e-news. Start one and the hub fills in What’s On, Sunday and the notices for you.</p>' +
       '<div class="row" style="margin:0 0 12px"><button class="btn" id="new"><i data-lucide="plus" style="width:16px;height:16px"></i>New e-news</button>' +
+      '<button class="btn sec" id="newcmm"><i data-lucide="video" style="width:16px;height:16px"></i>Church members\u2019 meeting</button>' +
       '<button class="btn sec" id="look"><i data-lucide="palette" style="width:16px;height:16px"></i>Look and footer</button>' +
       '<button class="btn sec" id="subsb"><i data-lucide="users" style="width:16px;height:16px"></i>Subscribers</button></div>' +
       '<div class="card"><h2>Recent</h2><div class="list" id="issues"><p class="m">Loading…</p></div></div>';
     icons();
     document.getElementById('new').onclick = newIssue;
+    document.getElementById('newcmm').onclick = newCmm;
     document.getElementById('look').onclick = lookSheet;
     document.getElementById('subsb').onclick = showSubscribers;
     db().collection('enewsIssues').orderBy('createdAt', 'desc').limit(30).get().then(function (s) {
@@ -158,7 +163,7 @@
          been started since Monday, the week's draft is made from What's On,
          the rota and the notices, and opened. Nobody has to remember. */
       var mon = weekOf(new Date());
-      var thisWeek = s.docs.some(function (d) { return String(d.data().createdAt || '').slice(0, 10) >= mon; });
+      var thisWeek = s.docs.some(function (d) { return d.data().week !== 'notice' && String(d.data().createdAt || '').slice(0, 10) >= mon; });
       if (!thisWeek && !showList.autoTried) { showList.autoTried = true; newIssue({ auto: true }); return; }
       if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">None yet. “New e-news” starts the first.</p>'; return; }
       el.innerHTML = s.docs.map(function (d) {
@@ -285,7 +290,7 @@
     if (!editable()) return '';
     var r = MB.readyToSend(ISSUE);
     if (r.ok) return '';
-    var words = r.missing.map(function (m) { return m === 'picture' ? 'this week\u2019s picture' : 'this week\u2019s verse'; }).join(' and ');
+    var words = r.missing.map(function (m) { return m === 'picture' ? 'this week\u2019s picture' : m === 'meeting' ? 'the meeting' : 'this week\u2019s verse'; }).join(' and ');
     return '<p class="ready" style="background:var(--gold-bg);border:1px solid #e7c98f;border-radius:10px;padding:10px 12px;margin:12px 0 0;color:#7a5512">Add ' + words + ' (or remove ' + (r.missing.length > 1 ? 'them' : 'it') + ') before it can be sent or tested.</p>';
   }
   function summary(b) {
@@ -298,16 +303,20 @@
       case 'verse': return [b.text ? '“' + b.text + '”' : '(add the verse)', b.ref || ''];
       case 'section': return [b.label || '', ''];
       case 'sunday': return [b.title || '', [b.when, b.speaker].filter(Boolean).join(' · ')];
+      case 'meeting': return [b.url ? (b.title || 'Meeting') : '(pick the meeting)', [MB.meetingWhen(b), MB.membersOnly(b) ? 'Members only' : 'Everyone'].filter(Boolean).join(' · ')];
       case 'notices': return [(b.items || []).length + ' notices', (b.items || []).map(function (n) { return n.title; }).join(' · ')];
       default: return [TYPES[b.type] ? TYPES[b.type][0] : b.type, ''];
     }
   }
 
   function drawBuild() {
+    /* The yellow "not ready yet" note follows the blocks as they change. */
+    var rn = document.querySelector('#wrap .ready');
+    if (rn) { var tmp = document.createElement('div'); tmp.innerHTML = readyNote(); if (tmp.firstChild) rn.replaceWith(tmp.firstChild); else rn.remove(); }
     var v = document.getElementById('view'), B = ISSUE.blocks || [], ed = editable();
     v.innerHTML = B.map(function (b, i) {
       var s = summary(b), pic = b.imageUrl || (b.type === 'picture' ? b.url : '');
-      return '<div class="blk' + (b.members ? ' mem' : '') + '">' +
+      return '<div class="blk' + (MB.membersOnly(b) ? ' mem' : '') + '">' +
         (ed ? '<div class="mv"><button data-up="' + i + '" aria-label="Move up"' + (i ? '' : ' disabled') + '><i data-lucide="chevron-up" style="width:16px;height:16px"></i></button>' +
           '<button data-down="' + i + '" aria-label="Move down"' + (i < B.length - 1 ? '' : ' disabled') + '><i data-lucide="chevron-down" style="width:16px;height:16px"></i></button></div>' : '') +
         (pic && MB.safeUrl(pic) ? '<div class="th" style="background-image:url(\'' + esc(pic) + '\')"></div>' : '') +
@@ -382,8 +391,8 @@
     var b, ready = MB.readyToSend(ISSUE);
     icons();
     if ((b = document.getElementById('share'))) b.onclick = shareIssue;
-    if (!ready.ok) ['sched', 'test'].forEach(function (id) { var x = document.getElementById(id); if (x) { x.disabled = true; x.title = 'Add this week\u2019s picture and verse first'; } });
-    if (!ready.ok && document.getElementById('testmsg')) document.getElementById('testmsg').textContent = 'Add this week\u2019s picture and verse first (or remove them on Build).';
+    if (!ready.ok) ['sched', 'test'].forEach(function (id) { var x = document.getElementById(id); if (x) { x.disabled = true; x.title = 'Fill in the yellow note on Build first'; } });
+    if (!ready.ok && document.getElementById('testmsg')) document.getElementById('testmsg').textContent = 'First fill in what the yellow note above asks for (or remove it on Build).';
     if ((b = document.getElementById('sched'))) b.onclick = function () {
       var t = document.getElementById('when').value;
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) { toast('Choose the day and time to send it.'); return; }
@@ -568,6 +577,53 @@
     EGBCShare.open({ title: ISSUE.subject || 'This week’s e-news', html: '<p>This week’s e-news from ' + esc(CHURCH.name || 'church') + '.</p>', link: link });
   }
 
+  /* ---- a meeting (Martin, 20 Oct): picked from the hub's Meetings list
+     (egbc-meeting-pick.js). Church members only by default - the members'
+     copy, never everyone else's, the web version or a share; the CMM room
+     always (MB.membersOnly). i = -1 adds a new block. */
+  function pickMeeting(i) {
+    if (!window.EGBCMeetingPick) { toast('The meetings list is not available here.'); return; }
+    EGBCMeetingPick.open({ base: hubBase(), onPick: function (m) {
+      if (i >= 0 && ISSUE.blocks[i]) { if (ISSUE.blocks[i].members === false && MB.MEMBERS_ONLY_ROOMS.indexOf(m.room) < 0) m.members = false; ISSUE.blocks[i] = m; }
+      else ISSUE.blocks.push(m);
+      saveSoon(); drawBuild();
+    } });
+  }
+  function meetingSheet(i) {
+    var b = ISSUE.blocks[i], locked = MB.MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;
+    var s = sheet('The meeting',
+      (b.url ? '<p style="margin:0"><b style="color:var(--teal)">' + esc(b.title || 'Meeting') + '</b><br><span class="m">' + esc(MB.meetingWhen(b)) + '</span></p>' : '<p class="m">No meeting picked yet.</p>') +
+      '<div class="row" style="margin:10px 0"><button type="button" class="btn sec" id="m-pick">' + (b.url ? 'Choose another meeting' : 'Pick the meeting') + '</button></div>' +
+      '<label class="tick"><input type="checkbox" id="m-mem"' + (MB.membersOnly(b) ? ' checked' : '') + (locked ? ' disabled' : '') + '> Church members only' +
+      ' <span class="m">(left out of everyone else’s copy, the web version and shares' + (locked ? '; always, for this room' : '') + ')</span></label>',
+      function (s) { if (!locked) b.members = s.querySelector('#m-mem').checked; saveSoon(); drawBuild(); },
+      '<button class="btn ghost" data-del>Remove the meeting</button>');
+    s.querySelector('#m-pick').onclick = function () { s.remove(); pickMeeting(i); };
+    s.querySelector('[data-del]').onclick = function () { ISSUE.blocks.splice(i, 1); s.remove(); saveSoon(); drawBuild(); };
+  }
+  /* The Church members' meeting notice ("the CMM template"): a short
+     letter and the next CMM meeting, members-only. Not this week's e-news
+     (week: 'notice'), so the weekly draft still makes itself. */
+  function newCmm() {
+    var b = document.getElementById('newcmm'); if (b) b.disabled = true;
+    var up = window.EGBCMeetingPick ? EGBCMeetingPick.upcoming().catch(function () { return []; }) : Promise.resolve([]);
+    up.then(function (rows) {
+      var next = rows.filter(function (r) { return r.room === 'CMM'; })[0];
+      var meeting = next ? MB.meetingFrom(next.ev, 'CMM', hubBase()) : { type: 'meeting', room: 'CMM', members: true };
+      ISSUE = {
+        subject: 'Church members’ meeting' + (next ? ' · ' + MB.meetingWhen(meeting).split(' · ')[0] : ''),
+        preheader: 'For church members: the meeting, and how to join online', template: SET.template || 'classic', status: 'draft', week: 'notice',
+        blocks: [
+          { type: 'text', title: 'Church members’ meeting', html: '<p>Dear church members,</p><p>You are warmly invited to our church members’ meeting. The papers will follow. If you can’t be there in person, you can join online with the button below.</p>' },
+          meeting
+        ]
+      };
+      ISSUE_ID = ''; DIRTY = true;
+      return save(true);
+    }).then(function () { VIEW = 'build'; draw(); })
+      .catch(function (e) { if (b) b.disabled = false; toast('Could not start it: ' + (e.message || e)); });
+  }
+
   /* ---- editing one block, in a sheet ----------------------------------- */
   function sheet(title, body, onDone, extra) {
     var s = document.createElement('div'); s.className = 'sheet';
@@ -614,6 +670,7 @@
   function editSheet(i) {
     var b = ISSUE.blocks[i], t = b.type, body = '', ed = null;
     if (t === 'verse') { verseSheet(i); return; }
+    if (t === 'meeting') { meetingSheet(i); return; }
     if (t === 'header') body = field('f-title', 'Title', b.title) + picField('f-img', 'Picture', b.imageUrl) + field('f-alt', 'Describe the picture (for people who can’t see it)', b.alt);
     else if (t === 'text') body = field('f-title', 'Title (optional)', b.title) + '<label>Words</label><div id="f-html"></div>';
     else if (t === 'event') body = field('f-title', 'Title', b.title) + field('f-kicker', 'Small line above (optional)', b.kicker) + field('f-when', 'When and where', b.when) +
@@ -663,6 +720,7 @@
       b.onclick = function () {
         var t = b.getAttribute('data-t');
         if (t === 'event') { s.remove(); pickEvent(); return; }
+        if (t === 'meeting') { s.remove(); pickMeeting(-1); return; }
         var nb = { type: t };
         if (t === 'section') nb.label = 'Coming up this week';
         ISSUE.blocks.push(nb); s.remove(); saveSoon(); drawBuild();

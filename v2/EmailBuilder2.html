@@ -16,6 +16,10 @@
     <title>Worship & AV Team | Email Builder</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
+    <!-- "+ Insert → A meeting": picked from Meetings, with Join (the comms window; FINDINGS-comms C-35) -->
+    <script src="egbc-mailblocks.js?v=202610202000"></script>
+    <script src="egbc-core-meetings.js?v=202610141000"></script>
+    <script src="egbc-meeting-pick.js?v=202610202000"></script>
 
     <style>
         :root {
@@ -393,6 +397,7 @@
             <option value="divider">Divider line</option>
             <option value="spacer">Spacer</option>
             <option value="columns">Two columns</option>
+            <option value="meeting">A meeting (Join button)</option>
         </select>
         <button class="tbtn accent" onclick="uploadImage()"><i data-lucide="camera" style="width:15px;height:15px;vertical-align:-2px"></i> Photo</button>
         <button class="tbtn accent" onclick="openGifModal()"><i data-lucide="clapperboard" style="width:15px;height:15px;vertical-align:-2px"></i> GIF</button>
@@ -674,6 +679,18 @@ function getBodyInner() {
 
 // ── Insert blocks ────────────────────────────────────────────────────────────
 function insertBlock(kind) {
+    if (kind === 'meeting') {
+        /* A meeting from Meetings: its name, day and time, and Join - the
+           hub's meeting page, where people knock and the host lets them in.
+           The selection is kept: the picker takes the focus away. */
+        if (!window.EGBCMeetingPick || !window.EGBCMailBlocks) { alert('The meetings list is not available here.'); return; }
+        rememberSelection();
+        const hub = location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, '');
+        EGBCMeetingPick.open({ base: hub,
+            note: 'A room marked "Church members only" lets in church members only, so send that one to church members.',
+            onPick: (m) => insertIntoEditor(EGBCMailBlocks.snippet.meeting(m) + '<p><br></p>') });
+        return;
+    }
     if (kind === 'button') {
         const label = prompt('Button label:', 'View the rota');
         if (!label) return;

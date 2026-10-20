@@ -232,6 +232,28 @@ Val's Zoom details, her personal email and phone number are blocked out in those
 
 **To deploy (the reviewing window or Martin): `firebase deploy --only functions:hub`.** This puts up `enewsTest` and this round's changes to `enewsSubscriberSave`; `enewsTest` is not deployed yet. **The rules (`firestore.rules`) go live at switch-over only**, as before.
 
+### C-35. "Add a meeting" in the e-news and the Email Compiler (20 Oct, later)
+
+- **Pick a meeting from the hub's Meetings list** (rota meetings from today on, with a video room; never past, archived or no-call ones). It fills the name, the day and time, and a **Join the meeting** button.
+  - Join goes to the hub's meeting page (`meeting.html?room=…&event=…`): people type their name and knock, and the host lets them in. It is never a host link.
+  - Copying a room's own link from Meetings works as before; nothing there changed.
+- **E-news:** Build → Add a block → **A meeting**.
+  - **Church members only by default:** the meeting is in the members' copy, never in everyone else's copy, the web version or a share.
+  - The office can untick it for an ordinary room. **The CMM room is always members-only**; its tick can't be taken off.
+  - An unpicked meeting holds Send ("Pick the meeting" in the preview only).
+- **The CMM starter:** **Church members' meeting** beside New e-news.
+  - It makes a notice with a short letter and the next CMM meeting already picked, members-only.
+  - It is marked as a notice, so it never stops the week's e-news making itself.
+- **Email Compiler ("Send an email"):** **+ Insert → A meeting (Join button)** puts the same card into the email.
+  - A one-off email has no members' copy, so the picker marks CMM as "Church members only" and says to send that one to church members. The room itself only lets church members in.
+  - In EmailBuilder2.html (the main window's file), this is three script tags under the GIF library, one option and one branch in `insertBlock`. Nothing else there changed.
+- Shared code: `egbc-meeting-pick.js` (the picker); `egbc-mailblocks.js` meeting block, `snippet.meeting`, `meetingFrom` and `membersOnly`.
+- **Checks:**
+  - check-enews-blocks 49/49, 13/13 breaks (new: meetings let into everyone's copy; the CMM let out when unticked);
+  - check-enews-meeting (new) 17/17 at 375, breaks old and notice red.
+
+**Not received:** the earlier plan for one-off emails and templates ("CMM, ministry update, etc."). Only the "Add a meeting" message arrived, so the CMM starter above is my reading of "the CMM template". Please resend the plan.
+
 ### Checks (this window's own emulators; run on exactly what is pushed)
 
 | Check | Result |

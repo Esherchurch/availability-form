@@ -131,6 +131,19 @@ function checks(M) {
   ok('Outlook-safe: tables and inline styles, no flex or grid', !/display:\s*(flex|grid)/i.test(pub) && /<td[^>]+style=/.test(pub));
   ok('Val\u2019s colours and sizes: #202020 15px text, teal titles, #17a809 links, #fe7e07 bar, #222222 top bar', pub.includes('font-size:15px;line-height:150%;color:#202020') && pub.includes('color:#008080') && pub.includes('bgcolor="#fe7e07"') && pub.includes('bgcolor="#222222"'));
   ok('on a phone: 18px text and stacked event pictures (Val\u2019s phone rules)', pub.includes('@media only screen and (max-width:480px)') && /\.t,\.t p,\.t li\{font-size:18px !important/.test(pub) && /\.cimg\{display:block !important;width:100% !important/.test(pub));
+  /* A meeting (Martin, 20 Oct): from the Meetings list, Join is the hub's
+     meeting page (knock), members' copy only by default, CMM always. */
+  const mt = M.meetingFrom({ id: 'ev9', type: 'Church Members Meeting', description: 'Autumn', date: '2026-11-03', startTime: '19:30', endTime: '21:00' }, 'CMM', 'https://example.invalid/v2/');
+  ok('a meeting: its name, day and time, and Join to the hub\u2019s meeting page (never a host link)', mt.url === 'https://example.invalid/v2/meeting.html?room=CMM&event=ev9' && M.meetingWhen(mt) === 'Tuesday 3 November · 7:30pm–9pm' && mt.title === 'Church Members Meeting · Autumn' && !/daily\.co|[?&]t=|token/i.test(mt.url), [mt.url, M.meetingWhen(mt)]);
+  const mtMem = M.render({ blocks: [mt] }, { version: 'members', church: CHURCH });
+  ok('a meeting is in the members\u2019 copy with Join and the knock words', mtMem.includes('meeting.html?room=CMM&amp;event=ev9') && />Join the meeting</.test(mtMem) && /knock/.test(mtMem));
+  const prayer = M.meetingFrom({ id: 'ev8', type: 'Prayer Meeting', date: '2026-11-04', startTime: '20:00' }, 'Prayer', 'https://example.invalid/v2');
+  ok('a meeting is members-only by default: never in everyone else\u2019s copy or the web version', !M.render({ blocks: [prayer, Object.assign({}, prayer, { members: undefined })] }, { version: 'everyone', church: CHURCH }).includes('meeting.html'));
+  ok('unticked by the office, an ordinary room\u2019s meeting is for everyone', M.render({ blocks: [Object.assign({}, prayer, { members: false })] }, { version: 'everyone', church: CHURCH }).includes('meeting.html?room=Prayer'));
+  ok('the CMM is always members-only, even unticked', !M.render({ blocks: [Object.assign({}, mt, { members: false })] }, { version: 'everyone', church: CHURCH }).includes('meeting.html'));
+  ok('not ready to send until the meeting is picked; "Pick the meeting" in the preview only', !M.readyToSend({ blocks: [{ type: 'meeting', room: 'CMM' }] }).ok && M.render({ blocks: [{ type: 'meeting' }] }, { version: 'members', preview: true }).includes('Pick the meeting') && !M.render({ blocks: [{ type: 'meeting' }] }, { version: 'members' }).includes('Pick the meeting'));
+  const snip = M.snippet.meeting(mt);
+  ok('the Compiler\u2019s meeting: name, day and time, Join to the meeting page, tables only', snip.includes('Church Members Meeting') && snip.includes('Tuesday 3 November') && snip.includes('href="https://example.invalid/v2/meeting.html?room=CMM&amp;event=ev9"') && /<table/.test(snip) && !/display:\s*(flex|grid)/.test(snip));
   return R;
 }
 
@@ -140,7 +153,7 @@ R.forEach(r => console.log('  ' + (r.v ? 'PASS  ' : 'FAIL  ') + r.n + (r.v || r.
 
 /* ---- deliberate breaks: each must turn at least one named check red ---- */
 const BREAKS = [
-  ['members-only blocks let into the public copy', "if (b.members === true && version !== 'members') return false;", '', 'public copy: no members-only words'],
+  ['members-only blocks let into the public copy', "if (membersOnly(b) && version !== 'members') return false;", '', 'public copy: no members-only words'],
   ['not-listed events allowed in', "return null;   /* 'team', 'unlisted'", "return 'public';   /* 'team', 'unlisted'", 'NOT LISTED'],
   ['the unsubscribe link dropped from the footer', "'Want to change how you receive these emails?<br>You can <a href=\"' + u + '\" style=\"' + white + '\">update your preferences</a> or <a href=\"' + u + '\" style=\"' + white + '\">unsubscribe from this list</a>.'", "''", 'unsubscribe link in every copy'],
   ['javascript: links allowed', "if (/^https?:\\/\\/[^\\s<>\"]+$/i.test(u)", "if (/^(https?|javascript):[^\\s<>\"]+$/i.test(u)", 'no javascript: links'],
@@ -150,6 +163,8 @@ const BREAKS = [
   ['ready to send without a verse', "if (b.type === 'verse' && !String(b.text || '').trim()) missing.push('verse');", '', 'not ready without the verse'],
   ['placeholders sent in the email', "var body = (issue.blocks || [])", "opts = Object.assign({}, opts, { preview: true }); var body = (issue.blocks || [])", 'never in the copy that is sent'],
   ['events drafted without their description', "html: String(ev.description || '').slice(0, 20000),", "html: '',", 'own description'],
+  ['meetings let into everyone’s copy', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return false;', 'members-only by default'],
+  ['the CMM let out when unticked', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return b.members !== false;', 'the CMM is always members-only'],
   ['a fixed 600px width on phones', "class=\"wrap\" width=\"100%\"", "class=\"wrap\" width=\"600\"", 'fluid']
 ];
 let caught = 0;
