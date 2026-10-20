@@ -5,6 +5,8 @@
  * NEEDS AN EMULATOR OF ITS OWN: Firestore and Auth on the ports in
  * firebase.comms.json (default 8292 / 9292), started with
  *   firebase emulators:start --only firestore,auth --config firebase.comms.json
+ * and, for "Send me a test", the functions emulator in firebase.comms-fn.json:
+ *   FIRESTORE_EMULATOR_HOST=127.0.0.1:8292 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9292 \n *     firebase emulators:start --only functions --config firebase.comms-fn.json
  * The pages are served from here with egbc-auth.js pointed at those ports
  * (a rewrite as the file is served; the file itself is not changed), so
  * nothing here meets another window's test data. The first check PROVES
@@ -38,6 +40,8 @@ const londonUtc = (iso) => { const guess = Date.parse(iso + ':00Z'); const p = {
 const V2 = path.resolve('.');
 const CFG = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.comms.json', 'utf8'));
 const FS = CFG.emulators.firestore.port, AU = CFG.emulators.auth.port;
+/* "Send me a test" calls the hub's function: this window's functions emulator. */
+const FN = JSON.parse(fs.readFileSync('firebase.comms-fn.json', 'utf8')).emulators.functions.port;
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9787, SERVE = 8996, PW = 'test-only-password';
 const SHOTS = path.join(V2, 'tests', 'shots');
@@ -101,7 +105,7 @@ if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.e
 function serveAuth(src) {
   /* Point the page at this check's emulator. */
   const to = '{ firestore: ' + FS + ', auth: ' + AU + ', storage: 9399 }';
-  const out = src.replace("{ firestore: 8181, auth: 9099, storage: 9199 }", to);
+  const out = src.replace("{ firestore: 8181, auth: 9099, storage: 9199 }", to).replace("(location.port === '5601' ? 5102 : 5101)", String(FN));
   if (out === src) throw new Error('egbc-auth.js no longer has the emulator line this check rewrites');
   if (/\buses:\s*function/.test(src)) return out;
   /* The stand-in for EGBCAuth.uses (see the header): the same document. */
@@ -256,7 +260,10 @@ function serveAuth(src) {
     const after = ((await list('enewsIssues'))[0] || {}).blocks || [];
     const vb = after.find(b => b.type === 'verse') || {};
     ok('the verse is saved with its version and copyright', /Whatever you do/.test(vb.text || '') && vb.ref === 'Colossians 3:23-24' && vb.version === 'BSB' && (vb.copyright || '').length > 10, vb);
-    ok('the church’s usual version is remembered', ((await list('enewsSettings'))[0] || {}).bible && ((await list('enewsSettings'))[0].bible.id === 'BSB'));
+    /* Saved in the background as the verse comes in: wait for it. */
+    let usual = null;
+    for (let k = 0; k < 40 && !(usual && usual.bible); k++) { usual = (await list('enewsSettings')).find(d => d._id === 'main'); if (!(usual && usual.bible)) await sleep(250); }
+    ok('the church’s usual version is remembered', usual && usual.bible && usual.bible.id === 'BSB', usual);
 
     /* 8. Schedule: the two finished copies go on the issue; "don't send
        yet" takes them off again. */
@@ -275,6 +282,15 @@ function serveAuth(src) {
     await ev('document.getElementById("unsched").click(),1'); await sleep(2000);
     is = (await list('enewsIssues'))[0] || {};
     ok('"Don’t send yet": a draft again, with no copies to send', is.status === 'draft' && !is.htmlMembers && !is.htmlEveryone, is.status);
+    /* "Send me a test" works now (Martin, 20 Oct): to the signed-in office
+       person only, through the hub's existing email route (Calla's), never
+       Church HQ's Resend before go-live. The emulator writes it down, not sends it. */
+    await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
+    await ev('document.getElementById("test").click(),1');
+    await until('/Sent to/i.test(document.getElementById("testmsg").textContent) || /not|could/i.test(document.getElementById("testmsg").textContent)', 30000);
+    const tests = (await list('emailOutbox')).filter(r => r.kind === 'enews test');
+    ok('"Send me a test": one email, to the office person only, by Calla’s route, marked [Test]', tests.length === 1 && JSON.stringify(tests[0].to) === JSON.stringify([PEOPLE.office.email]) && tests[0].via === 'calla' && /^\[Test\] /.test(tests[0].subject) && tests[0].ok === true, tests.map(t => [t.to, t.via, t.subject, t.error]));
+    ok('the page says where it went', (await ev('document.getElementById("testmsg").textContent')).includes(PEOPLE.office.email), await ev('document.getElementById("testmsg").textContent'));
 
     /* 9. A sent issue: Share to WhatsApp, with the web version's link
        (which never has the members-only parts). */
