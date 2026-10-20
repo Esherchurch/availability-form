@@ -238,9 +238,10 @@ Val's Zoom details, her personal email and phone number are blocked out in those
 |---|---|
 | check-enews-blocks | 42/42; 11/11 breaks red |
 | check-enews-layout (new): nothing wider than the screen at 320, 375, 414, 600; Val's phone and computer layout | 10/10; breaks img, fixed, stack each red |
-| check-enews-page (picture and verse held; the Bible; Share) | 36/36 at 375; breaks switch, office each red |
+| check-enews-page (picture and verse held; the Bible; "Send me a test" pressed for real; Share) | 38/38 at 375; breaks switch, office, weekly each red |
 | check-enews-subscribe (adding from the address book, skips, Stop) | 56/56; 4/4 breaks |
 | check-enews-addressbook (new) | 17/17 at 375; breaks office, unsub, minor, silent each red |
+| Also run on the pushed commit | check-enews-send 27/27, check-enews-rules 30/30 (9/9 breaks), check-import-mailchimp 20/20, check-canva 20/20, check-hqmail-key 22/22, check-mail-route 26/26, check-cardmaker 18/18 (breaks fade, switch, nofit red), check-canva-page 9/9, check-keybox-page 8/8, check-stamps 6/6, check-features-agree 12/12 |
 
 Pictures (made by the checks, not committed): `tests/shots/enews-375-send-held.png`, `enews-375-verse-sheet.png`, `enews-375-share.png`, `enews-ab-375-rows.png`, `enews-ab-375-form-add.png`, `enews-ab-375-form-stopped.png`.
 
