@@ -260,6 +260,55 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, stage 1 of the plan (20 Oct): the email and the weekly draft (B and C), with the side-by-side check (D9). For review
+
+**Side by side, Val's page and ours** (her own words and pictures through our code), at 375 and 600, top and end: `OneDrive\Documents\New hub\mocks\val-side-by-side\side-375-top.png`, `side-375-end.png`, `side-600-top.png`, `side-600-end.png`. They are on this PC only, not in the repo.
+
+**Measured against hers by computed style:** 25 measures at each width, all the same as hers to within a pixel (`tests/check-enews-side-by-side.mjs`; her numbers in `tests/fixtures/val-15oct26-measure.json`). They are:
+- **card pictures:** position, width, corners (3%);
+- **card words:** how far in they sit (36px each side on a phone), 14px at 125% on a computer and 18px at 125% on a phone, paragraphs 10px apart;
+- **titles:** the teal bold first line;
+- **the verse:** 18px, bold, centred, 34px / 28px below the picture;
+- **Sunday:** 15px at 150%;
+- **the top bar and footer:** their sizes;
+- **the footer:** the green "Dates for the diary for the coming weeks" button, and the social icons (48px, 10px apart, centred).
+
+**What changed:**
+- **B1. Card titles teal and bold.** A card's title is teal. With no title, the card's first bold line is teal, as Val writes hers.
+- **B2, B3. Val's spacing.** Card words at 125% on a computer, paragraphs 10px apart, pictures with 3% corners. Words in a card without a picture sit as far in as hers. The verse is in her 24px line, so its lines are spaced as hers.
+- **B4. The church's colours for words.** The text editor has a colour button with the church's palette: the look's teal, green, orange, dark and button colours, plus black, red, grey, blue and purple.
+  - A coloured word goes out as `<span style="color:#008080;">`.
+  - A colour not in the palette, or anything else on a span, is dropped.
+  - Tested: "dish" coloured teal in a card's editor is teal in the copy that is sent, and the web version is made from that copy.
+  - The editor (`egbc-editor.js`) is shared. The colour button appears only where a page asks for it, so hub.html and events-admin.html are unchanged.
+- **Every card's words are full rich text** (from plan A): an event card's "A line about it" is now the same editor as the Text block.
+- **B5. The footer, as Val's.**
+  - **"Dates for the diary for the coming weeks"** opens the church's public What's On page. It is on by default and can be turned off in Look and footer.
+  - **Social links** are a church setting (Look and footer): Facebook, Instagram, YouTube, website, email, X, TikTok, WhatsApp, LinkedIn.
+  - They show as 48px round icons, each in its network's colour with a white mark, as Val's. They are PNG pictures the hub serves (`img/social/`, made by `tools/make-social-icons.mjs`), so Outlook shows them.
+  - Only those networks, and only safe links.
+- **"Dates for the diary" block** (Add a block): the coming 4 to 12 weeks' public events from What's On, a date and a title each. Never members' or not-listed events.
+- **C6. The draft already took each What's On event's picture and full write-up and links.** ChurchSuite's events simply have none.
+- **C7. A bare event is a finished card:** its title and day, and **More details** to its page on What's On.
+- **C8. "Events missing a picture or write-up"** is listed at the top of the draft. It is a note, not a hold.
+
+**One difference from the brief, on purpose:** the brief said "small white icons". Val's footer actually has coloured round icons with white marks, so ours match hers.
+
+**Checks** (on 52d57f35, this window's own emulators):
+
+| Check | Result |
+|---|---|
+| check-enews-blocks | 66/66; 18/18 breaks red (new: card titles left black, any colour kept, bare events left bare, members' events in the diary, any network's icon) |
+| check-enews-side-by-side (new) | 5/5; breaks lineheight, inset, icons each red |
+| check-enews-layout | 11/11; breaks img, fixed, stack red |
+| check-enews-page | 47/47; breaks switch, office, weekly, colour, missing each red |
+| check-enews-rules | 37/37; 11/11 breaks red (new: any number of social links) |
+| Also passing | meeting 17/17 (2 breaks red), addressbook 18/18 (5 breaks red), subscribe 58/58, send 29/29, import 22/22, mail-route 27/27, canva 20/20, hqmail-key 22/22, cardmaker 18/18, canva-page 9/9, keybox-page 8/8, stamps 6/6, features-agree 18, compiler-send 12/12 |
+
+**Next, if you agree:** stage 2 is the editor (plan A), with social posts step 1 (plan H) alongside.
+
+---
+
 ## FOR THE MAIN WINDOW: the comms window's edits to your files (20 Oct)
 
 Small and self-contained. Please keep them when you edit these files:
