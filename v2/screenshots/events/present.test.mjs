@@ -22,7 +22,13 @@
      8. someone outside the group sees nothing; Storage refuses the slides
      9. before switch-over nothing is converted or fetched
      10. at their best: screenshots of the presenter and the viewer, computer
-         and 375px, and the TV */
+         and 375px, and the TV
+     11. VIDEO IN THE SLIDES (F-251): a slide's own video comes out of the file,
+         plays over the slide where it sits, IN STEP on the presenter's screen,
+         the phones and the TV; only the presenter plays, pauses, starts again;
+         a phone that skips ahead is put back; it streams (asked for in ranges);
+         someone joining late starts at the right second; a video set to play by
+         itself does; a YouTube link is kept as a link; the rules refuse a viewer */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -32,8 +38,8 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
-import { inventDeck, readPptx } from '../../converter/pptx.mjs';
-import { convertDeck } from '../../converter/convert.mjs';
+import { inventDeck, readPptx, readZip } from '../../converter/pptx.mjs';
+import { handleConvert } from '../../converter/convert.mjs';
 const GUARD = createGuard();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -72,6 +78,20 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
 const server = http.createServer((req, res) => {
   const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (p === '/__share/deck.pptx') { res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }); res.end(LINK_FILE); return; }
+  /* a church SharePoint "Can view" link, as Microsoft's behaves (20 Oct, the 729 MB deck):
+     the link sets a cookie and goes to the viewer; the download is refused without it */
+  if (p === '/__sp/deck') {
+    const q = new URL(req.url, 'http://x').searchParams;
+    if (q.get('download') === '1') {
+      if (/(^|;\s*)FedAuth=invented-cookie/.test(req.headers.cookie || '')) { res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }); res.end(LINK_FILE); }
+      else { res.writeHead(403, { 'Content-Type': 'text/plain' }); res.end('403 FORBIDDEN'); }
+      return;
+    }
+    res.writeHead(302, { 'Set-Cookie': 'FedAuth=invented-cookie; path=/; HttpOnly', Location: '/__sp/viewer' }); res.end(); return;
+  }
+  if (p === '/__sp/viewer') { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<p>Microsoft viewer (invented)</p>'); return; }
+  /* a deck over the limit (the test's limit is 1 MB; the real one 1 GB) */
+  if (p === '/__big/deck.pptx') { const b = Buffer.alloc(2 * 1048576, 1); b.write('PK', 0); res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': String(b.length) }); res.end(b); return; }
   const f = path.join(V2, p === '/' ? 'index.html' : p);
   if (!f.startsWith(V2) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
@@ -86,7 +106,7 @@ const drawB = await puppeteer.launch({ executablePath: CHROME, headless: 'new', 
 const drawP = await drawB.newPage();
 const COLOURS = ['#3d6263', '#7a5f4a', '#3b4a7a', '#5b3d6a', '#2f5d3a'];
 async function standInRender(buf, shown) {
-  const titles = readPptx(buf).slides.filter(s => !s.hidden).map((s, i) => DECK.concat([]).filter(x => !x.hidden)[i] ? DECK.filter(x => !x.hidden)[i].title : 'Slide ' + (i + 1));
+  const z = readZip(buf), titles = readPptx(buf).slides.filter(s => !s.hidden).map((s, i) => ((z.text(s.file) || '').match(/<a:t>([^<]*)<\/a:t>/) || [])[1] || 'Slide ' + (i + 1));
   const out = [];
   for (let i = 0; i < shown.length; i++) {
     const pics = await drawP.evaluate((t, n, c) => {
@@ -106,7 +126,7 @@ async function standInRender(buf, shown) {
 const conv = http.createServer((req, res) => {
   let raw = ''; req.on('data', c => raw += c);
   req.on('end', async () => {
-    try { const { deckId } = JSON.parse(raw); const r = await convertDeck({ db, bucket, deckId, render: standInRender }); res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(r)); }
+    try { const { deckId, link } = JSON.parse(raw); const r = await handleConvert({ db, bucket, deckId, link, render: standInRender, allowLocal: true, kind: /\/__sp\//.test(link || '') ? 'sharepoint' : undefined, max: /\/__big\//.test(link || '') ? 1048576 : undefined }); res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(r)); }
     catch (e) { res.writeHead(422, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
   });
 });
@@ -119,7 +139,8 @@ const P = {
   karen: { name: 'Karen Leader (invented)', mid: 'm_karen', teams: ['Kids Church'] },
   lois:  { name: 'Lois Leader (invented)', mid: 'm_lois', teams: ['Kids Church'] },
   tom:   { name: 'Tom Team (invented)', mid: 'm_tom', teams: ['Kids Church'] },
-  nina:  { name: 'Nina Elsewhere (invented)', mid: 'm_nina', teams: ['Welcome'] }
+  nina:  { name: 'Nina Elsewhere (invented)', mid: 'm_nina', teams: ['Welcome'] },
+  vera:  { name: 'Vera Late (invented)', mid: 'm_vera', teams: ['Kids Church'] }
 };
 for (const k of Object.keys(P)) {
   P[k].email = k + '.pres@example.invalid';
@@ -206,6 +227,18 @@ try {
   ok('2. A ONEDRIVE LINK: the file fetched and presented like an upload (2 slides)', ld.status === 'ready' && ld.count === 2 && ld.source === 'onedrive', J(ld));
   const badLink = await karen.evaluate(() => EGBCAuth.call('presentFromLink', { deckId: 'dk_held01', url: 'https://example.com/x.pptx' }).then(() => 'ok', e => e.message));
   ok('   a link that is not OneDrive or SharePoint is refused in words', /OneDrive or SharePoint link/.test(badLink), badLink);
+  const viaLink = (url, name) => karen.evaluate(async (url, name) => {
+    const ref = EGBCAuth.db.collection('presentDecks').doc();
+    await ref.set({ context: { type: 'session', groupId: 'pg_kids', sessionId: 'ps_1' }, name, status: 'uploaded', source: 'onedrive', by: EGBCAuth.user().uid, byName: 'Karen', at: new Date().toISOString() });
+    const r = await EGBCAuth.call('presentFromLink', { deckId: ref.id, url }).then(x => 'ok', e => e.message);
+    return { id: ref.id, r };
+  }, url, name);
+  const sp = await viaLink(URLB + '__sp/deck', 'SharePoint (invented)');
+  const spd = (await db.collection('presentDecks').doc(sp.id).get()).data();
+  ok('   A CHURCH SHAREPOINT "CAN VIEW" LINK: the cookie it sets is kept, so the download is allowed (403 without it)', spd.status === 'ready' && spd.count === 2, J({ r: sp.r, spd }));
+  const big = await viaLink(URLB + '__big/deck.pptx', 'Too big (invented)');
+  const bigd = (await db.collection('presentDecks').doc(big.id).get()).data();
+  ok('   A LINK OVER THE LIMIT is refused in words, before anything is converted', bigd.status === 'failed' && /the most is 1 MB/.test(bigd.why || ''), J({ r: big.r, bigd }));
 
   /* ---------- 3. presenting ---------- */
   await karen.goto(URLB + 'present.html?s=ps_1', { waitUntil: 'networkidle2' });
@@ -307,6 +340,97 @@ try {
   const pd = saved && (await db.collection('presentDecks').doc(saved.deckId).get()).data();
   ok('   SAVED: the step holds its deck, made into 4 slides', saved && pd && pd.status === 'ready' && pd.count === 4, JSON.stringify(saved));
   await kp.browser().close();
+
+  /* ---------- 11. VIDEO IN THE SLIDES (F-251) ---------- */
+  for (const b of browsers.splice(0)) await b.close().catch(() => {});
+  const CLIP = fs.readFileSync(path.join(HERE, 'fixtures', 'invented-clip.mp4'));
+  const VDECK = inventDeck([{ title: 'Before the video' }, { title: 'Watch this', video: CLIP, start: 'click', rect: [0.25, 0.3, 0.5, 0.5] }, { title: 'It plays by itself', video: CLIP, start: 'auto', rect: [0, 0, 1, 1] }, { title: 'A YouTube link', videoLink: 'https://www.youtube.com/watch?v=INVENTED01' }]);
+  const vref = db.collection('presentDecks').doc('dk_video01');
+  await vref.set({ context: { type: 'session', groupId: 'pg_kids', sessionId: 'ps_v' }, name: 'Video night (invented)', status: 'uploaded', source: 'upload', by: P.karen.uid, byName: 'x', at: 'x' });
+  await bucket.file('present/dk_video01/source.pptx').save(VDECK, { contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+  const vk = await as('karen', 1440, 860);
+  const vr = await vk.evaluate(() => EGBCAuth.call('presentConvert', { deckId: 'dk_video01' }).then(r => r.data || r, e => ({ error: e.message })));
+  const vd = (await vref.get()).data() || {}, vm = vd.media || [];
+  const vfile = await bucket.file('present/dk_video01/m2-0.mp4').getMetadata().then(m => m[0], () => null);
+  ok('11. VIDEO: THE SLIDES\u2019 OWN VIDEOS COME OUT OF THE FILE: slide 2 (on click, where it sits), slide 3 (plays by itself)', vd.status === 'ready' && vd.count === 4
+    && vm.some(m => m.shown === 1 && m.src === 'm2-0.mp4' && m.start === 'click' && J(m.rect) === J([0.25, 0.3, 0.5, 0.5]))
+    && vm.some(m => m.shown === 2 && m.src === 'm3-0.mp4' && m.start === 'auto'), J({ vr, status: vd.status, why: vd.why, vm }));
+  ok('   stored as it was (H.264, streams as it is), beside the slide pictures', vfile && vfile.contentType === 'video/mp4' && +vfile.size === CLIP.length, J(vfile && { t: vfile.contentType, s: vfile.size }));
+  ok('   a YouTube link is kept as a link, not fetched', vm.some(m => m.shown === 3 && m.youtube === 'INVENTED01' && !m.src && /youtube\.com/.test(m.link)), J(vm));
+  await db.collection('planSessions').doc('ps_v').set({ groupId: 'pg_kids', date: '2026-11-08', title: 'Video night', parts: [{ id: 'p1', title: 'Watch', show: [{ type: 'pptx', deckId: 'dk_video01', name: 'Video night (invented)', count: 4 }] }], updatedBy: P.karen.uid });
+
+  await vk.goto(URLB + 'present.html?s=ps_v', { waitUntil: 'networkidle2' });
+  await until(() => vk.$('[data-start]'));
+  await tap(vk, '[data-start]');
+  await until(() => vk.$('[data-go]'));
+  const vt = await as('tom', 375, 812), vtRanges = [];
+  vt.on('request', r => { if (/m2-0\.mp4/.test(decodeURIComponent(r.url())) && r.headers().range) vtRanges.push(r.headers().range); });
+  await vt.goto(URLB + 'present.html?s=ps_v', { waitUntil: 'networkidle2' });
+  const vtv = await as('lois', 1280, 720);
+  await vtv.goto(URLB + 'present.html?s=ps_v&tv=1', { waitUntil: 'networkidle2' });
+  await until(async () => (await onStage(vt)) === 'Slide 1' && (await onStage(vtv)) === 'Slide 1');
+  await tap(vk, '[data-go]');
+  await until(async () => (await onStage(vt)) === 'Slide 2' && (await onStage(vtv)) === 'Slide 2');
+  await sleep(800);
+  /* where is the video on each screen, against the slide picture? */
+  const where = (pg) => pg.evaluate(() => {
+    const v = document.querySelector('.pz-mhost video'), img = document.querySelector('#pzStage .layer.on img'); if (!v || !img) return null;
+    const a = v.parentNode.getBoundingClientRect(), b = img.getBoundingClientRect(), w = b.width, h = Math.min(b.height, b.width * 9 / 16), top = b.top + (b.height - h) / 2;
+    return { x: (a.left - b.left) / w, y: (a.top - top) / h, w: a.width / w, h: a.height / h, paused: v.paused, t: v.currentTime, controls: v.controls, muted: v.muted, shown: getComputedStyle(document.querySelector('.pz-mhost')).display };
+  });
+  const near = (p) => p && Math.abs(p.x - 0.25) < 0.02 && Math.abs(p.y - 0.3) < 0.02 && Math.abs(p.w - 0.5) < 0.02 && Math.abs(p.h - 0.5) < 0.02;
+  const w1 = await where(vk), w2 = await where(vt), w3 = await where(vtv);
+  ok('   ON THE VIDEO SLIDE: the video sits over the slide where PowerPoint puts it, on the presenter\u2019s screen, the phone and the TV', near(w1) && near(w2) && near(w3), J({ w1, w2, w3 }));
+  ok('   it waits for the presenter (on click): nobody\u2019s is playing', w1.paused && w2.paused && w3.paused);
+  ok('   viewers get no controls: no Play button, no video controls', !(await vt.$('[data-mplay]')) && !w2.controls && !(await vtv.$('[data-mplay]')) && !!(await vk.$('[data-mplay]')));
+  /* play */
+  await tap(vk, '[data-mplay="0"]');
+  await until(async () => { const a = await where(vt), b = await where(vtv); return a && b && !a.paused && !b.paused && a.t > 0.3; }, 8000);
+  await sleep(1500);
+  const tk = await where(vk), tt = await where(vt), ttv = await where(vtv);
+  ok('   PLAY: it plays on every screen, IN STEP (within a second of the presenter\u2019s)', !tk.paused && !tt.paused && !ttv.paused && Math.abs(tt.t - tk.t) < 1 && Math.abs(ttv.t - tk.t) < 1, J({ k: tk.t, phone: tt.t, tv: ttv.t }));
+  ok('   STREAMED: the phone asked for the video in ranges, it did not download it first', vtRanges.length > 0 && /^bytes=/.test(vtRanges[0]), J(vtRanges.slice(0, 3)));
+  ok('   SOUND: off on the phone (a room of phones would echo) with "Sound off here" to change it; the TV plays it, or asks for one click', tt.muted && /Sound off here/.test(await text(vt, '[data-mbar]')) && (!ttv.muted || !!(await vtv.$('.pz-tap'))), J({ phoneMuted: tt.muted, tvMuted: ttv.muted, tap: !!(await vtv.$('.pz-tap')) }));
+  /* a viewer tries to skip ahead */
+  await vt.evaluate(() => { const v = document.querySelector('.pz-mhost video'); v.currentTime = Math.min((v.duration || 6) - 0.2, v.currentTime + 3); });
+  await sleep(2600);
+  const sk = await where(vk), st2 = await where(vt);
+  ok('   A PHONE THAT SKIPS AHEAD IS PUT BACK in step', Math.abs(st2.t - sk.t) < 1.5, J({ presenter: sk.t, phone: st2.t }));
+  /* someone joins late */
+  const vv = await as('vera', 375, 812);
+  await vv.goto(URLB + 'present.html?s=ps_v', { waitUntil: 'networkidle2' });
+  await until(async () => { const a = await where(vv); return a && !a.paused && a.t > 0.2; }, 10000);
+  const lk = await where(vk), lv = await where(vv);
+  ok('   SOMEONE JOINING LATE starts at the right second, not the beginning', lv && !lv.paused && Math.abs(lv.t - lk.t) < 1.5 && lv.t > 1, J({ presenter: lk && lk.t, late: lv && lv.t }));
+  await vk.screenshot({ path: path.join(SHOTS, 'present-real-video-presenter-desk.png') });
+  await vt.screenshot({ path: path.join(SHOTS, 'present-real-video-phone-375.png') });
+  await vtv.screenshot({ path: path.join(SHOTS, 'present-real-video-tv.png') });
+  /* pause, then start again */
+  await tap(vk, '[data-mplay="0"]');
+  await until(async () => { const a = await where(vt), b = await where(vtv); return a && b && a.paused && b.paused; }, 6000);
+  await sleep(600);
+  const pk = await where(vk), pt = await where(vt), ptv = await where(vtv);
+  ok('   PAUSE: every screen stops on the same frame', pk.paused && pt.paused && ptv.paused && Math.abs(pt.t - pk.t) < 0.5 && Math.abs(ptv.t - pk.t) < 0.5, J({ k: pk.t, phone: pt.t, tv: ptv.t }));
+  await tap(vk, '[data-mrestart="0"]');
+  await until(async () => { const a = await where(vt); return a && !a.paused && a.t < 1.5; }, 6000);
+  const rt = await where(vt), rtv = await where(vtv);
+  ok('   START AGAIN: back to the beginning for everyone', rt && !rt.paused && rt.t < 1.8 && rtv && rtv.t < 1.8, J({ phone: rt && rt.t, tv: rtv && rtv.t }));
+  const tomMedia = await vt.evaluate(() => EGBCAuth.db.collection('presentNow').doc('ps_ps_v').update({ media: { i: 1, k: 0, state: 'paused', at: 5, since: new Date().toISOString() } }).then(() => 'written', e => e.code));
+  ok('   the rules: a viewer cannot play, pause or skip anyone else\u2019s video', tomMedia === 'permission-denied', tomMedia);
+  const loisMedia = await vtv.evaluate(() => EGBCAuth.db.collection('presentNow').doc('ps_ps_v').update({ media: { i: 1, k: 0, state: 'paused', at: 5, since: new Date().toISOString() } }).then(() => 'written', e => e.code));
+  ok('   nor can another leader who is not presenting (she takes over first)', loisMedia === 'permission-denied', loisMedia);
+  /* a video set to play by itself */
+  await tap(vk, '[data-go]');
+  await until(async () => (await onStage(vt)) === 'Slide 3');
+  const au = await until(async () => { const a = await where(vt), b = await where(vtv); return a && b && !a.paused && !b.paused && a.t > 0.2 ? { a, b } : null; }, 8000);
+  ok('   A VIDEO SET TO PLAY BY ITSELF does, on every screen, when the slide comes', !!au, J(au));
+  /* near its end: once it has finished, it stays finished (it does not start again) */
+  await vk.evaluate(() => EGBCAuth.db.collection('presentNow').doc('ps_ps_v').update({ media: { i: 2, k: 0, state: 'playing', at: 19, since: new Date().toISOString() } }));
+  await sleep(4000);
+  const e1 = await where(vt), e2 = await where(vtv), e3 = await where(vk);
+  ok('   A FINISHED VIDEO STAYS FINISHED on every screen (it does not start again)', [e1, e2, e3].every(x => x && x.t > 19 && x.paused), J({ phone: e1 && [e1.t, e1.paused], tv: e2 && [e2.t, e2.paused], presenter: e3 && [e3.t, e3.paused] }));
+  ok('   and the presenter\u2019s slides show which have a video (the two, and the YouTube one)', (await vk.$$('[data-film] .vid')).length === 3);
+  for (const pg of [vk, vt, vtv, vv]) await pg.browser().close().catch(() => {});
 
   /* ---------- 8. someone outside the group ---------- */
   const nina = await as('nina', 375, 812);

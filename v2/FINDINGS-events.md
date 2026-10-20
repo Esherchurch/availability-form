@@ -8628,3 +8628,113 @@ LibreOffice 26.8.1.1 is on this PC now. I put real decks through the converter's
 - **Choice and fallback:** a church setting picks "Microsoft" or "LibreOffice". If Microsoft fails or isn't set up, LibreOffice does it.
 - **Cost:** none beyond the church's Microsoft licence. To check: Graph's size limit for conversion.
 - **Question for Martin:** does EGBC have Microsoft 365 for the church (not personal)? If so, I can build this next to LibreOffice.
+
+### F-251 — Present: video in the slides, in step everywhere; OneDrive links up to 1 GB (the events window, 20 Oct)
+
+**The 729 MB deck**
+- **Fetched** from its "Can view" link: the ChurchShow F-CS8b fourth link, Presentation1.pptx. It's **4 slides**, and slide 4 is a full-screen **7½-minute 1080p video** (692 MB, H.264 with AAC sound, plays on click).
+- **Made into slides** with the tidy-up (video emptied first): **2.3 seconds**, and **0.2%** different from PowerPoint's own pictures.
+- **A bug it exposed, fixed:** a church SharePoint "Can view" link sets a cookie on the first visit, and the download is **refused (403) without it**. Present's fetch kept no cookies, so church links would have failed. The converter now keeps them through the redirects.
+
+**Links up to 1 GB (Martin's answer 2)**
+- **The fetch moved** from the Cloud Function to the converter (`converter/fetch.mjs`): a function's memory cannot hold a 700 MB deck.
+- **It streams straight into Storage:** 729 MB in 33 seconds, using **86 MB** of memory on this PC. It stops past 1 GB with a message saying so.
+- **Uploads from a device stay at 100 MB.** Past that, the planner says: "This file is 250 MB. From this device the most is 100 MB. For a bigger one (often a video inside), put it in OneDrive, choose Share, 'Anyone with the link can view', and paste the link here: up to 1 GB."
+- **The planner follows the deck's own status** ("Fetching it from OneDrive (729 MB)…", "Making the slides…", "Getting the video ready… a long video takes a few minutes") instead of waiting on the call, which times out first.
+- **Deploy change (Martin):** the converter at `--memory 4Gi --timeout 900 --concurrency 1`, written in `converter/server.mjs`. The functions' timeouts are 900 s.
+
+**Video in the slides (Martin's answer 3, built now)**
+- **The converter takes each slide's video and sound out of the .pptx,** along with where it sits on the slide, on-click or by itself, loop and volume. These go to Storage beside the slide pictures (`present/<deck>/m<slide>-<n>.mp4`).
+  - Browser-ready H.264 MP4, MP3 and M4A go as they are.
+  - An MP4 whose index is at the end is rearranged so it streams.
+  - HEVC (iPhone), WMV and AVI are made into H.264 (ffmpeg, in the container).
+  - **A heavy video (over 5 Mbit/s) also gets a light 720p copy** (about 2.5 Mbit/s) for phones and weak Wi-Fi; the TV plays the full one.
+- **Linked videos** (YouTube, OneDrive, Stream) stay links. YouTube plays in step through YouTube's own player; other links give the presenter "Open the video".
+- **Present plays it over the slide picture, where PowerPoint puts it, in step on every screen.**
+  - One small shared state says which video, playing or paused, from what second, since when.
+  - Each screen works out where it should be and corrects itself if more than 1.5 s out.
+  - **The presenter** has Play/Pause, Start again, and the K key.
+  - **Viewers have no controls,** and a phone that skips ahead is put back.
+  - **Someone joining late** starts at the right second.
+  - **A video set to play by itself** starts when the slide comes. **A finished video stays finished.**
+- **It streams:** the phone asks for the video in ranges, never downloading it first.
+- **Sound:** on for the TV. If the TV's browser blocks sound, it shows "Click once to let this screen play sound". Off on phones and the presenter's screen, where "Sound off here" turns it on: a room of phones would echo.
+- **Works on both routes,** because the video comes from the file, not from the drawing.
+- **The rules:** `presentNow.media` is "playing" or "paused" with nothing else in it, and only the presenter changes it.
+
+**Costs, per deck like the 729 MB one** (London region; Cloud Run tier-2 prices; Cloud Storage about 1.8p a GB a month and about 9.5p a GB to download, with no free download allowance in London)
+- **Converting:** fetch, slides, storing the video, and making the light copy take about 4–6 minutes of 2 CPUs and 4 GB: about **2–3p**. The monthly free allowance (180,000 CPU-seconds) covers roughly 250 such decks, so in practice **£0**. A deck without a video: about 0.2p, also free.
+- **Keeping it:** the source (729 MB), the video (692 MB) and the light copy (about 145 MB): about 1.6 GB, roughly **3p a month** while kept.
+  - **Session decks are never swept today.** Shall the source file go 30 days after the session? It's only needed to convert again. That would halve the cost.
+- **Playing it** is the cost that counts: every screen streams it.
+  - **The TV**, full quality: about 692 MB, roughly **6.5p a play**.
+  - **Each phone**, the light copy: about 145 MB, roughly **1.4p a play**.
+  - **A session with a TV and 10 phones** watching the whole video: about **20p**.
+
+**Tests**
+- **present.test: 53/53.** Two new link checks, plus the video section (13 checks):
+  - stored as it is
+  - where it sits on all three screens
+  - waits for a click
+  - no controls for viewers
+  - plays in step (within a second)
+  - streamed in ranges
+  - sound
+  - a skip put back
+  - a late joiner at the right second
+  - pause on the same frame
+  - start again
+  - the rules
+  - plays by itself
+  - a finished video stays finished
+- **Rules suite: 1641/1641** (5 new for the video state).
+- **The invented 20-second clip** is made by Chrome (`fixtures/make-invented-clip.mjs`). No real video is in the repo.
+
+### F-252 — Present: the Microsoft 365 route, for a church that connects its Microsoft 365 (the events window, 20 Oct)
+
+**How it works** (`converter/microsoft.mjs`)
+- **The converter signs in as an app** registered in the church's Microsoft 365, with no person signing in.
+- **It puts the deck in one SharePoint folder** ("Present conversions"; a big deck goes up in 60 MB pieces), asks Microsoft Graph for a PDF (`?format=pdf`, drawn by PowerPoint's own renderer: Aptos, layouts, everything), and **deletes the copy**, always.
+- **The pictures** are then made exactly as on the LibreOffice route. The notes and videos still come from the file.
+- **If the route is not set up, or Microsoft fails or refuses, LibreOffice does it.** Each deck records which one made it (`renderer`) and why it fell back (`fallbackWhy`).
+- **A PDF that kept a hidden slide** still has it left out.
+
+**What Martin sets up, once** (a Microsoft 365 Global or SharePoint admin; about 15 minutes)
+1. **Entra admin centre** (entra.microsoft.com) → App registrations → **New registration**:
+   - name "EGBC Hub slides converter"
+   - "Accounts in this organisational directory only"
+   - no redirect address
+2. **Note** its **Application (client) ID** and the **Directory (tenant) ID**.
+3. **Certificates & secrets** → New client secret (24 months) → copy its **Value** once. Then:
+   ```
+   printf '%s' 'THE-VALUE' | gcloud secrets create egbc-ms-client-secret --data-file=- --project egbc-worship-planner
+   ```
+   Give the converter's service account "Secret Manager Secret Accessor" on it.
+4. **API permissions** → Add → Microsoft Graph → **Application permissions** → **Sites.Selected** only → **Grant admin consent**. This alone lets the app into nothing.
+5. **A SharePoint site for the conversions** (an existing church one will do, for example `https://esherchurch.sharepoint.com/sites/EGBCHub`). The converter creates the "Present conversions" folder itself.
+6. **Give the app "write" on that one site.** In Graph Explorer, signed in as the admin:
+   - `GET https://graph.microsoft.com/v1.0/sites/esherchurch.sharepoint.com:/sites/EGBCHub` (copy its `id`)
+   - then `POST https://graph.microsoft.com/v1.0/sites/{id}/permissions` with
+     `{"roles":["write"],"grantedToIdentities":[{"application":{"id":"<client id>","displayName":"EGBC Hub slides converter"}}]}`
+   - or in PnP PowerShell: `Grant-PnPAzureADAppSitePermission -AppId <client id> -DisplayName "EGBC Hub slides converter" -Site <site url> -Permissions Write`
+7. **Redeploy the converter** with:
+   ```
+   --set-env-vars MS_TENANT_ID=<tenant id>,MS_CLIENT_ID=<client id>,MS_SITE=esherchurch.sharepoint.com:/sites/EGBCHub
+   --set-secrets MS_CLIENT_SECRET=egbc-ms-client-secret:latest
+   ```
+   (`converter/server.mjs` has it.)
+
+**Cost:** none beyond the church's Microsoft 365 licence; Graph conversion is not charged. The copy is deleted at once, so it takes no SharePoint space.
+
+**Tests:** `present-microsoft.test.mjs` runs the real route code against a stand-in for Microsoft on this PC:
+- not set up → LibreOffice
+- set up → Microsoft, with the app's own sign-in (client credentials, the `.default` scope, no person), the church's site, the folder, the PDF, and the copy deleted
+- a hidden slide kept by the PDF → still 4 slides
+- a big deck in pieces, byte for byte
+- Microsoft failing (500) → LibreOffice, with the reason on the deck and the copy still deleted
+- a wrong secret → LibreOffice, and "check MS_CLIENT_SECRET"
+- the secret and token never stored with a deck
+
+**Still to prove with the real thing:** that Graph's PDF of a real deck matches PowerPoint. That needs Martin's setup (steps 1–7); then `tools/pptx-reference.ps1` and the fidelity scoring compare the two. Microsoft's size limit for conversion is not documented; a refusal falls back to LibreOffice.
+
+**Aptos (Martin's answer 4):** not on the server (licence). The LibreOffice route's `converter-fonts/` notes now say so.

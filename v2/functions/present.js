@@ -5,8 +5,9 @@
      presentConvert   callable { deckId }      the uploaded PowerPoint into
                       slides and notes, by the converter (Cloud Run)
      presentFromLink  callable { deckId, url } a OneDrive / SharePoint share
-                      link: fetched here and presented like an upload, so
-                      everyone stays in step (Martin, 20 Oct)
+                      link: the converter fetches it (up to 1 GB, streamed -
+                      a function's memory cannot hold a 700 MB deck) and it is
+                      presented like an upload (Martin, 20 Oct; F-251)
      presentSweep     daily: a meeting's deck goes 30 days after the
                       meeting, unless saved to the meeting's documents
 
@@ -30,7 +31,6 @@ import { GoogleAuth } from 'google-auth-library';
 const REGION = 'europe-west2';
 const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
 const db = () => getFirestore();
-const MAX_BYTES = 100 * 1024 * 1024;
 
 async function me(uid) { const d = await db().collection('users').doc(uid).get(); return d.exists ? d.data() : {}; }
 
@@ -59,15 +59,15 @@ async function converterUrl(dbi) {
   return process.env.CONVERTER_URL || '';
 }
 
-async function callConverter(dbi, deckId) {
+async function callConverter(dbi, deckId, link) {
   const url = await converterUrl(dbi);
   if (!url) throw new HttpsError('failed-precondition', 'The slide converter is not set up yet (CONVERTER_URL).');
-  const body = JSON.stringify({ deckId });
+  const payload = link ? { deckId, link } : { deckId }, body = JSON.stringify(payload);
   let res;
   if (EMULATOR) res = await fetch(url.replace(/\/?$/, '') + '/convert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   else {
     const client = await new GoogleAuth().getIdTokenClient(url);
-    const r = await client.request({ url: url.replace(/\/?$/, '') + '/convert', method: 'POST', data: { deckId }, validateStatus: () => true });
+    const r = await client.request({ url: url.replace(/\/?$/, '') + '/convert', method: 'POST', data: payload, timeout: 900000, validateStatus: () => true });
     res = { ok: r.status === 200, status: r.status, json: async () => r.data };
   }
   const out = await res.json().catch(() => ({}));
@@ -84,7 +84,7 @@ async function deckFor(uid, deckId) {
   return { ref, d };
 }
 
-export const presentConvert = onCall({ region: REGION, timeoutSeconds: 300, memory: '256MiB' }, async (req) => {
+export const presentConvert = onCall({ region: REGION, timeoutSeconds: 900, memory: '256MiB' }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   const { ref } = await deckFor(uid, (req.data || {}).deckId);
@@ -106,27 +106,14 @@ export function directLink(url) {
   return '';
 }
 
-export const presentFromLink = onCall({ region: REGION, timeoutSeconds: 300, memory: '512MiB' }, async (req) => {
+export const presentFromLink = onCall({ region: REGION, timeoutSeconds: 900, memory: '256MiB' }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   const { ref } = await deckFor(uid, (req.data || {}).deckId);
-  const direct = directLink((req.data || {}).url);
-  if (!direct) throw new HttpsError('invalid-argument', 'Paste a OneDrive or SharePoint link to the PowerPoint.');
-  await ref.update({ status: 'fetching', why: '' });
-  let buf;
-  try {
-    const r = await fetch(direct, { redirect: 'follow' });
-    if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? 'That link is only for signed-in accounts. In OneDrive, Share and choose "Anyone with the link can view".' : 'The file could not be fetched (' + r.status + ').');
-    buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > MAX_BYTES) throw new Error('That PowerPoint is over 100 MB.');
-    if (buf.slice(0, 2).toString() !== 'PK') throw new Error('That link is not a PowerPoint file. In OneDrive, Share and choose "Anyone with the link can view".');
-  } catch (e) {
-    await ref.update({ status: 'failed', why: String(e.message || e).slice(0, 300) });
-    throw new HttpsError('failed-precondition', String(e.message || e));
-  }
-  await getStorage().bucket().file('present/' + ref.id + '/source.pptx').save(buf, { contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
-  await ref.update({ status: 'converting', source: 'onedrive', link: String(req.data.url).slice(0, 500) });
-  return callConverter(db(), ref.id);
+  const url = String((req.data || {}).url || '').trim();
+  if (!directLink(url)) throw new HttpsError('invalid-argument', 'Paste a OneDrive or SharePoint link to the PowerPoint.');
+  await ref.update({ status: 'fetching', why: '', source: 'onedrive', link: url.slice(0, 500) });
+  return callConverter(db(), ref.id, url);
 });
 
 /* A meeting's deck goes 30 days after the meeting, unless kept (Martin, 20 Oct). */

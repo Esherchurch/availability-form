@@ -2,7 +2,9 @@
    EGBC Present - the converter's web service (Cloud Run; F-242)
    ===================================================================
 
-   POST /convert  { deckId }   -> { count }
+   POST /convert  { deckId }         -> { count }   (the PowerPoint already uploaded)
+   POST /convert  { deckId, link }   -> { count }   a OneDrive/SharePoint link: fetched
+                  here first (up to 1 GB, streamed into Storage - fetch.mjs)
    Called only by the hub's presentConvert function. Cloud Run is set to
    require sign-in ("--no-allow-unauthenticated"), so nobody else can call
    it; it runs as a service account that may read and write the project's
@@ -10,36 +12,42 @@
 
    Deploy (Martin), once, from v2/converter:
      gcloud run deploy egbc-converter --source . --region europe-west2 \
-       --no-allow-unauthenticated --memory 2Gi --cpu 2 --timeout 300 \
-       --min-instances 0 --max-instances 2
+       --no-allow-unauthenticated --memory 4Gi --cpu 2 --timeout 900 \
+       --min-instances 0 --max-instances 2 --concurrency 1
    then give the hub's functions its address (CONVERTER_URL) and the
    "Cloud Run Invoker" role on it.
-   Fonts a deck uses but does not carry (Aptos, Office's own cloud font):
-   put the font files the church may use in Storage at converter-fonts/
-   (Firebase console, Storage, a folder of that name). A new instance adds
-   them before its first deck.
+   MICROSOFT 365 (F-252): with these the slides are drawn by Microsoft's own
+   PowerPoint (Aptos and all), LibreOffice only if that fails:
+     --set-env-vars MS_TENANT_ID=...,MS_CLIENT_ID=...,MS_SITE=esherchurch.sharepoint.com:/sites/<site>
+     --set-secrets MS_CLIENT_SECRET=egbc-ms-client-secret:latest
+   (the app registration and its one permission: FINDINGS F-252, microsoft.mjs).
+   Fonts a deck uses but does not carry, for the LibreOffice route: font
+   files the church is licensed to use, in Storage at converter-fonts/
+   (Firebase console, Storage, a folder of that name) - not Aptos, whose
+   licence does not cover a server (Martin, 20 Oct); the Microsoft route
+   draws Aptos itself. A new instance adds them before its first deck.
    =================================================================== */
 import http from 'node:http';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { convertDeck, loadChurchFonts } from './convert.mjs';
+import { handleConvert, loadChurchFonts } from './convert.mjs';
 
 const BUCKET = process.env.BUCKET || 'egbc-worship-planner.firebasestorage.app';
 if (!getApps().length) initializeApp({ storageBucket: BUCKET });
 
-export function makeServer({ render } = {}) {
+export function makeServer({ render, allowLocal = false } = {}) {
   return http.createServer((req, res) => {
     const done = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
     if (req.method !== 'POST' || req.url !== '/convert') return done(404, { error: 'not found' });
     let raw = '';
     req.on('data', (c) => { raw += c; if (raw.length > 10000) req.destroy(); });
     req.on('end', async () => {
-      let deckId = '';
-      try { deckId = String(JSON.parse(raw || '{}').deckId || ''); } catch (e) { return done(400, { error: 'bad request' }); }
+      let deckId = '', link = '';
+      try { const b = JSON.parse(raw || '{}'); deckId = String(b.deckId || ''); link = String(b.link || ''); } catch (e) { return done(400, { error: 'bad request' }); }
       if (!/^[A-Za-z0-9_-]{6,60}$/.test(deckId)) return done(400, { error: 'which deck?' });
       if (!render) await loadChurchFonts(getStorage().bucket());
-      try { done(200, await convertDeck({ db: getFirestore(), bucket: getStorage().bucket(), deckId, render })); }
+      try { done(200, await handleConvert({ db: getFirestore(), bucket: getStorage().bucket(), deckId, link, render, allowLocal })); }
       catch (e) { done(422, { error: String(e.message || e) }); }
     });
   });

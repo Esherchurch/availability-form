@@ -4185,6 +4185,13 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nor take over', 'deny', () => setDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), NOW('u_tomk')));
   await check('  a master admin may take over', 'allow', () => setDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), NOW('u_martin')));
   await check('  then the leader cannot just move the slides (it is not theirs now)', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { slide: 2, slideAt: 'z' }));
+  const MED = (extra) => ({ i: 1, k: 0, state: 'playing', at: 0, since: '2026-11-01T10:00:00.000Z', ...(extra || {}) });
+  await check('A SLIDE’S VIDEO (F-251): the presenter plays it for everyone', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { media: MED() }));
+  await check('  and pauses it part way', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { media: MED({ state: 'paused', at: 12.5 }) }));
+  await check('  only "playing" or "paused"', 'deny', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { media: MED({ state: 'skip' }) }));
+  await check('  nothing else in it', 'deny', () => updateDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), { media: MED({ url: 'https://elsewhere.invalid/x.mp4' }) }));
+  await check('  A VIEWER CANNOT PLAY, PAUSE OR SKIP IT', 'deny', () => updateDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), { media: MED({ at: 99 }) }));
+  await check('  NOR A LEADER WHO IS NOT PRESENTING (take over first)', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { media: MED({ at: 42 }) }));
   await check('  a meeting’s deck is master admins only until the hosts are agreed', 'deny', () => setDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_m'), DK('u_samy', { context: { type: 'meeting', meetingId: 'mt_1' } })));
 }
 

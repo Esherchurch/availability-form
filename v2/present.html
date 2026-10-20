@@ -57,7 +57,7 @@
     return Promise.all(decks.map(function (id) {
       return db().collection('presentDecks').doc(id).get().then(function (d) {
         var x = d.exists ? d.data() : null;
-        return x && x.status === 'ready' ? EGBCPresent.deckItems(id, x.count) : [];
+        return x && x.status === 'ready' ? EGBCPresent.deckItems(id, x.count, x.media, x.ratio) : [];
       }, function () { return []; });
     })).then(function (got) {
       var byDeck = {}, all = [], notesOf = [];

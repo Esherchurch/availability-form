@@ -543,21 +543,38 @@
     var f = q('stFile') && q('stFile').files[0], link = (q('stU').value || '').trim(), name = q('stN').value.trim();
     if (!f && !link) return bad('Choose the PowerPoint file, or paste its OneDrive link.');
     if (f && !/\.pptx$/i.test(f.name)) return bad('That is not a PowerPoint (.pptx) file. Keynote or Google Slides: save it as PowerPoint first.');
-    if (f && f.size > 100 * 1024 * 1024) return bad('That PowerPoint is over 100 MB.');
+    if (f && f.size > 100 * 1024 * 1024) return bad('This file is ' + Math.round(f.size / 1048576) + ' MB. From this device the most is 100 MB. For a bigger one (often a video inside), put it in OneDrive, choose Share, “Anyone with the link can view”, and paste the link here: up to 1 GB.');
     if (!S || !S.id || !G) return bad('Save the plan first.');
     var ref = db().collection('presentDecks').doc(), u = EGBCAuth.user() || {};
     st.name = name || (f ? f.name.replace(/\.pptx$/i, '') : 'Slides');
-    bad('Making the slides\u2026 (about half a minute)');
+    bad(f ? 'Sending the file\u2026' : 'Fetching it from OneDrive\u2026');
     q('stAdd').disabled = true;
+    /* The deck itself says how far it has got (fetching, converting, video,
+       ready / failed): a 700 MB deck with a video takes minutes, longer than
+       a call waits, so the page follows the deck, not the call. */
+    var unsub = null, ended = false;
+    var finish = function (ok, x) {
+      if (ended) return; ended = true; if (unsub) unsub();
+      if (ok) { st.deckId = ref.id; st.count = x.count || 0; st.video = (x.media || []).some(function (m) { return m.kind === 'video'; }); sh.close(); done(st); }
+      else { q('stAdd').disabled = false; bad('The slides could not be made: ' + x); }
+    };
     ref.set({ context: { type: 'session', groupId: G.id, sessionId: S.id }, name: st.name.slice(0, 120), status: 'uploaded', source: f ? 'upload' : 'onedrive',
       by: u.uid, byName: ME.name || '', at: new Date().toISOString() })
       .then(function () {
+        unsub = ref.onSnapshot(function (d) {
+          var x = d.data() || {}, mb = x.size ? ' (' + Math.round(x.size / 1048576) + ' MB)' : '';
+          if (x.status === 'fetching') bad('Fetching it from OneDrive' + mb + '\u2026');
+          else if (x.status === 'converting') bad('Making the slides\u2026');
+          else if (x.status === 'video') bad('Getting the video ready\u2026 a long video takes a few minutes.');
+          else if (x.status === 'ready') finish(true, x);
+          else if (x.status === 'failed') finish(false, x.why || 'please try again.');
+        }, function () {});
         if (f) return EGBCAuth.storage().ref('present/' + ref.id + '/source.pptx').put(f, { contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
           .then(function () { return EGBCAuth.call('presentConvert', { deckId: ref.id }); });
         return EGBCAuth.call('presentFromLink', { deckId: ref.id, url: link });
       })
-      .then(function (r) { r = r && r.data !== undefined ? r.data : r; st.deckId = ref.id; st.count = (r && r.count) || 0; sh.close(); done(st); },
-        function (e) { q('stAdd').disabled = false; bad('The slides could not be made: ' + ((e && e.message) || e)); });
+      /* the call may give up waiting before a long job ends; the deck's own status decides */
+      .catch(function (e) { if (!/deadline|timeout/i.test(String((e && (e.code || e.message)) || ''))) finish(false, (e && e.message) || e); });
     return null;
   }
 

@@ -109,6 +109,89 @@ export function readPptx(buf) {
   return { slides, shown: slides.filter((s) => !s.hidden).length };
 }
 
+/* ---- video and sound on the slides (F-251) ----
+   readMedia(buf) -> [{ slide (1-based, in the deck), shown (0-based, as
+   presented), k, kind 'video'|'audio', part 'ppt/media/media1.mp4' | null,
+   link 'https://...' | null, youtube 'id' | null, rect [x, y, w, h] as
+   fractions of the slide, start 'click'|'auto', loop, volume 0..1 }]
+   Embedded media: the p14:media relationship (the file in the deck).
+   Linked media (Insert > Online video, or a linked file): a:videoFile with
+   an external r:link - kept as a link; YouTube ones play in step too. */
+export function readMedia(buf) {
+  const zip = readZip(buf), pres = zip.text('ppt/presentation.xml') || '', presRels = rels(zip, 'ppt/presentation.xml');
+  const sz = pres.match(/<p:sldSz\b[^>]*cx="(\d+)"[^>]*cy="(\d+)"/), W = sz ? +sz[1] : 12192000, H = sz ? +sz[2] : 6858000;
+  const ids = [...pres.matchAll(/<p:sldId\b[^>]*r:id="([^"]+)"/g)].map((m) => m[1]);
+  const out = []; let shown = -1;
+  ids.forEach((rid, i) => {
+    const file = (presRels[rid] || {}).target || '', xml = zip.text(file) || '';
+    if (/<p:sld\b[^>]*\bshow="0"/.test(xml)) return;
+    shown++;
+    const r = rawRels(zip, file), timing = (xml.match(/<p:timing>[\s\S]*<\/p:timing>/) || [''])[0];
+    let k = 0;
+    for (const m of xml.matchAll(/<p:pic>([\s\S]*?)<\/p:pic>/g)) {
+      const b = m[1];
+      const vf = b.match(/<a:(videoFile|audioFile|quickTimeFile|wavAudioFile)\b[^>]*r:(?:link|embed)="([^"]+)"/), me = b.match(/<p14:media\b[^>]*r:embed="([^"]+)"/);
+      if (!vf && !me) continue;
+      const emb = me && r[me[1]], lnk = vf && r[vf[2]];
+      const part = emb && emb.mode !== 'External' ? resolve(file.slice(0, file.lastIndexOf('/')), emb.target) : null;
+      const link = !part && lnk && lnk.mode === 'External' ? lnk.target : null;
+      if (!part && !link) continue;
+      const off = b.match(/<a:off x="(-?\d+)" y="(-?\d+)"\s*\/>/), ext = b.match(/<a:ext cx="(\d+)" cy="(\d+)"\s*\/>/);
+      const spid = (b.match(/<p:cNvPr\b[^>]*\bid="(\d+)"/) || [])[1];
+      /* its timing: on click (delay "indefinite") or with the slide; loop; volume */
+      const node = spid ? (timing.match(new RegExp('<p:(?:video|audio)>(?:(?!</p:(?:video|audio)>)[\\s\\S])*?<p:spTgt spid="' + spid + '"[\\s\\S]*?</p:(?:video|audio)>')) || [''])[0] : '';
+      const cmn = (node.match(/<p:cMediaNode\b[^>]*>/) || [''])[0], ctn = (node.match(/<p:cTn\b[^>]*>/) || [''])[0];
+      /* the step that plays it: "clickEffect" waits for a click; "withEffect"/"afterEffect" go by themselves */
+      let auto = false;
+      for (const pm of timing.matchAll(/cmd="playFrom[^"]*"/g)) {
+        const after = timing.slice(pm.index, pm.index + 400);
+        if (!new RegExp('<p:spTgt spid="' + spid + '"').test(after)) continue;
+        const before = timing.slice(0, pm.index), nt = before.lastIndexOf('nodeType="');
+        auto = nt >= 0 && !/^nodeType="clickEffect"/.test(before.slice(nt));
+        break;
+      }
+      const vol = cmn.match(/vol="(\d+)"/);
+      const yt = link && (link.match(/(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([\w-]{6,20})/) || [])[1];
+      out.push({ slide: i + 1, shown, k: k++, kind: /audio|wav/i.test((vf && vf[1]) || '') || /\.(mp3|m4a|wav|wma|aac)$/i.test(part || '') ? 'audio' : 'video', part, link, youtube: yt || null,
+        rect: off && ext ? [+off[1] / W, +off[2] / H, +ext[1] / W, +ext[2] / H].map((v) => Math.round(v * 10000) / 10000) : [0, 0, 1, 1],
+        start: auto ? 'auto' : 'click', loop: /repeatCount="indefinite"/.test(ctn), volume: vol ? Math.min(1, +vol[1] / 100000) : 1 });
+    }
+  });
+  return out;
+}
+function rawRels(zip, path) {
+  const dir = path.slice(0, path.lastIndexOf('/')), f = path.slice(path.lastIndexOf('/') + 1), x = zip.text(dir + '/_rels/' + f + '.rels') || '', o = {};
+  for (const m of x.matchAll(/<Relationship\b[^>]*>/g)) {
+    const g = (k) => (m[0].match(new RegExp('\\b' + k + '="([^"]*)"')) || [])[1];
+    o[g('Id')] = { target: unxml(g('Target') || ''), mode: g('TargetMode') || '' };
+  }
+  return o;
+}
+/* What an MP4 is: plays in every browser (H.264/AAC), streams at once (its
+   index, moov, before the data), how long, how heavy. */
+export function mp4Facts(b) {
+  const f = { boxes: [], codecs: [], moovFirst: false, seconds: 0, mbps: 0 };
+  try {
+    let p = 0;
+    while (p + 8 <= b.length && f.boxes.length < 50) { let s = b.readUInt32BE(p); const t = b.toString('latin1', p + 4, p + 8); if (s === 1) s = Number(b.readBigUInt64BE(p + 8)); if (s === 0) s = b.length - p; if (s < 8) break; f.boxes.push(t); p += s; }
+    f.moovFirst = f.boxes.indexOf('moov') >= 0 && (f.boxes.indexOf('mdat') < 0 || f.boxes.indexOf('moov') < f.boxes.indexOf('mdat'));
+    const mv = b.indexOf(Buffer.from('moov')); if (mv < 0) return f;
+    const s = b.slice(mv, Math.min(b.length, mv + 4000000)).toString('latin1');
+    f.codecs = [...new Set(s.match(/avc1|avc3|hvc1|hev1|mp4a|av01|vp09|ac-3|ec-3/g) || [])];
+    const h = b.indexOf(Buffer.from('mvhd'), mv); if (h > 0) { const v = b[h + 4]; const ts = v ? b.readUInt32BE(h + 24) : b.readUInt32BE(h + 16), du = v ? Number(b.readBigUInt64BE(h + 28)) : b.readUInt32BE(h + 20); if (ts) f.seconds = du / ts; }
+    if (f.seconds) f.mbps = Math.round(b.length * 8 / f.seconds / 1e5) / 10;
+  } catch (e) {}
+  return f;
+}
+/* Plays in every browser as it is: H.264 video (with AAC sound), or MP3/AAC sound. */
+export function browserPlays(part, facts) {
+  if (/\.(mp3|m4a|aac)$/i.test(part)) return true;
+  if (!/\.(mp4|m4v|mov)$/i.test(part)) return false;
+  const video = facts.codecs.filter((c) => /avc|hvc|hev|av01|vp09/.test(c));
+  if (facts.codecs.some((c) => /ac-3|ec-3/.test(c))) return false;
+  return video.length ? video.every((c) => c === 'avc1' || c === 'avc3') : facts.codecs.includes('mp4a');
+}
+
 /* ---- before LibreOffice draws it: where it and PowerPoint differ (20 Oct) ----
    Found on real decks (FINDINGS F-250):
    1. A LAYOUT'S PICTURE PLACEHOLDER with a sample picture (a lighthouse on
@@ -249,7 +332,9 @@ export function writeZipWith(buf, changes, fd) {
 }
 
 /* An invented deck for the tests: slides with titles and notes (some with
-   none), one hidden. The XML is the shape PowerPoint writes. */
+   none), one hidden, and (F-251) a slide's own video - { video: Buffer,
+   start: 'click'|'auto', rect: [x, y, w, h] as fractions } or a linked one
+   { videoLink: 'https://...' }. The XML is the shape PowerPoint writes. */
 export function inventDeck(list) {
   const NS = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"';
   const RT = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
@@ -259,8 +344,16 @@ export function inventDeck(list) {
     ['ppt/_rels/presentation.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + list.map((s, i) => '<Relationship Id="rId' + (i + 2) + '" Type="' + RT + 'slide" Target="slides/slide' + (i + 1) + '.xml"/>').join('') + '</Relationships>']];
   list.forEach((s, i) => {
     const n = i + 1;
-    files.push(['ppt/slides/slide' + n + '.xml', '<?xml version="1.0"?><p:sld ' + NS + (s.hidden ? ' show="0"' : '') + '><p:cSld><p:spTree><p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>' + e(s.title) + '</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>']);
-    files.push(['ppt/slides/_rels/slide' + n + '.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + (s.notes ? '<Relationship Id="rId9" Type="' + RT + 'notesSlide" Target="../notesSlides/notesSlide' + n + '.xml"/>' : '') + '</Relationships>']);
+    const W = 12192000, H = 6858000, vid = s.video || s.videoLink, rc = s.rect || [0.25, 0.3, 0.5, 0.5];
+    const pic = vid ? '<p:pic><p:nvPicPr><p:cNvPr id="4" name="Video ' + n + '"/><p:cNvPicPr/><p:nvPr><a:videoFile r:link="rId5"/>' + (s.video ? '<p:extLst><p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}"><p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="rId6"/></p:ext></p:extLst>' : '') + '</p:nvPr></p:nvPicPr>' +
+      '<p:blipFill><a:blip r:embed="rId7"/></p:blipFill><p:spPr><a:xfrm><a:off x="' + Math.round(rc[0] * W) + '" y="' + Math.round(rc[1] * H) + '"/><a:ext cx="' + Math.round(rc[2] * W) + '" cy="' + Math.round(rc[3] * H) + '"/></a:xfrm></p:spPr></p:pic>' : '';
+    const timing = vid ? '<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="' + (s.start === 'auto' ? '0' : 'indefinite') + '"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="4" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="5" presetID="1" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="' + (s.start === 'auto' ? 'afterEffect' : 'clickEffect') + '"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="playFrom(0.0)"><p:cBhvr><p:cTn id="6" dur="6000" fill="hold"/><p:tgtEl><p:spTgt spid="4"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:seq>' +
+      '<p:video><p:cMediaNode vol="80000"><p:cTn id="7" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="4"/></p:tgtEl></p:cMediaNode></p:video></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>' : '';
+    files.push(['ppt/slides/slide' + n + '.xml', '<?xml version="1.0"?><p:sld ' + NS + (s.hidden ? ' show="0"' : '') + '><p:cSld><p:spTree><p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>' + e(s.title) + '</a:t></a:r></a:p></p:txBody></p:sp>' + pic + '</p:spTree></p:cSld>' + timing + '</p:sld>']);
+    files.push(['ppt/slides/_rels/slide' + n + '.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + (s.notes ? '<Relationship Id="rId9" Type="' + RT + 'notesSlide" Target="../notesSlides/notesSlide' + n + '.xml"/>' : '') +
+      (s.video ? '<Relationship Id="rId5" Type="' + RT + 'video" Target="../media/media' + n + '.mp4"/><Relationship Id="rId6" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="../media/media' + n + '.mp4"/>' : '') +
+      (s.videoLink ? '<Relationship Id="rId5" Type="' + RT + 'video" Target="' + e(s.videoLink) + '" TargetMode="External"/>' : '') + '</Relationships>']);
+    if (s.video) files.push(['ppt/media/media' + n + '.mp4', s.video]);
     if (s.notes) files.push(['ppt/notesSlides/notesSlide' + n + '.xml', '<?xml version="1.0"?><p:notes ' + NS + '><p:cSld><p:spTree>' +
       '<p:sp><p:nvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr></p:sp>' +
       '<p:sp><p:nvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:txBody>' + s.notes.split('\n').map((l) => '<a:p><a:r><a:t>' + e(l) + '</a:t></a:r></a:p>').join('') + '</p:txBody></p:sp>' +

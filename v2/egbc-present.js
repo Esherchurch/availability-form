@@ -9,12 +9,26 @@
    crossfades (0.2 s) to a picture it ALREADY HAS: the whole deck is fetched
    in the background when it opens, small previews first, so a slide change
    downloads nothing (weak church Wi-Fi). If the Wi-Fi drops, a screen keeps
-   its slide and catches up when it is back. No screen share, no video.
+   its slide and catches up when it is back. No screen share.
+
+   VIDEO AND SOUND IN THE SLIDES (F-251): a slide's own video plays over its
+   picture, where it sits on the slide, IN STEP ON EVERY SCREEN. The shared
+   state adds media: { i, k, state 'playing'|'paused', at (seconds), since }
+   and each screen works out where the video should be and corrects itself
+   (more than 1.5 s out: it jumps). Only the presenter plays, pauses or
+   starts again; viewers have no controls, so nobody skips ahead. Videos
+   stream from Storage (only the start is fetched first); phones and weak
+   Wi-Fi get the light copy when there is one, the TV the full one. Sound:
+   on for the TV, off on phones and the presenter's own screen ("Sound here"
+   turns it on) - a room full of phones would echo. YouTube links play in
+   step too (YouTube's player); other links: the presenter can open them.
 
      EGBCPresent.mount(el, {
        key,          'ps_<session>' | 'mtg_<room>_<event or day>'
        context,      { type: 'session', groupId, sessionId } | { type: 'meeting', room, eventId, day }
-       items,        [{ kind: 'image', full, thumb, deckId, n } | { kind: 'html', html }]
+       items,        [{ kind: 'image', full, thumb, deckId, n, ratio, media: [{ kind, src, light, link,
+                       youtube, rect: [x, y, w, h], start: 'click'|'auto', loop, volume, seconds,
+                       playable }] } | { kind: 'html', html }]
                      (the same list, in the same order, on every screen)
        notesFor,     function (i) -> Promise of the presenter's notes for item i ('' if none)
        title,        what is being shown ("Building fund update")
@@ -29,7 +43,7 @@
    presenter"), the presenter (now, next, notes, timer, thumbnails, Next /
    Back / Blank / Stop, the faces with raised hands), and anyone who may
    present gets "Take over" (the presenter sees who took it).
-   Keys and clickers: arrows, space, PageUp / PageDown; B blanks.
+   Keys and clickers: arrows, space, PageUp / PageDown; B blanks; K plays or pauses the video.
    =================================================================== */
 (function (global) {
   'use strict';
@@ -71,7 +85,11 @@
     '@media (max-width:760px){.pz-view,.pz-pres{grid-template-columns:1fr;padding:12px;gap:12px}.pz-view .main{justify-content:flex-start}' +
     '.pz-ctl{position:sticky;bottom:0;z-index:2;margin:0 -12px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(11,17,22,0),#0b1116 35%)}' +
     '.pz-side{display:flex;flex-direction:column}.pz-side .pz-notescard{order:-1}.pz-faces{flex-direction:row;overflow-x:auto}.pz-faces>*{flex:0 0 112px}' +
-    '.pz-top{padding:8px 12px}.pz-btn.back{flex-basis:76px}}';
+    '.pz-top{padding:8px 12px}.pz-btn.back{flex-basis:76px}}' +
+    '.pz-mhost{position:absolute;z-index:5;pointer-events:none;overflow:hidden}.pz-mhost .pz-m{position:absolute}.pz-mhost video,.pz-mhost iframe{width:100%;height:100%;object-fit:contain;display:block;border:0;background:transparent;opacity:0;transition:opacity .25s}.pz-mhost .on{opacity:1}' +
+    '.pz-mbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#0f1d24;border:1px solid #23414a;border-radius:12px;padding:8px 10px}.pz-mbar .lbl{font:600 13.5px Inter,sans-serif;color:#a7d4d4;margin-right:4px}.pz-mbar .tm{font:600 13px Inter,sans-serif;color:var(--pz-mute);font-variant-numeric:tabular-nums}' +
+    '.pz-tap{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9;background:#5c8a8b;color:#fff;border:0;border-radius:999px;min-height:48px;padding:0 22px;font:700 16px Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.4);cursor:pointer}' +
+    '.pz-film button .vid{position:absolute;right:4px;bottom:3px;font:700 10px Inter,sans-serif;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;padding:0 4px}';
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function css() { if (document.getElementById('pz-css')) return; var s = document.createElement('style'); s.id = 'pz-css'; s.textContent = CSS; document.head.appendChild(s); }
@@ -83,6 +101,9 @@
     var db = EGBCAuth.db, me = EGBCAuth.user() || {}, myName = (EGBCAuth.profile && EGBCAuth.profile() || {}).name || 'Someone';
     var ref = db.collection('presentNow').doc(o.key), items = o.items || [], N = items.length;
     var S = null, browsing = null, cache = {}, notes = {}, unsub = null, tick = null, alive = true;
+    /* video: a layer of its own over the slide picture, outside the part that redraws */
+    var host = document.createElement('div'), mels = {}, mshown = '', sound = !!o.tv || (o.context && o.context.type === 'meeting'), soundBlocked = false, mtick = null, ytReady = {};
+    host.className = 'pz-mhost'; host.style.display = 'none'; document.body.appendChild(host);
 
     /* ---- the pictures: previews first, then the full ones, all in the background ---- */
     function preload() {
@@ -120,6 +141,129 @@
       } else ls[nxt].innerHTML = '<div class="html">' + (it.html || '') + '</div>';
       ls[nxt].classList.add('on'); ls[cur].classList.remove('on');
       st._on = nxt; st._i = i;
+      if (stageId === 'pzStage') syncMedia();
+    }
+
+    /* ---- video and sound (F-251) ---- */
+    function mediaOf(i) { var it = items[i]; return (it && it.media) || []; }
+    function hasMedia(i) { return mediaOf(i).some(function (m) { return m.src || m.youtube; }); }
+    function light() { var c = navigator.connection || {}; return !o.tv && (window.innerWidth < 900 || c.saveData || /(^|-)(2g|3g)$/.test(c.effectiveType || '')); }
+    function ytSend(f, a, m) { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: m, args: a || [] }), '*'); } catch (e) {} }
+    function mel(i, k) {
+      var key = i + '-' + k, m = mediaOf(i)[k]; if (!m) return null;
+      if (mels[key]) return mels[key];
+      var box = document.createElement('div'); box.className = 'pz-m';
+      var r = m.rect || [0, 0, 1, 1];
+      box.style.cssText = 'left:' + r[0] * 100 + '%;top:' + r[1] * 100 + '%;width:' + r[2] * 100 + '%;height:' + r[3] * 100 + '%';
+      var v;
+      if (m.youtube) {
+        v = document.createElement('iframe'); v.setAttribute('allow', 'autoplay; encrypted-media'); v.setAttribute('title', 'Video');
+        v.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(m.youtube) + '?enablejsapi=1&playsinline=1&controls=0&disablekb=1&rel=0&modestbranding=1&mute=' + (sound ? 0 : 1);
+        v.onload = function () { ytReady[key] = true; try { v.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*'); } catch (e) {} };
+      } else if (m.src) {
+        v = document.createElement(m.kind === 'audio' ? 'audio' : 'video');
+        v.preload = 'metadata'; v.playsInline = true; v.setAttribute('playsinline', ''); v.disablePictureInPicture = true; v.controls = false;
+        v.muted = !sound; v.volume = Math.max(0, Math.min(1, m.volume == null ? 1 : m.volume)); v.loop = !!m.loop;
+        v.src = (light() && m.light) || m.src;
+        v.addEventListener('playing', function () { v.classList.add('on'); });
+        v.addEventListener('seeked', function () { if (v.currentTime > 0.05) v.classList.add('on'); });
+      } else return null;
+      box.appendChild(v); mels[key] = { box: box, v: v, m: m, yt: !!m.youtube };
+      return mels[key];
+    }
+    /* where the slide picture is on the screen (the picture is "contained" in the stage) */
+    function placeHost() {
+      var st = el.querySelector('#pzStage'), on = st && mshown && !(S && S.blank && browsing === null);
+      if (!on) { host.style.display = 'none'; return; }
+      var r = st.getBoundingClientRect(), it = items[+mshown] || {}, ratio = it.ratio || 16 / 9, w = r.width, h = r.height;
+      if (w / h > ratio) w = h * ratio; else h = w / ratio;
+      host.style.display = 'block';
+      host.style.left = (r.left + window.scrollX + (r.width - w) / 2) + 'px'; host.style.top = (r.top + window.scrollY + (r.height - h) / 2) + 'px';
+      host.style.width = w + 'px'; host.style.height = h + 'px';
+    }
+    /* Where should video k of slide i be now? (seconds), and is it playing? */
+    function target(i, k) {
+      var x = S && S.media, m = mediaOf(i)[k];
+      if (!x || x.i !== i || x.k !== k || browsing !== null) return { play: false, t: 0, live: false };
+      var t = +x.at || 0;
+      if (x.state === 'playing') t += Math.max(0, (now() - Date.parse(x.since || new Date().toISOString())) / 1000);
+      var len = (m && m.seconds) || 0, ended = false;
+      if (len && t >= len) { if (m.loop) t = t % len; else { t = len; ended = true; } }
+      return { play: x.state === 'playing' && !ended, t: t, live: true };
+    }
+    function syncMedia() {
+      if (!alive) return;
+      var i = (S && S.presenterUid) ? at() : -1, want = i >= 0 && hasMedia(i) ? String(i) : '';
+      if (want !== mshown) {
+        Object.keys(mels).forEach(function (key) { var e = mels[key]; if (e.box.parentNode) { if (!e.yt) e.v.pause(); e.box.remove(); } });
+        mshown = want;
+        if (want) mediaOf(i).forEach(function (m, k) { var e = mel(i, k); if (e) { host.appendChild(e.box); if (!e.yt) { e.v.preload = 'auto'; } } });
+      }
+      placeHost();
+      if (!want) { clearInterval(mtick); mtick = null; return; }
+      var playing = false;
+      mediaOf(i).forEach(function (m, k) {
+        var e = mels[i + '-' + k]; if (!e) return;
+        var g = target(i, k); playing = playing || g.play;
+        if (e.yt) {
+          if (!ytReady[i + '-' + k]) return;
+          if (g.live) { ytSend(e.v, [g.t, true], 'seekTo'); ytSend(e.v, [], g.play ? 'playVideo' : 'pauseVideo'); e.v.classList.add('on'); }
+          else { ytSend(e.v, [], 'pauseVideo'); e.v.classList.remove('on'); }
+          ytSend(e.v, [], sound ? 'unMute' : 'mute');
+          return;
+        }
+        var v = e.v; v.muted = !sound;
+        if (!g.live) { if (!v.paused) v.pause(); if (v.currentTime > 0.05) { try { v.currentTime = 0; } catch (x) {} } v.classList.remove('on'); return; }
+        /* its own length when the file did not say: a finished video stays
+           finished (play() on an ended video would start it again) */
+        var dur = isFinite(v.duration) && v.duration > 0 ? v.duration : 0;
+        if (dur && g.t >= dur - 0.15) { if (m.loop) g.t = g.t % dur; else { g.t = dur; g.play = false; } }
+        if (Math.abs((v.currentTime || 0) - g.t) > (g.play ? 1.5 : 0.3)) { try { v.currentTime = g.t; } catch (x) {} }
+        if (g.play && v.paused) {
+          var p = v.play();
+          if (p && p.catch) p.catch(function () { if (!v.muted) { soundBlocked = true; v.muted = true; v.play().catch(function () {}); tapForSound(); } });
+        } else if (!g.play && !v.paused) v.pause();
+        if (g.t > 0.05 || g.play) v.classList.add('on');
+      });
+      if (playing && !mtick) mtick = setInterval(syncMedia, 1000);
+      if (!playing && mtick) { clearInterval(mtick); mtick = null; }
+      mediaBar();
+    }
+    /* A TV or phone that will not play sound until someone taps it */
+    function tapForSound() {
+      if (document.querySelector('.pz-tap')) return;
+      var b = document.createElement('button'); b.className = 'pz-tap'; b.type = 'button';
+      b.textContent = o.tv ? 'Click once to let this screen play sound' : 'Tap for sound';
+      b.onclick = function () { sound = true; soundBlocked = false; b.remove(); Object.keys(mels).forEach(function (k) { if (!mels[k].yt) mels[k].v.muted = false; }); syncMedia(); };
+      document.body.appendChild(b);
+    }
+    /* the presenter: play, pause, start again (one video at a time) */
+    function mediaWrite(k, state, at0) {
+      if (!amPresenter()) return;
+      var t = at0 != null ? at0 : target(S.slide, k).t;
+      S.media = { i: S.slide, k: k, state: state, at: Math.round(t * 100) / 100, since: new Date().toISOString() };
+      syncMedia();
+      ref.update({ media: S.media }).catch(function () {});
+    }
+    function mediaBar() {
+      var bar = el.querySelector('[data-mbar]'); if (!bar || !S) return;
+      var i = amPresenter() ? S.slide : at(), list = mediaOf(i);
+      bar.querySelectorAll('[data-mtime]').forEach(function (t) {
+        var k = +t.getAttribute('data-mtime'), g = target(i, k), len = (list[k] || {}).seconds || 0;
+        t.textContent = mmss(g.t * 1000) + (len ? ' / ' + mmss(len * 1000) : '') + (g.play ? ' · playing' : g.live ? ' · paused' : '');
+        var pb = bar.querySelector('[data-mplay="' + k + '"]'); if (pb) pb.textContent = g.play ? '\u275a\u275a Pause' : '\u25b6 Play';
+      });
+      var sb = bar.querySelector('[data-sound]'); if (sb) sb.textContent = sound ? '\ud83d\udd0a Sound on here' : '\ud83d\udd07 Sound off here';
+    }
+    function mediaBarHtml(i, presenter) {
+      var list = mediaOf(i).map(function (m, k) { return [m, k]; }).filter(function (x) { return x[0].src || x[0].youtube || x[0].link; });
+      if (!list.length) return '';
+      return '<div class="pz-mbar" data-mbar>' + list.map(function (x) {
+        var m = x[0], k = x[1], name = (m.kind === 'audio' ? 'Sound' : 'Video') + (list.length > 1 ? ' ' + (k + 1) : '');
+        if (!m.src && !m.youtube) return presenter ? '<span class="lbl">' + name + ' is a link</span><a class="pz-btn" href="' + esc(m.link) + '" target="_blank" rel="noopener" style="text-decoration:none">Open the video</a>' : '';
+        if (m.playable === false) return '<span class="lbl">' + name + ': ' + esc(m.why || 'cannot play in a browser') + '</span>';
+        return '<span class="lbl">' + name + '</span>' + (presenter ? '<button class="pz-btn" data-mplay="' + k + '">\u25b6 Play</button><button class="pz-btn" data-mrestart="' + k + '">\u21ba Start again</button>' : '') + '<span class="tm" data-mtime="' + k + '"></span>';
+      }).join('') + '<span class="pz-sp"></span><button class="pz-btn" data-sound></button></div>';
     }
 
     function amPresenter() { return S && S.presenterUid && S.presenterUid === me.uid; }
@@ -139,11 +283,12 @@
       if (o.tv && !live) { el.className = 'pz pz-tv'; el.innerHTML = '<div class="pz-wait" style="min-height:100vh"><div><p style="font-size:clamp(20px,3vw,40px);color:#fff;margin:0 0 8px;font-weight:700">' + esc(o.title || '') + '</p><p style="margin:0">The slides appear here when the leader presents.</p></div></div>'; return; }
       el.innerHTML = top + (live || o.tv ? '<div class="pz-view"><div class="main">' + stageHtml('pzStage') +
         '<div class="pz-prog"><i style="width:' + Math.round((at() + 1) / Math.max(1, N) * 100) + '%"></i></div><div class="pz-cap">' +
-        (browsing !== null ? '<button class="pz-btn" data-prev>◀</button> <button class="pz-btn" data-nextb>▶</button> ' : '') + 'Slide ' + (at() + 1) + ' of ' + N + '</div></div>' +
+        (browsing !== null ? '<button class="pz-btn" data-prev>◀</button> <button class="pz-btn" data-nextb>▶</button> ' : '') + 'Slide ' + (at() + 1) + ' of ' + N + '</div>' +
+        (live && !o.tv && browsing === null ? '<div style="margin-top:10px">' + mediaBarHtml(at(), false) + '</div>' : '') + '</div>' +
         (o.faces && !o.tv ? '<div class="pz-faces" data-faces></div>' : '') + '</div>'
         : '<div class="pz-wait"><div><p style="font-size:18px;color:#fff;margin:0 0 6px">' + esc(o.title || 'Slides') + '</p><p style="margin:0">' + N + ' slides. ' + (o.mayPresent ? 'Press Present when you’re ready.' : 'They show here when someone presents.') + '</p></div></div>');
       if (live || o.tv) show('pzStage', at(), S && S.blank && browsing === null);
-      placeFaces(); wire();
+      placeFaces(); wire(); syncMedia();
     }
     function drawPresenter() {
       var i = S.slide;
@@ -152,7 +297,8 @@
         '<span class="pz-timer" data-timer>0:00<small data-slidetime>on this slide 0:00</small></span><button class="pz-btn stop" data-stop>Stop presenting</button></div>' +
         '<div class="pz-pres"><div style="display:flex;flex-direction:column;gap:12px;min-width:0"><p class="pz-lbl"><span class="pz-live"><i></i>Everyone sees this</span>Slide ' + (i + 1) + ' of ' + N + (S.blank ? ' · <span style="color:#fde68a">blanked</span>' : '') + '</p>' +
         stageHtml('pzStage') +
-        '<div class="pz-film" data-film>' + items.map(function (it, k) { return '<button data-jump="' + k + '" class="' + (k === i ? 'on' : '') + '" aria-label="Slide ' + (k + 1) + '">' + (it.kind === 'image' ? '<img alt="" src="' + esc(src(k, 'thumb')) + '">' : '<span class="txt">' + esc(String(it.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</span>') + '<span>' + (k + 1) + '</span></button>'; }).join('') + '</div>' +
+        '<div class="pz-film" data-film>' + items.map(function (it, k) { return '<button data-jump="' + k + '" class="' + (k === i ? 'on' : '') + '" aria-label="Slide ' + (k + 1) + '">' + (it.kind === 'image' ? '<img alt="" src="' + esc(src(k, 'thumb')) + '">' : '<span class="txt">' + esc(String(it.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</span>') + '<span>' + (k + 1) + '</span>' + (hasMedia(k) ? '<span class="vid">\u25b6 video</span>' : '') + '</button>'; }).join('') + '</div>' +
+        mediaBarHtml(i, true) +
         '<div class="pz-ctl"><button class="pz-btn back" data-backs aria-label="Back">◀</button><button class="pz-btn go" data-go>' + (i + 1 < N ? 'Next slide ▶' : 'That’s the last slide') + '</button></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="pz-btn" data-blank>' + (S.blank ? 'Show the slide again' : 'Blank the screen') + '</button></div></div>' +
         '<div class="pz-side" style="display:flex;flex-direction:column;gap:14px;min-width:0"><div class="pz-card pz-next"><p class="pz-lbl">Up next</p>' + (i + 1 < N ? stageHtml('pzNext') : '<p class="pz-cap">The end.</p>') + '</div>' +
@@ -160,6 +306,7 @@
         (o.faces ? '<div class="pz-card"><p class="pz-lbl" data-faceslbl>In the meeting</p><div class="pz-faces" data-faces></div></div>' : '') + '</div></div>';
       show('pzStage', i, S.blank);
       if (i + 1 < N) show('pzNext', i + 1, false);
+      syncMedia();
       var k = i; Promise.resolve(notes[k] !== undefined ? notes[k] : (o.notesFor ? o.notesFor(k) : '')).then(function (t) { notes[k] = t || ''; var n = el.querySelector('[data-notes]'); if (n && S && S.slide === k) n.textContent = notes[k] || 'No notes for this slide.'; });
       placeFaces(); wire(); timer();
     }
@@ -178,8 +325,11 @@
       if (!amPresenter()) return;
       i = Math.max(0, Math.min(N - 1, i));
       if (i === S.slide) return;
-      S.slide = i; S.slideAt = new Date().toISOString(); draw();
-      ref.update({ slide: i, slideAt: S.slideAt, blank: false }).catch(function () {});
+      S.slide = i; S.slideAt = new Date().toISOString();
+      var auto = -1; mediaOf(i).forEach(function (m, k) { if (auto < 0 && m.start === 'auto' && (m.src || m.youtube) && m.playable !== false) auto = k; });
+      S.media = auto >= 0 ? { i: i, k: auto, state: 'playing', at: 0, since: S.slideAt } : null;
+      draw();
+      ref.update({ slide: i, slideAt: S.slideAt, blank: false, media: S.media }).catch(function () {});
     }
     function start() {
       var t = new Date().toISOString();
@@ -200,6 +350,9 @@
       if (q('[data-prev]')) q('[data-prev]').onclick = function () { browsing = Math.max(0, browsing - 1); draw(); };
       if (q('[data-nextb]')) q('[data-nextb]').onclick = function () { browsing = Math.min(N - 1, browsing + 1); draw(); };
       if (q('[data-start]')) q('[data-start]').onclick = start;
+      el.querySelectorAll('[data-mplay]').forEach(function (b) { b.onclick = function () { var k = +b.getAttribute('data-mplay'), g = target(S.slide, k); mediaWrite(k, g.play ? 'paused' : 'playing', g.live ? g.t : 0); }; });
+      el.querySelectorAll('[data-mrestart]').forEach(function (b) { b.onclick = function () { mediaWrite(+b.getAttribute('data-mrestart'), 'playing', 0); }; });
+      if (q('[data-sound]')) q('[data-sound]').onclick = function () { sound = !sound; soundBlocked = false; var t = document.querySelector('.pz-tap'); if (t) t.remove(); syncMedia(); };
       if (q('[data-take]')) q('[data-take]').onclick = start;
     }
     function onKey(e) {
@@ -208,6 +361,7 @@
       if (amPresenter()) {
         if (fwd) { e.preventDefault(); go(S.slide + 1); } else if (back) { e.preventDefault(); go(S.slide - 1); }
         else if (e.key === 'b' || e.key === 'B') ref.update({ blank: !S.blank }).catch(function () {});
+        else if ((e.key === 'k' || e.key === 'K') && hasMedia(S.slide)) { var k0 = S.media && S.media.i === S.slide ? S.media.k : 0, g0 = target(S.slide, k0); mediaWrite(k0, g0.play ? 'paused' : 'playing', g0.live ? g0.t : 0); }
       } else if (browsing !== null) {
         if (fwd) { browsing = Math.min(N - 1, browsing + 1); draw(); } else if (back) { browsing = Math.max(0, browsing - 1); draw(); }
       }
@@ -224,27 +378,33 @@
       if (was && S && !S.presenterUid && o.onEnd) o.onEnd();
       /* only redraw the whole view when who presents changes; otherwise the stage moves */
       if (!prev || (prev.presenterUid || '') !== (S && S.presenterUid || '') || amPresenter()) draw();
-      else if (browsing === null) { show('pzStage', S.slide, S.blank); var p = el.querySelector('.pz-prog i'); if (p) p.style.width = Math.round((S.slide + 1) / Math.max(1, N) * 100) + '%';
+      else if (browsing === null && prev && prev.slide !== S.slide && (hasMedia(prev.slide) || hasMedia(S.slide))) draw();
+      else if (browsing === null) { show('pzStage', S.slide, S.blank); syncMedia(); var p = el.querySelector('.pz-prog i'); if (p) p.style.width = Math.round((S.slide + 1) / Math.max(1, N) * 100) + '%';
         var c = el.querySelector('.pz-cap'); if (c) c.textContent = 'Slide ' + (S.slide + 1) + ' of ' + N; var s = el.querySelector('.pz-top .s'); if (s) s.textContent = (S.presenterName || '') + ' presenting · ' + (S.slide + 1) + ' of ' + N; }
       else draw();
     }, function () { S = null; draw(); });
     preload();
     draw();
+    var onPlace = function () { placeHost(); };
+    window.addEventListener('resize', onPlace); window.addEventListener('scroll', onPlace, true);
 
     return {
       stop: stop,
-      destroy: function () { alive = false; clearInterval(tick); if (unsub) unsub(); document.removeEventListener('keydown', onKey); el.innerHTML = ''; },
+      destroy: function () { alive = false; clearInterval(tick); clearInterval(mtick); if (unsub) unsub(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onPlace); window.removeEventListener('scroll', onPlace, true); Object.keys(mels).forEach(function (k) { if (!mels[k].yt) mels[k].v.pause(); }); host.remove(); el.innerHTML = ''; },
       state: function () { return S; }
     };
   }
 
   /* A deck's slides as items: the pictures through Storage (its rules decide). */
-  function deckItems(deckId, count) {
+  function deckItems(deckId, count, media, ratio) {
     var st = EGBCAuth.storage(), list = [];
     for (var n = 1; n <= count; n++) list.push(n);
+    var url = function (f) { return f ? st.ref('present/' + deckId + '/' + f).getDownloadURL().catch(function () { return ''; }) : Promise.resolve(''); };
     return Promise.all(list.map(function (n) {
-      return Promise.all([st.ref('present/' + deckId + '/s' + n + '.jpg').getDownloadURL(), st.ref('present/' + deckId + '/t' + n + '.jpg').getDownloadURL()])
-        .then(function (u) { return { kind: 'image', full: u[0], thumb: u[1], deckId: deckId, n: n }; });
+      var mine = (media || []).filter(function (m) { return m.shown === n - 1; }).sort(function (a, b) { return a.k - b.k; });
+      return Promise.all([st.ref('present/' + deckId + '/s' + n + '.jpg').getDownloadURL(), st.ref('present/' + deckId + '/t' + n + '.jpg').getDownloadURL(),
+        Promise.all(mine.map(function (m) { return Promise.all([url(m.src), url(m.light)]).then(function (u) { return Object.assign({}, m, { src: u[0], light: u[1] }); }); }))])
+        .then(function (u) { return { kind: 'image', full: u[0], thumb: u[1], deckId: deckId, n: n, ratio: ratio || 16 / 9, media: u[2] }; });
     }));
   }
   /* Speaker notes: presenters only (presentNotes; the rules). */
