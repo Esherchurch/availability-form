@@ -260,6 +260,118 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, stage 3 (20–21 Oct): toolbar styles, the ease test's papers, one-off emails and templates (F, G), pictures from Unsplash. For review
+
+### Toolbar styles (Martin: "as Mailchimp's, starting from the church's Look")
+
+- **Words toolbar:** font, size, line height and highlight, beside colour.
+  - Font: seven fonts that work in email.
+  - Size: 12 to 36px.
+  - Line height: 100% to 200%.
+  - Highlight: six light tints.
+- Each list starts from the church's Look and shows what the selected words are now.
+- **"Our look"** takes the selected words back to the church's Look: font, size, line height, highlight and colour.
+- **Only email-safe styles are kept** (egbc-editor.js, egbc-mailblocks.js `cleanHtml`, `styleRules`).
+  - Each property is read separately, so a highlight is never taken for the words' colour.
+  - Anything not on the lists is dropped when it is saved.
+
+### The ease test (plan D10): for whoever Martin asks
+
+- **v2/ease-test/task-sheet.html (the tester):** seven tasks, aiming for under 30 minutes. Make this week's issue from the draft: a picture, the verse, two events, a coloured word, a link and a test send.
+- **v2/ease-test/observer.html (the person watching):**
+  - a timer, a Done time per task, and hesitation, help and "helped" buttons with notes;
+  - the closing questions;
+  - "Copy the results" and Print.
+  - Notes are kept in the browser.
+- **Where to run it:** the editor must be able to save. So run it on the PC with the emulator, or after switch-over.
+
+### One-off emails and templates (plan F and G)
+
+- **New email** (e-news list) offers:
+  - the church's own templates first, under "Ours";
+  - then 25 starters (egbc-starters.js): 20 everyday ones and five for the church year (Advent and Christmas, Easter, Harvest, Remembrance, Mothering Sunday).
+  - Choosing one makes a **one-off email** (`kind: 'oneoff'`) and opens it in the editor.
+  - "What's on this month" fills its diary from What's On.
+- **The members' meeting starter** fills itself from **Members' meetings**, following the main window's note of 21 Oct (`churchMeetings`, next by date):
+  - the day, time and place;
+  - "See the agenda and minutes" → church-meeting.html.
+  - For a Zoom meeting: Join on Zoom with its meeting ID and passcode, in the members-only block alone. It is never in everyone's copy or the web version (checked).
+  - With no Members' meeting, it uses the next CMM meeting from Meetings, as before.
+- **[Parts to fill in]:** Check lists each `[bracketed part]` still left, with Go to it, and holds Send me a test and Schedule until they are done.
+  - `Dear {{first_name}}` stays as written. The server puts each person's first name in, or "friend".
+  - The preview shows "(their first name)".
+- **Save as a template** (editor, Done menu): keeps the blocks, look, subject and audience for the church (`emailTemplates`). **Templates** on the list page offers Use, Rename, Copy and Archive.
+- **Who it goes to** (Send tab): subscribers, church members, a team or group, or people picked.
+  - The count shows as it is chosen. An under-18 is never offered or counted.
+  - **The server works the list out** (enews-send.js `recipientsFor`). A page never hands it addresses.
+  - Archived people and under-18s are left out, and each address is sent to once.
+  - Church members get the members' copy.
+  - Someone who isn't a subscriber gets "Please leave me out of these emails", a mailto link to the office, instead of the one-click unsubscribe.
+  - An email to members, a team or people picked has **no public web version** and no Share.
+- **Rules:**
+  - The one-off keys (`kind`, `audience`, `team`, `picked` ≤300, `templateId`), each checked.
+  - `emailTemplates` is for the office only, with known keys.
+- **Two faults the new check found, both fixed before commit:**
+  - The list page's save dropped who an email goes to.
+  - The editor saved "(their first name)" over `{{first_name}}`.
+
+### Pictures from Unsplash (Martin: the server side, within Demo mode)
+
+- **functions/unsplash.js:** `unsplashSearch` and `unsplashUsed`, callables for the office and master admins.
+  - **The key** is read from Secret Manager, `UNSPLASH_ACCESS_KEY`, and sent only as Unsplash's `Authorization: Client-ID` header. A page never sees it (checked).
+  - **Hotlinked:** each picture is the `urls` Unsplash returns (images.unsplash.com, ixid kept). A picture from anywhere else is dropped. Nothing is copied into our storage.
+  - **The download ping:** choosing a picture for a card or an email calls its `links.download_location`. Only an api.unsplash.com download address is ever called. If the ping can't go now, it waits and goes with the next call.
+  - **The credit:** "Photo by <name> on Unsplash", appearing in three places:
+    - in the picker;
+    - under the picture in the email (both linked, `?utm_source=church_hq&utm_medium=referral`);
+    - at the end of the card maker's caption, and of each countdown post's caption.
+  - The email credit is dropped if the picture is changed to one of ours.
+  - **Within Demo mode's 50 an hour:**
+    - each search (its words, page and shape) is kept a day in `unsplashCache`;
+    - the hour's calls are counted, stopping at 45 (5 spare);
+    - past that, the last saved answer is served, or "try again after 11:00";
+    - Unsplash's own `X-Ratelimit-Remaining` is believed when it is lower.
+  - `content_filter=high`.
+- **The picker** (egbc-unsplash.js):
+  - **In the e-news editor:** Search Unsplash by the week's picture and a Picture block.
+  - **In the card maker:** Search Unsplash under Words → Photo.
+  - Search, a shape (wide, tall, square), and More pictures.
+  - Each picture is shown with its photographer's credit.
+- **Rules:** `unsplashCache` is the server's alone (no page reads or writes it).
+- **Screenshots for the Production application:**
+  - `v2/design-mocks/comms/unsplash/` holds five screenshots, with a README that maps each one to Unsplash's guidelines and suggests the application wording.
+  - They were made with a pretend Unsplash: drawn pictures and made-up photographer names.
+  - Once the key is set, take them again on the live hub with real photos for the application.
+
+### To deploy, and when
+
+- **The key:** `firebase functions:secrets:set UNSPLASH_ACCESS_KEY`. The reviewing window sets it with Martin.
+- **`firebase deploy --only functions:hub`:**
+  - the new `unsplashSearch` and `unsplashUsed`;
+  - `enewsSendDue` and `enewsTest`, now with one-off emails and first names.
+- **The rules** go live at **switch-over** with the rest: the one-off keys, `emailTemplates`, `unsplashCache`. Until then, the live site refuses to save:
+  - a one-off email, so New email can't start one;
+  - a template.
+- **Search Unsplash works as soon as the functions are deployed and the key is set.** The server keeps its own cache with admin rights, so no rule needs to change for it. The new rule only keeps pages out.
+
+### Checks (on fc9db439, this window's own emulators)
+
+| Check | Result |
+|---|---|
+| check-enews-emails (new: New email, [parts], Save as a template, Rename / Copy / Archive, who it goes to, the members' meeting from Members' meetings) | 23/23; breaks fill, audience each red |
+| check-unsplash (new: the server, a pretend Unsplash) | 22/22, including 5 breaks (no cache, no hourly limit, UTM left off, pictures from anywhere, a failed ping forgotten) |
+| check-unsplash-pages (new: the picker in the editor and the card maker; writes the screenshots) | 14/14; breaks credit, ping each red |
+| check-enews-send (one-off: members, a team, people picked, first names, leave me out, no web version) | 39/39, including breaks |
+| check-enews-rules | 57/57; 15/15 breaks red (new: any audience on an email, church members reading templates, the office reading the Unsplash cache) |
+| check-enews-blocks (toolbar styles) | 69/69; 20/20 breaks red |
+| check-enews-editor (toolbar styles, Our look) | 41/41; breaks typing, undo, drop each red |
+| check-cardmaker | 33/33; breaks fade, switch, nofit, details, versefit each red |
+| Also passing | layout 11/11 (3 breaks), page 47/47 (5), side-by-side 5/5 (3), social 13/13, votd 5/5 (1), meeting 17/17 (2), addressbook 18/18 (5), subscribe 58/58, import 22/22, mail-route 27/27, canva 20/20, hqmail-key 22/22, canva-page 9/9, keybox-page 8/8, stamps 6/6, features-agree 18, compiler-send 12/12 |
+
+**Not run:** tests/audit-everything.mjs. It runs only against the dev emulators (8181/9099) or the events window's. This window uses its own, firebase.comms.json, as agreed, so the audit wasn't run.
+
+---
+
 ## BUILT, stage 2 of the plan (20 Oct): the editor (A), and social posts step 1 (H). For review
 
 **Same step, different look:** Martin's Mailchimp screenshots above the editor as built, at `OneDrive\Documents\New hub\mocks\mailchimp-editor\built\built-1.png` (adding blocks) and `built-2.png` (typing on the email, a word selected). They are on this PC only.
@@ -414,6 +526,9 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 Small and self-contained. Please keep them when you edit these files:
 - **functions/index.js:** one export line, `socialMorning` from social.js (stage 2).
+  - Stage 3 adds a second line under it: `unsplashSearch, unsplashUsed` from unsplash.js.
+- **EmailBuilder2.html:** only the `?v=` stamp on the egbc-mailblocks.js script tag (stage 3).
+- **Members' meetings:** thank you for the note of 21 Oct. The members' meeting starter now reads `churchMeetings` and `private/join` as you described (enews.html `nextChurchMeeting`). It doesn't write to them.
 - **addressbook.html:**
   - one script tag after egbc-guard: `egbc-enews-ab.js` ("Gets the e-news" on each person, for the office; C-30);
   - the **UNDER 18** tick under UNDER 16, with its note;
