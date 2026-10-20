@@ -206,7 +206,7 @@ try {
   ok('what it holds, capped by the fire-safety maximum', /Theatre[\s\S]*90/.test(roomText) && /Cabaret[\s\S]*48/.test(roomText) && (await G.$eval('#fireMax', e => e.textContent)) === '90');
   ok('its facilities, chairs counted, and that caterers may be brought', /Projector and screen/.test(roomText) && /Hearing loop/.test(roomText) && /Chairs: 80/.test(roomText) && /bring your own caterers/.test(roomText));
   /* A floor plan is 'members and office' unless the room says 'public' (the reviewing window,
-     19 Oct; F-237), so the public page keeps it back; room-card.test shows it once public. */
+     19 Oct; F-243), so the public page keeps it back; room-card.test shows it once public. */
   ok('its description and house rules; the floor plan kept back from the public page (members and office by default)', !(await G.$('img[alt="Floor plan"]')) && /bright hall/.test(roomText) && /confetti/.test(roomText));
   await G.screenshot({ path: path.join(HERE, 'r1-room-375.png'), fullPage: true });
   await G.goto(URLB + 'room.html?r=room_office', { waitUntil: 'networkidle2' });

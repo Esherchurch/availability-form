@@ -445,7 +445,7 @@ service firebase.storage {
              && cmpCheckHere(checkId).siteId == siteId
              && storageMe().get('memberId', '-') in cmpCheckHere(checkId).get('responsibleIds', []);
     }
-    // ROOM FLOOR PLANS (F-237): at roomPlans/<room>/, never the public
+    // ROOM FLOOR PLANS (F-243): at roomPlans/<room>/, never the public
     // rooms/. Who sees one is the room's floorPlanWho: 'public' anyone;
     // 'members' (the default) anyone signed in and active, and the office;
     // 'office' the admins and the site's bookings admins. Admins put them up.

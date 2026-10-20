@@ -8149,7 +8149,7 @@ seed and the Inventory changes.
 - The app's tiles ("The building" mode) come with the start screen, once Martin approves the
   mock-ups in design-mocks/app-start.
 
-### F-237 — The members' room page; private floor plans; the card's photo full width (20 Oct)
+### F-243 — The members' room page; private floor plans; the card's photo full width (20 Oct)
 
 **From Martin's live check at 412px:**
 1. **BUG, fixed.** "More about this room" on the members' booking opened room.html, which refuses any room not for hire. No room is for hire yet, so it was a dead end for every room.
@@ -8248,7 +8248,7 @@ today, but it is a second list of rules).
   - the fire-safety maximum (from the fire risk assessment)
   - a floor plan
 - **Where to find it:** each room's floor (`room.level`: ground, first, second, lower ground, outside), set in Places and shown on room.html.
-- **Who sees the floor plan** (`floorPlanWho`), set in Places: anyone, members and the office (the default), or the office only. The storage rules already enforce it (F-237).
+- **Who sees the floor plan** (`floorPlanWho`), set in Places: anyone, members and the office (the default), or the office only. The storage rules already enforce it (F-243).
 - **Floor plans put up in Places** now go to the private `roomPlans/<room>/`, with no public link kept on the room. Places shows them through Storage. Until switch-over Places offers no plan upload and says why.
 
 **Not done yet** (asked for on 19 Oct):
