@@ -160,6 +160,8 @@ function checks(M) {
   const styled = M.cleanHtml('<p style="line-height:175%"><span style="background-color: rgb(255, 243, 176); font-family: Georgia; font-size: 24px">a</span><span style="font-family:Comic Sans MS;font-size:60px;background:url(x)">b</span><span style="background-color:#008080">c</span></p>', T1);
   ok('font, size, line height and highlight are kept, as email-safe styles', styled.includes('<p style="margin:10px 0;line-height:175%;"><span style="background-color:#fff3b0;font-family:Georgia,Times New Roman,serif;font-size:24px;">a</span>'), styled);
   ok('only fonts every email program has, sizes from the list, light highlights', styled.includes('<span>b</span>') && !/Comic|60px|url\(/.test(styled), styled);
+  const spaced = M.cleanHtml('<p><span style="letter-spacing:2px">a</span><span style="letter-spacing:9px">b</span><span style="letter-spacing:expression(alert(1))">c</span></p>', T1);
+  ok('letter spacing from the list is kept; anything else dropped', spaced.includes('<span style="letter-spacing:2px;">a</span>') && !/9px|expression/.test(spaced), spaced);
   ok('a highlight is never taken for the words’ colour', styled.includes('<span>c</span>'), styled);
   ok('the palette is the look’s own colours and a few more', ['#008080', '#17a809', '#fe7e07', '#202020'].every(c => M.palette(T1).includes(c)) && M.palette(T1).length <= 12, M.palette(T1));
   const bare = M.render({ blocks: [{ type: 'event', title: 'Prayer evening', when: 'Monday 2 November · 8pm', moreUrl: 'https://x.invalid/whatson.html?event=e1' }] }, {});
@@ -217,6 +219,7 @@ const BREAKS = [
   ['the CMM let out when unticked', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return b.members !== false;', 'the CMM is always members-only'],
   ['card titles left black', "if (!head) body = body.replace(", 'if (false) body = body.replace(', 'first bold line is teal'],
   ['any colour kept on a span', "if (c && t && palette(t).indexOf(c) >= 0) out += ", 'if (c) out += ', 'not in the palette is dropped'],
+  ['any letter spacing kept', "    if (LETTER_SPACINGS.indexOf(ls) >= 0) out += 'letter-spacing:' + ls + ';';", "    if (ls) out += 'letter-spacing:' + ls + ';';", 'letter spacing from the list'],
   ['any font kept', "    if (f) out += 'font-family:' + f + ';';", "    if (pr['font-family']) out += 'font-family:' + pr['font-family'] + ';';", 'only fonts every email program has'],
   ['a highlight taken for the words’ colour', "var out = '', c = hexOf(pr.color),", "var out = '', c = hexOf(pr.color || pr['background-color']),", 'never taken for the words'],
   ['bare events left bare', "var more = bare && safeUrl(b.moreUrl) ?", 'var more = false ?', 'finished card'],

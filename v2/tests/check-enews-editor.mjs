@@ -216,13 +216,17 @@ const ISSUE = { subject: 'Synthetic e-news 22 October', preheader: 'This week', 
     await ev('var f=document.getElementById("t-font");f.dispatchEvent(new Event("mousedown"));f.value="Georgia";f.dispatchEvent(new Event("change")),1'); await settle();
     await pick(0, 7);
     await ev('var l=document.getElementById("t-lh");l.dispatchEvent(new Event("mousedown"));l.value="175%";l.dispatchEvent(new Event("change")),1'); await settle();
+    await pick(0, 7);
+    await ev('var l=document.getElementById("t-ls");l.dispatchEvent(new Event("mousedown"));l.value="2px";l.dispatchEvent(new Event("change")),1'); await settle();
     const sty = ((await issue()).blocks || [])[3].html || '';
-    ok('highlight, size, font and line height are kept, as email-safe styles', /background-color:#fff3b0/.test(sty) && /font-size:24px/.test(sty) && /font-family:Georgia/.test(sty) && /line-height:175%/.test(sty), sty);
+    ok('highlight, size, font, line height and letter spacing are kept, as email-safe styles', /background-color:#fff3b0/.test(sty) && /font-size:24px/.test(sty) && /font-family:Georgia/.test(sty) && /line-height:175%/.test(sty) && /letter-spacing:2px/.test(sty), sty);
+    ok('letter spacing goes on the words chosen only, and keeps their size', /<span[^>]*letter-spacing:2px[^>]*>Welcome<\/span>/.test(sty.replace(/<span style="[^"]*font-size:24px[^"]*">/g, m => m)) && !/letter-spacing:2px[^>]*>[^<]*everyone/.test(sty) && /font-size:24px/.test(sty), sty);
+    ok('the list starts at Normal (our look)', /Normal spacing \(our look\)/.test(await ev('document.getElementById("t-ls").options[0].textContent')));
     await shot('1440-styles');
     await pick(0, 7);
     await ev('document.querySelector(\'#tool [data-cmd="ourlook"]\').click(),1'); await settle();
     const back = ((await issue()).blocks || [])[3].html || '';
-    ok('"Back to our look" takes them off the selection', !/background-color|font-size|font-family|line-height/.test(back) && /Welcome/.test(back), back);
+    ok('"Back to our look" takes them off the selection', !/background-color|font-size|font-family|line-height|letter-spacing/.test(back) && /Welcome/.test(back), back);
 
     /* 5. Add: tap a tile (after the picked block); drag one onto the email. */
     await tap(3); await sleep(400);

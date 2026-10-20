@@ -118,8 +118,10 @@
     'Trebuchet MS': 'Trebuchet MS,Arial,sans-serif', 'Times New Roman': 'Times New Roman,Times,serif', 'Courier New': 'Courier New,Courier,monospace' };
   var SIZES = [12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36];
   var LINE_HEIGHTS = ['100%', '115%', '125%', '150%', '175%', '200%'];
+  /* Letter spacing (plan A): a few steps, kept on a span. */
+  var LETTER_SPACINGS = ['0.5px', '1px', '1.5px', '2px', '3px'];
   var HIGHLIGHTS = ['#fff3b0', '#ffe2c6', '#dcf5d6', '#d7ebe8', '#e6e1f7', '#fde2e4'];
-  function styleRules(t) { return { colours: palette(t), highlights: HIGHLIGHTS.slice(), fonts: Object.keys(FONTS), sizes: SIZES.slice(), lineHeights: LINE_HEIGHTS.slice() }; }
+  function styleRules(t) { return { colours: palette(t), highlights: HIGHLIGHTS.slice(), fonts: Object.keys(FONTS), sizes: SIZES.slice(), lineHeights: LINE_HEIGHTS.slice(), letterSpacings: LETTER_SPACINGS.slice() }; }
   /* "a: b; c: d" (from a style attribute) -> { a: 'b', c: 'd' }. */
   function styleProps(attrs) {
     var m = /\sstyle\s*=\s*("([^"]*)"|'([^']*)')/i.exec(' ' + attrs), out = {};
@@ -140,6 +142,8 @@
     if (h && HIGHLIGHTS.indexOf(h) >= 0) out += 'background-color:' + h + ';';
     if (f) out += 'font-family:' + f + ';';
     if (z && SIZES.indexOf(+z[1]) >= 0) out += 'font-size:' + z[1] + 'px;';
+    var ls = String(pr['letter-spacing'] || '').trim();
+    if (LETTER_SPACINGS.indexOf(ls) >= 0) out += 'letter-spacing:' + ls + ';';
     return out;
   }
   function lineHeightOf(attrs) { var v = String(styleProps(attrs)['line-height'] || '').trim(); return LINE_HEIGHTS.indexOf(v) >= 0 ? v : ''; }
@@ -782,6 +786,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, fillInvite: fillInvite, keep: keep, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, fillInvite: fillInvite, keep: keep, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

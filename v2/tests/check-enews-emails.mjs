@@ -226,6 +226,8 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
     const id2 = await startFrom('Church members\u2019 meeting');
     is = await issue(id2);
     const mt = (is.blocks || []).find(b => b.type === 'meeting') || {};
+    const words9 = new Date(day(9) + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).replace(',', '');
+    ok('{date} in the subject becomes the meeting\u2019s date', is.subject === 'Church members\u2019 meeting, ' + words9, is.subject);
     ok('the members\u2019 meeting starter: for church members, the next members\u2019 meeting already picked', is.audience === 'members' && mt.eventId === 'm_cmm' && /meeting\.html\?room=CMM/.test(mt.url || ''), [is.audience, mt]);
     /* From Members' meetings (church-meeting.html), when there is one: a
        Zoom meeting, its joining details in the members-only block alone. */
@@ -235,6 +237,7 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
     const b4 = (await issue(id4)).blocks || [];
     const when16 = new Date(day(16) + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).replace(',', '');
     const z = b4.find(b => b.type === 'meeting') || {}, ag = b4.find(b => b.type === 'button') || {};
+    ok('…and its subject has that meeting\u2019s date', (await issue(id4)).subject === 'Church members\u2019 meeting, ' + when16, (await issue(id4)).subject);
     ok('…from Members\u2019 meetings: its day, time and place filled in', JSON.stringify(b4).includes(when16 + ' at 19:30') && JSON.stringify(b4).includes('Synthetic church hall'), JSON.stringify(b4).slice(0, 300));
     ok('…the agenda button goes to Members\u2019 meetings, for members only', /\/church-meeting\.html\?meeting=cm1$/.test(ag.url || '') && ag.label === 'See the agenda and minutes' && ag.members === true, ag);
     ok('…a Zoom meeting: Join on Zoom, its ID and passcode, for members only', z.url === 'https://zoom.example.invalid/j/5550001' && z.zoom === true && /555 0001/.test(z.text) && /synth1/.test(z.text) && z.members === true, z);

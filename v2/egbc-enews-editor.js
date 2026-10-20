@@ -274,7 +274,7 @@
       '<select id="t-style" aria-label="Style of words"><option value="p">Normal words</option><option value="h2">Heading</option><option value="h3">Small heading</option></select>' +
       /* Font, size and line height start from the church's look (Look);
          "Our look" puts a selection back to it. */
-      '<select id="t-font" aria-label="Font"></select><select id="t-size" aria-label="Size"></select><select id="t-lh" aria-label="Line height"></select><span class="sep"></span>' +
+      '<select id="t-font" aria-label="Font"></select><select id="t-size" aria-label="Size"></select><select id="t-lh" aria-label="Line height"></select><select id="t-ls" aria-label="Letter spacing"></select><span class="sep"></span>' +
       [['bold', 'bold', 'Bold'], ['italic', 'italic', 'Italic'], ['underline', 'underline', 'Underline'], ['strikeThrough', 'strikethrough', 'Crossed out'], '|',
         ['colour', 'baseline', 'Colour'], ['highlight', 'highlighter', 'Highlight'], ['link', 'link', 'Make it a link'], ['emoji', 'smile', 'Emoji'], '|',
         ['insertUnorderedList', 'list', 'Bullet list'], ['insertOrderedList', 'list-ordered', 'Numbered list'], ['ourlook', 'rotate-ccw', 'Back to our look']].map(function (x) {
@@ -307,7 +307,8 @@
     document.getElementById('t-font').onchange = function () { if (this.value) exec('fontName', this.value); fillLookLists(); };
     document.getElementById('t-size').onchange = function () { if (this.value) setSize(+this.value); fillLookLists(); };
     document.getElementById('t-lh').onchange = function () { if (this.value) setLineHeight(this.value); fillLookLists(); };
-    ['t-font', 't-size', 't-lh'].forEach(function (id) { document.getElementById(id).addEventListener('mousedown', function () { keepRange(); }); });
+    document.getElementById('t-ls').onchange = function () { setLetterSpacing(this.value); fillLookLists(); };
+    ['t-font', 't-size', 't-lh', 't-ls'].forEach(function (id) { document.getElementById(id).addEventListener('mousedown', function () { keepRange(); }); });
     var ph = document.getElementById('pop-hl');
     ph.addEventListener('mousedown', function (e) { e.preventDefault(); });
     ph.addEventListener('click', function (e) { var b = e.target.closest('[data-hl]'); if (!b) return; exec('hiliteColor', b.getAttribute('data-hl')); ph.classList.remove('on'); });
@@ -326,6 +327,8 @@
     f.innerHTML = '<option value="">' + esc(lookFont) + ' (our look)</option>' + Object.keys(MB.FONTS).map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
     z.innerHTML = '<option value="">15 (our look)</option>' + MB.SIZES.map(function (n) { return '<option value="' + n + '">' + n + '</option>'; }).join('');
     l.innerHTML = '<option value="">150% (our look)</option>' + MB.LINE_HEIGHTS.map(function (n) { return '<option value="' + n + '">' + n + ' lines</option>'; }).join('');
+    var ls = document.getElementById('t-ls');
+    if (ls) ls.innerHTML = '<option value="">Normal spacing (our look)</option>' + MB.LETTER_SPACINGS.map(function (n) { return '<option value="' + n + '">' + n + ' apart</option>'; }).join('');
   }
   /* Selects take the focus from the email: keep the selection, put it back. */
   var RANGE = null;
@@ -351,14 +354,38 @@
     Array.prototype.forEach.call(el.querySelectorAll('p,li,h2,h3'), function (b) { if (r.intersectsNode(b)) b.style.lineHeight = v; });
     afterStyle(el);
   }
+  /* Letter spacing: each piece of selected text gets its own span (so it
+     works across paragraphs and keeps any size or font already there);
+     "Normal" takes it off again. */
+  function setLetterSpacing(v) {
+    restoreRange(); var d = cdoc(); var el = editHost(); if (!d || !el) return;
+    var r = d.getSelection().getRangeAt(0); if (r.collapsed) return;
+    var w = d.createTreeWalker(el, NodeFilter.SHOW_TEXT), n, nodes = [];
+    while ((n = w.nextNode())) if (n.nodeValue.length && r.intersectsNode(n)) nodes.push(n);
+    var sc = r.startContainer, so = r.startOffset, ec = r.endContainer, eo = r.endOffset;
+    nodes.forEach(function (t) {
+      var a = t === sc ? so : 0, b = t === ec ? eo : t.nodeValue.length;
+      if (b <= a) return;
+      if (b < t.nodeValue.length) t.splitText(b);
+      if (a > 0) t = t.splitText(a);
+      for (var up = t.parentElement; up && up !== el; up = up.parentElement) if (up.style && up.style.letterSpacing && up.textContent === t.nodeValue) up.style.removeProperty('letter-spacing');
+      if (!v) return;
+      var sp = d.createElement('span'); sp.style.letterSpacing = v; t.replaceWith(sp); sp.appendChild(t);
+    });
+    if (!v) Array.prototype.forEach.call(el.querySelectorAll('span'), function (x) { if (r.intersectsNode(x)) x.style.removeProperty('letter-spacing'); if (!x.getAttribute('style')) x.removeAttribute('style'); if (!x.attributes.length && x.parentNode) { var f = d.createDocumentFragment(); while (x.firstChild) f.appendChild(x.firstChild); x.replaceWith(f); } });
+    afterStyle(el);
+  }
   /* "Back to our look": the selection loses its font, size, line height,
      highlight and colour (bold, links and lists stay). */
   function ourLook() {
     var d = cdoc(); var el = editHost(); if (!d || !el) { toast('Select the words to put back to our look first.'); return; }
     var r = d.getSelection().getRangeAt(0);
-    for (var round = 0; round < 4; round++) Array.prototype.forEach.call(el.querySelectorAll('span,p,li,h2,h3,font'), function (x) {
-      if (!x.isConnected || !r.intersectsNode(x)) return;
-      ['font-family', 'font-size', 'line-height', 'background-color', 'color'].forEach(function (k) { x.style.removeProperty(k); });
+    /* Everything in the selection, found BEFORE anything changes: taking a
+       span away moves its words, and the selection would lose the rest. */
+    var hit = Array.prototype.filter.call(el.querySelectorAll('span,p,li,h2,h3,font'), function (x) { return r.intersectsNode(x); });
+    hit.forEach(function (x) {
+      if (!x.isConnected) return;
+      ['font-family', 'font-size', 'line-height', 'letter-spacing', 'background-color', 'color'].forEach(function (k) { x.style.removeProperty(k); });
       if (x.tagName === 'FONT') x.removeAttribute('color'), x.removeAttribute('face'), x.removeAttribute('size');
       if (!x.getAttribute('style')) x.removeAttribute('style');
       if ((x.tagName === 'SPAN' || x.tagName === 'FONT') && !x.attributes.length) { var f = d.createDocumentFragment(); while (x.firstChild) f.appendChild(x.firstChild); x.replaceWith(f); }
@@ -392,6 +419,8 @@
       document.getElementById('t-font').value = MB.FONTS[ff] ? ff : '';
       document.getElementById('t-size').value = fz && MB.SIZES.indexOf(+fz[1]) >= 0 ? fz[1] : '';
       document.getElementById('t-lh').value = blk && MB.LINE_HEIGHTS.indexOf(blk.style.lineHeight) >= 0 ? blk.style.lineHeight : '';
+      var lsp = n && n.closest && n.closest('span[style*="letter-spacing"]');
+      document.getElementById('t-ls').value = lsp && MB.LETTER_SPACINGS.indexOf(lsp.style.letterSpacing) >= 0 ? lsp.style.letterSpacing : '';
     } catch (e) {}
   }
   /* Selecting a word offers "Make it a link", beside it. */

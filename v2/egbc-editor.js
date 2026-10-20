@@ -76,6 +76,7 @@
           if (fk) css += 'font-family:' + fk + ';';
           var fz = /^(\d{2})px$/.exec(String(st.fontSize || ''));
           if (fz && (R.sizes || []).indexOf(+fz[1]) >= 0) css += 'font-size:' + fz[1] + 'px;';
+          if ((R.letterSpacings || []).indexOf(String(st.letterSpacing || '')) >= 0) css += 'letter-spacing:' + st.letterSpacing + ';';
           if (css) { var sp = doc.createElement('span'); sp.setAttribute('style', css); sp.append.apply(sp, n.childNodes); n.replaceWith(sp); continue; }
         }
         if (!KEEP[tag]) {
