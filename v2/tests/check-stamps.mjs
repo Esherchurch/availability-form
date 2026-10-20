@@ -32,6 +32,13 @@ ok('  the fingerprint matches egbc-menu.js as it is now (or the Menu changed wit
 ok('  the shell loads the Menu with it', /sibling\(MENU_SRC\)\.split\('\?'\)\[0\] \+ '\?v=' \+ MENU_V/.test(shell));
 const hub = (read('hub.html').match(/egbc-menu\.js\?v=(\d{12})/) || [])[1];
 ok('  and the hub loads the Menu with the same stamp', hub === v, 'hub.html has ' + hub + ', MENU_V is ' + v);
+/* AND EVERY OTHER PAGE THAT LOADS THE MENU ITSELF: the app has since 20 Oct
+   (its start screen asks the Menu who sees the building pages), and it
+   kept yesterday's stamp when the Menu changed. */
+const stale = fs.readdirSync(V2).filter(n => /\.html$/i.test(n) && n !== 'hub.html')
+  .map(f => [f, (read(f).match(/egbc-menu\.js\?v=(\d{12})/) || [])[1]])
+  .filter(([, s]) => s && s !== v).map(([f, s]) => f + ' has ' + s);
+ok('  and so does every other page that loads it', stale.length === 0, stale.join(', ') + ', MENU_V is ' + v);
 
 /* EVERY STAMP IS ONE STAMP (19 Oct 2026): a bump that found no old stamp to
    replace glued the new one onto the front of every page's
