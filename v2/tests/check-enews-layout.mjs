@@ -96,9 +96,12 @@ for (const tpl of ['classic', 'green']) pages['/mail-' + tpl + '.html'] = MB.ren
         const wide = await ev(`(function(){var W=document.documentElement.clientWidth,out=[];document.querySelectorAll('body *').forEach(function(el){var r=el.getBoundingClientRect();if(r.width&&r.right>W+0.5)out.push(el.tagName+(el.className?'.'+el.className:'')+' '+Math.round(r.right))});return {sw:document.documentElement.scrollWidth,W:W,out:out.slice(0,5)}})()`);
         ok(tpl + ' at ' + w + 'px: nothing wider than the screen', wide.sw <= w && wide.out.length === 0, wide);
         if (tpl === 'classic' && (w === 375 || w === 600)) {
-          const L = await ev(`(function(){var t=document.querySelector('.ctext'),i=document.querySelector('.cimg img'),st=getComputedStyle(t.querySelector('p:last-child')||t);var ri=i.getBoundingClientRect(),rt=t.getBoundingClientRect();return {size:st.fontSize,imgW:Math.round(ri.width),imgX:Math.round(ri.x),textX:Math.round(rt.x),textTop:Math.round(rt.top),imgBottom:Math.round(ri.bottom)}})()`);
-          if (w === 375) ok('phone (375): 18px words, the event picture full width (339px) above them', L.size === '18px' && L.imgW === 339 && L.imgX === 18 && L.textTop >= L.imgBottom, L);
-          else ok('computer (600): 14px card words (Val\u2019s), the event picture 176px beside them (18 / 230)', L.size === '14px' && L.imgW === 176 && L.imgX === 18 && L.textX === 230, L);
+          const L = await ev(`(function(){var t=document.querySelector('.ctext'),i=document.querySelector('.cimg img'),st=getComputedStyle(t.querySelector('p:last-child')||t);var ri=i.getBoundingClientRect(),rt=t.getBoundingClientRect();var t2=document.querySelectorAll('.ctext')[1];return {lh:st.lineHeight,radius:getComputedStyle(i).borderRadius,bareX:t2?Math.round(t2.getBoundingClientRect().x+parseFloat(getComputedStyle(t2).paddingLeft)):null,size:st.fontSize,imgW:Math.round(ri.width),imgX:Math.round(ri.x),textX:Math.round(rt.x),textTop:Math.round(rt.top),imgBottom:Math.round(ri.bottom)}})()`);
+          if (w === 375) {
+            ok('phone (375): 18px words, the event picture full width (339px) above them', L.size === '18px' && L.imgW === 339 && L.imgX === 18 && L.textTop >= L.imgBottom, L);
+            ok('phone (375): a card without a picture has its words in as far as Val’s (36px)', L.bareX === 36, L);
+          }
+          else ok('computer (600): 14px card words at 125% (Val\u2019s), the event picture 176px beside them (18 / 230), corners 3%', L.size === '14px' && L.lh === '17.5px' && L.radius === '3%' && L.imgW === 176 && L.imgX === 18 && L.textX === 230, L);
         }
       }
     }

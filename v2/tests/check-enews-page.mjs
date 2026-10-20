@@ -19,7 +19,9 @@
  * fits 375px. Pictures: tests/shots/enews-375-*.png.
  *
  * DELIBERATE BREAKS: --break=switch serves enews.html with its "is the
- * e-news switched on?" answering yes; --break=office lets anybody in. Each
+ * e-news switched on?" answering yes; --break=office lets anybody in;
+ * --break=colour takes the church's colours off the editor; --break=missing
+ * drops the "missing a picture or write-up" note. Each
  * must turn this check red (the run says which line). A break that leaves
  * it green is a check that cannot fail.
  *
@@ -99,7 +101,9 @@ const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   switch: ["function usesEnews() { return !!(EGBCAuth.uses && EGBCAuth.uses('enews')); }", 'function usesEnews() { return true; }'],
   office: ['function may() { return', 'function may() { return true; return'],
-  weekly: ['if (!thisWeek && !showList.autoTried) {', 'if (!showList.autoTried || true) {']
+  weekly: ['if (!thisWeek && !showList.autoTried) {', 'if (!showList.autoTried || true) {'],
+  colour: [', palette: palette() });', ' });'],
+  missing: ['readyNote() + missingNote() +', 'readyNote() +']
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 function serveAuth(src) {
@@ -169,6 +173,8 @@ function serveAuth(src) {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || m.error || {}); pend.delete(m.id); }
+    /* A page's confirm or alert would stop everything: say yes. */
+    if (m.method === 'Page.javascriptDialogOpening') ws.send(JSON.stringify({ id: ++id, method: 'Page.handleJavaScriptDialog', params: { accept: true } }));
     if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception ? m.params.exceptionDetails.exception.description : m.params.exceptionDetails.text);
   };
   await send('Runtime.enable'); await send('Page.enable');
@@ -265,6 +271,35 @@ function serveAuth(src) {
     for (let k = 0; k < 40 && !(usual && usual.bible); k++) { usual = (await list('enewsSettings')).find(d => d._id === 'main'); if (!(usual && usual.bible)) await sleep(250); }
     ok('the church’s usual version is remembered', usual && usual.bible && usual.bible.id === 'BSB', usual);
 
+    /* Stage 1 (plan B and C): the events missing a picture or write-up;
+       a word coloured teal; "Dates for the diary"; the footer's social
+       links and diary button. */
+    ok('the draft lists the events still missing a picture or write-up', /Events missing a picture or write-up[\s\S]*Synthetic harvest supper[\s\S]*needs a picture and a write-up/.test(await text()), (await text()).slice(0, 600));
+    await ev('[...document.querySelectorAll(".blk .c")].find(b=>/Synthetic harvest supper/.test(b.textContent)).click(),1'); await sleep(700);
+    ok('a card’s words are full rich text, with the church’s colours', await ev('!!document.querySelector(".sheet .eed-ar") && !!document.querySelector(".sheet [data-c=colour]") && document.querySelectorAll(".sheet [data-colour]").length >= 6'));
+    await ev(`(function(){var a=document.querySelector(".sheet .eed-ar");a.innerHTML="<p>Bring a dish to share.</p>";a.focus();var t=a.querySelector("p").firstChild;var r=document.createRange();r.setStart(t,8);r.setEnd(t,12);var s=getSelection();s.removeAllRanges();s.addRange(r);return 1})()`);
+    await ev('document.querySelector(".sheet [data-c=colour]").click(),1'); await sleep(200);
+    await ev('document.querySelector(".sheet [data-colour=\\"#008080\\"]").dispatchEvent(new MouseEvent("mousedown",{bubbles:true})),document.querySelector(".sheet [data-colour=\\"#008080\\"]").click(),1'); await sleep(200);
+    await shot('card-colour');
+    await ev('document.querySelector(".sheet [data-done]").click(),1'); await sleep(2500);
+    const harvest = (((await list('enewsIssues'))[0] || {}).blocks || []).find(b => b.eventId === 'en_pub') || {};
+    ok('"dish" coloured teal in the editor is kept, teal, on the card', /<span style="color:#008080;?">dish<\/span>/.test(harvest.html || ''), harvest.html);
+    await ev('[...document.querySelectorAll("button")].find(b=>/Add a block/.test(b.textContent)).click(),1'); await sleep(500);
+    await ev('document.querySelector(".sheet [data-t=diary]").click(),1'); await sleep(2500);
+    const diary = (((await list('enewsIssues'))[0] || {}).blocks || []).find(b => b.type === 'diary') || {};
+    ok('"Dates for the diary" brings in the coming weeks’ public events, never members’ ones', (diary.items || []).some(x => /Synthetic harvest supper/.test(x.title)) && !(diary.items || []).some(x => /members prayer|support group/i.test(x.title)), diary.items);
+    /* The footer: social links and the diary button, set in Look and footer. */
+    const issueId = ((await list('enewsIssues'))[0] || {})._id;
+    await open(''); await until('!!document.getElementById("look")', 15000);
+    await ev('document.getElementById("look").click(),1'); await sleep(600);
+    ok('Look and footer offers the social links and the diary button', await ev('!!document.getElementById("l-s-facebook") && !!document.getElementById("l-s-youtube") && document.getElementById("l-diary").checked'));
+    await ev('document.getElementById("l-s-facebook").value="https://www.facebook.com/syntheticgreen";document.getElementById("l-s-instagram").value="not a link";document.querySelector(".sheet [data-done]").click(),1'); await sleep(1200);
+    ok('a social link that isn’t a web address is refused, in words', !(((await list('enewsSettings')).find(d => d._id === 'main') || {}).church || {}).social, (await list('enewsSettings')));
+    await ev('document.getElementById("l-s-instagram").value="";document.querySelector(".sheet [data-done]").click(),1'); await sleep(1500);
+    const setc = (((await list('enewsSettings')).find(d => d._id === 'main') || {}).church) || {};
+    ok('the social links are saved with the church’s look', JSON.stringify(setc.social) === JSON.stringify([{ kind: 'facebook', url: 'https://www.facebook.com/syntheticgreen' }]) && setc.diaryButton === true, setc);
+    await open('?issue=' + issueId); await until('!!document.querySelector(".seg")', 15000);
+
     /* 8. Schedule: the two finished copies go on the issue; "don't send
        yet" takes them off again. */
     await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
@@ -277,6 +312,8 @@ function serveAuth(src) {
     ok('Schedule: the members’ copy has the members prayer evening', String(is.htmlMembers || '').includes('Synthetic members prayer'));
     ok('Schedule: everybody else’s copy does not', String(is.htmlEveryone || '').length > 500 && !String(is.htmlEveryone).includes('Synthetic members prayer'));
     ok('Schedule: each person’s link is left for the sender to fill', String(is.htmlEveryone || '').includes('{{unsubscribe_url}}'));
+    ok('the word coloured teal is teal in the copy that is sent (and the web version, made from it)', String(is.htmlEveryone || '').includes('<span style="color:#008080;">dish</span>'));
+    ok('the footer: "Dates for the diary for the coming weeks" and the Facebook icon, in every copy', [is.htmlEveryone, is.htmlMembers].every(h => /Dates for the diary for the coming weeks/.test(String(h)) && String(h).includes('img/social/facebook.png')));
     ok('the copies that are sent never carry the placeholders', !String(is.htmlMembers).includes('Add this week'));
     ok('the page says it is scheduled', /Scheduled/.test(await text()));
     await ev('document.getElementById("unsched").click(),1'); await sleep(2000);

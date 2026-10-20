@@ -144,6 +144,32 @@ function checks(M) {
   ok('not ready to send until the meeting is picked; "Pick the meeting" in the preview only', !M.readyToSend({ blocks: [{ type: 'meeting', room: 'CMM' }] }).ok && M.render({ blocks: [{ type: 'meeting' }] }, { version: 'members', preview: true }).includes('Pick the meeting') && !M.render({ blocks: [{ type: 'meeting' }] }, { version: 'members' }).includes('Pick the meeting'));
   const snip = M.snippet.meeting(mt);
   ok('the Compiler\u2019s meeting: name, day and time, Join to the meeting page, tables only', snip.includes('Church Members Meeting') && snip.includes('Tuesday 3 November') && snip.includes('href="https://example.invalid/v2/meeting.html?room=CMM&amp;event=ev9"') && /<table/.test(snip) && !/display:\s*(flex|grid)/.test(snip));
+  /* Stage 1 (plan B and C, approved 20 Oct): Val's card titles, spacing,
+     colours, the footer and the draft. */
+  const T1 = M.theme({ template: 'classic' });
+  const card1 = M.render({ blocks: [{ type: 'event', imageUrl: 'https://x.invalid/p.jpg', html: '<p><strong>NO SOAP!</strong> Words here.</p><p>More words.</p>' }] }, { version: 'members' });
+  ok('a card with no title: its first bold line is teal, as Val’s', /<strong style="color:#008080;">NO SOAP!<\/strong>/.test(card1), card1.match(/<strong[^>]*>NO SOAP/));
+  ok('a card with a title: the title is teal and bold', /<strong style="color:#008080;">Harvest supper/.test(M.render({ blocks: [{ type: 'event', title: 'Harvest supper', html: '<p>Hi</p>' }] }, {})));
+  ok('Val’s paragraphs: 10px above and below', card1.includes('<p style="margin:10px 0;">More words.</p>'));
+  ok('Val’s card words: 14px at 125% on a computer', /class="ctext t"[^>]*font-size:14px;line-height:125%/.test(card1));
+  ok('Val’s card pictures: corners rounded 3%', /<img [^>]*border-radius:3%/.test(card1));
+  const coloured = M.cleanHtml('<p><span style="color: rgb(0, 128, 128)">teal</span> <span style="color:#123456">odd</span> <font color="#fe7e07">orange</font> <span style="color:#008080;background:url(x)">x</span></p>', T1);
+  ok('a word coloured from the church’s palette keeps its colour (inline, on a span)', coloured.includes('<span style="color:#008080;">teal</span>') && coloured.includes('<span style="color:#fe7e07;">orange</span>'), coloured);
+  ok('a colour not in the palette is dropped, and nothing else on a span survives', coloured.includes('<span>odd</span>') && !/background|url\(/.test(coloured), coloured);
+  ok('the palette is the look’s own colours and a few more', ['#008080', '#17a809', '#fe7e07', '#202020'].every(c => M.palette(T1).includes(c)) && M.palette(T1).length <= 12, M.palette(T1));
+  const bare = M.render({ blocks: [{ type: 'event', title: 'Prayer evening', when: 'Monday 2 November · 8pm', moreUrl: 'https://x.invalid/whatson.html?event=e1' }] }, {});
+  ok('a bare event is a finished card: its title and day, and "More details" to its page', bare.includes('Prayer evening') && /href="https:\/\/x\.invalid\/whatson\.html\?event=e1"[^>]*>More details</.test(bare));
+  ok('a card with words has no "More details"', !M.render({ blocks: [{ type: 'event', title: 'X', html: '<p>Hi</p>', moreUrl: 'https://x.invalid/w' }] }, {}).includes('More details'));
+  ok('every drafted event links to its page on What’s On', blocks.filter(b => b.type === 'event').every(b => /\/whatson\.html\?event=/.test(b.moreUrl || '')), blocks.filter(b => b.type === 'event').map(b => b.moreUrl));
+  const miss = M.missing([{ type: 'event', title: 'Bare' }, { type: 'event', title: 'Has both', imageUrl: 'https://x.invalid/p.jpg', html: '<p>Yes</p>' }, { type: 'event', title: 'No picture', html: '<p>Yes</p>' }]);
+  ok('the draft lists events missing a picture or write-up', miss.length === 2 && miss[0].need.join() === 'picture,write-up' && miss[1].need.join() === 'picture', miss);
+  const diary = M.diaryItems({ now: NOW, weeks: 6, events: EVENTS, base: 'https://x.invalid' });
+  ok('"Dates for the diary": public events only, a date and a title each, linked to What’s On', diary.length > 0 && diary.every(d => d.date && d.title && /whatson\.html\?event=/.test(d.url)) && !diary.some(d => /members|NOT LISTED|support/i.test(d.title)), diary);
+  ok('"Dates for the diary" draws as a list', /Dates for the diary[\s\S]*<strong>[^<]+<\/strong> – /.test(M.render({ blocks: [{ type: 'diary', items: diary }] }, {})));
+  const foot = M.render({ blocks: [] }, { church: Object.assign({}, CHURCH, { diaryUrl: 'https://x.invalid/whatson.html', social: [{ kind: 'facebook', url: 'https://facebook.com/x' }, { kind: 'email', url: 'office@x.invalid' }, { kind: 'myspace', url: 'https://y.invalid' }, { kind: 'youtube', url: 'javascript:alert(1)' }] }) });
+  ok('the footer opens with "Dates for the diary for the coming weeks", to What’s On', /class="foot"[\s\S]*href="https:\/\/x\.invalid\/whatson\.html"[^>]*>Dates for the diary for the coming weeks</.test(foot));
+  ok('social icons: PNG pictures the hub serves, 48px, only known networks and safe links', (foot.match(/img\/social\/[a-z]+\.png/g) || []).join() === 'img/social/facebook.png,img/social/email.png' && /width="48" height="48"/.test(foot) && foot.includes('href="mailto:office@x.invalid"') && !/javascript:|myspace/.test(foot), foot.match(/img\/social\/[a-z]+\.png/g));
+  ok('no diary button or icons when the church has none', !/Dates for the diary|img\/social/.test(M.render({ blocks: [] }, { church: CHURCH })));
   return R;
 }
 
@@ -165,6 +191,11 @@ const BREAKS = [
   ['events drafted without their description', "html: String(ev.description || '').slice(0, 20000),", "html: '',", 'own description'],
   ['meetings let into everyone’s copy', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return false;', 'members-only by default'],
   ['the CMM let out when unticked', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return b.members !== false;', 'the CMM is always members-only'],
+  ['card titles left black', "if (!head) body = body.replace(", 'if (false) body = body.replace(', 'first bold line is teal'],
+  ['any colour kept on a span', "return hx && t && palette(t).indexOf(hx) >= 0 ? ", 'return hx ? ', 'not in the palette is dropped'],
+  ['bare events left bare', "var more = bare && safeUrl(b.moreUrl) ?", 'var more = false ?', 'finished card'],
+  ['members’ events in the diary', "eventShare(x.ev) === 'public' &&", '', 'public events only'],
+  ['any network’s icon allowed', "var k = String(x && x.kind || ''); if (!SOCIAL[k]) return '';", "var k = String(x && x.kind || '');", 'only known networks'],
   ['a fixed 600px width on phones', "class=\"wrap\" width=\"100%\"", "class=\"wrap\" width=\"600\"", 'fluid']
 ];
 let caught = 0;

@@ -1520,7 +1520,10 @@ service cloud.firestore {
                    && request.resource.data.church is map
                    // the church's usual Bible version for the verse (source, id, abbrev), or null
                    && (request.resource.data.get('bible', null) == null || (request.resource.data.bible is map && request.resource.data.bible.keys().hasOnly(['source', 'id', 'abbrev'])))
-                   && request.resource.data.church.keys().hasOnly(['shortName', 'address', 'charityNo', 'phone', 'hours'])
+                   && request.resource.data.church.keys().hasOnly(['shortName', 'address', 'charityNo', 'phone', 'hours', 'diaryButton', 'social'])
+                   // the footer's social links: a short list of { kind, url }
+                   && (request.resource.data.church.get('social', []) is list && request.resource.data.church.get('social', []).size() <= 12)
+                   && request.resource.data.church.get('diaryButton', true) is bool
                    && request.resource.data.updatedBy == request.auth.uid;
     }
 

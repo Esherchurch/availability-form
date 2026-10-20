@@ -11,7 +11,11 @@
      const ed = EGBCEditor.mount(element, {
        html: '<p>Starting text</p>',
        placeholder: 'What do people need to know?',
-       upload: async file => url     // optional: enables the picture button
+       upload: async file => url,    // optional: enables the picture button
+       palette: ['#008080', ...]     // optional: a colour button with only
+                                     // these colours (the e-news: the
+                                     // church's); coloured words are kept
+                                     // only in these, everything else as now
      });
      ed.getHTML();  ed.setHTML(html);  ed.isEmpty();  ed.focus();
 
@@ -29,8 +33,20 @@
   var BLOCKISH = { DIV: 1, TD: 1, TH: 1, TR: 1, SECTION: 1, ARTICLE: 1, HEADER: 1, FOOTER: 1,
                    H1: 1, H4: 1, H5: 1, H6: 1, CENTER: 1, PRE: 1, TABLE: 1, TBODY: 1, THEAD: 1 };
 
-  /* Reduce any HTML to the editor's own small vocabulary. */
-  function clean(html) {
+  /* "#abc", "#aabbcc" or "rgb(1, 2, 3)" -> "#aabbcc" ('' if none). */
+  function hex(c) {
+    c = String(c || '').trim().toLowerCase();
+    var m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(c);
+    if (m) return '#' + m[1] + m[1] + m[2] + m[2] + m[3] + m[3];
+    if (/^#[0-9a-f]{6}$/.test(c)) return c;
+    m = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/.exec(c);
+    return m ? '#' + [m[1], m[2], m[3]].map(function (n) { return ('0' + Math.min(255, +n).toString(16)).slice(-2); }).join('') : '';
+  }
+
+  /* Reduce any HTML to the editor's own small vocabulary. With a palette,
+     a coloured word (a span or font) keeps its colour if it is one of
+     those, as <span style="color:#..">; any other colour is dropped. */
+  function clean(html, palette) {
     var doc = new DOMParser().parseFromString('<div id="r">' + (html || '') + '</div>', 'text/html');
     var root = doc.getElementById('r');
 
@@ -45,6 +61,13 @@
         walk(n);
         if (tag === 'H1') { var h = doc.createElement('h2'); h.append.apply(h, n.childNodes); n.replaceWith(h); continue; }
         if (tag === 'H4' || tag === 'H5' || tag === 'H6') { var h3 = doc.createElement('h3'); h3.append.apply(h3, n.childNodes); n.replaceWith(h3); continue; }
+        if ((tag === 'SPAN' || tag === 'FONT') && palette && palette.length) {
+          var hx = hex(n.style && n.style.color) || hex(n.getAttribute('color'));
+          if (hx && palette.indexOf(hx) >= 0) {
+            var sp = doc.createElement('span'); sp.setAttribute('style', 'color:' + hx);
+            sp.append.apply(sp, n.childNodes); n.replaceWith(sp); continue;
+          }
+        }
         if (!KEEP[tag]) {
           /* Unwrap, but keep paragraph breaks where a block was. */
           if (BLOCKISH[tag] && n.textContent.trim()) {
@@ -91,6 +114,8 @@
     '.eed-ar blockquote{margin:0 0 10px;padding:8px 14px;border-left:3px solid #3d6263;background:#eef5f4;border-radius:0 8px 8px 0}',
     '.eed-ar a{color:#3d6263;text-decoration:underline}',
     '.eed-ar img{max-width:100%;height:auto;border-radius:8px;margin:6px 0}',
+    '.eed-pal{display:none;position:absolute;z-index:5;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 12px rgba(16,24,40,.12);padding:8px;gap:6px;flex-wrap:wrap;width:196px}',
+    '.eed-pal.on{display:flex}.eed-pal button{width:26px;height:26px;min-width:26px;padding:0;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d1d5db;cursor:pointer}',
     '.eed-st{font-size:12px;color:#6b7280;padding:6px 12px;border-top:1px solid #e5e7eb;background:#f9fafb;display:none}'
   ].join('');
 
@@ -106,7 +131,8 @@
     }
 
     var B = [
-      ['bold', 'bold', 'Bold', 'B'], ['italic', 'italic', 'Italic', 'I'], ['underline', 'underline', 'Underline', 'U'], '|',
+      ['bold', 'bold', 'Bold', 'B'], ['italic', 'italic', 'Italic', 'I'], ['underline', 'underline', 'Underline', 'U'],
+      opts.palette && opts.palette.length ? ['colour', 'baseline', 'Colour', 'A'] : null, '|',
       ['h2', 'heading-2', 'Heading', 'H'], ['h3', 'heading-3', 'Small heading', 'h'], ['quote', 'text-quote', 'Quote', '"'], '|',
       ['ul', 'list', 'Bullet list', '•'], ['ol', 'list-ordered', 'Numbered list', '1.'], '|',
       ['link', 'link', 'Add a link', 'Link'], ['unlink', 'unlink', 'Remove link', 'Unlink'],
@@ -120,6 +146,8 @@
           if (b === '|') return '<span class="sep"></span>';
           return '<button type="button" data-c="' + b[0] + '" title="' + b[2] + '" aria-label="' + b[2] + '">' + icon(b[1], b[3]) + '</button>';
         }).join('') + '</div>' +
+        (opts.palette && opts.palette.length ? '<div class="eed-pal" role="menu" aria-label="Colour">' + opts.palette.map(function (c) {
+          return '<button type="button" data-colour="' + c + '" title="' + c + '" aria-label="Colour ' + c + '" style="background:' + c + '"></button>'; }).join('') + '</div>' : '') +
         '<div class="eed-ar" contenteditable="true" data-ph="' + (opts.placeholder || 'Write here') + '"></div>' +
         '<div class="eed-st"></div>' +
         (opts.upload ? '<input type="file" accept="image/*" style="display:none">' : '') +
@@ -177,7 +205,18 @@
         else cmd('insertHTML', '<a href="' + url.replace(/"/g, '&quot;') + '">' + url.replace(/</g, '&lt;') + '</a>&nbsp;');
       }
       else if (c === 'img' && file) file.click();
+      else if (c === 'colour') { var pal = el.querySelector('.eed-pal'); if (pal) pal.classList.toggle('on'); }
     });
+    var palEl = el.querySelector('.eed-pal');
+    if (palEl) {
+      palEl.addEventListener('mousedown', function (e) { e.preventDefault(); });   // keep the selection
+      palEl.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-colour]'); if (!b) return;
+        try { document.execCommand('styleWithCSS', false, true); } catch (er) {}
+        cmd('foreColor', b.getAttribute('data-colour'));
+        palEl.classList.remove('on');
+      });
+    }
 
     if (file) file.addEventListener('change', async function () {
       var f = file.files[0]; file.value = '';
@@ -198,7 +237,7 @@
       var text = cd.getData('text/plain');
       e.preventDefault();
       if (html) {
-        document.execCommand('insertHTML', false, clean(html));
+        document.execCommand('insertHTML', false, clean(html, opts.palette));
       } else if (text) {
         var safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
         var paras = safe.split(/\n{2,}/).map(function (p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('');
@@ -212,8 +251,8 @@
     area.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) e.preventDefault(); });
 
     var api = {
-      getHTML: function () { return clean(area.innerHTML); },
-      setHTML: function (h) { area.innerHTML = clean(h); say(''); },
+      getHTML: function () { return clean(area.innerHTML, opts.palette); },
+      setHTML: function (h) { area.innerHTML = clean(h, opts.palette); say(''); },
       isEmpty: function () { return !area.textContent.trim() && !area.querySelector('img'); },
       focus: function () { area.focus(); }
     };

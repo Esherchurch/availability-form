@@ -96,7 +96,28 @@
   /* Formatted text comes from EGBCEditor, which already keeps only simple
      tags; this keeps only those again, with safe links and no attributes
      beyond href, so a pasted script or style can never reach an inbox. */
-  var KEEP = { P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, A: 1, UL: 1, OL: 1, LI: 1, H2: 1, H3: 1, BLOCKQUOTE: 1 };
+  var KEEP = { P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, A: 1, UL: 1, OL: 1, LI: 1, H2: 1, H3: 1, BLOCKQUOTE: 1, SPAN: 1, FONT: 1 };
+  /* THE CHURCH'S PALETTE (reviewing window, 20 Oct: "Val colours words
+     herself"): the look's own colours and a few more. A word's colour is
+     kept only if it is one of these - inline, on a span - so nothing an
+     editor or a paste brings in can break Outlook or dark mode. */
+  var EXTRA_COLOURS = ['#000000', '#b42318', '#6b7280', '#1d4ed8', '#7c3aed'];
+  function palette(t) {
+    var out = [];
+    [t.title, t.link, t.bar, t.text, t.button, t.topBar].concat(EXTRA_COLOURS).forEach(function (c) {
+      c = String(c || '').toLowerCase(); if (HEX.test(c) && out.indexOf(c) < 0) out.push(c);
+    });
+    return out;
+  }
+  function hexOf(c) {
+    c = String(c || '').trim().toLowerCase();
+    var m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(c);
+    if (m) return '#' + m[1] + m[1] + m[2] + m[2] + m[3] + m[3];
+    if (HEX.test(c)) return c;
+    m = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/.exec(c);
+    if (m) return '#' + [m[1], m[2], m[3]].map(function (n) { return ('0' + Math.min(255, +n).toString(16)).slice(-2); }).join('');
+    return '';
+  }
   function cleanHtml(html, t) {
     var out = String(html == null ? '' : html)
       .replace(/<!--[\s\S]*?-->/g, '')
@@ -105,13 +126,19 @@
         var T = tag.toUpperCase();
         if (T === 'IMG') return '';
         if (!KEEP[T]) return '';
-        if (close) return '</' + T.toLowerCase() + '>';
+        if (close) return '</' + (T === 'FONT' ? 'span' : T.toLowerCase()) + '>';
         if (T === 'A') {
           var h = /href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
           var href = safeUrl(h ? (h[2] || h[3] || h[4] || '') .replace(/&amp;/g, '&') : '');
           return href ? '<a href="' + esc(href) + '" style="color:' + t.link + ';text-decoration:underline;">' : '<a>';
         }
-        if (T === 'P') return '<p style="margin:0 0 12px;">';
+        /* Val's paragraphs: 10px above and below (her mcnTextContent p). */
+        if (T === 'P') return '<p style="margin:10px 0;">';
+        if (T === 'SPAN' || T === 'FONT') {
+          var cm = /color\s*:\s*([^;"']+)/i.exec(attrs) || /color\s*=\s*["']?([^"'\s>]+)/i.exec(attrs);
+          var hx = cm ? hexOf(cm[1]) : '';
+          return hx && t && palette(t).indexOf(hx) >= 0 ? '<span style="color:' + hx + ';">' : '<span>';
+        }
         return '<' + T.toLowerCase() + '>';
       });
     return out;
@@ -210,7 +237,7 @@
   }
   function image(src, alt, w, radius) {
     return '<img class="fluid" src="' + esc(src) + '" width="' + w + '" alt="' + esc(alt || '') + '" ' +
-      'style="display:block;width:100%;max-width:' + w + 'px;height:auto;border:0;outline:none;text-decoration:none;' + (radius ? 'border-radius:' + radius + 'px;' : '') + '">';
+      'style="display:block;width:100%;max-width:' + w + 'px;height:auto;border:0;outline:none;text-decoration:none;' + (radius ? 'border-radius:' + (typeof radius === 'string' ? radius : radius + 'px') + ';' : '') + '">';
   }
   function rule(t) {
     return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:2px solid ' + t.rule + ';font-size:1px;line-height:1px;">&nbsp;</td></tr></table>', '18px');
@@ -228,22 +255,43 @@
      sign-up link. */
   function itemWords(b, t) {
     var head = [b.title, b.when].filter(Boolean).join(' – ');
+    var body = b.html ? cleanHtml(b.html, t) : '';
+    /* Val's card titles are the card's first bold line, in teal. */
+    if (!head) body = body.replace(/^(\s*(?:<p[^>]*>)?\s*)<strong>/, '$1<strong style="color:' + t.title + ';">');
     var signup = safeUrl(b.buttonUrl) && b.buttonLabel ? '<p style="margin:0 0 10px;">' + link(safeUrl(b.buttonUrl), esc(b.buttonLabel), t, true) + '</p>' : '';
     return (head ? '<p style="margin:0;"><strong style="color:' + t.title + ';">' + esc(head) + '</strong></p>' : '') +
-      (b.html ? cleanHtml(b.html, t) : '') + (b.text ? '<p style="margin:0 0 10px;">' + esc(b.text) + '</p>' : '') + signup;
+      body + (b.text ? '<p style="margin:0 0 10px;">' + esc(b.text) + '</p>' : '') + signup;
   }
 
   /* THE EVENT CARD, Val's: picture left (176px) and words right on a
      computer; picture full width above the words on a phone. With no
      picture, the words alone, full width. */
+  function cardStyle(t) { return textStyle(t).replace('font-size:15px;line-height:150%', 'font-size:14px;line-height:125%'); }
   function eventCard(b, t) {
     var img = safeUrl(b.imageUrl);
-    var words = itemWords(b, t);
-    if (!img) return row('<div class="t" style="' + textStyle(t) + '">' + words + '</div>', '9px 18px 18px');
+    var bare = !String(b.html || '').replace(/<[^>]+>/g, '').trim() && !String(b.text || '').trim();
+    /* A bare event (no write-up yet): a tidy, finished card - its title
+       and day, and "More details" to its page on What's On. */
+    var more = bare && safeUrl(b.moreUrl) ? '<p style="margin:10px 0;">' + link(safeUrl(b.moreUrl), 'More details', t, true) + '</p>' : '';
+    var words = itemWords(b, t) + more;
+    if (!img) return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+      '<td class="ctext t" valign="top" style="' + cardStyle(t) + 'padding:0;">' + words + '</td></tr></table>', '9px 18px 18px');
     return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
-      '<td class="cimg" width="176" valign="top" style="width:176px;padding:0 36px 0 0;">' + image(img, b.alt || b.title, 176, 8) + '</td>' +
-      '<td class="ctext t" valign="top" style="' + textStyle(t).replace('font-size:15px', 'font-size:14px') + 'padding:0;">' + words + '</td>' +
+      '<td class="cimg" width="176" valign="top" style="width:176px;padding:0 36px 0 0;">' + image(img, b.alt || b.title, 176, '3%') + '</td>' +
+      '<td class="ctext t" valign="top" style="' + cardStyle(t) + 'padding:0;">' + words + '</td>' +
       '</tr></table>', '9px 18px 18px');
+  }
+  /* "Dates for the diary": the coming weeks' public events from What's On,
+     a date and a title each (diaryItems makes the list). */
+  function diaryBlock(b, t) {
+    var items = (b.items || []).filter(function (x) { return x && x.title; });
+    if (!items.length) return '';
+    return row('<div class="t" style="' + textStyle(t) + '">' +
+      '<p style="margin:0 0 6px;"><strong style="color:' + t.title + ';">' + esc(b.title || 'Dates for the diary') + '</strong></p>' +
+      items.map(function (x) {
+        var u = safeUrl(x.url);
+        return '<p style="margin:0 0 4px;"><strong>' + esc(x.date || '') + '</strong>' + (x.date ? ' – ' : '') + (u ? link(u, esc(x.title), t) : esc(x.title)) + '</p>';
+      }).join('') + '</div>', '9px 18px 18px');
   }
 
   function block(b, t, o) {
@@ -258,10 +306,13 @@
         /* Val's verse: bold, centred, the reference and version after it. */
         if (!String(b.text || '').trim()) return o.preview ? row(placeholder('Add this week’s verse', 90), '18px 18px 9px') : '';
         var ref = [b.ref, b.version].filter(Boolean).join(' ');
-        return row('<div class="verse" style="font-family:' + t.font + ';font-size:18px;line-height:175%;font-weight:bold;color:' + t.verse + ';text-align:center;">' +
-            esc(String(b.text).trim()) + (ref ? ' (' + esc(ref) + ')' : '') + '</div>' +
+        /* Measured from hers (tests/check-enews-side-by-side.mjs): 18px words
+           in a 24px line at 125% - 30px apart on a computer, 22.5px on a
+           phone - starting 34px (computer) and 28px (phone) below the picture. */
+        return row('<div class="verse" style="font-family:' + t.font + ';font-size:24px;line-height:125%;font-weight:bold;color:' + t.verse + ';text-align:center;">' +
+            '<span style="font-size:18px;">' + esc(String(b.text).trim()) + (ref ? ' (' + esc(ref) + ')' : '') + '</span></div>' +
             (b.copyright ? '<div style="font-family:' + t.font + ';font-size:11px;line-height:140%;color:' + t.muted + ';text-align:center;padding:6px 0 0;">' + esc(b.copyright) + '</div>' : ''),
-          '18px 18px 9px');
+          '27px 18px 9px', 'vrow');
       case 'section':
         return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="' + t.bar + '" ' +
           'style="padding:12px 18px;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;line-height:100%;color:' + t.barText + ';text-align:center;">' + esc(b.label) + '</td></tr></table>');
@@ -276,6 +327,8 @@
             (b.text ? esc(b.text) : '') + (b.html ? cleanHtml(b.html, t) : '') + '</div>', '18px 18px 0') + rule(t);
       case 'event':
         return eventCard(b, t);
+      case 'diary':
+        return diaryBlock(b, t);
       case 'text':
         return row('<div class="t" style="' + textStyle(t) + '">' + itemWords({ title: b.title, html: b.html }, t) + '</div>', '9px 18px 18px');
       case 'picture':
@@ -326,8 +379,25 @@
       (web ? '<a href="' + esc(web) + '" target="_blank" style="color:' + t.topBarText + ';text-decoration:underline;">View this email in your browser</a>' : '') + '</td>' +
       '</tr></table></td></tr>';
   }
+  /* Social icons (a church setting): Val's are 48px circles in each
+     network's colour with a white mark, 10px apart, centred. PNG pictures
+     the hub serves (img/social/), never fonts or SVG, so Outlook shows them. */
+  var SOCIAL = { facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube', website: 'Website', email: 'Email', x: 'X', tiktok: 'TikTok', whatsapp: 'WhatsApp', linkedin: 'LinkedIn' };
+  var ASSETS = 'https://esherchurch.github.io/availability-form/v2';
+  function socialRow(list, base) {
+    var cells = (Array.isArray(list) ? list : []).map(function (x) {
+      var k = String(x && x.kind || ''); if (!SOCIAL[k]) return '';
+      var u = k === 'email' ? (/^[^\s@<>"']+@[^\s@<>"']+$/.test(String(x.url || '').replace(/^mailto:/, '')) ? 'mailto:' + String(x.url).replace(/^mailto:/, '') : '') : safeUrl(x.url);
+      if (!u) return '';
+      return '<td style="padding:0 5px;"><a href="' + esc(u) + '" target="_blank"><img src="' + esc(String(base || ASSETS).replace(/\/+$/, '') + '/img/social/' + k + '.png') + '" width="48" height="48" alt="' + esc(SOCIAL[k]) + '" style="display:block;width:48px;height:48px;border:0;"></a></td>';
+    }).filter(Boolean).slice(0, 10);
+    return cells.length ? '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 27px;"><tr>' + cells.join('') + '</tr></table>' : '';
+  }
   function footer(t, church, opts) {
     var c = church || {};
+    var diary = safeUrl(c.diaryUrl);
+    var top = (diary ? '<div style="padding:0 0 27px;">' + button({ url: diary, label: c.diaryLabel || 'Dates for the diary for the coming weeks' }, t) + '</div>' : '') +
+      socialRow(c.social, opts.assetBase);
     var white = 'color:' + t.footerText + ';text-decoration:underline;';
     var year = (opts.year || new Date().getFullYear());
     var unsub = safeUrl(opts.unsubscribeUrl) || (opts.unsubscribeUrl === PLACEHOLDER ? PLACEHOLDER : '');
@@ -340,7 +410,7 @@
       'Want to change how you receive these emails?<br>You can <a href="' + u + '" style="' + white + '">update your preferences</a> or <a href="' + u + '" style="' + white + '">unsubscribe from this list</a>.'
     ].filter(Boolean);
     return '<tr><td class="foot" bgcolor="' + t.footer + '" style="padding:27px 18px;background:' + t.footer + ';font-family:' + t.font + ';font-size:11px;line-height:125%;color:' + t.footerText + ';text-align:left;">' +
-      parts.join('<br><br>') + '</td></tr>';
+      top + parts.join('<br><br>') + '</td></tr>';
   }
   /* The server puts each person's own link here when it sends (C-11). */
   var PLACEHOLDER = '{{unsubscribe_url}}';
@@ -379,7 +449,7 @@
       '@media only screen and (max-width:480px){' +
         '.wrap{width:100% !important;max-width:100% !important;}' +
         '.t,.t p,.t li{font-size:18px !important;line-height:125% !important;}' +
-        '.verse{font-size:18px !important;line-height:125% !important;}' +
+        '.verse{font-size:18px !important;line-height:125% !important;}.vrow{padding-top:27px !important;}' +
         '.pre,.pre a{font-size:14px !important;line-height:115% !important;}' +
         '.col{display:block !important;width:100% !important;box-sizing:border-box;}' +
         '.prer{padding-top:0 !important;text-align:center !important;}' +
@@ -460,6 +530,33 @@
     return null;   /* 'team', 'unlisted', and anything new: never */
   }
 
+  /* The coming weeks' public events for "Dates for the diary": everyone's
+     events only (never members' or not-listed ones), a date and a title. */
+  function diaryItems(data) {
+    data = data || {};
+    var now = data.now instanceof Date ? data.now : new Date(data.now || Date.now());
+    var p = londonParts(now.getTime());
+    var from = Date.UTC(p.y, p.m, p.d, 0, 0), to = from + (data.weeks || 6) * 7 * 86400000;
+    var base = String(data.base || '').replace(/\/+$/, '');
+    return (data.events || []).map(function (ev) { return { ev: ev, st: startOf(ev) }; })
+      .filter(function (x) { return x.st && eventShare(x.ev) === 'public' && x.ev.source !== 'rota' && x.st.ms >= from && x.st.ms < to; })
+      .sort(function (a, b) { return a.st.ms - b.st.ms; }).slice(0, 30)
+      .map(function (x) {
+        var d = new Date(x.st.ms);
+        return { date: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' }),
+          title: String(x.ev.title || '').slice(0, 140), url: base && x.ev.id ? base + '/whatson.html?event=' + encodeURIComponent(x.ev.id) : '' };
+      });
+  }
+  /* Events in a draft that still need a picture or a write-up (the office
+     adds them in What's On before sending). */
+  function missing(blocks) {
+    return (blocks || []).filter(function (b) { return b && b.type === 'event' && !b.hidden; }).map(function (b) {
+      var need = [];
+      if (!safeUrl(b.imageUrl)) need.push('picture');
+      if (!String(b.html || '').replace(/<[^>]+>/g, '').trim() && !String(b.text || '').trim()) need.push('write-up');
+      return need.length ? { title: b.title || '(no title)', eventId: b.eventId || '', need: need } : null;
+    }).filter(Boolean);
+  }
   function draft(data) {
     data = data || {};
     var now = data.now instanceof Date ? data.now : new Date(data.now || Date.now());
@@ -496,6 +593,7 @@
            title and a date). Cleaned when it is drawn. */
         html: String(ev.description || '').slice(0, 20000),
         imageUrl: ev.image || '', alt: String(ev.title || ''),
+        moreUrl: base && ev.id ? base + '/whatson.html?event=' + encodeURIComponent(ev.id) : '',
         buttonLabel: signup ? 'Sign up here' : '', buttonUrl: signup
       });
     });
@@ -518,6 +616,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, keep: keep, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, keep: keep, palette: palette, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

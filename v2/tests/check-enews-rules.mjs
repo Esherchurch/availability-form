@@ -87,6 +87,11 @@ async function run(rules) {
   await t('not even the office writes a subscriber from a page (functions only)', assertFails(setDoc(doc(as('office'), 'enewsSubscribers', 's2'), { email: 'x@example.invalid', status: 'subscribed' })));
   await t('nobody signed out can add themselves directly', assertFails(setDoc(doc(anon, 'enewsSubscribers', 's3'), { email: 'x@example.invalid', status: 'pending' })));
   await t('Resend receipts are the server’s alone', assertFails(getDocs(collection(as('master'), 'hqMailEvents'))));
+  /* The footer's social links and diary button (stage 1, plan B5). */
+  const look = (church) => ({ template: 'classic', colours: {}, church, updatedAt: 'x', updatedBy: 'en_office' });
+  await t('office can save social links and the diary button', assertSucceeds(setDoc(doc(as('office'), 'enewsSettings', 'main'), look({ diaryButton: true, social: [{ kind: 'facebook', url: 'https://facebook.com/x' }] }))));
+  await t('no more than 12 social links', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'main'), look({ social: Array.from({ length: 13 }, (_, i) => ({ kind: 'website', url: 'https://x.invalid/' + i })) }))));
+  await t('the diary button is yes or no', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'main'), look({ diaryButton: 'https://evil.invalid' }))));
   /* Under 18 is the office's to tick, like Under 16 (C-36). */
   await t('a team leader cannot tick Under 18 on their team’s person', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
   await t('the office can tick Under 18', assertSucceeds(setDoc(doc(as('office'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
@@ -109,6 +114,7 @@ const BREAKS = [
   ['any admin may read issues', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\'); }', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\') || isAdmin(); }', 'an admin of a team'],
   ['a sent issue may be changed', "&& resource.data.status in ['draft', 'scheduled']", '', 'a sent issue cannot be changed'],
   ['the office may mark an issue sent', "&& d.status in ['draft', 'scheduled']", "&& d.status in ['draft', 'scheduled', 'sent']", 'the office cannot mark an issue sent'],
+  ['any number of social links', "                   && (request.resource.data.church.get('social', []) is list && request.resource.data.church.get('social', []).size() <= 12)", '', 'no more than 12 social links'],
   ['team leaders may set Under 18', "                 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));", '));', 'cannot tick Under 18'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];
