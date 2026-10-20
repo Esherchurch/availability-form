@@ -22,6 +22,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
+/* London wall-clock to real time, right on both sides of the clocks changing
+   (a fixed hour off was wrong for events on or after 25 Oct). */
+const londonUtc = (iso) => { const guess = Date.parse(iso + ':00Z'); const p = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess)).forEach(x => { p[x.type] = x.value; }); const shown = Date.parse(p.year + '-' + p.month + '-' + p.day + 'T' + p.hour + ':' + p.minute + ':00Z'); return guess - (shown - guess); };
 const V2 = path.resolve('.');
 const CFG = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.comms.json', 'utf8'));
 const FS = CFG.emulators.firestore.port, AU = CFG.emulators.auth.port;
@@ -92,7 +95,7 @@ function serveAuth(src) {
     await put('users/' + p.uid, { uid: p.uid, email: p.email, name: 'Cards Synthetic', memberId: p.member, status: 'active', teams: p.teams, adminFor: [], masterAdmin: false, churchMember: p.churchMember === true, attender: true });
   }
   const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + n * 86400000));
-  const at = (n, hh) => ({ startLocal: day(n) + 'T' + hh, startUtc: Date.parse(day(n) + 'T' + hh + ':00Z') - 3600000 });
+  const at = (n, hh) => ({ startLocal: day(n) + 'T' + hh, startUtc: londonUtc(day(n) + 'T' + hh) });
   const IMG = 'http://localhost:' + SERVE + '/design-mocks/comms/card-photo.svg';
   await put('calEvents/cm_pub', Object.assign({ title: 'Synthetic harvest supper and barn dance', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], signupOn: true, image: IMG, labels: ['Harvest'] }, at(5, '18:30')));
   await put('calEvents/cm_unl', Object.assign({ title: 'Synthetic quiet group', visibility: 'unlisted', status: 'confirmed', audience: ['unlisted'] }, at(3, '19:00')));

@@ -32,6 +32,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
+/* London wall-clock to real time, right on both sides of the clocks changing
+   (a fixed hour off was wrong for events on or after 25 Oct). */
+const londonUtc = (iso) => { const guess = Date.parse(iso + ':00Z'); const p = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess)).forEach(x => { p[x.type] = x.value; }); const shown = Date.parse(p.year + '-' + p.month + '-' + p.day + 'T' + p.hour + ':' + p.minute + ':00Z'); return guess - (shown - guess); };
 const V2 = path.resolve('.');
 const CFG = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.comms.json', 'utf8'));
 const FS = CFG.emulators.firestore.port, AU = CFG.emulators.auth.port;
@@ -79,7 +82,7 @@ const PEOPLE = {
 };
 function londonDay(offset) { const d = new Date(Date.now() + offset * 86400000); return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(d); }
 const SUNDAY = (() => { const t = new Date(londonDay(0) + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + ((7 - t.getUTCDay()) % 7)); return t.toISOString().slice(0, 10); })();
-const evAt = (days, hh) => { const day = londonDay(days); return { startLocal: day + 'T' + hh, startUtc: Date.parse(day + 'T' + hh + ':00Z') - 3600000 }; };
+const evAt = (days, hh) => { const day = londonDay(days); return { startLocal: day + 'T' + hh, startUtc: londonUtc(day + 'T' + hh) }; };
 
 const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   + '<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>'
