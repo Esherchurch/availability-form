@@ -101,8 +101,8 @@ export const cleanName = (name) => String(name || '').replace(/\s+/g, ' ').trim(
    no jobs - everything paired before - does main services and no lessons,
    which is what it always did. The rules (churchShowServices()) read
    jobs.services off the record on every request; lessonFor (the events
-   window's) reads jobs.lessonGroups. The claims carry the same, for anything
-   that only has the token. */
+   window's) reads jobs.lessonGroups. The account's claims carry the same, for
+   anything that only has the token - but NOT the pairing token (F-CS9). */
 export const DEFAULT_JOBS = Object.freeze({ services: true, lessonGroups: [] });
 export function jobsOf(d) {
   const j = (d && d.jobs) || {};
@@ -113,6 +113,8 @@ export function jobsOf(d) {
 }
 export const claimsFor = (siteId, jobs) =>
   ({ device: 'churchshow', siteId, services: jobs.services, lessons: jobs.lessonGroups });
+/* What the pairing token itself carries: who it is, never the job (F-CS9). */
+export const tokenClaimsFor = (siteId) => ({ device: 'churchshow', siteId });
 
 /* One of ours, in that building? Answers the device's data, or null. */
 async function churchShowDevice(db, deviceUid) {
@@ -251,7 +253,6 @@ export async function redeem(db, auth, { code, nowMs }) {
     tx.update(ref, { usedAt: new Date(nowMs) });
     return { uid: d.uid, siteId: d.siteId, siteName: d.siteName || d.siteId };
   });
-  let jobs = DEFAULT_JOBS;
 
   if (outcome.no) return { status: 400, body: { error: REFUSAL } };
 
@@ -261,7 +262,6 @@ export async function redeem(db, auth, { code, nowMs }) {
   if (!dev.exists || (dev.data() || {}).active !== true) {
     return { status: 400, body: { error: REFUSAL } };
   }
-  jobs = jobsOf(dev.data());
 
   /* CAUGHT HERE, not in the function wrapper, so it can be tested without
      one - and so the code has already been marked used by the transaction
@@ -271,7 +271,13 @@ export async function redeem(db, auth, { code, nowMs }) {
      a new code once the setup is fixed, which is what the sentence says. */
   let customToken;
   try {
-    customToken = await auth.createCustomToken(outcome.uid, claimsFor(outcome.siteId, jobs));
+    /* F-CS9 (ChurchShow, 20 Oct 2026): ONLY who it is in the token. Claims
+       put into a custom token stay in every renewal of it, on top of the
+       account's own - so a job baked in here beat every later
+       churchShowSetJob until the computer was paired again. The job lives
+       in the account's claims (set above at pairing, and by setJob), which a
+       renewal reads afresh: a job change arrives within the hour. */
+    customToken = await auth.createCustomToken(outcome.uid, tokenClaimsFor(outcome.siteId));
   } catch (e) {
     console.error('[churchShowRedeem] could not sign a custom token \u2014 '
       + 'is Service Account Token Creator granted? ', e);

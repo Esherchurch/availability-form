@@ -423,6 +423,19 @@ ok('paired again, its token carries the job: no services, lessons for that group
   JSON.stringify({ services: tB.services, lessons: tB.lessons }));
 const devB7 = await getOne('devices/' + B.deviceId);
 ok('and pairing again keeps the job', devB7 && devB7.fields.jobs.mapValue.fields.services.booleanValue === false, devB7 && JSON.stringify(devB7.fields.jobs));
+/* F-CS9 (ChurchShow, 20 Oct 2026): a job changed AFTER pairing must reach
+   the computer at its next renewal, with no new code. It did not while the
+   pairing token carried the job - a custom token's claims stay in every
+   renewal, on top of the account's. */
+const jobBack = (await call(master.idToken, 'churchShowSetJob', { deviceId: B.deviceId, services: true, lessonGroups: [] })).result || {};
+const renewB = JSON.parse((await authPost('/securetoken.googleapis.com/v1/token?key=fake-api-key',
+  { grant_type: 'refresh_token', refresh_token: sB.refreshToken })).body || '{}');
+const rB = renewB.id_token ? JSON.parse(Buffer.from(String(renewB.id_token).split('.')[1], 'base64').toString('utf8')) : {};
+ok('a job changed after pairing arrives at its next renewal, without pairing again (F-CS9)',
+  jobBack.ok === true && rB.user_id === B.deviceId && rB.services === true && JSON.stringify(rB.lessons) === '[]',
+  JSON.stringify({ set: jobBack.ok, user: rB.user_id, services: rB.services, lessons: rB.lessons, got: Object.keys(renewB).join(',') }));
+ok('and the renewed token is still that computer, in its own building', rB.device === 'churchshow' && rB.siteId === SITE,
+  JSON.stringify({ device: rB.device, siteId: rB.siteId }));
 
 console.log('\nwhat was paired before 19 Oct keeps working');
 /* Tidied at the end: the hub's page lists every computer, and a page check
