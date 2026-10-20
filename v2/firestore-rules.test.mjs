@@ -2,6 +2,7 @@
    Nothing here touches the live project. */
 
 import fs from 'node:fs';
+import { FEATURES as SERVER_FEATURES } from './functions/features.js';
 import {
   initializeTestEnvironment,
   assertSucceeds,
@@ -3792,6 +3793,12 @@ await check('the master admin switches phone notifications on', 'allow',
 /* What this church uses (F-230): a master admin switches parts on and off. */
 await check('FEATURES: a master admin switches the session planner on', 'allow',
   () => setDoc(doc(as('martin'), 'churchSettings', 'features'), { sessionPlanner: true, care: false, updatedBy: 'u_martin' }));
+/* EVERY switch the hub has (functions/features.js), at once: a name added
+   there and to egbc-auth.js but not to this rule (the quiz, 21 Oct 2026)
+   would make Church settings' Save refused for everyone. */
+await check('  every switch in functions/features.js, saved together', 'allow',
+  () => setDoc(doc(as('martin'), 'churchSettings', 'features'),
+    Object.assign(Object.fromEntries(SERVER_FEATURES.map(x => [x.name, x.on])), { updatedBy: 'u_martin' })));
 await check('  but not a name the hub does not know', 'deny',
   () => setDoc(doc(as('martin'), 'churchSettings', 'features'), { somethingElse: true }));
 await check('  and nobody else may', 'deny',

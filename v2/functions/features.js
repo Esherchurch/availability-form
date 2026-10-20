@@ -51,7 +51,8 @@ export const FEATURES = [
   { name: 'buildingCompliance', on: true, addOn: true },
   { name: 'enews', on: true, addOn: true },
   { name: 'cardMaker', on: true, addOn: true },
-  { name: 'canva', on: true, addOn: true }
+  { name: 'canva', on: true, addOn: true },
+  { name: 'quiz', on: true, addOn: true }
 ];
 
 /* The answer from the switches as stored - exactly EGBCAuth's usesFeature:

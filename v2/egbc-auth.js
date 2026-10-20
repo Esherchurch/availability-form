@@ -372,7 +372,8 @@
     { name: 'buildingCompliance', label: 'Building checks', on: true, addOn: true },
     { name: 'enews', label: 'E-news', on: true, addOn: true },
     { name: 'cardMaker', label: 'Card maker', on: true, addOn: true },
-    { name: 'canva', label: 'Canva', on: true, addOn: true }
+    { name: 'canva', label: 'Canva', on: true, addOn: true },
+    { name: 'quiz', label: 'Quiz', on: true, addOn: true }
   ];
   var featureSwitches = {};
   function loadFeatures() {
