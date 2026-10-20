@@ -237,22 +237,34 @@ try {
     const staleR = await fetch(CB + '?state=' + stale + '&admin_consent=True&tenant=' + TENANT, { redirect: 'manual' });
     ok('   A START LEFT MORE THAN 15 MINUTES is refused, and has to be pressed again', /m365=failed/.test(staleR.headers.get('location') || '') && /too long/.test(decodeURIComponent(staleR.headers.get('location') || '')), staleR.headers.get('location'));
     await db.collection('m365Connect').doc(stale).delete();
+    /* before Microsoft: the plain explanation, and "Not now" */
+    await pg.click('#m365 [data-on]'); await pg.waitForSelector('#m365 [data-go]');
+    const ex = await pg.$eval('#m365', (e) => e.innerText.replace(/\s+/g, ' '));
+    ok('   BEFORE MICROSOFT, A PLAIN SCREEN: the one-off Sites.FullControl.All, used once, kept by nothing, removable after; the lasting right is one site', /Before you go to Microsoft/.test(ex) && /Sites\.FullControl\.All/.test(ex) && /one step only/.test(ex) && /nothing keeps it/.test(ex) && /remove it afterwards/.test(ex) && /one SharePoint site/.test(ex), ex);
+    await pg.screenshot({ path: path.join(HERE, 'present-real-m365-before.png') });
+    const startsBefore = (await db.collection('m365Connect').get()).size;
+    await pg.click('#m365 [data-back]');
+    await new Promise((r) => setTimeout(r, 600));
+    ok('   "Not now" goes nowhere: still here, nothing started', /church-settings|whatson/.test(pg.url()) && !!(await pg.$('#m365 [data-on]')) && (await db.collection('m365Connect').get()).size === startsBefore, pg.url());
     /* declined first */
     MS.decline = true;
-    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-on]')]);
+    await pg.click('#m365 [data-on]'); await pg.waitForSelector('#m365 [data-go]');
+    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-go]')]);
     await pg.waitForFunction(() => /church-settings\.html/.test(location.href), { timeout: 30000 }).catch(() => {});
     const declinedUrl = pg.url();
     ok('   DECLINED in Microsoft: back to Church settings, not connected, and why in words', /m365=failed/.test(declinedUrl) && /declined/.test(decodeURIComponent(declinedUrl)) && !(await db.collection('privateSettings').doc('microsoft365').get()).exists, declinedUrl);
     /* not an administrator */
     MS.decline = false; MS.notAdmin = true;
     await signIn('mia'); await card();
-    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-on]')]);
+    await pg.click('#m365 [data-on]'); await pg.waitForSelector('#m365 [data-go]');
+    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-go]')]);
     await pg.waitForFunction(() => /church-settings\.html/.test(location.href), { timeout: 30000 }).catch(() => {});
     ok('   SIGNED IN AS SOMEONE NOT AN ADMINISTRATOR: not connected, and told who must do it', /m365=failed/.test(pg.url()) && /Global or SharePoint administrator/.test(decodeURIComponent(pg.url())), pg.url());
     /* connected */
     MS.notAdmin = false; MS.consents = []; MS.authorizes = []; MS.grants = [];
     await signIn('mia'); await card();
-    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-on]')]);
+    await pg.click('#m365 [data-on]'); await pg.waitForSelector('#m365 [data-go]');
+    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-go]')]);
     await pg.waitForFunction(() => /church-settings\.html/.test(location.href), { timeout: 30000 }).catch(() => {});
     const con = MS.consents[0] || {}, az = MS.authorizes[0] || {}, gr = MS.grants[0] || {};
     ok('   CONNECT: Microsoft is asked for ADMIN CONSENT to the one Church HQ app, for its own permissions (.default)', con.client_id === HQ && con.scope === 'https://graph.microsoft.com/.default' && /m365Callback/.test(con.redirect_uri || ''), J(con));

@@ -36,10 +36,22 @@
           (st && st.available === false ? '<p class="muted">Not available yet: Church HQ is still setting this up.</p>' : '<button data-on>Connect Microsoft 365</button>');
       }
       var on = el.querySelector('[data-on]'), off = el.querySelector('[data-off]');
+      /* Before Microsoft: what its two screens will ask, in plain words, so
+         the consent screen is no shock (the reviewer, 21 Oct). */
       if (on) on.onclick = function () {
-        on.disabled = true; on.textContent = 'Opening Microsoft…';
-        EGBCAuth.call('m365Start', {}).then(function (r) { r = r && r.data !== undefined ? r.data : r; location.href = r.url; },
-          function (e) { on.disabled = false; on.textContent = 'Connect Microsoft 365'; draw(st, '<p class="bad">' + esc((e && e.message) || e) + '</p>'); });
+        el.innerHTML = '<h3>Before you go to Microsoft</h3>' +
+          '<p>Microsoft will show you two screens. Here is what they ask for, and why.</p>' +
+          '<p><b>1. “Church HQ slides” wants permission.</b> Approve it for your organisation. What it keeps afterwards is small: it can use <b>one SharePoint site</b> (your main site), only to draw slides. A copy of each PowerPoint is put there for a moment and then deleted. It cannot see your email, your other files or your other sites.</p>' +
+          '<p><b>2. You sign in once more.</b> This time Microsoft lists a big-sounding permission, <b>“Have full control of all site collections”</b> (Sites.FullControl.All). It is needed for <b>one step only</b>: giving Church HQ slides its one site, because Microsoft does not let an app give itself a site. It is used once, while you are here, and <b>nothing keeps it</b>: the hub never stores your sign-in. You can remove it afterwards in Microsoft Entra (Enterprise applications, Church HQ slides, Permissions) and slides keep working.</p>' +
+          '<p class="muted">You need to be a Global administrator of your church’s Microsoft 365. It takes about a minute. You come back here at the end.</p>' +
+          '<div style="display:flex;gap:10px;flex-wrap:wrap"><button data-go>Continue to Microsoft</button><button class="sec" data-back>Not now</button></div>';
+        el.querySelector('[data-back]').onclick = function () { draw(st, ''); };
+        var go = el.querySelector('[data-go]');
+        go.onclick = function () {
+          go.disabled = true; go.textContent = 'Opening Microsoft…';
+          EGBCAuth.call('m365Start', {}).then(function (r) { r = r && r.data !== undefined ? r.data : r; location.href = r.url; },
+            function (e) { draw(st, '<p class="bad">' + esc((e && e.message) || e) + '</p>'); });
+        };
       };
       if (off) off.onclick = function () {
         if (!confirm('Disconnect Microsoft 365? Present will draw slides itself again. To remove Church HQ slides from Microsoft 365 completely, delete it in Entra, Enterprise applications.')) return;

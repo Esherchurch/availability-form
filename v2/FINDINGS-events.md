@@ -8844,3 +8844,71 @@ Microsoft sends the admin back to `church-settings.html?m365=connected|failed&wh
   - the converter ignoring the connection
   - the clear-out deleting the pictures and video
   - the clear-out ignoring the date
+
+### F-254 — Church HQ's own Microsoft tenant (setup from the start); a plain screen before Microsoft (the events window, 21 Oct)
+
+This **replaces F-253's "Martin's one-off setup" section.** The Church HQ app lives in a **Church HQ-owned Microsoft tenant, never EGBC's**. EGBC connects like any other church.
+
+**Before Microsoft, a plain screen.** "Connect Microsoft 365" now first shows "Before you go to Microsoft":
+- **Screen 1:** "Church HQ slides" asks for permission. Afterwards it can use one SharePoint site, only to draw slides; a copy of each PowerPoint is there for a moment, then deleted; it cannot see email, other files or other sites.
+- **Screen 2:** a second sign-in lists "Have full control of all site collections" (Sites.FullControl.All). It's needed for one step only (giving the app its one site, which an app cannot do for itself), used once, kept by nothing (the hub never stores the sign-in), and removable afterwards in Entra without breaking slides.
+- **Then:** "Continue to Microsoft" or "Not now". "Not now" starts nothing.
+- **Tested:** present-microsoft, 37/37. Break: going straight to Microsoft is caught.
+- Screenshot: `screenshots/events/present-real-m365-before.png`.
+
+**Martin's setup, from nothing (with the reviewer, after the quiz; about 30 minutes; free)**
+
+*A. A home for Church HQ in Microsoft (the tenant)*
+1. **Make a Microsoft account for Church HQ only**, never an EGBC address, for example `churchhq.setup@outlook.com` at signup.live.com. Give it a strong password and two-step verification. It owns the tenant, and is kept as the spare way in.
+2. **Create the tenant.** Go to **entra.microsoft.com** and sign in with that account. Then **Entra ID → Overview → Manage tenants → + Create → Microsoft Entra ID → Next**:
+   - Organisation name: **Church HQ**
+   - Initial domain: **churchhq** (it becomes `churchhq.onmicrosoft.com`; if taken, `churchhqslides`)
+   - Country: **United Kingdom**
+
+   Then **Review + create**, answer the check, and **Create**. It takes a few minutes, and Microsoft Entra ID Free costs nothing.
+   - **If it says a subscription is needed:** at **portal.azure.com**, with the same account, take the **Azure free account** (it asks for a card to check identity; nothing is charged unless you upgrade). Then **Microsoft Entra ID → Manage tenants → + Create**, with the same answers.
+3. **Switch into the new tenant:** top right, **Switch tenant → Church HQ**.
+4. **Make Church HQ's own administrator:** **Users → New user → Create new user**:
+   - `admin@churchhq.onmicrosoft.com`, display name "Church HQ admin", auto-generated password
+   - **Assignments: Global Administrator**
+
+   Sign out and sign in as that user. Change the password, and set up **Microsoft Authenticator**; new tenants require it (security defaults). Use this account from now on; the outlook.com one stays as the spare.
+
+*B. The app, in the Church HQ tenant (signed in as admin@churchhq.onmicrosoft.com)*
+
+5. **App registrations → New registration:**
+   - Name **Church HQ slides**
+   - Supported account types **"Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)"**
+   - Redirect URI: platform **Web**, `https://europe-west2-egbc-worship-planner.cloudfunctions.net/m365Callback`
+6. **API permissions → Add a permission → Microsoft Graph:**
+   - **Application permissions → Sites.Selected**
+   - **Delegated permissions → Sites.FullControl.All**
+
+   **Do not** grant admin consent here: each church consents for itself when it connects.
+7. **Branding & properties:** the name "Church HQ slides", and optionally a logo and a home page. The publisher shows as `churchhq.onmicrosoft.com`. "Verified publisher" (no "unverified" warning for churches) can come later; it needs a Microsoft AI Cloud Partner Program account.
+8. **Certificates & secrets → New client secret:** description "converter", **24 months**. **Copy the Value at once**; it's shown once. Put a calendar reminder at 23 months to make a new one.
+9. **Overview:** note the **Application (client) ID**. Keep the **Directory (tenant) ID** for the record; the hub doesn't need it.
+
+*C. Give the hub the app (once, before the functions deploy)*
+
+10. ```
+    firebase functions:secrets:set MS_HQ_CLIENT_SECRET --project egbc-worship-planner
+    ```
+    Paste the Value when it asks. Then, in `v2/functions/.env.egbc-worship-planner`:
+    ```
+    MS_HQ_CLIENT_ID=<application (client) id>
+    ```
+11. **The converter deploy:** as in F-253 (the service account, `gcloud run deploy` with `MS_CLIENT_ID=<application (client) id>` and `--set-secrets MS_CLIENT_SECRET=MS_HQ_CLIENT_SECRET:latest`, the invoker, `CONVERTER_URL`).
+
+*D. EGBC connects, like any church*
+
+12. **EGBC's own Global administrator** (in EGBC's Microsoft 365, not Church HQ's) opens Church settings → **Connect Microsoft 365** → reads the plain screen → approves "Church HQ slides" → signs in once more → back to "Connected: esherchurch.sharepoint.com".
+13. **Real test:**
+    - a deck, whose `renderer` should say "microsoft"
+    - the 729 MB link
+    - a comparison with `tools/pptx-reference.ps1`
+    - **Afterwards, optional:** in EGBC's Entra → Enterprise applications → Church HQ slides → Permissions, remove the delegated Sites.FullControl.All. Slides keep working.
+
+*E. Later: another church's hub*
+
+14. Add that hub's callback address (`https://europe-west2-<its project>.cloudfunctions.net/m365Callback`) to the same app: **Authentication → Add URI**. Nothing else changes; the app is one for all.
