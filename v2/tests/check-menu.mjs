@@ -53,7 +53,7 @@ const APPROVED = [
   ['Care & support: what has come in', c => c.careReader], ['Prayer'], ['Notifications'],
   ['Sundays', null, [
     ['Rota', c => c.anyTeam], ['Rota planner', c => c.core], ['Sunday service plan', c => c.core],
-    ['Preaching plan', c => c.anyTeam], ['Session planner', c => c.plans], ['Rota reports', c => c.rotaLead],
+    ['Preaching plan', c => c.anyTeam], ['Session planner', c => c.plans], ['Present', c => c.plans], ['How to present', c => c.plans], ['Rota reports', c => c.rotaLead],
     ['Availability form', c => c.core]]],
   ['People and messages', null, [
     ['Address book', c => c.messages], ['Send an email', c => c.messages], ['Team emails', c => c.master],

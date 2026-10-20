@@ -95,6 +95,11 @@
          leaders and team, and master admins. */
       { title: 'Session planner', url: 'session-planner.html', icon: 'notebook-pen', planGroup: true, feature: 'sessionPlanner',
         description: 'Plan each week’s session, with your team' },
+      /* Present (the events window, F-242): a session's slides on every screen, and the two-minute guide. */
+      { title: 'Present', url: 'present.html', icon: 'presentation', planGroup: true, feature: 'sessionPlanner',
+        description: 'Show a session’s slides on every screen' },
+      { title: 'How to present', url: 'present-guide.html', icon: 'circle-help', planGroup: true, feature: 'sessionPlanner',
+        description: 'Two minutes: your PowerPoint on every screen' },
       /* ROTA REPORTS (the events window's, F-210): admins of the rota
          teams and master admins. */
       { title: 'Rota reports', url: 'rota-reports.html', icon: 'clipboard-list', feature: 'rotaReports',

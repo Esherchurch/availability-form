@@ -73,10 +73,33 @@
 
   /* Someone outside the group, or a master admin viewing as them: the same kind words, never a rules error. */
   var NOT_YOURS = 'This session belongs to a group you’re not part of, so its slides aren’t shown here.';
+  /* Opened from the Menu, with no session: this person's groups' sessions,
+     the next ones first, each to present or follow. */
+  function chooser(me, master) {
+    var c = db().collection('planGroups'), mid = me.memberId || '-', teams = (me.teams || []).slice(0, 10);
+    var qs = master ? [c.get()] : [c.where('leaderIds', 'array-contains', mid).get()].concat(teams.length ? [c.where('teamName', 'in', teams).get()] : []);
+    return Promise.all(qs.map(function (q) { return q.catch(function () { return { docs: [] }; }); })).then(function (r) {
+      var groups = {}; r.forEach(function (s) { s.docs.forEach(function (d) { var g = d.data(); if (!g.archived) groups[d.id] = g; }); });
+      var ids = Object.keys(groups), from = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      return Promise.all(ids.map(function (id) {
+        return db().collection('planSessions').where('groupId', '==', id).get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }, function () { return []; });
+      })).then(function (lists) {
+        var all = [].concat.apply([], lists).filter(function (s) { return (s.date || '') >= from; }).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }).slice(0, 12);
+        var day = function (d) { try { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); } catch (e) { return d; } };
+        document.title = 'Present';
+        document.getElementById('app').innerHTML = '<div style="max-width:640px;margin:0 auto;padding:24px 16px">' +
+          '<h1 style="font:800 26px Inter,sans-serif;color:#fff;margin:0 0 4px">Present</h1><p style="color:#94a3b8;margin:0 0 16px">Your groups’ sessions. Leaders present; everyone else follows on their own phone. <a href="present-guide.html" style="color:#a7d4d4">How to present</a></p>' +
+          (all.length ? all.map(function (s) { var g = groups[s.groupId] || {};
+            return '<a href="present.html?s=' + encodeURIComponent(s.id) + '" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 14px;margin:0 0 10px;border:1px solid #22303b;border-radius:14px;background:#121a21;color:#e2e8f0;text-decoration:none">' +
+              '<span style="flex:1"><b style="color:#fff">' + esc(s.title || 'Session') + '</b><br><span style="font-size:13px;color:#94a3b8">' + esc(g.name || '') + ' · ' + esc(day(s.date)) + '</span></span><span style="color:#a7d4d4;font-weight:600">Open ▶</span></a>'; }).join('')
+            : '<p class="msg" style="margin:6vh auto">No sessions coming up in your groups. Plan one in the <a href="session-planner.html">session planner</a>, with slides, verses or pictures to show.</p>') + '</div>';
+      });
+    });
+  }
   EGBCAuth.require().then(function (profile) {
-    if (!SID) return msg('Which session? Open Present from the session planner.');
     /* "View as": the viewed person's rights, as the planner does (asSeen). */
     var me = EGBCEvents.asSeen(profile || {}), master = !me.viewingAs && !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), mid = me.memberId || '-';
+    if (!SID) return chooser(me, master);
     return db().collection('planSessions').doc(SID).get().then(function (d) {
       if (!d.exists) return msg('That session could not be found.');
       var s = d.data();

@@ -430,6 +430,12 @@ try {
   const e1 = await where(vt), e2 = await where(vtv), e3 = await where(vk);
   ok('   A FINISHED VIDEO STAYS FINISHED on every screen (it does not start again)', [e1, e2, e3].every(x => x && x.t > 19 && x.paused), J({ phone: e1 && [e1.t, e1.paused], tv: e2 && [e2.t, e2.paused], presenter: e3 && [e3.t, e3.paused] }));
   ok('   and the presenter\u2019s slides show which have a video (the two, and the YouTube one)', (await vk.$$('[data-film] .vid')).length === 3);
+  /* opened from the Menu, with no session */
+  await vv.goto(URLB + 'present.html', { waitUntil: 'networkidle2' });
+  await until(async () => /Your groups/.test(await text(vv)));
+  const ch = await vv.$$eval('a[href^="present.html?s="]', (as) => as.map((a) => a.getAttribute('href') + ' ' + a.innerText.replace(/\s+/g, ' ')));
+  ok('12. FROM THE MENU: Present lists the person’s groups’ sessions, the next first, each to open', ch.length >= 2 && /s=ps_1 .*Born again/.test(ch[0]) && ch.some((x) => /s=ps_v .*Video night/.test(x)), J(ch));
+  await vv.screenshot({ path: path.join(SHOTS, 'present-real-chooser-375.png') });
   for (const pg of [vk, vt, vtv, vv]) await pg.browser().close().catch(() => {});
 
   /* ---------- 8. someone outside the group ---------- */

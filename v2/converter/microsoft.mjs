@@ -39,6 +39,20 @@ export function msConfig(env = process.env) {
     simpleMax: +env.MS_SIMPLE_MAX || SIMPLE_MAX, chunk: +env.MS_CHUNK || CHUNK };
 }
 
+/* ONE Church HQ app for every church (F-253): the app's ID and secret are
+   the converter's own (MS_CLIENT_ID, MS_CLIENT_SECRET); which church's
+   Microsoft 365, and which site, come from that church's connection,
+   privateSettings/microsoft365 (made by "Connect Microsoft 365",
+   functions/microsoft.js). Not connected, or no app: null (LibreOffice). */
+export async function msConfigFor(db, env = process.env) {
+  if (!env.MS_CLIENT_ID || !env.MS_CLIENT_SECRET) return msConfig(env);
+  const d = db ? await db.collection('privateSettings').doc('microsoft365').get().then((x) => (x.exists ? x.data() : null), () => null) : null;
+  if (!d || !d.tenantId || !d.siteId) return msConfig(env);
+  const c = msConfig(Object.assign({}, env, { MS_TENANT_ID: d.tenantId, MS_SITE: d.siteId }));
+  c.siteId = d.siteId;
+  return c;
+}
+
 let tok = null, site = null;
 export function forgetMicrosoft() { tok = null; site = null; }
 async function token(c) {
@@ -58,6 +72,7 @@ async function graph(c, method, url, body, headers) {
   return r;
 }
 async function siteId(c) {
+  if (c.siteId) return c.siteId;
   if (site && site.key === c.site) return site.id;
   const [host, path] = c.site.split(':');
   const r = await graph(c, 'GET', '/sites/' + host + (path ? ':' + path.split('/').map(encodeURIComponent).join('/') : ''));

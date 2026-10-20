@@ -25,7 +25,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fetchDeckToStorage, LINK_MAX } from './fetch.mjs';
-import { msConfig, msToPdf } from './microsoft.mjs';
+import { msConfigFor, msToPdf } from './microsoft.mjs';
 import { readPptx, prepareForRender, writeZipWith, readMedia, readZip, mp4Facts, browserPlays } from './pptx.mjs';
 
 const run = promisify(execFile);
@@ -70,13 +70,14 @@ export async function pdfToPictures(pdfBuf, dir) {
   const full = pick('s'), thumb = pick('t');
   return full.map((f, i) => ({ full: fs.readFileSync(path.join(dir, f)), thumb: fs.readFileSync(path.join(dir, thumb[i] || f)), w: 1920, h: 0 }));
 }
-export function makeRender({ ms = msConfig(), loPdf = loToPdf, toPictures = pdfToPictures } = {}) {
-  return async function render(pptxBuf, shown, info) {
+export function makeRender({ ms = (ctx) => msConfigFor(ctx && ctx.db), loPdf = loToPdf, toPictures = pdfToPictures } = {}) {
+  return async function render(pptxBuf, shown, info, ctx) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deck-'));
     try {
       let pdf = null, renderer = 'libreoffice', fallback = '', prepared = [];
-      if (ms) {
-        try { pdf = await msToPdf(ms, pptxBuf, 'deck-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.pptx'); renderer = 'microsoft'; }
+      const cfg = typeof ms === 'function' ? await Promise.resolve(ms(ctx)).catch(() => null) : ms;
+      if (cfg) {
+        try { pdf = await msToPdf(cfg, pptxBuf, 'deck-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.pptx'); renderer = 'microsoft'; }
         catch (e) { fallback = String(e.message || e).slice(0, 200); }
       }
       if (!pdf) { const lo = await loPdf(pptxBuf, dir); pdf = lo.pdf; prepared = lo.prepared || []; }
@@ -205,7 +206,7 @@ export async function convertDeck({ db, bucket, deckId, render = realRender }) {
     const info = readPptx(src);
     const shown = info.slides.filter((s) => !s.hidden).slice(0, MAX_SLIDES);
     if (!shown.length) throw new Error('This PowerPoint has no slides to show.');
-    const pics = await render(src, shown, info);
+    const pics = await render(src, shown, info, { db });
     if (pics.length !== shown.length) throw new Error('The slides came out as ' + pics.length + ' pictures, not ' + shown.length + '. Is a slide hidden, or the file damaged?');
     for (let i = 0; i < pics.length; i++) {
       const n = i + 1;

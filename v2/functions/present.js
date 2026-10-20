@@ -87,7 +87,8 @@ async function deckFor(uid, deckId) {
 export const presentConvert = onCall({ region: REGION, timeoutSeconds: 900, memory: '256MiB' }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
-  const { ref } = await deckFor(uid, (req.data || {}).deckId);
+  const { ref, d } = await deckFor(uid, (req.data || {}).deckId);
+  if (d.sourceDeletedAt) throw new HttpsError('failed-precondition', 'The PowerPoint file itself was cleared 30 days after the session; the slides and video are still here to show. To make new slides, add the file again.');
   await ref.update({ status: 'converting', why: '' });
   return callConverter(db(), ref.id);
 });
@@ -129,6 +130,21 @@ export async function runPresentSweep({ db: dbi, bucket, today }) {
     await dbi.collection('presentNotes').doc(d.id).delete().catch(() => {});
     await d.ref.delete();
     gone.push(d.id);
+  }
+  /* A session's deck keeps its slide pictures and its video (it can be shown
+     again); the PowerPoint file itself goes 30 days after the session -
+     only needed to make the slides again (Martin, 21 Oct). */
+  const s = await dbi.collection('presentDecks').where('context.type', '==', 'session').get();
+  const sessionDay = {};
+  for (const d of s.docs) {
+    const x = d.data();
+    if (x.sourceDeletedAt || !x.context || !x.context.sessionId) continue;
+    const sid = String(x.context.sessionId);
+    if (!(sid in sessionDay)) sessionDay[sid] = ((await dbi.collection('planSessions').doc(sid).get()).data() || {}).date || '';
+    if (!sessionDay[sid] || sessionDay[sid] >= cut) continue;
+    await bucket.file('present/' + d.id + '/source.pptx').delete().catch(() => {});
+    await d.ref.update({ sourceDeletedAt: new Date().toISOString() });
+    gone.push(d.id + ':source');
   }
   return gone;
 }

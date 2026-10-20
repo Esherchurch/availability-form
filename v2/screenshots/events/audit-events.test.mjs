@@ -113,7 +113,7 @@ await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_ma
 const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html', 'building.html', 'checkin.html', 'checkin.html?event=ev_a', 'checkin.html?view=rollcall',
   'church-settings.html', 'comms.html', 'compliance.html', 'events-admin.html', 'forms-admin.html', 'giftaid.html', 'give-regularly.html', 'groups-admin.html', 'groups.html',
   'headcounts.html', 'hire.html', 'kids-admin.html', 'kids-checkin.html', 'maintenance.html', 'my-messages.html', 'newhere.html', 'notifications.html',
-  'payments.html', 'peep.html', 'picture-library.html', 'places-admin.html', 'prayer.html', 'present-guide.html', 'present.html?s=ps_aud', 'retention.html', 'risk.html', 'room.html?id=room_a', 'rooms.html', 'rota-reports.html',
+  'payments.html', 'peep.html', 'picture-library.html', 'places-admin.html', 'prayer.html', 'present-guide.html', 'present.html', 'present.html?s=ps_aud', 'retention.html', 'risk.html', 'room.html?id=room_a', 'rooms.html', 'rota-reports.html',
   'safeguarding-settings.html', 'safeguarding.html', 'sermons-admin.html', 'session-planner.html', 'signup.html?event=ev_a', 'team-mail.html', 'watch-admin.html', 'whatson.html'
 ].filter(p => !ONLY || p.startsWith(ONLY));
 /* Every page is held to it (the audit named events-admin, check-in and the picture library; Martin's floor is for all). */

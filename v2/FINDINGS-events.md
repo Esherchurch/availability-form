@@ -8738,3 +8738,109 @@ LibreOffice 26.8.1.1 is on this PC now. I put real decks through the converter's
 **Still to prove with the real thing:** that Graph's PDF of a real deck matches PowerPoint. That needs Martin's setup (steps 1–7); then `tools/pptx-reference.ps1` and the fidelity scoring compare the two. Microsoft's size limit for conversion is not documented; a refusal falls back to LibreOffice.
 
 **Aptos (Martin's answer 4):** not on the server (licence). The LibreOffice route's `converter-fonts/` notes now say so.
+
+### F-253 — Present: ONE Church HQ Microsoft 365 app, "Connect Microsoft 365"; the 30-day clear-out; the converter deploy; Present in the Menu (the events window, 21 Oct)
+
+The reviewer's answers: one multi-tenant app instead of each church registering its own; a church's admin connects with a click; least privilege. This replaces F-252's per-church setup. F-252's route code is unchanged; only where it gets its settings is new.
+
+**How a church connects** (`functions/microsoft.js`, `egbc-microsoft-connect.js`)
+1. **A master admin opens Church settings → "Connect Microsoft 365"** (the card says they must be a Global administrator of the church's Microsoft 365).
+2. **Microsoft's admin-consent screen** for "Church HQ slides" appears, and the admin approves it.
+3. **One sign-in as that admin.** The hub uses it for one call: it gives the app **"write" on ONE site** (the church's root SharePoint site). It checks at once that the app's own token reaches that site, then **throws the sign-in away**.
+4. **The hub keeps** `privateSettings/microsoft365` { tenant ID, site ID and address, domain, who and when }. There's no secret and no token in it, and no page can read it.
+5. **The card says "Connected: <domain>".** "Disconnect" forgets it.
+6. **Refused in words:** a declined consent; someone not an administrator; a start left over 15 minutes; a return that didn't start here.
+
+**The permissions, and why (least privilege)**
+- **Application `Sites.Selected`:** the app's only lasting right. It gives no site at all until a site is granted, then only that site. It's needed because conversion runs unattended (no one is signed in when a leader adds slides).
+- **Delegated `Sites.FullControl.All`:** asked for only so the app can be granted its one site. Microsoft requires FullControl to grant `Sites.Selected` access, and an app with `Sites.Selected` cannot grant itself. It's used once, with the admin present, for that one call, and nothing keeps the token. The admin may revoke it afterwards (Entra → Enterprise applications → Church HQ slides → Permissions) and conversion carries on.
+- **Not used:**
+  - application `Files.ReadWrite.All` (every file in the church)
+  - `Sites.ReadWrite.All` (every site)
+  - a person's OneDrive app folder (it ties the hub to one person and needs a stored refresh token)
+- **To prove with the real Microsoft:** that Microsoft accepts the site-permission grant with the admin's delegated token. Microsoft documents delegated `Sites.FullControl.All` for that call. If it refuses, the card shows the reason, and the fallback is one admin command, `Grant-PnPAzureADAppSitePermission`.
+
+**Martin's one-off setup (Church HQ; about 15 minutes; then every church just clicks)**
+1. **Entra admin centre** (entra.microsoft.com), in Church HQ's own Microsoft 365 → App registrations → **New registration**:
+   - name **Church HQ slides**
+   - Supported account types: **"Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)"**
+   - Redirect URI, platform **Web**: `https://europe-west2-egbc-worship-planner.cloudfunctions.net/m365Callback`
+2. **API permissions** → Add → Microsoft Graph:
+   - **Application** → `Sites.Selected`
+   - **Delegated** → `Sites.FullControl.All`
+
+   No consent is needed in Church HQ's own tenant: each church consents for itself.
+3. **Certificates & secrets** → New client secret (24 months; put a reminder in the calendar) → copy the **Value** once.
+4. **Note the Application (client) ID.**
+5. **Optional, recommended later:** publisher verification (Branding & properties). Without it, a church's admin sees "unverified" on the consent screen. It needs a Microsoft Partner Network ID.
+6. **Give the hub the ID and the secret,** once, before the functions deploy:
+   ```
+   firebase functions:secrets:set MS_HQ_CLIENT_SECRET --project egbc-worship-planner
+   ```
+   (paste the secret's Value when asked), and in `v2/functions/.env.egbc-worship-planner`:
+   ```
+   MS_HQ_CLIENT_ID=<application (client) id>
+   ```
+
+**The converter deploy (the reviewer and Martin, after the quiz; exact)**
+1. A service account for it, with only what it needs:
+   ```
+   gcloud iam service-accounts create egbc-converter --display-name "EGBC Present converter" --project egbc-worship-planner
+   gcloud projects add-iam-policy-binding egbc-worship-planner --member serviceAccount:egbc-converter@egbc-worship-planner.iam.gserviceaccount.com --role roles/datastore.user
+   gcloud projects add-iam-policy-binding egbc-worship-planner --member serviceAccount:egbc-converter@egbc-worship-planner.iam.gserviceaccount.com --role roles/storage.objectAdmin
+   gcloud secrets add-iam-policy-binding MS_HQ_CLIENT_SECRET --member serviceAccount:egbc-converter@egbc-worship-planner.iam.gserviceaccount.com --role roles/secretmanager.secretAccessor --project egbc-worship-planner
+   ```
+2. Deploy, from `v2/converter`:
+   ```
+   gcloud run deploy egbc-converter --source . --region europe-west2 --project egbc-worship-planner \
+     --service-account egbc-converter@egbc-worship-planner.iam.gserviceaccount.com \
+     --no-allow-unauthenticated --memory 4Gi --cpu 2 --timeout 900 --concurrency 1 \
+     --min-instances 0 --max-instances 2 \
+     --set-env-vars BUCKET=egbc-worship-planner.firebasestorage.app,MS_CLIENT_ID=<application (client) id> \
+     --set-secrets MS_CLIENT_SECRET=MS_HQ_CLIENT_SECRET:latest
+   ```
+   The Dockerfile brings LibreOffice, poppler, ffmpeg and the fonts.
+3. Let the hub's functions call it, and tell them where it is. The invoker is the functions' account, `<project number>-compute@developer.gserviceaccount.com`; the project number comes from `gcloud projects describe egbc-worship-planner --format "value(projectNumber)"`:
+   ```
+   gcloud run services add-iam-policy-binding egbc-converter --region europe-west2 --project egbc-worship-planner --member serviceAccount:<project number>-compute@developer.gserviceaccount.com --role roles/run.invoker
+   ```
+   Then in `v2/functions/.env.egbc-worship-planner`:
+   ```
+   CONVERTER_URL=<the service URL the deploy printed>
+   ```
+4. **Then the functions deploy as usual** (Martin): presentConvert, presentFromLink, presentSweep, m365Start, m365Callback, m365Status and m365Disconnect.
+5. **For the real test:**
+   - one deck by upload
+   - the 729 MB link
+   - Connect Microsoft 365 at EGBC, then a deck, and check that its `renderer` says "microsoft"
+   - compare with `tools/pptx-reference.ps1`
+
+**The clear-out (the reviewer's answer 2):** `presentSweep` (daily) now deletes a session deck's **PowerPoint file 30 days after the session**. The deck keeps its slide pictures and its extracted video, so it can still be shown. Asking to make the slides again then says the file was cleared and to add it again. A session less than 30 days ago keeps its file.
+
+**Present in the Menu (main's check-menu: 2 reds)**
+- `egbc-menu.js` has **Present** and **How to present** after Session planner, behind `sessionPlanner`, for the same people (`planGroup`).
+- Opened from the Menu, present.html now lists the person's groups' coming sessions, next first, each to open.
+- **For the main window:**
+  - I added the two names to `tests/check-menu.mjs` APPROVED (after Session planner, `c => c.plans`). That's the only change in tests/, as the reviewer asked for the entries.
+  - Please bump the egbc-menu stamp if your check-stamps wants it.
+  - **I could not run check-menu** (it is wired to your emulator, 8181/9099). Its static page check, run on its own: Present and How to present are in; the one page still with no way in is `enews-edit.html`, which is not mine.
+
+**For the main window (Church settings is yours): please add the card**, for master admins:
+```
+<div id="m365"></div>
+<script src="egbc-microsoft-connect.js?v=<stamp>"></script>
+<script>EGBCMicrosoft.mount(document.getElementById('m365'));</script>
+```
+Microsoft sends the admin back to `church-settings.html?m365=connected|failed&why=...#m365`; the card reads that and shows how it went.
+
+**Tests**
+- **present-microsoft: 35/35.** Connect, declined, not an admin, forged, stale, master-only, saved without secrets, the card, the next deck drawn by Microsoft through the connection, disconnect, the clear-out.
+- **present: 55/55**, with the Menu chooser.
+- **Audit of the Present pages: 40/40.** Fidelity: 13/13.
+- **Breaks, 6 of 6 caught:**
+  - a stale start accepted (got through at first; the expiry check was added)
+  - anyone may start Connect
+  - the admin's token kept
+  - the converter ignoring the connection
+  - the clear-out deleting the pictures and video
+  - the clear-out ignoring the date
