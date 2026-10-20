@@ -5,63 +5,68 @@ Feature names: `enews`, `cardMaker`, `canva`. All three stay **off** until Marti
 
 ---
 
-## PLAN, 20 Oct late: the e-news editor working the same way as Mailchimp's (for review)
+## PLAN, 20 Oct late: the e-news, approved 20 Oct (Martin): build in order E
 
 One plan from the reviewing window's messages of 20 Oct: the editor (A), the email (B), the draft (C), proof (D), order (E), one-off emails (F), templates (G), Facebook and Instagram (H). Two parts are already built: **Add a meeting** (C-35) and **no emails to under-18s** (C-36). Everything below waits for your yes. Nothing in sections A to D is built yet.
 
-**The model is Mailchimp's NEW email builder**, which Martin's account opens. Val's issues came from the Classic one, which Mailchimp is retiring.
+**It works the same way as Mailchimp's new email builder, but never looks like it** (Martin, 20 Oct).
+- **The same steps,** so Val's habits carry over.
+- **The hub's own look:**
+  - Lucide icons, as the rest of the hub;
+  - Church HQ's colours, font (Inter) and styling;
+  - our own words wherever theirs are distinctive.
+- **No Mailchimp names, logos, colours or screenshots** anywhere in the product or the repo. The comparison pictures stay in OneDrive only.
 
-**Mock-ups** (the email in them is drawn by the real e-news code; the content is made up), in `design-mocks/comms/editor/`:
+**Mock-ups in the hub's own look** (the email in them is drawn by the real e-news code; the content is made up), in `design-mocks/comms/editor/`:
 
-| Mailchimp's screen (Martin's screenshots) | Ours |
+| Step | Ours |
 |---|---|
-| 1 Overview, and 4 All content blocks | [builder-1-add.png](design-mocks/comms/editor/builder-1-add.png) |
-| 2 Text block selected | [builder-2-text-selected.png](design-mocks/comms/editor/builder-2-text-selected.png) |
-| 3 Word selected, "Add link" | [builder-3-word-selected.png](design-mocks/comms/editor/builder-3-word-selected.png) (with the church's colours open as well) |
-| 5 Styles | [builder-4-styles.png](design-mocks/comms/editor/builder-4-styles.png) |
-| (phone) | [builder-5-phone-375.png](design-mocks/comms/editor/builder-5-phone-375.png) |
+| Adding blocks | [editor-1-add.png](design-mocks/comms/editor/editor-1-add.png) |
+| A block selected | [editor-2-block-selected.png](design-mocks/comms/editor/editor-2-block-selected.png) |
+| A word selected | [editor-3-word-selected.png](design-mocks/comms/editor/editor-3-word-selected.png) (the church's colours open too) |
+| The whole email's look | [editor-4-look.png](design-mocks/comms/editor/editor-4-look.png) |
+| Phone | [editor-5-phone-375.png](design-mocks/comms/editor/editor-5-phone-375.png) |
 
-**Side by side, Mailchimp above and ours below:** `OneDrive\Documents\New hub\mocks\mailchimp-editor\compare\compare-1.png` to `compare-5.png`. They sit next to Martin's screenshots on this PC, not in the public repo, because the Mailchimp screens are from his account.
+**Same step, different look:** Martin's Mailchimp screenshots above ours, in `OneDrive\Documents\New hub\mocks\mailchimp-editor\compare\compare-1.png` to `compare-5.png`, on this PC only.
 
-### A. The editor, the same way as Mailchimp's
+### A. The editor: the same steps, the hub's look
 
 - **Top bar:**
-  - the issue's name;
-  - **Changes saved** (autosave);
-  - **Send test**;
-  - **Save and exit** (its arrow gives Schedule; Send stays shut until go-live).
+  - ‹ E-news, then the issue's name;
+  - **Saved** (it saves as you go);
+  - **Send me a test**;
+  - **Done**, whose arrow gives Schedule. Send stays shut until go-live.
 - **Under the top bar:**
-  - the **computer/phone switch** in the middle;
-  - **undo/redo** and **Preview** on the right.
-- **Left rail: Add, Styles, Check.** Check is our version of Mailchimp's Optimize: links that don't work, pictures missing, events missing a write-up, and "Pick the meeting".
+  - the **computer/phone switch**;
+  - **undo/redo** and **Preview**.
+- **Left rail: Add, Look, Check.** Check lists links that don't work, missing pictures, events missing a write-up, and "Pick the meeting".
 - **Add** is a grid of blocks you **drag onto the email**:
-  - **Mailchimp's names:** Image, Heading, Paragraph, Button, Divider, Spacer, Video, Social, Logo, Footer.
-  - **"The church's own":** Event (from What's On), Bible verse, This Sunday, Meeting, Dates for the diary, Notices.
-  - **Blank columns:** 1, 2, 3.
-  - **Prebuilt rows:** Image & Text (Val's event card), Text & Image, Two pictures.
-  - Mailchimp's shop blocks (Survey, Code, Apps, Product) are left out. A church has no use for them, and Code would let raw HTML into an email.
+  - Picture, Heading, Words, Button, Line, Space, Video, Social links, Logo, Footer;
+  - **From the hub:** Event, Bible verse, This Sunday, Meeting, Dates for the diary, Notices;
+  - **Layouts:** 1, 2 or 3 columns; "Picture and words" (Val's event card), "Words and picture", "Two pictures".
+  - No shop blocks, and no raw-HTML block.
 - **The email in the middle.** Click a block and you get:
-  - a **teal outline**;
-  - a **"TEXT ⠿"** label, which is its drag handle;
-  - **Move / Duplicate / Delete** on its right;
-  - **typing in place**, on the email itself.
-- **Editing text: the toolbar runs across the top.**
-  - **Tools:** paragraph style, font, size, text colour, highlight, **B I U S**, link, image, emoji, align, line height, letter spacing.
-  - **Selecting a word** offers **Add link**.
-  - **Text colour** is the church's palette (the look's teal, orange, green and dark, plus a few). Only those colours are kept when sending, as an inline style, so Outlook and dark mode don't break.
-- **The left panel becomes the block's settings,** with **‹ Done** back to Add.
-  - The **Styles** tab: background, border, rounded corners, padding, and phone and computer linked or separate.
-  - **Clear styles** and **Apply to all**.
-  - The **Visibility** tab: computer/phone, and **church members only**. Meetings start ticked; the CMM can't be unticked.
-- **Styles** is the whole email's design:
-  - **Mailchimp's sections:** Background, Text, Link, Button, Divider, Image, Logo.
-  - **"The church's own":** Footer (name, address, charity number), Social icons, Section bar.
+  - an outline in the hub's teal;
+  - a **"⋮⋮ Words"** handle to drag it;
+  - **Move / Copy / Delete** beside it;
+  - **typing on the email itself**.
+- **Editing words: the toolbar runs across the top.**
+  - **Tools:** style of words, font, size, colour, highlight, **B I U S**, link, picture, emoji, align, list, line height, letter spacing.
+  - **Selecting a word** offers **Make it a link**.
+  - **Colour** is the church's palette only, kept as an inline style when sending.
+- **The left panel becomes the block's settings,** with **‹ Back to blocks**.
+  - **Style** tab: background, border, corners, space around, and "Same on phone and computer".
+  - **Reset** and **Use on all words**.
+  - **Who sees it** tab: computer/phone, and **church members only**. Meetings start ticked; the CMM can't be unticked.
+- **Look** is the whole email's design:
+  - page and background, words, links, buttons, lines, pictures, logo;
+  - **The church:** footer details, social links, section bar.
   - Today's "Look and footer" moves here.
-- **Every card's words are full rich text** (paragraphs, bold, links, emoji, lists), not one line.
-- **Reordering:** drag, as Mailchimp. Keyboard and phone keep up and down arrows.
-- **Phone (375):** one column, the same.
+- **Every card's words are full rich text** (paragraphs, bold, links, emoji, lists).
+- **Reordering:** drag. Keyboard and phone keep up and down arrows.
+- **Phone (375):** one column.
   - The email is full width, and the toolbar sits above the keyboard.
-  - A dock at the bottom has **Add, Styles, This block, Check**. "This block" opens its settings as a sheet.
+  - A dock at the bottom has **Add, Look, This block, Check**.
 
 ### B. The email itself (egbc-mailblocks.js)
 
@@ -90,15 +95,15 @@ One plan from the reviewing window's messages of 20 Oct: the editor (A), the ema
 
 ### D. Proof
 
-9. **The side-by-side check, kept for good:**
-   - Val's real 15 Oct issue (the reviewing window's `enews-side-by-side.html`) drawn by our code next to her page, at 375 and 600, with screenshots of both in FINDINGS;
-   - computed-style comparisons: sizes, line heights, paragraph spacing, card insets, footer icons, the diary button;
-   - personal details are blocked out in anything committed, as before.
+9. **The side-by-side check, kept for good** (`tests/check-enews-side-by-side.mjs`):
+   - Val's real 15 Oct issue drawn by our code, measured against her page at 375 and 600 by computed style. The measures are font sizes, line heights, paragraph spacing, card insets and corners, title colours, the footer button and the social icons.
+   - **Her page's measurements are kept in the repo as numbers** (`tests/fixtures/val-15oct26-measure.json`). Her page itself and the pictures of both are not.
+   - The pictures go to `OneDrive\Documents\New hub\mocks\val-side-by-side\` when her saved page is on the PC. No Mailchimp page or screenshot is in the repo.
 10. **The ease test:**
     - Someone who knows Mailchimp makes this week's issue without help, and we record the time and every place they hesitate.
-    - It is **ready when it's as quick as Mailchimp.** That needs Val's usual time in Mailchimp as the measure: could she time her next issue?
+    - **Ready when a normal week's e-news takes under 30 minutes,** by someone who knows Mailchimp, without help (Martin, 20 Oct).
 
-### E. Order of work, if you agree
+### E. Order of work (approved by Martin, 20 Oct)
 
 1. **B and C first** (the email and the draft: smaller, and they show at once in what people receive), with the side-by-side check (D9) growing as each lands.
 2. **Then A, the editor** (the large piece), built behind the e-news switch on the existing page, so nothing changes for anyone until it's ready.
@@ -184,9 +189,24 @@ Martin thinks Val may use Mailchimp's social posts. In Mailchimp (his screenshot
 - **What is fine:** the person who posts each day uses the Bible App's own Share button on their phone, as they do now. Or they save the image and bring it into the manual slot, with a credit line such as "Verse image: YouVersion Bible App".
   - YouVersion's terms don't spell out the credit, so it is the church's to set once.
   - The translation's own rules still apply (e.g. the NIV's).
-- **So "Verse of the day" is the manual slot** described above: the picture brought in, a credit line, a daily reminder.
+- **So the manual slot stays** (the picture brought in, a credit line, a daily reminder), and the automatic one below is the hub's own.
 - **Plus the hub's own, for any church:** a year of verse references chosen by the hub (a list of references copies nobody), the text from a free Bible (BSB) or the church's API.Bible versions, in the hub's own designs. That one can fill itself each morning.
 - **If Martin wants YouVersion's verse itself:** write to YouVersion's platform team (platform.youversion.com/support) and ask whether a church-management subscription may use the platform. Nothing is built for that.
+
+**Verse of the day, automatic and our own** (Martin, 20 Oct; YouVersion is out). Ready each morning with its caption. The manual slot is still there.
+- **The text:**
+  - **BSB**: public domain since 30 April 2023 (berean.bible/terms.htm), so any use, no licence;
+  - **KJV**;
+  - or the NIV and others through the church's API.Bible key, with that version's copyright line.
+- **The verse:** from a curated list of 365, or from the current sermon series.
+- **The picture:**
+  - from the church's picture library; or
+  - from **Unsplash** through its API, following its guidelines (help.unsplash.com/api-guidelines):
+    - the credit "Photo by <name> on Unsplash", with Unsplash's tracking links;
+    - the picture shown from the address Unsplash returns (hotlinked, never copied to our storage);
+    - Unsplash's `download_location` called when a picture is used.
+  - Unsplash needs Church HQ's own Unsplash app key, kept on the server like the others.
+- **Designs:** several typographic styles in the card maker, in the church's colours, at 1080 × 1350 and Story 1080 × 1920.
 
 **Step 1, now (does not wait for Meta): "Make a social post"** from an event or an e-news item.
 - **The picture** comes from the card maker, in each size:
@@ -236,7 +256,26 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
    Instagram also has a daily limit on posts made this way.
 8. **Every year,** Meta's "data use checkup" for the app.
 
-**Recommendation:** build step 1 now, and decide step 2 after seeing how much Val actually posts from Mailchimp.
+**Martin, 20 Oct: step 1 only. Step 2 (Meta) not now.**
+
+---
+
+## FOR THE MAIN WINDOW: the comms window's edits to your files (20 Oct)
+
+Small and self-contained. Please keep them when you edit these files:
+- **addressbook.html:**
+  - one script tag after egbc-guard: `egbc-enews-ab.js` ("Gets the e-news" on each person, for the office; C-30);
+  - the **UNDER 18** tick under UNDER 16, with its note;
+  - in `editMember`, it is loaded (ticked for an under-16 as well);
+  - in the save, `under18` is stored only for a 16 or 17 year old, because Under 16 already counts;
+  - it is added to the master-only list beside isMinor (C-36).
+  - The rule for it (leaders can't change it, like isMinor) is in firestore.rules `bookLeaderOk`.
+- **EmailBuilder2.html (the Compiler):**
+  - three script tags under the omggif one: egbc-mailblocks.js, egbc-core-meetings.js, egbc-meeting-pick.js;
+  - one `+ Insert` option, "A meeting (Join button)";
+  - one branch at the top of `insertBlock` (`kind === 'meeting'`). C-35.
+  - Your version stamps at the top of the file were not touched.
+- **The under-18 rule everywhere:** `functions/under18.js` (ticked Under 16 or Under 18). The shared mail route (`functions/mail-route.js` checkRecipients) uses it, so every v2 email kind refuses under-18s.
 
 ---
 
@@ -405,8 +444,7 @@ The e-news is now drawn the way Val's Mailchimp page is. Every number below was 
 - **Outlook-safe:** tables and inline styles only, no flex or grid.
 
 **Side by side, the same week (15 Oct), ours on the left, Val's on the right:**
-- [375 wide, top](design-mocks/comms/compare/ours-vs-mailchimp-375-top.png) and [end](design-mocks/comms/compare/ours-vs-mailchimp-375-end.png)
-- [600 wide, top](design-mocks/comms/compare/ours-vs-mailchimp-600-top.png) and [end](design-mocks/comms/compare/ours-vs-mailchimp-600-end.png)
+- In `OneDrive\Documents\New hub\mocks\val-side-by-side\` (375 and 600, top and end). They were in the repo; Martin, 20 Oct: no Mailchimp screenshots in the repo, so they moved there.
 
 Val's Zoom details, her personal email and phone number are blocked out in those pictures.
 
