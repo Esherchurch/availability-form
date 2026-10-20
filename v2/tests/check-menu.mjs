@@ -594,6 +594,10 @@ const READ_MENU = `(() => {
     'hire.html': 'public hire page (events window)',
     'room.html': 'public hire page (events window)',
     'newhere.html': 'public welcome card for visitors (events window) - no account, no Menu',
+    'enews-signup.html': 'public e-news sign-up (comms window) - from the church website, no account, no Menu',
+    'enews-confirm.html': 'public e-news confirm link (comms window) - from an email, no account, no Menu',
+    'enews-unsubscribe.html': 'public e-news unsubscribe link (comms window) - from an email, no account, no Menu',
+    'enews-web.html': 'public e-news web version and archive (comms window) - no account, no Menu',
     'whatson-embed.html': 'the church website\'s embed (events window) - inside another site, no Menu',
     /* NOT AN OVERSIGHT - the point of it. APP-DESIGN-BRIEF §2 says the phone
        app has no hidden menu: four tabs along the bottom and nothing tucked
