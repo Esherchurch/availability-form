@@ -57,7 +57,7 @@
 <script src="egbc-board-phone.js?v=202610121900"></script>
 <!-- App mode (§7d A): the app itself sets the flag and hands over where
      to come back to, so a page it opens wears the app's chrome. -->
-<script src="egbc-appmode.js?v=202610152310"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   /* ===== TAKEN FROM design/app-mockup.html (§7e) =====================
@@ -234,6 +234,23 @@
   .tile .last{position:absolute;top:10px;right:12px;font-size:11px;font-weight:600;color:var(--brand);
               background:#eef5f4;padding:2px 8px;border-radius:999px}
   @media(min-width:700px){.ask,.always,.tiles{max-width:760px}.tiles{grid-template-columns:1fr 1fr}}
+  /* SWITCH: the sheet of this person's modes (20 Oct 2026). */
+  .sheet-h{margin:0 0 10px;font-size:17px;color:var(--ink)}
+  .modes-list{display:grid;gap:8px}
+  .mode-row{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:10px 12px;border-radius:14px;
+            background:var(--surface);border:1px solid var(--line);font:inherit;color:inherit;text-align:left;cursor:pointer}
+  .mode-row[aria-current]{border-color:var(--mc);box-shadow:0 0 0 1px var(--mc) inset}
+  .mode-row .ti{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--mt);color:var(--mc)}
+  .mode-row .tt{flex:1;min-width:0;display:grid;gap:2px}
+  .mode-row b{color:var(--ink);font-size:15px}
+  .mode-row small{color:var(--muted);font-size:12px}
+  .mode-row .tick{color:var(--mc);flex:none}
+  .mode-all{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:6px;border:0;background:none;
+            color:var(--brand);font:inherit;font-weight:600;cursor:pointer}
+  /* A MODE'S HOME: the header card, in the mode's colour (the mock-ups). */
+  .hero{border-radius:16px;padding:16px;color:#fff;background:linear-gradient(135deg,var(--hc),color-mix(in srgb,var(--hc) 70%,#000))}
+  .hero h2{margin:0;font-size:22px;line-height:1.2;color:#fff}
+  .hero p{margin:4px 0 0;font-size:13px;opacity:.92}
   .offer{padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);
          display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .offer span{flex:1 1 100%;color:var(--ink);font-size:14px}
@@ -398,7 +415,7 @@
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610111300"></script>
 <script src="egbc-menu.js?v=202610201200"></script>
-<script src="egbc-app.js?v=202610200800"></script>
+<script src="egbc-app.js?v=202610201500"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
@@ -815,6 +832,68 @@ function notifyOffer() {
   try { return localStorage.getItem('egbc.notify.offer') !== 'no'; } catch (e) { return true; }
 }
 
+/* ---- THE EVERYDAY THINGS -------------------------------------------------
+   On Just me's Home and on every mode's own Home (the reviewing window,
+   20 Oct 2026): somebody on one team opens in their team's mode, and must
+   not lose Watch live, today's video meeting, their children's Sunday or
+   the notices by doing so. One copy of each, so the Homes cannot drift. */
+
+/* WATCH LIVE, first of all on the day (F-164): a tap opens Me >
+   Listen & Watch, which plays it. From a mode's Home it goes there. */
+function homeWatch(act) {
+  if (!HOME.watch) return '';
+  return sec(HOME.watch.state === 'live' ? 'Watch live' : 'Watch again', card(row('tv',
+    HOME.watch.title || (HOME.watch.state === 'live' ? 'The service, live' : 'This week\u2019s service'),
+    HOME.watch.state === 'live' ? 'Streaming now' : 'Missed it? Watch it again',
+    HOME.watch.state === 'live' ? '<span class="pill">Live</span>' : null, act)));
+}
+function homeMeet() {
+  if (!HOME.meetToday.length) return '';
+  return sec(HOME.meetToday.length === 1 ? 'Video meeting today' : 'Video meetings today', card(HOME.meetToday.map(function (m) {
+    return row('video', m.title,
+      (m.startTime ? m.startTime + (m.endTime ? '\u2013' + m.endTime : '') + ' \u00b7 ' : '') + m.roomLabel,
+      '<span class="pill">Join</span>', 'open:' + m.link);
+  }).join('')));
+}
+/* Notices. Tapping a notice opens the whole of it (Martin, 15 Oct 2026:
+   "you tap on it and nothing happens"). The card was only ever a preview;
+   the full notices live in the sheet the bell opens. */
+function homeNotices() {
+  if (!HOME.news.length) return '';
+  return sec('Notices', '<div class="card">' + HOME.news.map(function (n) {
+    return '<div class="notice" data-act="sheet:notices" role="button" tabindex="0" style="cursor:pointer"><b>' + A.esc(n.title) + '</b>'
+      + (n.body ? '<p>' + A.esc(n.body.slice(0, 140)) + '</p>' : '') + '</div>';
+  }).join('') + '</div>', ['All notices', 'sheet:notices']);
+}
+/* Everything every mode's Home keeps, in Just me's order. */
+function everyday(me) {
+  loadHome(me);
+  return homeWatch('go:me:listen') + homeMeet()
+    + (HOME.family.length ? HOME.family.map(parentsSunday).join('') : '')
+    + homeNotices();
+}
+function hero(colour, title, line) {
+  return '<div class="hero" style="--hc:' + A.esc(colour) + '"><h2>' + A.esc(title) + '</h2>'
+    + (line ? '<p>' + A.esc(line) + '</p>' : '') + '</div>';
+}
+function modeColour(key) {
+  return (A.MODES.filter(function (m) { return m.key === key; })[0] || {}).colour || '#3d6263';
+}
+/* The person's own serving, on the teams of these spaces. */
+function servingIn(spaceKeys) {
+  var teams = [];
+  spaceKeys.forEach(function (k) { teams = teams.concat((A.SPACES[k] || {}).teams || []); });
+  return HOME.serving.filter(function (x) { return (x.teams || []).some(function (t) { return teams.indexOf(t) !== -1; }); });
+}
+function servingCards(list) {
+  return list.slice(0, 3).map(function (x) {
+    var sp = spaceForTeam(x.teams[0] || '');
+    var time = x.arrive ? 'arrive ' + x.arrive : x.start;
+    return next(String(x.when.getDate()), homeMonth(x.when), x.roles.join(' and '),
+      x.title + (time ? ' \u00b7 ' + time : ''), '', sp.colour, sp.tint);
+  }).join('');
+}
+
 A.screen('me', 'home', function (me) {
   loadHome(me);
 
@@ -868,22 +947,7 @@ A.screen('me', 'home', function (me) {
      a phone across a room. The earlier version read f.name, f.line and
      f.code, which the helper never sends - it showed "Your children" and
      no code at all. */
-  /* WATCH LIVE, first of all on the day (F-164): a tap opens Me >
-     Listen & Watch, which plays it. */
-  if (HOME.watch) {
-    out += sec(HOME.watch.state === 'live' ? 'Watch live' : 'Watch again', card(row('tv',
-      HOME.watch.title || (HOME.watch.state === 'live' ? 'The service, live' : 'This week\u2019s service'),
-      HOME.watch.state === 'live' ? 'Streaming now' : 'Missed it? Watch it again',
-      HOME.watch.state === 'live' ? '<span class="pill">Live</span>' : null, 'tab:listen')));
-  }
-
-  if (HOME.meetToday.length) {
-    out += sec(HOME.meetToday.length === 1 ? 'Video meeting today' : 'Video meetings today', card(HOME.meetToday.map(function (m) {
-      return row('video', m.title,
-        (m.startTime ? m.startTime + (m.endTime ? '\u2013' + m.endTime : '') + ' \u00b7 ' : '') + m.roomLabel,
-        '<span class="pill">Join</span>', 'open:' + m.link);
-    }).join('')));
-  }
+  out += homeWatch('tab:listen') + homeMeet();
 
   if (HOME.family.length) {
     out += HOME.family.map(parentsSunday).join('');
@@ -916,16 +980,7 @@ A.screen('me', 'home', function (me) {
     }).join('')), ['All events', 'tab:whatson']);
   }
 
-  /* Notices */
-  if (HOME.news.length) {
-    /* Tapping a notice opens the whole of it (Martin, 15 Oct 2026: "you
-       tap on it and nothing happens"). The card was only ever a preview;
-       the full notices live in the sheet the bell opens. */
-    out += sec('Notices', '<div class="card">' + HOME.news.map(function (n) {
-      return '<div class="notice" data-act="sheet:notices" role="button" tabindex="0" style="cursor:pointer"><b>' + A.esc(n.title) + '</b>'
-        + (n.body ? '<p>' + A.esc(n.body.slice(0, 140)) + '</p>' : '') + '</div>';
-    }).join('') + '</div>', ['All notices', 'sheet:notices']);
-  }
+  out += homeNotices();
 
   /* Your groups */
   if (HOME.groups.length) {
@@ -1439,7 +1494,7 @@ function loadTeamRota() {
   }).catch(function () {}).then(function () {
     TEAMROTA.ready = true;
     var s = A.state();
-    if (s.tab === 'rota') A.refresh(s.space, 'rota');
+    if (s.tab === 'rota' || s.tab === 'home') A.refresh(s.space, s.tab);
   });
 }
 
@@ -1745,7 +1800,7 @@ function loadThisSunday(spaceKey) {
   }).catch(function () {}).then(function () {
     SUNDAY.ready = true;
     var s = A.state();
-    if (s.tab === 'sunday') A.refresh(s.space, 'sunday');
+    if (s.tab === 'sunday' || s.tab === 'home') A.refresh(s.space, s.tab);
   });
 }
 
@@ -1996,6 +2051,218 @@ A.screen('maint', 'jobs', function () {
 A.screen('maint', 'team', function () {
   return teamTeam('maint',
     row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html'));
+});
+
+/* ---- EACH MODE'S OWN HOME (the reviewing window, 20 Oct 2026; Martin:
+   "build each mode's own Home now"; design-mocks/app-start) -------------
+   Sunday worship: the coming Sunday, This Sunday, My serving, Get ready.
+   Kids and youth: today, the children, my serving, the groups' boards.
+   The building: checks due, repairs, rooms today.
+   Church office: the everyday office jobs, and what is waiting.
+   Just me keeps today's Home. Every one ends with the everyday things. */
+
+A.modeHome('sunday', function (me) {
+  var mine = A.spacesFor(me);
+  var has = function (k) { return mine.indexOf(k) !== -1; };
+  var planSpace = ['worship', 'youth'].filter(function (k) { return has(k) && A.has(k, 'sunday'); })[0] || '';
+  var colour = modeColour('sunday');
+  loadThisSunday(planSpace || 'worship');
+  loadHome(me);
+  var out = '';
+  if (SUNDAY.ev) {
+    var when = new Date(SUNDAY.date + 'T00:00:00');
+    var ev = SUNDAY.ev;
+    out += hero(colour, when.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }),
+      (ev.publicTitle || ev.type || 'Service') + (ev.serviceTime || ev.startTime ? ' at ' + (ev.serviceTime || ev.startTime) : '')
+      + (ev.speaker ? ' \u00b7 ' + ev.speaker + ' preaching' : ''));
+    /* THIS SUNDAY: the songs, and how many of the roles are filled. */
+    var songs = ((SUNDAY.plan && SUNDAY.plan.order) || []).filter(function (i) { return i.type === 'song' && i.title; });
+    var named = songs.slice(0, 2).map(function (i) {
+      var k = (Array.isArray(i.keys) ? i.keys : [i.key]).filter(Boolean);
+      return i.title + (k.length ? ' (' + k.join(', ') + ')' : '');
+    }).join(' \u00b7 ') + (songs.length > 2 ? ' \u00b7 ' + (songs.length - 2) + ' more' : '');
+    var roles = Array.isArray(ev.roles) ? ev.roles : [];
+    var a = ev.assignments || {};
+    var open = roles.filter(function (r) { return !(a[r] && a[r].name); });
+    var planAct = planSpace ? 'go:' + planSpace + ':sunday' : (has('core') ? 'go:core:plan' : null);
+    out += sec('This Sunday', card(
+      row('list-music', songs.length ? named : 'No songs chosen yet', SUNDAY.plan ? 'The order of service' : 'The plan is not written yet', null, planAct)
+      + (roles.length ? row('users', (roles.length - open.length) + ' of ' + roles.length + ' roles filled',
+          open.length ? open.slice(0, 2).join(' and ') + ' needed' : 'Everyone is on', open.length ? '<span class="pill warn">' + A.esc(open[0]) + ' needed</span>' : null,
+          has('worship') ? 'go:worship:rota' : null) : '')), planAct ? ['Service plan', planAct] : null);
+  } else {
+    out += hero(colour, 'Sunday worship', SUNDAY.ready ? 'Nothing on the rota yet' : 'Finding Sunday\u2026');
+  }
+  if (HOME.plans && HOME.plans.length) {
+    out += sec('You are on the plan', card(HOME.plans.map(function (p) {
+      return row('book-open-text', 'The plan for ' + p.when.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }),
+        'The songs and the order of service' + (p.leader ? ' \u00b7 led by ' + p.leader : ''), null, 'open:song-summary.html?date=' + p.date);
+    }).join('')));
+  }
+  var rotaSpace = ['worship', 'youth', 'core'].filter(function (k) { return has(k) && A.has(k, 'rota'); })[0];
+  var serving = servingIn(['worship', 'youth', 'core']);
+  out += sec('My serving', serving.length ? servingCards(serving)
+      : card(row('calendar-check-2', 'Nothing on the rota for you yet', 'Say which Sundays you can do', null, 'open:index.html')),
+    rotaSpace ? ['The rota', 'go:' + rotaSpace + ':rota'] : null);
+  var ready = [];
+  if (has('worship')) ready.push(row('headphones', 'Play-through for Sunday\u2019s songs', 'Listen before you come', null, 'open:EGBC-PlayThrough.html'));
+  ['worship', 'youth', 'core'].forEach(function (k) {
+    if (has(k) && A.has(k, 'team')) ready.push(row('sticky-note', A.SPACES[k].label + ' pin board', 'The team\u2019s notes', null, 'go:' + k + ':team'));
+  });
+  if (ready.length) out += sec('Get ready', card(ready.join('')));
+  return out + everyday(me);
+});
+
+A.modeHome('kids', function (me) {
+  var mine = A.spacesFor(me);
+  var has = function (k) { return mine.indexOf(k) !== -1; };
+  loadHome(me);
+  var out = hero(modeColour('kids'), homeGreeting() + ', ' + me.first, homeToday());
+  var rows = [];
+  if (has('kids') && A.has('kids', 'today')) rows.push(row('sun', 'Kids Church today', 'Who is in, and the register', null, 'go:kids:today'));
+  if (has('kids') && A.has('kids', 'children')) rows.push(row('baby', 'The children', 'Your groups, allergies and who collects', null, 'go:kids:children'));
+  ['lazers', 'renu'].forEach(function (k) {
+    if (has(k)) rows.push(row('users', A.SPACES[k].label, 'This week, and the team', null, 'go:' + k + ':' + (A.has(k, 'sunday') ? 'sunday' : 'rota')));
+  });
+  if (rows.length) out += sec('Today', card(rows.join('')));
+  var serving = servingIn(['kids', 'lazers', 'renu']);
+  var rotaSpace = ['kids', 'lazers', 'renu'].filter(function (k) { return has(k) && A.has(k, 'rota'); })[0];
+  out += sec('My serving', serving.length ? servingCards(serving)
+      : card(row('calendar-check-2', 'Nothing on the rota for you yet', 'Say which Sundays you can do', null, 'open:index.html')),
+    rotaSpace ? ['The rota', 'go:' + rotaSpace + ':rota'] : null);
+  var boards = ['kids', 'lazers', 'renu'].filter(function (k) { return has(k) && A.has(k, 'team'); });
+  if (boards.length) out += sec('Get ready', card(boards.map(function (k) {
+    return row('sticky-note', A.SPACES[k].label + ' pin board', 'The team\u2019s notes', null, 'go:' + k + ':team');
+  }).join('')));
+  return out + everyday(me);
+});
+
+/* THE BUILDING'S HOME: the checks given to this person and when each is
+   due, worked out by the events window's own EGBCCompliance.schedule() -
+   the same answer as building.html - plus repairs and rooms today. */
+var BHOME = { loaded: false, ready: false, due: [], jobs: [], rooms: [], sites: {} };
+function loadScript(src) {
+  return new Promise(function (ok) {
+    if (document.querySelector('script[data-src="' + src + '"]')) return ok();
+    var t = document.createElement('script'); t.src = src; t.setAttribute('data-src', src);
+    t.onload = ok; t.onerror = ok; document.head.appendChild(t);
+  });
+}
+function loadBuildingHome(me) {
+  if (BHOME.loaded) return;
+  BHOME.loaded = true;
+  var today = (function () { var d = new Date(), p = function (x) { return (x < 10 ? '0' : '') + x; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); })();
+  var mid = me.memberId || '-';
+  var checks = loadScript('egbc-compliance.js?v=202610191800')
+    .then(function () { return loadScript('egbc-compliance-templates.js?v=202610191800'); })
+    .then(function () { return Promise.all([
+      db.collection('buildingChecks').where('responsibleIds', 'array-contains', mid).get(),
+      db.collection('complianceTemplates').get().catch(function () { return { docs: [] }; }),
+      db.collection('sites').get().catch(function () { return { docs: [] }; })]); })
+    .then(function (r) {
+      var all = function (sn) { return sn.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); };
+      var C = window.EGBCCompliance, T = window.EGBCComplianceTemplates;
+      var mineChecks = all(r[0]).filter(function (c) { return c.state === 'on'; });
+      all(r[2]).forEach(function (x) { BHOME.sites[x.id] = x.name || x.id; });
+      var templates = all(r[1]).length ? all(r[1]) : ((T && T.TEMPLATES) || []);
+      if (!C || !C.schedule || !mineChecks.length) return;
+      return Promise.all(mineChecks.map(function (c) {
+        return db.collection('checkRecords').where('checkId', '==', c.id).get().then(all, function () { return []; });
+      })).then(function (recs) {
+        var records = [].concat.apply([], recs);
+        var sites = Array.from(new Set(mineChecks.map(function (c) { return c.siteId; })));
+        var items = [];
+        sites.forEach(function (sid) {
+          var sc = C.schedule({ profile: {}, templates: templates, checks: mineChecks.filter(function (c) { return c.siteId === sid; }),
+            records: records, jobs: [], triggers: [], today: today });
+          sc.items.forEach(function (i) { i.siteId = sid; items.push(i); });
+        });
+        var order = { red: 0, amber: 1, green: 2, grey: 3 };
+        BHOME.due = items.filter(function (i) { return i.state === 'on' && (i.rag === 'red' || i.rag === 'amber'); })
+          .sort(function (a, b) { return order[a.rag] - order[b.rag] || String(a.nextDue || '').localeCompare(String(b.nextDue || '')); });
+      });
+    }).catch(function () {});
+  var jobs = db.collection('maintJobs').get().then(function (sn) {
+    BHOME.jobs = sn.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; })
+      .filter(function (j) { return j.status !== 'done' && j.status !== 'cancelled'; })
+      .sort(function (a, b) { return String(b.createdAt || b.reportedAt || '').localeCompare(String(a.createdAt || a.reportedAt || '')); });
+  }).catch(function () {});
+  /* Only the office may list the bookings (the rules); anybody else gets
+     the link to the rooms instead. */
+  var rooms = db.collection('bookings').where('day', '==', today).get().then(function (sn) {
+    BHOME.rooms = sn.docs.map(function (d) { return d.data(); }).filter(function (b) { return b.status === 'confirmed'; })
+      .sort(function (a, b) { return (a.startMin || 0) - (b.startMin || 0); });
+  }).catch(function () { BHOME.rooms = null; });
+  Promise.all([checks, jobs, rooms]).then(function () { BHOME.ready = true; A.refresh(); });
+}
+function dueWords(day) {
+  if (!day) return '';
+  var t = new Date(); t.setHours(0, 0, 0, 0);
+  var d = new Date(day + 'T00:00:00');
+  var n = Math.round((d - t) / 86400000);
+  if (n < 0) return 'Overdue';
+  if (n === 0) return 'Today';
+  if (n === 1) return 'Tomorrow';
+  if (n < 7) return d.toLocaleDateString('en-GB', { weekday: 'short' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+/* Never done (EGBCCompliance: "Not recorded yet"): to do now. */
+function checkDue(i) { return i.nextDue ? dueWords(i.nextDue) : (i.lastDone ? 'Due' : 'Not done yet'); }
+function minWords(m) { m = +m || 0; var h = Math.floor(m / 60), x = m % 60; return h + ':' + (x < 10 ? '0' : '') + x; }
+
+A.modeHome('building', function (me) {
+  var mine = A.spacesFor(me);
+  loadBuildingHome(me);
+  loadHome(me);
+  var colour = modeColour('building');
+  var today = BHOME.due.filter(function (i) { return /^(Today|Overdue|Not done yet)$/.test(checkDue(i)); }).length;
+  var site = Object.keys(BHOME.sites).length === 1 ? BHOME.sites[Object.keys(BHOME.sites)[0]] : '';
+  var out = hero(colour, homeGreeting() + ', ' + me.first,
+    [site, BHOME.ready ? (today ? today + (today === 1 ? ' check' : ' checks') + ' to do now' : 'Nothing due today') : 'Looking at the checks\u2026'].filter(Boolean).join(' \u00b7 '));
+  var pages = A.buildingPages();
+  var hasPage = function (u) { return pages.some(function (p) { return p.url === u; }); };
+  var checksLink = hasPage('building.html') ? 'open:building.html' : (hasPage('compliance.html') ? 'open:compliance.html' : null);
+  if (BHOME.due.length) {
+    out += sec('Checks due', card(BHOME.due.slice(0, 4).map(function (i) {
+      var w = checkDue(i);
+      return row('clipboard-check', i.title || 'A check', BHOME.sites[i.siteId] || '',
+        '<span class="pill' + (/^(Today|Overdue|Not done yet)$/.test(w) ? ' warn' : '') + '">' + A.esc(w) + '</span>',
+        hasPage('building.html') ? 'open:building.html?check=' + encodeURIComponent(i.id || '') : checksLink, colour, '#e6ecf5');
+    }).join('')), checksLink ? ['All checks', checksLink] : null);
+  } else if (checksLink) {
+    out += sec('Checks', card(row('clipboard-check', BHOME.ready ? 'No checks due for you' : 'Looking\u2026',
+      'The building\u2019s checks, and who does them', null, checksLink, colour, '#e6ecf5')));
+  }
+  out += sec('Repairs', card(BHOME.jobs.length ? BHOME.jobs.slice(0, 3).map(function (j) {
+      return row('wrench', j.what || 'A repair', [j.where, j.status === 'open' ? 'reported' : (j.status || '')].filter(Boolean).join(' \u00b7 '),
+        null, 'open:maintenance.html', colour, '#e6ecf5');
+    }).join('') : row('wrench', BHOME.ready ? 'Nothing waiting to be fixed' : 'Looking\u2026', 'Report anything broken', null, 'open:maintenance.html', colour, '#e6ecf5')),
+    ['Report one', 'open:maintenance.html']);
+  if (BHOME.rooms && BHOME.rooms.length) {
+    out += sec('Rooms today', card(BHOME.rooms.slice(0, 4).map(function (b) {
+      return row('door-open', (b.title || b.what || 'A booking'), minWords(b.startMin) + '\u2013' + minWords(b.endMin), null, 'open:rooms.html', colour, '#e6ecf5');
+    }).join('')), ['Bookings', 'open:rooms.html']);
+  } else {
+    out += sec('Rooms today', card(row('door-open', BHOME.rooms ? 'Nothing booked today' : 'Today\u2019s rooms', 'See what is free, and book', null, 'open:rooms.html', colour, '#e6ecf5')),
+      ['Bookings', 'open:rooms.html']);
+  }
+  if (mine.indexOf('maint') !== -1) out += sec('The team', card(row('users', 'Maintenance', 'Jobs, rooms and the team', null, 'go:maint:jobs', colour, '#e6ecf5')));
+  return out + everyday(me);
+});
+
+A.modeHome('office', function (me) {
+  loadHome(me);
+  var runs = A.tabsFor('office').map(function (t) { return t[0]; });
+  var colour = modeColour('office');
+  var out = hero(colour, homeGreeting() + ', ' + me.first, homeToday());
+  var jobs = [];
+  if (runs.indexOf('send') !== -1) jobs.push(row('mail', 'Send an email', 'To a team, or everyone', null, 'go:office:send', colour, '#efe8f5'));
+  if (window.EGBCAuth && EGBCAuth.isMaster && (EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office') || (EGBCAuth.adminAreas() || []).length)) jobs.push(row('megaphone', 'Post a notice', 'On Home and in the app (on the website)', null, 'open:hub.html?notice=new', colour, '#efe8f5'));
+  if (runs.indexOf('people') !== -1) jobs.push(row('contact', 'Address book', 'Find anybody', null, 'go:office:people', colour, '#efe8f5'));
+  if (runs.indexOf('bookings') !== -1) jobs.push(row('door-open', 'Room bookings', 'What is waiting, and today', null, 'go:office:bookings', colour, '#efe8f5'));
+  if (runs.indexOf('today') !== -1) jobs.push(row('layout-dashboard', 'Today', 'What is on today', null, 'go:office:today', colour, '#efe8f5'));
+  out += sec('The office', card(jobs.join('')));
+  return out + everyday(me);
 });
 
 /* ---- The building (the start screen, 20 Oct 2026) ------------------------

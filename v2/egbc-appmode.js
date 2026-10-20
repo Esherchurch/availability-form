@@ -47,6 +47,9 @@
   var KEY = 'egbc_app_mode';
   var BACK = 'egbc_app_back';
   var TABS = 'egbc_app_tabs';
+  /* The start screen's modes and where each one was (egbc-app.js writes
+     both): Switch is in the same corner here as in the app. */
+  var MODES = 'egbc_app_modes', WHERE = 'egbc_app_where';
 
   function ss(name) { try { return sessionStorage.getItem(name); } catch (e) { return null; } }
   function ssSet(name, v) { try { sessionStorage.setItem(name, v); } catch (e) {} }
@@ -95,6 +98,24 @@
     /* Icon-only ONLY when the page's name would not otherwise fit (fit()). */
     '#egbc-am-top.am-tight a.am-worry .am-wl{display:none}#egbc-am-top.am-tight a.am-worry{padding:0}',
 
+    /* SWITCH, as in the app (the reviewing window, 20 Oct 2026). */
+    '#egbc-am-top button.am-switch{min-height:44px;border-radius:10px;padding:0 10px;gap:5px;border:1px solid var(--am-line);',
+    'background:var(--am-surface);color:var(--am-brand);display:inline-flex;align-items:center;flex:none;font:inherit;',
+    'font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}',
+    '#egbc-am-top button.am-switch svg,#egbc-am-top button.am-switch i{width:16px;height:16px}',
+    '#egbc-am-modes{position:fixed;inset:0;z-index:9600;background:rgba(17,24,39,.45);display:flex;align-items:flex-end;justify-content:center}',
+    '#egbc-am-modes .am-sheet{background:var(--am-surface);color:var(--am-ink);width:100%;max-width:520px;border-radius:16px 16px 0 0;',
+    'padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));max-height:85vh;overflow:auto}',
+    '#egbc-am-modes .am-sh{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}',
+    '#egbc-am-modes .am-sh b{font-size:17px}',
+    '#egbc-am-modes .am-x{width:44px;height:44px;border-radius:10px;border:1px solid var(--am-line);background:var(--am-surface);color:var(--am-body);cursor:pointer}',
+    '#egbc-am-modes .am-mode{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 12px;margin:0 0 8px;',
+    'border:1px solid var(--am-line);border-radius:12px;background:var(--am-surface);color:var(--am-ink);font:inherit;font-size:15px;',
+    'font-weight:600;text-align:left;cursor:pointer}',
+    '#egbc-am-modes .am-mode[aria-current]{border-color:var(--am-brand)}',
+    '#egbc-am-modes .am-mode .am-t{flex:1}',
+    '#egbc-am-modes .am-mode .am-ok{color:var(--am-brand)}',
+    '#egbc-am-modes .am-all{min-height:44px;border:0;background:none;color:var(--am-brand);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}',
     '#egbc-am-tabs{position:fixed;left:0;right:0;bottom:0;z-index:9500;background:var(--am-surface);',
     'border-top:1px solid var(--am-line);display:flex;',
     'padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px))}',
@@ -166,6 +187,65 @@
     });
     return html + '</nav>';
   }
+
+  /* ---- Switch -------------------------------------------------------- */
+  function modesNow() {
+    try { var m = JSON.parse(ss(MODES) || 'null'); return (m && Array.isArray(m.list)) ? m : null; } catch (e) { return null; }
+  }
+  function whereAll() { try { return JSON.parse(ss(WHERE) || '{}') || {}; } catch (e) { return {}; } }
+  function pageOk(p) { return /^[A-Za-z0-9._-]+\.html([?#][^<>"'\s]*)?$/.test(String(p || '')); }
+  /* This page, as the place its mode was: whatever the address says now
+     (a page that puts the open item in its address comes back to it). */
+  function rememberHere() {
+    var m = modesNow();
+    if (!m || !m.current) return;
+    var page = String(location.pathname || '').split('/').pop() + (location.search || '') + (location.hash || '');
+    if (!pageOk(page)) return;
+    var w = whereAll(), tabs = null;
+    try { tabs = JSON.parse(ss(TABS) || 'null'); } catch (e) { tabs = null; }
+    w[m.current] = { page: page, back: ss(BACK) || '', tabs: tabs };
+    ssSet(WHERE, JSON.stringify(w));
+  }
+  function goMode(key) {
+    var m = modesNow();
+    rememberHere();
+    if (m && key === m.current) { closeModes(); return; }
+    var w = whereAll()[key];
+    if (w && w.page && pageOk(w.page)) {
+      if (w.back) ssSet(BACK, w.back);
+      if (w.tabs) ssSet(TABS, JSON.stringify(w.tabs));
+      if (m) { m.current = key; ssSet(MODES, JSON.stringify(m)); }
+      location.href = w.page;
+      return;
+    }
+    location.href = 'app.html#mode:' + String(key).replace(/[^a-z]/g, '');
+  }
+  function closeModes() { var o = document.getElementById('egbc-am-modes'); if (o) o.parentNode.removeChild(o); }
+  function openModes() {
+    var m = modesNow();
+    if (!m) return;
+    var e = function (t) { return String(t || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var o = document.createElement('div');
+    o.id = 'egbc-am-modes';
+    o.innerHTML = '<div class="am-sheet" role="dialog" aria-modal="true" aria-label="Switch to">'
+      + '<div class="am-sh"><b>Switch to</b><button type="button" class="am-x" aria-label="Close">\u2715</button></div>'
+      + m.list.map(function (x) {
+          var now = x.key === m.current;
+          return '<button type="button" class="am-mode" data-am-mode="' + e(x.key) + '"' + (now ? ' aria-current="true"' : '') + '>'
+            + ic(x.icon) + '<span class="am-t">' + e(x.label) + '</span>' + (now ? '<span class="am-ok">' + ic('check') + '</span>' : '') + '</button>';
+        }).join('')
+      + '<button type="button" class="am-all">See all</button></div>';
+    o.addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (t === o || (t.closest && t.closest('.am-x'))) return closeModes();
+      if (t.closest && t.closest('.am-all')) { rememberHere(); location.href = 'app.html#start'; return; }
+      var b = t.closest && t.closest('[data-am-mode]');
+      if (b) goMode(b.getAttribute('data-am-mode'));
+    });
+    document.body.appendChild(o);
+    icons();
+  }
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeModes(); });
 
   var topH = 0, bottomH = 0;
 
@@ -297,8 +377,14 @@
       + '<div class="am-title">' + title.replace(/[&<>"]/g, function (c) {
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
         }) + '</div>'
-      + worry;
+      + worry
+      + (((modesNow() || {}).list || []).length > 1
+        ? '<button type="button" class="am-switch" aria-haspopup="dialog" aria-label="Switch to another part of the app">'
+          + ic('arrow-left-right') + '<span class="am-sl">Switch</span></button>' : '');
     document.body.insertBefore(top, document.body.firstChild);
+    var swb = top.querySelector('.am-switch');
+    if (swb) swb.addEventListener('click', openModes);
+    rememberHere();
 
     var bar = tabBar();
     if (bar) document.body.insertAdjacentHTML('beforeend', bar);
@@ -362,6 +448,8 @@
       ssSet(KEY, '1');
     },
     leave: function () { ssDel(KEY); ssDel(BACK); ssDel(TABS); },
+    /* For checks: the Switch sheet, and where each mode was. */
+    switchSheet: openModes, where: whereAll,
     /* A page that moves its own chrome about can ask for another pass. */
     refit: function () { shiftFixed(); }
   };

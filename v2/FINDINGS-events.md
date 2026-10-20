@@ -8398,3 +8398,25 @@ Each with tests (two browsers following one presenter; Wi-Fi dropped and back; t
 2. Who may present in a meeting: any invitee, or the host (with any invitee able to take over when the host allows)?
 3. Meeting decks: deleted when the meeting ends unless kept, or kept for a set time?
 4. A OneDrive link in a meeting: is "everyone opens it themselves" enough, with the PDF the shared route?
+
+### F-245 — building.html: open the check its address names (from the main window, 20 Oct; the reviewing window)
+
+**Switch is quick now** (the reviewing window, 20 Oct). In the app, and on every page the app opens,
+"Switch" sits top right and opens a small sheet of the person's own modes; one tap goes there.
+Each mode remembers where it was for the visit, **including the page and its address**. Val can now
+go from a check on building.html to the Church office in two taps, and back to building.html in two.
+
+**What only you can add: "back to the same check".** building.html doesn't put the open check in
+its address, so she comes back to the building page's list, not the check. Please:
+- On load, `?check=<id>` opens that check (as tapping it does), if it's one of hers.
+- Opening a check: `history.replaceState` adds `?check=<id>` (keep `app=1` and anything else).
+  Back to the list takes it off.
+- The app's building Home already links each due check as `building.html?check=<id>`.
+
+tests/check-app-start.mjs shows **WAIT (F-242)** until building.html handles `check=`. After that,
+it checks the same check is open on return.
+
+**Also, please, when convenient:** a shared `EGBCComplianceStore.myDue(db, memberId, today)` that
+returns your `schedule()` items for the checks given to this person. The app's building Home does
+building.html's load() steps itself for now, through your `EGBCCompliance.schedule()`, so the answer
+is the same; one function would keep it that way.

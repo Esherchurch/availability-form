@@ -312,13 +312,14 @@
                                                    : me.teams.indexOf(t) !== -1)
           || me.adminFor.indexOf(t) !== -1;
       });
-      /* A MASTER ADMIN IS NO EXCEPTION (§7e). `|| me.isMaster` gave Martin
-         all nine spaces, where the mock-up gives him three - and that is
-         most of "it is now as confusing as the church suite one". He sees
-         the teams he is actually on; to look at another team's space he
-         uses "View as" on the Me tab, which is one row rather than a strip
-         on every screen. */
-      if (mine) out.push(k);
+      /* A MASTER ADMIN SEES EVERY MODE (the start screen's mock-up note;
+         the reviewing window, 20 Oct 2026: Martin had no Kids and youth
+         tile, and Kids Church was exactly what he could not find before).
+         §7e kept him to his own teams because nine pills in one row was
+         "as confusing as the church suite one"; the modes group them now,
+         so each row holds two or three. isMaster honours "View as", so a
+         preview still shows only that person's spaces. */
+      if (mine || me.isMaster) out.push(k);
     });
     return out;
   }
@@ -402,21 +403,60 @@
     try { global.localStorage.setItem(prefsKey(), JSON.stringify(p)); } catch (e) {}
   }
 
-  /* Into a mode: its first space (or the one asked for), its first tab. */
-  function enterMode(key, offer) {
+  /* WHERE EACH MODE WAS (the reviewing window, 20 Oct 2026: Val does the
+     building checks, then straight to the Church office, then back to the
+     same check). For this visit only, in sessionStorage, which the pages
+     the app opens share: { mode: {space, tab, sheet} } inside the app, or
+     { mode: {page, back, tabs} } when the person was on a page. "Always
+     open here" is separate - it says where the app STARTS. */
+  var WHERE = 'egbc_app_where', MODES_KEY = 'egbc_app_modes';
+  function ssGet(k) { try { return JSON.parse(global.sessionStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function ssPut(k, v) { try { global.sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function whereAll() { return ssGet(WHERE) || {}; }
+  function setWhere(mode, place) { var w = whereAll(); w[mode] = place; ssPut(WHERE, w); }
+  /* A page the app may send somebody back to: one of ours, by file name. */
+  function pageOk(p) { return /^[A-Za-z0-9._-]+\.html([?#][^<>"'\s]*)?$/.test(String(p || '')); }
+
+  /* THE MODE'S OWN HOME (the reviewing window, 20 Oct 2026; the mock-up's
+     Sunday and building screens). Registered by app.html; drawn as a Home
+     tab in front of the space's own tabs, so a space keeps its four. */
+  var MODE_HOME = {};
+  function modeHome(key, draw, watch) { MODE_HOME[key] = { draw: draw, watch: watch || null }; }
+  function hasHome(mode) { return !!(mode && mode.key !== 'me' && MODE_HOME[mode.key]); }
+  function tabsShown(mode, space) {
+    return (hasHome(mode) ? [['home', 'Home', 'house']] : []).concat(tabsFor(space));
+  }
+
+  /* Into a mode: where it was this visit, or its Home, or its first tab. */
+  function enterMode(key, offer, back) {
     var me = who(), mine = spacesFor(me), m = modeByKey(key);
     if (!m || !modeSpaces(m, mine).length) return;
     S.mode = key;
     setPrefs({ last: key });
     var p = prefs();
     S.offer = (offer && modesFor(mine).length > 1 && p.always !== key && !(p.asked || {})[key]) ? key : null;
-    S.space = modeSpaces(m, mine)[0];
-    var tabs = tabsFor(S.space);
-    S.tab = tabs[0] ? tabs[0][0] : null;
-    S.sheet = null;
+    var have = modeSpaces(m, mine);
+    S.space = (back && have.indexOf(back.space) !== -1) ? back.space : have[0];
+    var tabs = tabsShown(m, S.space);
+    var ok = function (t) { return tabs.some(function (x) { return x[0] === t; }); };
+    S.tab = (back && ok(back.tab)) ? back.tab : (tabs[0] ? tabs[0][0] : null);
+    S.sheet = (back && back.sheet && SHEETS[back.sheet]) ? back.sheet : null;
     draw();
     var c = document.getElementById('egbc-content');
     if (c) c.scrollTop = 0;
+  }
+
+  function switchTo(key) {
+    S.sheet = null;
+    if (key === S.mode) return draw();
+    var w = whereAll()[key];
+    if (w && w.page && pageOk(w.page) && global.EGBCAppMode) {
+      EGBCAppMode.remember(w.back, w.tabs);
+      var md = ssGet(MODES_KEY); if (md) { md.current = key; ssPut(MODES_KEY, md); }
+      location.href = w.page;
+      return;
+    }
+    enterMode(key, false, w);
   }
 
   /* ---- the screens --------------------------------------------------- */
@@ -472,7 +512,10 @@
   var toastTimer = null;
 
   function refresh(space, tab) {
-    if (space && (space !== S.space || (tab && tab !== S.tab))) return;
+    /* A MODE'S HOME draws from everybody's data - Just me's notices, the
+       rota, Sunday's plan - so any of it arriving redraws it. */
+    var onModeHome = S.tab === 'home' && S.mode && S.mode !== 'me';
+    if (!onModeHome && space && (space !== S.space || (tab && tab !== S.tab))) return;
     draw();
   }
 
@@ -484,7 +527,8 @@
     if (m && m.key !== S.mode) { S.mode = m.key; S.offer = null; }
     S.space = space;
     var tabs = tabsFor(space);
-    S.tab = (tab && V[space + '_' + tab]) ? tab : (tabs[0] ? tabs[0][0] : null);
+    S.tab = (tab && V[space + '_' + tab]) ? tab
+      : (tab === 'home' && hasHome(modeOf(space))) ? 'home' : (tabs[0] ? tabs[0][0] : null);
     S.sheet = null;
     draw();
   }
@@ -511,8 +555,12 @@
       S.tab = (tabsFor(S.space)[0] || [])[0] || null;
     }
     var space = SPACES[S.space];
-    var tabs = tabsFor(S.space);
-    if (!V[S.space + '_' + S.tab]) S.tab = tabs[0] ? tabs[0][0] : null;
+    var tabs = tabsShown(mode, S.space);
+    var onHome = S.tab === 'home' && hasHome(mode);
+    if (!onHome && !V[S.space + '_' + S.tab]) S.tab = tabs[0] ? tabs[0][0] : null;
+    onHome = S.tab === 'home' && hasHome(mode);
+    setWhere(mode.key, { space: S.space, tab: S.tab, sheet: S.sheet && S.sheet !== 'modes' ? S.sheet : null });
+    ssPut(MODES_KEY, { current: mode.key, list: modes.map(function (m) { return { key: m.key, label: m.label, icon: m.icon }; }) });
 
     /* JUST ME keeps the app's own header; every other mode wears its
        colour and its name, as the mock-ups (design-mocks/app-start). */
@@ -555,8 +603,9 @@
       + ((global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care')) ? ''
         : '<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
           + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
-      /* Back to the tiles, whenever there is more than one. */
-      + (modes.length > 1 ? '<button class="switch" data-act="mode:switch" aria-label="Switch: choose what you are doing">'
+      /* SWITCH: a small sheet of this person's modes, one tap to go (the
+         reviewing window, 20 Oct 2026) - never the whole tile screen. */
+      + (modes.length > 1 ? '<button class="switch" data-act="mode:switch" aria-haspopup="dialog" aria-label="Switch to another part of the app">'
           + ic('arrow-left-right', 16) + '<span>Switch</span></button>' : '')
       + '</div>';
 
@@ -566,14 +615,14 @@
       html += '<div class="spaces" role="group" aria-label="Your spaces">'
         + inMode.map(function (k) {
             return '<button class="space" style="--sp:' + esc(SPACES[k].colour) + '"'
-              + ' data-space="' + esc(k) + '" aria-pressed="' + (k === S.space) + '">'
+              + ' data-space="' + esc(k) + '" aria-pressed="' + (!onHome && k === S.space) + '">'
               + '<span class="dot" style="background:' + esc(SPACES[k].colour) + '"></span>'
               + esc(SPACES[k].label) + '</button>';
           }).join('') + '</div>';
     }
     html += '</div>';
 
-    var entry = V[S.space + '_' + S.tab];
+    var entry = onHome ? MODE_HOME[mode.key] : V[S.space + '_' + S.tab];
     html += '<main class="content" id="egbc-content">'
       + (S.offer === mode.key ? '<div class="offer" role="group" aria-label="Where the app opens">'
           + '<span>Open the app here every time?</span>'
@@ -590,14 +639,14 @@
             + ic(t[2], 22) + '<span>' + esc(t[1]) + '</span></button>';
         }).join('') + '</nav>';
 
-    if (S.sheet && SHEETS[S.sheet]) {
+    if (S.sheet && (SHEETS[S.sheet] || S.sheet === 'modes')) {
       /* A ✕ that stays at the top however long the sheet is, and the
          handle can be dragged down to close (Martin, 15 Oct 2026: "you
          can't close it easily. You can't pull the drawer back down"). */
       html += '<div class="sheet-back" data-act="close"><div class="sheet" role="dialog" aria-modal="true">'
         + '<div class="sheet-top"><div class="grab"></div>'
         + '<button type="button" class="sheet-x" data-act="close" aria-label="Close">' + ic('x', 20) + '</button></div>'
-        + SHEETS[S.sheet] + '</div></div>';
+        + (S.sheet === 'modes' ? modesSheet(modes, mine) : SHEETS[S.sheet]) + '</div></div>';
     }
     if (S.toast) html += '<div class="toast" role="status">' + esc(S.toast) + '</div>';
 
@@ -627,12 +676,13 @@
        The watcher is keyed to the space and tab it was started for, and is
        left alone while that is what is on screen. Navigating away stops it,
        which is what F-131 promised. */
-    var hereKey = S.space + '_' + S.tab;
+    var hereKey = onHome ? '@' + mode.key + '_home' : S.space + '_' + S.tab;
     if (watchingKey !== hereKey) {
       if (stopWatching) { try { stopWatching(); } catch (e) {} stopWatching = null; }
       watchingKey = null;
       if (entry && entry.watch) {
         var here = S.space, there = S.tab;
+        if (onHome) there = 'home';
         try {
           stopWatching = entry.watch(function () { refresh(here, there); }) || null;
           watchingKey = hereKey;
@@ -645,6 +695,28 @@
     }
   }
 
+  /* The Switch sheet: only this person's modes, the one they are in ticked,
+     and "See all" for the tiles. */
+  function modesSheet(modes, mine) {
+    return '<h3 class="sheet-h">Switch to</h3><div class="modes-list">' + modes.map(function (m) {
+      var now = m.key === S.mode;
+      return '<button type="button" class="mode-row" data-mode-go="' + esc(m.key) + '"' + (now ? ' aria-current="true"' : '')
+        + ' style="--mc:' + esc(m.colour) + ';--mt:' + esc(m.tint) + '">'
+        + '<span class="ti">' + ic(m.icon, 20) + '</span>'
+        + '<span class="tt"><b>' + esc(m.label) + '</b><small>' + esc(modeWords(m, mine)) + '</small></span>'
+        + (now ? '<span class="tick" aria-label="You are here">' + ic('check', 20) + '</span>' : '') + '</button>';
+    }).join('') + '</div>'
+      + '<button type="button" class="mode-all" data-act="mode:all">' + ic('layout-grid', 16) + ' See all</button>';
+  }
+
+  /* "Hi Val, where to today?" (Martin, 19 Oct 2026) - never "What are you
+     doing?", which sounded like catching people out. No name: "Where to
+     today?". */
+  function tilesHeading(me) {
+    var first = String(me.name || '').trim().split(/\s+/)[0];
+    return first ? 'Hi ' + first + ', where to today?' : 'Where to today?';
+  }
+
   /* The tiles. The same header as Just me (logo, bell, Care); no tab bar -
      there is nothing to be on yet. */
   function drawTiles(app, me, mine, modes) {
@@ -652,6 +724,7 @@
     watchingKey = null;
     var p = prefs();
     var always = p.always && modeByKey(p.always);
+    ssPut(MODES_KEY, { current: null, list: modes.map(function (m) { return { key: m.key, label: m.label, icon: m.icon }; }) });
     var html = '<div class="top"><div class="top-row"><span class="logo">EGBC</span>'
       + '<span class="top-title">EGBC Hub</span>'
       + '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
@@ -663,7 +736,7 @@
           + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
       + '</div></div>'
       + '<main class="content start" id="egbc-content">'
-      + '<div class="ask"><h1>What are you doing?</h1>'
+      + '<div class="ask"><h1>' + esc(tilesHeading(me)) + '</h1>'
       + '<p>Choose one and the app becomes just that. Switch whenever you like.</p></div>'
       + (always ? '<p class="always">The app opens in <b>' + esc(always.label) + '</b> each time. '
           + '<button type="button" data-act="mode:ask">Show this screen instead</button></p>' : '')
@@ -716,13 +789,15 @@
       location.href = target.indexOf('?') === -1 ? target + '?app=0' : target + '&app=0';
       return;
     }
+    var dest = target + (target.indexOf('?') === -1 ? '?app=1' : '&app=1');
     if (global.EGBCAppMode) {
-      EGBCAppMode.remember('app.html#' + S.space + ':' + S.tab, {
-        space: S.space, tab: S.tab, tabs: tabsFor(S.space),
-        colour: (SPACES[S.space] || {}).colour || ''
-      });
+      var back = 'app.html#' + S.space + ':' + S.tab;
+      var tabs = { space: S.space, tab: S.tab, tabs: tabsShown(modeByKey(S.mode) || modeByKey('me'), S.space),
+        colour: (SPACES[S.space] || {}).colour || '' };
+      EGBCAppMode.remember(back, tabs);
+      if (S.mode && pageOk(dest)) setWhere(S.mode, { page: dest, back: back, tabs: tabs });
     }
-    location.href = target + (target.indexOf('?') === -1 ? '?app=1' : '&app=1');
+    location.href = dest;
   }
 
   /* Coming back: app.html#space:tab. Only a space this person really has
@@ -730,6 +805,14 @@
      refuses the rest anyway. */
   function fromHash() {
     var h = String(location.hash || '').replace(/^#/, '');
+    /* From Switch on a page: the tiles, or a mode where it was. */
+    if (h === 'start') { S.mode = null; S.sheet = null; draw(); return true; }
+    if (/^mode:[a-z]+$/.test(h)) {
+      var mk = h.slice(5), mm = modeByKey(mk);
+      if (!mm || !modeSpaces(mm, spacesFor(who())).length) return false;
+      enterMode(mk, false, whereAll()[mk]);
+      return true;
+    }
     if (!/^[a-z]+:[a-z-]+$/.test(h)) return false;
     var bits = h.split(':');
     if (!SPACES[bits[0]]) return false;
@@ -772,9 +855,10 @@
   });
 
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-mode].tile,[data-space],[data-tab],[data-act]');
+    var b = e.target.closest && e.target.closest('[data-mode].tile,[data-mode-go],[data-space],[data-tab],[data-act]');
     if (!b) return;
 
+    if (b.dataset.modeGo) return switchTo(b.dataset.modeGo);
     if (b.dataset.mode && b.classList.contains('tile')) return enterMode(b.dataset.mode, true);
     if (b.dataset.space) return go(b.dataset.space);
     if (b.dataset.tab) {
@@ -785,7 +869,8 @@
     }
 
     var a = b.dataset.act || '';
-    if (a === 'mode:switch') { S.mode = null; S.offer = null; S.sheet = null; return draw(); }
+    if (a === 'mode:switch') { S.sheet = 'modes'; return draw(); }
+    if (a === 'mode:all') { S.mode = null; S.offer = null; S.sheet = null; return draw(); }
     if (a === 'mode:always') { setPrefs({ always: S.mode }); S.offer = null; S.toast = 'The app will open here.'; draw(); clearTimeout(toastTimer); toastTimer = setTimeout(function () { S.toast = null; draw(); }, 3200); return; }
     if (a === 'mode:notnow') {
       var asked = prefs().asked || {}; asked[S.mode] = 1;
@@ -824,6 +909,7 @@
     who: who, spacesFor: spacesFor, tabsFor: tabsFor,
     MODES: MODES, modesFor: function () { return modesFor(spacesFor(who())).map(function (m) { return m.key; }); },
     mode: function (key) { enterMode(key, true); }, buildingPages: buildingPages,
+    modeHome: modeHome, switchTo: switchTo, where: whereAll,
     esc: esc, ic: ic, row: row, sec: sec, next: next, card: card,
     head: head, empty: empty,
     /* A screen's own code sometimes has something to say - "Link copied"
