@@ -22,6 +22,7 @@
  * counts as on, as everything does until item 14's switches exist.
  */
 import { createRequire } from 'node:module';
+import { featureOn } from './features.js';
 
 const require = createRequire(import.meta.url);
 const SermonsFeed = require('./sermons-feed.cjs');
@@ -65,12 +66,6 @@ function storeFor(db, coll, statusPath) {
   };
 }
 
-async function featureOn(db, name) {
-  try {
-    const f = await db.collection('churchSettings').doc('features').get();
-    return !(f.exists && f.data()[name] === false);
-  } catch (e) { return true; }
-}
 
 /* One feed: skip if the part is off or no address is set; on a failed
    fetch write the status only and change nothing else. */

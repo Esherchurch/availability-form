@@ -8187,3 +8187,37 @@ The other side:
 5 breaks caught. The one that matters: members sent to the hire-only page.
 
 **r1-rooms updated to the agreed default:** a floor plan is kept back from the public page unless the room says "public".
+
+### F-239 — Feature switches: one answer, page and server (from the main window, 20 Oct; the reviewing window)
+
+**The mismatch.** Live `churchSettings/features` is empty. The pages take each switch's default
+(every switch on at EGBC, Martin 19 Oct), but these read the stored field and want
+`buildingCompliance === true`, so to them it is OFF:
+- `functions/compliance.js` `featureOn` (complianceDaily; `functions/peeps.js` peepToday imports it);
+- `bookings-admin.html` (the bookings dot);
+- `egbc-compliance-store.js`;
+- `compliance.html`.
+`functions/public-mail.js` reads the switches itself too (as "on unless stored false", which agrees
+today, but it is a second list of rules).
+
+**Done on my side.**
+- `functions/features.js` is the server's one list and reader: `featureOn(db, name)`,
+  `uses(switches, name)`, `FEATURES`. Same names, same defaults, same rule as `EGBCAuth.uses`.
+  feeds, notify and rotaWhatsOn use it now.
+- `tests/check-features-agree.mjs`: the two lists match, and for every switch (stored on, off,
+  nonsense, not stored) the page and the server give the same answer. It also lists any file
+  that reads `churchSettings/features` itself; yours above show as WAIT (F-239).
+- `tools/store-feature-defaults.mjs` (Martin runs it, dry run first) writes each unstored switch's
+  default into the live document, so your current code agrees today too.
+
+**For you, please (your files):**
+- Functions: `import { featureOn } from './features.js'`, then
+  `featureOn(db, 'buildingCompliance')`. In compliance.js, `featureOn(db)` can simply call it, so
+  peeps.js follows. public-mail.js: the same, in place of its own `featureOn`.
+- Pages: `!window.EGBCChurch || EGBCChurch.uses('buildingCompliance')` (or `EGBCAuth.uses`), not
+  a `.get()` of the document.
+- Then take each file off `WAITING` in check-features-agree.mjs. The check fails if a file on
+  that list no longer reads the switches itself, so it reminds you.
+- A new switch still goes in three places in one commit: `FEATURES` in egbc-auth.js,
+  `FEATURES` in functions/features.js, and the `features` rule. The check catches the first two
+  disagreeing.

@@ -29,6 +29,7 @@
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { featureOn } from './features.js';
 
 const REGION = 'europe-west2';   // the database's region (TRIGGER_REGION in index.js)
 const TZ = 'Europe/London';
@@ -115,11 +116,7 @@ async function firstSiteId(db) {
 
 export async function syncRotaService(db, id, rota) {
   const ref = db.collection('calEvents').doc('rota_' + id);
-  let featureOff = false;
-  try {
-    const f = await db.collection('churchSettings').doc('features').get();
-    featureOff = f.exists && f.get(FEATURE) === false;
-  } catch (e) { /* unreadable settings: the part is on, as everywhere */ }
+  const featureOff = !(await featureOn(db, FEATURE));
   const want = mirrorFor(id, rota, { featureOff, siteId: rota && !rota.siteId ? await firstSiteId(db) : '' });
   if (!want) {
     const had = await ref.get();

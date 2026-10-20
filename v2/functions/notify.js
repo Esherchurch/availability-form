@@ -20,6 +20,7 @@
  * written to `pushOutbox` instead, and no request goes to Google.
  */
 import { createRequire } from 'node:module';
+import { featureOn } from './features.js';
 
 const require = createRequire(import.meta.url);
 const Core = require('./notify-core.cjs');
@@ -73,12 +74,11 @@ export function londonDate(at, n = 0) {
    Only "Send me a test", to the person pressing it, still goes: that is
    how Martin proves it on his own phone (N-7). */
 export async function liveState(db) {
-  const [n, f] = await Promise.all([
+  const [n, feature] = await Promise.all([
     db.collection('churchSettings').doc('notifications').get().catch(() => null),
-    db.collection('churchSettings').doc('features').get().catch(() => null)
+    featureOn(db, 'notifications')
   ]);
   const live = !!(n && n.exists && n.data().live === true);
-  const feature = !(f && f.exists && f.data().notifications === false);
   return { live, feature, sending: live && feature };
 }
 
@@ -488,10 +488,7 @@ export async function onMaintJob(deps, jobId, job) {
    records no sender. A part the church has switched off sends nothing; the
    master switch makes it a dry run - for the named addresses too. */
 async function featureOff(db, name) {
-  try {
-    const f = await db.collection('churchSettings').doc('features').get();
-    return f.exists && f.data()[name] === false;
-  } catch (e) { return false; }
+  return !(await featureOn(db, name));
 }
 async function teamUids(db, team) {
   if (!team) return [];
