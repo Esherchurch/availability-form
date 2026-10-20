@@ -254,6 +254,25 @@ Val's Zoom details, her personal email and phone number are blocked out in those
 
 **Not received:** the earlier plan for one-off emails and templates ("CMM, ministry update, etc."). Only the "Add a meeting" message arrived, so the CMM starter above is my reading of "the CMM template". Please resend the plan.
 
+### C-36. No emails to anyone under 18 (reviewing window, 20 Oct)
+
+The hub's rule is under 18, not under 16 (YOUTH-ACCESS.md: "No email addresses for under-18s, ever").
+- **The address book had no way to mark a 16 or 17 year old.** It only had the "UNDER 16" tick, and its note said 16 and 17 year olds use their own email. It now has an **UNDER 18** tick under UNDER 16. Under 16 counts as under 18 too.
+  - A 16 or 17 year old still signs in with their own email; they are just never emailed.
+  - Like Under 16, only the office and master admins can change it; the rules stop team leaders. The rules go live at switch-over.
+- **One rule on the server** (`functions/under18.js`, ticked Under 16 or Under 18), used everywhere:
+  - **adding** to the e-news, by hand or from the address book: refused, with "under 18";
+  - **sending**: someone on the list who was ticked later is skipped, and counted;
+  - **the Mailchimp import**: not brought in;
+  - **the hub's mail route** (every v2 email kind): refused.
+- **Never offered:** the address book's e-news panel, and the E-news page's "Add from the address book" list.
+- **Tested with a 17-year-old** (ticked Under 18, not Under 16):
+  - check-enews-subscribe 58/58;
+  - check-enews-send 29/29, new break "an under-18 sent the e-news" red;
+  - check-import-mailchimp 22/22, new break "under-18s imported" red;
+  - check-mail-route 27/27;
+  - check-enews-addressbook 18/18, new break "seventeen" red.
+
 ### Checks (this window's own emulators; run on exactly what is pushed)
 
 | Check | Result |

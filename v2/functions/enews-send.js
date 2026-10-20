@@ -40,6 +40,7 @@ import { enewsShut } from './enews-gate.js';
 import { makeHqSender } from './hq-mail.js';
 import { makeSender } from './public-mail.js';
 import { featureOn } from './features.js';
+import { under18Emails } from './under18.js';
 
 const REGION = 'europe-west2';
 const HUB = 'https://esherchurch.github.io/availability-form/v2';
@@ -103,19 +104,22 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
       await doc.ref.update({ status: 'draft', error: 'No finished copies on the issue: press Schedule again.' });
       continue;
     }
-    const [details, members, subs, done] = await Promise.all([
+    const [details, members, subs, done, minors] = await Promise.all([
       db.collection('churchSettings').doc('details').get(),
       memberEmails(db),
       db.collection('enewsSubscribers').where('status', '==', 'subscribed').get(),
-      doc.ref.collection('sends').get()
+      doc.ref.collection('sends').get(),
+      under18Emails(db)
     ]);
     const church = details.exists ? details.data() : {};
     const already = new Set(done.docs.map(d => d.id));
-    let sent = 0, failed = 0, toMembers = 0;
+    let sent = 0, failed = 0, toMembers = 0, under18 = 0;
     for (const s of subs.docs) {
       const sub = Object.assign({ id: s.id }, s.data());
       if (!sub.lists || sub.lists.weekly !== true || !sub.token) continue;
       if (already.has(s.id)) { sent++; continue; }
+      /* Never an under-18, even one on the list (ticked after they joined). */
+      if (minors.has(String(sub.email || '').toLowerCase())) { under18++; continue; }
       const isMember = members.has(String(sub.email || '').toLowerCase());
       const letter = letterFor(issue, sub, isMember, { hub, fnBase, issueId: doc.id });
       const r = await send(Object.assign(letter, { fromName: church.name || '', replyTo: church.enquiryEmail || '' }), { kind: 'enews', issueId: doc.id, subscriberId: s.id, copy: isMember ? 'members' : 'everyone' });
@@ -129,8 +133,8 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
       subject: issue.subject || '', sentAt: new Date().toISOString(),
       html: String(issue.htmlEveryone).split(PLACEHOLDER).join((hub || HUB) + '/enews-signup.html')
     });
-    await doc.ref.update({ status: 'sent', sentAt: new Date().toISOString(), counts: { sent, failed, members: toMembers } });
-    results.push({ id: doc.id, sent, failed, members: toMembers });
+    await doc.ref.update({ status: 'sent', sentAt: new Date().toISOString(), counts: { sent, failed, members: toMembers, under18 } });
+    results.push({ id: doc.id, sent, failed, members: toMembers, under18 });
   }
   return { results };
 }

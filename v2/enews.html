@@ -521,7 +521,7 @@
   /* ---- add subscribers from the address book (Martin, 20 Oct) -------------
      Search and tick, or a whole team or group at once. Each person still
      needs a recorded yes, asked in the same step - never added silently.
-     Under-16s are not offered; anyone who unsubscribed is shown as such
+     Under-18s are not offered; anyone who unsubscribed is shown as such
      and can't be added here (only they can sign up again). */
   var HOW_WORDS = [['person', 'They told the office'], ['paper', 'On a paper form'], ['email', 'They asked by email'], ['phone', 'They asked by phone'], ['signedUp', 'They signed up themselves']];
   function addFromAddressBook() {
@@ -544,7 +544,7 @@
     var PEOPLE = [], SUB = {};
     Promise.all([db().collection('addressBook').get(), db().collection('enewsSubscribers').get()]).then(function (r) {
       r[1].docs.forEach(function (d) { SUB[String(d.data().email || '').toLowerCase()] = d.data().status; });
-      PEOPLE = r[0].docs.map(function (d) { var x = d.data(); return { id: d.id, name: x.name || '', first: String(x.name || '').split(/\s+/)[0], email: String(x.email || '').trim(), teams: x.markers || [], minor: x.isMinor === true, archived: x.archived === true }; })
+      PEOPLE = r[0].docs.map(function (d) { var x = d.data(); return { id: d.id, name: x.name || '', first: String(x.name || '').split(/\s+/)[0], email: String(x.email || '').trim(), teams: x.markers || [], minor: x.isMinor === true || x.under18 === true, archived: x.archived === true }; })
         .filter(function (p) { return p.email && !p.archived && !p.minor; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
       var teams = {}; PEOPLE.forEach(function (p) { p.teams.forEach(function (t) { teams[t] = 1; }); });
       s.querySelector('#ab-team').innerHTML = '<option value="">Choose a team…</option>' + Object.keys(teams).sort().map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('');

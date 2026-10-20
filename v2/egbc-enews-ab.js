@@ -16,7 +16,7 @@
    Every change goes through the hub's function (enewsSubscriberSave),
    which keeps the record of who, when and how. For the church office and
    master admins, when the e-news is switched on; nobody else sees any of
-   it. An under-16 is never offered; somebody who unsubscribed is shown as
+   it. An under-18 (ticked Under 16 or Under 18) is never offered; somebody who unsubscribed is shown as
    such and can only come back themselves, from the sign-up page.
    =================================================================== */
 (function () {
@@ -83,9 +83,9 @@
   function drawForm() {
     var p = panel(); if (!p || !SUBS) return;
     var email = low((document.getElementById('email') || {}).value);
-    var minor = !!(document.getElementById('isMinor') || {}).checked;
+    var minor = !!(document.getElementById('isMinor') || {}).checked || !!(document.getElementById('under18') || {}).checked;
     if (!email) { p.innerHTML = '<b style="color:#111827">E-news:</b> add an email address first.'; return; }
-    if (minor) { p.innerHTML = '<b style="color:#111827">E-news:</b> under 16 — the hub never emails under-18s.'; return; }
+    if (minor) { p.innerHTML = '<b style="color:#111827">E-news:</b> under 18 — the hub never emails under-18s.'; return; }
     var x = SUBS[email], c = (x && x.consent) || {};
     if (x && x.status === 'subscribed') {
       p.innerHTML = '<b style="color:#15803d">Gets the e-news</b>' + (c.how ? '<br><span style="color:#6b7280">They said yes: ' + esc(c.how) + (c.confirmedAt ? ', ' + esc(String(c.confirmedAt).slice(0, 10)) : '') + '</span>' : '') +
@@ -136,8 +136,7 @@
         if (body && window.MutationObserver) new MutationObserver(badgeRows).observe(body, { childList: true });
         var input = document.getElementById('email');
         if (input) input.addEventListener('input', drawForm);
-        var minor = document.getElementById('isMinor');
-        if (minor) minor.addEventListener('change', drawForm);
+        ['isMinor', 'under18'].forEach(function (id) { var m = document.getElementById(id); if (m) m.addEventListener('change', drawForm); });
         /* The form is filled by the page's editMember(): redraw after it.
            The page defines it once its sign-in is ready, which can be
            after this runs, so keep looking for a while. */

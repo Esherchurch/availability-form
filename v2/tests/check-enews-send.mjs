@@ -55,7 +55,9 @@ const SUBS = {
   s_uns: { email: 'uns.send@example.invalid', status: 'unsubscribed', lists: { weekly: false }, token: 'tokuns0000000000000000000000000000' },
   s_bnc: { email: 'bnc.send@example.invalid', status: 'bounced', lists: { weekly: false }, token: 'tokbnc0000000000000000000000000000' },
   s_team: { email: 'team.send@example.invalid', status: 'subscribed', lists: { weekly: true }, token: 'tokteam000000000000000000000000000' },
-  s_old: { email: 'old.send@example.invalid', status: 'subscribed', lists: { weekly: true }, token: 'tokold0000000000000000000000000000' }
+  s_old: { email: 'old.send@example.invalid', status: 'subscribed', lists: { weekly: true }, token: 'tokold0000000000000000000000000000' },
+  /* A 17-year-old who got on the list before being ticked Under 18. */
+  s_sev: { email: 'sev.send@example.invalid', status: 'subscribed', lists: { weekly: true }, token: 'toksev0000000000000000000000000000' }
 };
 
 async function scenario(S) {
@@ -71,6 +73,7 @@ async function scenario(S) {
   await db.collection('addressBook').doc('ab_mem').set({ name: 'Mem Synthetic', email: 'MEM.send@example.invalid', churchMember: true });
   await db.collection('addressBook').doc('ab_pub').set({ name: 'Pub Synthetic', email: 'pub.send@example.invalid', churchMember: false, markers: [] });
   await db.collection('addressBook').doc('ab_team').set({ name: 'Team Synthetic', email: 'team.send@example.invalid', churchMember: false, markers: ['Welcome team'] });
+  await db.collection('addressBook').doc('ab_sev').set({ name: 'Sev Synthetic', email: 'Sev.Send@example.invalid', under18: true, isMinor: false });
   await db.collection('addressBook').doc('ab_old').set({ name: 'Old Synthetic', email: 'old.send@example.invalid', churchMember: true, markers: ['Worship Team'], archived: true });
   const now = new Date('2026-10-22T15:05:00Z');                                  /* 16:05 in London */
   await db.collection('enewsIssues').doc('due').set(Object.assign({}, ISSUE, copies, { status: 'scheduled', sendAt: '2026-10-22T16:00' }));
@@ -94,6 +97,7 @@ async function scenario(S) {
   t('from the church’s name, replies to the church', pub.fromName === church.name && pub.replyTo === church.email);
   const due = (await db.collection('enewsIssues').doc('due').get()).data();
   t('the issue is marked sent, with counts', due.status === 'sent' && due.counts && due.counts.sent === 4, due.counts);
+  t('never sent to a 17-year-old (ticked Under 18), even one on the list', !to.includes('sev.send@example.invalid') && due.counts && due.counts.under18 === 1, due.counts);
   t('a later issue waits', (await db.collection('enewsIssues').doc('later').get()).data().status === 'scheduled');
   t('a draft is never sent', (await db.collection('enewsIssues').doc('draft').get()).data().status === 'draft' && got.every(g => g.meta.issueId !== 'draft'));
   const web = (await db.collection('enewsWeb').doc('due').get()).data() || {};
@@ -135,6 +139,7 @@ const BREAKS = [
   ['team members left out', "(x.churchMember === true || (Array.isArray(x.markers) && x.markers.filter(Boolean).length > 0))", "(x.churchMember === true)", 'on a team without the tick DOES'],
   ['archived people let in', "return !!x && x.archived !== true &&", "return !!x &&", 'archived in the address book does not'],
   ['already-sent people sent again', "if (already.has(s.id)) { sent++; continue; }", '', 'not sent it again'],
+  ['an under-18 sent the e-news', "if (minors.has(String(sub.email || '').toLowerCase())) { under18++; continue; }", '', 'never sent to a 17-year-old'],
   ['the one-click header left off', "'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'", "'X-Nothing': ''", 'the one-click header']
 ];
 for (const [what, from, to, expect] of BREAKS) {

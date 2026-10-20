@@ -101,7 +101,9 @@ const when = s => { const t = String(s || '').trim(); if (!t) return ''; const d
 const newToken = () => randomBytes(48).toString('base64url').replace(/[^a-z0-9]/gi, '').slice(0, 32);
 
 /* The decision for one address. Pure. */
-export function decide(kind, mc, hub) {
+export function decide(kind, mc, hub, under18) {
+  /* Never an under-18 (ticked Under 16 or Under 18 in the address book). */
+  if (kind === 'subscribed' && under18) return { act: 'leave', why: 'under 18: the hub never emails under-18s' };
   const hubNo = hub && ['unsubscribed', 'bounced', 'complained'].includes(hub.status);
   if (kind === 'subscribed') {
     if (hubNo) return { act: 'leave', why: 'said no in the hub (' + hub.status + ')' };
@@ -140,6 +142,10 @@ if (WRITE && !(launch.exists && launch.data().rulesLocked === true)) {
 const existing = new Map();
 (await db.collection('enewsSubscribers').get()).docs.forEach(d => existing.set(String(d.data().email || '').toLowerCase(), d));
 
+/* Under-18s in the address book (functions/under18.js, the same rule). */
+const minors = new Set();
+for (const f of ['isMinor', 'under18']) (await db.collection('addressBook').where(f, '==', true).get()).docs.forEach(d => { const e = String(d.data().email || '').trim().toLowerCase(); if (e) minors.add(e); });
+
 const counts = {}; let writes = 0, bad = 0;
 const seen = new Set();
 const now = new Date().toISOString();
@@ -155,7 +161,7 @@ for (const name of files.sort((a, b) => KIND.findIndex(k => k[0] === kindOf(a)) 
     if (seen.has(email)) continue;
     seen.add(email);
     const hubDoc = existing.get(email), hub = hubDoc ? hubDoc.data() : null;
-    const d = decide(kind, r, hub);
+    const d = decide(kind, r, hub, minors.has(email));
     counts[d.act] = (counts[d.act] || 0) + 1;
     if (counts[d.act] <= 5) console.log('  ' + d.act.padEnd(22) + mask(email) + (d.why ? '  (' + d.why + ')' : ''));
     if (d.act === 'leave' || !WRITE) continue;

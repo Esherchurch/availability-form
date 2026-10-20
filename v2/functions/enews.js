@@ -40,6 +40,7 @@ import { enewsShut } from './enews-gate.js';
 import { makeHqSender, verifySvix } from './hq-mail.js';
 import { storedKeys } from './hq-mail-key.js';
 import { featureOn } from './features.js';
+import { isUnder18Email } from './under18.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -260,15 +261,14 @@ export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'p
 const HOW = { person: 'told the office', paper: 'a paper form', email: 'asked by email', phone: 'asked by phone', signedUp: 'signed up themselves' };
 
 /* One person, added by the office. Refusals, in words, never silent:
-   an under-16 (the hub never emails under-18s), somebody who has
+   an under-18 (the hub never emails under-18s: under18.js), somebody who has
    unsubscribed or marked it as spam (only they can come back, from the
    sign-up page - unless the office ticks that they asked again, and never
    from the address book), and a dead address. */
 async function addOne(person, how, uid, opts) {
   const email = normEmail(person.email);
   if (!EMAIL.test(email)) return { email, skipped: 'that email address does not look right' };
-  const minor = await db().collection('addressBook').where('isMinor', '==', true).where('email', '==', email).limit(1).get();
-  if (!minor.empty) return { email, skipped: 'under 16: the hub never emails under-18s' };
+  if (await isUnder18Email(db(), email)) return { email, skipped: 'under 18: the hub never emails under-18s' };
   const doc = await findByEmail(email);
   const st = doc ? doc.data().status : '';
   if (st === 'subscribed') return { email, skipped: 'already gets the e-news' };

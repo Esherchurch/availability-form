@@ -72,6 +72,7 @@ async function scenario(PM, R) {
     await db.collection('churchSettings').doc('details').set({ name: 'Synthetic Green Church', enquiryEmail: 'office.route@example.invalid' });
     await db.collection('addressBook').doc('ab_ok').set({ name: 'Known Synthetic', email: 'Known.Route@Example.invalid' });
     await db.collection('addressBook').doc('ab_kid').set({ name: 'Young Synthetic', email: 'kid.route@example.invalid', isMinor: true });
+    await db.collection('addressBook').doc('ab_sev').set({ name: 'Sev Synthetic', email: 'sev.route@example.invalid', under18: true, isMinor: false });
     await db.collection('bookings').doc('bk1').set({ requester: { email: 'hirer.route@example.invalid' } });
     await db.collection('privateSettings').doc('churchHqMail').set({ key: 're_TestOnly_' + 'r'.repeat(24) });
     KEYS.forgetCachedKeys();
@@ -130,6 +131,8 @@ async function scenario(PM, R) {
     t('a known address in a nested field (a hirer), any capitals, is fine', r.ok && r.via === 'churchhq', r);
     r = await send({ to: ['kid.route@example.invalid'], subject: 'Minor', html: 'x' }, { kind: 'signup' });
     t('an under-18 address is refused (never emailed), not passed to Calla\u2019s', r.ok === false && /under-18/.test(r.error) && calla.length === 0, r);
+    r = await send({ to: ['sev.route@example.invalid'], subject: 'Seventeen', html: 'x' }, { kind: 'signup' });
+    t('a 17-year-old (ticked Under 18, not Under 16) is refused too', r.ok === false && /under-18/.test(r.error) && calla.length === 0, r);
     const hour = new Date().toISOString().slice(0, 13);
     await db.collection('mailRouteHours').doc(hour).set({ recipients: 1999, hour });
     r = await send({ to: [OK, 'hirer.route@example.invalid'], subject: 'Cap', html: 'x' }, { kind: 'signup' });

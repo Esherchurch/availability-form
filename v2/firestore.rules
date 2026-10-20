@@ -520,7 +520,9 @@ service cloud.firestore {
                  && was.toSet().difference(now.toSet()).hasOnly(mine)
                  && request.resource.data.get('adminFor', []) == (resource == null ? [] : resource.data.get('adminFor', []))
                  && request.resource.data.get('masterAdmin', false) == (resource == null ? false : resource.data.get('masterAdmin', false))
-                 && request.resource.data.get('isMinor', false) == (resource == null ? false : resource.data.get('isMinor', false))));
+                 && request.resource.data.get('isMinor', false) == (resource == null ? false : resource.data.get('isMinor', false))
+                 // Under 18 (never emailed): the office's to set, like Under 16.
+                 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));
     }
 
     // Two collections the availability form's function keeps for itself. The

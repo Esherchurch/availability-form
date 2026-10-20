@@ -18,10 +18,13 @@
  * adding someone needs how they said yes, and is recorded. A team admin
  * who is not the office sees none of it. Pictures: tests/shots/enews-ab-*.
  *
+ * Under 18 means ticked Under 16 or Under 18: a 17-year-old is never offered.
+ *
  * DELIBERATE BREAKS (each must turn this check red):
  *   --break=office   everybody who can open the address book gets it
  *   --break=unsub    an unsubscribed person is offered "Add to the e-news"
- *   --break=minor    an under-16 is offered it
+ *   --break=minor    an under-18 is offered it
+ *   --break=seventeen  only the Under 16 tick is read
  *   --break=silent   "Add" goes ahead without how they said yes
  */
 import { spawn } from 'node:child_process';
@@ -48,6 +51,7 @@ const BREAKS = {
   office: ["return !!office && !!(A.uses && A.uses('enews'));", 'return true;'],
   unsub: ["if (x && (x.status === 'unsubscribed' || x.status === 'complained' || x.status === 'bounced')) {", 'if (false) {'],
   minor: ['if (minor) { p.innerHTML', 'if (false) { p.innerHTML'],
+  seventeen: ["|| !!(document.getElementById('under18') || {}).checked;", ';'],
   silent: ["if (!how) { alert('Choose how they said yes first. Nobody is added without it.'); return; }", "if (!how) how = 'person';"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
@@ -88,7 +92,9 @@ const FOLK = {
   ann: { name: 'Ann Synthetic', email: 'ann.ab@example.invalid' },
   ben: { name: 'Ben Synthetic', email: 'ben.ab@example.invalid' },
   una: { name: 'Una Synthetic', email: 'una.ab@example.invalid' },
-  kit: { name: 'Kit Synthetic', email: 'kit.ab@example.invalid', isMinor: true }
+  kit: { name: 'Kit Synthetic', email: 'kit.ab@example.invalid', isMinor: true },
+  /* 17: ticked Under 18, not Under 16 (the reviewing window, 20 Oct) */
+  sev: { name: 'Sev Synthetic', email: 'sev.ab@example.invalid', under18: true }
 };
 
 const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
@@ -111,7 +117,7 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
     await put('addressBook/' + u.member, { name: 'Ab ' + u.teams[0] + ' Synthetic', email: u.email, markers: u.teams, masterAdmin: false, archived: false });
     await put('users/' + u.uid, { uid: u.uid, email: u.email, name: 'Ab Synthetic', memberId: u.member, status: 'active', linkedBy: 'admin', teams: u.teams, adminFor: u.adminFor, masterAdmin: false, attender: true });
   }
-  for (const [k, f] of Object.entries(FOLK)) await put('addressBook/ab_' + k, { name: f.name, email: f.email, markers: ['Welcome team'], isMinor: f.isMinor === true, masterAdmin: false, archived: false });
+  for (const [k, f] of Object.entries(FOLK)) await put('addressBook/ab_' + k, { name: f.name, email: f.email, markers: ['Welcome team'], isMinor: f.isMinor === true, under18: f.under18 === true, masterAdmin: false, archived: false });
   await put('enewsSubscribers/s_ann', { email: FOLK.ann.email, firstName: 'Ann', status: 'subscribed', lists: { weekly: true, special: false }, consent: { at: '2026-10-01T09:00:00Z', how: 'office: a paper form', confirmedAt: '2026-10-01T09:00:00Z' }, token: 'synthetictokenannnnnnnnnnnnnnnn1', history: [], updatedAt: '2026-10-01T09:00:00Z' });
   await put('enewsSubscribers/s_una', { email: FOLK.una.email, firstName: 'Una', status: 'unsubscribed', lists: { weekly: false, special: false }, token: 'synthetictokenunaaaaaaaaaaaaaaa1', history: [], updatedAt: '2026-10-05T09:00:00Z' });
   await put('churchSettings/details', { name: 'Synthetic Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '' });
@@ -165,7 +171,7 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
   };
   const open = async () => {
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/addressbook.html' });
-    await until('document.querySelectorAll("#memberListBody tr").length >= 6', 25000);
+    await until('document.querySelectorAll("#memberListBody tr").length >= 7', 25000);
     await ev('window.alert=function(m){window.__alerts=(window.__alerts||[]).concat([String(m)])};window.confirm=function(){return true};1');
   };
   const rowOf = (name) => 'Array.from(document.querySelectorAll("#memberListBody tr")).find(function(tr){return tr.textContent.indexOf(' + JSON.stringify(name) + ')>=0})';
@@ -187,7 +193,9 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
     p = await edit('una');
     ok('Una\u2019s form: unsubscribed, only she can come back, nothing to add her', /Unsubscribed from the e-news/.test(p) && /only come back themselves/.test(p) && await ev('!document.getElementById("enewsAdd")'), p);
     p = await edit('kit');
-    ok('an under-16: never offered', /under 16/.test(p) && await ev('!document.getElementById("enewsAdd")'), p);
+    ok('an under-16: never offered', /under 18/.test(p) && await ev('!document.getElementById("enewsAdd")'), p);
+    p = await edit('sev');
+    ok('a 17-year-old (ticked Under 18): never offered either', /under 18/.test(p) && await ev('!document.getElementById("enewsAdd") && document.getElementById("under18").checked'), p);
     p = await edit('ben');
     ok('Ben\u2019s form: "Add to the e-news", asking how he said yes', /Doesn\u2019t get the e-news/.test(p) && await ev('!!document.getElementById("enewsAdd") && !!document.getElementById("enewsHow")'), p);
     await shotOf('#enewsPanel', 'form-add');

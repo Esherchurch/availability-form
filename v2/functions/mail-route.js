@@ -41,6 +41,7 @@
 import { storedKeys } from './hq-mail-key.js';
 import { enewsShut } from './enews-gate.js';
 import { fromFor } from './hq-mail.js';
+import { under18Emails } from './under18.js';
 
 /* The same list as Calla's sendEmail (C:\Users\marti\egbc-email,
    functions/index.js KNOWN_SOURCES, read 19 Oct 2026). check-mail-route
@@ -102,8 +103,8 @@ export async function checkRecipients(db, to) {
   }))));
   const unknown = want.filter(a => !known.has(a));
   if (unknown.length) return { refused: 'Recipient not known to the hub (' + unknown.length + ')' };
-  const minors = new Set();
-  (await db.collection('addressBook').where('isMinor', '==', true).get()).docs.forEach(d => { const e = d.data().email; if (e) minors.add(low(e)); });
+  /* Ticked Under 16 or Under 18 in the address book (under18.js). */
+  const minors = await under18Emails(db);
   if (want.some(a => minors.has(a))) return { refused: 'An under-18 address: the hub never emails under-18s' };
   return { ok: true };
 }

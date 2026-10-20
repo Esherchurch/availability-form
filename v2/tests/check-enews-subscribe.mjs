@@ -219,6 +219,8 @@ const outbox = async kind => (await list('emailOutbox')).filter(r => !kind || r.
   const OFF = await signIn('office.enews@example.invalid', ['Church office'], false);
   const MEM = await signIn('member.enews@example.invalid', ['Welcome team'], false);
   await put('addressBook/ab_kid', { name: 'Kit Synthetic', email: 'kit.enews@example.invalid', isMinor: true, archived: false });
+  /* A 17-year-old: ticked Under 18, not Under 16 (the reviewing window, 20 Oct). */
+  await put('addressBook/ab_seventeen', { name: 'Sev Synthetic', email: 'sev.enews@example.invalid', under18: true, isMinor: false, archived: false });
   r = await call(MEM, { people: [{ email: 'dee.enews@example.invalid' }], how: 'person', from: 'addressBook' });
   ok('a church member who is not the office cannot add anyone', r.error && /office/i.test(r.error.message) && !(await subOf('dee.enews@example.invalid')), r);
   r = await call(OFF, { people: [{ email: 'dee.enews@example.invalid', firstName: 'Dee', memberId: 'ab_dee' }], from: 'addressBook' });
@@ -229,12 +231,16 @@ const outbox = async kind => (await list('emailOutbox')).filter(r => !kind || r.
     { email: 'dee.enews@example.invalid', firstName: 'Dee', memberId: 'ab_dee' },
     { email: 'fay.enews@example.invalid', firstName: 'Fay', memberId: 'ab_fay' },
     { email: 'kit.enews@example.invalid', firstName: 'Kit', memberId: 'ab_kid' },
+    { email: 'sev.enews@example.invalid', firstName: 'Sev', memberId: 'ab_seventeen' },
     { email: 'eve.enews@example.invalid', firstName: 'Eve' }], how: 'person', from: 'addressBook' });
   const skipped = (r.result && r.result.skipped) || [];
   ok('from the address book: two added at once', r.result && r.result.added === 2, r);
   const dee = await subOf('dee.enews@example.invalid');
   ok('each with how they said yes, who, when, and their address book person', dee && dee.status === 'subscribed' && /told the office/.test(dee.consent.how) && dee.consent.by && dee.consent.at && dee.memberId === 'ab_dee' && /addressBook/.test(JSON.stringify(dee.history)), dee);
-  ok('an under-16 is skipped, and says why', skipped.some(s => s.email === 'kit.enews@example.invalid' && /under 16/.test(s.skipped)) && !(await subOf('kit.enews@example.invalid')), skipped);
+  ok('an under-16 is skipped, and says why', skipped.some(s => s.email === 'kit.enews@example.invalid' && /under 18/.test(s.skipped)) && !(await subOf('kit.enews@example.invalid')), skipped);
+  ok('a 17-year-old (ticked Under 18) is skipped too: never added', skipped.some(s => s.email === 'sev.enews@example.invalid' && /under 18/.test(s.skipped)) && !(await subOf('sev.enews@example.invalid')), skipped);
+  r = await call(OFF, { email: 'sev.enews@example.invalid', firstName: 'Sev', how: 'paper' });
+  ok('nor one at a time, by hand', r.error && /under 18/.test(r.error.message) && !(await subOf('sev.enews@example.invalid')), r);
   ok('someone who unsubscribed is skipped: only they can come back', skipped.some(s => s.email === 'eve.enews@example.invalid' && /only they can sign up again/.test(s.skipped)) && (await subOf('eve.enews@example.invalid')).status === 'unsubscribed', skipped);
   r = await call(OFF, { email: 'eve.enews@example.invalid', how: 'person', from: 'addressBook', confirmAgain: true });
   ok('not even with "they asked again" from the address book', r.error && (await subOf('eve.enews@example.invalid')).status === 'unsubscribed', r);

@@ -28,6 +28,7 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-export-'));
 const H = '﻿Email Address,First Name,Last Name,MEMBER_RATING,OPTIN_TIME,OPTIN_IP,CONFIRM_TIME,CONFIRM_IP,TAGS\n';
 fs.writeFileSync(path.join(DIR, 'subscribed_email_audience_export_x.csv'), H
   + 'New.Person@Example.invalid,"Smith, Jo",X,2,2024-03-01 10:22:13,192.0.2.1,2024-03-01 10:25:00,192.0.2.1,""\n'
+  + 'sev.mc@example.invalid,Sev,X,2,2024-03-01 10:22:13,192.0.2.1,2024-03-01 10:25:00,192.0.2.1,""\n'
   + 'gone.mc@example.invalid,Gone,X,2,2023-01-01 09:00:00,,2023-01-01 09:01:00,,\n'
   + 'both.mc@example.invalid,Both,X,2,2023-01-01 09:00:00,,2023-01-01 09:01:00,,\n'
   + 'twice.mc@example.invalid,Twice,X,2,2022-01-01 09:00:00,,,,\n'
@@ -49,6 +50,8 @@ async function scenario(tool) {
   await db.collection('enewsSubscribers').doc('hub_gone').set({ email: 'gone.mc@example.invalid', status: 'unsubscribed', lists: { weekly: false }, token: 't'.repeat(32), history: [] });
   await db.collection('enewsSubscribers').doc('hub_both').set({ email: 'both.mc@example.invalid', status: 'subscribed', lists: { weekly: true }, token: 'u'.repeat(32), history: [] });
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: false, opensOn: '' });
+  /* A 17-year-old, ticked Under 18 in the address book. */
+  await db.collection('addressBook').doc('ab_sev_mc').set({ name: 'Sev Synthetic', email: 'sev.mc@example.invalid', under18: true, isMinor: false });
 
   let r = run(tool, [DIR, '--write']);
   t('before switch-over it refuses to write', r.status === 3 && !(await sub('new.person@example.invalid')), r.status + ' ' + r.stderr);
@@ -70,6 +73,7 @@ async function scenario(tool) {
   t('in both Mailchimp files: the "no" wins', (await sub('twice.mc@example.invalid') || {}).status === 'unsubscribed');
   t('Mailchimp’s unsubscribed are kept as do-not-contact', (await sub('left.mc@example.invalid') || {}).status === 'unsubscribed');
   t('Mailchimp’s cleaned are kept as bounced', (await sub('dead.mc@example.invalid') || {}).status === 'bounced');
+  t('a 17-year-old on Mailchimp\u2019s list is NOT imported (the hub never emails under-18s)', !(await sub('sev.mc@example.invalid')));
   t('people who never joined are left alone', !(await sub('never.mc@example.invalid')));
   t('a row with no usable address is skipped', !(await sub('not-an-address')));
   r = run(tool, [DIR, '--write']);
@@ -86,6 +90,7 @@ const SRC = fs.readFileSync(TOOL, 'utf8');
 const BREAKS = [
   ['a hub "no" overwritten by Mailchimp', "if (hubNo) return { act: 'leave', why: 'said no in the hub (' + hub.status + ')' };", '', 'is NOT put back'],
   ['the newest "no" not read first', "for (const name of files.sort((a, b) => KIND.findIndex(k => k[0] === kindOf(a)) - KIND.findIndex(k => k[0] === kindOf(b)))) {", "for (const name of files.sort((a, b) => KIND.findIndex(k => k[0] === kindOf(b)) - KIND.findIndex(k => k[0] === kindOf(a)))) {", 'the "no" wins'],
+  ['under-18s imported', "if (kind === 'subscribed' && under18) return { act: 'leave', why: 'under 18: the hub never emails under-18s' };", '', 'NOT imported'],
   ['writing before switch-over', "if (WRITE && !(launch.exists && launch.data().rulesLocked === true)) {", 'if (false) {', 'refuses to write']
 ];
 for (const [what, from, to, expect] of BREAKS) {
