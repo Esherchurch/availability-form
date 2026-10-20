@@ -47,6 +47,9 @@ async function run(rules) {
     await setDoc(doc(db, 'enewsWeb', 'w1'), { subject: 'Weekly news', html: '<p>Hi</p>', sentAt: 'x' });
     await setDoc(doc(db, 'enewsIssues', 'sent1', 'sends', 'a'), { ok: true });
     await setDoc(doc(db, 'enewsSubscribers', 's1'), { email: 'sub@example.invalid', status: 'subscribed', token: 'x'.repeat(32) });
+    /* Under 18 (C-36): a 16-year-old and an under-16, both on Kids Church. */
+    await setDoc(doc(db, 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false });
+    await setDoc(doc(db, 'addressBook', 'ab_kid'), { name: 'Kid Synthetic', email: '', markers: ['Kids Church'], isMinor: true });
     await setDoc(doc(db, 'enewsSettings', 'main'), { template: 'classic', colours: {}, church: {}, updatedAt: 'x', updatedBy: 'en_office' });
   });
   const as = w => env.authenticatedContext(PEOPLE[w].uid).firestore();
@@ -84,6 +87,11 @@ async function run(rules) {
   await t('not even the office writes a subscriber from a page (functions only)', assertFails(setDoc(doc(as('office'), 'enewsSubscribers', 's2'), { email: 'x@example.invalid', status: 'subscribed' })));
   await t('nobody signed out can add themselves directly', assertFails(setDoc(doc(anon, 'enewsSubscribers', 's3'), { email: 'x@example.invalid', status: 'pending' })));
   await t('Resend receipts are the server’s alone', assertFails(getDocs(collection(as('master'), 'hqMailEvents'))));
+  /* Under 18 is the office's to tick, like Under 16 (C-36). */
+  await t('a team leader cannot tick Under 18 on their team’s person', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
+  await t('the office can tick Under 18', assertSucceeds(setDoc(doc(as('office'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
+  await t('a team leader cannot untick it either', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: false })));
+  await t('a team leader can still save an under-16 they lead, as the page saves it', assertSucceeds(setDoc(doc(as('admin'), 'addressBook', 'ab_kid'), { name: 'Kid Synthetic', email: '', markers: ['Kids Church'], isMinor: true, under18: false })));
   await env.cleanup();
   return R;
 }
@@ -101,6 +109,7 @@ const BREAKS = [
   ['any admin may read issues', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\'); }', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\') || isAdmin(); }', 'an admin of a team'],
   ['a sent issue may be changed', "&& resource.data.status in ['draft', 'scheduled']", '', 'a sent issue cannot be changed'],
   ['the office may mark an issue sent', "&& d.status in ['draft', 'scheduled']", "&& d.status in ['draft', 'scheduled', 'sent']", 'the office cannot mark an issue sent'],
+  ['team leaders may set Under 18', "                 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));", '));', 'cannot tick Under 18'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];
 let caught = 0;

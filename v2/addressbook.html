@@ -228,7 +228,11 @@
                 kidsRolesPrimary: Array.from(document.querySelectorAll('.kidsprimary:checked')).map(cb => cb.value),
                 kidsRolesSecondary: Array.from(document.querySelectorAll('.kidssecondary:checked')).map(cb => cb.value),
                 isMinor: document.getElementById('isMinor').checked,
-                under18: document.getElementById('under18').checked || document.getElementById('isMinor').checked,
+                /* Under 16 already counts as under 18 (functions/under18.js), so
+                   the Under 18 tick is kept only for a 16 or 17 year old. Saving
+                   it for an under-16 too would change a field a team leader
+                   may not change, and the rules would refuse their save. */
+                under18: document.getElementById('under18').checked && !document.getElementById('isMinor').checked,
                 churchMember: document.getElementById('churchMember').checked,
                 adminFor: Array.from(document.querySelectorAll('.adminfor:checked')).map(cb => cb.value),
                 masterAdmin: document.getElementById('masterAdmin').checked,
