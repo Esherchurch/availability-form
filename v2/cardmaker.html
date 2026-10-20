@@ -24,7 +24,20 @@
 
      "Save to library": the picture (PNG) for every size, now. GIFs and
      videos go in once the picture library keeps them whole (C-16, a
-     request to the events window); until then they download. -->
+     request to the events window); until then they download.
+
+     SOCIAL POSTS, STEP 1 (FINDINGS-comms plan H; Martin, 20 Oct): the
+     church's two kinds of post. An event's post - the card in Instagram's
+     portrait (1080x1350, as the church posts), square, Facebook and Story
+     sizes, with its caption written from the event in the church's way (a
+     first line, then 📅 🕝 📍 🎟 👉, then the hashtags), and a COUNTDOWN
+     (the same card on the days before, a new first line each day). And the
+     VERSE OF THE DAY, the hub's own: a verse a day (egbc-votd.js) from a
+     Bible the church may use, in the hub's own designs. "Today's posts" at
+     the top has each day's ready: Copy caption, Share (the phone's own
+     sheet, straight into Instagram or Facebook) or Download. Nothing is
+     posted for the church: step 2 (posting straight to the church's Page)
+     needs Meta's approval, and Martin has said not now. -->
 <script src="egbc-nosend.js?v=202610072100"></script>
 <script src="egbc-shell.js?v=202610210900" data-title="Card maker"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -37,6 +50,8 @@
 <script src="egbc-comms.js?v=202610192100"></script>
 <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
 <script src="egbc-gif.js?v=202610192100"></script>
+<script src="egbc-bible.js?v=202610161700"></script>
+<script src="egbc-votd.js?v=202610201900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--ok:#15803d;--danger:#b0392c;--card:0 1px 2px rgba(16,24,40,.05)}
@@ -63,6 +78,16 @@
   .m{color:var(--muted);font-size:13px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
   @media (max-width:480px){.two{grid-template-columns:1fr}}
+  textarea{width:100%;min-height:150px;border:1px solid var(--line-2);border-radius:8px;padding:10px;font:400 14px/1.45 Inter,sans-serif;color:var(--ink);resize:vertical}
+  .post{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+  .post:first-of-type{border-top:0}
+  .post canvas{width:96px;height:auto;border-radius:6px;flex:none;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .post .cap{white-space:pre-wrap;font-size:13px;color:var(--body);max-height:96px;overflow:hidden}
+  .post.done{opacity:.55}
+  .days{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin:8px 0}
+  .days label{display:flex;gap:8px;align-items:center;font-weight:500;color:var(--ink);min-height:44px}
+  .days input[type=checkbox]{width:20px;height:20px;accent-color:var(--brand)}
+  details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;color:var(--ink)}
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:90vw}
   #toast.on{opacity:1}
 </style>
@@ -80,8 +105,10 @@
   /* ---- what can be made ------------------------------------------------- */
   var SIZES = {
     enews:    { label: 'E-news', w: 940, h: 788, gif: true },
-    insta:    { label: 'Instagram', w: 1080, h: 1080, video: true },
-    facebook: { label: 'Facebook', w: 1200, h: 630, video: true },
+    portrait: { label: 'Instagram', w: 1080, h: 1350, video: true, social: true },
+    insta:    { label: 'Square', w: 1080, h: 1080, video: true, social: true },
+    facebook: { label: 'Facebook', w: 1200, h: 630, video: true, social: true },
+    story:    { label: 'Story', w: 1080, h: 1920, video: true, social: true },
     screen:   { label: 'Screen', w: 1920, h: 1080, video: true },
     a5:       { label: 'A5 print', w: 1748, h: 2480, print: true }
   };
@@ -92,8 +119,14 @@
   };
   /* Each moves the photo or the button; the words never move (C-8). */
   var MOVES = { none: 'None', zoom: 'Gentle zoom', pan: 'Slow pan', pulse: 'Button pulse' };
-  var S = { size: 'enews', style: 'shade', move: 'zoom', accent: '#3d6263', ev: null, photo: null,
-            words: { kicker: '', title: '', when: '', button: '' } };
+  var S = { size: 'enews', style: 'shade', move: 'zoom', accent: '#3d6263', ev: null, photo: null, photoUrl: '',
+            words: { kicker: '', title: '', when: '', button: '' },
+            mode: 'event', vstyle: 'type', verse: { text: '', ref: '', version: '', copyright: '' } };
+  /* The hub's own verse designs (plan H): type on the church's colour, on a
+     photo, framed, or a band with the reference. Never anyone's artwork. */
+  var VSTYLES = { type: 'Plain colour', photo: 'On a photo', frame: 'Framed', band: 'Band' };
+  var MODES = { event: 'An event', verse: 'A Bible verse' };
+  var SOC = { open: '', tags: '', capEdited: false, settings: {} };
   var EVENTS = [];
 
   /* ---- drawing one frame (t from 0 to 1; 0 is the first frame) ----------- */
@@ -175,7 +208,55 @@
       ctx.restore();
     }
   }
+  /* A verse: the words as large as they will go, centred, the reference
+     under them, the version's copyright line small at the foot where the
+     version needs one. Everything shrinks together until it fits. */
+  function verseLines(ctx, text, maxW, maxH, size) {
+    for (var sz = size; sz > size * 0.35; sz *= 0.94) {
+      ctx.font = '600 ' + Math.round(sz) + 'px Georgia, "Times New Roman", serif';
+      var lines = wrapLines(ctx, text, maxW, 99) || [text];
+      if (lines.length * sz * 1.3 <= maxH) return { size: Math.round(sz), lines: lines };
+    }
+    ctx.font = '600 ' + Math.round(size * 0.35) + 'px Georgia, serif';
+    return { size: Math.round(size * 0.35), lines: wrapLines(ctx, text, maxW, 99) || [text] };
+  }
+  function drawVerse(ctx, w, h, t) {
+    var V = S.verse, m = Math.min(w, h), p = Math.round(m * 0.09);
+    var text = '\u201c' + String(V.text || 'Choose a verse').trim() + '\u201d', ref = [V.ref, V.version].filter(Boolean).join(' ');
+    var dark = S.vstyle === 'type' || S.vstyle === 'photo';
+    ctx.clearRect(0, 0, w, h);
+    if (S.vstyle === 'photo') {
+      photo(ctx, 0, 0, w, h, t);
+      ctx.fillStyle = 'rgba(10,25,26,.55)'; ctx.fillRect(0, 0, w, h);
+    } else if (S.vstyle === 'type') {
+      var g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, S.accent); g.addColorStop(1, '#16282a'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    } else {
+      ctx.fillStyle = '#fbf8f2'; ctx.fillRect(0, 0, w, h);
+      if (S.vstyle === 'frame') { ctx.strokeStyle = S.accent; ctx.lineWidth = Math.round(m * 0.012); ctx.strokeRect(p * 0.5, p * 0.5, w - p, h - p); }
+      if (S.vstyle === 'band') { ctx.fillStyle = S.accent; ctx.fillRect(0, h - Math.round(h * 0.16), w, Math.round(h * 0.16)); }
+    }
+    var refSize = Math.round(m * 0.045), copySize = Math.round(m * 0.022);
+    var boxH = h - 2 * p - refSize * 2.4 - (V.copyright ? copySize * 3 : 0) - (S.vstyle === 'band' ? h * 0.16 : 0);
+    var L = verseLines(ctx, text, w - 2 * p, boxH, m * 0.085);
+    var total = L.lines.length * L.size * 1.3 + refSize * 2.4;
+    var top = (S.vstyle === 'band' ? (h * 0.84 - total) / 2 : (h - total) / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = dark ? '#ffffff' : '#1e3a3a';
+    ctx.font = '600 ' + L.size + 'px Georgia, "Times New Roman", serif';
+    var widest = 0;
+    L.lines.forEach(function (l, i) { ctx.fillText(l, w / 2, top + i * L.size * 1.3); widest = Math.max(widest, ctx.measureText(l).width); });
+    ctx.font = '700 ' + refSize + 'px Inter, Arial, sans-serif';
+    var refY = S.vstyle === 'band' ? h - h * 0.08 - refSize / 2 : top + L.lines.length * L.size * 1.3 + refSize * 0.9;
+    ctx.fillStyle = S.vstyle === 'band' ? '#ffffff' : (dark ? '#ffffff' : S.accent);
+    ctx.fillText(ref, w / 2, refY);
+    if (V.copyright) {
+      ctx.font = '400 ' + copySize + 'px Inter, Arial, sans-serif'; ctx.fillStyle = dark ? 'rgba(255,255,255,.75)' : 'rgba(30,58,58,.7)';
+      ctx.fillText(String(V.copyright).slice(0, 120), w / 2, (S.vstyle === 'band' ? h * 0.84 : h) - p * 0.5 - copySize * 1.4);
+    }
+    ctx.textAlign = 'left';
+    LAST = { x: (w - widest) / 2, top: top, bottom: top + L.lines.length * L.size * 1.3, right: (w + widest) / 2, maxW: w - 2 * p, boxTop: p, boxBottom: h - p, fits: widest <= w - 2 * p + 1 };
+  }
   function draw(ctx, w, h, t) {
+    if (S.mode === 'verse') return drawVerse(ctx, w, h, t);
     var base = Math.min(w, h) * (h > w * 1.2 ? 1.15 : 1), p = Math.round(Math.min(w, h) * 0.06);
     ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
     if (S.style === 'panel') {
@@ -198,7 +279,7 @@
     }
   }
   /* For the checks: draw a frame into any canvas, as the page would. */
-  window.EGBCCards = { draw: function (c, t) { draw(c.getContext('2d'), c.width, c.height, t || 0); return LAST; }, state: S, SIZES: SIZES };
+  window.EGBCCards = { draw: function (c, t) { draw(c.getContext('2d'), c.width, c.height, t || 0); return LAST; }, state: S, SIZES: SIZES, caption: function () { return captionNow(); } };
 
   /* ---- the frames ---------------------------------------------------------- */
   var N = 14;
@@ -240,7 +321,7 @@
     });
   }
   function fileName(kind, sz, ext) {
-    var t = String(S.words.title || 'card').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'card';
+    var t = String((S.mode === 'verse' ? 'verse ' + S.verse.ref : S.words.title) || 'card').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'card';
     return t + '-' + kind + '-' + sz.w + 'x' + sz.h + '.' + ext;
   }
   function download(blob, name) {
@@ -261,7 +342,7 @@
     })();
   }
   function setPhoto(url) {
-    S.photo = null; preview();
+    S.photo = null; S.photoUrl = url || ''; preview();
     if (!url) return;
     var img = new Image(); img.crossOrigin = 'anonymous';
     img.onload = function () { S.photo = img; preview(); };
@@ -273,6 +354,129 @@
     var o = {}; new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23', timeZone: 'Europe/London' }).formatToParts(d).forEach(function (x) { o[x.type] = x.value; });
     var h = +o.hour, m = +o.minute;
     return (h % 12 || 12) + (m ? ':' + (m < 10 ? '0' : '') + m : '') + (h < 12 ? 'am' : 'pm');
+  }
+  /* ---- the social post (plan H, step 1) ------------------------------------ */
+  function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  function hubBase() { return EGBCComms.hubBase(); }
+  function eventKey(e) { return e ? String(e.seriesId || e.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) : ''; }
+  function tagsFor(e) { var sets = SOC.settings.sets || {}; return (e && sets[eventKey(e)]) || SOC.settings.usual || ''; }
+  /* The church's way (its Instagram, 20 Oct): a first line, then the
+     details - 📅 day, 🕝 time, 📍 where, 🎟 how to book, 👉 the link - then
+     the hashtags. Every part can be changed. */
+  function eventCaption(e, opening) {
+    if (!e) return [opening, S.words.title, S.words.when].filter(Boolean).join('\n\n');
+    var d = new Date(e.startUtc), o = {};
+    new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }).formatToParts(d).forEach(function (x) { o[x.type] = x.value; });
+    var where = e.location || (window.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || '';
+    var link = hubBase() + '/' + (e.signupOn === true ? 'signup.html' : 'whatson.html') + '?event=' + encodeURIComponent(e.id);
+    return [opening || e.title,
+      ['\uD83D\uDCC5 ' + o.weekday + ' ' + ordinal(+o.day) + ' ' + o.month, e.allDay ? '' : '\uD83D\uDD5D ' + clock(d), where ? '\uD83D\uDCCD ' + where : '',
+        e.signupOn === true ? '\uD83C\uDF9F Book your place here:' : '\u2139\uFE0F More details:', '\uD83D\uDC49 ' + link].filter(Boolean).join('\n'),
+      SOC.tags].filter(Boolean).join('\n\n');
+  }
+  function verseCaption(V, opening) {
+    var credit = SOC.settings.vod && SOC.settings.vod.credit;
+    return [opening || 'Verse of the day', '\u201c' + String(V.text || '').trim() + '\u201d\n' + [V.ref, V.version].filter(Boolean).join(' '),
+      V.copyright ? String(V.copyright) : '', credit || '', SOC.tags].filter(Boolean).join('\n\n');
+  }
+  function captionNow() { return S.mode === 'verse' ? verseCaption(S.verse, SOC.open) : eventCaption(S.ev, SOC.open); }
+  function refreshCaption(force) {
+    var c = document.getElementById('s-cap'); if (!c) return;
+    if (force) SOC.capEdited = false;
+    if (!SOC.capEdited) c.value = captionNow();
+  }
+  function copyText(t) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+    var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); } catch (e) {} a.remove(); return Promise.resolve();
+  }
+  /* Share: the phone's own share sheet, with the picture and the caption
+     (Instagram and Facebook are on it). Where a browser can't share a
+     picture, the caption is copied and the picture downloads instead. */
+  function sharePost(blob, name, caption) {
+    var file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], text: caption, title: name }).then(function () { return 'shared'; });
+    return copyText(caption).then(function () { download(blob, name); return 'copied'; });
+  }
+  function socialSizes() { return Object.keys(SIZES).filter(function (k) { return SIZES[k].social; }); }
+  /* The countdown: the same card on the days before, a new first line each. */
+  var DAYS = [[7, 'One week to go!'], [3, '3 days to go!'], [2, '2 days to go!'], [1, 'TOMORROW!'], [0, 'It\u2019s today!']];
+  function londonDay(ms) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(ms)); }
+  function savedState() {
+    return { mode: S.mode, size: S.size === 'enews' || S.size === 'a5' || S.size === 'screen' ? 'portrait' : S.size, style: S.style, vstyle: S.vstyle, accent: S.accent,
+      words: Object.assign({}, S.words), verse: Object.assign({}, S.verse), photoUrl: S.photoUrl || '' };
+  }
+  function saveCountdown() {
+    var e = S.ev; if (!e) { toast('Choose an event from What\u2019s On first.'); return Promise.resolve(0); }
+    var picks = DAYS.filter(function (d) { var c = document.getElementById('cd-' + d[0]); return c && c.checked; });
+    if (!picks.length) { toast('Tick at least one day.'); return Promise.resolve(0); }
+    var today = londonDay(Date.now()), u = EGBCAuth.user() || {}, base = savedState(), batch = EGBCAuth.db.batch(), n = 0;
+    picks.forEach(function (d) {
+      var day = londonDay(e.startUtc - d[0] * 86400000); if (day < today) return;
+      var opening = (document.getElementById('cdl-' + d[0]) || {}).value || d[1];
+      var ref = EGBCAuth.db.collection('socialPosts').doc('cd_' + String(e.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) + '_' + d[0]);
+      batch.set(ref, Object.assign({ date: day, kind: 'countdown', eventId: String(e.id), title: String(e.title || '').slice(0, 140), opening: String(opening).slice(0, 140),
+        caption: eventCaption(e, opening).slice(0, 2200), status: 'ready', createdBy: u.uid || '', createdAt: new Date().toISOString() }, base));
+      n++;
+    });
+    if (!n) { toast('Those days have gone by.'); return Promise.resolve(0); }
+    return batch.commit().then(function () { loadToday(); return n; });
+  }
+  function saveSettings(patch) {
+    SOC.settings = Object.assign({}, SOC.settings, patch);
+    var u = EGBCAuth.user() || {};
+    return EGBCAuth.db.collection('socialSettings').doc('main').set(Object.assign({ usual: SOC.settings.usual || '', sets: SOC.settings.sets || {}, vod: SOC.settings.vod || { on: false }, remind: SOC.settings.remind || [], vodDone: SOC.settings.vodDone || '' },
+      { updatedAt: new Date().toISOString(), updatedBy: u.uid || '' }));
+  }
+
+  /* ---- today's posts: the countdowns due today, and the verse of the day -- */
+  function drawPost(post, canvas) {
+    var keep = JSON.parse(JSON.stringify({ mode: S.mode, size: S.size, style: S.style, vstyle: S.vstyle, accent: S.accent, words: S.words, verse: S.verse, photoUrl: S.photoUrl })), keepPhoto = S.photo;
+    var sz = SIZES[post.size] || SIZES.portrait;
+    canvas.width = sz.w; canvas.height = sz.h;
+    var paint = function (img) {
+      Object.assign(S, { mode: post.mode || 'event', size: post.size, style: post.style || 'shade', vstyle: post.vstyle || 'type', accent: post.accent || S.accent, words: post.words || S.words, verse: post.verse || S.verse, photo: img || null });
+      draw(canvas.getContext('2d'), sz.w, sz.h, 0);
+      Object.assign(S, keep); S.photo = keepPhoto;
+    };
+    if (!post.photoUrl) { paint(null); return Promise.resolve(canvas); }
+    return new Promise(function (res) { var img = new Image(); img.crossOrigin = 'anonymous'; img.onload = function () { paint(img); res(canvas); }; img.onerror = function () { paint(null); res(canvas); }; img.src = post.photoUrl; });
+  }
+  function votdPost() {
+    var V = SOC.settings.vod || {}; if (!V.on) return Promise.resolve(null);
+    var ref = EGBCVotd.forDate(new Date()), ver = V.version || { source: 'bundled', id: 'BSB', abbrev: 'BSB' };
+    var get = ver.source === 'apibible' ? EGBCBible.apiPassage(ver.id, ref, ver.abbrev) : EGBCBible.passage(ver.id || 'BSB', ref);
+    return Promise.all([get, V.photo === 'library' && window.EGBCPictures && EGBCPictures.list ? EGBCPictures.list().catch(function () { return []; }) : Promise.resolve([])]).then(function (r) {
+      var p = r[0], pics = (r[1] || []).filter(function (x) { return x && x.url; });
+      var verse = { text: (p.verses || []).map(function (x) { return x.text; }).join(' ').replace(/\s+/g, ' ').trim(), ref: p.ref, version: p.version, copyright: ver.source === 'apibible' || /NIV|ESV|NLT/i.test(p.version) ? p.copyright : '' };
+      var photoUrl = pics.length ? pics[EGBCVotd.dayOfYear(new Date()) % pics.length].url : '';
+      return { id: 'votd', kind: 'verse', title: 'Verse of the day: ' + p.ref, mode: 'verse', size: 'portrait', vstyle: V.style || (photoUrl ? 'photo' : 'type'), accent: S.accent,
+        verse: verse, photoUrl: photoUrl, caption: verseCaption(verse, 'Verse of the day'), status: (SOC.settings.vodDone === londonDay(Date.now())) ? 'posted' : 'ready' };
+    }, function () { return null; });
+  }
+  function loadToday() {
+    var el = document.getElementById('today-list'); if (!el) return;
+    var today = londonDay(Date.now());
+    Promise.all([EGBCAuth.db.collection('socialPosts').where('date', '==', today).get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }, function () { return []; }), votdPost()]).then(function (r) {
+      var posts = r[0].concat(r[1] ? [r[1]] : []);
+      if (!posts.length) { el.innerHTML = '<p class="m" style="margin:0">Nothing for today. A countdown or the verse of the day puts its post here, ready.</p>'; return; }
+      el.innerHTML = posts.map(function (p, k) {
+        return '<div class="post' + (p.status === 'posted' ? ' done' : '') + '" data-k="' + k + '"><canvas></canvas><div style="flex:1;min-width:0"><b style="color:var(--ink)">' + esc(p.title || p.opening || 'A post') + '</b>' + (p.status === 'posted' ? ' <span class="m">\u00b7 posted</span>' : '') +
+          '<div class="cap">' + esc(p.caption || '') + '</div><div class="row" style="margin-top:8px"><button class="btn sec" data-a="copy">Copy caption</button><button class="btn" data-a="share">Share</button><button class="btn sec" data-a="dl">Download</button>' +
+          (p.status === 'posted' ? '' : '<button class="btn sec" data-a="done">Posted \u2713</button>') + '</div></div></div>';
+      }).join('');
+      Array.prototype.forEach.call(el.querySelectorAll('.post'), function (row) {
+        var p = posts[+row.getAttribute('data-k')], cv = row.querySelector('canvas');
+        var ready = drawPost(p, cv);
+        row.querySelector('[data-a="copy"]').onclick = function () { copyText(p.caption || '').then(function () { toast('Caption copied.'); }); };
+        row.querySelector('[data-a="share"]').onclick = function () { ready.then(function () { return blobOf(cv); }).then(function (b) { return sharePost(b, 'post-' + (p.id || 'today') + '.png', p.caption || ''); }).then(function (how) { toast(how === 'shared' ? 'Shared.' : 'Caption copied and the picture downloaded: paste the caption in.'); }, function () {}); };
+        row.querySelector('[data-a="dl"]').onclick = function () { ready.then(function () { return blobOf(cv); }).then(function (b) { download(b, 'post-' + (p.id || 'today') + '.png'); }); };
+        var dn = row.querySelector('[data-a="done"]');
+        if (dn) dn.onclick = function () {
+          (p.id === 'votd' ? saveSettings({ vodDone: today }) : EGBCAuth.db.collection('socialPosts').doc(p.id).set({ status: 'posted', postedAt: new Date().toISOString() }, { merge: true }))
+            .then(loadToday, function (e) { toast('Not saved: ' + (e.message || e)); });
+        };
+      });
+    });
   }
   function chooseEvent(id) {
     var e = EVENTS.filter(function (x) { return x.id === id; })[0];
@@ -287,6 +491,8 @@
     }
     ['kicker', 'title', 'when', 'button'].forEach(function (k) { var el = document.getElementById('w-' + k); if (el) el.value = S.words[k]; });
     setPhoto(e && e.image);
+    SOC.tags = tagsFor(e); var tg = document.getElementById('s-tags'); if (tg) tg.value = SOC.tags;
+    refreshCaption(true);
   }
   function chips(id, map, key, extra) {
     return '<div class="chips" id="' + id + '">' + Object.keys(map).map(function (k) {
@@ -341,25 +547,55 @@
   function page() {
     wrap.innerHTML = '<h1>Card maker</h1><p class="sub">Pick an event, a size and a style. The card is made here, in every size you need.' +
       (EGBCAuth.uses && EGBCAuth.uses('canva') ? ' Made it in Canva instead? <a href="canva.html">From Canva</a>.' : '') + '</p>' +
-      '<div class="card"><label class="f" for="ev" style="margin-top:0">Event from What’s On</label><select id="ev"><option value="">None (type the words below)</option>' +
-        EVENTS.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.title || 'Untitled') + ' · ' + esc(new Date(e.startUtc).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })) + '</option>'; }).join('') + '</select>' +
+      '<div class="card" id="today"><h2>Today\u2019s posts</h2><div id="today-list"><p class="m" style="margin:0">Loading\u2026</p></div></div>' +
+      '<div class="card"><label class="f" style="margin-top:0">Make a card for</label>' + chips('modes', MODES, 'mode') +
+      '<div id="m-event"><label class="f" for="ev">Event from What’s On</label><select id="ev"><option value="">None (type the words below)</option>' +
+        EVENTS.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.title || 'Untitled') + ' · ' + esc(new Date(e.startUtc).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })) + '</option>'; }).join('') + '</select></div>' +
+      '<div id="m-verse" hidden><label class="f" for="v-ref">Reference</label><div class="row"><input type="text" id="v-ref" placeholder="For example Psalm 23:1" style="flex:1;min-width:160px"><select id="v-ver" style="flex:1;min-width:150px"><option value="">Loading the Bibles\u2026</option></select></div>' +
+        '<div class="row" style="margin-top:8px"><button type="button" class="btn sec" id="v-get">Bring it in</button><button type="button" class="btn sec" id="v-today">Today\u2019s verse</button></div><p class="m" id="v-msg" role="status"></p>' +
+        '<label class="f" for="v-text">The verse (you can also type or paste it)</label><textarea id="v-text" style="min-height:90px"></textarea>' +
+        '<label class="f" for="v-copy">Copyright line (on the picture, where the version needs one)</label><input type="text" id="v-copy"></div>' +
       '<label class="f">Size</label>' + chips('sizes', SIZES, 'size', function (v) { return v.print ? 'print' : v.w + '×' + v.h; }) +
       '<div class="stage"><canvas id="cv" aria-label="The card"></canvas></div>' +
-      '<label class="f">Style</label>' + chips('styles', STYLES, 'style') +
+      '<div id="st-event"><label class="f">Style</label>' + chips('styles', STYLES, 'style') + '</div><div id="st-verse" hidden><label class="f">Design</label>' + chips('vstyles', VSTYLES, 'vstyle') + '</div>' +
       '<label class="f">Movement</label>' + chips('moves', MOVES, 'move') +
       '<p class="m">Movements move the photo or the button; the words stay still, so email programs that show only the first picture still show them.</p></div>' +
-      '<div class="card"><h2>Words</h2><p class="m" style="margin:0">From What’s On. Change them here for this card only.</p>' +
+      '<div class="card" id="w-card"><h2>Words</h2><p class="m" style="margin:0">From What’s On. Change them here for this card only.</p>' +
         '<div class="two"><div><label class="f" for="w-kicker">Small line above</label><input type="text" id="w-kicker" maxlength="40"></div>' +
         '<div><label class="f" for="w-button">Button words (blank for none)</label><input type="text" id="w-button" maxlength="24"></div></div>' +
         '<label class="f" for="w-title">Title</label><input type="text" id="w-title" maxlength="80">' +
         '<label class="f" for="w-when">When and where</label><input type="text" id="w-when" maxlength="80">' +
         '<label class="f" for="w-accent">Colour</label><input type="color" id="w-accent" value="' + esc(S.accent) + '"></div>' +
       '<div class="card"><h2>Save</h2><div class="row" id="outs"></div>' +
-        '<p class="m">GIF for the e-news; video for Instagram, Facebook and the screens; the picture for print and anywhere else. GIFs and videos download for now: the picture library keeps them once it can (FINDINGS-comms C-16).</p></div>';
+        '<p class="m">GIF for the e-news; video for Instagram, Facebook and the screens; the picture for print and anywhere else. GIFs and videos download for now: the picture library keeps them once it can (FINDINGS-comms C-16).</p></div>' +
+      '<div class="card" id="social"><h2>Social post</h2><p class="m" style="margin:0">For Instagram and Facebook: the picture and its caption, written from the event in the church\u2019s way. Change any of it.</p>' +
+        '<label class="f" for="s-open">First line</label><input type="text" id="s-open" maxlength="140" placeholder="For example: Popcorn at the ready!">' +
+        '<label class="f" for="s-tags">Hashtags</label><input type="text" id="s-tags" maxlength="400" placeholder="#esherchurch">' +
+        '<div class="row" style="margin-top:6px"><button type="button" class="btn sec" id="s-keep">Keep these for this event</button><button type="button" class="btn sec" id="s-usual">Keep as the church\u2019s usual</button></div>' +
+        '<label class="f" for="s-cap">Caption</label><textarea id="s-cap"></textarea>' +
+        '<div class="row" style="margin-top:8px"><button type="button" class="btn sec" id="s-copy">Copy caption</button><button type="button" class="btn" id="s-share">Share</button><button type="button" class="btn sec" id="s-dl">Download the pictures</button></div>' +
+        '<p class="m">Share opens the phone\u2019s own share sheet with the picture (Instagram, Facebook, WhatsApp\u2026); paste the caption in. Download gives Instagram (1080\u00d71350), square, Facebook and Story sizes.</p>' +
+        '<details id="cd"><summary>Make it a countdown</summary><p class="m" style="margin:0">The same card on the days before, with a new first line each day. Each day\u2019s post waits in Today\u2019s posts, ready.</p>' +
+          '<div class="days">' + DAYS.map(function (d) { return '<label><input type="checkbox" id="cd-' + d[0] + '"' + (d[0] >= 1 && d[0] <= 3 ? ' checked' : '') + '> ' + (d[0] === 0 ? 'On the day' : d[0] === 1 ? 'The day before' : d[0] + ' days before') + '</label><input type="text" id="cdl-' + d[0] + '" value="' + esc(d[1]) + '" maxlength="140" aria-label="First line">'; }).join('') + '</div>' +
+          '<button type="button" class="btn" id="cd-save">Save the countdown</button></details></div>' +
+      '<div class="card" id="vod"><h2>Verse of the day</h2><p class="m" style="margin:0">The hub\u2019s own: a verse for each day of the year, in the hub\u2019s designs, ready in Today\u2019s posts each morning.</p>' +
+        '<label class="tick" style="display:flex;gap:10px;align-items:center;min-height:44px;font-weight:500;color:var(--ink)"><input type="checkbox" id="vod-on" style="width:20px;height:20px;accent-color:var(--brand)"> Have one ready each morning</label>' +
+        '<label class="f" for="vod-ver">Bible</label><select id="vod-ver"><option value="bundled|BSB|BSB">Berean Standard Bible (free)</option></select>' +
+        '<label class="f">Design</label>' + chips('vod-style', VSTYLES, 'vstyle') +
+        '<label class="tick" style="display:flex;gap:10px;align-items:center;min-height:44px;font-weight:500;color:var(--ink)"><input type="checkbox" id="vod-photo" style="width:20px;height:20px;accent-color:var(--brand)"> Use a picture from the picture library (a different one each day)</label>' +
+        '<label class="f" for="vod-credit">Credit line (optional; in the caption)</label><input type="text" id="vod-credit" maxlength="140">' +
+        '<label class="tick" style="display:flex;gap:10px;align-items:center;min-height:44px;font-weight:500;color:var(--ink)"><input type="checkbox" id="remind" style="width:20px;height:20px;accent-color:var(--brand)"> Email me each morning when a post is ready</label>' +
+        '<div class="row" style="margin-top:8px"><button type="button" class="btn" id="vod-save">Save</button></div></div>';
     document.getElementById('ev').onchange = function () { chooseEvent(this.value); };
+    wireSocial();
     ['kicker', 'title', 'when', 'button'].forEach(function (k) { document.getElementById('w-' + k).oninput = function () { S.words[k] = this.value; preview(); }; });
     document.getElementById('w-accent').oninput = function () { S.accent = this.value; preview(); };
-    wire('sizes', 'size'); wire('styles', 'style'); wire('moves', 'move');
+    wire('sizes', 'size'); wire('styles', 'style'); wire('moves', 'move'); wire('vstyles', 'vstyle'); wire('modes', 'mode');
+    Array.prototype.forEach.call(document.querySelectorAll('#modes button'), function (b) { b.addEventListener('click', function () { SOC.open = ''; var o = document.getElementById('s-open'); if (o) o.value = ''; showMode(); refreshCaption(true); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('#vod-style button'), function (b) {
+      b.onclick = function () { Array.prototype.forEach.call(document.querySelectorAll('#vod-style button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); }); };
+    });
+    showMode(); loadToday();
     outputs();
     var first = new URLSearchParams(location.search).get('event');
     if (first && EVENTS.some(function (e) { return e.id === first; })) { document.getElementById('ev').value = first; chooseEvent(first); }
@@ -367,13 +603,75 @@
     else preview();
   }
 
+  function showMode() {
+    var v = S.mode === 'verse';
+    document.getElementById('m-event').hidden = v; document.getElementById('m-verse').hidden = !v;
+    document.getElementById('st-event').hidden = v; document.getElementById('st-verse').hidden = !v;
+    document.getElementById('w-card').hidden = v;
+    if (v && S.size === 'enews') { S.size = 'portrait'; Array.prototype.forEach.call(document.querySelectorAll('#sizes button'), function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-v') === 'portrait')); }); }
+    preview(); outputs();
+  }
+  function bibleOptions(sel, want) {
+    if (!window.EGBCBible) return;
+    Promise.all([EGBCBible.versions().catch(function () { return []; }), EGBCBible.apiVersions().catch(function () { return []; })]).then(function (r) {
+      sel.innerHTML = r[0].map(function (x) { return '<option value="bundled|' + esc(x.id) + '|' + esc(x.abbrev) + '">' + esc(x.name) + ' (free)</option>'; })
+        .concat(r[1].map(function (x) { return '<option value="apibible|' + esc(x.id) + '|' + esc(String(x.abbrev || '').toUpperCase()) + '">' + esc(x.name) + ' (church key)</option>'; })).join('');
+      if (want && [].some.call(sel.options, function (o) { return o.value === want; })) sel.value = want;
+      else { var b = [].filter.call(sel.options, function (o) { return /\|BSB\|/.test(o.value); })[0]; if (b) sel.value = b.value; }
+    });
+  }
+  function bringVerse(ref) {
+    var sel = document.getElementById('v-ver'), parts = sel.value.split('|'), msg = document.getElementById('v-msg');
+    if (!EGBCBible.parse(ref)) { msg.textContent = 'That reference was not understood. Try, for example, "Psalm 23:1".'; return; }
+    msg.textContent = 'Bringing it in\u2026';
+    (parts[0] === 'apibible' ? EGBCBible.apiPassage(parts[1], ref, parts[2]) : EGBCBible.passage(parts[1] || 'BSB', ref)).then(function (p) {
+      S.verse = { text: (p.verses || []).map(function (x) { return x.text; }).join(' ').replace(/\s+/g, ' ').trim(), ref: p.ref, version: p.version || parts[2] || '',
+        copyright: parts[0] === 'apibible' || /NIV|ESV|NLT/i.test(p.version || '') ? (p.copyright || '') : '' };
+      document.getElementById('v-ref').value = p.ref; document.getElementById('v-text').value = S.verse.text; document.getElementById('v-copy').value = S.verse.copyright;
+      msg.textContent = 'Brought in. You can still change the words.'; preview(); refreshCaption();
+    }, function (e) { msg.textContent = (e && e.message) || 'That did not work.'; });
+  }
+  function wireSocial() {
+    var g = function (id) { return document.getElementById(id); };
+    g('s-open').oninput = function () { SOC.open = this.value; refreshCaption(); };
+    g('s-tags').value = SOC.tags; g('s-tags').oninput = function () { SOC.tags = this.value; refreshCaption(); };
+    g('s-cap').oninput = function () { SOC.capEdited = true; };
+    g('s-keep').onclick = function () { if (!S.ev) { toast('Choose an event first.'); return; } var sets = Object.assign({}, SOC.settings.sets || {}); sets[eventKey(S.ev)] = SOC.tags.slice(0, 400); saveSettings({ sets: sets }).then(function () { toast('Kept for ' + (S.ev.title || 'this event') + '.'); }, function (e) { toast('Not saved: ' + (e.message || e)); }); };
+    g('s-usual').onclick = function () { saveSettings({ usual: SOC.tags.slice(0, 400) }).then(function () { toast('Kept as the church\u2019s usual hashtags.'); }, function (e) { toast('Not saved: ' + (e.message || e)); }); };
+    g('s-copy').onclick = function () { copyText(g('s-cap').value).then(function () { toast('Caption copied.'); }); };
+    g('s-share').onclick = function () { var sz = SIZES[SIZES[S.size].social ? S.size : 'portrait']; stillPng(sz).then(function (b) { return sharePost(b, fileName('post', sz, 'png'), g('s-cap').value); }).then(function (how) { toast(how === 'shared' ? 'Shared.' : 'Caption copied and the picture downloaded: paste the caption in.'); }, function () {}); };
+    g('s-dl').onclick = function () { var self = this; busy(self, 'Making the pictures\u2026', function () { return socialSizes().reduce(function (pr, k) { return pr.then(function () { return stillPng(SIZES[k]).then(function (b) { download(b, fileName('post', SIZES[k], 'png')); }); }); }, Promise.resolve()); }, function () { return 'The pictures are downloading.'; }); };
+    g('cd-save').onclick = function () { var self = this; busy(self, 'Saving\u2026', saveCountdown, function (n) { return n ? n + (n === 1 ? ' post' : ' posts') + ' saved: each waits in Today\u2019s posts on its day.' : 'Nothing saved.'; }); };
+    /* The verse. */
+    bibleOptions(g('v-ver'));
+    g('v-get').onclick = function () { bringVerse(g('v-ref').value.trim()); };
+    g('v-today').onclick = function () { g('v-ref').value = EGBCVotd.forDate(new Date()); bringVerse(g('v-ref').value); };
+    g('v-text').oninput = function () { S.verse.text = this.value; preview(); refreshCaption(); };
+    g('v-copy').oninput = function () { S.verse.copyright = this.value; preview(); refreshCaption(); };
+    /* The verse of the day's settings. */
+    var V = SOC.settings.vod || {};
+    g('vod-on').checked = V.on === true; g('vod-photo').checked = V.photo === 'library'; g('vod-credit').value = V.credit || '';
+    g('remind').checked = (SOC.settings.remind || []).indexOf((EGBCAuth.user() || {}).uid) >= 0;
+    Array.prototype.forEach.call(document.querySelectorAll('#vod-style button'), function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-v') === (V.style || 'type'))); });
+    bibleOptions(g('vod-ver'), V.version ? V.version.source + '|' + V.version.id + '|' + V.version.abbrev : '');
+    g('vod-save').onclick = function () {
+      var parts = g('vod-ver').value.split('|'), me = (EGBCAuth.user() || {}).uid, rem = (SOC.settings.remind || []).filter(function (x) { return x !== me; });
+      if (g('remind').checked && me) rem.push(me);
+      var st = (document.querySelector('#vod-style button[aria-pressed="true"]') || {}).getAttribute ? document.querySelector('#vod-style button[aria-pressed="true"]').getAttribute('data-v') : 'type';
+      saveSettings({ vod: { on: g('vod-on').checked, version: { source: parts[0] || 'bundled', id: parts[1] || 'BSB', abbrev: parts[2] || 'BSB' }, style: st, photo: g('vod-photo').checked ? 'library' : '', credit: g('vod-credit').value.trim().slice(0, 140) }, remind: rem.slice(0, 20) })
+        .then(function () { toast('Saved.'); loadToday(); }, function (e) { toast('Not saved: ' + (e.message || e)); });
+    };
+  }
+
   EGBCAuth.require().then(function () {
     if (!EGBCComms.mayOffice()) { wrap.innerHTML = '<div class="card"><h1>Card maker</h1><p>This page is for the church office and master admins.</p></div>'; return; }
     if (!(EGBCAuth.uses && EGBCAuth.uses('cardMaker'))) { wrap.innerHTML = '<div class="card"><h1>Card maker</h1><p>The card maker is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
     if (window.EGBCChurch) EGBCChurch.load().then(function () {}, function () {});
     var now = Date.now();
-    return EGBCComms.eventsBetween(now - 86400000, now + 90 * 86400000, 150).then(function (evs) {
-      EVENTS = evs.filter(function (e) { return e.status !== 'cancelled' && e.source !== 'rota' && e.visibility !== 'unlisted' && e.visibility !== 'team'; });
+    return Promise.all([EGBCComms.eventsBetween(now - 86400000, now + 90 * 86400000, 150),
+      EGBCAuth.db.collection('socialSettings').doc('main').get().then(function (s) { return s.exists ? s.data() : {}; }, function () { return {}; })]).then(function (r) {
+      EVENTS = r[0].filter(function (e) { return e.status !== 'cancelled' && e.source !== 'rota' && e.visibility !== 'unlisted' && e.visibility !== 'team'; });
+      SOC.settings = r[1] || {};
       page();
     });
   }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });

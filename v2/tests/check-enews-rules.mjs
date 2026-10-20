@@ -92,6 +92,13 @@ async function run(rules) {
   await t('office can save social links and the diary button', assertSucceeds(setDoc(doc(as('office'), 'enewsSettings', 'main'), look({ diaryButton: true, social: [{ kind: 'facebook', url: 'https://facebook.com/x' }] }))));
   await t('no more than 12 social links', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'main'), look({ social: Array.from({ length: 13 }, (_, i) => ({ kind: 'website', url: 'https://x.invalid/' + i })) }))));
   await t('the diary button is yes or no', assertFails(setDoc(doc(as('office'), 'enewsSettings', 'main'), look({ diaryButton: 'https://evil.invalid' }))));
+  /* Social posts (plan H): the office's alone. */
+  const post = (o) => Object.assign({ date: '2026-10-27', kind: 'countdown', eventId: 'e1', title: 'Film club', opening: 'TOMORROW!', caption: 'TOMORROW!', status: 'ready', mode: 'event', size: 'portrait', createdBy: 'en_office', createdAt: 'x' }, o);
+  await t('office can save a countdown’s post', assertSucceeds(setDoc(doc(as('office'), 'socialPosts', 'p1'), post())));
+  await t('a church member cannot read the posts', assertFails(getDocs(collection(as('member'), 'socialPosts'))));
+  await t('a post cannot carry other things', assertFails(setDoc(doc(as('office'), 'socialPosts', 'p2'), post({ recipients: ['x'] }))));
+  await t('the office can save the hashtags and the verse of the day', assertSucceeds(setDoc(doc(as('office'), 'socialSettings', 'main'), { usual: '#esherchurch', sets: {}, vod: { on: true }, remind: ['en_office'], updatedAt: 'x', updatedBy: 'en_office' })));
+  await t('a church member cannot change them', assertFails(setDoc(doc(as('member'), 'socialSettings', 'main'), { usual: '#x', updatedAt: 'x', updatedBy: 'en_member' })));
   /* Under 18 is the office's to tick, like Under 16 (C-36). */
   await t('a team leader cannot tick Under 18 on their team’s person', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
   await t('the office can tick Under 18', assertSucceeds(setDoc(doc(as('office'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
@@ -115,6 +122,7 @@ const BREAKS = [
   ['a sent issue may be changed', "&& resource.data.status in ['draft', 'scheduled']", '', 'a sent issue cannot be changed'],
   ['the office may mark an issue sent', "&& d.status in ['draft', 'scheduled']", "&& d.status in ['draft', 'scheduled', 'sent']", 'the office cannot mark an issue sent'],
   ['any number of social links', "                   && (request.resource.data.church.get('social', []) is list && request.resource.data.church.get('social', []).size() <= 12)", '', 'no more than 12 social links'],
+  ['anyone may read the social posts', 'allow read: if enewsOffice();   // social posts: the office', 'allow read: if true;   // social posts: the office', 'a church member cannot read the posts'],
   ['team leaders may set Under 18', "                 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));", '));', 'cannot tick Under 18'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];

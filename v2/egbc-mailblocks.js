@@ -96,7 +96,7 @@
   /* Formatted text comes from EGBCEditor, which already keeps only simple
      tags; this keeps only those again, with safe links and no attributes
      beyond href, so a pasted script or style can never reach an inbox. */
-  var KEEP = { P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, A: 1, UL: 1, OL: 1, LI: 1, H2: 1, H3: 1, BLOCKQUOTE: 1, SPAN: 1, FONT: 1 };
+  var KEEP = { P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, A: 1, UL: 1, OL: 1, LI: 1, H2: 1, H3: 1, BLOCKQUOTE: 1, SPAN: 1, FONT: 1, S: 1, STRIKE: 1, DEL: 1 };
   /* THE CHURCH'S PALETTE (reviewing window, 20 Oct: "Val colours words
      herself"): the look's own colours and a few more. A word's colour is
      kept only if it is one of these - inline, on a span - so nothing an
@@ -126,7 +126,7 @@
         var T = tag.toUpperCase();
         if (T === 'IMG') return '';
         if (!KEEP[T]) return '';
-        if (close) return '</' + (T === 'FONT' ? 'span' : T.toLowerCase()) + '>';
+        if (close) return '</' + (T === 'FONT' ? 'span' : T === 'STRIKE' || T === 'DEL' ? 's' : T.toLowerCase()) + '>';
         if (T === 'A') {
           var h = /href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
           var href = safeUrl(h ? (h[2] || h[3] || h[4] || '') .replace(/&amp;/g, '&') : '');
@@ -134,6 +134,7 @@
         }
         /* Val's paragraphs: 10px above and below (her mcnTextContent p). */
         if (T === 'P') return '<p style="margin:10px 0;">';
+        if (T === 'STRIKE' || T === 'DEL') return '<s>';
         if (T === 'SPAN' || T === 'FONT') {
           var cm = /color\s*:\s*([^;"']+)/i.exec(attrs) || /color\s*=\s*["']?([^"'\s>]+)/i.exec(attrs);
           var hx = cm ? hexOf(cm[1]) : '';
@@ -253,11 +254,13 @@
   /* An item's words: the title in teal and bold (with its day and time, as
      Val writes them), then the description with its own links, then the
      sign-up link. */
-  function itemWords(b, t) {
+  function itemWords(b, t, edit) {
     var head = [b.title, b.when].filter(Boolean).join(' – ');
     var body = b.html ? cleanHtml(b.html, t) : '';
     /* Val's card titles are the card's first bold line, in teal. */
     if (!head) body = body.replace(/^(\s*(?:<p[^>]*>)?\s*)<strong>/, '$1<strong style="color:' + t.title + ';">');
+    /* In the editor, the words are typed on where they are. */
+    if (edit) body = '<div data-edit="html">' + (body || '<p style="margin:10px 0;"><br></p>') + '</div>';
     var signup = safeUrl(b.buttonUrl) && b.buttonLabel ? '<p style="margin:0 0 10px;">' + link(safeUrl(b.buttonUrl), esc(b.buttonLabel), t, true) + '</p>' : '';
     return (head ? '<p style="margin:0;"><strong style="color:' + t.title + ';">' + esc(head) + '</strong></p>' : '') +
       body + (b.text ? '<p style="margin:0 0 10px;">' + esc(b.text) + '</p>' : '') + signup;
@@ -267,19 +270,56 @@
      computer; picture full width above the words on a phone. With no
      picture, the words alone, full width. */
   function cardStyle(t) { return textStyle(t).replace('font-size:15px;line-height:150%', 'font-size:14px;line-height:125%'); }
-  function eventCard(b, t) {
+  function eventCard(b, t, o) {
+    o = o || {};
     var img = safeUrl(b.imageUrl);
-    var bare = !String(b.html || '').replace(/<[^>]+>/g, '').trim() && !String(b.text || '').trim();
+    var bare = !o.edit && !String(b.html || '').replace(/<[^>]+>/g, '').trim() && !String(b.text || '').trim();
     /* A bare event (no write-up yet): a tidy, finished card - its title
        and day, and "More details" to its page on What's On. */
     var more = bare && safeUrl(b.moreUrl) ? '<p style="margin:10px 0;">' + link(safeUrl(b.moreUrl), 'More details', t, true) + '</p>' : '';
-    var words = itemWords(b, t) + more;
+    var words = itemWords(b, t, o.edit) + more;
     if (!img) return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
       '<td class="ctext t" valign="top" style="' + cardStyle(t) + 'padding:0;">' + words + '</td></tr></table>', '9px 18px 18px');
+    /* "Words and picture": the picture on the right on a computer. */
+    var pic = '<td class="cimg" width="176" valign="top" style="width:176px;padding:' + (b.side === 'right' ? '0 0 0 36px' : '0 36px 0 0') + ';">' + image(img, b.alt || b.title, 176, '3%') + '</td>';
+    var txt = '<td class="ctext t" valign="top" style="' + cardStyle(t) + 'padding:0;">' + words + '</td>';
     return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
-      '<td class="cimg" width="176" valign="top" style="width:176px;padding:0 36px 0 0;">' + image(img, b.alt || b.title, 176, '3%') + '</td>' +
-      '<td class="ctext t" valign="top" style="' + cardStyle(t) + 'padding:0;">' + words + '</td>' +
-      '</tr></table>', '9px 18px 18px');
+      (b.side === 'right' ? txt + pic : pic + txt) + '</tr></table>', '9px 18px 18px');
+  }
+  /* Columns (2 or 3): words in each, side by side on a computer, one
+     under another on a phone. */
+  function columnsBlock(b, t, o) {
+    var cols = (b.cols || []).slice(0, 3); if (!cols.length) return '';
+    var w = Math.floor(100 / cols.length);
+    return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' + cols.map(function (c, k) {
+      var img = safeUrl(c.imageUrl);
+      var words = c.html ? cleanHtml(c.html, t) : '';
+      if (o.edit) words = '<div data-edit="col' + k + '">' + (words || '<p style="margin:10px 0;"><br></p>') + '</div>';
+      return '<td class="col t" width="' + w + '%" valign="top" style="' + cardStyle(t) + 'width:' + w + '%;padding:' + (k ? '0 0 0 9px' : '0 9px 0 0') + ';">' +
+        (img ? image(img, c.alt, Math.floor(564 / cols.length) - 9, '3%') : '') + words + '</td>';
+    }).join('') + '</tr></table>', '9px 18px 18px');
+  }
+  /* A video: its picture (YouTube's own still when none is chosen), and a
+     link to watch it - email cannot play a video. */
+  function youtubeId(u) { var m = /(?:youtube\.com\/(?:watch\?v=|live\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,20})/.exec(String(u || '')); return m ? m[1] : ''; }
+  function videoBlock(b, t) {
+    var u = safeUrl(b.url); if (!u) return '';
+    var still = safeUrl(b.imageUrl) || (youtubeId(u) ? 'https://img.youtube.com/vi/' + youtubeId(u) + '/hqdefault.jpg' : '');
+    return row((still ? '<a href="' + esc(u) + '" target="_blank">' + image(still, b.alt || 'Watch the video', 564, 8) + '</a>' : '') +
+      '<p style="margin:8px 0 0;font-family:' + t.font + ';font-size:15px;text-align:center;">' + link(u, '&#9654; ' + esc(b.label || 'Watch the video'), t, true) + '</p>');
+  }
+  /* A block's own look (the editor's Style tab): a background and border in
+     the church's colours, rounded corners, more or less space around. */
+  var TINTS = ['#ffffff', '#f3f4f6', '#eef5f4', '#fdf8ee', '#eaf2f2'];
+  function styled(b, rows, t) {
+    var L = b.look || {}; if (!rows || !L || (!L.bg && !L.border && !L.radius && !L.space)) return rows;
+    var ok = palette(t).concat(TINTS);
+    var bg = ok.indexOf(String(L.bg || '').toLowerCase()) >= 0 ? String(L.bg).toLowerCase() : '';
+    var bd = L.border === 'line' ? '1px solid ' + t.rule : '';
+    var rad = [0, 8, 16].indexOf(+L.radius) >= 0 ? +L.radius : 0;
+    var out = L.space === 'more' ? '18px 18px' : L.space === 'less' ? '0 18px' : '9px 18px';
+    return '<tr><td style="padding:' + out + ';"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"' + (bg ? ' bgcolor="' + bg + '"' : '') +
+      ' style="border-collapse:separate;' + (bg ? 'background-color:' + bg + ';' : '') + (bd ? 'border:' + bd + ';' : '') + (rad ? 'border-radius:' + rad + 'px;' : '') + '">' + rows + '</table></td></tr>';
   }
   /* "Dates for the diary": the coming weeks' public events from What's On,
      a date and a title each (diaryItems makes the list). */
@@ -315,7 +355,7 @@
           '27px 18px 9px', 'vrow');
       case 'section':
         return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="' + t.bar + '" ' +
-          'style="padding:12px 18px;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;line-height:100%;color:' + t.barText + ';text-align:center;">' + esc(b.label) + '</td></tr></table>');
+          'style="padding:12px 18px;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;line-height:100%;color:' + t.barText + ';text-align:center;"' + (o.edit ? ' data-edit="label"' : '') + '>' + esc(b.label) + '</td></tr></table>');
       case 'sunday':
         /* Val's Sunday: the date in teal, the service in bold, a line about it. */
         var dateLine = b.date || b.when || '';
@@ -326,11 +366,29 @@
             (b.speaker ? esc(b.speakerWord || 'Speaker') + ': ' + esc(b.speaker) + (b.text ? '<br>' : '') : '') +
             (b.text ? esc(b.text) : '') + (b.html ? cleanHtml(b.html, t) : '') + '</div>', '18px 18px 0') + rule(t);
       case 'event':
-        return eventCard(b, t);
+        return eventCard(b, t, o);
+      case 'heading':
+        if (!String(b.text || '').trim() && !o.edit) return '';
+        return row('<h2 style="margin:0;font-family:' + t.font + ';font-size:' + (b.size === 'small' ? '18px' : '22px') + ';line-height:125%;font-weight:bold;color:' + t.title + ';text-align:' + (b.align === 'left' ? 'left' : 'center') + ';"' + (o.edit ? ' data-edit="text"' : '') + '>' + esc(b.text || '') + '</h2>', '18px 18px 0');
+      case 'columns':
+        return columnsBlock(b, t, o);
+      case 'pictures':
+        var two = (b.urls || []).map(safeUrl).filter(Boolean).slice(0, 2);
+        if (!two.length) return '';
+        return row('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' + two.map(function (u, k) {
+          return '<td class="col" width="50%" valign="top" style="width:50%;padding:' + (k ? '0 0 0 9px' : '0 9px 0 0') + ';">' + image(u, (b.alts || [])[k] || '', 273, '3%') + '</td>'; }).join('') + '</tr></table>');
+      case 'video':
+        return videoBlock(b, t);
+      case 'social':
+        var icons = socialRow((o.church || {}).social, o.assetBase);
+        return icons ? row(icons.replace('margin:0 auto 27px;', 'margin:0 auto;'), '18px') : '';
+      case 'logo':
+        if (!safeUrl(b.url)) return '';
+        return row('<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr><td><img src="' + esc(safeUrl(b.url)) + '" width="' + Math.min(+b.width || 160, 300) + '" alt="' + esc(b.alt || '') + '" style="display:block;width:' + Math.min(+b.width || 160, 300) + 'px;max-width:100%;height:auto;border:0;"></td></tr></table>', '18px');
       case 'diary':
         return diaryBlock(b, t);
       case 'text':
-        return row('<div class="t" style="' + textStyle(t) + '">' + itemWords({ title: b.title, html: b.html }, t) + '</div>', '9px 18px 18px');
+        return row('<div class="t" style="' + textStyle(t) + '">' + itemWords({ title: b.title, html: b.html }, t, o.edit) + '</div>', '9px 18px 18px');
       case 'picture':
         if (!safeUrl(b.url)) return '';
         var pic = image(safeUrl(b.url), b.alt, 564, 8);
@@ -436,8 +494,15 @@
     issue = issue || {}; opts = opts || {};
     var version = opts.version === 'members' ? 'members' : 'everyone';
     var t = theme(issue);
-    var body = (issue.blocks || []).filter(function (b) { return keep(b, version); })
-      .map(function (b) { return block(b, t, opts); }).join('');
+    var body = (issue.blocks || []).map(function (b, i) {
+      if (!keep(b, version)) return '';
+      var h = styled(b, block(b, t, opts), t);
+      if (!opts.edit) return h;
+      /* The editor's canvas (enews-edit.html): every block marked with its
+         place, so it can be picked, typed on and moved. Never in an email. */
+      return '<tr><td style="padding:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" data-b="' + i + '" data-type="' + esc(b.type) + '"' + (membersOnly(b) ? ' data-mem="1"' : '') + '>' +
+        (h || '<tr><td style="padding:14px 18px;font-family:Arial,sans-serif;font-size:14px;color:#9ca3af;text-align:center;">(' + esc(b.type) + ': nothing in it yet)</td></tr>') + '</table></td></tr>';
+    }).join('');
     var pre = issue.preheader ? '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;font-size:1px;line-height:1px;color:' + t.page + ';">' + esc(issue.preheader) + '</div>' : '';
     return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<meta name="x-apple-disable-message-reformatting"><title>' + esc(issue.subject || '') + '</title>' +
@@ -616,6 +681,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, keep: keep, palette: palette, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, keep: keep, palette: palette, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

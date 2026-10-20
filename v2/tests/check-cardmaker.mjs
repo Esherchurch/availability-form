@@ -14,7 +14,8 @@
  *
  * DELIBERATE BREAKS: --break=fade makes the words come in half way (not
  * in the first frame); --break=switch shows the page while switched off. Each
- * must turn this check red.
+ * must turn this check red. --break=details drops the caption's 📅 day line;
+ * --break=versefit stops a long verse shrinking to fit.
  */
 import { spawn } from 'node:child_process';
 import http from 'node:http';
@@ -34,10 +35,13 @@ const SHOTS = path.join(V2, 'tests', 'shots');
 const DOCS = '/v1/projects/egbc-worship-planner/databases/(default)/documents';
 const OWNER = { Authorization: 'Bearer owner' };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+let DAY0 = '';
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   fade: ["ctx.fillStyle = colour; ctx.textBaseline = 'top';", "ctx.fillStyle = colour; ctx.textBaseline = 'top'; if (t < 0.5) return;"],
   switch: ["if (!(EGBCAuth.uses && EGBCAuth.uses('cardMaker'))) {", 'if (false) {'],
+  details: ["['\\uD83D\\uDCC5 ' + o.weekday", "[o.weekday"],
+  versefit: ['if (lines.length * sz * 1.3 <= maxH) return', 'if (true) return'],
   nofit: ['var fits = h <= boxH && widest <= maxW;', 'var fits = true;']
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
@@ -58,6 +62,15 @@ function fsValue(v) {
   if (Array.isArray(v)) return { arrayValue: { values: v.map(fsValue) } };
   return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fsValue(x)])) } };
 }
+function fromFs(v) {
+  if (!v) return v;
+  if ('stringValue' in v) return v.stringValue; if ('booleanValue' in v) return v.booleanValue;
+  if ('integerValue' in v) return Number(v.integerValue); if ('doubleValue' in v) return v.doubleValue; if ('nullValue' in v) return null;
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fromFs);
+  if ('mapValue' in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, fromFs(x)]));
+  return v;
+}
+const list = async c => { const r = JSON.parse((await req(FS, 'GET', DOCS + '/' + c + '?pageSize=100', undefined, OWNER)).body || '{}'); return (r.documents || []).map(d => Object.assign({ _id: d.name.split('/').pop() }, Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, fromFs(v)])))); };
 const put = (p, data) => req(FS, 'PATCH', DOCS + '/' + p, { fields: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, fsValue(v)])) }, OWNER);
 const PEOPLE = {
   office: { email: 'cards.office@example.invalid', member: 'ab_cards_office', teams: ['Church office'] },
@@ -97,7 +110,9 @@ function serveAuth(src) {
   const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + n * 86400000));
   const at = (n, hh) => ({ startLocal: day(n) + 'T' + hh, startUtc: londonUtc(day(n) + 'T' + hh) });
   const IMG = 'http://localhost:' + SERVE + '/design-mocks/comms/card-photo.svg';
-  await put('calEvents/cm_pub', Object.assign({ title: 'Synthetic harvest supper and barn dance', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], signupOn: true, image: IMG, labels: ['Harvest'] }, at(5, '18:30')));
+  await put('calEvents/cm_pub', Object.assign({ title: 'Synthetic harvest supper and barn dance', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], signupOn: true, image: IMG, labels: ['Harvest'], location: 'Synthetic church hall' }, at(5, '18:30')));
+  await put('calEvents/cm_soon', Object.assign({ title: 'Synthetic coffee morning', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], image: '' }, at(7, '10:00')));
+  DAY0 = day(0);
   await put('calEvents/cm_unl', Object.assign({ title: 'Synthetic quiet group', visibility: 'unlisted', status: 'confirmed', audience: ['unlisted'] }, at(3, '19:00')));
 
   const server = http.createServer((q, s) => {
@@ -223,10 +238,68 @@ function serveAuth(src) {
     ok('a short video is made (MP4 where the browser can, otherwise WebM)', vid && /^video\/(mp4|webm)$/.test(vid.type) && vid.size > 20000, vid);
     await shot('insta');
 
+
+    /* Social posts, step 1 (plan H): sizes, the caption, Copy / Share /
+       Download, a countdown, Today's posts, the verse and the verse of the day. */
+    const sizes = await ev('[...document.querySelectorAll("#sizes button")].map(b=>b.dataset.v+":"+b.textContent).join("|")');
+    ok('Instagram is the church’s portrait 1080×1350, with square, Facebook and Story too', /portrait:Instagram1080×1350/.test(sizes) && /story:Story1080×1920/.test(sizes) && /insta:Square1080×1080/.test(sizes), sizes);
+    await ev('document.getElementById("ev").value="cm_pub";document.getElementById("ev").dispatchEvent(new Event("change")),1'); await sleep(500);
+    await ev('var o=document.getElementById("s-open");o.value="Bring a dish!";o.dispatchEvent(new Event("input"));var t=document.getElementById("s-tags");t.value="#SyntheticHarvest #esherchurch";t.dispatchEvent(new Event("input")),1');
+    const cap = await ev('document.getElementById("s-cap").value');
+    ok('the caption is written the church’s way: first line, then 📅 🕝 📍 🎟 👉, then the hashtags', /^Bring a dish!\n\n📅 \w+day \d{1,2}(st|nd|rd|th) \w+\n🕝 6:30pm\n📍 Synthetic church hall\n🎟 Book your place here:\n👉 http:\/\/localhost:\d+\/signup\.html\?event=cm_pub\n\n#SyntheticHarvest #esherchurch$/.test(cap), cap);
+    await ev('document.getElementById("s-keep").click(),1'); await sleep(1500);
+    const sset = (await list('socialSettings')).find(d => d._id === 'main') || {};
+    ok('"Keep these for this event": its hashtags are kept', JSON.stringify(sset.sets || {}).includes('#SyntheticHarvest'), sset);
+    await ev('navigator.clipboard&&(navigator.clipboard.writeText=function(t){window.__clip=t;return Promise.resolve()}),window.__clip="",document.getElementById("s-copy").click(),1'); await sleep(400);
+    ok('Copy caption copies it', (await ev('window.__clip')) === cap);
+    const before = await ev('window.__got.length');
+    await ev('navigator.canShare=function(){return false},window.__clip="",document.getElementById("s-share").click(),1');
+    await until('window.__got.length>' + before, 20000);
+    ok('Share: where a browser can’t share a picture, the caption is copied and the picture downloads', (await ev('window.__clip')) === cap && /Caption copied/.test(await ev('document.getElementById("toast").textContent')));
+    const b2 = await ev('window.__got.length');
+    await ev('document.getElementById("s-dl").click(),1');
+    await until('window.__got.length>=' + (b2 + 4), 40000);
+    const dims = await ev('Promise.all(window.__got.slice(' + b2 + ').map(function(g){return createImageBitmap(g).then(function(i){return i.width+"x"+i.height})})).then(function(a){return a.join(",")})');
+    ok('Download the pictures: Instagram, square, Facebook and Story', dims === '1080x1350,1080x1080,1200x630,1080x1920', dims);
+    /* A countdown: tomorrow's coffee morning has today's post. */
+    await ev('document.getElementById("ev").value="cm_soon";document.getElementById("ev").dispatchEvent(new Event("change")),1'); await sleep(500);
+    await ev('document.getElementById("cd").open=true;["cd-3","cd-2","cd-1","cd-0"].forEach(function(i){document.getElementById(i).checked=false});document.getElementById("cd-7").checked=true;document.getElementById("cd-save").click(),1');
+    await sleep(2000);
+    const posts = await list('socialPosts');
+    ok('the countdown saves the post for a week before, "One week to go!" first', posts.length === 1 && posts[0].opening === 'One week to go!' && /^One week to go!\n\n📅/.test(posts[0].caption) && posts[0].date === DAY0, posts.map(p => [p.date, p.opening]));
+    await until('/Synthetic coffee morning/.test(document.getElementById("today-list").innerText)', 10000);
+    ok('it waits in Today’s posts, ready: Copy caption, Share, Download, Posted', await ev('/Synthetic coffee morning/.test(document.getElementById("today-list").innerText) && document.querySelectorAll("#today-list .post button").length>=4'));
+    await shot('today');
+    await ev('document.querySelector(\'#today-list [data-a="done"]\').click(),1'); await sleep(1500);
+    ok('"Posted ✓" marks it posted', ((await list('socialPosts'))[0] || {}).status === 'posted');
+    /* A Bible verse: today's verse, in the hub's designs, fitting every size. */
+    await ev('[...document.querySelectorAll("#modes button")].find(b=>b.dataset.v==="verse").click(),1'); await sleep(300);
+    ok('"A Bible verse": the verse’s words, not the event’s', await ev('!document.getElementById("m-verse").hidden && document.getElementById("w-card").hidden'));
+    await until('document.getElementById("v-ver").options.length>1', 15000);
+    await ev('document.getElementById("v-today").click(),1');
+    await until('document.getElementById("v-text").value.length>10', 15000);
+    const vref = await ev('document.getElementById("v-ref").value');
+    ok('"Today’s verse" brings in the hub’s verse for today from the BSB', vref === await ev('EGBCVotd.forDate(new Date())') && (await ev('document.getElementById("v-text").value')).length > 10, vref);
+    ok('its caption: "Verse of the day", the verse and its reference', new RegExp('^Verse of the day\\n\\n“[\\s\\S]+”\\n' + vref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' BSB').test(await ev('document.getElementById("s-cap").value')), await ev('document.getElementById("s-cap").value'));
+    const vfit = await ev("(function(){var S=EGBCCards.state,v=S.vstyle,keep=S.verse.text,out=[];S.verse.text=keep+' '+keep+' '+keep;['portrait','insta','facebook','story'].forEach(function(k){var z=EGBCCards.SIZES[k];['type','photo','frame','band'].forEach(function(st){S.vstyle=st;var c=document.createElement('canvas');c.width=z.w;c.height=z.h;var L=EGBCCards.draw(c,0);if(!L||!L.fits||L.bottom>L.boxBottom+1||L.top<L.boxTop-1)out.push(k+'/'+st);});});S.vstyle=v;S.verse.text=keep;return out})()");
+    ok('a long verse fits every design in every social size', vfit.length === 0, vfit);
+    await shot('verse');
+    /* Each verse design at Instagram's size, saved for a person to look at. */
+    for (const st of ['type', 'photo', 'frame', 'band']) {
+      const url = await ev('(function(){var S=EGBCCards.state,v=S.vstyle;S.vstyle="' + st + '";var c=document.createElement("canvas");c.width=1080;c.height=1350;EGBCCards.draw(c,0);S.vstyle=v;return c.toDataURL("image/png")})()');
+      fs.writeFileSync(path.join(SHOTS, 'verse-' + st + '-1080x1350.png'), Buffer.from(url.split(',')[1], 'base64'));
+    }
+    /* The verse of the day each morning, and the reminder (by choice). */
+    await ev('document.getElementById("vod-on").checked=true;document.getElementById("remind").checked=true;document.getElementById("vod-save").click(),1'); await sleep(1500);
+    const vs = (await list('socialSettings')).find(d => d._id === 'main') || {};
+    ok('Verse of the day on, and "Email me each morning" kept for me only', vs.vod && vs.vod.on === true && vs.vod.version && vs.vod.version.id === 'BSB' && JSON.stringify(vs.remind) === JSON.stringify([PEOPLE.office.uid]), vs);
+    await until('/Verse of the day/.test(document.getElementById("today-list").innerText)', 15000);
+    ok('the verse of the day is in Today’s posts, ready', /Verse of the day: /.test(await ev('document.getElementById("today-list").innerText')));
     const w = await ev('document.documentElement.scrollWidth');
     ok('fits 375px (no sideways scroll)', w <= 375, w);
-    const small = await ev('[...document.querySelectorAll("#wrap button, #wrap select, #wrap input")].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.height&&r.height<30}).map(e=>(e.textContent||e.id).trim().slice(0,20))');
-    ok('no control under 30px tall', small.length === 0, small);
+    /* A tick box's whole line is what is tapped, so its label is measured. */
+    const small = await ev('[...document.querySelectorAll("#wrap button, #wrap select, #wrap input")].filter(e=>{const t=e.type==="checkbox"&&e.closest("label")?e.closest("label"):e;const r=t.getBoundingClientRect();return r.width&&r.height&&r.height<30}).map(e=>(e.textContent||e.id).trim().slice(0,20))');
+    ok('no control under 30px tall (a tick box: its line)', small.length === 0, small);
     ok('no errors thrown in the page', errors.length === 0, errors);
   } catch (e) { ok('the run finished', false, e.message); }
   ws.close(); chrome.kill(); server.close();

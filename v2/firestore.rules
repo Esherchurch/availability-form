@@ -1511,6 +1511,28 @@ service cloud.firestore {
     match /hqMailEvents/{id} {
       allow read, write: if false;
     }
+    // SOCIAL POSTS, step 1 (FINDINGS-comms plan H): a countdown's post for
+    // each day, kept until it is posted from someone's phone, and the
+    // card maker's settings (hashtags, the verse of the day, who is
+    // reminded). The church office and master admins; nothing public.
+    match /socialPosts/{id} {
+      allow read: if enewsOffice();   // social posts: the office
+      allow delete: if enewsOffice();
+      allow create, update: if enewsOffice()
+        && request.resource.data.keys().hasOnly(['date', 'kind', 'eventId', 'title', 'opening', 'caption', 'status', 'postedAt',
+             'mode', 'size', 'style', 'vstyle', 'accent', 'words', 'verse', 'photoUrl', 'createdBy', 'createdAt'])
+        && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.kind in ['countdown', 'post']
+        && request.resource.data.status in ['ready', 'posted']
+        && request.resource.data.caption is string && request.resource.data.caption.size() <= 2200;
+    }
+    match /socialSettings/{id} {
+      allow read: if enewsOffice();
+      allow write: if enewsOffice() && id == 'main'
+        && request.resource.data.keys().hasOnly(['usual', 'sets', 'vod', 'vodDone', 'remind', 'updatedAt', 'updatedBy'])
+        && request.resource.data.get('remind', []) is list && request.resource.data.get('remind', []).size() <= 20
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
     match /enewsSettings/{id} {
       allow read: if enewsOffice();
       allow write: if enewsOffice() && id == 'main'

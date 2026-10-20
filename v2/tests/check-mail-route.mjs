@@ -53,7 +53,7 @@ const KINDS = [
   { source: 'public-mail', kind: 'group ask leaders' }, { source: 'public-mail', kind: 'new here' },
   { source: 'checklist', kind: 'checklist due' }, { source: 'compliance', kind: 'compliance due' }, { source: 'compliance', kind: 'compliance summary' },
   { source: 'events-feed', kind: 'calendar link' }, { source: 'regular-giving', kind: 'regular gift set up' }, { kind: 'session plan' },
-  { source: 'team-mail', kind: 'team email' }, { source: 'team-mail', kind: 'team email copy' }, { source: 'emailCompiler' }
+  { source: 'team-mail', kind: 'team email' }, { source: 'team-mail', kind: 'team email copy' }, { source: 'emailCompiler' }, { source: 'social', kind: 'social reminder' }
 ];
 const OK = 'known.route@example.invalid';
 
