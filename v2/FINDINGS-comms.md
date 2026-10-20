@@ -146,6 +146,34 @@ Mailchimp's shop templates (sales, products, baskets) are left out.
 
 Martin thinks Val may use Mailchimp's social posts. In Mailchimp (his screenshots 6 and 7) the steps are Network → Design → Customize → Schedule & Confirm. Ours follow the same steps.
 
+**The two kinds of post the church makes** (the reviewing window looked at @esherchurch). Both use the same two steps: now, copy, share or download; later, post and schedule directly once Meta approves.
+
+**1. Event countdowns** (for example Kids Film Club): the same card, posted each day in the run-up ("3 days to go", "2 days", "TOMORROW!", sometimes on the day).
+- **"Countdown" from a What's On event:**
+  - pick the days;
+  - the hub writes each day's caption, and every part can be edited:
+    - a different opening line each day;
+    - then the fixed details block, taken from the event:
+
+      📅 Saturday 10th October
+      🕝 2:30pm
+      📍 Esher Green Baptist Church
+      🎟 Book your FREE places here:
+      👉 the event's booking link
+
+    - then the event's saved hashtags.
+- **The picture:** the card maker's, portrait 4:5 (1080 × 1350), as the church posts. It can be a still or a short animated version.
+- **Each day the hub reminds the office** with that day's post ready: Copy caption, then Share or Download. After step 2 it can post by itself instead.
+- **Hashtag sets** are saved per event or series (e.g. #KidsFilmClub #FreeFamilyFun #SaturdayFun), plus the church's usual ones (#Esher #WhatsOnElmbridge #EsherMums #FamilyDayOut #esherchurch). They are added to every caption and can be edited.
+
+**2. Bible verse posts:** designed verse posters with the verse and its reference, on plain type, a photo or a colour background.
+- **"Verse post":**
+  - the same Bible picker as the e-news (type a reference, choose the version);
+  - a set of typographic designs in the card maker, several styles, in the church's fonts and colours;
+  - sizes 1080 × 1350 and Story 1080 × 1920;
+  - or bring a finished design in from Canva.
+- **The version's copyright line** is put on the picture, small, where the version needs it.
+
 **Step 1, now (does not wait for Meta): "Make a social post"** from an event or an e-news item.
 - **The picture** comes from the card maker, in each size:
 
