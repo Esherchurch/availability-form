@@ -12,8 +12,7 @@
 <title>Data tools — EGBC</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!-- Firebase is loaded once, above, before egbc-auth.js: a second copy here replaced the firebase global and broke saving the sign-in (21 Oct 2026). -->
 <style>
   :root{--canvas:#eef4f3;--ink:#14201f;--hairline:#dde7e6;--brand:#3d6263;--danger:#b0392c}
   body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}

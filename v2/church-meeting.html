@@ -98,12 +98,24 @@
     }
     if (isRunner()) { $('mm-run').hidden = false; $('mm-cols').classList.add('run'); }
     if (window.EGBCLaunch) EGBCLaunch.check().then(function (l) { LAUNCH = l; drawRun(); });
-    load();
+    load(WANT);
   }
 
+  /* OPENED FROM AN EMAIL (the comms window, 21 Oct 2026): the one-off
+     emails link here as ?meeting=<id>, and that meeting opens straight
+     away - for members, as everything here is (the check above). One
+     older than the 30 listed is read by itself; one that is not there any
+     more says so and the page carries on with the next meeting. */
+  var WANT = (function () { try { return new URLSearchParams(location.search).get('meeting') || ''; } catch (e) { return ''; } })();
+  var GONE = false;
   function load(selectId) {
     return db().collection('churchMeetings').orderBy('date', 'desc').limit(30).get().then(function (s) {
       MEETINGS = s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; });
+      if (!selectId || MEETINGS.some(function (m) { return m.id === selectId; })) return;
+      return db().collection('churchMeetings').doc(String(selectId)).get().then(function (d) {
+        if (d.exists) { var x = d.data(); x.id = d.id; MEETINGS.push(x); } else if (selectId === WANT) GONE = true;
+      }, function () { if (selectId === WANT) GONE = true; });
+    }).then(function () {
       var t = today();
       var upcoming = MEETINGS.filter(function (m) { return m.date >= t; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
       CUR = (selectId && MEETINGS.find(function (m) { return m.id === selectId; })) || upcoming[0] || MEETINGS[0] || null;
@@ -140,7 +152,7 @@
   function draw() {
     if (!CUR) {
       $('mm-title').textContent = 'Members’ meetings';
-      $('mm-sub').textContent = 'No members’ meeting is planned yet.';
+      $('mm-sub').textContent = (GONE ? 'The meeting in that link is not on the hub any more. ' : '') + 'No members’ meeting is planned yet.';
       $('mm-main').innerHTML = '';
       drawRun();
       return;
@@ -203,6 +215,7 @@
         return '<div class="row"><button type="button" class="past" data-meeting="' + esc(m.id) + '">' + esc(dayWords(m.date)) + '</button><span class="hint">' + esc(m.title || '') + '</span></div>';
       }).join('') + '</div>';
     }
+    if (GONE) html = '<p class="hint" id="mm-gone">The meeting in that link is not on the hub any more. Here is ' + (CUR ? 'the next one' : 'what there is') + '.</p>' + html;
     $('mm-main').innerHTML = html;
     drawRun();
   }
@@ -268,7 +281,7 @@
         MINE[vid] = true; toast('Your vote is in.'); draw();
       }, function (err) { toast((err && err.message) || 'Could not vote.'); draw(); });
     }
-    if (t.dataset.meeting) { load(t.dataset.meeting); return; }
+    if (t.dataset.meeting) { GONE = false; load(t.dataset.meeting); return; }
     if (t.dataset.paper !== undefined) {
       var p = (CUR.papers || [])[Number(t.dataset.paper)];
       if (p && p.path) firebase.storage(A.app).ref(p.path).getDownloadURL().then(function (u) { window.open(u, '_blank', 'noopener'); },

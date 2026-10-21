@@ -62,16 +62,20 @@ for (const p of Object.values(PEOPLE)) {
   await db.doc('users/' + p.uid).set({ uid: p.uid, email: p.email, name: p.name, memberId: p.member, status: 'active', linkedBy: 'admin', teams: p.teams, adminFor: [], masterAdmin: p.masterAdmin, churchMember: p.churchMember });
 }
 const day = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
-const MID = 'mm_check';
+const MID = 'mm_check', OLD_MID = 'mm_check_old';
 const clear = async () => {
   for (const v of (await db.collection('churchMeetings/' + MID + '/votes').get()).docs) {
     for (const sub of ['ballots', 'tally']) for (const d of (await v.ref.collection(sub).get()).docs) await d.ref.delete();
     await v.ref.delete();
   }
   await db.doc('churchMeetings/' + MID).delete();
+  await db.doc('churchMeetings/' + OLD_MID).delete();
 };
 await clear();
 await db.doc('churchMeetings/' + MID).set({ title: 'Synthetic Members\u2019 Meeting', date: day, time: '19:45', place: 'In the church', joinKind: 'room', room: 'CMM', papers: [], status: 'planned' });
+/* An older meeting, which the page would not open by itself: the one-off
+   emails' link (?meeting=<id>, the comms window) must open it. */
+await db.doc('churchMeetings/' + OLD_MID).set({ title: 'Synthetic Old Meeting', date: '2020-01-15', time: '19:30', place: 'In the church', joinKind: 'room', room: 'CMM', papers: [], status: 'planned' });
 const vote = (id, secret) => db.doc('churchMeetings/' + MID + '/votes/' + id).set({ question: 'Synthetic question ' + id + '?', choices: ['Yes', 'No', 'Abstain'], secret, status: 'draft', order: 0, createdAt: new Date().toISOString() });
 await vote('vS', true); await vote('vO', false);
 const run = (fn, who, data) => fn({ db, uid: PEOPLE[who].uid, data: Object.assign({ meeting: MID }, data) }).then(() => 'ok', e => e.code || e.message);
@@ -139,11 +143,11 @@ const size = (w) => send('Emulation.setDeviceMetricsOverride', { width: w, heigh
 await size(375);
 const evl = makeEval(send, 'mm');
 const shot = async (name) => { const s = await send('Page.captureScreenshot', { format: 'png' }); fs.mkdirSync(path.join(V2, 'tests', 'shots'), { recursive: true }); fs.writeFileSync(path.join(V2, 'tests', 'shots', name), Buffer.from(s.data, 'base64')); };
-const as = async (who) => {
+const as = async (who, q) => {
   await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/__signin.html' }); await sleep(2500);
   await evl('firebase.auth(EGBCAuth.app).signOut()', true); await sleep(300);
   await evl('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(PEOPLE[who].email) + ',' + JSON.stringify(PW) + ').then(function(){return 1})', true); await sleep(800);
-  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/church-meeting.html' }); await sleep(8000);
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/church-meeting.html' + (q || '') }); await sleep(8000);
 };
 const LOOK = 'JSON.stringify({blocked:document.body.getAttribute("data-egbc-blocked")||"",card:(document.getElementById("egbc-blocked-card")||{innerText:""}).innerText,'
   + 'voteNow:!!document.querySelector("[data-vote=\\"vPage\\"]"),choices:document.querySelectorAll("[data-vote=\\"vPage\\"] [data-cast]").length,'
@@ -166,6 +170,17 @@ try {
   const rulesRefuse = String(await evl('EGBCAuth.db.collection("churchMeetings").doc("' + MID + '").collection("votes").doc("vPage").collection("tally").doc("count").get().then(function(){return "READ IT"},function(e){return e.code})', true));
   ok('  and the tally cannot be read from a page', /permission-denied/.test(rulesRefuse), rulesRefuse);
   await shot('members-meeting--voted-375.png');
+
+  /* FROM AN EMAIL: ?meeting=<id> opens that meeting straight away. */
+  await as('member2', '?meeting=' + OLD_MID);
+  let T = String(await evl('document.getElementById("mm-title").textContent'));
+  ok('a link with ?meeting= opens that meeting straight away, not the next one', T === 'Synthetic Old Meeting', T);
+  await as('member2', '?meeting=mm_not_there');
+  T = JSON.parse(String(await evl('JSON.stringify({t:document.getElementById("mm-title").textContent,gone:!!document.getElementById("mm-gone")})')));
+  ok('  one that is not there says so, and shows the next meeting', T.gone && T.t === 'Synthetic Members’ Meeting', JSON.stringify(T));
+  await as('outsider', '?meeting=' + OLD_MID);
+  L = JSON.parse(String(await evl(LOOK)));
+  ok('  and the link does not let in somebody who is not a church member', !!L.blocked && /Church members only/.test(L.card) && !/Synthetic Old Meeting/.test(L.text), JSON.stringify(L).slice(0, 200));
 
   await as('outsider');
   L = JSON.parse(String(await evl(LOOK)));

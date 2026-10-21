@@ -13,8 +13,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suggestions Board</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!-- The Firebase scripts are loaded ONCE, above, before egbc-auth.js. A second copy here (until 21 Oct 2026) replaced the firebase global after egbc-auth had made its database with the first, so its serverTimestamp() belonged to another copy and saving the sign-in stopped the page: "Unsupported field value: a custom Lc object". -->
 <style>
   :root {
     /* shared design system tokens */
@@ -312,6 +311,9 @@
     body { overflow: auto; }
     .board-outer, .drag-hint { display: none !important; }
     #phoneBoard { display: block; }
+    /* ONE WAY TO ADD ON A PHONE (Martin, 21 Oct 2026): "Add an idea" sits
+       with the notes, so the header's "Add Note" - the same box - goes. */
+    header .header-actions button[onclick="openNoteModal()"] { display: none !important; }
   }
   @media (min-width: 701px) {
     /* Belt and braces: the container is also hidden by the `hidden`
@@ -779,7 +781,10 @@ function chooseBoard() {
   const mine = BOARDS.filter(b => canSee(b) || familyBoard(b));
   mine.forEach(b => { b.readOnly = !canSee(b); });
   const asked = new URLSearchParams(location.search).get('board');
-  const wanted = mine.find(b => b.id === asked);
+  /* By its id (core) or its document's name (core-team): the app linked
+     Core Team's with the document's name, matched nothing, and the page
+     fell back to the first board - Worship (Martin, 21 Oct 2026). */
+  const wanted = mine.find(b => b.id === asked || b.doc === asked);
   if (asked && !wanted) toast('That board is another team\'s');
   /* NO BOARD IS NO BOARD. Falling back to the first one showed someone with
      no board of their own the Worship board (Martin, 10 Oct 2026). Say so
@@ -1554,7 +1559,13 @@ function snStack() {
   var root = document.documentElement;
   var am = parseFloat(getComputedStyle(root).getPropertyValue("--am-top")) || 0;
   var amB = parseFloat(getComputedStyle(root).getPropertyValue("--am-bottom")) || 0;
-  var site = parseFloat(getComputedStyle(root).getPropertyValue("--egbc-bar")) || 0;
+  /* In app mode --egbc-bar is the APP's chrome, top and bottom together
+     (egbc-appmode.js sets it for pages that size themselves by it), not a
+     website bar: adding it to --am-top counted the app bar twice and the
+     tab bar once more, a ~140px empty band under the app bar (Martin,
+     21 Oct 2026). There is no website bar in app mode. */
+  var site = root.hasAttribute("data-egbc-app-mode") ? 0
+    : (parseFloat(getComputedStyle(root).getPropertyValue("--egbc-bar")) || 0);
   var bars = [document.querySelector("header"),
               document.querySelector(".pages-bar"),
               document.querySelector(".filter-bar")];
@@ -1569,6 +1580,16 @@ function snStack() {
     if (cs.display !== "none") y += bars[i].offsetHeight;
   }
   root.style.setProperty("--sn-top-3", y + "px");
+  /* The phone grid starts below the page's own bars by where IT starts,
+     not by assuming it starts at the very top: app mode pads the body by
+     the app bar and the website's shell leaves room for its bar, so the
+     same bars were counted twice - "Add an idea" sat 70-80px below them
+     (21 Oct 2026). */
+  var pb = document.getElementById("phoneBoard");
+  if (pb && !pb.hidden && pb.offsetParent !== null) {
+    var at = pb.getBoundingClientRect().top + window.scrollY;
+    pb.style.paddingTop = Math.max(12, y - at + 12) + "px";
+  }
   root.style.setProperty("--sn-bottom", amB + "px");
   var outer = document.querySelector(".board-outer");
   if (outer) {
