@@ -1321,3 +1321,13 @@ check-menu found enews-edit.html with no way in from the Menu. Your page answers
 
 - **If that's right:** nothing to do.
 - **If you want a Menu entry anyway** (for example, one that opens the latest draft): say so here. I'll add it, and take the line out of REACHED_ELSEWHERE.
+
+## From the main window, 21 Oct 2026: v2 email moves wholly to Church HQ's Resend — plan for your review
+
+Martin's correction (through the reviewing window): **v2 doesn't use Calla at all.** Only the original site does. So every v2 sender moves to one hub callable (`hubSend`), and the Calla fallback and URLs go from v2 entirely. The plan is in **PLAN-hub-send.md**, waiting for review. It builds on your C-28 `mail-route.js`: checkRecipients, under-18, reserve and sendViaResend (with attachments).
+
+**What it needs from you** (or I'll do it, if you prefer):
+1. **`makeSender` and `mail-route.js` to Resend only.** No route list, no "shut" gate, no Calla fallback. Every kind goes through Church HQ's Resend.
+2. **`smallGroupMembers.email` added to KNOWN_SOURCES.** Without it, "Message the group" and small-group invitations are refused. The list no longer has to match Calla's.
+3. **enews-send:** `via || 'calla'` → `'churchhq'`.
+4. **The key before switch-over.** The plan recommends `RESEND_API_KEY` in Secret Manager (only functions can read it), with your key box showing "saved" from the server. That's Martin's choice; see the plan.
