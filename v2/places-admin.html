@@ -1,14 +1,14 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202610212100" data-title="Places"></script>
+<script src="egbc-shell.js?v=202610221100" data-title="Places"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610212000"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events-rooms.js?v=202610081800"></script>
+<script src="egbc-events-rooms.js?v=202610221000"></script>
 <script src="egbc-events-bookings.js?v=202610141700"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <script src="egbc-guard.js?v=202610210900"></script>
@@ -1015,7 +1015,13 @@
         '<input class="inp" type="email" id="be-' + s.id + '" data-bemail="' + s.id + '" value="' + esc(s.bookingsEmail || '') + '" placeholder="' + esc(EGBCChurch.email() || 'office@example.org') + '">' +
         '<p class="hint mt-1">Leave empty to use the church\'s enquiry email (Church details). Anyone could read this address, so use an office one, not a person\'s own.</p>' +
         /* For the main window's morning email (F-074): off unless a site asks. */
-        '<label class="fac mt-2"><input type="checkbox" data-sheetmail="' + s.id + '"' + (s.setupSheetEmail ? ' checked' : '') + '> Email the day\'s setup sheet to that address each morning</label></div>';
+        '<label class="fac mt-2"><input type="checkbox" data-sheetmail="' + s.id + '"' + (s.setupSheetEmail ? ' checked' : '') + '> Email the day\'s setup sheet to that address each morning</label>' +
+        /* ON THE DAY AND AFTER (F-260): when a hire is flagged as not arrived, and the hours the room use report counts as open */
+        '<label class="lbl mt-2" for="ag-' + s.id + '">Flag a hire or member booking not marked arrived after (minutes)</label>' +
+        '<input class="inp" type="number" min="0" max="240" step="5" id="ag-' + s.id + '" data-agrace="' + s.id + '" value="' + (s.arrivalGraceMins === 0 ? 0 : (s.arrivalGraceMins || 30)) + '" style="max-width:120px">' +
+        '<p class="hint mt-1">0 turns it off. A flag is a warning on Room bookings, Today, and one email to the address above. Nothing is ever cancelled.</p>' +
+        '<p class="lbl mt-2">Open for bookings (for the room use report)</p><div class="flex gap-2 items-center"><input class="inp" type="time" step="900" data-openfrom="' + s.id + '" value="' + hm(s.openFrom, 480) + '" style="max-width:130px" aria-label="Opens"> to ' +
+        '<input class="inp" type="time" step="900" data-opento="' + s.id + '" value="' + hm(s.openTo, 1320) + '" style="max-width:130px" aria-label="Closes"></div></div>';
     }).join('');
     $('rota-list').innerHTML = list.map(function (s) {
       if (!RB[s.id]) RB[s.id] = JSON.parse(JSON.stringify(s.rotaBusy || []));
@@ -1042,8 +1048,16 @@
     }).join('');
   }
 
+  function hm(m, def) { m = (m >= 0 && m <= 1440) ? m : def; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+  function mins(v) { var p = String(v || '').split(':'); return p.length === 2 ? (+p[0]) * 60 + (+p[1]) : NaN; }
   document.addEventListener('change', function (e) {
     var d = e.target.dataset || {};
+    if (d.agrace) { var g = Math.round(+e.target.value); if (!(g >= 0 && g <= 240)) { toast('Between 0 and 240 minutes'); return; } db.collection('sites').doc(d.agrace).update({ arrivalGraceMins: g }).then(function () { toast('Saved'); }).catch(oops); }
+    if (d.openfrom || d.opento) {
+      var id = d.openfrom || d.opento, f = mins(document.querySelector('[data-openfrom="' + id + '"]').value), t = mins(document.querySelector('[data-opento="' + id + '"]').value);
+      if (!(f >= 0 && t > f && t <= 1440)) { toast('The closing time must be after the opening time'); return; }
+      db.collection('sites').doc(id).update({ openFrom: f, openTo: t }).then(function () { toast('Saved'); }).catch(oops);
+    }
     if (d.mbsite) db.collection('sites').doc(d.mbsite).update({ memberBookings: e.target.value })
       .then(function () { toast('Saved'); }).catch(oops);
     if (d.sheetmail) db.collection('sites').doc(d.sheetmail).update({ setupSheetEmail: e.target.checked }).then(function () { toast('Saved'); }).catch(oops);

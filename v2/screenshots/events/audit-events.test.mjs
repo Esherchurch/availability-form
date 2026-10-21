@@ -107,10 +107,13 @@ for (const i of [1, 2, 3]) {
 }
 await db.collection('planGroups').doc('pg_aud').set({ name: 'Kids Church', kind: 'children', leaderIds: ['m_martin'], teamName: 'Kids Church' });
 await db.collection('planSessions').doc('ps_aud').set({ groupId: 'pg_aud', date: '2026-11-01', title: 'Born again? (invented)', parts: [{ id: 'a', title: 'Welcome', show: [{ type: 'text', words: 'Welcome, everyone' }, { type: 'text', words: 'What does born again mean?' }] }], updatedBy: P.martin.uid });
+/* an order on the caterers' list (F-260), so its buttons are measured */
+const inAWeek = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+await db.collection('cateringOrders').doc('co_aud').set({ siteId: 'site_a', roomId: 'room_a', roomName: 'Big hall (invented)', day: inAWeek, startMin: 600, servingAt: '10:30', people: 20, title: 'Coffee morning (invented)', items: [{ name: 'Tea and coffee', qty: 20, unit: 'cup' }], dietary: { vegan: 2 }, notes: '', state: 'new' });
 await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_martin', name: 'Martin Master', siteId: '' }], memberIds: ['m_martin'], allSites: ['m_martin'], bySite: {}, updatedBy: P.martin.uid, updatedByName: 'x', updatedAt: 'x' });
 
 /* ---------- the pages ---------- */
-const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html', 'building.html', 'checkin.html', 'checkin.html?event=ev_a', 'checkin.html?view=rollcall',
+const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html', 'building.html', 'catering.html', 'checkin.html', 'checkin.html?event=ev_a', 'checkin.html?view=rollcall',
   'church-settings.html', 'comms.html', 'compliance.html', 'events-admin.html', 'forms-admin.html', 'giftaid.html', 'give-regularly.html', 'groups-admin.html', 'groups.html',
   'headcounts.html', 'hire.html', 'kids-admin.html', 'kids-checkin.html', 'maintenance.html', 'my-messages.html', 'newhere.html', 'notifications.html',
   'payments.html', 'peep.html', 'picture-library.html', 'places-admin.html', 'prayer.html', 'present-guide.html', 'present.html', 'present.html?s=ps_aud', 'quiz.html', 'retention.html', 'risk.html', 'room.html?id=room_a', 'rooms.html', 'rota-reports.html',

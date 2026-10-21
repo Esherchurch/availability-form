@@ -81,6 +81,8 @@ const APPROVED = [
     ['Meetings']]],
   ['Events and rooms', null, [
     ['Events', c => (c.core && c.admin) || c.eventTeam], ['Places', c => c.runsBookings], ['Room bookings', c => c.books],
+    /* The caterers' list (F-260). */
+    ['Catering orders', c => c.on('Catering')],
     ['Check-in', c => c.core && c.admin], ['Registers', c => c.core && c.admin], ['Headcounts', c => c.counts],
     ['Picture library', c => c.runsBookings], ['Book a room'], ['Hire our rooms'], ['Maintenance'],
     /* The building compliance add-on (on at EGBC): the register for the

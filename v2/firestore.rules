@@ -2942,6 +2942,20 @@ service cloud.firestore {
              && c.reason is string && c.reason.size() <= 1000;
     }
 
+    // ARRIVED (F-260): the hirer (with the booking's private reference, as
+    // for accepting the quote) marks their hire arrived; a member marks their
+    // own booking. Once, stamped by the server's clock, nothing else touched.
+    // The office marks or unmarks through its own path.
+    function arrives() {
+      let b = resource.data;
+      let n = request.resource.data;
+      return b.status == 'confirmed' && !('arrived' in b)
+             && n.diff(b).affectedKeys().hasOnly(['arrived'])
+             && n.arrived.keys().hasOnly(['at', 'by', 'name']) && n.arrived.at == request.time
+             && n.arrived.name is string && n.arrived.name.size() <= 120
+             && ((n.arrived.by == 'hirer' && b.get('kind', '') == 'hire')
+                 || (n.arrived.by == 'member' && active() && b.get('memberUid', '-') == request.auth.uid));
+    }
     match /bookings/{key} {
       // The key is the booking's private reference (32 random characters).
       allow get: if true;
@@ -2950,8 +2964,23 @@ service cloud.firestore {
       allow create: if key.size() >= 20 && bookingShape()
                     && (memberCreate(key) || publicCreate() || officeCreate());
       allow update: if (theOffice(resource.data.siteId) && theOffice(request.resource.data.siteId))
-                    || memberCancel(key) || hirerAccepts() || hirerAsksCancel();
+                    || memberCancel(key) || hirerAccepts() || hirerAsksCancel() || arrives();
       allow delete: if false;
+    }
+
+    // THE CATERERS' LIST (F-260): what the kitchen needs for each confirmed
+    // booking with refreshments, and nothing about who booked; made and
+    // removed only by the server (functions/rooms-day.js). The office and the
+    // "Catering" team read it and mark how far they have got.
+    function cateringSees(siteId) { return theOffice(siteId) || onTeam('Catering'); }
+    match /cateringOrders/{key} {
+      allow read: if cateringSees(resource.data.siteId);
+      allow update: if cateringSees(resource.data.siteId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'stateBy', 'stateByName', 'stateAt'])
+                    && request.resource.data.state in ['new', 'prepared', 'served']
+                    && request.resource.data.stateBy == request.auth.uid && request.resource.data.stateAt == request.time
+                    && request.resource.data.stateByName is string && request.resource.data.stateByName.size() <= 120;
+      allow create, delete: if false;
     }
 
     // A room's day. Anyone may read it: it says only which quarter-hours

@@ -9278,3 +9278,94 @@ Your share.test.mjs presses `[data-share]`. It still behaves as before: the syst
   | present-media | 8/8 |
   | functions-secrets | 5/5 |
   | present-slow | 7/7 |
+
+### F-260 — Rooms on the day and after: arrivals, the caterers' list, room use, rooms side by side (the events window, 21 Oct)
+
+The rest of the room booking list. Built, waiting for review.
+
+**1. "We've arrived" (check-in for room bookings)**
+- **The hirer** taps "We've arrived" on their booking's own page (my-booking.html), on the day, for a confirmed hire.
+- **A member** taps it on their own booking in Book a room (rooms.html), on the day.
+- **The office** has a new **Today** tab on Room bookings. It lists today's confirmed bookings: "Due 10:00", "Not arrived", or "Arrived 10:04 (the hirer said so)". It has a "Mark arrived" button, and "Not arrived after all" for a mistake. The tab shows how many have not arrived.
+- **The flag:** a hire or a member's booking not marked arrived **30 minutes** after it starts shows as "Not arrived" in red.
+  - Every 15 minutes, a new scheduled function (`arrivalCheck`) emails the site's bookings address **once** per booking, with the hirer's name and phone.
+  - **Nothing is ever cancelled.**
+  - The office's own bookings and events are never flagged.
+  - Places sets the minutes per site (0 turns it off).
+- **Saved as** `bookings/{key}.arrived = { at (the server's time), by: hirer | member | office, name }`. The flag is `arrivalFlaggedAt`.
+
+**2. The caterers' list** (catering.html, "Catering orders" in the Menu)
+- **A new function, `cateringSync`,** runs on every booking change. It keeps `cateringOrders/{booking key}` for each confirmed booking with refreshments, holding what the kitchen needs: day, serving time, room, numbers, items, dietary counts, notes and the booking's title.
+  - **It holds nothing about who booked, and no prices.**
+  - Cancelled means the order goes.
+  - A changed booking updates the order and keeps how far the kitchen got.
+- **The caterers** see the next 14 days, by day. They mark each order Prepared, then Served (with who did it), and there's a printable kitchen sheet.
+- **Who:** the **Catering** team, the site's bookings admins, and admins. Anyone else is told the page is for the caterers.
+- **The rules:** caterers can change only the state (and who and when). Only the server makes or deletes an order.
+
+**3. Room use** (a new **Room use** tab on Room bookings)
+- **For a month, per room:** hours open, hours booked (split into hires, members, office and events), church services from the rota (counted separately), closed days, booked % and "in use, with services" %. It also shows a week-by-week table and a CSV download.
+- **Overlapping bookings are counted once.** Setting up and clearing away count as booked. Closed days (Close a room, including a room closed as part of a bigger one) are left out.
+- **Opening hours** come from Places (08:00–22:00 unless set).
+
+**4. Rooms side by side** ("Compare rooms" on Hire our rooms and Book a room)
+- **Up to three rooms**, with:
+  - their photo
+  - how many each holds in every layout (never past the fire-safety maximum), with the most marked
+  - the fire-safety maximum
+  - floor area, floor and step-free access ("Not checked yet", never "No")
+  - natural light
+  - every facility any of them has
+  - a link to each room's page
+
+**5. Places, per site:** "Flag … not marked arrived after (minutes)" and "Open for bookings" from/to.
+
+**Decisions I made (say if any is wrong):**
+1. **The caterers are a team called "Catering".** Teams come from Teams and groups, so **the office needs to create a team with exactly that name** and add the caterers.
+2. **Flagged:** hires and members' bookings only, 30 minutes after the start, one email, never cancelled.
+3. **Room use's default day** is 08:00–22:00.
+4. **The Menu:** I added "Catering orders" to egbc-menu.js (Events and rooms, after Room bookings, `team: ['Catering']`, `feature: 'roomBookings'`). I also added it to check-menu's APPROVED list and bumped the Menu stamp. **The main window may move or veto it.** Bookings admins reach the page from the kitchen list on Room bookings.
+
+**Deploy (the reviewer):** two new functions, `cateringSync` and `arrivalCheck`; nothing else changed in functions. **No new secret or setting.** The rules (bookings `arrives()`, `cateringOrders`) go live at switch-over.
+
+**Found and fixed on the way:** the caterers' page, while a master admin used "view as everyone", still used his own member id to find the sites he's a bookings admin of, so he saw orders a member wouldn't. The page audit caught it (2 reds). Now no member id is used while viewing as someone else, as `isOnPlanGroup` does.
+
+**Found, not fixed (for the main window):**
+1. **check-menu.mjs can't run on the events emulator yet.** b530e6cd gives the script my ports, but it serves the pages on 8868, and a page only uses the events emulators (8182/9098/9198) when served from **5601**. So its pages still go to 8181/9099. On my run, sign-in failed ("network-request-failed"), so nothing reached your emulator. The fix: serve on 5601 when the config is firebase.events.json. Until then, **please run it for the new "Catering orders" entry.** The part that did run passed: every page has a way in.
+2. **Earlier, before b530e6cd,** I started check-menu once by mistake against your emulator and stopped it part-way. Its synthetic account (places.tester@example.invalid) may be left on a test team there. A rerun or restart clears it.
+3. **The rules suite:** `u_lena` isn't treated as site_bk's bookings admin by the time the suite reaches its end, though she is at the R2 block. My block uses its own office person (`u_aroff`, site_ar) instead. I didn't chase why.
+
+**Proved:**
+- **The breaks, 18 of 18 caught:**
+  - **the one that matters:** the caterers' order carrying who booked (unit, and browser)
+  - late only after the grace minutes, not at them
+  - the office's own bookings flagged (missed at first; caught after adding an office booking that started an hour ago)
+  - overlaps counted twice
+  - closed days counted
+  - the CSV running a name as a formula
+  - the check emailing every 15 minutes
+  - a changed booking resetting the caterers' progress
+  - compare ignoring the fire-safety maximum
+  - the hirer saying "arrived" on any day
+  - Places saving closing before opening
+  - in the rules:
+    - "arrived" twice
+    - "hirer" on the office's booking
+    - arriving changing other fields
+    - any member reading orders
+    - caterers changing the order
+    - marking it as somebody else
+- **Rule Zero, one test at a time** (from 14:25, under the reviewer's 3 GB gate):
+
+  | Test | Result |
+  |---|---|
+  | roomday-unit | 47/47 |
+  | roomday (browser) | 34/34 |
+  | rules suite | 1711/1711 |
+  | functions-secrets | 5/5 |
+  | check-stamps | 6/6 |
+  | r1-rooms, room-card | 27, 55 |
+  | r2, r3 | 50, 42 |
+  | close-room, combined-rooms | 29, 33 |
+  | c5-hire-quote | 16 |
+  | audits: catering, bookings-admin, hire, rooms, places-admin | 14 each |

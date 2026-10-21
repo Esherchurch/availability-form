@@ -101,7 +101,7 @@
         '<dt>People</dt><dd>' + esc(b.people) + '</dd><dt>Reference</dt><dd>' + esc(B.ref(b)) + '</dd></dl>' +
         (b.status === 'requested' ? '<p class="st wait">We will look at it and email you. We confirm the price when we confirm the booking.</p>' : '') +
         (b.status === 'declined' && b.decisionNote ? '<p class="st no">' + esc(b.decisionNote) + '</p>' : '') +
-        askBox() +
+        arriveBox() + askBox() +
       '</div>' +
       (confirmed && q ? quoteDoc() : '') +
       (b.invoice ? '<div class="card" id="invoice"><h2>Invoice ' + esc(b.invoice.number) + '</h2><p style="margin:0">Issued ' + esc(fmtAt(b.invoice.issuedAt)) +
@@ -144,6 +144,17 @@
   }
   /* Asking to cancel (Martin, F-080): it asks, and the church answers. It
      never cancels by itself. */
+  /* ON THE DAY (F-260): the hirer says they have arrived, so the office
+     knows the room is in use. Only a confirmed hire, only on its day. */
+  function arriveBox() {
+    var b = BK;
+    if (b.status !== 'confirmed' || b.kind !== 'hire') return '';
+    if (b.arrived) { var t = b.arrived.at && (b.arrived.at.toDate ? b.arrived.at.toDate() : new Date(b.arrived.at));
+      return '<p class="st ok" id="arrivedMsg">You\u2019re marked as arrived' + (t && !isNaN(t) ? ' at ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') : '') + '. Enjoy your time with us.</p>'; }
+    if (b.day !== B.today()) return '';
+    return '<div class="noprint" id="arriveWrap" style="margin:10px 0"><button class="btn" id="arriveGo">We\u2019ve arrived</button> <span class="hint" id="arriveMsg">Tap when you get here, so we know the room is in use.</span></div>';
+  }
+
   function askBox() {
     var b = BK, c = b.cancelRequest;
     if (b.status !== 'confirmed' && b.status !== 'requested') return '';
@@ -157,6 +168,12 @@
   }
 
   function wire() {
+    var ar = document.getElementById('arriveGo');
+    if (ar) ar.onclick = function () {
+      ar.disabled = true; document.getElementById('arriveMsg').textContent = 'Saving…';
+      db().collection('bookings').doc(KEY).update({ arrived: { at: firebase.firestore.FieldValue.serverTimestamp(), by: 'hirer', name: String((BK.requester || {}).name || '').slice(0, 120) } })
+        .then(load).catch(function () { ar.disabled = false; document.getElementById('arriveMsg').textContent = 'That could not be saved. Please tell the person who let you in.'; });
+    };
     var ao = document.getElementById('askOpen');
     if (ao) ao.onclick = function () { document.getElementById('askForm').style.display = 'block'; ao.style.display = 'none'; };
     var ag = document.getElementById('askGo');

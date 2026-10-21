@@ -7,7 +7,7 @@
 
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610212100" data-title="Book a room"></script>
+<script src="egbc-shell.js?v=202610221100" data-title="Book a room"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -17,7 +17,7 @@
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610212300"></script>
-<script src="egbc-events-rooms.js?v=202610081800"></script>
+<script src="egbc-events-rooms.js?v=202610221000"></script>
 <script src="egbc-events-bookings.js?v=202610141700"></script>
 <script src="egbc-events-bookform.js?v=202610101200"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
@@ -107,7 +107,7 @@
       '<div><button class="btn sec" id="c-prev" aria-label="Earlier">&larr;</button> <button class="btn sec" id="c-next" aria-label="Later">&rarr;</button></div>' +
       (V.view === 'week' ? '<div class="f"><label class="l" for="c-room">Room</label><select id="c-room">' + rs.map(function (r) {
         return '<option value="' + esc(r.id) + '"' + (r.id === V.room ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></div>' : '') +
-      '<div style="margin-left:auto"><button class="btn" id="c-book">Book a room</button></div></div>';
+      '<div style="margin-left:auto">' + (rs.length > 1 ? '<button class="btn sec" id="c-cmp">Compare rooms</button> ' : '') + '<button class="btn" id="c-book">Book a room</button></div></div>';
     var el = document.getElementById('cal');
     el.innerHTML = head + '<div class="scroll"><div id="c-grid"><p class="hint">Loading…</p></div></div>';
     wireCal();
@@ -151,6 +151,14 @@
     g('c-prev').onclick = function () { V.day = B.addDays(V.day, V.view === 'day' ? -1 : -7); drawCal(); };
     g('c-next').onclick = function () { V.day = B.addDays(V.day, V.view === 'day' ? 1 : 7); drawCal(); };
     if (g('c-room')) g('c-room').onchange = function () { V.room = this.value; drawCal(); };
+    /* ROOMS SIDE BY SIDE (F-260): the rooms members can book at this site */
+    if (g('c-cmp')) g('c-cmp').onclick = function () {
+      var sh = document.getElementById('sheet'), rs = siteRooms();
+      sh.innerHTML = '<h3>Compare rooms</h3><div id="cmpArea"></div><div style="margin-top:12px"><button class="btn sec" id="cmpClose">Close</button></div>';
+      R.drawCompare(document.getElementById('cmpArea'), rs, { member: true, pick: rs.slice(0, 2).map(function (x) { return x.id; }) });
+      document.getElementById('cmpClose').onclick = closeSheet;
+      document.getElementById('back').style.display = 'block';
+    };
     g('c-book').onclick = function () { openSheet({ room: V.view === 'week' ? V.room : '', day: V.day }); };
   }
 
@@ -167,10 +175,19 @@
       return '<div class="bk" data-bk="' + esc(b.key) + '"><div class="t"><b>' + esc(b.title || 'Booking') + '</b><br><span class="hint">' + esc(r.name) + ', ' + esc(B.when(b)) +
         (b.series ? ' · ' + esc(B.RULES[b.series.rule] || '') + ', date ' + b.series.n + ' of ' + b.series.of : '') +
         ' · reference ' + esc(B.ref(b)) + '</span>' + (b.decisionNote && b.status !== 'confirmed' ? '<br><span class="hint">' + esc(b.decisionNote) + '</span>' : '') +
+        (b.status === 'confirmed' && b.day === B.today() ? (b.arrived ? '<div class="hint" data-arrived>You\u2019re marked as arrived.</div>' : '<div style="margin-top:8px"><button class="btn" data-arrive>We\u2019ve arrived</button></div>') : '') +
         (live ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn sec" data-cancel="one">Cancel</button>' +
           (later.length ? '<button class="btn sec" data-cancel="later">Cancel this and the ' + later.length + ' after it</button>' : '') + '</div>' : '') +
         '</div>' + pill + '</div>';
     }).join('') : '<p class="hint">Nothing booked yet.</p>');
+    /* ON THE DAY (F-260): the member says they have arrived */
+    document.querySelectorAll('[data-arrive]').forEach(function (btn) {
+      btn.onclick = function () {
+        var key = btn.closest('[data-bk]').dataset.bk; btn.disabled = true;
+        db().collection('bookings').doc(key).update({ arrived: { at: firebase.firestore.FieldValue.serverTimestamp(), by: 'member', name: String(((EGBCAuth.profile && EGBCAuth.profile()) || {}).name || '').slice(0, 120) } })
+          .then(function () { MINE.forEach(function (x) { if (x.key === key) x.arrived = { at: new Date() }; }); drawMine(); }, function (e) { btn.disabled = false; alert('That could not be saved: ' + (e.message || e)); });
+      };
+    });
     document.querySelectorAll('[data-cancel]').forEach(function (btn) {
       btn.onclick = function () {
         var b = MINE.filter(function (x) { return x.key === btn.closest('[data-bk]').dataset.bk; })[0];

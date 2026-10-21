@@ -7,7 +7,7 @@
 
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610212100" data-title="Room bookings"></script>
+<script src="egbc-shell.js?v=202610221100" data-title="Room bookings"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -18,8 +18,9 @@
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610212300"></script>
-<script src="egbc-events-rooms.js?v=202610081800"></script>
+<script src="egbc-events-rooms.js?v=202610221000"></script>
 <script src="egbc-events-bookings.js?v=202610141700"></script>
+<script src="egbc-events-roomday.js?v=202610220900"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
 <script src="egbc-accounts.js?v=202610131600"></script>
 <script src="egbc-events-money.js?v=202610131600"></script>
@@ -166,8 +167,10 @@
     var waiting = LIST.filter(function (b) { return b.status === 'requested' && b.day >= B.today(); });
     var asks = LIST.filter(function (b) { return b.cancelRequest && b.cancelRequest.status === 'asked' && (b.status === 'confirmed' || b.status === 'requested'); });
     var shutNow = CLOSURES.filter(function (c) { return !c.warnedAt && clashesOf(c).length; });
-    var tabs = [['waiting', 'Waiting', waiting.length + asks.length + shutNow.length], ['coming', 'Coming up'], ['day', 'Day view'], ['setup', 'Setup sheet'],
-                ['invoices', 'Invoices'], ['hirers', 'Hirers'], ['accounts', 'Accounts'], ['past', 'Past and cancelled']];
+    /* Today: arrivals, and how many are not here yet (F-260) */
+    var RD = window.EGBCRoomDay, nowD = new Date(), late = RD ? LIST.filter(function (b) { return RD.arrival(b, { today: B.today(), nowMin: nowD.getHours() * 60 + nowD.getMinutes(), grace: RD.grace(site()) }) === 'late'; }).length : 0;
+    var tabs = [['waiting', 'Waiting', waiting.length + asks.length + shutNow.length], ['today', 'Today', late], ['coming', 'Coming up'], ['day', 'Day view'], ['setup', 'Setup sheet'],
+                ['invoices', 'Invoices'], ['hirers', 'Hirers'], ['accounts', 'Accounts'], ['use', 'Room use'], ['past', 'Past and cancelled']];
     document.getElementById('main').innerHTML =
       '<div class="row">' + (SITES.length > 1 ? '<div class="f"><label class="l" for="a-site">Site</label><select id="a-site">' + SITES.map(function (s) {
         return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div>' : '<h2 style="margin:0">' + esc(site().name) + '</h2>') + '</div>' + cmpDot() +
@@ -178,6 +181,9 @@
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });
     var el = document.getElementById('list');
     if (V.tab === 'day') return drawDay(el);
+    if (V.tab === 'today' && RD) { var n0 = new Date(); return RD.drawToday(el, { list: LIST, rooms: ROOMS, site: site(), db: db(), myName: ((EGBCAuth.profile && EGBCAuth.profile()) || {}).name || '', today: B.today(), nowMin: n0.getHours() * 60 + n0.getMinutes(), reload: load, toast: toast }); }
+    if (V.tab === 'use' && RD) return RD.drawUse(el, { rooms: ROOMS.filter(function (r) { return r.siteId === V.site && r.kind !== 'online'; }), list: LIST, site: site(), base: B.base, month: V.month,
+      closuresAll: function () { return db().collection('roomClosures').where('siteId', '==', V.site).get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }, function () { return []; }); } });
     if (V.tab === 'setup') return drawSetup(el);
     if (V.tab === 'invoices') return MONEY.drawInvoices(el);
     if (V.tab === 'hirers') return MONEY.drawHirers(el);
@@ -637,7 +643,7 @@
               '<div class="hint">' + esc(q.name || b.memberName || '') + (q.phone ? ', ' + esc(q.phone) : '') + '</div></div>';
           }).join('') + '</div>';
         }).join('') : '<p class="hint">Nothing to set up.</p>') +
-        (food.length ? '<div class="kitchen" data-kitchen="' + d + '"><b>Kitchen</b>' + food.map(function (b) {
+        (food.length ? '<div class="kitchen" data-kitchen="' + d + '"><b>Kitchen</b> <a class="noprint" href="catering.html" style="font-size:13px">The caterers\u2019 page</a>' + food.map(function (b) {
           var f = b.refreshments;
           return '<div>' + esc(f.servingAt || B.hhmm(b.startMin)) + ', ' + esc(room(b.roomId).name) + ': ' + (f.items || []).map(function (i) { return esc(i.qty + ' × ' + i.name); }).join(', ') +
             (diets(f) ? '; ' + esc(diets(f)) : '') + (f.notes ? '; ' + esc(f.notes) : '') + '</div>';

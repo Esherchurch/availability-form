@@ -4409,6 +4409,59 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  THE ROLL-CALL LIST names duty stewards (a master admin)', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: [{ memberId: 'm_pwar', name: 'W', siteId: '', role: 'warden' }, { memberId: 'm_pste', name: 'S', siteId: '', role: 'steward' }], memberIds: ['m_pwar', 'm_pste'], allSites: ['m_pwar', 'm_pste'], bySite: {}, stewards: ['m_pste'], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' }));
 }
 
+// ── EVENTS (events window) ── ROOMS ON THE DAY (F-260): "we've arrived", and the caterers' list
+{
+  const ctx = (uid) => env.authenticatedContext(uid).firestore();
+  const lena = () => ctx('u_aroff');   /* this block's own office: site_ar's bookings admin */
+  const { deleteField } = await import('firebase/firestore');
+  const BK = (d, k, o) => setDoc(doc(d, 'bookings', k), Object.assign({ status: 'confirmed', siteId: 'site_ar', roomId: 'room_band', day: '2026-11-27', startMin: 600, endMin: 660,
+    setupMins: 0, packdownMins: 0, slotFrom: 40, slotTo: 44, title: 'Test (invented)', memberUid: '' }, o));
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    await setDoc(doc(d, 'users', 'u_cook'), { uid: 'u_cook', memberId: 'm_cook', status: 'active', name: 'Cook (invented)', teams: ['Catering'], adminFor: [], masterAdmin: false });
+    await setDoc(doc(d, 'users', 'u_aroff'), { uid: 'u_aroff', memberId: 'm_aroff', status: 'active', name: 'Office (invented)', teams: [], adminFor: [], masterAdmin: false });
+    await setDoc(doc(d, 'bookingSettings', 'site_ar'), { bookingsAdmins: ['m_aroff'], safeguardingLead: '', safeguardingDeputy: '' });
+    await setDoc(doc(d, 'users', 'u_other'), { uid: 'u_other', memberId: 'm_other', status: 'active', name: 'Other (invented)', teams: ['Welcome'], adminFor: [], masterAdmin: false });
+    await BK(d, 'ar_hire_000000000000000000000000', { kind: 'hire', requester: { name: 'Hirer (invented)', email: 'h@example.invalid' } });
+    await BK(d, 'ar_hire2_00000000000000000000000', { kind: 'hire' });
+    await BK(d, 'ar_asked_00000000000000000000000', { kind: 'hire', status: 'requested' });
+    await BK(d, 'ar_mem_000000000000000000000000', { kind: 'member', memberUid: 'u_samy' });
+    await BK(d, 'ar_done_00000000000000000000000', { kind: 'hire', arrived: { at: 'x', by: 'hirer', name: 'x' } });
+    await BK(d, 'ar_off_000000000000000000000000', { kind: 'office' });
+    const CO = { siteId: 'site_ar', roomId: 'room_band', roomName: 'Band room', day: '2026-11-27', startMin: 600, servingAt: '10:30', people: 20, title: 'Test', items: [], dietary: {}, notes: '', state: 'new' };
+    await setDoc(doc(d, 'cateringOrders', 'co_1'), CO);
+    await setDoc(doc(d, 'cateringOrders', 'co_2'), Object.assign({}, CO, { siteId: 'site_appr' }));
+  });
+  const ARR = (by, name, extra) => ({ arrived: Object.assign({ at: serverTimestamp(), by, name: name || 'x' }, extra || {}) });
+  await check('ARRIVED: the hirer, with the booking’s private link, says they are here', 'allow', () => updateDoc(doc(anon(), 'bookings', 'ar_hire_000000000000000000000000'), ARR('hirer', 'Hirer (invented)')));
+  await check('  only once (already arrived)', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_done_00000000000000000000000'), ARR('hirer')));
+  await check('  not on a booking still waiting to be approved', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_asked_00000000000000000000000'), ARR('hirer')));
+  await check('  "hirer" only on a hire, not the office’s own booking', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_off_000000000000000000000000'), ARR('hirer')));
+  await check('  nothing else changes with it (not the status)', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_hire2_00000000000000000000000'), Object.assign(ARR('hirer'), { status: 'cancelled' })));
+  await check('  the time is the server’s, not one the phone makes up', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_hire2_00000000000000000000000'), { arrived: { at: '2026-11-27T09:00', by: 'hirer', name: 'x' } }));
+  await check('  no extra fields in it', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_hire2_00000000000000000000000'), ARR('hirer', 'x', { paid: true })));
+  await check('  a name no longer than 120', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_hire2_00000000000000000000000'), ARR('hirer', 'x'.repeat(121))));
+  await check('  a member marks their own booking arrived', 'allow', () => updateDoc(doc(as('samy'), 'bookings', 'ar_mem_000000000000000000000000'), ARR('member', 'Samy')));
+  await check('  not someone else’s', 'deny', () => updateDoc(doc(as('isla'), 'bookings', 'ar_hire2_00000000000000000000000'), ARR('member')));
+  await check('  signed out cannot claim to be the member', 'deny', () => updateDoc(doc(anon(), 'bookings', 'ar_hire2_00000000000000000000000'), ARR('member')));
+  await check('  the office marks any booking at its site arrived', 'allow', () => updateDoc(doc(lena(), 'bookings', 'ar_off_000000000000000000000000'), ARR('office', 'Office')));
+  await check('  and takes a mistaken "arrived" off', 'allow', () => updateDoc(doc(lena(), 'bookings', 'ar_done_00000000000000000000000'), { arrived: deleteField() }));
+  await check('  nobody else takes it off', 'deny', () => updateDoc(doc(as('samy'), 'bookings', 'ar_mem_000000000000000000000000'), { arrived: deleteField() }));
+
+  const ST = (uid, state, extra) => Object.assign({ state, stateBy: uid, stateByName: 'x', stateAt: serverTimestamp() }, extra || {});
+  await check('CATERING: the Catering team reads the orders', 'allow', () => getDocs(query(collection(ctx('u_cook'), 'cateringOrders'), where('siteId', '==', 'site_ar'))));
+  await check('  the site’s bookings admin does', 'allow', () => getDoc(doc(lena(), 'cateringOrders', 'co_1')));
+  await check('  but not at a site they do not look after', 'deny', () => getDoc(doc(lena(), 'cateringOrders', 'co_2')));
+  await check('  someone on another team does not', 'deny', () => getDoc(doc(ctx('u_other'), 'cateringOrders', 'co_1')));
+  await check('  signed out does not', 'deny', () => getDoc(doc(anon(), 'cateringOrders', 'co_1')));
+  await check('  the team marks one prepared', 'allow', () => updateDoc(doc(ctx('u_cook'), 'cateringOrders', 'co_1'), ST('u_cook', 'prepared')));
+  await check('  not as somebody else', 'deny', () => updateDoc(doc(ctx('u_cook'), 'cateringOrders', 'co_1'), ST('u_lena', 'served')));
+  await check('  not to a made-up state', 'deny', () => updateDoc(doc(ctx('u_cook'), 'cateringOrders', 'co_1'), ST('u_cook', 'eaten')));
+  await check('  not the order itself (numbers come from the booking)', 'deny', () => updateDoc(doc(ctx('u_cook'), 'cateringOrders', 'co_1'), ST('u_cook', 'served', { people: 200 })));
+  await check('  nobody makes an order (the server does)', 'deny', () => setDoc(doc(as('martin'), 'cateringOrders', 'co_new'), { siteId: 'site_bk', state: 'new' }));
+  await check('  nobody deletes one', 'deny', () => deleteDoc(doc(as('martin'), 'cateringOrders', 'co_1')));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

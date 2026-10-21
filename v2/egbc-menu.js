@@ -149,6 +149,10 @@
       /* Not `admin`: a site's bookings admin often administers no team. */
       { title: 'Room bookings', url: 'bookings-admin.html', icon: 'calendar-check-2', feature: 'roomBookings', bookings: true,
         description: 'Requests to approve, and what is booked' },
+      /* The caterers' list (F-260): the Catering team. A site's bookings
+         admins reach it from Room bookings' kitchen list. */
+      { title: 'Catering orders', url: 'catering.html', icon: 'cooking-pot', feature: 'roomBookings', team: ['Catering'],
+        description: 'Refreshments for room bookings, to prepare and serve' },
       { title: 'Check-in', url: 'checkin.html', icon: 'user-check', feature: 'events', core: true, admin: true,
         description: 'Check people in at an event, with its tickets' },
       { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', feature: 'events', core: true, admin: true,

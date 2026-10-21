@@ -125,7 +125,8 @@
   /* THE ROOM AT A GLANCE, where a room is chosen to book (the reviewing
      window, 19 Oct; brief §6.18): its main photo, how many it holds set out
      the way asked, its floor area, its facilities, and the kit in it or
-     movable to it - the same facts as room.html, at 375px. */
+     movable to it - the same facts as room.html, at 375px. Also, further
+     down, the same facts for two or three rooms side by side (compare). */
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function kitFor(room, kit) {
     kit = kit || [];
@@ -201,7 +202,70 @@
     return out;
   }
 
-  var api = { LEVELS: LEVELS, levelWords: levelWords, PLAN_WHO: PLAN_WHO, missing: missing, ACCESS: ACCESS, access: access, accessWords: accessWords, card: card, kitFor: kitFor, LAYOUTS: LAYOUTS, FACILITIES: FACILITIES, FLOORS: FLOORS, area: area, has: has, holds: holds,
+  /* ROOMS SIDE BY SIDE (F-260): up to three rooms in one table - how many
+     each holds every way it is set out (never past its fire-safety maximum),
+     the maximum itself, floor area, floor, step-free access, natural light
+     and every facility. Built from the same facts as the room card and
+     room.html; a fact nobody has filled in says "Not said", never "No".
+     o: { sites: {id: name}, member: true } */
+  var COMPARE_MAX = 3;
+  var CMP_CSS = '.rcmp{width:100%;border-collapse:collapse;font-size:13.5px}.rcmp th,.rcmp td{border-bottom:1px solid #e5e7eb;padding:6px 8px;text-align:left;vertical-align:top}' +
+    '.rcmp thead th{color:#111827;font-weight:700}.rcmp tbody th{color:#6b7280;font-weight:500;white-space:nowrap}.rcmp img{width:100%;max-width:180px;height:auto;border-radius:6px;display:block}' +
+    '.rcmp .best{font-weight:700;color:#15803d}.rcmp .no{color:#9ca3af}.rcmpw{overflow-x:auto}';
+  function compare(rooms, o) {
+    o = o || {};
+    rooms = (rooms || []).filter(Boolean).slice(0, COMPARE_MAX);
+    if (!rooms.length) return '';
+    if (typeof document !== 'undefined' && !document.getElementById('rcmp-css')) {
+      var st = document.createElement('style'); st.id = 'rcmp-css'; st.textContent = CMP_CSS; document.head.appendChild(st);
+    }
+    var row = function (key, label, cells) { return '<tr data-crow="' + key + '"><th scope="row">' + esc(label) + '</th>' + cells.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; };
+    /* a number row: the biggest is marked, a 0 reads as "-" */
+    var nums = function (key, label, vals, unit) {
+      var top = Math.max.apply(null, vals);
+      return row(key, label, vals.map(function (v) { return v ? '<span' + (v === top && rooms.length > 1 && vals.filter(function (x) { return x === top; }).length < vals.length ? ' class="best"' : '') + ' data-n="' + v + '">' + v + (unit || '') + '</span>' : '<span class="no" data-n="0">-</span>'; }));
+    };
+    var said = function (w) { return w === 'Not said' || w === 'Not checked yet' ? '<span class="no">' + w + '</span>' : esc(w); };
+    var out = '<div class="rcmpw"><table class="rcmp" id="cmpTable"><thead><tr><th></th>' + rooms.map(function (r) { return '<th scope="col" data-croom="' + esc(r.id) + '">' + esc(r.name) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    out += row('photo', 'Photo', rooms.map(function (r) { var p = mainPhoto(r); return p ? '<img src="' + esc(p.url) + '" alt="' + esc(r.name) + '" loading="lazy">' : '<span class="no">No photo yet</span>'; }));
+    if (o.sites) out += row('site', 'Where', rooms.map(function (r) { return esc(o.sites[r.siteId] || ''); }));
+    LAYOUTS.forEach(function (x) {
+      if (rooms.some(function (r) { return num((r.layouts || {})[x.id]); })) out += nums('lay-' + x.id, x.label, rooms.map(function (r) { return holds(r, x.id); }));
+    });
+    out += nums('holds', 'Holds at most', rooms.map(function (r) { return holds(r); }));
+    out += nums('fire', 'Fire-safety maximum', rooms.map(function (r) { return num(r.fireMax); }));
+    out += nums('area', 'Floor area', rooms.map(function (r) { return area(r); }), ' m²');
+    out += row('level', 'Floor', rooms.map(function (r) { return said(levelWords(r)); }));
+    out += row('access', 'Step-free', rooms.map(function (r) { return said(accessWords(r)); }));
+    out += row('light', 'Natural light', rooms.map(function (r) { return r.naturalLight ? 'Yes' : '<span class="no">Not said</span>'; }));
+    FACILITIES.forEach(function (x) {
+      if (!rooms.some(function (r) { return has(r, x.id); })) return;
+      out += row('fac-' + x.id, x.label, rooms.map(function (r) { var v = (r.facilities || {})[x.id]; return has(r, x.id) ? (x.count ? String(num(v)) : 'Yes') : '<span class="no">-</span>'; }));
+    });
+    out += row('more', '', rooms.map(function (r) { return '<a href="room.html?id=' + encodeURIComponent(r.id) + (o.member ? '&member=1' : '') + '" target="_blank" rel="noopener">More about this room</a>'; }));
+    return out + '</tbody></table></div>';
+  }
+
+  /* The picker for it: three "Room" boxes; the table redraws as they change. */
+  function drawCompare(el, rooms, o) {
+    o = o || {};
+    var pick = (o.pick || []).slice(0, COMPARE_MAX);
+    function draw() {
+      var chosen = pick.map(function (id) { return rooms.filter(function (r) { return r.id === id; })[0]; }).filter(Boolean);
+      el.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px">' + [0, 1, 2].map(function (i) {
+        return '<label style="flex:1 1 150px;font-size:13px;color:#6b7280">Room ' + (i + 1) + '<br><select data-cmppick="' + i + '" style="width:100%;min-height:40px">' +
+          '<option value="">' + (i < 2 ? 'Choose a room' : '(optional)') + '</option>' + rooms.map(function (r) {
+            return '<option value="' + esc(r.id) + '"' + (pick[i] === r.id ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></label>';
+      }).join('') + '</div>' +
+        (chosen.length ? compare(chosen, o) : '<p style="color:#6b7280;font-size:13.5px" id="cmpEmpty">Choose two or three rooms to see them side by side.</p>');
+      [].forEach.call(el.querySelectorAll('[data-cmppick]'), function (s) {
+        s.onchange = function () { pick[+s.dataset.cmppick] = s.value; pick = pick.slice(0, COMPARE_MAX); draw(); };
+      });
+    }
+    draw();
+  }
+
+  var api = { compare: compare, drawCompare: drawCompare, COMPARE_MAX: COMPARE_MAX, LEVELS: LEVELS, levelWords: levelWords, PLAN_WHO: PLAN_WHO, missing: missing, ACCESS: ACCESS, access: access, accessWords: accessWords, card: card, kitFor: kitFor, LAYOUTS: LAYOUTS, FACILITIES: FACILITIES, FLOORS: FLOORS, area: area, has: has, holds: holds,
               fit: fit, hireable: hireable, mainPhoto: mainPhoto, shrink: shrink };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCRooms = api;
