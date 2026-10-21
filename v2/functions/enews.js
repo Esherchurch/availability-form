@@ -40,7 +40,7 @@ import { enewsShut } from './enews-gate.js';
 import { makeHqSender, verifySvix } from './hq-mail.js';
 import { webhookSecret, SENDING_SECRETS } from './resend-secrets.js';
 import { featureOn } from './features.js';
-import { isUnder18Email } from './under18.js';
+import { isUnder18Email, isUnder18Record } from './under18.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -270,6 +270,9 @@ async function addOne(person, how, uid, opts) {
   const email = normEmail(person.email);
   if (!EMAIL.test(email)) return { email, skipped: 'that email address does not look right' };
   if (await isUnder18Email(db(), email)) return { email, skipped: 'under 18: the hub never emails under-18s' };
+  /* Added from a person's record: never an under-18's record, even when the
+     address is a parent's (under18.js). */
+  if (person.memberId) { const r = await db().collection('addressBook').doc(String(person.memberId)).get(); if (r.exists && isUnder18Record(r.data())) return { email, skipped: 'under 18: the hub never emails under-18s' }; }
   const doc = await findByEmail(email);
   const st = doc ? doc.data().status : '';
   if (st === 'subscribed') return { email, skipped: 'already gets the e-news' };

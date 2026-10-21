@@ -40,7 +40,7 @@ import { enewsShut } from './enews-gate.js';
 import { makeHqSender } from './hq-mail.js';
 import { makeSender } from './public-mail.js';
 import { featureOn } from './features.js';
-import { under18Emails } from './under18.js';
+import { under18Emails, isUnder18Record } from './under18.js';
 import { paperLinksFor, personalise } from './meeting-papers.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
 
@@ -89,7 +89,9 @@ export function letterFor(issue, sub, isMember, o = {}) {
 export async function recipientsFor(db, issue, subsDocs) {
   const out = [], seen = new Set();
   const add = (r) => { const e = String(r.email || '').trim().toLowerCase(); if (!e || seen.has(e)) return; seen.add(e); out.push(Object.assign({}, r, { email: e })); };
-  const fromBook = (d) => { const x = d.data() || {}; if (x.archived === true) return; add({ id: 'ab_' + d.id, email: x.email, firstName: String(x.name || '').split(/\s+/)[0], token: '', member: x.churchMember === true }); };
+  /* A chosen person who is under 18 is never sent to, even when their
+     address is a parent's (under18.js): the parent's own record gets it. */
+  const fromBook = (d) => { const x = d.data() || {}; if (x.archived === true || isUnder18Record(x)) return; add({ id: 'ab_' + d.id, email: x.email, firstName: String(x.name || '').split(/\s+/)[0], token: '', member: x.churchMember === true }); };
   const aud = issue.kind === 'oneoff' ? (issue.audience || 'subscribers') : 'subscribers';
   if (aud === 'subscribers') {
     subsDocs.forEach(s => { const x = s.data(); if (x.lists && x.lists.weekly === true && x.token) add({ id: s.id, email: x.email, firstName: x.firstName || '', token: x.token }); });

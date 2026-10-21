@@ -140,6 +140,13 @@ async function scenario(PM, R) {
     t('an under-18 address is refused (never emailed)', r.ok === false && /under-18/.test(r.error) && resend.length === 0, r);
     r = await send({ to: ['sev.route@example.invalid'], subject: 'Seventeen', html: 'x' }, { kind: 'signup' });
     t('a 17-year-old (ticked Under 18, not Under 16) is refused too', r.ok === false && /under-18/.test(r.error) && resend.length === 0, r);
+    /* A child in the address book with a PARENT's address (reviewing
+       window, 21 Oct: Martin's son has Martin's address). */
+    await db.collection('addressBook').doc('ab_parent').set({ name: 'Parent Synthetic', email: 'family.route@example.invalid' });
+    await db.collection('addressBook').doc('ab_child').set({ name: 'Child Synthetic', email: 'Family.Route@example.invalid', under18: true, isMinor: true });
+    r = await send({ to: ['family.route@example.invalid'], subject: 'Family', html: 'x' }, { kind: 'enews test' });
+    t('a parent sharing an address with their child gets the email', r.ok === true && resend.length === 1, r);
+    resend.length = 0;
     const hour = new Date().toISOString().slice(0, 13);
     await db.collection('mailRouteHours').doc(hour).set({ recipients: 1999, hour });
     r = await send({ to: [OK, 'hirer.route@example.invalid'], subject: 'Cap', html: 'x' }, { kind: 'signup' });
@@ -188,6 +195,24 @@ for (const [file, what, from, to, expect] of BREAKS) {
   const hit = red.some(n => n.includes(expect));
   R.push(hit);
   console.log('  ' + (hit ? 'PASS  ' : 'FAIL  ') + 'break caught: ' + what + (hit ? '' : '  - NOTHING CAUGHT IT ' + JSON.stringify(red)));
+}
+/* The old rule back (any under-18 record makes its address refused): the
+   parent must turn red. under18.js is copied with the old line, and a copy
+   of mail-route.js is pointed at it. */
+{
+  let red = [];
+  const tag = '.check-' + process.pid + '-old-under18.js';
+  try {
+    const u = fs.readFileSync(path.join(FN, 'under18.js'), 'utf8').replace(/\r\n/g, '\n');
+    const from = 'minor.set(e, minor.has(e) ? (minor.get(e) && u) : u);';
+    if (!u.includes(from)) throw new Error('the line to break is not in functions/under18.js any more - update the break');
+    fs.writeFileSync(path.join(FN, tag), u.replace(from, 'minor.set(e, minor.has(e) ? (minor.get(e) || u) : u);'));
+    const RR = await loadCopy('mail-route.js', "from './under18.js'", "from './" + tag + "'");
+    red = (await scenario(PM0, RR)).filter(r => !r.v).map(r => r.n);
+  } catch (e) { console.log('          ' + e.message); } finally { try { fs.unlinkSync(path.join(FN, tag)); } catch (e) {} }
+  const hit = red.some(n => n.includes('parent sharing an address'));
+  R.push(hit);
+  console.log('  ' + (hit ? 'PASS  ' : 'FAIL  ') + 'break caught: the old rule (a child’s record blocks the parent’s address)' + (hit ? '' : '  - NOTHING CAUGHT IT ' + JSON.stringify(red)));
 }
 await clear();
 globalThis.fetch = realFetch;

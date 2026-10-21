@@ -131,6 +131,8 @@ async function scenario(S) {
   await db.collection('addressBook').doc('m1').set({ name: 'Ann Member', email: 'ann.one@example.invalid', churchMember: true, markers: [] });
   await db.collection('addressBook').doc('m2').set({ name: 'Old Member', email: 'old.one@example.invalid', churchMember: true, archived: true });
   await db.collection('addressBook').doc('m3').set({ name: 'Teen Member', email: 'teen.one@example.invalid', churchMember: true, under18: true });
+  /* A child with a parent's address (21 Oct): Ann's son, ticked a church member. */
+  await db.collection('addressBook').doc('m5').set({ name: 'Andy Child', email: 'Ann.One@example.invalid', churchMember: true, under18: true, isMinor: true });
   await db.collection('addressBook').doc('t1').set({ name: 'Tom Team', email: 'tom.one@example.invalid', churchMember: false, markers: ['Welcome team'] });
   await db.collection('addressBook').doc('p1').set({ name: 'Pip Picked', email: 'pip.one@example.invalid', churchMember: false, markers: [] });
   const ONE = { subject: 'Dear {{first_name}}, a note', template: 'classic', kind: 'oneoff', blocks: [{ type: 'text', html: '<p>Dear {{first_name}},</p><p>All welcome</p>' }, { type: 'text', html: '<p>' + ZOOM + '</p>', members: true }] };
@@ -139,12 +141,15 @@ async function scenario(S) {
   await dueOne('o_mem', { audience: 'members' });
   await dueOne('o_team', { audience: 'team', team: 'Welcome team' });
   await dueOne('o_pick', { audience: 'picked', picked: ['p1', 'm2'] });
+  await dueOne('o_kid', { audience: 'picked', picked: ['m5'] });
   got.length = 0;
   await S.runEnewsSend({ db, send, now, hub: 'https://hub.example.invalid/v2', fnBase: 'https://fn.example.invalid', gap: 0 });
   const by = id => got.filter(g => g.meta.issueId === id).map(g => g.to).sort().join(',');
   t('to church members: the members, never archived or under 18', by('o_mem') === 'ann.one@example.invalid', by('o_mem'));
   t('to a team: its people', by('o_team') === 'tom.one@example.invalid', by('o_team'));
   t('to people picked: those picked (an archived one left out)', by('o_pick') === 'pip.one@example.invalid', by('o_pick'));
+  t('a child chosen by name is never sent to, even with a parent’s address', by('o_kid') === '', by('o_kid'));
+  t('…and that parent still gets the members’ email, once, as "Dear Ann"', by('o_mem') === 'ann.one@example.invalid' && got.filter(g => g.meta.issueId === 'o_mem' && /Dear Ann,/.test(g.html)).length === 1);
   const ann = got.find(g => g.to === 'ann.one@example.invalid') || {};
   t('"Dear {{first_name}}" becomes theirs, in the words and the subject', /Dear Ann,/.test(ann.html || '') && ann.subject === 'Dear Ann, a note' && !/\{\{first_name\}\}/.test(ann.html || ''), ann.subject);
   t('church members get the members’ copy', (ann.html || '').includes(ZOOM) && ann.meta.copy === 'members');
@@ -190,6 +195,7 @@ report(await scenario(await loadCopy()));
 
 console.log('-- deliberate breaks --');
 const BREAKS = [
+  ['a child’s own record sent to', 'if (x.archived === true || isUnder18Record(x)) return;', 'if (x.archived === true) return;', 'a child chosen by name'],
   ['the members’ copy sent to everyone', "const html = String(isMember ? issue.htmlMembers : issue.htmlEveryone || '')", "const html = String(issue.htmlMembers || '')", 'everyone else’s copy has no members-only words'],
   ['the web version made from the members’ copy', "html: String(issue.htmlEveryone).split(PLACEHOLDER)", "html: String(issue.htmlMembers).split(PLACEHOLDER)", 'the web version has no members-only words'],
   ['team members left out', "(x.churchMember === true || (Array.isArray(x.markers) && x.markers.filter(Boolean).length > 0))", "(x.churchMember === true)", 'on a team without the tick DOES'],

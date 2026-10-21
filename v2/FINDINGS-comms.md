@@ -260,6 +260,26 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## FIXED, 21 Oct (urgent): a parent who shares an address with their child gets the hub's email
+
+Reviewing window: Martin's son is in the address book with Martin's address, so the under-18 rule refused Martin. His own "Send me a test" was refused, and so was every email to every parent of a child in the address book.
+
+- **The rule now** (functions/under18.js):
+  - **an address** is an under-18's only when **every** address-book record with it is under 18, so no adult shares it (`under18Emails`, compared ignoring case);
+  - **a chosen person** who is under 18 is never sent to, whatever their address (`isUnder18Record`). The same address held by an adult still gets that adult's own emails.
+- **Where a person is chosen,** the record itself is now refused:
+  - a one-off email to members, a team or people picked (enews-send `recipientsFor`);
+  - the office adding a subscriber from the address book (enews.js).
+- **Everything else** asks the same function, so it follows the new rule: the mail route (every email, and hubSend), the e-news, welcomes, the members' meeting papers and the social reminder.
+
+| Check | Result |
+|---|---|
+| check-mail-route | 25/25: a parent sharing an address with their child gets the email; an address held only by an under-18 (Under 16 or Under 18) is refused; **break: the old rule back → red** |
+| check-enews-send | 48/48: a child chosen by name is never sent to, even with a parent's address; that parent still gets the members' email once; **break: a child's own record sent to → red** |
+| Also passing | subscribe 58/58, welcome-mail 26/26, meeting-papers 21/21, social 13/13, addressbook 18/18 (breaks minor, seventeen red), compiler-send 12/12, and the main window's check-hub-send 25/25 (on this window's emulators) |
+
+---
+
 ## BUILT, 21 Oct: v2 sends everything through Church HQ's Resend, with the key in Google Secret Manager. For review
 
 Martin, through the reviewing window: "v2 doesn't use Calla at all." There are three parts.
