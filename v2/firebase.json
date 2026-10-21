@@ -11,7 +11,11 @@
       "comment": "NAMED CODEBASE, and it matters. sendEmail lives in the same Google project, belongs to the Calla window and is not in this repository. A deploy that does not name a codebase sees it as an orphan and offers to delete it. Always: firebase deploy --only functions:hub",
       "source": "functions",
       "codebase": "hub",
-      "ignore": ["node_modules", ".git", "*.local"]
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.local"
+      ]
     }
   ],
   "emulators": {
@@ -32,6 +36,18 @@
       "enabled": true,
       "port": 4000
     },
-    "singleProjectMode": true
+    "singleProjectMode": true,
+    "eventarc": {
+      "port": 9298
+    },
+    "tasks": {
+      "port": 9498
+    },
+    "hub": {
+      "port": 4401
+    },
+    "logging": {
+      "port": 4501
+    }
   }
 }
