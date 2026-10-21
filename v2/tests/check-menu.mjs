@@ -25,6 +25,22 @@ import os from 'node:os';
 import { watchConsole } from './console-watch.mjs';
 import { makeEval } from './browser-eval.mjs';
 
+/* THE EMULATOR'S PORTS FROM ITS CONFIG, not typed in (the reviewing window,
+   22 Oct 2026: a run aimed at another window's emulator by mistake reached
+   this one's, because 9099 and 8181 were hard-wired). emulators:exec sets
+   FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST, which win; else
+   EGBC_FIREBASE_CONFIG (default firebase.json). The pages themselves find
+   the emulator through egbc-auth.js's own localhost hook. */
+const EMU = (() => {
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.json', 'utf8')); } catch (e) {}
+  const fromEnv = (v) => (v ? Number(String(v).split(':').pop()) : 0);
+  return {
+    firestore: fromEnv(process.env.FIRESTORE_EMULATOR_HOST) || (cfg.emulators && cfg.emulators.firestore && cfg.emulators.firestore.port) || 8181,
+    auth: fromEnv(process.env.FIREBASE_AUTH_EMULATOR_HOST) || (cfg.emulators && cfg.emulators.auth && cfg.emulators.auth.port) || 9099
+  };
+})();
+
 const V2 = path.resolve('.');
 const SHOTS = path.join(V2, 'tests', 'shots');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -249,7 +265,7 @@ const ok = (n, v, x) => { R.push(v); console.log('  ' + (v ? 'PASS  ' : 'FAIL  '
 
 const rest = (method, p, body) => new Promise((res, rej) => {
   const data = body ? JSON.stringify(body) : null;
-  const req = http.request({ host: 'localhost', port: 8181, method, path: p,
+  const req = http.request({ host: 'localhost', port: EMU.firestore, method, path: p,
     headers: Object.assign({ Authorization: 'Bearer owner' },
       data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {}) },
     r => { let d = ''; r.on('data', c => d += c); r.on('end', () => res({ status: r.statusCode, body: d })); });
@@ -393,7 +409,7 @@ const READ_MENU = `(() => {
      run is not a gate. Already-exists is the normal answer and is ignored. */
   await new Promise((res) => {
     const d = JSON.stringify({ email: ACCOUNT.email, password: ACCOUNT.pw, returnSecureToken: true });
-    const r = http.request({ host: 'localhost', port: 9099, method: 'POST',
+    const r = http.request({ host: 'localhost', port: EMU.auth, method: 'POST',
       path: '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(d) } },
       s => { s.on('data', () => {}); s.on('end', res); });
