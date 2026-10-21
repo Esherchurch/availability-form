@@ -42,6 +42,7 @@ import { makeSender } from './public-mail.js';
 import { featureOn } from './features.js';
 import { under18Emails } from './under18.js';
 import { paperLinksFor, personalise } from './meeting-papers.js';
+import { SENDING_SECRETS } from './resend-secrets.js';
 
 const REGION = 'europe-west2';
 const HUB = 'https://esherchurch.github.io/availability-form/v2';
@@ -178,7 +179,7 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
   return { results };
 }
 
-export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 0, timeoutSeconds: 540 }, async () => {
+export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 0, timeoutSeconds: 540, secrets: SENDING_SECRETS }, async () => {
   const db = getFirestore();
   await runEnewsSend({ db, send: makeHqSender({ db }) });
 });
@@ -190,7 +191,7 @@ export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minu
    known recipient. So it works before switch-over, while sending to
    subscribers through Church HQ's Resend stays shut. Its unsubscribe link
    goes nowhere: a test has no subscriber to unsubscribe. */
-export const enewsTest = onCall({ region: REGION }, async (req) => {
+export const enewsTest = onCall({ region: REGION, secrets: SENDING_SECRETS }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = getFirestore();

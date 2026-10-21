@@ -24,6 +24,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { makeSender } from './public-mail.js';
 import { featureOn } from './features.js';
 import { under18Emails } from './under18.js';
+import { SENDING_SECRETS } from './resend-secrets.js';
 
 const REGION = 'europe-west2';
 const HUB = 'https://esherchurch.github.io/availability-form/v2';
@@ -62,7 +63,7 @@ export async function runSocialMorning({ db, send, now = new Date(), hub = HUB }
   return { day, items: items.length, sent };
 }
 
-export const socialMorning = onSchedule({ region: REGION, schedule: '0 7 * * *', timeZone: 'Europe/London', retryCount: 0 }, async () => {
+export const socialMorning = onSchedule({ region: REGION, schedule: '0 7 * * *', timeZone: 'Europe/London', retryCount: 0, secrets: SENDING_SECRETS }, async () => {
   const db = getFirestore();
   await runSocialMorning({ db, send: makeSender({ db }) });
 });

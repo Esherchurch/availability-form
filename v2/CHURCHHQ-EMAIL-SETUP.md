@@ -15,7 +15,9 @@ Do the steps in order and tick each one.
 > - Resend account "churchhq"; domain `mail.churchhq.co.uk`, Ireland (eu-west-1), **Verified**.
 > - Cloudflare records: see Part C (what is actually there).
 > - The root's Cloudflare email routing is untouched.
-> - **Still to do: parts D and E, Martin's, at switch-over.**
+> - **Still to do: parts D and E**, Martin's with the reviewing window. Since 21 Oct 2026 they need
+>   not wait for switch-over: the key goes into Google Secret Manager, not the hub, and v2
+>   sends every email through Church HQ's Resend (never Calla's sendEmail).
 > - **esherchurch.org's DNS is NOT needed.** Every church sends from
 >   mail.churchhq.co.uk. A church's own domain is only for a church that
 >   later wants to send from its own address (see the end).
@@ -64,15 +66,13 @@ In plain words:
 
 Nothing more to do here.
 
-## Part D: the key, into the key box (at switch-over; 5 min)
+## Part D: the key, into Google Secret Manager (now; 5 min)
 
 The key lets anyone send email as Church HQ, so it **never goes in a chat,
-an email, a page or the repository**. You paste it into the hub's **key
-box**, which hands it to the server and never shows it again.
-
-**The box refuses until switch-over.** Until then the database can be read
-by anybody, so a key saved now wouldn't be safe. The box just says so, and
-there's nothing to do. On switch-over day, after the rules:
+an email, a page, the database or the repository**. It goes into Google
+Secret Manager as **RESEND_API_KEY**, where only the hub's server can read
+it. (Before 21 Oct it went in the hub's key box; the box now only says
+whether it is set.)
 
 - [ ] **D1.** In Resend: **API Keys** → **Create API key**.
       - Name: `church-hq-hub`
@@ -80,16 +80,14 @@ there's nothing to do. On switch-over day, after the rules:
       - Domain: **mail.churchhq.co.uk**
 
       Press **Add**, then **copy** the key. It is shown only once.
-- [ ] **D2.** In the hub: **Menu → Church settings → Email and Canva keys**
-      (master admins only). Paste it into **Resend API key**, press **Save**.
-      It says "Saved. It will not be shown again" and shows **saved** beside
-      the name.
+- [ ] **D2.** With the reviewing window, in a terminal in the repo's `v2` folder:
+      `firebase functions:secrets:set RESEND_API_KEY` and paste the key when it asks
+      (it is not shown as you paste).
 - [ ] **D3.** Close the Resend tab. The key isn't needed anywhere else.
+- [ ] **D4.** In the hub: **Menu → Church settings → Email and Canva keys** says
+      "The API key (RESEND_API_KEY): **set**" once the functions are deployed.
 
-Sending stays held until switch-over too: `ENEWS_LIVE = false` in
-`functions/enews-gate.js`. On the emulator, nothing is ever really sent.
-
-## Part E: bounces and complaints (at switch-over; 5 min)
+## Part E: bounces and complaints (now; 5 min)
 
 - [ ] **E1.** Resend → **Webhooks** → **Add endpoint**. Paste:
       `https://europe-west2-egbc-worship-planner.cloudfunctions.net/hqMailEvents`
@@ -99,8 +97,8 @@ Sending stays held until switch-over too: `ENEWS_LIVE = false` in
       - **email.delivery_delayed**
       - **email.suppressed**
       - **email.failed**
-- [ ] **E2.** Copy the **Signing secret** it shows (starts `whsec_`). Paste
-      it into the key box's **Resend webhook signing secret**, then press **Save**.
+- [ ] **E2.** Copy the **Signing secret** it shows (starts `whsec_`), and with the
+      reviewing window: `firebase functions:secrets:set RESEND_WEBHOOK_SECRET`, paste it.
 - [ ] **E3. Switch click tracking OFF.** Resend switched it on for this
       domain. It can only be changed per domain, not per email, and the hub's
       key can only send, so this one is a click:
@@ -108,10 +106,18 @@ Sending stays held until switch-over too: `ENEWS_LIVE = false` in
       tracking → **click tracking off** (and open tracking off).
       Tracking rewrites every link in the e-news and marks who opened what.
       A church e-news doesn't need that, and it can push emails into spam.
+- [ ] **E4.** Then deploy the functions (`firebase deploy --only functions:hub`). The
+      secrets must exist first: the functions that list them won't deploy without them.
 
 Then a bounced address is marked "bounced" for **that church only**, and is
 never sent to again. Someone who presses "spam" is unsubscribed from that
 church's e-news.
+
+The e-news to subscribers itself, and the sign-up form, still wait for
+switch-over (`ENEWS_LIVE` in `functions/enews-gate.js`): until the locked
+rules deploy, a subscriber list saved in the database could be read by
+anybody. Everything else sends as soon as the key is set. On the emulator,
+nothing is ever really sent.
 
 ---
 
@@ -134,4 +140,9 @@ church's e-news.
   Cloudflare has no `.churchhq.co.uk` typed twice, and that the DKIM line
   is **DNS only** (grey cloud, not orange).
 - **You think the key has leaked:** Resend → API Keys → delete it, make a
-  new one (D1), and run D2 again. Nothing else changes.
+  new one (D1), and run D2 again (a new version of RESEND_API_KEY). The
+  server picks it up within ten minutes, or at once after a deploy.
+- **The emulator and the real secrets:** a functions emulator with no
+  `functions/.secret.local` fetches the REAL secrets from Secret Manager. The
+  comms window's checks and the ease test write test stand-ins there
+  (git-ignored), so a local run never holds the real key.

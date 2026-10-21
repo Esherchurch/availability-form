@@ -20,10 +20,10 @@
    sign-up at 19:30 says 19:30 in October and in June, and its calendar
    file is right in both.
 
-   SENT WITH THE SERVER'S IDENTITY (§26 item 4b), exactly as index.js's
-   sendOne does, with one difference: the sign-up confirmation carries its
-   calendar file and check-in codes, and sendOne sends no attachments. On
-   the emulator nothing is sent; every message lands in emailOutbox.
+   SENT THROUGH CHURCH HQ'S RESEND (mail-route.js; Martin, 21 Oct: v2
+   does not use Calla's sendEmail at all). The sign-up confirmation
+   carries its calendar file and check-in codes as attachments. On the
+   emulator nothing is sent; every message lands in emailOutbox.
 
    EACH ONE HONOURS ITS FEATURE SWITCH (churchSettings/features.<name> is
    false = off): events, roomBookings, forms, smallGroups, newHere.
@@ -40,7 +40,6 @@ import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { getFirestore } from 'firebase-admin/firestore';
-import { emailAuthHeader, idTokenClient } from './id-token.js';
 import { hubUrl } from './notify.js';
 import * as MailRoute from './mail-route.js';
 import { featureOn } from './features.js';   // the one answer, page and server (F-239)
@@ -49,30 +48,25 @@ const require = createRequire(import.meta.url);
 const PAGES = require('./public-mail-pages.cjs');
 
 const REGION = 'europe-west2';
-/* The same address as index.js's SEND_EMAIL_URL; public-mail.test.mjs
-   fails if the two ever differ. */
-export const SEND_EMAIL_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
 const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
 
 /* ------------------------------------------------------------ sending */
 
-/* sendOne's twin, with attachments. emailOutbox gets the same row sendOne
-   writes, plus where it came from; the attachments by name only, and any
-   private link to medical answers (&s=) hidden, because the people who may
-   read the outbox are not all people who may read those.
+/* Every email the server sends: emailOutbox gets a row (who, when, the
+   subject, the email itself unless outlineOnly; the attachments by name
+   only, and any private link to medical answers (&s=) hidden, because the
+   people who may read the outbox are not all people who may read those).
 
-   THE ROUTE (comms window, 19 Oct 2026; mail-route.js). Each email goes
-   to Calla's sendEmail exactly as before UNLESS its kind is on Martin's
-   list, the key is in the key box and the switch is open (shut until
-   switch-over) - then to Church HQ's Resend, with Calla's protections
-   kept, and back to Calla's if Resend fails. Every row says which way it
-   went (via). route and resendFetch are for the checks. */
-export function makeSender({ db, url = SEND_EMAIL_URL, auth, emulator = onEmulator, fetchFn, route = MailRoute, resendFetch } = {}) {
-  const client = idTokenClient(url);
-  const header = auth || (() => emailAuthHeader(client));
+   THROUGH CHURCH HQ'S RESEND, ALWAYS (mail-route.js; Martin, 21 Oct 2026:
+   "v2 doesn't use Calla at all"). Calla's sendEmail is no longer used,
+   not even as a fallback: if Resend fails, the email is not sent and the
+   row says why. The protections are this side's: known recipients only,
+   never an under-18, the hourly cap. A refusal is final.
+   route and resendFetch are for the checks. */
+export function makeSender({ db, emulator = onEmulator, route = MailRoute, resendFetch } = {}) {
   return async function send(msg, meta) {
     const row = {
-      to: msg.to || [], subject: msg.subject || '', replyTo: msg.replyTo || '',
+      to: msg.to || [], subject: msg.subject || '', replyTo: msg.replyTo || '', via: 'churchhq',
       /* meta.outlineOnly (a Safeguarding team email, F-208): the hub keeps
          when, who and the subject, never the email itself. */
       html: meta && meta.outlineOnly ? '' : String(msg.html || '').replace(/([?&]s=)[A-Za-z0-9]+/g, '$1(hidden)'),
@@ -81,46 +75,24 @@ export function makeSender({ db, url = SEND_EMAIL_URL, auth, emulator = onEmulat
     };
     if (!row.to.length) {
       await db.collection('emailOutbox').add({ ...row, ok: false, error: 'no address' });
-      return { ok: false, error: 'no address' };
+      return { ok: false, error: 'no address', via: 'churchhq' };
     }
-    const way = await route.routeFor(db, meta).catch(e => ({ route: 'calla', why: 'route check failed: ' + (e.message || e) }));
-    if (way.route === 'churchhq') {
-      /* Calla's protections, on this side. A refusal is final: it is not
-         passed to Calla's either. */
-      const check = await route.checkRecipients(db, row.to).catch(() => ({ refused: 'Could not check recipients' }));
-      const refused = check.refused || (!(await route.reserve(db, row.to.length)) ? 'Hourly limit reached' : '');
-      if (refused) {
-        await db.collection('emailOutbox').add({ ...row, via: 'churchhq', ok: false, error: refused });
-        return { ok: false, error: refused, via: 'churchhq' };
-      }
-      const r = emulator() && !resendFetch ? { ok: true, stubbed: true }
-        : await route.sendViaResend({ db, key: way.key, msg, fetchFn: resendFetch });
-      await db.collection('emailOutbox').add({ ...row, via: 'churchhq', ok: r.ok, error: r.error || '', resendId: r.id || '' });
-      if (r.ok) return { ok: true, via: 'churchhq', stubbed: !!r.stubbed };
-      /* Resend failed: the same email to Calla's, for the first weeks. */
-      row.fallbackFrom = 'churchhq';
+    const check = await route.checkRecipients(db, row.to).catch(() => ({ refused: 'Could not check recipients' }));
+    const refused = check.refused || (!(await route.reserve(db, row.to.length)) ? 'Hourly limit reached' : '');
+    if (refused) {
+      await db.collection('emailOutbox').add({ ...row, ok: false, error: refused });
+      return { ok: false, error: refused, via: 'churchhq' };
     }
-    row.via = 'calla';
-    if (emulator()) {
+    if (emulator() && !resendFetch) {
       await db.collection('emailOutbox').add({ ...row, ok: true });
       console.info('[public-mail] emulator: not sent -', row.subject, '->', row.to.join(', '));
-      return { ok: true, stubbed: true, via: 'calla' };
+      return { ok: true, stubbed: true, via: 'churchhq' };
     }
-    let out;
-    try {
-      const payload = { to: row.to, subject: row.subject, html: msg.html || '' };
-      if (row.replyTo) payload.replyTo = row.replyTo;
-      if (msg.attachments && msg.attachments.length) payload.attachments = msg.attachments;
-      const a = await header();
-      row.auth = a.Authorization ? 'google' : 'none';
-      const r = await (fetchFn || fetch)(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...a }, body: JSON.stringify(payload) });
-      const j = await r.json().catch(() => null);
-      out = j && j.ok ? { ok: true } : { ok: false, error: (j && j.error) || ('HTTP ' + r.status) };
-    } catch (e) {
-      out = { ok: false, error: e.message || String(e) };
-    }
-    await db.collection('emailOutbox').add({ ...row, ok: out.ok, error: out.error || '' });
-    return Object.assign({ via: 'calla' }, out);
+    const key = await route.resendKey();
+    const r = key ? await route.sendViaResend({ db, key, msg, fetchFn: resendFetch })
+      : { ok: false, error: 'No Resend key yet: RESEND_API_KEY in Google Secret Manager' };
+    await db.collection('emailOutbox').add({ ...row, ok: r.ok, error: r.error || '', resendId: r.id || '' });
+    return { ok: r.ok, error: r.error || '', id: r.id || '', via: 'churchhq' };
   };
 }
 

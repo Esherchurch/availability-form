@@ -15,3 +15,7 @@ firebase-debug.*.log
 # Electron build output for the Mix Builder desktop app. The installer alone is
 # 100 MB; it is a build artefact, not source.
 mix-app/dist/
+
+# The functions emulator's stand-ins for Secret Manager (test values only).
+# Without them the emulator fetches the REAL secrets from Google Secret Manager.
+v2/functions/.secret.local

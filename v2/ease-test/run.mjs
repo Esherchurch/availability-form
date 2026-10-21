@@ -89,6 +89,10 @@ const PIC = i => 'http://localhost:' + SERVE + '/__pics/' + i + '.svg';
 /* ---- the emulator -------------------------------------------------------- */
 let emu = null;
 async function startEmulator() {
+  /* Stand-ins for Secret Manager: without them the functions emulator
+     fetches the REAL Resend secrets (git-ignored; test values only). */
+  const sl = path.join(V2, 'functions', '.secret.local');
+  if (!fs.existsSync(sl)) fs.writeFileSync(sl, 'RESEND_API_KEY=re_TestOnly_emulator_' + 'e'.repeat(24) + '\nRESEND_WEBHOOK_SECRET=whsec_' + Buffer.from('ease-test-only-secret').toString('base64') + '\n');
   if (await up(FS) && await up(AU) && await up(FN)) { say('  The ease-test emulator is already running: using it.'); return; }
   /* Half of one left from a run that was cut off: cleared first. */
   freeOwnPorts(); await sleep(1500);

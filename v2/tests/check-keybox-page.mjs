@@ -6,9 +6,12 @@
  * NEEDS EMULATORS OF ITS OWN: Firestore and Auth (firebase.comms.json)
  * and the functions (firebase.comms-fn.json). Made-up keys only.
  *
- * Asks: a master admin sees four boxes; a saved key is never put back on
- * the page, and the page says "saved"; the church office never sees the
- * box; until switch-over there is no box at all, only the words.
+ * Asks: a master admin sees whether Church HQ's Resend secrets are set
+ * (they live in Google Secret Manager, 21 Oct 2026: no box for them) and
+ * Canva's two boxes; a saved key is never put back on the page, and the
+ * page says "saved"; the church office never sees the box; until
+ * switch-over there is no box at all, only the words - and still the
+ * Resend line.
  * DELIBERATE BREAK: --break=refill puts the key back in its box after
  * saving.
  */
@@ -29,7 +32,7 @@ const DOCS = '/v1/projects/egbc-worship-planner/databases/(default)/documents';
 const OWNER = { Authorization: 'Bearer owner' };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
-const BREAKS = { refill: ["draw('Saved. It will not be shown again.');", "draw('Saved. It will not be shown again.'); setTimeout(function () { var i = document.getElementById('ky-key'); if (i) i.value = patch.key; }, 600);"] };
+const BREAKS = { refill: ["draw('Saved. It will not be shown again.');", "draw('Saved. It will not be shown again.'); setTimeout(function () { var i = document.getElementById('ky-canvaSecret'); if (i) i.value = patch.canvaSecret; }, 600);"] };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 
 const R = [];
@@ -121,7 +124,7 @@ function serveAuth(src) {
     await ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(PEOPLE[who].email) + ',' + JSON.stringify(PW) + ').then(()=>1)');
   };
   const open = async () => { await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/church-settings.html' }); await until('document.getElementById("wrap") && !/Loading/.test(document.getElementById("wrap").innerText)', 20000); await sleep(1500); };
-  const KEY = 're_TestOnly_' + 'q'.repeat(24);
+  const KEY = 'cnvcaTestOnly' + 'q'.repeat(24);
   try {
     await put('teamMailSettings/config', { shutForTest: false });
     await signIn('master'); await open();
@@ -129,21 +132,22 @@ function serveAuth(src) {
     ok('the page talks to this check’s emulator (' + host + ')', host === 'localhost:' + FS, host);
     if (host !== 'localhost:' + FS) throw new Error('not proven to be on the emulator');
     await until('!!document.getElementById("ky-save")', 15000);
-    ok('a master admin sees the four boxes', (await ev('["ky-key","ky-hook","ky-canvaId","ky-canvaSecret"].every(function(i){return !!document.getElementById(i)})')));
+    ok('a master admin sees Canva\u2019s two boxes, and no box for Resend\u2019s', (await ev('["ky-canvaId","ky-canvaSecret"].every(function(i){return !!document.getElementById(i)}) && !document.getElementById("ky-key") && !document.getElementById("ky-hook")')));
+    ok('…and whether Resend\u2019s are set in Google Secret Manager, by name', /Google Secret Manager[\s\S]*RESEND_API_KEY\): (set|not set yet)\.[\s\S]*RESEND_WEBHOOK_SECRET\): (set|not set yet)\./.test(await ev('document.getElementById("ky-resend").innerText')), await ev('(document.getElementById("ky-resend")||{}).innerText'));
     await ev('document.getElementById("keys-h").scrollIntoView(),1'); await sleep(300);
     let sh = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(SHOTS, 'keybox-375.png'), Buffer.from(sh.data, 'base64'));
-    await ev('document.getElementById("ky-key").value=' + JSON.stringify(KEY) + ';document.getElementById("ky-save").click(),1');
+    await ev('document.getElementById("ky-canvaId").value="OCTestOnly123";document.getElementById("ky-canvaSecret").value=' + JSON.stringify(KEY) + ';document.getElementById("ky-save").click(),1');
     await until('/Saved/.test(document.getElementById("ky-msg") ? document.getElementById("ky-msg").textContent : "")', 15000); await sleep(1500);
-    ok('saving says so, and the Resend key shows as saved', /saved/.test(await ev('document.getElementById("ky-st-key").textContent')));
-    ok('the key is never put back on the page', !(await ev('document.documentElement.outerHTML + [...document.querySelectorAll("input")].map(function(i){return i.value}).join("|")')).includes('re_TestOnly'));
-    ok('it is kept on the server', /re_TestOnly/.test((await req(FS, 'GET', DOCS + '/privateSettings/churchHqMail', undefined, OWNER)).body));
+    ok('saving says so, and Canva\u2019s keys show as saved', /saved/.test(await ev('document.getElementById("ky-st-canvaSecret").textContent')));
+    ok('the key is never put back on the page', !(await ev('document.documentElement.outerHTML + [...document.querySelectorAll("input")].map(function(i){return i.value}).join("|")')).includes('cnvcaTestOnly'));
+    ok('it is kept on the server', /cnvcaTestOnly/.test((await req(FS, 'GET', DOCS + '/privateSettings/churchHqMail', undefined, OWNER)).body));
     ok('fits 375px (no sideways scroll)', (await ev('document.documentElement.scrollWidth')) <= 375);
     await signIn('office'); await open(); await sleep(2500);
     ok('the church office never sees the box', await ev('!document.getElementById("ky-save") && document.getElementById("keys-form").hidden'));
     await put('teamMailSettings/config', { shutForTest: true });
     await signIn('master'); await open();
     await until('/switches over/.test(document.getElementById("keys-form").innerText)', 15000);
-    ok('until switch-over: the words, and no box to paste into', /switches over/.test(await ev('document.getElementById("keys-form").innerText')) && await ev('!document.getElementById("ky-key")'));
+    ok('until switch-over: the words, no box to paste into, and still the Resend line', /switches over/.test(await ev('document.getElementById("keys-form").innerText')) && await ev('!document.getElementById("ky-canvaId")') && await ev('!!document.getElementById("ky-resend")'));
     await put('teamMailSettings/config', { shutForTest: false });
   } catch (e) { ok('the run finished', false, e.message); }
   ws.close(); chrome.kill(); server.close();

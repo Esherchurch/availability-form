@@ -43,6 +43,7 @@ import { makeHqSender } from './hq-mail.js';
 import { featureOn } from './features.js';
 import { under18Emails } from './under18.js';
 import { letterFor } from './enews-send.js';
+import { SENDING_SECRETS } from './resend-secrets.js';
 
 const REGION = 'europe-west2';
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -92,7 +93,7 @@ export async function runNewcomerWelcome({ db, send, id, hello }) {
 
 let sender = null;
 const deps = () => { const db = getFirestore(); if (!sender) sender = makeHqSender({ db }); return { db, send: sender }; };
-export const welcomeSubscriber = onDocumentUpdated({ document: 'enewsSubscribers/{id}', region: REGION }, (e) =>
+export const welcomeSubscriber = onDocumentUpdated({ document: 'enewsSubscribers/{id}', region: REGION, secrets: SENDING_SECRETS }, (e) =>
   runSubscriberWelcome({ ...deps(), id: e.params.id, before: e.data && e.data.before.data(), after: e.data && e.data.after.data() }));
-export const welcomeNewcomer = onDocumentCreated({ document: 'welcomes/{id}', region: REGION }, (e) =>
+export const welcomeNewcomer = onDocumentCreated({ document: 'welcomes/{id}', region: REGION, secrets: SENDING_SECRETS }, (e) =>
   runNewcomerWelcome({ ...deps(), id: e.params.id, hello: e.data && e.data.data() }));

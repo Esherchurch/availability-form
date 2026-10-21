@@ -7,10 +7,13 @@
  * So while this is false, on the live site: the sign-up saves nothing and
  * says when it opens, and nothing is sent.
  *
- * The Church HQ Resend key is pasted into Church settings' key box
- * (hq-mail-key.js), which refuses to save while this is false. Set it to
- * true at switch-over, after the rules, then deploy functions:hub, then
- * paste the key (CHURCHHQ-EMAIL-SETUP.md parts D and E).
+ * This gate is about the subscriber list only (the sign-up, the e-news to
+ * subscribers, the welcome emails, and the Canva keys' box, whose
+ * privateSettings would be public too). It no longer holds the hub's other
+ * email: since 21 Oct 2026 everything else v2 sends goes through Church
+ * HQ's Resend as soon as RESEND_API_KEY is in Google Secret Manager
+ * (resend-secrets.js, mail-route.js). Set this to true at switch-over,
+ * after the rules, then deploy functions:hub.
  *
  * The emulator always runs everything (sending is a stub there), so the
  * tests are unaffected. */

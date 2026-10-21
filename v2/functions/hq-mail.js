@@ -8,21 +8,20 @@
    with Reply-To set to the church's own address, so replies go to the
    church, never to Church HQ. Martin's setup steps: CHURCHHQ-EMAIL-SETUP.md.
 
-   The e-news uses it first (C-20 stage 1). Everything else still goes
-   through Calla's sendEmail (public-mail.js makeSender) until it is moved,
-   one sender at a time.
+   The e-news, its test and the welcome emails use this sender (one person
+   each, with their own unsubscribe header); every other email goes through
+   public-mail.js makeSender, which uses the same Resend (mail-route.js).
+   Calla's sendEmail is not used at all (Martin, 21 Oct 2026).
 
      makeHqSender({ db })  -> send(msg, meta)
         msg:  { to, subject, html, fromName, replyTo, headers, tags,
                 idempotencyKey }
         meta: written to the emailOutbox row (kind, issueId ...)
      verifySvix(secret, headers, rawBody)   Resend's webhook signature
-     the key: the key box (hq-mail-key.js)
 
-   THE KEY. Martin pastes it into Church settings (the key box,
-   hq-mail-key.js); it is kept in privateSettings/churchHqMail, which no
-   page can read, and read here on the server only. Never in a page, a
-   chat or the repository. The box refuses to save until switch-over.
+   THE KEY: Google Secret Manager, RESEND_API_KEY (resend-secrets.js),
+   read here on the server only. Never in the database, a page, a chat or
+   the repository.
 
    THE OUTBOX keeps when, who, the subject and whether it went - not the
    e-news itself (the issue holds that), so a weekly send to hundreds
@@ -30,7 +29,7 @@
    =================================================================== */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { storedKeys } from './hq-mail-key.js';
+import { resendKey } from './resend-secrets.js';
 
 export const SENDING_DOMAIN = 'mail.churchhq.co.uk';
 const API = 'https://api.resend.com/emails';
@@ -62,8 +61,8 @@ export function makeHqSender({ db, emulator = onEmulator, fetchFn, key } = {}) {
     }
     let out;
     try {
-      const k = key || (await storedKeys(db)).key || '';
-      if (!k) throw new Error('no Church HQ email key yet (Church settings, the key box)');
+      const k = key || (await resendKey()) || '';
+      if (!k) throw new Error('no Resend key yet: RESEND_API_KEY in Google Secret Manager');
       const body = { from: fromFor(msg.fromName), to: [to], subject: row.subject, html: String(msg.html || '') };
       if (msg.replyTo) body.reply_to = msg.replyTo;
       if (msg.headers && Object.keys(msg.headers).length) body.headers = msg.headers;

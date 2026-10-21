@@ -38,7 +38,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { randomBytes } from 'node:crypto';
 import { enewsShut } from './enews-gate.js';
 import { makeHqSender, verifySvix } from './hq-mail.js';
-import { storedKeys } from './hq-mail-key.js';
+import { webhookSecret, SENDING_SECRETS } from './resend-secrets.js';
 import { featureOn } from './features.js';
 import { isUnder18Email } from './under18.js';
 
@@ -220,11 +220,12 @@ export const enewsUnsubscribe = onRequest({ region: REGION, cors: true, invoker:
 
 /* ---- bounces and complaints, from Resend -------------------------------- */
 const HOOK_STATUS = { 'email.bounced': 'bounced', 'email.complained': 'complained', 'email.suppressed': 'bounced' };
-export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'public' }, async (req, res) => {
+export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'public', secrets: SENDING_SECRETS }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('');
-  /* The signing secret from the key box; on the emulator a test may give
-     one in functions/.env.local instead. */
-  const secret = (await storedKeys(db())).hook || (EMULATOR() ? process.env.TEST_WEBHOOK_SECRET || '' : '');
+  /* The signing secret from Google Secret Manager (RESEND_WEBHOOK_SECRET,
+     resend-secrets.js); on the emulator a test gives one in
+     functions/.env.local (TEST_WEBHOOK_SECRET) instead. */
+  const secret = (await webhookSecret()) || (EMULATOR() ? process.env.TEST_WEBHOOK_SECRET || '' : '');
   const raw = req.rawBody ? req.rawBody.toString('utf8') : '';
   if (!verifySvix(secret, req.headers, raw)) return res.status(401).send('');
   const id = String(req.get('svix-id') || '');
