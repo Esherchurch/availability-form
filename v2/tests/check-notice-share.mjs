@@ -118,6 +118,14 @@ const NO_SW = '<script>(function(){try{if(navigator.serviceWorker){navigator.ser
     t = await sheetText();
     ok('  a team\u2019s notice: only whose it is - not its title, not its words', /Worship Team/.test(t) && !/Synthetic Worship Notice NS/.test(t) && !t.includes(SECRET) && /notice=ns_team/.test(t), t);
 
+    /* The three ways out, and the phone's own share sheet. */
+    await evl('document.querySelector(\'[data-notice-share="ns_all"]\').click();1'); await sleep(800);
+    const ways = String(await evl('[].map.call(document.querySelectorAll(".egbc-share .row button"),function(b){return b.textContent.trim()}).join("|")'));
+    ok('  the sheet offers WhatsApp, the phone\u2019s share sheet, and Copy', /WhatsApp/.test(ways) && /Share/.test(ways) && /Copy/.test(ways), ways);
+    await evl('(function(){window.__shared=null;navigator.share=function(p){window.__shared=p;return Promise.resolve()};document.querySelector(".egbc-share [data-share]").click();return 1})()'); await sleep(800);
+    const sharedT = String(await evl('(window.__shared&&window.__shared.text)||""'));
+    ok('  "Share\u2026" hands the message to the phone\u2019s share sheet', /hub\.html\?notice=ns_all/.test(sharedT) && !sharedT.includes(SECRET), sharedT);
+
     console.log('\nAn event in the app\u2019s What\u2019s On');
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/app.html?again=1#mode:me' }); await sleep(10000);
     await evl('(function(){var b=document.querySelector(\'.tabs [data-tab="whatson"]\');if(b)b.click();return b?1:0})()'); await sleep(7000);
@@ -140,6 +148,16 @@ const NO_SW = '<script>(function(){try{if(navigator.serviceWorker){navigator.ser
     ok('  the shared link, signed in, opens that one notice', rd.on && rd.title === 'Synthetic Worship Notice NS', JSON.stringify(rd));
     ok('  with Share there too', rd.share === 'ns_team', JSON.stringify(rd));
     await shot('notice-share--read-375.png');
+
+    console.log('\nOn a computer (1440): WhatsApp opens WhatsApp Web / Desktop with the message ready');
+    await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hub.html?app=0' }); await sleep(10000);
+    await evl('document.querySelector(\'[data-news-share="ns_all"]:not(#rdShare)\').click();1'); await sleep(800);
+    const waUrl = String(await evl('(function(){window.__opened="";window.open=function(u){window.__opened=u;return {}};var b=document.querySelector(".egbc-share [data-wa]");if(!b)return "no WhatsApp button";b.click();return window.__opened})()'));
+    const said = decodeURIComponent(waUrl.replace(/^https:\/\/wa\.me\/\?text=/, ''));
+    ok('  "WhatsApp" opens wa.me (WhatsApp Web or Desktop) with the message', waUrl.indexOf('https://wa.me/?text=') === 0 && /hub\.html\?notice=ns_all/.test(said), waUrl.slice(0, 200));
+    ok('  and still never the notice’s words', !said.includes(SECRET), said);
+    ok('  the sheet closes once WhatsApp is opened', String(await evl('!document.querySelector(".egbc-share")')) === 'true');
   } finally {
     await del('news/ns_all'); await del('news/ns_team'); await del('calEvents/ns_ev');
     ws.close(); chrome.kill(); server.close();

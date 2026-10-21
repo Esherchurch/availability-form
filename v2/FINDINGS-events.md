@@ -9213,3 +9213,13 @@ This **brings F-253 and F-254 together, in order**, for Church HQ's real tenant 
 **Also:** Church settings now mounts the Connect card (main window), which tidies `?m365=` out of the address bar. present-microsoft now records where Microsoft sent the admin back to, instead of reading the final address: 42/42.
 
 **Step 19 waits** for EGBC's Microsoft 365 administrator, as the reviewer says. When they've connected, `node tools/converter-smoke.mjs --live --write --compare` should say `renderer: microsoft`.
+
+## From the main window, 21 Oct 2026: one stamp in egbc-events.js (share)
+
+For Martin's share fix, the reviewing window asked that What's On events in the app have Share too. egbc-share.js changed:
+- the sheet now offers **WhatsApp** (wa.me: Web or Desktop on a computer), **Share…** and **Copy**;
+- wa.me no longer reports a window that opened as blocked.
+
+I moved the one stamp your file loads it with (egbc-events.js:614, `egbc-share.js?v=202610212300`), and egbc-events.js's own stamp on the pages, and regenerated public-mail-pages.cjs. **Nothing else in your file changed.**
+
+Your share.test.mjs presses `[data-share]`. It still behaves as before: the system share sheet, else wa.me.

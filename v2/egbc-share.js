@@ -251,9 +251,16 @@
     return navigator.share(payload);
   }
 
+  /* wa.me: WhatsApp Web or WhatsApp Desktop on a computer, the WhatsApp
+     app on a phone, with the message ready and a chat picker.
+     NOT 'noopener' in the features: with it window.open always returns
+     null, so a window that DID open was reported as blocked (Martin's
+     laptop, 21 Oct 2026). The opener is cut by hand instead. */
+  function waMeUrl(text) { return 'https://wa.me/?text=' + encodeURIComponent(text); }
   function viaWaMe(text) {
-    var w = global.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+    var w = global.open(waMeUrl(text), '_blank');
     if (!w) throw new Error('the browser blocked the new window');
+    try { w.opener = null; } catch (e) {}
     return w;
   }
 
@@ -347,8 +354,13 @@
             + (file ? 'Include the picture' : 'The picture could not be loaded, so it is not included')
             + '</label>'
           : '')
+      /* THREE WAYS, each its own button (the reviewing window for Martin,
+         21 Oct 2026): WhatsApp itself - Web or Desktop on a computer, the
+         app on a phone; the device's own share sheet where it has one;
+         and Copy, which always works. */
       + '<div class="row">'
-      + '<button class="primary" data-share="1">Share</button>'
+      + '<button class="primary" data-wa="1">WhatsApp</button>'
+      + '<button data-share="1">Share…</button>'
       + '<button data-copy="1">Copy message</button>'
       + '<button class="ghost" data-close="1">Cancel</button>'
       + '</div><p class="said" role="status"></p></div>';
@@ -367,16 +379,19 @@
         return;
       }
 
+      if (e.target.closest('[data-wa]')) {
+        try { viaWaMe(ta.value); shut(); }
+        catch (err) { said.textContent = 'Could not open WhatsApp. Use Copy message instead.'; }
+        return;
+      }
+
       if (e.target.closest('[data-share]')) {
         var withPic = pic && pic.checked ? file : null;
+        /* The device's own sheet; where there is none, WhatsApp (wa.me),
+           which only opens a chat picker - it never sends by itself. */
         viaWebShare(ta.value, withPic).then(shut, function () {
-          /* No Web Share, or the person backed out of the sheet. wa.me is
-             the computer's way in, and it is harmless if they changed
-             their mind - it opens a chat picker, it does not send. */
           try { viaWaMe(ta.value); shut(); }
-          catch (err) {
-            said.textContent = 'Could not open WhatsApp. Use Copy message instead.';
-          }
+          catch (err) { said.textContent = 'Could not open WhatsApp. Use Copy message instead.'; }
         });
       }
     });
@@ -454,6 +469,7 @@
 
   global.EGBCShare = {
     notice: notice,
+    waMeUrl: waMeUrl,
     noticeLink: noticeLink,
     shareNotice: shareNotice,
     clean: clean,
