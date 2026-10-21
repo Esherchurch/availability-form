@@ -9430,3 +9430,41 @@ The reviewing window, on the live site: a Kids Church admin saw everyone's DBS d
 - **safeguarding.html:605:** "everyone's checks" loads for `MASTER` instead of `ADMIN`; the lead and deputy still get their sites' checks. **Nothing else in your file changed.**
 
 **Not changed, for you to decide:** an event's own safeguarding view still opens for that event's leaders and any team admin (`ADMIN`). Their reads of other people's checks will now be refused by the rules. Please make that view not ask for them, or say so.
+
+### F-262 — A Lessons-only ChurchShow computer gets its lesson's song words (the events window, 21 Oct)
+
+**Found by ChurchShow, while taking Lesson-mode pictures.** A computer paired for Lessons only (the Kids Church laptop will be) couldn't show a lesson's song. lessonFor sent a song step as just `songId`, `title` and `ccli`. ChurchShow then read `songs/{id}` itself, and the rules (`churchShowServices()`) let only a computer with the Services job read songs. So the step said "The hub refused this (PERMISSION_DENIED)".
+
+**Fixed in lessonFor (functions only, no rules):** a song step now also carries `song: { title, artist, ccli, lyrics }`.
+- **Only the words and the CCLI number** the screen shows under them, with no chords or links.
+- **Only the songs the lesson's own steps name,** read by their ids (once per call), so nothing else from the library.
+- **A song gone from the library** comes with no `song`, so ChurchShow's "no longer in the library" still shows.
+- **Additive to egbc-lesson/1,** so an older ChurchShow is unaffected.
+
+**Why this way, not a rule:**
+1. **The rules don't go live until switch-over.** A rule change wouldn't help the laptop now; a functions deploy does.
+2. **A rule letting a lesson computer read "just its lesson's songs"** would have to look up that day's plans on every song read, which is costly and easy to get wrong. lessonFor already knows exactly which songs the lesson uses, and it already sends the lesson's other content the same way.
+3. **The laptop gets the words, never the library.**
+
+**For ChurchShow (`src/lessonprep.js`):** use `st.song` when it's there, and only fetch `songs/{id}` when it isn't (an older hub):
+```
+const s = st.song || (st.songId ? await deps.song(st.songId) : null);
+```
+
+**Found, not fixed:** churchshow.js's comment says lessonFor reads `jobs.lessonGroups`. It doesn't: any active computer in a building gets all of that building's lessons, including a Services-only computer. Probably harmless, but it isn't what the comment says. **Say if lessonFor should give a computer only its own `lessonGroups`** (an empty list meaning none).
+
+**Deploy:** the function `lessonFor` only. **No new secret or setting, no rules.**
+
+**Proved, in `session-planner.test.mjs` (section 10b), with a computer paired for Lessons only:**
+- **The check:** 56/56. It confirms, among other things:
+  - the computer still can't read `songs/sg_lesson` directly (the rules are unchanged)
+  - its lesson brings the words, artist and CCLI number
+  - there are no chords or links
+  - nothing of a song that isn't in the lesson
+  - a song gone from the library has no words
+- **Breaks, 3 of 3 caught:**
+  - the step with no words (the fault)
+  - the whole song record sent (chords, links)
+  - a gone song sent as an empty song
+
+  Break 1's run also failed one unrelated email check. It passed in the other three runs, so I counted it as a timing slip.

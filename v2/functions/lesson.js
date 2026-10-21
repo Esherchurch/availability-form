@@ -21,10 +21,18 @@
    long enough for a morning), never the plan's own long-lived links.
    LEADERS' NOTES and "things to bring" are never sent to a screen device.
 
+   A SONG'S WORDS come with its step (ChurchShow, 21 Oct): a computer paired
+   for Lessons only may not read the song library (the rules' churchShowServices()),
+   so the step carries song: { title, artist, ccli, lyrics } - the words and the
+   CCLI number the screen shows under them, nothing else (no chords, no links).
+   Only the songs the lesson's own steps name are read, by their ids; a song
+   gone from the library has no song (ChurchShow says so on the step).
+
    egbc-lesson/1 (F-225):
      { format, id, group: { id, name, ages }, date, title, programme,
        lessonCode, lessonLink, passage: { ref, version, source, text,
        copyright }, steps: [ { part, partId, n, type, ... } ] }
+   A song step: { songId, title, ccli, song: { title, artist, ccli, lyrics } }.
    A Bible Gateway passage carries only ref and version (ChurchShow
    fetches it itself).
    =================================================================== */
@@ -77,7 +85,18 @@ const KEEP = {
   quiz: ['questions'],
   link: ['url', 'label']
 };
-export async function step(st, part, n) {
+/* A song's words, read once per call however many steps use it. */
+async function songOf(id, seen) {
+  id = String(id || '');
+  if (!id || id.indexOf('/') >= 0) return null;
+  if (!(id in seen)) seen[id] = db().collection('songs').doc(id).get().then(d => {
+    if (!d.exists) return null;
+    const x = d.data();
+    return { title: String(x.title || ''), artist: String(x.artist || ''), ccli: String(x.ccli || ''), lyrics: String(x.lyrics || '') };
+  });
+  return seen[id];
+}
+export async function step(st, part, n, seen = {}) {
   const keep = KEEP[st.type]; if (!keep) return null;
   const out = { part: String(part.title || part.kind || ''), partId: String(part.id || ''), n, type: st.type };
   keep.forEach(k => { if (st[k] !== undefined && st[k] !== null && st[k] !== '') out[k] = st[k]; });
@@ -86,12 +105,13 @@ export async function step(st, part, n) {
   /* Files and video: a fresh short-lived link, never the stored one. */
   if (st.type === 'video' || st.type === 'picture') { out.url = await link(st.path); out.expiresInMinutes = LINK_MS / 60000; }
   if (st.type === 'pptx' && st.path) out.fileUrl = await link(st.path);
+  if (st.type === 'song') { const w = await songOf(st.songId, seen); if (w) out.song = w; }
   return out;
 }
 export async function lessonOf(id, s, g) {
   let n = 0;
-  const steps = [];
-  for (const p of (s.parts || [])) for (const st of (p.show || [])) { const x = await step(st, p, ++n); if (x) steps.push(x); }
+  const steps = [], seen = {};
+  for (const p of (s.parts || [])) for (const st of (p.show || [])) { const x = await step(st, p, ++n, seen); if (x) steps.push(x); }
   const pa = s.passage || null;
   return {
     format: 'egbc-lesson/1', id, group: { id: s.groupId, name: g.name || '', ages: [g.ageFrom || 0, g.ageTo || 0] },

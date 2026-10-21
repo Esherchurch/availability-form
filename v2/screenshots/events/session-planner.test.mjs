@@ -330,6 +330,10 @@ try {
   const p4 = await plan();
   const craft = p4.parts.find(x => x.title === 'Craft'), wsheet = (craft.files || [])[0];
   p4.parts.forEach(x => { if (x.title === 'Craft') { x.notes = 'SECRET LEADER NOTE (invented)'; x.show = (x.show || []).concat([{ id: 'v1', type: 'video', name: 'clip.mp4', path: wsheet.path, url: wsheet.url }]); } });
+  /* two songs on the last part: one in the library, one gone from it (ChurchShow, 21 Oct) */
+  p4.parts[p4.parts.length - 1].show = (p4.parts[p4.parts.length - 1].show || []).concat([{ id: 'sg1', type: 'song', songId: 'sg_lesson', title: 'Our God is great (invented)' }, { id: 'sg2', type: 'song', songId: 'sg_gone', title: 'Gone (invented)' }]);
+  await db.collection('songs').doc('sg_lesson').set({ title: 'Our God is great (invented)', artist: 'Invented Writer', ccli: '1234567', lyrics: 'Verse 1\nOur God is great, invented words\nChorus\nSing it loud', chords: 'G D Em C', youtube: 'https://youtu.be/invented' });
+  await db.collection('songs').doc('sg_other').set({ title: 'Not in the lesson (invented)', ccli: '7654321', lyrics: 'OTHER SONG WORDS' });
   await db.collection('planSessions').doc(p1.id).update({ parts: p4.parts });
   const asDevice = async (uidX, claims) => {
     const ct = await getAuth().createCustomToken(uidX, claims);
@@ -360,6 +364,17 @@ try {
   const tlie = await asDevice('churchshow-site_b', { device: 'churchshow', siteId: 'site_a' });
   const lie = await callFn(tlie, { date: SUN });
   ok('    a computer whose sign-in claims another building than it was paired to is refused', lie.error && /PERMISSION_DENIED/.test(lie.error.status), J(lie));
+  /* A COMPUTER PAIRED FOR LESSONS ONLY (the Kids Church laptop; ChurchShow, 21 Oct): the rules give it no song library, so its lesson brings the words */
+  await db.collection('devices').doc('churchshow-site_l').set({ kind: 'churchshow', siteId: 'site_a', active: true, jobs: { services: false, lessonGroups: [grp.id] } });
+  const tl = await asDevice('churchshow-site_l', { device: 'churchshow', siteId: 'site_a', services: false, lessons: [grp.id] });
+  const direct = await (await fetch('http://127.0.0.1:8182/v1/projects/' + PROJECT + '/databases/(default)/documents/songs/sg_lesson', { headers: { Authorization: 'Bearer ' + tl } })).json();
+  ok('10b. A LESSONS-ONLY COMPUTER may not read the song library itself (the rules, unchanged)', direct.error && /PERMISSION_DENIED/.test(direct.error.status), J(direct).slice(0, 200));
+  const ld = (await callFn(tl, { date: SUN })).result || {};
+  const lsteps = ((ld.lessons || [])[0] || {}).steps || [], s1 = lsteps.find(x => x.songId === 'sg_lesson') || {}, s2 = lsteps.find(x => x.songId === 'sg_gone') || {};
+  ok('    so its lesson brings the song’s words, with the CCLI number', s1.type === 'song' && s1.song && /Our God is great, invented words/.test(s1.song.lyrics) && s1.song.ccli === '1234567' && s1.song.artist === 'Invented Writer' && s1.song.title === 'Our God is great (invented)', J(s1).slice(0, 300));
+  ok('    the words and the number only: no chords, no links', J(Object.keys(s1.song || {}).sort()) === J(['artist', 'ccli', 'lyrics', 'title']) && !/G D Em C|youtu/.test(J(ld)), J(s1.song));
+  ok('    only the lesson’s own songs: nothing of any other song in the library', !/OTHER SONG WORDS|7654321|sg_other/.test(J(ld)));
+  ok('    a song gone from the library comes with no words (ChurchShow says so on the step)', s2.type === 'song' && s2.title === 'Gone (invented)' && s2.song === undefined, J(s2));
   await db.collection('devices').doc('churchshow-site_a').update({ active: false });
   const off = await callFn(ta, { date: SUN });
   ok('    DISCONNECTED on the hub: refused at once', off.error && /PERMISSION_DENIED/.test(off.error.status), J(off));
