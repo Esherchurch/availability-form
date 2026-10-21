@@ -9,11 +9,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610212000"></script>
 
-<script src="egbc-shell.js?v=202610221100" data-title="Email Compiler"></script>
-<script src="egbc-guard.js?v=202610210900" data-admin="any" data-also-team="Church office"></script>
+<script src="egbc-shell.js?v=202610221200" data-title="Email Compiler"></script>
+<script src="egbc-guard.js?v=202610221200" data-admin="any" data-also-team="Church office"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Worship & AV Team | Email Builder</title>
+    <title>Email Compiler</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
     <!-- "+ Insert → A meeting": picked from Meetings, with Join (the comms window; FINDINGS-comms C-35) -->
@@ -422,7 +422,7 @@
             </div>
             <div class="canvas-header">
                 <div>
-                    <div class="ht-title" id="headerTitle" contenteditable="true" spellcheck="false">EGBC Worship &amp; AV</div>
+                    <div class="ht-title" id="headerTitle" contenteditable="true" spellcheck="false"></div>
                     <div class="ht-sub" id="headerSub" contenteditable="true" spellcheck="false">Team Update</div>
                 </div>
                 <div class="logo"><img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" alt="EGBC"></div>
@@ -433,7 +433,7 @@
             </div>
             <div class="canvas-footer">
                 <p class="verse">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; — John 13:35</p>
-                <div class="frow"><span>Esher Green Baptist Church · Worship &amp; AV Team</span><span>worship@esherchurch.org</span></div>
+                <div class="frow"><span id="footWho"></span><span id="footMail"></span></div>
             </div>
         </div>
     </div>
@@ -513,6 +513,30 @@ function myEmailTeams() {
     const list = mayEmailAnyone() ? Object.keys(T) : (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : []);
     return (EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : Object.keys(T)).filter(t => list.includes(t));
 }
+/* THE HEADER'S OWN WORDS FOLLOW THE CHURCH AND THE SENDER (the reviewing
+   window, 22 Oct 2026: it said "EGBC Worship & AV" whoever sent it, for any
+   church). The church's name from Church settings, and the sender's team:
+   a team leader's own team; the office and master admins, the church alone. */
+let CHURCH_NAME = '';
+function defaultHeaderTitle() {
+    const T = EGBCAuth.TEAMS || {};
+    const mine = mayEmailAnyone() ? [] : (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : []);
+    const team = mine.length ? ((T[mine[0]] && T[mine[0]].label) || mine[0]) : '';
+    return [CHURCH_NAME, team].filter(Boolean).join(' · ') || 'Church news';
+}
+/* The footer: the church and the sender's team, and the reply address the
+   sender chose (or none) - not one church's worship address. */
+function footerWho() { return defaultHeaderTitle(); }
+function footerMail() { const el = $('senderEmail'); return (el && el.value.trim()) || ''; }
+function fillFooter() {
+    const w = $('footWho'), m = $('footMail');
+    if (w) w.textContent = footerWho();
+    if (m) m.textContent = footerMail();
+}
+function fillHeaderTitle() {
+    const el = $('headerTitle');
+    if (el && !el.innerText.trim()) el.innerText = defaultHeaderTitle();
+}
 function drawTeamFilters() {
     const T = EGBCAuth.TEAMS || {};
     const teams = myEmailTeams();
@@ -525,6 +549,10 @@ function drawTeamFilters() {
 function escAttr(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 document.addEventListener('egbc-ready', () => {
     drawTeamFilters();
+    EGBCAuth.db.collection('churchSettings').doc('details').get()
+        .then(d => { CHURCH_NAME = (d.exists && d.data().name) || ''; }, () => {})
+        .then(fillHeaderTitle).then(fillFooter);
+    if ($('senderEmail')) $('senderEmail').addEventListener('input', fillFooter);
     db.collection("addressBook").onSnapshot(snap => {
         const anyone = mayEmailAnyone(), mine = myEmailTeams();
         allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -611,7 +639,7 @@ function insertIntoEditor(html) {
 
 // ── Build the real email HTML (single source of truth) ───────────────────────
 function buildEmailHtml(bodyInner, meta) {
-    const title = escapeHtml(meta.headerTitle || 'EGBC Worship & AV');
+    const title = escapeHtml(meta.headerTitle || defaultHeaderTitle());
     const sub = escapeHtml(meta.headerSub || '');
     const pre = escapeHtml(meta.preheader || '');
     const logo = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300';
@@ -660,8 +688,8 @@ ${preheaderBlock}
   <tr><td bgcolor="#3d6263" class="hpad" style="padding:22px 40px;">
     <p style="margin:0 0 10px;font-family:Arial,sans-serif;font-size:12px;color:#c8dede;font-style:italic;line-height:1.5;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;"><tr>
-      <td style="font-family:Arial,sans-serif;font-size:12px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
-      <td align="right" style="font-family:Arial,sans-serif;font-size:12px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
+      <td style="font-family:Arial,sans-serif;font-size:12px;color:#7a9e9f;padding-top:10px;">${escapeHtml(footerWho())}</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:12px;color:#7a9e9f;padding-top:10px;">${escapeHtml(footerMail())}</td>
     </tr></table>
   </td></tr>
 </table>
@@ -693,7 +721,7 @@ function insertBlock(kind) {
     if (kind === 'button') {
         const label = prompt('Button label:', 'View the rota');
         if (!label) return;
-        const url = safeUrl(prompt('Where should it link? (https://…)', 'https://esherchurch.github.io/availability-form/v2/'));
+        const url = safeUrl(prompt('Where should it link? (https://…)', new URL('./', location.href).href));
         if (!url) { alert('That link was empty or not a valid http(s):// address.'); return; }
         insertIntoEditor(`<table border="0" cellspacing="0" cellpadding="0" style="margin:20px auto;"><tr>` +
             `<td align="center" bgcolor="#3d6263" style="border-radius:9px;">` +
@@ -872,7 +900,7 @@ function openReview() {
     $('reviewWarn').innerHTML = noEmail.length
         ? `<div class="warnbox"><b>${noEmail.length}</b> selected ${noEmail.length === 1 ? 'person has' : 'people have'} no email on file and won't receive this: ${noEmail.map(escapeHtml).join(', ')}. Add their address in the Address Book.</div>`
         : '';
-    $('reviewReplyTo').textContent = $('senderEmail').value.trim() || 'worship@esherchurch.org (default)';
+    $('reviewReplyTo').textContent = $('senderEmail').value.trim() || 'the church’s enquiry address (Church settings)';
     $('testEmail').value = $('senderEmail').value.trim();
 
     $('previewFrame').srcdoc = buildEmailHtml(getBodyInner(), meta);
@@ -897,7 +925,7 @@ async function postEmail(toList, meta, html, test) {
     return EGBCAuth.sendEmail({
         source: test ? 'compilerTest' : 'compiler',
         to: toList, subject: meta.subject, html,
-        replyTo: $('senderEmail').value.trim() || 'worship@esherchurch.org'
+        replyTo: $('senderEmail').value.trim()
     });
 }
 
@@ -1039,7 +1067,7 @@ async function loadDraft(id) {
             $('editable-body').innerHTML = data.content || '';
             $('subjectInput').value = data.subject || '';
             $('preheaderInput').value = data.preheader || '';
-            $('headerTitle').innerText = data.headerTitle || 'EGBC Worship & AV';
+            $('headerTitle').innerText = data.headerTitle || defaultHeaderTitle();
             $('headerSub').innerText = data.headerSub || 'Team Update';
             activeDraftId = id;
             updateCurrentDraftInfo(data.name, data.createdBy, data.updatedBy, data.createdAt, data.updatedAt);

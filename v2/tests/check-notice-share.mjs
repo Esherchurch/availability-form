@@ -149,6 +149,16 @@ const NO_SW = '<script>(function(){try{if(navigator.serviceWorker){navigator.ser
     ok('  with Share there too', rd.share === 'ns_team', JSON.stringify(rd));
     await shot('notice-share--read-375.png');
 
+    console.log('\nThe shared link on a phone (375): the app’s Notices, at that notice');
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hub.html?notice=ns_team' }); await sleep(12000);
+    const ph = JSON.parse(String(await evl('JSON.stringify({path:location.pathname,search:location.search,'
+      + 'wanted:(document.querySelector(\'[data-wanted="1"]\')||{textContent:""}).textContent.slice(0,120),'
+      + 'sheet:!!document.querySelector(\'[data-notice-share="ns_all"]\')})')));
+    ok('  the link opens the app, not the website', /app\.html$/.test(ph.path), JSON.stringify(ph));
+    ok('  at the Notices, with that notice lit', ph.sheet && /Synthetic Worship Notice NS/.test(ph.wanted), JSON.stringify(ph));
+    ok('  and the address is tidied (no ?notice= left to reopen it)', ph.search === '', JSON.stringify(ph));
+    await shot('notice-share--phone-link-375.png');
+
     console.log('\nOn a computer (1440): WhatsApp opens WhatsApp Web / Desktop with the message ready');
     await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hub.html?app=0' }); await sleep(10000);

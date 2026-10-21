@@ -7,10 +7,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610212000"></script>
 <!-- The youth teams and their leaders (Martin, 15 Oct 2026). -->
-<script src="egbc-guard.js?v=202610210900" data-team="Youth Worship,Lazers,ReNu"></script>
+<script src="egbc-guard.js?v=202610221200" data-team="Youth Worship,Lazers,ReNu"></script>
 
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610221100" data-title="Youth Charter"></script>
+<script src="egbc-shell.js?v=202610221200" data-title="Youth Charter"></script>
     <meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -412,7 +412,9 @@ let isEditingTitle = false;
 let photos  = [];
 
 // ── INIT ──
-window.addEventListener('load', loadSaved);
+/* Only once the guard has let this person in: a refused visitor's read
+   was refused too, onto the console (the audit, 22 Oct 2026). */
+window.addEventListener('load', function () { (window.EGBCGuard ? EGBCGuard.allowed : Promise.resolve()).then(loadSaved); });
 
 async function loadSaved() {
     let saved = {};

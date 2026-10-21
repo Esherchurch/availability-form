@@ -68,7 +68,7 @@ const APPROVED = [
   ['Home'], ["What's on"], ['Watch & Listen'], ['Give'], ['Gift Aid'], ['Care & support'],
   ['Care & support: what has come in', c => c.careReader], ['Prayer'], ['Notifications'],
   ['Sundays', null, [
-    ['Rota', c => c.anyTeam], ['Rota planner', c => c.core], ['Sunday service plan', c => c.core],
+    ['Rota', c => c.anyTeam], ['Rota planner', c => c.core || ['Worship Team', 'Kids Church', 'Youth Worship'].some(t => c.p.adminFor.includes(t))], ['Sunday service plan', c => c.core || c.worshipLead],
     ['Preaching plan', c => c.anyTeam], ['Session planner', c => c.plans], ['Present', c => c.plans], ['How to present', c => c.plans], ['Rota reports', c => c.rotaLead],
     ['Availability form', c => c.core]]],
   ['People and messages', null, [
@@ -92,8 +92,9 @@ const APPROVED = [
   ['Church admin', null, [
     /* Master admins only, and the office's bank details on their own page (21 Oct 2026). */
     ['Church settings', c => c.master], ['Teams and groups', c => c.office], ['Giving details', c => c.office],
-    ['Payments', c => c.money], ['Safeguarding', c => c.admin], ['Safeguarding settings', c => c.admin],
-    ['Due for deletion', c => c.admin], ['Small groups', c => c.admin], ['Forms', c => c.admin],
+    /* Safeguarding: master admins and the lead and deputy (22 Oct 2026); nobody below is a lead. */
+    ['Payments', c => c.money], ['Safeguarding', c => c.master], ['Safeguarding settings', c => c.master],
+    ['Due for deletion', c => c.master], ['Small groups', c => c.admin], ['Forms', c => c.admin],
     ['Emails sent', c => c.core && c.admin && c.master], ['Manage Watch', c => c.master], ['Manage sermons', c => c.master],
     ['Backup', c => c.core && c.admin]]],
   ['My teams', null, [
@@ -104,7 +105,7 @@ const APPROVED = [
       c => c.worship],
     ['Youth', all, [['Youth Service Planner', c => c.master || c.on('Youth Worship')]], c => c.youth],
     ['Kids Church', false, [["Children's register"], ['Sunday check-in']], c => c.kids],
-    ['Core Team', c => c.core, [['Music Upload', c => c.core]]]]],
+    ['Core Team', c => c.core, [['Music Upload', c => c.core || c.worshipLead]]]]],
   ['Resources', null, [
     ['Pin boards', c => c.anyTeam], ['Apps and downloads'], ['Team Resources', c => c.anyTeam], ['Team Videos', c => c.anyTeam]]]
 ];
@@ -224,8 +225,11 @@ const PEOPLE = {
   'Karen, who administers Kids Church': { teams: [], adminFor: ['Kids Church'], masterAdmin: false,
     sees: ['Kids Church', "Children's register", 'Sunday check-in', 'Room bookings', 'Headcounts',
            /* WHO MAY: a team leader emails and posts to their team. */
-           'Send an email', 'Address book', 'Notices'],
-    doesNot: ['Rota planner', 'Events', 'Places', 'Picture library', 'Session planner',
+           'Send an email', 'Address book', 'Notices',
+           /* Planner.html lets a Kids Church admin in (its guard), so the Menu
+              offers it (22 Oct 2026: guard and Menu must agree). */
+           'Rota planner'],
+    doesNot: ['Events', 'Places', 'Picture library', 'Session planner',
               'Church settings', 'Backup', 'Worship & AV', 'Play-Through'] },
   /* The person F-067 is about: looks after one site's room bookings, is on
      Worship, is on neither Core Team nor any team's admin list. The entry

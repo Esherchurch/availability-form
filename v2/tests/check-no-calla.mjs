@@ -37,6 +37,12 @@ console.log('Calla’s send service, named anywhere in v2 (' + files.length + ' 
 const named = files.filter(f => CALLA.test(read(f)));
 ok('  nowhere: no page, script or function', named.length === 0, named.join(', '));
 
+/* The WORDS too (the reviewing window, 21 Oct 2026): three planners still
+   told people "Sends from EGBCWorship@callasuite.uk". v2's mail comes from
+   hub@mail.churchhq.co.uk in the church's name. */
+const words = files.filter(f => !f.startsWith('functions')).filter(f => /callasuite/i.test(read(f)));
+ok('  no page or script says mail comes from Calla (callasuite)', words.length === 0, words.join(', '));
+
 console.log('\nNo page posts to an email service itself');
 const direct = files.filter(f => !f.startsWith('functions')).filter(f => /fetch\([^)]*(sendemail|api\.resend\.com)/i.test(read(f)));
 ok('  no fetch to a send service in any page or script', direct.length === 0, direct.join(', '));

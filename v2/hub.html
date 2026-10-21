@@ -9,6 +9,21 @@
 <meta name="theme-color" content="#3d6263">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+/* A SHARED NOTICE ON A PHONE (the reviewing window, 22 Oct 2026). Most
+   people tap a WhatsApp link on a phone: there it opens the app's Notices
+   at that notice (the app signs them in first if it needs to). On a
+   computer the hub's own slide-out opens it, below. ?app=0 means "the
+   website", and is obeyed. */
+(function () {
+  try {
+    var q = new URLSearchParams(location.search), id = q.get('notice');
+    if (!id || id === 'new' || q.get('app') === '0') return;
+    if (!(window.matchMedia && matchMedia('(max-width: 700px)').matches)) return;
+    location.replace('app.html?notice=' + encodeURIComponent(id));
+  } catch (e) { /* the hub opens it instead */ }
+})();
+</script>
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -26,7 +41,7 @@
 <!-- The shared HTML cleaner, which the notices and the charter use. -->
 <script src="egbc-share.js?v=202610212300"></script>
 <!-- Step N: the Menu's structure, shared by the Menu, the sidebar and Where to? -->
-<script src="egbc-menu.js?v=202610221100"></script>
+<script src="egbc-menu.js?v=202610221200"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
 <script src="egbc-editor.js?v=202610062000"></script>
 <style>

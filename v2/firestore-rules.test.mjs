@@ -1039,7 +1039,10 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('there is no room for a DBS certificate number', 'deny', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
     { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', certificate: '001234567890' }));
   await check('an ordinary admin cannot record checks', 'deny', () => setDoc(doc(ella(), 'leaderChecks', 'm_u_leo'), { dbsStatus: 'current', siteId: 'site_kids' }));
-  await check('an admin can see a leader\'s checks, to plan', 'allow', () => getDoc(doc(ella(), 'leaderChecks', 'm_u_leo')));
+  /* Martin's rule (22 Oct 2026): DBS dates are the lead and deputy's, not every team admin's. */
+  await check('an ordinary team admin cannot see a leader\'s checks', 'deny', () => getDoc(doc(ella(), 'leaderChecks', 'm_u_leo')));
+  await check('the safeguarding lead sees them', 'allow', () => getDoc(doc(lena(), 'leaderChecks', 'm_u_leo')));
+  await check('  and a master admin', 'allow', () => getDoc(doc(as('martin'), 'leaderChecks', 'm_u_leo')));
   await check('a leader sees their own', 'allow', () => getDoc(doc(leo(), 'leaderChecks', 'm_u_leo')));
   await check('a member cannot see someone else\'s', 'deny', () => getDoc(doc(as('samy'), 'leaderChecks', 'm_u_leo')));
 

@@ -13,10 +13,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
-        import { storage, ready, call } from './egbc-db.js';
+        import { storage, ready, call, db } from './egbc-db.js';
         import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+        import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        /* THIS PAGE NO LONGER READS FIRESTORE. It used to query addressBook
+        /* THIS PAGE NO LONGER READS FIRESTORE - except churchSettings/details,
+           the church's own name and logo, which are public (firestore.rules),
+           so the form says whose it is, for any church (22 Oct 2026). It used to query addressBook
            by email, read every event, and write into availability - which is
            why those three were open to the whole internet in firestore.rules.
            They are shut now, and the page asks three functions instead:
@@ -56,6 +59,13 @@
             }
         }
         loadLogo();
+
+        /* The church's own name, and its logo if Church settings has one. */
+        getDoc(doc(db, 'churchSettings', 'details')).then(snap => {
+            const d = snap.exists() ? (snap.data() || {}) : {};
+            if (d.name) document.querySelectorAll('.egbc-church-name').forEach(el => { el.textContent = d.name; });
+            if (d.logoUrl) document.querySelectorAll('.egbc-logo').forEach(img => { img.src = d.logoUrl; });
+        }).catch(() => { /* the form works without it */ });
 
         function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
@@ -308,7 +318,7 @@
             <div class="space-y-4">
                 <img src="" alt="Logo" class="egbc-logo h-24 mx-auto object-contain">
                 <div class="text-center">
-                    <p class="text-[#6b8281] text-[11px] font-bold uppercase tracking-[0.3em]">Esher Green Baptist Church</p>
+                    <p class="egbc-church-name text-[#6b8281] text-[11px] font-bold uppercase tracking-[0.3em]"></p>
                     <h1 class="text-4xl font-extrabold text-[#3d6263] tracking-tight mt-2">Availability Form</h1>
                 </div>
             </div>
@@ -316,7 +326,7 @@
             <div class="login-card p-8 sm:p-12 max-w-md mx-auto">
                 <div id="loginBox" class="space-y-8">
                     <div class="space-y-2">
-                        <label class="block text-[11px] font-extrabold text-[#6b8281] uppercase tracking-[0.08em] text-center mb-3">Worship & AV Member Login</label>
+                        <label class="block text-[11px] font-extrabold text-[#6b8281] uppercase tracking-[0.08em] text-center mb-3">Team member login</label>
                         <input type="email" id="memberEmail" placeholder="Enter your email"
                             class="w-full border-2 border-transparent px-6 text-center text-lg outline-none transition-all">
                     </div>

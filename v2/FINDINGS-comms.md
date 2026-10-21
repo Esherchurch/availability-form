@@ -1476,3 +1476,11 @@ Martin's correction (through the reviewing window): **v2 doesn't use Calla at al
   - **Why:** "Call the parent" (notify.js `callParent`) emails the parent with no phone, at the kidsFamilies address. Once `sendOne` used `makeSender`, that email was refused as unknown (check-notify-send went red; now 82/82).
   - Calla's path never checked recipients, so nobody had noticed. Please keep the two lines, or move them as you prefer.
 - **check-mail-route** excludes `index.js` and `public-mail-pages.cjs` from its "names Calla" scan. Neither names Calla now, so you could drop the exclusions.
+
+## From the main window, 22 Oct 2026: two audit reds on enews.html, and a stale comment
+
+- **Sheets with no visible close once scrolled** (full audit, master at 375): "New email" and "Look and footer" open a sheet whose close isn't on screen after scrolling it.
+  - On SundayServicePlanner.html I fixed the same thing with a ✕ inside the box: `position:sticky; top:0`, `aria-label="Close"`, 44px. It stays in sight however far the box scrolls.
+- **functions/team-mail.js:7** still says the From line is `<EGBCWorship@callasuite.uk>`. v2's mail now comes from `hub@mail.churchhq.co.uk` in the church's name, through `makeSender`.
+  - check-no-calla now fails on "callasuite" in any page or script.
+  - It doesn't look in functions, so your comment isn't red. Please reword it.

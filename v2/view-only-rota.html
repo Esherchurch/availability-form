@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610221100" data-title="Rota"></script>
+<script src="egbc-shell.js?v=202610221200" data-title="Rota"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610212000"></script>
-<script src="egbc-guard.js?v=202610210900" data-any-team></script>
+<script src="egbc-guard.js?v=202610221200" data-any-team></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EGBC Live Rota</title>
@@ -113,6 +113,9 @@
         /* Nothing is read until the session is restored: a query sent before
            then goes out anonymous, whatever the page already checked. */
         await ready;
+        /* And only once the guard has let this person in: a refused
+           visitor's listeners were refused onto the console (22 Oct 2026). */
+        if (window.EGBCGuard) await EGBCGuard.allowed;
 
         onSnapshot(collection(db, "addressBook"), (snap) => {
             addressBook = snap.docs.map(d => ({ id: d.id, ...d.data() }));

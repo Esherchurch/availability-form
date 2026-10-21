@@ -7,13 +7,13 @@
 
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610221100" data-title="Safeguarding"></script>
+<script src="egbc-shell.js?v=202610221200" data-title="Safeguarding"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610212000"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-guard.js?v=202610210900"></script>
+<script src="egbc-guard.js?v=202610221200"></script>
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610212300"></script>
@@ -602,7 +602,10 @@
     });
     /* §24: DBS checks and training running out (six weeks ahead): everyone's
        for admins, a site's for its safeguarding lead, and each person's own. */
-    var checks = (ADMIN ? db().collection('leaderChecks').get().then(function (q) { return q.docs; })
+    /* Everyone's DBS dates: a master admin only; the lead and deputy see
+       their own sites' below (Martin's rule; the rules say the same since
+       22 Oct 2026 - a team admin no longer reads every check). */
+    var checks = (MASTER ? db().collection('leaderChecks').get().then(function (q) { return q.docs; })
       : Promise.all(LEADSITES.map(function (sid) { return db().collection('leaderChecks').where('siteId', '==', sid).get().then(function (q) { return q.docs; }, function () { return []; }); }))
           .then(function (l) { return [].concat.apply([], l); })).catch(function () { return []; });
     var myMid = E.asSeen().memberId;   /* view as: nobody's own checks */

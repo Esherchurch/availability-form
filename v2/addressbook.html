@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610221100" data-title="Address Book"></script>
+<script src="egbc-shell.js?v=202610221200" data-title="Address Book"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610212000"></script>
-<script src="egbc-guard.js?v=202610210900" data-admin="any" data-also-team="Church office"></script>
+<script src="egbc-guard.js?v=202610221200" data-admin="any" data-also-team="Church office"></script>
 <!-- "Gets the e-news" on each person, for the office (the comms window's add-on; FINDINGS-comms C-30) -->
 <script src="egbc-enews-ab.js?v=202610202100"></script>
     <meta charset="UTF-8">
@@ -140,10 +140,11 @@
         let lastSnapshot = null;
         window.redrawMembers = () => { if (lastSnapshot) renderSnapshot(lastSnapshot); };
 
-        onSnapshot(query(addressBookRef, orderBy("name")), (snapshot) => {
+        /* Only once the guard has let this person in (the audit, 22 Oct 2026). */
+        (window.EGBCGuard ? EGBCGuard.allowed : Promise.resolve()).then(() => onSnapshot(query(addressBookRef, orderBy("name")), (snapshot) => {
             lastSnapshot = snapshot;
             renderSnapshot(snapshot);
-        });
+        }));
 
         function renderSnapshot(snapshot) {
             const select = document.getElementById('relatedTo');

@@ -2419,7 +2419,11 @@ service cloud.firestore {
     }
 
     match /leaderChecks/{memberId} {
-      allow read: if isAdmin() || sgLeadOf(resource.data.get('siteId', ''))
+      // DBS dates are the safeguarding lead and deputy's (Martin's rule), not
+      // every team admin's: a Kids Church admin was reading everyone's
+      // (the reviewing window, 22 Oct 2026). A master admin keeps it - they
+      // can already write them, and somebody must name the first lead.
+      allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''))
                   || (active() && me().get('memberId', '') == memberId);
       allow write: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['name', 'dbsStatus', 'dbsSeen', 'trainingDate', 'siteId', 'updatedAt', 'updatedBy'])

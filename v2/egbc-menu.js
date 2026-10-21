@@ -84,9 +84,9 @@
          to anyone else. */
       { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days', anyTeam: true,
         description: 'Who is on, week by week' },
-      { title: 'Rota planner', url: 'Planner.html', icon: 'calendar-plus', core: true,
+      { title: 'Rota planner', url: 'Planner.html', icon: 'calendar-plus', leaderOf: ['Worship Team', 'Kids Church', 'Youth Worship', 'Core Team'],
         description: 'Build the term, send the rotas' },
-      { title: 'Sunday service plan', url: 'SundayServicePlanner.html', icon: 'list-ordered', core: true,
+      { title: 'Sunday service plan', url: 'SundayServicePlanner.html', icon: 'list-ordered', leaderOf: 'Worship Team',
         description: 'Songs, keys and the order' },
       /* The Preaching plan (Ryan, the Pastor). */
       { title: 'Preaching plan', url: 'preaching-plan.html', icon: 'book-open', anyTeam: true, feature: 'preachingPlan',
@@ -284,7 +284,7 @@
       { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', core: true,
         description: 'What Core Team is for, and how it works',
         children: [
-          { title: 'Music Upload', url: 'music-uploader.html', icon: 'file-music', core: true,
+          { title: 'Music Upload', url: 'music-uploader.html', icon: 'file-music', leaderOf: 'Worship Team',
             description: 'Add one song, with its files' }
         ] }
     ] },
@@ -351,8 +351,9 @@
     if (node.sermons && !who.isSermons) return false;
     if (node.careReader && !who.isCareReader) return false;
     /* Safeguarding: the lead and deputy (careRouting/status, kept by the
-       server) or anybody who administers something. */
-    if (node.sg && !who.isAdmin && !who.isSgLead) return false;
+       server). Lead and deputy only, and a master admin (who names the lead) - not
+       any team admin (Martin's rule; the reviewing window, 22 Oct 2026). */
+    if (node.sg && !who.isMaster && !who.isSgLead) return false;
     /* On the money team, by whatever name the church gives it, or a master
        admin (who.isMaster honours "View the site as"). */
     if (node.money && !who.isMaster && (who.teams || []).indexOf(who.moneyTeam || 'Finance') === -1) return false;
@@ -371,7 +372,11 @@
     if (node.team && !onTeam(node.team, who)) return false;
     if (node.master && !who.isMaster) return false;
     /* A leader of that team, as the page's own guard decides it. */
-    if (node.leaderOf && !who.isMaster && !(window.EGBCAuth && EGBCAuth.isLeaderOf && EGBCAuth.isLeaderOf(node.leaderOf))) return false;
+    /* One team or a list (a leader of any of them), exactly as the page's
+       data-team + data-role="leader" guard asks: the Menu offers what the
+       page lets in, no more and no less (the audit's access reds, 22 Oct). */
+    if (node.leaderOf && !who.isMaster && !(window.EGBCAuth && EGBCAuth.isLeaderOf
+        && [].concat(node.leaderOf).some(function (t) { return EGBCAuth.isLeaderOf(t); }))) return false;
     /* On any team, administering one, or a master admin. */
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     if (node.planGroup && !who.isPlanGroup) return false;
@@ -929,6 +934,8 @@
     /* The "you" menu under the initials, and what it offers (for checks). */
     toggleYou: toggleYou,
     youItems: function (p) { return youItems(p).map(function (i) { return i.key; }); },
+    /* The pages the "you" menu links to (for the audit's "who is offered what"). */
+    youLinks: function (p) { return youItems(p).filter(function (i) { return i.href; }).map(function (i) { return i.href; }); },
 
     TREE: TREE,
     OPENED_FROM_A_TOOL: OPENED_FROM_A_TOOL,

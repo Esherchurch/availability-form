@@ -113,6 +113,20 @@
      hidden; revealing it would show whatever is underneath to somebody
      whose access has not been checked, which is the one thing this file
      exists to prevent. */
+  /* EGBCGuard.allowed: resolves when this person is let in (the same moment
+     as 'egbc-ready'), and NEVER for somebody refused. A page that waits on
+     it before its first read sends nothing the rules would refuse - which
+     is what put "Uncaught Error in snapshot listener" on the console of
+     every page a plain member was turned away from (the audit, 22 Oct 2026). */
+  if (!window.EGBCGuard) {
+    window.EGBCGuard = {
+      allowed: new Promise(function (res) {
+        if (window.EGBC_READY) return res();
+        document.addEventListener('egbc-ready', function () { res(); }, { once: true });
+      })
+    };
+  }
+
   var SETTLE_MS = 8000;
   var settled = false;
 

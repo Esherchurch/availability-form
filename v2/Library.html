@@ -8,8 +8,8 @@
 <script src="egbc-auth.js?v=202610212000"></script>
 
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610221100" data-title="Music Database"></script>
-<script src="egbc-guard.js?v=202610210900" data-team="Worship Team"></script>
+<script src="egbc-shell.js?v=202610221200" data-title="Music Database"></script>
+<script src="egbc-guard.js?v=202610221200" data-team="Worship Team"></script>
     <title>Song Library</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
@@ -873,7 +873,8 @@ async function handleLyricsSearch(e) {
     }
 }
 
-loadSongs();
+/* Only once the guard has let this person in (the audit, 22 Oct 2026). */
+(window.EGBCGuard ? EGBCGuard.allowed : Promise.resolve()).then(loadSongs);
 </script>
 </body>
 </html>

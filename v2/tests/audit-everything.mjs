@@ -98,6 +98,14 @@ const MAX_TAPS = Number(opt('max-taps') || 40);
 
 /* Never tapped: things that change the world for somebody else. In --live,
    nothing that saves, sends or books either. */
+/* PAGES THAT OPEN OFF THE MENU ON PURPOSE (22 Oct 2026). The rule is
+   that a page's guard matches who the Menu offers it to; a page on this
+   list opens for others BY DESIGN, and says why. Its owner adds it here,
+   as check-menu's REACHED_ELSEWHERE - not the audit guessing. Roles not
+   listed still count. */
+const OFF_MENU_BY_DESIGN = {
+  'index.html': { roles: 'all', why: 'the availability form: filled in by people with no account at all' }
+};
 const SKIP_TAP = /sign ?out|log ?out|back to me|stop viewing|delete|remove|archive|clear |reset|unsubscribe|\bsend\b|disconnect|withdraw|decline|cancel (my|this|the) /i;
 const SKIP_LIVE = /save|submit|book|sign ?up|register|\badd\b|create|upload|\bpay\b|give now|confirm|approve|accept|post|publish|mark as|tick|import|generate|sync|\+ ?service|not done|auto-?populate|restore/i;
 /* BUTTONS THAT WRITE TO THE LIVE CHURCH, which a --live run must never
@@ -602,6 +610,8 @@ async function menuFor(B, base) {
     var all=[], mine=[];
     (EGBCMenu.allPages()||[]).forEach(function(p){ if(p.url) all.push(String(p.url)); });
     (function w(n){ n.forEach(function(x){ if(x.url) mine.push(String(x.url)); if(x.children) w(x.children); }); })(EGBCMenu.forPerson(EGBCMenu.who()));
+    /* The "you" menu offers some pages too (My availability is index.html). */
+    if (EGBCMenu.youLinks) EGBCMenu.youLinks(EGBCAuth.profile && EGBCAuth.profile()).forEach(function(u){ mine.push(String(u)); });
     return {all:all, mine:mine};
   })())`)) || '{"all":[],"mine":[]}');
 }
@@ -755,17 +765,21 @@ async function runRole(B, role, size, base, shared) {
     const mine = new Set(['hub.html'].concat(menu.mine));
     for (const page of allPages) {
       if (!LIVE) await restoreSettings();
-      const should = mine.has(page);
+      /* "hub.html?notices=1" is Home with its Notices open: offered if the
+         page itself is (22 Oct 2026 - it was counted as a page apart). */
+      const should = mine.has(page) || mine.has(page.split('?')[0]);
       if (!should && String(size) !== TAP_SIZE) continue;      /* access is checked once */
       if (!should) {
         await B.size(...ALL_SIZES[size]);
         await B.go(base + page);
         const m = JSON.parse((await B.ev(MEASURE)) || '{}');
         const refused = m.blocked || m.softRefused || /login\.html$/.test(m.path || '');
+        const by = OFF_MENU_BY_DESIGN[page.split('?')[0]];
+        const byDesign = !!by && (by.roles === 'all' || [].concat(by.roles).includes(role));
         /* A refusal must not throw underneath (the reviewing window's audit,
            15 Oct 2026: 'Cannot set properties of null' on refused pages). */
         const errs = B.errors.slice();
-        const why = (refused ? [] : ['access: opens for ' + role + ', whose Menu does not offer it (it says: "' + (m.text || '') + '")'])
+        const why = (refused || byDesign ? [] : ['access: opens for ' + role + ', whose Menu does not offer it (it says: "' + (m.text || '') + '")'])
           .concat(errs.length ? ['console: ' + errs[0] + (errs.length > 1 ? ' (+' + (errs.length - 1) + ' more)' : '')] : []);
         record({ screen: page + ' (not in their Menu)', role, size, pass: !why.length, why, skipped: [], m });
         continue;

@@ -9419,3 +9419,14 @@ Mine are done the same way:
   - The rerun, on its own, gave 55.
 - **present-quiz:** 39/39.
 - **Both tests now check the new words.**
+
+## From the main window, 22 Oct 2026: safeguarding is the lead and deputy's (one change in your safeguarding.html)
+
+The reviewing window, on the live site: a Kids Church admin saw everyone's DBS dates, because the Menu offered Safeguarding to any team admin and the rules let any admin read `leaderChecks`. Martin's rule: safeguarding is the lead and deputy.
+
+**Changed:**
+- **firestore.rules:** `leaderChecks` read is now a master admin, the site's lead or deputy, or the person themselves. It goes live when the church does. The rules tests have the deny and the allows; break → red.
+- **egbc-menu.js:** Safeguarding, Safeguarding settings and Due for deletion are for master admins and the lead and deputy only.
+- **safeguarding.html:605:** "everyone's checks" loads for `MASTER` instead of `ADMIN`; the lead and deputy still get their sites' checks. **Nothing else in your file changed.**
+
+**Not changed, for you to decide:** an event's own safeguarding view still opens for that event's leaders and any team admin (`ADMIN`). Their reads of other people's checks will now be refused by the rules. Please make that view not ask for them, or say so.

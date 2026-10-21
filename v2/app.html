@@ -48,7 +48,7 @@
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
-<script src="egbc-guard.js?v=202610210900" data-allow-pending="parent"></script>
+<script src="egbc-guard.js?v=202610221200" data-allow-pending="parent"></script>
 <script src="egbc-ui.js?v=202610150900"></script>
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
@@ -414,7 +414,7 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610111300"></script>
 <script src="egbc-notify.js?v=202610111300"></script>
-<script src="egbc-menu.js?v=202610221100"></script>
+<script src="egbc-menu.js?v=202610221200"></script>
 <script src="egbc-app.js?v=202610201600"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
@@ -654,6 +654,7 @@ function loadNews(me) {
     NOTICES.all = out;
     NOTICES.ready = true;
     paintNotices();
+    setTimeout(openWantedNotice, 0);
     return out.slice(0, 3);
   }).catch(function () { NOTICES.ready = true; return []; });
 }
@@ -711,6 +712,30 @@ function noticesSheet() {
       + '</div>';
   }).join('');
   return out + CLOSE;
+}
+
+/* A SHARED NOTICE'S LINK (hub.html?notice=<id> on a phone comes here as
+   app.html?notice=<id>): once the notices are in, open the Notices sheet at
+   that one, lit for a moment. A notice that has gone, or is not for this
+   person, still opens the sheet - the list is the honest answer. */
+var APP_STARTED = false;
+var WANT_NOTICE = (function () { try { return new URLSearchParams(location.search).get('notice') || ''; } catch (e) { return ''; } })();
+function openWantedNotice() {
+  if (!WANT_NOTICE || !NOTICES.ready || !APP_STARTED) return;
+  var id = WANT_NOTICE; WANT_NOTICE = '';
+  try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+  var b = document.createElement('button');
+  b.setAttribute('data-act', 'sheet:notices'); b.style.display = 'none';
+  document.body.appendChild(b); b.click(); b.remove();
+  setTimeout(function () {
+    var share = document.querySelector('[data-notice-share="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+    var card = share && share.closest('.card');
+    if (!card) return;
+    card.setAttribute('data-wanted', '1');
+    card.scrollIntoView({ block: 'center' });
+    card.style.boxShadow = '0 0 0 3px #f59e0b';
+    setTimeout(function () { card.style.boxShadow = ''; }, 2500);
+  }, 300);
 }
 
 /* One listener for every notice's Share, wherever the sheet draws it. */
@@ -1899,6 +1924,17 @@ function thisSunday(spaceKey) {
   return out;
 }
 
+/* PLAN AND PRESENT FROM THE PHONE (Martin: leaders present from their
+   phone; the reviewing window, 22 Oct 2026). For a plan group's leaders
+   and team - the same test as the Menu's Session planner and Present - and
+   only while the church uses the session planner. */
+function planRows() {
+  var on = window.EGBCAuth && EGBCAuth.isOnPlanGroup && EGBCAuth.isOnPlanGroup();
+  if (!on || !A.uses('sessionPlanner')) return '';
+  return row('notebook-pen', 'Session planner', "Plan this week's session", null, 'open:session-planner.html')
+    + row('presentation', 'Present', 'Show the session on every screen, from your phone', null, 'open:present.html');
+}
+
 ['youth', 'lazers', 'renu'].forEach(function (k) {
   A.screen(k, 'rota', function () { return teamRota(A.SPACES[k].label, k); });
   A.screen(k, 'sunday', function () { return thisSunday(k); });
@@ -1909,7 +1945,8 @@ function thisSunday(spaceKey) {
       (k === 'youth'
         ? row('scroll-text', 'Our charter', 'What we are for, and how we work', null, 'open:Youthcharter.html')
         : '') +
-      row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-' + k));
+      row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-' + k) +
+      planRows());
   });
 });
 
@@ -1951,7 +1988,8 @@ A.screen('kids', 'team', function () {
     row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-kids') +
     row('clipboard-list', "Children's register", 'Who came, by group and term', null, 'open:kids-admin.html') +
     row('scan-line', 'Sunday check-in', 'The desk on a Sunday morning', null, 'open:kids-checkin.html') +
-    row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:resources.html'));
+    row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:resources.html') +
+    planRows());
 });
 
 /* ---- Core Team (APP-DESIGN-BRIEF §7b) ---------------------------------
@@ -2335,6 +2373,8 @@ document.addEventListener('egbc-ready', function () {
   } catch (e) { console.warn('app: the events screens did not mount', e); }
   paintViewAs();
   EGBCApp.start();
+  APP_STARTED = true;
+  setTimeout(openWantedNotice, 0);
 });
 </script>
 </body>
