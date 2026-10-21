@@ -4864,7 +4864,11 @@ service cloud.firestore {
     // meeting (its room). Session: the group's leaders present, its team
     // watch. Meeting: the host presents, the invitees watch - until the main
     // window adds meetingInvitee()/meetingHost() (F-242 section 6), master
-    // admins only.
+    // admins only. FOR THE MAIN WINDOW: the two `isMaster()` in the meeting
+    // lines below become meetingInvitee(ctx.room, ctx.eventId) (deckReads)
+    // and meetingHost(ctx.room, ctx.eventId) (deckPresents); storage.rules'
+    // present/ block says the same twice. functions/present.js mayPresent()
+    // already asks your mayHost() (functions/video.js).
     function deckReads(ctx) {
       return ctx is map && ((ctx.get('type', '') == 'session' && readsPlanGroup(ctx.get('groupId', '')))
                             || (ctx.get('type', '') == 'meeting' && isMaster()));
@@ -4874,9 +4878,24 @@ service cloud.firestore {
                             || (ctx.get('type', '') == 'meeting' && isMaster()));
     }
     function presentCtxOk(ctx) {
-      return ctx.get('type', '') != 'session'
-             || (ctx.get('sessionId', '') is string && exists(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-')))
-                 && get(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-'))).data.get('groupId', '') == ctx.get('groupId', '-'));
+      return (ctx.get('type', '') != 'session'
+              || (ctx.get('sessionId', '') is string && exists(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-')))
+                  && get(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-'))).data.get('groupId', '') == ctx.get('groupId', '-')))
+             // A meeting (F-247): its room, its event (or none) and its day, nothing else.
+             && (ctx.get('type', '') != 'meeting'
+                 || (ctx.keys().hasOnly(['type', 'room', 'eventId', 'day'])
+                     && ctx.get('room', '') is string && ctx.get('room', '').size() > 0 && ctx.get('room', '').size() <= 80
+                     && ctx.get('eventId', '') is string && ctx.get('eventId', '').size() <= 200
+                     && ctx.get('day', '') is string && ctx.get('day', '').matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')));
+    }
+    // A meeting's shared state names the deck on the screens (deckId): a deck
+    // made for that same meeting room, so everyone loads the same slides.
+    function presentDeckOk(d) {
+      return d.context.get('type', '') != 'meeting'
+             || (d.get('deckId', '') is string && d.get('deckId', '').size() > 0 && d.get('deckId', '').size() <= 40
+                 && exists(/databases/$(database)/documents/presentDecks/$(d.get('deckId', '-')))
+                 && get(/databases/$(database)/documents/presentDecks/$(d.get('deckId', '-'))).data.context.get('type', '') == 'meeting'
+                 && get(/databases/$(database)/documents/presentDecks/$(d.get('deckId', '-'))).data.context.get('room', '') == d.context.get('room', '-'));
     }
     match /presentDecks/{deckId} {
       allow read: if deckReads(resource.data.context);
@@ -4910,8 +4929,8 @@ service cloud.firestore {
     }
     function presentNowShape(key) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['context', 'slide', 'presenterUid', 'presenterName', 'startedAt', 'slideAt', 'blank', 'updatedBy', 'media', 'quiz'])
-             && presentMediaOk(d.get('media', null)) && presentQuizOk(d.get('quiz', null))
+      return d.keys().hasOnly(['context', 'slide', 'presenterUid', 'presenterName', 'startedAt', 'slideAt', 'blank', 'updatedBy', 'media', 'quiz', 'deckId'])
+             && presentMediaOk(d.get('media', null)) && presentQuizOk(d.get('quiz', null)) && presentDeckOk(d)
              && d.slide is int && d.slide >= 0 && d.slide < 1000 && d.blank is bool
              && d.presenterUid in [request.auth.uid, ''] && d.updatedBy == request.auth.uid
              && (d.context.get('type', '') != 'session' || key == 'ps_' + d.context.get('sessionId', '-'))

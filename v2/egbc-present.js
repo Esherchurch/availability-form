@@ -38,7 +38,13 @@
                      the slides for everyone and in the presenter's view
        tv,           true: a screen that only shows (present.html on the TV)
        onEnd         called when the presenter stops
-     }) -> { stop(), destroy() }
+       nowExtra,     fields written with "Present" (a meeting's { deckId })
+       autoStart     true: present at once (a meeting's host chose the deck)
+     }) -> { stop(), destroy(), state() }
+
+     EGBCPresent.attachMeeting({ room, eventId, el, call, host, button })
+       -> { open(), destroy() }    "Present slides" in a video meeting (F-242
+       section 6, F-247; below)
 
    Who sees: the viewer (follows; "Browse on my own" then "Back to
    presenter"), the presenter (now, next, notes, timer, thumbnails, Next /
@@ -48,6 +54,8 @@
    =================================================================== */
 (function (global) {
   'use strict';
+  /* where this file was loaded from: the hub's other scripts sit beside it */
+  var BASE = ((document.currentScript && document.currentScript.src) || '').replace(/[^/]*$/, '');
 
   var CSS = '' +
     '.pz{--pz-bg:#0b1116;--pz-panel:#121a21;--pz-line:#22303b;--pz-mute:#94a3b8;color:#e2e8f0;background:var(--pz-bg);font:400 15px/1.45 Inter,system-ui,sans-serif;min-height:100%;display:flex;flex-direction:column}' +
@@ -103,7 +111,7 @@
   function mount(el, o) {
     css();
     var db = EGBCAuth.db, me = EGBCAuth.user() || {}, myName = (EGBCAuth.profile && EGBCAuth.profile() || {}).name || 'Someone';
-    var ref = db.collection('presentNow').doc(o.key), items = o.items || [], N = items.length;
+    var ref = db.collection('presentNow').doc(o.key), items = o.items || [], N = items.length, MEET = !!(o.context && o.context.type === 'meeting');
     var S = null, browsing = null, cache = {}, notes = {}, unsub = null, tick = null, alive = true;
     /* video: a layer of its own over the slide picture, outside the part that redraws */
     var quiz = null;   /* egbc-quiz.js, when the page loads it (F-255) */
@@ -285,7 +293,7 @@
         (live ? (browsing === null ? '<span class="pz-live" data-follow><i></i>Following ' + esc(S.presenterName || '') + '</span><button class="pz-btn" data-browse>Browse on my own</button>'
           : '<span class="pz-live off" data-browsing><i></i>You’re on ' + (browsing + 1) + ' · ' + esc(S.presenterName || '') + ' is on ' + (S.slide + 1) + '</span><button class="pz-btn main" data-back>Back to presenter</button>') : '') +
         (o.mayPresent ? (live ? '<button class="pz-btn" data-take>Take over presenting</button>' : '<a class="pz-btn" data-guide href="present-guide.html" style="text-decoration:none">How to present</a><button class="pz-btn main" data-start>Present</button>') : '') + '</div>';
-      el.className = 'pz' + (o.tv ? ' pz-tv' : '');
+      el.className = 'pz' + (o.tv ? ' pz-tv' : '') + (MEET ? ' pz-meet' : '');
       if (o.tv && !live) { el.className = 'pz pz-tv'; el.innerHTML = '<div class="pz-wait" style="min-height:100vh"><div><p style="font-size:clamp(20px,3vw,40px);color:#fff;margin:0 0 8px;font-weight:700">' + esc(o.title || '') + '</p><p style="margin:0">The slides appear here when the leader presents.</p></div></div>'; return; }
       el.innerHTML = top + (live || o.tv ? '<div class="pz-view"><div class="main">' + stageHtml('pzStage') +
         '<div class="pz-prog"><i style="width:' + Math.round((at() + 1) / Math.max(1, N) * 100) + '%"></i></div><div class="pz-cap">' +
@@ -298,7 +306,7 @@
     }
     function drawPresenter() {
       var i = S.slide;
-      el.className = 'pz';
+      el.className = 'pz' + (MEET ? ' pz-meet' : '');
       el.innerHTML = '<div class="pz-top"><div><div class="t">' + esc(o.title || 'Present') + '</div><div class="s">Everyone sees slide ' + (i + 1) + ' of ' + N + '</div></div><span class="pz-sp"></span>' +
         '<span class="pz-timer" data-timer>0:00<small data-slidetime>on this slide 0:00</small></span><button class="pz-btn stop" data-stop>Stop presenting</button></div>' +
         '<div class="pz-pres"><div style="display:flex;flex-direction:column;gap:12px;min-width:0"><p class="pz-lbl"><span class="pz-live"><i></i>Everyone sees this</span>Slide ' + (i + 1) + ' of ' + N + (S.blank ? ' · <span style="color:#fde68a">blanked</span>' : '') + '</p>' +
@@ -340,8 +348,10 @@
     }
     function start() {
       var t = new Date().toISOString();
-      return ref.set({ context: o.context, slide: S && S.presenterUid ? S.slide : 0, presenterUid: me.uid, presenterName: myName,
-        startedAt: (S && S.startedAt) || t, slideAt: t, blank: false, updatedBy: me.uid }).catch(function (e) { alert('Could not present: ' + (e.message || e)); });
+      /* the same deck carries on from its slide; another deck starts at the beginning */
+      var same = S && S.presenterUid && (S.deckId || '') === ((o.nowExtra || {}).deckId || '');
+      return ref.set(Object.assign({ context: o.context, slide: same ? S.slide : 0, presenterUid: me.uid, presenterName: myName,
+        startedAt: (same && S.startedAt) || t, slideAt: t, blank: false, updatedBy: me.uid }, o.nowExtra || {})).catch(function (e) { alert('Could not present: ' + (e.message || e)); });
     }
     function stop() { return ref.update({ presenterUid: '', presenterName: '', blank: false }).then(function () { if (o.onEnd) o.onEnd(); }, function () {}); }
 
@@ -376,9 +386,12 @@
     document.addEventListener('keydown', onKey);
 
     /* ---- following: one listener ---- */
+    var first = true;
     unsub = ref.onSnapshot(function (d) {
       var was = S && S.presenterUid, prev = S;
       S = d.exists ? d.data() : null;
+      /* a meeting's host chose this deck: present it now, unless already presenting it */
+      if (first) { first = false; if (o.autoStart && !(S && S.presenterUid === me.uid && (S.deckId || '') === ((o.nowExtra || {}).deckId || ''))) start(); }
       if (S && !S.presenterUid) S = Object.assign({}, S, { presenterUid: '' });
       if (S && prev && prev.presenterUid === me.uid && S.presenterUid !== me.uid) { var w = document.createElement('div'); w.setAttribute('role', 'status'); w.className = 'pz-handed'; w.textContent = (S.presenterName || 'Someone') + ' is presenting now'; el.dataset.handed = w.textContent; }
       if (!S || !S.presenterUid) browsing = null;
@@ -427,5 +440,171 @@
     };
   }
 
-  global.EGBCPresent = { mount: mount, deckItems: deckItems, notesReader: notesReader, css: css };
+  /* ===================================================================
+     "PRESENT SLIDES" IN A VIDEO MEETING (F-242 section 6, F-247)
+     ===================================================================
+     meeting.html (the main window's page) loads firebase-storage-compat.js
+     BEFORE egbc-auth.js (so the hub connects Storage, as every page with
+     slides does) and egbc-present.js, adds a div beside the call, and:
+       EGBCPresent.attachMeeting({ room, eventId, el: <that div>,
+         call: document.getElementById('stage'), host: !!hostToken })
+     Everyone in the meeting follows presentNow/mtg_<room>_<event or day>.
+     While someone presents, body.presenting turns the page into the slides
+     with the call (Daily's own tiles, Step 1) as a strip beside them on a
+     computer, below them on a phone; when they stop it goes back. No screen
+     share: every screen shows the slide picture it already has.
+     The HOST (whoever started as host) gets "Present slides" (or the page's
+     own `button`): a deck made for this meeting before, or a new one - a
+     PowerPoint file or a OneDrive link, made into slides by the converter,
+     exactly as in the session planner. A meeting's deck goes 30 days after
+     the meeting unless kept (runPresentSweep). Another host may take over.
+     Until the hub goes live nothing is uploaded (as F-235). The rules decide
+     who sees a meeting's slides: master admins until the main window adds
+     meetingHost()/meetingInvitee() - anyone else simply sees the call. */
+  var MCSS = '[data-pzmeet]{display:none}' +
+    'body.presenting [data-pzmeet]{display:flex;flex-direction:column;flex:1;min-height:0;border-radius:12px;overflow:auto;margin:0 0 8px}' +
+    '.pz-meet .pz-view{grid-template-columns:minmax(0,1fr)}' +
+    '@media (min-width:761px){body.presenting [data-pzmeet]{margin-right:312px}body.presenting .pz-mcall{position:fixed!important;right:12px;top:var(--pz-calltop,72px);bottom:12px;width:300px;flex:none!important;min-height:0!important;z-index:3}}' +
+    '@media (max-width:760px){body.presenting .pz-mcall{flex:0 0 190px!important;height:190px;min-height:0!important}}' +
+    '.pz-mbtn{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:4;min-height:44px;padding:0 18px;border-radius:999px;border:0;background:#3d6263;color:#fff;font:700 14.5px Inter,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}' +
+    'body.presenting .pz-mbtn{display:none}' +
+    '.pz-msheet{position:fixed;inset:0;z-index:20;background:rgba(5,8,11,.6);display:flex;align-items:flex-end;justify-content:center}' +
+    '.pz-msheet .in{background:#121a21;color:#e2e8f0;border:1px solid #22303b;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));font:400 15px/1.45 Inter,sans-serif}' +
+    '@media (min-width:600px){.pz-msheet{align-items:center}.pz-msheet .in{border-radius:16px}}' +
+    '.pz-msheet h3{margin:0 0 4px;color:#fff;font:800 19px Inter,sans-serif}.pz-msheet .s{color:#94a3b8;font-size:13.5px;margin:0 0 12px}' +
+    '.pz-msheet .deck{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #2c3c48;border-radius:12px;background:#0b1116;color:#e2e8f0;font:600 15px Inter,sans-serif;text-align:left;cursor:pointer}' +
+    '.pz-msheet label{display:block;font:600 13px Inter,sans-serif;color:#cbd5e1;margin:12px 0 4px}' +
+    '.pz-msheet input[type=text],.pz-msheet input[type=url]{width:100%;min-height:44px;border-radius:10px;border:1px solid #2c3c48;background:#0b1116;color:#e2e8f0;padding:0 12px;font:400 15px Inter,sans-serif}' +
+    '.pz-msheet input[type=file]{color:#cbd5e1;max-width:100%}.pz-msheet .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.pz-msheet .msg{min-height:20px;margin:10px 0 0;color:#fde68a;font-size:14px}';
+
+  function need(srcUrl, test) {
+    if (test()) return Promise.resolve();
+    return new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = srcUrl; sc.onload = function () { res(); }; sc.onerror = function () { rej(new Error('Could not load ' + srcUrl)); }; document.head.appendChild(sc); });
+  }
+  function londonDay() { try { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  var safeKey = function (s) { return String(s || '').replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 60); };
+
+  function attachMeeting(m) {
+    css();
+    if (!document.getElementById('pz-mcss')) { var st = document.createElement('style'); st.id = 'pz-mcss'; st.textContent = MCSS; document.head.appendChild(st); }
+    var db = EGBCAuth.db, me = EGBCAuth.user() || {}, el = m.el, call = m.call, alive = true;
+    var day = m.day || londonDay(), room = String(m.room || ''), eventId = String(m.eventId || '');
+    var key = 'mtg_' + safeKey(room) + '_' + safeKey(eventId || day);
+    var ctx = { type: 'meeting', room: room, eventId: eventId, day: day };
+    var ref = db.collection('presentNow').doc(key), cur = null, loading = '', btn = null, sheet = null;
+    /* an attribute, not a class: the engine sets the div's own classes */
+    el.setAttribute('data-pzmeet', ''); if (call) call.classList.add('pz-mcall');
+
+    function layout(on) {
+      document.body.classList.toggle('presenting', !!on);
+      if (on) { var r = el.getBoundingClientRect(); document.body.style.setProperty('--pz-calltop', Math.max(8, Math.round(r.top)) + 'px'); }
+    }
+    function teardown() { if (cur) { cur.ctl.destroy(); cur = null; } loading = ''; el.className = ''; layout(false); }
+    /* this deck, on this screen: the same pictures in the same order as everyone */
+    function showDeck(deckId, autoStart) {
+      if (cur && cur.deckId === deckId) return Promise.resolve();
+      if (loading === deckId) return Promise.resolve();
+      loading = deckId;
+      return need('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js', function () { return !!(global.firebase && firebase.storage); })
+        .then(function () { return db.collection('presentDecks').doc(deckId).get(); })
+        .then(function (d) {
+          var x = d.exists ? d.data() : null;
+          if (!x || x.status !== 'ready') throw new Error('Those slides are not ready.');
+          return deckItems(deckId, x.count, x.media, x.ratio).then(function (items) { return { x: x, items: items }; });
+        })
+        .then(function (r) {
+          if (!alive || loading !== deckId) return;
+          if (cur) cur.ctl.destroy();
+          layout(true);
+          cur = { deckId: deckId, ctl: mount(el, { key: key, context: ctx, items: r.items, notesFor: notesReader(deckId), title: r.x.name || 'Slides',
+            mayPresent: !!m.host, nowExtra: { deckId: deckId }, autoStart: !!autoStart, onEnd: function () { setTimeout(teardown, 0); } }) };
+          loading = '';
+        })
+        .catch(function (e) { loading = ''; if (autoStart) alert('The slides could not be shown: ' + ((e && e.message) || e)); });
+    }
+
+    /* everyone: follow whoever is presenting (a screen the rules do not let see the slides just keeps the call) */
+    var unsub = ref.onSnapshot(function (d) {
+      var S = d.exists ? d.data() : null;
+      if (S && S.presenterUid && S.deckId) showDeck(S.deckId, false);
+      else if (cur && !(S && S.presenterUid)) teardown();
+    }, function () { teardown(); });
+
+    /* ---- the host: choose this meeting's slides, or add some ---- */
+    function close() { if (sheet) { sheet.remove(); sheet = null; } }
+    function open() {
+      if (!m.host) return;
+      close();
+      sheet = document.createElement('div'); sheet.className = 'pz-msheet'; sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', 'Present slides');
+      sheet.innerHTML = '<div class="in"><h3>Present slides</h3><p class="s">Everyone in the meeting sees your slides, large, with the faces beside them. You get your notes and what’s next.</p><div data-mlist><p class="s">Loading…</p></div>' +
+        '<div data-madd></div><div class="row"><button class="pz-btn" data-mclose>Close</button></div></div>';
+      document.body.appendChild(sheet);
+      sheet.querySelector('[data-mclose]').onclick = close;
+      sheet.onclick = function (e) { if (e.target === sheet) close(); };
+      var list = sheet.querySelector('[data-mlist]'), add = sheet.querySelector('[data-madd]');
+      db.collection('presentDecks').where('context.type', '==', 'meeting').where('context.room', '==', room).get().then(function (s) {
+        var mine = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+          .filter(function (x) { var c = x.context || {}; return x.status === 'ready' && (eventId ? c.eventId === eventId : c.day === day); });
+        list.innerHTML = mine.length ? '<p class="s" style="margin:0 0 8px">This meeting’s slides</p>' + mine.map(function (x) {
+          return '<button class="deck" data-mdeck="' + esc(x.id) + '"><span style="flex:1">' + esc(x.name || 'Slides') + '</span><span style="color:#94a3b8;font-weight:500">' + (+x.count || 0) + ' slides ▶</span></button>'; }).join('') : '';
+        list.querySelectorAll('[data-mdeck]').forEach(function (b) { b.onclick = function () { close(); showDeck(b.getAttribute('data-mdeck'), true); }; });
+      }, function () { list.innerHTML = ''; });
+      /* Until the hub goes live nothing is uploaded (its storage is not yet private) */
+      need(BASE + 'egbc-launch.js?v=202610141700', function () { return !!global.EGBCLaunch; }).then(function () { return EGBCLaunch.check(); }).then(function (x) { return !!(x && x.locked); }, function () { return false; }).then(function (ok) {
+        if (!sheet) return;
+        if (!ok) { add.innerHTML = '<p class="s" data-mheld>Slides can be added when the hub goes live. Until then the hub’s storage is not yet private.</p>'; return; }
+        add.innerHTML = '<label for="mName">Add slides: a name</label><input type="text" id="mName" maxlength="120" placeholder="Building fund update">' +
+          '<label for="mFile">A PowerPoint file (.pptx, up to 100 MB)</label><input type="file" id="mFile" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation">' +
+          '<label for="mLink">or its OneDrive link (up to 1 GB)</label><input type="url" id="mLink" placeholder="https://…sharepoint.com/…">' +
+          '<div class="row"><button class="pz-btn main" data-mgo>Add and present</button></div><p class="msg" data-mmsg role="status"></p>';
+        add.querySelector('[data-mgo]').onclick = addDeck;
+      });
+    }
+    function addDeck() {
+      var q = function (s) { return sheet && sheet.querySelector(s); }, say = function (t) { var p = q('[data-mmsg]'); if (p) p.textContent = t; };
+      var f = q('#mFile').files[0], link = (q('#mLink').value || '').trim(), name = (q('#mName').value || '').trim();
+      if (!f && !link) return say('Choose the PowerPoint file, or paste its OneDrive link.');
+      if (f && !/\.pptx$/i.test(f.name)) return say('That is not a PowerPoint (.pptx) file. Keynote or Google Slides: save it as PowerPoint first.');
+      if (f && f.size > 100 * 1024 * 1024) return say('This file is ' + Math.round(f.size / 1048576) + ' MB. From this device the most is 100 MB. For a bigger one, put it in OneDrive, choose Share, “Anyone with the link can view”, and paste the link: up to 1 GB.');
+      var dref = db.collection('presentDecks').doc(), go = q('[data-mgo]'), stopWatch = null, ended = false;
+      go.disabled = true; say(f ? 'Sending the file…' : 'Fetching it from OneDrive…');
+      var finish = function (ok, why) {
+        if (ended) return; ended = true; if (stopWatch) stopWatch();
+        if (ok) { close(); showDeck(dref.id, true); } else { if (go) go.disabled = false; say('The slides could not be made: ' + why); }
+      };
+      need('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js', function () { return !!(global.firebase && firebase.storage); }).then(function () {
+        return dref.set({ context: ctx, name: (name || (f ? f.name.replace(/\.pptx$/i, '') : 'Slides')).slice(0, 120), status: 'uploaded', source: f ? 'upload' : 'onedrive',
+          by: me.uid, byName: String(((EGBCAuth.profile && EGBCAuth.profile()) || {}).name || '').slice(0, 80), at: new Date().toISOString() });
+      }).then(function () {
+        /* the deck says how far it has got; a long one outlasts the call's wait */
+        stopWatch = dref.onSnapshot(function (d) {
+          var x = d.data() || {};
+          if (x.status === 'fetching') say('Fetching it from OneDrive…'); else if (x.status === 'converting') say('Making the slides…');
+          else if (x.status === 'video') say('Getting the video ready… a long video takes a few minutes.');
+          else if (x.status === 'ready') finish(true); else if (x.status === 'failed') finish(false, x.why || 'please try again.');
+        }, function () {});
+        if (f) return EGBCAuth.storage().ref('present/' + dref.id + '/source.pptx').put(f, { contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
+          .then(function () { return EGBCAuth.call('presentConvert', { deckId: dref.id }); });
+        return EGBCAuth.call('presentFromLink', { deckId: dref.id, url: link });
+      }).catch(function (e) { if (!/deadline|timeout/i.test(String((e && (e.code || e.message)) || ''))) finish(false, (e && e.message) || e); });
+    }
+
+    if (m.host) {
+      btn = m.button || null;
+      if (!btn) { btn = document.createElement('button'); btn.type = 'button'; btn.className = 'pz-mbtn'; btn.textContent = 'Present slides'; (call || document.body).appendChild(btn); }
+      btn.setAttribute('data-mpresent', '');
+      btn.onclick = open;
+    }
+    /* leaving the meeting while presenting: stop, so nobody is left on a slide */
+    var onLeave = function () { if (cur && cur.ctl.state() && cur.ctl.state().presenterUid === me.uid) ref.update({ presenterUid: '', presenterName: '', blank: false }).catch(function () {}); };
+    window.addEventListener('pagehide', onLeave);
+
+    return {
+      open: open,
+      key: key,
+      destroy: function () { alive = false; close(); if (unsub) unsub(); window.removeEventListener('pagehide', onLeave); teardown(); if (btn && !m.button) btn.remove(); el.removeAttribute('data-pzmeet'); if (call) call.classList.remove('pz-mcall'); }
+    };
+  }
+
+  global.EGBCPresent = { mount: mount, deckItems: deckItems, notesReader: notesReader, css: css, attachMeeting: attachMeeting };
 })(window);

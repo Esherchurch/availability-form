@@ -9508,3 +9508,99 @@ Since the Menu now offers Safeguarding, Safeguarding settings and Due for deleti
 - **retention.html** (`data-admin="any"`).
   - It says "This list is for master admins", which the audit doesn't take as a refusal.
   - Suggest `data-master`, or "This page is for master admins".
+
+### F-263 — "Present slides" in a video meeting: the engine's part is built; the hook for meeting.html, and two rule functions, for the main window (the events window, 21 Oct)
+
+F-242 section 6, as agreed in F-247 (Step 1: Daily's own tiles in the strip).
+
+**What it does**
+- **The host** (whoever started as host) gets **"Present slides"** over the call. It offers:
+  - **This meeting's slides:** anything already made for this meeting, to present (again).
+  - **Add slides:** a PowerPoint file (up to 100 MB) or a OneDrive link (up to 1 GB). It's made into slides by the converter, exactly as in the session planner, and presented at once.
+  - **Before the hub goes live** it says why and uploads nothing (as F-235).
+- **While someone presents,** everyone in the meeting sees the slides large, and the call becomes a strip: **beside the slides on a computer** (300 px, on the right), **below them on a phone**.
+  - The host gets the presenter's view: now, next, notes, timer, thumbnails and Blank.
+  - Everyone else follows, or browses on their own.
+  - No screen share: every screen already has the pictures. In the test, a slide change reached the other screen in 184 ms.
+- **Stop,** and everyone is back to the faces.
+- **Another host can take over,** and the first is told.
+- **Leaving the meeting while presenting stops it,** so nobody is left on a slide.
+- **A meeting's deck** is kept with its room, event and day. It goes 30 days after the meeting unless kept (`runPresentSweep`, already there).
+
+**For the main window: the hook in meeting.html**
+1. **Two scripts, in `<head>`:**
+   - **Storage** (needed for the slide pictures): goes **before egbc-auth.js**. egbc-auth.js only connects Storage to the emulator if it's already there.
+   - **egbc-present.js:** goes after egbc-auth.js.
+   ```html
+   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+   <script src="egbc-present.js?v=<new stamp>"></script>
+   ```
+2. **A div beside the call:**
+   ```html
+   <div id="present"></div>
+   <div id="stage">…</div>
+   ```
+3. **After `frame = DailyIframe.createFrame(...)`:**
+   ```js
+   if (window.EGBCPresent) EGBCPresent.attachMeeting({ room, eventId: params.get('event') || '',
+     el: document.getElementById('present'), call: document.getElementById('stage'), host: !!hostToken });
+   ```
+   - **Optional:** pass `button: <your own button>` to put "Present slides" in your own controls. Otherwise the engine puts a pill at the top centre of the call.
+   - **No CSS is needed in meeting.html.** The engine adds `body.presenting` and its own layout. Adjust it if you like.
+4. **In your rules (they go live at switch-over):** two functions, and four lines that use them.
+   - **firestore.rules,** in my Present section: in `deckReads()` and `deckPresents()`, replace the meeting lines' `isMaster()` with:
+     - `meetingInvitee(ctx.get('room',''), ctx.get('eventId',''))` in `deckReads()`
+     - `meetingHost(…)` in `deckPresents()`
+   - **storage.rules:** the same swap twice in `deckAudience()` / `deckPresenter()` (present/ block).
+   - **Until then,** only master admins see a meeting's slides. Anyone else in the meeting just keeps the call, with no error (tested with a non-master Elder).
+   - The server side already uses your **`mayHost()`**: `functions/present.js` `mayPresent()` asks it for a meeting (the church's rooms from `churchSettings/video`, the event's organiser and room).
+
+**Rules (my Present section; live at switch-over):**
+- **A meeting deck's context** is exactly `{ type, room, eventId, day }`.
+- **A meeting's shared state** (`presentNow/mtg_<room>_<event or day>`) must name its **`deckId`**, and that must be a deck made for the **same meeting room**. So every screen loads the same slides, and a meeting can never be pointed at another room's (or a session's) deck.
+
+**What to deploy (the reviewer):** the functions `presentConvert` and `presentFromLink`. Only `mayPresent` changed (meetings now ask `mayHost`). **No new secret or setting.** egbc-present.js goes live with the push, but it does nothing until meeting.html calls it.
+
+**Questions still open from F-242 (Martin's):**
+- **Question 2:** may an invitee who isn't a host take over if the host allows it? It's built hosts-only for now.
+- **Step 2 (our own tiles):** comes after this, with the main window.
+
+**Proved:**
+- **`present-meeting.test.mjs`:** 31/31. It drives a stand-in for meeting.html (`screenshots/events/meeting-harness.html`) with meeting.html's layout and the hook exactly as above.
+  - **The host:**
+    - adds a real PowerPoint after go-live (the converter's real code)
+    - presents it, with notes
+  - **Another screen:**
+    - follows in 184 ms
+    - sees no notes and no "Present slides"
+  - **The layout:**
+    - the call is 300 px wide beside the slides on a computer, and below them on a phone
+    - nothing scrolls sideways at 375 px
+    - stop brings everyone back to the faces
+  - **Presenting again, taking over, leaving:**
+    - present again from "This meeting's slides"
+    - take over
+    - leave while presenting, and it stops
+  - **Before the hub goes live:** nothing to upload.
+  - **A non-master Elder** just keeps the call, with no error.
+  - **The server:** host / admin of the room's team / host team / organiser are allowed. The organiser in another room and a non-host Elder are refused.
+- **Breaks, 8 of 8 caught:**
+  - **The one that matters:** the others don't follow the host.
+    - My first try removed the line and left the file broken. I redid it as a proper break.
+  - the call not made a strip
+  - leaving while presenting leaves everyone on a slide
+  - uploading before the hub goes live
+  - the server letting any member add slides
+  - **in the rules:**
+    - another room's deck
+    - a context carrying anything
+    - no deck named
+- **Rule Zero, one test at a time, more than 3 GB free:**
+
+  | Test | Result |
+  |---|---|
+  | rules suite | 1727/1727 |
+  | present | 55/55 |
+  | present-quiz | 39/39 |
+  | present-film | 5/5 |
+  | present-meeting | 31/31 |

@@ -28,6 +28,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { GoogleAuth } from 'google-auth-library';
 import { postJson } from './longpost.js';
+import { mayHost, EGBC_ROOMS, EGBC_BY_TYPE } from './video.js';
 /* how long a function waits for the converter: its 900 s, and a little over */
 const CONVERTER_WAIT_MS = 960 * 1000;
 
@@ -46,7 +47,18 @@ export async function mayPresent(dbi, uid, ctx) {
     const g = (await dbi.collection('planGroups').doc(String(ctx.groupId)).get()).data();
     return !!(g && (g.leaderIds || []).includes(u.memberId || '-'));
   }
-  return false;   // meetings: the host, once meetingHost() is agreed (F-242)
+  /* A meeting (F-247): its host - the main window's own test for "may start
+     this meeting as host" (functions/video.js mayHost), on the church's rooms. */
+  if (ctx && ctx.type === 'meeting' && ctx.room) {
+    const v = (await dbi.collection('churchSettings').doc('video').get()).data() || {};
+    const room = (Array.isArray(v.rooms) && v.rooms.length ? v.rooms : EGBC_ROOMS).find(r => r.key === String(ctx.room));
+    if (!room) return false;
+    let event = null;
+    const eid = String(ctx.eventId || '');
+    if (eid && !eid.includes('/')) { const e = await dbi.collection('events').doc(eid).get(); event = e.exists ? e.data() : null; }
+    return mayHost({ user: u, uid, room, event, byType: v.byType || EGBC_BY_TYPE });
+  }
+  return false;
 }
 
 async function launched(dbi) {

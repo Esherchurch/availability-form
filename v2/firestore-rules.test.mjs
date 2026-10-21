@@ -4465,6 +4465,33 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nobody deletes one', 'deny', () => deleteDoc(doc(as('martin'), 'cateringOrders', 'co_1')));
 }
 
+// ── EVENTS (events window) ── PRESENT IN A VIDEO MEETING (F-242 section 6, F-247)
+{
+  const MC = (extra) => ({ type: 'meeting', room: 'Eldership', eventId: 'ev_m1', day: '2026-11-05', ...(extra || {}) });
+  const MD = (uid, ctxx) => ({ context: ctxx || MC(), name: 'Building fund (invented)', status: 'uploaded', source: 'upload', by: uid, byName: 'x', at: 'x' });
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    await setDoc(doc(d, 'presentDecks', 'md_ready'), { ...MD('u_martin'), status: 'ready', count: 3 });
+    await setDoc(doc(d, 'presentDecks', 'md_other'), { ...MD('u_martin', MC({ room: 'Prayer' })), status: 'ready', count: 2 });
+  });
+  const MN = (uid, extra) => ({ context: MC(), slide: 0, presenterUid: uid, presenterName: 'x', startedAt: 'x', slideAt: 'x', blank: false, updatedBy: uid, deckId: 'md_ready', ...(extra || {}) });
+  const samy = () => env.authenticatedContext('u_samy').firestore();
+  await check('MEETINGS: a master admin (a host) adds a deck for this meeting', 'allow', () => setDoc(doc(as('martin'), 'presentDecks', 'md_1'), MD('u_martin')));
+  await check('  its context is the room, the event and the day - nothing else', 'deny', () => setDoc(doc(as('martin'), 'presentDecks', 'md_2'), MD('u_martin', MC({ groupId: 'pg_kids' }))));
+  await check('  the day as YYYY-MM-DD', 'deny', () => setDoc(doc(as('martin'), 'presentDecks', 'md_3'), MD('u_martin', MC({ day: 'Thursday' }))));
+  await check('  a room is needed', 'deny', () => setDoc(doc(as('martin'), 'presentDecks', 'md_4'), MD('u_martin', MC({ room: '' }))));
+  await check('  until the main window adds meetingHost(), nobody else adds one', 'deny', () => setDoc(doc(samy(), 'presentDecks', 'md_5'), MD('u_samy')));
+  await check('  the host presents it to the meeting, naming the deck', 'allow', () => setDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m1'), MN('u_martin')));
+  await check('  NOT WITHOUT NAMING THE DECK (every screen must load the same slides)', 'deny', () => setDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m2'), (({ deckId, ...x }) => x)(MN('u_martin'))));
+  await check('  NOT ANOTHER MEETING ROOM’S DECK', 'deny', () => setDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m3'), MN('u_martin', { deckId: 'md_other' })));
+  await check('  not a session’s deck', 'deny', () => setDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m4'), MN('u_martin', { deckId: 'dk_ready' })));
+  await check('  not a deck that does not exist', 'deny', () => setDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m5'), MN('u_martin', { deckId: 'md_nope' })));
+  await check('  under a meeting key only', 'deny', () => setDoc(doc(as('martin'), 'presentNow', 'ps_ps_9'), MN('u_martin')));
+  await check('  the host moves on', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 1, slideAt: 'y' }));
+  await check('  and stops (the deck stays named)', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m1'), { presenterUid: '', presenterName: '', blank: false }));
+  await check('  until the main window adds meetingInvitee(), an invitee who is not a master admin does not see it', 'deny', () => getDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1')));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 
