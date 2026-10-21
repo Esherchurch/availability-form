@@ -2668,6 +2668,20 @@ service cloud.firestore {
       }
     }
 
+    // CHURCH HQ FOR MORE THAN ONE CHURCH, step 1 (design-mocks/multi-church/
+    // PLAN.md; Martin chose B, 22 Oct 2026). The directory and the claims;
+    // nothing is moved. A person reads the directory entries of the churches
+    // in their own sign-in (token.churches, set by the server from
+    // hqMemberships) and their own memberships; no page writes either.
+    match /hqChurches/{cid} {
+      allow read: if signedIn() && cid in request.auth.token.get('churches', []);
+      allow write: if false;
+    }
+    match /hqMemberships/{id} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
     match /churchSettings/{id} {
       // `details` is the church's name, enquiry address and logo, and it is
       // read by pages nobody has signed in to - the availability form, the

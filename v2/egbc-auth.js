@@ -1382,6 +1382,18 @@
       return callFunction(name, data);
     },
 
+    /* THE CHURCHES THIS PERSON BELONGS TO (multi-church step 1): the
+       server keeps them in the sign-in's claims (functions/hq-directory.js).
+       fresh: true asks for a new token first, for straight after a change.
+       Resolves to a list of church ids; [] when signed out or in none. */
+    churches: function (fresh) {
+      if (!auth || !auth.currentUser) return Promise.resolve([]);
+      return auth.currentUser.getIdTokenResult(!!fresh).then(function (t) {
+        var c = t && t.claims && t.claims.churches;
+        return Array.isArray(c) ? c.slice() : [];
+      }, function () { return []; });
+    },
+
     /* EVERY EMAIL A PAGE SENDS (Martin, 21 Oct 2026: "v2 doesn't use Calla
        at all"): through the hub's hubSend, which asks who may send to whom
        and sends through Church HQ's Resend. msg: { source, ref?, to,

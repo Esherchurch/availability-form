@@ -50,3 +50,27 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 - a support email;
 - a logo;
 - answers to a security questionnaire, which I can draft.
+
+## H-3. Multi-church step 1 built: the directory and the claims (22 Oct 2026)
+
+**No data is moved, and nothing of EGBC's is touched.**
+
+- **`hqChurches/{churchId}`: the Church HQ directory.**
+  - Fields: name, domain, group (`main` for every church now), status.
+  - Written only by the server and Church HQ's scripts.
+- **`hqMemberships/{churchId}_{uid}`:** this person belongs to this church. Server-written only.
+- **The trigger `hqMembershipClaims`** recomputes the person's custom claim `churches: [ids]` whenever a membership is written or removed.
+  - It **merges** with the claims they already have, so a ChurchShow computer keeps device/siteId.
+- **`hqMyChurches`:** a callable that returns the caller's own churches from the directory, for a church picker.
+- **`EGBCAuth.churches(fresh)`:** the page's read of the claim.
+- **Rules** (live when the hub goes live):
+  - a person reads the directory entries of the churches in their own sign-in, and their own memberships;
+  - no page writes either.
+
+**Checks:**
+- **check-hq-claims: 17/17, made-up churches on the spare emulators.** Break: claims replaced instead of merged → 5 red.
+- **Rules suite: 1713/1713.**
+
+**Deploy when wanted:** `hqMembershipClaims` and `hqMyChurches`. They do nothing until a membership is written.
+
+**Next: step 2.** The rules and paths under `churches/{cid}`, with the cross-church suites, on made-up churches only. Then a report before going further.
