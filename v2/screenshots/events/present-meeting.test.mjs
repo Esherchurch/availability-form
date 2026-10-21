@@ -19,7 +19,10 @@
         them on a phone; back to the faces when the host stops
      5. the host presents again from "This meeting's slides"
      6. another host takes over; leaving the meeting while presenting stops
-     7. someone the rules do not let see the slides keeps the call, no errors
+     7. an invitee (an Elder) follows; someone not invited keeps the call, no errors
+     9-13. THE HOST LETS ONE OTHER PERSON PRESENT (Martin, 21 Oct): refused without
+        it (the server and the rules, not only the button); take it back; it
+        ends when the host leaves, or when the host's say-so is not renewed
      8. THE SERVER: who may add slides to a meeting is the main window's own
         "may host" test (mayHost) */
 
@@ -129,7 +132,9 @@ await db.collection('presentSettings').doc('test').set({ converterUrl: 'http://1
 await db.collection('churchSettings').doc('video').set({ churchId: 'test', rooms: [
   { key: 'Eldership', label: 'Eldership', teams: ['Elders'], hostTeams: [], url: 'https://invented.daily.co/test-eldership' },
   { key: 'CMM', label: 'CMM', teams: ['Church office'], hostTeams: ['Church office', 'Elders'], members: true, url: 'https://invented.daily.co/test-cmm' },
-  { key: 'Prayer', label: 'Prayer', teams: ['Core Team'], hostTeams: [], url: 'https://invented.daily.co/test-prayer' }], byType: {} });
+  { key: 'Prayer', label: 'Prayer', teams: ['Core Team'], hostTeams: [], url: 'https://invented.daily.co/test-prayer' }], byType: {},
+  /* what the main window's rules read (ensureRooms keeps it beside rooms) */
+  roomsByKey: { Eldership: { teams: ['Elders'], hostTeams: [], members: false }, CMM: { teams: ['Church office'], hostTeams: ['Church office', 'Elders'], members: true }, Prayer: { teams: ['Core Team'], hostTeams: [], members: false } } });
 await db.collection('events').doc('ev_e1').set({ title: 'Eldership meeting (invented)', date: '2026-11-05', startTime: '19:30', videoRoom: 'Eldership', organiserUid: P.orla.uid });
 await db.collection('events').doc('ev_p1').set({ title: 'Prayer (invented)', date: '2026-11-05', startTime: '07:00', videoRoom: 'Prayer', organiserUid: P.orla.uid });
 
@@ -203,7 +208,7 @@ try {
   await until(() => presenting(mia));
   await until(async () => /Slide 1/.test(await onStage(mia)));
   ok('3. SOMEONE ELSE IN THE MEETING sees the slides, large', await presenting(mia) && /Slide 1/.test(await onStage(mia)), await onStage(mia));
-  ok('   with no notes and no "Present slides"', !(await mia.$('#present [data-notes]')) && !(await mia.$('[data-mpresent]')) && !/Thank everyone/.test(await text(mia)));
+  ok('   with no notes and no "Present slides"', !(await mia.$('#present [data-notes]')) && !(await mia.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false)) && !/Thank everyone/.test(await text(mia)));
   const t0 = Date.now();
   await tap(max, '#present [data-go]');
   await until(async () => /Slide 2/.test(await onStage(mia)), 5000);
@@ -254,14 +259,107 @@ try {
   await until(() => max.$('.pz-msheet [data-mdeck]'));
   await tap(max, '.pz-msheet [data-mdeck]');
   await until(async () => (await now()).presenterUid === P.max.uid);
+  /* the main window's meetingInvitee() (4326c633): an Elder is invited to the Eldership meeting */
   const sam = await as('sam');
-  const before = errors.length;
   await join(sam, false);
+  await until(async () => await presenting(sam) && /Slide 1/.test(await onStage(sam)));
+  ok('7. AN ELDER (invited, not a host) follows the slides', await presenting(sam) && /Slide 1/.test(await onStage(sam)), await onStage(sam));
+  const hana = await as('hana');
+  const before = errors.length;
+  await join(hana, false);
   await sleep(2500);
-  ok('7. AN ELDER (not a master admin) keeps the call: no slides until the main window\u2019s meetingInvitee() is in the rules', !(await presenting(sam)) && await sam.$eval('#stage', e => e.offsetParent !== null && e.getBoundingClientRect().height > 300), J(await box(sam, '#stage')));
+  ok('   SOMEONE NOT INVITED (the office, in the Eldership room) keeps the call: no slides', !(await presenting(hana)) && await hana.$eval('#stage', e => e.offsetParent !== null && e.getBoundingClientRect().height > 300), J(await box(hana, '#stage')));
   ok('   and sees no error', errors.length === before, errors.slice(before).join(' | '));
-  const samRead = await sam.evaluate((k) => EGBCAuth.db.collection('presentNow').doc(k).get().then(() => 'read', e => e.code), 'mtg_Eldership_ev_e1');
-  ok('   (the rules refuse it the shared state, for now)', /permission/.test(samRead), samRead);
+  const hanaRead = await hana.evaluate((k) => EGBCAuth.db.collection('presentNow').doc(k).get().then(() => 'read', e => e.code), 'mtg_Eldership_ev_e1');
+  ok('   (the rules refuse her the shared state)', /permission/.test(hanaRead), hanaRead);
+  await hana.browserRef.close(); browsers.splice(browsers.indexOf(hana.browserRef), 1);
+
+  /* ---------- 9. LETTING SOMEONE ELSE PRESENT (Martin, 21 Oct): not without the host's say-so ---------- */
+  const KEY = 'mtg_Eldership_ev_e1';
+  const allowDoc = async (who) => (await db.collection('presentAllow').doc(KEY + '_' + P[who].uid).get()).data() || null;
+  /* a deck Sam might try to convert, made directly (the rules would not even let him make it) */
+  await db.collection('presentDecks').doc('dk_samtry').set({ context: { type: 'meeting', room: 'Eldership', eventId: 'ev_e1', day: (await now()).context.day }, name: 'Sam try', status: 'uploaded', source: 'upload', by: P.sam.uid, byName: 'x', at: 'x' });
+  ok('9. AN INVITEE NOT LET PRESENT has no "Present slides"', !(await sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false)));
+  const samConv0 = await sam.evaluate(() => EGBCAuth.call('presentConvert', { deckId: 'dk_samtry' }).then(() => 'converted', e => e.message || e.code));
+  ok('   and THE SERVER REFUSES him (not only a hidden button): no slides made', /Only the people who may present/.test(samConv0), samConv0);
+  const samNow0 = await sam.evaluate((k) => EGBCAuth.db.collection('presentNow').doc(k).update({ slide: 2, slideAt: 'x' }).then(() => 'moved', e => e.code), KEY);
+  ok('   THE RULES REFUSE him moving the slides', /permission/.test(samNow0), samNow0);
+  const samSelf = await sam.evaluate((k, u) => EGBCAuth.db.collection('presentAllow').doc(k + '_' + u).set({ context: { type: 'meeting', room: 'Eldership', eventId: 'ev_e1', day: '2026-11-05' }, key: k, uid: u, name: 'Sam', by: u, at: firebase.firestore.FieldValue.serverTimestamp(), aliveAt: firebase.firestore.FieldValue.serverTimestamp() }).then(() => 'allowed himself', e => e.code), KEY, P.sam.uid);
+  ok('   nor can he let himself present', /permission/.test(samSelf), samSelf);
+
+  /* ---------- 10. the host lets Sam present ---------- */
+  await tap(max, '#present [data-stop]');
+  await until(async () => !(await now()).presenterUid);
+  await tap(max, '[data-mpresent]');
+  await until(() => max.$('.pz-msheet [data-mlet="' + P.sam.uid + '"]'));
+  ok('10. THE HOST SEES WHO IS HERE: "Let Sam present"', /Let Sam Elder \(invented\) present/.test(await text(max, '.pz-msheet [data-mpeople]')), await text(max, '.pz-msheet [data-mpeople]'));
+  await tap(max, '.pz-msheet [data-mlet="' + P.sam.uid + '"]');
+  await until(async () => (await allowDoc('sam')) && /Take it back/.test(await text(max, '.pz-msheet [data-mpeople]')));
+  const a1 = await allowDoc('sam');
+  ok('   the say-so is saved: who, by which host, renewed by the server clock', a1 && a1.uid === P.sam.uid && a1.by === P.max.uid && a1.aliveAt && a1.aliveAt.toMillis && a1.key === KEY, J(a1 && { uid: a1.uid, by: a1.by, key: a1.key }));
+  await tap(max, '[data-mclose]');
+  await until(() => sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false));
+  ok('   SAM NOW HAS "Present slides"', await sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false));
+  await tap(sam, '[data-mpresent]');
+  await until(() => sam.$('#mFile'));
+  ok('   and can add slides, or pick this meeting’s', !!(await sam.$('#mFile')) && !!(await sam.$('.pz-msheet [data-mdeck]')) && !(await sam.$('.pz-msheet [data-mpeople]')));
+  const PPTX2 = path.join(TMP, 'Elders update.pptx'); fs.writeFileSync(PPTX2, inventDeck([{ title: 'Sam’s update', notes: 'Sam’s own notes' }, { title: 'Sam two', notes: '' }]));
+  await (await sam.$('#mFile')).uploadFile(PPTX2);
+  await tap(sam, '[data-mgo]');
+  const samLive = await until(async () => { const s = await now(); return s && s.presenterUid === P.sam.uid ? s : null; }, 60000);
+  ok('   SAM PRESENTS his own PowerPoint: the server made it (his say-so counted)', !!samLive && (await db.collection('presentDecks').doc(samLive.deckId).get()).data().count === 2, J(samLive));
+  await until(async () => /Slide 1/.test(await onStage(max)) && await presenting(max));
+  ok('   the host and the others follow him', await presenting(max) && /Slide 1/.test(await onStage(max)));
+  await until(() => sam.$('#present [data-go]'));
+  await tap(sam, '#present [data-go]');
+  await until(async () => (await now()).slide === 1);
+  ok('   he moves the slides on', (await now()).slide === 1);
+
+  /* ---------- 11. the host takes it back ---------- */
+  await tap(max, '[data-mpresent]').catch(() => {});
+  if (!(await max.$('.pz-msheet'))) await max.evaluate(() => window.MEET.open());
+  await until(() => max.$('.pz-msheet [data-mtakeback]'));
+  await tap(max, '.pz-msheet [data-mtakeback]');
+  await until(async () => !(await allowDoc('sam')) && !(await now()).presenterUid);
+  ok('11. THE HOST TAKES IT BACK: Sam’s presenting stops at once', !(await allowDoc('sam')) && !(await now()).presenterUid, J(await now()));
+  await until(async () => !(await sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false)));
+  ok('   his "Present slides" goes', !(await sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false)));
+  const samNow1 = await sam.evaluate((k, u) => EGBCAuth.db.collection('presentNow').doc(k).update({ presenterUid: u, presenterName: 'Sam', blank: false, updatedBy: u }).then(() => 'presenting', e => e.code), KEY, P.sam.uid);
+  ok('   and the rules refuse him starting again', /permission/.test(samNow1), samNow1);
+  await db.collection('presentDecks').doc('dk_samtry').set({ status: 'uploaded' }, { merge: true });
+  const samConv1 = await sam.evaluate(() => EGBCAuth.call('presentConvert', { deckId: 'dk_samtry' }).then(() => 'converted', e => e.message || e.code));
+  ok('   and so does the server', /Only the people who may present/.test(samConv1), samConv1);
+  await tap(max, '[data-mclose]').catch(() => {});
+
+  /* ---------- 12. the host leaves: the say-so ends ---------- */
+  await max.evaluate((u) => window.MEET.letPresent(u, 'Sam Elder (invented)'), P.sam.uid);
+  await until(() => sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false));
+  await tap(sam, '[data-mpresent]');
+  await until(() => sam.$('.pz-msheet [data-mdeck]'));
+  await tap(sam, '.pz-msheet [data-mdeck]');
+  await until(async () => (await now()).presenterUid === P.sam.uid);
+  ok('12. (Sam presenting again, let by the host)', (await now()).presenterUid === P.sam.uid, J({ now: await now(), sam: await text(sam, '#present'), sheet: await text(sam, '.pz-msheet'), allow: !!(await allowDoc('sam')) }));
+  await max.goto('about:blank');
+  await until(async () => !(await allowDoc('sam')) && !(await now()).presenterUid);
+  ok('    THE HOST LEAVES THE MEETING: the say-so ends, and Sam’s presenting with it', !(await allowDoc('sam')) && !(await now()).presenterUid, J(await now()));
+  await until(async () => !(await sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false)));
+  ok('    his "Present slides" goes', !(await sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false)));
+
+  /* ---------- 13. a host whose connection is lost: the say-so runs out ---------- */
+  await db.collection('presentAllow').doc(KEY + '_' + P.sam.uid).set({ context: { type: 'meeting', room: 'Eldership', eventId: 'ev_e1', day: (await now()).context.day }, key: KEY, uid: P.sam.uid, name: 'Sam', by: P.max.uid,
+    at: new Date(Date.now() - 6 * 60000), aliveAt: new Date(Date.now() - 4 * 60000) });
+  const samStale = await sam.evaluate((k, u) => EGBCAuth.db.collection('presentNow').doc(k).update({ presenterUid: u, presenterName: 'Sam', blank: false, updatedBy: u }).then(() => 'presenting', e => e.code), KEY, P.sam.uid);
+  ok('13. A SAY-SO NOT RENEWED FOR 4 MINUTES (the host lost): the rules refuse it', /permission/.test(samStale), samStale);
+  const samConv2 = await sam.evaluate(() => EGBCAuth.call('presentConvert', { deckId: 'dk_samtry' }).then(() => 'converted', e => e.message || e.code));
+  ok('    and the server', /Only the people who may present/.test(samConv2), samConv2);
+  await sam.reload({ waitUntil: 'networkidle2' }); await until(() => sam.evaluate(() => window.__ready === true));
+  await sleep(1500);
+  ok('    and Sam’s page offers nothing', !(await sam.$eval('[data-mpresent]', e => e.offsetParent !== null).catch(() => false)));
+  const mayStale = await mayPresent(db, P.sam.uid, { type: 'meeting', room: 'Eldership', eventId: 'ev_e1', day: '2026-11-05' });
+  await db.collection('presentAllow').doc(KEY + '_' + P.sam.uid).set({ aliveAt: new Date() }, { merge: true });
+  const mayFresh = await mayPresent(db, P.sam.uid, { type: 'meeting', room: 'Eldership', eventId: 'ev_e1', day: '2026-11-05' });
+  const mayOther = await mayPresent(db, P.hana.uid, { type: 'meeting', room: 'Eldership', eventId: 'ev_e1', day: '2026-11-05' });
+  ok('    THE SERVER’S TEST: stale no, fresh yes, someone else’s say-so no', !mayStale && mayFresh && !mayOther, J({ mayStale, mayFresh, mayOther }));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

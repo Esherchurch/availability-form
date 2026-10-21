@@ -472,7 +472,7 @@ service firebase.storage {
     }
     // PRESENT (F-242): a deck's source PowerPoint and its slide pictures, at
     // present/<deck>/. Read by the deck's audience (a session's group;
-    // a meeting's invitees once agreed - master admins until then). The
+    // a meeting's invitees, or the one person its host lets present). The
     // source is put up by whoever may present; the pictures by the
     // converter alone. Never readable by anyone else.
     function deckHere(deckId) { return firestore.get(/databases/(default)/documents/presentDecks/$(deckId)).data; }
@@ -503,15 +503,27 @@ service firebase.storage {
                  && (storageMe().get('teams', []).hasAny(meetingRoomStorage(room).get('teams', []))
                      || (meetingRoomStorage(room).get('members', false) == true && storageMe().get('churchMember', false) == true)));
     }
+    // The host's say-so (firestore.rules presentAllowed()): the one person a
+    // meeting's host lets present, while the host is still there.
+    function deckAllowed(deckId) {
+      let c = deckCtx(deckId);
+      let id = 'mtg_' + c.get('room', '') + '_' + (c.get('eventId', '') != '' ? c.get('eventId', '') : c.get('day', '')) + '_' + request.auth.uid;
+      return request.auth != null && firestore.exists(/databases/(default)/documents/presentAllow/$(id))
+             && request.time < firestore.get(/databases/(default)/documents/presentAllow/$(id)).data.aliveAt + duration.value(3, 'm');
+    }
     function deckAudience(deckId) {
       return firestore.exists(/databases/(default)/documents/presentDecks/$(deckId))
              && ((deckCtx(deckId).get('type', '') == 'session' && planReaderHere(deckCtx(deckId).get('groupId', '-')))
-                 || (deckCtx(deckId).get('type', '') == 'meeting' && meetingInviteeStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))));
+                 || (deckCtx(deckId).get('type', '') == 'meeting'
+                     && (meetingInviteeStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))
+                         || (planActive() && deckAllowed(deckId)))));
     }
     function deckPresenter(deckId) {
       return firestore.exists(/databases/(default)/documents/presentDecks/$(deckId))
              && ((deckCtx(deckId).get('type', '') == 'session' && planLeaderHere(deckCtx(deckId).get('groupId', '-')))
-                 || (deckCtx(deckId).get('type', '') == 'meeting' && meetingHostStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))));
+                 || (deckCtx(deckId).get('type', '') == 'meeting'
+                     && (meetingHostStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))
+                         || (planActive() && deckAllowed(deckId)))));
     }
     match /present/{deckId}/{fileName} {
       allow read: if deckAudience(deckId);

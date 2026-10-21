@@ -482,18 +482,27 @@
     return new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = srcUrl; sc.onload = function () { res(); }; sc.onerror = function () { rej(new Error('Could not load ' + srcUrl)); }; document.head.appendChild(sc); });
   }
   function londonDay() { try { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }); } catch (e) { return new Date().toISOString().slice(0, 10); } }
-  var safeKey = function (s) { return String(s || '').replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 60); };
+  /* The host's say-so lasts while the host is here: the host's page renews it each minute; the rules and the server end it 3 minutes after the last (a host whose connection is lost). The page itself stops a little sooner, while still allowed. */
+  var ALLOW_UI_MS = 150000;
 
   function attachMeeting(m) {
     css();
     if (!document.getElementById('pz-mcss')) { var st = document.createElement('style'); st.id = 'pz-mcss'; st.textContent = MCSS; document.head.appendChild(st); }
-    var db = EGBCAuth.db, me = EGBCAuth.user() || {}, el = m.el, call = m.call, alive = true;
+    var db = EGBCAuth.db, me = EGBCAuth.user() || {}, myName = String(((EGBCAuth.profile && EGBCAuth.profile()) || {}).name || 'Someone').slice(0, 120);
+    var el = m.el, call = m.call, alive = true;
     var day = m.day || londonDay(), room = String(m.room || ''), eventId = String(m.eventId || '');
-    var key = 'mtg_' + safeKey(room) + '_' + safeKey(eventId || day);
+    /* the same key the rules build (meetingKey()): room and event ids never hold "/" */
+    var key = 'mtg_' + room + '_' + (eventId || day);
     var ctx = { type: 'meeting', room: room, eventId: eventId, day: day };
-    var ref = db.collection('presentNow').doc(key), cur = null, loading = '', btn = null, sheet = null;
+    var ref = db.collection('presentNow').doc(key), cur = null, loading = '', btn = null, sheet = null, S = null;
+    var allow = null, allowed = [], here = [], timers = [], unsubs = [];
     /* an attribute, not a class: the engine sets the div's own classes */
     el.setAttribute('data-pzmeet', ''); if (call) call.classList.add('pz-mcall');
+
+    /* ---- may I present? the host; or the one person the host has let present, while the host is still here ---- */
+    function ms(t) { return t && t.toMillis ? t.toMillis() : (t ? Date.parse(t) : 0); }
+    function fresh(a) { return !!a && a.uid === me.uid && Date.now() - ms(a.aliveAt) < ALLOW_UI_MS; }
+    function mayNow() { return !!m.host || fresh(allow); }
 
     function layout(on) {
       document.body.classList.toggle('presenting', !!on);
@@ -502,7 +511,7 @@
     function teardown() { if (cur) { cur.ctl.destroy(); cur = null; } loading = ''; el.className = ''; layout(false); }
     /* this deck, on this screen: the same pictures in the same order as everyone */
     function showDeck(deckId, autoStart) {
-      if (cur && cur.deckId === deckId) return Promise.resolve();
+      if (cur && cur.deckId === deckId && cur.may === mayNow()) return Promise.resolve();
       if (loading === deckId) return Promise.resolve();
       loading = deckId;
       return need('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js', function () { return !!(global.firebase && firebase.storage); })
@@ -514,41 +523,126 @@
         })
         .then(function (r) {
           if (!alive || loading !== deckId) return;
+          /* a viewer's slides came after the presenting had stopped (the say-so and the stop can arrive apart): nothing to show */
+          if (!autoStart && !(S && S.presenterUid && S.deckId === deckId)) { loading = ''; if (!cur) teardown(); return; }
           if (cur) cur.ctl.destroy();
           layout(true);
-          cur = { deckId: deckId, ctl: mount(el, { key: key, context: ctx, items: r.items, notesFor: notesReader(deckId), title: r.x.name || 'Slides',
-            mayPresent: !!m.host, nowExtra: { deckId: deckId }, autoStart: !!autoStart, onEnd: function () { setTimeout(teardown, 0); } }) };
+          var may = mayNow();
+          cur = { deckId: deckId, may: may, ctl: mount(el, { key: key, context: ctx, items: r.items, notesFor: notesReader(deckId), title: r.x.name || 'Slides',
+            mayPresent: may, nowExtra: { deckId: deckId }, autoStart: !!autoStart, onEnd: function () { setTimeout(teardown, 0); } }) };
           loading = '';
         })
         .catch(function (e) { loading = ''; if (autoStart) alert('The slides could not be shown: ' + ((e && e.message) || e)); });
     }
 
     /* everyone: follow whoever is presenting (a screen the rules do not let see the slides just keeps the call) */
-    var unsub = ref.onSnapshot(function (d) {
-      var S = d.exists ? d.data() : null;
+    function follow() {
       if (S && S.presenterUid && S.deckId) showDeck(S.deckId, false);
       else if (cur && !(S && S.presenterUid)) teardown();
-    }, function () { teardown(); });
+    }
+    unsubs.push(ref.onSnapshot(function (d) { S = d.exists ? d.data() : null; follow(); }, function () { S = null; teardown(); }));
 
-    /* ---- the host: choose this meeting's slides, or add some ---- */
+    /* ---- the button: for whoever may present now ---- */
+    function drawButton() {
+      if (!btn) {
+        btn = m.button || null;
+        if (!btn) { btn = document.createElement('button'); btn.type = 'button'; btn.className = 'pz-mbtn'; btn.textContent = 'Present slides'; (call || document.body).appendChild(btn); }
+        btn.setAttribute('data-mpresent', '');
+        btn.onclick = open;
+      }
+      var may = mayNow();
+      btn.hidden = !may; btn.style.display = may ? '' : 'none';
+      if (!may) close();
+      /* what I may do changed: the slides on show redraw with the right buttons ("Take over") */
+      if (cur && cur.may !== may) { var d0 = cur.deckId; cur.ctl.destroy(); cur = null; loading = ''; if (S && S.presenterUid && S.deckId === d0) showDeck(d0, false); else teardown(); }
+    }
+
+    /* ---- I am here (the host's people list): my own small record, kept fresh, gone when I leave ---- */
+    var hereRef = db.collection('presentHere').doc(key + '_' + me.uid);
+    function beHere() { return hereRef.set({ context: ctx, key: key, uid: me.uid, name: myName, at: firebase.firestore.FieldValue.serverTimestamp() }).catch(function () {}); }
+    if (me.uid) { beHere(); timers.push(setInterval(beHere, 60000)); }
+
+    /* ---- an allowance for me? ---- */
+    if (me.uid && !m.host) {
+      unsubs.push(db.collection('presentAllow').doc(key + '_' + me.uid).onSnapshot(function (d) {
+        var was = fresh(allow);
+        allow = d.exists ? d.data() : null;
+        if (was && !fresh(allow)) stopIfMine();
+        drawButton();
+      }, function () { allow = null; drawButton(); }));
+      /* the host's say-so goes stale if the host has gone without saying (a lost connection): stop first, while still allowed */
+      timers.push(setInterval(function () { if (allow && !fresh(allow)) { stopIfMine(); allow = null; drawButton(); } }, 15000));
+    }
+    function stopIfMine() { if (S && S.presenterUid === me.uid) ref.update({ presenterUid: '', presenterName: '', blank: false, updatedBy: me.uid }).catch(function () {}); }
+
+    /* ---- the host: who is here, and who may present ---- */
+    if (m.host && me.uid) {
+      unsubs.push(db.collection('presentHere').where('key', '==', key).onSnapshot(function (s) {
+        here = s.docs.map(function (d) { return d.data(); }).filter(function (p) { return p.uid !== me.uid && Date.now() - ms(p.at) < 3 * 60000; });
+        drawPeople();
+      }, function () {}));
+      unsubs.push(db.collection('presentAllow').where('key', '==', key).onSnapshot(function (s) {
+        allowed = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+        drawPeople();
+      }, function () {}));
+      /* my say-so stays alive while I am here */
+      timers.push(setInterval(function () {
+        allowed.filter(function (a) { return a.by === me.uid; }).forEach(function (a) { grant(a.uid, a.name); });
+      }, 60000));
+    }
+    function grant(uid, name) {
+      return db.collection('presentAllow').doc(key + '_' + uid).set({ context: ctx, key: key, uid: uid, name: String(name || '').slice(0, 120), by: me.uid,
+        at: firebase.firestore.FieldValue.serverTimestamp(), aliveAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    /* one person at a time: letting someone present takes it from anyone else */
+    function letPresent(uid, name) {
+      return Promise.all(allowed.filter(function (a) { return a.uid !== uid; }).map(function (a) { return takeBack(a.uid); })).then(function () { return grant(uid, name); })
+        .catch(function (e) { alert('Could not let them present: ' + ((e && e.message) || e)); });
+    }
+    /* taking it back: and if they are presenting, they stop */
+    function takeBack(uid) {
+      /* one commit: when the host is leaving, the page may be gone before a second write goes */
+      var b = db.batch();
+      if (S && S.presenterUid === uid) b.update(ref, { presenterUid: '', presenterName: '', blank: false, updatedBy: me.uid });
+      b.delete(db.collection('presentAllow').doc(key + '_' + uid));
+      return b.commit();
+    }
+    function drawPeople() {
+      var box = sheet && sheet.querySelector('[data-mpeople]'); if (!box) return;
+      var a = allowed[0];
+      box.innerHTML = '<p class="s" style="margin:14px 0 8px">Let someone else present</p>' +
+        (a ? '<div class="deck" data-mallowed="' + esc(a.uid) + '" style="cursor:default"><span style="flex:1">' + esc(a.name || 'Someone') + ' may present</span><button class="pz-btn" data-mtakeback="' + esc(a.uid) + '">Take it back</button></div>' : '') +
+        (here.filter(function (p) { return !a || p.uid !== a.uid; }).map(function (p) {
+          return '<button class="deck" data-mlet="' + esc(p.uid) + '" data-name="' + esc(p.name) + '"><span style="flex:1">Let ' + esc(p.name || 'them') + ' present</span></button>';
+        }).join('') || (a ? '' : '<p class="s">Nobody else here yet.</p>'));
+      box.querySelectorAll('[data-mlet]').forEach(function (b) { b.onclick = function () { b.disabled = true; letPresent(b.getAttribute('data-mlet'), b.getAttribute('data-name')); }; });
+      box.querySelectorAll('[data-mtakeback]').forEach(function (b) { b.onclick = function () { b.disabled = true; takeBack(b.getAttribute('data-mtakeback')).catch(function () {}); }; });
+    }
+
+    /* ---- choose this meeting's slides, or add some ---- */
     function close() { if (sheet) { sheet.remove(); sheet = null; } }
     function open() {
-      if (!m.host) return;
+      if (!mayNow()) return;
       close();
       sheet = document.createElement('div'); sheet.className = 'pz-msheet'; sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', 'Present slides');
-      sheet.innerHTML = '<div class="in"><h3>Present slides</h3><p class="s">Everyone in the meeting sees your slides, large, with the faces beside them. You get your notes and what’s next.</p><div data-mlist><p class="s">Loading…</p></div>' +
-        '<div data-madd></div><div class="row"><button class="pz-btn" data-mclose>Close</button></div></div>';
+      sheet.innerHTML = '<div class="in"><h3>Present slides</h3><p class="s">' + (m.host ? 'Everyone in the meeting sees your slides, large, with the faces beside them. You get your notes and what’s next.' : 'The host has let you present. Everyone sees your slides; the host can take it back at any time.') + '</p><div data-mlist><p class="s">Loading…</p></div>' +
+        '<div data-madd></div>' + (m.host ? '<div data-mpeople></div>' : '') + '<div class="row"><button class="pz-btn" data-mclose>Close</button></div></div>';
       document.body.appendChild(sheet);
       sheet.querySelector('[data-mclose]').onclick = close;
       sheet.onclick = function (e) { if (e.target === sheet) close(); };
+      drawPeople();
       var list = sheet.querySelector('[data-mlist]'), add = sheet.querySelector('[data-madd]');
-      db.collection('presentDecks').where('context.type', '==', 'meeting').where('context.room', '==', room).get().then(function (s) {
+      /* this meeting only - pinned in the query, so the rules can answer for every deck it could return */
+      var dq = db.collection('presentDecks').where('context.type', '==', 'meeting').where('context.room', '==', room);
+      dq = eventId ? dq.where('context.eventId', '==', eventId) : dq.where('context.eventId', '==', '').where('context.day', '==', day);
+      dq.get().then(function (s) {
         var mine = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-          .filter(function (x) { var c = x.context || {}; return x.status === 'ready' && (eventId ? c.eventId === eventId : c.day === day); });
+          .filter(function (x) { return x.status === 'ready'; });
+        if (!sheet) return;
         list.innerHTML = mine.length ? '<p class="s" style="margin:0 0 8px">This meeting’s slides</p>' + mine.map(function (x) {
           return '<button class="deck" data-mdeck="' + esc(x.id) + '"><span style="flex:1">' + esc(x.name || 'Slides') + '</span><span style="color:#94a3b8;font-weight:500">' + (+x.count || 0) + ' slides ▶</span></button>'; }).join('') : '';
         list.querySelectorAll('[data-mdeck]').forEach(function (b) { b.onclick = function () { close(); showDeck(b.getAttribute('data-mdeck'), true); }; });
-      }, function () { list.innerHTML = ''; });
+      }, function () { if (list) list.innerHTML = ''; });
       /* Until the hub goes live nothing is uploaded (its storage is not yet private) */
       need(BASE + 'egbc-launch.js?v=202610141700', function () { return !!global.EGBCLaunch; }).then(function () { return EGBCLaunch.check(); }).then(function (x) { return !!(x && x.locked); }, function () { return false; }).then(function (ok) {
         if (!sheet) return;
@@ -574,7 +668,7 @@
       };
       need('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js', function () { return !!(global.firebase && firebase.storage); }).then(function () {
         return dref.set({ context: ctx, name: (name || (f ? f.name.replace(/\.pptx$/i, '') : 'Slides')).slice(0, 120), status: 'uploaded', source: f ? 'upload' : 'onedrive',
-          by: me.uid, byName: String(((EGBCAuth.profile && EGBCAuth.profile()) || {}).name || '').slice(0, 80), at: new Date().toISOString() });
+          by: me.uid, byName: myName.slice(0, 80), at: new Date().toISOString() });
       }).then(function () {
         /* the deck says how far it has got; a long one outlasts the call's wait */
         stopWatch = dref.onSnapshot(function (d) {
@@ -589,20 +683,31 @@
       }).catch(function (e) { if (!/deadline|timeout/i.test(String((e && (e.code || e.message)) || ''))) finish(false, (e && e.message) || e); });
     }
 
-    if (m.host) {
-      btn = m.button || null;
-      if (!btn) { btn = document.createElement('button'); btn.type = 'button'; btn.className = 'pz-mbtn'; btn.textContent = 'Present slides'; (call || document.body).appendChild(btn); }
-      btn.setAttribute('data-mpresent', '');
-      btn.onclick = open;
-    }
-    /* leaving the meeting while presenting: stop, so nobody is left on a slide */
-    var onLeave = function () { if (cur && cur.ctl.state() && cur.ctl.state().presenterUid === me.uid) ref.update({ presenterUid: '', presenterName: '', blank: false }).catch(function () {}); };
+    drawButton();
+    /* leaving the meeting (the page closes, or Daily's "left-meeting"): stop presenting, and the host's say-so ends with them */
+    var left = false;
+    var onLeave = function () {
+      if (left) return; left = true;
+      /* all in ONE commit: a closing page may be gone before a second write goes */
+      var b = db.batch(), stopping = S && S.presenterUid === me.uid;
+      /* the host's say-so ends with them, and so does that person's presenting */
+      if (m.host) allowed.filter(function (a) { return a.by === me.uid; }).forEach(function (a) {
+        if (S && S.presenterUid === a.uid) stopping = true;
+        b.delete(db.collection('presentAllow').doc(key + '_' + a.uid));
+      });
+      if (stopping) b.update(ref, { presenterUid: '', presenterName: '', blank: false, updatedBy: me.uid });
+      b.delete(hereRef);
+      b.commit().catch(function () {});
+    };
     window.addEventListener('pagehide', onLeave);
+    if (m.frame && m.frame.on) m.frame.on('left-meeting', onLeave);
 
     return {
       open: open,
       key: key,
-      destroy: function () { alive = false; close(); if (unsub) unsub(); window.removeEventListener('pagehide', onLeave); teardown(); if (btn && !m.button) btn.remove(); el.removeAttribute('data-pzmeet'); if (call) call.classList.remove('pz-mcall'); }
+      letPresent: letPresent,
+      takeBack: takeBack,
+      destroy: function () { alive = false; close(); unsubs.forEach(function (u) { try { u(); } catch (e) {} }); timers.forEach(clearInterval); window.removeEventListener('pagehide', onLeave); teardown(); if (btn && !m.button) btn.remove(); el.removeAttribute('data-pzmeet'); if (call) call.classList.remove('pz-mcall'); }
     };
   }
 

@@ -4878,11 +4878,7 @@ service cloud.firestore {
     // meeting (its room). Session: the group's leaders present, its team
     // watch. Meeting: the host presents, the invitees watch - until the main
     // window adds meetingInvitee()/meetingHost() (F-242 section 6), master
-    // admins only. FOR THE MAIN WINDOW: the two `isMaster()` in the meeting
-    // lines below become meetingInvitee(ctx.room, ctx.eventId) (deckReads)
-    // and meetingHost(ctx.room, ctx.eventId) (deckPresents); storage.rules'
-    // present/ block says the same twice. functions/present.js mayPresent()
-    // already asks your mayHost() (functions/video.js).
+    // admins only.
     // A MEETING'S HOST AND INVITEES (the main window, F-263, 22 Oct 2026),
     // the same answer as functions/video.js mayHost(): a master admin; an
     // admin of one of the room's teams; anyone on one of its host teams; or
@@ -4916,13 +4912,28 @@ service cloud.firestore {
                  && (myTeams().hasAny(meetingRoomHere(room).get('teams', []))
                      || (meetingRoomHere(room).get('members', false) == true && isChurchMember())));
     }
+    // The events window's names for them, taking a context (F-264).
+    function meetingHostE(ctx) { return meetingHost(ctx.get('room', ''), ctx.get('eventId', '')); }
+    function meetingInviteeE(ctx) { return meetingInvitee(ctx.get('room', ''), ctx.get('eventId', '')); }
+    // THE HOST'S SAY-SO (Martin, 21 Oct, F-242 question 2): a host may let one
+    // other person present: presentAllow/<meeting key>_<their uid>. It lasts
+    // while the host is there - the host's page renews aliveAt each minute,
+    // and it ends 3 minutes after the last renewal (a host who has gone).
+    function meetingKey(ctx) {
+      return 'mtg_' + ctx.get('room', '') + '_' + (ctx.get('eventId', '') != '' ? ctx.get('eventId', '') : ctx.get('day', ''));
+    }
+    function presentAllowed(ctx) {
+      return request.auth != null
+             && exists(/databases/$(database)/documents/presentAllow/$(meetingKey(ctx) + '_' + request.auth.uid))
+             && request.time < get(/databases/$(database)/documents/presentAllow/$(meetingKey(ctx) + '_' + request.auth.uid)).data.aliveAt + duration.value(3, 'm');
+    }
     function deckReads(ctx) {
       return ctx is map && ((ctx.get('type', '') == 'session' && readsPlanGroup(ctx.get('groupId', '')))
-                            || (ctx.get('type', '') == 'meeting' && meetingInvitee(ctx.get('room', ''), ctx.get('eventId', ''))));
+                            || (ctx.get('type', '') == 'meeting' && (meetingInviteeE(ctx) || presentAllowed(ctx))));
     }
     function deckPresents(ctx) {
       return ctx is map && ((ctx.get('type', '') == 'session' && editsPlanGroup(ctx.get('groupId', '')))
-                            || (ctx.get('type', '') == 'meeting' && meetingHost(ctx.get('room', ''), ctx.get('eventId', ''))));
+                            || (ctx.get('type', '') == 'meeting' && (meetingHostE(ctx) || presentAllowed(ctx))));
     }
     function presentCtxOk(ctx) {
       return (ctx.get('type', '') != 'session'
@@ -4981,7 +4992,36 @@ service cloud.firestore {
              && d.slide is int && d.slide >= 0 && d.slide < 1000 && d.blank is bool
              && d.presenterUid in [request.auth.uid, ''] && d.updatedBy == request.auth.uid
              && (d.context.get('type', '') != 'session' || key == 'ps_' + d.context.get('sessionId', '-'))
-             && (d.context.get('type', '') != 'meeting' || key.matches('mtg_.*'));
+             && (d.context.get('type', '') != 'meeting' || key == meetingKey(d.context));
+    }
+    // The host's say-so (above): set, renewed and taken back by a host only;
+    // read by that host and by the person it lets present - nobody else.
+    match /presentAllow/{id} {
+      allow read: if resource == null ? active()
+                     : (resource.data.get('uid', '') == request.auth.uid || meetingHostE(resource.data.context));
+      allow create, update: if request.resource.data.context is map && request.resource.data.context.get('type', '') == 'meeting'
+                    && meetingHostE(request.resource.data.context) && presentCtxOk(request.resource.data.context)
+                    && request.resource.data.keys().hasOnly(['context', 'key', 'uid', 'name', 'by', 'at', 'aliveAt'])
+                    && request.resource.data.key == meetingKey(request.resource.data.context)
+                    && request.resource.data.uid is string && request.resource.data.uid.size() > 0
+                    && id == request.resource.data.key + '_' + request.resource.data.uid
+                    && request.resource.data.name is string && request.resource.data.name.size() <= 120
+                    && request.resource.data.by == request.auth.uid && request.resource.data.aliveAt == request.time;
+      allow delete: if meetingHostE(resource.data.context);
+    }
+    // Who is in the meeting, for the host's "Let ... present" list: each
+    // person's own small record, kept fresh by their page, gone when they leave.
+    match /presentHere/{id} {
+      allow read: if resource == null ? active()
+                     : (resource.data.get('uid', '') == request.auth.uid || meetingHostE(resource.data.context));
+      allow create, update: if active() && request.resource.data.context is map && request.resource.data.context.get('type', '') == 'meeting'
+                    && presentCtxOk(request.resource.data.context)
+                    && request.resource.data.keys().hasOnly(['context', 'key', 'uid', 'name', 'at'])
+                    && request.resource.data.key == meetingKey(request.resource.data.context)
+                    && request.resource.data.uid == request.auth.uid && id == request.resource.data.key + '_' + request.auth.uid
+                    && request.resource.data.name is string && request.resource.data.name.size() <= 120
+                    && request.resource.data.at == request.time;
+      allow delete: if resource.data.get('uid', '') == request.auth.uid || meetingHostE(resource.data.context);
     }
     match /presentNow/{key} {
       // Before anyone presents the document does not exist: anyone signed in

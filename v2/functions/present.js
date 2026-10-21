@@ -56,10 +56,19 @@ export async function mayPresent(dbi, uid, ctx) {
     let event = null;
     const eid = String(ctx.eventId || '');
     if (eid && !eid.includes('/')) { const e = await dbi.collection('events').doc(eid).get(); event = e.exists ? e.data() : null; }
-    return mayHost({ user: u, uid, room, event, byType: v.byType || EGBC_BY_TYPE });
+    if (mayHost({ user: u, uid, room, event, byType: v.byType || EGBC_BY_TYPE })) return true;
+    /* or the one person a host has let present (Martin, 21 Oct), while that
+       host is still there: the say-so is renewed each minute and ends 3
+       minutes after the last renewal - the rules (presentAllowed) say the same */
+    const key = 'mtg_' + String(ctx.room) + '_' + (eid || String(ctx.day || ''));
+    if (key.includes('/')) return false;
+    const a = (await dbi.collection('presentAllow').doc(key + '_' + uid).get()).data();
+    const alive = a && a.aliveAt && (a.aliveAt.toMillis ? a.aliveAt.toMillis() : Date.parse(a.aliveAt));
+    return !!(a && a.uid === uid && alive && Date.now() < alive + ALLOW_MS);
   }
   return false;
 }
+export const ALLOW_MS = 3 * 60 * 1000;
 
 async function launched(dbi) {
   const l = await dbi.collection('churchSettings').doc('launch').get().catch(() => null);

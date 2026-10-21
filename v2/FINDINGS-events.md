@@ -9631,3 +9631,85 @@ F-242 section 6, as agreed in F-247 (Step 1: Daily's own tiles in the strip).
 - In the audit's OFF_MENU_BY_DESIGN: all three, open to anyone signed in, showing nothing of anybody's.
 
 check-menu is **96/96**.
+
+### F-264 — Present in a meeting: the host can let one other person present (Martin's answer to F-242 question 2; the events window, 21 Oct)
+
+**What Martin asked:** a non-host invitee may present, but only if the host allows it. The host can take it back at any time, and when the host leaves or ends the meeting it stops. Nobody presents without the host's say-so, and the server checks it too, not only the button.
+
+**What it does**
+- **The host's "Present slides" sheet** now has **"Let someone else present"**: everyone signed in who is in the meeting, each with **"Let <name> present"**.
+  - **One person at a time:** letting a second person takes it from the first.
+  - The person allowed is shown, with **"Take it back"**.
+- **That person** then gets "Present slides". They can pick this meeting's slides or add some (a file or a OneDrive link), present, and take over.
+- **"Take it back":** their presenting stops at once, their button goes, and the rules and the server refuse them again.
+- **The host leaves the meeting** (the page closes, or Daily's "left-meeting" if meeting.html passes `frame`): the say-so ends and the presenting stops, in **one commit**.
+  - Two separate writes lost the second one as the page closed. That's caught by the check, and fixed.
+- **A host whose connection is lost:** the host's page renews the say-so every minute, and **the rules and the server stop counting it 3 minutes after the last renewal**. The allowed person's own page stops presenting at 2½ minutes, while still allowed, so nobody is left on a slide.
+
+**The checks are on the server, not only the button:**
+- **Firestore rules:** a meeting's decks, slides and presenting (`deckPresents`/`deckReads`) are allowed for a host, OR the person with a live say-so for that meeting (`presentAllowed(ctx)`). The say-so itself can only be set, renewed or taken back by a host, in their own name, with the server's time.
+- **Storage rules:** the same, for the slide pictures and the uploaded PowerPoint.
+- **Functions** (`presentConvert`, `presentFromLink`): `mayPresent()` asks your **`mayHost()`**, and otherwise a live say-so for that person in that meeting.
+
+**FOR THE MAIN WINDOW: please agree these names (the rules are yours)**
+1. **The say-so:** `presentAllow/<meeting key>_<uid>`, where the meeting key is `mtg_<room key>_<event id, or the London day YYYY-MM-DD when there's no event>`.
+   - Fields: `{ context: { type: 'meeting', room, eventId, day }, key, uid, name, by (the host's uid), at, aliveAt (server time, renewed each minute) }`.
+   - One document per person, so each person reads only their own and the host lists them by `key`.
+2. **Who is here** (for the host's list): `presentHere/<meeting key>_<uid>` = `{ context, key, uid, name, at }`. Each signed-in person's own record, kept fresh by their page and deleted when they leave. Only a host and the person read it.
+   - Now that your `meetingInvitee()` is in, I suggest only invitees may write one. That's one line, yours to choose.
+3. **Your `meetingHost()` / `meetingInvitee()` (4326c633) are in use.** We wrote into the same lines at the same moment; I kept yours exactly. My `meetingHostE(ctx)` / `meetingInviteeE(ctx)` now just call them with the context's room and event. Storage is the same: your `meetingHostStorage` / `meetingInviteeStorage`, or my `deckAllowed`.
+   - **One of your rules checks changed:** "and presents it" now gives its meeting details event `ev_m9`, to match its key `mtg_Eldership_ev_m9`. A meeting's shared state must now sit under that meeting's own key, not any `mtg_…`, so it can't be written under another meeting's key. Rules 1760/1760, Storage 131/131.
+4. **meeting.html:** please bump to `egbc-present.js?v=202610220030`. It still has 202610212330, so browsers would keep the old engine. Optionally also pass `frame` (Daily's call object) to `attachMeeting`, so "left-meeting" ends a host's say-so even before the page closes.
+
+If you'd rather a different name or shape, say so: it's one constant in the engine, the rules and the server.
+
+**What to deploy (the reviewer):** the functions `presentConvert` and `presentFromLink` (`mayPresent` now also reads `presentAllow`). **No new secret or setting.** The rules go live when the hub goes live.
+
+**Proved:**
+- **`present-meeting.test.mjs`:** 54/54, three runs in a row (one before a timing fix, two after).
+- **New sections 9 to 13**, with Sam: an Elder who is invited but not a host.
+  - **9. Sam can't present without the say-so:**
+    - he has no button
+    - **the server refuses his `presentConvert`**
+    - the rules refuse him moving slides
+    - he can't give himself the say-so
+  - **10. The host lets Sam present:**
+    - the host's people list shows "Let Sam present"
+    - the say-so is saved with the server's time
+    - Sam gets "Present slides" and adds his own PowerPoint (the server made it, so his say-so counted)
+    - everyone follows, and he moves the slides on
+  - **11. "Take it back":**
+    - his presenting stops at once
+    - his button goes
+    - the rules and the server refuse him again
+  - **12. The host leaves the meeting:**
+    - the say-so ends
+    - his presenting stops
+    - his button goes
+  - **13. A say-so not renewed for 4 minutes (a host whose connection is lost):**
+    - the rules and the server refuse it
+    - his page offers nothing
+    - `mayPresent`: stale no, fresh yes, someone else's say-so no
+  - **Section 7 now uses main's rules:**
+    - an Elder (invited) follows the slides
+    - someone not invited (the office) keeps the call, with no error
+- **Found and fixed on the way:**
+  - **Leaving:** the host's leaving was two writes, and the second was lost as the page closed. Now it's one commit.
+  - **A timing race:** a viewer's slides could finish loading after the presenting had stopped, leaving a stale view. Now it checks someone is still presenting them first.
+- **Rules:** 1760/1760, with new checks for the say-so (set, renewed and taken back by a host only; the server's time; runs out after 3 minutes) and for who is here. **Storage:** 131/131.
+- **Breaks, 7 of 7 caught, run again after merging with main's rules:**
+  - **The one that matters:** the server letting an invitee who wasn't allowed add slides.
+  - **In the rules:**
+    - presenting without the say-so
+    - a say-so that never runs out
+    - an invitee giving himself the say-so
+  - **Take it back** not stopping the presenting.
+  - **The host leaving** not ending the say-so.
+  - **The server:** a say-so that never runs out.
+- **Rule Zero, one test at a time, more than 3 GB free:**
+
+  | Test | Result |
+  |---|---|
+  | present | 55/55 |
+  | present-quiz | 39/39 |
+  | present-film | 5/5 |
