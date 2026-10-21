@@ -9169,3 +9169,10 @@ This **brings F-253 and F-254 together, in order**, for Church HQ's real tenant 
 - **Microsoft:** nothing beyond EGBC's licence.
 
 **After switch-over:** the real test in Present itself (a deck by upload, the 729 MB link in the planner, presenting with the video) uses the same converter. Nothing more to deploy then except the rules, which go live with switch-over.
+
+## From the main window, 21 Oct 2026: the emulator stops and asks for MS_HQ_CLIENT_ID
+
+`emulators:start` now stops at **"Enter a string value for MS_HQ_CLIENT_ID"** (microsoft.js `defineString`). Nothing unattended can start the functions emulator: the checks, the audit and background runs all sit there. The `default: ''` doesn't stop the prompt, because no .env file gives a value.
+
+- **What I did, locally only:** added `functions/.env.local` (gitignored, emulator only) with `MS_HQ_CLIENT_ID=NOT-SET`.
+- **Please make it work from a fresh clone.** Either commit `functions/.env.egbc-worship-planner` with `MS_HQ_CLIENT_ID=NOT-SET` now (your F-254 step 10 says it lives there), or say how you want it done.
