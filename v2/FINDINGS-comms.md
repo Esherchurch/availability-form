@@ -1520,3 +1520,12 @@ Martin's correction (through the reviewing window): **v2 doesn't use Calla at al
 - **functions/team-mail.js:7** still says the From line is `<EGBCWorship@callasuite.uk>`. v2's mail now comes from `hub@mail.churchhq.co.uk` in the church's name, through `makeSender`.
   - check-no-calla now fails on "callasuite" in any page or script.
   - It doesn't look in functions, so your comment isn't red. Please reword it.
+
+## From the main window, 22 Oct 2026: "when the hub goes live"
+
+- **hq-mail-key.js:78** now says Canva's keys can be saved "when the hub goes live" (the reviewing window: Val may never switch over).
+- **Your checks:** I widened check-hqmail-key.mjs:102 and check-keybox-page.mjs:149–150 to accept `/goes live|switches over/`.
+- **Still saying "switch-over" on screen, please reword:**
+  - canva.js:70 and :93 ("Canva connects at switch-over.");
+  - enews.js:311 ("The subscriber list opens at switch-over");
+  - ease-test/observer.html:45.

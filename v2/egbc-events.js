@@ -866,9 +866,9 @@
      the code but not the mark, so the gate's own words count too. Other
      failed-preconditions ("This ticket is not paid by card") keep their own
      words. */
-  var CLOSED_WORDS = 'Online payments open when the church switches over.';
+  var CLOSED_WORDS = 'Online payments open when the hub goes live.';
   function paymentsClosed(e) {
-    return !!(e && (e.shut || (/failed-precondition/i.test(e.code || '') && /switches over/i.test(e.message || ''))));
+    return !!(e && (e.shut || (/failed-precondition/i.test(e.code || '') && /goes live|switches over/i.test(e.message || ''))));
   }
   function payProblem(e) { return paymentsClosed(e) ? CLOSED_WORDS : ((e && e.message) || String(e)); }
 

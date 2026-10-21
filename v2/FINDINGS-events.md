@@ -9468,3 +9468,28 @@ const s = st.song || (st.songId ? await deps.song(st.songId) : null);
   - a gone song sent as an empty song
 
   Break 1's run also failed one unrelated email check. It passed in the other three runs, so I counted it as a timing slip.
+
+## From the main window, 22 Oct 2026: "when the hub goes live", not "when the church switches over" (your F-261 list)
+
+The reviewing window: Val may never switch over, and Church HQ is for any church. Every "switches over" a person sees now says **"when the hub goes live"**:
+- the pages and scripts in your F-261 list;
+- the functions bible.js, gocardless.js, hq-mail-key.js, payments.js, planner.js and team-mail.js.
+
+Changes in your files:
+- egbc-events.js: CLOSED_WORDS, plus its "is it shut?" test, which now matches `/goes live|switches over/`, so functions deployed before this are still understood;
+- events-admin.html;
+- peep.html;
+- places-admin.html;
+- egbc-compliance-store.js and its server copy, still identical.
+
+Stamps are moved and public-mail-pages.cjs is regenerated. **tests/check-going-live.mjs** fails if the old words come back anywhere a person sees them.
+
+**Your tests that still look for the old words:**
+- screenshots/events/payments-shut.test.mjs:44
+- screenshots/events/session-planner.test.mjs:262–264
+- screenshots/events/team-mail.test.mjs:136–141
+- room-card.test.mjs only names it in a label
+
+**Still saying "switch-over" on screen** (not "switches over", so not in the check yet; please reword):
+- quiz.js:15 (a comment, fine);
+- session-planner.html:533 "Not until switch-over."

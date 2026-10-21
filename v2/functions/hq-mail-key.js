@@ -75,7 +75,7 @@ export const hqMailKeySave = onCall({ region: REGION, secrets: SENDING_SECRETS }
   const d = req.data || {};
   if ((d.key !== undefined && String(d.key).trim()) || (d.hook !== undefined && String(d.hook).trim()))
     throw new HttpsError('invalid-argument', 'Church HQ’s Resend key and signing secret are kept in Google Secret Manager now (HQ_RESEND_API_KEY, HQ_RESEND_WEBHOOK_SECRET), not pasted here.');
-  if (await keyShut()) throw new HttpsError('failed-precondition', 'Canva’s keys can be saved when the church switches over to the new hub.', { shut: true });
+  if (await keyShut()) throw new HttpsError('failed-precondition', 'Canva’s keys can be saved when the hub goes live.', { shut: true });
   const patch = {};
   [['canvaId', CANVA_ID_SHAPE, 'Canva client ID'], ['canvaSecret', CANVA_SECRET_SHAPE, 'Canva client secret']].forEach(function (f) {
     if (d[f[0]] === undefined) return;

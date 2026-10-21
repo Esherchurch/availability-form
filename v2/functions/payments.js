@@ -40,11 +40,11 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 const db = () => getFirestore();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 import { paymentsShut } from './payments-gate.js';
-const SHUT_MSG = 'Online payments open when the church switches over to the new hub.';
+const SHUT_MSG = 'Online payments open when the hub goes live.';
 
 /* The gate, plus a switch for the tests: on the emulator only,
    paymentSecrets/config.shutForTest makes the callables refuse as the live
-   site does now, so the pages' "switches over" words can be tested. The live
+   site does now, so the pages' "goes live" words can be tested. The live
    site never reads it (paymentsShut decides there). */
 async function shut() {
   if (paymentsShut()) return true;

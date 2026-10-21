@@ -179,7 +179,7 @@
   }
   var OFF_WORDS = 'Building compliance is not switched on for this church.';
   function heldWords(what, opensOn) {
-    return what + ' can be saved here ' + (opensOn ? 'from ' + opensOn : 'when the church switches over to the new hub') +
+    return what + ' can be saved here ' + (opensOn ? 'from ' + opensOn : 'when the hub goes live') +
       '. Until then the hub’s database is not yet private, so nothing is saved here. Keep your paper record for now.';
   }
 

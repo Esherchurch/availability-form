@@ -302,7 +302,7 @@
     if (CUR) {
       html += '<div class="card"><h2>Papers</h2>'
         + (LAUNCH.locked ? '<input class="inp" id="r-file" type="file" accept="application/pdf,image/*" style="padding-top:8px"><div class="btns"><button class="btn sec" id="r-upload">Add the paper</button></div>'
-            : '<p class="hint">Papers can be added when the church switches over to the new hub: until then its files are not yet private.' + (LAUNCH.opensOn ? ' ' + esc(LAUNCH.opensOn) + '.' : '') + '</p>')
+            : '<p class="hint">Papers can be added when the hub goes live: until then its files are not yet private.' + (LAUNCH.opensOn ? ' ' + esc(LAUNCH.opensOn) + '.' : '') + '</p>')
         + '</div>';
       html += '<div class="card" id="run-newvote"><h2>A new vote</h2>'
         + '<div><label for="v-q">The question</label><textarea class="inp" id="v-q" maxlength="300"></textarea></div>'

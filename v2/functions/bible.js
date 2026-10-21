@@ -78,7 +78,7 @@ export const bibleKeySave = onCall({ region: REGION }, async (req) => {
   /* NOT BEFORE SWITCH-OVER (reviewing window, 16 Oct 2026). Until the locked
      rules deploy, privateSettings is readable by anybody, so a key saved now
      would be public. The same code switch as payments, for the same reason. */
-  if (await keyShut()) throw new HttpsError('failed-precondition', 'The API.Bible key can be saved when the church switches over to the new hub.', { shut: true });
+  if (await keyShut()) throw new HttpsError('failed-precondition', 'The API.Bible key can be saved when the hub goes live.', { shut: true });
   const k = String((req.data || {}).key || '').trim();
   if (k && !/^[A-Za-z0-9_-]{16,128}$/.test(k)) throw new HttpsError('invalid-argument', 'That does not look like an API.Bible key.');
   if (!k) { await db().collection('privateSettings').doc('apiBible').delete(); return { saved: false }; }

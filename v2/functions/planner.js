@@ -80,7 +80,7 @@ export function planEmail({ group, s, names, link, church }) {
 export const planSend = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
-  if (await shut()) throw new HttpsError('failed-precondition', 'Plans are emailed once the church switches over to the new hub.');
+  if (await shut()) throw new HttpsError('failed-precondition', 'Plans are emailed once the hub goes live.');
   const sid = String((req.data || {}).sessionId || '');
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(sid)) throw new HttpsError('invalid-argument', 'Which plan?');
   const me = (await db().collection('users').doc(uid).get()).data() || {};

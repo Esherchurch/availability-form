@@ -146,8 +146,8 @@ function serveAuth(src) {
     ok('the church office never sees the box', await ev('!document.getElementById("ky-save") && document.getElementById("keys-form").hidden'));
     await put('teamMailSettings/config', { shutForTest: true });
     await signIn('master'); await open();
-    await until('/switches over/.test(document.getElementById("keys-form").innerText)', 15000);
-    ok('until switch-over: the words, no box to paste into, and still the Resend line', /switches over/.test(await ev('document.getElementById("keys-form").innerText')) && await ev('!document.getElementById("ky-canvaId")') && await ev('!!document.getElementById("ky-resend")'));
+    await until('/goes live|switches over/.test(document.getElementById("keys-form").innerText)', 15000);
+    ok('until switch-over: the words, no box to paste into, and still the Resend line', /goes live|switches over/.test(await ev('document.getElementById("keys-form").innerText')) && await ev('!document.getElementById("ky-canvaId")') && await ev('!!document.getElementById("ky-resend")'));
     await put('teamMailSettings/config', { shutForTest: false });
   } catch (e) { ok('the run finished', false, e.message); }
   ws.close(); chrome.kill(); server.close();

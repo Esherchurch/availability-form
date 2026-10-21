@@ -18,7 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610212000"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610212300"></script>
+<script src="egbc-events.js?v=202610221300"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -110,7 +110,7 @@
   function draw() {
     document.getElementById('wrap').innerHTML = '<h1>Team emails</h1>' +
       '<p class="sub">A team can send emails as itself: the email says it is from the team, replies go to the team\'s own address (or to the sender, if it has none), and the team\'s mailbox gets a copy. Emails still leave from the hub\'s one sending address.</p>' +
-      (SHUT ? '<div class="shut" id="shut">Team emails open when the church switches over to the new hub. Until then nothing here can be saved, and nobody can send as a team.</div>' : '') +
+      (SHUT ? '<div class="shut" id="shut">Team emails open when the hub goes live. Until then nothing here can be saved, and nobody can send as a team.</div>' : '') +
       '<div class="card" id="whoCard"><h2>The Pastor and the office admin</h2><p class="m" style="margin:0">They may send as any team except Safeguarding.</p>' +
         '<div class="two"><div><label for="pastor">Pastor</label><select id="pastor">' + options('Nobody chosen') + '</select></div>' +
         '<div><label for="office">Office admin</label><select id="office">' + options('Nobody chosen') + '</select></div></div>' +

@@ -405,7 +405,7 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-ics.js?v=202610101200"></script>
-<script src="egbc-events.js?v=202610212300"></script>
+<script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-kids.js?v=202610101200"></script>
 <script src="egbc-events-qr.js?v=202610080900"></script>
 <script src="egbc-events-checkin.js?v=202610152130"></script>
@@ -2213,7 +2213,7 @@ function loadBuildingHome(me) {
      them read. One answer for this Home and building.html. */
   var checks = loadScript('egbc-compliance.js?v=202610191800')
     .then(function () { return loadScript('egbc-compliance-templates.js?v=202610191800'); })
-    .then(function () { return loadScript('egbc-compliance-store.js?v=202610201900'); })
+    .then(function () { return loadScript('egbc-compliance-store.js?v=202610221300'); })
     .then(function () { return db.collection('complianceTemplates').get().catch(function () { return { docs: [] }; }); })
     .then(function (t) {
       var S = window.EGBCComplianceStore, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates;

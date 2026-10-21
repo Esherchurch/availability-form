@@ -99,7 +99,7 @@ async function scenario(K) {
 
     await db.collection('teamMailSettings').doc('config').set({ shutForTest: true });
     r = await run(K.hqMailKeySave, 'k_master', { canvaId: 'OCTestOnly999' });
-    t('until switch-over: saving Canva’s keys refused, in words', r.err && /switches over/.test(r.err.message) && ((await db.collection('privateSettings').doc('churchHqMail').get()).data() || {}).canvaId === 'OCTestOnly123');
+    t('until switch-over: saving Canva’s keys refused, in words', r.err && /goes live|switches over/.test(r.err.message) && ((await db.collection('privateSettings').doc('churchHqMail').get()).data() || {}).canvaId === 'OCTestOnly123');
     st.ok = (await run(K.hqMailKeyStatus, 'k_master')).ok;
     t('and the status says shut, but still says whether Resend’s are set', st.ok && st.ok.shut === true && st.ok.saved === true);
     await db.collection('teamMailSettings').doc('config').set({ shutForTest: false });

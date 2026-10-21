@@ -95,7 +95,7 @@
        prayer requests and "I'm new here" save nothing. A master admin turns
        this on straight after the rules deploy (NEXT-BRIEF §26). -->
   <h1 style="font-size:18px;margin:22px 0 4px" id="launch-h" hidden>Private forms</h1>
-  <p class="sub" id="launch-sub" hidden>Care &amp; support, prayer requests and &ldquo;I&rsquo;m new here&rdquo;. Until switch-over they save nothing, because the database is not locked yet: they show 999 and when they open.</p>
+  <p class="sub" id="launch-sub" hidden>Care &amp; support, prayer requests and &ldquo;I&rsquo;m new here&rdquo;. Until the hub goes live they save nothing, because the database is not locked yet: they show 999 and when they open.</p>
   <div class="card" id="launch-form" hidden></div>
 
   <!-- WHO GETS TOLD (Martin, 14 Oct 2026; NEXT-BRIEF §24). Requests for
@@ -264,7 +264,7 @@
         '<span class="track" aria-hidden="true"></span><span>Open the private forms</span></button>' +
       '<p class="hint" id="l-state" style="margin:10px 0 12px">' + (on
         ? '<b style="color:var(--ink)">Open.</b> They save, and the people named in Who gets told are told.'
-        : '<b style="color:var(--ink)">Not yet.</b> Turn this on only after the locked rules are deployed on switch-over day.') + '</p>' +
+        : '<b style="color:var(--ink)">Not yet.</b> Turn this on only after the locked rules are deployed, the day the hub goes live.') + '</p>' +
       '<div class="field" style="margin:0"><label for="l-on">When they open, in words <span class="hint">(shown on the forms until then)</span></label>' +
         '<div class="addrow"><input class="inp" id="l-on" maxlength="40" placeholder="For example 1 November 2026" value="' + esc(L.opensOn || '') + '">' +
         '<button type="button" class="btn sec" id="l-save">Save</button></div></div>';
@@ -447,7 +447,7 @@
     ['m365-h', 'm365-sub', 'm365'].forEach(function (id) { document.getElementById(id).hidden = false; });
     EGBCMicrosoft.mount(document.getElementById('m365'));
   }
-  var SHUT_WORDS = 'The API.Bible key can be saved when the church switches over.';
+  var SHUT_WORDS = 'The API.Bible key can be saved when the hub goes live.';
   function saveBibleKey(k) {
     document.getElementById('bk-msg').textContent = 'Saving…';
     EGBCAuth.call('bibleKeySave', { key: k }).then(function (r) { r = (r && r.data !== undefined) ? r.data : r; drawBible(r && r.saved ? 'Saved. It will not be shown again.' : 'Removed.'); },
@@ -510,7 +510,7 @@
         '<p class="hint" style="margin:4px 0 0">Kept in Google Secret Manager, not pasted here. The API key (HQ_RESEND_API_KEY): ' + (st.saved ? '<b>set</b>' : '<b>not set yet</b>') +
         '. The webhook signing secret (HQ_RESEND_WEBHOOK_SECRET): ' + (st.hookSaved ? '<b>set</b>' : '<b>not set yet</b>') + '.</p></div>';
       if (st.shut) {
-        el.innerHTML = resend + '<p class="hint" id="ky-state" style="margin:0"><b style="color:var(--ink)">Canva\u2019s keys can be saved when the church switches over to the new hub.</b> Until then the database can be read by anybody, so a key saved now would not be safe. Nothing needs doing yet.</p>';
+        el.innerHTML = resend + '<p class="hint" id="ky-state" style="margin:0"><b style="color:var(--ink)">Canva\u2019s keys can be saved when the hub goes live.</b> Until then the database can be read by anybody, so a key saved now would not be safe. Nothing needs doing yet.</p>';
         return;
       }
       el.innerHTML = resend + '<p class="hint" id="ky-state" style="margin:0 0 6px">' + (st.error ? 'The hub could not say which keys are saved.' : 'Canva: paste a key and press Save. A saved key is never shown again; paste a new one to replace it.') + '</p>' +
@@ -533,7 +533,7 @@
           draw('Saved. It will not be shown again.');
         }, function (e) {
           b.disabled = false;
-          if (/failed-precondition/.test(String(e && e.code)) && /switches over/.test(String(e && e.message))) { draw(); return; }
+          if (/failed-precondition/.test(String(e && e.code)) && /goes live|switches over/.test(String(e && e.message))) { draw(); return; }
           document.getElementById('ky-msg').textContent = 'Not saved: ' + String((e && e.message) || e).replace(/^.*?:\s*(?=[A-Z])/, '');
         });
       };

@@ -51,7 +51,7 @@ import { makeSender } from './public-mail.js';
 const REGION = 'europe-west2';
 const db = () => getFirestore();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
-const SHUT_MSG = 'Team emails open when the church switches over to the new hub.';
+const SHUT_MSG = 'Team emails open when the hub goes live.';
 const MAX_TO = 300;
 /* Martin's list (15 Oct), offered to a church with none yet. */
 export const USUAL_TEAMS = ['Safeguarding', 'Worship Team', 'Pastoral', 'Church office', 'Admin', 'Hospitality', 'Kids Church', 'Youth Worship', 'Welcome team', 'Maintenance'];
