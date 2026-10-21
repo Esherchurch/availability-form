@@ -125,7 +125,7 @@ export const m365Callback = onRequest({ region: REGION, secrets: [MS_HQ_CLIENT_S
   }
 });
 
-export const m365Status = onCall({ region: REGION }, async (req) => {
+export const m365Status = onCall({ region: REGION, secrets: [MS_HQ_CLIENT_SECRET] }, async (req) => {
   await master(req.auth && req.auth.uid);
   const d = (await db().collection('privateSettings').doc('microsoft365').get()).data();
   const s = await settings();
