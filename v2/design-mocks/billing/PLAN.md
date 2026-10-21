@@ -11,45 +11,15 @@ The two never share an account or a key. A church's giving never passes through 
 
 ---
 
-## 1. Church HQ's subscription (Stripe Billing, Church HQ's own Stripe account)
+## 1. Church HQ's subscription: NOT DECIDED (will be GoCardless)
 
-### How it works
+*Martin, 22 Oct 2026, through the reviewing window:* not built and not planned here. Martin hasn't looked at Church HQ's subscriptions yet, and they will be **GoCardless, not Stripe**.
 
-**The plans**
-- Stripe Products and Prices, in pounds, monthly and yearly.
-- What they are and what they cost is for Martin. The hub reads them; it doesn't decide them.
+- No Stripe Billing.
+- No `HQ_STRIPE_*` secrets.
+- Nothing in the directory about it.
 
-**Signing up a church**
-1. The "new church" step in Church HQ's directory (multi-church PLAN) opens a **Stripe Checkout** page in subscription mode.
-2. The church pays by card or Bacs Direct Debit.
-3. Stripe keeps the card details; the hub never sees them.
-
-**Managing it**
-- The church's master admin gets a **"Billing" card in Church settings** that opens the **Stripe Customer Portal**: change plan, change card, download invoices, cancel.
-- Nothing is built in the hub that Stripe already does.
-
-**The hub knowing**
-- A webhook (`churchHqStripeHook`, its own signing secret, `HQ_STRIPE_WEBHOOK_SECRET`) writes the subscription state into the directory: `churchhq/churches/{id}.billing = { status, plan, currentPeriodEnd }`.
-- A lapsed subscription follows a **grace period Martin sets** (for example 14 days). After it, the church can still read and export, but new notices, sends and so on stop.
-- **Nothing is ever deleted for not paying.**
-
-**VAT and invoices**
-- Stripe makes the invoices.
-- Whether Church HQ charges VAT, and whether to use Stripe Tax, is for Martin and his accountant (below).
-
-### Syncing to Church HQ's QuickBooks
-
-**Recommended: a ready-made Stripe→QuickBooks connector** that Martin installs on Church HQ's own Stripe and QuickBooks, for example from the Stripe App Marketplace.
-- Payouts, fees and invoices go across as accounting entries.
-- No Intuit app review is needed: it is Martin's own books, connected by Martin.
-
-**Not recommended:** building our own sync. That needs an Intuit app (section 3) for one set of books.
-
-### Keys (Secret Manager, set by Martin, never in a page or the repo)
-
-- `HQ_STRIPE_SECRET_KEY`: restricted key, Billing only.
-- `HQ_STRIPE_WEBHOOK_SECRET`.
-- **Separate from** the church giving keys (`payments` / GoCardless) and from Calla's.
+This section is replaced when Martin decides.
 
 ---
 
@@ -120,10 +90,9 @@ The plan is **one adapter per accounting system** behind the same queue.
 
 ---
 
-## Decisions for Martin
+## Decided (Martin, 22 Oct 2026)
 
-1. **The subscription:** the plans and prices, monthly or yearly or both, and the grace period.
-2. **VAT:** is Church HQ VAT-registered, and use Stripe Tax?
-3. **QuickBooks for Church HQ's own books:** a ready-made connector (recommended), or something else.
-4. **Accounts links, in this order:** spreadsheet → Calla → QuickBooks → Xero?
-5. **Whether to start the Intuit and Xero applications now.** They take weeks; the pages they need are the same ones.
+- **Build part 2 only:** each church's own money (room bookings, tickets, giving), through the church's own Stripe, into the church's own books.
+- **Order:** spreadsheet → Calla → QuickBooks → Xero.
+- **When:** after the multi-church steps 1–2.
+- **Part 1** (Church HQ's subscription): not decided; it will be GoCardless.

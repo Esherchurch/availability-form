@@ -4,6 +4,8 @@
 
 ## H-1. More than one church: A, B or C (21 Oct 2026)
 
+**Decided (Martin, 22 Oct 2026): B.** The order of work is from the plan. Report after step 2 (the directory and claims; the rules and paths with cross-church suites, made-up churches only). EGBC's live data isn't moved and the rules aren't deployed until going live.
+
 **Design note:** `design-mocks/multi-church/PLAN.md`.
 
 Martin: "Church HQ must support more than one church from now on, built in, not later." Three ways are compared:
@@ -35,10 +37,7 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 
 **Design note:** `design-mocks/billing/PLAN.md`.
 
-**Church HQ's subscription:**
-- Stripe Billing in Church HQ's own Stripe account: Checkout to sign up, the Customer Portal to manage.
-- A webhook writes the state into the directory, with a grace period; nothing is deleted for not paying.
-- Synced to Church HQ's QuickBooks with a ready-made Stripe→QuickBooks connector, so no Intuit review is needed for Church HQ's own books.
+**Church HQ's subscription:** NOT DECIDED (Martin, 22 Oct). It will be GoCardless, not Stripe. Nothing is built, and there are no HQ_STRIPE_* secrets.
 
 **A church's accounts link:** one adapter per system behind the existing `accountsQueue`, in this order:
 1. spreadsheet export (no review);

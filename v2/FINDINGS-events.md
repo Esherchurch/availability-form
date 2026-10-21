@@ -9369,3 +9369,31 @@ The rest of the room booking list. Built, waiting for review.
   | close-room, combined-rooms | 29, 33 |
   | c5-hire-quote | 16 |
   | audits: catering, bookings-admin, hire, rooms, places-admin | 14 each |
+
+## From the main window, 22 Oct 2026: your pages that open for people the Menu doesn't offer them to (audit "access" reds)
+
+The reviewing window: **each page's guard must match who the Menu offers it to**, "View as" included. The full audit (6 roles × 4 sizes) finds these of yours opening for roles whose Menu does not offer them:
+
+| Page | Opens for (not in their Menu) |
+|---|---|
+| attendance.html | areaAdmin (Worship admin), core, worship, kids, everyone (a plain member) |
+| checkin.html | areaAdmin, core, worship, kids, everyone |
+| building.html | areaAdmin, core, worship, kids, everyone |
+| safeguarding.html | core, worship, kids, everyone |
+| kids-admin.html | areaAdmin, core, worship |
+| kids-checkin.html | areaAdmin, core, worship |
+| events-admin.html | areaAdmin |
+| present.html, present-guide.html | areaAdmin, core, worship, everyone (you are adding their reason) |
+
+**For each page, one of three:**
+1. **Tighten its guard** to the Menu's people.
+2. **Show a soft refusal** in the words the audit already recognises (e.g. "This page is for …").
+3. **If it opens off the Menu on purpose,** add it to `OFF_MENU_BY_DESIGN` near the top of `tests/audit-everything.mjs`: `{ roles: 'all' | [roles], why }`. The audit then passes it and shows the reason. For example:
+   - check-in or registers reached from an event its team runs;
+   - "the building" for whoever has been given a check;
+   - "raise a concern" for anyone signed in.
+
+Mine are done the same way:
+- the Rota planner, Sunday service plan and Music Upload are now offered to the leaders their guards let in (`leaderOf` takes a list now);
+- index.html is on the list (the public availability form);
+- the audit now counts the "you" menu's links, and `page?x` when the page itself is offered.
