@@ -260,6 +260,116 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 21 Oct: v2 sends everything through Church HQ's Resend, with the key in Google Secret Manager. For review
+
+Martin, through the reviewing window: "v2 doesn't use Calla at all." There are three parts.
+
+### 1. No Calla, not even as a fallback
+
+- **`public-mail.js makeSender`**, the sender every server email goes through:
+  - always uses Church HQ's Resend (mail-route.js);
+  - if Resend fails, the email is **not sent**, and `emailOutbox` says why. It never goes to Calla's sendEmail;
+  - without the key, nothing is sent, and the row says "RESEND_API_KEY in Google Secret Manager".
+- **The route's old gates are gone:**
+  - the switch-over gate;
+  - Martin's list of kinds (`churchSettings/mailRoute`);
+  - the key-box key.
+- **Calla's protections stay, on this side:**
+  - known recipients only;
+  - never an under-18;
+  - the 2,000-an-hour cap;
+  - no body kept for a Safeguarding email.
+- **`SEND_EMAIL_URL`** (Calla's address) is gone from every server file except the main window's `index.js` (below). The check confirms this.
+
+### 2. The Resend key and signing secret: Google Secret Manager
+
+**The two names, to set with Martin before deploying:**
+
+    firebase functions:secrets:set RESEND_API_KEY          (re_..., Resend → API Keys, sending access)
+    firebase functions:secrets:set RESEND_WEBHOOK_SECRET   (whsec_..., Resend → Webhooks → the hqMailEvents endpoint)
+
+- **A finding: RESEND_API_KEY already exists in Secret Manager.** The functions emulator read it, as described below; RESEND_WEBHOOK_SECRET doesn't exist yet. If the existing one isn't the sending key from CHURCHHQ-EMAIL-SETUP D1, set it again. I didn't display or keep its value.
+- **How every sender gets the key** (functions/resend-secrets.js). A secret reaches only the functions that list it, and about thirty functions in several windows' files send email. So:
+  - this window's senders list both secrets (`SENDING_SECRETS`). Deploying them gives the functions' runtime service account access to both;
+  - `secretValue()` uses the listed value where there is one. Otherwise it asks Secret Manager directly, with the same account, and keeps the answer for ten minutes;
+  - `setGlobalOptions` can't do this here: firebase-functions 7.4 reads global options when each function is defined, before index.js sets them.
+- **If a sender ever reports "RESEND_API_KEY" while the secret is set**, the account lacks access, which a deploy normally grants. One command fixes it:
+  `gcloud secrets add-iam-policy-binding RESEND_API_KEY --project egbc-worship-planner --member serviceAccount:199442060489-compute@developer.gserviceaccount.com --role roles/secretmanager.secretAccessor`
+  (and the same for RESEND_WEBHOOK_SECRET).
+- **The webhook** (`hqMailEvents`) checks Resend's signature with RESEND_WEBHOOK_SECRET.
+- **The key box** (Church settings → Email and Canva keys) no longer takes Resend keys:
+  - it says whether each secret is **set**, by name, never the value;
+  - it refuses a Resend key pasted into it;
+  - it keeps Canva's two keys, which still wait for switch-over;
+  - an old Resend key left in the database is removed at the next save and never used.
+- **The e-news gate (`ENEWS_LIVE`) still holds the subscriber side until switch-over:**
+  - the sign-up;
+  - the e-news to subscribers;
+  - the welcome emails.
+  - Until the rules deploy, a subscriber list saved now would be readable by anybody. **Everything else sends as soon as the key is set**, including "Send me a test".
+  - **Martin may want this differently.** Say if the welcome emails should open now too; they can't be switched on until the rules are live anyway.
+- **The emulator and the real secrets.** A functions emulator with no `functions/.secret.local` fetches the **real** secrets from Secret Manager, using the signed-in CLI. That's how it read RESEND_API_KEY.
+  - My checks and the ease test now use test stand-ins in `functions/.secret.local`. The ease test writes it if it's missing.
+  - `v2/functions/.secret.local` is added to `.gitignore`, so it can never be committed.
+  - **Other windows' emulators:** create that file with test values, or they will hold the live key while they run. The emulator never sends, but it would have it.
+- **CHURCHHQ-EMAIL-SETUP.md** parts D and E are rewritten for Secret Manager, to do now rather than at switch-over.
+
+### 3. For the main window (your files; please do these as part of moving the 15 browser senders)
+
+- **Your one callable for the browser senders:** send through `makeSender({ db })(msg, { source, kind, ... })` from public-mail.js. That is the route: Church HQ's Resend, with its protections.
+  - **Known recipients only.** An address must be in the address book, users, contacts, signups, small group requests, form requests, bookings, hirers, charges, invoices, sites, church settings, welcome settings or care routing (`mail-route.js KNOWN_SOURCES`). Anyone else is refused. If a browser sender emails people from elsewhere, tell me and I'll add the place.
+  - **`outlineOnly: true`** in meta keeps no body (Safeguarding).
+  - **Attachments** `{ filename, content (base64), type }` go through to Resend.
+  - **Listing secrets:** a function that sends may list `SENDING_SECRETS` from resend-secrets.js (`secrets: SENDING_SECRETS`). It works without them (it asks Secret Manager), but listing them saves that call.
+- **`functions/index.js sendOne`** still posts to Calla's sendEmail (booking reminders, document expiry, notify's emails). It should become:
+
+      import { makeSender } from './public-mail.js';
+      let hubSend = null;
+      async function sendOne(msg, meta) {
+        if (!hubSend) hubSend = makeSender({ db });
+        return hubSend({ to: msg.to || [], subject: msg.subject || '', html: msg.html || msg.body || '', replyTo: msg.replyTo || '' }, meta);
+      }
+
+  Then delete `SEND_EMAIL_URL`, `sendEmailClient` and the id-token import there, if nothing else uses them.
+- **functions/team-mail.js**: its header still describes Calla's fixed From address. Team emails now come from "<church name>" <hub@mail.churchhq.co.uk>, replying to the address the sender chose. **functions/id-token.js** is only for Calla's identity token, so it can go with sendOne's.
+- **The pages that still name Calla's sendEmail** are yours to move onto the callable: egbc-email.js, egbc-core-planner.js, egbc-core-rota.js, egbc-nosend.js, EmailBuilder2.html, hub-app.js, Planner.html, SundayServicePlanner.html, youthapp2.html and youthserviceplanner.html.
+
+### For the events window
+
+`screenshots/events/public-mail.test.mjs`:
+- **A2** (public-mail sends to the same sendEmail as index.js) no longer applies: `SEND_EMAIL_URL` is gone from public-mail.js.
+- **B** (the identity token to sendEmail) no longer applies: `makeSender` now takes only `{ db, emulator, route, resendFetch }`.
+- **C** (the seven triggers send) should still pass on the emulator: each lands in emailOutbox with `via: 'churchhq'`.
+
+### To deploy, and when
+
+1. **Set the two secrets first** (above). Functions that list a secret won't deploy while it's missing.
+2. **`firebase deploy --only functions:hub`.**
+3. **Resend → Webhooks:** the endpoint `https://europe-west2-egbc-worship-planner.cloudfunctions.net/hqMailEvents`, its signing secret into RESEND_WEBHOOK_SECRET (CHURCHHQ-EMAIL-SETUP part E).
+
+### Checks (this window's own emulators)
+
+The full run was on 72ea597e: every check green and all 34 deliberate breaks red, apart from two.
+- **The page check** still expected "Send me a test" to go by Calla's. It now expects Church HQ's: 47/47.
+- **The card maker's "a long verse fits" check failed on main too, without this change.** It tripled *today's* verse, so it passed or failed by the date, and 21 Oct's didn't fit the band design. That uncovered two real bugs, fixed in 24d7b654:
+  - the fit was measured before rounding the size, so text could spill a few pixels;
+  - the band design left room under the words for a reference that sits in the band.
+  - The check now uses a fixed 110 words, longer than any verse in the Bible: 33/33, and its versefit break is still red.
+
+| Check | Result |
+|---|---|
+| check-mail-route (rewritten: Resend always, no Calla) | 22/22, including 5 breaks: under-18s let through, the protections switched off, Calla brought back as a fallback, a Safeguarding body kept, a key from the database |
+| check-hqmail-key (rewritten: Secret Manager, Canva in the box) | 28/28, including 5 breaks: a key sent back, saving before switch-over, the office let in, a Resend key taken into the box, an old key left in the database |
+| check-keybox-page | 9/9; break refill red |
+| check-enews-subscribe (the webhook's secret from Secret Manager; one left in the old box never used) | 58/58 |
+| check-enews-page (Send me a test through Resend) | 47/47; 5 breaks red |
+| check-cardmaker (the verse fix) | 33/33; 5 breaks red |
+| Also passing on 72ea597e | send 45/45, emails 36/36 (3 breaks), welcome-mail 26/26, meeting-papers 21/21, unsplash 22/22, unsplash-pages 14/14 (2), blocks 78/78 (23), editor 43/43 (3), layout 11/11 (3), side-by-side 5/5 (3), social 13/13, votd 5/5 (1), meeting 17/17 (2), addressbook 18/18 (5), import 22/22, canva 20/20, canva-page 9/9, rules 64/64 (17), stamps 6/6, features-agree 18, compiler-send 12/12, ease self-check 12/12 (2) |
+
+With `functions/.secret.local` in place, my functions emulator made **no** request to the real Secret Manager in any run (its log shows none).
+
+---
+
 ## BUILT, 21 Oct: the welcome emails, the event invitation from What's On, letter spacing and {date}. For review
 
 The reviewing window's order: 1, then 2, then 3.
