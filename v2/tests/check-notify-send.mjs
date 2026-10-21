@@ -149,16 +149,13 @@ const londonDate = (n) => {
     same('functions/safeguarding-core.cjs', 'egbc-events-safeguarding.js'),
     'copy egbc-events-safeguarding.js over functions/safeguarding-core.cjs');
 
-  /* ---- the Google identity token for sendEmail --------------------- */
-  console.log('\nthe hub\'s emails carry the server\'s Google identity (§26 item 4b)');
-  const { emailAuthHeader } = await import('../functions/id-token.js');
-  const goodClient = async () => ({ getRequestHeaders: async () => new Map([['authorization', 'Bearer synthetic-id-token']]) });
-  const oldClient = async () => ({ getRequestHeaders: async () => ({ Authorization: 'Bearer synthetic-old-shape' }) });
-  const badClient = async () => { throw new Error('no metadata server'); };
-  const h1 = await emailAuthHeader(goodClient), h2 = await emailAuthHeader(oldClient), h3 = await emailAuthHeader(badClient);
-  ok('  a token is attached as Authorization', h1.Authorization === 'Bearer synthetic-id-token', JSON.stringify(h1));
-  ok('  whichever shape the library hands back', h2.Authorization === 'Bearer synthetic-old-shape', JSON.stringify(h2));
-  ok('  and a failure to get one sends without, rather than not at all', JSON.stringify(h3) === '{}', JSON.stringify(h3));
+  /* ---- the hub's emails go through Church HQ's Resend, never Calla ----
+     (Martin, 21 Oct 2026: "v2 doesn't use Calla at all"). The Google
+     identity token was only ever for Calla's sendEmail; it is gone with it. */
+  console.log('\nthe hub\'s emails go through Church HQ\'s Resend (makeSender), never Calla');
+  const idx = fs.readFileSync('functions/index.js', 'utf8');
+  ok('  sendOne is makeSender', /async function sendOne[\s\S]{0,200}makeSender\(/.test(idx));
+  ok('  and index.js has no Calla address and no identity token', !/sendemail-|a\.run\.app|id-token/.test(idx));
 
   /* ---- the master switch's default (A-081) ---------------------------
      With nothing set, the answer must be OFF. Asked of liveState() itself,

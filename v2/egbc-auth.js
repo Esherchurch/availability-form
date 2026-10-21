@@ -82,7 +82,7 @@
      patience. */
   var CALL_TIMEOUT_MS = 8000;
 
-  function callFunction(name, data) {
+  function callFunction(name, data, timeoutMs) {
     return auth.currentUser.getIdToken().then(function (idToken) {
       var stop = null;
       var opts = {
@@ -95,7 +95,7 @@
       if (typeof AbortController !== 'undefined') {
         var ac = new AbortController();
         opts.signal = ac.signal;
-        stop = setTimeout(function () { ac.abort(); }, CALL_TIMEOUT_MS);
+        stop = setTimeout(function () { ac.abort(); }, timeoutMs || CALL_TIMEOUT_MS);
       }
       return fetch(FUNCTIONS_BASE + '/' + name, opts).then(function (r) {
         if (stop) clearTimeout(stop);
@@ -1380,6 +1380,22 @@
        script tag to do it - see callFunction above. */
     call: function (name, data) {
       return callFunction(name, data);
+    },
+
+    /* EVERY EMAIL A PAGE SENDS (Martin, 21 Oct 2026: "v2 doesn't use Calla
+       at all"): through the hub's hubSend, which asks who may send to whom
+       and sends through Church HQ's Resend. msg: { source, ref?, to,
+       subject, html, replyTo?, attachments? }. NEVER REJECTS - it answers
+       { ok, error, sent, failed } the way the old send service did, so a
+       page's own "it did not send" path still works. Up to five minutes:
+       a term's rotas with their PDFs take a while. */
+    sendEmail: function (msg) {
+      if (!auth || !auth.currentUser) return Promise.resolve({ ok: false, error: 'Please sign in to send email.' });
+      return callFunction('hubSend', msg || {}, 300000).then(function (r) {
+        return { ok: !!(r && r.ok), error: (r && r.error) || '', sent: (r && r.sent) || 0, failed: (r && r.failed) || [], stubbed: !!(r && r.stubbed) };
+      }, function (e) {
+        return { ok: false, error: (e && e.message) || String(e), code: (e && e.code) || '' };
+      });
     },
 
     isAttender: function () {

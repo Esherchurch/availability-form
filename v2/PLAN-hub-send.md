@@ -105,7 +105,7 @@ Every call goes through these steps in order. The first one that fails ends it, 
 
 **Known recipients gains `smallGroupMembers.email`.** Without it, "Message the group" and small-group invitations would be refused. The list no longer needs to match Calla's.
 
-**Attachments.** Two kinds:
+**Attachments** (superseded: see "as built" below). The plan was two kinds:
 - **Inline base64**, up to 2 MB per call: the small `.ics` files.
 - **Storage paths under `rota-temp/`**, for the rota PDFs. The Planner already uploads them there. The server reads them, attaches them, and deletes them.
   - This keeps each call far below the callable's 10 MB request limit, with 4 PDFs per email to dozens of people.
@@ -145,19 +145,23 @@ Every call goes through these steps in order. The first one that fails ends it, 
 - **A browser check:** Planner "Send one rota" and a bookings email each land in the outbox through `hubSend`.
 - **Existing checks updated:** check-mail-route (the route list and fallback go), the senders' own checks, and 375px for any words that change.
 
-## One decision for Martin before I build
+## Corrections after review, and as built (21 Oct 2026)
 
-**Where the Resend key lives before switch-over.**
-- Today it can only go in the key box (`privateSettings/churchHqMail`), and the box refuses to save until switch-over. Until the rules are locked, the live database can be read by anyone.
-- With Calla taken out, **v2 sends no email at all until switch-over.** Every send would be refused with "Email starts when the church switches over".
-
-Three ways:
-
-1. **(Recommended)** Keep the key in **Secret Manager as `RESEND_API_KEY`**, as with `DAILY_API_KEY`. Martin pastes it once; only the functions can read it, so it's safe now. The key box later shows "saved" or "not saved" from the server.
-2. Keep the key box as the only home, and accept no v2 email until switch-over.
-3. Keep Calla until switch-over. **Ruled out by the instruction.**
-
-Martin's word is also needed that **Church HQ's Resend domain (mail.churchhq.co.uk) is verified.** The plan assumes it is (CHURCHHQ-EMAIL-SETUP.md).
+- **The key: `HQ_RESEND_API_KEY`, not `RESEND_API_KEY`.** `RESEND_API_KEY` in this Google project is Calla's, read by the original site's sendEmail. Church HQ's key is `HQ_RESEND_API_KEY`, with `HQ_RESEND_WEBHOOK_SECRET`; both are already set in Secret Manager. hubSend never names a key itself.
+- **The route is Comms' `makeSender`** (public-mail.js on mail-route.js). Comms had already made it Resend only, with no Calla fallback, reading the `HQ_` secrets and refusing the bare names. hubSend:
+  - checks recipients and reserves the hour once per call;
+  - then sends one email per recipient through `makeSender`;
+  - so every outbox row is Comms' format, `via: 'churchhq'`, `source: 'hub:<kind>'`.
+- **Attachments: inline base64,** up to 8 files and 9 MB per call, not Storage paths. The Planner already makes one call per person, so 4 PDFs fit easily, and storage.rules needs no change.
+- **Known recipients** also gained `kidsFamilies.email` / `email2`. "Call the parent" emails the one with no phone; that email would otherwise have been refused once `sendOne` moved onto `makeSender`. `smallGroupMembers` was added by Comms.
+- **The pages:**
+  - **10 direct senders** call `EGBCAuth.sendEmail({source, …})`, which never rejects and answers `{ok, error}` as the old service did, so each page's own "could not send" words still work.
+  - **egbc-email.js** (`EGBCChurch.send` on the events pages) passes the page's kind (by its address) and the event from `log.calEventId`, so no events-window page needed editing.
+  - **On localhost** it still keeps the outbox the events checks read. Those checks serve on port 5601 and call functions on 5102, where nothing runs, so they get the old local stub.
+- **The server:**
+  - `index.js` `sendOne` → `makeSender`;
+  - `id-token.js` is deleted (it was only for Calla);
+  - no Calla address is left in any v2 page, script or function (check-no-calla).
 
 ## Who changes what
 

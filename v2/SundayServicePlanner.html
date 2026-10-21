@@ -1,13 +1,13 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-shell.js?v=202610211800" data-title="Sunday Service Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610211900"></script>
+<script src="egbc-auth.js?v=202610212000"></script>
 <script src="egbc-guard.js?v=202610210900" data-team="Worship Team" data-role="leader"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-service.json">
@@ -819,14 +819,12 @@ window.emailSchedule = async () => {
         if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
     });
     teamRecipients = [...new Set(teamRecipients)];
-    const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
     async function sendViaResend(toAddresses, emailSubject, emailHtml) {
         const statusEl = document.getElementById('modalStatus');
         statusEl.textContent = "Sending…";
         statusEl.style.color = "#3d6263";
         try {
-            const resp = await fetch(SEND_FUNCTION_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" }) });
-            const result = await resp.json();
+            const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" }));
             if (result.ok) { statusEl.textContent = "Sent"; statusEl.style.color = "#3B7D23"; setTimeout(() => modal.classList.remove('active'), 1800); }
             else { statusEl.textContent = "Could not send: " + (result.error || "unknown error"); statusEl.style.color = "#e05555"; }
         } catch (e) { statusEl.textContent = "Could not send: no connection (" + e.message + ")"; statusEl.style.color = "#e05555"; }

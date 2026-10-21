@@ -37,12 +37,12 @@
   if (!LOCAL) return;
   if (window.__egbcNoSend) return;       /* once per page, whoever loads it */
 
-  /* Both addresses of the same service, and Resend itself in case a page
-     ever talks to it directly. Matched on the URL as a string, so a
-     relative path or a Request object both work. */
+  /* Resend itself, in case a page ever talks to it directly. Every v2
+     email goes through the hub's hubSend (21 Oct 2026), whose emulator
+     sends nothing; the old send service's address is in no v2 page any
+     more, so it is not listed here either. Matched on the URL as a
+     string, so a relative path or a Request object both work. */
   var BLOCKED = [
-    'sendemail-irkwdhx3xq-uc.a.run.app',
-    'cloudfunctions.net/sendemail',
     'api.resend.com'
   ];
 

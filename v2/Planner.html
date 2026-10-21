@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-shell.js?v=202610211800" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610211900"></script>
+<script src="egbc-auth.js?v=202610212000"></script>
 <script src="egbc-video.js?v=202610211500"></script>
 <script src="egbc-guard.js?v=202610210900" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
@@ -909,7 +909,6 @@
 
         // ── SEND ALL ROTAS — now respects term filter ───────────────────
         window.prepareDistributionPackage = async () => {
-            const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
             const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
             const packageId = `rota-${Date.now()}`;
 
@@ -1058,11 +1057,7 @@
 </table></td></tr></table></body></html>`;
 
                     toast.innerHTML = `Sending to <strong>${firstName}</strong>...<br><span style="font-weight:400;opacity:0.8;">${sent + 1} of ${members.length}</span>`;
-                    const resp = await fetch(SEND_FUNCTION_URL, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments })
-                    });
-                    const result = await resp.json();
+                    const result = await EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, { to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments }));
                     if (result.ok) sent++; else { console.error('Send failed for', member.name, result.error); failed++; }
                 } catch(e) {
                     console.error('Error for', member.name, e);
@@ -1086,7 +1081,6 @@
             if (!member || !member.email) return alert("Member not found or has no email.");
             if (!confirm(`Send rota to ${member.name} (${member.email})?`)) return;
 
-            const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
             const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
             const packageId = `rota-single-${Date.now()}`;
 
@@ -1194,11 +1188,7 @@
 </table></td></tr></table></body></html>`;
 
                 toast.innerHTML = `Sending to <strong>${member.name}</strong>...`;
-                const resp = await fetch(SEND_FUNCTION_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments })
-                });
-                const result = await resp.json();
+                const result = await EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, { to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments }));
                 await Promise.allSettled(storageRefs.map(r => deleteObject(r)));
                 if (result.ok) {
                     toast.innerHTML = `Rota sent to <strong>${member.name}</strong>`;
@@ -1216,7 +1206,6 @@
         };
 
         window.gatherTermAvailability = async () => {
-            const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
             const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
 
             const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel))];
@@ -1283,11 +1272,7 @@
             document.body.appendChild(toast);
 
             try {
-                const resp = await fetch(SEND_FUNCTION_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: emailList, subject: `Availability Request — ${selectedTerm}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org' })
-                });
-                const result = await resp.json();
+                const result = await EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, { to: emailList, subject: `Availability Request — ${selectedTerm}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org' }));
                 if (result.ok) {
                     toast.innerHTML = `Availability request sent to <strong>${emailList.length}</strong> team members!`;
                     toast.style.background = '#3B7D23';

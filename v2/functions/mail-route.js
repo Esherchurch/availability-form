@@ -41,6 +41,11 @@ export const KNOWN_SOURCES = [
   /* A small group's members (Message the group, invitations; the main
      window's PLAN-hub-send, 21 Oct). */
   ['smallGroupMembers', 'email'],
+  /* A child's parents (kidsFamilies): "call the parent" emails the one with
+     no phone (notify.js callParent). Main window, 21 Oct 2026, when sendOne
+     moved onto makeSender; Calla's path never asked. */
+  ['kidsFamilies', 'email'],
+  ['kidsFamilies', 'email2'],
   ['formRequests', 'email'],
   ['bookings', 'requester.email'],
   ['hirers', 'email'],

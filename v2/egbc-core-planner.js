@@ -1196,11 +1196,7 @@
     if (spRecipients.length > 0) {
       toast('Sending plan...');
       try {
-        var resp = await fetch('https://sendemail-irkwdhx3xq-uc.a.run.app', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: spRecipients, subject: spSubject, html: html, replyTo: senderEmail })
-        });
-        var result = await resp.json();
+        var result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: spRecipients, subject: spSubject, html: html, replyTo: senderEmail }));
         if (result.ok) toast('Plan sent to ' + spRecipients.length + ' people');
         else toast('Could not send: ' + (result.error || 'unknown error'));
       } catch (e) { toast('Could not send: no connection'); }

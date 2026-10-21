@@ -1,13 +1,13 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610211900"></script>
+<script src="egbc-auth.js?v=202610212000"></script>
 
 <script src="egbc-shell.js?v=202610211800" data-title="Email Compiler"></script>
 <script src="egbc-guard.js?v=202610210900" data-admin="any" data-also-team="Church office"></script>
@@ -477,7 +477,6 @@
    it would miss the emulator hook and reach the live database. */
 const db = EGBCAuth.db;
 const storage = EGBCAuth.storage();
-const SEND_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
 
 const MAX_DRAFTS = 10;
 const LS_AUTOSAVE = 'egbc-email-autosave';
@@ -891,27 +890,15 @@ function openReview() {
 }
 function closeReview() { $('reviewModal').classList.remove('active'); }
 
-/* Sent by the hub (compilerSend), which checks who may email whom and logs
-   it in "Emails sent" - not straight from this page any more. */
-async function postEmail(toList, meta, html) {
-    try {
-        await EGBCAuth.call('compilerSend', {
-            to: toList, subject: meta.subject, html,
-            replyTo: $('senderEmail').value.trim() || 'worship@esherchurch.org'
-        });
-        return { ok: true };
-    } catch (e) {
-        /* Between this page going live and the function being deployed the
-           call comes back "not found": send the old way until then, so the
-           church is never left unable to email. Any other refusal - not your
-           team, for instance - stands. */
-        if (e && /not-found|NOT_FOUND|404/i.test(String(e.code || '') + ' ' + String(e.message || ''))) {
-            const resp = await fetch(SEND_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: toList, subject: meta.subject, html, replyTo: $('senderEmail').value.trim() || 'worship@esherchurch.org' }) });
-            return resp.json();
-        }
-        return { ok: false, error: (e && e.message) || 'It did not send.' };
-    }
+/* Sent by the hub (hubSend), which checks who may email whom, sends through
+   Church HQ's Resend and logs it in "Emails sent" - never straight from this
+   page. A test goes to yourself only (source compilerTest). */
+async function postEmail(toList, meta, html, test) {
+    return EGBCAuth.sendEmail({
+        source: test ? 'compilerTest' : 'compiler',
+        to: toList, subject: meta.subject, html,
+        replyTo: $('senderEmail').value.trim() || 'worship@esherchurch.org'
+    });
 }
 
 async function sendTest() {
@@ -922,7 +909,7 @@ async function sendTest() {
     const btnRow = $('testEmail').nextElementSibling;
     btnRow.disabled = true; btnRow.textContent = 'Sending…';
     try {
-        const r = await postEmail([addr], { ...meta, subject: '[TEST] ' + meta.subject }, html);
+        const r = await postEmail([addr], { ...meta, subject: '[TEST] ' + meta.subject }, html, true);
         alert(r && r.ok ? `Test sent to ${addr}. Check your inbox.` : `Test failed: ${(r && r.error) || 'unknown error'}`);
     } catch(e) { alert('Test failed: ' + e.message); }
     btnRow.disabled = false; btnRow.textContent = 'Send test';

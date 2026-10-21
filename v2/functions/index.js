@@ -273,58 +273,17 @@ import {
   documentsDue, expiryReminder, nextBookingFor, londonDay
 } from './reminders.js';
 
-/* The other window's function, in the same Google project and not in this
-   repository. We call it over HTTP exactly as the pages do. */
-const SEND_EMAIL_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
-
 const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
 
-/* THE SERVER'S GOOGLE IDENTITY (NEXT-BRIEF §26 item 4b). sendEmail accepts
-   a Google identity token for its own address from this codebase's runtime
-   account, and on switch-over day stops taking anything else. See
-   id-token.js: no token means the message goes without one, not that it
-   does not go. */
-import { emailAuthHeader, idTokenClient } from './id-token.js';
-const sendEmailClient = idTokenClient(SEND_EMAIL_URL);
-
-/* Every message, sent or stubbed, lands in emailOutbox. On the emulator that
-   is the whole of it and a check reads it; in the real project it is the
-   record of what went out, which is what somebody will want the morning a
-   hirer says they were never told. */
+/* EVERY MESSAGE THROUGH CHURCH HQ'S RESEND (Martin, 21 Oct 2026: "v2
+   doesn't use Calla at all"). sendOne used to post to Calla's sendEmail
+   with the server's Google identity; it is now makeSender (public-mail.js,
+   mail-route.js): known recipients, never an under-18, the hourly cap, an
+   emailOutbox row for every message, sent or stubbed. On the emulator
+   nothing leaves; the row is the whole of it and a check reads it. */
+import { makeSender } from './public-mail.js';
 async function sendOne(msg, meta) {
-  const row = {
-    to: msg.to || [], subject: msg.subject || '',
-    replyTo: msg.replyTo || '', html: msg.html || msg.body || '',
-    ...meta, at: new Date().toISOString(), stubbed: onEmulator()
-  };
-  if (!row.to.length) {
-    await db.collection('emailOutbox').add({ ...row, ok: false, error: 'no address' });
-    return { ok: false, error: 'no address' };
-  }
-
-  if (onEmulator()) {
-    await db.collection('emailOutbox').add({ ...row, ok: true });
-    console.info('[reminders] emulator: not sent -', row.subject, '->', row.to.join(', '));
-    return { ok: true, stubbed: true };
-  }
-
-  let out;
-  try {
-    const payload = { to: row.to, subject: row.subject, html: row.html };
-    if (row.replyTo) payload.replyTo = row.replyTo;
-    const auth = await emailAuthHeader(sendEmailClient);
-    row.auth = auth.Authorization ? 'google' : 'none';
-    const r = await fetch(SEND_EMAIL_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify(payload)
-    });
-    const j = await r.json().catch(() => null);
-    out = j && j.ok ? { ok: true } : { ok: false, error: (j && j.error) || ('HTTP ' + r.status) };
-  } catch (e) {
-    out = { ok: false, error: e.message || String(e) };
-  }
-  await db.collection('emailOutbox').add({ ...row, ok: out.ok, error: out.error || '' });
-  return out;
+  return makeSender({ db })({ to: msg.to || [], subject: msg.subject || '', html: msg.html || msg.body || '', replyTo: msg.replyTo || '' }, meta || {});
 }
 
 /* The church's own details, so nothing here carries one church's name.
@@ -793,6 +752,8 @@ export { socialMorning } from './social.js';
 export { unsplashSearch, unsplashUsed } from './unsplash.js';
 /* A members' meeting's papers for members without a hub account: their own 30-day link (comms window; mailings plan 3.3). */
 export { meetingPapers } from './meeting-papers.js';
+/* Every email a v2 page sends (PLAN-hub-send.md). */
+export { hubSend } from './hub-send.js';
 /* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */
 export { welcomeSubscriber, welcomeNewcomer } from './welcome-mail.js';
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */

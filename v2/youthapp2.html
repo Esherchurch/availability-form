@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-nosend.js?v=202610072100"></script>
+<script src="egbc-nosend.js?v=202610212000"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610211900"></script>
+<script src="egbc-auth.js?v=202610212000"></script>
 
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-youth.json">
@@ -1871,16 +1871,11 @@ async function emailSchedule() {
     const found = addressBook.find(p => p.name?.trim() === name);
     if (found && found.email) { const o = document.createElement('option'); o.value = found.email; o.textContent = `${name} (${found.email})`; sel.appendChild(o); }
   });
-  const SEND_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
   async function sendViaResend(toAddresses, subj, html) {
     const statusEl = document.getElementById('modalStatus');
     if (statusEl) { statusEl.textContent = 'Sending…'; statusEl.style.color = '#3d6263'; }
     try {
-      const resp = await fetch(SEND_URL, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ to: toAddresses, subject: subj, html, replyTo: document.getElementById('senderEmail')?.value || 'worship@esherchurch.org' })
-      });
-      const result = await resp.json();
+      const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: subj, html, replyTo: document.getElementById('senderEmail')?.value || 'worship@esherchurch.org' }));
       if (result.ok) {
         if (statusEl) { statusEl.textContent = 'Sent'; statusEl.style.color = '#3B7D23'; }
         setTimeout(() => modal.classList.remove('active'), 1800);

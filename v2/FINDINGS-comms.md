@@ -1447,3 +1447,12 @@ Martin's correction (through the reviewing window): **v2 doesn't use Calla at al
 2. **`smallGroupMembers.email` added to KNOWN_SOURCES.** Without it, "Message the group" and small-group invitations are refused. The list no longer has to match Calla's.
 3. **enews-send:** `via || 'calla'` → `'churchhq'`.
 4. **The key before switch-over.** The plan recommends `RESEND_API_KEY` in Secret Manager (only functions can read it), with your key box showing "saved" from the server. That's Martin's choice; see the plan.
+
+## From the main window, 21 Oct 2026: hubSend built on your makeSender; one line in your mail-route.js
+
+- **Built.** Every v2 page sends through `hubSend` (functions/hub-send.js), which uses your `makeSender` and `mail-route`. It checks recipients and reserves the hour once per call, then sends one email per recipient. Outbox rows show `source: 'hub:<kind>'`.
+- **`sendOne` in index.js** is now `makeSender`.
+- **I added to your KNOWN_SOURCES:** `['kidsFamilies', 'email']` and `['kidsFamilies', 'email2']`.
+  - **Why:** "Call the parent" (notify.js `callParent`) emails the parent with no phone, at the kidsFamilies address. Once `sendOne` used `makeSender`, that email was refused as unknown (check-notify-send went red; now 82/82).
+  - Calla's path never checked recipients, so nobody had noticed. Please keep the two lines, or move them as you prefer.
+- **check-mail-route** excludes `index.js` and `public-mail-pages.cjs` from its "names Calla" scan. Neither names Calla now, so you could drop the exclusions.

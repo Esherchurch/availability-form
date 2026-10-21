@@ -1078,7 +1078,6 @@
 
     loader(true, 'Sending…');
 
-    var SEND_FUNCTION_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
     var fmt = function (d) { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
 
     var body = function (n, onlyNew) {
@@ -1107,16 +1106,12 @@
     for (const n of toSend.concat(topUp)) {
       var onlyNew = !!n.fresh;
       try {
-        var resp = await fetch(SEND_FUNCTION_URL, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        var r = await EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, {
             to: [n.member.email],
             subject: 'Availability for ' + sel,
             html: body(n, onlyNew),
             replyTo: 'av@esherchurch.org'
-          })
-        });
-        var r = await resp.json();
+          }));
         if (!r.ok) throw new Error(r.error || 'send failed');
         sentPatch[n.member.id] = {
           at: new Date().toISOString(),

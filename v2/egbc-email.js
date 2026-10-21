@@ -2,12 +2,20 @@
    EGBC — one way to send an email
    ===================================================================
 
-   Seven files held the same hard-coded function URL when this was
-   written. This is the one place it lives from now on; nothing new
-   should paste it again.
+   THROUGH THE HUB, NEVER CALLA (Martin, 21 Oct 2026: "v2 doesn't use
+   Calla at all"). Every message goes to the hub's hubSend (EGBCAuth.
+   sendEmail), which asks who may send to whom and sends through Church
+   HQ's Resend. There is no send-service address in any v2 page.
 
-     EGBCEmail.send({ to, subject, html, replyTo, attachments })
+     EGBCEmail.send({ to, subject, html, replyTo, attachments, source?, ref?, log? })
        -> { ok: true }  |  { ok: false, error: '...' }
+
+   SOURCE: what kind of email this is, which decides who may send it and
+   to whom (functions/hub-send.js). A page that does not say is known by
+   its address: events-admin is 'event' (its ref is log.calEventId),
+   bookings-admin, rooms, maintenance and the app are 'booking', forms,
+   the children's register and check-in are 'form', groups-admin is
+   'group', safeguarding is 'safeguarding'.
 
    `to` is an array of addresses. `attachments` is what the function
    already expects: [{ filename, content: <base64>, type }].
@@ -31,7 +39,12 @@
 (function (global) {
   'use strict';
 
-  var FUNCTION_URL = 'https://sendemail-irkwdhx3xq-uc.a.run.app';
+  var BY_PAGE = { 'events-admin': 'event', 'bookings-admin': 'booking', 'rooms': 'booking', 'maintenance': 'booking', 'app': 'booking',
+    'forms-admin': 'form', 'kids-admin': 'form', 'kids-checkin': 'form', 'groups-admin': 'group', 'safeguarding': 'safeguarding' };
+  function sourceHere() {
+    var p = (location.pathname.split('/').pop() || '').replace(/\.html$/i, '').toLowerCase();
+    return BY_PAGE[p] || '';
+  }
 
   var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
 
@@ -89,7 +102,6 @@
 
   var EGBCEmail = {
 
-    url: FUNCTION_URL,
     isLocal: LOCAL,
 
     /* Everything composed during this page's life, newest last. */
@@ -115,26 +127,28 @@
       if (reply) payload.replyTo = reply;
       if (opts.attachments && opts.attachments.length) payload.attachments = opts.attachments;
 
+      payload.source = opts.source || sourceHere();
+      var ref = opts.ref || (opts.log && opts.log.calEventId) || '';
+      if (ref) payload.ref = ref;
+
+      /* On localhost what was composed is also kept here, for the checks
+         that read EGBCEmail.outbox(). The hub's emulator sends nothing
+         either way; with no functions emulator running at all, the
+         message counts as composed, as it always did. */
       if (LOCAL) {
         var stub = { ok: true, stubbed: true, at: new Date().toISOString(), payload: payload };
         outbox.push(stub);
         console.info('[EGBCEmail] localhost: not sent. ' + payload.subject + ' -> ' + to.join(', '));
-        return logSend(opts, stub).then(function () { return stub; });
       }
-
-      return fetch(FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).then(function (r) { return r.json(); })
-        .then(function (res) {
-          var out = res && res.ok ? { ok: true } : { ok: false, error: (res && res.error) || 'Send failed' };
-          return logSend(opts, out).then(function () { return out; });
-        })
-        .catch(function (e) {
-          var out = { ok: false, error: e.message || String(e) };
-          return logSend(opts, out).then(function () { return out; });
-        });
+      if (!global.EGBCAuth || !global.EGBCAuth.sendEmail) {
+        var none = LOCAL ? stub : { ok: false, error: 'The page cannot send email (no sign-in).' };
+        return logSend(opts, none).then(function () { return none; });
+      }
+      return global.EGBCAuth.sendEmail(payload).then(function (res) {
+        var unreachable = LOCAL && !res.ok && !res.code;
+        var out = unreachable ? stub : res.ok ? { ok: true, stubbed: !!res.stubbed || LOCAL } : { ok: false, error: res.error || 'Send failed' };
+        return logSend(opts, out).then(function () { return out; });
+      });
     },
 
     /* The same shell round every message, so one change of wording does

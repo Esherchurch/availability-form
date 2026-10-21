@@ -3060,7 +3060,6 @@ let YOUTH=[];
 
 const GRANT_WEEKS=6;
 
-const SEND_FUNCTION_URL='https://sendemail-irkwdhx3xq-uc.a.run.app';
 
 async function loadPeople(){
   const list=document.getElementById('peopleList');
@@ -3524,16 +3523,12 @@ async function issueCode(member,parent,silent){
     active:true
   });
 
-  const resp=await fetch(SEND_FUNCTION_URL,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
+  const r = await EGBCAuth.sendEmail(Object.assign({ source: 'youthCode' }, {
       to:[parent.email],
       subject:`Youth Hub access code for ${member.name||'your child'}`,
       html:codeEmail(member.name||'your child',code,parent.name),
       replyTo:'youth@esherchurch.org'
-    })
-  });
-  const r=await resp.json();
+    }));
   if(!r.ok)throw new Error(r.error||'The email did not send');
   return code;
 }
@@ -3563,11 +3558,7 @@ async function resendCode(code){
   if(!g)return;
   if(!confirm(`Resend the same code to ${g.sentTo}?`))return;
   try{
-    const resp=await fetch(SEND_FUNCTION_URL,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({to:[g.sentTo],subject:`Youth Hub access code for ${g.memberName||'your child'}`,html:codeEmail(g.memberName||'your child',code,''),replyTo:'youth@esherchurch.org'})
-    });
-    const r=await resp.json();
+    const r = await EGBCAuth.sendEmail(Object.assign({ source: 'youthCode' }, {to:[g.sentTo],subject:`Youth Hub access code for ${g.memberName||'your child'}`,html:codeEmail(g.memberName||'your child',code,''),replyTo:'youth@esherchurch.org'}));
     if(!r.ok)throw new Error(r.error||'The email did not send');
     alert('Sent again.');
   }catch(e){alert('Could not resend: '+e.message);}
