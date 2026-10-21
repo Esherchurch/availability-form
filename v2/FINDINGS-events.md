@@ -9223,3 +9223,58 @@ For Martin's share fix, the reviewing window asked that What's On events in the 
 I moved the one stamp your file loads it with (egbc-events.js:614, `egbc-share.js?v=202610212300`), and egbc-events.js's own stamp on the pages, and regenerated public-mail-pages.cjs. **Nothing else in your file changed.**
 
 Your share.test.mjs presses `[data-share]`. It still behaves as before: the system share sheet, else wa.me.
+
+### F-259 — The 10:58 smoke run: the 422 and the 300-second wait, explained and fixed (the events window, 21 Oct)
+
+**What happened**, from the converter's own log (read with `gcloud logging read`):
+- **The request** arrived at **10:58:12** and took **323 s**. Cloud Run's request log stamps the time a request came in, so the 422 was not "30 s in".
+- **The light copy now works,** so the 729 MB deck took more than 5 minutes.
+- **At 302 s,** Node's fetch (undici) stopped waiting for the reply's headers: "fetch failed". That's its built-in 300 s limit, whatever timeout is asked for.
+- **The tool then cleaned up:** it deleted the deck record and its files while the converter was still working.
+- **At 323 s** the converter finished, went to mark the deck "ready", found the record gone, and answered **422**. The reason went nowhere: the server didn't log it.
+- **The second instance at 10:58:22** was Cloud Run starting a spare (concurrency 1). Nothing else was wrong.
+- **ffmpeg did not fail:** there's no "ffmpeg (light copy)" line in the log, so the light copy was most likely made. Only the last write failed.
+
+**The same 300 s trap was in the hub's functions:** `google-auth-library` 11 uses fetch underneath. A big deck through the planner would have ended with "could not be made" while the converter carried on.
+
+**Fixed**
+- **One long request for everyone:** `functions/longpost.js` (`postJson`) uses plain `node:http(s)`. It has no header or body time-out of its own, only ours: 960 s, a little past Cloud Run's 900. It's used by:
+  - `presentConvert` and `presentFromLink`: their ID token now comes from `getRequestHeaders`, and they wait up to **1000 s**
+  - `tools/converter-smoke.mjs`
+- **The tool never cleans up mid-work:** if its request fails anyway, it follows the deck until it says ready or failed (up to 16 minutes from the start), and only then deletes. It prints what the deck said.
+- **The converter logs every result,** with the reason for every refusal (`runJob` in convert.mjs, which the web service runs for each request):
+  - `convert <deck>: started`
+  - `convert <deck>: ready, 4 slides, in 312 s`
+  - `convert <deck>: REFUSED after 323 s: <the error>`
+
+**The check: `screenshots/events/present-slow.test.mjs`, with a slow stand-in converter that answers after 330 s (about 6 minutes): 7/7.**
+1. The shared request waits the 330 s and gets the answer. Plain fetch, run alongside, gives up at about 300 s, as on deploy day.
+2. The hub's own `presentConvert`, on the functions emulator, waits past 300 s (331 s) and passes the answer on. The stand-in records that its caller never gave up first.
+3. The smoke tool, against a stand-in that drops the request and finishes the deck 20 s later, follows the deck to "ready". The converter's last write lands, and only then is everything deleted.
+4. A refusal puts its reason in the converter's log.
+
+**Breaks:** see the report.
+
+**What to redeploy**
+1. **The converter** (the `runJob` log lines): the same `gcloud run deploy` as F-257 step 12, with Martin signed in to gcloud.
+   - **Worth considering:** `--cpu 4` instead of 2. The light copy is ffmpeg work and goes about twice as fast, which keeps a long video well inside the 900 s limit. The cost per deck stays about the same (twice the rate for half the time).
+2. **The functions `presentConvert` and `presentFromLink`** (the long request, the 1000 s time-out). No other function changed. **No new secret or setting.**
+3. **Then rerun:**
+   ```
+   node tools/converter-smoke.mjs --live --write --link "<the 729 MB link>"
+   ```
+   - **Expect:** `HTTP 200 in` 300–600 s; media on slide 4 `+ light m4-0-light.mp4`; the files list `m4-0-light.mp4`; "Cleaned up: nothing left".
+   - **The converter's log** shows `convert smoke-…: ready, 4 slides, in … s`.
+- **Breaks, 3 of 3 caught:**
+  - the functions giving up before the converter is done
+  - the tool cleaning up as soon as its request fails
+  - a refusal with no word in the log
+- **Rule Zero:**
+
+  | Test | Result |
+  |---|---|
+  | present | 55/55 |
+  | present-microsoft | 42/42 |
+  | present-media | 8/8 |
+  | functions-secrets | 5/5 |
+  | present-slow | 7/7 |

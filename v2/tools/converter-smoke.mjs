@@ -29,6 +29,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { postJson } from '../functions/longpost.js';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROJECT = 'egbc-worship-planner', REGION = 'europe-west2', BUCKET = 'egbc-worship-planner.firebasestorage.app';
@@ -63,11 +64,20 @@ try {
   const token = /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(url) ? 'local' : sh('gcloud auth print-identity-token');
   console.log('\nCalling the converter... (a deck with a video can take minutes)');
   const watch = setInterval(async () => { const d = (await ref.get()).data() || {}; console.log('  ' + secs() + '  ' + (d.status || '?') + (d.size ? '  ' + Math.round(d.size / 1048576) + ' MB' : '')); }, 15000);
-  const r = await fetch(url + '/convert', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(LINK ? { deckId: id, link: LINK } : { deckId: id }) });
+  /* one request that may take the converter's whole 900 s (F-259): not
+     fetch, which gives up at 300 s. If the request still fails, the deck
+     itself is followed to the end: never clean up while the converter is
+     still working on it (deploy day, 21 Oct: that is what made the 422). */
+  let r = null, reqWhy = '';
+  try { r = await postJson(url + '/convert', LINK ? { deckId: id, link: LINK } : { deckId: id }, { headers: { Authorization: 'Bearer ' + token } }); }
+  catch (e) { reqWhy = String(e.message || e); console.log('\nThe request itself failed after ' + secs() + ': ' + reqWhy + '\nFollowing the deck until the converter finishes (up to 16 minutes from the start)...'); }
+  if (!r) {
+    for (;;) { const s = ((await ref.get()).data() || {}).status; if (s === 'ready' || s === 'failed' || Date.now() - t0 > 16 * 60 * 1000) break; await new Promise((ok) => setTimeout(ok, 5000)); }
+  }
   clearInterval(watch);
-  const body = await r.json().catch(() => ({}));
   const d = (await ref.get()).data() || {};
-  console.log('\nHTTP ' + r.status + ' in ' + secs() + ': ' + JSON.stringify(body));
+  console.log('\n' + (r ? 'HTTP ' + r.status + ' in ' + secs() + ': ' + JSON.stringify(r.json) : 'No reply (' + reqWhy + '); the deck says ' + d.status + ' after ' + secs()));
+  r = r || { status: 0, ok: d.status === 'ready' }; r.ok = r.ok !== undefined ? r.ok : r.status === 200;
   console.log('status:   ' + d.status + (d.why ? ' - ' + d.why : ''));
   console.log('slides:   ' + d.count + '   renderer: ' + d.renderer + (d.fallbackWhy ? '   (fell back: ' + d.fallbackWhy + ')' : ''));
   console.log('tidy-up:  ' + ((d.prepared || []).join(' | ') || 'nothing to change'));

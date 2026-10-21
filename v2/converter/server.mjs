@@ -31,7 +31,7 @@ import http from 'node:http';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { handleConvert, loadChurchFonts } from './convert.mjs';
+import { runJob, loadChurchFonts } from './convert.mjs';
 
 const BUCKET = process.env.BUCKET || 'egbc-worship-planner.firebasestorage.app';
 if (!getApps().length) initializeApp({ storageBucket: BUCKET });
@@ -47,8 +47,8 @@ export function makeServer({ render, allowLocal = false } = {}) {
       try { const b = JSON.parse(raw || '{}'); deckId = String(b.deckId || ''); link = String(b.link || ''); } catch (e) { return done(400, { error: 'bad request' }); }
       if (!/^[A-Za-z0-9_-]{6,60}$/.test(deckId)) return done(400, { error: 'which deck?' });
       if (!render) await loadChurchFonts(getStorage().bucket());
-      try { done(200, await handleConvert({ db: getFirestore(), bucket: getStorage().bucket(), deckId, link, render, allowLocal })); }
-      catch (e) { done(422, { error: String(e.message || e) }); }
+      const out = await runJob({ db: getFirestore(), bucket: getStorage().bucket(), deckId, link, render, allowLocal });
+      done(out.status, out.body);
     });
   });
 }

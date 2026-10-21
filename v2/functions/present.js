@@ -27,6 +27,9 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { GoogleAuth } from 'google-auth-library';
+import { postJson } from './longpost.js';
+/* how long a function waits for the converter: its 900 s, and a little over */
+const CONVERTER_WAIT_MS = 960 * 1000;
 
 const REGION = 'europe-west2';
 const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
@@ -62,17 +65,20 @@ async function converterUrl(dbi) {
 async function callConverter(dbi, deckId, link) {
   const url = await converterUrl(dbi);
   if (!url) throw new HttpsError('failed-precondition', 'The slide converter is not set up yet (CONVERTER_URL).');
-  const payload = link ? { deckId, link } : { deckId }, body = JSON.stringify(payload);
-  let res;
-  if (EMULATOR) res = await fetch(url.replace(/\/?$/, '') + '/convert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-  else {
+  const payload = link ? { deckId, link } : { deckId };
+  /* one request that may take the converter's whole 900 s (a long video):
+     not fetch, which gives up at 300 s (longpost.js, F-259) */
+  const headers = {};
+  if (!EMULATOR) {
     const client = await new GoogleAuth().getIdTokenClient(url);
-    const r = await client.request({ url: url.replace(/\/?$/, '') + '/convert', method: 'POST', data: payload, timeout: 900000, validateStatus: () => true });
-    res = { ok: r.status === 200, status: r.status, json: async () => r.data };
+    const h = await client.getRequestHeaders(url);
+    headers.Authorization = (h && typeof h.get === 'function') ? h.get('authorization') : (h.Authorization || h.authorization);
   }
-  const out = await res.json().catch(() => ({}));
-  if (!res.ok) throw new HttpsError('failed-precondition', out.error || 'The slides could not be made.');
-  return out;
+  let r;
+  try { r = await postJson(url.replace(/\/?$/, '') + '/convert', payload, { headers, timeoutMs: CONVERTER_WAIT_MS }); }
+  catch (e) { throw new HttpsError('unavailable', 'The slide converter did not answer: ' + (e.message || e)); }
+  if (r.status !== 200) throw new HttpsError('failed-precondition', r.json.error || 'The slides could not be made.');
+  return r.json;
 }
 
 async function deckFor(uid, deckId) {
@@ -84,7 +90,7 @@ async function deckFor(uid, deckId) {
   return { ref, d };
 }
 
-export const presentConvert = onCall({ region: REGION, timeoutSeconds: 900, memory: '256MiB' }, async (req) => {
+export const presentConvert = onCall({ region: REGION, timeoutSeconds: 1000, memory: '256MiB' }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   const { ref, d } = await deckFor(uid, (req.data || {}).deckId);
@@ -107,7 +113,7 @@ export function directLink(url) {
   return '';
 }
 
-export const presentFromLink = onCall({ region: REGION, timeoutSeconds: 900, memory: '256MiB' }, async (req) => {
+export const presentFromLink = onCall({ region: REGION, timeoutSeconds: 1000, memory: '256MiB' }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   const { ref } = await deckFor(uid, (req.data || {}).deckId);

@@ -213,6 +213,22 @@ export async function handleConvert({ db, bucket, deckId, link, render, allowLoc
   return convertDeck({ db, bucket, deckId, render: render || realRender });
 }
 
+/* One job as the web service runs it, with every result in the log and
+   the reason with every refusal (deploy day, 21 Oct: a 422 with no word of
+   why in the converter's log). -> { status: 200 | 422, body } */
+export async function runJob({ db, bucket, deckId, link, render, allowLocal = false }) {
+  const t0 = Date.now(), secs = () => Math.round((Date.now() - t0) / 1000) + ' s';
+  console.log('convert ' + deckId + ': started' + (link ? ' (a link)' : ''));
+  try {
+    const r = await handleConvert({ db, bucket, deckId, link, render, allowLocal });
+    console.log('convert ' + deckId + ': ready, ' + r.count + ' slides, in ' + secs());
+    return { status: 200, body: r };
+  } catch (e) {
+    console.error('convert ' + deckId + ': REFUSED after ' + secs() + ': ' + String((e && e.stack) || e).split('\n').slice(0, 3).join(' | '));
+    return { status: 422, body: { error: String((e && e.message) || e) } };
+  }
+}
+
 export async function convertDeck({ db, bucket, deckId, render = realRender }) {
   const ref = db.collection('presentDecks').doc(deckId);
   const deck = (await ref.get()).data();
