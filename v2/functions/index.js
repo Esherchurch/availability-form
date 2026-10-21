@@ -730,7 +730,7 @@ export { lessonFor } from './lesson.js';
    the hub, which checks the sender's teams; logged to emailOutbox. */
 export { compilerSend } from './compiler-send.js';
 export { videoRoomsEnsure, meetingHostToken } from './video.js';
-export { castVote, voteOpen, voteClose } from './meetings.js';
+export { castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople } from './meetings.js';
 /* Sermon plans, the other way: sermonLinks for the Preaching plan (F-229), the events window's file. */
 export { sermonLinkKeep } from './sermon-links.js';
 /* Building compliance: the colour for bookings, reminders and the monthly summary (F-233), the events window's file. */

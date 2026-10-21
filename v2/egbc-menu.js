@@ -635,14 +635,17 @@
       if (n.section && (opts.unfold || !(n.fold && count > FOLD_OVER && !holdsHere(n)))) {
         return '<div class="sec-h">' + esc(n.title) + '</div>' + inner(n.children, 0);
       }
-      const open = holdsHere(n);
+      /* Open if it holds this page, or if this person opened it last time
+         (the reviewing window, 21 Oct 2026: a folded group is 3 taps from
+         Home the first time and 2 after, because the Menu remembers). */
+      const open = holdsHere(n) || remembered().indexOf(n.title) !== -1;
       /* A heading that is ALSO a page - Worship & AV, Youth, Core Team - opens
          its charter, as on the original. So the words are a link and the arrow
          is what expands it. */
       const head = n.url
         ? '<a class="grp-link" href="' + esc(n.url) + '" title="' + esc(n.description || '') + '">' + esc(n.title) + '</a>'
         : '<span>' + esc(n.title) + '</span>';
-      return '<div class="grp' + (n.section ? ' fold' : '') + (open ? ' open' : '') + '">' +
+      return '<div class="grp' + (n.section ? ' fold' : '') + (open ? ' open' : '') + '" data-grp="' + esc(n.title) + '">' +
           '<button class="arw" onclick="EGBCMenu.toggleGroup(this.parentElement)" aria-label="Show or hide ' + esc(n.title) + '">' +
             icon('chevron-right', 14) + '</button>' +
           (n.section ? '' : '<span class="dot"></span>') + head +
@@ -680,6 +683,22 @@
     const body = grp.nextElementSibling;
     const open = grp.classList.toggle('open');
     if (body) body.classList.toggle('open', open);
+    remember(grp.getAttribute('data-grp'), open);
+  }
+  /* WHICH GROUPS THIS PERSON KEEPS OPEN, on this device only: a
+     convenience, so a private window or cleared storage simply starts
+     folded again. */
+  const OPEN_KEY = 'egbc_menu_open';
+  function remembered() {
+    try { const v = JSON.parse(localStorage.getItem(OPEN_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function remember(title, open) {
+    if (!title) return;
+    try {
+      const list = remembered().filter(function (t) { return t !== title; });
+      if (open) list.push(title);
+      localStorage.setItem(OPEN_KEY, JSON.stringify(list.slice(-20)));
+    } catch (e) { /* storage refused: it just will not be remembered */ }
   }
 
 

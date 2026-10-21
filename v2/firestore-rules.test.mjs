@@ -3660,6 +3660,10 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vS', 'ballots', 'm_other'), { at: 'x', name: 'O' });
   await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vC', 'ballots', 'm_other'), { at: 'x', name: 'O', choice: 'Yes' });
   await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vS', 'tally', 'count'), { Yes: 1, No: 1 });
+  /* Proxies (PROXIES.md): the member holds m_giver's vote; m_third's is someone else's. */
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'proxies', 'm_giver'), { holderId: 'm_u_member', holderName: 'M', giverName: 'G' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'proxies', 'm_third'), { holderId: 'm_x', holderName: 'X', giverName: 'T' });
+  await setDoc(doc(d, 'churchMeetings', 'rt_m1', 'votes', 'vS', 'ballots', 'm_giver'), { at: 'x', name: 'G', castBy: 'M', proxy: true });
 });
 const MV = (who, ...p) => doc(as(who), 'churchMeetings', 'rt_m1', ...p);
 await check('a church member reads the members\' meeting', 'allow', () => getDoc(MV('member')));
@@ -3680,6 +3684,13 @@ await check('  but not somebody else\'s on a secret vote', 'deny', () => getDoc(
 await check('  and everyone\'s on an OPEN vote once it has closed', 'allow', () => getDoc(MV('member', 'votes', 'vC', 'ballots', 'm_other')));
 await check('the office sees who has voted', 'allow', () => getDoc(MV('churchOffice', 'votes', 'vS', 'ballots', 'm_other')));
 await check('the tally is read by nobody, a master admin included', 'deny', () => getDoc(MV('martin', 'votes', 'vS', 'tally', 'count')));
+/* PROXIES (21 Oct 2026). */
+await check('PROXIES: the member holding a vote reads that proxy', 'allow', () => getDoc(MV('member', 'proxies', 'm_giver')));
+await check('  but not somebody else’s', 'deny', () => getDoc(MV('member', 'proxies', 'm_third')));
+await check('  and sees the ballot they cast for the giver (to know it went)', 'allow', () => getDoc(MV('member', 'votes', 'vS', 'ballots', 'm_giver')));
+await check('the office sees who holds whose vote', 'allow', () => getDoc(MV('churchOffice', 'proxies', 'm_third')));
+await check('nobody appoints a proxy from a page (the hub does)', 'deny', () => setDoc(MV('member', 'proxies', 'm_u_member'), { holderId: 'm_other' }));
+await check('  not even a master admin', 'deny', () => setDoc(MV('martin', 'proxies', 'm_u_martin'), { holderId: 'm_other' }));
 
 /* ---- marking it dealt with ----------------------------------------- */
 await check('the safeguarding lead marks one dealt with, with a note', 'allow',

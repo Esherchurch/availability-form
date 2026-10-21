@@ -43,6 +43,7 @@ const PEOPLE = {
   member: { email: 'mm.member@example.invalid', member: 'ab_mm_member', name: 'Mm Member Synthetic', teams: ['Worship Team'], churchMember: true, masterAdmin: false },
   member2: { email: 'mm.member2@example.invalid', member: 'ab_mm_member2', name: 'Mm Second Synthetic', teams: [], churchMember: true, masterAdmin: false },
   outsider: { email: 'mm.outsider@example.invalid', member: 'ab_mm_out', name: 'Mm Outsider Synthetic', teams: ['Worship Team'], churchMember: false, masterAdmin: false },
+  giver: { email: 'mm.giver@example.invalid', member: 'ab_mm_giver', name: 'Mm Giver Synthetic', teams: [], churchMember: true, masterAdmin: false },
   chair: { email: 'mm.chair@example.invalid', member: 'ab_mm_chair', name: 'Mm Chair Synthetic', teams: ['Church office'], churchMember: false, masterAdmin: false }
 };
 const req = (port, method, p, body, hdr) => new Promise((res, rej) => {
@@ -62,7 +63,7 @@ for (const p of Object.values(PEOPLE)) {
   await db.doc('users/' + p.uid).set({ uid: p.uid, email: p.email, name: p.name, memberId: p.member, status: 'active', linkedBy: 'admin', teams: p.teams, adminFor: [], masterAdmin: p.masterAdmin, churchMember: p.churchMember });
 }
 const day = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
-const MID = 'mm_check', OLD_MID = 'mm_check_old';
+const MID = 'mm_check', OLD_MID = 'mm_check_old', PMID = 'mm_check_proxy';
 const clear = async () => {
   for (const v of (await db.collection('churchMeetings/' + MID + '/votes').get()).docs) {
     for (const sub of ['ballots', 'tally']) for (const d of (await v.ref.collection(sub).get()).docs) await d.ref.delete();
@@ -70,6 +71,12 @@ const clear = async () => {
   }
   await db.doc('churchMeetings/' + MID).delete();
   await db.doc('churchMeetings/' + OLD_MID).delete();
+  for (const v of (await db.collection('churchMeetings/' + PMID + '/votes').get()).docs) {
+    for (const sub of ['ballots', 'tally']) for (const d of (await v.ref.collection(sub).get()).docs) await d.ref.delete();
+    await v.ref.delete();
+  }
+  for (const d of (await db.collection('churchMeetings/' + PMID + '/proxies').get()).docs) await d.ref.delete();
+  await db.doc('churchMeetings/' + PMID).delete();
 };
 await clear();
 await db.doc('churchMeetings/' + MID).set({ title: 'Synthetic Members\u2019 Meeting', date: day, time: '19:45', place: 'In the church', joinKind: 'room', room: 'CMM', papers: [], status: 'planned' });
@@ -105,6 +112,38 @@ const closed = (await db.doc('churchMeetings/' + MID + '/votes/vS').get()).data(
 ok('  and the results are the counts, every choice listed', closed.status === 'closed' && JSON.stringify(closed.results) === JSON.stringify({ Yes: 1, No: 1, Abstain: 0 }), JSON.stringify(closed.results));
 ok('nothing is cast after it closes', await run(M.cast, 'member2', { vote: 'vO', choice: 'No' }) === 'ok'
   && await run(M.close, 'chair', { vote: 'vO' }) === 'ok' && await run(M.cast, 'member2', { vote: 'vS', choice: 'Yes' }) === 'failed-precondition');
+
+/* ---- 1b. proxies (Martin, 21 Oct 2026; PROXIES.md) ---- */
+console.log('\n1b. Proxies');
+await db.doc('churchMeetings/' + PMID).set({ title: 'Synthetic Proxy Meeting', date: new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10), time: '19:45', joinKind: 'room', room: 'CMM', papers: [], status: 'planned' });
+const pvote = (id, secret) => db.doc('churchMeetings/' + PMID + '/votes/' + id).set({ question: 'Proxy question ' + id + '?', choices: ['Yes', 'No'], secret, status: 'draft', order: 0, createdAt: new Date().toISOString() });
+await pvote('pS', true);
+const P = (who, data) => run(M[data.fn], who, Object.assign({ meeting: PMID }, data.d));
+ok('a member asks another member to vote for them', await P('giver', { fn: 'appoint', d: { holder: PEOPLE.member.member } }) === 'ok');
+const pr = (await db.doc('churchMeetings/' + PMID + '/proxies/' + PEOPLE.giver.member).get()).data() || {};
+ok('  recorded: who holds whose vote', pr.holderId === PEOPLE.member.member && pr.holderName === PEOPLE.member.name && pr.giverName === PEOPLE.giver.name, JSON.stringify(pr));
+ok('  one proxy each: asking again replaces it, never two', (await db.collection('churchMeetings/' + PMID + '/proxies').where('holderId', '!=', '').get()).size === 1);
+ok('somebody who is not a church member cannot appoint one', await P('outsider', { fn: 'appoint', d: { holder: PEOPLE.member.member } }) === 'permission-denied');
+ok('  nor can anyone appoint themselves', await P('member2', { fn: 'appoint', d: { holder: PEOPLE.member2.member } }) === 'invalid-argument');
+ok('  nor somebody who is not a church member to hold it', await P('member2', { fn: 'appoint', d: { holder: PEOPLE.outsider.member } }) === 'failed-precondition');
+ok('  and a member already voting for someone cannot hold a second', await P('member2', { fn: 'appoint', d: { holder: PEOPLE.member.member } }) === 'failed-precondition');
+const plist = await M.people({ db, uid: PEOPLE.giver.uid, data: {} });
+ok('the list to choose from: church members, names only, not yourself', plist.people.some(p => p.id === PEOPLE.member.member)
+  && !plist.people.some(p => p.id === PEOPLE.giver.member || p.id === PEOPLE.outsider.member) && plist.people.every(p => Object.keys(p).join() === 'id,name'), JSON.stringify(plist.people.slice(0, 4)));
+await run(M.open, 'chair', { meeting: PMID, vote: 'pS' });
+ok('once voting starts, nobody appoints or cancels', await P('member2', { fn: 'appoint', d: { holder: PEOPLE.chair.member } }) === 'failed-precondition'
+  && await P('giver', { fn: 'unappoint', d: {} }) === 'failed-precondition');
+ok('the member who gave their vote cannot also vote', await run(M.cast, 'giver', { meeting: PMID, vote: 'pS', choice: 'Yes' }) === 'failed-precondition');
+ok('the holder votes for them', await run(M.cast, 'member', { meeting: PMID, vote: 'pS', choice: 'No', for: PEOPLE.giver.member }) === 'ok');
+const pb = (await db.doc('churchMeetings/' + PMID + '/votes/pS/ballots/' + PEOPLE.giver.member).get()).data() || {};
+ok('  it is the giver’s ballot, marked who cast it', pb.name === PEOPLE.giver.name && pb.castBy === PEOPLE.member.name && pb.proxy === true, JSON.stringify(pb));
+ok('  SECRET STAYS SECRET: no choice on a proxy ballot either', !('choice' in pb), JSON.stringify(pb));
+ok('  once only', await run(M.cast, 'member', { meeting: PMID, vote: 'pS', choice: 'Yes', for: PEOPLE.giver.member }) === 'already-exists');
+ok('  and nobody else can cast it', await run(M.cast, 'member2', { meeting: PMID, vote: 'pS', choice: 'Yes', for: PEOPLE.giver.member }) === 'permission-denied');
+ok('the holder still has their own vote', await run(M.cast, 'member', { meeting: PMID, vote: 'pS', choice: 'Yes' }) === 'ok');
+const pv = (await db.doc('churchMeetings/' + PMID + '/votes/pS').get()).data();
+const pt = (await db.doc('churchMeetings/' + PMID + '/votes/pS/tally/count').get()).data();
+ok('the count: two votes, one by proxy', pv.voters === 2 && pv.byProxy === 1 && pt.Yes === 1 && pt.No === 1, JSON.stringify({ v: pv.voters, p: pv.byProxy, pt }));
 
 /* ---- 2. the page ---- */
 console.log('\n2. The page');
@@ -170,6 +209,29 @@ try {
   const rulesRefuse = String(await evl('EGBCAuth.db.collection("churchMeetings").doc("' + MID + '").collection("votes").doc("vPage").collection("tally").doc("count").get().then(function(){return "READ IT"},function(e){return e.code})', true));
   ok('  and the tally cannot be read from a page', /permission-denied/.test(rulesRefuse), rulesRefuse);
   await shot('members-meeting--voted-375.png');
+
+  /* PROXIES on the page (PROXIES.md): the holder's second set of choices,
+     the giver's "you asked", the chair's list. */
+  await pvote('pS2', true);
+  await run(M.open, 'chair', { meeting: PMID, vote: 'pS2' });
+  await as('member', '?meeting=' + PMID);
+  let PX = JSON.parse(String(await evl('JSON.stringify({forSet:!!document.querySelector(\'[data-vote="pS2"] [data-for="' + PEOPLE.giver.member + '"] [data-cast-for]\'),'
+    + 'label:(document.querySelector(\'[data-vote="pS2"] [data-for]\')||{textContent:""}).textContent,sideways:document.documentElement.scrollWidth>innerWidth+1})')));
+  ok('PROXY: the holder sees a second set of choices, "Voting for" the giver', PX.forSet && /Voting for Mm Giver Synthetic/.test(PX.label), JSON.stringify(PX));
+  ok('  nothing sideways at 375px', !PX.sideways);
+  await shot('members-meeting--proxy-375.png');
+  await evl('document.querySelector(\'[data-vote="pS2"] [data-for="' + PEOPLE.giver.member + '"] [data-cast="Yes"]\').click();1');
+  let pdone = false;
+  for (let i = 0; i < 30; i++) { await sleep(400); if ((await db.doc('churchMeetings/' + PMID + '/votes/pS2/ballots/' + PEOPLE.giver.member).get()).exists) { pdone = true; break; } }
+  const pb2 = (await db.doc('churchMeetings/' + PMID + '/votes/pS2/ballots/' + PEOPLE.giver.member).get()).data() || {};
+  ok('  one tap casts the giver’s vote, marked who cast it, with no choice on it (secret)', pdone && pb2.castBy === PEOPLE.member.name && !('choice' in pb2), JSON.stringify(pb2));
+  await as('giver', '?meeting=' + PMID);
+  PX = String(await evl('(document.querySelector(\'[data-vote="pS2"]\')||{textContent:""}).textContent'));
+  ok('  the giver sees "You asked Mm Member Synthetic to vote for you", and no buttons', /You asked Mm Member Synthetic to vote for you/.test(PX)
+    && String(await evl('!document.querySelector(\'[data-vote="pS2"] [data-cast]\')')) === 'true', PX.slice(0, 200));
+  await as('chair', '?meeting=' + PMID);
+  PX = String(await evl('(document.getElementById("run-proxies")||{textContent:""}).textContent'));
+  ok('  the chair sees who is voting for whom', /Mm Member Synthetic is voting for Mm Giver Synthetic/.test(PX), PX.slice(0, 200));
 
   /* FROM AN EMAIL: ?meeting=<id> opens that meeting straight away. */
   await as('member2', '?meeting=' + OLD_MID);

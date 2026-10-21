@@ -733,8 +733,12 @@ async function findability(B, role, size, base) {
     if (url && f.direct[url]) taps = 1;
     if (taps === null && url && f.depth[url] !== undefined) taps = 2 + f.depth[url];
     if (taps === null) continue;                    /* not a job this person has */
-    seen.push(job + ' ' + taps);
-    if (taps > 2) why.push('findability: ' + job + ' is ' + taps + ' taps from Home');
+    /* A page inside a FOLDED group (Events and rooms, Church admin, over
+       FOLD_OVER pages) may be 3 the first time: the reviewing window, 21 Oct
+       2026, accepted that, and the Menu remembers the group open after. */
+    const folded = !(button && f.buttons.some(t => button.test(t))) && !(url && f.direct[url]) && !!url && f.depth[url] === 1;
+    seen.push(job + ' ' + taps + (folded ? ' (folded group)' : ''));
+    if (taps > (folded ? 3 : 2)) why.push('findability: ' + job + ' is ' + taps + ' taps from Home');
   }
   record({ screen: 'findability (taps from Home)', role, size, pass: !why.length, why, skipped: [], jobs: seen });
 }

@@ -2613,6 +2613,16 @@ service cloud.firestore {
         allow write: if meetingRunner() && doc == 'join'
                      && request.resource.data.keys().hasOnly(['zoomUrl', 'zoomId', 'passcode', 'updatedAt', 'updatedBy']);
       }
+      // PROXIES (Martin, 21 Oct 2026; design-mocks/members-meeting/PROXIES.md):
+      // who holds whose vote. Read by whoever runs the meeting, the member
+      // who gave it and the member holding it; written only by the hub's
+      // proxyAppoint / proxyCancel.
+      match /proxies/{giverId} {
+        allow read: if meetingRunner()
+                    || (active() && me().get('memberId', '-') == giverId)
+                    || (active() && resource.data.holderId == me().get('memberId', '-'));
+        allow write: if false;
+      }
       match /votes/{vid} {
         allow read: if meetingMember();
         allow create: if meetingRunner()
@@ -2633,6 +2643,9 @@ service cloud.firestore {
         match /ballots/{memberId} {
           allow read: if meetingRunner()
                       || (active() && me().get('memberId', '') == memberId)
+                      // the member holding this member's proxy (PROXIES.md)
+                      || (active() && exists(/databases/$(database)/documents/churchMeetings/$(mid)/proxies/$(memberId))
+                          && get(/databases/$(database)/documents/churchMeetings/$(mid)/proxies/$(memberId)).data.holderId == me().get('memberId', '-'))
                       || (meetingMember()
                           && get(/databases/$(database)/documents/churchMeetings/$(mid)/votes/$(vid)).data.secret == false
                           && get(/databases/$(database)/documents/churchMeetings/$(mid)/votes/$(vid)).data.status == 'closed');
