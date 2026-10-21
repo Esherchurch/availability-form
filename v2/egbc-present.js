@@ -78,6 +78,9 @@
     '.pz-timer{font:800 24px Inter,sans-serif;color:#fff;font-variant-numeric:tabular-nums}.pz-timer small{font:600 12px Inter,sans-serif;color:var(--pz-mute);margin-left:6px}' +
     '.pz-film{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}.pz-film button{flex:0 0 112px;aspect-ratio:16/9;border-radius:8px;border:2px solid transparent;padding:0;overflow:hidden;background:#05080b;cursor:pointer;position:relative}' +
     '.pz-film button img{width:100%;height:100%;object-fit:cover;display:block}.pz-film button.on{border-color:#a7d4d4}.pz-film button span{position:absolute;left:4px;top:2px;font:700 11px Inter,sans-serif;color:#fff;text-shadow:0 1px 2px #000}' +
+    /* The thumbnails' sideways scrollbar (the reviewing window, 21 Oct: a white bar on a phone): thin and dark where there is a mouse, none on a touch screen, where the row is swiped */
+    '.pz-film,.pz-faces{scrollbar-width:thin;scrollbar-color:#3a4a52 transparent}.pz-film::-webkit-scrollbar,.pz-faces::-webkit-scrollbar{height:6px;background:transparent}.pz-film::-webkit-scrollbar-thumb,.pz-faces::-webkit-scrollbar-thumb{background:#3a4a52;border-radius:3px}' +
+    '@media (pointer:coarse){.pz-film,.pz-faces{scrollbar-width:none}.pz-film::-webkit-scrollbar,.pz-faces::-webkit-scrollbar{display:none}}' +
     '.pz-next .pz-stage{box-shadow:none}' +
     '.pz-ctl{display:flex;gap:12px;margin-top:12px}' +
     '.pz-wait{flex:1;display:grid;place-items:center;padding:24px;text-align:center;color:var(--pz-mute)}' +
@@ -424,5 +427,5 @@
     };
   }
 
-  global.EGBCPresent = { mount: mount, deckItems: deckItems, notesReader: notesReader };
+  global.EGBCPresent = { mount: mount, deckItems: deckItems, notesReader: notesReader, css: css };
 })(window);

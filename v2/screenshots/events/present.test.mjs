@@ -185,11 +185,11 @@ try {
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: false });
   await db.collection('presentDecks').doc('dk_held01').set({ context: { type: 'session', groupId: 'pg_kids', sessionId: 'ps_1' }, name: 'Held', status: 'uploaded', source: 'upload', by: P.karen.uid, byName: 'x', at: 'x' });
   const held = await karen.evaluate(() => EGBCAuth.call('presentConvert', { deckId: 'dk_held01' }).then(() => 'converted', e => e.message));
-  ok('9. BEFORE SWITCH-OVER nothing is converted (the second guard, after the page)', /switches over/.test(held), held);
+  ok('9. BEFORE SWITCH-OVER nothing is converted (the second guard, after the page)', /when the hub goes live/.test(held), held);
   await karen.goto(URLB + 'session-planner.html?s=ps_1', { waitUntil: 'networkidle2' });
   const hasPart = await until(() => karen.$('.part .ph'));
   if (hasPart) { await karen.evaluate(() => document.querySelector('.part .ph').click()); await until(() => karen.$('[data-addstep]')); await karen.select('[data-addstep]', 'pptx'); await until(() => karen.$('.sheet')); }
-  ok('   and the planner’s PowerPoint step says so, with nothing to upload', !!hasPart && (/can be added when the church switches over/.test(await text(karen, '.sheet')) && !(await karen.$('#stFile'))), await text(karen, '.sheet'));
+  ok('   and the planner’s PowerPoint step says so, with nothing to upload', !!hasPart && (/can be added when the hub goes live/.test(await text(karen, '.sheet')) && !(await karen.$('#stFile'))), await text(karen, '.sheet'));
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
 
   /* ---------- 1. a leader adds a PowerPoint ---------- */

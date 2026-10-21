@@ -133,8 +133,8 @@ try {
 
   /* ---------- 3a. phones mode before switch-over ---------- */
   await tap(karen, '[data-qphones]');
-  await until(async () => /switches over/.test(await text(karen, '[data-qerr]')));
-  ok('3. PHONES MODE BEFORE SWITCH-OVER: refused in words; teams on the TV still work', /switches over/.test(await text(karen, '[data-qerr]')) && (await db.collection('quizRuns').get()).size === 0, await text(karen, '[data-qerr]'));
+  await until(async () => /when the hub goes live/.test(await text(karen, '[data-qerr]')));
+  ok('3. PHONES MODE BEFORE SWITCH-OVER: refused in words; teams on the TV still work', /can be used when the hub goes live/.test(await text(karen, '[data-qerr]')) && (await db.collection('quizRuns').get()).size === 0, await text(karen, '[data-qerr]'));
 
   /* the switch: off, the server refuses too */
   await db.collection('churchSettings').doc('features').set({ quiz: false });

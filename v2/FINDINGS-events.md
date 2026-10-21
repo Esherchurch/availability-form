@@ -9397,3 +9397,25 @@ Mine are done the same way:
 - the Rota planner, Sunday service plan and Music Upload are now offered to the leaders their guards let in (`leaderOf` takes a list now);
 - index.html is on the list (the public availability form);
 - the audit now counts the "you" menu's links, and `page?x` when the page itself is offered.
+
+### F-261 — Present: "when the hub goes live", and the thumbnails' scrollbar (the events window, 21 Oct)
+
+**Asked by the reviewing window:**
+1. **The words.** Present's messages said "when the church switches over to the new hub". A church may never switch over (Church HQ is for any church), so they now say **"when the hub goes live"**:
+   - the quiz on phones (`functions/quiz.js`, `quizStart`)
+   - adding slides (`functions/present.js`, `presentConvert`)
+   - the session planner's PowerPoint step (session-planner.html)
+
+   Other windows' messages still say "switches over" (church-meeting, church-settings, compliance, payments, giving, team mail, the planner email, peep, places floor plans). They're left for their owners to change.
+2. **The scrollbar.** The row of slide thumbnails (and the viewers' faces on a phone) scrolls sideways. It now has no scrollbar on a touch screen, where the row is swiped, and a thin dark one where there's a mouse, instead of the browser's white bar.
+
+**What to deploy:** the functions `quizStart` and `presentConvert` (the words only). The page change is live on the next push. **No new secret or setting.**
+
+**Proved:**
+- **A new check, `present-film.test.mjs`:** 5/5.
+  - **The break** (the old styles): 2/5. It catches the white bar on a phone and with a mouse.
+- **present:** 55/55.
+  - The first run had 54: on the TV, a video started late (the TV at 0 s), under load.
+  - The rerun, on its own, gave 55.
+- **present-quiz:** 39/39.
+- **Both tests now check the new words.**

@@ -86,7 +86,7 @@ async function deckFor(uid, deckId) {
   const ref = db().collection('presentDecks').doc(deckId), d = (await ref.get()).data();
   if (!d) throw new HttpsError('not-found', 'That deck could not be found.');
   if (!(await mayPresent(db(), uid, d.context))) throw new HttpsError('permission-denied', 'Only the people who may present here can add slides.');
-  if (!(await launched(db()))) throw new HttpsError('failed-precondition', 'Slides can be added when the church switches over to the new hub.');
+  if (!(await launched(db()))) throw new HttpsError('failed-precondition', 'Slides can be added when the hub goes live.');
   return { ref, d };
 }
 

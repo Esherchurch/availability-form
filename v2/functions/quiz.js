@@ -70,7 +70,7 @@ export const quizStart = onCall({ region: REGION }, async (req) => {
   const ctx = { type: 'session', groupId: s.groupId, sessionId: String(sessionId) };
   if (!(await mayPresent(db(), uid, ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
   if (!(await featureOn(db(), 'quiz'))) throw new HttpsError('failed-precondition', 'The quiz is switched off for this church (Church settings).');
-  if (!(await launched())) throw new HttpsError('failed-precondition', 'The quiz on phones can be used when the church switches over to the new hub. Play in teams on the TV until then.');
+  if (!(await launched())) throw new HttpsError('failed-precondition', 'The quiz on phones can be used when the hub goes live. Play in teams on the TV until then.');
   const m = String(step || '').match(/^p(\d+)s(\d+)$/), st = m && ((s.parts || [])[+m[1]] || {}).show && s.parts[+m[1]].show[+m[2]];
   if (!st || st.type !== 'quiz' || !(st.questions || []).length) throw new HttpsError('not-found', 'That quiz could not be found in the session.');
   const questions = st.questions.slice(0, 12).map((x) => ({ q: String(x.q || '').slice(0, 160), answers: (x.answers || []).slice(0, 4).map((a) => String(a).slice(0, 60)), seconds: Math.max(5, Math.min(120, +x.seconds || 20)) })).filter((x) => x.q && x.answers.length >= 2);
