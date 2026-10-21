@@ -431,7 +431,31 @@
     return doc.body.innerHTML;
   }
 
+  /* ---- a notice: a link that needs signing in, never its words ------
+     (the reviewing window for Martin, 21 Oct 2026). Notices are read by
+     signed-in members only (firestore.rules, news), so what goes to a
+     WhatsApp group is the way in, not the notice: a church-wide one by its
+     title, a team's by the team alone, and the hub's own address, which
+     asks the reader to sign in and then opens that notice.
+       n: { id, title, teams }   hub: the hub's address (optional) */
+  function noticeLink(id, hub) {
+    var base = hub || new URL('hub.html', global.location.href).href.split('?')[0].split('#')[0];
+    return base + '?notice=' + encodeURIComponent(String(id || ''));
+  }
+  function notice(n, hub) {
+    n = n || {};
+    var teams = Array.isArray(n.teams) ? n.teams.filter(Boolean) : [];
+    var said = teams.length
+      ? 'A notice for ' + (teams.length === 1 ? 'the ' + teams[0] : teams.slice(0, -1).join(', ') + ' and ' + teams[teams.length - 1]) + '.'
+      : 'A notice from the church.';
+    return { title: teams.length ? '' : (n.title || ''), html: '<p>' + esc(said) + ' Sign in to the hub to read it:</p>', link: noticeLink(n.id, hub) };
+  }
+  function shareNotice(n, hub) { return open(notice(n, hub)); }
+
   global.EGBCShare = {
+    notice: notice,
+    noticeLink: noticeLink,
+    shareNotice: shareNotice,
     clean: clean,
     format: format,
     htmlToWhatsApp: htmlToWhatsApp,

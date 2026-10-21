@@ -205,6 +205,10 @@ EGBCAuth.require().then(async profile => {
     const q = new URLSearchParams(location.search);
     if (q.get('notice') === 'new' && canPostNotice()) setTimeout(function () { openNewsEditor(); }, 0);
     else if (q.get('notice') === 'new' || q.get('notices') === '1') setTimeout(function () { openLatest(); }, 0);
+    /* A shared notice's link (egbc-share.js noticeLink): signed in by now,
+       so open that one notice. One that has gone, or is not for this
+       person, opens the list instead. */
+    else if (q.get('notice')) setTimeout(function () { const id = q.get('notice'); if (NEWS.some(x => x.id === id)) openRead(id); else openLatest(); }, 0);
   })();
 
   const teams = availableTeams();
@@ -1833,6 +1837,7 @@ function renderNews() {
       <div class="bd">${safeHtml(n.body)}</div>
       ${n.requireAck ? `<button class="btn gold sm" onclick="ackNews('${n.id}')"><i data-lucide="check" style="width:15px;height:15px"></i>I've read it</button>
         ${EDITING && canEditNews(n) ? `<span class="seen">${seen} so far</span>` : ''}` : ''}
+      ${window.EGBCShare && EGBCShare.notice ? `<button type="button" class="btn sm ghost" data-news-share="${esc(n.id)}" style="min-height:40px"><i data-lucide="share-2" style="width:15px;height:15px"></i>Share</button>` : ''}
     </div>`;
   }).join('');
 
@@ -1925,8 +1930,21 @@ function newsCard(n) {
     </div>
     <h4>${esc(n.title)}</h4>
     <div class="bd">${safeHtml(n.body)}</div>
+    ${window.EGBCShare && EGBCShare.notice ? `<button type="button" class="nw-share" data-news-share="${esc(n.id)}"><i data-lucide="share-2" style="width:15px;height:15px"></i>Share</button>` : ''}
   </div>`;
 }
+
+/* SHARE A NOTICE (Martin, 21 Oct 2026): egbc-share.js's sheet - WhatsApp,
+   copy, the phone's share - with a link that needs signing in and never
+   the notice's words (notices are for signed-in members only). */
+function shareNews(id) {
+  const n = NEWS.find(x => x.id === id);
+  if (n && window.EGBCShare) EGBCShare.shareNotice({ id: n.id, title: n.title, teams: n.teams });
+}
+document.addEventListener('click', function (e) {
+  const b = e.target.closest && e.target.closest('[data-news-share]');
+  if (b) { e.stopPropagation(); shareNews(b.getAttribute('data-news-share')); }
+});
 
 /* Continuous vertical scroll, as the original portal does it. The whole track
    is duplicated so when the first copy has passed, the second is already in
@@ -2009,6 +2027,8 @@ function openRead(id) {
 
   document.getElementById('rdTitle').textContent = n.title;
   document.getElementById('rdBody').innerHTML = safeHtml(n.body);
+  const sh = document.getElementById('rdShare');
+  if (sh) { sh.hidden = !window.EGBCShare; sh.setAttribute('data-news-share', n.id); }
   document.getElementById('readModal').classList.add('on');
   document.body.style.overflow = 'hidden';
 }

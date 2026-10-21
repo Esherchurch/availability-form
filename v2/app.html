@@ -53,7 +53,7 @@
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
      suite has rather than trusting it or flattening it. -->
-<script src="egbc-share.js?v=202610161900"></script>
+<script src="egbc-share.js?v=202610212200"></script>
 <script src="egbc-board-phone.js?v=202610121900"></script>
 <!-- App mode (§7d A): the app itself sets the flag and hands over where
      to come back to, so a page it opens wears the app's chrome. -->
@@ -640,7 +640,7 @@ function loadNews(me) {
       if (n.until && n.until < todayIso()) return;           /* "show until" */
       if (Array.isArray(n.teams) && n.teams.length
           && !n.teams.some(function (t) { return me.teams.indexOf(t) !== -1; })) return;
-      out.push({ id: d.id, title: n.title || '', html: String(n.body || ''),
+      out.push({ id: d.id, title: n.title || '', html: String(n.body || ''), teams: Array.isArray(n.teams) ? n.teams : [],
                  body: String(n.body || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
                  pinned: !!n.pinned, date: n.date || '',
                  at: n.createdAt || n.at || '', ms: noticeMillis(n) });
@@ -700,10 +700,27 @@ function noticesSheet() {
       + '<div style="font-size:12px;color:var(--muted);white-space:nowrap">' + A.esc(label) + '</div>'
       + '</div>'
       + '<div class="rich notice-body" style="font-size:13.5px;color:var(--body);margin-top:6px">' + body + '</div>'
+      /* SHARE (Martin, 21 Oct 2026): the hub's own share, egbc-share.js -
+         WhatsApp, copy, or the phone's share sheet. A link that needs
+         signing in, never the notice's words: notices are members only. */
+      + (window.EGBCShare && EGBCShare.notice
+          ? '<button type="button" class="notice-share" data-notice-share="' + A.esc(n.id) + '" '
+            + 'style="margin-top:10px;min-height:44px;padding:0 14px;border:1px solid var(--line,#d1d5db);border-radius:10px;background:#fff;'
+            + 'color:var(--ink,#111827);font:600 14px Inter,system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer">'
+            + ic('share-2', 16) + 'Share</button>' : '')
       + '</div>';
   }).join('');
   return out + CLOSE;
 }
+
+/* One listener for every notice's Share, wherever the sheet draws it. */
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('[data-notice-share]');
+  if (!b || !window.EGBCShare) return;
+  var id = b.getAttribute('data-notice-share');
+  var n = (NOTICES.all || []).filter(function (x) { return x.id === id; })[0];
+  if (n) EGBCShare.shareNotice({ id: n.id, title: n.title, teams: n.teams });
+});
 
 function paintNotices() {
   A.sheet('notices', noticesSheet());

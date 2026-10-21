@@ -24,7 +24,7 @@
 <script src="egbc-care.js?v=202610152215"></script>
 <script src="egbc-ui.js?v=202610150900"></script>
 <!-- The shared HTML cleaner, which the notices and the charter use. -->
-<script src="egbc-share.js?v=202610161900"></script>
+<script src="egbc-share.js?v=202610212200"></script>
 <!-- Step N: the Menu's structure, shared by the Menu, the sidebar and Where to? -->
 <script src="egbc-menu.js?v=202610212100"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
@@ -378,6 +378,7 @@
   .nw .t i,.nw .t .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
   .nw .d{font-size:12px;color:var(--faint)}
   .nw h4{font-size:14px;font-weight:600;margin:0 0 3px;line-height:1.35}
+  .nw .nw-share{margin-top:8px;min-height:40px;padding:0 12px;border:1px solid var(--line,#e5e7eb);border-radius:10px;background:#fff;color:var(--ink,#111827);font:600 13px Inter,system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
   .nw .bd{font-size:13px;color:var(--body);line-height:1.55;overflow-wrap:anywhere}
   /* A PICTURE IN A NOTICE IS A BANNER (Martin, 15 Oct 2026: the Christmas
      choir picture filled the screen). At most 180px tall on a phone and
@@ -739,6 +740,7 @@
       <button class="btn x" onclick="closeRead()" title="Close"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     </div>
     <div class="rich" id="rdBody" style="max-height:64vh;overflow-y:auto"></div>
+    <div style="margin-top:14px"><button type="button" class="btn" id="rdShare" data-news-share="" style="min-height:44px"><i data-lucide="share-2" style="width:16px;height:16px"></i>Share</button></div>
   </div>
 </div>
 
@@ -950,7 +952,7 @@
 
 <nav id="egbc-tabbar" aria-label="Main"></nav>
 <script src="egbc-video.js?v=202610211500"></script>
-<script src="hub-app.js?v=202610212000"></script>
+<script src="hub-app.js?v=202610212200"></script>
 <!-- The one service worker on the v2 scope, so a phone with only the
      installed EGBC Hub can receive notifications (FINDINGS-notify N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
