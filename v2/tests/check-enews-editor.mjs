@@ -308,7 +308,7 @@ const ISSUE = { subject: 'Synthetic e-news 22 October', preheader: 'This week', 
     await ev('[...document.querySelectorAll(".menu a")].find(a=>/Schedule/.test(a.textContent)).click(),1');
     await until('location.pathname.endsWith("/enews.html") && !!document.getElementById("when")', 20000);
     ok('Done \u2192 Schedule: the E-news page, on its Send tab', await ev('!!document.getElementById("when") && /opens when the church goes live/.test(document.body.innerText)'));
-    ok('the E-news page offers "Open the editor"', await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Build").click(),!!document.getElementById("open-ed")'));
+    ok('the E-news page offers "Open the editor"', await until('!!document.getElementById("open-ed")', 15000));
 
     /* 11. A church member: refused. */
     await signIn('member'); await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews-edit.html?issue=ed1' });

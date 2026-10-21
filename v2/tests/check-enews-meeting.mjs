@@ -157,15 +157,18 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
   try {
     await signIn('office');
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews.html' });
-    await until('!!document.querySelector(".seg") || !!document.getElementById("newcmm")', 25000); await sleep(1500);
+    /* The old editor is replaced (21 Oct): the week's draft opens in the
+       new one (enews-edit.html), where these steps are done now. */
+    const C = 'document.getElementById("cv") && document.getElementById("cv").contentDocument';
+    const onEditor = async () => { await until('location.pathname.endsWith("/enews-edit.html") && ' + C + ' && ' + C + '.querySelectorAll("[data-b]").length > 0', 25000); await sleep(1200); };
+    await onEditor();
     /* 1. A members' meeting notice doesn't count as this week's e-news. */
     const weekly = (await issues()).filter(i => i._id !== 'n_notice');
     ok('a members\u2019 meeting notice doesn\u2019t stop this week\u2019s e-news making itself', weekly.length === 1 && weekly[0].week !== 'notice', weekly.map(i => i.subject));
 
-    /* 2. Build -> Add a block -> A meeting: the Meetings list. */
-    await until('!!document.querySelector(".seg")', 15000);
-    await ev('[...document.querySelectorAll("button")].find(b=>/Add a block/.test(b.textContent)).click(),1'); await sleep(500);
-    await ev('document.querySelector(".sheet [data-t=meeting]").click(),1');
+    /* 2. The editor -> Add -> Meeting: the Meetings list. */
+    await ev('document.querySelector(\'[data-panel="add"]\').click(),1'); await sleep(500);
+    await ev('document.querySelector(\'[data-add="meeting"]\').click(),1');
     await until('document.querySelectorAll(".egbc-meetpick [data-k]").length > 0', 15000);
     const rows = await pickerRows();
     ok('the picker offers the coming meetings with a video room, soonest first', rows.length === 2 && /Prayer Meeting/.test(rows[0]) && /Church Members Meeting/.test(rows[1]), rows);
@@ -177,24 +180,25 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
     let mb = (is.blocks || []).find(b => b.type === 'meeting') || {};
     ok('picking fills the name, day and time, and Join to the hub\u2019s meeting page', mb.title === 'Prayer Meeting' && mb.date === day(4) && mb.startTime === '20:00' && mb.url === 'http://localhost:' + SERVE + '/meeting.html?room=Prayer&event=m_pray', mb);
     ok('members-only by default', mb.members === true);
-    ok('the block says so on Build', /Prayer Meeting[\s\S]*Members only/.test(await ev('document.getElementById("view").innerText')));
+    ok('the block says so in the editor (the gold members-only edge)', await ev('!!' + C + '.querySelector(\'[data-type="meeting"][data-mem="1"]\')'));
 
     /* 3. The Church members' meeting starter ("the CMM template"). */
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews.html' }); await until('!!document.getElementById("newcmm")', 20000); await sleep(800);
     await ev('document.getElementById("newcmm").click(),1');
-    await until('!!document.querySelector(".seg")', 15000); await sleep(2000);
+    await onEditor(); await sleep(800);
     is = (await issues()).filter(i => i.week === 'notice' && i._id !== 'n_notice')[0] || {};
     mb = (is.blocks || []).find(b => b.type === 'meeting') || {};
     ok('the starter: a notice with the next CMM in it, members-only', mb.room === 'CMM' && mb.eventId === 'm_cmm' && mb.members === true && /meeting\.html\?room=CMM&event=m_cmm$/.test(mb.url) && /Church members/.test(is.subject), [is.subject, mb]);
     ok('and the day in the subject', is.subject.includes(longDay(9)), is.subject);
     await shot('cmm');
     /* The CMM can't be unticked. */
-    await ev('[...document.querySelectorAll(".blk .c")].find(b=>/Church Members Meeting/.test(b.textContent)).click(),1'); await sleep(600);
-    ok('the CMM\u2019s "Church members only" tick can\u2019t be taken off', await ev('document.getElementById("m-mem").checked && document.getElementById("m-mem").disabled'));
-    await ev('document.querySelector(".sheet [data-done]").click(),1'); await sleep(800);
+    await ev(C + '.querySelector(\'[data-type="meeting"]\').click(),1'); await sleep(600);
+    await ev('document.querySelector(\'[data-tab="who"]\').click(),1'); await sleep(400);
+    ok('the CMM\u2019s "Church members only" tick can\u2019t be taken off', await ev('document.getElementById("w-mem").checked && document.getElementById("w-mem").disabled'));
+    const cmmId = new URLSearchParams(await ev('location.search')).get('issue');
 
     /* 4. Scheduled: the meeting is in the members' copy only. */
-    await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews.html?issue=' + cmmId + '&view=send' }); await until('!!document.getElementById("sched")', 20000); await sleep(800);
     await ev('document.getElementById("when").value="2030-01-03T16:00";document.getElementById("sched").click(),1'); await sleep(2500);
     is = (await issues()).filter(i => i.week === 'notice' && i._id !== 'n_notice')[0] || {};
     ok('scheduled: Join is in the members\u2019 copy', is.status === 'scheduled' && String(is.htmlMembers || '').includes('meeting.html?room=CMM&amp;event=m_cmm'), is.status);

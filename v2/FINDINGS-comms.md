@@ -260,6 +260,42 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 22 Oct: the new e-news editor replaces the old one (Martin: now, tweaks after; not waiting for the ease test). For review
+
+- **Every way in opens the new editor** (`enews-edit.html`):
+  - opening an issue from the list;
+  - this week's draft, which makes itself and says "This week's e-news is drafted for you";
+  - the members' meeting button, New email, and Templates.
+- **The E-news page keeps** the list, Look and footer, Subscribers, Welcome emails and each issue's **Send page**:
+  - Schedule, who it goes to, Send me a test, Share;
+  - the yellow "not ready" note and the "events missing a picture or write-up" note;
+  - **Back to the editor**.
+- **A sent issue** opens on its Send page.
+- **The old Build, Phone and Computer views are gone,** and so is their code: about 280 lines, including the old block sheets. Nothing reaches them.
+
+**Nothing lost: every part of the old editor, against the new one.**
+- **Already in the new editor:**
+  - subject and top line;
+  - every block's fields;
+  - "Church members only" on any block (Who sees it);
+  - move and remove;
+  - an event from What's On, a meeting from the Meetings list, Dates for the diary with how far ahead, and notices to untick;
+  - the verse from the hub's Bibles;
+  - the previews as members and as everyone else see it;
+  - the "not ready" and "missing" notes (Check).
+- **Missing, and added:**
+  - tiles for **the week's picture** and **the section bar**, the two blocks the old editor could add and the new one couldn't;
+  - **a title under the week's picture**;
+  - **the NIV as the first Bible** when the church's key has it and no usual version is saved, otherwise the BSB, as the old verse sheet chose.
+
+**Checks** (on e571f946, then the check fixes; one test at a time, more than 3 GB free, this window's emulators in a private TEMP folder and stopped after each):
+- **The full run:** 62 runs, every check green and all 34 deliberate breaks red, apart from two checks that still used the old view, now fixed and rerun.
+- **check-enews-page:** every step it did in the old Build view is now done in the new editor, under the same names (one only extended), plus 8 new ones. 55/55; breaks switch, office, weekly, missing and colour each red. Colour now targets the new editor's colour button.
+- **check-enews-meeting:** adding a meeting, the gold members-only edge, and the members' meeting tick that can't be taken off are now in the editor. 17/17; breaks old and notice red.
+- **check-enews-editor:** "Open the editor" is on the Send page. 43/43; breaks typing, undo and drop red.
+
+---
+
 ## FIXED, 21 Oct (urgent): a parent who shares an address with their child gets the hub's email
 
 Reviewing window: Martin's son is in the address book with Martin's address, so the under-18 rule refused Martin. His own "Send me a test" was refused, and so was every email to every parent of a child in the address book.
@@ -556,7 +592,7 @@ The main window's note of 21 Oct asked for this. Many members have no hub accoun
 2. **(Built 21 Oct.) The automatic welcomes:** "New subscriber welcome" sent by itself when someone confirms, and "Newcomer welcome" linked to "I'm new here". Today they are starters only.
 3. **(Built 21 Oct.) Event invitation filled from a What's On event:** its picture, day and time, place, and the Sign up button.
 4. **(Built 21 Oct.) Small gaps:** letter spacing in the toolbar (plan A), and a `{date}` subject pattern for templates.
-5. **After the ease test:** the new editor replaces today's (E3).
+5. **(Done 22 Oct, without waiting for the ease test.)** The new editor replaces today's (E3).
 6. **Social posts step 2:** only if Martin sets up Meta.
 
 ---
