@@ -326,7 +326,7 @@
       '<label for="pre">Top line <span class="m">(the first words people see)</span></label><input type="text" id="pre" maxlength="200" value="' + esc(ISSUE.preheader || '') + '"' + (editable() ? '' : ' disabled') + '>' +
       readyNote() + missingNote() +
       (editable() ? '<div class="row" style="margin-top:12px"><a class="btn" id="open-ed" href="enews-edit.html?issue=' + encodeURIComponent(ISSUE_ID) + '"><i data-lucide="pencil-ruler" style="width:16px;height:16px"></i>Back to the editor</a><span class="m">The blocks, the words, the look and the previews.</span></div>' : '') +
-      '<h2 style="margin:16px 0 0">Send</h2>' +
+
       '<div class="pills"><span class="pill">' + esc(MB.TEMPLATES[ISSUE.template] ? MB.TEMPLATES[ISSUE.template].label : 'Classic') + '</span>' +
       (mem ? '<span class="pill gold">' + mem + ' members-only</span>' : '') +
       (editable() ? '' : '<span class="pill">Sent: it can no longer be changed</span>') + '</div>' +
@@ -386,6 +386,36 @@
           '<div class="row"><button class="btn" id="sched">Schedule</button></div>') +
       '</div>' +
       (st === 'draft' || st === 'scheduled' ? '<div class="card"><h2>Try it first</h2><p class="m" style="margin:0 0 8px">The members’ copy, to your own email address.</p><button class="btn sec" id="test">Send me a test</button><p class="m" id="testmsg" role="status"></p></div>' : '');
+    /* PREVIEW WEB VERSION (Martin, 21 Oct): a draft's public copy at an
+       unguessable link (functions/enews-preview.js), to share before it is
+       sent. Everyone else's copy only; never an email to members, a team or
+       people picked. The hub's own share (egbc-share.js). */
+    var publicIssue = !(ISSUE.kind === 'oneoff' && (ISSUE.audience || 'subscribers') !== 'subscribers');
+    if ((st === 'draft' || st === 'scheduled') && publicIssue) {
+      v.insertAdjacentHTML('beforeend', '<div class="card" id="webprev"><h2>Preview web version</h2><p class="m" style="margin:0 0 8px">The public copy, at a link only people you send it to will know. Never the members-only blocks. Marked \u201cPreview\u201d until it is sent; then the same link shows the web version.</p>' +
+        '<button class="btn sec" id="wp-make"><i data-lucide="globe" style="width:16px;height:16px"></i>Preview web version</button><div id="wp-out" style="margin-top:10px"></div></div>');
+      document.getElementById('wp-make').onclick = function () {
+        var btn = this, out = document.getElementById('wp-out'); btn.disabled = true; out.innerHTML = '<p class="m">Making the link\u2026</p>';
+        (DIRTY ? save(true) : Promise.resolve()).then(function () {
+          return EGBCAuth.call('enewsPreviewWeb', { issueId: ISSUE_ID, html: finalCopy('everyone') });
+        }).then(function (r) {
+          r = (r && r.data !== undefined) ? r.data : r; btn.disabled = false;
+          out.innerHTML = '<input type="text" id="wp-link" readonly value="' + esc(r.url) + '" aria-label="The preview link">' +
+            '<div class="row" style="margin-top:8px"><a class="btn sec" id="wp-open" href="' + esc(r.url) + '" target="_blank" rel="noopener">Open</a><button class="btn sec" id="wp-copy">Copy link</button>' +
+            '<button class="btn" id="wp-share"><i data-lucide="share-2" style="width:16px;height:16px"></i>Share to WhatsApp</button></div>';
+          icons();
+          document.getElementById('wp-copy').onclick = function () {
+            var done = function () { toast('Link copied.'); };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.url).then(done, function () { document.getElementById('wp-link').select(); document.execCommand('copy'); done(); });
+            else { document.getElementById('wp-link').select(); document.execCommand('copy'); done(); }
+          };
+          document.getElementById('wp-share').onclick = function () {
+            if (!window.EGBCShare) { window.open('https://wa.me/?text=' + encodeURIComponent((ISSUE.subject || 'This week\u2019s e-news') + ' ' + r.url), '_blank'); return; }
+            EGBCShare.open({ title: ISSUE.subject || 'This week\u2019s e-news', html: '<p>This week\u2019s e-news from ' + esc(CHURCH.name || 'church') + '.</p>', link: r.url });
+          };
+        }, function (e) { btn.disabled = false; out.innerHTML = '<p class="m">Not made: ' + esc((e && e.message) || e) + '</p>'; });
+      };
+    }
     if (ISSUE.kind === 'oneoff') wireAudience();
     else db().collection('enewsSubscribers').where('status', '==', 'subscribed').get().then(function (s) {
       var n = s.docs.filter(function (d) { return (d.data().lists || {}).weekly === true; }).length;
@@ -394,8 +424,8 @@
     var b, ready = MB.readyToSend(ISSUE);
     icons();
     if ((b = document.getElementById('share'))) { if (ISSUE.kind === 'oneoff' && (ISSUE.audience || 'subscribers') !== 'subscribers') b.parentNode.nextSibling.textContent = 'An email to church members, a team or people picked has no public web version, so nothing to share.', b.remove(); else b.onclick = shareIssue; }
-    if (!ready.ok) ['sched', 'test'].forEach(function (id) { var x = document.getElementById(id); if (x) { x.disabled = true; x.title = 'Fill in the yellow note on Build first'; } });
-    if (!ready.ok && document.getElementById('testmsg')) document.getElementById('testmsg').textContent = 'First fill in what the yellow note above asks for (or remove it on Build).';
+    if (!ready.ok) ['sched', 'test'].forEach(function (id) { var x = document.getElementById(id); if (x) { x.disabled = true; x.title = 'First fill in what the yellow note asks for, in the editor'; } });
+    if (!ready.ok && document.getElementById('testmsg')) document.getElementById('testmsg').textContent = 'First fill in what the yellow note above asks for (or remove it), in the editor.';
     if ((b = document.getElementById('sched'))) b.onclick = function () {
       var t = document.getElementById('when').value;
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) { toast('Choose the day and time to send it.'); return; }

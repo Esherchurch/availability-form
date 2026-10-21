@@ -21,7 +21,8 @@
  * DELIBERATE BREAKS: --break=switch serves enews.html with its "is the
  * e-news switched on?" answering yes; --break=office lets anybody in;
  * --break=colour takes the church's colours off the new editor's colour button; --break=missing
- * drops the "missing a picture or write-up" note. Each
+ * drops the "missing a picture or write-up" note; --break=leak hands the
+ * preview the members' copy (the server must refuse it). Each
  * must turn this check red (the run says which line). A break that leaves
  * it green is a check that cannot fail.
  *
@@ -103,6 +104,7 @@ const BREAKS = {
   office: ['enews.html', 'function may() { return', 'function may() { return true; return'],
   weekly: ['enews.html', 'if (!thisWeek && !showList.autoTried) {', 'if (!showList.autoTried || true) {'],
   colour: ['egbc-enews-editor.js', "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + palette().map(", "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + [].map("],
+  leak: ['enews.html', "{ issueId: ISSUE_ID, html: finalCopy('everyone') }", "{ issueId: ISSUE_ID, html: finalCopy('members') }"],
   missing: ['enews.html', 'readyNote() + missingNote() +', 'readyNote() +']
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
@@ -343,6 +345,31 @@ function serveAuth(src) {
     const tests = (await list('emailOutbox')).filter(r => r.kind === 'enews test');
     ok('"Send me a test": one email, to the office person only, through Church HQ’s Resend (never Calla’s), marked [Test]', tests.length === 1 && JSON.stringify(tests[0].to) === JSON.stringify([PEOPLE.office.email]) && tests[0].via === 'churchhq' && /^\[Test\] /.test(tests[0].subject) && tests[0].ok === true, tests.map(t => [t.to, t.via, t.subject, t.error]));
     ok('the page says where it went', (await ev('document.getElementById("testmsg").textContent')).includes(PEOPLE.office.email), await ev('document.getElementById("testmsg").textContent'));
+
+    /* "Preview web version" (Martin, 22 Oct): the draft's public copy at an
+       unguessable link, Share to WhatsApp and Copy link beside it; opened
+       signed out, it is marked "Preview" and has no members-only part. */
+    await until('!!document.getElementById("wp-make")', 10000);
+    await ev('document.getElementById("wp-make").click(),1');
+    await until('!!document.getElementById("wp-link") || /Not made/.test(document.getElementById("wp-out").textContent)', 25000); await sleep(500);
+    const wpUrl = await ev('(document.getElementById("wp-link")||{}).value||document.getElementById("wp-out").textContent');
+    const wpTok = (/preview=([A-Za-z0-9_-]+)/.exec(wpUrl) || [])[1] || '';
+    ok('Preview web version: an unguessable link to the draft\u2019s public copy', /^[A-Za-z0-9_-]{24}$/.test(wpTok), wpUrl);
+    await shot('web-preview');
+    await ev('(document.getElementById("wp-share")||{click:function(){}}).click(),1'); await sleep(900);
+    const wpShare = await ev('(document.querySelector(".egbc-share textarea")||{}).value||""');
+    ok('Share to WhatsApp (the hub\u2019s own share) opens with the preview link ready', !!wpTok && wpShare.includes('enews-web.html?preview=' + wpTok), wpShare);
+    await ev('(document.querySelector(".egbc-share [data-close]")||{click:function(){}}).click(),1'); await sleep(300);
+    await ev('(document.getElementById("wp-copy")||{click:function(){}}).click(),1'); await sleep(400);
+    ok('Copy link is beside it', /Link copied/.test(await ev('document.getElementById("toast").textContent')));
+    await ev('firebase.auth(EGBCAuth.app).signOut().then(()=>1)');
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews-web.html?preview=' + (wpTok || 'none') });
+    await until('!!document.getElementById("pvmark") || /Not found|Couldn/.test(document.body.innerText)', 15000); await sleep(1200);
+    const wpHtml = await ev('(document.getElementById("w")||{}).srcdoc||""');
+    ok('the preview link opens signed out, marked \u201cPreview: not sent yet\u201d', /Preview: not sent yet/.test(await ev('document.body.innerText')) && wpHtml.length > 500);
+    ok('…with the public parts and never the members-only ones', wpHtml.includes('Synthetic harvest supper') && !wpHtml.includes('Synthetic members prayer') && !wpHtml.includes('Synthetic car park notice'), wpHtml.length);
+    await shot('web-preview-signed-out');
+    await signIn('office');
 
     /* 9. A sent issue: Share to WhatsApp, with the web version's link
        (which never has the members-only parts). */

@@ -175,6 +175,9 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
       subject: issue.subject || '', sentAt: new Date().toISOString(),
       html: String(issue.htmlEveryone).split(PLACEHOLDER).join((hub || HUB) + '/enews-signup.html').split('{{first_name}}').join('friend')
     });
+    /* A shared "Preview web version" link now shows the sent web version
+       (enews-preview.js; enews-web.html follows sentIssueId). */
+    for (const pd of (await db.collection('enewsPreview').where('issueId', '==', doc.id).get()).docs) await pd.ref.update({ preview: false, sentIssueId: doc.id, html: '' });
     await doc.ref.update({ status: 'sent', sentAt: new Date().toISOString(), counts: { sent, failed, members: toMembers, under18 } });
     results.push({ id: doc.id, sent, failed, members: toMembers, under18 });
   }

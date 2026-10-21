@@ -45,6 +45,7 @@ async function run(rules) {
     await setDoc(doc(db, 'enewsIssues', 'draft1'), issue('en_office'));
     await setDoc(doc(db, 'integrationSecrets', 'canva'), { access: 'x', refresh: 'y' });
     await setDoc(doc(db, 'enewsWeb', 'w1'), { subject: 'Weekly news', html: '<p>Hi</p>', sentAt: 'x' });
+    await setDoc(doc(db, 'enewsPreview', 'pvTokenSyntheticOnly1234'), { issueId: 'draft1', subject: 'Weekly news', html: '<p>Hi</p>', preview: true });
     await setDoc(doc(db, 'enewsIssues', 'sent1', 'sends', 'a'), { ok: true });
     await setDoc(doc(db, 'enewsSubscribers', 's1'), { email: 'sub@example.invalid', status: 'subscribed', token: 'x'.repeat(32) });
     /* Under 18 (C-36): a 16-year-old and an under-16, both on Kids Church. */
@@ -76,6 +77,10 @@ async function run(rules) {
   await t('scheduling needs both finished copies', assertFails(setDoc(doc(as('office'), 'enewsIssues', 'o5'), issue('en_office', { status: 'scheduled', sendAt: '2026-10-22T16:00' }))));
   await t('scheduled with both copies is fine', assertSucceeds(setDoc(doc(as('office'), 'enewsIssues', 'o6'), issue('en_office', { status: 'scheduled', sendAt: '2026-10-22T16:00', htmlMembers: '<p>m</p>', htmlEveryone: '<p>e</p>' }))));
   await t('anyone can read the web version (no sign-in)', assertSucceeds(getDoc(doc(anon, 'enewsWeb', 'w1'))));
+  await t('anyone with a preview’s link can read that preview (no sign-in)', assertSucceeds(getDoc(doc(anon, 'enewsPreview', 'pvTokenSyntheticOnly1234'))));
+  await t('nobody can list the previews (the link is the only way in)', assertFails(getDocs(collection(anon, 'enewsPreview'))));
+  await t('not even a master admin lists them', assertFails(getDocs(collection(as('master'), 'enewsPreview'))));
+  await t('nobody writes a preview from a page (the server only)', assertFails(setDoc(doc(as('office'), 'enewsPreview', 'x'), { issueId: 'o1', html: '<p>x</p>' })));
   await t('nobody writes the web version from a page', assertFails(setDoc(doc(as('master'), 'enewsWeb', 'w2'), { subject: 'x', html: 'x', sentAt: 'x' })));
   await t('the office can see who an issue went to', assertSucceeds(getDocs(collection(as('office'), 'enewsIssues', 'sent1', 'sends'))));
   await t('a church member cannot', assertFails(getDocs(collection(as('member'), 'enewsIssues', 'sent1', 'sends'))));
@@ -155,6 +160,7 @@ const BREAKS = [
   ['the office may read the Unsplash cache', 'allow read, write: if false;   // unsplash cache: the server only', 'allow read, write: if enewsOffice();   // unsplash cache: the server only', 'Unsplash cache'],
   ['the office may read the links to the papers', 'allow read, write: if false;   // paper links: the server only', 'allow read, write: if enewsOffice();   // paper links: the server only', 'link to the papers'],
   ['anything on the welcome switches', "&& request.resource.data.keys().hasOnly(['subscriber', 'newcomer', 'updatedAt', 'updatedBy'])", '', 'carry nothing else'],
+  ['previews listed', 'allow list: if false;           // previews: never listed', 'allow list: if true;           // previews: never listed', 'list the previews'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];
 let caught = 0;

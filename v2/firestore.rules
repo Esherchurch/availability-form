@@ -1506,6 +1506,13 @@ service cloud.firestore {
     // THE WEB VERSION AND ARCHIVE: everybody else's copy of each sent
     // e-news, without the members-only blocks, written by the sender.
     // Public, like the e-news was on Mailchimp - and never the members' copy.
+    // "Preview web version" (functions/enews-preview.js): read by its
+    // unguessable link only - get, never list - and written by the server only.
+    match /enewsPreview/{id} {
+      allow get: if true;
+      allow list: if false;           // previews: never listed
+      allow write: if false;          // previews: the server only
+    }
     match /enewsWeb/{id} {
       allow read: if true;
       allow write: if false;          // web version: the sender only

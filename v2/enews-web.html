@@ -45,6 +45,25 @@
         }).join(''));
     }, function () { main.innerHTML = '<h1>The e-news</h1><p class="lead">Couldn’t load the past issues just now.</p>'; });
   }
+  /* "Preview web version" (enews.html; functions/enews-preview.js): a
+     draft's public copy, marked so until it is sent - then this link shows
+     the web version. Never listed; only someone with the link sees it. */
+  var pv = new URLSearchParams(location.search).get('preview');
+  if (pv) {
+    var m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex,nofollow'; document.head.appendChild(m);
+    db.collection('enewsPreview').doc(pv).get().then(function (d) {
+      if (!d.exists) { main.innerHTML = '<h1>Not found</h1><p class="lead">That preview isn\u2019t here. <a href="enews-web.html">All past issues</a>.</p>'; return; }
+      var x = d.data();
+      if (x.sentIssueId) { location.replace('enews-web.html?issue=' + encodeURIComponent(x.sentIssueId)); return; }
+      main.className = 'wide';
+      main.innerHTML = '<p id="pvmark" style="margin:0 0 8px;padding:10px 12px;border-radius:10px;background:#fff7e6;color:#7a5512"><b>Preview: not sent yet.</b> It may still change before it goes out.</p>' +
+        '<p style="margin:0 0 8px;padding:0 8px"><a href="enews-signup.html">Get it by email</a></p><iframe class="web" title="' + esc(x.subject || 'E-news') + '" id="w"></iframe>';
+      var f = document.getElementById('w');
+      f.srcdoc = String(x.html || '').replace('<head>', '<head><base target="_blank">');
+      f.onload = function () { try { f.style.height = (f.contentDocument.documentElement.scrollHeight + 20) + 'px'; } catch (e) {} };
+    }, function () { main.innerHTML = '<h1>Couldn\u2019t load it</h1><p class="lead">Try again in a moment.</p>'; });
+    return;
+  }
   if (!id) { archive(); return; }
   db.collection('enewsWeb').doc(id).get().then(function (d) {
     if (!d.exists) { main.innerHTML = '<h1>Not found</h1><p class="lead">That e-news isn’t here. <a href="enews-web.html">All past issues</a>.</p>'; return; }

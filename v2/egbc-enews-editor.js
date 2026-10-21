@@ -819,7 +819,8 @@
     var old = document.querySelector('.menu'); if (old) { old.remove(); return; }
     var m = document.createElement('div'); m.className = 'menu';
     m.innerHTML = (/^auto_/.test(ISSUE_ID) ? '<a href="enews.html?welcomes=1">' + I('hand-heart', 17) + 'Back to the welcome emails</a>' :
-      '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '&view=send">' + I('calendar-clock', 17) + 'Schedule it (sending opens at go-live)</a>') +
+      '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '&view=send">' + I('calendar-clock', 17) + 'Schedule it (sending opens at go-live)</a>' +
+      (ISSUE.kind === 'oneoff' && (ISSUE.audience || 'subscribers') !== 'subscribers' ? '' : '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '&view=send#webprev">' + I('globe', 17) + 'Preview web version and share it</a>')) +
       '<a href="enews.html?issue=' + encodeURIComponent(ISSUE_ID) + '">' + I('chevron-left', 17) + 'Back to this ' + (ISSUE.kind === 'oneoff' ? 'email' : 'e-news') + '</a><a href="enews.html">' + I('list', 17) + 'All e-news and emails</a>' +
       '<button type="button" id="save-tpl">' + I('layout-template', 17) + 'Save as a template</button>';
     document.body.appendChild(m); icons(m);

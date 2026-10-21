@@ -752,6 +752,8 @@ export { socialMorning } from './social.js';
 export { unsplashSearch, unsplashUsed } from './unsplash.js';
 /* A members' meeting's papers for members without a hub account: their own 30-day link (comms window; mailings plan 3.3). */
 export { meetingPapers } from './meeting-papers.js';
+/* "Preview web version": a draft e-news's public copy at an unguessable link, to share before it is sent (comms window). */
+export { enewsPreviewWeb } from './enews-preview.js';
 /* Every email a v2 page sends (PLAN-hub-send.md). */
 export { hubSend } from './hub-send.js';
 /* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */

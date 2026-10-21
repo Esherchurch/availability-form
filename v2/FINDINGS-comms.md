@@ -260,6 +260,44 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 22 Oct: "Preview web version" and Share to WhatsApp on a draft (Martin: the newsletter link working now, before going live). For review
+
+- **On a draft's Send page**, and from the editor's Done menu ("Preview web version and share it"): **Preview web version** makes a link to the draft's **public copy** at an **unguessable** address, `enews-web.html?preview=<24 random characters>`. Beside it:
+  - **Open**;
+  - **Copy link**;
+  - **Share to WhatsApp**, with the hub's own share (`EGBCShare.open`), the same as the rest of the hub, so WhatsApp opens with the link ready.
+- **The public page** shows it marked **"Preview: not sent yet. It may still change before it goes out."**
+  - Its "View this email in your browser" points to the preview itself.
+  - It is never in the archive of past issues, and it tells search engines to keep out.
+- **The same link, kept up to date:** pressing the button again updates that one preview, so a link already shared shows the draft as it is now.
+- **When the issue is sent,** the preview's words are taken out and the link opens the real web version instead (`enews-send.js`; the page follows `sentIssueId`).
+- **Never the members-only parts:**
+  - the page sends everybody else's copy only;
+  - **the server checks as well** (`functions/enews-preview.js enewsPreviewWeb`). It refuses a copy holding any members-only block's words (line by line), its links (including links inside its words) or its names, and says which block.
+- **Refused:**
+  - an email to church members, a team or people picked, which has no public web version;
+  - an issue already sent: share its web version instead;
+  - anyone but the church office.
+- **Rules:** `enewsPreview/{token}` can be read with its link by anyone, never **listed**, and never written from a page.
+- **One fix on the way:** the Send page said "Send" twice, a leftover of the editor switch. Its yellow-note hints now say "in the editor", not "on Build".
+
+### To deploy, and when
+
+- **`firebase deploy --only functions:hub`:** the new `enewsPreviewWeb`, and `enewsSendDue`, which sends previews on to the web version.
+- **functions/index.js:** one export line (for the main window).
+- **The rules** for `enewsPreview` go live at switch-over. Until then the live database's own rules apply. A preview holds only the public copy either way, but before switch-over anyone could list the previews, as with any data in the live database now.
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-enews-preview (new) | 16/16, including 3 breaks: members-only blocks let through, an email to members previewed, anyone may make one. It first found that one copied line of a members-only block, or a link inside its words, got past the leak check; both fixed |
+| check-enews-page (the preview on the Send page) | 60/60: an unguessable link; Share to WhatsApp opens with it ready; Copy link; opened **signed out** it is marked Preview, with the public parts and none of the members-only ones. **Break leak** (the page hands over the members' copy) → red: the server refuses it |
+| check-enews-rules | 68/68; 18/18 breaks red (new: previews listed) |
+| check-enews-send, check-enews-editor | 48/48, 43/43 |
+
+---
+
 ## BUILT, 22 Oct: the new e-news editor replaces the old one (Martin: now, tweaks after; not waiting for the ease test). For review
 
 - **Every way in opens the new editor** (`enews-edit.html`):
