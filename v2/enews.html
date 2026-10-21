@@ -112,24 +112,9 @@
   var MB = window.EGBCMailBlocks, esc = MB.esc;
   var db = function () { return EGBCAuth.db; };
   var wrap = document.getElementById('wrap');
-  var ME = {}, SET = { template: 'classic', colours: {}, church: {} }, CHURCH = {}, PICS = null;
-  var ISSUE = null, ISSUE_ID = '', VIEW = 'build', DIRTY = false;
+  var ME = {}, SET = { template: 'classic', colours: {}, church: {} }, CHURCH = {};
+  var ISSUE = null, ISSUE_ID = '', DIRTY = false;
 
-  var TYPES = {
-    header: ['Heading and picture', 'The title at the top, with a picture'],
-    text: ['Text', 'A title and some words'],
-    event: ['Event card', 'An event from What’s On, with a photo'],
-    picture: ['Picture', 'A picture, for example one of Val’s Canva cards'],
-    button: ['Button', 'A link people tap'],
-    verse: ['Bible verse', 'In a box'],
-    section: ['Section bar', 'For example “Coming up this week”'],
-    sunday: ['This Sunday', 'The service and the speaker'],
-    diary: ['Dates for the diary', 'The coming weeks’ events from What’s On, a line each'],
-    meeting: ['A meeting', 'From Meetings, with a Join button (church members only)'],
-    notices: ['Notices', 'From this week’s notices'],
-    divider: ['Line', 'A thin line between parts'],
-    spacer: ['Space', 'A gap']
-  };
 
   function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.className = 'on'; clearTimeout(toast.h); toast.h = setTimeout(function () { el.className = ''; }, 2600); }
   function icons() { if (window.lucide && lucide.createIcons) try { lucide.createIcons(); } catch (e) {} }
@@ -282,7 +267,7 @@
       ISSUE = { subject: (shortName() + ' e-news ' + p).trim(), preheader: 'What\u2019s happening this week at ' + shortName(), template: SET.template || 'classic', blocks: blocks, status: 'draft', week: weekOf(now) };
       ISSUE_ID = ''; DIRTY = true;
       return save(true);
-    }).then(function () { VIEW = 'build'; draw(); if (opts.auto) toast('This week’s e-news is drafted for you.'); })
+    }).then(function () { location.href = 'enews-edit.html?issue=' + encodeURIComponent(ISSUE_ID) + (opts.auto ? '&drafted=1' : ''); })
       .catch(function (e) { if (b) { b.disabled = false; b.textContent = 'New e-news'; } toast('Could not draft it: ' + (e.message || e)); });
   }
 
@@ -291,9 +276,12 @@
     db().collection('enewsIssues').doc(id).get().then(function (s) {
       if (!s.exists) { toast('That e-news is not there any more.'); showList(); return; }
       ISSUE = s.data(); ISSUE_ID = id; DIRTY = false;
-      /* The editor's "Schedule it" comes here, to the Send tab. */
-      VIEW = new URLSearchParams(location.search).get('view') === 'send' ? 'send' : 'build';
-      history.replaceState(null, '', '?issue=' + encodeURIComponent(id));
+      /* THE EDITOR IS enews-edit.html (Martin, 21 Oct 2026: the old editor
+         replaced). An issue opens there; this page keeps its Send page -
+         the editor's "Schedule it" comes here - and a sent issue's. */
+      var sendPage = new URLSearchParams(location.search).get('view') === 'send' || !editable();
+      if (!sendPage) { location.replace('enews-edit.html?issue=' + encodeURIComponent(id)); return; }
+      history.replaceState(null, '', '?issue=' + encodeURIComponent(id) + '&view=send');
       draw();
     }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
   }
@@ -337,9 +325,8 @@
       '<label for="subj" style="margin-top:0">Subject</label><input type="text" id="subj" maxlength="200" value="' + esc(ISSUE.subject || '') + '"' + (editable() ? '' : ' disabled') + '>' +
       '<label for="pre">Top line <span class="m">(the first words people see)</span></label><input type="text" id="pre" maxlength="200" value="' + esc(ISSUE.preheader || '') + '"' + (editable() ? '' : ' disabled') + '>' +
       readyNote() + missingNote() +
-      (editable() ? '<div class="row" style="margin-top:12px"><a class="btn" id="open-ed" href="enews-edit.html?issue=' + encodeURIComponent(ISSUE_ID) + '"><i data-lucide="pencil-ruler" style="width:16px;height:16px"></i>Open the editor</a><span class="m">Type on the email itself; drag blocks on.</span></div>' : '') +
-      '<div class="seg" role="tablist" style="margin-top:12px">' + [['build', 'Build'], ['phone', 'Phone'], ['computer', 'Computer'], ['send', 'Send']].map(function (v) {
-        return '<button role="tab" data-v="' + v[0] + '" aria-selected="' + (VIEW === v[0]) + '">' + v[1] + '</button>'; }).join('') + '</div>' +
+      (editable() ? '<div class="row" style="margin-top:12px"><a class="btn" id="open-ed" href="enews-edit.html?issue=' + encodeURIComponent(ISSUE_ID) + '"><i data-lucide="pencil-ruler" style="width:16px;height:16px"></i>Back to the editor</a><span class="m">The blocks, the words, the look and the previews.</span></div>' : '') +
+      '<h2 style="margin:16px 0 0">Send</h2>' +
       '<div class="pills"><span class="pill">' + esc(MB.TEMPLATES[ISSUE.template] ? MB.TEMPLATES[ISSUE.template].label : 'Classic') + '</span>' +
       (mem ? '<span class="pill gold">' + mem + ' members-only</span>' : '') +
       (editable() ? '' : '<span class="pill">Sent: it can no longer be changed</span>') + '</div>' +
@@ -348,8 +335,7 @@
     document.getElementById('back').onclick = function () { (DIRTY ? save(true) : Promise.resolve()).then(showList, showList); };
     document.getElementById('subj').oninput = function () { ISSUE.subject = this.value; saveSoon(); };
     document.getElementById('pre').oninput = function () { ISSUE.preheader = this.value; saveSoon(); };
-    Array.prototype.forEach.call(wrap.querySelectorAll('.seg button'), function (b) { b.onclick = function () { VIEW = b.getAttribute('data-v'); draw(); }; });
-    ({ build: drawBuild, phone: function () { drawPreview(375); }, computer: function () { drawPreview(640); }, send: drawSend })[VIEW]();
+    drawSend();
   }
 
   /* A new week never goes out with an empty top (Martin, 20 Oct). */
@@ -371,66 +357,8 @@
   }
   /* The church's colours for coloured words: the look's own, and a few more. */
   function palette() { return MB.palette(MB.theme({ template: (ISSUE && ISSUE.template) || SET.template || 'classic', colours: SET.colours || {} })); }
-  /* "Dates for the diary": the coming weeks' public events from What's On. */
-  function diaryFill(b) {
-    var now = Date.now();
-    return eventsBetween(now - 86400000, now + (b.weeks || 6) * 7 * 86400000, 200).then(function (all) {
-      b.items = MB.diaryItems({ now: new Date(now), weeks: b.weeks || 6, events: all, base: hubBase() });
-      return b;
-    });
-  }
-  function summary(b) {
-    switch (b.type) {
-      case 'header': return [b.title || '(no title)', b.imageUrl ? 'With a picture' : 'No picture yet'];
-      case 'text': return [b.title || 'Text', String(b.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || '(empty)'];
-      case 'event': return [b.title || '(no title)', [b.when, b.buttonLabel ? b.buttonLabel + ' button' : ''].filter(Boolean).join(' · ')];
-      case 'picture': return [b.alt || 'Picture', b.caption || ''];
-      case 'button': return [b.label || '(no words)', b.url || '(no link)'];
-      case 'verse': return [b.text ? '“' + b.text + '”' : '(add the verse)', b.ref || ''];
-      case 'section': return [b.label || '', ''];
-      case 'sunday': return [b.title || '', [b.when, b.speaker].filter(Boolean).join(' · ')];
-      case 'diary': return [b.title || 'Dates for the diary', (b.items || []).length + ' events, the next ' + (b.weeks || 6) + ' weeks'];
-      case 'meeting': return [b.url ? (b.title || 'Meeting') : '(pick the meeting)', [MB.meetingWhen(b), MB.membersOnly(b) ? 'Members only' : 'Everyone'].filter(Boolean).join(' · ')];
-      case 'notices': return [(b.items || []).length + ' notices', (b.items || []).map(function (n) { return n.title; }).join(' · ')];
-      default: return [TYPES[b.type] ? TYPES[b.type][0] : b.type, ''];
-    }
-  }
 
-  function drawBuild() {
-    /* The yellow "not ready yet" note follows the blocks as they change. */
-    var rn = document.querySelector('#wrap .ready');
-    if (rn) { var tmp = document.createElement('div'); tmp.innerHTML = readyNote(); if (tmp.firstChild) rn.replaceWith(tmp.firstChild); else rn.remove(); }
-    var mn = document.querySelector('#wrap .missing');
-    if (mn) { var tm = document.createElement('div'); tm.innerHTML = missingNote(); if (tm.firstChild) mn.replaceWith(tm.firstChild); else mn.remove(); }
-    var v = document.getElementById('view'), B = ISSUE.blocks || [], ed = editable();
-    v.innerHTML = B.map(function (b, i) {
-      var s = summary(b), pic = b.imageUrl || (b.type === 'picture' ? b.url : '');
-      return '<div class="blk' + (MB.membersOnly(b) ? ' mem' : '') + '">' +
-        (ed ? '<div class="mv"><button data-up="' + i + '" aria-label="Move up"' + (i ? '' : ' disabled') + '><i data-lucide="chevron-up" style="width:16px;height:16px"></i></button>' +
-          '<button data-down="' + i + '" aria-label="Move down"' + (i < B.length - 1 ? '' : ' disabled') + '><i data-lucide="chevron-down" style="width:16px;height:16px"></i></button></div>' : '') +
-        (pic && MB.safeUrl(pic) ? '<div class="th" style="background-image:url(\'' + esc(pic) + '\')"></div>' : '') +
-        '<button class="c" data-edit="' + i + '"><span class="t">' + esc(TYPES[b.type] ? TYPES[b.type][0] : b.type) + (b.members ? ' · members only' : '') + (b.auto ? ' · filled automatically' : '') + '</span>' +
-        '<b>' + esc(s[0]) + '</b>' + (s[1] ? '<small>' + esc(s[1]) + '</small>' : '') + '</button></div>';
-    }).join('') +
-      '<div class="blk"><div class="c" style="cursor:default"><span class="t">Footer · always</span><b>' + esc(CHURCH.name || 'The church') + '</b><small>Address, charity number and the unsubscribe link</small></div></div>' +
-      (ed ? '<button class="add" id="addb">+ Add a block</button>' : '');
-    icons();
-    Array.prototype.forEach.call(v.querySelectorAll('[data-up]'), function (b) { b.onclick = function () { move(+b.getAttribute('data-up'), -1); }; });
-    Array.prototype.forEach.call(v.querySelectorAll('[data-down]'), function (b) { b.onclick = function () { move(+b.getAttribute('data-down'), 1); }; });
-    Array.prototype.forEach.call(v.querySelectorAll('[data-edit]'), function (b) { b.onclick = function () { if (ed) editSheet(+b.getAttribute('data-edit')); }; });
-    var a = document.getElementById('addb'); if (a) a.onclick = addSheet;
-  }
-  function move(i, by) {
-    var B = ISSUE.blocks, j = i + by; if (j < 0 || j >= B.length) return;
-    var t = B[i]; B[i] = B[j]; B[j] = t; saveSoon(); drawBuild();
-  }
 
-  /* ---- the previews: what the email program will show ------------------- */
-  function rendered(version) {
-    return MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), {
-      version: version, church: CHURCH, unsubscribeUrl: hubBase() + '/enews-unsubscribe.html', webUrl: hubBase() + '/enews-web.html', preview: true
-    });
-  }
   /* The copies the server sends: each person's own unsubscribe link goes in
      place of MB.PLACEHOLDER as it sends (functions/enews-send.js). */
   function finalCopy(version) {
@@ -438,21 +366,6 @@
       version: version, church: CHURCH, unsubscribeUrl: MB.PLACEHOLDER,
       webUrl: ISSUE_ID ? hubBase() + '/enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) : ''
     });
-  }
-  function drawPreview(w) {
-    var v = document.getElementById('view');
-    var who = drawPreview.who || 'members';
-    v.innerHTML = '<div class="seg" style="max-width:420px"><button data-w="members" aria-selected="' + (who === 'members') + '">Church members see</button><button data-w="everyone" aria-selected="' + (who === 'everyone') + '">Everyone else sees</button></div>' +
-      '<div class="frame" id="fr"><iframe title="Preview" sandbox="allow-same-origin" id="pv"></iframe></div>' +
-      '<p class="m">Everyone else, and the web version, never get the gold members-only blocks.</p>';
-    Array.prototype.forEach.call(v.querySelectorAll('[data-w]'), function (b) { b.onclick = function () { drawPreview.who = b.getAttribute('data-w'); drawPreview(w); }; });
-    var fr = document.getElementById('fr'), pv = document.getElementById('pv');
-    var room = fr.clientWidth - 20, scale = Math.min(1, room / w);
-    pv.style.width = w + 'px'; pv.style.height = '2400px';
-    pv.style.transform = 'scale(' + scale + ')'; pv.style.transformOrigin = '0 0';
-    fr.style.height = Math.round(2400 * scale + 20) + 'px';
-    pv.onload = function () { try { var h = pv.contentDocument.documentElement.scrollHeight; pv.style.height = h + 'px'; fr.style.height = Math.round(h * scale + 20) + 'px'; } catch (e) {} };
-    pv.srcdoc = rendered(who);
   }
 
   function drawSend() {
@@ -545,70 +458,6 @@
       });
   }
 
-  /* ---- the verse, through the hub's Bible (egbc-bible.js; Martin, 20 Oct)
-     Type a reference, choose the version, and the verse comes in with its
-     reference and the version's copyright line. Free Bibles always; the
-     church's API.Bible versions (e.g. the NIV) once its key is saved;
-     typing or pasting the verse by hand always works. The church's usual
-     version is remembered (enewsSettings/main.bible): NIV when the
-     church's key has it, otherwise the BSB. */
-  var USUAL_FALLBACK = { source: 'bundled', id: 'BSB', abbrev: 'BSB' };
-  function usualVersion() {
-    if (SET.bible && SET.bible.id) return Promise.resolve(SET.bible);
-    if (!window.EGBCBible) return Promise.resolve(USUAL_FALLBACK);
-    return EGBCBible.apiVersions().then(function (l) {
-      var niv = l.filter(function (x) { return /^NIV(UK)?$/i.test(String(x.abbrev || '')); })[0];
-      return niv ? { source: 'apibible', id: niv.id, abbrev: String(niv.abbrev).toUpperCase() } : USUAL_FALLBACK;
-    }, function () { return USUAL_FALLBACK; });
-  }
-  function verseSheet(i) {
-    var b = ISSUE.blocks[i];
-    var s = sheet('This week’s verse',
-      '<label for="v-ref">Reference</label><div class="row"><input type="text" id="v-ref" placeholder="For example Col 3:23-24" value="' + esc(b.ref || '') + '" style="flex:1;min-width:160px">' +
-      '<select id="v-ver" aria-label="Version" style="flex:1;min-width:150px"><option value="">Loading the Bibles…</option></select>' +
-      '<button type="button" class="btn sec" id="v-get">Bring it in</button></div>' +
-      '<p class="m" id="v-msg" role="status"></p>' +
-      '<label for="f-vt">The verse (you can also type or paste it)</label><textarea id="f-vt" rows="4">' + esc(b.text || '') + '</textarea>' +
-      '<label for="f-copy">Copyright line (from the version)</label><input type="text" id="f-copy" value="' + esc(b.copyright || '') + '">' +
-      '<input type="hidden" id="f-version" value="' + esc(b.version || '') + '">',
-      function (s) {
-        b.text = s.querySelector('#f-vt').value.trim(); b.ref = val(s, 'v-ref'); b.version = val(s, 'f-version'); b.copyright = val(s, 'f-copy'); b.auto = false;
-        saveSoon(); drawBuild();
-      }, '<button class="btn ghost" data-del>Remove the verse</button>');
-    s.querySelector('[data-del]').onclick = function () {
-      if (!confirm('Send this week without a verse?')) return;
-      ISSUE.blocks.splice(i, 1); s.remove(); saveSoon(); drawBuild();
-    };
-    var sel = s.querySelector('#v-ver'), msg = s.querySelector('#v-msg');
-    if (!window.EGBCBible) { sel.innerHTML = '<option value="">The Bibles are not available here</option>'; return; }
-    Promise.all([EGBCBible.versions().catch(function () { return []; }), EGBCBible.apiVersions().catch(function () { return []; }), usualVersion()]).then(function (r) {
-      var opts = r[0].map(function (x) { return '<option value="bundled|' + esc(x.id) + '|' + esc(x.abbrev) + '">' + esc(x.name) + ' (free)</option>'; })
-        .concat(r[1].map(function (x) { return '<option value="apibible|' + esc(x.id) + '|' + esc(String(x.abbrev || '').toUpperCase()) + '">' + esc(x.name) + ' (church key)</option>'; }));
-      sel.innerHTML = opts.join('') || '<option value="">No Bibles found</option>';
-      var u = r[2]; var want = u.source + '|' + u.id + '|' + u.abbrev;
-      if ([].some.call(sel.options, function (o) { return o.value === want; })) sel.value = want;
-      else { var bsb = [].filter.call(sel.options, function (o) { return /\|BSB\|/.test(o.value); })[0]; if (bsb) sel.value = bsb.value; }
-    });
-    s.querySelector('#v-get').onclick = function () {
-      var ref = val(s, 'v-ref'), parts = sel.value.split('|');
-      if (!EGBCBible.parse(ref)) { msg.textContent = 'That reference was not understood. Try, for example, "Col 3:23-24".'; return; }
-      if (!parts[1]) { msg.textContent = 'Choose a version.'; return; }
-      msg.textContent = 'Bringing it in…';
-      (parts[0] === 'apibible' ? EGBCBible.apiPassage(parts[1], ref, parts[2]) : EGBCBible.passage(parts[1], ref)).then(function (p) {
-        s.querySelector('#f-vt').value = (p.verses || []).map(function (x) { return x.text; }).join(' ').replace(/\s+/g, ' ').trim() || p.text;
-        s.querySelector('#v-ref').value = p.ref;
-        s.querySelector('#f-version').value = p.version || parts[2] || '';
-        s.querySelector('#f-copy').value = p.copyright || '';
-        msg.textContent = 'Brought in. You can still change the words.';
-        /* Remember the church's usual version. */
-        var next = { source: parts[0], id: parts[1], abbrev: parts[2] };
-        if (!SET.bible || SET.bible.id !== next.id) {
-          SET.bible = next;
-          db().collection('enewsSettings').doc('main').set(Object.assign({ template: SET.template || 'classic', colours: SET.colours || {}, church: SET.church || {}, bible: next }, stamp())).catch(function () {});
-        }
-      }, function (e) { msg.textContent = (e && e.message) || 'That did not work.'; });
-    };
-  }
 
   /* ---- add subscribers from the address book (Martin, 20 Oct) -------------
      Search and tick, or a whole team or group at once. Each person still
@@ -669,30 +518,6 @@
     EGBCShare.open({ title: ISSUE.subject || 'This week’s e-news', html: '<p>This week’s e-news from ' + esc(CHURCH.name || 'church') + '.</p>', link: link });
   }
 
-  /* ---- a meeting (Martin, 20 Oct): picked from the hub's Meetings list
-     (egbc-meeting-pick.js). Church members only by default - the members'
-     copy, never everyone else's, the web version or a share; the CMM room
-     always (MB.membersOnly). i = -1 adds a new block. */
-  function pickMeeting(i) {
-    if (!window.EGBCMeetingPick) { toast('The meetings list is not available here.'); return; }
-    EGBCMeetingPick.open({ base: hubBase(), onPick: function (m) {
-      if (i >= 0 && ISSUE.blocks[i]) { if (ISSUE.blocks[i].members === false && MB.MEMBERS_ONLY_ROOMS.indexOf(m.room) < 0) m.members = false; ISSUE.blocks[i] = m; }
-      else ISSUE.blocks.push(m);
-      saveSoon(); drawBuild();
-    } });
-  }
-  function meetingSheet(i) {
-    var b = ISSUE.blocks[i], locked = MB.MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;
-    var s = sheet('The meeting',
-      (b.url ? '<p style="margin:0"><b style="color:var(--teal)">' + esc(b.title || 'Meeting') + '</b><br><span class="m">' + esc(MB.meetingWhen(b)) + '</span></p>' : '<p class="m">No meeting picked yet.</p>') +
-      '<div class="row" style="margin:10px 0"><button type="button" class="btn sec" id="m-pick">' + (b.url ? 'Choose another meeting' : 'Pick the meeting') + '</button></div>' +
-      '<label class="tick"><input type="checkbox" id="m-mem"' + (MB.membersOnly(b) ? ' checked' : '') + (locked ? ' disabled' : '') + '> Church members only' +
-      ' <span class="m">(left out of everyone else’s copy, the web version and shares' + (locked ? '; always, for this room' : '') + ')</span></label>',
-      function (s) { if (!locked) b.members = s.querySelector('#m-mem').checked; saveSoon(); drawBuild(); },
-      '<button class="btn ghost" data-del>Remove the meeting</button>');
-    s.querySelector('#m-pick').onclick = function () { s.remove(); pickMeeting(i); };
-    s.querySelector('[data-del]').onclick = function () { ISSUE.blocks.splice(i, 1); s.remove(); saveSoon(); drawBuild(); };
-  }
   /* The Church members' meeting notice ("the CMM template"): a short
      letter and the next CMM meeting, members-only. Not this week's e-news
      (week: 'notice'), so the weekly draft still makes itself. */
@@ -870,7 +695,7 @@
       };
       ISSUE_ID = ''; DIRTY = true;
       return save(true);
-    }).then(function () { VIEW = 'build'; draw(); })
+    }).then(function () { location.href = 'enews-edit.html?issue=' + encodeURIComponent(ISSUE_ID); })
       .catch(function (e) { if (b) b.disabled = false; toast('Could not start it: ' + (e.message || e)); });
   }
 
@@ -892,122 +717,9 @@
   }
   function val(s, id) { var el = s.querySelector('#' + id); return el ? el.value.trim() : ''; }
 
-  function loadPics() {
-    if (PICS) return Promise.resolve(PICS);
-    return db().collection('pictureLibrary').orderBy('createdAt', 'desc').limit(48).get().then(function (s) {
-      PICS = s.docs.map(function (d) { return { id: d.id, url: d.data().url || '', name: d.data().name || '' }; }).filter(function (p) { return MB.safeUrl(p.url); });
-      return PICS;
-    }, function () { PICS = []; return PICS; });
-  }
-  function picPicker(s, inputId, current) {
-    var host = s.querySelector('#pics-' + inputId);
-    loadPics().then(function (P) {
-      if (!P.length) { host.innerHTML = '<p class="m" style="margin:4px 0 0">The picture library is empty. Paste a picture’s link above instead.</p>'; return; }
-      host.innerHTML = '<div class="pics">' + P.map(function (p) {
-        return '<button type="button" data-url="' + esc(p.url) + '" aria-label="' + esc(p.name || 'Picture') + '" aria-pressed="' + (p.url === current) + '" style="background-image:url(\'' + esc(p.url) + '\')"></button>'; }).join('') + '</div>';
-      Array.prototype.forEach.call(host.querySelectorAll('button'), function (b) {
-        b.onclick = function () {
-          s.querySelector('#' + inputId).value = b.getAttribute('data-url');
-          Array.prototype.forEach.call(host.querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
-        };
-      });
-    });
-  }
-  function picField(id, label, value) {
-    return field(id, label + ' (a link, or choose below)', value, 'url', ' placeholder="https://"') + '<div id="pics-' + id + '"></div>';
-  }
 
-  function editSheet(i) {
-    var b = ISSUE.blocks[i], t = b.type, body = '', ed = null;
-    if (t === 'verse') { verseSheet(i); return; }
-    if (t === 'meeting') { meetingSheet(i); return; }
-    if (t === 'header') body = field('f-title', 'Title', b.title) + picField('f-img', 'Picture', b.imageUrl) + field('f-alt', 'Describe the picture (for people who can’t see it)', b.alt);
-    else if (t === 'text') body = field('f-title', 'Title (optional)', b.title) + '<label>Words</label><div id="f-html"></div>';
-    /* Every card's words are full rich text (plan A): paragraphs, bold,
-       links, lists and the church's colours, as Val writes them. */
-    else if (t === 'event') body = field('f-title', 'Title (optional: or make the first line bold)', b.title) + field('f-when', 'When and where', b.when) +
-      '<label>Words</label><div id="f-html"></div>' + picField('f-img', 'Picture', b.imageUrl) +
-      field('f-blabel', 'Button words', b.buttonLabel, 'text', ' placeholder="Sign up"') + field('f-burl', 'Button link', b.buttonUrl, 'url', ' placeholder="https://"');
-    else if (t === 'diary') body = field('f-title', 'Heading', b.title || 'Dates for the diary') +
-      '<label for="f-weeks">How far ahead</label><select id="f-weeks">' + [4, 6, 8, 12].map(function (w) { return '<option value="' + w + '"' + ((b.weeks || 6) === w ? ' selected' : '') + '>The next ' + w + ' weeks</option>'; }).join('') + '</select>' +
-      '<p class="m">Public events from What\u2019s On, a date and a title each. It is brought in again when you change how far ahead.</p>' +
-      '<ul class="m" style="margin:6px 0 0;padding-left:18px">' + (b.items || []).map(function (x) { return '<li>' + esc(x.date) + ' \u2013 ' + esc(x.title) + '</li>'; }).join('') + '</ul>';
-    else if (t === 'picture') body = picField('f-img', 'Picture', b.url) + field('f-alt', 'Describe the picture (for people who can’t see it)', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url') + field('f-cap', 'Caption (optional)', b.caption);
-    else if (t === 'button') body = field('f-blabel', 'Button words', b.label) + field('f-burl', 'Link', b.url, 'url', ' placeholder="https://"');
-    else if (t === 'verse') body = '<label for="f-vt">Verse</label><textarea id="f-vt">' + esc(b.text || '') + '</textarea>' + field('f-ref', 'Reference', b.ref, 'text', ' placeholder="John 3:16"');
-    else if (t === 'section') body = field('f-label', 'Words on the bar', b.label);
-    else if (t === 'sunday') body = field('f-title', 'Service', b.title) + field('f-when', 'When', b.when) + field('f-spk', 'Speaker', b.speaker) + field('f-text', 'A line about it (optional)', b.text);
-    else if (t === 'notices') body = '<p class="m">' + (b.items || []).length + ' notices from this week. Untick any to leave out.</p>' + (b.items || []).map(function (n, k) {
-      return '<label class="tick"><input type="checkbox" data-n="' + k + '" checked> ' + esc(n.title) + '</label>'; }).join('');
-    body += '<label class="tick"><input type="checkbox" id="f-mem"' + (b.members ? ' checked' : '') + '> Church members only</label>' +
-      '<p class="m" style="margin:2px 0 0">Left out for everyone else and from the web version. Use it for the YouTube live link, Zoom passcodes and anything private.</p>';
-    var s = sheet(TYPES[t] ? TYPES[t][0] : 'Block', body, function (s) {
-      var g = function (id) { return val(s, id); };
-      if (t === 'header') { b.title = g('f-title'); b.imageUrl = g('f-img'); b.alt = g('f-alt'); }
-      else if (t === 'text') { b.title = g('f-title'); b.html = ed ? ed.getHTML() : b.html; }
-      else if (t === 'event') { b.title = g('f-title'); b.when = g('f-when'); b.html = ed ? ed.getHTML() : b.html; b.text = ''; b.imageUrl = g('f-img'); b.alt = b.title || b.alt || ''; b.buttonLabel = g('f-blabel'); b.buttonUrl = g('f-burl'); }
-      else if (t === 'diary') { b.title = g('f-title'); var wk = +g('f-weeks') || 6; if (wk !== (b.weeks || 6)) { b.weeks = wk; diaryFill(b).then(function () { saveSoon(); drawBuild(); }); } }
-      else if (t === 'picture') { b.url = g('f-img'); b.alt = g('f-alt'); b.link = g('f-link'); b.caption = g('f-cap'); }
-      else if (t === 'button') { b.label = g('f-blabel'); b.url = g('f-burl'); }
-      else if (t === 'verse') { b.text = s.querySelector('#f-vt').value.trim(); b.ref = g('f-ref'); }
-      else if (t === 'section') { b.label = g('f-label'); }
-      else if (t === 'sunday') { b.title = g('f-title'); b.when = g('f-when'); b.speaker = g('f-spk'); b.text = g('f-text'); }
-      else if (t === 'notices') { var keep = []; Array.prototype.forEach.call(s.querySelectorAll('[data-n]'), function (c) { if (c.checked) keep.push(b.items[+c.getAttribute('data-n')]); }); b.items = keep; }
-      var bad = ['f-img', 'f-burl', 'f-link'].filter(function (id) { var x = g(id); return x && !MB.safeUrl(x); });
-      if (bad.length) { toast('A link needs to start with https://'); return false; }
-      b.members = s.querySelector('#f-mem').checked;
-      b.auto = false;
-      saveSoon(); drawBuild();
-    }, '<button class="btn ghost" data-del>Remove</button>');
-    s.querySelector('[data-del]').onclick = function () {
-      if (!confirm('Remove this block?')) return;
-      ISSUE.blocks.splice(i, 1); s.remove(); saveSoon(); drawBuild();
-    };
-    if ((t === 'text' || t === 'event') && window.EGBCEditor) ed = EGBCEditor.mount(s.querySelector('#f-html'), {
-      html: b.html || (b.text ? '<p>' + esc(b.text) + '</p>' : ''), placeholder: t === 'event' ? 'What it is, who it\u2019s for, how to book\u2026' : 'What do people need to know?', palette: palette() });
-    if (s.querySelector('#pics-f-img')) picPicker(s, 'f-img', b.imageUrl || b.url || '');
-  }
 
-  function addSheet() {
-    var s = sheet('Add a block', '<div class="types">' + Object.keys(TYPES).filter(function (k) { return k !== 'notices'; }).map(function (k) {
-      return '<button type="button" data-t="' + k + '">' + esc(TYPES[k][0]) + '<small>' + esc(TYPES[k][1]) + '</small></button>'; }).join('') + '</div>');
-    Array.prototype.forEach.call(s.querySelectorAll('[data-t]'), function (b) {
-      b.onclick = function () {
-        var t = b.getAttribute('data-t');
-        if (t === 'event') { s.remove(); pickEvent(); return; }
-        if (t === 'meeting') { s.remove(); pickMeeting(-1); return; }
-        if (t === 'diary') { s.remove(); var nd = { type: 'diary', title: 'Dates for the diary', weeks: 6, items: [] }; diaryFill(nd).then(function () { ISSUE.blocks.push(nd); saveSoon(); drawBuild(); }, function (e) { toast('Could not read What\u2019s On: ' + (e.message || e)); }); return; }
-        var nb = { type: t };
-        if (t === 'section') nb.label = 'Coming up this week';
-        ISSUE.blocks.push(nb); s.remove(); saveSoon(); drawBuild();
-        if (t !== 'divider' && t !== 'spacer') editSheet(ISSUE.blocks.length - 1);
-      };
-    });
-  }
 
-  /* An event card from What's On: the next 60 days, the same rules as the
-     automatic draft (not-listed and team events are not offered). */
-  function pickEvent() {
-    var now = Date.now();
-    var s = sheet('Event from What’s On', '<div id="evs" class="list"><p class="m">Loading…</p></div>');
-    eventsBetween(now - 86400000, now + 60 * 86400000, 150).then(function (all) {
-      var evs = all.filter(function (e) { return MB.eventShare(e) && e.source !== 'rota'; });
-      var el = s.querySelector('#evs');
-      if (!evs.length) { el.innerHTML = '<p class="m">Nothing in What’s On in the next two months.</p>'; return; }
-      el.innerHTML = evs.map(function (e, k) {
-        return '<a href="#" data-k="' + k + '"><span><b>' + esc(e.title || 'Untitled') + '</b><br><span class="m">' + esc(new Date(e.startUtc).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Europe/London' })) + '</span></span>' +
-          (MB.eventShare(e) === 'members' ? '<span class="st" style="background:var(--gold-bg);color:var(--gold)">Members</span>' : '') + '</a>'; }).join('');
-      Array.prototype.forEach.call(el.querySelectorAll('[data-k]'), function (a) {
-        a.onclick = function (ev) {
-          ev.preventDefault();
-          var e = evs[+a.getAttribute('data-k')];
-          var one = MB.draft({ now: new Date(e.startUtc - 3600000), days: 1, events: [e], notices: [], base: hubBase() }).filter(function (b) { return b.type === 'event'; })[0];
-          if (one) { one.auto = false; ISSUE.blocks.push(one); saveSoon(); }
-          s.remove(); drawBuild();
-        };
-      });
-    }).catch(function (e) { s.querySelector('#evs').innerHTML = '<p class="m">Could not load: ' + esc(e.message || e) + '</p>'; });
-  }
 
   /* ---- the church's look and footer (decision 4: colours are a church
      setting, for any church) -------------------------------------------- */

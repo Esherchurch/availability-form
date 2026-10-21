@@ -469,7 +469,7 @@
      picked, or at the end). */
   var TILES = [['picture', 'image', 'Picture'], ['heading', 'heading', 'Heading'], ['text', 'pilcrow', 'Words'], ['button', 'mouse-pointer-click', 'Button'], ['divider', 'minus', 'Line'],
     ['spacer', 'move-vertical', 'Space'], ['video', 'youtube', 'Video'], ['social', 'share-2', 'Social links'], ['logo', 'badge', 'Logo'], ['footer', 'panel-bottom', 'Footer']];
-  var HUB = [['event', 'calendar', 'Event'], ['verse', 'book-open', 'Bible verse'], ['sunday', 'church', 'This Sunday'], ['meeting', 'video', 'Meeting'], ['diary', 'calendar-days', 'Dates for the diary'], ['notices', 'pin', 'Notices']];
+  var HUB = [['header', 'image-plus', 'The week’s picture'], ['section', 'rectangle-horizontal', 'Section bar'], ['event', 'calendar', 'Event'], ['verse', 'book-open', 'Bible verse'], ['sunday', 'church', 'This Sunday'], ['meeting', 'video', 'Meeting'], ['diary', 'calendar-days', 'Dates for the diary'], ['notices', 'pin', 'Notices']];
   var LAYOUTS = [['text', 'square', '1 column'], ['columns2', 'columns-2', '2 columns'], ['columns3', 'columns-3', '3 columns'], ['card', 'layout-panel-left', 'Picture and words'], ['cardr', 'layout-panel-left', 'Words and picture'], ['pictures', 'images', 'Two pictures']];
   function tiles(list, hub) {
     return '<div class="grid">' + list.map(function (t) {
@@ -500,7 +500,9 @@
       columns3: { type: 'columns', cols: [{ html: '<p>Words.</p>' }, { html: '<p>Words.</p>' }, { html: '<p>Words.</p>' }] },
       card: { type: 'event', imageUrl: '', html: '<p><strong>A title</strong><br>Type the words here.</p>' },
       cardr: { type: 'event', side: 'right', imageUrl: '', html: '<p><strong>A title</strong><br>Type the words here.</p>' },
-      pictures: { type: 'pictures', urls: ['', ''] }
+      pictures: { type: 'pictures', urls: ['', ''] },
+      /* The two the old editor also added (21 Oct: it is replaced by this one). */
+      header: { type: 'header', imageUrl: '', alt: '', title: '' }, section: { type: 'section', label: 'Coming up this week' }
     };
     if (simple[kind]) return put(simple[kind]);
     if (kind === 'event') return pickEvent(put);
@@ -573,7 +575,8 @@
   }
   function contentFields(b) {
     var t = b.type;
-    if (t === 'header') return picField('f-img', 'The week’s picture', b.imageUrl) + unsplashBtn(b, b.imageUrl) + field('f-alt', 'Describe it (for people who can’t see it)', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url');
+    if (t === 'header') return picField('f-img', 'The week’s picture', b.imageUrl) + unsplashBtn(b, b.imageUrl) + field('f-alt', 'Describe it (for people who can’t see it)', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url') +
+      field('f-title', 'A title under it (optional)', b.title);
     if (t === 'picture') return picField('f-img', 'Picture', b.url) + unsplashBtn(b, b.url) + field('f-alt', 'Describe it', b.alt) + field('f-link', 'Link when tapped (optional)', b.link, 'url') + field('f-cap', 'Caption (optional)', b.caption);
     if (t === 'event') return '<p class="m">Type the words on the email. Make the first line bold for a title, as Val does.</p>' + field('f-title', 'Title (optional)', b.title) + field('f-when', 'When and where (optional)', b.when) +
       picField('f-img', 'Picture', b.imageUrl) + '<label class="tick"><input type="checkbox" id="f-right"' + (b.side === 'right' ? ' checked' : '') + '> The picture on the right</label>' +
@@ -696,7 +699,9 @@
         .concat(r[1].map(function (x) { return '<option value="apibible|' + esc(x.id) + '|' + esc(String(x.abbrev || '').toUpperCase()) + '">' + esc(x.name) + ' (church key)</option>'; })).join('') || '<option value="">No Bibles found</option>';
       var u = SET.bible; var want = u && u.id ? u.source + '|' + u.id + '|' + u.abbrev : '';
       if (want && [].some.call(sel.options, function (o) { return o.value === want; })) sel.value = want;
-      else { var bsb = [].filter.call(sel.options, function (o) { return /\|BSB\|/.test(o.value); })[0]; if (bsb) sel.value = bsb.value; }
+      /* No usual yet: the NIV when the church's key has it, otherwise the
+         BSB (as the old editor's verse sheet chose). */
+      else { var first = [].filter.call(sel.options, function (o) { return /^apibible\|[^|]+\|NIV(UK)?$/.test(o.value); })[0] || [].filter.call(sel.options, function (o) { return /\|BSB\|/.test(o.value); })[0]; if (first) sel.value = first.value; }
     });
     document.getElementById('v-get').onclick = function () {
       var ref = val('v-ref'), parts = sel.value.split('|');
@@ -856,6 +861,8 @@
       ISSUE = r[2].data(); ISSUE_ID = id; ISSUE.blocks = ISSUE.blocks || [];
       churchFromSettings();
       drawShell(); drawPanel(!PHONE()); drawCanvas();
+      /* The week's draft made itself (enews.html, rule 13): say so here. */
+      if (new URLSearchParams(location.search).get('drafted')) { toast('This week’s e-news is drafted for you.'); history.replaceState(null, '', '?issue=' + encodeURIComponent(ISSUE_ID)); }
       window.addEventListener('beforeunload', function () { if (saveT) save(); });
     });
   }).catch(function (e) { ed.innerHTML = '<div class="note">' + esc(e.message || e) + '</div>'; });
