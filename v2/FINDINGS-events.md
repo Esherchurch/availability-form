@@ -9493,3 +9493,18 @@ Stamps are moved and public-mail-pages.cjs is regenerated. **tests/check-going-l
 **Still saying "switch-over" on screen** (not "switches over", so not in the check yet; please reword):
 - quiz.js:15 (a comment, fine);
 - session-planner.html:533 "Not until switch-over."
+
+## From the main window, 22 Oct 2026: three more access reds, from safeguarding becoming the lead and deputy's
+
+Since the Menu now offers Safeguarding, Safeguarding settings and Due for deletion only to master admins and the lead and deputy, the audit finds these opening for a team admin (areaAdmin) whose Menu no longer offers them:
+
+- **safeguarding.html** (no guard options: anyone signed in).
+  - Open to all on purpose, for "Report a concern".
+  - But a team admin sees the full home: "Leaders, ratios, checks, incidents and concerns".
+  - Suggest: for anyone who isn't a master admin, the lead or deputy, or that event's leader, show only Report a concern, the policy and their own training, in the audit's soft-refusal words.
+  - Or add it to `OFF_MENU_BY_DESIGN` with the reason.
+- **safeguarding-settings.html** (no guard options).
+  - Suggest the guard `data-master`, plus the lead and deputy, as the Menu now has it.
+- **retention.html** (`data-admin="any"`).
+  - It says "This list is for master admins", which the audit doesn't take as a refusal.
+  - Suggest `data-master`, or "This page is for master admins".
