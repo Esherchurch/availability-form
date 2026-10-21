@@ -18,7 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610221400"></script>
-<script src="egbc-present.js?v=202610212330"></script>
+<script src="egbc-present.js?v=202610220030"></script>
 <script src="egbc-video.js?v=202610221500"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
 <style>
@@ -450,7 +450,9 @@ function join(profile) {
      egbc-present.js puts its own "Present slides" over the call for a host,
      and stops a presentation when its presenter leaves. */
   if (window.EGBCPresent) EGBCPresent.attachMeeting({ room, eventId: params.get('event') || '',
-    el: document.getElementById('present'), call: document.getElementById('stage'), host: !!hostToken });
+    el: document.getElementById('present'), call: document.getElementById('stage'), host: !!hostToken,
+    /* Daily's call, so leaving it ends a host's say-so (F-264) even before the page closes. */
+    frame });
 
   frame.on('left-meeting', () => {
     showMsg('You have left the meeting', '', `<button class="btn" onclick="location.reload()">Rejoin</button><a class="btn" href="hub.html">Back to hub</a>`);

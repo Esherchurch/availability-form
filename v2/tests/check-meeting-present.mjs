@@ -53,6 +53,9 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   + '<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>'
   + '<script src="egbc-auth.js"></script></head><body>harness</body></html>';
 const NO_SW = '<script>(function(){try{if(navigator.serviceWorker){navigator.serviceWorker.register=function(){return Promise.resolve(undefined);};}}catch(e){}})();</script>';
+const DAILY_STANDIN = '<script>window.DailyIframe={createFrame:function(el){var f=document.createElement("iframe");f.src="about:blank";el.appendChild(f);var h={};'
+  + 'return {iframe:function(){return f},on:function(n,fn){(h[n]=h[n]||[]).push(fn);return this},off:function(){return this},'
+  + 'join:function(){return Promise.resolve({})},leave:function(){(h["left-meeting"]||[]).forEach(function(fn){fn({})});return Promise.resolve()},destroy:function(){}}}};</script>';
 /* A tiny real JPEG (1x1), for the slide pictures. */
 const JPG = Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', 'base64');
 
@@ -65,10 +68,13 @@ async function browser(port, tag) {
   let id = 0; const pend = new Map();
   const send = (m, p = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
   await new Promise(r => ws.onopen = r);
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); } };
+  const errs = [];
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || {}); pend.delete(m.id); return; }
+    if (m.method === 'Runtime.consoleAPICalled' && /error|warning/.test(m.params.type)) errs.push(m.params.args.map(a => a.value || a.description).join(' ').slice(0, 300));
+    if (m.method === 'Runtime.exceptionThrown') errs.push('EXC ' + JSON.stringify(m.params.exceptionDetails).slice(0, 300)); };
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
-  return { chrome, ws, send, evl: makeEval(send, tag) };
+  return { chrome, ws, send, evl: makeEval(send, tag), errs };
 }
 
 (async () => {
@@ -102,6 +108,11 @@ async function browser(port, tag) {
     const e = path.extname(f).toLowerCase();
     let body = fs.readFileSync(f);
     if (e === '.html') { const t = body.toString('utf8'); const h = /<head[^>]*>/i.exec(t); body = Buffer.from(h ? t.slice(0, h.index + h[0].length) + NO_SW + t.slice(h.index + h[0].length) : t, 'utf8'); }
+    /* THE CALL IS NOT WHAT IS TESTED: Daily's script is swapped for a stand-in
+       that "joins" at once, so the stand-in room's address cannot time out -
+       which, with the frame passed to attachMeeting (F-264), would end the
+       presentation as a real leaving would. */
+    if (url === '/meeting.html') body = Buffer.from(body.toString('utf8').replace('<script src="https://unpkg.com/@daily-co/daily-js"></script>', DAILY_STANDIN), 'utf8');
     s.writeHead(200, { 'Content-Type': (e === '.html' ? 'text/html' : e === '.js' ? 'text/javascript' : e === '.css' ? 'text/css' : e === '.jpg' ? 'image/jpeg' : 'application/octet-stream') + (e === '.html' || e === '.js' || e === '.css' ? '; charset=utf-8' : ''), 'Cache-Control': 'no-store' });
     s.end(body);
   }).listen(SERVE);
@@ -112,7 +123,8 @@ async function browser(port, tag) {
   };
   const look = (B) => B.evl('JSON.stringify({presenting:document.body.classList.contains("presenting"),'
     + 'cap:((document.querySelector("#present .pz-cap")||{}).textContent||"").trim(),'
-    + 'pill:!!document.querySelector(".pz-mbtn"),stop:!!document.querySelector("#present [data-stop]"),'
+    /* visible, not merely there: since F-264 everyone has the button, hidden unless they may present */
+    + 'pill:(function(){var b=document.querySelector(".pz-mbtn");return !!(b&&!b.hidden&&b.offsetParent)})(),stop:!!document.querySelector("#present [data-stop]"),'
     + 'sideways:document.documentElement.scrollWidth>innerWidth+1})').then(s => JSON.parse(String(s) || '{}'));
   const until = async (B, test, ms) => { let L = {}; for (let i = 0; i < (ms || 15000) / 300; i++) { L = await look(B); if (test(L)) return L; await sleep(300); } return L; };
 
@@ -126,12 +138,13 @@ async function browser(port, tag) {
     console.log('The host');
     let h = await look(H);
     ok('  has "Present slides" over the call', h.pill, JSON.stringify(h));
+    await H.evl('window.__alerts=[];window.alert=function(m){window.__alerts.push(String(m))};1');
     await H.evl('document.querySelector(".pz-mbtn").click();1'); await sleep(2500);
     const listed = String(await H.evl('!!document.querySelector(\'[data-mdeck="' + DECK + '"]\')'));
     ok('  which offers this meeting\u2019s slides', listed === 'true');
     await H.evl('document.querySelector(\'[data-mdeck="' + DECK + '"]\').click();1');
     h = await until(H, L => L.presenting && L.stop);
-    ok('  presents them: the presenter\u2019s view, with Stop', h.presenting && h.stop, JSON.stringify(h));
+    ok('  presents them: the presenter’s view, with Stop', h.presenting && h.stop, JSON.stringify(h) + ' alerts: ' + String(await H.evl('JSON.stringify(window.__alerts||[])')) + ' console: ' + H.errs.slice(-4).join(' | '));
 
     console.log('\nThe follower (on the room\u2019s team, not a host)');
     let f = await until(F, L => L.presenting && /Slide 1 of 2/.test(L.cap));

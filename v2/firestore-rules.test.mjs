@@ -4522,33 +4522,39 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  not for their meeting in another room', 'deny', () => setDoc(doc(as2('u_organiser'), 'presentDecks', 'mh_6'), MD('u_organiser', MC({ eventId: 'ev_org_elsewhere' }))));
 
   // THE HOST'S SAY-SO (Martin, 21 Oct): presentAllow/<meeting key>_<uid>
-  const AK = 'mtg_Eldership_ev_m1', SU = 'u_samy';
+  /* An INVITED Elder who is not a host (main window, 22 Oct 2026: the say-so is
+     for an invitee who is in the meeting - presentHere invitees only). */
+  const AK = 'mtg_Eldership_ev_m1', SU = 'u_elder';
+  const sam = () => env.authenticatedContext('u_elder').firestore();
   const AL = (by, extra) => ({ context: MC(), key: AK, uid: SU, name: 'Samy', by, at: serverTimestamp(), aliveAt: serverTimestamp(), ...(extra || {}) });
-  await check('LETTING SOMEONE PRESENT: before it, he may not add a deck', 'deny', () => setDoc(doc(samy(), 'presentDecks', 'md_s0'), MD(SU)));
-  await check('  nor move the slides', 'deny', () => updateDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 2, slideAt: 'z' }));
-  await check('  nor let himself present', 'deny', () => setDoc(doc(samy(), 'presentAllow', AK + '_' + SU), AL(SU)));
+  await check('LETTING SOMEONE PRESENT: before it, he may not add a deck', 'deny', () => setDoc(doc(sam(), 'presentDecks', 'md_s0'), MD(SU)));
+  await check('  nor move the slides', 'deny', () => updateDoc(doc(sam(), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 2, slideAt: 'z' }));
+  await check('  nor let himself present', 'deny', () => setDoc(doc(sam(), 'presentAllow', AK + '_' + SU), AL(SU)));
+  await check('  the host cannot let somebody who is not here', 'deny', () => setDoc(doc(as('martin'), 'presentAllow', AK + '_' + SU), AL('u_martin')));
+  await check('  (he joins the meeting: here)', 'allow', () => setDoc(doc(sam(), 'presentHere', AK + '_' + SU), { context: MC(), key: AK, uid: SU, name: 'x', at: serverTimestamp() }));
   await check('  the host lets him', 'allow', () => setDoc(doc(as('martin'), 'presentAllow', AK + '_' + SU), AL('u_martin')));
   await check('  only under that meeting and that person', 'deny', () => setDoc(doc(as('martin'), 'presentAllow', AK + '_u_isla'), AL('u_martin')));
   await check('  in the host’s own name', 'deny', () => setDoc(doc(as('martin'), 'presentAllow', AK + '_' + SU), AL('u_karen')));
   await check('  with the server’s time, not one made up', 'deny', () => setDoc(doc(as('martin'), 'presentAllow', AK + '_' + SU), AL('u_martin', { aliveAt: '2099-01-01' })));
-  await check('  he reads his own say-so', 'allow', () => getDoc(doc(samy(), 'presentAllow', AK + '_' + SU)));
+  await check('  he reads his own say-so', 'allow', () => getDoc(doc(sam(), 'presentAllow', AK + '_' + SU)));
   await check('  someone else does not', 'deny', () => getDoc(doc(env.authenticatedContext('u_isla').firestore(), 'presentAllow', AK + '_' + SU)));
-  await check('  NOW HE ADDS A DECK for this meeting', 'allow', () => setDoc(doc(samy(), 'presentDecks', 'md_s1'), MD(SU)));
-  await check('  but not for another meeting', 'deny', () => setDoc(doc(samy(), 'presentDecks', 'md_s2'), MD(SU, MC({ eventId: 'ev_other' }))));
-  await check('  he presents', 'allow', () => setDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1'), MN(SU)));
-  await check('  and moves the slides on', 'allow', () => updateDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 1, slideAt: 'z' }));
+  await check('  NOW HE ADDS A DECK for this meeting', 'allow', () => setDoc(doc(sam(), 'presentDecks', 'md_s1'), MD(SU)));
+  await check('  but not for another meeting', 'deny', () => setDoc(doc(sam(), 'presentDecks', 'md_s2'), MD(SU, MC({ eventId: 'ev_other' }))));
+  await check('  he presents', 'allow', () => setDoc(doc(sam(), 'presentNow', 'mtg_Eldership_ev_m1'), MN(SU)));
+  await check('  and moves the slides on', 'allow', () => updateDoc(doc(sam(), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 1, slideAt: 'z' }));
   await check('  the host takes it back', 'allow', () => deleteDoc(doc(as('martin'), 'presentAllow', AK + '_' + SU)));
-  await check('  then he cannot move them', 'deny', () => updateDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 2, slideAt: 'z' }));
-  await check('  nor present again', 'deny', () => setDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1'), MN(SU)));
+  await check('  then he cannot move them', 'deny', () => updateDoc(doc(sam(), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 2, slideAt: 'z' }));
+  await check('  nor present again', 'deny', () => setDoc(doc(sam(), 'presentNow', 'mtg_Eldership_ev_m1'), MN(SU)));
   await env.withSecurityRulesDisabled(async (c) => {
     await setDoc(doc(c.firestore(), 'presentAllow', AK + '_' + SU), { context: MC(), key: AK, uid: SU, name: 'Samy', by: 'u_martin', at: new Date(Date.now() - 6 * 60000), aliveAt: new Date(Date.now() - 4 * 60000) });
   });
-  await check('  A SAY-SO NOT RENEWED FOR 4 MINUTES (the host has gone) no longer counts', 'deny', () => setDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1'), MN(SU)));
-  await check('  nor for a deck', 'deny', () => setDoc(doc(samy(), 'presentDecks', 'md_s3'), MD(SU)));
+  await check('  A SAY-SO NOT RENEWED FOR 4 MINUTES (the host has gone) no longer counts', 'deny', () => setDoc(doc(sam(), 'presentNow', 'mtg_Eldership_ev_m1'), MN(SU)));
+  await check('  nor for a deck', 'deny', () => setDoc(doc(sam(), 'presentDecks', 'md_s3'), MD(SU)));
   // WHO IS HERE, for the host's list
   const HR = (uid, extra) => ({ context: MC(), key: AK, uid, name: 'x', at: serverTimestamp(), ...(extra || {}) });
-  await check('WHO IS HERE: each person says they are', 'allow', () => setDoc(doc(samy(), 'presentHere', AK + '_' + SU), HR(SU)));
-  await check('  only for themselves', 'deny', () => setDoc(doc(samy(), 'presentHere', AK + '_u_isla'), HR('u_isla')));
+  await check('WHO IS HERE: each person says they are', 'allow', () => setDoc(doc(sam(), 'presentHere', AK + '_' + SU), HR(SU)));
+  await check('  only for themselves', 'deny', () => setDoc(doc(sam(), 'presentHere', AK + '_u_isla'), HR('u_isla')));
+  await check('  but somebody not invited cannot say they are here', 'deny', () => setDoc(doc(samy(), 'presentHere', AK + '_u_samy'), HR('u_samy')));
   await check('  the host sees the list', 'allow', () => getDocs(query(collection(as('martin'), 'presentHere'), where('key', '==', AK))));
   await check('  nobody else does', 'deny', () => getDocs(query(collection(env.authenticatedContext('u_isla').firestore(), 'presentHere'), where('key', '==', AK))));
 }
