@@ -206,6 +206,9 @@ try {
   try {
     const pg = await browser.newPage();
     const errors = []; pg.on('pageerror', (e) => errors.push(e.message)); pg.on('dialog', (d) => d.accept());
+    /* where Microsoft sent the admin back to (Church settings' card tidies ?m365= out of the address bar) */
+    let navs = []; pg.on('framenavigated', (f) => { if (f === pg.mainFrame()) navs.push(f.url()); });
+    const landed = (re) => navs.find((u) => /church-settings\.html\?m365=/.test(u) && re.test(decodeURIComponent(u))) || '';
     await pg.evaluateOnNewDocument((k) => { try { sessionStorage.setItem(k, '1'); } catch (e) {} }, 'egbc_fresh_' + STAMP);
     await pg.setViewport({ width: 900, height: 900 });
     const signIn = async (who) => {
@@ -263,7 +266,7 @@ try {
     await pg.click('#m365 [data-on]'); await pg.waitForSelector('#m365 [data-go]');
     await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-go]')]);
     await pg.waitForFunction(() => /church-settings\.html/.test(location.href), { timeout: 30000 }).catch(() => {});
-    const declinedUrl = pg.url();
+    const declinedUrl = landed(/m365=failed/);
     ok('   DECLINED in Microsoft: back to Church settings, not connected, and why in words', /m365=failed/.test(declinedUrl) && /declined/.test(decodeURIComponent(declinedUrl)) && !(await db.collection('privateSettings').doc('microsoft365').get()).exists, declinedUrl);
     /* not an administrator */
     MS.decline = false; MS.notAdmin = true;
@@ -271,7 +274,7 @@ try {
     await pg.click('#m365 [data-on]'); await pg.waitForSelector('#m365 [data-go]');
     await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}), pg.click('#m365 [data-go]')]);
     await pg.waitForFunction(() => /church-settings\.html/.test(location.href), { timeout: 30000 }).catch(() => {});
-    ok('   SIGNED IN AS SOMEONE NOT AN ADMINISTRATOR: not connected, and told who must do it', /m365=failed/.test(pg.url()) && /Global or SharePoint administrator/.test(decodeURIComponent(pg.url())), pg.url());
+    ok('   SIGNED IN AS SOMEONE NOT AN ADMINISTRATOR: not connected, and told who must do it', !!landed(/m365=failed.*Global or SharePoint administrator/), J(navs));
     /* connected */
     MS.notAdmin = false; MS.consents = []; MS.authorizes = []; MS.grants = [];
     await signIn('mia'); await card();
@@ -284,7 +287,7 @@ try {
     ok('   THE GRANT: the app gets "write" on ONE site (the church\u2019s root site), nothing else', gr.roles && J(gr.roles) === J(['write']) && gr.grantedToIdentities[0].application.id === HQ && MS.grants.length === 1, J(MS.grants));
     const saved = (await db.collection('privateSettings').doc('microsoft365').get()).data() || {};
     ok('   SAVED for the converter: which tenant and which site - no secret, no token', saved.tenantId === TENANT && saved.siteId === 'site-root' && saved.domain === 'invented.sharepoint.com' && !J(saved).includes(SECRET) && !/admin-token|invented-token|invented-code/.test(J(saved)), J(saved));
-    ok('   back to Church settings: connected', /m365=connected/.test(pg.url()), pg.url());
+    ok('   back to Church settings: connected', !!landed(/m365=connected/), J(navs));
     await signIn('mia');
     const after = await card();
     ok('   THE CARD SAYS CONNECTED, to which, by whom', /Connected: invented\.sharepoint\.com/.test(after) && /Mia Master/.test(after) && !!(await pg.$('#m365 [data-off]')), after);

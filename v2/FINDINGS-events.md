@@ -9176,3 +9176,40 @@ This **brings F-253 and F-254 together, in order**, for Church HQ's real tenant 
 
 - **What I did, locally only:** added `functions/.env.local` (gitignored, emulator only) with `MS_HQ_CLIENT_ID=NOT-SET`.
 - **Please make it work from a fresh clone.** Either commit `functions/.env.egbc-worship-planner` with `MS_HQ_CLIENT_ID=NOT-SET` now (your F-254 step 10 says it lives there), or say how you want it done.
+
+### F-258 — After deploy day: why no light copy was made (fixed), a check for undeclared secrets, puppeteer-core (the events window, 21 Oct)
+
+**1. No light copy for the 729 MB deck's video: found and fixed** (`converter/convert.mjs`)
+- **The cause:** the light copy's filter was written `'scale=-2:min(720\,ih)'` in JavaScript. There `\,` is just a comma, so ffmpeg received `scale=-2:min(720,ih)`. In an ffmpeg filter a comma starts the next filter, so ffmpeg refused it at once.
+- **Why nobody saw it:** the step's `catch` swallowed the error. No light copy, and nothing in the converter's log.
+- **ffmpeg itself was fine:** it's in the image, and the step did run.
+- **Fixed:**
+  - the filter is now `LIGHT_FILTER = 'scale=-2:min(720\\,ih)'`, so ffmpeg gets the backslash
+  - **ffmpeg failing is never silent again:** the deck's media entry records ffmpeg's own last words (`lightWhy`, and `ffWhy` for "make playable"), and the converter logs them ("ffmpeg (light copy) <deck> <video>: …")
+- **The check:** `screenshots/events/present-media.test.mjs` (plain Node, 8/8). It uses a stand-in Storage and a **stand-in ffmpeg as strict as the real one about filters** (a comma without a backslash starts another filter):
+  - a heavy video gets its light copy
+  - the full video is stored untouched
+  - a failing ffmpeg is recorded and logged
+  - a light video gets no copy
+  - HEVC is made into H.264
+- **Breaks, 2 of 2 caught:** the deploy-day filter (no light copy, as live); the error swallowed again.
+- **What to redeploy: the converter only.** The same `gcloud run deploy` line as F-257 step 12, from `v2/converter`, with Martin signed in to gcloud. No function changed.
+- **Then, to prove it:**
+  ```
+  node tools/converter-smoke.mjs --live --write --link "<the 729 MB link>"
+  ```
+  - **Expect:** media on slide 4 with `+ light m4-0-light.mp4`, and files listing `m4-0-light.mp4` at roughly 140 MB.
+  - **Time:** it takes about 4–7 minutes longer, while ffmpeg makes the 720p copy of the 7½-minute video (well inside the 900 s limit).
+  - **If ffmpeg still refuses for any reason,** the smoke output's media line and the log now say why.
+
+**2. A check that would have caught m365Status (a4fe8d92):** `screenshots/events/functions-secrets.test.mjs` (5/5).
+- **What it reads:** my functions' own source (microsoft.js, present.js, quiz.js).
+- **What it checks:** every exported trigger that reads a `defineSecret`, directly or through a helper such as `settings()`, must declare it in `secrets: [...]`.
+- **It bites:** m365Status as it was before a4fe8d92 is caught. It sees m365Start, m365Callback and m365Status needing MS_HQ_CLIENT_SECRET.
+- **Why a code check:** on the emulator the secret is never read, so no browser test could catch this.
+
+**3. The smoke tool in a fresh checkout:** `puppeteer-core` (25.12.0, what was already in use) is now in v2's `package.json` devDependencies, with the lock file. `npm install` in `v2/` brings it.
+
+**Also:** Church settings now mounts the Connect card (main window), which tidies `?m365=` out of the address bar. present-microsoft now records where Microsoft sent the admin back to, instead of reading the final address: 42/42.
+
+**Step 19 waits** for EGBC's Microsoft 365 administrator, as the reviewer says. When they've connected, `node tools/converter-smoke.mjs --live --write --compare` should say `renderer: microsoft`.

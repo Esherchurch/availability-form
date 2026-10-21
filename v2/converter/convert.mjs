@@ -130,9 +130,21 @@ const FFMPEG = process.env.FFMPEG || 'ffmpeg';
 let ffmpegHere = null;
 export function hasFfmpeg() { if (ffmpegHere === null) ffmpegHere = run(FFMPEG, ['-version'], { timeout: 20000 }).then(() => true, () => false); return ffmpegHere; }
 const TYPES = { mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/mp4', mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', wav: 'audio/wav' };
-export async function storeMedia({ buf, bucket, deckId, shownCount, ffmpeg }) {
+/* The light copy for phones: at most 720 high, keeping the shape. In an
+   ffmpeg filter a comma separates filters, so the one inside min() must
+   reach ffmpeg as "\," - in JavaScript that is '\\,'. Written '\,' (just a
+   comma), ffmpeg refused it and, the error being swallowed, no light copy
+   was ever made (deploy day, 21 Oct: the 729 MB deck's video had none). */
+export const LIGHT_FILTER = 'scale=-2:min(720\\,ih)';
+export function lightArgs(inF, outF) {
+  return ['-y', '-i', inF, '-vf', LIGHT_FILTER, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-maxrate', '2500k', '-bufsize', '5000k', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', outF];
+}
+/* ffmpeg's own words when it fails: its last lines (they say why) */
+function ffWhy(e) { return String((e && (e.stderr || e.message)) || e || '').trim().split('\n').filter(Boolean).slice(-3).join(' | ').slice(0, 300); }
+export async function storeMedia({ buf, bucket, deckId, shownCount, ffmpeg, runFf }) {
   const list = readMedia(buf).filter((m) => m.shown < shownCount);
   if (!list.length) return [];
+  const ff = runFf || ((args, opts) => run(FFMPEG, args, opts));
   const zip = readZip(buf), canFf = ffmpeg === undefined ? await hasFfmpeg() : ffmpeg, out = [];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'media-'));
   try {
@@ -154,8 +166,8 @@ export async function storeMedia({ buf, bucket, deckId, shownCount, ffmpeg }) {
         const args = plays ? ['-y', '-i', inF, '-c', 'copy', '-movflags', '+faststart', outF]
           : m.kind === 'audio' ? ['-y', '-i', inF, '-vn', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', outF]
           : ['-y', '-i', inF, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', outF];
-        try { await run(FFMPEG, args, { timeout: 600000, maxBuffer: 1 << 24 }); file = fs.readFileSync(outF); fs.rmSync(inF, { force: true }); }
-        catch (e) { file = bytes; ext = ext0; item.playable = plays; item.why = plays ? '' : 'This video could not be made playable in a browser.'; }
+        try { await ff(args, { timeout: 600000, maxBuffer: 1 << 24 }); file = fs.readFileSync(outF); fs.rmSync(inF, { force: true }); }
+        catch (e) { file = bytes; ext = ext0; item.playable = plays; item.why = plays ? '' : 'This video could not be made playable in a browser.'; item.ffWhy = ffWhy(e); console.error('ffmpeg (playable) ' + deckId + ' ' + base + ': ' + item.ffWhy); }
         if (!item.seconds && file !== bytes) item.seconds = Math.round(mp4Facts(file).seconds || 0);
       } else { file = bytes; item.playable = plays; item.why = plays ? '' : 'This video is in a form browsers do not play (the converter needs ffmpeg).'; }
       item.src = base + '.' + ext;
@@ -166,10 +178,14 @@ export async function storeMedia({ buf, bucket, deckId, shownCount, ffmpeg }) {
         const inF = path.join(dir, base + '-full.' + ext), lightF = path.join(dir, base + '-light.mp4');
         fs.writeFileSync(inF, file);
         try {
-          await run(FFMPEG, ['-y', '-i', inF, '-vf', 'scale=-2:min(720\,ih)', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-maxrate', '2500k', '-bufsize', '5000k', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', lightF], { timeout: 840000, maxBuffer: 1 << 24 });
+          await ff(lightArgs(inF, lightF), { timeout: 840000, maxBuffer: 1 << 24 });
           item.light = base + '-light.mp4';
           await bucket.file('present/' + deckId + '/' + item.light).save(fs.readFileSync(lightF), { contentType: 'video/mp4', resumable: true, metadata: { cacheControl: 'private, max-age=31536000' } });
-        } catch (e) { item.light = ''; }
+        } catch (e) {
+          /* never silent again: the deck says why, and so does the converter's log */
+          item.light = ''; item.lightWhy = ffWhy(e);
+          console.error('ffmpeg (light copy) ' + deckId + ' ' + base + ': ' + item.lightWhy);
+        }
         fs.rmSync(inF, { force: true }); fs.rmSync(lightF, { force: true });
       }
       out.push(item);
