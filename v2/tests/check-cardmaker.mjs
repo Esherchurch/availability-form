@@ -41,7 +41,7 @@ const BREAKS = {
   fade: ["ctx.fillStyle = colour; ctx.textBaseline = 'top';", "ctx.fillStyle = colour; ctx.textBaseline = 'top'; if (t < 0.5) return;"],
   switch: ["if (!(EGBCAuth.uses && EGBCAuth.uses('cardMaker'))) {", 'if (false) {'],
   details: ["['\\uD83D\\uDCC5 ' + o.weekday", "[o.weekday"],
-  versefit: ['if (lines.length * sz * 1.3 <= maxH) return', 'if (true) return'],
+  versefit: ['if (lines.length * z * 1.3 <= maxH) return', 'if (true) return'],
   nofit: ['var fits = h <= boxH && widest <= maxW;', 'var fits = true;']
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
@@ -272,7 +272,10 @@ function serveAuth(src) {
     await shot('today');
     await ev('document.querySelector(\'#today-list [data-a="done"]\').click(),1'); await sleep(1500);
     ok('"Posted ✓" marks it posted', ((await list('socialPosts'))[0] || {}).status === 'posted');
-    /* A Bible verse: today's verse, in the hub's designs, fitting every size. */
+    /* A Bible verse: today's verse, in the hub's designs, fitting every size.
+       The long-verse test uses a fixed 110 words - longer than the longest
+       verse in the Bible (Esther 8:9, about 90) - not today's verse tripled,
+       which made it pass or fail by the date (21 Oct's would not fit). */
     await ev('[...document.querySelectorAll("#modes button")].find(b=>b.dataset.v==="verse").click(),1'); await sleep(300);
     ok('"A Bible verse": the verse’s words, not the event’s', await ev('!document.getElementById("m-verse").hidden && document.getElementById("w-card").hidden'));
     await until('document.getElementById("v-ver").options.length>1', 15000);
@@ -281,8 +284,8 @@ function serveAuth(src) {
     const vref = await ev('document.getElementById("v-ref").value');
     ok('"Today’s verse" brings in the hub’s verse for today from the BSB', vref === await ev('EGBCVotd.forDate(new Date())') && (await ev('document.getElementById("v-text").value')).length > 10, vref);
     ok('its caption: "Verse of the day", the verse and its reference', new RegExp('^Verse of the day\\n\\n“[\\s\\S]+”\\n' + vref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' BSB').test(await ev('document.getElementById("s-cap").value')), await ev('document.getElementById("s-cap").value'));
-    const vfit = await ev("(function(){var S=EGBCCards.state,v=S.vstyle,keep=S.verse.text,out=[];S.verse.text=keep+' '+keep+' '+keep;['portrait','insta','facebook','story'].forEach(function(k){var z=EGBCCards.SIZES[k];['type','photo','frame','band'].forEach(function(st){S.vstyle=st;var c=document.createElement('canvas');c.width=z.w;c.height=z.h;var L=EGBCCards.draw(c,0);if(!L||!L.fits||L.bottom>L.boxBottom+1||L.top<L.boxTop-1)out.push(k+'/'+st);});});S.vstyle=v;S.verse.text=keep;return out})()");
-    ok('a long verse fits every design in every social size', vfit.length === 0, vfit);
+    const vfit = await ev("(function(){var S=EGBCCards.state,v=S.vstyle,keep=S.verse.text,out=[];S.verse.text='and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the people of the land gave thanks for every good gift and the';['portrait','insta','facebook','story'].forEach(function(k){var z=EGBCCards.SIZES[k];['type','photo','frame','band'].forEach(function(st){S.vstyle=st;var c=document.createElement('canvas');c.width=z.w;c.height=z.h;var L=EGBCCards.draw(c,0);if(!L||!L.fits||L.bottom>L.boxBottom+1||L.top<L.boxTop-1)out.push(k+'/'+st);});});S.vstyle=v;S.verse.text=keep;return out})()");
+    ok('a long verse (110 words, more than any in the Bible) fits every design in every social size', vfit.length === 0, vfit);
     await shot('verse');
     /* Each verse design at Instagram's size, saved for a person to look at. */
     for (const st of ['type', 'photo', 'frame', 'band']) {

@@ -12,7 +12,7 @@
    nothing is sent when there is nothing to post.
 
    Through the hub's ordinary email path (public-mail.js makeSender: the
-   mail route, Calla's for now), so every protection applies there too -
+   mail route, Church HQ's Resend), so every protection applies there too -
    known addresses only, never anyone under 18 (under18.js).
 
      runSocialMorning({ db, send, now })   the work, for the checks

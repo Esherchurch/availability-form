@@ -320,13 +320,13 @@ function serveAuth(src) {
     is = (await list('enewsIssues'))[0] || {};
     ok('"Don’t send yet": a draft again, with no copies to send', is.status === 'draft' && !is.htmlMembers && !is.htmlEveryone, is.status);
     /* "Send me a test" works now (Martin, 20 Oct): to the signed-in office
-       person only, through the hub's existing email route (Calla's), never
-       Church HQ's Resend before go-live. The emulator writes it down, not sends it. */
+       person only, through Church HQ's Resend (mail-route.js; never Calla's,
+       21 Oct). The emulator writes it down, not sends it. */
     await ev('[...document.querySelectorAll(".seg button")].find(b=>b.textContent==="Send").click(), 1'); await sleep(800);
     await ev('document.getElementById("test").click(),1');
     await until('/Sent to/i.test(document.getElementById("testmsg").textContent) || /not|could/i.test(document.getElementById("testmsg").textContent)', 30000);
     const tests = (await list('emailOutbox')).filter(r => r.kind === 'enews test');
-    ok('"Send me a test": one email, to the office person only, by Calla’s route, marked [Test]', tests.length === 1 && JSON.stringify(tests[0].to) === JSON.stringify([PEOPLE.office.email]) && tests[0].via === 'calla' && /^\[Test\] /.test(tests[0].subject) && tests[0].ok === true, tests.map(t => [t.to, t.via, t.subject, t.error]));
+    ok('"Send me a test": one email, to the office person only, through Church HQ’s Resend (never Calla’s), marked [Test]', tests.length === 1 && JSON.stringify(tests[0].to) === JSON.stringify([PEOPLE.office.email]) && tests[0].via === 'churchhq' && /^\[Test\] /.test(tests[0].subject) && tests[0].ok === true, tests.map(t => [t.to, t.via, t.subject, t.error]));
     ok('the page says where it went', (await ev('document.getElementById("testmsg").textContent')).includes(PEOPLE.office.email), await ev('document.getElementById("testmsg").textContent'));
 
     /* 9. A sent issue: Share to WhatsApp, with the web version's link

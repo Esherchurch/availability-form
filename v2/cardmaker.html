@@ -214,9 +214,12 @@
      version needs one. Everything shrinks together until it fits. */
   function verseLines(ctx, text, maxW, maxH, size) {
     for (var sz = size; sz > size * 0.35; sz *= 0.94) {
-      ctx.font = '600 ' + Math.round(sz) + 'px Georgia, "Times New Roman", serif';
+      /* Measured at the size it is drawn at (rounded), so it never spills
+         a few pixels past the box. */
+      var z = Math.round(sz);
+      ctx.font = '600 ' + z + 'px Georgia, "Times New Roman", serif';
       var lines = wrapLines(ctx, text, maxW, 99) || [text];
-      if (lines.length * sz * 1.3 <= maxH) return { size: Math.round(sz), lines: lines };
+      if (lines.length * z * 1.3 <= maxH) return { size: z, lines: lines };
     }
     ctx.font = '600 ' + Math.round(size * 0.35) + 'px Georgia, serif';
     return { size: Math.round(size * 0.35), lines: wrapLines(ctx, text, maxW, 99) || [text] };
@@ -237,9 +240,11 @@
       if (S.vstyle === 'band') { ctx.fillStyle = S.accent; ctx.fillRect(0, h - Math.round(h * 0.16), w, Math.round(h * 0.16)); }
     }
     var refSize = Math.round(m * 0.045), copySize = Math.round(m * 0.022);
-    var boxH = h - 2 * p - refSize * 2.4 - (V.copyright ? copySize * 3 : 0) - (S.vstyle === 'band' ? h * 0.16 : 0);
+    /* The band design puts the reference in the band, not under the words. */
+    var refBlock = S.vstyle === 'band' ? 0 : refSize * 2.4;
+    var boxH = h - 2 * p - refBlock - (V.copyright ? copySize * 3 : 0) - (S.vstyle === 'band' ? h * 0.16 : 0);
     var L = verseLines(ctx, text, w - 2 * p, boxH, m * 0.085);
-    var total = L.lines.length * L.size * 1.3 + refSize * 2.4;
+    var total = L.lines.length * L.size * 1.3 + refBlock;
     var top = (S.vstyle === 'band' ? (h * 0.84 - total) / 2 : (h - total) / 2);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = dark ? '#ffffff' : '#1e3a3a';
     ctx.font = '600 ' + L.size + 'px Georgia, "Times New Roman", serif';

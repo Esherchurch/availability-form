@@ -186,11 +186,11 @@ export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minu
 
 /* "SEND ME A TEST" (Martin, 20 Oct: it must work now). The members'
    copy, to the signed-in office person's OWN address and nobody else's,
-   through the hub's usual sender (public-mail.js makeSender): with
-   Martin's route list empty that is Calla's sendEmail, where they are a
-   known recipient. So it works before switch-over, while sending to
-   subscribers through Church HQ's Resend stays shut. Its unsubscribe link
-   goes nowhere: a test has no subscriber to unsubscribe. */
+   through the hub's usual sender (public-mail.js makeSender): Church HQ's
+   Resend, where they are a known recipient (21 Oct: never Calla's). So it
+   works before switch-over, while sending to subscribers stays shut
+   (enews-gate.js). Its unsubscribe link goes nowhere: a test has no
+   subscriber to unsubscribe. */
 export const enewsTest = onCall({ region: REGION, secrets: SENDING_SECRETS }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -215,5 +215,5 @@ export const enewsTest = onCall({ region: REGION, secrets: SENDING_SECRETS }, as
     html: html.split(PLACEHOLDER).join('#test-only-no-unsubscribe'), replyTo: church.enquiryEmail || ''
   }, { source: 'enews', kind: 'enews test', issueId: id, by: uid });
   if (!r.ok) throw new HttpsError('internal', 'Not sent: ' + (r.error || 'unknown'));
-  return { ok: true, to: email, via: r.via || 'calla' };
+  return { ok: true, to: email, via: r.via || 'churchhq' };
 });
