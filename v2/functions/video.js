@@ -130,7 +130,13 @@ export async function ensureRooms(db, daily) {
     const made = await daily.room(dailyName(churchId, r.key));
     r.daily = made.name; r.url = made.url; changed = true;
   }
-  const out = { churchId, rooms, byType: cur.byType || EGBC_BY_TYPE };
+  /* THE SAME ROOMS, KEYED, for the rules (F-263, 22 Oct 2026): rules cannot
+     search a list for a room, so meetingInvitee() / meetingHost() look a
+     room up here by its key. Kept in step with `rooms` on every write. */
+  const roomsByKey = {};
+  rooms.forEach(r => { roomsByKey[r.key] = { teams: r.teams || [], hostTeams: r.hostTeams || [], members: r.members === true || (EGBC_ROOMS.find(x => x.key === r.key) || {}).members === true }; });
+  if (JSON.stringify(cur.roomsByKey || null) !== JSON.stringify(roomsByKey)) changed = true;
+  const out = { churchId, rooms, roomsByKey, byType: cur.byType || EGBC_BY_TYPE };
   if (changed) await ref.set(Object.assign({}, out, { updatedAt: new Date().toISOString() }), { merge: true });
   return out;
 }

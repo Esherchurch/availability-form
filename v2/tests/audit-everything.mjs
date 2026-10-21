@@ -104,7 +104,12 @@ const MAX_TAPS = Number(opt('max-taps') || 40);
    as check-menu's REACHED_ELSEWHERE - not the audit guessing. Roles not
    listed still count. */
 const OFF_MENU_BY_DESIGN = {
-  'index.html': { roles: 'all', why: 'the availability form: filled in by people with no account at all' }
+  'index.html': { roles: 'all', why: 'the availability form: filled in by people with no account at all' },
+  /* The events window's Present (22 Oct 2026): open to anyone signed in; it
+     lists only that person's own groups' sessions, and shows nothing else. */
+  'present.html': { roles: 'all', why: 'Present lists only your own groups’ sessions; with none it says so and shows nothing' },
+  'present-guide.html': { roles: 'all', why: 'the two-minute guide to Present: words only, nothing of anyone’s' },
+  'quiz.html': { roles: 'all', why: 'a player’s page for a quiz code: nothing without the code' }
 };
 const SKIP_TAP = /sign ?out|log ?out|back to me|stop viewing|delete|remove|archive|clear |reset|unsubscribe|\bsend\b|disconnect|withdraw|decline|cancel (my|this|the) /i;
 const SKIP_LIVE = /save|submit|book|sign ?up|register|\badd\b|create|upload|\bpay\b|give now|confirm|approve|accept|post|publish|mark as|tick|import|generate|sync|\+ ?service|not done|auto-?populate|restore/i;

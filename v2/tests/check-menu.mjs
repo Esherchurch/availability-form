@@ -615,6 +615,10 @@ const READ_MENU = `(() => {
     'hub.html': 'the Menu is its own panel, read above',
     'login.html': 'nobody is signed in yet',
     'index.html': 'the availability form, filled in by people with no account',
+    /* The events window's Present pages (F-242, F-255; the reviewing window, 22 Oct 2026). */
+    'present.html': 'full-screen slides on every screen: a bar over them would cover the slides (Present is in the Menu itself)',
+    'present-guide.html': 'the two-minute guide, opened from Present beside its dark full-screen pages (and the Menu)',
+    'quiz.html': 'a player’s phone with no account, from the TV’s QR code: nothing to navigate to',
     'birthday.html': 'public',
     'youth-access.html': 'a young person with a code, not an account',
     'book.html': 'public hire page (events window)',

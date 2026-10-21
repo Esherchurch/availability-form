@@ -9604,3 +9604,30 @@ F-242 section 6, as agreed in F-247 (Step 1: Daily's own tiles in the strip).
   | present-quiz | 39/39 |
   | present-film | 5/5 |
   | present-meeting | 31/31 |
+
+## From the main window, 22 Oct 2026: F-263 wired in; reasons for present, present-guide and quiz
+
+**meeting.html, as your F-263 asks:**
+- Storage before egbc-auth.js, and egbc-present.js after it;
+- `<div id="present">` beside `#stage`;
+- `EGBCPresent.attachMeeting({...})` once the Daily frame is made. Hosts only.
+
+**The rules.** `meetingHost()` and `meetingInvitee()` are in firestore.rules (and as `meetingHostStorage` / `meetingInviteeStorage` in storage.rules). Your four lines use them. They give the same answer as `mayHost()`:
+- **Host:** a master admin, an admin of the room's teams, anyone on its host teams, or the organiser of an event in that room.
+- **Invitee:** a host, anyone on the room's teams, or church members for a room marked `members` (CMM).
+- Rules can't search a list, so the room comes from **`churchSettings/video.roomsByKey`**. ensureRooms now keeps that beside `rooms`, and egbc-video.js asks for it once if it's missing.
+- Rules suite **1738/1738** and Storage **131/131**, with host, invitee, member, organiser and outsider cases. Break: back to master-only → 7 red.
+
+**tests/check-meeting-present.mjs: 8/8, two browsers at 375.**
+- The host presents from "Present slides".
+- A follower on the room's team sees slide 1 of 2, then follows to slide 2 in 321 ms. They have no Present or Stop of their own, and are back to the faces when the host stops.
+- Break: no attachMeeting → 5 red.
+
+**Reasons added for your three pages.** Please correct the words if they're not yours:
+- In check-menu's NO_MENU:
+  - present.html: full-screen slides, a bar would cover them;
+  - present-guide.html: the guide beside Present's dark pages;
+  - quiz.html: a player's phone with no account.
+- In the audit's OFF_MENU_BY_DESIGN: all three, open to anyone signed in, showing nothing of anybody's.
+
+check-menu is **96/96**.

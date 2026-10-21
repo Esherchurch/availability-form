@@ -351,6 +351,22 @@ await check('  A TEAM MEMBER CANNOT', 'deny', () => put(st('u_pzt'), 'present/dk
 await check('  the team sees the slides', 'allow', () => getBytes(ref(st('u_pzt'), 'present/dk_pz/s1.jpg')));
 await check('  another group does not', 'deny', () => getBytes(ref(st('u_pzy'), 'present/dk_pz/s1.jpg')));
 await check('  nor the public', 'deny', () => getBytes(ref(anon(), 'present/dk_pz/s1.jpg')));
+
+/* ── MAIN WINDOW (F-263, 22 Oct 2026): a MEETING's deck - the host puts the
+   PowerPoint up, the meeting's invitees see the slides (meetingHostStorage /
+   meetingInviteeStorage, from churchSettings/video.roomsByKey). */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  const U = (uid, mid, teams, adminFor) => setDoc(doc(db, 'users', uid), { memberId: mid, teams, adminFor, masterAdmin: false, status: 'active' });
+  await U('u_mhost', 'm_mhost', [], ['Elders']); await U('u_mfollow', 'm_mfollow', ['Elders'], []); await U('u_mout', 'm_mout', ['Youth'], []);
+  await setDoc(doc(db, 'churchSettings', 'video'), { roomsByKey: { Eldership: { teams: ['Elders'], hostTeams: [], members: false } }, byType: {} }, { merge: true });
+  await setDoc(doc(db, 'presentDecks', 'dk_mt'), { context: { type: 'meeting', room: 'Eldership', eventId: '', day: '2026-11-05' }, name: 'x', status: 'ready' });
+  await uploadBytes(ref(ctx.storage(), 'present/dk_mt/s1.jpg'), PIC(), { contentType: 'image/jpeg' });
+});
+await check('MEETING: the host puts up the PowerPoint', 'allow', () => put(st('u_mhost'), 'present/dk_mt/source.pptx', { type: PPTX }));
+await check('  an invitee (on the room’s team) cannot', 'deny', () => put(st('u_mfollow'), 'present/dk_mt/source.pptx', { type: PPTX }));
+await check('  but sees the slides', 'allow', () => getBytes(ref(st('u_mfollow'), 'present/dk_mt/s1.jpg')));
+await check('  somebody not in that room does not', 'deny', () => getBytes(ref(st('u_mout'), 'present/dk_mt/s1.jpg')));
 // ── end EVENTS ──
 // ── end EVENTS ──
 

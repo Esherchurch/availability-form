@@ -45,8 +45,9 @@
       var v = s.exists ? s.data() : null;
       /* Every room made, and with today's fields (hostTeams, 21 Oct 2026);
          otherwise the server fills them in, once. */
-      var complete = v && Array.isArray(v.rooms) && v.rooms.length && v.rooms.every(function (r) {
-        return r.url && Array.isArray(r.teams) && Array.isArray(r.hostTeams);
+      /* And roomsByKey (22 Oct 2026), which the rules read for Present. */
+      var complete = v && Array.isArray(v.rooms) && v.rooms.length && v.roomsByKey && v.rooms.every(function (r) {
+        return r.url && Array.isArray(r.teams) && Array.isArray(r.hostTeams) && v.roomsByKey[r.key];
       });
       if (complete) return settle(v);
       /* Missing, or a room not yet made: the server makes them. */

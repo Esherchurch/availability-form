@@ -477,15 +477,41 @@ service firebase.storage {
     // converter alone. Never readable by anyone else.
     function deckHere(deckId) { return firestore.get(/databases/(default)/documents/presentDecks/$(deckId)).data; }
     function deckCtx(deckId) { return deckHere(deckId).get('context', {}); }
+    // A meeting's host and invitees: firestore.rules' meetingHost() and
+    // meetingInvitee(), said again here (F-263, 22 Oct 2026).
+    function meetingRoomStorage(room) {
+      return firestore.get(/databases/(default)/documents/churchSettings/video).data.get('roomsByKey', {}).get(room, {});
+    }
+    function meetingOrganiserStorage(room, eventId) {
+      return eventId is string && eventId != '' && !eventId.matches('.*/.*')
+             && firestore.exists(/databases/(default)/documents/events/$(eventId))
+             && firestore.get(/databases/(default)/documents/events/$(eventId)).data.get('organiserUid', '') == request.auth.uid
+             && firestore.get(/databases/(default)/documents/events/$(eventId)).data.get('videoRoom',
+                  firestore.get(/databases/(default)/documents/churchSettings/video).data.get('byType', {})
+                    .get(firestore.get(/databases/(default)/documents/events/$(eventId)).data.get('type', ''), '')) == room;
+    }
+    function meetingHostStorage(room, eventId) {
+      return planActive()
+             && (storageMe().get('masterAdmin', false) == true
+                 || storageMe().get('adminFor', []).hasAny(meetingRoomStorage(room).get('teams', []))
+                 || storageMe().get('teams', []).hasAny(meetingRoomStorage(room).get('hostTeams', []))
+                 || meetingOrganiserStorage(room, eventId));
+    }
+    function meetingInviteeStorage(room, eventId) {
+      return meetingHostStorage(room, eventId)
+             || (planActive()
+                 && (storageMe().get('teams', []).hasAny(meetingRoomStorage(room).get('teams', []))
+                     || (meetingRoomStorage(room).get('members', false) == true && storageMe().get('churchMember', false) == true)));
+    }
     function deckAudience(deckId) {
       return firestore.exists(/databases/(default)/documents/presentDecks/$(deckId))
              && ((deckCtx(deckId).get('type', '') == 'session' && planReaderHere(deckCtx(deckId).get('groupId', '-')))
-                 || (deckCtx(deckId).get('type', '') == 'meeting' && planActive() && storageMe().get('masterAdmin', false) == true));
+                 || (deckCtx(deckId).get('type', '') == 'meeting' && meetingInviteeStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))));
     }
     function deckPresenter(deckId) {
       return firestore.exists(/databases/(default)/documents/presentDecks/$(deckId))
              && ((deckCtx(deckId).get('type', '') == 'session' && planLeaderHere(deckCtx(deckId).get('groupId', '-')))
-                 || (deckCtx(deckId).get('type', '') == 'meeting' && planActive() && storageMe().get('masterAdmin', false) == true));
+                 || (deckCtx(deckId).get('type', '') == 'meeting' && meetingHostStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))));
     }
     match /present/{deckId}/{fileName} {
       allow read: if deckAudience(deckId);

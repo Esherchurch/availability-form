@@ -4883,13 +4883,46 @@ service cloud.firestore {
     // and meetingHost(ctx.room, ctx.eventId) (deckPresents); storage.rules'
     // present/ block says the same twice. functions/present.js mayPresent()
     // already asks your mayHost() (functions/video.js).
+    // A MEETING'S HOST AND INVITEES (the main window, F-263, 22 Oct 2026),
+    // the same answer as functions/video.js mayHost(): a master admin; an
+    // admin of one of the room's teams; anyone on one of its host teams; or
+    // the organiser of the event, when the event is in this room. Invitees:
+    // the hosts, anyone on the room's teams, and - for a room marked
+    // members (the members' meeting) - church members. The room is read from
+    // churchSettings/video.roomsByKey, kept by the server beside `rooms`.
+    function meetingRoomHere(room) {
+      return get(/databases/$(database)/documents/churchSettings/video).data.get('roomsByKey', {}).get(room, {});
+    }
+    function meetingEventHere(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data;
+    }
+    function meetingOrganiser(room, eventId) {
+      return eventId is string && eventId != '' && !eventId.matches('.*/.*')
+             && exists(/databases/$(database)/documents/events/$(eventId))
+             && meetingEventHere(eventId).get('organiserUid', '') == request.auth.uid
+             && meetingEventHere(eventId).get('videoRoom',
+                  get(/databases/$(database)/documents/churchSettings/video).data.get('byType', {}).get(meetingEventHere(eventId).get('type', ''), '')) == room;
+    }
+    function meetingHost(room, eventId) {
+      return isMaster()
+             || (active() && room is string && room != ''
+                 && (me().get('adminFor', []).hasAny(meetingRoomHere(room).get('teams', []))
+                     || me().get('teams', []).hasAny(meetingRoomHere(room).get('hostTeams', []))
+                     || meetingOrganiser(room, eventId)));
+    }
+    function meetingInvitee(room, eventId) {
+      return meetingHost(room, eventId)
+             || (active() && room is string && room != ''
+                 && (myTeams().hasAny(meetingRoomHere(room).get('teams', []))
+                     || (meetingRoomHere(room).get('members', false) == true && isChurchMember())));
+    }
     function deckReads(ctx) {
       return ctx is map && ((ctx.get('type', '') == 'session' && readsPlanGroup(ctx.get('groupId', '')))
-                            || (ctx.get('type', '') == 'meeting' && isMaster()));
+                            || (ctx.get('type', '') == 'meeting' && meetingInvitee(ctx.get('room', ''), ctx.get('eventId', ''))));
     }
     function deckPresents(ctx) {
       return ctx is map && ((ctx.get('type', '') == 'session' && editsPlanGroup(ctx.get('groupId', '')))
-                            || (ctx.get('type', '') == 'meeting' && isMaster()));
+                            || (ctx.get('type', '') == 'meeting' && meetingHost(ctx.get('room', ''), ctx.get('eventId', ''))));
     }
     function presentCtxOk(ctx) {
       return (ctx.get('type', '') != 'session'

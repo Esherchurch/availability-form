@@ -4490,6 +4490,36 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  the host moves on', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m1'), { slide: 1, slideAt: 'y' }));
   await check('  and stops (the deck stays named)', 'allow', () => updateDoc(doc(as('martin'), 'presentNow', 'mtg_Eldership_ev_m1'), { presenterUid: '', presenterName: '', blank: false }));
   await check('  until the main window adds meetingInvitee(), an invitee who is not a master admin does not see it', 'deny', () => getDoc(doc(samy(), 'presentNow', 'mtg_Eldership_ev_m1')));
+
+  /* ── MAIN WINDOW (F-263, 22 Oct 2026): meetingHost() and meetingInvitee(),
+     the same answer as functions/video.js mayHost(), from the rooms kept
+     keyed in churchSettings/video.roomsByKey. */
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    const U = (uid, mid, teams, adminFor, extra) => setDoc(doc(d, 'users', uid), Object.assign({ uid, memberId: mid, status: 'active', teams, adminFor, masterAdmin: false, churchMember: false }, extra || {}));
+    await U('u_eld_admin', 'm_eld_admin', [], ['Elders']);
+    await U('u_elder', 'm_elder', ['Elders'], []);
+    await U('u_cmm_member', 'm_cmm_member', [], [], { churchMember: true });
+    await U('u_organiser', 'm_organiser', [], []);
+    await setDoc(doc(d, 'churchSettings', 'video'), { roomsByKey: {
+      Eldership: { teams: ['Elders'], hostTeams: [], members: false },
+      CMM: { teams: ['Church office'], hostTeams: ['Church office', 'Elders'], members: true } }, byType: { 'Elders Meeting': 'Eldership' } }, { merge: true });
+    await setDoc(doc(d, 'events', 'ev_org'), { organiserUid: 'u_organiser', videoRoom: 'Eldership', type: 'Other' });
+    await setDoc(doc(d, 'events', 'ev_org_elsewhere'), { organiserUid: 'u_organiser', videoRoom: 'Prayer', type: 'Other' });
+    await setDoc(doc(d, 'presentDecks', 'md_cmm'), { ...MD('u_martin', MC({ room: 'CMM', eventId: '' })), status: 'ready', count: 2 });
+  });
+  const as2 = (uid) => env.authenticatedContext(uid).firestore();
+  await check('MEETING HOSTS: an admin of the room’s team adds a deck for the meeting', 'allow', () => setDoc(doc(as2('u_eld_admin'), 'presentDecks', 'mh_1'), MD('u_eld_admin')));
+  await check('  and presents it', 'allow', () => setDoc(doc(as2('u_eld_admin'), 'presentNow', 'mtg_Eldership_ev_m9'), MN('u_eld_admin')));
+  await check('  somebody on the room’s team follows it (an invitee)', 'allow', () => getDoc(doc(as2('u_elder'), 'presentNow', 'mtg_Eldership_ev_m1')));
+  await check('  and reads its deck', 'allow', () => getDoc(doc(as2('u_elder'), 'presentDecks', 'md_ready')));
+  await check('  BUT AN INVITEE DOES NOT PRESENT (hosts only)', 'deny', () => setDoc(doc(as2('u_elder'), 'presentDecks', 'mh_2'), MD('u_elder')));
+  await check('  somebody not in that room sees nothing', 'deny', () => getDoc(doc(as2('u_cmm_member'), 'presentDecks', 'md_ready')));
+  await check('THE MEMBERS’ MEETING: an Elder (a host team) presents there', 'allow', () => setDoc(doc(as2('u_elder'), 'presentDecks', 'mh_3'), MD('u_elder', MC({ room: 'CMM', eventId: '' }))));
+  await check('  a church member follows it', 'allow', () => getDoc(doc(as2('u_cmm_member'), 'presentDecks', 'md_cmm')));
+  await check('  but cannot present', 'deny', () => setDoc(doc(as2('u_cmm_member'), 'presentDecks', 'mh_4'), MD('u_cmm_member', MC({ room: 'CMM', eventId: '' }))));
+  await check('THE ORGANISER of a meeting in this room presents', 'allow', () => setDoc(doc(as2('u_organiser'), 'presentDecks', 'mh_5'), MD('u_organiser', MC({ eventId: 'ev_org' }))));
+  await check('  not for their meeting in another room', 'deny', () => setDoc(doc(as2('u_organiser'), 'presentDecks', 'mh_6'), MD('u_organiser', MC({ eventId: 'ev_org_elsewhere' }))));
 }
 
 // Nothing else is open.
