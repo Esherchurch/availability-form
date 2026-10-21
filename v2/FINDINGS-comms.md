@@ -269,7 +269,7 @@ Martin, through the reviewing window: "v2 doesn't use Calla at all." There are t
 - **`public-mail.js makeSender`**, the sender every server email goes through:
   - always uses Church HQ's Resend (mail-route.js);
   - if Resend fails, the email is **not sent**, and `emailOutbox` says why. It never goes to Calla's sendEmail;
-  - without the key, nothing is sent, and the row says "RESEND_API_KEY in Google Secret Manager".
+  - without the key, nothing is sent, and the row says "HQ_RESEND_API_KEY in Google Secret Manager".
 - **The route's old gates are gone:**
   - the switch-over gate;
   - Martin's list of kinds (`churchSettings/mailRoute`);
@@ -285,18 +285,21 @@ Martin, through the reviewing window: "v2 doesn't use Calla at all." There are t
 
 **The two names, to set with Martin before deploying:**
 
-    firebase functions:secrets:set RESEND_API_KEY          (re_..., Resend → API Keys, sending access)
-    firebase functions:secrets:set RESEND_WEBHOOK_SECRET   (whsec_..., Resend → Webhooks → the hqMailEvents endpoint)
+    firebase functions:secrets:set HQ_RESEND_API_KEY          (re_..., a FRESH key from Church HQ's Resend, Resend → API Keys, sending access)
+    firebase functions:secrets:set HQ_RESEND_WEBHOOK_SECRET   (whsec_..., Resend → Webhooks → the hqMailEvents endpoint)
 
-- **A finding: RESEND_API_KEY already exists in Secret Manager.** The functions emulator read it, as described below; RESEND_WEBHOOK_SECRET doesn't exist yet. If the existing one isn't the sending key from CHURCHHQ-EMAIL-SETUP D1, set it again. I didn't display or keep its value.
+- **Corrected 21 Oct (reviewing window): RESEND_API_KEY in this project is CALLA'S key.** The original site's sendEmail lists it. So Church HQ's are **HQ_RESEND_API_KEY** and **HQ_RESEND_WEBHOOK_SECRET**, everywhere, and the hub never reads, sets or deletes RESEND_API_KEY:
+  - `secretValue` refuses the bare names without asking Secret Manager;
+  - a check proves it, with a break.
+- **What happened before the rename:** my functions emulator, with no stand-ins yet, fetched RESEND_API_KEY (Calla's key) into its own memory during check runs on 21 Oct. Nothing was sent, as the emulator never sends. The value was never displayed, written down or kept, and it was gone when the emulator stopped. Nothing was ever set or deleted.
 - **How every sender gets the key** (functions/resend-secrets.js). A secret reaches only the functions that list it, and about thirty functions in several windows' files send email. So:
   - this window's senders list both secrets (`SENDING_SECRETS`). Deploying them gives the functions' runtime service account access to both;
   - `secretValue()` uses the listed value where there is one. Otherwise it asks Secret Manager directly, with the same account, and keeps the answer for ten minutes;
   - `setGlobalOptions` can't do this here: firebase-functions 7.4 reads global options when each function is defined, before index.js sets them.
-- **If a sender ever reports "RESEND_API_KEY" while the secret is set**, the account lacks access, which a deploy normally grants. One command fixes it:
-  `gcloud secrets add-iam-policy-binding RESEND_API_KEY --project egbc-worship-planner --member serviceAccount:199442060489-compute@developer.gserviceaccount.com --role roles/secretmanager.secretAccessor`
-  (and the same for RESEND_WEBHOOK_SECRET).
-- **The webhook** (`hqMailEvents`) checks Resend's signature with RESEND_WEBHOOK_SECRET.
+- **If a sender ever reports "HQ_RESEND_API_KEY" while the secret is set**, the account lacks access, which a deploy normally grants. One command fixes it:
+  `gcloud secrets add-iam-policy-binding HQ_RESEND_API_KEY --project egbc-worship-planner --member serviceAccount:199442060489-compute@developer.gserviceaccount.com --role roles/secretmanager.secretAccessor`
+  (and the same for HQ_RESEND_WEBHOOK_SECRET).
+- **The webhook** (`hqMailEvents`) checks Resend's signature with HQ_RESEND_WEBHOOK_SECRET.
 - **The key box** (Church settings → Email and Canva keys) no longer takes Resend keys:
   - it says whether each secret is **set**, by name, never the value;
   - it refuses a Resend key pasted into it;
@@ -308,7 +311,7 @@ Martin, through the reviewing window: "v2 doesn't use Calla at all." There are t
   - the welcome emails.
   - Until the rules deploy, a subscriber list saved now would be readable by anybody. **Everything else sends as soon as the key is set**, including "Send me a test".
   - **Martin may want this differently.** Say if the welcome emails should open now too; they can't be switched on until the rules are live anyway.
-- **The emulator and the real secrets.** A functions emulator with no `functions/.secret.local` fetches the **real** secrets from Secret Manager, using the signed-in CLI. That's how it read RESEND_API_KEY.
+- **The emulator and the real secrets.** A functions emulator with no `functions/.secret.local` fetches the **real** secrets from Secret Manager, using the signed-in CLI. That's how it read Calla's RESEND_API_KEY (above).
   - My checks and the ease test now use test stand-ins in `functions/.secret.local`. The ease test writes it if it's missing.
   - `v2/functions/.secret.local` is added to `.gitignore`, so it can never be committed.
   - **Other windows' emulators:** create that file with test values, or they will hold the live key while they run. The emulator never sends, but it would have it.
@@ -334,6 +337,9 @@ Martin, through the reviewing window: "v2 doesn't use Calla at all." There are t
 - **functions/team-mail.js**: its header still describes Calla's fixed From address. Team emails now come from "<church name>" <hub@mail.churchhq.co.uk>, replying to the address the sender chose. **functions/id-token.js** is only for Calla's identity token, so it can go with sendOne's.
 - **The pages that still name Calla's sendEmail** are yours to move onto the callable: egbc-email.js, egbc-core-planner.js, egbc-core-rota.js, egbc-nosend.js, EmailBuilder2.html, hub-app.js, Planner.html, SundayServicePlanner.html, youthapp2.html and youthserviceplanner.html.
 
+- **PLAN-hub-send.md** (your plan) still recommends `RESEND_API_KEY`. That name is Calla's. Church HQ's are **HQ_RESEND_API_KEY** and **HQ_RESEND_WEBHOOK_SECRET**: please change it there.
+- **Your item 2 (small group members), done:** `smallGroupMembers.email` is in KNOWN_SOURCES, so "Message the group" and small-group invitations reach their members (checked). Items 1 and 3 were done in 819e6fc9. Item 4 is the Secret Manager key, under the HQ_ names.
+
 ### For the events window
 
 `screenshots/events/public-mail.test.mjs`:
@@ -345,7 +351,7 @@ Martin, through the reviewing window: "v2 doesn't use Calla at all." There are t
 
 1. **Set the two secrets first** (above). Functions that list a secret won't deploy while it's missing.
 2. **`firebase deploy --only functions:hub`.**
-3. **Resend → Webhooks:** the endpoint `https://europe-west2-egbc-worship-planner.cloudfunctions.net/hqMailEvents`, its signing secret into RESEND_WEBHOOK_SECRET (CHURCHHQ-EMAIL-SETUP part E).
+3. **Resend → Webhooks:** the endpoint `https://europe-west2-egbc-worship-planner.cloudfunctions.net/hqMailEvents`, its signing secret into HQ_RESEND_WEBHOOK_SECRET (CHURCHHQ-EMAIL-SETUP part E).
 
 ### Checks (this window's own emulators)
 

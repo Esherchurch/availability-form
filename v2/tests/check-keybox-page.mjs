@@ -133,7 +133,7 @@ function serveAuth(src) {
     if (host !== 'localhost:' + FS) throw new Error('not proven to be on the emulator');
     await until('!!document.getElementById("ky-save")', 15000);
     ok('a master admin sees Canva\u2019s two boxes, and no box for Resend\u2019s', (await ev('["ky-canvaId","ky-canvaSecret"].every(function(i){return !!document.getElementById(i)}) && !document.getElementById("ky-key") && !document.getElementById("ky-hook")')));
-    ok('…and whether Resend\u2019s are set in Google Secret Manager, by name', /Google Secret Manager[\s\S]*RESEND_API_KEY\): (set|not set yet)\.[\s\S]*RESEND_WEBHOOK_SECRET\): (set|not set yet)\./.test(await ev('document.getElementById("ky-resend").innerText')), await ev('(document.getElementById("ky-resend")||{}).innerText'));
+    ok('…and whether Resend\u2019s are set in Google Secret Manager, by name', /Google Secret Manager[\s\S]*HQ_RESEND_API_KEY\): (set|not set yet)\.[\s\S]*HQ_RESEND_WEBHOOK_SECRET\): (set|not set yet)\./.test(await ev('document.getElementById("ky-resend").innerText')), await ev('(document.getElementById("ky-resend")||{}).innerText'));
     await ev('document.getElementById("keys-h").scrollIntoView(),1'); await sleep(300);
     let sh = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(SHOTS, 'keybox-375.png'), Buffer.from(sh.data, 'base64'));
     await ev('document.getElementById("ky-canvaId").value="OCTestOnly123";document.getElementById("ky-canvaSecret").value=' + JSON.stringify(KEY) + ';document.getElementById("ky-save").click(),1');

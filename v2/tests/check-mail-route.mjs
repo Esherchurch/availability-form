@@ -12,7 +12,7 @@
  *
  * Asks: every kind the server sends goes to Church HQ's Resend, from the
  * church's own name, replying to the church, with the key from Google
- * Secret Manager (RESEND_API_KEY); nothing ever goes to Calla's
+ * Secret Manager (HQ_RESEND_API_KEY); nothing ever goes to Calla's
  * sendEmail, and no server file still names it; without the key nothing
  * is sent and the outbox says why; Resend failing is written down and not
  * sent anywhere else; an unknown address, an under-18 address or the
@@ -68,7 +68,7 @@ const KINDS = [
 const OK = 'known.route@example.invalid';
 
 async function clear() {
-  for (const c of ['emailOutbox', 'mailRouteHours', 'privateSettings', 'addressBook', 'bookings', 'churchSettings']) {
+  for (const c of ['emailOutbox', 'mailRouteHours', 'privateSettings', 'addressBook', 'bookings', 'churchSettings', 'smallGroupMembers']) {
     for (const d of (await db.collection(c).get()).docs) await d.ref.delete();
   }
   SECRETS.forgetSecrets();
@@ -79,12 +79,13 @@ async function scenario(PM, R) {
   const t = (n, v, x) => out.push({ n, v: !!v, x });
   try {
     await clear();
-    process.env.RESEND_API_KEY = KEY;
+    process.env.HQ_RESEND_API_KEY = KEY;
     await db.collection('churchSettings').doc('details').set({ name: 'Synthetic Green Church', enquiryEmail: 'office.route@example.invalid' });
     await db.collection('addressBook').doc('ab_ok').set({ name: 'Known Synthetic', email: 'Known.Route@Example.invalid' });
     await db.collection('addressBook').doc('ab_kid').set({ name: 'Young Synthetic', email: 'kid.route@example.invalid', isMinor: true });
     await db.collection('addressBook').doc('ab_sev').set({ name: 'Sev Synthetic', email: 'sev.route@example.invalid', under18: true, isMinor: false });
     await db.collection('bookings').doc('bk1').set({ requester: { email: 'hirer.route@example.invalid' } });
+    await db.collection('smallGroupMembers').doc('g1_contacts_c1').set({ groupId: 'g1', personKind: 'contacts', personId: 'c1', name: 'Group Synthetic', email: 'group.route@example.invalid' });
     /* A key an older box saved in the database must never be used. */
     await db.collection('privateSettings').doc('churchHqMail').set({ key: 're_OldBoxKey_' + 'x'.repeat(24) });
     strays.length = 0;
@@ -104,7 +105,7 @@ async function scenario(PM, R) {
     t('nothing goes to Calla’s sendEmail, or anywhere else', strays.length === 0 && resend.every(x => x.url === 'https://api.resend.com/emails'), strays);
     const b = (resend[0] || {}).body || {};
     t('from "<church name>" <hub@mail.churchhq.co.uk>, replying to the church', b.from === '"Synthetic Green Church" <hub@mail.churchhq.co.uk>' && b.reply_to === 'office.route@example.invalid', b.from + ' / ' + b.reply_to);
-    t('with the key from Google Secret Manager (RESEND_API_KEY), never one in the database', (resend[0] || {}).auth === 'Bearer ' + KEY);
+    t('with the key from Google Secret Manager (HQ_RESEND_API_KEY), never one in the database', (resend[0] || {}).auth === 'Bearer ' + KEY);
     /* public-mail-pages.cjs is the pages' own files, copied word for word and
        run in a sandbox with no fetch at all (public-mail.js pages): what a page
        would send is only collected there, and sent by makeSender. */
@@ -112,11 +113,11 @@ async function scenario(PM, R) {
     t('no server file but the main window’s index.js still names Calla’s sendEmail', src.length === 0, src);
 
     /* 2. No key: nothing sent, and the outbox says why. */
-    delete process.env.RESEND_API_KEY; SECRETS.forgetSecrets(); resend.length = 0;
+    delete process.env.HQ_RESEND_API_KEY; SECRETS.forgetSecrets(); resend.length = 0;
     let r = await send(Object.assign({}, msg, { subject: 'No key' }), { kind: 'signup' });
     const nk = (await rows()).filter(x => x.subject === 'No key');
-    t('no key yet: not sent anywhere, and the outbox says why', r.ok === false && resend.length === 0 && strays.length === 0 && nk.length === 1 && /RESEND_API_KEY/.test(nk[0].error), { r, nk });
-    process.env.RESEND_API_KEY = KEY;
+    t('no key yet: not sent anywhere, and the outbox says why', r.ok === false && resend.length === 0 && strays.length === 0 && nk.length === 1 && /HQ_RESEND_API_KEY/.test(nk[0].error), { r, nk });
+    process.env.HQ_RESEND_API_KEY = KEY;
 
     /* 3. Resend fails: written down, not sent anywhere else. */
     resendFails = true;
@@ -132,6 +133,8 @@ async function scenario(PM, R) {
     t('an unknown address is refused, and nothing is sent', r.ok === false && /not known/.test(r.error) && resend.length === 0 && strays.length === 0, r);
     r = await send({ to: ['HIRER.route@example.invalid'], subject: 'Nested', html: 'x' }, { kind: 'signup' });
     t('a known address in a nested field (a hirer), any capitals, is fine', r.ok && r.via === 'churchhq', r);
+    r = await send({ to: ['group.route@example.invalid'], subject: 'Group', html: 'x' }, { kind: 'group message' });
+    t('a small group’s member (Message the group) is known', r.ok && r.via === 'churchhq', r);
     resend.length = 0;
     r = await send({ to: ['kid.route@example.invalid'], subject: 'Minor', html: 'x' }, { kind: 'signup' });
     t('an under-18 address is refused (never emailed)', r.ok === false && /under-18/.test(r.error) && resend.length === 0, r);

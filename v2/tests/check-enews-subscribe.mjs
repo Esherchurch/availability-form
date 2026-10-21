@@ -179,7 +179,7 @@ const outbox = async kind => (await list('emailOutbox')).filter(r => !kind || r.
   r = await fn('enewsUnsubscribe', { t: s.token, action: 'resubscribe' });
   ok('the page can re-subscribe them', r.json && r.json.ok && (await subOf(A)).status === 'subscribed');
 
-  /* The signing secret is Google Secret Manager's RESEND_WEBHOOK_SECRET
+  /* The signing secret is Google Secret Manager's HQ_RESEND_WEBHOOK_SECRET
      (21 Oct 2026); on the emulator, functions/.env.local's stands in for
      it. One left in the old key box (privateSettings/churchHqMail.hook)
      is never used. */

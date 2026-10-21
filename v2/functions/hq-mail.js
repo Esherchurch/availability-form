@@ -19,7 +19,7 @@
         meta: written to the emailOutbox row (kind, issueId ...)
      verifySvix(secret, headers, rawBody)   Resend's webhook signature
 
-   THE KEY: Google Secret Manager, RESEND_API_KEY (resend-secrets.js),
+   THE KEY: Google Secret Manager, HQ_RESEND_API_KEY (resend-secrets.js),
    read here on the server only. Never in the database, a page, a chat or
    the repository.
 
@@ -62,7 +62,7 @@ export function makeHqSender({ db, emulator = onEmulator, fetchFn, key } = {}) {
     let out;
     try {
       const k = key || (await resendKey()) || '';
-      if (!k) throw new Error('no Resend key yet: RESEND_API_KEY in Google Secret Manager');
+      if (!k) throw new Error('no Resend key yet: HQ_RESEND_API_KEY in Google Secret Manager');
       const body = { from: fromFor(msg.fromName), to: [to], subject: row.subject, html: String(msg.html || '') };
       if (msg.replyTo) body.reply_to = msg.replyTo;
       if (msg.headers && Object.keys(msg.headers).length) body.headers = msg.headers;

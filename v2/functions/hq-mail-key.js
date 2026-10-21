@@ -13,8 +13,8 @@
                       savedByName, shut }  - NEVER a key
 
    CHURCH HQ'S RESEND (Martin, 21 Oct 2026): the API key and the webhook
-   signing secret are in Google Secret Manager, RESEND_API_KEY and
-   RESEND_WEBHOOK_SECRET (resend-secrets.js), set by the reviewing window
+   signing secret are in Google Secret Manager, HQ_RESEND_API_KEY and
+   HQ_RESEND_WEBHOOK_SECRET (resend-secrets.js), set by the reviewing window
    with Martin - so v2 sends now, not from switch-over. The box only says
    whether each is there. Any Resend key an older box saved in the
    database is removed at the next save.
@@ -61,7 +61,7 @@ async function master(req) {
 async function statusNow() {
   const d = (await db().collection(KEY_DOC[0]).doc(KEY_DOC[1]).get()).data() || {};
   const [k, h] = await Promise.all([resendKey(), webhookSecret()]);
-  return { saved: !!k, hookSaved: !!h, resendIn: 'Google Secret Manager', resendNames: ['RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET'],
+  return { saved: !!k, hookSaved: !!h, resendIn: 'Google Secret Manager', resendNames: ['HQ_RESEND_API_KEY', 'HQ_RESEND_WEBHOOK_SECRET'],
     canvaSaved: !!(d.canvaId && d.canvaSecret), savedAt: d.savedAt || '', savedByName: d.savedByName || '', shut: await keyShut() };
 }
 
@@ -74,7 +74,7 @@ export const hqMailKeySave = onCall({ region: REGION, secrets: SENDING_SECRETS }
   const me = await master(req);
   const d = req.data || {};
   if ((d.key !== undefined && String(d.key).trim()) || (d.hook !== undefined && String(d.hook).trim()))
-    throw new HttpsError('invalid-argument', 'Church HQ’s Resend key and signing secret are kept in Google Secret Manager now (RESEND_API_KEY, RESEND_WEBHOOK_SECRET), not pasted here.');
+    throw new HttpsError('invalid-argument', 'Church HQ’s Resend key and signing secret are kept in Google Secret Manager now (HQ_RESEND_API_KEY, HQ_RESEND_WEBHOOK_SECRET), not pasted here.');
   if (await keyShut()) throw new HttpsError('failed-precondition', 'Canva’s keys can be saved when the church switches over to the new hub.', { shut: true });
   const patch = {};
   [['canvaId', CANVA_ID_SHAPE, 'Canva client ID'], ['canvaSecret', CANVA_SECRET_SHAPE, 'Canva client secret']].forEach(function (f) {

@@ -10,7 +10,7 @@
  * a pretend Secret Manager (as the other senders ask it).
  *
  * Asks: master admins only; a key is NEVER sent back to a page; the box
- * says whether RESEND_API_KEY and RESEND_WEBHOOK_SECRET are set, and
+ * says whether HQ_RESEND_API_KEY and HQ_RESEND_WEBHOOK_SECRET are set, and
  * refuses a Resend key pasted into it; an old Resend key in the database
  * goes at the next save and is never used; Canva's keys save, keep each
  * other, are refused in the wrong shape and until switch-over; the sender
@@ -55,7 +55,7 @@ async function scenario(K) {
   const t = (n, v, x) => out.push({ n, v: !!v, x });
   const run = (fn, uid, data) => fn.run({ auth: uid ? { uid } : undefined, data: data || {} }).then(r => ({ ok: r }), e => ({ err: e }));
   try {
-    delete process.env.RESEND_API_KEY; delete process.env.RESEND_WEBHOOK_SECRET; SECRETS.forgetSecrets();
+    delete process.env.HQ_RESEND_API_KEY; delete process.env.HQ_RESEND_WEBHOOK_SECRET; SECRETS.forgetSecrets();
     for (const d of (await db.collection('privateSettings').get()).docs) await d.ref.delete();
     await db.collection('teamMailSettings').doc('config').set({ shutForTest: false });
     await db.collection('users').doc('k_master').set({ status: 'active', masterAdmin: true, name: 'Key Master Synthetic', teams: [] });
@@ -69,8 +69,8 @@ async function scenario(K) {
     r = await run(K.hqMailKeySave, null, { canvaId: 'OCTestOnly123' });
     t('nobody signed out can save a key', !!r.err);
     r = await run(K.hqMailKeyStatus, 'k_master');
-    t('Resend’s secrets not set yet: the box says so, and names them', r.ok && r.ok.saved === false && r.ok.hookSaved === false && r.ok.shut === false && /Secret Manager/.test(r.ok.resendIn) && r.ok.resendNames.join() === 'RESEND_API_KEY,RESEND_WEBHOOK_SECRET', r.ok);
-    process.env.RESEND_API_KEY = KEY; process.env.RESEND_WEBHOOK_SECRET = HOOK;
+    t('Resend’s secrets not set yet: the box says so, and names them', r.ok && r.ok.saved === false && r.ok.hookSaved === false && r.ok.shut === false && /Secret Manager/.test(r.ok.resendIn) && r.ok.resendNames.join() === 'HQ_RESEND_API_KEY,HQ_RESEND_WEBHOOK_SECRET', r.ok);
+    process.env.HQ_RESEND_API_KEY = KEY; process.env.HQ_RESEND_WEBHOOK_SECRET = HOOK;
     r = await run(K.hqMailKeyStatus, 'k_master');
     t('set in Secret Manager: the box says set', r.ok && r.ok.saved === true && r.ok.hookSaved === true, r.ok);
 
@@ -107,7 +107,7 @@ async function scenario(K) {
     r = await run(K.hqMailKeySave, 'k_master', { canvaId: '', canvaSecret: '' });
     t('removing Canva’s keys removes the record', r.ok && r.ok.canvaSaved === false && !(await db.collection('privateSettings').doc('churchHqMail').get()).exists);
   } catch (e) { t('the run finished', false, e.message); }
-  delete process.env.RESEND_API_KEY; delete process.env.RESEND_WEBHOOK_SECRET; SECRETS.forgetSecrets();
+  delete process.env.HQ_RESEND_API_KEY; delete process.env.HQ_RESEND_WEBHOOK_SECRET; SECRETS.forgetSecrets();
   return out;
 }
 
@@ -119,23 +119,23 @@ report(await scenario(await loadCopy('hq-mail-key.js')));
 /* The sender uses the secret; a sender without it listed asks Secret Manager. */
 {
   await db.collection('privateSettings').doc('churchHqMail').set({ key: OLD });
-  process.env.RESEND_API_KEY = KEY; SECRETS.forgetSecrets();
+  process.env.HQ_RESEND_API_KEY = KEY; SECRETS.forgetSecrets();
   const H = await import(pathToFileURL(path.join(FN, 'hq-mail.js')).href);
   const seen = [];
   const fakeFetch = async (url, o) => { seen.push({ url, auth: o.headers.Authorization, body: JSON.parse(o.body) }); return { ok: true, status: 200, json: async () => ({ id: 'em_1' }) }; };
   const r = await H.makeHqSender({ db, emulator: () => false, fetchFn: fakeFetch })({ to: 'sub@example.invalid', subject: 'Test', html: '<p>x</p>', fromName: 'Synthetic Green Church', replyTo: 'office@example.invalid', headers: { 'List-Unsubscribe': '<https://x.invalid/u>' } }, { kind: 'test' });
   const s = seen[0] || {};
   report([
-    { n: 'the e-news sender sends with RESEND_API_KEY, never the old key in the database', v: r.ok && s.auth === 'Bearer ' + KEY && s.url === 'https://api.resend.com/emails', x: s.auth && s.auth.slice(0, 20) },
+    { n: 'the e-news sender sends with HQ_RESEND_API_KEY, never the old key in the database', v: r.ok && s.auth === 'Bearer ' + KEY && s.url === 'https://api.resend.com/emails', x: s.auth && s.auth.slice(0, 20) },
     { n: 'from "<Church>" <news@mail.churchhq.co.uk>, replies to the church', v: s.body && s.body.from === '"Synthetic Green Church" <news@mail.churchhq.co.uk>' && s.body.reply_to === 'office@example.invalid', x: s.body && s.body.from },
     { n: 'the unsubscribe header goes with it', v: s.body && s.body.headers && s.body.headers['List-Unsubscribe'] === '<https://x.invalid/u>' }
   ]);
-  delete process.env.RESEND_API_KEY; SECRETS.forgetSecrets(); seen.length = 0;
+  delete process.env.HQ_RESEND_API_KEY; SECRETS.forgetSecrets(); seen.length = 0;
   const r2 = await H.makeHqSender({ db, emulator: () => false, fetchFn: fakeFetch })({ to: 'sub@example.invalid', subject: 'No key', html: 'x' }, { kind: 'test' });
-  report([{ n: 'no key: not sent, and it says RESEND_API_KEY', v: r2.ok === false && /RESEND_API_KEY/.test(r2.error) && seen.length === 0, x: r2 }]);
+  report([{ n: 'no key: not sent, and it says HQ_RESEND_API_KEY', v: r2.ok === false && /HQ_RESEND_API_KEY/.test(r2.error) && seen.length === 0, x: r2 }]);
   const asked = [];
-  const ask = async (name) => { asked.push(name); return name === 'RESEND_API_KEY' ? KEY : ''; };
-  const v1 = await SECRETS.secretValue('RESEND_API_KEY', { ask }), v2 = await SECRETS.secretValue('RESEND_API_KEY', { ask });
+  const ask = async (name) => { asked.push(name); return name === 'HQ_RESEND_API_KEY' ? KEY : ''; };
+  const v1 = await SECRETS.secretValue('HQ_RESEND_API_KEY', { ask }), v2 = await SECRETS.secretValue('HQ_RESEND_API_KEY', { ask });
   report([{ n: 'a sender without the secret listed asks Secret Manager once, and keeps the answer', v: v1 === KEY && v2 === KEY && asked.length === 1, x: asked }]);
   SECRETS.forgetSecrets();
   const out = (await db.collection('emailOutbox').where('kind', '==', 'test').get()).docs.map(d => d.data());
@@ -143,7 +143,29 @@ report(await scenario(await loadCopy('hq-mail-key.js')));
   for (const d of (await db.collection('emailOutbox').where('kind', '==', 'test').get()).docs) await d.ref.delete();
 }
 
+/* RESEND_API_KEY in this project is Calla's (the original site's
+   sendEmail lists it; reviewing window, 21 Oct): the hub never reads it. */
+const guard = async (S) => {
+  const asked = []; let said = '';
+  const ask = async (n) => { asked.push(n); return 're_WouldBeCallas_' + 'c'.repeat(20); };
+  for (const n of ['RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET']) { try { await S.secretValue(n, { ask }); } catch (e) { said += e.message + ' '; } }
+  S.forgetSecrets();
+  return { ok: asked.length === 0 && /original site/.test(said), asked };
+};
+const g0 = await guard(SECRETS);
+report([{ n: 'Calla’s RESEND_API_KEY and RESEND_WEBHOOK_SECRET are never read: refused, without asking Secret Manager', v: g0.ok, x: g0.asked }]);
+const bare = fs.readdirSync(FN).filter(f => /\.(js|cjs)$/.test(f) && !f.startsWith('.check-')).filter(f => {
+  const lines = fs.readFileSync(path.join(FN, f), 'utf8').split(/\r?\n/).filter(l => /(^|[^_A-Z])RESEND_(API_KEY|WEBHOOK_SECRET)/.test(l));
+  return lines.some(l => !(f === 'resend-secrets.js' && /NOT_OURS|^ {3}\S/.test(l)));
+});
+report([{ n: 'no server file names the bare RESEND_API_KEY (only Church HQ’s HQ_RESEND_API_KEY)', v: bare.length === 0, x: bare }]);
+
 console.log('-- deliberate breaks --');
+{
+  const g = await guard(await loadCopy('resend-secrets.js', "  if (NOT_OURS.includes(name)) throw", "  if (false) throw"));
+  R.push(!g.ok);
+  console.log('  ' + (!g.ok ? 'PASS  ' : 'FAIL  ') + 'break caught: Calla’s key read after all' + (!g.ok ? '' : '  - NOTHING CAUGHT IT'));
+}
 const BREAKS = [
   ['the status sends a key back', "  return { saved: !!k, hookSaved: !!h,", "  return { key: k, saved: !!k, hookSaved: !!h,", 'NEVER sent back'],
   ['saving allowed before switch-over', "  if (await keyShut()) throw new HttpsError('failed-precondition', 'Canva", "  if (false) throw new HttpsError('failed-precondition', 'Canva", 'saving Canva’s keys refused'],

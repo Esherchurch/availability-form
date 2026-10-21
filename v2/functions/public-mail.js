@@ -90,7 +90,7 @@ export function makeSender({ db, emulator = onEmulator, route = MailRoute, resen
     }
     const key = await route.resendKey();
     const r = key ? await route.sendViaResend({ db, key, msg, fetchFn: resendFetch })
-      : { ok: false, error: 'No Resend key yet: RESEND_API_KEY in Google Secret Manager' };
+      : { ok: false, error: 'No Resend key yet: HQ_RESEND_API_KEY in Google Secret Manager' };
     await db.collection('emailOutbox').add({ ...row, ok: r.ok, error: r.error || '', resendId: r.id || '' });
     return { ok: r.ok, error: r.error || '', id: r.id || '', via: 'churchhq' };
   };

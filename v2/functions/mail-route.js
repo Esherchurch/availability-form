@@ -8,7 +8,7 @@
    from going live. Calla's sendEmail is not used, not even as a fallback:
    if Resend fails, that email is not sent and emailOutbox says why.
 
-   THE KEY: Google Secret Manager, RESEND_API_KEY (resend-secrets.js).
+   THE KEY: Google Secret Manager, HQ_RESEND_API_KEY (resend-secrets.js).
    Never the database, a page or a chat.
 
    THE PROTECTIONS, kept on this side:
@@ -38,6 +38,9 @@ export const KNOWN_SOURCES = [
   ['contacts', 'email'],
   ['signups', 'email'],
   ['smallGroupRequests', 'email'],
+  /* A small group's members (Message the group, invitations; the main
+     window's PLAN-hub-send, 21 Oct). */
+  ['smallGroupMembers', 'email'],
   ['formRequests', 'email'],
   ['bookings', 'requester.email'],
   ['hirers', 'email'],

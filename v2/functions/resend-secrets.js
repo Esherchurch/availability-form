@@ -4,12 +4,17 @@
    use Calla at all", and v2 sends now, not from going live)
    ===================================================================
 
-     RESEND_API_KEY          the Resend API key (re_..., sending access)
-     RESEND_WEBHOOK_SECRET   the webhook's signing secret (whsec_...)
+     HQ_RESEND_API_KEY          the Resend API key (re_..., sending access)
+     HQ_RESEND_WEBHOOK_SECRET   the webhook's signing secret (whsec_...)
+
+   WHY "HQ_": RESEND_API_KEY in this Google project is CALLA'S key - the
+   original site's sendEmail lists it (reviewing window, 21 Oct 2026).
+   Church HQ's must never share or replace it, so the hub never reads,
+   sets or deletes RESEND_API_KEY: secretValue refuses that name.
 
    Set once, by the reviewing window with Martin:
-     firebase functions:secrets:set RESEND_API_KEY
-     firebase functions:secrets:set RESEND_WEBHOOK_SECRET
+     firebase functions:secrets:set HQ_RESEND_API_KEY
+     firebase functions:secrets:set HQ_RESEND_WEBHOOK_SECRET
 
    HOW EVERY SENDER GETS THE KEY. A secret is put into a function only
    when that function lists it (secrets: [...]), and the hub has dozens of
@@ -27,9 +32,9 @@
 import { defineSecret } from 'firebase-functions/params';
 import { GoogleAuth } from 'google-auth-library';
 
-export const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
-export const RESEND_WEBHOOK_SECRET = defineSecret('RESEND_WEBHOOK_SECRET');
-export const SENDING_SECRETS = [RESEND_API_KEY, RESEND_WEBHOOK_SECRET];
+export const HQ_RESEND_API_KEY = defineSecret('HQ_RESEND_API_KEY');
+export const HQ_RESEND_WEBHOOK_SECRET = defineSecret('HQ_RESEND_WEBHOOK_SECRET');
+export const SENDING_SECRETS = [HQ_RESEND_API_KEY, HQ_RESEND_WEBHOOK_SECRET];
 
 const KEEP_MS = 10 * 60000;
 const cache = new Map();
@@ -38,7 +43,11 @@ let auth = null;
 /* For the checks: forget what was kept, and ask with a pretend fetch. */
 export function forgetSecrets() { cache.clear(); }
 
+/* Never Calla's (above). */
+const NOT_OURS = ['RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET'];
+
 export async function secretValue(name, { now = Date.now(), ask } = {}) {
+  if (NOT_OURS.includes(name)) throw new Error(name + ' is the original site’s (Calla’s) secret: the hub never reads it. Church HQ’s is HQ_' + name + '.');
   const here = process.env[name];
   if (here && here.trim()) return here.trim();
   const kept = cache.get(name);
@@ -62,5 +71,5 @@ export async function secretValue(name, { now = Date.now(), ask } = {}) {
   if (v) cache.set(name, { v, at: now });
   return v;
 }
-export const resendKey = (o) => secretValue('RESEND_API_KEY', o);
-export const webhookSecret = (o) => secretValue('RESEND_WEBHOOK_SECRET', o);
+export const resendKey = (o) => secretValue('HQ_RESEND_API_KEY', o);
+export const webhookSecret = (o) => secretValue('HQ_RESEND_WEBHOOK_SECRET', o);

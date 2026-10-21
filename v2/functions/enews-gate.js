@@ -11,7 +11,7 @@
  * subscribers, the welcome emails, and the Canva keys' box, whose
  * privateSettings would be public too). It no longer holds the hub's other
  * email: since 21 Oct 2026 everything else v2 sends goes through Church
- * HQ's Resend as soon as RESEND_API_KEY is in Google Secret Manager
+ * HQ's Resend as soon as HQ_RESEND_API_KEY is in Google Secret Manager
  * (resend-secrets.js, mail-route.js). Set this to true at switch-over,
  * after the rules, then deploy functions:hub.
  *

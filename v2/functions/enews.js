@@ -222,7 +222,7 @@ export const enewsUnsubscribe = onRequest({ region: REGION, cors: true, invoker:
 const HOOK_STATUS = { 'email.bounced': 'bounced', 'email.complained': 'complained', 'email.suppressed': 'bounced' };
 export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'public', secrets: SENDING_SECRETS }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('');
-  /* The signing secret from Google Secret Manager (RESEND_WEBHOOK_SECRET,
+  /* The signing secret from Google Secret Manager (HQ_RESEND_WEBHOOK_SECRET,
      resend-secrets.js); on the emulator a test gives one in
      functions/.env.local (TEST_WEBHOOK_SECRET) instead. */
   const secret = (await webhookSecret()) || (EMULATOR() ? process.env.TEST_WEBHOOK_SECRET || '' : '');

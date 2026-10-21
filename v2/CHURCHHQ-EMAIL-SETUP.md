@@ -70,9 +70,14 @@ Nothing more to do here.
 
 The key lets anyone send email as Church HQ, so it **never goes in a chat,
 an email, a page, the database or the repository**. It goes into Google
-Secret Manager as **RESEND_API_KEY**, where only the hub's server can read
+Secret Manager as **HQ_RESEND_API_KEY**, where only the hub's server can read
 it. (Before 21 Oct it went in the hub's key box; the box now only says
 whether it is set.)
+
+> **Never touch RESEND_API_KEY.** That name in this Google project is the
+> **original site's** key (Calla's sendEmail uses it). Church HQ's is
+> **HQ_RESEND_API_KEY**: a fresh key from Church HQ's own Resend account.
+> Setting or deleting RESEND_API_KEY would break the original site's email.
 
 - [ ] **D1.** In Resend: **API Keys** → **Create API key**.
       - Name: `church-hq-hub`
@@ -81,11 +86,11 @@ whether it is set.)
 
       Press **Add**, then **copy** the key. It is shown only once.
 - [ ] **D2.** With the reviewing window, in a terminal in the repo's `v2` folder:
-      `firebase functions:secrets:set RESEND_API_KEY` and paste the key when it asks
+      `firebase functions:secrets:set HQ_RESEND_API_KEY` and paste the key when it asks
       (it is not shown as you paste).
 - [ ] **D3.** Close the Resend tab. The key isn't needed anywhere else.
 - [ ] **D4.** In the hub: **Menu → Church settings → Email and Canva keys** says
-      "The API key (RESEND_API_KEY): **set**" once the functions are deployed.
+      "The API key (HQ_RESEND_API_KEY): **set**" once the functions are deployed.
 
 ## Part E: bounces and complaints (now; 5 min)
 
@@ -98,7 +103,7 @@ whether it is set.)
       - **email.suppressed**
       - **email.failed**
 - [ ] **E2.** Copy the **Signing secret** it shows (starts `whsec_`), and with the
-      reviewing window: `firebase functions:secrets:set RESEND_WEBHOOK_SECRET`, paste it.
+      reviewing window: `firebase functions:secrets:set HQ_RESEND_WEBHOOK_SECRET`, paste it.
 - [ ] **E3. Switch click tracking OFF.** Resend switched it on for this
       domain. It can only be changed per domain, not per email, and the hub's
       key can only send, so this one is a click:
@@ -140,7 +145,7 @@ nothing is ever really sent.
   Cloudflare has no `.churchhq.co.uk` typed twice, and that the DKIM line
   is **DNS only** (grey cloud, not orange).
 - **You think the key has leaked:** Resend → API Keys → delete it, make a
-  new one (D1), and run D2 again (a new version of RESEND_API_KEY). The
+  new one (D1), and run D2 again (a new version of HQ_RESEND_API_KEY). The
   server picks it up within ten minutes, or at once after a deploy.
 - **The emulator and the real secrets:** a functions emulator with no
   `functions/.secret.local` fetches the REAL secrets from Secret Manager. The
