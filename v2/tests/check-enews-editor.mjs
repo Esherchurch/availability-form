@@ -45,7 +45,8 @@ const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   typing: ["if (k === 'html') b.html = EGBCEditor.clean(el.innerHTML, rules());", "if (k === 'html') {}"],
   undo: ['function remember() { HIST.push(snapshot());', 'function remember() { return; HIST.push(snapshot());'],
-  drop: ["if (d.indexOf('add:') === 0) addBlock(d.slice(4), tg.at);", "if (d.indexOf('add:') === 0) addBlock(d.slice(4), ISSUE.blocks.length);"]
+  drop: ["if (d.indexOf('add:') === 0) addBlock(d.slice(4), tg.at);", "if (d.indexOf('add:') === 0) addBlock(d.slice(4), ISSUE.blocks.length);"],
+  memwords: ["      if (c === 'members') return membersWords();", "      if (c === 'members') return;"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 
@@ -227,6 +228,22 @@ const ISSUE = { subject: 'Synthetic e-news 22 October', preheader: 'This week', 
     await ev('document.querySelector(\'#tool [data-cmd="ourlook"]\').click(),1'); await settle();
     const back = ((await issue()).blocks || [])[3].html || '';
     ok('"Back to our look" takes them off the selection', !/background-color|font-size|font-family|line-height|letter-spacing/.test(back) && /Welcome/.test(back), back);
+    /* "Members only" for selected words (Martin, 22 Oct): kept, marked, in
+       the members' copy; out of everyone else's; pressed again, for all. */
+    await drawAgain(); await pick(0, 7);
+    await ev("document.querySelector('#tool [data-cmd=\"members\"]').click(),1"); await settle();
+    const mw = ((await issue()).blocks || [])[3].html || '';
+    ok('"Members only" on selected words: kept in the block, marked', mw.includes('<span data-members="1">Welcome</span>'), mw);
+    ok('…shown in gold on the email in the editor', await ev('(function(){var s=' + C + ".querySelector('[data-b=\"3\"] span[data-members]');return !!s && getComputedStyle(s).backgroundColor !== 'rgba(0, 0, 0, 0)'})()"));
+    await ev('document.getElementById("preview").click(),1'); await sleep(900);
+    const mwMem = await ev('document.querySelector(".over iframe").contentDocument.body.innerText');
+    await ev("document.querySelector('.over [data-w=\"everyone\"]').click(),1"); await sleep(900);
+    const mwAll = await ev('document.querySelector(".over iframe").contentDocument.body.innerText');
+    await ev('document.querySelector(".over [data-x]").click(),1'); await sleep(300);
+    ok('…church members see the words; everyone else sees the rest of the line without them', /Welcome, everyone, to the week/.test(mwMem) && !/Welcome/.test(mwAll) && /everyone, to the week/.test(mwAll), [mwMem.slice(0, 80), mwAll.slice(0, 80)]);
+    await pick(0, 7);
+    await ev("document.querySelector('#tool [data-cmd=\"members\"]').click(),1"); await settle();
+    ok('…pressed again on them: for everyone again', !/data-members/.test(((await issue()).blocks || [])[3].html || ''), ((await issue()).blocks || [])[3].html);
 
     /* 5. Add: tap a tile (after the picked block); drag one onto the email. */
     await tap(3); await sleep(400);

@@ -44,6 +44,7 @@ const BLOCKS = [
   { type: 'text', title: 'Harvest supper', html: '<p>All welcome to the synthetic harvest supper on Saturday.</p>' },
   { type: 'text', title: 'Prayer on Zoom', html: '<p>Join the members prayer evening online, Thursday at eight.</p>', members: true },
   { type: 'event', title: 'Zoom coffee', html: '<p>Coffee together on Zoom, Tuesday at ten.</p>' },
+  { type: 'event', title: 'Zoom chat', html: '<p>A chat on Zoom, Friday at two.</p><p><span data-members="1">Chat ID 555 0101 2020, passcode 777999</span></p>' },
   { type: 'text', title: 'Zoom details', html: '<p>' + ZOOM + '</p><p><a href="https://zoom.example.invalid/j/8312345">Join on Zoom</a></p>', members: true }
 ];
 const copy = (issue, version) => MB.render(issue, { version, church, unsubscribeUrl: MB.PLACEHOLDER, webUrl: 'https://hub.example.invalid/v2/enews-web.html?issue=i1' });
@@ -59,7 +60,7 @@ async function scenario(U) {
   const P = (uid, data) => U.runPreview({ db, uid, data, hub: 'https://hub.example.invalid/v2' });
   const pub = copy(issue, 'everyone');
 
-  t('the everyone copy itself never has the members-only block or words (egbc-mailblocks.js)', !pub.includes('members prayer evening') && !pub.includes('314159') && !pub.includes('zoom.example.invalid') && pub.includes('Coffee together on Zoom'));
+  t('the everyone copy itself never has the members-only block or words (egbc-mailblocks.js)', !pub.includes('members prayer evening') && !pub.includes('314159') && !pub.includes('777999') && pub.includes('A chat on Zoom') && !pub.includes('zoom.example.invalid') && pub.includes('Coffee together on Zoom'));
   let r = await P('u_off', { issueId: 'i1', html: pub });
   const tok = r.token || '';
   t('the office gets an unguessable link to the public copy', /^[A-Za-z0-9_-]{24}$/.test(tok) && r.url === 'https://hub.example.invalid/v2/enews-web.html?preview=' + tok, r);
@@ -78,6 +79,8 @@ async function scenario(U) {
   t('a copy with a members-only block’s words is refused', r.error === 'failed-precondition', r);
   r = await P('u_off', { issueId: 'i1', html: pub.replace('</body>', '<a href="https://zoom.example.invalid/j/8312345">x</a></body>') });
   t('…and so is one with a members-only link', r.error === 'failed-precondition', r);
+  r = await P('u_off', { issueId: 'i1', html: pub.replace('A chat on Zoom, Friday at two.', 'A chat on Zoom, Friday at two. Chat ID 555 0101 2020, passcode 777999') });
+  t('a copy with members-only WORDS from inside a card is refused', r.error === 'failed-precondition', r);
   r = await P('u_mem', { issueId: 'i1', html: pub });
   t('a church member who is not the office cannot make one', r.error === 'permission-denied');
   r = await P('', { issueId: 'i1', html: pub });
@@ -102,6 +105,7 @@ const R = [];
 console.log('-- deliberate breaks --');
 const BREAKS = [
   ['members-only blocks let through', '  if (bad.length) return', '  if (false) return', 'members’ copy is refused'],
+  ['members-only words let through', "    if (bits.some(w => text.includes(w)) ||", "    if (false && bits.some(w => text.includes(w)) ||", 'members-only WORDS'],
   ['an email to members previewed', "  if (x.kind === 'oneoff' && (x.audience || 'subscribers') !== 'subscribers') return", '  if (false) return', 'no public preview'],
   ['anyone may make one', "  if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) return", '  if (false) return', 'not the office']
 ];

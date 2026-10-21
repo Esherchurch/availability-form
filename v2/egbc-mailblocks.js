@@ -181,7 +181,10 @@
           var fc = /\scolor\s*=\s*["']?([^"'\s>]+)/i.exec(' ' + attrs); if (fc && !pr.color) pr.color = fc[1];
           var ff = /\sface\s*=\s*["']?([^"'>]+)/i.exec(' ' + attrs); if (ff && !pr['font-family']) pr['font-family'] = ff[1];
           var st = spanStyle(pr, t);
-          return st ? '<span style="' + st + '">' : '<span>';
+          /* "Members only" words inside a block (Martin, 21 Oct): kept as a
+             mark; render() takes them out of everyone else's copy. */
+          var mem = /\sdata-members\s*=\s*["']?1/i.test(' ' + attrs) ? ' data-members="1"' : '';
+          return '<span' + mem + (st ? ' style="' + st + '"' : '') + '>';
         }
         return '<' + T.toLowerCase() + '>';
       });
@@ -418,7 +421,7 @@
             (dateLine ? '<strong style="color:' + t.title + ';">' + esc(dateLine) + '</strong><br>' : '') +
             (service ? '<strong>' + esc(service) + '</strong><br>' : '') +
             (b.speaker ? esc(b.speakerWord || 'Speaker') + ': ' + esc(b.speaker) + (b.text ? '<br>' : '') : '') +
-            (b.text ? esc(b.text) : '') + (b.html ? cleanHtml(b.html, t) : '') + '</div>', '18px 18px 0') + rule(t);
+            (b.text ? esc(b.text) : '') + (o.edit ? '<div data-edit="html">' + (b.html ? cleanHtml(b.html, t) : '<p><br></p>') + '</div>' : (b.html ? cleanHtml(b.html, t) : '')) + '</div>', '18px 18px 0') + rule(t);
       case 'event':
         return eventCard(b, t, o);
       case 'heading':
@@ -527,6 +530,24 @@
   /* The server puts each person's own link here when it sends (C-11). */
   var PLACEHOLDER = '{{unsubscribe_url}}';
 
+  /* MEMBERS-ONLY WORDS INSIDE A BLOCK (Martin, 21 Oct: the Zoom ID and
+     passcode inside a card, the private YouTube link in Sunday's words):
+     <span data-members="1">. Everyone else's copy and the web version lose
+     them - the words, any link they are in, and a line left empty - and
+     nothing else moves. The members' copy keeps them as they are. */
+  function stripMembers(html) {
+    var s = String(html || ''), out = '', i = 0, re = /<(\/?)span\b([^>]*)>/gi, m, depth = 0, cut = -1;
+    while ((m = re.exec(s))) {
+      if (depth === 0) {
+        if (!m[1] && /data-members\s*=\s*["']?1/i.test(m[2])) { out += s.slice(i, m.index); cut = m.index; depth = 1; }
+      } else if (m[1]) { depth--; if (depth === 0) { i = re.lastIndex; cut = -1; } }
+      else depth++;
+    }
+    out += cut >= 0 ? '' : s.slice(i);
+    /* A link or a line with nothing left in it goes too. */
+    for (var k = 0; k < 3; k++) out = out.replace(/<a\b[^>]*>(\s|&nbsp;)*<\/a>/gi, '').replace(/<(p|li|h2|h3)\b[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi, '').replace(/<(ul|ol)\b[^>]*>\s*<\/\1>/gi, '');
+    return out;
+  }
   /* ---- the whole email ---------------------------------------------------- */
   function keep(b, version) {
     if (!b || typeof b !== 'object') return false;
@@ -551,6 +572,7 @@
     var body = (issue.blocks || []).map(function (b, i) {
       if (!keep(b, version)) return '';
       var h = styled(b, block(b, t, opts), t);
+      if (version !== 'members') h = stripMembers(h);
       if (!opts.edit) return h;
       /* The editor's canvas (enews-edit.html): every block marked with its
          place, so it can be picked, typed on and moved. Never in an email. */
@@ -786,6 +808,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, fillInvite: fillInvite, keep: keep, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

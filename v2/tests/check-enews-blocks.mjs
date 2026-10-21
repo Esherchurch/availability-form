@@ -178,6 +178,20 @@ function checks(M) {
   ok('social icons: PNG pictures the hub serves, 48px, only known networks and safe links', (foot.match(/img\/social\/[a-z]+\.png/g) || []).join() === 'img/social/facebook.png,img/social/email.png' && /width="48" height="48"/.test(foot) && foot.includes('href="mailto:office@x.invalid"') && !/javascript:|myspace/.test(foot), foot.match(/img\/social\/[a-z]+\.png/g));
   ok('no diary button or icons when the church has none', !/Dates for the diary|img\/social/.test(M.render({ blocks: [] }, { church: CHURCH })));
 
+  /* Members-only WORDS inside a block (Martin, 22 Oct): the Zoom ID and
+     passcode inside a card, a private link in Sunday's words. */
+  const MW = { subject: 'x', blocks: [{ type: 'event', title: 'Zoom coffee', html: '<p>Coffee together on Zoom, Tuesday at ten.</p><p><span data-members="1">Meeting ID 831 2345 6789, passcode 314159</span></p><p>Join <span data-members="1"><a href="https://zoom.example.invalid/j/8312345">here on Zoom</a></span> any time.</p>' },
+    { type: 'sunday', title: 'Morning Worship', date: 'Sunday 25 October', html: '<p>Watch online: <span data-members="1"><a href="https://youtu.be/privateSynthetic">the private live link</a></span></p>' }] };
+  const mwE = M.render(MW, { version: 'everyone' }), mwM = M.render(MW, { version: 'members' });
+  ok('members-only words: everyone else\u2019s copy never has them, nor the links they are in', !mwE.includes('831 2345') && !mwE.includes('314159') && !mwE.includes('zoom.example.invalid') && !mwE.includes('youtu.be/privateSynthetic') && !mwE.includes('private live link'));
+  ok('…the rest of the card is left as it is', mwE.includes('Coffee together on Zoom, Tuesday at ten.') && /Join\s+any time\./.test(mwE.replace(/<[^>]*>/g, '')) && mwE.includes('Watch online:'));
+  ok('…a line left with nothing in it goes too', !/<p[^>]*>\s*<\/p>/.test(mwE));
+  ok('…the members\u2019 copy has them as they are, unmarked', mwM.includes('Meeting ID 831 2345 6789, passcode 314159') && mwM.includes('href="https://zoom.example.invalid/j/8312345"') && mwM.includes('youtu.be/privateSynthetic'));
+  const same = M.render({ subject: 'x', blocks: [{ type: 'event', title: 'Zoom coffee', html: '<p>Coffee together on Zoom, Tuesday at ten.</p><p>Join  any time.</p>' }, MW.blocks[1]] }, { version: 'everyone' });
+  ok('…and the layout of everyone\u2019s copy is unchanged (as if the words were never there)', mwE.split('Morning Worship')[0] === same.split('Morning Worship')[0]);
+  ok('the mark survives cleaning, and nothing else on it does', M.cleanHtml('<p><span data-members="1" onclick="x()" style="color:#ff0000">secret</span></p>', T1) === '<p style="margin:10px 0;"><span data-members="1">secret</span></p>', M.cleanHtml('<p><span data-members="1" onclick="x()" style="color:#ff0000">secret</span></p>', T1));
+  ok('a marked span inside other styling is taken out whole', !M.stripMembers('<p>a <span data-members="1">b <span style="color:#008080">c</span> d</span> e</p>').includes('c') && M.stripMembers('<p>a <span data-members="1">b <span style="color:#008080">c</span> d</span> e</p>').includes(' e</p>'));
+
   /* The event invitation, filled from a What's On event (plan G). */
   const INV = [{ type: 'header', imageUrl: '', title: '' }, { type: 'heading', text: '[The event]' },
     { type: 'text', title: '', html: '<p>[What it is and who it\u2019s for.]</p><p><strong>[Day, date and time]</strong><br>[Where]</p>' }, { type: 'button', label: 'Sign up here', url: '' }];
@@ -203,6 +217,8 @@ R.forEach(r => console.log('  ' + (r.v ? 'PASS  ' : 'FAIL  ') + r.n + (r.v || r.
 
 /* ---- deliberate breaks: each must turn at least one named check red ---- */
 const BREAKS = [
+  ['members-only words left in everyone\u2019s copy', "      if (version !== 'members') h = stripMembers(h);", '', 'never has them'],
+  ['the mark lost when cleaned', "var mem = /\\sdata-members\\s*=\\s*[\"']?1/i.test(' ' + attrs) ? ' data-members=\"1\"' : '';", "var mem = '';", 'survives cleaning'],
   ['an invitation to a members\u2019 event for everyone', "      if (share === 'members') b.members = true;", '', 'every block members-only'],
   ['an invitation without its sign-up', "    var link = ev.signupOn === true ?", "    var link = false ?", 'goes to the event\u2019s sign-up'],
   ['members-only blocks let into the public copy', "if (membersOnly(b) && version !== 'members') return false;", '', 'public copy: no members-only words'],

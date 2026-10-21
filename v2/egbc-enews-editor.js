@@ -155,7 +155,7 @@
     cv.srcdoc = html;
   }
   var CANVAS_CSS = '[data-b]{cursor:pointer}[data-b]:hover{outline:1px dashed #8fb0b0;outline-offset:-1px}' +
-    '[data-b].on{outline:2px solid #3d6263;outline-offset:-2px}[data-b][data-mem="1"]{box-shadow:inset 4px 0 0 #b07d2e}' +
+    '[data-b].on{outline:2px solid #3d6263;outline-offset:-2px}[data-b][data-mem="1"]{box-shadow:inset 4px 0 0 #b07d2e}span[data-members]{background:#fbf1dc;box-shadow:inset 0 -2px 0 #b07d2e;border-radius:2px}' +
     '[data-edit]{cursor:text;outline:none;min-height:1em}[data-edit]:focus{background:rgba(61,98,99,.05)}' +
     '.ed-chip{position:absolute;z-index:5;display:flex;align-items:center;gap:4px;background:#3d6263;color:#fff;font:600 12px Inter,Arial,sans-serif;padding:4px 8px 4px 6px;border-radius:6px 6px 0 0;cursor:grab;user-select:none}' +
     '.ed-tools{position:absolute;z-index:5;display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:4px;box-shadow:0 2px 6px rgba(16,24,40,.12)}' +
@@ -277,8 +277,8 @@
       '<select id="t-font" aria-label="Font"></select><select id="t-size" aria-label="Size"></select><select id="t-lh" aria-label="Line height"></select><select id="t-ls" aria-label="Letter spacing"></select><span class="sep"></span>' +
       [['bold', 'bold', 'Bold'], ['italic', 'italic', 'Italic'], ['underline', 'underline', 'Underline'], ['strikeThrough', 'strikethrough', 'Crossed out'], '|',
         ['colour', 'baseline', 'Colour'], ['highlight', 'highlighter', 'Highlight'], ['link', 'link', 'Make it a link'], ['emoji', 'smile', 'Emoji'], '|',
-        ['insertUnorderedList', 'list', 'Bullet list'], ['insertOrderedList', 'list-ordered', 'Numbered list'], ['ourlook', 'rotate-ccw', 'Back to our look']].map(function (x) {
-        return x === '|' ? '<span class="sep"></span>' : '<button type="button" data-cmd="' + x[0] + '" title="' + x[2] + '" aria-label="' + x[2] + '">' + I(x[1]) + (x[0] === 'ourlook' ? '<span style="margin:0 4px;font-size:12px;font-weight:600">Our look</span>' : '') + '</button>'; }).join('') +
+        ['insertUnorderedList', 'list', 'Bullet list'], ['insertOrderedList', 'list-ordered', 'Numbered list'], ['members', 'lock', 'Members only: these words for church members only'], ['ourlook', 'rotate-ccw', 'Back to our look']].map(function (x) {
+        return x === '|' ? '<span class="sep"></span>' : '<button type="button" data-cmd="' + x[0] + '" title="' + x[2] + '" aria-label="' + x[2] + '">' + I(x[1]) + (x[0] === 'members' ? '<span style="margin:0 4px;font-size:12px;font-weight:600">Members only</span>' : '') + (x[0] === 'ourlook' ? '<span style="margin:0 4px;font-size:12px;font-weight:600">Our look</span>' : '') + '</button>'; }).join('') +
       '</div><div class="pop" id="pop-colour" role="menu" aria-label="Colour"></div><div class="pop" id="pop-hl" role="menu" aria-label="Highlight"></div><div class="pop" id="pop-emoji"><div class="emo">' + EMOJI.map(function (e) { return '<button type="button" data-emo="' + e + '">' + e + '</button>'; }).join('') + '</div></div>';
   }
   function showTool(on) { var t = document.getElementById('tool'); if (t) t.classList.toggle('on', !!on && editable()); if (!on) Array.prototype.forEach.call(document.querySelectorAll('.pop'), function (p) { p.classList.remove('on'); }); }
@@ -300,6 +300,7 @@
       if (c === 'link') return makeLink();
       if (c === 'highlight') return popAt('pop-hl', b);
       if (c === 'ourlook') return ourLook();
+      if (c === 'members') return membersWords();
       exec(c);
     });
     document.getElementById('t-style').onchange = function () { exec('formatBlock', this.value); };
@@ -374,6 +375,38 @@
     });
     if (!v) Array.prototype.forEach.call(el.querySelectorAll('span'), function (x) { if (r.intersectsNode(x)) x.style.removeProperty('letter-spacing'); if (!x.getAttribute('style')) x.removeAttribute('style'); if (!x.attributes.length && x.parentNode) { var f = d.createDocumentFragment(); while (x.firstChild) f.appendChild(x.firstChild); x.replaceWith(f); } });
     afterStyle(el);
+  }
+  /* MEMBERS ONLY, for selected words (Martin, 21 Oct): the Zoom ID and
+     passcode inside a card, a private link in Sunday's words. They stay in
+     the members' copy as they are, and leave everyone else's copy and the
+     web version (egbc-mailblocks.js stripMembers) - nothing else moves.
+     Gold on the email here. Pressed again inside them: for everyone again.
+     A link chosen whole is marked whole, so its address goes with it. */
+  function membersWords() {
+    var d = cdoc(); var el = editHost(); if (!d || !el) { toast('Select the words first.'); return; }
+    var sel = d.getSelection(), r = sel.rangeCount ? sel.getRangeAt(0) : null;
+    var at = r && (r.commonAncestorContainer.nodeType === 1 ? r.commonAncestorContainer : r.commonAncestorContainer.parentElement);
+    var inside = at && at.closest && at.closest('span[data-members]');
+    if (inside && el.contains(inside)) {
+      var f = d.createDocumentFragment(); while (inside.firstChild) f.appendChild(inside.firstChild); inside.replaceWith(f);
+      afterStyle(el); toast('For everyone again.'); return;
+    }
+    if (!r || r.collapsed) { toast('Select the words first.'); return; }
+    var w = d.createTreeWalker(el, NodeFilter.SHOW_TEXT), n, nodes = [];
+    while ((n = w.nextNode())) if (n.nodeValue.length && r.intersectsNode(n)) nodes.push(n);
+    var sc = r.startContainer, so = r.startOffset, ec = r.endContainer, eo = r.endOffset, done = [];
+    nodes.forEach(function (t) {
+      var a = t === sc ? so : 0, b = t === ec ? eo : t.nodeValue.length;
+      if (b <= a) return;
+      if (b < t.nodeValue.length) t.splitText(b);
+      if (a > 0) t = t.splitText(a);
+      var link = t.parentElement && t.parentElement.closest('a');
+      var target = link && el.contains(link) && link.textContent === t.nodeValue ? link : t;
+      var host = target.nodeType === 1 ? target : target.parentElement;
+      if (done.indexOf(target) >= 0 || (host && host.closest('span[data-members]'))) return;
+      var sp = d.createElement('span'); sp.setAttribute('data-members', '1'); target.replaceWith(sp); sp.appendChild(target); done.push(target);
+    });
+    afterStyle(el); toast('Members only: left out of everyone else’s copy and the web version.');
   }
   /* "Back to our look": the selection loses its font, size, line height,
      highlight and colour (bold, links and lists stay). */
