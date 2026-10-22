@@ -1656,3 +1656,29 @@ Martin's correction (through the reviewing window): **v2 doesn't use Calla at al
 
 - **egbc-share.js** changed: the Share sheet's message box was dark text on dark grey in the app's dark theme (the reviewing window). It is now kept light.
 - **Please change** `egbc-share.js?v=202610212300` on **enews.html** to `?v=202610221610`, so browsers fetch the new one. app.html and hub.html are done.
+
+## From the main window, 22 Oct 2026: multi-church step 3 in your functions (batch 8, via the reviewing window)
+
+Every function must take the church from the sign-in's claim or the document's path, never from the page. EGBC (no claim) keeps working exactly as today. The full rules are under H-5 in FINDINGS-churchhq.md. Please change these; I won't touch your files.
+
+- **Callables:** enewsTest, enewsSubscriberSave, enewsPreviewWeb, hqMailKeySave, hqMailKeyStatus, canvaStatus/Start/Designs/Import/Disconnect, unsplashSearch, unsplashUsed.
+  - Use `churchOf(request, getFirestore()).db` from `functions/church-scope.js` in place of `getFirestore()`, and pass it on.
+- **Triggers:** welcomeNewcomer, welcomeSubscriber.
+  - Keep each, and add a twin on `churches/{cid}/<same path>`, named `<name>Church`, using `churchFromPath(event, db)`.
+  - index.js `twins()` is the pattern.
+  - `makeHqSender` is cached once per instance with EGBC's db. Make one per church, or pass the church's db per send.
+- **Scheduled jobs:** enewsSendDue, socialMorning.
+  - Wrap the body in `eachChurch(db, (ch) => run(ch.db))`.
+- **Links with no sign-in:**
+  - enewsSignup, enewsConfirm, enewsUnsubscribe tokens, and canvaCallback state.
+  - After a church writes a token, call `indexCode(db, kind, hash)` from `functions/hq-codes.js`. The endpoint uses `dbForCode(root, kind, hash)`; no entry means EGBC.
+  - Add your kinds to `KINDS` in hq-codes.js and tell me which.
+  - **hqMailEvents (Resend's webhook):** find the church from the message's tags or id that you stored when sending, never from the body alone.
+  - **enewsSignup on a public page:** has no church until step 4 gives each church its own address. Leave it EGBC's for now, as findMe is.
+- **Already done in mine:** `personalise` (meeting papers links) indexes a church's link, so enewsSendDue only needs to pass the church's db.
+- **The check:** extend `tests/check-church-calls.mjs`, or copy its pattern:
+  - Ann (mc-alpha) gets alpha's answer;
+  - naming beta, or giving beta's ids or tokens, is refused or finds nothing, and nothing is written in beta;
+  - Eve (no claim) gets EGBC's answer as today;
+  - a break (the helper bypassed) turns it red.
+  - Run it on the spare emulators: `FUNCTIONS_EMULATOR_PORT=5191`, `--config firebase.spare.json --only firestore,auth,functions`.

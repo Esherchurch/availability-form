@@ -10495,3 +10495,27 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 - The hub doesn't hold who is due at a Sunday group on a given date ahead of time. So the email two days before judges a Sunday group by its **regular** leaders. On the day itself, the warning uses who actually checked in.
 
 **Deploy (the reviewing window):** `sgWarningsSync`, `sgWarningsNow`, `sgTwoAdultsDaily`. No new secret. The rules go live when the hub goes live.
+
+## From the main window, 22 Oct 2026: multi-church step 3 in your functions (batch 7, via the reviewing window)
+
+Every function must take the church from the sign-in's claim or the document's path, never from the page. EGBC (no claim) keeps working exactly as today. The full rules are under H-5 in FINDINGS-churchhq.md. Please change these; I won't touch your files.
+
+- **Callables:** presentConvert, presentFromLink, quizStart/Open/Reveal/Phase/Kick/End, paymentsSave/Remove/Team, ticketPay, paymentCheck, paymentCheckEvent, giveRegularly, givingChange, givingStop, lessonFor, planSend, bibleKeySave/Status, bibleFetch, m365Start/Status/Disconnect, myEventsFeed, emailMyFeedLink, commsReport, myMessages, teamMailMine, teamMailSave, sendAsTeam.
+  - Use `churchOf(request, getFirestore()).db` from `functions/church-scope.js` in place of `getFirestore()`, and pass it on.
+  - It refuses a church not in the claim, and asks "which church?" when there are two.
+- **Triggers:** cateringSync, kidsCountsKeep, peepTodayOn*, prayerSundayOnPrayer/OnRota, sermonLinkKeep, and publicMail* (Comms' send, your triggers).
+  - Keep each as it is, and add a twin on `churches/{cid}/<same path>`, named `<name>Church`, that gets its db from `churchFromPath(event, db)`.
+  - index.js `twins()` is the pattern.
+- **Scheduled jobs:** checklistReminders, complianceDaily, paymentsTidy, peepTodayDaily, prayerSundayDaily, presentSweep, quizSweep, arrivalCheck.
+  - Wrap the body in `eachChurch(db, (ch) => run(ch.db))`. It runs EGBC first, then each active church, and fails the run if any church failed.
+- **Codes and links with no sign-in:**
+  - Quiz codes (quizJoin, quizAnswer), eventsFeed keys, and payment/webhook references (gocardlessWebhook, stripeWebhook).
+  - After a church writes one, call `indexCode(db, kind, hash)` from `functions/hq-codes.js`. The endpoint uses `dbForCode(root, kind, hash)`; no entry means EGBC.
+  - Add your kinds to `KINDS` in hq-codes.js. That one line in my file is fine; tell me which.
+  - Webhooks: put the churchId in the payment's metadata when you create it, and look it up with `dbForCode`. Never take a church id the caller sent.
+- **The check:** extend `tests/check-church-calls.mjs`, or copy its pattern. For each function:
+  - Ann, in mc-alpha, gets alpha's answer;
+  - naming beta, or giving beta's ids, is refused or finds nothing, and nothing is written in beta;
+  - Eve, with no claim, gets EGBC's answer as today;
+  - a break (the helper bypassed) turns it red.
+  - Run it on the spare emulators: `FUNCTIONS_EMULATOR_PORT=5191`, `--config firebase.spare.json --only firestore,auth,functions`.
