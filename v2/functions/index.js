@@ -285,8 +285,10 @@ const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
    emailOutbox row for every message, sent or stubbed. On the emulator
    nothing leaves; the row is the whole of it and a check reads it. */
 import { makeSender } from './public-mail.js';
-async function sendOne(msg, meta) {
-  return makeSender({ db })({ to: msg.to || [], subject: msg.subject || '', html: msg.html || msg.body || '', replyTo: msg.replyTo || '' }, meta || {});
+async function sendOne(msg, meta) { return sendOneIn(db)(msg, meta); }
+/* The same, from one church's data (its details, its outbox). */
+function sendOneIn(cdb) {
+  return (msg, meta) => makeSender({ db: cdb })({ to: msg.to || [], subject: msg.subject || '', html: msg.html || msg.body || '', replyTo: msg.replyTo || '' }, meta || {});
 }
 
 /* The church's own details, so nothing here carries one church's name.
@@ -580,20 +582,22 @@ const TRIGGER_REGION = 'europe-west2';
    send and send nothing. "Send me a test" alone ignores the switch - it
    goes to the person who pressed it, which is how the real-phone proof
    (N-7) is done before anything else is switched on. */
+/* opts.db: one church's data (church-scope.js); EGBC's top level without. */
 async function notifyDeps(opts = {}) {
-  const st = await Notify.liveState(db);
+  const cdb = opts.db || db;
+  const st = await Notify.liveState(cdb);
   const dryRun = opts.test ? !st.feature : !st.sending;
   return {
-    db, auth: getAuth(), dryRun, state: st,
-    push: Notify.pushTransport({ db, messaging: onEmulator() ? null : getMessaging(), onEmulator: onEmulator() }),
-    email: dryRun ? Notify.dryEmail(db) : sendOne,
-    hub: await Notify.hubUrl(db)
+    db: cdb, auth: getAuth(), dryRun, state: st,
+    push: Notify.pushTransport({ db: cdb, messaging: onEmulator() ? null : getMessaging(), onEmulator: onEmulator() }),
+    email: dryRun ? Notify.dryEmail(cdb) : sendOneIn(cdb),
+    hub: await Notify.hubUrl(cdb)
   };
 }
 
 /* A leader calls a parent to collect their child: the group and the code,
    to that family's own phones. */
-export const callParent = onCall(async (request) => orThrow(await Notify.callParent(await notifyDeps(), {
+export const callParent = onCall(async (request) => orThrow(await Notify.callParent(await notifyDeps({ db: churchOf(request, db).db }), {
   uid: request.auth && request.auth.uid,
   checkinId: (request.data || {}).checkinId
 })));
@@ -601,7 +605,7 @@ export const callParent = onCall(async (request) => orThrow(await Notify.callPar
 /* "Send me a test", from the Notifications page. */
 export const notifyTest = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const deps = await notifyDeps({ test: true });
+  const deps = await notifyDeps({ test: true, db: churchOf(request, db).db });
   if (deps.dryRun) throw new HttpsError('failed-precondition', 'This church does not use phone notifications.');
   return Notify.send(deps, { uids: [request.auth.uid], type: 'test', by: request.auth.uid });
 });

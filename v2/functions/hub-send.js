@@ -29,6 +29,7 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
+import { churchOf } from './church-scope.js';
 import { makeSender } from './public-mail.js';
 import { decide } from './compiler-send.js';
 import * as MailRoute from './mail-route.js';
@@ -204,7 +205,9 @@ export function cleanAttachments(list) {
 }
 
 export const hubSend = onCall({ region: REGION, memory: '512MiB', timeoutSeconds: 300 }, async (req) => {
-  const db = getFirestore();
+  /* The church from the sign-in (H-5): its people, its hourly limit, its
+     name on the From line, its outbox. */
+  const db = churchOf(req, getFirestore()).db;
   const d = req.data || {};
   const v = await scope(db, req.auth && req.auth.uid, d);
   if (!v.ok) throw new HttpsError(v.code, v.why);

@@ -11,6 +11,8 @@
  *   - Ann is in mc-alpha (claim churches: ['mc-alpha']).
  *   - Eve has no claim: EGBC, as everyone is today.
  *   - Dot is in both churches.
+ * Batch 1: whoAmI, myFamily, myYouthHub. Batch 2: hubSend, compilerSend,
+ * callParent, notifyTest.
  * Every callable: Ann gets alpha's answer; Ann naming beta is refused;
  * Eve gets EGBC's top-level answer, as before; Dot must say which.
  */
@@ -86,6 +88,24 @@ await seed('users/' + eve.uid, { status: 'active', memberId: MID, name: 'Eve Syn
 for (const p of [ann, eve, dot]) for (const [root, tag] of [['churches/' + A + '/', 'alpha'], ['churches/' + B + '/', 'beta'], ['', 'egbc']]) {
   await seed(root + 'addressBook/who_' + tag + '_' + p.uid.slice(0, 6), { name: tag + ' record', email: p.email });
 }
+/* Batch 2, messages: one address only each church knows, and the senders
+   are master admins where they are (Ann in alpha, Eve at EGBC). Alpha has
+   phone notifications switched on; beta has a child checked in. */
+for (const [root, tag] of [['churches/' + A + '/', 'alpha'], ['churches/' + B + '/', 'beta'], ['', 'egbc']]) {
+  await seed(root + 'addressBook/only_' + tag, { name: tag + ' only', email: tag + '.only@example.invalid' });
+}
+await seed('churches/' + A + '/users/' + ann.uid, { status: 'active', memberId: MID, name: 'Ann Synthetic', masterAdmin: true, email: ann.email });
+await seed('users/' + eve.uid, { status: 'active', memberId: MID, name: 'Eve Synthetic', masterAdmin: true, email: eve.email });
+await seed('churches/' + A + '/churchSettings/features', { notifications: true });
+await seed('churches/' + A + '/churchSettings/notifications', { live: true });
+/* EGBC's (the spare emulator's top level, made up) has them off. */
+await seed('churchSettings/features', { notifications: false });
+await seed('churches/' + B + '/checkins/ck_cc_b', { kind: 'child', state: 'in', memberId: 'm_child_b' });
+const outboxTo = async (root, addr) => {
+  const q = await req(FS[0], Number(FS[1]), 'POST', DOCS + (root ? '/' + root : '') + ':runQuery',
+    { structuredQuery: { from: [{ collectionId: 'emailOutbox' }] } }, OWNER);
+  return JSON.parse(q.body).filter(x => x.document && JSON.stringify(x.document.fields).includes(addr)).length;
+};
 const whoIds = (r) => ((r.result || {}).people || []).map(x => x.id.split('_')[1]);
 
 try {
@@ -113,8 +133,43 @@ try {
   r = await call(eve, 'myYouthHub');
   ok('  Eve is known by EGBC\'s record (Eve), as today', (r.result || {}).firstName === 'Eve', JSON.stringify(r));
   ok('  Dot naming beta is known by beta\'s (Bea)', ((await call(dot, 'myYouthHub', { churchId: B })).result || {}).firstName === 'Bea');
+
+  console.log('\nhubSend (batch 2)');
+  const mail = (to, extra) => Object.assign({ source: 'compiler', to: [to], subject: 'CC synthetic', html: '<p>made up</p>' }, extra || {});
+  r = await call(ann, 'hubSend', mail('alpha.only@example.invalid'));
+  ok('  Ann emails somebody alpha knows', (r.result || {}).sent === 1, JSON.stringify(r));
+  ok("  it is in alpha's outbox, not EGBC's", await outboxTo('churches/' + A, 'alpha.only@example.invalid') === 1 && await outboxTo('', 'alpha.only@example.invalid') === 0);
+  ok('  Ann cannot email somebody only beta knows', refused(await call(ann, 'hubSend', mail('beta.only@example.invalid'))));
+  ok('  nor somebody only EGBC knows', refused(await call(ann, 'hubSend', mail('egbc.only@example.invalid'))));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'hubSend', mail('beta.only@example.invalid', { churchId: B })), 'PERMISSION_DENIED'));
+  ok("  nothing went into beta's outbox", await outboxTo('churches/' + B, 'beta.only@example.invalid') === 0);
+  r = await call(eve, 'hubSend', mail('egbc.only@example.invalid'));
+  ok('  Eve (no claim) emails somebody EGBC knows, as today', (r.result || {}).sent === 1, JSON.stringify(r));
+  ok('  Eve cannot email somebody only alpha knows', refused(await call(eve, 'hubSend', mail('alpha.only@example.invalid'))));
+
+  console.log('\ncompilerSend (batch 2)');
+  r = await call(ann, 'compilerSend', { to: ['alpha.only@example.invalid'], subject: 'CC compiler', html: '<p>x</p>' });
+  ok('  Ann sends to somebody alpha knows', (r.result || {}).ok === true, JSON.stringify(r));
+  ok('  Ann cannot send to somebody only beta knows', refused(await call(ann, 'compilerSend', { to: ['beta.only@example.invalid'], subject: 'CC compiler', html: '<p>x</p>' })));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'compilerSend', { churchId: B, to: ['beta.only@example.invalid'], subject: 'x', html: 'x' }), 'PERMISSION_DENIED'));
+  r = await call(eve, 'compilerSend', { to: ['egbc.only@example.invalid'], subject: 'CC compiler', html: '<p>x</p>' });
+  ok('  Eve sends to somebody EGBC knows, as today', (r.result || {}).ok === true, JSON.stringify(r));
+
+  console.log('\ncallParent and notifyTest (batch 2)');
+  r = await call(ann, 'callParent', { checkinId: 'ck_cc_b' });
+  ok("  Ann giving beta's child's check-in finds no such child in alpha", (r.result || {}).reason === 'not-in', JSON.stringify(r));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'callParent', { churchId: B, checkinId: 'ck_cc_b' }), 'PERMISSION_DENIED'));
+  r = await call(ann, 'notifyTest');
+  ok("  Ann's test goes by alpha's switch (on)", !r.error, JSON.stringify(r));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'notifyTest', { churchId: B }), 'PERMISSION_DENIED'));
+  ok("  Eve's goes by EGBC's switch (off): refused, as today", refused(await call(eve, 'notifyTest'), 'FAILED_PRECONDITION'));
 } finally {
   for (const p of seeded) await del(p).catch(() => {});
+  /* The outbox rows the sends made, in each place. */
+  for (const root of ['churches/' + A, 'churches/' + B, '']) {
+    const q = await req(FS[0], Number(FS[1]), 'POST', DOCS + (root ? '/' + root : '') + ':runQuery', { structuredQuery: { from: [{ collectionId: 'emailOutbox' }] } }, OWNER);
+    for (const x of JSON.parse(q.body)) if (x.document && /only@example.invalid/.test(JSON.stringify(x.document.fields))) await req(FS[0], Number(FS[1]), 'DELETE', '/v1/' + x.document.name, undefined, OWNER);
+  }
 }
 const failed = R.filter(v => !v).length;
 console.log('\n' + (R.length - failed) + '/' + R.length + ' passed');

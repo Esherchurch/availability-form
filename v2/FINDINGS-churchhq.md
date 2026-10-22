@@ -160,3 +160,22 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
   - A named church not checked: 6 red.
 - **Still passing:** check-availability-form 52/52, check-family 40/40, check-youth-hub 16/16, check-rota-shared-roles 2/2.
 - **Deploy:** whoAmI, myFamily, myYouthHub. EGBC sees no change: nobody at EGBC has a churches claim.
+
+### H-5, batch 2 built: hubSend, compilerSend, callParent, notifyTest (22 Oct 2026)
+
+- **hubSend and compilerSend** take the church's db from `churchOf`. Each church then has its own people to email, its own hourly limit, its own name on the From line and its own outbox.
+- **callParent and notifyTest** take the church's db through `notifyDeps({ db })`, so each church has its own on/off switch, phones and check-ins. The triggers and scheduled jobs (batches 5 and 6) will use the same option.
+- **makeSender (Comms') is unchanged.** It is only handed the church's db.
+- **check-church-calls: 42/42.** New for this batch:
+  - Ann emails someone alpha knows, and the row lands in alpha's outbox, not EGBC's.
+  - Ann cannot email someone only beta or only EGBC knows, and beta's outbox stays empty.
+  - Eve (no claim) emails someone EGBC knows, as today.
+  - Ann giving beta's child's check-in id: no such child in alpha.
+  - Ann's notification test follows alpha's switch (on); Eve's follows EGBC's (off) and is refused, as today.
+  - Naming beta is refused for each callable.
+- **Breaks:**
+  - The four functions back on EGBC's top-level db: 4 red.
+  - The notify functions alone back on EGBC's db: 2 red.
+- **Still passing:** check-hub-send 25/25, check-notify-send 82/82, check-who-may 16/16, check-no-calla 14/14.
+- **Deploy:** hubSend, compilerSend, callParent, notifyTest.
+  - rotaReminders and the notify triggers share `notifyDeps`. They behave the same without the option, but redeploy them too so the code is one version: rotaReminders, bookingNotify, maintJobNotify, urgentNotice, worryNotify, prayerNotify, helloNotify, checksReminders.

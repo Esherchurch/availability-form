@@ -22,6 +22,7 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
+import { churchOf } from './church-scope.js';
 import { makeSender } from './public-mail.js';
 
 const REGION = 'europe-west2';
@@ -50,7 +51,8 @@ export function decide(user, book, to) {
 
 export const compilerSend = onCall({ region: REGION }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
-  const db = getFirestore();
+  /* The church from the sign-in (H-5); EGBC's top level without a claim. */
+  const db = churchOf(req, getFirestore()).db;
   const u = await db.collection('users').doc(req.auth.uid).get();
   const user = u.exists ? u.data() : null;
   const d = req.data || {};
