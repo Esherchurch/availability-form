@@ -41,6 +41,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
+import { churchOf } from './church-scope.js';
 
 const REGION = 'europe-west2';
 export const DAILY_API_KEY = defineSecret('DAILY_API_KEY');
@@ -112,17 +113,24 @@ export function makeDaily(key, fetchImpl) {
   };
 }
 
-/* The church's rooms, each made in Daily if it is not yet. */
-export async function ensureRooms(db, daily) {
+/* The church's rooms, each made in Daily if it is not yet.
+   churchFrom: the church from the sign-in (H-5), or none for EGBC. A
+   church's rooms are named after IT (dailyName), and a church with no rooms
+   yet starts with none - EGBC's seven are EGBC's. EGBC's own path is as
+   it was. */
+export async function ensureRooms(db, daily, churchFrom) {
   const ref = db.collection('churchSettings').doc('video');
   const snap = await ref.get();
   const cur = snap.exists ? snap.data() : {};
-  const churchId = cur.churchId || 'egbc';
-  const rooms = (Array.isArray(cur.rooms) && cur.rooms.length ? cur.rooms : EGBC_ROOMS).map(r => Object.assign({}, r));
-  let changed = !snap.exists;
+  const legacy = !churchFrom;
+  const churchId = legacy ? (cur.churchId || 'egbc') : churchFrom;
+  const defaults = legacy ? EGBC_ROOMS : [];
+  const rooms = (Array.isArray(cur.rooms) && cur.rooms.length ? cur.rooms : defaults).map(r => Object.assign({}, r));
+  /* EGBC's record is left exactly as it was; a church's says whose it is. */
+  let changed = !snap.exists || (!legacy && cur.churchId !== churchId);
   for (const r of rooms) {
     /* Fields added since the room was recorded (hostTeams, 21 Oct 2026). */
-    const def = EGBC_ROOMS.find(x => x.key === r.key) || {};
+    const def = defaults.find(x => x.key === r.key) || {};
     if (!Array.isArray(r.teams)) { r.teams = def.teams || []; changed = true; }
     if (!Array.isArray(r.hostTeams)) { r.hostTeams = def.hostTeams || []; changed = true; }
     if (r.url) continue;
@@ -134,9 +142,9 @@ export async function ensureRooms(db, daily) {
      search a list for a room, so meetingInvitee() / meetingHost() look a
      room up here by its key. Kept in step with `rooms` on every write. */
   const roomsByKey = {};
-  rooms.forEach(r => { roomsByKey[r.key] = { teams: r.teams || [], hostTeams: r.hostTeams || [], members: r.members === true || (EGBC_ROOMS.find(x => x.key === r.key) || {}).members === true }; });
+  rooms.forEach(r => { roomsByKey[r.key] = { teams: r.teams || [], hostTeams: r.hostTeams || [], members: r.members === true || (defaults.find(x => x.key === r.key) || {}).members === true }; });
   if (JSON.stringify(cur.roomsByKey || null) !== JSON.stringify(roomsByKey)) changed = true;
-  const out = { churchId, rooms, roomsByKey, byType: cur.byType || EGBC_BY_TYPE };
+  const out = { churchId, rooms, roomsByKey, byType: cur.byType || (legacy ? EGBC_BY_TYPE : {}) };
   if (changed) await ref.set(Object.assign({}, out, { updatedAt: new Date().toISOString() }), { merge: true });
   return out;
 }
@@ -175,11 +183,11 @@ export function tokenExpiry(event, now = Date.now()) {
   return Math.floor(Math.max(now + 60 * 60000, Math.min(cap, end)) / 1000);
 }
 
-export async function hostToken({ db, daily, uid, data, now }) {
+export async function hostToken({ db, daily, uid, data, now, churchId }) {
   const roomKey = String((data && data.room) || '').slice(0, 80);
   const eventId = String((data && data.event) || '').slice(0, 200);
   if (!roomKey) throw new HttpsError('invalid-argument', 'Which room?');
-  const v = await ensureRooms(db, daily);
+  const v = await ensureRooms(db, daily, churchId);
   const room = v.rooms.find(r => r.key === roomKey);
   if (!room || !room.url) throw new HttpsError('not-found', 'There is no such meeting room.');
   const u = await db.collection('users').doc(uid).get();
@@ -200,7 +208,8 @@ export async function hostToken({ db, daily, uid, data, now }) {
 export const videoRoomsEnsure = onCall({ region: REGION, secrets: [DAILY_API_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   const daily = makeDaily(keyNow());
-  const v = await ensureRooms(getFirestore(), daily);
+  const ch = churchOf(req, getFirestore());
+  const v = await ensureRooms(ch.db, daily, ch.id);
   return { rooms: v.rooms.map(r => ({ key: r.key, label: r.label, url: r.url || '', teams: r.teams || [], hostTeams: r.hostTeams || ((EGBC_ROOMS.find(x => x.key === r.key) || {}).hostTeams) || [], members: !!r.members })), byType: v.byType };
 });
 
@@ -208,5 +217,6 @@ export const meetingHostToken = onCall({ region: REGION, secrets: [DAILY_API_KEY
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   const daily = makeDaily(keyNow());
   if (!daily) throw new HttpsError('failed-precondition', 'Video meetings are not set up yet: Church HQ’s Daily key has not been added.');
-  return hostToken({ db: getFirestore(), daily, uid: req.auth.uid, data: req.data });
+  const ch = churchOf(req, getFirestore());
+  return hostToken({ db: ch.db, daily, uid: req.auth.uid, data: req.data, churchId: ch.id });
 });

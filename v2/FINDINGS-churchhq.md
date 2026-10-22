@@ -179,3 +179,25 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 - **Still passing:** check-hub-send 25/25, check-notify-send 82/82, check-who-may 16/16, check-no-calla 14/14.
 - **Deploy:** hubSend, compilerSend, callParent, notifyTest.
   - rotaReminders and the notify triggers share `notifyDeps`. They behave the same without the option, but redeploy them too so the code is one version: rotaReminders, bookingNotify, maintJobNotify, urgentNotice, worryNotify, prayerNotify, helloNotify, checksReminders.
+
+### H-5, batch 3 built: votes and video (22 Oct 2026)
+
+- **castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople:** the shared wrapper takes the church's db from `churchOf`. One church's votes, ballots, tallies and proxies cannot be reached from another.
+- **videoRoomsEnsure and meetingHostToken:** take the church from `churchOf`.
+  - A church's Daily rooms are named after it (`mc-alpha-prayer`), and its video settings record whose they are.
+  - **Fixed on the way:** a church with no rooms yet used to get EGBC's seven rooms and the name "egbc". Now it starts with none.
+  - EGBC's own path is exactly as before, and its record is not rewritten.
+- **Moved to batch 4, because they work with codes and links:**
+  - all of ChurchShow (the pairing code is made in a church, then redeemed with no sign-in);
+  - meetingPapers (a public link).
+- **check-church-calls: 59/59.** New for this batch:
+  - Ann votes in alpha's vote. Giving beta's ids finds no such vote, and beta's tally is untouched. She cannot close beta's vote.
+  - Her proxy list is alpha's members only.
+  - Eve votes in EGBC's vote, as today.
+  - Ann gets alpha's rooms only, made under alpha's name, and her host token is for alpha's room. Asking for beta's room finds no such room.
+  - A church with no rooms gets none. Eve gets EGBC's rooms, named egbc-, as today.
+- **Breaks:**
+  - Votes back on EGBC's db: 4 red.
+  - Video ignoring the church: 4 red.
+- **Still passing, each on a fresh emulator:** check-meeting-host 19/19, check-members-meeting 52/52, check-meeting-present 8/8.
+- **Deploy:** castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople, videoRoomsEnsure, meetingHostToken.

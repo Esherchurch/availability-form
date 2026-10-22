@@ -33,6 +33,7 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { churchOf } from './church-scope.js';
 
 const REGION = 'europe-west2';
 export const RUNNER_TEAMS = ['Church office', 'Elders'];
@@ -170,7 +171,8 @@ export async function close({ db, uid, data }) {
 
 const call = (fn) => onCall({ region: REGION }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
-  return fn({ db: getFirestore(), uid: req.auth.uid, data: req.data || {} });
+  /* The church from the sign-in (H-5): its meetings, votes and people. */
+  return fn({ db: churchOf(req, getFirestore()).db, uid: req.auth.uid, data: req.data || {} });
 });
 export const castVote = call(cast);
 export const voteOpen = call(open);

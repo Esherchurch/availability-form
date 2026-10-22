@@ -34,7 +34,8 @@ const req = (host, port, method, path, body, headers) => new Promise((res, rej) 
 });
 const DOCS = `/v1/projects/${PROJECT}/databases/(default)/documents`;
 const OWNER = { Authorization: 'Bearer owner' };
-const val = (v) => typeof v === 'boolean' ? { booleanValue: v } : Array.isArray(v) ? { arrayValue: { values: v.map(val) } } : { stringValue: String(v) };
+const val = (v) => typeof v === 'boolean' ? { booleanValue: v } : Array.isArray(v) ? { arrayValue: { values: v.map(val) } }
+  : v && typeof v === 'object' ? { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, val(x)])) } } : { stringValue: String(v) };
 const put = (p, o) => req(FS[0], Number(FS[1]), 'PATCH', DOCS + '/' + p, { fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, val(v)])) }, OWNER);
 const del = (p) => req(FS[0], Number(FS[1]), 'DELETE', DOCS + '/' + p, undefined, OWNER);
 const authPost = (path, body, owner) => req(AUTH[0], Number(AUTH[1]), 'POST', path, body, owner ? OWNER : {});
@@ -101,6 +102,21 @@ await seed('churches/' + A + '/churchSettings/notifications', { live: true });
 /* EGBC's (the spare emulator's top level, made up) has them off. */
 await seed('churchSettings/features', { notifications: false });
 await seed('churches/' + B + '/checkins/ck_cc_b', { kind: 'child', state: 'in', memberId: 'm_child_b' });
+/* Batch 3, meetings and video. Ann and Eve are church members (voters);
+   each place has an open vote and its own rooms. Gil's church, mc-gamma,
+   has no rooms yet. */
+await seed('churches/' + A + '/users/' + ann.uid, { status: 'active', memberId: MID, name: 'Ann Synthetic', masterAdmin: true, email: ann.email, churchMember: true });
+await seed('users/' + eve.uid, { status: 'active', memberId: MID, name: 'Eve Synthetic', masterAdmin: true, email: eve.email, churchMember: true });
+for (const [root, tag] of [['churches/' + A + '/', 'a'], ['churches/' + B + '/', 'b'], ['', 'e']]) {
+  await seed(root + 'churchMeetings/mt_' + tag + '/votes/v_' + tag, { status: 'open', choices: ['Yes', 'No'], title: 'CC synthetic vote' });
+  await seed(root + 'addressBook/voter_' + tag, { name: 'Voter ' + tag.toUpperCase() + ' Synthetic', churchMember: true });
+}
+await seed('churches/' + A + '/churchSettings/video', { rooms: [{ key: 'Prayer', label: 'Prayer (made up)', teams: ['Prayer Team'], hostTeams: [] }] });
+await seed('churches/' + B + '/churchSettings/video', { churchId: B, rooms: [{ key: 'BetaRoom', label: 'Beta room (made up)', teams: [], hostTeams: [] }] });
+const gil = await person('cc.gil@example.invalid', { churches: ['mc-gamma'] });
+await seed('churches/mc-gamma/users/' + gil.uid, { status: 'active', memberId: 'm_gil', name: 'Gil Synthetic' });
+seeded.push('churches/mc-gamma/churchSettings/video', 'churchSettings/video');
+const getDoc = async (p) => { const r = await req(FS[0], Number(FS[1]), 'GET', DOCS + '/' + p, undefined, OWNER); return r.status === 200 ? JSON.parse(r.body).fields || {} : null; };
 const outboxTo = async (root, addr) => {
   const q = await req(FS[0], Number(FS[1]), 'POST', DOCS + (root ? '/' + root : '') + ':runQuery',
     { structuredQuery: { from: [{ collectionId: 'emailOutbox' }] } }, OWNER);
@@ -163,6 +179,40 @@ try {
   ok("  Ann's test goes by alpha's switch (on)", !r.error, JSON.stringify(r));
   ok('  Ann naming beta is refused', refused(await call(ann, 'notifyTest', { churchId: B }), 'PERMISSION_DENIED'));
   ok("  Eve's goes by EGBC's switch (off): refused, as today", refused(await call(eve, 'notifyTest'), 'FAILED_PRECONDITION'));
+
+  console.log('\nVotes (batch 3)');
+  r = await call(ann, 'castVote', { meeting: 'mt_a', vote: 'v_a', choice: 'Yes' });
+  ok("  Ann votes in alpha's vote", (r.result || {}).ok === true, JSON.stringify(r));
+  r = await call(ann, 'castVote', { meeting: 'mt_b', vote: 'v_b', choice: 'Yes' });
+  ok("  Ann giving beta's vote ids: there is no such vote (in alpha)", refused(r, 'NOT_FOUND'), JSON.stringify(r));
+  ok("  and beta's tally is untouched", (await getDoc('churches/' + B + '/churchMeetings/mt_b/votes/v_b/tally/count')) === null);
+  ok('  Ann naming beta is refused', refused(await call(ann, 'castVote', { churchId: B, meeting: 'mt_b', vote: 'v_b', choice: 'Yes' }), 'PERMISSION_DENIED'));
+  ok("  Ann cannot close beta's vote either", refused(await call(ann, 'voteClose', { meeting: 'mt_b', vote: 'v_b' }), 'NOT_FOUND'));
+  r = await call(ann, 'proxyPeople', { meeting: 'mt_a' });
+  const names = ((r.result || {}).people || []).map(p => p.name).join(',');
+  ok("  Ann's proxy list is alpha's members only", names.includes('Voter A') && !names.includes('Voter B') && !names.includes('Voter E'), names || JSON.stringify(r));
+  r = await call(eve, 'castVote', { meeting: 'mt_e', vote: 'v_e', choice: 'No' });
+  ok("  Eve (no claim) votes in EGBC's vote, as today", (r.result || {}).ok === true, JSON.stringify(r));
+  ok("  Eve giving alpha's vote ids: no such vote", refused(await call(eve, 'castVote', { meeting: 'mt_a', vote: 'v_a', choice: 'No' }), 'NOT_FOUND'));
+  seeded.push(...['a', 'b', 'e'].flatMap(t => { const root = t === 'a' ? 'churches/' + A + '/' : t === 'b' ? 'churches/' + B + '/' : ''; return [root + 'churchMeetings/mt_' + t + '/votes/v_' + t + '/tally/count', root + 'churchMeetings/mt_' + t + '/votes/v_' + t + '/ballots/' + MID]; }));
+
+  console.log('\nVideo rooms (batch 3)');
+  r = await call(ann, 'videoRoomsEnsure');
+  const rooms = ((r.result || {}).rooms || []);
+  ok("  Ann gets alpha's rooms only", rooms.map(x => x.key).join(',') === 'Prayer', JSON.stringify(r));
+  ok("  made in Daily under alpha's name", /\/mc-alpha-prayer$/.test((rooms[0] || {}).url || ''), (rooms[0] || {}).url);
+  const av = await getDoc('churches/' + A + '/churchSettings/video');
+  ok("  and alpha's video settings say they are alpha's", av && av.churchId && av.churchId.stringValue === A, JSON.stringify(av && av.churchId));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'videoRoomsEnsure', { churchId: B }), 'PERMISSION_DENIED'));
+  r = await call(gil, 'videoRoomsEnsure');
+  ok("  a church with no rooms yet has none - not EGBC's seven", JSON.stringify(((r.result || {}).rooms || [])) === '[]', JSON.stringify(r));
+  r = await call(eve, 'videoRoomsEnsure');
+  const erooms = ((r.result || {}).rooms || []);
+  ok("  Eve (no claim) gets EGBC's rooms, named egbc-, as today", erooms.length >= 5 && erooms.every(x => /\/egbc-/.test(x.url || '')), JSON.stringify(erooms.map(x => x.url)));
+  r = await call(ann, 'meetingHostToken', { room: 'Prayer' });
+  ok("  Ann hosts alpha's room: the token is for alpha's Daily room", /^test-owner\.mc-alpha-prayer\./.test((r.result || {}).token || ''), JSON.stringify(r));
+  ok("  Ann asking to host beta's room: no such room (in alpha)", refused(await call(ann, 'meetingHostToken', { room: 'BetaRoom' }), 'NOT_FOUND'));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'meetingHostToken', { churchId: B, room: 'BetaRoom' }), 'PERMISSION_DENIED'));
 } finally {
   for (const p of seeded) await del(p).catch(() => {});
   /* The outbox rows the sends made, in each place. */
