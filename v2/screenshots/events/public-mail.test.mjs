@@ -52,9 +52,9 @@ if (!process.env.PM_INNER) {
   fs.symlinkSync(path.join(V2, 'functions', 'node_modules'), path.join(FN, 'node_modules'), 'junction');
   /* Since ecf5dc50 index.js has the line itself: add it only if missing. */
   if (!fs.readFileSync(path.join(FN, 'index.js'), 'utf8').includes(LINE)) fs.appendFileSync(path.join(FN, 'index.js'), '\n' + LINE + '\n');
-  for (const f of ['firestore.rules', 'firestore.indexes.json']) fs.copyFileSync(path.join(V2, f), path.join(TMP, f));
+  for (const f of ['firestore.build.rules', 'firestore.indexes.json']) fs.copyFileSync(path.join(V2, f), path.join(TMP, f));
   fs.writeFileSync(path.join(TMP, 'firebase.json'), JSON.stringify({
-    firestore: { rules: 'firestore.rules', indexes: 'firestore.indexes.json' },
+    firestore: { rules: 'firestore.build.rules', indexes: 'firestore.indexes.json' },
     emulators: { firestore: ev.emulators.firestore, functions: ev.emulators.functions, hub: ev.emulators.hub,
       logging: ev.emulators.logging, ui: { enabled: false }, singleProjectMode: true },
     functions: [{ source: 'functions', codebase: 'hub', ignore: ['node_modules', '.git', '*.local'] }]

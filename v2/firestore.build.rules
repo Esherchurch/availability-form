@@ -1281,6 +1281,10 @@ allow create: if active()
 || (request.resource.data.itemId in ['adopted', 'trusteeTraining', 'return'] && sgTrustee()));
 allow update, delete: if false;
 }
+match /sgAiLog/{id} {
+allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''));
+allow write: if false;
+}
 match /sgSnapshots/{id} {
 allow read: if sgRegSees(resource.data.get('siteId', ''));
 allow create: if (isMaster() || sgTrustee())

@@ -96,7 +96,7 @@ const URLB = 'http://localhost:' + PAGE_PORT + '/';
 /* ---- the emulators: prove where we are, then start clean ---- */
 const env = await initializeTestEnvironment({
   projectId: PROJECT,
-  firestore: { rules: fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), host: '127.0.0.1', port: FS_PORT },
+  firestore: { rules: fs.readFileSync(path.join(V2, 'firestore.build.rules'), 'utf8'), host: '127.0.0.1', port: FS_PORT },
 });
 await env.clearFirestore();
 await fetch(`http://127.0.0.1:${AUTH_PORT}/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
