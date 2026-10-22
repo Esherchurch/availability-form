@@ -75,15 +75,19 @@ export function churchFromPath(event, db) {
 
 /* For a scheduled job: EGBC first (its top-level data, as today), then each
    active church in the directory, one at a time. One church failing is
-   logged and the rest carry on. Returns what each run returned, by church. */
+   logged and the rest carry on; then, if any failed, the run fails, so the
+   job's own retry works as it always did. Returns what each run returned,
+   by church. */
 export async function eachChurch(db, fn, log) {
   const out = {};
+  const failed = [];
   const run = async (id) => {
     try { out[id || 'egbc'] = await fn({ id, legacy: !id, db: scopedDb(db, id) }); }
-    catch (e) { out[id || 'egbc'] = { error: String(e && e.message || e) }; (log || console.error)('church ' + (id || 'egbc') + ':', e); }
+    catch (e) { failed.push(id || 'egbc'); out[id || 'egbc'] = { error: String(e && e.message || e) }; (log || console.error)('church ' + (id || 'egbc') + ':', e); }
   };
   await run(null);
   const snap = await db.collection('hqChurches').where('status', '==', 'active').get();
   for (const d of snap.docs) if (validChurchId(d.id)) await run(d.id);
+  if (failed.length) throw new Error('Failed for ' + failed.join(', ') + ' (the others ran)');
   return out;
 }

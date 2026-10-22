@@ -22,6 +22,10 @@ import { churchIdOf, scopedDb, claimedChurches } from '../functions/church-scope
 import { hashCode as churchShowHash } from '../functions/churchshow.js';
 import { codeHash } from '../functions/hq-codes.js';
 import { personalise } from '../functions/meeting-papers.js';
+/* The scheduled jobs themselves, run by hand (batch 6). Loading index.js
+   starts the server's own admin app, on the emulator. */
+import { eachChurch } from '../functions/church-scope.js';
+import { bookingReminders, careStatusSync } from '../functions/index.js';
 /* The server's own library, from functions/, for calling personalise() as
    the e-news send does. On the emulator only (emulators:exec sets the host). */
 const fnRequire = createRequire(new URL('../functions/package.json', import.meta.url));
@@ -337,12 +341,44 @@ try {
   ok("  a hello in alpha is handled with alpha's settings, and marked in alpha", !!told);
   ok("  not at EGBC", (await getDoc('notifySent/hello_w_cc_a')) === null);
   seeded.push('churches/' + A + '/notifySent/hello_w_cc_a');
+
+  console.log('\nScheduled jobs (batch 6)');
+  for (const [cid, status] of [[A, 'active'], [B, 'active'], ['mc-gamma', 'closed']]) await seed('hqChurches/' + cid, { name: cid + ' (made up)', status });
+  const order = [];
+  await eachChurch(adb, async (ch) => { order.push(ch.id || 'egbc'); });
+  ok('  a job runs for EGBC first, then each active church; a closed one is skipped', JSON.stringify(order) === JSON.stringify(['egbc', A, B]), JSON.stringify(order));
+  const ran = []; let threw = '';
+  try { await eachChurch(adb, async (ch) => { ran.push(ch.id || 'egbc'); if (ch.id === A) throw new Error('made-up failure'); }, () => {}); }
+  catch (e) { threw = e.message; }
+  ok('  one church failing: the rest still run', JSON.stringify(ran) === JSON.stringify(['egbc', A, B]), JSON.stringify(ran));
+  ok('  and then the run fails, so the job is retried as before', /mc-alpha/.test(threw), threw);
+  /* Booking reminders: a booking tomorrow in alpha, in beta and at EGBC. */
+  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  /* Reminders skip .invalid addresses on purpose, so these use example.com
+     (reserved, never delivered; the emulator sends nothing anyway). */
+  for (const [root, tag] of [['churches/' + A + '/', 'alpha'], ['churches/' + B + '/', 'beta'], ['', 'egbc']]) {
+    await seed(root + 'addressBook/hirer_' + tag, { name: tag + ' hirer', email: 'cc.' + tag + '.hirer@example.com' });
+    await seed(root + 'bookings/bk_cc_' + tag, { day: tomorrow, status: 'confirmed', kind: 'hire', start: '10:00', end: '11:00', requester: { name: tag + ' hirer', email: 'cc.' + tag + '.hirer@example.com' } });
+  }
+  await bookingReminders.run({});
+  const marked = async (root, tag) => { const d = await getDoc(root + 'bookings/bk_cc_' + tag); return !!(d && d.reminderSentAt); };
+  ok("  booking reminders: each church's booking is reminded, from its own data", await marked('churches/' + A + '/', 'alpha') && await marked('churches/' + B + '/', 'beta') && await marked('', 'egbc'));
+  ok("  alpha's reminder is in alpha's outbox, beta's in beta's, EGBC's in EGBC's",
+    await outboxTo('churches/' + A, 'cc.alpha.hirer@example.com') >= 1 && await outboxTo('churches/' + B, 'cc.beta.hirer@example.com') >= 1 && await outboxTo('', 'cc.egbc.hirer@example.com') >= 1
+    && await outboxTo('', 'cc.alpha.hirer@example.com') === 0 && await outboxTo('churches/' + A, 'cc.beta.hirer@example.com') === 0);
+  /* The hourly care note: beta's, put right by the job. */
+  await seed('churches/' + B + '/bookingSettings/site_b', { safeguardingLead: 'm_lead_b' });
+  await waitFor('churches/' + B + '/careRouting/status', d => JSON.stringify(d).includes('m_lead_b'));
+  await del('churches/' + B + '/careRouting/status');
+  await careStatusSync.run({});
+  ok("  the hourly care note job puts beta's note right, from beta's settings", JSON.stringify(await getDoc('churches/' + B + '/careRouting/status') || {}).includes('m_lead_b'));
+  seeded.push('churches/' + B + '/careRouting/status', 'churches/' + B + '/safeguardingSettings/defaults');
 } finally {
   for (const p of seeded) await del(p).catch(() => {});
   /* The outbox rows the sends made, in each place. */
   for (const root of ['churches/' + A, 'churches/' + B, '']) {
     const q = await req(FS[0], Number(FS[1]), 'POST', DOCS + (root ? '/' + root : '') + ':runQuery', { structuredQuery: { from: [{ collectionId: 'emailOutbox' }] } }, OWNER);
-    for (const x of JSON.parse(q.body)) if (x.document && /only@example.invalid/.test(JSON.stringify(x.document.fields))) await req(FS[0], Number(FS[1]), 'DELETE', '/v1/' + x.document.name, undefined, OWNER);
+    for (const x of JSON.parse(q.body)) if (x.document && /only@example\.invalid|cc\.\w+\.hirer@example\.com/.test(JSON.stringify(x.document.fields))) await req(FS[0], Number(FS[1]), 'DELETE', '/v1/' + x.document.name, undefined, OWNER);
   }
 }
 const failed = R.filter(v => !v).length;

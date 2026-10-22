@@ -37,7 +37,7 @@ import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family
 import { myYouthHub as myYouthHubIn } from './youth-hub.js';
 /* Which church a call is for: the sign-in's claim, never the page (multi-
    church step 3, FINDINGS-churchhq H-5). No claim is EGBC, as before. */
-import { churchOf, churchFromPath } from './church-scope.js';
+import { churchOf, churchFromPath, eachChurch } from './church-scope.js';
 /* Codes and links that come with no sign-in: which church (hq-codes.js). */
 import { codeHash, indexCode, dropCode, dbForCode } from './hq-codes.js';
 import { hashCode as churchShowHash, normalise as churchShowNormalise } from './churchshow.js';
@@ -295,17 +295,17 @@ const onEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true';
    emailOutbox row for every message, sent or stubbed. On the emulator
    nothing leaves; the row is the whole of it and a check reads it. */
 import { makeSender } from './public-mail.js';
-async function sendOne(msg, meta) { return sendOneIn(db)(msg, meta); }
-/* The same, from one church's data (its details, its outbox). */
+/* One email, from one church's data (its details, its outbox); EGBC's
+   top level is db. Each job below makes its own. */
 function sendOneIn(cdb) {
   return (msg, meta) => makeSender({ db: cdb })({ to: msg.to || [], subject: msg.subject || '', html: msg.html || msg.body || '', replyTo: msg.replyTo || '' }, meta || {});
 }
 
 /* The church's own details, so nothing here carries one church's name.
    Empty is fine: the message simply says less. */
-async function churchDetails() {
+async function churchDetails(cdb = db) {
   try {
-    const s = await db.collection('churchSettings').doc('details').get();
+    const s = await cdb.collection('churchSettings').doc('details').get();
     return s.exists ? (s.data() || {}) : {};
   } catch (e) { return {}; }
 }
@@ -320,17 +320,19 @@ const byId = (snap) => {
 
 export const bookingReminders = onSchedule(
   { schedule: '0 9 * * *', timeZone: 'Europe/London', retryCount: 2 },
-  async () => { await runBookingReminders(new Date()); }
+  /* EGBC as today, then each church from its own data (H-5). */
+  async () => { await eachChurch(db, (ch) => runBookingReminders(new Date(), ch.db)); }
 );
 
 /* Separated so a check can run it against the emulator at a date of its
    choosing, rather than waiting until nine tomorrow morning. */
-export async function runBookingReminders(runAt) {
+export async function runBookingReminders(runAt, cdb = db) {
+  const sendOne = sendOneIn(cdb);
   const [bookingsSnap, roomsSnap, sitesSnap, church] = await Promise.all([
-    db.collection('bookings').where('day', '==', addLondonDay(runAt, 1)).get(),
-    db.collection('rooms').get(),
-    db.collection('sites').get(),
-    churchDetails()
+    cdb.collection('bookings').where('day', '==', addLondonDay(runAt, 1)).get(),
+    cdb.collection('rooms').get(),
+    cdb.collection('sites').get(),
+    churchDetails(cdb)
   ]);
 
   const bookings = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -348,7 +350,7 @@ export async function runBookingReminders(runAt) {
     /* Marked whatever happened. A send that failed is in emailOutbox with
        its error, and trying again tomorrow would be a reminder for a day
        that has passed - worse than none. */
-    await db.collection('bookings').doc(b.id)
+    await cdb.collection('bookings').doc(b.id)
       .update({ reminderSentAt: new Date().toISOString() })
       .catch(e => console.error('[reminders] could not mark ' + b.id, e));
     if (r.ok) sent++;
@@ -360,16 +362,17 @@ export async function runBookingReminders(runAt) {
 
 export const documentExpiryReminders = onSchedule(
   { schedule: '30 9 * * *', timeZone: 'Europe/London', retryCount: 2 },
-  async () => { await runExpiryReminders(new Date()); }
+  async () => { await eachChurch(db, (ch) => runExpiryReminders(new Date(), ch.db)); }
 );
 
-export async function runExpiryReminders(runAt) {
+export async function runExpiryReminders(runAt, cdb = db) {
+  const sendOne = sendOneIn(cdb);
   const today = londonDay(runAt);
   const [hirersSnap, sitesSnap, bookingsSnap, church] = await Promise.all([
-    db.collection('hirers').get(),
-    db.collection('sites').get(),
-    db.collection('bookings').where('day', '>=', today).get(),
-    churchDetails()
+    cdb.collection('hirers').get(),
+    cdb.collection('sites').get(),
+    cdb.collection('bookings').where('day', '>=', today).get(),
+    churchDetails(cdb)
   ]);
 
   const hirers = hirersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -392,7 +395,7 @@ export async function runExpiryReminders(runAt) {
        write the whole array: a document can be added while this runs, and
        the array is short. */
     try {
-      const ref = db.collection('hirers').doc(hirer.id);
+      const ref = cdb.collection('hirers').doc(hirer.id);
       const fresh = await ref.get();
       const docs = (fresh.data() || {}).documents || [];
       if (docs[index]) {
@@ -627,7 +630,7 @@ export const notifyTest = onCall(async (request) => {
 /* The day before you serve, at five in the evening. */
 export const rotaReminders = onSchedule(
   { schedule: '0 17 * * *', timeZone: 'Europe/London', retryCount: 2 },
-  async () => { await Notify.runRotaReminders(await notifyDeps(), new Date()); }
+  async () => { await eachChurch(db, async (ch) => Notify.runRotaReminders(await notifyDeps({ db: ch.db }), new Date())); }
 );
 
 /* Booking confirmed, approved, declined or cancelled. */
@@ -685,12 +688,12 @@ export const [careStatusFromSite, careStatusFromSiteChurch] = twins(onDocumentWr
    safeguarding settings, has its note within the hour; it is written only
    when the answer changes. */
 export const careStatusSync = onSchedule({ schedule: 'every 60 minutes', timeZone: 'Europe/London', retryCount: 1 },
-  async () => { await Notify.refreshCareStatus(db); });
+  async () => { await eachChurch(db, (ch) => Notify.refreshCareStatus(ch.db)); });
 
 /* DBS checks and training running out, every Monday morning. */
 export const checksReminders = onSchedule(
   { schedule: '0 9 * * 1', timeZone: 'Europe/London', retryCount: 2 },
-  async () => { await Notify.runChecksReminders(await notifyDeps(), new Date()); }
+  async () => { await eachChurch(db, async (ch) => Notify.runChecksReminders(await notifyDeps({ db: ch.db }), new Date())); }
 );
 
 /* =================================================================
@@ -736,7 +739,7 @@ export const myYouthHub = onCall(async (request) => {
    fetched. See feeds.js. */
 export const feedSync = onSchedule(
   { schedule: 'every 60 minutes', timeZone: 'Europe/London', retryCount: 1 },
-  async () => { await runFeeds(db, { now: new Date() }); }
+  async () => { await eachChurch(db, (ch) => runFeeds(ch.db, { now: new Date() })); }
 );
 
 /* The seven public pages' emails, sent by the server (F-168, the events window's file). */

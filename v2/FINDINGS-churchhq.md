@@ -257,3 +257,23 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 - **Deploy:**
   - **the ten new twins:** bookingNotifyChurch, maintJobNotifyChurch, urgentNoticeChurch, worryNotifyChurch, prayerNotifyChurch, helloNotifyChurch, careStatusFromSettingsChurch, careStatusFromSiteChurch, familyGroupsSyncChurch, rotaWhatsOnChurch;
   - **and the originals, rewritten through the same helper but behaving the same:** bookingNotify, maintJobNotify, urgentNotice, worryNotify, prayerNotify, helloNotify, careStatusFromSettings, careStatusFromSite, familyGroupsSync.
+
+### H-5, batch 6 built: the scheduled jobs, church by church (22 Oct 2026)
+
+- **These now run through `eachChurch`:** bookingReminders, documentExpiryReminders, rotaReminders, careStatusSync, checksReminders, feedSync.
+  - EGBC runs first, on its top-level data, as today. Then each active church in `hqChurches` runs on its own data.
+  - A closed church is skipped.
+  - One church failing doesn't stop the others. Afterwards the run reports the failure, so the job's own retry works as it always did.
+- **runBookingReminders and runExpiryReminders** take the church's db; without it, they use EGBC's, as before. Each church's reminders go out under its own details and land in its own outbox.
+- **check-church-calls: 97/97.** New for this batch:
+  - order: EGBC, then the active churches, skipping a closed one;
+  - one failure: the rest still run, then the run fails;
+  - booking reminders: each church's booking is reminded from its own data, into its own outbox;
+  - the hourly care-note job puts beta's note right from beta's settings.
+- **Breaks:**
+  - Jobs run for EGBC only: 6 red.
+  - Booking reminders ignoring the church: 2 red.
+- **Still passing:** check-reminders 38/38, check-feeds 17/17 (spare emulators), check-features-agree 18/18.
+- **Deploy:** bookingReminders, documentExpiryReminders, rotaReminders, careStatusSync, checksReminders, feedSync.
+
+**Batches 1–6 (mine) are done.** Batch 7 (the events window's files) and batch 8 (Comms'), plus welcomeNewcomer and welcomeSubscriber, wait on the decision asked for under H-5. findMe, myDates and saveAnswer wait for step 4.
