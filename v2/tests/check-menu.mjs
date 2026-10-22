@@ -93,7 +93,10 @@ const APPROVED = [
     /* Master admins only, and the office's bank details on their own page (21 Oct 2026). */
     ['Church settings', c => c.master], ['Teams and groups', c => c.office], ['Giving details', c => c.office],
     /* Safeguarding: master admins and the lead and deputy (22 Oct 2026); nobody below is a lead. */
-    ['Payments', c => c.money], ['Safeguarding', c => c.master], ['Safeguarding settings', c => c.master],
+    ['Payments', c => c.money], ['Safeguarding', c => c.master],
+    /* The risk register (F-268): those, and the trustees - on the team named in
+       the safeguarding settings, Elders unless set (the rules' onTeam: teams, not adminFor). */
+    ['Safeguarding risks', c => c.master || c.p.teams.includes('Elders')], ['Safeguarding settings', c => c.master],
     ['Due for deletion', c => c.master], ['Small groups', c => c.admin], ['Forms', c => c.admin],
     ['Emails sent', c => c.core && c.admin && c.master], ['Manage Watch', c => c.master], ['Manage sermons', c => c.master],
     ['Backup', c => c.core && c.admin]]],
@@ -245,6 +248,11 @@ const PEOPLE = {
      paymentSettings/public.moneyTeam). Payments follows the NAME. */
   'the treasurer, on a renamed money team': { teams: ['Treasury'], adminFor: [], masterAdmin: false,
     sees: ['Payments', 'Church admin'], doesNot: ['Core Team', 'Emails sent', 'Send an email'] },
+  /* F-268: a trustee - on the Elders, the team the safeguarding settings
+     name (the default). The risk register, and none of the lead's pages. */
+  'a trustee, on the Elders': { teams: ['Elders'], adminFor: [], masterAdmin: false,
+    sees: ['Church admin', 'Safeguarding risks'],
+    doesNot: ['Safeguarding', 'Safeguarding settings', 'Due for deletion', 'Church settings', 'Backup'] },
   /* F-212: runs Film Club, administers nothing. Events (where "Events I
      run" is) and the two headings above it, and nothing else in them. */
   "somebody on an event's team": { teams: [], adminFor: [], masterAdmin: false,

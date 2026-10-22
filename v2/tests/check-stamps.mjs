@@ -61,5 +61,20 @@ const newest = presentStamps.map(([, s]) => s).sort().pop();
 const behind = presentStamps.filter(([, s]) => s !== newest).map(([f, s]) => f + ' has ' + s);
 ok('every page loads egbc-present.js with the same stamp', behind.length === 0, behind.join(', ') + '; the newest is ' + newest);
 
+/* THE APP AND THE HUB ARE NEVER BEHIND (22 Oct 2026): the events window
+   bumped egbc-events.js on its pages and asked for the app's (F-270); the
+   app was also found asking for older copies of six more scripts than
+   other pages used, so phones kept old code. These two pages - the ones
+   most people open - load every script at the newest stamp any page uses. */
+const newestOf = {};
+for (const f of fs.readdirSync(V2).filter(n => /\.html$/i.test(n))) {
+  for (const m of read(f).matchAll(/([\w.-]+\.(?:js|css))\?v=(\d{12})/g)) if (!newestOf[m[1]] || m[2] > newestOf[m[1]].v) newestOf[m[1]] = { v: m[2], f };
+}
+for (const page of ['app.html', 'hub.html']) {
+  const old = [...read(page).matchAll(/([\w.-]+\.(?:js|css))\?v=(\d{12})/g)].filter(m => m[2] < newestOf[m[1]].v)
+    .map(m => m[1] + ' ' + m[2] + ' (' + newestOf[m[1]].f + ' has ' + newestOf[m[1]].v + ')');
+  ok(page + ' loads every script at its newest stamp', old.length === 0, old.join(', '));
+}
+
 console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
 process.exit(R.some(x => !x) ? 1 : 0);

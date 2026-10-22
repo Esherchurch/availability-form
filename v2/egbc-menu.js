@@ -210,6 +210,10 @@
          something (Martin, 14 Oct 2026). */
       { title: 'Safeguarding', url: 'safeguarding.html', icon: 'shield-check', feature: 'safeguarding', sg: true,
         description: 'Leaders’ DBS checks and training, and exceptions' },
+      /* The risk register (F-268): the lead and deputy, master admins and
+         the trustees - the rules' sgRegSees(). */
+      { title: 'Safeguarding risks', url: 'safeguarding-risk.html', icon: 'clipboard-list', feature: 'safeguarding', sgRisk: true,
+        description: 'The standing risks, and events waiting for sign-off' },
       { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', feature: 'safeguarding', sg: true,
         description: 'Who the lead is, how long checks last, and the ratios' },
       { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', feature: 'safeguarding', sg: true,
@@ -354,6 +358,8 @@
        server). Lead and deputy only, and a master admin (who names the lead) - not
        any team admin (Martin's rule; the reviewing window, 22 Oct 2026). */
     if (node.sg && !who.isMaster && !who.isSgLead) return false;
+    /* The risk register: those, and the trustees' team (F-268). */
+    if (node.sgRisk && !who.isMaster && !who.isSgLead && !who.isSgTrustee) return false;
     /* On the money team, by whatever name the church gives it, or a master
        admin (who.isMaster honours "View the site as"). */
     if (node.money && !who.isMaster && (who.teams || []).indexOf(who.moneyTeam || 'Finance') === -1) return false;
@@ -983,6 +989,7 @@
         mayHeadcount: !!(A && A.mayHeadcount && A.mayHeadcount()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),
         isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead()),
+        isSgTrustee: !!(A && A.isSgTrustee && A.isSgTrustee()),
         moneyTeam: (A && A.moneyTeam && A.moneyTeam()) || 'Finance'
       };
     },

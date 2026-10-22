@@ -315,6 +315,20 @@
   /* THE MONEY TEAM'S NAME (F-200): paymentSettings/public.moneyTeam, which
      anyone may read; 'Finance' until a master admin renames it. For the
      Menu's Payments. */
+  /* THE TRUSTEES' TEAM (safeguardingSettings/defaults.trusteeTeam, "Elders"
+     unless set; the rules' sgTrusteeTeam()), for the Menu's Safeguarding
+     risks (F-268). Read only by somebody the rules let read the settings
+     (volunteer(): on a team, an admin, or a master admin); anybody else is
+     not a trustee, and is not sent to be refused. */
+  var trusteeTeam = 'Elders';
+  function loadTrusteeTeam(profile) {
+    var p = profile || {};
+    if (!(p.masterAdmin === true || (p.teams || []).length || (p.adminFor || []).length)) { trusteeTeam = 'Elders'; return Promise.resolve(); }
+    return db.collection('safeguardingSettings').doc('defaults').get().then(function (s) {
+      trusteeTeam = String((s.exists && s.data().trusteeTeam) || 'Elders');
+    }, function () { trusteeTeam = 'Elders'; });
+  }
+
   var moneyTeam = 'Finance';
   function loadMoneyTeam() {
     return db.collection('paymentSettings').doc('public').get().then(function (s) {
@@ -1113,7 +1127,7 @@
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
             return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
-                                loadCareLead(profile && profile.memberId), loadMoneyTeam(), loadFeatures(),
+                                loadCareLead(profile && profile.memberId), loadMoneyTeam(), loadTrusteeTeam(profile), loadFeatures(),
                                 loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile)])
               .then(function () { return both; });
           }).then(function (both) {
@@ -1536,6 +1550,9 @@
     /* The safeguarding lead or deputy (careRouting/status, kept by the
        server). For the Menu's Safeguarding; never previewed into. */
     isSafeguardingLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && sgLead; },
+    /* On the trustees' team (the rules' onTeam(sgTrusteeTeam())), as seen -
+       View as answers for the person being viewed as. */
+    isSgTrustee: function () { return EGBCAuth.inTeam(trusteeTeam); },
 
     /* Reads Care & support's inbox: the Pastoral team, or the safeguarding
        lead or deputy. NOT a master admin as such - the rules do not let
