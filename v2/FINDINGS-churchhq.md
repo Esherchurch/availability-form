@@ -277,3 +277,48 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 - **Deploy:** bookingReminders, documentExpiryReminders, rotaReminders, careStatusSync, checksReminders, feedSync.
 
 **Batches 1–6 (mine) are done.** Batch 7 (the events window's files) and batch 8 (Comms'), plus welcomeNewcomer and welcomeSubscriber, wait on the decision asked for under H-5. findMe, myDates and saveAnswer wait for step 4.
+
+## H-6. Multi-church step 4, the plan: which church a page is for (22 Oct 2026)
+
+**Today:** every page reads and writes EGBC's top-level data. The server (step 3) and the rules (step 2) already keep churches apart. What's missing is the pages: a church's page must use `churches/{cid}/…`, and must know which church it is for. **EGBC sees no change:** on EGBC's own address, with no church claim, everything stays top-level, as now.
+
+**For Martin to decide (PLAN.md decision 2, still open): the address.**
+- **(a) One address per church, `<church>.churchhq.co.uk` (recommended).**
+  - The same static files are served for every church, through Cloudflare in front of one origin, which handles a wildcard subdomain.
+  - The page reads its church from the hostname, through `hqChurches.domain`.
+  - Public pages (What's on, giving, e-news sign-up, the availability form) then know their church with nobody signed in.
+  - GitHub Pages can't serve wildcard subdomains, and Firebase Hosting allows 36 sites per project, so neither scales to hundreds of churches. Cloudflare's free plan does.
+- **(b) One shared address, with the church in the path (`hub.churchhq.co.uk/c/<church>/…`).** No DNS per church. But every link, QR code and embed must carry the path, and a page served at the wrong path is easy to make.
+- **Sign-in decides between them.**
+  - The hub signs in with email links and Google. Firebase only accepts those on authorised domains, and the list takes no wildcards.
+  - With (a), either each church's subdomain is added when the church is set up (a server step in "add a church", up to Firebase's limit, which I'll confirm before building), or sign-in happens on one address (`account.churchhq.co.uk`) and returns to the church's.
+  - I recommend the second: one sign-in address, nothing per church.
+
+**Build order (each with checks and breaks; made-up churches only):**
+1. **The rest of the rules, ported to `churches/{cid}`.** Step 2 moved six collections. The other 180-odd keep their top-level rules, and those are shut for churches until ported.
+   - Proposed: generate the church copy from the top-level rules mechanically (`me()` becomes the church's users record, every path under the church).
+   - Then run the whole existing rules suite (1,763 cases) against a made-up church, as well as the cross-church suite (1,975).
+   - A check fails if the two copies drift.
+2. **A church-scoped `EGBCAuth.db`** in egbc-auth.js. It has the same `.collection()`, `.doc()`, `.batch()` and `.runTransaction()` as the server's `scopedDb`. When a church is chosen, `collection('news')` means `churches/{cid}/news`; with none, it is top-level, as now.
+   - Storage paths get the same prefix.
+   - **The pages that call `firebase.firestore()` themselves** (4 files) are moved onto it. A static check fails any page that goes around it.
+   - Functions calls send `churchId` (the server checks it against the claim, step 3).
+3. **Which church:**
+   - the address decides it (a), and the sign-in's claim must include that church, or the page says "You're not a member of <church>" and offers the right one;
+   - signed in to two churches on a shared page: the app's church picker, the choice remembered on the device, and a switch in Menu > You.
+4. **Public pages and the public functions:**
+   - What's on and the embed, e-news sign-up, the availability form (findMe, myDates and saveAnswer from H-5), giving and booking.
+   - Each takes its church from the address, and the server checks that address against `hqChurches.domain`, never a church id typed into the request.
+5. **The app** (installed PWA and phone): one app for every church. It opens the person's church, or the picker if they have two.
+
+**Checks, every part:**
+- a made-up church's people see only that church, in the browser, end to end;
+- EGBC's pages, unchanged, give the same audit (67 reds today) before and after;
+- each part has its break.
+
+**Before building, I need:**
+- the decision between (a) and (b);
+- whether sign-in moves to one address;
+- Cloudflare (Martin's account) only when (a) is chosen.
+
+Until then, part 1 (the rules port) needs no decision, and I can start it.
