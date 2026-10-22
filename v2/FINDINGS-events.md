@@ -9713,3 +9713,251 @@ If you'd rather a different name or shape, say so: it's one constant in the engi
   | present | 55/55 |
   | present-quiz | 39/39 |
   | present-film | 5/5 |
+
+### F-265 — A safeguarding risk register: PLAN, for review before building (the events window, 22 Oct)
+
+Martin wants the safeguarding version of the Live risk register (risk.html), next to safeguarding.html. **Nothing is built yet.**
+
+**The one rule above all:** the register holds risks, controls, dates and **counts**. It never holds or shows a concern, an incident's people, a child, or a medical detail. Where a warning needs names (which leaders, which children), it links to the page that already shows them, and that page's own rules decide who sees the names.
+
+---
+
+**1. Who**
+
+| | Read | Edit risks and assessments | Sign off an event | Annual review items | Snapshots |
+|---|---|---|---|---|---|
+| The site's safeguarding lead and deputy (`sgLeadOf(siteId)`) | yes | yes | **yes (only them)** | yes | no |
+| Trustees (the trustee team, Elders at EGBC) | yes | no | no | yes (the trustees' own items) | **yes** |
+| Master admins | yes | no | no | no | yes |
+| Everyone else, activity leaders included | no | no | no | no | no |
+
+- **Trustees, any church:** risk.html says `onTeam('Elders')`. A church's trustees may be called something else, so this register reads **`safeguardingSettings/defaults.trusteeTeam`** (default "Elders"; set on Safeguarding settings).
+- **Master admins don't read concerns today, and nothing here changes that.** The register never holds one.
+
+---
+
+**2. Pages and tabs:** one new page, **`safeguarding-risk.html`** ("Safeguarding risks").
+- **Linked from** safeguarding.html's home ("Safeguarding risk register").
+- **In the Menu** beside Safeguarding (`sg: true`), plus trustees and master admins.
+- **A site picker** when the person keeps more than one site.
+
+**Tab A: Standing risks** (part 1)
+- One card per **activity**.
+- **Activities are built from what the hub already knows:**
+  - each Sunday group (`kidsGroups`)
+  - each children's or youth planner group (`planGroups` kind children/youth)
+  - each under-18s small group (`smallGroups.under18`)
+  - clubs (events whose `eventLeaders.under18` is on, grouped by name)
+- **Plus fixed kinds, added with one tap:** online and livestream; pastoral visits; transport; lone working; hirers working with children.
+- **Each risk:**
+  - what could happen, and to whom (in general words)
+  - likelihood × impact (1–5 each, the same rating as risk.html)
+  - its controls
+  - an owner (a person)
+  - a review date
+  - the residual rating after the controls
+- **Controls are either:**
+  - **a linked control:** one of the hub's own checks, which the live warnings watch (part 3), or
+  - **written:** for things the hub can't see ("two leaders walk children to the toilets").
+- **"Add from the starter list":** a starter set of risks for each kind of activity (section 5). The lead adapts them.
+- **Closing a risk keeps it** (as risk.html; nothing is deleted).
+
+**Tab B: Event assessments** (part 2)
+- **Events needing one** (section 4) are listed, soonest first, as: needs one, being written, waiting for sign-off, signed.
+- **"Start from a template":** trip, holiday club, sleepover, off-site.
+  - The template's questions are things like where, travel, overnight, first aider, ratios, meeting point, hand-back.
+  - It also brings the template's starter risks, each with controls and ratings.
+- **"Sign it off":** the lead or deputy of the event's site only. The sign-off records who and when, and which version.
+  - **Changing a signed assessment** takes it back to "waiting for sign-off".
+  - Sign-ups already made stay; new ones wait until it's signed again.
+- **Read-only print view**, to take on the trip.
+
+**Tab C: Warnings** (part 3)
+- Everything amber or red now, worst first.
+- **Each line says:**
+  - what has slipped, as a count and a date only
+  - what to do
+  - a button to the page that fixes it
+- **Example:** "Juniors, today: 14 children in, 2 leaders in; needs 3. → Sunday check-in."
+- **Risks follow their controls:** a risk takes the worst colour of its linked controls, so a risk whose control has slipped turns amber on Tab A by itself.
+
+**Tab D: Annual review** (part 4)
+- **The year's checklist,** each item dated with who did it and a note:
+  - the policy reviewed
+  - the policy adopted by the trustees (the trustees record this item)
+  - the trustees' safeguarding training
+  - safer recruitment followed (spot-checked)
+  - the lead and deputy named (shown from settings, and confirmed)
+  - the register reviewed (all risks looked at this year)
+  - the hirers' policies checked
+  - the annual return or report made, where the church's rules need one (optional)
+- **The year's status:** done, under way, or overdue. It's overdue a year after last year's review.
+
+**Tab E: Snapshots** (trustees and master admins take them; the lead and deputy read them)
+- **A dated copy:** the risks with their ratings, the warnings counts and the review's status.
+- **Never changed after.**
+- **Its banner must begin "Safeguarding risk register:"** (rules, as risk.html's "Live risk management:"), so it's never mistaken for a formal assessment by an outside body.
+
+---
+
+**3. Firestore shape and rules** (my events section; live when the hub goes live)
+
+| Collection | Fields | Read | Write |
+|---|---|---|---|
+| `sgActivities/{id}` | `siteId, kind ('sunday'\|'youth'\|'club'\|'online'\|'pastoral'\|'transport'\|'lone'\|'hirers'\|'other'), name, link {type: 'kidsGroup'\|'planGroup'\|'smallGroup'\|'clubName', id}, active, updatedAt, updatedBy` | sgRegSees | sgLeadOf(siteId) |
+| `sgRisks/{id}` | `siteId, activityId, risk (≤200), who (≤120), l, i (1–5), controls [{kind, text (≤200)}] (≤20), ownerId, ownerName, reviewDue, rl, ri (1–5), status 'open'\|'closed', source, starterId, createdAt, updatedAt, updatedBy` | sgRegSees | sgLeadOf; no delete |
+| `sgAssessments/{calEventId}` | `siteId, calEventId, templateId, title, answers {fixed keys, short text}, risks [same as above, ≤40], status 'draft'\|'waiting'\|'signed', version, signedBy, signedByName, signedAt, signedVersion, updatedAt, updatedBy` | sgRegSees, and the event's own leaders (to take it on the trip) | sgLeadOf; only the lead or deputy sets 'signed' (signedBy == them, at request.time) |
+| `sgWarnings/{siteId}` | `items [{id, kind, level, label, count, date, fix}] (≤100), at` | sgRegSees | **the server only** |
+| `sgReviews/{year}` | `items {itemId: {at, by, byName, note (≤300)}}, updatedAt` | sgRegSees (any site) | lead/deputy of the lead site, or the trustee team: only to add their own items |
+| `sgSnapshots/{id}` | `siteId, banner ('^Safeguarding risk register: .*'), by, byName, at, note, risks (≤200), warnings, review` | sgRegSees | create: trustees and master; never changed |
+| `calEvents` | **new field `sgSignoff: 'needed'\|'none'`** | | see section 4 |
+
+- **`sgRegSees(siteId)`** is `isMaster() || sgLeadOf(siteId) || onTeam(trustee team)`.
+- **What protects need-to-know** (the rules can't read words):
+  - The shapes (`hasOnly`, length caps) leave **no field for a name, a child, a concern or a medical detail**. `ownerId`/`ownerName` is a leader, not a child.
+  - The page puts a reminder beside every free-text box: "General words only: never name a child, a family or a concern."
+  - Warnings are written by the server and hold **counts only**.
+
+---
+
+**4. "Waiting for safeguarding sign-off" on an event** (part 2)
+- **Which events:**
+  - On events-admin.html, an event gets **"Needs a safeguarding assessment"**.
+  - It's ticked by itself when the event is under-18 (`eventLeaders.under18`) and marked a trip, overnight, holiday club or off-site.
+  - The organiser can tick it too.
+  - **Only the lead or deputy (or a master admin) can untick it.**
+- **While it's needed and not signed:**
+  - signup.html, What's on and the app show **"Bookings open after safeguarding sign-off"**, with no Book button.
+  - **The rules refuse a sign-up:** `canSignUpTo()` gains "and (`sgSignoff != 'needed'` or `sgAssessments/{id}.status == 'signed'`)". So it's the database, not just the button.
+- **A gap found on the way, worth fixing in the same change:** the rules don't check `signupOn` or `status` on a sign-up at all today. The page hides the button, but a sign-up can still be written to a closed or cancelled event while its capacity record exists.
+
+---
+
+**5. Live warnings: what each reads, and how it stays need-to-know** (part 3)
+
+**One server job, `sgWarningsSync`:**
+- **When:** every 15 minutes, plus when check-ins or leader checks change.
+- **What it does:** reads each site's data with the Admin SDK and writes `sgWarnings/{siteId}` as **counts, dates and a link**: no names, no children, no medical details.
+- **Why the server:** trustees may read the warnings, but not the leader checks, check-ins or children behind them. The lead clicks through to the existing pages, which show names only to those already allowed.
+
+| Warning | Reads (existing) | Amber / red | Fix link |
+|---|---|---|---|
+| **Ratio short, today** (each Sunday group) | `kidsLeaderIns` (leaders in) vs `checkins` children in, against `kidsGroups.ratio` | amber when short; red when short for 10 min | kids-checkin.html (and the app's Today) |
+| **Ratio short, coming events** (next 14 days) | `eventLeaders` (named leaders, ratioAll/ratioUnder8) vs confirmed `signups` (the existing `SG.ratio()` maths) | amber; red within 2 days | safeguarding.html?event= |
+| **Two adults** | the same counts: children in, fewer than 2 leaders in (Sunday); under-18 events with fewer than 2 named leaders | amber; red when children are in now | kids-checkin.html / safeguarding.html?event= |
+| **Checks** | `leaderChecks` (dbsSeen + dbsYears, trainingDate + trainingYears) for leaders named on under-18 groups, teams and event leaders | amber within 6 weeks; red when run out | safeguarding.html ("running out") |
+| **Consent** | registered `kidsChildren.consentUntil` (missing or past), per group; for events, children booked whose consent form isn't done (`formRequests.status`) | amber; red for an event within 7 days | kids-admin.html Children; forms-admin.html chase |
+| **Event not signed off** | `calEvents.sgSignoff` + `sgAssessments.status` | amber; red within 7 days of the event | Tab B |
+| **Hirers with children** | `hirers.documents` safeguarding (missing or expired) for hirers with bookings in the next 30 days who said they work with children | amber | bookings-admin.html Hirers |
+| **Reviews due** | `sgRisks.reviewDue`, `sgReviews` (last year's) | amber when due; red a month after | Tab A / Tab D |
+
+- **Linked controls:** each kind above is a control a risk can use. So "Juniors: not enough leaders" with the control *ratio* turns amber when that group's ratio warning is on.
+- **A new check: the two-adult rule.** Nothing in the hub checks two adults today. This adds it as a warning, not a block.
+- **Consent is per year (or school year), not per term:** the hub's consent forms last a year or a school year, and that's what's read. Per-term consent is for later, if wanted.
+
+---
+
+**6. Starter templates, written by us** (in a new `egbc-sg-templates.js`; plain words, no wording from any one body's documents)
+
+- **Standing risks, by activity kind, for example:**
+  - **Sunday children's group:**
+    - a child leaves unnoticed (controls: check-in and out, collectors on the form)
+    - too few leaders (ratio; two adults)
+    - an unchecked adult alone with children (checks; two adults)
+    - an allergy or medical need missed (consent form)
+    - photos shared without consent (consent form)
+  - **Youth group:** the same, plus:
+    - private messaging between a leader and a young person (written control: group channels only)
+    - lifts home (transport)
+  - **Online and livestream:**
+    - children shown or named without consent (consent form)
+    - chat used to contact a child (written control: chat moderated or off)
+  - **Pastoral visits:**
+    - a visitor alone with someone at risk (written control: visit in pairs or tell someone)
+    - concerns not passed on (written control: the report-a-concern route)
+  - **Transport:**
+    - unchecked drivers (checks)
+    - no booster seats or insurance (written)
+    - lone adult and child in a car (two adults)
+  - **Lone working:**
+    - nobody knows where they are (written control: sign in and out with someone)
+  - **Hirers with children:**
+    - no safeguarding policy (hirer document)
+    - the hirer's leaders unchecked (written control: the hirer confirms their checks)
+- **Event templates:**
+  - **Trip:** travel, meeting and hand-back point, headcounts, first aid, lost-child plan
+  - **Holiday club:** registration, ratios by age, collection, allergies, photos
+  - **Sleepover:** sleeping arrangements, two adults at all times, night-time cover, medication
+  - **Off-site:** the venue's own risk assessment seen, toilets and boundaries, emergency contacts
+- **Any church:**
+  - no church's name, team names or policy wording is built in
+  - activities come from the church's own groups
+  - the trustee team is a setting
+  - the check's name follows the church's settings: "DBS" in England and Wales; "PVG" or "AccessNI" can be set; "criminal record check" if none is set
+  - the 2-adult rule and the warning thresholds are settings with sensible defaults
+
+---
+
+**7. Switch:** a new add-on **"Safeguarding risk register"** (off by default, on at EGBC).
+- **For the main window:** this needs your `FEATURES` lists (egbc-auth.js and functions/features.js) and the `churchSettings/features` key in the rules.
+- With it off, the page says so, and the server job does nothing.
+
+---
+
+**8. Checks and breaks** (one test at a time, more than 3 GB free)
+
+**Unit (no emulator):**
+- the warnings builder with invented data: ratio, two adults, checks, consent, sign-off, hirers, reviews
+- a risk takes its controls' worst colour
+- every starter template is complete
+- the snapshot banner wording
+
+**Rules:**
+- who reads and edits each collection
+- only the lead or deputy signs off
+- signing must name the signer and use the server's time
+- **sign-ups are refused for an event waiting for sign-off, and allowed once signed**
+- `sgWarnings` is written by the server only
+- snapshots need the banner and are never changed
+- **no field exists for a child or a concern** (an extra field is refused)
+
+**Browser:**
+- the lead builds a group's risks from the starter list
+- a leader's check runs out, so the risk turns amber with "what to do" and a working link
+- a Sunday session goes short of leaders and then has only one adult: the warnings appear, then clear when a second leader checks in
+- an event shows "Bookings open after safeguarding sign-off"; a sign-up is refused; the lead signs it and booking opens; a change after signing closes it again
+- a trustee reads and takes a snapshot but can't edit
+- an activity leader and an ordinary member see nothing
+- **no child's or leader's name appears anywhere** in what a trustee is shown (checked against the invented names)
+- 375 px and computer, with pictures
+
+**Breaks (planned):**
+- **The one that matters:** a warning carries a child's or leader's name to the trustees.
+- the sign-off not gating sign-ups (rules)
+- someone other than the lead signing
+- a slipped control not turning its risk amber
+- the two-adult warning missing when one adult is in
+- a snapshot without the banner
+- a trustee editing a risk
+
+---
+
+**9. For later** (not in this build)
+- Activity leaders seeing their own activity's risks, read-only.
+- Lone-worker "I'm in / I've left" with a timed check (FINDINGS 7591 already has the idea).
+- Driver and vehicle records for transport.
+- Per-term consent.
+- A pastoral visits log.
+- Consent for filming children, separate from photos.
+- Reminder emails for reviews and sign-offs (the warnings show them first).
+- The multi-church copy under `churches/{id}/…`.
+- Under-18 team names read from `teams/{name}.under18` in the rules, rather than the fixed four (found on the way: `under18Teams()`).
+
+---
+
+**10. Questions for review**
+1. **Trustees:** is a setting with "Elders" as the default right?
+2. **Event sign-off:** should an event need one automatically when it's under-18 and a trip, overnight, holiday club or off-site? And may only the lead or deputy (or a master admin) say an event doesn't need one?
+3. **The annual review:** church-wide (one per year; the policy is the church's), with the lead site's lead and deputy plus the trustees recording items. Or one per site?
+4. **The gap in section 4** (sign-ups not checking `signupOn` or `status`): fix it in the same change?
+5. **Two adults:** a warning only (as planned), or should a group with children in and one leader also alert the lead by email?
