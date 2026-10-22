@@ -32,6 +32,15 @@ ok('the children’s and youth groups’ lists cover ratios, checks and two adul
 const words = J(T);
 ok('FOR ANY CHURCH: no church’s name, team names or any body’s name in the lists', !/EGBC|Esher|Kids Church|Lazers|ReNu|Youth Worship|Elders|Thirtyone|31:8|CCPAS|NSPCC/i.test(words), (words.match(/EGBC|Esher|Kids Church|Lazers|ReNu|Youth Worship|Elders|Thirtyone|31:8|CCPAS|NSPCC/i) || [])[0]);
 ok('NO CHILD’S NAME OR MEDICAL DETAIL in any starter (general words only)', !/\b(epilep|diabet|asthma|autis|ADHD|EpiPen)\w*/i.test(words), (words.match(/\b(epilep|diabet|asthma|autis|ADHD|EpiPen)\w*/i) || [])[0]);
+console.log('\nthe event templates (step 2)');
+const ET = T.EVENT_TEMPLATES, EK = T.EVENT_KINDS.map(k => k.id);
+ok('a template for each kind of event that needs sign-off: trip, overnight, holiday club, off-site', J(EK) === J(['trip', 'overnight', 'holidayclub', 'offsite']) && EK.every(k => ET[k] && ET[k].questions.length && ET[k].risks.length));
+const eqs = [].concat(...EK.map(k => ET[k].questions)), ers = [].concat(...EK.map(k => ET[k].risks));
+ok('each fits the rules: at most 20 questions and 40 risks, every risk rated 1 to 5 with its controls', EK.every(k => ET[k].questions.length <= 20 && ET[k].risks.length <= 40)
+  && ers.every(r => r.risk.length <= 200 && [r.l, r.i, r.rl, r.ri].every(n => Number.isInteger(n) && n >= 1 && n <= 5) && r.controls.length >= 1 && r.controls.every(c => ctl.includes(c.kind))), J(ers.filter(r => !r.controls.length).map(r => r.id)));
+ok('  question ids are unique within each template', EK.every(k => new Set(ET[k].questions.map(q => q.id)).size === ET[k].questions.length));
+ok('  the trip covers getting lost, travel and ratios; the overnight two adults at night', ['trp-lost', 'trp-travel', 'trp-ratio'].every(id => ET.trip.risks.some(r => r.id === id)) && ET.overnight.risks.some(r => r.controls.some(c => c.kind === 'twoAdults')));
+ok('  after the controls nothing is worse than before', ers.every(r => T.score(r.rl, r.ri) <= T.score(r.l, r.i)));
 ok('a control reads as words: a watched one by its label, a written one as written', T.controlLabel({ kind: 'ratio' }) === 'Enough leaders for the children (the ratio)' && T.controlLabel({ kind: 'text', text: 'X' }) === 'X');
 
 console.log('\n' + results.filter(Boolean).length + '/' + results.length + ' passed');

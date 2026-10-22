@@ -529,6 +529,10 @@
       '<div class="field"><label for="f_labels">Labels (comma separated)</label><input class="inp" id="f_labels" value="' + esc((CUR.labels || []).join(', ')) + '"></div>' +
       '<label class="check"><input type="checkbox" id="f_feat"' + (CUR.featured ? ' checked' : '') + '>Feature this on the hub and at the top of What\'s on</label>' +
       '<label class="check"><input type="checkbox" id="f_u18"' + (U18 ? ' checked' : '') + '><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</label>' +
+      /* F-265 step 2: an under-18s trip, overnight, holiday club or off-site event needs the safeguarding lead's sign-off before bookings open */
+      '<div class="field"><label for="f_sgkind">What kind of event is it? (for safeguarding)</label><select class="inp" id="f_sgkind">' +
+        [['', 'A usual session, club or event'], ['trip', 'A trip'], ['overnight', 'An overnight or sleepover'], ['holidayclub', 'A holiday club'], ['offsite', 'Off-site']].map(function (k) { return '<option value="' + k[0] + '"' + ((CUR.sgKind || '') === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') +
+        '</select><p class="hint" id="sgKindHint" style="margin:4px 0 0">For under-18s, a trip, an overnight, a holiday club or an off-site event needs a safeguarding assessment, signed off by the safeguarding lead or deputy before bookings open.</p></div>' +
       pictureField() +
       '<div class="field"><label for="f_notes">Internal notes (the event team only)</label>' +
         '<textarea id="f_notes" maxlength="4000">' + esc(NOTES) + '</textarea></div>';
@@ -604,7 +608,7 @@
       return;
     }
     if (IS_ADMIN) return;
-    off(document.getElementById('f_u18'));
+    off(document.getElementById('f_u18')); off(document.getElementById('f_sgkind'));
     var rooms = CUR.location && CUR.location.kind === 'room' && (CUR.location.roomIds || []).length;
     if (rooms) {
       ['f_where', 'f_start', 'f_end', 'f_allday'].forEach(function (id) { off(document.getElementById(id)); });
@@ -1345,6 +1349,7 @@
     CUR.status = document.getElementById('f_status').value;
     CUR.featured = document.getElementById('f_feat').checked;
     U18 = !!(document.getElementById('f_u18') || {}).checked;
+    CUR.sgKind = (document.getElementById('f_sgkind') || {}).value || '';
     CUR.organiserName = document.getElementById('f_org').value.trim();
     CUR.labels = document.getElementById('f_labels').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     CUR.teams = [].slice.call(document.querySelectorAll('.f_team:checked')).map(function (c) { return c.value; });
@@ -1414,6 +1419,7 @@
       signupScope: ev.signupScope || 'date',
       image: ev.image || '', imageLibId: ev.image ? (ev.imageLibId || '') : '',
       seriesId: ev.seriesId || '',
+      sgKind: ev.sgKind || '',
       updatedAt: new Date().toISOString()
     };
     if (ev.createdBy) d.createdBy = ev.createdBy;
@@ -1536,7 +1542,7 @@
     }).then(function (ids) {
       /* Rooms and under-18s are an admin's (lockForTeam). */
       if (!IS_ADMIN) return '';
-      return syncRooms([id].concat(ids || [])).then(function () { return under18([id].concat(ids || [])); });
+      return syncRooms([id].concat(ids || [])).then(function () { return under18([id].concat(ids || [])); }).then(function (m) { return sgGates([id].concat(ids || [])).then(function (w) { return w ? (m || 'Saved.') + w : m; }); });
     }).then(function (u18msg) {
       toast(u18msg || 'Saved.');
       return refresh().then(function () { open(id); });
@@ -1571,6 +1577,20 @@
       var f = found[0];
       return 'Saved. Marked as working with under-18s.' + (f ? ' ' + EGBCSafeguarding.clearWords(f.r, f.total) : '');
     }, function (e) { U18 = U18_WAS; throw e; });
+  }
+
+  /* F-265 step 2: an under-18s trip, overnight, holiday club or off-site
+     event takes no bookings until its safeguarding assessment is signed off
+     (the rules). The public sign-up page learns that from sgGate - only
+     "waiting" or "open", never the assessment. Made here when it first
+     needs one; signing it off opens it. */
+  function sgGates(ids) {
+    var needs = U18 && ['trip', 'overnight', 'holidayclub', 'offsite'].indexOf(CUR.sgKind || '') >= 0;
+    if (!needs) return Promise.resolve('');
+    return Promise.all(ids.map(function (eid) {
+      var g = db().collection('sgGate').doc(eid);
+      return g.get().then(function (s) { if (!s.exists) return g.set({ needed: true, open: false, updatedAt: new Date().toISOString() }); }).catch(function () {});
+    })).then(function () { return ' Bookings open after the safeguarding lead or deputy signs off its assessment (Safeguarding, this event).'; });
   }
 
   /* A series is made as separate events joined by seriesId, so one date

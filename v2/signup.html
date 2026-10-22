@@ -123,7 +123,7 @@
     if (!INV || !INVKEY) return;
     EGBCAuth.db.collection('eventInvites').doc(INVKEY).update({ response: 'yes', respondedAt: firebase.firestore.FieldValue.serverTimestamp(), signupKey: key }).catch(function () {});
   }
-  var EV = null, TT = [], QS = [], CAP = null, LOOK = {}, WHERE = '';
+  var EV = null, TT = [], QS = [], CAP = null, LOOK = {}, WHERE = '', SGWAIT = false;
   /* The health questions set aside until switch-over, and the launch state. */
   var HELD = [], LAUNCH = { locked: false, opensOn: '' };
   /* The whole series (F-184): every date this sign-up is for, when the event
@@ -243,11 +243,12 @@
   function draw() {
     var cat = catOf(EV);
     var l = left();
-    var closed = EV.status === 'cancelled' || !EV.signupOn;
+    var closed = EV.status === 'cancelled' || !EV.signupOn || SGWAIT;
     var pic = E.picFigure(EV.image, 'id="picOpen"');
     var html = '<div class="evgrid' + (pic ? ' has-pic' : '') + '">' + pic + '<div class="evmain">' +
       '<div class="card">' +
         (EV.status === 'cancelled' ? '<div class="banner warn">This event has been cancelled.</div>' : '') +
+        (SGWAIT && EV.status !== 'cancelled' && EV.signupOn ? '<div class="banner info" id="sgWait">Bookings open after safeguarding sign-off. Please come back soon.</div>' : '') +
         (EV.status === 'pending' ? '<div class="banner info">Not announced yet — you are seeing it because you are signed in.</div>' : '') +
         '<h1>' + esc(EV.title || 'Event') + '</h1>' +
         '<p class="meta"><i data-lucide="calendar-days" style="width:16px;height:16px"></i>' + esc(E.fmtWhen(EV)) + '</p>' +
@@ -557,7 +558,9 @@
 
   EGBCAuth.optional().then(function () {
     EGBCAuth.db.collection('paymentSettings').doc('public').get().then(function (s) { PAYPUB = s.exists ? s.data() : {}; showDue(); }, function () {});
-    return Promise.all([E.load(ID), E.lookups(), window.EGBCLaunch ? EGBCLaunch.check() : { locked: false, opensOn: '' }]);
+    return Promise.all([E.load(ID), E.lookups(), window.EGBCLaunch ? EGBCLaunch.check() : { locked: false, opensOn: '' },
+      /* F-265 step 2: an under-18s trip, overnight, holiday club or off-site event waits for safeguarding sign-off (only "waiting" or "open" is public) */
+      EGBCAuth.db.collection('sgGate').doc(ID).get().then(function (g) { return g.exists ? g.data() : null; }, function () { return null; })]);
   }).then(function (r) {
     if (!r[0]) {
       document.getElementById('wrap').innerHTML =
@@ -566,6 +569,7 @@
       return;
     }
     EV = r[0].ev; TT = r[0].ticketTypes; QS = r[0].questions; CAP = r[0].capacity;
+    SGWAIT = !!(r[3] && r[3].needed && !r[3].open);
     /* UNTIL SWITCH-OVER (F-203): the live database can be read by anybody
        until the locked rules deploy (churchSettings/launch.rulesLocked), so
        questions about health are not asked or saved before then. The

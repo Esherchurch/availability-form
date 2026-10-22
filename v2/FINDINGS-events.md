@@ -10324,3 +10324,89 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 2. **An add-on switch** in your `FEATURES` lists and the rules' key list, as planned: "Safeguarding risk register" (`safeguardingRegister`), off by default, on at EGBC. Until it exists, the page follows the existing `safeguarding` switch.
 
 **Deploy:** nothing. There are no functions in this step, and the rules go live when the hub does.
+
+### F-269 — The safeguarding risk register, step 2: event assessments, signed off before bookings open (F-265; the events window, 22 Oct)
+
+**Built** (Martin's answer 2: automatic for under-18s trips, overnights, holiday clubs and off-site events; only the lead, deputy or a master admin can untick it, recorded):
+- **events-admin.html:** beside "Works with under-18s", a new **"What kind of event is it? (for safeguarding)"**: a usual session, club or event; a trip; an overnight or sleepover; a holiday club; off-site. It's saved as `calEvents.sgKind`.
+  - An under-18s event of the last four kinds **waits for safeguarding sign-off**, and the save message says so.
+  - The kind is the admin's to set, like the under-18 tick.
+- **The assessment** (`egbc-sg-assess.js`), on the event's own safeguarding page (safeguarding.html?event=):
+  - **Who writes it:** the event's team and its named leaders, starting from the **trip, overnight, holiday club or off-site template**. Each template has its questions in general words and its starter risks, adapted.
+  - **Statuses:** "Being written", "Ready for sign-off", then **signed off by the site's lead or deputy only**, with the time and the version.
+  - **A risk still high after its controls** needs the signer's typed reason.
+  - **Any change after signing** takes it back to waiting (a new version), and bookings close again.
+  - **"Not needed for this event?"** is for the lead, deputy or a master admin only, with a reason, recording who, when and why. Nobody can change or undo it afterwards.
+  - **Print:** a print button for taking it on the trip.
+- **The register's new Tab B, "Event assessments":** this site's coming events that need one, with where each has got.
+  - The lead opens each on the event's page.
+  - Trustees and master admins read it in place, read-only.
+- **The public sign-up page** says **"Bookings open after safeguarding sign-off"** with no form, until it's signed.
+
+**Rules (my events section; live when the hub goes live):**
+- **`canSignUpTo()`:** for an under-18s event (`eventLeaders.under18`) whose `sgKind` is one of the four, it now also requires `sgAssessments/{event}` to be signed or waived. That covers everyone, the team's walk-ins included.
+- **`sgAssessments/{event}`:**
+  - fixed fields, no field for a child or a concern
+  - the site must be the event's
+  - written by the lead or deputy, the event's team or its named leaders
+  - **"signed"** only by the site's lead or deputy, as themselves, at the server's time, for that version
+  - **a change can't stay "signed"**
+  - **"waived"** only by the lead, deputy or a master admin, with a reason, at the server's time; its who and why are fixed after
+  - never deleted
+- **`sgGate/{event}`:** public, **only `needed` and `open`**. "Open" must match a signed or waived assessment saved with it (`getAfter`).
+- **Found and fixed on the way:**
+  - reading an assessment that isn't written yet was refused (the rule judged a missing document's site), so the "not needed" box never showed; now a missing one can be found missing
+  - the organiser could change the recorded "not needed" reason; now its who and why are fixed
+
+**Proved:**
+- **Tests:**
+
+  | Test | Result |
+  |---|---|
+  | rules suite | 1822/1822, 28 new checks |
+  | sg-register-unit | 16/16, with the four event templates |
+  | sg-assess (browser) | 23/23 |
+
+  - **The rules checks:**
+    - an under-18s trip refuses sign-ups until signed
+    - an adults' trip and a usual club don't wait
+    - the team and the leaders write it; a volunteer and trustees can't
+    - an extra field or the wrong site is refused
+    - **the organiser can't sign; the lead can't sign in another's name or at a made-up time**
+    - the gate can't say "open" early
+    - after signing, a sign-up goes through
+    - **a change can't stay signed, and bookings close again**
+    - "not needed": not by the organiser, not without a reason; the lead with a reason opens it, and it can't be changed after
+    - nothing is deleted
+  - **The browser test:**
+    - the organiser sets "a trip" and the waiting gate is made
+    - **the guest's page says it waits, and the database refuses a sign-up anyway**
+    - a named leader writes it from the template, with no "Sign it off" for them
+    - **the lead must give a reason for a high risk, then signs, and a guest books**
+    - a change goes back to waiting and bookings close
+    - the lead waives another event, recorded
+    - a trustee reads Tab B, read-only
+    - 375 px
+  - **Pictures:** `sg-assess-lead-375.png`, `sg-assess-trustee-desk.png`.
+- **Breaks, 7 of 7 caught:**
+  - **The one that matters:** sign-ups not held back by the sign-off.
+  - the organiser able to sign
+  - a change staying signed
+  - the organiser able to waive
+  - the gate saying open with nothing signed
+  - the page signing a high risk with no reason
+  - events-admin not saving the kind
+- **Rule Zero, the pages I touched, one at a time:**
+
+  | Test | Result |
+  |---|---|
+  | e3-safeguarding | 38/38 |
+  | event-team | 21/21 |
+  | who-can-come | 15/15 |
+  | series | 15/15 |
+  | pay-on-day | 18/18 |
+  | sg-register | 25/25 |
+
+**Not done here:** the What's on cards and the app don't say "waiting for sign-off" yet; the sign-up page does, and the database holds bookings either way. If wanted, that's a later step.
+
+**Deploy:** nothing. There are no functions in this step, and the rules go live when the hub does.

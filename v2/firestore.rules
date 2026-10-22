@@ -1954,7 +1954,9 @@ service cloud.firestore {
       return calEventId is string && calEventId != ''
              && exists(/databases/$(database)/documents/calEvents/$(calEventId))
              && audienceOk(get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('audience', []))
-             && (signupsOpen(get(/databases/$(database)/documents/calEvents/$(calEventId)).data) || runsEventId(calEventId));
+             && (signupsOpen(get(/databases/$(database)/documents/calEvents/$(calEventId)).data) || runsEventId(calEventId))
+             // F-265 step 2: an under-18s trip, overnight, holiday club or off-site event takes no sign-up until it is signed off
+             && (!sgNeedsSignoff(calEventId, get(/databases/$(database)/documents/calEvents/$(calEventId)).data) || sgSignedOff(calEventId));
     }
     // OPEN FOR SIGN-UPS (F-265, the gap found planning it): the page hid the
     // button for an event not taking sign-ups or cancelled, but the database
@@ -2491,6 +2493,78 @@ service cloud.firestore {
                     && sgText(request.resource.data.get('ownerName', ''), 80) && sgDay(request.resource.data.get('reviewDue', ''))
                     && request.resource.data.status in ['open', 'closed'] && request.resource.data.get('source', 'added') in ['starter', 'added']
                     && sgText(request.resource.data.get('starterId', ''), 40) && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ---- STEP 2: EVENT ASSESSMENTS AND SIGN-OFF (F-265) ----
+    // An under-18s event that is a trip, an overnight, a holiday club or
+    // off-site (calEvents.sgKind, set on events-admin) needs its site's
+    // safeguarding lead or deputy to sign its assessment off before bookings
+    // open. Only the lead, deputy or a master admin may say it isn't needed
+    // ("waived"), and that says who, when and why.
+    function sgEventSite(calEventId) {
+      return get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '');
+    }
+    function sgNeedsSignoff(calEventId, ev) {
+      return ev.get('sgKind', '') in ['trip', 'overnight', 'holidayclub', 'offsite']
+             && exists(/databases/$(database)/documents/eventLeaders/$(calEventId))
+             && get(/databases/$(database)/documents/eventLeaders/$(calEventId)).data.get('under18', false) == true;
+    }
+    function sgSignedOff(calEventId) {
+      return exists(/databases/$(database)/documents/sgAssessments/$(calEventId))
+             && (get(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.get('status', '') == 'signed'
+                 || get(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.get('waived', false) == true);
+    }
+    // the assessment's writers: the site's lead or deputy, the event's team and its named leaders
+    function sgAssessWrites(calEventId, siteId) {
+      return sgLeadOf(siteId) || runsEventId(calEventId) || isEventLeader(calEventId);
+    }
+    match /sgAssessments/{calEventId} {
+      // one not written yet: nothing to see, so anyone signed in may find that out
+      allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
+      allow create, update: if exists(/databases/$(database)/documents/calEvents/$(calEventId))
+                    && request.resource.data.siteId == sgEventSite(calEventId)
+                    && sgAssessWrites(calEventId, request.resource.data.siteId)
+                    && request.resource.data.keys().hasOnly(['siteId', 'calEventId', 'title', 'templateId', 'answers', 'risks', 'status', 'version',
+                                                             'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'signedNote',
+                                                             'waived', 'waivedBy', 'waivedByName', 'waivedAt', 'waivedWhy', 'source', 'updatedAt', 'updatedBy'])
+                    && request.resource.data.calEventId == calEventId
+                    && sgText(request.resource.data.get('title', ''), 120) && sgText(request.resource.data.get('templateId', ''), 40)
+                    && request.resource.data.get('answers', {}) is map && request.resource.data.get('answers', {}).size() <= 20
+                    && request.resource.data.get('risks', []) is list && request.resource.data.get('risks', []).size() <= 40
+                    && request.resource.data.status in ['draft', 'waiting', 'signed']
+                    && request.resource.data.version is int && request.resource.data.version >= 1
+                    && sgText(request.resource.data.get('signedNote', ''), 300)
+                    && request.resource.data.updatedBy == request.auth.uid
+                    // SIGNED: only the site's lead or deputy, as themselves, now, for this version
+                    && (request.resource.data.status != 'signed'
+                        || (resource != null && resource.data.status == 'signed'
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'updatedBy']))
+                        || (sgLeadOf(request.resource.data.siteId) && request.resource.data.signedBy == request.auth.uid
+                            && request.resource.data.signedAt == request.time && request.resource.data.signedVersion == request.resource.data.version))
+                    // WAIVED ("not needed"): only the lead, deputy or a master admin, saying who, when and why
+                    && ((request.resource.data.get('waived', false) == (resource == null ? false : resource.data.get('waived', false))
+                         && request.resource.data.get('waivedAt', null) == (resource == null ? null : resource.data.get('waivedAt', null))
+                         && request.resource.data.get('waivedBy', '') == (resource == null ? '' : resource.data.get('waivedBy', ''))
+                         && request.resource.data.get('waivedWhy', '') == (resource == null ? '' : resource.data.get('waivedWhy', '')))
+                        || ((sgLeadOf(request.resource.data.siteId) || isMaster())
+                            && request.resource.data.get('waivedBy', '') == request.auth.uid && request.resource.data.get('waivedAt', null) == request.time
+                            && sgText(request.resource.data.get('waivedWhy', ''), 300) && request.resource.data.get('waivedWhy', '').size() > 0));
+      allow delete: if false;
+    }
+    // What the public sign-up page may know: only "waiting for sign-off" or
+    // "open" - never the assessment. "Open" must match a signed or waived
+    // assessment saved with it.
+    match /sgGate/{calEventId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['needed', 'open', 'updatedAt'])
+                    && request.resource.data.needed is bool && request.resource.data.open is bool
+                    && exists(/databases/$(database)/documents/calEvents/$(calEventId))
+                    && sgAssessWrites(calEventId, sgEventSite(calEventId))
+                    && (request.resource.data.open == false
+                        || (existsAfter(/databases/$(database)/documents/sgAssessments/$(calEventId))
+                            && (getAfter(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.get('status', '') == 'signed'
+                                || getAfter(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.get('waived', false) == true)));
       allow delete: if false;
     }
 

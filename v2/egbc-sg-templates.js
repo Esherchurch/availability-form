@@ -104,6 +104,54 @@
     other: []
   };
 
+  /* ONE-OFF EVENTS (step 2): an under-18s trip, overnight, holiday club or
+     off-site event is assessed from one of these, and the site's
+     safeguarding lead or deputy signs it off before bookings open. The
+     questions are answered in general words; the risks start from the
+     template and are adapted. */
+  var Q = function (id, label, hint) { return { id: id, label: label, hint: hint || '' }; };
+  var EVENT_KINDS = [
+    { id: 'trip', label: 'A trip' }, { id: 'overnight', label: 'An overnight or sleepover' },
+    { id: 'holidayclub', label: 'A holiday club' }, { id: 'offsite', label: 'Off-site' }
+  ];
+  var EVENT_TEMPLATES = {
+    trip: { label: 'Trip', questions: [
+        Q('where', 'Where are you going, and what will you do there?'), Q('travel', 'How will everyone travel?', 'Coach, minibus, cars, train; who drives'),
+        Q('meet', 'Where and when do you meet, and hand the children back?'), Q('headcount', 'How and when will you count heads?'),
+        Q('firstaid', 'Who is the first aider, and what kit goes?', 'A role, not a name, if you prefer'), Q('lost', 'What happens if someone gets lost?'),
+        Q('contact', 'How will leaders reach each other and the church on the day?')],
+      risks: [
+        { id: 'trp-lost', risk: 'A child is lost or separated from the group', who: 'Children', l: 3, i: 5, controls: [C('text', 'Head counts at every move'), C('text', 'Children in small groups, each with a named leader'), C('text', 'A meeting point every child knows')], rl: 1, ri: 5 },
+        { id: 'trp-travel', risk: 'Harm while travelling', who: 'Everyone', l: 2, i: 4, controls: [C('checks'), C('text', 'Licensed operator or checked drivers; seatbelts')], rl: 1, ri: 4 },
+        { id: 'trp-ratio', risk: 'Too few leaders for the group, away from the building', who: 'Children', l: 3, i: 4, controls: [C('ratio'), C('twoAdults')], rl: 1, ri: 4 },
+        { id: 'trp-medical', risk: 'A medical need or allergy away from home', who: 'Children', l: 2, i: 4, controls: [C('consent'), C('text', 'The first aider carries the group’s needs and medicines')], rl: 1, ri: 4 },
+        { id: 'trp-public', risk: 'Contact with members of the public', who: 'Children', l: 2, i: 4, controls: [C('text', 'Children never alone in public places, toilets included')], rl: 1, ri: 4 }] },
+    overnight: { label: 'Overnight or sleepover', questions: [
+        Q('where', 'Where will everyone sleep?', 'Rooms, and who is in which'), Q('night', 'Who is on duty through the night?'),
+        Q('separate', 'How are boys and girls, and adults and children, kept apart at night?'), Q('meds', 'How are medicines kept and given?'),
+        Q('home', 'What happens if a child wants to go home in the night?'), Q('fire', 'What is the fire plan for the night?')],
+      risks: [
+        { id: 'ovn-alone', risk: 'An adult alone with a child at night', who: 'Children', l: 2, i: 5, controls: [C('twoAdults'), C('checks'), C('text', 'Adults never sleep in children’s rooms')], rl: 1, ri: 5 },
+        { id: 'ovn-ratio', risk: 'Too few awake adults overnight', who: 'Children', l: 2, i: 4, controls: [C('ratio'), C('text', 'A rota of adults awake through the night')], rl: 1, ri: 4 },
+        { id: 'ovn-fire', risk: 'A fire at night', who: 'Everyone', l: 1, i: 5, controls: [C('checkin'), C('text', 'A night-time fire walk-through with everyone')], rl: 1, ri: 5 },
+        { id: 'ovn-medical', risk: 'A medical need in the night', who: 'Children', l: 2, i: 4, controls: [C('consent'), C('text', 'Parents reachable all night')], rl: 1, ri: 4 }] },
+    holidayclub: { label: 'Holiday club', questions: [
+        Q('days', 'Which days and times?'), Q('ages', 'Which ages, and how many children?'), Q('register', 'How are children registered in and handed back?'),
+        Q('food', 'What food is served, and how are allergies handled?'), Q('photos', 'Will photos be taken, and how is permission checked?')],
+      risks: [
+        { id: 'hcl-ratio', risk: 'Too few leaders for the children each day', who: 'Children', l: 3, i: 4, controls: [C('ratio'), C('twoAdults')], rl: 1, ri: 4 },
+        { id: 'hcl-handback', risk: 'A child handed to the wrong adult', who: 'Children', l: 2, i: 5, controls: [C('checkin'), C('text', 'Only named collectors; ask for ID when unsure')], rl: 1, ri: 5 },
+        { id: 'hcl-checks', risk: 'Helpers without checks, there for the week only', who: 'Children', l: 3, i: 4, controls: [C('checks'), C('text', 'Unchecked helpers never alone with children')], rl: 1, ri: 4 },
+        { id: 'hcl-food', risk: 'An allergic reaction to food', who: 'Children', l: 2, i: 5, controls: [C('consent'), C('text', 'Allergies checked against every snack and meal')], rl: 1, ri: 5 }] },
+    offsite: { label: 'Off-site', questions: [
+        Q('venue', 'Where is it, and have you seen the venue’s own risk assessment?'), Q('toilets', 'Where are the toilets and the boundaries?'),
+        Q('travel', 'How does everyone get there and back?'), Q('emergency', 'Who are the emergency contacts on the day?')],
+      risks: [
+        { id: 'off-venue', risk: 'Hazards at a venue we don’t know', who: 'Everyone', l: 2, i: 4, controls: [C('text', 'The venue’s own risk assessment seen'), C('text', 'A leader visits beforehand')], rl: 1, ri: 4 },
+        { id: 'off-bounds', risk: 'Children leave the area unnoticed', who: 'Children', l: 2, i: 5, controls: [C('checkin'), C('text', 'Boundaries walked and explained at the start')], rl: 1, ri: 5 },
+        { id: 'off-ratio', risk: 'Too few leaders away from the building', who: 'Children', l: 3, i: 4, controls: [C('ratio'), C('twoAdults')], rl: 1, ri: 4 }] }
+  };
+
   function score(l, i) { return (+l || 0) * (+i || 0); }
   function rating(l, i) { var s = score(l, i); return s >= 15 ? 'red' : s >= 5 ? 'amber' : 'green'; }
   function kindLabel(id) { var k = KINDS.filter(function (x) { return x.id === id; })[0]; return k ? k.label : id; }
@@ -114,7 +162,8 @@
     return k ? k.label : c.kind;
   }
 
-  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, score: score, rating: rating, kindLabel: kindLabel, controlLabel: controlLabel };
+  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES,
+              score: score, rating: rating, kindLabel: kindLabel, controlLabel: controlLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCSgTemplates = api;
 })(typeof window !== 'undefined' ? window : this);

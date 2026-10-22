@@ -19,6 +19,8 @@
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
+<script src="egbc-sg-templates.js?v=202610221600"></script>
+<script src="egbc-sg-assess.js?v=202610221600"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -175,6 +177,10 @@
         '<a class="btn ghost" href="safeguarding.html">' + ico('shield-check') + 'Safeguarding</a>' +
       '</div>';
 
+    /* --- F-265 step 2: an under-18s trip, overnight, holiday club or off-site event's assessment, signed off by the lead or deputy --- */
+    var SGNEEDS = !!(LEAD && LEAD.under18) && ['trip', 'overnight', 'holidayclub', 'offsite'].indexOf(EV.sgKind || '') >= 0;
+    if (SGNEEDS && (ADMIN || ISLEAD || LEADER)) html += '<div class="card" id="sgAssessCard"></div>';
+
     /* --- leaders and ratios --- */
     html += '<div class="card"><h2><span class="badge">' + ico('users', 17) + '</span>Leaders<span class="spacer"></span>' +
       (canEdit ? '<button class="btn sec sm" id="addLeader">' + ico('user-plus') + 'Add</button><button class="btn sec sm" id="fromRota">' + ico('calendar-check') + 'From the rota</button>' : '') + '</h2>' +
@@ -248,6 +254,8 @@
     document.getElementById('wrap').innerHTML = html;
     wireEvent();
     icons();
+    if (document.getElementById('sgAssessCard') && window.EGBCSgAssess) EGBCSgAssess.mount(document.getElementById('sgAssessCard'), { calEventId: EVID, ev: EV, siteId: SITE,
+      me: { uid: E.myUid(), name: (EGBCAuth.profile() || {}).name || '' }, may: { edit: !!(ADMIN || ISLEAD || LEADER), sign: !!ISLEAD, waive: !!(ISLEAD || MASTER) } });
   }
 
   function tile(v, k) { return '<div class="tile"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }

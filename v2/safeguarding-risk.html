@@ -15,7 +15,8 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
-<script src="egbc-sg-templates.js?v=202610221500"></script>
+<script src="egbc-sg-templates.js?v=202610221600"></script>
+<script src="egbc-sg-assess.js?v=202610221600"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -115,8 +116,9 @@
   /* ---- drawing ---- */
   function draw() {
     var head = '<div class="bar">' + (SITES.length > 1 ? '<label class="hint" for="site">Site</label> <select id="site">' + SITES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === V.site ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') + '</div>' +
-      '<div class="tabs" role="tablist"><button class="tab on" role="tab" aria-selected="true" data-tab="risks">Standing risks</button></div>' +
+      '<div class="tabs" role="tablist">' + [['risks', 'Standing risks'], ['events', 'Event assessments']].map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" role="tab" aria-selected="' + (V.tab === t[0]) + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
       (keeps() ? '' : '<p class="ro" id="readOnly">Read only. The register is kept by this site’s safeguarding lead and deputy.</p>');
+    if (V.tab === 'events') { app.innerHTML = head + '<div id="evList"><p class="hint">Loading…</p></div>'; wire(); return drawEvents(); }
     var body = ACTS.length ? ACTS.map(actCard).join('') : '<div class="card"><p style="margin:0" id="noActs">No activities in the register yet.' + (keeps() ? ' Add one below: each Sunday group, youth group or club, and the other kinds of activity the church runs.' : '') + '</p></div>';
     var add = keeps() ? '<div class="card" id="addAct"><h2>Add an activity</h2>' +
       (SUGG.length ? '<p class="hint" style="margin:8px 0 0">From the hub’s own groups at this site:</p><div class="sugg">' + SUGG.map(function (g, i) { return '<button class="btn sec sm" data-sugg="' + i + '">+ ' + esc(g.name) + ' <span class="hint">(' + esc(T.kindLabel(g.kind)) + ')</span></button>'; }).join('') + '</div>' : '') +
@@ -148,6 +150,7 @@
   function wire() {
     var g = function (id) { return document.getElementById(id); };
     if (g('site')) g('site').onchange = function () { V.site = this.value; load(); };
+    document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.getAttribute('data-tab'); draw(); }; });
     if (g('newGo')) g('newGo').onclick = function () {
       var name = g('newName').value.trim(); if (!name) { g('newName').focus(); return; }
       addAct({ kind: g('newKind').value, name: name, link: {} });
@@ -214,6 +217,43 @@
       document.getElementById('sGo').disabled = true;
       b.commit().then(function () { close(); load(); }, function (e) { document.getElementById('sGo').disabled = false; document.getElementById('sMsg').textContent = 'They could not be added: ' + (e.message || e); });
     };
+  }
+
+  /* ---- TAB B: EVENT ASSESSMENTS (step 2) ----
+     This site's coming events that need sign-off (an under-18s trip,
+     overnight, holiday club or off-site event), with where each has got.
+     The lead and deputy open it on the event's own safeguarding page, where
+     it is written and signed; the trustees and master admins read it here. */
+  var KIND_WORDS = { trip: 'Trip', overnight: 'Overnight', holidayclub: 'Holiday club', offsite: 'Off-site' };
+  function drawEvents() {
+    var box = document.getElementById('evList'), from = Date.now() - 864e5;
+    return db().collection('sgGate').get().then(function (gs) {
+      return Promise.all(gs.docs.map(function (g) {
+        return db().collection('calEvents').doc(g.id).get().then(function (e) {
+          var ev = e.exists ? Object.assign({ id: e.id }, e.data()) : null;
+          if (!ev || (ev.location || {}).siteId !== V.site || (ev.startUtc || 0) < from || ev.status === 'cancelled') return null;
+          return db().collection('sgAssessments').doc(g.id).get().then(function (a) { ev.sga = a.exists ? a.data() : null; return ev; }, function () { ev.sga = null; return ev; });
+        }, function () { return null; });
+      }));
+    }).then(function (list) {
+      list = list.filter(Boolean).sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); });
+      if (!list.length) { box.innerHTML = '<div class="card" id="noEvents"><p style="margin:0">No coming event at this site needs a safeguarding sign-off.</p></div>'; return; }
+      box.innerHTML = list.map(function (ev) {
+        var a = ev.sga, st = !a ? ['Not started', 'red'] : a.waived ? ['Not needed (' + (a.waivedByName || '') + ')', 'green'] : a.status === 'signed' ? ['Signed off by ' + (a.signedByName || ''), 'green'] : a.status === 'waiting' ? ['Waiting for sign-off', 'amber'] : ['Being written', 'amber'];
+        return '<div class="card" data-sgev="' + esc(ev.id) + '"><h2>' + esc(ev.title) + ' <span class="hint" style="font-weight:400">' + esc(KIND_WORDS[ev.sgKind] || '') + ' · ' + esc(EGBCEvents.fmtWhen ? EGBCEvents.fmtWhen(ev) : (ev.startLocal || '')) + '</span></h2>' +
+          '<p style="margin:8px 0 0"><span class="rag ' + st[1] + '" data-evstatus="' + (!a ? 'none' : a.waived ? 'waived' : a.status) + '"><i aria-hidden="true"></i>' + esc(st[0]) + '</span>' +
+          (!(a && (a.status === 'signed' || a.waived)) ? ' <span class="hint">Bookings wait for it.</span>' : '') + '</p>' +
+          '<div class="row">' + (keeps() ? '<a class="btn sec sm" style="display:inline-flex;align-items:center;text-decoration:none" href="safeguarding.html?event=' + encodeURIComponent(ev.id) + '">Open the event’s assessment</a>' : '') +
+          (a ? '<button class="btn sec sm" data-viewsga="' + esc(ev.id) + '">Read it</button>' : '') + '</div></div>';
+      }).join('');
+      document.querySelectorAll('[data-viewsga]').forEach(function (b) {
+        b.onclick = function () {
+          var ev = list.filter(function (x) { return x.id === b.getAttribute('data-viewsga'); })[0];
+          open('<div id="sgaView"></div><div class="row"><button class="btn sec" data-close>Close</button></div>');
+          EGBCSgAssess.mount(document.getElementById('sgaView'), { calEventId: ev.id, ev: ev, siteId: V.site, me: ME, may: { edit: false, sign: false, waive: false } });
+        };
+      });
+    }, function (e) { box.innerHTML = '<div class="card">These could not be loaded: ' + esc(e.message || e) + '</div>'; });
   }
 
   /* ---- who ---- */

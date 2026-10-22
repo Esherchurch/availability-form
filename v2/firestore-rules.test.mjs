@@ -4638,6 +4638,57 @@ await check('  while making the same record without it is fine', 'allow',
   await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'safeguardingSettings', 'defaults'); if (hadSettings) await setDoc(r, hadSettings); else await deleteDoc(r); });
 }
 
+// ── EVENTS (events window) ── THE SAFEGUARDING RISK REGISTER, step 2: event assessments, signed off before bookings open
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  const { deleteField } = await import('firebase/firestore');
+  const EVX = (extra) => ({ title: 'Trip (invented)', visibility: 'public', status: 'confirmed', audience: ['public'], startLocal: '2026-12-12T10:00', startUtc: 1765533600000,
+    createdBy: 'u_martin', teams: [], signupOn: true, capacity: 30, teamUids: ['u_sga_org'], teamMemberIds: [], location: { siteId: 'site_sgr' }, sgKind: 'trip', ...(extra || {}) });
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    const U = (uid, mid, teams) => setDoc(doc(d, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor: [], masterAdmin: false });
+    await U('u_sga_org', 'm_sga_org', []); await U('u_sga_leader', 'm_sga_leader', []); await U('u_sga_vol', 'm_sga_vol', ['Kids Church']);
+    for (const [id, extra, u18] of [['ev_sga_trip', {}, true], ['ev_sga_adults', {}, false], ['ev_sga_club', { sgKind: '' }, true], ['ev_sga_trip2', {}, true]]) {
+      await setDoc(doc(d, 'calEvents', id), EVX(extra));
+      await setDoc(doc(d, 'capacity', id), { calEventId: id, taken: 0, capacity: 30 });
+      await setDoc(doc(d, 'eventLeaders', id), { under18: u18, leaders: [], leaderIds: ['m_sga_leader'], leaderUids: ['u_sga_leader'], siteId: 'site_sgr', clearedIds: [], lastCleared: [] });
+    }
+  });
+  const SUX = (dbx, key, ev) => { const b = writeBatch(dbx); b.set(doc(dbx, 'signups', key), { calEventId: ev, personKind: 'contacts', personId: 'c_guest', name: 'Guest (invented)', email: 'g@example.invalid', places: 1, status: 'confirmed', attendees: [], answers: {} }); b.update(doc(dbx, 'capacity', ev), { taken: 1 }); return b.commit(); };
+  const AS = (uid, extra) => ({ siteId: 'site_sgr', calEventId: 'ev_sga_trip', title: 'Trip (invented)', templateId: 'trip', answers: { where: 'The coast' }, risks: [{ risk: 'A child is lost', who: 'Children', l: 3, i: 5, rl: 1, ri: 5, controls: [{ kind: 'text', text: 'Head counts' }] }],
+    status: 'draft', version: 1, updatedAt: 'x', updatedBy: uid, ...(extra || {}) });
+  await check('SIGN-OFF: AN UNDER-18s TRIP TAKES NO SIGN-UP BEFORE IT IS SIGNED OFF', 'deny', () => SUX(anon(), 'key_sga_1_0000000000000000000000', 'ev_sga_trip'));
+  await check('  an adults’ trip needs no sign-off', 'allow', () => SUX(anon(), 'key_sga_2_0000000000000000000000', 'ev_sga_adults'));
+  await check('  nor a usual under-18s club', 'allow', () => SUX(anon(), 'key_sga_3_0000000000000000000000', 'ev_sga_club'));
+  await check('  the event’s team writes the assessment', 'allow', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_org')));
+  await check('  and its named leaders', 'allow', () => setDoc(doc(cx('u_sga_leader'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_leader', { status: 'waiting' })));
+  await check('  not a volunteer who isn’t on it', 'deny', () => setDoc(doc(cx('u_sga_vol'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_vol')));
+  await check('  no field for a child or a concern (an extra field)', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_org', { childNames: 'invented' })));
+  await check('  the site must be the event’s', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_org', { siteId: 'site_sgr2' })));
+  await check('  the trustees read it', 'allow', () => getDoc(doc(cx('u_sgr_trustee'), 'sgAssessments', 'ev_sga_trip')));
+  await check('  but don’t write it', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgAssessments', 'ev_sga_trip'), AS('u_sgr_trustee')));
+  await check('  THE ORGANISER CANNOT SIGN IT OFF', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_org', { status: 'signed', signedBy: 'u_sga_org', signedAt: serverTimestamp(), signedVersion: 1 })));
+  await check('  nor the lead in someone else’s name', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), AS('u_sgr_lead', { status: 'signed', signedBy: 'u_sga_org', signedAt: serverTimestamp(), signedVersion: 1 })));
+  await check('  nor at a made-up time', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), AS('u_sgr_lead', { status: 'signed', signedBy: 'u_sgr_lead', signedAt: '2026-01-01', signedVersion: 1 })));
+  await check('  THE PUBLIC GATE cannot say "open" before it is signed', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgGate', 'ev_sga_trip'), { needed: true, open: true, updatedAt: 'x' }));
+  await check('  "waiting" it may', 'allow', () => setDoc(doc(cx('u_sga_org'), 'sgGate', 'ev_sga_trip'), { needed: true, open: false, updatedAt: 'x' }));
+  await check('  anyone reads the gate (it says only waiting or open)', 'allow', () => getDoc(doc(anon(), 'sgGate', 'ev_sga_trip')));
+  await check('  nobody signed out writes it', 'deny', () => setDoc(doc(anon(), 'sgGate', 'ev_sga_trip'), { needed: false, open: true, updatedAt: 'x' }));
+  await check('  THE SITE’S LEAD SIGNS IT OFF, opening the gate with it', 'allow', () => { const dbx = cx('u_sgr_lead'); const b = writeBatch(dbx);
+    b.set(doc(dbx, 'sgAssessments', 'ev_sga_trip'), AS('u_sgr_lead', { status: 'signed', signedBy: 'u_sgr_lead', signedByName: 'Lead', signedAt: serverTimestamp(), signedVersion: 1, signedNote: '' }));
+    b.set(doc(dbx, 'sgGate', 'ev_sga_trip'), { needed: true, open: true, updatedAt: 'x' }); return b.commit(); });
+  await check('  NOW A SIGN-UP GOES THROUGH', 'allow', () => SUX(anon(), 'key_sga_4_0000000000000000000000', 'ev_sga_trip'));
+  await check('  a change after signing cannot stay "signed"', 'deny', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { where: 'Somewhere else' }, updatedAt: 'y', updatedBy: 'u_sga_org' }));
+  await check('  it goes back to waiting', 'allow', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { where: 'Somewhere else' }, status: 'waiting', version: 2, updatedAt: 'y', updatedBy: 'u_sga_org' }));
+  await check('  AND BOOKINGS CLOSE AGAIN', 'deny', () => SUX(anon(), 'key_sga_5_0000000000000000000000', 'ev_sga_trip'));
+  await check('"NOT NEEDED": not by the organiser', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip2'), AS('u_sga_org', { calEventId: 'ev_sga_trip2', waived: true, waivedBy: 'u_sga_org', waivedAt: serverTimestamp(), waivedWhy: 'Short' })));
+  await check('  not by the lead without a reason', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip2'), AS('u_sgr_lead', { calEventId: 'ev_sga_trip2', waived: true, waivedBy: 'u_sgr_lead', waivedAt: serverTimestamp(), waivedWhy: '' })));
+  await check('  the lead, with a reason, recorded (who, when, why)', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip2'), AS('u_sgr_lead', { calEventId: 'ev_sga_trip2', waived: true, waivedBy: 'u_sgr_lead', waivedByName: 'Lead', waivedAt: serverTimestamp(), waivedWhy: 'It is a walk to the park next door with parents' })));
+  await check('  then that event takes sign-ups', 'allow', () => SUX(anon(), 'key_sga_6_0000000000000000000000', 'ev_sga_trip2'));
+  await check('  and the organiser cannot quietly undo or change the "not needed"', 'deny', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip2'), { waivedWhy: 'changed', updatedAt: 'z', updatedBy: 'u_sga_org' }));
+  await check('an assessment is never deleted', 'deny', () => deleteDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip')));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 
