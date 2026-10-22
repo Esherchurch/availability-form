@@ -2962,7 +2962,7 @@ service cloud.firestore {
       // EGBCAuth.uses and by the server (sundaysInWhatsOn). Only the names
       // the hub knows - a new add-on joins this list when it is built.
       allow write: if (isMaster() && id == 'features'
-                       && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'enews', 'cardMaker', 'canva', 'quiz', 'updatedAt', 'updatedBy']));
+                       && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'updatedAt', 'updatedBy']));
       // SWITCH-OVER (14 Oct 2026): the private forms (Care & support,
       // prayer, "I'm new here") save nothing until rulesLocked is true. A
       // master admin sets it straight after the locked rules deploy

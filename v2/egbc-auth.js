@@ -384,6 +384,9 @@
        (6f3ab9b2: nothing private is saved before switch-over). */
     { name: 'sessionPlanner', label: 'Session planner', on: true, addOn: true },
     { name: 'buildingCompliance', label: 'Building checks', on: true, addOn: true },
+    /* The safeguarding risk register (F-268; the reviewing window, 22 Oct
+       2026: on by default). */
+    { name: 'safeguardingRegister', label: 'Safeguarding risk register', on: true, addOn: true },
     { name: 'enews', label: 'E-news', on: true, addOn: true },
     { name: 'cardMaker', label: 'Card maker', on: true, addOn: true },
     { name: 'canva', label: 'Canva', on: true, addOn: true },

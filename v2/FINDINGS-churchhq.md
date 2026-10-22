@@ -322,3 +322,10 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 - Cloudflare (Martin's account) only when (a) is chosen.
 
 Until then, part 1 (the rules port) needs no decision, and I can start it.
+
+### H-6, decided (reviewing window, 22 Oct 2026): (a), with one sign-in address
+
+- **The address:** each church at `<church>.churchhq.co.uk` behind Cloudflare, with one shared sign-in address that returns people to their church's address.
+- **Not done here:** DNS, Cloudflare, GitHub Pages custom domains and Firebase authorised domains. Martin does those later, as a separate, deliberate step.
+- **Everything is built to work on today's address too.** There, no church comes from the address, so the claim (and the picker) decide, and EGBC's pages stay top-level.
+- **Part 1, the rules port, starts now,** in small batches, each with the cross-church suites and breaks.

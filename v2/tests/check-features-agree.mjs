@@ -141,5 +141,20 @@ const corpus = files.filter((f) => !LISTS.has(f)).map((f) => read(f)).join('\n')
 const idle = PAGE.map((f) => f.name).filter((n) => !new RegExp("['\"]" + n + "['\"]").test(corpus));
 ok(!idle.length, 'every one of the ' + PAGE.length + ' switches is read somewhere (Menu, app, Home, a guard or a function)', 'used nowhere: ' + idle.join(', '));
 
+console.log('\n6. Every switch can be saved');
+/* Church settings saves churchSettings/features, and the rules take only
+   the names they list (hasOnly). A switch missing there is shown on the
+   page and then refused when a master admin saves it (22 Oct 2026, adding
+   safeguardingRegister). */
+const rulesSrc = read('firestore.rules');
+const keyLine = rulesSrc.split('\n').find((l) => /hasOnly\(\[[^\]]*'buildingCompliance'/.test(l)) || '';
+const saveable = new Set([...keyLine.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]));
+const unsaveable = PAGE.map((f) => f.name).filter((n) => !saveable.has(n));
+ok(keyLine && !unsaveable.length, 'every switch is in the rules\' list of names Church settings may save', 'refused on save: ' + unsaveable.join(', '));
+/* The reviewing window, 22 Oct 2026 (F-268): the risk register has its own
+   switch, in Church settings, on unless a church turns it off. */
+const reg = PAGE.find((f) => f.name === 'safeguardingRegister');
+ok(!!reg && reg.on === true && !!(SERVER.find((f) => f.name === 'safeguardingRegister') || {}).on, 'the safeguarding risk register has a switch, on by default, on both sides', JSON.stringify(reg));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

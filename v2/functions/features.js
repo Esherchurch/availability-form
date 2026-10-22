@@ -49,6 +49,7 @@ export const FEATURES = [
   { name: 'availability', on: true },
   { name: 'sessionPlanner', on: true, addOn: true },
   { name: 'buildingCompliance', on: true, addOn: true },
+  { name: 'safeguardingRegister', on: true, addOn: true },
   { name: 'enews', on: true, addOn: true },
   { name: 'cardMaker', on: true, addOn: true },
   { name: 'canva', on: true, addOn: true },

@@ -212,7 +212,7 @@
         description: 'Leaders’ DBS checks and training, and exceptions' },
       /* The risk register (F-268): the lead and deputy, master admins and
          the trustees - the rules' sgRegSees(). */
-      { title: 'Safeguarding risks', url: 'safeguarding-risk.html', icon: 'clipboard-list', feature: 'safeguarding', sgRisk: true,
+      { title: 'Safeguarding risks', url: 'safeguarding-risk.html', icon: 'clipboard-list', feature: 'safeguardingRegister', sgRisk: true,
         description: 'The standing risks, and events waiting for sign-off' },
       { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', feature: 'safeguarding', sg: true,
         description: 'Who the lead is, how long checks last, and the ratios' },

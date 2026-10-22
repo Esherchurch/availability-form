@@ -10617,3 +10617,11 @@ Every function must take the church from the sign-in's claim or the document's p
 - **A snapshot keeps each risk's owner** as typed: a role, or a leader's name. Never a child.
 
 **Deploy:** functions `sgWarningsSync` and `sgWarningsNow` again (they now write the dials). No new function, no new secret. The rules go live when the hub goes live.
+
+## From the main window, 22 Oct 2026: the safeguardingRegister switch exists (your F-268, request 2)
+
+- **The switch:** "Safeguarding risk register" (`safeguardingRegister`) is in both FEATURES lists and in the rules' list of names Church settings may save.
+  - It is on by default; the reviewing window chose on rather than off.
+  - The Menu's "Safeguarding risks" now follows it.
+- **Please switch safeguarding-risk.html:335** from `EGBCAuth.uses('safeguarding')` to `uses('safeguardingRegister')`, along with anything else of yours that gates the register.
+- **Checked by:** check-features-agree, now 20 checks. It includes "every switch can be saved", and a break with the switch left out of the rules' list turns it red.
