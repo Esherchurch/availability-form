@@ -10444,3 +10444,54 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 **For the main window:** app.html loads `egbc-events.js?v=202610221300` and `egbc-app-whatson.js?v=202610152300`. Please bump them to `egbc-events.js?v=202610221700` and `egbc-app-whatson.js?v=202610221700`, so the app's phones fetch the new code. My pages are bumped.
 
 **Deploy:** nothing.
+
+### F-271 — The safeguarding risk register, step 3: live warnings and the email two days before (F-265; Martin's answer 5; the events window, 22 Oct)
+
+**Why:** a register that only says what *should* happen isn't enough. The lead needs to know, without hunting, when a control has slipped: too few adults this morning, a trip short of leaders, a check run out, a consent form missing.
+
+**Built:**
+- **The server works the warnings out** (functions/sg-warnings.js, with the sums in functions/sg-warnings-core.cjs). It reads what the hub already holds and writes `sgWarnings/{siteId}`: **counts, dates and a link only**. Never a child, a leader, a concern or a medical detail. It looks at:
+  - **Sunday groups this morning:** children checked in against leaders checked in. Fewer than 2 adults is red; short of the group's ratio is amber.
+  - **Under-18s events in the next 14 days:** fewer than 2 named leaders, or short of the ratio, is amber, and red within 2 days. A trip, overnight, holiday club or off-site event not signed off is amber, and red within 7 days.
+  - **Leaders' checks** on under-18s groups and events: run out is red; running out within 6 weeks (the register's "due soon" setting) is amber.
+  - **Consent forms**, per group: missing or run out is red; running out soon is amber.
+  - **The register's own risks** past their review date: amber.
+- **When:**
+  - every 15 minutes (`sgWarningsSync`)
+  - at once with **"Refresh now"** (`sgWarningsNow`), for the site's lead, deputy, a trustee or a master admin
+  - off with the safeguarding switch
+- **The register page (safeguarding-risk.html):**
+  - a third tab, **"Warnings (n)"**: worst first, each with "Act now" or "Soon", what to do, and (for the lead and deputy only) "Go to it". A trustee sees the same counts but no link into pages that show names.
+  - on the first tab, a standing risk whose control has slipped says **"A control has slipped: see Warnings"** in red or amber.
+- **The email two days before** (`sgTwoAdultsDaily`, 08:00 London). A session two days on still short of two adults, or of the ratio, emails the site's lead and deputy. **Once only:** each email is recorded in `sgMailed`, so the next morning doesn't send it again. There are no names in it, just the session, the counts, what to do and a link.
+- **Rules:**
+  - `sgWarnings`: read by the site's lead, deputy, the trustees and master admins. Only the server writes it.
+  - `sgMailed`: the server's alone.
+- **No new secret or setting.**
+
+**Proved:**
+- **sg-warnings-unit.test.mjs: 29/29** (no emulator). Covers each kind of warning, the levels, the order, the Sunday-group weekday (7 is Sunday), the email's "once", and no names even when names are in what it's given.
+- **sg-warnings.test.mjs: 30/30**, with the functions emulator:
+  - the server's warnings
+  - the lead's tab and the marked risk
+  - a trustee: no names, no links
+  - a volunteer refused by the database and the server
+  - "Refresh now" clearing a warning once a second leader checks in
+  - the email: lead and deputy, once, no names
+  - 375px and computer pictures
+- **Rules: 1834/1834** (12 new).
+- **Breaks, 10 of 10 caught:**
+  - **The one that matters:** a leader named in a warning (the browser test, 3 checks, and the unit test).
+  - One adult with a group let pass.
+  - An event short of the ratio not flagged.
+  - A Sunday group never matched to a Sunday.
+  - The email sent every morning.
+  - A slipped control not marking its risk.
+  - A trustee given "Go to it".
+  - The server letting a volunteer refresh.
+  - The database letting any member read the warnings.
+
+**Found and not fixed:**
+- The hub doesn't hold who is due at a Sunday group on a given date ahead of time. So the email two days before judges a Sunday group by its **regular** leaders. On the day itself, the warning uses who actually checked in.
+
+**Deploy (the reviewing window):** `sgWarningsSync`, `sgWarningsNow`, `sgTwoAdultsDaily`. No new secret. The rules go live when the hub goes live.

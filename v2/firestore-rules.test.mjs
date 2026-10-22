@@ -4689,6 +4689,27 @@ await check('  while making the same record without it is fine', 'allow',
   await check('an assessment is never deleted', 'deny', () => deleteDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip')));
 }
 
+// ── EVENTS (events window) ── THE SAFEGUARDING RISK REGISTER, step 3: live warnings (counts only, the server writes them)
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'sgWarnings', 'site_sgr'), { siteId: 'site_sgr', items: [{ id: 'checks_out', kind: 'checks', level: 'red', count: 1, label: '1 leader ...', todo: 'x', date: '2026-10-22', fix: 'safeguarding.html', act: '' }], controls: { '*|checks': 'red' }, today: '2026-10-22', at: 'x' });
+    await setDoc(doc(c.firestore(), 'sgMailed', 'ev_x_2026-10-24'), { siteId: 'site_sgr', at: 'x', subject: 'x' });
+  });
+  await check('SG WARNINGS: the site’s lead reads them', 'allow', () => getDoc(doc(cx('u_sgr_lead'), 'sgWarnings', 'site_sgr')));
+  await check('  and the deputy', 'allow', () => getDoc(doc(cx('u_sgr_dep'), 'sgWarnings', 'site_sgr')));
+  await check('  and the trustees', 'allow', () => getDoc(doc(cx('u_sgr_trustee'), 'sgWarnings', 'site_sgr')));
+  await check('  and a master admin', 'allow', () => getDoc(doc(as('martin'), 'sgWarnings', 'site_sgr')));
+  await check('  NOT A VOLUNTEER', 'deny', () => getDoc(doc(cx('u_sgr_vol'), 'sgWarnings', 'site_sgr')));
+  await check('  not another site’s lead', 'deny', () => getDoc(doc(cx('u_sgr_other'), 'sgWarnings', 'site_sgr')));
+  await check('  nor anyone signed out', 'deny', () => getDoc(doc(anon(), 'sgWarnings', 'site_sgr')));
+  await check('  ONLY THE SERVER WRITES THEM: not the lead', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgWarnings', 'site_sgr'), { siteId: 'site_sgr', items: [], controls: {}, today: '2026-10-22', at: 'y' }));
+  await check('  nor a master admin', 'deny', () => setDoc(doc(as('martin'), 'sgWarnings', 'site_sgr'), { siteId: 'site_sgr', items: [], controls: {}, today: '2026-10-22', at: 'y' }));
+  await check('  nor deletes them', 'deny', () => deleteDoc(doc(cx('u_sgr_lead'), 'sgWarnings', 'site_sgr')));
+  await check('THE "ALREADY EMAILED" RECORDS are the server’s alone: no reading', 'deny', () => getDoc(doc(as('martin'), 'sgMailed', 'ev_x_2026-10-24')));
+  await check('  and no writing (an email cannot be quietly stopped)', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgMailed', 'ev_y_2026-10-24'), { siteId: 'site_sgr', at: 'x', subject: 'x' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

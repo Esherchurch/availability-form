@@ -2552,6 +2552,15 @@ service cloud.firestore {
                             && sgText(request.resource.data.get('waivedWhy', ''), 300) && request.resource.data.get('waivedWhy', '').size() > 0));
       allow delete: if false;
     }
+    // ---- STEP 3: LIVE WARNINGS (F-265) ----
+    // Counts, dates and links only, written by the server every 15 minutes
+    // (functions/sg-warnings.js) - read by those who read the register.
+    // sgMailed (the two-adults emails already sent) has no rule: server only.
+    match /sgWarnings/{siteId} {
+      allow read: if sgRegSees(siteId);
+      allow write: if false;
+    }
+
     // What the public sign-up page may know: only "waiting for sign-off" or
     // "open" - never the assessment. "Open" must match a signed or waived
     // assessment saved with it.

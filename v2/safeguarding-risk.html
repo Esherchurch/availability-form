@@ -84,7 +84,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   function db() { return EGBCAuth.db; }
   var app = document.getElementById('app');
-  var V = { site: '', tab: 'risks' }, SITES = [], LEADSITES = [], MASTER = false, TRUSTEE = false, ME = {}, ACTS = [], RISKS = [], SUGG = [];
+  var V = { site: '', tab: 'risks' }, SITES = [], LEADSITES = [], MASTER = false, TRUSTEE = false, ME = {}, ACTS = [], RISKS = [], SUGG = [], W = null;
   function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function keeps() { return LEADSITES.indexOf(V.site) >= 0; }
   var WORDS = { red: 'High', amber: 'Medium', green: 'Low' };
@@ -94,8 +94,10 @@
   function load() {
     return Promise.all([
       db().collection('sgActivities').where('siteId', '==', V.site).get(),
-      db().collection('sgRisks').where('siteId', '==', V.site).get()
+      db().collection('sgRisks').where('siteId', '==', V.site).get(),
+      db().collection('sgWarnings').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; })
     ]).then(function (r) {
+      W = r[2];
       ACTS = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
       RISKS = r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       return keeps() ? suggestions() : [];
@@ -116,8 +118,9 @@
   /* ---- drawing ---- */
   function draw() {
     var head = '<div class="bar">' + (SITES.length > 1 ? '<label class="hint" for="site">Site</label> <select id="site">' + SITES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === V.site ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') + '</div>' +
-      '<div class="tabs" role="tablist">' + [['risks', 'Standing risks'], ['events', 'Event assessments']].map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" role="tab" aria-selected="' + (V.tab === t[0]) + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="tabs" role="tablist">' + [['risks', 'Standing risks'], ['events', 'Event assessments'], ['warnings', 'Warnings' + (W && W.items && W.items.length ? ' (' + W.items.length + ')' : '')]].map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" role="tab" aria-selected="' + (V.tab === t[0]) + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
       (keeps() ? '' : '<p class="ro" id="readOnly">Read only. The register is kept by this site’s safeguarding lead and deputy.</p>');
+    if (V.tab === 'warnings') { app.innerHTML = head + warningsHtml(); wire(); wireWarnings(); return; }
     if (V.tab === 'events') { app.innerHTML = head + '<div id="evList"><p class="hint">Loading…</p></div>'; wire(); return drawEvents(); }
     var body = ACTS.length ? ACTS.map(actCard).join('') : '<div class="card"><p style="margin:0" id="noActs">No activities in the register yet.' + (keeps() ? ' Add one below: each Sunday group, youth group or club, and the other kinds of activity the church runs.' : '') + '</p></div>';
     var add = keeps() ? '<div class="card" id="addAct"><h2>Add an activity</h2>' +
@@ -137,10 +140,21 @@
       (closed.length ? '<details style="margin-top:8px"><summary class="hint">Closed (' + closed.length + ')</summary>' + closed.map(riskRow).join('') + '</details>' : '') +
       (keeps() ? '<div class="row"><button class="btn sec sm" data-addrisk="' + esc(a.id) + '">Add a risk</button>' + ((T.STARTERS[a.kind] || []).length ? '<button class="btn sec sm" data-starter="' + esc(a.id) + '">Add from the starter list</button>' : '') + '</div>' : '') + '</div>';
   }
+  /* a watched control that has slipped (the live warnings): its worst level for this risk */
+  function slipped(r) {
+    if (!W || !W.controls || r.status === 'closed') return '';
+    var worst = '';
+    (r.controls || []).forEach(function (c) {
+      if (c.kind === 'text') return;
+      [r.activityId + '|' + c.kind, '*|' + c.kind].forEach(function (k) { var l = W.controls[k]; if (l === 'red' || (l === 'amber' && worst !== 'red')) worst = l; });
+    });
+    return worst;
+  }
   function riskRow(r) {
-    var due = r.reviewDue || '', late = due && due < today() && r.status !== 'closed';
+    var due = r.reviewDue || '', late = due && due < today() && r.status !== 'closed', sl = slipped(r);
     return '<div class="risk' + (r.status === 'closed' ? ' closed' : '') + '" data-risk="' + esc(r.id) + '"><div><b>' + esc(r.risk) + '</b>' +
       '<div class="meta">' + (r.who ? 'Who: ' + esc(r.who) + ' · ' : '') + 'Owner: ' + esc(r.ownerName || 'not named') + ' · ' + (due ? (late ? '<span class="overdue" data-overdue>Review overdue (' + esc(due) + ')</span>' : 'Review by ' + esc(due)) : 'No review date') + '</div>' +
+      (sl ? '<div style="margin-top:6px"><span class="rag ' + sl + '" data-slipped="' + sl + '"><i aria-hidden="true"></i>A control has slipped: see Warnings</span></div>' : '') +
       '<div class="chips">' + (r.controls || []).map(function (c) { return '<span class="chip' + (c.kind === 'text' ? ' text' : '') + '"' + (c.kind !== 'text' ? ' data-linked="' + esc(c.kind) + '" title="The hub watches this"' : '') + '>' + (c.kind !== 'text' ? '◉ ' : '') + esc(T.controlLabel(c)) + '</span>'; }).join('') + '</div></div>' +
       '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">' + rag(r.l, r.i, 'Before') + rag(r.rl, r.ri, 'After') +
       (keeps() ? '<button class="btn sec sm" data-edit="' + esc(r.id) + '">Edit</button>' : '') + '</div></div>';
@@ -216,6 +230,33 @@
       });
       document.getElementById('sGo').disabled = true;
       b.commit().then(function () { close(); load(); }, function (e) { document.getElementById('sGo').disabled = false; document.getElementById('sMsg').textContent = 'They could not be added: ' + (e.message || e); });
+    };
+  }
+
+  /* ---- TAB C: WARNINGS (step 3) ----
+     What has slipped now, worst first: counts, dates and what to do. The
+     server works them out every 15 minutes (sgWarningsSync) from what the
+     hub already holds; never a name, a child or a concern here. The link to
+     the page that fixes it is for the lead and deputy - those pages show
+     names, and their own rules decide who sees them. */
+  var LEVEL_WORDS = { red: 'Act now', amber: 'Soon' };
+  function warningsHtml() {
+    var list = (W && W.items) || [], at = W && W.at ? new Date(W.at) : null;
+    return '<div class="card" id="warnHead"><p style="margin:0" class="hint">' + (at ? 'As at ' + at.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. ' : 'Not worked out yet. ') +
+      'Counts only: the safeguarding lead sees who, on the pages that fix it.</p>' +
+      ((keeps() || TRUSTEE || MASTER) ? '<div class="row" style="margin-top:10px"><button class="btn sec sm" id="warnNow">Refresh now</button><span class="hint" id="warnMsg" role="status"></span></div>' : '') + '</div>' +
+      (list.length ? list.map(function (w) {
+        return '<div class="card" data-warn="' + esc(w.id) + '" data-level="' + esc(w.level) + '"><div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">' +
+          '<span class="rag ' + w.level + '"><i aria-hidden="true"></i>' + LEVEL_WORDS[w.level] + '</span><div style="flex:1;min-width:220px"><b>' + esc(w.label) + '</b>' +
+          '<div class="hint" style="margin-top:4px">What to do: ' + esc(w.todo || '') + '</div>' +
+          (keeps() && w.fix ? '<a class="btn sec sm" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:8px" data-fix href="' + esc(w.fix) + '">Go to it</a>' : '') + '</div></div></div>';
+      }).join('') : '<div class="card" id="noWarnings"><p style="margin:0">Nothing has slipped. Every watched control is in date.</p></div>');
+  }
+  function wireWarnings() {
+    var b = document.getElementById('warnNow'); if (!b) return;
+    b.onclick = function () {
+      b.disabled = true; document.getElementById('warnMsg').textContent = 'Working it out…';
+      EGBCAuth.call('sgWarningsNow', { siteId: V.site }).then(function () { return load(); }, function (e) { b.disabled = false; document.getElementById('warnMsg').textContent = 'It could not be worked out: ' + (e.message || e); });
     };
   }
 
