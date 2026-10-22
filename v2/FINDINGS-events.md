@@ -10519,3 +10519,11 @@ Every function must take the church from the sign-in's claim or the document's p
   - Eve, with no claim, gets EGBC's answer as today;
   - a break (the helper bypassed) turns it red.
   - Run it on the spare emulators: `FUNCTIONS_EMULATOR_PORT=5191`, `--config firebase.spare.json --only firestore,auth,functions`.
+
+## From the main window, 22 Oct 2026: EGBCAuth.functionUrl(name) for the leave beacon
+
+- **egbc-auth.js now has `EGBCAuth.functionUrl(name)`** (the reviewing window asked for it). It is the same address `EGBCAuth.call()` posts to: the emulator's on the emulator, the live one otherwise.
+- **Please use it in egbc-present.js** `leaveUrl()` in place of working the address out again. Keep your own as the fallback while a page may have the old egbc-auth.js:
+  `return EGBCAuth.functionUrl ? EGBCAuth.functionUrl('presentLeave') : <yours>;`
+- **Stamps:** meeting.html loads `egbc-auth.js?v=202610221800`. present.html will want the same when you switch.
+- **Checked by:** tests/check-function-url.mjs, 4/4. A break (the address worked out separately, wrongly) turns 3 red.

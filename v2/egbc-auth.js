@@ -1381,6 +1381,14 @@
     call: function (name, data) {
       return callFunction(name, data);
     },
+    /* The address of one of the hub's functions - the emulator's on the
+       emulator, the live one otherwise - for a page that has to reach it
+       some other way, e.g. a beacon as the page closes (reviewing window,
+       22 Oct 2026: egbc-present.js worked this out a second time). The
+       same address call() posts to. */
+    functionUrl: function (name) {
+      return FUNCTIONS_BASE + '/' + encodeURIComponent(String(name || ''));
+    },
 
     /* THE CHURCHES THIS PERSON BELONGS TO (multi-church step 1): the
        server keeps them in the sign-in's claims (functions/hq-directory.js).
