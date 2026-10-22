@@ -145,3 +145,18 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 **Deploy:** after each batch, the functions it changed.
 
 **For decision:** batches 7 and 8 are in the events window's and Comms' files. Shall I do them myself, or ask those windows to adopt the helper, with my check harness and a request in their FINDINGS?
+
+### H-5, batch 1 built: the helper, and whoAmI, myFamily, myYouthHub (22 Oct 2026)
+
+- **`functions/church-scope.js`:** churchIdOf, churchOf, scopedDb, churchFromPath and eachChurch, as planned.
+- **whoAmI, myFamily and myYouthHub** now read through `churchOf(request, db).db`.
+- **Moved to batch 4:** findMe, myDates, saveAnswer and the calendar links. They run on codes and links (form sessions, feed keys), so they go with the code index.
+- **check-church-calls: 25/25** (spare emulators). The same member id is in alpha, beta and EGBC, each with a different household:
+  - Ann (alpha) gets alpha's answer, and naming beta is refused.
+  - Eve (no claim) gets EGBC's top-level answer, as today, and naming alpha is refused.
+  - Dot (both churches) must say which.
+- **Breaks:**
+  - The helper ignoring the claim: 16 red.
+  - A named church not checked: 6 red.
+- **Still passing:** check-availability-form 52/52, check-family 40/40, check-youth-hub 16/16, check-rota-shared-roles 2/2.
+- **Deploy:** whoAmI, myFamily, myYouthHub. EGBC sees no change: nobody at EGBC has a churches claim.

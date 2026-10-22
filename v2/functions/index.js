@@ -35,6 +35,9 @@ import {
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
 import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family.js';
 import { myYouthHub as myYouthHubIn } from './youth-hub.js';
+/* Which church a call is for: the sign-in's claim, never the page (multi-
+   church step 3, FINDINGS-churchhq H-5). No claim is EGBC, as before. */
+import { churchOf } from './church-scope.js';
 import { runFeeds } from './feeds.js';
 
 initializeApp();
@@ -450,7 +453,7 @@ export const saveAnswer = onCall(async (request) => orThrow(await saveAnswerIn(d
    caller can only ever learn about themselves. */
 export const whoAmI = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  return orThrow(await whoAmIIn(db, { token: request.auth.token || {} }));
+  return orThrow(await whoAmIIn(churchOf(request, db).db, { token: request.auth.token || {} }));
 });
 
 /* =================================================================
@@ -672,7 +675,7 @@ export const checksReminders = onSchedule(
    book, which an Attender may not read. See family.js.                  */
 export const myFamily = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  return orThrow(await myFamilyIn(db, { uid: request.auth.uid, now: new Date() }));
+  return orThrow(await myFamilyIn(churchOf(request, db).db, { uid: request.auth.uid, now: new Date() }));
 });
 
 /* A household or a child's groups changed: rewrite the parents'
@@ -689,7 +692,7 @@ export const familyGroupsSync = onDocumentWritten({ document: 'addressBook/{id}'
    charters; this answers for them alone. See youth-hub.js. */
 export const myYouthHub = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  return orThrow(await myYouthHubIn(db, { uid: request.auth.uid, now: new Date() }));
+  return orThrow(await myYouthHubIn(churchOf(request, db).db, { uid: request.auth.uid, now: new Date() }));
 });
 
 /* The church's two outside feeds, read every hour (F-139, F-164): the

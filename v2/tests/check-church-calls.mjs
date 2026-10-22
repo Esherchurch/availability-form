@@ -1,0 +1,121 @@
+/* Functions take the church from the sign-in, never the page (multi-church
+ * step 3, FINDINGS-churchhq H-5). Grows a batch at a time.
+ *
+ *   FUNCTIONS_EMULATOR_PORT=5191 firebase emulators:exec --config firebase.spare.json \
+ *     --only firestore,auth,functions --project egbc-worship-planner "node tests/check-church-calls.mjs"
+ *
+ * Made-up churches mc-alpha and mc-beta, and made-up people. The same
+ * member id (m_cc) is in alpha, in beta and in EGBC's top-level address
+ * book, each with a different household, so an answer shows whose data it
+ * came from.
+ *   - Ann is in mc-alpha (claim churches: ['mc-alpha']).
+ *   - Eve has no claim: EGBC, as everyone is today.
+ *   - Dot is in both churches.
+ * Every callable: Ann gets alpha's answer; Ann naming beta is refused;
+ * Eve gets EGBC's top-level answer, as before; Dot must say which.
+ */
+import http from 'node:http';
+import { churchIdOf, scopedDb, claimedChurches } from '../functions/church-scope.js';
+
+const PROJECT = process.env.GCLOUD_PROJECT || 'egbc-worship-planner';
+const FN_PORT = Number(process.env.FUNCTIONS_EMULATOR_PORT || 5101);
+const FS = (process.env.FIRESTORE_EMULATOR_HOST || 'localhost:8181').split(':');
+const AUTH = (process.env.FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099').split(':');
+const R = [];
+const ok = (n, v, x) => { R.push(v); console.log('  ' + (v ? 'PASS  ' : 'FAIL  ') + n + (v ? '' : (x !== undefined ? '\n          ' + String(x).slice(0, 400) : ''))); };
+const req = (host, port, method, path, body, headers) => new Promise((res, rej) => {
+  const data = body === undefined ? null : JSON.stringify(body);
+  const r = http.request({ host, port, method, path,
+    headers: Object.assign(data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {}, headers || {}) },
+    s => { let d = ''; s.on('data', c => d += c); s.on('end', () => res({ status: s.statusCode, body: d })); });
+  r.on('error', rej); r.end(data);
+});
+const DOCS = `/v1/projects/${PROJECT}/databases/(default)/documents`;
+const OWNER = { Authorization: 'Bearer owner' };
+const val = (v) => typeof v === 'boolean' ? { booleanValue: v } : Array.isArray(v) ? { arrayValue: { values: v.map(val) } } : { stringValue: String(v) };
+const put = (p, o) => req(FS[0], Number(FS[1]), 'PATCH', DOCS + '/' + p, { fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, val(v)])) }, OWNER);
+const del = (p) => req(FS[0], Number(FS[1]), 'DELETE', DOCS + '/' + p, undefined, OWNER);
+const authPost = (path, body, owner) => req(AUTH[0], Number(AUTH[1]), 'POST', path, body, owner ? OWNER : {});
+const PW = 'test-only-password';
+
+async function person(email, claims) {
+  let up = JSON.parse((await authPost('/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email, password: PW, returnSecureToken: true })).body || '{}');
+  if (!up.localId) up = JSON.parse((await authPost('/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email, password: PW, returnSecureToken: true })).body || '{}');
+  await authPost(`/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:update`, { localId: up.localId, emailVerified: true, customAttributes: JSON.stringify(claims || {}) }, true);
+  const t = JSON.parse((await authPost('/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email, password: PW, returnSecureToken: true })).body || '{}');
+  return { uid: up.localId, email, idToken: t.idToken };
+}
+/* -> { result } or { error: { status, message } } */
+const call = async (p, name, data) => JSON.parse((await req('localhost', FN_PORT, 'POST', `/${PROJECT}/europe-west2/${name}`, { data: data || {} }, { Authorization: 'Bearer ' + p.idToken })).body || '{}');
+const refused = (r, status) => !!(r && r.error && (!status || r.error.status === status));
+
+/* ---- the helper itself, without the emulator --------------------- */
+console.log('The helper');
+const rq = (churches, data) => ({ auth: { uid: 'u', token: churches === undefined ? {} : { churches } }, data: data || {} });
+const threw = (fn) => { try { fn(); return null; } catch (e) { return e.code || e.message; } };
+ok('  no claim: EGBC (null), as today', churchIdOf(rq(undefined)) === null);
+ok('  one church in the claim: that church', churchIdOf(rq(['mc-alpha'])) === 'mc-alpha');
+ok('  naming their own church: that church', churchIdOf(rq(['mc-alpha', 'mc-beta'], { churchId: 'mc-beta' })) === 'mc-beta');
+ok('  naming a church not in the claim: refused', threw(() => churchIdOf(rq(['mc-alpha'], { churchId: 'mc-beta' }))) === 'permission-denied');
+ok('  no claim and naming a church: refused (the page cannot pick one)', threw(() => churchIdOf(rq(undefined, { churchId: 'mc-alpha' }))) === 'permission-denied');
+ok('  two churches, none named: refused, say which', threw(() => churchIdOf(rq(['mc-alpha', 'mc-beta']))) === 'invalid-argument');
+ok('  a claim entry that is not a church id is ignored', JSON.stringify(claimedChurches({ token: { churches: ['mc-alpha', '../x', 5] } })) === '["mc-alpha"]');
+const fake = { collection: (n) => ({ doc: (d) => ({ collection: (m) => ({ path: n + '/' + d + '/' + m }) }) }), doc: (p) => ({ path: p }) };
+const sd = scopedDb(fake, 'mc-alpha');
+ok('  a church\'s collection is under churches/{id}', sd.collection('news').path === 'churches/mc-alpha/news');
+ok('  and so is a document path', sd.doc('users/u1').path === 'churches/mc-alpha/users/u1');
+ok('  EGBC\'s is the database itself', scopedDb(fake, null) === fake);
+ok('  a collection group (every church) is refused', !!threw(() => sd.collectionGroup('news')));
+
+/* ---- the seed ----------------------------------------------------- */
+const A = 'mc-alpha', B = 'mc-beta', MID = 'm_cc';
+const ann = await person('cc.ann@example.invalid', { churches: [A] });
+const eve = await person('cc.eve@example.invalid', {});
+const dot = await person('cc.dot@example.invalid', { churches: [A, B] });
+const seeded = [];
+const seed = async (p, o) => { seeded.push(p); await put(p, o); };
+const household = async (root, first, kin) => {
+  await seed(root + 'addressBook/' + MID, { name: first + ' Synthetic', email: '', householdId: MID + '_k', markers: ['Youth Worship'] });
+  await seed(root + 'addressBook/' + MID + '_k', { name: kin + ' Synthetic', householdId: MID });
+};
+for (const [root, first, kin] of [['churches/' + A + '/', 'Ann', 'Alfie'], ['churches/' + B + '/', 'Bea', 'Bertie'], ['', 'Eve', 'Egg']]) await household(root, first, kin);
+for (const p of [ann, dot]) for (const cid of [A, B]) await seed(`churches/${cid}/users/${p.uid}`, { status: 'active', memberId: MID, name: (cid === A ? 'Ann' : 'Bea') + ' Synthetic' });
+await seed('users/' + eve.uid, { status: 'active', memberId: MID, name: 'Eve Synthetic' });
+/* whoAmI goes by the sign-in address: each person has a record with it in
+   alpha, beta and at EGBC, with different ids. */
+for (const p of [ann, eve, dot]) for (const [root, tag] of [['churches/' + A + '/', 'alpha'], ['churches/' + B + '/', 'beta'], ['', 'egbc']]) {
+  await seed(root + 'addressBook/who_' + tag + '_' + p.uid.slice(0, 6), { name: tag + ' record', email: p.email });
+}
+const whoIds = (r) => ((r.result || {}).people || []).map(x => x.id.split('_')[1]);
+
+try {
+  console.log('\nwhoAmI');
+  ok('  Ann (alpha) gets alpha\'s record only', JSON.stringify(whoIds(await call(ann, 'whoAmI'))) === '["alpha"]');
+  ok('  Ann naming beta is refused', refused(await call(ann, 'whoAmI', { churchId: B }), 'PERMISSION_DENIED'));
+  ok('  Eve (no claim) gets EGBC\'s top-level record, as today', JSON.stringify(whoIds(await call(eve, 'whoAmI'))) === '["egbc"]');
+  ok('  Eve naming alpha is refused', refused(await call(eve, 'whoAmI', { churchId: A }), 'PERMISSION_DENIED'));
+  ok('  Dot (both) must say which', refused(await call(dot, 'whoAmI'), 'INVALID_ARGUMENT'));
+  ok('  Dot naming beta gets beta\'s', JSON.stringify(whoIds(await call(dot, 'whoAmI', { churchId: B }))) === '["beta"]');
+
+  console.log('\nmyFamily');
+  const fam = (r) => ((r.result || {}).members || []).map(m => m.firstName).join(',');
+  let r = await call(ann, 'myFamily');
+  ok('  Ann gets alpha\'s household (Alfie)', fam(r) === 'Alfie', JSON.stringify(r));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'myFamily', { churchId: B }), 'PERMISSION_DENIED'));
+  r = await call(eve, 'myFamily');
+  ok('  Eve gets EGBC\'s household (Egg), as today', fam(r) === 'Egg', JSON.stringify(r));
+  ok('  Dot naming beta gets beta\'s (Bertie)', fam(await call(dot, 'myFamily', { churchId: B })) === 'Bertie');
+
+  console.log('\nmyYouthHub');
+  r = await call(ann, 'myYouthHub');
+  ok('  Ann is known by alpha\'s record (Ann)', (r.result || {}).firstName === 'Ann', JSON.stringify(r));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'myYouthHub', { churchId: B }), 'PERMISSION_DENIED'));
+  r = await call(eve, 'myYouthHub');
+  ok('  Eve is known by EGBC\'s record (Eve), as today', (r.result || {}).firstName === 'Eve', JSON.stringify(r));
+  ok('  Dot naming beta is known by beta\'s (Bea)', ((await call(dot, 'myYouthHub', { churchId: B })).result || {}).firstName === 'Bea');
+} finally {
+  for (const p of seeded) await del(p).catch(() => {});
+}
+const failed = R.filter(v => !v).length;
+console.log('\n' + (R.length - failed) + '/' + R.length + ' passed');
+process.exit(failed ? 1 : 0);
