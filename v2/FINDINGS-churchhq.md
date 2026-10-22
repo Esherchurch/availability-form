@@ -329,3 +329,28 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
 - **Not done here:** DNS, Cloudflare, GitHub Pages custom domains and Firebase authorised domains. Martin does those later, as a separate, deliberate step.
 - **Everything is built to work on today's address too.** There, no church comes from the address, so the claim (and the picker) decide, and EGBC's pages stay top-level.
 - **Part 1, the rules port, starts now,** in small batches, each with the cross-church suites and breaks.
+
+## H-7. Found before porting: the rules are over Firebase's size limit (22 Oct 2026)
+
+**Firebase's limits:** 256 KB on a ruleset's source as deployed, and 250 KB on the compiled ruleset (Firestore quotas and limits, cloud.google.com/firestore/quotas).
+
+**firestore.rules is 341 KB today.** It passed 256 KB on 16 Oct (cd3b39bf), and every window adds to it.
+- **Deploying it as it is will be refused** when the hub goes live. This is true before any multi-church work.
+- Nothing is live yet, so nothing is broken today.
+- With comments and whitespace taken out, the same rules are about 178 KB. That fits. The compiled size can't be measured without Firebase's compiler, so there's some margin to keep.
+
+**What this means for the port (step 4 part 1):** a church copy generated into the same file would be about 355 KB even stripped. One file can't hold EGBC's top-level rules and a church copy, so I've stopped the port rather than build that.
+
+**Proposal for decision:**
+1. **One source, a build step, and only the built file is deployed.**
+   - We keep writing firestore.rules as now, comments and all.
+   - `tools/rules-build.mjs` writes the deploy ruleset with comments and whitespace removed.
+   - `firebase.json`'s rules entry then points at the built file. That is a change to what goes live, so it needs your say-so; I won't change it without it.
+   - **A check** fails when the built ruleset passes a working limit (say 220 KB, leaving room under 250 KB compiled), and when the built file is out of date with the source.
+2. **The church rules are generated from the same source by the same build,** as a second ruleset for the shared Church HQ project. Every path goes under `churches/{cid}`; `me()` reads the church's users record; the claim is the gate (step 2's design).
+   - Each project deploys one ruleset (about 180 KB), never both in one file.
+   - That fits either EGBC choice from PLAN.md. In (i), EGBC moves into the shared project and only the church ruleset is deployed. In (ii), EGBC's project stays a group of one and deploys the top-level ruleset, while the shared project deploys the church one.
+   - The tests run the full rules suite against both, plus the cross-church suite.
+3. **The step 2 pilot** (the six hand-written church collections in firestore.rules) moves into the generated church ruleset, so firestore.rules goes back to EGBC's rules only.
+
+**Until you decide:** I won't change firebase.json or the shape of firestore.rules. Part 1 of the proposal (the build script and its check, with no change to firebase.json) is safe to build first, and I'll start it if you agree.
