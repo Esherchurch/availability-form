@@ -548,7 +548,9 @@
     var html = '<h1>Safeguarding</h1><p class="sub">Leaders, ratios, checks, incidents and concerns.</p>' +
       '<div class="bar"><button class="btn" id="concernBtn">' + ico('message-square-warning') + 'Report a concern</button>' +
       (MASTER ? '<a class="btn sec" href="retention.html">' + ico('archive') + 'Due for deletion</a>' : '') +
-      ((ADMIN || LEADSITES.length) ? '<a class="btn sec" href="safeguarding-settings.html">' + ico('settings') + 'Safeguarding settings</a>' : '') + '</div>';
+      ((ADMIN || LEADSITES.length) ? '<a class="btn sec" href="safeguarding-settings.html">' + ico('settings') + 'Safeguarding settings</a>' : '') +
+      /* the safeguarding risk register (F-265): the lead and deputy keep it; master admins and the trustees read it */
+      ((MASTER || LEADSITES.length) ? '<a class="btn sec" id="riskRegLink" href="safeguarding-risk.html">' + ico('shield-check') + 'Safeguarding risk register</a>' : '') + '</div>';
     if (LEADSITES.length) {
       html += '<div class="card"><h2><span class="badge">' + ico('inbox', 17) + '</span>Concerns reported to you</h2>' +
         '<p class="hint" style="margin-top:-4px">You are safeguarding lead or deputy for ' + esc(LEADSITES.map(siteName).join(', ')) + '. Nobody else can read these.</p>' +

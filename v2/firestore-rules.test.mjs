@@ -4585,6 +4585,59 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  BUT THE EVENT’S OWN TEAM may add a walk-in at the door', 'allow', () => SUO(as('karen'), 'key_so_walkin_000000000000000000', 'ev_so_closed'));
 }
 
+// ── EVENTS (events window) ── THE SAFEGUARDING RISK REGISTER (F-265, step 1: standing risks)
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  let hadSettings = null;
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    const U = (uid, mid, teams) => setDoc(doc(d, 'users', uid), { uid, memberId: mid, status: 'active', name: uid, teams, adminFor: [], masterAdmin: false });
+    await U('u_sgr_lead', 'm_sgr_lead', ['Kids Church']);
+    await U('u_sgr_dep', 'm_sgr_dep', []);
+    await U('u_sgr_trustee', 'm_sgr_trustee', ['Elders']);
+    await U('u_sgr_trustee2', 'm_sgr_trustee2', ['Trustees']);
+    await U('u_sgr_vol', 'm_sgr_vol', ['Kids Church']);
+    await U('u_sgr_other', 'm_sgr_other', []);
+    await setDoc(doc(d, 'bookingSettings', 'site_sgr'), { bookingsAdmins: [], safeguardingLead: 'm_sgr_lead', safeguardingDeputy: 'm_sgr_dep' });
+    await setDoc(doc(d, 'bookingSettings', 'site_sgr2'), { bookingsAdmins: [], safeguardingLead: 'm_sgr_other', safeguardingDeputy: '' });
+    await setDoc(doc(d, 'sgActivities', 'sga_1'), { siteId: 'site_sgr', kind: 'sunday', name: 'Juniors (invented)', link: {}, active: true, updatedAt: 'x', updatedBy: 'x' });
+    await setDoc(doc(d, 'sgActivities', 'sga_other'), { siteId: 'site_sgr2', kind: 'youth', name: 'Elsewhere (invented)', link: {}, active: true, updatedAt: 'x', updatedBy: 'x' });
+    await setDoc(doc(d, 'sgRisks', 'sgr_1'), { siteId: 'site_sgr', activityId: 'sga_1', risk: 'A child leaves unnoticed', who: 'Children', l: 2, i: 5, controls: [{ kind: 'checkin', text: '' }], ownerName: 'The Juniors leader', reviewDue: '2027-01-01', rl: 1, ri: 5, status: 'open', source: 'starter', starterId: 'sun-leaves', createdAt: 'x', updatedAt: 'x', updatedBy: 'x' });
+    const s = await getDoc(doc(d, 'safeguardingSettings', 'defaults')); hadSettings = s.exists() ? s.data() : null;
+  });
+  const ACT = (uid, extra) => ({ siteId: 'site_sgr', kind: 'youth', name: 'Youth club (invented)', link: {}, active: true, updatedAt: 'x', updatedBy: uid, ...(extra || {}) });
+  const RSK = (uid, extra) => ({ siteId: 'site_sgr', activityId: 'sga_1', risk: 'Too few leaders', who: 'Children', l: 3, i: 4, controls: [{ kind: 'ratio', text: '' }, { kind: 'text', text: 'Do not start until enough leaders are in' }],
+    ownerName: 'The Juniors leader', reviewDue: '2027-03-01', rl: 2, ri: 4, status: 'open', source: 'added', starterId: '', createdAt: 'x', updatedAt: 'x', updatedBy: uid, ...(extra || {}) });
+  await check('SG RISK REGISTER: the site’s safeguarding lead adds an activity', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgActivities', 'sga_2'), ACT('u_sgr_lead')));
+  await check('  and the deputy', 'allow', () => setDoc(doc(cx('u_sgr_dep'), 'sgActivities', 'sga_3'), ACT('u_sgr_dep')));
+  await check('  NO FIELD FOR A CHILD: an extra field is refused', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgActivities', 'sga_4'), ACT('u_sgr_lead', { childName: 'Invented Child' })));
+  await check('  only the kinds of activity', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgActivities', 'sga_5'), ACT('u_sgr_lead', { kind: 'secret' })));
+  await check('  not for a site they don’t lead', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgActivities', 'sga_6'), ACT('u_sgr_lead', { siteId: 'site_sgr2' })));
+  await check('  in their own name only', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgActivities', 'sga_7'), ACT('u_sgr_dep')));
+  await check('  the lead adds a risk', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_2'), RSK('u_sgr_lead')));
+  await check('  NO FIELD FOR A CHILD OR A CONCERN in a risk either', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_3'), RSK('u_sgr_lead', { concern: 'invented' })));
+  await check('  ratings 1 to 5 only', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_4'), RSK('u_sgr_lead', { l: 6 })));
+  await check('  the risk in 200 characters at most', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_5'), RSK('u_sgr_lead', { risk: 'x'.repeat(201) })));
+  await check('  no more than 20 controls', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_6'), RSK('u_sgr_lead', { controls: Array(21).fill({ kind: 'text', text: 'x' }) })));
+  await check('  not under another site’s activity', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_7'), RSK('u_sgr_lead', { activityId: 'sga_other' })));
+  await check('  a review date as a date', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_8'), RSK('u_sgr_lead', { reviewDue: 'soon' })));
+  await check('  a risk is closed, never deleted', 'deny', () => deleteDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_1')));
+  await check('  THE TRUSTEES (Elders, unless set) read the register', 'allow', () => getDocs(query(collection(cx('u_sgr_trustee'), 'sgRisks'), where('siteId', '==', 'site_sgr'))));
+  await check('  but do not change it', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgRisks', 'sgr_9'), RSK('u_sgr_trustee')));
+  await check('  a master admin reads it', 'allow', () => getDoc(doc(as('martin'), 'sgRisks', 'sgr_1')));
+  await check('  but the lead and deputy keep it', 'deny', () => setDoc(doc(as('martin'), 'sgRisks', 'sgr_10'), RSK('u_martin')));
+  await check('  AN ACTIVITY’S OWN LEADER (a volunteer) DOES NOT SEE IT', 'deny', () => getDoc(doc(cx('u_sgr_vol'), 'sgRisks', 'sgr_1')));
+  await check('  nor the activities', 'deny', () => getDocs(query(collection(cx('u_sgr_vol'), 'sgActivities'), where('siteId', '==', 'site_sgr'))));
+  await check('  nor anyone signed out', 'deny', () => getDoc(doc(anon(), 'sgRisks', 'sgr_1')));
+  await check('  another site’s lead does not see this site’s', 'deny', () => getDoc(doc(cx('u_sgr_other'), 'sgRisks', 'sgr_1')));
+  /* the trustee team is the setting */
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'safeguardingSettings', 'defaults'), { ...(hadSettings || {}), trusteeTeam: 'Trustees' }); });
+  await check('THE TRUSTEE TEAM IS A SETTING: set to "Trustees", that team reads it', 'allow', () => getDoc(doc(cx('u_sgr_trustee2'), 'sgRisks', 'sgr_1')));
+  await check('  and the Elders no longer do', 'deny', () => getDoc(doc(cx('u_sgr_trustee'), 'sgRisks', 'sgr_1')));
+  await check('  the setting is 60 characters at most', 'deny', () => setDoc(doc(as('martin'), 'safeguardingSettings', 'defaults'), { ...(hadSettings || {}), templates: (hadSettings || {}).templates || {}, ratioAll: 5, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false, trusteeTeam: 'x'.repeat(61) }));
+  await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'safeguardingSettings', 'defaults'); if (hadSettings) await setDoc(r, hadSettings); else await deleteDoc(r); });
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

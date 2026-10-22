@@ -10246,3 +10246,81 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 - **The reviewer:** the new function `presentLeave` (HTTPS, public invoker; it checks the sign-in itself). **No secret.** The page change goes live with the push.
 - **The main window:** please bump meeting.html to `egbc-present.js?v=202610221330`.
 - **The main window, later:** egbc-auth.js could share its functions address (`FUNCTIONS_BASE`); the hook works it out the same way meanwhile.
+
+### F-268 — The safeguarding risk register, step 1: standing risks (F-265; the events window, 22 Oct)
+
+**Built:**
+- **A new page, `safeguarding-risk.html` ("Safeguarding risks"),** with the **Standing risks** tab. The other tabs come with their steps.
+- **Activities:** the site's safeguarding lead (or deputy) adds them from **the hub's own groups at that site**, one tap each. These are:
+  - Sunday groups (`kidsGroups`)
+  - children's and youth planner groups
+  - under-18s small groups
+
+  Each one is read only if the lead may read it. They can also add any other activity by kind: transport, pastoral visits, online and livestream, lone working, hirers working with children, clubs.
+- **Each risk:**
+  - what could happen and to whom, in general words
+  - likelihood × impact, before and after its controls, **shown in words and colour** ("Before: High 20", "After: Medium 12"); the same bands as risk.html (15+ high, 5+ medium)
+  - its controls: one the hub watches (marked ◉; they'll turn the risk amber by themselves in step 3) or written words
+  - an owner, a role in words ("the Juniors leader")
+  - a review date: "Review overdue" when it's past
+- **Sorted** by how bad it is after its controls.
+- **Closing a risk** keeps it under "Closed (n)". Nothing is deleted.
+- **The starter list**, `egbc-sg-templates.js`, is written in our own plain words for any church: no church's name, team names or any body's wording. It covers Sunday groups, youth groups, clubs, online and livestream, pastoral visits, transport, lone working and hirers. A starter already added is marked and can't be added twice. The editor says, every time: *"General words only: never name a child, a family or a concern."*
+- **Who:**
+  - the site's lead and deputy keep it
+  - **the trustees** (`safeguardingSettings/defaults.trusteeTeam`, set on Safeguarding settings, "Elders" unless set) and master admins read it, read-only
+  - everyone else, an activity's own leaders included, is told it's for the lead, deputy and trustees, and the database refuses them too
+- **The ways in:** a "Safeguarding risk register" button on safeguarding.html (for the lead, deputy and master admins), and a line on the Live risk register for the trustees.
+
+**Rules (my events section; live when the hub goes live):**
+- **`sgRegSees(siteId)`:** master, `sgLeadOf(siteId)`, or `onTeam(trustee team from the setting)`.
+- **`sgActivities` and `sgRisks`:** written only by the site's lead or deputy, in their own name, never deleted.
+- **Fixed shapes (`hasOnly`)** leave no field for a child, a concern, an incident's people or a medical detail:
+  - words have length limits
+  - ratings are 1–5
+  - reviews are dates
+  - a risk must belong to an activity at the same site
+- **One limit, said plainly:** the rules can cap a risk's controls at 20, but can't check each control's length (they can't look inside a list). The page holds each to 200 characters.
+- **Safeguarding settings** may also hold `trusteeTeam` (60 characters at most) and `register` (a map, for the register's later settings).
+
+**Proved:**
+- **Tests:**
+
+  | Test | Result |
+  |---|---|
+  | rules suite | 1794/1794, 25 new checks |
+  | sg-register-unit (no emulator) | 11/11 |
+  | sg-register (browser) | 25/25 |
+
+  - **The rules checks:**
+    - the lead and the deputy write
+    - an extra field is refused
+    - another site, another name and bad ratings, lengths and dates are refused
+    - nothing is deleted
+    - trustees and master admins read but don't write
+    - **an activity's own leader, signed-out people and another site's lead can't read it**
+    - **switching the trustee team to "Trustees" flips who reads**
+  - **The unit test:** the rating bands, and every starter fits the rules' shape; after its controls a risk is never worse; no church's or body's names; no medical words.
+  - **The browser test:**
+    - the lead adds a group from the hub and another by kind
+    - adds 5 starters, adapts one and closes one
+    - the words-and-colour rating and "Review overdue" show
+    - the trustee and master admin are read-only, and a volunteer is refused (page and database)
+    - the trustee setting saves (keeping the lead and the rest) and takes effect
+    - the way in from Safeguarding works
+    - nothing scrolls sideways at 375 px or on a computer
+  - **Pictures:** `sg-register-lead-desk.png`, `sg-register-lead-375.png`, `sg-register-trustee-desk.png`.
+- **Found and fixed on the way:** an unescaped apostrophe in my new settings card stopped Safeguarding settings loading at all. The browser test caught it.
+- **Breaks, 6 of 6 caught:**
+  - **The one that matters:** a risk accepting any field (a child's name, a concern) is refused by the rules.
+  - any active member reading the register
+  - the trustees able to change it
+  - the trustee setting ignored
+  - the rating bands wrong (12 as high)
+  - the page letting a trustee edit
+
+**For the main window:**
+1. **A Menu entry,** "Safeguarding risks" (`safeguarding-risk.html`), beside Safeguarding, for the lead and deputy, master admins **and the trustee team**. The trustees need a new gate in `egbc-menu.js` (the existing `sg:` is admins or leads only), reading `safeguardingSettings/defaults.trusteeTeam`. Until then the trustees reach it from the Live risk register.
+2. **An add-on switch** in your `FEATURES` lists and the rules' key list, as planned: "Safeguarding risk register" (`safeguardingRegister`), off by default, on at EGBC. Until it exists, the page follows the existing `safeguarding` switch.
+
+**Deploy:** nothing. There are no functions in this step, and the rules go live when the hub does.

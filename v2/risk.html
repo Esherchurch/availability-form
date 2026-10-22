@@ -118,7 +118,9 @@
 
   /* ---------------- drawing ---------------- */
   function draw() {
-    var html = '<h1>Live risk register</h1><p class="banner" id="riskBanner">' + esc(T.riskBanner(CHURCH)) + '</p>' + (HELD ? '<p class="held" id="held">' + esc(HELD) + '</p>' : '');
+    var html = '<h1>Live risk register</h1><p class="banner" id="riskBanner">' + esc(T.riskBanner(CHURCH)) + '</p>' + (HELD ? '<p class="held" id="held">' + esc(HELD) + '</p>' : '') +
+      /* the safeguarding one is kept apart (F-265): trustees read both */
+      (TRUSTEE ? '<p class="hint" id="sgRegLink" style="margin:0 0 12px">Safeguarding has its own register: <a href="safeguarding-risk.html">Safeguarding risks</a>.</p>' : '');
     html += '<div class="tabs" id="sites">' + SITES.map(function (s) { return '<button data-site="' + esc(s.id) + '" aria-pressed="' + (SITE && SITE.id === s.id) + '">' + esc(s.name || s.id) + '</button>'; }).join('') + '</div>';
     if (!SITE) { $('wrap').innerHTML = html + '<div class="card">No buildings yet.</div>'; return wire(); }
     var tabs = [['hazards', 'Hazards'], ['reports', 'Professional assessments'], ['changes', 'Changes since'], ['snapshots', 'Snapshots'], ['geep', 'Visitors who need help (GEEP)']];

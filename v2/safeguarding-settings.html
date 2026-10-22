@@ -259,6 +259,12 @@
         '<label class="check"><input type="checkbox" id="req"' + (c.requireChecks ? ' checked' : '') + '>Every leader must have an in-date DBS check and training</label>' +
       '</div>' +
 
+      /* THE SAFEGUARDING RISK REGISTER (F-265): who the trustees are - they read it and take its snapshots */
+      '<div class="card" id="regCard"><h2><span class="badge">' + ico('shield-check', 17) + '</span>Safeguarding risk register</h2>' +
+        '<div class="field"><label for="trTeam">The trustees are the team</label><input class="inp" id="trTeam" maxlength="60" list="trTeams" value="' + esc((SAVED && SAVED.trusteeTeam) || 'Elders') + '">' +
+        '<datalist id="trTeams">' + ((window.EGBCAuth && EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : []) || []).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>' +
+        '<p class="hint" style="margin:6px 0 0">They read the register and take its dated snapshots. They never see a child, a concern or anyone’s medical details there.</p></div></div>' +
+
       '<div class="card"><button class="btn" id="save">' + ico('check', 16) + 'Save the settings</button>' +
         '<p class="hint" style="margin:10px 0 0">New forms and new events take these from now on.</p></div>' +
 
@@ -294,7 +300,8 @@
       ratioUnder8: Math.min(50, Math.max(1, parseInt(document.getElementById('rU8').value, 10) || 4)),
       dbsYears: parseInt(document.getElementById('yDbs').value, 10) || 3,
       trainingYears: parseInt(document.getElementById('yTr').value, 10) || 3,
-      requireChecks: document.getElementById('req').checked
+      requireChecks: document.getElementById('req').checked,
+      trusteeTeam: ((document.getElementById('trTeam') || {}).value || '').trim().slice(0, 60) || 'Elders'
     };
   }
 
@@ -303,6 +310,8 @@
     d.updatedAt = new Date().toISOString(); d.updatedBy = u.uid || ''; d.updatedByName = p.name || '';
     /* Who leads is kept, whoever saves: before, saving here dropped it. */
     d.leadSiteId = (SAVED && SAVED.leadSiteId) || ''; d.leadName = (SAVED && SAVED.leadName) || ''; d.leadPhone = (SAVED && SAVED.leadPhone) || '';
+    /* the register's own settings are kept, whoever saves */
+    d.register = (SAVED && SAVED.register) || {};
     if (!ADMIN) d.leadSiteId = LEADSITES[0];
     var who = ADMIN && SITES.length && document.getElementById('lead_' + SITES[0].id) ? readWho() : null, sites = [];
     if (who) {

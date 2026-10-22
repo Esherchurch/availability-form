@@ -2448,6 +2448,52 @@ service cloud.firestore {
                    && request.resource.data.get('trainingDate', '') is string && request.resource.data.get('trainingDate', '').size() <= 10;
     }
 
+    // ---- THE SAFEGUARDING RISK REGISTER (F-265, step 1: standing risks) ----
+    // Risks, controls, owners and dates - never a child, a concern, an
+    // incident's people or a medical detail: no field holds one (hasOnly,
+    // length caps). Kept by the site's safeguarding lead and deputy; read by
+    // them, the trustees (the team named in safeguarding settings, "Elders"
+    // unless set) and master admins. Nobody else, activity leaders included.
+    function sgTrusteeTeam() {
+      return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
+             ? get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('trusteeTeam', 'Elders') : 'Elders';
+    }
+    function sgRegSees(siteId) {
+      return isMaster() || sgLeadOf(siteId) || onTeam(sgTrusteeTeam());
+    }
+    function sgDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
+    function sgText(v, n) { return v is string && v.size() <= n; }
+    function sgOneToFive(v) { return v is int && v >= 1 && v <= 5; }
+    match /sgActivities/{id} {
+      allow read: if sgRegSees(resource.data.get('siteId', ''));
+      allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
+                    && (resource == null || resource.data.siteId == request.resource.data.siteId)
+                    && request.resource.data.keys().hasOnly(['siteId', 'kind', 'name', 'link', 'active', 'updatedAt', 'updatedBy'])
+                    && request.resource.data.kind in ['sunday', 'youth', 'club', 'online', 'pastoral', 'transport', 'lone', 'hirers', 'other']
+                    && sgText(request.resource.data.name, 80) && request.resource.data.name.size() > 0
+                    && request.resource.data.get('link', {}) is map && request.resource.data.get('link', {}).keys().hasOnly(['type', 'id'])
+                    && request.resource.data.active is bool && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+    match /sgRisks/{id} {
+      allow read: if sgRegSees(resource.data.get('siteId', ''));
+      allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
+                    && (resource == null || resource.data.siteId == request.resource.data.siteId)
+                    && exists(/databases/$(database)/documents/sgActivities/$(request.resource.data.get('activityId', '-')))
+                    && get(/databases/$(database)/documents/sgActivities/$(request.resource.data.activityId)).data.siteId == request.resource.data.siteId
+                    && request.resource.data.keys().hasOnly(['siteId', 'activityId', 'risk', 'who', 'l', 'i', 'controls', 'ownerName', 'reviewDue', 'rl', 'ri',
+                                                             'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy'])
+                    && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
+                    && sgOneToFive(request.resource.data.l) && sgOneToFive(request.resource.data.i)
+                    && sgOneToFive(request.resource.data.rl) && sgOneToFive(request.resource.data.ri)
+                    // the controls: at most 20 (each one's length is the page's; the rules cannot look inside a list)
+                    && request.resource.data.controls is list && request.resource.data.controls.size() <= 20
+                    && sgText(request.resource.data.get('ownerName', ''), 80) && sgDay(request.resource.data.get('reviewDue', ''))
+                    && request.resource.data.status in ['open', 'closed'] && request.resource.data.get('source', 'added') in ['starter', 'added']
+                    && sgText(request.resource.data.get('starterId', ''), 40) && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
     function incidentShape() {
       let d = request.resource.data;
       return d.keys().hasOnly(['calEventId', 'siteId', 'happenedAt', 'people', 'what', 'firstAid', 'firstAidBy',
@@ -2503,7 +2549,10 @@ service cloud.firestore {
                       lead is, and the form reads this one document. */
                    && request.resource.data.keys().hasOnly(['templates', 'ratioAll', 'ratioUnder8', 'dbsYears', 'trainingYears',
                                                              'requireChecks', 'leadSiteId', 'leadName', 'leadPhone',
-                                                             'updatedAt', 'updatedBy', 'updatedByName'])
+                                                             'updatedAt', 'updatedBy', 'updatedByName', 'trusteeTeam', 'register'])
+                   /* the safeguarding risk register (F-265): who the trustees are, and its own settings */
+                   && request.resource.data.get('trusteeTeam', 'Elders') is string && request.resource.data.get('trusteeTeam', 'Elders').size() <= 60
+                   && request.resource.data.get('register', {}) is map
                    && request.resource.data.templates is map
                    && request.resource.data.ratioAll is int && request.resource.data.ratioAll >= 1 && request.resource.data.ratioAll <= 50
                    && request.resource.data.ratioUnder8 is int && request.resource.data.ratioUnder8 >= 1 && request.resource.data.ratioUnder8 <= 50
