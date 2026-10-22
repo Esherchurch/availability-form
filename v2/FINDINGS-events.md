@@ -10410,3 +10410,37 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 **Not done here:** the What's on cards and the app don't say "waiting for sign-off" yet; the sign-up page does, and the database holds bookings either way. If wanted, that's a later step.
 
 **Deploy:** nothing. There are no functions in this step, and the rules go live when the hub does.
+
+### F-270 — "Waiting for safeguarding sign-off" on What's On, the app and the website embed (the reviewing window: the pages must hold bookings until the rules are live; the events window, 22 Oct)
+
+**Why:** the database's refusal (F-269) only bites once the rules go live. Until then the pages must hold bookings themselves, and they were saying "Sign up" for an under-18s trip still waiting for sign-off.
+
+**Built:**
+- **One shared check, `EGBCEvents.sgWaiting(events)`.** It reads the public `sgGate` of only the events that could need one (a trip, overnight, holiday club or off-site), and gives `{ eventId: true }` for those waiting. The words are `EGBCEvents.SG_WORDS`: "Bookings open after safeguarding sign-off".
+- **What's On (whatson.html):** the card says **"Bookings open after safeguarding sign-off"**, with no "places left" or "waiting list". Its link goes to the event page, which shows the same words and no form (F-269).
+- **The app's What's On:**
+  - the list shows **"Not open yet"** in place of "Sign up"
+  - the event view shows **"Bookings open after safeguarding sign-off · Not open for booking yet"** with no Sign up row
+- **The church website's embed (whatson-embed.html):** the same words in place of "Sign up".
+- **Once signed off (or "not needed"),** all three show "Sign up" again.
+- **An old copy of egbc-events.js still cached** in a browser can't break these pages: they check the helper is there first.
+
+**Proved:**
+- **sg-assess.test.mjs: 28/28.** New checks while it's waiting:
+  - What's On's card says it, with no places
+  - the embed says it, with no "Sign up"
+  - the app's list says "Not open yet", and its event view says it with no Sign up
+  - after signing, the embed says "Sign up" again
+- **Breaks, 2 of 2 caught:**
+  - **The one that matters:** What's On showing places to book while waiting.
+  - The app offering Sign up while waiting.
+- **Rule Zero:**
+
+  | Test | Result |
+  |---|---|
+  | app-whatson | 15/15 |
+  | public-whatson | 24/24 |
+
+**For the main window:** app.html loads `egbc-events.js?v=202610221300` and `egbc-app-whatson.js?v=202610152300`. Please bump them to `egbc-events.js?v=202610221700` and `egbc-app-whatson.js?v=202610221700`, so the app's phones fetch the new code. My pages are bumped.
+
+**Deploy:** nothing.

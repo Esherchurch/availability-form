@@ -85,7 +85,8 @@
       D.mine = {}; r[2].forEach(function (m) { D.mine[m.id] = m; });
       var since = Date.now() - 6 * 3600e3;
       D.run = (r[3] || []).filter(function (e) { return (e.endUtc || e.startUtc || 0) >= since && e.status !== 'cancelled'; });
-      LOADED = true; redraw();
+      /* F-265 step 2: an under-18s trip, overnight, holiday club or off-site event waiting for safeguarding sign-off: no Sign up */
+      return (E.sgWaiting ? E.sgWaiting(D.events) : Promise.resolve({})).then(function (w) { D.sgw = w || {}; LOADED = true; redraw(); });
     }).catch(function () { FAILED = true; LOADED = true; redraw(); });
   }
   function loadRooms() {
@@ -127,6 +128,7 @@
   function pillFor(e) {
     if (D.mine[e.id]) return '<span class="pill">' + (D.mine[e.id].waiting ? 'Waiting list' : 'Booked') + '</span>';
     if (e.visibility === 'churchMembers') return '<span class="pill warn">Members</span>';
+    if (e.signupOn && e.status !== 'cancelled' && (D.sgw || {})[e.id]) return '<span class="pill warn" data-sgwait>Not open yet</span>';
     if (e.signupOn && e.status !== 'cancelled') return '<span class="pill n">Sign up</span>';
     if (e.status === 'cancelled') return '<span class="pill warn">Cancelled</span>';
     return '';
@@ -171,6 +173,7 @@
     var m = D.mine[e.id], where = E.locationText(e, D.look), only = onlyFor(e);
     var rows = [];
     if (m) rows.push(rowAct('open:' + m.manageUrl, 'users', m.waiting ? 'You are on the waiting list' : (m.places > 1 ? 'You + ' + (m.places - 1) + ' booked' : 'You are booked'), 'Change numbers or cancel'));
+    else if (e.signupOn && e.status !== 'cancelled' && (D.sgw || {})[e.id]) rows.push('<div data-sgwait>' + H.row('clock', E.SG_WORDS, 'Not open for booking yet', null) + '</div>');
     else if (e.signupOn && e.status !== 'cancelled') rows.push(rowAct('open:' + BASE + 'signup.html?event=' + encodeURIComponent(e.id), 'user-plus', 'Sign up', e.price ? 'Book your place' : 'Say you are coming'));
     if (e.status !== 'cancelled') rows.push(rowAct('ics', 'calendar-plus', 'Add to my calendar', 'Google, iPhone or Outlook'));
     rows.push(rowAct('share', 'share-2', 'Share on WhatsApp', e.status === 'cancelled' ? 'Let people know' : 'Invite a friend'));

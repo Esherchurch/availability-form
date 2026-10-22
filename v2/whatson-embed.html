@@ -27,7 +27,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610221400"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610221700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--accent:#3d6263;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--tint:#eef5f4}
@@ -89,6 +89,9 @@
   var box = document.getElementById('box');
 
   function db() { return EGBCAuth.db; }
+  /* F-265 step 2: an under-18s trip, overnight, holiday club or off-site event waiting for safeguarding sign-off says so, not "Sign up" */
+  var SGW = {};
+  function withGates(list) { return (E.sgWaiting ? E.sgWaiting(list) : Promise.resolve({})).then(function (w) { SGW = w || {}; return list; }, function () { return list; }); }
   /* An event's own public page, beside this one. */
   function link(ev) { return E.eventUrl(ev.id); }
   /* Only what is public, whoever is looking: asked for by the database
@@ -115,11 +118,11 @@
     return '<a class="ev" href="' + esc(link(e)) + '" target="_blank" rel="noopener" data-ev="' + esc(e.id) + '">' +
       '<span class="date"><span class="dw">' + DAYS[d.getDay()] + '</span><br><span class="dn">' + d.getDate() + '</span><br><span class="dm">' + MONTHS[d.getMonth()].slice(0, 3) + '</span></span>' +
       '<span class="x"><span class="t">' + esc(e.title || 'Event') + '</span><br><span class="m">' + esc([E.fmtWhen(e), where].filter(Boolean).join(' · ')) + '</span>' +
-      (e.status === 'cancelled' ? '<br><span class="tag" style="color:#b0392c">Cancelled</span>' : e.signupOn ? '<br><span class="tag">Sign up</span>' : '') + '</span></a>';
+      (e.status === 'cancelled' ? '<br><span class="tag" style="color:#b0392c">Cancelled</span>' : SGW[e.id] ? '<br><span class="tag" data-sgwait>' + esc(E.SG_WORDS) + '</span>' : e.signupOn ? '<br><span class="tag">Sign up</span>' : '') + '</span></a>';
   }
 
   function drawList() {
-    load(Date.now() - 6 * 3600e3).then(function (list) {
+    load(Date.now() - 6 * 3600e3).then(withGates).then(function (list) {
       list = list.slice(0, LIMIT);
       box.innerHTML = list.length ? '<div data-view="list">' + list.map(row).join('') + '</div>' : '<p class="none" data-view="list">Nothing coming up just now.</p>';
       tellHeight();
@@ -147,10 +150,10 @@
       (e.image ? '<img class="pic" src="' + esc(e.image) + '" alt="" loading="lazy">' : '<span class="nopic">' + d.getDate() + ' ' + MONTHS[d.getMonth()].slice(0, 3) + '</span>') +
       '<span class="x"><span class="t">' + esc(e.title || 'Event') + '</span><span class="m">' + esc([E.fmtWhen(e), where].filter(Boolean).join(' · ')) + '</span>' +
       (c.more ? '<span class="m" data-more="' + c.more + '">and ' + c.more + ' more date' + (c.more === 1 ? '' : 's') + '</span>' : '') +
-      (e.status === 'cancelled' ? '<span class="tag" style="color:#b0392c">Cancelled</span>' : e.signupOn ? '<span class="tag">Sign up</span>' : '') + '</span></a>';
+      (e.status === 'cancelled' ? '<span class="tag" style="color:#b0392c">Cancelled</span>' : SGW[e.id] ? '<span class="tag" data-sgwait>' + esc(E.SG_WORDS) + '</span>' : e.signupOn ? '<span class="tag">Sign up</span>' : '') + '</span></a>';
   }
   function drawFeatured() {
-    load(Date.now() - 6 * 3600e3).then(function (list) {
+    load(Date.now() - 6 * 3600e3).then(withGates).then(function (list) {
       if (Q.get('all') !== '1') list = list.filter(function (e) { return e.featured === true; });
       var cards = combine(list).slice(0, LIMIT);
       box.innerHTML = cards.length ? '<div class="cards" data-view="featured">' + cards.map(card).join('') + '</div>' : '<p class="none" data-view="featured">Nothing coming up just now.</p>';

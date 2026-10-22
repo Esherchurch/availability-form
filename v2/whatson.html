@@ -17,7 +17,7 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610212000"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610221700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -117,7 +117,7 @@
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
   var ALL = [], LOOK = { sites: {}, rooms: {}, venues: {} }, CAP = {};
-  var filterCat = '', filterText = '';
+  var filterCat = '', filterText = '', SGW = {};
 
   function catOf(ev) {
     return E.catOf(ev.category);
@@ -126,6 +126,8 @@
   function placesNote(ev) {
     var c = CAP[ev.id];
     if (!ev.signupOn) return '';
+    /* F-265 step 2: waiting for safeguarding sign-off - no places to show, nothing to book */
+    if (SGW[ev.id]) return '<span class="flag held" data-sgwait>' + esc(E.SG_WORDS) + '</span>';
     if (!c) return '';
     var left = E.placesLeft(c);
     if (left === null) return '';
@@ -253,6 +255,8 @@
         .then(function (s) { if (s.exists) CAP[e.id] = s.data(); })
         .catch(function () {});
     }));
+  }).then(function () {
+    return (E.sgWaiting ? E.sgWaiting(ALL) : Promise.resolve({})).then(function (w) { SGW = w || {}; });
   }).then(function () {
     drawCats(); draw();
   }).catch(function (e) {

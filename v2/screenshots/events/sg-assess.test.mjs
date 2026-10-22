@@ -149,6 +149,20 @@ try {
   ok('2. THE SIGN-UP PAGE: "Bookings open after safeguarding sign-off", and no form', /Bookings open after safeguarding sign-off/.test(await text(G, '#sgWait')) && !(await G.$('form, #suForm, [data-places]')), await text(G, '#sgWait'));
   const r0 = await guestSignUp(G, 'key_sga_guest1_00000000000000000');
   ok('   and THE DATABASE REFUSES a sign-up made anyway', /permission/.test(r0), r0);
+  /* WHILE THE RULES ARE NOT LIVE THE PAGES MUST HOLD IT (the reviewing window, 22 Oct) */
+  await go(O, 'whatson.html', '.ev');
+  const woCard = await O.$$eval('.ev', (b) => b.map(x => x.innerText.replace(/\s+/g, ' ')).find(t => /Beach trip/.test(t)) || '');
+  ok('   WHAT\u2019S ON: the card says "Bookings open after safeguarding sign-off", no places to book', /Bookings open after safeguarding sign-off/.test(woCard) && !/places? left|waiting list/i.test(woCard), woCard);
+  await go(G, 'whatson-embed.html?all=1', '[data-ev]');
+  const emb = await G.$eval('[data-ev="ev_trip"]', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+  ok('   THE WEBSITE\u2019S EMBED: the same words, not "Sign up"', /Bookings open after safeguarding sign-off/.test(emb) && !/Sign up/.test(emb), emb);
+  await go(O, 'screenshots/events/app-harness.html?space=me&tab=whatson', '.hello');
+  await until(() => O.$('[data-w="events"]'));
+  const appList = await O.$eval('[data-wact="event:ev_trip"]', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+  ok('   THE APP: "Not open yet", not "Sign up"', /Not open yet/.test(appList) && !/Sign up/.test(appList), appList);
+  await tap(O, '[data-wact="event:ev_trip"]');
+  await until(async () => /Not open for booking yet/.test(await text(O, '#egbc-content')));
+  ok('   and its event view: "Bookings open after safeguarding sign-off", no Sign up', /Bookings open after safeguarding sign-off/.test(await text(O, '#egbc-content')) && !/Sign up/.test(await text(O, '#egbc-content')), await text(O, '#egbc-content'));
 
   /* 3. the named leader writes it */
   const Vv = await as('vic');
@@ -184,6 +198,8 @@ try {
   ok('   the sign-up page no longer says waiting', !(await G.$('#sgWait')));
   const r1 = await guestSignUp(G, 'key_sga_guest2_00000000000000000');
   ok('   and A GUEST SIGNS UP', r1 === 'booked', r1);
+  await go(G, 'whatson-embed.html?all=1', '[data-ev="ev_trip"]');
+  ok('   and What\u2019s On\u2019s embed says "Sign up" again', /Sign up/.test(await G.$eval('[data-ev="ev_trip"]', e => e.innerText)) && !(await G.$('[data-ev="ev_trip"] [data-sgwait]')));
 
   /* 5. a change after signing */
   await go(Vv, 'safeguarding.html?event=ev_trip', '#sgaSave');

@@ -288,6 +288,23 @@
     });
   }
 
+  /* WAITING FOR SAFEGUARDING SIGN-OFF (F-265 step 2): an under-18s trip,
+     overnight, holiday club or off-site event takes no bookings until its
+     safeguarding lead signs it off. The rules hold sign-ups once they are
+     live; until then the pages must, so What's on, the app and the website
+     embed ask the public flag (sgGate: only "needed" and "open") of the
+     events that could need it. Resolves to { eventId: true } for those
+     waiting. */
+  var SG_KINDS = ['trip', 'overnight', 'holidayclub', 'offsite'];
+  var SG_WORDS = 'Bookings open after safeguarding sign-off';
+  function sgWaiting(events) {
+    var db = global.EGBCAuth && EGBCAuth.db, out = {};
+    if (!db) return Promise.resolve(out);
+    return Promise.all((events || []).filter(function (e) { return e && e.id && SG_KINDS.indexOf(e.sgKind || '') >= 0; }).map(function (e) {
+      return db.collection('sgGate').doc(e.id).get().then(function (g) { var x = g.exists ? g.data() : null; if (x && x.needed && !x.open) out[e.id] = true; }, function () {});
+    })).then(function () { return out; });
+  }
+
   function placesLeft(cap) {
     if (!cap) return null;
     var n = (cap.capacity || 0) - (cap.taken || 0);
@@ -991,6 +1008,7 @@
     listUpcoming: listUpcoming,
     load: load,
     placesLeft: placesLeft,
+    sgWaiting: sgWaiting, SG_WORDS: SG_WORDS,
     signUp: signUp,
     seriesDates: seriesDates,
     signUpSeries: signUpSeries,
