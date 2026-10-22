@@ -44,6 +44,7 @@
  */
 
 import { createHash, randomInt } from 'node:crypto';
+import { indexCode } from './hq-codes.js';
 
 /* No I, L, O, 0 or 1: an operator is typing this off a screen across a hall.
    31 characters, 8 of them, is about 850 billion - and a code lives fifteen
@@ -111,8 +112,10 @@ export function jobsOf(d) {
     lessonGroups: Array.isArray(j.lessonGroups) ? j.lessonGroups.filter(x => typeof x === 'string' && x).slice(0, 20) : []
   };
 }
-export const claimsFor = (siteId, jobs) =>
-  ({ device: 'churchshow', siteId, services: jobs.services, lessons: jobs.lessonGroups });
+/* churchId: a church's computer (H-5) carries its church, as a person's
+   sign-in does, so the church's rules and functions know whose it is. */
+export const claimsFor = (siteId, jobs, churchId) =>
+  Object.assign({ device: 'churchshow', siteId, services: jobs.services, lessons: jobs.lessonGroups }, churchId ? { churches: [churchId] } : {});
 /* What the pairing token itself carries: who it is, never the job (F-CS9). */
 export const tokenClaimsFor = (siteId) => ({ device: 'churchshow', siteId });
 
@@ -181,7 +184,7 @@ export async function pairingCode(db, auth, { uid, siteId, deviceId, name, nowMs
   const siteName = String((site.data() || {}).name || id);
   const prior = await db.collection('devices').doc(deviceUid).get();
   const jobs = jobsOf(prior.exists ? prior.data() : null);
-  const claims = claimsFor(id, jobs);
+  const claims = claimsFor(id, jobs, db.churchId);
 
   /* The Auth user, once per site. Created with no email and no password: it
      is a computer, and there is nobody to send a reset to. */
@@ -222,6 +225,8 @@ export async function pairingCode(db, auth, { uid, siteId, deviceId, name, nowMs
     expiresAt, usedAt: null, tries: 0,
     createdBy: uid, createdAt: new Date(nowMs)
   });
+  /* A church's code: which church, for churchShowRedeem (hq-codes.js). */
+  await indexCode(db, 'churchshow', hashCode(code), { expiresAt });
 
   /* The code goes back to the admin's screen and nowhere else. It is not
      stored, not logged and not emailed. */
@@ -345,7 +350,7 @@ export async function setJob(db, auth, { uid, deviceId, services, lessonGroups }
     return { error: 'invalid-argument', message: 'Choose at least one: Main services, or Lessons for a group.' };
   }
   await db.collection('devices').doc(String(deviceId)).set({ jobs, jobsBy: uid, jobsAt: new Date() }, { merge: true });
-  try { await auth.setCustomUserClaims(String(deviceId), claimsFor(d.siteId, jobs)); }
+  try { await auth.setCustomUserClaims(String(deviceId), claimsFor(d.siteId, jobs, db.churchId)); }
   catch (e) { if (!e || e.code !== 'auth/user-not-found') throw e; }
   return { ok: true, jobs };
 }

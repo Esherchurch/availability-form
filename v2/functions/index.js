@@ -38,6 +38,10 @@ import { myYouthHub as myYouthHubIn } from './youth-hub.js';
 /* Which church a call is for: the sign-in's claim, never the page (multi-
    church step 3, FINDINGS-churchhq H-5). No claim is EGBC, as before. */
 import { churchOf } from './church-scope.js';
+/* Codes and links that come with no sign-in: which church (hq-codes.js). */
+import { codeHash, indexCode, dropCode, dbForCode } from './hq-codes.js';
+import { hashCode as churchShowHash, normalise as churchShowNormalise } from './churchshow.js';
+import { normalise as youthNormalise, docIdFor as youthDocId } from './youth-redeem.js';
 import { runFeeds } from './feeds.js';
 
 initializeApp();
@@ -73,8 +77,8 @@ const FEEDS = {
 
 /* The address book, once, for the feeds that need more than one person in it.
    "Just me" never reads it. */
-async function addressBook() {
-  const snap = await db.collection('addressBook').get();
+async function addressBook(fdb = db) {
+  const snap = await fdb.collection('addressBook').get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
@@ -94,7 +98,9 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
   if (!/^[a-z0-9]{16,64}$/.test(key)) return no();
 
   try {
-    const feedDoc = await db.collection('calendarFeeds').doc(key).get();
+    /* The church the key was made in; no entry is EGBC (H-5). */
+    const fdb = await dbForCode(db, 'feed', codeHash(key));
+    const feedDoc = await fdb.collection('calendarFeeds').doc(key).get();
     if (!feedDoc.exists) return no();
     const feed = feedDoc.data() || {};
     const { uid, memberId } = feed;
@@ -105,7 +111,7 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
     const kind = feed.kind || 'me';
     const scope = feed.scope || 'all';
 
-    const eventsSnap = await db.collection('events').get();
+    const eventsSnap = await fdb.collection('events').get();
     const events = eventsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     let body;
@@ -114,7 +120,7 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
       /* WORKED OUT NOW, NOT WHEN THE LINK WAS MADE (18). Somebody joining or
          leaving the household changes the feed on its next refresh, with
          nothing to reset. */
-      const book = await addressBook();
+      const book = await addressBook(fdb);
       const ids = householdIds(book, memberId);
       const members = book.filter(m => ids.includes(m.id));
       body = buildHouseholdFeed({ events, members });
@@ -124,13 +130,13 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
          stands, not as it stood when the link was made, so leaving a team
          narrows the feed by itself. No record, no feed: a person whose
          account has gone is not shown the whole church's rota. */
-      const userSnap = uid ? await db.collection('users').doc(uid).get() : null;
+      const userSnap = uid ? await fdb.collection('users').doc(uid).get() : null;
       const user = userSnap && userSnap.exists ? userSnap.data() : null;
       if (!user || user.status !== 'active') return no();
       body = buildFullFeed({ events, allowedTeams: visibleRoleTeams(user), scope });
 
     } else {
-      const memberSnap = await db.collection('addressBook').doc(memberId).get();
+      const memberSnap = await fdb.collection('addressBook').doc(memberId).get();
       const member = memberSnap.exists ? memberSnap.data() : null;
       body = buildFeed({ events, memberId, member });
     }
@@ -159,6 +165,8 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
 export const myCalendarLink = onCall(async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  /* The church from the sign-in (H-5); its key is indexed for rotaFeed. */
+  const cdb = churchOf(request, db).db;
 
   const data = request.data || {};
   const reset = !!data.reset;
@@ -170,7 +178,7 @@ export const myCalendarLink = onCall(async (request) => {
   const cfg = FEEDS[feedId];
   if (!cfg) throw new HttpsError('invalid-argument', 'There is no feed called ' + feedId + '.');
 
-  const userSnap = await db.collection('users').doc(uid).get();
+  const userSnap = await cdb.collection('users').doc(uid).get();
   const user = userSnap.exists ? userSnap.data() : null;
   if (!user || user.status !== 'active') {
     throw new HttpsError('permission-denied', 'Only a member of a team has a rota.');
@@ -194,7 +202,7 @@ export const myCalendarLink = onCall(async (request) => {
     }
   }
 
-  const keyRef = db.collection('calendarKeys').doc(uid);
+  const keyRef = cdb.collection('calendarKeys').doc(uid);
   const existing = await keyRef.get();
   const stored = existing.exists ? (existing.data() || {}) : {};
   const feeds = stored.feeds || {};
@@ -210,7 +218,7 @@ export const myCalendarLink = onCall(async (request) => {
   }
 
   const key = newKey();
-  const batch = db.batch();
+  const batch = cdb.batch();
   /* Delete the old lookup FIRST, in the same write. That is the whole of what
      "Reset this link" means: the moment this lands, the old address stops
      resolving to anybody.
@@ -218,8 +226,8 @@ export const myCalendarLink = onCall(async (request) => {
      Only this feed's lookup. Resetting the household link must leave "just
      me" working - 18 asks for that in those words, and it is why each feed
      carries its own key rather than one key with a kind on the end. */
-  if (oldKey) batch.delete(db.collection('calendarFeeds').doc(oldKey));
-  batch.set(db.collection('calendarFeeds').doc(key), {
+  if (oldKey) batch.delete(cdb.collection('calendarFeeds').doc(oldKey));
+  batch.set(cdb.collection('calendarFeeds').doc(key), {
     uid, memberId,
     kind: cfg.kind,
     scope: cfg.scope || null,
@@ -230,6 +238,8 @@ export const myCalendarLink = onCall(async (request) => {
     feeds: Object.assign({}, feeds, { [feedId]: { key, createdAt: new Date().toISOString() } })
   }, { merge: true });
   await batch.commit();
+  if (oldKey) await dropCode(cdb, 'feed', codeHash(oldKey));
+  await indexCode(cdb, 'feed', codeHash(key));
 
   return { key, feed: feedId, created: true, replaced: !!oldKey };
 });
@@ -241,7 +251,7 @@ export const myCalendarLinks = onCall(async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
 
-  const snap = await db.collection('calendarKeys').doc(uid).get();
+  const snap = await churchOf(request, db).db.collection('calendarKeys').doc(uid).get();
   const stored = snap.exists ? (snap.data() || {}) : {};
   const feeds = Object.assign({}, stored.feeds);
   /* The single key from before the three kinds is the "just me" one. */
@@ -483,7 +493,7 @@ export const whoAmI = onCall(async (request) => {
 export const churchShowPairingCode = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const d = request.data || {};
-  return orThrow(await pairingCodeIn(db, getAuth(), {
+  return orThrow(await pairingCodeIn(churchOf(request, db).db, getAuth(), {
     uid: request.auth.uid,
     siteId: d.siteId, deviceId: d.deviceId, name: d.name,
     nowMs: Date.now()
@@ -492,7 +502,7 @@ export const churchShowPairingCode = onCall(async (request) => {
 
 export const churchShowDisconnect = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  return orThrow(await disconnectIn(db, getAuth(), {
+  return orThrow(await disconnectIn(churchOf(request, db).db, getAuth(), {
     uid: request.auth.uid,
     siteId: (request.data || {}).siteId,
     deviceId: (request.data || {}).deviceId
@@ -504,7 +514,7 @@ export const churchShowDisconnect = onCall(async (request) => {
 export const churchShowSetJob = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const d = request.data || {};
-  return orThrow(await setJobIn(db, getAuth(), {
+  return orThrow(await setJobIn(churchOf(request, db).db, getAuth(), {
     uid: request.auth.uid, deviceId: d.deviceId, services: d.services, lessonGroups: d.lessonGroups
   }));
 });
@@ -512,7 +522,7 @@ export const churchShowSetJob = onCall(async (request) => {
 /* One computer's name (Martin, 19 Oct 2026: each named on its own). */
 export const churchShowRename = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  return orThrow(await renameIn(db, {
+  return orThrow(await renameIn(churchOf(request, db).db, {
     uid: request.auth.uid,
     deviceId: (request.data || {}).deviceId,
     name: (request.data || {}).name
@@ -526,7 +536,9 @@ export const churchShowRedeem = onRequest({ cors: false, invoker: 'public' }, as
   if (req.method !== 'POST') { res.status(405).json({ error: 'Post the code.' }); return; }
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const out = await redeemIn(db, getAuth(), { code: body.code, nowMs: Date.now() });
+    /* The church the code was made in; no entry is EGBC (H-5). */
+    const cdb = await dbForCode(db, 'churchshow', churchShowHash(churchShowNormalise(body.code)));
+    const out = await redeemIn(cdb, getAuth(), { code: body.code, nowMs: Date.now() });
     res.status(out.status).json(out.body);
   } catch (e) {
     console.error('[churchShowRedeem]', e);
@@ -547,7 +559,9 @@ export const redeemYouthCode = onRequest({ cors: true, invoker: 'public' }, asyn
   if (req.method !== 'POST') { res.status(405).json({ error: 'unknown', message: 'Post the code.' }); return; }
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const out = await redeemYouthCodeIn(db, getAuth(), { code: body.code, nowMs: Date.now() });
+    /* The church the code was made in; no entry is EGBC (H-5). */
+    const cdb = await dbForCode(db, 'youth', codeHash(youthDocId(youthNormalise(body.code))));
+    const out = await redeemYouthCodeIn(cdb, getAuth(), { code: body.code, nowMs: Date.now() });
     res.status(out.status).json(out.body);
   } catch (e) {
     console.error('[redeemYouthCode]', e);
@@ -689,6 +703,15 @@ export const familyGroupsSync = onDocumentWritten({ document: 'addressBook/{id}'
   const before = event.data.before && event.data.before.exists ? event.data.before.data() : null;
   const after = event.data.after && event.data.after.exists ? event.data.after.data() : null;
   await onBookChangeIn(db, event.params.id, before, after);
+});
+
+/* A church's youth code (H-5): which church, for redeemYouthCode. Pages
+   write youth grants, and pages cannot write the index, so the server does
+   it here. EGBC's grants (top level) need none. */
+export const youthGrantIndex = onDocumentCreated({ document: 'churches/{cid}/youthGrants/{id}', region: TRIGGER_REGION }, async (event) => {
+  const cid = String(event.params.cid || '');
+  if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(cid)) return;
+  await indexCode({ churchId: cid }, 'youth', codeHash(event.params.id));
 });
 
 /* A young person's own rota dates and charters, for the Youth app (6b).

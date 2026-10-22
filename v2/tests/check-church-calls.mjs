@@ -17,7 +17,17 @@
  * Eve gets EGBC's top-level answer, as before; Dot must say which.
  */
 import http from 'node:http';
+import { createRequire } from 'node:module';
 import { churchIdOf, scopedDb, claimedChurches } from '../functions/church-scope.js';
+import { hashCode as churchShowHash } from '../functions/churchshow.js';
+import { codeHash } from '../functions/hq-codes.js';
+import { personalise } from '../functions/meeting-papers.js';
+/* The server's own library, from functions/, for calling personalise() as
+   the e-news send does. On the emulator only (emulators:exec sets the host). */
+const fnRequire = createRequire(new URL('../functions/package.json', import.meta.url));
+const { initializeApp, getApps } = fnRequire('firebase-admin/app');
+const { getFirestore } = fnRequire('firebase-admin/firestore');
+if (!getApps().length) initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'egbc-worship-planner' });
 
 const PROJECT = process.env.GCLOUD_PROJECT || 'egbc-worship-planner';
 const FN_PORT = Number(process.env.FUNCTIONS_EMULATOR_PORT || 5101);
@@ -116,6 +126,22 @@ await seed('churches/' + B + '/churchSettings/video', { churchId: B, rooms: [{ k
 const gil = await person('cc.gil@example.invalid', { churches: ['mc-gamma'] });
 await seed('churches/mc-gamma/users/' + gil.uid, { status: 'active', memberId: 'm_gil', name: 'Gil Synthetic' });
 seeded.push('churches/mc-gamma/churchSettings/video', 'churchSettings/video');
+/* Batch 4, codes and links with no sign-in. A site, a rota date for m_cc,
+   and a members' meeting in each place; a youth code in alpha and at EGBC. */
+const FUTURE = '2026-12-06';
+for (const [root, tag, label] of [['churches/' + A + '/', 'a', 'Alpha'], ['churches/' + B + '/', 'b', 'Beta'], ['', 'e', 'EGBC']]) {
+  await seed(root + 'sites/site_' + tag, { name: label + ' hall (made up)' });
+  await seed(root + 'events/ev_cc_' + tag, { date: FUTURE, startTime: '10:00', endTime: '11:00', type: label + ' Synthetic Service', roles: ['Drums'], assignments: { Drums: { id: MID, name: 'Synthetic' } }, teams: ['Worship Team'] });
+  await seed(root + 'churchMeetings/mt_p' + tag, { date: FUTURE, title: label + ' Synthetic AGM', papers: [] });
+  await seed(root + 'addressBook/pp_' + tag, { name: label + ' Paper Synthetic', email: 'pp.' + tag + '@example.invalid', churchMember: true });
+}
+const fnUrl = (name) => `/${PROJECT}/europe-west2/${name}`;
+const getUrl = (path) => req('localhost', FN_PORT, 'GET', path);
+const postJson = (name, body) => req('localhost', FN_PORT, 'POST', fnUrl(name), body);
+const lookupClaims = async (uid) => {
+  const r = JSON.parse((await authPost(`/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:lookup`, { localId: [uid] }, true)).body || '{}');
+  return JSON.parse(((r.users || [])[0] || {}).customAttributes || '{}');
+};
 const getDoc = async (p) => { const r = await req(FS[0], Number(FS[1]), 'GET', DOCS + '/' + p, undefined, OWNER); return r.status === 200 ? JSON.parse(r.body).fields || {} : null; };
 const outboxTo = async (root, addr) => {
   const q = await req(FS[0], Number(FS[1]), 'POST', DOCS + (root ? '/' + root : '') + ':runQuery',
@@ -213,6 +239,79 @@ try {
   ok("  Ann hosts alpha's room: the token is for alpha's Daily room", /^test-owner\.mc-alpha-prayer\./.test((r.result || {}).token || ''), JSON.stringify(r));
   ok("  Ann asking to host beta's room: no such room (in alpha)", refused(await call(ann, 'meetingHostToken', { room: 'BetaRoom' }), 'NOT_FOUND'));
   ok('  Ann naming beta is refused', refused(await call(ann, 'meetingHostToken', { churchId: B, room: 'BetaRoom' }), 'PERMISSION_DENIED'));
+
+  console.log('\nChurchShow (batch 4)');
+  r = await call(ann, 'churchShowPairingCode', { siteId: 'site_a', name: 'CC Alpha PC' });
+  const pa = r.result || {};
+  ok('  Ann pairs a computer in an alpha hall', !!pa.code && !!pa.deviceId, JSON.stringify(r));
+  const ix = pa.code ? await getDoc('hqCodes/churchshow_' + churchShowHash(pa.code)) : null;
+  ok("  the code's index entry says alpha (a hash, not the code)", !!ix && ix.churchId.stringValue === A && !JSON.stringify(ix).includes(pa.code));
+  ok("  Ann giving beta's hall: no such site (in alpha)", refused(await call(ann, 'churchShowPairingCode', { siteId: 'site_b', name: 'x' }), 'NOT_FOUND'));
+  ok('  Ann naming beta is refused', refused(await call(ann, 'churchShowPairingCode', { churchId: B, siteId: 'site_b', name: 'x' }), 'PERMISSION_DENIED'));
+  let red = pa.code ? await postJson('churchShowRedeem', { code: pa.code }) : { status: 0 };
+  ok('  the computer redeems the code with no sign-in', red.status === 200 && JSON.parse(red.body).siteId === 'site_a', red.status + ' ' + red.body);
+  ok("  and its sign-in carries alpha", JSON.stringify((await lookupClaims(pa.deviceId)).churches) === JSON.stringify([A]), JSON.stringify(await lookupClaims(pa.deviceId)));
+  ok("  Ann cannot rename a computer that is not alpha's", refused(await call(ann, 'churchShowRename', { deviceId: 'churchshow-site_b-xxxxxxxxxx', name: 'x' }), 'NOT_FOUND'));
+  r = await call(ann, 'churchShowSetJob', { deviceId: pa.deviceId, services: true, lessonGroups: [] });
+  ok("  setting its job keeps alpha in its sign-in", (r.result || {}).ok === true && JSON.stringify((await lookupClaims(pa.deviceId)).churches) === JSON.stringify([A]), JSON.stringify(r));
+  r = await call(eve, 'churchShowPairingCode', { siteId: 'site_e', name: 'CC EGBC PC' });
+  const pe = r.result || {};
+  ok("  Eve (no claim) pairs in EGBC's hall, as today, with no index entry", !!pe.code && (await getDoc('hqCodes/churchshow_' + churchShowHash(pe.code))) === null, JSON.stringify(r));
+  red = pe.code ? await postJson('churchShowRedeem', { code: pe.code }) : { status: 0 };
+  ok("  and the computer redeems it, with no church in its sign-in", red.status === 200 && !(await lookupClaims(pe.deviceId)).churches, red.status + ' ' + red.body);
+  seeded.push(...[pa, pe].filter(p => p.deviceId).flatMap(p => [(p === pa ? 'churches/' + A + '/' : '') + 'devices/' + p.deviceId]));
+  if (pa.code) seeded.push('hqCodes/churchshow_' + churchShowHash(pa.code), 'churches/' + A + '/deviceCodes/' + churchShowHash(pa.code));
+  if (pe.code) seeded.push('deviceCodes/' + churchShowHash(pe.code));
+
+  console.log('\nYouth codes (batch 4)');
+  await seed('churches/' + A + '/youthGrants/CCAA-2345', { memberId: MID, memberName: 'Kid Alpha', active: true });
+  await seed('youthGrants/CCEE-2345', { memberId: MID, memberName: 'Kid Egbc', active: true });
+  let yix = null; for (let i = 0; i < 40 && !yix; i++) { yix = await getDoc('hqCodes/youth_' + codeHash('CCAA-2345')); if (!yix) await new Promise(r2 => setTimeout(r2, 250)); }
+  ok("  a church's new youth code is indexed by the server", !!yix && yix.churchId.stringValue === A);
+  seeded.push('hqCodes/youth_' + codeHash('CCAA-2345'));
+  red = await postJson('redeemYouthCode', { code: 'ccaa2345' });
+  const ya = red.status === 200 ? JSON.parse(red.body) : {};
+  ok('  the young person redeems it with no sign-in', red.status === 200 && ya.firstName === 'Kid', red.status + ' ' + red.body);
+  const yq = JSON.parse((await req(FS[0], Number(FS[1]), 'POST', DOCS + '/churches/' + A + ':runQuery', { structuredQuery: { from: [{ collectionId: 'youthAccess' }] } }, OWNER)).body).filter(x => x.document);
+  const youthUid = yq.length ? yq[0].document.name.split('/').pop() : '';
+  ok("  their access is recorded in alpha", !!youthUid);
+  ok("  and their sign-in carries alpha", !!youthUid && JSON.stringify((await lookupClaims(youthUid)).churches) === JSON.stringify([A]));
+  red = await postJson('redeemYouthCode', { code: 'CCEE-2345' });
+  ok("  EGBC's youth code redeems as today", red.status === 200 && JSON.parse(red.body).firstName === 'Kid', red.status + ' ' + red.body);
+  yq.forEach(x => seeded.push(x.document.name.split('/documents/')[1]));
+  const eq = JSON.parse((await req(FS[0], Number(FS[1]), 'POST', DOCS + ':runQuery', { structuredQuery: { from: [{ collectionId: 'youthAccess' }] } }, OWNER)).body).filter(x => x.document && JSON.stringify(x.document.fields).includes('CCEE-2345'));
+  ok("  with their access at EGBC's top level and no church in their sign-in", eq.length === 1 && !(await lookupClaims(eq[0].document.name.split('/').pop())).churches);
+  eq.forEach(x => seeded.push(x.document.name.split('/documents/')[1]));
+
+  console.log('\nCalendar feeds (batch 4)');
+  r = await call(ann, 'myCalendarLink', { feed: 'me' });
+  const akey = (r.result || {}).key || '';
+  ok('  Ann makes her rota link', !!akey, JSON.stringify(r));
+  let feed = akey ? await getUrl(fnUrl('rotaFeed') + '?k=' + akey) : { status: 0, body: '' };
+  ok("  it shows alpha's rota date, and not beta's or EGBC's", feed.status === 200 && feed.body.includes('Alpha Synthetic Service') && !feed.body.includes('Beta Synthetic') && !feed.body.includes('EGBC Synthetic'), feed.status + ' ' + feed.body.slice(0, 200));
+  ok("  Ann's list of links is alpha's", ((await call(ann, 'myCalendarLinks')).result || {}).feeds.me === akey);
+  r = await call(ann, 'myCalendarLink', { feed: 'me', reset: true });
+  const akey2 = (r.result || {}).key || '';
+  ok("  resetting it: the old link stops working", akey2 && akey2 !== akey && (await getUrl(fnUrl('rotaFeed') + '?k=' + akey)).status === 404);
+  ok("  and its index entry is gone", (await getDoc('hqCodes/feed_' + codeHash(akey))) === null);
+  ok('  Ann naming beta is refused', refused(await call(ann, 'myCalendarLink', { churchId: B, feed: 'me' }), 'PERMISSION_DENIED'));
+  r = await call(eve, 'myCalendarLink', { feed: 'me' });
+  const ekey = (r.result || {}).key || '';
+  feed = ekey ? await getUrl(fnUrl('rotaFeed') + '?k=' + ekey) : { status: 0, body: '' };
+  ok("  Eve's link (no claim) shows EGBC's rota date, as today", feed.status === 200 && feed.body.includes('EGBC Synthetic Service') && !feed.body.includes('Alpha Synthetic'), feed.status + ' ' + feed.body.slice(0, 200));
+  seeded.push('churches/' + A + '/calendarKeys/' + ann.uid, 'churches/' + A + '/calendarFeeds/' + akey2, 'hqCodes/feed_' + codeHash(akey2), 'calendarKeys/' + eve.uid, 'calendarFeeds/' + ekey);
+
+  console.log('\nMeeting papers links (batch 4)');
+  const adb = getFirestore();
+  const html = (tag) => '<a href="https://example.invalid/church-meeting.html?meeting=mt_p' + tag + '">Papers</a>';
+  const links = (tag) => ({ meetingId: 'mt_p' + tag, expires: Date.parse(FUTURE) + 30 * 86400000, hasAccount: () => false });
+  const base = 'http://localhost:' + FN_PORT + fnUrl('').replace(/\/$/, '');
+  const pageOf = async (out) => { const m = /\/meetingPapers\?t=([A-Za-z0-9_-]+)/.exec(out); return m ? { t: m[1], page: await getUrl(fnUrl('meetingPapers') + '?t=' + m[1]) } : { t: '', page: { status: 0, body: '' } }; };
+  let pp = await pageOf(await personalise(scopedDb(adb, A), links('a'), { member: true, id: 'ab_pp_a', email: 'pp.a@example.invalid' }, html('a'), { fnBase: base }));
+  ok("  an alpha member's own link opens alpha's meeting", pp.page.status === 200 && pp.page.body.includes('Alpha Synthetic AGM'), pp.page.status + ' ' + pp.page.body.slice(0, 160));
+  if (pp.t) seeded.push('hqCodes/papers_' + codeHash(pp.t));
+  const ep = await pageOf(await personalise(adb, links('e'), { member: true, id: 'ab_pp_e', email: 'pp.e@example.invalid' }, html('e'), { fnBase: base }));
+  ok("  an EGBC member's link opens EGBC's, as today, with no index entry", ep.page.status === 200 && ep.page.body.includes('EGBC Synthetic AGM') && (await getDoc('hqCodes/papers_' + codeHash(ep.t))) === null, ep.page.status + ' ' + ep.page.body.slice(0, 160));
 } finally {
   for (const p of seeded) await del(p).catch(() => {});
   /* The outbox rows the sends made, in each place. */

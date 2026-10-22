@@ -201,3 +201,38 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
   - Video ignoring the church: 4 red.
 - **Still passing, each on a fresh emulator:** check-meeting-host 19/19, check-members-meeting 52/52, check-meeting-present 8/8.
 - **Deploy:** castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople, videoRoomsEnsure, meetingHostToken.
+
+### H-5, batch 4 built: codes and links that come with no sign-in (22 Oct 2026)
+
+- **`functions/hq-codes.js`:** when a church makes a code, the server also writes `hqCodes/{kind}_{hash}` = `{ churchId }`.
+  - The hash is of the code; the code itself is never stored there.
+  - The public endpoint looks the code up there first. No entry means EGBC, so every existing code and every code EGBC makes keeps working.
+  - No rule opens `hqCodes`; only the server reads and writes it.
+- **ChurchShow:**
+  - Pairing, disconnecting, setting the job and renaming all take the church from `churchOf`.
+  - A church's computer has `churches: [cid]` in its sign-in, kept when its job changes.
+  - churchShowRedeem finds the church from the code.
+- **Youth codes:**
+  - **New trigger, `youthGrantIndex`, on `churches/{cid}/youthGrants/{id}`.** Pages make youth codes and pages can't write the index, so the server does it.
+  - redeemYouthCode finds the church from the code. The young person's access is recorded in that church, and their sign-in carries it.
+- **Calendar feeds:** myCalendarLink(s) take the church from `churchOf`, and each link is indexed. Resetting a link removes the old index entry. rotaFeed reads the church's rota.
+- **Meeting papers links:** `personalise` indexes a church's link, and meetingPapers opens it. A church's papers live in its own Storage folder.
+- **Not moved yet: findMe, myDates and saveAnswer** (the public availability form). The form is used with no sign-in and no code, so nothing in the request can say which church. It stays EGBC's until step 4 gives each church its own address.
+- **check-church-calls: 84/84.** New for this batch:
+  - Each kind of code made in alpha works with no sign-in and lands in alpha.
+  - EGBC's equivalents work as today, with no index entry.
+  - Beta's site or computer cannot be reached from alpha.
+  - The old rota link stops working after a reset.
+- **Breaks:**
+  - The index ignored (everything treated as EGBC's): 6 red.
+  - A computer's sign-in without its church: 2 red.
+- **Still passing:**
+  - churchshow-pairing 76/76, rota-feed 45/45, meeting-papers 21/21 and enews-send 48/48 (spare emulators);
+  - app-calendar 20/20, calendar-end-to-end 23/23, churchshow-page 17/17 and youth-access 34/34 (fresh dev emulator each).
+- **Deploy:**
+  - churchShowPairingCode, churchShowDisconnect, churchShowSetJob, churchShowRename, churchShowRedeem;
+  - redeemYouthCode;
+  - myCalendarLink, myCalendarLinks, rotaFeed;
+  - meetingPapers;
+  - **new:** youthGrantIndex;
+  - enewsSendDue and enewsTest, which call `personalise` (Comms' functions; their code is unchanged).

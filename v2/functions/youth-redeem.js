@@ -114,6 +114,9 @@ export async function redeemYouthCode(db, auth, { code, nowMs }) {
      display name is the child's first name only - see below. */
   const firstName = outcome.memberName.split(/\s+/)[0] || 'Youth';
   await auth.createUser({ uid: outcome.uid, displayName: firstName });
+  /* A church's code (H-5): the child's sign-in carries that church, so
+     myYouthHub and the rules read that church's records. */
+  if (db.churchId) await auth.setCustomUserClaims(outcome.uid, { churches: [db.churchId] });
 
   /* NO EMAIL ADDRESS, AND NO SURNAME, in anything the phone can reach.
      `sentTo` - the parent's address - stays in youthGrants, which is now shut

@@ -35,6 +35,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { createHash, randomBytes } from 'node:crypto';
 import { under18Emails } from './under18.js';
+/* A church's link says which church (H-5); no entry is EGBC. */
+import { codeHash, indexCode, dbForCode } from './hq-codes.js';
 
 const REGION = 'europe-west2';
 const DAYS = 30;
@@ -80,6 +82,7 @@ export async function personalise(db, links, person, html, o = {}) {
     meetingId: links.meetingId, personId: String(person.id || '').replace(/^ab_/, ''), email: String(person.email || '').toLowerCase(),
     expires: links.expires, issueId: o.issueId || '', createdAt: new Date().toISOString()
   });
+  await indexCode(db, 'papers', codeHash(token), { expires: links.expires });
   const mine = String(o.fnBase || '') + '/meetingPapers?t=' + token;
   return String(html).replace(new RegExp('https?://[^"\'\\s<>]*/church-meeting\\.html\\?meeting=' + links.meetingId + '(?=["\'\\s<>])', 'g'), mine);
 }
@@ -112,7 +115,8 @@ export async function runPapers({ db, bucket, query = {}, now = Date.now() }) {
   const m = await db.collection('churchMeetings').doc(String(L.meetingId)).get();
   if (!m.exists) return no(404, 'This meeting isn\u2019t there any more', 'Please ask the church office.');
   const M = m.data(), papers = Array.isArray(M.papers) ? M.papers : [];
-  const prefix = 'churchMeetings/' + m.id + '/papers/';
+  /* A church's papers are in its own folder (H-5); EGBC's where they were. */
+  const prefix = (db.churchId ? 'churches/' + db.churchId + '/' : '') + 'churchMeetings/' + m.id + '/papers/';
   if (query.f !== undefined && query.f !== '') {
     const n = parseInt(query.f, 10), pp = papers[n];
     if (!pp || !/^\d{1,3}$/.test(String(query.f)) || !String(pp.path || '').startsWith(prefix) || /\.\./.test(pp.path)) return no(404, 'That paper isn\u2019t there', 'It may have been taken down. Please go back to the list.');
@@ -136,7 +140,8 @@ export const meetingPapers = onRequest({ region: REGION, invoker: 'public', cors
   res.set({ 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' });
   if (req.method !== 'GET') return res.status(405).send('');
   try {
-    const r = await runPapers({ db: getFirestore(), bucket: getStorage().bucket(), query: req.query || {} });
+    const root = getFirestore();
+    const r = await runPapers({ db: await dbForCode(root, 'papers', codeHash(String((req.query || {}).t || ''))), bucket: getStorage().bucket(), query: req.query || {} });
     res.status(r.status).type(r.type);
     if (r.filename) res.set('Content-Disposition', 'inline; filename="' + r.filename + '"');
     return res.send(r.body);
