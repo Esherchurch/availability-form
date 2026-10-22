@@ -628,7 +628,7 @@
     if (global.EGBCShare) return Promise.resolve(global.EGBCShare);
     if (!shareLoading) shareLoading = new Promise(function (res, rej) {
       var s = document.createElement('script');
-      s.src = HERE + 'egbc-share.js?v=202610212300';
+      s.src = HERE + 'egbc-share.js?v=202610221610';
       s.onload = function () { global.EGBCShare ? res(global.EGBCShare) : rej(new Error('Sharing could not be loaded.')); };
       s.onerror = function () { shareLoading = null; rej(new Error('Sharing could not be loaded. Check the signal and try again.')); };
       document.head.appendChild(s);
