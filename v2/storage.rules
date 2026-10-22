@@ -560,6 +560,32 @@ service firebase.storage {
 
     // ── end EVENTS ──────────────────────────────────────────────────
 
+    // ── EVERY CHURCH'S OWN FILES: churches/{cid}/... (multi-church step 2) ──
+    // The same gate as firestore.rules: the church in the sign-in's claims,
+    // and the person's place from that church's own users record. Only the
+    // church's files folder is open so far; anything else under a church
+    // falls through to the closed rule below. Made-up churches only.
+    function stInChurch(cid) {
+      return request.auth != null && cid in request.auth.token.get('churches', []);
+    }
+    function stChurchMe(cid) {
+      return firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data;
+    }
+    function stChurchActive(cid) {
+      return stInChurch(cid)
+             && firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+             && stChurchMe(cid).get('status', '') == 'active';
+    }
+    function stChurchAdmin(cid) {
+      return stChurchActive(cid)
+             && (stChurchMe(cid).get('masterAdmin', false) == true || stChurchMe(cid).get('adminFor', []).size() > 0);
+    }
+    match /churches/{cid}/files/{fileId} {
+      allow read: if stChurchActive(cid);
+      allow create, update: if stChurchAdmin(cid) && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if stChurchAdmin(cid);
+    }
+
     // ── Everything else is closed ─────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

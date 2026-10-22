@@ -74,3 +74,29 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
 **Deploy when wanted:** `hqMembershipClaims` and `hqMyChurches`. They do nothing until a membership is written.
 
 **Next: step 2.** The rules and paths under `churches/{cid}`, with the cross-church suites, on made-up churches only. Then a report before going further.
+
+## H-4. Multi-church step 2 built: every church's data under churches/{cid} (22 Oct 2026)
+
+**Made-up churches only (mc-alpha, mc-beta). EGBC's data is not moved. The rules are not deployed; they go live when the hub goes live.**
+
+- **The gate, first on every path under `churches/{cid}`:** the church is in the sign-in's `churches` claim (step 1 sets it).
+- **A person's place inside a church comes from that church's own record,** `churches/{cid}/users/{uid}` (status, teams, adminFor, masterAdmin, memberId). Never from EGBC's top-level `users`. The server writes it; no page can.
+- **The first collections with rules there:** settings, users, addressBook, news, careRouting, leaderChecks (the lead and deputy, a master admin, or the person). Everything else under a church is shut until it moves in with its rules.
+- **Storage:** `churches/{cid}/files/…`, behind the same gate; members read, admins upload. Anything else under a church is shut.
+- **No new top-level collections:** `tests/check-top-level.mjs` fails when one appears outside `churches/{cid}` without a reason in `tests/top-level-collections.json`.
+
+**Checks:**
+- **church-scope-rules.test.mjs: 1975/1975.** It includes 1,920 cross-church checks over 192 collection names: a master admin, admin and member of one church cannot read, list or write any of them in the other, and the other way round.
+- **check-top-level: 4/4.**
+- **Existing suites:** rules 1763/1763, storage 131/131.
+
+**Breaks:**
+- **Claim gate removed:** 5 red. The church's own users record still kept the other church's settings and news shut, so there are two locks.
+- **Roles read from EGBC's `users`:** 18 red, including an EGBC master admin who is only a member in alpha writing alpha's settings.
+- **Storage gate removed:** 1 red.
+- **Storage roles read from EGBC's `users`:** 3 red.
+- **A stray top-level collection:** check-top-level red, naming it.
+
+**Deploy:** nothing. No functions changed.
+
+**Next (step 3, after review):** functions take churchId from the path or the claims.
