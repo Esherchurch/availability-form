@@ -15,8 +15,9 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
-<script src="egbc-sg-templates.js?v=202610221600"></script>
+<script src="egbc-sg-templates.js?v=202610221900"></script>
 <script src="egbc-sg-assess.js?v=202610221600"></script>
+<script src="egbc-sg-dash.js?v=202610221900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -84,7 +85,9 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   function db() { return EGBCAuth.db; }
   var app = document.getElementById('app');
-  var V = { site: '', tab: 'risks' }, SITES = [], LEADSITES = [], MASTER = false, TRUSTEE = false, ME = {}, ACTS = [], RISKS = [], SUGG = [], W = null;
+  var V = { site: '', tab: (location.search.match(/[?&]tab=(\w+)/) || [])[1] || 'dash' }, SITES = [], LEADSITES = [], MASTER = false, TRUSTEE = false, ME = {}, ACTS = [], RISKS = [], SUGG = [], W = null, D = null, SET = {};
+  var DASH = window.EGBCSgDash;
+  function weeks() { return Math.round((((SET.register || {}).dueSoonDays) || 42) / 7); }
   function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function keeps() { return LEADSITES.indexOf(V.site) >= 0; }
   var WORDS = { red: 'High', amber: 'Medium', green: 'Low' };
@@ -95,9 +98,10 @@
     return Promise.all([
       db().collection('sgActivities').where('siteId', '==', V.site).get(),
       db().collection('sgRisks').where('siteId', '==', V.site).get(),
-      db().collection('sgWarnings').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; })
+      db().collection('sgWarnings').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; }),
+      db().collection('sgDashboard').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; })
     ]).then(function (r) {
-      W = r[2];
+      W = r[2]; D = r[3];
       ACTS = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
       RISKS = r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       return keeps() ? suggestions() : [];
@@ -118,8 +122,11 @@
   /* ---- drawing ---- */
   function draw() {
     var head = '<div class="bar">' + (SITES.length > 1 ? '<label class="hint" for="site">Site</label> <select id="site">' + SITES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === V.site ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') + '</div>' +
-      '<div class="tabs" role="tablist">' + [['risks', 'Standing risks'], ['events', 'Event assessments'], ['warnings', 'Warnings' + (W && W.items && W.items.length ? ' (' + W.items.length + ')' : '')]].map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" role="tab" aria-selected="' + (V.tab === t[0]) + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="tabs" role="tablist">' + [['dash', 'Dashboard'], ['risks', 'Standing risks'], ['events', 'Event assessments'], ['warnings', 'Warnings' + (W && W.items && W.items.length ? ' (' + W.items.length + ')' : '')], ['review', 'Annual review'], ['snaps', 'Snapshots']].map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" role="tab" aria-selected="' + (V.tab === t[0]) + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
       (keeps() ? '' : '<p class="ro" id="readOnly">Read only. The register is kept by this site’s safeguarding lead and deputy.</p>');
+    if (V.tab === 'dash') { app.innerHTML = head + DASH.dashboardHtml(dashCtx()); wire(); DASH.wireDash(app, dashCtx()); wireNow('[data-dashnow]', '[data-dashmsg]'); return; }
+    if (V.tab === 'review') { app.innerHTML = head + '<div id="reviewBox"><p class="hint">Loading…</p></div>'; wire(); return drawReview(); }
+    if (V.tab === 'snaps') { app.innerHTML = head + '<div id="snapBox"><p class="hint">Loading…</p></div>'; wire(); return drawSnaps(); }
     if (V.tab === 'warnings') { app.innerHTML = head + warningsHtml(); wire(); wireWarnings(); return; }
     if (V.tab === 'events') { app.innerHTML = head + '<div id="evList"><p class="hint">Loading…</p></div>'; wire(); return drawEvents(); }
     var body = ACTS.length ? ACTS.map(actCard).join('') : '<div class="card"><p style="margin:0" id="noActs">No activities in the register yet.' + (keeps() ? ' Add one below: each Sunday group, youth group or club, and the other kinds of activity the church runs.' : '') + '</p></div>';
@@ -250,14 +257,39 @@
           '<span class="rag ' + w.level + '"><i aria-hidden="true"></i>' + LEVEL_WORDS[w.level] + '</span><div style="flex:1;min-width:220px"><b>' + esc(w.label) + '</b>' +
           '<div class="hint" style="margin-top:4px">What to do: ' + esc(w.todo || '') + '</div>' +
           (keeps() && w.fix ? '<a class="btn sec sm" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:8px" data-fix href="' + esc(w.fix) + '">Go to it</a>' : '') + '</div></div></div>';
-      }).join('') : '<div class="card" id="noWarnings"><p style="margin:0">Nothing has slipped. Every watched control is in date.</p></div>');
+      }).join('') : '<div class="card" id="noWarnings"><p style="margin:0">Nothing has slipped. Every watched control is in date.</p></div>') + DASH.sessionsHtml(D);
   }
-  function wireWarnings() {
-    var b = document.getElementById('warnNow'); if (!b) return;
+  function wireWarnings() { wireNow('#warnNow', '#warnMsg'); }
+  /* "Refresh now": the server works out the warnings and the dials again */
+  function wireNow(btn, msg) {
+    var b = document.querySelector(btn); if (!b) return;
     b.onclick = function () {
-      b.disabled = true; document.getElementById('warnMsg').textContent = 'Working it out…';
-      EGBCAuth.call('sgWarningsNow', { siteId: V.site }).then(function () { return load(); }, function (e) { b.disabled = false; document.getElementById('warnMsg').textContent = 'It could not be worked out: ' + (e.message || e); });
+      b.disabled = true; document.querySelector(msg).textContent = 'Working it out…';
+      EGBCAuth.call('sgWarningsNow', { siteId: V.site }).then(function () { return load(); }, function (e) { b.disabled = false; document.querySelector(msg).textContent = 'It could not be worked out: ' + (e.message || e); });
     };
+  }
+
+  /* ---- THE DASHBOARD, THE ANNUAL REVIEW, SNAPSHOTS (step 4; egbc-sg-dash.js) ---- */
+  function setTab(t) { close(); V.tab = t; draw(); window.scrollTo(0, 0); }
+  function dashCtx() { return { D: D, W: W, lead: keeps(), weeks: weeks(), reviewItems: T.REVIEW_ITEMS, setTab: setTab, open: open }; }
+  function reviewCtx() {
+    return { db: db, year: new Date().getFullYear(), items: T.REVIEW_ITEMS, siteId: V.site, lead: keeps(), trustee: TRUSTEE, me: ME, open: open, close: close,
+      /* the dials follow at once */
+      after: function () { return EGBCAuth.call('sgWarningsNow', { siteId: V.site }).catch(function () {}).then(load); } };
+  }
+  function drawReview() {
+    var c = reviewCtx(), box = document.getElementById('reviewBox');
+    return DASH.loadReview(c).then(function (got) { box.innerHTML = DASH.reviewHtml(c, got, D && D.review && D.review.status); DASH.wireReview(box, c); },
+      function (e) { box.innerHTML = '<div class="card">This could not be loaded: ' + esc(e.message || e) + '</div>'; });
+  }
+  function drawSnaps() {
+    var box = document.getElementById('snapBox'), site = SITES.filter(function (x) { return x.id === V.site; })[0] || {};
+    var c = { db: db, siteId: V.site, siteName: site.name || '', may: TRUSTEE || MASTER, me: ME, W: W, D: D, risks: RISKS, acts: ACTS, T: T, open: open, close: close, after: load };
+    return db().collection('sgSnapshots').where('siteId', '==', V.site).get().then(function (q) {
+      var list = q.docs.map(function (d) { var x = Object.assign({ id: d.id }, d.data()); x.at = x.at && x.at.toDate ? x.at.toDate().toISOString() : String(x.at || ''); return x; })
+        .sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+      box.innerHTML = DASH.snapshotsHtml(c, list); DASH.wireSnapshots(box, c, list);
+    }, function (e) { box.innerHTML = '<div class="card">These could not be loaded: ' + esc(e.message || e) + '</div>'; });
   }
 
   /* ---- TAB B: EVENT ASSESSMENTS (step 2) ----
@@ -305,7 +337,8 @@
     return Promise.all([SG.myLeadSites(), db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }), db().collection('sites').where('active', '==', true).get()])
       .then(function (r) {
         LEADSITES = r[0] || [];
-        var team = (r[1] && r[1].exists && r[1].data().trusteeTeam) || 'Elders';
+        SET = (r[1] && r[1].exists && r[1].data()) || {};
+        var team = SET.trusteeTeam || 'Elders';
         TRUSTEE = !!(EGBCAuth.inTeam && EGBCAuth.inTeam(team));
         var all = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
         SITES = (MASTER || TRUSTEE) ? all : all.filter(function (x) { return LEADSITES.indexOf(x.id) >= 0; });

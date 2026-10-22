@@ -146,4 +146,112 @@ function twoAdultsMails(d) {
   return out;
 }
 
-module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo };
+/* ===================================================================
+   STEP 4: THE DIALS (F-265 part B) - the sums
+   ===================================================================
+   dialsFrom(d) -> { dials: { checks, sessions, consent, assess, review,
+     incidents }, sessions: [...], consentByGroup: [...] }
+   Each dial: { value, of, pct, rag, parts, why }. rag is 'green' | 'amber'
+   | 'red', 'none' (nothing on file yet: an empty dial at 0, said in words)
+   or 'unread' (could not be read: never a zero). COUNTS ONLY: group names
+   are the church's words for its activities; never a person, a child, an
+   incident's words or a concern. Concerns are not counted on any dial.
+   =================================================================== */
+/* the church-wide annual review's items (the page's list is
+   egbc-sg-templates.js REVIEW_ITEMS; the unit test checks they match) */
+const REVIEW_ITEMS = [
+  { id: 'leads', who: 'lead' }, { id: 'register', who: 'lead' }, { id: 'policy', who: 'lead' },
+  { id: 'adopted', who: 'trustee' }, { id: 'trusteeTraining', who: 'trustee' }, { id: 'recruitment', who: 'lead' },
+  { id: 'hirers', who: 'lead', optional: true }, { id: 'return', who: 'either', optional: true }
+];
+/* green at or above g, amber at or above a, else red (percentages); for
+   incidents, a count where lower is better: green at or below g, amber at or below a */
+const DIAL_DEFAULTS = { checks: { g: 95, a: 85 }, sessions: { g: 95, a: 85 }, consent: { g: 95, a: 85 }, assess: { g: 100, a: 80 }, incidents: { g: 0, a: 2 } };
+function thresholds(st) {
+  const set = ((st || {}).dials) || {}, out = {};
+  Object.keys(DIAL_DEFAULTS).forEach((k) => {
+    const x = set[k] || {}, d = DIAL_DEFAULTS[k], num = (v, f) => (typeof v === 'number' && isFinite(v) && v >= 0 ? v : f);
+    const g = num(x.g, d.g), a = num(x.a, d.a);
+    /* amber can't be stricter than green */
+    out[k] = k === 'incidents' ? { g, a: Math.max(a, g) } : { g, a: Math.min(a, g) };
+  });
+  return out;
+}
+const pctOf = (v, of) => (of ? Math.floor((v / of) * 100) : null);
+function byPct(v, of, t) { if (!of) return 'none'; const p = (v / of) * 100; return p >= t.g ? 'green' : p >= t.a ? 'amber' : 'red'; }
+
+/* the year's review: records [{ itemId, at (ISO), na }] this year;
+   lastYear: the same for last year. Overdue a year after last year's review. */
+function reviewFrom({ records, lastYear, today }) {
+  const got = {}, last = {};
+  (records || []).forEach((r) => { if (REVIEW_ITEMS.some((i) => i.id === r.itemId)) got[r.itemId] = r; });
+  const na = REVIEW_ITEMS.filter((i) => i.optional && got[i.id] && got[i.id].na).map((i) => i.id);
+  const apply = REVIEW_ITEMS.filter((i) => na.indexOf(i.id) < 0);
+  const done = apply.filter((i) => got[i.id]).length, of = apply.length;
+  (lastYear || []).forEach((r) => { last[r.itemId] = r; });
+  const lastAt = Object.values(last).map((r) => String(r.at || '').slice(0, 10)).filter(Boolean).sort().pop() || '';
+  const due = lastAt ? plus(lastAt, 365) : '';
+  const status = done === of ? 'done' : (due && today > due) ? 'overdue' : done ? 'underway' : 'notstarted';
+  return { done, of, na, status, due, items: REVIEW_ITEMS.map((i) => ({ id: i.id, done: !!got[i.id], na: na.indexOf(i.id) >= 0, at: got[i.id] ? String(got[i.id].at || '').slice(0, 10) : '' })),
+    rag: status === 'done' ? 'green' : status === 'overdue' ? 'red' : 'amber' };
+}
+
+/* d: { today, settings: { dbsYears, trainingYears, dueSoonDays, ratioAll, dials },
+        leaderMids, checks: { mid: leaderChecks }, groups: [{ id, name, ratio }],
+        sessions: [{ groupId, day, children, leaders }] (the last 8 weeks, today too),
+        consent: [{ groupId, consentUntil }], assess: [{ signed }], review (reviewFrom),
+        incidents: [{ created: 'YYYY-MM-DD', followed: bool }], unread: { dialKey: why } } */
+function dialsFrom(d) {
+  const st = d.settings || {}, t = thresholds(st), today = d.today, until = plus(today, st.dueSoonDays || 42), unread = d.unread || {}, dials = {};
+  const names = {}; (d.groups || []).forEach((g) => { names[g.id] = g; });
+  const put = (k, x) => { dials[k] = unread[k] ? { value: null, of: null, pct: null, rag: 'unread', parts: {}, why: String(unread[k]).slice(0, 160) } : x; };
+
+  /* 1. leaders with in-date checks (a DBS check and training) */
+  const parts = { ok: 0, soon: 0, out: 0 };
+  [...new Set(d.leaderMids || [])].forEach((mid) => {
+    const c = (d.checks || {})[mid] || null, k = Safeguarding.checkStatus(c, { dbsYears: st.dbsYears || 3, trainingYears: st.trainingYears || 3 }, today);
+    if (!k.ok) { parts.out++; return; }
+    const addY = (dt, y) => { const x = new Date(String(dt).slice(0, 10) + 'T12:00:00Z'); x.setUTCFullYear(x.getUTCFullYear() + y); return x.toISOString().slice(0, 10); };
+    const first = [addY(c.dbsSeen, st.dbsYears || 3), addY(c.trainingDate, st.trainingYears || 3)].sort()[0];
+    if (first <= until) parts.soon++; else parts.ok++;
+  });
+  const cOf = parts.ok + parts.soon + parts.out, cIn = parts.ok + parts.soon;
+  put('checks', { value: cIn, of: cOf, pct: pctOf(cIn, cOf), rag: byPct(cIn, cOf, t.checks), parts });
+
+  /* 2. sessions with enough leaders (and two adults), the last 8 weeks */
+  const sess = (d.sessions || []).filter((x) => x.children > 0 && names[x.groupId]).map((x) => {
+    const per = +names[x.groupId].ratio || +st.ratioAll || 5, need = Math.max(2, Math.ceil(x.children / per));
+    return { group: String(names[x.groupId].name || 'A group').slice(0, 80), day: x.day, children: x.children, leaders: x.leaders, need, ok: x.leaders >= need };
+  }).sort((a, b) => b.day.localeCompare(a.day) || a.group.localeCompare(b.group));
+  const sOk = sess.filter((x) => x.ok).length;
+  put('sessions', { value: sOk, of: sess.length, pct: pctOf(sOk, sess.length), rag: byPct(sOk, sess.length, t.sessions), parts: { ok: sOk, short: sess.length - sOk } });
+
+  /* 3. children with a current consent form (registered children) */
+  const cp = { ok: 0, soon: 0, out: 0 }, per = {};
+  (d.consent || []).forEach((c) => {
+    const k = !c.consentUntil || c.consentUntil < today ? 'out' : c.consentUntil <= until ? 'soon' : 'ok';
+    cp[k]++;
+    const g = per[c.groupId] = per[c.groupId] || { group: (names[c.groupId] || {}).name || 'Not in a group', ok: 0, soon: 0, out: 0 };
+    g[k]++;
+  });
+  const kOf = cp.ok + cp.soon + cp.out, kIn = cp.ok + cp.soon;
+  put('consent', { value: kIn, of: kOf, pct: pctOf(kIn, kOf), rag: byPct(kIn, kOf, t.consent), parts: cp });
+
+  /* 4. event assessments signed off (events in the next 60 days that need one) */
+  const aOf = (d.assess || []).length, aOk = (d.assess || []).filter((x) => x.signed).length;
+  put('assess', { value: aOk, of: aOf, pct: pctOf(aOk, aOf), rag: byPct(aOk, aOf, t.assess), parts: { ok: aOk, waiting: aOf - aOk } });
+
+  /* 5. the annual review (church-wide) */
+  const r = d.review || { done: 0, of: 0, rag: 'amber', status: 'notstarted' };
+  put('review', { value: r.done, of: r.of, pct: pctOf(r.done, r.of), rag: r.of ? r.rag : 'none', parts: { done: r.done, left: r.of - r.done }, status: r.status });
+
+  /* 6. incident follow-ups open: this year's incidents with no follow-up after 7 days (a count, lower is better) */
+  const year = today.slice(0, 4), inc = (d.incidents || []).filter((x) => String(x.created || '').slice(0, 4) === year);
+  const open = inc.filter((x) => !x.followed && daysTo(x.created, today) >= 7);
+  const oldest = open.length ? Math.max(...open.map((x) => daysTo(x.created, today))) : 0;
+  put('incidents', { value: open.length, of: inc.length, pct: null, rag: open.length <= t.incidents.g ? 'green' : open.length <= t.incidents.a ? 'amber' : 'red', parts: { open: open.length, followed: inc.length - open.length }, oldestDays: oldest });
+
+  return { dials, sessions: sess.slice(0, 100), consentByGroup: Object.values(per).sort((a, b) => String(a.group).localeCompare(String(b.group))).slice(0, 50) };
+}
+
+module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS };

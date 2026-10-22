@@ -2560,6 +2560,56 @@ service cloud.firestore {
       allow read: if sgRegSees(siteId);
       allow write: if false;
     }
+    // ---- STEP 4: THE DIALS, THE ANNUAL REVIEW AND SNAPSHOTS (F-265) ----
+    // The dials: counts only, written by the server with the warnings.
+    match /sgDashboard/{siteId} {
+      allow read: if sgRegSees(siteId);
+      allow write: if false;
+    }
+    function sgTrustee() { return onTeam(sgTrusteeTeam()); }
+    function sgLeadSite() {
+      return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
+             ? get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', '') : '';
+    }
+    // The church-wide annual review (Martin, 22 Oct): one record per item per
+    // year, sgReviews/<year>_<item>, saying who and when - never changed or
+    // removed. Any site's lead or deputy records the lead's items (naming
+    // their site); the trustees record theirs; either the annual return.
+    // Only the two optional items may be marked "does not apply".
+    match /sgReviews/{id} {
+      // one not recorded yet: nothing to see
+      allow read: if resource == null ? active()
+                    : (isMaster() || sgTrustee() || sgLeadOf(sgLeadSite()) || sgLeadOf(resource.data.get('siteId', '')));
+      allow create: if active()
+                    && request.resource.data.keys().hasOnly(['year', 'itemId', 'siteId', 'at', 'by', 'byName', 'note', 'na'])
+                    && request.resource.data.year is int && request.resource.data.year == request.time.year()
+                    && request.resource.data.itemId is string
+                    && id == string(request.resource.data.year) + '_' + request.resource.data.itemId
+                    && request.resource.data.at == request.time && request.resource.data.by == request.auth.uid
+                    && sgText(request.resource.data.get('byName', ''), 120) && sgText(request.resource.data.get('note', ''), 300)
+                    && request.resource.data.get('na', false) is bool
+                    && (request.resource.data.get('na', false) == false || request.resource.data.itemId in ['hirers', 'return'])
+                    && request.resource.data.get('siteId', '') is string
+                    && ((request.resource.data.itemId in ['leads', 'register', 'policy', 'recruitment', 'hirers', 'return'] && sgLeadOf(request.resource.data.get('siteId', '')))
+                        || (request.resource.data.itemId in ['adopted', 'trusteeTraining', 'return'] && sgTrustee()));
+      allow update, delete: if false;
+    }
+    // The trustees' dated snapshots: taken by the trustees and master admins,
+    // read by those who read the register, never changed. The banner says
+    // what it is, so it is never mistaken for an outside body's assessment.
+    match /sgSnapshots/{id} {
+      allow read: if sgRegSees(resource.data.get('siteId', ''));
+      allow create: if (isMaster() || sgTrustee())
+                    && request.resource.data.keys().hasOnly(['siteId', 'banner', 'by', 'byName', 'at', 'note', 'risks', 'warnings', 'dials', 'review'])
+                    && request.resource.data.siteId is string && request.resource.data.siteId != ''
+                    && request.resource.data.banner is string && request.resource.data.banner.size() <= 200
+                    && request.resource.data.banner.matches('^Safeguarding risk register: .+')
+                    && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
+                    && sgText(request.resource.data.get('byName', ''), 120) && sgText(request.resource.data.get('note', ''), 300)
+                    && request.resource.data.risks is list && request.resource.data.risks.size() <= 200
+                    && request.resource.data.warnings is map && request.resource.data.dials is map && request.resource.data.review is map;
+      allow update, delete: if false;
+    }
 
     // What the public sign-up page may know: only "waiting for sign-off" or
     // "open" - never the assessment. "Open" must match a signed or waived

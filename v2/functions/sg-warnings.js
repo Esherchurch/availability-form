@@ -15,11 +15,18 @@
    leader checks, consent dates, events and their named leaders, the
    register's own risks - with the Admin SDK, and writes only counts.
    No new secret or setting. Off with the safeguarding switch.
+
+   STEP 4, THE DIALS (F-265 part B): the same run writes sgDashboard/{siteId}
+   - six dials (checks, sessions, consent, assessments, the annual review,
+   incident follow-ups), the last 8 weeks' sessions and consent per group,
+   as counts. An incident gives only its date and whether it has a
+   follow-up; concerns are never read. The 8 weeks before today are read
+   once a day and kept; today's are read every time.
    =================================================================== */
 import { createRequire } from 'node:module';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldPath } from 'firebase-admin/firestore';
 import { featureOn } from './features.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
@@ -37,7 +44,7 @@ export function londonDay(at = new Date()) {
 async function settingsOf(dbi) {
   const s = (await dbi.collection('safeguardingSettings').doc('defaults').get()).data() || {};
   return { ratioAll: s.ratioAll || 5, ratioUnder8: s.ratioUnder8 || 4, dbsYears: s.dbsYears || 3, trainingYears: s.trainingYears || 3,
-    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, trusteeTeam: s.trusteeTeam || 'Elders' };
+    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders' };
 }
 const rows = (q) => q.get().then((s) => s.docs.map((d) => Object.assign({ id: d.id }, d.data())), () => []);
 
@@ -61,18 +68,41 @@ async function eventsAt(dbi, siteId, today, days) {
   return out;
 }
 
-export async function siteWarnings({ db: dbi, siteId, today }) {
-  const st = await settingsOf(dbi);
-  const [activities, groups, kidsIn, leadIns, planGroups, children, risks] = await Promise.all([
+/* a read that fails is "could not be read", never a zero */
+const must = (q) => q.get().then((s) => s.docs.map((d) => Object.assign({ id: d.id }, d.data())));
+/* the 8 weeks before today: each Sunday group's sessions (children and leaders who came) */
+async function history(dbi, siteId, today, groupIds) {
+  const from = Core.plus(today, -56), out = {};
+  const kids = await must(dbi.collection('checkins').where('day', '>=', from));
+  kids.forEach((c) => {
+    if (c.siteId !== siteId || c.kind !== 'child' || c.day >= today || !groupIds.includes(c.groupId)) return;
+    const k = c.groupId + '|' + c.day; (out[k] = out[k] || { groupId: c.groupId, day: c.day, children: 0, leaders: 0 }).children++;
+  });
+  /* kidsLeaderIns/<site>_<day>_<member>: read by id, so no new index */
+  const leads = await must(dbi.collection('kidsLeaderIns').where(FieldPath.documentId(), '>=', siteId + '_' + from).where(FieldPath.documentId(), '<', siteId + '_' + today));
+  leads.forEach((l) => { const k = l.groupId + '|' + l.day; if (out[k]) out[k].leaders++; });
+  return Object.values(out);
+}
+/* the church-wide annual review, this year and last */
+export async function reviewNow(dbi, today) {
+  const y = +today.slice(0, 4);
+  const [now, last] = await Promise.all([must(dbi.collection('sgReviews').where('year', '==', y)), must(dbi.collection('sgReviews').where('year', '==', y - 1))]);
+  return Core.reviewFrom({ records: now, lastYear: last, today });
+}
+
+export async function siteWarnings({ db: dbi, siteId, today, review }) {
+  const st = await settingsOf(dbi), unread = {};
+  const [activities, groups, kidsToday, leadToday, planGroups, children, risks] = await Promise.all([
     rows(dbi.collection('sgActivities').where('siteId', '==', siteId)),
     rows(dbi.collection('kidsGroups').where('siteId', '==', siteId)).then((g) => g.filter((x) => x.active !== false)),
-    rows(dbi.collection('checkins').where('day', '==', today).where('kind', '==', 'child')).then((c) => c.filter((x) => x.siteId === siteId && x.state === 'in')),
-    rows(dbi.collection('kidsLeaderIns').where('siteId', '==', siteId).where('day', '==', today)).then((c) => c.filter((x) => x.state === 'in')),
+    rows(dbi.collection('checkins').where('day', '==', today).where('kind', '==', 'child')).then((c) => c.filter((x) => x.siteId === siteId)),
+    rows(dbi.collection('kidsLeaderIns').where('siteId', '==', siteId).where('day', '==', today)),
     rows(dbi.collection('planGroups').where('siteId', '==', siteId)).then((g) => g.filter((x) => !x.archived && (x.kind === 'children' || x.kind === 'youth'))),
-    rows(dbi.collection('kidsChildren').where('siteId', '==', siteId)).then((c) => c.filter((x) => x.status === 'registered')),
+    must(dbi.collection('kidsChildren').where('siteId', '==', siteId)).then((c) => c.filter((x) => x.status === 'registered'), () => { unread.consent = 'Not a zero: the children’s records could not be read just now.'; return []; }),
     rows(dbi.collection('sgRisks').where('siteId', '==', siteId))
   ]);
-  const events = await eventsAt(dbi, siteId, today, 14);
+  const kidsIn = kidsToday.filter((x) => x.state === 'in'), leadIns = leadToday.filter((x) => x.state === 'in');
+  const events = await eventsAt(dbi, siteId, today, 60);
   const childrenIn = {}, leadersIn = {};
   kidsIn.forEach((c) => { childrenIn[c.groupId] = (childrenIn[c.groupId] || 0) + 1; });
   leadIns.forEach((l) => { leadersIn[l.groupId] = (leadersIn[l.groupId] || 0) + 1; });
@@ -83,21 +113,40 @@ export async function siteWarnings({ db: dbi, siteId, today }) {
     const got = await dbi.getAll(...part.map((m) => dbi.collection('leaderChecks').doc(m)));
     got.forEach((d) => { if (d.exists) checks[d.id] = d.data(); });
   }
-  return Core.warningsFrom({ today, settings: st,
+  const gs = groups.map((g) => ({ id: g.id, name: String(g.name || 'A group').slice(0, 80), ratio: g.ratio, leaderIds: g.leaderIds || [] }));
+  const consent = children.map((c) => ({ groupId: c.groupId, consentUntil: c.consentUntil || '' }));
+  const w = Core.warningsFrom({ today, settings: st,
     activities: activities.map((a) => ({ id: a.id, link: a.link || {} })),
-    groups: groups.map((g) => ({ id: g.id, name: String(g.name || 'A group').slice(0, 80), ratio: g.ratio, leaderIds: g.leaderIds || [] })),
-    childrenIn, leadersIn, events, leaderMids, checks,
-    consent: children.map((c) => ({ groupId: c.groupId, consentUntil: c.consentUntil || '' })),
+    groups: gs, childrenIn, leadersIn, events, leaderMids, checks, consent,
     risks: risks.map((r) => ({ id: r.id, activityId: r.activityId, reviewDue: r.reviewDue || '', status: r.status })) });
+
+  /* THE DIALS */
+  const prev = (await dbi.collection('sgDashboard').doc(siteId).get().catch(() => null));
+  const old = prev && prev.exists ? prev.data() : {};
+  let hist = old.histDay === today && Array.isArray(old.hist) ? old.hist : null;
+  if (!hist) hist = await history(dbi, siteId, today, groups.map((g) => g.id)).catch(() => { unread.sessions = 'Not a zero: the check-ins could not be read just now.'; return null; });
+  const todays = {};
+  kidsToday.forEach((c) => { if (c.groupId) (todays[c.groupId] = todays[c.groupId] || { groupId: c.groupId, day: today, children: 0, leaders: 0 }).children++; });
+  leadToday.forEach((l) => { if (todays[l.groupId]) todays[l.groupId].leaders++; });
+  /* incidents: only when each was made and whether it has a follow-up */
+  const incidents = await must(dbi.collection('incidents').where('siteId', '==', siteId))
+    .then((x) => x.map((i) => ({ created: String(i.createdAt || i.happenedAt || '').slice(0, 10), followed: !!String(i.followUp || '').trim() })), () => { unread.incidents = 'Not a zero: the incidents could not be read just now.'; return []; });
+  const d = Core.dialsFrom({ today, settings: st, leaderMids, checks, groups: gs, sessions: (hist || []).concat(Object.values(todays)), consent,
+    assess: events.filter((e) => e.needsSignoff && Core.daysTo(today, e.day) >= 0).map((e) => ({ signed: e.signedOff })),
+    review: review || (await reviewNow(dbi, today)), incidents, unread });
+  return { items: w.items, controls: w.controls, dash: Object.assign(d, { hist: hist || [], histDay: hist ? today : '' }) };
 }
 
 export async function runSgWarnings({ db: dbi, at = new Date(), siteIds }) {
   const today = londonDay(at);
   const ids = siteIds || (await rows(dbi.collection('sites').where('active', '==', true))).map((s) => s.id);
-  const done = [];
+  const done = [], review = await reviewNow(dbi, today);
   for (const siteId of ids) {
-    const w = await siteWarnings({ db: dbi, siteId, today });
+    const w = await siteWarnings({ db: dbi, siteId, today, review });
     await dbi.collection('sgWarnings').doc(siteId).set({ siteId, items: w.items.slice(0, 100), controls: w.controls, today, at: at.toISOString() });
+    await dbi.collection('sgDashboard').doc(siteId).set({ siteId, dials: w.dash.dials, sessions: w.dash.sessions, consentByGroup: w.dash.consentByGroup,
+      review: { done: review.done, of: review.of, status: review.status, due: review.due, items: review.items },
+      hist: w.dash.hist, histDay: w.dash.histDay, today, at: at.toISOString() });
     done.push({ siteId, count: w.items.length });
   }
   return done;

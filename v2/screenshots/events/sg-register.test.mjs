@@ -110,7 +110,7 @@ const tap = (p, sel) => p.$eval(sel, e => e.click());
 try {
   /* 1. the lead adds activities */
   const L = await as('lena');
-  await go(L, 'safeguarding-risk.html', '#addAct');
+  await go(L, 'safeguarding-risk.html?tab=risks', '#addAct');
   ok('1. THE LEAD: the hub\u2019s own Sunday group is offered as an activity', /Juniors \(invented\)/.test(await text(L, '#addAct')), await text(L, '#addAct'));
   await tap(L, '[data-sugg="0"]');
   await L.waitForSelector('[data-act]', { timeout: 15000 });
@@ -169,11 +169,11 @@ try {
 
   /* 4. the trustee and the master admin read it */
   const Tt = await as('tom');
-  await go(Tt, 'safeguarding-risk.html', '[data-act]');
+  await go(Tt, 'safeguarding-risk.html?tab=risks', '[data-act]');
   ok('4. A TRUSTEE (Elders) reads the register, read-only', /Read only/.test(await text(Tt, '#readOnly')) && /High 20/.test(await text(Tt)) && !(await Tt.$('[data-edit]')) && !(await Tt.$('#addAct')) && !(await Tt.$('[data-starter]')));
   await Tt.screenshot({ path: path.join(HERE, 'sg-register-trustee-desk.png'), fullPage: true });
   const M = await as('max');
-  await go(M, 'safeguarding-risk.html', '[data-act]');
+  await go(M, 'safeguarding-risk.html?tab=risks', '[data-act]');
   ok('   a master admin reads it, read-only too (the lead and deputy keep it)', /Read only/.test(await text(M, '#readOnly')) && !(await M.$('[data-edit]')));
 
   /* 5. a volunteer */

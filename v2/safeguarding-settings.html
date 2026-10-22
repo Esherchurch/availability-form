@@ -263,7 +263,18 @@
       '<div class="card" id="regCard"><h2><span class="badge">' + ico('shield-check', 17) + '</span>Safeguarding risk register</h2>' +
         '<div class="field"><label for="trTeam">The trustees are the team</label><input class="inp" id="trTeam" maxlength="60" list="trTeams" value="' + esc((SAVED && SAVED.trusteeTeam) || 'Elders') + '">' +
         '<datalist id="trTeams">' + ((window.EGBCAuth && EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : []) || []).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>' +
-        '<p class="hint" style="margin:6px 0 0">They read the register and take its dated snapshots. They never see a child, a concern or anyone’s medical details there.</p></div></div>' +
+        '<p class="hint" style="margin:6px 0 0">They read the register and take its dated snapshots. They never see a child, a concern or anyone’s medical details there.</p></div>' +
+        /* the dials (F-265 step 4): when something counts as "due soon", and each dial's colours */
+        (function () {
+          var R = (SAVED && SAVED.register) || {}, dl = R.dials || {}, DEF = { checks: [95, 85], sessions: [95, 85], consent: [95, 85], assess: [100, 80], incidents: [0, 2] };
+          var v = function (k, i) { var x = dl[k] || {}; var n = i ? x.a : x.g; return typeof n === 'number' ? n : DEF[k][i]; };
+          var num = function (id, val, max) { return '<input class="inp" type="number" min="0" max="' + max + '" id="' + id + '" value="' + val + '" style="width:80px">'; };
+          var pc = function (k, label) { return '<div class="field"><label>' + label + '</label>Green at ' + num('dg_' + k, v(k, 0), 100) + ' % or more, amber at ' + num('da_' + k, v(k, 1), 100) + ' % or more</div>'; };
+          return '<div class="field"><label for="dueWeeks">“Due soon” means within</label>' + num('dueWeeks', Math.round((R.dueSoonDays || 42) / 7), 26) + ' weeks</div>' +
+            '<p class="hint" style="margin:0 0 8px">The dials on the register’s dashboard. Below amber, a dial is red.</p>' +
+            pc('checks', 'Leaders with in-date checks') + pc('sessions', 'Sessions with enough leaders') + pc('consent', 'Children with current consent') + pc('assess', 'Event assessments signed') +
+            '<div class="field"><label>Incident follow-ups open</label>Green at ' + num('dg_incidents', v('incidents', 0), 50) + ' or fewer, amber at ' + num('da_incidents', v('incidents', 1), 50) + ' or fewer</div>';
+        })() + '</div>' +
 
       '<div class="card"><button class="btn" id="save">' + ico('check', 16) + 'Save the settings</button>' +
         '<p class="hint" style="margin:10px 0 0">New forms and new events take these from now on.</p></div>' +
@@ -310,8 +321,16 @@
     d.updatedAt = new Date().toISOString(); d.updatedBy = u.uid || ''; d.updatedByName = p.name || '';
     /* Who leads is kept, whoever saves: before, saving here dropped it. */
     d.leadSiteId = (SAVED && SAVED.leadSiteId) || ''; d.leadName = (SAVED && SAVED.leadName) || ''; d.leadPhone = (SAVED && SAVED.leadPhone) || '';
-    /* the register's own settings are kept, whoever saves */
-    d.register = (SAVED && SAVED.register) || {};
+    /* the register's own settings: kept, with the dials' as set here */
+    d.register = Object.assign({}, (SAVED && SAVED.register) || {});
+    var nv = function (id, def, max) { var n = parseInt((document.getElementById(id) || {}).value, 10); return isFinite(n) && n >= 0 ? Math.min(n, max) : def; };
+    if (document.getElementById('dueWeeks')) {
+      d.register.dueSoonDays = Math.max(1, nv('dueWeeks', 6, 26)) * 7;
+      d.register.dials = {};
+      [['checks', 95, 85, 100], ['sessions', 95, 85, 100], ['consent', 95, 85, 100], ['assess', 100, 80, 100], ['incidents', 0, 2, 50]].forEach(function (k) {
+        d.register.dials[k[0]] = { g: nv('dg_' + k[0], k[1], k[3]), a: nv('da_' + k[0], k[2], k[3]) };
+      });
+    }
     if (!ADMIN) d.leadSiteId = LEADSITES[0];
     var who = ADMIN && SITES.length && document.getElementById('lead_' + SITES[0].id) ? readWho() : null, sites = [];
     if (who) {

@@ -4710,6 +4710,63 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  and no writing (an email cannot be quietly stopped)', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgMailed', 'ev_y_2026-10-24'), { siteId: 'site_sgr', at: 'x', subject: 'x' }));
 }
 
+// ── EVENTS (events window) ── THE SAFEGUARDING RISK REGISTER, step 4: the dials, the annual review, snapshots
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  const Y = new Date().getUTCFullYear();
+  let had = null;
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    await setDoc(doc(d, 'sgDashboard', 'site_sgr'), { siteId: 'site_sgr', dials: { checks: { value: 1, of: 2, pct: 50, rag: 'red', parts: { ok: 1, soon: 0, out: 1 } } }, sessions: [], consentByGroup: [], review: {}, today: 'x', at: 'x' });
+    const s = await getDoc(doc(d, 'safeguardingSettings', 'defaults')); had = s.exists() ? s.data() : null;
+    await setDoc(doc(d, 'safeguardingSettings', 'defaults'), { ...(had || {}), leadSiteId: 'site_sgr', trusteeTeam: 'Elders' });
+  });
+  await check('SG DIALS: the site’s lead reads them', 'allow', () => getDoc(doc(cx('u_sgr_lead'), 'sgDashboard', 'site_sgr')));
+  await check('  and the trustees', 'allow', () => getDoc(doc(cx('u_sgr_trustee'), 'sgDashboard', 'site_sgr')));
+  await check('  NOT A VOLUNTEER', 'deny', () => getDoc(doc(cx('u_sgr_vol'), 'sgDashboard', 'site_sgr')));
+  await check('  not another site’s lead', 'deny', () => getDoc(doc(cx('u_sgr_other'), 'sgDashboard', 'site_sgr')));
+  await check('  ONLY THE SERVER WRITES THEM', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgDashboard', 'site_sgr'), { siteId: 'site_sgr', dials: {} }));
+
+  const RV = (uid, item, extra) => ({ year: Y, itemId: item, siteId: 'site_sgr', at: serverTimestamp(), by: uid, byName: 'Invented', note: '', na: false, ...(extra || {}) });
+  await check('THE ANNUAL REVIEW: the lead records "the lead and deputy named"', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_leads'), RV('u_sgr_lead', 'leads')));
+  await check('  ONCE: it can’t be changed afterwards', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_leads'), RV('u_sgr_lead', 'leads', { note: 'changed' })));
+  await check('  nor removed', 'deny', () => deleteDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_leads')));
+  await check('  not in someone else’s name', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_policy'), RV('u_sgr_dep', 'policy')));
+  await check('  not at a made-up time', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_policy'), RV('u_sgr_lead', 'policy', { at: '2026-01-01' })));
+  await check('  not for last year', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', (Y - 1) + '_policy'), RV('u_sgr_lead', 'policy', { year: Y - 1 })));
+  await check('  not under another item’s name', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_policy'), RV('u_sgr_lead', 'register')));
+  await check('  NO FIELD FOR A CHILD OR A CONCERN', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_policy'), RV('u_sgr_lead', 'policy', { childName: 'Invented' })));
+  await check('  the note in 300 characters at most', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_policy'), RV('u_sgr_lead', 'policy', { note: 'x'.repeat(301) })));
+  await check('  a required item can’t be marked "does not apply"', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_policy'), RV('u_sgr_lead', 'policy', { na: true })));
+  await check('  an optional one can (hirers)', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_hirers'), RV('u_sgr_lead', 'hirers', { na: true })));
+  await check('  THE LEAD CAN’T RECORD THE TRUSTEES’ ITEMS', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_adopted'), RV('u_sgr_lead', 'adopted')));
+  await check('  a trustee records "the policy adopted"', 'allow', () => setDoc(doc(cx('u_sgr_trustee'), 'sgReviews', Y + '_adopted'), RV('u_sgr_trustee', 'adopted', { siteId: '' })));
+  await check('  but not the lead’s items', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgReviews', Y + '_policy'), RV('u_sgr_trustee', 'policy')));
+  await check('  A VOLUNTEER RECORDS NOTHING', 'deny', () => setDoc(doc(cx('u_sgr_vol'), 'sgReviews', Y + '_policy'), RV('u_sgr_vol', 'policy')));
+  await check('  ANOTHER SITE’S LEAD records a lead’s item for the whole church, naming their site', 'allow', () => setDoc(doc(cx('u_sgr_other'), 'sgReviews', Y + '_policy'), RV('u_sgr_other', 'policy', { siteId: 'site_sgr2' })));
+  await check('  but not naming a site they don’t lead', 'deny', () => setDoc(doc(cx('u_sgr_other'), 'sgReviews', Y + '_recruitment'), RV('u_sgr_other', 'recruitment')));
+  await check('  the trustees read the review', 'allow', () => getDoc(doc(cx('u_sgr_trustee'), 'sgReviews', Y + '_leads')));
+  await check('  the lead of the lead site reads another site’s record', 'allow', () => getDoc(doc(cx('u_sgr_lead'), 'sgReviews', Y + '_policy')));
+  await check('  another site’s lead reads their own', 'allow', () => getDoc(doc(cx('u_sgr_other'), 'sgReviews', Y + '_policy')));
+  await check('  but not the lead site’s', 'deny', () => getDoc(doc(cx('u_sgr_other'), 'sgReviews', Y + '_leads')));
+  await check('  a volunteer doesn’t read it', 'deny', () => getDoc(doc(cx('u_sgr_vol'), 'sgReviews', Y + '_leads')));
+  await check('  one not recorded yet: nothing to see', 'allow', () => getDoc(doc(cx('u_sgr_vol'), 'sgReviews', Y + '_return')));
+
+  const SN = (uid, extra) => ({ siteId: 'site_sgr', banner: 'Safeguarding risk register: Test site, 22 October 2026', by: uid, byName: 'Invented', at: serverTimestamp(), note: '',
+    risks: [{ activity: 'Juniors', risk: 'Too few leaders', before: 'amber', beforeScore: 12, after: 'green', afterScore: 4 }], warnings: { red: 1, amber: 0 }, dials: {}, review: { done: 1, of: 8 }, ...(extra || {}) });
+  await check('SNAPSHOTS: a trustee takes one', 'allow', () => setDoc(doc(cx('u_sgr_trustee'), 'sgSnapshots', 'sn_1'), SN('u_sgr_trustee')));
+  await check('  a master admin takes one', 'allow', () => setDoc(doc(as('martin'), 'sgSnapshots', 'sn_2'), SN('u_martin')));
+  await check('  THE BANNER must begin "Safeguarding risk register:"', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgSnapshots', 'sn_3'), SN('u_sgr_trustee', { banner: 'Risk assessment, Test site' })));
+  await check('  not in someone else’s name', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgSnapshots', 'sn_4'), SN('u_sgr_lead')));
+  await check('  no extra field', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgSnapshots', 'sn_5'), SN('u_sgr_trustee', { concerns: 1 })));
+  await check('  the lead and deputy don’t take them', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgSnapshots', 'sn_6'), SN('u_sgr_lead')));
+  await check('  NEVER CHANGED', 'deny', () => updateDoc(doc(cx('u_sgr_trustee'), 'sgSnapshots', 'sn_1'), { note: 'changed' }));
+  await check('  nor removed', 'deny', () => deleteDoc(doc(as('martin'), 'sgSnapshots', 'sn_1')));
+  await check('  the lead reads them', 'allow', () => getDocs(query(collection(cx('u_sgr_lead'), 'sgSnapshots'), where('siteId', '==', 'site_sgr'))));
+  await check('  a volunteer doesn’t', 'deny', () => getDocs(query(collection(cx('u_sgr_vol'), 'sgSnapshots'), where('siteId', '==', 'site_sgr'))));
+  await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'safeguardingSettings', 'defaults'); if (had) await setDoc(r, had); else await deleteDoc(r); });
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

@@ -162,7 +162,23 @@
     return k ? k.label : c.kind;
   }
 
-  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES,
+  /* THE CHURCH-WIDE ANNUAL REVIEW (F-265 step 4): its items, cheapest to
+     close first. who: 'lead' (any site's safeguarding lead or deputy),
+     'trustee' (the trustee team) or 'either'. optional ones may be marked
+     "does not apply", and then are not counted. The server's copy of the
+     ids is functions/sg-warnings-core.cjs REVIEW_ITEMS (the unit test checks). */
+  var REVIEW_ITEMS = [
+    { id: 'leads', who: 'lead', label: 'The lead and deputy named', line: 'Both are set in Safeguarding settings. One tap to confirm them for this year.' },
+    { id: 'register', who: 'lead', label: 'The register reviewed', line: 'Every standing risk looked at this year. Risks past their review date are on Warnings.' },
+    { id: 'policy', who: 'lead', label: 'The safeguarding policy reviewed', line: 'Read it through and bring it up to date.' },
+    { id: 'adopted', who: 'trustee', label: 'The policy adopted by the trustees', line: 'Recorded by a trustee once the trustees have agreed it.' },
+    { id: 'trusteeTraining', who: 'trustee', label: 'The trustees’ safeguarding training', line: 'Recorded by a trustee when the trustees are trained for this year.' },
+    { id: 'recruitment', who: 'lead', label: 'Safer recruitment followed', line: 'Spot-check that new leaders this year were recruited safely.' },
+    { id: 'hirers', who: 'lead', optional: true, label: 'Hirers’ safeguarding policies checked', line: 'For hirers who work with children.' },
+    { id: 'return', who: 'either', optional: true, label: 'The annual return or report made', line: 'Where the church’s own rules need one.' }
+  ];
+
+  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES, REVIEW_ITEMS: REVIEW_ITEMS,
               score: score, rating: rating, kindLabel: kindLabel, controlLabel: controlLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCSgTemplates = api;

@@ -150,7 +150,7 @@ try {
 
   /* 2. the lead */
   const L = await as('lena');
-  await go(L, 'safeguarding-risk.html', '[data-tab="warnings"]');
+  await go(L, 'safeguarding-risk.html?tab=risks', '[data-tab="warnings"]');
   ok('2. THE LEAD: the tab says how many', /Warnings \(5\)/.test(await text(L, '[data-tab="warnings"]')), await text(L, '[data-tab="warnings"]'));
   await L.waitForSelector('[data-risk="r_two"]');
   ok('   the two-adults risk is marked "A control has slipped" (red)', !!(await L.$('[data-risk="r_two"] [data-slipped="red"]')) && /A control has slipped/.test(await text(L, '[data-risk="r_two"]')));

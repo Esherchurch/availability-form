@@ -10527,3 +10527,93 @@ Every function must take the church from the sign-in's claim or the document's p
   `return EGBCAuth.functionUrl ? EGBCAuth.functionUrl('presentLeave') : <yours>;`
 - **Stamps:** meeting.html loads `egbc-auth.js?v=202610221800`. present.html will want the same when you switch.
 - **Checked by:** tests/check-function-url.mjs, 4/4. A break (the address worked out separately, wrongly) turns 3 red.
+
+### F-272 — The safeguarding risk register, step 4: the dials (Calla style), the church-wide annual review and the trustees' snapshots (F-265 part B and part 4; the events window, 22 Oct)
+
+**Built:**
+- **The server works out six dials** for each site in the same 15-minute run as the warnings (`sgWarningsSync`, and "Refresh now"). It writes them to `sgDashboard/{siteId}`, **counts only**:
+  - **leaders with in-date checks:** a DBS check and training; running out within the "due soon" weeks is shown apart
+  - **sessions with enough leaders, and two adults,** over the last 8 weeks. Check-ins are read by date, and leader check-ins by record name, so **no new index** is needed. The 8 weeks before today are read once a day and kept; today's are read every time.
+  - **children with a current consent form**
+  - **event assessments signed off**, for the next 60 days
+  - **the annual review**
+  - **incident follow-ups open:** this year's incidents with no follow-up after 7 days. Only each incident's date and whether it has a follow-up are read. **Concerns are never read or counted.**
+  - Each dial is red, amber or green against thresholds that are **settings**.
+  - **"Nothing on file yet"** is an empty dial at 0, said in words.
+  - **"Could not be read"** is never a zero: it shows a dash, "no figure", and a short line saying why.
+- **The register page opens on a new Dashboard tab** (egbc-sg-dash.js), as in the mock-up:
+  - **The big dial, "Ready for the annual review":**
+    - **"Next, cheapest first"** beside it
+    - the note *"It is not a score for the church…"*
+    - a beige note for items that don't apply
+  - **Five smaller dials:** half-circles of 14 blocks, coloured by meaning, with the number and its line as real text.
+  - **Clicking a dial:**
+    - **The lead or deputy** goes to the page that has the names: checks to Safeguarding, consent to Kids admin, incidents to Safeguarding.
+    - **A trustee or master admin** gets the counts in a sheet instead ("The safeguarding lead can see who"). They are never sent to a page that would refuse them.
+    - **For everyone:** sessions open a new numbers-only "Sessions, the last 8 weeks" list on Warnings; assessments open Tab B; the review opens Tab D.
+  - `safeguarding-risk.html?tab=risks` (or any tab) opens that tab.
+- **Tab D, the annual review, church-wide** (Martin's answer 3):
+  - **Eight items, cheapest first,** in `REVIEW_ITEMS`; the unit test checks the page's list matches the server's.
+  - **Each is recorded once**, with who, when and an optional note, as `sgReviews/<year>_<item>`. **It is never changed or removed.**
+  - **Who records what:**
+    - any site's lead or deputy records the lead's items, naming their site
+    - the trustees record theirs (the policy adopted; their training)
+    - either records the annual return
+  - **Only the two optional items** (hirers; the annual return) can be marked "does not apply"; they are then not counted.
+  - **Overdue** a year after last year's review.
+- **Tab E, snapshots:**
+  - Taken by the trustees and master admins, and read by the lead and deputy.
+  - **Each holds:** the risks with their ratings, the dials, the warnings counts and the review, under the banner **"Safeguarding risk register: <site>, <date>"**.
+  - **Never changed.** There's a Print button.
+- **Safeguarding settings:**
+  - "Due soon" in weeks
+  - each dial's green and amber thresholds (defaults: 95/85 %, assessments 100/80 %, incidents 0/2)
+- **Rules:**
+  - `sgDashboard`: read by those who read the register; only the server writes it.
+  - `sgReviews`: create only, as above; read by master, the trustees, the lead site's lead and deputy, and the recording site's.
+  - `sgSnapshots`: create only, by trustees or master, with the banner.
+- Also, main's request: `egbc-share.js?v=202610221610` in egbc-events.js, and public-mail-pages.cjs regenerated (d0dc56ec).
+
+**Proved:**
+- **sg-dash.test.mjs: 45/45**, with the functions emulator:
+  - the server's dials from invented data
+  - **no child's, leader's or incident's words, and no concern**, on the server's record and on both people's pages (five invented concerns on file)
+  - the lead's dashboard
+  - where each dial goes, for the lead and for a trustee
+  - the review: the lead's items, "does not apply", the trustee's item, and the big dial following through "Refresh"
+  - thresholds lowered on Safeguarding settings, turning the checks dial green
+  - a renewed check turning it green
+  - a trustee's snapshot, read by the lead
+  - pictures at 375 px and computer size, with no sideways scrolling
+- **sg-warnings-unit.test.mjs: 53/53** (24 new). Each dial at its threshold's edges, thresholds from settings, "nothing on file", "could not be read", two adults, the review's status, and the two item lists matching.
+- **Rules: 1872/1872** (38 new).
+- **Breaks, 11 of 11 caught:**
+  - **The one that matters:** an incident's people reaching the dials (caught by the browser test and the unit test).
+  - Thresholds ignored.
+  - A trustee's dial sending them to a page that would refuse them.
+  - A dial counting concerns.
+  - "Could not be read" shown as a zero.
+  - One adult counted as enough.
+  - A "does not apply" item still counted.
+  - A review record changed afterwards.
+  - The lead recording the trustees' items.
+  - A snapshot without the banner.
+- **Rule Zero:**
+
+  | Test | Result |
+  |---|---|
+  | sg-register | 25/25 |
+  | sg-assess | 28/28 |
+  | sg-warnings | 30/30 |
+  | e3-settings | 21/21 |
+  | sg-lead | 14/14 |
+  | e3-safeguarding | 38/38 |
+  | functions-secrets | 5/5 |
+  | sg-register-unit | 16/16 |
+
+**Found and not fixed:**
+- **The "hirers with children" warning** (in the plan's table) isn't built yet. The review's hirers item covers it for now.
+- **A lead at another site** sees an item recorded by the lead site's lead as "Done (recorded at another site)", without who or when. The rules can't check "is a lead somewhere".
+- **A snapshot keeps each risk's owner** as typed: a role, or a leader's name. Never a child.
+
+**Deploy:** functions `sgWarningsSync` and `sgWarningsNow` again (they now write the dials). No new function, no new secret. The rules go live when the hub goes live.
