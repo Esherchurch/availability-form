@@ -9961,3 +9961,158 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 3. **The annual review:** church-wide (one per year; the policy is the church's), with the lead site's lead and deputy plus the trustees recording items. Or one per site?
 4. **The gap in section 4** (sign-ups not checking `signupOn` or `status`): fix it in the same change?
 5. **Two adults:** a warning only (as planned), or should a group with children in and one leader also alert the lead by email?
+
+### F-265, continued — two additions from Martin: AI-drafted event assessments, and a safeguarding dashboard with dials (PLAN, for review; the events window, 22 Oct)
+
+---
+
+**A. AI-drafted risk assessments** (part 2, one-off events)
+
+**What the leader sees**
+- **Where:** Tab B (event assessments), for an event that needs one, with **"Describe the event, and get a first draft"**.
+- **Who can use it:**
+  - the event's organiser and its named leaders
+  - the lead and deputy of its site
+
+  (Signing off is still the lead or deputy only.)
+- **The text box:** plain words, up to 4,000 characters.
+  - An example is shown: *"A day trip to the coast for 30 children aged 8–11, by coach; 5 adults; swimming in the sea; lunch on the beach."*
+  - Above the box, in plain words: **"Don't put in any child's name, anyone's contact details or anyone's medical details. Describe needs in general: 'two children need an adult with them at all times'."**
+- **"Draft it"** returns, in about half a minute, an editable draft in Tab B's usual form:
+  - each hazard: who's at risk, likelihood × impact, red/amber/green before and after the controls, the controls, an owner (a role, e.g. "the trip leader") and a review point
+  - an overall red/amber/green at the top
+  - **"Must not go ahead as described"** items, in a red box, plainly worded: *"This must not go ahead as described."*
+  - questions the leader should answer (e.g. "Who is the trained first aider?")
+- **The draft is labelled "First draft by AI: check every line".**
+  - It **counts for nothing until the lead or deputy signs it off.** The event's bookings stay closed until then (section 4 of the plan).
+  - **Signing off a draft with any red item left** needs a typed reason. A "must not go ahead" item can't be signed while it's there; it has to be changed or removed first.
+
+**The server: the callable `sgDraftAssessment({ calEventId, text })`**
+1. **Who:** signed in and active; the organiser or a named leader of that event, or the lead or deputy of its site. Anyone else is refused.
+2. **The switch and the key:**
+   - The add-on is on.
+   - The key is **`CHQ_ANTHROPIC_API_KEY`**: a new `defineSecret`, **announced here first as you asked**. Martin sets it in Secret Manager.
+   - Empty or **"NOT-SET"** means not set up. The button then says: *"AI drafting isn't set up yet for this church. Write the assessment from a template instead."*
+   - A small `sgAiStatus` callable tells the page ready / not set up / today's limit reached, before anyone types.
+3. **Personal data, refused where the server can tell:**
+   - **Refused:** email addresses, phone numbers, postcodes, dates of birth, NHS-style numbers, and **any name of a child, parent or collector the hub holds for that event** (its sign-ups and their forms). The refusal says *"It looks like this has a child's name in it"*, without repeating the name.
+   - **Warned, not refused:** common medical words next to a capitalised name.
+   - Medical words alone in general terms ("some children have allergies") pass.
+4. **The facts the hub knows,** added as context and **worked out by the server, not the AI:**
+   - children booked and how many are under 8
+   - the leaders named, and how many are cleared
+   - the church's ratios (e.g. 1 to 5, and 1 to 4 for under-8s; from safeguarding settings, or the event's own)
+   - whether the event is overnight or off-site
+   - **The server adds its own hazard when leaders are short:** *"Not enough leaders: 7 needed for 30 children (6 under 8); 5 named"*, red, with "must not go ahead as described" until more leaders are named. It's marked "from the hub's numbers".
+   - The AI is told the numbers, but **its own arithmetic is never used**: ratings and the overall rating are recomputed on the server (score = likelihood × impact; 15+ red, 5+ amber, below 5 green, as risk.html), and the overall is the worst after controls.
+5. **The call:**
+   - **The SDK:** Anthropic's official JS SDK (`@anthropic-ai/sdk`) in functions/, model **`claude-sonnet-5-5`** (as Martin asked), from the server only.
+   - **The answer's shape** is fixed by **structured outputs** (`output_config.format`, a JSON schema), so the answer must match the schema. (Forcing a tool call to get JSON isn't allowed on this model.)
+   - **The fixed instructions** (how to assess, the rating scale, plain UK English, "say plainly when something must not happen") are cached between calls.
+   - **Limits:** `max_tokens` 16,000, a 120-second time-out, and the SDK's 2 retries on busy/overloaded.
+   - **A refusal by the model** (`stop_reason: "refusal"`) says *"The AI couldn't draft this one. Use a template."*
+   - **Server-side fallback:** I'd normally turn on Anthropic's fallback to another model when this one refuses. **Say if you'd rather not.**
+6. **Checked before it's saved:**
+   - every hazard has who, the ratings, at least one control and an owner role
+   - ratings are recomputed (step 4)
+   - anything malformed is refused with *"The draft came back incomplete; try again"*, and nothing is saved
+7. **Saved** into `sgAssessments/{calEventId}` as `status: 'draft'`, with `source: { kind: 'ai', model, at, by }`.
+   - The **leader's text is not kept** (it may carry things it shouldn't). They can paste it again.
+   - Only the draft (hazards, controls, roles) is kept, under the same shape rules as a hand-written one.
+8. **Logged:** `sgAiLog/{id}` = `{ siteId, calEventId, by, byName, at, chars, outcome ('drafted'|'refused-personal'|'refused-model'|'failed'|'capped'), tokensIn, tokensOut }`.
+   - **No text, ever.** The function's own log lines carry ids and counts only.
+   - Read: master admins and the site's lead and deputy. Written by the server only.
+9. **Capped:**
+   - per church per day (default 20) and per person per day (default 5), counted in `sgAiUse/{YYYY-MM-DD}` in a transaction
+   - the caps are in safeguarding settings
+   - over the cap: *"Today's limit is reached; try tomorrow, or use a template."*
+10. **The text goes to Anthropic's API and nowhere else:**
+    - no email, no other service, nothing in the hub's own logs
+    - the page says so in one line: *"Sent to Anthropic's Claude to draft; not kept by the hub."*
+
+**Checks for A**
+- **Without the real API:**
+  - On the emulator only, the function talks to a **local stub** in place of Anthropic: the SDK's `baseURL`, set only when `FUNCTIONS_EMULATOR`.
+  - The stub returns, in turn:
+    - a good draft
+    - a draft with wrong arithmetic (the server's ratings win)
+    - a draft that misses the ratio shortfall (the server adds it)
+    - a "must not go ahead" draft (red, and it can't be signed until changed)
+    - a refusal
+    - malformed JSON (nothing saved)
+    - a busy reply, then success (retried)
+  - It also records what it was sent, so the test proves **no child's name, no email and no stored data beyond the counts** left the hub.
+- **Refusing personal data:** a child's name from the event's sign-ups, an email, a phone number. Each is refused **before** any call (the stub sees nothing).
+- **Not set up:** an empty or NOT-SET key gives the plain message, with no call.
+- **The cap:** the 21st draft in a day is refused.
+- **Rules:** nobody writes `sgAiLog` from a page; a draft can't be marked signed by its author unless they're the lead or deputy.
+- **One real call, only with Martin's say-so:**
+  - `tools/sg-ai-smoke.mjs --live --event <invented test event>`, using Martin's Brazil example.
+  - It checks the draft parses, is **red overall**, has "must not go ahead" items (children alone in a prison; leaders far too few), and that the server's ratio hazard is there.
+  - It prints the token counts, and deletes its draft and log entry after.
+- **Breaks (planned):**
+  - **The one that matters:** the AI's own red/amber/green trusted instead of the server's
+  - a child's name passing the check
+  - the leader's text being kept in the log
+  - the ratio shortfall left to the AI
+  - a draft opening bookings without a signature
+  - no cap
+
+---
+
+**B. A safeguarding dashboard with dials**
+- **Where:** the top of `safeguarding-risk.html`, a **Dashboard** tab first, in the style of Martin's Calla Compliance dials. **I'll match the picture when it comes.**
+
+**Who:** the site's lead and deputy, and the trustees (and master admins), as the register.
+
+**The dials**, each with a big number, a red/amber/green arc and one line of words:
+
+| Dial | What it counts (counts only) | Default green / amber (else red) |
+|---|---|---|
+| Leaders with in-date checks | leaders named on under-18 groups, teams and events with an in-date criminal record check **and** training, ÷ all of them | ≥ 95% / ≥ 85% |
+| Sessions with enough leaders | Sunday group sessions in the last 8 weeks where leaders checked in met the ratio and two adults (`kidsLeaderIns` vs children in), ÷ sessions held | ≥ 95% / ≥ 85% |
+| Children with a current consent form | registered children whose consent is in date, ÷ registered children | ≥ 95% / ≥ 85% |
+| Risk assessments signed off | events in the next 60 days that need one and are signed, ÷ all that need one | 100% / ≥ 80% |
+| The annual review | items done this year ÷ items | all done / under way and not overdue |
+| Incidents awaiting follow-up | incidents with no follow-up recorded after 7 days (a **count**, lower is better) | 0 / 1–2 |
+
+- **Thresholds** are in safeguarding settings (`safeguardingSettings/defaults.dials`), with these defaults.
+- **Where the numbers come from:** the same server job as the warnings (`sgWarningsSync`) writes them to **`sgDashboard/{siteId}`** = `{ dials: { key: { value, of, pct, rag } }, at }`.
+  - Counts only: never a name, a child, an incident's words, or a concern.
+  - Read: the register's readers. Written by the server only.
+  - **Concerns are not counted on any dial.** Only the lead reads concerns, and that stays as it is.
+
+**Clicking a dial** opens what fixes it, for those allowed to see it:
+
+| Dial | The lead or deputy goes to | A trustee sees |
+|---|---|---|
+| Checks | safeguarding.html's "DBS checks and training running out" | the breakdown by group, counts only, and "the safeguarding lead can see who" |
+| Sessions | a new **Sessions** list on Tab C: group, date, children in, leaders in, needed (numbers, no names) | the same list |
+| Consent | kids-admin.html's Children tab, filtered to missing or run out | counts per group |
+| Assessments | Tab B | Tab B (read only) |
+| Review | Tab D | Tab D |
+| Incidents | safeguarding.html's incidents for the event | the count and dates only |
+
+- **No dial links a trustee to a page that would refuse them:** where they can't see names, the dial opens a counts-only view.
+
+**Checks for B**
+- **Unit:** each dial's sum from invented data, at the edges of each threshold, and thresholds from settings.
+- **Rules:** `sgDashboard` is read by the lead, deputy and trustees only, and written by the server only.
+- **Browser:**
+  - a trustee sees six dials with the right colours, **and no invented child's, leader's or incident's words anywhere on the page**
+  - clicking each dial lands where the table says
+  - the lead's checks dial goes red when an invented leader's check runs out, and green when it's renewed
+  - 375 px and computer, with pictures
+- **Breaks (planned):**
+  - **The one that matters:** a name reaching `sgDashboard`
+  - thresholds ignored
+  - a trustee's dial linking to a page that refuses them
+  - a dial counting concerns
+
+---
+
+**Additions to the earlier questions**
+6. **The AI fallback:** turn on the server-side fallback to another Claude model when this one refuses (my default), or not?
+7. **Who may ask for an AI draft:** the event's organiser and named leaders, and the lead and deputy (as planned), or only the lead and deputy?
+8. **The caps:** 20 a day per church and 5 per person: right?
+9. **The dials' style:** I'll wait for the picture of Calla Compliance's dials before building them.
