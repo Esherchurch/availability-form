@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safeguarding dashboard (mock-up, invented numbers)</title>
+<!-- F-265 part B: a MOCK-UP for review, in the style of Martin's Calla
+     Compliance dials, in the hub's colours. Invented numbers only. Not a page
+     of the hub: nothing here reads data. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--canvas:#f8f7f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e2dc;
+        --progress:#4b6a7d;--green:#15803d;--amber:#b07d2e;--red:#b0392c;--empty:#e4ded3;--faded:#efebe4;--note:#f6ebdc}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:28px 24px 40px}
+  .eyebrow{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6b6457;margin:0 0 14px}
+  h1{font:700 22px Inter,sans-serif;color:var(--ink);margin:0}
+  .head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 18px}
+  .asat{color:var(--muted);font-size:13px}
+  .main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;margin:0 0 34px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px}
+  .big{padding:34px 28px 28px;text-align:center}
+  .big .note{max-width:380px;margin:18px auto 0;color:var(--muted);font-size:13px}
+  .next h2{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6b6457;margin:6px 0 12px}
+  .step{padding:14px 16px;margin:0 0 12px}
+  .step b{display:block;font:500 15px Inter,sans-serif;color:var(--ink)}
+  .step span{color:var(--muted);font-size:13px}
+  .soft{background:var(--note);color:#6b4a26;border-radius:14px;padding:14px 16px;font-size:13px;margin-top:18px}
+  .row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+  .small{padding:22px 14px 18px;text-align:center}
+  .small .t{font:500 14px Inter,sans-serif;color:var(--ink);margin-top:10px}
+  .small .l{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .small .l.why{color:var(--red)}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;margin:22px 0 0;color:var(--muted);font-size:12.5px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+  .states{display:grid;grid-template-columns:repeat(2,minmax(0,280px));gap:16px;margin-top:30px}
+  .dial{display:block;margin:0 auto;width:100%;height:auto}
+  /* the number and the line under it are ordinary text over the dial, so they stay readable at any width */
+  .dw{position:relative;max-width:240px;margin:0 auto}
+  .big .dw{max-width:340px}
+  .mid{position:absolute;left:0;right:0;bottom:0;text-align:center}
+  .mid .n{font:300 38px/1 Inter,sans-serif;color:var(--ink)}
+  .big .mid .n{font-size:58px}
+  .mid .n span{font-size:.45em;color:var(--muted);margin-left:2px}
+  .mid .of{font:400 12.5px Inter,sans-serif;color:var(--muted);margin-top:6px}
+  .big .mid .of{font:500 15px Inter,sans-serif;color:var(--progress)}
+  .mid .dash{display:inline-block;width:26px;height:3px;border-radius:2px;background:var(--red);margin:20px 0 4px}
+  @media (max-width:980px){.row{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (max-width:760px){.main{grid-template-columns:1fr}.row{grid-template-columns:repeat(2,minmax(0,1fr))}.states{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:420px){.wrap{padding:20px 16px 32px}.row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.small{padding:16px 6px 14px}.mid .n{font-size:32px}.mid .of{font-size:12px}.small .dw{margin-bottom:20px}.small .mid .of{position:absolute;left:0;right:0;top:100%;margin-top:4px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h1>Ready for the annual review</h1><span class="asat">as at 22 October 2026</span></div>
+  <div class="main">
+    <div class="card big"><div data-dial='{"blocks":[["progress",6]],"of":8,"num":"75","pc":true,"sub":"6 of 8 items"}'></div>
+      <p class="note">This counts what is on file for this year’s review. It is not a score for the church, and it says nothing about any child or any concern.</p></div>
+    <div class="next"><h2>Next, cheapest first</h2>
+      <div class="card step"><b>The lead and deputy named</b><span>Both are set. One tap to confirm them for this year.</span></div>
+      <div class="card step"><b>The register reviewed</b><span>Three risks are past their review date. Looking at them closes this item.</span></div>
+      <div class="card step"><b>Trustees’ safeguarding training</b><span>Two trustees have no date on file. One record each.</span></div>
+      <div class="soft">Hirers working with children does not apply to this church, so it is not counted and not shown.</div>
+    </div>
+  </div>
+
+  <p class="eyebrow">Where safeguarding stands</p>
+  <div class="row">
+    <div class="card small"><div data-dial='{"blocks":[["progress",10],["amber",2],["red",1]],"num":"78","pc":true,"sub":"22 of 28 leaders"}'></div><div class="t">Leaders with in-date checks</div><div class="l">Two run out this month; one has run out</div></div>
+    <div class="card small"><div data-dial='{"blocks":[["progress",12],["red",2]],"num":"88","pc":true,"sub":"21 of 24 sessions"}'></div><div class="t">Sessions with enough leaders</div><div class="l">And two adults; last 8 weeks</div></div>
+    <div class="card small"><div data-dial='{"blocks":[["progress",11],["amber",2],["red",1]],"num":"81","pc":true,"sub":"35 of 43 children"}'></div><div class="t">Children with current consent</div><div class="l">Five forms run out before Christmas</div></div>
+    <div class="card small"><div data-dial='{"blocks":[["green",14]],"num":"3","sub":"of 3 needing one"}'></div><div class="t">Event assessments signed</div><div class="l">All signed before bookings opened</div></div>
+    <div class="card small"><div data-dial='{"blocks":[["red",3]],"num":"2","sub":"of 9 this year"}'></div><div class="t">Incident follow-ups open</div><div class="l">Counts only; the oldest is 12 days</div></div>
+  </div>
+  <div class="legend"><span><i style="background:var(--red)"></i>High, or blocked</span><span><i style="background:var(--amber)"></i>Medium, or due</span><span><i style="background:var(--green)"></i>Low, or complete</span><span><i style="background:var(--progress)"></i>On file, towards complete</span><span><i style="background:var(--empty)"></i>Nothing recorded</span></div>
+
+  <p class="eyebrow" style="margin-top:34px">The same dial when there is nothing to count</p>
+  <div class="states">
+    <div class="card small"><div data-dial='{"blocks":[],"num":"0","pc":true,"sub":"0 of 0 children"}'></div><div class="t">Children with current consent</div><div class="l">Nothing on file yet: no child is registered</div></div>
+    <div class="card small"><div data-dial='{"blocks":[],"faded":true,"dash":true,"sub":"no figure"}'></div><div class="t">Children with current consent</div><div class="l why">Not a zero: no consent form is set up yet, so this could not be read</div></div>
+  </div>
+</div>
+<script>
+/* a half-circle of 14 rounded blocks, filled left to right by meaning */
+document.querySelectorAll('[data-dial]').forEach(function (host) {
+  var d = JSON.parse(host.getAttribute('data-dial')), N = 14, cx = 130, cy = 132, r = 98, out = [];
+  var colours = [];
+  (d.blocks || []).forEach(function (b) { for (var k = 0; k < b[1]; k++) colours.push(b[0]); });
+  for (var i = 0; i < N; i++) {
+    var a = Math.PI - (i + 0.5) * Math.PI / N, x = cx + r * Math.cos(a), y = cy - r * Math.sin(a), deg = 90 - a * 180 / Math.PI;
+    var fill = d.faded ? 'var(--faded)' : (colours[i] ? 'var(--' + colours[i] + ')' : 'var(--empty)');
+    out.push('<rect x="-10.5" y="-9" width="21" height="18" rx="3.5" fill="' + fill + '" transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(' + deg.toFixed(1) + ')"/>');
+  }
+  /* the blocks are a picture; the number and its line are words a screen reader reads */
+  var num = d.dash ? '<span class="dash" aria-hidden="true"></span><span class="sr" style="position:absolute;left:-9999px">No figure</span>'
+    : '<div class="n">' + d.num + (d.pc ? '<span>%</span>' : '') + '</div>';
+  host.innerHTML = '<div class="dw"><svg class="dial" viewBox="0 0 260 140" aria-hidden="true">' + out.join('') + '</svg><div class="mid">' + num + '<div class="of">' + d.sub + '</div></div></div>';
+});
+</script>
+</body>
+</html>

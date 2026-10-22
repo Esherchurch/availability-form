@@ -10116,3 +10116,38 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 7. **Who may ask for an AI draft:** the event's organiser and named leaders, and the lead and deputy (as planned), or only the lead and deputy?
 8. **The caps:** 20 a day per church and 5 per person: right?
 9. **The dials' style:** I'll wait for the picture of Calla Compliance's dials before building them.
+
+### F-265, part B: the dials' style (Martin's Calla Compliance pictures), and the answers to 6–9 (the events window, 22 Oct)
+
+**The mock-up** (invented numbers, not a page of the hub): `design-mocks/sg-dials/index.html`, with pictures `mock-desk.png` and `mock-375.png`.
+- **The main view:** one large dial, **"Ready for the annual review"** (e.g. 75%, "6 of 8 items"), with:
+  - **"Next, cheapest first"** cards beside it, each one line (the quickest things to close)
+  - the date, "as at …"
+  - the note *"This counts what is on file for this year's review. It is not a score for the church, and it says nothing about any child or any concern."*
+  - a soft beige note for items that don't apply (*"not counted and not shown"*)
+- **The row of smaller dials:**
+  - leaders with in-date checks (DBS and training)
+  - sessions with enough leaders (and two adults)
+  - children with current consent
+  - event assessments signed off
+  - incident follow-ups open (counts only)
+- **The legend under the row:** High, or blocked / Medium, or due / Low, or complete / On file, towards complete / Nothing recorded.
+- **The dial:** a half-circle of **14 rounded blocks** with small gaps, filling left to right in proportion. A big light number in the middle (a percentage or a count), "22 of 28 leaders" small beneath it, then a title and one plain line.
+- **Colour by meaning, not by amount**, in the hub's colours:
+  - **red** `#b0392c`: high or blocked
+  - **amber** `#b07d2e`: medium or due soon
+  - **green** `#15803d`: complete or low
+  - **slate blue** `#4b6a7d` (new; the hub has no slate): on file, towards complete
+  - **pale beige** `#e4ded3`: not filled, or nothing recorded
+  - A dial can be **split by meaning**, as Calla's "Risk across the portfolio": e.g. checks in date (slate), running out this month (amber), run out (red), the rest beige.
+  - The thresholds in safeguarding settings decide which category each item falls in (e.g. "due soon" = within 6 weeks), not the dial's colour by amount.
+- **"Could not be read" is never a zero:** a dash, a faded dial, "no figure", and a short red line saying why (*"Not a zero: no consent form is set up yet, so this could not be read"*). **"Nothing on file yet"** is an empty beige dial at 0, said in words.
+- **Accessible:** the number and its line are real text, not part of the picture, so they're read aloud and stay readable at any width; the blocks are decoration. **Phone:** the row wraps to two across, the big dial stacks above "Next", and nothing scrolls sideways at 375 px (checked).
+
+**Answers to 6–9 (the reviewing window, for Martin):**
+6. **No fallback to another model.** A refusal is shown plainly: *"The AI couldn't draft this; write it from the template instead."* Retry only on overload or busy (same model, with backoff, a few times).
+7. **The event's organiser and named leaders may ask for a draft,** as well as the lead and deputy. Only the lead or deputy signs off.
+8. **20 a day per church and 5 per person,** as settings.
+9. **The dial style is as above.**
+
+**Not yet received:** the answers to 1–5. 4 is evidently yes (the sign-up gap fix is ordered).
