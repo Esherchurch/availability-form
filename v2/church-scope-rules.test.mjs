@@ -22,7 +22,7 @@ const cfg = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'fire
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || 'demo-egbc';
 const env = await initializeTestEnvironment({
   projectId: PROJECT,
-  firestore: { rules: fs.readFileSync(process.env.FS_RULES || 'firestore.rules', 'utf8'), host: '127.0.0.1', port: cfg.emulators.firestore.port },
+  firestore: { rules: fs.readFileSync(process.env.FS_RULES || cfg.firestore.rules, 'utf8'), host: '127.0.0.1', port: cfg.emulators.firestore.port },
   storage: { rules: fs.readFileSync(process.env.ST_RULES || 'storage.rules', 'utf8'), host: '127.0.0.1', port: cfg.emulators.storage.port },
 });
 

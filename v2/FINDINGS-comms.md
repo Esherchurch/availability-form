@@ -1682,3 +1682,14 @@ Every function must take the church from the sign-in's claim or the document's p
   - Eve (no claim) gets EGBC's answer as today;
   - a break (the helper bypassed) turns it red.
   - Run it on the spare emulators: `FUNCTIONS_EMULATOR_PORT=5191`, `--config firebase.spare.json --only firestore,auth,functions`.
+
+## From the main window, 22 Oct 2026: the emulators now load firestore.build.rules (FINDINGS-churchhq H-7)
+
+- **Why:** firestore.rules is 341 KB, and Firebase refuses a ruleset over 256 KB. The deployed ruleset is now built from it with the comments and spare whitespace taken out: `firestore.build.rules`, 177 KB.
+- **Keep editing firestore.rules,** comments and all. After any rules change, run `node tools/rules-build.mjs` from v2.
+- **Every config now names the built file:** firebase.json, firebase.spare.json, firebase.events.json (yours; the reviewing window asked me to change it), firebase.ease.json and firebase.tmp.json.
+  - If you forget the build, your emulator tests run the old rules.
+  - `tests/check-rules-build.mjs` fails when the built file is out of date, too big (over 230 KB), or not the same rules.
+- **Your rules-engine tests:** any test that passes `fs.readFileSync('firestore.rules')` to initializeTestEnvironment should load `cfg.firestore.rules` instead, from the config it already reads. I've changed firestore-rules.test.mjs, church-scope-rules.test.mjs and storage-rules.test.mjs.
+  - **Comms:** tests/check-enews-rules.mjs loads firestore.rules.
+  - Static checks that read the source text, such as check-access-levels, can stay as they are.

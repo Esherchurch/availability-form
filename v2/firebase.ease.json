@@ -1,5 +1,5 @@
 {
-  "firestore": { "rules": "firestore.rules" },
+  "firestore": { "rules": "firestore.build.rules" },
   "functions": [{ "source": "functions", "codebase": "hub", "ignore": ["node_modules", ".git", "*.local"] }],
   "emulators": { "firestore": { "port": 8392, "websocketPort": 9253 }, "auth": { "port": 9392 }, "functions": { "port": 5393 }, "ui": { "enabled": false }, "hub": { "port": 4494 }, "logging": { "port": 4594 }, "eventarc": { "port": 9394 }, "singleProjectMode": true }
 }

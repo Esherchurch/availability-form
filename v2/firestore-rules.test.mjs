@@ -25,7 +25,7 @@ const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || 'd
 
 const env = await initializeTestEnvironment({
   projectId: PROJECT,
-  firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: PORT },
+  firestore: { rules: fs.readFileSync(cfg.firestore.rules, 'utf8'), host: '127.0.0.1', port: PORT },
 });
 
 /* ---- the people we are testing as -------------------------------- */
