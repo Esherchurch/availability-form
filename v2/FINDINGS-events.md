@@ -10192,3 +10192,57 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 **Found, not mine (for the main window):** `public-mail.test.mjs` is 40/45. B1/B2 send to an invented address through the mail sender, and `functions/mail-route.js` now refuses it ("Recipient not known to the hub"). That's from the hubSend change; no rules are involved, and it fails the same without this fix.
 
 **Deploy:** nothing. The rules go live when the hub does.
+
+### F-267 — Present in a meeting: the sheet's look, plain words, and leaving that always stops (the events window, 22 Oct)
+
+**1. The sheet looked broken** (the reviewing window: Close faded inside a white bar).
+- **The cause:** the sheet used ordinary class names, `row` and `msg`, that meeting.html styles for its own page:
+  - `.row` is a white bordered box
+  - `.msg` is a full-size overlay that would have covered the sheet whenever it showed a message
+- **The fix:** every class in the sheet now has its own `pz-` name.
+- **Also fixed:** on a phone the text boxes ran past the sheet's edge. The sheet isn't inside the engine's `.pz` block, so it lacked `box-sizing`; it has its own now.
+- **Why the tests missed it:** the stand-in page didn't carry meeting.html's styles. It now **reads meeting.html's own `<style>` as it loads**, so any future clash shows up there too.
+- **New checks,** at computer and phone size, with the sheet open, both before go-live and with slides, add and people:
+  - the panel is dark
+  - no row in it is white
+  - Close is clear, not faded, and 44 px tall
+  - the status line isn't an overlay
+  - **nothing inside sticks out past the panel**
+  - it's all on screen
+  - nothing scrolls sideways
+- **Pictures:** `meeting-sheet-held-desk.png`, `-375.png`, `meeting-sheet-host-desk.png`, `-375.png`.
+
+**2. Plain words:** "You can add slides when the hub goes live." (the sheet), and "You can add PowerPoint slides when the hub goes live." (the session planner). There's no more "storage is not yet private"; the tests check those words are gone.
+
+**3. Leaving the meeting now always stops the presenting,** found while testing 1.
+- The page sent the stop through the database library, which sends writes a moment later; **a closing page is gone first.** Yesterday's passes were luck in that race.
+- **Tried and not enough:**
+  - a single commit
+  - a request that outlives the page (`fetch` keepalive): it carries a sign-in header to another address, so the browser must ask permission first, and a closing page can't
+- **What works:** a **beacon** (`navigator.sendBeacon`: plain text, no permission step) to a new small function, **`presentLeave`**.
+  - It checks the sign-in token itself, then does **only what that person may do anyway:** stop their own presenting, take back the say-so they gave (stopping that person's presenting), and remove their own "who is here".
+  - The library's write stays as a second try.
+  - The sign-in token is kept fresh in advance, because there's no time to get one while closing.
+- **Also fixed:**
+  - "who is here" is now deleted on its own, so a missing record can't sink the stop; its rule accepts deleting one that's already gone
+  - "present this deck" is no longer dropped when the same deck is already showing, or still loading, as a viewer (the cause of yesterday's one-off timing red); the engine gained `start()`
+
+**Proved, one test at a time, more than 3 GB free:**
+- **Rule Zero:**
+
+  | Test | Result |
+  |---|---|
+  | present-meeting | 58/58, twice, and once more after the last fix |
+  | present | 55/55 |
+  | present-quiz | 39/39 |
+  | rules | 1769/1769 |
+
+- **Breaks, 2 of 2 caught:**
+  - the sheet's row named `row` again (the white bar: the look checks fail at both sizes)
+  - no box-sizing (the full sheet fails at both sizes)
+- **Leaving, before the beacon:** section 6 ("she leaves while presenting: it stops") failed 3 times out of 3. With the beacon it passes every time.
+
+**Deploy:**
+- **The reviewer:** the new function `presentLeave` (HTTPS, public invoker; it checks the sign-in itself). **No secret.** The page change goes live with the push.
+- **The main window:** please bump meeting.html to `egbc-present.js?v=202610221330`.
+- **The main window, later:** egbc-auth.js could share its functions address (`FUNCTIONS_BASE`); the hook works it out the same way meanwhile.

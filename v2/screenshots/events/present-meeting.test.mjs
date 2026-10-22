@@ -138,7 +138,7 @@ await db.collection('churchSettings').doc('video').set({ churchId: 'test', rooms
 await db.collection('events').doc('ev_e1').set({ title: 'Eldership meeting (invented)', date: '2026-11-05', startTime: '19:30', videoRoom: 'Eldership', organiserUid: P.orla.uid });
 await db.collection('events').doc('ev_p1').set({ title: 'Prayer (invented)', date: '2026-11-05', startTime: '07:00', videoRoom: 'Prayer', organiserUid: P.orla.uid });
 
-const errors = [], browsers = [];
+const errors = [], browsers = [], warns = [];
 async function as(who, w = 1440, h = 860) {
   const b = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, who + '-')), args: ['--no-first-run'] });
   GUARD.watchBrowser(b); browsers.push(b);
@@ -147,6 +147,7 @@ async function as(who, w = 1440, h = 860) {
   await pg.evaluateOnNewDocument((k) => { try { sessionStorage.setItem(k, '1'); } catch (e) {} }, 'egbc_fresh_' + STAMP);
   await pg.setViewport({ width: w, height: h });
   pg.on('pageerror', e => errors.push(who + ': ' + e.message));
+  pg.on('console', m => { if (m.type() === 'warn' || m.type() === 'warning') warns.push(who + ': ' + m.text()); });
   pg.on('dialog', d => { errors.push(who + ' was shown: ' + d.message()); d.accept(); });
   await pg.goto(URLB + 'whatson.html', { waitUntil: 'networkidle2' });
   await pg.waitForFunction(() => window.firebase && firebase.apps.some(a => a.name === 'egbc'));
@@ -163,6 +164,19 @@ const tap = (pg, sel) => pg.$eval(sel, e => e.click());
 const presenting = (pg) => pg.evaluate(() => document.body.classList.contains('presenting'));
 const onStage = (pg) => pg.$eval('#present #pzStage .layer.on img', e => e.getAttribute('alt')).catch(() => '');
 const now = async () => (await db.collection('presentNow').doc('mtg_Eldership_ev_e1').get()).data() || null;
+/* how the "Present slides" sheet looks, on whatever page hosts it */
+const look = (pg) => pg.evaluate(() => {
+  const cs = (e) => getComputedStyle(e), p = document.querySelector('.pz-msheet .pz-sin'), r = p.getBoundingClientRect(), close = document.querySelector('.pz-msheet [data-mclose]');
+  const msg = document.querySelector('.pz-msheet .pz-smsg');
+  return { panel: cs(p).backgroundColor, inView: r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1,
+    closeBg: cs(close).backgroundColor, closeColor: cs(close).color, closeOpacity: cs(close).opacity, closeH: Math.round(close.getBoundingClientRect().height),
+    rows: [...new Set([...document.querySelectorAll('.pz-msheet .pz-srow'), close.parentElement])].map(e => cs(e).backgroundColor + ' ' + cs(e).borderTopWidth),
+    msgPos: msg ? cs(msg).position : 'none', sideways: document.scrollingElement.scrollWidth - innerWidth,
+    /* nothing inside sticks out past the panel's edge (a text box 100% wide plus its padding did, on a phone) */
+    spill: [...p.querySelectorAll('*')].filter(e => e.getBoundingClientRect().right > r.right + 1).map(e => e.tagName + '#' + (e.id || '')).slice(0, 4) };
+});
+const lookOk = (x) => x.panel === 'rgb(18, 26, 33)' && x.inView && !/255, 255, 255/.test(x.closeBg) && x.closeColor === 'rgb(226, 232, 240)' && +x.closeOpacity === 1 && x.closeH >= 44
+  && x.rows.every(c => c === 'rgba(0, 0, 0, 0) 0px') && x.msgPos !== 'absolute' && x.sideways <= 0 && x.spill.length === 0;
 
 try {
   /* ---------- 8 first: the server's answer (no browser) ---------- */
@@ -182,7 +196,14 @@ try {
   ok('1. THE HOST has "Present slides" over the call', await max.$eval('#stage [data-mpresent]', e => e.offsetParent !== null).catch(() => false));
   await tap(max, '[data-mpresent]');
   await until(() => max.$('.pz-msheet [data-mheld]'));
-  ok('   BEFORE THE HUB GOES LIVE it says so, and offers nothing to upload', /can be added when the hub goes live/.test(await text(max, '.pz-msheet')) && !(await max.$('#mFile')), await text(max, '.pz-msheet'));
+  ok('   BEFORE THE HUB GOES LIVE it says so, and offers nothing to upload', /You can add slides when the hub goes live\./.test(await text(max, '.pz-msheet')) && !/storage|private/.test(await text(max, '.pz-msheet')) && !(await max.$('#mFile')), await text(max, '.pz-msheet'));
+  /* THE SHEET LOOKS RIGHT ON meeting.html (its own CSS is in the stand-in; 22 Oct: Close sat faded in a white bar) */
+  ok('   THE SHEET, ON A COMPUTER: dark, Close clear (not faded, not in a white bar), all on screen', lookOk(await look(max)), J(await look(max)));
+  await max.screenshot({ path: path.join(HERE, 'meeting-sheet-held-desk.png') });
+  await max.setViewport({ width: 375, height: 812 }); await sleep(300);
+  ok('   ON A PHONE: the same', lookOk(await look(max)), J(await look(max)));
+  await max.screenshot({ path: path.join(HERE, 'meeting-sheet-held-375.png') });
+  await max.setViewport({ width: 1440, height: 860 }); await sleep(300);
   await tap(max, '[data-mclose]');
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
 
@@ -250,7 +271,7 @@ try {
   ok('6. ANOTHER HOST TAKES OVER, on the same slide, and the first host is told', (await now()).presenterUid === P.mia.uid && (await now()).slide === 0 && /Mia Master \(invented\) is presenting now/.test(await max.evaluate(() => document.getElementById('present').dataset.handed || '')));
   await mia.goto('about:blank');
   await until(async () => !(await now()).presenterUid);
-  ok('   SHE LEAVES THE MEETING while presenting: it stops, nobody is left on a slide', !(await now()).presenterUid);
+  ok('   SHE LEAVES THE MEETING while presenting: it stops, nobody is left on a slide', !(await now()).presenterUid, J({ now: await now(), warns }));
   await until(async () => !(await presenting(max)));
   ok('   and the host is back to the faces', !(await presenting(max)));
 
@@ -293,6 +314,13 @@ try {
   await tap(max, '[data-mpresent]');
   await until(() => max.$('.pz-msheet [data-mlet="' + P.sam.uid + '"]'));
   ok('10. THE HOST SEES WHO IS HERE: "Let Sam present"', /Let Sam Elder \(invented\) present/.test(await text(max, '.pz-msheet [data-mpeople]')), await text(max, '.pz-msheet [data-mpeople]'));
+  await until(() => max.$('.pz-msheet [data-mmsg]'));
+  ok('    THE FULL SHEET (slides, add, people) looks right on a computer', lookOk(await look(max)), J(await look(max)));
+  await max.screenshot({ path: path.join(HERE, 'meeting-sheet-host-desk.png') });
+  await max.setViewport({ width: 375, height: 812 }); await sleep(300);
+  ok('    and on a phone', lookOk(await look(max)), J(await look(max)));
+  await max.screenshot({ path: path.join(HERE, 'meeting-sheet-host-375.png') });
+  await max.setViewport({ width: 1440, height: 860 }); await sleep(300);
   await tap(max, '.pz-msheet [data-mlet="' + P.sam.uid + '"]');
   await until(async () => (await allowDoc('sam')) && /Take it back/.test(await text(max, '.pz-msheet [data-mpeople]')));
   const a1 = await allowDoc('sam');

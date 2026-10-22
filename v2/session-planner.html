@@ -507,7 +507,7 @@
          in one step by the converter, so everyone stays in step. Held until
          switch-over: until then Storage is readable signed out. */
       pptx: function () {
-        if (!PPTX_OK) return '<p id="pptxHeld">PowerPoint slides can be added when the hub goes live. Until then the hub\u2019s storage is not yet private.</p>';
+        if (!PPTX_OK) return '<p id="pptxHeld">You can add PowerPoint slides when the hub goes live.</p>';
         return '<label class="l" for="stFile">The PowerPoint file (.pptx)</label><input class="inp" type="file" id="stFile" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" style="padding-top:8px">' +
           '<p class="said">Or fetch it from OneDrive or SharePoint (Share it as \u201CAnyone with the link can view\u201D):</p><input class="inp" id="stU" placeholder="https://1drv.ms/… or https://…sharepoint.com/…">' +
           '<label class="l" for="stN">Name</label><input class="inp" id="stN" placeholder="e.g. EJ03 slides"><p class="said">Keynote or Google Slides? Save it as PowerPoint first. The slides and your speaker notes come from the file.</p>';

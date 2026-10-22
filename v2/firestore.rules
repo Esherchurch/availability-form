@@ -5103,7 +5103,7 @@ service cloud.firestore {
                     && request.resource.data.uid == request.auth.uid && id == request.resource.data.key + '_' + request.auth.uid
                     && request.resource.data.name is string && request.resource.data.name.size() <= 120
                     && request.resource.data.at == request.time;
-      allow delete: if resource.data.get('uid', '') == request.auth.uid || meetingHostE(resource.data.context);
+      allow delete: if resource == null || resource.data.get('uid', '') == request.auth.uid || meetingHostE(resource.data.context);
     }
     match /presentNow/{key} {
       // Before anyone presents the document does not exist: anyone signed in

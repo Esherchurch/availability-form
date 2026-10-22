@@ -414,6 +414,7 @@
 
     return {
       stop: stop,
+      start: start,
       destroy: function () { alive = false; clearInterval(tick); clearInterval(mtick); if (unsub) unsub(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onPlace); window.removeEventListener('scroll', onPlace, true); Object.keys(mels).forEach(function (k) { if (!mels[k].yt) mels[k].v.pause(); }); host.remove(); if (quiz) quiz.destroy(); el.innerHTML = ''; },
       state: function () { return S; }
     };
@@ -468,14 +469,15 @@
     '@media (max-width:760px){body.presenting .pz-mcall{flex:0 0 190px!important;height:190px;min-height:0!important}}' +
     '.pz-mbtn{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:4;min-height:44px;padding:0 18px;border-radius:999px;border:0;background:#3d6263;color:#fff;font:700 14.5px Inter,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}' +
     'body.presenting .pz-mbtn{display:none}' +
+    '.pz-msheet,.pz-msheet *{box-sizing:border-box}' +
     '.pz-msheet{position:fixed;inset:0;z-index:20;background:rgba(5,8,11,.6);display:flex;align-items:flex-end;justify-content:center}' +
-    '.pz-msheet .in{background:#121a21;color:#e2e8f0;border:1px solid #22303b;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));font:400 15px/1.45 Inter,sans-serif}' +
-    '@media (min-width:600px){.pz-msheet{align-items:center}.pz-msheet .in{border-radius:16px}}' +
-    '.pz-msheet h3{margin:0 0 4px;color:#fff;font:800 19px Inter,sans-serif}.pz-msheet .s{color:#94a3b8;font-size:13.5px;margin:0 0 12px}' +
-    '.pz-msheet .deck{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #2c3c48;border-radius:12px;background:#0b1116;color:#e2e8f0;font:600 15px Inter,sans-serif;text-align:left;cursor:pointer}' +
+    '.pz-msheet .pz-sin{background:#121a21;color:#e2e8f0;border:1px solid #22303b;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));font:400 15px/1.45 Inter,sans-serif}' +
+    '@media (min-width:600px){.pz-msheet{align-items:center}.pz-msheet .pz-sin{border-radius:16px}}' +
+    '.pz-msheet h3{margin:0 0 4px;color:#fff;font:800 19px Inter,sans-serif}.pz-msheet .pz-ss{color:#94a3b8;font-size:13.5px;margin:0 0 12px}' +
+    '.pz-msheet .pz-deck{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #2c3c48;border-radius:12px;background:#0b1116;color:#e2e8f0;font:600 15px Inter,sans-serif;text-align:left;cursor:pointer}' +
     '.pz-msheet label{display:block;font:600 13px Inter,sans-serif;color:#cbd5e1;margin:12px 0 4px}' +
     '.pz-msheet input[type=text],.pz-msheet input[type=url]{width:100%;min-height:44px;border-radius:10px;border:1px solid #2c3c48;background:#0b1116;color:#e2e8f0;padding:0 12px;font:400 15px Inter,sans-serif}' +
-    '.pz-msheet input[type=file]{color:#cbd5e1;max-width:100%}.pz-msheet .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.pz-msheet .msg{min-height:20px;margin:10px 0 0;color:#fde68a;font-size:14px}';
+    '.pz-msheet input[type=file]{color:#cbd5e1;max-width:100%}.pz-msheet .pz-srow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.pz-msheet .pz-smsg{min-height:20px;margin:10px 0 0;color:#fde68a;font-size:14px}';
 
   function need(srcUrl, test) {
     if (test()) return Promise.resolve();
@@ -510,9 +512,12 @@
     }
     function teardown() { if (cur) { cur.ctl.destroy(); cur = null; } loading = ''; el.className = ''; layout(false); }
     /* this deck, on this screen: the same pictures in the same order as everyone */
+    var startWhenLoaded = '';
     function showDeck(deckId, autoStart) {
-      if (cur && cur.deckId === deckId && cur.may === mayNow()) return Promise.resolve();
-      if (loading === deckId) return Promise.resolve();
+      /* "present this deck" when it is already on this screen (as a viewer): present it, don't drop the ask */
+      if (cur && cur.deckId === deckId && cur.may === mayNow()) { if (autoStart && mayNow()) cur.ctl.start(); return Promise.resolve(); }
+      /* ... or when it is still loading as a viewer: start it when it lands */
+      if (loading === deckId) { if (autoStart) startWhenLoaded = deckId; return Promise.resolve(); }
       loading = deckId;
       return need('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js', function () { return !!(global.firebase && firebase.storage); })
         .then(function () { return db.collection('presentDecks').doc(deckId).get(); })
@@ -523,6 +528,7 @@
         })
         .then(function (r) {
           if (!alive || loading !== deckId) return;
+          if (startWhenLoaded === deckId) { autoStart = true; startWhenLoaded = ''; }
           /* a viewer's slides came after the presenting had stopped (the say-so and the stop can arrive apart): nothing to show */
           if (!autoStart && !(S && S.presenterUid && S.deckId === deckId)) { loading = ''; if (!cur) teardown(); return; }
           if (cur) cur.ctl.destroy();
@@ -610,11 +616,11 @@
     function drawPeople() {
       var box = sheet && sheet.querySelector('[data-mpeople]'); if (!box) return;
       var a = allowed[0];
-      box.innerHTML = '<p class="s" style="margin:14px 0 8px">Let someone else present</p>' +
-        (a ? '<div class="deck" data-mallowed="' + esc(a.uid) + '" style="cursor:default"><span style="flex:1">' + esc(a.name || 'Someone') + ' may present</span><button class="pz-btn" data-mtakeback="' + esc(a.uid) + '">Take it back</button></div>' : '') +
+      box.innerHTML = '<p class="pz-ss" style="margin:14px 0 8px">Let someone else present</p>' +
+        (a ? '<div class="pz-deck" data-mallowed="' + esc(a.uid) + '" style="cursor:default"><span style="flex:1">' + esc(a.name || 'Someone') + ' may present</span><button class="pz-btn" data-mtakeback="' + esc(a.uid) + '">Take it back</button></div>' : '') +
         (here.filter(function (p) { return !a || p.uid !== a.uid; }).map(function (p) {
-          return '<button class="deck" data-mlet="' + esc(p.uid) + '" data-name="' + esc(p.name) + '"><span style="flex:1">Let ' + esc(p.name || 'them') + ' present</span></button>';
-        }).join('') || (a ? '' : '<p class="s">Nobody else here yet.</p>'));
+          return '<button class="pz-deck" data-mlet="' + esc(p.uid) + '" data-name="' + esc(p.name) + '"><span style="flex:1">Let ' + esc(p.name || 'them') + ' present</span></button>';
+        }).join('') || (a ? '' : '<p class="pz-ss">Nobody else here yet.</p>'));
       box.querySelectorAll('[data-mlet]').forEach(function (b) { b.onclick = function () { b.disabled = true; letPresent(b.getAttribute('data-mlet'), b.getAttribute('data-name')); }; });
       box.querySelectorAll('[data-mtakeback]').forEach(function (b) { b.onclick = function () { b.disabled = true; takeBack(b.getAttribute('data-mtakeback')).catch(function () {}); }; });
     }
@@ -625,8 +631,8 @@
       if (!mayNow()) return;
       close();
       sheet = document.createElement('div'); sheet.className = 'pz-msheet'; sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', 'Present slides');
-      sheet.innerHTML = '<div class="in"><h3>Present slides</h3><p class="s">' + (m.host ? 'Everyone in the meeting sees your slides, large, with the faces beside them. You get your notes and what’s next.' : 'The host has let you present. Everyone sees your slides; the host can take it back at any time.') + '</p><div data-mlist><p class="s">Loading…</p></div>' +
-        '<div data-madd></div>' + (m.host ? '<div data-mpeople></div>' : '') + '<div class="row"><button class="pz-btn" data-mclose>Close</button></div></div>';
+      sheet.innerHTML = '<div class="pz-sin"><h3>Present slides</h3><p class="pz-ss">' + (m.host ? 'Everyone in the meeting sees your slides, large, with the faces beside them. You get your notes and what’s next.' : 'The host has let you present. Everyone sees your slides; the host can take it back at any time.') + '</p><div data-mlist><p class="pz-ss">Loading…</p></div>' +
+        '<div data-madd></div>' + (m.host ? '<div data-mpeople></div>' : '') + '<div class="pz-srow"><button class="pz-btn" data-mclose>Close</button></div></div>';
       document.body.appendChild(sheet);
       sheet.querySelector('[data-mclose]').onclick = close;
       sheet.onclick = function (e) { if (e.target === sheet) close(); };
@@ -639,18 +645,18 @@
         var mine = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
           .filter(function (x) { return x.status === 'ready'; });
         if (!sheet) return;
-        list.innerHTML = mine.length ? '<p class="s" style="margin:0 0 8px">This meeting’s slides</p>' + mine.map(function (x) {
-          return '<button class="deck" data-mdeck="' + esc(x.id) + '"><span style="flex:1">' + esc(x.name || 'Slides') + '</span><span style="color:#94a3b8;font-weight:500">' + (+x.count || 0) + ' slides ▶</span></button>'; }).join('') : '';
+        list.innerHTML = mine.length ? '<p class="pz-ss" style="margin:0 0 8px">This meeting’s slides</p>' + mine.map(function (x) {
+          return '<button class="pz-deck" data-mdeck="' + esc(x.id) + '"><span style="flex:1">' + esc(x.name || 'Slides') + '</span><span style="color:#94a3b8;font-weight:500">' + (+x.count || 0) + ' slides ▶</span></button>'; }).join('') : '';
         list.querySelectorAll('[data-mdeck]').forEach(function (b) { b.onclick = function () { close(); showDeck(b.getAttribute('data-mdeck'), true); }; });
       }, function () { if (list) list.innerHTML = ''; });
       /* Until the hub goes live nothing is uploaded (its storage is not yet private) */
       need(BASE + 'egbc-launch.js?v=202610141700', function () { return !!global.EGBCLaunch; }).then(function () { return EGBCLaunch.check(); }).then(function (x) { return !!(x && x.locked); }, function () { return false; }).then(function (ok) {
         if (!sheet) return;
-        if (!ok) { add.innerHTML = '<p class="s" data-mheld>Slides can be added when the hub goes live. Until then the hub’s storage is not yet private.</p>'; return; }
+        if (!ok) { add.innerHTML = '<p class="pz-ss" data-mheld>You can add slides when the hub goes live.</p>'; return; }
         add.innerHTML = '<label for="mName">Add slides: a name</label><input type="text" id="mName" maxlength="120" placeholder="Building fund update">' +
           '<label for="mFile">A PowerPoint file (.pptx, up to 100 MB)</label><input type="file" id="mFile" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation">' +
           '<label for="mLink">or its OneDrive link (up to 1 GB)</label><input type="url" id="mLink" placeholder="https://…sharepoint.com/…">' +
-          '<div class="row"><button class="pz-btn main" data-mgo>Add and present</button></div><p class="msg" data-mmsg role="status"></p>';
+          '<div class="pz-srow"><button class="pz-btn main" data-mgo>Add and present</button></div><p class="pz-smsg" data-mmsg role="status"></p>';
         add.querySelector('[data-mgo]').onclick = addDeck;
       });
     }
@@ -685,10 +691,27 @@
 
     drawButton();
     /* leaving the meeting (the page closes, or Daily's "left-meeting"): stop presenting, and the host's say-so ends with them */
+    /* LEAVING (22 Oct): a closing page is gone before the database library
+       sends its writes (they go a moment later), and a request carrying a
+       sign-in header can't leave a closing page either. A BEACON can
+       (navigator.sendBeacon: plain text, no preflight): it goes to the hub's
+       presentLeave, which checks the sign-in and does only what this person
+       may do (stop their presenting, take back the say-so they gave, remove
+       their "who is here"). The library's own write stays as a second try.
+       The sign-in is kept fresh beforehand: there's no time to fetch one then. */
+    var tok = '';
+    function freshToken() { var u = EGBCAuth.user(); if (u && u.getIdToken) u.getIdToken().then(function (t) { tok = t; }, function () {}); }
+    freshToken(); timers.push(setInterval(freshToken, 20 * 60000));
+    function leaveUrl() {
+      var st = (db._delegate && db._delegate._settings) || {}, pid = db.app.options.projectId;
+      /* the same choice egbc-auth.js makes for its functions */
+      return /^(localhost|127\.0\.0\.1)(:|$)/.test(st.host || '') ? 'http://localhost:' + (location.port === '5601' ? 5102 : 5101) + '/' + pid + '/europe-west2/presentLeave'
+        : 'https://europe-west2-' + pid + '.cloudfunctions.net/presentLeave';
+    }
     var left = false;
     var onLeave = function () {
       if (left) return; left = true;
-      /* all in ONE commit: a closing page may be gone before a second write goes */
+      if (tok && navigator.sendBeacon) { try { navigator.sendBeacon(leaveUrl(), new Blob([JSON.stringify({ idToken: tok, key: key })], { type: 'text/plain' })); } catch (e) {} }
       var b = db.batch(), stopping = S && S.presenterUid === me.uid;
       /* the host's say-so ends with them, and so does that person's presenting */
       if (m.host) allowed.filter(function (a) { return a.by === me.uid; }).forEach(function (a) {
@@ -696,8 +719,8 @@
         b.delete(db.collection('presentAllow').doc(key + '_' + a.uid));
       });
       if (stopping) b.update(ref, { presenterUid: '', presenterName: '', blank: false, updatedBy: me.uid });
-      b.delete(hereRef);
       b.commit().catch(function () {});
+      hereRef.delete().catch(function () {});
     };
     window.addEventListener('pagehide', onLeave);
     if (m.frame && m.frame.on) m.frame.on('left-meeting', onLeave);

@@ -189,7 +189,7 @@ try {
   await karen.goto(URLB + 'session-planner.html?s=ps_1', { waitUntil: 'networkidle2' });
   const hasPart = await until(() => karen.$('.part .ph'));
   if (hasPart) { await karen.evaluate(() => document.querySelector('.part .ph').click()); await until(() => karen.$('[data-addstep]')); await karen.select('[data-addstep]', 'pptx'); await until(() => karen.$('.sheet')); }
-  ok('   and the planner’s PowerPoint step says so, with nothing to upload', !!hasPart && (/can be added when the hub goes live/.test(await text(karen, '.sheet')) && !(await karen.$('#stFile'))), await text(karen, '.sheet'));
+  ok('   and the planner’s PowerPoint step says so, with nothing to upload', !!hasPart && (/You can add PowerPoint slides when the hub goes live/.test(await text(karen, '.sheet')) && !/storage|private/.test(await text(karen, '.sheet')) && !(await karen.$('#stFile'))), await text(karen, '.sheet'));
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
 
   /* ---------- 1. a leader adds a PowerPoint ---------- */

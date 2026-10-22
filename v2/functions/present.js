@@ -22,7 +22,8 @@
    The converter's address is CONVERTER_URL. On the emulator only, a test
    may point it at its own stand-in (presentSettings/test.converterUrl).
    =================================================================== */
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
+import { getAuth } from 'firebase-admin/auth';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
@@ -175,6 +176,37 @@ export async function runPresentSweep({ db: dbi, bucket, today }) {
   }
   return gone;
 }
+/* LEAVING A MEETING (22 Oct): a closing page can't finish a database write
+   (the library sends it a moment later), but it can send a beacon
+   (navigator.sendBeacon: plain text, no sign-in header, so no preflight).
+   This takes { idToken, key } and does ONLY what that person could do
+   themselves: stop presenting if they are the presenter (and if someone
+   they let present is presenting), take back the say-so they gave, and
+   remove their own "who is here". Nothing else, nobody else's. */
+export async function leaveMeeting({ db: dbi, uid, key }) {
+  if (typeof key !== 'string' || !/^mtg_[^/]{1,300}$/.test(key) || !uid) return { done: false };
+  const nowRef = dbi.collection('presentNow').doc(key);
+  const s = (await nowRef.get()).data();
+  const given = await dbi.collection('presentAllow').where('key', '==', key).where('by', '==', uid).get();
+  const b = dbi.batch();
+  let stop = !!(s && s.presenterUid === uid);
+  given.docs.forEach((d) => { if (s && s.presenterUid === d.data().uid) stop = true; b.delete(d.ref); });
+  if (stop) b.update(nowRef, { presenterUid: '', presenterName: '', blank: false, updatedBy: uid });
+  b.delete(dbi.collection('presentHere').doc(key + '_' + uid));
+  await b.commit();
+  return { done: true, stopped: stop, takenBack: given.size };
+}
+export const presentLeave = onRequest({ region: REGION, invoker: 'public', memory: '256MiB' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).end(); return; }
+  try {
+    const raw = typeof req.body === 'string' ? req.body : (req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {}));
+    const { idToken, key } = JSON.parse(raw || '{}');
+    const t = await getAuth().verifyIdToken(String(idToken || ''));
+    const r = await leaveMeeting({ db: db(), uid: t.uid, key: String(key || '') });
+    res.status(r.done ? 204 : 400).end();
+  } catch (e) { res.status(401).end(); }
+});
+
 export const presentSweep = onSchedule({ region: REGION, schedule: '15 4 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
   await runPresentSweep({ db: db(), bucket: getStorage().bucket() });
 });
