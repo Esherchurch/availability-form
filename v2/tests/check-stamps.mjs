@@ -50,5 +50,16 @@ for (const f of fs.readdirSync(V2).filter(n => /\.html$/i.test(n))) {
 }
 ok('every ?v= stamp on every page is twelve digits', bad.length === 0, bad.slice(0, 6).join(' | ') + (bad.length > 6 ? ' … ' + bad.length : ''));
 
+/* ONE ENGINE, ONE STAMP (reviewing window, 22 Oct 2026): present.html had
+   egbc-present.js at 202610221330 while meeting.html still asked for
+   202610220030, so a meeting kept the old engine (F-267's sheet fix and
+   the leave beacon). Every page that loads the Present engine asks for
+   the same version. */
+const presentStamps = fs.readdirSync(V2).filter(n => /\.html$/i.test(n))
+  .map(f => [f, (read(f).match(/egbc-present\.js\?v=(\d{12})/) || [])[1]]).filter(([, s]) => s);
+const newest = presentStamps.map(([, s]) => s).sort().pop();
+const behind = presentStamps.filter(([, s]) => s !== newest).map(([f, s]) => f + ' has ' + s);
+ok('every page loads egbc-present.js with the same stamp', behind.length === 0, behind.join(', ') + '; the newest is ' + newest);
+
 console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
 process.exit(R.some(x => !x) ? 1 : 0);
