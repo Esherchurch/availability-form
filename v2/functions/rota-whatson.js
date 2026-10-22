@@ -29,6 +29,7 @@
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { churchFromPath } from './church-scope.js';
 import { featureOn } from './features.js';
 
 const REGION = 'europe-west2';   // the database's region (TRIGGER_REGION in index.js)
@@ -133,4 +134,9 @@ export async function syncRotaService(db, id, rota) {
 export const rotaWhatsOn = onDocumentWritten({ document: 'events/{id}', region: REGION }, async (event) => {
   const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;
   await syncRotaService(getFirestore(), event.params.id, after);
+});
+/* The same for each church's own rota (H-5): the church from the path. */
+export const rotaWhatsOnChurch = onDocumentWritten({ document: 'churches/{cid}/events/{id}', region: REGION }, async (event) => {
+  const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;
+  await syncRotaService(churchFromPath(event, getFirestore()).db, event.params.id, after);
 });

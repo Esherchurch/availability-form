@@ -236,3 +236,24 @@ Martin: "Church HQ must support more than one church from now on, built in, not 
   - meetingPapers;
   - **new:** youthGrantIndex;
   - enewsSendDue and enewsTest, which call `personalise` (Comms' functions; their code is unchanged).
+
+### H-5, batch 5 built: the triggers, a twin on each church's path (22 Oct 2026)
+
+- **Each trigger now exists twice:**
+  - the EGBC one, on its top-level path, by its old name and doing exactly what it did;
+  - a twin on `churches/{cid}/…`, named `<name>Church`, running the same handler with the church from the path, never from the document.
+- **The twins (10, all new functions):** bookingNotifyChurch, maintJobNotifyChurch, urgentNoticeChurch, worryNotifyChurch, prayerNotifyChurch, helloNotifyChurch, careStatusFromSettingsChurch, careStatusFromSiteChurch, familyGroupsSyncChurch, rotaWhatsOnChurch.
+- **Moved to batch 8:** welcomeNewcomer and welcomeSubscriber. welcome-mail.js was made with the e-news editor, so it is Comms'.
+- **check-church-calls: 91/91.** New for this batch:
+  - a safeguarding lead named in alpha updates alpha's care note, not EGBC's or beta's;
+  - a lead named at EGBC updates EGBC's, as today;
+  - a Sunday marked for What's on in alpha appears in alpha's calendar, not EGBC's;
+  - a hello in alpha is handled with alpha's notification settings and marked as told in alpha.
+- **Break:** the church twins handed EGBC's db turned 4 red.
+- **Still passing:**
+  - rota-whatson 20/20 (no emulator);
+  - notify-send 82/82 and rota-whatson-live 8/8 (spare emulators);
+  - care 63/63, family 40/40 and notify-switch 10/10 (fresh dev emulator each).
+- **Deploy:**
+  - **the ten new twins:** bookingNotifyChurch, maintJobNotifyChurch, urgentNoticeChurch, worryNotifyChurch, prayerNotifyChurch, helloNotifyChurch, careStatusFromSettingsChurch, careStatusFromSiteChurch, familyGroupsSyncChurch, rotaWhatsOnChurch;
+  - **and the originals, rewritten through the same helper but behaving the same:** bookingNotify, maintJobNotify, urgentNotice, worryNotify, prayerNotify, helloNotify, careStatusFromSettings, careStatusFromSite, familyGroupsSync.

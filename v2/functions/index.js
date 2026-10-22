@@ -37,7 +37,7 @@ import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family
 import { myYouthHub as myYouthHubIn } from './youth-hub.js';
 /* Which church a call is for: the sign-in's claim, never the page (multi-
    church step 3, FINDINGS-churchhq H-5). No claim is EGBC, as before. */
-import { churchOf } from './church-scope.js';
+import { churchOf, churchFromPath } from './church-scope.js';
 /* Codes and links that come with no sign-in: which church (hq-codes.js). */
 import { codeHash, indexCode, dropCode, dbForCode } from './hq-codes.js';
 import { hashCode as churchShowHash, normalise as churchShowNormalise } from './churchshow.js';
@@ -631,44 +631,54 @@ export const rotaReminders = onSchedule(
 );
 
 /* Booking confirmed, approved, declined or cancelled. */
-export const bookingNotify = onDocumentUpdated({ document: 'bookings/{key}', region: TRIGGER_REGION }, async (event) => {
-  await Notify.onBookingChange(await notifyDeps(), event.params.key,
+/* EACH TRIGGER TWICE (multi-church step 3, H-5): on EGBC's top-level
+   path, by its old name and doing exactly what it did, and on every
+   church's own path (churches/{cid}/...), named <name>Church. The handler
+   gets the church from the path - never from the document - so what it
+   reads and writes stays in that church. */
+const twins = (on, path, handler) => [
+  on({ document: path, region: TRIGGER_REGION }, (event) => handler(churchFromPath(event, db), event)),
+  on({ document: 'churches/{cid}/' + path, region: TRIGGER_REGION }, (event) => handler(churchFromPath(event, db), event))
+];
+const beforeOf = (event) => event.data.before && event.data.before.exists ? event.data.before.data() : null;
+const afterOf = (event) => event.data.after && event.data.after.exists ? event.data.after.data() : null;
+
+export const [bookingNotify, bookingNotifyChurch] = twins(onDocumentUpdated, 'bookings/{key}', async (ch, event) => {
+  await Notify.onBookingChange(await notifyDeps({ db: ch.db }), event.params.key,
     event.data.before.data(), event.data.after.data(), event.id);
 });
 
 /* A new maintenance job, to the Maintenance team (and F-129's email). */
-export const maintJobNotify = onDocumentCreated({ document: 'maintJobs/{id}', region: TRIGGER_REGION }, async (event) => {
+export const [maintJobNotify, maintJobNotifyChurch] = twins(onDocumentCreated, 'maintJobs/{id}', async (ch, event) => {
   if (!event.data) return;
-  await Notify.onMaintJob(await notifyDeps(), event.params.id, event.data.data());
+  await Notify.onMaintJob(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 
 /* A notice the office marks urgent, once, to everyone it is for. */
-export const urgentNotice = onDocumentWritten({ document: 'news/{id}', region: TRIGGER_REGION }, async (event) => {
-  const before = event.data.before && event.data.before.exists ? event.data.before.data() : null;
-  const after = event.data.after && event.data.after.exists ? event.data.after.data() : null;
-  await Notify.onNotice(await notifyDeps(), event.params.id, before, after);
+export const [urgentNotice, urgentNoticeChurch] = twins(onDocumentWritten, 'news/{id}', async (ch, event) => {
+  await Notify.onNotice(await notifyDeps({ db: ch.db }), event.params.id, beforeOf(event), afterOf(event));
 });
 
 /* Who gets told (Martin, 14 Oct 2026): the people the church named are
    told which kind has come in, and no more (notify.js onWorry, onPrayer,
    onHello). Never the office, except a hello's copy. */
-export const worryNotify = onDocumentCreated({ document: 'worries/{id}', region: TRIGGER_REGION }, async (event) => {
+export const [worryNotify, worryNotifyChurch] = twins(onDocumentCreated, 'worries/{id}', async (ch, event) => {
   if (!event.data) return;
-  await Notify.onWorry(await notifyDeps(), event.params.id, event.data.data());
+  await Notify.onWorry(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
-export const prayerNotify = onDocumentCreated({ document: 'prayers/{id}', region: TRIGGER_REGION }, async (event) => {
+export const [prayerNotify, prayerNotifyChurch] = twins(onDocumentCreated, 'prayers/{id}', async (ch, event) => {
   if (!event.data) return;
-  await Notify.onPrayer(await notifyDeps(), event.params.id, event.data.data());
+  await Notify.onPrayer(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
-export const helloNotify = onDocumentCreated({ document: 'welcomes/{id}', region: TRIGGER_REGION }, async (event) => {
+export const [helloNotify, helloNotifyChurch] = twins(onDocumentCreated, 'welcomes/{id}', async (ch, event) => {
   if (!event.data) return;
-  await Notify.onHello(await notifyDeps(), event.params.id, event.data.data());
+  await Notify.onHello(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 /* Is a safeguarding lead set? Kept in careRouting/status for the forms. */
-export const careStatusFromSettings = onDocumentWritten({ document: 'safeguardingSettings/{id}', region: TRIGGER_REGION },
-  async () => { await Notify.refreshCareStatus(db); });
-export const careStatusFromSite = onDocumentWritten({ document: 'bookingSettings/{id}', region: TRIGGER_REGION },
-  async () => { await Notify.refreshCareStatus(db); });
+export const [careStatusFromSettings, careStatusFromSettingsChurch] = twins(onDocumentWritten, 'safeguardingSettings/{id}',
+  async (ch) => { await Notify.refreshCareStatus(ch.db); });
+export const [careStatusFromSite, careStatusFromSiteChurch] = twins(onDocumentWritten, 'bookingSettings/{id}',
+  async (ch) => { await Notify.refreshCareStatus(ch.db); });
 /* AND BY ITSELF, every hour (Martin, 14 Oct 2026: "we can't do this for
    every church" - no church is ever told to press Save to make something
    work). A new church, or a deploy before anybody has touched the
@@ -699,10 +709,8 @@ export const myFamily = onCall(async (request) => {
 /* A household or a child's groups changed: rewrite the parents'
    familyGroups, which is what lets them read their children's youth
    boards (6c; the board rules read it). */
-export const familyGroupsSync = onDocumentWritten({ document: 'addressBook/{id}', region: TRIGGER_REGION }, async (event) => {
-  const before = event.data.before && event.data.before.exists ? event.data.before.data() : null;
-  const after = event.data.after && event.data.after.exists ? event.data.after.data() : null;
-  await onBookChangeIn(db, event.params.id, before, after);
+export const [familyGroupsSync, familyGroupsSyncChurch] = twins(onDocumentWritten, 'addressBook/{id}', async (ch, event) => {
+  await onBookChangeIn(ch.db, event.params.id, beforeOf(event), afterOf(event));
 });
 
 /* A church's youth code (H-5): which church, for redeemYouthCode. Pages
@@ -748,7 +756,7 @@ export * from './team-mail.js';
 export { kidsCountsKeep } from './kids-counts.js';
 /* Enter a Sunday once: a rota service ticked "In What's On" is copied to
    calEvents/rota_<id> for What's On, the app, the embed and the feed. */
-export { rotaWhatsOn } from './rota-whatson.js';
+export { rotaWhatsOn, rotaWhatsOnChurch } from './rota-whatson.js';
 /* For Sunday: the prayer list for the service leader and the Pastor (F-222), the events window's file. */
 export { prayerSundayOnPrayer, prayerSundayOnRota, prayerSundayDaily } from './prayer-sunday.js';
 /* The session planner's Bible (API.Bible, the church's key) and its plan email (F-223), the events window's files. */

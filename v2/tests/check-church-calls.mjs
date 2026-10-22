@@ -312,6 +312,31 @@ try {
   if (pp.t) seeded.push('hqCodes/papers_' + codeHash(pp.t));
   const ep = await pageOf(await personalise(adb, links('e'), { member: true, id: 'ab_pp_e', email: 'pp.e@example.invalid' }, html('e'), { fnBase: base }));
   ok("  an EGBC member's link opens EGBC's, as today, with no index entry", ep.page.status === 200 && ep.page.body.includes('EGBC Synthetic AGM') && (await getDoc('hqCodes/papers_' + codeHash(ep.t))) === null, ep.page.status + ' ' + ep.page.body.slice(0, 160));
+
+  console.log('\nTriggers (batch 5)');
+  const waitFor = async (p, test) => { let d = null; for (let i = 0; i < 60; i++) { d = await getDoc(p); if (d && (!test || test(d))) return d; await new Promise(r2 => setTimeout(r2, 250)); } return d; };
+  /* Safeguarding lead named on a site: the care status note. */
+  await seed('churches/' + A + '/bookingSettings/site_a', { safeguardingLead: 'm_lead_a' });
+  let cs = await waitFor('churches/' + A + '/careRouting/status', d => JSON.stringify(d).includes('m_lead_a'));
+  ok("  a lead named in alpha: alpha's care note says so", !!cs && JSON.stringify(cs).includes('m_lead_a'), JSON.stringify(cs));
+  ok("  and EGBC's and beta's notes do not", !JSON.stringify(await getDoc('careRouting/status') || {}).includes('m_lead_a') && !JSON.stringify(await getDoc('churches/' + B + '/careRouting/status') || {}).includes('m_lead_a'));
+  await seed('bookingSettings/site_e', { safeguardingLead: 'm_lead_e' });
+  cs = await waitFor('careRouting/status', d => JSON.stringify(d).includes('m_lead_e'));
+  ok("  a lead named at EGBC: EGBC's note, as today", !!cs && JSON.stringify(cs).includes('m_lead_e'), JSON.stringify(cs));
+  seeded.push('churches/' + A + '/careRouting/status', 'careRouting/status', 'churches/' + A + '/safeguardingSettings/defaults', 'safeguardingSettings/defaults');
+  /* A Sunday on alpha's rota, marked for What's on: its calendar entry. */
+  await seed('churches/' + A + '/churchSettings/features', { notifications: true, sundaysInWhatsOn: true });
+  await seed('churches/' + A + '/events/ev_ws_a', { date: FUTURE, serviceTime: '10:30', type: 'Alpha WO Synthetic', whatsOn: true });
+  const wo = await waitFor('churches/' + A + '/calEvents/rota_ev_ws_a');
+  ok("  a Sunday for What's on in alpha: alpha's calendar has it", !!wo && JSON.stringify(wo).includes('Alpha WO Synthetic'), JSON.stringify(wo));
+  ok("  and EGBC's calendar does not", (await getDoc('calEvents/rota_ev_ws_a')) === null);
+  seeded.push('churches/' + A + '/calEvents/rota_ev_ws_a');
+  /* An "I'm new here" in alpha (phone notifications on there): marked as told, in alpha. */
+  await seed('churches/' + A + '/welcomes/w_cc_a', { name: 'New Synthetic', email: 'new.a@example.invalid', createdAt: new Date().toISOString() });
+  const told = await waitFor('churches/' + A + '/notifySent/hello_w_cc_a');
+  ok("  a hello in alpha is handled with alpha's settings, and marked in alpha", !!told);
+  ok("  not at EGBC", (await getDoc('notifySent/hello_w_cc_a')) === null);
+  seeded.push('churches/' + A + '/notifySent/hello_w_cc_a');
 } finally {
   for (const p of seeded) await del(p).catch(() => {});
   /* The outbox rows the sends made, in each place. */
