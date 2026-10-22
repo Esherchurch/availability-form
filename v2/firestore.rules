@@ -2594,6 +2594,15 @@ service cloud.firestore {
                         || (request.resource.data.itemId in ['adopted', 'trusteeTraining', 'return'] && sgTrustee()));
       allow update, delete: if false;
     }
+    // ---- STEP 5: AI-DRAFTED ASSESSMENTS (F-265 part A) ----
+    // The log of each draft asked for: who, when, how long, the outcome and
+    // the tokens - never the words. Read by master admins and the site's
+    // lead and deputy; written by the server only. sgAiUse (today's counts)
+    // and sgAiStub (the emulator's stand-in) have no rule: server only.
+    match /sgAiLog/{id} {
+      allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''));
+      allow write: if false;
+    }
     // The trustees' dated snapshots: taken by the trustees and master admins,
     // read by those who read the register, never changed. The banner says
     // what it is, so it is never mistaken for an outside body's assessment.

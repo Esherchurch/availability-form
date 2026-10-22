@@ -58,7 +58,8 @@ async function eventsAt(dbi, siteId, today, days) {
     const l = (await dbi.collection('eventLeaders').doc(e.id).get()).data();
     if (!l || l.under18 !== true) continue;
     const sus = await rows(dbi.collection('signups').where('calEventId', '==', e.id));
-    const children = sus.filter((x) => x.status === 'confirmed').reduce((a, x) => a + (+x.places || 1), 0);
+    /* one per attendee, as the event's own pages count them (EGBCCheckin.people) */
+    const children = sus.filter((x) => x.status === 'confirmed').reduce((a, x) => a + ((x.attendees || []).length || 1), 0);
     let signedOff = true;
     const needs = SG_KINDS.includes(e.sgKind || '');
     if (needs) { const a = (await dbi.collection('sgAssessments').doc(e.id).get()).data(); signedOff = !!(a && (a.status === 'signed' || a.waived)); }
@@ -153,9 +154,12 @@ export async function runSgWarnings({ db: dbi, at = new Date(), siteIds }) {
 }
 
 export const sgWarningsSync = onSchedule({ region: REGION, schedule: 'every 15 minutes', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  if (!(await featureOn(db(), 'safeguarding'))) return;
+  if (!(await registerOn(db()))) return;
   await runSgWarnings({ db: db() });
 });
+
+/* the register follows its own switch (main's safeguardingRegister, F-268), inside safeguarding's */
+export async function registerOn(dbi) { return (await featureOn(dbi, 'safeguarding')) && (await featureOn(dbi, 'safeguardingRegister')); }
 
 /* who may refresh a site's warnings: as the rules' sgRegSees() */
 export async function maySee(dbi, uid, siteId) {
@@ -171,7 +175,7 @@ export const sgWarningsNow = onCall({ region: REGION }, async (req) => {
   const siteId = String((req.data || {}).siteId || '');
   if (!siteId || siteId.includes('/')) throw new HttpsError('invalid-argument', 'Which site?');
   if (!(await maySee(db(), req.auth.uid, siteId))) throw new HttpsError('permission-denied', 'This is for the safeguarding lead and deputy, and the trustees.');
-  if (!(await featureOn(db(), 'safeguarding'))) throw new HttpsError('failed-precondition', 'Safeguarding is turned off for this church.');
+  if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
   const r = await runSgWarnings({ db: db(), siteIds: [siteId] });
   return { count: r[0].count };
 });
@@ -204,7 +208,7 @@ export async function runTwoAdultsMail({ db: dbi, send, at = new Date(), hub = '
   return mailed;
 }
 export const sgTwoAdultsDaily = onSchedule({ region: REGION, schedule: 'every day 08:00', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  if (!(await featureOn(db(), 'safeguarding'))) return;
+  if (!(await registerOn(db()))) return;
   const sender = makeSender({ db: db() });
   const hub = await hubUrl(db());
   const sent = await runTwoAdultsMail({ db: db(), hub, send: (msg, meta) => sender({ to: msg.to, subject: msg.subject, html: msg.html, replyTo: '' }, meta) });

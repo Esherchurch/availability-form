@@ -273,7 +273,10 @@
           return '<div class="field"><label for="dueWeeks">“Due soon” means within</label>' + num('dueWeeks', Math.round((R.dueSoonDays || 42) / 7), 26) + ' weeks</div>' +
             '<p class="hint" style="margin:0 0 8px">The dials on the register’s dashboard. Below amber, a dial is red.</p>' +
             pc('checks', 'Leaders with in-date checks') + pc('sessions', 'Sessions with enough leaders') + pc('consent', 'Children with current consent') + pc('assess', 'Event assessments signed') +
-            '<div class="field"><label>Incident follow-ups open</label>Green at ' + num('dg_incidents', v('incidents', 0), 50) + ' or fewer, amber at ' + num('da_incidents', v('incidents', 1), 50) + ' or fewer</div>';
+            '<div class="field"><label>Incident follow-ups open</label>Green at ' + num('dg_incidents', v('incidents', 0), 50) + ' or fewer, amber at ' + num('da_incidents', v('incidents', 1), 50) + ' or fewer</div>' +
+            /* AI-drafted event assessments (F-265 step 5): how many a day */
+            '<div class="field"><label>AI-drafted assessments a day</label>' + num('aiChurch', typeof (R.ai || {}).perChurch === 'number' ? R.ai.perChurch : 20, 200) + ' for the church, ' +
+              num('aiPerson', typeof (R.ai || {}).perPerson === 'number' ? R.ai.perPerson : 5, 50) + ' for each person</div>';
         })() + '</div>' +
 
       '<div class="card"><button class="btn" id="save">' + ico('check', 16) + 'Save the settings</button>' +
@@ -330,6 +333,7 @@
       [['checks', 95, 85, 100], ['sessions', 95, 85, 100], ['consent', 95, 85, 100], ['assess', 100, 80, 100], ['incidents', 0, 2, 50]].forEach(function (k) {
         d.register.dials[k[0]] = { g: nv('dg_' + k[0], k[1], k[3]), a: nv('da_' + k[0], k[2], k[3]) };
       });
+      d.register.ai = { perChurch: nv('aiChurch', 20, 200), perPerson: nv('aiPerson', 5, 50) };
     }
     if (!ADMIN) d.leadSiteId = LEADSITES[0];
     var who = ADMIN && SITES.length && document.getElementById('lead_' + SITES[0].id) ? readWho() : null, sites = [];

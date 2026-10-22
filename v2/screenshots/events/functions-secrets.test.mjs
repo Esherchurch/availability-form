@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'functions');
-const FILES = ['microsoft.js', 'present.js', 'quiz.js'];
+const FILES = ['microsoft.js', 'present.js', 'quiz.js', 'sg-ai.js', 'sg-warnings.js'];
 const results = [];
 const ok = (name, pass, why) => { results.push(!!pass); console.log((pass ? '  PASS  ' : '  FAIL  ') + name + (pass || why === undefined ? '' : '\n          ' + why)); };
 

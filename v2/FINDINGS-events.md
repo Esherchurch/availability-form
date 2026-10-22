@@ -10646,3 +10646,122 @@ Every function must take the church from the sign-in's claim or the document's p
 - **Your rules-engine tests:** any test that passes `fs.readFileSync('firestore.rules')` to initializeTestEnvironment should load `cfg.firestore.rules` instead, from the config it already reads. I've changed firestore-rules.test.mjs, church-scope-rules.test.mjs and storage-rules.test.mjs.
   - **Comms:** tests/check-enews-rules.mjs loads firestore.rules.
   - Static checks that read the source text, such as check-access-levels, can stay as they are.
+
+### F-274 — The safeguarding risk register, step 5: AI-drafted event assessments (F-265 part A; Martin's answers 6–8; the events window, 22 Oct)
+
+**Built:**
+- **"Describe the event, and get a first draft"** on an under-18s trip, overnight, holiday club or off-site event's assessment (egbc-sg-assess.js, on the event's safeguarding page).
+  - **Who:** the event's organiser (its team, or the admin who made it), its named leaders, and its site's lead and deputy. Volunteers not on the event and trustees are refused by the server.
+  - **Above the box:** "Don't put in any child's name, anyone's contact details or anyone's medical details…".
+  - **Below it:** "Sent to Anthropic's Claude to draft; not kept by the hub."
+  - The box takes up to 4,000 characters, and optionally how many children are under 8.
+  - **Before anyone types,** `sgAiStatus` says whether it's ready, not set up ("AI drafting isn't set up yet for this church. Write the assessment from a template instead."), at today's limit, or turned off.
+- **The server: `sgDraftAssessment`** (functions/sg-ai.js; the parts with no network are in sg-ai-core.cjs).
+  1. **Refused before anything is sent:**
+     - a child's or parent's name the hub holds for the event (from its sign-ups)
+     - an email, a phone number, a postcode, a date of birth, an NHS-style number
+
+     A medical word next to a capitalised name asks first ("It's in general words: draft it").
+  2. **The counts the hub knows, and nothing else, go with the leader's words:**
+     - children booked, counted as the page counts them (one per attendee)
+     - under-8s, if given
+     - leaders named, and how many are cleared
+     - the church's ratios
+  3. **The model** is `claude-sonnet-5-5`, through the official SDK `@anthropic-ai/sdk`.
+     - The answer's shape is fixed by structured outputs.
+     - The fixed instructions are marked for caching.
+     - `max_tokens` is 16,000, with a 120-second time-out.
+     - **Only "busy" or "overloaded" is tried again** (429 or 5xx): the same model, up to 3 times, with backoff.
+     - **No other model.** A refusal says, in Martin's words: "The AI couldn't draft this; write it from the template instead."
+  4. **The hub's sums, never the AI's:**
+     - Every rating is checked as 1 to 5, and every hazard needs a control and an owner given as a role. Anything malformed: "The draft came back incomplete; try again", and nothing is saved.
+     - The overall is the worst rating after the controls, and red while anything must not go ahead.
+     - When leaders are short for the ratio or two adults, the hub adds its own row first: "Not enough leaders: N needed for C children; L named". It's red, marked "must not go ahead", and labelled "From the hub's numbers".
+  5. **Saved as a draft,** with `source: { kind: 'ai', model, at, by, overall, mustNot, questions, summary }`.
+     - The gate stays "waiting", so **bookings stay closed.**
+     - **The leader's words are not kept.**
+     - A signed (or "not needed") assessment isn't redrafted.
+  6. **Logged** in `sgAiLog`: who, when, how many characters, the outcome and the tokens. **Never the words.** Read by master admins and the site's lead and deputy; written by the server only.
+  7. **Capped:** 20 a day for the church and 5 a person, counted in a transaction (`sgAiUse/<day>`). Both caps are on Safeguarding settings.
+- **On the page:**
+  - "First draft by AI: check every line. It counts for nothing until the safeguarding lead or deputy signs it off."
+  - "Overall, by the hub's sums".
+  - A red box: "This must not go ahead as described", with the plain sentences.
+  - "Questions to answer before sign-off".
+  - Each risk is tagged "Must not go ahead as described", "From the hub's numbers" or "AI draft".
+  - **The lead can't sign while a "must not go ahead" item is there.** It has to be changed (its words, or no longer high after the controls) or taken out.
+- **The secret:** `CHQ_ANTHROPIC_API_KEY` (defineSecret), declared by both callables. functions-secrets.test.mjs now checks sg-ai.js and sg-warnings.js.
+- **On the emulator only,** the function talks to a local stand-in (`sgAiStub/config`, server-only), never the real API.
+- **The register's own switch** (main's request after F-272): safeguarding-risk.html, the warnings, the dials, the two-adults email and AI drafting now follow `safeguardingRegister` as well as `safeguarding`.
+- **Found while testing, and fixed:** the warnings counted a booking's `places`, while the event's own pages count one per attendee (`EGBCCheckin.people`). Both the warnings and the AI facts now count as the pages do, and a check holds them together.
+
+**Proved:**
+- **sg-ai.test.mjs: 46/46**, with the functions emulator and the stand-in. No real call. It covers:
+  - not set up: the plain message, and nothing sent
+  - **a child's name from the sign-ups, an email and a phone number refused, with nothing sent**
+  - the medical warning
+  - **a draft:**
+    - the label; the hub's overall (High) where the AI said green
+    - the hub's own row; the "must not go ahead" box; the questions
+    - the page's own count agreeing (12)
+    - the leader's words not kept
+    - the gate closed
+    - **what was sent: the model, the fixed shape, the cached instructions, the counts and the words, and no child's, parent's or leader's name or email**
+    - the log, without the words
+  - the lead unable to sign until the "must not go ahead" items are taken out, then signing with a reason
+  - no redraft once signed
+  - a refusal: Martin's words, one call, no other model, nothing saved
+  - malformed: nothing saved
+  - busy: tried again, then drafted
+  - a volunteer and a trustee refused; the named leader allowed
+  - both caps, and the counting
+  - the register switched off
+  - pictures at 375 px and computer size
+- **sg-ai-unit.test.mjs: 38/38:** the personal checks, the hub's row (and the under-8 test), re-scoring both ways, malformed answers, the 40-risk shape, what is sent, the schema closed, the caps.
+- **Rules: 1882/1882** (10 new).
+- **Breaks, 13 of 13 caught:**
+  - **The one that matters:** the AI's own red/amber/green trusted (caught by the browser test and the unit test).
+  - A child's name passing the check (browser and unit).
+  - The leader's words kept in the log.
+  - The ratio shortfall left to the AI (browser and unit).
+  - A draft opening bookings.
+  - No cap.
+  - Signing with a "must not go ahead" item.
+  - "Busy" not tried again.
+  - A volunteer allowed.
+  - A page writing the AI log.
+- **Rule Zero:**
+
+  | Test | Result |
+  |---|---|
+  | sg-assess | 28/28 |
+  | sg-register | 25/25 |
+  | sg-dash | 45/45 |
+  | sg-warnings | 30/30 |
+  | e3-safeguarding | 38/38 |
+  | e3-settings | 21/21 |
+  | sg-lead | 14/14 |
+  | functions-secrets | 7/7 |
+  | sg-warnings-unit | 53/53 |
+  | sg-register-unit | 16/16 |
+  | present-meeting | 58/58 |
+
+**Found and not fixed:**
+- **Names from the event's consent forms** (collectors, children named only on a form) aren't in the refusal list yet. Only the sign-ups' names are.
+- **The rules can't see inside the risks list,** so "must not go ahead" blocks signing on the page, not in the database. The draft's overall and the hub's row are still the server's.
+- **The fixed instructions are shorter than the model's smallest cacheable size,** so caching will save nothing until they grow. It's harmless.
+
+**For the reviewing window:**
+- **Deploy:** the new functions `sgDraftAssessment` and `sgAiStatus`; also `sgWarningsSync`, `sgWarningsNow` and `sgTwoAdultsDaily` again (the register switch, and the attendee count).
+  - **functions/package.json gains `@anthropic-ai/sdk` 0.132.1**, pinned exactly (14 days old), so the deploy installs it.
+  - No new secret beyond `CHQ_ANTHROPIC_API_KEY`, which both new callables declare.
+- **The one real call, Martin's Brazil example, when you say so.** Put the example's words in a file (here `brazil.txt`), then run:
+
+  ```
+  SG_AI_KEY="$(gcloud secrets versions access latest --secret=CHQ_ANTHROPIC_API_KEY --project egbc-worship-planner)" node screenshots/events/sg-ai-smoke.mjs --live --text-file brazil.txt --children 30 --leaders 2 --cleared 2 --kind trip --days 10
+  ```
+
+  - Change the counts to match the example.
+  - It goes through the same `callModel` and checks, writes nothing, and prints the draft and the token counts.
+  - **It passes when:** the answer parses; the overall is red; there is a "must not go ahead" item; and the hub's row is there when the leaders are short.
+- **The rules** go live when the hub goes live.

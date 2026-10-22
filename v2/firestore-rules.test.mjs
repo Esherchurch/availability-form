@@ -4767,6 +4767,26 @@ await check('  while making the same record without it is fine', 'allow',
   await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'safeguardingSettings', 'defaults'); if (had) await setDoc(r, had); else await deleteDoc(r); });
 }
 
+// ── EVENTS (events window) ── THE SAFEGUARDING RISK REGISTER, step 5: AI drafts (the server writes; counts only)
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'sgAiLog', 'log_1'), { siteId: 'site_sgr', calEventId: 'ev_sga_trip', by: 'u_sgr_vol', byName: 'x', at: 'x', chars: 120, outcome: 'drafted', tokensIn: 900, tokensOut: 1800 });
+    await setDoc(doc(c.firestore(), 'sgAiUse', '2026-10-22'), { total: 1, by: { u_sgr_vol: 1 } });
+  });
+  const LOG = (uid) => ({ siteId: 'site_sgr', calEventId: 'ev_sga_trip', by: uid, byName: 'x', at: 'x', chars: 1, outcome: 'drafted', tokensIn: 0, tokensOut: 0 });
+  await check('THE AI LOG: the site’s lead reads it', 'allow', () => getDoc(doc(cx('u_sgr_lead'), 'sgAiLog', 'log_1')));
+  await check('  a master admin reads it', 'allow', () => getDoc(doc(as('martin'), 'sgAiLog', 'log_1')));
+  await check('  not the person who asked (a volunteer)', 'deny', () => getDoc(doc(cx('u_sgr_vol'), 'sgAiLog', 'log_1')));
+  await check('  not the trustees', 'deny', () => getDoc(doc(cx('u_sgr_trustee'), 'sgAiLog', 'log_1')));
+  await check('  NOBODY WRITES IT FROM A PAGE: not the lead', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAiLog', 'log_2'), LOG('u_sgr_lead')));
+  await check('  nor a master admin', 'deny', () => setDoc(doc(as('martin'), 'sgAiLog', 'log_3'), LOG('u_martin')));
+  await check('  nor removes an entry', 'deny', () => deleteDoc(doc(cx('u_sgr_lead'), 'sgAiLog', 'log_1')));
+  await check('TODAY’S COUNTS are the server’s: no page resets the cap', 'deny', () => setDoc(doc(as('martin'), 'sgAiUse', '2026-10-22'), { total: 0, by: {} }));
+  await check('  nor reads them', 'deny', () => getDoc(doc(cx('u_sgr_lead'), 'sgAiUse', '2026-10-22')));
+  await check('THE EMULATOR’S STAND-IN is never set from a page', 'deny', () => setDoc(doc(as('martin'), 'sgAiStub', 'config'), { url: 'http://example.invalid' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

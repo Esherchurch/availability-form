@@ -16,7 +16,7 @@
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
 <script src="egbc-sg-templates.js?v=202610221900"></script>
-<script src="egbc-sg-assess.js?v=202610221600"></script>
+<script src="egbc-sg-assess.js?v=202610222100"></script>
 <script src="egbc-sg-dash.js?v=202610221900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -332,7 +332,9 @@
   /* ---- who ---- */
   EGBCAuth.require().then(function (profile) {
     ME = { uid: (EGBCAuth.user() || {}).uid, name: (profile || {}).name || '' };
-    if (EGBCAuth.uses && !EGBCAuth.uses('safeguarding')) { app.innerHTML = '<div class="card">Safeguarding is turned off for this church.</div>'; return; }
+    if (EGBCAuth.uses && !EGBCAuth.uses('safeguarding')) { app.innerHTML = '<div class="card" id="regOff">Safeguarding is turned off for this church.</div>'; return; }
+    /* the register's own switch (main's safeguardingRegister, F-268) */
+    if (EGBCAuth.uses && !EGBCAuth.uses('safeguardingRegister')) { app.innerHTML = '<div class="card" id="regOff">The safeguarding risk register is turned off for this church. Church settings can turn it on.</div>'; return; }
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
     return Promise.all([SG.myLeadSites(), db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }), db().collection('sites').where('active', '==', true).get()])
       .then(function (r) {

@@ -13,6 +13,11 @@
    Only the lead, deputy or a master admin may say it isn't needed, with a
    reason - recorded. General words only: never a child, a family or a
    medical detail.
+
+   STEP 5: "Describe the event, and get a first draft" (sgDraftAssessment):
+   the same people who write it may ask. The draft is labelled "First draft
+   by AI: check every line"; the hub's own sums give its overall; a "must
+   not go ahead" item stops sign-off until it is changed or taken out.
    =================================================================== */
 (function (global) {
   'use strict';
@@ -28,7 +33,10 @@
     '.sga-rag{display:inline-flex;min-height:24px;padding:0 9px;border-radius:999px;font:600 12px Inter,sans-serif;align-items:center;margin:4px 4px 0 0}.sga-rag.red{background:#fdecea;color:#b0392c}.sga-rag.amber{background:#fdf6e9;color:#b07d2e}.sga-rag.green{background:#ecfdf3;color:#15803d}' +
     '.sga .warn{background:#fdf6e9;color:#6b4a26;border-radius:10px;padding:8px 10px;font-size:12.5px;margin:8px 0}.sga .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}' +
     '.sga .b{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid #3d6263;background:#3d6263;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}.sga .b.sec{background:#fff;color:#3d6263}' +
-    '.sga .muted{color:#6b7280;font-size:13px}@media (max-width:520px){.sga .g4{grid-template-columns:repeat(2,minmax(0,1fr))}}';
+    '.sga .muted{color:#6b7280;font-size:13px}@media (max-width:520px){.sga .g4{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
+    '.sga .ai{border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin:12px 0;background:#fafaf9}.sga .ai textarea{min-height:110px}.sga .ai input[type=number]{width:100px;min-height:44px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px}' +
+    '.sga .must{background:#fdecea;color:#7f1d1d;border:1px solid #f5c2bc;border-radius:12px;padding:10px 12px;margin:10px 0}.sga .must ul{margin:6px 0 0;padding-left:18px}' +
+    '.sga .tag{display:inline-flex;min-height:22px;padding:0 8px;border-radius:999px;font:600 11.5px Inter,sans-serif;align-items:center;margin:4px 4px 0 0;background:#f3f4f6;color:#374151}.sga .tag.red{background:#fdecea;color:#b0392c}';
 
   function mount(el, o) {
     if (!document.getElementById('sga-css')) { var st = document.createElement('style'); st.id = 'sga-css'; st.textContent = CSS; document.head.appendChild(st); }
@@ -51,7 +59,7 @@
         (A && A.waived ? '<p class="muted" id="sgaWaived">Not needed, said ' + esc(A.waivedByName || '') + ': ' + esc(A.waivedWhy || '') + '</p>' : '') +
         (!A || (A.status !== 'signed' && !A.waived) ? '<p class="warn" id="sgaGateWords">Bookings open after the safeguarding lead or deputy signs this off.</p>' : '');
       if (!A) {
-        el.innerHTML = head + (o.may.edit ? '<label for="sgaTpl">Start from a template</label><select id="sgaTpl">' + T.EVENT_KINDS.map(function (k) { return '<option value="' + k.id + '"' + (k.id === tplId ? ' selected' : '') + '>' + esc(T.EVENT_TEMPLATES[k.id].label) + '</option>'; }).join('') + '</select>' +
+        el.innerHTML = head + aiBox() + (o.may.edit ? '<label for="sgaTpl">Start from a template</label><select id="sgaTpl">' + T.EVENT_KINDS.map(function (k) { return '<option value="' + k.id + '"' + (k.id === tplId ? ' selected' : '') + '>' + esc(T.EVENT_TEMPLATES[k.id].label) + '</option>'; }).join('') + '</select>' +
           '<div class="btns"><button class="b" id="sgaStart">Start the assessment</button></div>' : '<p class="muted">Not started yet.</p>') + waiveBox() + '</div>';
         wire(); return;
       }
@@ -62,22 +70,71 @@
           : '<p><b>' + esc(q.label) + '</b><br>' + (v ? esc(v) : '<span class="muted">Not answered</span>') + '</p>';
       }).join('');
       var risks = (A.risks || []).map(function (r, k) {
-        if (!edit) return '<div class="r" data-sgarisk="' + k + '"><b>' + esc(r.risk) + '</b><div class="muted">' + esc(r.who || '') + '</div>' + rag(r.l, r.i, 'Before') + rag(r.rl, r.ri, 'After') +
+        if (!edit) return '<div class="r" data-sgarisk="' + k + '">' + tags(r) + '<b>' + esc(r.risk) + '</b><div class="muted">' + esc(r.who || '') + (r.owner ? ' · Owner: ' + esc(r.owner) : '') + '</div>' + rag(r.l, r.i, 'Before') + rag(r.rl, r.ri, 'After') +
           '<div class="muted">' + (r.controls || []).map(T.controlLabel).map(esc).join(' · ') + '</div></div>';
         var sel = function (f, v) { var s = '<select data-rf="' + f + '" aria-label="' + f + '">'; for (var n = 1; n <= 5; n++) s += '<option' + (n === v ? ' selected' : '') + '>' + n + '</option>'; return s + '</select>'; };
-        return '<div class="r" data-sgarisk="' + k + '"><input type="text" data-rf="risk" maxlength="200" value="' + esc(r.risk) + '" aria-label="The risk">' +
+        return '<div class="r" data-sgarisk="' + k + '">' + tags(r) + '<input type="text" data-rf="risk" maxlength="200" value="' + esc(r.risk) + '" aria-label="The risk">' +
           '<input type="text" data-rf="who" maxlength="120" value="' + esc(r.who || '') + '" aria-label="Who" style="margin-top:6px">' +
           '<div class="g4" style="margin-top:6px"><div><span class="muted">How likely</span>' + sel('l', r.l) + '</div><div><span class="muted">How bad</span>' + sel('i', r.i) + '</div><div><span class="muted">After: likely</span>' + sel('rl', r.rl) + '</div><div><span class="muted">After: bad</span>' + sel('ri', r.ri) + '</div></div>' +
           '<textarea data-rf="controls" maxlength="1000" aria-label="Controls, one a line" style="margin-top:6px">' + esc((r.controls || []).map(T.controlLabel).join('\n')) + '</textarea>' + rag(r.l, r.i, 'Before') + rag(r.rl, r.ri, 'After') + '</div>';
       }).join('');
       var reds = (A.risks || []).filter(function (r) { return T.rating(r.rl, r.ri) === 'red'; }).length;
-      el.innerHTML = head + (edit ? '<p class="warn">General words only: never name a child, a family or a medical detail.</p>' : '') + answers +
+      var ai = A.source && A.source.kind === 'ai', stops = (A.risks || []).filter(function (r) { return r.mustNot; }).length;
+      var aiHead = ai ? '<p class="warn" id="sgaAiLabel">First draft by AI: check every line. It counts for nothing until the safeguarding lead or deputy signs it off.</p>' +
+        '<p class="muted" id="sgaOverall">Overall, by the hub’s sums: <span class="sga-rag ' + esc(overallOf(A)) + '" data-overall="' + esc(overallOf(A)) + '">' + WORDS[overallOf(A)] + '</span></p>' : '';
+      var mustBox = stops ? '<div class="must" id="sgaMustNot"><b>This must not go ahead as described.</b> Change ' + (stops === 1 ? 'the item marked below' : 'the ' + stops + ' items marked below') + ', or take ' + (stops === 1 ? 'it' : 'them') + ' out, before it can be signed off.' +
+        ((A.source && A.source.mustNot || []).length ? '<ul>' + A.source.mustNot.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' : '';
+      var qs = ai && (A.source.questions || []).length ? '<div id="sgaQuestions"><label>Questions to answer before sign-off</label><ul class="muted" style="margin:0;padding-left:18px">' + A.source.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '';
+      el.innerHTML = head + aiHead + mustBox + (A.status !== 'signed' && !A.waived ? aiBox() : '') + qs + (edit ? '<p class="warn">General words only: never name a child, a family or a medical detail.</p>' : '') + answers +
         '<label>Risks</label>' + risks + (edit ? '<button class="b sec" id="sgaAddRisk" type="button">Add a risk</button>' : '') +
         '<div class="btns">' + (edit ? '<button class="b sec" id="sgaSave">Save</button>' + (A.status === 'draft' ? '<button class="b" id="sgaReady">Ready for sign-off</button>' : '') : '') +
         (o.may.sign && !A.waived && A.status !== 'signed' ? '<button class="b" id="sgaSign">Sign it off</button>' : '') + '<button class="b sec" id="sgaPrint" type="button">Print</button></div>' +
         (o.may.sign && reds && A.status !== 'signed' ? '<label for="sgaNote">' + reds + ' risk' + (reds === 1 ? ' is' : 's are') + ' still high after the controls: say why it can go ahead</label><textarea id="sgaNote" maxlength="300"></textarea>' : '') +
         '<p class="muted" id="sgaMsg" role="status"></p>' + waiveBox() + '</div>';
       wire();
+    }
+    function overallOf(a) { var w = { red: 3, amber: 2, green: 1 }, o = 'green';
+      (a.risks || []).forEach(function (r) { var g = T.rating(r.rl, r.ri); if (w[g] > w[o]) o = g; });
+      return (a.risks || []).some(function (r) { return r.mustNot; }) ? 'red' : o; }
+    function tags(r) {
+      return (r.mustNot ? '<span class="tag red" data-mustnot>Must not go ahead as described</span>' : '') +
+        (r.from === 'hub' ? '<span class="tag" data-fromhub>From the hub’s numbers</span>' : r.from === 'ai' ? '<span class="tag" data-fromai>AI draft</span>' : '');
+    }
+    /* "Describe the event, and get a first draft" - for those who write it */
+    function aiBox() {
+      if (!o.may.edit) return '';
+      return '<div class="ai" id="sgaAi"><label for="sgaAiText" style="margin-top:0">Describe the event, and get a first draft</label>' +
+        '<p class="warn" id="sgaAiNo">Don’t put in any child’s name, anyone’s contact details or anyone’s medical details. Describe needs in general: “two children need an adult with them at all times”.</p>' +
+        '<div id="sgaAiBody"><p class="muted">Checking…</p></div></div>';
+    }
+    function aiReady(state, message) {
+      var box = el.querySelector('#sgaAiBody'); if (!box) return;
+      if (state !== 'ready') { box.innerHTML = '<p class="muted" id="sgaAiState" data-state="' + esc(state) + '">' + esc(message || 'Not available for you here.') + '</p>'; return; }
+      box.innerHTML = '<textarea id="sgaAiText" maxlength="4000" placeholder="For example: A day trip to the coast for 30 children aged 8–11, by coach; 5 adults; swimming in the sea; lunch on the beach."></textarea>' +
+        '<label for="sgaAiU8">How many of the children are under 8? (if you know)</label><input type="number" id="sgaAiU8" min="0" max="999">' +
+        '<p class="muted" id="sgaAiWhere">Sent to Anthropic’s Claude to draft; not kept by the hub.' + (A && (A.risks || []).length ? ' The draft replaces the risks written so far.' : '') + '</p>' +
+        '<div class="btns"><button class="b" id="sgaAiGo" type="button">Draft it</button></div><p class="muted" id="sgaAiMsg" role="status"></p>';
+      var go = box.querySelector('#sgaAiGo');
+      var ask = function (confirmed) {
+        var text = box.querySelector('#sgaAiText').value.trim(), msg = box.querySelector('#sgaAiMsg');
+        if (!text) { box.querySelector('#sgaAiText').focus(); return; }
+        go.disabled = true; msg.textContent = 'Drafting… this takes about half a minute.';
+        EGBCAuth.call('sgDraftAssessment', { calEventId: o.calEventId, text: text, under8: box.querySelector('#sgaAiU8').value, confirmed: !!confirmed }).then(function (res) {
+          res = (res && res.data) || res || {};
+          if (res.needsConfirm) {
+            go.disabled = false; msg.innerHTML = esc(res.message) + ' <button class="b sec" id="sgaAiSure" type="button">It’s in general words: draft it</button>';
+            msg.querySelector('#sgaAiSure').onclick = function () { ask(true); };
+            return;
+          }
+          return load();
+        }, function (e) { go.disabled = false; msg.textContent = (e && e.message) || String(e); });
+      };
+      go.onclick = function () { ask(false); };
+    }
+    function aiStatus() {
+      if (!el.querySelector('#sgaAiBody')) return;
+      EGBCAuth.call('sgAiStatus', { calEventId: o.calEventId }).then(function (r) { r = (r && r.data) || r || {}; aiReady(r.state, r.message); },
+        function () { aiReady('unavailable', 'AI drafting can’t be reached just now. Write the assessment from a template instead.'); });
     }
     function waiveBox() {
       if (!o.may.waive || (A && (A.waived || A.status === 'signed'))) return '';
@@ -89,9 +146,12 @@
       var t = T.EVENT_TEMPLATES[A.templateId] || T.EVENT_TEMPLATES.trip, answers = {};
       el.querySelectorAll('[data-q]').forEach(function (q) { var v = q.value.trim().slice(0, 500); if (v) answers[q.getAttribute('data-q')] = v; });
       var risks = [].slice.call(el.querySelectorAll('[data-sgarisk]')).map(function (row) {
-        var f = function (n) { return row.querySelector('[data-rf="' + n + '"]'); };
-        return { risk: f('risk').value.trim().slice(0, 200), who: f('who').value.trim().slice(0, 120), l: +f('l').value, i: +f('i').value, rl: +f('rl').value, ri: +f('ri').value,
+        var f = function (n) { return row.querySelector('[data-rf="' + n + '"]'); }, was = (A.risks || [])[+row.getAttribute('data-sgarisk')] || {};
+        var x = { risk: f('risk').value.trim().slice(0, 200), who: f('who').value.trim().slice(0, 120), l: +f('l').value, i: +f('i').value, rl: +f('rl').value, ri: +f('ri').value,
           controls: f('controls').value.split('\n').map(function (x) { return x.trim().slice(0, 200); }).filter(Boolean).slice(0, 20).map(function (x) { return { kind: 'text', text: x }; }) };
+        if (was.owner) x.owner = was.owner; if (was.review) x.review = was.review; if (was.from) x.from = was.from;
+        if (was.mustNot && x.risk === was.risk && T.rating(x.rl, x.ri) === 'red') x.mustNot = true;
+        return x;
       }).filter(function (r) { return r.risk; }).slice(0, 40);
       return { answers: answers, risks: risks, templateId: t === T.EVENT_TEMPLATES[A.templateId] ? A.templateId : 'trip' };
     }
@@ -104,6 +164,7 @@
     }
     function wire() {
       var q = function (s) { return el.querySelector(s); };
+      aiStatus();
       if (q('#sgaStart')) q('#sgaStart').onclick = function () {
         var id = q('#sgaTpl').value, t = T.EVENT_TEMPLATES[id];
         var d = stamp({ siteId: o.siteId, calEventId: o.calEventId, title: String((o.ev && o.ev.title) || '').slice(0, 120), templateId: id, answers: {},
@@ -118,6 +179,7 @@
       if (q('#sgaSign')) q('#sgaSign').onclick = function () {
         var r = o.may.edit ? read() : { answers: A.answers, risks: A.risks, templateId: A.templateId };
         var reds = r.risks.filter(function (x) { return T.rating(x.rl, x.ri) === 'red'; }).length, note = (q('#sgaNote') ? q('#sgaNote').value.trim() : '').slice(0, 300);
+        if (r.risks.some(function (x) { return x.mustNot; })) { say('A “must not go ahead” item is still there: change it or take it out first.'); return; }
         if (reds && !note) { say('Say why it can go ahead with a high risk left, or change it first.'); return; }
         var v = (A.version || 1);
         var next = stamp(Object.assign({}, A, r, { status: 'signed', version: v, signedBy: o.me.uid, signedByName: String(o.me.name || '').slice(0, 80),
