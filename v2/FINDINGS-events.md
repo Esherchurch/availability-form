@@ -10157,3 +10157,38 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 - **egbc-share.js** changed: the Share sheet's message box was dark text on dark grey in the app's dark theme (the reviewing window). It is now kept light.
 - **Please change** egbc-events.js:614, `egbc-share.js?v=202610212300`, to `?v=202610221610` (then regenerate public-mail-pages.cjs as usual).
 - **Also, for the rota:** meeting.html's "New meeting" now offers every team's own meeting, e.g. "Kids Church Meeting" (the reviewing window: a Kids Church leader could not set one up). egbc-core-rota.js keeps a type it doesn't list instead of overwriting it. Nothing needed from you unless one of your pages lists meeting types.
+
+### F-266 — Sign-ups: the database now checks the event is taking them (the gap found planning F-265; the events window, 22 Oct)
+
+**The gap:**
+- signup.html hid the Book button for an event that isn't taking sign-ups (`signupOn` false or missing) or is cancelled.
+- But the rules never asked. A sign-up could still be written straight to the database while the event's capacity record existed.
+
+**The fix:** `canSignUpTo()` (my events section) now also requires `signupsOpen(event)`: `signupOn == true` and the status not "cancelled".
+- **One exception:** the event's own team (`runsEventId`) may still add someone. That's how check-in adds a walk-in at the door, even when online booking is closed.
+- **Later:** the safeguarding sign-off gate (F-265, step 2) will add to the same function.
+
+**Proved:**
+- **Rules: 1769/1769,** with six new checks:
+  - a sign-up to an event taking them goes through
+  - refused when the event isn't taking sign-ups, never said it does, or is cancelled
+  - a member not on the team: also refused
+  - **the team's walk-in at the door is still allowed**
+- **One of my own older checks** used an event that never said it takes sign-ups. It now says it does (its point was who may sign up, not whether).
+- **Breaks, 3 of 3 caught:**
+  - **The one that matters:** sign-ups taken whatever the event says.
+  - A cancelled event still taking them.
+  - The team's walk-in refused.
+- **Pages that make sign-ups, one at a time:**
+
+  | Test | Result |
+  |---|---|
+  | e1-checkin (walk-ins) | 52/52 |
+  | who-can-come | 15/15 |
+  | series | 15/15 |
+  | pay-on-day | 18/18 |
+  | usual-people | 37/37 |
+
+**Found, not mine (for the main window):** `public-mail.test.mjs` is 40/45. B1/B2 send to an invented address through the mail sender, and `functions/mail-route.js` now refuses it ("Recipient not known to the hub"). That's from the hubSend change; no rules are involved, and it fails the same without this fix.
+
+**Deploy:** nothing. The rules go live when the hub does.

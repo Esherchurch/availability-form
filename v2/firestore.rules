@@ -1953,7 +1953,16 @@ service cloud.firestore {
     function canSignUpTo(calEventId) {
       return calEventId is string && calEventId != ''
              && exists(/databases/$(database)/documents/calEvents/$(calEventId))
-             && audienceOk(get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('audience', []));
+             && audienceOk(get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('audience', []))
+             && (signupsOpen(get(/databases/$(database)/documents/calEvents/$(calEventId)).data) || runsEventId(calEventId));
+    }
+    // OPEN FOR SIGN-UPS (F-265, the gap found planning it): the page hid the
+    // button for an event not taking sign-ups or cancelled, but the database
+    // took a sign-up anyway while its capacity record existed. Now it must
+    // be taking sign-ups and not cancelled - except for the event's own team
+    // (a walk-in added at the door, checkin.html).
+    function signupsOpen(ev) {
+      return ev.get('signupOn', false) == true && ev.get('status', 'confirmed') != 'cancelled';
     }
 
     // ---- who leads an event (Chunk 3, stage 3) ------------------------

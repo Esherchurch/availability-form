@@ -1923,7 +1923,7 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
     await U(db, 'u_vol', 'm_vol', { teams: ['Worship Team'] });
     await setDoc(doc(db, 'calEvents', 'ev_w_pub'), EV(['public', 'members'], 'public'));
     await setDoc(doc(db, 'calEvents', 'ev_w_att'), EV(['members'], 'members'));
-    await setDoc(doc(db, 'calEvents', 'ev_w_cm'), EV(['churchMembers'], 'churchMembers'));
+    await setDoc(doc(db, 'calEvents', 'ev_w_cm'), { ...EV(['churchMembers'], 'churchMembers'), signupOn: true });   // taking sign-ups (F-265's gap: the rules now ask)
     await setDoc(doc(db, 'calEvents', 'ev_w_team'), EV(['Worship Team'], 'team'));
   });
   const list = (who, aud) => getDocs(query(collection(who, 'calEvents'), where('audience', 'array-contains-any', aud)));
@@ -4557,6 +4557,32 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  but somebody not invited cannot say they are here', 'deny', () => setDoc(doc(samy(), 'presentHere', AK + '_u_samy'), HR('u_samy')));
   await check('  the host sees the list', 'allow', () => getDocs(query(collection(as('martin'), 'presentHere'), where('key', '==', AK))));
   await check('  nobody else does', 'deny', () => getDocs(query(collection(env.authenticatedContext('u_isla').firestore(), 'presentHere'), where('key', '==', AK))));
+}
+
+// ── EVENTS (events window) ── OPEN FOR SIGN-UPS (F-265's gap): the database, not only the button
+{
+  const EVS = (extra) => ({ title: 'Test (invented)', visibility: 'public', status: 'confirmed', audience: ['public'], startLocal: '2026-12-12T10:00', startUtc: 1765533600000,
+    createdBy: 'u_martin', teams: [], signupOn: true, capacity: 10, teamUids: ['u_karen'], teamMemberIds: [], ...(extra || {}) });
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    for (const [id, extra] of [['ev_so_open', {}], ['ev_so_closed', { signupOn: false }], ['ev_so_cancelled', { status: 'cancelled' }], ['ev_so_unsaid', { signupOn: null }]]) {
+      const e = EVS(extra); if (e.signupOn === null) delete e.signupOn;
+      await setDoc(doc(d, 'calEvents', id), e);
+      await setDoc(doc(d, 'capacity', id), { calEventId: id, taken: 0, capacity: 10 });
+    }
+  });
+  const SUO = (dbx, key, ev) => {
+    const b = writeBatch(dbx);
+    b.set(doc(dbx, 'signups', key), { calEventId: ev, personKind: 'contacts', personId: 'c_guest', name: 'Guest (invented)', email: 'g@example.invalid', places: 1, status: 'confirmed', attendees: [], answers: {} });
+    b.update(doc(dbx, 'capacity', ev), { taken: 1 });
+    return b.commit();
+  };
+  await check('SIGN-UPS: a guest signs up to an event taking sign-ups', 'allow', () => SUO(anon(), 'key_so_open_00000000000000000000', 'ev_so_open'));
+  await check('  NOT to one not taking sign-ups (the page hid the button; now the database refuses too)', 'deny', () => SUO(anon(), 'key_so_closed_000000000000000000', 'ev_so_closed'));
+  await check('  nor to one that never said it takes sign-ups', 'deny', () => SUO(anon(), 'key_so_unsaid_000000000000000000', 'ev_so_unsaid'));
+  await check('  NOR TO A CANCELLED ONE', 'deny', () => SUO(anon(), 'key_so_cancel_000000000000000000', 'ev_so_cancelled'));
+  await check('  a signed-in member not on its team: the same', 'deny', () => SUO(as('samy'), 'key_so_samy_00000000000000000000', 'ev_so_closed'));
+  await check('  BUT THE EVENT’S OWN TEAM may add a walk-in at the door', 'allow', () => SUO(as('karen'), 'key_so_walkin_000000000000000000', 'ev_so_closed'));
 }
 
 // Nothing else is open.
