@@ -260,6 +260,45 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 22 Oct: "Members only" for selected words inside a block (Martin). For review
+
+Val puts private details inside a card: the Zoom ID, passcode and join link, or the private YouTube link in Sunday's words. Until now members-only was a whole block, which meant either making the whole card members-only or giving the details a block of their own, full width under the card.
+
+- **In the editor:** select the words, then press **Members only** in the words toolbar. They show in gold on the email. Press it again inside them to make them for everyone again.
+  - Words spanning several lines work.
+  - A link chosen whole is marked whole, so its address goes with it.
+- **In the members' copy** the words are exactly as typed, with no mark visible.
+- **In everyone else's copy and the web version** they are taken out (`egbc-mailblocks.js stripMembers`), along with:
+  - any link they are in;
+  - a line left with nothing in it.
+  - **Nothing else moves:** the card's layout is as if the words were never there (checked against exactly that).
+- **Kept safe when cleaned:** the mark survives cleaning, and nothing else written on it is kept.
+- **The preview of the web version** also refuses a copy holding marked words or their links (`enews-preview.js`).
+- **Sunday's own words** can now be typed on the email in the editor, as a card's can, so a private link can go back inside them.
+
+**The test issue** (Val's 15 Oct) is in the live database, which this window doesn't write to. So I've written a script for you to run with Martin: `fix-test-issue-members-words.mjs`, in this window's scratchpad. I'll send its path.
+- **Without `--apply`** it only shows each change: the Zoom card made for everyone, with its Meeting ID, Passcode and zoom.us lines marked members-only; the separate private YouTube block moved into the Sunday words, members-only.
+- **With `--apply`** it saves, keeping the old blocks in `enewsBackups/<issueId>_membersWords`.
+- **If it doesn't find exactly one Zoom card, one private YouTube block and one Sunday block,** it changes nothing and says so.
+- **Or by hand in the editor,** about a minute:
+  - the Zoom card: Who sees it → untick, then select the ID, passcode and link → **Members only**;
+  - Sunday: paste the private link into its words, select it → **Members only**, then delete the separate YouTube block.
+
+**Checks** (on 99fde3d5, then 1b510b71 after the rebase; one test at a time, private TEMP, emulators stopped after each):
+- **The full run:** 65 runs, every check green and all 36 deliberate breaks red.
+- **check-enews-blocks 85/85**, 25/25 breaks red:
+  - everyone's copy never has the words or their links;
+  - the rest of the card is left as it is, and an emptied line goes;
+  - the layout is unchanged;
+  - the members' copy keeps them;
+  - the mark survives cleaning.
+  - **Breaks:** words left in everyone's copy; the mark lost when cleaned.
+- **check-enews-editor 47/47:** the button marks the words; they show gold; church members see them and everyone else doesn't; pressed again they're for everyone. **Break memwords** (the button does nothing) → red.
+- **check-enews-preview 18/18**, including **break: members-only words let through** → red.
+- **After the rebase** onto multi-church step 2: rules 68/68 (18 breaks), page 60/60, editor 47/47, meeting 17/17, preview 18/18, and upstream's check-top-level 4/4.
+
+---
+
 ## BUILT, 22 Oct: "Preview web version" and Share to WhatsApp on a draft (Martin: the newsletter link working now, before going live). For review
 
 - **On a draft's Send page**, and from the editor's Done menu ("Preview web version and share it"): **Preview web version** makes a link to the draft's **public copy** at an **unguessable** address, `enews-web.html?preview=<24 random characters>`. Beside it:
