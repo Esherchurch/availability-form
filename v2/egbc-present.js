@@ -703,8 +703,9 @@
     function freshToken() { var u = EGBCAuth.user(); if (u && u.getIdToken) u.getIdToken().then(function (t) { tok = t; }, function () {}); }
     freshToken(); timers.push(setInterval(freshToken, 20 * 60000));
     function leaveUrl() {
+      /* the address EGBCAuth.call() posts to (main's helper); our own while a page may have the old egbc-auth.js */
+      if (window.EGBCAuth && EGBCAuth.functionUrl) return EGBCAuth.functionUrl('presentLeave');
       var st = (db._delegate && db._delegate._settings) || {}, pid = db.app.options.projectId;
-      /* the same choice egbc-auth.js makes for its functions */
       return /^(localhost|127\.0\.0\.1)(:|$)/.test(st.host || '') ? 'http://localhost:' + (location.port === '5601' ? 5102 : 5101) + '/' + pid + '/europe-west2/presentLeave'
         : 'https://europe-west2-' + pid + '.cloudfunctions.net/presentLeave';
     }

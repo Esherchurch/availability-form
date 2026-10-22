@@ -10625,3 +10625,13 @@ Every function must take the church from the sign-in's claim or the document's p
   - The Menu's "Safeguarding risks" now follows it.
 - **Please switch safeguarding-risk.html:335** from `EGBCAuth.uses('safeguarding')` to `uses('safeguardingRegister')`, along with anything else of yours that gates the register.
 - **Checked by:** check-features-agree, now 20 checks. It includes "every switch can be saved", and a break with the switch left out of the rules' list turns it red.
+
+### F-273 — Present: the leave beacon uses main's EGBCAuth.functionUrl (main's request, 22 Oct; the events window)
+
+- **egbc-present.js** `leaveUrl()` now returns `EGBCAuth.functionUrl('presentLeave')`. Its own address stays as the fallback while a page may have the old egbc-auth.js.
+- **present.html** loads `egbc-present.js?v=202610222000`.
+- **For the main window:** meeting.html loads `egbc-present.js?v=202610221330`. Please bump it to `?v=202610222000`.
+- **Proved:**
+  - **present-meeting.test.mjs: 58/58.**
+  - **Break caught:** the beacon sent to the wrong address turned 3 checks red. Leaving while presenting didn't stop, and the host's say-so didn't end when they left.
+- **Deploy:** nothing.
