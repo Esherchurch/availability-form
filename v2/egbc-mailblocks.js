@@ -548,6 +548,45 @@
     for (var k = 0; k < 3; k++) out = out.replace(/<a\b[^>]*>(\s|&nbsp;)*<\/a>/gi, '').replace(/<(p|li|h2|h3)\b[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi, '').replace(/<(ul|ol)\b[^>]*>\s*<\/\1>/gi, '');
     return out;
   }
+  /* JOINING DETAILS LEFT FOR EVERYONE (reviewing window, 22 Oct): a block
+     drawn as everyone else would get it - by render(), this very code -
+     with any zoom.us link, meeting ID or passcode still in it listed. The
+     editor asks before a block with them is made for everyone. */
+  var JOIN_RE = /zoom\.us|meeting\s*id|pass\s*(code|word)/i;
+  var JOIN_WORDS = /click\s+here\s+to\s+join|join\s+(the\s+|our\s+)?(zoom\s+)?(meeting|call|prayer)|join\s+zoom|join\s+(here|now|online|us\s+online)|^\s*join\b/i;
+  function textOfHtml(s) { return String(s || '').replace(/<[^>]*>/g, ' ').replace(/&#(\d+);/g, function (m, n) { return String.fromCharCode(+n); }).replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim(); }
+  /* The links of a card's joining lines (whatever their address - a
+     Mailchimp redirect hides it): every item of a list holding the meeting
+     ID or passcode, a line with joining words, a line with a link next to
+     one of those. */
+  function joiningLinks(html) {
+    var s = String(html || ''), L = [], re = /<(p|li|div|h2|h3)\b([^>]*)>((?:(?!<(?:p|li|div|h2|h3)\b)[\s\S])*?)<\/\1>/gi, m;
+    while ((m = re.exec(s))) {
+      var before = s.slice(0, m.index), ul = Math.max(before.lastIndexOf('<ul'), before.lastIndexOf('<ol')), end = Math.max(before.lastIndexOf('</ul'), before.lastIndexOf('</ol'));
+      var list = m[1].toLowerCase() === 'li' && ul > end ? ul : -1;
+      m[3].split(/<br\s*\/?>/i).forEach(function (seg) { if (seg.trim()) L.push({ seg: seg, list: list }); });
+    }
+    var mark = L.map(function (l) { return JOIN_RE.test(l.seg); });
+    if (mark.indexOf(true) < 0) return [];
+    var lists = {}; L.forEach(function (l, i) { if (mark[i] && l.list >= 0) lists[l.list] = 1; });
+    L.forEach(function (l, i) { if ((l.list >= 0 && lists[l.list]) || JOIN_WORDS.test(textOfHtml(l.seg))) mark[i] = true; });
+    for (var k = 0; k < 2; k++) L.forEach(function (l, i) { if (!mark[i] && /<a\b[^>]*href/i.test(l.seg) && (mark[i - 1] || mark[i + 1])) mark[i] = true; });
+    var out = [];
+    L.forEach(function (l, i) { if (mark[i]) (l.seg.match(/href\s*=\s*["'][^"']+["']/gi) || []).forEach(function (a) { out.push(a.replace(/^href\s*=\s*["']|["']$/gi, '').replace(/&amp;/g, '&')); }); });
+    return out;
+  }
+  function exposedJoining(b) {
+    if (!b || typeof b !== 'object') return [];
+    var one = JSON.parse(JSON.stringify(b)); delete one.members; one.hidden = false;
+    var html = render({ subject: '', blocks: [one] }, { version: 'everyone', church: {} });
+    var body = (html.split(/<body[^>]*>/i)[1] || html).replace(/<style[\s\S]*?<\/style>/gi, ' ');
+    var text = textOfHtml(body), out = [];
+    (text.match(/[^.]{0,40}(meeting\s*id|pass\s*(code|word))[^.]{0,40}/gi) || []).forEach(function (w) { out.push(w.trim()); });
+    (text.match(/\S*zoom\.us\S*/gi) || []).forEach(function (w) { out.push(w); });
+    (body.match(/<a\b[^>]*>[\s\S]*?<\/a>/gi) || []).forEach(function (a) { var t = textOfHtml(a); if (JOIN_WORDS.test(t) || /zoom\.us/i.test(a)) out.push('the link \u201c' + t + '\u201d'); });
+    joiningLinks(b.html).forEach(function (u) { if (body.indexOf(u) >= 0 || body.indexOf(u.replace(/&/g, '&amp;')) >= 0) out.push('a joining link (' + u.slice(0, 60) + ')'); });
+    return out.filter(function (x, i) { return out.indexOf(x) === i; });
+  }
   /* ---- the whole email ---------------------------------------------------- */
   function keep(b, version) {
     if (!b || typeof b !== 'object') return false;
@@ -808,6 +847,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, exposedJoining: exposedJoining, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

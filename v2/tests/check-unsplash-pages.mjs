@@ -18,7 +18,12 @@
  * Also writes the screenshots for Unsplash's Production application to
  * design-mocks/comms/unsplash/ (synthetic: no real people).
  *
- * DELIBERATE BREAKS: --break=credit (no credit in the email);
+ * The box (22 Oct): its own white background and rounded corners, above
+ * the page - at the top and scrolled down, at a computer's width and a
+ * phone's (the card maker's --card is a shadow, so the box was see-through).
+ *
+ * DELIBERATE BREAKS: --break=boxbg (the box takes the page's --card again);
+ * --break=credit (no credit in the email);
  * --break=ping (the download ping not sent). Each must turn this red.
  */
 import { spawn } from 'node:child_process';
@@ -44,7 +49,8 @@ const ok = (n, v, x) => { R.push(!!v); console.log('  ' + (v ? 'PASS  ' : 'FAIL 
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   credit: ['egbc-mailblocks.js', "    if (!c || !c.name || c.url !== src) return '';", "    return '';"],
-  ping: ['egbc-enews-editor.js', '        EGBCUnsplash.used(p);\n', '']
+  ping: ['egbc-enews-editor.js', '        EGBCUnsplash.used(p);\n', ''],
+  boxbg: ['egbc-unsplash.js', "'.us{position:relative;z-index:1;background:#ffffff;", "'.us{position:relative;z-index:1;background:var(--card,#fff);"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 /* The email is made by the same egbc-mailblocks.js the page has (broken too, on a break). */
@@ -223,6 +229,32 @@ let EMAIL = '';
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/cardmaker.html?event=us_ev' });
     await until('!!document.getElementById("w-unsplash")', 20000); await sleep(1500);
     await fakeCalls();
+    /* The box: its own background and corners, above everything. */
+    const boxAt = async () => {
+      await ev('document.getElementById("w-unsplash").click(),1'); await until('!!document.querySelector(".us")', 5000);
+      await ev('var q=document.getElementById("us-q");q.value="harvest";document.querySelector(".us form").dispatchEvent(new Event("submit",{cancelable:true})),1');
+      await until('document.querySelectorAll(".us [data-i]").length===8', 8000); await sleep(700);
+      const r = await ev('(function(){var u=document.querySelector(".us"),cs=getComputedStyle(u),t=u.querySelector(\'[data-i="0"]\').getBoundingClientRect(),b=u.getBoundingClientRect();' +
+        'var pts=[[t.left+t.width/2,t.top+t.height/2],[b.left+12,b.top+b.height/2],[b.right-12,b.bottom-12],[b.left+b.width/2,b.top+12]];' +
+        'return {bg:cs.backgroundColor,radius:parseFloat(cs.borderTopLeftRadius),onTop:pts.every(function(q){var e=document.elementFromPoint(q[0],q[1]);return !!(e&&e.closest(".us"))}),y:scrollY}})()');
+      await ev('document.querySelector(".us .us-x").click(),1'); await sleep(300);
+      return r;
+    };
+    const boxOk = r => r && r.bg === 'rgb(255, 255, 255)' && r.radius >= 8 && r.onTop;
+    let bx = await boxAt();
+    ok('the Unsplash box has its own white background and rounded corners, above the page (computer, top of the page)', boxOk(bx), bx);
+    await ev('window.scrollTo(0, document.documentElement.scrollHeight),1'); await sleep(400);
+    bx = await boxAt();
+    ok('…the same scrolled down, over the card (computer)', boxOk(bx) && bx.y > 200, bx);
+    await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true }); await sleep(600);
+    await ev('window.scrollTo(0, 0),1'); await sleep(300);
+    bx = await boxAt();
+    ok('…on a phone, at the top', boxOk(bx), bx);
+    await ev('window.scrollTo(0, document.documentElement.scrollHeight),1'); await sleep(400);
+    bx = await boxAt();
+    ok('…and on a phone, scrolled down', boxOk(bx) && bx.y > 200, bx);
+    await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false }); await sleep(500);
+    await ev('window.scrollTo(0, 0),1'); await sleep(300);
     await ev('document.getElementById("w-unsplash").click(),1'); await until('!!document.querySelector(".us")', 5000);
     await ev('var q=document.getElementById("us-q");q.value="harvest";document.querySelector(".us form").dispatchEvent(new Event("submit",{cancelable:true})),1');
     await until('document.querySelectorAll(".us [data-i]").length===8', 8000); await sleep(800);

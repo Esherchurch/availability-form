@@ -260,6 +260,39 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## FIXED, 22 Oct: two card maker bugs from the live site, and the editor's joining-details warning. For review
+
+**1. The Search Unsplash box was see-through.**
+- **The cause:** the card maker uses `--card` for a shadow (`0 1px 2px …`), not a colour, so the box's `background: var(--card, #fff)` was invalid and came out transparent. The page and the card's canvas showed through behind the pictures.
+- **The fix:** the box now has its own colours, never a page's variables: white, rounded corners, and above everything on the page wherever it's scrolled (`egbc-unsplash.js`, styles only).
+- **Unchanged for Unsplash's production review:** the "Photo by … on Unsplash" credits and the download ping. Their checks and breaks are as before.
+
+**2. The social post caption said "📍 [object Object]".**
+- **The cause:** an event's place is an object (rooms on a site, an outside venue, or online).
+- **The fix:** the caption now uses the hub's own `EGBCEvents.locationText`, with the room and site names, for example "Main hall, Synthetic Green site". The card maker now loads egbc-events.js and its room and site names.
+- **With no place there's no 📍 line.** Before, it fell back to the church's name.
+
+**3. The editor's joining-details warning** (reviewing window). Unticking "Church members only" on a block whose words still show Zoom joining details asks first, listing them. Cancel keeps it members-only.
+- **The details are found as everyone else would get the block**, using egbc-mailblocks' own render (`exposedJoining`):
+  - meeting IDs, passcodes and zoom.us links;
+  - a link with joining words ("Click here to join"…);
+  - any link from the card's joining lines, whatever its address: the list items holding the ID or passcode, and joining lines with the links next to them. Val's join link is a Mailchimp redirect.
+- **The same rules as the test-issue script** (`fix-test-issue-members-words.mjs`, in this window's scratchpad), which refuses to save while any of them would be public, and prints what everyone would see.
+
+### Checks (one test at a time, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-cardmaker | 35/35: the place is the room and the site, in words; with no place, no 📍 line. **Break place** (the object written out) → red. Breaks details, fade, switch, nofit, versefit red |
+| check-unsplash-pages | 18/18: the box has its own white background and rounded corners and is on top, at the top of the page and scrolled down, at a computer's width and a phone's. **Break boxbg** (the page's `--card` again) → red. Breaks credit, ping red |
+| check-enews-blocks | 87/87; 26/26 breaks red. New: joining details in Val's card's list (ID, passcode, the redirect "Click here to join") are found; marked members-only, none are left. Break: details not looked for |
+| check-enews-editor | 49/49: unticking asks first, listing the ID, passcode and "Click here to join"; only when told to is the card made for everyone. **Break joinguard** → red. Break memwords red |
+| Also | unsplash 22/22, page 60/60, preview 18/18, send 48/48 |
+
+**The test-issue script, tested offline:** 11/11, including a card built like Val's and the YouTube check, which looks only for the private link.
+
+---
+
 ## BUILT, 22 Oct: "Members only" for selected words inside a block (Martin). For review
 
 Val puts private details inside a card: the Zoom ID, passcode and join link, or the private YouTube link in Sunday's words. Until now members-only was a whole block, which meant either making the whole card members-only or giving the details a block of their own, full width under the card.

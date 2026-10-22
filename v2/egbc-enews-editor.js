@@ -721,7 +721,15 @@
     var rs = document.getElementById('st-reset'); if (rs) rs.onclick = function () { change(function () { delete b.look; }); };
     var all = document.getElementById('st-all'); if (all) all.onclick = function () { var L = b.look ? JSON.parse(JSON.stringify(b.look)) : null; change(function () { ISSUE.blocks.forEach(function (x) { if (x.type === b.type) { if (L) x.look = JSON.parse(JSON.stringify(L)); else delete x.look; } }); }); toast('Used on all ' + (NAMES[b.type] || 'these').toLowerCase() + '.'); };
     /* Who sees it */
-    var wm = document.getElementById('w-mem'); if (wm) wm.onchange = function () { change(function () { b.members = wm.checked; }); };
+    var wm = document.getElementById('w-mem'); if (wm) wm.onchange = function () {
+      /* For everyone: not while Zoom joining details in its words would go
+         with it, unless the office says so (reviewing window, 22 Oct). */
+      if (!wm.checked) {
+        var left = MB.exposedJoining(b);
+        if (left.length && !confirm('Everyone would see these joining details:\n\n' + left.slice(0, 5).join('\n') + '\n\nSelect them on the email and press \u201cMembers only\u201d first. Make this block for everyone anyway?')) { wm.checked = true; return; }
+      }
+      change(function () { b.members = wm.checked; });
+    };
   }
   /* The verse, from the hub's Bible (the same as the E-news page). */
   function wireVerse(b) {

@@ -26,12 +26,15 @@
   function creditText(c) { return c && c.name ? 'Photo by ' + c.name + ' on Unsplash' : ''; }
   function used(p) { return p && p.downloadLocation ? call('unsplashUsed', { downloadLocation: p.downloadLocation }).catch(function () {}) : Promise.resolve(); }
 
-  var CSS = '.us-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px}' +
-    '.us{background:var(--card,#fff);color:var(--ink,#1f2937);border-radius:14px;width:min(880px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25)}' +
+  /* Its own colours, never a page's variables (the card maker's --card is
+     a shadow, not a colour: the box came out see-through, 22 Oct), and
+     above everything on the page, wherever it is scrolled. */
+  var CSS = '.us-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;isolation:isolate}' +
+    '.us{position:relative;z-index:1;background:#ffffff;color:#1f2937;border-radius:14px;overflow:hidden;width:min(880px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25)}' +
     '.us header{display:flex;gap:8px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line,#e5e7eb)}' +
     '.us header h2{margin:0;font-size:17px;flex:1}' +
-    '.us form{display:flex;gap:8px;padding:12px 16px 0}.us input[type=search]{flex:1;min-height:44px;font:inherit;padding:0 12px;border:1px solid var(--line,#d1d5db);border-radius:10px;background:var(--card,#fff);color:inherit}' +
-    '.us select{min-height:44px;font:inherit;border:1px solid var(--line,#d1d5db);border-radius:10px;background:var(--card,#fff);color:inherit;padding:0 8px}' +
+    '.us form{display:flex;gap:8px;padding:12px 16px 0}.us input[type=search]{flex:1;min-height:44px;font:inherit;padding:0 12px;border:1px solid #d1d5db;border-radius:10px;background:#ffffff;color:inherit}' +
+    '.us select{min-height:44px;font:inherit;border:1px solid #d1d5db;border-radius:10px;background:#ffffff;color:inherit;padding:0 8px}' +
     '.us .us-msg{padding:8px 16px 0;margin:0;color:var(--muted,#6b7280);font-size:14px}' +
     '.us .us-grid{overflow:auto;padding:12px 16px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}' +
     '.us figure{margin:0;display:flex;flex-direction:column;gap:4px}' +

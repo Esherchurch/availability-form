@@ -52,7 +52,8 @@
 <script src="egbc-gif.js?v=202610192100"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
 <script src="egbc-votd.js?v=202610201900"></script>
-<script src="egbc-unsplash.js?v=202610210100"></script>
+<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-unsplash.js?v=202610221700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;--ok:#15803d;--danger:#b0392c;--card:0 1px 2px rgba(16,24,40,.05)}
@@ -128,7 +129,15 @@
   var VSTYLES = { type: 'Plain colour', photo: 'On a photo', frame: 'Framed', band: 'Band' };
   var MODES = { event: 'An event', verse: 'A Bible verse' };
   var SOC = { open: '', tags: '', capEdited: false, settings: {} };
-  var EVENTS = [];
+  var EVENTS = [], LOOK = { sites: {}, rooms: {}, venues: {} };
+  /* Where it is, in words: the hub's own (egbc-events.js locationText) -
+     the room and the site, an outside venue, or Online - never an object
+     (22 Oct: "📍 [object Object]"); nothing when the event has no place. */
+  function placeOf(e) {
+    if (!e || !e.location) return '';
+    if (typeof e.location === 'string') return e.location.trim();
+    return window.EGBCEvents && EGBCEvents.locationText ? String(EGBCEvents.locationText(e, LOOK) || '').trim() : '';
+  }
 
   /* ---- drawing one frame (t from 0 to 1; 0 is the first frame) ----------- */
   function wrapLines(ctx, text, maxW, maxLines) {
@@ -373,7 +382,7 @@
     if (!e) return [opening, S.words.title, S.words.when].filter(Boolean).join('\n\n');
     var d = new Date(e.startUtc), o = {};
     new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }).formatToParts(d).forEach(function (x) { o[x.type] = x.value; });
-    var where = e.location || (window.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || '';
+    var where = placeOf(e);
     var link = hubBase() + '/' + (e.signupOn === true ? 'signup.html' : 'whatson.html') + '?event=' + encodeURIComponent(e.id);
     return [opening || e.title,
       ['\uD83D\uDCC5 ' + o.weekday + ' ' + ordinal(+o.day) + ' ' + o.month, e.allDay ? '' : '\uD83D\uDD5D ' + clock(d), where ? '\uD83D\uDCCD ' + where : '',
@@ -689,7 +698,9 @@
     if (window.EGBCChurch) EGBCChurch.load().then(function () {}, function () {});
     var now = Date.now();
     return Promise.all([EGBCComms.eventsBetween(now - 86400000, now + 90 * 86400000, 150),
-      EGBCAuth.db.collection('socialSettings').doc('main').get().then(function (s) { return s.exists ? s.data() : {}; }, function () { return {}; })]).then(function (r) {
+      EGBCAuth.db.collection('socialSettings').doc('main').get().then(function (s) { return s.exists ? s.data() : {}; }, function () { return {}; }),
+      window.EGBCEvents && EGBCEvents.lookups ? EGBCEvents.lookups().catch(function () { return LOOK; }) : Promise.resolve(LOOK)]).then(function (r) {
+      LOOK = r[2] || LOOK;
       EVENTS = r[0].filter(function (e) { return e.status !== 'cancelled' && e.source !== 'rota' && e.visibility !== 'unlisted' && e.visibility !== 'team'; });
       SOC.settings = r[1] || {};
       page();

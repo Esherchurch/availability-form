@@ -192,6 +192,13 @@ function checks(M) {
   ok('the mark survives cleaning, and nothing else on it does', M.cleanHtml('<p><span data-members="1" onclick="x()" style="color:#ff0000">secret</span></p>', T1) === '<p style="margin:10px 0;"><span data-members="1">secret</span></p>', M.cleanHtml('<p><span data-members="1" onclick="x()" style="color:#ff0000">secret</span></p>', T1));
   ok('a marked span inside other styling is taken out whole', !M.stripMembers('<p>a <span data-members="1">b <span style="color:#008080">c</span> d</span> e</p>').includes('c') && M.stripMembers('<p>a <span data-members="1">b <span style="color:#008080">c</span> d</span> e</p>').includes(' e</p>'));
 
+  /* Joining details left for everyone (the editor asks first). */
+  const ZC = { type: 'event', members: true, html: '<p><strong>Prayer on Zoom</strong></p><ul><li>Meeting ID: 831 2345 6789</li><li>Passcode: 314159</li><li><a href="https://esherchurch.us1.list-manage.com/track/click?u=4f1e&amp;id=9a8b">Click here to join</a></li></ul>' };
+  const zl = M.exposedJoining(ZC);
+  ok('joining details in a card\u2019s list would go to everyone: each is found', zl.some(x => /Meeting ID: 831/.test(x)) && zl.some(x => /Passcode: 314159/.test(x)) && zl.some(x => /Click here to join/.test(x)) && zl.some(x => /joining link/.test(x)), zl);
+  const ZM = Object.assign({}, ZC, { html: ZC.html.replace(/<li>([\s\S]*?)<\/li>/g, '<li><span data-members="1">$1</span></li>') });
+  ok('…marked Members only, none is left for everyone', M.exposedJoining(ZM).length === 0, M.exposedJoining(ZM));
+
   /* The event invitation, filled from a What's On event (plan G). */
   const INV = [{ type: 'header', imageUrl: '', title: '' }, { type: 'heading', text: '[The event]' },
     { type: 'text', title: '', html: '<p>[What it is and who it\u2019s for.]</p><p><strong>[Day, date and time]</strong><br>[Where]</p>' }, { type: 'button', label: 'Sign up here', url: '' }];
@@ -217,6 +224,7 @@ R.forEach(r => console.log('  ' + (r.v ? 'PASS  ' : 'FAIL  ') + r.n + (r.v || r.
 
 /* ---- deliberate breaks: each must turn at least one named check red ---- */
 const BREAKS = [
+  ['joining details not looked for', "    (text.match(/[^.]{0,40}(meeting\\s*id|pass\\s*(code|word))[^.]{0,40}/gi) || []).forEach(function (w) { out.push(w.trim()); });", '', 'each is found'],
   ['members-only words left in everyone\u2019s copy', "      if (version !== 'members') h = stripMembers(h);", '', 'never has them'],
   ['the mark lost when cleaned', "var mem = /\\sdata-members\\s*=\\s*[\"']?1/i.test(' ' + attrs) ? ' data-members=\"1\"' : '';", "var mem = '';", 'survives cleaning'],
   ['an invitation to a members\u2019 event for everyone', "      if (share === 'members') b.members = true;", '', 'every block members-only'],

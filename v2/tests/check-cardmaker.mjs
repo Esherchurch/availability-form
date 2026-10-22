@@ -41,6 +41,7 @@ const BREAKS = {
   fade: ["ctx.fillStyle = colour; ctx.textBaseline = 'top';", "ctx.fillStyle = colour; ctx.textBaseline = 'top'; if (t < 0.5) return;"],
   switch: ["if (!(EGBCAuth.uses && EGBCAuth.uses('cardMaker'))) {", 'if (false) {'],
   details: ["['\\uD83D\\uDCC5 ' + o.weekday", "[o.weekday"],
+  place: ["    if (typeof e.location === 'string') return e.location.trim();", "    return String(e.location);"],
   versefit: ['if (lines.length * z * 1.3 <= maxH) return', 'if (true) return'],
   nofit: ['var fits = h <= boxH && widest <= maxW;', 'var fits = true;']
 };
@@ -113,6 +114,12 @@ function serveAuth(src) {
   await put('calEvents/cm_pub', Object.assign({ title: 'Synthetic harvest supper and barn dance', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], signupOn: true, image: IMG, labels: ['Harvest'], location: 'Synthetic church hall' }, at(5, '18:30')));
   await put('calEvents/cm_soon', Object.assign({ title: 'Synthetic coffee morning', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], image: '' }, at(7, '10:00')));
   DAY0 = day(0);
+  /* The place as the hub keeps it: rooms on a site (22 Oct: the caption said
+     "📍 [object Object]"), and an event with no place at all. */
+  await put('sites/cm_site', { name: 'Synthetic Green site', active: true });
+  await put('rooms/cm_room', { name: 'Main hall', siteId: 'cm_site', active: true });
+  await put('calEvents/cm_rooms', Object.assign({ title: 'Synthetic quiz in the hall', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], image: '', location: { kind: 'rooms', siteId: 'cm_site', roomIds: ['cm_room'] } }, at(8, '19:30')));
+  await put('calEvents/cm_noplace', Object.assign({ title: 'Synthetic walk somewhere', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], image: '' }, at(9, '10:00')));
   await put('calEvents/cm_unl', Object.assign({ title: 'Synthetic quiet group', visibility: 'unlisted', status: 'confirmed', audience: ['unlisted'] }, at(3, '19:00')));
 
   const server = http.createServer((q, s) => {
@@ -247,6 +254,15 @@ function serveAuth(src) {
     await ev('var o=document.getElementById("s-open");o.value="Bring a dish!";o.dispatchEvent(new Event("input"));var t=document.getElementById("s-tags");t.value="#SyntheticHarvest #esherchurch";t.dispatchEvent(new Event("input")),1');
     const cap = await ev('document.getElementById("s-cap").value');
     ok('the caption is written the church’s way: first line, then 📅 🕝 📍 🎟 👉, then the hashtags', /^Bring a dish!\n\n📅 \w+day \d{1,2}(st|nd|rd|th) \w+\n🕝 6:30pm\n📍 Synthetic church hall\n🎟 Book your place here:\n👉 http:\/\/localhost:\d+\/signup\.html\?event=cm_pub\n\n#SyntheticHarvest #esherchurch$/.test(cap), cap);
+    /* The place in words: the room and the site, never "[object Object]"; none, no line. */
+    await ev('document.getElementById("ev").value="cm_rooms";document.getElementById("ev").dispatchEvent(new Event("change")),1'); await sleep(500);
+    const capRooms = await ev('document.getElementById("s-cap").value');
+    ok('the place in the caption is the room and the site, in words', /\n📍 Main hall, Synthetic Green site\n/.test(capRooms) && !/object Object/.test(capRooms), capRooms);
+    await ev('document.getElementById("ev").value="cm_noplace";document.getElementById("ev").dispatchEvent(new Event("change")),1'); await sleep(500);
+    const capNone = await ev('document.getElementById("s-cap").value');
+    ok('…and with no place, no 📍 line at all', !/📍/.test(capNone) && !/object Object/.test(capNone) && /📅/.test(capNone), capNone);
+    await ev('document.getElementById("ev").value="cm_pub";document.getElementById("ev").dispatchEvent(new Event("change")),1'); await sleep(500);
+    await ev('var o=document.getElementById("s-open");o.value="Bring a dish!";o.dispatchEvent(new Event("input"));var t=document.getElementById("s-tags");t.value="#SyntheticHarvest #esherchurch";t.dispatchEvent(new Event("input")),1');
     await ev('document.getElementById("s-keep").click(),1'); await sleep(1500);
     const sset = (await list('socialSettings')).find(d => d._id === 'main') || {};
     ok('"Keep these for this event": its hashtags are kept', JSON.stringify(sset.sets || {}).includes('#SyntheticHarvest'), sset);
