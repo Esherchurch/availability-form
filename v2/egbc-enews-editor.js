@@ -815,6 +815,9 @@
     });
     var mem = bl.filter(function (b) { return MB.membersOnly(b); }).length;
     if (mem) out.push({ lv: 'ok', t: mem + ' block' + (mem > 1 ? 's are' : ' is') + ' for church members only (gold edge on the email).' });
+    /* Members-only words in blocks that go to everyone (reviewing window, 22 Oct). */
+    var mw = MB.membersWords(bl), bits = mw.reduce(function (n, x) { return n + x.n; }, 0);
+    if (bits) out.push({ lv: 'ok', t: bits + ' members-only bit' + (bits > 1 ? 's' : '') + ' of words, in: ' + mw.map(function (x) { return x.name || NAMES[x.type] || x.type; }).join(', ') + '. Everyone else won’t get ' + (bits > 1 ? 'them' : 'it') + '.', i: mw[0].i });
     return out;
   }
   function checkPanel() {

@@ -17,7 +17,8 @@
  * with the dock; Done goes back to the E-news page's Send tab; a church
  * member is refused. Every step is read back from the saved issue.
  *
- * DELIBERATE BREAKS (each must turn this check red):
+ * DELIBERATE BREAKS (each must turn this check red; wordcount drops the
+ * members-only words line from Check):
  *   --break=typing  words typed on the email are not kept
  *   --break=undo    undo remembers nothing
  *   --break=drop    a block dropped on the email goes to the end
@@ -47,7 +48,8 @@ const BREAKS = {
   undo: ['function remember() { HIST.push(snapshot());', 'function remember() { return; HIST.push(snapshot());'],
   drop: ["if (d.indexOf('add:') === 0) addBlock(d.slice(4), tg.at);", "if (d.indexOf('add:') === 0) addBlock(d.slice(4), ISSUE.blocks.length);"],
   memwords: ["      if (c === 'members') return membersWords();", "      if (c === 'members') return;"],
-  joinguard: ["        if (left.length && !confirm(", "        if (false && !confirm("]
+  joinguard: ["        if (left.length && !confirm(", "        if (false && !confirm("],
+  wordcount: ["    if (bits) out.push({ lv: 'ok', t: bits + ' members-only bit'", "    if (false) out.push({ lv: 'ok', t: bits + ' members-only bit'"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 
@@ -113,6 +115,12 @@ const ISSUE = { subject: 'Synthetic e-news 22 October', preheader: 'This week', 
   }
   await put('churchSettings/details', { name: 'Synthetic Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '' });
   await put('enewsIssues/ed1', ISSUE);
+  /* Members-only words in blocks that go to everyone (Check counts them). */
+  await put('enewsIssues/ed3', { subject: 'Words', preheader: '', template: 'classic', status: 'draft', week: 'x', createdAt: 'x', createdBy: 'x', updatedAt: 'x', updatedBy: 'x',
+    blocks: [{ type: 'sunday', title: 'Morning Worship', html: '<p>Join us at 10:30. <span data-members="1"><a href="https://youtu.be/privateSynthetic">Watch live</a></span></p>' },
+      { type: 'event', title: '', html: '<p><strong>Prayer on Zoom</strong></p><ul><li><span data-members="1">Meeting ID: 831 2345 6789</span></li><li><span data-members="1">Passcode: 314159</span></li><li><span data-members="1"> </span></li></ul>' },
+      { type: 'text', title: '', html: '<p>Plain words for everyone.</p>' },
+      { type: 'text', members: true, title: '', html: '<p>Members meeting. <span data-members="1">Room 2</span></p>' }] });
   /* A members-only Zoom card whose joining details are not marked yet. */
   await put('enewsIssues/ed2', { subject: 'Zoom card', preheader: '', template: 'classic', status: 'draft', week: 'x', createdAt: 'x', createdBy: 'x', updatedAt: 'x', updatedBy: 'x',
     blocks: [{ type: 'event', members: true, title: '', html: '<p><strong>Prayer on Zoom</strong></p><ul><li>Meeting ID: 831 2345 6789</li><li>Passcode: 314159</li><li><a href="https://esherchurch.us1.list-manage.com/track/click?u=4f1e&amp;id=9a8b">Click here to join</a></li></ul>' }] });
@@ -322,6 +330,12 @@ const ISSUE = { subject: 'Synthetic e-news 22 October', preheader: 'This week', 
     ok('making a Zoom card for everyone while its joining details are unmarked asks first, listing them', asked.length === 1 && /Passcode: 314159/.test(asked[0]) && /Meeting ID: 831/.test(asked[0]) && /Click here to join/.test(asked[0]) && (await z2()).members === true && await ev("document.getElementById('w-mem').checked"), asked);
     await ev("window.confirm=function(){return true};var w=document.getElementById('w-mem');w.checked=false;w.dispatchEvent(new Event('change')),1"); await sleep(1800);
     ok('…and only when told to, is it made for everyone', (await z2()).members === false, await z2());
+    /* Check counts members-only words like whole blocks (reviewing window, 22 Oct). */
+    await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/enews-edit.html?issue=ed3' });
+    await until(C + ' && ' + C + '.querySelectorAll("[data-b]").length >= 4', 25000); await sleep(800);
+    await ev('document.querySelector(\'.rail [data-panel="check"]\').click(),1'); await sleep(400);
+    const chk3 = await ev('document.getElementById("side").innerText');
+    ok('Check: "3 members-only bits of words, in: Sunday, Prayer on Zoom", beside the members-only block', /3 members-only bits of words, in: Sunday, Prayer on Zoom\. Everyone else won’t get them\./.test(chk3) && /1 block is for church members only/.test(chk3), chk3.slice(0, 400));
     ok('no errors thrown', errors.length === 0, errors);
 
     /* 9. A phone. */

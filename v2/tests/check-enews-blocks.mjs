@@ -199,6 +199,15 @@ function checks(M) {
   const ZM = Object.assign({}, ZC, { html: ZC.html.replace(/<li>([\s\S]*?)<\/li>/g, '<li><span data-members="1">$1</span></li>') });
   ok('…marked Members only, none is left for everyone', M.exposedJoining(ZM).length === 0, M.exposedJoining(ZM));
 
+  /* Members-only words, counted for the Check panel and the Send page. */
+  const MWB = [{ type: 'sunday', title: 'Morning Worship', html: '<p>Join us at 10:30. <span data-members="1"><a href="https://youtu.be/privateSynthetic">Watch live</a></span></p>' },
+      { type: 'event', title: '', html: '<p><strong>Prayer on Zoom</strong></p><ul><li><span data-members="1">Meeting ID: 831 2345 6789</span></li><li><span data-members="1">Passcode: 314159</span></li><li><span data-members="1"> </span></li></ul>' },
+      { type: 'text', title: '', html: '<p>Plain words for everyone.</p>' },
+      { type: 'text', members: true, title: '', html: '<p>Members meeting. <span data-members="1">Room 2</span></p>' }];
+  const mw = M.membersWords(MWB);
+  ok('members-only words counted: 3 bits, in Sunday and Prayer on Zoom (an empty mark and a whole members-only block not counted)', mw.length === 2 && mw.reduce((n, x) => n + x.n, 0) === 3 && mw[0].name === 'Sunday' && mw[1].name === 'Prayer on Zoom' && mw[1].i === 1, mw);
+  ok('…none in an issue without marks', M.membersWords([{ type: 'text', html: '<p>Hello</p>' }]).length === 0);
+
   /* The event invitation, filled from a What's On event (plan G). */
   const INV = [{ type: 'header', imageUrl: '', title: '' }, { type: 'heading', text: '[The event]' },
     { type: 'text', title: '', html: '<p>[What it is and who it\u2019s for.]</p><p><strong>[Day, date and time]</strong><br>[Where]</p>' }, { type: 'button', label: 'Sign up here', url: '' }];
@@ -224,6 +233,7 @@ R.forEach(r => console.log('  ' + (r.v ? 'PASS  ' : 'FAIL  ') + r.n + (r.v || r.
 
 /* ---- deliberate breaks: each must turn at least one named check red ---- */
 const BREAKS = [
+  ['members-only words not counted', '{ depth = 1; from = re.lastIndex; } }', '{ } }', '3 bits'],
   ['joining details not looked for', "    (text.match(/[^.]{0,40}(meeting\\s*id|pass\\s*(code|word))[^.]{0,40}/gi) || []).forEach(function (w) { out.push(w.trim()); });", '', 'each is found'],
   ['members-only words left in everyone\u2019s copy', "      if (version !== 'members') h = stripMembers(h);", '', 'never has them'],
   ['the mark lost when cleaned', "var mem = /\\sdata-members\\s*=\\s*[\"']?1/i.test(' ' + attrs) ? ' data-members=\"1\"' : '';", "var mem = '';", 'survives cleaning'],

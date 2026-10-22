@@ -21,7 +21,8 @@
  * DELIBERATE BREAKS: --break=switch serves enews.html with its "is the
  * e-news switched on?" answering yes; --break=office lets anybody in;
  * --break=colour takes the church's colours off the new editor's colour button; --break=missing
- * drops the "missing a picture or write-up" note; --break=leak hands the
+ * drops the "missing a picture or write-up" note; --break=wordcount drops
+ * the members-only words count from the Send page; --break=leak hands the
  * preview the members' copy (the server must refuse it). Each
  * must turn this check red (the run says which line). A break that leaves
  * it green is a check that cannot fail.
@@ -105,7 +106,8 @@ const BREAKS = {
   weekly: ['enews.html', 'if (!thisWeek && !showList.autoTried) {', 'if (!showList.autoTried || true) {'],
   colour: ['egbc-enews-editor.js', "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + palette().map(", "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + [].map("],
   leak: ['enews.html', "{ issueId: ISSUE_ID, html: finalCopy('everyone') }", "{ issueId: ISSUE_ID, html: finalCopy('members') }"],
-  missing: ['enews.html', 'readyNote() + missingNote() +', 'readyNote() +']
+  missing: ['enews.html', 'readyNote() + missingNote() +', 'readyNote() +'],
+  wordcount: ['enews.html', "      (bits ? '<span class=\"pill gold\" id=\"mem-words\">'", "      (false ? '<span class=\"pill gold\" id=\"mem-words\">'"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 function serveAuth(src) {
@@ -381,6 +383,15 @@ function serveAuth(src) {
     ok('Share to WhatsApp opens with the web version’s link', /enews-web\.html\?issue=en_sent/.test(shareText) && /Synthetic sent issue/.test(shareText), shareText);
     await shot('share');
     await ev('(document.querySelector(".egbc-share [data-close]")||{click:function(){}}).click(),1');
+
+    /* 7b. The Send page's summary counts members-only words (reviewing window, 22 Oct). */
+    await put('enewsIssues/en_words', { subject: 'Synthetic words issue', preheader: '', template: 'classic', blocks: [{ type: 'sunday', title: 'Morning Worship', html: '<p>Join us at 10:30. <span data-members="1"><a href="https://youtu.be/privateSynthetic">Watch live</a></span></p>' },
+      { type: 'event', title: '', html: '<p><strong>Prayer on Zoom</strong></p><ul><li><span data-members="1">Meeting ID: 831 2345 6789</span></li><li><span data-members="1">Passcode: 314159</span></li><li><span data-members="1"> </span></li></ul>' },
+      { type: 'text', title: '', html: '<p>Plain words for everyone.</p>' },
+      { type: 'text', members: true, title: '', html: '<p>Members meeting. <span data-members="1">Room 2</span></p>' }], status: 'draft', createdAt: 'x', createdBy: 'x', updatedAt: 'x', updatedBy: 'x' });
+    await open('?issue=en_words&view=send'); await until('!!document.getElementById("sched")', 15000); await sleep(500);
+    ok('the Send page’s summary: "3 members-only bits of words, in: Sunday, Prayer on Zoom", beside "1 members-only"', /3 members-only bits of words, in: Sunday, Prayer on Zoom/.test(await text()) && /1 members-only/.test(await text()), (await text()).slice(0, 500));
+    await shot('words');
 
     /* 8. A phone: nothing scrolls sideways, and nothing threw. */
     const w = await ev('document.documentElement.scrollWidth');

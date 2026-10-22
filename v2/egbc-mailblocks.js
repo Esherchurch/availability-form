@@ -587,6 +587,35 @@
     joiningLinks(b.html).forEach(function (u) { if (body.indexOf(u) >= 0 || body.indexOf(u.replace(/&/g, '&amp;')) >= 0) out.push('a joining link (' + u.slice(0, 60) + ')'); });
     return out.filter(function (x, i) { return out.indexOf(x) === i; });
   }
+  /* MEMBERS-ONLY WORDS, COUNTED (reviewing window, 22 Oct): for the editor's
+     Check panel and the Send page, so the sender sees what everyone else
+     won't get. Each block that goes to everyone with members-only words in
+     it, as render() draws it for members: how many bits (a run of marked
+     words, empty ones not counted) and the block's name. A whole
+     members-only block isn't listed here: it is counted as a block. */
+  function bitsOf(html) {
+    var s = String(html || ''), re = /<(\/?)span\b([^>]*)>/gi, m, depth = 0, from = 0, n = 0;
+    while ((m = re.exec(s))) {
+      if (depth === 0) { if (!m[1] && /data-members\s*=\s*["']?1/i.test(m[2])) { depth = 1; from = re.lastIndex; } }
+      else if (m[1]) { depth--; if (depth === 0 && textOfHtml(s.slice(from, m.index))) n++; }
+      else depth++;
+    }
+    return n;
+  }
+  function blockName(b) {
+    if (b.type === 'sunday') return 'Sunday';
+    var t = textOfHtml(b.title) || textOfHtml((stripMembers(b.html).match(/<(p|h2|h3|li|div)\b[^>]*>([\s\S]*?)<\/\1>/i) || [])[2] || stripMembers(b.html));
+    return t ? (t.length > 40 ? t.slice(0, 38).replace(/\s+\S*$/, '') + '…' : t) : '';
+  }
+  function membersWords(blocks) {
+    var out = [];
+    (blocks || []).forEach(function (b, i) {
+      if (!b || typeof b !== 'object' || !keep(b, 'everyone')) return;
+      var n = bitsOf(render({ subject: '', blocks: [b] }, { version: 'members', church: {} }));
+      if (n) out.push({ i: i, n: n, name: blockName(b), type: b.type });
+    });
+    return out;
+  }
   /* ---- the whole email ---------------------------------------------------- */
   function keep(b, version) {
     if (!b || typeof b !== 'object') return false;
@@ -847,6 +876,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, exposedJoining: exposedJoining, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, exposedJoining: exposedJoining, membersWords: membersWords, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

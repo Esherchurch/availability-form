@@ -27,7 +27,7 @@
 <script src="egbc-auth.js?v=202610221400"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610221600"></script>
-<script src="egbc-mailblocks.js?v=202610221900"></script>
+<script src="egbc-mailblocks.js?v=202610222100"></script>
 <script src="egbc-starters.js?v=202610211200"></script>
 <script src="egbc-core-meetings.js?v=202610221500"></script>
 <script src="egbc-meeting-pick.js?v=202610202000"></script>
@@ -320,6 +320,8 @@
   /* ---- the editor ------------------------------------------------------ */
   function draw() {
     var mem = (ISSUE.blocks || []).filter(function (b) { return b.members; }).length;
+    /* Members-only words in blocks that go to everyone (reviewing window, 22 Oct). */
+    var mw = MB.membersWords(ISSUE.blocks), bits = mw.reduce(function (n, x) { return n + x.n; }, 0);
     wrap.innerHTML =
       '<div class="row" style="margin:0 0 10px"><button class="btn sec" id="back" aria-label="Back to the list"><i data-lucide="chevron-left" style="width:16px;height:16px"></i>E-news</button></div>' +
       '<label for="subj" style="margin-top:0">Subject</label><input type="text" id="subj" maxlength="200" value="' + esc(ISSUE.subject || '') + '"' + (editable() ? '' : ' disabled') + '>' +
@@ -329,6 +331,7 @@
 
       '<div class="pills"><span class="pill">' + esc(MB.TEMPLATES[ISSUE.template] ? MB.TEMPLATES[ISSUE.template].label : 'Classic') + '</span>' +
       (mem ? '<span class="pill gold">' + mem + ' members-only</span>' : '') +
+      (bits ? '<span class="pill gold" id="mem-words">' + bits + ' members-only bit' + (bits > 1 ? 's' : '') + ' of words, in: ' + esc(mw.map(function (x) { return x.name || 'a block'; }).join(', ')) + '</span>' : '') +
       (editable() ? '' : '<span class="pill">Sent: it can no longer be changed</span>') + '</div>' +
       '<div id="view"></div>';
     icons();

@@ -260,6 +260,32 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 22 Oct: members-only words counted in Check and on the Send page (reviewing window, idea 3). For review
+
+The sender now sees what everyone else won't get, for marked words as well as whole blocks.
+
+- **The editor's Check panel**, below the members-only blocks line:
+  "3 members-only bits of words, in: Sunday, Prayer on Zoom. Everyone else won't get them." "Go to it" picks the first of those blocks.
+- **The Send page's summary**, a gold pill beside "1 members-only":
+  "3 members-only bits of words, in: Sunday, Prayer on Zoom".
+- **How they're counted** (`egbc-mailblocks.js membersWords`, one helper for both pages):
+  - only blocks that go to everyone. A whole members-only block is counted as a block, as before;
+  - a bit is a run of marked words, as `render()` draws the members' copy. An empty mark isn't counted;
+  - a block's name is its title, or its first line (the card's "Prayer on Zoom"). The Sunday block is "Sunday".
+- **Idea 2 skipped**, as asked: compiled emails go to team members only.
+- **Also in this commit:** the out-of-date "for the main window" notes are cleared. The main window's part is done (sendOne, hubSend, PLAN-hub-send.md), and the events window's public-mail test parts are now a note to pass on.
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-enews-blocks | 89/89; 27/27 breaks red. New: 3 bits, in Sunday and Prayer on Zoom; an empty mark and a whole members-only block not counted. **Break:** marks not counted → red |
+| check-enews-editor | 50/50: Check says "3 members-only bits of words, in: Sunday, Prayer on Zoom", beside "1 block is for church members only". **Break wordcount** → red |
+| check-enews-page | 61/61: the Send page's summary shows the count and the names, and fits 375px. **Break wordcount** → red |
+| check-stamps | 6/6 |
+
+---
+
 ## FIXED, 22 Oct: two card maker bugs from the live site, and the editor's joining-details warning. For review
 
 **1. The Search Unsplash box was see-through.**
@@ -356,7 +382,7 @@ Val puts private details inside a card: the Zoom ID, passcode and join link, or 
 ### To deploy, and when
 
 - **`firebase deploy --only functions:hub`:** the new `enewsPreviewWeb`, and `enewsSendDue`, which sends previews on to the web version.
-- **functions/index.js:** one export line (for the main window).
+- **functions/index.js:** its export line is in (deployed 22 Oct).
 - **The rules** for `enewsPreview` go live at switch-over. Until then the live database's own rules apply. A preview holds only the public copy either way, but before switch-over anyone could list the previews, as with any data in the live database now.
 
 ### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
@@ -445,7 +471,7 @@ Martin, through the reviewing window: "v2 doesn't use Calla at all." There are t
   - never an under-18;
   - the 2,000-an-hour cap;
   - no body kept for a Safeguarding email.
-- **`SEND_EMAIL_URL`** (Calla's address) is gone from every server file except the main window's `index.js` (below). The check confirms this.
+- **`SEND_EMAIL_URL`** (Calla's address) is gone from every server file. The check confirms this.
 
 ### 2. The Resend key and signing secret: Google Secret Manager
 
@@ -483,34 +509,18 @@ Martin, through the reviewing window: "v2 doesn't use Calla at all." There are t
   - **Other windows' emulators:** create that file with test values, or they will hold the live key while they run. The emulator never sends, but it would have it.
 - **CHURCHHQ-EMAIL-SETUP.md** parts D and E are rewritten for Secret Manager, to do now rather than at switch-over.
 
-### 3. For the main window (your files; please do these as part of moving the 15 browser senders)
+### 3. The main window's part: done (checked by the reviewing window, 22 Oct)
 
-- **Your one callable for the browser senders:** send through `makeSender({ db })(msg, { source, kind, ... })` from public-mail.js. That is the route: Church HQ's Resend, with its protections.
-  - **Known recipients only.** An address must be in the address book, users, contacts, signups, small group requests, form requests, bookings, hirers, charges, invoices, sites, church settings, welcome settings or care routing (`mail-route.js KNOWN_SOURCES`). Anyone else is refused. If a browser sender emails people from elsewhere, tell me and I'll add the place.
-  - **`outlineOnly: true`** in meta keeps no body (Safeguarding).
-  - **Attachments** `{ filename, content (base64), type }` go through to Resend.
-  - **Listing secrets:** a function that sends may list `SENDING_SECRETS` from resend-secrets.js (`secrets: SENDING_SECRETS`). It works without them (it asks Secret Manager), but listing them saves that call.
-- **`functions/index.js sendOne`** still posts to Calla's sendEmail (booking reminders, document expiry, notify's emails). It should become:
+- `functions/index.js` sendOne sends through `makeSender`: no Calla sendEmail.
+- `mail-route.js` and every page send through hubSend.
+- `PLAN-hub-send.md` names **HQ_RESEND_API_KEY**.
+- Small group members (`smallGroupMembers.email`) are in KNOWN_SOURCES, so "Message the group" reaches them.
 
-      import { makeSender } from './public-mail.js';
-      let hubSend = null;
-      async function sendOne(msg, meta) {
-        if (!hubSend) hubSend = makeSender({ db });
-        return hubSend({ to: msg.to || [], subject: msg.subject || '', html: msg.html || msg.body || '', replyTo: msg.replyTo || '' }, meta);
-      }
-
-  Then delete `SEND_EMAIL_URL`, `sendEmailClient` and the id-token import there, if nothing else uses them.
-- **functions/team-mail.js**: its header still describes Calla's fixed From address. Team emails now come from "<church name>" <hub@mail.churchhq.co.uk>, replying to the address the sender chose. **functions/id-token.js** is only for Calla's identity token, so it can go with sendOne's.
-- **The pages that still name Calla's sendEmail** are yours to move onto the callable: egbc-email.js, egbc-core-planner.js, egbc-core-rota.js, egbc-nosend.js, EmailBuilder2.html, hub-app.js, Planner.html, SundayServicePlanner.html, youthapp2.html and youthserviceplanner.html.
-
-- **PLAN-hub-send.md** (your plan) still recommends `RESEND_API_KEY`. That name is Calla's. Church HQ's are **HQ_RESEND_API_KEY** and **HQ_RESEND_WEBHOOK_SECRET**: please change it there.
-- **Your item 2 (small group members), done:** `smallGroupMembers.email` is in KNOWN_SOURCES, so "Message the group" and small-group invitations reach their members (checked). Items 1 and 3 were done in 819e6fc9. Item 4 is the Secret Manager key, under the HQ_ names.
-
-### For the events window
+### Note for the events window (to pass on)
 
 `screenshots/events/public-mail.test.mjs`:
-- **A2** (public-mail sends to the same sendEmail as index.js) no longer applies: `SEND_EMAIL_URL` is gone from public-mail.js.
-- **B** (the identity token to sendEmail) no longer applies: `makeSender` now takes only `{ db, emulator, route, resendFetch }`.
+- **A2** (public-mail sends to the same sendEmail as index.js) no longer applies: there is no `SEND_EMAIL_URL` any more.
+- **B** (the identity token to sendEmail) no longer applies: `makeSender` takes only `{ db, emulator, route, resendFetch }`.
 - **C** (the seven triggers send) should still pass on the emulator: each lands in emailOutbox with `via: 'churchhq'`.
 
 ### To deploy, and when
@@ -599,7 +609,7 @@ The reviewing window's order: 1, then 2, then 3.
 
 - **`firebase deploy --only functions:hub`:**
   - the new `welcomeSubscriber` and `welcomeNewcomer` triggers. They send nothing until go-live (the e-news gate), until each is switched on, and until its words are finished.
-  - **functions/index.js:** one more export line under `meetingPapers` (for the main window).
+  - **functions/index.js:** the export line is in.
 - **The rules** (`enewsSettings/welcomes`, `welcomeSent`) go live at switch-over with the rest.
 
 ### Checks (this window's own emulators)
@@ -645,7 +655,7 @@ The main window's note of 21 Oct asked for this. Many members have no hub accoun
 
 ### For the main window
 
-- **functions/index.js:** one more export line under the Unsplash one: `meetingPapers` from meeting-papers.js.
+- **functions/index.js:** the `meetingPapers` export line is in.
 - **church-meeting.html** is now opened with `?meeting=<id>` from the email. It ignores this and shows the meetings as usual, which is fine. Opening that meeting straight away would be a small kindness, if you want to.
 
 ### To deploy, and when
@@ -1016,6 +1026,8 @@ These replace anything below that disagrees.
 6. **Build and test now.** Running alongside Mailchimp starts on switch-over day (C-1).
 
 ### C-20. Moving hub email off Calla's sendEmail, later (plan; e-news first)
+
+**Done (22 Oct):** v2 no longer uses Calla at all. Every server email and every page sends through Church HQ's Resend (see "v2 sends everything through Church HQ's Resend", above). What follows is the original plan.
 
 - **Stage 1 (now): the e-news only.**
   - A new hub module, `functions/hq-mail.js`, sends through Church HQ's Resend with the key from the key box.
