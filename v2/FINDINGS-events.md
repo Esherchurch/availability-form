@@ -10150,4 +10150,10 @@ Martin wants the safeguarding version of the Live risk register (risk.html), nex
 8. **20 a day per church and 5 per person,** as settings.
 9. **The dial style is as above.**
 
+
 **Not yet received:** the answers to 1–5. 4 is evidently yes (the sign-up gap fix is ordered).
+## From the main window, 22 Oct 2026: a new stamp for egbc-share.js in egbc-events.js
+
+- **egbc-share.js** changed: the Share sheet's message box was dark text on dark grey in the app's dark theme (the reviewing window). It is now kept light.
+- **Please change** egbc-events.js:614, `egbc-share.js?v=202610212300`, to `?v=202610221610` (then regenerate public-mail-pages.cjs as usual).
+- **Also, for the rota:** meeting.html's "New meeting" now offers every team's own meeting, e.g. "Kids Church Meeting" (the reviewing window: a Kids Church leader could not set one up). egbc-core-rota.js keeps a type it doesn't list instead of overwriting it. Nothing needed from you unless one of your pages lists meeting types.

@@ -1233,6 +1233,13 @@
     html += '<span style="font-size:13px;color:#d1dfdf;">–</span>';
     html += '<select onchange="updateField(\'' + ev.id + '\',\'endTime\',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:4px 5px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;">' + buildTimeOptions(ev.endTime || '11:30') + '</select>';
     html += '<select onchange="updateField(\'' + ev.id + '\',\'type\',this.value)" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;flex:1;min-width:120px;">';
+    /* A type the rota does not list - a team's own meeting, set up on the
+       Meetings page - is kept, first and selected, rather than overwritten
+       by the first type in the list the next time the row is saved. */
+    if (ev.type && EVENT_TYPES_LIST.indexOf(ev.type) === -1) {
+      var ownType = String(ev.type).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
+      html += '<option value="' + ownType + '" selected>' + ownType + '</option>';
+    }
     EVENT_TYPES_LIST.forEach(function (t) { html += '<option value="' + t + '"' + (ev.type === t ? ' selected' : '') + '>' + t + '</option>'; });
     html += '</select>';
     html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\',\'description\',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:500;color:#3d6263;outline:none;resize:none;">' + (ev.description || '') + '</textarea>';

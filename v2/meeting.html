@@ -258,23 +258,50 @@ async function lobby(profile) {
 /* ---- + New meeting -------------------------------------------------
    Saves into the rota's events collection, exactly as the Core Team app's
    "+" does, so it shows in the rota, the hub card, calendar files and here.
-   Only the rota's own meeting types: the rota dropdowns mark a type selected
-   by exact match, so an unknown type would be overwritten the first time
-   someone touched it. The rules let admins, or members of one of the
-   meeting's teams, write it - so non-admins are only offered their teams. */
-const MEETING_TYPES = ['Core Team Meeting', 'Worship and AV Team Meeting', 'Worship Team Meeting', 'AV Team Meeting'];
+   The rules let admins, or members of one of the meeting's teams, write
+   it - so non-admins are only offered their teams.
+   EVERY TEAM'S OWN MEETING (reviewing window, 22 Oct 2026: a Kids Church
+   leader could not set up a Kids Church meeting). The rota's four types
+   and five teams stay as they were; after them come "<team> Meeting" and
+   the team itself for every other team the church has (Teams & groups),
+   in its order. The rota keeps a type it does not list rather than
+   overwriting it (egbc-core-rota.js). */
+const ROTA_MEETING_TYPES = ['Core Team Meeting', 'Worship and AV Team Meeting', 'Worship Team Meeting', 'AV Team Meeting'];
 const ROTA_TEAMS = ['Core Team', 'Worship Team', 'AV Team', 'Choir', 'Youth'];
-const TEAMS_BY_TYPE = {
+const ROTA_TEAMS_BY_TYPE = {
   'Core Team Meeting': ['Core Team'], 'Worship and AV Team Meeting': ['Worship Team', 'AV Team'],
   'Worship Team Meeting': ['Worship Team'], 'AV Team Meeting': ['AV Team'],
 };
+const escAttr = s => esc(s).replace(/"/g, '&quot;');
+const teamLabel = t => ((EGBCAuth.TEAMS || {})[t] || {}).label || t;
+/* The church's teams, in its order, nothing archived. Youth Worship is
+   the rota's "Youth" already, so it is not offered twice. */
+function churchTeams() {
+  return (EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : []).filter(t => t !== 'Youth Worship');
+}
+function meetingTeams() {
+  return ROTA_TEAMS.concat(churchTeams().filter(t => !ROTA_TEAMS.includes(t)));
+}
+function teamsByType() {
+  const out = Object.assign({}, ROTA_TEAMS_BY_TYPE);
+  churchTeams().filter(t => !ROTA_TEAMS.includes(t)).forEach(t => {
+    const name = teamLabel(t) + ' Meeting';
+    if (!out[name]) out[name] = [t];
+  });
+  return out;
+}
 
 function myRotaTeams() {
-  if (EGBCAuth.isAdmin()) return ROTA_TEAMS;
+  if (EGBCAuth.isAdmin()) return meetingTeams();
   /* Literal match on purpose: the rule compares the event's team names with
      the user's own, so a Youth Worship member could not save a "Youth" event. */
   const mine = EGBCAuth.effectiveTeams() || [];
-  return ROTA_TEAMS.filter(t => mine.includes(t));
+  return meetingTeams().filter(t => mine.includes(t));
+}
+/* The types to offer: the rota's, then each of my teams' own. */
+function myMeetingTypes() {
+  const mine = myRotaTeams(), by = teamsByType();
+  return Object.keys(by).filter(type => by[type].some(t => mine.includes(t)));
 }
 function canSchedule() { return myRotaTeams().length > 0; }
 
@@ -293,7 +320,7 @@ function openNewMeeting() {
   box.innerHTML = `<div class="row" style="display:block;margin-top:10px">
     <div class="t" style="margin-bottom:4px">New meeting</div>
     <label style="${label}">Meeting</label>
-    <select id="nmType" style="${field}" onchange="nmTypeChanged()">${MEETING_TYPES.map(t => `<option>${t}</option>`).join('')}</select>
+    <select id="nmType" style="${field}" onchange="nmTypeChanged()">${myMeetingTypes().map(t => `<option value="${escAttr(t)}">${esc(t)}</option>`).join('')}</select>
     <label style="${label}">Title or notes (optional)</label>
     <input id="nmDesc" style="${field}" placeholder="e.g. Elders, Autumn planning">
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -305,7 +332,7 @@ function openNewMeeting() {
     <select id="nmRoom" style="${field}"><option value="">No video call</option>${roomList().map(([r, l]) => `<option value="${esc(r)}">${esc(l)}</option>`).join('')}</select>
     <label style="${label}">Who is it for?</label>
     <div id="nmTeams" style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-weight:700;color:var(--ink)">
-      ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${t}" style="width:18px;height:18px;accent-color:#3d6263">${t}</label>`).join('')}
+      ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${escAttr(t)}" style="width:18px;height:18px;accent-color:#3d6263">${esc(ROTA_TEAMS.includes(t) ? t : teamLabel(t))}</label>`).join('')}
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
       <button class="btn" onclick="document.getElementById('newMeeting').style.display='none'">Cancel</button>
@@ -318,8 +345,11 @@ function openNewMeeting() {
 
 function nmTypeChanged() {
   const type = document.getElementById('nmType').value;
-  document.getElementById('nmRoom').value = (window.EGBCVideo ? EGBCVideo.byType()[type] : '') || '';
-  const want = TEAMS_BY_TYPE[type] || [];
+  const want = teamsByType()[type] || [];
+  /* The type's usual room, else the first room for its team (Kids Church's
+     own room for a Kids Church meeting). */
+  const teamRoom = window.EGBCVideo ? (EGBCVideo.rooms().find(r => (r.teams || []).some(t => want.includes(t))) || {}).key : '';
+  document.getElementById('nmRoom').value = (window.EGBCVideo ? EGBCVideo.byType()[type] : '') || teamRoom || '';
   document.querySelectorAll('#nmTeams input').forEach(c => { c.checked = want.includes(c.value); });
 }
 

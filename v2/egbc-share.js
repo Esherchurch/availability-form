@@ -305,7 +305,11 @@
       '@media(min-width:620px){.egbc-share-back{align-items:center}}',
       '.egbc-share{background:#fff;width:100%;max-width:560px;border-radius:14px 14px 0 0;',
       '  padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));',
-      '  font:400 14px Inter,system-ui,sans-serif;color:#374151;max-height:88vh;overflow:auto}',
+      /* color-scheme:light: the app's dark theme sets color-scheme:dark on
+         the page, and the message box then took the browser's dark grey
+         behind this sheet's dark text (reviewing window, 22 Oct 2026). The
+         sheet is white, so its controls are drawn light too. */
+      '  font:400 14px Inter,system-ui,sans-serif;color:#374151;max-height:88vh;overflow:auto;color-scheme:light}',
       '@media(min-width:620px){.egbc-share{border-radius:14px}}',
       /* The title and a close stay at the top while the sheet scrolls (the
          audit, 16 Oct 2026: the only way out was Cancel, below the fold). */
@@ -314,7 +318,7 @@
       '.egbc-share h2{margin:0 0 4px;font-size:17px;font-weight:600;color:#111827}',
       '.egbc-share p.sub{margin:0 0 12px;font-size:13px;color:#6b7280}',
       '.egbc-share textarea{width:100%;min-height:180px;border:1px solid #d1d5db;border-radius:8px;',
-      '  padding:10px 12px;font:400 14px/1.5 Inter,system-ui,sans-serif;color:#111827;resize:vertical}',
+      '  padding:10px 12px;font:400 14px/1.5 Inter,system-ui,sans-serif;color:#111827;background:#fff;resize:vertical}',
       '.egbc-share textarea:focus{outline:none;border-color:#3d6263;box-shadow:0 0 0 3px rgba(61,98,99,.15)}',
       '.egbc-share .pic{display:flex;align-items:center;gap:8px;margin:10px 0 0;font-size:13px}',
       '.egbc-share .row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}',

@@ -1567,3 +1567,8 @@ Martin's correction (through the reviewing window): **v2 doesn't use Calla at al
   - canva.js:70 and :93 ("Canva connects at switch-over.");
   - enews.js:311 ("The subscriber list opens at switch-over");
   - ease-test/observer.html:45.
+
+## From the main window, 22 Oct 2026: a new stamp for egbc-share.js on enews.html
+
+- **egbc-share.js** changed: the Share sheet's message box was dark text on dark grey in the app's dark theme (the reviewing window). It is now kept light.
+- **Please change** `egbc-share.js?v=202610212300` on **enews.html** to `?v=202610221610`, so browsers fetch the new one. app.html and hub.html are done.
