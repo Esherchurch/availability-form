@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build, tokens, SOURCE, BUILT, LIMIT } from '../tools/rules-build.mjs';
+import { build, buildChurch, tokens, SOURCE, BUILT, CHURCH_BUILT, LIMIT } from '../tools/rules-build.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => fs.readFileSync(path.join(V2, f), 'utf8');
@@ -33,6 +33,12 @@ ok('and they are the same rules: the same tokens, in the same order', tokens(src
 /* A comment marker inside quotes is part of a rule, not a comment. */
 const sample = "match /x/{id} { allow read: if resource.data.url.matches('^https?://[a-z]+'); } // gone\n/* gone too */";
 ok('  a // inside quotes is kept; real comments go', build(sample).includes("'^https?://[a-z]+'") && !/gone/.test(build(sample)));
+/* The church ruleset (step 4 part 1): built by the same script, a file of
+   its own (never in the same ruleset as EGBC's, H-7). */
+const church = buildChurch(src);
+const haveChurch = fs.existsSync(path.join(V2, CHURCH_BUILT)) ? read(CHURCH_BUILT).replace(/\r\n/g, '\n') : '';
+ok('firestore.churches.rules is built from firestore.rules as it is now', haveChurch === church, 'run: node tools/rules-build.mjs');
+ok('and is under ' + Math.round(LIMIT / 1024) + ' KB (' + Buffer.byteLength(church) + ' bytes)', Buffer.byteLength(church) <= LIMIT);
 const st = Buffer.byteLength(read('storage.rules'));
 ok('storage.rules is under ' + Math.round(LIMIT / 1024) + ' KB (' + st + ' bytes)', st <= LIMIT);
 
