@@ -696,7 +696,8 @@ return eventAudience().hasAny(['public'])
 || (active() && (eventAudience().hasAny(['members'])
 || eventAudience().hasAny(me().get('teams', []))
 || isAdmin()))
-|| onEventTeam(resource.data);
+|| onEventTeam(resource.data)
+|| sgLeadOf(resource.data.get('location', {}).get('siteId', ''));
 }
 function onEventTeam(ev) {
 return active()
@@ -1505,9 +1506,6 @@ allow write: if (isAdmin() && id == 'details'
 && request.resource.data.get('note', '') is string
 && request.resource.data.get('note', '').size() <= 400);
 }
-function zeros96() {
-return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-}
 function isoDow(day) {
 let p = day.split('-');
 return timestamp.date(int(p[0]), int(p[1]), int(p[2])).dayOfWeek();
@@ -1516,8 +1514,11 @@ function roomData(roomId) {
 return get(/databases/$(database)/documents/churches/$(cid)/rooms/$(roomId)).data;
 }
 function partsOf(roomId) { return roomData(roomId).get('parts', []); }
-function partFree(roomId, d) {
-return roomOpen(roomId, d.day) && daySlots(roomId, d.day)[d.slotFrom:d.slotTo].hasOnly([0]);
+function partFree(roomId, d, dow) {
+let s = exists(/databases/$(database)/documents/churches/$(cid)/roomDays/$(roomId + '_' + d.day))
+? get(/databases/$(database)/documents/churches/$(cid)/roomDays/$(roomId + '_' + d.day)).data.slots
+: roomData(roomId).get('rotaWeek', {}).get(dow, null);
+return roomOpen(roomId, d.day) && (s == null || s[d.slotFrom:d.slotTo].hasOnly([0]));
 }
 function partMarked(roomId, d, key) {
 return roomOpen(roomId, d.day)
@@ -1529,11 +1530,9 @@ return !getAfter(/databases/$(database)/documents/churches/$(cid)/roomDays/$(roo
 function partGivenBack(roomId, b, key) {
 return getAfter(/databases/$(database)/documents/churches/$(cid)/roomDays/$(roomId + '_' + b.day)).data.get('lastCancel', '') == key;
 }
-function footFree(d) {
-let p = partsOf(d.roomId);
-return p.size() == 0 ? partFree(d.roomId, d)
-: (p.size() <= 4 && partFree(p[0], d) && (p.size() < 2 || partFree(p[1], d))
-&& (p.size() < 3 || partFree(p[2], d)) && (p.size() < 4 || partFree(p[3], d)));
+function partsFree(p, d, dow) {
+return p.size() <= 4 && partFree(p[0], d, dow) && (p.size() < 2 || partFree(p[1], d, dow))
+&& (p.size() < 3 || partFree(p[2], d, dow)) && (p.size() < 4 || partFree(p[3], d, dow));
 }
 function footMarked(d, key) {
 let p = partsOf(d.roomId);
@@ -1541,8 +1540,7 @@ return p.size() == 0 ? partMarked(d.roomId, d, key)
 : (p.size() <= 4 && partMarked(p[0], d, key) && (p.size() < 2 || partMarked(p[1], d, key))
 && (p.size() < 3 || partMarked(p[2], d, key)) && (p.size() < 4 || partMarked(p[3], d, key)));
 }
-function footHeld(d) {
-let p = partsOf(d.roomId);
+function footHeld(d, p) {
 return p.size() == 0 ? partHeld(d.roomId, d)
 : (p.size() <= 4 && partHeld(p[0], d) && (p.size() < 2 || partHeld(p[1], d))
 && (p.size() < 3 || partHeld(p[2], d)) && (p.size() < 4 || partHeld(p[3], d)));
@@ -1557,12 +1555,7 @@ function dayOfBooking(roomOnDay, bookingRoom) {
 return partsOf(bookingRoom).size() == 0 ? roomOnDay == bookingRoom : roomOnDay in partsOf(bookingRoom);
 }
 function baseSlots(roomId, day) {
-return roomData(roomId).get('rotaWeek', {}).get(string(isoDow(day)), zeros96());
-}
-function daySlots(roomId, day) {
-return exists(/databases/$(database)/documents/churches/$(cid)/roomDays/$(roomId + '_' + day))
-? get(/databases/$(database)/documents/churches/$(cid)/roomDays/$(roomId + '_' + day)).data.slots
-: baseSlots(roomId, day);
+return roomData(roomId).get('rotaWeek', {}).get(string(isoDow(day)), null);
 }
 function bookingsAdminOf(siteId) {
 return active() && siteId is string && siteId != ''
@@ -1570,7 +1563,14 @@ return active() && siteId is string && siteId != ''
 && me().get('memberId', '-') in get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('bookingsAdmins', []);
 }
 function theOffice(siteId) {
-return isAdmin() || bookingsAdminOf(siteId);
+return signedIn() && officeFor(myRecord(), siteId);
+}
+function officeFor(u, siteId) {
+return u != null && u.data.status == 'active'
+&& (u.data.get('masterAdmin', false) == true || u.data.get('adminFor', []).size() > 0
+|| (siteId is string && siteId != ''
+&& exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId))
+&& u.data.get('memberId', '-') in get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('bookingsAdmins', [])));
 }
 function memberInstant(roomId) {
 let mode = roomData(roomId).get('memberBookings', 'site');
@@ -1612,20 +1612,26 @@ return d.keys().hasOnly(['kind', 'status', 'siteId', 'roomId', 'groupId', 'day',
 && d.layout is string && d.layout.size() <= 40 && d.groupId is string && d.groupId.size() <= 40
 && d.av is map && d.refreshments is map && d.resources is list && d.resources.size() <= 30
 && bookingTimesOk(d)
-&& roomData(d.roomId).siteId == d.siteId
-&& roomData(d.roomId).get('active', false) == true
-&& (roomData(d.roomId).get('fireMax', 0) == 0 || d.people <= roomData(d.roomId).get('fireMax', 0));
+&& roomShapeOk(roomData(d.roomId), d);
+}
+function roomShapeOk(r, d) {
+return r.siteId == d.siteId && r.get('active', false) == true
+&& (r.get('fireMax', 0) == 0 || d.people <= r.get('fireMax', 0));
 }
 function roomOpen(roomId, day) {
 return !(exists(/databases/$(database)/documents/churches/$(cid)/roomClosedDays/$(roomId + '_' + day))
 && get(/databases/$(database)/documents/churches/$(cid)/roomClosedDays/$(roomId + '_' + day)).data.get('on', false) == true);
 }
 function slotsFree(d) {
-return roomOpen(d.roomId, d.day) && footFree(d);
+return slotsFreeIn(d, partsOf(d.roomId));
+}
+function slotsFreeIn(d, p) {
+let dow = string(isoDow(d.day));
+return p.size() == 0 ? partFree(d.roomId, d, dow) : (roomOpen(d.roomId, d.day) && partsFree(p, d, dow));
 }
 function memberCreate(key) {
 let d = request.resource.data;
-return active() && d.kind == 'member' && d.memberUid == request.auth.uid
+return d.kind == 'member' && active() && d.memberUid == request.auth.uid
 && roomData(d.roomId).get('bookableByMembers', true) == true
 && (!('bookingType' in d) || d.status == 'requested'
 || get(/databases/$(database)/documents/churches/$(cid)/bookingTypes/$(d.bookingType)).data.get('charged', false) == false)
@@ -1645,10 +1651,19 @@ return d.kind == 'hire' && d.status == 'requested' && d.memberUid == ''
 }
 function officeCreate() {
 let d = request.resource.data;
-return theOffice(d.siteId) && d.status == 'confirmed'
-&& footHeld(d)
-&& (slotsFree(d)
-|| (d.get('override', false) == true && d.get('decisionNote', '') is string && d.get('decisionNote', '').size() > 0));
+let p = partsOf(d.roomId);
+return d.status == 'confirmed' && theOffice(d.siteId)
+&& ((d.get('override', false) == true && d.get('decisionNote', '') is string && d.get('decisionNote', '').size() > 0
+&& footHeld(d, p))
+|| (p.size() == 0 ? partFirst(d.roomId, d) : (roomOpen(d.roomId, d.day) && partsFirst(p, d))));
+}
+function partFirst(roomId, d) {
+return roomOpen(roomId, d.day)
+&& getAfter(/databases/$(database)/documents/churches/$(cid)/roomDays/$(roomId + '_' + d.day)).data.slots[d.slotFrom:d.slotTo].hasOnly([1]);
+}
+function partsFirst(p, d) {
+return p.size() <= 4 && partFirst(p[0], d) && (p.size() < 2 || partFirst(p[1], d))
+&& (p.size() < 3 || partFirst(p[2], d)) && (p.size() < 4 || partFirst(p[3], d));
 }
 function hirerAccepts() {
 let b = resource.data;
@@ -1715,11 +1730,13 @@ return n.keys().hasOnly(['slots', 'lastBooking', 'roomId', 'day', 'siteId'])
 && !exists(/databases/$(database)/documents/churches/$(cid)/bookings/$(key))
 && b.status == 'confirmed'
 && dayOfBooking(n.roomId, b.roomId) && dayId == n.roomId + '_' + b.day && n.day == b.day && n.siteId == b.siteId
-&& n.slots is list && n.slots.size() == 96 && before.size() == 96
-&& before[b.slotFrom:b.slotTo].hasOnly([0])
+&& n.slots is list && n.slots.size() == 96
 && n.slots[b.slotFrom:b.slotTo].hasOnly([1])
+&& (before == null
+? (n.slots[0:b.slotFrom].hasOnly([0]) && n.slots[b.slotTo:96].hasOnly([0]))
+: (before.size() == 96 && before[b.slotFrom:b.slotTo].hasOnly([0])
 && n.slots[0:b.slotFrom] == before[0:b.slotFrom]
-&& n.slots[b.slotTo:96] == before[b.slotTo:96];
+&& n.slots[b.slotTo:96] == before[b.slotTo:96]));
 }
 function memberCancel(key) {
 let b = resource.data;

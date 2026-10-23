@@ -168,7 +168,16 @@ try {
   /* 1 */
   ok('   the footer: "Printed on <date>" and page numbers', await L.evaluate(() => [...document.querySelectorAll('style')].some((s) => /@bottom-left\{content:"Printed on \d{1,2} \w+ \d{4}"/.test(s.textContent)) && [...document.querySelectorAll('style')].some((s) => /counter\(page\) " of " counter\(pages\)/.test(s.textContent))));
   ok('1. PRINTED: no buttons, no menu, no view-as bar', !(await shown(L, '#printIt')) && !(await shown(L, '#egbc-bar')) && !(await L.$$eval('button', (a) => a.filter((b) => b.offsetParent !== null).length)));
-  ok('   the church\u2019s name and logo at the top', (await text(L, '#pChurch')) === 'Test Green Church' && !!(await L.$('.head img[src^="data:image/svg"]')));
+  ok('   the church\u2019s name and ITS OWN LOGO from Church details at the top', (await text(L, '#pChurch')) === 'Test Green Church' && (await L.$eval('.head img', (e) => e.getAttribute('src')).catch(() => '')) === LOGO);
+  /* THE DIALS (Martin): one row of four under the title, above the DRAFT box; SVG; words as well as colour */
+  const dials = await L.$$eval('[data-pdial]', (a) => a.map((d) => ({ k: d.getAttribute('data-pdial'), t: d.innerText.replace(/\s+/g, ' '), svg: !!d.querySelector('svg rect'), img: !!d.querySelector('img'), top: Math.round(d.getBoundingClientRect().top),
+    red: d.querySelectorAll('rect[data-b="red"]').length, amber: d.querySelectorAll('rect[data-b="amber"]').length, green: d.querySelectorAll('rect[data-b="green"]').length })));
+  ok('   THE DIALS: four, in one row, drawn in SVG (not pictures)', J(dials.map((d) => d.k)) === J(['overall', 'checklist', 'ratio', 'risks']) && new Set(dials.map((d) => d.top)).size === 1 && dials.every((d) => d.svg && !d.img), J(dials));
+  ok('   under the title, above the DRAFT box', await L.evaluate(() => { const t = document.getElementById('pTitle'), d = document.getElementById('pDials'), s = document.getElementById('pStatus'); return !!(t.compareDocumentPosition(d) & 4) && !!(d.compareDocumentPosition(s) & 4); }));
+  const dv = Object.fromEntries(dials.map((d) => [d.k, d]));
+  ok('   IN WORDS AS WELL AS COLOUR: "High", "19 of 23 answered", "Not met", "2 of 3 needed", "4 high · 9 medium · 4 low"', /High overall Overall rating/.test(dv.overall.t) && dv.overall.red === 14
+    && /^19 of 23 answered/.test(dv.checklist.t) && /Not met 2 of 3 needed/.test(dv.ratio.t) && dv.ratio.red > 0 && /17 risks Risks by colour \d+ high · \d+ medium · \d+ low/.test(dv.risks.t) && dv.risks.red > 0 && dv.risks.amber > 0, J(dials.map((d) => d.t)));
+  ok('   the overall rating in the event table too', /^High /.test(await text(L, '#pOverallRow')));
   /* 2 */
   const st = await L.$eval('#pStatus', (e) => ({ state: e.getAttribute('data-state'), t: e.innerText, size: parseFloat(getComputedStyle(e).fontSize) }));
   ok('2. NOT SIGNED: "DRAFT: NOT SIGNED OFF" in large words', st.state === 'draft' && /^DRAFT: NOT SIGNED OFF/.test(st.t) && st.size >= 18, J(st));
@@ -206,7 +215,10 @@ try {
   const pdf = await L.pdf({ preferCSSPageSize: true, printBackground: true });
   fs.writeFileSync(path.join(HERE, 'sg-print-practice-trip.pdf'), pdf);
   const pages = pdfPages(pdf);
-  ok('11. A REAL A4 PDF: portrait pages (595 x 842) and the risk table on landscape ones (842 x 595)', Buffer.from(pdf).subarray(0, 5).toString() === '%PDF-' && pages.length >= 3 && pages.some((p) => Math.abs(p[0] - 596) <= 1 && Math.abs(p[1] - 843) <= 1) && pages.some((p) => Math.abs(p[0] - 843) <= 1 && Math.abs(p[1] - 596) <= 1), J(pages));
+  ok('11. A REAL A4 PDF: every page A4 portrait (595 x 842)', Buffer.from(pdf).subarray(0, 5).toString() === '%PDF-' && pages.length >= 3 && pages.every((p) => Math.abs(p[0] - 596) <= 1 && Math.abs(p[1] - 843) <= 1), J(pages));
+  const flow = await L.evaluate(() => { const w = document.querySelector('.wide'), h = w.querySelector('h2'), cs = getComputedStyle(w); return { page: cs.page || 'auto', before: cs.breakBefore, hAfter: getComputedStyle(h).breakAfter, thead: getComputedStyle(document.querySelector('#pRisks thead')).display }; });
+  ok('   THE RISKS FOLLOW STRAIGHT ON: no forced new page; the heading kept with the table; the header repeats on each page', flow.page === 'auto' && flow.before === 'auto' && flow.hAfter === 'avoid' && flow.thead === 'table-header-group', J(flow));
+  ok('   fewer pages than before (8 with the landscape break)', pages.length < 8, pages.length);
   await L.screenshot({ path: path.join(HERE, 'sg-print-draft.png'), fullPage: true });
 
   /* 10: signed; not needed */
@@ -233,6 +245,13 @@ try {
   const S = await as('sam');
   await go(S, 'sg-print.html?event=' + EID, '#pFail');
   ok('   A VOLUNTEER can\u2019t print it', /can’t be printed here/.test(await text(S, '#pFail')));
+  /* a team-only event (like the practice trip: shown only to its team) - its site's lead still assesses and prints it */
+  const EIDT = EID + '_team';
+  await db.collection('calEvents').doc(EIDT).set(Object.assign((await db.collection('calEvents').doc(EID).get()).data(), { audience: [], visibility: 'unlisted', title: 'Example: Brazil trip, team only (test, not real)' }));
+  await db.collection('eventLeaders').doc(EIDT).set((await db.collection('eventLeaders').doc(EID).get()).data());
+  await db.collection('sgAssessments').doc(EIDT).set(Object.assign({}, ASSESS, { calEventId: EIDT }));
+  await go(L, 'sg-print.html?event=' + EIDT, '#sheet[data-ready], #pFail');
+  ok('13. A TEAM-ONLY EVENT: its site’s safeguarding lead prints it too', /team only/.test(await text(L, '#pTitle')) && !(await L.$('#pFail')), (await text(L, '#pFail')) || (await text(L, '#pTitle')));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

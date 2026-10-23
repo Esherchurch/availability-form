@@ -11099,3 +11099,81 @@ Every function must take the church from the sign-in's claim or the document's p
   - **The one that matters:** a dial in colour only, with no words.
   - The risks forced onto a new page again.
 - **The PDF:** `screenshots/events/sg-print-practice-trip.pdf`, from the clean run.
+
+### F-279 — Headroom in the office's event booking (main's H-8), a four-part hall within the limit, and the safeguarding lead sees team-only events (the events window, 23 Oct)
+
+**H-8: Firestore evaluates at most 1,000 expressions a request.** The office booking a room for an event (the booking and the room's day, one batch) was within one of that, so any small addition to a helper would have stopped it once the rules go live.
+
+- **Measured** by `screenshots/events/h8-headroom.test.mjs` (new; main's method made permanent). It adds N spare `&& true` to `signedIn()` in the built rules and runs:
+  - the office booking a free room for an event
+  - booking over something with a reason
+  - the two refusals (time not held; no reason)
+  - **a whole hall made of four parts**
+- **Before:**
+
+  | Case | Spare expressions it could take |
+  |---|---|
+  | The ordinary room | **0** (1 failed, as main found) |
+  | A whole hall of four parts | **over the limit with none at all**: refused today, once the rules are live (newly found; two parts fitted, three didn't) |
+
+- **What changed** (my booking rules only, the same meaning throughout):
+  1. A day with no standing pattern is `null`, "all free", instead of `zeros96()`, a list of 96 zeros built every time.
+  2. The room's record is worked out once in the booking's shape check, not four times.
+  3. The member's route tests "is this a member booking?" before `active()`.
+  4. `roomOpen()` runs once for a room without parts, not twice. The room's parts and the day of the week are worked out once, not per part.
+  5. **`theOffice()`** reads the person's record once, through `officeFor()`, instead of `active()` three times. It's the same as `isAdmin() || bookingsAdminOf()`; main's `isAdmin()` is untouched.
+  6. **"Free" for the office** is read from the room's day after the write: exactly 1 across the booking's time, and the room not closed that day.
+     - The page always writes "as it was, plus one", so that's true only if it was all free before.
+     - The office may already write a room's day as it likes, so reading the day as it was added nothing for the office but cost.
+     - **Members and the public are still checked against the day as it was**, since they can't write it freely.
+     - "Booked over, with a reason" still needs the time held.
+- **After:**
+
+  | Case | Spare expressions it can take |
+  |---|---|
+  | The ordinary room | **at least 80** (main asked for 10) |
+  | The four-part hall | **at least 40** |
+
+  At 160 the emulator won't load the rules at all.
+
+**The safeguarding lead sees team-only events** (the reviewing window). The rules' `canSeeEvent()` now lets the safeguarding lead and deputy of the event's own site read it, so an event shown only to its team, like the practice trip, can be assessed, signed off and printed. It's the last alternative, so it costs the other cases nothing. Seeing it is all: they don't edit it.
+
+**Also:**
+- room-card.test.mjs still expected "when the church switches over", which main reworded to "when the hub goes live". The check is updated.
+- Places' floor-plan line is now plain: "Floor plans can be put up when the hub goes live." The line about the hub's storage not yet being private is gone, as asked for Present.
+
+**Proved:**
+- **h8-headroom.test.mjs: 5/5** (new).
+- **Rules: 1900/1900.** 7 new checks:
+  - a team-only event seen by its team, its site's lead and deputy
+  - not by another site's lead, a volunteer, or anyone signed out
+  - the lead doesn't edit it
+- **sg-print.test.mjs:** a team-only copy of the practice trip printed by its site's lead.
+- **Breaks, 4 of 4 caught:**
+  - **The one that matters:** the office checks each part's day as it was again, and the four-part hall goes over the limit.
+  - The office books over something without saying so.
+  - A team-only event hidden from its lead again (rules and print).
+- **Rule Zero, one at a time:**
+
+  | Test | Result |
+  |---|---|
+  | combined-rooms | 33/33 |
+  | close-room | 29/29 |
+  | r1-rooms | 27/27 |
+  | r2-bookings | 50/50 |
+  | r3-bookings | 42/42 |
+  | r3-event-rooms | 20/20 |
+  | roomday | 34/34 |
+  | series | 15/15 |
+  | room-card | 55/55 |
+  | c5-hire-quote | 16/16 |
+  | c5-stage2 | 32/32 |
+  | c5-stage3 | 48/48 |
+  | e3-safeguarding | 38/38 |
+  | sg-assess | 33/33 |
+  | sg-print | 39/39 |
+  | main's check-rules-build | 8/8 |
+
+**For the main window:** the two booking cases that were at the limit in the church ruleset (H-8) should now pass there too, with room to spare. Please re-run `AS_CHURCH=mc-test`. The built files are regenerated.
+
+**Deploy:** nothing. The rules go live when the hub goes live.

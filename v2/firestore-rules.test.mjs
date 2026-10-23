@@ -4829,6 +4829,21 @@ await check('  while making the same record without it is fine', 'allow',
   await check('THE EMULATOR’S STAND-IN is never set from a page', 'deny', () => setDoc(doc(as('martin'), 'sgAiStub', 'config'), { url: 'http://example.invalid' }));
 }
 
+// ── EVENTS (events window) ── a team-only event: its site's safeguarding lead sees it (the reviewing window, 23 Oct)
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'calEvents', 'ev_teamonly'), { title: 'Youth weekend (invented)', status: 'confirmed', audience: [], teamUids: ['u_sga_org'], teamMemberIds: [], location: { kind: 'room', siteId: 'site_sgr' }, sgKind: 'trip' });
+  });
+  await check('A TEAM-ONLY EVENT: its team sees it', 'allow', () => getDoc(doc(cx('u_sga_org'), 'calEvents', 'ev_teamonly')));
+  await check('  AND THE SAFEGUARDING LEAD OF ITS SITE (to assess, sign off and print it)', 'allow', () => getDoc(doc(cx('u_sgr_lead'), 'calEvents', 'ev_teamonly')));
+  await check('  and the deputy', 'allow', () => getDoc(doc(cx('u_sgr_dep'), 'calEvents', 'ev_teamonly')));
+  await check('  not another site’s lead', 'deny', () => getDoc(doc(cx('u_sgr_other'), 'calEvents', 'ev_teamonly')));
+  await check('  not a volunteer', 'deny', () => getDoc(doc(cx('u_sgr_vol'), 'calEvents', 'ev_teamonly')));
+  await check('  nor anyone signed out', 'deny', () => getDoc(doc(anon(), 'calEvents', 'ev_teamonly')));
+  await check('  seeing it is all: the lead doesn’t edit it', 'deny', () => updateDoc(doc(cx('u_sgr_lead'), 'calEvents', 'ev_teamonly'), { title: 'Changed' }));
+}
+
 // Nothing else is open.
 await check('unknown collection stays shut', 'deny', () => getDoc(doc(as('samy'), 'somethingElse', 'x')));
 

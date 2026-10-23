@@ -319,7 +319,7 @@ try {
   await mar.waitForSelector('.tab[data-tab="rooms"]'); await tap(mar, '.tab[data-tab="rooms"]');
   await mar.waitForSelector('[data-prof="room_garden"]'); await sleep(800); await tap(mar, '#rooms-list [data-prof="room_garden"]');
   await until(() => mar.$('#p-planheld'));
-  ok('   BEFORE SWITCH-OVER: no floor plan upload in Places, and it says why', !(await mar.$('#p-plan')) && /when the church switches over/.test(await text(mar, '#p-planheld')));
+  ok('   BEFORE THE HUB GOES LIVE: no floor plan upload in Places, and it says so plainly', !(await mar.$('#p-plan')) && /^Floor plans can be put up when the hub goes live.$/.test((await text(mar, '#p-planheld')).trim()));
   await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
   /* A floor plan put up in Places (the rules are locked by now): the private path, no public link. */
   const planPic = path.join(TMP, 'plan-garden.png');
