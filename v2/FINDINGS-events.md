@@ -10861,3 +10861,187 @@ Every function must take the church from the sign-in's claim or the document's p
 - **sg-dash: 45/45.**
 
 **Deploy:** `sgWarningsSync` and `sgWarningsNow` again. No rules change.
+
+### F-277 — Event assessments: the required checklist, the host's own requirements, the paediatric first aider, printing, and the live run's three fixes (Martin and the reviewing window, 23 Oct; the events window)
+
+**1. The required checklist** (egbc-sg-templates.js `CHECKLIST`; the server's copy is functions/sg-checklist.cjs; the rules are `sgChecklist()`)
+- **Every event (14 questions), in our own words:**
+  - insurance (and the insurer told where needed; who checked, when)
+  - who is in charge, and the deputy
+  - leaders against the ratio, two adults, and checks in date (the hub's own check is shown against this question)
+  - consent
+  - **a trained paediatric first aider (Yes or No; who, and when their certificate runs out)**
+  - medical needs and allergies, in general terms
+  - emergencies
+  - a 24-hour contact at home
+  - head counts, the lost-child plan and hand-back
+  - transport
+  - the venue or provider (their policy, risk assessment and licences)
+  - photos and social media
+  - weather and cancellation
+  - how incidents are recorded and reported
+- **Extras by kind:** overnight 4 (sleeping, night rota, fire, privacy); holiday club 4; off-site 3.
+- **Extras by tick:**
+  - **"Overseas"** adds 7: government travel advice, passports and visas, travel insurance with medical and repatriation, health advice, local emergency numbers and the embassy, money and communications, checks for local helpers.
+  - **"Water, heights or adventurous activities"** adds 3: instructor or licensed provider, lifeguard, equipment.
+  - **"Under-8s are going"** goes on by itself when the hub counts any under-8s booked.
+- **The church's own questions:** Safeguarding settings, "Your church's own required questions" (for example the insurer's conditions). They are added, never in place of ours.
+- **Answers:**
+  - Each question takes an answer, or **"Not applicable" with a reason** (stored `N/A: <reason>`).
+  - The paediatric first aider is answered **Yes** or **No**, with details.
+  - "N/A: ", "Yes: " or "No: " with nothing after doesn't count.
+- **Sign-off is refused while any is blank:**
+  - **by the rules** (`sgChecklistDone`, the server), not only by the page, which names the ones left and marks them
+  - while a host's list waits to be checked
+- **The AI is given the checklist with the counts:**
+  - Its hazards cover every topic.
+  - It suggests answers only where the description says them. They are shown as **"AI suggests (to confirm)"**, with "Use this", and never count as answered until a person saves one.
+  - It may tick "overseas" or "adventurous", which only ever adds questions.
+- **No paediatric first aider** (a "No"):
+  - flagged **Medium, and High when under-8s are going**, in the editor and the print
+  - in the warnings for events in the next 14 days
+  - and the AI is told to treat it the same way
+
+**2. The host's own requirements** (Martin's addition)
+- **On the assessment, under "The host's or organiser's own requirements":**
+  - The leader adds their list: a PDF, a Word document, or a photo or scan of a printed sheet, up to 7 MB.
+  - A warning first: no child's name, contact or medical details in the file.
+- **`sgExtractRequirements`** (server only; claude-sonnet-5-5; the same key, people, caps and log as the drafts):
+  - **PDFs and pictures go to Claude as they are,** so scans work.
+  - **A Word document's words are taken out first,** because Claude doesn't read .docx itself.
+  - Each requirement comes back as a question, with **the line it came from**.
+  - **A question or line with a name, phone number or email is left out, counted, and the leader is told.**
+- **The original file is kept** in Storage, under `sgRequirements/<event>/…`.
+  - It's server only: storage.rules has an explicit closed block in my section.
+  - `sgRequirementsFile` hands it back to those who can see the assessment (its writers, the lead and deputy, the trustees, master admins). It refuses a volunteer.
+- **The leader checks the list:** changes one, removes a duplicate of ours, adds one that was missed, then confirms.
+  - Confirmed, the questions are **required, "From <host>'s requirements: '<line>'"**.
+  - A new list waits to be checked again.
+- **The log** records `kind: 'requirements'`, the file's size and the outcome. **Never its contents.**
+
+**3. Printing** (sg-print.html; "Print / save as PDF" on each event assessment, on the standing risks, and on each snapshot)
+- **A4 portrait; the risk table on landscape pages.**
+  - The church's name and logo at the top.
+  - "Printed on <date>" and "Page n of N" in the footer.
+  - Under print: no buttons, menu or view-as bar.
+- **An event's assessment:**
+  - **The status in large words:**
+    - **"DRAFT: NOT SIGNED OFF"**, with a light watermark, until signed
+    - **"Signed off by <name>, <role>, on <date>"**, with the reason for any high risk left (the signer's role is now kept: `signedByRole`)
+    - or the "not needed" record
+  - **A red box for "must not go ahead"**: its count and its list are the same items.
+  - **The event:** when, where, the kind (and overseas), the organiser, leaders (count, names and roles: leaders only), children booked and under 8 (counts), and the ratio, met or NOT met.
+  - **The AI line:** "First draft by AI: checked by <name> on <date>" (the first person to save an AI draft) or "AI draft, not yet checked".
+  - **The checklist:** every question, with its answer, "Not applicable: <reason>" or **"Not answered"**.
+  - The AI's questions still to answer.
+  - **The risk table:**
+    - **High, Medium or Low in words in every rating** (it reads in black and white), with likelihood × impact
+    - the controls as a list; owner; review
+    - **no row split across pages**
+  - **An appendix:** "Requirements taken from <file>, checked by <name> on <date>", with the list.
+  - **Wet-signature boxes:** lead or deputy, trip leader, dates.
+- **Never a child's name, contact or medical detail, and never a concern.**
+  - A trustee prints without the bookings ("Not available to you").
+  - A volunteer can't print it at all.
+- **The standing risks** print by activity, with a "Reviewed" signature block. **A snapshot** prints with its banner, the dials and the risks.
+
+**4. The live run's fixes** (the reviewing window's run on the practice trip)
+- **"signal is aborted without reason":** `EGBCAuth.call()` gives up after **8 seconds** and takes no longer wait (egbc-auth.js is main's). So the editor makes these calls itself:
+  - the same request, to `EGBCAuth.functionUrl`, waiting **180 s**
+  - the function's `timeoutSeconds` is 180, and its calls, retries included, finish inside 165 s
+  - "Drafting… this takes about a minute."
+  - a page that gives up first says **"Still working: reload in a minute to see the draft."**
+  - **never a raw error:** anything unexpected is said plainly
+- **The red box:** it said "Change the 3 items" over a list of 4 sentences. Now it lists the marked items themselves, with the draft's own sentences after them as its reasons.
+- **Nothing booked and nobody named:** the hub adds an amber row, "No children booked and no leaders named yet: the ratio can't be checked". It's never silent.
+
+**Proved:**
+- **sg-print.test.mjs: 32/32** (new):
+  - no buttons, menu or bar under print; the name and logo; the footer
+  - the DRAFT mark and the watermark
+  - the red box, 2 = 2 = 2
+  - the facts
+  - every checklist row, with "Not answered", "Not applicable" and the High paediatric flag
+  - the AI line
+  - 17 rows with words in every rating, controls as lists, no split rows
+  - the appendix, the signature boxes
+  - **no child's name, contact, medical detail or concern** (all invented, and all in the data)
+  - signed, with name, role, date and reason, and no mark; the "not needed" record
+  - **a real A4 PDF: portrait and landscape pages** (`screenshots/events/sg-print-practice-trip.pdf`)
+  - the standing risks; a trustee's snapshot; a volunteer refused
+- **sg-host.test.mjs: 26/26** (new):
+  - **a scanned page sent as an image**; the phone-number question left out and the leader told
+  - the file kept in Storage
+  - not required and no sign-off until checked; checked, required, and the rules refuse sign-off with them blank
+  - **a Word document's words sent**
+  - a PDF as a document; a .txt refused plainly
+  - the file back to the lead and a trustee, not a volunteer
+  - the log without contents; the caps; the print appendix
+- **sg-ai.test.mjs: 66/66** (11 new):
+  - a 12-second draft arrives
+  - "Still working" when the page gives up
+  - never a raw error
+  - the red box's count = list = marked
+  - nothing booked: the hub's row
+  - the checklist sent; the "adventurous" tick; suggestions "to confirm" and "Use this"
+- **sg-assess.test.mjs: 33/33** (7 new):
+  - 14 questions for a trip
+  - **the lead refused with 13 blank, and the database refuses a direct write too**
+  - "Overseas" adds 7
+  - "N/A: <reason>" and "Yes: …" saved
+- **Unit tests:**
+  - **sg-ai-unit: 58/58:** the page's, the server's and the rules' checklists the same; suggestions; the 0/0 row; the host core; a real Word fixture
+  - **sg-warnings-unit: 60/60:** the paediatric warning
+- **Rules: 1893/1893** (11 new): blanks, empty, "N/A: " alone, "No: " alone, overseas without its questions, unknown ticks, the host's list unchecked, its questions, the church's own, and all answered.
+- **Breaks, 18 of 18 caught:**
+  - **The one that matters:** sign-off with the checklist blank (rules).
+  - An overseas trip without its questions (rules).
+  - The host's list signed unchecked (rules).
+  - **The print:**
+    - no DRAFT mark
+    - a "must not go ahead" item missing
+    - an answer missing
+    - colour without words
+    - the paediatric flag missing
+  - A phone-number question kept (browser and unit).
+  - The file handed to a volunteer.
+  - Word sent as it is.
+  - **The page giving up at 8 s.**
+  - A raw error shown.
+  - The red box disagreeing.
+  - Nothing booked, nothing said.
+  - The AI's answers counted.
+  - No paediatric warning.
+- **Rule Zero:**
+
+  | Test | Result |
+  |---|---|
+  | sg-warnings | 34/34 |
+  | sg-dash | 45/45 |
+  | sg-register | 25/25 |
+  | e3-safeguarding | 38/38 |
+  | e3-settings | 21/21 |
+  | sg-lead | 14/14 |
+  | functions-secrets | 7/7 |
+  | sg-register-unit | 16/16 |
+  | sg-ai-smoke | 7/7 |
+  | check-rules-build (main's) | 8/8 |
+
+**Found and not fixed:**
+- **An event shown only to its team (no `audience`) can't be opened by the site's safeguarding lead** unless they're on the team or an admin (`canSeeEvent()`). So they couldn't sign it off, or print it.
+  - I didn't widen it now: main's H-8 says the event-booking rules are at Firestore's expression limit.
+  - Main's fix for H-8 will make room; then `canSeeEvent()` can add the site's lead.
+- **`EGBCAuth.call(name, data)` takes no timeout** (8 s fixed).
+  - **For main:** please let it take one (`call(name, data, timeoutMs)`), so pages needn't make long calls themselves.
+- **A PDF of the live practice trip** (cev_r2qabp8456bhg1) needs someone signed in to the live hub to press "Print / save as PDF" once this is deployed. I don't sign in to live.
+  - `screenshots/events/sg-print-practice-trip.pdf` is an **invented copy** of it from the emulator.
+- **Names on a host's list are checked against the event's sign-ups and by pattern** (phones, emails, postcodes). An unknown name written in a requirement is caught only by the model's own check.
+- **The rules check that each required question has an answer,** not what it says.
+
+**For the reviewing window:**
+- **Deploy (functions):**
+  - new: `sgExtractRequirements`, `sgRequirementsFile`
+  - again: `sgDraftAssessment`, `sgAiStatus`, `sgWarningsSync`, `sgWarningsNow`
+  - no new secret
+- **storage.rules** gains a closed block for `sgRequirements/` (my section). Both storage and Firestore rules go live when the hub goes live.
+- **The one real host-list call** waits for your word: a real camp's list, as a PDF or a photo.

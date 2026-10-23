@@ -246,7 +246,7 @@
     return (ctx.may ? '<div class="card sgd-noprint" id="snapTake"><h2>Take a dated snapshot</h2><p class="hint" style="margin:6px 0 0">A copy of the register as it stands today: the risks and their ratings, the warnings and dials as counts, and the review. Kept for the trustees’ records and never changed.</p><div class="row"><button class="btn" id="snapGo">Take a snapshot</button></div></div>' : '') +
       (list.length ? list.map(function (s) {
         return '<div class="card" data-snap="' + esc(s.id) + '"><h2>' + esc(s.banner) + '</h2><p class="hint" style="margin:6px 0 0">Taken ' + esc(longDate(s.at)) + ' by ' + esc(s.byName || '') + (s.note ? ': “' + esc(s.note) + '”' : '') + '</p>' +
-          '<div class="row"><button class="btn sec sm" data-opensnap="' + esc(s.id) + '">Open it</button></div></div>';
+          '<div class="row"><button class="btn sec sm" data-opensnap="' + esc(s.id) + '">Open it</button><a class="btn sec sm" data-printsnap="' + esc(s.id) + '" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="sg-print.html?snapshot=' + encodeURIComponent(s.id) + '">Print / save as PDF</a></div></div>';
       }).join('') : '<div class="card" id="noSnaps"><p style="margin:0">No snapshot yet.' + (ctx.may ? '' : ' The trustees take them.') + '</p></div>');
   }
   function snapshotFrom(ctx, note) {

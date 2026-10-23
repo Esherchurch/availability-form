@@ -276,7 +276,12 @@
             '<div class="field"><label>Incident follow-ups open</label>Green at ' + num('dg_incidents', v('incidents', 0), 50) + ' or fewer, amber at ' + num('da_incidents', v('incidents', 1), 50) + ' or fewer</div>' +
             /* AI-drafted event assessments (F-265 step 5): how many a day */
             '<div class="field"><label>AI-drafted assessments a day</label>' + num('aiChurch', typeof (R.ai || {}).perChurch === 'number' ? R.ai.perChurch : 20, 200) + ' for the church, ' +
-              num('aiPerson', typeof (R.ai || {}).perPerson === 'number' ? R.ai.perPerson : 5, 50) + ' for each person</div>';
+              num('aiPerson', typeof (R.ai || {}).perPerson === 'number' ? R.ai.perPerson : 5, 50) + ' for each person</div>' +
+            /* the church's own required questions for event assessments (Martin, 23 Oct): added to the fixed checklist, never in place of it */
+            '<div class="field" id="ownQs"><label>Your church’s own required questions for event assessments</label>' +
+              '<p class="hint" style="margin:0 0 6px">Asked on every event assessment, as well as the fixed checklist (insurance, consent, emergencies and the rest), which can’t be removed. For example your insurer’s conditions.</p>' +
+              '<div id="ownQList">' + (R.checklist || []).map(function (q) { return '<div class="two" data-ownq="' + esc(q.id) + '" style="margin:4px 0"><input class="inp" maxlength="300" data-ownqtext value="' + esc(q.q) + '" style="flex:1"><button class="btn" type="button" data-ownqdel style="background:#fff;color:#b0392c;border-color:#e5e7eb">Remove</button></div>'; }).join('') + '</div>' +
+              '<button class="btn" type="button" id="ownQAdd" style="margin-top:6px">Add a question</button></div>';
         })() + '</div>' +
 
       '<div class="card"><button class="btn" id="save">' + ico('check', 16) + 'Save the settings</button>' +
@@ -293,6 +298,15 @@
     });
     document.querySelectorAll('#wrap input, #wrap select').forEach(function (el) { if (el.closest('#fireCard')) return; el.addEventListener('change', markDirty); el.addEventListener('input', markDirty); });
     wireFire();
+    /* the church's own questions: add and remove (saved with the rest) */
+    var wireOwn = function () { document.querySelectorAll('[data-ownqdel]').forEach(function (b) { b.onclick = function () { b.parentNode.remove(); markDirty(); }; }); };
+    if (document.getElementById('ownQAdd')) document.getElementById('ownQAdd').onclick = function () {
+      var id = 'c_' + Math.random().toString(36).slice(2, 10), row = document.createElement('div');
+      row.className = 'two'; row.setAttribute('data-ownq', id); row.style.margin = '4px 0';
+      row.innerHTML = '<input class="inp" maxlength="300" data-ownqtext placeholder="e.g. Has our insurer’s activity form been sent?" style="flex:1"><button class="btn" type="button" data-ownqdel style="background:#fff;color:#b0392c;border-color:#e5e7eb">Remove</button>';
+      document.getElementById('ownQList').appendChild(row); row.querySelector('input').focus(); wireOwn(); markDirty();
+    };
+    wireOwn();
     document.getElementById('save').onclick = save;
     icons();
     drawAlready();
@@ -334,6 +348,9 @@
         d.register.dials[k[0]] = { g: nv('dg_' + k[0], k[1], k[3]), a: nv('da_' + k[0], k[2], k[3]) };
       });
       d.register.ai = { perChurch: nv('aiChurch', 20, 200), perPerson: nv('aiPerson', 5, 50) };
+      /* the church's own questions: kept with their ids (answers are stored by id) */
+      var own = [].slice.call(document.querySelectorAll('[data-ownq]')).map(function (r) { return { id: r.getAttribute('data-ownq'), q: r.querySelector('[data-ownqtext]').value.trim().slice(0, 300) }; }).filter(function (x) { return x.q; }).slice(0, 20);
+      d.register.checklist = own; d.register.checklistIds = own.map(function (x) { return x.id; });
     }
     if (!ADMIN) d.leadSiteId = LEADSITES[0];
     var who = ADMIN && SITES.length && document.getElementById('lead_' + SITES[0].id) ? readWho() : null, sites = [];

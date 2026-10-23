@@ -98,6 +98,11 @@ r = W.warningsFrom(base({ hirers: [HR({ documents: [{ kind: 'safeguarding', expi
 ok('in date, no expiry date, not booked, or not working with children: nothing', !find(r, 'hirers'), J(r.items));
 ok('   NO HIRER’S NAME in the warning', !/Hilda|Toddler Music/.test(J(W.warningsFrom(base({ hirers: [HR()] })))));
 
+console.log('\n6c. no trained paediatric first aider (the checklist says "No")');
+r = W.warningsFrom(base({ events: [ev({ leaders: 3, day: '2026-11-01', paed: 'amber' }), ev({ id: 'ev_y', leaders: 3, day: '2026-11-02', paed: 'red' })] }));
+ok('amber; red when under-8s go; with what to do', find(r, 'paed_ev_x') && find(r, 'paed_ev_x').level === 'amber' && find(r, 'paed_ev_y').level === 'red' && /no trained paediatric first aider with the group, and children under 8 are going\./.test(find(r, 'paed_ev_y').label) && /paediatric first aider/.test(find(r, 'paed_ev_y').todo), J(r.items));
+ok('   read from the answer: "No: ..." only', W.paedLevel({ paedFirstAid: 'No: none yet' }, {}) === 'amber' && W.paedLevel({ paedFirstAid: 'No: none yet' }, { under8: true }) === 'red' && W.paedLevel({ paedFirstAid: 'Yes: the deputy' }, { under8: true }) === '' && W.paedLevel({}, {}) === '');
+
 console.log('\n7. THE DIALS (step 4)');
 const DB = (x) => Object.assign({ today: TODAY, settings: ST, groups: GROUPS, leaderMids: [], checks: {}, sessions: [], consent: [], assess: [], review: null, incidents: [] }, x);
 const mids = (n, c) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['m' + i, c]));

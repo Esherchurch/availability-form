@@ -4674,7 +4674,9 @@ await check('  while making the same record without it is fine', 'allow',
     }
   });
   const SUX = (dbx, key, ev) => { const b = writeBatch(dbx); b.set(doc(dbx, 'signups', key), { calEventId: ev, personKind: 'contacts', personId: 'c_guest', name: 'Guest (invented)', email: 'g@example.invalid', places: 1, status: 'confirmed', attendees: [], answers: {} }); b.update(doc(dbx, 'capacity', ev), { taken: 1 }); return b.commit(); };
-  const AS = (uid, extra) => ({ siteId: 'site_sgr', calEventId: 'ev_sga_trip', title: 'Trip (invented)', templateId: 'trip', answers: { where: 'The coast' }, risks: [{ risk: 'A child is lost', who: 'Children', l: 3, i: 5, rl: 1, ri: 5, controls: [{ kind: 'text', text: 'Head counts' }] }],
+  /* every required question for a trip answered (Martin's checklist, 23 Oct) */
+  const ANS = Object.fromEntries(['insurance', 'incharge', 'leaders', 'consent', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'photos', 'weather', 'incidents'].map(k => [k, 'Answered (invented)']).concat([['paedFirstAid', 'Yes: the deputy (invented)']]));
+  const AS = (uid, extra) => ({ siteId: 'site_sgr', calEventId: 'ev_sga_trip', title: 'Trip (invented)', templateId: 'trip', answers: ANS, risks: [{ risk: 'A child is lost', who: 'Children', l: 3, i: 5, rl: 1, ri: 5, controls: [{ kind: 'text', text: 'Head counts' }] }],
     status: 'draft', version: 1, updatedAt: 'x', updatedBy: uid, ...(extra || {}) });
   await check('SIGN-OFF: AN UNDER-18s TRIP TAKES NO SIGN-UP BEFORE IT IS SIGNED OFF', 'deny', () => SUX(anon(), 'key_sga_1_0000000000000000000000', 'ev_sga_trip'));
   await check('  an adults’ trip needs no sign-off', 'allow', () => SUX(anon(), 'key_sga_2_0000000000000000000000', 'ev_sga_adults'));
@@ -4693,12 +4695,33 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  "waiting" it may', 'allow', () => setDoc(doc(cx('u_sga_org'), 'sgGate', 'ev_sga_trip'), { needed: true, open: false, updatedAt: 'x' }));
   await check('  anyone reads the gate (it says only waiting or open)', 'allow', () => getDoc(doc(anon(), 'sgGate', 'ev_sga_trip')));
   await check('  nobody signed out writes it', 'deny', () => setDoc(doc(anon(), 'sgGate', 'ev_sga_trip'), { needed: false, open: true, updatedAt: 'x' }));
+  /* THE REQUIRED CHECKLIST: the rules refuse sign-off while any question is blank (Martin, 23 Oct) */
+  const SIGN = (extra) => AS('u_sgr_lead', { status: 'signed', signedBy: 'u_sgr_lead', signedByName: 'Lead', signedAt: serverTimestamp(), signedVersion: 1, signedNote: '', ...(extra || {}) });
+  const without = (k) => Object.fromEntries(Object.entries(ANS).filter(([x]) => x !== k));
+  await check('THE CHECKLIST: NOT SIGNED with the insurance question blank', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: without('insurance') })));
+  await check('  nor with the paediatric first aider question blank', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: without('paedFirstAid') })));
+  await check('  nor with an answer that is empty', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: { ...ANS, weather: '' } })));
+  await check('  nor "not applicable" with no reason', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: { ...ANS, transport: 'N/A: ' } })));
+  await check('  nor "Yes" or "No" with nothing more', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: { ...ANS, paedFirstAid: 'No: ' } })));
+  await check('  AN OVERSEAS TRIP without the travel advice and travel insurance answers', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ flags: { abroad: true } })));
+  await check('  only the ticks the hub knows', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_org', { flags: { safe: true } })));
+  await check('  THE HOST’S LIST NOT YET CHECKED: no sign-off', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ host: { name: 'Camp (invented)', items: [], confirmed: false }, hostIds: [] })));
+  await check('  CHECKED, ITS QUESTIONS ARE REQUIRED: one blank', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ host: { name: 'Camp (invented)', items: [{ id: 'h_1', q: 'Code of conduct sent?' }], confirmed: true }, hostIds: ['h_1'] })));
+  await check('  THE CHURCH’S OWN questions are required too', 'deny', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'safeguardingSettings', 'defaults'); const s0 = await getDoc(r); await setDoc(r, { ...(s0.exists() ? s0.data() : {}), register: { checklist: [{ id: 'c_ins', q: 'Insurer form sent?' }], checklistIds: ['c_ins'] } }); });
+    try { await setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN()); }
+    finally { await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'safeguardingSettings', 'defaults'); const s0 = await getDoc(r); const d = s0.data(); delete d.register; await setDoc(r, d); }); }
+  });
+  await check('  every answer there (one "not applicable" with its reason, an overseas trip with its travel answers, the host’s answered): signs', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'),
+    SIGN({ answers: { ...ANS, transport: 'N/A: we walk (invented)', travelAdvice: 'x', passports: 'x', travelInsurance: 'x', health: 'x', localEmergency: 'x', money: 'x', localHelpers: 'x', h_1: 'Sent (invented)' }, flags: { abroad: true, under8: true },
+      host: { name: 'Camp (invented)', items: [{ id: 'h_1', q: 'Code of conduct sent?' }], confirmed: true }, hostIds: ['h_1'], signedByRole: 'Safeguarding lead' })));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'sgAssessments', 'ev_sga_trip'), AS('x', { status: 'waiting' })); });
   await check('  THE SITE’S LEAD SIGNS IT OFF, opening the gate with it', 'allow', () => { const dbx = cx('u_sgr_lead'); const b = writeBatch(dbx);
     b.set(doc(dbx, 'sgAssessments', 'ev_sga_trip'), AS('u_sgr_lead', { status: 'signed', signedBy: 'u_sgr_lead', signedByName: 'Lead', signedAt: serverTimestamp(), signedVersion: 1, signedNote: '' }));
     b.set(doc(dbx, 'sgGate', 'ev_sga_trip'), { needed: true, open: true, updatedAt: 'x' }); return b.commit(); });
   await check('  NOW A SIGN-UP GOES THROUGH', 'allow', () => SUX(anon(), 'key_sga_4_0000000000000000000000', 'ev_sga_trip'));
-  await check('  a change after signing cannot stay "signed"', 'deny', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { where: 'Somewhere else' }, updatedAt: 'y', updatedBy: 'u_sga_org' }));
-  await check('  it goes back to waiting', 'allow', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { where: 'Somewhere else' }, status: 'waiting', version: 2, updatedAt: 'y', updatedBy: 'u_sga_org' }));
+  await check('  a change after signing cannot stay "signed"', 'deny', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { ...ANS, weather: 'Somewhere else' }, updatedAt: 'y', updatedBy: 'u_sga_org' }));
+  await check('  it goes back to waiting', 'allow', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { ...ANS, weather: 'Somewhere else' }, status: 'waiting', version: 2, updatedAt: 'y', updatedBy: 'u_sga_org' }));
   await check('  AND BOOKINGS CLOSE AGAIN', 'deny', () => SUX(anon(), 'key_sga_5_0000000000000000000000', 'ev_sga_trip'));
   await check('"NOT NEEDED": not by the organiser', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip2'), AS('u_sga_org', { calEventId: 'ev_sga_trip2', waived: true, waivedBy: 'u_sga_org', waivedAt: serverTimestamp(), waivedWhy: 'Short' })));
   await check('  not by the lead without a reason', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip2'), AS('u_sgr_lead', { calEventId: 'ev_sga_trip2', waived: true, waivedBy: 'u_sgr_lead', waivedAt: serverTimestamp(), waivedWhy: '' })));

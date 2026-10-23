@@ -19,8 +19,8 @@
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
-<script src="egbc-sg-templates.js?v=202610221900"></script>
-<script src="egbc-sg-assess.js?v=202610222100"></script>
+<script src="egbc-sg-templates.js?v=202610231200"></script>
+<script src="egbc-sg-assess.js?v=202610231200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -255,7 +255,12 @@
     wireEvent();
     icons();
     if (document.getElementById('sgAssessCard') && window.EGBCSgAssess) EGBCSgAssess.mount(document.getElementById('sgAssessCard'), { calEventId: EVID, ev: EV, siteId: SITE,
-      me: { uid: E.myUid(), name: (EGBCAuth.profile() || {}).name || '' }, may: { edit: !!(ADMIN || ISLEAD || LEADER), sign: !!ISLEAD, waive: !!(ISLEAD || MASTER) } });
+      me: { uid: E.myUid(), name: (EGBCAuth.profile() || {}).name || '', memberId: (EGBCAuth.profile() || {}).memberId || '' }, may: { edit: !!(ADMIN || ISLEAD || LEADER), sign: !!ISLEAD, waive: !!(ISLEAD || MASTER) },
+      under8: (function () { try { return counts().under8 || 0; } catch (e) { return 0; } })(),
+      /* the hub's own check, shown against the checklist's leaders question */
+      hub: (function () { var st = settingsOf(), c = counts(), ls = (LEAD && LEAD.leaders) || [], r = SG.ratio({ children: c.kids, under8: c.under8, leaders: ls.length, ratioAll: st.ratioAll, ratioUnder8: st.ratioUnder8 });
+        var ok = ls.filter(function (l) { return SG.checkStatus(CHECKS[l.memberId], st, EV.startLocal).ok || EXC[l.memberId]; }).length;
+        return ls.length + ' leader' + (ls.length === 1 ? '' : 's') + ' named for ' + c.kids + ' ' + (c.kids === 1 ? 'child' : 'children') + (c.under8 ? ' (' + c.under8 + ' under 8)' : '') + '; ' + Math.max(r.need, c.kids ? 2 : 0) + ' needed (1 to ' + st.ratioAll + ', and two adults): ' + (r.ok && ls.length >= 2 ? 'enough' : 'NOT enough') + '; ' + ok + ' of ' + ls.length + ' with checks and training in date.'; })() });
   }
 
   function tile(v, k) { return '<div class="tile"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }

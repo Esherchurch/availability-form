@@ -318,6 +318,14 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // An event host's own requirements (F-277): the file a leader adds to an
+    // event's safeguarding assessment. Kept by the server only
+    // (functions/sg-ai.js sgExtractRequirements), and handed back by it
+    // (sgRequirementsFile) to those who can see the assessment.
+    match /sgRequirements/{calEventId}/{fileName} {
+      allow read, write: if false;
+    }
+
     // The church's logo (church-settings.html): shown on the public hire
     // pages, so anyone reads it; admins put it there.
     match /church/{fileName} {

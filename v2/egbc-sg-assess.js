@@ -33,19 +33,66 @@
     '.sga-rag{display:inline-flex;min-height:24px;padding:0 9px;border-radius:999px;font:600 12px Inter,sans-serif;align-items:center;margin:4px 4px 0 0}.sga-rag.red{background:#fdecea;color:#b0392c}.sga-rag.amber{background:#fdf6e9;color:#b07d2e}.sga-rag.green{background:#ecfdf3;color:#15803d}' +
     '.sga .warn{background:#fdf6e9;color:#6b4a26;border-radius:10px;padding:8px 10px;font-size:12.5px;margin:8px 0}.sga .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}' +
     '.sga .b{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid #3d6263;background:#3d6263;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}.sga .b.sec{background:#fff;color:#3d6263}' +
+    '.sga .ck{border-top:1px solid #f0f0f0;padding:6px 0}.sga .ck[data-ckmiss]{background:#fdecea;border-radius:8px;padding:6px 8px}.sga .ck [data-suggest]{margin:4px 0}' +
     '.sga .muted{color:#6b7280;font-size:13px}@media (max-width:520px){.sga .g4{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
     '.sga .ai{border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin:12px 0;background:#fafaf9}.sga .ai textarea{min-height:110px}.sga .ai input[type=number]{width:100px;min-height:44px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px}' +
     '.sga .must{background:#fdecea;color:#7f1d1d;border:1px solid #f5c2bc;border-radius:12px;padding:10px 12px;margin:10px 0}.sga .must ul{margin:6px 0 0;padding-left:18px}' +
     '.sga .tag{display:inline-flex;min-height:22px;padding:0 8px;border-radius:999px;font:600 11.5px Inter,sans-serif;align-items:center;margin:4px 4px 0 0;background:#f3f4f6;color:#374151}.sga .tag.red{background:#fdecea;color:#b0392c}';
 
+  /* A DRAFT TAKES 30-60 SECONDS (the reviewing window's live run: 46 s).
+     EGBCAuth.call() gives up after 8 seconds and takes no longer wait, so
+     this one call is made here the same way (EGBCAuth.functionUrl, the
+     signed-in person's token, the callable's own { data } / { result }),
+     waiting up to DRAFT_WAIT. The function itself may run 180 s. */
+  var DRAFT_WAIT = 180000;
+  function callLong(name, data, ms) {
+    var u = global.EGBCAuth && EGBCAuth.user && EGBCAuth.user();
+    if (!(EGBCAuth.functionUrl && u && u.getIdToken)) return EGBCAuth.call(name, data);
+    return u.getIdToken().then(function (tok) {
+      var ac = typeof AbortController !== 'undefined' ? new AbortController() : null, wait = ms || api.DRAFT_WAIT;
+      var stop = ac ? setTimeout(function () { ac.abort(); }, wait) : null;
+      return fetch(EGBCAuth.functionUrl(name), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ data: data || {} }), signal: ac ? ac.signal : undefined }).then(function (r) {
+        if (stop) clearTimeout(stop);
+        return r.json().catch(function () { var x = new Error(''); x.code = 'unknown'; throw x; });
+      }, function (e) {
+        if (stop) clearTimeout(stop);
+        var x = new Error(''); x.code = e && e.name === 'AbortError' ? 'still-working' : 'unreachable'; throw x;
+      }).then(function (body) {
+        if (body && body.error) { var e = new Error(body.error.message || ''); e.code = body.error.status ? String(body.error.status).toLowerCase().replace(/_/g, '-') : 'unknown'; throw e; }
+        return (body && body.result) || {};
+      });
+    });
+  }
+  /* never a raw error: the server's own refusals are already plain words; anything else is said plainly */
+  var PLAIN = ['invalid-argument', 'failed-precondition', 'permission-denied', 'resource-exhausted', 'unavailable', 'unauthenticated'];
+  function plainError(e) {
+    e = e || {};
+    if (e.code === 'still-working') return 'Still working: reload in a minute to see the draft.';
+    if (e.code === 'unreachable') return 'The hub couldn’t be reached. Check the connection and try again.';
+    if (PLAIN.indexOf(e.code) >= 0 && e.message) return e.message;
+    if (e.code === 'internal' && /^The (draft|list) came back incomplete/.test(e.message || '')) return e.message;
+    return 'The draft couldn’t be finished just now. Reload in a minute to see whether it was saved, or try again.';
+  }
+
   function mount(el, o) {
     if (!document.getElementById('sga-css')) { var st = document.createElement('style'); st.id = 'sga-css'; st.textContent = CSS; document.head.appendChild(st); }
     var db = EGBCAuth.db, ref = db.collection('sgAssessments').doc(o.calEventId), gate = db.collection('sgGate').doc(o.calEventId), A = null;
-    var tplId = (o.ev && o.ev.sgKind) || 'trip';
+    var tplId = (o.ev && o.ev.sgKind) || 'trip', CHURCHQ = [];
+    /* the required checklist for this event: its kind, the ticked flags, and the church's own questions */
+    function questions() { return T.checklistFor((o.ev && o.ev.sgKind) || (A && A.templateId) || tplId, (A && A.flags) || {}, CHURCHQ.concat(T.hostQuestions(A))); }
     function now() { return new Date().toISOString(); }
     function stamp(x) { return Object.assign(x, { updatedAt: now(), updatedBy: o.me.uid }); }
     function load() {
-      return ref.get().then(function (d) { A = d.exists ? d.data() : null; draw(); }, function () { el.innerHTML = '<p class="muted">The assessment could not be read here.</p>'; });
+      return Promise.all([ref.get(), db.collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }),
+        o.may.sign && o.siteId ? db.collection('bookingSettings').doc(o.siteId).get().catch(function () { return null; }) : null]).then(function (r) {
+        /* the signer's role, for "Signed off by <name>, <role>" */
+        var b = r[2] && r[2].exists ? r[2].data() : {}, mid = o.me.memberId || '';
+        if (o.may.sign) o.me.role = mid && b.safeguardingDeputy === mid && b.safeguardingLead !== mid ? 'Deputy safeguarding lead' : 'Safeguarding lead';
+        var st = r[1] && r[1].exists ? r[1].data() : {};
+        CHURCHQ = ((st.register || {}).checklist || []).filter(function (q) { return q && q.id && q.q; });
+        A = r[0].exists ? r[0].data() : null; draw();
+      }, function () { el.innerHTML = '<p class="muted">The assessment could not be read here.</p>'; });
     }
     function statusPill() {
       if (!A) return '<span class="st draft" data-sgstatus="none">Not started</span>';
@@ -64,11 +111,32 @@
         wire(); return;
       }
       var edit = o.may.edit && !A.waived;
-      var answers = t.questions.map(function (q) {
-        var v = (A.answers || {})[q.id] || '';
-        return edit ? '<label for="sgaQ_' + q.id + '">' + esc(q.label) + '</label><textarea id="sgaQ_' + q.id + '" data-q="' + q.id + '" maxlength="500" placeholder="' + esc(q.hint) + '">' + esc(v) + '</textarea>'
-          : '<p><b>' + esc(q.label) + '</b><br>' + (v ? esc(v) : '<span class="muted">Not answered</span>') + '</p>';
-      }).join('');
+      /* THE REQUIRED CHECKLIST: an answer, or "not applicable" with a reason, for every question */
+      var sug = (A.source && A.source.suggest) || {}, qs0 = questions();
+      var left = qs0.filter(function (q) { return !T.answered((A.answers || {})[q.id]); }).length;
+      var answers = hostBox(edit) + '<div id="sgaChecklist"><label style="margin-top:16px">The checklist <span class="muted" style="font-weight:400" id="sgaCkCount">' + (qs0.length - left) + ' of ' + qs0.length + ' answered</span></label>' +
+        '<p class="muted" style="margin:0 0 6px">Every question needs an answer, or “not applicable” with a reason, before it can be signed off.</p>' +
+        (edit ? '<div class="flags">' + T.FLAGS.map(function (f) { return '<label style="display:flex;gap:8px;font-weight:400;margin:4px 0"><input type="checkbox" data-flag="' + f.id + '"' + (((A.flags || {})[f.id]) ? ' checked' : '') + '> ' + esc(f.label) + '</label>'; }).join('') + '</div>' : '') +
+        qs0.map(function (q) {
+          var v = String((A.answers || {})[q.id] || ''), na = /^N\/A:/.test(v), why = na ? v.replace(/^N\/A:\s*/, '') : '';
+          var hub = q.id === 'leaders' && o.hub ? '<div class="muted" data-hubcheck>The hub’s check: ' + esc(o.hub) + '</div>' : '';
+          var ai = sug[q.id] && !T.answered(v) ? '<div class="muted" data-suggest="' + q.id + '">AI suggests (to confirm): ' + esc(sug[q.id]) + (edit ? ' <button class="b sec" type="button" data-use="' + q.id + '" style="min-height:30px;padding:0 10px">Use this</button>' : '') + '</div>' : '';
+          var pf = q.id === 'paedFirstAid' ? T.paedFlag(A.answers, A.flags) : '';
+          var flag = pf ? ' <span class="sga-rag ' + pf + '" data-paedflag="' + pf + '">No paediatric first aider' + (pf === 'red' ? ', and under-8s are going' : '') + '</span>' : '';
+          /* where a question came from (the church's own, the host's), and the paediatric note */
+          var note = q.hint && (q.yesNo || q.group === 'host' || q.group === 'church') ? '<div class="muted" data-cknote>' + esc(q.hint) + '</div>' : '';
+          if (!edit) return '<div class="ck" data-ck="' + q.id + '"><b>' + esc(q.label) + '</b>' + flag + (q.group === 'host' ? note : '') + '<br>' + (T.answered(v) ? (na ? 'Not applicable: ' + esc(why) : esc(v)) : '<span class="muted">Not answered</span>') + hub + '</div>';
+          if (q.yesNo) {
+            var yn = (/^(Yes|No):/.exec(v) || [])[1] || '', rest = v.replace(/^(Yes|No):\s*/, '');
+            return '<div class="ck" data-ck="' + q.id + '"' + (T.answered(v) ? '' : ' data-ckleft') + '><label for="sgaQ_' + q.id + '">' + esc(q.label) + '</label>' + flag + note + ai +
+              '<select data-yn="' + q.id + '" aria-label="Yes or no" style="max-width:160px;margin:4px 0"><option value="">Choose…</option><option' + (yn === 'Yes' ? ' selected' : '') + '>Yes</option><option' + (yn === 'No' ? ' selected' : '') + '>No</option></select>' +
+              '<textarea id="sgaQ_' + q.id + '" data-q="' + q.id + '" maxlength="500" placeholder="Who, and when their certificate runs out (or, if not, why not)">' + esc(rest) + '</textarea></div>';
+          }
+          return '<div class="ck" data-ck="' + q.id + '"' + (T.answered(v) ? '' : ' data-ckleft') + '><label for="sgaQ_' + q.id + '">' + esc(q.label) + '</label>' + note + hub + ai +
+            '<textarea id="sgaQ_' + q.id + '" data-q="' + q.id + '" maxlength="500" placeholder="' + esc(q.hint) + '"' + (na ? ' disabled' : '') + '>' + esc(na ? '' : v) + '</textarea>' +
+            '<label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:4px 0"><input type="checkbox" data-na="' + q.id + '"' + (na ? ' checked' : '') + '> Not applicable</label>' +
+            '<input type="text" data-nawhy="' + q.id + '" maxlength="300" placeholder="Why it doesn’t apply" value="' + esc(why) + '"' + (na ? '' : ' style="display:none"') + '></div>';
+        }).join('') + '</div>';
       var risks = (A.risks || []).map(function (r, k) {
         if (!edit) return '<div class="r" data-sgarisk="' + k + '">' + tags(r) + '<b>' + esc(r.risk) + '</b><div class="muted">' + esc(r.who || '') + (r.owner ? ' · Owner: ' + esc(r.owner) : '') + '</div>' + rag(r.l, r.i, 'Before') + rag(r.rl, r.ri, 'After') +
           '<div class="muted">' + (r.controls || []).map(T.controlLabel).map(esc).join(' · ') + '</div></div>';
@@ -82,16 +150,80 @@
       var ai = A.source && A.source.kind === 'ai', stops = (A.risks || []).filter(function (r) { return r.mustNot; }).length;
       var aiHead = ai ? '<p class="warn" id="sgaAiLabel">First draft by AI: check every line. It counts for nothing until the safeguarding lead or deputy signs it off.</p>' +
         '<p class="muted" id="sgaOverall">Overall, by the hub’s sums: <span class="sga-rag ' + esc(overallOf(A)) + '" data-overall="' + esc(overallOf(A)) + '">' + WORDS[overallOf(A)] + '</span></p>' : '';
-      var mustBox = stops ? '<div class="must" id="sgaMustNot"><b>This must not go ahead as described.</b> Change ' + (stops === 1 ? 'the item marked below' : 'the ' + stops + ' items marked below') + ', or take ' + (stops === 1 ? 'it' : 'them') + ' out, before it can be signed off.' +
-        ((A.source && A.source.mustNot || []).length ? '<ul>' + A.source.mustNot.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' : '';
+      /* the count and the list are the same items: those marked "must not go ahead"; the draft's own sentences follow, as its reasons */
+      var marked = (A.risks || []).filter(function (r) { return r.mustNot; });
+      var mustBox = stops ? '<div class="must" id="sgaMustNot"><b>This must not go ahead as described.</b> Change ' + (stops === 1 ? 'this item' : 'these ' + stops + ' items') + ', or take ' + (stops === 1 ? 'it' : 'them') + ' out, before it can be signed off:' +
+        '<ul id="sgaMustList">' + marked.map(function (r) { return '<li>' + esc(r.risk) + '</li>'; }).join('') + '</ul>' +
+        ((A.source && A.source.mustNot || []).length ? '<p style="margin:8px 0 0" id="sgaMustWhy">What the draft says must not happen:</p><ul>' + A.source.mustNot.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' : '';
       var qs = ai && (A.source.questions || []).length ? '<div id="sgaQuestions"><label>Questions to answer before sign-off</label><ul class="muted" style="margin:0;padding-left:18px">' + A.source.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '';
       el.innerHTML = head + aiHead + mustBox + (A.status !== 'signed' && !A.waived ? aiBox() : '') + qs + (edit ? '<p class="warn">General words only: never name a child, a family or a medical detail.</p>' : '') + answers +
         '<label>Risks</label>' + risks + (edit ? '<button class="b sec" id="sgaAddRisk" type="button">Add a risk</button>' : '') +
         '<div class="btns">' + (edit ? '<button class="b sec" id="sgaSave">Save</button>' + (A.status === 'draft' ? '<button class="b" id="sgaReady">Ready for sign-off</button>' : '') : '') +
-        (o.may.sign && !A.waived && A.status !== 'signed' ? '<button class="b" id="sgaSign">Sign it off</button>' : '') + '<button class="b sec" id="sgaPrint" type="button">Print</button></div>' +
+        (o.may.sign && !A.waived && A.status !== 'signed' ? '<button class="b" id="sgaSign">Sign it off</button>' : '') + '<a class="b sec" id="sgaPrint" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="sg-print.html?event=' + encodeURIComponent(o.calEventId) + '">Print / save as PDF</a></div>' +
         (o.may.sign && reds && A.status !== 'signed' ? '<label for="sgaNote">' + reds + ' risk' + (reds === 1 ? ' is' : 's are') + ' still high after the controls: say why it can go ahead</label><textarea id="sgaNote" maxlength="300"></textarea>' : '') +
         '<p class="muted" id="sgaMsg" role="status"></p>' + waiveBox() + '</div>';
       wire();
+    }
+    /* THE HOST'S OWN REQUIREMENTS (F-277): add their file; check the questions Claude reads from it; confirm */
+    function hostBox(edit) {
+      var h = A && A.host, signed = A && (A.status === 'signed' || A.waived);
+      var file = h && h.file ? '<button class="b sec" type="button" id="sgaHostOpen" style="min-height:32px;padding:0 10px">Open ' + esc(h.file.name) + '</button>' : '';
+      if (h && h.confirmed) return '<div class="ai" id="sgaHost"><b>The host’s requirements</b><p class="muted" id="sgaHostDone" style="margin:4px 0">Requirements taken from ' + esc(h.file ? h.file.name : 'their list') + ', checked by ' + esc(h.checkedByName || '') + ' on ' + esc(String(h.checkedAt || '').slice(0, 10)) + '. ' +
+        (h.items || []).length + ' question' + ((h.items || []).length === 1 ? '' : 's') + ' added to the checklist.</p>' + file + (edit && !signed ? ' <button class="b sec" type="button" id="sgaHostAgain" style="min-height:32px;padding:0 10px">Add a new list</button>' + hostForm(true) : '') + '</div>';
+      if (h && !h.confirmed && edit) return '<div class="ai" id="sgaHost"><b>From ' + esc(h.name) + '’s requirements</b> <span class="muted">(' + esc(h.file ? h.file.name : '') + ')</span>' +
+        '<p class="warn" style="margin:6px 0">Check each one: change it, remove one that repeats our own questions, or add one that was missed. Then confirm, and they are required questions like ours.</p>' +
+        (h.personalFound ? '<p class="warn" id="sgaHostPersonal">The file seems to have names, phone numbers or emails in it. They were left out' + (h.dropped ? ' (' + h.dropped + ' question' + (h.dropped === 1 ? '' : 's') + ')' : '') + '.</p>' : '') +
+        '<div id="sgaHostItems">' + (h.items || []).map(function (x) { return '<div data-hostitem="' + esc(x.id) + '" style="margin:6px 0"><div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" value="' + esc(x.q) + '"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>' + (x.line ? '<div class="muted">From: “' + esc(x.line) + '”</div>' : '') + '</div>'; }).join('') + '</div>' +
+        '<div class="btns"><button class="b sec" type="button" id="sgaHostAdd">Add one</button><button class="b" type="button" id="sgaHostOk">Confirm these as required questions</button>' + file +
+        '<button class="b sec" type="button" id="sgaHostAgain">Add a different list</button></div><p class="muted" id="sgaHostReviewMsg" role="status"></p>' + hostForm(true) + '</div>';
+      if (!edit || signed) return h ? '<div class="ai" id="sgaHost"><b>The host’s requirements</b> <span class="muted">not checked yet</span> ' + file + '</div>' : '';
+      return '<div class="ai" id="sgaHost"><b>The host’s or organiser’s own requirements</b>' + hostForm(false) + '</div>';
+    }
+    function hostForm(hidden) {
+      return '<div id="sgaHostForm"' + (hidden ? ' style="display:none"' : '') + '><p class="muted" style="margin:4px 0">If the host sent a list of their requirements (a PDF, a Word document, or a photo or scan of a printed sheet), add it. Claude reads it and turns each requirement into a question for the checklist.</p>' +
+        '<p class="warn" id="sgaHostWarn">Don’t add a file with any child’s name, contact details or medical details in it.</p>' +
+        '<label for="sgaHostName">The host or organiser</label><input type="text" id="sgaHostName" maxlength="120" placeholder="e.g. Hilltop Christian Camp">' +
+        '<label for="sgaHostFile">Their list</label><input type="file" id="sgaHostFile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*">' +
+        '<p class="muted">Sent to Anthropic’s Claude to read; the file is kept with this assessment.</p><div class="btns"><button class="b" type="button" id="sgaHostGo">Read the requirements</button></div><p class="muted" id="sgaHostMsg" role="status"></p></div>';
+    }
+    function wireHost() {
+      var q = function (x) { return el.querySelector(x); };
+      if (q('#sgaHostAgain')) q('#sgaHostAgain').onclick = function () { q('#sgaHostForm').style.display = ''; this.remove(); };
+      if (q('#sgaHostOpen')) q('#sgaHostOpen').onclick = function () {
+        var b = this; b.disabled = true;
+        callLong('sgRequirementsFile', { calEventId: o.calEventId }, 60000).then(function (r) {
+          b.disabled = false; var bin = atob(r.data), u8 = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          global.open(URL.createObjectURL(new Blob([u8], { type: r.type || 'application/octet-stream' })), '_blank', 'noopener');
+        }, function (e) { b.disabled = false; alert(plainError(e)); });
+      };
+      el.querySelectorAll('[data-hostdel]').forEach(function (b) { b.onclick = function () { b.closest('[data-hostitem]').remove(); }; });
+      if (q('#sgaHostAdd')) q('#sgaHostAdd').onclick = function () {
+        var d = document.createElement('div'); d.setAttribute('data-hostitem', 'h_new_' + Math.random().toString(36).slice(2, 8)); d.style.margin = '6px 0';
+        d.innerHTML = '<div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" placeholder="A requirement that was missed"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>';
+        q('#sgaHostItems').appendChild(d); d.querySelector('[data-hostdel]').onclick = function () { d.remove(); }; d.querySelector('input').focus();
+      };
+      if (q('#sgaHostOk')) q('#sgaHostOk').onclick = function () {
+        var b = this, items = [].slice.call(el.querySelectorAll('[data-hostitem]')).map(function (r) {
+          var was = (A.host.items || []).filter(function (x) { return x.id === r.getAttribute('data-hostitem'); })[0] || {};
+          return { id: r.getAttribute('data-hostitem'), q: r.querySelector('[data-hostq]').value.trim().slice(0, 300), line: was.line || '' };
+        }).filter(function (x) { return x.q; }).slice(0, 40);
+        var host = Object.assign({}, A.host, { items: items, confirmed: true, checkedBy: o.me.uid, checkedByName: String(o.me.name || '').slice(0, 80), checkedAt: now() });
+        b.disabled = true;
+        ref.update({ host: host, hostIds: items.map(function (x) { return x.id; }), updatedAt: now(), updatedBy: o.me.uid }).then(load, function (e) { b.disabled = false; q('#sgaHostReviewMsg').textContent = 'Not saved: ' + (e.message || e); });
+      };
+      if (q('#sgaHostGo')) q('#sgaHostGo').onclick = function () {
+        var b = this, f = q('#sgaHostFile').files[0], msg = q('#sgaHostMsg');
+        if (!f) { q('#sgaHostFile').focus(); return; }
+        if (f.size > 7 * 1024 * 1024) { msg.textContent = 'The file is too big: 7 MB at most. A photo of each page will do.'; return; }
+        b.disabled = true; msg.textContent = 'Reading… this takes about a minute.';
+        var rd = new FileReader();
+        rd.onload = function () {
+          callLong('sgExtractRequirements', { calEventId: o.calEventId, host: q('#sgaHostName').value.trim(), fileName: f.name, contentType: f.type, data: String(rd.result).split(',')[1] || '' }).then(function (r) {
+            return load().then(function () { if (r && r.message && el.querySelector('#sgaHostPersonal')) el.querySelector('#sgaHostPersonal').textContent = r.message; });
+          }, function (e) { b.disabled = false; msg.setAttribute('data-err', (e && e.code) || ''); msg.textContent = plainError(e); });
+        };
+        rd.readAsDataURL(f);
+      };
     }
     function overallOf(a) { var w = { red: 3, amber: 2, green: 1 }, o = 'green';
       (a.risks || []).forEach(function (r) { var g = T.rating(r.rl, r.ri); if (w[g] > w[o]) o = g; });
@@ -118,8 +250,8 @@
       var ask = function (confirmed) {
         var text = box.querySelector('#sgaAiText').value.trim(), msg = box.querySelector('#sgaAiMsg');
         if (!text) { box.querySelector('#sgaAiText').focus(); return; }
-        go.disabled = true; msg.textContent = 'Drafting… this takes about half a minute.';
-        EGBCAuth.call('sgDraftAssessment', { calEventId: o.calEventId, text: text, under8: box.querySelector('#sgaAiU8').value, confirmed: !!confirmed }).then(function (res) {
+        go.disabled = true; msg.textContent = 'Drafting… this takes about a minute.';
+        callLong('sgDraftAssessment', { calEventId: o.calEventId, text: text, under8: box.querySelector('#sgaAiU8').value, confirmed: !!confirmed }).then(function (res) {
           res = (res && res.data) || res || {};
           if (res.needsConfirm) {
             go.disabled = false; msg.innerHTML = esc(res.message) + ' <button class="b sec" id="sgaAiSure" type="button">It’s in general words: draft it</button>';
@@ -127,13 +259,13 @@
             return;
           }
           return load();
-        }, function (e) { go.disabled = false; msg.textContent = (e && e.message) || String(e); });
+        }, function (e) { go.disabled = false; msg.setAttribute('data-err', (e && e.code) || ''); msg.textContent = plainError(e); });
       };
       go.onclick = function () { ask(false); };
     }
     function aiStatus() {
       if (!el.querySelector('#sgaAiBody')) return;
-      EGBCAuth.call('sgAiStatus', { calEventId: o.calEventId }).then(function (r) { r = (r && r.data) || r || {}; aiReady(r.state, r.message); },
+      callLong('sgAiStatus', { calEventId: o.calEventId }, 30000).then(function (r) { r = (r && r.data) || r || {}; aiReady(r.state, r.message); },
         function () { aiReady('unavailable', 'AI drafting can’t be reached just now. Write the assessment from a template instead.'); });
     }
     function waiveBox() {
@@ -143,8 +275,15 @@
     }
     function say(t) { var m = el.querySelector('#sgaMsg'); if (m) m.textContent = t; }
     function read() {
-      var t = T.EVENT_TEMPLATES[A.templateId] || T.EVENT_TEMPLATES.trip, answers = {};
-      el.querySelectorAll('[data-q]').forEach(function (q) { var v = q.value.trim().slice(0, 500); if (v) answers[q.getAttribute('data-q')] = v; });
+      var t = T.EVENT_TEMPLATES[A.templateId] || T.EVENT_TEMPLATES.trip, answers = Object.assign({}, A.answers || {}), flags = Object.assign({}, A.flags || {});
+      el.querySelectorAll('[data-flag]').forEach(function (f) { if (f.checked) flags[f.getAttribute('data-flag')] = true; else delete flags[f.getAttribute('data-flag')]; });
+      if (o.under8 > 0) flags.under8 = true;
+      el.querySelectorAll('[data-q]').forEach(function (q) {
+        var id = q.getAttribute('data-q'), na = el.querySelector('[data-na="' + id + '"]'), why = el.querySelector('[data-nawhy="' + id + '"]');
+        var yn = el.querySelector('[data-yn="' + id + '"]');
+        var v = yn ? (yn.value && q.value.trim() ? yn.value + ': ' + q.value.trim().slice(0, 490) : '') : na && na.checked ? (why.value.trim() ? 'N/A: ' + why.value.trim().slice(0, 290) : '') : q.value.trim().slice(0, 500);
+        if (v) answers[id] = v; else delete answers[id];
+      });
       var risks = [].slice.call(el.querySelectorAll('[data-sgarisk]')).map(function (row) {
         var f = function (n) { return row.querySelector('[data-rf="' + n + '"]'); }, was = (A.risks || [])[+row.getAttribute('data-sgarisk')] || {};
         var x = { risk: f('risk').value.trim().slice(0, 200), who: f('who').value.trim().slice(0, 120), l: +f('l').value, i: +f('i').value, rl: +f('rl').value, ri: +f('ri').value,
@@ -153,18 +292,20 @@
         if (was.mustNot && x.risk === was.risk && T.rating(x.rl, x.ri) === 'red') x.mustNot = true;
         return x;
       }).filter(function (r) { return r.risk; }).slice(0, 40);
-      return { answers: answers, risks: risks, templateId: t === T.EVENT_TEMPLATES[A.templateId] ? A.templateId : 'trip' };
+      return { answers: answers, flags: flags, risks: risks, templateId: t === T.EVENT_TEMPLATES[A.templateId] ? A.templateId : 'trip' };
     }
     /* any change after signing goes back to "waiting", and bookings close again */
     function save(status) {
       var r = read(), wasSigned = A.status === 'signed';
       var next = stamp(Object.assign({}, A, r, { status: status || (wasSigned ? 'waiting' : A.status), version: (A.version || 1) + (wasSigned ? 1 : 0) }));
+      /* an AI draft saved by a person: "First draft by AI: checked by <name> on <date>" */
+      if (A.source && A.source.kind === 'ai' && !A.source.checkedBy) next.source = Object.assign({}, A.source, { checkedBy: o.me.uid, checkedByName: String(o.me.name || '').slice(0, 80), checkedAt: now() });
       var b = db.batch(); b.set(ref, next); if (wasSigned) b.set(gate, { needed: true, open: false, updatedAt: now() });
       return b.commit().then(function () { A = next; say(wasSigned ? 'Saved. It needs signing off again before more bookings.' : 'Saved.'); draw(); }, function (e) { say('Not saved: ' + (e.message || e)); });
     }
     function wire() {
       var q = function (s) { return el.querySelector(s); };
-      aiStatus();
+      aiStatus(); wireHost();
       if (q('#sgaStart')) q('#sgaStart').onclick = function () {
         var id = q('#sgaTpl').value, t = T.EVENT_TEMPLATES[id];
         var d = stamp({ siteId: o.siteId, calEventId: o.calEventId, title: String((o.ev && o.ev.title) || '').slice(0, 120), templateId: id, answers: {},
@@ -172,18 +313,24 @@
         var b = db.batch(); b.set(ref, d); b.set(gate, { needed: true, open: false, updatedAt: now() });
         b.commit().then(function () { A = d; draw(); }, function (e) { el.insertAdjacentHTML('beforeend', '<p class="muted">Could not start it: ' + esc(e.message || e) + '</p>'); });
       };
+      el.querySelectorAll('[data-flag]').forEach(function (f) { f.onchange = function () { A = Object.assign({}, A, read()); draw(); }; });
+      el.querySelectorAll('[data-na]').forEach(function (b) { b.onchange = function () { var id = b.getAttribute('data-na'); q('[data-nawhy="' + id + '"]').style.display = b.checked ? '' : 'none'; q('[data-q="' + id + '"]').disabled = b.checked; if (b.checked) q('[data-nawhy="' + id + '"]').focus(); }; });
+      el.querySelectorAll('[data-use]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-use'); q('[data-q="' + id + '"]').value = ((A.source || {}).suggest || {})[id] || ''; b.parentNode.remove(); }; });
       if (q('#sgaAddRisk')) q('#sgaAddRisk').onclick = function () { var r = read(); A = Object.assign({}, A, r); A.risks.push({ risk: 'A new risk', who: '', l: 3, i: 3, rl: 2, ri: 3, controls: [] }); draw(); };
       if (q('#sgaSave')) q('#sgaSave').onclick = function () { save(); };
       if (q('#sgaReady')) q('#sgaReady').onclick = function () { save('waiting'); };
-      if (q('#sgaPrint')) q('#sgaPrint').onclick = function () { global.print(); };
       if (q('#sgaSign')) q('#sgaSign').onclick = function () {
-        var r = o.may.edit ? read() : { answers: A.answers, risks: A.risks, templateId: A.templateId };
+        var r = o.may.edit ? read() : { answers: A.answers, flags: A.flags || {}, risks: A.risks, templateId: A.templateId };
+        if (A.host && !A.host.confirmed) { say('Check the host’s requirements and confirm them first.'); return; }
+        var miss = T.checklistFor((o.ev && o.ev.sgKind) || r.templateId, r.flags || {}, CHURCHQ.concat(T.hostQuestions(A))).filter(function (x) { return !T.answered((r.answers || {})[x.id]); });
+        if (miss.length) { say('Answer ' + (miss.length === 1 ? 'this' : 'these ' + miss.length) + ' first, or mark ' + (miss.length === 1 ? 'it' : 'them') + ' not applicable with a reason: ' + miss.map(function (x) { return x.label.split(/[:?]/)[0]; }).join('; ') + '.');
+          el.querySelectorAll('[data-ck]').forEach(function (c) { c.toggleAttribute('data-ckmiss', miss.some(function (x) { return x.id === c.getAttribute('data-ck'); })); }); return; }
         var reds = r.risks.filter(function (x) { return T.rating(x.rl, x.ri) === 'red'; }).length, note = (q('#sgaNote') ? q('#sgaNote').value.trim() : '').slice(0, 300);
         if (r.risks.some(function (x) { return x.mustNot; })) { say('A “must not go ahead” item is still there: change it or take it out first.'); return; }
         if (reds && !note) { say('Say why it can go ahead with a high risk left, or change it first.'); return; }
         var v = (A.version || 1);
         var next = stamp(Object.assign({}, A, r, { status: 'signed', version: v, signedBy: o.me.uid, signedByName: String(o.me.name || '').slice(0, 80),
-          signedAt: firebase.firestore.FieldValue.serverTimestamp(), signedVersion: v, signedNote: note }));
+          signedAt: firebase.firestore.FieldValue.serverTimestamp(), signedVersion: v, signedNote: note, signedByRole: String(o.me.role || 'Safeguarding lead').slice(0, 60) }));
         var b = db.batch(); b.set(ref, next); b.set(gate, { needed: true, open: true, updatedAt: now() });
         b.commit().then(function () { return load(); }).then(function () { say('Signed off. Bookings are open.'); }, function (e) { say('Not signed: ' + (e.message || e)); });
       };
@@ -197,5 +344,6 @@
     }
     return load();
   }
-  global.EGBCSgAssess = { mount: mount };
+  var api = { mount: mount, plainError: plainError, DRAFT_WAIT: DRAFT_WAIT };
+  global.EGBCSgAssess = api;
 })(window);

@@ -1200,6 +1200,22 @@ return exists(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(c
 && (get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('status', '') == 'signed'
 || get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('waived', false) == true);
 }
+function sgChecklist(kind, flags) {
+return ['insurance', 'incharge', 'leaders', 'consent', 'paedFirstAid', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'photos', 'weather', 'incidents']
+.concat(kind == 'overnight' ? ['sleeping', 'nightRota', 'fire', 'privacy']
+: kind == 'holidayclub' ? ['registration', 'staffRota', 'food', 'toilets']
+: kind == 'offsite' ? ['siteRules', 'water', 'boundaries'] : [])
+.concat(flags.get('abroad', false) == true ? ['travelAdvice', 'passports', 'travelInsurance', 'health', 'localEmergency', 'money', 'localHelpers'] : [])
+.concat(flags.get('adventurous', false) == true ? ['instructor', 'lifeguard', 'equipment'] : [])
+.concat(exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
+? get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('register', {}).get('checklistIds', []) : []);
+}
+function sgChecklistDone(calEventId, d) {
+let a = d.get('answers', {});
+return d.get('host', {}).get('confirmed', true) == true
+&& a.keys().hasAll(sgChecklist(get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data.get('sgKind', ''), d.get('flags', {})).concat(d.get('hostIds', [])))
+&& !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
+}
 function sgAssessWrites(calEventId, siteId) {
 return sgLeadOf(siteId) || runsEventId(calEventId) || isEventLeader(calEventId);
 }
@@ -1210,10 +1226,14 @@ allow create, update: if exists(/databases/$(database)/documents/churches/$(cid)
 && sgAssessWrites(calEventId, request.resource.data.siteId)
 && request.resource.data.keys().hasOnly(['siteId', 'calEventId', 'title', 'templateId', 'answers', 'risks', 'status', 'version',
 'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'signedNote',
-'waived', 'waivedBy', 'waivedByName', 'waivedAt', 'waivedWhy', 'source', 'updatedAt', 'updatedBy'])
+'waived', 'waivedBy', 'waivedByName', 'waivedAt', 'waivedWhy', 'source', 'updatedAt', 'updatedBy',
+'flags', 'signedByRole', 'host', 'hostIds'])
 && request.resource.data.calEventId == calEventId
 && sgText(request.resource.data.get('title', ''), 120) && sgText(request.resource.data.get('templateId', ''), 40)
-&& request.resource.data.get('answers', {}) is map && request.resource.data.get('answers', {}).size() <= 20
+&& request.resource.data.get('answers', {}) is map && request.resource.data.get('answers', {}).size() <= 80
+&& request.resource.data.get('flags', {}) is map && request.resource.data.get('flags', {}).keys().hasOnly(['abroad', 'adventurous', 'under8'])
+&& sgText(request.resource.data.get('signedByRole', ''), 60)
+&& request.resource.data.get('host', {}) is map && request.resource.data.get('hostIds', []) is list && request.resource.data.get('hostIds', []).size() <= 40
 && request.resource.data.get('risks', []) is list && request.resource.data.get('risks', []).size() <= 40
 && request.resource.data.status in ['draft', 'waiting', 'signed']
 && request.resource.data.version is int && request.resource.data.version >= 1
@@ -1223,7 +1243,8 @@ allow create, update: if exists(/databases/$(database)/documents/churches/$(cid)
 || (resource != null && resource.data.status == 'signed'
 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'updatedBy']))
 || (sgLeadOf(request.resource.data.siteId) && request.resource.data.signedBy == request.auth.uid
-&& request.resource.data.signedAt == request.time && request.resource.data.signedVersion == request.resource.data.version))
+&& request.resource.data.signedAt == request.time && request.resource.data.signedVersion == request.resource.data.version
+&& sgChecklistDone(calEventId, request.resource.data)))
 && ((request.resource.data.get('waived', false) == (resource == null ? false : resource.data.get('waived', false))
 && request.resource.data.get('waivedAt', null) == (resource == null ? null : resource.data.get('waivedAt', null))
 && request.resource.data.get('waivedBy', '') == (resource == null ? '' : resource.data.get('waivedBy', ''))

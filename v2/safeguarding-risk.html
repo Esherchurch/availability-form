@@ -15,9 +15,9 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
-<script src="egbc-sg-templates.js?v=202610221900"></script>
-<script src="egbc-sg-assess.js?v=202610222100"></script>
-<script src="egbc-sg-dash.js?v=202610221900"></script>
+<script src="egbc-sg-templates.js?v=202610231200"></script>
+<script src="egbc-sg-assess.js?v=202610231200"></script>
+<script src="egbc-sg-dash.js?v=202610231200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -135,7 +135,8 @@
       '<div class="two" style="margin-top:12px"><div class="f" style="margin:0"><label for="newKind">Kind</label><select id="newKind" style="width:100%">' + T.KINDS.map(function (k) { return '<option value="' + k.id + '">' + esc(k.label) + '</option>'; }).join('') + '</select></div>' +
       '<div class="f" style="margin:0"><label for="newName">Name</label><input type="text" id="newName" maxlength="80" placeholder="e.g. Transport to the youth weekend" style="width:100%"></div></div>' +
       '<div class="row"><button class="btn" id="newGo">Add it</button></div></div>' : '';
-    app.innerHTML = head + body + add;
+    var printIt = ACTS.length ? '<p style="margin:0 0 12px"><a class="btn sec sm" id="printRisks" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="sg-print.html?register=' + encodeURIComponent(V.site) + '">Print / save as PDF</a></p>' : '';
+    app.innerHTML = head + printIt + body + add;
     wire();
   }
   function actCard(a) {

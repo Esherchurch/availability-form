@@ -152,6 +152,89 @@
         { id: 'off-ratio', risk: 'Too few leaders away from the building', who: 'Children', l: 3, i: 4, controls: [C('ratio'), C('twoAdults')], rl: 1, ri: 4 }] }
   };
 
+  /* THE REQUIRED CHECKLIST (Martin, 23 Oct): every question must be answered,
+     or marked "not applicable" with a reason, before the lead or deputy can
+     sign an event off - the rules refuse it otherwise (firestore.rules
+     sgChecklist(), the same ids). Our own words. A church adds its own in
+     Safeguarding settings; it can never take these away. The server's copy,
+     for the AI, is functions/sg-checklist.cjs (the unit test checks they
+     match). */
+  var CK = function (id, label, hint) { return { id: id, label: label, hint: hint || '' }; };
+  var CHECKLIST = {
+    core: [
+      CK('insurance', 'Insurance: is the activity covered by the church’s insurance, and has the insurer been told where it needs to be (overseas, overnight, adventurous activities, hired transport)? Who checked, and when?'),
+      CK('incharge', 'Who is in charge on the day, and who is the named deputy?', 'Roles and names of leaders are fine; never a child'),
+      CK('leaders', 'Leaders: enough for the ratio, two adults at all times, and every leader’s criminal record check and training in date?', 'The hub’s own check is shown here'),
+      CK('consent', 'Consent: has a parent or guardian given consent for this event, covering the activities, photos and medical treatment, for every child before they go?'),
+      /* answered Yes or No (with who and when their certificate runs out, or why not); a No is flagged amber, red when under-8s go (Martin, 23 Oct) */
+      Object.assign(CK('paedFirstAid', 'Is there a trained paediatric first aider with the group? Who, and when does their certificate run out?', 'Essential where young children are present.'), { yesNo: true }),
+      CK('medical', 'Medical needs and allergies: are needs known (in general terms), medicines carried by a named leader, and a trained first aider and kit going?'),
+      CK('emergency', 'Emergencies: the nearest hospital, how to call for help, the emergency plan, and how parents and the church at home will be told.'),
+      CK('contacts', 'Contacts: who is the 24-hour contact at home (not on the trip)? Are leaders’ phones charged and with signal?'),
+      CK('headcount', 'Head counts and the lost-child plan; the meeting point, and hand-back only to people on the collection list.'),
+      CK('transport', 'Transport: is the operator or driver checked (licence, insurance, seatbelts)? Private cars only with driver checks, and booster seats where needed.'),
+      CK('venue', 'The venue, host or activity provider: checked, their safeguarding policy and risk assessment seen, and licences where they apply (for example adventure activity licensing in the UK)?'),
+      CK('photos', 'Photos and social media: consent given, and no locations or names posted?'),
+      CK('weather', 'Weather, and the plan if it has to be cancelled or cut short.'),
+      CK('incidents', 'Incidents: how will any incident or concern be recorded and reported to the safeguarding lead?')
+    ],
+    abroad: [
+      CK('travelAdvice', 'Government travel advice for the destination: checked, and checked again just before leaving?'),
+      CK('passports', 'Passports, visas, and any rules for children travelling without a parent?'),
+      CK('travelInsurance', 'Travel insurance for everyone, including medical treatment and repatriation?'),
+      CK('health', 'Vaccinations and health advice for the destination?'),
+      CK('localEmergency', 'Local emergency numbers, and the nearest embassy or consulate?'),
+      CK('money', 'Money, and how the group will keep in touch (phones, roaming, wifi)?'),
+      CK('localHelpers', 'Local helpers or hosts: do they need checks equivalent to ours, and have they had them?')
+    ],
+    overnight: [
+      CK('sleeping', 'Sleeping arrangements: separate by age and gender, and adults never sharing with children (unless their own child)?'),
+      CK('nightRota', 'The night supervision rota: who is awake or on call, and when?'),
+      CK('fire', 'Fire safety: the exits, the alarm, and a night-time walk-through?'),
+      CK('privacy', 'Privacy for changing and washing?')
+    ],
+    holidayclub: [
+      CK('registration', 'Registration, and signing every child in and out each day?'),
+      CK('staffRota', 'The staffing rota across the days, keeping the ratio every day?'),
+      CK('food', 'Food hygiene and allergies?'),
+      CK('toilets', 'Toilets, and how children are supervised going to them?')
+    ],
+    offsite: [
+      CK('siteRules', 'The site’s own rules and hazards?'),
+      CK('water', 'Any water nearby, and how children are kept safe from it?'),
+      CK('boundaries', 'The boundaries of the area, and how children know them?')
+    ],
+    adventurous: [
+      CK('instructor', 'A qualified instructor or a licensed provider for each activity?'),
+      CK('lifeguard', 'Lifeguard cover for any swimming or water activity?'),
+      CK('equipment', 'Equipment checked, and fitted to each child?')
+    ]
+  };
+  var FLAGS = [
+    { id: 'abroad', label: 'Overseas: the trip leaves the country' },
+    { id: 'adventurous', label: 'Water, heights or other adventurous activities' },
+    { id: 'under8', label: 'Children under 8 are going' }
+  ];
+  /* the required questions for one event: the core, its kind's, the ticked flags', then the church's own */
+  function checklistFor(kind, flags, churchQs) {
+    flags = flags || {};
+    var out = [].concat(CHECKLIST.core.map(function (q) { return Object.assign({ group: 'core' }, q); }));
+    if (CHECKLIST[kind] && kind !== 'core') out = out.concat(CHECKLIST[kind].map(function (q) { return Object.assign({ group: kind }, q); }));
+    FLAGS.forEach(function (f) { if (flags[f.id] === true && CHECKLIST[f.id]) out = out.concat(CHECKLIST[f.id].map(function (q) { return Object.assign({ group: f.id }, q); })); });
+    (churchQs || []).forEach(function (q) { if (q && q.id && q.q) out.push({ id: q.id, label: q.q, hint: q.hint || 'The church’s own question', group: q.group || 'church' }); });
+    return out;
+  }
+  /* the host's checked requirements, as questions: "From <host>'s requirements" */
+  function hostQuestions(a) {
+    var h = a && a.host;
+    if (!h || !h.confirmed) return [];
+    return (h.items || []).map(function (x) { return { id: x.id, q: x.q, hint: 'From ' + (h.name || 'the host') + '’s requirements' + (x.line ? ': “' + x.line + '”' : ''), group: 'host' }; });
+  }
+  /* an answer is there: words, or "N/A: " with a reason */
+  function answered(v) { v = String(v || '').trim(); return !!v && !/^(N\/A|Yes|No):\s*$/.test(v); }
+  /* the paediatric first aider: none is a flag - amber, red when under-8s go */
+  function paedFlag(answers, flags) { return /^No\b/i.test(String((answers || {}).paedFirstAid || '').trim()) ? ((flags || {}).under8 ? 'red' : 'amber') : ''; }
+
   function score(l, i) { return (+l || 0) * (+i || 0); }
   function rating(l, i) { var s = score(l, i); return s >= 15 ? 'red' : s >= 5 ? 'amber' : 'green'; }
   function kindLabel(id) { var k = KINDS.filter(function (x) { return x.id === id; })[0]; return k ? k.label : id; }
@@ -178,7 +261,9 @@
     { id: 'return', who: 'either', optional: true, label: 'The annual return or report made', line: 'Where the church’s own rules need one.' }
   ];
 
-  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES, REVIEW_ITEMS: REVIEW_ITEMS,
+  Object.keys(EVENT_TEMPLATES).forEach(function (k) { EVENT_TEMPLATES[k].questions = checklistFor(k, {}); });
+
+  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES, REVIEW_ITEMS: REVIEW_ITEMS, CHECKLIST: CHECKLIST, FLAGS: FLAGS, checklistFor: checklistFor, answered: answered, paedFlag: paedFlag, hostQuestions: hostQuestions,
               score: score, rating: rating, kindLabel: kindLabel, controlLabel: controlLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCSgTemplates = api;

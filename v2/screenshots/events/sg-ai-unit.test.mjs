@@ -69,6 +69,46 @@ ok('the answer’s shape: every object closed (additionalProperties false), ever
 ok('the caps: 20 a day for the church and 5 a person, unless set', J(A.caps({})) === J({ perChurch: 20, perPerson: 5 }) && J(A.caps({ register: { ai: { perChurch: 3, perPerson: 1 } } })) === J({ perChurch: 3, perPerson: 1 }));
 ok('the words for a refusal are Martin’s', A.WORDS.refused === 'The AI couldn’t draft this; write it from the template instead.');
 
+console.log('\n5. THE REQUIRED CHECKLIST (Martin, 23 Oct): the page, the server and the rules agree');
+const fsm = await import('node:fs'), vmm = await import('node:vm');
+const tmod = { exports: {} };
+vmm.runInNewContext(fsm.readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: tmod });
+const TP = tmod.exports, CK = require('./sg-checklist.cjs');
+ok('the server’s copy has the same questions, word for word, as the page’s', J(Object.keys(TP.CHECKLIST).map((k) => [k, TP.CHECKLIST[k].map((q) => [q.id, q.label])])) === J(Object.keys(CK.CHECKLIST).map((k) => [k, CK.CHECKLIST[k].map((q) => [q.id, q.label])])));
+const rulesSrc = fsm.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), fnSrc = (rulesSrc.match(/function sgChecklist\(kind, flags\) \{[\s\S]*?\n    \}/) || [''])[0];
+const idsIn = (re) => ((fnSrc.match(re) || [, ''])[1].match(/'([A-Za-z]+)'/g) || []).map((x) => x.replace(/'/g, ''));
+ok('THE RULES require the same ids: the core', J(idsIn(/return \[([^\]]*)\]/)) === J(TP.CHECKLIST.core.map((q) => q.id)), J(idsIn(/return \[([^\]]*)\]/)));
+ok('   overnight, holiday club, off-site', ['overnight', 'holidayclub', 'offsite'].every((k) => J(idsIn(new RegExp("kind == '" + k + "' \\? \\[([^\\]]*)\\]"))) === J(TP.CHECKLIST[k].map((q) => q.id))));
+ok('   overseas, and water, heights or adventurous', ['abroad', 'adventurous'].every((k) => J(idsIn(new RegExp("flags.get\\('" + k + "', false\\) == true \\? \\[([^\\]]*)\\]"))) === J(TP.CHECKLIST[k].map((q) => q.id))));
+ok('a trip asks 14; an overnight 18; overseas adds 7; a church question and a host’s are added', TP.checklistFor('trip', {}).length === 14 && TP.checklistFor('overnight', {}).length === 18 && TP.checklistFor('trip', { abroad: true }).length === 21 && TP.checklistFor('trip', {}, [{ id: 'c_1', q: 'Ours?' }, { id: 'h_1', q: 'Theirs?', group: 'host' }]).length === 16);
+ok('the paediatric first aider is asked for every kind, as Yes or No', ['trip', 'overnight', 'holidayclub', 'offsite'].every((k) => TP.checklistFor(k, {}).some((q) => q.id === 'paedFirstAid' && q.yesNo)));
+ok('   "No" is amber, red when under-8s go; the server and the page agree', TP.paedFlag({ paedFirstAid: 'No: not yet' }, {}) === 'amber' && TP.paedFlag({ paedFirstAid: 'No: not yet' }, { under8: true }) === 'red' && TP.paedFlag({ paedFirstAid: 'Yes: the deputy' }, { under8: true }) === ''
+  && require('./sg-warnings-core.cjs').paedLevel({ paedFirstAid: 'No: x' }, { under8: true }) === 'red');
+ok('an answer counts: words, "N/A: <reason>", "Yes: <who>"; not "N/A: ", "No: " or nothing', TP.answered('x') && TP.answered('N/A: we walk') && TP.answered('Yes: Sam') && !TP.answered('N/A: ') && !TP.answered('No: ') && !TP.answered(''));
+
+console.log('\n6. the AI and the checklist');
+const ckList = CK.checklistFor('trip', {});
+ok('the checklist goes with the counts, each question with its id', /The required checklist \(id: question\):/.test(A.userText(facts, 'x', ckList)) && /- insurance: Insurance:/.test(A.userText(facts, 'x', ckList)) && /- paedFirstAid: Is there a trained paediatric first aider/.test(A.userText(facts, 'x', ckList)));
+ok('the instructions: cover every topic, suggest only what the description says, a paediatric first aider at least Medium', /cover every topic/.test(A.SYSTEM) && /never invent facts/.test(A.SYSTEM) && /paediatric first aider is essential/.test(A.SYSTEM));
+const withAns = A.normalise(Object.assign({}, good, { answers: [{ id: 'insurance', answer: 'Covered, the office checked' }, { id: 'nonsense', answer: 'x' }, { id: 'contacts', answer: 'Ring 07700 900123' }], flags: { abroad: true, adventurous: false } }), Object.assign({}, facts, { leaders: 6, checklistIds: ckList.map((q) => q.id) }));
+ok('SUGGESTIONS only for the checklist’s questions, never with a phone number', J(withAns.suggest) === J({ insurance: 'Covered, the office checked' }), J(withAns.suggest));
+ok('   and the ticks it sees (overseas)', withAns.flags.abroad === true && withAns.flags.adventurous === false);
+const none = A.hubRisks({ children: 0, leaders: 0, ratioAll: 5, ratioUnder8: 4 });
+ok('NOTHING BOOKED AND NOBODY NAMED: the hub says the ratio can’t be checked (never silent), amber, not "must not"', none.length === 1 && /No children booked and no leaders named yet: the ratio can’t be checked/.test(none[0].risk) && !none[0].mustNot && A.rating(none[0].rl, none[0].ri) === 'amber', J(none));
+ok('   leaders named but nobody booked: says that', /No children booked yet/.test((A.hubRisks({ children: 0, leaders: 3, ratioAll: 5 })[0] || {}).risk || ''));
+
+console.log('\n7. the host’s requirements');
+const RQ = require('./sg-requirements-core.cjs');
+ok('what it reads: PDF, Word, pictures; nothing else', RQ.fileKind('application/pdf', 'a.pdf') === 'pdf' && RQ.fileKind('', 'Camp list.docx') === 'docx' && RQ.fileKind('image/png', 'scan.png') === 'image' && RQ.fileKind('application/zip', 'x.zip') === '' && RQ.fileKind('text/html', 'x.html') === '');
+const { makeZip } = await import('../../converter/pptx.mjs');
+const docx = makeZip([['[Content_Types].xml', '<Types/>'], ['word/document.xml', '<w:document><w:body><w:p><w:r><w:t>Groups must bring a signed code of conduct.</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">Lights out at 10pm &amp; no </w:t></w:r><w:r><w:t>phones after.</w:t></w:r></w:p></w:body></w:document>']]);
+ok('A WORD DOCUMENT’s words, a paragraph a line', RQ.docxText(docx) === 'Groups must bring a signed code of conduct.\nLights out at 10pm & no phones after.', J(RQ.docxText(docx)));
+ok('   not a Word document: refused', (() => { try { RQ.docxText(Buffer.from('not a zip at all, just words')); return false; } catch (e) { return true; } })());
+ok('a PDF goes as a document, a scan as an image, Word as its words', RQ.contentFor('pdf', 'QUJD', '', 'application/pdf')[0].type === 'document' && RQ.contentFor('image', 'QUJD', '', 'image/png')[0].source.media_type === 'image/png' && /code of conduct/.test(RQ.contentFor('docx', '', RQ.docxText(docx), RQ.DOCX)[0].text));
+const nr = RQ.normaliseReqs({ host: 'Hilltop Camp', personalFound: false, items: [{ question: 'Has every leader signed the camp’s code of conduct?', line: 'Groups must bring a signed code of conduct.' }, { question: 'Has the group leader rung Jo on 07700 900123?', line: 'Ring Jo on 07700 900123' }, { question: 'Will Charlie Jones have her inhaler?', line: '' }, { question: ' ', line: 'x' }] }, ['Charlie Jones']);
+ok('NAMES, PHONE NUMBERS: those questions are left out, counted, and it says so', nr.ok && nr.items.length === 1 && nr.dropped === 2 && nr.personalFound === true && nr.host === 'Hilltop Camp', J(nr));
+ok('the instructions: one question each, the line it came from, never a name, phone or email', /One question for each separate requirement/.test(RQ.REQ_SYSTEM) && /Never put a person’s name, phone number, email address/.test(RQ.REQ_SYSTEM));
+
 const passed = results.filter(Boolean).length;
 console.log('\n' + passed + '/' + results.length + ' passed');
 process.exit(passed === results.length ? 0 : 1);

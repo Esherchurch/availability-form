@@ -26,6 +26,11 @@
      8. THE CAPS: the church's and each person's
      9. THE REGISTER'S SWITCH turns it off
     10. 375px and computer, pictures
+    12. THE PAGE WAITS (the reviewing window's live run took 46 s): "Drafting…
+        this takes about a minute"; a page that gives up says "Still working:
+        reload in a minute"; never a raw error. Nothing booked: the hub says
+        the ratio can't be checked. The checklist goes to the AI; its answers
+        are suggestions, "to confirm"
     11. A KEY OR SET-UP PROBLEM (the reviewing window, 23 Oct): a key not
         scoped to a workspace (400) and an expired key (401) say "The AI
         isn't set up properly yet. Ask the church office.", are never
@@ -81,7 +86,9 @@ const stub = http.createServer((req, res) => {
     let body = null; try { body = JSON.parse(b); } catch (e) {}
     SENT.push({ path: req.url, key: req.headers['x-api-key'], body });
     const next = QUEUE.shift() || { status: 500, body: { type: 'error', error: { type: 'api_error', message: 'nothing queued' } } };
+    setTimeout(() => {
     res.writeHead(next.status, Object.assign({ 'Content-Type': 'application/json' }, next.headers || {})); res.end(JSON.stringify(next.body));
+    }, next.delay || 0);
   });
 });
 await new Promise(r => stub.listen(5617, '127.0.0.1', r));
@@ -129,6 +136,10 @@ const EV = (id, title, day) => ({ title, description: '', category: 'children', 
   S('bookingSettings', 'site_t', { bookingsAdmins: [], safeguardingLead: 'm_lena', safeguardingDeputy: '' });
   S('safeguardingSettings', 'defaults', { templates: {}, ratioAll: 5, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false, leadSiteId: 'site_t', leadName: 'Lena Lead (invented)', leadPhone: '', updatedAt: 'x', updatedBy: 'x' });
   S('leaderChecks', 'm_vic', { dbsStatus: 'seen', dbsSeen: '2026-01-10', trainingDate: '2026-02-01' });
+  /* a third trip: nothing booked yet, nobody named (for the slow draft) */
+  S('calEvents', 'ev_trip3', EV('ev_trip3', 'Third trip (invented)', DAY2));
+  S('eventLeaders', 'ev_trip3', { under18: true, leaders: [], leaderIds: [], leaderUids: [], siteId: 'site_t', clearedIds: [], lastCleared: [], updatedAt: 'x', updatedBy: 'x' });
+  S('sgGate', 'ev_trip3', { needed: true, open: false, updatedAt: 'x' });
   for (const [id, t, d] of [['ev_trip', 'Mission trip (invented)', DAY], ['ev_trip2', 'Second trip (invented)', DAY2]]) {
     S('calEvents', id, EV(id, t, d));
     S('eventLeaders', id, { under18: true, leaders: [{ memberId: 'm_vic', name: 'Vic Leader (invented)', uid: P.vic.uid }], leaderIds: ['m_vic'], leaderUids: [P.vic.uid], siteId: 'site_t', clearedIds: [], lastCleared: [], updatedAt: 'x', updatedBy: 'x' });
@@ -207,6 +218,8 @@ try {
   ok('   THE SAME COUNT AS THE PAGE: its own "Children booked" says 12 too', /\b12 Children booked/.test(await text(O)), (await text(O)).match(/\d+ Children booked/));
   ok('   the AI\u2019s rows after it, each with an owner as a role', a1.risks.length === 4 && a1.risks.slice(1).every((r) => r.from === 'ai' && r.owner === 'The trip leader'), J(a1.risks.map((r) => r.from + ':' + r.owner)));
   ok('   "This must not go ahead as described", in red, with the plain sentences', /This must not go ahead as described\./.test(await text(O, '#sgaMustNot')) && /Young people must not be left alone in the prison at any time\./.test(await text(O, '#sgaMustNot')) && (await O.$$('[data-mustnot]')).length === 2, await text(O, '#sgaMustNot'));
+  const listed = await O.$$eval('#sgaMustList li', (a) => a.map((x) => x.innerText));
+  ok('   THE COUNT AND THE LIST AGREE: "Change these 2 items", 2 listed, 2 marked', /Change these 2 items/.test(await text(O, '#sgaMustNot')) && listed.length === 2 && listed.length === (await O.$$('[data-mustnot]')).length, J(listed));
   ok('   the questions to answer before sign-off', /Who is the trained first aider\?/.test(await text(O, '#sgaQuestions')));
   ok('   THE LEADER\u2019S WORDS ARE NOT KEPT', !/mission trip to a city|sing at a prison/.test(J(a1)), J(a1).slice(0, 200));
   ok('   BOOKINGS STAY CLOSED: the gate says waiting', (await db.collection('sgGate').doc('ev_trip').get()).data().open === false);
@@ -222,7 +235,9 @@ try {
   await shot(O, 'sg-ai-draft-375.png');
   await O.setViewport({ width: 1280, height: 900 });
 
-  /* 4. sign-off */
+  /* 4. sign-off: the leader has answered the checklist (Martin's, 23 Oct) */
+  const CKL = fnRequire('./sg-checklist.cjs');
+  await db.collection('sgAssessments').doc('ev_trip').update({ answers: Object.fromEntries(CKL.checklistFor('trip', (await assess('ev_trip')).flags || {}).map((q) => [q.id, q.id === 'paedFirstAid' ? 'Yes: the trip’s deputy leader, until 2028 (invented)' : 'Answered in general words (invented)'])) });
   const L = await as('lena');
   await go(L, 'safeguarding.html?event=ev_trip', '#sgaSign');
   await tap(L, '#sgaSign');
@@ -320,6 +335,38 @@ try {
   const k3 = await call(Vv, 'sgDraftAssessment', { calEventId: 'ev_trip2', text: BRAZIL });
   const k3s = await call(Vv, 'sgAiStatus', { calEventId: 'ev_trip2' });
   ok('   once a call works, it is ready again', k3.ok && k3.r.ok === true && k3s.r.state === 'ready', J([k3, k3s]));
+
+  /* 12. the page waits; plain words; nothing booked; the checklist */
+  await db.collection('sgAiUse').doc(TODAY).set({ total: 0, by: {} });
+  const D3 = Object.assign({}, DRAFT, { answers: [{ id: 'insurance', answer: 'The church’s insurance covers day trips; the office checked (invented)' }, { id: 'nonsense', answer: 'x' }], flags: { abroad: false, adventurous: true } });
+  QUEUE.push(Object.assign(message(D3), { delay: 12000 }));
+  await go(O, 'safeguarding.html?event=ev_trip3', '#sgaAiText');
+  await O.$eval('#sgaAiText', (e) => { e.value = 'A day at the climbing wall for the youth group (invented).'; });
+  await tap(O, '#sgaAiGo');
+  ok('12. WHILE IT DRAFTS: "Drafting… this takes about a minute."', /Drafting… this takes about a minute./.test(await text(O, '#sgaAiMsg')));
+  await O.waitForSelector('#sgaAiLabel', { timeout: 40000 });
+  ok('   A DRAFT THAT TAKES 12 SECONDS ARRIVES: the page did not give up', !!(await O.$('#sgaAiLabel')));
+  const a12 = await assess('ev_trip3') || {};
+  ok('   NOTHING BOOKED AND NOBODY NAMED: the hub says the ratio can’t be checked', /No children booked and no leaders named yet: the ratio can’t be checked/.test((a12.risks || [])[0] && a12.risks[0].risk) && a12.risks[0].from === 'hub', J((a12.risks || [])[0]));
+  const sent12 = J((SENT[SENT.length - 1] || {}).body || {});
+  ok('   THE CHECKLIST WENT WITH IT: each question with its id', /The required checklist \(id: question\)/.test(sent12) && /- paedFirstAid: Is there a trained paediatric first aider/.test(sent12) && /- instructor:/.test(sent12) === false, sent12.slice(0, 200));
+  ok('   its ticks: "water, heights or adventurous" on (it adds 3 questions)', a12.flags && a12.flags.adventurous === true && (await O.$$('[data-ck]')).length === 17, J(a12.flags));
+  ok('   ITS ANSWERS ARE SUGGESTIONS, "to confirm": insurance shown, not counted as answered', a12.source.suggest && a12.source.suggest.insurance && !a12.source.suggest.nonsense && !(a12.answers || {}).insurance
+    && /AI suggests \(to confirm\): The church’s insurance covers day trips/.test(await text(O, '[data-suggest="insurance"]')), J(a12.source.suggest));
+  await tap(O, '[data-use="insurance"]');
+  ok('   "Use this" puts it in the box for the leader to check', /covers day trips/.test(await O.$eval('[data-q="insurance"]', (e) => e.value)));
+  /* the page gives up first */
+  QUEUE.push(Object.assign(message(DRAFT), { delay: 7000 }));
+  await go(O, 'safeguarding.html?event=ev_trip3', '#sgaAiText');
+  await O.evaluate(() => { EGBCSgAssess.DRAFT_WAIT = 3000; });
+  await O.$eval('#sgaAiText', (e) => { e.value = 'The same day again (invented).'; });
+  await tap(O, '#sgaAiGo');
+  const gave = await until(async () => { const t = await text(O, '#sgaAiMsg'); return /Still working/.test(t) ? t : null; }, 10000);
+  ok('   A PAGE THAT GIVES UP FIRST: "Still working: reload in a minute to see the draft." (never "signal is aborted")', gave === 'Still working: reload in a minute to see the draft.', await text(O, '#sgaAiMsg'));
+  await sleep(6000);
+  ok('   and the draft is there after', ((await assess('ev_trip3')).source || {}).at > a12.source.at);
+  const plain = await O.evaluate(() => [{ code: 'internal', message: 'INTERNAL' }, { name: 'AbortError', message: 'signal is aborted without reason' }, { code: 'unreachable' }, { code: 'unknown', message: 'Unexpected token < in JSON' }].map((e) => EGBCSgAssess.plainError(e)));
+  ok('   NEVER A RAW ERROR: anything unexpected is said plainly', plain.every((m) => !/INTERNAL|signal|aborted|token|JSON/.test(m)) && /couldn’t be finished just now/.test(plain[0]) && /couldn’t be reached/.test(plain[2]), J(plain));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

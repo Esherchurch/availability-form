@@ -37,16 +37,23 @@ import { createHash } from 'node:crypto';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
-import { londonDay, registerOn } from './sg-warnings.js';
+import { getStorage } from 'firebase-admin/storage';
+import { londonDay, registerOn, maySee } from './sg-warnings.js';
 
 const require = createRequire(import.meta.url);
 const Core = require('./sg-ai-core.cjs');
+const Checklist = require('./sg-checklist.cjs');
+const Req = require('./sg-requirements-core.cjs');
 const Safeguarding = require('./safeguarding-core.cjs');
 const REGION = 'europe-west2';
 const db = () => getFirestore();
 const KINDS = ['trip', 'overnight', 'holidayclub', 'offsite'];
 export const CHQ_ANTHROPIC_API_KEY = defineSecret('CHQ_ANTHROPIC_API_KEY');
 const BACKOFF = [1000, 3000, 8000];
+/* A DRAFT TAKES 30-60 SECONDS (the reviewing window's live run: 46 s). The
+   function may run 180 s; the page waits as long; the calls, retries
+   included, must finish inside BUDGET so there is time to save. */
+const BUDGET = 165000;
 
 /* the key, or '' when not set up; on the emulator, the local stand-in when a test has set one */
 async function apiOf(dbi) {
@@ -91,7 +98,7 @@ async function factsFor(dbi, w, under8) {
 /* one place for the log: ids and counts only, never the words (and, for a failed call, the API's request id and error type) */
 function logIt(dbi, x) {
   return dbi.collection('sgAiLog').add(Object.assign({ siteId: x.siteId, calEventId: x.calEventId, by: x.by, byName: String(x.byName || '').slice(0, 120), at: new Date().toISOString(),
-    chars: x.chars || 0, outcome: x.outcome, tokensIn: x.tokensIn || 0, tokensOut: x.tokensOut || 0 },
+    chars: x.chars || 0, outcome: x.outcome, tokensIn: x.tokensIn || 0, tokensOut: x.tokensOut || 0 }, x.kind ? { kind: x.kind } : {},
     x.requestId || x.errorType ? { requestId: String(x.requestId || '').slice(0, 80), errorType: String(x.errorType || '').slice(0, 60), status: x.status || 0 } : {})).catch(() => {});
 }
 
@@ -109,6 +116,19 @@ async function broken(dbi, apiKey) {
   return !!s && s.state === 'broken' && s.key === fingerprint(apiKey) && Date.now() - Date.parse(s.at || 0) < BROKEN_FOR;
 }
 
+/* a call that failed: a key or set-up problem is said plainly and remembered; anything else "could not be reached" */
+async function callFailed(dbi, e, key, base, what) {
+  const err = { status: e.status || 0, requestId: e.requestID || '', errorType: e.type || e.name || '' };
+  console.log(what + ': call failed for ' + base.calEventId + ' (' + err.status + ' ' + err.errorType + ', request ' + err.requestId + ')');
+  if (setupProblem(e)) {
+    await stateRef(dbi).set({ state: 'broken', key: fingerprint(key.apiKey), at: new Date().toISOString(), status: err.status, errorType: err.errorType, requestId: err.requestId });
+    await logIt(dbi, Object.assign({ outcome: 'setup-failed' }, base, err));
+    return new HttpsError('failed-precondition', Core.WORDS.setup);
+  }
+  await logIt(dbi, Object.assign({ outcome: 'failed' }, base, err));
+  return new HttpsError('unavailable', 'The AI could not be reached just now; try again later, or use a template.');
+}
+
 /* today's use, counted in a transaction: false when over a cap */
 async function takeOne(dbi, uid, cap) {
   const ref = dbi.collection('sgAiUse').doc(londonDay());
@@ -121,19 +141,21 @@ async function takeOne(dbi, uid, cap) {
 }
 
 /* the call: busy or overloaded is retried on the same model; nothing else is */
-export async function callModel({ apiKey, baseURL, facts, text }) {
-  const client = new Anthropic({ apiKey, baseURL, maxRetries: 0, timeout: 120000 });
+export async function callModel({ apiKey, baseURL, facts, text, checklist, request }) {
+  const client = new Anthropic({ apiKey, baseURL, maxRetries: 0, timeout: 120000 }), t0 = Date.now();
+  const body = request || {
+    model: Core.MODEL, max_tokens: 16000,
+    system: [{ type: 'text', text: Core.SYSTEM, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: Core.userText(facts, text, checklist || Checklist.checklistFor(facts && facts.kind, {})) }],
+    output_config: { format: { type: 'json_schema', schema: Core.SCHEMA } }
+  };
   for (let attempt = 0; ; attempt++) {
+    const left = BUDGET - (Date.now() - t0);
     try {
-      return await client.messages.create({
-        model: Core.MODEL, max_tokens: 16000,
-        system: [{ type: 'text', text: Core.SYSTEM, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: Core.userText(facts, text) }],
-        output_config: { format: { type: 'json_schema', schema: Core.SCHEMA } }
-      });
+      return await client.messages.create(body, { timeout: Math.max(5000, Math.min(120000, left)) });
     } catch (e) {
       const busy = e instanceof Anthropic.RateLimitError || e instanceof Anthropic.InternalServerError;
-      if (!busy || attempt >= BACKOFF.length) throw e;
+      if (!busy || attempt >= BACKOFF.length || BUDGET - (Date.now() - t0) < BACKOFF[attempt] + 20000) throw e;
       await new Promise((r) => setTimeout(r, BACKOFF[attempt]));
     }
   }
@@ -163,18 +185,12 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   if (!(await takeOne(dbi, uid, Core.caps(st)))) { await logIt(dbi, Object.assign({ outcome: 'capped' }, base)); throw new HttpsError('resource-exhausted', Core.WORDS.capped); }
   /* 4. the call */
   let res;
-  try { res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, facts, text }); }
-  catch (e) {
-    const err = { status: e.status || 0, requestId: e.requestID || '', errorType: e.type || e.name || '' };
-    console.log('sgDraftAssessment: call failed for ' + calEventId + ' (' + err.status + ' ' + err.errorType + ', request ' + err.requestId + ')');
-    if (setupProblem(e)) {
-      await stateRef(dbi).set({ state: 'broken', key: fingerprint(key.apiKey), at: new Date().toISOString(), status: err.status, errorType: err.errorType, requestId: err.requestId });
-      await logIt(dbi, Object.assign({ outcome: 'setup-failed' }, base, err));
-      throw new HttpsError('failed-precondition', Core.WORDS.setup);
-    }
-    await logIt(dbi, Object.assign({ outcome: 'failed' }, base, err));
-    throw new HttpsError('unavailable', 'The AI could not be reached just now; try again later, or use a template.');
-  }
+  /* the required checklist, as the page shows it: the kind, the ticks so far, the church's own and the host's (F-277) */
+  const flags0 = Object.assign({}, (cur && cur.flags) || {}, facts.under8 ? { under8: true } : {});
+  const checklist = Checklist.checklistFor(w.e.sgKind, flags0, (((st.register || {}).checklist) || []).concat(((cur && cur.host && cur.host.confirmed) ? cur.host.items : []) || []));
+  facts.checklistIds = checklist.map((q) => q.id);
+  try { res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, facts, text, checklist }); }
+  catch (e) { throw await callFailed(dbi, e, key, base, 'sgDraftAssessment'); }
   /* it worked: set-up is fine again */
   if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
   const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
@@ -185,9 +201,12 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   if (!n.ok) { await logIt(dbi, Object.assign({ outcome: 'failed' }, base, usage)); throw new HttpsError('internal', Core.WORDS.incomplete); }
   /* 5. saved as a draft: bookings stay closed */
   const at = new Date().toISOString();
-  const doc = { siteId: w.site, calEventId, title: String(w.e.title || '').slice(0, 120), templateId: w.e.sgKind, answers: (cur && cur.answers) || {},
+  /* the ticks only ever go on from a draft (they add questions); answers stay the people's - the AI's are suggestions, "to confirm" */
+  const flags = Object.assign({}, flags0, n.flags.abroad ? { abroad: true } : {}, n.flags.adventurous ? { adventurous: true } : {});
+  const doc = { siteId: w.site, calEventId, title: String(w.e.title || '').slice(0, 120), templateId: w.e.sgKind, answers: (cur && cur.answers) || {}, flags,
+    ...(cur && cur.host ? { host: cur.host, hostIds: cur.hostIds || [] } : {}),
     risks: n.risks, status: 'draft', version: (cur && cur.version) || 1,
-    source: { kind: 'ai', model: Core.MODEL, at, by: uid, overall: n.overall, mustNot: n.mustNot, questions: n.questions, summary: n.summary },
+    source: { kind: 'ai', model: Core.MODEL, at, by: uid, overall: n.overall, mustNot: n.mustNot, questions: n.questions, summary: n.summary, suggest: n.suggest },
     updatedAt: at, updatedBy: uid };
   const b = dbi.batch();
   b.set(dbi.collection('sgAssessments').doc(calEventId), doc);
@@ -198,7 +217,86 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   return { ok: true, overall: n.overall, risks: n.risks.length, mustNot: n.mustNot.length };
 }
 
-export const sgDraftAssessment = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 300 }, async (req) => {
+/* ---- THE HOST'S OWN REQUIREMENTS (F-277) ----
+   { calEventId, host, fileName, contentType, data (base64) }: kept in Storage
+   under the event (sgRequirements/<event>/..., server only), read by Claude,
+   saved on the assessment for the leader to check. Same people, caps and
+   log as the drafts; the file's contents are never logged. */
+export async function extractRequirements({ db: dbi, uid, data, api, bucket }) {
+  data = data || {};
+  const calEventId = String(data.calEventId || '');
+  if (!calEventId || calEventId.includes('/')) throw new HttpsError('invalid-argument', 'Which event?');
+  const w = await whoFor(dbi, uid, calEventId);
+  if (!w.ok) throw new HttpsError('permission-denied', 'This is for the event’s organiser and leaders, and the safeguarding lead and deputy.');
+  w.e.id = calEventId;
+  if (!KINDS.includes(w.e.sgKind || '') || w.l.under18 !== true) throw new HttpsError('failed-precondition', 'Only an under-18s trip, overnight, holiday club or off-site event needs this.');
+  const cur = (await dbi.collection('sgAssessments').doc(calEventId).get()).data();
+  if (cur && (cur.status === 'signed' || cur.waived)) throw new HttpsError('failed-precondition', 'This assessment is already signed off (or not needed). Change it by hand instead.');
+  const type = String(data.contentType || '').toLowerCase(), fileName = String(data.fileName || 'requirements').replace(/[\\/]/g, '_').slice(0, 120);
+  const kind = Req.fileKind(type, fileName);
+  if (!kind) throw new HttpsError('invalid-argument', 'Upload a PDF, a Word document (.docx), or a photo or scan of the printed sheet.');
+  const buf = Buffer.from(String(data.data || ''), 'base64');
+  if (!buf.length) throw new HttpsError('invalid-argument', 'The file is empty.');
+  if (buf.length > Req.MAX_BYTES) throw new HttpsError('invalid-argument', 'The file is too big: 7 MB at most. A photo of each page will do.');
+  let text = '';
+  if (kind === 'docx') {
+    try { text = Req.docxText(buf); } catch (e) { throw new HttpsError('invalid-argument', 'This Word document can’t be read. Save it as a PDF and try that.'); }
+    if (!text.trim()) throw new HttpsError('invalid-argument', 'There are no words in this Word document.');
+  }
+  const base = { siteId: w.site, calEventId, by: uid, byName: w.u.name, chars: buf.length, kind: 'requirements' };
+  const key = api || (await apiOf(dbi));
+  if (!key.apiKey) throw new HttpsError('failed-precondition', Core.WORDS.notSet);
+  const { st, names } = await factsFor(dbi, w, 0);
+  if (!(await takeOne(dbi, uid, Core.caps(st)))) { await logIt(dbi, Object.assign({ outcome: 'capped' }, base)); throw new HttpsError('resource-exhausted', Core.WORDS.capped); }
+  /* the original file, kept with the assessment */
+  const path = 'sgRequirements/' + calEventId + '/' + Date.now() + '-' + fileName.replace(/[^A-Za-z0-9._ -]/g, '_');
+  await (bucket || getStorage().bucket()).file(path).save(buf, { contentType: type || (kind === 'docx' ? Req.DOCX : 'application/octet-stream'), resumable: false });
+  let res;
+  try {
+    res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, request: { model: Core.MODEL, max_tokens: 8000,
+      system: [{ type: 'text', text: Req.REQ_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: Req.contentFor(kind, buf.toString('base64'), text, type) }],
+      output_config: { format: { type: 'json_schema', schema: Req.REQ_SCHEMA } } } });
+  } catch (e) { throw await callFailed(dbi, e, key, base, 'sgExtractRequirements'); }
+  if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
+  const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
+  if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', 'The AI couldn’t read this; type the host’s requirements in as the church’s own questions instead.'); }
+  let parsed = null;
+  try { parsed = res.stop_reason === 'max_tokens' ? null : JSON.parse((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')); } catch (e) { parsed = null; }
+  const n = Req.normaliseReqs(parsed, names);
+  if (!n.ok) { await logIt(dbi, Object.assign({ outcome: 'failed' }, base, usage)); throw new HttpsError('internal', 'The list came back incomplete; try again.'); }
+  const at = new Date().toISOString(), hostName = String(data.host || '').trim().slice(0, 120) || n.host || 'the host';
+  const host = { name: hostName, file: { path, name: fileName, type: type || kind, size: buf.length }, items: n.items.map((x, i) => ({ id: 'h_' + i + '_' + Math.random().toString(36).slice(2, 8), q: x.q, line: x.line })),
+    extractedAt: at, by: uid, dropped: n.dropped, personalFound: n.personalFound, confirmed: false };
+  const ref = dbi.collection('sgAssessments').doc(calEventId), b = dbi.batch();
+  /* not required until the leader has checked the list (hostIds empty, confirmed false: sign-off waits) */
+  if (cur) b.update(ref, { host, hostIds: [], updatedAt: at, updatedBy: uid });
+  else b.set(ref, { siteId: w.site, calEventId, title: String(w.e.title || '').slice(0, 120), templateId: w.e.sgKind, answers: {}, risks: [], status: 'draft', version: 1, host, hostIds: [], updatedAt: at, updatedBy: uid });
+  b.set(dbi.collection('sgGate').doc(calEventId), { needed: true, open: false, updatedAt: at });
+  await b.commit();
+  await logIt(dbi, Object.assign({ outcome: 'extracted' }, base, usage));
+  return { ok: true, count: host.items.length, dropped: n.dropped, personalFound: n.personalFound,
+    message: n.personalFound ? 'The file seems to have names, phone numbers or emails in it. They were left out of the questions.' : '' };
+}
+export const sgExtractRequirements = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
+  if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
+  return extractRequirements({ db: db(), uid: req.auth.uid, data: req.data });
+});
+/* the original file back, for those who can see the assessment */
+export const sgRequirementsFile = onCall({ region: REGION }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
+  const calEventId = String((req.data || {}).calEventId || '');
+  if (!calEventId || calEventId.includes('/')) throw new HttpsError('invalid-argument', 'Which event?');
+  const a = (await db().collection('sgAssessments').doc(calEventId).get()).data();
+  if (!a || !a.host || !a.host.file) throw new HttpsError('not-found', 'No file has been added.');
+  const w = await whoFor(db(), req.auth.uid, calEventId);
+  if (!w.ok && !(await maySee(db(), req.auth.uid, a.siteId))) throw new HttpsError('permission-denied', 'This is for those who can see the assessment.');
+  const [buf] = await getStorage().bucket().file(a.host.file.path).download();
+  return { name: a.host.file.name, type: a.host.file.type, data: buf.toString('base64') };
+});
+
+export const sgDraftAssessment = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
   return draftAssessment({ db: db(), uid: req.auth.uid, data: req.data });

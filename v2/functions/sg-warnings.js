@@ -60,11 +60,11 @@ async function eventsAt(dbi, siteId, today, days) {
     const sus = await rows(dbi.collection('signups').where('calEventId', '==', e.id));
     /* one per attendee, as the event's own pages count them (EGBCCheckin.people) */
     const children = sus.filter((x) => x.status === 'confirmed').reduce((a, x) => a + ((x.attendees || []).length || 1), 0);
-    let signedOff = true;
+    let signedOff = true, paed = '';
     const needs = SG_KINDS.includes(e.sgKind || '');
-    if (needs) { const a = (await dbi.collection('sgAssessments').doc(e.id).get()).data(); signedOff = !!(a && (a.status === 'signed' || a.waived)); }
+    if (needs) { const a = (await dbi.collection('sgAssessments').doc(e.id).get()).data(); signedOff = !!(a && (a.status === 'signed' || a.waived)); paed = a ? Core.paedLevel(a.answers, a.flags) : ''; }
     out.push({ id: e.id, title: String(e.title || 'An event').slice(0, 80), day: String(e.startLocal || '').slice(0, 10) || new Date(e.startUtc).toISOString().slice(0, 10),
-      children, leaders: (l.leaders || []).length || (l.leaderIds || []).length, leaderIds: l.leaderIds || [], needsSignoff: needs, signedOff });
+      children, leaders: (l.leaders || []).length || (l.leaderIds || []).length, leaderIds: l.leaderIds || [], needsSignoff: needs, signedOff, paed });
   }
   return out;
 }

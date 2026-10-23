@@ -31,7 +31,8 @@ const TODO = {
   consent: 'Ask the families to renew their consent form.',
   signoff: 'Finish the assessment and ask the safeguarding lead or deputy to sign it off.',
   review: 'Look at each one and set a new review date.',
-  hirerDocs: 'Ask them for their safeguarding policy, and add it to their hirer record.'
+  hirerDocs: 'Ask them for their safeguarding policy, and add it to their hirer record.',
+  paedFirstAid: 'Find a trained paediatric first aider to go with the group.'
 };
 const WORSE = { red: 2, amber: 1 };
 
@@ -42,6 +43,9 @@ const WORSE = { red: 2, amber: 1 };
         leaderMids: [mid], checks: { mid: leaderChecks doc }, consent: [{ groupId, consentUntil }],
         risks: [{ id, activityId, reviewDue, status }],
         hirers: [{ withChildren, documents: [{ kind, expires }], booked }] - booked: a hire in the next 30 days } */
+/* the paediatric first aider (the checklist's paedFirstAid): "No: ..." is a flag - amber, red when under-8s go */
+function paedLevel(answers, flags) { return /^No\b/i.test(String((answers || {}).paedFirstAid || '').trim()) ? ((flags || {}).under8 ? 'red' : 'amber') : ''; }
+
 /* a safeguarding policy on file that has not run out (one with no expiry date counts, as on the Hirers page) */
 function hirerPolicyOk(h, today) { return (h.documents || []).some((x) => x && x.kind === 'safeguarding' && (!x.expires || String(x.expires).slice(0, 10) >= today)); }
 
@@ -74,6 +78,9 @@ function warningsFrom(d) {
       label: when + ': ' + (e.leaders || 0) + ' ' + s(e.leaders || 0, 'leader', 'leaders') + ' named. Two adults are needed.' });
     else if (e.children && !r.ok) add({ id: 'ratio_' + e.id, kind: 'ratio', level: t <= 2 ? 'red' : 'amber', count: r.short, date: e.day, fix, act: '',
       label: when + ': ' + e.children + ' booked, ' + e.leaders + ' leaders named; ' + r.need + ' needed (1 to ' + (st.ratioAll || 5) + ').' });
+    /* the checklist says no trained paediatric first aider is going: amber, red when under-8s go (Martin, 23 Oct) */
+    if (e.paed) add({ id: 'paed_' + e.id, kind: 'paedFirstAid', level: e.paed, count: 1, date: e.day, fix, act: '',
+      label: when + ': no trained paediatric first aider with the group' + (e.paed === 'red' ? ', and children under 8 are going.' : '.') });
     if (e.needsSignoff && !e.signedOff) add({ id: 'sign_' + e.id, kind: 'signoff', level: t <= 7 ? 'red' : 'amber', count: 1, date: e.day, fix, act: '',
       label: when + ': waiting for safeguarding sign-off. Bookings stay closed until then.' });
   });
@@ -264,4 +271,4 @@ function dialsFrom(d) {
   return { dials, sessions: sess.slice(0, 100), consentByGroup: Object.values(per).sort((a, b) => String(a.group).localeCompare(String(b.group))).slice(0, 50) };
 }
 
-module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS, hirerPolicyOk };
+module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS, hirerPolicyOk, paedLevel };

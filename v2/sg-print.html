@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safeguarding: print</title>
+
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610222000" data-title="Safeguarding: print"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610222000"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events-checkin.js?v=202610152300"></script>
+<script src="egbc-events-safeguarding.js?v=202610161700"></script>
+<script src="egbc-sg-templates.js?v=202610231200"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* SAFEGUARDING, PRINTED (F-276; Martin, 23 Oct): an event's assessment,
+     a site's standing risks, or a trustees' snapshot, laid out for A4 paper
+     - not the editing screen. Ratings carry their words (High, Medium,
+     Low) as well as their colour, so they read in black and white. */
+  :root{--ink:#111827;--body:#374151;--muted:#6b7280;--line:#d1d5db;--red:#b0392c;--red-bg:#fdecea;--amber:#8a5a12;--amber-bg:#fdf3dc;--green:#15803d;--green-bg:#e7f6ec}
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef0f1;color:var(--body);font:400 10.5pt/1.45 Inter,system-ui,-apple-system,sans-serif}
+  .bar{max-width:210mm;margin:16px auto 0;padding:0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .bar button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid #3d6263;background:#3d6263;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}
+  .bar .hint{color:var(--muted);font-size:13px}
+  .sheet{max-width:210mm;margin:12px auto 40px;background:#fff;padding:16mm 14mm;box-shadow:0 1px 3px rgba(0,0,0,.12);position:relative}
+  .head{display:flex;gap:12px;align-items:center;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:12px}
+  .head img{height:44px;width:auto}
+  .head .church{font:700 13pt Inter,sans-serif;color:var(--ink)}
+  .head .what{color:var(--muted);font-size:10pt}
+  h1{font:700 17pt Inter,sans-serif;color:var(--ink);margin:0 0 6px}
+  h2{font:700 12.5pt Inter,sans-serif;color:var(--ink);margin:16px 0 6px;break-after:avoid}
+  .status{border:3px solid var(--ink);border-radius:8px;padding:8px 12px;margin:8px 0 12px;font:800 15pt Inter,sans-serif;color:var(--ink);letter-spacing:.02em}
+  .status.draft{border-color:var(--red);color:var(--red)}
+  .status small{display:block;font:400 10pt Inter,sans-serif;letter-spacing:0;color:var(--body);margin-top:4px}
+  .must{border:2px solid var(--red);background:var(--red-bg);color:#7f1d1d;border-radius:8px;padding:8px 12px;margin:0 0 12px;break-inside:avoid}
+  .must b{font-size:12pt}.must ul{margin:6px 0 0;padding-left:18px}
+  .watermark{position:fixed;top:40%;left:0;right:0;text-align:center;font:800 90pt Inter,sans-serif;color:rgba(176,57,44,.08);transform:rotate(-28deg);pointer-events:none;z-index:0}
+  table{width:100%;border-collapse:collapse;margin:4px 0 8px;position:relative;z-index:1}
+  th,td{border:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+  th{background:#f3f4f6;color:var(--ink);font-weight:600}
+  .facts th{width:34%}
+  tr{break-inside:avoid;page-break-inside:avoid}
+  thead{display:table-header-group}
+  .rag{display:inline-block;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+  .rag.red{color:var(--red);background:var(--red-bg)}.rag.amber{color:var(--amber);background:var(--amber-bg)}.rag.green{color:var(--green);background:var(--green-bg)}
+  td ul{margin:0;padding-left:16px}
+  .ck td:first-child{width:46%}
+  .na{color:var(--muted)}.missing{color:var(--red);font-weight:700}
+  .note{color:var(--muted);font-size:9.5pt}
+  .sign{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:8px;break-inside:avoid}
+  .sign div{border-bottom:1px solid var(--ink);height:38px;position:relative}
+  .sign span{position:absolute;bottom:-17px;left:0;font-size:9pt;color:var(--muted)}
+  .wide{position:relative;z-index:1}
+  @media (max-width:700px){.sheet{padding:8mm 5mm}.sign{grid-template-columns:1fr}}
+  /* A4: page numbers and the date printed in the footer; the risk table on landscape pages */
+  @page{size:A4 portrait;margin:14mm 12mm 16mm;@bottom-right{content:"Page " counter(page) " of " counter(pages);font-size:8.5pt;color:#6b7280}}
+  @page wide{size:A4 landscape}
+  @media print{
+    body{background:#fff;padding:0!important;margin:0}
+    #egbc-bar,#egbc-nav,#egbc-nav-scrim,#egbc-viewas,#egbc-viewas-top,#egbc-you,#egbc-you-btn,.bar,.noprint{display:none!important}
+    .sheet{box-shadow:none;margin:0;padding:0;max-width:none}
+    .wide{page:wide}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<div class="bar noprint"><button id="printIt" type="button">Print / save as PDF</button><span class="hint">Choose “Save as PDF” as the printer to keep a copy. A4.</span></div>
+<div class="sheet" id="sheet"><p>Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  var T = window.EGBCSgTemplates, SG = window.EGBCSafeguarding, E = window.EGBCEvents;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function db() { return EGBCAuth.db; }
+  var sheet = document.getElementById('sheet'), q = new URLSearchParams(location.search);
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function longDate(v) { if (!v) return ''; var d = v && v.toDate ? v.toDate() : new Date(String(v).length <= 10 ? v + 'T12:00:00' : v); return isNaN(d) ? '' : d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+  var WORDS = { red: 'High', amber: 'Medium', green: 'Low' }, KIND = { trip: 'Trip', overnight: 'Overnight or sleepover', holidayclub: 'Holiday club', offsite: 'Off-site' };
+  function rag(l, i) { var r = T.rating(l, i); return '<span class="rag ' + r + '" data-rag="' + r + '">' + WORDS[r] + ' ' + T.score(l, i) + '</span><div class="note">' + l + ' × ' + i + '</div>'; }
+  var printed = longDate(new Date().toISOString());
+  /* the footer: "Printed on <date>" (a page margin can't take a variable, so the date is written in) */
+  var foot = document.createElement('style');
+  foot.textContent = '@page{@bottom-left{content:"Printed on ' + printed + '";font-size:8.5pt;color:#6b7280}}';
+  document.head.appendChild(foot);
+  document.getElementById('printIt').onclick = function () { window.print(); };
+  function header(church, what) {
+    return '<div class="head">' + (church.logoUrl ? '<img src="' + esc(church.logoUrl) + '" alt="">' : '') + '<div><div class="church" id="pChurch">' + esc(church.name || '') + '</div><div class="what">' + esc(what) + '</div></div></div>';
+  }
+  function fail(e) { sheet.innerHTML = '<p id="pFail">This can’t be printed here: ' + esc((e && e.message) || e) + '</p>'; }
+  /* the risk table: hazard, who, before, controls (a list), after, owner, review - one row never split across pages */
+  function riskTable(risks, opts) {
+    opts = opts || {};
+    return '<table id="' + (opts.id || 'pRisks') + '"><thead><tr><th>Hazard</th><th>Who’s at risk</th><th>Before</th><th>Controls</th><th>After</th><th>Owner</th><th>Review</th>' + (opts.status ? '<th>Status</th>' : '') + '</tr></thead><tbody>' +
+      (risks.length ? risks.map(function (r) {
+        var ctl = (r.controls || []).map(function (c) { return typeof c === 'string' ? c : T.controlLabel(c); }).filter(Boolean);
+        return '<tr data-prisk' + (r.mustNot ? ' data-pmust' : '') + '><td>' + (r.mustNot ? '<b style="color:var(--red)">Must not go ahead as described.</b><br>' : '') + esc(r.risk) + (r.from === 'hub' ? '<div class="note">From the hub’s numbers</div>' : '') + '</td><td>' + esc(r.who || '') + '</td>' +
+          '<td>' + (r.before ? '<span class="rag ' + r.before + '" data-rag="' + r.before + '">' + WORDS[r.before] + ' ' + r.beforeScore + '</span>' : rag(r.l, r.i)) + '</td>' +
+          '<td>' + (ctl.length ? '<ul>' + ctl.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>' : '<span class="missing">None given</span>') + '</td>' +
+          '<td>' + (r.after ? '<span class="rag ' + r.after + '" data-rag="' + r.after + '">' + WORDS[r.after] + ' ' + r.afterScore + '</span>' : rag(r.rl, r.ri)) + '</td>' +
+          '<td>' + esc(r.owner || r.ownerName || '') + '</td><td>' + esc(r.review || (r.reviewDue ? longDate(r.reviewDue) : '')) + '</td>' + (opts.status ? '<td>' + (r.status === 'closed' ? 'Closed' : 'Open') + '</td>' : '') + '</tr>';
+      }).join('') : '<tr><td colspan="8" class="na">No risks written yet.</td></tr>') + '</tbody></table>';
+  }
+
+  /* ---- AN EVENT'S ASSESSMENT ---- */
+  function printEvent(id) {
+    var EV, A, L, ST, SITE = {}, church;
+    return Promise.all([
+      db().collection('calEvents').doc(id).get(), db().collection('sgAssessments').doc(id).get(),
+      db().collection('eventLeaders').doc(id).get().catch(function () { return null; }),
+      db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }),
+      EGBCChurch.load().catch(function () { return {}; })
+    ]).then(function (r) {
+      if (!r[0].exists) throw new Error('no such event');
+      EV = Object.assign({ id: id }, r[0].data()); A = r[1].exists ? r[1].data() : null; L = r[2] && r[2].exists ? r[2].data() : {}; ST = r[3] && r[3].exists ? r[3].data() : {}; church = r[4] || {};
+      var site = (EV.location || {}).siteId || '';
+      return Promise.all([
+        site ? db().collection('sites').doc(site).get().then(function (d) { SITE = d.exists ? d.data() : {}; }, function () {}) : null,
+        /* children booked and under 8: counted as the event's own page counts them; never a name here */
+        db().collection('signups').where('calEventId', '==', id).get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }); }, function () { return null; }),
+        SG.formsForEvent ? SG.formsForEvent(id, site ? [site] : []).catch(function () { return null; }) : null
+      ]);
+    }).then(function (r) {
+      var sus = r[1], fi = r[2] || { children: {} }, kids = null, u8 = null, unknown = 0;
+      if (sus) {
+        kids = 0; u8 = 0;
+        EGBCCheckin.people(id, sus, [], {}).forEach(function (p) { kids++; var f = fi.children[SG.norm(p.name)], age = f && f.dob ? SG.ageOn(f.dob, EV.startLocal) : null; if (age === null) unknown++; else if (age < 8) u8++; });
+      }
+      var leaders = L.leaders || [], ratioAll = L.ratioAll || ST.ratioAll || 5, ratioU8 = L.ratioUnder8 || ST.ratioUnder8 || 4;
+      var rr = kids === null ? null : SG.ratio({ children: kids, under8: u8, leaders: leaders.length, ratioAll: ratioAll, ratioUnder8: ratioU8 }), need = rr ? Math.max(rr.need, kids ? 2 : 0) : 0;
+      var signed = A && A.status === 'signed' && !A.waived, waived = A && A.waived, risks = (A && A.risks) || [], must = risks.filter(function (x) { return x.mustNot; });
+      var qs = T.checklistFor(EV.sgKind || (A && A.templateId), (A && A.flags) || {}, (((ST.register || {}).checklist) || []).concat(T.hostQuestions(A))), ans = (A && A.answers) || {};
+      var pf = T.paedFlag(ans, (A && A.flags) || {}), host = A && A.host;
+      var aiLine = A && A.source && A.source.kind === 'ai' ? (A.source.checkedBy ? 'First draft by AI: checked by ' + A.source.checkedByName + ' on ' + longDate(A.source.checkedAt) + '.' : 'AI draft, not yet checked.') : '';
+      var status = waived ? '<div class="status" id="pStatus" data-state="waived">NOT NEEDED<small>Marked “not needed” by ' + esc(A.waivedByName || '') + ' on ' + esc(longDate(A.waivedAt)) + ': ' + esc(A.waivedWhy || '') + '</small></div>'
+        : signed ? '<div class="status" id="pStatus" data-state="signed">SIGNED OFF<small>Signed off by ' + esc(A.signedByName || '') + ', ' + esc(A.signedByRole || 'Safeguarding lead') + ', on ' + esc(longDate(A.signedAt)) + '.' +
+            (A.signedNote ? ' Their reason for the high risks left: “' + esc(A.signedNote) + '”' : '') + '</small></div>'
+        : '<div class="status draft" id="pStatus" data-state="draft">DRAFT: NOT SIGNED OFF<small>This counts for nothing until the safeguarding lead or deputy signs it off. Bookings stay closed until then.</small></div>';
+      var others = Object.keys(ans).filter(function (k) { return !qs.some(function (x) { return x.id === k; }); });
+      sheet.innerHTML = (signed || waived ? '' : '<div class="watermark" aria-hidden="true" id="pWatermark">DRAFT</div>') +
+        header(church, 'Safeguarding risk assessment') +
+        '<h1 id="pTitle">' + esc(EV.title || '') + '</h1>' + status +
+        (must.length ? '<div class="must" id="pMust"><b>This must not go ahead as described.</b> ' + (must.length === 1 ? 'This item has' : 'These ' + must.length + ' items have') + ' to be changed or taken out first:<ul id="pMustList">' + must.map(function (x) { return '<li>' + esc(x.risk) + '</li>'; }).join('') + '</ul></div>' : '') +
+        '<h2>The event</h2><table class="facts" id="pFacts"><tbody>' +
+          '<tr><th>When</th><td>' + esc(E.fmtWhen ? E.fmtWhen(EV) : (EV.startLocal || '')) + '</td></tr>' +
+          '<tr><th>Where</th><td>' + esc([SITE.name, (EV.location || {}).name, (EV.location || {}).address].filter(Boolean).join(', ')) + '</td></tr>' +
+          '<tr><th>Kind</th><td>' + esc(KIND[EV.sgKind] || '') + ((A && A.flags && A.flags.abroad) ? ', overseas' : '') + ((A && A.flags && A.flags.adventurous) ? ', with water, heights or adventurous activities' : '') + '</td></tr>' +
+          '<tr><th>Organiser</th><td>' + esc(EV.organiserName || '') + '</td></tr>' +
+          '<tr><th>Leaders named</th><td id="pLeaders">' + leaders.length + (leaders.length ? ': ' + leaders.map(function (l) { return esc(l.name || '') + (l.role ? ' (' + esc(l.role) + ')' : ''); }).join('; ') : '') + '</td></tr>' +
+          '<tr><th>Children booked</th><td id="pKids">' + (kids === null ? '<span class="na">Not available to you</span>' : kids + (kids ? ', of whom ' + u8 + ' under 8' + (unknown ? ' (' + unknown + ' not known yet)' : '') : '')) + '</td></tr>' +
+          '<tr><th>The ratio</th><td id="pRatio">' + (rr ? 'One leader to ' + ratioAll + ' (one to ' + ratioU8 + ' under 8), and two adults: ' + need + ' needed, ' + leaders.length + ' named: <b>' + (leaders.length >= need ? 'met' : 'NOT met') + '</b>' : '<span class="na">Not available to you</span>') + '</td></tr>' +
+        '</tbody></table>' +
+        (aiLine ? '<p id="pAi"><b>' + esc(aiLine) + '</b></p>' : '') +
+        '<h2>The checklist</h2><table class="ck" id="pChecklist"><tbody>' + qs.map(function (x) {
+          var v = String(ans[x.id] || ''), ok = T.answered(v), na = /^N\/A:/.test(v);
+          return '<tr data-pck="' + esc(x.id) + '"><td>' + esc(x.label) + (x.group === 'host' ? '<div class="note">' + esc(x.hint) + '</div>' : '') + (x.id === 'paedFirstAid' && pf ? '<div><span class="rag ' + pf + '" data-ppaed="' + pf + '">' + (pf === 'red' ? 'High: no paediatric first aider, and under-8s are going' : 'Medium: no paediatric first aider') + '</span></div>' : '') + '</td><td>' + (!ok ? '<span class="missing" data-pckmissing>Not answered</span>' : na ? '<span class="na">Not applicable: ' + esc(v.replace(/^N\/A:\s*/, '')) + '</span>' : esc(v)) + '</td></tr>';
+        }).join('') + '</tbody></table>' +
+        (others.length ? '<h2>Other notes</h2><table class="ck"><tbody>' + others.map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + esc(ans[k]) + '</td></tr>'; }).join('') + '</tbody></table>' : '') +
+        (host && !host.confirmed ? '<p class="must" id="pHostWaiting"><b>The host’s requirements have not been checked yet.</b> It can’t be signed off until they are.</p>' : '') +
+        ((A && A.source && (A.source.questions || []).length) ? '<h2>Questions still to answer</h2><ul id="pQuestions">' + A.source.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+        '<div class="wide"><h2>The risks</h2>' + riskTable(risks) + '<p class="note">Ratings: likelihood × impact, 1 to 5 each. 15 or more is High, 5 to 14 Medium, under 5 Low.</p></div>' +
+        (host ? '<h2>Appendix: the host’s requirements</h2><p id="pHost">' + (host.confirmed ? 'Requirements taken from ' + esc(host.file ? host.file.name : 'their list') + ', checked by ' + esc(host.checkedByName || '') + ' on ' + esc(longDate(host.checkedAt)) + '.' : 'Read from ' + esc(host.file ? host.file.name : 'their list') + '; not checked yet.') +
+          ' The original file is kept with the assessment in the hub' + (host.file ? ' (' + esc(host.file.name) + ', ' + Math.max(1, Math.round((host.file.size || 0) / 1024)) + ' KB)' : '') + '.</p>' +
+          '<table class="ck" id="pHostList"><thead><tr><th>' + esc(host.name || 'The host') + '’s requirement, as a question</th><th>Where it came from</th></tr></thead><tbody>' +
+          (host.items || []).map(function (x) { return '<tr><td>' + esc(x.q) + '</td><td class="note">' + esc(x.line || '') + '</td></tr>'; }).join('') + '</tbody></table>' : '') +
+        '<h2>Signatures</h2><p class="note">For a paper file. The hub keeps its own record of who signed it off, and when.</p>' +
+        '<div class="sign" id="pSign"><div><span>Safeguarding lead or deputy</span></div><div><span>Date</span></div><div><span>Trip or event leader</span></div><div><span>Date</span></div></div>';
+      document.title = 'Safeguarding assessment: ' + (EV.title || '');
+    });
+  }
+
+  /* ---- A SITE'S STANDING RISKS ---- */
+  function printRegister(siteId) {
+    return Promise.all([db().collection('sites').doc(siteId).get(), db().collection('sgActivities').where('siteId', '==', siteId).get(), db().collection('sgRisks').where('siteId', '==', siteId).get(), EGBCChurch.load().catch(function () { return {}; })]).then(function (r) {
+      var site = r[0].exists ? r[0].data() : {}, acts = r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      var risks = r[2].docs.map(function (d) { return d.data(); });
+      sheet.innerHTML = header(r[3] || {}, 'Safeguarding risk register') + '<h1 id="pTitle">Standing risks: ' + esc(site.name || '') + '</h1>' +
+        '<div class="wide">' + (acts.length ? acts.map(function (a) { return '<h2>' + esc(a.name) + ' <span class="note">' + esc(T.kindLabel(a.kind)) + '</span></h2>' + riskTable(risks.filter(function (x) { return x.activityId === a.id; }), { status: true, id: 'pRisks_' + a.id }); }).join('') : '<p class="na">No activities in the register yet.</p>') + '</div>' +
+        '<p class="note">Risks, controls and dates only: never a child, a family or a concern.</p>' +
+        '<h2>Reviewed</h2><div class="sign" id="pSign"><div><span>Safeguarding lead or deputy</span></div><div><span>Date</span></div><div><span>For the trustees</span></div><div><span>Date</span></div></div>';
+      document.title = 'Standing risks: ' + (site.name || '');
+    });
+  }
+
+  /* ---- A TRUSTEES' SNAPSHOT ---- */
+  var DIAL = { checks: 'Leaders with in-date checks', sessions: 'Sessions with enough leaders', consent: 'Children with current consent', assess: 'Event assessments signed', review: 'The annual review', incidents: 'Incident follow-ups open' };
+  function printSnapshot(id) {
+    return Promise.all([db().collection('sgSnapshots').doc(id).get(), EGBCChurch.load().catch(function () { return {}; })]).then(function (r) {
+      if (!r[0].exists) throw new Error('no such snapshot');
+      var s = r[0].data();
+      sheet.innerHTML = header(r[1] || {}, 'Safeguarding risk register: a dated snapshot') + '<h1 id="pTitle">' + esc(s.banner) + '</h1>' +
+        '<p>Taken on ' + esc(longDate(s.at)) + ' by ' + esc(s.byName || '') + (s.note ? ': “' + esc(s.note) + '”' : '') + '. Never changed after.</p>' +
+        '<h2>Where safeguarding stood</h2><table class="facts"><tbody>' + Object.keys(DIAL).filter(function (k) { return (s.dials || {})[k]; }).map(function (k) {
+          var x = s.dials[k]; return '<tr><th>' + DIAL[k] + '</th><td>' + (x.rag === 'unread' ? 'No figure' : x.pct != null ? x.pct + '% (' + x.value + ' of ' + x.of + ')' : x.value + ' of ' + x.of) + (WORDS[x.rag] ? ' <span class="rag ' + x.rag + '">' + WORDS[x.rag] + '</span>' : '') + '</td></tr>';
+        }).join('') + '<tr><th>Warnings</th><td>' + ((s.warnings || {}).red || 0) + ' act now, ' + ((s.warnings || {}).amber || 0) + ' soon</td></tr>' +
+        '<tr><th>The annual review</th><td>' + ((s.review || {}).done || 0) + ' of ' + ((s.review || {}).of || 0) + ' items</td></tr></tbody></table>' +
+        '<div class="wide"><h2>The standing risks</h2>' + riskTable((s.risks || []).map(function (x) { return Object.assign({}, x, { risk: (x.activity ? x.activity + ': ' : '') + x.risk }); }), { status: true }) + '</div>' +
+        '<div class="sign" id="pSign"><div><span>For the trustees</span></div><div><span>Date</span></div></div>';
+      document.title = s.banner;
+    });
+  }
+
+  EGBCAuth.require().then(function () {
+    var go = q.get('event') ? printEvent(q.get('event')) : q.get('register') ? printRegister(q.get('register')) : q.get('snapshot') ? printSnapshot(q.get('snapshot')) : Promise.reject(new Error('nothing chosen to print'));
+    return go.then(function () { sheet.setAttribute('data-ready', '1'); }, fail);
+  }).catch(fail);
+})();
+</script>
+</body>
+</html>

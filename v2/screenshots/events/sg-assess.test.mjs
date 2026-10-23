@@ -170,20 +170,46 @@ try {
   ok('3. A NAMED LEADER sees "Not started" and bookings waiting', /Not started/.test(await text(Vv, '#sgAssessCard')) && /Bookings open after the safeguarding lead or deputy signs this off/.test(await text(Vv, '#sgaGateWords')));
   await Vv.select('#sgaTpl', 'trip');
   await tap(Vv, '#sgaStart');
-  await Vv.waitForSelector('[data-q="where"]', { timeout: 15000 });
+  await Vv.waitForSelector('[data-q="insurance"]', { timeout: 15000 });
   const a1 = await get('sgAssessments', 'ev_trip');
   ok('   starts from the trip template: its questions and starter risks', a1 && a1.templateId === 'trip' && a1.risks.length >= 5 && a1.status === 'draft' && a1.version === 1, J(a1 && { t: a1.templateId, n: a1.risks.length }));
   ok('   says: general words only, never a child, a family or a medical detail', /General words only: never name a child, a family or a medical detail/.test(await text(Vv, '#sgAssessCard')));
-  await Vv.$eval('[data-q="where"]', e => { e.value = 'The beach, a coach ride away (invented)'; });
+  /* THE REQUIRED CHECKLIST (Martin, 23 Oct): only the first answered for now */
+  const ck0 = await Vv.$$eval('[data-ck]', a => a.map(c => c.getAttribute('data-ck')));
+  ok('   THE CHECKLIST: 14 questions for a trip, insurance first, the paediatric first aider among them', ck0.length === 14 && ck0[0] === 'insurance' && ck0.includes('paedFirstAid') && ck0.includes('incidents'), J(ck0));
+  await Vv.$eval('[data-q="insurance"]', e => { e.value = 'The beach, a coach ride away; covered by the church’s insurance, checked by the office (invented)'; });
   await Vv.$eval('[data-sgarisk="0"] [data-rf="rl"]', e => { e.value = '4'; });   /* leave one high after controls: 4 x 5 */
   await tap(Vv, '#sgaReady');
   await until(async () => (await get('sgAssessments', 'ev_trip')).status === 'waiting');
   const a2 = await get('sgAssessments', 'ev_trip');
-  ok('   "Ready for sign-off": saved and waiting', a2.status === 'waiting' && a2.answers.where === 'The beach, a coach ride away (invented)', J({ s: a2.status }));
+  ok('   "Ready for sign-off": saved and waiting', a2.status === 'waiting' && /covered by the church’s insurance/.test(a2.answers.insurance), J({ s: a2.status }));
   ok('   A LEADER IS NOT OFFERED "Sign it off"', !(await Vv.$('#sgaSign')));
 
-  /* 4. the lead signs it off */
+  /* 4. the lead signs it off - not while the checklist has blanks */
   const L = await as('lena');
+  await go(L, 'safeguarding.html?event=ev_trip', '#sgaSign');
+  await L.$eval('#sgaNote', e => { e.value = 'A reason (invented)'; });
+  await tap(L, '#sgaSign');
+  const m0 = await until(async () => { const t = await text(L, '#sgaMsg'); return /^Answer these 13 first/.test(t) ? t : null; });
+  ok('4. CHECKLIST BLANKS: the lead can’t sign; told which 13, and they are marked', !!m0 && (await L.$$('[data-ckmiss]')).length === 13 && (await get('sgAssessments', 'ev_trip')).status === 'waiting', await text(L, '#sgaMsg'));
+  const direct = await L.evaluate(() => EGBCAuth.db.collection('sgAssessments').doc('ev_trip').update({ status: 'signed', signedBy: EGBCAuth.user().uid, signedByName: 'x', signedAt: firebase.firestore.FieldValue.serverTimestamp(), signedVersion: 1, signedNote: 'x', updatedAt: 'x', updatedBy: EGBCAuth.user().uid }).then(() => 'signed', e => e.code));
+  ok('   THE DATABASE REFUSES IT TOO (the rules, not only the page)', /permission/.test(direct), direct);
+  /* the leader answers the rest: one not applicable, the paediatric first aider yes, and ticks "overseas" */
+  await go(Vv, 'safeguarding.html?event=ev_trip', '[data-flag="abroad"]');
+  await Vv.$eval('[data-flag="abroad"]', e => { e.checked = true; e.dispatchEvent(new Event('change')); });
+  await until(async () => (await Vv.$$('[data-ck]')).length === 21);
+  const ck1 = await Vv.$$eval('[data-ck]', a => a.map(c => c.getAttribute('data-ck')));
+  ok('   "Overseas" adds the 7 travel questions: travel advice, travel insurance and the rest', ck1.length === 21 && ['travelAdvice', 'travelInsurance', 'passports', 'localEmergency'].every(k => ck1.includes(k)), J(ck1));
+  await Vv.$eval('[data-flag="abroad"]', e => { e.checked = false; e.dispatchEvent(new Event('change')); });
+  await until(async () => (await Vv.$$('[data-ck]')).length === 14);
+  await Vv.$$eval('[data-q]', (qs) => qs.forEach(q => { if (!q.value && q.getAttribute('data-q') !== 'transport') q.value = 'Answered in general words (invented)'; }));
+  await Vv.select('[data-yn="paedFirstAid"]', 'Yes');
+  await Vv.$eval('[data-q="paedFirstAid"]', e => { e.value = 'The deputy trip leader, until March 2028 (invented)'; });
+  await Vv.$eval('[data-na="transport"]', e => { e.checked = true; e.dispatchEvent(new Event('change')); });
+  await Vv.$eval('[data-nawhy="transport"]', e => { e.value = 'We walk there from the church (invented)'; });
+  await tap(Vv, '#sgaSave');
+  const a2b = await until(async () => { const a = await get('sgAssessments', 'ev_trip'); return Object.keys(a.answers || {}).length >= 14 ? a : null; });
+  ok('   saved: "N/A: <reason>" for transport, "Yes: ..." for the paediatric first aider', a2b && a2b.answers.transport === 'N/A: We walk there from the church (invented)' && /^Yes: The deputy trip leader/.test(a2b.answers.paedFirstAid), J(a2b && a2b.answers));
   await go(L, 'safeguarding.html?event=ev_trip', '#sgaSign');
   ok('4. THE LEAD sees how many risks are still high, and must say why', /1 risk is still high after the controls: say why it can go ahead/.test(await text(L, '#sgAssessCard')));
   await tap(L, '#sgaSign');
@@ -203,7 +229,7 @@ try {
 
   /* 5. a change after signing */
   await go(Vv, 'safeguarding.html?event=ev_trip', '#sgaSave');
-  await Vv.$eval('[data-q="meet"]', e => { e.value = 'The church car park, 9am (invented)'; });
+  await Vv.$eval('[data-q="headcount"]', e => { e.value = 'Meet in the church car park, 9am; head counts at every move (invented)'; });
   await tap(Vv, '#sgaSave');
   await until(async () => (await get('sgAssessments', 'ev_trip')).status === 'waiting');
   const a4 = await get('sgAssessments', 'ev_trip'), g4 = await get('sgGate', 'ev_trip');
@@ -233,7 +259,7 @@ try {
   ok('   with no way to open it for editing', !(await Tt.$('a[href^="safeguarding.html?event="]')));
   await tap(Tt, '[data-viewsga="ev_trip"]');
   await Tt.waitForSelector('#sgaView [data-sgarisk]', { timeout: 15000 });
-  ok('   "Read it": read-only, no Sign, no Save, no inputs', !(await Tt.$('#sgaView #sgaSign')) && !(await Tt.$('#sgaView #sgaSave')) && !(await Tt.$('#sgaView textarea')) && /The beach, a coach ride away/.test(await text(Tt, '#sgaView')));
+  ok('   "Read it": read-only, no Sign, no Save, no inputs', !(await Tt.$('#sgaView #sgaSign')) && !(await Tt.$('#sgaView #sgaSave')) && !(await Tt.$('#sgaView textarea')) && /The beach, a coach ride away/.test(await text(Tt, '#sgaView')) && /Not applicable: We walk there/.test(await text(Tt, '#sgaView')));
   await Tt.screenshot({ path: path.join(HERE, 'sg-assess-trustee-desk.png') });
 
   ok('no page errors', errors.length === 0, errors.join(' | '));

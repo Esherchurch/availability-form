@@ -68,6 +68,13 @@ function personalCheck(text, names) {
 function hubRisks(f) {
   const out = [], r = Safeguarding.ratio({ children: f.children || 0, under8: f.under8 || 0, leaders: f.leaders || 0, ratioAll: f.ratioAll || 5, ratioUnder8: f.ratioUnder8 || 4 });
   const need = Math.max(r.need, f.children ? 2 : 0);
+  if (!f.children) {
+    out.push({ risk: ((f.leaders || 0) ? 'No children booked yet: the ratio can’t be checked until they are' : 'No children booked and no leaders named yet: the ratio can’t be checked').slice(0, 200),
+      who: 'Children', l: 3, i: 4, rl: 3, ri: 4, owner: 'The event’s organiser', review: 'When bookings come in',
+      controls: [{ kind: 'ratio', text: '' }, { kind: 'twoAdults', text: '' }, { kind: 'text', text: 'Check the numbers again before sign-off: one leader to ' + (f.ratioAll || 5) + ', and never fewer than two adults' }],
+      mustNot: false, from: 'hub' });
+    return out;
+  }
   if ((f.leaders || 0) < need) {
     out.push({ risk: ('Not enough leaders: ' + need + ' needed for ' + f.children + ' ' + (f.children === 1 ? 'child' : 'children') + (f.under8 ? ' (' + f.under8 + ' under 8)' : '') + '; ' + (f.leaders || 0) + ' named').slice(0, 200),
       who: 'Children', l: 5, i: 5, rl: 5, ri: 5, owner: 'The event’s organiser', review: 'Before bookings open',
@@ -80,7 +87,7 @@ function hubRisks(f) {
 /* ---- 3. what is sent ---- */
 const SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['summary', 'overall', 'hazards', 'mustNotGoAhead', 'questions'],
+  required: ['summary', 'overall', 'hazards', 'mustNotGoAhead', 'questions', 'answers', 'flags'],
   properties: {
     summary: { type: 'string' },
     overall: { type: 'string', enum: ['red', 'amber', 'green'] },
@@ -94,7 +101,9 @@ const SCHEMA = {
         owner: { type: 'string' }, review: { type: 'string' }, mustNotGoAhead: { type: 'boolean' }
       } } },
     mustNotGoAhead: { type: 'array', items: { type: 'string' } },
-    questions: { type: 'array', items: { type: 'string' } }
+    questions: { type: 'array', items: { type: 'string' } },
+    answers: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'answer'], properties: { id: { type: 'string' }, answer: { type: 'string' } } } },
+    flags: { type: 'object', additionalProperties: false, required: ['abroad', 'adventurous'], properties: { abroad: { type: 'boolean' }, adventurous: { type: 'boolean' } } }
   }
 };
 /* the same for every call, so it is cached */
@@ -109,15 +118,21 @@ const SYSTEM = [
   'Say plainly when something must not happen. If any part of the event must not go ahead as described, mark that hazard mustNotGoAhead true and add a plain sentence to mustNotGoAhead, for example "Children must not be left alone in the prison at any time." Do not soften it.',
   'Add questions the leader should answer before sign-off, for example "Who is the trained first aider?".',
   'The hub has given the numbers it holds. Use them, but do not do the ratio arithmetic yourself: the hub adds its own row for leader numbers.',
+  'The hub also gives the church’s required checklist, each question with an id. Make sure the hazards cover every topic on it. In answers, suggest an answer for a question only where the description actually says it (id and a short answer); never invent facts. Every question you cannot answer from the description goes into questions instead.',
+  'A trained paediatric first aider is essential where young children are present. If the description does not show one going, include a hazard for it, rated at least Medium, and High if children under 8 are going.',
+  'In flags, set abroad true only if the event leaves the United Kingdom, and adventurous true if it includes water, heights or other adventurous activities.',
   'Plain UK English, short sentences, no jargon. Never include a person’s name, contact details or medical details, even if the description has them.'
 ].join('\n');
-function userText(f, text) {
+function userText(f, text, checklist) {
   return [
     'What the hub knows about this event (counts only):',
     '- Kind of event: ' + ({ trip: 'a trip', overnight: 'an overnight', holidayclub: 'a holiday club', offsite: 'off-site' }[f.kind] || 'an event') + (f.days > 1 ? ', over ' + f.days + ' days' : ''),
     '- Children booked or expected: ' + (f.children || 0) + (f.under8 ? ', of whom ' + f.under8 + ' under 8' : ''),
     '- Leaders named: ' + (f.leaders || 0) + ', of whom ' + (f.cleared || 0) + ' have an in-date check and training',
     '- The church’s ratios: one leader to ' + (f.ratioAll || 5) + ' children, and one to ' + (f.ratioUnder8 || 4) + ' for under-8s; never fewer than two adults',
+    '',
+    'The required checklist (id: question):',
+    ...(checklist || []).map((q) => '- ' + q.id + ': ' + q.label),
     '',
     'The leader’s description:',
     String(text || '').slice(0, LIMIT)
@@ -146,7 +161,13 @@ function normalise(d, facts) {
   let overall = 'green';
   all.forEach((r) => { const g = rating(r.rl, r.ri); if (WORSE[g] > WORSE[overall]) overall = g; });
   if (mustNot.length || all.some((r) => r.mustNot)) overall = 'red';
-  return { ok: true, risks: all, overall, mustNot, questions: (Array.isArray(d.questions) ? d.questions : []).map((x) => clean(x, 300)).filter(Boolean).slice(0, 10), summary: clean(d.summary, 600) };
+  const known = new Set(((facts || {}).checklistIds) || []), suggest = {};
+  (Array.isArray(d.answers) ? d.answers : []).forEach((a) => {
+    const id = clean(a && a.id, 40), v = clean(a && a.answer, 500);
+    if (id && v && known.has(id) && !personalCheck(v, []).refuse) suggest[id] = v;
+  });
+  const flags = { abroad: !!(d.flags && d.flags.abroad === true), adventurous: !!(d.flags && d.flags.adventurous === true) };
+  return { ok: true, risks: all, overall, mustNot, questions: (Array.isArray(d.questions) ? d.questions : []).map((x) => clean(x, 300)).filter(Boolean).slice(0, 10), summary: clean(d.summary, 600), suggest, flags };
 }
 
 /* the caps: settings, with Martin's defaults */
