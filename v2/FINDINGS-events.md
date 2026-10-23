@@ -11069,3 +11069,33 @@ Every function must take the church from the sign-in's claim or the document's p
 - **Why it matters:** those cases pass only because a refusal was expected anyway or another branch allowed them. Any small addition can turn an allowed save into a refusal once the rules are live.
 - **To see it:** run the suite and `grep -c "maximum of 1000"` its output. Aim for 0.
 - **The church copy** has three cases that fail on it already: the two office bookings, and "and its named leaders" on sgAssessments.
+
+### F-278 — The printed assessment: a row of dials on page 1, the risks straight after the checklist, the church's own logo (the reviewing window and Martin, 23 Oct; the events window)
+
+- **A row of four dials on page 1,** under the title and above the DRAFT box: the dashboard's own Calla-style dial, drawn in SVG so they print sharp.
+  - **Overall rating:** High, Medium or Low, by the hub's sums (the worst after the controls; High while anything must not go ahead).
+  - **The checklist:** for example "19 of 23 answered", and how many are not.
+  - **Leaders and the ratio:** "Met" or "Not met", and "2 of 3 needed". A reader who can't see the bookings gets "no figure", never a zero.
+  - **Risks by colour:** a split dial, with "2 high · 7 medium · 8 low".
+  - **Each says its rating or number in words,** so a black-and-white print reads the same.
+  - **One row on A4,** so the "must not go ahead" box stays on page 1. On a phone screen they wrap two by two.
+  - The overall rating is also a row of the event table.
+- **No forced page for the risks:**
+  - A change to landscape always starts a new page, which left page 3 nearly empty. So the risk table now stays on A4 portrait, slightly smaller in print, and follows straight after the checklist.
+  - Its header repeats on each page, and a heading is never left alone at the foot of a page.
+  - **The practice trip's PDF is now 5 pages, all portrait** (it was 8).
+- **The logo:** the header uses `logoUrl` from Church details, the field Church settings saves, a Storage link. The plain circle was the test's own invented logo. The test now checks the printed logo is exactly the one in Church details.
+
+**Proved:**
+- **sg-print.test.mjs: 39/39.** New checks:
+  - four dials in one row, SVG not pictures
+  - under the title and above the DRAFT box
+  - the words "High", "19 of 23 answered", "Not met", "2 of 3 needed" and "2 high · 7 medium · 8 low", with the colours
+  - the overall in the event table
+  - every PDF page A4 portrait; the risks follow straight on, the heading kept with them, the header repeating
+  - fewer pages than before
+  - the logo from Church details
+- **Breaks, 2 of 2 caught:**
+  - **The one that matters:** a dial in colour only, with no words.
+  - The risks forced onto a new page again.
+- **The PDF:** `screenshots/events/sg-print-practice-trip.pdf`, from the clean run.

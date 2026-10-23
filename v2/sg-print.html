@@ -17,6 +17,7 @@
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
 <script src="egbc-sg-templates.js?v=202610231200"></script>
+<script src="egbc-sg-dash.js?v=202610231200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* SAFEGUARDING, PRINTED (F-276; Martin, 23 Oct): an event's assessment,
@@ -39,6 +40,17 @@
   .status{border:3px solid var(--ink);border-radius:8px;padding:8px 12px;margin:8px 0 12px;font:800 15pt Inter,sans-serif;color:var(--ink);letter-spacing:.02em}
   .status.draft{border-color:var(--red);color:var(--red)}
   .status small{display:block;font:400 10pt Inter,sans-serif;letter-spacing:0;color:var(--body);margin-top:4px}
+  /* THE DIALS (Martin, 23 Oct): the dashboard's own, in SVG so they print sharp; one row of four;
+     each says its rating or number in words, so a black-and-white print reads the same */
+  .dials{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;margin:2px 0 8px;break-inside:avoid}
+  .dl{border:1px solid var(--line);border-radius:8px;padding:6px 4px 5px;text-align:center}
+  .dl .t{font:600 9pt Inter,sans-serif;color:var(--ink);margin-top:2px}.dl .l{font-size:8.5pt;color:var(--body)}
+  .sgd-dw{position:relative;max-width:150px;margin:0 auto}.sgd-dial{display:block;width:100%;height:auto}
+  .sgd-mid{position:absolute;left:0;right:0;bottom:0;text-align:center}
+  .sgd-n{font:600 15pt/1 Inter,sans-serif;color:var(--ink)}.sgd-n span{font-size:.6em;color:var(--muted);margin-left:1px}
+  .sgd-of{font:400 8pt Inter,sans-serif;color:var(--muted);margin-top:2px}
+  .sgd-dash{display:inline-block;width:20px;height:3px;border-radius:2px;background:var(--red);margin:12px 0 2px}
+  @media (max-width:560px){.dials{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .must{border:2px solid var(--red);background:var(--red-bg);color:#7f1d1d;border-radius:8px;padding:8px 12px;margin:0 0 12px;break-inside:avoid}
   .must b{font-size:12pt}.must ul{margin:6px 0 0;padding-left:18px}
   .watermark{position:fixed;top:40%;left:0;right:0;text-align:center;font:800 90pt Inter,sans-serif;color:rgba(176,57,44,.08);transform:rotate(-28deg);pointer-events:none;z-index:0}
@@ -59,14 +71,16 @@
   .sign span{position:absolute;bottom:-17px;left:0;font-size:9pt;color:var(--muted)}
   .wide{position:relative;z-index:1}
   @media (max-width:700px){.sheet{padding:8mm 5mm}.sign{grid-template-columns:1fr}}
-  /* A4: page numbers and the date printed in the footer; the risk table on landscape pages */
+  /* A4 portrait: page numbers and the date printed in the footer. The risk table follows straight on
+     (a change to landscape always starts a new page, which left one nearly empty - the reviewing
+     window, 23 Oct); its header repeats on each page, and a heading is never left alone at the foot */
   @page{size:A4 portrait;margin:14mm 12mm 16mm;@bottom-right{content:"Page " counter(page) " of " counter(pages);font-size:8.5pt;color:#6b7280}}
-  @page wide{size:A4 landscape}
   @media print{
     body{background:#fff;padding:0!important;margin:0}
     #egbc-bar,#egbc-nav,#egbc-nav-scrim,#egbc-viewas,#egbc-viewas-top,#egbc-you,#egbc-you-btn,.bar,.noprint{display:none!important}
     .sheet{box-shadow:none;margin:0;padding:0;max-width:none}
-    .wide{page:wide}
+    .wide table{font-size:9pt}.wide th,.wide td{padding:4px 5px}
+    h2{break-after:avoid;page-break-after:avoid}
     a{color:inherit;text-decoration:none}
   }
 </style>
@@ -109,6 +123,27 @@
       }).join('') : '<tr><td colspan="8" class="na">No risks written yet.</td></tr>') + '</tbody></table>';
   }
 
+  /* the row of dials: overall, the checklist, leaders and the ratio, the risks by colour */
+  function dialsRow(ov, qs, ans, rr, need, nLeaders, risks) {
+    var D = window.EGBCSgDash, N = 14;
+    if (!D) return '';
+    var cell = function (key, o, title, line) { return '<div class="dl" data-pdial="' + key + '">' + D.dial(o) + '<div class="t">' + esc(title) + '</div><div class="l">' + esc(line) + '</div></div>'; };
+    var done = qs.filter(function (x) { return T.answered(ans[x.id]); }).length;
+    var by = { red: 0, amber: 0, green: 0 };
+    risks.forEach(function (x) { by[T.rating(x.rl, x.ri)]++; });
+    return '<div class="dials" id="pDials">' +
+      cell('overall', ov ? { blocks: [[ov, N]], num: WORDS[ov], sub: 'overall' } : { blocks: [], num: '–', sub: 'no risks yet' }, 'Overall rating',
+        ov === 'red' ? 'High: the worst after the controls' : ov ? WORDS[ov] + ': the worst after the controls' : 'No risks written yet') +
+      cell('checklist', { blocks: done === qs.length ? [['green', N]] : D.split([['progress', done]], qs.length), num: String(done), sub: 'of ' + qs.length + ' answered' }, 'The checklist',
+        done === qs.length ? 'Every question answered' : (qs.length - done) + ' not answered yet') +
+      (rr ? cell('ratio', { blocks: nLeaders >= need ? [['green', N]] : D.split([['progress', nLeaders], ['red', need - nLeaders]], need), num: nLeaders >= need ? 'Met' : 'Not met', sub: nLeaders + ' of ' + need + ' needed' }, 'Leaders and the ratio',
+            nLeaders >= need ? 'Enough leaders, and two adults' : (need - nLeaders) + ' more leader' + (need - nLeaders === 1 ? '' : 's') + ' needed')
+          : cell('ratio', { faded: true, dash: true, sub: 'no figure' }, 'Leaders and the ratio', 'The bookings aren’t yours to see')) +
+      cell('risks', { blocks: risks.length ? D.split([['red', by.red], ['amber', by.amber], ['green', by.green]], risks.length) : [], num: String(risks.length), sub: 'risks' }, 'Risks by colour',
+        by.red + ' high · ' + by.amber + ' medium · ' + by.green + ' low') +
+      '</div>';
+  }
+
   /* ---- AN EVENT'S ASSESSMENT ---- */
   function printEvent(id) {
     var EV, A, L, ST, SITE = {}, church;
@@ -136,6 +171,11 @@
       var leaders = L.leaders || [], ratioAll = L.ratioAll || ST.ratioAll || 5, ratioU8 = L.ratioUnder8 || ST.ratioUnder8 || 4;
       var rr = kids === null ? null : SG.ratio({ children: kids, under8: u8, leaders: leaders.length, ratioAll: ratioAll, ratioUnder8: ratioU8 }), need = rr ? Math.max(rr.need, kids ? 2 : 0) : 0;
       var signed = A && A.status === 'signed' && !A.waived, waived = A && A.waived, risks = (A && A.risks) || [], must = risks.filter(function (x) { return x.mustNot; });
+      /* the overall, as the editor works it out: the worst after the controls, High while anything must not go ahead */
+      var RANK = { red: 3, amber: 2, green: 1 }, ov = risks.length ? 'green' : '';
+      risks.forEach(function (x) { var g = T.rating(x.rl, x.ri); if (RANK[g] > (RANK[ov] || 0)) ov = g; });
+      if (must.length) ov = 'red';
+      var ovHtml = ov ? '<span class="rag ' + ov + '" data-overall="' + ov + '">' + WORDS[ov] + '</span>' : '<span class="na">No risks written yet</span>';
       var qs = T.checklistFor(EV.sgKind || (A && A.templateId), (A && A.flags) || {}, (((ST.register || {}).checklist) || []).concat(T.hostQuestions(A))), ans = (A && A.answers) || {};
       var pf = T.paedFlag(ans, (A && A.flags) || {}), host = A && A.host;
       var aiLine = A && A.source && A.source.kind === 'ai' ? (A.source.checkedBy ? 'First draft by AI: checked by ' + A.source.checkedByName + ' on ' + longDate(A.source.checkedAt) + '.' : 'AI draft, not yet checked.') : '';
@@ -146,9 +186,10 @@
       var others = Object.keys(ans).filter(function (k) { return !qs.some(function (x) { return x.id === k; }); });
       sheet.innerHTML = (signed || waived ? '' : '<div class="watermark" aria-hidden="true" id="pWatermark">DRAFT</div>') +
         header(church, 'Safeguarding risk assessment') +
-        '<h1 id="pTitle">' + esc(EV.title || '') + '</h1>' + status +
+        '<h1 id="pTitle">' + esc(EV.title || '') + '</h1>' + dialsRow(ov, qs, ans, rr, need, leaders.length, risks) + status +
         (must.length ? '<div class="must" id="pMust"><b>This must not go ahead as described.</b> ' + (must.length === 1 ? 'This item has' : 'These ' + must.length + ' items have') + ' to be changed or taken out first:<ul id="pMustList">' + must.map(function (x) { return '<li>' + esc(x.risk) + '</li>'; }).join('') + '</ul></div>' : '') +
         '<h2>The event</h2><table class="facts" id="pFacts"><tbody>' +
+          '<tr><th>Overall rating</th><td id="pOverallRow">' + ovHtml + ' <span class="note">the worst after the controls; High while anything must not go ahead</span></td></tr>' +
           '<tr><th>When</th><td>' + esc(E.fmtWhen ? E.fmtWhen(EV) : (EV.startLocal || '')) + '</td></tr>' +
           '<tr><th>Where</th><td>' + esc([SITE.name, (EV.location || {}).name, (EV.location || {}).address].filter(Boolean).join(', ')) + '</td></tr>' +
           '<tr><th>Kind</th><td>' + esc(KIND[EV.sgKind] || '') + ((A && A.flags && A.flags.abroad) ? ', overseas' : '') + ((A && A.flags && A.flags.adventurous) ? ', with water, heights or adventurous activities' : '') + '</td></tr>' +
