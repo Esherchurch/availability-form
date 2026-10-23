@@ -547,7 +547,7 @@ Deliberate break: put the old assignment back, and show your test catches the em
 **S2b: a static check for the whole class.** Add a check that fails if any page registers a `load` / `DOMContentLoaded` / `window.onload` / `<body onload>` handler that can only run after a top-level `await`. Run it across all of `v2/`.
 
 **S2c: every page, side by side with the original.** For **every** page that exists in both places (all 51):
-1. Load the original page (repo root) and the v2 page against **the same synthetic emulator data**. You can serve the root pages on localhost so they also hit the emulator. Check that first, and if a root page can't be pointed at the emulator, say so; don't touch live data.
+1. Load the original page (repo root) and the v2 page against **the same synthetic emulator data**. You can serve the root pages on localhost so they also hit the emulator. Check that first, and if a root page can't be pointed at the emulator, say so; don't touch live data. **(Updated 23 Oct 2026: this was a one-off check, now done. Never edit a root file and never open the live original site. From now on, see CLAUDE.md §2: read an original page in git only when you first port it, or before removing a behaviour.)**
 2. On both, open every screen, tab, sheet and modal, as in A3b. At each state compare the following, and list every difference:
    - **what appears without anyone touching anything:** default items and their order, prefilled fields, default selections, lists that fill themselves, the date it opens on
    - **every control:** what's there, what each one does
@@ -606,8 +606,9 @@ Why this order: B comes before C so every new events page is built on the signed
 ## 4. Standing rules (all steps)
 
 - **Out of scope everywhere:** Worship Hub (`worshiphubapp.html`, `manifest-worship.json`), Mix Builder (`mix-*`, `manifest-mix.json`), Calla Design (`studio.html`, `manifest-studio.json`). Do not touch them — this overrides `RESTYLE-BRIEF.md`, which listed `worshiphubapp.html` in Group 3.
-- **No app is retired, merged or removed — ever, in any step.** Every phone app that exists today keeps working, in `v2/` and on the original site. For each app's manifest: **never change `id`, `start_url` or `scope`**, and never delete the manifest or its start page — that would break the app on phones where it is already installed. The only manifest changes allowed are those a brief names (e.g. the display name), and **app names change only after Martin approves each one**.
-- **Nothing outside `v2/`.** The original site stays exactly as it is until Martin launches v2.
+- **No app is retired, merged or removed — ever, in any step.** Every phone app that exists today keeps working, in `v2/` and on the original site. **This does NOT mean editing the original site's apps:** they keep working because nobody touches them. Change only the `v2/` copies (23 Oct 2026; CLAUDE.md §1). For each app's manifest: **never change `id`, `start_url` or `scope`**, and never delete the manifest or its start page — that would break the app on phones where it is already installed. The only manifest changes allowed are those a brief names (e.g. the display name), and **app names change only after Martin approves each one**.
+- **Nothing outside `v2/`.** The original site stays exactly as it is until Martin launches v2. A commit-msg hook now refuses any commit that changes a file outside `v2/` unless its message says `[original-site: approved by Martin]`. Set it up once per clone: `git config core.hooksPath v2/tools/git-hooks`. Never use `--no-verify`.
+- **Improve, don't copy (Martin, 23 Oct 2026).** v2 must not lose anything the original does, but it should be better. Don't compare with the original page by page as a habit; design for the people using v2, and suggest improvements.
 - **Synthetic data only.** Emulator, made-up people. Never read or copy real records.
 - **Do not deploy Firestore or Storage rules.** Martin deploys.
 - Every page follows `DESIGN.md` and works at 375px.

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Refuse commits that change the original site (anything outside v2/), unless
+# Martin approved the change. Set up once per clone:
+#   git config core.hooksPath v2/tools/git-hooks
+# See CLAUDE.md section 1.
+bad=$(git diff --cached --name-only | grep -v '^v2/' | grep -v -x -E 'CLAUDE\.md|\.gitignore')
+[ -z "$bad" ] && exit 0
+grep -q '\[original-site: approved by Martin\]' "$1" && exit 0
+echo "" >&2
+echo "REFUSED: this commit changes the original site (files outside v2/):" >&2
+echo "$bad" | sed 's/^/  /' >&2
+echo "" >&2
+echo "v2 only (CLAUDE.md). Unstage these files. Only if Martin has explicitly" >&2
+echo "approved this change to the original site, add this to the message:" >&2
+echo "  [original-site: approved by Martin]" >&2
+exit 1
