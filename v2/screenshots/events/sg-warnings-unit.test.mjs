@@ -86,6 +86,18 @@ m = W.twoAdultsMails({ day: WED, settings: ST, events: [], groups: [{ id: 'kg_to
 ok('on a Wednesday: only the Wednesday group (day 3)', m.length === 1 && m[0].key === 'kg_kg_mid_' + WED, J(m));
 ok('   and no person’s name in it', !/m_c|m_a/.test(J(m)), J(m));
 
+console.log('\n6b. hirers who work with children (counts only)');
+const HR = (x) => Object.assign({ withChildren: true, booked: true, documents: [], name: 'Hilda Hirer', org: 'Toddler Music (invented)' }, x);
+r = W.warningsFrom(base({ hirers: [HR()] }));
+ok('booked in the next 30 days, no safeguarding policy: amber, 1, to the bookings page', find(r, 'hirers') && find(r, 'hirers').level === 'amber' && find(r, 'hirers').count === 1 && find(r, 'hirers').fix === 'bookings-admin.html'
+  && /1 hirer who works with children is booked in the next 30 days with no safeguarding policy in date on file\./.test(find(r, 'hirers').label), J(r.items));
+ok('   and it marks the "hirer’s safeguarding policy" control', r.controls['*|hirerDocs'] === 'amber', J(r.controls));
+r = W.warningsFrom(base({ hirers: [HR({ documents: [{ kind: 'safeguarding', expires: '2026-09-30' }] }), HR({ documents: [{ kind: 'insurance', expires: '2027-09-30' }] })] }));
+ok('a policy that has run out, or only insurance on file: both counted (2)', find(r, 'hirers') && find(r, 'hirers').count === 2, J(r.items));
+r = W.warningsFrom(base({ hirers: [HR({ documents: [{ kind: 'safeguarding', expires: '2027-09-30' }] }), HR({ documents: [{ kind: 'safeguarding', expires: '' }] }), HR({ booked: false }), HR({ withChildren: false })] }));
+ok('in date, no expiry date, not booked, or not working with children: nothing', !find(r, 'hirers'), J(r.items));
+ok('   NO HIRER’S NAME in the warning', !/Hilda|Toddler Music/.test(J(W.warningsFrom(base({ hirers: [HR()] })))));
+
 console.log('\n7. THE DIALS (step 4)');
 const DB = (x) => Object.assign({ today: TODAY, settings: ST, groups: GROUPS, leaderMids: [], checks: {}, sessions: [], consent: [], assess: [], review: null, incidents: [] }, x);
 const mids = (n, c) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['m' + i, c]));

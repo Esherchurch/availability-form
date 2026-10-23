@@ -24,6 +24,11 @@
     if (n <= SOON) return { cls: 'wait', words: 'expires in ' + n + ' day' + (n === 1 ? '' : 's') };
     return { cls: 'ok', words: 'until ' + EGBCEvents.fmtDate(d.expires + 'T12:00') };
   }
+  /* works with children, and no safeguarding policy in date on file */
+  function needsPolicy(h) {
+    if (!h || h.withChildren !== true) return false;
+    return !(h.documents || []).some(function (d) { return d.kind === 'safeguarding' && docState(d).cls !== 'no'; });
+  }
   function lastMonth() { var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
 
   function EGBCMoney(ctx) {
@@ -44,7 +49,8 @@
       var bad = (h.documents || []).map(function (d) { return { d: d, s: docState(d) }; }).filter(function (x) { return x.s.cls !== 'ok'; });
       return '<div class="hint" data-hirer="' + esc(b.key) + '">Hirer: <b>' + esc(h.org || h.name) + '</b>' +
         (h.charity ? ' · charity' + (h.charityChecked ? ' (checked)' : ' (not yet checked)') : '') + (h.regular ? ' · regular' : '') + (h.monthly ? ' · invoiced monthly' : '') + '</div>' +
-        bad.map(function (x) { return '<div class="st ' + x.s.cls + '" data-docwarn="' + esc(b.key) + '">' + esc(label(x.d.kind)) + ' ' + esc(x.s.words) + '.</div>'; }).join('');
+        bad.map(function (x) { return '<div class="st ' + x.s.cls + '" data-docwarn="' + esc(b.key) + '">' + esc(label(x.d.kind)) + ' ' + esc(x.s.words) + '.</div>'; }).join('') +
+        (needsPolicy(h) ? '<div class="st no" data-sgpolicy="' + esc(b.key) + '">Works with children: no safeguarding policy in date on file.</div>' : '');
     }
     function label(kind) { return (DOCS.filter(function (d) { return d[0] === kind; })[0] || [0, 'Document'])[1]; }
 
@@ -63,7 +69,7 @@
       if (openId !== undefined) form(openId, prefill);
     }
     function form(id, prefill) {
-      var h = id ? ctx.hirers().filter(function (x) { return x.id === id; })[0] : Object.assign({ name: '', org: '', email: '', phone: '', address: '', charity: false, charityNumber: '', charityChecked: false, regular: false, monthly: false, notes: '', documents: [] }, prefill || {});
+      var h = id ? ctx.hirers().filter(function (x) { return x.id === id; })[0] : Object.assign({ name: '', org: '', email: '', phone: '', address: '', charity: false, charityNumber: '', charityChecked: false, regular: false, monthly: false, withChildren: false, notes: '', documents: [] }, prefill || {});
       var box = document.getElementById('h-form'), f = function (k, l, t) { return '<div class="field"><label class="l" for="hf-' + k + '">' + l + '</label><input class="inp" id="hf-' + k + '" ' + (t || '') + ' value="' + esc(h[k] || '') + '"></div>'; };
       var ck = function (k, l) { return '<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="hf-' + k + '"' + (h[k] ? ' checked' : '') + '> ' + l + '</label>'; };
       box.innerHTML = '<div class="card" id="h-card"><h2>' + (id ? esc(h.org || h.name) : 'A new hirer') + '</h2>' +
@@ -71,6 +77,8 @@
         '<div class="field"><label class="l" for="hf-address">Invoice address</label><textarea class="inp" id="hf-address" style="height:70px;padding:8px 12px">' + esc(h.address || '') + '</textarea></div>' +
         ck('charity', 'A registered charity') + f('charityNumber', 'Charity number') + ck('charityChecked', 'We have checked the charity number (the charity rate applies)') +
         ck('regular', 'A regular hirer (the regular hirer rate applies)') + ck('monthly', 'Invoice monthly, all their bookings in a month together') +
+        ck('withChildren', 'Works with children or young people (they need an in-date safeguarding policy on file)') +
+        (needsPolicy(h) ? '<p class="st no" id="hf-sgneed" style="margin:4px 0 8px">No safeguarding policy in date on file. Add it under Documents.</p>' : '') +
         '<div class="field"><label class="l" for="hf-notes">Notes</label><input class="inp" id="hf-notes" maxlength="500" value="' + esc(h.notes || '') + '"></div>' +
         '<div class="acts"><button class="btn" id="hf-save">Save</button></div>' +
         (id ? '<h3 style="margin:16px 0 6px">Documents</h3>' + ((h.documents || []).length ? h.documents.map(function (d, i) {
@@ -91,7 +99,7 @@
       var v = function (k) { return document.getElementById('hf-' + k).value.trim(); }, c = function (k) { return document.getElementById('hf-' + k).checked; };
       var d = { siteId: ctx.siteId(), name: v('name').slice(0, 120), org: v('org').slice(0, 120), email: v('email').toLowerCase().slice(0, 200), phone: v('phone').slice(0, 40),
         address: document.getElementById('hf-address').value.trim().slice(0, 500), charity: c('charity'), charityNumber: v('charityNumber').slice(0, 40), charityChecked: c('charityChecked'),
-        regular: c('regular'), monthly: c('monthly'), notes: v('notes').slice(0, 500), documents: h.documents || [], active: true, updatedAt: new Date().toISOString() };
+        regular: c('regular'), monthly: c('monthly'), withChildren: c('withChildren'), notes: v('notes').slice(0, 500), documents: h.documents || [], active: true, updatedAt: new Date().toISOString() };
       if (!d.name) { ctx.toast('It needs a name'); return; }
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) { ctx.toast('It needs an email address, to match their bookings'); return; }
       var ref = id ? db().collection('hirers').doc(id) : db().collection('hirers').doc('hr_' + EGBCEvents.key(14));

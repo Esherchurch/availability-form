@@ -103,6 +103,13 @@ export async function siteWarnings({ db: dbi, siteId, today, review }) {
     rows(dbi.collection('sgRisks').where('siteId', '==', siteId))
   ]);
   const kidsIn = kidsToday.filter((x) => x.state === 'in'), leadIns = leadToday.filter((x) => x.state === 'in');
+  /* hirers who work with children and have no safeguarding policy in date: only then are the next 30 days' bookings read (by date, so no new index) */
+  const hirers = (await rows(dbi.collection('hirers').where('siteId', '==', siteId))).filter((h) => h.active !== false && h.withChildren === true && !Core.hirerPolicyOk(h, today));
+  if (hirers.length) {
+    const booked = new Set((await rows(dbi.collection('bookings').where('day', '>=', today).where('day', '<=', Core.plus(today, 30))))
+      .filter((b) => b.siteId === siteId && b.kind === 'hire' && !['declined', 'cancelled'].includes(b.status)).map((b) => String((b.requester || {}).email || '').toLowerCase()).filter(Boolean));
+    hirers.forEach((h) => { h.booked = booked.has(String(h.email || '').toLowerCase()); });
+  }
   const events = await eventsAt(dbi, siteId, today, 60);
   const childrenIn = {}, leadersIn = {};
   kidsIn.forEach((c) => { childrenIn[c.groupId] = (childrenIn[c.groupId] || 0) + 1; });
@@ -119,6 +126,7 @@ export async function siteWarnings({ db: dbi, siteId, today, review }) {
   const w = Core.warningsFrom({ today, settings: st,
     activities: activities.map((a) => ({ id: a.id, link: a.link || {} })),
     groups: gs, childrenIn, leadersIn, events, leaderMids, checks, consent,
+    hirers: hirers.map((h) => ({ withChildren: true, documents: (h.documents || []).map((x) => ({ kind: x.kind, expires: x.expires || '' })), booked: !!h.booked })),
     risks: risks.map((r) => ({ id: r.id, activityId: r.activityId, reviewDue: r.reviewDue || '', status: r.status })) });
 
   /* THE DIALS */

@@ -10818,3 +10818,46 @@ Every function must take the church from the sign-in's claim or the document's p
 - **Please find headroom** in bookingShape, officeCreate, marksNewBooking and the roomDays rule. For example: work a value out once with `let` instead of calling the same function several times, and check the cheap conditions first so the costly ones are skipped.
 - **How to measure:** the scratch method is in H-8. Pad signedIn with N spare `&& true` and see when the two cases fail. Today they fail at N=1; aim for N≥10.
 - **It matters for multi-church too:** the church ruleset's gate costs a little more per call, so these two cases fail there until you've found the headroom.
+
+### F-276 — The safeguarding register's last warning: hirers who work with children (F-265's warnings table; the events window, 23 Oct)
+
+**Why:** F-265's warnings table planned "hirers with children: a safeguarding policy missing or out of date, for hirers booked in the next 30 days who work with children". It wasn't built in step 3 (F-271/F-272, "found and not fixed"), because nothing in the hub said which hirers work with children.
+
+**Built:**
+- **Hirers page** (egbc-events-money.js, on bookings-admin.html):
+  - A new tick on a hirer's record: **"Works with children or young people (they need an in-date safeguarding policy on file)"**.
+  - While it's ticked and no safeguarding policy in date is on file:
+    - the record says so
+    - each of their bookings says **"Works with children: no safeguarding policy in date on file."**
+- **The server** (sg-warnings.js, every 15 minutes with the other warnings):
+  - For each site, it reads only the hirers ticked "works with children" whose safeguarding policy is missing or has run out (one with no expiry date counts, as on the Hirers page).
+  - **Only when there are such hirers** does it read the next 30 days' bookings, by date alone, so **no new index**. It counts those with a hire booked (not declined or cancelled).
+  - The warning is amber: **"1 hirer who works with children is booked in the next 30 days with no safeguarding policy in date on file."** "Go to it" leads to the bookings page.
+  - It's **counts only: never a hirer's name.**
+  - It marks the register's existing control "The hirer's safeguarding policy on file" (`hirerDocs`), so a risk using that control is flagged on Tab A.
+
+**Proved:**
+- **sg-warnings-unit.test.mjs: 58/58** (5 new):
+  - booked with no policy: amber, 1
+  - the control marked
+  - an expired policy, or only insurance on file: both counted
+  - not counted: a policy in date, a policy with no expiry date, a hirer not booked, a hirer not ticked
+  - no hirer's name
+- **sg-warnings.test.mjs: 34/34** (4 new):
+  - an invented hirer whose policy ran out, booked in 10 days: amber, 1; an unbooked one not counted
+  - no name
+  - the lead's "Go to it" leads to the bookings page
+  - a new policy on file: the warning goes
+- **c5-stage3.test.mjs: 48/48** (3 new):
+  - no line before the tick
+  - ticked and saved, with the rest of the record kept
+  - then the booking card says so
+- **Breaks, 7 of 7 caught:**
+  - **The one that matters:** a hirer's name in the warning (caught by the browser test and the unit test).
+  - A policy that has run out still counting (browser and unit).
+  - A hirer with no booking coming counted.
+  - The tick not saved.
+  - The booking card silent.
+- **sg-dash: 45/45.**
+
+**Deploy:** `sgWarningsSync` and `sgWarningsNow` again. No rules change.

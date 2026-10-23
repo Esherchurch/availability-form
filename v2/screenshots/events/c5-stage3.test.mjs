@@ -197,6 +197,16 @@ try {
   await go(L, 'bookings-admin.html', `[data-key="${KA1}"]`);
   const warn = await L.evaluate((k) => [...document.querySelectorAll('[data-docwarn="' + k + '"]')].map(x => x.innerText), KA1);
   ok('   the booking shows the insurance expiring in 20 days and the safeguarding policy expired', warn.some(w => /insurance expires in 20 days/i.test(w)) && warn.some(w => /Safeguarding policy expired/.test(w)), warn.join(' | '));
+  /* F-265, the register's "hirers with children": a hirer who works with children needs a safeguarding policy in date */
+  ok('   NOT TICKED "works with children": no safeguarding-policy line', !(await L.$(`[data-sgpolicy="${KA1}"]`)));
+  await go(L, 'bookings-admin.html', '[data-tab="hirers"]'); await tap(L, '[data-tab="hirers"]');
+  await L.waitForSelector(`[data-hedit="${hA.id}"]`); await tap(L, `[data-hedit="${hA.id}"]`);
+  await L.waitForSelector('#hf-withChildren');
+  await check(L, '#hf-withChildren', true); await tap(L, '#hf-save');
+  const hW = await until(async () => { const h = await get('hirers', hA.id); return h && h.withChildren === true ? h : null; });
+  ok('   "Works with children or young people" ticked and saved, the rest kept', !!hW && hW.charityChecked === true && hW.monthly === true && hW.documents.length === 2, J(hW));
+  await go(L, 'bookings-admin.html', `[data-key="${KA1}"]`);
+  ok('   then the booking says "Works with children: no safeguarding policy in date on file."', /Works with children: no safeguarding policy in date on file\./.test(await L.$eval(`[data-sgpolicy="${KA1}"]`, e => e.innerText).catch(() => '')));
 
   /* ---------- 2. the record decides the rate ---------- */
   const linesA = await L.evaluate((k) => [...document.querySelectorAll('[data-money="' + k + '"] [data-ml]')].map(x => x.value), KA1);

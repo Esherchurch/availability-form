@@ -8,7 +8,7 @@
 
    warningsFrom(d) -> { items: [{ id, kind, level, label, todo, count, date,
                          fix, act }], controls: { 'actId|kind' | '*|kind': level } }
-     kind: 'ratio' | 'twoAdults' | 'checks' | 'consent' | 'signoff' | 'review'
+     kind: 'ratio' | 'twoAdults' | 'checks' | 'consent' | 'signoff' | 'review' | 'hirerDocs'
      level: 'red' | 'amber'
    twoAdultsMails(d) -> [{ key, subject, lines, fix }] - sessions two days on
      still short of two adults (or of the ratio): Martin, 22 Oct.
@@ -30,7 +30,8 @@ const TODO = {
   checks: 'Record the new check or training on Safeguarding.',
   consent: 'Ask the families to renew their consent form.',
   signoff: 'Finish the assessment and ask the safeguarding lead or deputy to sign it off.',
-  review: 'Look at each one and set a new review date.'
+  review: 'Look at each one and set a new review date.',
+  hirerDocs: 'Ask them for their safeguarding policy, and add it to their hirer record.'
 };
 const WORSE = { red: 2, amber: 1 };
 
@@ -39,7 +40,11 @@ const WORSE = { red: 2, amber: 1 };
         groups: [{ id, name, ratio, leaderIds }], childrenIn: { g: n }, leadersIn: { g: n },
         events: [{ id, title, day, children, leaders, needsSignoff, signedOff }],
         leaderMids: [mid], checks: { mid: leaderChecks doc }, consent: [{ groupId, consentUntil }],
-        risks: [{ id, activityId, reviewDue, status }] } */
+        risks: [{ id, activityId, reviewDue, status }],
+        hirers: [{ withChildren, documents: [{ kind, expires }], booked }] - booked: a hire in the next 30 days } */
+/* a safeguarding policy on file that has not run out (one with no expiry date counts, as on the Hirers page) */
+function hirerPolicyOk(h, today) { return (h.documents || []).some((x) => x && x.kind === 'safeguarding' && (!x.expires || String(x.expires).slice(0, 10) >= today)); }
+
 function warningsFrom(d) {
   const st = d.settings || {}, today = d.today, soonDays = st.dueSoonDays || 42, items = [], controls = {};
   const actFor = (type, id) => ((d.activities || []).find((a) => a.link && a.link.type === type && a.link.id === id) || {}).id || '';
@@ -108,7 +113,12 @@ function warningsFrom(d) {
       label: g.name + ': ' + b.soon + ' consent ' + s(b.soon, 'form runs', 'forms run') + ' out within ' + Math.round(soonDays / 7) + ' weeks.' });
   });
 
-  /* 5. the register's own reviews */
+  /* 5. hirers who work with children, booked in the next 30 days, with no safeguarding policy in date (counts only) */
+  const hirersShort = (d.hirers || []).filter((h) => h.withChildren === true && h.booked && !hirerPolicyOk(h, today)).length;
+  if (hirersShort) add({ id: 'hirers', kind: 'hirerDocs', level: 'amber', count: hirersShort, date: today, fix: 'bookings-admin.html', act: '',
+    label: hirersShort + ' ' + s(hirersShort, 'hirer who works with children is', 'hirers who work with children are') + ' booked in the next 30 days with no safeguarding policy in date on file.' });
+
+  /* 6. the register's own reviews */
   const late = (d.risks || []).filter((r) => r.status !== 'closed' && r.reviewDue && r.reviewDue < today);
   if (late.length) add({ id: 'review', kind: 'review', level: 'amber', count: late.length, date: today, fix: 'safeguarding-risk.html', act: '',
     label: late.length + ' ' + s(late.length, 'risk is', 'risks are') + ' past ' + s(late.length, 'its', 'their') + ' review date.' });
@@ -254,4 +264,4 @@ function dialsFrom(d) {
   return { dials, sessions: sess.slice(0, 100), consentByGroup: Object.values(per).sort((a, b) => String(a.group).localeCompare(String(b.group))).slice(0, 50) };
 }
 
-module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS };
+module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS, hirerPolicyOk };

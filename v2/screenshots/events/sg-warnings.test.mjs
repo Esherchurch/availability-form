@@ -208,6 +208,22 @@ try {
   ok('   NO NAME of a child or a leader', !sent.some(m => NAMES.test(m.subject + m.html)), J(sent.map(m => m.subject + m.html)));
   const again = await runTwoAdultsMail({ db, send: fake, hub: 'https://hub.example.invalid' });
   ok('   ONCE: the next morning\u2019s run sends nothing more', again.length === 0 && sent.length === 2, J(again));
+
+  /* 8. hirers who work with children (the office ticks it on the hirer's record) */
+  await db.collection('hirers').doc('hr_kids').set({ siteId: 'site_t', name: 'Hilda Hirer (invented)', org: 'Toddler Music (invented)', email: 'hilda.hirer@example.invalid', withChildren: true, active: true,
+    documents: [{ kind: 'safeguarding', name: 'policy.pdf', path: 'x', expires: Core.plus(TODAY, -3) }] });
+  await db.collection('hirers').doc('hr_unbooked').set({ siteId: 'site_t', name: 'Una Hirer (invented)', email: 'una.hirer@example.invalid', withChildren: true, active: true, documents: [] });
+  await db.collection('bookings').doc('bk_hilda_00000000000000000000000000').set({ kind: 'hire', status: 'confirmed', siteId: 'site_t', roomId: 'r_hall', day: Core.plus(TODAY, 10), startMin: 600, endMin: 660, title: 'Toddler music (invented)',
+    requester: { name: 'Hilda Hirer (invented)', email: 'hilda.hirer@example.invalid', phone: '', org: 'Toddler Music (invented)' } });
+  await runSgWarnings({ db, siteIds: ['site_t'] });
+  const hw = ((await warnings()).items || []).find((i) => i.id === 'hirers');
+  ok('8. A HIRER WHO WORKS WITH CHILDREN, booked in 10 days, whose policy ran out: amber, 1 (the unbooked one not counted)', hw && hw.level === 'amber' && hw.count === 1 && hw.kind === 'hirerDocs' && hw.fix === 'bookings-admin.html', J(hw));
+  ok('   NO HIRER\u2019S NAME in it', !/Hilda|Una|Toddler/.test(J(await warnings())));
+  await go(L, 'safeguarding-risk.html?tab=warnings', '[data-warn="hirers"]');
+  ok('   the lead sees it, with "Go to it" to the bookings page', /1 hirer who works with children is booked in the next 30 days/.test(await text(L, '[data-warn="hirers"]')) && /bookings-admin\.html$/.test(await L.$eval('[data-warn="hirers"] [data-fix]', (e) => e.href).catch(() => '')));
+  await db.collection('hirers').doc('hr_kids').update({ documents: [{ kind: 'safeguarding', name: 'policy.pdf', path: 'x', expires: Core.plus(TODAY, 300) }] });
+  await runSgWarnings({ db, siteIds: ['site_t'] });
+  ok('   a new policy on file: the warning goes', !((await warnings()).items || []).some((i) => i.id === 'hirers'));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);
