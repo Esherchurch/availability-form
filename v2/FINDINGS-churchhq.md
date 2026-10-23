@@ -441,3 +441,34 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
   - **A refusal caused by running out of expressions isn't the refusal the rule intended,** and the allowed cases next to it have no room at all.
   - In the church copy, whose gate costs a little more, the same rules (and four more) run out more often.
   - These are the events window's rules; I've asked them to find headroom, and haven't changed them.
+
+## H-9. Team jobs, not team names: the plan (23 Oct 2026)
+
+**For review; nothing is built.** The full plan and the audit table are in `design-mocks/multi-church/TEAM-JOBS.md`.
+
+- **The idea:** the code, rules and functions name a **job** (office, trustees, buildings, pastoral, finance, children, youth, worship, av, choir, leadership, catering, welcome, prayer). Each church maps every job to one of its own teams, or none. Every word a person sees is the church's own team name.
+  - EGBC's defaults are today's names, so EGBC needs no data and sees no change.
+- **Already settings, to be folded in:** `moneyTeam`, `trusteeTeam` and the prayer team. `runs` on a team stays.
+- **Setup:** a "Your teams" step when a church is set up, with suggestions (trustees: Elders, Deacons, Stewards, PCC, Trustees), changeable later on Teams and groups.
+- **The audit:**
+  - **95 files name a team:** main 61, events 23, Comms 9, and the two rules files, where each window changes its own sections.
+  - **9 list caps in the rules:** 20 leaders per event, 60 on a kids morning, 3 sites per screen page, 30 and 50 member lists, 40 on a session, 200 charges.
+  - **22 files** that ask Firestore with up to 30 values per query.
+  - **Lists cut short on purpose:** each will say so.
+- **Rules:** `onTeam('Church office')` becomes `onJob('office')`. Every change is measured against the expression limit (H-8, h8-headroom.test.mjs) before it goes in.
+
+**Questions for Martin** (recommended answer first):
+
+1. **The jobs:** the 14 above. Or fewer (office, trustees, buildings, pastoral, finance, children, youth, worship), with the rest as ordinary teams?
+2. **Children's and youth groups** (Lazers, ReNu) aren't jobs. The code asks for "every under-18 group" (the tick already on Teams and groups) instead of naming them. Agreed?
+3. **One team per job** (or "nobody"). Or allow several teams for one job, such as Elders and Deacons both as trustees? Recommended: one, with "and also…" only if a church asks.
+4. **When nobody does a job** (a church with no buildings team): its pages go to master admins, recommended. Or are they hidden?
+5. **A team's name and its id:**
+   - **Recommended:** a team's id never changes, and only its label is shown. EGBC's ids stay as they are (today's names), so renaming "Church office" to "Admin" changes the label only. A new church's teams get ids that aren't names.
+   - **Or:** the id is the name, as today, and a rename moves everything.
+6. **The caps:**
+   - **Recommended:** no fixed caps, except the most a document can safely hold (500), and one real setting (sites per screen page, default 3).
+   - **Or:** each cap becomes a setting.
+7. **Who does "Your teams":**
+   - **Recommended:** the church's first master admin, on first sign-in, before anything else, as a short step they can come back to.
+   - **Or:** Church HQ staff, when adding the church.
