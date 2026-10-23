@@ -133,7 +133,11 @@ export function buildChurch(src) {
     'function signedIn() { return request.auth != null; }',
     ...directory,
     'match /churches/{cid} {',
-    "function signedIn() { return request.auth != null && cid in request.auth.token.get('churches', []); }",
+    /* The claim read directly, not with .get() and a default: fewer
+       expressions, and every rule calls this (the booking batch is within
+       one expression of Firestore's 1,000 limit; H-8). No claim is an
+       error, which refuses. */
+    "function signedIn() { return request.auth != null && cid in request.auth.token.churches; }",
     'allow read: if signedIn();',
     'allow write: if false;',
     ...moved,

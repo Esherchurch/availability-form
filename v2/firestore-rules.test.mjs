@@ -8,7 +8,22 @@ import {
   assertSucceeds,
   assertFails,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { doc as fsDoc, getDoc, setDoc, updateDoc, deleteDoc, collection as fsCollection, getDocs, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
+
+/* AS ONE CHURCH (multi-church step 4 part 1, batch B; FINDINGS-churchhq
+   H-6): AS_CHURCH=mc-test runs every case below against the generated
+   church ruleset (firestore.churches.rules), as one made-up church - every
+   path under churches/mc-test, every sign-in carrying that church in its
+   claims. The cases themselves are untouched: the church copy must give
+   the same answers inside a church as EGBC's rules give at the top level,
+   apart from the differences the church ruleset makes on purpose (listed
+   where this is run). Unset, nothing changes. */
+const AS_CHURCH = process.env.AS_CHURCH || '';
+/* The database itself (not a reference, which carries its own path). */
+const inChurch = (args) => (AS_CHURCH && args[0] && typeof args[0] === 'object' && !('path' in args[0]))
+  ? [args[0], ['churches', AS_CHURCH, ...args.slice(1)].join('/')] : args;
+const doc = (...args) => fsDoc(...inChurch(args));
+const collection = (...args) => fsCollection(...inChurch(args));
 
 /* Read the port from firebase.json rather than repeating it here. They used
    to be two numbers that had to agree, and when 8080 turned out to be taken
@@ -25,8 +40,12 @@ const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || 'd
 
 const env = await initializeTestEnvironment({
   projectId: PROJECT,
-  firestore: { rules: fs.readFileSync(cfg.firestore.rules, 'utf8'), host: '127.0.0.1', port: PORT },
+  firestore: { rules: fs.readFileSync(AS_CHURCH ? 'firestore.churches.rules' : cfg.firestore.rules, 'utf8'), host: '127.0.0.1', port: PORT },
 });
+if (AS_CHURCH) {
+  const signIn = env.authenticatedContext.bind(env);
+  env.authenticatedContext = (uid, claims) => signIn(uid, Object.assign({}, claims || {}, { churches: [AS_CHURCH] }));
+}
 
 /* ---- the people we are testing as -------------------------------- */
 

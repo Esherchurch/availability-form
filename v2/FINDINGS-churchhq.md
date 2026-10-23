@@ -398,3 +398,23 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
   - run the whole EGBC rules suite (1,872 cases) against the church ruleset as a made-up church, so the church copy behaves like EGBC's rules inside a church;
   - take step 2's hand-written pilot out of firestore.rules, which the generated copy replaces;
   - then storage.rules the same way.
+
+## H-8. Step 4 part 1, batch B: EGBC's whole rules suite run as a church; one limit found (23 Oct 2026)
+
+- **`AS_CHURCH=mc-test node firestore-rules.test.mjs`** runs every one of EGBC's 1,882 rules cases against the generated church ruleset, as one made-up church.
+  - Every path is put under `churches/mc-test`, and every sign-in carries that church. The cases themselves are untouched.
+  - Without the switch nothing changes: 1882/1882 as EGBC.
+- **As a church: 1870/1882.** The 12 differences:
+  - **10 are on purpose.** A person writing their own users record (first sign-in, the heartbeat, the address-book mirror) is refused, because in a church users records are server-written only (step 2's decision). Before a church can sign people in, the server must make those records. That's for part 2 (the sign-in flow); noted, not built.
+  - **2 are Firestore's limit of 1,000 expressions per request:** "the office books a free room for an event, holding its time" and "with a reason, the office books over it".
+- **EGBC's own rules are within one expression of that limit,** in the same two cases.
+  - Tested by adding a single spare `&& true` to `signedIn()` in EGBC's built rules: exactly those two cases then fail at the top level too, with "the maximum of 1000 expressions to evaluate has been reached".
+  - So **any small addition to the helpers that batch calls** (signedIn, active, me, theOffice, the booking shape) **would stop the office booking a room for an event once the rules are live.**
+  - The rules are the events window's booking rules (bookingShape, officeCreate, marksNewBooking and the roomDays batch). I've asked them to find headroom; I haven't changed their rules.
+- **The church gate is now `request.auth != null && cid in request.auth.token.churches`.** Reading the claim directly instead of with `.get()` and a default costs fewer expressions. No claim is an error, which refuses.
+  - No rule uses `!signedIn()`, so nothing relies on it being false.
+  - church-rules.test passes 2289/2289 with it. **Break:** the gate without the claim turns 173 red.
+- **Still to do in batch B:**
+  - the two booking cases, once the events window has found headroom;
+  - step 2's hand-written pilot out of firestore.rules;
+  - storage.rules the same way.

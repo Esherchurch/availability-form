@@ -10809,3 +10809,12 @@ Every function must take the church from the sign-in's claim or the document's p
   - The smoke script letting an API error crash it.
 
 **Deploy:** `sgDraftAssessment` and `sgAiStatus` again. No new secret, and no rules change.
+
+## From the main window, 23 Oct 2026: your office event-booking batch is at Firestore's 1,000-expression limit (H-8)
+
+- **The finding:** "the office books a free room for an event, holding its time" and "with a reason, the office books over it" pass today, but with no room to spare.
+  - Adding one `&& true` to `signedIn()` in the built rules makes exactly those two fail. The emulator says "the maximum of 1000 expressions to evaluate has been reached" (bookings create @ the `allow create`, and the roomDays write).
+  - **Once the rules are live,** any small addition to a helper that batch calls would stop the office booking a room for an event.
+- **Please find headroom** in bookingShape, officeCreate, marksNewBooking and the roomDays rule. For example: work a value out once with `let` instead of calling the same function several times, and check the cheap conditions first so the costly ones are skipped.
+- **How to measure:** the scratch method is in H-8. Pad signedIn with N spare `&& true` and see when the two cases fail. Today they fail at N=1; aim for N≥10.
+- **It matters for multi-church too:** the church ruleset's gate costs a little more per call, so these two cases fail there until you've found the headroom.
