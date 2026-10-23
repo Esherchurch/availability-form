@@ -40,28 +40,17 @@
     '.sga .tag{display:inline-flex;min-height:22px;padding:0 8px;border-radius:999px;font:600 11.5px Inter,sans-serif;align-items:center;margin:4px 4px 0 0;background:#f3f4f6;color:#374151}.sga .tag.red{background:#fdecea;color:#b0392c}';
 
   /* A DRAFT TAKES 30-60 SECONDS (the reviewing window's live run: 46 s).
-     EGBCAuth.call() gives up after 8 seconds and takes no longer wait, so
-     this one call is made here the same way (EGBCAuth.functionUrl, the
-     signed-in person's token, the callable's own { data } / { result }),
-     waiting up to DRAFT_WAIT. The function itself may run 180 s. */
+     The shared EGBCAuth.call() waits 8 s unless told otherwise; main's
+     { timeoutMs } (aa740f1b) lets these calls wait DRAFT_WAIT, as long as the
+     function itself may run (180 s). The server's own refusals come through
+     as they are; a call that runs out of time is "still working"; anything
+     else is said plainly (plainError). */
   var DRAFT_WAIT = 180000;
   function callLong(name, data, ms) {
-    var u = global.EGBCAuth && EGBCAuth.user && EGBCAuth.user();
-    if (!(EGBCAuth.functionUrl && u && u.getIdToken)) return EGBCAuth.call(name, data);
-    return u.getIdToken().then(function (tok) {
-      var ac = typeof AbortController !== 'undefined' ? new AbortController() : null, wait = ms || api.DRAFT_WAIT;
-      var stop = ac ? setTimeout(function () { ac.abort(); }, wait) : null;
-      return fetch(EGBCAuth.functionUrl(name), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-        body: JSON.stringify({ data: data || {} }), signal: ac ? ac.signal : undefined }).then(function (r) {
-        if (stop) clearTimeout(stop);
-        return r.json().catch(function () { var x = new Error(''); x.code = 'unknown'; throw x; });
-      }, function (e) {
-        if (stop) clearTimeout(stop);
-        var x = new Error(''); x.code = e && e.name === 'AbortError' ? 'still-working' : 'unreachable'; throw x;
-      }).then(function (body) {
-        if (body && body.error) { var e = new Error(body.error.message || ''); e.code = body.error.status ? String(body.error.status).toLowerCase().replace(/_/g, '-') : 'unknown'; throw e; }
-        return (body && body.result) || {};
-      });
+    return EGBCAuth.call(name, data, { timeoutMs: ms || api.DRAFT_WAIT }).catch(function (e) {
+      /* the server's codes are words; a browser's abort carries the old number 20, so it isn't one */
+      if (e && typeof e.code === 'string' && e.code) throw e;
+      var x = new Error(''); x.code = e && e.name === 'AbortError' ? 'still-working' : e instanceof SyntaxError ? 'unknown' : 'unreachable'; throw x;
     });
   }
   /* never a raw error: the server's own refusals are already plain words; anything else is said plainly */

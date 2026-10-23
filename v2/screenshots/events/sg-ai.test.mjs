@@ -342,9 +342,12 @@ try {
   QUEUE.push(Object.assign(message(D3), { delay: 12000 }));
   await go(O, 'safeguarding.html?event=ev_trip3', '#sgaAiText');
   await O.$eval('#sgaAiText', (e) => { e.value = 'A day at the climbing wall for the youth group (invented).'; });
+  /* which way the call goes: the shared EGBCAuth.call, with main's { timeoutMs } (aa740f1b) */
+  await O.evaluate(() => { const c = EGBCAuth.call; window.__calls = []; EGBCAuth.call = function (n, d, o) { window.__calls.push([n, o && o.timeoutMs]); return c.apply(this, arguments); }; });
   await tap(O, '#sgaAiGo');
   ok('12. WHILE IT DRAFTS: "Drafting… this takes about a minute."', /Drafting… this takes about a minute./.test(await text(O, '#sgaAiMsg')));
   await O.waitForSelector('#sgaAiLabel', { timeout: 40000 });
+  ok('   THROUGH THE SHARED CALL: EGBCAuth.call(…, { timeoutMs: 180000 }), not a page’s own', (await O.evaluate(() => JSON.stringify(window.__calls))).includes('["sgDraftAssessment",180000]'), await O.evaluate(() => JSON.stringify(window.__calls)));
   ok('   A DRAFT THAT TAKES 12 SECONDS ARRIVES: the page did not give up', !!(await O.$('#sgaAiLabel')));
   const a12 = await assess('ev_trip3') || {};
   ok('   NOTHING BOOKED AND NOBODY NAMED: the hub says the ratio can’t be checked', /No children booked and no leaders named yet: the ratio can’t be checked/.test((a12.risks || [])[0] && a12.risks[0].risk) && a12.risks[0].from === 'hub', J((a12.risks || [])[0]));

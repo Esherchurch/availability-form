@@ -11177,3 +11177,422 @@ Every function must take the church from the sign-in's claim or the document's p
 **For the main window:** the two booking cases that were at the limit in the church ruleset (H-8) should now pass there too, with room to spare. Please re-run `AS_CHURCH=mc-test`. The built files are regenerated.
 
 **Deploy:** nothing. The rules go live when the hub goes live.
+
+
+### F-280 — PLAN: proper health, safety and fire risk assessments for buildings, events and room hire, reusing the safeguarding work; and a safeguarding part for camps (Martin, 23 Oct; for review; NOTHING BUILT)
+
+**What Martin asked:**
+- The safeguarding assessment's features (F-265 to F-279) on the hub's other risk assessments. They must be a proper health, safety and fire risk assessment, and the hub must read external ones. Safeguarding stays separate. Everything must work for any church.
+- **Second addition:** a camp assessment, and the gaps in the safeguarding checklist that the reviewing window found. It compared the Diocese of Derby's 2018 guide and Newday's group-leader pages with egbc-sg-templates.js (OneDrive, "New hub\Camp risk check\camp-coverage.md"). That is section 10.
+
+**No building until Martin answers the questions at the end.**
+
+---
+
+**1. What the hub has today** (surveyed file by file)
+
+| Where | What it has | What it doesn't have |
+|---|---|---|
+| **risk.html**, the "Live risk register" (F-234) | Hazards per building, likelihood × severity 1–5 (High 15+, Medium 5+, Low: the same bands as safeguarding); 14 starter hazards; **controls are the building's compliance checks**, so a hazard turns amber or red when a check is overdue or a safety job is open; the professional fire and H&S reports uploaded and stored (assessor, date, next review), which also records the "fire-ra" / "hs-ra" check; "changes since the last report"; trustee snapshots ("Live risk management: …" banner); the visitors' GEEP | No owner or review date on a hazard; no rating after the controls; no actions of its own (only maintenance jobs on checks); the reports are **stored but never read**; no AI, no dials, no blocking checklist; the print is the screen; sign-off is hard-wired to the teams "Elders" and "Church office" |
+| **compliance.html** and building.html (F-230 to F-233) | About 85 checks (fire, electrics and PAT, gas, water, asbestos, H&S, food, insurance, security, data), each legal, standard or good practice, with floors the rules enforce; certificates per check; the extinguisher register; the yearly trustee sign-off; reminders; Val's "my checks" | No dials; **sign-off isn't blocked by anything red**; certificates aren't read; the print is the screen; no named roles; "event-ra" exists but nothing ever makes it due |
+| **Ordinary events** (events-admin.html) | A free-text checklist; a capacity (a booking limit only); the event team | **No risk assessment at all**; capacity isn't checked against the room's fire maximum; no first aid, food, insurance or fire questions |
+| **Room hire** (book.html, bookings-admin.html, the Hirers tab) | Each room's fire-safety maximum, **enforced by the rules**; hirers' documents (insurance, safeguarding policy, **risk assessment**) with expiry reminders; versioned terms | The hirer's risk assessment is **stored, never read, never required**; no risk questions to hirers |
+| **PEEPs, GEEPs, fire roll-call** | Personal and visitors' evacuation plans; the fire wardens and stewards (on Safeguarding settings) | Not linked to any fire risk assessment |
+| **Maintenance** | Jobs (with a "safety" flag, an owner and a due date); finishing a job on a check records the check | — |
+| **Roles** | "Church office" (admin), "Elders" (trustees), "Maintenance" teams; the bookings admin per site | **No health and safety lead, fire safety lead, "responsible person" or premises role anywhere** |
+
+---
+
+**2. The shape: one assessment engine, two separate registers**
+- **Shared code, not shared data.** F-265 to F-279's pieces become a small shared engine. The safeguarding register keeps using it, unchanged, proved by its own tests before anything new uses it.
+
+  | Shared piece | Taken from |
+  |---|---|
+  | **Ratings** | the same bands as both registers |
+  | **The required checklist** (`checklistFor`, `answered`, the rules' "blocks sign-off") | egbc-sg-templates.js and firestore.rules |
+  | **The dials** | egbc-sg-dash.js `dial()`, moved to a shared file |
+  | **The A4 print** (DRAFT until signed, the red box, dials, checklist, risk table in words, appendix, signatures) | sg-print.html, its sections made pluggable |
+  | **The AI draft** (the personal-details refusal, the hub's own rows, the hub's own sums, the caps, the log, key and set-up errors, no other model, the long call) | functions/sg-ai.js and sg-ai-core.cjs |
+  | **The document reader** (PDF and pictures natively, scans read by Claude itself, Word turned into words first, personal details left out, the original kept, checked by a person) | sg-requirements-core.cjs |
+
+- **Separate data and rules:** new collections `raAssessments`, `raActions` and `raFiles`, with their own rule helpers and their own pages.
+  - **Nothing from the safeguarding register shows on the building or event side**, and nobody gains safeguarding access by being, for example, the health and safety lead.
+  - The AI log keeps a separate kind and its own caps (question 9).
+  - risk.html's starter hazard "safeguarding" stays only as a pointer to the safeguarding register, with no data.
+- **For any church:** every role, threshold, checklist addition and sign-off rule is a setting, with EGBC's values as the defaults.
+
+---
+
+**3. The kinds of assessment**
+
+**A. Health and safety, for each building.** It follows the HSE's five steps, each a section of the assessment and of the print:
+1. **Find the hazards.** From the building's profile (the 31 questions compliance.html already asks), risk.html's starter hazards, and a walk-round.
+   - **Each room gets Derby's room hazards** as starters: entrances, exits and windows; stairs; heating; the kitchen and food hygiene; furniture; electrics; cleaning materials; craft materials and tools; toilets and storage; fire and carbon monoxide; plants and toys.
+   - **They belong here, not in safeguarding.** A group's safeguarding assessment links to its room's (section 10.8).
+2. **Decide who might be harmed and how.** Staff, volunteers, visitors, children, people who are older or disabled, contractors, hirers.
+3. **Evaluate the risks and decide on precautions.** Likelihood × severity before and after the controls, **by the hub's own sums, never the AI's**. The controls are the compliance checks already there, plus written ones.
+4. **Record the findings and act.** Each significant finding has an owner, and each action a priority and a target date. An action becomes a maintenance job.
+5. **Review.** A review date, which turns amber and then red, plus "review after a significant change" (building work, an incident, new activity).
+
+**How this meets "suitable and sufficient"** (Management of Health and Safety at Work Regulations 1999, regulation 3; the HSE's guidance):
+- **It identifies the significant risks.** Prompted by the profile, the starters and a required checklist, so nothing obvious is skipped.
+- **It considers everyone affected,** including those more at risk (step 2 is required, with the groups listed).
+- **It's proportionate.** A small hall gets a short assessment; a busy building with a kitchen and a lift gets the sections its profile calls for.
+- **It's done by a competent person.** The assessment records who did it, and, for a complex building, says plainly that a competent person (a professional assessor) should do or check it.
+- **It's recorded.** Required in law with five or more employees; the hub records it for every church.
+- **It's kept under review.** A review date, plus the "after a change" prompts.
+- **It's remedial, not just descriptive.** Actions with owners and dates, tracked to done.
+
+**B. Fire, for each building.** Under the Regulatory Reform (Fire Safety) Order 2005, laid out like PAS 79-1:
+1. **The premises and how they're used:** construction, floors, rooms (from places-admin.html), occupancy (each room's fire maximum), hours, hirers.
+2. **The responsible person** (question 3), and who carries out the assessment.
+3. **The people at risk,** including anyone who needs help to get out.
+   - It links the PEEPs and GEEPs as **counts only** ("3 personal evacuation plans, 1 for visitors").
+   - It **never names anyone on the print**; the fire roll-call keeps the names.
+4. **Fire hazards:** ignition sources (electrics, heaters, cooking, candles, smoking), fuel (storage, furnishings, waste), oxygen (none usually; noted).
+5. **Fire protection:**
+   - detection and alarm
+   - escape routes, emergency lighting and signs
+   - firefighting equipment (the extinguisher register already in the hub)
+   - compartmentation and fire doors
+6. **Management:** training (fire marshals), drills, testing and maintenance records.
+   - These **link the compliance checks already in the hub** (alarm tests, emergency lighting, extinguishers, drills, fire marshal training), showing each one's last date and colour.
+7. **The action plan:** each action with a priority (question 8) and a target date, becoming a maintenance job.
+8. **The review date.**
+
+Each building has its own.
+
+**C. An event** (a concert, a carol service with candles, a fair, an outside hirer's event). A shorter assessment that **refers back to its building's fire and H&S assessments** (by name and date). It adds only what the event changes:
+- numbers against each room's fire maximum
+- candles or any naked flame
+- stewards, and their briefing
+- equipment brought in (PAT)
+- food and allergens
+- outdoor areas, the car park and traffic
+- weather
+- licensing (music, alcohol, a temporary event notice)
+- first aiders on the day
+
+The hub adds its own rows from its numbers, as the safeguarding draft does its "not enough leaders" row:
+- "300 people booked, fire maximum 250: must not go ahead as described"
+- "Candles in the hall: refers to the building's fire assessment, section 4"
+
+**D. Room hire.** The hirer's own risk assessment (often required by the terms):
+- read from their document
+- **checked against the building's**: the building's significant hazards they haven't addressed, and their numbers against the room's fire maximum
+- the office confirms
+
+---
+
+**4. Reading external assessments** (a professional fire risk assessment, an H&S assessment, an insurer's survey, or a hirer's own; PDF, Word, or a photo or scan)
+- **Claude reads it** (the same reader as the host's requirements, F-277) and pulls out:
+  - **the assessor, the date, the next review date and the overall rating**
+  - **each significant finding** as a hazard. Where the report gives likelihood and severity, the hub re-scores them with its own sums. Where it gives only words (e.g. "moderate"), those are kept as "the assessor's rating", and the person is asked to set likelihood × severity.
+  - **each action, with its priority and deadline.** A person confirms each one, then it **becomes a job in the existing maintenance list** (safety flag, owner, due date), and the finished job is recorded against the assessment.
+  - **any heading a proper assessment should have that the document lacks, flagged as a gap.** For example, a fire assessment with no section on people needing help to get out, or no review date.
+- **The original file is kept,** where risk.html already keeps reports.
+- **The hub's copy is labelled "Read from <assessor>'s report, checked by <name> on <date>".**
+- A professional report also fills risk.html's existing record (assessor, date, next review) and records the "fire-ra" or "hs-ra" check, as uploading one does today.
+- **A hirer's assessment** is read the same way and compared with the building's, as in 3D.
+- **Personal details** in a report are left out of what's saved, and the reader is told. The file itself is kept as it came, readable only by those who read the building's assessments.
+
+---
+
+**5. The AI first draft**
+- **From a plain description,** e.g. "Christmas concert, 300 people, candles, hall and car park". It's the same callable pattern as safeguarding, with its own instructions for each kind (five steps; PAS 79-1 headings; the event's changes).
+- **The counts the hub knows go with it:**
+  - each room's fire maximum
+  - the compliance checks' colours
+  - the first aiders' and fire marshals' training dates (counts only)
+  - the PEEPs and GEEPs (counts)
+- **The hub's own sums, never the AI's,** for every rating and the overall. **The hub's own rows** where its numbers say so (capacity; anything red in compliance).
+- Labelled "First draft by AI: check every line". The AI's checklist answers are suggestions "to confirm".
+
+---
+
+**6. The required checklist** (blocks sign-off by the rules until each is answered or "not applicable, with a reason")
+- **Every kind starts with insurance:** buildings, public liability, and employers' liability where there are staff.
+- **Building H&S:** the five steps, then by profile: first aid, food hygiene, electrics, gas, water, asbestos, working at height, lone working, manual handling, contractors, accessibility.
+- **Building fire:** the PAS 79-1 headings above.
+- **Event:**
+  - insurance
+  - the building's assessments in date
+  - capacity against the fire maximum
+  - fire (flames, exits, stewards, the briefing)
+  - first aid
+  - food hygiene and allergens
+  - electrics brought in
+  - crowd management
+  - accessibility
+  - weather or cancellation
+  - licensing
+  - incidents
+- **Hire:** the hirer's insurance, their risk assessment, their first aid, food, electrics, numbers.
+- **A church adds its own questions** (as for safeguarding); the core can't be removed.
+
+---
+
+**7. Dials, and the print**
+- **A building dashboard,** in the Calla style, on risk.html's first tab:
+  - the fire assessment in date
+  - the H&S assessment in date
+  - compliance checks in date (%)
+  - actions overdue
+  - open safety issues
+  - the checklist answered
+- **On each print, a row of dials** as on the safeguarding print.
+- **The A4 print** (shared with safeguarding):
+  - DRAFT until signed
+  - "Signed off by <name>, <role>, on <date>"
+  - the red box for anything that must not go ahead
+  - the sections of its kind
+  - the risk table in words
+  - the action plan with priorities and dates
+  - an appendix for the external report read
+  - signature boxes
+- **"Not legal advice," on the page and the print:** *"The hub helps the church record its assessment. The responsible person remains responsible for it. For a complex building, or where you're unsure, a competent person, such as a professional fire risk assessor, should carry out or check the assessment."* (Wording for Martin to approve.)
+
+---
+
+**8. Who signs off: church settings, with EGBC's defaults** (questions 2, 4 and 10)
+- **New roles,** set for each building on a "Health and safety settings" card:
+  - a **health and safety lead** and deputy
+  - a **fire safety lead** (may be the same person)
+  - the **responsible person** shown on the fire assessment
+- **Defaults to discuss:**
+
+  | Kind | Signs off |
+  |---|---|
+  | Building H&S and fire | the H&S or fire lead, then a trustee countersigns |
+  | Event | the organiser, then the H&S lead |
+  | Hire | the office, then the H&S lead |
+
+- **The rules check who signs,** as `sgLeadOf()` does for safeguarding.
+
+---
+
+**9. Steps** (each with its own checks, breaks and report, as before)
+1. **The shared engine:** moved out of the safeguarding code with no change. Proof: every safeguarding test passes unchanged.
+2. The roles and settings.
+3. **The building's H&S and fire assessments,** linked to risk.html (question 1) and compliance.
+4. **Reading external reports,** and their actions becoming jobs.
+5. **Events and hire,** referring back to the building's.
+6. **The dials and the print.**
+7. **The AI drafts** (one real call each, only with the reviewing window's say-so).
+
+Steps 2 to 7 wait for Martin's answers. **The order of the two parts is question 22:** my recommendation is the safeguarding part (section 10) first. It is smaller and changes the files step 1 would move, and the Newday test can then happen sooner.
+
+---
+
+**10. The safeguarding part: camps, and the gaps found**
+
+**Where it lives:**
+- All of it stays in the safeguarding register, under its own rules and its own readers.
+- Nothing goes to the building side except one link (10.8).
+- Nobody on the building side gains any safeguarding access.
+- "Our own words" throughout: nothing is copied from Derby or Newday.
+
+**10.1 A new event kind, "Camp or festival"**
+- **It gets its own questions and starter risks,** in the templates, the server's copy (functions/sg-checklist.cjs) and the rules' required list, as for the other kinds.
+- **The lead's or deputy's sign-off is required automatically** when anyone under 18 goes (question 14).
+- **Questions** (each required, or "not applicable, with a reason"):
+  - **Tents:** where they go, and the spacing the site asks for (e.g. 2 m between tents, 3 m for cooking tents, caravans and motorhomes, 1.5 m from the boundary); guy lines marked.
+  - **Fire in tents:** no candles, smoking or vaping in tents; gas lights watched; an extinguisher and a fire blanket by the cooking area.
+  - **Cooking:** gas only (or what the site allows); a designated cooking tent away from sleeping tents; fuel stored away from stoves and tents; who supervises; the stove briefing.
+  - **Food:** whoever caters holds a Level 2 food hygiene certificate; hand washing and sanitiser before meals; hot water for washing up.
+  - **Nights:**
+    - the tent check at a set time
+    - single-gender tents
+    - where the adults sleep (central, and known to everyone)
+    - a leader contactable on site day and night
+  - **Medical:**
+    - a named medical officer everyone knows (a role, not a name, if you prefer)
+    - the site's medical facilities, and that young people know where they are
+    - **adults' health forms, with next of kin, as well as children's.** These are kept by the medical officer, never in the hub; the hub records only "collected: yes".
+  - **The site's rules:** generators, barbecues, alcohol, smoking and vaping, wristbands, electrics (PAT-tested, not tampered with), forms and their deadlines.
+  - **Vehicles:** car-free times; where vehicles go.
+  - **Leaving the site:** never alone; tell a leader first; never on foot where the site says so; off site by the set time on the last day.
+  - **Set-up day:** who goes; under-18s only if essential and supervised at all times.
+- **Starter risks** (likelihood × severity by the hub's sums, as now):
+  - fire in a tent
+  - burns or gas from cooking
+  - carbon monoxide from a stove or heater in a tent
+  - trips on guy lines in the dark
+  - food poisoning
+  - a young person leaving the site
+  - harm at night
+  - a vehicle moving on site
+  - someone lost in a large crowd
+  - the weather (heat, cold, flooding)
+  - an adult's own health emergency
+- **A camp also gets the overnight questions** (question 13).
+
+**10.2 Three new core questions for every event**
+- **Behaviour:** what's expected, how it's handled, and the host's behaviour policy or code of conduct if there is one.
+- **Accessibility needs:** how they're found out and met, and the host's accessibility contact.
+- **Visitors and members of the public:** who else will be there, and how the group is kept apart where needed.
+- **The standing register gets them too** for regular groups: behaviour and visitors as starter risks (Derby's areas 4 and 5).
+- **Assessments already signed off don't change.** Unsigned ones gain the questions (question 16).
+
+**10.3 Leader checks: a reference, and the host's policy**
+- **A church leader's reference:** received, with its date.
+  - It is kept with each leader's DBS and training (`leaderChecks`), so it is recorded once and shown on every event. The same people read it: the lead and deputy.
+- **"Has read the host's safeguarding policy":** a tick per leader **per event**, only when the event has a host.
+  - When the host's requirements say so (Newday does), it becomes a required question.
+- **The event's leader check shows both.** A missing one is amber, and red when the host requires it.
+- How long a reference lasts, and whether to add Derby's confidential declaration, is question 15.
+
+**10.4 "Still to do" and "trustees noted" (Derby's steps 4 and 5)**
+- **Each risk can have "still to do" actions:** what, who (a named person or a role), and by when; up to 5 per risk.
+  - An overdue action turns the risk amber in the warnings.
+  - The print gets a "Still to do" table.
+  - Whether sign-off can happen with open actions is question 17.
+- **"Trustees noted on <date>":**
+  - After sign-off, a trustee ticks "noted". The name and date are recorded and printed.
+  - It doesn't stop the event.
+  - Which kinds need it is question 18.
+
+**10.5 Prompts to review a standing risk again**
+- **When an incident is recorded on an event linked to an activity,** that activity's standing risks show "Review prompted: an incident on <date>". This happens in the daily safeguarding check (functions/sg-warnings.js).
+  - **Only the date and the count are used. Nothing of the incident is copied:** not its words, its people or its follow-up.
+- **When a group's size changes a lot** since the risk was last reviewed, the risk shows the same prompt. The hub keeps the number of children at each review, and the threshold is question 19.
+- **Both show amber on the dials and in the warnings** until someone reviews the risk.
+
+**10.6 The host's requirements from web pages or pasted text**
+- **Pasted text** goes straight to the same reader as a file (F-277).
+- **Links:** up to 5 starting addresses, read by the function itself (question 20). It reads only what is safe:
+  - **Https only,** on the standard port; no sign-in, no cookies.
+  - **Public addresses only:**
+    - The name is looked up, and anything private is refused: private, loopback, link-local (including 169.254.169.254, the cloud's own metadata address), shared, multicast, and IPv6 local.
+    - The connection goes to the address that was checked, so the name can't be switched to a private address between the check and the connection.
+  - **Redirects are not followed blindly.** Each one is checked by the same rules, at most 3, and never to plain http.
+  - **Caps:**
+    - 2 MB a page
+    - 20 pages in all
+    - 45 seconds in all
+    - web pages, plain text or PDF only
+  - **Links are followed one level down, on the same site only.** A help-centre folder page (like Newday's) lists its articles; those articles are read, and nothing further.
+- **Scripts, menus and page furniture are stripped,** and only the words go to Claude, with personal details left out as now.
+- **The leader sees every page read,** with its address, and each suggested question with the page it came from. **A person checks the list before anything is saved**, as for a file.
+- **What's kept:** the addresses, the date read, and the text read, in Storage beside where files are kept (question 21).
+- **Tests:** a stub web server and a stub address lookup, with no real network. Each protection has a break:
+  - plain http
+  - a private address
+  - a name that turns private
+  - a redirect to a private address
+  - a too-large page
+  - too many pages
+  - a link to another site
+- **The first real test** replaces waiting for a camp document:
+  - **What:** Newday's pages on a practice event named "Example: Newday camp (test, not real)":
+    - https://newday.freshdesk.com/support/solutions/folders/80000687928
+    - plus the Being a Group Coordinator, General Information and Accessibility folders
+  - **Who:** only on the reviewing window's word, by the reviewing window (I don't write live data or sign in to the live hub; question 23).
+  - **Still needed:** the three folders' addresses.
+
+**10.7 Never socket covers**
+- **Every AI instruction says so:** the safeguarding draft, the host's requirements, and the new H&S and fire drafts. "Never recommend socket covers or plug-in socket protectors: UK sockets are shuttered, and safety bodies advise against them."
+- **The server also checks the reply.** Any control, answer or suggestion mentioning socket covers, protectors, inserts or plugs is removed. The leader is told "One suggestion was left out: socket covers aren't advised for UK sockets."
+- **Tests:**
+  - the instruction is in what's sent
+  - a stub reply that recommends socket covers never reaches the page or the database
+  - **Break:** the server check removed
+  - A real-model check only as one of the real calls, on the reviewing window's word.
+
+**10.8 Room hazards: a link only**
+- **Derby's room hazards go in the building's H&S assessment** (section 3A, step 1).
+- **The link:** a regular group whose activity is in a room shows "This room's health and safety assessment: <date>, <colour>", linking to it.
+  - **Only that date and colour cross over.** The H&S assessment itself needs H&S access to read.
+  - Nothing from safeguarding goes the other way.
+
+**Safeguarding steps** (each with its own checks, breaks and report):
+1. **Never socket covers** (10.7). It's small and it protects every later AI call.
+2. **The camp kind and the three core questions** (10.1, 10.2).
+3. **Leader checks** (10.3).
+4. **"Still to do" and "trustees noted"** (10.4).
+5. **Re-review prompts** (10.5).
+6. **Web pages and pasted text** (10.6), then the Newday real call on the reviewing window's word.
+
+---
+
+**11. Questions for Martin** (my recommended answer first)
+
+1. **risk.html and the new assessments:**
+   - **(a, recommended)** Keep risk.html as the day-to-day "live register" and add the formal fire and H&S assessments alongside it. Their significant findings feed its hazards, so the daily checks keep watching them.
+   - (b) Turn risk.html itself into the assessment.
+2. **Who signs a building's fire and H&S assessments:**
+   - **(a, recommended)** The named H&S or fire lead signs, then a trustee countersigns.
+   - (b) A trustee alone.
+   - (c) The lead alone.
+3. **The "responsible person" on the fire assessment:**
+   - **(a, recommended)** "The trustees of <church>", with the named fire safety lead as the person who acts for them.
+   - (b) A named individual.
+4. **Which events need an assessment:**
+   - **(a, recommended)** Any event the organiser marks, plus automatically when it has 100 or more people (a setting), naked flames, food, alcohol, outdoor areas, equipment brought in, or an outside hirer.
+   - (b) Every event.
+5. **Who signs an event's:**
+   - **(a, recommended)** The organiser, then the H&S lead.
+   - (b) The H&S lead alone.
+6. **Hirers' own risk assessments:**
+   - **(a, recommended)** Required for the booking types the office ticks (a setting, e.g. events open to the public, food, equipment); read and checked against the building's; the office confirms.
+   - (b) Required for every hire.
+   - (c) Optional.
+7. **Actions from a report:**
+   - **(a, recommended)** Become maintenance jobs (safety-flagged, with an owner and a due date) once a person confirms each.
+   - (b) Stay in the assessment only.
+8. **Action priorities:**
+   - **(a, recommended)** High, Medium or Low, with default target dates of 1 month, 3 months and 6 months (settings). Anything the assessor calls "immediate" is flagged red at once.
+   - (b) The assessor's own priorities as written.
+9. **AI caps:**
+   - **(a, recommended)** Separate from safeguarding's, with the same defaults (20 a day for the church, 5 a person).
+   - (b) Shared.
+10. **The roles:**
+    - **(a, recommended)** One H&S lead and a deputy for each building, and a fire safety lead who may be the same person.
+    - (b) One H&S lead for the whole church.
+11. **Employees:** does EGBC have five or more? It changes only one line of wording; the hub records the assessment either way.
+12. **The "not legal advice" wording** in section 7: as written, or changed?
+
+**The safeguarding part (section 10):**
+
+13. **A camp and the overnight questions:**
+    - **(a, recommended)** A camp also gets every overnight question (sleeping, the night rota, and so on) plus its own.
+    - (b) Camp questions only.
+14. **When a camp needs the safeguarding lead's or deputy's sign-off:**
+    - **(a, recommended)** Whenever anyone under 18 is booked, or the organiser ticks "under-18s going".
+    - (b) Every camp, whoever goes.
+15. **The leader's reference:**
+    - **(a, recommended)** Recorded once per leader with its date, lasting 3 years (a setting), and shown on every event. "Read the host's policy" is ticked per leader per event.
+    - (b) Both per event.
+    - **Also:** add Derby's confidential declaration as a third item? I recommend yes, recorded the same way as the reference.
+16. **The three new core questions** (behaviour, accessibility, visitors):
+    - **(a, recommended)** Required on every assessment not yet signed off, from the day they're built. Signed ones are unchanged.
+    - (b) New events only.
+17. **"Still to do" actions and sign-off:**
+    - **(a, recommended)** Sign-off is allowed with open actions that have a person and a date, unless the risk is still red after its controls.
+    - (b) Every action done before sign-off.
+18. **"Trustees noted":**
+    - **(a, recommended)** For camps, overnights, trips abroad and adventurous activities (a setting). A trustee ticks it after sign-off, and it doesn't stop the event.
+    - (b) Every event.
+    - (c) Required before the event can go ahead.
+19. **Re-review prompts:**
+    - **(a, recommended)** After any incident on that activity, and when the group's size has changed by a quarter or more since the last review (a setting).
+    - (b) A different threshold: say which.
+20. **Reading web pages:**
+    - **(a, recommended)** The function reads them itself, with the protections in 10.6, so every check is ours, tested and logged.
+    - (b) Claude's own web-reading tool, which needs less code, but its checks aren't ours to test.
+21. **Keeping what was read from web pages:**
+    - **(a, recommended)** The addresses, the date and the text, kept like an uploaded file, so the record shows what the requirements were on that day.
+    - (b) The addresses and date only.
+22. **Which part first:**
+    - **(a, recommended)** The safeguarding part (section 10), then the H&S and fire work.
+    - (b) H&S and fire first.
+23. **The Newday practice event on the live hub:**
+    - **(a, recommended)** The reviewing window or Martin creates "Example: Newday camp (test, not real)" on the live hub and runs the one real call there, with the three folders' addresses.
+    - (b) I write a small script for Martin to run that creates it.
+
+---
+
+**Also done with this (not part of the plan):** main's `EGBCAuth.call(name, data, { timeoutMs })` (aa740f1b) now carries the safeguarding AI draft, host-requirements, file and status calls. My own long call is gone; the waits (180 s, 60 s, 30 s) and the plain messages are the same.
+- **Caught on the way:** a browser's "gave up waiting" error carries the old number code 20, so the page took it for the server's refusal and said "couldn't be finished" instead of "Still working: reload in a minute". Only word codes count as the server's now.
+- **Breaks:** the shared call without the longer wait, a timeout shown raw, and any code passed through. Each was caught by sg-ai.test.mjs.
+- **Tests:** sg-ai and sg-host pass.
