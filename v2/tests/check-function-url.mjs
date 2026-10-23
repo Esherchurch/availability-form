@@ -1,6 +1,9 @@
 /* EGBCAuth.functionUrl(name): the address of one of the hub's functions,
  * the same one EGBCAuth.call() posts to (reviewing window, 22 Oct 2026:
  * egbc-present.js worked it out a second time, for its leave beacon).
+ * And EGBCAuth.call(name, data, { timeoutMs }) (reviewing window, 23 Oct
+ * 2026: the safeguarding AI draft takes ~45 s, past the 8 s default).
+ * BREAK=timeout serves a call() that ignores the option: must fail.
  *
  *   node tests/check-function-url.mjs          (from v2/, the dev emulators up)
  *   BREAK=1 node tests/check-function-url.mjs  serves an egbc-auth.js whose
@@ -20,7 +23,7 @@ import { makeEval } from './browser-eval.mjs';
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const SERVE = 8991, CDP = 9805, PW = 'test-only-password';
-const BREAK = !!process.env.BREAK;
+const BREAK = process.env.BREAK || '';
 const OWNER = { Authorization: 'Bearer owner' };
 const R = [];
 const ok = (n, v, x) => { R.push(v); console.log('  ' + (v ? 'PASS  ' : 'FAIL  ') + n + (v ? '' : (x !== undefined ? '\n          ' + String(x).slice(0, 400) : ''))); };
@@ -45,7 +48,8 @@ const server = http.createServer((q, s) => {
   let body = fs.readFileSync(f, 'utf8');
   /* The break: an address worked out separately, wrongly (another port,
      nothing listening) - never the live one, which a check must not reach. */
-  if (BREAK && url === '/egbc-auth.js') body = body.replace("return FUNCTIONS_BASE + '/' + encodeURIComponent(String(name || ''));", "return 'http://localhost:5199/' + FIREBASE_CONFIG.projectId + '/europe-west2/' + name;");
+  if (BREAK === 'timeout' && url === '/egbc-auth.js') body = body.replace('return callFunction(name, data, t > 0 ? Math.min(t, 540000) : undefined);', 'return callFunction(name, data);');
+  if (BREAK && BREAK !== 'timeout' && url === '/egbc-auth.js') body = body.replace("return FUNCTIONS_BASE + '/' + encodeURIComponent(String(name || ''));", "return 'http://localhost:5199/' + FIREBASE_CONFIG.projectId + '/europe-west2/' + name;");
   s.writeHead(200, { 'Content-Type': (url.endsWith('.js') ? 'text/javascript' : 'text/html') + '; charset=utf-8', 'Cache-Control': 'no-store' });
   s.end(body);
 }).listen(SERVE);
@@ -79,6 +83,20 @@ try {
   ok('  posting to it reaches the function (whoAmI answers)', /^200 ok$/.test(viaUrl), viaUrl);
   const viaCall = String(await evl('EGBCAuth.call("whoAmI",{}).then(function(r){return Array.isArray(r.people)?"answered":JSON.stringify(r)},function(e){return "failed: "+e.message})', true));
   ok('  and call() reaches the same function', viaCall === 'answered', viaCall);
+  /* THE TIMEOUT. fetch is swapped for a stand-in that answers after a set
+     delay and gives up when told to (as a real one does), so no slow
+     function is needed. */
+  await evl('(function(){window.__slow=0;var real=window.fetch;window.fetch=function(u,o){if(!window.__slow)return real(u,o);var ms=window.__slow;return new Promise(function(res,rej){var t=setTimeout(function(){res(new Response(JSON.stringify({result:{ok:1}}),{headers:{"Content-Type":"application/json"}}));},ms);if(o&&o.signal)o.signal.addEventListener("abort",function(){clearTimeout(t);rej(new DOMException("aborted","AbortError"));});});};return 1})()');
+  const timed = async (ms, opts) => {
+    const r = String(await evl('(function(){window.__slow=' + ms + ';var t0=Date.now();return EGBCAuth.call("whoAmI",{}' + (opts ? ',' + JSON.stringify(opts) : '') + ').then(function(){return "answered "+(Date.now()-t0)},function(e){return "gave up "+(Date.now()-t0)}).finally(function(){window.__slow=0})})()', true));
+    return { r, ms: Number(r.split(' ').pop()) };
+  };
+  let t = await timed(9000);
+  ok('call() with no option still gives up at 8 seconds', /^gave up/.test(t.r) && t.ms >= 7500 && t.ms < 9000, t.r);
+  t = await timed(9000, { timeoutMs: 15000 });
+  ok('  with timeoutMs 15000 it waits for a 9-second answer', /^answered/.test(t.r), t.r);
+  t = await timed(4000, { timeoutMs: 2000 });
+  ok('  and with timeoutMs 2000 it gives up on a 4-second one, at 2 seconds', /^gave up/.test(t.r) && t.ms < 3500, t.r);
   exitCode = R.every(Boolean) ? 0 : 1;
 } catch (e) { console.log('  FAIL  the run itself: ' + (e && e.stack || e)); }
 finally {

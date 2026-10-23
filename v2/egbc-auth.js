@@ -1395,8 +1395,14 @@
     /* Call one of the hub's functions, signed in. The page does not repeat
        the region or the emulator port, and does not need a fourth Firebase
        script tag to do it - see callFunction above. */
-    call: function (name, data) {
-      return callFunction(name, data);
+    /* opts.timeoutMs: how long to wait before giving up, for the few calls
+       that take longer than the usual 8 seconds (the reviewing window, 23
+       Oct 2026: the safeguarding AI draft takes about 45 seconds). Capped
+       at 9 minutes, a function's own longest; without it, 8 seconds as
+       before. */
+    call: function (name, data, opts) {
+      var t = opts && Number(opts.timeoutMs);
+      return callFunction(name, data, t > 0 ? Math.min(t, 540000) : undefined);
     },
     /* The address of one of the hub's functions - the emulator's on the
        emulator, the live one otherwise - for a page that has to reach it

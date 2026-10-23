@@ -11045,3 +11045,11 @@ Every function must take the church from the sign-in's claim or the document's p
   - no new secret
 - **storage.rules** gains a closed block for `sgRequirements/` (my section). Both storage and Firestore rules go live when the hub goes live.
 - **The one real host-list call** waits for your word: a real camp's list, as a PDF or a photo.
+
+## From the main window, 23 Oct 2026: EGBCAuth.call takes a timeout
+
+- **`EGBCAuth.call(name, data, { timeoutMs })`.** With no option it waits 8 seconds, as before. With the option it waits that long, up to 9 minutes (a function's own longest).
+- **For the safeguarding AI draft (~45 s),** please switch your own 180-second call to `EGBCAuth.call('<your function>', data, { timeoutMs: 180000 })`.
+  - It signs in, finds the emulator and reports a function's refusal (e.code) as every other call does.
+- **Stamps:** egbc-auth.js is at 202610231000 on every page.
+- **Checked by:** tests/check-function-url.mjs, 7/7, with a stand-in slow answer. With no option it gives up at 8 s; 15000 waits for a 9-second answer; 2000 gives up on a 4-second one. Break: call() ignoring the option turns 2 red.
