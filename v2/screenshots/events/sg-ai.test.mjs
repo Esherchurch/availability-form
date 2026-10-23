@@ -25,7 +25,13 @@
      7. WHO: the organiser and the named leaders; not a volunteer or a trustee
      8. THE CAPS: the church's and each person's
      9. THE REGISTER'S SWITCH turns it off
-    10. 375px and computer, pictures */
+    10. 375px and computer, pictures
+    11. A KEY OR SET-UP PROBLEM (the reviewing window, 23 Oct): a key not
+        scoped to a workspace (400) and an expired key (401) say "The AI
+        isn't set up properly yet. Ask the church office.", are never
+        retried, log the API's request id and error type, and make
+        sgAiStatus say "set up but not working" - until the key changes or
+        a call works */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -75,7 +81,7 @@ const stub = http.createServer((req, res) => {
     let body = null; try { body = JSON.parse(b); } catch (e) {}
     SENT.push({ path: req.url, key: req.headers['x-api-key'], body });
     const next = QUEUE.shift() || { status: 500, body: { type: 'error', error: { type: 'api_error', message: 'nothing queued' } } };
-    res.writeHead(next.status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(next.body));
+    res.writeHead(next.status, Object.assign({ 'Content-Type': 'application/json' }, next.headers || {})); res.end(JSON.stringify(next.body));
   });
 });
 await new Promise(r => stub.listen(5617, '127.0.0.1', r));
@@ -287,6 +293,33 @@ try {
   await go(L, 'safeguarding-risk.html', '#regOff');
   ok('   and the register page says it is turned off', /The safeguarding risk register is turned off for this church/.test(await text(L, '#regOff')));
   await db.collection('churchSettings').doc('features').set({ safeguardingRegister: true }, { merge: true });
+
+  /* 11. a key or set-up problem */
+  const NOWS = { status: 400, headers: { 'request-id': 'req_stub_400' }, body: { type: 'error', error: { type: 'invalid_request_error', message: 'This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header (stand-in)' } } };
+  const EXPIRED = { status: 401, headers: { 'request-id': 'req_stub_401' }, body: { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key: the key has expired (stand-in)' } } };
+  const n11 = SENT.length;
+  QUEUE.push(NOWS);
+  const k1 = await call(Vv, 'sgDraftAssessment', { calEventId: 'ev_trip2', text: BRAZIL });
+  ok('11. A KEY NOT SCOPED TO A WORKSPACE (400): "The AI isn\u2019t set up properly yet. Ask the church office."', !k1.ok && k1.message === 'The AI isn’t set up properly yet. Ask the church office.', J(k1));
+  ok('   NEVER RETRIED: one call', SENT.length === n11 + 1, SENT.length - n11);
+  const kl = (await logs()).filter((l) => l.outcome === 'setup-failed');
+  ok('   logged with the API\u2019s request id and error type, and still no words', kl.length === 1 && kl[0].requestId === 'req_stub_400' && kl[0].errorType === 'invalid_request_error' && kl[0].status === 400 && !/Brazil|prison/.test(J(kl)), J(kl));
+  const ks = await call(Vv, 'sgAiStatus', { calEventId: 'ev_trip2' });
+  ok('   sgAiStatus: "set up but not working"', ks.ok && ks.r.state === 'broken' && /set up but not working yet\. Ask the church office/.test(ks.r.message), J(ks));
+  await go(Vv, 'safeguarding.html?event=ev_trip2', '#sgaAiState');
+  ok('   and the page says so, with no box to type in', (await Vv.$eval('#sgaAiState', (e) => e.getAttribute('data-state'))) === 'broken' && !(await Vv.$('#sgaAiText')), await text(Vv, '#sgaAi'));
+  ok('   the state keeps a fingerprint of the key, never the key', /^[0-9a-f]{12}$/.test(((await db.collection('sgAiState').doc('current').get()).data() || {}).key || ''));
+  await db.collection('sgAiStub').doc('config').set({ url: 'http://127.0.0.1:5617', key: 'stub-new-key' });
+  const kn = await call(Vv, 'sgAiStatus', { calEventId: 'ev_trip2' });
+  ok('   A NEW KEY: ready again', kn.ok && kn.r.state === 'ready', J(kn));
+  QUEUE.push(EXPIRED);
+  const k2 = await call(Vv, 'sgDraftAssessment', { calEventId: 'ev_trip2', text: BRAZIL });
+  const k2s = await call(Vv, 'sgAiStatus', { calEventId: 'ev_trip2' });
+  ok('   AN EXPIRED KEY (401): the same plain message, and "set up but not working"', !k2.ok && k2.message === 'The AI isn’t set up properly yet. Ask the church office.' && k2s.r.state === 'broken', J([k2, k2s]));
+  QUEUE.push(message(DRAFT));
+  const k3 = await call(Vv, 'sgDraftAssessment', { calEventId: 'ev_trip2', text: BRAZIL });
+  const k3s = await call(Vv, 'sgAiStatus', { calEventId: 'ev_trip2' });
+  ok('   once a call works, it is ready again', k3.ok && k3.r.ok === true && k3s.r.state === 'ready', J([k3, k3s]));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

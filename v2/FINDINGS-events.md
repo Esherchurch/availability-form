@@ -10765,3 +10765,47 @@ Every function must take the church from the sign-in's claim or the document's p
   - It goes through the same `callModel` and checks, writes nothing, and prints the draft and the token counts.
   - **It passes when:** the answer parses; the overall is red; there is a "must not go ahead" item; and the hub's row is there when the leaders are short.
 - **The rules** go live when the hub goes live.
+
+### F-275 — AI drafts: a key or set-up problem says so plainly; the one-real-call script ends cleanly (the reviewing window, 23 Oct; the events window)
+
+**Why:**
+- The first real call failed with a 400: "This API key is not scoped to a workspace…". The page showed a generic error.
+- The smoke script crashed on the way out (UV_HANDLE_CLOSING), after the error and after a good run.
+- Martin's key expires about 23 Nov 2026.
+
+**Built:**
+- **A key or set-up problem** means the API refused the request itself, not because it was busy: a 400 invalid request, a 401 (a wrong or **expired key**) or a 403. When that happens:
+  - The leader sees: **"The AI isn't set up properly yet. Ask the church office."**
+  - It is **never retried.** Only 429 and 5xx ("busy") are.
+  - `sgAiLog` records the outcome `setup-failed`, with the API's **request id, error type and status**. Still never the words.
+  - `sgAiState/current` remembers it (server-only), keeping just a 12-character fingerprint of the key, never the key.
+- **`sgAiStatus`** then reports **"set up but not working"** (`state: 'broken'`): "AI drafting is set up but not working yet. Ask the church office, and write the assessment from a template for now." The page shows that line in place of the box.
+- **It clears itself:**
+  - at once when the key changes (a new fingerprint)
+  - when a call works
+  - after 6 hours, so one real try can find out whether it has been put right
+- **sg-ai-smoke.mjs:**
+  - **No `process.exit()`.** It sets the exit code and lets Node finish, so there's no crash on the way out.
+  - An API error prints the plain message and "(the API said 400 invalid_request_error, request req_…)", with no stack trace.
+  - `--base-url` exists only for its own check, and is accepted for 127.0.0.1 or localhost only.
+
+**Proved:**
+- **sg-ai.test.mjs: 55/55** (9 new):
+  - a key not scoped to a workspace (400): the plain message, one call only, logged with the request id, type and status
+  - sgAiStatus "set up but not working", and the page showing it
+  - only a fingerprint kept
+  - a new key: ready
+  - an expired key (401): the same message and state
+  - a call that works: ready
+- **sg-ai-smoke.test.mjs: 7/7** (new; runs the script itself against a stand-in on this machine):
+  - the 400 and the 401 each give the plain message and exit 1 cleanly
+  - a good run passes its four checks and exits 0 cleanly
+  - no "UV_HANDLE_CLOSING", "Assertion failed" or stack trace either way
+- **Breaks, 5 of 5 caught:**
+  - **The one that matters:** a key problem shown as "could not be reached", with nothing remembered.
+  - A key problem retried.
+  - An expired key (401) not counted as a set-up problem.
+  - sgAiStatus never saying "set up but not working".
+  - The smoke script letting an API error crash it.
+
+**Deploy:** `sgDraftAssessment` and `sgAiStatus` again. No new secret, and no rules change.

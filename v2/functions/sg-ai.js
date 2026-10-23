@@ -22,9 +22,18 @@
    and nowhere else: not kept, not logged. sgAiLog keeps counts and the
    outcome only. Capped per church and per person per day (settings).
    On the emulator only, a local stand-in for the API (sgAiStub/config).
+   A KEY OR SET-UP PROBLEM (the API says 400 invalid request, 401 or 403 -
+   e.g. a key not scoped to a workspace, or a wrong or EXPIRED key: the
+   church's runs out about 23 Nov 2026; the reviewing window, 23 Oct) is
+   never retried: the leader is told "The AI isn't set up properly yet. Ask
+   the church office.", the log keeps the API's request id and error type,
+   and sgAiState/current remembers it, so sgAiStatus says "set up but not
+   working" - until the key is changed (it keeps only a short fingerprint of
+   the key, never the key) or a call works again.
    =================================================================== */
 import Anthropic from '@anthropic-ai/sdk';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -43,7 +52,7 @@ const BACKOFF = [1000, 3000, 8000];
 async function apiOf(dbi) {
   if (process.env.FUNCTIONS_EMULATOR === 'true') {
     const s = (await dbi.collection('sgAiStub').doc('config').get()).data();
-    return s && s.url ? { apiKey: 'stub', baseURL: s.url } : { apiKey: '' };
+    return s && s.url ? { apiKey: s.key || 'stub', baseURL: s.url } : { apiKey: '' };
   }
   const v = String(CHQ_ANTHROPIC_API_KEY.value() || '').trim();
   return { apiKey: !v || v === 'NOT-SET' ? '' : v };
@@ -79,10 +88,25 @@ async function factsFor(dbi, w, under8) {
     ratioAll: w.l.ratioAll || st.ratioAll || 5, ratioUnder8: w.l.ratioUnder8 || st.ratioUnder8 || 4, kind: w.e.sgKind, days } };
 }
 
-/* one place for the log: ids and counts only, never the words */
+/* one place for the log: ids and counts only, never the words (and, for a failed call, the API's request id and error type) */
 function logIt(dbi, x) {
-  return dbi.collection('sgAiLog').add({ siteId: x.siteId, calEventId: x.calEventId, by: x.by, byName: String(x.byName || '').slice(0, 120), at: new Date().toISOString(),
-    chars: x.chars || 0, outcome: x.outcome, tokensIn: x.tokensIn || 0, tokensOut: x.tokensOut || 0 }).catch(() => {});
+  return dbi.collection('sgAiLog').add(Object.assign({ siteId: x.siteId, calEventId: x.calEventId, by: x.by, byName: String(x.byName || '').slice(0, 120), at: new Date().toISOString(),
+    chars: x.chars || 0, outcome: x.outcome, tokensIn: x.tokensIn || 0, tokensOut: x.tokensOut || 0 },
+    x.requestId || x.errorType ? { requestId: String(x.requestId || '').slice(0, 80), errorType: String(x.errorType || '').slice(0, 60), status: x.status || 0 } : {})).catch(() => {});
+}
+
+/* a key or set-up problem: the API refused the request itself, not because it was busy */
+export function setupProblem(e) {
+  return e instanceof Anthropic.BadRequestError || e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError;
+}
+const fingerprint = (k) => createHash('sha256').update(String(k || '')).digest('hex').slice(0, 12);
+const stateRef = (dbi) => dbi.collection('sgAiState').doc('current');
+/* "set up but not working": the last call failed on set-up, with this same key, in the last 6 hours
+   (after that the box comes back, so one real attempt can find out whether it has been put right) */
+const BROKEN_FOR = 6 * 3600e3;
+async function broken(dbi, apiKey) {
+  const s = (await stateRef(dbi).get()).data();
+  return !!s && s.state === 'broken' && s.key === fingerprint(apiKey) && Date.now() - Date.parse(s.at || 0) < BROKEN_FOR;
 }
 
 /* today's use, counted in a transaction: false when over a cap */
@@ -140,7 +164,19 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   /* 4. the call */
   let res;
   try { res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, facts, text }); }
-  catch (e) { console.log('sgDraftAssessment: call failed for ' + calEventId + ' (' + (e.status || e.name) + ')'); await logIt(dbi, Object.assign({ outcome: 'failed' }, base)); throw new HttpsError('unavailable', 'The AI could not be reached just now; try again later, or use a template.'); }
+  catch (e) {
+    const err = { status: e.status || 0, requestId: e.requestID || '', errorType: e.type || e.name || '' };
+    console.log('sgDraftAssessment: call failed for ' + calEventId + ' (' + err.status + ' ' + err.errorType + ', request ' + err.requestId + ')');
+    if (setupProblem(e)) {
+      await stateRef(dbi).set({ state: 'broken', key: fingerprint(key.apiKey), at: new Date().toISOString(), status: err.status, errorType: err.errorType, requestId: err.requestId });
+      await logIt(dbi, Object.assign({ outcome: 'setup-failed' }, base, err));
+      throw new HttpsError('failed-precondition', Core.WORDS.setup);
+    }
+    await logIt(dbi, Object.assign({ outcome: 'failed' }, base, err));
+    throw new HttpsError('unavailable', 'The AI could not be reached just now; try again later, or use a template.');
+  }
+  /* it worked: set-up is fine again */
+  if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
   const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
   if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', Core.WORDS.refused); }
   let parsed = null;
@@ -175,7 +211,9 @@ export const sgAiStatus = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_K
   const w = await whoFor(db(), req.auth.uid, calEventId);
   if (!w.ok) return { state: 'notallowed' };
   if (!(await registerOn(db()))) return { state: 'off', message: 'AI drafting is part of the safeguarding risk register, which is turned off for this church. Write the assessment from a template instead.' };
-  if (!(await apiOf(db())).apiKey) return { state: 'notset', message: Core.WORDS.notSet };
+  const api = await apiOf(db());
+  if (!api.apiKey) return { state: 'notset', message: Core.WORDS.notSet };
+  if (await broken(db(), api.apiKey)) return { state: 'broken', message: Core.WORDS.broken };
   const st = (await db().collection('safeguardingSettings').doc('defaults').get()).data() || {}, cap = Core.caps(st);
   const u = (await db().collection('sgAiUse').doc(londonDay()).get()).data() || { total: 0, by: {} };
   if ((u.total || 0) >= cap.perChurch || ((u.by || {})[req.auth.uid] || 0) >= cap.perPerson) return { state: 'capped', message: Core.WORDS.capped };

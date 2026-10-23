@@ -35,6 +35,8 @@ const WORDS = {
   postcode: 'It looks like this has a postcode in it. Name the place in general words and try again.',
   dob: 'It looks like this has a date of birth in it. Give ages in general words and try again.',
   nhs: 'It looks like this has an NHS number in it. Take it out and try again.',
+  setup: 'The AI isn’t set up properly yet. Ask the church office.',
+  broken: 'AI drafting is set up but not working yet. Ask the church office, and write the assessment from a template for now.',
   medical: 'It may name someone next to a medical detail. Describe needs in general words, e.g. "two children need an adult with them at all times".'
 };
 
