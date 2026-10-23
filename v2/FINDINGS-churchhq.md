@@ -513,3 +513,43 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
 7. **"Your teams"** is done by the church's first master admin on first sign-in. Church HQ staff can do it for them on request.
 
 **Order:** finish batch B (H-8: the F-279 rerun, then storage.rules); then the mapping and main's 61 files; then tell the events window and Comms.
+
+## H-11. Several services a day, and the church's own service roles: the plan (23 Oct 2026)
+
+**From ChurchShow's check against the synthetic parish** (churchshow F-CS18, 2d05baf). This is the "services and rota roles" step named in H-10. **For review; nothing is built.**
+
+**Today:**
+- A service's plan and its rota are one rota event (`events/{id}`: date, type, start time, an optional building, the assignments, the order of service).
+- Several events can share a date already. But whatever looks a service up **by date** takes one: ChurchShow takes the first plan, and the rota card picks the busiest.
+- The building is optional, and the team slides name "Service Leader" and "Worship Leader" in code.
+
+**The plan:**
+1. **A service is its event:** date, start time and building, with its own rota (the assignments already are). Every "by date" lookup is changed to return the day's services, in time order, each with its building.
+   - **With one service on a Sunday, which is EGBC, every screen looks as it does now.**
+2. **ChurchShow:** a paired computer already belongs to a building (`siteId`). A new callable, `churchShowServicesToday`, gives that building's services today. ChurchShow shows the next one starting and lets the operator pick another.
+   - The church comes from the computer's sign-in: since step 3, a church's computer carries `churches: [cid]`.
+3. **The church's own service types** (church setting `serviceTypes`). Each type has a name, a usual time, a building, its teams (by job, H-9) and its roles.
+   - EGBC's twelve are the defaults.
+   - A parish adds "8am Holy Communion (BCP)", "10am Parish Eucharist", "Choral Evensong" and "Wednesday Communion".
+   - The rota's "+ Service" and the new-event form offer the church's list.
+4. **The church's own service roles** (church setting `serviceRoles`), in the same spirit as the team jobs:
+   - which roles a service has: President, Preacher, Intercessor, Reader, Organist, Servers, Sidespeople; or EGBC's Service Leader, Worship Leader, Speaker;
+   - which appear on the team slides;
+   - which come from a team's rota (Organist from the choir; Servers from the servers).
+   - EGBC's lists are the defaults.
+5. **Per-church data for ChurchShow:** when pages and ChurchShow read `churches/{cid}/…` (step 4 part 2, a church-scoped db), ChurchShow follows, taking the church from its pairing. **I'll tell the ChurchShow window when the paths are fixed;** its N2 and N3 wait for that.
+6. **ChurchShow's two caps,** for H-9's audit:
+   - **20 lesson groups per computer** (functions/churchshow.js, twice): no fixed limit, under H-9's decision (up to 500).
+   - **12 questions in the planner's quiz box** (session-planner.html:530; and 12 programme links at :599): 50 each, a real quiz's length (see question 4).
+
+**Questions for Martin** (recommended answer first):
+1. **A service is known by its date, start time and building,** and a service with no building is at the church's main building. Agreed?
+2. **ChurchShow on a building's computer:**
+   - **Recommended:** it shows the next service starting in that building, with the day's others to pick from.
+   - **Or:** the operator always picks.
+3. **Service types and roles** are set up in the new church's setup ("Your services", after "Your teams"), changeable later in Church settings, with EGBC's lists as EGBC's defaults. Agreed?
+4. **The quiz box:** up to 50 questions? Or no limit beyond what a document holds (about 500 short questions)?
+
+**Order:** after H-9's mapping (the roles name teams by job), and before the new-church setup screens, which include "Your services".
+
+**For the synthetic parish:** 8am in the old church, 10am Parish Eucharist, Choral Evensong, and Wednesday Communion in the chapel. Each has its own rota and roles (President, Preacher, Organist, Servers, Sidespeople). Each building's ChurchShow computer shows that building's next service.
