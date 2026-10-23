@@ -61,6 +61,18 @@ const newest = presentStamps.map(([, s]) => s).sort().pop();
 const behind = presentStamps.filter(([, s]) => s !== newest).map(([f, s]) => f + ' has ' + s);
 ok('every page loads egbc-present.js with the same stamp', behind.length === 0, behind.join(', ') + '; the newest is ' + newest);
 
+/* THE SIGN-IN AND THE SHELL: ONE VERSION EVERYWHERE (23 Oct 2026: a page
+   added the same day as an egbc-auth.js bump came in on the old stamp, so
+   that page alone ran yesterday's sign-in code). */
+for (const lib of ['egbc-auth.js', 'egbc-shell.js']) {
+  const re = new RegExp(lib.replace('.', '\\.') + '\\?v=(\\d{12})');
+  const seen = {};
+  for (const f of fs.readdirSync(V2).filter(n => /\.html$/i.test(n))) { const m = read(f).match(re); if (m) (seen[m[1]] = seen[m[1]] || []).push(f); }
+  const stamps = Object.keys(seen).sort();
+  ok('every page loads ' + lib + ' with the same stamp', stamps.length <= 1,
+    stamps.slice(0, -1).map(s => seen[s].slice(0, 5).join(', ') + ' at ' + s).join('; ') + ' - the rest at ' + stamps[stamps.length - 1]);
+}
+
 /* THE APP AND THE HUB ARE NEVER BEHIND (22 Oct 2026): the events window
    bumped egbc-events.js on its pages and asked for the app's (F-270); the
    app was also found asking for older copies of six more scripts than
