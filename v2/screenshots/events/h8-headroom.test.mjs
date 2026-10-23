@@ -15,7 +15,8 @@ import { doc, setDoc, writeBatch } from 'firebase/firestore';
 
 const V2 = path.resolve('.');
 const cfg = JSON.parse(fs.readFileSync(path.join(V2, process.env.EGBC_FIREBASE_CONFIG || 'firebase.events.json'), 'utf8'));
-const BUILT = fs.readFileSync(path.join(V2, cfg.firestore.rules), 'utf8');
+/* line endings as git leaves them on this machine (CRLF) or as built (LF): either */
+const BUILT = fs.readFileSync(path.join(V2, cfg.firestore.rules), 'utf8').replace(/\r\n/g, '\n');
 const SIGNED_IN = 'function signedIn() {\nreturn request.auth != null;';
 if (BUILT.split(SIGNED_IN).length !== 2) throw new Error('signedIn() not found in the built rules');
 const padded = (n) => BUILT.replace(SIGNED_IN, () => 'function signedIn() {\nreturn request.auth != null' + ' && true'.repeat(n) + ';');
