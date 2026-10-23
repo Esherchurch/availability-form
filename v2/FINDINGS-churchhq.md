@@ -472,3 +472,24 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
 7. **Who does "Your teams":**
    - **Recommended:** the church's first master admin, on first sign-in, before anything else, as a short step they can come back to.
    - **Or:** Church HQ staff, when adding the church.
+
+## H-10. Already built, would fail the synthetic parish test (23 Oct 2026)
+
+**The test:** "St Aidan's with St Hild, Testbury (synthetic)", a C of E parish set up through the screens only (reviewing window; outline in OneDrive "New hub\Synthetic church test"). Below is what is already built in v2 that would fail it, and the step that fixes each. The counts come from `tools/find-egbc-words.cjs` (words a person could see; comments, file names and code names left out).
+
+1. **EGBC's name, town, address and denomination shown as words: 72 files.**
+   - "EGBC" 131 times in 55 files; "Esher" 17 in 13; esherchurch.org and esherchurch.github.io addresses 36 in 23; "Baptist" 14 in 11.
+   - The worst: Planner.html, trainingrotaplanner.html, hub-app.js, rotaplannerinstructions.html, functions/rota-feed.js (calendar entries say "EGBC: …"), SundayServicePlanner, youthserviceplanner, hub.html, notifications.html, egbc-shell.js, login.html.
+   - **Fix: a new step, "the church's identity".** Name, short name, town, logo, colours, web address and denomination come from `churchSettings/details` through one EGBCAuth helper (on the server, the church's own details through `churchOf`). A check fails on any of these words in code.
+   - Owners: mostly main; the events window's and Comms' pages get a list.
+2. **Team names typed into code: 95 files.** Fix: H-9 (team jobs), waiting for Martin's answers.
+3. **Baptist and EGBC habits typed into code:**
+   - **"Members' meeting"** (16 times in 5 files: church-meeting, egbc-starters, enews, addressbook, functions/meetings). A parish has its APCM and PCC meetings instead. Fix: the meeting's name and who may vote become church settings, part of the identity step.
+   - **The rota's event types** (egbc-core-rota.js: 12 fixed types, from "Sunday Morning Worship" to "LOUD Worship") and their **fixed times** (08:00–11:30 Sunday, 19:30–21:30 practice) and **roles** (Worship Leader, Keyboard, Drums…). A parish needs 8am Communion, 10am Parish Eucharist, Evensong and midweek services, with servers, sidespeople, choir and organist. Fix: **a new step, "services and rota roles"**, kept per church with EGBC's lists as its defaults. Main's.
+   - **One Sunday service.** The rota, the hub card, What's on and the calendar feeds assume one Sunday morning. Fix: the same step, with several services per Sunday across buildings.
+   - **Core Team covers Worship and AV** (the rules' worshipAv(), CORE_COVERS in egbc-auth.js). Fix: H-9, with "leadership covers these jobs" as part of the mapping.
+4. **Limits that would cut off a bigger church's data:** in H-9 (9 rules caps, 22 files with queries of at most 30 values).
+5. **New-church setup doesn't exist yet.** Today a church is made by a script (step 1's directory). Fix: **step 4 part 3, "set up a new church", through the screens only.** It covers the church's details and logo, Your teams (H-9), the buildings and rooms, the services, and the first master admin, and it makes the church's users records by the server (H-8: a church's sign-in can't write its own).
+6. **Cross-church data:** covered by steps 2–4 (2,398 cross-church rules checks, check-church-calls 97, the code index). Batches 7 and 8 (the events window's and Comms' functions) are still to do.
+
+**How the parish would fare today:** it couldn't be set up through the screens (5). It would see "EGBC" and Esher addresses on most pages (1), and Elders, Kids Church and Church office (2). Its rota would offer Baptist worship types at EGBC's times (3). Its data would stay its own (6).
