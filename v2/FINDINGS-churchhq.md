@@ -553,3 +553,29 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
 **Order:** after H-9's mapping (the roles name teams by job), and before the new-church setup screens, which include "Your services".
 
 **For the synthetic parish:** 8am in the old church, 10am Parish Eucharist, Choral Evensong, and Wednesday Communion in the chapel. Each has its own rota and roles (President, Preacher, Organist, Servers, Sidespeople). Each building's ChurchShow computer shows that building's next service.
+
+### H-11, item 0: the plan of a service is found by date only. A bug for EGBC too (23 Oct 2026; the reviewing window and ChurchShow's F-CS18)
+
+- **The bug:** the planner lets you choose between several services on one date (`spEventSelect`), but the plan is saved and loaded by **date only**:
+  - egbc-core-planner.js:1104 saves to the first `services` document with that date, or adds one;
+  - :985 loads the same way.
+  - The saved plan has no link to the chosen rota event, and the emailed plan (`songSummaries`) is keyed by date too.
+  - **So a morning and an evening service on one Sunday share one plan, and saving one overwrites the other.** The original site did the same (CoreTeamApp.html:1565/2228/2296, youthapp2.html:1616/1668), so it isn't a v2 regression. But it breaks the several-services feature.
+- **The fix:**
+  - **Each plan belongs to its service:** `services/{id}` gains `eventId` (the rota event), alongside its date, time and building, and is saved and loaded by `eventId`.
+  - `songSummaries` follows: keyed by the event, as `<date>_<eventId>`.
+  - **A date with one service behaves exactly as now:** a plan with no `eventId` is that day's plan, until it's next saved.
+- **Existing plans:** EGBC's plans (one per date) get their day's single service's `eventId`. Two or more services on a date get listed for a person to choose.
+  - This is a **dry-run script for Martin** (a live write): list, then apply. I won't write live myself.
+- **Readers that follow,** by owner:
+  - **main:** egbc-core-planner.js, hub-app.js (the hero card), app.html, CoreTeamApp.html, SundayServicePlanner.html, youthserviceplanner.html, youthapp2.html, worshiphubapp.html, song-summary.html, sundayplannersonglibrary.html, Library.html, Performancenotes.html, MonitorStageMap.html, data-tools.html, egbc-plan-audience.js, "training Sunday planner.html";
+  - **ChurchShow** (functions/churchshow.js, churchshow.html): `churchShowServicesToday` (item 2 above), with the plan by `eventId`; the ChurchShow window changes its side;
+  - **the events window:** Present (a deck's context date);
+  - **Comms:** the e-news "This Sunday" and sitemaker.html.
+- **Order:** this goes ahead of the rest of H-9, as an EGBC bug fix. It needs no team jobs.
+
+**Question for Martin:**
+
+5. **A plan saved before the fix, on a date with two services:**
+   - **Recommended:** the migration lists it, and Martin or the office picks which service it was for.
+   - **Or:** it goes to the earliest service that day.
