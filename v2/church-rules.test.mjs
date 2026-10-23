@@ -18,6 +18,7 @@
 import fs from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { churchCollections } from './tools/rules-build.mjs';
 
 const cfg = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.json', 'utf8'));
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || 'demo-egbc';
@@ -27,8 +28,9 @@ const env = await initializeTestEnvironment({
 });
 
 const A = 'mc-alpha', B = 'mc-beta';
-const LIST = JSON.parse(fs.readFileSync('tests/top-level-collections.json', 'utf8'));
-const NAMES = [...new Set([...LIST.egbc])].filter((n) => n !== 'users');
+/* Every collection the rules open - read from firestore.rules, so one added
+   tomorrow is covered without a list to keep up. */
+const NAMES = churchCollections(fs.readFileSync('firestore.rules', 'utf8')).filter((n) => n !== 'users');
 
 /* claims: the churches in the sign-in. at: their users record in a church
    (the shape EGBC's users records have). */

@@ -11053,3 +11053,19 @@ Every function must take the church from the sign-in's claim or the document's p
   - It signs in, finds the emulator and reports a function's refusal (e.code) as every other call does.
 - **Stamps:** egbc-auth.js is at 202610231000 on every page.
 - **Checked by:** tests/check-function-url.mjs, 7/7, with a stand-in slow answer. With no option it gives up at 8 s; 15000 waits for a 9-second answer; 2000 gives up on a 4-second one. Break: call() ignoring the option turns 2 red.
+
+## From the main window, 23 Oct 2026: five of your rules run out of expressions in a normal run (more on H-8)
+
+- **The finding:** in a fully passing run of firestore-rules.test.mjs, the emulator logs "the maximum of 1000 expressions to evaluate has been reached" 126 times, on five rules:
+
+  | Rule | Times |
+  |---|---|
+  | sgAssessments create/update | 36 |
+  | bookings create | 1 |
+  | small groups update (groupShape, groupCountOk, under18Ok) | 11 |
+  | events/calEvents update (eventCk) | 15 |
+  | the catch-all | 63 |
+
+- **Why it matters:** those cases pass only because a refusal was expected anyway or another branch allowed them. Any small addition can turn an allowed save into a refusal once the rules are live.
+- **To see it:** run the suite and `grep -c "maximum of 1000"` its output. Aim for 0.
+- **The church copy** has three cases that fail on it already: the two office bookings, and "and its named leaders" on sgAssessments.

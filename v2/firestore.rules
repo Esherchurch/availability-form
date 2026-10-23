@@ -2902,72 +2902,10 @@ service cloud.firestore {
     // nothing is moved. A person reads the directory entries of the churches
     // in their own sign-in (token.churches, set by the server from
     // hqMemberships) and their own memberships; no page writes either.
-    // ===== EVERY CHURCH'S OWN DATA: churches/{cid}/... (multi-church step 2,
-    // design-mocks/multi-church/PLAN.md; Martin chose B, 22 Oct 2026) =====
-    // THE GATE, first on every path: the church is in the sign-in's claims
-    // (set by the server from hqMemberships, step 1). Inside a church a
-    // person's place - status, teams, admin, master - is THAT church's own
-    // record, churches/{cid}/users/{uid}, written by the server only; never
-    // EGBC's top-level users. A collection with no rule of its own under a
-    // church is shut (no match, no access) until it moves here with its
-    // rules. Made-up churches only so far; EGBC's data is not moved.
-    function inChurch(cid) {
-      return signedIn() && cid in request.auth.token.get('churches', []);
-    }
-    function churchMeAt(cid) {
-      return get(/databases/$(database)/documents/churches/$(cid)/users/$(request.auth.uid)).data;
-    }
-    function churchActive(cid) {
-      return inChurch(cid)
-             && exists(/databases/$(database)/documents/churches/$(cid)/users/$(request.auth.uid))
-             && churchMeAt(cid).get('status', '') == 'active';
-    }
-    function churchMaster(cid) {
-      return churchActive(cid) && churchMeAt(cid).get('masterAdmin', false) == true;
-    }
-    function churchAdmin(cid) {
-      return churchMaster(cid) || (churchActive(cid) && churchMeAt(cid).get('adminFor', []).size() > 0);
-    }
-    function churchVolunteer(cid) {
-      return churchAdmin(cid) || (churchActive(cid) && churchMeAt(cid).get('teams', []).size() > 0);
-    }
-    function churchSgLead(cid) {
-      return churchActive(cid) && churchMeAt(cid).get('memberId', '-') in
-             get(/databases/$(database)/documents/churches/$(cid)/careRouting/status).data.get('leadIds', []);
-    }
-    match /churches/{cid} {
-      allow read: if inChurch(cid);
-      allow write: if false;
-      // Who is who in this church: your own record, or all of them for an admin.
-      match /users/{uid} {
-        allow read: if inChurch(cid) && (uid == request.auth.uid || churchAdmin(cid));
-        allow write: if false;
-      }
-      // The first collections with their rules here - the same answers as
-      // their top-level ones, asked of this church's records.
-      match /settings/{id} {
-        allow read: if churchActive(cid);
-        allow write: if churchMaster(cid);
-      }
-      match /addressBook/{id} {
-        allow read: if churchVolunteer(cid);
-        allow write: if churchAdmin(cid);
-      }
-      match /news/{id} {
-        allow read: if churchActive(cid);
-        allow write: if churchAdmin(cid);
-      }
-      match /careRouting/{id} {
-        allow read: if churchMaster(cid);
-        allow write: if false;
-      }
-      // DBS dates: the lead and deputy, a master admin, or the person.
-      match /leaderChecks/{memberId} {
-        allow read: if churchMaster(cid) || churchSgLead(cid)
-                    || (churchActive(cid) && churchMeAt(cid).get('memberId', '') == memberId);
-        allow write: if churchMaster(cid) || churchSgLead(cid);
-      }
-    }
+    // EVERY CHURCH'S OWN DATA is not in this file: tools/rules-build.mjs
+    // generates firestore.churches.rules from it - every rule below, under
+    // churches/{cid}, the claim as the gate (FINDINGS-churchhq H-6, H-7). Step
+    // 2's hand-written pilot that stood here was replaced by it (23 Oct 2026).
 
     match /hqChurches/{cid} {
       allow read: if signedIn() && cid in request.auth.token.get('churches', []);

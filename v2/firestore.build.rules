@@ -1493,59 +1493,6 @@ allow read, write: if false;
 }
 }
 }
-function inChurch(cid) {
-return signedIn() && cid in request.auth.token.get('churches', []);
-}
-function churchMeAt(cid) {
-return get(/databases/$(database)/documents/churches/$(cid)/users/$(request.auth.uid)).data;
-}
-function churchActive(cid) {
-return inChurch(cid)
-&& exists(/databases/$(database)/documents/churches/$(cid)/users/$(request.auth.uid))
-&& churchMeAt(cid).get('status', '') == 'active';
-}
-function churchMaster(cid) {
-return churchActive(cid) && churchMeAt(cid).get('masterAdmin', false) == true;
-}
-function churchAdmin(cid) {
-return churchMaster(cid) || (churchActive(cid) && churchMeAt(cid).get('adminFor', []).size() > 0);
-}
-function churchVolunteer(cid) {
-return churchAdmin(cid) || (churchActive(cid) && churchMeAt(cid).get('teams', []).size() > 0);
-}
-function churchSgLead(cid) {
-return churchActive(cid) && churchMeAt(cid).get('memberId', '-') in
-get(/databases/$(database)/documents/churches/$(cid)/careRouting/status).data.get('leadIds', []);
-}
-match /churches/{cid} {
-allow read: if inChurch(cid);
-allow write: if false;
-match /users/{uid} {
-allow read: if inChurch(cid) && (uid == request.auth.uid || churchAdmin(cid));
-allow write: if false;
-}
-match /settings/{id} {
-allow read: if churchActive(cid);
-allow write: if churchMaster(cid);
-}
-match /addressBook/{id} {
-allow read: if churchVolunteer(cid);
-allow write: if churchAdmin(cid);
-}
-match /news/{id} {
-allow read: if churchActive(cid);
-allow write: if churchAdmin(cid);
-}
-match /careRouting/{id} {
-allow read: if churchMaster(cid);
-allow write: if false;
-}
-match /leaderChecks/{memberId} {
-allow read: if churchMaster(cid) || churchSgLead(cid)
-|| (churchActive(cid) && churchMeAt(cid).get('memberId', '') == memberId);
-allow write: if churchMaster(cid) || churchSgLead(cid);
-}
-}
 match /hqChurches/{cid} {
 allow read: if signedIn() && cid in request.auth.token.get('churches', []);
 allow write: if false;

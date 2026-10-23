@@ -53,6 +53,18 @@ export function strip(src) {
 
 export function build(src) { return HEADER + strip(src); }
 
+/* The collections firestore.rules opens at the top (four spaces in), less
+   Church HQ's directory: every one of these is also a church's, under
+   churches/{cid} in the church ruleset. For the checks, so a collection
+   added to the rules is covered without a list to keep up. */
+export const DIRECTORY_COLLECTIONS = ['hqChurches', 'hqMemberships'];
+export function churchCollections(src) {
+  const text = String(src).replace(/\r\n/g, '\n');
+  const names = new Set([...text.matchAll(/^ {4}match \/([A-Za-z0-9_]+)\//gm)].map((m) => m[1]));
+  DIRECTORY_COLLECTIONS.forEach((n) => names.delete(n));
+  return [...names].sort();
+}
+
 /* ---- THE CHURCH RULESET (multi-church step 4 part 1, H-6/H-7) ----------
    The same rules, for the shared Church HQ project: every collection under
    churches/{cid}, and nobody in unless the church is in their sign-in's

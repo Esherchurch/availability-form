@@ -418,3 +418,26 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
   - the two booking cases, once the events window has found headroom;
   - step 2's hand-written pilot out of firestore.rules;
   - storage.rules the same way.
+
+### H-8, continued: the pilot is out; and EGBC's rules run out of expressions in a normal run (23 Oct 2026)
+
+- **Step 2's pilot is out of firestore.rules.** The generated church ruleset replaces it.
+  - **check-top-level, rewritten (5/5):** every collection in firestore.rules has its copy under `churches/{cid}` in the church ruleset, and the church ruleset's top level is only the directory (hqChurches, hqMemberships). New collections in firestore.rules are fine now; nobody keeps a list.
+  - **Break:** a stray top-level collection and a missing one, both red.
+  - **church-rules.test** takes its collection names from firestore.rules: 2398/2398 over 197 collections.
+  - **church-scope-rules.test** keeps only its Storage half (11/11) until storage.rules is ported.
+- **Rules suites now:** EGBC 1893/1893; as a church 1880/1893. The 10 users self-writes are on purpose, and 3 cases hit the expression limit: the two office bookings, plus "and its named leaders" on the events window's new sgAssessments rule.
+- **The limit, measured.** In a normal, fully passing EGBC run, the emulator logs "the maximum of 1000 expressions to evaluate has been reached" **126 times**, on five rules:
+
+  | Rule | Times |
+  |---|---|
+  | sgAssessments create/update | 36 |
+  | bookings create | 1 |
+  | small groups update (groupShape, groupCountOk, under18Ok) | 11 |
+  | events/calEvents update (eventCk) | 15 |
+  | the catch-all | 63 |
+
+  - Those cases pass only because a refusal was expected anyway, or another branch allowed them.
+  - **A refusal caused by running out of expressions isn't the refusal the rule intended,** and the allowed cases next to it have no room at all.
+  - In the church copy, whose gate costs a little more, the same rules (and four more) run out more often.
+  - These are the events window's rules; I've asked them to find headroom, and haven't changed them.
