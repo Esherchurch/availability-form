@@ -493,3 +493,23 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
 6. **Cross-church data:** covered by steps 2–4 (2,398 cross-church rules checks, check-church-calls 97, the code index). Batches 7 and 8 (the events window's and Comms' functions) are still to do.
 
 **How the parish would fare today:** it couldn't be set up through the screens (5). It would see "EGBC" and Esher addresses on most pages (1), and Elders, Kids Church and Church office (2). Its rota would offer Baptist worship types at EGBC's times (3). Its data would stay its own (6).
+
+### H-9, decided (Martin, via the reviewing window, 23 Oct 2026)
+
+1. **All 14 jobs, plus a 15th, `communications`:** the e-news, social posts, the card maker, Canva and Unsplash.
+   - EGBC maps it to Church office, so EGBC sees no change.
+   - Comms' files use `communications` where they mean whoever sends things out, and `office` only where they really mean the office. The split is to agree with Comms.
+2. **Groups that work with under-18s** (Lazers, ReNu, a parish's Junior Church, Messy Church, a choir school) are a tick on each group, not jobs. The `children` and `youth` jobs stay, for whoever leads that ministry overall.
+3. **Several teams per job are allowed** (such as a buildings team per site). Each rule change is measured against the expression limit (H-8).
+4. **When nobody does a job,** its pages are hidden, and master admins see "Nobody does this yet: choose a team".
+   - **Except pastoral care and safeguarding, which never fall back** to master admins or the office.
+   - With no pastoral team, care requests stay closed until one is named, as the pastoral routing rule already says.
+   - Safeguarding stays with the named lead and deputy only.
+5. **Team ids stay fixed;** only the label changes. EGBC's ids stay as today's names.
+6. **No fixed limits** beyond what a document can hold (500).
+   - Sites per screen page is the one real setting.
+   - Lists cut short on purpose say so on the page.
+   - The 22 query sites hitting Firestore's 30-value limit are batched.
+7. **"Your teams"** is done by the church's first master admin on first sign-in. Church HQ staff can do it for them on request.
+
+**Order:** finish batch B (H-8: the F-279 rerun, then storage.rules); then the mapping and main's 61 files; then tell the events window and Comms.
