@@ -106,6 +106,13 @@ const SCHEMA = {
     flags: { type: 'object', additionalProperties: false, required: ['abroad', 'adventurous'], properties: { abroad: { type: 'boolean' }, adventurous: { type: 'boolean' } } }
   }
 };
+/* NEVER SOCKET COVERS (Martin, 23 Oct 2026; F-280 10.7): UK sockets have
+   shutters, and safety bodies advise against covers. Said in every AI
+   instruction, and checked here as well: anything that mentions them is
+   left out, and the page says so. */
+const SOCKETS = 'Never recommend socket covers, socket protectors, socket inserts or plastic safety plugs: UK sockets have built-in shutters, and safety bodies advise against covers. For electrical safety, recommend checks of sockets, leads and equipment instead.';
+const SOCKET_RE = /\b(socket|plug|outlet)[\s-]*(covers?|protectors?|inserts?|guards?|caps?|blanks?|blockers?)\b|\bsafety[\s-]*plugs?\b/i;
+function socketCover(s) { return SOCKET_RE.test(String(s == null ? '' : s)); }
 /* the same for every call, so it is cached */
 const SYSTEM = [
   'You draft safeguarding risk assessments for one-off church events with children and young people in the United Kingdom.',
@@ -121,7 +128,8 @@ const SYSTEM = [
   'The hub also gives the church’s required checklist, each question with an id. Make sure the hazards cover every topic on it. In answers, suggest an answer for a question only where the description actually says it (id and a short answer); never invent facts. Every question you cannot answer from the description goes into questions instead.',
   'A trained paediatric first aider is essential where young children are present. If the description does not show one going, include a hazard for it, rated at least Medium, and High if children under 8 are going.',
   'In flags, set abroad true only if the event leaves the United Kingdom, and adventurous true if it includes water, heights or other adventurous activities.',
-  'Plain UK English, short sentences, no jargon. Never include a person’s name, contact details or medical details, even if the description has them.'
+  'Plain UK English, short sentences, no jargon. Never include a person’s name, contact details or medical details, even if the description has them.',
+  SOCKETS
 ].join('\n');
 function userText(f, text, checklist) {
   return [
@@ -147,15 +155,22 @@ const WORSE = { red: 3, amber: 2, green: 1 };
 function normalise(d, facts) {
   if (!d || typeof d !== 'object' || !Array.isArray(d.hazards) || !d.hazards.length) return { ok: false };
   const risks = [];
+  let leftOut = 0;
+  const keep = (x) => { if (socketCover(x)) { leftOut++; return false; } return true; };
   for (const h of d.hazards.slice(0, 40)) {
     if (!h || !clean(h.hazard, 200) || !int5(h.likelihood) || !int5(h.impact) || !int5(h.likelihoodAfter) || !int5(h.impactAfter)) return { ok: false };
-    const controls = (Array.isArray(h.controls) ? h.controls : []).map((c) => clean(c, 200)).filter(Boolean).slice(0, 20);
-    if (!controls.length || !clean(h.owner, 80)) return { ok: false };
+    const said = (Array.isArray(h.controls) ? h.controls : []).map((c) => clean(c, 200)).filter(Boolean);
+    if (!said.length || !clean(h.owner, 80)) return { ok: false };
+    /* a hazard about socket covers goes; so does one left with no control once they're taken out */
+    if (!keep(h.hazard)) continue;
+    const controls = said.filter(keep).slice(0, 20);
+    if (!controls.length) { leftOut++; continue; }
     risks.push({ risk: clean(h.hazard, 200), who: clean(h.who, 120), l: h.likelihood, i: h.impact, rl: h.likelihoodAfter, ri: h.impactAfter,
       controls: controls.map((text) => ({ kind: 'text', text })), owner: clean(h.owner, 80), review: clean(h.review, 120), mustNot: h.mustNotGoAhead === true, from: 'ai' });
   }
+  if (!risks.length) return { ok: false };
   const all = hubRisks(facts || {}).concat(risks).slice(0, 40);
-  const mustNot = (Array.isArray(d.mustNotGoAhead) ? d.mustNotGoAhead : []).map((x) => clean(x, 300)).filter(Boolean).slice(0, 10);
+  const mustNot = (Array.isArray(d.mustNotGoAhead) ? d.mustNotGoAhead : []).map((x) => clean(x, 300)).filter(Boolean).filter(keep).slice(0, 10);
   all.filter((r) => r.from === 'hub').forEach((r) => mustNot.unshift('This must not go ahead as described: ' + r.risk.charAt(0).toLowerCase() + r.risk.slice(1) + '.'));
   /* THE HUB'S SUMS: the overall is the worst after the controls, and red while anything must not go ahead */
   let overall = 'green';
@@ -164,13 +179,15 @@ function normalise(d, facts) {
   const known = new Set(((facts || {}).checklistIds) || []), suggest = {};
   (Array.isArray(d.answers) ? d.answers : []).forEach((a) => {
     const id = clean(a && a.id, 40), v = clean(a && a.answer, 500);
-    if (id && v && known.has(id) && !personalCheck(v, []).refuse) suggest[id] = v;
+    if (id && v && known.has(id) && !personalCheck(v, []).refuse && keep(v)) suggest[id] = v;
   });
   const flags = { abroad: !!(d.flags && d.flags.abroad === true), adventurous: !!(d.flags && d.flags.adventurous === true) };
-  return { ok: true, risks: all, overall, mustNot, questions: (Array.isArray(d.questions) ? d.questions : []).map((x) => clean(x, 300)).filter(Boolean).slice(0, 10), summary: clean(d.summary, 600), suggest, flags };
+  const questions = (Array.isArray(d.questions) ? d.questions : []).map((x) => clean(x, 300)).filter(Boolean).filter(keep).slice(0, 10);
+  const summary = keep(clean(d.summary, 600)) ? clean(d.summary, 600) : '';
+  return { ok: true, risks: all, overall, mustNot, questions, summary, suggest, flags, leftOut };
 }
 
 /* the caps: settings, with Martin's defaults */
 function caps(st) { const a = (((st || {}).register || {}).ai) || {}; const n = (v, d) => (Number.isInteger(v) && v >= 0 ? v : d); return { perChurch: n(a.perChurch, 20), perPerson: n(a.perPerson, 5) }; }
 
-module.exports = { MODEL, LIMIT, WORDS, SCHEMA, SYSTEM, personalCheck, hubRisks, userText, normalise, rating, caps };
+module.exports = { MODEL, LIMIT, WORDS, SCHEMA, SYSTEM, SOCKETS, socketCover, personalCheck, hubRisks, userText, normalise, rating, caps };

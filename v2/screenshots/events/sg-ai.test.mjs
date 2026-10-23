@@ -371,6 +371,31 @@ try {
   const plain = await O.evaluate(() => [{ code: 'internal', message: 'INTERNAL' }, { name: 'AbortError', message: 'signal is aborted without reason' }, { code: 'unreachable' }, { code: 'unknown', message: 'Unexpected token < in JSON' }].map((e) => EGBCSgAssess.plainError(e)));
   ok('   NEVER A RAW ERROR: anything unexpected is said plainly', plain.every((m) => !/INTERNAL|signal|aborted|token|JSON/.test(m)) && /couldn’t be finished just now/.test(plain[0]) && /couldn’t be reached/.test(plain[2]), J(plain));
 
+  /* 13. never socket covers (Martin, 23 Oct; F-280 10.7): UK sockets are shuttered */
+  await db.collection('sgAiUse').doc(TODAY).set({ total: 0, by: {} });
+  const SOCK = Object.assign({}, DRAFT, { summary: 'A toddler morning; fit socket covers throughout.', hazards: [
+    H({ hazard: 'A child touches an electric socket', controls: ['Fit socket covers to every socket', 'Keep leads tidy and out of reach'] }),
+    H({ hazard: 'No plug protectors in the crèche', controls: ['Buy plug protectors'] }),
+    H({ hazard: 'A trailing lead', controls: ['Use socket inserts on unused sockets'] }),
+    H() ], mustNotGoAhead: ['The hall must not be used until socket guards are fitted.'], questions: ['Have safety plugs been fitted?', 'Who is the trained first aider?'],
+    answers: [{ id: 'insurance', answer: 'Insured; outlet covers fitted (invented)' }] });
+  const n13 = SENT.length;
+  QUEUE.push(message(SOCK));
+  const sk = await call(O, 'sgDraftAssessment', { calEventId: 'ev_trip3', text: 'A toddler morning in the hall (invented).' });
+  const sys13 = J((SENT[n13] || {}).body && SENT[n13].body.system);
+  ok('13. NEVER SOCKET COVERS: the instruction is in what was sent', /Never recommend socket covers, socket protectors, socket inserts or plastic safety plugs: UK sockets have built-in shutters/.test(sys13), sys13.slice(-300));
+  const a13 = await assess('ev_trip3') || {};
+  ok('   A REPLY THAT RECOMMENDS THEM never reaches the database: no cover, protector, insert, guard or safety plug anywhere', sk.ok && !/(socket|plug|outlet)[\s-]*(cover|protector|insert|guard)|safety plug/i.test(J(a13)), J(a13).match(/.{60}(socket|plug|outlet)[\s-]*(cover|protector|insert|guard).{20}|.{40}safety plug.{20}/i));
+  ok('   what was sound stays: the hazard keeps its other control; the lead with no other control goes; the first aider question stays',
+    a13.risks.some((r) => r.risk === 'A child touches an electric socket' && r.controls.length === 1 && /leads tidy/.test(r.controls[0].text)) && !a13.risks.some((r) => /trailing lead|plug protectors/i.test(r.risk))
+    && a13.risks.some((r) => r.risk === 'Getting separated at the airport') && a13.source.questions.length === 1 && /first aider/.test(a13.source.questions[0]) && !('insurance' in (a13.source.suggest || {})), J(a13.risks.map((r) => r.risk + ':' + r.controls.length)));
+  ok('   counted: 8 left out (2 controls, 1 hazard, 1 hazard left bare, 1 must-not, 1 question, 1 answer, the summary)', a13.source.leftOut === 8 && sk.r.leftOut === 8 && a13.source.summary === '', J([a13.source.leftOut, a13.source.summary]));
+  await go(O, 'safeguarding.html?event=ev_trip3', '#sgaAiLabel');
+  ok('   THE PAGE SAYS SO: "8 suggestions were left out: socket covers aren’t advised for UK sockets"', /^8 suggestions were left out: socket covers aren’t advised for UK sockets, which have shutters built in\.$/.test(await text(O, '#sgaSockets')), await text(O, '#sgaSockets'));
+  const words = ['Fit socket covers', 'plug protectors', 'socket inserts', 'outlet covers', 'socket guards', 'a safety plug', 'Socket-covers'].map(AI.socketCover);
+  const fine = ['Check sockets and leads before use', 'Sockets are shuttered', 'Unplug the urn after use', 'A plug-in heater', 'PAT-test the equipment', 'Cover the plughole'].map(AI.socketCover);
+  ok('   THE WORDS IT CATCHES, and the ones it leaves alone (checks of sockets, plugs, PAT)', words.every(Boolean) && !fine.some(Boolean), J({ words, fine }));
+
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

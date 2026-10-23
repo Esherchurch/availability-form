@@ -138,6 +138,7 @@
       var reds = (A.risks || []).filter(function (r) { return T.rating(r.rl, r.ri) === 'red'; }).length;
       var ai = A.source && A.source.kind === 'ai', stops = (A.risks || []).filter(function (r) { return r.mustNot; }).length;
       var aiHead = ai ? '<p class="warn" id="sgaAiLabel">First draft by AI: check every line. It counts for nothing until the safeguarding lead or deputy signs it off.</p>' +
+        (A.source.leftOut > 0 ? '<p class="muted" id="sgaSockets">' + (A.source.leftOut === 1 ? 'One suggestion was' : A.source.leftOut + ' suggestions were') + ' left out: socket covers aren’t advised for UK sockets, which have shutters built in.</p>' : '') +
         '<p class="muted" id="sgaOverall">Overall, by the hub’s sums: <span class="sga-rag ' + esc(overallOf(A)) + '" data-overall="' + esc(overallOf(A)) + '">' + WORDS[overallOf(A)] + '</span></p>' : '';
       /* the count and the list are the same items: those marked "must not go ahead"; the draft's own sentences follow, as its reasons */
       var marked = (A.risks || []).filter(function (r) { return r.mustNot; });
@@ -162,6 +163,7 @@
       if (h && !h.confirmed && edit) return '<div class="ai" id="sgaHost"><b>From ' + esc(h.name) + '’s requirements</b> <span class="muted">(' + esc(h.file ? h.file.name : '') + ')</span>' +
         '<p class="warn" style="margin:6px 0">Check each one: change it, remove one that repeats our own questions, or add one that was missed. Then confirm, and they are required questions like ours.</p>' +
         (h.personalFound ? '<p class="warn" id="sgaHostPersonal">The file seems to have names, phone numbers or emails in it. They were left out' + (h.dropped ? ' (' + h.dropped + ' question' + (h.dropped === 1 ? '' : 's') + ')' : '') + '.</p>' : '') +
+        (h.leftOut > 0 ? '<p class="warn" id="sgaHostSockets">' + (h.leftOut === 1 ? 'One requirement was' : h.leftOut + ' requirements were') + ' left out: socket covers aren’t advised for UK sockets, which have shutters built in. If the host insists on them, talk to the host.</p>' : '') +
         '<div id="sgaHostItems">' + (h.items || []).map(function (x) { return '<div data-hostitem="' + esc(x.id) + '" style="margin:6px 0"><div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" value="' + esc(x.q) + '"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>' + (x.line ? '<div class="muted">From: “' + esc(x.line) + '”</div>' : '') + '</div>'; }).join('') + '</div>' +
         '<div class="btns"><button class="b sec" type="button" id="sgaHostAdd">Add one</button><button class="b" type="button" id="sgaHostOk">Confirm these as required questions</button>' + file +
         '<button class="b sec" type="button" id="sgaHostAgain">Add a different list</button></div><p class="muted" id="sgaHostReviewMsg" role="status"></p>' + hostForm(true) + '</div>';

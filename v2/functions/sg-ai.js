@@ -206,7 +206,7 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   const doc = { siteId: w.site, calEventId, title: String(w.e.title || '').slice(0, 120), templateId: w.e.sgKind, answers: (cur && cur.answers) || {}, flags,
     ...(cur && cur.host ? { host: cur.host, hostIds: cur.hostIds || [] } : {}),
     risks: n.risks, status: 'draft', version: (cur && cur.version) || 1,
-    source: { kind: 'ai', model: Core.MODEL, at, by: uid, overall: n.overall, mustNot: n.mustNot, questions: n.questions, summary: n.summary, suggest: n.suggest },
+    source: { kind: 'ai', model: Core.MODEL, at, by: uid, overall: n.overall, mustNot: n.mustNot, questions: n.questions, summary: n.summary, suggest: n.suggest, leftOut: n.leftOut },
     updatedAt: at, updatedBy: uid };
   const b = dbi.batch();
   b.set(dbi.collection('sgAssessments').doc(calEventId), doc);
@@ -214,7 +214,7 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   await b.commit();
   await logIt(dbi, Object.assign({ outcome: 'drafted' }, base, usage));
   console.log('sgDraftAssessment: drafted ' + calEventId + ', ' + n.risks.length + ' risks, ' + usage.tokensIn + '/' + usage.tokensOut + ' tokens');
-  return { ok: true, overall: n.overall, risks: n.risks.length, mustNot: n.mustNot.length };
+  return { ok: true, overall: n.overall, risks: n.risks.length, mustNot: n.mustNot.length, leftOut: n.leftOut };
 }
 
 /* ---- THE HOST'S OWN REQUIREMENTS (F-277) ----
@@ -267,7 +267,7 @@ export async function extractRequirements({ db: dbi, uid, data, api, bucket }) {
   if (!n.ok) { await logIt(dbi, Object.assign({ outcome: 'failed' }, base, usage)); throw new HttpsError('internal', 'The list came back incomplete; try again.'); }
   const at = new Date().toISOString(), hostName = String(data.host || '').trim().slice(0, 120) || n.host || 'the host';
   const host = { name: hostName, file: { path, name: fileName, type: type || kind, size: buf.length }, items: n.items.map((x, i) => ({ id: 'h_' + i + '_' + Math.random().toString(36).slice(2, 8), q: x.q, line: x.line })),
-    extractedAt: at, by: uid, dropped: n.dropped, personalFound: n.personalFound, confirmed: false };
+    extractedAt: at, by: uid, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound, confirmed: false };
   const ref = dbi.collection('sgAssessments').doc(calEventId), b = dbi.batch();
   /* not required until the leader has checked the list (hostIds empty, confirmed false: sign-off waits) */
   if (cur) b.update(ref, { host, hostIds: [], updatedAt: at, updatedBy: uid });
@@ -275,7 +275,7 @@ export async function extractRequirements({ db: dbi, uid, data, api, bucket }) {
   b.set(dbi.collection('sgGate').doc(calEventId), { needed: true, open: false, updatedAt: at });
   await b.commit();
   await logIt(dbi, Object.assign({ outcome: 'extracted' }, base, usage));
-  return { ok: true, count: host.items.length, dropped: n.dropped, personalFound: n.personalFound,
+  return { ok: true, count: host.items.length, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound,
     message: n.personalFound ? 'The file seems to have names, phone numbers or emails in it. They were left out of the questions.' : '' };
 }
 export const sgExtractRequirements = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {

@@ -17,7 +17,7 @@
    =================================================================== */
 'use strict';
 const zlib = require('node:zlib');
-const { personalCheck } = require('./sg-ai-core.cjs');
+const { personalCheck, SOCKETS, socketCover } = require('./sg-ai-core.cjs');
 
 const MAX_BYTES = 7 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -65,7 +65,8 @@ const REQ_SYSTEM = [
   'One question for each separate requirement, in plain UK English, that the group leader can answer, for example "Has every leader sent the camp a signed copy of its code of conduct?". Give the line it came from, word for word, shortened if long.',
   'Leave out anything that is not a requirement of the visiting group (prices, directions, marketing).',
   'Never put a person’s name, phone number, email address or address into a question or a line. If the document has any, set personalFound true and leave those details out.',
-  'In host, give the name of the host or organiser as the document gives it (an organisation, not a person), or an empty string.'
+  'In host, give the name of the host or organiser as the document gives it (an organisation, not a person), or an empty string.',
+  SOCKETS + ' If the document asks for them, leave that requirement out.'
 ].join('\n');
 const REQ_SCHEMA = {
   type: 'object', additionalProperties: false, required: ['host', 'items', 'personalFound'],
@@ -79,15 +80,17 @@ const clean = (s, n) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().s
 /* the hub's own check as well as the model's: a question or line with a name, phone number or email is left out */
 function normaliseReqs(d, names) {
   if (!d || typeof d !== 'object' || !Array.isArray(d.items)) return { ok: false };
-  let dropped = 0;
+  let dropped = 0, leftOut = 0;
   const items = [];
   for (const it of d.items.slice(0, 60)) {
     const q = clean(it && it.question, 300), line = clean(it && it.line, 300);
     if (!q) continue;
     if (personalCheck(q, names).refuse || personalCheck(line, names).refuse) { dropped++; continue; }
+    /* never socket covers (F-280 10.7), even when the host's own sheet asks for them */
+    if (socketCover(q) || socketCover(line)) { leftOut++; continue; }
     items.push({ q, line });
   }
-  return { ok: true, items: items.slice(0, 40), dropped, personalFound: d.personalFound === true || dropped > 0, host: clean(d.host, 120) };
+  return { ok: true, items: items.slice(0, 40), dropped, leftOut, personalFound: d.personalFound === true || dropped > 0, host: clean(d.host, 120) };
 }
 
 module.exports = { MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, contentFor, REQ_SYSTEM, REQ_SCHEMA, normaliseReqs };

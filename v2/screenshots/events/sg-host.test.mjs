@@ -245,6 +245,20 @@ try {
   await go(L, 'sg-print.html?event=' + EID, '#sheet[data-ready]');
   ok('8. THE PRINT: "Requirements taken from camp-list.pdf, checked by Olly Organiser (invented) on <date>", and the list', /^Requirements taken from camp-list\.pdf, checked by Olly Organiser \(invented\) on \d{1,2} \w+ \d{4}\./.test(await text(L, '#pHost')) && /first aid certificate/.test(await text(L, '#pHostList')), await text(L, '#pHost'));
   ok('   and its questions in the checklist, "Not answered" until they are', (await L.$$('[data-pck^="h_"] [data-pckmissing]')).length === 2);
+  /* 9. never socket covers, even when the host's sheet asks (F-280 10.7) */
+  const LIST3 = { host: 'Hilltop Christian Camp (invented)', personalFound: false, items: [
+    { question: 'Has the group fitted socket covers in its dormitory? (invented)', line: 'Groups must fit socket covers in dormitories.' },
+    { question: 'Will lights be out by 10pm in the dormitories? (invented)', line: 'Lights out by 10pm in the dormitories.' }] };
+  QUEUE.push(answer(LIST3));
+  const n9 = SENT.length;
+  await go(O, 'safeguarding.html?event=' + EID, '#sgaHostAgain');
+  await tap(O, '#sgaHostAgain');
+  await upload(O, F.docx);
+  await O.waitForSelector('#sgaHostSockets', { timeout: 40000 }).catch(() => null);
+  ok('9. NEVER SOCKET COVERS: the instruction is in what was sent', /Never recommend socket covers.*If the document asks for them, leave that requirement out\./.test(J((SENT[n9] || {}).system)), J((SENT[n9] || {}).system).slice(-250));
+  const a9 = await assess();
+  ok('   THE HOST’S OWN "socket covers" requirement is left out (1 of 2), and counted', a9.host.items.length === 1 && /Lights out|lights be out/.test(a9.host.items[0].q) && a9.host.leftOut === 1 && !/socket/i.test(J(a9.host.items)), J(a9.host));
+  ok('   THE LEADER IS TOLD: "One requirement was left out: socket covers aren’t advised for UK sockets … talk to the host."', /^One requirement was left out: socket covers aren’t advised for UK sockets, which have shutters built in\. If the host insists on them, talk to the host\.$/.test(await text(O, '#sgaHostSockets')), await text(O, '#sgaHostSockets'));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

@@ -11596,3 +11596,109 @@ Steps 2 to 7 wait for Martin's answers. **The order of the two parts is question
 - **Caught on the way:** a browser's "gave up waiting" error carries the old number code 20, so the page took it for the server's refusal and said "couldn't be finished" instead of "Still working: reload in a minute". Only word codes count as the server's now.
 - **Breaks:** the shared call without the longer wait, a timeout shown raw, and any code passed through. Each was caught by sg-ai.test.mjs.
 - **Tests:** sg-ai and sg-host pass.
+
+### F-281 — Safeguarding step 1: the AI never recommends socket covers; Martin's answers to F-280; every team name and size limit in the events window's files (the events window, 23 Oct)
+
+**Martin's answers to F-280 (via the reviewing window):**
+- **All 23 recommended answers, except question 11.** Employees are now a number: "How many people does the church employ (paid, including part-time)?" EGBC has fewer than 5 (2 in the test data).
+- **The H&S side scales from that number:**
+
+  | Employees | What applies |
+  |---|---|
+  | **1 or more** | employers' liability in force, with the certificate displayed; RIDDOR (the incident record says when an injury to an employee is reportable, and to whom); the "Health and safety law" poster or leaflet; a first-aid needs assessment that covers employees |
+  | **5 or more** | a written H&S policy, and the significant findings recorded in writing (a legal duty at this size); the "suitable and sufficient" wording changes to match |
+  | **Anyone who uses a screen as a regular part of their job** | a DSE workstation assessment for each person, asked as a checklist question (no staff register) |
+  | **Larger staff teams** | staff H&S training records, consulting employees, and lone-working arrangements for staff |
+
+- **Order:** the safeguarding part first (steps S1 to S6 in F-280 section 10), then H&S and fire.
+- **Newday's addresses** for the first real web-page test (S6):
+  - folders 80000687928, 80000639163, 80000639070, 80000704765 and 80000639039 on newday.freshdesk.com
+  - The reviewing window creates the practice event and runs the one real call once S6 is built and deployed.
+- **Added to the safeguarding part** (from the "Youth Work & Trip Operations Manual", camp-coverage.md section 6):
+  - **(a) The DBS level per leader:** "Enhanced, with the children's barred list" or not, with the date seen. Goes in **S3**.
+  - **(b) Mixed groups:** "Is there at least one male and one female leader?" (Yes / No / not a mixed group); a No is amber. Nobody's sex is stored. Goes in **S2**.
+  - **(c) Transport:** roadworthiness (MOT, a check before the journey), drivers' hours and rest breaks, and the right licence for a minibus (D1 or a permit). Goes in **S2**.
+  - **(d) Insurance:** the public liability cover amount, flagged under £1 million. Goes in **S2**; the building side's certificate and amount go in H&S step 2.
+  - **(e) A church setting for its denomination's safeguarding guidance** (name and link), shown on the assessment page and given to the AI, with NSPCC Learning in the help. Goes in **S2**.
+
+**S1, built: never socket covers** (F-280 10.7)
+- **The instruction is in every AI request** (functions/sg-ai-core.cjs `SOCKETS`): the safeguarding draft and the host's requirements. The H&S and fire drafts will use the same line.
+- **The server also checks each reply,** with one shared test, `socketCover()`. It catches socket, plug or outlet covers, protectors, inserts, guards, caps, blanks and blockers, and plastic safety plugs. It leaves alone "check sockets and leads", "a plug-in heater" and PAT testing.
+- **What is left out of a draft:** any matching control; a hazard about them; a hazard left with no control once they're out; a "must not" line; a question; a suggested answer; and the summary.
+- **What is left out of a host's list:** a requirement that asks for them, even when it is the host's own.
+- **The count is kept** (`source.leftOut`, `host.leftOut`).
+- **The page says so:**
+  - on a draft: "8 suggestions were left out: socket covers aren't advised for UK sockets, which have shutters built in."
+  - on a host's list: "One requirement was left out: … If the host insists on them, talk to the host."
+- **Tests:** sg-ai.test.mjs section 13 and sg-host.test.mjs section 9. The test reply recommends socket covers in eight places, and none of them reaches the database or the page.
+- No rules change. **Deploy:** sgDraftAssessment and sgExtractRequirements (the reviewing window's).
+
+**Every place that names a team** (these wait for main's "Your teams" mapping; I won't build my own):
+
+| Where | What | Fixed in |
+|---|---|---|
+| firestore.rules `cmpAdmin()` / `cmpTrustee()` | 'Church office' / 'Elders' decide compliance and risk | main's mapping, then H&S step 2 |
+| firestore.rules `meetingRunner()` | 'Church office' or 'Elders' | main's mapping |
+| firestore.rules (maintenance jobs) | `hasAny(['Maintenance'])` | main's mapping, then H&S step 2 |
+| firestore.rules safeguarding | `get('trusteeTeam', 'Elders')`: already a setting, one team only | main's mapping, then S4 ("trustees noted") |
+| firestore.rules money | `paymentSettings/team`, default 'Finance': already a setting | main's mapping |
+| risk.html | 'Church office', 'Elders', and "for the church office, the trustees…" | main's mapping, then H&S step 2 |
+| compliance.html | 'Church office', 'Elders'; "The trustees (the Elders) sign off"; "the church office" | main's mapping, then H&S step 2 |
+| maintenance.html | 'Maintenance'; "the office has been told", "The Maintenance team will see it" | main's mapping, then H&S step 2 |
+| functions/compliance.js | the monthly summary goes to 'Church office' or 'Elders' | main's mapping, then H&S step 2 |
+| safeguarding-settings.html, safeguarding-risk.html, functions/sg-warnings.js | trusteeTeam default 'Elders' | main's mapping, then S4 |
+| functions/sg-ai-core.cjs, safeguarding.html | "Ask the church office" / "speak to the church office or a minister" | main's mapping (the office job's name), then S2 |
+| places-admin.html `VIDEO_ROOMS` | EGBC's own video-room names (not teams, but EGBC's) | main (it's the fifth copy of main's list) |
+
+**Every size limit that would cut off a big church** (each becomes a setting or no limit, in my steps):
+
+| Limit | Where | Fixed in |
+|---|---|---|
+| **20 leaders per event** | rules, event `leaderIds` (unrolled 20 times) | **S3** (leader checks) |
+| 2 or 3 leaders cleared per save | rules `allCleared` | **S3** |
+| 10 small-group leaders, 30 kids' leaders, 60 kids'-morning leaders, 30 or 40 on/away lists | rules | **S3** |
+| **60 fire wardens and stewards** | rules `fireRollCall`, safeguarding-settings `slice(0, 60)` | **H&S step 3** (fire), one roll-call per building, no limit |
+| **3 office sites** | rules `officeOfListed` (sites 0–2), egbc-events-money.js `slice(0, 3)` | **H&S step 2**: a lookup by site, so any number of sites |
+| **30 event team members** | events-admin.html `teamMemberIds/teamUids/teamNames.slice(0, 30)` | **H&S step 5** (events) |
+| **30 audiences** | egbc-events.js (Firestore's 30 per "any of" query) | **H&S step 5**: asked in batches of 30, so no limit |
+| 20 teams, 50 members, 30 welcomers | rules | **H&S step 2**, where they're mine; any that are main's I'll pass on |
+| 40 risks, 40 host questions, 20 controls a risk | rules, egbc-sg-assess.js, sg-ai-core.cjs | **S2** (see note) |
+| 100 warnings, 50 kids' groups' consent | functions/sg-warnings*.js | **S5** |
+| 10 people responsible for a check, 10 files, 200 history rows | rules, egbc-compliance-store.js, compliance.html | **H&S step 3** |
+| AI per day: 20 for the church, 5 a person, set no higher than 200 or 50 | already a setting; only the maximums are fixed | **S2**: the maximums go |
+
+- **The note on records:** one Firestore record holds at most 1 MB. A list stored inside one record (an assessment's risks, a host's questions) needs some ceiling. In S2 these become a high technical ceiling, not a church-size rule, and the page says so when it's reached instead of cutting the list silently.
+- **Lists of people** (leaders, wardens, team members) go to no limit, by storing them so they don't all sit in one record or one query.
+
+**How S1 works for the synthetic parish** (St Aidan's with St Hild, Testbury):
+- **Nothing in it is EGBC's or Baptist.** The rule is about UK sockets, so it holds for any UK church. It is the same for their choir trip, youth camp and holiday club drafts, and for any host's list.
+- **Nothing in it is a setting,** and nothing needs to be: no team, no number, no name.
+
+**Already built that would fail the parish test** (beyond the two tables above), with the step that fixes each:
+
+| What the parish would see | Why it fails | Fixed in |
+|---|---|---|
+| **"Safeguarding lead" and "lead or deputy" throughout** the safeguarding pages, the print's signature lines and sign-off role | **The parish has a "Parish safeguarding officer".** The role's name becomes a church setting (default "Safeguarding lead") | **S2** (the page wording), S4 (the print and "trustees noted") |
+| **"Ask the church office"** in the AI's messages | **They have a "Parish office".** It will take the office job's team name from main's mapping | **S2** |
+| **No denomination guidance;** the AI isn't told the church's tradition | **They follow the Diocese's guidance.** This is (e), a setting | **S2** |
+| **The employees question is a yes/no** for each building (egbc-compliance-templates.js) | **They have about 30 employees.** It becomes a number for the church, and the duties follow it | **H&S step 2** |
+| **No bells, tower, churchyard, listed building or candles** in the building profile or starter hazards | **Their parish church has all of these.** They are added as profile questions and starters (working at height, the tower, memorials, headstones, heritage, naked flames) | **H&S step 3** |
+| **No weddings, baptisms or funerals** as kinds of event assessment | **They run all three.** They are added to the event kinds (numbers, candles, the font and water, the churchyard, traffic) | **H&S step 5** |
+| **The fire roll-call is one record for the whole church** | **They have three buildings.** It becomes one for each building | **H&S step 3** |
+| **The office reads at most 3 sites** | **This works for their 3, but not a 4th.** It becomes a lookup by site | **H&S step 2** |
+
+**No change to live** except the reviewing window's deploy of the two functions.
+
+**S1's breaks** (each caught):
+
+| Break | sg-ai | sg-host | Caught by |
+|---|---|---|---|
+| **THE ONE THAT MATTERS:** the server check removed | 68/73 | — | "never reaches the database", "what was sound stays", "counted: 8" |
+| the same, on the host's list | — | 27/29 | "left out (1 of 2), and counted", "the leader is told" |
+| the instruction left out of the drafts | 72/73 | — | "the instruction is in what was sent" |
+| the instruction left out of the host's list | — | 28/29 | "the instruction is in what was sent" |
+| a hazard left with no control kept anyway | 69/73 | — | "never reaches the database", "what was sound stays", "counted: 8" |
+| the page doesn't say what was left out | 72/73 | — | "THE PAGE SAYS SO" |
+| the host box doesn't say | — | 28/29 | "the leader is told" |
+
+**Tests:** sg-ai 73/73, sg-host 29/29.
