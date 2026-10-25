@@ -28,7 +28,17 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 const V2 = path.resolve('.');
-const C1 = JSON.parse(fs.readFileSync(process.env.EGBC_FIREBASE_CONFIG || 'firebase.comms.json', 'utf8'));
+/* Its emulator's settings are Comms' own (firebase.comms.json), which not
+   every clone has yet: then say so plainly and skip, rather than stop
+   with a file error (the reviewing window, 25 Oct 2026). Another window
+   can point it at its own with EGBC_FIREBASE_CONFIG. */
+const CFG = process.env.EGBC_FIREBASE_CONFIG || 'firebase.comms.json';
+if (!fs.existsSync(CFG)) {
+  console.log('SKIPPED: ' + CFG + ' is not in this clone, so there is no emulator to run against.\n'
+    + '  Run it where that file is, or set EGBC_FIREBASE_CONFIG to your own emulator settings (for example firebase.events.json).');
+  process.exit(0);
+}
+const C1 = JSON.parse(fs.readFileSync(CFG, 'utf8'));
 process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + C1.emulators.firestore.port;
 process.env.FUNCTIONS_EMULATOR = 'true';
 process.env.GCLOUD_PROJECT = 'egbc-worship-planner';

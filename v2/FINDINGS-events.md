@@ -11793,3 +11793,24 @@ Steps 2 to 7 wait for Martin's answers. **The order of the two parts is question
 | check-rules-build | 8/8 | |
 
 Earlier tests updated for the new counts: a trip asks 18, not 14.
+
+### F-283 — Present and main's EGBCPlanStore (H-11 item 0): nothing to switch; check-mail-route skips plainly without Comms' emulator file (the events window, 25 Oct)
+
+**Present and EGBCPlanStore:**
+- **Present never finds a service's plan by date,** so there is nothing to switch.
+  - It shows a group's sessions (`planSessions`, found by group and by id) and a meeting's deck (`presentDecks`, by id).
+  - None of egbc-present.js, present.html or present-guide.html reads `services` or `songSummaries`.
+- **The files that read `services` by date are main's** (CoreTeamApp.html, app.html, hub-app.js, egbc-core-planner.js, worshiphubapp.html, youthapp2.html, Library.html, sundayplannersonglibrary.html, data-tools.html) and Comms' (sitemaker.html).
+- **Found while looking, for H-9's audit** (present.html, the Menu's "your groups' sessions" chooser):
+  - **It shows only the next 12 sessions** (`slice(0, 12)`).
+  - **It looks up groups by team *name*, at most 10 teams** (`teams.slice(0, 10)`, `teamName in [...]`).
+  - Both wait for main's jobs mapping (team ids, not names). The 10 becomes batches of 30, and the 12 becomes "show more".
+  - **Fixed in:** S2b's sweep of the 500 limits, once main's mapping is in.
+
+**check-mail-route.mjs** (main's tests/ file, changed at the reviewing window's request):
+- **Without firebase.comms.json** it now says "SKIPPED: firebase.comms.json is not in this clone…", with how to run it, and exits cleanly instead of stopping with a file error.
+- `EGBC_FIREBASE_CONFIG` still points it at another emulator.
+
+**For the going-live list:**
+- **The rules can't check an answer's shape:** they refuse "Yes: " or "No: " with nothing after, but not "£5,000,000: " with nothing after (the insurance cover alone).
+- **The page refuses it,** which the reviewing window accepted (F-282).
