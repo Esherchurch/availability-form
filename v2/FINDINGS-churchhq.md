@@ -648,3 +648,13 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
   - check-core-planner: 69/72. The 3 reds (the Meetings room list) fail the same way on the code before this change; they're older, and I'm looking into them separately.
 - **The original site (from its root pages in git):** after v2 saves two plans on one date, a root planner shows whichever the database gives first, and saving there writes into that one. So EGBC shouldn't plan two services on one date with the original site's planners.
 - **Other windows switch to `EGBCPlanStore` too:** the events window (Present), Comms (the e-news "This Sunday", sitemaker.html), and ChurchShow (`churchShowServicesToday`, H-11 item 2).
+
+### H-11 item 2, added (25 Oct 2026; ChurchShow's N2): the church's words go to ChurchShow at pairing
+
+- **`churchShowServicesToday`** uses `EGBCPlanStore` and each plan's `eventId` (item 0). For the computer's building it gives the day's live services in time order, each with its own plan.
+- **ChurchShow's words come from the church, at pairing** (ChurchShow's suggestion), so a parish never types them.
+  - `churchShowRedeem`'s answer gains `words`: the hub's name (`churchSettings/details.name`); the word for the main service day ("Sunday"); and the name of each group whose lessons the computer shows (Junior Church, Messy Church…, from Teams and groups; H-9).
+  - They are refreshed with the job (`churchShowSetJob`), and on each sign-in renewal through a small callable `churchShowWords`.
+  - **EGBC's defaults are today's words, so EGBC's ChurchShow shows no change.**
+  - The pairing answer's shape gains a field and loses none, so ChurchShow can read it whenever it is ready.
+- **Order:** with the rest of item 2, after H-9's mapping (the group names come from it).
