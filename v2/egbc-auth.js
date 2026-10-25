@@ -933,6 +933,11 @@
      master admin most needs to be able to see. */
   function mountViewAsBar() {
     if (!reallyMaster()) return;
+    /* NOT BEFORE THERE IS A BODY (the audit, 25 Oct 2026: hubresources for
+       a master admin at 360). A page that asks for the profile from its
+       <head> can have it back first; this threw there, so the page never
+       got its profile. */
+    if (!document.body) { document.addEventListener('DOMContentLoaded', mountViewAsBar, { once: true }); return; }
     /* NOT INSIDE THE PHONE APP (APP-DESIGN-BRIEF §7e). This is a website
        strip, fixed to the bottom of the page, and in the app it lands on
        top of the tab bar - Martin saw it there and it is half of why the
