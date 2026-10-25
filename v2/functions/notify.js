@@ -92,12 +92,18 @@ export function dryEmail(db) {
   };
 }
 
+/* The church's hub address, ending in "/". For EGBC's own data (no church
+   id: the top level, as today) EGBC's address is the default, so nothing
+   changes for EGBC. For any other church an address not set yet is '' -
+   never another church's address (25 Oct 2026; Comms asked). Church
+   settings > Church details asks a master admin to set it. */
 export async function hubUrl(db) {
+  const fallback = db && db.churchId ? '' : DEFAULT_HUB;
   try {
     const s = await db.collection('churchSettings').doc('details').get();
     const u = s.exists ? String((s.data() || {}).hubUrl || '') : '';
-    return /^https:\/\//.test(u) ? u.replace(/\/?$/, '/') : DEFAULT_HUB;
-  } catch (e) { return DEFAULT_HUB; }
+    return /^https:\/\//.test(u) ? u.replace(/\/?$/, '/') : fallback;
+  } catch (e) { return fallback; }
 }
 
 /* ---------------------------------------------------- who is somebody */

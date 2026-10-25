@@ -59,5 +59,37 @@ ok('  its older plan is that service\'s', (S.planFor([may], 'ev_live', dupes) ||
 const m2 = S.migrationPlan({ '2026-05-03': [may] }, { '2026-05-03': dupes });
 ok('  and the migration links it, with nobody asked', m2.link.length === 1 && m2.link[0].eventId === 'ev_live' && m2.ask.length === 0, m2);
 
+console.log('A date with NO live service (every rota event archived; 14 of EGBC\'s past Sundays, 25 Oct 2026)');
+if (process.env.BREAK === 'nolive') {
+  /* The break: an unlinked plan only on a one-service date, as before this. */
+  const realPlanFor = S.planFor;
+  S.planFor = (docs, id, day) => (S.inOrder(day).length === 0 ? (docs || []).find((d) => d.data && d.data.eventId === id) || null : realPlanFor(docs, id, day));
+}
+const gone = [{ id: 'ev_gone1', date: '2026-04-12', type: 'Sunday Morning Worship', archived: true }, { id: 'ev_gone2', date: '2026-04-12', type: 'Sunday Morning Worship', archived: true }];
+const april = { id: 'sv_apr', data: { date: '2026-04-12', order: ['april'] } };
+ok('its older plan still opens, to read', (S.planFor([april], '', gone) || {}).id === 'sv_apr');
+ok('  but is never saved over (no live service to save it for)', S.saveTarget([april], 'ev_gone1', gone) === null);
+
+console.log('The song history counts every plan, linked or not (all 19 of EGBC\'s)');
+/* 5 linked plans and 14 older unlinked ones, each with one song, 19 dates. */
+const nineteen = [];
+for (let i = 0; i < 19; i++) {
+  const date = '2026-' + String(4 + Math.floor(i / 4)).padStart(2, '0') + '-' + String(1 + (i % 4) * 7).padStart(2, '0');
+  nineteen.push(Object.assign({ date, order: [{ type: 'song', title: 'Synthetic Hymn', keys: ['G'] }] }, i >= 14 ? { eventId: 'ev_' + i } : {}));
+}
+const fs = await import('node:fs');
+/* The shared planner's own history (egbc-core-planner.js spLibrary). */
+let lib = fs.readFileSync('egbc-core-planner.js', 'utf8').replace(/\r\n/g, '\n').match(/ {2}var SP_LIB = null;\n {2}function spLibrary\(\) \{[\s\S]*?\n {2}\}\n/)[0];
+if (process.env.BREAK === 'history') lib = lib.replace("if (!sv.date || sv.date > today) return;", "if (!sv.date || sv.date > today || !sv.eventId) return;");
+const docs = nineteen.map((x, i) => ({ id: 'sv' + i, data: () => x }));
+const spLibrary = new Function('db', lib + '\nreturn spLibrary;')(() => ({ collection: (c) => ({ get: async () => ({ docs: c === 'services' ? docs : [] }) }) }));
+const used = (await spLibrary()).used['synthetic hymn'] || {};
+ok('the planner\'s song history counts all 19 plans', used.count === 19, used);
+/* The worship hub's (worshiphubapp.html getSongUsageStats; Library.html and the song library page share it). */
+let hub = fs.readFileSync('worshiphubapp.html', 'utf8').replace(/\r\n/g, '\n').match(/async function getSongUsageStats\(songTitle\) \{[\s\S]*?\n\}\n/)[0];
+if (process.env.BREAK === 'history') hub = hub.replace("if (!service.date || !Array.isArray(service.order)) return;", "if (!service.date || !Array.isArray(service.order) || !service.eventId) return;");
+const stats = await new Function('getServicesCache', hub + '\nreturn getSongUsageStats;')(async () => nineteen)('Synthetic Hymn');
+ok('  and so does the worship hub\'s', stats.totalCount === 19, stats);
+
 console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
 process.exit(R.every(Boolean) ? 0 : 1);

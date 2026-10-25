@@ -1081,13 +1081,12 @@ function todayIso() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function isNewsExpired(n) { return !!(n && n.until && n.until < todayIso()); }
+/* Which notices are showing, and for whom: the one rule, in egbc-notices.js
+   (25 Oct 2026), so the app and the e-news draft ask the same. */
+function isNewsExpired(n) { return !!n && !EGBCNotices.isCurrent(n, todayIso()); }
 
 function forMe(n) {
-  if (!Array.isArray(n.teams) || !n.teams.length) return true;
-  if (EGBCAuth.isMaster()) return true;
-  const mine = myTeams();
-  return n.teams.some(t => mine.includes(t));
+  return EGBCNotices.isForTeams(n, myTeams(), EGBCAuth.isMaster());
 }
 
 /* Video meetings. Rota events can carry a Daily.co room (events.videoRoom,

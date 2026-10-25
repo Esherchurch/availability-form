@@ -144,6 +144,11 @@
       '<div class="field"><label for="c-name">Church name</label><input class="inp" id="c-name" maxlength="120" value="' + esc(D.name) + '"></div>' +
       '<div class="field"><label for="c-email">Enquiry email</label><input class="inp" id="c-email" type="email" maxlength="200" value="' + esc(D.enquiryEmail) + '">' +
         '<p class="hint" style="margin:6px 0 0">Where room-hire questions go, and the reply address on emails these pages send.</p></div>' +
+      /* THE HUB'S OWN ADDRESS (25 Oct 2026): every email links to it. Empty
+         is "not set yet", said plainly; only a master admin sets it. */
+      '<div class="field"><label for="c-hub">The hub\u2019s web address</label><input class="inp" id="c-hub" type="url" maxlength="200" placeholder="https://" value="' + esc(D.hubUrl || '') + '"' + (EGBCAuth.isMaster() ? '' : ' disabled') + '>' +
+        (D.hubUrl ? '<p class="hint" style="margin:6px 0 0">Links in the hub\u2019s emails go here.</p>'
+          : '<p class="hint" style="margin:6px 0 0;color:var(--warn,#b45309);font-weight:600">Not set yet. Emails can\u2019t link to the hub until it is' + (EGBCAuth.isMaster() ? ': type the address people open the hub at.' : '. A master admin sets it.') + '</p>') + '</div>' +
       '<div class="field"><label>Logo</label>' + (D.logoUrl ? '<img class="logo" id="c-logo" src="' + esc(D.logoUrl) + '" alt="">' : '<p class="hint">No logo yet.</p>') +
         '<label class="btn sec" style="cursor:pointer;display:inline-flex">' + (D.logoUrl ? 'Change the logo' : 'Add a logo') +
         '<input type="file" id="c-file" accept="image/png,image/jpeg,image/webp" style="display:none"></label></div>' +
@@ -162,14 +167,18 @@
 
   function save(logoOnly) {
     var name = document.getElementById('c-name').value.trim(), email = document.getElementById('c-email').value.trim().toLowerCase();
+    var hubBox = document.getElementById('c-hub'), hub = hubBox && !hubBox.disabled ? hubBox.value.trim() : (D.hubUrl || '');
     if (!logoOnly && !name) { toast('It needs the church\'s name.'); return Promise.resolve(); }
     if (!logoOnly && email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('That email address does not look right.'); return Promise.resolve(); }
+    if (!logoOnly && hub && !/^https:\/\/\S+$/.test(hub)) { toast('The hub\'s address starts https:// and has no spaces.'); return Promise.resolve(); }
     var u = EGBCAuth.user() || {};
     D.name = logoOnly ? (D.name || name) : name; D.enquiryEmail = logoOnly ? (D.enquiryEmail || email) : email;
+    D.hubUrl = logoOnly ? (D.hubUrl || '') : hub;
+    /* MERGED, so a field this form does not draw is never wiped by Save. */
     return db().collection('churchSettings').doc('details').set({
       name: D.name || '', enquiryEmail: D.enquiryEmail || '', logoUrl: D.logoUrl || '', logoPath: D.logoPath || '',
-      updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
-    }).then(function () { toast('Saved.'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
+      hubUrl: D.hubUrl || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
+    }, { merge: true }).then(function () { toast('Saved.'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
   }
 
   /* ---- giving: the church's bank details ---------------------------

@@ -1890,3 +1890,17 @@ Every function must take the church from the sign-in's claim or the document's p
   - **Comms:** the e-news "This Sunday", and sitemaker.html where it reads services.
 - **A date with one service** (EGBC almost every week) behaves exactly as before.
 - **The check:** tests/check-two-services.mjs shows the pattern (two services on one date; a break with the old rule).
+
+## From the main window, 25 Oct 2026: your three asks
+
+1. **The day's services:** `EGBCPlanStore.dayServices(events, date)` (v2/egbc-plan-store.js). Give it the rota events, and it returns that date's live services in time order (archived ones don't count). Each service's own plan is `EGBCPlanStore.planFor(docs, service.id, theDay)`.
+2. **Current notices:** there wasn't a shared helper, so there is one now: `EGBCNotices` (v2/egbc-notices.js), the hub's own rule moved out, which the hub now uses itself:
+   - `EGBCNotices.isCurrent(n)`: still showing (no `until`, or `until` today or later);
+   - `EGBCNotices.isForTeams(n, teams, isMaster)`: no teams means everybody;
+   - `EGBCNotices.current(list)`: the showing ones, newest first by createdAt.
+   - Checked by tests/check-notices-rule.mjs, which gives the hub's own answers in every case.
+3. **The hub's address** (`churchSettings/details.hubUrl`):
+   - Church settings > Church details has the field. Empty shows "Not set yet. Emails can't link to the hub until it is". Only a master admin can change it, and it must start `https://`.
+   - **The server's `hubUrl(db)`** gives EGBC's address for EGBC's own data when not set, as today. For any other church not set yet, it gives `''`. Treat `''` as "no hub link": don't put a relative link in an email.
+   - It goes into new-church setup with "Your church".
+- **Also:** your new `firebase.comms.json` loads `firestore.rules`. Please point it at `firestore.build.rules`, as every other config does (H-7); check-rules-build fails on it until then.

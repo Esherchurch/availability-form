@@ -154,7 +154,8 @@ const londonDate = (n) => {
      identity token was only ever for Calla's sendEmail; it is gone with it. */
   console.log('\nthe hub\'s emails go through Church HQ\'s Resend (makeSender), never Calla');
   const idx = fs.readFileSync('functions/index.js', 'utf8');
-  ok('  sendOne is makeSender', /async function sendOne[\s\S]{0,200}makeSender\(/.test(idx));
+  /* One sender per church since multi-church step 3 (sendOneIn(cdb), batch 6): still makeSender. */
+  ok('  each email goes through makeSender, from that church\'s data', /function sendOneIn\(cdb\)[\s\S]{0,200}makeSender\(\{ db: cdb \}\)/.test(idx) && !/async function sendOne\(/.test(idx));
   ok('  and index.js has no Calla address and no identity token', !/sendemail-|a\.run\.app|id-token/.test(idx));
 
   /* ---- the master switch's default (A-081) ---------------------------

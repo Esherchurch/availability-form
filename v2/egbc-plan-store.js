@@ -45,19 +45,31 @@
   function planFor(docs, eventId, dayEvents) {
     var list = docs || [];
     for (var i = 0; i < list.length; i++) if (list[i].data && list[i].data.eventId === eventId) return list[i];
-    if (inOrder(dayEvents).length === 1) {
+    /* An older unlinked plan: the day's service's when the day has exactly
+       one; and, READ-ONLY, the day's plan when the day has NO live service
+       left (every rota event archived - 14 of EGBC's past Sundays, Apr-Aug
+       2026, 25 Oct 2026). Never on a day with two or more. */
+    var live = inOrder(dayEvents).length;
+    if (live <= 1) {
       for (var j = 0; j < list.length; j++) if (list[j].data && !list[j].data.eventId) return list[j];
     }
     return null;
   }
 
-  /* Where to save: the plan's own document id, or null for a new one. The
-     saved plan always carries eventId, so an older plan on a one-service
-     date is linked to its service as it is saved. */
+  /* An older plan on a date with no live service is shown, never saved
+     over: where to save is only ever a live service's plan. */
   function saveTarget(docs, eventId, dayEvents) {
+    if (!inOrder(dayEvents).length) return null;
     var p = planFor(docs, eventId, dayEvents);
     return p ? p.id : null;
   }
+
+  /* The day's live services, in time order: date's events in, services out
+     (for a page that has every rota event, e.g. a weekly draft). */
+  function dayServices(events, date) {
+    return inOrder((events || []).filter(function (e) { return e && e.date === date; }));
+  }
+
 
   /* The emailed plan (songSummaries): the date alone with one service that
      day, as before; the date and the service with several. */
@@ -79,7 +91,7 @@
     return { link: link, ask: ask };
   }
 
-  var api = { inOrder: inOrder, label: label, planFor: planFor, saveTarget: saveTarget, summaryId: summaryId, migrationPlan: migrationPlan };
+  var api = { inOrder: inOrder, dayServices: dayServices, label: label, planFor: planFor, saveTarget: saveTarget, summaryId: summaryId, migrationPlan: migrationPlan };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   global.EGBCPlanStore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

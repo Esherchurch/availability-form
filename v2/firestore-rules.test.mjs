@@ -2125,6 +2125,14 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a member cannot change them', 'deny', () => setDoc(doc(as('samy'), 'churchSettings', 'details'), D({ updatedBy: 'u_samy' })));
   await check('the enquiry address has to look like one', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ enquiryEmail: 'not an address' })));
   await check('there is one church details document', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'other'), D()));
+  /* THE HUB'S OWN ADDRESS (main window, 25 Oct 2026): every email links to
+     it, so a master admin sets it; an admin saving the rest keeps it. */
+  await check('HUB ADDRESS: a master admin sets the hub’s address', 'allow', () => setDoc(doc(as('martin'), 'churchSettings', 'details'), D({ hubUrl: 'https://hub.example.invalid/', updatedBy: 'u_martin' })));
+  await check('  an admin saving the rest keeps it as it is', 'allow', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ hubUrl: 'https://hub.example.invalid/' })));
+  await check('  but cannot change it', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ hubUrl: 'https://elsewhere.example.invalid/' })));
+  await check('  nor clear it', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ hubUrl: '' })));
+  await check('  it is a web address (https) or nothing', 'deny', () => setDoc(doc(as('martin'), 'churchSettings', 'details'), D({ hubUrl: 'http://plain.example.invalid/', updatedBy: 'u_martin' })));
+  await check('  a master admin can clear it (not set yet)', 'allow', () => setDoc(doc(as('martin'), 'churchSettings', 'details'), D({ hubUrl: '', updatedBy: 'u_martin' })));
 }
 
 // ── GIVING ── the church's bank details (Martin, 12 Oct 2026)
