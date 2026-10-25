@@ -2076,6 +2076,15 @@ const storage = firebase.storage();
 let currentSection = 'home';
 let sectionHistory = [];
 let rotaEvents = [];
+// Kids Church roles share the Sunday event since the new hub's rota planner
+// (Oct 2026) and this page reads the same database. The team rota here is
+// Worship & AV's (Martin, 23 Oct 2026; the same filter as c5f664ba), so the
+// Kids Church slots are left out of it. "My serving" and the calendar file
+// are untouched: a Kids Church leader still sees their own dates.
+const KIDS_CHURCH_ROLES = ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+  'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)'];
+const isWorshipRole = r => KIDS_CHURCH_ROLES.indexOf(r) === -1 && !/^Helper \d+$/.test(r);
+const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));
 let rotaAddressBook = [];
 let boardNotes = [];
 let boardPages = [{ id: 'main', title: 'General Board' }];
@@ -2254,7 +2263,7 @@ function renderRota() {
       <div>`;
     grouped[term].forEach(ev => {
       const dateStr = new Date(ev.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
-      const roles = ev.roles || [];
+      const roles = (ev.roles || []).filter(isWorshipRole);
       html += `<div class="rota-event">
         <div class="rota-event-meta">
           <span class="rota-date-badge">${dateStr}</span>
