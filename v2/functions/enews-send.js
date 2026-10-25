@@ -43,9 +43,13 @@ import { featureOn } from './features.js';
 import { under18Emails, isUnder18Record } from './under18.js';
 import { paperLinksFor, personalise } from './meeting-papers.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
+import { hubUrl } from './notify.js';
 
 const REGION = 'europe-west2';
-const HUB = 'https://esherchurch.github.io/availability-form/v2';
+/* The hub's web address: one church setting, churchSettings/details.hubUrl
+   (main's hubUrl in notify.js, EGBC's address the default), without its
+   last "/". Every e-news link and email takes it from there. */
+const hubOf = async db => (await hubUrl(db)).replace(/\/+$/, '');
 const FN_LIVE = 'https://europe-west2-egbc-worship-planner.cloudfunctions.net';
 export const PLACEHOLDER = '{{unsubscribe_url}}';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -65,7 +69,8 @@ const escHtml = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':
    team, people picked) has a "please leave me out" email to the office
    instead. "Dear {{first_name}}" becomes theirs ("friend" if none). */
 export function letterFor(issue, sub, isMember, o = {}) {
-  const hub = o.hub || HUB, fnBase = o.fnBase || FN_LIVE;
+  const hub = o.hub, fnBase = o.fnBase || FN_LIVE;
+  if (!hub) throw new Error('letterFor: the hub’s web address is needed (hubOf).');
   const leave = 'mailto:' + String(o.replyTo || '') + '?subject=' + encodeURIComponent('Please leave me out of these emails');
   const page = sub.token ? hub + '/enews-unsubscribe.html?t=' + encodeURIComponent(sub.token) : leave;
   const first = escHtml(String(sub.firstName || '').trim().split(/\s+/)[0] || 'friend');
@@ -121,6 +126,7 @@ async function memberEmails(db) {
 
 export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, gap = 120 }) {
   if (enewsShut()) return { shut: true };
+  hub = hub || await hubOf(db);
   const nowLocal = londonNow(now);
   const due = (await db.collection('enewsIssues').where('status', '==', 'scheduled').get()).docs.filter(d => isDue(d.data(), nowLocal));
   /* Also any issue a dead timer left half sent. */
@@ -173,7 +179,7 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
        members, a team or picked people has no public web version. */
     if (issue.kind !== 'oneoff' || (issue.audience || 'subscribers') === 'subscribers') await db.collection('enewsWeb').doc(doc.id).set({
       subject: issue.subject || '', sentAt: new Date().toISOString(),
-      html: String(issue.htmlEveryone).split(PLACEHOLDER).join((hub || HUB) + '/enews-signup.html').split('{{first_name}}').join('friend')
+      html: String(issue.htmlEveryone).split(PLACEHOLDER).join(hub + '/enews-signup.html').split('{{first_name}}').join('friend')
     });
     /* A shared "Preview web version" link now shows the sent web version
        (enews-preview.js; enews-web.html follows sentIssueId). */

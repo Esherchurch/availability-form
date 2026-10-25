@@ -260,6 +260,65 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 25 Oct: the hub's web address as one setting, and C-52 (no hidden caps). For review
+
+The reviewing window's answers of 25 Oct, in its order. C-51 (every service in the weekly draft) waits for main's H-11 helper for "the day's services", so C-52 came first.
+
+### 1. The hub's web address: one church setting
+
+- **The setting is main's `churchSettings/details.hubUrl`**, read by `hubUrl(db)` in functions/notify.js, which ten functions already use. Its default is today's address, `https://esherchurch.github.io/availability-form/v2/`. No address has changed.
+- **Every e-news link and email now takes it from there:**
+  - the e-news itself (each person's unsubscribe link, the web version and its sign-up link): functions/enews-send.js;
+  - the sign-up confirmation email: functions/enews.js;
+  - "Preview web version": functions/enews-preview.js;
+  - the welcome emails: functions/welcome-mail.js;
+  - the card maker's morning reminder: functions/social.js;
+  - Canva's way back to the hub: functions/canva.js.
+- **The pages** (the e-news, the editor, the card maker) use the setting once it's read, and otherwise their own address, which today is the same. The links they make in the email (What's On, sign-up, meetings, the web version, the social icons' pictures) come from it.
+- **No address is typed in anywhere else.** If the address is missing, `letterFor` stops with an error rather than guess.
+- **Two places keep EGBC's address until Church HQ's own address is set up,** and the guard allows only these:
+  - the social icons' default, the same default as the setting;
+  - the sign-up functions' allowed sites (`cors`), which are fixed when the functions deploy. When `<church>.churchhq.co.uk` is set up, `*.churchhq.co.uk` is added there.
+- **For main:** the setting has no screen yet. It wants one field in Church settings > Church details ("The hub's web address"), or a place in the new-church setup.
+- **For the synthetic parish:** with `hubUrl` set to its own address, every link in its e-news and emails goes there. With none set, they go to EGBC's address, so the setup should always fill it in.
+
+### 2. C-52: no hidden caps
+
+| Where | Before | Now |
+|---|---|---|
+| The subscriber list (enews.html) | the first 1,000, counted from those | every subscriber, read 500 at a time; counted from all; shown 200 at a time, "Showing 200 of N", Show more |
+| The e-news list | the latest 30, without saying so | the latest 30, "Showing the latest 30", Show more |
+| The public web archive (enews-web.html) | the latest 30 | the latest 30, "Showing the latest 30", Show more |
+| "Dates for the diary" | 30 events at most | every public event in its weeks |
+| What's On events for the draft, the diary, the event picker and the card maker | 150 or 200 | every event in the range, read 500 at a time |
+| The picture library | the latest 48 | every picture |
+
+**One helper for every page** (egbc-comms.js): `showMore` (the latest N, with Show more) and `allDocs` (a whole list, a page at a time).
+
+**Still capped, and why:**
+- **The Email Compiler's 10 drafts.** I read the root EmailBuilder2.html in git, briefly. The original Compiler shares the `emailDrafts` list and refuses to save once 10 exist. If v2 saved more, the original would stop saving. So v2 keeps 10 until going live, then the cap goes.
+- **The draft's notices:** the latest 30, and 6 at most in the draft. Which notices are current is the notice board's rule. **Step:** use main's notice-board helper for current notices when there is one, then no cap. Ask main for its name.
+- **The next members' meeting:** looks at the next 5 meetings to find one not cancelled. It isn't a list anyone sees, and it goes with the meeting types (item 6 of "Any church").
+- **The sending cap per church and Church HQ's Resend limit:** with batch 8, as agreed.
+
+**For the synthetic parish:** its hall booked every day, 30 staff and a big e-news list all fit. A parish with 5,000 subscribers sees them all, 200 at a time.
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-enews-send | 50/50: with no address given, each unsubscribe link and the web version's sign-up link come from `hubUrl` (a made-up parish address), and EGBC's address is in neither. **Break:** the address typed in → red. Its other 12 breaks red |
+| check-enews-page | 65/65: the list shows the latest 30, says so, and Show more brings the oldest; 1,005 subscribers all counted, 200 shown, then 400. **Break subcap** (back to the first 1,000) → 2 red. **Break nomore** (no Show more) → red |
+| check-enews-blocks | 90/90; 28/28 breaks red. New: 45 events in a busy parish's weeks, all in "Dates for the diary". **Break:** cut at 30 → red |
+| check-comms-any-church | 2/2: EGBC's address only in the two places above |
+| Also | enews-preview 18/18, welcome-mail 26/26, social 13/13, enews-subscribe 58/58, canva 20/20, canva-page 9/9, enews-editor 50/50, cardmaker 35/35, enews-meeting 19/19, enews-emails 36/36, check-stamps 11/11 |
+
+**Not run:** tests/audit-everything.mjs. It needs the dev or events emulators.
+
+**v2 only:** every changed path is under v2/. The one original page read was root EmailBuilder2.html, in git, for the drafts cap.
+
+---
+
 ## ANY CHURCH, 23 Oct: the comms area against the synthetic parish test. For review
 
 The reviewing window, for Martin: the going-live test is a made-up Church of England parish ("St Aidan's with St Hild, Testbury (synthetic)"), set up through the screens only. It fails on:

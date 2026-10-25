@@ -41,11 +41,15 @@ import { makeHqSender, verifySvix } from './hq-mail.js';
 import { webhookSecret, SENDING_SECRETS } from './resend-secrets.js';
 import { featureOn } from './features.js';
 import { isUnder18Email, isUnder18Record } from './under18.js';
+import { hubUrl } from './notify.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
 const EMULATOR = () => process.env.FUNCTIONS_EMULATOR === 'true';
-const HUB = 'https://esherchurch.github.io/availability-form/v2';
+/* The hub's web address: one church setting, churchSettings/details.hubUrl
+   (main's hubUrl in notify.js, EGBC's address the default), without its
+   last "/". Every e-news link and email takes it from there. */
+const hubOf = async db => (await hubUrl(db)).replace(/\/+$/, '');
 const EMAIL = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}$/i;
 const DAY = 86400000;
 /* The words beside the tick on the sign-up page, kept with each consent so
@@ -62,15 +66,15 @@ const now = () => new Date().toISOString();
 const hist = (what, extra) => Object.assign({ at: now(), what }, extra || {});
 
 /* Where the links in emails point: the page the person came from, if it
-   is the hub (or a local test of it), otherwise the live hub. */
-function baseFrom(req) {
+   is a local test of the hub, otherwise the church's hub address. */
+async function baseFrom(req) {
   const o = String(req.get('origin') || '');
   if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(o)) {
     const ref = String(req.get('referer') || '');
     const m = /^(http:\/\/(?:localhost|127\.0\.0\.1):\d+(?:\/[^?#]*)?)\/[^\/?#]*(?:[?#].*)?$/.exec(ref);
     return m ? m[1] : o;
   }
-  return HUB;
+  return hubOf(db());
 }
 
 async function settings() {
@@ -157,7 +161,7 @@ export const enewsSignup = onRequest({ region: REGION, cors: [/^https:\/\/esherc
   else data.history = (doc.data().history || []).concat([hist('asked to join again (web form)')]).slice(-50);
   await ref.set(data, { merge: true });
 
-  const link = baseFrom(req) + '/enews-confirm.html?t=' + confirmToken;
+  const link = (await baseFrom(req)) + '/enews-confirm.html?t=' + confirmToken;
   await makeHqSender({ db: db() })({
     to: email, subject: 'Please confirm: ' + (S.church.name || 'the church') + ' e-news',
     html: confirmEmail(S.church, link), fromName: S.church.name || '', replyTo: S.church.enquiryEmail || ''

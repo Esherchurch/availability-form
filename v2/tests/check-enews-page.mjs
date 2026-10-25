@@ -107,6 +107,8 @@ const BREAKS = {
   colour: ['egbc-enews-editor.js', "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + palette().map(", "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + [].map("],
   leak: ['enews.html', "{ issueId: ISSUE_ID, html: finalCopy('everyone') }", "{ issueId: ISSUE_ID, html: finalCopy('members') }"],
   missing: ['enews.html', 'readyNote() + missingNote() +', 'readyNote() +'],
+  subcap: ['enews.html', "EGBCComms.allDocs(db().collection('enewsSubscribers').orderBy('email'), 500).then(function (docs) {", "db().collection('enewsSubscribers').orderBy('email').limit(1000).get().then(function (q) { var docs = q.docs;"],
+  nomore: ['egbc-comms.js', '      if (s.size >= o.size) {', '      if (false) {'],
   wordcount: ['enews.html', "      (bits ? '<span class=\"pill gold\" id=\"mem-words\">'", "      (false ? '<span class=\"pill gold\" id=\"mem-words\">'"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
@@ -392,6 +394,25 @@ function serveAuth(src) {
     await open('?issue=en_words&view=send'); await until('!!document.getElementById("sched")', 15000); await sleep(500);
     ok('the Send page’s summary: "3 members-only bits of words, in: Sunday, Prayer on Zoom", beside "1 members-only"', /3 members-only bits of words, in: Sunday, Prayer on Zoom/.test(await text()) && /1 members-only/.test(await text()), (await text()).slice(0, 500));
     await shot('words');
+
+    /* 7c. No hidden caps (C-52; CLAUDE.md section 3): the list shows the
+       latest 30 and says so, with "Show more"; every subscriber is counted,
+       past the old 1,000, and shown 200 at a time. */
+    for (let i = 0; i < 34; i += 17) await Promise.all(Array.from({ length: 17 }, (_, k) => put('enewsIssues/en_old' + String(i + k).padStart(2, '0'),
+      { subject: 'Synthetic old issue ' + (i + k), preheader: '', template: 'classic', blocks: [], status: 'sent', createdAt: '2020-01-01T00:00:' + String(i + k).padStart(2, '0'), createdBy: 'x', updatedAt: 'x', updatedBy: 'x' })));
+    await open(''); await until('document.querySelectorAll("#issues a[data-id]").length > 0', 15000); await sleep(500);
+    const firstN = await ev('document.querySelectorAll("#issues a[data-id]").length');
+    ok('the list: the latest 30, "Showing the latest 30" and Show more', firstN === 30 && /Showing the latest 30/.test(await ev('document.getElementById("issues").innerText')), firstN);
+    await ev('document.querySelector("#issues .cm-more button").click(),1'); await until('!document.querySelector("#issues .cm-more") || document.querySelectorAll("#issues a[data-id]").length > 30', 10000); await sleep(400);
+    const allN = await ev('document.querySelectorAll("#issues a[data-id]").length');
+    ok('…Show more brings the rest, the oldest among them', allN > 30 && await ev('/Synthetic old issue 0\\b/.test(document.getElementById("issues").innerText)'), allN);
+    for (let i = 0; i < 1005; i += 67) await Promise.all(Array.from({ length: Math.min(67, 1005 - i) }, (_, k) => put('enewsSubscribers/s' + String(i + k).padStart(4, '0'),
+      { email: 'sub' + String(i + k).padStart(4, '0') + '@example.invalid', status: 'subscribed', lists: { weekly: true }, createdAt: 'x', updatedAt: 'x' })));
+    await ev('document.getElementById("subsb").click(),1'); await until('/subscribed,/.test((document.getElementById("subs")||{}).innerText||"")', 30000); await sleep(500);
+    const subsTxt = await ev('document.getElementById("subs").innerText');
+    ok('every subscriber counted (1,005, past the old 1,000), shown 200 at a time', /1005 subscribed/.test(subsTxt) && /Showing 200 of 1005/.test(subsTxt) && await ev('document.querySelectorAll("#subs .srow").length') === 200, subsTxt.slice(0, 200));
+    await ev('document.querySelector("#subs .cm-more button").click(),1'); await sleep(500);
+    ok('…Show more shows the next 200', await ev('document.querySelectorAll("#subs .srow").length') === 400 && /Showing 400 of 1005/.test(await ev('document.getElementById("subs").innerText')));
 
     /* 8. A phone: nothing scrolls sideways, and nothing threw. */
     const w = await ev('document.documentElement.scrollWidth');

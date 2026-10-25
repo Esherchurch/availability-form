@@ -25,14 +25,19 @@ import { makeSender } from './public-mail.js';
 import { featureOn } from './features.js';
 import { under18Emails } from './under18.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
+import { hubUrl } from './notify.js';
 
 const REGION = 'europe-west2';
-const HUB = 'https://esherchurch.github.io/availability-form/v2';
+/* The hub's web address: one church setting, churchSettings/details.hubUrl
+   (main's hubUrl in notify.js, EGBC's address the default), without its
+   last "/". Every e-news link and email takes it from there. */
+const hubOf = async db => (await hubUrl(db)).replace(/\/+$/, '');
 const londonDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(d);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export async function runSocialMorning({ db, send, now = new Date(), hub = HUB }) {
+export async function runSocialMorning({ db, send, now = new Date(), hub }) {
   if (!(await featureOn(db, 'cardMaker'))) return { off: true };
+  hub = hub || await hubOf(db);
   const day = londonDay(now);
   const [setDoc, posts] = await Promise.all([
     db.collection('socialSettings').doc('main').get(),

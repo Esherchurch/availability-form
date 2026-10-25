@@ -47,7 +47,7 @@
 <script src="egbc-auth.js?v=202610231000"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-picture-library.js?v=202610141900"></script>
-<script src="egbc-comms.js?v=202610192100"></script>
+<script src="egbc-comms.js?v=202610251500"></script>
 <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
 <script src="egbc-gif.js?v=202610192100"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
@@ -697,7 +697,7 @@
     if (!(EGBCAuth.uses && EGBCAuth.uses('cardMaker'))) { wrap.innerHTML = '<div class="card"><h1>Card maker</h1><p>The card maker is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
     if (window.EGBCChurch) EGBCChurch.load().then(function () {}, function () {});
     var now = Date.now();
-    return Promise.all([EGBCComms.eventsBetween(now - 86400000, now + 90 * 86400000, 150),
+    return Promise.all([EGBCComms.eventsBetween(now - 86400000, now + 90 * 86400000),
       EGBCAuth.db.collection('socialSettings').doc('main').get().then(function (s) { return s.exists ? s.data() : {}; }, function () { return {}; }),
       window.EGBCEvents && EGBCEvents.lookups ? EGBCEvents.lookups().catch(function () { return LOOK; }) : Promise.resolve(LOOK)]).then(function (r) {
       LOOK = r[2] || LOOK;

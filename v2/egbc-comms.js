@@ -16,9 +16,11 @@
 
   function eventsBetween(from, to, limit) {
     var ask = function (aud) {
-      return db().collection('calEvents').where('audience', 'array-contains-any', aud)
-        .where('startUtc', '>=', from).where('startUtc', '<', to).orderBy('startUtc').limit(limit || 200).get()
-        .then(function (s) { return s.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); }, function () { return []; });
+      var q = db().collection('calEvents').where('audience', 'array-contains-any', aud)
+        .where('startUtc', '>=', from).where('startUtc', '<', to).orderBy('startUtc');
+      /* Every event in the range unless a limit is asked for (C-52). */
+      return (limit ? q.limit(limit).get().then(function (s) { return s.docs; }) : allDocs(q))
+        .then(function (docs) { return docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); }, function () { return []; });
     };
     var p = (EGBCAuth.profile && EGBCAuth.profile()) || {};
     var cm = p.churchMember === true || (EGBCAuth.isAdmin && EGBCAuth.isAdmin()) || (EGBCAuth.isMaster && EGBCAuth.isMaster());
@@ -32,7 +34,54 @@
   function mayOffice() {
     return !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || !!(EGBCAuth.inTeam && EGBCAuth.inTeam('Church office'));
   }
-  function hubBase() { return location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, ''); }
+  /* The hub's web address: the church setting (churchSettings/details.hubUrl)
+     once read, otherwise this page's own folder - today the same address. */
+  var HUB_SET = '';
+  function hubBase() { return HUB_SET || location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, ''); }
+  function readHub() {
+    return EGBCAuth.db.collection('churchSettings').doc('details').get().then(function (d) {
+      var u = d.exists ? String((d.data() || {}).hubUrl || '') : '';
+      if (/^https:\/\//.test(u)) HUB_SET = u.replace(/\/+$/, '');
+    }, function () {});
+  }
+  document.addEventListener('egbc-ready', readHub);
 
-  global.EGBCComms = { eventsBetween: eventsBetween, mayOffice: mayOffice, hubBase: hubBase };
+  /* NO HIDDEN CAPS (C-52; CLAUDE.md section 3). A list cut short on purpose
+     shows the latest few and says so, with "Show more":
+       showMore(box, { query, size, first, row, filter, wire, what })
+     query: the ordered query; first: its first page (query.limit(size));
+     row(doc) -> html; filter(doc) -> false to leave one out; wire(box)
+     after rows are added; what: "issues" for the words. */
+  function showMore(box, o) {
+    var shown = 0, last = null;
+    function add(s) {
+      var docs = s.docs.filter(function (d) { return !o.filter || o.filter(d); });
+      shown += docs.length; last = s.docs[s.docs.length - 1] || last;
+      var old = box.querySelector('.cm-more'); if (old) old.remove();
+      box.insertAdjacentHTML('beforeend', docs.map(o.row).join(''));
+      if (s.size >= o.size) {
+        box.insertAdjacentHTML('beforeend', '<div class="cm-more" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0"><span class="m">Showing the latest ' + shown + ' ' + (o.what || '') + '.</span><button type="button" class="btn sec" style="min-height:44px">Show more</button></div>');
+        box.querySelector('.cm-more button').onclick = function () {
+          this.disabled = true;
+          o.query.startAfter(last).limit(o.size).get().then(add, function () { box.querySelector('.cm-more span').textContent = 'Could not load more.'; });
+        };
+      }
+      if (o.wire) o.wire(box);
+    }
+    add(o.first);
+  }
+  /* Every document of a query, a page at a time (no cap). */
+  function allDocs(query, size) {
+    size = size || 500;
+    var out = [];
+    function next(after) {
+      return (after ? query.startAfter(after) : query).limit(size).get().then(function (s) {
+        out = out.concat(s.docs);
+        return s.size < size ? out : next(s.docs[s.docs.length - 1]);
+      });
+    }
+    return next(null);
+  }
+
+  global.EGBCComms = { eventsBetween: eventsBetween, mayOffice: mayOffice, hubBase: hubBase, showMore: showMore, allDocs: allDocs };
 })(window);

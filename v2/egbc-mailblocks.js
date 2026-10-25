@@ -800,7 +800,7 @@
     var base = String(data.base || '').replace(/\/+$/, '');
     return (data.events || []).map(function (ev) { return { ev: ev, st: startOf(ev) }; })
       .filter(function (x) { return x.st && eventShare(x.ev) === 'public' && x.ev.source !== 'rota' && x.st.ms >= from && x.st.ms < to; })
-      .sort(function (a, b) { return a.st.ms - b.st.ms; }).slice(0, 30)
+      .sort(function (a, b) { return a.st.ms - b.st.ms; })
       .map(function (x) {
         var d = new Date(x.st.ms);
         return { date: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' }),

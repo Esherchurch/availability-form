@@ -56,7 +56,7 @@
   function saveSoon() { if (!editable()) return; savedState('Saving…', 'busy'); clearTimeout(saveT); saveT = setTimeout(save, 700); }
   function finalCopy(version) {
     return MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), { version: version, church: CHURCH, unsubscribeUrl: MB.PLACEHOLDER,
-      webUrl: hubBase() + '/enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) });
+      webUrl: hubBase() + '/enews-web.html?issue=' + encodeURIComponent(ISSUE_ID), assetBase: hubBase() });
   }
   function save() {
     clearTimeout(saveT);
@@ -75,7 +75,7 @@
        this copy, and sends nothing while there is none. No web version. */
     if (/^auto_/.test(ISSUE_ID)) {
       data.htmlMembers = '';
-      data.htmlEveryone = MB.readyToSend(ISSUE).ok ? MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), { version: 'everyone', church: CHURCH, unsubscribeUrl: MB.PLACEHOLDER, webUrl: '' }) : '';
+      data.htmlEveryone = MB.readyToSend(ISSUE).ok ? MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), { version: 'everyone', church: CHURCH, unsubscribeUrl: MB.PLACEHOLDER, webUrl: '', assetBase: hubBase() }) : '';
     }
     return db().collection('enewsIssues').doc(ISSUE_ID).set(data, { merge: true }).then(function () { savedState('Saved'); },
       function (e) { savedState('Not saved', 'err'); toast('Not saved: ' + (e.message || e)); });
@@ -545,7 +545,7 @@
     }
     if (kind === 'diary') {
       var now = Date.now();
-      return EGBCComms.eventsBetween(now - 86400000, now + 6 * 7 * 86400000, 200).then(function (all) {
+      return EGBCComms.eventsBetween(now - 86400000, now + 6 * 7 * 86400000).then(function (all) {
         put({ type: 'diary', title: 'Dates for the diary', weeks: 6, items: MB.diaryItems({ now: new Date(now), weeks: 6, events: all, base: hubBase() }) });
       }, function (e) { toast('Could not read What’s On: ' + (e.message || e)); });
     }
@@ -572,7 +572,7 @@
     icons(side); if (PHONE()) side.classList.add('on');
     document.getElementById('pk-back').onclick = function () { PANEL = 'add'; drawPanel(true); };
     var now = Date.now();
-    EGBCComms.eventsBetween(now - 86400000, now + 60 * 86400000, 150).then(function (all) {
+    EGBCComms.eventsBetween(now - 86400000, now + 60 * 86400000).then(function (all) {
       var evs = all.filter(function (e) { return MB.eventShare(e) && e.source !== 'rota'; });
       var el = document.getElementById('pk'); if (!el) return;
       if (!evs.length) { el.innerHTML = '<p class="m">Nothing in What’s On in the next two months.</p>'; return; }
@@ -602,8 +602,9 @@
   }
   function loadPics() {
     if (PICS) return Promise.resolve(PICS);
-    return db().collection('pictureLibrary').orderBy('createdAt', 'desc').limit(48).get().then(function (s) {
-      PICS = s.docs.map(function (d) { return { url: d.data().url || '', name: d.data().name || '' }; }).filter(function (p) { return MB.safeUrl(p.url); }); return PICS;
+    /* Every picture in the library (C-52: no cap), newest first. */
+    return EGBCComms.allDocs(db().collection('pictureLibrary').orderBy('createdAt', 'desc'), 500).then(function (docs) {
+      PICS = docs.map(function (d) { return { url: d.data().url || '', name: d.data().name || '' }; }).filter(function (p) { return MB.safeUrl(p.url); }); return PICS;
     }, function () { PICS = []; return PICS; });
   }
   function contentFields(b) {
@@ -709,7 +710,7 @@
       c.onchange = function () { var keepN = []; Array.prototype.forEach.call(document.querySelectorAll('[data-n]'), function (x) { if (x.checked) keepN.push(b.items[+x.getAttribute('data-n')]); }); change(function () { b.items = keepN; }); };
     });
     var wk = document.getElementById('f-weeks');
-    if (wk) wk.onchange = function () { var w = +wk.value || 6, now = Date.now(); EGBCComms.eventsBetween(now - 86400000, now + w * 7 * 86400000, 200).then(function (all) { change(function () { b.weeks = w; b.items = MB.diaryItems({ now: new Date(now), weeks: w, events: all, base: hubBase() }); }); }); };
+    if (wk) wk.onchange = function () { var w = +wk.value || 6, now = Date.now(); EGBCComms.eventsBetween(now - 86400000, now + w * 7 * 86400000).then(function (all) { change(function () { b.weeks = w; b.items = MB.diaryItems({ now: new Date(now), weeks: w, events: all, base: hubBase() }); }); }); };
     var meet = document.getElementById('f-meet');
     if (meet) meet.onclick = function () { EGBCMeetingPick.open({ base: hubBase(), onPick: function (m) { change(function () { if (b.members === false && MB.MEMBERS_ONLY_ROOMS.indexOf(m.room) < 0) m.members = false; ISSUE.blocks[SEL] = m; }); } }); };
     var tl = document.getElementById('f-tolook'); if (tl) tl.onclick = function () { PANEL = 'look'; drawPanel(true); };

@@ -7,8 +7,10 @@
  * Asks: with the comments taken out, none of the comms files has EGBC's
  * name, Esher, a person's name, EGBC's logo file or "switch-over" (it is
  * "going live") in what it shows or sends. Allowed, each with the step
- * that removes it (FINDINGS-comms, "Any church"): the hub's own address
- * (esherchurch.github.io) until Church HQ's own address; "Church office",
+ * that removes it (FINDINGS-comms, "Any church"): EGBC's address as the
+ * social icons' default (the same default as the hub's web address
+ * setting) and in the sign-up functions' allowed sites, until Church HQ's
+ * own address; "Church office",
  * which becomes the office job (H-9).
  *
  * DELIBERATE BREAKS (each must turn this check red):
@@ -70,8 +72,8 @@ ok('no EGBC name, Esher, person’s name, EGBC logo, "switch-over" or Baptist wo
 
 /* The allowed-for-now list stays what FINDINGS-comms says, so it can only shrink. */
 const hubAddr = FILES.filter(f => /esherchurch\\?\.github\\?\.io/.test(shown(fs.readFileSync(path.join(V2, f), 'utf8'))));
-ok('the hub’s own address (esherchurch.github.io) only where FINDINGS-comms lists it, until Church HQ’s own address',
-  hubAddr.every(f => ['egbc-mailblocks.js', 'functions/enews.js', 'functions/enews-send.js', 'functions/enews-preview.js', 'functions/social.js', 'functions/canva.js'].includes(f)), hubAddr);
+ok('EGBC’s address (esherchurch.github.io) only as the social icons’ default and in the sign-up functions’ allowed sites: every link takes the hub’s web address setting',
+  hubAddr.every(f => ['egbc-mailblocks.js', 'functions/enews.js'].includes(f)), hubAddr);
 
 const pass = R.filter(Boolean).length;
 console.log('\n' + pass + '/' + R.length + ' passed' + (BREAK ? '   (deliberate break: ' + BREAK + ', so this run SHOULD be red)' : ''));

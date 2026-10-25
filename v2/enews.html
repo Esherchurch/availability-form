@@ -27,13 +27,13 @@
 <script src="egbc-auth.js?v=202610231000"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610221600"></script>
-<script src="egbc-mailblocks.js?v=202610251200"></script>
+<script src="egbc-mailblocks.js?v=202610251500"></script>
 <script src="egbc-starters.js?v=202610251200"></script>
 <script src="egbc-core-meetings.js?v=202610221500"></script>
 <script src="egbc-meeting-pick.js?v=202610202000"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
 <script src="egbc-share.js?v=202610212300"></script>
-<script src="egbc-comms.js?v=202610192100"></script>
+<script src="egbc-comms.js?v=202610251500"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -149,7 +149,9 @@
     document.getElementById('look').onclick = lookSheet;
     document.getElementById('subsb').onclick = showSubscribers;
     document.getElementById('welc').onclick = welcomeSheet;
-    db().collection('enewsIssues').orderBy('createdAt', 'desc').limit(30).get().then(function (s) {
+    /* The latest 30, then "Show more" (C-52: no hidden caps). */
+    var IQ = db().collection('enewsIssues').orderBy('createdAt', 'desc');
+    IQ.limit(30).get().then(function (s) {
       var el = document.getElementById('issues');
       /* THIS WEEK'S DRAFT MAKES ITSELF (HANDOVER-MAIN rule 13; C-18). The
          first time the office opens the e-news in a week, if nothing has
@@ -161,15 +163,20 @@
       var thisWeek = docs.some(function (d) { return d.data().week !== 'notice' && String(d.data().createdAt || '').slice(0, 10) >= mon; });
       if (!thisWeek && !showList.autoTried) { showList.autoTried = true; newIssue({ auto: true }); return; }
       if (!docs.length) { el.innerHTML = '<p class="m" style="margin:0">None yet. “New e-news” starts the first.</p>'; return; }
-      el.innerHTML = docs.map(function (d) {
+      el.innerHTML = '';
+      EGBCComms.showMore(el, { query: IQ, size: 30, first: s, what: 'e-news and emails',
+        filter: function (d) { return !/^auto_/.test(d.id); },
+        wire: function (box) {
+          Array.prototype.forEach.call(box.querySelectorAll('a[data-id]'), function (a) {
+            a.onclick = function (e) { e.preventDefault(); openIssue(a.getAttribute('data-id')); };
+          });
+        },
+        row: function (d) {
         var x = d.data(), st = x.status || 'draft';
         var word = (x.kind === 'oneoff' ? 'Email \u00b7 ' : '') + (st === 'sent' ? 'Sent' : st === 'scheduled' ? 'Scheduled' : st === 'sending' ? 'Sending' : 'Draft');
         return '<a href="?issue=' + encodeURIComponent(d.id) + '" data-id="' + esc(d.id) + '"><span><b>' + esc(x.subject || 'Untitled') + '</b><br><span class="m">' +
           esc((x.blocks || []).length + ' blocks' + (x.sendAt ? ' · ' + x.sendAt.replace('T', ' ') : '')) + '</span></span><span class="st ' + st + '">' + word + '</span></a>';
-      }).join('');
-      Array.prototype.forEach.call(el.querySelectorAll('a'), function (a) {
-        a.onclick = function (e) { e.preventDefault(); openIssue(a.getAttribute('data-id')); };
-      });
+      } });
     }).catch(function (e) { document.getElementById('issues').innerHTML = '<p class="m">Could not load: ' + esc(e.message || e) + '</p>'; });
   }
 
@@ -249,7 +256,7 @@
     var d = new Date(today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + ((7 - d.getUTCDay()) % 7));
     var sunIso = d.toISOString().slice(0, 10);
     Promise.all([
-      eventsBetween(from, to, 200),
+      eventsBetween(from, to),
       db().collection('events').where('date', '==', sunIso).get()
         .then(function (s) { return s.docs.map(function (x) { return x.data(); }).filter(function (r) { return r.archived !== true; }); }, function () { return []; }),
       db().collection('news').orderBy('createdAt', 'desc').limit(30).get()
@@ -367,7 +374,7 @@
   function finalCopy(version) {
     return MB.render(Object.assign({}, ISSUE, { colours: SET.colours || {} }), {
       version: version, church: CHURCH, unsubscribeUrl: MB.PLACEHOLDER,
-      webUrl: ISSUE_ID ? hubBase() + '/enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) : ''
+      webUrl: ISSUE_ID ? hubBase() + '/enews-web.html?issue=' + encodeURIComponent(ISSUE_ID) : '', assetBase: hubBase()
     });
   }
 
@@ -462,16 +469,30 @@
     document.getElementById('back').onclick = showList;
     document.getElementById('addsub').onclick = addSubscriber;
     document.getElementById('addab').onclick = addFromAddressBook;
-    db().collection('enewsSubscribers').orderBy('email').limit(1000).get().then(function (s) {
+    /* Every subscriber, read a page at a time (C-52: no cap); shown 200 at a time. */
+    EGBCComms.allDocs(db().collection('enewsSubscribers').orderBy('email'), 500).then(function (docs) {
+      var s = { docs: docs, empty: !docs.length, size: docs.length };
       var el = document.getElementById('subs'), W = { subscribed: 'Subscribed', pending: 'Waiting to confirm', unsubscribed: 'Unsubscribed', bounced: 'Bounced', complained: 'Marked as spam' };
       if (s.empty) { el.innerHTML = '<p class="m" style="margin:0">Nobody yet. People join on the sign-up page (enews-signup.html); the old mailing list comes in when the church goes live.</p>'; return; }
       var n = s.docs.filter(function (d) { return d.data().status === 'subscribed'; }).length;
-      el.innerHTML = '<p class="m" style="margin:0 0 6px">' + n + ' subscribed, ' + (s.size - n) + ' others.</p>' + s.docs.map(function (d) {
+      var row = function (d) {
         var x = d.data(), k = x.consent || {};
         return '<div class="srow" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 0;border-top:1px solid var(--line)"><span style="min-width:0;flex:1"><b style="word-break:break-all;color:var(--ink)">' + esc(x.email) + '</b><br><span class="m">' +
           esc([x.firstName, k.how ? 'agreed: ' + k.how + (k.confirmedAt ? ', ' + String(k.confirmedAt).slice(0, 10) : '') : ''].filter(Boolean).join(' · ')) + '</span></span>' +
           '<span class="st' + (x.status === 'subscribed' ? ' sent' : '') + '">' + esc(W[x.status] || x.status) + '</span></div>';
-      }).join('');
+      };
+      var shown = 0;
+      var more = function () {
+        var old = el.querySelector('.cm-more'); if (old) old.remove();
+        el.insertAdjacentHTML('beforeend', s.docs.slice(shown, shown + 200).map(row).join(''));
+        shown = Math.min(s.size, shown + 200);
+        if (shown < s.size) {
+          el.insertAdjacentHTML('beforeend', '<div class="cm-more" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0"><span class="m">Showing ' + shown + ' of ' + s.size + '.</span><button type="button" class="btn sec" style="min-height:44px">Show more</button></div>');
+          el.querySelector('.cm-more button').onclick = more;
+        }
+      };
+      el.innerHTML = '<p class="m" style="margin:0 0 6px">' + n + ' subscribed, ' + (s.size - n) + ' others.</p>';
+      more();
     }).catch(function (e) { document.getElementById('subs').innerHTML = '<p class="m">Could not load: ' + esc(e.message || e) + '</p>'; });
   }
   function addSubscriber() {
@@ -614,7 +635,7 @@
     var s = sheet('Which event?', '<p class="m" style="margin:0">Its picture, words, day and time, place and Sign up button go in. You can change any of it.</p><div id="pe" class="list"><p class="m">Loading\u2026</p></div>', null,
       '<button class="btn sec" data-later>Choose later</button>');
     s.querySelector('[data-later]').onclick = function () { s.remove(); done(null); };
-    eventsBetween(Date.now(), Date.now() + 120 * 86400000, 200).then(function (all) {
+    eventsBetween(Date.now(), Date.now() + 120 * 86400000).then(function (all) {
       var evs = all.filter(function (e) { return MB.fillInvite([], e, '') !== null; });
       var el = s.querySelector('#pe');
       if (!evs.length) { el.innerHTML = '<p class="m">Nothing coming up in What\u2019s On.</p>'; return; }
@@ -632,7 +653,7 @@
     if (inv) { blocks = inv.blocks; t = Object.assign({}, t, { subject: inv.subject, preheader: inv.preheader, audience: inv.audience }); }
     var now = Date.now(), jobs = [];
     blocks.forEach(function (b) {
-      if (b.type === 'diary') jobs.push(eventsBetween(now - 86400000, now + (b.weeks || 6) * 7 * 86400000, 200).then(function (all) { b.items = MB.diaryItems({ now: new Date(now), weeks: b.weeks || 6, events: all, base: hubBase() }); }, function () {}));
+      if (b.type === 'diary') jobs.push(eventsBetween(now - 86400000, now + (b.weeks || 6) * 7 * 86400000).then(function (all) { b.items = MB.diaryItems({ now: new Date(now), weeks: b.weeks || 6, events: all, base: hubBase() }); }, function () {}));
       if (b.type === 'meeting' && !b.url && window.EGBCMeetingPick) jobs.push(EGBCMeetingPick.upcoming().then(function (rows) {
         var next = rows.filter(function (r) { return r.room === (b.room || 'CMM'); })[0]; if (next) Object.assign(b, MB.meetingFrom(next.ev, next.room, hubBase()));
       }, function () {}));

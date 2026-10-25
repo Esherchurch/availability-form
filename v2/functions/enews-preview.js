@@ -31,9 +31,13 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { randomBytes } from 'node:crypto';
 import { featureOn } from './features.js';
+import { hubUrl } from './notify.js';
 
 const REGION = 'europe-west2';
-const HUB = 'https://esherchurch.github.io/availability-form/v2';
+/* The hub's web address: one church setting, churchSettings/details.hubUrl
+   (main's hubUrl in notify.js, EGBC's address the default), without its
+   last "/". Every e-news link and email takes it from there. */
+const hubOf = async db => (await hubUrl(db)).replace(/\/+$/, '');
 const PLACEHOLDER = '{{unsubscribe_url}}';
 const MEMBERS_ONLY_ROOMS = ['CMM'];
 
@@ -82,8 +86,9 @@ export function leaks(blocks, html) {
   return found;
 }
 
-export async function runPreview({ db, uid, data = {}, hub = HUB }) {
+export async function runPreview({ db, uid, data = {}, hub }) {
   if (!uid) return { error: 'unauthenticated', message: 'Sign in first.' };
+  hub = hub || await hubOf(db);
   const me = await db.collection('users').doc(String(uid)).get();
   const p = me.exists ? me.data() : {};
   if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) return { error: 'permission-denied', message: 'For the church office.' };

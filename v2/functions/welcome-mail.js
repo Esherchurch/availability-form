@@ -44,6 +44,7 @@ import { featureOn } from './features.js';
 import { under18Emails } from './under18.js';
 import { letterFor } from './enews-send.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
+import { hubUrl } from './notify.js';
 
 const REGION = 'europe-west2';
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -64,7 +65,7 @@ async function sendOne(db, send, kind, issue, person, ref) {
   if ((await under18Emails(db)).has(person.email)) return { skipped: 'under 18' };
   if (!(await once(db, kind + '_' + ref))) return { skipped: 'already sent' };
   const church = (await db.collection('churchSettings').doc('details').get()).data() || {};
-  const letter = letterFor(Object.assign({}, issue, { htmlMembers: '' }), person, false, { issueId: 'auto_' + kind, replyTo: church.enquiryEmail || '' });
+  const letter = letterFor(Object.assign({}, issue, { htmlMembers: '' }), person, false, { issueId: 'auto_' + kind, replyTo: church.enquiryEmail || '', hub: (await hubUrl(db)).replace(/\/+$/, '') });
   const r = await send(Object.assign(letter, { fromName: church.name || '', replyTo: church.enquiryEmail || '' }),
     { kind: kind === 'subscriber' ? 'subscriber welcome' : 'newcomer welcome', issueId: 'auto_' + kind, ref });
   return { sent: !!(r && r.ok), to: person.email };

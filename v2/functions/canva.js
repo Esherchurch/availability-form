@@ -31,12 +31,22 @@ import { randomUUID } from 'node:crypto';
 import * as C from './canva-core.js';
 import { storedKeys } from './hq-mail-key.js';
 import { featureOn } from './features.js';
+import { hubUrl } from './notify.js';
 
 const REGION = 'europe-west2';
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 export const CANVA_LIVE = false;
 const canvaShut = () => !EMULATOR && !CANVA_LIVE;
-const HUB = 'https://esherchurch.github.io/availability-form/v2';
+/* The hub's web address: one church setting, churchSettings/details.hubUrl
+   (main's hubUrl in notify.js, EGBC's address the default), without its
+   last "/". Every e-news link and email takes it from there. */
+const hubOf = async db => (await hubUrl(db)).replace(/\/+$/, '');
+/* Back to the hub's own Canva page: a return address on the church's hub
+   (or a local test), otherwise its Canva page. */
+async function backTo(returnTo) {
+  const hub = await hubOf(getFirestore()), r = String(returnTo || '');
+  return r && (r.indexOf(hub + '/') === 0 || /^http:\/\/(localhost|127\.0\.0\.1):\d+\//.test(r)) ? r : hub + '/canva.html';
+}
 const CALLBACK_LIVE = 'https://europe-west2-egbc-worship-planner.cloudfunctions.net/canvaCallback';
 
 /* The client ID and secret come from the key box (Church settings), read
@@ -79,8 +89,7 @@ export const canvaStatus = onCall({ region: REGION }, wrap(async () => C.status(
 export const canvaStart = onCall({ region: REGION }, wrap(async (d, uid) => {
   const x = await deps();
   if (!x.clientId || !x.secret) throw new Error('The Canva integration is not set up yet: a master admin pastes its client ID and secret in Church settings.');
-  const back = /^https:\/\/esherchurch\.github\.io\/|^http:\/\/(localhost|127\.0\.0\.1):\d+\//.test(String(d.returnTo || '')) ? d.returnTo : HUB + '/canva.html';
-  return C.start(Object.assign(x, { uid, returnTo: back }));
+  return C.start(Object.assign(x, { uid, returnTo: await backTo(d.returnTo) }));
 }));
 export const canvaDesigns = onCall({ region: REGION, timeoutSeconds: 60 }, wrap(async d => C.designs(await deps(), d)));
 export const canvaImport = onCall({ region: REGION, timeoutSeconds: 180, memory: '512MiB' }, wrap(async (d, uid) => C.importDesign(await deps(), { designId: d.designId, kind: d.kind, title: d.title, uid })));
@@ -90,13 +99,14 @@ export const canvaCallback = onRequest({ region: REGION, invoker: 'public' }, as
   const page = (msg, back) => res.status(200).set('Content-Type', 'text/html; charset=utf-8').send(
     '<!DOCTYPE html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px/1.5 Arial,sans-serif;padding:24px;color:#111827">' +
     '<p>' + String(msg).replace(/[<>&]/g, '') + '</p><p><a href="' + String(back).replace(/"/g, '') + '">Back to the hub</a></p></body>');
-  if (canvaShut()) return page('Canva connects when the church goes live.', HUB + '/canva.html');
-  if (req.query.error) return page('Canva was not connected (' + String(req.query.error).slice(0, 60) + ').', HUB + '/canva.html');
+  const home = await backTo('');
+  if (canvaShut()) return page('Canva connects when the church goes live.', home);
+  if (req.query.error) return page('Canva was not connected (' + String(req.query.error).slice(0, 60) + ').', home);
   try {
     const r = await C.finish(Object.assign(await deps(), { code: String(req.query.code || ''), state: String(req.query.state || '') }));
-    const back = (r.returnTo || HUB + '/canva.html') + (String(r.returnTo).includes('?') ? '&' : '?') + 'connected=1';
+    const to = r.returnTo || home, back = to + (to.includes('?') ? '&' : '?') + 'connected=1';
     return res.redirect(302, back);
   } catch (e) {
-    return page(e.message || 'Canva was not connected.', HUB + '/canva.html');
+    return page(e.message || 'Canva was not connected.', home);
   }
 });

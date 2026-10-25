@@ -35,14 +35,26 @@
   var P = window.EGBCEnewsPublic, esc = P.esc, main = document.getElementById('main');
   P.header(document.getElementById('ch'));
   var db = EGBCAuth.db, id = new URLSearchParams(location.search).get('issue');
+  /* The latest 30, then "Show more" (C-52: no hidden caps). */
+  var Q = db.collection('enewsWeb').orderBy('sentAt', 'desc'), shown = 0;
+  function row(d) {
+    var x = d.data();
+    return '<a class="issue" href="?issue=' + encodeURIComponent(d.id) + '"><b>' + esc(x.subject || 'E-news') + '</b><br><span class="lead" style="font-size:13px">' +
+      esc(new Date(x.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) + '</span></a>';
+  }
+  function page(s) {
+    var old = document.getElementById('more'); if (old) old.remove();
+    main.insertAdjacentHTML('beforeend', s.docs.map(row).join(''));
+    shown += s.size;
+    if (s.size >= 30) {
+      main.insertAdjacentHTML('beforeend', '<p class="lead" id="more">Showing the latest ' + shown + '. <button type="button" style="min-height:44px;font:inherit;padding:6px 14px;border-radius:10px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Show more</button></p>');
+      document.querySelector('#more button').onclick = function () { this.disabled = true; Q.startAfter(s.docs[s.docs.length - 1]).limit(30).get().then(page, function () { document.getElementById('more').textContent = 'Couldn’t load more just now.'; }); };
+    }
+  }
   function archive() {
-    db.collection('enewsWeb').orderBy('sentAt', 'desc').limit(30).get().then(function (s) {
-      main.innerHTML = '<h1>The e-news</h1><p class="lead">Past issues. <a href="enews-signup.html">Get it by email</a>.</p>' +
-        (s.empty ? '<p class="lead">None yet.</p>' : s.docs.map(function (d) {
-          var x = d.data();
-          return '<a class="issue" href="?issue=' + encodeURIComponent(d.id) + '"><b>' + esc(x.subject || 'E-news') + '</b><br><span class="lead" style="font-size:13px">' +
-            esc(new Date(x.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) + '</span></a>';
-        }).join(''));
+    Q.limit(30).get().then(function (s) {
+      main.innerHTML = '<h1>The e-news</h1><p class="lead">Past issues. <a href="enews-signup.html">Get it by email</a>.</p>' + (s.empty ? '<p class="lead">None yet.</p>' : '');
+      page(s);
     }, function () { main.innerHTML = '<h1>The e-news</h1><p class="lead">Couldn’t load the past issues just now.</p>'; });
   }
   /* "Preview web version" (enews.html; functions/enews-preview.js): a

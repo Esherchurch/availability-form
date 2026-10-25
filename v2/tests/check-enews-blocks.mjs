@@ -172,6 +172,9 @@ function checks(M) {
   ok('the draft lists events missing a picture or write-up', miss.length === 2 && miss[0].need.join() === 'picture,write-up' && miss[1].need.join() === 'picture', miss);
   const diary = M.diaryItems({ now: NOW, weeks: 6, events: EVENTS, base: 'https://x.invalid' });
   ok('"Dates for the diary": public events only, a date and a title each, linked to What’s On', diary.length > 0 && diary.every(d => d.date && d.title && /whatson\.html\?event=/.test(d.url)) && !diary.some(d => /members|NOT LISTED|support/i.test(d.title)), diary);
+  /* No hidden caps (C-52): a busy parish's six weeks, 45 public events. */
+  const busy = Array.from({ length: 45 }, (_, k) => ev('busy' + k, { title: 'Busy event ' + k, visibility: 'public', startLocal: '2026-10-' + (20 + (k % 10)) + 'T19:00', startUtc: Date.UTC(2026, 9, 20 + (k % 10), 18, k) }));
+  ok('"Dates for the diary" keeps every public event in its weeks (45, not cut at 30)', M.diaryItems({ now: NOW, weeks: 6, events: busy, base: 'https://x.invalid' }).length === 45);
   ok('"Dates for the diary" draws as a list', /Dates for the diary[\s\S]*<strong>[^<]+<\/strong> – /.test(M.render({ blocks: [{ type: 'diary', items: diary }] }, {})));
   const foot = M.render({ blocks: [] }, { church: Object.assign({}, CHURCH, { diaryUrl: 'https://x.invalid/whatson.html', social: [{ kind: 'facebook', url: 'https://facebook.com/x' }, { kind: 'email', url: 'office@x.invalid' }, { kind: 'myspace', url: 'https://y.invalid' }, { kind: 'youtube', url: 'javascript:alert(1)' }] }) });
   ok('the footer opens with "Dates for the diary for the coming weeks", to What’s On', /class="foot"[\s\S]*href="https:\/\/x\.invalid\/whatson\.html"[^>]*>Dates for the diary for the coming weeks</.test(foot));
@@ -233,6 +236,7 @@ R.forEach(r => console.log('  ' + (r.v ? 'PASS  ' : 'FAIL  ') + r.n + (r.v || r.
 
 /* ---- deliberate breaks: each must turn at least one named check red ---- */
 const BREAKS = [
+  ['the diary cut at 30', "x.ev.source !== 'rota' && x.st.ms >= from && x.st.ms < to; })", "x.ev.source !== 'rota' && x.st.ms >= from && x.st.ms < to; }).slice(0, 30)", 'not cut at 30'],
   ['members-only words not counted', '{ depth = 1; from = re.lastIndex; } }', '{ } }', '3 bits'],
   ['joining details not looked for', "    (text.match(/[^.]{0,40}(meeting\\s*id|pass\\s*(code|word))[^.]{0,40}/gi) || []).forEach(function (w) { out.push(w.trim()); });", '', 'each is found'],
   ['members-only words left in everyone\u2019s copy', "      if (version !== 'members') h = stripMembers(h);", '', 'never has them'],
