@@ -1248,6 +1248,14 @@ let currentSection = 'home';
 let sectionHistory = [];
 let worshipLeaderName = '';
 let eventsForDay = [];
+// Kids Church roles share the Sunday event since the new hub's rota planner
+// (Oct 2026) and this page reads the same database. This list is the worship
+// team's (Martin, 25 Oct 2026; the same filter as c5f664ba), so the Kids
+// Church slots are left out of it.
+const KIDS_CHURCH_ROLES = ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+  'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)'];
+const isWorshipRole = r => KIDS_CHURCH_ROLES.indexOf(r) === -1 && !/^Helper \d+$/.test(r);
+const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));
 let addressBook = [];
 let isYouthService = false;
 let boardNotes = [];
@@ -1608,7 +1616,7 @@ async function selectEvent() {
   [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
       if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
   });
-  let rows = sortAssignments(Object.entries(data.assignments || {}));
+  let rows = sortAssignments(Object.entries(worshipOnly(data.assignments)));
   rows.forEach(([role, person]) => {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
   });

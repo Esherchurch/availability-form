@@ -683,6 +683,15 @@ await ready;
 let eventsForDay = [], selectedEvent = null, currentService = null;
 let songs = [], index = 0, currentRole = "", currentDate = "", currentLeader = "";
 let currentServiceId = null;
+// Kids Church roles share the Sunday event since the new hub's rota planner
+// (Oct 2026) and this page reads the same database. This list is the worship
+// team's (Martin, 25 Oct 2026; the same filter as c5f664ba), so the Kids
+// Church slots are left out of it.
+const isWorshipRole = r => {
+  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) !== 'Kids Church';
+  return !(r === 'Session Leader' || /^Helper \d+$/.test(r) || r.startsWith('Leader (') || r.startsWith('Assistant ('));
+};
+const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));
 let selectedKeys = [], performanceMode = false, currentDocId = null;
 let wakeLock = null, originalData = { notes:"", inst:"", last:"" }, currentSongData = {};
 
@@ -1179,7 +1188,7 @@ window.selectService = () => {
   currentLeader = selectedEvent.assignments?.["Worship Leader"]?.name || "";
   const roleSelect = $('roleSelect');
   roleSelect.innerHTML = '<option value="">Choose your instrument…</option>';
-  Object.keys(selectedEvent.assignments || {}).forEach(r => {
+  Object.keys(selectedEvent.assignments || {}).filter(isWorshipRole).forEach(r => {
     roleSelect.innerHTML += `<option>${r}</option>`;
   });
   roleSelect.style.display = 'block';

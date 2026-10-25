@@ -1661,7 +1661,7 @@ function renderServiceRotaTable() {
     return;
   }
 
-  table.innerHTML = Object.entries(assignments).map(([role, person]) => `
+  table.innerHTML = Object.entries(worshipOnly(assignments)).map(([role, person]) => `
     <div class="rota-assignment-row" style="flex-wrap:wrap;gap:6px;">
       <div class="rota-role-label" style="width:auto;min-width:100px;">${role}</div>
       <div style="flex:1;font-size:13px;font-weight:700;color:var(--teal);">${personName(person) || '<span style="opacity:0.3;font-style:italic;">Unassigned</span>'}</div>
@@ -2538,7 +2538,7 @@ function buildServicePlanText() {
 
   if (Object.keys(assignments).length) {
     plan += `\nSERVICE TEAM\n${'─'.repeat(40)}\n`;
-    Object.entries(assignments).forEach(([role, person]) => {
+    Object.entries(worshipOnly(assignments)).forEach(([role, person]) => {
       plan += `${role}: ${person?.name||'—'}`;
       if (roleNotes[role]) plan += ` — ${roleNotes[role]}`;
       plan += '\n';

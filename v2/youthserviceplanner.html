@@ -290,6 +290,15 @@ await allowed;   /* and the guard has let them in (egbc-db.js) */
 
 let worshipLeaderName = "";
 let eventsForDay = [];
+// Kids Church roles share the Sunday event since the new hub's rota planner
+// (Oct 2026) and this page reads the same database. This list is the worship
+// team's (Martin, 25 Oct 2026; the same filter as c5f664ba), so the Kids
+// Church slots are left out of it.
+const isWorshipRole = r => {
+  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) !== 'Kids Church';
+  return !(r === 'Session Leader' || /^Helper \d+$/.test(r) || r.startsWith('Leader (') || r.startsWith('Assistant ('));
+};
+const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));
 let addressBook = [];
 let isYouthService = false;
 
@@ -698,7 +707,7 @@ window.selectEvent = async () => {
     [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
         if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
     });
-    let assignmentsArray = Object.entries(data.assignments || {});
+    let assignmentsArray = Object.entries(worshipOnly(data.assignments));
     assignmentsArray = sortAssignments(assignmentsArray);
     assignmentsArray.forEach(([role, person]) => {
         teamBody.innerHTML += `
