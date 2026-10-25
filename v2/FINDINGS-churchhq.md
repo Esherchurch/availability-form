@@ -579,3 +579,38 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
 5. **A plan saved before the fix, on a date with two services:**
    - **Recommended:** the migration lists it, and Martin or the office picks which service it was for.
    - **Or:** it goes to the earliest service that day.
+
+## H-12. The church's own membership words and meetings: the plan (25 Oct 2026; Comms, a4e1cdbc)
+
+**For review; nothing is built.**
+
+**Today:** "Church member" is the name of an access level (the address book's tick, `churchMember`). "Church members' meeting" is the name of the members' meeting: the CMM video room, the e-news starter and the papers emails. 25 places in v2 use these words. They are Baptist habits; a parish has the electoral roll, the APCM and PCC meetings.
+
+**The plan:**
+1. **The access level stays; only its words change.**
+   - The tick is still `churchMember` in the data and the rules.
+   - Every word a person sees comes from a church setting, `churchSettings/details.memberWord`.
+   - EGBC's default is "Church member", so EGBC sees no change; a parish might say "On the electoral roll".
+2. **The church's meeting types, as a church setting** (`meetingTypes`). Each has:
+   - a name;
+   - who may come: members only, everyone, or a team by job (H-9);
+   - who may vote;
+   - who runs it (by job).
+   - EGBC's one default is "Church members' meeting" (members only, members vote, run by office and trustees). A parish adds the APCM (everyone on the roll; the roll votes) and a PCC meeting (the PCC only).
+   - The CMM room, the members' meeting page and the starter and papers emails take the meeting's name and audience from its type.
+3. **In setup:** both go in "Your church", next to the church's name and details (before "Your teams").
+4. **Owners:**
+   - main: the setting and its helper, `EGBCAuth.memberWord()` and `EGBCAuth.meetingTypes()`, plus my pages;
+   - Comms: the starter and papers emails, using the helper;
+   - the events window: any page of theirs that says "member".
+
+**Questions for Martin** (recommended answer first):
+1. **The member word:** one setting, used everywhere ("Church member", "On the electoral roll", "Member"). Or two: the person ("member") and the list ("membership", "electoral roll")? Recommended: two, since a parish says "on the electoral roll", not "an electoral roll".
+2. **Meetings that vote:**
+   - **Recommended:** the members' meeting's votes and proxies work for any meeting type marked "votes", with who may vote taken from the type.
+   - **Or:** voting stays for one meeting type only.
+3. **The CMM video room:**
+   - **Recommended:** one room per voting meeting type, named after it.
+   - **Or:** one shared "meetings" room.
+
+**For the synthetic parish:** "On the electoral roll" on its address book and access levels. An APCM and PCC meetings, each with its own room, papers and starter email. Nothing says "members' meeting".

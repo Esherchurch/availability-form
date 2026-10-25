@@ -1783,3 +1783,15 @@ Every function must take the church from the sign-in's claim or the document's p
 - **Your rules-engine tests:** any test that passes `fs.readFileSync('firestore.rules')` to initializeTestEnvironment should load `cfg.firestore.rules` instead, from the config it already reads. I've changed firestore-rules.test.mjs, church-scope-rules.test.mjs and storage-rules.test.mjs.
   - **Comms:** tests/check-enews-rules.mjs loads firestore.rules.
   - Static checks that read the source text, such as check-access-levels, can stay as they are.
+
+## From the main window, 25 Oct 2026: batch 8 (each church's data in your functions): the helpers are ready
+
+- **Everything you need is in place.** It has been since multi-church step 3 (batches 1–6, FINDINGS-churchhq H-5).
+- **The pattern is in my request of 22 Oct** (search "batch 8" above). In short:
+  - **Callables:** `const db = churchOf(request, getFirestore()).db;` (functions/church-scope.js), then use `db` as before. It refuses a church not in the sign-in, and asks "which church?" when there are two.
+  - **Triggers:** keep yours, and add a twin on `churches/{cid}/<same path>`, named `<name>Church`, with `churchFromPath(event, db)`. The pattern is index.js's `twins()`.
+  - **Scheduled jobs:** `eachChurch(db, (ch) => yourRun(ch.db))`.
+  - **Links with no sign-in** (e-news tokens, the Canva callback state): `indexCode(db, kind, hash)` when a church makes one, and `dbForCode(root, kind, hash)` at the endpoint (functions/hq-codes.js). Add your kinds to `KINDS` there and tell me which.
+  - **Sending:** `makeHqSender`, one per church, or pass the church's db per send.
+- **The check:** tests/check-church-calls.mjs shows the pattern (Ann in mc-alpha, Eve with no claim, plus a break). Run it on the spare emulators.
+- **Your other item (H-12):** the member word and the meeting types become church settings, through `EGBCAuth.memberWord()` and `meetingTypes()`, once Martin has answered H-12. I'll tell you when the helper exists, so the starter and papers emails can use it.
