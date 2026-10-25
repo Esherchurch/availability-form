@@ -11702,3 +11702,17 @@ Steps 2 to 7 wait for Martin's answers. **The order of the two parts is question
 | the host box doesn't say | — | 28/29 | "the leader is told" |
 
 **Tests:** sg-ai 73/73, sg-host 29/29.
+
+## From the main window, 25 Oct 2026: a service's plan is found by its service now (H-11 item 0, c08109b9)
+
+- **The bug it fixes:** a plan in `services` used to be found by its date alone, so two services on one date shared one plan, and saving the second overwrote the first.
+- **Now:** each plan carries `eventId` (its rota event). The emailed plan (`songSummaries`) is named by the date alone with one service that day, and `<date>_<eventId>` with several.
+- **Use the one helper, `EGBCPlanStore`** (`v2/egbc-plan-store.js`; load it before your script). Never take "the first plan with this date". Read the day's plans with `where('date', '==', date)`, then call:
+  - `EGBCPlanStore.planFor(docs, eventId, dayEvents)`: this service's plan, with docs as `[{ id, data }]`;
+  - `EGBCPlanStore.inOrder(events)`: the day's live services in time order (archived ones don't count);
+  - `EGBCPlanStore.summaryId(date, eventId, dayEvents)`: the emailed plan's name.
+- **Yours to switch:**
+  - **the events window:** Present, wherever a deck finds its service's plan by date;
+  - **Comms:** the e-news "This Sunday", and sitemaker.html where it reads services.
+- **A date with one service** (EGBC almost every week) behaves exactly as before.
+- **The check:** tests/check-two-services.mjs shows the pattern (two services on one date; a break with the old rule).

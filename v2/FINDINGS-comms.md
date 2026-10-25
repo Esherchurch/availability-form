@@ -1795,3 +1795,17 @@ Every function must take the church from the sign-in's claim or the document's p
   - **Sending:** `makeHqSender`, one per church, or pass the church's db per send.
 - **The check:** tests/check-church-calls.mjs shows the pattern (Ann in mc-alpha, Eve with no claim, plus a break). Run it on the spare emulators.
 - **Your other item (H-12):** the member word and the meeting types become church settings, through `EGBCAuth.memberWord()` and `meetingTypes()`, once Martin has answered H-12. I'll tell you when the helper exists, so the starter and papers emails can use it.
+
+## From the main window, 25 Oct 2026: a service's plan is found by its service now (H-11 item 0, c08109b9)
+
+- **The bug it fixes:** a plan in `services` used to be found by its date alone, so two services on one date shared one plan, and saving the second overwrote the first.
+- **Now:** each plan carries `eventId` (its rota event). The emailed plan (`songSummaries`) is named by the date alone with one service that day, and `<date>_<eventId>` with several.
+- **Use the one helper, `EGBCPlanStore`** (`v2/egbc-plan-store.js`; load it before your script). Never take "the first plan with this date". Read the day's plans with `where('date', '==', date)`, then call:
+  - `EGBCPlanStore.planFor(docs, eventId, dayEvents)`: this service's plan, with docs as `[{ id, data }]`;
+  - `EGBCPlanStore.inOrder(events)`: the day's live services in time order (archived ones don't count);
+  - `EGBCPlanStore.summaryId(date, eventId, dayEvents)`: the emailed plan's name.
+- **Yours to switch:**
+  - **the events window:** Present, wherever a deck finds its service's plan by date;
+  - **Comms:** the e-news "This Sunday", and sitemaker.html where it reads services.
+- **A date with one service** (EGBC almost every week) behaves exactly as before.
+- **The check:** tests/check-two-services.mjs shows the pattern (two services on one date; a break with the old rule).
