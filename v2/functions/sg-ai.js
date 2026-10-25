@@ -47,7 +47,7 @@ const Req = require('./sg-requirements-core.cjs');
 const Safeguarding = require('./safeguarding-core.cjs');
 const REGION = 'europe-west2';
 const db = () => getFirestore();
-const KINDS = ['trip', 'overnight', 'holidayclub', 'offsite'];
+const KINDS = Checklist.SG_KINDS;
 export const CHQ_ANTHROPIC_API_KEY = defineSecret('CHQ_ANTHROPIC_API_KEY');
 const BACKOFF = [1000, 3000, 8000];
 /* A DRAFT TAKES 30-60 SECONDS (the reviewing window's live run: 46 s). The
@@ -92,7 +92,9 @@ async function factsFor(dbi, w, under8) {
   const d0 = String(w.e.startLocal || '').slice(0, 10), d1 = String(w.e.endLocal || '').slice(0, 10);
   const days = d0 && d1 ? Math.max(1, Math.round((Date.parse(d1) - Date.parse(d0)) / 864e5) + 1) : 1;
   return { st, names, facts: { children, under8: Math.max(0, Math.min(children || 999, parseInt(under8, 10) || 0)), leaders: (w.l.leaders || []).length || mids.length, cleared,
-    ratioAll: w.l.ratioAll || st.ratioAll || 5, ratioUnder8: w.l.ratioUnder8 || st.ratioUnder8 || 4, kind: w.e.sgKind, days } };
+    ratioAll: w.l.ratioAll || st.ratioAll || 5, ratioUnder8: w.l.ratioUnder8 || st.ratioUnder8 || 4, kind: w.e.sgKind, days,
+    /* the church's own denomination's guidance (a setting, F-280 (e)): its name only */
+    guidance: String((((st.register || {}).guidance) || {}).name || '').slice(0, 120) } };
 }
 
 /* one place for the log: ids and counts only, never the words (and, for a failed call, the API's request id and error type) */
@@ -167,7 +169,7 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   const w = await whoFor(dbi, uid, calEventId);
   if (!w.ok) throw new HttpsError('permission-denied', 'This is for the event’s organiser and leaders, and the safeguarding lead and deputy.');
   w.e.id = calEventId;
-  if (!KINDS.includes(w.e.sgKind || '') || w.l.under18 !== true) throw new HttpsError('failed-precondition', 'Only an under-18s trip, overnight, holiday club or off-site event needs this.');
+  if (!KINDS.includes(w.e.sgKind || '') || w.l.under18 !== true) throw new HttpsError('failed-precondition', 'Only an under-18s trip, overnight, holiday club, off-site event or camp needs this.');
   const cur = (await dbi.collection('sgAssessments').doc(calEventId).get()).data();
   if (cur && (cur.status === 'signed' || cur.waived)) throw new HttpsError('failed-precondition', 'This assessment is already signed off (or not needed). Change it by hand instead.');
   if (!text) throw new HttpsError('invalid-argument', 'Describe the event first.');
@@ -229,7 +231,7 @@ export async function extractRequirements({ db: dbi, uid, data, api, bucket }) {
   const w = await whoFor(dbi, uid, calEventId);
   if (!w.ok) throw new HttpsError('permission-denied', 'This is for the event’s organiser and leaders, and the safeguarding lead and deputy.');
   w.e.id = calEventId;
-  if (!KINDS.includes(w.e.sgKind || '') || w.l.under18 !== true) throw new HttpsError('failed-precondition', 'Only an under-18s trip, overnight, holiday club or off-site event needs this.');
+  if (!KINDS.includes(w.e.sgKind || '') || w.l.under18 !== true) throw new HttpsError('failed-precondition', 'Only an under-18s trip, overnight, holiday club, off-site event or camp needs this.');
   const cur = (await dbi.collection('sgAssessments').doc(calEventId).get()).data();
   if (cur && (cur.status === 'signed' || cur.waived)) throw new HttpsError('failed-precondition', 'This assessment is already signed off (or not needed). Change it by hand instead.');
   const type = String(data.contentType || '').toLowerCase(), fileName = String(data.fileName || 'requirements').replace(/[\\/]/g, '_').slice(0, 120);

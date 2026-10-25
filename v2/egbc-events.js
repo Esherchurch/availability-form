@@ -295,7 +295,7 @@
      embed ask the public flag (sgGate: only "needed" and "open") of the
      events that could need it. Resolves to { eventId: true } for those
      waiting. */
-  var SG_KINDS = ['trip', 'overnight', 'holidayclub', 'offsite'];
+  var SG_KINDS = ['trip', 'overnight', 'holidayclub', 'offsite', 'camp'];
   var SG_WORDS = 'Bookings open after safeguarding sign-off';
   function sgWaiting(events) {
     var db = global.EGBCAuth && EGBCAuth.db, out = {};

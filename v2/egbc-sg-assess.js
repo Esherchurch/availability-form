@@ -67,7 +67,7 @@
   function mount(el, o) {
     if (!document.getElementById('sga-css')) { var st = document.createElement('style'); st.id = 'sga-css'; st.textContent = CSS; document.head.appendChild(st); }
     var db = EGBCAuth.db, ref = db.collection('sgAssessments').doc(o.calEventId), gate = db.collection('sgGate').doc(o.calEventId), A = null;
-    var tplId = (o.ev && o.ev.sgKind) || 'trip', CHURCHQ = [];
+    var tplId = (o.ev && o.ev.sgKind) || 'trip', CHURCHQ = [], MINCOVER = 0, GUIDE = {};
     /* the required checklist for this event: its kind, the ticked flags, and the church's own questions */
     function questions() { return T.checklistFor((o.ev && o.ev.sgKind) || (A && A.templateId) || tplId, (A && A.flags) || {}, CHURCHQ.concat(T.hostQuestions(A))); }
     function now() { return new Date().toISOString(); }
@@ -80,6 +80,7 @@
         if (o.may.sign) o.me.role = mid && b.safeguardingDeputy === mid && b.safeguardingLead !== mid ? 'Deputy safeguarding lead' : 'Safeguarding lead';
         var st = r[1] && r[1].exists ? r[1].data() : {};
         CHURCHQ = ((st.register || {}).checklist || []).filter(function (q) { return q && q.id && q.q; });
+        MINCOVER = (st.register || {}).minCover || 0; GUIDE = (st.register || {}).guidance || {};
         A = r[0].exists ? r[0].data() : null; draw();
       }, function () { el.innerHTML = '<p class="muted">The assessment could not be read here.</p>'; });
     }
@@ -104,22 +105,33 @@
       var sug = (A.source && A.source.suggest) || {}, qs0 = questions();
       var left = qs0.filter(function (q) { return !T.answered((A.answers || {})[q.id]); }).length;
       var answers = hostBox(edit) + '<div id="sgaChecklist"><label style="margin-top:16px">The checklist <span class="muted" style="font-weight:400" id="sgaCkCount">' + (qs0.length - left) + ' of ' + qs0.length + ' answered</span></label>' +
-        '<p class="muted" style="margin:0 0 6px">Every question needs an answer, or “not applicable” with a reason, before it can be signed off.</p>' +
+        '<p class="muted" style="margin:0 0 6px">Every question needs an answer, or “not applicable” with a reason, before it can be signed off.</p>' + guideLine() +
         (edit ? '<div class="flags">' + T.FLAGS.map(function (f) { return '<label style="display:flex;gap:8px;font-weight:400;margin:4px 0"><input type="checkbox" data-flag="' + f.id + '"' + (((A.flags || {})[f.id]) ? ' checked' : '') + '> ' + esc(f.label) + '</label>'; }).join('') + '</div>' : '') +
         qs0.map(function (q) {
           var v = String((A.answers || {})[q.id] || ''), na = /^N\/A:/.test(v), why = na ? v.replace(/^N\/A:\s*/, '') : '';
           var hub = q.id === 'leaders' && o.hub ? '<div class="muted" data-hubcheck>The hub’s check: ' + esc(o.hub) + '</div>' : '';
           var ai = sug[q.id] && !T.answered(v) ? '<div class="muted" data-suggest="' + q.id + '">AI suggests (to confirm): ' + esc(sug[q.id]) + (edit ? ' <button class="b sec" type="button" data-use="' + q.id + '" style="min-height:30px;padding:0 10px">Use this</button>' : '') + '</div>' : '';
-          var pf = q.id === 'paedFirstAid' ? T.paedFlag(A.answers, A.flags) : '';
-          var flag = pf ? ' <span class="sga-rag ' + pf + '" data-paedflag="' + pf + '">No paediatric first aider' + (pf === 'red' ? ', and under-8s are going' : '') + '</span>' : '';
+          /* the answers that are flags: no paediatric first aider, no male and female leader, the cover */
+          var fl = T.answerFlags(A.answers, A.flags, MINCOVER).filter(function (x) { return x.id === q.id; })[0];
+          var flag = fl ? ' <span class="sga-rag ' + fl.level + '" data-ckflag="' + q.id + '"' + (q.id === 'paedFirstAid' ? ' data-paedflag="' + fl.level + '"' : '') + '>' + esc(fl.words) + '</span>' : '';
           /* where a question came from (the church's own, the host's), and the paediatric note */
           var note = q.hint && (q.yesNo || q.group === 'host' || q.group === 'church') ? '<div class="muted" data-cknote>' + esc(q.hint) + '</div>' : '';
           if (!edit) return '<div class="ck" data-ck="' + q.id + '"><b>' + esc(q.label) + '</b>' + flag + (q.group === 'host' ? note : '') + '<br>' + (T.answered(v) ? (na ? 'Not applicable: ' + esc(why) : esc(v)) : '<span class="muted">Not answered</span>') + hub + '</div>';
           if (q.yesNo) {
-            var yn = (/^(Yes|No):/.exec(v) || [])[1] || '', rest = v.replace(/^(Yes|No):\s*/, '');
+            /* Yes, No, or the question's own "not applicable" choice ("Not a mixed group"), which needs no words */
+            var yn = (/^(Yes|No|N\/A):/.exec(v) || [])[1] || '', rest = v.replace(/^(Yes|No|N\/A):\s*/, '');
+            if (yn === 'N/A' && !q.naLabel) yn = '';
             return '<div class="ck" data-ck="' + q.id + '"' + (T.answered(v) ? '' : ' data-ckleft') + '><label for="sgaQ_' + q.id + '">' + esc(q.label) + '</label>' + flag + note + ai +
-              '<select data-yn="' + q.id + '" aria-label="Yes or no" style="max-width:160px;margin:4px 0"><option value="">Choose…</option><option' + (yn === 'Yes' ? ' selected' : '') + '>Yes</option><option' + (yn === 'No' ? ' selected' : '') + '>No</option></select>' +
-              '<textarea id="sgaQ_' + q.id + '" data-q="' + q.id + '" maxlength="500" placeholder="Who, and when their certificate runs out (or, if not, why not)">' + esc(rest) + '</textarea></div>';
+              '<select data-yn="' + q.id + '" aria-label="Yes or no" style="max-width:220px;margin:4px 0"><option value="">Choose…</option><option' + (yn === 'Yes' ? ' selected' : '') + '>Yes</option><option' + (yn === 'No' ? ' selected' : '') + '>No</option>' +
+              (q.naLabel ? '<option value="N/A"' + (yn === 'N/A' ? ' selected' : '') + '>' + esc(q.naLabel) + '</option>' : '') + '</select>' +
+              '<textarea id="sgaQ_' + q.id + '" data-q="' + q.id + '" maxlength="500" placeholder="' + esc(q.placeholder || 'Who, and when their certificate runs out (or, if not, why not)') + '"' + (yn === 'N/A' ? ' style="display:none"' : '') + '>' + esc(yn === 'N/A' ? '' : rest) + '</textarea></div>';
+          }
+          /* an amount and words: the public liability cover ("£5,000,000: Ecclesiastical, checked by …") */
+          if (q.money) {
+            var amt = T.coverOf(v), words = v.replace(/^£[\d,]*:\s*/, '');
+            return '<div class="ck" data-ck="' + q.id + '"' + (T.answered(v) ? '' : ' data-ckleft') + '><label for="sgaQ_' + q.id + '">' + esc(q.label) + '</label>' + flag + ai +
+              '<div style="display:flex;gap:6px;align-items:center;margin:4px 0"><span aria-hidden="true">£</span><input type="text" inputmode="numeric" data-money="' + q.id + '" aria-label="Public liability cover, in pounds" placeholder="Public liability cover" style="max-width:220px" value="' + (amt === null ? '' : String(amt).replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + '"></div>' +
+              '<textarea id="sgaQ_' + q.id + '" data-q="' + q.id + '" maxlength="480" placeholder="Who insures it, what it covers, and who checked, when">' + esc(words) + '</textarea></div>';
           }
           return '<div class="ck" data-ck="' + q.id + '"' + (T.answered(v) ? '' : ' data-ckleft') + '><label for="sgaQ_' + q.id + '">' + esc(q.label) + '</label>' + note + hub + ai +
             '<textarea id="sgaQ_' + q.id + '" data-q="' + q.id + '" maxlength="500" placeholder="' + esc(q.hint) + '"' + (na ? ' disabled' : '') + '>' + esc(na ? '' : v) + '</textarea>' +
@@ -265,6 +277,12 @@
         '<div class="btns"><button class="b sec" id="sgaWaive">It isn’t needed</button></div></details>';
     }
     function say(t) { var m = el.querySelector('#sgaMsg'); if (m) m.textContent = t; }
+    /* the church's own denomination's guidance (Safeguarding settings), and NSPCC Learning for everyone */
+    function guideLine() {
+      var name = String(GUIDE.name || '').trim(), url = /^https:\/\/[^\s"<>]+$/.test(String(GUIDE.url || '')) ? GUIDE.url : '';
+      var g = name ? (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(name) + '</a>' : esc(name)) : '';
+      return '<p class="muted" id="sgaGuide" style="margin:0 0 6px">' + (g ? 'This church follows ' + g + '. ' : '') + 'Help with any question: <a href="https://learning.nspcc.org.uk/" target="_blank" rel="noopener">NSPCC Learning</a>.</p>';
+    }
     function read() {
       var t = T.EVENT_TEMPLATES[A.templateId] || T.EVENT_TEMPLATES.trip, answers = Object.assign({}, A.answers || {}), flags = Object.assign({}, A.flags || {});
       el.querySelectorAll('[data-flag]').forEach(function (f) { if (f.checked) flags[f.getAttribute('data-flag')] = true; else delete flags[f.getAttribute('data-flag')]; });
@@ -272,7 +290,12 @@
       el.querySelectorAll('[data-q]').forEach(function (q) {
         var id = q.getAttribute('data-q'), na = el.querySelector('[data-na="' + id + '"]'), why = el.querySelector('[data-nawhy="' + id + '"]');
         var yn = el.querySelector('[data-yn="' + id + '"]');
-        var v = yn ? (yn.value && q.value.trim() ? yn.value + ': ' + q.value.trim().slice(0, 490) : '') : na && na.checked ? (why.value.trim() ? 'N/A: ' + why.value.trim().slice(0, 290) : '') : q.value.trim().slice(0, 500);
+        var money = el.querySelector('[data-money="' + id + '"]'), amt = money ? money.value.replace(/[^\d]/g, '').replace(/^0+/, '') : '';
+        var naLabel = yn && (questions().filter(function (x) { return x.id === id; })[0] || {}).naLabel;
+        var v = yn ? (yn.value === 'N/A' && naLabel ? 'N/A: ' + naLabel
+                      : yn.value && yn.value !== 'N/A' && q.value.trim() ? yn.value + ': ' + q.value.trim().slice(0, 490) : '')
+          : money ? (q.value.trim() ? (amt ? '£' + amt.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ': ' : '') + q.value.trim().slice(0, 480) : '')
+          : na && na.checked ? (why.value.trim() ? 'N/A: ' + why.value.trim().slice(0, 290) : '') : q.value.trim().slice(0, 500);
         if (v) answers[id] = v; else delete answers[id];
       });
       var risks = [].slice.call(el.querySelectorAll('[data-sgarisk]')).map(function (row) {
@@ -305,6 +328,7 @@
         b.commit().then(function () { A = d; draw(); }, function (e) { el.insertAdjacentHTML('beforeend', '<p class="muted">Could not start it: ' + esc(e.message || e) + '</p>'); });
       };
       el.querySelectorAll('[data-flag]').forEach(function (f) { f.onchange = function () { A = Object.assign({}, A, read()); draw(); }; });
+      el.querySelectorAll('[data-yn]').forEach(function (s) { s.onchange = function () { var t = q('[data-q="' + s.getAttribute('data-yn') + '"]'); if (t) t.style.display = s.value === 'N/A' ? 'none' : ''; }; });
       el.querySelectorAll('[data-na]').forEach(function (b) { b.onchange = function () { var id = b.getAttribute('data-na'); q('[data-nawhy="' + id + '"]').style.display = b.checked ? '' : 'none'; q('[data-q="' + id + '"]').disabled = b.checked; if (b.checked) q('[data-nawhy="' + id + '"]').focus(); }; });
       el.querySelectorAll('[data-use]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-use'); q('[data-q="' + id + '"]').value = ((A.source || {}).suggest || {})[id] || ''; b.parentNode.remove(); }; });
       if (q('#sgaAddRisk')) q('#sgaAddRisk').onclick = function () { var r = read(); A = Object.assign({}, A, r); A.risks.push({ risk: 'A new risk', who: '', l: 3, i: 3, rl: 2, ri: 3, controls: [] }); draw(); };

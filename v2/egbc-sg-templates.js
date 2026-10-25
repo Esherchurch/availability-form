@@ -112,8 +112,11 @@
   var Q = function (id, label, hint) { return { id: id, label: label, hint: hint || '' }; };
   var EVENT_KINDS = [
     { id: 'trip', label: 'A trip' }, { id: 'overnight', label: 'An overnight or sleepover' },
-    { id: 'holidayclub', label: 'A holiday club' }, { id: 'offsite', label: 'Off-site' }
+    { id: 'holidayclub', label: 'A holiday club' }, { id: 'offsite', label: 'Off-site' },
+    { id: 'camp', label: 'A camp or festival' }
   ];
+  /* the kinds that need the lead's sign-off when under-18s go: every one of these (firestore.rules sgNeedsSignoff, the same list) */
+  var SG_KINDS = EVENT_KINDS.map(function (k) { return k.id; });
   var EVENT_TEMPLATES = {
     trip: { label: 'Trip', questions: [
         Q('where', 'Where are you going, and what will you do there?'), Q('travel', 'How will everyone travel?', 'Coach, minibus, cars, train; who drives'),
@@ -149,7 +152,21 @@
       risks: [
         { id: 'off-venue', risk: 'Hazards at a venue we don’t know', who: 'Everyone', l: 2, i: 4, controls: [C('text', 'The venue’s own risk assessment seen'), C('text', 'A leader visits beforehand')], rl: 1, ri: 4 },
         { id: 'off-bounds', risk: 'Children leave the area unnoticed', who: 'Children', l: 2, i: 5, controls: [C('checkin'), C('text', 'Boundaries walked and explained at the start')], rl: 1, ri: 5 },
-        { id: 'off-ratio', risk: 'Too few leaders away from the building', who: 'Children', l: 3, i: 4, controls: [C('ratio'), C('twoAdults')], rl: 1, ri: 4 }] }
+        { id: 'off-ratio', risk: 'Too few leaders away from the building', who: 'Children', l: 3, i: 4, controls: [C('ratio'), C('twoAdults')], rl: 1, ri: 4 }] },
+    /* A CAMP OR FESTIVAL (F-280 10.1): tents, cooking, nights and the site's rules, in our own words; it has the overnight questions too */
+    camp: { label: 'Camp or festival', questions: [],
+      risks: [
+        { id: 'cmp-tentfire', risk: 'A fire in a tent', who: 'Everyone', l: 2, i: 5, controls: [C('text', 'No candles, smoking or vaping in tents'), C('text', 'Tents spaced as the site asks'), C('text', 'An extinguisher and a fire blanket by the cooking area')], rl: 1, ri: 5 },
+        { id: 'cmp-cooking', risk: 'Burns or a gas leak while cooking', who: 'Everyone', l: 3, i: 4, controls: [C('text', 'Cooking only in the cooking tent or area, away from sleeping tents'), C('text', 'Fuel stored away from stoves and tents'), C('text', 'A stove briefing; cooking always supervised')], rl: 1, ri: 4 },
+        { id: 'cmp-co', risk: 'Carbon monoxide from a stove or heater in a tent', who: 'Everyone', l: 2, i: 5, controls: [C('text', 'No stoves, barbecues or heaters inside any tent')], rl: 1, ri: 5 },
+        { id: 'cmp-guylines', risk: 'Trips on guy lines and pegs in the dark', who: 'Everyone', l: 3, i: 2, controls: [C('text', 'Guy lines marked; torches carried after dark')], rl: 2, ri: 2 },
+        { id: 'cmp-food', risk: 'Food poisoning', who: 'Everyone', l: 2, i: 4, controls: [C('text', 'Whoever caters holds a Level 2 food hygiene certificate'), C('text', 'Hand washing before meals; hot water for washing up')], rl: 1, ri: 4 },
+        { id: 'cmp-leaves', risk: 'A young person leaves the site', who: 'Young people', l: 2, i: 5, controls: [C('text', 'Never off site alone; a leader told before leaving'), C('text', 'Head counts at set times')], rl: 1, ri: 5 },
+        { id: 'cmp-night', risk: 'Harm at night', who: 'Young people', l: 2, i: 5, controls: [C('twoAdults'), C('text', 'A tent check at a set time'), C('text', 'Single-gender tents; adults camped centrally and known to all')], rl: 1, ri: 5 },
+        { id: 'cmp-vehicles', risk: 'A vehicle moving on site', who: 'Everyone', l: 2, i: 5, controls: [C('text', 'The site’s car-free times kept; vehicles to the car park')], rl: 1, ri: 5 },
+        { id: 'cmp-crowd', risk: 'Someone lost in a large crowd', who: 'Young people', l: 3, i: 4, controls: [C('checkin'), C('text', 'A meeting point everyone knows; the emergency number on every wristband')], rl: 1, ri: 4 },
+        { id: 'cmp-weather', risk: 'Heat, cold or flooding', who: 'Everyone', l: 3, i: 3, controls: [C('text', 'The forecast checked daily; a plan to move or go home')], rl: 2, ri: 3 },
+        { id: 'cmp-adulthealth', risk: 'An adult’s own health emergency', who: 'Leaders', l: 2, i: 4, controls: [C('text', 'Adults’ health forms, with next of kin, kept by the medical officer')], rl: 1, ri: 4 }] }
   };
 
   /* THE REQUIRED CHECKLIST (Martin, 23 Oct): every question must be answered,
@@ -162,9 +179,12 @@
   var CK = function (id, label, hint) { return { id: id, label: label, hint: hint || '' }; };
   var CHECKLIST = {
     core: [
-      CK('insurance', 'Insurance: is the activity covered by the church’s insurance, and has the insurer been told where it needs to be (overseas, overnight, adventurous activities, hired transport)? Who checked, and when?'),
+      /* the public liability cover as an amount (flagged under the church's minimum, £1 million unless it sets another) and words */
+      Object.assign(CK('insurance', 'Insurance: is the activity covered by the church’s insurance, and has the insurer been told where it needs to be (overseas, overnight, adventurous activities, hired transport)? How much is the public liability cover? Who checked, and when?'), { money: true }),
       CK('incharge', 'Who is in charge on the day, and who is the named deputy?', 'Roles and names of leaders are fine; never a child'),
       CK('leaders', 'Leaders: enough for the ratio, two adults at all times, and every leader’s criminal record check and training in date?', 'The hub’s own check is shown here'),
+      /* Yes, No, or "not a mixed group"; a No is flagged amber. Nobody's sex is recorded, only this answer. */
+      Object.assign(CK('mixedLeaders', 'Mixed groups: is there at least one male and one female leader with the group?', 'Only this answer is kept, never anyone’s sex.'), { yesNo: true, naLabel: 'Not a mixed group', placeholder: 'Which leaders (roles are fine), or why not' }),
       CK('consent', 'Consent: has a parent or guardian given consent for this event, covering the activities, photos and medical treatment, for every child before they go?'),
       /* answered Yes or No (with who and when their certificate runs out, or why not); a No is flagged amber, red when under-8s go (Martin, 23 Oct) */
       Object.assign(CK('paedFirstAid', 'Is there a trained paediatric first aider with the group? Who, and when does their certificate run out?', 'Essential where young children are present.'), { yesNo: true }),
@@ -172,8 +192,11 @@
       CK('emergency', 'Emergencies: the nearest hospital, how to call for help, the emergency plan, and how parents and the church at home will be told.'),
       CK('contacts', 'Contacts: who is the 24-hour contact at home (not on the trip)? Are leaders’ phones charged and with signal?'),
       CK('headcount', 'Head counts and the lost-child plan; the meeting point, and hand-back only to people on the collection list.'),
-      CK('transport', 'Transport: is the operator or driver checked (licence, insurance, seatbelts)? Private cars only with driver checks, and booster seats where needed.'),
+      CK('transport', 'Transport: is the operator or driver checked (licence, insurance, seatbelts)? Is each vehicle roadworthy (an MOT, and a check before the journey)? Are drivers’ hours and rest breaks planned? A minibus only with the right licence (D1, or a permit). Private cars only with driver checks, and booster seats where needed.'),
       CK('venue', 'The venue, host or activity provider: checked, their safeguarding policy and risk assessment seen, and licences where they apply (for example adventure activity licensing in the UK)?'),
+      CK('behaviour', 'Behaviour: what is expected of everyone, how problems will be handled, and the host’s behaviour policy or code of conduct if there is one?'),
+      CK('accessibility', 'Accessibility: how are everyone’s access needs found out and met, and who at the venue or host needs to know?'),
+      CK('visitors', 'Visitors and members of the public: who else will be there, and how is the group kept apart where it needs to be?'),
       CK('photos', 'Photos and social media: consent given, and no locations or names posted?'),
       CK('weather', 'Weather, and the plan if it has to be cancelled or cut short.'),
       CK('incidents', 'Incidents: how will any incident or concern be recorded and reported to the safeguarding lead?')
@@ -204,6 +227,20 @@
       CK('water', 'Any water nearby, and how children are kept safe from it?'),
       CK('boundaries', 'The boundaries of the area, and how children know them?')
     ],
+    /* a camp has the overnight questions as well (ALSO, below) */
+    camp: [
+      CK('tents', 'Tents: where they go, the spacing the site asks for (between tents, from cooking tents and vehicles, from the boundary), and guy lines marked?'),
+      CK('tentFire', 'Fire in tents: no candles, smoking or vaping in tents, lights watched, and an extinguisher and a fire blanket by the cooking area?'),
+      CK('cooking', 'Cooking: only the fuel the site allows, a cooking tent or area away from sleeping tents, fuel stored away from stoves and tents, a stove briefing, and who supervises?'),
+      CK('campFood', 'Food: does whoever caters hold a Level 2 food hygiene certificate? Hand washing and sanitiser before meals, and hot water for washing up?'),
+      CK('tentCheck', 'Nights: the tent check and its time, single-gender tents, where the adults sleep (central, and known to everyone), and a leader contactable on site day and night?'),
+      CK('medicalOfficer', 'A named medical officer everyone knows, and the site’s medical facilities: do the young people know where they are?', 'A role, not a name, if you prefer'),
+      CK('adultForms', 'Adults’ health forms, with next of kin, for every adult going, kept by the medical officer?', 'Kept by the medical officer, never in the hub: answer only whether they are collected'),
+      CK('campRules', 'The site’s rules: generators, barbecues, alcohol, smoking and vaping, wristbands, electrics (PAT-tested, not tampered with), and the site’s forms and their deadlines?'),
+      CK('vehicles', 'Vehicles: when the site is car-free, and where vehicles go?'),
+      CK('leavingSite', 'Leaving the site: never alone, a leader told first, never on foot where the site says so, and off site by the set time on the last day?'),
+      CK('setUp', 'Set-up day: who goes, and under-18s only if essential and supervised at all times?')
+    ],
     adventurous: [
       CK('instructor', 'A qualified instructor or a licensed provider for each activity?'),
       CK('lifeguard', 'Lifeguard cover for any swimming or water activity?'),
@@ -215,11 +252,13 @@
     { id: 'adventurous', label: 'Water, heights or other adventurous activities' },
     { id: 'under8', label: 'Children under 8 are going' }
   ];
-  /* the required questions for one event: the core, its kind's, the ticked flags', then the church's own */
+  /* a kind that has another kind's questions as well: a camp is an overnight too */
+  var ALSO = { camp: ['overnight'] };
+  /* the required questions for one event: the core, its kind's (and any it includes), the ticked flags', then the church's own */
   function checklistFor(kind, flags, churchQs) {
     flags = flags || {};
     var out = [].concat(CHECKLIST.core.map(function (q) { return Object.assign({ group: 'core' }, q); }));
-    if (CHECKLIST[kind] && kind !== 'core') out = out.concat(CHECKLIST[kind].map(function (q) { return Object.assign({ group: kind }, q); }));
+    if (CHECKLIST[kind] && kind !== 'core') [kind].concat(ALSO[kind] || []).forEach(function (k) { out = out.concat(CHECKLIST[k].map(function (q) { return Object.assign({ group: k }, q); })); });
     FLAGS.forEach(function (f) { if (flags[f.id] === true && CHECKLIST[f.id]) out = out.concat(CHECKLIST[f.id].map(function (q) { return Object.assign({ group: f.id }, q); })); });
     (churchQs || []).forEach(function (q) { if (q && q.id && q.q) out.push({ id: q.id, label: q.q, hint: q.hint || 'The church’s own question', group: q.group || 'church' }); });
     return out;
@@ -230,10 +269,32 @@
     if (!h || !h.confirmed) return [];
     return (h.items || []).map(function (x) { return { id: x.id, q: x.q, hint: 'From ' + (h.name || 'the host') + '’s requirements' + (x.line ? ': “' + x.line + '”' : ''), group: 'host' }; });
   }
-  /* an answer is there: words, or "N/A: " with a reason */
-  function answered(v) { v = String(v || '').trim(); return !!v && !/^(N\/A|Yes|No):\s*$/.test(v); }
+  /* an answer is there: words, or "N/A: " with a reason (a cover amount alone is not an answer) */
+  function answered(v) { v = String(v || '').trim(); return !!v && !/^(N\/A|Yes|No):\s*$/.test(v) && !/^£[\d,]*:\s*$/.test(v); }
   /* the paediatric first aider: none is a flag - amber, red when under-8s go */
   function paedFlag(answers, flags) { return /^No\b/i.test(String((answers || {}).paedFirstAid || '').trim()) ? ((flags || {}).under8 ? 'red' : 'amber') : ''; }
+  /* the public liability cover from the insurance answer ("£5,000,000: ..."), or null */
+  function coverOf(v) { var m = /^£([\d,]+)/.exec(String(v || '').trim()); return m ? +m[1].replace(/,/g, '') || 0 : null; }
+  function pounds(n) { return n >= 1000000 && n % 100000 === 0 ? '£' + (n / 1000000) + ' million' : '£' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  /* THE ANSWERS THAT ARE FLAGS (the page, the print and the warnings; the server's
+     copy is functions/sg-checklist.cjs flagsFrom, the unit test checks they agree):
+     no paediatric first aider; no male and female leader for a mixed group; the
+     public liability cover not given, or under the church's minimum (minCover,
+     £1 million unless the church sets another). Only answered questions count. */
+  var MIN_COVER = 1000000;
+  function answerFlags(answers, flags, minCover) {
+    answers = answers || {}; var min = Number.isInteger(minCover) && minCover > 0 ? minCover : MIN_COVER, out = [];
+    var pf = paedFlag(answers, flags);
+    if (pf) out.push({ id: 'paedFirstAid', level: pf, words: 'No paediatric first aider' + (pf === 'red' ? ', and under-8s are going' : '') });
+    if (/^No\b/i.test(String(answers.mixedLeaders || '').trim())) out.push({ id: 'mixedLeaders', level: 'amber', words: 'No male and female leader for a mixed group' });
+    var ins = String(answers.insurance || '').trim();
+    if (answered(ins) && !/^N\/A:/.test(ins)) {
+      var c = coverOf(ins);
+      if (c === null) out.push({ id: 'insurance', level: 'amber', words: 'The public liability cover isn’t given' });
+      else if (c < min) out.push({ id: 'insurance', level: 'amber', words: 'Public liability cover under ' + pounds(min) });
+    }
+    return out;
+  }
 
   function score(l, i) { return (+l || 0) * (+i || 0); }
   function rating(l, i) { var s = score(l, i); return s >= 15 ? 'red' : s >= 5 ? 'amber' : 'green'; }
@@ -263,7 +324,8 @@
 
   Object.keys(EVENT_TEMPLATES).forEach(function (k) { EVENT_TEMPLATES[k].questions = checklistFor(k, {}); });
 
-  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES, REVIEW_ITEMS: REVIEW_ITEMS, CHECKLIST: CHECKLIST, FLAGS: FLAGS, checklistFor: checklistFor, answered: answered, paedFlag: paedFlag, hostQuestions: hostQuestions,
+  var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES, REVIEW_ITEMS: REVIEW_ITEMS, CHECKLIST: CHECKLIST, FLAGS: FLAGS, ALSO: ALSO, SG_KINDS: SG_KINDS, checklistFor: checklistFor, answered: answered, paedFlag: paedFlag, hostQuestions: hostQuestions,
+              answerFlags: answerFlags, coverOf: coverOf, pounds: pounds, MIN_COVER: MIN_COVER,
               score: score, rating: rating, kindLabel: kindLabel, controlLabel: controlLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCSgTemplates = api;

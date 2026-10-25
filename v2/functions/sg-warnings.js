@@ -35,7 +35,7 @@ const require = createRequire(import.meta.url);
 const Core = require('./sg-warnings-core.cjs');
 const REGION = 'europe-west2';
 const db = () => getFirestore();
-const SG_KINDS = ['trip', 'overnight', 'holidayclub', 'offsite'];
+const Checklist = require('./sg-checklist.cjs'), SG_KINDS = Checklist.SG_KINDS;
 
 export function londonDay(at = new Date()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(at).map((x) => [x.type, x.value]));
@@ -44,7 +44,7 @@ export function londonDay(at = new Date()) {
 async function settingsOf(dbi) {
   const s = (await dbi.collection('safeguardingSettings').doc('defaults').get()).data() || {};
   return { ratioAll: s.ratioAll || 5, ratioUnder8: s.ratioUnder8 || 4, dbsYears: s.dbsYears || 3, trainingYears: s.trainingYears || 3,
-    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders' };
+    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders', minCover: ((s.register || {}).minCover) || 0 };
 }
 const rows = (q) => q.get().then((s) => s.docs.map((d) => Object.assign({ id: d.id }, d.data())), () => []);
 
@@ -53,18 +53,20 @@ async function eventsAt(dbi, siteId, today, days) {
   const from = Date.parse(today + 'T00:00:00Z') - 864e5, to = from + (days + 2) * 864e5;
   const evs = (await rows(dbi.collection('calEvents').where('startUtc', '>=', from).where('startUtc', '<=', to)))
     .filter((e) => (e.location || {}).siteId === siteId && e.status !== 'cancelled');
-  const out = [];
+  const out = [], minCover = (await settingsOf(dbi)).minCover;
   for (const e of evs) {
     const l = (await dbi.collection('eventLeaders').doc(e.id).get()).data();
     if (!l || l.under18 !== true) continue;
     const sus = await rows(dbi.collection('signups').where('calEventId', '==', e.id));
     /* one per attendee, as the event's own pages count them (EGBCCheckin.people) */
     const children = sus.filter((x) => x.status === 'confirmed').reduce((a, x) => a + ((x.attendees || []).length || 1), 0);
-    let signedOff = true, paed = '';
+    let signedOff = true, paed = '', flags = [];
     const needs = SG_KINDS.includes(e.sgKind || '');
-    if (needs) { const a = (await dbi.collection('sgAssessments').doc(e.id).get()).data(); signedOff = !!(a && (a.status === 'signed' || a.waived)); paed = a ? Core.paedLevel(a.answers, a.flags) : ''; }
+    if (needs) { const a = (await dbi.collection('sgAssessments').doc(e.id).get()).data(); signedOff = !!(a && (a.status === 'signed' || a.waived)); paed = a ? Core.paedLevel(a.answers, a.flags) : '';
+      /* the checklist's other flags: no male and female leader for a mixed group; the cover not given or under the minimum */
+      flags = a ? Checklist.answerFlags(a.answers, a.flags, minCover).filter((f) => f.id !== 'paedFirstAid') : []; }
     out.push({ id: e.id, title: String(e.title || 'An event').slice(0, 80), day: String(e.startLocal || '').slice(0, 10) || new Date(e.startUtc).toISOString().slice(0, 10),
-      children, leaders: (l.leaders || []).length || (l.leaderIds || []).length, leaderIds: l.leaderIds || [], needsSignoff: needs, signedOff, paed });
+      children, leaders: (l.leaders || []).length || (l.leaderIds || []).length, leaderIds: l.leaderIds || [], needsSignoff: needs, signedOff, paed, flags });
   }
   return out;
 }

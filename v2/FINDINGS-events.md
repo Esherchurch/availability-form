@@ -11716,3 +11716,80 @@ Steps 2 to 7 wait for Martin's answers. **The order of the two parts is question
   - **Comms:** the e-news "This Sunday", and sitemaker.html where it reads services.
 - **A date with one service** (EGBC almost every week) behaves exactly as before.
 - **The check:** tests/check-two-services.mjs shows the pattern (two services on one date; a break with the old rule).
+
+### F-282 — Safeguarding step 2a: a camp or festival kind; behaviour, accessibility, visitors and "a male and a female leader" on every event; transport and the insurance amount; the church's own guidance (the events window, 25 Oct)
+
+**Step 2 is in two parts.** About 60 places in 16 files say "safeguarding lead", so S2b does the role's name as a setting and the 500 limits on its own.
+
+**Built:**
+- **A camp or festival** (F-280 10.1, answers 13 and 14):
+  - **What it asks:** a new kind, with 11 questions of its own (tents and spacing, fire in tents, cooking and fuel, Level 2 food hygiene, the night tent check and where adults sleep, a medical officer, adults' health forms, the site's rules, vehicles, leaving the site, set-up day) **plus the 4 overnight questions**: 33 in all with the core.
+  - **Its 11 starter risks** include fire in a tent, carbon monoxide, guy lines, a vehicle on site, someone lost in a crowd, and an adult's own health emergency. Our own words.
+  - **Like every other kind,** it needs the lead's or deputy's sign-off when under-18s go. It is chosen on events-admin ("A camp or festival").
+- **Four new questions on every event** (answer 16; signed assessments are untouched):
+  - **Behaviour,** including the host's policy or code of conduct
+  - **Accessibility**
+  - **Visitors and members of the public**
+  - **"Is there at least one male and one female leader?"** answered Yes, No or "Not a mixed group", which needs no words. A No is flagged amber on the page, the print and the warnings. **Nobody's sex is recorded,** only the answer.
+- **Transport** now asks about roadworthiness (an MOT, a check before the journey), drivers' hours and rest breaks, and a minibus only with the right licence (D1, or a permit).
+- **Insurance** has an amount box for the public liability cover, saved as "£5,000,000: <words>".
+  - **Flagged amber** when it is under the church's minimum, or when no amount is given.
+  - **The minimum is a setting** on Safeguarding settings (£1 million unless changed).
+- **The church's own guidance** (F-280 (e)): a name and an https link on Safeguarding settings.
+  - **Where it shows:** "This church follows …" above every checklist, with NSPCC Learning for everyone, and "Guidance followed" in the print.
+  - **The AI is told its name.**
+- **One set of rules for the answers that are flags** (`answerFlags`): no paediatric first aider, no male and female leader, and the cover. The page, the print and the daily warnings all use it.
+- **The server's copy of the checklist is now generated:**
+  - **The script:** screenshots/events/sg-checklist-gen.mjs. Before, the file only said it was, and they could drift.
+  - **The unit test checks** the copy is current and that the rules ask for the same ids.
+- **The kinds list:** where a page or function loads the templates, it reads the list from there (safeguarding.html, safeguarding-risk.html, sg-print.html, sg-ai.js, sg-warnings.js). That is 5 copies fewer.
+- **The AI's daily limits can be set up to 500** (they were capped at 200 and 50).
+
+**Rules:** the camp kind in `sgNeedsSignoff`; the four new core ids and the camp's list (with the overnight ids) in `sgChecklist`. Built rules are regenerated, and check-rules-build passes 8/8.
+
+**Deploy (the reviewing window's):** sgDraftAssessment, sgExtractRequirements, sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily (they read the checklist, the kinds and the flags). The rules go live when the hub goes live.
+
+**For the synthetic parish:**
+- **Their youth camp:** it is a "camp or festival". It gets 33 questions, the overnight ones included, and the parish safeguarding officer signs it off.
+- **Their guidance:** they enter their diocese's guidance on Safeguarding settings. It shows on every assessment and print, and the AI is told it.
+- **Their choir trip abroad** gets the transport and £1 million cover questions. If their insurer requires more, they set their own minimum.
+- **Nothing here names EGBC, a team or a Baptist habit.**
+- **Still EGBC-shaped** (fixed in S2b): "safeguarding lead" in the wording. The parish says "Parish safeguarding officer".
+
+**Found and not fixed:**
+- tests/check-mail-route.mjs stops at the start because firebase.comms.json (the Comms window's) isn't in this clone. Not caused by this step.
+- The database refuses a sign-off with "Yes: " and nothing after, but not "£5,000,000: " with nothing after. The page refuses both. The rules can't test the shape of an answer cheaply.
+
+**Breaks** (13, each caught):
+
+| Break | Test | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the rules forget the four new core questions, so a lead could sign with them blank | sg-ai-unit 66/67 | "THE RULES require the same ids: the core" |
+| a camp doesn't need the lead's sign-off | sg-ai-unit 66/67 | "and the rules need its sign-off" |
+| the rules forget a camp's overnight questions | sg-ai-unit 66/67 | "A CAMP OR FESTIVAL: its own questions, then the overnight ones" |
+| the page forgets a camp is an overnight too | sg-ai-unit 65/67 | "a camp 33"; "generated from the page's" |
+| the server's copy not regenerated after a change on the page | sg-ai-unit 65/67 | "the same questions, word for word"; "generated" |
+| no flag for "no male and female leader" | sg-ai-unit 66/67 | "THE FLAGS …" |
+| the church's own minimum cover ignored | sg-ai-unit 66/67 | "the church's own minimum counts" |
+| the AI isn't told the church's guidance | sg-ai-unit 66/67 | "THE CHURCH'S OWN GUIDANCE goes to the AI" |
+| the warnings leave out the checklist's other flags | sg-warnings-unit 60/61 | "each is a warning, amber, … nobody's sex in it" |
+| "Not a mixed group" isn't saved | sg-assess 22/24 | "saved: …"; the run stops |
+| the cover amount isn't saved | sg-assess 37/39 | "the cover as an amount"; "COVER UNDER £1 MILLION is flagged" |
+| the page shows no flag at the question | sg-assess 38/39 | "COVER UNDER £1 MILLION is flagged amber at its question" |
+| the print shows no flag for the mixed group or the cover | sg-print 39/42 | "NO MALE AND FEMALE LEADER … flagged Medium"; "COVER UNDER £1 MILLION: flagged Medium" |
+
+**Tests:**
+
+| Test | Result | Change |
+|---|---|---|
+| sg-assess | 39/39 | 5 new checks |
+| sg-print | 42/42 | 3 new |
+| sg-ai | 73/73 | |
+| sg-host | 29/29 | |
+| sg-ai-unit | 67/67 | 9 new |
+| sg-register-unit | 17/17 | |
+| sg-warnings-unit | 61/61 | |
+| rules suite | 1902/1902 | 2 new: no sign-off with behaviour or the mixed-group question blank |
+| check-rules-build | 8/8 | |
+
+Earlier tests updated for the new counts: a trip asks 18, not 14.

@@ -13,10 +13,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610231000"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
-<script src="egbc-sg-templates.js?v=202610231200"></script>
+<script src="egbc-sg-templates.js?v=202610251000"></script>
 <script src="egbc-sg-dash.js?v=202610231200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -97,7 +97,7 @@
   var sheet = document.getElementById('sheet'), q = new URLSearchParams(location.search);
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   function longDate(v) { if (!v) return ''; var d = v && v.toDate ? v.toDate() : new Date(String(v).length <= 10 ? v + 'T12:00:00' : v); return isNaN(d) ? '' : d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
-  var WORDS = { red: 'High', amber: 'Medium', green: 'Low' }, KIND = { trip: 'Trip', overnight: 'Overnight or sleepover', holidayclub: 'Holiday club', offsite: 'Off-site' };
+  var WORDS = { red: 'High', amber: 'Medium', green: 'Low' }, KIND = {}; T.EVENT_KINDS.forEach(function (k) { KIND[k.id] = T.EVENT_TEMPLATES[k.id].label; });
   function rag(l, i) { var r = T.rating(l, i); return '<span class="rag ' + r + '" data-rag="' + r + '">' + WORDS[r] + ' ' + T.score(l, i) + '</span><div class="note">' + l + ' × ' + i + '</div>'; }
   var printed = longDate(new Date().toISOString());
   /* the footer: "Printed on <date>" (a page margin can't take a variable, so the date is written in) */
@@ -177,7 +177,8 @@
       if (must.length) ov = 'red';
       var ovHtml = ov ? '<span class="rag ' + ov + '" data-overall="' + ov + '">' + WORDS[ov] + '</span>' : '<span class="na">No risks written yet</span>';
       var qs = T.checklistFor(EV.sgKind || (A && A.templateId), (A && A.flags) || {}, (((ST.register || {}).checklist) || []).concat(T.hostQuestions(A))), ans = (A && A.answers) || {};
-      var pf = T.paedFlag(ans, (A && A.flags) || {}), host = A && A.host;
+      /* the answers that are flags (no paediatric first aider, no male and female leader, the cover), as the page shows them */
+      var FL = T.answerFlags(ans, (A && A.flags) || {}, (ST.register || {}).minCover || 0), host = A && A.host, GD = (ST.register || {}).guidance || {};
       var aiLine = A && A.source && A.source.kind === 'ai' ? (A.source.checkedBy ? 'First draft by AI: checked by ' + A.source.checkedByName + ' on ' + longDate(A.source.checkedAt) + '.' : 'AI draft, not yet checked.') : '';
       var status = waived ? '<div class="status" id="pStatus" data-state="waived">NOT NEEDED<small>Marked “not needed” by ' + esc(A.waivedByName || '') + ' on ' + esc(longDate(A.waivedAt)) + ': ' + esc(A.waivedWhy || '') + '</small></div>'
         : signed ? '<div class="status" id="pStatus" data-state="signed">SIGNED OFF<small>Signed off by ' + esc(A.signedByName || '') + ', ' + esc(A.signedByRole || 'Safeguarding lead') + ', on ' + esc(longDate(A.signedAt)) + '.' +
@@ -193,6 +194,7 @@
           '<tr><th>When</th><td>' + esc(E.fmtWhen ? E.fmtWhen(EV) : (EV.startLocal || '')) + '</td></tr>' +
           '<tr><th>Where</th><td>' + esc([SITE.name, (EV.location || {}).name, (EV.location || {}).address].filter(Boolean).join(', ')) + '</td></tr>' +
           '<tr><th>Kind</th><td>' + esc(KIND[EV.sgKind] || '') + ((A && A.flags && A.flags.abroad) ? ', overseas' : '') + ((A && A.flags && A.flags.adventurous) ? ', with water, heights or adventurous activities' : '') + '</td></tr>' +
+          (GD.name ? '<tr><th>Guidance followed</th><td id="pGuide">' + esc(GD.name) + (/^https:\/\//.test(String(GD.url || '')) ? ' <span class="note">' + esc(GD.url) + '</span>' : '') + '</td></tr>' : '') +
           '<tr><th>Organiser</th><td>' + esc(EV.organiserName || '') + '</td></tr>' +
           '<tr><th>Leaders named</th><td id="pLeaders">' + leaders.length + (leaders.length ? ': ' + leaders.map(function (l) { return esc(l.name || '') + (l.role ? ' (' + esc(l.role) + ')' : ''); }).join('; ') : '') + '</td></tr>' +
           '<tr><th>Children booked</th><td id="pKids">' + (kids === null ? '<span class="na">Not available to you</span>' : kids + (kids ? ', of whom ' + u8 + ' under 8' + (unknown ? ' (' + unknown + ' not known yet)' : '') : '')) + '</td></tr>' +
@@ -201,7 +203,7 @@
         (aiLine ? '<p id="pAi"><b>' + esc(aiLine) + '</b></p>' : '') +
         '<h2>The checklist</h2><table class="ck" id="pChecklist"><tbody>' + qs.map(function (x) {
           var v = String(ans[x.id] || ''), ok = T.answered(v), na = /^N\/A:/.test(v);
-          return '<tr data-pck="' + esc(x.id) + '"><td>' + esc(x.label) + (x.group === 'host' ? '<div class="note">' + esc(x.hint) + '</div>' : '') + (x.id === 'paedFirstAid' && pf ? '<div><span class="rag ' + pf + '" data-ppaed="' + pf + '">' + (pf === 'red' ? 'High: no paediatric first aider, and under-8s are going' : 'Medium: no paediatric first aider') + '</span></div>' : '') + '</td><td>' + (!ok ? '<span class="missing" data-pckmissing>Not answered</span>' : na ? '<span class="na">Not applicable: ' + esc(v.replace(/^N\/A:\s*/, '')) + '</span>' : esc(v)) + '</td></tr>';
+          return '<tr data-pck="' + esc(x.id) + '"><td>' + esc(x.label) + (x.group === 'host' ? '<div class="note">' + esc(x.hint) + '</div>' : '') + FL.filter(function (f) { return f.id === x.id; }).map(function (f) { return '<div><span class="rag ' + f.level + '" data-pflag="' + esc(f.id) + '"' + (f.id === 'paedFirstAid' ? ' data-ppaed="' + f.level + '"' : '') + '>' + WORDS[f.level] + ': ' + esc(f.words.charAt(0).toLowerCase() + f.words.slice(1)) + '</span></div>'; }).join('') + '</td><td>' + (!ok ? '<span class="missing" data-pckmissing>Not answered</span>' : na ? '<span class="na">Not applicable: ' + esc(v.replace(/^N\/A:\s*/, '')) + '</span>' : esc(v)) + '</td></tr>';
         }).join('') + '</tbody></table>' +
         (others.length ? '<h2>Other notes</h2><table class="ck"><tbody>' + others.map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + esc(ans[k]) + '</td></tr>'; }).join('') + '</tbody></table>' : '') +
         (host && !host.confirmed ? '<p class="must" id="pHostWaiting"><b>The host’s requirements have not been checked yet.</b> It can’t be signed off until they are.</p>' : '') +

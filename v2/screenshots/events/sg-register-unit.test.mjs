@@ -34,9 +34,11 @@ ok('FOR ANY CHURCH: no church’s name, team names or any body’s name in the l
 ok('NO CHILD’S NAME OR MEDICAL DETAIL in any starter (general words only)', !/\b(epilep|diabet|asthma|autis|ADHD|EpiPen)\w*/i.test(words), (words.match(/\b(epilep|diabet|asthma|autis|ADHD|EpiPen)\w*/i) || [])[0]);
 console.log('\nthe event templates (step 2)');
 const ET = T.EVENT_TEMPLATES, EK = T.EVENT_KINDS.map(k => k.id);
-ok('a template for each kind of event that needs sign-off: trip, overnight, holiday club, off-site', J(EK) === J(['trip', 'overnight', 'holidayclub', 'offsite']) && EK.every(k => ET[k] && ET[k].questions.length && ET[k].risks.length));
+ok('a template for each kind of event that needs sign-off: trip, overnight, holiday club, off-site, camp or festival', J(EK) === J(['trip', 'overnight', 'holidayclub', 'offsite', 'camp']) && J(T.SG_KINDS) === J(EK) && EK.every(k => ET[k] && ET[k].questions.length && ET[k].risks.length));
+const evAdmin = fs.readFileSync(path.join(V2, 'events-admin.html'), 'utf8'), evJs = fs.readFileSync(path.join(V2, 'egbc-events.js'), 'utf8');
+ok('   every page that lists the kinds has the camp: events-admin (the choice, and when it needs sign-off) and the shared events code', evAdmin.includes("['camp', 'A camp or festival']") && evAdmin.includes("['trip', 'overnight', 'holidayclub', 'offsite', 'camp'].indexOf(CUR.sgKind") && evJs.includes("SG_KINDS = ['trip', 'overnight', 'holidayclub', 'offsite', 'camp']"));
 const eqs = [].concat(...EK.map(k => ET[k].questions)), ers = [].concat(...EK.map(k => ET[k].risks));
-ok('each fits the rules: at most 20 questions and 40 risks, every risk rated 1 to 5 with its controls', EK.every(k => ET[k].questions.length <= 20 && ET[k].risks.length <= 40)
+ok('each fits the rules: at most 80 questions (the answers the rules allow) and 40 risks, every risk rated 1 to 5 with its controls', EK.every(k => ET[k].questions.length <= 80 && ET[k].risks.length <= 40)
   && ers.every(r => r.risk.length <= 200 && [r.l, r.i, r.rl, r.ri].every(n => Number.isInteger(n) && n >= 1 && n <= 5) && r.controls.length >= 1 && r.controls.every(c => ctl.includes(c.kind))), J(ers.filter(r => !r.controls.length).map(r => r.id)));
 ok('  question ids are unique within each template', EK.every(k => new Set(ET[k].questions.map(q => q.id)).size === ET[k].questions.length));
 ok('  the trip covers getting lost, travel and ratios; the overnight two adults at night', ['trp-lost', 'trp-travel', 'trp-ratio'].every(id => ET.trip.risks.some(r => r.id === id)) && ET.overnight.risks.some(r => r.controls.some(c => c.kind === 'twoAdults')));

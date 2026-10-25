@@ -13,10 +13,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610231000"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
-<script src="egbc-sg-templates.js?v=202610231200"></script>
-<script src="egbc-sg-assess.js?v=202610231800"></script>
+<script src="egbc-sg-templates.js?v=202610251000"></script>
+<script src="egbc-sg-assess.js?v=202610251000"></script>
 <script src="egbc-sg-dash.js?v=202610231200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -298,7 +298,7 @@
      overnight, holiday club or off-site event), with where each has got.
      The lead and deputy open it on the event's own safeguarding page, where
      it is written and signed; the trustees and master admins read it here. */
-  var KIND_WORDS = { trip: 'Trip', overnight: 'Overnight', holidayclub: 'Holiday club', offsite: 'Off-site' };
+  var KIND_WORDS = {}; EGBCSgTemplates.EVENT_KINDS.forEach(function (k) { KIND_WORDS[k.id] = EGBCSgTemplates.EVENT_TEMPLATES[k.id].label; });
   function drawEvents() {
     var box = document.getElementById('evList'), from = Date.now() - 864e5;
     return db().collection('sgGate').get().then(function (gs) {

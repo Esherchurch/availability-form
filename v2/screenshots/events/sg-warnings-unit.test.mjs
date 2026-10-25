@@ -103,6 +103,12 @@ r = W.warningsFrom(base({ events: [ev({ leaders: 3, day: '2026-11-01', paed: 'am
 ok('amber; red when under-8s go; with what to do', find(r, 'paed_ev_x') && find(r, 'paed_ev_x').level === 'amber' && find(r, 'paed_ev_y').level === 'red' && /no trained paediatric first aider with the group, and children under 8 are going\./.test(find(r, 'paed_ev_y').label) && /paediatric first aider/.test(find(r, 'paed_ev_y').todo), J(r.items));
 ok('   read from the answer: "No: ..." only', W.paedLevel({ paedFirstAid: 'No: none yet' }, {}) === 'amber' && W.paedLevel({ paedFirstAid: 'No: none yet' }, { under8: true }) === 'red' && W.paedLevel({ paedFirstAid: 'Yes: the deputy' }, { under8: true }) === '' && W.paedLevel({}, {}) === '');
 
+console.log('\n6d. the checklist’s other flags: no male and female leader; the cover (F-280 (b), (d))');
+const CKS = require('./sg-checklist.cjs'), fl = CKS.answerFlags({ mixedLeaders: 'No: two men this time', insurance: '£250,000: x' }, {}).filter((f) => f.id !== 'paedFirstAid');
+r = W.warningsFrom(base({ events: [ev({ leaders: 3, day: '2026-11-01', flags: fl })] }));
+ok('each is a warning, amber, with what to do, and nobody’s sex in it', find(r, 'mixedLeaders_ev_x') && find(r, 'mixedLeaders_ev_x').level === 'amber' && /no male and female leader for a mixed group\./.test(find(r, 'mixedLeaders_ev_x').label) && /a man and a woman/.test(find(r, 'mixedLeaders_ev_x').todo)
+  && find(r, 'insurance_ev_x') && /public liability cover under £1 million\./.test(find(r, 'insurance_ev_x').label) && /record the amount/.test(find(r, 'insurance_ev_x').todo) && !/two men/.test(J(r.items)), J(r.items));
+
 console.log('\n7. THE DIALS (step 4)');
 const DB = (x) => Object.assign({ today: TODAY, settings: ST, groups: GROUPS, leaderMids: [], checks: {}, sessions: [], consent: [], assess: [], review: null, incidents: [] }, x);
 const mids = (n, c) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['m' + i, c]));

@@ -237,7 +237,7 @@ try {
 
   /* 4. sign-off: the leader has answered the checklist (Martin's, 23 Oct) */
   const CKL = fnRequire('./sg-checklist.cjs');
-  await db.collection('sgAssessments').doc('ev_trip').update({ answers: Object.fromEntries(CKL.checklistFor('trip', (await assess('ev_trip')).flags || {}).map((q) => [q.id, q.id === 'paedFirstAid' ? 'Yes: the trip’s deputy leader, until 2028 (invented)' : 'Answered in general words (invented)'])) });
+  await db.collection('sgAssessments').doc('ev_trip').update({ answers: Object.fromEntries(CKL.checklistFor('trip', (await assess('ev_trip')).flags || {}).map((q) => [q.id, q.id === 'paedFirstAid' ? 'Yes: the trip’s deputy leader, until 2028 (invented)' : q.yesNo ? 'Yes: answered in general words (invented)' : 'Answered in general words (invented)'])) });
   const L = await as('lena');
   await go(L, 'safeguarding.html?event=ev_trip', '#sgaSign');
   await tap(L, '#sgaSign');
@@ -353,7 +353,7 @@ try {
   ok('   NOTHING BOOKED AND NOBODY NAMED: the hub says the ratio can’t be checked', /No children booked and no leaders named yet: the ratio can’t be checked/.test((a12.risks || [])[0] && a12.risks[0].risk) && a12.risks[0].from === 'hub', J((a12.risks || [])[0]));
   const sent12 = J((SENT[SENT.length - 1] || {}).body || {});
   ok('   THE CHECKLIST WENT WITH IT: each question with its id', /The required checklist \(id: question\)/.test(sent12) && /- paedFirstAid: Is there a trained paediatric first aider/.test(sent12) && /- instructor:/.test(sent12) === false, sent12.slice(0, 200));
-  ok('   its ticks: "water, heights or adventurous" on (it adds 3 questions)', a12.flags && a12.flags.adventurous === true && (await O.$$('[data-ck]')).length === 17, J(a12.flags));
+  ok('   its ticks: "water, heights or adventurous" on (it adds 3 questions)', a12.flags && a12.flags.adventurous === true && (await O.$$('[data-ck]')).length === 21, J(a12.flags));
   ok('   ITS ANSWERS ARE SUGGESTIONS, "to confirm": insurance shown, not counted as answered', a12.source.suggest && a12.source.suggest.insurance && !a12.source.suggest.nonsense && !(a12.answers || {}).insurance
     && /AI suggests \(to confirm\): The church’s insurance covers day trips/.test(await text(O, '[data-suggest="insurance"]')), J(a12.source.suggest));
   await tap(O, '[data-use="insurance"]');

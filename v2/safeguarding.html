@@ -16,11 +16,11 @@
 <script src="egbc-guard.js?v=202610221200"></script>
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-safeguarding.js?v=202610161700"></script>
-<script src="egbc-sg-templates.js?v=202610231200"></script>
-<script src="egbc-sg-assess.js?v=202610231800"></script>
+<script src="egbc-sg-templates.js?v=202610251000"></script>
+<script src="egbc-sg-assess.js?v=202610251000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -178,7 +178,7 @@
       '</div>';
 
     /* --- F-265 step 2: an under-18s trip, overnight, holiday club or off-site event's assessment, signed off by the lead or deputy --- */
-    var SGNEEDS = !!(LEAD && LEAD.under18) && ['trip', 'overnight', 'holidayclub', 'offsite'].indexOf(EV.sgKind || '') >= 0;
+    var SGNEEDS = !!(LEAD && LEAD.under18) && EGBCSgTemplates.SG_KINDS.indexOf(EV.sgKind || '') >= 0;
     if (SGNEEDS && (ADMIN || ISLEAD || LEADER)) html += '<div class="card" id="sgAssessCard"></div>';
 
     /* --- leaders and ratios --- */

@@ -4675,7 +4675,8 @@ await check('  while making the same record without it is fine', 'allow',
   });
   const SUX = (dbx, key, ev) => { const b = writeBatch(dbx); b.set(doc(dbx, 'signups', key), { calEventId: ev, personKind: 'contacts', personId: 'c_guest', name: 'Guest (invented)', email: 'g@example.invalid', places: 1, status: 'confirmed', attendees: [], answers: {} }); b.update(doc(dbx, 'capacity', ev), { taken: 1 }); return b.commit(); };
   /* every required question for a trip answered (Martin's checklist, 23 Oct) */
-  const ANS = Object.fromEntries(['insurance', 'incharge', 'leaders', 'consent', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'photos', 'weather', 'incidents'].map(k => [k, 'Answered (invented)']).concat([['paedFirstAid', 'Yes: the deputy (invented)']]));
+  const ANS = Object.fromEntries(['insurance', 'incharge', 'leaders', 'consent', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'behaviour', 'accessibility', 'visitors', 'photos', 'weather', 'incidents'].map(k => [k, 'Answered (invented)'])
+    .concat([['paedFirstAid', 'Yes: the deputy (invented)'], ['mixedLeaders', 'N/A: Not a mixed group']]));
   const AS = (uid, extra) => ({ siteId: 'site_sgr', calEventId: 'ev_sga_trip', title: 'Trip (invented)', templateId: 'trip', answers: ANS, risks: [{ risk: 'A child is lost', who: 'Children', l: 3, i: 5, rl: 1, ri: 5, controls: [{ kind: 'text', text: 'Head counts' }] }],
     status: 'draft', version: 1, updatedAt: 'x', updatedBy: uid, ...(extra || {}) });
   await check('SIGN-OFF: AN UNDER-18s TRIP TAKES NO SIGN-UP BEFORE IT IS SIGNED OFF', 'deny', () => SUX(anon(), 'key_sga_1_0000000000000000000000', 'ev_sga_trip'));
@@ -4700,6 +4701,8 @@ await check('  while making the same record without it is fine', 'allow',
   const without = (k) => Object.fromEntries(Object.entries(ANS).filter(([x]) => x !== k));
   await check('THE CHECKLIST: NOT SIGNED with the insurance question blank', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: without('insurance') })));
   await check('  nor with the paediatric first aider question blank', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: without('paedFirstAid') })));
+  await check('  nor with behaviour blank (a core question on every event, F-280 10.2)', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: without('behaviour') })));
+  await check('  nor with the mixed-group question blank', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: without('mixedLeaders') })));
   await check('  nor with an answer that is empty', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: { ...ANS, weather: '' } })));
   await check('  nor "not applicable" with no reason', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: { ...ANS, transport: 'N/A: ' } })));
   await check('  nor "Yes" or "No" with nothing more', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgAssessments', 'ev_sga_trip'), SIGN({ answers: { ...ANS, paedFirstAid: 'No: ' } })));

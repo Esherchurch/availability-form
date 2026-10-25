@@ -89,6 +89,8 @@ const NOW = Timestamp.fromDate(new Date());
 const qs = CK.checklistFor('trip', { abroad: true, under8: true }, [{ id: 'c_ins', q: 'Has our insurer’s activity form been sent? (invented)' }]);
 const answers = Object.fromEntries(qs.filter((q) => !['money', 'c_ins', 'weather'].includes(q.id)).map((q) => [q.id, 'Answered in general words for ' + q.id + ' (invented)']));
 answers.paedFirstAid = 'No: none of the leaders is trained yet (invented)';
+answers.mixedLeaders = 'No: we are still looking (invented)';
+answers.insurance = '£500,000: the church’s policy, checked by the office (invented)';
 answers.transport = 'N/A: the host’s own coach collects us at the airport (invented)';
 const RISKS = [
   { risk: 'Not enough leaders: 3 needed for 12 children (2 under 8); 2 named', who: 'Children', l: 5, i: 5, rl: 5, ri: 5, owner: 'The event’s organiser', review: 'Before bookings open', controls: [{ kind: 'ratio', text: '' }, { kind: 'twoAdults', text: '' }, { kind: 'text', text: 'Name 1 more checked leader before it goes ahead' }], mustNot: true, from: 'hub' },
@@ -112,7 +114,7 @@ const ASSESS = { siteId: 'site_t', calEventId: EID, title: 'Example: Brazil trip
   S('sites', 'site_t', { name: 'Test Green', active: true, order: 1 });
   S('bookingSettings', 'site_t', { bookingsAdmins: [], safeguardingLead: 'm_lena', safeguardingDeputy: '' });
   S('safeguardingSettings', 'defaults', { templates: {}, ratioAll: 5, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false, leadSiteId: 'site_t', leadName: 'Lena Lead (invented)', leadPhone: '', updatedAt: 'x', updatedBy: 'x',
-    register: { checklist: [{ id: 'c_ins', q: 'Has our insurer’s activity form been sent? (invented)' }], checklistIds: ['c_ins'] } });
+    register: { checklist: [{ id: 'c_ins', q: 'Has our insurer’s activity form been sent? (invented)' }], checklistIds: ['c_ins'], guidance: { name: 'The Diocese of Testbury’s safeguarding guidance (invented)', url: 'https://example.invalid/safeguarding' } } });
   S('calEvents', EID, { title: 'Example: Brazil trip (test, not real)', status: 'confirmed', visibility: 'unlisted', audience: ['public'], signupOn: true, capacity: 30, sgKind: 'trip', organiserName: 'Olly Organiser (invented)', teamUids: [], teamMemberIds: [],
     startLocal: DAY + 'T07:00', startUtc: Date.parse(DAY + 'T07:00:00Z'), endLocal: DAY2 + 'T18:00', endUtc: Date.parse(DAY2 + 'T18:00:00Z'), location: { kind: 'other', siteId: 'site_t', name: 'São Paulo, Brazil (invented)' } });
   S('eventLeaders', EID, { under18: true, leaders: [{ memberId: 'm_vic', name: 'Vic Leader (invented)', uid: P.vic.uid, role: 'trip leader' }, { memberId: 'm_lena', name: 'Lena Lead (invented)', role: 'deputy' }], leaderIds: ['m_vic', 'm_lena'], leaderUids: [P.vic.uid], siteId: 'site_t', clearedIds: [], lastCleared: [], updatedAt: 'x', updatedBy: 'x' });
@@ -175,8 +177,8 @@ try {
   ok('   THE DIALS: four, in one row, drawn in SVG (not pictures)', J(dials.map((d) => d.k)) === J(['overall', 'checklist', 'ratio', 'risks']) && new Set(dials.map((d) => d.top)).size === 1 && dials.every((d) => d.svg && !d.img), J(dials));
   ok('   under the title, above the DRAFT box', await L.evaluate(() => { const t = document.getElementById('pTitle'), d = document.getElementById('pDials'), s = document.getElementById('pStatus'); return !!(t.compareDocumentPosition(d) & 4) && !!(d.compareDocumentPosition(s) & 4); }));
   const dv = Object.fromEntries(dials.map((d) => [d.k, d]));
-  ok('   IN WORDS AS WELL AS COLOUR: "High", "19 of 23 answered", "Not met", "2 of 3 needed", "4 high · 9 medium · 4 low"', /High overall Overall rating/.test(dv.overall.t) && dv.overall.red === 14
-    && /^19 of 23 answered/.test(dv.checklist.t) && /Not met 2 of 3 needed/.test(dv.ratio.t) && dv.ratio.red > 0 && /17 risks Risks by colour \d+ high · \d+ medium · \d+ low/.test(dv.risks.t) && dv.risks.red > 0 && dv.risks.amber > 0, J(dials.map((d) => d.t)));
+  ok('   IN WORDS AS WELL AS COLOUR: "High", "23 of 27 answered", "Not met", "2 of 3 needed", "4 high · 9 medium · 4 low"', /High overall Overall rating/.test(dv.overall.t) && dv.overall.red === 14
+    && /^23 of 27 answered/.test(dv.checklist.t) && /Not met 2 of 3 needed/.test(dv.ratio.t) && dv.ratio.red > 0 && /17 risks Risks by colour \d+ high · \d+ medium · \d+ low/.test(dv.risks.t) && dv.risks.red > 0 && dv.risks.amber > 0, J(dials.map((d) => d.t)));
   ok('   the overall rating in the event table too', /^High /.test(await text(L, '#pOverallRow')));
   /* 2 */
   const st = await L.$eval('#pStatus', (e) => ({ state: e.getAttribute('data-state'), t: e.innerText, size: parseFloat(getComputedStyle(e).fontSize) }));
@@ -198,6 +200,9 @@ try {
   ok('   "Not answered" where blank (money, the church\u2019s, weather, the host\u2019s)', ckRows.filter((r) => /Not answered/.test(r[1])).map((r) => r[0]).sort().join() === ['c_ins', 'h_1', 'money', 'weather'].sort().join(), J(ckRows.filter((r) => /Not answered/.test(r[1]))));
   ok('   "Not applicable: <reason>"', /Not applicable: the host’s own coach collects us/.test((ckRows.find((r) => r[0] === 'transport') || [])[1]));
   ok('   THE PAEDIATRIC FIRST AIDER: "No", flagged High (under-8s are going)', !!(await L.$('[data-ppaed="red"]')) && /High: no paediatric first aider, and under-8s are going/.test((ckRows.find((r) => r[0] === 'paedFirstAid') || [])[1]));
+  ok('   NO MALE AND FEMALE LEADER for a mixed group: flagged Medium', /Medium: no male and female leader for a mixed group/.test((ckRows.find((r) => r[0] === 'mixedLeaders') || [])[1]) && !!(await L.$('[data-pflag="mixedLeaders"].amber')));
+  ok('   COVER UNDER £1 MILLION: flagged Medium', /Medium: public liability cover under £1 million/.test((ckRows.find((r) => r[0] === 'insurance') || [])[1]) && /£500,000: the church’s policy/.test((ckRows.find((r) => r[0] === 'insurance') || [])[1]));
+  ok('   THE GUIDANCE FOLLOWED, in the facts', (await text(L, '#pGuide')) === 'The Diocese of Testbury’s safeguarding guidance (invented) https://example.invalid/safeguarding', await text(L, '#pGuide'));
   /* 6 */
   ok('6. "First draft by AI: checked by Vic Leader (invented) on 23 October 2026."', (await text(L, '#pAi')) === 'First draft by AI: checked by Vic Leader (invented) on 23 October 2026.', await text(L, '#pAi'));
   /* 7 */

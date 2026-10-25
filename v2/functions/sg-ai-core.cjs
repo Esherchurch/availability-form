@@ -134,10 +134,11 @@ const SYSTEM = [
 function userText(f, text, checklist) {
   return [
     'What the hub knows about this event (counts only):',
-    '- Kind of event: ' + ({ trip: 'a trip', overnight: 'an overnight', holidayclub: 'a holiday club', offsite: 'off-site' }[f.kind] || 'an event') + (f.days > 1 ? ', over ' + f.days + ' days' : ''),
+    '- Kind of event: ' + ({ trip: 'a trip', overnight: 'an overnight', holidayclub: 'a holiday club', offsite: 'off-site', camp: 'a camp or festival (tents)' }[f.kind] || 'an event') + (f.days > 1 ? ', over ' + f.days + ' days' : ''),
     '- Children booked or expected: ' + (f.children || 0) + (f.under8 ? ', of whom ' + f.under8 + ' under 8' : ''),
     '- Leaders named: ' + (f.leaders || 0) + ', of whom ' + (f.cleared || 0) + ' have an in-date check and training',
     '- The church’s ratios: one leader to ' + (f.ratioAll || 5) + ' children, and one to ' + (f.ratioUnder8 || 4) + ' for under-8s; never fewer than two adults',
+    ...(f.guidance ? ['- The church follows this safeguarding guidance: ' + f.guidance + '. Where it applies, keep to it.'] : []),
     '',
     'The required checklist (id: question):',
     ...(checklist || []).map((q) => '- ' + q.id + ': ' + q.label),

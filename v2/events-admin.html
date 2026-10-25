@@ -17,7 +17,7 @@
 <script src="egbc-editor.js?v=202610062100"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-email.js?v=202610212000"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-qr.js?v=202610072300"></script>
 <script src="egbc-events-uploads.js?v=202610081600"></script>
@@ -529,10 +529,10 @@
       '<div class="field"><label for="f_labels">Labels (comma separated)</label><input class="inp" id="f_labels" value="' + esc((CUR.labels || []).join(', ')) + '"></div>' +
       '<label class="check"><input type="checkbox" id="f_feat"' + (CUR.featured ? ' checked' : '') + '>Feature this on the hub and at the top of What\'s on</label>' +
       '<label class="check"><input type="checkbox" id="f_u18"' + (U18 ? ' checked' : '') + '><b>Works with under-18s</b> (a kids club, a youth event): every leader and helper must have an in-date DBS check and training</label>' +
-      /* F-265 step 2: an under-18s trip, overnight, holiday club or off-site event needs the safeguarding lead's sign-off before bookings open */
+      /* F-265 step 2: an under-18s trip, overnight, holiday club, off-site event or camp needs the safeguarding lead's sign-off before bookings open */
       '<div class="field"><label for="f_sgkind">What kind of event is it? (for safeguarding)</label><select class="inp" id="f_sgkind">' +
-        [['', 'A usual session, club or event'], ['trip', 'A trip'], ['overnight', 'An overnight or sleepover'], ['holidayclub', 'A holiday club'], ['offsite', 'Off-site']].map(function (k) { return '<option value="' + k[0] + '"' + ((CUR.sgKind || '') === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') +
-        '</select><p class="hint" id="sgKindHint" style="margin:4px 0 0">For under-18s, a trip, an overnight, a holiday club or an off-site event needs a safeguarding assessment, signed off by the safeguarding lead or deputy before bookings open.</p></div>' +
+        [['', 'A usual session, club or event'], ['trip', 'A trip'], ['overnight', 'An overnight or sleepover'], ['holidayclub', 'A holiday club'], ['offsite', 'Off-site'], ['camp', 'A camp or festival']].map(function (k) { return '<option value="' + k[0] + '"' + ((CUR.sgKind || '') === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') +
+        '</select><p class="hint" id="sgKindHint" style="margin:4px 0 0">For under-18s, a trip, an overnight, a holiday club, an off-site event or a camp needs a safeguarding assessment, signed off by the safeguarding lead or deputy before bookings open.</p></div>' +
       pictureField() +
       '<div class="field"><label for="f_notes">Internal notes (the event team only)</label>' +
         '<textarea id="f_notes" maxlength="4000">' + esc(NOTES) + '</textarea></div>';
@@ -1585,7 +1585,7 @@
      "waiting" or "open", never the assessment. Made here when it first
      needs one; signing it off opens it. */
   function sgGates(ids) {
-    var needs = U18 && ['trip', 'overnight', 'holidayclub', 'offsite'].indexOf(CUR.sgKind || '') >= 0;
+    var needs = U18 && ['trip', 'overnight', 'holidayclub', 'offsite', 'camp'].indexOf(CUR.sgKind || '') >= 0;
     if (!needs) return Promise.resolve('');
     return Promise.all(ids.map(function (eid) {
       var g = db().collection('sgGate').doc(eid);

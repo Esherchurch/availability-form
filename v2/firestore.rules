@@ -2502,8 +2502,8 @@ service cloud.firestore {
     }
 
     // ---- STEP 2: EVENT ASSESSMENTS AND SIGN-OFF (F-265) ----
-    // An under-18s event that is a trip, an overnight, a holiday club or
-    // off-site (calEvents.sgKind, set on events-admin) needs its site's
+    // An under-18s event that is a trip, an overnight, a holiday club,
+    // off-site or a camp or festival (calEvents.sgKind, set on events-admin) needs its site's
     // safeguarding lead or deputy to sign its assessment off before bookings
     // open. Only the lead, deputy or a master admin may say it isn't needed
     // ("waived"), and that says who, when and why.
@@ -2511,7 +2511,7 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '');
     }
     function sgNeedsSignoff(calEventId, ev) {
-      return ev.get('sgKind', '') in ['trip', 'overnight', 'holidayclub', 'offsite']
+      return ev.get('sgKind', '') in ['trip', 'overnight', 'holidayclub', 'offsite', 'camp']
              && exists(/databases/$(database)/documents/eventLeaders/$(calEventId))
              && get(/databases/$(database)/documents/eventLeaders/$(calEventId)).data.get('under18', false) == true;
     }
@@ -2526,10 +2526,12 @@ service cloud.firestore {
     // ticked flags (overseas; water, heights or adventurous), and the
     // church's own (safeguardingSettings/defaults.register.checklistIds).
     function sgChecklist(kind, flags) {
-      return ['insurance', 'incharge', 'leaders', 'consent', 'paedFirstAid', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'photos', 'weather', 'incidents']
+      return ['insurance', 'incharge', 'leaders', 'mixedLeaders', 'consent', 'paedFirstAid', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'behaviour', 'accessibility', 'visitors', 'photos', 'weather', 'incidents']
         .concat(kind == 'overnight' ? ['sleeping', 'nightRota', 'fire', 'privacy']
               : kind == 'holidayclub' ? ['registration', 'staffRota', 'food', 'toilets']
-              : kind == 'offsite' ? ['siteRules', 'water', 'boundaries'] : [])
+              : kind == 'offsite' ? ['siteRules', 'water', 'boundaries']
+              // a camp or festival (F-280 10.1), with the overnight questions too
+              : kind == 'camp' ? ['tents', 'tentFire', 'cooking', 'campFood', 'tentCheck', 'medicalOfficer', 'adultForms', 'campRules', 'vehicles', 'leavingSite', 'setUp', 'sleeping', 'nightRota', 'fire', 'privacy'] : [])
         .concat(flags.get('abroad', false) == true ? ['travelAdvice', 'passports', 'travelInsurance', 'health', 'localEmergency', 'money', 'localHelpers'] : [])
         .concat(flags.get('adventurous', false) == true ? ['instructor', 'lifeguard', 'equipment'] : [])
         .concat(exists(/databases/$(database)/documents/safeguardingSettings/defaults)

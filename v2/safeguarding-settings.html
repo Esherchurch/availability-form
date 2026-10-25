@@ -275,8 +275,15 @@
             pc('checks', 'Leaders with in-date checks') + pc('sessions', 'Sessions with enough leaders') + pc('consent', 'Children with current consent') + pc('assess', 'Event assessments signed') +
             '<div class="field"><label>Incident follow-ups open</label>Green at ' + num('dg_incidents', v('incidents', 0), 50) + ' or fewer, amber at ' + num('da_incidents', v('incidents', 1), 50) + ' or fewer</div>' +
             /* AI-drafted event assessments (F-265 step 5): how many a day */
-            '<div class="field"><label>AI-drafted assessments a day</label>' + num('aiChurch', typeof (R.ai || {}).perChurch === 'number' ? R.ai.perChurch : 20, 200) + ' for the church, ' +
-              num('aiPerson', typeof (R.ai || {}).perPerson === 'number' ? R.ai.perPerson : 5, 50) + ' for each person</div>' +
+            '<div class="field"><label>AI-drafted assessments a day</label>' + num('aiChurch', typeof (R.ai || {}).perChurch === 'number' ? R.ai.perChurch : 20, 500) + ' for the church, ' +
+              num('aiPerson', typeof (R.ai || {}).perPerson === 'number' ? R.ai.perPerson : 5, 500) + ' for each person</div>' +
+            /* the church's own denomination's guidance (F-280 (e)): shown on every event assessment and its print, and given to the AI */
+            '<div class="field"><label for="guideName">The safeguarding guidance your church follows</label><input class="inp" id="guideName" maxlength="120" placeholder="e.g. your denomination’s or diocese’s safeguarding guidance" value="' + esc((R.guidance || {}).name || '') + '">' +
+              '<input class="inp" id="guideUrl" type="url" maxlength="300" placeholder="Its web address (https://…)" style="margin-top:6px" value="' + esc((R.guidance || {}).url || '') + '">' +
+              '<p class="hint" style="margin:6px 0 0">Shown on every event assessment and its printout, with NSPCC Learning, and given to the AI when it drafts one.</p></div>' +
+            /* the least public liability cover an event's insurance answer may give before it is flagged (F-280 (d)) */
+            '<div class="field"><label for="minCover">Flag public liability cover under</label>£ <input class="inp" id="minCover" inputmode="numeric" style="width:160px" value="' + String(R.minCover || 1000000).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '">' +
+              '<p class="hint" style="margin:6px 0 0">An event whose insurance answer gives less cover than this is flagged amber. £1 million unless you change it.</p></div>' +
             /* the church's own required questions for event assessments (Martin, 23 Oct): added to the fixed checklist, never in place of it */
             '<div class="field" id="ownQs"><label>Your church’s own required questions for event assessments</label>' +
               '<p class="hint" style="margin:0 0 6px">Asked on every event assessment, as well as the fixed checklist (insurance, consent, emergencies and the rest), which can’t be removed. For example your insurer’s conditions.</p>' +
@@ -347,7 +354,12 @@
       [['checks', 95, 85, 100], ['sessions', 95, 85, 100], ['consent', 95, 85, 100], ['assess', 100, 80, 100], ['incidents', 0, 2, 50]].forEach(function (k) {
         d.register.dials[k[0]] = { g: nv('dg_' + k[0], k[1], k[3]), a: nv('da_' + k[0], k[2], k[3]) };
       });
-      d.register.ai = { perChurch: nv('aiChurch', 20, 200), perPerson: nv('aiPerson', 5, 50) };
+      d.register.ai = { perChurch: nv('aiChurch', 20, 500), perPerson: nv('aiPerson', 5, 500) };
+      var gName = ((document.getElementById('guideName') || {}).value || '').trim().slice(0, 120), gUrl = ((document.getElementById('guideUrl') || {}).value || '').trim().slice(0, 300);
+      if (gUrl && !/^https:\/\/[^\s"<>]+$/.test(gUrl)) { toast('The guidance’s web address must start https://'); return; }
+      d.register.guidance = { name: gName, url: gUrl };
+      var mc = parseInt(((document.getElementById('minCover') || {}).value || '').replace(/[^\d]/g, ''), 10);
+      d.register.minCover = mc > 0 ? mc : 1000000;
       /* the church's own questions: kept with their ids (answers are stored by id) */
       var own = [].slice.call(document.querySelectorAll('[data-ownq]')).map(function (r) { return { id: r.getAttribute('data-ownq'), q: r.querySelector('[data-ownqtext]').value.trim().slice(0, 300) }; }).filter(function (x) { return x.q; }).slice(0, 20);
       d.register.checklist = own; d.register.checklistIds = own.map(function (x) { return x.id; });

@@ -1210,7 +1210,7 @@ function sgEventSite(calEventId) {
 return get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '');
 }
 function sgNeedsSignoff(calEventId, ev) {
-return ev.get('sgKind', '') in ['trip', 'overnight', 'holidayclub', 'offsite']
+return ev.get('sgKind', '') in ['trip', 'overnight', 'holidayclub', 'offsite', 'camp']
 && exists(/databases/$(database)/documents/eventLeaders/$(calEventId))
 && get(/databases/$(database)/documents/eventLeaders/$(calEventId)).data.get('under18', false) == true;
 }
@@ -1220,10 +1220,11 @@ return exists(/databases/$(database)/documents/sgAssessments/$(calEventId))
 || get(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.get('waived', false) == true);
 }
 function sgChecklist(kind, flags) {
-return ['insurance', 'incharge', 'leaders', 'consent', 'paedFirstAid', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'photos', 'weather', 'incidents']
+return ['insurance', 'incharge', 'leaders', 'mixedLeaders', 'consent', 'paedFirstAid', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'behaviour', 'accessibility', 'visitors', 'photos', 'weather', 'incidents']
 .concat(kind == 'overnight' ? ['sleeping', 'nightRota', 'fire', 'privacy']
 : kind == 'holidayclub' ? ['registration', 'staffRota', 'food', 'toilets']
-: kind == 'offsite' ? ['siteRules', 'water', 'boundaries'] : [])
+: kind == 'offsite' ? ['siteRules', 'water', 'boundaries']
+: kind == 'camp' ? ['tents', 'tentFire', 'cooking', 'campFood', 'tentCheck', 'medicalOfficer', 'adultForms', 'campRules', 'vehicles', 'leavingSite', 'setUp', 'sleeping', 'nightRota', 'fire', 'privacy'] : [])
 .concat(flags.get('abroad', false) == true ? ['travelAdvice', 'passports', 'travelInsurance', 'health', 'localEmergency', 'money', 'localHelpers'] : [])
 .concat(flags.get('adventurous', false) == true ? ['instructor', 'lifeguard', 'equipment'] : [])
 .concat(exists(/databases/$(database)/documents/safeguardingSettings/defaults)

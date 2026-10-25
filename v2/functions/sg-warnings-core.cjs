@@ -32,7 +32,9 @@ const TODO = {
   signoff: 'Finish the assessment and ask the safeguarding lead or deputy to sign it off.',
   review: 'Look at each one and set a new review date.',
   hirerDocs: 'Ask them for their safeguarding policy, and add it to their hirer record.',
-  paedFirstAid: 'Find a trained paediatric first aider to go with the group.'
+  paedFirstAid: 'Find a trained paediatric first aider to go with the group.',
+  mixedLeaders: 'Find a leader so there is a man and a woman with the group, or say why not.',
+  insurance: 'Check the public liability cover with the insurer, and record the amount.'
 };
 const WORSE = { red: 2, amber: 1 };
 
@@ -81,6 +83,8 @@ function warningsFrom(d) {
     /* the checklist says no trained paediatric first aider is going: amber, red when under-8s go (Martin, 23 Oct) */
     if (e.paed) add({ id: 'paed_' + e.id, kind: 'paedFirstAid', level: e.paed, count: 1, date: e.day, fix, act: '',
       label: when + ': no trained paediatric first aider with the group' + (e.paed === 'red' ? ', and children under 8 are going.' : '.') });
+    /* the checklist's other flags (F-280 (b) and (d)): words only, never anyone's sex */
+    (e.flags || []).forEach((f) => add({ id: f.id + '_' + e.id, kind: f.id, level: f.level, count: 1, date: e.day, fix, act: '', label: when + ': ' + f.words.charAt(0).toLowerCase() + f.words.slice(1) + '.' }));
     if (e.needsSignoff && !e.signedOff) add({ id: 'sign_' + e.id, kind: 'signoff', level: t <= 7 ? 'red' : 'amber', count: 1, date: e.day, fix, act: '',
       label: when + ': waiting for safeguarding sign-off. Bookings stay closed until then.' });
   });
