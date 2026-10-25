@@ -34,7 +34,7 @@
     { id: 'weekly', group: 'News', name: 'Weekly news', about: 'This week’s picture and verse, Sunday, What’s On and the notices.', subject: '[Church] e-news [date]', preheader: 'What’s happening this week', audience: 'subscribers', weekly: true, blocks: [] },
     { id: 'monthly', group: 'News', name: 'Monthly news', about: 'The month at a glance: a letter, what’s coming up, and news.', subject: '[Month] news from [Church]', preheader: 'The month ahead', audience: 'subscribers',
       blocks: [hero, text('A word for the month', P('[A few lines to open the month.]')), bar('Coming up this month'), { type: 'diary', title: 'Dates for the diary', weeks: 6, items: [] }, bar('News'), text('', P('[A piece of news, with a link if there is one.]'))] },
-    { id: 'minister', group: 'News', name: 'Letter from the minister', about: 'Plain words, no pictures: a pastoral letter.', subject: 'A letter from [name]', preheader: '', audience: 'subscribers',
+    { id: 'minister', group: 'News', name: 'Letter from the [minister]', about: 'Plain words, no pictures: a pastoral letter.', subject: 'A letter from [name]', preheader: '', audience: 'subscribers',
       blocks: [text('', P('Dear {{first_name}},') + P('[Your letter.]')), sign] },
     { id: 'story', group: 'People and stories', name: 'Story / ministry update', about: 'A picture, a story, and how to pray or get involved.', subject: 'News from [the ministry]', preheader: '[One line about the story]', audience: 'subscribers',
       blocks: [hero, { type: 'heading', text: '[The headline]' }, text('', P('[The story: what happened, who was there, what it meant.]')), bar('How you can help'), text('', '<ul><li>[Pray for…]</li><li>[Give or volunteer…]</li></ul>'), btn('Find out more')] },
@@ -83,6 +83,17 @@
     { id: 'mothering', group: 'The church year', name: 'Mothering Sunday', about: 'The service, and flowers or a gift for everyone.', subject: 'Mothering Sunday, [date]', preheader: 'Everyone welcome', audience: 'subscribers',
       blocks: [hero, { type: 'heading', text: 'Mothering Sunday' }, text('', P('<strong>[Service: day, date, time]</strong>') + P('[Flowers for everyone, or what is planned.]'))] }
   ];
-  function get(id) { var s = LIST.filter(function (x) { return x.id === id; })[0]; return s ? JSON.parse(JSON.stringify(s)) : null; }
-  return { LIST: LIST, get: get };
+  /* THE CHURCH'S OWN WORDS (C-53; CLAUDE.md section 3): "[minister]" is the
+     title of the church's minister, a church setting
+     (churchSettings/details.ministerTitle: vicar, rector, minister,
+     pastor...), "minister" when none is set. o: { minister }. */
+  function titleOf(o) { var t = String((o && o.minister) || '').replace(/[<>"&]/g, '').trim().slice(0, 40); return t || 'minister'; }
+  function forChurch(t, o) {
+    if (!t) return t;
+    var m = titleOf(o).replace(/["\\]/g, ''), s = JSON.stringify(t).replace(/\[minister\]/g, m);
+    return JSON.parse(s);
+  }
+  function get(id, o) { var s = LIST.filter(function (x) { return x.id === id; })[0]; return s ? forChurch(JSON.parse(JSON.stringify(s)), o) : null; }
+  function list(o) { return LIST.map(function (t) { return forChurch(t, o); }); }
+  return { LIST: LIST, get: get, list: list, titleOf: titleOf };
 });

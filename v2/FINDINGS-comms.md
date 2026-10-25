@@ -260,6 +260,28 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 25 Oct: C-53, the minister's title as a church setting. For review
+
+- **"Letter from the minister" now says the church's own title:** "Letter from the vicar", "Letter from the rector" or "Letter from the pastor".
+  - The title comes from **`churchSettings/details.ministerTitle`**, with "minister" when none is set, so EGBC sees no change.
+  - It's used in the template list and in the email made from it.
+- **The starters can use `[minister]` wherever they need the title** (`EGBCStarters.list(o)`, `get(id, o)`). Only this starter uses it today.
+- **For main:** like `hubUrl`, `ministerTitle` needs a field in Church settings > Church details, or in the new-church setup ("Your minister's title: vicar, rector, minister, pastor…"). Until then a church can't set it through the screens.
+- **For the synthetic parish:** with the title set to "vicar", the list says "Letter from the vicar" and "minister" appears nowhere in the starters.
+
+**firebase.comms.json and firebase.comms-fn.json are now in the repo** (4b60a1f2). They hold ports only, no secrets, like firebase.events.json. **For the events window:** they're this window's emulator ports (Firestore 8292, Auth 9292, functions 5293). Run check-mail-route only while this window's emulators are stopped, or point it at your own config.
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-enews-emails | 38/38. New: with the title "vicar", "Letter from the vicar", no "minister" in the starters, and the email made from it says "vicar". **Break title** (the setting ignored) → red. Its other breaks as before |
+| check-stamps | 10/11. The red one isn't this window's: app.html loads egbc-events.js at 202610221700, while events-admin.html has 202610251000. It is like that on main already |
+
+**v2 only:** every changed path is under v2/. No original page was looked at.
+
+---
+
 ## BUILT, 25 Oct: the hub's web address as one setting, and C-52 (no hidden caps). For review
 
 The reviewing window's answers of 25 Oct, in its order. C-51 (every service in the weekly draft) waits for main's H-11 helper for "the day's services", so C-52 came first.

@@ -17,7 +17,8 @@
  *
  * DELIBERATE BREAKS: --break=autocopy (a welcome's finished copy not kept);
  * --break=fill (the [parts] don't hold it);
- * --break=audience (who it goes to isn't kept). Each must turn this red.
+ * --break=audience (who it goes to isn't kept); --break=title (the starters
+ * ignore the minister's title setting). Each must turn this red.
  */
 import { spawn } from 'node:child_process';
 import http from 'node:http';
@@ -41,7 +42,8 @@ const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   fill: ['egbc-mailblocks.js', "      if (prompts.length) missing.push('fill');", ''],
   audience: ['enews.html', "b.onclick = function () { ISSUE.audience = b.getAttribute('data-aud'); DIRTY = true; save(true).then(draw); };", 'b.onclick = function () {};'],
-  autocopy: ['egbc-enews-editor.js', "    if (/^auto_/.test(ISSUE_ID)) {", '    if (false) {']
+  autocopy: ['egbc-enews-editor.js', "    if (/^auto_/.test(ISSUE_ID)) {", '    if (false) {'],
+  title: ['enews.html', 'EGBCStarters.list(W).forEach(', 'EGBCStarters.list({}).forEach(']
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 
@@ -288,6 +290,17 @@ const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
     ok('switched on: kept for the server (newcomer on, subscriber off)', W.newcomer === true && W.subscriber === false && /On: it sends by itself/.test(await ev('document.querySelector(\'.sheet [data-k="newcomer"]\').innerText')), W);
     await ev('document.querySelector(".sheet .x").click(),1'); await sleep(1200);
     ok('the welcome emails\u2019 words are not in the list of e-news and emails', !/Lovely to meet you/.test(await ev('document.getElementById("issues").innerText')));
+
+    /* The minister's title, a church setting (C-53): a parish says vicar. */
+    await put('churchSettings/details', { name: 'Synthetic Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', ministerTitle: 'vicar' });
+    await openList();
+    await ev('document.getElementById("newmail").click(),1');
+    await until('document.querySelectorAll(".sheet [data-t]").length > 5', 15000);
+    const names2 = await ev('[...document.querySelectorAll(".sheet [data-t]")].map(b=>b.firstChild.textContent).join("|")');
+    ok('with the minister\u2019s title set to "vicar": "Letter from the vicar", and no "minister" anywhere in the starters', /Letter from the vicar/.test(names2) && !/minister/i.test(await ev('document.querySelector(".sheet").innerText')), names2);
+    const id9 = await startFrom('Letter from the vicar');
+    ok('\u2026and the email started from it says "vicar" too', (await issue(id9)).templateId === 'minister' && !/\[minister\]/.test(JSON.stringify(await issue(id9))));
+    await put('churchSettings/details', { name: 'Synthetic Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '' });
     ok('no errors thrown', errors.length === 0, errors);
   } catch (e) {
     ok('the run finished', false, e.message);
