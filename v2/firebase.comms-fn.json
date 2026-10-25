@@ -1,0 +1,4 @@
+{
+  "functions": [{ "source": "functions", "codebase": "hub", "ignore": ["node_modules", ".git", "*.local"] }],
+  "emulators": { "functions": { "port": 5293 }, "ui": { "enabled": false }, "hub": { "port": 4493 }, "logging": { "port": 4593 }, "singleProjectMode": true }
+}

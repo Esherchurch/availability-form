@@ -1,0 +1,4 @@
+{
+  "firestore": { "rules": "firestore.rules", "websocketPort": 9153 },
+  "emulators": { "firestore": { "port": 8292, "websocketPort": 9153 }, "auth": { "port": 9292 }, "ui": { "enabled": false }, "hub": { "port": 4492 }, "logging": { "port": 4592 }, "singleProjectMode": true }
+}
