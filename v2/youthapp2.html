@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610231000"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
 
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-youth.json">
@@ -1302,6 +1303,8 @@ let currentSection = 'home';
 let sectionHistory = [];
 let worshipLeaderName = '';
 let eventsForDay = [];
+/* The service being planned: the rota event chosen (H-11 item 0). */
+let currentService = null;
 // Kids Church roles share the Sunday event since the new hub's rota planner
 // (Oct 2026) and this page reads the same database. This list is the worship
 // team's (Martin, 25 Oct 2026; the same filter as c5f664ba), so the Kids
@@ -1675,13 +1678,15 @@ async function keyChanged(id) {
 async function loadRota() {
   const date = document.getElementById('serviceDate').value;
   const snap = await db.collection('events').get();
-  eventsForDay = [];
-  snap.forEach(d => { const ev = d.data(); if (ev.date === date && ev.archived !== true) eventsForDay.push(ev); });
+  /* Every service that day, each with its id, in time order (H-11 item 0). */
+  const day = [];
+  snap.forEach(d => { const ev = d.data(); if (ev.date === date && ev.archived !== true) day.push({ id: d.id, ...ev }); });
+  eventsForDay = EGBCPlanStore.inOrder(day);
   const select = document.getElementById('eventSelect');
   select.innerHTML = '<option value="">Select Service…</option>';
   eventsForDay.forEach((ev, i) => {
     const isYouth = (ev.description || ev.type || '').toLowerCase().includes('youth');
-    select.innerHTML += `<option value="${i}">${ev.type}${isYouth ? '' : ' (view only)'}</option>`;
+    select.innerHTML += `<option value="${i}">${EGBCPlanStore.label(ev, eventsForDay.length)}${isYouth ? '' : ' (view only)'}</option>`;
   });
   setReadonlyMode(false);
 }
@@ -1700,6 +1705,7 @@ async function selectEvent() {
   const index = document.getElementById('eventSelect').value;
   if (index === '') return;
   const data = eventsForDay[index];
+  currentService = data;
   isYouthService = (data.description || data.type || '').toLowerCase().includes('youth');
   setReadonlyMode(!isYouthService);
   document.getElementById('serviceTypeNotes').value = data.description || '';
@@ -1718,10 +1724,12 @@ async function selectEvent() {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
   });
 
+  /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
   const q = db.collection('services').where('date', '==', data.date);
   const snap = await q.get();
-  if (!snap.empty) {
-    const saved = snap.docs[0].data();
+  const mine = EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay);
+  if (mine) {
+    const saved = mine.data;
     document.getElementById('introBox').value = saved.introText || '';
     document.getElementById('outroBox').value = saved.outroText || '';
     document.getElementById('serviceTypeNotes').value = saved.serviceNotes || '';
@@ -1769,15 +1777,19 @@ async function saveSchedule() {
       order.push({ type:'song', title:b.querySelector('.song-title-input').value, keys:Array.from(b.querySelectorAll('select')).map(s=>s.value).filter(v=>v), notes:b.querySelector('.song-note').value });
     } else { order.push({ type:'item', title:b.querySelector('.item-title-input').value }); }
   });
-  const serviceData = { date, worshipLeader:worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order };
+  const svc = currentService && currentService.date === date ? currentService : null;
+  const serviceData = { date, worshipLeader:worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order, ...(svc ? { eventId: svc.id } : {}) };
   /* THIS HAD NO catch. Writing a service plan needs canAct('Youth Worship'),
      which a young person is not and never was - so the write was refused, the
      promise rejected, and the line below never ran. No alert, no error, no
      sign that anything had happened at all: the plan looked saved and was
      not. Said in words now, and the words say what to do next. */
   try {
+    /* INTO THIS SERVICE'S PLAN, never over another service's (H-11 item 0). */
     const snap = await db.collection('services').where('date','==',date).get();
-    if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
+    const docs = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+    const target = svc ? EGBCPlanStore.saveTarget(docs, svc.id, eventsForDay) : ((docs.find(d => !d.data.eventId) || {}).id || null);
+    if (target) await db.collection('services').doc(target).update(serviceData);
     else await db.collection('services').add(serviceData);
   } catch (e) {
     alert(onTheYouthTeam()

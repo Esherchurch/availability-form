@@ -614,3 +614,37 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
    - **Or:** one shared "meetings" room.
 
 **For the synthetic parish:** "On the electoral roll" on its address book and access levels. An APCM and PCC meetings, each with its own room, papers and starter email. Nothing says "members' meeting".
+
+### H-11 item 0, built: each plan belongs to its service (25 Oct 2026)
+
+- **`egbc-plan-store.js` (new): the one helper every planner uses.** Name it in other windows' work: `EGBCPlanStore`.
+  - `inOrder(events)`: the day's live services, in time order; archived ones don't count.
+  - `label(ev, n)`: the type alone with one service, and the type with its time with several.
+  - `planFor(docs, eventId, dayEvents)`: this service's plan. An older unlinked plan counts only on a one-service date.
+  - `saveTarget(...)`: where to save, never over another service's plan.
+  - `summaryId(date, eventId, dayEvents)`: the emailed plan's name, the date alone with one service.
+  - `migrationPlan(...)`: used by the migration.
+- **The new field:** `services/{id}.eventId` (the rota event). `songSummaries` documents carry it too, named `<date>_<eventId>` only when a day has several services.
+- **v2 pages changed** (every one that saves or picks a plan loads the helper):
+  - CoreTeamApp.html: its own "Create service", the plan list's labels, and "Fix duplicates", which now groups by service. Before, it would have deleted the second service's plan.
+  - SundayServicePlanner.html, youthserviceplanner.html, youthapp2.html, "training Sunday planner.html".
+  - egbc-core-planner.js (the app's and CoreTeamApp's planner).
+  - app.html (the hero card, and "plans I'm on").
+  - hub.html with hub-app.js (the Sunday card).
+  - Performancenotes.html (its existing service picker); MonitorStageMap.html (writes the monitor settings onto the right plan).
+  - song-summary.html (a plan's name may be date_service).
+- **Also fixed on the way:** every planner listed one service per **type**, so an 8am and a 10am of the same type showed as one. Now every live service is listed, in time order.
+- **One service on a date (EGBC almost every week) looks exactly as before:** the same labels, the same plan, the same emailed-plan name.
+- **Not changed, and why:** worshiphubapp, Library and sundayplannersonglibrary read every plan and count songs, so two plans on one date are both counted, which is right.
+- **The migration, `tools/link-service-plans.mjs`,** is for the reviewing window to run.
+  - The dry run writes nothing and prints each plan → its service, and anything it can't place.
+  - `--apply` backs each plan up to `servicesBackups/<planId>_<time>`, then adds `eventId` and nothing else.
+  - Running it again changes nothing. Archived services are ignored.
+- **Checks:**
+  - check-plan-store: 17/17. Break: the old "first plan for the date" rule, 3 red.
+  - check-two-services: 30/30 in a browser, across the shared planner, the Sunday planner and the Youth planner. Break: the old rule, 9 red (the evening overwrites the morning in all three).
+  - check-link-service-plans: 13/13 on the spare emulator. Break: archived services counted, 5 red.
+  - Still passing: check-emailed-plan 66/66, check-stamps 11/11.
+  - check-core-planner: 69/72. The 3 reds (the Meetings room list) fail the same way on the code before this change; they're older, and I'm looking into them separately.
+- **The original site (from its root pages in git):** after v2 saves two plans on one date, a root planner shows whichever the database gives first, and saving there writes into that one. So EGBC shouldn't plan two services on one date with the original site's planners.
+- **Other windows switch to `EGBCPlanStore` too:** the events window (Present), Comms (the e-news "This Sunday", sitemaker.html), and ChurchShow (`churchShowServicesToday`, H-11 item 2).

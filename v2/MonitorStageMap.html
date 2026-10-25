@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610231000"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="AV Team"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -425,12 +426,14 @@ window.loadServices = async () => {
   const date = $('svcDate').value;
   if (!date) return;
   const snap = await getDocs(query(collection(db, "events"), where("date", "==", date)));
-  events = [];
-  snap.forEach(d => { const ev = d.data(); if (!ev.archived) events.push(ev); });
+  /* Every service that day, each with its id, in time order (H-11 item 0). */
+  const day = [];
+  snap.forEach(d => { const ev = d.data(); if (!ev.archived) day.push({ id: d.id, ...ev }); });
+  events = EGBCPlanStore.inOrder(day);
 
   const sel = $('svcPick');
   sel.innerHTML = '<option value="">—</option>' +
-    events.map((ev, i) => `<option value="${i}">${esc(ev.type)}</option>`).join('');
+    events.map((ev, i) => `<option value="${i}">${esc(EGBCPlanStore.label(ev, events.length))}</option>`).join('');
   if (!events.length) { toast('No services on that date'); $('assignCard').style.display = 'none'; return; }
   if (events.length === 1) { sel.value = "0"; pickService(); }
 };
@@ -444,8 +447,11 @@ window.pickService = async () => {
   serviceId = null;
   let existing = {};
   try {
+    /* THIS SERVICE'S PLAN, never another's on the same date (H-11 item 0):
+       the monitor settings are written onto it. */
     const snap = await getDocs(query(collection(db, "services"), where("date", "==", $('svcDate').value)));
-    if (!snap.empty) { serviceId = snap.docs[0].id; existing = snap.docs[0].data().monitorWedges || {}; }
+    const mine = EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), selectedEvent.id, events);
+    if (mine) { serviceId = mine.id; existing = mine.data.monitorWedges || {}; }
   } catch (e) { /* handled below */ }
 
   if (!serviceId) {

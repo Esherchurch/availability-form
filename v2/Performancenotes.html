@@ -5,6 +5,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610231000"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="Worship Team"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -1155,15 +1156,18 @@ window.loadRota = async () => {
   // Ask Firestore for just this date's events rather than downloading them all.
   const snap = await getDocs(query(collection(db, "events"), where("date", "==", date)));
   eventsForDay = [];
+  /* Every service that day, each with its id, in time order (H-11 item 0). */
+  const day = [];
   snap.forEach(d => {
     const ev = d.data();
-    if (!ev.archived) eventsForDay.push(ev);
+    if (!ev.archived) day.push({ id: d.id, ...ev });
   });
+  eventsForDay = EGBCPlanStore.inOrder(day);
 
   const svcSelect = $('serviceSelect');
   svcSelect.innerHTML = '<option value="">Select Service</option>';
   eventsForDay.forEach((ev, i) => {
-    svcSelect.innerHTML += `<option value="${i}">${ev.type}</option>`;
+    svcSelect.innerHTML += `<option value="${i}">${EGBCPlanStore.label(ev, eventsForDay.length)}</option>`;
   });
 
   if (eventsForDay.length === 0) {
@@ -1206,10 +1210,13 @@ window.loadService = async () => {
   btn.textContent = 'Loading…';
 
   try {
+    /* THE CHOSEN SERVICE'S PLAN, not the date's first (H-11 item 0). */
     const snap = await getDocs(query(collection(db, "services"), where("date", "==", currentDate)));
-    if (snap.empty) { toast('No service plan found for that date'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
-    currentService = snap.docs[0].data();
-    currentServiceId = snap.docs[0].id;
+    const svc = eventsForDay[$('serviceSelect').value] || (eventsForDay.length === 1 ? eventsForDay[0] : null);
+    const mine = svc ? EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), svc.id, eventsForDay) : null;
+    if (!mine) { toast(svc ? 'No service plan found for that service' : 'Please choose the service'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
+    currentService = mine.data;
+    currentServiceId = mine.id;
     songs = currentService.order.filter(x => x.type === "song");
     if (!songs.length) { toast('No songs in this service'); btn.disabled = false; btn.textContent = 'Load Service'; return; }
     clearServiceCaches();

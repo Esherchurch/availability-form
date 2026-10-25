@@ -520,7 +520,8 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 <script src="egbc-ui.js?v=202610150900"></script>
 <!-- The service planner, shared with the phone app (APP-DESIGN-BRIEF §7b).
      It was inline in this file until 11 Oct 2026. -->
-<script src="egbc-core-planner.js?v=202610212000"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
+<script src="egbc-core-planner.js?v=202610231400"></script>
 <script src="egbc-core-meetings.js?v=202610221500"></script>
 <script src="egbc-core-rota.js?v=202610221610"></script>
 </head>
@@ -1099,11 +1100,13 @@ async function loadServiceList() {
     ]);
 
     // Build a date → event type map from events collection
-    const eventTypeByDate = {};
+    const eventTypeByDate = {}, eventById = {}, liveByDate = {};
     evSnap.docs.forEach(d => {
       const ev = d.data();
       if (!ev.archived && ev.date && ev.type) {
         eventTypeByDate[ev.date] = ev.type;
+        eventById[d.id] = { id: d.id, ...ev };
+        (liveByDate[ev.date] = liveByDate[ev.date] || []).push(eventById[d.id]);
       }
     });
 
@@ -1114,15 +1117,21 @@ async function loadServiceList() {
           id: d.id,
           ...data,
           // Always pull type from events collection
-          _eventType: eventTypeByDate[data.date] || data.type || '',
+          /* The plan's own service when it is linked to one (H-11 item 0),
+             with its time when that day has several. */
+          _eventType: (data.eventId && eventById[data.eventId])
+            ? EGBCPlanStore.label(eventById[data.eventId], EGBCPlanStore.inOrder(liveByDate[data.date] || []).length)
+            : (eventTypeByDate[data.date] || data.type || ''),
         };
       })
       .filter(s => !s.archived);
 
-    // Flag duplicates
+    // Flag duplicates: two plans for the SAME service (H-11 item 0). Two
+    // services on one date each have their own plan, and that is right.
+    const dupKey = s => s.date + '|' + (s.eventId || '');
     const dateCounts = {};
-    window._services.forEach(s => { dateCounts[s.date] = (dateCounts[s.date]||0) + 1; });
-    window._services.forEach(s => { s._isDuplicate = dateCounts[s.date] > 1; });
+    window._services.forEach(s => { dateCounts[dupKey(s)] = (dateCounts[dupKey(s)]||0) + 1; });
+    window._services.forEach(s => { s._isDuplicate = dateCounts[dupKey(s)] > 1; });
 
     renderServiceList();
 
@@ -1145,12 +1154,16 @@ async function deduplicateServices() {
     loader(true, 'Fixing duplicates...');
     try {
       const snap = await db.collection('services').get();
+      /* Grouped by service, not by date (H-11 item 0): a morning and an
+         evening plan on one Sunday are not duplicates, and must never be
+         merged into one. */
       const byDate = {};
       snap.docs.forEach(d => {
         const data = d.data();
         if (data.archived) return;
-        if (!byDate[data.date]) byDate[data.date] = [];
-        byDate[data.date].push({ id: d.id, ...data });
+        const key = data.date + '|' + (data.eventId || '');
+        if (!byDate[key]) byDate[key] = [];
+        byDate[key].push({ id: d.id, ...data });
       });
 
       for (const [date, services] of Object.entries(byDate)) {
@@ -1195,25 +1208,31 @@ function renderServiceList() {
 
 async function createService() {
   const date      = $('new-service-date').value;
-  const type      = $('new-service-type').value;
+  /* The chosen service (its rota event), and so its type (H-11 item 0). */
+  const day       = (window._newServiceDay || []).filter(e => e.date === date);
+  const svc       = day.find(e => e.id === $('new-service-type').value) || null;
+  const type      = svc ? svc.type : $('new-service-type').value;
   const typeNotes = $('new-service-typenotes').value.trim();
   const leader    = $('new-service-leader').value;
   if (!date) { toast('Please select a date'); return; }
   if (!type) { toast('Please select a service type'); return; }
   loader(true, 'Creating service...');
   try {
+    /* THIS SERVICE'S PLAN, never another's on the same date (H-11 item 0). */
     const existing = await db.collection('services').where('date','==',date).get();
+    const docs = existing.docs.map(d => ({ id: d.id, data: d.data() }));
+    const found = svc ? EGBCPlanStore.planFor(docs, svc.id, day) : (docs.find(d => !d.data.eventId) || null);
     let serviceId;
-    if (!existing.empty) {
-      serviceId = existing.docs[0].id;
-      await db.collection('services').doc(serviceId).update({
+    if (found) {
+      serviceId = found.id;
+      await db.collection('services').doc(serviceId).update(Object.assign({
         type, serviceNotes: typeNotes, worshipLeader: leader, archived: false, updatedAt: TS()
-      });
-      currentService = { id: serviceId, ...existing.docs[0].data(), type, serviceNotes: typeNotes, worshipLeader: leader };
+      }, svc ? { eventId: svc.id } : {}));
+      currentService = { id: serviceId, ...found.data, type, serviceNotes: typeNotes, worshipLeader: leader };
       toast('Service updated');
     } else {
       const ref = await db.collection('services').add({
-        date, type, serviceNotes: typeNotes, worshipLeader: leader,
+        date, type, serviceNotes: typeNotes, worshipLeader: leader, ...(svc ? { eventId: svc.id } : {}),
         order: [], notes: '', introText: '', outroText: '',
         roleNotes: {}, archived: false,
         createdAt: TS(), updatedAt: TS()
@@ -1729,16 +1748,16 @@ async function loadEventTypesForDate(date) {
   if (!date) { sel.innerHTML = '<option value="">Pick a date first...</option>'; return; }
   sel.innerHTML = '<option value="">Loading...</option>';
   try {
+    /* EVERY SERVICE THAT DAY, each by its id (H-11 item 0): two of the
+       same type are two services, labelled with their times. */
     const snap = await db.collection('events').where('date','==',date).get();
-    const types = snap.docs
-      .map(d => d.data())
-      .filter(e => !e.archived && e.type)
-      .map(e => e.type);
+    window._newServiceDay = EGBCPlanStore.inOrder(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => e.type));
+    const day = window._newServiceDay;
 
-    if (!types.length) {
+    if (!day.length) {
       sel.innerHTML = '<option value="">No events found for this date</option>';
     } else {
-      sel.innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join('');
+      sel.innerHTML = day.map(e => `<option value="${e.id}">${EGBCPlanStore.label(e, day.length)}</option>`).join('');
     }
   } catch(e) {
     sel.innerHTML = '<option value="">Could not load — type manually</option>';

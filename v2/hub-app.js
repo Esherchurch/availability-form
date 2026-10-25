@@ -1652,8 +1652,10 @@ async function renderHomeJobs() {
         roles.length ? filled + ' of ' + roles.length + ' roles filled' : ''].filter(Boolean);
       let songs = '';
       try {
-        const s = await db.collection('services').where('date', '==', sun.date).limit(1).get();
-        const order = s.empty ? [] : (s.docs[0].data().order || []);
+        /* THAT SERVICE'S PLAN, not the date's first (H-11 item 0). */
+        const s = await db.collection('services').where('date', '==', sun.date).get();
+        const mine = EGBCPlanStore.planFor(s.docs.map(d => ({ id: d.id, data: d.data() })), sun.id, UPCOMING.filter(ev => ev.date === sun.date));
+        const order = mine ? (mine.data.order || []) : [];
         const list = order.filter(i => i && i.type === 'song' && i.title)
           .map(i => esc(i.title) + ((i.keys && i.keys[0]) || i.key ? ' (' + esc((i.keys && i.keys[0]) || i.key) + ')' : ''));
         songs = list.length ? list.slice(0, 2).join(' \u00b7 ') + (list.length > 2 ? ' \u00b7 ' + (list.length - 2) + ' more' : '') : 'No songs chosen yet';

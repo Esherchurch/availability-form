@@ -406,19 +406,22 @@ if (!date) {
     document.getElementById('content').innerHTML = `<div class="error">No date provided in the URL. Link should look like: …/song-summary.html?date=2026-05-04</div>`;
 } else {
     /* The date in UK words (Martin, 14 Oct 2026); the link keeps yyyy-mm-dd. */
-    document.title = `Song Summary – ${EGBCUKDates.long(date)}`;
+    document.title = `Song Summary – ${EGBCUKDates.long(date.slice(0, 10))}`;
 
     try {
+        /* The link names the emailed plan: a date, or a date and its service
+           when the day has several (H-11 item 0); the first ten characters
+           are always the date. */
         const snap = await getDoc(doc(db, "songSummaries", date));
 
         if (!snap.exists()) {
-            document.getElementById('subline').textContent = EGBCUKDates.long(date);
-            document.getElementById('content').innerHTML = `<div class="error">No song summary found for ${escapeHtml(EGBCUKDates.long(date))}. Make sure the worship plan has been emailed (which saves the summary) for this date.</div>`;
+            document.getElementById('subline').textContent = EGBCUKDates.long(date.slice(0, 10));
+            document.getElementById('content').innerHTML = `<div class="error">No song summary found for ${escapeHtml(EGBCUKDates.long(date.slice(0, 10)))}. Make sure the worship plan has been emailed (which saves the summary) for this date.</div>`;
         } else {
             const data = snap.data();
             const leader = data.worshipLeader || "—";
 
-            document.getElementById('subline').textContent = `${EGBCUKDates.long(date)} · Worship Leader: ${leader}`;
+            document.getElementById('subline').textContent = `${EGBCUKDates.long(date.slice(0, 10))} · Worship Leader: ${leader}`;
             document.getElementById('footer').textContent = `EGBC Worship Planner · Printed ${new Date().toLocaleDateString()}`;
 
             // Support both old format (songs array) and new format (items array)
@@ -474,7 +477,7 @@ if (!date) {
            as designed. */
         if (refusedEarly) console.warn('song-summary: not on this plan');
         else console.error(e);
-        document.getElementById('subline').textContent = EGBCUKDates.long(date);
+        document.getElementById('subline').textContent = EGBCUKDates.long(date.slice(0, 10));
         /* A REFUSAL IS NOT AN ERROR, and should not read like one. Now
            that the page lets anybody signed in reach it and the rules
            decide what they may read, "permission-denied" is the ordinary

@@ -430,7 +430,8 @@
      looks for it when it mounts to make the order draggable - without it
      the planner still works, with no drag handle. -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="egbc-core-planner.js?v=202610212000"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
+<script src="egbc-core-planner.js?v=202610231400"></script>
 <script src="egbc-core-meetings.js?v=202610221500"></script>
 <script src="egbc-care.js?v=202610152215"></script>
 <script src="egbc-core-rota.js?v=202610221610"></script>
@@ -513,9 +514,12 @@ function loadMyPlan(me) {
       var out = [];
       snap.forEach(function (d) {
         var data = d.data() || {};
-        var when = new Date(String(d.id) + 'T00:00:00');
+        /* The date is on the plan: its name may be the date and its
+           service when the day has several (H-11 item 0). */
+        var day = String(data.date || d.id).slice(0, 10);
+        var when = new Date(day + 'T00:00:00');
         if (isNaN(when) || when < today) return;    /* last Sunday is not news */
-        out.push({ date: d.id, when: when, leader: data.worshipLeader || '' });
+        out.push({ date: day, id: d.id, when: when, leader: data.worshipLeader || '' });
       });
       out.sort(function (a, b) { return a.when - b.when; });
       return out.slice(0, 2);
@@ -959,7 +963,7 @@ A.screen('me', 'home', function (me) {
       return row('book-open-text', 'You are on the plan for ' + when,
         'The songs and the order of service'
           + (p.leader ? ' · led by ' + p.leader : ''),
-        null, 'open:song-summary.html?date=' + p.date);
+        null, 'open:song-summary.html?date=' + encodeURIComponent(p.id || p.date));
     }).join(''));
   }
 
@@ -1801,10 +1805,12 @@ function loadThisSunday(spaceKey) {
        filter a Kids Church person was shown the worship service, and
        without the tie-break the one you got depended on the order
        Firestore handed them back. */
-    var best = null;
+    var best = null, byDate = {};
     snap.forEach(function (d) {
       var e = d.data() || {};
       if (e.archived === true || !e.date) return;
+      /* Every live service on each date, for picking this one's plan. */
+      (byDate[e.date] = byDate[e.date] || []).push(Object.assign({ id: d.id }, e));
       if (!/Sunday Morning Worship|Service/i.test(e.type || '')) return;
       if (teams.length && !(e.teams || []).some(function (t) { return teams.indexOf(t) !== -1; })) return;
       var when = new Date(e.date + 'T00:00:00');
@@ -1825,8 +1831,12 @@ function loadThisSunday(spaceKey) {
     if (!best) return null;
     SUNDAY.date = best.ev.date;
     SUNDAY.ev = best.ev;
+    /* THAT SERVICE'S PLAN, not the date's first (H-11 item 0). */
     return db.collection('services').where('date', '==', best.ev.date).get()
-      .then(function (s) { if (!s.empty) SUNDAY.plan = s.docs[0].data(); });
+      .then(function (s) {
+        var mine = EGBCPlanStore.planFor(s.docs.map(function (d) { return { id: d.id, data: d.data() }; }), best.id, byDate[best.ev.date] || [best.ev]);
+        if (mine) SUNDAY.plan = mine.data;
+      });
   }).then(function () {
     /* Only the songs that are actually on the plan, one read each - the
        library is big and a phone on a church wifi does not need it. */
@@ -2151,7 +2161,7 @@ A.modeHome('sunday', function (me) {
   if (HOME.plans && HOME.plans.length) {
     out += sec('You are on the plan', card(HOME.plans.map(function (p) {
       return row('book-open-text', 'The plan for ' + p.when.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }),
-        'The songs and the order of service' + (p.leader ? ' \u00b7 led by ' + p.leader : ''), null, 'open:song-summary.html?date=' + p.date);
+        'The songs and the order of service' + (p.leader ? ' \u00b7 led by ' + p.leader : ''), null, 'open:song-summary.html?date=' + encodeURIComponent(p.id || p.date));
     }).join('')));
   }
   var rotaSpace = ['worship', 'youth', 'core'].filter(function (k) { return has(k) && A.has(k, 'rota'); })[0];

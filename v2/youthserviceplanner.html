@@ -19,6 +19,7 @@
 <script src="egbc-auth.js?v=202610231000"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="Youth Worship"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-youthservice.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -290,6 +291,8 @@ await allowed;   /* and the guard has let them in (egbc-db.js) */
 
 let worshipLeaderName = "";
 let eventsForDay = [];
+/* The service being planned: the rota event chosen (H-11 item 0). */
+let currentService = null;
 // Kids Church roles share the Sunday event since the new hub's rota planner
 // (Oct 2026) and this page reads the same database. This list is the worship
 // team's (Martin, 25 Oct 2026; the same filter as c5f664ba), so the Kids
@@ -660,16 +663,18 @@ window.addItem = (val="") => {
 window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
-    eventsForDay = [];
+    /* Every service that day, each with its id, in time order (H-11 item 0). */
+    const day = [];
     snap.forEach(d => {
         const ev = d.data();
-        if (ev.date === date && ev.archived !== true) eventsForDay.push(ev);
+        if (ev.date === date && ev.archived !== true) day.push({ id: d.id, ...ev });
     });
+    eventsForDay = EGBCPlanStore.inOrder(day);
     const select = document.getElementById('eventSelect');
     select.innerHTML = '<option value="">Select Service...</option>';
     eventsForDay.forEach((ev, i) => {
         const isYouth = (ev.description || ev.type || "").toLowerCase().includes("youth");
-        select.innerHTML += `<option value="${i}">${ev.type}${isYouth ? '' : ' (view only)'}</option>`;
+        select.innerHTML += `<option value="${i}">${EGBCPlanStore.label(ev, eventsForDay.length)}${isYouth ? '' : ' (view only)'}</option>`;
     });
     // Reset readonly state when date changes
     setReadonlyMode(false);
@@ -691,6 +696,7 @@ window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
+    currentService = data;
 
     // ── Youth check ──
     isYouthService = (data.description || data.type || "").toLowerCase().includes("youth");
@@ -727,10 +733,12 @@ window.selectEvent = async () => {
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const [snap, ss] = await Promise.all([
         getDocs(q),
-        getDoc(doc(db, "songSummaries", data.date))
+        getDoc(doc(db, "songSummaries", EGBCPlanStore.summaryId(data.date, data.id, eventsForDay)))
             .catch(e => { console.warn("Could not read the emailed plan", e); return null; })
     ]);
-    let saved = !snap.empty ? snap.docs[0].data() : null;
+    /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
+    const mine = EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay);
+    let saved = mine ? mine.data : null;
     if (!saved && ss && ss.exists() && (ss.data().items || []).length) {
         saved = { order: (ss.data().items || []).map(it => ({
             type: it.type, title: it.title || "",
@@ -861,13 +869,17 @@ window.saveSchedule = async (quiet) => {
 
     const q = query(collection(db, "services"), where("date", "==", date));
     const aud = await audienceFor(date);
+    const svc = currentService && currentService.date === date ? currentService : null;
     const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order,
-        audience: aud.audience, audienceUnresolved: aud.unresolved };
+        audience: aud.audience, audienceUnresolved: aud.unresolved, ...(svc ? { eventId: svc.id } : {}) };
 
     try {
+        /* INTO THIS SERVICE'S PLAN, never over another service's (H-11 item 0). */
         const snap = await getDocs(q);
-        if (!snap.empty) {
-            await updateDoc(doc(db, "services", snap.docs[0].id), serviceData);
+        const docs = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+        const target = svc ? EGBCPlanStore.saveTarget(docs, svc.id, eventsForDay) : ((docs.find(d => !d.data.eventId) || {}).id || null);
+        if (target) {
+            await updateDoc(doc(db, "services", target), serviceData);
         } else {
             await addDoc(collection(db, "services"), serviceData);
         }
@@ -903,11 +915,14 @@ async function saveSongSummaryToFirestore(date) {
     /* MERGED, NOT REPLACED, and with the audience: the summary is that
        Sunday's, and replacing it wiped who it was for (A-076). */
     const sumAud = await audienceFor(date);
-    await setDoc(doc(db, "songSummaries", date), {
+    /* This service's emailed plan: the date alone with one service that day (H-11 item 0). */
+    const svc = currentService && currentService.date === date ? currentService : null;
+    const sumId = svc ? EGBCPlanStore.summaryId(date, svc.id, eventsForDay) : date;
+    await setDoc(doc(db, "songSummaries", sumId), {
         date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString(),
-        audience: sumAud.audience, audienceUnresolved: sumAud.unresolved
+        audience: sumAud.audience, audienceUnresolved: sumAud.unresolved, ...(svc ? { eventId: svc.id } : {})
     }, { merge: true });
-    return `song-summary.html?date=${date}`;
+    return `song-summary.html?date=${sumId}`;
 }
 
 window.emailSchedule = async () => {

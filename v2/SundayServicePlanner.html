@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
 <script src="egbc-auth.js?v=202610231000"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="Worship Team" data-role="leader"></script>
 <meta charset="UTF-8">
@@ -96,6 +97,8 @@ const personId   = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || 
 
 let worshipLeaderName = "";
 let eventsForDay = [];
+/* The service being planned: the rota event chosen (H-11 item 0). */
+let currentService = null;
 let addressBook = [];
 
 const ALL_KEYS = ["Ab","A","Am","A#","A#m","Bb","B","Bm","C","Cm","C#","C#m","Db","D","Dm","D#","D#m","Eb","E","Em","F","Fm","F#","F#m","Gb","G","Gm","G#","G#m"];
@@ -399,21 +402,17 @@ window.addItem = (val="") => {
 window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
-    eventsForDay = [];
-    const seen = {};
+    /* EVERY SERVICE THAT DAY, each with its id (H-11 item 0): this used to
+       keep one per type, so two services of one type showed as one. */
+    const day = [];
     snap.forEach(d => {
         const ev = d.data();
-        if (ev.date !== date) return;
-        if (ev.archived === true) return;
-        const key = ev.type || "Unknown";
-        if (!seen[key] || (!ev.archived && seen[key].archived)) {
-            seen[key] = { ...ev, _docData: d.data() };
-        }
+        if (ev.date === date && ev.archived !== true) day.push({ id: d.id, ...ev, _docData: ev });
     });
-    eventsForDay = Object.values(seen);
+    eventsForDay = EGBCPlanStore.inOrder(day);
     const select = document.getElementById('eventSelect');
     select.innerHTML = '<option value="">Select Service...</option>';
-    eventsForDay.forEach((ev, i) => { select.innerHTML += `<option value="${i}">${ev.type}</option>`; });
+    eventsForDay.forEach((ev, i) => { select.innerHTML += `<option value="${i}">${EGBCPlanStore.label(ev, eventsForDay.length)}</option>`; });
 };
 
 
@@ -439,6 +438,7 @@ window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
+    currentService = data;
     document.getElementById('serviceTypeNotes').value = data.description || "";
 
     // Use personName() to handle both single object and array formats
@@ -486,10 +486,12 @@ window.selectEvent = async () => {
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const [snap, ss] = await Promise.all([
         getDocs(q),
-        getDoc(doc(db, "songSummaries", data.date))
+        getDoc(doc(db, "songSummaries", EGBCPlanStore.summaryId(data.date, data.id, eventsForDay)))
             .catch(e => { console.warn("Could not read the emailed plan", e); return null; })
     ]);
-    let saved = !snap.empty ? snap.docs[0].data() : null;
+    /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
+    const mine = EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay);
+    let saved = mine ? mine.data : null;
     if (!saved && ss && ss.exists() && (ss.data().items || []).length) {
         saved = { order: (ss.data().items || []).map(it => ({
             type: it.type, title: it.title || "",
@@ -609,11 +611,15 @@ window.saveSchedule = async (quiet) => {
         reader: document.getElementById('roleReader').value.trim()
     };
     const aud = await audienceFor(date);
+    const svc = currentService && currentService.date === date ? currentService : null;
     const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order, roles,
-        audience: aud.audience, audienceUnresolved: aud.unresolved };
+        audience: aud.audience, audienceUnresolved: aud.unresolved, ...(svc ? { eventId: svc.id } : {}) };
     try {
+        /* INTO THIS SERVICE'S PLAN, never over another service's (H-11 item 0). */
         const snap = await getDocs(q);
-        if (!snap.empty) { await updateDoc(doc(db, "services", snap.docs[0].id), serviceData); }
+        const docs = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+        const target = svc ? EGBCPlanStore.saveTarget(docs, svc.id, eventsForDay) : ((docs.find(d => !d.data.eventId) || {}).id || null);
+        if (target) { await updateDoc(doc(db, "services", target), serviceData); }
         else { await addDoc(collection(db, "services"), serviceData); }
         /* QUIET WHEN SENDING, because Send calls this first and two
            pop-ups for one button is how people learn to dismiss them
@@ -650,9 +656,13 @@ async function saveSongSummaryToFirestore(date) {
         }
     }
     const sumAud = await audienceFor(date);
-    await setDoc(doc(db, "songSummaries", date), { date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString(),
-        audience: sumAud.audience, audienceUnresolved: sumAud.unresolved });
-    return `song-summary.html?date=${date}`;
+    /* The emailed plan is this service's (H-11 item 0): named by the date
+       alone when the day has one service, as before. */
+    const svc = currentService && currentService.date === date ? currentService : null;
+    const sumId = svc ? EGBCPlanStore.summaryId(date, svc.id, eventsForDay) : date;
+    await setDoc(doc(db, "songSummaries", sumId), { date, worshipLeader: worshipLeaderName, items, updatedAt: new Date().toISOString(),
+        audience: sumAud.audience, audienceUnresolved: sumAud.unresolved, ...(svc ? { eventId: svc.id } : {}) });
+    return `song-summary.html?date=${sumId}`;
 }
 
 window.emailSchedule = async () => {

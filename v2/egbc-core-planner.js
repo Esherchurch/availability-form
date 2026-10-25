@@ -497,6 +497,8 @@
 
   var SP_ALL_KEYS = ["Ab","A","Am","A#","A#m","Bb","B","Bm","C","Cm","C#","C#m","Db","D","Dm","D#","D#m","Eb","E","Em","F","Fm","F#","F#m","Gb","G","Gm","G#","G#m"];
   var spEventsForDay = [];
+  /* The service being planned (the rota event chosen), for Save. */
+  var spService = null;
   var spLeader = '';
   var spAddressBook = [];
   var _spSortableInit = false;
@@ -919,19 +921,20 @@
   async function spLoadRota() {
     var date = document.getElementById('spDate').value;
     var snap = await db().collection('events').get();
-    spEventsForDay = [];
-    var seen = {};
+    /* EVERY SERVICE THAT DAY, each with its id (H-11 item 0). This used to
+       keep one per TYPE, so an 8am and a 10am of the same type showed as
+       one. Archived ones are not services. In time order; with several,
+       each is labelled with its time (EGBCPlanStore). */
+    var day = [];
     snap.forEach(function (d) {
       var ev = d.data();
-      if (ev.date !== date || ev.archived) return;
-      var key = ev.type || 'Unknown';
-      if (!seen[key]) seen[key] = ev;
+      if (ev.date === date && !ev.archived) day.push(Object.assign({ id: d.id }, ev));
     });
-    spEventsForDay = Object.values(seen);
+    spEventsForDay = EGBCPlanStore.inOrder(day);
     var select = document.getElementById('spEventSelect');
     select.innerHTML = '<option value="">Select Service…</option>';
     spEventsForDay.forEach(function (ev, i) {
-      select.innerHTML += '<option value="' + i + '">' + ev.type + '</option>';
+      select.innerHTML += '<option value="' + i + '">' + EGBCPlanStore.label(ev, spEventsForDay.length) + '</option>';
     });
   }
 
@@ -951,6 +954,7 @@
     var index = document.getElementById('spEventSelect').value;
     if (index === '') return;
     var data = spEventsForDay[index];
+    spService = data;
     document.getElementById('spTypeNotes').value = data.description || '';
     spLeader = personName(data.assignments && data.assignments['Worship Leader']) || 'None';
     document.getElementById('spLeaderName').textContent = spLeader;
@@ -982,15 +986,19 @@
        service. Concurrently, the fallback costs nothing in time. The
        emailed plan is read whether or not it is needed, which is one
        small document and the honest price of not being slower. */
+    /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0): the day's
+       plans are read and EGBCPlanStore says which is this service's. A
+       date with one service reads exactly as before. */
     var q = db().collection('services').where('date', '==', data.date);
     var both = await Promise.all([
       q.get(),
-      db().collection('songSummaries').doc(data.date).get()
+      db().collection('songSummaries').doc(EGBCPlanStore.summaryId(data.date, data.id, spEventsForDay)).get()
         .catch(function (e) { console.warn('Could not read the emailed plan', e); return null; })
     ]);
     var snap = both[0], ss = both[1];
     document.getElementById('sp-order').innerHTML = '';
-    var saved = !snap.empty ? snap.docs[0].data() : null;
+    var mine = EGBCPlanStore.planFor(snap.docs.map(function (d) { return { id: d.id, data: d.data() }; }), data.id, spEventsForDay);
+    var saved = mine ? mine.data : null;
     if (!saved && ss && ss.exists && (ss.data().items || []).length) {
       saved = { order: (ss.data().items || []).map(function (it) {
         return { type: it.type, title: it.title || '',
@@ -1090,6 +1098,9 @@
       } else { order.push({ type: 'item', title: b.querySelector('.item-title').value }); }
     });
     var serviceData = { date: date, worshipLeader: spLeader, serviceNotes: document.getElementById('spTypeNotes').value, introText: document.getElementById('spIntro').value, outroText: document.getElementById('spOutro').value, roleNotes: roleNotes, order: order };
+    /* The service this plan is for (H-11 item 0): the rota event chosen. */
+    var svc = spService && spService.date === date ? spService : null;
+    if (svc) serviceData.eventId = svc.id;
     /* WHO THE PLAN IS FOR, written onto it (Martin, 12 Oct 2026:
        "EVERYONE ON THE SUNDAY PLAN EMAIL CAN SEE THE PLAN — that
        includes the preachers and service leader"). Without this a
@@ -1100,8 +1111,14 @@
     serviceData.audienceUnresolved = aud.unresolved;
     loader(true, 'Saving...');
     try {
+      /* INTO THIS SERVICE'S PLAN, never over another service's (H-11 item
+         0). With no service chosen (a date with nothing on the rota) the
+         date's one unlinked plan, as before. */
       var snap = await db().collection('services').where('date', '==', date).get();
-      if (!snap.empty) await db().collection('services').doc(snap.docs[0].id).update(serviceData);
+      var docs = snap.docs.map(function (d) { return { id: d.id, data: d.data() }; });
+      var target = svc ? EGBCPlanStore.saveTarget(docs, svc.id, spEventsForDay)
+        : ((docs.filter(function (d) { return !d.data.eventId; })[0] || {}).id || null);
+      if (target) await db().collection('services').doc(target).update(serviceData);
       else await db().collection('services').add(serviceData);
       /* QUIET WHEN SENDING, because Email calls this first and two
          toasts for one button teaches people to ignore both. A FAILURE

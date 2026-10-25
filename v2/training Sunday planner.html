@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610231000"></script>
+<script src="egbc-plan-store.js?v=202610231400"></script>
 <script src="egbc-guard.js?v=202610221200"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -480,18 +481,13 @@ const DUMMY_EVENT = {
 window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
-    eventsForDay = [];
-    const seen = {};
+    /* Every service that day, each with its id, in time order (H-11 item 0). */
+    const day = [];
     snap.forEach(d => {
         const ev = d.data();
-        if (ev.date !== date) return;
-        if (ev.archived) return;
-        const key = ev.type || "Unknown";
-        if (!seen[key] || (!ev.archived && seen[key].archived)) {
-            seen[key] = { ...ev, _docData: d.data() };
-        }
+        if (ev.date === date && !ev.archived) day.push({ id: d.id, ...ev, _docData: ev });
     });
-    eventsForDay = Object.values(seen);
+    eventsForDay = EGBCPlanStore.inOrder(day);
 
     // If nothing found for this date, inject the dummy training band
     if (eventsForDay.length === 0) {
@@ -542,10 +538,12 @@ window.selectEvent = async () => {
         return;
     }
 
+    /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const snap = await getDocs(q);
-    if (!snap.empty) {
-        const saved = snap.docs[0].data();
+    const mine = data.id ? EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay) : null;
+    if (mine) {
+        const saved = mine.data;
         loadSavedServiceData(saved);
     } else { autoFitTextAreas(); }
 };
