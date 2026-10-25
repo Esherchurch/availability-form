@@ -2,6 +2,8 @@
  *
  *   node tests/check-core-planner.mjs            (from v2/, emulators up)
  *   node tests/check-core-planner.mjs --shots
+ *   BREAK=rooms node tests/check-core-planner.mjs   Meetings with an empty
+ *        room list while the rooms are found: must fail
  *
  * WHY. APP-DESIGN-BRIEF §7b: the phone app's Core Team ▸ Plan tab runs
  * CoreTeamApp's own service planner, "moved or shared, not rewritten". On
@@ -189,6 +191,9 @@ async function seed() {
       const h = /<head[^>]*>/i.exec(t);
       body = Buffer.from(h ? t.slice(0, h.index + h[0].length) + NO_SW + t.slice(h.index + h[0].length) : NO_SW + t, 'utf8');
     }
+    /* BREAK=rooms: the Meetings list as it was before 25 Oct 2026, an empty
+       room list while the rooms are being found. */
+    if (process.env.BREAK === 'rooms' && url === '/egbc-core-meetings.js') body = Buffer.from(body.toString('utf8').replace('if (!V() || !V().ready()) {', 'if (false) {'), 'utf8');
     const type = e === '.html' ? 'text/html' : e === '.js' || e === '.mjs' ? 'text/javascript'
       : e === '.css' ? 'text/css' : e === '.json' ? 'application/json'
       : e === '.svg' ? 'image/svg+xml' : 'application/octet-stream';
@@ -506,9 +511,19 @@ async function seed() {
     await ev('(function(){try{if(typeof endTour==="function")endTour()}catch(e){}'
       + 'var o=document.getElementById("tour-overlay");if(o)o.classList.remove("active");'
       + 'openSection("meetings");return "opened"})()');
-    await until('  its meetings list filled in',
+    /* The first open for a church makes its rooms (a few seconds live; on
+       the emulator, 16 s and more while it fetches the Daily secret). Until
+       then the list says so - never an empty list of rooms, which reads as
+       "this church has none". This was the check's three old reds: it read
+       the list during that wait. */
+    const first = String(await ev('(function(){var c=document.getElementById("meetingsList");'
+      + 'return JSON.stringify({ready:!!(window.EGBCVideo&&EGBCVideo.ready()),text:c?c.textContent:""})})()'));
+    const f1 = JSON.parse(first || '{}');
+    ok('  while the rooms are found, it says so (not an empty list)',
+      f1.ready || /Finding the rooms/.test(f1.text || ''), (f1.text || '').replace(/\s+/g, ' ').slice(0, 140));
+    await until('  its meetings list filled in, rooms and all',
       '(function(){var c=document.getElementById("meetingsList");'
-      + 'return (c && /All meeting rooms/.test(c.textContent)) ? "yes" : "no"})()', 40);
+      + 'return (c && /All meeting rooms/.test(c.textContent) && !/Finding the rooms/.test(c.textContent)) ? "yes" : "no"})()', 100);
   });
 
   await meetings('the phone app, Core Team ▸ Meetings', async () => {
@@ -523,7 +538,7 @@ async function seed() {
     await ev('EGBCApp.go("core","meetings");1');
     await until('  its meetings list filled in',
       '(function(){var c=document.getElementById("core-meet-host");'
-      + 'return (c && /All meeting rooms/.test(c.textContent)) ? "yes" : "no"})()', 40);
+      + 'return (c && /All meeting rooms/.test(c.textContent) && !/Finding the rooms/.test(c.textContent)) ? "yes" : "no"})()', 100);
   });
 
   /* ---- 2c. the Rota, the third shared screen ------------------------ */

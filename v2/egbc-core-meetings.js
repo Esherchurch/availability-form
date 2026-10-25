@@ -116,6 +116,12 @@
     });
 
     html += heading('All meeting rooms');
+    /* Not known yet: the first open for a church makes its rooms, which can
+       take a few seconds. Say so, rather than an empty list. */
+    if (!V() || !V().ready()) {
+      html += '<div style="' + card + 'font-size:12px;font-weight:600;color:var(--teal,#3d6263);opacity:0.7;">'
+        + 'Finding the rooms…</div>';
+    }
     roomPairs().forEach(function (pair) {
       var room = pair[0], label = pair[1];
       var link = V() ? V().url(room) : '';
