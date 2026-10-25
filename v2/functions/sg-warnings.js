@@ -154,7 +154,7 @@ export async function runSgWarnings({ db: dbi, at = new Date(), siteIds }) {
   const done = [], review = await reviewNow(dbi, today);
   for (const siteId of ids) {
     const w = await siteWarnings({ db: dbi, siteId, today, review });
-    await dbi.collection('sgWarnings').doc(siteId).set({ siteId, items: w.items.slice(0, 100), controls: w.controls, today, at: at.toISOString() });
+    await dbi.collection('sgWarnings').doc(siteId).set({ siteId, items: w.items.slice(0, 500), controls: w.controls, today, at: at.toISOString() });
     await dbi.collection('sgDashboard').doc(siteId).set({ siteId, dials: w.dash.dials, sessions: w.dash.sessions, consentByGroup: w.dash.consentByGroup,
       review: { done: review.done, of: review.of, status: review.status, due: review.due, items: review.items },
       hist: w.dash.hist, histDay: w.dash.histDay, today, at: at.toISOString() });

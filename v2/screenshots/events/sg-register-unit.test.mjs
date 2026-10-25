@@ -45,5 +45,24 @@ ok('  the trip covers getting lost, travel and ratios; the overnight two adults 
 ok('  after the controls nothing is worse than before', ers.every(r => T.score(r.rl, r.ri) <= T.score(r.l, r.i)));
 ok('a control reads as words: a watched one by its label, a written one as written', T.controlLabel({ kind: 'ratio' }) === 'Enough leaders for the children (the ratio)' && T.controlLabel({ kind: 'text', text: 'X' }) === 'X');
 
+console.log('\nwhat the church calls its safeguarding lead (F-280 S2b)');
+const sgm = { exports: {} };
+vm.runInNewContext(fs.readFileSync(path.join(V2, 'egbc-events-safeguarding.js'), 'utf8'), { module: sgm });
+const SG = sgm.exports, LINES = ['Bookings open after the safeguarding lead or deputy signs this off.', 'Safeguarding lead', 'Deputy safeguarding lead', 'Ask your safeguarding leader'];
+ok('unset, every word stays as it is', SG.leadTitle() === 'safeguarding lead' && LINES.every((s) => SG.lead(s) === s));
+SG.setLeadTitle('Parish safeguarding officer');
+ok('a parish’s title in its place; capitalised where the sentence starts with it; "leader" untouched', J(LINES.map(SG.lead)) === J(['Bookings open after the Parish safeguarding officer or deputy signs this off.', 'Parish safeguarding officer', 'Deputy Parish safeguarding officer', 'Ask your safeguarding leader']), J(LINES.map(SG.lead)));
+SG.setLeadTitle('Designated safeguarding lead');
+const once = LINES.map(SG.lead);
+ok('a title that itself says "safeguarding lead" is never doubled, however often it runs', once[0] === 'Bookings open after the Designated safeguarding lead or deputy signs this off.' && J(once.map(SG.lead)) === J(once), J(once));
+SG.setLeadTitle('   ');
+ok('an empty title is the default', SG.leadTitle() === 'safeguarding lead');
+
+console.log('\nwhat one assessment holds (H-9: no limits beyond what a record holds)');
+const assessSrc = fs.readFileSync(path.join(V2, 'egbc-sg-assess.js'), 'utf8'), rulesSrc = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), aiSrc = fs.readFileSync(path.join(V2, 'functions', 'sg-ai-core.cjs'), 'utf8');
+ok('the page, the server and the rules agree: 200 risks, 50 controls each, 500 host questions, 1,100 answers', assessSrc.includes('var MAX = { risks: 200, controls: 50, host: 500 };') && aiSrc.includes('const MAX = { risks: 200, controls: 50, host: 500 };')
+  && rulesSrc.includes("get('risks', []).size() <= 200") && rulesSrc.includes("get('hostIds', []).size() <= 500") && rulesSrc.includes("get('answers', {}).size() <= 1100") && rulesSrc.includes('controls.size() <= 50'));
+ok('   and the page says so when a list is full, never cutting it silently', assessSrc.includes('An assessment holds at most') && assessSrc.includes('The host’s list holds at most') && assessSrc.includes('A risk holds at most'));
+
 console.log('\n' + results.filter(Boolean).length + '/' + results.length + ' passed');
 process.exit(results.every(Boolean) ? 0 : 1);

@@ -252,9 +252,9 @@
   function snapshotFrom(ctx, note) {
     var T = ctx.T, actName = {};
     (ctx.acts || []).forEach(function (a) { actName[a.id] = a.name; });
-    var risks = (ctx.risks || []).slice(0, 200).map(function (r) {
+    var risks = (ctx.risks || []).slice(0, 500).map(function (r) {
       return { activity: String(actName[r.activityId] || '').slice(0, 80), risk: r.risk, who: r.who || '', before: T.rating(r.l, r.i), beforeScore: T.score(r.l, r.i),
-        after: T.rating(r.rl, r.ri), afterScore: T.score(r.rl, r.ri), controls: (r.controls || []).slice(0, 20).map(T.controlLabel), owner: r.ownerName || '', reviewDue: r.reviewDue || '', status: r.status };
+        after: T.rating(r.rl, r.ri), afterScore: T.score(r.rl, r.ri), controls: (r.controls || []).slice(0, 50).map(T.controlLabel), owner: r.ownerName || '', reviewDue: r.reviewDue || '', status: r.status };
     });
     var w = (ctx.W && ctx.W.items) || [], dials = {};
     Object.keys((ctx.D && ctx.D.dials) || {}).forEach(function (k) { var x = ctx.D.dials[k]; dials[k] = { value: x.value, of: x.of, pct: x.pct, rag: x.rag }; });

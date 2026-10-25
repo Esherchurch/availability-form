@@ -14,10 +14,10 @@
 <script src="egbc-auth.js?v=202610231000"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610251000"></script>
-<script src="egbc-events-safeguarding.js?v=202610161700"></script>
+<script src="egbc-events-safeguarding.js?v=202610251400"></script>
 <script src="egbc-sg-templates.js?v=202610251000"></script>
-<script src="egbc-sg-assess.js?v=202610251000"></script>
-<script src="egbc-sg-dash.js?v=202610231200"></script>
+<script src="egbc-sg-assess.js?v=202610251400"></script>
+<script src="egbc-sg-dash.js?v=202610251400"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -211,7 +211,7 @@
       var q = function (id) { return document.getElementById(id); }, msg = q('eMsg');
       var risk = q('eRisk').value.trim(); if (!risk) { msg.textContent = 'Say what could happen.'; return; }
       var controls = [].slice.call(document.querySelectorAll('[data-lc]:checked')).map(function (c) { return { kind: c.getAttribute('data-lc'), text: '' }; })
-        .concat([].slice.call(document.querySelectorAll('[data-ct]')).map(function (i) { return i.value.trim().slice(0, 200); }).filter(Boolean).map(function (t) { return { kind: 'text', text: t }; })).slice(0, 20);
+        .concat([].slice.call(document.querySelectorAll('[data-ct]')).map(function (i) { return i.value.trim().slice(0, 200); }).filter(Boolean).map(function (t) { return { kind: 'text', text: t }; })).slice(0, 50);
       var doc = Object.assign({ siteId: V.site, activityId: actId, risk: risk.slice(0, 200), who: q('eWho').value.trim().slice(0, 120), l: +q('eL').value, i: +q('eI').value, controls: controls,
         ownerName: q('eOwner').value.trim().slice(0, 80), reviewDue: q('eDue').value || '', rl: +q('eRL').value, ri: +q('eRI').value,
         status: q('eClosed') && q('eClosed').checked ? 'closed' : 'open', source: r.source || 'added', starterId: r.starterId || '', createdAt: r.createdAt || new Date().toISOString() }, stamp());

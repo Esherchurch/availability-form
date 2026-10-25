@@ -1200,7 +1200,7 @@ allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
 && sgOneToFive(request.resource.data.l) && sgOneToFive(request.resource.data.i)
 && sgOneToFive(request.resource.data.rl) && sgOneToFive(request.resource.data.ri)
-&& request.resource.data.controls is list && request.resource.data.controls.size() <= 20
+&& request.resource.data.controls is list && request.resource.data.controls.size() <= 50
 && sgText(request.resource.data.get('ownerName', ''), 80) && sgDay(request.resource.data.get('reviewDue', ''))
 && request.resource.data.status in ['open', 'closed'] && request.resource.data.get('source', 'added') in ['starter', 'added']
 && sgText(request.resource.data.get('starterId', ''), 40) && request.resource.data.updatedBy == request.auth.uid;
@@ -1250,11 +1250,11 @@ allow create, update: if exists(/databases/$(database)/documents/calEvents/$(cal
 'flags', 'signedByRole', 'host', 'hostIds'])
 && request.resource.data.calEventId == calEventId
 && sgText(request.resource.data.get('title', ''), 120) && sgText(request.resource.data.get('templateId', ''), 40)
-&& request.resource.data.get('answers', {}) is map && request.resource.data.get('answers', {}).size() <= 80
+&& request.resource.data.get('answers', {}) is map && request.resource.data.get('answers', {}).size() <= 1100
 && request.resource.data.get('flags', {}) is map && request.resource.data.get('flags', {}).keys().hasOnly(['abroad', 'adventurous', 'under8'])
 && sgText(request.resource.data.get('signedByRole', ''), 60)
-&& request.resource.data.get('host', {}) is map && request.resource.data.get('hostIds', []) is list && request.resource.data.get('hostIds', []).size() <= 40
-&& request.resource.data.get('risks', []) is list && request.resource.data.get('risks', []).size() <= 40
+&& request.resource.data.get('host', {}) is map && request.resource.data.get('hostIds', []) is list && request.resource.data.get('hostIds', []).size() <= 500
+&& request.resource.data.get('risks', []) is list && request.resource.data.get('risks', []).size() <= 200
 && request.resource.data.status in ['draft', 'waiting', 'signed']
 && request.resource.data.version is int && request.resource.data.version >= 1
 && sgText(request.resource.data.get('signedNote', ''), 300)
@@ -1317,7 +1317,7 @@ allow create: if (isMaster() || sgTrustee())
 && request.resource.data.banner.matches('^Safeguarding risk register: .+')
 && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
 && sgText(request.resource.data.get('byName', ''), 120) && sgText(request.resource.data.get('note', ''), 300)
-&& request.resource.data.risks is list && request.resource.data.risks.size() <= 200
+&& request.resource.data.risks is list && request.resource.data.risks.size() <= 500
 && request.resource.data.warnings is map && request.resource.data.dials is map && request.resource.data.review is map;
 allow update, delete: if false;
 }

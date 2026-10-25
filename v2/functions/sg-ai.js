@@ -94,7 +94,9 @@ async function factsFor(dbi, w, under8) {
   return { st, names, facts: { children, under8: Math.max(0, Math.min(children || 999, parseInt(under8, 10) || 0)), leaders: (w.l.leaders || []).length || mids.length, cleared,
     ratioAll: w.l.ratioAll || st.ratioAll || 5, ratioUnder8: w.l.ratioUnder8 || st.ratioUnder8 || 4, kind: w.e.sgKind, days,
     /* the church's own denomination's guidance (a setting, F-280 (e)): its name only */
-    guidance: String((((st.register || {}).guidance) || {}).name || '').slice(0, 120) } };
+    guidance: String((((st.register || {}).guidance) || {}).name || '').slice(0, 120),
+    /* what the church calls its safeguarding lead (S2b), for the owners the draft names */
+    leadTitle: String((st.register || {}).leadTitle || '').slice(0, 60) } };
 }
 
 /* one place for the log: ids and counts only, never the words (and, for a failed call, the API's request id and error type) */

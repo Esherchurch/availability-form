@@ -46,6 +46,8 @@
      as they are; a call that runs out of time is "still working"; anything
      else is said plainly (plainError). */
   var DRAFT_WAIT = 180000;
+  /* what one assessment holds (H-9: no limits beyond what a record holds; the rules and functions/sg-ai-core.cjs MAX the same) */
+  var MAX = { risks: 200, controls: 50, host: 500 };
   function callLong(name, data, ms) {
     return EGBCAuth.call(name, data, { timeoutMs: ms || api.DRAFT_WAIT }).catch(function (e) {
       /* the server's codes are words; a browser's abort carries the old number 20, so it isn't one */
@@ -77,8 +79,10 @@
         o.may.sign && o.siteId ? db.collection('bookingSettings').doc(o.siteId).get().catch(function () { return null; }) : null]).then(function (r) {
         /* the signer's role, for "Signed off by <name>, <role>" */
         var b = r[2] && r[2].exists ? r[2].data() : {}, mid = o.me.memberId || '';
-        if (o.may.sign) o.me.role = mid && b.safeguardingDeputy === mid && b.safeguardingLead !== mid ? 'Deputy safeguarding lead' : 'Safeguarding lead';
         var st = r[1] && r[1].exists ? r[1].data() : {};
+        if (o.may.sign) o.me.role = mid && b.safeguardingDeputy === mid && b.safeguardingLead !== mid ? 'Deputy safeguarding lead' : 'Safeguarding lead';
+        /* in the church's own words (Safeguarding settings: what it calls its safeguarding lead) */
+        if (global.EGBCSafeguarding && EGBCSafeguarding.setLeadTitle) { EGBCSafeguarding.setLeadTitle((st.register || {}).leadTitle); if (o.may.sign) o.me.role = EGBCSafeguarding.lead(o.me.role); }
         CHURCHQ = ((st.register || {}).checklist || []).filter(function (q) { return q && q.id && q.q; });
         MINCOVER = (st.register || {}).minCover || 0; GUIDE = (st.register || {}).guidance || {};
         A = r[0].exists ? r[0].data() : null; draw();
@@ -201,6 +205,7 @@
       };
       el.querySelectorAll('[data-hostdel]').forEach(function (b) { b.onclick = function () { b.closest('[data-hostitem]').remove(); }; });
       if (q('#sgaHostAdd')) q('#sgaHostAdd').onclick = function () {
+        if (el.querySelectorAll('[data-hostitem]').length >= MAX.host) { var hm = q('#sgaHostReviewMsg'); if (hm) hm.textContent = 'The host’s list holds at most ' + MAX.host + ' questions. Join two together, or remove one first.'; return; }
         var d = document.createElement('div'); d.setAttribute('data-hostitem', 'h_new_' + Math.random().toString(36).slice(2, 8)); d.style.margin = '6px 0';
         d.innerHTML = '<div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" placeholder="A requirement that was missed"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>';
         q('#sgaHostItems').appendChild(d); d.querySelector('[data-hostdel]').onclick = function () { d.remove(); }; d.querySelector('input').focus();
@@ -209,7 +214,7 @@
         var b = this, items = [].slice.call(el.querySelectorAll('[data-hostitem]')).map(function (r) {
           var was = (A.host.items || []).filter(function (x) { return x.id === r.getAttribute('data-hostitem'); })[0] || {};
           return { id: r.getAttribute('data-hostitem'), q: r.querySelector('[data-hostq]').value.trim().slice(0, 300), line: was.line || '' };
-        }).filter(function (x) { return x.q; }).slice(0, 40);
+        }).filter(function (x) { return x.q; }).slice(0, MAX.host);
         var host = Object.assign({}, A.host, { items: items, confirmed: true, checkedBy: o.me.uid, checkedByName: String(o.me.name || '').slice(0, 80), checkedAt: now() });
         b.disabled = true;
         ref.update({ host: host, hostIds: items.map(function (x) { return x.id; }), updatedAt: now(), updatedBy: o.me.uid }).then(load, function (e) { b.disabled = false; q('#sgaHostReviewMsg').textContent = 'Not saved: ' + (e.message || e); });
@@ -301,15 +306,18 @@
       var risks = [].slice.call(el.querySelectorAll('[data-sgarisk]')).map(function (row) {
         var f = function (n) { return row.querySelector('[data-rf="' + n + '"]'); }, was = (A.risks || [])[+row.getAttribute('data-sgarisk')] || {};
         var x = { risk: f('risk').value.trim().slice(0, 200), who: f('who').value.trim().slice(0, 120), l: +f('l').value, i: +f('i').value, rl: +f('rl').value, ri: +f('ri').value,
-          controls: f('controls').value.split('\n').map(function (x) { return x.trim().slice(0, 200); }).filter(Boolean).slice(0, 20).map(function (x) { return { kind: 'text', text: x }; }) };
+          controls: f('controls').value.split('\n').map(function (x) { return x.trim().slice(0, 200); }).filter(Boolean).slice(0, MAX.controls).map(function (x) { return { kind: 'text', text: x }; }) };
         if (was.owner) x.owner = was.owner; if (was.review) x.review = was.review; if (was.from) x.from = was.from;
         if (was.mustNot && x.risk === was.risk && T.rating(x.rl, x.ri) === 'red') x.mustNot = true;
         return x;
-      }).filter(function (r) { return r.risk; }).slice(0, 40);
+      }).filter(function (r) { return r.risk; }).slice(0, MAX.risks);
       return { answers: answers, flags: flags, risks: risks, templateId: t === T.EVENT_TEMPLATES[A.templateId] ? A.templateId : 'trip' };
     }
     /* any change after signing goes back to "waiting", and bookings close again */
     function save(status) {
+      /* a risk with more controls than one can hold: said, not cut silently */
+      var many = [].some.call(el.querySelectorAll('[data-rf="controls"]'), function (t) { return t.value.split('\n').filter(function (x) { return x.trim(); }).length > MAX.controls; });
+      if (many) { say('A risk holds at most ' + MAX.controls + ' controls. Join some together, then save.'); return Promise.resolve(); }
       var r = read(), wasSigned = A.status === 'signed';
       var next = stamp(Object.assign({}, A, r, { status: status || (wasSigned ? 'waiting' : A.status), version: (A.version || 1) + (wasSigned ? 1 : 0) }));
       /* an AI draft saved by a person: "First draft by AI: checked by <name> on <date>" */
@@ -331,7 +339,9 @@
       el.querySelectorAll('[data-yn]').forEach(function (s) { s.onchange = function () { var t = q('[data-q="' + s.getAttribute('data-yn') + '"]'); if (t) t.style.display = s.value === 'N/A' ? 'none' : ''; }; });
       el.querySelectorAll('[data-na]').forEach(function (b) { b.onchange = function () { var id = b.getAttribute('data-na'); q('[data-nawhy="' + id + '"]').style.display = b.checked ? '' : 'none'; q('[data-q="' + id + '"]').disabled = b.checked; if (b.checked) q('[data-nawhy="' + id + '"]').focus(); }; });
       el.querySelectorAll('[data-use]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-use'); q('[data-q="' + id + '"]').value = ((A.source || {}).suggest || {})[id] || ''; b.parentNode.remove(); }; });
-      if (q('#sgaAddRisk')) q('#sgaAddRisk').onclick = function () { var r = read(); A = Object.assign({}, A, r); A.risks.push({ risk: 'A new risk', who: '', l: 3, i: 3, rl: 2, ri: 3, controls: [] }); draw(); };
+      if (q('#sgaAddRisk')) q('#sgaAddRisk').onclick = function () { var r = read(); A = Object.assign({}, A, r);
+        if (A.risks.length >= MAX.risks) { draw(); say('An assessment holds at most ' + MAX.risks + ' risks. Join two together, or take one out first.'); return; }
+        A.risks.push({ risk: 'A new risk', who: '', l: 3, i: 3, rl: 2, ri: 3, controls: [] }); draw(); };
       if (q('#sgaSave')) q('#sgaSave').onclick = function () { save(); };
       if (q('#sgaReady')) q('#sgaReady').onclick = function () { save('waiting'); };
       if (q('#sgaSign')) q('#sgaSign').onclick = function () {
@@ -359,6 +369,6 @@
     }
     return load();
   }
-  var api = { mount: mount, plainError: plainError, DRAFT_WAIT: DRAFT_WAIT };
+  var api = { mount: mount, plainError: plainError, DRAFT_WAIT: DRAFT_WAIT, MAX: MAX };
   global.EGBCSgAssess = api;
 })(window);

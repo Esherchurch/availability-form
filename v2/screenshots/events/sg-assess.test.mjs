@@ -25,7 +25,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import puppeteer from 'puppeteer-core';
 import { createGuard } from './guard.mjs';
 const GUARD = createGuard();
@@ -271,6 +271,20 @@ try {
   await Tt.waitForSelector('#sgaView [data-sgarisk]', { timeout: 15000 });
   ok('   "Read it": read-only, no Sign, no Save, no inputs', !(await Tt.$('#sgaView #sgaSign')) && !(await Tt.$('#sgaView #sgaSave')) && !(await Tt.$('#sgaView textarea')) && /The beach, a coach ride away/.test(await text(Tt, '#sgaView')) && /Not applicable: We walk there/.test(await text(Tt, '#sgaView')));
   await Tt.screenshot({ path: path.join(HERE, 'sg-assess-trustee-desk.png') });
+
+  /* 8. what the church calls its safeguarding lead (F-280 S2b): a parish's "Parish safeguarding officer" */
+  const TITLE = 'Parish safeguarding officer (invented)';
+  await readDb((d) => updateDoc(doc(d, 'safeguardingSettings', 'defaults'), { 'register.leadTitle': TITLE }));
+  const L8 = await as('lena');
+  await go(L8, 'safeguarding.html?event=ev_trip', '#sgaSign');
+  const gw = await until(async () => { const t = await text(L8, '#sgaGateWords'); return t.includes(TITLE) ? t : null; }, 15000);
+  ok('8. THE CHURCH’S OWN TITLE: "Bookings open after the Parish safeguarding officer (invented) or deputy signs this off."', gw === 'Bookings open after the ' + TITLE + ' or deputy signs this off.', await text(L8, '#sgaGateWords'));
+  const body8 = await L8.evaluate(() => document.body.innerText);
+  ok('   and "safeguarding lead" nowhere on the page, even what was drawn later', !/safeguarding lead/i.test(body8), (body8.match(/.{40}safeguarding lead.{20}/i) || [])[0]);
+  await L8.$eval('#sgaNote', (e) => { e.value = 'Reason (invented)'; });
+  await tap(L8, '#sgaSign');
+  const s8 = await until(async () => { const a = await get('sgAssessments', 'ev_trip'); return a.status === 'signed' ? a : null; });
+  ok('   SIGNED as "Parish safeguarding officer (invented)", the role the print shows', s8 && s8.signedByRole === TITLE, J(s8 && s8.signedByRole));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

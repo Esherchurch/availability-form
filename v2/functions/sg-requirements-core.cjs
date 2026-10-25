@@ -82,7 +82,7 @@ function normaliseReqs(d, names) {
   if (!d || typeof d !== 'object' || !Array.isArray(d.items)) return { ok: false };
   let dropped = 0, leftOut = 0;
   const items = [];
-  for (const it of d.items.slice(0, 60)) {
+  for (const it of d.items.slice(0, 500)) {
     const q = clean(it && it.question, 300), line = clean(it && it.line, 300);
     if (!q) continue;
     if (personalCheck(q, names).refuse || personalCheck(line, names).refuse) { dropped++; continue; }
@@ -90,7 +90,7 @@ function normaliseReqs(d, names) {
     if (socketCover(q) || socketCover(line)) { leftOut++; continue; }
     items.push({ q, line });
   }
-  return { ok: true, items: items.slice(0, 40), dropped, leftOut, personalFound: d.personalFound === true || dropped > 0, host: clean(d.host, 120) };
+  return { ok: true, items: items.slice(0, 500), dropped, leftOut, personalFound: d.personalFound === true || dropped > 0, host: clean(d.host, 120) };
 }
 
 module.exports = { MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, contentFor, REQ_SYSTEM, REQ_SCHEMA, normaliseReqs };

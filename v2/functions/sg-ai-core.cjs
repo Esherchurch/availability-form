@@ -106,6 +106,11 @@ const SCHEMA = {
     flags: { type: 'object', additionalProperties: false, required: ['abroad', 'adventurous'], properties: { abroad: { type: 'boolean' }, adventurous: { type: 'boolean' } } }
   }
 };
+/* WHAT ONE ASSESSMENT HOLDS (H-9: no limits beyond what a record holds). A
+   record is at most 1 MB: 200 risks of up to 50 controls each fit with room
+   to spare; the host's questions and the church's own, 500 each. The page
+   says so when a list is full (egbc-sg-assess.js MAX, the rules the same). */
+const MAX = { risks: 200, controls: 50, host: 500 };
 /* NEVER SOCKET COVERS (Martin, 23 Oct 2026; F-280 10.7): UK sockets have
    shutters, and safety bodies advise against covers. Said in every AI
    instruction, and checked here as well: anything that mentions them is
@@ -138,6 +143,7 @@ function userText(f, text, checklist) {
     '- Children booked or expected: ' + (f.children || 0) + (f.under8 ? ', of whom ' + f.under8 + ' under 8' : ''),
     '- Leaders named: ' + (f.leaders || 0) + ', of whom ' + (f.cleared || 0) + ' have an in-date check and training',
     '- The church’s ratios: one leader to ' + (f.ratioAll || 5) + ' children, and one to ' + (f.ratioUnder8 || 4) + ' for under-8s; never fewer than two adults',
+    ...(f.leadTitle ? ['- The church calls its safeguarding lead "' + f.leadTitle + '": use that title wherever you would say safeguarding lead.'] : []),
     ...(f.guidance ? ['- The church follows this safeguarding guidance: ' + f.guidance + '. Where it applies, keep to it.'] : []),
     '',
     'The required checklist (id: question):',
@@ -158,20 +164,20 @@ function normalise(d, facts) {
   const risks = [];
   let leftOut = 0;
   const keep = (x) => { if (socketCover(x)) { leftOut++; return false; } return true; };
-  for (const h of d.hazards.slice(0, 40)) {
+  for (const h of d.hazards.slice(0, MAX.risks)) {
     if (!h || !clean(h.hazard, 200) || !int5(h.likelihood) || !int5(h.impact) || !int5(h.likelihoodAfter) || !int5(h.impactAfter)) return { ok: false };
     const said = (Array.isArray(h.controls) ? h.controls : []).map((c) => clean(c, 200)).filter(Boolean);
     if (!said.length || !clean(h.owner, 80)) return { ok: false };
     /* a hazard about socket covers goes; so does one left with no control once they're taken out */
     if (!keep(h.hazard)) continue;
-    const controls = said.filter(keep).slice(0, 20);
+    const controls = said.filter(keep).slice(0, MAX.controls);
     if (!controls.length) { leftOut++; continue; }
     risks.push({ risk: clean(h.hazard, 200), who: clean(h.who, 120), l: h.likelihood, i: h.impact, rl: h.likelihoodAfter, ri: h.impactAfter,
       controls: controls.map((text) => ({ kind: 'text', text })), owner: clean(h.owner, 80), review: clean(h.review, 120), mustNot: h.mustNotGoAhead === true, from: 'ai' });
   }
   if (!risks.length) return { ok: false };
-  const all = hubRisks(facts || {}).concat(risks).slice(0, 40);
-  const mustNot = (Array.isArray(d.mustNotGoAhead) ? d.mustNotGoAhead : []).map((x) => clean(x, 300)).filter(Boolean).filter(keep).slice(0, 10);
+  const all = hubRisks(facts || {}).concat(risks).slice(0, MAX.risks);
+  const mustNot = (Array.isArray(d.mustNotGoAhead) ? d.mustNotGoAhead : []).map((x) => clean(x, 300)).filter(Boolean).filter(keep).slice(0, 50);
   all.filter((r) => r.from === 'hub').forEach((r) => mustNot.unshift('This must not go ahead as described: ' + r.risk.charAt(0).toLowerCase() + r.risk.slice(1) + '.'));
   /* THE HUB'S SUMS: the overall is the worst after the controls, and red while anything must not go ahead */
   let overall = 'green';
@@ -183,7 +189,7 @@ function normalise(d, facts) {
     if (id && v && known.has(id) && !personalCheck(v, []).refuse && keep(v)) suggest[id] = v;
   });
   const flags = { abroad: !!(d.flags && d.flags.abroad === true), adventurous: !!(d.flags && d.flags.adventurous === true) };
-  const questions = (Array.isArray(d.questions) ? d.questions : []).map((x) => clean(x, 300)).filter(Boolean).filter(keep).slice(0, 10);
+  const questions = (Array.isArray(d.questions) ? d.questions : []).map((x) => clean(x, 300)).filter(Boolean).filter(keep).slice(0, 50);
   const summary = keep(clean(d.summary, 600)) ? clean(d.summary, 600) : '';
   return { ok: true, risks: all, overall, mustNot, questions, summary, suggest, flags, leftOut };
 }
@@ -191,4 +197,4 @@ function normalise(d, facts) {
 /* the caps: settings, with Martin's defaults */
 function caps(st) { const a = (((st || {}).register || {}).ai) || {}; const n = (v, d) => (Number.isInteger(v) && v >= 0 ? v : d); return { perChurch: n(a.perChurch, 20), perPerson: n(a.perPerson, 5) }; }
 
-module.exports = { MODEL, LIMIT, WORDS, SCHEMA, SYSTEM, SOCKETS, socketCover, personalCheck, hubRisks, userText, normalise, rating, caps };
+module.exports = { MAX, MODEL, LIMIT, WORDS, SCHEMA, SYSTEM, SOCKETS, socketCover, personalCheck, hubRisks, userText, normalise, rating, caps };

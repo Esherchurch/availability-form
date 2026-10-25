@@ -272,7 +272,7 @@ function dialsFrom(d) {
   const oldest = open.length ? Math.max(...open.map((x) => daysTo(x.created, today))) : 0;
   put('incidents', { value: open.length, of: inc.length, pct: null, rag: open.length <= t.incidents.g ? 'green' : open.length <= t.incidents.a ? 'amber' : 'red', parts: { open: open.length, followed: inc.length - open.length }, oldestDays: oldest });
 
-  return { dials, sessions: sess.slice(0, 100), consentByGroup: Object.values(per).sort((a, b) => String(a.group).localeCompare(String(b.group))).slice(0, 50) };
+  return { dials, sessions: sess.slice(0, 500), consentByGroup: Object.values(per).sort((a, b) => String(a.group).localeCompare(String(b.group))).slice(0, 500) };
 }
 
 module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS, hirerPolicyOk, paedLevel };

@@ -11814,3 +11814,87 @@ Earlier tests updated for the new counts: a trip asks 18, not 14.
 **For the going-live list:**
 - **The rules can't check an answer's shape:** they refuse "Yes: " or "No: " with nothing after, but not "£5,000,000: " with nothing after (the insurance cover alone).
 - **The page refuses it,** which the reviewing window accepted (F-282).
+
+### F-284 — Safeguarding step 2b: what the church calls its safeguarding lead, as a setting; the 500 limits in the safeguarding files (the events window, 25 Oct)
+
+**What the church calls its safeguarding lead:**
+- **The setting:** Safeguarding settings, "What your church calls its safeguarding lead" (`register.leadTitle`). Empty means "safeguarding lead", as now.
+- **How it reaches every page:**
+  - **One place:** egbc-events-safeguarding.js (`lead`, `leadIn`, `leadWatch`). Every safeguarding page already loads it: safeguarding, safeguarding-risk, safeguarding-settings, sg-print, events-admin, checkin and groups-admin.
+  - **When it starts:** once someone is signed in, it reads the setting and swaps "safeguarding lead" for the church's title in everything the page shows, including what it draws later and the server's messages.
+  - **What it changes:** text only, never an id or an attribute. Its own setting's field is left as written (`data-nolead`).
+- **It is safe to run twice,** even when the title itself says "safeguarding lead" ("Designated safeguarding lead" is never doubled). It leaves "safeguarding leader" alone, and capitalises where a sentence starts with it.
+- **A sign-off saves the role in the church's words** (`signedByRole`: "Parish safeguarding officer", or "Deputy Parish safeguarding officer"), so the print shows them.
+- **The AI is told the title,** so the owners its draft names use it.
+- **Why one swap and not 35 edits:** about 35 places in 16 files say "safeguarding lead" in words people see. A swap at one point keeps the code readable, can't miss a message the server sends, and keeps the next new sentence right without anyone remembering to.
+
+**The 500 limits in the safeguarding files** (H-9: no limits beyond what a record holds):
+
+| What | Was | Now |
+|---|---|---|
+| Risks in one assessment (one record, at most 1 MB) | 40 | 200 |
+| Controls per risk | 20 | 50 |
+| The host's questions | 40 | 500 |
+| The church's own questions | 20 | 500 |
+| Answers | 80 | 1,100 (they add up from the lists above) |
+| Warnings kept | 100 | 500 |
+| Sessions and consent groups on the dashboard | 100 / 50 | 500 |
+| A register snapshot's risks | 200 | 500 |
+| The AI's "must not" lines and questions | 10 | 50 |
+
+- **The page, the server (`MAX` in functions/sg-ai-core.cjs) and the rules agree,** and a unit test checks it.
+- **When a list is full the page says so:**
+  - "An assessment holds at most 200 risks. Join two together, or take one out first."
+  - The same for a risk's controls, the host's list, and the church's own questions.
+- **Fixed in later steps** (as F-281 said):
+  - the 60 fire wardens (H&S 3)
+  - the event leaders and other people lists (S3)
+  - the office's 3 sites (H&S 2)
+  - the event team and audiences (H&S 5)
+
+**Also:**
+- **The kids setup step no longer says "Kids Church, for example"** (egbc-events-kids.js). It now says "choose the team that runs the children's groups".
+
+**For main:**
+- app.html loads egbc-events-kids.js at 202610141700; please bump it to 202610251400.
+- **Waiting for your jobs mapping** (the children's and youth jobs):
+  - kids-admin.html's fixed list of EGBC's teams (`STD = ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship']`)
+  - kids-checkin.html's "the app's Kids Church "Today""
+  - the kids pages' "A master admin or the safeguarding lead does this" (those pages don't load the safeguarding file)
+
+**For Comms:**
+- check-rules-build.mjs is now 7/8: firebase.comms.json (committed in 4b60a1f2) loads `firestore.rules`, not the built `firestore.build.rules`. Every other emulator config loads the built file.
+
+**For the synthetic parish:**
+- **Their title:** they enter "Parish safeguarding officer". Every safeguarding page, print and sign-off says it, and the AI uses it.
+- **Their size:** a large youth camp can carry up to 200 risks, and they can add up to 500 questions of their own. Nothing is cut short without the page saying so.
+
+**Breaks** (7, each caught):
+
+| Break | Test | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the pages never put the church's title in | sg-assess 39/42 | "8. THE CHURCH'S OWN TITLE"; "'safeguarding lead' nowhere on the page"; "SIGNED as …" |
+| the sign-off saves "Safeguarding lead", not the church's title | sg-assess 41/42 | "SIGNED as 'Parish safeguarding officer (invented)'" |
+| a title that says "safeguarding lead" doubles itself | sg-register-unit 22/23 | "never doubled, however often it runs" |
+| "safeguarding leader" changed too | sg-register-unit 22/23 | "'leader' untouched" |
+| the AI isn't told the church's title | sg-ai-unit 67/68 | "THE CHURCH'S TITLE … goes to the AI" |
+| the rules back to 40 risks | sg-register-unit 22/23 | "the page, the server and the rules agree" |
+| the page cuts risks silently at the limit | sg-register-unit 22/23 | "the page says so when a list is full" |
+
+**Tests:**
+
+| Test | Result | New checks |
+|---|---|---|
+| sg-assess | 42/42 | 3 (the parish's title) |
+| sg-print | 42/42 | |
+| sg-ai | 73/73 | |
+| sg-host | 29/29 | |
+| sg-dash | 45/45 | |
+| e3-safeguarding | 38/38 | |
+| sg-register-unit | 23/23 | 6 |
+| sg-ai-unit | 68/68 | 1 |
+| sg-warnings-unit | 61/61 | |
+| rules suite | 1903/1903 | "up to 50 controls" allowed, a 51st refused |
+| check-rules-build | 7/8 | the one failure is Comms' file (above) |
+
+**Deploy (the reviewing window's):** sgDraftAssessment, sgExtractRequirements, sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily. The rules go live when the hub goes live.

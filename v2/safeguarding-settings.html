@@ -17,7 +17,7 @@
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-safeguarding.js?v=202610161700"></script>
+<script src="egbc-events-safeguarding.js?v=202610251400"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -277,6 +277,9 @@
             /* AI-drafted event assessments (F-265 step 5): how many a day */
             '<div class="field"><label>AI-drafted assessments a day</label>' + num('aiChurch', typeof (R.ai || {}).perChurch === 'number' ? R.ai.perChurch : 20, 500) + ' for the church, ' +
               num('aiPerson', typeof (R.ai || {}).perPerson === 'number' ? R.ai.perPerson : 5, 500) + ' for each person</div>' +
+            /* what the church calls its safeguarding lead (F-280 S2b): used in place of "safeguarding lead" on every safeguarding page and print */
+            '<div class="field" data-nolead><label for="leadTitle">What your church calls its safeguarding lead</label><input class="inp" id="leadTitle" maxlength="60" placeholder="safeguarding lead" value="' + esc(R.leadTitle || '') + '">' +
+              '<p class="hint" style="margin:6px 0 0">For example “Parish safeguarding officer” or “Designated safeguarding lead”. Shown in place of “safeguarding lead” on the safeguarding pages and printouts. Leave it empty for “safeguarding lead”.</p></div>' +
             /* the church's own denomination's guidance (F-280 (e)): shown on every event assessment and its print, and given to the AI */
             '<div class="field"><label for="guideName">The safeguarding guidance your church follows</label><input class="inp" id="guideName" maxlength="120" placeholder="e.g. your denomination’s or diocese’s safeguarding guidance" value="' + esc((R.guidance || {}).name || '') + '">' +
               '<input class="inp" id="guideUrl" type="url" maxlength="300" placeholder="Its web address (https://…)" style="margin-top:6px" value="' + esc((R.guidance || {}).url || '') + '">' +
@@ -308,6 +311,7 @@
     /* the church's own questions: add and remove (saved with the rest) */
     var wireOwn = function () { document.querySelectorAll('[data-ownqdel]').forEach(function (b) { b.onclick = function () { b.parentNode.remove(); markDirty(); }; }); };
     if (document.getElementById('ownQAdd')) document.getElementById('ownQAdd').onclick = function () {
+      if (document.querySelectorAll('[data-ownq]').length >= 500) { toast('Your church can have up to 500 questions of its own. Join two together, or remove one first.'); return; }
       var id = 'c_' + Math.random().toString(36).slice(2, 10), row = document.createElement('div');
       row.className = 'two'; row.setAttribute('data-ownq', id); row.style.margin = '4px 0';
       row.innerHTML = '<input class="inp" maxlength="300" data-ownqtext placeholder="e.g. Has our insurer’s activity form been sent?" style="flex:1"><button class="btn" type="button" data-ownqdel style="background:#fff;color:#b0392c;border-color:#e5e7eb">Remove</button>';
@@ -358,10 +362,11 @@
       var gName = ((document.getElementById('guideName') || {}).value || '').trim().slice(0, 120), gUrl = ((document.getElementById('guideUrl') || {}).value || '').trim().slice(0, 300);
       if (gUrl && !/^https:\/\/[^\s"<>]+$/.test(gUrl)) { toast('The guidance’s web address must start https://'); return; }
       d.register.guidance = { name: gName, url: gUrl };
+      d.register.leadTitle = ((document.getElementById('leadTitle') || {}).value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
       var mc = parseInt(((document.getElementById('minCover') || {}).value || '').replace(/[^\d]/g, ''), 10);
       d.register.minCover = mc > 0 ? mc : 1000000;
       /* the church's own questions: kept with their ids (answers are stored by id) */
-      var own = [].slice.call(document.querySelectorAll('[data-ownq]')).map(function (r) { return { id: r.getAttribute('data-ownq'), q: r.querySelector('[data-ownqtext]').value.trim().slice(0, 300) }; }).filter(function (x) { return x.q; }).slice(0, 20);
+      var own = [].slice.call(document.querySelectorAll('[data-ownq]')).map(function (r) { return { id: r.getAttribute('data-ownq'), q: r.querySelector('[data-ownqtext]').value.trim().slice(0, 300) }; }).filter(function (x) { return x.q; }).slice(0, 500);
       d.register.checklist = own; d.register.checklistIds = own.map(function (x) { return x.id; });
     }
     if (!ADMIN) d.leadSiteId = LEADSITES[0];

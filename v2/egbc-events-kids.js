@@ -263,7 +263,7 @@
     var step = function (done, html) { return '<li style="margin:6px 0">' + (done ? '<s>' + html + '</s> (done)' : html) + '</li>'; };
     return '<div class="card" id="notsetup"><h2>Not set up yet</h2><p>Two steps, once:</p><ol>' +
       step(!o.noSite, '<b>Places</b>: add the site where the children\'s groups meet. <a href="places-admin.html" id="ns-places">Open Places</a>') +
-      step(false, '<b>Children\'s register, Settings</b>: choose the children\'s team (Kids Church, for example). ' +
+      step(false, '<b>Children\'s register, Settings</b>: choose the team that runs the children\'s groups. ' +
         (o.canChooseTeam ? '<a href="kids-admin.html?tab=settings" id="ns-settings">Open Settings</a>' : 'A master admin or the safeguarding lead does this.')) +
       '</ol><p class="hint">Then the team\'s admins can register children, set up the groups and run Sunday check-in.</p></div>';
   }
