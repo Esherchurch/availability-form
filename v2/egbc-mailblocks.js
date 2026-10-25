@@ -51,7 +51,7 @@
      no church is forced into Val's look, but EGBC starts there. */
   var TEMPLATES = {
     classic: {
-      label: 'Classic (as the e-news looks today)',
+      label: 'Classic',
       font: 'Helvetica,Arial,sans-serif',
       page: '#dee0e2', paper: '#ffffff', topBar: '#222222', topBarText: '#ffffff',
       text: '#202020', muted: '#555555', title: '#008080', link: '#17a809',

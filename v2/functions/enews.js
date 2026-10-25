@@ -308,7 +308,7 @@ export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   if (!office) throw new HttpsError('permission-denied', 'For the church office.');
   const S = await settings();
   if (!S.on) throw new HttpsError('failed-precondition', 'The e-news is switched off.');
-  if (!S.open) throw new HttpsError('failed-precondition', 'The subscriber list opens at switch-over' + (S.opensOn ? ' (' + S.opensOn + ')' : '') + '.');
+  if (!S.open) throw new HttpsError('failed-precondition', 'The subscriber list opens when the church goes live' + (S.opensOn ? ' (' + S.opensOn + ')' : '') + '.');
   const d = req.data || {};
   if (d.action === 'stop') {
     const doc = await findByEmail(normEmail(d.email));

@@ -260,6 +260,96 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## ANY CHURCH, 23 Oct: the comms area against the synthetic parish test. For review
+
+The reviewing window, for Martin: the going-live test is a made-up Church of England parish ("St Aidan's with St Hild, Testbury (synthetic)"), set up through the screens only. It fails on:
+- any EGBC name, word, logo, address or Baptist habit;
+- anything the parish can't set up for itself;
+- a limit that cuts off its data;
+- either church seeing the other's.
+
+From today, nothing EGBC-specific goes into this window's code. I went through every comms page and function for this.
+
+### Fixed now (this commit)
+
+| What the parish would have seen | Now |
+|---|---|
+| The e-news Look panel: "Short name for the top line (e.g. EGBC)" (twice: enews.html and the editor) | "(the church's initials, say)" |
+| The Weekly news starter: "EGBC's is Val's layout." | Gone |
+| The editor's hint: "Make the first line bold for a title, as Val does." | "…for a title." |
+| The e-news design: "Classic (as the e-news looks today)" | "Classic" |
+| The card maker's hashtags box: "#esherchurch" | "#yourchurch" |
+| **The Email Compiler's emails carried EGBC's logo**, typed into the page, with "EGBC" as its words | The church's own logo from Church settings, with the church's name; with none set, no logo |
+| "…opens at switch-over" (the subscriber list, Canva, twice) | "…when the church goes live" |
+
+**For EGBC:** the Compiler now takes EGBC's logo from Church settings > Church details, like the home page does. If that's empty, the Compiler's emails go out without a logo until it's added there.
+
+**A guard, `tests/check-comms-any-church.mjs`** (no emulator). It goes through every comms page and function with the comments taken out, and fails on EGBC, Esher, Val, EGBC's logo file, "switch-over" or "Baptist". Two things are allowed for now, each listed below with the step that removes it: the hub's own address and "Church office". Breaks: the word put back, the logo put back.
+
+### Still to fix: what would fail the test, and the step that fixes it
+
+1. **Each church's data (fail: "either church can see the other's").**
+   - The comms functions still read EGBC's top-level data: enews*, hqMailEvents, hqMailKey*, socialMorning, canva* and unsplash*.
+   - **Step:** H-5 batch 8, using main's `church-scope.js` and its mc-alpha/mc-beta harness. Main asked whether to do it or ask this window. I'm ready to do it, as one test at a time like the other batches.
+   - The comms pages read top-level data too. **Step:** main's page step (each page on `churches/{cid}`).
+2. **The hub's address is EGBC's** (`esherchurch.github.io`), in every e-news link (web version, unsubscribe, sign-up), the social icons' pictures and the functions' allowed sites.
+   - The files: egbc-mailblocks.js, functions/enews.js, enews-send.js, enews-preview.js, social.js and canva.js.
+   - **Step:** Church HQ's own address, when Martin chooses it. It becomes one setting in one file, and the guard then refuses the old one.
+3. **"Church office"** in 9 comms files (H-9's table). **Step:** H-9 stage 2, once main has built the jobs mapping: `onJob('office')`, and the words from `jobLabel('office')`.
+4. **The weekly draft takes one Sunday service** (`data.sunday`) and leaves out every rota service.
+   - The parish's 8am, 10am Parish Eucharist, Evensong and its midweek services would not be in its e-news. The chapel's monthly service would not be either.
+   - **Step C-51 (this window):** a Sunday block for each service on the rota, across every building, with its place. Midweek services go into "Coming up". The office can untick any of them.
+5. **Limits that cut off data.**
+   - **The subscriber list shows the first 1,000** (enews.html). It must show every subscriber, a page at a time.
+   - **The Email Compiler holds 10 drafts at most.** That becomes a setting, or goes.
+   - **Cut short without saying so:**
+     - the weekly draft's diary: 30 events in a fortnight, and a parish with a daily hall would pass that;
+     - the issue list: 30;
+     - the public web archive: 30;
+     - the next meetings: 5;
+     - the news picker: 30;
+     - the picture library: 48;
+     - the card maker's events: 200.
+   - **Step C-52 (this window):** no cap on the diary or the subscribers; the rest say "Showing the latest N" and offer more, as H-9 asks.
+6. **A Baptist habit: the members' meeting.**
+   - What a parish would see:
+     - the "Church members' meeting" starter;
+     - the members-only room "CMM" (`MEMBERS_ONLY_ROOMS` in egbc-mailblocks.js);
+     - the papers emails' "members' meeting".
+   - A parish has the APCM and PCC meetings, and its word for members is the electoral roll.
+   - **Step (with main):** the meeting's own name from Members' meetings (church-meeting.html); members-only rooms from each room's own setting, not a list in code; and the "Church member" word from main's access-level label, if main makes it a setting. **Question for main and the reviewing window:** is "Church member" staying the hub's word for every church, or a church setting?
+7. **The hourly email cap (2,000).** Since batch 2, hubSend counts it per church (its database is the church's), but Church HQ's Resend limit is for the whole account. Two churches could pass it together, or the cap could hold one church back for another's.
+   - **Step (with batch 8):** one counter for Church HQ, and a fair share for each church, set by Church HQ.
+8. **Starter words.** "Letter from the minister": a parish says vicar or rector.
+   - **Step C-53 (this window, small):** the title of the church's minister as a church setting (vicar, rector, minister, pastor), with "minister" as the default.
+
+### How it would work for the synthetic parish today
+
+- **The e-news, emails and posts already take from the parish's own settings:**
+  - the name, logo, colours, address, charity number and footer;
+  - the welcome emails' words;
+  - the card maker's hashtags, Bible verses and pictures (Unsplash);
+  - the sign-up, confirm and unsubscribe pages.
+- **Under-18s:** they're never emailed. Junior Church children come from the parish's own address book (Under 16 / Under 18), not from team names.
+- **Members-only words and blocks** work the same for any church.
+- **It fails today on items 1 to 6.** The steps above are in this window's order: C-51 and C-52 first, then batch 8 and H-9 stage 2 when main is ready.
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-comms-any-church (new) | 2/2. **Break word** ("e.g. EGBC" back) → red. **Break logo** (EGBC's logo back) → red. On its first run it found a second "(e.g. EGBC)", in the editor, now fixed |
+| check-enews-meeting | 19/19. New: the Compiler's email has no logo and nothing of EGBC's when Church settings has none, and the church's own logo, named for the church, when it has one. **Break logo** → 2 red |
+| check-enews-emails | 36/36 (the 25 starters) |
+| check-cardmaker | 35/35. The first run stopped after 6 while memory was tight (2 GB free); alone, all green |
+| Also | enews-page 61/61, enews-editor 50/50, enews-subscribe 58/58, canva 20/20, canva-page 9/9, enews-blocks 89/89 (27/27 breaks), check-stamps 11/11 |
+
+**Not run:** tests/audit-everything.mjs. It needs the dev or events emulators, and this window uses its own.
+
+**v2 only:** every changed path is under v2/. No original page was looked at for this.
+
+---
+
 ## BUILT, 22 Oct: members-only words counted in Check and on the Send page (reviewing window, idea 3). For review
 
 The sender now sees what everyone else won't get, for marked words as well as whole blocks.

@@ -31,7 +31,7 @@
 
   var LIST = [
     /* Weekly and monthly */
-    { id: 'weekly', group: 'News', name: 'Weekly news', about: 'This week’s picture and verse, Sunday, What’s On and the notices. EGBC’s is Val’s layout.', subject: '[Church] e-news [date]', preheader: 'What’s happening this week', audience: 'subscribers', weekly: true, blocks: [] },
+    { id: 'weekly', group: 'News', name: 'Weekly news', about: 'This week’s picture and verse, Sunday, What’s On and the notices.', subject: '[Church] e-news [date]', preheader: 'What’s happening this week', audience: 'subscribers', weekly: true, blocks: [] },
     { id: 'monthly', group: 'News', name: 'Monthly news', about: 'The month at a glance: a letter, what’s coming up, and news.', subject: '[Month] news from [Church]', preheader: 'The month ahead', audience: 'subscribers',
       blocks: [hero, text('A word for the month', P('[A few lines to open the month.]')), bar('Coming up this month'), { type: 'diary', title: 'Dates for the diary', weeks: 6, items: [] }, bar('News'), text('', P('[A piece of news, with a link if there is one.]'))] },
     { id: 'minister', group: 'News', name: 'Letter from the minister', about: 'Plain words, no pictures: a pastoral letter.', subject: 'A letter from [name]', preheader: '', audience: 'subscribers',

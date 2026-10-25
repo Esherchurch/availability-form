@@ -17,7 +17,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
     <!-- "+ Insert → A meeting": picked from Meetings, with Join (the comms window; FINDINGS-comms C-35) -->
-    <script src="egbc-mailblocks.js?v=202610222100"></script>
+    <script src="egbc-mailblocks.js?v=202610251200"></script>
     <script src="egbc-core-meetings.js?v=202610221500"></script>
     <script src="egbc-meeting-pick.js?v=202610202000"></script>
 
@@ -425,7 +425,7 @@
                     <div class="ht-title" id="headerTitle" contenteditable="true" spellcheck="false"></div>
                     <div class="ht-sub" id="headerSub" contenteditable="true" spellcheck="false">Team Update</div>
                 </div>
-                <div class="logo"><img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" alt="EGBC"></div>
+                <div class="logo" style="display:none"><img src="" alt=""></div>
             </div>
             <div id="editable-body" contenteditable="true">
                 <p>Hi team,</p>
@@ -517,7 +517,7 @@ function myEmailTeams() {
    window, 22 Oct 2026: it said "EGBC Worship & AV" whoever sent it, for any
    church). The church's name from Church settings, and the sender's team:
    a team leader's own team; the office and master admins, the church alone. */
-let CHURCH_NAME = '';
+let CHURCH_NAME = '', CHURCH_LOGO = '';
 function defaultHeaderTitle() {
     const T = EGBCAuth.TEAMS || {};
     const mine = mayEmailAnyone() ? [] : (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : []);
@@ -532,6 +532,13 @@ function fillFooter() {
     const w = $('footWho'), m = $('footMail');
     if (w) w.textContent = footerWho();
     if (m) m.textContent = footerMail();
+}
+/* The church's own logo (Church settings > details), or none. */
+function fillLogo() {
+    const box = document.querySelector('.canvas-header .logo'), img = box && box.querySelector('img');
+    if (!img) return;
+    if (/^https:\/\//.test(CHURCH_LOGO)) { img.src = CHURCH_LOGO; img.alt = CHURCH_NAME; box.style.display = ''; }
+    else box.style.display = 'none';
 }
 function fillHeaderTitle() {
     const el = $('headerTitle');
@@ -550,8 +557,8 @@ function escAttr(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, c =>
 document.addEventListener('egbc-ready', () => {
     drawTeamFilters();
     EGBCAuth.db.collection('churchSettings').doc('details').get()
-        .then(d => { CHURCH_NAME = (d.exists && d.data().name) || ''; }, () => {})
-        .then(fillHeaderTitle).then(fillFooter);
+        .then(d => { CHURCH_NAME = (d.exists && d.data().name) || ''; CHURCH_LOGO = (d.exists && d.data().logoUrl) || ''; }, () => {})
+        .then(fillHeaderTitle).then(fillLogo).then(fillFooter);
     if ($('senderEmail')) $('senderEmail').addEventListener('input', fillFooter);
     db.collection("addressBook").onSnapshot(snap => {
         const anyone = mayEmailAnyone(), mine = myEmailTeams();
@@ -642,7 +649,7 @@ function buildEmailHtml(bodyInner, meta) {
     const title = escapeHtml(meta.headerTitle || defaultHeaderTitle());
     const sub = escapeHtml(meta.headerSub || '');
     const pre = escapeHtml(meta.preheader || '');
-    const logo = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300';
+    const logo = /^https:\/\//.test(CHURCH_LOGO) ? escapeHtml(CHURCH_LOGO) : '';
     const preheaderBlock = pre
         ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:#f0f6f6;font-size:12px;line-height:1px;">${pre}&#8199;&#65279;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;</div>`
         : '';
@@ -675,11 +682,11 @@ ${preheaderBlock}
         <p class="htitle" style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:600;color:#ffffff;line-height:1.2;">${title}</p>
         ${subBlock}
       </td>
-      <td style="vertical-align:middle;text-align:right;padding-left:20px;width:78px;">
+      ${logo ? `<td style="vertical-align:middle;text-align:right;padding-left:20px;width:78px;">
         <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 11px;">
-          <img src="${logo}" height="40" style="display:block;height:40px;border:0;" alt="EGBC">
+          <img src="${logo}" height="40" style="display:block;height:40px;border:0;" alt="${escapeHtml(CHURCH_NAME)}">
         </div>
-      </td>
+      </td>` : ''}
     </tr></table>
   </td></tr>
   <tr><td class="bodypad" style="padding:36px 40px;font-family:${emailFont};font-size:16px;color:#1e3a3a;line-height:1.7;">

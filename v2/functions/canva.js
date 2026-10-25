@@ -67,7 +67,7 @@ async function office(req) {
   const p = me.exists ? me.data() : {};
   if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) throw new HttpsError('permission-denied', 'For the church office.');
   if (!on) throw new HttpsError('failed-precondition', 'Canva is switched off for this church.');
-  if (canvaShut()) throw new HttpsError('failed-precondition', 'Canva connects at switch-over.');
+  if (canvaShut()) throw new HttpsError('failed-precondition', 'Canva connects when the church goes live.');
   return uid;
 }
 const wrap = fn => async (req) => {
@@ -90,7 +90,7 @@ export const canvaCallback = onRequest({ region: REGION, invoker: 'public' }, as
   const page = (msg, back) => res.status(200).set('Content-Type', 'text/html; charset=utf-8').send(
     '<!DOCTYPE html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px/1.5 Arial,sans-serif;padding:24px;color:#111827">' +
     '<p>' + String(msg).replace(/[<>&]/g, '') + '</p><p><a href="' + String(back).replace(/"/g, '') + '">Back to the hub</a></p></body>');
-  if (canvaShut()) return page('Canva connects at switch-over.', HUB + '/canva.html');
+  if (canvaShut()) return page('Canva connects when the church goes live.', HUB + '/canva.html');
   if (req.query.error) return page('Canva was not connected (' + String(req.query.error).slice(0, 60) + ').', HUB + '/canva.html');
   try {
     const r = await C.finish(Object.assign(await deps(), { code: String(req.query.code || ''), state: String(req.query.state || '') }));

@@ -21,6 +21,7 @@
  * DELIBERATE BREAKS (each must turn this check red):
  *   --break=old     the picker offers archived and past meetings
  *   --break=notice  a members' meeting notice stops this week's e-news
+ *   --break=logo    the Compiler's email gets EGBC's logo again
  */
 import { spawn } from 'node:child_process';
 import http from 'node:http';
@@ -44,7 +45,8 @@ const ok = (n, v, x) => { R.push(!!v); console.log('  ' + (v ? 'PASS  ' : 'FAIL 
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   old: ['egbc-meeting-pick.js', ".filter(function (ev) { return ev.archived !== true && roomFor(ev); })", ".filter(function (ev) { return roomFor(ev); })", "where('date', '>=', today)", "where('date', '>=', '2000-01-01')"],
-  notice: ['enews.html', "return d.data().week !== 'notice' && String(", 'return String(']
+  notice: ['enews.html', "return d.data().week !== 'notice' && String(", 'return String('],
+  logo: ['EmailBuilder2.html', "const logo = /^https:\\/\\//.test(CHURCH_LOGO) ? escapeHtml(CHURCH_LOGO) : '';", "const logo = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png';"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
 
@@ -215,6 +217,13 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
     await pickRow('/Church Members Meeting/'); await sleep(800);
     const body = await ev('document.getElementById("editable-body").innerHTML');
     ok('the meeting goes into the email: name, day, time and Join', body.includes('Church Members Meeting') && body.includes(longDay(9)) && body.includes('7:30pm') && body.includes('meeting.html?room=CMM&amp;event=m_cmm') && />Join the meeting</.test(body));
+    /* Any church (reviewing window, 23 Oct): the email carries the church's
+       own logo from Church settings, or none; never EGBC's. */
+    const noLogo = await ev('buildEmailHtml("<p>x</p>", {})');
+    ok('the Compiler’s email: with no logo in Church settings, no logo and nothing of EGBC’s', !/1774936285076|egbc-worship-planner\.firebasestorage|alt="EGBC"/.test(noLogo) && !/<img[^>]*height="40"/.test(noLogo) && await ev('getComputedStyle(document.querySelector(".canvas-header .logo")).display==="none"'), noLogo.slice(0, 300));
+    const withLogo = await ev('CHURCH_LOGO="https://example.invalid/synthetic-logo.png";buildEmailHtml("<p>x</p>", {})');
+    ok('…and with one, the church’s own logo, named for the church', /<img src="https:\/\/example\.invalid\/synthetic-logo\.png"[^>]*alt="Synthetic Green Church"/.test(withLogo), withLogo.slice(0, 300));
+    await ev('CHURCH_LOGO="",1');
     await shot('compiler');
     const w = await ev('document.documentElement.scrollWidth');
     ok('fits 375px (no sideways scroll)', w <= 375, w);
