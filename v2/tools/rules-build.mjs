@@ -207,7 +207,13 @@ export function buildStorageChurch(src) {
   const body = blockBody(strip(src), 'match /b/{bucket}/o');
   const all = items(body);
   if (!all.some((it) => headOf(it) === 'match /{allPaths=**}')) throw new Error('storage.rules no longer ends with its catch-all: the church build needs looking at');
-  const kept = all.filter((it) => !STORAGE_LEFT_OUT.some((re) => re.test(headOf(it))))
+  /* kb/ uploads: the Permissions screen's answer (H-14), from the sign-in's
+     perms claim for this church - never "anyone" as EGBC has until it goes live. */
+  const KB_EGBC = 'function kbMayUpload() { return true; }';
+  if (!all.some((it) => it.trim() === KB_EGBC)) throw new Error('storage.rules no longer has kbMayUpload(): the church build needs looking at');
+  const kept = all.map((it) => it.trim() === KB_EGBC
+      ? "function kbMayUpload() { return request.auth != null && 'kbUpload' in request.auth.token.get('perms', {}).get(cid, []); }" : it)
+    .filter((it) => !STORAGE_LEFT_OUT.some((re) => re.test(headOf(it))))
     .map((it) => it.split('/databases/(default)/documents/').join('/databases/(default)/documents/churches/$(cid)/'))
     .map((it) => gateAllows(it, 'stGate()'));
   return STORAGE_HEADER + [

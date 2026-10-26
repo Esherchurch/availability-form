@@ -199,6 +199,9 @@
       /* Master admins and the Church office (Martin, 15 Oct 2026). */
       { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',
         description: 'Add, rename, recolour, order and archive teams' },
+      /* Who may do what (H-14; Martin's answer 6): master admins only. */
+      { title: 'Permissions', url: 'permissions.html', icon: 'key-round', master: true,
+        description: 'Who may do what, section by section, and exceptions' },
       /* The money team, by its name (F-200), and master admins. */
       /* The church's bank details, for the Church office and master admins
          (21 Oct 2026: Church settings became master admins only). */

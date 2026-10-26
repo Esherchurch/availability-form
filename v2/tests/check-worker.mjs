@@ -67,7 +67,10 @@ const gh = http.createServer((q, s) => {
   s.end(fs.readFileSync(f));
 }).listen(GH);
 /* The stand-in for egbc-worship-planner.firebaseapp.com's sign-in pages. */
-const auth = http.createServer((q, s) => { let b = ''; q.on('data', c => b += c); q.on('end', () => { s.writeHead(200, { 'content-type': 'text/plain' }); s.end('AUTH ' + q.method + ' ' + q.url + ' ' + b); }); }).listen(AUTHP);
+const auth = http.createServer((q, s) => { let b = ''; q.on('data', c => b += c); q.on('end', () => {
+  /* Firebase's handler page, as it fails on Martin's phone: it writes the error into the page after it loads. */
+  if (q.method === 'GET' && q.url.startsWith('/__/auth/handler')) { s.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); return s.end('<!DOCTYPE html><html><body><div id="e"></div><script>setTimeout(function(){document.getElementById("e").textContent="Unable to process request due to missing initial state. This may happen if browser sessionStorage is inaccessible or accidentally cleared."},400)</script></body></html>'); }
+  s.writeHead(200, { 'content-type': 'text/plain' }); s.end('AUTH ' + q.method + ' ' + q.url + ' ' + b); }); }).listen(AUTHP);
 /* The Worker, as Cloudflare would run it. */
 const ENV = { UPSTREAM: 'http://localhost:' + GH + (BREAK ? '/availability-form' : '/availability-form/v2'), AUTH: 'http://localhost:' + AUTHP, SLUG: 'egbc' };
 const runWorker = (env) => http.createServer(async (q, s) => {
@@ -145,6 +148,13 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
   const BASE = 'http://localhost:' + W + '/';
+  /* A sign-in lost between the app and the browser (Martin's Android phone,
+     26 Oct 2026): Firebase's handler page says "missing initial state"; the
+     Worker's watcher sends the person to the hub's sign-in page instead. */
+  await send('Page.navigate', { url: BASE + '__/auth/handler?state=lost-in-a-tab&code=x' }); await sleep(5000);
+  const lost = JSON.parse(String(await evl('JSON.stringify({path:location.pathname,search:location.search,text:document.body.innerText.replace(/\\s+/g," ")})')) || '{}');
+  ok('a sign-in lost on the way back lands on the hub\'s sign-in page, not Firebase\'s error', lost.path === '/login.html' && /signin=lost/.test(lost.search || ''), JSON.stringify(lost).slice(0, 200));
+  ok('  which says plainly what happened, with Google to try again', /did not finish/.test(lost.text || '') && /Continue with Google/.test(lost.text || ''), (lost.text || '').slice(0, 200));
   await send('Page.navigate', { url: BASE + 'login.html' }); await sleep(3000);
   ok('the sign-in page opens through it', String(await evl('typeof EGBCAuth')) === 'object');
   await evl('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(P.email) + ',' + JSON.stringify(PW) + ').then(function(){return 1})', true); await sleep(1000);

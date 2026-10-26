@@ -47,6 +47,9 @@
     urgent:     { label: 'Urgent notices from the office', help: 'Rare: a service moved, the building closed.', on: true, loud: true, email: true },
     checks:     { label: 'My DBS check or training is running out', help: 'For anyone who helps with under-18s.', on: true, loud: false, email: true },
     care:       { label: 'Something new for me to look after', help: 'A prayer request, a request for care, a concern or a visitor\u2019s hello, if the church has named you for it. It never says who or why.', on: true, loud: false, email: true },
+    /* H-14: to the master admin who gave somebody a permission, a week
+       before it ends (Martin's answer 3). Only ever them, so not a choice. */
+    permission: { label: 'A permission I gave is ending', help: '', on: true, loud: false, email: true, hidden: true },
     test:       { label: 'A test message', help: '', on: true, loud: true, email: false, hidden: true }
   };
   var QUIET = { from: '21:30', to: '07:30' };
@@ -98,6 +101,10 @@
     rota: function (d) {
       return { title: 'You are serving tomorrow', body: cut([(d.roles || []).join(', '), d.arrive ? 'arrive ' + d.arrive : '', d.place].filter(Boolean).join(' · '), 160),
                url: d.url || 'app.html' };
+    },
+    permission: function (d) {
+      return { title: 'A permission ends in a week', body: cut((d.name || 'Somebody') + ': ' + (d.what || 'a permission') + ', until ' + (d.until || ''), 160),
+               url: d.url || 'permissions.html' };
     },
     booking: function (d) {
       var t = { confirmed: 'Your room is booked', approved: 'Your booking is confirmed', declined: 'Your booking could not go ahead', cancelled: 'Your booking has been cancelled', moved: 'Your booking has moved' }[d.status] || 'Your booking';

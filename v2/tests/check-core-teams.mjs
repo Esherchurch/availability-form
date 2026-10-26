@@ -86,7 +86,7 @@ try {
   /* A Kids Church session group, so the Session planner has somebody's to show. */
   await put('planGroups/pg_ct_kids', { name: 'CT Kids group (synthetic)', teamName: 'Kids Church', leaderIds: [], archived: false });
 
-  let list; for (let i = 0; i < 40; i++) { try { list = await getJSON('/json/list'); break; } catch { await sleep(500); } }
+  let list; for (let i = 0; i < 60; i++) { try { list = await getJSON('/json/list'); if (list.some((x) => x.type === 'page')) break; } catch {} await sleep(500); }
   const ws = new WebSocket(list.find(x => x.type === 'page').webSocketDebuggerUrl);
   let id = 0; const pend = new Map(); const errs = [];
   const send = (m, p = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
@@ -104,7 +104,9 @@ try {
   const openHub = async () => {
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hub.html' });
     for (let i = 0; i < 60 && String(await evl('!!(window.EGBCMenu && window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile() && document.getElementById("sundaysCard"))')) !== 'true'; i++) await sleep(400);
-    await sleep(2500);
+    /* The Sundays card is drawn after the events arrive: wait for it. */
+    for (let i = 0; i < 40 && !/Sundays/.test(String(await evl('(document.getElementById("sundaysCard")||{textContent:""}).textContent'))); i++) await sleep(400);
+    await sleep(800);
   };
   const look = async () => JSON.parse(String(await evl('(function(){var u=[];(function w(n){n.forEach(function(x){if(x.url)u.push(x.url);if(x.children)w(x.children)})})(EGBCMenu.forPerson(EGBCMenu.who()));'
     + 'return JSON.stringify({menu:u,inWorship:EGBCAuth.inTeam("Worship Team"),inKids:EGBCAuth.inTeam("Kids Church"),inYouth:EGBCAuth.inTeam("Youth Worship"),'

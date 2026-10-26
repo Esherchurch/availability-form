@@ -79,7 +79,22 @@ export default {
     /* Sign-in: passed through whole, any method, to the auth domain. */
     if (url.pathname.startsWith('/__/auth/') || url.pathname.startsWith('/__/firebase/')) {
       const target = auth + url.pathname + url.search;
-      return fetch(new Request(target, request));
+      const res = await fetch(new Request(target, request));
+      /* A SIGN-IN LOST BETWEEN THE APP AND THE BROWSER (26 Oct 2026; Martin's
+         Android phone): Firebase's handler page says "missing initial state"
+         and stops. Its page is Firebase's own, so it is left as it is, with
+         one small watcher added: on that error, the person goes to the hub's
+         sign-in page, which says plainly what happened and signs them in. */
+      if (url.pathname === '/__/auth/handler' && request.method === 'GET' && /text\/html/i.test(res.headers.get('content-type') || '')) {
+        const html = await res.text();
+        const watch = '<script>(function(){var n=0,t=setInterval(function(){n++;var b=(document.body&&document.body.innerText)||"";'
+          + 'if(/missing initial state/i.test(b)){clearInterval(t);location.replace("/login.html?signin=lost");}else if(n>60)clearInterval(t);},300);})();</script>';
+        const out = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, watch + '</body>') : html + watch;
+        const headers = new Headers(res.headers);
+        headers.delete('content-length');
+        return new Response(out, { status: res.status, statusText: res.statusText, headers });
+      }
+      return res;
     }
 
     if (request.method !== 'GET' && request.method !== 'HEAD') return plain(405, 'Pages are read only here.');

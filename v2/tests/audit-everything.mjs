@@ -251,6 +251,10 @@ const INSTRUMENT = `(function(){
   try { if (navigator.clipboard) { var w = navigator.clipboard.writeText.bind(navigator.clipboard); navigator.clipboard.writeText = function (t) { A.acts.push('copy'); return w(t).catch(function () {}); }; } } catch (e) {}
   try { var sh = navigator.share; navigator.share = function () { A.acts.push('share'); return Promise.resolve(); }; } catch (e) {}
   window.addEventListener('hashchange', function () { A.acts.push('hash'); });
+  /* Where a tap's click really went (AUDIT_DEBUG): its target, whether it
+     was stopped, and whether it got as far as the window. */
+  document.addEventListener('click', function (e) { var t = e.target || {}; A.click = (t.tagName || '?') + (t.id ? '#' + t.id : '') + ' "' + String(t.textContent || '').trim().slice(0, 24) + '"'; A.reached = false; }, true);
+  window.addEventListener('click', function (e) { A.reached = true; A.prevented = e.defaultPrevented; });
   window.addEventListener('error', function (e) { A.errs.push(String(e.message || 'error')); });
   window.addEventListener('unhandledrejection', function (e) { A.errs.push('unhandled rejection: ' + String(e.reason && (e.reason.message || e.reason) || '')); });
 })();`;
@@ -524,7 +528,15 @@ async function tapAll(B, url, reopen) {
     if (SKIP_TAP.test(next.words) || (LIVE && SKIP_LIVE.test(next.words))) { skipped.push(next.words || next.href); continue; }
     n++;
     const sel = '(document.querySelectorAll("a[href],button,[role=button],[data-act],[data-lact],[data-mact],[onclick],summary")[' + next.i + '])';
-    const pt = JSON.parse((await B.ev('(function(){var el=' + sel + ';if(!el)return "null";el.scrollIntoView({block:"center",inline:"center"});var r=el.getBoundingClientRect();'
+    /* SCROLL, LET IT SETTLE, THEN MEASURE (26 Oct 2026). Pages that build
+       their styles as they go (the Tailwind script on the knowledge-base
+       pages) move a moment after a change, and a tap measured before that
+       landed on the button next door - which read as "does nothing". */
+    const where = '(function(){var el=' + sel + ';if(!el)return "";var r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height].map(Math.round).join()})()';
+    await B.ev('(function(){var el=' + sel + ';if(el)el.scrollIntoView({block:"center",inline:"center"});return 1})()');
+    /* Only a button that is still moving is waited for, so the audit keeps its pace. */
+    for (let k = 0, was = await B.ev(where); k < 4; k++) { await sleep(k ? 200 : 30); const now = await B.ev(where); if (now === was) break; was = now; }
+    const pt = JSON.parse((await B.ev('(function(){var el=' + sel + ';if(!el)return "null";var r=el.getBoundingClientRect();'
       + 'var x=r.left+Math.min(r.width/2,r.width-2),y=r.top+Math.min(r.height/2,r.height-2),hit=document.elementFromPoint(x,y);'
       + 'return JSON.stringify({x:x,y:y,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
     if (!pt) continue;
@@ -545,6 +557,7 @@ async function tapAll(B, url, reopen) {
     B.tapping = false;
     const after = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
     const viewAfter = await B.ev(VIEWHASH);
+    if (process.env.AUDIT_DEBUG) console.log("    click", await B.ev('JSON.stringify({click: window.__aud.click, reached: window.__aud.reached, prevented: window.__aud.prevented, active: (document.activeElement || {}).tagName})'));
     if (process.env.AUDIT_DEBUG) console.log("    tap", JSON.stringify(next.words), JSON.stringify(before), JSON.stringify(after), JSON.stringify(B.acts), "noise", noise);
     if (!after) { /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
     const did = B.acts.length || after.acts.length || viewAfter !== viewBefore || after.mut - before.mut > Math.ceil(noise * 1.2) + 2 || after.sx !== before.sx || after.sy !== before.sy

@@ -4,14 +4,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610261800"></script>
+<script src="egbc-auth.js?v=202610262300"></script>
 
-<script src="egbc-shell.js?v=202610261800" data-title="Apps and downloads"></script>
+<script src="egbc-shell.js?v=202610262100" data-title="Apps and downloads"></script>
 <script src="egbc-guard.js?v=202610221200"></script>
-<script src="egbc-kbadmin.js?v=202609041833" data-admin-team="master"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EGBC Hub · Resources</title>
+  <title>Apps and downloads</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -139,66 +138,41 @@
       .page-header { padding: 20px 22px; }
       .resource-card { flex-wrap: wrap; }
     }
+    /* The hub app's QR code, on the page (26 Oct 2026). */
+    .hub-qr { flex: none; width: 140px; padding: 4px; background: #fff; border: 1px solid var(--hairline); border-radius: 10px; }
+    .hub-qr img, .hub-qr canvas { display: block; width: 132px; height: 132px; }
+    @media (max-width: 600px) { .hub-qr { margin: 4px auto 0; } }
   </style>
 </head>
 <body>
 
 <div class="page-header">
   <div>
-    <h1>Hub Resources</h1>
-    <p>App downloads, web tools &amp; links for the EGBC team</p>
-  </div>
-  <div class="header-actions">
-    <div id="admin-badge" style="display:none;" class="admin-badge">🔑 Admin Mode</div>
-    <button id="add-resource-btn" class="btn btn-primary btn-sm" onclick="showAddForm()" style="display:none;">+ Add Resource</button>
-    <button class="btn btn-warning btn-sm" id="admin-toggle-btn" onclick="toggleAdmin()">Admin Login</button>
+    <h1>Apps and downloads</h1>
+    <p>The hub app for your phone, and the web tools and links your teams use</p>
   </div>
 </div>
 
 <div class="layout">
-  <div class="panel-list" id="resource-list"></div>
-
-  <div class="panel-editor" id="editor-panel" style="display:none;">
-    <h3 id="editor-title">Add New Resource</h3>
-    <label>Name</label>
-    <input type="text" id="f-name" placeholder="e.g. Worship Hub">
-    <label>Description</label>
-    <textarea id="f-desc" placeholder="Short description of what this is for…"></textarea>
-    <label>Type</label>
-    <select id="f-type" onchange="onTypeChange()">
-      <option value="pwa">📱 App (PWA)</option>
-      <option value="link">🔗 Web Link / PWA</option>
-    </select>
-    <label>Version</label>
-    <input type="text" id="f-version" placeholder="e.g. v1.0.0">
-    <div id="apk-section">
-      <label>App / Page URL</label>
-      <input type="url" id="f-manual-url" placeholder="e.g. a link to one of the hub's pages">
-      <p style="font-size:0.75rem;font-weight:500;color:var(--muted);padding-left:2px;margin-top:-10px;margin-bottom:16px;">e.g. worshiphubapp.html</p>
+  <div class="panel-list">
+    <!-- THE HUB APP FIRST (26 Oct 2026; Martin: "where do I install the app?").
+         Its address is the church's own hub address (hubAddress), so every
+         church's page offers its own app. -->
+    <div class="section-label">The hub app — on your phone</div>
+    <div class="resource-card" id="hub-app">
+      <div class="card-icon"><img src="icon-192.png" alt="" onerror="this.replaceWith(document.createTextNode('📱'))"></div>
+      <div class="card-body">
+        <div class="card-name">The hub app</div>
+        <div class="card-desc">Your rota, notices, What's on and everything else, on your home screen. Install it once from this address.</div>
+        <div class="card-meta"><span class="badge badge-apk">App</span> <span class="badge badge-version" id="hub-app-url">Finding the address…</span></div>
+      </div>
+      <div class="card-actions">
+        <a id="hub-app-open" href="app.html" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Open →</a>
+        <button class="btn btn-secondary btn-sm" id="hub-app-install" onclick="showInstallModal(HUB_APP, 'The hub app')">How to install</button>
+      </div>
+      <div class="hub-qr" id="hub-app-qr" aria-label="QR code for the hub app"></div>
     </div>
-    <div id="link-section" style="display:none;">
-      <label>URL</label>
-      <input type="url" id="f-url" placeholder="https://...">
-    </div>
-    <div class="editor-actions">
-      <button class="btn btn-primary" id="save-btn" onclick="saveResource()">Save Resource</button>
-      <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
-      <button class="btn btn-danger btn-sm" id="delete-btn" onclick="deleteResource()" style="display:none;">Delete Resource</button>
-    </div>
-    <div class="status-msg" id="save-status"></div>
-  </div>
-</div>
-
-<!-- Admin Login Modal -->
-<div class="modal-overlay" id="admin-login-modal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeAdminModal()">Close</button>
-    <h3>🔑 Admin Login</h3>
-    <p class="subtitle">Enter the admin password to add or edit resources.</p>
-    <label>Password</label>
-    <input type="password" id="admin-password-input" placeholder="Enter password…" onkeydown="if(event.key==='Enter')submitAdminLogin()">
-    <div class="status-msg error" id="admin-login-error"></div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitAdminLogin()">Login</button>
+    <div id="resource-list"></div>
   </div>
 </div>
 
@@ -227,13 +201,14 @@
     <div style="display:flex;gap:10px;margin:16px 0;">
       <button onclick="showInstallTab('android')" id="tab-android" class="btn btn-primary btn-sm" style="flex:1;">🤖 Android</button>
       <button onclick="showInstallTab('ios')" id="tab-ios" class="btn btn-secondary btn-sm" style="flex:1;">🍎 iPhone</button>
+      <button onclick="showInstallTab('computer')" id="tab-computer" class="btn btn-secondary btn-sm" style="flex:1;">💻 Computer</button>
     </div>
 
     <div id="install-tab-android">
       <div class="ios-steps">
         <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Chrome</strong> on your Android phone — tap the button below or scan the QR code.</div></div>
         <div class="ios-step"><div class="step-num">2</div><div class="step-text">Tap the <strong>three dots menu ⋮</strong> in the top right of Chrome.</div></div>
-        <div class="ios-step"><div class="step-num">3</div><div class="step-text">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>.</div></div>
+        <div class="ios-step"><div class="step-num">3</div><div class="step-text">Tap <strong>"Install app"</strong> (or <strong>"Add to Home screen"</strong>).</div></div>
         <div class="ios-step"><div class="step-num">4</div><div class="step-text">Tap <strong>Install</strong>. It opens full screen just like a native app.</div></div>
       </div>
       <a id="install-link-android" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Open in Chrome →</a>
@@ -248,214 +223,102 @@
       </div>
       <a id="install-link-ios" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Open in Safari →</a>
     </div>
+
+    <div id="install-tab-computer" style="display:none;">
+      <div class="ios-steps">
+        <div class="ios-step"><div class="step-num">1</div><div class="step-text">Open the link in <strong>Chrome</strong> or <strong>Edge</strong>.</div></div>
+        <div class="ios-step"><div class="step-num">2</div><div class="step-text">Click the <strong>install icon</strong> at the right-hand end of the address bar (a small screen with an arrow).</div></div>
+        <div class="ios-step"><div class="step-num">3</div><div class="step-text">Click <strong>Install</strong>. It opens in its own window, and from the Start menu or Dock.</div></div>
+      </div>
+      <a id="install-link-computer" href="#" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Open it →</a>
+    </div>
   </div>
 </div>
 
 <script>
-/* The shared sign-in, not an app of our own. A second app has nobody
-   signed in, so its reads and writes go out anonymous - and on localhost
-   it would miss the emulator hook and reach the live database. */
+/* APPS AND DOWNLOADS (v2). 26 Oct 2026, Martin: "where do I install the
+   app? It has all the old ones on here, which it shouldn't."
+
+   THE HUB APP FIRST, from the church's own hub address (hubAddress on the
+   server: egbc.churchhq.co.uk for EGBC, <slug>.churchhq.co.uk for any
+   other church), with its QR code on the page.
+
+   THE OLD APPS ARE NOT LISTED. hub_resources is SHARED with the original
+   site's page, which lists them; their entries stay as they are (phones
+   with them installed keep working - the no-retire rule is about not
+   breaking those). Here only its web tools and links are shown.
+
+   READ-ONLY. While the original site uses hub_resources, this page changes
+   nothing in it: no Admin Login (which was a password in the page's own
+   source), no editor. Editing comes back for master admins when the
+   original site retires (GOING-LIVE.md). */
 const db = EGBCAuth.db;
+let HUB_APP = new URL('app.html', location.href).href;
 
-let currentId = null;
-let isAdmin   = false;
-const ADMIN_PW = 'Surreykt10';
+const SKELETON = '<div class="section-label" style="opacity:.55;">Loading…</div>' +
+  Array(3).fill('<div class="skeleton-card"><div class="sk sk-icon"></div><div class="sk-lines"><div class="sk sk-line" style="width:42%;"></div><div class="sk sk-line" style="width:72%;"></div><div class="sk sk-line" style="width:28%;"></div></div></div>').join('');
 
-const SKELETON = '<div class="section-label" style="opacity:.55;">Loading resources…</div>' +
-  Array(4).fill('<div class="skeleton-card"><div class="sk sk-icon"></div><div class="sk-lines"><div class="sk sk-line" style="width:42%;"></div><div class="sk sk-line" style="width:72%;"></div><div class="sk sk-line" style="width:28%;"></div></div></div>').join('');
-
-// ── Admin ──
-function toggleAdmin() {
-  if (isAdmin) {
-    isAdmin = false;
-    document.getElementById('admin-badge').style.display      = 'none';
-    document.getElementById('add-resource-btn').style.display = 'none';
-    document.getElementById('admin-toggle-btn').textContent   = 'Admin Login';
-    document.getElementById('admin-toggle-btn').className     = 'btn btn-warning btn-sm';
-    document.getElementById('editor-panel').style.display     = 'none';
-    loadResources();
-  } else {
-    document.getElementById('admin-password-input').value    = '';
-    document.getElementById('admin-login-error').textContent = '';
-    document.getElementById('admin-login-modal').classList.add('open');
-    setTimeout(() => document.getElementById('admin-password-input').focus(), 150);
-  }
+// ── The hub app ──
+function drawHubApp(url) {
+  HUB_APP = url;
+  document.getElementById('hub-app-url').textContent = url.replace(/^https?:\/\//, '');
+  document.getElementById('hub-app-open').href = url;
+  const wrap = document.getElementById('hub-app-qr');
+  wrap.innerHTML = '';
+  wrap.setAttribute('data-qr', url);
+  if (window.QRCode) new QRCode(wrap, { text: url, width: 132, height: 132, colorDark: '#3d6263', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+}
+function loadHubApp() {
+  drawHubApp(HUB_APP);
+  if (!EGBCAuth.call) return;
+  EGBCAuth.call('hubAddress', {}).then(function (r) {
+    if (r && /^https:\/\//.test(r.url || '')) drawHubApp(r.url.replace(/\/?$/, '/') + 'app.html');
+  }, function () { /* this page's own address is a complete answer */ });
 }
 
-function submitAdminLogin() {
-  const pw = document.getElementById('admin-password-input').value;
-  if (pw === ADMIN_PW) {
-    isAdmin = true;
-    document.getElementById('admin-login-modal').classList.remove('open');
-    document.getElementById('admin-badge').style.display      = 'inline-flex';
-    document.getElementById('add-resource-btn').style.display = 'inline-flex';
-    document.getElementById('admin-toggle-btn').textContent   = 'Log Out';
-    document.getElementById('admin-toggle-btn').className     = 'btn btn-secondary btn-sm';
-    loadResources();
-  } else {
-    document.getElementById('admin-login-error').textContent = 'Incorrect password. Try again.';
-    document.getElementById('admin-password-input').value    = '';
-    document.getElementById('admin-password-input').focus();
-  }
-}
-
-function closeAdminModal() {
-  document.getElementById('admin-login-modal').classList.remove('open');
-}
-document.getElementById('admin-login-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeAdminModal();
-});
-
-// ── Load resources ──
+// ── Web tools and links ──
 async function loadResources() {
   const list = document.getElementById('resource-list');
   list.innerHTML = SKELETON;
   try {
     const snap = await db.collection('hub_resources').orderBy('order').get();
-    if (snap.empty) {
-      list.innerHTML = `<div class="empty-state"><p>${isAdmin ? 'No resources yet. Click "+ Add Resource" to get started.' : 'No resources yet.'}</p></div>`;
-      return;
-    }
-    list.innerHTML = '';
-    const apps = [], links = [], seen = new Set();
+    const seen = new Set([HUB_APP.toLowerCase()]);
     const isApp = d => d.type === 'apk' || d.type === 'pwa';
     const urlKey = d => (d.url || d.downloadUrl || '').trim().replace(/\/+$/, '').toLowerCase();
-    const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    // Apps first so an installable app wins over a duplicate plain link of the same URL,
-    // then skip any entry whose URL was already shown (removes duplicates across sections).
-    docs.filter(isApp).forEach(d => { const k = urlKey(d); if (k && seen.has(k)) return; if (k) seen.add(k); apps.push(d); });
-    docs.filter(d => !isApp(d)).forEach(d => { const k = urlKey(d); if (k && seen.has(k)) return; if (k) seen.add(k); links.push(d); });
-    if (apps.length)  { list.innerHTML += `<div class="section-label">Apps — open, or add to your home screen</div>`; apps.forEach(r => list.innerHTML += cardHTML(r)); }
-    if (links.length) { list.innerHTML += `<div class="section-label" style="margin-top:10px;">Web Links &amp; Tools</div>`; links.forEach(r => list.innerHTML += cardHTML(r)); }
+    /* The old apps (type apk / pwa) are the original site's: not listed here. */
+    const links = [];
+    snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(d => !isApp(d)).forEach(d => {
+      const k = urlKey(d); if (k && seen.has(k)) return; if (k) seen.add(k); links.push(d);
+    });
+    list.innerHTML = links.length
+      ? `<div class="section-label" style="margin-top:10px;">Web tools &amp; links</div>` + links.map(cardHTML).join('')
+      : '';
   } catch(e) {
-    list.innerHTML = `<div class="empty-state"><p>Error loading resources: ${e.message}</p></div>`;
+    list.innerHTML = `<div class="empty-state"><p>The links could not be loaded: ${escHtml(e.message)}</p></div>`;
   }
 }
 
 function cardHTML(r) {
-  const isApp     = r.type === 'apk' || r.type === 'pwa';
   const appUrl    = r.url || r.downloadUrl || '';
-  const iconInner = (r.icon || r.iconUrl)
-      ? `<img src="${escHtml(r.icon || r.iconUrl)}" alt="">`
-      : (isApp ? '📱' : '🔗');
-  const typeBadge = isApp ? '<span class="badge badge-apk">App</span>' : '<span class="badge badge-link">Web</span>';
+  const iconInner = (r.icon || r.iconUrl) ? `<img src="${escHtml(r.icon || r.iconUrl)}" alt="">` : '🔗';
   const version   = r.version ? `<span class="badge badge-version">${escHtml(r.version)}</span>` : '';
-
-  const openLink = `<a href="${escHtml(appUrl)}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">Open →</a>`;
-  const qrBtn    = `<button class="btn btn-secondary btn-sm btn-icon" onclick="event.stopPropagation();showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>`;
-  const actionBtn = isApp
-    ? `${openLink}
-       <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();showInstallModal('${escHtml(appUrl)}','${escHtml(r.name)}')">How to install</button>
-       ${qrBtn}`
-    : `${openLink}
-       ${qrBtn}`;
-
-  const cardClass = isAdmin ? 'resource-card admin-clickable' : 'resource-card';
-  const cardClick = isAdmin ? `onclick="editResource('${r.id}')"` : '';
-
-  return `<div class="${cardClass}" ${cardClick}>
+  return `<div class="resource-card">
     <div class="card-icon">${iconInner}</div>
     <div class="card-body">
       <div class="card-name">${escHtml(r.name)}</div>
       <div class="card-desc">${escHtml(r.description || '')}</div>
-      <div class="card-meta">${typeBadge}${version}</div>
+      <div class="card-meta"><span class="badge badge-link">Web</span>${version}</div>
     </div>
-    <div class="card-actions">${actionBtn}</div>
+    <div class="card-actions">
+      <a href="${escHtml(appUrl)}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Open →</a>
+      <button class="btn btn-secondary btn-sm btn-icon" onclick="showQr('${escHtml(appUrl)}','${escHtml(r.name)}')">⬛ QR</button>
+    </div>
   </div>`;
 }
 
 function escHtml(s) {
   if (!s) return '';
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-}
-
-// ── Editor ──
-function showAddForm() {
-  if (!isAdmin) return;
-  currentId = null;
-  ['f-name','f-desc','f-version','f-url','f-manual-url'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-type').value = 'pwa';
-  document.getElementById('save-status').textContent  = '';
-  document.getElementById('editor-title').textContent = 'Add New Resource';
-  document.getElementById('delete-btn').style.display = 'none';
-  onTypeChange();
-  document.getElementById('editor-panel').style.display = 'block';
-}
-
-async function editResource(id) {
-  if (!isAdmin) return;
-  const docSnap = await db.collection('hub_resources').doc(id).get();
-  const data    = docSnap.data();
-  currentId     = id;
-  document.getElementById('f-name').value       = data.name        || '';
-  document.getElementById('f-desc').value       = data.description || '';
-  document.getElementById('f-version').value    = data.version     || '';
-  document.getElementById('f-type').value       = data.type        || 'apk';
-  document.getElementById('f-url').value        = data.url         || '';
-  document.getElementById('f-manual-url').value = data.downloadUrl || '';
-  document.getElementById('save-status').textContent  = '';
-  document.getElementById('editor-title').textContent = 'Edit Resource';
-  document.getElementById('delete-btn').style.display = 'block';
-  onTypeChange();
-  document.getElementById('editor-panel').style.display = 'block';
-}
-
-function cancelEdit() {
-  currentId = null;
-  document.getElementById('editor-panel').style.display = 'none';
-}
-
-function onTypeChange() {
-  const t = document.getElementById('f-type').value;
-  document.getElementById('apk-section').style.display  = (t === 'apk' || t === 'pwa') ? 'block' : 'none';
-  document.getElementById('link-section').style.display = t === 'link' ? 'block' : 'none';
-}
-
-async function saveResource() {
-  if (!isAdmin) return;
-  const name    = document.getElementById('f-name').value.trim();
-  const desc    = document.getElementById('f-desc').value.trim();
-  const version = document.getElementById('f-version').value.trim();
-  const type    = document.getElementById('f-type').value;
-  const url     = document.getElementById('f-url').value.trim();
-  const status  = document.getElementById('save-status');
-  if (!name) { status.textContent = 'Please enter a name.'; status.className = 'status-msg error'; return; }
-  const btn = document.getElementById('save-btn');
-  btn.disabled = true; status.textContent = 'Saving…'; status.className = 'status-msg';
-  try {
-    let data = { name, description: desc, version, type, updatedAt: new Date().toISOString() };
-    if (type === 'apk' || type === 'pwa') {
-      const manualUrl = document.getElementById('f-manual-url').value.trim();
-      if (!manualUrl && !currentId) { status.textContent = 'Please paste a download URL.'; status.className = 'status-msg error'; btn.disabled = false; return; }
-      if (manualUrl) data.downloadUrl = manualUrl;
-    } else {
-      if (!url) { status.textContent = 'Please enter a URL.'; status.className = 'status-msg error'; btn.disabled = false; return; }
-      data.url = url;
-    }
-    if (currentId) {
-      await db.collection('hub_resources').doc(currentId).update(data);
-    } else {
-      const snap = await db.collection('hub_resources').get();
-      data.order = snap.size;
-      await db.collection('hub_resources').add(data);
-    }
-    status.textContent = '✓ Saved!'; status.className = 'status-msg success';
-    await loadResources();
-    setTimeout(() => { document.getElementById('editor-panel').style.display = 'none'; }, 900);
-  } catch(e) {
-    status.textContent = 'Error: ' + e.message; status.className = 'status-msg error';
-  }
-  btn.disabled = false;
-}
-
-async function deleteResource() {
-  if (!isAdmin || !currentId) return;
-  if (!confirm('Delete this resource? This cannot be undone.')) return;
-  try {
-    await db.collection('hub_resources').doc(currentId).delete();
-    document.getElementById('editor-panel').style.display = 'none';
-    await loadResources();
-  } catch(e) { alert('Error deleting: ' + e.message); }
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
 // ── QR ──
@@ -478,42 +341,33 @@ function downloadQr() {
 }
 document.getElementById('qr-modal').addEventListener('click', function(e) { if (e.target === this) closeQrModal(); });
 
-// ── iOS ──
-function openLinkModal(url) {
-  document.getElementById('modal-url').textContent   = url;
-  document.getElementById('modal-open-link').href    = url;
-  document.getElementById('ios-modal').classList.add('open');
-}
+// ── Install ──
 function showInstallModal(url, name) {
   document.getElementById('install-modal-title').textContent = name;
   document.getElementById('install-modal-url').textContent = url;
-  document.getElementById('install-link-android').href = url;
-  document.getElementById('install-link-ios').href = url;
+  ['android', 'ios', 'computer'].forEach(t => { document.getElementById('install-link-' + t).href = url; });
   document.getElementById('install-modal').classList.add('open');
   showInstallTab('android');
 }
-function closeInstallModal() {
-  document.getElementById('install-modal').classList.remove('open');
-}
+function closeInstallModal() { document.getElementById('install-modal').classList.remove('open'); }
 function showInstallTab(tab) {
-  document.getElementById('install-tab-android').style.display = tab === 'android' ? 'block' : 'none';
-  document.getElementById('install-tab-ios').style.display = tab === 'ios' ? 'block' : 'none';
-  document.getElementById('tab-android').className = tab === 'android' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-  document.getElementById('tab-android').style.flex = '1';
-  document.getElementById('tab-ios').className = tab === 'ios' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-  document.getElementById('tab-ios').style.flex = '1';
+  ['android', 'ios', 'computer'].forEach(t => {
+    document.getElementById('install-tab-' + t).style.display = t === tab ? 'block' : 'none';
+    const b = document.getElementById('tab-' + t);
+    b.className = t === tab ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    b.style.flex = '1';
+  });
 }
-
-// Legacy - keep openLinkModal working
-function openLinkModal(url, name) { showInstallModal(url, name); }
-function closeModal() { closeInstallModal(); }
-
-function closeModal2() { document.getElementById('ios-modal').classList.remove('open'); }
-var iosModalEl = document.getElementById('ios-modal');
-if (iosModalEl) iosModalEl.addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+document.getElementById('install-modal').addEventListener('click', function(e) { if (e.target === this) closeInstallModal(); });
 
 // ── Init ──
-loadResources();
+/* After the sign-in is back: the hub's address is asked of the server, and
+   the list is read as a signed-in person (it is not open to everybody). */
+drawHubApp(HUB_APP);
+let started = false;
+function start() { if (started) return; started = true; loadHubApp(); loadResources(); }
+document.addEventListener('egbc-ready', start);
+if (EGBCAuth.optional) EGBCAuth.optional().then(function (p) { if (p) start(); });
 </script>
 </body>
 </html>

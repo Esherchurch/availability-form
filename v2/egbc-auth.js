@@ -303,6 +303,67 @@
     });
     return out;
   }
+  /* ---- Google Identity Services, for the installed app ---------------- */
+  /* The project's web client (Google Cloud > Credentials: "Web client (auto
+     created by Google Service)"), the one Firebase's Google sign-in uses, so
+     its ID tokens are the ones Firebase accepts. Its JavaScript origins must
+     include every address the hub is installed from. */
+  var GOOGLE_WEB_CLIENT = '199442060489-l8j4f9p55qos14tva2bi1u9vd70p0l5f.apps.googleusercontent.com';
+  var gisLoading = null;
+  function loadGis() {
+    if (global.google && global.google.accounts && global.google.accounts.id) return Promise.resolve(global.google);
+    if (gisLoading) return gisLoading;
+    gisLoading = new Promise(function (ok, no) {
+      var s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.onload = function () { (global.google && global.google.accounts && global.google.accounts.id) ? ok(global.google) : no(new Error('Google sign-in did not load.')); };
+      s.onerror = function () { gisLoading = null; no(new Error('Google sign-in could not be reached.')); };
+      document.head.appendChild(s);
+    });
+    return gisLoading;
+  }
+
+  /* ---- Permissions (H-14) -------------------------------------------- */
+  var PERMS = { ready: false, promise: null, perms: null, jobs: null, set: {}, exceptions: [] };
+  function localDayIso() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  /* Alongside this file, with its own stamp, like egbc-core-meetings.js's video loader. */
+  function sibling(name, stamp) {
+    if ((name === 'egbc-team-jobs.js' && global.EGBCTeamJobs) || (name === 'egbc-permissions.js' && global.EGBCPermissions)) return Promise.resolve();
+    return new Promise(function (done) {
+      var me = document.querySelector('script[src*="egbc-auth.js"]');
+      var base = me ? me.getAttribute('src').split('egbc-auth.js')[0] : '';
+      var s = document.createElement('script');
+      s.src = base + name + "?v=" + stamp;
+      s.onload = done; s.onerror = done;
+      document.head.appendChild(s);
+    });
+  }
+  function loadPerms() {
+    if (PERMS.promise) return PERMS.promise;
+    var get = function (c, d) { return db.collection(c).doc(d).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; }); };
+    var uid = currentUser && currentUser.uid;
+    PERMS.promise = Promise.all([
+      sibling('egbc-team-jobs.js', '202610261800').then(function () { return sibling('egbc-permissions.js', '202610262000'); }),
+      get('churchSettings', 'permissions'), get('churchSettings', 'teamJobs'),
+      get('paymentSettings', 'public'), get('safeguardingSettings', 'defaults'), get('prayerSettings', 'main'),
+      uid ? db.collection('permissionExceptions').where('uid', '==', uid).get().then(function (s) { return s.docs.map(function (d) { return d.data(); }); }, function () { return []; }) : Promise.resolve([])
+    ]).then(function (r) {
+      PERMS.perms = r[1]; PERMS.jobs = r[2];
+      PERMS.set = {};
+      if (r[3] && r[3].moneyTeam !== undefined) PERMS.set.moneyTeam = r[3].moneyTeam;
+      if (r[4] && r[4].trusteeTeam !== undefined) PERMS.set.trusteeTeam = r[4].trusteeTeam;
+      if (r[5] && r[5].prayerTeam !== undefined) PERMS.set.prayerTeam = r[5].prayerTeam;
+      PERMS.exceptions = r[6] || [];
+      PERMS.ready = true;
+      return PERMS;
+    });
+    return PERMS.promise;
+  }
+
   /* The core teams that cover this team. */
   function coreTeamsFor(team) {
     return Object.keys(TEAMS).filter(function (t) { return (TEAMS[t].coreFor || []).indexOf(team) !== -1; });
@@ -1405,6 +1466,61 @@
     },
     /* The teams this person covers through their core teams (H-15). */
     covers: function () { return coversOf(EGBCAuth.effectiveTeams()); },
+    /* WHO MAY DO WHAT (H-14): the Permissions screen's answer for this
+       person. loadPerms() reads the ticks, the team jobs and the person's
+       own exceptions once (and fetches egbc-team-jobs.js and
+       egbc-permissions.js if the page did not load them); may(action) is
+       false until it has. A master admin may always. */
+    /* GOOGLE SIGN-IN INSIDE THE INSTALLED APP (26 Oct 2026; Martin's
+       Android phone). A redirect leaves the app: Google opens in a browser
+       tab, comes back there, and the sign-in's state - kept in the app -
+       is missing ("missing initial state"). Here Google Identity Services
+       asks instead: One Tap and Google's own button, through the browser's
+       FedCM sheet on Chrome for Android, which draws over the app and
+       navigates nowhere. Google hands the page an ID token; Firebase signs
+       in with it. Nothing changes for the browser, which keeps its redirect
+       and popup. */
+    isInstalledApp: function () {
+      try { return (global.matchMedia && global.matchMedia('(display-mode: standalone)').matches) || global.navigator.standalone === true; }
+      catch (e) { return false; }
+    },
+    /* opts: { button: element for Google's button, onDone(), onFail(err) }.
+       Resolves once Google's sign-in is on screen; rejects if it cannot load. */
+    googleInApp: function (opts) {
+      opts = opts || {};
+      return loadGis().then(function (google) {
+        var id = google.accounts.id;
+        id.initialize({
+          client_id: GOOGLE_WEB_CLIENT,
+          callback: function (r) {
+            if (!r || !r.credential) { if (opts.onFail) opts.onFail(new Error('Google did not sign you in.')); return; }
+            auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(r.credential))
+              .then(function (u) { if (opts.onDone) opts.onDone(u); }, function (e) { if (opts.onFail) opts.onFail(e); });
+          },
+          use_fedcm_for_prompt: true, use_fedcm_for_button: true, ux_mode: 'popup',
+          auto_select: false, itp_support: true, context: 'signin', cancel_on_tap_outside: false
+        });
+        if (opts.button) {
+          id.renderButton(opts.button, { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill',
+            logo_alignment: 'left', width: Math.max(200, Math.min(400, opts.button.clientWidth || 320)) });
+        }
+        id.prompt();
+        return true;
+      });
+    },
+    loadPerms: function () { return loadPerms(); },
+    may: function (id) {
+      if (EGBCAuth.isMaster()) return true;
+      var P = global.EGBCPermissions, p = currentProfile || {};
+      if (!P || !PERMS.ready) return false;
+      var cores = {};
+      Object.keys(TEAMS).forEach(function (t) { if ((TEAMS[t].coreFor || []).length) cores[t] = TEAMS[t].coreFor; });
+      var v = viewAs();
+      return P.may({ master: false, teams: EGBCAuth.effectiveTeams(), adminFor: v ? (v.admin ? [v.team] : []) : (p.adminFor || []),
+          roles: v ? {} : (p.roles || {}), memberId: v ? '' : (p.memberId || '') },
+        id, { perms: PERMS.perms, jobs: PERMS.jobs, set: PERMS.set, exceptions: v ? [] : PERMS.exceptions, cores: cores,
+              today: localDayIso(), TJ: global.EGBCTeamJobs });
+    },
     /* The same for any teams (the hub's Home choice asks about one). */
     coversOfTeams: function (teams) { return coversOf(teams || []); },
     isCoreTeam: function (team) { return !!(TEAMS[team] && (TEAMS[team].coreFor || []).length); },

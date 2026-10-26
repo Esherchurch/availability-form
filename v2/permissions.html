@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Permissions</title>
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610262100" data-title="Permissions"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610262300"></script>
+<script src="egbc-guard.js?v=202610221200" data-master></script>
+<script src="egbc-team-jobs.js?v=202610261800"></script>
+<script src="egbc-permissions.js?v=202610262000"></script>
+<style>
+  :root{ --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280; --faint:#9ca3af;
+         --line:#e5e7eb; --line-2:#d1d5db; --brand:#3d6263; --brand-dark:#2a4a4b; --tint:#eef5f4; --warn:#b45309; --warn-t:#fef3c7; --danger:#b0392c; --ok:#15803d; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 16px 90px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 4px}
+  .lede{margin:0 0 14px;color:var(--muted)}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .search{flex:1 1 220px;min-width:0;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 14px Inter,system-ui,sans-serif;background:#fff}
+  .seg{display:flex;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{min-height:42px;padding:0 14px;border:0;background:#fff;font:500 14px Inter,system-ui,sans-serif;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .seg button[aria-pressed="true"]{background:var(--tint);color:var(--brand);font-weight:600}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+  .sh{display:flex;align-items:center;gap:10px;padding:14px 16px;min-height:56px;width:100%;border:0;background:none;text-align:left;cursor:pointer;font:inherit}
+  .sh b{color:var(--ink);font-size:15px}.sh small{color:var(--muted);flex:1}
+  .act{border-top:1px solid var(--line);padding:14px 16px}
+  .act h3{margin:0;font-size:14px;color:var(--ink)}
+  .why{margin:2px 0 8px;color:var(--muted);font-size:13px}
+  .grp{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 2px}
+  .ticks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 18px}
+  .tick{display:flex;align-items:center;gap:10px;min-height:44px;color:var(--ink);cursor:pointer}
+  .tick input{width:20px;height:20px;accent-color:var(--brand);flex:none}
+  .tick small{color:var(--muted)} .tick.lock{color:var(--muted);cursor:default}
+  details summary{min-height:44px;display:flex;align-items:center;color:var(--brand);font-weight:600;cursor:pointer}
+  .exc{margin-top:10px;border:1px dashed var(--line-2);border-radius:12px;padding:10px 12px}
+  .person{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+  .person:last-child{border-bottom:0}
+  .person .d{flex:1;min-width:0}.person b{color:var(--ink)}.person small{display:block;color:var(--muted);font-size:13px}
+  .btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:#fff;color:var(--ink);font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
+  .btn.p{background:var(--brand);border-color:var(--brand);color:#fff}
+  .link{background:none;border:0;color:var(--brand);font:600 14px Inter,system-ui,sans-serif;min-height:44px;cursor:pointer;padding:0}
+  .add{display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:8px;align-items:end;margin-top:8px}
+  .add label{font-size:12px;color:var(--muted);display:block}
+  .add input{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 10px;font:400 14px Inter,system-ui,sans-serif}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+  .soon{background:var(--warn-t);color:var(--warn)} .ro{background:#f3f4f6;color:var(--muted)}
+  .fixed{padding:12px 16px;border-top:1px solid var(--line)} .fixed a{color:var(--brand);font-weight:600}
+  .save{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;align-items:center}
+  .save small{flex:1;color:var(--muted)}
+  .msg{min-height:20px;font-size:13px;margin:6px 0 0} .msg.err{color:var(--danger)} .msg.ok{color:var(--ok)}
+  .row{display:grid;grid-template-columns:1.2fr 1.6fr 1.4fr 1fr auto;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0} .row small{display:block;color:var(--muted);font-size:13px}
+  .empty{padding:16px;color:var(--muted)}
+  @media (max-width:600px){
+    .ticks{grid-template-columns:minmax(0,1fr)} .add{grid-template-columns:minmax(0,1fr)}
+    .seg{width:100%} .seg button{flex:1 1 0;min-width:0;padding:0 6px;font-size:13px}
+    .row{grid-template-columns:minmax(0,1fr) auto} .row > *:not(:first-child):not(:last-child){grid-column:1}
+    .row > *:last-child{grid-column:2;grid-row:1}
+    .save small{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Permissions</h1>
+  <p class="lede">Who may do what, section by section. Master admins can always do everything. Tick who else may.</p>
+  <div class="tools">
+    <input class="search" id="q" type="search" placeholder="Search, e.g. &quot;upload&quot; or a person's name" aria-label="Search the permissions">
+    <div class="seg" role="group" aria-label="View">
+      <button type="button" data-view="sections" aria-pressed="true">By section</button>
+      <button type="button" data-view="exceptions" aria-pressed="false" id="excTab">Exceptions</button>
+      <button type="button" data-view="history" aria-pressed="false">History</button>
+    </div>
+  </div>
+  <div id="main"><div class="card empty">Loading…</div></div>
+</div>
+<div class="save" id="saveBar" hidden><small>Changes reach people the next time a page opens.</small>
+  <button type="button" class="btn" id="cancel">Cancel</button><button type="button" class="btn p" id="save">Save</button></div>
+<datalist id="people"></datalist>
+<script>
+/* PERMISSIONS (FINDINGS-churchhq H-14; Martin approved the mock-ups and the
+   six answers, 26 Oct 2026; design-mocks/permissions/). Master admins only.
+
+   By section, never one long list; each action's ticks (always master
+   admins; the core teams covering a job's teams; the people on a job's
+   teams; their admins; chosen teams; the leaders of the teams ticked), and
+   "+ Add a person" for one exception (answer 2: exceptions only add) with
+   an optional end date (answer 3). Every change goes in the history.
+   Safeguarding and pastoral care are shown, not ticked.
+
+   The rules are egbc-permissions.js (the server builds its copy from it);
+   the server puts each person's answer on their sign-in
+   (functions/permissions.js) for the Storage rules. */
+const db = firebase.firestore(EGBCAuth.app);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const P = window.EGBCPermissions, TJ = window.EGBCTeamJobs;
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+let VIEW = 'sections', OPEN = { worship: true }, PERMS = null, DRAFT = null, JOBS = null, SET = {}, TEAMS = {}, EXC = [], LOG = [], BOOK = [];
+
+async function load() {
+  const get = (c, d) => db.collection(c).doc(d).get().then(s => s.exists ? s.data() : null, () => null);
+  const [p, tj, pay, sg, pr, teams, xs, log, book] = await Promise.all([
+    get('churchSettings', 'permissions'), get('churchSettings', 'teamJobs'),
+    get('paymentSettings', 'public'), get('safeguardingSettings', 'defaults'), get('prayerSettings', 'main'),
+    db.collection('teams').get().then(s => s.docs, () => []),
+    db.collection('permissionExceptions').get().then(s => s.docs.map(d => Object.assign({ _id: d.id }, d.data())), () => []),
+    db.collection('permissionsLog').orderBy('at', 'desc').limit(100).get().then(s => s.docs.map(d => d.data()), () => []),
+    db.collection('addressBook').get().then(s => s.docs.filter(d => d.data().archived !== true).map(d => ({ id: d.id, name: d.data().name || d.id })), () => [])
+  ]);
+  PERMS = p || { actions: {} }; JOBS = tj; SET = {};
+  if (pay && pay.moneyTeam !== undefined) SET.moneyTeam = pay.moneyTeam;
+  if (sg && sg.trusteeTeam !== undefined) SET.trusteeTeam = sg.trusteeTeam;
+  if (pr && pr.prayerTeam !== undefined) SET.prayerTeam = pr.prayerTeam;
+  /* The church's teams: the built-in list, with what Teams & groups saved. */
+  TEAMS = {};
+  Object.keys(EGBCAuth.TEAMS || {}).forEach(id => { TEAMS[id] = Object.assign({}, EGBCAuth.TEAMS[id]); });
+  teams.forEach(d => { const t = d.data() || {}; TEAMS[d.id] = Object.assign({}, TEAMS[d.id] || {}, { label: t.label || (TEAMS[d.id] || {}).label || d.id, archived: t.archived === true },
+    Array.isArray(t.coreFor) ? { coreFor: t.coreFor } : {}); });
+  EXC = xs; LOG = log; BOOK = book.sort((a, b) => a.name.localeCompare(b.name));
+  $('people').innerHTML = BOOK.map(b => `<option value="${esc(b.name)}">`).join('');
+  DRAFT = JSON.parse(JSON.stringify(PERMS));
+  draw();
+}
+
+const label = (t) => (TEAMS[t] && TEAMS[t].label) || t;
+const jobName = (j) => j.charAt(0).toUpperCase() + j.slice(1);
+const jobTeams = (j) => TJ.teamsFor(JOBS, j, SET);
+const coresCovering = (j) => Object.keys(TEAMS).filter(t => !TEAMS[t].archived && (TEAMS[t].coreFor || []).some(c => jobTeams(j).includes(c)));
+const rule = (id) => P.ruleFor(DRAFT, id);
+const changed = () => JSON.stringify(DRAFT.actions || {}) !== JSON.stringify(PERMS.actions || {});
+const matches = (s) => { const q = $('q').value.trim().toLowerCase(); return !q || String(s).toLowerCase().includes(q); };
+
+function tick(id, field, value, words, small, on) {
+  return `<label class="tick"><input type="checkbox" data-act="${id}" data-f="${field}" data-v="${esc(value)}" ${on ? 'checked' : ''}><span>${esc(words)}${small ? ` <small>· ${esc(small)}</small>` : ''}</span></label>`;
+}
+
+function actionHtml(a) {
+  const r = rule(a.id);
+  const jobsWithTeams = TJ.JOBS.filter(j => jobTeams(j.id).length && !j.noFallback);
+  const coreJobs = jobsWithTeams.filter(j => coresCovering(j.id).length);
+  const xs = EXC.filter(x => x.action === a.id);
+  const teamIds = Object.keys(TEAMS).filter(t => !TEAMS[t].archived).sort((x, y) => label(x).localeCompare(label(y)));
+  return `<div class="act" data-action="${a.id}">
+    <h3>${esc(a.words)}</h3><p class="why">${esc(a.why)}</p>
+    <div class="grp">Always</div>
+    <div class="ticks"><label class="tick lock"><input type="checkbox" checked disabled><span>Master admins</span></label></div>
+    ${coreJobs.length ? `<div class="grp">Core teams covering</div><div class="ticks">${coreJobs.map(j => tick(a.id, 'coresOf', j.id, jobName(j.id), coresCovering(j.id).map(label).join(', '), r.coresOf.includes(j.id))).join('')}</div>` : ''}
+    <div class="grp">Everyone on these jobs' teams</div>
+    <div class="ticks">${jobsWithTeams.map(j => tick(a.id, 'jobs', j.id, jobName(j.id), TJ.label(JOBS, j.id, label, SET), r.jobs.includes(j.id))).join('')}</div>
+    <div class="grp">Their admins</div>
+    <div class="ticks">${jobsWithTeams.map(j => tick(a.id, 'adminJobs', j.id, jobName(j.id), TJ.label(JOBS, j.id, label, SET), r.adminJobs.includes(j.id))).join('')}</div>
+    <div class="grp">Teams and their leaders</div>
+    <div class="ticks">${tick(a.id, 'leaders', 'yes', 'Leaders of the teams ticked here', '', r.leaders)}</div>
+    <details ${r.teams.length ? 'open' : ''}><summary>Choose teams${r.teams.length ? ' (' + r.teams.length + ')' : ''}…</summary>
+      <div class="ticks">${teamIds.map(t => tick(a.id, 'teams', t, label(t), '', r.teams.includes(t))).join('')}</div></details>
+    <div class="exc"><div class="grp" style="margin-top:0">Exceptions: these people too</div>
+      ${xs.length ? xs.map(personHtml).join('') : '<p class="why" style="margin:4px 0">Nobody yet.</p>'}
+      <button type="button" class="link" data-add="${a.id}">+ Add a person</button>
+      <div class="add" data-addform="${a.id}" hidden>
+        <div><label>Person</label><input list="people" data-p="name" placeholder="Search the address book…"></div>
+        <div><label>Until (optional)</label><input type="date" data-p="until"></div>
+        <div><label>Why (master admins see this)</label><input data-p="why" maxlength="300" placeholder="e.g. runs the AV desk on Sundays"></div>
+        <button type="button" class="btn p" data-addgo="${a.id}">Add</button>
+      </div>
+      <p class="msg" data-addmsg="${a.id}" role="status"></p>
+    </div>
+  </div>`;
+}
+
+function untilWords(x) {
+  if (!x.until) return 'no end date';
+  const days = Math.round((Date.parse(x.until + 'T00:00:00') - Date.parse(today() + 'T00:00:00')) / 86400000);
+  return 'until ' + x.until + (days < 0 ? ' · ended' : days <= 7 ? ` · <span class="pill soon">ends in ${days} day${days === 1 ? '' : 's'}</span>` : '');
+}
+function personHtml(x) {
+  return `<div class="person"><div class="d"><b>${esc(x.name || x.memberId)}</b>${x.why ? `<small>${esc(x.why)}</small>` : ''}
+    <small>Added by ${esc(x.byName || 'a master admin')}, ${esc(String(x.at || '').slice(0, 10))} · ${untilWords(x)}</small></div>
+    <button type="button" class="btn" data-remove="${esc(x._id)}">Remove</button></div>`;
+}
+
+function draw() {
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === VIEW)));
+  $('excTab').textContent = 'Exceptions (' + EXC.length + ')';
+  $('saveBar').hidden = !changed();
+  if (VIEW === 'exceptions') return drawExceptions();
+  if (VIEW === 'history') return drawHistory();
+  const q = $('q').value.trim();
+  let html = '';
+  P.SECTIONS.forEach(s => {
+    const acts = P.ACTIONS.filter(a => a.section === s.id && (matches(a.words) || EXC.some(x => x.action === a.id && matches(x.name))));
+    const later = P.LATER.filter(l => l.section === s.id && matches(l.words));
+    if (q && !acts.length && !later.length) return;
+    const n = P.ACTIONS.filter(a => a.section === s.id).length + P.LATER.filter(l => l.section === s.id).length;
+    const nx = EXC.filter(x => P.ACTIONS.some(a => a.id === x.action && a.section === s.id)).length;
+    const open = !!(OPEN[s.id] || q);
+    html += `<div class="card" data-section="${s.id}"><button type="button" class="sh" data-open="${s.id}" aria-expanded="${open}">
+      <b>${esc(s.label)}</b><small>${n ? n + ' action' + (n === 1 ? '' : 's') : 'Nothing to set here yet'}${nx ? ' · ' + nx + ' exception' + (nx === 1 ? '' : 's') : ''}</small><span aria-hidden="true">${open ? '⌃' : '⌄'}</span></button>
+      ${open ? acts.map(actionHtml).join('') + later.map(l => `<div class="act"><h3>${esc(l.words)}</h3><p class="why">${esc(l.where)}. <span class="pill soon">Set in code today: moves here later</span></p><p class="why">Today: ${esc(l.today)}.</p></div>`).join('') : ''}
+    </div>`;
+  });
+  P.READ_ONLY.forEach(r => {
+    if (q && !matches(r.label)) return;
+    html += `<div class="card"><div class="sh" style="cursor:default"><b>${esc(r.label)}</b><small><span class="pill ro">Not set here</span></small></div>
+      <div class="fixed">${esc(r.words)} <a href="${esc(r.where)}">Set on ${esc(r.whereWords)} ›</a></div></div>`;
+  });
+  $('main').innerHTML = html || '<div class="card empty">Nothing matches that.</div>';
+}
+
+function drawExceptions() {
+  const xs = EXC.filter(x => matches(x.name) || matches((P.action(x.action) || {}).words));
+  $('main').innerHTML = `<div class="card">${xs.length ? xs.map(x => `<div class="row">
+      <span><b>${esc(x.name || x.memberId)}</b></span>
+      <span>${esc((P.action(x.action) || {}).words || x.action)}</span>
+      <span>${esc(x.why || '')}</span>
+      <span>${esc(x.byName || '')}<small>${esc(String(x.at || '').slice(0, 10))} · ${untilWords(x)}</small></span>
+      <button type="button" class="btn" data-remove="${esc(x._id)}">Remove</button></div>`).join('') : '<div class="empty">No exceptions. Add one under an action, in By section.</div>'}</div>`;
+}
+
+function drawHistory() {
+  $('main').innerHTML = `<div class="card">${LOG.length ? LOG.map(l => `<div class="row" style="grid-template-columns:1fr 2fr 1fr">
+      <span>${esc(String(l.at || '').slice(0, 16).replace('T', ' '))}</span>
+      <span>${esc(l.change === 'ticks' ? 'Changed who may: ' : l.change === 'added' ? 'Added ' + (l.name || '') + ': ' : 'Removed ' + (l.name || '') + ': ')}${esc((P.action(l.action) || {}).words || l.action)}</span>
+      <span>${esc(l.byName || '')}</span></div>`).join('') : '<div class="empty">No changes yet.</div>'}</div>`;
+}
+
+const me = () => ({ uid: EGBCAuth.user().uid, name: (EGBCAuth.profile() || {}).name || '' });
+async function logIt(entry) {
+  const m = me();
+  const row = Object.assign({ at: new Date().toISOString(), by: m.uid, byName: m.name }, entry);
+  await db.collection('permissionsLog').add(row);
+  LOG.unshift(row);   /* shown at once, not only after the next Save */
+}
+
+document.addEventListener('change', (e) => {
+  const t = e.target; if (!t.dataset || !t.dataset.act) return;
+  const id = t.dataset.act, f = t.dataset.f, v = t.dataset.v;
+  DRAFT.actions = DRAFT.actions || {};
+  const r = Object.assign({}, rule(id));
+  if (f === 'leaders') r.leaders = t.checked;
+  else r[f] = t.checked ? [...new Set(r[f].concat([v]))] : r[f].filter(x => x !== v);
+  DRAFT.actions[id] = r;
+  $('saveBar').hidden = !changed();
+});
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.view) { VIEW = b.dataset.view; return draw(); }
+  if (b.dataset.open) { OPEN[b.dataset.open] = !OPEN[b.dataset.open]; return draw(); }
+  if (b.dataset.add) { const f = document.querySelector(`[data-addform="${b.dataset.add}"]`); f.hidden = !f.hidden; if (!f.hidden) f.querySelector('input').focus(); return; }
+  if (b.dataset.addgo) return addException(b.dataset.addgo);
+  if (b.dataset.remove) return removeException(b.dataset.remove);
+  if (b.id === 'cancel') { DRAFT = JSON.parse(JSON.stringify(PERMS)); return draw(); }
+  if (b.id === 'save') return save();
+});
+$('q').addEventListener('input', () => draw());
+
+async function save() {
+  const problems = P.validate(DRAFT);
+  if (problems.length) { alert(problems.join('\n')); return; }
+  const m = me();
+  try {
+    await db.collection('churchSettings').doc('permissions').set({ actions: DRAFT.actions || {}, updatedAt: new Date().toISOString(), updatedBy: m.uid });
+    for (const a of P.ACTIONS) {
+      const before = JSON.stringify(P.ruleFor(PERMS, a.id)), after = JSON.stringify(P.ruleFor(DRAFT, a.id));
+      if (before !== after) await logIt({ action: a.id, change: 'ticks', before, after });
+    }
+    PERMS = JSON.parse(JSON.stringify(DRAFT));
+    draw();
+  } catch (err) { console.error('permissions: could not save', err); alert('That did not save. Please try again.'); }
+}
+
+async function addException(id) {
+  const box = document.querySelector(`[data-addform="${id}"]`), msg = document.querySelector(`[data-addmsg="${id}"]`);
+  const name = box.querySelector('[data-p=name]').value.trim(), until = box.querySelector('[data-p=until]').value, why = box.querySelector('[data-p=why]').value.trim();
+  const person = BOOK.find(p => p.name.toLowerCase() === name.toLowerCase());
+  const say = (t, err) => { msg.textContent = t; msg.className = 'msg ' + (err ? 'err' : 'ok'); };
+  if (!person) return say('Choose somebody from the address book.', true);
+  if (until && until < today()) return say('The end date has already passed.', true);
+  if (EXC.some(x => x.action === id && x.memberId === person.id)) return say(person.name + ' already has this.', true);
+  /* Their sign-in, if they have one, so they can read their own exception. */
+  const u = await db.collection('users').where('memberId', '==', person.id).limit(1).get().then(s => s.docs[0] ? s.docs[0].id : '', () => '');
+  const m = me();
+  const x = { action: id, memberId: person.id, uid: u, name: person.name, by: m.uid, byName: m.name, at: new Date().toISOString(), until: until || '', why };
+  try {
+    await db.collection('permissionExceptions').doc(id + '_' + person.id).set(x);
+    await logIt({ action: id, change: 'added', memberId: person.id, name: person.name, before: null, after: until ? 'until ' + until : 'no end date' });
+    EXC.push(Object.assign({ _id: id + '_' + person.id }, x));
+    draw();
+  } catch (err) { console.error('permissions: could not add', err); say('That did not save. Please try again.', true); }
+}
+
+async function removeException(xid) {
+  const x = EXC.find(y => y._id === xid); if (!x) return;
+  if (!confirm('Take this away from ' + (x.name || 'them') + '?')) return;
+  try {
+    await db.collection('permissionExceptions').doc(xid).delete();
+    await logIt({ action: x.action, change: 'removed', memberId: x.memberId, name: x.name || '', before: x.until ? 'until ' + x.until : 'no end date', after: null });
+    EXC = EXC.filter(y => y._id !== xid);
+    draw();
+  } catch (err) { console.error('permissions: could not remove', err); alert('That did not save. Please try again.'); }
+}
+
+document.addEventListener('egbc-ready', load);
+</script>
+</body>
+</html>

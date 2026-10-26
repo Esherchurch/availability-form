@@ -5,9 +5,11 @@ match /b/{bucket}/o {
 match /churches/{cid} {
 /* Not signed in (only what is public to anybody), or this church in the claims. */
 function stGate() { return request.auth == null || cid in request.auth.token.churches; }
+function kbMayUpload() { return request.auth != null && 'kbUpload' in request.auth.token.get('perms', {}).get(cid, []); }
 match /kb/{page}/{fileName} {
 allow read: if stGate() && (true);
-allow write: if stGate() && (request.resource.size < 500 * 1024 * 1024
+allow write: if stGate() && (kbMayUpload()
+&& request.resource.size < 500 * 1024 * 1024
 && (request.resource.contentType.matches('video/.*')
 || request.resource.contentType.matches('image/.*')));
 allow delete: if stGate() && (false);

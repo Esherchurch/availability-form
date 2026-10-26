@@ -21,9 +21,17 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // ── Knowledge Base media ──────────────────────────────────────────
+    // WHO MAY UPLOAD HERE (FINDINGS-churchhq H-13, H-14). For EGBC: anyone,
+    // as today, until going live (GOING-LIVE.md: the original site's
+    // Troubleshoot page uploads without signing in). Every other church's
+    // ruleset (tools/rules-build.mjs) replaces this with the Permissions
+    // screen's answer, carried on the sign-in as perms.<church>.
+    function kbMayUpload() { return true; }
+
     match /kb/{page}/{fileName} {
       allow read: if true;
-      allow write: if request.resource.size < 500 * 1024 * 1024
+      allow write: if kbMayUpload()
+                   && request.resource.size < 500 * 1024 * 1024
                    && (request.resource.contentType.matches('video/.*')
                        || request.resource.contentType.matches('image/.*'));
       allow delete: if false;

@@ -14,6 +14,7 @@
 
    Add to the page:
      <script src="egbc-kbadmin.js" data-admin-team="AV Team"></script>
+     <script src="egbc-kbadmin.js" data-action="kbUpload"></script>   (H-14: the Permissions screen decides)
 
    data-admin-team may be a comma separated list, or "master" for pages only
    a master admin should manage.
@@ -29,10 +30,15 @@
   var script = document.currentScript;
   var want = (script && script.getAttribute('data-admin-team')) || 'master';
   var teams = want.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+  /* data-action (H-14, 26 Oct 2026): the Permissions screen decides, not a
+     team list here - kbUpload for the How-to, Play-Through, Troubleshoot and
+     Worship Training pages. */
+  var action = (script && script.getAttribute('data-action')) || '';
 
   function mayManage() {
     if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) return false;
     if (EGBCAuth.isMaster()) return true;
+    if (action) return !!(EGBCAuth.may && EGBCAuth.may(action));
     if (teams.length === 1 && teams[0] === 'master') return false;
     return teams.some(function (t) { return EGBCAuth.isAdminOf(t); });
   }
@@ -66,7 +72,7 @@
     window.toggleAdmin = function () {
       if (!mayManage()) {
         alert('Only the people who manage this area can edit it.\n\n' +
-              'If that should be you, ask a member of the Core Team.');
+              'If that should be you, ask a master admin' + (action ? ' (Church settings > Permissions).' : '.'));
         return;
       }
       if (typeof original === 'function') return original.apply(this, arguments);
@@ -88,6 +94,10 @@
      is known, in case that event fired before this file was listening. */
   document.addEventListener('egbc-ready', recheck);
   if (typeof EGBCAuth !== 'undefined' && EGBCAuth.optional) {
-    EGBCAuth.optional().then(recheck).catch(function () {});
+    EGBCAuth.optional().then(function () {
+      recheck();
+      /* The permissions arrive after the profile: ask again once they have. */
+      if (action && EGBCAuth.loadPerms) return EGBCAuth.loadPerms().then(recheck);
+    }).catch(function () {});
   }
 })();

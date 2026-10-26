@@ -2193,6 +2193,30 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('  each a list of teams', 'deny', () => setDoc(doc(as('martin'), 'churchSettings', 'teamJobs'), TJ({ office: 'Church office' })));
   await check('  up to 500 teams for one job', 'allow', () => setDoc(doc(as('martin'), 'churchSettings', 'teamJobs'), TJ({ buildings: Array.from({ length: 500 }, (_, i) => 'Site team ' + i) })));
   await check('  never more', 'deny', () => setDoc(doc(as('martin'), 'churchSettings', 'teamJobs'), TJ({ buildings: Array.from({ length: 501 }, (_, i) => 'Site team ' + i) })));
+  /* APPS AND DOWNLOADS (hubresources.html, 26 Oct 2026): read by anybody signed in, changed by master admins only. */
+  await check('APPS AND DOWNLOADS: a member reads the list', 'allow', () => getDoc(doc(as('samy'), 'hub_resources', 'r1')));
+  await check('  nobody signed out does', 'deny', () => getDoc(doc(anon(), 'hub_resources', 'r1')));
+  await check('  a member cannot change it', 'deny', () => setDoc(doc(as('samy'), 'hub_resources', 'r1'), { name: 'x', type: 'link', url: 'https://example.invalid' }));
+  await check('  nor an admin who is not a master', 'deny', () => setDoc(doc(as('karen'), 'hub_resources', 'r1'), { name: 'x', type: 'link', url: 'https://example.invalid' }));
+  await check('  a master admin can', 'allow', () => setDoc(doc(as('martin'), 'hub_resources', 'r1'), { name: 'x', type: 'link', url: 'https://example.invalid' }));
+  /* PERMISSIONS (H-14): the ticks, one exception, the history. */
+  const PM = (a) => ({ actions: { kbUpload: Object.assign({ jobs: [], coresOf: ['worship'], adminJobs: ['av', 'worship'], teams: [], leaders: false }, a || {}) }, updatedAt: 'x', updatedBy: 'u_martin' });
+  await check('PERMISSIONS: a master admin ticks who may upload', 'allow', () => setDoc(doc(as('martin'), 'churchSettings', 'permissions'), PM()));
+  await check('  anyone signed in reads the ticks (no names in them)', 'allow', () => getDoc(doc(as('samy'), 'churchSettings', 'permissions')));
+  await check('  an admin who is not a master cannot change them (answer 5)', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'permissions'), PM({ teams: ['Kids Church'] })));
+  await check('  only the actions the hub knows', 'deny', () => setDoc(doc(as('martin'), 'churchSettings', 'permissions'), { actions: { launchRockets: {} }, updatedAt: 'x', updatedBy: 'u_martin' }));
+  await check('  "leaders" is yes or no', 'deny', () => setDoc(doc(as('martin'), 'churchSettings', 'permissions'), PM({ leaders: 'yes' })));
+  const PX = (extra) => Object.assign({ action: 'kbUpload', memberId: 'm_u_samy', uid: 'u_samy', name: 'Samy', by: 'u_martin', byName: 'Martin', at: 'now', until: '2026-12-31', why: 'Runs the AV desk on Sundays' }, extra || {});
+  await check('  a master admin gives one person one action (an exception)', 'allow', () => setDoc(doc(as('martin'), 'permissionExceptions', 'kbUpload_m_u_samy'), PX()));
+  await check('  the person reads their own', 'allow', () => getDoc(doc(as('samy'), 'permissionExceptions', 'kbUpload_m_u_samy')));
+  await check('  nobody else does', 'deny', () => getDoc(doc(as('karen'), 'permissionExceptions', 'kbUpload_m_u_samy')));
+  await check('  nor gives one', 'deny', () => setDoc(doc(as('karen'), 'permissionExceptions', 'kbUpload_m_u_karen'), PX({ memberId: 'm_u_karen', by: 'u_karen' })));
+  await check('  one per person per action: the id says which', 'deny', () => setDoc(doc(as('martin'), 'permissionExceptions', 'something_else'), PX()));
+  await check('  an end date is a date, or none', 'deny', () => setDoc(doc(as('martin'), 'permissionExceptions', 'kbUpload_m_u_samy'), PX({ until: 'Easter' })));
+  await check('  none is fine (answer 3)', 'allow', () => setDoc(doc(as('martin'), 'permissionExceptions', 'kbUpload_m_u_samy'), PX({ until: '' })));
+  await check('  every change is kept, by a master admin', 'allow', () => setDoc(doc(as('martin'), 'permissionsLog', 'l1'), { at: 'now', by: 'u_martin', byName: 'Martin', action: 'kbUpload', change: 'added', memberId: 'm_u_samy', name: 'Samy', before: null, after: 'until 2026-12-31' }));
+  await check('  and never altered', 'deny', () => setDoc(doc(as('martin'), 'permissionsLog', 'l1'), { at: 'now', by: 'u_martin', byName: 'Martin', action: 'kbUpload', change: 'removed', memberId: 'm_u_samy', name: 'Samy', before: null, after: null }));
+  await check('  nor read by anyone but master admins', 'deny', () => getDoc(doc(as('karen'), 'permissionsLog', 'l1')));
 }
 
 // ── GIVING ── the church's bank details (Martin, 12 Oct 2026)

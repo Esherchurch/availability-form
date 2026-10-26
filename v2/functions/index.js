@@ -649,6 +649,25 @@ const beforeOf = (event) => event.data.before && event.data.before.exists ? even
 const COVERS = makeCoverTriggers(twins);
 export const [coversOnUser, coversOnUserChurch] = COVERS.user;
 export const [coversOnTeam, coversOnTeamChurch] = COVERS.team;
+
+/* WHO MAY DO WHAT (H-14): each person's permissions on their sign-in, for
+   the Storage rules (functions/permissions.js). */
+const permsToday = () => londonDay(new Date());
+export const [permsOnSettings, permsOnSettingsChurch] = twins(onDocumentWritten, 'churchSettings/{id}', async (ch, event) => {
+  if (!['permissions', 'teamJobs'].includes(event.params.id)) return;
+  return Perms.syncAll({ db: ch.db, auth: getAuth(), cid: ch.id, today: permsToday() });
+});
+export const [permsOnException, permsOnExceptionChurch] = twins(onDocumentWritten, 'permissionExceptions/{id}', async (ch, event) =>
+  Perms.syncException({ db: ch.db, auth: getAuth(), cid: ch.id, before: beforeOf(event), after: afterOf(event), today: permsToday() }));
+export const [permsOnUser, permsOnUserChurch] = twins(onDocumentWritten, 'users/{uid}', async (ch, event) => {
+  if (!Perms.userChangeMatters(beforeOf(event), afterOf(event))) return;
+  return Perms.syncUser({ db: ch.db, auth: getAuth(), cid: ch.id, uid: event.params.uid, today: permsToday() });
+});
+export const permsDaily = onSchedule(
+  { schedule: '15 6 * * *', timeZone: 'Europe/London', retryCount: 2 },
+  async () => { await eachChurch(db, async (ch) => Perms.runDaily({ db: ch.db, auth: getAuth(), cid: ch.id, today: permsToday(),
+    notify: async (o) => Notify.send(await notifyDeps({ db: ch.db }), o) })); }
+);
 const afterOf = (event) => event.data.after && event.data.after.exists ? event.data.after.data() : null;
 
 export const [bookingNotify, bookingNotifyChurch] = twins(onDocumentUpdated, 'bookings/{key}', async (ch, event) => {
@@ -807,6 +826,7 @@ export { hqMembershipClaims, hqMyChurches } from './hq-directory.js';
 /* The hub's address, made from the church's short name (hub-address.js). */
 export { hubAddress, hqSlugCheck } from './hub-address.js';
 import { makeCoverTriggers } from './core-teams.js';
+import * as Perms from './permissions.js';
 /* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */
 export { welcomeSubscriber, welcomeNewcomer } from './welcome-mail.js';
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */
