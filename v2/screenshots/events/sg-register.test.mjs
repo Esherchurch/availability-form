@@ -209,6 +209,26 @@ try {
   await go(L, 'safeguarding.html', '#riskRegLink');
   ok('7. SAFEGUARDING: the lead has "Safeguarding risk register"', await L.$eval('#riskRegLink', e => e.getAttribute('href') === 'safeguarding-risk.html'));
 
+  /* 8. LOOK AT IT AGAIN (S5): an incident, linked by the lead to its activity, prompts that activity's risks */
+  await readDb(async (db) => {
+    await setDoc(doc(db, 'calEvents', 'ev_reg_inc'), { title: 'Juniors outing (invented)', status: 'confirmed', visibility: 'public', audience: ['public'], startLocal: '2026-10-20T10:00', startUtc: 1792483200000, location: { kind: 'site', siteId: 'site_t' }, teams: [], createdBy: 'x' });
+    await setDoc(doc(db, 'incidents', 'inc_reg_1'), { calEventId: 'ev_reg_inc', siteId: 'site_t', happenedAt: new Date().toISOString(), people: 'A child (invented)', what: 'Grazed knee on the climbing frame (invented)', firstAid: false, parentInformed: true, reportedBy: 'x', reportedByName: 'x', createdAt: new Date().toISOString() });
+  });
+  await go(L, 'safeguarding-risk.html?tab=risks', '#incLinkCard');
+  const il = await text(L, '#incLinkCard');
+  ok('8. INCIDENTS TO LINK: the lead sees this year’s, by date and event only - never what happened or who', /Juniors outing \(invented\)/.test(il) && !/Grazed knee|A child/.test(il), il);
+  await L.select('[data-inc="inc_reg_1"] [data-incact]', juniorsId);
+  await tap(L, '[data-inc="inc_reg_1"] [data-inclink]');
+  const linked = await until(async () => { const i = await readDb(async (db) => (await getDoc(doc(db, 'incidents', 'inc_reg_1'))).data()); return i && i.activityId === juniorsId ? i : null; });
+  ok('   linked: the incident keeps the activity, and nothing else changes', !!linked && linked.what === 'Grazed knee on the climbing frame (invented)', J(linked && linked.activityId));
+  const pr = await until(async () => { const t = await text(L, `[data-risk="${target.id}"]`); return /Review prompted: an incident on \d{4}-\d{2}-\d{2}/.test(t) ? t : null; }, 30000);
+  ok('   THE JUNIORS RISK SAYS "Review prompted: an incident on <date>" (it was last reviewed before it)', !!pr, await text(L, `[data-risk="${target.id}"]`));
+  ok('   and the warnings count it, amber', !!(await readDb(async (db) => ((await getDoc(doc(db, 'sgWarnings', 'site_t'))).data().items || []).find((i) => i.id === 'reviewIncident' && i.level === 'amber'))));
+  await tap(L, `[data-edit="${target.id}"]`); await L.waitForSelector('#eSave');
+  await tap(L, '#eSave');
+  const gone = await until(async () => { const t = await text(L, `[data-risk="${target.id}"]`); return /Review prompted/.test(t) ? null : t; }, 30000);
+  ok('   REVIEWED (saved again): the prompt goes', !!gone, await text(L, `[data-risk="${target.id}"]`));
+
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

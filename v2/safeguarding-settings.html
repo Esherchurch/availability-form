@@ -285,6 +285,9 @@
                 '<label class="check" style="font-weight:400"><input type="checkbox" id="notedAbroad"' + (n.abroad ? ' checked' : '') + '> Anything overseas</label>' +
                 '<label class="check" style="font-weight:400"><input type="checkbox" id="notedAdv"' + (n.adventurous ? ' checked' : '') + '> Anything with water, heights or other adventurous activities</label>' +
                 '<p class="hint" style="margin:6px 0 0">A trustee records it from the register’s Events. It never stops an event.</p></div>'; })() +
+            /* when a group's size changes enough that its standing risks are looked at again (S5; Martin: a quarter) */
+            '<div class="field"><label>Look at a group’s risks again when its size changes by</label>' + num('resizePct', R.resizePct || 25, 100) + ' % or more since they were last reviewed' +
+              '<p class="hint" style="margin:6px 0 0">An incident linked to the activity prompts it too.</p></div>' +
             /* how long a church leader's reference and the confidential declaration count (S3) */
             '<div class="field"><label>References and declarations count for</label>' + num('refYears', R.referenceYears || 3, 10) + ' years' +
               '<p class="hint" style="margin:6px 0 0">A church leader’s reference and the confidential declaration, recorded under each leader’s checks.</p></div>' +
@@ -374,6 +377,7 @@
       if (gUrl && !/^https:\/\/[^\s"<>]+$/.test(gUrl)) { toast('The guidance’s web address must start https://'); return; }
       d.register.guidance = { name: gName, url: gUrl };
       d.register.referenceYears = Math.max(1, nv('refYears', 3, 10));
+      d.register.resizePct = Math.max(1, nv('resizePct', 25, 100));
       if (document.getElementById('notedSet')) d.register.noted = { kinds: [].slice.call(document.querySelectorAll('[data-notedkind]')).filter(function (b) { return b.checked; }).map(function (b) { return b.getAttribute('data-notedkind'); }),
         abroad: !!document.getElementById('notedAbroad').checked, adventurous: !!document.getElementById('notedAdv').checked };
       d.register.leadTitle = ((document.getElementById('leadTitle') || {}).value || '').replace(/\s+/g, ' ').trim().slice(0, 60);

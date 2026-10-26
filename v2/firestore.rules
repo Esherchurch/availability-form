@@ -2531,7 +2531,9 @@ service cloud.firestore {
                     && exists(/databases/$(database)/documents/sgActivities/$(request.resource.data.get('activityId', '-')))
                     && get(/databases/$(database)/documents/sgActivities/$(request.resource.data.activityId)).data.siteId == request.resource.data.siteId
                     && request.resource.data.keys().hasOnly(['siteId', 'activityId', 'risk', 'who', 'l', 'i', 'controls', 'ownerName', 'reviewDue', 'rl', 'ri',
-                                                             'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo'])
+                                                             'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo', 'sizeAtReview'])
+                    // S5: the group's size when the risk was last reviewed (a count), to prompt another look if it changes a lot
+                    && (request.resource.data.get('sizeAtReview', 0) is int && request.resource.data.get('sizeAtReview', 0) >= 0)
                     // STILL TO DO (Derby's steps 4 and 5; S4): up to 50 (what a record holds; T.MAX_TODO), each what, who and by when
                     && request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 50
                     && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
@@ -2762,7 +2764,7 @@ service cloud.firestore {
     function incidentShape() {
       let d = request.resource.data;
       return d.keys().hasOnly(['calEventId', 'siteId', 'happenedAt', 'people', 'what', 'firstAid', 'firstAidBy',
-                               'parentInformed', 'informedBy', 'informedAt', 'followUp', 'reportedBy', 'reportedByName', 'createdAt'])
+                               'parentInformed', 'informedBy', 'informedAt', 'followUp', 'reportedBy', 'reportedByName', 'createdAt', 'activityId'])
              && d.calEventId is string && d.calEventId != ''
              && d.what is string && d.what.size() > 0 && d.what.size() <= 4000
              && d.siteId == get(/databases/$(database)/documents/calEvents/$(d.calEventId)).data.get('location', {}).get('siteId', '');
@@ -2774,7 +2776,11 @@ service cloud.firestore {
                     && incidentShape() && request.resource.data.reportedBy == request.auth.uid;
       // The lead adds the follow-up; what was reported stays as it was.
       allow update: if (isMaster() || sgLeadOf(resource.data.siteId)) && incidentShape()
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followUp']);
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followUp', 'activityId'])
+                    // S5: the lead links it to one of the register's activities on this site, so that activity's risks are looked at again
+                    && (request.resource.data.get('activityId', '') == ''
+                        || (exists(/databases/$(database)/documents/sgActivities/$(request.resource.data.activityId))
+                            && get(/databases/$(database)/documents/sgActivities/$(request.resource.data.activityId)).data.siteId == resource.data.siteId));
       allow delete: if false;
     }
 

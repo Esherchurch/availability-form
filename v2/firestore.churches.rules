@@ -1187,7 +1187,8 @@ allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 && exists(/databases/$(database)/documents/churches/$(cid)/sgActivities/$(request.resource.data.get('activityId', '-')))
 && get(/databases/$(database)/documents/churches/$(cid)/sgActivities/$(request.resource.data.activityId)).data.siteId == request.resource.data.siteId
 && request.resource.data.keys().hasOnly(['siteId', 'activityId', 'risk', 'who', 'l', 'i', 'controls', 'ownerName', 'reviewDue', 'rl', 'ri',
-'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo'])
+'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo', 'sizeAtReview'])
+&& (request.resource.data.get('sizeAtReview', 0) is int && request.resource.data.get('sizeAtReview', 0) >= 0)
 && request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 50
 && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
 && sgOneToFive(request.resource.data.l) && sgOneToFive(request.resource.data.i)
@@ -1354,7 +1355,7 @@ allow delete: if false;
 function incidentShape() {
 let d = request.resource.data;
 return d.keys().hasOnly(['calEventId', 'siteId', 'happenedAt', 'people', 'what', 'firstAid', 'firstAidBy',
-'parentInformed', 'informedBy', 'informedAt', 'followUp', 'reportedBy', 'reportedByName', 'createdAt'])
+'parentInformed', 'informedBy', 'informedAt', 'followUp', 'reportedBy', 'reportedByName', 'createdAt', 'activityId'])
 && d.calEventId is string && d.calEventId != ''
 && d.what is string && d.what.size() > 0 && d.what.size() <= 4000
 && d.siteId == get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(d.calEventId)).data.get('location', {}).get('siteId', '');
@@ -1364,7 +1365,10 @@ allow read: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(res
 allow create: if (isMaster() || sgLeadOf(request.resource.data.siteId) || isEventLeader(request.resource.data.calEventId))
 && incidentShape() && request.resource.data.reportedBy == request.auth.uid;
 allow update: if (isMaster() || sgLeadOf(resource.data.siteId)) && incidentShape()
-&& request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followUp']);
+&& request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followUp', 'activityId'])
+&& (request.resource.data.get('activityId', '') == ''
+|| (exists(/databases/$(database)/documents/churches/$(cid)/sgActivities/$(request.resource.data.activityId))
+&& get(/databases/$(database)/documents/churches/$(cid)/sgActivities/$(request.resource.data.activityId)).data.siteId == resource.data.siteId));
 allow delete: if false;
 }
 match /concerns/{concernId} {

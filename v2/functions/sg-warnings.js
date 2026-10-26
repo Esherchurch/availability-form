@@ -44,7 +44,8 @@ export function londonDay(at = new Date()) {
 async function settingsOf(dbi) {
   const s = (await dbi.collection('safeguardingSettings').doc('defaults').get()).data() || {};
   return { ratioAll: s.ratioAll || 5, ratioUnder8: s.ratioUnder8 || 4, dbsYears: s.dbsYears || 3, trainingYears: s.trainingYears || 3,
-    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, referenceYears: ((s.register || {}).referenceYears) || 3, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders', minCover: ((s.register || {}).minCover) || 0, noted: ((s.register || {}).noted) || null };
+    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, referenceYears: ((s.register || {}).referenceYears) || 3, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders', minCover: ((s.register || {}).minCover) || 0, noted: ((s.register || {}).noted) || null,
+    resizePct: ((s.register || {}).resizePct) || 25 };
 }
 const rows = (q) => q.get().then((s) => s.docs.map((d) => Object.assign({ id: d.id }, d.data())), () => []);
 
@@ -131,12 +132,23 @@ export async function siteWarnings({ db: dbi, siteId, today, review }) {
     got.forEach((d) => { if (d.exists) checks[d.id] = d.data(); });
   }
   const gs = groups.map((g) => ({ id: g.id, name: String(g.name || 'A group').slice(0, 80), ratio: g.ratio, leaderIds: g.leaderIds || [] }));
+  /* LOOK AT IT AGAIN (S5): the incidents (when, and the activity the lead linked each to - nothing else), and each linked group's size now */
+  let incidentRows = null;
+  try { incidentRows = await must(dbi.collection('incidents').where('siteId', '==', siteId)); } catch (e) { incidentRows = null; }
+  const sizes = {};
+  const kidsCount = {}; children.forEach((c) => { if (c.groupId) kidsCount[c.groupId] = (kidsCount[c.groupId] || 0) + 1; });
+  for (const a of activities) {
+    const l = a.link || {};
+    if (l.type === 'kidsGroup' && l.id) sizes[a.id] = kidsCount[l.id] || 0;
+    else if (l.type === 'smallGroup' && l.id) { const g = (await dbi.collection('smallGroups').doc(l.id).get().catch(() => null)); if (g && g.exists && Number.isInteger(g.data().memberCount)) sizes[a.id] = g.data().memberCount; }
+  }
   const consent = children.map((c) => ({ groupId: c.groupId, consentUntil: c.consentUntil || '' }));
   const w = Core.warningsFrom({ today, settings: st,
     activities: activities.map((a) => ({ id: a.id, link: a.link || {} })),
     groups: gs, childrenIn, leadersIn, events, leaderMids, checks, consent,
     hirers: hirers.map((h) => ({ withChildren: true, documents: (h.documents || []).map((x) => ({ kind: x.kind, expires: x.expires || '' })), booked: !!h.booked })),
-    risks: risks.map((r) => ({ id: r.id, activityId: r.activityId, reviewDue: r.reviewDue || '', status: r.status })) });
+    risks: risks.map((r) => ({ id: r.id, activityId: r.activityId, reviewDue: r.reviewDue || '', status: r.status, reviewedAt: r.updatedAt || '', sizeAtReview: r.sizeAtReview })),
+    incidents: (incidentRows || []).map((i) => ({ activityId: i.activityId || '', created: String(i.createdAt || i.happenedAt || '') })), sizes });
 
   /* THE DIALS */
   const prev = (await dbi.collection('sgDashboard').doc(siteId).get().catch(() => null));
@@ -147,12 +159,12 @@ export async function siteWarnings({ db: dbi, siteId, today, review }) {
   kidsToday.forEach((c) => { if (c.groupId) (todays[c.groupId] = todays[c.groupId] || { groupId: c.groupId, day: today, children: 0, leaders: 0 }).children++; });
   leadToday.forEach((l) => { if (todays[l.groupId]) todays[l.groupId].leaders++; });
   /* incidents: only when each was made and whether it has a follow-up */
-  const incidents = await must(dbi.collection('incidents').where('siteId', '==', siteId))
+  const incidents = await (incidentRows ? Promise.resolve(incidentRows) : Promise.reject(new Error('unread')))
     .then((x) => x.map((i) => ({ created: String(i.createdAt || i.happenedAt || '').slice(0, 10), followed: !!String(i.followUp || '').trim() })), () => { unread.incidents = 'Not a zero: the incidents could not be read just now.'; return []; });
   const d = Core.dialsFrom({ today, settings: st, leaderMids, checks, groups: gs, sessions: (hist || []).concat(Object.values(todays)), consent,
     assess: events.filter((e) => e.needsSignoff && Core.daysTo(today, e.day) >= 0).map((e) => ({ signed: e.signedOff })),
     review: review || (await reviewNow(dbi, today)), incidents, unread });
-  return { items: w.items, controls: w.controls, dash: Object.assign(d, { hist: hist || [], histDay: hist ? today : '' }) };
+  return { items: w.items, controls: w.controls, prompts: w.prompts, sizes, dash: Object.assign(d, { hist: hist || [], histDay: hist ? today : '' }) };
 }
 
 export async function runSgWarnings({ db: dbi, at = new Date(), siteIds }) {
@@ -161,7 +173,7 @@ export async function runSgWarnings({ db: dbi, at = new Date(), siteIds }) {
   const done = [], review = await reviewNow(dbi, today);
   for (const siteId of ids) {
     const w = await siteWarnings({ db: dbi, siteId, today, review });
-    await dbi.collection('sgWarnings').doc(siteId).set({ siteId, items: w.items.slice(0, 500), controls: w.controls, today, at: at.toISOString() });
+    await dbi.collection('sgWarnings').doc(siteId).set({ siteId, items: w.items.slice(0, 500), controls: w.controls, prompts: w.prompts || {}, sizes: w.sizes || {}, today, at: at.toISOString() });
     await dbi.collection('sgDashboard').doc(siteId).set({ siteId, dials: w.dash.dials, sessions: w.dash.sessions, consentByGroup: w.dash.consentByGroup,
       review: { done: review.done, of: review.of, status: review.status, due: review.due, items: review.items },
       hist: w.dash.hist, histDay: w.dash.histDay, today, at: at.toISOString() });

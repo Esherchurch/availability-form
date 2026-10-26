@@ -1105,6 +1105,15 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('an ordinary admin cannot read the incident log', 'deny', () => q(ella(), 'incidents', 'siteId', 'site_kids'));
   await check('a member cannot read it', 'deny', () => getDoc(doc(as('samy'), 'incidents', 'inc_1')));
   await check('the lead adds a follow-up', 'allow', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { followUp: 'Parent spoken to the next day' }));
+  /* S5: the lead links an incident to one of the register's activities, so its risks are looked at again */
+  await env.withSecurityRulesDisabled(async (c) => { const d = c.firestore();
+    await setDoc(doc(d, 'sgActivities', 'act_kids_s5'), { siteId: 'site_kids', kind: 'sunday', name: 'Juniors (invented)', link: {}, active: true });
+    await setDoc(doc(d, 'sgActivities', 'act_test_s5'), { siteId: 'site_test', kind: 'sunday', name: 'Elsewhere (invented)', link: {}, active: true }); });
+  await check('S5: THE LEAD LINKS AN INCIDENT TO THE ACTIVITY IT HAPPENED IN', 'allow', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { activityId: 'act_kids_s5' }));
+  await check('  not to another site’s activity', 'deny', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { activityId: 'act_test_s5' }));
+  await check('  nor to one that doesn’t exist', 'deny', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { activityId: 'act_none' }));
+  await check('  the event’s leader can’t link it', 'deny', () => updateDoc(doc(leo(), 'incidents', 'inc_2'), { activityId: 'act_kids_s5' }));
+  await check('  and what was reported still can’t change', 'deny', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { activityId: 'act_kids_s5', what: 'Something else' }));
   await check('what was reported cannot be changed, even by the lead', 'deny', () => updateDoc(doc(lena(), 'incidents', 'inc_2'), { what: 'Something else' }));
   await check('an incident cannot be deleted, even by a master admin', 'deny', () => deleteDoc(doc(as('martin'), 'incidents', 'inc_1')));
 
@@ -4742,6 +4751,8 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  ratings 1 to 5 only', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_4'), RSK('u_sgr_lead', { l: 6 })));
   await check('  the risk in 200 characters at most', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_5'), RSK('u_sgr_lead', { risk: 'x'.repeat(201) })));
   const TODO = (n) => Array.from({ length: n }, (x, i) => ({ what: 'Book the lifeguard ' + i, who: 'The leader', by: '2026-12-01', done: false }));
+  await check('S5: a standing risk keeps the group’s size when it was last reviewed', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_size'), RSK('u_sgr_lead', { sizeAtReview: 12 })));
+  await check('  a count, never less than nothing', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_size'), RSK('u_sgr_lead', { sizeAtReview: -1 })));
   await check('S4: a standing risk keeps up to 50 things still to do (what a record holds; it was 5)', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(50) })));
   await check('  not 51', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(51) })));
   await check('  up to 50 controls (what a record holds, H-9)', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_6max'), RSK('u_sgr_lead', { controls: Array(50).fill({ kind: 'text', text: 'x' }) })));

@@ -184,6 +184,19 @@ r = W.warningsFrom(base({ events: [ev({ leaders: 3, day: '2026-11-01', flags: fl
 ok('both amber, with what to do: "2 still-to-do actions are past their date"; "Signed off, but the trustees have not noted it yet"', find(r, 'todoOverdue_ev_x') && /2 still-to-do actions are past their date\./.test(find(r, 'todoOverdue_ev_x').label) && /new date/.test(find(r, 'todoOverdue_ev_x').todo)
   && find(r, 'noted_ev_x') && find(r, 'noted_ev_x').level === 'amber' && /trustees have not noted it yet\./.test(find(r, 'noted_ev_x').label) && /noted/.test(find(r, 'noted_ev_x').todo), J(r.items));
 
+console.log('\n10. S5: look at a standing risk again - an incident on its activity since its last review; the group’s size changed a lot');
+const RR = (x) => W.reReview(Object.assign({ settings: {} }, x));
+const RK = (id, extra) => Object.assign({ id, activityId: 'act_j', status: 'open', reviewedAt: '2026-10-01T10:00:00Z', sizeAtReview: 12 }, extra || {});
+ok('an incident on the activity after the last review: prompted, with its date', J(RR({ risks: [RK('r1')], incidents: [{ activityId: 'act_j', created: '2026-10-05T09:00:00Z' }] })) === J({ r1: { incident: '2026-10-05', size: null } }));
+ok('   one before the last review, or on another activity, or not linked: none', J(RR({ risks: [RK('r1')], incidents: [{ activityId: 'act_j', created: '2026-09-30T09:00:00Z' }, { activityId: 'act_x', created: '2026-10-05T00:00:00Z' }, { activityId: '', created: '2026-10-05T00:00:00Z' }] })) === J({}));
+ok('   the same day, but after the review: prompted (the time counts, not just the day)', !!RR({ risks: [RK('r1')], incidents: [{ activityId: 'act_j', created: '2026-10-01T11:00:00Z' }] }).r1);
+ok('the group from 12 to 16 (a third): prompted; 12 to 14: not (the setting, a quarter)', J(RR({ risks: [RK('r1')], sizes: { act_j: 16 } })) === J({ r1: { incident: '', size: [12, 16] } }) && J(RR({ risks: [RK('r1')], sizes: { act_j: 14 } })) === J({}));
+ok('   a church’s own setting (10%): 12 to 14 is prompted', !!RR({ settings: { resizePct: 10 }, risks: [RK('r1')], sizes: { act_j: 14 } }).r1);
+ok('   no size kept at review, or a closed risk: none', J(RR({ risks: [RK('r1', { sizeAtReview: undefined }), RK('r2', { status: 'closed' })], sizes: { act_j: 40 }, incidents: [{ activityId: 'act_j', created: '2026-10-05T00:00:00Z' }] })) === J({ r1: { incident: '2026-10-05', size: null } }));
+r = W.warningsFrom(base({ risks: [RK('r1'), RK('r2', { activityId: 'act_k' })], incidents: [{ activityId: 'act_j', created: '2026-10-05T00:00:00Z' }], sizes: { act_k: 30 } }));
+ok('THE WARNINGS: one each, amber, counts only - "1 risk to look at again: an incident on that activity …", "… the group has changed size by 25% or more …"', find(r, 'reviewIncident') && find(r, 'reviewIncident').level === 'amber' && /^1 risk to look at again: an incident on that activity since it was last reviewed\.$/.test(find(r, 'reviewIncident').label)
+  && find(r, 'reviewSize') && /the group has changed size by 25% or more since it was last reviewed\./.test(find(r, 'reviewSize').label) && J(r.prompts) === J({ r1: { incident: '2026-10-05', size: null }, r2: { incident: '', size: [12, 30] } }), J(r.items));
+
 const passed = results.filter(Boolean).length;
 console.log('\n' + passed + '/' + results.length + ' passed');
 process.exit(passed === results.length ? 0 : 1);

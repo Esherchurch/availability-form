@@ -50,6 +50,23 @@ const WORSE = { red: 2, amber: 1 };
         leaderMids: [mid], checks: { mid: leaderChecks doc }, consent: [{ groupId, consentUntil }],
         risks: [{ id, activityId, reviewDue, status }],
         hirers: [{ withChildren, documents: [{ kind, expires }], booked }] - booked: a hire in the next 30 days } */
+/* LOOK AT A STANDING RISK AGAIN (S5): d.risks [{ id, activityId, status,
+   reviewedAt (when it was last saved, ISO), sizeAtReview }], d.incidents
+   [{ activityId, created (ISO) }], d.sizes { activityId: n }. -> { riskId:
+   { incident: the newest incident's date, or '', size: [was, now] or null } }.
+   Only when and how many: nothing of the incident itself. */
+function reReview(d) {
+  const pct = ((d.settings || {}).resizePct) || 25, out = {};
+  (d.risks || []).forEach((r) => {
+    if (r.status === 'closed' || !r.activityId) return;
+    const since = String(r.reviewedAt || '');
+    const inc = (d.incidents || []).filter((i) => i.activityId === r.activityId && i.created && (!since || String(i.created) > since)).map((i) => String(i.created)).sort().pop() || '';
+    const now = (d.sizes || {})[r.activityId], was = r.sizeAtReview;
+    const size = Number.isInteger(now) && Number.isInteger(was) && Math.abs(now - was) * 100 >= pct * Math.max(was, 1) ? [was, now] : null;
+    if (inc || size) out[r.id] = { incident: inc.slice(0, 10), size };
+  });
+  return out;
+}
 /* the paediatric first aider (the checklist's paedFirstAid): "No: ..." is a flag - amber, red when under-8s go */
 function paedLevel(answers, flags) { return /^No\b/i.test(String((answers || {}).paedFirstAid || '').trim()) ? ((flags || {}).under8 ? 'red' : 'amber') : ''; }
 
@@ -153,8 +170,18 @@ function warningsFrom(d) {
   if (late.length) add({ id: 'review', kind: 'review', level: 'amber', count: late.length, date: today, fix: 'safeguarding-risk.html', act: '',
     label: late.length + ' ' + s(late.length, 'risk is', 'risks are') + ' past ' + s(late.length, 'its', 'their') + ' review date.' });
 
+  /* 7. LOOK AT IT AGAIN (S5, F-280 10.5; Martin's answer 19): an incident on
+     the risk's activity since the risk was last reviewed, or the group's size
+     changed by a quarter or more (a setting) since then. Counts only. */
+  const prompts = reReview(d);
+  const pInc = Object.values(prompts).filter((p) => p.incident).length, pSize = Object.values(prompts).filter((p) => p.size).length;
+  if (pInc) add({ id: 'reviewIncident', kind: 'reviewIncident', level: 'amber', count: pInc, date: today, fix: 'safeguarding-risk.html?tab=risks', act: '',
+    label: pInc + ' ' + s(pInc, 'risk', 'risks') + ' to look at again: an incident on that activity since ' + s(pInc, 'it was', 'they were') + ' last reviewed.' });
+  if (pSize) add({ id: 'reviewSize', kind: 'reviewSize', level: 'amber', count: pSize, date: today, fix: 'safeguarding-risk.html?tab=risks', act: '',
+    label: pSize + ' ' + s(pSize, 'risk', 'risks') + ' to look at again: the group has changed size by ' + (((d.settings || {}).resizePct) || 25) + '% or more since ' + s(pSize, 'it was', 'they were') + ' last reviewed.' });
+
   items.sort((a, b) => WORSE[b.level] - WORSE[a.level] || String(a.date).localeCompare(String(b.date)));
-  return { items, controls };
+  return { items, controls, prompts };
 }
 
 /* TWO DAYS BEFORE (Martin, 22 Oct): a session still short of two adults (or of
@@ -294,4 +321,4 @@ function dialsFrom(d) {
   return { dials, sessions: sess.slice(0, 500), consentByGroup: Object.values(per).sort((a, b) => String(a.group).localeCompare(String(b.group))).slice(0, 500) };
 }
 
-module.exports = { warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS, hirerPolicyOk, paedLevel };
+module.exports = { reReview, warningsFrom, twoAdultsMails, fmt, plus, daysTo, dialsFrom, reviewFrom, thresholds, REVIEW_ITEMS, DIAL_DEFAULTS, hirerPolicyOk, paedLevel };

@@ -136,8 +136,31 @@
       '<div class="f" style="margin:0"><label for="newName">Name</label><input type="text" id="newName" maxlength="80" placeholder="e.g. Transport to the youth weekend" style="width:100%"></div></div>' +
       '<div class="row"><button class="btn" id="newGo">Add it</button></div></div>' : '';
     var printIt = ACTS.length ? '<p style="margin:0 0 12px"><a class="btn sec sm" id="printRisks" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="sg-print.html?register=' + encodeURIComponent(V.site) + '">Print / save as PDF</a></p>' : '';
-    app.innerHTML = head + printIt + body + add;
+    app.innerHTML = head + printIt + (keeps() && ACTS.length ? '<div id="incLink"></div>' : '') + body + add;
     wire();
+    if (keeps() && ACTS.length) drawIncidents();
+  }
+  /* INCIDENTS TO LINK (S5): this year's incidents at this site not yet linked to an activity. Only the date and the event's
+     title are shown here - never what happened or who (that stays on the event's own page). Linking one asks for that
+     activity's risks to be looked at again. */
+  function drawIncidents() {
+    var box = document.getElementById('incLink'), year = today().slice(0, 4);
+    return db().collection('incidents').where('siteId', '==', V.site).get().then(function (q) {
+      var list = q.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (i) { return !i.activityId && String(i.createdAt || i.happenedAt || '').slice(0, 4) === year; });
+      if (!list.length || !box) return;
+      return Promise.all(list.map(function (i) { return db().collection('calEvents').doc(i.calEventId).get().then(function (e) { i.evTitle = e.exists ? e.data().title : ''; }, function () {}); })).then(function () {
+        box.innerHTML = '<div class="card" id="incLinkCard"><h2>Incidents to link to an activity</h2><p class="hint" style="margin:4px 0 8px">Link each to the activity it happened in, so that activity’s risks are looked at again. Only the date and the event are shown here.</p>' +
+          list.map(function (i) { return '<div class="row" data-inc="' + esc(i.id) + '"><span>' + esc(String(i.createdAt || i.happenedAt || '').slice(0, 10)) + ' · ' + esc(i.evTitle || 'An event') + '</span>' +
+            '<select data-incact aria-label="The activity"><option value="">Choose the activity…</option>' + ACTS.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select>' +
+            '<button class="btn sec sm" data-inclink>Link</button></div>'; }).join('') + '<p class="hint" id="incMsg" role="status"></p></div>';
+        box.querySelectorAll('[data-inclink]').forEach(function (b) { b.onclick = function () {
+          var row = b.closest('[data-inc]'), act = row.querySelector('[data-incact]').value; if (!act) { row.querySelector('[data-incact]').focus(); return; }
+          b.disabled = true;
+          db().collection('incidents').doc(row.getAttribute('data-inc')).update({ activityId: act })
+            .then(function () { return EGBCAuth.call('sgWarningsNow', { siteId: V.site }).catch(function () {}); }).then(load, function (e) { b.disabled = false; document.getElementById('incMsg').textContent = 'Not linked: ' + (e.message || e); });
+        }; });
+      });
+    }, function () {});
   }
   function actCard(a) {
     var mine = RISKS.filter(function (r) { return r.activityId === a.id; });
@@ -158,11 +181,19 @@
     });
     return worst;
   }
+  /* LOOK AT IT AGAIN (S5): worked out by the server (sgWarnings.prompts) - an incident on its activity since it was last reviewed, or the group's size changed a lot */
+  function promptLine(r) {
+    var p = r.status !== 'closed' && W && W.prompts && W.prompts[r.id];
+    if (!p) return '';
+    return '<div class="meta" data-prompt>' + (p.incident ? '<span class="overdue" data-prompt-incident>Review prompted: an incident on ' + esc(p.incident) + '</span>' : '') +
+      (p.incident && p.size ? ' · ' : '') + (p.size ? '<span class="overdue" data-prompt-size>Review prompted: the group has gone from ' + p.size[0] + ' to ' + p.size[1] + ' since the last review</span>' : '') + '</div>';
+  }
   function riskRow(r) {
     var due = r.reviewDue || '', late = due && due < today() && r.status !== 'closed', sl = slipped(r);
     return '<div class="risk' + (r.status === 'closed' ? ' closed' : '') + '" data-risk="' + esc(r.id) + '"><div><b>' + esc(r.risk) + '</b>' +
       '<div class="meta">' + (r.who ? 'Who: ' + esc(r.who) + ' · ' : '') + 'Owner: ' + esc(r.ownerName || 'not named') + ' · ' + (due ? (late ? '<span class="overdue" data-overdue>Review overdue (' + esc(due) + ')</span>' : 'Review by ' + esc(due)) : 'No review date') + '</div>' +
       (sl ? '<div style="margin-top:6px"><span class="rag ' + sl + '" data-slipped="' + sl + '"><i aria-hidden="true"></i>A control has slipped: see Warnings</span></div>' : '') +
+      promptLine(r) +
       '<div class="chips">' + (r.controls || []).map(function (c) { return '<span class="chip' + (c.kind === 'text' ? ' text' : '') + '"' + (c.kind !== 'text' ? ' data-linked="' + esc(c.kind) + '" title="The hub watches this"' : '') + '>' + (c.kind !== 'text' ? '◉ ' : '') + esc(T.controlLabel(c)) + '</span>'; }).join('') + '</div>' +
       /* STILL TO DO (Derby's steps 4 and 5; S4) */
       ((r.todo || []).filter(function (t) { return t && t.what; }).length ? '<div class="meta" data-rtodos><b>Still to do:</b> ' + r.todo.filter(function (t) { return t && t.what; }).map(function (t) {
@@ -225,9 +256,11 @@
         return { what: g('what').value.trim().slice(0, 200), who: g('who').value.trim().slice(0, 80), by: g('by').value || '', done: !!g('done').checked }; }).filter(function (t) { return t.what; }).slice(0, T.MAX_TODO);
       if (todo.some(function (t) { return !t.done && (!t.who || !t.by); })) { msg.textContent = 'Give each thing still to do a person and a date.'; return; }
       doc.todo = todo;
+      /* S5: saving it is reviewing it - the group's size now, for "the group has changed a lot" next time */
+      if (W && W.sizes && Number.isInteger(W.sizes[actId])) doc.sizeAtReview = W.sizes[actId];
       var ref = r.id ? db().collection('sgRisks').doc(r.id) : db().collection('sgRisks').doc();
       q('eSave').disabled = true;
-      ref.set(doc).then(function () { close(); load(); }, function (e) { q('eSave').disabled = false; msg.textContent = 'It could not be saved: ' + (e.message || e); });
+      ref.set(doc).then(function () { close(); return EGBCAuth.call('sgWarningsNow', { siteId: V.site }).catch(function () {}); }).then(load, function (e) { q('eSave').disabled = false; msg.textContent = 'It could not be saved: ' + (e.message || e); });
     };
   }
   function todoLine(t) { t = t || {}; return '<div class="ctl" data-rtodo style="display:flex;gap:6px;flex-wrap:wrap"><input type="text" data-rt="what" maxlength="200" value="' + esc(t.what || '') + '" placeholder="Still to do" aria-label="Still to do" style="flex:2;min-width:150px">' +

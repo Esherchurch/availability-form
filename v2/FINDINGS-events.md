@@ -12227,3 +12227,50 @@ Each could use `myTeams()` (or `me().get('teams', []).concat(me().get('covers', 
 | the page says nothing when a risk is full | sg-register-unit 37/38 | "… the page says so when full" |
 
 **Deploy:** none (no function changed). The rules go live when the hub goes live.
+
+### F-290 — Safeguarding step 5: look at a standing risk again after an incident on its activity, or when its group's size changes a lot (F-280 10.5; Martin's answer 19) (the events window, 26 Oct)
+
+**Built:**
+- **Linking incidents to an activity.** Incidents are recorded on an event (safeguarding.html), and an event doesn't say which regular group it belongs to.
+  - **What the lead sees:** on the register's Standing risks tab, a box, "Incidents to link to an activity", for this year's incidents at the site not yet linked. Each has a list of the register's activities and a Link button.
+  - **Only the date and the event's title are shown.** Never what happened or who; that stays on the event's own page.
+  - **The rules:** the site's lead (or deputy) may set `activityId` on an incident, and only to an activity on the same site. What was reported still can't change. A leader can't link one.
+- **"Review prompted"** (worked out by the daily safeguarding check, functions/sg-warnings.js → `reReview()`):
+  - **An incident:** an incident linked to the risk's activity, newer than the risk's last review (when it was last saved; the time counts, not just the day). The risk shows "Review prompted: an incident on <date>".
+  - **The size:** the group's size changed by a quarter or more since the last review. The risk shows "Review prompted: the group has gone from 12 to 20 since the last review".
+    - The size is a kids group's registered children, or a small group's members.
+    - It is kept on the risk when it's reviewed (`sizeAtReview`).
+    - The quarter is a setting on Safeguarding settings, 25% unless changed.
+  - **Both are amber in the Warnings** (counts only): "1 risk to look at again: an incident on that activity since it was last reviewed", and the size one.
+  - **Reviewing the risk (saving it) clears the prompt.** The page asks the server to work the warnings out again straight away.
+- **Counts only throughout:** only an incident's date and its activity are used. Its words, its people and its follow-up are never read for this.
+
+**Breaks** (6, each caught):
+
+| Break | Test | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** an incident on the activity never prompts its risks | sg-register 30/32 | "THE JUNIORS RISK SAYS 'Review prompted …'"; "the warnings count it" |
+| any change in size prompts it (the setting ignored) | sg-warnings-unit 71/72 | "12 to 16: prompted; 12 to 14: not" |
+| the event's leader may link an incident | rules 1990/1993 | "the event's leader can't link it" and two more |
+| another site's activity may be linked | rules 1992/1993 | "not to another site's activity" |
+| the list of incidents to link shows what happened | sg-register 31/32 | "by date and event only - never what happened or who" |
+| a review never clears the prompt | sg-warnings-unit 71/72 | "one before the last review … none" |
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| sg-register | 32/32 (5 new) |
+| sg-dash | 45/45 |
+| e3-safeguarding | 38/38 |
+| sg-assess | 53/53 |
+| sg-warnings-unit | 72/72 (7 new) |
+| rules suite, EGBC | 1993/1993 (7 new) |
+| rules suite, as a church | 1983/1993 (the 10 by design) |
+| check-rules-build | 10/10 |
+
+**Headroom:** sg-headroom at least 20 in both rulesets; H-8 at least 80 (a four-part hall at least 40). Both unchanged.
+
+**For the synthetic parish:** after an accident at Junior Church, their parish safeguarding officer links it to Junior Church on the register. Junior Church's risks then show "Review prompted" until they are looked at again. So does a youth group that has grown from 12 to 20.
+
+**Deploy (the reviewing window's):** sgWarningsSync, sgWarningsNow (the prompts and sizes). The rules go live when the hub goes live.
