@@ -28,7 +28,7 @@ import { churchOf } from './church-scope.js';
 const REGION = 'europe-west2';
 export const HUB_DOMAIN = 'churchhq.co.uk';
 /* EGBC's address until it moves to churchhq.co.uk. The one place. */
-export const EGBC_HUB = 'https://esherchurch.github.io/availability-form/v2/';
+export const EGBC_HUB = 'https://egbc.churchhq.co.uk/';
 
 /* 3 to 40 characters: lowercase letters, numbers and single hyphens, not
    at either end. A slug is a web address's first part, so nothing else. */
