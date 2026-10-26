@@ -837,3 +837,53 @@ Listed by owning window, from today's code: calls to `inTeam`, `isLeaderOf`, `is
   - Rules 1947/1947; AS_CHURCH 1937/1947 (the 10 by design).
   - check-team-jobs 29/29 (breaks 4 and 2 red); check-team-jobs-screen 13/13; check-core-planner 73/73.
 - **For the synthetic parish:** "Ministry Team" ticked as core team for the Choir and Music group, and "Children's Ministry Team" for Junior Church and Messy Church. Each sees only its own. The PCC are the overall leaders and cover nothing.
+
+## H-16. One access matrix: who sees what, as the source of truth (26 Oct 2026; Martin: "can you check that the right things are for the right people across the hub? It isn't good I am finding these.")
+
+**Plan; the generator is being built next.** It comes before the meetings work (which folds into it), because it stops these bugs coming back.
+
+### What it is
+- **One table, made from the code itself:** every page, Menu entry, Home card, app space and app tab, and who reaches each.
+  - **People:** made-up people, one for each kind of person (below), signed in on the emulator. Nothing is guessed from reading the code.
+  - **For each person:**
+    - **Menu:** what `EGBCMenu.forPerson()` offers;
+    - **Home:** the hub's cards that draw;
+    - **App:** `EGBCApp.spacesFor()`, and each space's tabs;
+    - **Page:** each page opened; does its guard let them in, or put up the "not for you" card?
+- **The people (synthetic):**
+  - pending; attender; member on no team;
+  - a member, then a leader, of Kids Church and of Worship Team; an AV member;
+  - Worship Core Team; Kids & Youth Core Team;
+  - Church office; the overall leaders (Elders); the money team (Finance); the pastoral team;
+  - a safeguarding lead on no team; a site's bookings admin; a small group leader; a plan group leader;
+  - a master admin.
+- **Out:**
+  - `tools/access-matrix.mjs` writes `access-matrix.json` and **ACCESS-MATRIX.md**: a readable table for Martin, by Menu section. Rows are pages; columns are the people; each cell says ✓ (offered and let in), – (neither), **⚠ offered but refused**, or **◐ let in but not offered**.
+  - Every ⚠ is a bug by definition. Every ◐ is either a page reached from elsewhere (said so in the table) or a bug.
+- **Approved once:** Martin marks the table. The approved copy (`access-matrix.approved.json`) becomes the source of truth.
+- **The check:** `tests/check-access-matrix.mjs` builds it again and fails on any difference from the approved copy, and always on a ⚠. Breaks: a Menu entry opened to everyone; a page guard dropped; a Home card shown to everyone.
+- **Then the fixes, window by window,** each turning a row green:
+  - main: the Menu, the hub, the app, its own pages;
+  - the events window: the kids pages' and safeguarding's guards;
+  - Comms: its pages.
+- **The audit's 29 "access" reds** are this same question asked page by page, so they fold in here.
+- **Long term:** each row's rule moves onto the Permissions screen (H-14) as its action, where one fits.
+
+### Proposed changes, from the reviewing window's findings (each a row in the table, marked "proposed")
+1. **Meetings:** not offered to everyone (see the meetings plan: a non-admin sees only the meetings they're invited to; more is a permission; master admins see all).
+2. **The hub's PAGES `everyone: true`** goes from Worshipteamcharter, EGBC-PlayThrough, EGBC-Training-Worship, batchupload (Music Uploader), EGBC-HowTo-AV, EGBC-Troubleshoot-AV, Youthcharter, youthserviceplanner, stickynotes (done, 26 Oct), resources (Team Resources), videos (Team Videos) and meeting. These were the original portal's "everyone". In v2, sign-in level and teams decide.
+3. **Children's register and Sunday check-in:** for the Kids Church leads only (helpers see their own group's children, Karen's guide), in the Menu and in the pages' guards (the events window's pages).
+4. **Team Resources and Team Videos:** Worship & AV's only, if they're worship material (Martin to confirm).
+5. **The Availability form:** for every rota'd team member, not only core teams.
+
+### DECIDED by Martin (26 Oct 2026; in the table as decided, not proposed)
+- **Every member:** Maintenance (report a repair), My evacuation plan, Hire our rooms.
+- **Book a room:** core teams and team leaders only, not every member.
+- **Preaching plan:**
+  - **Assembled and edited** by the pastors and elders: the "leadership" job (EGBC: Elders) plus a "pastor/minister" role. The role is added if it is missing, and found through the jobs mapping (H-9), never by a team's name.
+  - **Seen, read-only,** by whoever may use the Rota planner.
+  - Nobody else.
+
+**Done separately, 26 Oct:** pin boards are each team's own (not whole-church; no fallback to Worship's; boards come from the teams, set on Teams & groups). The rules still map each board to EGBC's teams, so a board regrouped on Teams & groups is refused there until the rules learn the grouping (going live).
+
+**For the synthetic parish:** the same table, made for St Aidan's own teams. Its PCC, Junior Church and Ministry Team rows come from its Teams & groups, not EGBC's names.

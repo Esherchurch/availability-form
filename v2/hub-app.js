@@ -435,10 +435,11 @@ const CHARTER_DEFAULTS = {
 
 /* Write every charter we have text for, in one go, rather than making
    somebody switch teams and press the same button three times. */
-/* Some Worship pages are for the whole church - the pin board, the live rota.
+/* Some Worship pages are for the whole church - the live rota.
    They stay under Worship but need to reach everyone, which is the `everyone`
-   flag. */
-const SHARED_PAGES = ['view-only-rota.html', 'stickynotes.html', 'resources.html', 'trainingportalhub.html'];
+   flag. NOT the pin board (Martin, 26 Oct 2026: "pin board is showing for
+   everyone"): a board is for everyone on its team, and nobody else. */
+const SHARED_PAGES = ['view-only-rota.html', 'resources.html', 'trainingportalhub.html'];
 
 async function markSharedPages() {
   if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
@@ -1113,7 +1114,9 @@ function meetingForMe(ev) {
 }
 
 async function loadMeetings() {
-  if (!isVolunteer()) { UPCOMING = []; MEETINGS = []; return; }
+  /* The pin board card still draws (empty, with no board): its own rule
+     decides, not whether this person is on a rota. */
+  if (!isVolunteer()) { UPCOMING = []; MEETINGS = []; renderPinBoardCard().catch(e => console.error('Pin board card failed', e && e.message)); return; }
   try {
     if (window.EGBCVideo) await EGBCVideo.load();
     const today = new Date().toISOString().split('T')[0];
@@ -1221,16 +1224,17 @@ function renderMeetings() {
    board depends on the team, exactly as the pin board decides it: Worship
    Team, AV Team and Choir share one, Kids Church and Youth Worship have their
    own. */
-const PIN_BOARDS = [
-  { doc: 'state', title: 'Worship', teams: ['Worship Team', 'AV Team', 'Choir'] },
-  { doc: 'kids-church', title: 'Kids Church', teams: ['Kids Church'] },
-  { doc: 'youth', title: 'Youth', teams: ['Youth Worship'] }
-];
-
+/* THE BOARDS ARE THE TEAMS' (26 Oct 2026; Martin: "pin board is showing for
+   everyone"). EGBCAuth.myBoards(): the boards of this person's teams, the
+   ones they administer and the ones their core team covers - never a
+   fallback to Worship's for somebody on no team. Several: a chooser. */
+let PIN_CHOICE = null;
+function myPinBoards() { return (EGBCAuth.myBoards ? EGBCAuth.myBoards() : []); }
 function myPinBoard() {
-  const mine = myTeams();
-  return PIN_BOARDS.find(b => b.teams.some(t => mine.includes(t))) || PIN_BOARDS[0];
+  const all = myPinBoards();
+  return all.find(b => b.doc === PIN_CHOICE) || all[0] || null;
 }
+function choosePinBoard(doc) { PIN_CHOICE = doc; renderPinBoardCard(); }
 
 async function renderPinBoardCard() {
   const box = document.getElementById('pinBoardCard');
@@ -1238,6 +1242,9 @@ async function renderPinBoardCard() {
   /* Every card builder in this file keeps its own, at its own size. */
   const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
   const board = myPinBoard();
+  /* No board of your own: no card at all. */
+  if (!board) { box.innerHTML = ''; return; }
+  const boards = myPinBoards();
   let notes = [];
   try {
     const snap = await db.collection('worshipBoardState').doc(board.doc).get();
@@ -1257,7 +1264,7 @@ async function renderPinBoardCard() {
     const line = (n.title || (n.body || '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
     const when = n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-GB',
       { day: 'numeric', month: 'short' }) : '';
-    return `<a class="row" href="stickynotes.html" style="display:flex;gap:10px;align-items:baseline;padding:7px 0;text-decoration:none;color:inherit">
+    return `<a class="row" href="stickynotes.html?board=${encodeURIComponent(board.doc)}" style="display:flex;gap:10px;align-items:baseline;padding:7px 0;text-decoration:none;color:inherit">
         <span style="flex:1;min-width:0;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(line.slice(0, 90) || '(no title)')}</span>
         <span style="font-size:12px;color:var(--muted);flex:none">${esc(n.author || 'Anonymous')}${when ? ' &middot; ' + when : ''}</span>
       </a>`;
@@ -1267,10 +1274,13 @@ async function renderPinBoardCard() {
       <div class="ch">
         <div class="ic">${I('sticky-note', 18)}</div>
         <div style="flex:1;min-width:0"><h2>Pin board</h2>
-        <div class="sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(board.title)} &middot; anything anybody wants to raise</div></div>
+        <div class="sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${boards.length > 1
+          ? '<select aria-label="Which pin board" onchange="choosePinBoard(this.value)" style="font:inherit;border:1px solid var(--line);border-radius:8px;padding:2px 6px;max-width:100%">'
+            + boards.map(b => '<option value="' + esc(b.doc) + '"' + (b.doc === board.doc ? ' selected' : '') + '>' + esc(b.title) + '</option>').join('') + '</select>'
+          : esc(board.title)} &middot; anything anybody on the team wants to raise</div></div>
         <div class="sp">
-          <a class="btn sm" href="stickynotes.html?add=1">${I('plus', 15)}<span class="hide-sm">Add an idea</span></a>
-          <a class="btn sm ghost" href="stickynotes.html">Open the pin board</a>
+          <a class="btn sm" href="stickynotes.html?board=${encodeURIComponent(board.doc)}&add=1">${I('plus', 15)}<span class="hide-sm">Add an idea</span></a>
+          <a class="btn sm ghost" href="stickynotes.html?board=${encodeURIComponent(board.doc)}">Open the pin board</a>
         </div>
       </div>
       <div class="cb" style="padding-top:6px;padding-bottom:14px">
@@ -1386,7 +1396,7 @@ function navPlaces() {
    opens whichever this page actually has, rather than assuming. */
 function openMenuHere() {
   if (typeof openTools === 'function') { openTools(); return; }
-  if (window.EGBCShell && EGBCShell.openMenu) { openMenuHere(); return; }
+  if (window.EGBCShell && EGBCShell.openMenu) { EGBCShell.openMenu(); return; }
 }
 
 function renderNavigation() {
@@ -2465,7 +2475,7 @@ const REGISTRY = [
     description: 'How the youth team serve' },
   { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: 'â›ª', team: 'Youth Worship', everyone: true,
     description: 'Planning a youth-led service' },
-  { url: 'stickynotes.html', title: "Idea's pin board", icon: '\u{1F4CC}', team: 'Worship Team', everyone: true,
+  { url: 'stickynotes.html', title: "Idea's pin board", icon: '\u{1F4CC}', team: 'Worship Team',
     description: 'Song suggestions and ideas' },
   /* Not superseded by resources.html - this is where the phone apps are
      downloaded from, which is why worshiphubapp, CoreTeamApp, youthapp2

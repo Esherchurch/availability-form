@@ -3,11 +3,11 @@
 <head>
 <script src="egbc-board-phone.js?v=202610121900"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610262100" data-title="Ideas pin board"></script>
+<script src="egbc-shell.js?v=202610262330" data-title="Ideas pin board"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610262300"></script>
+<script src="egbc-auth.js?v=202610262330"></script>
 <script src="egbc-guard.js?v=202610221200" data-feature="pinBoards" data-any-team></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -645,9 +645,8 @@ let LOCAL_KEY = 'worshipBoard2';
    half-built, because a family rule computed two ways is a privacy hole
    waiting for the two to disagree. */
 function canSee(b) {
-  if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) {
-    return b.id === 'worship';
-  }
+  /* Not signed in: no board (26 Oct 2026; never Worship's as a default). */
+  if (typeof EGBCAuth === 'undefined' || !EGBCAuth.profile || !EGBCAuth.profile()) return false;
   if (EGBCAuth.isMaster()) return true;
   /* hasRole is "on the team OR administers it". A leaders-only board wants
      the second half only. */
@@ -777,7 +776,21 @@ document.addEventListener('click', e => {
   if (bin) return removeSuggestion(bin.dataset.bin);
 });
 
+/* THE BOARDS ARE THE TEAMS' (26 Oct 2026): from Teams & groups
+   (EGBCAuth.boards()), EGBC's grouping by default. The ids the app and the
+   hub link with are kept (state is "worship", and so on). */
+const BOARD_ID = { 'state': 'worship', 'kids-church': 'kids', 'core-team': 'core' };
+function boardsFromTeams() {
+  if (typeof EGBCAuth === 'undefined' || !EGBCAuth.boards) return;
+  const known = {}; BOARDS.forEach(b => { known[b.doc] = b; });
+  const fresh = EGBCAuth.boards().map(b => Object.assign({}, known[b.doc] || {}, {
+    id: BOARD_ID[b.doc] || b.doc, doc: b.doc, teams: b.teams, moderated: b.moderated,
+    title: (known[b.doc] && known[b.doc].title) || (b.title + ' Board'), sub: 'Suggestions &amp; Ideas' }));
+  BOARDS.length = 0; fresh.forEach(b => BOARDS.push(b));
+}
+
 function chooseBoard() {
+  boardsFromTeams();
   const mine = BOARDS.filter(b => canSee(b) || familyBoard(b));
   mine.forEach(b => { b.readOnly = !canSee(b); });
   const asked = new URLSearchParams(location.search).get('board');

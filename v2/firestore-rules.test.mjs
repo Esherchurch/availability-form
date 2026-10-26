@@ -3519,6 +3519,20 @@ await check('  nor a master admin', 'deny',
   () => deleteDoc(doc(as('martin'), 'teams', 'Welcome team')));
 await check('an unknown field is refused', 'deny',
   () => updateDoc(doc(as('martin'), 'teams', 'Welcome team'), { secret: 1 }));
+/* Which core team covers a team, and which pin board a team shares (H-15;
+   26 Oct 2026): both decide what people see, so both are a master admin's. */
+await check('the office cannot make a group a core team', 'deny',
+  () => updateDoc(doc(as('officeAdmin'), 'teams', 'Welcome team'), { coreFor: ['Kids Church'] }));
+await check('  nor change which pin board a team shares', 'deny',
+  () => updateDoc(doc(as('officeAdmin'), 'teams', 'Welcome team'), { board: 'state' }));
+await check('a master admin sets the pin board', 'allow',
+  () => updateDoc(doc(as('martin'), 'teams', 'Welcome team'), { board: 'welcome' }));
+await check('  as a short name, not anything else', 'deny',
+  () => updateDoc(doc(as('martin'), 'teams', 'Welcome team'), { board: ['state'] }));
+await check('  and not a long one', 'deny',
+  () => updateDoc(doc(as('martin'), 'teams', 'Welcome team'), { board: 'x'.repeat(61) }));
+await check('  the office still relabels a group with a board', 'allow',
+  () => updateDoc(doc(as('officeAdmin'), 'teams', 'Welcome team'), { label: 'Welcome' }));
 
 /* THE ONE THAT MATTERS. `runs` is mirrored onto users/{uid} so the app and
    the Menu can read it without a second query - and a mirror is only safe

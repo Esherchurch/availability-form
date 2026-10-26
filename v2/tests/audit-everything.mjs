@@ -538,7 +538,7 @@ async function tapAll(B, url, reopen) {
     for (let k = 0, was = await B.ev(where); k < 4; k++) { await sleep(k ? 200 : 30); const now = await B.ev(where); if (now === was) break; was = now; }
     const pt = JSON.parse((await B.ev('(function(){var el=' + sel + ';if(!el)return "null";var r=el.getBoundingClientRect();'
       + 'var x=r.left+Math.min(r.width/2,r.width-2),y=r.top+Math.min(r.height/2,r.height-2),hit=document.elementFromPoint(x,y);'
-      + 'return JSON.stringify({x:x,y:y,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
+      + 'var vv=window.visualViewport;return JSON.stringify({x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
     if (!pt) continue;
     if (!pt.ok) {
       /* Something left open by the last tap? Start the page again and try
@@ -551,13 +551,16 @@ async function tapAll(B, url, reopen) {
     const viewBefore = await B.ev(VIEWHASH);
     const before = JSON.parse(await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.length,sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})'));
     B.acts.length = 0; B.tapping = true;
-    await B.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
-    await B.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+    /* Input events land in the visual viewport: a page a little too wide
+       leaves it shifted, and the tap would fall on a neighbour. */
+    const tx = pt.x - (pt.vx || 0), ty = pt.y - (pt.vy || 0);
+    await B.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tx, y: ty, button: 'left', clickCount: 1 });
+    await B.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tx, y: ty, button: 'left', clickCount: 1 });
     await sleep(550);
     B.tapping = false;
     const after = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
     const viewAfter = await B.ev(VIEWHASH);
-    if (process.env.AUDIT_DEBUG) console.log("    click", await B.ev('JSON.stringify({click: window.__aud.click, reached: window.__aud.reached, prevented: window.__aud.prevented, active: (document.activeElement || {}).tagName})'));
+    if (process.env.AUDIT_DEBUG) console.log("    click", JSON.stringify(pt), await B.ev('JSON.stringify({click: window.__aud.click, reached: window.__aud.reached, prevented: window.__aud.prevented, active: (document.activeElement || {}).tagName, vv: window.visualViewport ? [visualViewport.offsetLeft, visualViewport.offsetTop, visualViewport.scale, visualViewport.width].map(function(n){return Math.round(n*100)/100}) : null, sw: document.documentElement.scrollWidth, sx: scrollX})'));
     if (process.env.AUDIT_DEBUG) console.log("    tap", JSON.stringify(next.words), JSON.stringify(before), JSON.stringify(after), JSON.stringify(B.acts), "noise", noise);
     if (!after) { /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
     const did = B.acts.length || after.acts.length || viewAfter !== viewBefore || after.mut - before.mut > Math.ceil(noise * 1.2) + 2 || after.sx !== before.sx || after.sy !== before.sy

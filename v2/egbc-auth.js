@@ -211,13 +211,16 @@
      (Creche)" - so ticking Kids Church already covers every creche worker.
      Nothing was invented to match the list. */
   var TEAMS = {
-    'Worship Team':  { label: 'Worship',      colour: '#3d6263' },
-    'AV Team':       { label: 'AV',           colour: '#4a5f7a' },
-    'Choir':         { label: 'Choir',        colour: '#7a4a5f', parent: 'Worship Team' },
-    'Youth Worship': { label: 'Youth',        colour: '#5f7a4a', under18: true },
-    'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a', under18: true },
-    'Lazers':        { label: 'Lazers',       colour: '#8a4a3d', under18: true },
-    'ReNu':          { label: 'ReNu',         colour: '#3d6b5f', under18: true },
+    /* board: the pin board the team shares (worshipBoardState/<board>;
+       Teams & groups, "Pin board"). EGBC's grouping: Worship, AV and Choir
+       share one; the others have their own. */
+    'Worship Team':  { label: 'Worship',      colour: '#3d6263', board: 'state' },
+    'AV Team':       { label: 'AV',           colour: '#4a5f7a', board: 'state' },
+    'Choir':         { label: 'Choir',        colour: '#7a4a5f', parent: 'Worship Team', board: 'state' },
+    'Youth Worship': { label: 'Youth',        colour: '#5f7a4a', under18: true, board: 'youth' },
+    'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a', under18: true, board: 'kids-church' },
+    'Lazers':        { label: 'Lazers',       colour: '#8a4a3d', under18: true, board: 'lazers' },
+    'ReNu':          { label: 'ReNu',         colour: '#3d6b5f', under18: true, board: 'renu' },
     /* CORE TEAMS COVER CHOSEN TEAMS (FINDINGS-churchhq H-15, Martin, 26 Oct
        2026: "a kids church and youth core team and a worship core team.
        They need to be independent"). Being on one counts as being on the
@@ -225,7 +228,7 @@
        and administer those teams. A core team covering an under-18s team
        works with under-18s itself (Martin's answer 1). Core Team keeps its
        id; it is the WORSHIP core team. */
-    'Core Team':     { label: 'Worship Core Team', colour: '#6b4a7a', coreFor: ['Worship Team', 'AV Team', 'Choir'] },
+    'Core Team':     { label: 'Worship Core Team', colour: '#6b4a7a', coreFor: ['Worship Team', 'AV Team', 'Choir'], board: 'core-team' },
     'Kids & Youth Core Team': { label: 'Kids & Youth Core Team', colour: '#7a6b4a', under18: true,
                        coreFor: ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'] },
     /* A3, for the events window: the people who fix things. The colour is
@@ -288,7 +291,9 @@
       order:    typeof d.order === 'number' ? d.order : base.order,
       archived: d.archived === true,
       /* H-15: the teams this one is the core team for (Teams & groups). */
-      coreFor:  Array.isArray(d.coreFor) ? d.coreFor.slice() : (base.coreFor || [])
+      coreFor:  Array.isArray(d.coreFor) ? d.coreFor.slice() : (base.coreFor || []),
+      /* Its pin board ('' = none; Teams & groups, 26 Oct 2026). */
+      board:    typeof d.board === 'string' ? d.board : (base.board || '')
     };
     if (!TEAMS[id].parent) delete TEAMS[id].parent;
     if (!TEAMS[id].coreFor.length) delete TEAMS[id].coreFor;
@@ -303,6 +308,100 @@
     });
     return out;
   }
+  /* WHAT A PAGE'S GUARD DECIDES (data-team, data-role, data-admin,
+     data-also-team, data-master, data-any-team), for an active person:
+     null to let them in, or [title, message] for the "not for you" card.
+     require() refuses with it, and guardVerdict() asks it without loading
+     the page (the access matrix, H-16), so the two can never disagree. */
+  function guardRefusal(opts, profile) {
+    /* Pages open to anyone who administers something - the address
+       book, for instance, where Karen manages Kids Church and the
+       Core Team manage Worship and AV. */
+    /* "OR anybody on this team" (opts.alsoTeam). adminAny and
+       team are ANDed below, which cannot express "an admin OR
+       the Church office" - what the church details page needs
+       now the church's bank details live on it. Worked out
+       before either refusal, because it waives both. */
+    var alsoOk = !!opts.alsoTeam && String(opts.alsoTeam).split(',').some(function (t) {
+      return EGBCAuth.inTeam(t.trim());
+    });
+
+    /* data-master: master admins and nobody else (the reviewing
+       window, 21 Oct 2026: Church settings opened for any area
+       admin by its address). No team or group waives it, and View
+       as counts as the person being viewed (isMaster honours it). */
+    if (opts.master && !EGBCAuth.isMaster()) {
+      return ['Master admins only',
+        'This page holds the whole church’s settings, so only a master admin can open it.'];
+    }
+
+    if (opts.adminAny && !EGBCAuth.isAdmin() && !alsoOk) {
+      return ['Admins only',
+        'This page is for people who manage a team. If you think you should ' +
+        'have access, ask a member of the Core Team.'];
+    }
+
+    /* ON ANY TEAM (opts.anyTeam): team things - videos, resources,
+       pin boards - are for the people who serve, not for a member on
+       no team (Martin, 15 Oct 2026). effectiveTeams and adminAreas
+       honour "View the site as", so "Everyone" is turned away too. */
+    if (opts.anyTeam && !alsoOk && !EGBCAuth.isMaster()
+        && !EGBCAuth.effectiveTeams().length
+        && !((EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : profile.adminFor) || []).length
+        /* A parent whose child is in a group reads that group's board
+           (6c): familyGroups, put on their record by the server. */
+        && !(!(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && (profile.familyGroups || []).length)) {
+      return ['For the church’s teams',
+        'This page is for people who serve on one of the church’s teams. ' +
+        'If you have joined a team, ask its leader to add you.'];
+    }
+
+    /* A page can name more than one team, comma separated. The rota
+       planner is the reason: it is one file holding every
+       department's rota, so Karen has to be able to open it for Kids
+       Church without being on the worship team. Being on - or
+       administering - any one of the listed teams is enough. */
+    var wanted = opts.team ? String(opts.team).split(',').map(function (t) {
+      return t.trim();
+    }).filter(Boolean) : [];
+
+    var mayEnter = alsoOk || !wanted.length || EGBCAuth.isOwner() ||
+      wanted.some(function (t) {
+        return EGBCAuth.inTeam(t) || EGBCAuth.isAdminOf(t);
+      });
+
+    if (!mayEnter) {
+      return ['No access to this page',
+        /* The label already carries the noun where it needs one -
+           "Core Team", "Kids Church" - so appending "team" produced
+           "the Core Team team". */
+        'This page is for ' + labelList(wanted) +
+        ', and you are not on ' + (wanted.length > 1 ? 'any of those teams.' : 'that team.')];
+    }
+
+    /* The team check above lets a master admin through. This one did
+       not, so a master admin was refused any page marked
+       data-role="leader" - which is most of the build tools.
+
+       roleAtLeast only honours roles.owner, and master admin is held
+       in a separate field (masterAdmin), so it can never see it. The
+       team's own admin passes too: Karen administering Kids Church
+       should clear a leader gate on a Kids Church page. */
+    var hasRank = !opts.role || !wanted.length || EGBCAuth.isOwner() ||
+      wanted.some(function (t) {
+        return roleAtLeast(profile.roles, t, opts.role) || EGBCAuth.isAdminOf(t)
+          /* A core team clears its own teams' leader gates, as Core
+             Team cleared Worship & AV's on the old portal (H-15). */
+          || (opts.role === 'leader' && coversOf(EGBCAuth.effectiveTeams()).indexOf(t) !== -1);
+      });
+
+    if (!hasRank) {
+      return ['Not enough permissions',
+        'This page needs ' + opts.role + ' access for ' + labelList(wanted) + '.'];
+    }
+    return null;
+  }
+
   /* ---- Google Identity Services, for the installed app ---------------- */
   /* The project's web client (Google Cloud > Credentials: "Web client (auto
      created by Google Service)"), the one Firebase's Google sign-in uses, so
@@ -362,6 +461,25 @@
       return PERMS;
     });
     return PERMS.promise;
+  }
+
+  /* PIN BOARDS COME FROM THE TEAMS (26 Oct 2026; Martin: a pin board is
+     for everyone on that team, never leaders-only, and nobody else). Each
+     board is the teams that share it; a board of under-18s groups is
+     moderated (a young person suggests, an adult puts it up). */
+  function boards() {
+    var by = {};
+    Object.keys(TEAMS).forEach(function (t) {
+      var b = TEAMS[t].board;
+      if (!b || TEAMS[t].archived) return;
+      (by[b] = by[b] || { doc: b, teams: [], title: '' }).teams.push(t);
+    });
+    return Object.keys(by).map(function (k) {
+      var b = by[k];
+      b.title = (TEAMS[b.teams[0]] || {}).label || b.teams[0];
+      b.moderated = b.teams.every(function (t) { return TEAMS[t] && TEAMS[t].under18; });
+      return b;
+    });
   }
 
   /* The core teams that cover this team. */
@@ -1279,111 +1397,8 @@
               return;
             }
 
-            /* Pages open to anyone who administers something - the address
-               book, for instance, where Karen manages Kids Church and the
-               Core Team manage Worship and AV. */
-            /* "OR anybody on this team" (opts.alsoTeam). adminAny and
-               team are ANDed below, which cannot express "an admin OR
-               the Church office" - what the church details page needs
-               now the church's bank details live on it. Worked out
-               before either refusal, because it waives both. */
-            var alsoOk = !!opts.alsoTeam && String(opts.alsoTeam).split(',').some(function (t) {
-              return EGBCAuth.inTeam(t.trim());
-            });
-
-            /* data-master: master admins and nobody else (the reviewing
-               window, 21 Oct 2026: Church settings opened for any area
-               admin by its address). No team or group waives it, and View
-               as counts as the person being viewed (isMaster honours it). */
-            if (opts.master && !EGBCAuth.isMaster()) {
-              EGBCAuth._blockPage(
-                'Master admins only',
-                'This page holds the whole church’s settings, so only a master admin can open it.',
-                profile
-              );
-              return;
-            }
-
-            if (opts.adminAny && !EGBCAuth.isAdmin() && !alsoOk) {
-              EGBCAuth._blockPage(
-                'Admins only',
-                'This page is for people who manage a team. If you think you should ' +
-                'have access, ask a member of the Core Team.',
-                profile
-              );
-              return;
-            }
-
-            /* ON ANY TEAM (opts.anyTeam): team things - videos, resources,
-               pin boards - are for the people who serve, not for a member on
-               no team (Martin, 15 Oct 2026). effectiveTeams and adminAreas
-               honour "View the site as", so "Everyone" is turned away too. */
-            if (opts.anyTeam && !alsoOk && !EGBCAuth.isMaster()
-                && !EGBCAuth.effectiveTeams().length
-                && !((EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : profile.adminFor) || []).length
-                /* A parent whose child is in a group reads that group's board
-                   (6c): familyGroups, put on their record by the server. */
-                && !(!(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && (profile.familyGroups || []).length)) {
-              EGBCAuth._blockPage(
-                'For the church’s teams',
-                'This page is for people who serve on one of the church’s teams. ' +
-                'If you have joined a team, ask its leader to add you.',
-                profile
-              );
-              return;
-            }
-
-            /* A page can name more than one team, comma separated. The rota
-               planner is the reason: it is one file holding every
-               department's rota, so Karen has to be able to open it for Kids
-               Church without being on the worship team. Being on - or
-               administering - any one of the listed teams is enough. */
-            var wanted = opts.team ? String(opts.team).split(',').map(function (t) {
-              return t.trim();
-            }).filter(Boolean) : [];
-
-            var mayEnter = alsoOk || !wanted.length || EGBCAuth.isOwner() ||
-              wanted.some(function (t) {
-                return EGBCAuth.inTeam(t) || EGBCAuth.isAdminOf(t);
-              });
-
-            if (!mayEnter) {
-              EGBCAuth._blockPage(
-                'No access to this page',
-                /* The label already carries the noun where it needs one -
-                   "Core Team", "Kids Church" - so appending "team" produced
-                   "the Core Team team". */
-                'This page is for ' + labelList(wanted) +
-                ', and you are not on ' + (wanted.length > 1 ? 'any of those teams.' : 'that team.'),
-                profile
-              );
-              return;
-            }
-
-            /* The team check above lets a master admin through. This one did
-               not, so a master admin was refused any page marked
-               data-role="leader" - which is most of the build tools.
-
-               roleAtLeast only honours roles.owner, and master admin is held
-               in a separate field (masterAdmin), so it can never see it. The
-               team's own admin passes too: Karen administering Kids Church
-               should clear a leader gate on a Kids Church page. */
-            var hasRank = !opts.role || !wanted.length || EGBCAuth.isOwner() ||
-              wanted.some(function (t) {
-                return roleAtLeast(profile.roles, t, opts.role) || EGBCAuth.isAdminOf(t)
-                  /* A core team clears its own teams' leader gates, as Core
-                     Team cleared Worship & AV's on the old portal (H-15). */
-                  || (opts.role === 'leader' && coversOf(EGBCAuth.effectiveTeams()).indexOf(t) !== -1);
-              });
-
-            if (!hasRank) {
-              EGBCAuth._blockPage(
-                'Not enough permissions',
-                'This page needs ' + opts.role + ' access for ' + labelList(wanted) + '.',
-                profile
-              );
-              return;
-            }
+            var no = guardRefusal(opts, profile);
+            if (no) { EGBCAuth._blockPage(no[0], no[1], profile); return; }
 
             mountViewAsBar();
             resolve(profile);
@@ -1471,6 +1486,16 @@
        own exceptions once (and fetches egbc-team-jobs.js and
        egbc-permissions.js if the page did not load them); may(action) is
        false until it has. A master admin may always. */
+    /* WOULD A PAGE'S GUARD LET THIS PERSON IN? (the access matrix, H-16).
+       opts as the page's egbc-guard.js tag gives them; '' for yes, or the
+       refusal's title. The same decision require() makes. */
+    guardVerdict: function (opts) {
+      var p = currentProfile;
+      if (!p) return 'Signed out';
+      if (p.status !== 'active') return 'Not active (' + (p.status || 'pending') + ')';
+      var no = guardRefusal(opts || {}, p);
+      return no ? no[0] : '';
+    },
     /* GOOGLE SIGN-IN INSIDE THE INSTALLED APP (26 Oct 2026; Martin's
        Android phone). A redirect leaves the app: Google opens in a browser
        tab, comes back there, and the sign-in's state - kept in the app -
@@ -1520,6 +1545,15 @@
           roles: v ? {} : (p.roles || {}), memberId: v ? '' : (p.memberId || '') },
         id, { perms: PERMS.perms, jobs: PERMS.jobs, set: PERMS.set, exceptions: v ? [] : PERMS.exceptions, cores: cores,
               today: localDayIso(), TJ: global.EGBCTeamJobs });
+    },
+    /* Pin boards (26 Oct 2026): every board, and this person's - on one of
+       its teams, administering one, or on a core team covering one. A
+       master admin may open every board. None is none: no fallback. */
+    boards: function () { return boards(); },
+    myBoards: function () {
+      return boards().filter(function (b) {
+        return EGBCAuth.isMaster() || b.teams.some(function (t) { return EGBCAuth.inTeam(t) || EGBCAuth.isAdminOf(t); });
+      });
     },
     /* The same for any teams (the hub's Home choice asks about one). */
     coversOfTeams: function (teams) { return coversOf(teams || []); },

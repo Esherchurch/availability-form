@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610262100" data-title="Teams &amp; groups"></script>
+<script src="egbc-shell.js?v=202610262330" data-title="Teams &amp; groups"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Teams &amp; groups — EGBC</title>
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610262300"></script>
+<script src="egbc-auth.js?v=202610262330"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="Church office"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <style>
@@ -149,6 +149,8 @@ async function load() {
       runs: Array.isArray(d.runs) ? d.runs : (t.runs || []),
       /* H-15: the teams this one is the core team for. */
       coreFor: Array.isArray(d.coreFor) ? d.coreFor : (t.coreFor || []),
+      /* Its pin board: shared with the teams that name the same one (26 Oct 2026). */
+      board: typeof d.board === 'string' ? d.board : (t.board || ''),
       archived: d.archived === true
     };
   });
@@ -215,6 +217,12 @@ $('jobs').addEventListener('click', (e) => {
 
 /* A core team covering an under-18s team works with under-18s itself
    (H-15, Martin's answer 1): the same checks for its people. */
+/* A board's name: shared with which teams, or this team's own. */
+function boardWords(b, r) {
+  const with_ = ROWS.filter(x => x.board === b && x.id !== r.id).map(x => x.label);
+  return with_.length ? 'Shared with ' + with_.join(', ') : (r.board === b ? 'Its own' : 'Its own (new)');
+}
+
 function worksWithU18(r) {
   return r.under18 || (r.coreFor || []).some(id => (ROWS.find(x => x.id === id) || {}).under18);
 }
@@ -246,6 +254,12 @@ function draw() {
       </div>
       <div class="runs">Runs: ${RUNS.map(([k, w]) => `<label class="tick"><input type="checkbox" data-run="${k}" ${r.runs.indexOf(k) !== -1 ? 'checked' : ''} ${MASTER ? '' : 'disabled'}> ${w}</label>`).join('')}
         ${MASTER ? '' : '<span class="fixed">(a master admin sets these)</span>'}</div>
+      <div class="runs">Pin board: ${MASTER
+        ? `<select data-board aria-label="Pin board for ${esc(r.label)}" style="min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 8px">
+            <option value="" ${r.board ? '' : 'selected'}>None</option>
+            ${[...new Set(ROWS.map(x => x.board).filter(Boolean).concat([r.id.toLowerCase().replace(/[^a-z0-9]+/g, '-')]))].map(b => `<option value="${esc(b)}" ${b === r.board ? 'selected' : ''}>${esc(boardWords(b, r))}</option>`).join('')}
+          </select>`
+        : '<span class="fixed">' + esc(r.board ? boardWords(r.board, r) : 'none') + '</span>'}</div>
       <div class="runs">Core team for: ${MASTER
         ? ROWS.filter(x => x.id !== r.id && !x.archived && !(x.coreFor || []).length).map(x => `<label class="tick"><input type="checkbox" data-core="${esc(x.id)}" ${r.coreFor.indexOf(x.id) !== -1 ? 'checked' : ''}> ${esc(x.label)}</label>`).join('')
         : '<span class="fixed">' + (r.coreFor.length ? esc(r.coreFor.map(id => (ROWS.find(x => x.id === id) || {}).label || id).join(', ')) : 'nothing') + '</span>'}</div>
@@ -279,6 +293,7 @@ async function save(r, fields, card) {
 function whole(r) {
   const o = { label: r.label, colour: r.colour, order: r.order, rota: r.rota, archived: r.archived };
   if (MASTER && r.coreFor.length) o.coreFor = r.coreFor;
+  if (MASTER) o.board = r.board || '';
   if (r.parent) o.parent = r.parent;
   if (r.under18) o.under18 = true;
   if (MASTER) o.runs = r.runs;
@@ -298,11 +313,13 @@ $('list').addEventListener('change', async (e) => {
   else if (f === 'archived') r.archived = e.target.checked;
   else if (run && MASTER) {
     r.runs = RUNS.map(x => x[0]).filter(k => card.querySelector('[data-run="' + k + '"]').checked);
+  } else if (e.target.dataset.board !== undefined && MASTER) {
+    r.board = e.target.value;
   } else if (core && MASTER) {
     /* H-15: being on this team counts as being on each ticked team. */
     r.coreFor = [].map.call(card.querySelectorAll('[data-core]:checked'), x => x.dataset.core);
   } else return;
-  const fields = r.saved ? (run ? { runs: r.runs } : core ? { coreFor: r.coreFor } : { [f]: r[f] }) : whole(r);
+  const fields = r.saved ? (run ? { runs: r.runs } : core ? { coreFor: r.coreFor } : e.target.dataset.board !== undefined ? { board: r.board } : { [f]: r[f] }) : whole(r);
   if (await save(r, fields, card) && (f === 'archived' || f === 'rota' || core)) draw();
 });
 
@@ -346,7 +363,7 @@ $('addForm').addEventListener('submit', async (e) => {
     return;
   }
   const r = { id: name, saved: false, label: name, colour: '#3d6263', rota: !$('newIsGroup').checked,
-    under18: false, parent: '', runs: [], archived: false,
+    under18: false, parent: '', runs: [], coreFor: [], board: '', archived: false,
     order: ROWS.reduce((m, x) => Math.max(m, x.order === 999 ? 0 : x.order), 0) + 1 };
   const o = whole(r); delete o.runs;
   if (await save(r, o, null)) {

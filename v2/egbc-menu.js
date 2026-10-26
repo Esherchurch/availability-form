@@ -299,7 +299,9 @@
 
     { title: 'Resources', section: true, icon: 'folder-open', children: [
       /* anyTeam: for people who serve on a team (Martin, 15 Oct 2026). */
-      { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note', feature: 'pinBoards', anyTeam: true,
+      /* pinBoard: on a team with a board, or covering one (26 Oct 2026;
+         Martin: "pin board is showing for everyone"). */
+      { title: 'Pin boards', url: 'stickynotes.html', icon: 'sticky-note', feature: 'pinBoards', pinBoard: true,
         description: 'Anything anybody wants to raise' },
       { title: 'Apps and downloads', url: 'hubresources.html', icon: 'smartphone',
         description: 'Put the apps on your phone, and the files you may need' },
@@ -394,6 +396,7 @@
     /* On any team, administering one, or a master admin. */
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     if (node.planGroup && !who.isPlanGroup) return false;
+    if (node.pinBoard && !who.isMaster && !who.hasBoard) return false;
     if (node.headcount && !who.mayHeadcount) return false;
     if (node.messages && !who.mayMessage) return false;
     return true;
@@ -995,6 +998,7 @@
            so View as answers for the person being viewed as. */
         mayMessage: !!(A && A.isMaster && A.isMaster()) || !!(A && A.inTeam && A.inTeam('Church office')) || adminFor.length > 0,
         isPlanGroup: !!(A && A.isOnPlanGroup && A.isOnPlanGroup()),
+        hasBoard: !!(A && A.myBoards && A.myBoards().length),
         mayHeadcount: !!(A && A.mayHeadcount && A.mayHeadcount()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),
         isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead()),

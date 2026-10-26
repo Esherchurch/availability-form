@@ -91,7 +91,7 @@ const APPROVED = [
     ['Live risk register', c => c.on('Church office') || c.on('Elders')], ['My evacuation plan']]],
   ['Church admin', null, [
     /* Master admins only, and the office's bank details on their own page (21 Oct 2026). */
-    ['Church settings', c => c.master], ['Teams and groups', c => c.office], ['Giving details', c => c.office],
+    ['Church settings', c => c.master], ['Teams and groups', c => c.office], ['Permissions', c => c.master], ['Giving details', c => c.office],
     /* Safeguarding: master admins and the lead and deputy (22 Oct 2026); nobody below is a lead. */
     ['Payments', c => c.money], ['Safeguarding', c => c.master],
     /* The risk register (F-268): those, and the trustees - on the team named in
@@ -110,7 +110,7 @@ const APPROVED = [
     ['Kids Church', false, [["Children's register"], ['Sunday check-in']], c => c.kids],
     ['Core Team', c => c.core, [['Music Upload', c => c.core || c.worshipLead]]]]],
   ['Resources', null, [
-    ['Pin boards', c => c.anyTeam], ['Apps and downloads'], ['Team Resources', c => c.anyTeam], ['Team Videos', c => c.anyTeam]]]
+    ['Pin boards', c => c.board], ['Apps and downloads'], ['Team Resources', c => c.anyTeam], ['Team Videos', c => c.anyTeam]]]
 ];
 /* The plan group and the children's settings this check seeds. */
 const PLAN_TEAM = 'Kids Church', KIDS_SETTINGS_TEAM = 'Kids Church';
@@ -129,6 +129,10 @@ function ctx(p) {
     /* Formally joined the church (the address book's tick). */
     member: !!p.churchMember,
     anyTeam: master || p.teams.length > 0 || p.adminFor.length > 0,
+    /* On a team with a pin board, or a core team covering one (26 Oct 2026:
+       a board is the team's own; EGBC's boards, written out again here). */
+    board: master || ['Worship Team', 'AV Team', 'Choir', 'Youth Worship', 'Kids Church', 'Lazers', 'ReNu', 'Core Team', 'Kids & Youth Core Team']
+      .some(t => p.teams.includes(t) || p.adminFor.includes(t)),
     messages: master || p.teams.includes('Church office') || p.adminFor.length > 0,
     books: admin || !!p.bookingsAdmin,
     runsBookings: master || p.teams.includes('Church office') || !!p.bookingsAdmin,
@@ -331,7 +335,7 @@ const READ_MENU = `(() => {
     'CoreTeamApp.html': 'installed phone app', 'worshiphubapp.html': 'installed phone app',
     'youthapp2.html': 'installed phone app', 'AVteamlandingpage.html': 'installed phone app',
     'EGBCWorship&AV.html': 'installed phone app', 'Performancenotes.html': 'opened from the hub and the Worship app',
-    'book.html': 'public: hiring a room', 'room.html': 'public: one room', 'my-booking.html': 'public: a hirer\'s booking link',
+    'sg-print.html': 'printing a safeguarding assessment, snapshot or register, from its Print button', 'book.html': 'public: hiring a room', 'room.html': 'public: one room', 'my-booking.html': 'public: a hirer\'s booking link',
     'signup.html': 'public: an event\'s sign-up', 'my-signup.html': 'public: a sign-up\'s own link',
     'form.html': 'public: a form\'s own link', 'newhere.html': 'public: the welcome card and its QR',
     'whatson-embed.html': 'the church website\'s embed', 'upload.html': 'public: a guest\'s photo link',
