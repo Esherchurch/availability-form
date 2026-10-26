@@ -11898,3 +11898,13 @@ Earlier tests updated for the new counts: a trip asks 18, not 14.
 | check-rules-build | 7/8 | the one failure is Comms' file (above) |
 
 **Deploy (the reviewing window's):** sgDraftAssessment, sgExtractRequirements, sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily. The rules go live when the hub goes live.
+
+## From the main window, 26 Oct 2026: a safeguarding assessment written by a named leader is over Firestore's 1,000-expression limit in the church ruleset (H-8)
+
+- **The F-279 rerun:** `AS_CHURCH=mc-test node firestore-rules.test.mjs` is 1898/1909. Your F-279 headroom cleared both office booking cases. Thank you.
+- **10 of the 11 reds are users self-writes**, refused in a church by design (the server writes those records there).
+- **The 11th is new, from F-282/F-284:** "and its named leaders": `sgAssessments/{calEventId}` create or update by a leader in `eventLeaders.leaderUids`.
+  - In the church ruleset it stops at "maximum of 1000 expressions" (`firestore.churches.rules` L1226, the `allow create, update`).
+  - EGBC's own run is 1909/1909, so nothing is broken today. It would be when the hub goes live for a second church.
+- **Asked:** headroom in that `allow`, as F-279 did for booking (for example, read `eventLeaders` and the event once, in a `let`, or check the leader before the field checks). Then rerun `node tools/rules-build.mjs` and the `AS_CHURCH` run above; the target is 1899/1909 (only the 10 by design).
+- **For the synthetic parish:** St Aidan's youth leaders, named on a trip, write the trip's assessment. Today that would be refused.

@@ -1,0 +1,369 @@
+// GENERATED from storage.rules by tools/rules-build.mjs - the Storage rules for the shared Church HQ project (every church under churches/{cid}). Do not edit.
+rules_version = '2';
+service firebase.storage {
+match /b/{bucket}/o {
+match /churches/{cid} {
+/* Not signed in (only what is public to anybody), or this church in the claims. */
+function stGate() { return request.auth == null || cid in request.auth.token.churches; }
+match /kb/{page}/{fileName} {
+allow read: if stGate() && (true);
+allow write: if stGate() && (request.resource.size < 500 * 1024 * 1024
+&& (request.resource.contentType.matches('video/.*')
+|| request.resource.contentType.matches('image/.*')));
+allow delete: if stGate() && (false);
+}
+match /banners/{fileName} {
+allow read: if stGate() && (true);
+allow write: if stGate() && (request.auth != null
+&& request.resource.size < 8 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (request.auth != null);
+}
+match /email_assets/{fileName} {
+allow read: if stGate() && (true);
+allow write: if stGate() && (request.auth != null
+&& request.resource.size < 20 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*')
+&& (firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+.data.get('teams', []).hasAny(['Core Team'])
+|| firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+.data.get('masterAdmin', false) == true));
+allow delete: if stGate() && (false);
+}
+match /resources/{team}/{fileName} {
+allow read: if stGate() && (request.auth != null);
+allow write: if stGate() && (request.auth != null
+&& request.resource.size < 100 * 1024 * 1024);
+allow delete: if stGate() && (request.auth != null);
+}
+match /playthrough/{fileName} {
+allow read: if stGate() && (request.auth != null);
+allow write: if stGate() && (request.auth != null
+&& request.resource.size < 500 * 1024 * 1024);
+allow delete: if stGate() && (false);
+}
+function adminHere() {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.status == 'active'
+&& (firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.get('masterAdmin', false) == true
+|| firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.get('adminFor', []).size() > 0);
+}
+match /events/{calEventId}/{fileName} {
+allow read: if stGate() && (true);
+allow write: if stGate() && (adminHere()
+&& request.resource.size < 8 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (adminHere());
+}
+match /rooms/{roomId}/{fileName} {
+allow read: if stGate() && (true);
+allow write: if stGate() && (adminHere()
+&& request.resource.size < 8 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (adminHere());
+}
+match /rota-temp/{packageId}/{fileName} {
+allow read: if stGate() && (request.auth != null);
+allow write: if stGate() && (request.auth != null
+&& request.resource.size < 25 * 1024 * 1024
+&& request.resource.contentType == 'application/pdf');
+allow delete: if stGate() && (request.auth != null);
+}
+match /rotas/{fileName} {
+allow read: if stGate() && (true);
+allow write: if stGate() && (request.auth != null
+&& request.resource.size < 25 * 1024 * 1024
+&& request.resource.contentType == 'application/pdf');
+allow delete: if stGate() && (request.auth != null);
+}
+match /{fileName} {
+allow read: if stGate() && (fileName in [
+'1774936285076.png',
+'copilot_image_1775806874083.jpeg',
+'1774933729776.png',
+'1774933429062.png',
+'1774936402880.png',
+'1777880144841.png'
+]);
+allow write, delete: if stGate() && (false);
+}
+function formRequest(key) {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/formRequests/$(key)).data;
+}
+function storageMeetingRunner() {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& storageMe().status == 'active'
+&& (storageMe().get('masterAdmin', false) == true
+|| storageMe().get('teams', []).hasAny(['Church office', 'Elders']));
+}
+function storageMeetingMember() {
+return storageMeetingRunner()
+|| (request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& storageMe().status == 'active'
+&& storageMe().get('churchMember', false) == true);
+}
+match /churchMeetings/{mid}/papers/{file} {
+allow read: if stGate() && (storageMeetingMember());
+allow create, update: if stGate() && (storageMeetingRunner()
+&& request.resource.size < 20 * 1024 * 1024
+&& (request.resource.contentType == 'application/pdf'
+|| request.resource.contentType.matches('image/.*')));
+allow delete: if stGate() && (storageMeetingRunner());
+}
+function storageMe() {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data;
+}
+function storageSgLead(siteId) {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& storageMe().status == 'active'
+&& (storageMe().get('masterAdmin', false) == true
+|| (siteId != ''
+&& storageMe().get('memberId', '') != ''
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(siteId))
+&& (firestore.get(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('safeguardingLead', '') == storageMe().get('memberId', '')
+|| firestore.get(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('safeguardingDeputy', '') == storageMe().get('memberId', ''))));
+}
+match /formUploads/{key}/{fileName} {
+allow create: if stGate() && (resource == null
+&& request.resource.size < 10 * 1024 * 1024
+&& (request.resource.contentType.matches('image/.*')
+|| request.resource.contentType == 'application/pdf')
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/formRequests/$(key))
+&& formRequest(key).status in ['sent', 'reuse']);
+allow read: if stGate() && (firestore.exists(/databases/(default)/documents/churches/$(cid)/formRequests/$(key))
+&& storageSgLead(formRequest(key).get('siteId', '')));
+allow update: if stGate() && (false);
+allow delete: if stGate() && (request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& storageMe().status == 'active' && storageMe().get('masterAdmin', false) == true);
+}
+function uploadLinkData(linkId) {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/uploadLinks/$(linkId)).data;
+}
+match /uploads/{linkId}/{slot} {
+allow create: if stGate() && (resource == null
+&& request.resource.size < 15 * 1024 * 1024
+&& request.resource.contentType.matches('image/(jpeg|png|heic|heif|webp)')
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/uploadLinks/$(linkId))
+&& uploadLinkData(linkId).active == true
+&& uploadLinkData(linkId).expiresAt > request.time
+&& slot.matches('[0-9]{1,4}')
+&& int(slot) < uploadLinkData(linkId).count);
+allow read: if stGate() && (adminHere());
+allow update, delete: if stGate() && (false);
+}
+function storageOffice(siteId) {
+return adminHere()
+|| (request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(siteId))
+&& storageMe().status == 'active'
+&& storageMe().get('memberId', '-') in firestore.get(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('bookingsAdmins', []));
+}
+match /hirerDocs/{siteId}/{hirerId}/{fileName} {
+allow read: if stGate() && (storageOffice(siteId));
+allow create: if stGate() && (storageOffice(siteId) && request.resource.size < 15 * 1024 * 1024
+&& (request.resource.contentType == 'application/pdf' || request.resource.contentType.matches('image/.*')));
+allow update, delete: if stGate() && (false);
+}
+match /sgRequirements/{calEventId}/{fileName} {
+allow read, write: if stGate() && (false);
+}
+match /church/{fileName} {
+allow read: if stGate() && (true);
+allow create, update: if stGate() && (adminHere() && request.resource.size < 2 * 1024 * 1024 && request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (adminHere());
+}
+function groupLeaderHere(groupId) {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.status == 'active'
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/smallGroups/$(groupId))
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.get('memberId', '-')
+in firestore.get(/databases/(default)/documents/churches/$(cid)/smallGroups/$(groupId)).data.get('leaderIds', []);
+}
+match /smallGroups/{groupId}/{fileName} {
+allow read: if stGate() && (true);
+allow write: if stGate() && ((adminHere() || groupLeaderHere(groupId))
+&& request.resource.size < 8 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (adminHere() || groupLeaderHere(groupId));
+}
+function maintJob(jobId) {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/maintJobs/$(jobId)).data;
+}
+function maintReader(jobId) {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.status == 'active'
+&& (adminHere()
+|| firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.get('teams', []).hasAny(['Maintenance'])
+|| (firestore.exists(/databases/(default)/documents/churches/$(cid)/maintJobs/$(jobId))
+&& maintJob(jobId).get('siteId', '') != ''
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(maintJob(jobId).siteId))
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.get('memberId', '-')
+in firestore.get(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(maintJob(jobId).siteId)).data.get('bookingsAdmins', [])));
+}
+match /maintJobs/{jobId}/photo {
+allow read: if stGate() && (maintReader(jobId));
+allow write: if stGate() && (request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/maintJobs/$(jobId))
+&& maintJob(jobId).reportedBy == request.auth.uid
+&& maintJob(jobId).status == 'todo'
+&& request.resource.size < 8 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (false);
+}
+function sermonDoc(id) {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/sermons/$(id)).data;
+}
+function sermonAdminHere() {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& storageMe().status == 'active'
+&& (storageMe().get('masterAdmin', false) == true
+|| (firestore.exists(/databases/(default)/documents/churches/$(cid)/sermonShow/access)
+&& storageMe().get('memberId', '-') in firestore.get(/databases/(default)/documents/churches/$(cid)/sermonShow/access).data.get('memberIds', [])));
+}
+match /sermons/{sermonId}/audio {
+allow read: if stGate() && ((firestore.exists(/databases/(default)/documents/churches/$(cid)/sermons/$(sermonId)) && sermonDoc(sermonId).published == true)
+|| sermonAdminHere());
+allow create, update: if stGate() && (sermonAdminHere()
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/sermons/$(sermonId))
+&& request.resource.size < 300 * 1024 * 1024
+&& request.resource.contentType.matches('audio/(mpeg|mp3|mp4|x-m4a|m4a|aac|wav|x-wav)'));
+allow delete: if stGate() && (false);
+}
+match /sermonSeries/{seriesId}/artwork {
+allow read: if stGate() && (true);
+allow create, update: if stGate() && (sermonAdminHere() && request.resource.size < 10 * 1024 * 1024
+&& request.resource.contentType.matches('image/(jpeg|png)'));
+allow delete: if stGate() && (false);
+}
+match /library/{picId}/{fileName} {
+allow read: if stGate() && (true);
+allow create, update: if stGate() && (adminHere()
+&& request.resource.size < 8 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (adminHere());
+}
+function planGroupHere(groupId) {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/planGroups/$(groupId)).data;
+}
+function planActive() {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& storageMe().status == 'active';
+}
+function planLeaderHere(groupId) {
+return planActive() && firestore.exists(/databases/(default)/documents/churches/$(cid)/planGroups/$(groupId))
+&& (storageMe().get('memberId', '-') in planGroupHere(groupId).get('leaderIds', [])
+|| storageMe().get('masterAdmin', false) == true);
+}
+function planReaderHere(groupId) {
+return planActive() && firestore.exists(/databases/(default)/documents/churches/$(cid)/planGroups/$(groupId))
+&& (storageMe().get('masterAdmin', false) == true
+|| storageMe().get('memberId', '-') in planGroupHere(groupId).get('leaderIds', [])
+|| planGroupHere(groupId).get('teamName', '-') in storageMe().get('teams', []));
+}
+match /planner/{groupId}/{sessionId}/{fileName} {
+allow read: if stGate() && (planReaderHere(groupId));
+allow write: if stGate() && (planLeaderHere(groupId)
+&& (request.resource.contentType.matches('video/.*') ? request.resource.size < 500 * 1024 * 1024
+: request.resource.size < 50 * 1024 * 1024)
+&& (request.resource.contentType.matches('(image|video|audio)/.*')
+|| request.resource.contentType.matches('application/(pdf|vnd.openxmlformats-officedocument..*|vnd.ms-powerpoint|msword|vnd.oasis.opendocument..*)')));
+allow delete: if stGate() && (planLeaderHere(groupId));
+}
+function cmpCheckHere(checkId) {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/buildingChecks/$(checkId)).data;
+}
+function cmpWho() {
+return planActive() && (storageMe().get('masterAdmin', false) == true || 'Church office' in storageMe().get('teams', []));
+}
+function cmpMine(siteId, checkId) {
+return planActive() && firestore.exists(/databases/(default)/documents/churches/$(cid)/buildingChecks/$(checkId))
+&& cmpCheckHere(checkId).siteId == siteId
+&& storageMe().get('memberId', '-') in cmpCheckHere(checkId).get('responsibleIds', []);
+}
+function deckHere(deckId) { return firestore.get(/databases/(default)/documents/churches/$(cid)/presentDecks/$(deckId)).data; }
+function deckCtx(deckId) { return deckHere(deckId).get('context', {}); }
+function meetingRoomStorage(room) {
+return firestore.get(/databases/(default)/documents/churches/$(cid)/churchSettings/video).data.get('roomsByKey', {}).get(room, {});
+}
+function meetingOrganiserStorage(room, eventId) {
+return eventId is string && eventId != '' && !eventId.matches('.*/.*')
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/events/$(eventId))
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/events/$(eventId)).data.get('organiserUid', '') == request.auth.uid
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/events/$(eventId)).data.get('videoRoom',
+firestore.get(/databases/(default)/documents/churches/$(cid)/churchSettings/video).data.get('byType', {})
+.get(firestore.get(/databases/(default)/documents/churches/$(cid)/events/$(eventId)).data.get('type', ''), '')) == room;
+}
+function meetingHostStorage(room, eventId) {
+return planActive()
+&& (storageMe().get('masterAdmin', false) == true
+|| storageMe().get('adminFor', []).hasAny(meetingRoomStorage(room).get('teams', []))
+|| storageMe().get('teams', []).hasAny(meetingRoomStorage(room).get('hostTeams', []))
+|| meetingOrganiserStorage(room, eventId));
+}
+function meetingInviteeStorage(room, eventId) {
+return meetingHostStorage(room, eventId)
+|| (planActive()
+&& (storageMe().get('teams', []).hasAny(meetingRoomStorage(room).get('teams', []))
+|| (meetingRoomStorage(room).get('members', false) == true && storageMe().get('churchMember', false) == true)));
+}
+function deckAllowed(deckId) {
+let c = deckCtx(deckId);
+let id = 'mtg_' + c.get('room', '') + '_' + (c.get('eventId', '') != '' ? c.get('eventId', '') : c.get('day', '')) + '_' + request.auth.uid;
+return request.auth != null && firestore.exists(/databases/(default)/documents/churches/$(cid)/presentAllow/$(id))
+&& request.time < firestore.get(/databases/(default)/documents/churches/$(cid)/presentAllow/$(id)).data.aliveAt + duration.value(3, 'm');
+}
+function deckAudience(deckId) {
+return firestore.exists(/databases/(default)/documents/churches/$(cid)/presentDecks/$(deckId))
+&& ((deckCtx(deckId).get('type', '') == 'session' && planReaderHere(deckCtx(deckId).get('groupId', '-')))
+|| (deckCtx(deckId).get('type', '') == 'meeting'
+&& (meetingInviteeStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))
+|| (planActive() && deckAllowed(deckId)))));
+}
+function deckPresenter(deckId) {
+return firestore.exists(/databases/(default)/documents/churches/$(cid)/presentDecks/$(deckId))
+&& ((deckCtx(deckId).get('type', '') == 'session' && planLeaderHere(deckCtx(deckId).get('groupId', '-')))
+|| (deckCtx(deckId).get('type', '') == 'meeting'
+&& (meetingHostStorage(deckCtx(deckId).get('room', ''), deckCtx(deckId).get('eventId', ''))
+|| (planActive() && deckAllowed(deckId)))));
+}
+match /present/{deckId}/{fileName} {
+allow read: if stGate() && (deckAudience(deckId));
+allow create, update: if stGate() && (fileName == 'source.pptx' && deckPresenter(deckId)
+&& request.resource.size < 100 * 1024 * 1024
+&& request.resource.contentType == 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+allow delete: if stGate() && (deckPresenter(deckId));
+}
+function roomHere(roomId) { return firestore.get(/databases/(default)/documents/churches/$(cid)/rooms/$(roomId)).data; }
+function planOffice(roomId) {
+return planActive() && (adminHere()
+|| (firestore.exists(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(roomHere(roomId).get('siteId', '-')))
+&& storageMe().get('memberId', '-') in firestore.get(/databases/(default)/documents/churches/$(cid)/bookingSettings/$(roomHere(roomId).get('siteId', '-'))).data.get('bookingsAdmins', [])));
+}
+match /roomPlans/{roomId}/{fileName} {
+allow read: if stGate() && (firestore.exists(/databases/(default)/documents/churches/$(cid)/rooms/$(roomId))
+&& (roomHere(roomId).get('floorPlanWho', 'members') == 'public'
+|| (roomHere(roomId).get('floorPlanWho', 'members') == 'members' && planActive())
+|| planOffice(roomId)));
+allow write: if stGate() && (adminHere() && request.resource.size < 8 * 1024 * 1024 && request.resource.contentType.matches('image/.*'));
+allow delete: if stGate() && (adminHere());
+}
+match /compliance/{siteId}/{checkId}/{fileName} {
+allow read: if stGate() && (cmpWho() || (planActive() && 'Elders' in storageMe().get('teams', [])) || cmpMine(siteId, checkId));
+allow create: if stGate() && ((cmpWho() || cmpMine(siteId, checkId))
+&& request.resource.size < 20 * 1024 * 1024
+&& request.resource.contentType.matches('image/.*|application/pdf'));
+allow update, delete: if stGate() && (false);
+}
+}
+match /{allPaths=**} { allow read, write: if false; }
+}
+}

@@ -17,8 +17,21 @@ import {
   assertSucceeds,
   assertFails,
 } from '@firebase/rules-unit-testing';
-import { doc, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, deleteObject, getBytes } from 'firebase/storage';
+import { doc as fsDoc, setDoc } from 'firebase/firestore';
+import { ref as stRef, uploadBytes, deleteObject, getBytes } from 'firebase/storage';
+
+/* AS ONE CHURCH (multi-church step 4 part 1, batch B; FINDINGS-churchhq
+   H-8): AS_CHURCH=mc-test runs every case below against the generated
+   church Storage ruleset (storage.churches.rules) and Firestore ruleset,
+   as one made-up church - every file and document path under
+   churches/mc-test, every sign-in carrying that church. The cases are
+   untouched. Unset, nothing changes. */
+const AS_CHURCH = process.env.AS_CHURCH || '';
+const under = (p) => AS_CHURCH ? 'churches/' + AS_CHURCH + '/' + String(p).replace(/^\/+/, '') : p;
+const doc = (...args) => (AS_CHURCH && args[0] && typeof args[0] === 'object' && !('path' in args[0]))
+  ? fsDoc(args[0], under(args.slice(1).join('/'))) : fsDoc(...args);
+/* A storage instance (not a reference, which has its own fullPath). */
+const ref = (s, p) => (AS_CHURCH && s && !('fullPath' in s) && typeof p === 'string') ? stRef(s, under(p)) : stRef(s, p);
 
 /* Ports come from firebase.json. EGBC_FIREBASE_CONFIG=firebase.events.json
    runs this against the events window's emulators instead; unset, nothing
@@ -30,9 +43,13 @@ const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || 'd
 
 const env = await initializeTestEnvironment({
   projectId: PROJECT,
-  firestore: { rules: fs.readFileSync(cfg.firestore.rules, 'utf8'), host: '127.0.0.1', port: FS_PORT },
-  storage: { rules: fs.readFileSync('storage.rules', 'utf8'), host: '127.0.0.1', port: ST_PORT },
+  firestore: { rules: fs.readFileSync(AS_CHURCH ? 'firestore.churches.rules' : cfg.firestore.rules, 'utf8'), host: '127.0.0.1', port: FS_PORT },
+  storage: { rules: fs.readFileSync(AS_CHURCH ? (process.env.ST_CHURCH_RULES || 'storage.churches.rules') : 'storage.rules', 'utf8'), host: '127.0.0.1', port: ST_PORT },
 });
+if (AS_CHURCH) {
+  const signIn = env.authenticatedContext.bind(env);
+  env.authenticatedContext = (uid, claims) => signIn(uid, Object.assign({}, claims || {}, { churches: [AS_CHURCH] }));
+}
 
 /* The same three people as the Firestore tests, and for the same reason:
    one master admin, one admin of a single area, one ordinary member. */

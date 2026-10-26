@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build, buildChurch, tokens, SOURCE, BUILT, CHURCH_BUILT, LIMIT } from '../tools/rules-build.mjs';
+import { build, buildChurch, buildStorageChurch, tokens, SOURCE, BUILT, CHURCH_BUILT, STORAGE_SOURCE, STORAGE_CHURCH_BUILT, LIMIT } from '../tools/rules-build.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => fs.readFileSync(path.join(V2, f), 'utf8');
@@ -41,6 +41,12 @@ ok('firestore.churches.rules is built from firestore.rules as it is now', haveCh
 ok('and is under ' + Math.round(LIMIT / 1024) + ' KB (' + Buffer.byteLength(church) + ' bytes)', Buffer.byteLength(church) <= LIMIT);
 const st = Buffer.byteLength(read('storage.rules'));
 ok('storage.rules is under ' + Math.round(LIMIT / 1024) + ' KB (' + st + ' bytes)', st <= LIMIT);
+/* The church Storage ruleset (batch B): built the same way, every rule behind the gate. */
+const stChurch = buildStorageChurch(read(STORAGE_SOURCE));
+const haveSt = fs.existsSync(path.join(V2, STORAGE_CHURCH_BUILT)) ? read(STORAGE_CHURCH_BUILT).replace(/\r\n/g, '\n') : '';
+ok('storage.churches.rules is built from storage.rules as it is now', haveSt === stChurch, 'run: node tools/rules-build.mjs');
+const allows = (stChurch.match(/allow [^:]+: if /g) || []).length, gated = (stChurch.match(/allow [^:]+: if stGate\(\) && \(/g) || []).length;
+ok('  every allow in it is behind the church gate (' + gated + ' of ' + allows + ')', allows > 0 && gated === allows - 1, gated + ' of ' + allows + ' (the one left is the catch-all)');
 
 const configs = fs.readdirSync(V2).filter((f) => /^firebase(\..+)?\.json$/.test(f));
 const wrong = configs.filter((f) => { const c = JSON.parse(read(f)); return c.firestore && c.firestore.rules && c.firestore.rules !== BUILT; })

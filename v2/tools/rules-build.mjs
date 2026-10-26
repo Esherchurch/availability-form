@@ -167,6 +167,64 @@ export function tokens(src) {
   return strip(src).replace(/\s+/g, ' ').trim();
 }
 
+/* ---- THE CHURCH STORAGE RULESET (step 4 part 1, batch B) ---------------
+   The same idea for storage.rules: every file path under churches/{cid},
+   every firestore.get() moved under the church (so the person's place is
+   the church's own users record), and THE GATE IN FRONT OF EVERY RULE:
+   not signed in at all (only what is public to anybody then applies), or
+   signed in with this church in the claims. Storage rules have no single
+   signedIn() to redefine, so the gate is put in each allow. Step 2's
+   hand-written churches/{cid}/files and the catch-all are left out of the
+   copy. A separate file, never in the same ruleset as EGBC's. */
+export const STORAGE_SOURCE = 'storage.rules';
+export const STORAGE_CHURCH_BUILT = 'storage.churches.rules';
+const STORAGE_HEADER = '// GENERATED from storage.rules by tools/rules-build.mjs - the Storage rules for the shared Church HQ project (every church under churches/{cid}). Do not edit.\n';
+const STORAGE_LEFT_OUT = [/^match \/churches\/\{cid\}\//, /^match \/\{allPaths=\*\*\}$/, /^function (stInChurch|stChurchMe|stChurchActive|stChurchAdmin)\(/];
+
+/* Every 'allow <ops>: if <cond>;' with the gate put in front of <cond>.
+   The condition runs to the first ';' outside quotes and brackets. */
+function gateAllows(text, gate) {
+  let out = '', i = 0;
+  for (;;) {
+    const at = text.indexOf('allow ', i);
+    if (at < 0) { out += text.slice(i); return out; }
+    const colon = text.indexOf(': if ', at);
+    if (colon < 0) throw new Error('An allow without ": if" at ' + at);
+    let j = colon + 5, depth = 0;
+    for (; j < text.length; j++) {
+      const c = text[j];
+      if (c === "'" || c === '"') { let k = j + 1; while (text[k] !== c) { if (text[k] === '\\') k++; k++; } j = k; continue; }
+      if (c === '(' || c === '[' || c === '{') depth++;
+      if (c === ')' || c === ']' || c === '}') depth--;
+      if (c === ';' && depth === 0) break;
+    }
+    out += text.slice(i, colon + 5) + gate + ' && (' + text.slice(colon + 5, j) + ')';
+    i = j;
+  }
+}
+
+export function buildStorageChurch(src) {
+  const body = blockBody(strip(src), 'match /b/{bucket}/o');
+  const all = items(body);
+  if (!all.some((it) => headOf(it) === 'match /{allPaths=**}')) throw new Error('storage.rules no longer ends with its catch-all: the church build needs looking at');
+  const kept = all.filter((it) => !STORAGE_LEFT_OUT.some((re) => re.test(headOf(it))))
+    .map((it) => it.split('/databases/(default)/documents/').join('/databases/(default)/documents/churches/$(cid)/'))
+    .map((it) => gateAllows(it, 'stGate()'));
+  return STORAGE_HEADER + [
+    "rules_version = '2';",
+    'service firebase.storage {',
+    'match /b/{bucket}/o {',
+    'match /churches/{cid} {',
+    '/* Not signed in (only what is public to anybody), or this church in the claims. */',
+    "function stGate() { return request.auth == null || cid in request.auth.token.churches; }",
+    ...kept,
+    '}',
+    'match /{allPaths=**} { allow read, write: if false; }',
+    '}',
+    '}'
+  ].join('\n') + '\n';
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const src = fs.readFileSync(path.join(V2, SOURCE), 'utf8');
@@ -183,5 +241,8 @@ if (isMain) {
   const church = buildChurch(src);
   fs.writeFileSync(path.join(V2, CHURCH_BUILT), church);
   console.log('wrote ' + CHURCH_BUILT + ': ' + Buffer.byteLength(church) + ' bytes');
-  if (bytes > LIMIT || Buffer.byteLength(church) > LIMIT) { console.log('OVER THE LIMIT'); process.exit(1); }
+  const stChurch = buildStorageChurch(fs.readFileSync(path.join(V2, STORAGE_SOURCE), 'utf8'));
+  fs.writeFileSync(path.join(V2, STORAGE_CHURCH_BUILT), stChurch);
+  console.log('wrote ' + STORAGE_CHURCH_BUILT + ': ' + Buffer.byteLength(stChurch) + ' bytes');
+  if (bytes > LIMIT || Buffer.byteLength(church) > LIMIT || Buffer.byteLength(stChurch) > LIMIT) { console.log('OVER THE LIMIT'); process.exit(1); }
 }

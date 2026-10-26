@@ -645,7 +645,7 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
   - check-two-services: 30/30 in a browser, across the shared planner, the Sunday planner and the Youth planner. Break: the old rule, 9 red (the evening overwrites the morning in all three).
   - check-link-service-plans: 13/13 on the spare emulator. Break: archived services counted, 5 red.
   - Still passing: check-emailed-plan 66/66, check-stamps 11/11.
-  - check-core-planner: 69/72. The 3 reds (the Meetings room list) fail the same way on the code before this change; they're older, and I'm looking into them separately.
+  - check-core-planner: 69/72. The 3 reds (the Meetings room list) fail the same way on the code before this change; they're older, and I'm looking into them separately. **Found (4c7ebc1a):** the check read CoreTeamApp's list while the church's rooms were still being made (the emulator waits 16 s and more for the Daily secret). The list now says "Finding the rooms…", and the check waits for the rooms: 73/73; break 4 red.
 - **The original site (from its root pages in git):** after v2 saves two plans on one date, a root planner shows whichever the database gives first, and saving there writes into that one. So EGBC shouldn't plan two services on one date with the original site's planners.
 - **Other windows switch to `EGBCPlanStore` too:** the events window (Present), Comms (the e-news "This Sunday", sitemaker.html), and ChurchShow (`churchShowServicesToday`, H-11 item 2).
 
@@ -658,3 +658,11 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
   - **EGBC's defaults are today's words, so EGBC's ChurchShow shows no change.**
   - The pairing answer's shape gains a field and loses none, so ChurchShow can read it whenever it is ready.
 - **Order:** with the rest of item 2, after H-9's mapping (the group names come from it).
+
+## H-13. Storage: anyone can upload to `kb/` (25 Oct 2026; found while porting the Storage rules)
+
+- **What:** in `storage.rules`, `match /kb/{page}/{fileName}` allows `write` with no sign-in check: any video or image under 500 MB, from anyone on the internet. Deleting is off, so nothing can be removed, but the bucket can be filled and billed. Reading is public, so an upload is also a public link on EGBC's bucket.
+- **Who uses it:** the How-to and Play-through pages (`egbc-kbupload.js`, `kb/howto-av`, `kb/playthrough`). Their people are signed in.
+- **In the church ruleset (batch B):** the same rule, behind the church gate. The gate lets a signed-out request through to what is public, so the hole is there too, once per church.
+- **Not changed.** It is a live behaviour, and the rules go live only when the hub goes live. **Suggested:** `request.auth != null` on the write (the uploading pages already sign in), or an admin of the page's team. Martin to decide; it would be one line in `storage.rules` and both rulesets are rebuilt from it.
+- **For the synthetic parish:** with the suggestion, St Aidan's How-to pages work as now for its signed-in people; a stranger can't put files in St Aidan's bucket space.
