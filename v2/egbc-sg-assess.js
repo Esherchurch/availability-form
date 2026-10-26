@@ -209,7 +209,7 @@
         '<label for="sgaHostFile">Their list</label><input type="file" id="sgaHostFile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*">' +
         /* S6: no single document (Newday has only help pages)? Their web pages, or paste the words */
         '<label for="sgaHostUrls">Or their web pages: up to 5 addresses, one a line</label><textarea id="sgaHostUrls" maxlength="2500" placeholder="https://…"></textarea>' +
-        '<p class="muted" style="margin:2px 0 6px">The pages each one links to on the same site are read too (20 pages at most): a help centre’s folder page is enough.</p>' +
+        '<p class="muted" style="margin:2px 0 6px">The articles each one lists on the same site are read too (40 pages at most), never the site’s menus, search or login pages: a help centre’s folder page is enough.</p>' +
         '<label for="sgaHostText">Or paste their requirements</label><textarea id="sgaHostText" maxlength="60000"></textarea>' +
         '<p class="muted">Sent to Anthropic’s Claude to read; the file, or what was read from the pages, is kept with this assessment.</p><div class="btns"><button class="b" type="button" id="sgaHostGo">Read the requirements</button></div><p class="muted" id="sgaHostMsg" role="status"></p></div>';
     }

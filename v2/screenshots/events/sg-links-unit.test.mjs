@@ -88,10 +88,10 @@ w = web({ 'help.example.org': [PUB], 'other.example.com': [PUB] }, {
 r = await L.readPages([F], w);
 ok('A FOLDER PAGE AND ITS ARTICLES: the folder, then the two articles on the same site', J(r.pages.map((p) => p.title)) === J(['Being a Group Coordinator', 'Safeguarding', 'Camping']), J(r.pages.map((p) => p.url)));
 ok('   not another site’s page, not a style sheet, and nothing two levels down', !w.asked.some((x) => /other\.example\.com|style\.css|deeper/.test(x.url)), J(w.asked.map((x) => x.url)));
-const many = {}; const links = []; for (let i = 0; i < 25; i++) { links.push('/p' + i); many['https://big.example.org/p' + i] = { body: page('P' + i, 'x') }; }
+const many = {}; const links = []; for (let i = 0; i < 50; i++) { links.push('/p' + i); many['https://big.example.org/p' + i] = { body: page('P' + i, 'x') }; }
 many['https://big.example.org/'] = { body: page('Index', 'x', links) };
 r = await L.readPages(['https://big.example.org/'], web({ 'big.example.org': [PUB] }, many));
-ok('AT MOST 20 PAGES: the rest are named as not read', r.pages.length === 20 && r.refused.some((x) => /beyond the 20 pages/.test(x.why)), r.pages.length);
+ok('AT MOST 40 PAGES (in the 45 seconds): the rest are named as not read', r.pages.length === 40 && L.LIMITS.pages === 40 && r.refused.some((x) => /beyond the 40 pages/.test(x.why)), r.pages.length);
 r = await L.readPages(['https://a.example.org/1', 'https://a.example.org/2', 'https://a.example.org/3', 'https://a.example.org/4', 'https://a.example.org/5', 'https://a.example.org/6'], web({ 'a.example.org': [PUB] }, {}));
 ok('   at most 5 addresses given are read', r.refused.length === 5, r.refused.length);
 let clock = 0;
@@ -99,6 +99,35 @@ const slow = web({ 'a.example.org': [PUB] }, { 'https://a.example.org/x': { body
 const req0 = slow.request; slow.request = async (o) => { clock += 30000; return req0(o); }; slow.now = () => clock;
 r = await L.readPages(['https://a.example.org/x', 'https://a.example.org/y', 'https://a.example.org/z'], slow);
 ok('45 SECONDS IN ALL: what isn’t reached in time is named as not read', r.pages.length === 2 && r.refused.some((x) => /out of time/.test(x.why)), J(r.refused));
+
+console.log('\n6. A HELP CENTRE BUILT LIKE NEWDAY’S (the live run, 27 Oct): its own pages on every page, 5 folders');
+const HC = 'https://help.example.org';
+function helpCentre(perFolder) {
+  const site = {}, chrome = '<header><a href="/support/home">Home</a> <a href="/support/solutions">Solutions</a> <a href="/support/tickets/new">New ticket</a> <a href="/support/login">Login</a> <a href="/support/search/solutions?term=x">Search</a> <a href="/support/solutions/articles/8888">Popular article</a></header>' +
+    '<nav class="breadcrumb"><a href="/support/solutions">Solution home</a> &gt; <a href="/support/solutions/80000001">Organising your group</a></nav>';
+  const foot = '<footer><a href="/support/home">Help centre</a> <a href="/support/search/topics">Topics</a> <a href="/support/search/tickets">Tickets</a></footer>';
+  const wrap = (title, main) => '<html><head><title>' + title + '</title></head><body>' + chrome + '<main><h1>' + title + '</h1>' + main + '</main>' + foot + '</body></html>';
+  for (let f = 1; f <= 5; f++) {
+    const arts = []; for (let a = 1; a <= perFolder; a++) { const p = '/support/solutions/articles/' + f + '0' + (a < 10 ? '0' : '') + a; arts.push(p); site[HC + p] = { body: wrap('Folder ' + f + ' article ' + a, '<p>Rule ' + f + '.' + a + ' (invented).</p><a href="/support/solutions/articles/999">Related article</a>') }; }
+    site[HC + '/support/solutions/folders/' + f] = { body: wrap('Folder ' + f, '<ul>' + arts.map((p) => '<li><a href="' + p + '">' + p + '</a></li>').join('') + '</ul><a href="/support/solutions/80000001">Back to the category</a>') };
+  }
+  site[HC + '/support/login'] = { redirect: '/support/login?return=1' }; site[HC + '/support/login?return=1'] = { redirect: '/support/login' };
+  ['/support/home', '/support/solutions', '/support/tickets/new', '/support/solutions/80000001', '/support/search/topics', '/support/search/tickets'].forEach((p) => { site[HC + p] = { body: wrap('Chrome ' + p, '<p>Not wanted.</p>') }; });
+  return site;
+}
+const FOLDERS = [1, 2, 3, 4, 5].map((f) => HC + '/support/solutions/folders/' + f);
+w = web({ 'help.example.org': [PUB] }, helpCentre(6));
+r = await L.readPages(FOLDERS, w);
+const asked = w.asked.map((x) => x.url.replace(HC, ''));
+ok('ALL 30 ARTICLES READ (5 folders + 30 = 35 pages, within the 40)', r.pages.length === 35 && r.pages.filter((p) => /articles/.test(p.url)).length === 30, r.pages.length);
+ok('   NONE OF THE SITE’S OWN PAGES: never home, solutions, the category, tickets, login or search, nor an article linked only from the header', !asked.some((p) => /\/support\/(home|tickets|login|search)|\/support\/solutions$|\/support\/solutions\/80000001|articles\/(999|8888)/.test(p)), J(asked.filter((p) => !/folders|articles\/\d{4}$/.test(p))));
+ok('   IN TURNS ACROSS THE FOLDERS: each folder’s first article, then each one’s second', J(r.pages.slice(5, 10).map((p) => p.url.replace(HC + '/support/solutions/articles/', ''))) === J(['1001', '2001', '3001', '4001', '5001']), J(r.pages.slice(5, 10).map((p) => p.url)));
+r = await L.readPages(FOLDERS, web({ 'help.example.org': [PUB] }, helpCentre(12)));
+const per = [1, 2, 3, 4, 5].map((f) => r.pages.filter((p) => new RegExp('articles/' + f + '0').test(p.url)).length);
+ok('   60 ARTICLES, 40 PAGES: each folder gets its share (7 each) before the cap', r.pages.length === 40 && J(per) === J([7, 7, 7, 7, 7]), J(per));
+w = web({ 'help.example.org': [PUB] }, helpCentre(1));
+r = await L.readPages([HC + '/support/login'], w);
+ok('A REDIRECT LOOP is skipped at once (not three times round)', r.pages.length === 0 && /redirects in a loop/.test(r.refused[0].why) && w.asked.length === 2, J([r.refused, w.asked.length]));
 
 const passed = results.filter(Boolean).length;
 console.log('\n' + passed + '/' + results.length + ' passed');

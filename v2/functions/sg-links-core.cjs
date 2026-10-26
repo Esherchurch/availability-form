@@ -12,10 +12,14 @@
        be switched to a private one between the check and the connection;
      - redirects are followed one at a time and each checked the same way, at
        most 3, never to plain http;
-     - at most 2 MB a page, 20 pages, 45 seconds in all; web pages, plain text
-       or PDF only;
-     - from each address given, the links on that page to the same site, one
-       level down and no further (a help-centre folder lists its articles);
+     - at most 2 MB a page, 40 pages, 45 seconds in all; web pages, plain text
+       or PDF only; a redirect that loops back is skipped at once;
+     - from each address given, only the links in the page's own content (not
+       its menus, header, footer or sidebar) that go deeper than it or beside
+       it - for a help centre's folder page, its articles - never the site's
+       home, search, login, tickets or account pages; one level down only;
+     - those links read in turns across the addresses given, in the order
+       they appear, so each address gets its share before the 40 pages;
      - scripts, styles, menus, headers and footers stripped: only the words.
 
    Pure: the lookup and the request are passed in (deps.lookup, deps.request),
@@ -23,7 +27,8 @@
 'use strict';
 const net = require('node:net');
 
-const LIMITS = { starts: 5, pages: 20, bytes: 2 * 1024 * 1024, ms: 45000, redirects: 3, textPerPage: 20000, textTotal: 120000 };
+/* 40 pages in the 45 seconds (the live Newday run, 27 Oct: 20 was spent before the site rules were reached) */
+const LIMITS = { starts: 5, pages: 40, bytes: 2 * 1024 * 1024, ms: 45000, redirects: 3, textPerPage: 20000, textTotal: 160000 };
 
 /* IPv4 and IPv6 addresses no reader of the public web should ever reach */
 function privateIp(ip) {
@@ -68,7 +73,10 @@ const KINDS = /^(text\/html|application\/xhtml\+xml|text\/plain|application\/pdf
 /* one page, following redirects one at a time, each checked */
 async function safeGet(url, deps, left) {
   let u = url;
+  const been = new Set();
   for (let hop = 0; hop <= LIMITS.redirects; hop++) {
+    if (been.has(u)) return { ok: false, url, why: 'it redirects in a loop' };
+    been.add(u);
     const c = checkUrl(u, deps.testHosts);
     if (!c.ok) return { ok: false, url: u, why: c.why };
     const a = await publicAddress(c.host, deps, c.test);
@@ -99,38 +107,59 @@ function htmlToText(html) {
   s = decode(s).replace(/[ \t\f\v\r]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   return { title, text: s.slice(0, LIMITS.textPerPage) };
 }
-/* the links on a page to the same site (https), without fragments; not pictures, styles or scripts */
+/* the site's own pages a reader of requirements never wants: home, search, login, tickets, accounts */
+const CHROME = /(^|\/)(home|search|login|logout|signin|sign_in|sign-in|signup|sign_up|register|tickets?|account|accounts|profile|cart|basket|checkout|password|users?)(\/|$)/i;
+/* the page's part of the site: its path without its last two steps (a folder's /support/solutions/), and how deep it is */
+function scopeOf(u) {
+  const segs = u.pathname.split('/').filter(Boolean);
+  return { prefix: '/' + segs.slice(0, Math.max(0, segs.length - 2)).join('/') + (segs.length > 2 ? '/' : ''), depth: segs.length };
+}
+/* the links in a page's own content (not its menus, header, footer or sidebar) that go deeper than it or beside it, in
+   the order they appear; never another site, the site's chrome, pictures, styles or scripts */
 function linksOf(html, base) {
-  const b = new URL(base), out = [];
-  String(html || '').replace(/<a\b[^>]*\bhref\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi, (m, q, d1, d2, d3) => {
-    try { const x = new URL(decode(d1 || d2 || d3 || ''), b); x.hash = ''; if (x.host === b.host && x.protocol === b.protocol && !/\.(png|jpe?g|gif|svg|css|js|ico|zip|mp4|mp3|webp)$/i.test(x.pathname)) out.push(x.toString()); } catch (e) {}
+  const b = new URL(base), sc = scopeOf(b), out = [];
+  const body = String(html || '').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(nav|header|footer|aside|script|style|form|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+  body.replace(/<a\b[^>]*\bhref\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi, (m, q, d1, d2, d3) => {
+    try {
+      const x = new URL(decode(d1 || d2 || d3 || ''), b); x.hash = '';
+      const depth = x.pathname.split('/').filter(Boolean).length;
+      if (x.host === b.host && x.protocol === b.protocol && !/\.(png|jpe?g|gif|svg|css|js|ico|zip|mp4|mp3|webp)$/i.test(x.pathname)
+          && !CHROME.test(x.pathname) && x.pathname.indexOf(sc.prefix) === 0 && depth >= sc.depth && x.pathname !== b.pathname) out.push(x.toString());
+    } catch (e) {}
     return m;
   });
   return out.filter((u, i, a) => a.indexOf(u) === i && u !== b.toString());
 }
 
-/* the pages: each address given, then the links on it to the same site, one level down; within the limits */
+/* the pages: each address given first; then their links, in turns across the addresses, in the order each page lists
+   them, so every address gets its share before the 40 pages; one level down only; within the limits */
 async function readPages(starts, deps) {
   const t0 = deps.now ? deps.now() : Date.now(), left = () => LIMITS.ms - ((deps.now ? deps.now() : Date.now()) - t0);
-  const pages = [], refused = [], seen = new Set();
+  const pages = [], refused = [], seen = new Set(), lists = [];
   const given = (starts || []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, LIMITS.starts);
-  const queue = given.map((u) => ({ url: u, depth: 0 }));
   let total = 0;
-  while (queue.length && pages.length < LIMITS.pages) {
-    const { url, depth } = queue.shift();
-    if (seen.has(url)) continue; seen.add(url);
-    if (left() <= 0) { refused.push({ url, why: 'out of time (45 seconds in all)' }); continue; }
+  const one = async (url) => {
+    if (seen.has(url)) return null; seen.add(url);
+    if (left() <= 0) { refused.push({ url, why: 'out of time (45 seconds in all)' }); return null; }
     const g = await safeGet(url, deps, left);
-    if (!g.ok) { refused.push({ url: g.url || url, why: g.why }); continue; }
-    if (/pdf/.test(g.type)) { pages.push({ url: g.url, title: '', kind: 'pdf', pdf: g.body }); continue; }
+    if (!g.ok) { refused.push({ url: g.url || url, why: g.why }); return null; }
+    if (/pdf/.test(g.type)) { pages.push({ url: g.url, title: '', kind: 'pdf', pdf: g.body }); return null; }
     const html = g.body.toString('utf8');
     const t = /html/.test(g.type) ? htmlToText(html) : { title: '', text: html.replace(/\s+\n/g, '\n').slice(0, LIMITS.textPerPage) };
     const text = t.text.slice(0, Math.max(0, LIMITS.textTotal - total)); total += text.length;
     pages.push({ url: g.url, title: t.title, kind: 'text', text });
-    if (depth === 0 && /html/.test(g.type)) linksOf(html, g.url).forEach((l) => queue.push({ url: l, depth: 1 }));
+    return /html/.test(g.type) ? linksOf(html, g.url) : null;
+  };
+  for (const u of given) { if (pages.length >= LIMITS.pages) break; const l = await one(u); lists.push(l || []); }
+  /* in turns: the first link of each, then the second of each, and so on */
+  for (let i = 0, more = true; more && pages.length < LIMITS.pages; i++) {
+    more = false;
+    for (const l of lists) { if (i < l.length) { more = true; if (pages.length >= LIMITS.pages) break; await one(l[i]); } }
   }
-  queue.filter((x) => !seen.has(x.url)).slice(0, 5).forEach((x) => refused.push({ url: x.url, why: 'beyond the 20 pages read' }));
+  const unread = [].concat(...lists).filter((u, i, a) => !seen.has(u) && a.indexOf(u) === i);
+  unread.slice(0, 10).forEach((u) => refused.push({ url: u, why: 'beyond the ' + LIMITS.pages + ' pages read' }));
+  if (unread.length > 10) refused.push({ url: '(and ' + (unread.length - 10) + ' more)', why: 'beyond the ' + LIMITS.pages + ' pages read' });
   return { pages, refused };
 }
 
-module.exports = { LIMITS, privateIp, checkUrl, publicAddress, safeGet, htmlToText, linksOf, readPages };
+module.exports = { LIMITS, CHROME, privateIp, checkUrl, publicAddress, safeGet, htmlToText, scopeOf, linksOf, readPages };

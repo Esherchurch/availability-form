@@ -12351,3 +12351,54 @@ Each could use `myTeams()` (or `me().get('teams', []).concat(me().get('covers', 
 - **The rules:** none changed in this step.
 
 **For the synthetic parish:** their camp's organiser, or the diocese's youth weekend, has only web pages. The parish safeguarding officer gives the addresses, checks the questions the hub reads from them, and confirms.
+
+### F-292 — Reading a help centre's pages: its articles, not its menus (the live Newday run, 27 Oct) (the events window, 27 Oct)
+
+**What the live run found** (the reviewing window, on "Example: Newday camp (test, not real)"):
+- 29 good questions, each with its page.
+- **But the 20 pages were spent on the site's own pages** (home, solutions, new ticket, the category page, search) before the articles. The General Information articles, with the key site rules, were never reached.
+- Three redirect loops (login, search topics, search tickets) went round three times each.
+
+**The fix** (functions/sg-links-core.cjs):
+1. **Which links:** only those in the page's own content. Its menus, header, footer and sidebar are set aside before links are chosen, not only when reading the words.
+   - Only links that go deeper than the page or beside it, under the same part of the site. A folder at /support/solutions/folders/… gives its articles at /support/solutions/articles/…
+   - Never the site's home, search, login, tickets, account or similar pages, and never the category page above it.
+2. **The order:** the addresses given first, then their articles in turns: each folder's first, then each one's second, and so on, in the order each page lists them. So each folder gets its share before the cap.
+3. **The cap is 40 pages** in the same 45 seconds (it was 20). With 60 articles across 5 folders, each folder gets 7.
+4. **A redirect that loops back is skipped at once,** not followed three times.
+- **"Read more" was not built:** 40 pages covers Newday's 5 folders. If a host ever has more, the list on the page says which pages weren't read.
+- **The host box** now says: "The articles each one lists on the same site are read too (40 pages at most), never the site's menus, search or login pages."
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| sg-links-unit | 26/26 (5 new, plus 40 pages, not 20) |
+| sg-host | 40/40 |
+| sg-assess | 53/53 |
+
+- **The new checks use a stand-in help centre built like Newday's:**
+  - home, solutions, new-ticket, login and search links in every page's header
+  - a breadcrumb to the category page
+  - a footer to the search pages
+  - a "Popular article" link in the header
+  - login and search going round in redirect loops
+  - 5 folders of 6 articles
+- **They check:**
+  - all 30 articles are read and none of the site's own pages
+  - the header's article isn't read
+  - the order takes turns across the folders
+  - with 60 articles, each folder gets 7 of the 40 pages
+  - a redirect loop is skipped after one round
+
+**Breaks** (5, each caught):
+
+| Break | Result | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** any same-site link followed (as before the live run) | 24/26 | "ALL 30 ARTICLES READ"; "NONE OF THE SITE'S OWN PAGES" |
+| menus and headers not set aside when choosing links | 25/26 | "… nor an article linked only from the header" |
+| not in turns | 24/26 | "IN TURNS ACROSS THE FOLDERS"; "each folder gets its share (7 each)" |
+| a redirect loop gone round three times | 25/26 | "A REDIRECT LOOP is skipped at once" |
+| the cap back at 20 | 23/26 | three checks |
+
+**Deploy (the reviewing window's):** sgRequirementsFromLinks. Then run it again on the practice camp: the 29 unconfirmed questions are replaced by the new list, which the leader checks.
