@@ -260,6 +260,45 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 26 Oct: C-51, every service in the weekly draft, and the notices by the hub's own rule. For review
+
+**The weekly draft now has every service that Sunday, in every building**, instead of the first one.
+- **Which services, and in what order, is main's `EGBCPlanStore.dayServices`** (egbc-plan-store.js). It leaves out archived ones and orders by start time, then building. This window doesn't look them up itself.
+- **Each service is its own "This Sunday" block:**
+  - the public time (`serviceTime`), the service and the speaker;
+  - **where it is, when the church has more than one building** ("6pm Evensong, St Aidan's church"). The building names come from `sites`.
+  - The first block carries the date and "This Sunday". The office can delete any of them, as with any block, and "Where" can be changed under This block.
+- **The editor's "This Sunday" block** adds every service that Sunday the same way.
+- **Midweek services stay in.** A service published to What's On on another day (`source: 'rota'`) is now in "Coming up". Only that Sunday's services are left out of the events, since the Sunday blocks cover them.
+
+**The notices: main's `EGBCNotices`** (egbc-notices.js), the hub's one rule for which are showing.
+- The draft reads every notice (no longer the latest 30) and takes the church-wide ones showing now, newest first.
+- The old limit of 6 is gone.
+
+**For EGBC:** one Sunday service in one building looks the same as before (no place named). EGBC's rota is all Sunday services, so no midweek ones appear unless they are published to What's On.
+
+**For the synthetic parish:** its 8am, 10am, the chapel's 11:30 and Evensong each get a block, in that order, each naming its building. A cancelled (archived) service is left out, and its Wednesday Communion goes into "Coming up".
+
+**Also (26 Oct):** firebase.comms.json loads the built rules (firestore.build.rules), as main's configs do (8a43845b): check-rules-build 10/10, check-enews-rules 68/68 (18/18 breaks).
+
+**Noted for batch 8:** main's `hubUrl(db)` now gives `''` for a church other than EGBC with no address set. When this window's functions become church-scoped (batch 8), each one will treat `''` as "no hub link":
+- the e-news, the welcome emails and the confirmation won't send without it;
+- the reminder and Canva leave the link out.
+
+Today they run on EGBC's data only, so this can't happen yet.
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-enews-blocks | 97/97; 31/31 breaks red. New: a parish's Sunday (8am, 10am, chapel 11:30, Evensong, one archived) in main's order, each with its building; one building, no place named; a midweek service stays in, that Sunday's isn't twice; an older caller as before; 9 notices by main's rule, not cut at 6, a team's left out. **Breaks:** midweek left out, one service only, no building named, team notices let in → each red |
+| check-enews-page | 66/66: the draft has 10am at the church and 6pm at the chapel, the archived one left out. **Break services** (main's helper not used) → red |
+| Also | enews-editor 50/50, enews-meeting 19/19, enews-emails 38/38, check-rules-build 10/10. check-stamps: the one red is app.html's stamps (egbc-events.js, egbc-events-kids.js), not this window's |
+
+**v2 only:** every changed path is under v2/. No original page was looked at.
+
+---
+
 ## BUILT, 25 Oct: C-53, the minister's title as a church setting. For review
 
 - **"Letter from the minister" now says the church's own title:** "Letter from the vicar", "Letter from the rector" or "Letter from the pastor".

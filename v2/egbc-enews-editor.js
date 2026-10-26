@@ -550,10 +550,14 @@
       }, function (e) { toast('Could not read What’s On: ' + (e.message || e)); });
     }
     if (kind === 'sunday') {
-      var d = nextSunday(), iso = d.toISOString().slice(0, 10);
-      return db().collection('events').where('date', '==', iso).get().then(function (s) {
-        var r = s.docs.map(function (x) { return x.data(); }).filter(function (x) { return x.archived !== true; }).sort(function (a, b) { return String(a.serviceTime || '').localeCompare(String(b.serviceTime || '')); })[0] || {};
-        put({ type: 'sunday', date: 'Sunday ' + d.getUTCDate() + ' ' + d.toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' }), time: clock12(r.serviceTime), title: String(r.publicTitle || r.type || 'Sunday service'), speaker: String(r.speaker || '') });
+      /* Every service that Sunday, in every building (C-51): main's
+         EGBCPlanStore.dayServices decides which and in what order. */
+      var d = nextSunday(), iso = d.toISOString().slice(0, 10), label = 'Sunday ' + d.getUTCDate() + ' ' + d.toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' });
+      return Promise.all([db().collection('events').where('date', '==', iso).get(),
+        db().collection('sites').get().then(function (s) { var o = {}; s.docs.forEach(function (x) { if (x.data().active !== false) o[x.id] = x.data().name || ''; }); return o; }, function () { return {}; })]).then(function (r) {
+        var list = MB.serviceBlocks(EGBCPlanStore.dayServices(r[0].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }), iso), label, r[1]).map(function (b) { delete b.auto; return b; });
+        if (!list.length) return put({ type: 'sunday', date: label, time: '', title: 'Sunday service', speaker: '' });
+        change(function () { var i = Math.max(0, Math.min(at, ISSUE.blocks.length)); Array.prototype.splice.apply(ISSUE.blocks, [i, 0].concat(list)); SEL = i; PANEL = 'block'; });
       }, function () { put({ type: 'sunday', date: '', time: '', title: 'Sunday service', speaker: '' }); });
     }
     if (kind === 'notices') {
@@ -620,7 +624,7 @@
       '<label>Line up</label><div class="seg2" data-opt="align">' + [['center', 'Centre'], ['left', 'Left']].map(function (o) { return '<button type="button" data-v="' + o[0] + '" aria-pressed="' + ((b.align || 'center') === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>';
     if (t === 'button') return field('f-blabel', 'Button words', b.label) + field('f-burl', 'Link', b.url, 'url', ' placeholder="https://"');
     if (t === 'section') return '<p class="m">Type the words on the bar on the email.</p>';
-    if (t === 'sunday') return field('f-date', 'Date', b.date || b.when) + field('f-time', 'Time', b.time) + field('f-title', 'Service', b.title) + field('f-spk', 'Speaker', b.speaker) + '<label for="f-text">A line about it (optional)</label><textarea id="f-text">' + esc(b.text || '') + '</textarea>';
+    if (t === 'sunday') return field('f-date', 'Date', b.date || b.when) + field('f-time', 'Time', b.time) + field('f-title', 'Service', b.title) + field('f-spk', 'Speaker', b.speaker) + field('f-place', 'Where (optional)', b.place) + '<label for="f-text">A line about it (optional)</label><textarea id="f-text">' + esc(b.text || '') + '</textarea>';
     if (t === 'verse') return '<label for="v-ref">Reference</label><input type="text" id="v-ref" placeholder="For example Col 3:23-24" value="' + esc(b.ref || '') + '">' +
       '<label for="v-ver">Version</label><select id="v-ver"><option value="">Loading the Bibles…</option></select>' +
       '<div style="margin-top:8px"><button type="button" class="b" id="v-get">' + I('book-open', 16) + 'Bring it in</button></div><p class="m" id="v-msg" role="status"></p>' +
@@ -665,7 +669,7 @@
     var map = { 'f-img': function (v) { if (b.type === 'picture' || b.type === 'logo') b.url = v; else if (b.type === 'pictures') { b.urls = b.urls || ['', '']; b.urls[0] = v; } else b.imageUrl = v; },
       'f-img2': function (v) { b.urls = b.urls || ['', '']; b.urls[1] = v; }, 'f-alt': function (v) { b.alt = v; }, 'f-link': function (v) { b.link = v; }, 'f-cap': function (v) { b.caption = v; },
       'f-title': function (v) { b.title = v; }, 'f-when': function (v) { b.when = v; }, 'f-blabel': function (v) { if (b.type === 'button') b.label = v; else if (b.type === 'video') b.label = v; else b.buttonLabel = v; },
-      'f-burl': function (v) { if (b.type === 'button') b.url = v; else b.buttonUrl = v; }, 'f-date': function (v) { b.date = v; }, 'f-time': function (v) { b.time = v; }, 'f-spk': function (v) { b.speaker = v; },
+      'f-burl': function (v) { if (b.type === 'button') b.url = v; else b.buttonUrl = v; }, 'f-date': function (v) { b.date = v; }, 'f-time': function (v) { b.time = v; }, 'f-spk': function (v) { b.speaker = v; }, 'f-place': function (v) { b.place = v; },
       'f-text': function (v) { b.text = v; }, 'f-url': function (v) { b.url = v; }, 'f-width': function (v) { b.width = Math.max(40, Math.min(300, +v || 160)); }, 'f-vt': function (v) { b.text = v; }, 'f-copy': function (v) { b.copyright = v; }, 'v-ref': function (v) { b.ref = v; } };
     (b.cols || []).forEach(function (c, k) { map['f-col' + k] = function (v) { b.cols[k] = Object.assign({}, b.cols[k], { imageUrl: v }); }; });
     Object.keys(map).forEach(function (id) {

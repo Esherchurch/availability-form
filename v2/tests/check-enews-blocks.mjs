@@ -15,6 +15,9 @@ import vm from 'node:vm';
 
 const V2 = path.resolve('.');
 const SRC = fs.readFileSync(path.join(V2, 'egbc-mailblocks.js'), 'utf8');
+/* Main's two helpers, as the pages load them (C-51): which services, which notices. */
+const PLAN = (() => { const module = { exports: {} }; vm.runInNewContext(fs.readFileSync(path.join(V2, 'egbc-plan-store.js'), 'utf8'), { module, exports: module.exports, String, Object, Array, JSON }); return module.exports; })();
+const NOTICE_RULE = (() => { const module = { exports: {} }; vm.runInNewContext(fs.readFileSync(path.join(V2, 'egbc-notices.js'), 'utf8'), { module, exports: module.exports, String, Object, Array, JSON, Date, Number }); return module.exports; })();
 
 function load(src) {
   const module = { exports: {} };
@@ -49,7 +52,7 @@ const ZOOM = 'Passcode 271828';
 function checks(M) {
   const R = [];
   const ok = (n, v, x) => R.push({ n, v: !!v, x });
-  const blocks = M.draft({ now: NOW, events: EVENTS, notices: NOTICES, sunday: { title: 'Morning Worship', when: 'Sunday 25 October · 10am', speaker: 'Sam Taylor' }, base: 'https://example.invalid/v2' });
+  const blocks = M.draft({ now: NOW, events: EVENTS, notices: NOTICES, noticeRule: NOTICE_RULE, sunday: { title: 'Morning Worship', when: 'Sunday 25 October · 10am', speaker: 'Sam Taylor' }, base: 'https://example.invalid/v2' });
   const ids = blocks.filter(b => b.type === 'event').map(b => b.eventId);
   const byId = id => blocks.find(b => b.eventId === id);
   ok('draft: a public event goes in, for everyone', byId('pub') && byId('pub').members !== true);
@@ -111,6 +114,36 @@ function checks(M) {
     EB.includes('<td align="center" bgcolor="#3d6263" style="border-radius:9px;">') && s.button('A', 'https://x.invalid').includes('<td align="center" bgcolor="#3d6263" style="border-radius:9px;">') &&
     EB.includes(s.divider()) && EB.includes(s.spacer()) &&
     EB.includes('<td width="50%" valign="top" style="padding:0 10px 0 0;">Left column…</td>'.replace('…', '…')) && s.columns().includes('Left column'));
+  /* C-51: every service that Sunday, in every building (the synthetic
+     parish: 8am, 10am and Evensong at the church, a monthly chapel service),
+     in main's order (EGBCPlanStore.dayServices), and a midweek service
+     published to What's On stays in. */
+  const SUN = '2026-10-25';
+  const rotaDay = [
+    { id: 'r_even', date: SUN, type: 'Evensong', startTime: '17:30', serviceTime: '18:00', siteId: 'church' },
+    { id: 'r_said', date: SUN, type: 'Said Communion', startTime: '07:45', serviceTime: '08:00', siteId: 'church' },
+    { id: 'r_euch', date: SUN, type: 'Parish Eucharist', publicTitle: 'Parish Eucharist', startTime: '09:15', serviceTime: '10:00', siteId: 'church', speaker: 'The Vicar' },
+    { id: 'r_chap', date: SUN, type: 'Chapel Communion', startTime: '11:15', serviceTime: '11:30', siteId: 'chapel' },
+    { id: 'r_gone', date: SUN, type: 'Cancelled service', startTime: '15:00', serviceTime: '15:00', siteId: 'hall', archived: true }
+  ];
+  const SITES = { church: 'St Aidan’s church', hall: 'Church hall', chapel: 'St Hild’s chapel' };
+  const services = PLAN.dayServices(rotaDay, SUN);
+  const midweek = ev('r_wed', { title: 'Midweek Communion', visibility: 'public', source: 'rota', startLocal: '2026-10-21T10:30', startUtc: Date.UTC(2026, 9, 21, 9, 30) });
+  const sunRota = ev('r_sunpub', { title: 'Parish Eucharist (What’s On)', visibility: 'public', source: 'rota', startLocal: SUN + 'T10:00', startUtc: Date.UTC(2026, 9, 25, 9) });
+  const pd = M.draft({ now: NOW, events: [midweek, sunRota], services, sundayIso: SUN, sundayLabel: 'Sunday 25 October', sites: SITES, notices: [], base: 'https://x.invalid' });
+  const sb = pd.filter(b => b.type === 'sunday');
+  ok('every service that Sunday, in every building, in time order (an archived one left out)', sb.map(b => b.time + ' ' + b.title).join(' | ') === '8am Said Communion | 10am Parish Eucharist | 11:30am Chapel Communion | 6pm Evensong', sb.map(b => b.time + ' ' + b.title));
+  ok('…each says where, when the church has more than one building', sb.map(b => b.place).join('|') === 'St Aidan’s church|St Aidan’s church|St Hild’s chapel|St Aidan’s church' && /6pm Evensong, St Aidan’s church/.test(M.render({ blocks: sb }, {})), sb.map(b => b.place));
+  ok('…the first has the date and "This Sunday"; the speaker comes too', sb[0].date === 'Sunday 25 October' && sb[0].heading === 'This Sunday' && sb.slice(1).every(b => !b.date) && (sb[1] || {}).speaker === 'The Vicar');
+  ok('…with one building, no place is named', M.serviceBlocks(services, 'Sunday 25 October', { church: 'St Aidan’s church' }).every(b => !b.place));
+  const titles = pd.filter(b => b.type === 'event').map(b => b.title);
+  ok('a midweek service published to What’s On stays in; that Sunday’s service isn’t twice', titles.includes('Midweek Communion') && !titles.some(t => /What’s On/.test(t)), titles);
+  ok('an older caller (one Sunday, no date): as before', M.draft({ now: NOW, events: [midweek], sunday: { title: 'Morning Worship' }, notices: [] }).filter(b => b.type === 'sunday').length === 1);
+  /* The notices: main's one rule, every showing one, no cap of 6. */
+  const many = Array.from({ length: 9 }, (_, k) => ({ id: 'm' + k, title: 'Notice ' + k, body: '', teams: [], createdAt: 1000 + k }));
+  const nb9 = M.draft({ now: NOW, events: [], notices: many.concat([{ id: 'team', title: 'Team only', teams: ['Choir'], createdAt: 5000 }]), noticeRule: NOTICE_RULE }).find(b => b.type === 'notices');
+  ok('notices: every church-wide one showing (9, not cut at 6), newest first, by the hub’s rule', nb9 && nb9.items.length === 9 && nb9.items[0].id === 'm8' && !nb9.items.some(i => i.id === 'team'), nb9 && nb9.items.map(i => i.id));
+
   /* Val's look (C-29): the order, the parts, placeholders only in the
      preview, the week can't go out with an empty top, and Outlook-safe. */
   const order = blocks.map(b => b.type).filter(t => t !== 'notices');
@@ -247,7 +280,10 @@ const BREAKS = [
   ['not-listed events allowed in', "return null;   /* 'team', 'unlisted'", "return 'public';   /* 'team', 'unlisted'", 'NOT LISTED'],
   ['the unsubscribe link dropped from the footer', "'Want to change how you receive these emails?<br>You can <a href=\"' + u + '\" style=\"' + white + '\">update your preferences</a> or <a href=\"' + u + '\" style=\"' + white + '\">unsubscribe from this list</a>.'", "''", 'unsubscribe link in every copy'],
   ['javascript: links allowed', "if (/^https?:\\/\\/[^\\s<>\"]+$/i.test(u)", "if (/^(https?|javascript):[^\\s<>\"]+$/i.test(u)", 'no javascript: links'],
-  ['team notices let in', 'if ((n.teams || []).length) return false;', '', 'church-wide notices only'],
+  ['team notices let in', '(NR ? NR.isForTeams(n, []) : !(n.teams || []).length)', 'true', 'church-wide notices only'],
+  ['midweek services left out', "if (x.ev.source === 'rota' && (!data.sundayIso || isoOf(x.st) === data.sundayIso)) return false;", "if (x.ev.source === 'rota') return false;", 'a midweek service'],
+  ['one Sunday service only', 'serviceBlocks(data.services, data.sundayLabel, data.sites).forEach(', 'serviceBlocks(data.services.slice(0, 1), data.sundayLabel, data.sites).forEach(', 'every service that Sunday'],
+  ['no building named', "place: many && r.siteId && sites[r.siteId] ? String(sites[r.siteId]).slice(0, 80) : ''", "place: ''", 'where, when the church has more than one'],
   ['an empty verse sent', "if (!String(b.text || '').trim()) return o.preview ? row(placeholder('Add this week’s verse', 90), '18px 18px 9px') : '';", '', 'an empty verse'],
   ['the charity number dropped', "c.charityNo ? 'Registered Charity No ' + esc(c.charityNo) : ''", "''", 'footer: name, address and charity number'],
   ['ready to send without a verse', "if (b.type === 'verse' && !String(b.text || '').trim()) missing.push('verse');", '', 'not ready without the verse'],

@@ -107,6 +107,7 @@ const BREAKS = {
   colour: ['egbc-enews-editor.js', "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + palette().map(", "if (id === 'pop-colour') p.innerHTML = '<p class=\"m\" style=\"margin:0 0 8px\">Colour (the church’s)</p><div class=\"sw\">' + [].map("],
   leak: ['enews.html', "{ issueId: ISSUE_ID, html: finalCopy('everyone') }", "{ issueId: ISSUE_ID, html: finalCopy('members') }"],
   missing: ['enews.html', 'readyNote() + missingNote() +', 'readyNote() +'],
+  services: ['enews.html', 'return EGBCPlanStore.dayServices(s.docs.map(', 'return [].slice.call(s.docs.map('],
   subcap: ['enews.html', "EGBCComms.allDocs(db().collection('enewsSubscribers').orderBy('email'), 500).then(function (docs) {", "db().collection('enewsSubscribers').orderBy('email').limit(1000).get().then(function (q) { var docs = q.docs;"],
   nomore: ['egbc-comms.js', '      if (s.size >= o.size) {', '      if (false) {'],
   wordcount: ['enews.html', "      (bits ? '<span class=\"pill gold\" id=\"mem-words\">'", "      (false ? '<span class=\"pill gold\" id=\"mem-words\">'"]
@@ -145,7 +146,12 @@ function serveAuth(src) {
   await put('calEvents/en_pub', Object.assign({ title: 'Synthetic harvest supper', visibility: 'public', status: 'confirmed', audience: ['public', 'members'], signupOn: true, image: '', labels: ['Harvest'] }, evAt(3, '18:30')));
   await put('calEvents/en_mem', Object.assign({ title: 'Synthetic members prayer', visibility: 'members', status: 'confirmed', audience: ['members'], image: '' }, evAt(4, '19:00')));
   await put('calEvents/en_unl', Object.assign({ title: 'Synthetic support group', visibility: 'unlisted', status: 'confirmed', audience: ['unlisted'], image: '' }, evAt(2, '20:00')));
-  await put('events/en_sun', { date: SUNDAY, type: 'Morning Worship', serviceTime: '10:00', speaker: 'Sam Synthetic', publicTitle: 'Morning Worship', archived: false });
+  await put('events/en_sun', { date: SUNDAY, type: 'Morning Worship', startTime: '09:15', serviceTime: '10:00', speaker: 'Sam Synthetic', publicTitle: 'Morning Worship', archived: false, siteId: 'site_main' });
+  /* C-51: a second service that Sunday, in another building, and an archived one. */
+  await put('events/en_eve', { date: SUNDAY, type: 'Evening Prayer', startTime: '17:45', serviceTime: '18:00', publicTitle: 'Evening Prayer', archived: false, siteId: 'site_chapel' });
+  await put('events/en_old', { date: SUNDAY, type: 'Cancelled', startTime: '12:00', serviceTime: '12:00', archived: true });
+  await put('sites/site_main', { name: 'Synthetic church', active: true });
+  await put('sites/site_chapel', { name: 'Synthetic chapel', active: true });
   await put('news/en_n1', { title: 'Synthetic car park notice', body: '<p>Park on the road.</p>', teams: [], createdAt: new Date().toISOString() });
 
   const server = http.createServer((q, s) => {
@@ -242,6 +248,8 @@ function serveAuth(src) {
     ok('the members event is members-only', (blocks.find(b => b.eventId === 'en_mem') || {}).members === true, blocks.find(b => b.eventId === 'en_mem'));
     ok('the NOT LISTED event is not in the draft', !evIds.includes('en_unl') && !JSON.stringify(blocks).includes('Synthetic support group'), evIds);
     ok('Sunday from the rota, with the speaker', blocks.some(b => b.type === 'sunday' && b.speaker === 'Sam Synthetic'), blocks.filter(b => b.type === 'sunday'));
+    const sundays = blocks.filter(b => b.type === 'sunday');
+    ok('every service that Sunday (C-51): 10am at the church, 6pm at the chapel, the archived one left out', sundays.map(b => b.time + ' ' + b.title + ', ' + b.place).join(' | ') === '10am Morning Worship, Synthetic church | 6pm Evening Prayer, Synthetic chapel', sundays.map(b => [b.time, b.title, b.place]));
     await ev('document.querySelector(\'.rail [data-panel="check"]\').click(),1'); await sleep(500);
     ok('the gold members-only count shows', /for church members only/.test(await ev('document.getElementById("side").innerText')));
 

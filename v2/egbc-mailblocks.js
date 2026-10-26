@@ -416,7 +416,7 @@
       case 'sunday':
         /* Val's Sunday: the date in teal, the service in bold, a line about it. */
         var dateLine = b.date || b.when || '';
-        var service = [b.time, b.title].filter(Boolean).join(' ');
+        var service = [b.time, b.title].filter(Boolean).join(' ') + (b.place ? ', ' + b.place : '');
         return row('<div class="t" style="' + textStyle(t) + '">' +
             (dateLine ? '<strong style="color:' + t.title + ';">' + esc(dateLine) + '</strong><br>' : '') +
             (service ? '<strong>' + esc(service) + '</strong><br>' : '') +
@@ -731,6 +731,7 @@
     var p = londonParts(n);
     return { y: p.y, m: p.m, d: p.d, hh: p.hh, mm: p.mm, ms: Date.UTC(p.y, p.m, p.d, p.hh, p.mm) };
   }
+  function isoOf(st) { return st.y + '-' + (st.m < 9 ? '0' : '') + (st.m + 1) + '-' + (st.d < 10 ? '0' : '') + st.d; }
   function londonParts(ms) {
     try {
       var f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -817,6 +818,21 @@
       return need.length ? { title: b.title || '(no title)', eventId: b.eventId || '', need: need } : null;
     }).filter(Boolean);
   }
+  /* THE DAY'S SERVICES AS "THIS SUNDAY" BLOCKS (C-51; the synthetic parish
+     test: 8am, 10am, Evensong, a chapel). services: that Sunday's live
+     services, as main's EGBCPlanStore.dayServices gives them (in order;
+     archived ones left out) - this never looks them up itself. Each block
+     has the public time (serviceTime) and, when the church has more than
+     one building, where (sites: { id: name }). The first carries the date
+     and "This Sunday". */
+  function serviceBlocks(services, dateLabel, sites) {
+    var many = Object.keys(sites || {}).length > 1;
+    return (services || []).map(function (r, k) {
+      return { type: 'sunday', heading: k ? '' : 'This Sunday', title: String(r.publicTitle || r.type || 'Sunday service').slice(0, 140),
+        date: k ? '' : String(dateLabel || ''), time: clock(r.serviceTime || r.startTime), when: '', speaker: String(r.speaker || '').slice(0, 140),
+        place: many && r.siteId && sites[r.siteId] ? String(sites[r.siteId]).slice(0, 80) : '', eventId: String(r.id || ''), auto: true };
+    });
+  }
   function draft(data) {
     data = data || {};
     var now = data.now instanceof Date ? data.now : new Date(data.now || Date.now());
@@ -831,7 +847,9 @@
     out.push({ type: 'verse', text: '', ref: '' });
     out.push({ type: 'section', label: 'Coming up this week', auto: true });
     var sun = data.sunday;
-    if (sun && sun.title) {
+    if (Array.isArray(data.services) && data.services.length) {
+      serviceBlocks(data.services, data.sundayLabel, data.sites).forEach(function (b) { out.push(b); });
+    } else if (sun && sun.title) {
       out.push({ type: 'sunday', heading: 'This Sunday', title: sun.title, date: sun.date || '', time: sun.time || '', when: sun.when || '', speaker: sun.speaker || '', auto: true });
     }
     var evs = (data.events || []).map(function (ev) {
@@ -839,7 +857,10 @@
       return { ev: ev, st: st, share: share };
     }).filter(function (x) {
       if (!x.st || !x.share) return false;
-      if (x.ev.source === 'rota') return false;   /* the Sunday block covers services */
+      /* The Sunday blocks cover that Sunday's services; a midweek service
+         published to What's On stays in (C-51). Without the Sunday's date
+         (an older caller), every service is left out, as before. */
+      if (x.ev.source === 'rota' && (!data.sundayIso || isoOf(x.st) === data.sundayIso)) return false;
       return x.st.ms >= from && x.st.ms < to;
     }).sort(function (a, b) { return a.st.ms - b.st.ms; });
     evs.forEach(function (x) {
@@ -858,13 +879,12 @@
       });
     });
     var today = p.y + '-' + (p.m < 9 ? '0' : '') + (p.m + 1) + '-' + (p.d < 10 ? '0' : '') + p.d;
-    var notices = (data.notices || []).filter(function (n) {
-      if (!n || !n.title) return false;
-      /* Church-wide notices only: a team's notice is for that team. */
-      if ((n.teams || []).length) return false;
-      if (n.until && String(n.until) < today) return false;
-      return true;
-    }).slice(0, 6);
+    /* Which notices are showing is the hub's one rule (main's EGBCNotices,
+       C-51): church-wide ones only (a team's notice is for that team), every
+       one showing, newest first - no cap. */
+    var NR = data.noticeRule || (typeof EGBCNotices !== 'undefined' ? EGBCNotices : null);
+    var notices = (NR ? NR.current(data.notices || [], today) : (data.notices || []).filter(function (n) { return !(n && n.until && String(n.until) < today); }))
+      .filter(function (n) { return n && n.title && (NR ? NR.isForTeams(n, []) : !(n.teams || []).length); });
     if (notices.length) {
       /* Notices are written for people signed in to the hub, so they go in
          as members-only until someone ticks them for everyone. */
@@ -876,6 +896,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, exposedJoining: exposedJoining, membersWords: membersWords, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, exposedJoining: exposedJoining, membersWords: membersWords, serviceBlocks: serviceBlocks, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });
