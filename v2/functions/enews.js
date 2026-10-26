@@ -122,7 +122,11 @@ function confirmEmail(church, link) {
 }
 
 /* ---- sign-up ----------------------------------------------------------- */
-export const enewsSignup = onRequest({ region: REGION, cors: [/^https:\/\/esherchurch\.github\.io$/, /^http:\/\/(localhost|127\.0\.0\.1):\d+$/], invoker: 'public' }, async (req, res) => {
+/* The sites the sign-up and confirm pages are served from: github.io, Church
+   HQ's own addresses (<slug>.churchhq.co.uk; the main window, 26 Oct 2026,
+   asked in FINDINGS-comms), and a local test. */
+const SIGNUP_SITES = [/^https:\/\/esherchurch\.github\.io$/, /^https:\/\/[a-z0-9-]+\.churchhq\.co\.uk$/, /^http:\/\/(localhost|127\.0\.0\.1):\d+$/];
+export const enewsSignup = onRequest({ region: REGION, cors: SIGNUP_SITES, invoker: 'public' }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
   const b = req.body || {};
   const S = await settings();
@@ -170,7 +174,7 @@ export const enewsSignup = onRequest({ region: REGION, cors: [/^https:\/\/esherc
 });
 
 /* ---- confirm ------------------------------------------------------------ */
-export const enewsConfirm = onRequest({ region: REGION, cors: [/^https:\/\/esherchurch\.github\.io$/, /^http:\/\/(localhost|127\.0\.0\.1):\d+$/], invoker: 'public' }, async (req, res) => {
+export const enewsConfirm = onRequest({ region: REGION, cors: SIGNUP_SITES, invoker: 'public' }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
   const S = await settings();
   if (!S.open) return res.json({ ok: false, shut: true });

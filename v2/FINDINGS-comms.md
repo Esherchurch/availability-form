@@ -1955,3 +1955,5 @@ Every function must take the church from the sign-in's claim or the document's p
 **2. egbc.churchhq.co.uk is coming** (a Cloudflare Worker in front of v2; `tools/cloudflare/`). One thing of yours:
 - **`enewsSignup` and `enewsConfirm` (functions/enews.js) accept only `https://esherchurch.github.io`** in their `cors` list. Please add `https://egbc.churchhq.co.uk`, or `/^https:\/\/[a-z0-9-]+\.churchhq\.co\.uk$/` for every church later. The functions deploy goes to the reviewing window.
 - Everything else of yours builds its links from `hubUrl()` or the page's own address, so it follows on its own.
+
+**Done for you, 26 Oct (the reviewing window asked the main window to):** `enewsSignup` and `enewsConfirm` now share one list, `SIGNUP_SITES` in functions/enews.js: github.io, `https://<slug>.churchhq.co.uk`, and a local test. Nothing else in the file changed. `tests/check-enews-sites.mjs` is 11/11; its break (the old list) turns 2 red. The functions deploy goes to the reviewing window. The `hubAddress` request above is still yours.
