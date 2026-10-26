@@ -768,3 +768,50 @@ Listed by owning window, from today's code: calls to `inTeam`, `isLeaderOf`, `is
   - Church HQ staff change a slug with `tools/hq-set-slug.mjs` (dry run first; the old one is kept, retired).
 - **Church details shows it read-only** with a copy button and "ask Church HQ". The typed field from 42cc2a8d is gone, and no page may set `details.hubUrl`.
 - **egbc.churchhq.co.uk:** a Cloudflare Worker, `tools/cloudflare/` (README in plain steps). On that address sign-in runs through `/__/auth/`, the manifests open on that address (their `start_url` and `scope` are relative now, the same on github.io), and page-built email links use the page's own address.
+
+## H-15. Core teams cover chosen teams, independently: the plan (26 Oct 2026; Martin's bug, via the reviewing window)
+
+**For approval; nothing is built.** Martin: "We need a kids church and youth core team and a worship core team. They need to be independent." Comes **before H-9 part 2**, which would otherwise build on the wrong "leadership".
+
+### What happens today
+- **EGBC's "Core Team" is the worship team's core team.** egbc-auth.js (`CORE_COVERS`) and the rules (`worshipAv()`) already widen it to Worship Team, AV Team and Choir only. Those two are right.
+- **The leaks are hand-written lists that name Core Team as if church-wide:**
+  - the Menu's Rota planner (`leaderOf`, egbc-menu.js:87) and rota reports (`adminOf`, :106);
+  - the hub's Rota planner and Events entries (hub-app.js:2469, :2489);
+  - the rota's scoping (`WORSHIP_SIDE` in egbc-auth.js, which also gives Core Team the Youth rota);
+  - the server's send lists (`ROTA_TEAMS` / `PLAN_TEAMS`, functions/hub-send.js:47–48);
+  - H-9's `leadership` job ("runs Sundays across teams").
+- **What Martin saw:** on the hub's Home choice ("Home shows: Core Team"), a master admin still counts as being in every plan group, so the Sundays card listed Kids Church's Session planner and Present. For an ordinary Core Team member, the Rota planner opens every team's rota, Kids Church's included.
+- **egbc-core-rota.js:1252 is not access.** It's the list of teams an event can be tagged for (a Core Team meeting, for example), so it stays.
+
+### The plan (any church)
+1. **A core team covers chosen teams.** On Teams & groups, any team can be ticked "core team for" a list of teams (stored on the team as `coreFor: [team ids]`; master admins set it).
+   - Being on a core team counts as being on each team it covers, and nothing else.
+   - Its leaders and admins count as leaders and admins of those teams, as Core Team's do today for Worship and AV.
+   - Core teams are independent: none covers another, or anything outside its list.
+2. **EGBC's defaults, so nothing is lost:**
+   - **Core Team**, shown as "**Worship Core Team**" (its id stays "Core Team", H-9), covers Worship Team, AV Team and Choir, exactly as today.
+   - **A new team, "Kids & Youth Core Team"**, covers Kids Church, Lazers, ReNu and Youth Worship. Martin puts its people in.
+3. **One answer everywhere:** `EGBCAuth.inTeam(team)` and `isLeaderOf(team)` ask "on it, or on a core team covering it". Every hard-coded "Core Team" in the lists above goes, because the cover now gives each core team its own pages.
+   - A Worship Core Team member keeps Worship & AV and the Rota planner, scoped to Worship, AV and Choir. They no longer get the Youth rota, Kids Church's rota, the Session planner or Present.
+   - A Kids & Youth Core Team member gets Kids Church's, Lazers', ReNu's and Youth's pages and rotas, and none of the worship ones.
+   - Master admins still see everything in the Menu. **But on the hub's Home choice, the hub's lists show the chosen team's pages** (with what it covers), even for a master admin. That's the fix for what Martin saw.
+4. **The rules, without a new read** (H-8): the server keeps each person's covered teams on their users record (`covers`). The rules' `myTeams()` becomes their teams plus `covers`, and no page can write `covers`. Until it's written, Core Team keeps today's `worshipAv()`, so nothing changes on the day.
+5. **H-9: no church-wide "leadership" job** (question 2). Ministry leadership comes from core teams.
+6. **H-14:** kb/ uploads default to master admins, plus **the core teams covering worship** (EGBC's Worship Core Team), plus the admins of AV and Worship. A new tick on the Permissions screen, "core teams covering…", says it for any church.
+7. **Checks:** in a browser, signed in as a plain Worship Core Team member and a plain Kids & Youth Core Team member (made-up people, not master admins). They cover the Menu, the hub's lists, the app's tiles and the rules (each core team reaches its own teams' data and not the other's). There are breaks for "covers ignored" and "Core Team covers everything".
+
+**For the synthetic parish:** "Ministry Team" covers the Choir and Music group, and "Children's Ministry Team" covers Junior Church and Messy Church. Each sees only its own. The PCC are trustees, and covers nothing.
+
+### Questions for Martin (recommended answer first)
+1. **Does the Kids & Youth Core Team work with under-18s** (DBS needed), since it covers Kids Church and Youth?
+   - **Recommended:** yes. A core team covering an under-18s team is itself marked as working with under-18s, so its people need the same checks.
+   - **Or:** no, it's only for planning.
+2. **H-9's "leadership" job:**
+   - **Recommended:** drop it, leaving 14 jobs. Leadership of each ministry comes from its core team.
+   - **Or:** keep it as "the church's overall leaders" (EGBC: Elders), covering nothing.
+3. **A Kids & Youth Core Team space in the app,** like Core Team's (plan, rota, meetings, charter):
+   - **Recommended:** not now. They get the Kids Church and Youth spaces through the cover. Add a space later if they ask.
+   - **Or:** build it now.
+
+**Order:** this (H-15), then H-14 part 1 with the new kb/ default, then H-9 part 2.
