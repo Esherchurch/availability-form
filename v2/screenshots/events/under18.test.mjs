@@ -202,9 +202,10 @@ try {
   ok('   and the warning goes', !(await M.$('#u18Pending')) && !(await M.$('.notCleared')));
 
   /* 6. reminders */
-  await go(A, 'safeguarding.html', '#due');
-  const due = await text(A, '#due');
-  ok('6. REMINDERS: the admin sees Tia\'s training run out, and Lena\'s running out in three weeks', /Tia Helper: safeguarding training Ran out on .* Run out/.test(due)
+  /* a master admin: since 22 Oct (e6edc276) a team admin no longer reads everyone's checks - the master admin, and each site's lead and deputy, do */
+  await go(M, 'safeguarding.html', '#due');
+  const due = await text(M, '#due');
+  ok('6. REMINDERS: the master admin sees Tia\'s training run out, and Lena\'s running out in three weeks', /Tia Helper: safeguarding training Ran out on .* Run out/.test(due)
     && /Lena Leader: safeguarding training Runs out on .*\(21 days\) Soon/.test(due), due);
   const L = await as('lena');
   await go(L, 'safeguarding.html', '#myDue');

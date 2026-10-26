@@ -1101,8 +1101,9 @@ allow read: if volunteer();
 allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
 && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
 'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
-'under18', 'leaderIds', 'clearedIds', 'lastCleared'])
+'under18', 'leaderIds', 'clearedIds', 'lastCleared', 'leaderInfo'])
 && request.resource.data.leaderUids is list
+&& leadersShapeOk(request.resource.data)
 && request.resource.data.get('siteId', '')
 == get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '')
 && under18EventOk(calEventId);
@@ -1111,9 +1112,13 @@ function eventCleared(calEventId, memberId) {
 return memberId is string && memberId != ''
 && (checksInDate(memberId) || exists(/databases/$(database)/documents/eventExceptions/$(calEventId + '__' + memberId)));
 }
-function eventIdsMatch(d) {
+function leadersShapeOk(d) {
 let ids = d.get('leaderIds', []);
-return ids is list && d.leaders is list && ids.size() == d.leaders.size() && ids.size() <= 500 && ids.toSet().size() == ids.size();
+let info = d.get('leaderInfo', {});
+let named = ids.removeAll(['']);
+return ids is list && d.get('leaders', []) is list && ids.size() == d.get('leaders', []).size() && ids.size() <= 500
+&& named.toSet().size() == named.size()
+&& info is map && info.keys().hasOnly(named) && info.size() == named.size();
 }
 function under18EventOk(calEventId) {
 let d = request.resource.data;
@@ -1125,7 +1130,7 @@ let before = wasOn ? resource.data.get('clearedIds', []) : [];
 let namedBefore = wasOn ? resource.data.get('leaderIds', []) : ids;
 return d.get('under18', false) != true
 ? (after is list && after.size() == 0)
-: (eventIdsMatch(d) && after is list && last is list && last.size() <= 2
+: (after is list && last is list && last.size() <= 2
 && after.toSet().difference(ids.toSet()).size() == 0
 && after.toSet().difference(before.toSet()).difference(last.toSet()).size() == 0
 && (last.size() < 1 || eventCleared(calEventId, last[0]))

@@ -18,7 +18,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-safeguarding.js?v=202610261100"></script>
+<script src="egbc-events-safeguarding.js?v=202610261500"></script>
 <script src="egbc-sg-templates.js?v=202610251000"></script>
 <script src="egbc-sg-assess.js?v=202610261100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -288,11 +288,13 @@
       ratioAll: st.ratioAll, ratioUnder8: st.ratioUnder8, requireChecks: st.requireChecks,
       dbsYears: st.dbsYears, trainingYears: st.trainingYears, updatedAt: now(), updatedBy: ME.uid,
       /* §24: the member ids in the same order, which the rules check on a ticked event. */
-      under18: st.under18, leaderIds: leaders.map(function (l) { return l.memberId || ''; }), lastCleared: []
+      under18: st.under18, leaderIds: leaders.map(function (l) { return l.memberId || ''; }), lastCleared: [],
+      /* each named leader's name, role and sign-in, kept by member id (the spoofed-name fix) */
+      leaderInfo: SG.leaderInfoOf(leaders)
     }, extra || {});
     /* Who is cleared (F-146): only people still named, and nobody once unticked. */
     if (!extra || !extra.clearedIds) d.clearedIds = d.under18 ? ((LEAD && LEAD.clearedIds) || []).filter(function (id) { return d.leaderIds.indexOf(id) >= 0; }) : [];
-    return db().collection('eventLeaders').doc(EVID).set(d).then(function () { LEAD = d; return loadChecks(); }).then(drawEvent);
+    return SG.putLeaders(db().collection('eventLeaders').doc(EVID), d).then(function () { LEAD = SG.whoIs(d); return loadChecks(); }).then(drawEvent);
   }
 
   function wireEvent() {

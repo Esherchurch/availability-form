@@ -12031,3 +12031,68 @@ Earlier tests updated for the new counts: a trip asks 18, not 14.
 **For the synthetic parish:** a youth camp with 30 leaders is fine (it was refused over 20). Their safeguarding officer records each leader's check level, reference and declaration, and leaders tick that they've read the camp's own policy.
 
 **Deploy (the reviewing window's):** sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily (the new warnings), and sgDraftAssessment and sgExtractRequirements (they share the checks file). The rules go live when the hub goes live.
+
+### F-287 — Each leader's details kept by member id, so a name can never sit beside someone else's checks (Martin: yes, 26 Oct); the migration (the events window, 26 Oct)
+
+**The gap (F-286):** an admin or the site's lead could write one leader's name beside another member's id, and the page would show that name with the other person's checks.
+
+**The fix:**
+- **`leaderInfo`** on each event's leaders record keeps each named leader's name, role and sign-in by member id.
+- **The rules hold it to exactly the record's member ids, on every event:** no extra, none missing, nobody twice (`leadersShapeOk`).
+- **The pages show a member's name from `leaderInfo`, never from `leaders[i]`** (`whoIs()`: the assessment page, the print, clearing in turn).
+- **Someone not in the address book** ('' in `leaderIds`) has no checks to stand beside, so they stay in `leaders` only.
+- **`leaders` and `leaderIds` are kept as before.** The pages write `leaderInfo` beside them (`putLeaders`).
+  - If the rules live on the hub today don't know `leaderInfo`, the same save is tried once without it, so live /v2/ pages keep working until the new rules go live.
+  - The new rules refuse that second try, so nothing is weakened where it matters.
+- **An older record gains `leaderInfo` the next time a page saves it** (`shapeOf`): adding or removing a leader, the under-18s tick, clearing in turn, or "apply to the ones already made" on Safeguarding settings.
+
+**The migration** (screenshots/events/migrate-leader-info.mjs):
+- **It lists before it changes anything,** and changes nothing without `--write`.
+- **What it changes:** it adds `leaderInfo` to each event's leaders record, and `leaderIds` where an older record has none. Nothing else changes.
+- **What it leaves for a person:** a record that names the same member twice is listed and left alone.
+- **On the emulator** (synthetic records, leader-info-migrate.test.mjs, 11/11):
+  - 5 records: 3 changed (one with no `leaderIds`, one with nobody), 1 already right, 1 for a person.
+  - Run again, nothing more to do.
+
+**For the reviewing window: the live run**
+- **When:** at the same time as the new rules go live, not before. The rules live today don't know `leaderInfo`, and would refuse every later save of a migrated record.
+- **List first, then run** (the list shows each record's leaders and member-id counts, and any for a person):
+
+        node screenshots/events/migrate-leader-info.mjs --project egbc-worship-planner
+        node screenshots/events/migrate-leader-info.mjs --project egbc-worship-planner --write
+
+- **For a church after EGBC,** add `--church <cid>`.
+
+**Headroom:** at least 20 spare expressions in both rulesets (sg-headroom), unchanged.
+
+**Breaks** (5, each caught):
+
+| Break | Test | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the pages take a member's name from leaders[i] again | sg-register-unit 32/33 | "A MEMBER'S NAME COMES FROM leaderInfo" |
+| the rules let leaderInfo name someone not named | rules 1936/1937 | "nor details for someone not named" |
+| the rules no longer check leaderInfo at all | rules 1932/1937 | three refusals |
+| the migration writes without --write | migrate 9/11 | "WITHOUT --write NOTHING CHANGES" |
+| the migration "fixes" the same member named twice by itself | migrate 6/11 | "FOR A PERSON ev_twice …" |
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| leader-info-migrate | 11/11 (new) |
+| e3-safeguarding | 38/38 |
+| under18 | 20/20 (see below) |
+| event-team | 21/21 |
+| phone-fixes | 24/24 |
+| sg-assess | 44/44 |
+| sg-host | 32/32 |
+| sg-print | 42/42 |
+| sg-register-unit | 33/33 (4 new) |
+| rules suite, EGBC | 1937/1937 (4 new) |
+| rules suite, as a church | 1927/1937 (the 10 by design) |
+| sg-headroom | 6/6 |
+| check-rules-build | 10/10 |
+
+**Also fixed:** under18.test.mjs's "6. REMINDERS" expected a team admin to see everyone's DBS dates. Since 22 Oct (e6edc276) only the master admin and each site's lead and deputy do, so the check now uses the master admin. The page was right; the test was out of date.
+
+**Deploy:** none (no function changed). The rules go live when the hub goes live, with the migration above.

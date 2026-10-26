@@ -67,9 +67,14 @@ ok('"cleared" is still DBS and training only (what the rules work out too)', SG.
 ok('the levels offered: Enhanced with the barred list first', SG.DBS_LEVELS[0][0] === 'enhancedBarred' && SG.DBS_LEVELS.map((x) => x[0]).join() === 'enhancedBarred,enhanced,standard,basic');
 const W1 = SG.whoIs({ leaderIds: ['m_a', 'm_b'], leaders: [{ name: 'A', memberId: 'm_a' }, { name: 'B', memberId: 'm_x' }] });
 ok('WHO EACH LEADER IS comes from leaderIds (the rules check only that), whatever leaders[i] says', W1.leaders[0].memberId === 'm_a' && W1.leaders[1].memberId === 'm_b' && W1.leaders[1].name === 'B');
+const W2 = SG.whoIs({ leaderIds: ['m_a', ''], leaderInfo: { m_a: { name: 'Ann', role: 'leader', uid: 'u_a' } }, leaders: [{ name: 'Someone else', memberId: 'm_a' }, { name: 'A visitor', memberId: '' }] });
+ok('F-287: A MEMBER’S NAME COMES FROM leaderInfo, never from leaders[i]; someone not in the address book keeps theirs', W2.leaders[0].name === 'Ann' && W2.leaders[0].uid === 'u_a' && W2.leaders[1].name === 'A visitor' && W2.leaders[1].memberId === '', J(W2.leaders));
+ok('   leaderInfoOf: each named one by member id, the first if twice; nobody without one', J(SG.leaderInfoOf([{ memberId: 'm_a', name: 'A' }, { memberId: '', name: 'V' }, { memberId: 'm_a', name: 'A2' }])) === J({ m_a: { name: 'A', role: 'leader', uid: '' } }));
+ok('   an older record without leaderInfo gains it from what it holds (shapeOf)', J(SG.shapeOf({ leaders: [{ memberId: 'm_b', name: 'B', role: 'helper', uid: 'u_b' }] })) === J({ leaderIds: ['m_b'], leaderInfo: { m_b: { name: 'B', role: 'helper', uid: 'u_b' } } }));
 ok('   an older record whose lists differ in length is left as it is', SG.whoIs({ leaderIds: ['m_a'], leaders: [] }).leaders.length === 0);
 const R3 = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8');
-ok('the rules: no leader-by-leader check, and 500, not 20; nobody twice', /ids\.size\(\) == d\.leaders\.size\(\) && ids\.size\(\) <= 500 && ids\.toSet\(\)\.size\(\) == ids\.size\(\)/.test(R3) && !/idAt\(d, 19\)/.test(R3));
+ok('the rules: no leader-by-leader check, and 500, not 20; nobody twice; leaderInfo exactly the named ones (F-287)', R3.includes("ids.size() == d.get('leaders', []).size() && ids.size() <= 500") && R3.includes('named.toSet().size() == named.size()')
+  && R3.includes('info is map && info.keys().hasOnly(named) && info.size() == named.size()') && R3.includes('&& leadersShapeOk(request.resource.data)') && !/idAt\(d, 19\)/.test(R3));
 
 console.log('\nwhat one assessment holds (H-9: no limits beyond what a record holds)');
 const assessSrc = fs.readFileSync(path.join(V2, 'egbc-sg-assess.js'), 'utf8'), rulesSrc = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), aiSrc = fs.readFileSync(path.join(V2, 'functions', 'sg-ai-core.cjs'), 'utf8');

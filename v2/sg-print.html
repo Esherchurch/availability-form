@@ -15,7 +15,7 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-safeguarding.js?v=202610261100"></script>
+<script src="egbc-events-safeguarding.js?v=202610261500"></script>
 <script src="egbc-sg-templates.js?v=202610251000"></script>
 <script src="egbc-sg-dash.js?v=202610251400"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -156,7 +156,7 @@
     ]).then(function (r) {
       READS = (r[5] && r[5].exists && r[5].data().reads) || {};
       if (!r[0].exists) throw new Error('no such event');
-      EV = Object.assign({ id: id }, r[0].data()); A = r[1].exists ? r[1].data() : null; L = r[2] && r[2].exists ? r[2].data() : {}; ST = r[3] && r[3].exists ? r[3].data() : {}; church = r[4] || {};
+      EV = Object.assign({ id: id }, r[0].data()); A = r[1].exists ? r[1].data() : null; L = r[2] && r[2].exists ? SG.whoIs(r[2].data()) : {};  /* the leaders' names from leaderInfo, by member id */ ST = r[3] && r[3].exists ? r[3].data() : {}; church = r[4] || {};
       var site = (EV.location || {}).siteId || '';
       return Promise.all([
         site ? db().collection('sites').doc(site).get().then(function (d) { SITE = d.exists ? d.data() : {}; }, function () {}) : null,

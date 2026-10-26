@@ -1888,7 +1888,9 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   });
   const P_ = (id, role) => ({ uid: '', memberId: id, name: id, role: role || 'helper' });
   /* Everyone named, these cleared so far, these cleared in this save. */
-  const U18 = (people, cleared, last, extra) => ({ leaders: people.map(x => P_(x)), leaderUids: [], leaderIds: people, siteId: 'site_kids', under18: true,
+  /* leaderInfo: each named leader's details by member id (the spoofed-name fix, F-287) */
+  const INFO = (people) => Object.fromEntries([...new Set(people.filter(Boolean))].map((p) => [p, { name: p, role: 'helper', uid: '' }]));
+  const U18 = (people, cleared, last, extra) => ({ leaders: people.map(x => P_(x)), leaderUids: [], leaderIds: people, leaderInfo: INFO(people), siteId: 'site_kids', under18: true,
     clearedIds: cleared, lastCleared: last, ...(extra || {}) });
   const FILM = (people, extra) => U18(people, people, people, extra);
   const film = (who, d) => setDoc(doc(who, 'eventLeaders', 'ev_film'), d);
@@ -1920,6 +1922,10 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   const many = (n) => Array.from({ length: n }, (x, i) => 'm_many' + i);
   await check('S3 MANY: 25 LEADERS NAMED ON AN UNDER-18s EVENT (the old limit was 20)', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), U18(many(25), [], [])));
   await check('S3 many: not 501', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), U18(many(501), [], [])));
+  await check('F-287 LEADER INFO: a record naming members without each one’s details by member id is refused', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia', 'm_ned'], [], []), under18: false, leaderInfo: {} }));
+  await check('F-287: nor details for someone not named (so a name can’t be kept beside another member’s checks)', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia'], [], []), under18: false, leaderInfo: { m_tia: { name: 'Tia', role: 'helper', uid: '' }, m_ned: { name: 'Ned', role: 'helper', uid: '' } } }));
+  await check('F-287: nor one named member’s details missing', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia', 'm_ned'], [], []), under18: false, leaderInfo: { m_tia: { name: 'Tia', role: 'helper', uid: '' } } }));
+  await check('F-287: someone not in the address book stays in leaders only, with no details kept', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia', ''], [], []), under18: false }));
   await check('S3 many: nor one person twice', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), U18(['m_many1', 'm_many2', 'm_many1'], [], [])));
   await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia', 'm_ned'], [], []), under18: false }); });
   const EEX = (who, extra) => ({ calEventId: 'ev_film', memberId: 'm_tia', name: 'Tia', reason: 'Training booked for next week; always with Lena (invented)', siteId: 'site_kids', by: who, byName: 'x', at: serverTimestamp(), ...(extra || {}) });

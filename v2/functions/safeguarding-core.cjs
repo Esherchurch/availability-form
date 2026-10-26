@@ -32,12 +32,42 @@
       .then(function (s) { return s.exists ? whoIs(s.data()) : null; })
       .catch(function () { return null; });
   }
-  /* leaderIds IS who each leader is (S3, 26 Oct): the rules check only that the
-     two lists are the same length (no limit but 500), so leader i's member id
-     is taken from leaderIds[i], whatever leaders[i] says */
+  /* WHO EACH LEADER IS (S3; the spoofed-name fix, 26 Oct). leaderIds[i] is
+     leader i's member id; leaderInfo keeps each named leader's name, role and
+     sign-in by that id, and the rules hold it to exactly those ids. So a
+     member's name always comes from leaderInfo, never from leaders[i], and can
+     never sit beside someone else's checks. Someone not in the address book
+     ('' in leaderIds) keeps their name from leaders[i]. An older record with
+     no leaderInfo is read as before. */
   function whoIs(d) {
     if (!d || !Array.isArray(d.leaders) || !Array.isArray(d.leaderIds) || d.leaderIds.length !== d.leaders.length) return d;
-    return Object.assign({}, d, { leaders: d.leaders.map(function (l, i) { return Object.assign({}, l, { memberId: d.leaderIds[i] || '' }); }) });
+    var info = d.leaderInfo && typeof d.leaderInfo === 'object' ? d.leaderInfo : null;
+    return Object.assign({}, d, { leaders: d.leaders.map(function (l, i) {
+      var id = d.leaderIds[i] || '', x = id && info ? info[id] : null;
+      return x ? Object.assign({}, l, { memberId: id, name: String(x.name || ''), role: x.role || l.role || 'leader', uid: x.uid || '' }) : Object.assign({}, l, { memberId: id });
+    }) });
+  }
+  /* a record's member ids and leaderInfo, worked out from what it holds (an
+     older record gains them as it is next saved) */
+  function shapeOf(d) {
+    var ls = (d && d.leaders) || [], ids = d && Array.isArray(d.leaderIds) && d.leaderIds.length === ls.length ? d.leaderIds : ls.map(function (l) { return (l && l.memberId) || ''; });
+    return { leaderIds: ids, leaderInfo: (d && d.leaderInfo) || leaderInfoOf((whoIs(Object.assign({}, d, { leaderIds: ids })) || {}).leaders) };
+  }
+  /* save a leaders record. Rules that don't know leaderInfo yet (the hub's
+     live ones until the new rules go live) refuse it, so then the same save
+     without it; the new rules refuse that, so nothing is weakened. */
+  function putLeaders(ref, d, update) {
+    var go = function (x) { return update ? ref.update(x) : ref.set(x); };
+    return go(d).catch(function (e) {
+      if (!(e && e.code === 'permission-denied' && d.leaderInfo)) throw e;
+      var x = Object.assign({}, d); delete x.leaderInfo; return go(x);
+    });
+  }
+  /* what a page writes beside leaders: each named leader's details by member id (the first, if someone is listed twice) */
+  function leaderInfoOf(list) {
+    var info = {};
+    (list || []).forEach(function (l) { if (l && l.memberId && !info[l.memberId]) info[l.memberId] = { name: String(l.name || '').slice(0, 120), role: l.role || 'leader', uid: l.uid || '' }; });
+    return info;
   }
 
   /* The sites this person is safeguarding lead or deputy for. */
@@ -143,13 +173,13 @@
     return ref.get().then(function (s) {
       var d = s.exists ? s.data() : null;
       if (!d || !d.under18) return { cleared: [], notCleared: [] };
-      var leaders = d.leaders || [], cleared = (d.clearedIds || []).slice(), bad = [];
+      var leaders = (whoIs(d) || d).leaders || [], cleared = (d.clearedIds || []).slice(), bad = [];
       var nameOf = function (id) { var l = leaders.filter(function (x) { return x.memberId === id; })[0]; return l ? l.name : id; };
       /* Someone with no address book record can never be cleared. */
       leaders.forEach(function (l) { if (!l.memberId) bad.push({ memberId: '', name: l.name, why: 'not in the address book' }); });
       var todo = (d.leaderIds || []).filter(function (id, i, a) { return id && cleared.indexOf(id) < 0 && a.indexOf(id) === i; });
       var save = function (ids) {
-        return ref.update({ clearedIds: cleared.concat(ids), lastCleared: ids, updatedAt: new Date().toISOString(), updatedBy: w.uid })
+        return putLeaders(ref, Object.assign({ clearedIds: cleared.concat(ids), lastCleared: ids, updatedAt: new Date().toISOString(), updatedBy: w.uid }, shapeOf(d)), true)
           .then(function () { cleared = cleared.concat(ids); return true; });
       };
       var one = function (id) {
@@ -175,7 +205,7 @@
     var ref = db().collection('eventLeaders').doc(evId), w = me();
     return ref.get().then(function (s) {
       var d = s.data() || {}, c = (d.clearedIds || []).filter(function (x) { return x !== memberId; });
-      return ref.update({ clearedIds: c.concat([memberId]), lastCleared: [memberId], updatedAt: new Date().toISOString(), updatedBy: w.uid });
+      return putLeaders(ref, Object.assign({ clearedIds: c.concat([memberId]), lastCleared: [memberId], updatedAt: new Date().toISOString(), updatedBy: w.uid }, shapeOf(d)), true);
     });
   }
   /* The words for what clearing found, for whoever ticked the box. */
@@ -369,7 +399,7 @@
   }
 
   var api = {
-    whoIs: whoIs, checkExtras: checkExtras, DBS_LEVELS: DBS_LEVELS,
+    whoIs: whoIs, leaderInfoOf: leaderInfoOf, shapeOf: shapeOf, putLeaders: putLeaders, checkExtras: checkExtras, DBS_LEVELS: DBS_LEVELS,
     lead: lead, leadIn: leadIn, leadReady: leadReady, leadWatch: leadWatch, setLeadTitle: setLeadTitle, leadTitle: leadTitle, DEFAULT_LEAD: DEFAULT_LEAD,
     norm: norm, me: me, leadersOf: leadersOf, myLeadSites: myLeadSites,
     ageOn: ageOn, ratio: ratio, checkStatus: checkStatus, checksDue: checksDue, clearInTurn: clearInTurn, clearOne: clearOne, clearWords: clearWords,

@@ -2349,8 +2349,9 @@ service cloud.firestore {
       allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
                                                              'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
-                                                             'under18', 'leaderIds', 'clearedIds', 'lastCleared'])
+                                                             'under18', 'leaderIds', 'clearedIds', 'lastCleared', 'leaderInfo'])
                    && request.resource.data.leaderUids is list
+                   && leadersShapeOk(request.resource.data)
                    && request.resource.data.get('siteId', '')
                         == get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '')
                    && under18EventOk(calEventId);
@@ -2383,14 +2384,21 @@ service cloud.firestore {
       return memberId is string && memberId != ''
              && (checksInDate(memberId) || exists(/databases/$(database)/documents/eventExceptions/$(calEventId + '__' + memberId)));
     }
-    // leaderIds IS who each leader is (S3, 26 Oct): the pages read leader i's
-    // member id from leaderIds[i], never from leaders[i], so the two lists
-    // need only be the same length - no leader-by-leader check, and no limit
-    // but what a record holds (H-9: 500; it was 20, checked one by one).
-    function eventIdsMatch(d) {
+    // WHO EACH LEADER IS (S3; the spoofed-name fix, Martin 26 Oct). leaderIds
+    // gives each leader's member id, in the same order as leaders ('' for
+    // someone not in the address book); leaderInfo keeps each named leader's
+    // name, role and sign-in by member id, and the pages show a member's name
+    // from leaderInfo, never from leaders - so a name can't sit beside
+    // someone else's checks. The rules: the same length, nobody twice, and
+    // leaderInfo exactly the named ones. No limit but 500 (H-9). leaders is
+    // kept as before, so the rules live today still accept these saves.
+    function leadersShapeOk(d) {
       let ids = d.get('leaderIds', []);
-      // and nobody twice, so one person's checks can't stand for two leaders
-      return ids is list && d.leaders is list && ids.size() == d.leaders.size() && ids.size() <= 500 && ids.toSet().size() == ids.size();
+      let info = d.get('leaderInfo', {});
+      let named = ids.removeAll(['']);
+      return ids is list && d.get('leaders', []) is list && ids.size() == d.get('leaders', []).size() && ids.size() <= 500
+             && named.toSet().size() == named.size()
+             && info is map && info.keys().hasOnly(named) && info.size() == named.size();
     }
     function under18EventOk(calEventId) {
       let d = request.resource.data;
@@ -2402,7 +2410,7 @@ service cloud.firestore {
       let namedBefore = wasOn ? resource.data.get('leaderIds', []) : ids;
       return d.get('under18', false) != true
              ? (after is list && after.size() == 0)
-             : (eventIdsMatch(d) && after is list && last is list && last.size() <= 2
+             : (after is list && last is list && last.size() <= 2
                 // only people named can be cleared
                 && after.toSet().difference(ids.toSet()).size() == 0
                 // anything newly cleared is in lastCleared...

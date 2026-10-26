@@ -23,7 +23,7 @@
 <script src="egbc-events-uploads.js?v=202610081600"></script>
 <script src="egbc-picture-library.js?v=202610141900"></script>
 <script src="egbc-events-bookings.js?v=202610141700"></script>
-<script src="egbc-events-safeguarding.js?v=202610261100"></script>
+<script src="egbc-events-safeguarding.js?v=202610261500"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -1564,9 +1564,11 @@
     return Promise.all(ids.map(function (eid) {
       var ref = db().collection('eventLeaders').doc(eid), stamp = { updatedAt: new Date().toISOString(), updatedBy: uid() };
       return ref.get().then(function (s) {
-        var l = s.exists ? s.data().leaders || [] : [];
-        var d = Object.assign({ under18: U18, leaderIds: l.map(function (x) { return x.memberId || ''; }), clearedIds: [], lastCleared: [] }, stamp);
-        return (s.exists ? ref.update(d) : ref.set(Object.assign({ leaders: [], leaderUids: [], siteId: siteId }, d))).then(function () {
+        var l = s.exists ? s.data().leaders || [] : [], SGx = window.EGBCSafeguarding;
+        /* the member ids and each named leader's details by member id, kept with the tick (the spoofed-name fix) */
+        var d = Object.assign({ under18: U18, clearedIds: [], lastCleared: [] }, SGx ? SGx.shapeOf(s.exists ? s.data() : { leaders: [] }) : { leaderIds: l.map(function (x) { return x.memberId || ''; }) }, stamp);
+        var put = function (x, upd) { return SGx ? SGx.putLeaders(ref, x, upd) : (upd ? ref.update(x) : ref.set(x)); };
+        return (s.exists ? put(d, true) : put(Object.assign({ leaders: [], leaderUids: [], siteId: siteId }, d))).then(function () {
           if (!U18 || !l.length || !window.EGBCSafeguarding) return;
           return EGBCSafeguarding.clearInTurn(eid).then(function (r) { found.push({ r: r, total: l.length }); });
         });
