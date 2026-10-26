@@ -2285,8 +2285,8 @@ function loadBuildingHome(me) {
      schedule's order, with each building's name; only what the rules let
      them read. One answer for this Home and building.html. */
   var checks = loadScript('egbc-compliance.js?v=202610192300')
-    .then(function () { return loadScript('egbc-compliance-templates.js?v=202610192300'); })
-    .then(function () { return loadScript('egbc-compliance-store.js?v=202610221300'); })
+    .then(function () { return loadScript('egbc-compliance-templates.js?v=202610271900'); })
+    .then(function () { return loadScript('egbc-compliance-store.js?v=202610271900'); })
     .then(function () { return db.collection('complianceTemplates').get().catch(function () { return { docs: [] }; }); })
     .then(function (t) {
       var S = window.EGBCComplianceStore, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates;
