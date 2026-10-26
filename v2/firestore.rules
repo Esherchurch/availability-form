@@ -594,8 +594,10 @@ service cloud.firestore {
       // changes the four preaching fields - what the Sunday is, the speaker,
       // the service leader and the readers - and nothing else: no roles,
       // no people on the rota, no dates. Whether or not they are on a team.
-      allow read: if isPastor();
-      allow update: if isPastor()
+      // And the church's overall leaders (the "leadership" job; Martin, 26
+      // Oct 2026: "assembled and edited by the pastors and elders").
+      allow read: if isPastor() || isLeadership();
+      allow update: if (isPastor() || isLeadership())
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['publicTitle', 'speaker', 'speakerId', 'serviceLeader', 'serviceLeaderId', 'readers', 'updatedAt', 'updatedBy'])
                     && request.resource.data.get('publicTitle', '') is string
@@ -5015,6 +5017,15 @@ service cloud.firestore {
     // the one setting team mail uses) reads every Sunday's; that Sunday's
     // service leader reads that one, from the Wednesday before until the
     // Sunday ends. Neither may read prayers itself (that rule is unchanged).
+    // THE CHURCH'S OVERALL LEADERS: the teams on churchSettings/teamJobs
+    // "leadership" (FINDINGS-churchhq H-9), EGBC's Elders where the church
+    // has not said. Their own teams only: the job covers nothing.
+    function isLeadership() {
+      return active() && me().get('teams', []).hasAny(
+        exists(/databases/$(database)/documents/churchSettings/teamJobs)
+          ? get(/databases/$(database)/documents/churchSettings/teamJobs).data.get('leadership', ['Elders'])
+          : ['Elders']);
+    }
     function isPastor() {
       return active() && me().get('memberId', '') != ''
              && exists(/databases/$(database)/documents/teamMailSettings/main)

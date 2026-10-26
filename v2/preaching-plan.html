@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610262330" data-title="Preaching plan"></script>
+<script src="egbc-shell.js?v=202610270030" data-title="Preaching plan"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Preaching plan — EGBC</title>
@@ -13,9 +13,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610262330"></script>
+<script src="egbc-auth.js?v=202610270030"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-guard.js?v=202610221200" data-any-team></script>
+<script src="egbc-guard.js?v=202610270030"></script>
 <style>
   :root{
     --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
@@ -96,11 +96,15 @@
    all have it. Names are free text with suggestions from the address book:
    a guest speaker can always be typed.
 
-   WHO EDITS: master admins, the Pastor - the one chosen in Team emails
+   WHO EDITS (Martin, 26 Oct 2026: "assembled and edited by the pastors and
+   elders"): master admins, the Pastor - the one chosen in Team emails
    (teamMailSettings/main.pastor, which For Sunday uses too; one place to
-   name them, not two) - and the admins of Worship
-   and Core Team, who run the Sunday rota. Anybody else on a team reads it.
-   The rules say the same (firestore.rules, match /events: the Pastor may
+   name them, not two) - and the church's overall leaders (the "leadership"
+   job; EGBC: the Elders): EGBCAuth.preachingEditor(). WHO READS: whoever
+   may use the Rota planner (EGBCAuth.rotaPlannerUser()). Nobody else: the
+   guard asks only for a sign-in, because the Pastor may be on no team, and
+   this page turns everybody else away. The rules say the same
+   (firestore.rules, match /events: the Pastor and the leadership may
    change these four fields and nothing else).
 
    Saved as each box is left (rule 13: no Save button). Feature
@@ -126,11 +130,7 @@ const TODAY = iso(new Date());
 const UNTIL = (() => { const d = new Date(); d.setMonth(d.getMonth() + 3); return iso(d); })();
 const SINCE = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return iso(d); })();
 
-function amPastor() { const me = EGBCAuth.profile() || {}; return !!me.memberId && PASTOR === me.memberId; }
-function mayEdit() {
-  return EGBCAuth.isMaster() || amPastor()
-    || ['Worship Team', 'Core Team'].some(t => EGBCAuth.isAdminOf && EGBCAuth.isAdminOf(t));
-}
+function mayEdit() { return EGBCAuth.preachingEditor(); }
 
 async function load() {
   /* Readable by master admins and by the Pastor; anybody else is refused,
@@ -139,7 +139,13 @@ async function load() {
     const s = await db.collection('teamMailSettings').doc('main').get();
     PASTOR = (s.exists && s.data().pastor) || '';
   } catch (e) { PASTOR = ''; }
+  await EGBCAuth.loadPerms();
   CAN_EDIT = mayEdit();
+  if (!CAN_EDIT && !EGBCAuth.rotaPlannerUser()) {
+    EGBCAuth._blockPage('For the preaching team and the rota planners',
+      'The preaching plan is put together by the Pastor and the church’s leaders, and read by the people who plan the rotas.', EGBCAuth.profile());
+    return;
+  }
   $('who').textContent = CAN_EDIT
     ? 'Who is preaching and leading, what each Sunday is, and who is reading what. Changes save as you make them, and the Rota Planner and What’s On show them too.'
     : 'Who is preaching and leading, what each Sunday is, and who is reading what.';

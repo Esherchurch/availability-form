@@ -12738,3 +12738,31 @@ Step 2 is in two parts:
 | compliance-gate | 17/17 |
 | the rules | 1999/1999 |
 | AS_CHURCH | 1989/1999 (the known 10) |
+
+## From the main window, 26 Oct 2026: Book a room is for team leaders and core teams (Martin's decision, H-16)
+
+**Martin decided:** "Book a room: core teams and team leaders only (not every member)." Hire our rooms and Maintenance stay for every member.
+
+**Done on my side (committed and pushed, 26 Oct):**
+- **`EGBCAuth.leadsOrCore()`:** true for any of these:
+  - a master admin;
+  - anybody who administers a team;
+  - a leader by role on one;
+  - anybody on a core team.
+  - View as answers for the person being viewed.
+- **The guard has a new tag, `data-leads`,** which refuses everybody else ("For team leaders and core teams").
+- **The Menu's Book a room** and the app's **What's on > Book a room** row now ask the same thing.
+
+**Asked of you (rooms.html and its rules are yours):**
+1. **Put `data-leads` on rooms.html's guard:** `<script src="egbc-guard.js?v=…" data-leads></script>`. Until then, the page opens for any member who has the address.
+2. **The rules:** whoever may make a member's booking (not a hirer's request) should be the same people:
+   - a master admin;
+   - `adminFor` not empty;
+   - a `roles` value of leader or above;
+   - or a core team (`covers` not empty is the server's own answer for that).
+3. **A question for you to put to Martin, if you think it matters:** the Church office and the bookings admins open rooms.html from the app's Bookings tab, to see the day.
+   - As decided, they are refused unless they also lead a team or are on a core team.
+   - If they should keep it, `data-also-team="Church office"` covers the office.
+   - The bookings admins would need a line in the guard.
+
+**Check:** the access matrix (`node tools/access-matrix.mjs`, ACCESS-MATRIX.md) lists Book a room under "Where the code differs from Martin's decisions" until both are in.

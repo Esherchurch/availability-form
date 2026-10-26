@@ -47,7 +47,10 @@
      Every page and every gate the 8 Oct Menu had is still here - nothing
      was taken away, only moved. Address book and Send an email follow WHO
      MAY (16 Oct): master admins, the Church office and team leaders
-     (`messages: true`), which is what their pages' guards already say. */
+     (`messages: true`), which is what their pages' guards already say. */
+  /* The teams the Rota planner is for; the Preaching plan's readers are
+     the same people. */
+  var ROTA_PLANNER_TEAMS = ['Worship Team', 'Kids Church', 'Youth Worship'];
   const TREE = [
     { title: 'Home', url: 'hub.html', icon: 'house',
       description: 'Your own page: what is coming up and what needs you' },
@@ -84,12 +87,14 @@
          to anyone else. */
       { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days', anyTeam: true,
         description: 'Who is on, week by week' },
-      { title: 'Rota planner', url: 'Planner.html', icon: 'calendar-plus', leaderOf: ['Worship Team', 'Kids Church', 'Youth Worship'],   /* a core team leads its own teams' (H-15) */
+      { title: 'Rota planner', url: 'Planner.html', icon: 'calendar-plus', leaderOf: ROTA_PLANNER_TEAMS,   /* a core team leads its own teams' (H-15) */
         description: 'Build the term, send the rotas' },
       { title: 'Sunday service plan', url: 'SundayServicePlanner.html', icon: 'list-ordered', leaderOf: 'Worship Team',
         description: 'Songs, keys and the order' },
-      /* The Preaching plan (Ryan, the Pastor). */
-      { title: 'Preaching plan', url: 'preaching-plan.html', icon: 'book-open', anyTeam: true, feature: 'preachingPlan',
+      /* The Preaching plan: edited by the Pastor and the church's overall
+         leaders; read by whoever may use the Rota planner (Martin, 26 Oct
+         2026). The page itself says which. */
+      { title: 'Preaching plan', url: 'preaching-plan.html', icon: 'book-open', preaching: true, feature: 'preachingPlan',
         description: 'Speakers, readers, passages' },
       /* The events window's session planner (F-226): a plan group's
          leaders and team, and master admins. */
@@ -163,9 +168,10 @@
       /* F-176. */
       { title: 'Picture library', url: 'picture-library.html', icon: 'images', runs: 'bookings', feature: 'pictureLibrary',
         description: 'Pictures the church uses again and again' },
-      /* For everybody: booking, hiring, and reporting something broken
-         (the events window's maintenance.html, F-123). */
-      { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock', feature: 'roomBookings',
+      /* Hiring and reporting something broken are for everybody (the events
+         window's maintenance.html, F-123). Booking a room is for team
+         leaders and the core teams (Martin, 26 Oct 2026). */
+      { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock', feature: 'roomBookings', leadsOrCore: true,
         description: 'See what is free and book it' },
       { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open', feature: 'roomBookings',
         description: 'What we have, and asking about it' },
@@ -397,6 +403,10 @@
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     if (node.planGroup && !who.isPlanGroup) return false;
     if (node.pinBoard && !who.isMaster && !who.hasBoard) return false;
+    if (node.leadsOrCore && !who.leadsOrCore) return false;
+    /* The Rota planner's own test, so the two can never disagree. */
+    if (node.preaching && !who.isMaster && !who.preachingEditor
+        && !visible({ leaderOf: ROTA_PLANNER_TEAMS }, who)) return false;
     if (node.headcount && !who.mayHeadcount) return false;
     if (node.messages && !who.mayMessage) return false;
     return true;
@@ -998,6 +1008,8 @@
            so View as answers for the person being viewed as. */
         mayMessage: !!(A && A.isMaster && A.isMaster()) || !!(A && A.inTeam && A.inTeam('Church office')) || adminFor.length > 0,
         isPlanGroup: !!(A && A.isOnPlanGroup && A.isOnPlanGroup()),
+        leadsOrCore: !!(A && A.leadsOrCore && A.leadsOrCore()),
+        preachingEditor: !!(A && A.preachingEditor && A.preachingEditor()),
         hasBoard: !!(A && A.myBoards && A.myBoards().length),
         mayHeadcount: !!(A && A.mayHeadcount && A.mayHeadcount()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),

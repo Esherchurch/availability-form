@@ -3493,6 +3493,37 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 });
 await check('somebody else chosen, the old Pastor cannot', 'deny',
   () => updateDoc(doc(as('attender'), 'events', 'ev_preach'), { speaker: 'Too Late Synthetic' }));
+/* AND THE CHURCH'S OVERALL LEADERS (Martin, 26 Oct 2026: "assembled and
+   edited by the pastors and elders"): the "leadership" job's teams, EGBC's
+   Elders where the church has not said. */
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const d = ctx.firestore();
+  await setDoc(doc(d, 'users', 'u_pp_elder'), { uid: 'u_pp_elder', memberId: 'm_pp_elder', status: 'active', name: 'Elder', teams: ['Elders'], adminFor: [], masterAdmin: false });
+  await setDoc(doc(d, 'users', 'u_pp_staff'), { uid: 'u_pp_staff', memberId: 'm_pp_staff', status: 'active', name: 'Staff', teams: ['Staff team'], adminFor: [], masterAdmin: false });
+});
+const asU = (uid) => env.authenticatedContext(uid).firestore();
+await check('an Elder (the leadership, by default) reads the services', 'allow',
+  () => getDoc(doc(asU('u_pp_elder'), 'events', 'ev_preach')));
+await check('  and sets the speaker and readers', 'allow',
+  () => updateDoc(doc(asU('u_pp_elder'), 'events', 'ev_preach'), { speaker: 'Elder Chosen Synthetic', readers: [] }));
+await check('  but not the date', 'deny',
+  () => updateDoc(doc(asU('u_pp_elder'), 'events', 'ev_preach'), { date: '2026-11-29' }));
+await check('another team cannot, not being the leadership', 'deny',
+  () => updateDoc(doc(asU('u_pp_staff'), 'events', 'ev_preach'), { speaker: 'Staff Synthetic' }));
+let tjWas = null;
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const s = await getDoc(doc(ctx.firestore(), 'churchSettings', 'teamJobs'));
+  tjWas = s.exists() ? s.data() : null;
+  await setDoc(doc(ctx.firestore(), 'churchSettings', 'teamJobs'), { ...(tjWas || {}), leadership: ['Staff team'] });
+});
+await check('A CHURCH WHOSE LEADERS ARE ITS STAFF TEAM: they set it', 'allow',
+  () => updateDoc(doc(asU('u_pp_staff'), 'events', 'ev_preach'), { speaker: 'Staff Chosen Synthetic' }));
+await check('  and the Elders, no longer the leadership, cannot', 'deny',
+  () => updateDoc(doc(asU('u_pp_elder'), 'events', 'ev_preach'), { speaker: 'Elder Again Synthetic' }));
+await env.withSecurityRulesDisabled(async (ctx) => {
+  if (tjWas) await setDoc(doc(ctx.firestore(), 'churchSettings', 'teamJobs'), tjWas);
+  else await deleteDoc(doc(ctx.firestore(), 'churchSettings', 'teamJobs'));
+});
 
 /* TEAMS & GROUPS (Martin, 15 Oct 2026): the Church office looks after the
    list too - add, rename, recolour, order, archive - but never `runs`, which

@@ -356,6 +356,13 @@
         'If you have joined a team, ask its leader to add you.'];
     }
 
+    /* data-leads: team leaders and core teams (EGBCAuth.leadsOrCore). */
+    if (opts.leadsOrCore && !alsoOk && !EGBCAuth.leadsOrCore()) {
+      return ['For team leaders and core teams',
+        'This is for the people who lead a team, and the core teams. ' +
+        'If you need it, ask your team leader.'];
+    }
+
     /* A page can name more than one team, comma separated. The rota
        planner is the reason: it is one file holding every
        department's rota, so Karen has to be able to open it for Kids
@@ -424,7 +431,7 @@
   }
 
   /* ---- Permissions (H-14) -------------------------------------------- */
-  var PERMS = { ready: false, promise: null, perms: null, jobs: null, set: {}, exceptions: [] };
+  var PERMS = { ready: false, promise: null, perms: null, jobs: null, set: {}, exceptions: [], pastor: '' };
   function localDayIso() {
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -449,6 +456,9 @@
       sibling('egbc-team-jobs.js', '202610261800').then(function () { return sibling('egbc-permissions.js', '202610262000'); }),
       get('churchSettings', 'permissions'), get('churchSettings', 'teamJobs'),
       get('paymentSettings', 'public'), get('safeguardingSettings', 'defaults'), get('prayerSettings', 'main'),
+      /* The Pastor (Team emails): readable by master admins and the Pastor
+         only, so for anybody else this is null - which is the answer. */
+      get('teamMailSettings', 'main'),
       uid ? db.collection('permissionExceptions').where('uid', '==', uid).get().then(function (s) { return s.docs.map(function (d) { return d.data(); }); }, function () { return []; }) : Promise.resolve([])
     ]).then(function (r) {
       PERMS.perms = r[1]; PERMS.jobs = r[2];
@@ -456,7 +466,8 @@
       if (r[3] && r[3].moneyTeam !== undefined) PERMS.set.moneyTeam = r[3].moneyTeam;
       if (r[4] && r[4].trusteeTeam !== undefined) PERMS.set.trusteeTeam = r[4].trusteeTeam;
       if (r[5] && r[5].prayerTeam !== undefined) PERMS.set.prayerTeam = r[5].prayerTeam;
-      PERMS.exceptions = r[6] || [];
+      PERMS.pastor = (r[6] && r[6].pastor) || '';
+      PERMS.exceptions = r[7] || [];
       PERMS.ready = true;
       return PERMS;
     });
@@ -1534,6 +1545,29 @@
       });
     },
     loadPerms: function () { return loadPerms(); },
+    /* THE PREACHING PLAN (Martin, 26 Oct 2026): assembled and edited by the
+       pastors and elders - a master admin, the Pastor (named in Team
+       emails) and the church's overall leaders (the "leadership" job; EGBC:
+       the Elders). Seen read-only by whoever may use the Rota planner, and
+       nobody else. After loadPerms(); false until then. */
+    preachingEditor: function () {
+      if (EGBCAuth.isMaster()) return true;
+      var p = currentProfile || {}, v = viewAs(), TJ = global.EGBCTeamJobs;
+      if (!PERMS.ready) return false;
+      if (!v && p.memberId && PERMS.pastor === p.memberId) return true;
+      return !!TJ && TJ.onJob(PERMS.jobs, EGBCAuth.effectiveTeams(), 'leadership', PERMS.set);
+    },
+    /* Who may use the Rota planner: a leader (isLeaderOf: admin, leader by
+       role, or a core team covering it) of a team the rota is for - the
+       worship, children's and youth jobs' teams. After loadPerms(). */
+    rotaPlannerUser: function () {
+      if (EGBCAuth.isMaster()) return true;
+      var TJ = global.EGBCTeamJobs;
+      if (!PERMS.ready || !TJ) return false;
+      return ['worship', 'children', 'youth'].some(function (j) {
+        return TJ.teamsFor(PERMS.jobs, j, PERMS.set).some(function (t) { return EGBCAuth.isLeaderOf(t); });
+      });
+    },
     may: function (id) {
       if (EGBCAuth.isMaster()) return true;
       var P = global.EGBCPermissions, p = currentProfile || {};
@@ -1558,6 +1592,20 @@
     /* The same for any teams (the hub's Home choice asks about one). */
     coversOfTeams: function (teams) { return coversOf(teams || []); },
     isCoreTeam: function (team) { return !!(TEAMS[team] && (TEAMS[team].coreFor || []).length); },
+    /* LEADS A TEAM, OR IS ON A CORE TEAM (Martin, 26 Oct 2026: "Book a room:
+       core teams and team leaders only"). A master admin; anybody who
+       administers a team; a leader by role on one; anybody on a core team.
+       The Menu, the app and a page's data-leads guard all ask this. View
+       as answers for the person being viewed (roles are not previewed, so
+       they count only when not previewing). */
+    leadsOrCore: function () {
+      if (EGBCAuth.isMaster()) return true;
+      if (((EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : (currentProfile || {}).adminFor) || []).length) return true;
+      var roles = (currentProfile || {}).roles || {};
+      if (!(EGBCAuth.viewingAs && EGBCAuth.viewingAs())
+          && Object.keys(roles).some(function (t) { return roleAtLeast(roles, t, 'leader'); })) return true;
+      return EGBCAuth.effectiveTeams().some(function (t) { return EGBCAuth.isCoreTeam(t); });
+    },
     /* Whether any of these teams (or what they cover) has a plan group. */
     planGroupFor: function (teams) {
       var all = (teams || []).concat(coversOf(teams || []));

@@ -69,7 +69,7 @@ const APPROVED = [
   ['Care & support: what has come in', c => c.careReader], ['Prayer'], ['Notifications'],
   ['Sundays', null, [
     ['Rota', c => c.anyTeam], ['Rota planner', c => c.core || ['Worship Team', 'Kids Church', 'Youth Worship'].some(t => c.p.adminFor.includes(t))], ['Sunday service plan', c => c.core || c.worshipLead],
-    ['Preaching plan', c => c.anyTeam], ['Session planner', c => c.plans], ['Present', c => c.plans], ['How to present', c => c.plans], ['Rota reports', c => c.rotaLead],
+    ['Preaching plan', c => c.preaching], ['Session planner', c => c.plans], ['Present', c => c.plans], ['How to present', c => c.plans], ['Rota reports', c => c.rotaLead],
     ['Availability form', c => c.core]]],
   ['People and messages', null, [
     ['Address book', c => c.messages], ['Send an email', c => c.messages], ['Team emails', c => c.master],
@@ -84,7 +84,7 @@ const APPROVED = [
     /* The caterers' list (F-260). */
     ['Catering orders', c => c.on('Catering')],
     ['Check-in', c => c.core && c.admin], ['Registers', c => c.core && c.admin], ['Headcounts', c => c.counts],
-    ['Picture library', c => c.runsBookings], ['Book a room'], ['Hire our rooms'], ['Maintenance'],
+    ['Picture library', c => c.runsBookings], ['Book a room', c => c.leadsOrCore], ['Hire our rooms'], ['Maintenance'],
     /* The building compliance add-on (on at EGBC): the register for the
        office and the Elders, the checks for Maintenance and the office. */
     ['Building compliance', c => c.on('Church office') || c.on('Elders')], ['The building', c => c.on('Maintenance') || c.on('Church office')],
@@ -129,6 +129,12 @@ function ctx(p) {
     /* Formally joined the church (the address book's tick). */
     member: !!p.churchMember,
     anyTeam: master || p.teams.length > 0 || p.adminFor.length > 0,
+    /* Martin, 26 Oct 2026: Book a room is for team leaders and core teams
+       (an admin of a team, or on Core Team / Kids & Youth Core Team). */
+    leadsOrCore: master || p.adminFor.length > 0 || ['Core Team', 'Kids & Youth Core Team'].some(t => p.teams.includes(t)),
+    /* ...and the Preaching plan for its editors (the Elders, EGBC's
+       leadership) and the Rota planner's users, nobody else. */
+    preaching: master || p.teams.includes('Elders') || core || ['Worship Team', 'Kids Church', 'Youth Worship'].some(t => p.adminFor.includes(t)),
     /* On a team with a pin board, or a core team covering one (26 Oct 2026:
        a board is the team's own; EGBC's boards, written out again here). */
     board: master || ['Worship Team', 'AV Team', 'Choir', 'Youth Worship', 'Kids Church', 'Lazers', 'ReNu', 'Core Team', 'Kids & Youth Core Team']
@@ -245,7 +251,9 @@ const PEOPLE = {
      anything else underneath. */
   'a bookings admin who is not Core Team': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
     bookingsAdmin: true,
-    sees: ['Book a room', 'Events and rooms', 'Room bookings', 'Places', 'Picture library'],
+    /* Not Book a room: Martin's rule is team leaders and core teams, and
+       whether a bookings admin counts is asked in FINDINGS-events. */
+    sees: ['Events and rooms', 'Room bookings', 'Places', 'Picture library'],
     doesNot: ['Rota planner', 'Address book', 'Events', 'Headcounts', 'Church admin',
               'Backup', 'Kids Church', "Children's register", 'Sunday check-in', 'Core Team'] },
   /* F-200: the church renamed its money team "Treasury" (this check sets

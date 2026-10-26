@@ -58,6 +58,8 @@
   var feature = script ? script.getAttribute('data-feature') : null;
   /* data-master - master admins only (Church settings; 21 Oct 2026). */
   var masterOnly = script ? script.hasAttribute('data-master') : false;
+  /* data-leads - team leaders and core teams (Book a room; 26 Oct 2026). */
+  var leadsOnly = script ? script.hasAttribute('data-leads') : false;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');
@@ -174,6 +176,7 @@
     if (allowPending) opts.allowPending = allowPending;
     if (anyTeam) opts.anyTeam = true;
     if (masterOnly) opts.master = true;
+    if (leadsOnly) opts.leadsOrCore = true;
 
     setTimeout(sayStuck, SETTLE_MS);
 

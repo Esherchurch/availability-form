@@ -887,3 +887,13 @@ Listed by owning window, from today's code: calls to `inTeam`, `isLeaderOf`, `is
 **Done separately, 26 Oct:** pin boards are each team's own (not whole-church; no fallback to Worship's; boards come from the teams, set on Teams & groups). The rules still map each board to EGBC's teams, so a board regrouped on Teams & groups is refused there until the rules learn the grouping (going live).
 
 **For the synthetic parish:** the same table, made for St Aidan's own teams. Its PCC, Junior Church and Ministry Team rows come from its Teams & groups, not EGBC's names.
+
+### Progress, 26 Oct (main)
+- **Step C exists:** `node tests/check-access-matrix.mjs` (dev emulators up). It fails on any page the Menu offers and the page then refuses, on any DECIDED rule the code breaks, and, once Martin has approved the table (`access-matrix.approved.json`), on any cell that differs from it. Its breaks (`BREAK=rooms`, `preaching`, `refused`) each fail.
+- **Book a room, main's side:** the Menu and the app's What's on show it only to team leaders and core teams (`EGBCAuth.leadsOrCore()`: a master admin, anybody who administers a team, a role of leader or above, or on a core team). The guard has `data-leads` for the page. The page itself, and the rules for members' bookings, are with the events window (FINDINGS-events: "Book a room is for team leaders and core teams"), with the question whether office and bookings admins count.
+- **Preaching plan, done:**
+  - Editors (`EGBCAuth.preachingEditor()`): a master admin, the Pastor named in Team emails, and the teams on the "leadership" job (EGBC default: Elders).
+  - Readers (`EGBCAuth.rotaPlannerUser()`): whoever may use the Rota planner.
+  - The page turns everybody else away, and the Menu uses the same tests.
+  - The rules let the leadership read and change the plan's four fields, like the Pastor (`isLeadership()`, from `churchSettings/teamJobs.leadership`). This has a test with a break.
+- **Still to do:** the reviewer's proposals 1–5 once Martin approves the table (step B); then `access-matrix.approved.json`.

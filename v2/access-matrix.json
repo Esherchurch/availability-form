@@ -1,5 +1,5 @@
 {
- "made": "2026-10-26T20:31:34.482Z",
+ "made": "2026-10-26T23:28:45.835Z",
  "people": [
   {
    "key": "pending",
@@ -100,6 +100,7 @@
    "alsoTeam": "Church office",
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -110,6 +111,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": "parent",
    "feature": null
   },
@@ -120,6 +122,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -130,6 +133,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -140,6 +144,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -150,6 +155,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -160,6 +166,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -170,6 +177,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -180,6 +188,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -190,6 +199,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -200,6 +210,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": "meetings"
   },
@@ -210,6 +221,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": true,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -220,6 +232,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": "churchShow"
   },
@@ -230,6 +243,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -240,6 +254,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -250,6 +265,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -260,6 +276,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -270,6 +287,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -280,6 +298,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -290,6 +309,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -300,6 +320,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -310,6 +331,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -320,6 +342,7 @@
    "alsoTeam": "Church office",
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -330,6 +353,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -340,6 +364,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -350,6 +375,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -360,6 +386,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -370,6 +397,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": "payments"
   },
@@ -380,6 +408,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -390,6 +419,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -400,6 +430,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -410,6 +441,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -420,6 +452,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -430,6 +463,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -440,6 +474,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -450,6 +485,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -460,6 +496,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -470,6 +507,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -480,6 +518,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -490,6 +529,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -500,6 +540,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -510,6 +551,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": true,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -520,6 +562,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -530,6 +573,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -540,6 +584,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -550,6 +595,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -558,8 +604,9 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
-   "anyTeam": true,
+   "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -570,6 +617,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -580,6 +628,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -590,6 +639,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -600,6 +650,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -610,6 +661,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -620,6 +672,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -630,6 +683,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -640,6 +694,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -650,6 +705,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -660,6 +716,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -670,6 +727,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -680,6 +738,7 @@
    "alsoTeam": null,
    "anyTeam": true,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": "pinBoards"
   },
@@ -690,6 +749,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -700,6 +760,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -710,6 +771,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -720,6 +782,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -730,6 +793,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -740,6 +804,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -750,6 +815,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -760,6 +826,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -770,6 +837,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -780,6 +848,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -790,6 +859,7 @@
    "alsoTeam": null,
    "anyTeam": true,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -800,6 +870,7 @@
    "alsoTeam": null,
    "anyTeam": true,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -810,6 +881,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -820,6 +892,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -830,6 +903,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -840,6 +914,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -850,6 +925,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -860,6 +936,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   },
@@ -870,6 +947,7 @@
    "alsoTeam": null,
    "anyTeam": false,
    "master": false,
+   "leadsOrCore": false,
    "allowPending": null,
    "feature": null
   }
@@ -1021,11 +1099,6 @@
      "section": "People and messages"
     },
     {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
-    },
-    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -1096,7 +1169,7 @@
     "places-admin.html": "",
     "Planner.html": "No access to this page",
     "prayer.html": "",
-    "preaching-plan.html": "For the church’s teams",
+    "preaching-plan.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -1196,11 +1269,6 @@
      "section": "People and messages"
     },
     {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
-    },
-    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -1271,7 +1339,7 @@
     "places-admin.html": "",
     "Planner.html": "No access to this page",
     "prayer.html": "",
-    "preaching-plan.html": "For the church’s teams",
+    "preaching-plan.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -1366,11 +1434,6 @@
      "section": "Sundays"
     },
     {
-     "url": "preaching-plan.html",
-     "title": "Preaching plan",
-     "section": "Sundays"
-    },
-    {
      "url": "session-planner.html",
      "title": "Session planner",
      "section": "Sundays"
@@ -1394,11 +1457,6 @@
      "url": "meeting.html",
      "title": "Meetings",
      "section": "People and messages"
-    },
-    {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
     },
     {
      "url": "hire.html",
@@ -1845,11 +1903,6 @@
      "section": "Sundays"
     },
     {
-     "url": "preaching-plan.html",
-     "title": "Preaching plan",
-     "section": "Sundays"
-    },
-    {
      "url": "church-meeting.html",
      "title": "Members’ meetings",
      "section": "People and messages"
@@ -1858,11 +1911,6 @@
      "url": "meeting.html",
      "title": "Meetings",
      "section": "People and messages"
-    },
-    {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
     },
     {
      "url": "hire.html",
@@ -2364,11 +2412,6 @@
      "section": "Sundays"
     },
     {
-     "url": "preaching-plan.html",
-     "title": "Preaching plan",
-     "section": "Sundays"
-    },
-    {
      "url": "church-meeting.html",
      "title": "Members’ meetings",
      "section": "People and messages"
@@ -2377,11 +2420,6 @@
      "url": "meeting.html",
      "title": "Meetings",
      "section": "People and messages"
-    },
-    {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
     },
     {
      "url": "hire.html",
@@ -3207,11 +3245,6 @@
      "section": "Sundays"
     },
     {
-     "url": "preaching-plan.html",
-     "title": "Preaching plan",
-     "section": "Sundays"
-    },
-    {
      "url": "addressbook.html",
      "title": "Address book",
      "section": "People and messages"
@@ -3259,11 +3292,6 @@
     {
      "url": "picture-library.html",
      "title": "Picture library",
-     "section": "Events and rooms"
-    },
-    {
-     "url": "rooms.html",
-     "title": "Book a room",
      "section": "Events and rooms"
     },
     {
@@ -3500,11 +3528,6 @@
      "section": "People and messages"
     },
     {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
-    },
-    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -3702,11 +3725,6 @@
      "section": "Sundays"
     },
     {
-     "url": "preaching-plan.html",
-     "title": "Preaching plan",
-     "section": "Sundays"
-    },
-    {
      "url": "church-meeting.html",
      "title": "Members’ meetings",
      "section": "People and messages"
@@ -3715,11 +3733,6 @@
      "url": "meeting.html",
      "title": "Meetings",
      "section": "People and messages"
-    },
-    {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
     },
     {
      "url": "hire.html",
@@ -3902,11 +3915,6 @@
      "section": "Sundays"
     },
     {
-     "url": "preaching-plan.html",
-     "title": "Preaching plan",
-     "section": "Sundays"
-    },
-    {
      "url": "church-meeting.html",
      "title": "Members’ meetings",
      "section": "People and messages"
@@ -3915,11 +3923,6 @@
      "url": "meeting.html",
      "title": "Meetings",
      "section": "People and messages"
-    },
-    {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
     },
     {
      "url": "hire.html",
@@ -4102,11 +4105,6 @@
      "section": "People and messages"
     },
     {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
-    },
-    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -4177,7 +4175,7 @@
     "places-admin.html": "",
     "Planner.html": "No access to this page",
     "prayer.html": "",
-    "preaching-plan.html": "For the church’s teams",
+    "preaching-plan.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -4292,11 +4290,6 @@
      "section": "Events and rooms"
     },
     {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
-    },
-    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -4367,7 +4360,7 @@
     "places-admin.html": "",
     "Planner.html": "No access to this page",
     "prayer.html": "",
-    "preaching-plan.html": "For the church’s teams",
+    "preaching-plan.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -4489,11 +4482,6 @@
      "section": "People and messages"
     },
     {
-     "url": "rooms.html",
-     "title": "Book a room",
-     "section": "Events and rooms"
-    },
-    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -4564,7 +4552,7 @@
     "places-admin.html": "",
     "Planner.html": "No access to this page",
     "prayer.html": "",
-    "preaching-plan.html": "For the church’s teams",
+    "preaching-plan.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",

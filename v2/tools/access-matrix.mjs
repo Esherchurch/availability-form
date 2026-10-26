@@ -72,7 +72,7 @@ export function guards() {
     const m = /<script[^>]*src="egbc-guard\.js[^"]*"([^>]*)><\/script>/i.exec(t);
     if (!m) continue;
     const a = m[1], g = (n) => { const x = new RegExp('data-' + n + '="([^"]*)"').exec(a); return x ? x[1] : null; }, has = (n) => new RegExp('data-' + n + '(\\s|=|$)').test(a);
-    out[f] = { team: g('team'), role: g('role'), adminAny: g('admin') === 'any', alsoTeam: g('also-team'), anyTeam: has('any-team'), master: has('master'), allowPending: g('allow-pending'), feature: g('feature') };
+    out[f] = { team: g('team'), role: g('role'), adminAny: g('admin') === 'any', alsoTeam: g('also-team'), anyTeam: has('any-team'), master: has('master'), leadsOrCore: has('leads'), allowPending: g('allow-pending'), feature: g('feature') };
   }
   return out;
 }
@@ -84,7 +84,8 @@ const SIGNIN = '<!DOCTYPE html><html><head><meta charset="utf-8">'
   + '<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>'
   + '<script src="egbc-auth.js"></script></head><body>harness</body></html>';
 
-export async function build({ quiet } = {}) {
+/* transform(url, text): the checks' breaks change a file as it is served. */
+export async function build({ quiet, transform } = {}) {
   const say = (s) => { if (!quiet) console.log(s); };
   const server = http.createServer((q, s) => {
     const url = decodeURIComponent(q.url.split('?')[0]);
@@ -93,6 +94,7 @@ export async function build({ quiet } = {}) {
     if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { s.writeHead(404); return s.end(); }
     let body = fs.readFileSync(f);
     if (/\.html$/.test(f)) { let t = body.toString('utf8'); const h = /<head[^>]*>/i.exec(t); if (h) t = t.slice(0, h.index + h[0].length) + NO_SW + t.slice(h.index + h[0].length); body = Buffer.from(t, 'utf8'); }
+    if (transform && /\.(html|js)$/.test(f)) body = Buffer.from(transform(url, body.toString('utf8')), 'utf8');
     s.writeHead(200, { 'Content-Type': (/\.js$/.test(f) ? 'text/javascript' : /\.json$/.test(f) ? 'application/json' : /\.png$/.test(f) ? 'image/png' : 'text/html') + (/\.png$/.test(f) ? '' : '; charset=utf-8'), 'Cache-Control': 'no-store' });
     s.end(body);
   }).listen(SERVE);
@@ -160,6 +162,7 @@ export async function build({ quiet } = {}) {
 export function guardWords(g) {
   if (!g) return 'no guard';
   if (g.master) return 'master admins';
+  if (g.leadsOrCore) return 'team leaders and core teams';
   const teams = (g.team || '').split(',').map((s) => s.trim()).filter(Boolean);
   let w = teams.length ? (g.role === 'leader' ? 'leaders of ' : 'on ') + teams.join(', ')
     : g.anyTeam ? 'on any team' : g.adminAny ? 'an admin of any team' : 'anyone signed in';
@@ -231,7 +234,7 @@ export function markdown(result) {
   for (const d of differences(result)) {
     md += '- **' + d.what + '** (' + d.url + '): ' + (d.wrong.length ? d.wrong.map((w) => w.short + (w.want ? ' should have it' : ' should not')).join(', ') : 'matches') + '\n';
   }
-  md += '- **The pastor/minister role** does not exist yet: it is added with the Preaching plan fix, found through the jobs mapping (H-9).\n';
+  md += '- **The pastor/minister role** is the Pastor chosen in Team emails (teamMailSettings/main.pastor), one person, not a team; the table cannot show them because only master admins and the Pastor may read who it is.\n';
   let sec = null;
   for (const [url, r] of rows) {
     if (r.section !== sec) { sec = r.section; md += '\n## ' + (sec || 'Top of the Menu') + '\n\n' + head('Page | Guard'); }

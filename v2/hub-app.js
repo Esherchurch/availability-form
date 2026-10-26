@@ -198,7 +198,8 @@ EGBCAuth.require().then(async profile => {
     setEditButton();
   }
 
-  await Promise.all([loadNews(), loadPages(), loadTeamPanels(), loadMeetings(), loadBookingsAdmin()]);
+  /* loadPerms: the Menu asks who edits the Preaching plan (the Pastor, the leadership job). */
+  await Promise.all([loadNews(), loadPages(), loadTeamPanels(), loadMeetings(), loadBookingsAdmin(), EGBCAuth.loadPerms ? EGBCAuth.loadPerms().catch(() => {}) : null]);
   /* The Menu's "Post a notice" and "Notices" (Menu by job, 19 Oct 2026)
      land here: the editor for whoever may post, else the list. */
   (function () {
@@ -1275,7 +1276,7 @@ async function renderPinBoardCard() {
         <div class="ic">${I('sticky-note', 18)}</div>
         <div style="flex:1;min-width:0"><h2>Pin board</h2>
         <div class="sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${boards.length > 1
-          ? '<select aria-label="Which pin board" onchange="choosePinBoard(this.value)" style="font:inherit;border:1px solid var(--line);border-radius:8px;padding:2px 6px;max-width:100%">'
+          ? '<select aria-label="Which pin board" onchange="choosePinBoard(this.value)" style="font:inherit;border:1px solid var(--line);border-radius:8px;padding:4px 6px;min-height:32px;max-width:100%">'
             + boards.map(b => '<option value="' + esc(b.doc) + '"' + (b.doc === board.doc ? ' selected' : '') + '>' + esc(b.title) + '</option>').join('') + '</select>'
           : esc(board.title)} &middot; anything anybody on the team wants to raise</div></div>
         <div class="sp">

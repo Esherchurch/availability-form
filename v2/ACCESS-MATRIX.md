@@ -13,9 +13,9 @@ People: **Pending** Pending · **Attender** Attender · **Member** Member · **K
 - **Maintenance (report a repair): every member** (maintenance.html): matches
 - **My evacuation plan: every member** (peep.html): matches
 - **Hire our rooms: every member** (hire.html): matches
-- **Book a room: core teams and team leaders only** (rooms.html): Attender should not, Member should not, Kids Ch should not, Worship should not, AV should not, Office should not, Elders should not, Finance should not, Pastoral should not, SG lead should not, Bookings should not, Plan grp should not
-- **Preaching plan: edited by the leadership job (EGBC: Elders) and the pastor/minister role; read-only for whoever may use the Rota planner; nobody else** (preaching-plan.html): Kids Ch should not, Worship should not, AV should not, Office should not, Finance should not, Pastoral should not
-- **The pastor/minister role** does not exist yet: it is added with the Preaching plan fix, found through the jobs mapping (H-9).
+- **Book a room: core teams and team leaders only** (rooms.html): matches
+- **Preaching plan: edited by the leadership job (EGBC: Elders) and the pastor/minister role; read-only for whoever may use the Rota planner; nobody else** (preaching-plan.html): matches
+- **The pastor/minister role** is the Pastor chosen in Team emails (teamMailSettings/main.pastor), one person, not a team; the table cannot show them because only master admins and the Pastor may read who it is.
 
 ## Top of the Menu
 
@@ -38,7 +38,7 @@ People: **Pending** Pending · **Attender** Attender · **Member** Member · **K
 | Rota <small>(view-only-rota.html)</small> | on any team | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | ✓ |
 | Rota planner <small>(Planner.html)</small> | leaders of Worship Team, Kids Church, Youth Worship, Core Team | – | – | – | – | ✓ | – | ✓ | – | ✓ | ✓ | – | – | – | – | – | – | – | ✓ |
 | Sunday service plan <small>(SundayServicePlanner.html)</small> | leaders of Worship Team | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
-| Preaching plan <small>(preaching-plan.html)</small> | on any team | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | ✓ |
+| Preaching plan <small>(preaching-plan.html)</small> | anyone signed in | – | – | – | – | ✓ | – | ✓ | – | ✓ | ✓ | – | ✓ | – | – | – | – | – | ✓ |
 | Session planner <small>(session-planner.html)</small> | anyone signed in | – | – | – | ✓ | ✓ | – | – | – | – | ✓ | – | – | – | – | – | – | ✓ | ✓ |
 | Present <small>(present.html)</small> | no guard | – | – | – | ✓ | ✓ | – | – | – | – | ✓ | – | – | – | – | – | – | ✓ | ✓ |
 | How to present <small>(present-guide.html)</small> | no guard | – | – | – | ✓ | ✓ | – | – | – | – | ✓ | – | – | – | – | – | – | ✓ | ✓ |
@@ -70,7 +70,7 @@ People: **Pending** Pending · **Attender** Attender · **Member** Member · **K
 | Registers <small>(attendance.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Headcounts <small>(headcounts.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Picture library <small>(picture-library.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | ✓ | – | ✓ |
-| Book a room <small>(rooms.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Book a room <small>(rooms.html)</small> | anyone signed in | – | – | – | – | ✓ | – | ✓ | – | ✓ | ✓ | – | – | – | – | – | – | – | ✓ |
 | Hire our rooms <small>(hire.html)</small> | no guard | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Maintenance <small>(maintenance.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Building compliance <small>(compliance.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ | – | – | – | – | – | ✓ |
