@@ -36,7 +36,13 @@ ${fn(T.paedFlag)}
 ${fn(T.coverOf)}
 ${fn(T.pounds)}
 ${fn(T.answerFlags)}
-module.exports = { CHECKLIST, FLAGS, ALSO, SG_KINDS, MIN_COVER, checklistFor, answered, paedFlag, coverOf, pounds, answerFlags };
+const MAX_TODO = ${T.MAX_TODO};
+const NOTED_DEFAULT = ${JSON.stringify(T.NOTED_DEFAULT)};
+${fn(T.todoState)}
+${fn(T.needsNoted)}
+/* the hub's sums, which todoState needs */
+function rating(l, i) { const s = (+l || 0) * (+i || 0); return s >= 15 ? 'red' : s >= 5 ? 'amber' : 'green'; }
+module.exports = { CHECKLIST, FLAGS, ALSO, SG_KINDS, MIN_COVER, MAX_TODO, NOTED_DEFAULT, checklistFor, answered, paedFlag, coverOf, pounds, answerFlags, todoState, needsNoted, rating };
 `;
 fs.writeFileSync(path.join(V2, 'functions', 'sg-checklist.cjs'), out);
 console.log('functions/sg-checklist.cjs written: ' + Object.keys(T.CHECKLIST).map((k) => k + ' ' + T.CHECKLIST[k].length).join(', '));

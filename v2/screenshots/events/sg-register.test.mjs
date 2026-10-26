@@ -155,6 +155,18 @@ try {
   ok('   a watched control is marked as one the hub watches', await L.$eval(`[data-risk="${target.id}"] [data-linked="ratio"]`, e => /hub watches/.test(e.title)).catch(() => false));
   const top = await L.$eval(`[data-act="${juniorsId}"] [data-risk]`, e => e.getAttribute('data-risk'));
   ok('   the worst after its controls is first', top === target.id, top);
+  /* S4: still to do on a standing risk (Derby's steps 4 and 5) */
+  await tap(L, `[data-edit="${target.id}"]`); await L.waitForSelector('[data-rtodo] [data-rt="what"]');
+  await L.$eval('[data-rtodo] [data-rt="what"]', e => { e.value = 'Recruit a fourth leader (invented)'; });
+  await tap(L, '#eSave');
+  ok('S4 STILL TO DO: refused without a person and a date', !!(await until(async () => /^Give each thing still to do a person and a date\.$/.test(await text(L, '#eMsg')))), await text(L, '#eMsg'));
+  await L.$eval('[data-rtodo] [data-rt="who"]', e => { e.value = 'The Juniors leader'; });
+  await L.$eval('[data-rtodo] [data-rt="by"]', e => { e.value = '2025-02-01'; });
+  await tap(L, '#eSave');
+  await until(async () => /Still to do:/.test(await text(L, `[data-risk="${target.id}"]`)));
+  const t4 = (await risks()).find(r => r.id === target.id);
+  ok('   saved on the risk, and shown with it - overdue, as its date has passed', t4.todo && t4.todo.length === 1 && t4.todo[0].what === 'Recruit a fourth leader (invented)' && t4.todo[0].who === 'The Juniors leader' && t4.todo[0].by === '2025-02-01' && t4.todo[0].done === false
+    && /Still to do: Recruit a fourth leader \(invented\) \(The Juniors leader, by 2025-02-01\) overdue/.test(await text(L, `[data-risk="${target.id}"]`)), J(t4.todo));
   const toClose = rs.find(r => r.starterId === 'sun-photos');
   await tap(L, `[data-edit="${toClose.id}"]`); await L.waitForSelector('#eClosed');
   await L.$eval('#eClosed', e => { e.checked = true; }); await tap(L, '#eSave');

@@ -281,6 +281,34 @@
      no paediatric first aider; no male and female leader for a mixed group; the
      public liability cover not given, or under the church's minimum (minCover,
      £1 million unless the church sets another). Only answered questions count. */
+  /* "STILL TO DO" (Derby's steps 4 and 5; S4): each risk can have up to 5
+     actions - what, who (a person or a role) and by when - and done or not.
+     todoState -> { open, overdue, unready (open with no person or date),
+     redOpen (open on a risk still High after its controls) }, counts. */
+  var MAX_TODO = 5;
+  function todoState(risks, today) {
+    var s = { open: 0, overdue: 0, unready: 0, redOpen: 0 };
+    (risks || []).forEach(function (r) {
+      var red = rating(r.rl, r.ri) === 'red';
+      (r.todo || []).forEach(function (t) {
+        if (!t || t.done || !String(t.what || '').trim()) return;
+        s.open++;
+        if (!String(t.who || '').trim() || !t.by) s.unready++;
+        else if (today && t.by < today) s.overdue++;
+        if (red) s.redOpen++;
+      });
+    });
+    return s;
+  }
+  /* "TRUSTEES NOTED" (S4): which signed assessments the trustees note - a
+     church setting (register.noted), by default camps, overnights, trips
+     abroad and adventurous activities */
+  var NOTED_DEFAULT = { kinds: ['camp', 'overnight'], abroad: true, adventurous: true };
+  function needsNoted(kind, flags, setting) {
+    var n = setting && typeof setting === 'object' ? setting : NOTED_DEFAULT;
+    flags = flags || {};
+    return (n.kinds || []).indexOf(kind) >= 0 || (n.abroad === true && flags.abroad === true) || (n.adventurous === true && flags.adventurous === true);
+  }
   var MIN_COVER = 1000000;
   function answerFlags(answers, flags, minCover) {
     answers = answers || {}; var min = Number.isInteger(minCover) && minCover > 0 ? minCover : MIN_COVER, out = [];
@@ -326,6 +354,7 @@
 
   var api = { KINDS: KINDS, CONTROLS: CONTROLS, STARTERS: STARTERS, EVENT_KINDS: EVENT_KINDS, EVENT_TEMPLATES: EVENT_TEMPLATES, REVIEW_ITEMS: REVIEW_ITEMS, CHECKLIST: CHECKLIST, FLAGS: FLAGS, ALSO: ALSO, SG_KINDS: SG_KINDS, checklistFor: checklistFor, answered: answered, paedFlag: paedFlag, hostQuestions: hostQuestions,
               answerFlags: answerFlags, coverOf: coverOf, pounds: pounds, MIN_COVER: MIN_COVER,
+              todoState: todoState, needsNoted: needsNoted, MAX_TODO: MAX_TODO, NOTED_DEFAULT: NOTED_DEFAULT,
               score: score, rating: rating, kindLabel: kindLabel, controlLabel: controlLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.EGBCSgTemplates = api;

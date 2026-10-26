@@ -44,7 +44,7 @@ export function londonDay(at = new Date()) {
 async function settingsOf(dbi) {
   const s = (await dbi.collection('safeguardingSettings').doc('defaults').get()).data() || {};
   return { ratioAll: s.ratioAll || 5, ratioUnder8: s.ratioUnder8 || 4, dbsYears: s.dbsYears || 3, trainingYears: s.trainingYears || 3,
-    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, referenceYears: ((s.register || {}).referenceYears) || 3, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders', minCover: ((s.register || {}).minCover) || 0 };
+    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, referenceYears: ((s.register || {}).referenceYears) || 3, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders', minCover: ((s.register || {}).minCover) || 0, noted: ((s.register || {}).noted) || null };
 }
 const rows = (q) => q.get().then((s) => s.docs.map((d) => Object.assign({ id: d.id }, d.data())), () => []);
 
@@ -53,7 +53,7 @@ async function eventsAt(dbi, siteId, today, days) {
   const from = Date.parse(today + 'T00:00:00Z') - 864e5, to = from + (days + 2) * 864e5;
   const evs = (await rows(dbi.collection('calEvents').where('startUtc', '>=', from).where('startUtc', '<=', to)))
     .filter((e) => (e.location || {}).siteId === siteId && e.status !== 'cancelled');
-  const out = [], minCover = (await settingsOf(dbi)).minCover;
+  const out = [], st = await settingsOf(dbi), minCover = st.minCover;
   for (const e of evs) {
     const l = (await dbi.collection('eventLeaders').doc(e.id).get()).data();
     if (!l || l.under18 !== true) continue;
@@ -64,7 +64,14 @@ async function eventsAt(dbi, siteId, today, days) {
     const needs = SG_KINDS.includes(e.sgKind || '');
     if (needs) { const a = (await dbi.collection('sgAssessments').doc(e.id).get()).data(); signedOff = !!(a && (a.status === 'signed' || a.waived)); paed = a ? Core.paedLevel(a.answers, a.flags) : '';
       /* the checklist's other flags: no male and female leader for a mixed group; the cover not given or under the minimum */
-      flags = a ? Checklist.answerFlags(a.answers, a.flags, minCover).filter((f) => f.id !== 'paedFirstAid') : []; }
+      flags = a ? Checklist.answerFlags(a.answers, a.flags, minCover).filter((f) => f.id !== 'paedFirstAid') : [];
+      /* S4: "still to do" past its date; and signed off, but not yet noted by the trustees where the church asks for that */
+      const td = a ? Checklist.todoState(a.risks, today) : { overdue: 0 };
+      if (td.overdue) flags.push({ id: 'todoOverdue', level: 'amber', words: td.overdue + ' still-to-do ' + (td.overdue === 1 ? 'action is' : 'actions are') + ' past their date' });
+      if (a && a.status === 'signed' && !a.waived && Checklist.needsNoted(e.sgKind, a.flags, st.noted)) {
+        const n = (await dbi.collection('sgNoted').doc(e.id).get()).data();
+        if (!n || n.version !== a.signedVersion) flags.push({ id: 'noted', level: 'amber', words: 'Signed off, but the trustees have not noted it yet' });
+      } }
     out.push({ id: e.id, title: String(e.title || 'An event').slice(0, 80), day: String(e.startLocal || '').slice(0, 10) || new Date(e.startUtc).toISOString().slice(0, 10),
       children, leaders: (l.leaders || []).length || (l.leaderIds || []).length, leaderIds: l.leaderIds || [], needsSignoff: needs, signedOff, paed, flags });
   }

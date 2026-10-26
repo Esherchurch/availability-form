@@ -4236,12 +4236,24 @@ await check('  while making the same record without it is fine', 'allow',
     await U('u_tomk', 'm_tomk', ['Kids Church']);
     await U('u_yola', 'm_yola', ['Youth']);
     await U('u_nobo', 'm_nobo', []);
+    /* main's H-15: a core team's members have the teams it covers, kept on their record by the server */
+    await setDoc(doc(d, 'users', 'u_kycore'), { uid: 'u_kycore', memberId: 'm_kycore', status: 'active', name: 'Kids and Youth core (invented)', teams: ['Kids & Youth Core Team'], covers: ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'], adminFor: [], masterAdmin: false });
+    await setDoc(doc(d, 'users', 'u_wcore'), { uid: 'u_wcore', memberId: 'm_wcore', status: 'active', name: 'Worship core (invented)', teams: ['Core Team'], covers: ['Worship', 'AV', 'Choir'], adminFor: [], masterAdmin: false });
+    await setDoc(doc(d, 'calEvents', 'ev_kidsonly'), { title: 'Kids Church team night (invented)', visibility: 'public', status: 'confirmed', audience: ['Kids Church'], startUtc: 1765533600000, startLocal: '2026-12-12T10:00', teams: [], createdBy: 'u_martin' });
     await setDoc(doc(d, 'planGroups', 'pg_kids'), { name: 'Kids Church', kind: 'children', leaderIds: ['m_samy'], teamName: 'Kids Church' });
     await setDoc(doc(d, 'planGroups', 'pg_youth'), { name: 'Youth', kind: 'youth', leaderIds: ['m_yola'], teamName: 'Youth' });
     await setDoc(doc(d, 'planSessions', 'ps_1'), { groupId: 'pg_kids', date: '2026-11-01', title: 'Born again?', parts: [], updatedBy: 'u_samy' });
     await setDoc(doc(d, 'privateSettings', 'apiBible'), { key: 'SYNTHETIC-KEY' });
   });
   const PS = (uid, extra) => ({ groupId: 'pg_kids', date: '2026-11-08', title: 'Valued', parts: [{ id: 'a', title: 'Welcome' }], updatedBy: uid, updatedByName: 'x', updatedAt: 'x', ...(extra || {}) });
+  /* H-15: core teams cover chosen teams - the Session planner and Present for a Kids & Youth Core Team member, not a Worship Core Team member */
+  await check('H-15: A KIDS & YOUTH CORE TEAM MEMBER READS KIDS CHURCH’S SESSION GROUP (their core team covers it)', 'allow', () => getDoc(doc(ctx('u_kycore'), 'planGroups', 'pg_kids')));
+  await check('  and finds it by its team', 'allow', () => getDocs(query(collection(ctx('u_kycore'), 'planGroups'), where('teamName', 'in', ['Kids Church']))));
+  await check('  and reads its plans (the Session planner, Present)', 'allow', () => getDoc(doc(ctx('u_kycore'), 'planSessions', 'ps_1')));
+  await check('  A WORSHIP CORE TEAM MEMBER DOES NOT', 'deny', () => getDoc(doc(ctx('u_wcore'), 'planGroups', 'pg_kids')));
+  await check('  nor its plans', 'deny', () => getDoc(doc(ctx('u_wcore'), 'planSessions', 'ps_1')));
+  await check('  an event for Kids Church’s team: the Kids & Youth Core Team member sees it', 'allow', () => getDoc(doc(ctx('u_kycore'), 'calEvents', 'ev_kidsonly')));
+  await check('  the Worship Core Team member doesn’t', 'deny', () => getDoc(doc(ctx('u_wcore'), 'calEvents', 'ev_kidsonly')));
   await check('PLANNER: a group leader writes a plan for the group', 'allow', () => setDoc(doc(ctx('u_samy'), 'planSessions', 'ps_2'), PS('u_samy')));
   await check('  and changes one', 'allow', () => setDoc(doc(ctx('u_samy'), 'planSessions', 'ps_1'), PS('u_samy', { date: '2026-11-01' })));
   await check('  but not in someone else\u2019s name', 'deny', () => setDoc(doc(ctx('u_samy'), 'planSessions', 'ps_3'), PS('u_tomk')));
@@ -4705,6 +4717,9 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  NO FIELD FOR A CHILD OR A CONCERN in a risk either', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_3'), RSK('u_sgr_lead', { concern: 'invented' })));
   await check('  ratings 1 to 5 only', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_4'), RSK('u_sgr_lead', { l: 6 })));
   await check('  the risk in 200 characters at most', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_5'), RSK('u_sgr_lead', { risk: 'x'.repeat(201) })));
+  const TODO = (n) => Array.from({ length: n }, (x, i) => ({ what: 'Book the lifeguard ' + i, who: 'The leader', by: '2026-12-01', done: false }));
+  await check('S4: a standing risk keeps up to 5 things still to do', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(5) })));
+  await check('  not 6', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(6) })));
   await check('  up to 50 controls (what a record holds, H-9)', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_6max'), RSK('u_sgr_lead', { controls: Array(50).fill({ kind: 'text', text: 'x' }) })));
   await check('  no more than 50 controls', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_6'), RSK('u_sgr_lead', { controls: Array(51).fill({ kind: 'text', text: 'x' }) })));
   await check('  not under another site’s activity', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_7'), RSK('u_sgr_lead', { activityId: 'sga_other' })));
@@ -4800,6 +4815,14 @@ await check('  while making the same record without it is fine', 'allow',
     b.set(doc(dbx, 'sgAssessments', 'ev_sga_trip'), AS('u_sgr_lead', { status: 'signed', signedBy: 'u_sgr_lead', signedByName: 'Lead', signedAt: serverTimestamp(), signedVersion: 1, signedNote: '' }));
     b.set(doc(dbx, 'sgGate', 'ev_sga_trip'), { needed: true, open: true, updatedAt: 'x' }); return b.commit(); });
   await check('  NOW A SIGN-UP GOES THROUGH', 'allow', () => SUX(anon(), 'key_sga_4_0000000000000000000000', 'ev_sga_trip'));
+  /* S4: the trustees note it - its own record, for the signed version only */
+  const NOTE = (uid, extra) => ({ siteId: 'site_sgr', version: 1, by: uid, byName: 'A trustee (invented)', at: serverTimestamp(), ...(extra || {}) });
+  await check('S4 TRUSTEES NOTED: A TRUSTEE RECORDS THAT THE TRUSTEES HAVE NOTED THE SIGNED ASSESSMENT', 'allow', () => setDoc(doc(cx('u_sgr_trustee'), 'sgNoted', 'ev_sga_trip'), NOTE('u_sgr_trustee')));
+  await check('  the organiser can’t (it’s the trustees’)', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgNoted', 'ev_sga_trip'), NOTE('u_sga_org')));
+  await check('  nor in someone else’s name', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgNoted', 'ev_sga_trip'), NOTE('u_sga_org')));
+  await check('  nor for a version that wasn’t the one signed', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgNoted', 'ev_sga_trip'), NOTE('u_sgr_trustee', { version: 2 })));
+  await check('  nor before it is signed off', 'deny', () => setDoc(doc(cx('u_sgr_trustee'), 'sgNoted', 'ev_sga_trip2'), NOTE('u_sgr_trustee')));
+  await check('  the event’s organiser reads it', 'allow', () => getDoc(doc(cx('u_sga_org'), 'sgNoted', 'ev_sga_trip')));
   await check('  a change after signing cannot stay "signed"', 'deny', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { ...ANS, weather: 'Somewhere else' }, updatedAt: 'y', updatedBy: 'u_sga_org' }));
   await check('  it goes back to waiting', 'allow', () => updateDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), { answers: { ...ANS, weather: 'Somewhere else' }, status: 'waiting', version: 2, updatedAt: 'y', updatedBy: 'u_sga_org' }));
   await check('  AND BOOKINGS CLOSE AGAIN', 'deny', () => SUX(anon(), 'key_sga_5_0000000000000000000000', 'ev_sga_trip'));

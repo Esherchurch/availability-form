@@ -20,3 +20,8 @@ The rules go live when the hub goes live, never before.
   is not built by then, `request.auth != null` at the least.
 - **The ChurchSuite import, private part** (F-177): only after the rules
   are live.
+- **Each event's leaders kept by member id** (FINDINGS-events F-287): at the
+  same moment as the Firestore rules, run `node tools/migrate-leader-info.mjs`
+  (it lists what it would change), check the list, then run it again with
+  `--write`. The reviewing window runs it. Not before the rules: the rules
+  live today would refuse later saves of a migrated record.

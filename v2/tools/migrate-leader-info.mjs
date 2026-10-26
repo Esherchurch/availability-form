@@ -9,8 +9,8 @@
 
    Lists what it would change; changes nothing without --write.
 
-     node screenshots/events/migrate-leader-info.mjs                 (the list)
-     node screenshots/events/migrate-leader-info.mjs --write         (and do it)
+     node tools/migrate-leader-info.mjs                 (the list)
+     node tools/migrate-leader-info.mjs --write         (and do it)
      --project <id>   the Firebase project (default egbc-worship-planner)
      --church <cid>   a church's records, under churches/<cid>/ (default: EGBC's, at the top)
 
@@ -25,7 +25,7 @@ import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
-const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fnRequire = createRequire(path.join(V2, 'functions', 'index.js'));
 const { initializeApp, getApps } = fnRequire('firebase-admin/app');
 const { getFirestore } = fnRequire('firebase-admin/firestore');

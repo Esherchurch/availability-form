@@ -76,6 +76,14 @@ const R3 = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8');
 ok('the rules: no leader-by-leader check, and 500, not 20; nobody twice; leaderInfo exactly the named ones (F-287)', R3.includes("ids.size() == d.get('leaders', []).size() && ids.size() <= 500") && R3.includes('named.toSet().size() == named.size()')
   && R3.includes('info is map && info.keys().hasOnly(named) && info.size() == named.size()') && R3.includes('&& leadersShapeOk(request.resource.data)') && !/idAt\(d, 19\)/.test(R3));
 
+console.log('\nS4: still to do, and trustees noted');
+const TD = [{ rl: 5, ri: 5, todo: [{ what: 'Book the lifeguard', who: 'Trip leader', by: '2026-11-01' }] }, { rl: 1, ri: 2, todo: [{ what: 'Ring the venue', who: '', by: '' }, { what: 'Old', who: 'Ann', by: '2026-01-01' }, { what: 'Done one', who: 'Ann', by: '2026-01-01', done: true }, { what: '', who: 'x', by: 'x' }] }];
+ok('todoState: 3 open (done and blank ones not counted), 1 without a person or date, 1 overdue, 1 open on a risk still High', J(T.todoState(TD, '2026-10-26')) === J({ open: 3, overdue: 1, unready: 1, redOpen: 1 }), J(T.todoState(TD, '2026-10-26')));
+ok('needsNoted, by default: camps, overnights, anything overseas or adventurous; not an ordinary trip', T.needsNoted('camp', {}) && T.needsNoted('overnight', {}) && T.needsNoted('trip', { abroad: true }) && T.needsNoted('offsite', { adventurous: true }) && !T.needsNoted('trip', {}) && !T.needsNoted('holidayclub', {}));
+ok('   the church’s own setting decides: trips only, nothing overseas', T.needsNoted('trip', {}, { kinds: ['trip'], abroad: false }) && !T.needsNoted('camp', { abroad: true }, { kinds: ['trip'], abroad: false, adventurous: false }));
+const CKS = fs.readFileSync(path.join(V2, 'functions', 'sg-checklist.cjs'), 'utf8');
+ok('the server’s copy has the same two (the warnings use them)', CKS.includes('function todoState(') && CKS.includes('function needsNoted(') && CKS.includes('const MAX_TODO = 5;'));
+
 console.log('\nwhat one assessment holds (H-9: no limits beyond what a record holds)');
 const assessSrc = fs.readFileSync(path.join(V2, 'egbc-sg-assess.js'), 'utf8'), rulesSrc = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), aiSrc = fs.readFileSync(path.join(V2, 'functions', 'sg-ai-core.cjs'), 'utf8');
 ok('the page, the server and the rules agree: 200 risks, 50 controls each, 500 host questions, 1,100 answers', assessSrc.includes('var MAX = { risks: 200, controls: 50, host: 500 };') && aiSrc.includes('const MAX = { risks: 200, controls: 50, host: 500 };')

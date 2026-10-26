@@ -254,7 +254,9 @@
     (ctx.acts || []).forEach(function (a) { actName[a.id] = a.name; });
     var risks = (ctx.risks || []).slice(0, 500).map(function (r) {
       return { activity: String(actName[r.activityId] || '').slice(0, 80), risk: r.risk, who: r.who || '', before: T.rating(r.l, r.i), beforeScore: T.score(r.l, r.i),
-        after: T.rating(r.rl, r.ri), afterScore: T.score(r.rl, r.ri), controls: (r.controls || []).slice(0, 50).map(T.controlLabel), owner: r.ownerName || '', reviewDue: r.reviewDue || '', status: r.status };
+        after: T.rating(r.rl, r.ri), afterScore: T.score(r.rl, r.ri), controls: (r.controls || []).slice(0, 50).map(T.controlLabel), owner: r.ownerName || '', reviewDue: r.reviewDue || '', status: r.status,
+        /* STILL TO DO (S4), as it stood when the snapshot was taken */
+        todo: (r.todo || []).filter(function (t) { return t && t.what; }).slice(0, 5).map(function (t) { return { what: String(t.what), who: String(t.who || ''), by: t.by || '', done: !!t.done }; }) };
     });
     var w = (ctx.W && ctx.W.items) || [], dials = {};
     Object.keys((ctx.D && ctx.D.dials) || {}).forEach(function (k) { var x = ctx.D.dials[k]; dials[k] = { value: x.value, of: x.of, pct: x.pct, rag: x.rag }; });
@@ -273,7 +275,7 @@
       }).join('') + '<tr><td>Warnings</td><td class="n">' + ((s.warnings || {}).red || 0) + ' act now, ' + ((s.warnings || {}).amber || 0) + ' soon</td></tr>' +
       '<tr><td>The annual review</td><td class="n">' + ((s.review || {}).done || 0) + ' of ' + ((s.review || {}).of || 0) + ' items</td></tr></table>' +
       '<h3 style="margin-top:14px">The standing risks</h3><div style="overflow-x:auto"><table class="sgd-tbl"><tr><th>Activity</th><th>Risk</th><th>Before</th><th>After</th><th>Review by</th></tr>' +
-      (s.risks || []).map(function (r) { return '<tr' + (r.status === 'closed' ? ' style="opacity:.6"' : '') + '><td>' + esc(r.activity) + '</td><td>' + esc(r.risk) + (r.status === 'closed' ? ' (closed)' : '') + '<div class="hint">' + esc((r.controls || []).join('; ')) + '</div></td><td>' + RAG_WORDS[r.before] + ' ' + r.beforeScore + '</td><td>' + RAG_WORDS[r.after] + ' ' + r.afterScore + '</td><td>' + esc(r.reviewDue) + '</td></tr>'; }).join('') +
+      (s.risks || []).map(function (r) { return '<tr' + (r.status === 'closed' ? ' style="opacity:.6"' : '') + '><td>' + esc(r.activity) + '</td><td>' + esc(r.risk) + (r.status === 'closed' ? ' (closed)' : '') + '<div class="hint">' + esc((r.controls || []).join('; ')) + '</div>' + ((r.todo || []).length ? '<div class="hint" data-snaptodo>Still to do: ' + r.todo.map(function (t) { return esc(t.what) + ' (' + esc(t.who || 'nobody named') + ', by ' + esc(t.by || 'no date') + (t.done ? ', done' : '') + ')'; }).join('; ') + '</div>' : '') + '</td><td>' + RAG_WORDS[r.before] + ' ' + r.beforeScore + '</td><td>' + RAG_WORDS[r.after] + ' ' + r.afterScore + '</td><td>' + esc(r.reviewDue) + '</td></tr>'; }).join('') +
       '</table></div></div>';
   }
   function wireSnapshots(root, ctx, list) {

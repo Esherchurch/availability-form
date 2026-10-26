@@ -16,7 +16,7 @@
 <script src="egbc-guard.js?v=202610221200"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-launch.js?v=202610141700"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -610,8 +610,10 @@
   /* ---------------- loading ---------------- */
   function loadGroups() {
     var c = db().collection('planGroups');
-    var qs = MASTER ? [c.get()] : [c.where('leaderIds', 'array-contains', ME.memberId || '-').get()].concat(
-      (ME.teams || []).length ? [c.where('teamName', 'in', (ME.teams || []).slice(0, 10)).get()] : []);
+    /* their teams and the ones their core teams cover (H-15), asked in 30s (Firestore's "in" takes 30) - no limit */
+    var mine = (ME.teams || []).concat(EGBCAuth.coversOfTeams ? EGBCAuth.coversOfTeams(ME.teams || []) : []).filter(function (t, i, a) { return a.indexOf(t) === i; });
+    var qs = MASTER ? [c.get()] : [c.where('leaderIds', 'array-contains', ME.memberId || '-').get()];
+    for (var ti = 0; !MASTER && ti < mine.length; ti += 30) qs.push(c.where('teamName', 'in', mine.slice(ti, ti + 30)).get());
     return Promise.all(qs.map(function (q) { return q.catch(function () { return { docs: [] }; }); })).then(function (r) {
       var seen = {}; GROUPS = [];
       r.forEach(function (s) { all(s).forEach(function (g) { if (!seen[g.id] && !g.archived) { seen[g.id] = 1; GROUPS.push(g); } }); });

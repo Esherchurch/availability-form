@@ -12112,3 +12112,89 @@ Earlier tests updated for the new counts: a trip asks 18, not 14.
 Each could use `myTeams()` (or `me().get('teams', []).concat(me().get('covers', []))`, which costs less). With 1 and 2 changed, a Kids & Youth Core Team member sees Kids Church's Session planner and Present, as Martin wants. Until then they can't read the session groups.
 - **Check:** `tests/check-core-teams.mjs` has two cases waiting on this, labelled "(needs the events window's planGroups rule)". The rules suite has room for a case of yours: a user with `covers: ['Kids Church']` reads a plan group whose `teamName` is 'Kids Church'.
 - **Also yours, for H-15:** the Menu's `core: true` entries for Events, Check-in and Registers now mean "on any core team" (with admin, as before), so a Kids & Youth Core Team admin gets them too. Say if they should be narrower.
+
+### F-288 — The going-live tidy-ups; core teams' covered teams in my rules and pages (main's H-15); safeguarding step 4: "still to do" and "trustees noted" (the events window, 26 Oct)
+
+**1. Tidy-ups (the reviewing window's)**
+- **The migration script has moved** to `v2/tools/migrate-leader-info.mjs`, with the other going-live scripts. Its test stays in screenshots/events and points at the new place (11/11).
+- **GOING-LIVE.md (main's file, at the reviewing window's request):** one item in "With the rules": the leaders migration, at the same moment as the Firestore rules (list, check, then `--write`), run by the reviewing window. **For main:** please keep it there.
+- **SWITCHOVER-events.md, Part 1:** the same step, item 4.
+
+**2. Core teams cover chosen teams (main's H-15, F-from-main 26 Oct)**
+- **My rules now count a person's covered teams** (`teamsCovered()`: own teams plus `covers`, which the server keeps on the users record, main's cheaper form of `myTeams()`). That's every place they read only a person's own teams:
+  - the session planner's groups (`readsPlanGroup` and `planGroups` read), so the Session planner and Present
+  - events for a team (`canSeeEvent`, `audienceOk`)
+  - the Maintenance team
+  - the money team
+  - a meeting's hosts (and its admins through main's `adminCovers`)
+- **My pages:**
+  - present.html and session-planner.html look groups up by own and covered teams, asked in 30s with no limit (it was 10). Present's "not yours" check counts covered teams too.
+  - egbc-events.js asks for events for covered teams.
+- **The rules suite** (7 new checks):
+  - **A Kids & Youth Core Team member** (`covers: ['Kids Church', …]`) reads Kids Church's session group, finds it by its team, reads its plans, and sees a Kids Church event.
+  - **A Worship Core Team member** reads none of them.
+- **Main's tests/check-core-teams.mjs was NOT run:** another window's dev emulator holds its ports (8181, 9099) all evening, and I don't stop another window's emulator. The rules suite covers the same two people at the rules' level. **Please run check-core-teams** (or I will when the ports are free); its two waiting cases should now pass.
+- **Headroom, measured after:** sg-headroom at least 20 in both rulesets; H-8's booking at least 80 (a four-part hall at least 40). Both unchanged.
+- **For main:**
+  - egbc-events.js is 202610262000 on my pages. Please bump it on yours and Comms': app, cardmaker, comms, giftaid, give-regularly, my-messages, newhere, payments, picture-library, prayer, rota-reports, team-mail.
+  - **session-planner.html is shared:** I changed only its `loadGroups()`.
+
+**3. Safeguarding step 4: "still to do" and "trustees noted"** (F-280 10.4, Martin's answers 17 and 18)
+- **"Still to do" (Derby's steps 4 and 5).** Each risk can have up to 5 actions: what, who (a person or a role), by when, and done or not.
+  - **On the event's assessment:** add them on each risk; they show on the risk, with "overdue" once their date has passed.
+  - **On the standing register:** the same in the risk editor, and in the register's dated snapshots.
+  - **Sign-off (answer 17):** open actions may stay, each with a person and a date. The page refuses sign-off while one has no person or date ("Give each open 'still to do' a person and a date first (1 without).") or sits on a risk still High after its controls ("… finish it, or bring the risk down, first.").
+  - **The print** has a "Still to do" table: the risk, the action, who, by when, overdue, done.
+  - **The daily warnings:** "N still-to-do actions are past their date" (amber, counts only).
+  - **The assessment's own rule is unchanged** (headroom). The standing risks' rule allows `todo`, up to 5.
+- **"Trustees noted" (answer 18).**
+  - **Who and when:** after sign-off, a trustee (the trustee team, a setting) or a master admin records that the trustees have noted it, from the register's Events, "Read it". It shows: "Trustees noted on <date>, by <name>."
+  - **It never stops the event.** Until it's done: "Waiting for the trustees to note it. It doesn't stop the event."
+  - **Which kinds:** a church setting on Safeguarding settings, by default camps, overnights, anything overseas, and anything adventurous.
+  - **It's its own record** (`sgNoted/<event>`), for the signed version only, so it resets if the assessment is signed again. The rules: the trustee team or a master admin, as themselves, now, only once signed, only for the signed version.
+  - **The print** says "Trustees noted on … by …" or "Not yet noted by the trustees". **The warnings** say "Signed off, but the trustees have not noted it yet" (amber).
+- **Shared:** `T.todoState()` and `T.needsNoted()` in the templates; the server's copy is generated (sg-checklist-gen.mjs).
+
+**Breaks:**
+
+| Break | Test | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS (S4):** signed off with an open "still to do" that has no person or date | sg-assess 52/53 | "NOT SIGNED while an open one has no person and date" |
+| signed off with something still to do on a risk still High | sg-assess 46/48 | "NOT SIGNED while a risk still High has something to do" |
+| anyone signed in may record "trustees noted" | rules 1965/1966 | "the organiser can't" |
+| "noted" for any version | rules 1965/1966 | "nor for a version that wasn't the one signed" |
+| a standing risk with any number of actions | rules 1965/1966 | "not 6" |
+| an overdue action not counted | sg-register-unit 36/37 | "todoState: …" |
+| the print leaves out "still to do" | sg-assess 52/53 | "THE PRINT: 'Still to do'" |
+| the trustees-noted line never shows | sg-assess 48/49 | the run stops at the noted check |
+| the register's editor saves an action with no person or date | sg-register 25/27 | "refused without a person and a date" |
+| **THE ONE THAT MATTERS (H-15):** the plan-group rules read own teams only | rules 1963/1966 | "A KIDS & YOUTH CORE TEAM MEMBER READS KIDS CHURCH'S SESSION GROUP" and two more |
+| events for a team read own teams only | rules 1965/1966 | "the Kids & Youth Core Team member sees it" |
+| covered teams for everyone | rules 1957/1966 | "A WORSHIP CORE TEAM MEMBER DOES NOT" and two more |
+| (the same plan-group break, against main's check-core-teams) | not run | the dev ports were taken |
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| sg-assess | 53/53 (9 new) |
+| sg-register | 27/27 (2 new) |
+| sg-print | 42/42 |
+| sg-dash | 45/45 |
+| sg-host | 32/32 |
+| e3-safeguarding | 38/38 |
+| leader-info-migrate | 11/11 |
+| sg-register-unit | 37/37 (4 new) |
+| sg-warnings-unit | 65/65 (1 new) |
+| sg-ai-unit | 68/68 |
+| rules suite, EGBC | 1966/1966 (15 new: 7 core teams, 8 S4) |
+| rules suite, as a church | 1956/1966 (the 10 by design) |
+| sg-headroom | at least 20 in both |
+| h8-headroom | 80 and 40 |
+| check-rules-build | 10/10 |
+
+**For the synthetic parish:**
+- **Their own core team** for Junior Church, Messy Church and the youth group sees those groups' session planner and Present. Their worship core team doesn't.
+- **Their youth camp** carries actions with a person and a date. The PCC notes it once signed, and that line is on the print.
+
+**Deploy (the reviewing window's):** sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily (the S4 warnings). The rules go live when the hub goes live.

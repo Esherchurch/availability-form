@@ -26,7 +26,7 @@ const ok = (name, pass, why) => { results.push(!!pass); console.log((pass ? '  P
 /* the same whatever order the fields come back in */
 const S = (x) => Array.isArray(x) ? x.map(S) : x && typeof x === 'object' ? Object.keys(x).sort().reduce((o, k) => { if (x[k] !== undefined) o[k] = S(x[k]); return o; }, {}) : x;
 const J = (x) => JSON.stringify(S(x));
-const run = (...a) => execFileSync(process.execPath, [path.join(V2, 'screenshots', 'events', 'migrate-leader-info.mjs'), '--project', 'demo-egbc', ...a], { encoding: 'utf8', env: process.env });
+const run = (...a) => execFileSync(process.execPath, [path.join(V2, 'tools', 'migrate-leader-info.mjs'), '--project', 'demo-egbc', ...a], { encoding: 'utf8', env: process.env });
 const L = (mid, name, extra) => Object.assign({ uid: mid ? 'u_' + mid : '', memberId: mid, name, role: 'leader' }, extra || {});
 const get = async (id) => (await db.collection('eventLeaders').doc(id).get()).data();
 

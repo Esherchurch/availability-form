@@ -696,10 +696,13 @@ allow update, delete: if isAdmin();
 function eventAudience() {
 return resource.data.get('audience', []);
 }
+function teamsCovered() {
+return me().get('teams', []).concat(me().get('covers', []));
+}
 function canSeeEvent() {
 return eventAudience().hasAny(['public'])
 || (active() && (eventAudience().hasAny(['members'])
-|| eventAudience().hasAny(me().get('teams', []))
+|| eventAudience().hasAny(teamsCovered())
 || isAdmin()))
 || onEventTeam(resource.data)
 || sgLeadOf(resource.data.get('location', {}).get('siteId', ''));
@@ -832,7 +835,7 @@ function audienceOk(a) {
 return a.hasAny(['public'])
 || (active() && a.hasAny(['members']))
 || (isChurchMember() && a.hasAny(['churchMembers']))
-|| (active() && a.hasAny(me().get('teams', [])))
+|| (active() && a.hasAny(teamsCovered()))
 || isAdmin();
 }
 match /calEvents/{calEventId} {
@@ -1180,7 +1183,8 @@ allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 && exists(/databases/$(database)/documents/churches/$(cid)/sgActivities/$(request.resource.data.get('activityId', '-')))
 && get(/databases/$(database)/documents/churches/$(cid)/sgActivities/$(request.resource.data.activityId)).data.siteId == request.resource.data.siteId
 && request.resource.data.keys().hasOnly(['siteId', 'activityId', 'risk', 'who', 'l', 'i', 'controls', 'ownerName', 'reviewDue', 'rl', 'ri',
-'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy'])
+'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo'])
+&& request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 5
 && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
 && sgOneToFive(request.resource.data.l) && sgOneToFive(request.resource.data.i)
 && sgOneToFive(request.resource.data.rl) && sgOneToFive(request.resource.data.ri)
@@ -1254,6 +1258,18 @@ return d.siteId == ev.get('location', {}).get('siteId', '')
 || ((lead || isMaster())
 && d.get('waivedBy', '') == request.auth.uid && d.get('waivedAt', null) == request.time
 && sgText(d.get('waivedWhy', ''), 300) && d.get('waivedWhy', '').size() > 0));
+}
+match /sgNoted/{calEventId} {
+allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
+allow create, update: if (isMaster() || onTeam(sgTrusteeTeam()))
+&& request.resource.data.keys().hasOnly(['siteId', 'version', 'by', 'byName', 'at'])
+&& request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
+&& sgText(request.resource.data.get('byName', ''), 80)
+&& exists(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId))
+&& get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('status', '') == 'signed'
+&& request.resource.data.version == get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('signedVersion', -1)
+&& request.resource.data.siteId == get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.siteId;
+allow delete: if false;
 }
 match /sgPolicyReads/{calEventId} {
 allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
@@ -2354,7 +2370,7 @@ allow update: if (groupsAdmin() || groupLeader(resource.data.groupId))
 allow delete: if false;
 }
 function maintTeam() {
-return active() && me().get('teams', []).hasAny(['Maintenance']);
+return active() && teamsCovered().hasAny(['Maintenance']);
 }
 function maintOffice(siteId) {
 return isAdmin() || bookingsAdminOf(siteId);
@@ -2777,7 +2793,7 @@ match /paymentEvents/{id} {
 allow read, write: if false;
 }
 function onMoneyTeam() {
-return active() && me().get('teams', []).hasAny([
+return active() && teamsCovered().hasAny([
 (exists(/databases/$(database)/documents/churches/$(cid)/paymentSettings/team)
 ? get(/databases/$(database)/documents/churches/$(cid)/paymentSettings/team).data.get('team', 'Finance') : 'Finance')]);
 }
@@ -2914,12 +2930,12 @@ function readsPlanGroup(gid) {
 return isMaster() || leadsPlanGroup(gid)
 || (active() && gid is string && gid != ''
 && exists(/databases/$(database)/documents/churches/$(cid)/planGroups/$(gid))
-&& planGroup(gid).get('teamName', '-') in me().get('teams', []));
+&& planGroup(gid).get('teamName', '-') in teamsCovered());
 }
 match /planGroups/{gid} {
 allow read: if isMaster()
 || (active() && (me().get('memberId', '-') in resource.data.get('leaderIds', [])
-|| resource.data.get('teamName', '-') in me().get('teams', [])));
+|| resource.data.get('teamName', '-') in teamsCovered()));
 allow write: if isMaster()
 && request.resource.data.keys().hasOnly(['name', 'kind', 'ageFrom', 'ageTo', 'day', 'time', 'siteId', 'leaderIds', 'teamName', 'emails', 'programmes', 'parts', 'order', 'archived', 'updatedBy', 'updatedAt'])
 && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
@@ -3169,8 +3185,8 @@ get(/databases/$(database)/documents/churches/$(cid)/churchSettings/video).data.
 function meetingHost(room, eventId) {
 return isMaster()
 || (active() && room is string && room != ''
-&& (me().get('adminFor', []).hasAny(meetingRoomHere(room).get('teams', []))
-|| me().get('teams', []).hasAny(meetingRoomHere(room).get('hostTeams', []))
+&& (me().get('adminFor', []).concat(me().get('adminCovers', [])).hasAny(meetingRoomHere(room).get('teams', []))
+|| teamsCovered().hasAny(meetingRoomHere(room).get('hostTeams', []))
 || meetingOrganiser(room, eventId)));
 }
 function meetingInvitee(room, eventId) {

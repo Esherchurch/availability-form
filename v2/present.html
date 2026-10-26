@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610261800"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610221300"></script>
+<script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-quiz.js?v=202610211900"></script>
 <script src="egbc-present.js?v=202610222000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -79,8 +79,10 @@
   /* Opened from the Menu, with no session: this person's groups' sessions,
      the next ones first, each to present or follow. */
   function chooser(me, master) {
-    var c = db().collection('planGroups'), mid = me.memberId || '-', teams = (me.teams || []).slice(0, 10);
-    var qs = master ? [c.get()] : [c.where('leaderIds', 'array-contains', mid).get()].concat(teams.length ? [c.where('teamName', 'in', teams).get()] : []);
+    /* their teams and the ones their core teams cover (H-15), asked in 30s (Firestore's "in" takes 30) - no limit */
+    var c = db().collection('planGroups'), mid = me.memberId || '-', teams = (me.teams || []).concat(EGBCAuth.coversOfTeams ? EGBCAuth.coversOfTeams(me.teams || []) : []).filter(function (t, i, a) { return a.indexOf(t) === i; });
+    var qs = master ? [c.get()] : [c.where('leaderIds', 'array-contains', mid).get()];
+    for (var ti = 0; !master && ti < teams.length; ti += 30) qs.push(c.where('teamName', 'in', teams.slice(ti, ti + 30)).get());
     return Promise.all(qs.map(function (q) { return q.catch(function () { return { docs: [] }; }); })).then(function (r) {
       var groups = {}; r.forEach(function (s) { s.docs.forEach(function (d) { var g = d.data(); if (!g.archived) groups[d.id] = g; }); });
       var ids = Object.keys(groups), from = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
@@ -109,7 +111,7 @@
       return db().collection('planGroups').doc(s.groupId).get().then(function (g) {
         var grp = g.exists ? g.data() : {};
         var lead = (grp.leaderIds || []).indexOf(mid) >= 0;
-        if (!master && !lead && (me.teams || []).indexOf(grp.teamName || '-') < 0) return msg(NOT_YOURS);
+        if (!master && !lead && (me.teams || []).concat(EGBCAuth.coversOfTeams ? EGBCAuth.coversOfTeams(me.teams || []) : []).indexOf(grp.teamName || '-') < 0) return msg(NOT_YOURS);
         var may = master || lead;
         return itemsFor(s).then(function (x) {
           if (!x.items.length) return msg('This session has nothing to show yet. In the planner, add slides, verses or a picture to a part.');

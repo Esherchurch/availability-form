@@ -316,4 +316,27 @@ function answerFlags(answers, flags, minCover) {
     }
     return out;
   }
-module.exports = { CHECKLIST, FLAGS, ALSO, SG_KINDS, MIN_COVER, checklistFor, answered, paedFlag, coverOf, pounds, answerFlags };
+const MAX_TODO = 5;
+const NOTED_DEFAULT = {"kinds":["camp","overnight"],"abroad":true,"adventurous":true};
+function todoState(risks, today) {
+    var s = { open: 0, overdue: 0, unready: 0, redOpen: 0 };
+    (risks || []).forEach(function (r) {
+      var red = rating(r.rl, r.ri) === 'red';
+      (r.todo || []).forEach(function (t) {
+        if (!t || t.done || !String(t.what || '').trim()) return;
+        s.open++;
+        if (!String(t.who || '').trim() || !t.by) s.unready++;
+        else if (today && t.by < today) s.overdue++;
+        if (red) s.redOpen++;
+      });
+    });
+    return s;
+  }
+function needsNoted(kind, flags, setting) {
+    var n = setting && typeof setting === 'object' ? setting : NOTED_DEFAULT;
+    flags = flags || {};
+    return (n.kinds || []).indexOf(kind) >= 0 || (n.abroad === true && flags.abroad === true) || (n.adventurous === true && flags.adventurous === true);
+  }
+/* the hub's sums, which todoState needs */
+function rating(l, i) { const s = (+l || 0) * (+i || 0); return s >= 15 ? 'red' : s >= 5 ? 'amber' : 'green'; }
+module.exports = { CHECKLIST, FLAGS, ALSO, SG_KINDS, MIN_COVER, MAX_TODO, NOTED_DEFAULT, checklistFor, answered, paedFlag, coverOf, pounds, answerFlags, todoState, needsNoted, rating };

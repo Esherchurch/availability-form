@@ -291,6 +291,55 @@ try {
   const s8 = await until(async () => { const a = await get('sgAssessments', 'ev_trip'); return a.status === 'signed' ? a : null; });
   ok('   SIGNED as "Parish safeguarding officer (invented)", the role the print shows', s8 && s8.signedByRole === TITLE, J(s8 && s8.signedByRole));
 
+  /* 9. STILL TO DO, and TRUSTEES NOTED (S4) */
+  await readDb((d) => updateDoc(doc(d, 'safeguardingSettings', 'defaults'), { 'register.leadTitle': '', 'register.noted': { kinds: ['trip'], abroad: false, adventurous: false } }));
+  await go(Vv, 'safeguarding.html?event=ev_trip', '[data-sgarisk="1"] [data-todoadd]');
+  await tap(Vv, '[data-sgarisk="1"] [data-todoadd]');
+  await Vv.waitForSelector('[data-sgarisk="1"] [data-todo] [data-td="what"]');
+  await Vv.$eval('[data-sgarisk="1"] [data-todo] [data-td="what"]', (e) => { e.value = 'Check the coach company’s licence (invented)'; });
+  await tap(Vv, '#sgaSave');
+  const t9 = await until(async () => { const a = await get('sgAssessments', 'ev_trip'); return a.risks[1].todo ? a : null; });
+  ok('9. STILL TO DO: kept on the risk - what, who, by when, done', t9 && t9.risks[1].todo.length === 1 && t9.risks[1].todo[0].what === 'Check the coach company’s licence (invented)' && t9.risks[1].todo[0].who === '' && t9.risks[1].todo[0].by === '' && t9.risks[1].todo[0].done === false, J(t9 && t9.risks[1]));
+  const L9 = await as('lena');
+  await go(L9, 'safeguarding.html?event=ev_trip', '#sgaSign');
+  await L9.$eval('#sgaNote', (e) => { e.value = 'Reason (invented)'; });
+  await tap(L9, '#sgaSign');
+  ok('   NOT SIGNED while an open one has no person and date: "Give each open “still to do” a person and a date first (1 without)."', !!(await until(async () => /^Give each open “still to do” a person and a date first \(1 without\)\.$/.test(await text(L9, '#sgaMsg')))), await text(L9, '#sgaMsg'));
+  await go(Vv, 'safeguarding.html?event=ev_trip', '[data-sgarisk="1"] [data-td="who"]');
+  await Vv.$eval('[data-sgarisk="1"] [data-td="who"]', (e) => { e.value = 'The trip leader (invented)'; });
+  await Vv.$eval('[data-sgarisk="1"] [data-td="by"]', (e) => { e.value = '2026-01-15'; });
+  await tap(Vv, '[data-sgarisk="0"] [data-todoadd]');
+  await Vv.waitForSelector('[data-sgarisk="0"] [data-todo] [data-td="what"]');
+  await Vv.$eval('[data-sgarisk="0"] [data-td="what"]', (e) => { e.value = 'Find a second lifeguard (invented)'; });
+  await Vv.$eval('[data-sgarisk="0"] [data-td="who"]', (e) => { e.value = 'The trip leader (invented)'; });
+  await Vv.$eval('[data-sgarisk="0"] [data-td="by"]', (e) => { e.value = '2026-12-01'; });
+  await tap(Vv, '#sgaSave');
+  await until(async () => { const a = await get('sgAssessments', 'ev_trip'); return a.risks[0].todo && a.risks[1].todo[0].who ? a : null; });
+  await go(L9, 'safeguarding.html?event=ev_trip', '#sgaSign');
+  await L9.$eval('#sgaNote', (e) => { e.value = 'Reason (invented)'; });
+  await tap(L9, '#sgaSign');
+  ok('   NOT SIGNED while a risk still High has something to do (Martin, answer 17)', !!(await until(async () => /^A risk still High after its controls has something still to do: finish it, or bring the risk down, first\.$/.test(await text(L9, '#sgaMsg')))), await text(L9, '#sgaMsg'));
+  ok('   the one past its date is marked "overdue"', !!(await L9.$('[data-sgarisk="1"] [data-todolate]')) || /overdue/.test(await text(L9, '[data-sgarisk="1"]')), await text(L9, '[data-sgarisk="1"]'));
+  await L9.$eval('[data-sgarisk="0"] [data-td="done"]', (e) => { e.checked = true; });
+  await L9.$eval('#sgaNote', (e) => { e.value = 'Reason (invented)'; });
+  await tap(L9, '#sgaSign');
+  const s9 = await until(async () => { const a = await get('sgAssessments', 'ev_trip'); return a.status === 'signed' ? a : null; });
+  ok('   done, and the other with a person and a date (though late): SIGNED', s9 && s9.risks[0].todo[0].done === true && s9.risks[1].todo[0].by === '2026-01-15', J(s9 && s9.risks.map((r) => r.todo)));
+  await go(L9, 'safeguarding.html?event=ev_trip', '#sgaNoted');
+  ok('TRUSTEES NOTED (the church’s setting: trips): "Waiting for the trustees to note it. It doesn’t stop the event." - the lead isn’t offered it', (await L9.$eval('#sgaNoted', (e) => e.getAttribute('data-noted'))) === 'no' && /^Waiting for the trustees to note it\. It doesn’t stop the event\.$/.test(await text(L9, '#sgaNoted')), await text(L9, '#sgaNoted'));
+  await go(Tt, 'safeguarding-risk.html', '[data-tab="events"]');
+  await tap(Tt, '[data-tab="events"]');
+  await Tt.waitForSelector('[data-viewsga="ev_trip"]', { timeout: 15000 });
+  await tap(Tt, '[data-viewsga="ev_trip"]');
+  await Tt.waitForSelector('#sgaView #sgaNoteIt', { timeout: 15000 });
+  await tap(Tt, '#sgaView #sgaNoteIt');
+  const n9 = await until(async () => { const d = await get('sgNoted', 'ev_trip'); return d && d.version === s9.signedVersion ? d : null; });
+  ok('   A TRUSTEE RECORDS IT, for the signed version: "Trustees noted on <date>, by <name>."', !!n9 && !!(await until(async () => /^Trustees noted on \d{4}-\d{2}-\d{2}, by .+\.$/.test(await text(Tt, '#sgaView #sgaNoted')))), J(n9) + ' | ' + await text(Tt, '#sgaView #sgaNoted'));
+  await go(L9, 'sg-print.html?event=ev_trip', '#sheet[data-ready]');
+  const pt = await L9.$$eval('[data-ptodo]', (a) => a.map((r) => r.innerText.replace(/\s+/g, ' ')));
+  ok('THE PRINT: "Still to do" - each action, its risk, who, by when, done or not; the late one "Overdue"', pt.length === 2 && pt.some((t) => /Find a second lifeguard \(invented\).*Done$/.test(t)) && pt.some((t) => /Check the coach company’s licence \(invented\).*Overdue.*Not yet$/.test(t)), J(pt));
+  ok('   and "Trustees noted on …, by …" under the sign-off', (await L9.$eval('#pNoted', (e) => e.getAttribute('data-noted'))) === 'yes' && /Trustees noted on \d{1,2} \w+ \d{4}, by .+\./.test(await text(L9, '#pNoted')), await text(L9, '#pNoted'));
+
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

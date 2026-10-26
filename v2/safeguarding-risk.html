@@ -13,11 +13,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610261800"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610251000"></script>
+<script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-events-safeguarding.js?v=202610261500"></script>
-<script src="egbc-sg-templates.js?v=202610251000"></script>
-<script src="egbc-sg-assess.js?v=202610261100"></script>
-<script src="egbc-sg-dash.js?v=202610251400"></script>
+<script src="egbc-sg-templates.js?v=202610261800"></script>
+<script src="egbc-sg-assess.js?v=202610261800"></script>
+<script src="egbc-sg-dash.js?v=202610261800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -163,7 +163,10 @@
     return '<div class="risk' + (r.status === 'closed' ? ' closed' : '') + '" data-risk="' + esc(r.id) + '"><div><b>' + esc(r.risk) + '</b>' +
       '<div class="meta">' + (r.who ? 'Who: ' + esc(r.who) + ' · ' : '') + 'Owner: ' + esc(r.ownerName || 'not named') + ' · ' + (due ? (late ? '<span class="overdue" data-overdue>Review overdue (' + esc(due) + ')</span>' : 'Review by ' + esc(due)) : 'No review date') + '</div>' +
       (sl ? '<div style="margin-top:6px"><span class="rag ' + sl + '" data-slipped="' + sl + '"><i aria-hidden="true"></i>A control has slipped: see Warnings</span></div>' : '') +
-      '<div class="chips">' + (r.controls || []).map(function (c) { return '<span class="chip' + (c.kind === 'text' ? ' text' : '') + '"' + (c.kind !== 'text' ? ' data-linked="' + esc(c.kind) + '" title="The hub watches this"' : '') + '>' + (c.kind !== 'text' ? '◉ ' : '') + esc(T.controlLabel(c)) + '</span>'; }).join('') + '</div></div>' +
+      '<div class="chips">' + (r.controls || []).map(function (c) { return '<span class="chip' + (c.kind === 'text' ? ' text' : '') + '"' + (c.kind !== 'text' ? ' data-linked="' + esc(c.kind) + '" title="The hub watches this"' : '') + '>' + (c.kind !== 'text' ? '◉ ' : '') + esc(T.controlLabel(c)) + '</span>'; }).join('') + '</div>' +
+      /* STILL TO DO (Derby's steps 4 and 5; S4) */
+      ((r.todo || []).filter(function (t) { return t && t.what; }).length ? '<div class="meta" data-rtodos><b>Still to do:</b> ' + r.todo.filter(function (t) { return t && t.what; }).map(function (t) {
+        return esc(t.what) + ' (' + esc(t.who || 'nobody named') + ', by ' + esc(t.by || 'no date') + ')' + (t.done ? ' – done' : t.by && t.by < today() ? ' <span class="overdue" data-rtodolate>overdue</span>' : ''); }).join('; ') + '</div>' : '') + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">' + rag(r.l, r.i, 'Before') + rag(r.rl, r.ri, 'After') +
       (keeps() ? '<button class="btn sec sm" data-edit="' + esc(r.id) + '">Edit</button>' : '') + '</div></div>';
   }
@@ -204,9 +207,12 @@
       '<div class="two"><div class="f"><label for="eRL">How likely after the controls</label><select id="eRL" style="width:100%">' + opts(r.rl) + '</select></div><div class="f"><label for="eRI">How bad after the controls</label><select id="eRI" style="width:100%">' + opts(r.ri) + '</select></div></div>' +
       '<div class="two"><div class="f"><label for="eOwner">Owner (who looks after it)</label><input type="text" id="eOwner" maxlength="80" value="' + esc(r.ownerName) + '" placeholder="e.g. the Juniors leader" style="width:100%"></div>' +
       '<div class="f"><label for="eDue">Review by</label><input type="date" id="eDue" value="' + esc(r.reviewDue) + '" style="width:100%"></div></div>' +
+      '<div class="f"><label>Still to do (up to ' + T.MAX_TODO + '): what, who, and by when</label><div id="eTodos">' + (r.todo || []).concat(r.todo && r.todo.length >= T.MAX_TODO ? [] : [{}]).map(todoLine).join('') + '</div>' +
+        '<button class="btn sec sm" id="eMoreTodo" type="button">Another</button></div>' +
       (r.id ? '<div class="f"><label class="ctl" style="font-weight:400"><input type="checkbox" id="eClosed"' + (r.status === 'closed' ? ' checked' : '') + '> Closed (kept, not deleted)</label></div>' : '') +
       '<p class="hint" id="eMsg" role="status"></p><div class="row"><button class="btn" id="eSave">Save</button><button class="btn sec" data-close>Cancel</button></div>');
     document.getElementById('eMore').onclick = function () { var box = document.getElementById('eTexts'); if (box.children.length < 14) box.insertAdjacentHTML('beforeend', ctlLine('')); };
+    document.getElementById('eMoreTodo').onclick = function () { var box = document.getElementById('eTodos'); if (box.children.length < T.MAX_TODO) box.insertAdjacentHTML('beforeend', todoLine({})); else document.getElementById('eMsg').textContent = 'A risk holds at most ' + T.MAX_TODO + ' things still to do.'; };
     document.getElementById('eSave').onclick = function () {
       var q = function (id) { return document.getElementById(id); }, msg = q('eMsg');
       var risk = q('eRisk').value.trim(); if (!risk) { msg.textContent = 'Say what could happen.'; return; }
@@ -215,11 +221,18 @@
       var doc = Object.assign({ siteId: V.site, activityId: actId, risk: risk.slice(0, 200), who: q('eWho').value.trim().slice(0, 120), l: +q('eL').value, i: +q('eI').value, controls: controls,
         ownerName: q('eOwner').value.trim().slice(0, 80), reviewDue: q('eDue').value || '', rl: +q('eRL').value, ri: +q('eRI').value,
         status: q('eClosed') && q('eClosed').checked ? 'closed' : 'open', source: r.source || 'added', starterId: r.starterId || '', createdAt: r.createdAt || new Date().toISOString() }, stamp());
+      var todo = [].slice.call(document.querySelectorAll('[data-rtodo]')).map(function (t) { var g = function (n) { return t.querySelector('[data-rt="' + n + '"]'); };
+        return { what: g('what').value.trim().slice(0, 200), who: g('who').value.trim().slice(0, 80), by: g('by').value || '', done: !!g('done').checked }; }).filter(function (t) { return t.what; }).slice(0, T.MAX_TODO);
+      if (todo.some(function (t) { return !t.done && (!t.who || !t.by); })) { msg.textContent = 'Give each thing still to do a person and a date.'; return; }
+      doc.todo = todo;
       var ref = r.id ? db().collection('sgRisks').doc(r.id) : db().collection('sgRisks').doc();
       q('eSave').disabled = true;
       ref.set(doc).then(function () { close(); load(); }, function (e) { q('eSave').disabled = false; msg.textContent = 'It could not be saved: ' + (e.message || e); });
     };
   }
+  function todoLine(t) { t = t || {}; return '<div class="ctl" data-rtodo style="display:flex;gap:6px;flex-wrap:wrap"><input type="text" data-rt="what" maxlength="200" value="' + esc(t.what || '') + '" placeholder="Still to do" aria-label="Still to do" style="flex:2;min-width:150px">' +
+    '<input type="text" data-rt="who" maxlength="80" value="' + esc(t.who || '') + '" placeholder="Who" aria-label="Who" style="flex:1;min-width:110px"><input type="date" data-rt="by" value="' + esc(t.by || '') + '" aria-label="By when">' +
+    '<label style="font-weight:400;display:flex;gap:4px;align-items:center"><input type="checkbox" data-rt="done"' + (t.done ? ' checked' : '') + '> Done</label></div>'; }
   function ctlLine(t) { return '<div class="ctl"><input type="text" data-ct maxlength="200" value="' + esc(t) + '" placeholder="e.g. Two leaders walk children to the toilets"></div>'; }
   /* The starter list: our own words, adapted after. Ones already added are marked. */
   function starter(actId) {
@@ -324,7 +337,7 @@
         b.onclick = function () {
           var ev = list.filter(function (x) { return x.id === b.getAttribute('data-viewsga'); })[0];
           open('<div id="sgaView"></div><div class="row"><button class="btn sec" data-close>Close</button></div>');
-          EGBCSgAssess.mount(document.getElementById('sgaView'), { calEventId: ev.id, ev: ev, siteId: V.site, me: ME, may: { edit: false, sign: false, waive: false } });
+          EGBCSgAssess.mount(document.getElementById('sgaView'), { calEventId: ev.id, ev: ev, siteId: V.site, me: ME, may: { edit: false, sign: false, waive: false, note: !!(TRUSTEE || MASTER) } });  /* a trustee records that the trustees have noted it (S4) */
         };
       });
     }, function (e) { box.innerHTML = '<div class="card">These could not be loaded: ' + esc(e.message || e) + '</div>'; });

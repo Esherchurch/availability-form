@@ -235,6 +235,8 @@
     var p = EGBCAuth.profile() || {};
     var out = ['public', 'members'];
     (p.teams || []).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
+    /* and the teams their core teams cover (main's H-15): being on a core team counts as being on those */
+    (EGBCAuth.coversOfTeams ? EGBCAuth.coversOfTeams(p.teams || []) : []).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
     (p.adminFor || []).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
     /* Church members only (§21): asked for only by those who may come, so it
        is never shown to anyone else - not even as a locked door. Admins may

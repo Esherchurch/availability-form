@@ -1744,10 +1744,17 @@ service cloud.firestore {
     // event shown only to its team can still be assessed, signed off and
     // printed (the reviewing window, 23 Oct). Last, so it costs the other
     // cases nothing.
+    // A PERSON'S TEAMS, WITH THE ONES THEIR CORE TEAMS COVER (main's H-15): being
+    // on a core team counts as being on each team it covers. covers is kept on
+    // the users record by the server (functions/core-teams.js); no page writes
+    // it. The cheaper form of main's myTeams(), for these busy reads.
+    function teamsCovered() {
+      return me().get('teams', []).concat(me().get('covers', []));
+    }
     function canSeeEvent() {
       return eventAudience().hasAny(['public'])
              || (active() && (eventAudience().hasAny(['members'])
-                              || eventAudience().hasAny(me().get('teams', []))
+                              || eventAudience().hasAny(teamsCovered())
                               || isAdmin()))
              || onEventTeam(resource.data)
              || sgLeadOf(resource.data.get('location', {}).get('siteId', ''));
@@ -1960,7 +1967,7 @@ service cloud.firestore {
       return a.hasAny(['public'])
              || (active() && a.hasAny(['members']))
              || (isChurchMember() && a.hasAny(['churchMembers']))
-             || (active() && a.hasAny(me().get('teams', [])))
+             || (active() && a.hasAny(teamsCovered()))
              || isAdmin();
     }
     // Events: the main rule (outside this section) lets admins and the
@@ -2514,7 +2521,9 @@ service cloud.firestore {
                     && exists(/databases/$(database)/documents/sgActivities/$(request.resource.data.get('activityId', '-')))
                     && get(/databases/$(database)/documents/sgActivities/$(request.resource.data.activityId)).data.siteId == request.resource.data.siteId
                     && request.resource.data.keys().hasOnly(['siteId', 'activityId', 'risk', 'who', 'l', 'i', 'controls', 'ownerName', 'reviewDue', 'rl', 'ri',
-                                                             'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy'])
+                                                             'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo'])
+                    // STILL TO DO (Derby's steps 4 and 5; S4): up to 5, each what, who and by when (the page's shape)
+                    && request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 5
                     && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
                     && sgOneToFive(request.resource.data.l) && sgOneToFive(request.resource.data.i)
                     && sgOneToFive(request.resource.data.rl) && sgOneToFive(request.resource.data.ri)
@@ -2621,6 +2630,23 @@ service cloud.firestore {
     // its own record for the event, so the assessment's own write (and its
     // headroom, F-285) is untouched. reads: { memberId: 'YYYY-MM-DD' }. Read
     // and written by those who write the assessment.
+    // TRUSTEES NOTED (S4, F-280 10.4; Martin's answer 18): after the lead or
+    // deputy signs an assessment off, a trustee records that the trustees
+    // have noted it - for that signed version only. Its own record, so the
+    // assessment's own write (and its headroom, F-285) is untouched. It never
+    // stops the event.
+    match /sgNoted/{calEventId} {
+      allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
+      allow create, update: if (isMaster() || onTeam(sgTrusteeTeam()))
+                    && request.resource.data.keys().hasOnly(['siteId', 'version', 'by', 'byName', 'at'])
+                    && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
+                    && sgText(request.resource.data.get('byName', ''), 80)
+                    && exists(/databases/$(database)/documents/sgAssessments/$(calEventId))
+                    && get(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.get('status', '') == 'signed'
+                    && request.resource.data.version == get(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.get('signedVersion', -1)
+                    && request.resource.data.siteId == get(/databases/$(database)/documents/sgAssessments/$(calEventId)).data.siteId;
+      allow delete: if false;
+    }
     match /sgPolicyReads/{calEventId} {
       allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
       allow create, update: if exists(/databases/$(database)/documents/calEvents/$(calEventId))
@@ -4171,7 +4197,7 @@ service cloud.firestore {
     // Maintenance team's and the office's only (Martin, A-M1): its file is
     // guarded in storage.rules; here only its path is kept. Never deleted.
     function maintTeam() {
-      return active() && me().get('teams', []).hasAny(['Maintenance']);
+      return active() && teamsCovered().hasAny(['Maintenance']);
     }
     function maintOffice(siteId) {
       return isAdmin() || bookingsAdminOf(siteId);
@@ -4736,7 +4762,7 @@ service cloud.firestore {
     // for everyone; the account's name, live or test, and who added it are
     // for admins and the church's money team. Written by the server only.
     function onMoneyTeam() {
-      return active() && me().get('teams', []).hasAny([
+      return active() && teamsCovered().hasAny([
         (exists(/databases/$(database)/documents/paymentSettings/team)
           ? get(/databases/$(database)/documents/paymentSettings/team).data.get('team', 'Finance') : 'Finance')]);
     }
@@ -4945,12 +4971,12 @@ service cloud.firestore {
       return isMaster() || leadsPlanGroup(gid)
              || (active() && gid is string && gid != ''
                  && exists(/databases/$(database)/documents/planGroups/$(gid))
-                 && planGroup(gid).get('teamName', '-') in me().get('teams', []));
+                 && planGroup(gid).get('teamName', '-') in teamsCovered());
     }
     match /planGroups/{gid} {
       allow read: if isMaster()
                   || (active() && (me().get('memberId', '-') in resource.data.get('leaderIds', [])
-                                   || resource.data.get('teamName', '-') in me().get('teams', [])));
+                                   || resource.data.get('teamName', '-') in teamsCovered()));
       allow write: if isMaster()
                    && request.resource.data.keys().hasOnly(['name', 'kind', 'ageFrom', 'ageTo', 'day', 'time', 'siteId', 'leaderIds', 'teamName', 'emails', 'programmes', 'parts', 'order', 'archived', 'updatedBy', 'updatedAt'])
                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
@@ -5262,8 +5288,8 @@ service cloud.firestore {
     function meetingHost(room, eventId) {
       return isMaster()
              || (active() && room is string && room != ''
-                 && (me().get('adminFor', []).hasAny(meetingRoomHere(room).get('teams', []))
-                     || me().get('teams', []).hasAny(meetingRoomHere(room).get('hostTeams', []))
+                 && (me().get('adminFor', []).concat(me().get('adminCovers', [])).hasAny(meetingRoomHere(room).get('teams', []))
+                     || teamsCovered().hasAny(meetingRoomHere(room).get('hostTeams', []))
                      || meetingOrganiser(room, eventId)));
     }
     function meetingInvitee(room, eventId) {

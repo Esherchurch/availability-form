@@ -26,6 +26,12 @@ Nothing in this part is new data. It's the order things go live in.
    photos and sermon audio.
 3. **Indexes:** nothing new is needed for my pages (F-149). The one they
    need, for What's on, has been live since 8 October.
+4. **Each event's leaders kept by member id** (F-287), at the same moment
+   as the Firestore rules (the reviewing window):
+   `node tools/migrate-leader-info.mjs` lists what it would change; check
+   the list, then run it again with `--write`. Anything it lists "for a
+   person" (the same member named twice) is put right by hand on the
+   event's safeguarding page.
 
 ## Part 2. Straight after the deploy (Martin, about 10 minutes)
 

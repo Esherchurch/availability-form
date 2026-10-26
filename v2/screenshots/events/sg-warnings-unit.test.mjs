@@ -174,6 +174,16 @@ ok('   counts only: no name or member id in any of them', !/m_a|m_b|m_c/.test(J(
 r = W.warningsFrom(base({ leaderMids: ['m_a'], checks: { m_a: full } }));
 ok('   all three in order: none of them', !find(r, 'checks_level') && !find(r, 'checks_reference') && !find(r, 'checks_declaration'), J(r.items));
 
+console.log('\n9. S4: still to do past its date; signed off but not noted by the trustees');
+const C4 = require('./sg-checklist.cjs');
+const fl4 = [];
+const td4 = C4.todoState([{ rl: 2, ri: 2, todo: [{ what: 'x', who: 'Ann', by: '2026-10-01' }, { what: 'y', who: 'Ann', by: '2026-10-02' }] }], '2026-10-26');
+if (td4.overdue) fl4.push({ id: 'todoOverdue', level: 'amber', words: td4.overdue + ' still-to-do ' + (td4.overdue === 1 ? 'action is' : 'actions are') + ' past their date' });
+fl4.push({ id: 'noted', level: 'amber', words: 'Signed off, but the trustees have not noted it yet' });
+r = W.warningsFrom(base({ events: [ev({ leaders: 3, day: '2026-11-01', flags: fl4 })] }));
+ok('both amber, with what to do: "2 still-to-do actions are past their date"; "Signed off, but the trustees have not noted it yet"', find(r, 'todoOverdue_ev_x') && /2 still-to-do actions are past their date\./.test(find(r, 'todoOverdue_ev_x').label) && /new date/.test(find(r, 'todoOverdue_ev_x').todo)
+  && find(r, 'noted_ev_x') && find(r, 'noted_ev_x').level === 'amber' && /trustees have not noted it yet\./.test(find(r, 'noted_ev_x').label) && /noted/.test(find(r, 'noted_ev_x').todo), J(r.items));
+
 const passed = results.filter(Boolean).length;
 console.log('\n' + passed + '/' + results.length + ' passed');
 process.exit(passed === results.length ? 0 : 1);

@@ -37,7 +37,9 @@ const TODO = {
   hirerDocs: 'Ask them for their safeguarding policy, and add it to their hirer record.',
   paedFirstAid: 'Find a trained paediatric first aider to go with the group.',
   mixedLeaders: 'Find a leader so there is a man and a woman with the group, or say why not.',
-  insurance: 'Check the public liability cover with the insurer, and record the amount.'
+  insurance: 'Check the public liability cover with the insurer, and record the amount.',
+  todoOverdue: 'Do it, or give it a new date, on the event’s assessment.',
+  noted: 'A trustee records that the trustees have noted it (Safeguarding register, Events).'
 };
 const WORSE = { red: 2, amber: 1 };
 
