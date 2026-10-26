@@ -5105,6 +5105,57 @@ service cloud.firestore {
     // A LEGAL REQUIREMENT IS A FLOOR (F-232): never less often than the law,
     // never switched off; a recommended standard is lengthened only with a
     // reason. The same test as egbc-compliance.js allowEvery().
+    // ---- HEALTH, SAFETY AND FIRE: THE CHURCH'S SETTINGS (H&S step 2; F-280 section 8) ----
+    // A JOB, NOT A TEAM (H-9): the teams churchSettings/teamJobs gives a
+    // job, or - nothing stored for it - EGBC's team, egbc-team-jobs.js's
+    // default (the same answer as EGBCTeamJobs.teamsFor). [] is nobody.
+    function raJobTeams(job, egbcTeams) {
+      let p = /databases/$(database)/documents/churchSettings/teamJobs;
+      return exists(p) && job in get(p).data ? get(p).data[job] : egbcTeams;
+    }
+    function raOnJob(job, egbcTeams) { return active() && myTeams().hasAny(raJobTeams(job, egbcTeams)); }
+    // Who sets them: master admins and the office job (the church's settings).
+    function raOffice() { return isMaster() || raOnJob('office', ['Church office']); }
+    // A whole number from lo, no limit but what a record holds (H-9).
+    function raWhole(d, k, lo) { return !(k in d) || (d[k] is int && d[k] >= lo && d[k] <= 1000000000); }
+    function raSmall(m, k, lo, hi) { return !(k in m) || (m[k] is int && m[k] >= lo && m[k] <= hi); }
+    // raSettings/church: how many the church employs (the duties follow,
+    // egbc-hs-core.js), screen work, a larger staff team, the insurance
+    // cover, the H&S AI caps (0-500, separate from safeguarding's), the
+    // action target dates (months), when an event needs an assessment.
+    // Anyone signed in reads it (counts and amounts, no names).
+    match /raSettings/{id} {
+      allow read: if active();
+      allow write: if raOffice() && id == 'church'
+                   && request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'updatedAt', 'updatedBy'])
+                   && raWhole(request.resource.data, 'employees', 0) && raWhole(request.resource.data, 'largerTeam', 1)
+                   && raWhole(request.resource.data, 'publicLiability', 0) && raWhole(request.resource.data, 'employersLiability', 0)
+                   && raWhole(request.resource.data, 'minCover', 1) && raWhole(request.resource.data, 'eventPeople', 1)
+                   && request.resource.data.get('screenWork', false) is bool
+                   && request.resource.data.get('ai', {}) is map && request.resource.data.get('ai', {}).keys().hasOnly(['perChurch', 'perPerson'])
+                   && raSmall(request.resource.data.get('ai', {}), 'perChurch', 0, 500) && raSmall(request.resource.data.get('ai', {}), 'perPerson', 0, 500)
+                   && request.resource.data.get('targets', {}) is map && request.resource.data.get('targets', {}).keys().hasOnly(['high', 'medium', 'low'])
+                   && raSmall(request.resource.data.get('targets', {}), 'high', 1, 120) && raSmall(request.resource.data.get('targets', {}), 'medium', 1, 120)
+                   && raSmall(request.resource.data.get('targets', {}), 'low', 1, 120);
+      allow delete: if false;
+    }
+    // raSiteRoles/{siteId}: each building's health and safety lead and
+    // deputy (two different people) and its fire safety lead (who may be the
+    // lead): member ids, '' for nobody. Names come from the address book, so
+    // a name is never stored beside someone else's id (F-287's lesson).
+    match /raSiteRoles/{siteId} {
+      allow read: if active();
+      allow write: if raOffice()
+                   && exists(/databases/$(database)/documents/sites/$(siteId))
+                   && request.resource.data.keys().hasOnly(['siteId', 'hsLead', 'hsDeputy', 'fireLead', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.siteId == siteId
+                   && request.resource.data.get('hsLead', '') is string && request.resource.data.get('hsLead', '').size() <= 128
+                   && request.resource.data.get('hsDeputy', '') is string && request.resource.data.get('hsDeputy', '').size() <= 128
+                   && request.resource.data.get('fireLead', '') is string && request.resource.data.get('fireLead', '').size() <= 128
+                   && (request.resource.data.get('hsLead', '') == '' || request.resource.data.get('hsLead', '') != request.resource.data.get('hsDeputy', ''));
+      allow delete: if false;
+    }
+
     function cmpAdmin() { return isMaster() || onTeam('Church office'); }
     function cmpTrustee() { return isMaster() || onTeam('Elders'); }
     function cmpSees() { return cmpAdmin() || cmpTrustee(); }

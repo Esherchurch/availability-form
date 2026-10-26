@@ -232,6 +232,15 @@ so "Show on screen" can call a parent.
 - **Martin, once the main window's N-4 and N-5 are live:** the real-phone
   test (N-7, §26 item 6). I'll guide it, step by step.
 
+### 3.10 Building compliance and health and safety (the reviewing window or Martin)
+- **The building checks' templates** (version 4, with the duties of employing
+  people, F-296): `node tools/seed-compliance.mjs --templates` (a dry run),
+  then the same with `--live --write`. A template already at this version
+  is left alone, so it is safe to run again.
+- **Health and safety settings** (`hs-settings.html`, the office): how many
+  the church employs, each building's health and safety lead, deputy and
+  fire safety lead, and the insurance cover. The buildings' checks follow.
+
 ---
 
 ## Part 4. Proofs on real devices (§26 items 6 and 7)

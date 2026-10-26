@@ -3047,6 +3047,41 @@ allow read: if isPastor()
 && request.time >= resource.data.from && request.time <= resource.data.until);
 allow write: if false;
 }
+function raJobTeams(job, egbcTeams) {
+let p = /databases/$(database)/documents/churchSettings/teamJobs;
+return exists(p) && job in get(p).data ? get(p).data[job] : egbcTeams;
+}
+function raOnJob(job, egbcTeams) { return active() && myTeams().hasAny(raJobTeams(job, egbcTeams)); }
+function raOffice() { return isMaster() || raOnJob('office', ['Church office']); }
+function raWhole(d, k, lo) { return !(k in d) || (d[k] is int && d[k] >= lo && d[k] <= 1000000000); }
+function raSmall(m, k, lo, hi) { return !(k in m) || (m[k] is int && m[k] >= lo && m[k] <= hi); }
+match /raSettings/{id} {
+allow read: if active();
+allow write: if raOffice() && id == 'church'
+&& request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'updatedAt', 'updatedBy'])
+&& raWhole(request.resource.data, 'employees', 0) && raWhole(request.resource.data, 'largerTeam', 1)
+&& raWhole(request.resource.data, 'publicLiability', 0) && raWhole(request.resource.data, 'employersLiability', 0)
+&& raWhole(request.resource.data, 'minCover', 1) && raWhole(request.resource.data, 'eventPeople', 1)
+&& request.resource.data.get('screenWork', false) is bool
+&& request.resource.data.get('ai', {}) is map && request.resource.data.get('ai', {}).keys().hasOnly(['perChurch', 'perPerson'])
+&& raSmall(request.resource.data.get('ai', {}), 'perChurch', 0, 500) && raSmall(request.resource.data.get('ai', {}), 'perPerson', 0, 500)
+&& request.resource.data.get('targets', {}) is map && request.resource.data.get('targets', {}).keys().hasOnly(['high', 'medium', 'low'])
+&& raSmall(request.resource.data.get('targets', {}), 'high', 1, 120) && raSmall(request.resource.data.get('targets', {}), 'medium', 1, 120)
+&& raSmall(request.resource.data.get('targets', {}), 'low', 1, 120);
+allow delete: if false;
+}
+match /raSiteRoles/{siteId} {
+allow read: if active();
+allow write: if raOffice()
+&& exists(/databases/$(database)/documents/sites/$(siteId))
+&& request.resource.data.keys().hasOnly(['siteId', 'hsLead', 'hsDeputy', 'fireLead', 'updatedAt', 'updatedBy'])
+&& request.resource.data.siteId == siteId
+&& request.resource.data.get('hsLead', '') is string && request.resource.data.get('hsLead', '').size() <= 128
+&& request.resource.data.get('hsDeputy', '') is string && request.resource.data.get('hsDeputy', '').size() <= 128
+&& request.resource.data.get('fireLead', '') is string && request.resource.data.get('fireLead', '').size() <= 128
+&& (request.resource.data.get('hsLead', '') == '' || request.resource.data.get('hsLead', '') != request.resource.data.get('hsDeputy', ''));
+allow delete: if false;
+}
 function cmpAdmin() { return isMaster() || onTeam('Church office'); }
 function cmpTrustee() { return isMaster() || onTeam('Elders'); }
 function cmpSees() { return cmpAdmin() || cmpTrustee(); }

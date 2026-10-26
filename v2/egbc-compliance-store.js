@@ -54,8 +54,8 @@
      'removed' (history kept) or brings them back. */
   function applyProfile(db, E, siteId, answers, templates, who) {
     var ref = db.collection('buildingProfiles').doc(siteId);
-    return db.collection('buildingChecks').where('siteId', '==', siteId).get().then(function (s) {
-      var checks = all(s), r = E.reconcile(answers, templates, checks), jobs = [];
+    return Promise.all([db.collection('buildingChecks').where('siteId', '==', siteId).get(), churchOf(db)]).then(function (w) {
+      var s = w[0], checks = all(s), r = E.reconcile(withChurch(answers, w[1]), templates, checks), jobs = [];
       jobs.push(ref.set(Object.assign({}, answers, { siteId: siteId, updatedBy: (who && who.uid) || '', updatedAt: now() })));
       r.add.forEach(function (t) { jobs.push(db.collection('buildingChecks').doc(checkId(siteId, t.id)).set(copyOf(t, siteId))); });
       r.remove.forEach(function (c) { jobs.push(db.collection('buildingChecks').doc(c.id).update({ state: 'removed', updatedAt: now() })); });
@@ -154,8 +154,39 @@
   /* Everything one building needs, read once, then THE schedule. */
   function load(db, siteId) {
     var q = function (c) { return db.collection(c).where('siteId', '==', siteId).get().then(all); };
-    return Promise.all([db.collection('buildingProfiles').doc(siteId).get(), q('buildingChecks'), q('checkRecords'), q('maintJobs'), q('buildingWork'), q('fireEquipment')])
-      .then(function (r) { return { profile: r[0].exists ? r[0].data() : {}, checks: r[1], records: r[2], jobs: r[3], triggers: r[4], equipment: r[5] }; });
+    return Promise.all([db.collection('buildingProfiles').doc(siteId).get(), q('buildingChecks'), q('checkRecords'), q('maintJobs'), q('buildingWork'), q('fireEquipment'), churchOf(db)])
+      .then(function (r) { return { profile: withChurch(r[0].exists ? r[0].data() : {}, r[6]), answers: r[0].exists ? r[0].data() : {}, checks: r[1], records: r[2], jobs: r[3], triggers: r[4], equipment: r[5] }; });
+  }
+
+  /* HOW MANY THE CHURCH EMPLOYS (H&S step 2; Martin, F-281 question 11): raSettings/church. On a building where
+     someone employed works (its own "employees" answer), the number adds: employees5 (five or more), staffMany (a
+     larger staff team: largerTeam, 10 unless the church says), dse (anyone works at a screen). Nothing set adds
+     nothing. The same sums as egbc-hs-core.js flagsFor (the unit test checks). Only added, never stored. */
+  function churchFlags(c) {
+    c = c || {};
+    var n = c.employees, big = typeof c.largerTeam === 'number' && c.largerTeam >= 1 ? c.largerTeam : 10, f = {};
+    if (typeof n !== 'number' || n < 1) return f;
+    if (n >= 5) f.employees5 = true;
+    if (n >= big) f.staffMany = true;
+    if (c.screenWork === true) f.dse = true;
+    return f;
+  }
+  function withChurch(answers, church) {
+    var a = answers || {};
+    return a.employees === true ? Object.assign({}, a, churchFlags(church)) : a;
+  }
+  function churchOf(db) {
+    return db.collection('raSettings').doc('church').get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; });
+  }
+  /* THE NUMBER CHANGED: every building's checks follow it, from its own saved answers */
+  function reapplyAll(db, E, templates, who) {
+    return db.collection('buildingProfiles').get().then(function (s) {
+      var sum = { added: 0, removed: 0, restored: 0 };
+      return s.docs.reduce(function (p, d) {
+        var a = Object.assign({}, d.data()); delete a.siteId; delete a.updatedBy; delete a.updatedAt;
+        return p.then(function () { return applyProfile(db, E, d.data().siteId || d.id, a, templates, who).then(function (r) { sum.added += r.added; sum.removed += r.removed; sum.restored += r.restored; }); });
+      }, Promise.resolve()).then(function () { return sum; });
+    });
   }
 
   /* MAY THESE PAGES BE USED, AND MAY THEY SAVE ANYTHING PRIVATE? (the
@@ -218,6 +249,6 @@
     });
   }
 
-  return { dueForMe: dueForMe, gate: gate, OFF_WORDS: OFF_WORDS, heldWords: heldWords, checkId: checkId, copyOf: copyOf, applyProfile: applyProfile, editCheck: editCheck, addCustomCheck: addCustomCheck, recordDone: recordDone,
+  return { churchFlags: churchFlags, withChurch: withChurch, reapplyAll: reapplyAll, dueForMe: dueForMe, gate: gate, OFF_WORDS: OFF_WORDS, heldWords: heldWords, checkId: checkId, copyOf: copyOf, applyProfile: applyProfile, editCheck: editCheck, addCustomCheck: addCustomCheck, recordDone: recordDone,
     recordWork: recordWork, templateUpdates: templateUpdates, applyUpdate: applyUpdate, followTemplates: followTemplates, load: load };
 });

@@ -29,9 +29,11 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = 3;   // 2: frequencies from the law and the standards; basis on every check (19 Oct)
+  var VERSION = 4;   // 2: frequencies from the law and the standards; basis on every check (19 Oct)
                      // 3: Martin's decisions and the review (19 Oct): roof 6 months, rebuild 3 years,
                      //    play split weekly / monthly, refuge points weekly plus a service
+                     // 4: the duties of employing people, from how many the church employs
+                     //    (Martin, F-281 question 11; H&S step 2): egbc-hs-core.js DUTIES
 
   var GUIDANCE = 'These checks are guidance to help you. Your trustees remain responsible for your building’s safety.';
 
@@ -63,7 +65,7 @@
     { id: 'oilHeating', q: 'Is it heated by oil?' },
     { id: 'woodBurner', q: 'Is there a wood burner or open fire?' },
     { id: 'trees', q: 'Are there trees on the site?' },
-    { id: 'employees', q: 'Does the church employ anyone here?' },
+    { id: 'employees', q: 'Does anyone the church employs work here?', note: 'How many the church employs, and whether anyone works at a screen, is in Health and safety settings: the duties follow from it.' },
     { id: 'children', q: 'Are there activities for children or young people?' },
     { id: 'loneWorking', q: 'Does anyone work here alone (for example cleaning or opening up)?' },
     { id: 'transport', q: 'Does the church use transport (minibus or volunteers’ cars) for activities?' },
@@ -152,7 +154,7 @@
     { id: 'insurance', basis: 'practice', area: 'Admin', title: 'Buildings insurance renewal', every: Y(1), when: [] },
     { id: 'rebuild-value', basis: 'practice', area: 'Admin', title: 'Rebuild valuation for the insurance', every: Y(3), when: [] },
     { id: 'public-liability', basis: 'practice', area: 'Admin', title: 'Public liability insurance renewal', every: Y(1), when: [] },
-    { id: 'employers-liability', basis: 'legal', area: 'Admin', title: 'Employers’ liability insurance renewal', every: Y(1), when: ['employees'], note: 'It must be in force all the time anyone is employed.' },
+    { id: 'employers-liability', basis: 'legal', area: 'Admin', title: 'Employers’ liability insurance renewal', every: Y(1), when: ['employees'], note: 'It must be in force all the time anyone is employed, with its certificate where employees can see it (or can reach it online).' },
     { id: 'music-licence', basis: 'legal', area: 'Admin', title: 'Music licence for events that are not worship', every: Y(1), when: ['filmOrMusic'] },
     { id: 'film-licence', basis: 'legal', area: 'Admin', title: 'Film screening licence (for example a children’s film club)', every: Y(1), when: ['filmOrMusic'] },
     { id: 'event-notice', basis: 'legal', area: 'Admin', title: 'Notice given for an event with alcohol or entertainment', every: { unit: 'demand', trigger: 'licensedEvent', triggerWords: 'such event' }, when: [], note: 'At least 10 working days before the event.' },
@@ -185,6 +187,18 @@
     { id: 'dp-training', basis: 'practice', area: 'Data', title: 'Data protection training for volunteers who handle personal data', every: Y(2), when: [] },
     { id: 'devices', basis: 'practice', area: 'Data', title: 'Devices holding personal data: passwords and encryption reviewed', every: Y(1), when: [] },
     { id: 'leavers', basis: 'practice', area: 'Data', title: 'Remove a leaver’s access to the church’s systems and data', every: { unit: 'demand', trigger: 'leaver', triggerWords: 'leaver' }, when: [], note: 'Linked to archiving the person in the address book.' },
+    /* EMPLOYING PEOPLE (version 4): from how many the church employs (Health and safety settings), on a building
+       where someone employed works. employees5: five or more; staffMany: a larger staff team (a setting, 10 by
+       default); dse: anyone works at a screen. The sources are in FINDINGS (F-296). */
+    { id: 'hs-law-poster', basis: 'legal', area: 'Health and safety', title: 'The “Health and safety law” poster up, or its leaflet given to each employee', every: ONCE, when: ['employees'] },
+    { id: 'reportable-injuries', basis: 'practice', area: 'Health and safety', title: 'Know which injuries to an employee must be reported, and to whom (the accident book says)', every: Y(1), when: ['employees'] },
+    { id: 'first-aid-needs', basis: 'practice', area: 'Health and safety', title: 'First-aid needs assessment that covers the employees', every: Y(1), when: ['employees'], note: 'And when the work or the number of staff changes.' },
+    { id: 'hs-policy-written', basis: 'legal', area: 'Health and safety', title: 'The health and safety policy written down (five or more employees)', every: ONCE, when: ['employees', 'employees5'], note: 'Its yearly review is the policy check.' },
+    { id: 'hs-findings-written', basis: 'legal', area: 'Health and safety', title: 'The risk assessment’s significant findings written down (five or more employees)', every: ONCE, when: ['employees', 'employees5'] },
+    { id: 'dse-assessment', basis: 'practice', area: 'Health and safety', title: 'Workstation (display screen) assessment for each person who works at a screen', every: Y(1), when: ['employees', 'dse'], note: 'And for anyone new, or when a workstation changes.' },
+    { id: 'staff-hs-training', basis: 'practice', area: 'Health and safety', title: 'Staff health and safety training recorded', every: Y(1), when: ['employees', 'staffMany'] },
+    { id: 'consult-employees', basis: 'practice', area: 'Health and safety', title: 'Employees consulted on health and safety', every: Y(1), when: ['employees', 'staffMany'] },
+    { id: 'staff-lone-working', basis: 'practice', area: 'Health and safety', title: 'Lone working arrangements for staff reviewed', every: Y(1), when: ['employees', 'staffMany'] },
     /* Kept elsewhere in the hub: LINKED, never copied (their own pages keep the dates) */
     { id: 'link-safeguarding', basis: 'standard', area: 'Linked', title: 'Safeguarding: DBS checks and training', kind: 'link', href: 'safeguarding.html', when: [] },
     { id: 'link-hirers', basis: 'practice', area: 'Linked', title: 'Hirers’ documents (insurance, risk assessments)', kind: 'link', href: 'bookings-admin.html', when: ['publicUse'] },

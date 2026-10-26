@@ -18,8 +18,8 @@
 <script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-compliance.js?v=202610191800"></script>
-<script src="egbc-compliance-templates.js?v=202610191800"></script>
-<script src="egbc-compliance-store.js?v=202610221300"></script>
+<script src="egbc-compliance-templates.js?v=202610271900"></script>
+<script src="egbc-compliance-store.js?v=202610271900"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -123,7 +123,7 @@
   }
   function overview() {
     return '<p class="sub">Each building: what is in date, due soon and overdue.</p>' +
-      '<div class="row noprint" style="margin:0 0 12px"><button class="btn sec" id="toReport">Trustee report and sign-off</button><a class="btn sec" id="toRisk" href="risk.html">Live risk register</a></div><div class="card" id="buildings">' + SITES.map(function (s) {
+      '<div class="row noprint" style="margin:0 0 12px"><button class="btn sec" id="toReport">Trustee report and sign-off</button><a class="btn sec" id="toRisk" href="risk.html">Live risk register</a>' + (ADMIN ? '<a class="btn sec" id="toHsSettings" href="hs-settings.html">Health and safety settings</a>' : '') + '</div><div class="card" id="buildings">' + SITES.map(function (s) {
       var r = s._sched;
       return '<div class="bld" data-site="' + esc(s.id) + '" role="button" tabindex="0"><span class="dot ' + (r ? r.rag : 'grey') + '"></span><div><div class="t" style="color:var(--ink);font-weight:600">' + esc(s.name || s.id) + '</div>' +
         '<div class="m">' + (!s._profile ? 'Not set up yet' : r.counts.red + ' overdue · ' + r.counts.amber + ' due soon · ' + r.counts.green + ' in date' + (r.safetyJobs.length ? ' · ' + r.safetyJobs.length + ' safety job' + (r.safetyJobs.length === 1 ? '' : 's') : '')) + '</div></div><span class="m">›</span></div>';

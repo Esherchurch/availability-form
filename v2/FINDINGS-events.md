@@ -12606,3 +12606,135 @@ Two of my first breaks went to tests that don't check them: "None given" in the 
 **For the synthetic parish:** the same for any host's site. The site's name is found from the titles, not written in.
 
 **Deploy:** nothing. The page only. It goes live with the pages (safeguarding.html and safeguarding-risk.html stamps bumped).
+
+### F-296 — H&S step 2a: the church's health and safety settings, who looks after each building, and the duties that follow how many the church employs (F-280 section 8; Martin's answers; the jobs mapping, H-9) (the events window, 27 Oct)
+
+Step 2 is in two parts:
+- **2a (this):** what is new.
+- **2b (next):** moving my existing compliance, risk and maintenance pages and compliance.js off team names onto the jobs; the office looked up by site (no 3-site cap); my old caps.
+
+**What was built:**
+- **hs-settings.html, "Health and safety settings":** for master admins and the team that does the **office job**. This is read through main's jobs mapping (EGBCTeamJobs.onJob), never a team's name.
+  - Anyone else is told who sets them, by that team's own name: "These are set by the Parish office and master admins".
+  - The page opens with the "not legal advice" words, as Martin approved them (answer 12).
+  - It is linked from Building compliance for its admins. **The Menu entry is main's:** see "For main" below.
+- **Who looks after health and safety, for each building** (`raSiteRoles/{siteId}`):
+  - the health and safety lead, the deputy (two different people) and the fire safety lead (who may be the lead)
+  - member ids only, with names from the address book, so a name never sits beside someone else's id (F-287's lesson)
+  - each building shows "The responsible person on its fire assessment: The trustees of <church>, with <fire lead>, the fire safety lead, acting for them" (answer 3).
+- **How many the church employs** (`raSettings/church`; Martin's answer to question 11):
+  - the number, "someone works at a screen as a regular part of their job", and when a staff team is "larger" (10 by default, a setting)
+  - the duties it brings are listed as it is typed (egbc-hs-core.js `DUTIES`):
+
+  | Employed | What applies |
+  |---|---|
+  | 1 or more | employers' liability with its certificate where employees can see it; the "Health and safety law" poster or leaflet; knowing which injuries to an employee must be reported, and to whom; a first-aid needs assessment that covers employees |
+  | 5 or more | a written health and safety policy; the significant findings written down |
+  | Screen work | a workstation (display screen) assessment for each person |
+  | A larger team | staff training recorded; employees consulted; lone working arrangements for staff |
+
+- **Each duty is a building check** (the compliance templates, **version 4**, 9 new checks):
+  - The checks go on each building where someone employed works. That is the building's own question, reworded "Does anyone the church employs work here?", with a note pointing to these settings.
+  - When the number changes, every building's checks follow it at once. One that no longer applies is marked "removed", with its history kept, as a changed answer does today.
+  - **The number only adds** (five or more, a larger team, screen work). It never overrides a building's answer.
+  - **What EGBC will see:** with nothing set, the number adds nothing. But a building that already answers "someone employed works here" will get the three one-or-more checks (the poster, reportable injuries, the first-aid needs assessment) once version 4 is seeded. They apply to any employer, so I think that's right; say if you'd rather they waited for the number.
+- **The merge is in the compliance store** (egbc-compliance-store.js and its server twin, still identical). So the pages and the monthly server summary see the same checks, and the added flags are never stored.
+- **Insurance cover:**
+  - public liability, flagged under the church's minimum (£1 million by default, a setting; F-281 (d))
+  - employers' liability (shown when anyone is employed), flagged under the £5 million legal minimum
+  - the certificates stay with the insurance checks
+- **The numbers the later steps use:**
+  - action target dates by priority (High 1 month, Medium 3, Low 6; answer 8)
+  - an event needs an assessment from 100 people (answer 4)
+  - the H&S AI caps: 20 a day for the church and 5 for a person, 0 to 500, separate from safeguarding's (answer 9)
+- **Rules** (EVENTS section): `raSettings/church` and `raSiteRoles/{siteId}`.
+  - **Who:** master admins, or the office job, through `raJobTeams()`/`raOnJob()`. These read churchSettings/teamJobs, with EGBC's team as the default, the same answer as EGBCTeamJobs.teamsFor. [] is nobody.
+  - **What:** whole numbers, with no cap but what a record holds (H-9); AI 0–500; months 1–120; only the known fields; a real building; lead and deputy two people; never deleted.
+  - Anyone signed in may read them (counts and amounts, no names).
+  - Rebuilt; check-rules-build passes.
+
+**The sources** (in F-232's table layout, so compliance-stage1 finds them; never shown on the page; employers' liability: the Employers' Liability (Compulsory Insurance) Act 1969, at least £5 million, the certificate where employees can see it or online where they can reach it):
+
+| Check (id) | Frequency | Label | Source | Checked |
+|---|---|---|---|---|
+| hs-law-poster: the law poster or leaflet | Once (and when it changes) | Legal requirement | Health and Safety Information for Employees Regulations 1989: display the approved poster or give each employee the leaflet | 27 Oct 2026 |
+| reportable-injuries: know what to report | 1 year | Good practice | RIDDOR 2013 (the duty to report; the yearly look is ours). The accident book says when an injury is reportable | 27 Oct 2026 |
+| first-aid-needs: first-aid needs assessment | 1 year (and when the work or staff change) | Good practice | Health and Safety (First-Aid) Regulations 1981 and the HSE's L74: an assessment of first-aid needs (no interval; yearly is ours) | 27 Oct 2026 |
+| hs-policy-written: the written policy | Once (its review is hs-policy) | Legal requirement | Health and Safety at Work etc. Act 1974 s.2(3): written with five or more employees | 27 Oct 2026 |
+| hs-findings-written: significant findings written | Once (with each assessment) | Legal requirement | Management of Health and Safety at Work Regulations 1999 reg. 3(6): record the significant findings with five or more employees | 27 Oct 2026 |
+| dse-assessment: workstation assessment | 1 year (and for anyone new, or a changed workstation) | Good practice | Health and Safety (Display Screen Equipment) Regulations 1992 reg. 2: assess each user's workstation; review when it changes (yearly is ours) | 27 Oct 2026 |
+| staff-hs-training: staff training recorded | 1 year | Good practice | Health and Safety at Work etc. Act 1974 s.2(2)(c) and the 1999 Regulations reg. 13: training (no interval). Martin's table: for larger staff teams | 27 Oct 2026 |
+| consult-employees: employees consulted | 1 year | Good practice | Health and Safety (Consultation with Employees) Regulations 1996 (no interval). Martin's table: for larger staff teams | 27 Oct 2026 |
+| staff-lone-working: lone working for staff | 1 year | Good practice | HSE INDG73 "Protecting lone workers" (no interval). Martin's table: for larger staff teams | 27 Oct 2026 |
+
+**Tests: hs-settings.test.mjs 29/29.** It checks:
+- **Who may use it:**
+  - someone without the office job is refused, by the page and the rules
+  - a trustee without the office job is refused by the rules
+  - the office job (EGBC's default) may
+- **The number and the duties:**
+  - before a number, only the building's own one-or-more checks
+  - 6 employed with screen work: the duties listed as typed, and saving adds them only at the building where someone employed works
+  - 12 employed: the larger-team checks
+  - back to 3 with no screens: the 5-or-more, screen and larger-team checks marked removed, the one-or-more ones kept
+  - the store adds the flags and never stores them
+- **Who looks after each building:**
+  - lead and deputy the same person: refused by the page and by the rules
+  - the responsible person names the fire safety lead
+  - saved as ids only
+- **Insurance:** both cover flags show, and go when there's enough cover.
+- **The rules:** 8 bad writes refused; 500 AI drafts and 2,000 employees allowed (no hidden cap).
+- **The synthetic parish:**
+  - with its "Parish office" doing the office job, a "Church office" team is refused (page and rules) and the Parish office may
+  - a job nobody does lets nobody but master admins in
+- **One set of sums:** egbc-hs-core.js and both copies of the store agree in 48 cases.
+- **Phone width (375):** nothing wider than the screen.
+
+**For main** (your files; I haven't touched them):
+1. **The Menu (egbc-menu.js):** an entry for **Health and safety settings** (hs-settings.html), for master admins and the office job. Please put it beside Building compliance.
+2. **app.html:** egbc-compliance-store.js and egbc-compliance-templates.js are now `?v=202610271900`. app.html still has the old stamps. With the old store, only "the checks given to me" is affected, and it already works from saved checks, but please bump them.
+3. **The audit (tests/audit-everything.mjs):** please add **sg-print.html** (the reviewing window asked) and **hs-settings.html** to its page list, so their access is checked.
+4. **GOING-LIVE.md:** "Seed the building checks' templates: `node tools/seed-compliance.mjs --templates --live --write` (events window, SWITCHOVER-events.md 3.10)."
+5. **A shared rules helper for jobs:** `raJobTeams(job, egbcTeams)` / `raOnJob(job, egbcTeams)` are in my EVENTS section for now. When H-9 part 2 adds one for everyone, I'll move to it.
+
+**For the synthetic parish:**
+- It maps its Parish office to the office job, and it may set these.
+- It names its own leads at each of its three buildings, and its PCC are "the trustees" on the fire assessment's responsible-person line.
+- With about 30 employed (F-281), every duty above applies where staff work, including the larger-team ones.
+- Nothing in this step names EGBC: "Church office" appears only as the jobs mapping's default.
+
+**Deploy:** nothing to deploy (no functions).
+- The rules go live when the hub goes live.
+- **Version 4 of the templates** reaches the live database through `tools/seed-compliance.mjs --templates --live --write`.
+  - It was on no going-live list. I've added it to SWITCHOVER-events.md 3.10, with setting up Health and safety settings.
+  - **For main:** please add the same line to GOING-LIVE.md (item 4 below).
+
+**Breaks** (8, each caught by hs-settings):
+
+| Break | Result | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the rules ask for a team called "Church office", not the office job | 27/29 | the synthetic parish's two checks |
+| the page asks for the team's name, not the job | 28/30 | the same |
+| the store saves the number's flags onto the building | 27/30 | "never stored on the building" and 2 more |
+| the buildings' checks don't follow a new number | 26/30 | "the buildings' checks follow it" and 3 more |
+| the rules let the lead and deputy be one person | 28/29 | "the rules refuse the lead and deputy the same" |
+| the rules let AI drafts go past 500 | 28/29 | "5. THE RULES" |
+| the server's store works out "five or more" differently | 29/30 | "THE SAME SUMS" |
+| screen work counted without the tick | 29/30 | "THE SAME SUMS" |
+
+- **A mistake in my break runs, fixed:** the emulator reads the built rules file, so in the first run a rules break's build stayed in place for the breaks after it.
+  - So I reran the five that weren't rules breaks, each with its own rebuild, and those results are above.
+  - One of my first breaks couldn't be caught, because the new checks already need the building's own answer. I replaced it with "saves the flags onto the building", and added a test check for it.
+- The rules are rebuilt as they are, and check-rules-build passes 10/10.
+
+**Nothing else changed:**
+
+| Test | Result |
+|---|---|
+| compliance-stage1 | 57/57 (its source-row check found the new checks' rows above) |
+| compliance-stage2 | 44/44 |
+| compliance-stage3 | 31/31 |
+| compliance-stage4 | 41/41 |
+| compliance-gate | 17/17 |
+| the rules | 1999/1999 |
+| AS_CHURCH | 1989/1999 (the known 10) |
