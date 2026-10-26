@@ -6,6 +6,8 @@
  *   node tests/check-worker.mjs          (from v2/, the dev emulators up)
  *   BREAK=1 node tests/check-worker.mjs  the Worker pointed at the repo's root instead
  *                                        of v2/ (what a Pages custom domain would do): must fail
+ *   BREAK=root node tests/check-worker.mjs  "/" served as v2's front page (the availability
+ *                                        form), as before: must fail
  *
  * The stand-in serves this folder at /availability-form/v2/ and, at
  * /availability-form/, a page standing for the ORIGINAL SITE, which must
@@ -30,7 +32,7 @@ import worker, { slugOf, v2Path } from '../tools/cloudflare/worker.js';
 const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const CDP = 9815, GH = 8961, AUTHP = 8962, W = 8963, PW = 'test-only-password';
-const BREAK = !!process.env.BREAK;
+const BREAK = process.env.BREAK === '1';
 const DOCS = '/v1/projects/egbc-worship-planner/databases/(default)/documents';
 const OWNER = { Authorization: 'Bearer owner' };
 const ORIGINAL = 'ORIGINAL SITE - must never be served by the Worker';
@@ -69,6 +71,8 @@ const auth = http.createServer((q, s) => { let b = ''; q.on('data', c => b += c)
 /* The Worker, as Cloudflare would run it. */
 const ENV = { UPSTREAM: 'http://localhost:' + GH + (BREAK ? '/availability-form' : '/availability-form/v2'), AUTH: 'http://localhost:' + AUTHP, SLUG: 'egbc' };
 const runWorker = (env) => http.createServer(async (q, s) => {
+  /* BREAK=root: "/" served as v2's own front page, as before 26 Oct. */
+  if (process.env.BREAK === 'root' && /^\/(\?|$)/.test(q.url)) q.url = '/index.html' + q.url.slice(1);
   const chunks = []; for await (const c of q) chunks.push(c);
   const body = chunks.length ? Buffer.concat(chunks) : undefined;
   const r = await worker.fetch(new Request('http://localhost:' + q.socket.localPort + q.url, { method: q.method, headers: q.headers, body: /^(GET|HEAD)$/.test(q.method) ? undefined : body }), env);
@@ -85,8 +89,16 @@ let exitCode = 1;
 const SUN = (() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7)); return d.toISOString().slice(0, 10); })();
 try {
   console.log('What the Worker serves');
+  /* Martin, 26 Oct 2026: the address opens the HUB. v2's front page
+     (index.html) is the availability form, and stays at /index.html. */
   const home = await req(W, 'GET', '/');
-  ok('"/" is v2\'s start page, as github.io/.../v2/ is', home.status === 200 && home.body === fs.readFileSync('index.html', 'utf8'), home.status + ' ' + home.body.slice(0, 80));
+  ok('"/" opens the hub (hub.html), not the availability form', home.status === 302 && home.headers.location === 'http://localhost:' + W + '/hub.html', home.status + ' ' + (home.headers.location || home.body.slice(0, 60)));
+  const homeQ = await req(W, 'GET', '/?notices=1');
+  ok('  with its query passed on', homeQ.status === 302 && homeQ.headers.location === 'http://localhost:' + W + '/hub.html?notices=1', homeQ.headers.location);
+  const form = await req(W, 'GET', '/index.html');
+  ok('  /index.html is still the availability form, as it is', form.status === 200 && form.body === fs.readFileSync('index.html', 'utf8') && /Member Availability/.test(form.body), form.status);
+  const mails = ['Planner.html', 'trainingrotaplanner.html', 'egbc-core-rota.js'].filter((f) => !/location\.pathname\.replace\(\/\[\^\/\]\*\$\/, ''\) \+ '?index\.html/.test(fs.readFileSync(f, 'utf8')));
+  ok('  and the availability emails link to index.html, never the bare address', mails.length === 0, mails);
   const hub = await req(W, 'GET', '/hub.html?x=1');
   ok('  a page is v2\'s file, as it is', hub.status === 200 && hub.body === fs.readFileSync('hub.html', 'utf8') && /text\/html/.test(hub.headers['content-type']), hub.status);
   ok('  with github.io\'s caching passed on', hub.headers['cache-control'] === 'max-age=600', hub.headers['cache-control']);

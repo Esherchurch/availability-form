@@ -1094,7 +1094,7 @@
         + '<div style="font-size:14px;color:#14201f;line-height:1.9">' + dates.map(fmt).join(' &middot; ') + '</div>'
         + '</div>'
         + '<p style="text-align:center;margin:24px 0">'
-        + '<a href="' + location.origin + location.pathname.replace(/[^/]*$/, '') + '" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;text-decoration:none">Fill in your availability</a>'
+        + '<a href="' + location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;text-decoration:none">Fill in your availability</a>'
         + '</p>'
         + '<p style="font-size:13px;color:#6b8281;line-height:1.6">One form covers everything you are on - worship, AV, Kids Church - so you only need to do this once.</p>'
         + '</div>';
@@ -1334,6 +1334,16 @@
     if (opts.onMembers) H.onMembers = opts.onMembers;
     if (opts.onEvents) H.onEvents = opts.onEvents;
     H.root = into;
+    /* TAP TARGETS (the audit, 26 Oct 2026): the rota's own buttons, time
+       boxes and date boxes were 22-28px tall - a term's Archive, the + / -
+       that opens a service, each person's name. 44px, everywhere it runs. */
+    if (!document.getElementById('egbc-core-rota-tap')) {
+      var tap = document.createElement('style');
+      tap.id = 'egbc-core-rota-tap';
+      tap.textContent = '.cr-panel button,.cr-panel select,.cr-panel input[type=date]{min-height:44px}'
+        + '.cr-panel button{min-width:44px}';
+      document.head.appendChild(tap);
+    }
     /* One panel, moved between hosts, the same as the planner: a tab the
        shell redraws must not lose which terms are open. */
     if (!PANEL) {

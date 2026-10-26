@@ -3,8 +3,8 @@
  * A Cloudflare Worker that serves v2 - and only v2 - under Church HQ's
  * address. egbc.churchhq.co.uk/<path> is fetched from
  * https://esherchurch.github.io/availability-form/v2/<path> and passed on
- * as it is: status, headers and body. "/" is v2's own start page, as
- * github.io/.../v2/ is.
+ * as it is: status, headers and body. "/" opens the hub (hub.html), with
+ * its query; /index.html is v2's front page, the availability form.
  *
  * WHAT IT NEVER DOES: reach the original site. Every path is put under
  * /availability-form/v2/; "..", encoded slashes and the like are refused
@@ -83,6 +83,12 @@ export default {
     }
 
     if (request.method !== 'GET' && request.method !== 'HEAD') return plain(405, 'Pages are read only here.');
+    /* THE ADDRESS OPENS THE HUB (Martin, 26 Oct 2026). v2's own front page
+       (index.html) is the availability form, mirroring the original site's,
+       and stays at /index.html for its links. A redirect, not the hub's
+       file served at "/", so the address bar says hub.html and the hub's
+       own links work exactly as they do on github.io. */
+    if (url.pathname === '/') return new Response(null, { status: 302, headers: { location: url.origin + '/hub.html' + url.search, 'cache-control': 'no-store' } });
     const p = v2Path(url.pathname);
     if (p === null) return plain(400, 'That is not a page of the hub.');
 

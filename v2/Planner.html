@@ -221,7 +221,7 @@
         let logoNaturalHeight = 1;
         let hideAssigned = false;
 
-        const FORM_LINK = location.origin + location.pathname.replace(/[^/]*$/, ''); /* the address this page is open at (github.io, or egbc.churchhq.co.uk) */
+        const FORM_LINK = location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html'; /* the availability form, at the address this page is open at (github.io, or egbc.churchhq.co.uk, whose bare address opens the hub) */
 
         let logoLoadPromise = null;
         const getLogoBase64 = () => {
