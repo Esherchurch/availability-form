@@ -12462,3 +12462,12 @@ The stand-in help centre has 5 folders of 12 articles (60):
 **For the synthetic parish:** the same for any host with more pages than one read takes. Nothing is church-specific.
 
 **Deploy (the reviewing window's):** sgRequirementsFromLinks. Then on cev_newdaytest2027: the 35 questions there were read before the next pages were kept, so they have no button. Read the 5 folder addresses once more (a fresh list replaces them), then press "Read the next N" under it.
+
+**Found, not fixed (for main, F-293):** the page audit (`--quick --no-app`, safeguarding.html and safeguarding-risk.html) now gives 13 passed and 5 failed.
+- **What fails:** safeguarding.html "opens for" everyone, worship, kids, core and areaAdmin, whose Menu doesn't offer it.
+- **This is on purpose.** Anyone can open the page to report a concern. They see "No events for you here", or "This page is for the event's leaders… You can still report a concern", and no event, child or count.
+- **This step didn't change who can open it.** safeguarding-risk.html refuses all five roles, as it should.
+- **Main's choice:**
+  - (a) the audit lists safeguarding.html as open to everyone for reporting a concern; or
+  - (b) the Menu offers everyone a "Report a concern" entry.
+  I haven't edited the audit or the Menu (they're main's files).
