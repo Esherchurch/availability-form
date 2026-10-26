@@ -16,42 +16,9 @@
      normaliseReqs(d, names)   -> { items: [{ q, line }], dropped, personalFound }
    =================================================================== */
 'use strict';
-const zlib = require('node:zlib');
 const { personalCheck, SOCKETS, socketCover } = require('./sg-ai-core.cjs');
-
-const MAX_BYTES = 7 * 1024 * 1024;
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-function fileKind(type, name) {
-  type = String(type || '').toLowerCase(); name = String(name || '').toLowerCase();
-  if (type === 'application/pdf' || /\.pdf$/.test(name)) return 'pdf';
-  if (IMAGE_TYPES.includes(type)) return 'image';
-  if (type === DOCX || /\.docx$/.test(name)) return 'docx';
-  return '';
-}
-
-/* a Word document is a zip; its words are in word/document.xml */
-function docxText(buf) {
-  let eocd = -1;
-  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) { if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; } }
-  if (eocd < 0) throw new Error('not a Word document');
-  const count = buf.readUInt16LE(eocd + 10);
-  let p = buf.readUInt32LE(eocd + 16), xml = null;
-  for (let n = 0; n < count; n++) {
-    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error('a damaged Word document');
-    const method = buf.readUInt16LE(p + 10), csize = buf.readUInt32LE(p + 20), nlen = buf.readUInt16LE(p + 28), xlen = buf.readUInt16LE(p + 30), clen = buf.readUInt16LE(p + 32), local = buf.readUInt32LE(p + 42);
-    const name = buf.slice(p + 46, p + 46 + nlen).toString('utf8');
-    if (name === 'word/document.xml') {
-      const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28), raw = buf.slice(start, start + csize);
-      xml = (method === 8 ? zlib.inflateRawSync(raw) : raw).toString('utf8');
-    }
-    p += 46 + nlen + xlen + clen;
-  }
-  if (xml === null) throw new Error('not a Word document');
-  const unxml = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
-  return (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).map((para) => unxml((para.match(/<w:t(?: [^>]*)?>([\s\S]*?)<\/w:t>/g) || []).map((t) => t.replace(/<[^>]+>/g, '')).join('')))
-    .filter((l) => l.trim()).join('\n');
-}
+/* what a file is, a Word document's words, and "no repeats": the shared engine's (H&S step 1) */
+const { MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, newOnly } = require('./doc-reader-core.cjs');
 
 function contentFor(kind, b64, text, type) {
   const ask = { type: 'text', text: 'These are the host’s or organiser’s requirements for a visiting church group. Turn each requirement into a checklist question, as instructed.' };
@@ -65,6 +32,7 @@ const REQ_SYSTEM = [
   'One question for each separate requirement, in plain UK English, that the group leader can answer, for example "Has every leader sent the camp a signed copy of its code of conduct?". Give the line it came from, word for word, shortened if long.',
   'Leave out anything that is not a requirement of the visiting group (prices, directions, marketing).',
   'Never put a person’s name, phone number, email address or address into a question or a line. If the document has any, set personalFound true and leave those details out.',
+  'Where a page or section only gives a way to reach someone (a team, a phone line, an email, an office), ask whether the group knows how to reach them and when, for example "Does your group know how to reach the night team, and when?" - never with the number, the email or a name itself.',
   'In host, give the name of the host or organiser as the document gives it (an organisation, not a person), or an empty string.',
   SOCKETS + ' If the document asks for them, leave that requirement out.'
 ].join('\n');
@@ -120,12 +88,4 @@ function normaliseReqs(d, names) {
   return { ok: true, items: items.slice(0, 500), dropped, leftOut, personalFound: d.personalFound === true || dropped > 0, host: clean(d.host, 120) };
 }
 
-/* a question already on the list, in other spacing, case or punctuation, is a repeat */
-const sameQ = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-function newOnly(items, already) {
-  const had = new Set((already || []).map(sameQ)), out = [];
-  let repeats = 0;
-  for (const it of items || []) { const k = sameQ(it.q); if (!k || had.has(k)) { repeats++; continue; } had.add(k); out.push(it); }
-  return { items: out, repeats };
-}
 module.exports = { newOnly, MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, contentFor, contentForWeb, REQ_SYSTEM, REQ_SCHEMA, REQ_SCHEMA_WEB, normaliseReqs };

@@ -13,11 +13,8 @@
    =================================================================== */
 (function (global) {
   'use strict';
-  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var N = 14;
-  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  function longDate(iso) { if (!iso) return ''; var d = new Date(String(iso).length <= 10 ? iso + 'T12:00:00' : iso); return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
-  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+  /* the dials themselves are the shared engine's (egbc-ra-core.js, loaded first; H&S step 1) */
+  var R = global.EGBCRaCore, esc = R.esc, N = R.N, longDate = R.longDate, plural = R.plural, dial = R.dial, split = R.split;
 
   var CSS = '.sgd-dw{position:relative;max-width:240px;margin:0 auto}.sgd-big .sgd-dw{max-width:340px}' +
     '.sgd-dial{display:block;width:100%;height:auto}' +
@@ -51,33 +48,6 @@
     '@media print{.tabs,.bar,#egbc-shell,.sgd-noprint{display:none!important}}';
   function css() { if (document.getElementById('sgd-css')) return; var s = document.createElement('style'); s.id = 'sgd-css'; s.textContent = CSS; document.head.appendChild(s); }
 
-  var COLOUR = { progress: '#4b6a7d', green: '#15803d', amber: '#b07d2e', red: '#b0392c', empty: '#e4ded3', faded: '#efebe4' };
-  /* o: { blocks: [[colour, n]], num, pc, sub, faded, dash } - the blocks are a picture; the number and its line are text */
-  function dial(o) {
-    var cx = 130, cy = 132, r = 98, out = [], colours = [];
-    (o.blocks || []).forEach(function (b) { for (var k = 0; k < b[1]; k++) colours.push(b[0]); });
-    for (var i = 0; i < N; i++) {
-      var a = Math.PI - (i + 0.5) * Math.PI / N, x = cx + r * Math.cos(a), y = cy - r * Math.sin(a), deg = 90 - a * 180 / Math.PI;
-      var fill = o.faded ? COLOUR.faded : COLOUR[colours[i] || 'empty'];
-      out.push('<rect x="-10.5" y="-9" width="21" height="18" rx="3.5" fill="' + fill + '" data-b="' + (o.faded ? 'faded' : colours[i] || 'empty') + '" transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(' + deg.toFixed(1) + ')"/>');
-    }
-    var num = o.dash ? '<span class="sgd-dash" aria-hidden="true"></span><span style="position:absolute;left:-9999px">No figure</span>'
-      : '<div class="sgd-n">' + esc(o.num) + (o.pc ? '<span>%</span>' : '') + '</div>';
-    return '<div class="sgd-dw"><svg class="sgd-dial" viewBox="0 0 260 140" aria-hidden="true">' + out.join('') + '</svg><div class="sgd-mid">' + num + '<div class="sgd-of">' + esc(o.sub) + '</div></div></div>';
-  }
-  /* parts [[colour, count]] out of `of`, as whole blocks: each part with any count gets at least one */
-  function split(parts, of) {
-    if (!of) return [];
-    var left = N, out = [];
-    parts.forEach(function (p, i) {
-      if (!p[1]) return;
-      var n = Math.max(1, Math.round(p[1] / of * N));
-      var later = parts.slice(i + 1).filter(function (q) { return q[1]; }).length;
-      n = Math.min(n, left - later); if (n < 1) return;
-      out.push([p[0], n]); left -= n;
-    });
-    return out;
-  }
 
   /* the five dials of the row, and the big one */
   var DIALS = [

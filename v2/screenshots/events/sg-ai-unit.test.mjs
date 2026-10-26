@@ -72,7 +72,7 @@ ok('the words for a refusal are Martin’s', A.WORDS.refused === 'The AI couldn�
 console.log('\n5. THE REQUIRED CHECKLIST (Martin, 23 Oct): the page, the server and the rules agree');
 const fsm = await import('node:fs'), vmm = await import('node:vm');
 const tmod = { exports: {} };
-vmm.runInNewContext(fsm.readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: tmod });
+vmm.runInNewContext(fsm.readFileSync(path.join(V2, 'egbc-ra-core.js'), 'utf8') + '\n' + fsm.readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: tmod });  /* the shared engine first (H&S step 1) */
 const TP = tmod.exports, CK = require('./sg-checklist.cjs');
 ok('the server’s copy has the same questions, word for word, as the page’s', J(Object.keys(TP.CHECKLIST).map((k) => [k, TP.CHECKLIST[k].map((q) => [q.id, q.label])])) === J(Object.keys(CK.CHECKLIST).map((k) => [k, CK.CHECKLIST[k].map((q) => [q.id, q.label])])));
 const rulesSrc = fsm.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), fnSrc = (rulesSrc.match(/function sgChecklist\(kind, flags\) \{[\s\S]*?\n    \}/) || [''])[0];

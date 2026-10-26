@@ -16,74 +16,15 @@
 <script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-safeguarding.js?v=202610261500"></script>
-<script src="egbc-sg-templates.js?v=202610262100"></script>
-<script src="egbc-sg-dash.js?v=202610262100"></script>
+<script src="egbc-ra-core.js?v=202610271600"></script>
+<script src="egbc-ra-print.js?v=202610271600"></script>
+<script src="egbc-sg-templates.js?v=202610271600"></script>
+<script src="egbc-sg-dash.js?v=202610271600"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  /* SAFEGUARDING, PRINTED (F-276; Martin, 23 Oct): an event's assessment,
-     a site's standing risks, or a trustees' snapshot, laid out for A4 paper
-     - not the editing screen. Ratings carry their words (High, Medium,
-     Low) as well as their colour, so they read in black and white. */
-  :root{--ink:#111827;--body:#374151;--muted:#6b7280;--line:#d1d5db;--red:#b0392c;--red-bg:#fdecea;--amber:#8a5a12;--amber-bg:#fdf3dc;--green:#15803d;--green-bg:#e7f6ec}
-  *{box-sizing:border-box}
-  body{margin:0;background:#eef0f1;color:var(--body);font:400 10.5pt/1.45 Inter,system-ui,-apple-system,sans-serif}
-  .bar{max-width:210mm;margin:16px auto 0;padding:0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .bar button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid #3d6263;background:#3d6263;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}
-  .bar .hint{color:var(--muted);font-size:13px}
-  .sheet{max-width:210mm;margin:12px auto 40px;background:#fff;padding:16mm 14mm;box-shadow:0 1px 3px rgba(0,0,0,.12);position:relative}
-  .head{display:flex;gap:12px;align-items:center;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:12px}
-  .head img{height:44px;width:auto}
-  .head .church{font:700 13pt Inter,sans-serif;color:var(--ink)}
-  .head .what{color:var(--muted);font-size:10pt}
-  h1{font:700 17pt Inter,sans-serif;color:var(--ink);margin:0 0 6px}
-  h2{font:700 12.5pt Inter,sans-serif;color:var(--ink);margin:16px 0 6px;break-after:avoid}
-  .status{border:3px solid var(--ink);border-radius:8px;padding:8px 12px;margin:8px 0 12px;font:800 15pt Inter,sans-serif;color:var(--ink);letter-spacing:.02em}
-  .status.draft{border-color:var(--red);color:var(--red)}
-  .status small{display:block;font:400 10pt Inter,sans-serif;letter-spacing:0;color:var(--body);margin-top:4px}
-  /* THE DIALS (Martin, 23 Oct): the dashboard's own, in SVG so they print sharp; one row of four;
-     each says its rating or number in words, so a black-and-white print reads the same */
-  .dials{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;margin:2px 0 8px;break-inside:avoid}
-  .dl{border:1px solid var(--line);border-radius:8px;padding:6px 4px 5px;text-align:center}
-  .dl .t{font:600 9pt Inter,sans-serif;color:var(--ink);margin-top:2px}.dl .l{font-size:8.5pt;color:var(--body)}
-  .sgd-dw{position:relative;max-width:150px;margin:0 auto}.sgd-dial{display:block;width:100%;height:auto}
-  .sgd-mid{position:absolute;left:0;right:0;bottom:0;text-align:center}
-  .sgd-n{font:600 15pt/1 Inter,sans-serif;color:var(--ink)}.sgd-n span{font-size:.6em;color:var(--muted);margin-left:1px}
-  .sgd-of{font:400 8pt Inter,sans-serif;color:var(--muted);margin-top:2px}
-  .sgd-dash{display:inline-block;width:20px;height:3px;border-radius:2px;background:var(--red);margin:12px 0 2px}
-  @media (max-width:560px){.dials{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  .must{border:2px solid var(--red);background:var(--red-bg);color:#7f1d1d;border-radius:8px;padding:8px 12px;margin:0 0 12px;break-inside:avoid}
-  .must b{font-size:12pt}.must ul{margin:6px 0 0;padding-left:18px}
-  .watermark{position:fixed;top:40%;left:0;right:0;text-align:center;font:800 90pt Inter,sans-serif;color:rgba(176,57,44,.08);transform:rotate(-28deg);pointer-events:none;z-index:0}
-  table{width:100%;border-collapse:collapse;margin:4px 0 8px;position:relative;z-index:1}
-  th,td{border:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
-  th{background:#f3f4f6;color:var(--ink);font-weight:600}
-  .facts th{width:34%}
-  tr{break-inside:avoid;page-break-inside:avoid}
-  thead{display:table-header-group}
-  .rag{display:inline-block;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
-  .rag.red{color:var(--red);background:var(--red-bg)}.rag.amber{color:var(--amber);background:var(--amber-bg)}.rag.green{color:var(--green);background:var(--green-bg)}
-  td ul{margin:0;padding-left:16px}
-  .ck td:first-child{width:46%}
-  .na{color:var(--muted)}.missing{color:var(--red);font-weight:700}
-  .note{color:var(--muted);font-size:9.5pt}
-  .sign{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:8px;break-inside:avoid}
-  .sign div{border-bottom:1px solid var(--ink);height:38px;position:relative}
-  .sign span{position:absolute;bottom:-17px;left:0;font-size:9pt;color:var(--muted)}
-  .wide{position:relative;z-index:1}
-  @media (max-width:700px){.sheet{padding:8mm 5mm}.sign{grid-template-columns:1fr}}
-  /* A4 portrait: page numbers and the date printed in the footer. The risk table follows straight on
-     (a change to landscape always starts a new page, which left one nearly empty - the reviewing
-     window, 23 Oct); its header repeats on each page, and a heading is never left alone at the foot */
-  @page{size:A4 portrait;margin:14mm 12mm 16mm;@bottom-right{content:"Page " counter(page) " of " counter(pages);font-size:8.5pt;color:#6b7280}}
-  @media print{
-    body{background:#fff;padding:0!important;margin:0}
-    #egbc-bar,#egbc-nav,#egbc-nav-scrim,#egbc-viewas,#egbc-viewas-top,#egbc-you,#egbc-you-btn,.bar,.noprint{display:none!important}
-    .sheet{box-shadow:none;margin:0;padding:0;max-width:none}
-    .wide table{font-size:9pt}.wide th,.wide td{padding:4px 5px}
-    h2{break-after:avoid;page-break-after:avoid}
-    a{color:inherit;text-decoration:none}
-  }
-</style>
+<!-- SAFEGUARDING, PRINTED (F-276; Martin, 23 Oct): an event's assessment, a site's standing risks, or a trustees'
+     snapshot, laid out for A4 paper - not the editing screen. The print's styles and pieces are shared by every
+     register (egbc-ra-print.css and .js, H&S step 1). -->
+<link rel="stylesheet" href="egbc-ra-print.css?v=202610271600">
 </head>
 <body>
 <div class="bar noprint"><button id="printIt" type="button">Print / save as PDF</button><span class="hint">Choose “Save as PDF” as the printer to keep a copy. A4.</span></div>
@@ -91,52 +32,20 @@
 <script>
 (function () {
   'use strict';
-  var T = window.EGBCSgTemplates, SG = window.EGBCSafeguarding, E = window.EGBCEvents;
-  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var T = window.EGBCSgTemplates, SG = window.EGBCSafeguarding, E = window.EGBCEvents, P = window.EGBCRaPrint;
+  var esc = P.esc, longDate = P.longDate, header = P.header, todoTable = P.todoTable, WORDS = P.WORDS;
   function db() { return EGBCAuth.db; }
   var sheet = document.getElementById('sheet'), q = new URLSearchParams(location.search);
-  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  function longDate(v) { if (!v) return ''; var d = v && v.toDate ? v.toDate() : new Date(String(v).length <= 10 ? v + 'T12:00:00' : v); return isNaN(d) ? '' : d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
-  var WORDS = { red: 'High', amber: 'Medium', green: 'Low' }, KIND = {}; T.EVENT_KINDS.forEach(function (k) { KIND[k.id] = T.EVENT_TEMPLATES[k.id].label; });
-  /* STILL TO DO (Derby's steps 4 and 5; S4): every action, its risk, who, by when, and done or not */
-  function todoTable(risks) {
-    var rows = [], today = new Date().toISOString().slice(0, 10);
-    (risks || []).forEach(function (x) { (x.todo || []).forEach(function (t) { if (t && t.what) rows.push([x.risk, t]); }); });
-    if (!rows.length) return '';
-    return '<h2>Still to do</h2><table class="ck" id="pTodo"><thead><tr><th>The risk</th><th>Still to do</th><th>Who</th><th>By</th><th>Done</th></tr></thead><tbody>' +
-      rows.map(function (p) { var t = p[1]; return '<tr data-ptodo><td>' + esc(p[0]) + '</td><td>' + esc(t.what) + '</td><td>' + esc(t.who || 'Nobody named') + '</td><td>' + esc(t.by ? longDate(t.by) : 'No date') +
-        (!t.done && t.by && t.by < today ? ' <span class="rag amber" data-ptodolate>Overdue</span>' : '') + '</td><td>' + (t.done ? 'Done' : 'Not yet') + '</td></tr>'; }).join('') + '</tbody></table>';
-  }
-  function rag(l, i) { var r = T.rating(l, i); return '<span class="rag ' + r + '" data-rag="' + r + '">' + WORDS[r] + ' ' + T.score(l, i) + '</span><div class="note">' + l + ' × ' + i + '</div>'; }
-  var printed = longDate(new Date().toISOString());
-  /* the footer: "Printed on <date>" (a page margin can't take a variable, so the date is written in) */
-  var foot = document.createElement('style');
-  foot.textContent = '@page{@bottom-left{content:"Printed on ' + printed + '";font-size:8.5pt;color:#6b7280}}';
-  document.head.appendChild(foot);
+  var KIND = {}; T.EVENT_KINDS.forEach(function (k) { KIND[k.id] = T.EVENT_TEMPLATES[k.id].label; });
+  P.printedFooter();
   document.getElementById('printIt').onclick = function () { window.print(); };
-  function header(church, what) {
-    return '<div class="head">' + (church.logoUrl ? '<img src="' + esc(church.logoUrl) + '" alt="">' : '') + '<div><div class="church" id="pChurch">' + esc(church.name || '') + '</div><div class="what">' + esc(what) + '</div></div></div>';
-  }
   function fail(e) { sheet.innerHTML = '<p id="pFail">This can’t be printed here: ' + esc((e && e.message) || e) + '</p>'; }
-  /* the risk table: hazard, who, before, controls (a list), after, owner, review - one row never split across pages */
-  function riskTable(risks, opts) {
-    opts = opts || {};
-    return '<table id="' + (opts.id || 'pRisks') + '"><thead><tr><th>Hazard</th><th>Who’s at risk</th><th>Before</th><th>Controls</th><th>After</th><th>Owner</th><th>Review</th>' + (opts.status ? '<th>Status</th>' : '') + '</tr></thead><tbody>' +
-      (risks.length ? risks.map(function (r) {
-        var ctl = (r.controls || []).map(function (c) { return typeof c === 'string' ? c : T.controlLabel(c); }).filter(Boolean);
-        return '<tr data-prisk' + (r.mustNot ? ' data-pmust' : '') + '><td>' + (r.mustNot ? '<b style="color:var(--red)">Must not go ahead as described.</b><br>' : '') + esc(r.risk) + (r.from === 'hub' ? '<div class="note">From the hub’s numbers</div>' : '') + '</td><td>' + esc(r.who || '') + '</td>' +
-          '<td>' + (r.before ? '<span class="rag ' + r.before + '" data-rag="' + r.before + '">' + WORDS[r.before] + ' ' + r.beforeScore + '</span>' : rag(r.l, r.i)) + '</td>' +
-          '<td>' + (ctl.length ? '<ul>' + ctl.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>' : '<span class="missing">None given</span>') + '</td>' +
-          '<td>' + (r.after ? '<span class="rag ' + r.after + '" data-rag="' + r.after + '">' + WORDS[r.after] + ' ' + r.afterScore + '</span>' : rag(r.rl, r.ri)) + '</td>' +
-          '<td>' + esc(r.owner || r.ownerName || '') + '</td><td>' + esc(r.review || (r.reviewDue ? longDate(r.reviewDue) : '')) + '</td>' + (opts.status ? '<td>' + (r.status === 'closed' ? 'Closed' : 'Open') + '</td>' : '') + '</tr>';
-      }).join('') : '<tr><td colspan="8" class="na">No risks written yet.</td></tr>') + '</tbody></table>';
-  }
+  /* the risk table (shared): a control in the register's own words */
+  function riskTable(risks, opts) { return P.riskTable(risks, Object.assign({ controlLabel: T.controlLabel }, opts || {})); }
 
   /* the row of dials: overall, the checklist, leaders and the ratio, the risks by colour */
   function dialsRow(ov, qs, ans, rr, need, nLeaders, risks) {
-    var D = window.EGBCSgDash, N = 14;
-    if (!D) return '';
-    var cell = function (key, o, title, line) { return '<div class="dl" data-pdial="' + key + '">' + D.dial(o) + '<div class="t">' + esc(title) + '</div><div class="l">' + esc(line) + '</div></div>'; };
+    var D = window.EGBCRaCore, N = D.N, cell = P.dialCell;
     var done = qs.filter(function (x) { return T.answered(ans[x.id]); }).length;
     var by = { red: 0, amber: 0, green: 0 };
     risks.forEach(function (x) { by[T.rating(x.rl, x.ri)]++; });
@@ -203,7 +112,7 @@
       sheet.innerHTML = (signed || waived ? '' : '<div class="watermark" aria-hidden="true" id="pWatermark">DRAFT</div>') +
         header(church, 'Safeguarding risk assessment') +
         '<h1 id="pTitle">' + esc(EV.title || '') + '</h1>' + dialsRow(ov, qs, ans, rr, need, leaders.length, risks) + status +
-        (must.length ? '<div class="must" id="pMust"><b>This must not go ahead as described.</b> ' + (must.length === 1 ? 'This item has' : 'These ' + must.length + ' items have') + ' to be changed or taken out first:<ul id="pMustList">' + must.map(function (x) { return '<li>' + esc(x.risk) + '</li>'; }).join('') + '</ul></div>' : '') +
+        P.mustBox(must) +
         '<h2>The event</h2><table class="facts" id="pFacts"><tbody>' +
           '<tr><th>Overall rating</th><td id="pOverallRow">' + ovHtml + ' <span class="note">the worst after the controls; High while anything must not go ahead</span></td></tr>' +
           '<tr><th>When</th><td>' + esc(E.fmtWhen ? E.fmtWhen(EV) : (EV.startLocal || '')) + '</td></tr>' +
@@ -233,7 +142,7 @@
           '<table class="ck" id="pHostList"><thead><tr><th>' + esc(host.name || 'The host') + '’s requirement, as a question</th><th>Where it came from</th></tr></thead><tbody>' +
           (host.items || []).map(function (x) { return '<tr><td>' + esc(x.q) + '</td><td class="note">' + esc(x.line || '') + (x.source ? '<br>(' + esc(x.source) + ')' : '') + '</td></tr>'; }).join('') + '</tbody></table>' : '') +
         '<h2>Signatures</h2><p class="note">For a paper file. The hub keeps its own record of who signed it off, and when.</p>' +
-        '<div class="sign" id="pSign"><div><span>Safeguarding lead or deputy</span></div><div><span>Date</span></div><div><span>Trip or event leader</span></div><div><span>Date</span></div></div>';
+        P.signBoxes(['Safeguarding lead or deputy', 'Trip or event leader']);
       document.title = 'Safeguarding assessment: ' + (EV.title || '');
     });
   }
@@ -246,7 +155,7 @@
       sheet.innerHTML = header(r[3] || {}, 'Safeguarding risk register') + '<h1 id="pTitle">Standing risks: ' + esc(site.name || '') + '</h1>' +
         '<div class="wide">' + (acts.length ? acts.map(function (a) { return '<h2>' + esc(a.name) + ' <span class="note">' + esc(T.kindLabel(a.kind)) + '</span></h2>' + riskTable(risks.filter(function (x) { return x.activityId === a.id; }), { status: true, id: 'pRisks_' + a.id }); }).join('') : '<p class="na">No activities in the register yet.</p>') + '</div>' +
         '<p class="note">Risks, controls and dates only: never a child, a family or a concern.</p>' +
-        '<h2>Reviewed</h2><div class="sign" id="pSign"><div><span>Safeguarding lead or deputy</span></div><div><span>Date</span></div><div><span>For the trustees</span></div><div><span>Date</span></div></div>';
+        '<h2>Reviewed</h2>' + P.signBoxes(['Safeguarding lead or deputy', 'For the trustees']);
       document.title = 'Standing risks: ' + (site.name || '');
     });
   }
@@ -264,7 +173,7 @@
         }).join('') + '<tr><th>Warnings</th><td>' + ((s.warnings || {}).red || 0) + ' act now, ' + ((s.warnings || {}).amber || 0) + ' soon</td></tr>' +
         '<tr><th>The annual review</th><td>' + ((s.review || {}).done || 0) + ' of ' + ((s.review || {}).of || 0) + ' items</td></tr></tbody></table>' +
         '<div class="wide"><h2>The standing risks</h2>' + riskTable((s.risks || []).map(function (x) { return Object.assign({}, x, { risk: (x.activity ? x.activity + ': ' : '') + x.risk }); }), { status: true }) + '</div>' +
-        '<div class="sign" id="pSign"><div><span>For the trustees</span></div><div><span>Date</span></div></div>';
+        P.signBoxes(['For the trustees']);
       document.title = s.banner;
     });
   }

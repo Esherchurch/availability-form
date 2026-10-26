@@ -10,7 +10,7 @@ const results = [];
 const ok = (name, pass, why) => { results.push(!!pass); console.log((pass ? '  PASS  ' : '  FAIL  ') + name + (pass || why === undefined ? '' : '\n          ' + String(why).slice(0, 500))); };
 const J = (x) => JSON.stringify(x);
 const module = { exports: {} };
-vm.runInNewContext(fs.readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module });
+vm.runInNewContext(fs.readFileSync(path.join(V2, 'egbc-ra-core.js'), 'utf8') + '\n' + fs.readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module });  /* the shared engine first (H&S step 1) */
 const T = module.exports;
 
 console.log('\nthe rating (likelihood x impact; the same bands as risk.html)');

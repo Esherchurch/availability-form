@@ -31,9 +31,7 @@
    working" - until the key is changed (it keeps only a short fingerprint of
    the key, never the key) or a call works again.
    =================================================================== */
-import Anthropic from '@anthropic-ai/sdk';
 import { createRequire } from 'node:module';
-import { createHash } from 'node:crypto';
 import https from 'node:https';
 import http from 'node:http';
 import dns from 'node:dns';
@@ -42,6 +40,8 @@ import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { londonDay, registerOn, maySee } from './sg-warnings.js';
+/* the key, the caps, the log, set-up problems and the call itself: the shared engine's (H&S step 1), with this register's own records */
+import { aiPlumbing, callModel as callOnce, setupProblem as setupProblemOf } from './ra-ai.js';
 
 const require = createRequire(import.meta.url);
 const Core = require('./sg-ai-core.cjs');
@@ -53,21 +53,8 @@ const REGION = 'europe-west2';
 const db = () => getFirestore();
 const KINDS = Checklist.SG_KINDS;
 export const CHQ_ANTHROPIC_API_KEY = defineSecret('CHQ_ANTHROPIC_API_KEY');
-const BACKOFF = [1000, 3000, 8000];
-/* A DRAFT TAKES 30-60 SECONDS (the reviewing window's live run: 46 s). The
-   function may run 180 s; the page waits as long; the calls, retries
-   included, must finish inside BUDGET so there is time to save. */
-const BUDGET = 165000;
-
-/* the key, or '' when not set up; on the emulator, the local stand-in when a test has set one */
-async function apiOf(dbi) {
-  if (process.env.FUNCTIONS_EMULATOR === 'true') {
-    const s = (await dbi.collection('sgAiStub').doc('config').get()).data();
-    return s && s.url ? { apiKey: s.key || 'stub', baseURL: s.url } : { apiKey: '' };
-  }
-  const v = String(CHQ_ANTHROPIC_API_KEY.value() || '').trim();
-  return { apiKey: !v || v === 'NOT-SET' ? '' : v };
-}
+const { apiOf, logIt, broken, noteWorking, callFailed, takeOne, usedUp } = aiPlumbing({ secret: CHQ_ANTHROPIC_API_KEY, day: () => londonDay(),
+  records: { use: 'sgAiUse', log: 'sgAiLog', state: 'sgAiState', stub: 'sgAiStub' }, words: { setup: Core.WORDS.setup } });
 
 /* who may ask: as the rules' runsEventId / isEventLeader / sgLeadOf */
 async function whoFor(dbi, uid, calEventId) {
@@ -103,70 +90,17 @@ async function factsFor(dbi, w, under8) {
     leadTitle: String((st.register || {}).leadTitle || '').slice(0, 60) } };
 }
 
-/* one place for the log: ids and counts only, never the words (and, for a failed call, the API's request id and error type) */
-function logIt(dbi, x) {
-  return dbi.collection('sgAiLog').add(Object.assign({ siteId: x.siteId, calEventId: x.calEventId, by: x.by, byName: String(x.byName || '').slice(0, 120), at: new Date().toISOString(),
-    chars: x.chars || 0, outcome: x.outcome, tokensIn: x.tokensIn || 0, tokensOut: x.tokensOut || 0 }, x.kind ? { kind: x.kind } : {},
-    x.requestId || x.errorType ? { requestId: String(x.requestId || '').slice(0, 80), errorType: String(x.errorType || '').slice(0, 60), status: x.status || 0 } : {})).catch(() => {});
-}
-
 /* a key or set-up problem: the API refused the request itself, not because it was busy */
-export function setupProblem(e) {
-  return e instanceof Anthropic.BadRequestError || e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError;
-}
-const fingerprint = (k) => createHash('sha256').update(String(k || '')).digest('hex').slice(0, 12);
-const stateRef = (dbi) => dbi.collection('sgAiState').doc('current');
-/* "set up but not working": the last call failed on set-up, with this same key, in the last 6 hours
-   (after that the box comes back, so one real attempt can find out whether it has been put right) */
-const BROKEN_FOR = 6 * 3600e3;
-async function broken(dbi, apiKey) {
-  const s = (await stateRef(dbi).get()).data();
-  return !!s && s.state === 'broken' && s.key === fingerprint(apiKey) && Date.now() - Date.parse(s.at || 0) < BROKEN_FOR;
-}
-
-/* a call that failed: a key or set-up problem is said plainly and remembered; anything else "could not be reached" */
-async function callFailed(dbi, e, key, base, what) {
-  const err = { status: e.status || 0, requestId: e.requestID || '', errorType: e.type || e.name || '' };
-  console.log(what + ': call failed for ' + base.calEventId + ' (' + err.status + ' ' + err.errorType + ', request ' + err.requestId + ')');
-  if (setupProblem(e)) {
-    await stateRef(dbi).set({ state: 'broken', key: fingerprint(key.apiKey), at: new Date().toISOString(), status: err.status, errorType: err.errorType, requestId: err.requestId });
-    await logIt(dbi, Object.assign({ outcome: 'setup-failed' }, base, err));
-    return new HttpsError('failed-precondition', Core.WORDS.setup);
-  }
-  await logIt(dbi, Object.assign({ outcome: 'failed' }, base, err));
-  return new HttpsError('unavailable', 'The AI could not be reached just now; try again later, or use a template.');
-}
-
-/* today's use, counted in a transaction: false when over a cap */
-async function takeOne(dbi, uid, cap) {
-  const ref = dbi.collection('sgAiUse').doc(londonDay());
-  return dbi.runTransaction(async (tx) => {
-    const d = (await tx.get(ref)).data() || { total: 0, by: {} };
-    if ((d.total || 0) >= cap.perChurch || ((d.by || {})[uid] || 0) >= cap.perPerson) return false;
-    tx.set(ref, { total: (d.total || 0) + 1, by: Object.assign({}, d.by || {}, { [uid]: ((d.by || {})[uid] || 0) + 1 }) });
-    return true;
-  });
-}
-
-/* the call: busy or overloaded is retried on the same model; nothing else is */
+export const setupProblem = setupProblemOf;
+/* the call (the shared engine's: busy or overloaded is retried on the same model; nothing else is); the draft's request by default */
 export async function callModel({ apiKey, baseURL, facts, text, checklist, request }) {
-  const client = new Anthropic({ apiKey, baseURL, maxRetries: 0, timeout: 120000 }), t0 = Date.now();
   const body = request || {
     model: Core.MODEL, max_tokens: 16000,
     system: [{ type: 'text', text: Core.SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: Core.userText(facts, text, checklist || Checklist.checklistFor(facts && facts.kind, {})) }],
     output_config: { format: { type: 'json_schema', schema: Core.SCHEMA } }
   };
-  for (let attempt = 0; ; attempt++) {
-    const left = BUDGET - (Date.now() - t0);
-    try {
-      return await client.messages.create(body, { timeout: Math.max(5000, Math.min(120000, left)) });
-    } catch (e) {
-      const busy = e instanceof Anthropic.RateLimitError || e instanceof Anthropic.InternalServerError;
-      if (!busy || attempt >= BACKOFF.length || BUDGET - (Date.now() - t0) < BACKOFF[attempt] + 20000) throw e;
-      await new Promise((r) => setTimeout(r, BACKOFF[attempt]));
-    }
-  }
+  return callOnce({ apiKey, baseURL, request: body });
 }
 
 export async function draftAssessment({ db: dbi, uid, data, api }) {
@@ -200,7 +134,7 @@ export async function draftAssessment({ db: dbi, uid, data, api }) {
   try { res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, facts, text, checklist }); }
   catch (e) { throw await callFailed(dbi, e, key, base, 'sgDraftAssessment'); }
   /* it worked: set-up is fine again */
-  if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
+  await noteWorking(dbi, key.apiKey);
   const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
   if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', Core.WORDS.refused); }
   let parsed = null;
@@ -266,7 +200,7 @@ export async function extractRequirements({ db: dbi, uid, data, api, bucket }) {
       messages: [{ role: 'user', content: Req.contentFor(kind, buf.toString('base64'), text, type) }],
       output_config: { format: { type: 'json_schema', schema: Req.REQ_SCHEMA } } } });
   } catch (e) { throw await callFailed(dbi, e, key, base, 'sgExtractRequirements'); }
-  if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
+  await noteWorking(dbi, key.apiKey);
   const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
   if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', 'The AI couldn’t read this; type the host’s requirements in as the church’s own questions instead.'); }
   let parsed = null;
@@ -375,7 +309,7 @@ export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) 
       messages: [{ role: 'user', content: Req.contentForWeb(read.pages, pasted, already) }],
       output_config: { format: { type: 'json_schema', schema: Req.REQ_SCHEMA_WEB } } } });
   } catch (e) { throw await callFailed(dbi, e, key, base, 'sgRequirementsFromLinks'); }
-  if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
+  await noteWorking(dbi, key.apiKey);
   const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
   if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', 'The AI couldn’t read this; type the host’s requirements in as the church’s own questions instead.'); }
   let parsed = null;
@@ -436,7 +370,6 @@ export const sgAiStatus = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_K
   if (!api.apiKey) return { state: 'notset', message: Core.WORDS.notSet };
   if (await broken(db(), api.apiKey)) return { state: 'broken', message: Core.WORDS.broken };
   const st = (await db().collection('safeguardingSettings').doc('defaults').get()).data() || {}, cap = Core.caps(st);
-  const u = (await db().collection('sgAiUse').doc(londonDay()).get()).data() || { total: 0, by: {} };
-  if ((u.total || 0) >= cap.perChurch || ((u.by || {})[req.auth.uid] || 0) >= cap.perPerson) return { state: 'capped', message: Core.WORDS.capped };
+  if (await usedUp(db(), req.auth.uid, cap)) return { state: 'capped', message: Core.WORDS.capped };
   return { state: 'ready' };
 });

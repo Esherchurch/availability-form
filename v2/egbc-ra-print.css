@@ -1,0 +1,62 @@
+/* THE A4 PRINT, shared by every register (F-280 section 2, H&S step 1): moved
+   unchanged from sg-print.html. Ratings carry their words (High, Medium, Low)
+   as well as their colour, so they read in black and white. */
+:root{--ink:#111827;--body:#374151;--muted:#6b7280;--line:#d1d5db;--red:#b0392c;--red-bg:#fdecea;--amber:#8a5a12;--amber-bg:#fdf3dc;--green:#15803d;--green-bg:#e7f6ec}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f1;color:var(--body);font:400 10.5pt/1.45 Inter,system-ui,-apple-system,sans-serif}
+.bar{max-width:210mm;margin:16px auto 0;padding:0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid #3d6263;background:#3d6263;color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}
+.bar .hint{color:var(--muted);font-size:13px}
+.sheet{max-width:210mm;margin:12px auto 40px;background:#fff;padding:16mm 14mm;box-shadow:0 1px 3px rgba(0,0,0,.12);position:relative}
+.head{display:flex;gap:12px;align-items:center;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:12px}
+.head img{height:44px;width:auto}
+.head .church{font:700 13pt Inter,sans-serif;color:var(--ink)}
+.head .what{color:var(--muted);font-size:10pt}
+h1{font:700 17pt Inter,sans-serif;color:var(--ink);margin:0 0 6px}
+h2{font:700 12.5pt Inter,sans-serif;color:var(--ink);margin:16px 0 6px;break-after:avoid}
+.status{border:3px solid var(--ink);border-radius:8px;padding:8px 12px;margin:8px 0 12px;font:800 15pt Inter,sans-serif;color:var(--ink);letter-spacing:.02em}
+.status.draft{border-color:var(--red);color:var(--red)}
+.status small{display:block;font:400 10pt Inter,sans-serif;letter-spacing:0;color:var(--body);margin-top:4px}
+/* THE DIALS (Martin, 23 Oct): the dashboard's own, in SVG so they print sharp; one row of four;
+   each says its rating or number in words, so a black-and-white print reads the same */
+.dials{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3mm;margin:2px 0 8px;break-inside:avoid}
+.dl{border:1px solid var(--line);border-radius:8px;padding:6px 4px 5px;text-align:center}
+.dl .t{font:600 9pt Inter,sans-serif;color:var(--ink);margin-top:2px}.dl .l{font-size:8.5pt;color:var(--body)}
+.sgd-dw{position:relative;max-width:150px;margin:0 auto}.sgd-dial{display:block;width:100%;height:auto}
+.sgd-mid{position:absolute;left:0;right:0;bottom:0;text-align:center}
+.sgd-n{font:600 15pt/1 Inter,sans-serif;color:var(--ink)}.sgd-n span{font-size:.6em;color:var(--muted);margin-left:1px}
+.sgd-of{font:400 8pt Inter,sans-serif;color:var(--muted);margin-top:2px}
+.sgd-dash{display:inline-block;width:20px;height:3px;border-radius:2px;background:var(--red);margin:12px 0 2px}
+@media (max-width:560px){.dials{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.must{border:2px solid var(--red);background:var(--red-bg);color:#7f1d1d;border-radius:8px;padding:8px 12px;margin:0 0 12px;break-inside:avoid}
+.must b{font-size:12pt}.must ul{margin:6px 0 0;padding-left:18px}
+.watermark{position:fixed;top:40%;left:0;right:0;text-align:center;font:800 90pt Inter,sans-serif;color:rgba(176,57,44,.08);transform:rotate(-28deg);pointer-events:none;z-index:0}
+table{width:100%;border-collapse:collapse;margin:4px 0 8px;position:relative;z-index:1}
+th,td{border:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+th{background:#f3f4f6;color:var(--ink);font-weight:600}
+.facts th{width:34%}
+tr{break-inside:avoid;page-break-inside:avoid}
+thead{display:table-header-group}
+.rag{display:inline-block;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+.rag.red{color:var(--red);background:var(--red-bg)}.rag.amber{color:var(--amber);background:var(--amber-bg)}.rag.green{color:var(--green);background:var(--green-bg)}
+td ul{margin:0;padding-left:16px}
+.ck td:first-child{width:46%}
+.na{color:var(--muted)}.missing{color:var(--red);font-weight:700}
+.note{color:var(--muted);font-size:9.5pt}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:8px;break-inside:avoid}
+.sign div{border-bottom:1px solid var(--ink);height:38px;position:relative}
+.sign span{position:absolute;bottom:-17px;left:0;font-size:9pt;color:var(--muted)}
+.wide{position:relative;z-index:1}
+@media (max-width:700px){.sheet{padding:8mm 5mm}.sign{grid-template-columns:1fr}}
+/* A4 portrait: page numbers and the date printed in the footer. The risk table follows straight on
+   (a change to landscape always starts a new page, which left one nearly empty - the reviewing
+   window, 23 Oct); its header repeats on each page, and a heading is never left alone at the foot */
+/* the page itself (A4, its margins and the page numbers) is written in by egbc-ra-print.js printedFooter(), with the date */
+@media print{
+  body{background:#fff;padding:0!important;margin:0}
+  #egbc-bar,#egbc-nav,#egbc-nav-scrim,#egbc-viewas,#egbc-viewas-top,#egbc-you,#egbc-you-btn,.bar,.noprint{display:none!important}
+  .sheet{box-shadow:none;margin:0;padding:0;max-width:none}
+  .wide table{font-size:9pt}.wide th,.wide td{padding:4px 5px}
+  h2{break-after:avoid;page-break-after:avoid}
+  a{color:inherit;text-decoration:none}
+}

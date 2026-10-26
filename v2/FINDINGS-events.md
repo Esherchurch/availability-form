@@ -12471,3 +12471,85 @@ The stand-in help centre has 5 folders of 12 articles (60):
   - (a) the audit lists safeguarding.html as open to everyone for reporting a concern; or
   - (b) the Menu offers everyone a "Report a concern" entry.
   I haven't edited the audit or the Menu (they're main's files).
+
+### F-294 — H&S step 1: the shared risk assessment engine, moved out of the safeguarding code with no change (F-280 section 2 and step 1) (the events window, 27 Oct)
+
+**What was built:** the pieces every register will share are now each in one place.
+- **They were moved, not rewritten.** The safeguarding files use them under their old names.
+- **Nothing in them is safeguarding's or any church's.** The health, safety and fire assessments (steps 2 to 7) will use them with their own data, rules and pages.
+
+| Shared piece | Now in | Moved from |
+|---|---|---|
+| Ratings (the bands, High/Medium/Low), "answered", the checklist builder, "still to do" counts, the dials | egbc-ra-core.js | egbc-sg-templates.js, egbc-sg-dash.js |
+| The A4 print: header, risk table in words, "still to do" table, a dial cell, the red box, signature lines, the page and its footer | egbc-ra-print.js, egbc-ra-print.css | sg-print.html |
+| The AI calls' plumbing: the key, the day's caps, the log, set-up problems and "not working", the call with its retries | functions/ra-ai.js | functions/sg-ai.js |
+| Personal details refused before a call; never socket covers; the bands on the server | functions/ra-ai-core.cjs | functions/sg-ai-core.cjs |
+| The document reader: what a file is, a Word document's words, the 7 MB limit, "no repeats" | functions/doc-reader-core.cjs | functions/sg-requirements-core.cjs |
+| The web reader | functions/web-reader-core.cjs | functions/sg-links-core.cjs (that name is kept) |
+
+- **Each register's AI records are its own.** `aiPlumbing()` is given each register's records (the day's use, the log, the "not working" state, the test stand-in). Safeguarding passes its own (`sgAiUse`, `sgAiLog`, `sgAiState`, `sgAiStub`), so the H&S caps will be separate (F-280 answer 9).
+- **Not shared, and why:** the rules. Each register's rules stay its own helpers (F-280 section 2), and the H&S ones come in step 3.
+
+**The proof it's unchanged:**
+- **The server's copy of the checklist** (functions/sg-checklist.cjs), regenerated from the moved code, is byte for byte the same.
+- **Every safeguarding test passes:**
+
+  | Test | Result |
+  |---|---|
+  | sg-ai | 73/73 |
+  | sg-host | 52/52 |
+  | sg-assess | 53/53 |
+  | sg-print | 42/42 |
+  | sg-register | 32/32 |
+  | sg-dash | 45/45 |
+  | sg-warnings | 34/34 |
+  | sg-lead | 14/14 |
+  | e3-safeguarding | 38/38 |
+  | under18 | 20/20 |
+  | sg-ai-unit | 68/68 |
+  | sg-register-unit | 38/38 |
+  | sg-warnings-unit | 72/72 |
+  | sg-links-unit | 34/34 |
+  | e3-safeguarding-unit | 17/17 |
+  | sg-ai-smoke | 7/7 |
+
+- **No test's checks changed. What did change:**
+  - **Three unit tests and the checklist generator** load the templates file on its own, so each now loads the engine's file first (one line each).
+  - **sg-warnings.test.mjs: its two seed leaders now have S3's checks** (barred-list level, reference, declaration).
+    - It had been failing since S3 (F-286): those checks are missing from its seed, so 3 amber warnings joined the 5 red ones it counts.
+    - That was my miss in S3: I didn't rerun it then.
+- **sg-headroom wasn't rerun.** No rules changed in this step.
+
+**New test: ra-engine-unit (18/18).** It checks:
+- the safeguarding files use the engine's functions, with no copy left in them
+- the server's old names are the engine's same functions
+- an invented fire checklist builds in the right order (core, kind, included kind, flag, the church's own)
+- the dials and the printed risk table work for it
+- a register's AI caps and log go only to the records it names
+- no church's name, team or host is in the engine's code
+
+**Breaks:** see the table below.
+
+**For the synthetic parish:** nothing changes for them. The engine has no church's names, teams or hosts in it, and the ra-engine test checks that.
+
+**Deploy (the reviewing window's), when convenient:** the safeguarding functions (sgDraftAssessment, sgAiStatus, sgExtractRequirements, sgRequirementsFromLinks, sgRequirementsFile). They now load the shared files, and nothing they do changes.
+
+**Breaks** (8, each caught):
+
+| Break | Result | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the shared bands changed (High from 16, not 15) | sg-register-unit 37/38 | "5 x 3 = 15 is high": the safeguarding register follows the engine |
+| the shared checklist drops the church's own questions | sg-ai-unit 67/68 | — |
+| the shared dial draws 13 blocks | sg-dash 44/45 | — |
+| the shared print's red box left out | sg-print 41/42 | — |
+| the shared socket-cover check lets them through | sg-ai 68/73 | — |
+| the shared reader no longer knows a Word document | sg-host 22/27 | — |
+| the shared caps never stop anyone | sg-ai 69/73 | — |
+| the shared log ignores the register's own records | ra-engine-unit 16/18 | — |
+
+Two of my first breaks went to tests that don't check them: "None given" in the print, and socket covers aimed at the unit test. I moved them to what those tests do check (the red box; sg-ai's section 13), and both were caught.
+
+**Also in this commit (the reviewing window's note, 27 Oct):** where a page is only a way to reach someone (Newday's night team), the host's list now asks "Does your group know how to reach the night team, and when?", never with the number, the email or a name.
+- The line is in REQ_SYSTEM.
+- sg-host checks it is in what is sent.
+- It needs sgRequirementsFromLinks and sgExtractRequirements deployed.

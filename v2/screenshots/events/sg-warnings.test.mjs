@@ -92,8 +92,10 @@ const NAMES = /Lena|Dee|Tom|Vic|Charlie|Casey|m_vic|m_lena/;
   S('safeguardingSettings', 'defaults', { templates: {}, ratioAll: 5, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false, leadSiteId: 'site_t', leadName: 'Lena Lead (invented)', leadPhone: '', updatedAt: 'x', updatedBy: 'x' });
   /* a Sunday group meeting two days on, with one regular leader, whose check has run out */
   S('kidsGroups', 'kg_juniors', { siteId: 'site_t', name: 'Juniors (invented)', years: [3, 4], active: true, ratio: 8, leaderIds: ['m_vic'], day: WD2, order: 1 });
-  S('leaderChecks', 'm_vic', { dbsStatus: 'seen', dbsSeen: '2020-01-01', trainingDate: '2020-01-01' });
-  S('leaderChecks', 'm_lena', { dbsStatus: 'seen', dbsSeen: Core.plus(TODAY, -100), trainingDate: Core.plus(TODAY, -100) });
+  /* S3's other checks (F-286: the barred list, a reference, the declaration) in order, so the five red warnings here are the only ones */
+  const S3 = { dbsLevel: 'enhancedBarred', referenceDate: Core.plus(TODAY, -100), declarationDate: Core.plus(TODAY, -100) };
+  S('leaderChecks', 'm_vic', Object.assign({ dbsStatus: 'seen', dbsSeen: '2020-01-01', trainingDate: '2020-01-01' }, S3));
+  S('leaderChecks', 'm_lena', Object.assign({ dbsStatus: 'seen', dbsSeen: Core.plus(TODAY, -100), trainingDate: Core.plus(TODAY, -100) }, S3));
   /* this morning: three children in, one leader */
   for (const [i, n] of ['Charlie Child (invented)', 'Casey Child (invented)', 'Cal Child (invented)'].entries()) {
     S('checkins', 'ck_' + i, { calEventId: 'kids_kg_juniors_' + TODAY, signupKey: 'kc_' + i, attendeeIndex: 0, name: n, kind: 'child', state: 'in', inAt: 'x', day: TODAY, groupId: 'kg_juniors', siteId: 'site_t', familyId: 'f_' + i, pickupCode: '1234' });

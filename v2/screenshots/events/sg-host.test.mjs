@@ -187,6 +187,7 @@ try {
   const s1 = SENT[0] || {};
   ok('   A SCANNED PAGE goes to Claude as a picture (the model reads it itself)', s1.model === 'claude-sonnet-5-5' && s1.messages[0].content[0].type === 'image' && s1.messages[0].content[0].source.media_type === 'image/png' && s1.messages[0].content[0].source.data === PNG.toString('base64') && s1.output_config.format.type === 'json_schema', J(s1.messages && s1.messages[0].content[0].type));
   ok('   with the instructions: one question each, never a name, phone or email', /One question for each separate requirement/.test(J(s1.system)) && /Never put a person’s name, phone number, email address/.test(J(s1.system)));
+  ok('   A PAGE THAT IS ONLY CONTACTS (the reviewing window, 27 Oct: Newday’s night team): asked as "does your group know how to reach them, and when", never the number', /only gives a way to reach someone/.test(J(s1.system)) && /Does your group know how to reach the night team, and when\?/.test(J(s1.system)) && /never with the number, the email or a name itself/.test(J(s1.system)), J(s1.system).slice(0, 200));
   const a1 = await assess();
   ok('   THE QUESTION WITH A PHONE NUMBER IS LEFT OUT (3 of 4), and the leader is told', a1.host.items.length === 3 && !/07700/.test(J(a1.host)) && a1.host.dropped === 1 && /names, phone numbers or emails in it/.test(await text(O, '#sgaHostPersonal')), J(a1.host.items.map((x) => x.q)));
   const [kept] = await bucket.file(a1.host.file.path).download();

@@ -161,7 +161,7 @@ ok('every item on file: done, green', rv.status === 'done' && rv.rag === 'green'
 rv = W.reviewFrom({ records: [rec('leads', '2026-03-01', true)], lastYear: [], today: TODAY });
 ok('   only the optional items can be marked "does not apply"', rv.na.length === 0 && rv.done === 1, J(rv));
 const vmod = { exports: {} };
-(await import('node:vm')).runInNewContext((await import('node:fs')).readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: vmod });
+(await import('node:vm')).runInNewContext((await import('node:fs')).readFileSync(path.join(V2, 'egbc-ra-core.js'), 'utf8') + '\n' + (await import('node:fs')).readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: vmod });  /* the shared engine first (H&S step 1) */
 ok('the page’s review items match the server’s (ids, who, optional)', J(vmod.exports.REVIEW_ITEMS.map((i) => [i.id, i.who, !!i.optional])) === J(W.REVIEW_ITEMS.map((i) => [i.id, i.who, !!i.optional])), J(vmod.exports.REVIEW_ITEMS.map((i) => i.id)));
 
 console.log('\n8. the other checks (S3): the barred list, a reference, the declaration - counts only');

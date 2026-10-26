@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const mod = { exports: {} };
-vm.runInNewContext(fs.readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: mod });
+vm.runInNewContext(fs.readFileSync(path.join(V2, 'egbc-ra-core.js'), 'utf8') + '\n' + fs.readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: mod });  /* the shared engine first (H&S step 1) */
 const T = mod.exports;
 const fn = (f) => f.toString();
 const out = `/* THE REQUIRED CHECKLIST, the server's copy (for the AI drafts, the host's

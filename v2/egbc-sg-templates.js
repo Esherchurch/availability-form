@@ -14,9 +14,13 @@
    rating(l, i) 'red' | 'amber' | 'green' - score = likelihood x impact:
                 15 and over red, 5 and over amber (the same bands as
                 risk.html's hazards)
+   The ratings, "answered", the checklist and "still to do" are the shared
+   engine's (egbc-ra-core.js, loaded first; H&S step 1): this file keeps
+   the safeguarding register's own lists and words.
    =================================================================== */
 (function (global) {
   'use strict';
+  var R = global.EGBCRaCore || require('./egbc-ra-core.js');
 
   var KINDS = [
     { id: 'sunday', label: 'Sunday children’s group' },
@@ -255,14 +259,7 @@
   /* a kind that has another kind's questions as well: a camp is an overnight too */
   var ALSO = { camp: ['overnight'] };
   /* the required questions for one event: the core, its kind's (and any it includes), the ticked flags', then the church's own */
-  function checklistFor(kind, flags, churchQs) {
-    flags = flags || {};
-    var out = [].concat(CHECKLIST.core.map(function (q) { return Object.assign({ group: 'core' }, q); }));
-    if (CHECKLIST[kind] && kind !== 'core') [kind].concat(ALSO[kind] || []).forEach(function (k) { out = out.concat(CHECKLIST[k].map(function (q) { return Object.assign({ group: k }, q); })); });
-    FLAGS.forEach(function (f) { if (flags[f.id] === true && CHECKLIST[f.id]) out = out.concat(CHECKLIST[f.id].map(function (q) { return Object.assign({ group: f.id }, q); })); });
-    (churchQs || []).forEach(function (q) { if (q && q.id && q.q) out.push({ id: q.id, label: q.q, hint: q.hint || 'The church’s own question', group: q.group || 'church' }); });
-    return out;
-  }
+  function checklistFor(kind, flags, churchQs) { return R.checklistFor({ CHECKLIST: CHECKLIST, ALSO: ALSO, FLAGS: FLAGS }, kind, flags, churchQs); }
   /* the host's checked requirements, as questions: "From <host>'s requirements" */
   function hostQuestions(a) {
     var h = a && a.host;
@@ -270,7 +267,7 @@
     return (h.items || []).map(function (x) { return { id: x.id, q: x.q, hint: 'From ' + (h.name || 'the host') + '’s requirements' + (x.line ? ': “' + x.line + '”' : ''), group: 'host' }; });
   }
   /* an answer is there: words, or "N/A: " with a reason (a cover amount alone is not an answer) */
-  function answered(v) { v = String(v || '').trim(); return !!v && !/^(N\/A|Yes|No):\s*$/.test(v) && !/^£[\d,]*:\s*$/.test(v); }
+  var answered = R.answered;
   /* the paediatric first aider: none is a flag - amber, red when under-8s go */
   function paedFlag(answers, flags) { return /^No\b/i.test(String((answers || {}).paedFirstAid || '').trim()) ? ((flags || {}).under8 ? 'red' : 'amber') : ''; }
   /* the public liability cover from the insurance answer ("£5,000,000: ..."), or null */
@@ -287,20 +284,7 @@
      redOpen (open on a risk still High after its controls) }, counts. */
   /* no limit but what a record holds (Martin, H-9): 50 a risk; the pages say so when a risk is full */
   var MAX_TODO = 50;
-  function todoState(risks, today) {
-    var s = { open: 0, overdue: 0, unready: 0, redOpen: 0 };
-    (risks || []).forEach(function (r) {
-      var red = rating(r.rl, r.ri) === 'red';
-      (r.todo || []).forEach(function (t) {
-        if (!t || t.done || !String(t.what || '').trim()) return;
-        s.open++;
-        if (!String(t.who || '').trim() || !t.by) s.unready++;
-        else if (today && t.by < today) s.overdue++;
-        if (red) s.redOpen++;
-      });
-    });
-    return s;
-  }
+  var todoState = R.todoState;
   /* "TRUSTEES NOTED" (S4): which signed assessments the trustees note - a
      church setting (register.noted), by default camps, overnights, trips
      abroad and adventurous activities */
@@ -325,8 +309,7 @@
     return out;
   }
 
-  function score(l, i) { return (+l || 0) * (+i || 0); }
-  function rating(l, i) { var s = score(l, i); return s >= 15 ? 'red' : s >= 5 ? 'amber' : 'green'; }
+  var score = R.score, rating = R.rating;
   function kindLabel(id) { var k = KINDS.filter(function (x) { return x.id === id; })[0]; return k ? k.label : id; }
   function controlLabel(c) {
     if (!c) return '';
