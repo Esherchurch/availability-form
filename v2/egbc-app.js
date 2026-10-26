@@ -327,6 +327,7 @@
      no row of spaces at all, which is the Attender case and is deliberate -
      not an empty row, no row. */
   function spacesFor(me) {
+    ensureCoreSpaces();
     var out = ['me'];
     if (me.parentOnly) return out;
     Object.keys(SPACES).forEach(function (k) {
@@ -404,6 +405,36 @@
       spaces: ['office'] },
     { key: 'me', label: 'Just me', icon: 'smile', colour: '#3d6263', tint: '#f1f3f4', spaces: ['me'] }
   ];
+  /* EVERY CORE TEAM GETS ITS OWN SPACE (H-15; Martin, 26 Oct 2026: "We
+     absolutely need that"). Core Team - EGBC's Worship Core Team - keeps
+     the space above, exactly as it is. Any other team that is a core team
+     (Teams & groups, "core team for") gets one made here, named after it,
+     with the same four tabs; app.html draws them for any such space
+     (CORE_SCREENS), from what its covered teams have. A core team covering
+     an under-18s team sits with Kids and youth; any other, with Sunday
+     worship. Made again whenever the church's teams change. */
+  var CORE_SCREENS = {};
+  function coreSpaceKey(team) { return 'core_' + String(team).toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+  function ensureCoreSpaces() {
+    var T = (global.EGBCAuth && EGBCAuth.TEAMS) || {};
+    Object.keys(T).forEach(function (id) {
+      var t = T[id] || {};
+      if (id === 'Core Team' || t.archived || !(t.coreFor || []).length) return;
+      var key = coreSpaceKey(id);
+      var young = t.coreFor.some(function (c) { return T[c] && T[c].under18; });
+      SPACES[key] = {
+        label: t.label || id, colour: t.colour || '#7a6b4a', tint: '#f3efe6', teams: [id],
+        coreTeam: id, covers: t.coreFor.slice(),
+        tabs: [['plan', 'Plan', 'clipboard-list'], ['rota', 'Rota', 'calendar-check'],
+               ['meetings', 'Meetings', 'video'], ['team', 'Team', 'users']]
+      };
+      SPACES[key].tabs.forEach(function (tab) {
+        screen(key, tab[0], function () { var f = CORE_SCREENS[tab[0]]; return f ? f(key) : ''; });
+      });
+      var mode = modeByKey(young ? 'kids' : 'sunday');
+      if (mode && mode.spaces.indexOf(key) === -1) mode.spaces.push(key);
+    });
+  }
   function modeByKey(k) {
     for (var i = 0; i < MODES.length; i++) if (MODES[i].key === k) return MODES[i];
     return null;
@@ -951,6 +982,9 @@
   global.EGBCApp = {
     SPACES: SPACES,
     screen: screen, has: has, sheet: sheet, refresh: refresh, go: go, draw: draw,
+    /* A core team's space (H-15): app.html sets CORE_SCREENS.plan, .rota,
+       .meetings and .team, each drawn for a space key. */
+    CORE_SCREENS: CORE_SCREENS, coreSpaceKey: coreSpaceKey, coreSpaces: function () { ensureCoreSpaces(); return Object.keys(SPACES).filter(function (k) { return SPACES[k].coreTeam; }); },
     who: who, spacesFor: spacesFor, tabsFor: tabsFor,
     MODES: MODES, modesFor: function () { return modesFor(spacesFor(who())).map(function (m) { return m.key; }); },
     mode: function (key) { enterMode(key, true); }, buildingPages: buildingPages,

@@ -415,7 +415,7 @@
 <script src="egbc-notify-core.js?v=202610262100"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
 <script src="egbc-menu.js?v=202610262100"></script>
-<script src="egbc-app.js?v=202610201600"></script>
+<script src="egbc-app.js?v=202610262330"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
@@ -1548,7 +1548,9 @@ function teamRota(label, spaceKey) {
   loadTeamRota();
   var me = A.who();
   var sp = A.SPACES[spaceKey] || A.SPACES.me;
-  var teams = sp.teams || [];
+  /* A core team's space shows the rota of the teams it covers (H-15). The
+     rota tags Youth Worship's services "Youth", as meetingForMe knows. */
+  var teams = sp.covers ? sp.covers.concat(sp.covers.indexOf('Youth Worship') !== -1 ? ['Youth'] : []) : (sp.teams || []);
   var mine = TEAMROTA.dates.filter(function (d) {
     return d.teams.some(function (t) { return teams.indexOf(t) !== -1; });
   });
@@ -2105,6 +2107,66 @@ A.screen('core', 'team', function () {
     row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html') +
     row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html'));
 });
+
+/* ---- A core team's own space (H-15; Martin, 26 Oct 2026) -------------
+   For every core team but Core Team (whose space is above, unchanged):
+   EGBC's Kids & Youth Core Team, and any church's. Each tab shows what
+   the teams it covers have - children's and youth teams: the Session
+   planner, Present and the youth service plan; worship teams: Sunday's
+   service plan. egbc-app.js makes the space and asks these for it. */
+(function () {
+  var C = A.CORE_SCREENS;
+  var T = function () { return (window.EGBCAuth && EGBCAuth.TEAMS) || {}; };
+  var covers = function (k) { return (A.SPACES[k] && A.SPACES[k].covers) || []; };
+  var young = function (k) { return covers(k).some(function (t) { return T()[t] && T()[t].under18; }); };
+  var adult = function (k) { return covers(k).some(function (t) { return !(T()[t] && T()[t].under18); }); };
+  /* The space a covered team has of its own (Kids Church's, Youth's...). */
+  var spaceOf = function (team) {
+    return Object.keys(A.SPACES).filter(function (s) { return !A.SPACES[s].coreTeam && (A.SPACES[s].teams || []).indexOf(team) !== -1; })[0] || '';
+  };
+  var CHARTERS = { 'Worship Team': 'Worshipteamcharter.html', 'Youth Worship': 'Youthcharter.html' };
+
+  C.plan = function (k) {
+    var rows = '';
+    if (young(k)) {
+      var groups = window.EGBCAuth && (EGBCAuth.isMaster() || (EGBCAuth.isOnPlanGroup && EGBCAuth.isOnPlanGroup()));
+      if (groups && A.uses('sessionPlanner')) {
+        rows += row('notebook-pen', 'Session planner', "Plan this week's sessions", null, 'open:session-planner.html')
+          + row('presentation', 'Present', 'Show a session on every screen, from your phone', null, 'open:present.html');
+      }
+      if (covers(k).indexOf('Youth Worship') !== -1) rows += row('list-ordered', 'Youth service plan', "The youth service's order", null, 'open:youthserviceplanner.html');
+    }
+    if (adult(k)) rows += row('list-music', "Sunday's service plan", 'The order of service', null, 'open:SundayServicePlanner.html');
+    return head('Plan', 'What your teams are planning')
+      + card(rows || '<div style="padding:14px;font-size:14px">Nothing to plan here yet.</div>');
+  };
+
+  C.rota = function (k) {
+    return teamRota(A.SPACES[k].label, k)
+      + card(row('calendar-plus', 'Plan the rota', 'Build the term and send it', null, 'open:Planner.html',
+                 A.SPACES[k].colour, A.SPACES[k].tint));
+  };
+
+  C.meetings = function () {
+    setTimeout(mountCoreMeetings, 0);
+    return head('Meetings', 'Join a call, and what is coming up') + '<div id="core-meet-host"></div>';
+  };
+
+  C.team = function (k) {
+    var rows = '';
+    covers(k).forEach(function (t) {
+      if (CHARTERS[t]) rows += row('scroll-text', (T()[t] && T()[t].label || t) + "'s charter", 'What the team is for, and how it works', null, 'open:' + CHARTERS[t]);
+    });
+    covers(k).forEach(function (t) {
+      var s = spaceOf(t);
+      if (s) rows += row('sticky-note', A.SPACES[s].label + ' pin board', 'The team’s notes', null, 'sheet:board-' + s);
+    });
+    if (young(k)) rows += row('shield-check', 'Safeguarding', 'Report a concern, the policy, your training', null, 'open:safeguarding.html');
+    rows += row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html')
+      + row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html');
+    return teamTeam(k, rows);
+  };
+})();
 
 /* ---- Maintenance ------------------------------------------------------ */
 

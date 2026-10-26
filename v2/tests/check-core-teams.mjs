@@ -4,6 +4,8 @@
  *
  *   node tests/check-core-teams.mjs              (from v2/, the dev emulators up)
  *   BREAK=covers node tests/check-core-teams.mjs  core teams cover nothing: must fail
+ *   BREAK=space node tests/check-core-teams.mjs   no app space for any core team but
+ *                                                 Core Team: must fail
  *   BREAK=wide node tests/check-core-teams.mjs    Core Team covering Kids Church too
  *                                                 (church-wide, as before): must fail
  *
@@ -60,7 +62,13 @@ const server = http.createServer((q, s) => {
   if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { s.writeHead(404); return s.end(); }
   let body = fs.readFileSync(f, 'utf8');
   if (/\.html$/.test(f)) { const h = /<head[^>]*>/i.exec(body); if (h) body = body.slice(0, h.index + h[0].length) + NO_SW + body.slice(h.index + h[0].length); }
-  if (url === '/egbc-auth.js' && BREAK) {
+  /* BREAK=space: no space for any core team but Core Team, as before. */
+  if (url === '/egbc-app.js' && BREAK === 'space') {
+    const was = body;
+    body = body.replace('  function ensureCoreSpaces() {', '  function ensureCoreSpaces() { return;');
+    if (body === was) console.log('  FAIL  the break did not apply');
+  }
+  if (url === '/egbc-auth.js' && BREAK && BREAK !== 'space') {
     const was = body;
     /* covers: core teams cover nothing. wide: Core Team church-wide again. */
     if (BREAK === 'covers') body = body.replace('  function coversOf(teams) {\n    var out = [];', '  function coversOf(teams) {\n    return [];\n    var out = [];').replace('  function coversOf(teams) {\r\n    var out = [];', '  function coversOf(teams) {\r\n    return [];\r\n    var out = [];');
@@ -128,6 +136,10 @@ try {
   ok('  the hub\'s Sundays card: the service plan, no Session planner', /Sunday service plan/.test(L.sundays) && !/Session planner/.test(L.sundays), L.sundays.slice(0, 160));
   let S = await spaces();
   ok('  the app: Worship & AV\'s space, not Kids Church\'s', S.includes('worship') && !S.includes('kids'), S);
+  /* Its own core team space, exactly as before (the Worship Core Team's). */
+  ok('  and the Core Team space, not the Kids & Youth Core Team\'s', S.includes('core') && !S.includes('core_kidsyouthcoreteam'), S);
+  await evl('EGBCApp.go("core","plan");1'); await sleep(1500);
+  ok('  whose Plan is still the service planner', /This Sunday/.test(String(await evl('document.body.innerText'))) && String(await evl('!!document.getElementById("core-plan-host")')) === 'true');
 
   console.log('\nA plain Kids & Youth Core Team member (not a master admin)');
   await signIn('kycore'); await openHub();
@@ -144,6 +156,17 @@ try {
   ok('  and the Session planner (needs the events window\'s planGroups rule)', /Session planner/.test(L.sundays), L.sundays.slice(0, 160));
   S = await spaces();
   ok('  the app: Kids Church\'s space, not Worship & AV\'s', S.includes('kids') && !S.includes('worship'), S);
+  /* ITS OWN SPACE (Martin, 26 Oct 2026: "We absolutely need that"). */
+  ok('  and its own space, the Kids & Youth Core Team\'s, not Core Team\'s', S.includes('core_kidsyouthcoreteam') && !S.includes('core'), S);
+  const tab = async (t) => { await evl('EGBCApp.go("core_kidsyouthcoreteam",' + JSON.stringify(t) + ');1'); await sleep(1500); return String(await evl('document.body.innerText.replace(/\\s+/g," ")')); };
+  let txt = await tab('plan');
+  ok('  its Plan: the Session planner, Present and the youth service plan - not Sunday\'s', /Session planner/.test(txt) && /Present/.test(txt) && /Youth service plan/.test(txt) && !/Sunday's service plan/.test(txt), txt.slice(0, 220));
+  txt = await tab('rota');
+  ok('  its Rota: the covered teams\' rota, and planning it', /Your rota/.test(txt) && /Plan the rota/.test(txt), txt.slice(0, 220));
+  txt = await tab('meetings');
+  ok('  its Meetings', /Meetings/.test(txt) && String(await evl('!!document.getElementById("core-meet-host")')) === 'true');
+  txt = await tab('team');
+  ok('  its Team: Youth\'s charter, the covered teams\' pin boards, safeguarding', /charter/.test(txt) && /Kids Church pin board/.test(txt) && /Safeguarding/.test(txt), txt.slice(0, 260));
 
   console.log('\nWhat the server keeps for the rules (functions/core-teams.js)');
   let wc = null, ky = null;
