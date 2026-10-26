@@ -295,10 +295,13 @@ export const sgExtractRequirements = onCall({ region: REGION, secrets: [CHQ_ANTH
    Newday has no single document, only help pages. The pages are read by
    functions/sg-links-core.cjs - https only, public addresses only, connected
    to the address that was checked, redirects checked one by one, 2 MB a page,
-   20 pages, 45 seconds, one level down on the same site - and their words go
+   40 pages, 45 seconds, one level down on the same site - and their words go
    to Claude exactly as a file's do. Each question says which page it came
    from; what was read is kept in Storage beside the files; the leader checks
-   the list before anything counts. Same people, caps and log as a file. */
+   the list before anything counts. Same people, caps and log as a file.
+   "READ THE NEXT" (F-293): what wasn't reached is kept (web.next, in the same turn order); { more: true } reads the
+   next 40 of it - the same limits, one call against the day's AI limit like any - and adds its questions to the same
+   unconfirmed list. Claude is told the questions already there, and any that comes back the same is dropped. */
 /* one request, made to the address that was checked (so the name can't be switched in between), its size capped */
 function pinnedRequest({ url, address, family, maxBytes, timeoutMs }) {
   return new Promise((resolve, reject) => {
@@ -326,9 +329,10 @@ export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) 
   data = data || {};
   const calEventId = String(data.calEventId || '');
   if (!calEventId || calEventId.includes('/')) throw new HttpsError('invalid-argument', 'Which event?');
-  const urls = (Array.isArray(data.urls) ? data.urls : []).map((x) => String(x || '').trim()).filter(Boolean);
-  const pasted = String(data.text || '').slice(0, 60000);
-  if (!urls.length && !pasted.trim()) throw new HttpsError('invalid-argument', 'Give the host’s web page addresses, or paste their requirements.');
+  const more = data.more === true;
+  const urls = more ? [] : (Array.isArray(data.urls) ? data.urls : []).map((x) => String(x || '').trim()).filter(Boolean);
+  const pasted = more ? '' : String(data.text || '').slice(0, 60000);
+  if (!more && !urls.length && !pasted.trim()) throw new HttpsError('invalid-argument', 'Give the host’s web page addresses, or paste their requirements.');
   if (urls.length > Links.LIMITS.starts) throw new HttpsError('invalid-argument', 'Up to ' + Links.LIMITS.starts + ' addresses at a time. The pages they link to on the same site are read too.');
   const w = await whoFor(dbi, uid, calEventId);
   if (!w.ok) throw new HttpsError('permission-denied', 'This is for the event’s organiser and leaders, and the safeguarding lead and deputy.');
@@ -336,7 +340,15 @@ export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) 
   if (!KINDS.includes(w.e.sgKind || '') || w.l.under18 !== true) throw new HttpsError('failed-precondition', 'Only an under-18s trip, overnight, holiday club, off-site event or camp needs this.');
   const cur = (await dbi.collection('sgAssessments').doc(calEventId).get()).data();
   if (cur && (cur.status === 'signed' || cur.waived)) throw new HttpsError('failed-precondition', 'This assessment is already signed off (or not needed). Change it by hand instead.');
-  const base = { siteId: w.site, calEventId, by: uid, byName: w.u.name, chars: pasted.length, kind: 'requirements-web' };
+  /* the next pages: only those left from the host's own addresses (the hosts they were on) */
+  const was = more ? ((cur || {}).host || {}) : null;
+  const starts = more ? ((was.web || {}).starts || []) : urls.slice(0, Links.LIMITS.starts);
+  const hostsOf = new Set(starts.map((u) => { try { return new URL(u).host; } catch (e) { return ''; } }).filter(Boolean));
+  const next = more ? ((was.web || {}).next || []).filter((u) => { try { return hostsOf.has(new URL(u).host); } catch (e) { return false; } }) : null;
+  if (more && !(next || []).length) throw new HttpsError('failed-precondition', 'There are no more of the host’s pages to read.');
+  const already = more ? (was.items || []).map((x) => x.q) : [];
+  if (more && already.length >= Core.MAX.host) throw new HttpsError('failed-precondition', 'The host’s list already holds ' + Core.MAX.host + ' questions, the most it can. Remove some first.');
+  const base = { siteId: w.site, calEventId, by: uid, byName: w.u.name, chars: pasted.length, kind: 'requirements-web' + (more ? '-more' : '') };
   const key = api || (await apiOf(dbi));
   if (!key.apiKey) throw new HttpsError('failed-precondition', Core.WORDS.notSet);
   const { st, names } = await factsFor(dbi, w, 0);
@@ -344,13 +356,15 @@ export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) 
   /* the pages, read safely (on the emulator only, a test may name its own stand-in site) */
   let d = deps || realDeps();
   if (!deps && process.env.FUNCTIONS_EMULATOR === 'true') { const t = (await dbi.collection('sgAiStub').doc('config').get()).data(); if (t && Array.isArray(t.webHosts)) d = Object.assign({}, d, { testHosts: t.webHosts }); }
-  const read = urls.length ? await Links.readPages(urls, d) : { pages: [], refused: [] };
+  const read = more ? await Links.readPages(null, d, next) : urls.length ? await Links.readPages(urls, d) : { pages: [], refused: [], next: [] };
   if (!read.pages.length && !pasted.trim()) {
     await logIt(dbi, Object.assign({ outcome: 'unreadable', pages: 0 }, base));
-    throw new HttpsError('failed-precondition', 'Nothing could be read from those addresses: ' + read.refused.map((r) => r.url + ' (' + r.why + ')').join('; ').slice(0, 600) + '. Paste their requirements instead.');
+    throw new HttpsError('failed-precondition', 'Nothing could be read from ' + (more ? 'the next pages' : 'those addresses') + ': ' + read.refused.map((r) => r.url + ' (' + r.why + ')').join('; ').slice(0, 600) + '. Paste their requirements instead.');
   }
   /* what was read, kept with the assessment (the words; any PDF as it came) */
-  const kept = read.pages.map((p) => '== ' + p.url + (p.title ? ' (' + p.title + ')' : '') + ' ==\n' + (p.kind === 'pdf' ? '[a PDF]' : p.text)).join('\n\n') + (pasted.trim() ? '\n\n== Pasted text ==\n' + pasted : '');
+  let before = '';
+  if (more && was.file && was.file.path) { try { [before] = await (bucket || getStorage().bucket()).file(was.file.path).download(); before = before.toString('utf8') + '\n\n'; } catch (e) { before = ''; } }
+  const kept = before + read.pages.map((p) => '== ' + p.url + (p.title ? ' (' + p.title + ')' : '') + ' ==\n' + (p.kind === 'pdf' ? '[a PDF]' : p.text)).join('\n\n') + (pasted.trim() ? '\n\n== Pasted text ==\n' + pasted : '');
   const path = 'sgRequirements/' + calEventId + '/' + Date.now() + '-web.txt';
   await (bucket || getStorage().bucket()).file(path).save(Buffer.from(kept, 'utf8'), { contentType: 'text/plain; charset=utf-8', resumable: false });
   base.pages = read.pages.length; base.chars = kept.length;
@@ -358,7 +372,7 @@ export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) 
   try {
     res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, request: { model: Core.MODEL, max_tokens: 8000,
       system: [{ type: 'text', text: Req.REQ_SYSTEM, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: Req.contentForWeb(read.pages, pasted) }],
+      messages: [{ role: 'user', content: Req.contentForWeb(read.pages, pasted, already) }],
       output_config: { format: { type: 'json_schema', schema: Req.REQ_SCHEMA_WEB } } } });
   } catch (e) { throw await callFailed(dbi, e, key, base, 'sgRequirementsFromLinks'); }
   if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
@@ -368,18 +382,23 @@ export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) 
   try { parsed = res.stop_reason === 'max_tokens' ? null : JSON.parse((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')); } catch (e) { parsed = null; }
   const n = Req.normaliseReqs(parsed, names);
   if (!n.ok) { await logIt(dbi, Object.assign({ outcome: 'failed' }, base, usage)); throw new HttpsError('internal', 'The list came back incomplete; try again.'); }
-  const at = new Date().toISOString(), hostName = String(data.host || '').trim().slice(0, 120) || n.host || 'the host';
+  const at = new Date().toISOString(), hostName = more ? (was.name || 'the host') : String(data.host || '').trim().slice(0, 120) || n.host || 'the host';
+  const fresh = more ? Req.newOnly(n.items, already) : { items: n.items, repeats: 0 };
+  const room = Core.MAX.host - already.length, adding = fresh.items.slice(0, Math.max(0, room));
+  const pagesNow = read.pages.map((p) => ({ url: p.url.slice(0, 500), title: String(p.title || '').slice(0, 200) }));
   const host = { name: hostName, file: { path, name: 'What was read from the web pages.txt', type: 'text/plain', size: Buffer.byteLength(kept) },
-    web: { pages: read.pages.map((p) => ({ url: p.url.slice(0, 500), title: String(p.title || '').slice(0, 200) })), refused: read.refused.slice(0, 20).map((r) => ({ url: String(r.url).slice(0, 500), why: r.why })), pasted: !!pasted.trim(), at },
-    items: n.items.map((x, i) => Object.assign({ id: 'h_' + i + '_' + Math.random().toString(36).slice(2, 8), q: x.q, line: x.line }, x.source ? { source: x.source } : {})),
-    extractedAt: at, by: uid, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound, confirmed: false };
+    web: { pages: (more ? (was.web.pages || []).concat(pagesNow) : pagesNow).slice(0, 500), refused: read.refused.slice(0, 20).map((r) => ({ url: String(r.url).slice(0, 500), why: r.why })),
+      next: read.next.slice(0, 500).map((u) => u.slice(0, 500)), starts: starts.map((u) => u.slice(0, 500)), reads: (more ? (was.web.reads || 1) : 0) + 1, pasted: more ? !!was.web.pasted : !!pasted.trim(), at },
+    items: (more ? was.items || [] : []).concat(adding.map((x, i) => Object.assign({ id: 'h_' + (already.length + i) + '_' + Math.random().toString(36).slice(2, 8), q: x.q, line: x.line }, x.source ? { source: x.source } : {}))),
+    extractedAt: at, by: uid, dropped: (more ? was.dropped || 0 : 0) + n.dropped, leftOut: (more ? was.leftOut || 0 : 0) + n.leftOut, personalFound: (more && was.personalFound) || n.personalFound, confirmed: false };
+  if (more) host.repeats = (was.repeats || 0) + fresh.repeats;
   const ref = dbi.collection('sgAssessments').doc(calEventId), b = dbi.batch();
   if (cur) b.update(ref, { host, hostIds: [], updatedAt: at, updatedBy: uid });
   else b.set(ref, { siteId: w.site, calEventId, title: String(w.e.title || '').slice(0, 120), templateId: w.e.sgKind, answers: {}, risks: [], status: 'draft', version: 1, host, hostIds: [], updatedAt: at, updatedBy: uid });
   b.set(dbi.collection('sgGate').doc(calEventId), { needed: true, open: false, updatedAt: at });
   await b.commit();
   await logIt(dbi, Object.assign({ outcome: 'extracted' }, base, usage));
-  return { ok: true, count: host.items.length, pages: read.pages.length, refused: host.web.refused, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound,
+  return { ok: true, count: host.items.length, added: adding.length, repeats: fresh.repeats, full: fresh.items.length > adding.length, left: host.web.next.length, pages: read.pages.length, refused: host.web.refused, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound,
     message: n.personalFound ? 'The pages seem to have names, phone numbers or emails on them. They were left out of the questions.' : '' };
 }
 export const sgRequirementsFromLinks = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {

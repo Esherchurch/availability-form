@@ -90,6 +90,10 @@ const SITE = {
   '/articles/safeguarding': pageOf('Safeguarding (invented)', 'Every adult in your group must have read our safeguarding policy and have a church leader’s reference.'),
   '/articles/camping': pageOf('Camping (invented)', 'Tents must be 2 metres apart; cooking tents 3 metres from anything.')
 };
+for (let f = 1; f <= 5; f++) {
+  const arts = []; for (let a = 1; a <= 12; a++) { const p = '/hc/articles/' + f + (a < 10 ? '0' : '') + a; arts.push(p); SITE[p] = pageOf('Folder ' + f + ' article ' + a + ' (invented)', 'Rule ' + f + '.' + a + ' for groups (invented).'); }
+  SITE['/hc/folders/' + f] = pageOf('Folder ' + f + ' (invented)', 'Articles in this folder:', arts);
+}
 const webStub = http.createServer((req, res) => { WEBHIT.push(req.url); const b = SITE[req.url]; res.writeHead(b ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(b || 'Not found'); });
 await new Promise(r => webStub.listen(5619, '127.0.0.1', r));
 
@@ -311,6 +315,43 @@ try {
   ok('PASTED TEXT ON ITS OWN: read, and its question says "pasted text"', pasted.ok && a11c.host.web.pasted === true && a11c.host.web.pages.length === 0 && a11c.host.items[0].source === 'pasted text', J(pasted));
   const lw = (await logs()).filter((l) => l.kind === 'requirements-web');
   ok('   THE LOG: "requirements-web" and counts; never an address or the words', lw.length >= 2 && !/127\.0\.0\.1|10\.0\.0\.1|Tents|fire blanket/.test(J(lw)), J(lw));
+
+  /* 12. "READ THE NEXT" (F-293): the second live run read 40 of Newday's ~48 articles; the rest, 40 at a time */
+  await db.collection('sgAiUse').doc(londonDay()).set({ total: 0, by: {} });
+  const HCF = [1, 2, 3, 4, 5].map((f) => BASE + '/hc/folders/' + f);
+  QUEUE.push(answer({ host: 'A camp (invented)', personalFound: false, items: [
+    { question: 'Has every adult read the camp’s safeguarding policy? (invented)', line: 'Rule 1.1', source: BASE + '/hc/articles/101' },
+    { question: 'Does every group bring its own first aid kit? (invented)', line: 'Rule 2.1', source: BASE + '/hc/articles/201' }] }));
+  const first12 = await call(O, 'sgRequirementsFromLinks', { calEventId: EID, host: 'A camp (invented)', urls: HCF });
+  const a12 = await assess();
+  ok('12. 5 FOLDERS, 60 ARTICLES: the first read is 40 pages, and the 25 not reached are kept for "Read the next"', first12.ok && a12.host.web.pages.length === 40 && a12.host.web.next.length === 25 && a12.host.web.next[0] === BASE + '/hc/articles/108', J([first12, (a12.host.web || {}).next]));
+  await go(O, 'safeguarding.html?event=' + EID, '#sgaHostNext');
+  ok('   THE LEADER SEES: "25 more of the host’s pages were not read yet … Each read counts as one use of the AI." and "Read the next 25"', /25 more of the host’s pages were not read yet\./.test(await text(O, '#sgaHostMore')) && /Each read counts as one use of the AI\./.test(await text(O, '#sgaHostMore')) && (await text(O, '#sgaHostNext')) === 'Read the next 25', await text(O, '#sgaHostMore'));
+  /* the leader has changed one question on the page, not yet confirmed */
+  await O.$eval('[data-hostitem] [data-hostq]', (e) => { e.value = 'Has every adult read and signed the camp’s safeguarding policy? (invented)'; });
+  QUEUE.push(answer({ host: 'A camp (invented)', personalFound: false, items: [
+    { question: 'does every group bring its own first-aid kit (invented)', line: 'Rule 2.1', source: BASE + '/hc/articles/201' },
+    { question: 'Will the group wear its wristbands all week? (invented)', line: 'Rule 3.9', source: BASE + '/hc/articles/309' }] }));
+  const n12 = SENT.length, h12 = WEBHIT.length, use12 = ((await db.collection('sgAiUse').doc(londonDay()).get()).data() || {}).total || 0;
+  await tap(O, '#sgaHostNext');
+  await O.waitForSelector('#sgaHostAdded', { timeout: 90000 }).catch(() => null);
+  const hits12 = WEBHIT.slice(h12), sent12 = J((SENT[n12] || {}).messages), b12 = await assess();
+  ok('THE NEXT READ CARRIES ON WHERE IT STOPPED: folder 1’s 8th article first, the 25 left, never the folders or an article already read', hits12[0] === '/hc/articles/108' && hits12.length === 25 && !hits12.some((x) => /folders|\/hc\/articles\/(10[1-7]|20[1-7]|30[1-7]|40[1-7]|50[1-7])$/.test(x)), J(hits12.slice(0, 6)));
+  ok('   THE AI IS TOLD the questions already on the list (as the leader changed them), not to give them again', /already on the church’s list/.test(sent12) && /read and signed the camp’s safeguarding policy/.test(sent12) && /Does every group bring its own first aid kit\?/.test(sent12) && /Rule 4\.12 for groups/.test(sent12), sent12.slice(0, 400));
+  ok('   ADDED TO THE SAME LIST, NO REPEATS: the leader’s change kept, the repeated question left out, the new one added; still to be checked', b12.host.items.length === 3 && /read and signed/.test(b12.host.items[0].q) && b12.host.items[2].q === 'Will the group wear its wristbands all week? (invented)' && b12.host.repeats === 1 && b12.host.confirmed === false && J(b12.hostIds) === '[]', J(b12.host.items));
+  ok('   THE LEADER IS TOLD: "One new question added from 25 more pages." and "One question … repeated ones already here, and was left out."', (await text(O, '#sgaHostAdded')) === 'One new question added from 25 more pages.' && /One question from the next pages repeated ones already here, and was left out\./.test(await text(O, '#sgaHostRepeats')), [await text(O, '#sgaHostAdded'), await text(O, '#sgaHostRepeats')].join(' | '));
+  ok('   all 65 pages listed as read; nothing left, so no button', b12.host.web.pages.length === 65 && b12.host.web.next.length === 0 && b12.host.web.reads === 2 && !(await O.$('#sgaHostNext')) && /Read from 65 pages/.test(await text(O, '#sgaHostWeb')), J([b12.host.web.pages.length, b12.host.web.next]));
+  const [kept12] = await bucket.file(b12.host.file.path).download();
+  ok('   WHAT WAS READ IS KEPT: both reads, in one file', /Rule 1\.1 for groups/.test(kept12.toString()) && /Rule 5\.12 for groups/.test(kept12.toString()), b12.host.file.path);
+  const use12b = ((await db.collection('sgAiUse').doc(londonDay()).get()).data() || {}).total || 0;
+  ok('   ONE USE OF THE DAY’S AI LIMIT, like any call; logged as "requirements-web-more", never an address', use12b === use12 + 1 && (await logs()).some((l) => l.kind === 'requirements-web-more' && l.outcome === 'extracted' && !/127\.0\.0\.1/.test(J(l))), J([use12, use12b]));
+  const none12 = await call(O, 'sgRequirementsFromLinks', { calEventId: EID, more: true });
+  ok('   nothing left to read: said plainly, and nothing goes to Claude', !none12.ok && /There are no more of the host’s pages to read/.test(none12.message) && SENT.length === n12 + 1, J(none12));
+  await db.collection('sgAssessments').doc(EID).update({ 'host.web.next': ['https://elsewhere.invalid/x', BASE + '/hc/articles/101'] });
+  QUEUE.push(answer({ host: 'A camp (invented)', personalFound: false, items: [] }));
+  const h12c = WEBHIT.length; await call(O, 'sgRequirementsFromLinks', { calEventId: EID, more: true }); QUEUE.length = 0;
+  const c12 = await assess();
+  ok('   only the host’s own site: a page on another site put in the list is never tried', J(WEBHIT.slice(h12c)) === J(['/hc/articles/101']) && !/elsewhere/.test(J(c12.host.web)), J([WEBHIT.slice(h12c), c12.host.web.refused]));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

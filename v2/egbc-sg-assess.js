@@ -183,12 +183,13 @@
       var h = A && A.host, signed = A && (A.status === 'signed' || A.waived);
       var file = h && h.file ? '<button class="b sec" type="button" id="sgaHostOpen" style="min-height:32px;padding:0 10px">Open ' + esc(h.file.name) + '</button>' : '';
       if (h && h.confirmed) return '<div class="ai" id="sgaHost"><b>The host’s requirements</b><p class="muted" id="sgaHostDone" style="margin:4px 0">Requirements taken from ' + esc(h.web ? (h.web.pages || []).length + ' of ' + (h.name || 'the host') + '’s web pages' + (h.web.pasted ? ' and pasted text' : '') : h.file ? h.file.name : 'their list') + ', checked by ' + esc(h.checkedByName || '') + ' on ' + esc(String(h.checkedAt || '').slice(0, 10)) + '. ' +
-        (h.items || []).length + ' question' + ((h.items || []).length === 1 ? '' : 's') + ' added to the checklist.</p>' + file + (edit && !signed ? ' <button class="b sec" type="button" id="sgaHostAgain" style="min-height:32px;padding:0 10px">Add a new list</button>' + hostForm(true) : '') + '</div>';
+        (h.items || []).length + ' question' + ((h.items || []).length === 1 ? '' : 's') + ' added to the checklist.</p>' + (edit && !signed ? readNext(h, true) : '') + file + (edit && !signed ? ' <button class="b sec" type="button" id="sgaHostAgain" style="min-height:32px;padding:0 10px">Add a new list</button>' + hostForm(true) : '') + '</div>';
       if (h && !h.confirmed && edit) return '<div class="ai" id="sgaHost"><b>From ' + esc(h.name) + '’s requirements</b> <span class="muted">(' + esc(h.file ? h.file.name : '') + ')</span>' +
         '<p class="warn" style="margin:6px 0">Check each one: change it, remove one that repeats our own questions, or add one that was missed. Then confirm, and they are required questions like ours.</p>' +
         (h.personalFound ? '<p class="warn" id="sgaHostPersonal">The file seems to have names, phone numbers or emails in it. They were left out' + (h.dropped ? ' (' + h.dropped + ' question' + (h.dropped === 1 ? '' : 's') + ')' : '') + '.</p>' : '') +
         (h.leftOut > 0 ? '<p class="warn" id="sgaHostSockets">' + (h.leftOut === 1 ? 'One requirement was' : h.leftOut + ' requirements were') + ' left out: socket covers aren’t advised for UK sockets, which have shutters built in. If the host insists on them, talk to the host.</p>' : '') +
-        webRead(h) +
+        webRead(h) + readNext(h, false) +
+        (h.repeats > 0 ? '<p class="muted" id="sgaHostRepeats">' + (h.repeats === 1 ? 'One question' : h.repeats + ' questions') + ' from the next pages repeated ones already here, and ' + (h.repeats === 1 ? 'was' : 'were') + ' left out.</p>' : '') +
         '<div id="sgaHostItems">' + (h.items || []).map(function (x) { return '<div data-hostitem="' + esc(x.id) + '" style="margin:6px 0"><div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" value="' + esc(x.q) + '"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>' + (x.line ? '<div class="muted">From: “' + esc(x.line) + '”' + (x.source ? ' <span data-hostsource>(' + esc(x.source) + ')</span>' : '') + '</div>' : '') + '</div>'; }).join('') + '</div>' +
         '<div class="btns"><button class="b sec" type="button" id="sgaHostAdd">Add one</button><button class="b" type="button" id="sgaHostOk">Confirm these as required questions</button>' + file +
         '<button class="b sec" type="button" id="sgaHostAgain">Add a different list</button></div><p class="muted" id="sgaHostReviewMsg" role="status"></p>' + hostForm(true) + '</div>';
@@ -201,6 +202,15 @@
       return '<div class="muted" id="sgaHostWeb" style="margin:6px 0"><b>Read from ' + (h.web.pages || []).length + ' page' + ((h.web.pages || []).length === 1 ? '' : 's') + (h.web.pasted ? ', and the pasted text' : '') + ':</b><ul style="margin:4px 0;padding-left:18px">' +
         (h.web.pages || []).map(function (p) { return '<li data-webpage>' + esc(p.title || p.url) + ' <span>(' + esc(p.url) + ')</span></li>'; }).join('') + '</ul>' +
         ((h.web.refused || []).length ? '<b>Not read:</b><ul style="margin:4px 0;padding-left:18px">' + h.web.refused.map(function (r) { return '<li data-webrefused>' + esc(r.url) + ': ' + esc(r.why) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+    }
+    /* "Read the next" (F-293): the host's pages not reached yet, 40 at a time, adding to the same list to be checked */
+    function readNext(h, done) {
+      var left = ((h.web || {}).next || []).length;
+      if (!left) return '';
+      var n = Math.min(40, left);
+      return '<div id="sgaHostMore" style="margin:6px 0"><p class="muted" style="margin:2px 0">' + left + ' more of the host’s page' + (left === 1 ? ' was' : 's were') + ' not read yet.' +
+        (done ? ' Reading them puts this list back to be checked.' : ' Their questions are added to this list, without repeating any already here.') + ' Each read counts as one use of the AI.</p>' +
+        '<button class="b sec" type="button" id="sgaHostNext" data-next="' + n + '">Read the next ' + n + '</button><p class="muted" id="sgaHostNextMsg" role="status"></p></div>';
     }
     function hostForm(hidden) {
       return '<div id="sgaHostForm"' + (hidden ? ' style="display:none"' : '') + '><p class="muted" style="margin:4px 0">If the host sent a list of their requirements (a PDF, a Word document, or a photo or scan of a printed sheet), add it. Claude reads it and turns each requirement into a question for the checklist.</p>' +
@@ -230,11 +240,28 @@
         d.innerHTML = '<div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" placeholder="A requirement that was missed"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>';
         q('#sgaHostItems').appendChild(d); d.querySelector('[data-hostdel]').onclick = function () { d.remove(); }; d.querySelector('input').focus();
       };
-      if (q('#sgaHostOk')) q('#sgaHostOk').onclick = function () {
-        var b = this, items = [].slice.call(el.querySelectorAll('[data-hostitem]')).map(function (r) {
+      function onPage() {
+        return [].slice.call(el.querySelectorAll('[data-hostitem]')).map(function (r) {
           var was = (A.host.items || []).filter(function (x) { return x.id === r.getAttribute('data-hostitem'); })[0] || {};
           return Object.assign({ id: r.getAttribute('data-hostitem'), q: r.querySelector('[data-hostq]').value.trim().slice(0, 300), line: was.line || '' }, was.source ? { source: was.source } : {});
         }).filter(function (x) { return x.q; }).slice(0, MAX.host);
+      }
+      if (q('#sgaHostNext')) q('#sgaHostNext').onclick = function () {
+        var b = this, msg = q('#sgaHostNextMsg');
+        b.disabled = true; msg.textContent = 'Reading the next pages… this takes a minute or two.';
+        /* the leader's changes to the list so far are kept first, so the new questions are added to them */
+        var keep = A.host.confirmed ? Promise.resolve() : ref.update({ host: Object.assign({}, A.host, { items: onPage() }), updatedAt: now(), updatedBy: o.me.uid });
+        keep.then(function () { return callLong('sgRequirementsFromLinks', { calEventId: o.calEventId, more: true }); }).then(function (r) {
+          return load().then(function () {
+            var m = el.querySelector('#sgaHostRepeats') || el.querySelector('#sgaHostWeb');
+            if (r && el.querySelector('#sgaHostWeb')) { var p = document.createElement('p'); p.className = 'muted'; p.id = 'sgaHostAdded'; p.setAttribute('role', 'status');
+              p.textContent = (r.added === 1 ? 'One new question' : (r.added || 0) + ' new questions') + ' added from ' + r.pages + ' more page' + (r.pages === 1 ? '' : 's') + '.' + (r.full ? ' The list is full (' + MAX.host + ' questions): the rest were not added.' : '');
+              m.parentNode.insertBefore(p, m.nextSibling); }
+          });
+        }, function (e) { b.disabled = false; msg.setAttribute('data-err', (e && e.code) || ''); msg.textContent = plainError(e); });
+      };
+      if (q('#sgaHostOk')) q('#sgaHostOk').onclick = function () {
+        var b = this, items = onPage();
         var host = Object.assign({}, A.host, { items: items, confirmed: true, checkedBy: o.me.uid, checkedByName: String(o.me.name || '').slice(0, 80), checkedAt: now() });
         b.disabled = true;
         ref.update({ host: host, hostIds: items.map(function (x) { return x.id; }), updatedAt: now(), updatedBy: o.me.uid }).then(load, function (e) { b.disabled = false; q('#sgaHostReviewMsg').textContent = 'Not saved: ' + (e.message || e); });

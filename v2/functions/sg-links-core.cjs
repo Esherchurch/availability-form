@@ -131,9 +131,17 @@ function linksOf(html, base) {
   return out.filter((u, i, a) => a.indexOf(u) === i && u !== b.toString());
 }
 
+/* the links of each address in turns: the first of each, then the second of each, and so on; each once */
+function inTurns(lists) {
+  const out = [], most = Math.max(0, ...lists.map((l) => l.length));
+  for (let i = 0; i < most; i++) for (const l of lists) if (i < l.length && !out.includes(l[i])) out.push(l[i]);
+  return out;
+}
 /* the pages: each address given first; then their links, in turns across the addresses, in the order each page lists
-   them, so every address gets its share before the 40 pages; one level down only; within the limits */
-async function readPages(starts, deps) {
+   them, so every address gets its share before the 40 pages; one level down only; within the limits.
+   "Read the next" (F-293): given next (the links not yet read, in that order), the addresses aren't read again and
+   the reading carries on from there. Either way, next comes back: what is still left, in the same order. */
+async function readPages(starts, deps, next) {
   const t0 = deps.now ? deps.now() : Date.now(), left = () => LIMITS.ms - ((deps.now ? deps.now() : Date.now()) - t0);
   const pages = [], refused = [], seen = new Set(), lists = [];
   const given = (starts || []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, LIMITS.starts);
@@ -150,16 +158,19 @@ async function readPages(starts, deps) {
     pages.push({ url: g.url, title: t.title, kind: 'text', text });
     return /html/.test(g.type) ? linksOf(html, g.url) : null;
   };
-  for (const u of given) { if (pages.length >= LIMITS.pages) break; const l = await one(u); lists.push(l || []); }
-  /* in turns: the first link of each, then the second of each, and so on */
-  for (let i = 0, more = true; more && pages.length < LIMITS.pages; i++) {
-    more = false;
-    for (const l of lists) { if (i < l.length) { more = true; if (pages.length >= LIMITS.pages) break; await one(l[i]); } }
+  let order;
+  if (Array.isArray(next)) order = next.map((x) => String(x || '').trim()).filter(Boolean);
+  else {
+    for (const u of given) { if (pages.length >= LIMITS.pages) break; const l = await one(u); lists.push(l || []); }
+    order = inTurns(lists).filter((u) => !seen.has(u));
   }
-  const unread = [].concat(...lists).filter((u, i, a) => !seen.has(u) && a.indexOf(u) === i);
-  unread.slice(0, 10).forEach((u) => refused.push({ url: u, why: 'beyond the ' + LIMITS.pages + ' pages read' }));
-  if (unread.length > 10) refused.push({ url: '(and ' + (unread.length - 10) + ' more)', why: 'beyond the ' + LIMITS.pages + ' pages read' });
-  return { pages, refused };
+  let i = 0;
+  for (; i < order.length && pages.length < LIMITS.pages && left() > 0; i++) await one(order[i]);
+  const unread = order.slice(i).filter((u) => !seen.has(u));
+  const why = pages.length >= LIMITS.pages ? 'beyond the ' + LIMITS.pages + ' pages read' : 'not reached in the 45 seconds';
+  unread.slice(0, 10).forEach((u) => refused.push({ url: u, why }));
+  if (unread.length > 10) refused.push({ url: '(and ' + (unread.length - 10) + ' more)', why });
+  return { pages, refused, next: unread };
 }
 
-module.exports = { LIMITS, CHROME, privateIp, checkUrl, publicAddress, safeGet, htmlToText, scopeOf, linksOf, readPages };
+module.exports = { LIMITS, CHROME, privateIp, checkUrl, publicAddress, safeGet, htmlToText, scopeOf, linksOf, inTurns, readPages };

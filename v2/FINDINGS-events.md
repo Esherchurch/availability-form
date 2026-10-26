@@ -12402,3 +12402,63 @@ Each could use `myTeams()` (or `me().get('teams', []).concat(me().get('covers', 
 | the cap back at 20 | 23/26 | three checks |
 
 **Deploy (the reviewing window's):** sgRequirementsFromLinks. Then run it again on the practice camp: the 29 unconfirmed questions are replaced by the new list, which the leader checks.
+
+### F-293 — "Read the next": the rest of a host's pages, 40 at a time (the second live Newday run, 27 Oct) (the events window, 27 Oct)
+
+**What the second live run found** (the reviewing window, on "Example: Newday camp (test, not real)"):
+- 40 pages read, all articles and none of the site's own pages: 35 questions.
+- But Newday's 5 folders hold about 48 articles, so some were never reached: night team, key dates, arrival and set-up, vehicles on site, generators.
+
+**What was built:**
+- **What wasn't reached is kept** with the assessment (`host.web.next`), in the same turn order. The host's own addresses are kept too (`host.web.starts`).
+- **"Read the next N"** appears under "Read from … pages" while pages are left. It says how many weren't read yet, and that each read counts as one use of the AI.
+  - It carries on from where the last read stopped: the same addresses, the next articles in turn. It never re-reads the folders or an article already read.
+  - The limits for each read are the same: 40 pages and 45 seconds. The leader can press it again.
+- **It adds to the same list,** still to be checked.
+  - The leader's changes on the page are saved first.
+  - Claude is told the questions already there and asked not to give them again.
+  - Any that still comes back the same is left out (ignoring case, spaces and punctuation) and counted. The page says so: "One question from the next pages repeated ones already here, and was left out."
+  - After the read, the page says "N new questions added from M more pages."
+- **If the list was already confirmed,** reading more puts it back to be checked. The page says so before the leader presses.
+- **It counts against the day's AI limit like any call.** It is logged as "requirements-web-more", never with an address.
+- **What was read is kept** in one file: the first read and every later one.
+- **Pages not reached in the 45 seconds** are now kept for the next read, not lost. They are named "not reached in the 45 seconds".
+- **Only the host's own site:** a link in the kept list that isn't on one of the host's own addresses' sites is never tried.
+- **Nothing left:** the button goes, and asking anyway says "There are no more of the host's pages to read." Nothing goes to Claude.
+- **The list's 500-question bound (H-9)** still holds. If it fills, the page says the rest were not added.
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| sg-links-unit | 34/34 (8 new) |
+| sg-host | 51/51 (section 12, new) |
+| sg-assess | 53/53 |
+| sg-ai-unit | 68/68 |
+
+The stand-in help centre has 5 folders of 12 articles (60):
+- The first read is 40 pages, and 25 are kept.
+- "Read the next 25" reads folder 1's 8th article first, then the rest, and never a folder or an article already read.
+- The AI is told the 2 questions there (with the leader's change).
+- The repeat is left out, and the new one is added: 3 on the list, still to be checked.
+- 65 pages are listed as read, and the button goes.
+- Both reads are in the kept file.
+- The day's use goes up by one.
+- With 100 articles, the next read is 40 more, and 25 are left for another.
+
+**Breaks** (8, each caught):
+
+| Break | Result | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the next read starts from the beginning again | 44/51 | "carries on where it stopped" and 6 more |
+| repeats added | 49/51 | "no repeats" |
+| a repeat not recognised (in the unit test) | 33/34 | — |
+| the AI not told the questions already there | 50/51 | — |
+| the leader's changes lost | 49/51 | — |
+| the list not kept in turn order | 30/34 | — |
+| pages not reached in time lost | 33/34 | — |
+| a page on another site put in the list is read | 50/51 | — |
+
+**For the synthetic parish:** the same for any host with more pages than one read takes. Nothing is church-specific.
+
+**Deploy (the reviewing window's):** sgRequirementsFromLinks. Then on cev_newdaytest2027: the 35 questions there were read before the next pages were kept, so they have no button. Read the 5 folder addresses once more (a fresh list replaces them), then press "Read the next N" under it.

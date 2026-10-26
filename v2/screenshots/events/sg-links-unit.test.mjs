@@ -129,6 +129,34 @@ w = web({ 'help.example.org': [PUB] }, helpCentre(1));
 r = await L.readPages([HC + '/support/login'], w);
 ok('A REDIRECT LOOP is skipped at once (not three times round)', r.pages.length === 0 && /redirects in a loop/.test(r.refused[0].why) && w.asked.length === 2, J([r.refused, w.asked.length]));
 
+
+console.log('\n7. "READ THE NEXT" (F-293): the reviewing window’s second live run read 40 of Newday’s ~48 articles');
+const ART = (u) => u.replace(HC + '/support/solutions/articles/', '');
+const turnOrder = []; for (let a = 1; a <= 12; a++) for (let f = 1; f <= 5; f++) turnOrder.push((f + '0' + (a < 10 ? '0' : '') + a));
+const w1 = web({ 'help.example.org': [PUB] }, helpCentre(12));
+const r1 = await L.readPages(FOLDERS, w1);
+ok('THE FIRST READ: 40 pages, and the 25 articles not reached are kept, in the same turn order', r1.pages.length === 40 && r1.next.length === 25 && J(r1.next.map(ART)) === J(turnOrder.slice(35)), J(r1.next.map(ART)));
+const w2 = web({ 'help.example.org': [PUB] }, helpCentre(12));
+const r2 = await L.readPages(null, w2, r1.next);
+const got2 = r2.pages.map((p) => ART(p.url));
+ok('THE NEXT READ CARRIES ON WHERE IT STOPPED: folder 1’s 8th article first, never the folders or an article already read', got2[0] === '1008' && !w2.asked.some((x) => /folders/.test(x.url)) && !got2.some((x) => r1.pages.some((p) => ART(p.url) === x)), J(got2.slice(0, 6)));
+ok('   between them, all 60 articles, each once; nothing left', r2.pages.length === 25 && r2.next.length === 0 && new Set(r1.pages.concat(r2.pages).filter((p) => /articles/.test(p.url)).map((p) => p.url)).size === 60, J([r2.pages.length, r2.next.length]));
+const w3 = web({ 'help.example.org': [PUB] }, helpCentre(20));
+const r3a = await L.readPages(FOLDERS, w3), r3b = await L.readPages(null, w3, r3a.next);
+ok('   100 articles: the next read is 40 more (the same limit per read), and 25 are still left for another', r3a.next.length === 65 && r3b.pages.length === 40 && r3b.next.length === 25 && /beyond the 40 pages/.test(r3b.refused[0].why), J([r3a.next.length, r3b.pages.length, r3b.next.length]));
+let clock2 = 0;
+const slow2 = web({ 'help.example.org': [PUB] }, helpCentre(1));
+const rq2 = slow2.request; slow2.request = async (o) => { clock2 += 30000; return rq2(o); }; slow2.now = () => clock2;
+const r4 = await L.readPages(null, slow2, [HC + '/support/solutions/articles/1001', HC + '/support/solutions/articles/2001', HC + '/support/solutions/articles/3001']);
+ok('   OUT OF TIME: what wasn’t reached is kept for the next read, not lost', r4.pages.length === 2 && J(r4.next.map(ART)) === J(['3001']) && /not reached in the 45 seconds/.test(r4.refused[0].why), J(r4));
+const Req = require('./sg-requirements-core.cjs');
+const had = ['Has every adult read the safeguarding policy? (invented)', 'Are tents pitched 2 metres apart?'];
+const nw = Req.newOnly([{ q: 'has every adult read the safeguarding policy (invented)' }, { q: 'Are wristbands worn all week?' }, { q: 'Are wristbands worn all week ?' }], had);
+ok('NO REPEATS: a question already on the list (in other case, spacing or punctuation) is left out, and counted', nw.items.length === 1 && nw.items[0].q === 'Are wristbands worn all week?' && nw.repeats === 2, J(nw));
+const cw = J(Req.contentForWeb([{ url: HC + '/x', kind: 'text', text: 'Wristbands are worn all week.' }], '', had));
+ok('   THE AI IS TOLD the questions already there, and not to give them again', /already on the church’s list/.test(cw) && /Are tents pitched 2 metres apart\?/.test(cw) && /Don’t give any of them again/.test(cw), cw.slice(0, 300));
+ok('   the first read says nothing of the kind', !/already on the church’s list/.test(J(Req.contentForWeb([{ url: HC + '/x', kind: 'text', text: 'x' }], '', []))));
+
 const passed = results.filter(Boolean).length;
 console.log('\n' + passed + '/' + results.length + ' passed');
 process.exit(passed === results.length ? 0 : 1);

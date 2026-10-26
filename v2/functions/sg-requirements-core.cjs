@@ -79,8 +79,11 @@ const REQ_SCHEMA = {
 /* FROM WEB PAGES OR PASTED TEXT (S6): each page's words with its address, any PDF as a document, then the pasted text;
    and each question says which page it came from (source: the address, or "pasted text") */
 const WEB_LIMIT = 120000;
-function contentForWeb(pages, pasted) {
+function contentForWeb(pages, pasted, already) {
   const out = [];
+  /* "Read the next" (F-293): the questions already on the list, so none is asked twice */
+  const had = (already || []).map((x) => clean(x, 300)).filter(Boolean);
+  if (had.length) out.push({ type: 'text', text: 'These questions are already on the church’s list from the host’s other pages. Don’t give any of them again, or one that asks the same thing in other words; give only requirements that are not yet covered:\n\n' + had.map((x) => '- ' + x).join('\n') });
   let left = WEB_LIMIT;
   (pages || []).forEach((p) => {
     if (p.kind === 'pdf' && p.pdf) { out.push({ type: 'text', text: 'A PDF from ' + p.url + ':' }); out.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: Buffer.from(p.pdf).toString('base64') } }); return; }
@@ -117,4 +120,12 @@ function normaliseReqs(d, names) {
   return { ok: true, items: items.slice(0, 500), dropped, leftOut, personalFound: d.personalFound === true || dropped > 0, host: clean(d.host, 120) };
 }
 
-module.exports = { MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, contentFor, contentForWeb, REQ_SYSTEM, REQ_SCHEMA, REQ_SCHEMA_WEB, normaliseReqs };
+/* a question already on the list, in other spacing, case or punctuation, is a repeat */
+const sameQ = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function newOnly(items, already) {
+  const had = new Set((already || []).map(sameQ)), out = [];
+  let repeats = 0;
+  for (const it of items || []) { const k = sameQ(it.q); if (!k || had.has(k)) { repeats++; continue; } had.add(k); out.push(it); }
+  return { items: out, repeats };
+}
+module.exports = { newOnly, MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, contentFor, contentForWeb, REQ_SYSTEM, REQ_SCHEMA, REQ_SCHEMA_WEB, normaliseReqs };
