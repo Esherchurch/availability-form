@@ -11908,3 +11908,52 @@ Earlier tests updated for the new counts: a trip asks 18, not 14.
   - EGBC's own run is 1909/1909, so nothing is broken today. It would be when the hub goes live for a second church.
 - **Asked:** headroom in that `allow`, as F-279 did for booking (for example, read `eventLeaders` and the event once, in a `let`, or check the leader before the field checks). Then rerun `node tools/rules-build.mjs` and the `AS_CHURCH` run above; the target is 1899/1909 (only the 10 by design).
 - **For the synthetic parish:** St Aidan's youth leaders, named on a trip, write the trip's assessment. Today that would be refused.
+
+### F-285 — Headroom in writing a safeguarding assessment, in the church ruleset (main's 20a9aa4f run; as H-8) (the events window, 26 Oct)
+
+**The problem** (main, 20a9aa4f):
+- **A named leader writing an event's assessment went over Firestore's 1,000-expression limit in the church ruleset.** That ruleset is used by every church after EGBC.
+- **EGBC's own ruleset passed with no room at all.** Measured: 10 spare expressions pushed a leader's draft over.
+
+**The fix** (firestore.rules, the EVENTS section):
+- **The assessment's checks are now one function,** `sgAssessOk(calEventId, d, before, ev, lead)`:
+  - The new data and the old are passed in once, instead of `request.resource.data` written out about 40 times.
+  - **The event is read once.** Before, it was read for its site and again for its kind.
+  - **"Is this the site's lead or deputy?" is worked out once.** Before, it was worked out up to three times in one write: who may write, signing, "not needed".
+- **The writers are tried cheapest first:**
+  1. the lead (already known)
+  2. a named leader (one read)
+  3. the event's team
+- **`sgChecklistDone` takes the event's kind** rather than reading the event again.
+- **Nothing about who may do what has changed.** The rules suite proves it, as before.
+
+**Headroom, measured** (screenshots/events/sg-headroom.test.mjs, new). Every way an assessment is written, against both built rulesets, with spare expressions added to `signedIn()`:
+- **The writes:** a leader's draft, the organiser's, the lead's sign-off and "not needed", and three refusals (a leader signing, a stranger, a blank sign-off).
+- **Results:**
+
+  | | Before | After |
+  |---|---|---|
+  | EGBC's ruleset | 0 spare | at least 20 |
+  | The church ruleset | over the limit at 0 | at least 20 |
+
+  At 40, the organiser's draft reaches the limit.
+
+**Breaks** (each caught by the headroom test):
+
+| Break | Result |
+|---|---|
+| **THE ONE THAT MATTERS:** the writers checked in the old order (the lead's reads first) | 0/6 |
+| anyone signed in may write it | 0/6 (a stranger's draft goes through) |
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| sg-headroom | 6/6 |
+| Rules suite, EGBC's ruleset | 1909/1909 |
+| Rules suite, `AS_CHURCH=mc-test` | **1899/1909**: main's target; the 10 are users' own-record writes, refused in a church by design |
+| check-rules-build | 9/10; the red is Comms' firebase.comms.json (main has asked them) |
+
+**For the synthetic parish:** St Aidan's youth leaders, named on a trip, can now write the trip's assessment, with room to spare.
+
+**Deploy:** none. The rules go live when the hub goes live.

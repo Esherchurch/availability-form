@@ -2539,53 +2539,65 @@ service cloud.firestore {
     }
     // and the host's own requirements (F-277), once the leader has checked
     // them (hostIds); while a host's list is waiting to be checked, no sign-off
-    function sgChecklistDone(calEventId, d) {
+    function sgChecklistDone(kind, d) {
       let a = d.get('answers', {});
       return d.get('host', {}).get('confirmed', true) == true
-             && a.keys().hasAll(sgChecklist(get(/databases/$(database)/documents/calEvents/$(calEventId)).data.get('sgKind', ''), d.get('flags', {})).concat(d.get('hostIds', [])))
+             && a.keys().hasAll(sgChecklist(kind, d.get('flags', {})).concat(d.get('hostIds', [])))
              && !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
     }
     // the assessment's writers: the site's lead or deputy, the event's team and its named leaders
     function sgAssessWrites(calEventId, siteId) {
-      return sgLeadOf(siteId) || runsEventId(calEventId) || isEventLeader(calEventId);
+      // the cheapest first: a named leader is one read; the organiser and the lead cost more (H-8 headroom)
+      return isEventLeader(calEventId) || runsEventId(calEventId) || sgLeadOf(siteId);
+    }
+    // THE ASSESSMENT'S WRITE, as one function (main's church-ruleset run, 26 Oct:
+    // a named leader's draft went over Firestore's 1,000-expression limit in
+    // the church ruleset). The new data and the old are read once and passed
+    // in, and the cheapest writer is tried first (sgAssessWrites).
+    // screenshots/events/sg-headroom.test.mjs measures the room left.
+    // ev: the event, read once; lead: whether the writer is the site's safeguarding lead or deputy, worked out once
+    function sgAssessOk(calEventId, d, before, ev, lead) {
+      return d.siteId == ev.get('location', {}).get('siteId', '')
+                    // the writers, the cheapest first: the lead (already known), a named leader (one read), the event's team
+                    && (lead || isEventLeader(calEventId) || runsThisEvent(ev))
+                    && d.keys().hasOnly(['siteId', 'calEventId', 'title', 'templateId', 'answers', 'risks', 'status', 'version',
+                                                             'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'signedNote',
+                                                             'waived', 'waivedBy', 'waivedByName', 'waivedAt', 'waivedWhy', 'source', 'updatedAt', 'updatedBy',
+                                                             'flags', 'signedByRole', 'host', 'hostIds'])
+                    && d.calEventId == calEventId
+                    && sgText(d.get('title', ''), 120) && sgText(d.get('templateId', ''), 40)
+                    && d.get('answers', {}) is map && d.get('answers', {}).size() <= 1100
+                    && d.get('flags', {}) is map && d.get('flags', {}).keys().hasOnly(['abroad', 'adventurous', 'under8'])
+                    && sgText(d.get('signedByRole', ''), 60)
+                    && d.get('host', {}) is map && d.get('hostIds', []) is list && d.get('hostIds', []).size() <= 500
+                    && d.get('risks', []) is list && d.get('risks', []).size() <= 200
+                    && d.status in ['draft', 'waiting', 'signed']
+                    && d.version is int && d.version >= 1
+                    && sgText(d.get('signedNote', ''), 300)
+                    && d.updatedBy == request.auth.uid
+                    // SIGNED: only the site's lead or deputy, as themselves, now, for this version
+                    && (d.status != 'signed'
+                        || (before != null && before.status == 'signed'
+                            && d.diff(before).affectedKeys().hasOnly(['updatedAt', 'updatedBy']))
+                        || (lead && d.signedBy == request.auth.uid
+                            && d.signedAt == request.time && d.signedVersion == d.version
+                            // and never while a required question is blank (Martin, 23 Oct)
+                            && sgChecklistDone(ev.get('sgKind', ''), d)))
+                    // WAIVED ("not needed"): only the lead, deputy or a master admin, saying who, when and why
+                    && ((d.get('waived', false) == (before == null ? false : before.get('waived', false))
+                         && d.get('waivedAt', null) == (before == null ? null : before.get('waivedAt', null))
+                         && d.get('waivedBy', '') == (before == null ? '' : before.get('waivedBy', ''))
+                         && d.get('waivedWhy', '') == (before == null ? '' : before.get('waivedWhy', '')))
+                        || ((lead || isMaster())
+                            && d.get('waivedBy', '') == request.auth.uid && d.get('waivedAt', null) == request.time
+                            && sgText(d.get('waivedWhy', ''), 300) && d.get('waivedWhy', '').size() > 0));
     }
     match /sgAssessments/{calEventId} {
       // one not written yet: nothing to see, so anyone signed in may find that out
       allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
       allow create, update: if exists(/databases/$(database)/documents/calEvents/$(calEventId))
-                    && request.resource.data.siteId == sgEventSite(calEventId)
-                    && sgAssessWrites(calEventId, request.resource.data.siteId)
-                    && request.resource.data.keys().hasOnly(['siteId', 'calEventId', 'title', 'templateId', 'answers', 'risks', 'status', 'version',
-                                                             'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'signedNote',
-                                                             'waived', 'waivedBy', 'waivedByName', 'waivedAt', 'waivedWhy', 'source', 'updatedAt', 'updatedBy',
-                                                             'flags', 'signedByRole', 'host', 'hostIds'])
-                    && request.resource.data.calEventId == calEventId
-                    && sgText(request.resource.data.get('title', ''), 120) && sgText(request.resource.data.get('templateId', ''), 40)
-                    && request.resource.data.get('answers', {}) is map && request.resource.data.get('answers', {}).size() <= 1100
-                    && request.resource.data.get('flags', {}) is map && request.resource.data.get('flags', {}).keys().hasOnly(['abroad', 'adventurous', 'under8'])
-                    && sgText(request.resource.data.get('signedByRole', ''), 60)
-                    && request.resource.data.get('host', {}) is map && request.resource.data.get('hostIds', []) is list && request.resource.data.get('hostIds', []).size() <= 500
-                    && request.resource.data.get('risks', []) is list && request.resource.data.get('risks', []).size() <= 200
-                    && request.resource.data.status in ['draft', 'waiting', 'signed']
-                    && request.resource.data.version is int && request.resource.data.version >= 1
-                    && sgText(request.resource.data.get('signedNote', ''), 300)
-                    && request.resource.data.updatedBy == request.auth.uid
-                    // SIGNED: only the site's lead or deputy, as themselves, now, for this version
-                    && (request.resource.data.status != 'signed'
-                        || (resource != null && resource.data.status == 'signed'
-                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'updatedBy']))
-                        || (sgLeadOf(request.resource.data.siteId) && request.resource.data.signedBy == request.auth.uid
-                            && request.resource.data.signedAt == request.time && request.resource.data.signedVersion == request.resource.data.version
-                            // and never while a required question is blank (Martin, 23 Oct)
-                            && sgChecklistDone(calEventId, request.resource.data)))
-                    // WAIVED ("not needed"): only the lead, deputy or a master admin, saying who, when and why
-                    && ((request.resource.data.get('waived', false) == (resource == null ? false : resource.data.get('waived', false))
-                         && request.resource.data.get('waivedAt', null) == (resource == null ? null : resource.data.get('waivedAt', null))
-                         && request.resource.data.get('waivedBy', '') == (resource == null ? '' : resource.data.get('waivedBy', ''))
-                         && request.resource.data.get('waivedWhy', '') == (resource == null ? '' : resource.data.get('waivedWhy', '')))
-                        || ((sgLeadOf(request.resource.data.siteId) || isMaster())
-                            && request.resource.data.get('waivedBy', '') == request.auth.uid && request.resource.data.get('waivedAt', null) == request.time
-                            && sgText(request.resource.data.get('waivedWhy', ''), 300) && request.resource.data.get('waivedWhy', '').size() > 0));
+                    && sgAssessOk(calEventId, request.resource.data, resource == null ? null : resource.data,
+                                  get(/databases/$(database)/documents/calEvents/$(calEventId)).data, sgLeadOf(request.resource.data.get('siteId', '')));
       allow delete: if false;
     }
     // ---- STEP 3: LIVE WARNINGS (F-265) ----
