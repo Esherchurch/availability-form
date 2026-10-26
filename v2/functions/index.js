@@ -835,4 +835,4 @@ export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft
 export { quizStart, quizOpen, quizReveal, quizPhase, quizKick, quizEnd, quizJoin, quizAnswer, quizSweep } from './quiz.js';
 export { cateringSync, arrivalCheck } from './rooms-day.js';
 export { sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily } from './sg-warnings.js';
-export { sgDraftAssessment, sgAiStatus, sgExtractRequirements, sgRequirementsFile } from './sg-ai.js';
+export { sgDraftAssessment, sgAiStatus, sgExtractRequirements, sgRequirementsFile, sgRequirementsFromLinks } from './sg-ai.js';

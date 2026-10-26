@@ -12274,3 +12274,80 @@ Each could use `myTeams()` (or `me().get('teams', []).concat(me().get('covers', 
 **For the synthetic parish:** after an accident at Junior Church, their parish safeguarding officer links it to Junior Church on the register. Junior Church's risks then show "Review prompted" until they are looked at again. So does a youth group that has grown from 12 to 20.
 
 **Deploy (the reviewing window's):** sgWarningsSync, sgWarningsNow (the prompts and sizes). The rules go live when the hub goes live.
+
+### F-291 — Safeguarding step 6: the host's requirements from their web pages or pasted text, read safely (F-280 10.6) — ready for the Newday real call (the events window, 27 Oct)
+
+**Built:**
+- **On the assessment's host box,** beside "Their list" (a file):
+  - "Or their web pages: up to 5 addresses, one a line"
+  - "Or paste their requirements"
+  - **One level down:** the pages each address links to on the same site are read too. A help centre's folder page, like Newday's, is enough.
+- **A new call, `sgRequirementsFromLinks`** (functions/sg-ai.js). It's the same as a file: the same people, the same daily limits, the same log (kind `requirements-web`, counts only, never an address or the words), and the same reader instructions.
+  - **The page words go to Claude,** each with its address; a PDF goes as a document. Socket covers and personal details are left out, as for a file.
+  - **Each question says which page it came from** (`source`, or "pasted text").
+  - **What was read is kept** in Storage beside the files ("What was read from the web pages.txt").
+- **The safe reader** (functions/sg-links-core.cjs, pure, every protection tested with a stand-in and no network):
+  - **Https only,** on the standard port, with no name or password in the address.
+  - **Public addresses only:** the name is looked up, and if any address it gives is private, it's refused. That covers private, loopback, link-local (169.254.169.254, the cloud's own, among them), shared, multicast, reserved and IPv6 local.
+  - **The connection goes to the address that was checked** (`pinnedRequest`, with the right name for the certificate), so the name can't be switched in between.
+  - **Redirects are followed one at a time,** each checked the same way, at most 3, never to plain http.
+  - **Caps:** 2 MB a page (stopped as it arrives), 20 pages, 45 seconds; web pages, plain text or PDF only.
+  - **The links on each page given, to the same site, one level down only.** Never another site, a picture, a style sheet or a script.
+  - **Scripts, styles, menus, headers, footers and forms are stripped.** Only the words go.
+- **The leader checks before anything counts,** as for a file:
+  - the pages read are listed with their addresses
+  - anything not read is listed with why
+  - each question shows its page
+  - nothing is required until confirmed
+- **The print's appendix** says "taken from N of <host>'s web pages", lists them, and shows each question's page.
+- **On the emulator only,** a test can name its own stand-in web server (`sgAiStub/config.webHosts`). The live server never reads that.
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| sg-links-unit (new) | 21/21: https only; the standard port; private addresses, a name that points to one, and a name with one public and one private address; connected to the checked address; a redirect to a private address or to http; more than 3 redirects; over 2 MB; not a page; one level down and the same site only; 20 pages; 45 seconds; scripts and menus stripped |
+| sg-host | 40/40 (8 new): a stand-in help centre's folder and its two articles read; only the words sent; each question's page; the pages shown before confirming; what was read kept; a private address (and 169.254.169.254) refused with nothing sent to Claude; pasted text alone; the log |
+| sg-assess | 53/53 |
+| sg-print | 42/42 |
+| sg-ai | 73/73 |
+| sg-ai-unit, sg-register-unit, sg-warnings-unit | pass |
+
+**Breaks** (9, each caught):
+
+| Break | Test | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** private addresses read | sg-host 39/40 | "A PRIVATE ADDRESS … nothing goes to Claude" |
+| the same | unit 17/21 | the name that points privately; the mixed name; the metadata address |
+| plain http read | unit 19/21 | "https only" |
+| not connected to the address that was checked | unit 20/21 | "CONNECTED TO THE ADDRESS THAT WAS CHECKED" |
+| a redirect not checked | unit 19/21 | "A REDIRECT TO A PRIVATE ADDRESS" |
+| links to other sites followed | unit 20/21 | "not another site's page" |
+| no page limit | unit 20/21 | "AT MOST 20 PAGES" |
+| scripts and menus not stripped | unit 20/21 | "SCRIPTS … stripped" |
+| the page hides which pages were read | sg-host 39/40 | "THE LEADER SEES THE PAGES READ" |
+
+- **Note:** the first run of the "other sites" break against sg-host wasn't caught. The test's other-site link was a real, resolvable name, so under that break the reader may have looked that name up. It's now a reserved name that never resolves (`.invalid`), the break is checked against the unit test (no network), and sg-host also checks the other site isn't even tried.
+
+**Ready for the real call:**
+- **Deploy (the reviewing window's):**
+  - `sgRequirementsFromLinks` (new; it declares `CHQ_ANTHROPIC_API_KEY`, the existing secret; no new secret)
+  - `sgExtractRequirements` (it shares the reader's code)
+- **Then the reviewing window:**
+  1. On the live hub, create "Example: Newday camp (test, not real)": an under-18s camp, with leaders.
+  2. On its safeguarding page, in the host box: "Newday (test)", and the five folders, one a line:
+     - https://newday.freshdesk.com/support/solutions/folders/80000687928
+     - https://newday.freshdesk.com/support/solutions/folders/80000639163
+     - https://newday.freshdesk.com/support/solutions/folders/80000639070
+     - https://newday.freshdesk.com/support/solutions/folders/80000704765
+     - https://newday.freshdesk.com/support/solutions/folders/80000639039
+  3. Press "Read the requirements". At most 20 pages are read, so not every article may be; the list says which were, and which weren't.
+- **What to look for:**
+  - the pages read
+  - the questions, each with its page
+  - nothing from the menus
+  - no socket covers
+  - the log (`requirements-web`)
+- **The rules:** none changed in this step.
+
+**For the synthetic parish:** their camp's organiser, or the diocese's youth weekend, has only web pages. The parish safeguarding officer gives the addresses, checks the questions the hub reads from them, and confirms.

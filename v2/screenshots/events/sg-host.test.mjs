@@ -82,6 +82,16 @@ const stub = http.createServer((req, res) => {
   });
 });
 await new Promise(r => stub.listen(5617, '127.0.0.1', r));
+/* a stand-in help centre (S6): a folder page that lists its articles, as Newday's does; on the emulator only the reader may reach it */
+const WEBHIT = [];
+const pageOf = (title, body, links) => '<html><head><title>' + title + '</title><script>var notRead = "script words";</script></head><body><nav>Menu words</nav><main><h1>' + title + '</h1><p>' + body + '</p>' + (links || []).map((l) => '<a href="' + l + '">' + l + '</a>').join(' ') + '</main><footer>Footer words</footer></body></html>';
+const SITE = {
+  '/folders/1': pageOf('Being a Group Coordinator (invented)', 'These articles explain what is expected of groups.', ['/articles/safeguarding', '/articles/camping', 'https://elsewhere.invalid/x']),
+  '/articles/safeguarding': pageOf('Safeguarding (invented)', 'Every adult in your group must have read our safeguarding policy and have a church leader’s reference.'),
+  '/articles/camping': pageOf('Camping (invented)', 'Tents must be 2 metres apart; cooking tents 3 metres from anything.')
+};
+const webStub = http.createServer((req, res) => { WEBHIT.push(req.url); const b = SITE[req.url]; res.writeHead(b ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(b || 'Not found'); });
+await new Promise(r => webStub.listen(5619, '127.0.0.1', r));
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.css': 'text/css', '.svg': 'image/svg+xml' };
 const server = http.createServer((req, res) => {
@@ -267,12 +277,47 @@ try {
   ok('   ticked: kept in its own record (sgPolicyReads), with the date; 1 of 1, green', pr && /^\d{4}-\d{2}-\d{2}$/.test(pr.reads.m_lena) && !('reads' in (await assess())) && !!(await until(async () => (await text(O, '[data-policycount]')) === '1 of 1')), J(pr));
   await go(L, 'sg-print.html?event=' + EID, '#sheet[data-ready]');
   ok('   THE PRINT: "Read Hilltop Christian Camp (invented)’s safeguarding policy: 1 of 1 leaders." (a count, never a name)', (await text(L, '#pPolicy')) === 'Read Hilltop Christian Camp (invented)’s safeguarding policy: 1 of 1 leaders.', await text(L, '#pPolicy'));
+  /* 11. FROM WEB PAGES OR PASTED TEXT (S6, F-280 10.6): Newday has no single document, just help pages */
+  await db.collection('sgAiStub').doc('config').set({ url: 'http://127.0.0.1:5617', webHosts: ['127.0.0.1:5619'] });
+  await db.collection('sgAiUse').doc(londonDay()).set({ total: 0, by: {} });
+  const BASE = 'http://127.0.0.1:5619';
+  const LISTW = { host: 'A camp (invented)', personalFound: false, items: [
+    { question: 'Has every adult read the camp’s safeguarding policy? (invented)', line: 'Every adult in your group must have read our safeguarding policy', source: BASE + '/articles/safeguarding' },
+    { question: 'Are tents pitched 2 metres apart? (invented)', line: 'Tents must be 2 metres apart', source: BASE + '/articles/camping' }] };
+  QUEUE.push(answer(LISTW));
+  const n11 = SENT.length;
+  await go(O, 'safeguarding.html?event=' + EID, '#sgaHostAgain');
+  await tap(O, '#sgaHostAgain');
+  await O.$eval('#sgaHostName', (e) => { e.value = 'A camp (invented)'; });
+  await O.$eval('#sgaHostUrls', (e, u) => { e.value = u; }, BASE + '/folders/1');
+  await tap(O, '#sgaHostGo');
+  await O.waitForSelector('#sgaHostWeb', { timeout: 60000 }).catch(() => null);
+  const sent11 = J((SENT[n11] || {}).messages);
+  ok('11. FROM THEIR WEB PAGES: the folder page and the two articles it lists on the same site are read, and their words go to Claude', WEBHIT.includes('/folders/1') && WEBHIT.includes('/articles/safeguarding') && WEBHIT.includes('/articles/camping')
+    && /The page http:\/\/127\.0\.0\.1:5619\/articles\/camping/.test(sent11) && /Tents must be 2 metres apart/.test(sent11), J(WEBHIT));
+  ok('   only the words: no script, menu or footer; and never the other site', !/script words|Menu words|Footer words/.test(sent11) && !WEBHIT.some((x) => /elsewhere/.test(x)) && !(((await assess()).host.web || {}).refused || []).some((r) => /elsewhere/.test(r.url)), sent11.slice(0, 300));
+  ok('   each question says which page it came from (the schema asks)', /"source"/.test(J((SENT[n11] || {}).output_config)));
+  const a11 = await assess();
+  ok('   THE LEADER SEES THE PAGES READ, and each question with its page, before confirming', a11.host.confirmed === false && a11.host.web.pages.length === 3 && a11.host.items.every((x) => x.source)
+    && /Read from 3 pages/.test(await text(O, '#sgaHostWeb')) && (await O.$$('[data-hostsource]')).length === 2, J(a11.host.web));
+  const [keptWeb] = await bucket.file(a11.host.file.path).download();
+  ok('   WHAT WAS READ IS KEPT, beside the files', /Tents must be 2 metres apart/.test(keptWeb.toString()) && a11.host.file.path.indexOf('sgRequirements/' + EID + '/') === 0, a11.host.file.path);
+  const n11b = SENT.length;
+  const priv = await call(O, 'sgRequirementsFromLinks', { calEventId: EID, urls: ['https://10.0.0.1/requirements', 'https://169.254.169.254/latest/meta-data/'] });
+  ok('A PRIVATE ADDRESS (and the cloud’s own): refused, said plainly, and nothing goes to Claude', !priv.ok && /Nothing could be read from those addresses/.test(priv.message) && /private address/.test(priv.message) && SENT.length === n11b, J(priv));
+  QUEUE.push(answer({ host: 'A camp (invented)', personalFound: false, items: [{ question: 'Will each group bring a fire blanket? (invented)', line: 'Each group brings a fire blanket', source: 'pasted text' }] }));
+  const pasted = await call(O, 'sgRequirementsFromLinks', { calEventId: EID, host: 'A camp (invented)', text: 'Each group brings a fire blanket. (invented)' });
+  const a11c = await assess();
+  ok('PASTED TEXT ON ITS OWN: read, and its question says "pasted text"', pasted.ok && a11c.host.web.pasted === true && a11c.host.web.pages.length === 0 && a11c.host.items[0].source === 'pasted text', J(pasted));
+  const lw = (await logs()).filter((l) => l.kind === 'requirements-web');
+  ok('   THE LOG: "requirements-web" and counts; never an address or the words', lw.length >= 2 && !/127\.0\.0\.1|10\.0\.0\.1|Tents|fire blanket/.test(J(lw)), J(lw));
+
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);
 } finally {
   for (const b of browsers) await b.close().catch(() => {});
-  server.close(); stub.close();
+  server.close(); stub.close(); webStub.close();
   const leaks = GUARD.leaks();
   ok('nothing left the machine', leaks.length === 0, leaks.join(' | '));
 }

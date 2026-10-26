@@ -76,6 +76,30 @@ const REQ_SCHEMA = {
     personalFound: { type: 'boolean' }
   }
 };
+/* FROM WEB PAGES OR PASTED TEXT (S6): each page's words with its address, any PDF as a document, then the pasted text;
+   and each question says which page it came from (source: the address, or "pasted text") */
+const WEB_LIMIT = 120000;
+function contentForWeb(pages, pasted) {
+  const out = [];
+  let left = WEB_LIMIT;
+  (pages || []).forEach((p) => {
+    if (p.kind === 'pdf' && p.pdf) { out.push({ type: 'text', text: 'A PDF from ' + p.url + ':' }); out.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: Buffer.from(p.pdf).toString('base64') } }); return; }
+    const t = String(p.text || '').slice(0, Math.max(0, left)); left -= t.length;
+    if (t) out.push({ type: 'text', text: 'The page ' + p.url + (p.title ? ' (' + p.title + ')' : '') + ':\n\n' + t });
+  });
+  const pt = String(pasted || '').slice(0, Math.max(0, Math.min(60000, left)));
+  if (pt.trim()) out.push({ type: 'text', text: 'Text the leader pasted in:\n\n' + pt });
+  out.push({ type: 'text', text: 'These are the host’s or organiser’s requirements for a visiting church group, from their web pages and anything pasted. Turn each requirement into a checklist question, as instructed. In source, give the page address the requirement came from, or "pasted text".' });
+  return out;
+}
+const REQ_SCHEMA_WEB = {
+  type: 'object', additionalProperties: false, required: ['host', 'items', 'personalFound'],
+  properties: {
+    host: { type: 'string' },
+    items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['question', 'line', 'source'], properties: { question: { type: 'string' }, line: { type: 'string' }, source: { type: 'string' } } } },
+    personalFound: { type: 'boolean' }
+  }
+};
 const clean = (s, n) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, n);
 /* the hub's own check as well as the model's: a question or line with a name, phone number or email is left out */
 function normaliseReqs(d, names) {
@@ -88,9 +112,9 @@ function normaliseReqs(d, names) {
     if (personalCheck(q, names).refuse || personalCheck(line, names).refuse) { dropped++; continue; }
     /* never socket covers (F-280 10.7), even when the host's own sheet asks for them */
     if (socketCover(q) || socketCover(line)) { leftOut++; continue; }
-    items.push({ q, line });
+    items.push(Object.assign({ q, line }, it && typeof it.source === 'string' && it.source.trim() ? { source: clean(it.source, 300) } : {}));
   }
   return { ok: true, items: items.slice(0, 500), dropped, leftOut, personalFound: d.personalFound === true || dropped > 0, host: clean(d.host, 120) };
 }
 
-module.exports = { MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, contentFor, REQ_SYSTEM, REQ_SCHEMA, normaliseReqs };
+module.exports = { MAX_BYTES, IMAGE_TYPES, DOCX, fileKind, docxText, contentFor, contentForWeb, REQ_SYSTEM, REQ_SCHEMA, REQ_SCHEMA_WEB, normaliseReqs };

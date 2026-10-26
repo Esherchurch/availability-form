@@ -227,10 +227,11 @@
         todoTable(risks) +
         /* S3: how many of the leaders have read the host's safeguarding policy (a count; the names are on the assessment page) */
         (host && (L.leaderIds || []).length ? '<p id="pPolicy"><b>Read ' + esc(host.name || 'the host') + '’s safeguarding policy:</b> ' + (L.leaderIds || []).filter(function (m) { return READS[m]; }).length + ' of ' + (L.leaderIds || []).length + ' leaders.</p>' : '') +
-        (host ? '<h2>Appendix: the host’s requirements</h2><p id="pHost">' + (host.confirmed ? 'Requirements taken from ' + esc(host.file ? host.file.name : 'their list') + ', checked by ' + esc(host.checkedByName || '') + ' on ' + esc(longDate(host.checkedAt)) + '.' : 'Read from ' + esc(host.file ? host.file.name : 'their list') + '; not checked yet.') +
-          ' The original file is kept with the assessment in the hub' + (host.file ? ' (' + esc(host.file.name) + ', ' + Math.max(1, Math.round((host.file.size || 0) / 1024)) + ' KB)' : '') + '.</p>' +
+        (host ? '<h2>Appendix: the host’s requirements</h2><p id="pHost">' + (host.confirmed ? 'Requirements taken from ' + esc(host.web ? (host.web.pages || []).length + ' of ' + (host.name || 'the host') + '’s web pages' + (host.web.pasted ? ' and pasted text' : '') : host.file ? host.file.name : 'their list') + ', checked by ' + esc(host.checkedByName || '') + ' on ' + esc(longDate(host.checkedAt)) + '.' : 'Read from ' + esc(host.file ? host.file.name : 'their list') + '; not checked yet.') +
+          (host.web ? ' What was read is kept with the assessment in the hub.</p><p class="note" id="pHostPages">The pages: ' + (host.web.pages || []).map(function (p) { return esc(p.url); }).join('; ') + '.</p>'
+            : ' The original file is kept with the assessment in the hub' + (host.file ? ' (' + esc(host.file.name) + ', ' + Math.max(1, Math.round((host.file.size || 0) / 1024)) + ' KB)' : '') + '.</p>') +
           '<table class="ck" id="pHostList"><thead><tr><th>' + esc(host.name || 'The host') + '’s requirement, as a question</th><th>Where it came from</th></tr></thead><tbody>' +
-          (host.items || []).map(function (x) { return '<tr><td>' + esc(x.q) + '</td><td class="note">' + esc(x.line || '') + '</td></tr>'; }).join('') + '</tbody></table>' : '') +
+          (host.items || []).map(function (x) { return '<tr><td>' + esc(x.q) + '</td><td class="note">' + esc(x.line || '') + (x.source ? '<br>(' + esc(x.source) + ')' : '') + '</td></tr>'; }).join('') + '</tbody></table>' : '') +
         '<h2>Signatures</h2><p class="note">For a paper file. The hub keeps its own record of who signed it off, and when.</p>' +
         '<div class="sign" id="pSign"><div><span>Safeguarding lead or deputy</span></div><div><span>Date</span></div><div><span>Trip or event leader</span></div><div><span>Date</span></div></div>';
       document.title = 'Safeguarding assessment: ' + (EV.title || '');

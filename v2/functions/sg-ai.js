@@ -34,6 +34,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
+import https from 'node:https';
+import http from 'node:http';
+import dns from 'node:dns';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -45,6 +48,7 @@ const Core = require('./sg-ai-core.cjs');
 const Checklist = require('./sg-checklist.cjs');
 const Req = require('./sg-requirements-core.cjs');
 const Safeguarding = require('./safeguarding-core.cjs');
+const Links = require('./sg-links-core.cjs');
 const REGION = 'europe-west2';
 const db = () => getFirestore();
 const KINDS = Checklist.SG_KINDS;
@@ -286,6 +290,102 @@ export const sgExtractRequirements = onCall({ region: REGION, secrets: [CHQ_ANTH
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
   return extractRequirements({ db: db(), uid: req.auth.uid, data: req.data });
+});
+/* ---- THE HOST'S REQUIREMENTS FROM THEIR WEB PAGES, OR PASTED TEXT (S6, F-280 10.6) ----
+   Newday has no single document, only help pages. The pages are read by
+   functions/sg-links-core.cjs - https only, public addresses only, connected
+   to the address that was checked, redirects checked one by one, 2 MB a page,
+   20 pages, 45 seconds, one level down on the same site - and their words go
+   to Claude exactly as a file's do. Each question says which page it came
+   from; what was read is kept in Storage beside the files; the leader checks
+   the list before anything counts. Same people, caps and log as a file. */
+/* one request, made to the address that was checked (so the name can't be switched in between), its size capped */
+function pinnedRequest({ url, address, family, maxBytes, timeoutMs }) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url), plain = u.protocol === 'http:';
+    const req = (plain ? http : https).request({ host: address, family, port: u.port || (plain ? 80 : 443), path: u.pathname + u.search, method: 'GET',
+      servername: plain ? undefined : u.hostname, timeout: timeoutMs,
+      headers: { Host: u.host, Accept: 'text/html,application/xhtml+xml,text/plain,application/pdf', 'User-Agent': 'ChurchHQ hub (reads a host\'s requirements for a church group)' } });
+    req.on('response', (res) => {
+      const status = res.statusCode, type = res.headers['content-type'] || '', location = res.headers.location || '';
+      if (status >= 300 && status < 400) { res.resume(); return resolve({ status, location, type }); }
+      if (+res.headers['content-length'] > maxBytes) { req.destroy(new Error('too big')); return; }
+      const parts = []; let n = 0;
+      res.on('data', (c) => { n += c.length; if (n > maxBytes) { req.destroy(new Error('too big')); return; } parts.push(c); });
+      res.on('end', () => resolve({ status, type, body: Buffer.concat(parts) }));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('timed out')));
+    req.on('error', reject);
+    req.end();
+  });
+}
+const realDeps = () => ({ lookup: (h) => dns.promises.lookup(h, { all: true, verbatim: true }), request: pinnedRequest });
+
+export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) {
+  data = data || {};
+  const calEventId = String(data.calEventId || '');
+  if (!calEventId || calEventId.includes('/')) throw new HttpsError('invalid-argument', 'Which event?');
+  const urls = (Array.isArray(data.urls) ? data.urls : []).map((x) => String(x || '').trim()).filter(Boolean);
+  const pasted = String(data.text || '').slice(0, 60000);
+  if (!urls.length && !pasted.trim()) throw new HttpsError('invalid-argument', 'Give the host’s web page addresses, or paste their requirements.');
+  if (urls.length > Links.LIMITS.starts) throw new HttpsError('invalid-argument', 'Up to ' + Links.LIMITS.starts + ' addresses at a time. The pages they link to on the same site are read too.');
+  const w = await whoFor(dbi, uid, calEventId);
+  if (!w.ok) throw new HttpsError('permission-denied', 'This is for the event’s organiser and leaders, and the safeguarding lead and deputy.');
+  w.e.id = calEventId;
+  if (!KINDS.includes(w.e.sgKind || '') || w.l.under18 !== true) throw new HttpsError('failed-precondition', 'Only an under-18s trip, overnight, holiday club, off-site event or camp needs this.');
+  const cur = (await dbi.collection('sgAssessments').doc(calEventId).get()).data();
+  if (cur && (cur.status === 'signed' || cur.waived)) throw new HttpsError('failed-precondition', 'This assessment is already signed off (or not needed). Change it by hand instead.');
+  const base = { siteId: w.site, calEventId, by: uid, byName: w.u.name, chars: pasted.length, kind: 'requirements-web' };
+  const key = api || (await apiOf(dbi));
+  if (!key.apiKey) throw new HttpsError('failed-precondition', Core.WORDS.notSet);
+  const { st, names } = await factsFor(dbi, w, 0);
+  if (!(await takeOne(dbi, uid, Core.caps(st)))) { await logIt(dbi, Object.assign({ outcome: 'capped' }, base)); throw new HttpsError('resource-exhausted', Core.WORDS.capped); }
+  /* the pages, read safely (on the emulator only, a test may name its own stand-in site) */
+  let d = deps || realDeps();
+  if (!deps && process.env.FUNCTIONS_EMULATOR === 'true') { const t = (await dbi.collection('sgAiStub').doc('config').get()).data(); if (t && Array.isArray(t.webHosts)) d = Object.assign({}, d, { testHosts: t.webHosts }); }
+  const read = urls.length ? await Links.readPages(urls, d) : { pages: [], refused: [] };
+  if (!read.pages.length && !pasted.trim()) {
+    await logIt(dbi, Object.assign({ outcome: 'unreadable', pages: 0 }, base));
+    throw new HttpsError('failed-precondition', 'Nothing could be read from those addresses: ' + read.refused.map((r) => r.url + ' (' + r.why + ')').join('; ').slice(0, 600) + '. Paste their requirements instead.');
+  }
+  /* what was read, kept with the assessment (the words; any PDF as it came) */
+  const kept = read.pages.map((p) => '== ' + p.url + (p.title ? ' (' + p.title + ')' : '') + ' ==\n' + (p.kind === 'pdf' ? '[a PDF]' : p.text)).join('\n\n') + (pasted.trim() ? '\n\n== Pasted text ==\n' + pasted : '');
+  const path = 'sgRequirements/' + calEventId + '/' + Date.now() + '-web.txt';
+  await (bucket || getStorage().bucket()).file(path).save(Buffer.from(kept, 'utf8'), { contentType: 'text/plain; charset=utf-8', resumable: false });
+  base.pages = read.pages.length; base.chars = kept.length;
+  let res;
+  try {
+    res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, request: { model: Core.MODEL, max_tokens: 8000,
+      system: [{ type: 'text', text: Req.REQ_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: Req.contentForWeb(read.pages, pasted) }],
+      output_config: { format: { type: 'json_schema', schema: Req.REQ_SCHEMA_WEB } } } });
+  } catch (e) { throw await callFailed(dbi, e, key, base, 'sgRequirementsFromLinks'); }
+  if ((await stateRef(dbi).get()).exists) await stateRef(dbi).set({ state: 'ok', key: fingerprint(key.apiKey), at: new Date().toISOString() });
+  const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
+  if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', 'The AI couldn’t read this; type the host’s requirements in as the church’s own questions instead.'); }
+  let parsed = null;
+  try { parsed = res.stop_reason === 'max_tokens' ? null : JSON.parse((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')); } catch (e) { parsed = null; }
+  const n = Req.normaliseReqs(parsed, names);
+  if (!n.ok) { await logIt(dbi, Object.assign({ outcome: 'failed' }, base, usage)); throw new HttpsError('internal', 'The list came back incomplete; try again.'); }
+  const at = new Date().toISOString(), hostName = String(data.host || '').trim().slice(0, 120) || n.host || 'the host';
+  const host = { name: hostName, file: { path, name: 'What was read from the web pages.txt', type: 'text/plain', size: Buffer.byteLength(kept) },
+    web: { pages: read.pages.map((p) => ({ url: p.url.slice(0, 500), title: String(p.title || '').slice(0, 200) })), refused: read.refused.slice(0, 20).map((r) => ({ url: String(r.url).slice(0, 500), why: r.why })), pasted: !!pasted.trim(), at },
+    items: n.items.map((x, i) => Object.assign({ id: 'h_' + i + '_' + Math.random().toString(36).slice(2, 8), q: x.q, line: x.line }, x.source ? { source: x.source } : {})),
+    extractedAt: at, by: uid, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound, confirmed: false };
+  const ref = dbi.collection('sgAssessments').doc(calEventId), b = dbi.batch();
+  if (cur) b.update(ref, { host, hostIds: [], updatedAt: at, updatedBy: uid });
+  else b.set(ref, { siteId: w.site, calEventId, title: String(w.e.title || '').slice(0, 120), templateId: w.e.sgKind, answers: {}, risks: [], status: 'draft', version: 1, host, hostIds: [], updatedAt: at, updatedBy: uid });
+  b.set(dbi.collection('sgGate').doc(calEventId), { needed: true, open: false, updatedAt: at });
+  await b.commit();
+  await logIt(dbi, Object.assign({ outcome: 'extracted' }, base, usage));
+  return { ok: true, count: host.items.length, pages: read.pages.length, refused: host.web.refused, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound,
+    message: n.personalFound ? 'The pages seem to have names, phone numbers or emails on them. They were left out of the questions.' : '' };
+}
+export const sgRequirementsFromLinks = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
+  if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
+  return extractFromWeb({ db: db(), uid: req.auth.uid, data: req.data });
 });
 /* the original file back, for those who can see the assessment */
 export const sgRequirementsFile = onCall({ region: REGION }, async (req) => {
