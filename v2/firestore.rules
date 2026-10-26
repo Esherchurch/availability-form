@@ -2935,6 +2935,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /* One job's teams on churchSettings/teamJobs: absent, or a list of at
+       most 500 (the team ids are checked by the page, which offers only
+       the church's own teams). */
+    function teamJobList(d, job) {
+      return !(job in d) || (d[job] is list && d[job].size() <= 500);
+    }
     match /churchSettings/{id} {
       // `details` is the church's name, enquiry address and logo, and it is
       // read by pages nobody has signed in to - the availability form, the
@@ -2958,6 +2964,22 @@ service cloud.firestore {
       // the hub knows - a new add-on joins this list when it is built.
       allow write: if (isMaster() && id == 'features'
                        && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'updatedAt', 'updatedBy']));
+      // TEAM JOBS (FINDINGS-churchhq H-9, 26 Oct 2026): which of the
+      // church's teams do each job (egbc-team-jobs.js). A master admin's,
+      // because it decides who reaches the office's, the trustees' and the
+      // money pages. Only the 15 jobs; each a list of team ids, at most 500
+      // (H-9: no other cap); [] is "nobody". A job left out is EGBC's team.
+      allow write: if (isMaster() && id == 'teamJobs'
+                       && request.resource.data.keys().hasOnly(['office', 'communications', 'trustees', 'leadership', 'finance', 'buildings', 'pastoral',
+                            'worship', 'av', 'choir', 'children', 'youth', 'catering', 'welcome', 'prayer', 'updatedAt', 'updatedBy'])
+                       && teamJobList(request.resource.data, 'office') && teamJobList(request.resource.data, 'communications')
+                       && teamJobList(request.resource.data, 'trustees') && teamJobList(request.resource.data, 'leadership')
+                       && teamJobList(request.resource.data, 'finance') && teamJobList(request.resource.data, 'buildings')
+                       && teamJobList(request.resource.data, 'pastoral') && teamJobList(request.resource.data, 'worship')
+                       && teamJobList(request.resource.data, 'av') && teamJobList(request.resource.data, 'choir')
+                       && teamJobList(request.resource.data, 'children') && teamJobList(request.resource.data, 'youth')
+                       && teamJobList(request.resource.data, 'catering') && teamJobList(request.resource.data, 'welcome')
+                       && teamJobList(request.resource.data, 'prayer'));
       // SWITCH-OVER (14 Oct 2026): the private forms (Care & support,
       // prayer, "I'm new here") save nothing until rulesLocked is true. A
       // master admin sets it straight after the locked rules deploy
@@ -2976,12 +2998,11 @@ service cloud.firestore {
                        && request.resource.data.name is string && request.resource.data.name.size() <= 120
                        && request.resource.data.enquiryEmail is string && request.resource.data.enquiryEmail.size() <= 200
                        && (request.resource.data.enquiryEmail == '' || request.resource.data.enquiryEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))
-                       // THE HUB'S OWN ADDRESS (25 Oct 2026; Comms asked): every
-                       // email links to it, so only a master admin changes it, and
-                       // it is a web address or nothing ("not set yet").
-                       && request.resource.data.get('hubUrl', '') is string && request.resource.data.get('hubUrl', '').size() <= 200
-                       && (request.resource.data.get('hubUrl', '') == '' || request.resource.data.get('hubUrl', '').matches('^https://[^ ]+$'))
-                       && (isMaster() || request.resource.data.get('hubUrl', '') == (resource == null ? '' : resource.data.get('hubUrl', ''))))
+                       // THE HUB'S ADDRESS IS MADE, NEVER TYPED (Martin, 26 Oct
+                       // 2026): functions/hub-address.js, from the church's short
+                       // name. A hubUrl a page typed in before (25 Oct) is kept as
+                       // it is and read by nothing; no page sets or changes it.
+                       && request.resource.data.get('hubUrl', '') == (resource == null ? '' : resource.data.get('hubUrl', '')))
                    // The giving details: a master admin, or the Church
                    // office, who are the people who would know them.
                    // Deliberately NOT every admin - a Kids Church admin has

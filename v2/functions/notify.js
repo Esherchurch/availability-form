@@ -26,9 +26,9 @@ const require = createRequire(import.meta.url);
 const Core = require('./notify-core.cjs');
 const Safeguarding = require('./safeguarding-core.cjs');
 
-/* EGBC's address, as the default: churchSettings/details.hubUrl overrides
-   it, so another church's emails link to its own hub. */
-const DEFAULT_HUB = 'https://esherchurch.github.io/availability-form/v2/';
+/* The hub's address is made from the church's short name, never typed
+   (hub-address.js; EGBC's own until it moves to churchhq.co.uk). */
+import { hubAddressOf } from './hub-address.js';
 
 /* What FCM says about a phone that has gone: the app was removed, or the
    token is not one. Either way it will never answer again. */
@@ -92,18 +92,13 @@ export function dryEmail(db) {
   };
 }
 
-/* The church's hub address, ending in "/". For EGBC's own data (no church
-   id: the top level, as today) EGBC's address is the default, so nothing
-   changes for EGBC. For any other church an address not set yet is '' -
-   never another church's address (25 Oct 2026; Comms asked). Church
-   settings > Church details asks a master admin to set it. */
+/* The church's hub address, ending in "/" (Martin, 26 Oct 2026: it is
+   generated, never typed). A church's is https://<slug>.churchhq.co.uk/,
+   from Church HQ's directory; EGBC's own data (no church id) keeps today's
+   address. So a church that is set up always has one, and it is never
+   another church's. */
 export async function hubUrl(db) {
-  const fallback = db && db.churchId ? '' : DEFAULT_HUB;
-  try {
-    const s = await db.collection('churchSettings').doc('details').get();
-    const u = s.exists ? String((s.data() || {}).hubUrl || '') : '';
-    return /^https:\/\//.test(u) ? u.replace(/\/?$/, '/') : fallback;
-  } catch (e) { return fallback; }
+  return (await hubAddressOf(db)).url;
 }
 
 /* ---------------------------------------------------- who is somebody */

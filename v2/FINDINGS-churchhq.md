@@ -489,7 +489,7 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
    - **One Sunday service.** The rota, the hub card, What's on and the calendar feeds assume one Sunday morning. Fix: the same step, with several services per Sunday across buildings.
    - **Core Team covers Worship and AV** (the rules' worshipAv(), CORE_COVERS in egbc-auth.js). Fix: H-9, with "leadership covers these jobs" as part of the mapping.
 4. **Limits that would cut off a bigger church's data:** in H-9 (9 rules caps, 22 files with queries of at most 30 values).
-5. **New-church setup doesn't exist yet.** Today a church is made by a script (step 1's directory). Fix: **step 4 part 3, "set up a new church", through the screens only.** It covers the church's details and logo, Your teams (H-9), the buildings and rooms, the services, and the first master admin, and it makes the church's users records by the server (H-8: a church's sign-in can't write its own).
+5. **New-church setup doesn't exist yet.** Today a church is made by a script (step 1's directory). Fix: **step 4 part 3, "set up a new church", through the screens only.** It covers the church's details and logo (**the hub's address is required**: setup can't finish without it, since emails and links don't work while it is empty; the minister's title is asked, empty meaning "minister"), Your teams (H-9), the buildings and rooms, the services, and the first master admin, and it makes the church's users records by the server (H-8: a church's sign-in can't write its own).
 6. **Cross-church data:** covered by steps 2–4 (2,398 cross-church rules checks, check-church-calls 97, the code index). Batches 7 and 8 (the events window's and Comms' functions) are still to do.
 
 **How the parish would fare today:** it couldn't be set up through the screens (5). It would see "EGBC" and Esher addresses on most pages (1), and Elders, Kids Church and Church office (2). Its rota would offer Baptist worship types at EGBC's times (3). Its data would stay its own (6).
@@ -750,3 +750,21 @@ Listed by owning window, from today's code: calls to `inTeam`, `isLeaderOf`, `is
    - **Or:** a page of its own under Menu > Admin.
 
 **For the synthetic parish:** St Aidan's master admin opens Permissions and sees "Upload to How-To AV…" ticked for master admins and "Leadership · PCC Standing Committee" (its leadership team, from Your teams). They add the verger as an exception "until Easter", with the reason "runs the sound desk". The verger sees the upload button; nobody else from the congregation does. A stranger can't upload once the hub is live.
+
+## H-9 part 1, built (26 Oct 2026): the jobs and who does them
+
+- **`egbc-team-jobs.js`** holds the 15 jobs (with `communications`), EGBC's teams for each, and suggestions for a new church. It also gives the answers: `teamsFor`, `onJob`, `label`, `validate`. `functions/team-jobs.js` is built from it by `tools/team-jobs-build.mjs`, so there is one source.
+- **Stored in `churchSettings/teamJobs`:** `{ <job>: [team ids] }`. Nothing stored means EGBC's team (or the setting the job already had: moneyTeam, trusteeTeam, prayerTeam), so **EGBC sees no change and nothing is written**. `[]` is "nobody".
+- **Rules:** only master admins write it, only the 15 jobs, each a list of at most 500.
+- **Teams & groups gains "Who does each job":** a team for each job, several allowed, "Nobody does this yet: choose a team". Pastoral care with nobody says care requests stay closed.
+- **Not yet:** nothing asks `onJob()` yet. That's part 2, main's 61 files.
+- **For the synthetic parish:** its PCC are its trustees, its Fabric team and St Hild site team do buildings, and with no AV team nobody is on AV.
+
+## The hub's address, made not typed; egbc.churchhq.co.uk (26 Oct 2026)
+
+- **`functions/hub-address.js`:** a church's address is `https://<slug>.churchhq.co.uk/`.
+  - The slug is chosen at setup (3–40 lowercase letters, numbers and single hyphens; unique through `hqSlugs`; checked as typed by `hqSlugCheck`). The church id is used until one is chosen.
+  - EGBC keeps `EGBC_HUB` (github.io) until it switches; Daily's and Microsoft's constants read it too.
+  - Church HQ staff change a slug with `tools/hq-set-slug.mjs` (dry run first; the old one is kept, retired).
+- **Church details shows it read-only** with a copy button and "ask Church HQ". The typed field from 42cc2a8d is gone, and no page may set `details.hubUrl`.
+- **egbc.churchhq.co.uk:** a Cloudflare Worker, `tools/cloudflare/` (README in plain steps). On that address sign-in runs through `/__/auth/`, the manifests open on that address (their `start_url` and `scope` are relative now, the same on github.io), and page-built email links use the page's own address.

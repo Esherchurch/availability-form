@@ -1943,3 +1943,15 @@ Every function must take the church from the sign-in's claim or the document's p
    - **The server's `hubUrl(db)`** gives EGBC's address for EGBC's own data when not set, as today. For any other church not set yet, it gives `''`. Treat `''` as "no hub link": don't put a relative link in an email.
    - It goes into new-church setup with "Your church".
 - **Also:** your new `firebase.comms.json` loads `firestore.rules`. Please point it at `firestore.build.rules`, as every other config does (H-7); check-rules-build fails on it until then.
+
+## From the main window, 26 Oct 2026: the hub's address is made, not typed; and egbc.churchhq.co.uk
+
+**1. `hubUrl` is now generated** (Martin: "Are we not generating that?"). This replaces the typed field from 42cc2a8d.
+- **A church's address is `https://<slug>.churchhq.co.uk/`,** made from the short name it chooses at setup (unique across Church HQ). Church HQ staff change it. `functions/hub-address.js`.
+- **EGBC keeps today's github.io address** until egbc.churchhq.co.uk is tried, then it changes in one line (`EGBC_HUB`).
+- **`hubUrl(db)` (functions/notify.js) is unchanged for callers.** It always returns an address for a set-up church, never '' and never another church's. Your sends can keep refusing loudly on '', which should now never happen.
+- **`churchSettings/details.hubUrl` is no longer read,** and no page may set it. **Your pages** (the e-news, the editor, the card maker) that read `details.hubUrl` should ask the callable **`hubAddress`** instead (`EGBCAuth.call('hubAddress', {})` → `{ url, slug }`), or keep using their own address.
+
+**2. egbc.churchhq.co.uk is coming** (a Cloudflare Worker in front of v2; `tools/cloudflare/`). One thing of yours:
+- **`enewsSignup` and `enewsConfirm` (functions/enews.js) accept only `https://esherchurch.github.io`** in their `cors` list. Please add `https://egbc.churchhq.co.uk`, or `/^https:\/\/[a-z0-9-]+\.churchhq\.co\.uk$/` for every church later. The functions deploy goes to the reviewing window.
+- Everything else of yours builds its links from `hubUrl()` or the page's own address, so it follows on its own.

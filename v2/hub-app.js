@@ -3518,7 +3518,7 @@ function codeEmail(name,code,parentName){
       <div style="font-size:26px;font-weight:600;color:#14201f">${code}</div>
     </div>
     <p style="text-align:center;margin:24px 0">
-      <a href="https://esherchurch.github.io/availability-form/v2/youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none">Enter the code</a>
+      <a href="${location.origin + location.pathname.replace(/[^/]*$/, '')}youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none">Enter the code</a>
     </p>
     <p style="font-size:13px;color:#6b8281;line-height:1.6">Please pass this to ${esc(name)} rather than forwarding the email. If you would rather they did not have access, simply do not use it - and let us know.</p>
     <p style="font-size:12px;color:#93a8a6;line-height:1.6;margin-top:24px;border-top:1px solid #dde7e6;padding-top:16px">Sent by the youth team at Esher Green Baptist Church.</p>

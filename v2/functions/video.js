@@ -42,13 +42,15 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
 import { churchOf } from './church-scope.js';
+import { EGBC_HUB } from './hub-address.js';
 
 const REGION = 'europe-west2';
 export const DAILY_API_KEY = defineSecret('DAILY_API_KEY');
 const API = 'https://api.daily.co/v1';
 const EMULATOR = () => process.env.FUNCTIONS_EMULATOR === 'true';
 const keyNow = () => { try { return DAILY_API_KEY.value() || ''; } catch (e) { return ''; } };
-export const HUB = 'https://esherchurch.github.io/availability-form/v2';
+/* EGBC's hub, without its last "/" (said once, in hub-address.js). */
+export const HUB = EGBC_HUB.replace(/\/+$/, '');
 
 /* EGBC's rooms as they were (meeting.html, the Rota Planner, the Core Team
    app), with the teams whose admins may host each. A new church starts

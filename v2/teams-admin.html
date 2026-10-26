@@ -13,8 +13,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610252330"></script>
+<script src="egbc-auth.js?v=202610261500"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="Church office"></script>
+<script src="egbc-team-jobs.js?v=202610261200"></script>
 <style>
   :root{
     --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
@@ -58,6 +59,15 @@
        border:1px solid var(--brand);background:var(--brand);color:#fff;font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
   .note{font-size:13px;color:var(--muted);margin:6px 0 0}
   .bar{display:flex;justify-content:flex-end;margin:6px 0}
+  .job{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:12px 0;border-top:1px solid var(--line)}
+  .job:first-child{border-top:0;padding-top:0}
+  .job b{color:var(--ink)} .job .means{font-size:13px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 4px 0 12px;border-radius:999px;background:var(--tint);color:var(--brand-dark);font-weight:500}
+  .chip button{width:36px;height:36px;border:0;background:none;color:var(--brand-dark);font:600 16px Inter,system-ui,sans-serif;cursor:pointer;border-radius:999px}
+  .chip.ro{padding-right:12px}
+  .nobody{font-size:13px;color:var(--muted)} .nobody.warn{color:#b45309;font-weight:600}
+  .job select{min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 10px;font:400 14px Inter,system-ui,sans-serif;color:var(--ink);background:#fff;max-width:100%}
 </style>
 </head>
 <body>
@@ -78,6 +88,11 @@
     <label class="tick"><input type="checkbox" id="newIsGroup"> A group, not a rota team (like Elders or Finance)</label>
     <p class="saved" id="addMsg" role="status"></p>
   </div>
+
+  <h2 id="jobsHead">Who does each job</h2>
+  <p class="lede">The hub asks for a job, never a team's name: who sends, who sees the trustees' pages, who fixes things.
+    Each job can be done by several teams, or by nobody.</p>
+  <div id="jobs"><div class="card empty">Loading…</div></div>
 
   <h2 id="listHead">The list</h2>
   <div class="bar"><label class="tick"><input type="checkbox" id="showGone"> Show archived</label></div>
@@ -137,7 +152,64 @@ async function load() {
   });
   sortRows();
   draw();
+  await loadJobs();
 }
+
+/* ---- WHO DOES EACH JOB (FINDINGS-churchhq H-9, 26 Oct 2026) ----------
+   churchSettings/teamJobs: { <job>: [team ids] }. A job not stored is
+   EGBC's team (or the setting it already had), so EGBC sees today's
+   answer without anything being written; taking off its last team stores
+   [] - "nobody". A master admin's (firestore.rules). */
+let JOBMAP = null, JOBSET = {};
+async function loadJobs() {
+  const get = (c, d) => db.collection(c).doc(d).get().then(s => s.exists ? s.data() : null, () => null);
+  const [m, pay, sg, pr] = await Promise.all([get('churchSettings', 'teamJobs'), get('paymentSettings', 'public'), get('safeguardingSettings', 'defaults'), get('prayerSettings', 'main')]);
+  JOBMAP = m || {}; JOBSET = {};
+  if (pay && pay.moneyTeam !== undefined) JOBSET.moneyTeam = pay.moneyTeam;
+  if (sg && sg.trusteeTeam !== undefined) JOBSET.trusteeTeam = sg.trusteeTeam;
+  if (pr && pr.prayerTeam !== undefined) JOBSET.prayerTeam = pr.prayerTeam;
+  drawJobs();
+}
+const labelOf = (id) => (ROWS.find(r => r.id === id) || {}).label || id;
+function drawJobs() {
+  const J = window.EGBCTeamJobs; if (!J) return;
+  const live = ROWS.filter(r => !r.archived);
+  $('jobs').innerHTML = '<div class="card">' + J.JOBS.map(j => {
+    const teams = J.teamsFor(JOBMAP, j.id, JOBSET);
+    const chips = teams.map(t => MASTER
+      ? `<span class="chip">${esc(labelOf(t))}<button type="button" data-job="${j.id}" data-drop="${esc(t)}" aria-label="Take ${esc(labelOf(t))} off ${esc(j.id)}">×</button></span>`
+      : `<span class="chip ro">${esc(labelOf(t))}</span>`).join('');
+    /* Pastoral care never falls back to anyone (H-9 question 4). */
+    const none = teams.length ? '' : (j.noFallback
+      ? '<span class="nobody warn">Nobody yet: care requests stay closed until a team is named.</span>'
+      : '<span class="nobody' + (MASTER ? ' warn' : '') + '">Nobody does this yet' + (MASTER ? ': choose a team.' : '.') + '</span>');
+    const add = MASTER ? `<select data-job="${j.id}" aria-label="Add a team to ${esc(j.id)}"><option value="">Add a team…</option>${live.filter(r => teams.indexOf(r.id) === -1).map(r => `<option value="${esc(r.id)}">${esc(r.label)}</option>`).join('')}</select>` : '';
+    return `<div class="job" data-jobrow="${j.id}"><div><b>${esc(j.id.charAt(0).toUpperCase() + j.id.slice(1))}</b> <span class="means">· ${esc(j.means)}</span></div>
+      <div class="chips">${chips}${none}${add}</div><p class="saved" role="status"></p></div>`;
+  }).join('') + (MASTER ? '' : '<p class="note">A master admin changes who does each job.</p>') + '</div>';
+}
+async function saveJob(job, teams, row) {
+  const msg = row && row.querySelector('.saved');
+  try {
+    await db.collection('churchSettings').doc('teamJobs').set({ [job]: teams, updatedAt: new Date().toISOString(), updatedBy: EGBCAuth.user().uid }, { merge: true });
+    JOBMAP[job] = teams; drawJobs();
+    const again = document.querySelector('[data-jobrow="' + job + '"] .saved');
+    if (again) { again.className = 'saved'; again.textContent = 'Saved'; setTimeout(() => { if (again.textContent === 'Saved') again.textContent = ''; }, 2000); }
+  } catch (e) {
+    console.error('teams-admin: could not save the job', e);
+    if (msg) { msg.className = 'saved err'; msg.textContent = 'That did not save. Please try again.'; }
+  }
+}
+$('jobs').addEventListener('change', (e) => {
+  const s = e.target.closest('select[data-job]'); if (!s || !s.value || !MASTER) return;
+  const job = s.dataset.job, now = EGBCTeamJobs.teamsFor(JOBMAP, job, JOBSET);
+  saveJob(job, now.concat([s.value]), s.closest('.job'));
+});
+$('jobs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-drop]'); if (!b || !MASTER) return;
+  const job = b.dataset.job, now = EGBCTeamJobs.teamsFor(JOBMAP, job, JOBSET);
+  saveJob(job, now.filter(t => t !== b.dataset.drop), b.closest('.job'));
+});
 
 function sortRows() {
   ROWS.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));

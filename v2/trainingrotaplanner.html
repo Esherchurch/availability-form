@@ -5,7 +5,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610252330"></script>
+<script src="egbc-auth.js?v=202610261500"></script>
 <script src="egbc-guard.js?v=202610221200"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -218,7 +218,7 @@
         const MANDATORY_SUNDAY_ROLES= ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
         const EVENT_TYPES           = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Special Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
         const AV_ROLES              = ["Sound","Words","Cameras"];
-        const FORM_LINK             = "https://esherchurch.github.io/availability-form/v2/";
+        const FORM_LINK             = location.origin + location.pathname.replace(/[^/]*$/, ''); /* the address this page is open at */
         const LOGO_URL              = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media";
         const TS_KEY                = "EGBC_TR";
 

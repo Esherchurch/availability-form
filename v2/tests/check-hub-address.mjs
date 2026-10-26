@@ -1,16 +1,20 @@
-/* The hub's own address on Church settings > Church details (25 Oct 2026;
- * Comms asked): every email links to it.
+/* The hub's address on Church settings > Church details: made from the
+ * church's short name, never typed (Martin, 26 Oct 2026; functions/
+ * hub-address.js). Every email links to it.
  *
  *   node tests/check-hub-address.mjs          (from v2/, the dev emulators up)
  *   BREAK=1 node tests/check-hub-address.mjs  serves the page's old Save (the fields
  *                                             it drew, replacing the rest): must fail
  *
- * In a browser at 375, made-up people:
- *   - with no address set, a master admin is told plainly it is not set yet,
- *     sets one, and it is saved, the church's name with it;
- *   - the minister's title (Comms' C-53) is saved with it; empty reads "minister";
- *   - an admin who is not a master sees it, cannot change it, and saving the
- *     church's name keeps it;
+ * In a browser at 375, made-up people, EGBC's own data:
+ *   - a master admin sees the address the server makes - EGBC's today -
+ *     read-only, with a copy button and who changes it; there is nothing
+ *     to type it into;
+ *   - an address typed in on 25 Oct (before this) is shown nowhere, and
+ *     kept untouched by every save;
+ *   - the minister's title (Comms' C-53) is saved; empty reads "minister";
+ *   - an admin who is not a master sees the same, and saving the church's
+ *     name keeps the title.
  */
 import { spawn } from 'node:child_process';
 import http from 'node:http';
@@ -23,6 +27,8 @@ const V2 = path.resolve('.');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const CDP = 9809, SERVE = 8995, PW = 'test-only-password';
 const BREAK = !!process.env.BREAK;
+/* EGBC's address today (functions/hub-address.js EGBC_HUB), and one typed in on 25 Oct. */
+const EGBC = 'https://esherchurch.github.io/availability-form/v2/', TYPED = 'https://typed-on-25-oct.example.invalid/';
 const DOCS = '/v1/projects/egbc-worship-planner/databases/(default)/documents';
 const OWNER = { Authorization: 'Bearer owner' };
 const PEOPLE = {
@@ -56,9 +62,11 @@ const server = http.createServer((q, s) => {
   let body = fs.readFileSync(f, 'utf8');
   if (/\.html$/.test(f)) { const h = /<head[^>]*>/i.exec(body); if (h) body = body.slice(0, h.index + h[0].length) + NO_SW + body.slice(h.index + h[0].length); }
   /* The break: Save as it was - the drawn fields only, replacing the rest. */
-  if (BREAK && url === '/church-settings.html') body = body.replace(/hubUrl: D\.hubUrl \|\| '', ministerTitle: D\.ministerTitle \|\| '', updatedAt: new Date\(\)\.toISOString\(\), updatedBy: u\.uid \|\| ''(\r?\n) {4}\}, \{ merge: true \}\)/, "updatedAt: new Date().toISOString(), updatedBy: u.uid || ''$1    })");
-  /* And it must have applied: a break that misses tests nothing. */
-  if (BREAK && url === '/church-settings.html' && /ministerTitle: D\.ministerTitle \|\| '', updatedAt/.test(body)) console.log('  FAIL  the break did not apply (the Save line has changed)');
+  if (BREAK && url === '/church-settings.html') {
+    const was = body;
+    body = body.replace(/ministerTitle: D\.ministerTitle \|\| '', updatedAt: new Date\(\)\.toISOString\(\), updatedBy: u\.uid \|\| ''(\r?\n) {4}\}, \{ merge: true \}\)/, "ministerTitle: D.ministerTitle || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''$1    })");
+    if (body === was) console.log('  FAIL  the break did not apply (the Save line has changed)');
+  }
   s.writeHead(200, { 'Content-Type': (/\.js$/.test(f) ? 'text/javascript' : /\.css$/.test(f) ? 'text/css' : 'text/html') + '; charset=utf-8', 'Cache-Control': 'no-store' });
   s.end(body);
 }).listen(SERVE);
@@ -76,7 +84,7 @@ try {
     await put('addressBook/' + p.member, { name: p.name, email: p.email, markers: p.teams, adminFor: p.adminFor, masterAdmin: p.masterAdmin, archived: false, isMinor: false, churchMember: true });
     await put('users/' + p.uid, { uid: p.uid, email: p.email, name: p.name, memberId: p.member, status: 'active', linkedBy: 'admin', teams: p.teams, adminFor: p.adminFor, masterAdmin: p.masterAdmin, churchMember: true });
   }
-  await put('churchSettings/details', { name: 'Synthetic Church', enquiryEmail: '', logoUrl: '', logoPath: '', updatedAt: 'x', updatedBy: 'x' });
+  await put('churchSettings/details', { name: 'Synthetic Church', enquiryEmail: '', logoUrl: '', logoPath: '', hubUrl: TYPED, updatedAt: 'x', updatedBy: 'x' });
 
   let list; for (let i = 0; i < 40; i++) { try { list = await getJSON('/json/list'); break; } catch { await sleep(500); } }
   const ws = new WebSocket(list.find(x => x.type === 'page').webSocketDebuggerUrl);
@@ -95,25 +103,30 @@ try {
     await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/church-settings.html' });
     for (let i = 0; i < 40 && String(await evl('!!document.getElementById("c-hub")')) !== 'true'; i++) await sleep(400);
   };
-  const look = async () => JSON.parse(String(await evl('JSON.stringify({value:(document.getElementById("c-hub")||{}).value,disabled:!!(document.getElementById("c-hub")||{}).disabled,text:(document.getElementById("form")||{textContent:""}).textContent.replace(/\\s+/g," ")})')));
+  const look = async () => {
+    for (let i = 0; i < 30 && /Finding it/.test(String(await evl('(document.getElementById("c-hub")||{}).textContent||""'))); i++) await sleep(400);
+    return JSON.parse(String(await evl('JSON.stringify({tag:(document.getElementById("c-hub")||{}).tagName,shown:(document.getElementById("c-hub")||{}).textContent,copy:!!document.getElementById("c-hub-copy")&&!document.getElementById("c-hub-copy").disabled,inputs:document.querySelectorAll("#form input#c-hub,#form input[type=url]").length,text:(document.getElementById("form")||{textContent:""}).textContent.replace(/\\s+/g," ")})')));
+  };
 
-  console.log('\nA master admin, no address set');
+  console.log('\nA master admin, EGBC\'s own data');
   await as('master');
   let L = await look();
-  ok('is told plainly it is not set yet', /Not set yet/.test(L.text) && L.value === '', L.text.slice(0, 200));
-  ok('  and may type one', L.disabled === false);
-  await evl('(function(){document.getElementById("c-hub").value="https://hub.example.invalid/";document.getElementById("c-minister").value="vicar";document.getElementById("c-save").click();return 1})()'); await sleep(2000);
+  ok('sees the address the server makes: EGBC\'s, as today', L.shown === EGBC, JSON.stringify(L).slice(0, 200));
+  ok('  read-only: nothing to type it into', L.tag === 'OUTPUT' && L.inputs === 0, JSON.stringify(L).slice(0, 200));
+  ok('  with a copy button, and who changes it', L.copy && /ask Church HQ/.test(L.text), L.text.slice(0, 300));
+  ok('  the address typed in on 25 Oct is shown nowhere', L.text.indexOf('typed-on-25-oct') === -1);
+  await evl('(function(){document.getElementById("c-minister").value="vicar";document.getElementById("c-save").click();return 1})()'); await sleep(2000);
   let d = await getDetails();
-  ok('  saving keeps it, with the church\'s name', d && d.hubUrl === 'https://hub.example.invalid/' && d.name === 'Synthetic Church', JSON.stringify(d));
-  ok('  and the minister\'s title, "vicar" (Comms\' C-53; with none set it read "minister")', d && d.ministerTitle === 'vicar' && /Letter from the minister/.test(L.text), JSON.stringify(d));
+  ok('  saving keeps the church\'s name, and the old address untouched', d && d.name === 'Synthetic Church' && d.hubUrl === TYPED, JSON.stringify(d));
+  ok('  and saves the minister\'s title, "vicar" (Comms\' C-53; with none set it read "minister")', d && d.ministerTitle === 'vicar' && /Letter from the minister/.test(L.text), JSON.stringify(d));
 
   console.log('\nAn admin who is not a master');
   await as('admin');
   L = await look();
-  ok('sees the address, and cannot change it', L.value === 'https://hub.example.invalid/' && L.disabled === true, JSON.stringify(L).slice(0, 200));
+  ok('sees the same address, read-only', L.shown === EGBC && L.tag === 'OUTPUT', JSON.stringify(L).slice(0, 200));
   await evl('(function(){document.getElementById("c-name").value="Synthetic Church Renamed";document.getElementById("c-save").click();return 1})()'); await sleep(2000);
   d = await getDetails();
-  ok('  saving the name keeps the address and the title', d && d.name === 'Synthetic Church Renamed' && d.hubUrl === 'https://hub.example.invalid/' && d.ministerTitle === 'vicar', JSON.stringify(d));
+  ok('  saving the name keeps the title and the old address', d && d.name === 'Synthetic Church Renamed' && d.ministerTitle === 'vicar' && d.hubUrl === TYPED, JSON.stringify(d));
   ok('no errors on the page', errs.length === 0, errs.join(' | '));
   exitCode = R.every(Boolean) ? 0 : 1;
 } catch (e) { console.log('  FAIL  the run itself: ' + (e && e.stack || e)); }

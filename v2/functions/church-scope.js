@@ -49,6 +49,9 @@ export function scopedDb(db, churchId) {
   const root = db.collection('churches').doc(churchId);
   return {
     churchId,
+    /* The whole database, for Church HQ's own directory (hqChurches,
+       hqSlugs) only - never for a church's data. hub-address.js. */
+    hq: db,
     collection: (name) => root.collection(name),
     doc: (p) => db.doc('churches/' + churchId + '/' + String(p).replace(/^\/+/, '')),
     batch: () => db.batch(),

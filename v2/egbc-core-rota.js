@@ -1094,7 +1094,7 @@
         + '<div style="font-size:14px;color:#14201f;line-height:1.9">' + dates.map(fmt).join(' &middot; ') + '</div>'
         + '</div>'
         + '<p style="text-align:center;margin:24px 0">'
-        + '<a href="https://esherchurch.github.io/availability-form/v2/" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;text-decoration:none">Fill in your availability</a>'
+        + '<a href="' + location.origin + location.pathname.replace(/[^/]*$/, '') + '" style="background:#3d6263;color:#fff;padding:14px 32px;border-radius:999px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:2px;text-decoration:none">Fill in your availability</a>'
         + '</p>'
         + '<p style="font-size:13px;color:#6b8281;line-height:1.6">One form covers everything you are on - worship, AV, Kids Church - so you only need to do this once.</p>'
         + '</div>';

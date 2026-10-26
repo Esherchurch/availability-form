@@ -30,7 +30,12 @@
 
   var FIREBASE_CONFIG = {
     apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-    authDomain: "egbc-worship-planner.firebaseapp.com",
+    /* On Church HQ's own address (egbc.churchhq.co.uk, 26 Oct 2026) sign-in
+       runs through that address: the Worker (tools/cloudflare/) passes
+       /__/auth/ on to firebaseapp.com, so Google's sign-in by redirect
+       keeps working in browsers that block another site's storage.
+       Everywhere else - github.io, localhost - exactly as before. */
+    authDomain: /\.churchhq\.co\.uk$/i.test(location.hostname) ? location.host : "egbc-worship-planner.firebaseapp.com",
     projectId: "egbc-worship-planner",
     storageBucket: "egbc-worship-planner.firebasestorage.app",
     appId: "1:199442060489:web:7eaf85a76334c753db6918"

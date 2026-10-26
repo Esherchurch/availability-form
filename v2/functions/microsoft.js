@@ -39,13 +39,15 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
+import { EGBC_HUB } from './hub-address.js';
 
 const REGION = 'europe-west2';
 const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
 const db = () => getFirestore();
 export const MS_HQ_CLIENT_ID = defineString('MS_HQ_CLIENT_ID', { default: '' });
 export const MS_HQ_CLIENT_SECRET = defineSecret('MS_HQ_CLIENT_SECRET');
-const HUB = 'https://esherchurch.github.io/availability-form/v2/';
+/* Where Microsoft sends people back to: EGBC's hub (said once, in hub-address.js). */
+const HUB = EGBC_HUB;
 const PROJECT = process.env.GCLOUD_PROJECT || 'egbc-worship-planner';
 const APP_NAME = 'Church HQ slides';
 /* A placeholder is not a secret: the reviewer set MS_HQ_CLIENT_SECRET to

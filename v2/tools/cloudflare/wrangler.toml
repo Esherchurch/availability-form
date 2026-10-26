@@ -1,0 +1,15 @@
+# Church HQ's address: <slug>.churchhq.co.uk (README.md in this folder).
+name = "churchhq-hub"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+# egbc.churchhq.co.uk only, for now. When more churches go live, this
+# becomes "*.churchhq.co.uk/*" and their slugs go in the SLUGS namespace.
+routes = [
+  { pattern = "egbc.churchhq.co.uk/*", zone_name = "churchhq.co.uk" }
+]
+
+# For churches after EGBC (not needed yet):
+# [[kv_namespaces]]
+# binding = "SLUGS"
+# id = "<the namespace id Cloudflare gives>"

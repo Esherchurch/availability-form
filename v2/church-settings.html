@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610252330"></script>
+<script src="egbc-auth.js?v=202610261500"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <!-- An admin, OR the Church office. The office are the people who know
      the church's bank details, which now live on this page, and they are
@@ -144,11 +144,13 @@
       '<div class="field"><label for="c-name">Church name</label><input class="inp" id="c-name" maxlength="120" value="' + esc(D.name) + '"></div>' +
       '<div class="field"><label for="c-email">Enquiry email</label><input class="inp" id="c-email" type="email" maxlength="200" value="' + esc(D.enquiryEmail) + '">' +
         '<p class="hint" style="margin:6px 0 0">Where room-hire questions go, and the reply address on emails these pages send.</p></div>' +
-      /* THE HUB'S OWN ADDRESS (25 Oct 2026): every email links to it. Empty
-         is "not set yet", said plainly; only a master admin sets it. */
-      '<div class="field"><label for="c-hub">The hub\u2019s web address</label><input class="inp" id="c-hub" type="url" maxlength="200" placeholder="https://" value="' + esc(D.hubUrl || '') + '"' + (EGBCAuth.isMaster() ? '' : ' disabled') + '>' +
-        (D.hubUrl ? '<p class="hint" style="margin:6px 0 0">Links in the hub\u2019s emails go here.</p>'
-          : '<p class="hint" style="margin:6px 0 0;color:var(--warn,#b45309);font-weight:600">Not set yet. Emails can\u2019t link to the hub until it is' + (EGBCAuth.isMaster() ? ': type the address people open the hub at.' : '. A master admin sets it.') + '</p>') + '</div>' +
+      /* THE HUB'S ADDRESS IS MADE, NEVER TYPED (Martin, 26 Oct 2026): from
+         the church's short name, by the server (functions/hub-address.js).
+         Shown, with a copy button; Church HQ staff change it. */
+      '<div class="field"><label for="c-hub">The hub\u2019s web address</label>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><output class="inp" id="c-hub" style="flex:1 1 220px;display:flex;align-items:center;word-break:break-all;background:var(--canvas,#f6f7f7)">' + esc(HUB.url || 'Finding it\u2026') + '</output>' +
+        '<button type="button" class="btn sec" id="c-hub-copy"' + (HUB.url ? '' : ' disabled') + '>Copy</button></div>' +
+        '<p class="hint" style="margin:6px 0 0">Every email and link from the hub goes here. It is made from your church\u2019s short name' + (HUB.slug ? ' (' + esc(HUB.slug) + ')' : '') + '; to change it, ask Church HQ, because it changes every link already sent.</p></div>' +
       /* THE MINISTER'S TITLE (26 Oct 2026; Comms' C-53): the church's own
          word, as it reads in a sentence. Empty is "minister". */
       '<div class="field"><label for="c-minister">Your minister\u2019s title</label><input class="inp" id="c-minister" maxlength="40" list="c-minister-list" placeholder="minister" value="' + esc(D.ministerTitle || '') + '">' +
@@ -168,24 +170,33 @@
       }).catch(function (e) { toast(e.message || String(e)); });
     };
     document.getElementById('c-save').onclick = function () { save(false); };
+    document.getElementById('c-hub-copy').onclick = function () {
+      if (!HUB.url) return;
+      (navigator.clipboard ? navigator.clipboard.writeText(HUB.url) : Promise.reject()).then(function () { toast('Copied.'); },
+        function () { toast('Select the address to copy it: ' + HUB.url); });
+    };
+  }
+
+  /* The address, asked of the server once (it is the one that makes it). */
+  var HUB = { url: '', slug: '' };
+  function loadHub() {
+    return EGBCAuth.call('hubAddress', {}).then(function (r) { HUB = { url: String((r && r.url) || ''), slug: String((r && r.slug) || '') }; },
+      function () { HUB = { url: '', slug: '' }; }).then(function () { if (document.getElementById('c-hub')) draw(); });
   }
 
   function save(logoOnly) {
     var name = document.getElementById('c-name').value.trim(), email = document.getElementById('c-email').value.trim().toLowerCase();
-    var hubBox = document.getElementById('c-hub'), hub = hubBox && !hubBox.disabled ? hubBox.value.trim() : (D.hubUrl || '');
     if (!logoOnly && !name) { toast('It needs the church\'s name.'); return Promise.resolve(); }
     if (!logoOnly && email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('That email address does not look right.'); return Promise.resolve(); }
-    if (!logoOnly && hub && !/^https:\/\/\S+$/.test(hub)) { toast('The hub\'s address starts https:// and has no spaces.'); return Promise.resolve(); }
     var minBox = document.getElementById('c-minister'), minister = minBox ? minBox.value.trim().replace(/\s+/g, ' ') : (D.ministerTitle || '');
     if (!logoOnly && /[<>"&]/.test(minister)) { toast('The minister\'s title can\'t have < > " or &.'); return Promise.resolve(); }
     var u = EGBCAuth.user() || {};
     D.name = logoOnly ? (D.name || name) : name; D.enquiryEmail = logoOnly ? (D.enquiryEmail || email) : email;
-    D.hubUrl = logoOnly ? (D.hubUrl || '') : hub;
     D.ministerTitle = logoOnly ? (D.ministerTitle || '') : minister;
     /* MERGED, so a field this form does not draw is never wiped by Save. */
     return db().collection('churchSettings').doc('details').set({
       name: D.name || '', enquiryEmail: D.enquiryEmail || '', logoUrl: D.logoUrl || '', logoPath: D.logoPath || '',
-      hubUrl: D.hubUrl || '', ministerTitle: D.ministerTitle || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
+      ministerTitle: D.ministerTitle || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
     }, { merge: true }).then(function () { toast('Saved.'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
   }
 
@@ -483,7 +494,7 @@
     return db().collection('churchSettings').doc('details').get();
   }).then(function (s) {
     D = s.exists ? s.data() : {};
-    if (mayDetails()) draw();
+    if (mayDetails()) { draw(); loadHub(); }
     if (mayNotify()) {
       db().collection('churchSettings').doc('notifications').get().then(function (n) {
         N = (n.exists && n.data()) || { live: false }; drawNotify();

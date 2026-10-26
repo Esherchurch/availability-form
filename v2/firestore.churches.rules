@@ -1481,6 +1481,9 @@ allow read, write: if false;
 }
 }
 }
+function teamJobList(d, job) {
+return !(job in d) || (d[job] is list && d[job].size() <= 500);
+}
 match /churchSettings/{id} {
 allow read: if id != 'giving' || active();
 allow write: if (isMaster() && id == 'notifications'
@@ -1488,6 +1491,17 @@ allow write: if (isMaster() && id == 'notifications'
 && request.resource.data.live is bool);
 allow write: if (isMaster() && id == 'features'
 && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'updatedAt', 'updatedBy']));
+allow write: if (isMaster() && id == 'teamJobs'
+&& request.resource.data.keys().hasOnly(['office', 'communications', 'trustees', 'leadership', 'finance', 'buildings', 'pastoral',
+'worship', 'av', 'choir', 'children', 'youth', 'catering', 'welcome', 'prayer', 'updatedAt', 'updatedBy'])
+&& teamJobList(request.resource.data, 'office') && teamJobList(request.resource.data, 'communications')
+&& teamJobList(request.resource.data, 'trustees') && teamJobList(request.resource.data, 'leadership')
+&& teamJobList(request.resource.data, 'finance') && teamJobList(request.resource.data, 'buildings')
+&& teamJobList(request.resource.data, 'pastoral') && teamJobList(request.resource.data, 'worship')
+&& teamJobList(request.resource.data, 'av') && teamJobList(request.resource.data, 'choir')
+&& teamJobList(request.resource.data, 'children') && teamJobList(request.resource.data, 'youth')
+&& teamJobList(request.resource.data, 'catering') && teamJobList(request.resource.data, 'welcome')
+&& teamJobList(request.resource.data, 'prayer'));
 allow write: if (isMaster() && id == 'launch'
 && request.resource.data.keys().hasOnly(['rulesLocked', 'opensOn', 'updatedAt', 'updatedBy'])
 && request.resource.data.rulesLocked is bool
@@ -1500,9 +1514,7 @@ allow write: if (isAdmin() && id == 'details'
 && request.resource.data.name is string && request.resource.data.name.size() <= 120
 && request.resource.data.enquiryEmail is string && request.resource.data.enquiryEmail.size() <= 200
 && (request.resource.data.enquiryEmail == '' || request.resource.data.enquiryEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))
-&& request.resource.data.get('hubUrl', '') is string && request.resource.data.get('hubUrl', '').size() <= 200
-&& (request.resource.data.get('hubUrl', '') == '' || request.resource.data.get('hubUrl', '').matches('^https://[^ ]+$'))
-&& (isMaster() || request.resource.data.get('hubUrl', '') == (resource == null ? '' : resource.data.get('hubUrl', ''))))
+&& request.resource.data.get('hubUrl', '') == (resource == null ? '' : resource.data.get('hubUrl', '')))
 || ((isMaster() || onTeam('Church office')) && id == 'giving'
 && request.resource.data.keys().hasOnly(['accountName', 'sortCode', 'accountNumber',
 'reference', 'giftAid', 'giftAidUrl', 'note', 'updatedAt', 'updatedBy'])
