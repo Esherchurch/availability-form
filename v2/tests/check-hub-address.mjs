@@ -28,7 +28,7 @@ const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Applic
 const CDP = 9809, SERVE = 8995, PW = 'test-only-password';
 const BREAK = !!process.env.BREAK;
 /* EGBC's address today (functions/hub-address.js EGBC_HUB), and one typed in on 25 Oct. */
-const EGBC = 'https://esherchurch.github.io/availability-form/v2/', TYPED = 'https://typed-on-25-oct.example.invalid/';
+const EGBC = 'https://egbc.churchhq.co.uk/', TYPED = 'https://typed-on-25-oct.example.invalid/';
 const DOCS = '/v1/projects/egbc-worship-planner/databases/(default)/documents';
 const OWNER = { Authorization: 'Bearer owner' };
 const PEOPLE = {

@@ -6,7 +6,7 @@
  *   node tests/check-worker.mjs          (from v2/, the dev emulators up)
  *   BREAK=1 node tests/check-worker.mjs  the Worker pointed at the repo's root instead
  *                                        of v2/ (what a Pages custom domain would do): must fail
- *   BREAK=root node tests/check-worker.mjs  "/" served as v2's front page (the availability
+ *   BREAK=root node tests/check-worker.mjs  "/" served as index.html (the availability
  *                                        form), as before: must fail
  *
  * The stand-in serves this folder at /availability-form/v2/ and, at
@@ -71,7 +71,7 @@ const auth = http.createServer((q, s) => { let b = ''; q.on('data', c => b += c)
 /* The Worker, as Cloudflare would run it. */
 const ENV = { UPSTREAM: 'http://localhost:' + GH + (BREAK ? '/availability-form' : '/availability-form/v2'), AUTH: 'http://localhost:' + AUTHP, SLUG: 'egbc' };
 const runWorker = (env) => http.createServer(async (q, s) => {
-  /* BREAK=root: "/" served as v2's own front page, as before 26 Oct. */
+  /* BREAK=root: "/" served as index.html (the availability form), as before 26 Oct. */
   if (process.env.BREAK === 'root' && /^\/(\?|$)/.test(q.url)) q.url = '/index.html' + q.url.slice(1);
   const chunks = []; for await (const c of q) chunks.push(c);
   const body = chunks.length ? Buffer.concat(chunks) : undefined;
@@ -89,8 +89,8 @@ let exitCode = 1;
 const SUN = (() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7)); return d.toISOString().slice(0, 10); })();
 try {
   console.log('What the Worker serves');
-  /* Martin, 26 Oct 2026: the address opens the HUB. v2's front page
-     (index.html) is the availability form, and stays at /index.html. */
+  /* Martin, 26 Oct 2026: the address opens the HUB. index.html
+     is the availability form's file name, and stays at /index.html. */
   const home = await req(W, 'GET', '/');
   ok('"/" opens the hub (hub.html), not the availability form', home.status === 302 && home.headers.location === 'http://localhost:' + W + '/hub.html', home.status + ' ' + (home.headers.location || home.body.slice(0, 60)));
   const homeQ = await req(W, 'GET', '/?notices=1');

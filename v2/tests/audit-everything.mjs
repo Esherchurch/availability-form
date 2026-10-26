@@ -93,7 +93,7 @@ const ROLES_ALL = {
 const ROLES = LIVE ? ['live'] : (opt('roles') ? opt('roles').split(',') : ['master', 'areaAdmin', 'core', 'kids', 'worship', 'everyone']).filter(r => ROLES_ALL[r]);
 const ONLY_PAGES = opt('pages') ? opt('pages').split(',') : null;
 const NO_APP = flag('no-app'), NO_SITE = flag('no-site');
-const LIVE_URL = (opt('live-url') || 'https://esherchurch.github.io/availability-form/v2/').replace(/\/?$/, '/');
+const LIVE_URL = (opt('live-url') || 'https://egbc.churchhq.co.uk/').replace(/\/?$/, '/');
 const MAX_TAPS = Number(opt('max-taps') || 40);
 
 /* Never tapped: things that change the world for somebody else. In --live,

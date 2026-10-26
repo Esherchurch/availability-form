@@ -40,7 +40,7 @@ On a phone and a computer, at **https://egbc.churchhq.co.uk**:
 
 Installed apps and notifications belong to the address they were set up from. To use the new address, install the app again and turn notifications on again from egbc.churchhq.co.uk. The github.io ones keep working until you remove them.
 
-### 6. Then the emails (the reviewing window: one line and a deploy)
+### 6. Then the emails (the reviewing window: one line and a deploy) — done 26 Oct 2026, cce1784c
 
 Once step 5 works, emails and links should use the new address:
 1. In `functions/hub-address.js`, change the one line to

@@ -27,7 +27,7 @@ let fn = hubUrl;
 if (process.env.BREAK) fn = async (db) => { const s = await db.collection('churchSettings').doc('details').get(); const u = s.exists ? String(s.data().hubUrl || '') : ''; return u || hubUrl(db); };
 
 console.log('EGBC\'s own data');
-ok('EGBC\'s address, as today', (await fn(fakeDb({}))) === 'https://esherchurch.github.io/availability-form/v2/');
+ok('EGBC\'s address: egbc.churchhq.co.uk (cce1784c, README step 6)', (await fn(fakeDb({}))) === 'https://egbc.churchhq.co.uk/');
 ok('  and an address typed in on 25 Oct is not used', (await fn(fakeDb({ 'churchSettings/details': { hubUrl: 'https://typed.example.invalid/' } }))) === EGBC_HUB);
 ok('  EGBC_HUB is said in one place: hub-address.js', true);
 

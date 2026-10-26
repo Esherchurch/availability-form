@@ -43,8 +43,15 @@ const IN_AN_EMAIL = [
   { file: 'egbc-core-rota.js', what: 'the availability email sent from Core Team' },
   { file: 'hub-app.js', what: 'the access code email to a parent' },
   { file: 'EmailBuilder2.html', what: 'the address offered when an admin puts a link in an email' },
-  { file: 'hubresources.html', what: 'the example under a box where somebody pastes a full address' }
+  /* hubresources.html left the list on 26 Oct 2026: its example is words
+     now ("a link to one of the hub's pages"), not an address. */
+  { file: 'egbc-mailblocks.js', what: 'the pictures in the e-news emails (Comms)' }
 ];
+/* A FULL ADDRESS MADE AT THE TIME (26 Oct 2026): since egbc.churchhq.co.uk,
+   an email built on a page takes the address that page is open at -
+   github.io or Church HQ's - which is a full address in the email, as an
+   email needs. The source shows how it is made, not the address. */
+const MADE_FULL = /location\.origin \+ location\.pathname\.replace\(\/\[\^\/\]\*\$\/, ''\)|new URL\('\.\/', location\.href\)/;
 const allowed = new Set(IN_AN_EMAIL.map(x => x.file));
 
 const files = fs.readdirSync(V2).filter(f => /\.(html|js)$/i.test(f));
@@ -57,7 +64,8 @@ for (const file of files) {
   src.split('\n').forEach((line, i) => {
     let at = -1;
     while ((at = line.indexOf(OLD, at + 1)) !== -1) {
-      const isV2 = line.startsWith(V2_ADDRESS, at);
+      /* ".../v2/" or ".../v2" at the end of an address (egbc-mailblocks.js). */
+      const isV2 = line.startsWith(V2_ADDRESS, at) || (line.startsWith(OLD + 'v2', at) && !/[A-Za-z0-9_.-]/.test(line.charAt(at + OLD.length + 2)));
       const where = file + ':' + (i + 1);
       if (!isV2) leaving.push({ where, line: line.trim().slice(0, 110) });
       else if (!allowed.has(file)) leaving.push({ where, line: line.trim().slice(0, 110), note: 'full address, but not in an email' });
@@ -80,7 +88,8 @@ if (leaving.length) {
 /* A missing one matters too: if a file in the list stops having its full
    address, an email has quietly been given a relative link, which will not
    work in anybody's inbox. */
-const missing = IN_AN_EMAIL.filter(x => !emails.some(e => e.where.startsWith(x.file + ':')));
+const missing = IN_AN_EMAIL.filter(x => !emails.some(e => e.where.startsWith(x.file + ':'))
+  && !MADE_FULL.test(fs.readFileSync(path.join(V2, x.file), 'utf8')));
 if (missing.length) {
   console.log('\nTHESE SHOULD HAVE A FULL v2 ADDRESS AND DO NOT. A relative link in an');
   console.log('email goes nowhere, because an email has no page to be relative to:');
