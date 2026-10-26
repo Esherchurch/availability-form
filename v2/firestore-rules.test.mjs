@@ -2133,6 +2133,12 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('  nor clear it', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ hubUrl: '' })));
   await check('  it is a web address (https) or nothing', 'deny', () => setDoc(doc(as('martin'), 'churchSettings', 'details'), D({ hubUrl: 'http://plain.example.invalid/', updatedBy: 'u_martin' })));
   await check('  a master admin can clear it (not set yet)', 'allow', () => setDoc(doc(as('martin'), 'churchSettings', 'details'), D({ hubUrl: '', updatedBy: 'u_martin' })));
+  /* The minister's title (Comms' C-53): any admin; a word for a sentence. */
+  await check('MINISTER\'S TITLE: an admin sets it', 'allow', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ ministerTitle: 'vicar' })));
+  await check('  or leaves it empty ("minister")', 'allow', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ ministerTitle: '' })));
+  await check('  never longer than 40', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ ministerTitle: 'x'.repeat(41) })));
+  await check('  never markup', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ ministerTitle: '<b>vicar</b>' })));
+  await check('  nor a list', 'deny', () => setDoc(doc(as('karen'), 'churchSettings', 'details'), D({ ministerTitle: ['vicar'] })));
 }
 
 // ── GIVING ── the church's bank details (Martin, 12 Oct 2026)

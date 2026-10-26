@@ -149,6 +149,11 @@
       '<div class="field"><label for="c-hub">The hub\u2019s web address</label><input class="inp" id="c-hub" type="url" maxlength="200" placeholder="https://" value="' + esc(D.hubUrl || '') + '"' + (EGBCAuth.isMaster() ? '' : ' disabled') + '>' +
         (D.hubUrl ? '<p class="hint" style="margin:6px 0 0">Links in the hub\u2019s emails go here.</p>'
           : '<p class="hint" style="margin:6px 0 0;color:var(--warn,#b45309);font-weight:600">Not set yet. Emails can\u2019t link to the hub until it is' + (EGBCAuth.isMaster() ? ': type the address people open the hub at.' : '. A master admin sets it.') + '</p>') + '</div>' +
+      /* THE MINISTER'S TITLE (26 Oct 2026; Comms' C-53): the church's own
+         word, as it reads in a sentence. Empty is "minister". */
+      '<div class="field"><label for="c-minister">Your minister\u2019s title</label><input class="inp" id="c-minister" maxlength="40" list="c-minister-list" placeholder="minister" value="' + esc(D.ministerTitle || '') + '">' +
+        '<datalist id="c-minister-list"><option value="vicar"><option value="rector"><option value="minister"><option value="pastor"><option value="priest"><option value="priest in charge"></datalist>' +
+        '<p class="hint" style="margin:6px 0 0">As it reads in a sentence: \u201cLetter from the ' + esc(D.ministerTitle || 'minister') + '\u201d. Left empty, it is \u201cminister\u201d.</p></div>' +
       '<div class="field"><label>Logo</label>' + (D.logoUrl ? '<img class="logo" id="c-logo" src="' + esc(D.logoUrl) + '" alt="">' : '<p class="hint">No logo yet.</p>') +
         '<label class="btn sec" style="cursor:pointer;display:inline-flex">' + (D.logoUrl ? 'Change the logo' : 'Add a logo') +
         '<input type="file" id="c-file" accept="image/png,image/jpeg,image/webp" style="display:none"></label></div>' +
@@ -171,13 +176,16 @@
     if (!logoOnly && !name) { toast('It needs the church\'s name.'); return Promise.resolve(); }
     if (!logoOnly && email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('That email address does not look right.'); return Promise.resolve(); }
     if (!logoOnly && hub && !/^https:\/\/\S+$/.test(hub)) { toast('The hub\'s address starts https:// and has no spaces.'); return Promise.resolve(); }
+    var minBox = document.getElementById('c-minister'), minister = minBox ? minBox.value.trim().replace(/\s+/g, ' ') : (D.ministerTitle || '');
+    if (!logoOnly && /[<>"&]/.test(minister)) { toast('The minister\'s title can\'t have < > " or &.'); return Promise.resolve(); }
     var u = EGBCAuth.user() || {};
     D.name = logoOnly ? (D.name || name) : name; D.enquiryEmail = logoOnly ? (D.enquiryEmail || email) : email;
     D.hubUrl = logoOnly ? (D.hubUrl || '') : hub;
+    D.ministerTitle = logoOnly ? (D.ministerTitle || '') : minister;
     /* MERGED, so a field this form does not draw is never wiped by Save. */
     return db().collection('churchSettings').doc('details').set({
       name: D.name || '', enquiryEmail: D.enquiryEmail || '', logoUrl: D.logoUrl || '', logoPath: D.logoPath || '',
-      hubUrl: D.hubUrl || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
+      hubUrl: D.hubUrl || '', ministerTitle: D.ministerTitle || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
     }, { merge: true }).then(function () { toast('Saved.'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
   }
 

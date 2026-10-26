@@ -8,6 +8,7 @@
  * In a browser at 375, made-up people:
  *   - with no address set, a master admin is told plainly it is not set yet,
  *     sets one, and it is saved, the church's name with it;
+ *   - the minister's title (Comms' C-53) is saved with it; empty reads "minister";
  *   - an admin who is not a master sees it, cannot change it, and saving the
  *     church's name keeps it;
  */
@@ -55,7 +56,9 @@ const server = http.createServer((q, s) => {
   let body = fs.readFileSync(f, 'utf8');
   if (/\.html$/.test(f)) { const h = /<head[^>]*>/i.exec(body); if (h) body = body.slice(0, h.index + h[0].length) + NO_SW + body.slice(h.index + h[0].length); }
   /* The break: Save as it was - the drawn fields only, replacing the rest. */
-  if (BREAK && url === '/church-settings.html') body = body.replace("hubUrl: D.hubUrl || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''\n    }, { merge: true })", "updatedAt: new Date().toISOString(), updatedBy: u.uid || ''\n    })").replace("hubUrl: D.hubUrl || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''\r\n    }, { merge: true })", "updatedAt: new Date().toISOString(), updatedBy: u.uid || ''\r\n    })");
+  if (BREAK && url === '/church-settings.html') body = body.replace(/hubUrl: D\.hubUrl \|\| '', ministerTitle: D\.ministerTitle \|\| '', updatedAt: new Date\(\)\.toISOString\(\), updatedBy: u\.uid \|\| ''(\r?\n) {4}\}, \{ merge: true \}\)/, "updatedAt: new Date().toISOString(), updatedBy: u.uid || ''$1    })");
+  /* And it must have applied: a break that misses tests nothing. */
+  if (BREAK && url === '/church-settings.html' && /ministerTitle: D\.ministerTitle \|\| '', updatedAt/.test(body)) console.log('  FAIL  the break did not apply (the Save line has changed)');
   s.writeHead(200, { 'Content-Type': (/\.js$/.test(f) ? 'text/javascript' : /\.css$/.test(f) ? 'text/css' : 'text/html') + '; charset=utf-8', 'Cache-Control': 'no-store' });
   s.end(body);
 }).listen(SERVE);
@@ -99,9 +102,10 @@ try {
   let L = await look();
   ok('is told plainly it is not set yet', /Not set yet/.test(L.text) && L.value === '', L.text.slice(0, 200));
   ok('  and may type one', L.disabled === false);
-  await evl('(function(){document.getElementById("c-hub").value="https://hub.example.invalid/";document.getElementById("c-save").click();return 1})()'); await sleep(2000);
+  await evl('(function(){document.getElementById("c-hub").value="https://hub.example.invalid/";document.getElementById("c-minister").value="vicar";document.getElementById("c-save").click();return 1})()'); await sleep(2000);
   let d = await getDetails();
   ok('  saving keeps it, with the church\'s name', d && d.hubUrl === 'https://hub.example.invalid/' && d.name === 'Synthetic Church', JSON.stringify(d));
+  ok('  and the minister\'s title, "vicar" (Comms\' C-53; with none set it read "minister")', d && d.ministerTitle === 'vicar' && /Letter from the minister/.test(L.text), JSON.stringify(d));
 
   console.log('\nAn admin who is not a master');
   await as('admin');
@@ -109,7 +113,7 @@ try {
   ok('sees the address, and cannot change it', L.value === 'https://hub.example.invalid/' && L.disabled === true, JSON.stringify(L).slice(0, 200));
   await evl('(function(){document.getElementById("c-name").value="Synthetic Church Renamed";document.getElementById("c-save").click();return 1})()'); await sleep(2000);
   d = await getDetails();
-  ok('  saving the name keeps the address', d && d.name === 'Synthetic Church Renamed' && d.hubUrl === 'https://hub.example.invalid/', JSON.stringify(d));
+  ok('  saving the name keeps the address and the title', d && d.name === 'Synthetic Church Renamed' && d.hubUrl === 'https://hub.example.invalid/' && d.ministerTitle === 'vicar', JSON.stringify(d));
   ok('no errors on the page', errs.length === 0, errs.join(' | '));
   exitCode = R.every(Boolean) ? 0 : 1;
 } catch (e) { console.log('  FAIL  the run itself: ' + (e && e.stack || e)); }
