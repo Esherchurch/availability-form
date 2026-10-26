@@ -644,6 +644,11 @@ const twins = (on, path, handler) => [
   on({ document: 'churches/{cid}/' + path, region: TRIGGER_REGION }, (event) => handler(churchFromPath(event, db), event))
 ];
 const beforeOf = (event) => event.data.before && event.data.before.exists ? event.data.before.data() : null;
+/* Core teams cover chosen teams (H-15): each person's covers kept on their
+   users record, for the rules. */
+const COVERS = makeCoverTriggers(twins);
+export const [coversOnUser, coversOnUserChurch] = COVERS.user;
+export const [coversOnTeam, coversOnTeamChurch] = COVERS.team;
 const afterOf = (event) => event.data.after && event.data.after.exists ? event.data.after.data() : null;
 
 export const [bookingNotify, bookingNotifyChurch] = twins(onDocumentUpdated, 'bookings/{key}', async (ch, event) => {
@@ -801,6 +806,7 @@ export { hubSend } from './hub-send.js';
 export { hqMembershipClaims, hqMyChurches } from './hq-directory.js';
 /* The hub's address, made from the church's short name (hub-address.js). */
 export { hubAddress, hqSlugCheck } from './hub-address.js';
+import { makeCoverTriggers } from './core-teams.js';
 /* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */
 export { welcomeSubscriber, welcomeNewcomer } from './welcome-mail.js';
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */

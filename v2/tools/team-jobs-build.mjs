@@ -38,9 +38,30 @@ export function buildTeamJobs(src) {
     + '}\n';
 }
 
+/* And functions/permissions-core.js from egbc-permissions.js (H-14), the
+   same way: the page's rules, unchanged, with the team jobs passed in. */
+export const PERMS_SOURCE = 'egbc-permissions.js';
+export const PERMS_BUILT = 'functions/permissions-core.js';
+export function buildPermissions(src) {
+  const text = src.replace(/\r\n/g, '\n');
+  if (text.split(CALL).length !== 2) throw new Error(PERMS_SOURCE + ' no longer ends with its one call: the build needs looking at');
+  return '// GENERATED from ' + PERMS_SOURCE + ' by tools/team-jobs-build.mjs - do not edit; change ' + PERMS_SOURCE + ' and rebuild.\n'
+    + "import * as TJ from './team-jobs.js';\n"
+    + 'const G = {};\n'
+    + text.replace(CALL, '})(G);') + '\n'
+    + 'const P = G.EGBCPermissions;\n'
+    + 'export const { SECTIONS, ACTIONS, LATER, READ_ONLY, MOST, ruleFor, ending, validate, current, action } = P;\n'
+    + '/* On the server the team jobs come from team-jobs.js. */\n'
+    + 'export const may = (person, id, o) => P.may(person, id, Object.assign({ TJ }, o || {}));\n'
+    + 'export const allowed = (person, o) => P.allowed(person, Object.assign({ TJ }, o || {}));\n';
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const out = buildTeamJobs(fs.readFileSync(path.join(V2, SOURCE), 'utf8'));
   fs.writeFileSync(path.join(V2, BUILT), out);
   console.log('wrote ' + BUILT + ': ' + Buffer.byteLength(out) + ' bytes');
+  const perms = buildPermissions(fs.readFileSync(path.join(V2, PERMS_SOURCE), 'utf8'));
+  fs.writeFileSync(path.join(V2, PERMS_BUILT), perms);
+  console.log('wrote ' + PERMS_BUILT + ': ' + Buffer.byteLength(perms) + ' bytes');
 }

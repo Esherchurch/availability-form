@@ -45,18 +45,22 @@ const G = {};
 (function (global) {
   'use strict';
 
-  /* id: what the code says. egbc: EGBC's team ids today. covers: jobs whose
-     work this job's teams also do (Core Team covering Worship, AV and Choir,
-     egbc-auth.js CORE_COVERS). noFallback: never handed to anyone else. */
+  /* id: what the code says. egbc: EGBC's team ids today. noFallback: never
+     handed to anyone else. NO JOB COVERS ANOTHER (H-15, Martin, 26 Oct
+     2026): a ministry's leadership comes from its core team (Teams & groups,
+     "core team for"), not from a job. */
   var JOBS = [
     { id: 'office', means: 'The church office: sending, people, bookings, settings', egbc: ['Church office'],
-      suggest: ['Church office', 'Admin', 'Administration', 'Parish office'] },
+      suggest: ['Church office', 'Parish office', 'Admin team', 'Administration'] },
     { id: 'communications', means: 'The e-news, social posts, the card maker, Canva and Unsplash', egbc: ['Church office'],
       suggest: ['Communications', 'Comms team', 'Church office'] },
     { id: 'trustees', means: 'The risk registers, members’ meetings and compliance', egbc: ['Elders'], setting: 'trusteeTeam',
       suggest: ['Elders', 'Deacons', 'Stewards', 'PCC', 'Trustees', 'Leadership team'] },
-    { id: 'leadership', means: 'Runs Sundays across teams', egbc: ['Core Team'], covers: ['worship', 'av', 'choir'],
-      suggest: ['Core Team', 'Staff team', 'Ministry team'] },
+    /* The church's overall leaders (Martin, 26 Oct 2026: "some are elders
+       in some churches; they will have administration people" - those are
+       the office). Covers nothing. EGBC's are the Elders. */
+    { id: 'leadership', means: 'The church’s overall leaders', egbc: ['Elders'],
+      suggest: ['Elders', 'Deacons', 'PCC', 'Staff team', 'Leadership team'] },
     { id: 'finance', means: 'Payments and giving', egbc: ['Finance'], setting: 'moneyTeam',
       suggest: ['Finance', 'Treasury', 'Treasurers'] },
     { id: 'buildings', means: 'Maintenance jobs and the buildings’ checks', egbc: ['Maintenance'],
@@ -103,17 +107,11 @@ const G = {};
     return JOBS.filter(function (j) { return teamsFor(map, j.id, set).indexOf(team) !== -1; }).map(function (j) { return j.id; });
   }
 
-  /* On a team that does this job, or on one that covers it (leadership's
-     cover of worship, AV and choir). Never through cover for a noFallback
-     job, and never for a job nobody does: its pages are hidden (H-9
-     question 4), so there is nothing to cover. */
+  /* On a team that does this job. A job nobody does has nobody on it: its
+     pages are hidden (H-9 question 4). */
   function onJob(map, myTeams, job, set) {
     var mine = myTeams || [];
-    var has = function (id) { return teamsFor(map, id, set).some(function (t) { return mine.indexOf(t) !== -1; }); };
-    if (!teamsFor(map, job, set).length) return false;
-    if (has(job)) return true;
-    if (BY_ID[job] && BY_ID[job].noFallback) return false;
-    return JOBS.some(function (j) { return (j.covers || []).indexOf(job) !== -1 && has(j.id); });
+    return teamsFor(map, job, set).some(function (t) { return mine.indexOf(t) !== -1; });
   }
 
   function label(map, job, labelOf, set) {

@@ -1604,10 +1604,24 @@ db.collection('churchSettings').doc('details').get().then(s => {
   const h = document.getElementById('heroTitle');
   if (h && !h.textContent.trim()) h.textContent = welcomeLine();
 }).catch(() => {});
-function menuHas(url) {
+function menuHas(url, who) {
   let found = false;
-  (function walk(nodes) { nodes.forEach(n => { if (n.url === url) found = true; if (n.children) walk(n.children); }); })(EGBCMenu.forPerson(EGBCMenu.who()));
+  (function walk(nodes) { nodes.forEach(n => { if (n.url === url) found = true; if (n.children) walk(n.children); }); })(EGBCMenu.forPerson(who || EGBCMenu.who()));
   return found;
+}
+/* HOME SHOWS ONE TEAM'S JOBS (H-15; Martin, 26 Oct 2026: "Home shows: Core
+   Team" listed Kids Church's Session planner). With a team chosen, Home's
+   lists hold what that team - with the teams it covers as a core team -
+   would be offered, and that this person can open. A master admin's Menu
+   still has everything; Home is "what to show first". */
+function menuHasForHome(url) {
+  if (!menuHas(url)) return false;
+  if (!TEAM || TEAM === EVERYONE || !window.EGBCAuth || !EGBCAuth.coversOfTeams) return true;
+  const teams = [TEAM].concat(EGBCAuth.coversOfTeams([TEAM]));
+  /* leads: the team and what it covers, as a core team clears its own
+     teams' leader gates. */
+  return menuHas(url, Object.assign({}, EGBCMenu.who(), { teams, adminFor: teams, leads: teams, isMaster: false,
+    isCore: EGBCAuth.isCoreTeam(TEAM), isPlanGroup: EGBCAuth.planGroupFor([TEAM]) }));
 }
 const SUNDAY_TYPES = ['Sunday Morning Worship', 'Special Service', 'Evening Carol Service', 'LOUD Worship'];
 function nextSunday() {
@@ -1674,7 +1688,7 @@ async function renderHomeJobs() {
   const jc = document.getElementById('sundaysCard');
   if (jc) {
     const jobs = [['Planner.html', 'Rota planner'], ['SundayServicePlanner.html', 'Sunday service plan'], ['preaching-plan.html', 'Preaching plan'],
-      ['session-planner.html', 'Session planner']].filter(j => menuHas(j[0]));
+      ['session-planner.html', 'Session planner']].filter(j => menuHasForHome(j[0]));
     jc.innerHTML = jobs.length ? `<div class="card flush">
         <div class="ch"><div class="ic">${I('calendar-range', 18)}</div><h2>Sundays</h2>
           <div class="sp"><button type="button" class="btn sm ghost" onclick="openTools()">All</button></div></div>
@@ -2466,9 +2480,9 @@ const REGISTRY = [
   /* One file holds every department's rota, so it belongs to all of them.
      adminOnly keeps it off an ordinary member's hub - it sends email. */
   { url: 'Planner.html', title: 'Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
-    teams: ['Core Team', 'Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
+    teams: ['Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
     description: 'Build and send the rota' },
-  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: 'â›ª', team: 'Core Team',
+  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: '⛪', team: 'Core Team',
     description: 'Plan the running order' },
   { url: 'addressbook.html', title: 'Address Book', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
     description: 'People, households and teams' },
@@ -2486,7 +2500,7 @@ const REGISTRY = [
   { url: 'whatson.html', title: "What's on", icon: 'calendar-days', team: 'Core Team', everyone: true,
     description: 'Church events, and signing up to them' },
   { url: 'events-admin.html', title: 'Events', icon: 'calendar-plus', team: 'Core Team',
-    teams: ['Core Team', 'Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
+    teams: ['Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
     description: 'Create events, open sign-ups, see who is coming' },
 
   /* -- reachable only from SharePoint today --------------------------

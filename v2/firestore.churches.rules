@@ -28,6 +28,7 @@ function worshipAv() { return ['Worship Team', 'AV Team', 'Choir']; }
 function coreCovers() { return worshipAv(); }
 function myTeams() {
 return me().teams
+.concat(me().get('covers', []))
 .concat('Core Team' in me().teams ? worshipAv() : [])
 .concat(me().teams.hasAny(worshipAv()) ? worshipAv() : []);
 }
@@ -41,7 +42,7 @@ function isMaster() {
 return active() && me().get('masterAdmin', false) == true;
 }
 function adminOf(team) {
-return isMaster() || (active() && team in me().get('adminFor', []));
+return isMaster() || (active() && (team in me().get('adminFor', []) || team in me().get('adminCovers', [])));
 }
 function isAdmin() {
 return isMaster() || (active() && me().get('adminFor', []).size() > 0);
@@ -237,10 +238,14 @@ allow delete: if false;
 match /teams/{teamId} {
 allow read: if active();
 allow write: if (isMaster() || (onTeam('Church office')
-&& request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))))
+&& request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))
+&& request.resource.data.get('coreFor', []) == (resource == null ? [] : resource.data.get('coreFor', []))))
 && request.resource.data.keys().hasOnly(['name', 'label', 'colour', 'tint',
-'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived',
+'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived', 'coreFor',
 'updatedAt', 'updatedBy'])
+&& request.resource.data.get('coreFor', []) is list
+&& request.resource.data.get('coreFor', []).size() <= 500
+&& !(teamId in request.resource.data.get('coreFor', []))
 && request.resource.data.get('name', '') == teamId
 && request.resource.data.get('rota', true) is bool
 && request.resource.data.get('runs', []) is list
@@ -248,7 +253,7 @@ allow write: if (isMaster() || (onTeam('Church office')
 && request.resource.data.get('runs', []).hasOnly(['today', 'people', 'bookings', 'send']);
 }
 function under18Teams() {
-return ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu'];
+return ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
 }
 function eventIsUnder18() {
 return request.resource.data.get('teams', []).hasAny(under18Teams());

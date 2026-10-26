@@ -103,8 +103,15 @@ service cloud.firestore {
     // exactly how a read gate turns into a write gate by accident.
     function worshipAv() { return ['Worship Team', 'AV Team', 'Choir']; }
     function coreCovers() { return worshipAv(); }
+    // CORE TEAMS COVER CHOSEN TEAMS (H-15, 26 Oct 2026): `covers` is the
+    // teams a person's core teams cover - the Worship Core Team, Worship, AV
+    // and Choir; the Kids & Youth Core Team, Kids Church, Lazers, ReNu and
+    // Youth - kept on their users record by the server (functions/
+    // core-teams.js), never by a page. Core Team keeps worshipAv() until its
+    // record has covers, so nothing changes on the day.
     function myTeams() {
       return me().teams
+        .concat(me().get('covers', []))
         .concat('Core Team' in me().teams ? worshipAv() : [])
         .concat(me().teams.hasAny(worshipAv()) ? worshipAv() : []);
     }
@@ -127,8 +134,10 @@ service cloud.firestore {
       return active() && me().get('masterAdmin', false) == true;
     }
 
+    // An admin of a core team administers the teams it covers (H-15):
+    // adminCovers, kept by the server like covers.
     function adminOf(team) {
-      return isMaster() || (active() && team in me().get('adminFor', []));
+      return isMaster() || (active() && (team in me().get('adminFor', []) || team in me().get('adminCovers', [])));
     }
 
     // Manages something, anything. Use adminOf(team) wherever the area is known.
@@ -348,8 +357,9 @@ service cloud.firestore {
 
       allow create: if signedIn()
                     && request.auth.uid == uid
-                    // familyGroups opens boards (6c): the server's to write.
-                    && !request.resource.data.keys().hasAny(['familyGroups'])
+                    // familyGroups opens boards (6c), and covers / adminCovers
+                    // what core teams give (H-15): the server's to write.
+                    && !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers'])
                     && (claimsNothing(request.resource.data)
                         || mirrorsBook(request.resource.data));
 
@@ -749,11 +759,18 @@ service cloud.firestore {
       // office group keep the list (teams-admin.html). The office may not
       // change `runs` - who runs things stays a master admin's - and nobody
       // deletes one: archive, never remove (markers and history stay).
+      // coreFor (H-15): the teams this one is the core team for. Like runs,
+      // it gives people access, so it is a master admin's: the office may
+      // keep the list but not change what a team covers.
       allow write: if (isMaster() || (onTeam('Church office')
-                        && request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))))
+                        && request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))
+                        && request.resource.data.get('coreFor', []) == (resource == null ? [] : resource.data.get('coreFor', []))))
                    && request.resource.data.keys().hasOnly(['name', 'label', 'colour', 'tint',
-                        'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived',
+                        'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived', 'coreFor',
                         'updatedAt', 'updatedBy'])
+                   && request.resource.data.get('coreFor', []) is list
+                   && request.resource.data.get('coreFor', []).size() <= 500
+                   && !(teamId in request.resource.data.get('coreFor', []))
                    && request.resource.data.get('name', '') == teamId
                    && request.resource.data.get('rota', true) is bool
                    && request.resource.data.get('runs', []) is list
@@ -771,8 +788,10 @@ service cloud.firestore {
     // they ever differ, so adding a team in one place tells you about the
     // other. Creche is not here because it is not a team: the address book
     // holds it as roles inside Kids Church.
+    // The Kids & Youth Core Team too (H-15, Martin, 26 Oct 2026): a core
+    // team covering an under-18s team works with under-18s itself.
     function under18Teams() {
-      return ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu'];
+      return ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
     }
     function eventIsUnder18() {
       return request.resource.data.get('teams', []).hasAny(under18Teams());

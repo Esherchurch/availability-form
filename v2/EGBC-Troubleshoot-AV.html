@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610222000" data-title="AV Troubleshoot"></script>
+<script src="egbc-shell.js?v=202610261800" data-title="AV Troubleshoot"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610261500"></script>
+<script src="egbc-auth.js?v=202610261800"></script>
 <script src="egbc-kbupload.js?v=202610062000"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="AV Team"></script>
 <script src="egbc-kbadmin.js?v=202609041833" data-admin-team="AV Team"></script>
@@ -77,7 +77,7 @@
         <input id="searchInput" type="text" placeholder="Describe the problem… e.g. 'camera went black screen'" class="w-full pl-14 pr-6 py-4 rounded-lg border border-[#d1dfdf] bg-[#f0f6f6] font-semibold text-sm placeholder-[#3d6263]/40 outline-none" onkeydown="if(event.key==='Enter')doSearch()">
       </div>
       <button onclick="doSearch()" class="flex-1 sm:flex-none bg-[#3d6263] text-white px-8 py-4 rounded-lg font-semibold text-[12px] shadow-md hover:bg-black transition-all whitespace-nowrap">Search</button>
-      <button onclick="clearSearch()" class="flex-1 sm:flex-none bg-white border border-[#d1dfdf] px-5 py-4 rounded-lg font-semibold text-[12px] hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
+      <button id="kbClear" onclick="clearSearch()" class="hidden flex-1 sm:flex-none bg-white border border-[#d1dfdf] px-5 py-4 rounded-lg font-semibold text-[12px] hover:bg-[#f0f6f6] transition-all whitespace-nowrap">Clear</button>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
       <span class="text-[12px] font-semibold opacity-40 self-center">Quick:</span>
@@ -389,8 +389,9 @@ function closeModal(e){
 function doSearch(){
   const si=document.getElementById('searchInput'), query=si.value.trim();
   /* Nothing typed: put the cursor there and say what to do (audit, 15 Oct 2026). */
-  if(!query){si.focus();si.placeholder='Type what you are looking for, then Search';return;}
+  if(!query){si.focus();si.placeholder='Type what you are looking for, then Search';/* Said on the page too: a placeholder alone is easy to miss (the audit, 26 Oct 2026). */var sr=document.getElementById('searchResults');sr.innerHTML='<div class="bg-white border border-[#d1dfdf] rounded-[14px] px-6 py-4 text-sm font-semibold opacity-70">Type what you are looking for first, then press Search.</div>';sr.classList.remove('hidden');return;}
   currentQuery=query;
+  document.getElementById('kbClear').classList.remove('hidden');
 
   const words=query.toLowerCase().split(/\s+/).filter(w=>w.length>2);
   const scored=allAssets.map(a=>{
@@ -454,7 +455,7 @@ function showAssembledAnswer(query,results){
 }
 
 function quickSearch(t){document.getElementById('searchInput').value=t;doSearch();}
-function clearSearch(){document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(allAssets);}
+function clearSearch(){document.getElementById('kbClear').classList.add('hidden');document.getElementById('searchInput').value='';currentQuery='';document.getElementById('searchResults').classList.add('hidden');renderContent(allAssets);}
 
 /* ── ADMIN ───────────────────────────────────────────────────────────── */
 

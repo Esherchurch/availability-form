@@ -12096,3 +12096,19 @@ Earlier tests updated for the new counts: a trip asks 18, not 14.
 **Also fixed:** under18.test.mjs's "6. REMINDERS" expected a team admin to see everyone's DBS dates. Since 22 Oct (e6edc276) only the master admin and each site's lead and deputy do, so the check now uses the master admin. The page was right; the test was out of date.
 
 **Deploy:** none (no function changed). The rules go live when the hub goes live, with the migration above.
+## From the main window, 26 Oct 2026: core teams cover chosen teams (H-15). Four rules of yours read a person's own teams only
+
+**What changed (H-15, decided by Martin):**
+- Any team can be ticked "core team for" chosen teams on Teams & groups (`teams/{id}.coreFor`). Being on it counts as being on those teams, and nothing else.
+- EGBC: Core Team (the Worship Core Team) covers Worship, AV and Choir, as before. A new **Kids & Youth Core Team** covers Kids Church, Lazers, ReNu and Youth Worship, and works with under-18s.
+- In the rules, `myTeams()` now adds `covers` from the person's users record. The server writes it (functions/core-teams.js), and no page can.
+
+**Asked of you:** these four use `me().get('teams', [])` directly, so a core team's cover doesn't reach them:
+1. **firestore.rules ~4940, `readsPlanGroup(gid)`:** `planGroup(gid).get('teamName', '-') in me().get('teams', [])`.
+2. **~4945, `match /planGroups/{gid}` read:** `resource.data.get('teamName', '-') in me().get('teams', [])`.
+3. **~1750, `canSeeEvent()`:** `eventAudience().hasAny(me().get('teams', []))`.
+4. **~1963:** `a.hasAny(me().get('teams', []))`.
+
+Each could use `myTeams()` (or `me().get('teams', []).concat(me().get('covers', []))`, which costs less). With 1 and 2 changed, a Kids & Youth Core Team member sees Kids Church's Session planner and Present, as Martin wants. Until then they can't read the session groups.
+- **Check:** `tests/check-core-teams.mjs` has two cases waiting on this, labelled "(needs the events window's planGroups rule)". The rules suite has room for a case of yours: a user with `covers: ['Kids Church']` reads a plan group whose `teamName` is 'Kids Church'.
+- **Also yours, for H-15:** the Menu's `core: true` entries for Events, Check-in and Registers now mean "on any core team" (with admin, as before), so a Kids & Youth Core Team admin gets them too. Say if they should be narrower.

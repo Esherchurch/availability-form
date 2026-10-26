@@ -1340,7 +1340,7 @@
     if (!document.getElementById('egbc-core-rota-tap')) {
       var tap = document.createElement('style');
       tap.id = 'egbc-core-rota-tap';
-      tap.textContent = '.cr-panel button,.cr-panel select,.cr-panel input[type=date]{min-height:44px}'
+      tap.textContent = '.cr-panel button,.cr-panel select,.cr-panel input:not([type=checkbox]):not([type=radio]){min-height:44px}'
         + '.cr-panel button{min-width:44px}';
       document.head.appendChild(tap);
     }

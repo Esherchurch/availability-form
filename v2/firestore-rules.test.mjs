@@ -99,6 +99,12 @@ const PEOPLE = {
   /* In the Church office group AND an admin: the person who may mark a
      notice urgent (N-4, Martin 13 Oct 2026). */
   officeAdmin: { uid: 'u_office_admin', teams: ['Church office'], adminFor: ['Kids Church'], masterAdmin: false },
+  /* CORE TEAMS (H-15, 26 Oct 2026): what they cover is kept on the record
+     by the server (functions/core-teams.js); one not yet written has none. */
+  wcore: { uid: 'u_wcore', teams: ['Core Team'], adminFor: [], masterAdmin: false, covers: ['AV Team', 'Choir', 'Worship Team'] },
+  kycore: { uid: 'u_kycore', teams: ['Kids & Youth Core Team'], adminFor: [], masterAdmin: false, covers: ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'] },
+  kyfresh: { uid: 'u_kyfresh', teams: ['Kids & Youth Core Team'], adminFor: [], masterAdmin: false },
+  kyadmin: { uid: 'u_kyadmin', teams: [], adminFor: ['Kids & Youth Core Team'], masterAdmin: false, adminCovers: ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'] },
 };
 
 await env.withSecurityRulesDisabled(async (ctx) => {
@@ -110,6 +116,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
       attender: p.attender === true, churchMember: p.churchMember === true,
       status: p.status
         || ((p.teams.length || p.adminFor.length || p.masterAdmin) ? 'active' : 'pending'),
+      ...(p.covers ? { covers: p.covers } : {}), ...(p.adminCovers ? { adminCovers: p.adminCovers } : {}),
     });
   }
   await setDoc(doc(db, 'addressBook', 'm_u_samy'), { name: 'Samy', markers: ['Worship Team'] });
@@ -568,6 +575,22 @@ await check('but still cannot add a team to their own record', 'deny',
 /* Someone in the book but with no teams ticked yet. The rota itself is open
    now, so this has to test something that is actually gated. */
 await check('pending person is kept out', 'deny', () => getDoc(doc(as('pending'), 'worshipBoardState', 'state')));
+/* CORE TEAMS COVER CHOSEN TEAMS, INDEPENDENTLY (H-15, Martin, 26 Oct 2026). */
+await check('CORE TEAMS: the Worship Core Team reads the worship board', 'allow', () => getDoc(doc(as('wcore'), 'worshipBoardState', 'state')));
+await check('  and its own board', 'allow', () => getDoc(doc(as('wcore'), 'worshipBoardState', 'core-team')));
+await check('  not the Kids Church board', 'deny', () => getDoc(doc(as('wcore'), 'worshipBoardState', 'kids-church')));
+await check('  nor Youth\'s', 'deny', () => getDoc(doc(as('wcore'), 'worshipBoardState', 'youth')));
+await check('the Kids & Youth Core Team reads the Kids Church board', 'allow', () => getDoc(doc(as('kycore'), 'worshipBoardState', 'kids-church')));
+await check('  and Youth\'s', 'allow', () => getDoc(doc(as('kycore'), 'worshipBoardState', 'youth')));
+await check('  not the worship board', 'deny', () => getDoc(doc(as('kycore'), 'worshipBoardState', 'state')));
+await check('  nor the Worship Core Team\'s', 'deny', () => getDoc(doc(as('kycore'), 'worshipBoardState', 'core-team')));
+await check('a member whose covers are not written yet gets only their own team', 'deny', () => getDoc(doc(as('kyfresh'), 'worshipBoardState', 'kids-church')));
+await check('an admin of the Kids & Youth Core Team administers Kids Church', 'allow', () => getDoc(doc(as('kyadmin'), 'worshipBoardState', 'kids-church')));
+await check('  and nothing of worship', 'deny', () => getDoc(doc(as('kyadmin'), 'worshipBoardState', 'state')));
+await check('a page cannot give itself covers when it makes its record', 'deny', () => setDoc(doc(asNewcomer('u_cov_new', 'cov.new@example.invalid'), 'users', 'u_cov_new'),
+  { status: 'pending', teams: [], adminFor: [], masterAdmin: false, covers: ['Kids Church'] }));
+await check('  nor afterwards', 'deny', () => updateDoc(doc(as('kyfresh'), 'users', 'u_kyfresh'), { covers: ['Kids Church'], lastSeen: 'now' }));
+await check('  nor adminCovers', 'deny', () => updateDoc(doc(as('kyfresh'), 'users', 'u_kyfresh'), { adminCovers: ['Kids Church'], lastSeen: 'now' }));
 await check('pending person cannot see the videos', 'deny', () => getDoc(doc(as('pending'), 'teamVideos', 'v_kids')));
 
 // The pin boards, which is what the three-board split was for.

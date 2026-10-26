@@ -815,3 +815,25 @@ Listed by owning window, from today's code: calls to `inTeam`, `isLeaderOf`, `is
    - **Or:** build it now.
 
 **Order:** this (H-15), then H-14 part 1 with the new kb/ default, then H-9 part 2.
+
+### H-15, built (26 Oct 2026; Martin's answers: 1 yes, 2 keep leadership as the overall leaders, 3 no space for now)
+
+- **Core teams:** a team's `coreFor` (Teams & groups, "Core team for", master admins only; the rules refuse the office changing it).
+  - EGBC's defaults are in egbc-auth.js and functions/core-teams.js:
+    - **Core Team, now labelled "Worship Core Team",** covers Worship, AV and Choir.
+    - **The new "Kids & Youth Core Team"** covers Kids Church, Lazers, ReNu and Youth Worship. It works with under-18s, in both lists (check-under18-teams-agree 5/5).
+    - On live, Core Team's saved label may still say "Core Team"; Martin can rename it on Teams & groups.
+- **One rule everywhere:** `inTeam`, `isLeaderOf`, `isAdminOf`, `adminAreas`, the leader gate and the rota's teams all use the core teams' own lists. `CORE_COVERS` is gone.
+  - The Menu's Rota planner and rota reports no longer name Core Team. `core: true` means "on any core team", and Core Team's charter is Core Team's own.
+  - hub-send's rota and service-plan senders use the church's core teams.
+  - The hub's old page list no longer names Core Team.
+- **The hub's Home choice:** with a team chosen, the Sundays card shows that team's jobs (with what it covers), even for a master admin. That's what Martin saw. The Menu still has everything.
+- **The rules:** `myTeams()` adds `covers`, and `adminOf()` adds `adminCovers`. The server keeps both on each users record (`coversOnUser` and `coversOnTeam`, for EGBC and every church), and no page may write them. Core Team keeps `worshipAv()` until its record has covers.
+- **H-9's jobs:** `leadership` is the church's overall leaders (EGBC: Elders) and covers nothing. No job covers another. Suggestions: leadership is Elders, Deacons, PCC, Staff team, Leadership team; office is Church office, Parish office, Admin team.
+- **H-14:** kb/ uploads default to master admins, plus the core teams covering worship (`coresOf: ['worship']`), plus the admins of AV and Worship.
+- **Checks:**
+  - check-core-teams 18/20, signed in as plain members of each core team. The 2 reds wait for the events window's planGroups rule (FINDINGS-events).
+  - Its breaks: covers ignored, 6/20 (12 red beyond the 2 waiting); Core Team church-wide, 14/20 (4 beyond).
+  - Rules 1947/1947; AS_CHURCH 1937/1947 (the 10 by design).
+  - check-team-jobs 29/29 (breaks 4 and 2 red); check-team-jobs-screen 13/13; check-core-planner 73/73.
+- **For the synthetic parish:** "Ministry Team" ticked as core team for the Choir and Music group, and "Children's Ministry Team" for Junior Church and Messy Church. Each sees only its own. The PCC are the overall leaders and cover nothing.

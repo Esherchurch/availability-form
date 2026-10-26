@@ -30,6 +30,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { churchOf } from './church-scope.js';
+import { coresMap, coversFor } from './core-teams.js';
 import { makeSender } from './public-mail.js';
 import { decide } from './compiler-send.js';
 import * as MailRoute from './mail-route.js';
@@ -44,9 +45,20 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const has = (list, any) => Array.isArray(list) && list.some((t) => any.includes(t));
 const isMaster = (u) => u.masterAdmin === true;
 const isAdmin = (u) => isMaster(u) || (Array.isArray(u.adminFor) && u.adminFor.length > 0);
-const ROTA_TEAMS = ['Worship Team', 'AV Team', 'Kids Church', 'Youth Worship', 'Core Team'];
-const PLAN_TEAMS = ['Worship Team', 'AV Team', 'Youth Worship', 'Core Team'];
+/* No "Core Team" here any more (H-15): a core team counts through the
+   teams it covers - the Worship Core Team for Worship, AV and Choir; the
+   Kids & Youth Core Team for Kids Church and Youth - and no further. */
+const ROTA_TEAMS = ['Worship Team', 'AV Team', 'Kids Church', 'Youth Worship'];
+const PLAN_TEAMS = ['Worship Team', 'AV Team', 'Youth Worship'];
 const YOUTH_ADMIN = ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu'];
+/* A person's teams and admin areas with what their core teams cover, from
+   the church's own teams (core-teams.js). covers: only what core teams
+   give - a rota leader is a core team covering a rota team, or an admin. */
+async function withCovers(db, u) {
+  const cores = await coresMap(db);
+  const covers = coversFor(u.teams, cores);
+  return { covers, teams: (u.teams || []).concat(covers), adminFor: (u.adminFor || []).concat(coversFor(u.adminFor, cores)) };
+}
 
 async function emails(q, field = 'email') {
   const s = await q.get();
@@ -89,18 +101,21 @@ export const SCOPES = {
   },
   /* Rotas and availability requests: the planners' people. */
   async rota(db, u) {
-    if (!(isMaster(u) || has(u.teams, ['Core Team']) || has(u.adminFor, ROTA_TEAMS))) return { ok: false, why: 'only rota leaders send rotas' };
+    const c = await withCovers(db, u);
+    if (!(isMaster(u) || has(c.covers, ROTA_TEAMS) || has(c.adminFor, ROTA_TEAMS))) return { ok: false, why: 'only rota leaders send rotas' };
     return { ok: true, allowed: bookEmails(await book(db)) };
   },
   /* A service plan to its team. */
   async servicePlan(db, u) {
-    if (!(isMaster(u) || has(u.teams, PLAN_TEAMS) || has(u.adminFor, PLAN_TEAMS))) return { ok: false, why: 'only the worship teams send service plans' };
+    const c = await withCovers(db, u);
+    if (!(isMaster(u) || has(c.teams, PLAN_TEAMS) || has(c.adminFor, PLAN_TEAMS))) return { ok: false, why: 'only the worship teams send service plans' };
     return { ok: true, allowed: bookEmails(await book(db)) };
   },
   /* A Youth Hub access code: to a young person's household head, never
      to the young person. */
   async youthCode(db, u) {
-    if (!(isMaster(u) || has(u.adminFor, YOUTH_ADMIN))) return { ok: false, why: 'only the youth and children’s leaders send access codes' };
+    const c = await withCovers(db, u);
+    if (!(isMaster(u) || has(c.adminFor, YOUTH_ADMIN))) return { ok: false, why: 'only the youth and children’s leaders send access codes' };
     const people = await book(db);
     const homes = new Set(people.filter((m) => isUnder18Record(m) && m.householdId).map((m) => m.householdId));
     return { ok: true, allowed: bookEmails(people.filter((m) => !isUnder18Record(m) && homes.has(m.householdId))) };

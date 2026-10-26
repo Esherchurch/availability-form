@@ -218,7 +218,16 @@
     'Kids Church':   { label: 'Kids Church',  colour: '#7a5f4a', under18: true },
     'Lazers':        { label: 'Lazers',       colour: '#8a4a3d', under18: true },
     'ReNu':          { label: 'ReNu',         colour: '#3d6b5f', under18: true },
-    'Core Team':     { label: 'Core Team',    colour: '#6b4a7a' },
+    /* CORE TEAMS COVER CHOSEN TEAMS (FINDINGS-churchhq H-15, Martin, 26 Oct
+       2026: "a kids church and youth core team and a worship core team.
+       They need to be independent"). Being on one counts as being on the
+       teams in its coreFor, and nothing else; its leaders and admins lead
+       and administer those teams. A core team covering an under-18s team
+       works with under-18s itself (Martin's answer 1). Core Team keeps its
+       id; it is the WORSHIP core team. */
+    'Core Team':     { label: 'Worship Core Team', colour: '#6b4a7a', coreFor: ['Worship Team', 'AV Team', 'Choir'] },
+    'Kids & Youth Core Team': { label: 'Kids & Youth Core Team', colour: '#7a6b4a', under18: true,
+                       coreFor: ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'] },
     /* A3, for the events window: the people who fix things. The colour is
        the one the approved app mock-up uses for the Maintenance space
        (--maint), so the hub and the app agree about it. */
@@ -277,9 +286,26 @@
       runs:     Array.isArray(d.runs) ? d.runs : (base.runs || []),
       under18:  d.under18 === true || base.under18 === true,
       order:    typeof d.order === 'number' ? d.order : base.order,
-      archived: d.archived === true
+      archived: d.archived === true,
+      /* H-15: the teams this one is the core team for (Teams & groups). */
+      coreFor:  Array.isArray(d.coreFor) ? d.coreFor.slice() : (base.coreFor || [])
     };
     if (!TEAMS[id].parent) delete TEAMS[id].parent;
+    if (!TEAMS[id].coreFor.length) delete TEAMS[id].coreFor;
+  }
+
+  /* The teams a set of teams covers as core teams (H-15). Only one step:
+     a core team never covers another core team's teams through it. */
+  function coversOf(teams) {
+    var out = [];
+    (teams || []).forEach(function (t) {
+      ((TEAMS[t] && TEAMS[t].coreFor) || []).forEach(function (c) { if (out.indexOf(c) === -1 && (teams || []).indexOf(c) === -1) out.push(c); });
+    });
+    return out;
+  }
+  /* The core teams that cover this team. */
+  function coreTeamsFor(team) {
+    return Object.keys(TEAMS).filter(function (t) { return (TEAMS[t].coreFor || []).indexOf(team) !== -1; });
   }
 
   /* WHICH SITES THIS PERSON LOOKS AFTER THE BOOKINGS FOR.
@@ -450,7 +476,7 @@
   function loadPlanGroups(profile) {
     planGroups = [];
     if (!profile) return Promise.resolve([]);
-    var c = db.collection('planGroups'), qs = [], teams = (profile.teams || []).slice(0, 30);
+    var c = db.collection('planGroups'), qs = [], teams = (profile.teams || []).concat(coversOf(profile.teams || [])).slice(0, 30);
     if (profile.masterAdmin) qs.push(c.get());
     else {
       if (profile.memberId) qs.push(c.where('leaderIds', 'array-contains', profile.memberId).get());
@@ -892,17 +918,17 @@
      nothing in it while they were actually on it. They see the worship
      rota, because that is the rota they serve on.
 
-     Core Team is here too. They administer Worship and AV, and several of
-     them serve, so scoping them to "Core Team" - which owns no rota slots -
-     showed the people who run the rota a rota with nothing in it.
+     A CORE TEAM SEES THE TEAMS IT COVERS (H-15, 26 Oct 2026): the Worship
+     Core Team, Worship, AV and Choir; the Kids & Youth Core Team, Kids
+     Church, Lazers, ReNu and Youth - and only those. Its covers are added
+     after the worship side is worked out, so covering Youth Worship does
+     not bring the worship rota with it.
 
      Kids Church is the one that stays separate. That is the whole point of
      scoping it - and someone on Kids Church AND Worship gets both, because
      the list is a union of everything they are on. */
 
-  var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship', 'Core Team'];
-  /* What being on Core Team also opens (see inTeam). */
-  var CORE_COVERS = ['Worship Team', 'AV Team', 'Choir'];
+  var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship'];
   /* WORSHIP AND AV ARE ONE TEAM FOR PAGES (Martin, 12 Oct 2026: "if worship
      team want to turn on the sound desk they should be able to see how").
      Someone on any of these counts as on all of them for page checks. Rank
@@ -917,6 +943,7 @@
         if (out.indexOf(t) === -1) out.push(t);
       });
     }
+    coversOf(teams).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
     return out;
   }
 
@@ -1283,10 +1310,9 @@
             var hasRank = !opts.role || !wanted.length || EGBCAuth.isOwner() ||
               wanted.some(function (t) {
                 return roleAtLeast(profile.roles, t, opts.role) || EGBCAuth.isAdminOf(t)
-                  /* Core Team ran the Service Planner and the build tools on
-                     the old portal, so they clear a Worship & AV leader gate. */
-                  || (opts.role === 'leader' && CORE_COVERS.indexOf(t) !== -1
-                      && EGBCAuth.effectiveTeams().indexOf('Core Team') !== -1);
+                  /* A core team clears its own teams' leader gates, as Core
+                     Team cleared Worship & AV's on the old portal (H-15). */
+                  || (opts.role === 'leader' && coversOf(EGBCAuth.effectiveTeams()).indexOf(t) !== -1);
               });
 
             if (!hasRank) {
@@ -1366,29 +1392,39 @@
       return out;
     },
 
-    /* CORE TEAM COVERS WORSHIP & AV (Martin, 11 Oct 2026: "core team cant see
-       worship and AV"). On the old portal the Core Team link showed every
-       Worship & AV item plus its own, so a Core Team member counts as on
-       Worship Team and AV Team for every page check. */
+    /* A CORE TEAM COVERS ITS TEAMS (Martin, 11 Oct 2026: "core team cant see
+       worship and AV"; H-15, 26 Oct: each core team only its own). On the
+       old portal the Core Team link showed every Worship & AV item plus its
+       own, so a member of a core team counts as on each team it covers. */
     inTeam: function (team) {
       var mine = EGBCAuth.effectiveTeams();
       if (mine.indexOf(team) !== -1) return true;
       if (WORSHIP_AV.indexOf(team) !== -1 &&
           mine.some(function (t) { return WORSHIP_AV.indexOf(t) !== -1; })) return true;
-      return CORE_COVERS.indexOf(team) !== -1 && mine.indexOf('Core Team') !== -1;
+      return coversOf(mine).indexOf(team) !== -1;
+    },
+    /* The teams this person covers through their core teams (H-15). */
+    covers: function () { return coversOf(EGBCAuth.effectiveTeams()); },
+    /* The same for any teams (the hub's Home choice asks about one). */
+    coversOfTeams: function (teams) { return coversOf(teams || []); },
+    isCoreTeam: function (team) { return !!(TEAMS[team] && (TEAMS[team].coreFor || []).length); },
+    /* Whether any of these teams (or what they cover) has a plan group. */
+    planGroupFor: function (teams) {
+      var all = (teams || []).concat(coversOf(teams || []));
+      return planGroups.some(function (g) { return g.teamName && all.indexOf(g.teamName) !== -1; });
     },
 
     /* Can act on this area: either they administer it, or they are on it. */
     /* A LEADER OF THIS TEAM, as a page's data-role="leader" guard decides it
-       (require() below): a master admin, the team's leader or admin, or Core
-       Team for the teams Core covers. The Menu asks this, so it never offers
+       (require() below): a master admin, the team's leader or admin, or a
+       core team covering it (H-15). The Menu asks this, so it never offers
        a page that then says "Not enough permissions" (audit, 15 Oct 2026). */
     isLeaderOf: function (team) {
       if (EGBCAuth.isMaster()) return true;
       var p = currentProfile || {};
       if (!(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && roleAtLeast(p.roles, team, 'leader')) return true;
       if (EGBCAuth.isAdminOf(team)) return true;
-      return CORE_COVERS.indexOf(team) !== -1 && EGBCAuth.effectiveTeams().indexOf('Core Team') !== -1;
+      return coversOf(EGBCAuth.effectiveTeams()).indexOf(team) !== -1;
     },
     hasRole: function (team) {
       return EGBCAuth.isAdminOf(team) || EGBCAuth.inTeam(team);
@@ -1551,6 +1587,7 @@
     isOnPlanGroup: function () {
       if (EGBCAuth.isMaster()) return true;
       var teams = EGBCAuth.effectiveTeams() || [];
+      teams = teams.concat(coversOf(teams));   /* a core team's groups too (H-15) */
       var mid = viewAs() ? '' : ((currentProfile || {}).memberId || '');
       return planGroups.some(function (g) { return (mid && g.leaderIds.indexOf(mid) !== -1) || (g.teamName && teams.indexOf(g.teamName) !== -1); });
     },
@@ -1626,10 +1663,12 @@
     /* Manages this particular area. */
     isAdminOf: function (team) {
       var v = viewAs();
-      if (v) return !!v.admin && v.team === team;
+      /* An admin of a core team administers the teams it covers (H-15). */
+      if (v) return !!v.admin && (v.team === team || coversOf([v.team]).indexOf(team) !== -1);
       if (!currentProfile) return false;
       if (currentProfile.masterAdmin === true) return true;
-      return (currentProfile.adminFor || []).indexOf(team) !== -1;
+      var mine = currentProfile.adminFor || [];
+      return mine.indexOf(team) !== -1 || coversOf(mine).indexOf(team) !== -1;
     },
 
     /* Manages anything at all - used to decide whether to show admin at all. */
@@ -1643,10 +1682,12 @@
     /* Every area this person administers. */
     adminAreas: function () {
       var v = viewAs();
-      if (v) return v.admin ? [v.team] : [];
+      /* With the teams their core teams cover (H-15). */
+      if (v) return v.admin ? [v.team].concat(coversOf([v.team])) : [];
       if (!currentProfile) return [];
       if (currentProfile.masterAdmin === true) return Object.keys(TEAMS);
-      return (currentProfile.adminFor || []).slice();
+      var mine = (currentProfile.adminFor || []).slice();
+      return mine.concat(coversOf(mine));
     },
 
     isOwner: function () { return EGBCAuth.isMaster(); },

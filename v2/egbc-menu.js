@@ -14,7 +14,7 @@
  *
  * WHO SEES WHAT COMES FROM THE LOGIN, NOT FROM A LINK.
  *   (nothing)      everyone who is signed in
- *   core: true     somebody on Core Team
+ *   core: true     somebody on a core team (any of them; H-15)
  *   admin: true    somebody who administers at least one area
  *   master: true   a master admin only
  *   adminOf: [..]  an admin of one of those areas, or a master admin
@@ -84,7 +84,7 @@
          to anyone else. */
       { title: 'Rota', url: 'view-only-rota.html', icon: 'calendar-days', anyTeam: true,
         description: 'Who is on, week by week' },
-      { title: 'Rota planner', url: 'Planner.html', icon: 'calendar-plus', leaderOf: ['Worship Team', 'Kids Church', 'Youth Worship', 'Core Team'],
+      { title: 'Rota planner', url: 'Planner.html', icon: 'calendar-plus', leaderOf: ['Worship Team', 'Kids Church', 'Youth Worship'],   /* a core team leads its own teams' (H-15) */
         description: 'Build the term, send the rotas' },
       { title: 'Sunday service plan', url: 'SundayServicePlanner.html', icon: 'list-ordered', leaderOf: 'Worship Team',
         description: 'Songs, keys and the order' },
@@ -103,7 +103,7 @@
       /* ROTA REPORTS (the events window's, F-210): admins of the rota
          teams and master admins. */
       { title: 'Rota reports', url: 'rota-reports.html', icon: 'clipboard-list', feature: 'rotaReports',
-        adminOf: ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship', 'Core Team'],
+        adminOf: ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship'],
         description: 'Clashes, gaps and who is serving how often' },
       { title: 'Availability form', url: 'index.html', icon: 'check-square', feature: 'availability', core: true,
         description: 'What the team fills in each term' }
@@ -285,7 +285,8 @@
           { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', feature: 'kids', team: 'Kids Church',
             description: 'The desk on a Sunday: check children in and out, labels and the fire roll-call' }
         ] },
-      { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', core: true,
+      /* The Worship Core Team's own charter, not every core team's (H-15). */
+      { title: 'Core Team', url: 'Coreteamcharter.html', icon: 'shield', team: 'Core Team',
         description: 'What Core Team is for, and how it works',
         children: [
           { title: 'Music Upload', url: 'music-uploader.html', icon: 'file-music', leaderOf: 'Worship Team',
@@ -381,8 +382,12 @@
     /* One team or a list (a leader of any of them), exactly as the page's
        data-team + data-role="leader" guard asks: the Menu offers what the
        page lets in, no more and no less (the audit's access reds, 22 Oct). */
-    if (node.leaderOf && !who.isMaster && !(window.EGBCAuth && EGBCAuth.isLeaderOf
-        && [].concat(node.leaderOf).some(function (t) { return EGBCAuth.isLeaderOf(t); }))) return false;
+    /* who.leads, when given, is the answer for somebody else - the hub's
+       Home choice asks "what would this team be offered" (H-15). */
+    if (node.leaderOf && !who.isMaster && !(who.leads
+        ? [].concat(node.leaderOf).some(function (t) { return who.leads.indexOf(t) !== -1; })
+        : (window.EGBCAuth && EGBCAuth.isLeaderOf
+           && [].concat(node.leaderOf).some(function (t) { return EGBCAuth.isLeaderOf(t); })))) return false;
     /* On any team, administering one, or a master admin. */
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     if (node.planGroup && !who.isPlanGroup) return false;
@@ -965,7 +970,8 @@
         teams: teams,
         adminFor: adminFor,
         isMaster: !!(A && A.isMaster && A.isMaster()),
-        isCore: teams.indexOf('Core Team') !== -1 || !!(A && A.isMaster && A.isMaster()),
+        /* On a core team - any of them (H-15: Worship, Kids & Youth...). */
+        isCore: teams.some(function (t) { return !!(A && A.isCoreTeam && A.isCoreTeam(t)); }) || !!(A && A.isMaster && A.isMaster()),
         isChurchMember: !!(A && A.isChurchMember && A.isChurchMember()),
         isAdmin: !!(A && A.isAdmin && A.isAdmin()),
         /* THE SAME ANSWER THE PHONE USES (NEXT-BRIEF §25). One helper, so

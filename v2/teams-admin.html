@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610222000" data-title="Teams &amp; groups"></script>
+<script src="egbc-shell.js?v=202610261800" data-title="Teams &amp; groups"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Teams &amp; groups — EGBC</title>
@@ -13,9 +13,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610261500"></script>
+<script src="egbc-auth.js?v=202610261800"></script>
 <script src="egbc-guard.js?v=202610221200" data-team="Church office"></script>
-<script src="egbc-team-jobs.js?v=202610261200"></script>
+<script src="egbc-team-jobs.js?v=202610261800"></script>
 <style>
   :root{
     --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
@@ -147,6 +147,8 @@ async function load() {
       under18: t.under18 === true,
       parent: d.parent || t.parent || '',
       runs: Array.isArray(d.runs) ? d.runs : (t.runs || []),
+      /* H-15: the teams this one is the core team for. */
+      coreFor: Array.isArray(d.coreFor) ? d.coreFor : (t.coreFor || []),
       archived: d.archived === true
     };
   });
@@ -211,6 +213,12 @@ $('jobs').addEventListener('click', (e) => {
   saveJob(job, now.filter(t => t !== b.dataset.drop), b.closest('.job'));
 });
 
+/* A core team covering an under-18s team works with under-18s itself
+   (H-15, Martin's answer 1): the same checks for its people. */
+function worksWithU18(r) {
+  return r.under18 || (r.coreFor || []).some(id => (ROWS.find(x => x.id === id) || {}).under18);
+}
+
 function sortRows() {
   ROWS.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
 }
@@ -234,10 +242,13 @@ function draw() {
       <div class="opts">
         <label class="tick"><input type="checkbox" data-f="rota" ${r.rota ? 'checked' : ''}> Has a rota</label>
         <label class="tick"><input type="checkbox" data-f="archived" ${r.archived ? 'checked' : ''}> Archived</label>
-        <span class="fixed">${r.under18 ? 'Works with under-18s (DBS needed)' : ''}</span>
+        <span class="fixed">${worksWithU18(r) ? 'Works with under-18s (DBS needed)' : ''}</span>
       </div>
       <div class="runs">Runs: ${RUNS.map(([k, w]) => `<label class="tick"><input type="checkbox" data-run="${k}" ${r.runs.indexOf(k) !== -1 ? 'checked' : ''} ${MASTER ? '' : 'disabled'}> ${w}</label>`).join('')}
         ${MASTER ? '' : '<span class="fixed">(a master admin sets these)</span>'}</div>
+      <div class="runs">Core team for: ${MASTER
+        ? ROWS.filter(x => x.id !== r.id && !x.archived && !(x.coreFor || []).length).map(x => `<label class="tick"><input type="checkbox" data-core="${esc(x.id)}" ${r.coreFor.indexOf(x.id) !== -1 ? 'checked' : ''}> ${esc(x.label)}</label>`).join('')
+        : '<span class="fixed">' + (r.coreFor.length ? esc(r.coreFor.map(id => (ROWS.find(x => x.id === id) || {}).label || id).join(', ')) : 'nothing') + '</span>'}</div>
       <p class="saved" role="status"></p>
     </article>`).join('');
 }
@@ -267,6 +278,7 @@ async function save(r, fields, card) {
    in the collection matches what the person saw. */
 function whole(r) {
   const o = { label: r.label, colour: r.colour, order: r.order, rota: r.rota, archived: r.archived };
+  if (MASTER && r.coreFor.length) o.coreFor = r.coreFor;
   if (r.parent) o.parent = r.parent;
   if (r.under18) o.under18 = true;
   if (MASTER) o.runs = r.runs;
@@ -276,7 +288,7 @@ function whole(r) {
 $('list').addEventListener('change', async (e) => {
   const card = e.target.closest('[data-id]'); if (!card) return;
   const r = ROWS.find(x => x.id === card.dataset.id); if (!r) return;
-  const f = e.target.dataset.f, run = e.target.dataset.run;
+  const f = e.target.dataset.f, run = e.target.dataset.run, core = e.target.dataset.core;
   if (f === 'label') {
     const v = e.target.value.trim();
     if (!v) { e.target.value = r.label; return; }
@@ -286,9 +298,12 @@ $('list').addEventListener('change', async (e) => {
   else if (f === 'archived') r.archived = e.target.checked;
   else if (run && MASTER) {
     r.runs = RUNS.map(x => x[0]).filter(k => card.querySelector('[data-run="' + k + '"]').checked);
+  } else if (core && MASTER) {
+    /* H-15: being on this team counts as being on each ticked team. */
+    r.coreFor = [].map.call(card.querySelectorAll('[data-core]:checked'), x => x.dataset.core);
   } else return;
-  const fields = r.saved ? (run ? { runs: r.runs } : { [f]: r[f] }) : whole(r);
-  if (await save(r, fields, card) && (f === 'archived' || f === 'rota')) draw();
+  const fields = r.saved ? (run ? { runs: r.runs } : core ? { coreFor: r.coreFor } : { [f]: r[f] }) : whole(r);
+  if (await save(r, fields, card) && (f === 'archived' || f === 'rota' || core)) draw();
 });
 
 /* Up and down: the shown list is renumbered 1, 2, 3... and every team whose
