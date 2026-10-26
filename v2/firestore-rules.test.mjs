@@ -4742,8 +4742,8 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  ratings 1 to 5 only', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_4'), RSK('u_sgr_lead', { l: 6 })));
   await check('  the risk in 200 characters at most', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_5'), RSK('u_sgr_lead', { risk: 'x'.repeat(201) })));
   const TODO = (n) => Array.from({ length: n }, (x, i) => ({ what: 'Book the lifeguard ' + i, who: 'The leader', by: '2026-12-01', done: false }));
-  await check('S4: a standing risk keeps up to 5 things still to do', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(5) })));
-  await check('  not 6', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(6) })));
+  await check('S4: a standing risk keeps up to 50 things still to do (what a record holds; it was 5)', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(50) })));
+  await check('  not 51', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_todo'), RSK('u_sgr_lead', { todo: TODO(51) })));
   await check('  up to 50 controls (what a record holds, H-9)', 'allow', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_6max'), RSK('u_sgr_lead', { controls: Array(50).fill({ kind: 'text', text: 'x' }) })));
   await check('  no more than 50 controls', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_6'), RSK('u_sgr_lead', { controls: Array(51).fill({ kind: 'text', text: 'x' }) })));
   await check('  not under another site’s activity', 'deny', () => setDoc(doc(cx('u_sgr_lead'), 'sgRisks', 'sgr_7'), RSK('u_sgr_lead', { activityId: 'sga_other' })));

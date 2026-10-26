@@ -12198,3 +12198,32 @@ Each could use `myTeams()` (or `me().get('teams', []).concat(me().get('covers', 
 - **Their youth camp** carries actions with a person and a date. The PCC notes it once signed, and that line is on the print.
 
 **Deploy (the reviewing window's):** sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily (the S4 warnings). The rules go live when the hub goes live.
+
+### F-289 — "Still to do": 50 a risk, not 5 (Martin: no limits beyond what a record holds) (the events window, 26 Oct)
+
+**The change:** a risk can now hold **50** things still to do (it was 5).
+- The limit is the same in every place: the templates (`T.MAX_TODO`), the server's generated copy, the standing risks' rule (`todo` up to 50), and the register's snapshot.
+- **When a risk is full, the page says so:** "A risk holds at most 50 things still to do. Join two together, or take one out, to add another." The register's editor says the same.
+- **Why 50, not unlimited:** an event's assessment is one record (at most 1 MB) and already holds up to 200 risks. 50 actions on each fits real use with room to spare.
+
+**Tests:**
+
+| Test | Result |
+|---|---|
+| sg-assess | 53/53 |
+| sg-register | 27/27 |
+| sg-register-unit | 38/38: the page, the server's copy and the rules agree on 50, and the page says so when full |
+| Rules suite, EGBC | 1966/1966: 50 allowed, a 51st refused |
+| Rules suite, as a church | 1956/1966 (the 10 by design) |
+| check-rules-build | 10/10 |
+
+**Headroom, measured after:** sg-headroom at least 20 in both rulesets; H-8 at least 80 (a four-part hall at least 40). Both unchanged.
+
+**Breaks** (both caught):
+
+| Break | Result | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the rules back to 5 | rules 1965/1966 | "a standing risk keeps up to 50" |
+| the page says nothing when a risk is full | sg-register-unit 37/38 | "… the page says so when full" |
+
+**Deploy:** none (no function changed). The rules go live when the hub goes live.

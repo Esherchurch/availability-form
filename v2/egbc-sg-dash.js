@@ -256,7 +256,7 @@
       return { activity: String(actName[r.activityId] || '').slice(0, 80), risk: r.risk, who: r.who || '', before: T.rating(r.l, r.i), beforeScore: T.score(r.l, r.i),
         after: T.rating(r.rl, r.ri), afterScore: T.score(r.rl, r.ri), controls: (r.controls || []).slice(0, 50).map(T.controlLabel), owner: r.ownerName || '', reviewDue: r.reviewDue || '', status: r.status,
         /* STILL TO DO (S4), as it stood when the snapshot was taken */
-        todo: (r.todo || []).filter(function (t) { return t && t.what; }).slice(0, 5).map(function (t) { return { what: String(t.what), who: String(t.who || ''), by: t.by || '', done: !!t.done }; }) };
+        todo: (r.todo || []).filter(function (t) { return t && t.what; }).slice(0, T.MAX_TODO).map(function (t) { return { what: String(t.what), who: String(t.who || ''), by: t.by || '', done: !!t.done }; }) };
     });
     var w = (ctx.W && ctx.W.items) || [], dials = {};
     Object.keys((ctx.D && ctx.D.dials) || {}).forEach(function (k) { var x = ctx.D.dials[k]; dials[k] = { value: x.value, of: x.of, pct: x.pct, rag: x.rag }; });

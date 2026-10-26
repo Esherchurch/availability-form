@@ -82,7 +82,11 @@ ok('todoState: 3 open (done and blank ones not counted), 1 without a person or d
 ok('needsNoted, by default: camps, overnights, anything overseas or adventurous; not an ordinary trip', T.needsNoted('camp', {}) && T.needsNoted('overnight', {}) && T.needsNoted('trip', { abroad: true }) && T.needsNoted('offsite', { adventurous: true }) && !T.needsNoted('trip', {}) && !T.needsNoted('holidayclub', {}));
 ok('   the church’s own setting decides: trips only, nothing overseas', T.needsNoted('trip', {}, { kinds: ['trip'], abroad: false }) && !T.needsNoted('camp', { abroad: true }, { kinds: ['trip'], abroad: false, adventurous: false }));
 const CKS = fs.readFileSync(path.join(V2, 'functions', 'sg-checklist.cjs'), 'utf8');
-ok('the server’s copy has the same two (the warnings use them)', CKS.includes('function todoState(') && CKS.includes('function needsNoted(') && CKS.includes('const MAX_TODO = 5;'));
+ok('the server’s copy has the same two (the warnings use them)', CKS.includes('function todoState(') && CKS.includes('function needsNoted(') && CKS.includes('const MAX_TODO = 50;'));
+
+const RULES4 = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), ASSESS4 = fs.readFileSync(path.join(V2, 'egbc-sg-assess.js'), 'utf8');
+ok('STILL TO DO HOLDS 50 A RISK (Martin: no limit but what a record holds; it was 5): the page, the server’s copy and the rules agree, and the page says so when full',
+  T.MAX_TODO === 50 && CKS.includes('const MAX_TODO = 50;') && RULES4.includes("request.resource.data.get('todo', []).size() <= 50") && ASSESS4.includes('A risk holds at most ') && ASSESS4.includes('data-todofull'));
 
 console.log('\nwhat one assessment holds (H-9: no limits beyond what a record holds)');
 const assessSrc = fs.readFileSync(path.join(V2, 'egbc-sg-assess.js'), 'utf8'), rulesSrc = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), aiSrc = fs.readFileSync(path.join(V2, 'functions', 'sg-ai-core.cjs'), 'utf8');

@@ -1188,7 +1188,7 @@ allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 && get(/databases/$(database)/documents/churches/$(cid)/sgActivities/$(request.resource.data.activityId)).data.siteId == request.resource.data.siteId
 && request.resource.data.keys().hasOnly(['siteId', 'activityId', 'risk', 'who', 'l', 'i', 'controls', 'ownerName', 'reviewDue', 'rl', 'ri',
 'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo'])
-&& request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 5
+&& request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 50
 && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
 && sgOneToFive(request.resource.data.l) && sgOneToFive(request.resource.data.i)
 && sgOneToFive(request.resource.data.rl) && sgOneToFive(request.resource.data.ri)

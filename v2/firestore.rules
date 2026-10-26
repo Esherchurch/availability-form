@@ -2532,8 +2532,8 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/sgActivities/$(request.resource.data.activityId)).data.siteId == request.resource.data.siteId
                     && request.resource.data.keys().hasOnly(['siteId', 'activityId', 'risk', 'who', 'l', 'i', 'controls', 'ownerName', 'reviewDue', 'rl', 'ri',
                                                              'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy', 'todo'])
-                    // STILL TO DO (Derby's steps 4 and 5; S4): up to 5, each what, who and by when (the page's shape)
-                    && request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 5
+                    // STILL TO DO (Derby's steps 4 and 5; S4): up to 50 (what a record holds; T.MAX_TODO), each what, who and by when
+                    && request.resource.data.get('todo', []) is list && request.resource.data.get('todo', []).size() <= 50
                     && sgText(request.resource.data.risk, 200) && request.resource.data.risk.size() > 0 && sgText(request.resource.data.get('who', ''), 120)
                     && sgOneToFive(request.resource.data.l) && sgOneToFive(request.resource.data.i)
                     && sgOneToFive(request.resource.data.rl) && sgOneToFive(request.resource.data.ri)

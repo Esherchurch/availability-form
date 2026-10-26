@@ -316,7 +316,7 @@ function answerFlags(answers, flags, minCover) {
     }
     return out;
   }
-const MAX_TODO = 5;
+const MAX_TODO = 50;
 const NOTED_DEFAULT = {"kinds":["camp","overnight"],"abroad":true,"adventurous":true};
 function todoState(risks, today) {
     var s = { open: 0, overdue: 0, unready: 0, redOpen: 0 };

@@ -281,11 +281,12 @@
      no paediatric first aider; no male and female leader for a mixed group; the
      public liability cover not given, or under the church's minimum (minCover,
      £1 million unless the church sets another). Only answered questions count. */
-  /* "STILL TO DO" (Derby's steps 4 and 5; S4): each risk can have up to 5
+  /* "STILL TO DO" (Derby's steps 4 and 5; S4): each risk can have up to 50
      actions - what, who (a person or a role) and by when - and done or not.
      todoState -> { open, overdue, unready (open with no person or date),
      redOpen (open on a risk still High after its controls) }, counts. */
-  var MAX_TODO = 5;
+  /* no limit but what a record holds (Martin, H-9): 50 a risk; the pages say so when a risk is full */
+  var MAX_TODO = 50;
   function todoState(risks, today) {
     var s = { open: 0, overdue: 0, unready: 0, redOpen: 0 };
     (risks || []).forEach(function (r) {

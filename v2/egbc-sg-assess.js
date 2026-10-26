@@ -304,7 +304,7 @@
         '<label style="display:flex;gap:4px;align-items:center;font-weight:400"><input type="checkbox" data-td="done"' + (t.done ? ' checked' : '') + '> Done</label>' +
         (!t.done && t.by && t.by < now().slice(0, 10) ? '<span class="sga-rag amber" data-todolate>overdue</span>' : '') + '</div>'; };
       var td = r.todo || [];
-      return '<div data-todolist style="margin-top:6px"><span class="muted">Still to do (up to ' + T.MAX_TODO + ')</span>' + td.map(row).join('') + (td.length < T.MAX_TODO ? '<button class="b sec" type="button" data-todoadd="' + k + '" style="min-height:30px;padding:0 10px">Add something still to do</button>' : '') + '</div>';
+      return '<div data-todolist style="margin-top:6px"><span class="muted">Still to do (up to ' + T.MAX_TODO + ')</span>' + td.map(row).join('') + (td.length < T.MAX_TODO ? '<button class="b sec" type="button" data-todoadd="' + k + '" style="min-height:30px;padding:0 10px">Add something still to do</button>' : '<p class="muted" data-todofull>A risk holds at most ' + T.MAX_TODO + ' things still to do. Join two together, or take one out, to add another.</p>') + '</div>';
     }
     /* TRUSTEES NOTED (S4, Martin's answer 18): after sign-off, for the kinds the church's setting names; it never stops the event */
     function notedBox() {
