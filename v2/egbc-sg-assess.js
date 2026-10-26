@@ -181,35 +181,62 @@
     /* THE HOST'S OWN REQUIREMENTS (F-277): add their file; check the questions Claude reads from it; confirm */
     function hostBox(edit) {
       var h = A && A.host, signed = A && (A.status === 'signed' || A.waived);
-      var file = h && h.file ? '<button class="b sec" type="button" id="sgaHostOpen" style="min-height:32px;padding:0 10px">Open ' + esc(h.file.name) + '</button>' : '';
-      if (h && h.confirmed) return '<div class="ai" id="sgaHost"><b>The host’s requirements</b><p class="muted" id="sgaHostDone" style="margin:4px 0">Requirements taken from ' + esc(h.web ? (h.web.pages || []).length + ' of ' + (h.name || 'the host') + '’s web pages' + (h.web.pasted ? ' and pasted text' : '') : h.file ? h.file.name : 'their list') + ', checked by ' + esc(h.checkedByName || '') + ' on ' + esc(String(h.checkedAt || '').slice(0, 10)) + '. ' +
+      var file = h && h.file ? '<button class="b sec" type="button" id="sgaHostOpen" style="min-height:32px;padding:0 10px">' + (h.web ? 'Download what was read' : 'Open ' + esc(h.file.name)) + '</button>' : '';
+      if (h && h.confirmed) return '<div class="ai" id="sgaHost"><b>The host’s requirements</b><p class="muted" id="sgaHostDone" style="margin:4px 0">Requirements taken from ' + esc(h.web ? (h.web.pages || []).filter(function (p) { return (h.web.starts || []).indexOf(p.url) < 0; }).length + ' of ' + (h.name || 'the host') + '’s web pages' + (h.web.pasted ? ' and pasted text' : '') : h.file ? h.file.name : 'their list') + ', checked by ' + esc(h.checkedByName || '') + ' on ' + esc(String(h.checkedAt || '').slice(0, 10)) + '. ' +
         (h.items || []).length + ' question' + ((h.items || []).length === 1 ? '' : 's') + ' added to the checklist.</p>' + (edit && !signed ? readNext(h, true) : '') + file + (edit && !signed ? ' <button class="b sec" type="button" id="sgaHostAgain" style="min-height:32px;padding:0 10px">Add a new list</button>' + hostForm(true) : '') + '</div>';
-      if (h && !h.confirmed && edit) return '<div class="ai" id="sgaHost"><b>From ' + esc(h.name) + '’s requirements</b> <span class="muted">(' + esc(h.file ? h.file.name : '') + ')</span>' +
+      if (h && !h.confirmed && edit) return '<div class="ai" id="sgaHost"><b>From ' + esc(h.name) + '’s requirements</b>' + (h.file && !h.web ? ' <span class="muted">(' + esc(h.file.name) + ')</span>' : '') +
         '<p class="warn" style="margin:6px 0">Check each one: change it, remove one that repeats our own questions, or add one that was missed. Then confirm, and they are required questions like ours.</p>' +
         (h.personalFound ? '<p class="warn" id="sgaHostPersonal">The file seems to have names, phone numbers or emails in it. They were left out' + (h.dropped ? ' (' + h.dropped + ' question' + (h.dropped === 1 ? '' : 's') + ')' : '') + '.</p>' : '') +
         (h.leftOut > 0 ? '<p class="warn" id="sgaHostSockets">' + (h.leftOut === 1 ? 'One requirement was' : h.leftOut + ' requirements were') + ' left out: socket covers aren’t advised for UK sockets, which have shutters built in. If the host insists on them, talk to the host.</p>' : '') +
+        '<div id="sgaHostItems">' + (h.items || []).map(function (x) { return '<div data-hostitem="' + esc(x.id) + '" style="margin:6px 0"><div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" value="' + esc(x.q) + '"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>' + (x.line ? '<div class="muted">From: “' + esc(x.line) + '”' + (x.source ? ' <span data-hostsource>(' + sourceLink(h, x.source) + ')</span>' : '') + '</div>' : '') + '</div>'; }).join('') + '</div>' +
+        /* what was read, after the questions: one line each, the details folded away (Martin, 27 Oct) */
         webRead(h) + readNext(h, false) +
         (h.repeats > 0 ? '<p class="muted" id="sgaHostRepeats">' + (h.repeats === 1 ? 'One question' : h.repeats + ' questions') + ' from the next pages repeated ones already here, and ' + (h.repeats === 1 ? 'was' : 'were') + ' left out.</p>' : '') +
-        '<div id="sgaHostItems">' + (h.items || []).map(function (x) { return '<div data-hostitem="' + esc(x.id) + '" style="margin:6px 0"><div style="display:flex;gap:6px"><input type="text" data-hostq maxlength="300" value="' + esc(x.q) + '"><button class="b sec" type="button" data-hostdel style="min-height:40px;padding:0 10px">Remove</button></div>' + (x.line ? '<div class="muted">From: “' + esc(x.line) + '”' + (x.source ? ' <span data-hostsource>(' + esc(x.source) + ')</span>' : '') + '</div>' : '') + '</div>'; }).join('') + '</div>' +
         '<div class="btns"><button class="b sec" type="button" id="sgaHostAdd">Add one</button><button class="b" type="button" id="sgaHostOk">Confirm these as required questions</button>' + file +
         '<button class="b sec" type="button" id="sgaHostAgain">Add a different list</button></div><p class="muted" id="sgaHostReviewMsg" role="status"></p>' + hostForm(true) + '</div>';
       if (!edit || signed) return h ? '<div class="ai" id="sgaHost"><b>The host’s requirements</b> <span class="muted">not checked yet</span> ' + file + '</div>' : '';
       return '<div class="ai" id="sgaHost"><b>The host’s or organiser’s own requirements</b>' + hostForm(false) + '</div>';
     }
-    /* the pages read from the web (S6): each address, and any that weren't read, with why */
+    /* A PAGE'S NAME, never its web address (Martin, 27 Oct: "really hard to read"): its title, without the site's
+       name that every title ends with (" : Newday"); a page with no title is named from its address's last part */
+    function titleOf(h) {
+      var pages = (h.web && h.web.pages) || [], tail = {}, cut = '';
+      pages.forEach(function (p) { var m = /\s+[:|–—-]\s+([^:|–—-]{1,60})$/.exec(String(p.title || '')); if (m) tail[m[0]] = (tail[m[0]] || 0) + 1; });
+      Object.keys(tail).forEach(function (t) { if (tail[t] >= 2 && (!cut || tail[t] > tail[cut])) cut = t; });
+      var byUrl = {}; pages.forEach(function (p) { byUrl[p.url] = p.title; });
+      return function (url) {
+        var t = String(byUrl[url] || '');
+        if (cut && t.slice(-cut.length) === cut) t = t.slice(0, -cut.length);
+        if (t.trim()) return t.trim();
+        var last = ''; try { last = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || ''); } catch (e) { last = String(url || ''); }
+        var words = last.replace(/^\d+-?/, '').replace(/[-_]+/g, ' ').trim();
+        return words ? words.charAt(0).toUpperCase() + words.slice(1) : last ? 'Page ' + last : 'A page';
+      };
+    }
+    function pageLink(name, url) { return /^https?:\/\//.test(String(url || '')) ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(name) + '</a>' : esc(name); }
+    /* where a question came from: the page's name as the link, or "pasted text" */
+    function sourceLink(h, src) { return /^https?:\/\//.test(String(src || '')) ? pageLink(titleOf(h)(src), src) : esc(src); }
+    /* the pages read from the web (S6): one line, and the articles (not the addresses given) folded away */
     function webRead(h) {
       if (!h.web) return '';
-      return '<div class="muted" id="sgaHostWeb" style="margin:6px 0"><b>Read from ' + (h.web.pages || []).length + ' page' + ((h.web.pages || []).length === 1 ? '' : 's') + (h.web.pasted ? ', and the pasted text' : '') + ':</b><ul style="margin:4px 0;padding-left:18px">' +
-        (h.web.pages || []).map(function (p) { return '<li data-webpage>' + esc(p.title || p.url) + ' <span>(' + esc(p.url) + ')</span></li>'; }).join('') + '</ul>' +
-        ((h.web.refused || []).length ? '<b>Not read:</b><ul style="margin:4px 0;padding-left:18px">' + h.web.refused.map(function (r) { return '<li data-webrefused>' + esc(r.url) + ': ' + esc(r.why) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+      var name = titleOf(h), given = (h.web.starts || []), arts = (h.web.pages || []).filter(function (p) { return given.indexOf(p.url) < 0; });
+      var failed = (h.web.refused || []).filter(function (r) { return /^https?:\/\//.test(String(r.url)) && !/^(beyond the|not reached in)/.test(r.why || ''); });
+      var list = function (rows) { return '<ul style="margin:4px 0;padding-left:18px">' + rows.join('') + '</ul>'; };
+      return '<div class="muted" id="sgaHostWeb" style="margin:6px 0"><span id="sgaHostRead">Read ' + arts.length + ' of ' + esc(h.name || 'the host') + '’s page' + (arts.length === 1 ? '' : 's') + (h.web.pasted ? ', and the pasted text' : '') + '.</span>' +
+        (arts.length ? ' <details id="sgaHostPages" style="display:inline"><summary style="cursor:pointer;display:inline">Show the pages</summary>' + list(arts.map(function (p) { return '<li data-webpage>' + pageLink(name(p.url), p.url) + '</li>'; })) + '</details>' : '') +
+        (failed.length ? '<div id="sgaHostFailed">' + (failed.length === 1 ? 'One page' : failed.length + ' pages') + ' couldn’t be read. <details id="sgaHostFailedList" style="display:inline"><summary style="cursor:pointer;display:inline">Show why</summary>' +
+          list(failed.map(function (r) { return '<li data-webrefused>' + pageLink(name(r.url), r.url) + ': ' + esc(r.why) + '</li>'; })) + '</details></div>' : '') + '</div>';
     }
     /* "Read the next" (F-293): the host's pages not reached yet, 40 at a time, adding to the same list to be checked */
     function readNext(h, done) {
       var left = ((h.web || {}).next || []).length;
       if (!left) return '';
       var n = Math.min(40, left);
-      return '<div id="sgaHostMore" style="margin:6px 0"><p class="muted" style="margin:2px 0">' + left + ' more of the host’s page' + (left === 1 ? ' was' : 's were') + ' not read yet.' +
-        (done ? ' Reading them puts this list back to be checked.' : ' Their questions are added to this list, without repeating any already here.') + ' Each read counts as one use of the AI.</p>' +
+      var name = titleOf(h);
+      return '<div id="sgaHostMore" style="margin:6px 0"><div class="muted" style="margin:2px 0">' + left + ' more of the host’s page' + (left === 1 ? ' was' : 's were') + ' not read yet.' +
+        (done ? ' Reading them puts this list back to be checked.' : ' Their questions are added to this list, without repeating any already here.') + ' Each read counts as one use of the AI. ' +
+        '<details id="sgaHostNotRead" style="display:inline"><summary style="cursor:pointer;display:inline">Show which</summary><ul style="margin:4px 0;padding-left:18px">' +
+        h.web.next.map(function (u) { return '<li data-webnext>' + pageLink(name(u), u) + '</li>'; }).join('') + '</ul></details></div>' +
         '<button class="b sec" type="button" id="sgaHostNext" data-next="' + n + '">Read the next ' + n + '</button><p class="muted" id="sgaHostNextMsg" role="status"></p></div>';
     }
     function hostForm(hidden) {

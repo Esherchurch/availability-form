@@ -12553,3 +12553,56 @@ Two of my first breaks went to tests that don't check them: "None given" in the 
 - The line is in REQ_SYSTEM.
 - sg-host checks it is in what is sent.
 - It needs sgRequirementsFromLinks and sgExtractRequirements deployed.
+
+### F-295 — The host's list: the questions first, the pages read folded away and named, never as web addresses (Martin, 27 Oct, on the live Newday list) (the events window, 27 Oct)
+
+**What Martin said:** "There isn't any point to this list if it is directly below anyway. Plus it's really hard to read." The list was 48 lines of full web addresses above the questions.
+
+**What changed** (egbc-sg-assess.js; the page only):
+1. **The questions come first,** straight under the heading.
+   - What was read follows them on one line: "Read 43 of Newday (test)'s pages." Then **Show the pages**, folded away and closed.
+   - The count is the articles listed. The folder pages given aren't listed or counted.
+2. **Each page is named by its title, as a link, never its web address.** This applies to "Show the pages" and to each question's "From: … (page)".
+   - The site's name, which every title ends with (" : Newday"), is cut off.
+   - A page with no title is named from its address: "can-i-bring-a-generator" becomes "Can i bring a generator", and an address of only numbers becomes "Page 108".
+3. **The pages not read:**
+   - Their line stays where it was: "8 more of the host's pages were not read yet … Show which", folded away and closed. The **Read the next 8** button stays under it.
+   - Pages that couldn't be read at all: "2 pages couldn't be read. Show why", folded away too.
+4. **The heading no longer says "(What was read from the web pages.txt)".** The file's button now says **Download what was read**. An uploaded file keeps its name.
+5. **The record is unchanged.**
+   - The kept file of what was read still has every address.
+   - The assessment still keeps each page's address, and the print still lists them.
+
+**Tests:** sg-host 61/61 (9 new); sg-assess 53/53. They check:
+- the questions are first under the heading: no list, web address or ".txt" above them
+- the line, and that "Show the pages" starts closed
+- no web address anywhere on the screen
+- each question's page by its title, as a link to its address
+- the articles listed, not the folder page
+- "Download what was read"
+- **at phone width (375):** the questions still come first, and nothing is wider than the screen with the pages opened
+- the kept file still has the addresses
+- **with 60 articles:** "Read 60 of …", and the titles without " : Testcamp"
+- the pages not read are closed, and named
+- once confirmed, the same count of articles
+
+**Breaks** (8, each caught):
+
+| Break | sg-host |
+|---|---|
+| **THE ONE THAT MATTERS:** the list of pages above the questions again | 58/60 |
+| the pages open, not folded away | 59/60 |
+| web addresses as the names | 55/60 |
+| the folder pages listed with the articles | 55/60 |
+| the site's name left on the end of each title | 59/60 |
+| the pages not read shown open | 59/60 |
+| the heading names the .txt file again | 59/60 |
+| the confirmed line counts the folder pages too | 60/61 |
+
+(The first seven ran before the confirmed check was added, so they ran out of 60.)
+
+**Once confirmed,** the line counts the same: "Requirements taken from 43 of Newday (test)'s web pages". It used to count the folder pages too.
+
+**For the synthetic parish:** the same for any host's site. The site's name is found from the titles, not written in.
+
+**Deploy:** nothing. The page only. It goes live with the pages (safeguarding.html and safeguarding-risk.html stamps bumped).

@@ -91,8 +91,8 @@ const SITE = {
   '/articles/camping': pageOf('Camping (invented)', 'Tents must be 2 metres apart; cooking tents 3 metres from anything.')
 };
 for (let f = 1; f <= 5; f++) {
-  const arts = []; for (let a = 1; a <= 12; a++) { const p = '/hc/articles/' + f + (a < 10 ? '0' : '') + a; arts.push(p); SITE[p] = pageOf('Folder ' + f + ' article ' + a + ' (invented)', 'Rule ' + f + '.' + a + ' for groups (invented).'); }
-  SITE['/hc/folders/' + f] = pageOf('Folder ' + f + ' (invented)', 'Articles in this folder:', arts);
+  const arts = []; for (let a = 1; a <= 12; a++) { const p = '/hc/articles/' + f + (a < 10 ? '0' : '') + a; arts.push(p); SITE[p] = pageOf('Folder ' + f + ' article ' + a + ' (invented) : Testcamp', 'Rule ' + f + '.' + a + ' for groups (invented).'); }
+  SITE['/hc/folders/' + f] = pageOf('Folder ' + f + ' (invented) : Testcamp', 'Articles in this folder:', arts);
 }
 const webStub = http.createServer((req, res) => { WEBHIT.push(req.url); const b = SITE[req.url]; res.writeHead(b ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(b || 'Not found'); });
 await new Promise(r => webStub.listen(5619, '127.0.0.1', r));
@@ -304,9 +304,25 @@ try {
   ok('   each question says which page it came from (the schema asks)', /"source"/.test(J((SENT[n11] || {}).output_config)));
   const a11 = await assess();
   ok('   THE LEADER SEES THE PAGES READ, and each question with its page, before confirming', a11.host.confirmed === false && a11.host.web.pages.length === 3 && a11.host.items.every((x) => x.source)
-    && /Read from 3 pages/.test(await text(O, '#sgaHostWeb')) && (await O.$$('[data-hostsource]')).length === 2, J(a11.host.web));
+    && /^Read 2 of A camp \(invented\)’s pages\./.test(await text(O, '#sgaHostWeb')) && (await O.$$('[data-hostsource]')).length === 2, J(a11.host.web));
+  /* F-295 (Martin, 27 Oct, on the live list: "There isn't any point to this list if it is directly below anyway. Plus it's really hard to read.") */
+  const top11 = await O.$eval('#sgaHost', (e) => { const r = document.createRange(); r.setStart(e, 0); r.setEndBefore(e.querySelector('#sgaHostItems')); return r.toString(); });
+  ok('F-295: THE QUESTIONS COME FIRST under the heading: no list of pages, no web address and no ".txt" above them', /From A camp \(invented\)’s requirements/.test(top11) && !/https?:|Read \d|\.txt/.test(top11), top11);
+  ok('   WHAT WAS READ IS ONE LINE, the pages folded away and CLOSED: "Read 2 of A camp (invented)’s pages. Show the pages"; no web address on the screen',
+    (await O.$eval('#sgaHostPages', (e) => e.open)) === false && /^Read 2 of A camp \(invented\)’s pages\. Show the pages$/.test(await text(O, '#sgaHostWeb')) && !/https?:\/\//.test(await text(O, '#sgaHost')), await text(O, '#sgaHost'));
+  ok('   EACH QUESTION NAMES ITS PAGE, as a link: the page’s title, never its address', J(await O.$$eval('[data-hostsource] a', (as) => as.map((a) => [a.textContent, a.getAttribute('href')]))) === J([['Safeguarding (invented)', BASE + '/articles/safeguarding'], ['Camping (invented)', BASE + '/articles/camping']]), J(await O.$$eval('[data-hostsource]', (l) => l.map((x) => x.innerHTML))));
+  await O.$eval('#sgaHostPages summary', (e) => e.click());
+  ok('   "Show the pages" opens the articles by name, as links (not the folder page given)', J(await O.$$eval('#sgaHostPages [data-webpage]', (l) => l.map((x) => x.textContent))) === J(['Safeguarding (invented)', 'Camping (invented)']) && (await O.$$('#sgaHostPages [data-webpage] a[target="_blank"]')).length === 2, await text(O, '#sgaHostPages'));
+  ok('   the file’s button in plain words: "Download what was read"', (await text(O, '#sgaHostOpen')) === 'Download what was read', await text(O, '#sgaHostOpen'));
+  const vp11 = O.viewport();
+  await O.setViewport({ width: 375, height: 812 });
+  await go(O, 'safeguarding.html?event=' + EID, '#sgaHostItems');
+  await O.$eval('#sgaHostPages summary', (e) => e.click());
+  ok('   AT PHONE WIDTH (375): the questions first, and the page still fits with the pages opened', (await O.$eval('#sgaHost', (e) => e.querySelector('#sgaHostItems').compareDocumentPosition(e.querySelector('#sgaHostWeb')) & 4)) === 4
+    && (await O.evaluate(() => document.documentElement.scrollWidth)) <= 375, await O.evaluate(() => document.documentElement.scrollWidth));
+  if (vp11) await O.setViewport(vp11);
   const [keptWeb] = await bucket.file(a11.host.file.path).download();
-  ok('   WHAT WAS READ IS KEPT, beside the files', /Tents must be 2 metres apart/.test(keptWeb.toString()) && a11.host.file.path.indexOf('sgRequirements/' + EID + '/') === 0, a11.host.file.path);
+  ok('   WHAT WAS READ IS KEPT, beside the files, addresses and all (the page shows names; the record keeps everything)', /Tents must be 2 metres apart/.test(keptWeb.toString()) && /== http:\/\/127\.0\.0\.1:5619\/articles\/camping/.test(keptWeb.toString()) && a11.host.web.pages.every((p) => /^http:\/\/127\.0\.0\.1:5619\//.test(p.url)) && a11.host.file.path.indexOf('sgRequirements/' + EID + '/') === 0, a11.host.file.path);
   const n11b = SENT.length;
   const priv = await call(O, 'sgRequirementsFromLinks', { calEventId: EID, urls: ['https://10.0.0.1/requirements', 'https://169.254.169.254/latest/meta-data/'] });
   ok('A PRIVATE ADDRESS (and the cloud’s own): refused, said plainly, and nothing goes to Claude', !priv.ok && /Nothing could be read from those addresses/.test(priv.message) && /private address/.test(priv.message) && SENT.length === n11b, J(priv));
@@ -328,6 +344,7 @@ try {
   ok('12. 5 FOLDERS, 60 ARTICLES: the first read is 40 pages, and the 25 not reached are kept for "Read the next"', first12.ok && a12.host.web.pages.length === 40 && a12.host.web.next.length === 25 && a12.host.web.next[0] === BASE + '/hc/articles/108', J([first12, (a12.host.web || {}).next]));
   await go(O, 'safeguarding.html?event=' + EID, '#sgaHostNext');
   ok('   THE LEADER SEES: "25 more of the host’s pages were not read yet … Each read counts as one use of the AI." and "Read the next 25"', /25 more of the host’s pages were not read yet\./.test(await text(O, '#sgaHostMore')) && /Each read counts as one use of the AI\./.test(await text(O, '#sgaHostMore')) && (await text(O, '#sgaHostNext')) === 'Read the next 25', await text(O, '#sgaHostMore'));
+  ok('   THE PAGES NOT READ: on that one line, folded away and closed; "Show which" names them (a page with only numbers in its address: "Page 108")', (await O.$eval('#sgaHostNotRead', (e) => e.open)) === false && (await O.$$('[data-webnext]')).length === 25 && (await O.$eval('[data-webnext]', (e) => e.textContent)) === 'Page 108', await text(O, '#sgaHostMore'));
   /* the leader has changed one question on the page, not yet confirmed */
   await O.$eval('[data-hostitem] [data-hostq]', (e) => { e.value = 'Has every adult read and signed the camp’s safeguarding policy? (invented)'; });
   QUEUE.push(answer({ host: 'A camp (invented)', personalFound: false, items: [
@@ -341,7 +358,10 @@ try {
   ok('   THE AI IS TOLD the questions already on the list (as the leader changed them), not to give them again', /already on the church’s list/.test(sent12) && /read and signed the camp’s safeguarding policy/.test(sent12) && /Does every group bring its own first aid kit\?/.test(sent12) && /Rule 4\.12 for groups/.test(sent12), sent12.slice(0, 400));
   ok('   ADDED TO THE SAME LIST, NO REPEATS: the leader’s change kept, the repeated question left out, the new one added; still to be checked', b12.host.items.length === 3 && /read and signed/.test(b12.host.items[0].q) && b12.host.items[2].q === 'Will the group wear its wristbands all week? (invented)' && b12.host.repeats === 1 && b12.host.confirmed === false && J(b12.hostIds) === '[]', J(b12.host.items));
   ok('   THE LEADER IS TOLD: "One new question added from 25 more pages." and "One question … repeated ones already here, and was left out."', (await text(O, '#sgaHostAdded')) === 'One new question added from 25 more pages.' && /One question from the next pages repeated ones already here, and was left out\./.test(await text(O, '#sgaHostRepeats')), [await text(O, '#sgaHostAdded'), await text(O, '#sgaHostRepeats')].join(' | '));
-  ok('   all 65 pages listed as read; nothing left, so no button', b12.host.web.pages.length === 65 && b12.host.web.next.length === 0 && b12.host.web.reads === 2 && !(await O.$('#sgaHostNext')) && /Read from 65 pages/.test(await text(O, '#sgaHostWeb')), J([b12.host.web.pages.length, b12.host.web.next]));
+  ok('   all 65 pages listed as read; nothing left, so no button', b12.host.web.pages.length === 65 && b12.host.web.next.length === 0 && b12.host.web.reads === 2 && !(await O.$('#sgaHostNext')) && /^Read 60 of A camp \(invented\)’s pages\./.test(await text(O, '#sgaHostWeb')), J([b12.host.web.pages.length, b12.host.web.next]));
+  await O.$eval('#sgaHostPages summary', (e) => e.click());
+  const names12 = await O.$$eval('#sgaHostPages [data-webpage]', (l) => l.map((x) => x.textContent));
+  ok('   THE TITLES WITHOUT THE SITE’S NAME on the end (" : Testcamp"), the 60 articles, not the 5 folders', names12.length === 60 && names12[0] === 'Folder 1 article 1 (invented)' && !names12.some((n) => /Testcamp|^Folder \d \(invented\)$/.test(n)), J(names12.slice(0, 3)));
   const [kept12] = await bucket.file(b12.host.file.path).download();
   ok('   WHAT WAS READ IS KEPT: both reads, in one file', /Rule 1\.1 for groups/.test(kept12.toString()) && /Rule 5\.12 for groups/.test(kept12.toString()), b12.host.file.path);
   const use12b = ((await db.collection('sgAiUse').doc(londonDay()).get()).data() || {}).total || 0;
@@ -354,6 +374,11 @@ try {
   const c12 = await assess();
   ok('   only the host’s own site: a page on another site put in the list is never tried', J(WEBHIT.slice(h12c)) === J(['/hc/articles/101']) && !/elsewhere/.test(J(c12.host.web)), J([WEBHIT.slice(h12c), c12.host.web.refused]));
 
+  await go(O, 'safeguarding.html?event=' + EID, '#sgaHostOk');
+  await tap(O, '#sgaHostOk');
+  await O.waitForSelector('#sgaHostDone', { timeout: 20000 }).catch(() => null);
+  const d12 = (await assess()).host.web, arts12 = d12.pages.filter((p) => !d12.starts.includes(p.url)).length;
+  ok('   CONFIRMED: "Requirements taken from <the articles> of A camp (invented)’s web pages": the same count as before confirming, not the 5 folders', arts12 >= 60 && new RegExp('^Requirements taken from ' + arts12 + ' of A camp \\(invented\\)’s web pages, checked by ').test(await text(O, '#sgaHostDone')), [arts12, await text(O, '#sgaHostDone')].join(' | '));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);
