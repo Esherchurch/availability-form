@@ -29,8 +29,15 @@
 
   function leadersOf(evId) {
     return db().collection('eventLeaders').doc(evId).get()
-      .then(function (s) { return s.exists ? s.data() : null; })
+      .then(function (s) { return s.exists ? whoIs(s.data()) : null; })
       .catch(function () { return null; });
+  }
+  /* leaderIds IS who each leader is (S3, 26 Oct): the rules check only that the
+     two lists are the same length (no limit but 500), so leader i's member id
+     is taken from leaderIds[i], whatever leaders[i] says */
+  function whoIs(d) {
+    if (!d || !Array.isArray(d.leaders) || !Array.isArray(d.leaderIds) || d.leaderIds.length !== d.leaders.length) return d;
+    return Object.assign({}, d, { leaders: d.leaders.map(function (l, i) { return Object.assign({}, l, { memberId: d.leaderIds[i] || '' }); }) });
   }
 
   /* The sites this person is safeguarding lead or deputy for. */
@@ -83,6 +90,19 @@
     var training = !c || !c.trainingDate ? 'missing'
       : addYears(c.trainingDate, o.trainingYears || 3) < on ? 'out of date' : 'ok';
     return { dbs: dbs, training: training, ok: dbs === 'ok' && training === 'ok' };
+  }
+  /* THE OTHER CHECKS (S3, F-280 (a) and 10.3), shown beside DBS and training
+     but not part of "cleared" (ok above), which the rules also work out:
+     - level: the DBS check is Enhanced with the children's barred list
+       ('ok'), another level ('not barred list'), or not recorded ('unknown')
+     - reference: a church leader's reference, lasting referenceYears (3)
+     - declaration: the confidential declaration, the same */
+  var DBS_LEVELS = [['enhancedBarred', 'Enhanced, with the children’s barred list'], ['enhanced', 'Enhanced, without the barred list'], ['standard', 'Standard'], ['basic', 'Basic']];
+  function checkExtras(c, o, onDate) {
+    o = o || {}; c = c || {};
+    var on = new Date(String(onDate || new Date().toISOString()).slice(0, 10) + 'T12:00'), yrs = o.referenceYears || 3;
+    var dated = function (d) { return !d ? 'missing' : addYears(d, yrs) < on ? 'out of date' : 'ok'; };
+    return { level: c.dbsLevel === 'enhancedBarred' ? 'ok' : c.dbsLevel ? 'not barred list' : 'unknown', reference: dated(c.referenceDate), declaration: dated(c.declarationDate) };
   }
 
   /* Whose DBS check or training runs out soon, or has (NEXT-BRIEF §24,
@@ -287,7 +307,70 @@
     })).then(function (n) { return n.reduce(function (a, b) { return a + b; }, 0); });
   }
 
+  /* WHAT THIS CHURCH CALLS ITS SAFEGUARDING LEAD (F-280 S2b): a parish says
+     "Parish safeguarding officer", others "Designated safeguarding lead".
+     Safeguarding settings keeps it (register.leadTitle); the pages say
+     "safeguarding lead" in their own words, and lead() / leadIn() put the
+     church's title in its place as they are shown - in text only, never an
+     id or an attribute. Capitalised where the sentence starts with it. */
+  var DEFAULT_LEAD = 'safeguarding lead', LEAD = DEFAULT_LEAD;
+  function setLeadTitle(t) { t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 60); LEAD = t || DEFAULT_LEAD; return LEAD; }
+  function leadTitle() { return LEAD; }
+  /* the same text twice gives the same answer, even when the title itself
+     says "safeguarding lead" ("Designated safeguarding lead"): the title's
+     own words are set aside first, then put back */
+  function lead(s) {
+    s = String(s == null ? '' : s);
+    if (LEAD === DEFAULT_LEAD || !/afeguarding lead/.test(s)) return s;
+    var keep = [], own = new RegExp(LEAD.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    s = s.replace(own, function (m) { keep.push(m); return '\u0000' + (keep.length - 1) + '\u0000'; });
+    s = s.replace(/\b([Ss])afeguarding lead\b/g, function (m, c) { return c === 'S' ? LEAD.charAt(0).toUpperCase() + LEAD.slice(1) : LEAD; });
+    return s.replace(/\u0000(\d+)\u0000/g, function (m, i) { return keep[+i]; });
+  }
+  /* every piece of text under el (and the placeholders) */
+  function leadIn(el) {
+    if (LEAD === DEFAULT_LEAD || !el || typeof document === 'undefined') return el;
+    /* a part of the page that names the words themselves (the setting) says data-nolead */
+    var off = function (x) { var p = x.nodeType === 3 ? x.parentNode : x; return !!(p && p.closest && p.closest('[data-nolead]')); };
+    if (off(el)) return el;
+    if (el.nodeType === 3) { var v = lead(el.nodeValue); if (v !== el.nodeValue) el.nodeValue = v; return el; }
+    if (!el.querySelectorAll) return el;
+    var w = document.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */), n;
+    while ((n = w.nextNode())) { if (off(n)) continue; var t = lead(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; }
+    [].forEach.call(el.querySelectorAll('[placeholder]'), function (x) { if (off(x)) return; var p = lead(x.placeholder); if (p !== x.placeholder) x.placeholder = p; });
+    return el;
+  }
+  /* once per page: now, and whatever the page draws or says later */
+  function leadWatch(root) {
+    root = root || (typeof document !== 'undefined' && document.body);
+    return leadReady().then(function () {
+      if (LEAD === DEFAULT_LEAD || !root || typeof MutationObserver === 'undefined') return;
+      leadIn(root);
+      new MutationObserver(function (ms) { ms.forEach(function (m) {
+        if (m.type === 'characterData') leadIn(m.target);
+        else [].forEach.call(m.addedNodes, leadIn);
+      }); }).observe(root, { childList: true, subtree: true, characterData: true });
+    });
+  }
+  /* read once per page: the settings are open to every volunteer */
+  var leadP = null;
+  function leadReady() {
+    if (!leadP) leadP = (global.EGBCAuth && EGBCAuth.db ? EGBCAuth.db.collection('safeguardingSettings').doc('defaults').get()
+      .then(function (d) { setLeadTitle(d.exists ? ((d.data().register || {}).leadTitle) : ''); return LEAD; }, function () { leadP = null; return LEAD; }) : Promise.resolve(LEAD));
+    return leadP;
+  }
+  /* every page that loads this file: once someone is signed in (the settings need it), watch the page */
+  if (typeof document !== 'undefined' && typeof setTimeout !== 'undefined') {
+    var tries = 0;
+    (function wait() {
+      if (global.EGBCAuth && EGBCAuth.user && EGBCAuth.user() && document.body) { leadWatch(document.body); return; }
+      if (++tries < 200) setTimeout(wait, 300);
+    })();
+  }
+
   var api = {
+    whoIs: whoIs, checkExtras: checkExtras, DBS_LEVELS: DBS_LEVELS,
+    lead: lead, leadIn: leadIn, leadReady: leadReady, leadWatch: leadWatch, setLeadTitle: setLeadTitle, leadTitle: leadTitle, DEFAULT_LEAD: DEFAULT_LEAD,
     norm: norm, me: me, leadersOf: leadersOf, myLeadSites: myLeadSites,
     ageOn: ageOn, ratio: ratio, checkStatus: checkStatus, checksDue: checksDue, clearInTurn: clearInTurn, clearOne: clearOne, clearWords: clearWords,
     formsForEvent: formsForEvent, unshared: unshared, listForEvent: listForEvent, shareWithLeaders: shareWithLeaders

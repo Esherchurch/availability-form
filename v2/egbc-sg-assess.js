@@ -69,14 +69,18 @@
   function mount(el, o) {
     if (!document.getElementById('sga-css')) { var st = document.createElement('style'); st.id = 'sga-css'; st.textContent = CSS; document.head.appendChild(st); }
     var db = EGBCAuth.db, ref = db.collection('sgAssessments').doc(o.calEventId), gate = db.collection('sgGate').doc(o.calEventId), A = null;
-    var tplId = (o.ev && o.ev.sgKind) || 'trip', CHURCHQ = [], MINCOVER = 0, GUIDE = {};
+    var tplId = (o.ev && o.ev.sgKind) || 'trip', CHURCHQ = [], MINCOVER = 0, GUIDE = {}, READS = {};
+    /* who has read the host's safeguarding policy (S3): its own record, sgPolicyReads/<event> */
+    var reads = db.collection('sgPolicyReads').doc(o.calEventId);
     /* the required checklist for this event: its kind, the ticked flags, and the church's own questions */
     function questions() { return T.checklistFor((o.ev && o.ev.sgKind) || (A && A.templateId) || tplId, (A && A.flags) || {}, CHURCHQ.concat(T.hostQuestions(A))); }
     function now() { return new Date().toISOString(); }
     function stamp(x) { return Object.assign(x, { updatedAt: now(), updatedBy: o.me.uid }); }
     function load() {
       return Promise.all([ref.get(), db.collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }),
-        o.may.sign && o.siteId ? db.collection('bookingSettings').doc(o.siteId).get().catch(function () { return null; }) : null]).then(function (r) {
+        o.may.sign && o.siteId ? db.collection('bookingSettings').doc(o.siteId).get().catch(function () { return null; }) : null,
+        reads.get().catch(function () { return null; })]).then(function (r) {
+        READS = (r[3] && r[3].exists && r[3].data().reads) || {};
         /* the signer's role, for "Signed off by <name>, <role>" */
         var b = r[2] && r[2].exists ? r[2].data() : {}, mid = o.me.memberId || '';
         var st = r[1] && r[1].exists ? r[1].data() : {};
@@ -108,7 +112,7 @@
       /* THE REQUIRED CHECKLIST: an answer, or "not applicable" with a reason, for every question */
       var sug = (A.source && A.source.suggest) || {}, qs0 = questions();
       var left = qs0.filter(function (q) { return !T.answered((A.answers || {})[q.id]); }).length;
-      var answers = hostBox(edit) + '<div id="sgaChecklist"><label style="margin-top:16px">The checklist <span class="muted" style="font-weight:400" id="sgaCkCount">' + (qs0.length - left) + ' of ' + qs0.length + ' answered</span></label>' +
+      var answers = hostBox(edit) + policyBox(edit) + '<div id="sgaChecklist"><label style="margin-top:16px">The checklist <span class="muted" style="font-weight:400" id="sgaCkCount">' + (qs0.length - left) + ' of ' + qs0.length + ' answered</span></label>' +
         '<p class="muted" style="margin:0 0 6px">Every question needs an answer, or “not applicable” with a reason, before it can be signed off.</p>' + guideLine() +
         (edit ? '<div class="flags">' + T.FLAGS.map(function (f) { return '<label style="display:flex;gap:8px;font-weight:400;margin:4px 0"><input type="checkbox" data-flag="' + f.id + '"' + (((A.flags || {})[f.id]) ? ' checked' : '') + '> ' + esc(f.label) + '</label>'; }).join('') + '</div>' : '') +
         qs0.map(function (q) {
@@ -282,6 +286,26 @@
         '<div class="btns"><button class="b sec" id="sgaWaive">It isn’t needed</button></div></details>';
     }
     function say(t) { var m = el.querySelector('#sgaMsg'); if (m) m.textContent = t; }
+    /* HAS EACH LEADER READ THE HOST'S SAFEGUARDING POLICY (S3, F-280 10.3): one
+       tick per leader, with the date, when the event has a host. Amber until
+       every leader has. Kept in its own record, not in the assessment. */
+    function policyBox(edit) {
+      var h = A && A.host, ls = o.leaders || [];
+      if (!h || !ls.length) return '';
+      var got = ls.filter(function (l) { return READS[l.memberId]; }).length;
+      return '<div class="ai" id="sgaPolicy"><b>Has each leader read ' + esc(h.name || 'the host') + '’s safeguarding policy?</b> ' +
+        '<span class="sga-rag ' + (got === ls.length ? 'green' : 'amber') + '" data-policycount>' + got + ' of ' + ls.length + '</span>' +
+        ls.map(function (l) { var d = READS[l.memberId] || ''; return '<label style="display:flex;gap:8px;font-weight:400;margin:4px 0"><input type="checkbox" data-policyread="' + esc(l.memberId) + '"' + (d ? ' checked' : '') + (edit ? '' : ' disabled') + '> ' + esc(l.name) + (d ? ' <span class="muted">(' + esc(d) + ')</span>' : '') + '</label>'; }).join('') +
+        '<p class="muted" id="sgaPolicyMsg" role="status"></p></div>';
+    }
+    function wirePolicy() {
+      el.querySelectorAll('[data-policyread]').forEach(function (b) { b.onchange = function () {
+        var mid = b.getAttribute('data-policyread'), next = Object.assign({}, READS);
+        if (b.checked) next[mid] = now().slice(0, 10); else delete next[mid];
+        reads.set({ siteId: o.siteId, reads: next, updatedAt: now(), updatedBy: o.me.uid }).then(function () { READS = next; /* unsaved answers kept, as the ticks above do */ if (el.querySelector('[data-q]')) A = Object.assign({}, A, read()); draw(); },
+          function (e) { b.checked = !b.checked; var m = el.querySelector('#sgaPolicyMsg'); if (m) m.textContent = 'Not saved: ' + (e.message || e); });
+      }; });
+    }
     /* the church's own denomination's guidance (Safeguarding settings), and NSPCC Learning for everyone */
     function guideLine() {
       var name = String(GUIDE.name || '').trim(), url = /^https:\/\/[^\s"<>]+$/.test(String(GUIDE.url || '')) ? GUIDE.url : '';
@@ -327,7 +351,7 @@
     }
     function wire() {
       var q = function (s) { return el.querySelector(s); };
-      aiStatus(); wireHost();
+      aiStatus(); wireHost(); wirePolicy();
       if (q('#sgaStart')) q('#sgaStart').onclick = function () {
         var id = q('#sgaTpl').value, t = T.EVENT_TEMPLATES[id];
         var d = stamp({ siteId: o.siteId, calEventId: o.calEventId, title: String((o.ev && o.ev.title) || '').slice(0, 120), templateId: id, answers: {},

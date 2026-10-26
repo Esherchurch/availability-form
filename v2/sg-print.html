@@ -15,7 +15,7 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-safeguarding.js?v=202610251400"></script>
+<script src="egbc-events-safeguarding.js?v=202610261100"></script>
 <script src="egbc-sg-templates.js?v=202610251000"></script>
 <script src="egbc-sg-dash.js?v=202610251400"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -146,13 +146,15 @@
 
   /* ---- AN EVENT'S ASSESSMENT ---- */
   function printEvent(id) {
-    var EV, A, L, ST, SITE = {}, church;
+    var EV, A, L, ST, SITE = {}, church, READS = {};
     return Promise.all([
       db().collection('calEvents').doc(id).get(), db().collection('sgAssessments').doc(id).get(),
       db().collection('eventLeaders').doc(id).get().catch(function () { return null; }),
       db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }),
-      EGBCChurch.load().catch(function () { return {}; })
+      EGBCChurch.load().catch(function () { return {}; }),
+      db().collection('sgPolicyReads').doc(id).get().catch(function () { return null; })
     ]).then(function (r) {
+      READS = (r[5] && r[5].exists && r[5].data().reads) || {};
       if (!r[0].exists) throw new Error('no such event');
       EV = Object.assign({ id: id }, r[0].data()); A = r[1].exists ? r[1].data() : null; L = r[2] && r[2].exists ? r[2].data() : {}; ST = r[3] && r[3].exists ? r[3].data() : {}; church = r[4] || {};
       var site = (EV.location || {}).siteId || '';
@@ -209,6 +211,8 @@
         (host && !host.confirmed ? '<p class="must" id="pHostWaiting"><b>The host’s requirements have not been checked yet.</b> It can’t be signed off until they are.</p>' : '') +
         ((A && A.source && (A.source.questions || []).length) ? '<h2>Questions still to answer</h2><ul id="pQuestions">' + A.source.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
         '<div class="wide"><h2>The risks</h2>' + riskTable(risks) + '<p class="note">Ratings: likelihood × impact, 1 to 5 each. 15 or more is High, 5 to 14 Medium, under 5 Low.</p></div>' +
+        /* S3: how many of the leaders have read the host's safeguarding policy (a count; the names are on the assessment page) */
+        (host && (L.leaderIds || []).length ? '<p id="pPolicy"><b>Read ' + esc(host.name || 'the host') + '’s safeguarding policy:</b> ' + (L.leaderIds || []).filter(function (m) { return READS[m]; }).length + ' of ' + (L.leaderIds || []).length + ' leaders.</p>' : '') +
         (host ? '<h2>Appendix: the host’s requirements</h2><p id="pHost">' + (host.confirmed ? 'Requirements taken from ' + esc(host.file ? host.file.name : 'their list') + ', checked by ' + esc(host.checkedByName || '') + ' on ' + esc(longDate(host.checkedAt)) + '.' : 'Read from ' + esc(host.file ? host.file.name : 'their list') + '; not checked yet.') +
           ' The original file is kept with the assessment in the hub' + (host.file ? ' (' + esc(host.file.name) + ', ' + Math.max(1, Math.round((host.file.size || 0) / 1024)) + ' KB)' : '') + '.</p>' +
           '<table class="ck" id="pHostList"><thead><tr><th>' + esc(host.name || 'The host') + '’s requirement, as a question</th><th>Where it came from</th></tr></thead><tbody>' +

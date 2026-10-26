@@ -18,9 +18,9 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610251000"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-safeguarding.js?v=202610251400"></script>
+<script src="egbc-events-safeguarding.js?v=202610261100"></script>
 <script src="egbc-sg-templates.js?v=202610251000"></script>
-<script src="egbc-sg-assess.js?v=202610251400"></script>
+<script src="egbc-sg-assess.js?v=202610261100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -145,12 +145,22 @@
   /* The event's own choices, else the church's Safeguarding settings,
      else the built-in defaults (1 to 8, 1 to 4, 3 years, not required). */
   var SGDEF = {};
+  /* the other checks (S3): the barred list (flagged only where under-18s are), the reference, the declaration */
+  function extraChips(c, st) {
+    var x = SG.checkExtras(c, st, EV.startLocal);
+    var lv = x.level === 'ok' ? '<span class="flag ok" data-chk="level">Barred list: checked</span>'
+      : '<span class="flag ' + (st.under18 ? 'warn' : 'off') + '" data-chk="level">' + (x.level === 'unknown' ? 'Level of check: not recorded' : 'Not Enhanced with the barred list') + '</span>';
+    var dated = function (what, v, key) { return '<span class="flag ' + (v === 'ok' ? 'ok' : 'warn') + '" data-chk="' + key + '">' + what + ': ' + (v === 'ok' ? 'in date' : v) + '</span>'; };
+    return lv + dated('Reference', x.reference, 'reference') + dated('Declaration', x.declaration, 'declaration');
+  }
   function settingsOf() {
     var l = LEAD || {}, d = SGDEF || {};
     return { ratioAll: l.ratioAll || d.ratioAll || 5, ratioUnder8: l.ratioUnder8 || d.ratioUnder8 || 4,
              requireChecks: l.requireChecks !== undefined ? !!l.requireChecks : !!d.requireChecks,
              under18: !!l.under18,
-             dbsYears: l.dbsYears || d.dbsYears || 3, trainingYears: l.trainingYears || d.trainingYears || 3 };
+             dbsYears: l.dbsYears || d.dbsYears || 3, trainingYears: l.trainingYears || d.trainingYears || 3,
+             /* how long a reference and a declaration count (Safeguarding settings, S3) */
+             referenceYears: ((d.register || {}).referenceYears) || 3 };
   }
 
   function counts() {
@@ -200,7 +210,7 @@
           (EXC[l.memberId] ? ' <span class="flag wait" title="' + esc(EXC[l.memberId].reason || '') + '">exception recorded</span>' : '') +
           (st.under18 && ((LEAD && LEAD.clearedIds) || []).indexOf(l.memberId) < 0 ? ' <span class="flag warn notCleared">not cleared yet</span>' : '') +
           (l.uid ? '' : ' <span class="flag off">has not signed in yet</span>') + '<br>' +
-          ((CHECKS[l.memberId] !== undefined || canChecks) ? chip('DBS', s.dbs) + chip('Training', s.training) : '<span class="m">Checks are seen by admins and the safeguarding lead.</span>') + '</span>' +
+          ((CHECKS[l.memberId] !== undefined || canChecks) ? chip('DBS', s.dbs) + chip('Training', s.training) + extraChips(CHECKS[l.memberId], st) : '<span class="m">Checks are seen by admins and the safeguarding lead.</span>') + '</span>' +
           (canChecks && l.memberId ? '<button class="btn ghost sm recCheck" data-i="' + i + '">' + ico('clipboard-check') + 'Checks</button>' : '') +
           ((MASTER || ISLEAD) && st.under18 && l.memberId && ((LEAD && LEAD.clearedIds) || []).indexOf(l.memberId) < 0
             ? '<button class="btn ghost sm exFor" data-i="' + i + '">' + ico('shield-check') + 'Exception</button>' : '') +
@@ -260,7 +270,13 @@
       /* the hub's own check, shown against the checklist's leaders question */
       hub: (function () { var st = settingsOf(), c = counts(), ls = (LEAD && LEAD.leaders) || [], r = SG.ratio({ children: c.kids, under8: c.under8, leaders: ls.length, ratioAll: st.ratioAll, ratioUnder8: st.ratioUnder8 });
         var ok = ls.filter(function (l) { return SG.checkStatus(CHECKS[l.memberId], st, EV.startLocal).ok || EXC[l.memberId]; }).length;
-        return ls.length + ' leader' + (ls.length === 1 ? '' : 's') + ' named for ' + c.kids + ' ' + (c.kids === 1 ? 'child' : 'children') + (c.under8 ? ' (' + c.under8 + ' under 8)' : '') + '; ' + Math.max(r.need, c.kids ? 2 : 0) + ' needed (1 to ' + st.ratioAll + ', and two adults): ' + (r.ok && ls.length >= 2 ? 'enough' : 'NOT enough') + '; ' + ok + ' of ' + ls.length + ' with checks and training in date.'; })() });
+        /* S3: the barred list (under-18s), references and declarations - counts only, never who */
+        var xs = ls.map(function (l) { return SG.checkExtras(CHECKS[l.memberId], st, EV.startLocal); }), n = function (f) { return xs.filter(f).length; };
+        var noBar = n(function (x) { return x.level !== 'ok'; }), noRef = n(function (x) { return x.reference !== 'ok'; }), noDecl = n(function (x) { return x.declaration !== 'ok'; });
+        return ls.length + ' leader' + (ls.length === 1 ? '' : 's') + ' named for ' + c.kids + ' ' + (c.kids === 1 ? 'child' : 'children') + (c.under8 ? ' (' + c.under8 + ' under 8)' : '') + '; ' + Math.max(r.need, c.kids ? 2 : 0) + ' needed (1 to ' + st.ratioAll + ', and two adults): ' + (r.ok && ls.length >= 2 ? 'enough' : 'NOT enough') + '; ' + ok + ' of ' + ls.length + ' with checks and training in date' +
+          (st.under18 && noBar ? '; ' + noBar + ' without an Enhanced check with the barred list recorded' : '') + (noRef ? '; ' + noRef + ' without a reference in date' : '') + (noDecl ? '; ' + noDecl + ' without a declaration in date' : '') + '.'; })(),
+      /* the leaders, for "has read the host's safeguarding policy" (S3): member id and name */
+      leaders: ((LEAD && LEAD.leaders) || []).filter(function (l) { return l.memberId; }).map(function (l) { return { memberId: l.memberId, name: l.name || '' }; }) });
   }
 
   function tile(v, k) { return '<div class="tile"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }
@@ -461,11 +477,18 @@
           return '<option value="' + o[0] + '"' + (c.dbsStatus === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
       '<div class="two"><div class="field"><label for="cSeen">Date the DBS check was seen</label><input class="inp" id="cSeen" type="date" value="' + esc(c.dbsSeen || '') + '"></div>' +
       '<div class="field"><label for="cTr">Date of safeguarding training</label><input class="inp" id="cTr" type="date" value="' + esc(c.trainingDate || '') + '"></div></div>' +
+      /* S3 (F-280 (a), 10.3): the level of the check, a church leader's reference, the confidential declaration */
+      '<div class="field"><label for="cLevel">Level of the DBS check</label><select id="cLevel"><option value="">Not recorded</option>' +
+        SG.DBS_LEVELS.map(function (o) { return '<option value="' + o[0] + '"' + (c.dbsLevel === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' +
+        '<p class="hint" style="margin:4px 0 0">Anyone working with under-18s needs an Enhanced check with the children’s barred list.</p></div>' +
+      '<div class="two"><div class="field"><label for="cRef">Date a church leader’s reference came</label><input class="inp" id="cRef" type="date" value="' + esc(c.referenceDate || '') + '"></div>' +
+      '<div class="field"><label for="cDecl">Date of the confidential declaration</label><input class="inp" id="cDecl" type="date" value="' + esc(c.declarationDate || '') + '"></div></div>' +
       '<div class="foot"><button class="btn sec" data-close>Cancel</button><button class="btn" id="cSave">Save</button></div>');
     document.getElementById('cSave').onclick = function () {
       db().collection('leaderChecks').doc(l.memberId).set({
         name: l.name, dbsStatus: document.getElementById('cDbs').value, dbsSeen: document.getElementById('cSeen').value,
-        trainingDate: document.getElementById('cTr').value, siteId: SITE, updatedAt: now(), updatedBy: ME.uid
+        trainingDate: document.getElementById('cTr').value, dbsLevel: document.getElementById('cLevel').value,
+        referenceDate: document.getElementById('cRef').value, declarationDate: document.getElementById('cDecl').value, siteId: SITE, updatedAt: now(), updatedBy: ME.uid
       }).then(function () { closeModal(); toast('Saved.'); return loadChecks(); }).then(drawEvent).catch(fail('save the checks'));
     };
   }

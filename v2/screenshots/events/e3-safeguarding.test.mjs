@@ -254,7 +254,7 @@ try {
   ok('an out-of-date training date is flagged, and the event says not every leader is checked',
     /DBS: in date/.test(leaderRow) && /Training: out of date/.test(leaderRow) && !!(await L.$('#checksMsg')), leaderRow.slice(0, 400));
   const chk = (await readDb(db => getDoc(doc(db, 'leaderChecks', 'm_leo')))).data();
-  ok('the record holds status and dates, and nothing else', JSON.stringify(Object.keys(chk).sort()) === JSON.stringify(['dbsSeen', 'dbsStatus', 'name', 'siteId', 'trainingDate', 'updatedAt', 'updatedBy']), JSON.stringify(chk));
+  ok('the record holds status, level and dates, and nothing else (S3: the level, the reference, the declaration)', JSON.stringify(Object.keys(chk).sort()) === JSON.stringify(['dbsLevel', 'dbsSeen', 'dbsStatus', 'declarationDate', 'name', 'referenceDate', 'siteId', 'trainingDate', 'updatedAt', 'updatedBy']), JSON.stringify(chk));
   await L.setViewport({ width: 390, height: 900 });
   await L.screenshot({ path: path.join(HERE, 'e3-safeguarding-event-375.png'), fullPage: true });
   await L.setViewport({ width: 1100, height: 900 });

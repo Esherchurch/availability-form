@@ -122,7 +122,7 @@ const EID = 'ev_camp';
   S('safeguardingSettings', 'defaults', { templates: {}, ratioAll: 5, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false, leadSiteId: 'site_t', leadName: 'Lena Lead (invented)', leadPhone: '', updatedAt: 'x', updatedBy: 'x' });
   S('calEvents', EID, { title: 'Youth camp weekend (invented)', status: 'confirmed', visibility: 'public', audience: ['public'], signupOn: true, capacity: 30, sgKind: 'overnight', organiserName: 'Olly Organiser (invented)', createdBy: P.olly.uid, teamUids: [], teamMemberIds: [],
     startLocal: DAY + 'T17:00', startUtc: Date.parse(DAY + 'T17:00:00Z'), endLocal: DAY + 'T20:00', endUtc: Date.parse(DAY + 'T20:00:00Z'), location: { kind: 'other', siteId: 'site_t', name: 'Hilltop Camp (invented)' } });
-  S('eventLeaders', EID, { under18: true, leaders: [], leaderIds: [], leaderUids: [], siteId: 'site_t', clearedIds: [], lastCleared: [], updatedAt: 'x', updatedBy: 'x' });
+  S('eventLeaders', EID, { under18: true, leaders: [{ memberId: 'm_lena', name: 'Lena Lead (invented)', role: 'leader' }], leaderIds: ['m_lena'], leaderUids: [], siteId: 'site_t', clearedIds: [], lastCleared: [], updatedAt: 'x', updatedBy: 'x' });
   S('sgGate', EID, { needed: true, open: false, updatedAt: 'x' });
   S('sgAssessments', EID, { siteId: 'site_t', calEventId: EID, title: 'Youth camp weekend (invented)', templateId: 'overnight', answers: {}, risks: [], status: 'draft', version: 1, updatedAt: 'x', updatedBy: 'x' });
   S('sgAiStub', 'config', { url: 'http://127.0.0.1:5617' });
@@ -259,6 +259,14 @@ try {
   const a9 = await assess();
   ok('   THE HOST’S OWN "socket covers" requirement is left out (1 of 2), and counted', a9.host.items.length === 1 && /Lights out|lights be out/.test(a9.host.items[0].q) && a9.host.leftOut === 1 && !/socket/i.test(J(a9.host.items)), J(a9.host));
   ok('   THE LEADER IS TOLD: "One requirement was left out: socket covers aren’t advised for UK sockets … talk to the host."', /^One requirement was left out: socket covers aren’t advised for UK sockets, which have shutters built in\. If the host insists on them, talk to the host\.$/.test(await text(O, '#sgaHostSockets')), await text(O, '#sgaHostSockets'));
+  /* 10. has each leader read the host's safeguarding policy (S3): its own record, a tick and a date each */
+  await go(O, 'safeguarding.html?event=' + EID, '#sgaPolicy');
+  ok('10. WITH A HOST: "Has each leader read Hilltop Christian Camp (invented)’s safeguarding policy?" 0 of 1, amber', (await text(O, '#sgaPolicy')).includes('Has each leader read Hilltop Christian Camp (invented)’s safeguarding policy?') && (await text(O, '[data-policycount]')) === '0 of 1' && (await O.$eval('[data-policycount]', (e) => e.className)).includes('amber'), await text(O, '#sgaPolicy'));
+  await O.$eval('[data-policyread="m_lena"]', (e) => { e.checked = true; e.dispatchEvent(new Event('change')); });
+  const pr = await until(async () => { const d = (await db.collection('sgPolicyReads').doc(EID).get()).data(); return d && d.reads && d.reads.m_lena ? d : null; });
+  ok('   ticked: kept in its own record (sgPolicyReads), with the date; 1 of 1, green', pr && /^\d{4}-\d{2}-\d{2}$/.test(pr.reads.m_lena) && !('reads' in (await assess())) && !!(await until(async () => (await text(O, '[data-policycount]')) === '1 of 1')), J(pr));
+  await go(L, 'sg-print.html?event=' + EID, '#sheet[data-ready]');
+  ok('   THE PRINT: "Read Hilltop Christian Camp (invented)’s safeguarding policy: 1 of 1 leaders." (a count, never a name)', (await text(L, '#pPolicy')) === 'Read Hilltop Christian Camp (invented)’s safeguarding policy: 1 of 1 leaders.', await text(L, '#pPolicy'));
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {
   ok('the run finished', false, e.stack || e.message);

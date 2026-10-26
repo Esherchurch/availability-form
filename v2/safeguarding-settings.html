@@ -17,7 +17,7 @@
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
 <script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-safeguarding.js?v=202610251400"></script>
+<script src="egbc-events-safeguarding.js?v=202610261100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -277,6 +277,9 @@
             /* AI-drafted event assessments (F-265 step 5): how many a day */
             '<div class="field"><label>AI-drafted assessments a day</label>' + num('aiChurch', typeof (R.ai || {}).perChurch === 'number' ? R.ai.perChurch : 20, 500) + ' for the church, ' +
               num('aiPerson', typeof (R.ai || {}).perPerson === 'number' ? R.ai.perPerson : 5, 500) + ' for each person</div>' +
+            /* how long a church leader's reference and the confidential declaration count (S3) */
+            '<div class="field"><label>References and declarations count for</label>' + num('refYears', R.referenceYears || 3, 10) + ' years' +
+              '<p class="hint" style="margin:6px 0 0">A church leader’s reference and the confidential declaration, recorded under each leader’s checks.</p></div>' +
             /* what the church calls its safeguarding lead (F-280 S2b): used in place of "safeguarding lead" on every safeguarding page and print */
             '<div class="field" data-nolead><label for="leadTitle">What your church calls its safeguarding lead</label><input class="inp" id="leadTitle" maxlength="60" placeholder="safeguarding lead" value="' + esc(R.leadTitle || '') + '">' +
               '<p class="hint" style="margin:6px 0 0">For example “Parish safeguarding officer” or “Designated safeguarding lead”. Shown in place of “safeguarding lead” on the safeguarding pages and printouts. Leave it empty for “safeguarding lead”.</p></div>' +
@@ -362,6 +365,7 @@
       var gName = ((document.getElementById('guideName') || {}).value || '').trim().slice(0, 120), gUrl = ((document.getElementById('guideUrl') || {}).value || '').trim().slice(0, 300);
       if (gUrl && !/^https:\/\/[^\s"<>]+$/.test(gUrl)) { toast('The guidance’s web address must start https://'); return; }
       d.register.guidance = { name: gName, url: gUrl };
+      d.register.referenceYears = Math.max(1, nv('refYears', 3, 10));
       d.register.leadTitle = ((document.getElementById('leadTitle') || {}).value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
       var mc = parseInt(((document.getElementById('minCover') || {}).value || '').replace(/[^\d]/g, ''), 10);
       d.register.minCover = mc > 0 ? mc : 1000000;

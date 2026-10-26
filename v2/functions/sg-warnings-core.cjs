@@ -28,6 +28,9 @@ const TODO = {
   twoAdults: 'Find a second adult before the session goes on.',
   ratio: 'Bring in another leader, or limit the places.',
   checks: 'Record the new check or training on Safeguarding.',
+  checksLevel: 'Record the level of each leader’s DBS check (Checks, on the event’s safeguarding page).',
+  checksReference: 'Ask a church leader for a reference, and record the date it came.',
+  checksDeclaration: 'Ask for the confidential declaration, and record its date.',
   consent: 'Ask the families to renew their consent form.',
   signoff: 'Finish the assessment and ask the safeguarding lead or deputy to sign it off.',
   review: 'Look at each one and set a new review date.',
@@ -102,6 +105,20 @@ function warningsFrom(d) {
     label: runOut.length + ' ' + s(runOut.length, 'leader', 'leaders') + ' on under-18s groups and events ' + s(runOut.length, 'has a check or training that is missing or has run out.', 'have a check or training that is missing or has run out.') });
   if (soon.length) add({ id: 'checks_soon', kind: 'checks', level: 'amber', count: soon.length, date: until, fix: 'safeguarding.html', act: '',
     label: soon.length + ' ' + s(soon.length, 'leader’s check or training runs', 'leaders’ checks or training run') + ' out within ' + Math.round(soonDays / 7) + ' weeks.' });
+  /* the other checks (S3): the barred list, a reference, the declaration - amber, counts only */
+  const noBar = [], noRef = [], noDecl = [];
+  [...new Set(d.leaderMids || [])].forEach((mid) => {
+    const x = Safeguarding.checkExtras((d.checks || {})[mid] || null, { referenceYears: st.referenceYears || 3 }, today);
+    if (x.level !== 'ok') noBar.push(mid);
+    if (x.reference !== 'ok') noRef.push(mid);
+    if (x.declaration !== 'ok') noDecl.push(mid);
+  });
+  if (noBar.length) add({ id: 'checks_level', kind: 'checksLevel', level: 'amber', count: noBar.length, date: today, fix: 'safeguarding.html', act: '',
+    label: noBar.length + ' ' + s(noBar.length, 'leader', 'leaders') + ' on under-18s groups and events without an Enhanced check with the children’s barred list recorded.' });
+  if (noRef.length) add({ id: 'checks_reference', kind: 'checksReference', level: 'amber', count: noRef.length, date: today, fix: 'safeguarding.html', act: '',
+    label: noRef.length + ' ' + s(noRef.length, 'leader', 'leaders') + ' on under-18s groups and events without a church leader’s reference in date.' });
+  if (noDecl.length) add({ id: 'checks_declaration', kind: 'checksDeclaration', level: 'amber', count: noDecl.length, date: today, fix: 'safeguarding.html', act: '',
+    label: noDecl.length + ' ' + s(noDecl.length, 'leader', 'leaders') + ' on under-18s groups and events without a confidential declaration in date.' });
   /* and on each group whose own leaders include one */
   (d.groups || []).forEach((g) => {
     const act = actFor('kidsGroup', g.id); if (!act) return;

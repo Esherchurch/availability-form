@@ -18,7 +18,7 @@
 <script src="egbc-events.js?v=202610221300"></script>
 <script src="egbc-events-groups.js?v=202610091600"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-safeguarding.js?v=202610251400"></script>
+<script src="egbc-events-safeguarding.js?v=202610261100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -173,7 +173,7 @@
       '<button class="btn" id="rc-save" style="margin-top:8px">Save the check</button></div>');
     document.getElementById('rc-save').onclick = function () {
       db().collection('leaderChecks').doc(m).set({ name: (person(m) || {}).name || '', dbsStatus: document.getElementById('rc-dbs').value, dbsSeen: document.getElementById('rc-seen').value,
-        trainingDate: document.getElementById('rc-train').value, siteId: g.siteId || '', updatedAt: new Date().toISOString(), updatedBy: uid() })
+        trainingDate: document.getElementById('rc-train').value, siteId: g.siteId || '', updatedAt: new Date().toISOString(), updatedBy: uid() }, { merge: true })  /* keeps the level, reference and declaration (S3) */
         .then(function () { toast('Saved'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
     };
   }

@@ -58,6 +58,19 @@ ok('a title that itself says "safeguarding lead" is never doubled, however often
 SG.setLeadTitle('   ');
 ok('an empty title is the default', SG.leadTitle() === 'safeguarding lead');
 
+console.log('\nS3: a leader’s other checks, and who each leader is');
+const X = (c) => SG.checkExtras(c, { referenceYears: 3 }, '2026-10-26');
+ok('the barred list: "ok" only for Enhanced with the barred list; another level, or none recorded, is not', X({ dbsLevel: 'enhancedBarred' }).level === 'ok' && X({ dbsLevel: 'enhanced' }).level === 'not barred list' && X({}).level === 'unknown' && X(null).level === 'unknown');
+ok('a reference and a declaration last 3 years (the church’s setting), then are out of date; none is missing', X({ referenceDate: '2024-01-01' }).reference === 'ok' && X({ referenceDate: '2023-01-01' }).reference === 'out of date' && X({}).declaration === 'missing'
+  && SG.checkExtras({ referenceDate: '2023-01-01' }, { referenceYears: 5 }, '2026-10-26').reference === 'ok');
+ok('"cleared" is still DBS and training only (what the rules work out too)', SG.checkStatus({ dbsStatus: 'current', dbsSeen: '2026-01-01', trainingDate: '2026-01-01' }, {}, '2026-10-26').ok === true);
+ok('the levels offered: Enhanced with the barred list first', SG.DBS_LEVELS[0][0] === 'enhancedBarred' && SG.DBS_LEVELS.map((x) => x[0]).join() === 'enhancedBarred,enhanced,standard,basic');
+const W1 = SG.whoIs({ leaderIds: ['m_a', 'm_b'], leaders: [{ name: 'A', memberId: 'm_a' }, { name: 'B', memberId: 'm_x' }] });
+ok('WHO EACH LEADER IS comes from leaderIds (the rules check only that), whatever leaders[i] says', W1.leaders[0].memberId === 'm_a' && W1.leaders[1].memberId === 'm_b' && W1.leaders[1].name === 'B');
+ok('   an older record whose lists differ in length is left as it is', SG.whoIs({ leaderIds: ['m_a'], leaders: [] }).leaders.length === 0);
+const R3 = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8');
+ok('the rules: no leader-by-leader check, and 500, not 20; nobody twice', /ids\.size\(\) == d\.leaders\.size\(\) && ids\.size\(\) <= 500 && ids\.toSet\(\)\.size\(\) == ids\.size\(\)/.test(R3) && !/idAt\(d, 19\)/.test(R3));
+
 console.log('\nwhat one assessment holds (H-9: no limits beyond what a record holds)');
 const assessSrc = fs.readFileSync(path.join(V2, 'egbc-sg-assess.js'), 'utf8'), rulesSrc = fs.readFileSync(path.join(V2, 'firestore.rules'), 'utf8'), aiSrc = fs.readFileSync(path.join(V2, 'functions', 'sg-ai-core.cjs'), 'utf8');
 ok('the page, the server and the rules agree: 200 risks, 50 controls each, 500 host questions, 1,100 answers', assessSrc.includes('var MAX = { risks: 200, controls: 50, host: 500 };') && aiSrc.includes('const MAX = { risks: 200, controls: 50, host: 500 };')

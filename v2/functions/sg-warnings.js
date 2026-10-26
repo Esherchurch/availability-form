@@ -44,7 +44,7 @@ export function londonDay(at = new Date()) {
 async function settingsOf(dbi) {
   const s = (await dbi.collection('safeguardingSettings').doc('defaults').get()).data() || {};
   return { ratioAll: s.ratioAll || 5, ratioUnder8: s.ratioUnder8 || 4, dbsYears: s.dbsYears || 3, trainingYears: s.trainingYears || 3,
-    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders', minCover: ((s.register || {}).minCover) || 0 };
+    dueSoonDays: ((s.register || {}).dueSoonDays) || 42, referenceYears: ((s.register || {}).referenceYears) || 3, dials: ((s.register || {}).dials) || {}, trusteeTeam: s.trusteeTeam || 'Elders', minCover: ((s.register || {}).minCover) || 0 };
 }
 const rows = (q) => q.get().then((s) => s.docs.map((d) => Object.assign({ id: d.id }, d.data())), () => []);
 

@@ -164,6 +164,16 @@ const vmod = { exports: {} };
 (await import('node:vm')).runInNewContext((await import('node:fs')).readFileSync(path.join(V2, 'egbc-sg-templates.js'), 'utf8'), { module: vmod });
 ok('the page’s review items match the server’s (ids, who, optional)', J(vmod.exports.REVIEW_ITEMS.map((i) => [i.id, i.who, !!i.optional])) === J(W.REVIEW_ITEMS.map((i) => [i.id, i.who, !!i.optional])), J(vmod.exports.REVIEW_ITEMS.map((i) => i.id)));
 
+console.log('\n8. the other checks (S3): the barred list, a reference, the declaration - counts only');
+const full = { dbsStatus: 'current', dbsSeen: '2026-01-10', trainingDate: '2026-01-10', dbsLevel: 'enhancedBarred', referenceDate: '2026-01-01', declarationDate: '2026-01-01' };
+r = W.warningsFrom(base({ leaderMids: ['m_a', 'm_b', 'm_c'], checks: { m_a: full, m_b: Object.assign({}, full, { dbsLevel: 'enhanced', referenceDate: '' }), m_c: Object.assign({}, full, { dbsLevel: '', declarationDate: '2020-01-01' }) } }));
+ok('2 without the barred list (one Enhanced only, one not recorded), 1 without a reference, 1 with a declaration out of date: amber, with what to do',
+  find(r, 'checks_level') && find(r, 'checks_level').count === 2 && find(r, 'checks_level').level === 'amber' && /2 leaders on under-18s groups and events without an Enhanced check with the children’s barred list recorded\./.test(find(r, 'checks_level').label) && /level of each leader/.test(find(r, 'checks_level').todo)
+  && find(r, 'checks_reference') && find(r, 'checks_reference').count === 1 && find(r, 'checks_declaration') && find(r, 'checks_declaration').count === 1, J(r.items));
+ok('   counts only: no name or member id in any of them', !/m_a|m_b|m_c/.test(J(r.items.filter((i) => /checks_(level|reference|declaration)/.test(i.id)))));
+r = W.warningsFrom(base({ leaderMids: ['m_a'], checks: { m_a: full } }));
+ok('   all three in order: none of them', !find(r, 'checks_level') && !find(r, 'checks_reference') && !find(r, 'checks_declaration'), J(r.items));
+
 const passed = results.filter(Boolean).length;
 console.log('\n' + passed + '/' + results.length + ' passed');
 process.exit(passed === results.length ? 0 : 1);

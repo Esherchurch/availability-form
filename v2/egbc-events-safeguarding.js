@@ -29,8 +29,15 @@
 
   function leadersOf(evId) {
     return db().collection('eventLeaders').doc(evId).get()
-      .then(function (s) { return s.exists ? s.data() : null; })
+      .then(function (s) { return s.exists ? whoIs(s.data()) : null; })
       .catch(function () { return null; });
+  }
+  /* leaderIds IS who each leader is (S3, 26 Oct): the rules check only that the
+     two lists are the same length (no limit but 500), so leader i's member id
+     is taken from leaderIds[i], whatever leaders[i] says */
+  function whoIs(d) {
+    if (!d || !Array.isArray(d.leaders) || !Array.isArray(d.leaderIds) || d.leaderIds.length !== d.leaders.length) return d;
+    return Object.assign({}, d, { leaders: d.leaders.map(function (l, i) { return Object.assign({}, l, { memberId: d.leaderIds[i] || '' }); }) });
   }
 
   /* The sites this person is safeguarding lead or deputy for. */
@@ -83,6 +90,19 @@
     var training = !c || !c.trainingDate ? 'missing'
       : addYears(c.trainingDate, o.trainingYears || 3) < on ? 'out of date' : 'ok';
     return { dbs: dbs, training: training, ok: dbs === 'ok' && training === 'ok' };
+  }
+  /* THE OTHER CHECKS (S3, F-280 (a) and 10.3), shown beside DBS and training
+     but not part of "cleared" (ok above), which the rules also work out:
+     - level: the DBS check is Enhanced with the children's barred list
+       ('ok'), another level ('not barred list'), or not recorded ('unknown')
+     - reference: a church leader's reference, lasting referenceYears (3)
+     - declaration: the confidential declaration, the same */
+  var DBS_LEVELS = [['enhancedBarred', 'Enhanced, with the children’s barred list'], ['enhanced', 'Enhanced, without the barred list'], ['standard', 'Standard'], ['basic', 'Basic']];
+  function checkExtras(c, o, onDate) {
+    o = o || {}; c = c || {};
+    var on = new Date(String(onDate || new Date().toISOString()).slice(0, 10) + 'T12:00'), yrs = o.referenceYears || 3;
+    var dated = function (d) { return !d ? 'missing' : addYears(d, yrs) < on ? 'out of date' : 'ok'; };
+    return { level: c.dbsLevel === 'enhancedBarred' ? 'ok' : c.dbsLevel ? 'not barred list' : 'unknown', reference: dated(c.referenceDate), declaration: dated(c.declarationDate) };
   }
 
   /* Whose DBS check or training runs out soon, or has (NEXT-BRIEF §24,
@@ -349,6 +369,7 @@
   }
 
   var api = {
+    whoIs: whoIs, checkExtras: checkExtras, DBS_LEVELS: DBS_LEVELS,
     lead: lead, leadIn: leadIn, leadReady: leadReady, leadWatch: leadWatch, setLeadTitle: setLeadTitle, leadTitle: leadTitle, DEFAULT_LEAD: DEFAULT_LEAD,
     norm: norm, me: me, leadersOf: leadersOf, myLeadSites: myLeadSites,
     ageOn: ageOn, ratio: ratio, checkStatus: checkStatus, checksDue: checksDue, clearInTurn: clearInTurn, clearOne: clearOne, clearWords: clearWords,

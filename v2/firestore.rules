@@ -2369,7 +2369,7 @@ service cloud.firestore {
     // look up only a few records in one save, so they cannot check twenty
     // people at once. So the clearing is done IN TURN and recorded:
     //   leaderIds    every leader's and helper's member id, in the same
-    //                order as leaders (20 at most)
+    //                order as leaders (500 at most; leader i IS leaderIds[i])
     //   clearedIds   those checked and found cleared since the box was
     //                ticked
     //   lastCleared  the (at most two) people this save clears; each must
@@ -2383,20 +2383,14 @@ service cloud.firestore {
       return memberId is string && memberId != ''
              && (checksInDate(memberId) || exists(/databases/$(database)/documents/eventExceptions/$(calEventId + '__' + memberId)));
     }
-    function idAt(d, i) { return d.leaders[i].get('memberId', ''); }
+    // leaderIds IS who each leader is (S3, 26 Oct): the pages read leader i's
+    // member id from leaderIds[i], never from leaders[i], so the two lists
+    // need only be the same length - no leader-by-leader check, and no limit
+    // but what a record holds (H-9: 500; it was 20, checked one by one).
     function eventIdsMatch(d) {
       let ids = d.get('leaderIds', []);
-      return ids is list && d.leaders is list && ids.size() == d.leaders.size() && ids.size() <= 20
-             && (ids.size() < 1 || ids[0] == idAt(d, 0)) && (ids.size() < 2 || ids[1] == idAt(d, 1))
-             && (ids.size() < 3 || ids[2] == idAt(d, 2)) && (ids.size() < 4 || ids[3] == idAt(d, 3))
-             && (ids.size() < 5 || ids[4] == idAt(d, 4)) && (ids.size() < 6 || ids[5] == idAt(d, 5))
-             && (ids.size() < 7 || ids[6] == idAt(d, 6)) && (ids.size() < 8 || ids[7] == idAt(d, 7))
-             && (ids.size() < 9 || ids[8] == idAt(d, 8)) && (ids.size() < 10 || ids[9] == idAt(d, 9))
-             && (ids.size() < 11 || ids[10] == idAt(d, 10)) && (ids.size() < 12 || ids[11] == idAt(d, 11))
-             && (ids.size() < 13 || ids[12] == idAt(d, 12)) && (ids.size() < 14 || ids[13] == idAt(d, 13))
-             && (ids.size() < 15 || ids[14] == idAt(d, 14)) && (ids.size() < 16 || ids[15] == idAt(d, 15))
-             && (ids.size() < 17 || ids[16] == idAt(d, 16)) && (ids.size() < 18 || ids[17] == idAt(d, 17))
-             && (ids.size() < 19 || ids[18] == idAt(d, 18)) && (ids.size() < 20 || ids[19] == idAt(d, 19));
+      // and nobody twice, so one person's checks can't stand for two leaders
+      return ids is list && d.leaders is list && ids.size() == d.leaders.size() && ids.size() <= 500 && ids.toSet().size() == ids.size();
     }
     function under18EventOk(calEventId) {
       let d = request.resource.data;
@@ -2449,7 +2443,11 @@ service cloud.firestore {
       allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''))
                   || (active() && me().get('memberId', '') == memberId);
       allow write: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', '')))
-                   && request.resource.data.keys().hasOnly(['name', 'dbsStatus', 'dbsSeen', 'trainingDate', 'siteId', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.keys().hasOnly(['name', 'dbsStatus', 'dbsSeen', 'trainingDate', 'siteId', 'updatedAt', 'updatedBy',
+                                                             'dbsLevel', 'referenceDate', 'declarationDate'])
+                   // S3 (F-280 (a), 10.3): the DBS level, a church leader's reference, the confidential declaration
+                   && request.resource.data.get('dbsLevel', '') in ['', 'enhancedBarred', 'enhanced', 'standard', 'basic']
+                   && sgDay(request.resource.data.get('referenceDate', '')) && sgDay(request.resource.data.get('declarationDate', ''))
                    && request.resource.data.dbsStatus in ['current', 'applied', 'none']
                    && request.resource.data.get('dbsSeen', '') is string && request.resource.data.get('dbsSeen', '').size() <= 10
                    && request.resource.data.get('trainingDate', '') is string && request.resource.data.get('trainingDate', '').size() <= 10;
@@ -2591,6 +2589,20 @@ service cloud.firestore {
                         || ((lead || isMaster())
                             && d.get('waivedBy', '') == request.auth.uid && d.get('waivedAt', null) == request.time
                             && sgText(d.get('waivedWhy', ''), 300) && d.get('waivedWhy', '').size() > 0));
+    }
+    // HAS EACH LEADER READ THE HOST'S SAFEGUARDING POLICY (S3, F-280 10.3):
+    // its own record for the event, so the assessment's own write (and its
+    // headroom, F-285) is untouched. reads: { memberId: 'YYYY-MM-DD' }. Read
+    // and written by those who write the assessment.
+    match /sgPolicyReads/{calEventId} {
+      allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
+      allow create, update: if exists(/databases/$(database)/documents/calEvents/$(calEventId))
+                    && request.resource.data.keys().hasOnly(['siteId', 'reads', 'updatedAt', 'updatedBy'])
+                    && request.resource.data.siteId == sgEventSite(calEventId)
+                    && sgAssessWrites(calEventId, request.resource.data.siteId)
+                    && request.resource.data.reads is map && request.resource.data.reads.size() <= 500
+                    && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
     }
     match /sgAssessments/{calEventId} {
       // one not written yet: nothing to see, so anyone signed in may find that out
@@ -3604,7 +3616,7 @@ service cloud.firestore {
       allow write: if kidsLead(request.resource.data.siteId)
                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
                    && request.resource.data.get('ratio', 0) is int
-                   && request.resource.data.get('leaderIds', []) is list && request.resource.data.get('leaderIds', []).size() <= 30;
+                   && request.resource.data.get('leaderIds', []) is list && request.resource.data.get('leaderIds', []).size() <= 500;
     }
     // A family: the parent who registered, how to reach them, who may
     // collect, and which forms it came from. The leads' alone. What a
@@ -3735,7 +3747,7 @@ service cloud.firestore {
                    && request.resource.data.keys().hasOnly(['siteId', 'day', 'rotaId', 'leaderIds', 'sessionLeaderIds', 'expiresAt', 'updatedAt', 'updatedBy'])
                    && request.resource.data.day is string
                    && morningId == request.resource.data.siteId + '_' + request.resource.data.day
-                   && request.resource.data.leaderIds is list && request.resource.data.leaderIds.size() <= 60
+                   && request.resource.data.leaderIds is list && request.resource.data.leaderIds.size() <= 500
                    && request.resource.data.expiresAt is timestamp
                    && request.resource.data.expiresAt <= request.time + duration.value(18, 'h')
                    && request.resource.data.sessionLeaderIds is list
@@ -3918,8 +3930,8 @@ service cloud.firestore {
              && d.get('visibility', 'public') in ['public', 'members', 'churchMembers', 'team']
              && groupAudienceAgrees()
              && d.get('locationKind', 'home') in ['home', 'room', 'venue', 'online']
-             && d.get('leaderIds', []) is list && d.get('leaderIds', []).size() <= 10
-             && d.get('capacity', 0) is int && d.get('capacity', 0) >= 0 && d.get('capacity', 0) <= 200
+             && d.get('leaderIds', []) is list && d.get('leaderIds', []).size() <= 500
+             && d.get('capacity', 0) is int && d.get('capacity', 0) >= 0 && d.get('capacity', 0) <= 500
              && d.get('memberCount', 0) is int && d.get('memberCount', 0) >= 0
              && d.get('open', true) is bool && d.get('active', true) is bool
              && d.get('description', '') is string && d.get('description', '').size() <= 2000
@@ -4916,7 +4928,7 @@ service cloud.firestore {
                    && request.resource.data.keys().hasOnly(['name', 'kind', 'ageFrom', 'ageTo', 'day', 'time', 'siteId', 'leaderIds', 'teamName', 'emails', 'programmes', 'parts', 'order', 'archived', 'updatedBy', 'updatedAt'])
                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
                    && request.resource.data.kind in ['children', 'youth', 'sermon', 'other']
-                   && request.resource.data.leaderIds is list && request.resource.data.leaderIds.size() <= 30;
+                   && request.resource.data.leaderIds is list && request.resource.data.leaderIds.size() <= 500;
       allow delete: if isMaster();
     }
     function planSessionShape() {
@@ -4935,8 +4947,8 @@ service cloud.firestore {
                         // the live rota's who's on / away, brought up to date by a
                         // leader's visit: those alone, not "Last changed by"
                         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['onIds', 'awayIds', 'rotaAt'])
-                            && request.resource.data.onIds is list && request.resource.data.onIds.size() <= 40
-                            && request.resource.data.awayIds is list && request.resource.data.awayIds.size() <= 40));
+                            && request.resource.data.onIds is list && request.resource.data.onIds.size() <= 500
+                            && request.resource.data.awayIds is list && request.resource.data.awayIds.size() <= 500));
       allow delete: if editsPlanGroup(resource.data.groupId);
     }
     // SERMON PLANS, the other way (F-229): what the Preaching plan shows of a

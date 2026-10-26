@@ -1055,6 +1055,13 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   /* Leader checks: dates and status, never a certificate number. */
   await check('the safeguarding lead records a leader\'s checks', 'allow', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
     { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', updatedAt: 'x', updatedBy: 'u_lena' }));
+  /* S3 (F-280 (a), 10.3): the level of the check, a church leader's reference, the confidential declaration */
+  await check('S3: the lead records the DBS level (Enhanced with the barred list), the reference and the declaration', 'allow', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
+    { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', updatedAt: 'x', updatedBy: 'u_lena', dbsLevel: 'enhancedBarred', referenceDate: '2025-03-01', declarationDate: '2025-03-02' }));
+  await check('S3: not a level that isn’t one of the DBS levels', 'deny', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
+    { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', dbsLevel: 'superEnhanced' }));
+  await check('S3: nor a reference date that isn’t a date', 'deny', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
+    { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', referenceDate: 'Mr Jones vouched' }));
   await check('there is no room for a DBS certificate number', 'deny', () => setDoc(doc(lena(), 'leaderChecks', 'm_u_leo'),
     { name: 'Leo', dbsStatus: 'current', dbsSeen: '2025-01-10', trainingDate: '2025-02-01', siteId: 'site_kids', certificate: '001234567890' }));
   await check('an ordinary admin cannot record checks', 'deny', () => setDoc(doc(ella(), 'leaderChecks', 'm_u_leo'), { dbsStatus: 'current', siteId: 'site_kids' }));
@@ -1909,6 +1916,12 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
     U18(five.concat(['m_tia']), ['m_c1', 'm_c2', 'm_c3', 'm_c4'], [])));
   await check('§24 five: the way forward - Ned is removed', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_five'),
     U18(['m_c1', 'm_c2', 'm_c3', 'm_c4'], ['m_c1', 'm_c2', 'm_c3', 'm_c4'], [])));
+  /* S3: no limit of 20 leaders (it was checked one by one); what a record holds, 500 */
+  const many = (n) => Array.from({ length: n }, (x, i) => 'm_many' + i);
+  await check('S3 MANY: 25 LEADERS NAMED ON AN UNDER-18s EVENT (the old limit was 20)', 'allow', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), U18(many(25), [], [])));
+  await check('S3 many: not 501', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), U18(many(501), [], [])));
+  await check('S3 many: nor one person twice', 'deny', () => setDoc(doc(as('karen'), 'eventLeaders', 'ev_puppet'), U18(['m_many1', 'm_many2', 'm_many1'], [], [])));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'eventLeaders', 'ev_puppet'), { ...U18(['m_tia', 'm_ned'], [], []), under18: false }); });
   const EEX = (who, extra) => ({ calEventId: 'ev_film', memberId: 'm_tia', name: 'Tia', reason: 'Training booked for next week; always with Lena (invented)', siteId: 'site_kids', by: who, byName: 'x', at: serverTimestamp(), ...(extra || {}) });
   await check('§24: an ordinary admin cannot record an exception', 'deny', () => setDoc(doc(as('karen'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_karen')));
   await check('§24: an exception needs a real reason', 'deny', () => setDoc(doc(as('martin'), 'eventExceptions', 'ev_film__m_tia'), EEX('u_martin', { reason: 'ok' })));
@@ -4710,6 +4723,14 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  an adults’ trip needs no sign-off', 'allow', () => SUX(anon(), 'key_sga_2_0000000000000000000000', 'ev_sga_adults'));
   await check('  nor a usual under-18s club', 'allow', () => SUX(anon(), 'key_sga_3_0000000000000000000000', 'ev_sga_club'));
   await check('  the event’s team writes the assessment', 'allow', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_org')));
+  /* S3: who has read the host's safeguarding policy - its own record, beside the assessment */
+  const PR = (uid, extra) => ({ siteId: 'site_sgr', reads: { m_sga_leader: '2026-10-26' }, updatedAt: 'x', updatedBy: uid, ...(extra || {}) });
+  await check('S3: A NAMED LEADER RECORDS THAT THEY HAVE READ THE HOST’S SAFEGUARDING POLICY', 'allow', () => setDoc(doc(cx('u_sga_leader'), 'sgPolicyReads', 'ev_sga_trip'), PR('u_sga_leader')));
+  await check('  and the organiser reads it', 'allow', () => getDoc(doc(cx('u_sga_org'), 'sgPolicyReads', 'ev_sga_trip')));
+  await check('  a volunteer not on the event can’t write it', 'deny', () => setDoc(doc(cx('u_sga_vol'), 'sgPolicyReads', 'ev_sga_trip'), PR('u_sga_vol')));
+  await check('  nor read it', 'deny', () => getDoc(doc(cx('u_sga_vol'), 'sgPolicyReads', 'ev_sga_trip')));
+  await check('  nor anything else kept in it', 'deny', () => setDoc(doc(cx('u_sga_leader'), 'sgPolicyReads', 'ev_sga_trip'), PR('u_sga_leader', { notes: 'x' })));
+  await check('  nor filed under another site', 'deny', () => setDoc(doc(cx('u_sga_leader'), 'sgPolicyReads', 'ev_sga_trip'), PR('u_sga_leader', { siteId: 'site_kids' })));
   await check('  and its named leaders', 'allow', () => setDoc(doc(cx('u_sga_leader'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_leader', { status: 'waiting' })));
   await check('  not a volunteer who isn’t on it', 'deny', () => setDoc(doc(cx('u_sga_vol'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_vol')));
   await check('  no field for a child or a concern (an extra field)', 'deny', () => setDoc(doc(cx('u_sga_org'), 'sgAssessments', 'ev_sga_trip'), AS('u_sga_org', { childNames: 'invented' })));

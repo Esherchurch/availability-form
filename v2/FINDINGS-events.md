@@ -11957,3 +11957,77 @@ Earlier tests updated for the new counts: a trip asks 18, not 14.
 **For the synthetic parish:** St Aidan's youth leaders, named on a trip, can now write the trip's assessment, with room to spare.
 
 **Deploy:** none. The rules go live when the hub goes live.
+
+### F-286 — Safeguarding step 3: leader checks (the DBS level with the children's barred list, a church leader's reference, the confidential declaration, "has read the host's safeguarding policy"); no limit of 20 leaders (the events window, 26 Oct)
+
+**Built:**
+- **A leader's checks** (each leader's own record, `leaderChecks`; the "Checks" form on an event's safeguarding page):
+  - **The level of the DBS check:** "Enhanced, with the children's barred list", "Enhanced, without the barred list", Standard, Basic, or not recorded.
+  - **The date a church leader's reference came.**
+  - **The date of the confidential declaration.**
+  - **References and declarations last 3 years** (a setting on Safeguarding settings).
+- **Each leader's row shows three more chips:**
+  - **The barred list:** flagged on an under-18s event when the check isn't Enhanced with the barred list, or the level isn't recorded.
+  - **Reference:** in date, missing or out of date.
+  - **Declaration:** the same.
+- **"Cleared" is still DBS and training only.** It's what the rules check before a leader can be named on an under-18s event, so nothing that works today stops working.
+- **The assessment's "leaders" question** shows the hub's counts: "1 without an Enhanced check with the barred list recorded; 1 without a reference in date; 1 without a declaration in date". Counts only.
+- **The daily warnings** (amber, counts only): leaders on under-18s groups and events without the barred list recorded, without a reference in date, and without a declaration in date. Each has what to do.
+- **"Has each leader read <host>'s safeguarding policy?"**
+  - **On the assessment, when the event has a host:** a tick and a date for each leader. Amber until every leader has ticked.
+  - **On the print,** the count: "Read Hilltop Christian Camp (invented)'s safeguarding policy: 1 of 1 leaders."
+  - **It's its own record** (`sgPolicyReads/<event>`), written and read by those who write the assessment. **Nothing new is in the assessment's own rule,** as asked.
+- **No limit of 20 leaders on an event:**
+  - **Why there was one:** the rules checked one by one that `leaderIds` matched `leaders`, 20 times over.
+  - **Now:** `leaderIds` is who each leader is. The pages read leader i's member id from `leaderIds[i]` (`SG.leadersOf()` → `whoIs()`), so the rules check only that the two lists are the same length (up to 500) and that nobody appears twice.
+- **The other leader lists in the rules: 500** (H-9):
+  - a kids group's leaders (30)
+  - the kids morning (60)
+  - a small group's leaders (10), and its capacity (200)
+  - a session plan's group leaders (30), and who's on and away (40)
+- **groups-admin.html's check save now merges,** so it no longer wipes the level, reference and declaration.
+
+**Headroom** (asked for after F-285): sg-headroom.test.mjs against both built rulesets, at the end of S3. **At least 20 spare expressions in each, unchanged.**
+
+**Breaks** (10, each caught):
+
+| Break | Test | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** the rules back to 20 leaders on an event | rules 1925/1926 | "S3 MANY: 25 LEADERS NAMED ON AN UNDER-18s EVENT" |
+| one person named twice | rules 1924/1926 | "§24: nor by a member id list that says someone else"; "nor one person twice" |
+| any DBS level accepted | rules 1925/1926 | "not a level that isn't one of the DBS levels" |
+| anyone signed in may record who has read the host's policy | rules 1923/1926 | "a volunteer not on the event can't write it" and two more |
+| who each leader is taken from leaders[i] again | sg-register-unit 29/30 | "WHO EACH LEADER IS comes from leaderIds" |
+| an Enhanced check without the barred list counted as enough | sg-register-unit 29/30 | "the barred list: 'ok' only for Enhanced with the barred list" |
+| the warnings leave out the barred list | sg-warnings-unit 63/64 | "2 without the barred list …" |
+| the page shows no barred-list, reference or declaration chips | sg-assess 43/44 | "A LEADER'S OTHER CHECKS" |
+| the host's policy box never shows | sg-host 28/29 | the run stops at "10." |
+| the print leaves out who has read the host's policy | sg-host 31/32 | "THE PRINT: 'Read Hilltop … 1 of 1 leaders.'" |
+
+**Tests:**
+
+| Test | Result | New checks |
+|---|---|---|
+| sg-assess | 44/44 | 2 |
+| sg-host | 32/32 | 3 |
+| sg-print | 42/42 | |
+| e3-safeguarding | 38/38 | the record's fields now include the three new ones |
+| sg-ai | 73/73 | |
+| sg-register-unit | 30/30 | 7 |
+| sg-warnings-unit | 64/64 | 3 |
+| sg-ai-unit | 68/68 | |
+| rules suite, EGBC | 1926/1926 | 13 |
+| rules suite, as a church | 1916/1926 | the 10 are the users' own-record writes, by design |
+| sg-headroom | 6/6, at least 20 spare in both | |
+| check-rules-build | 10/10 | |
+
+**Found and not fixed:**
+- **An admin or the site's lead could still write a leader's name beside someone else's member id.** The page would then show that name with the other person's checks.
+  - **What is safe:** clearing works on the ids, so an uncleared person can't count as cleared.
+  - **The fix:** keep each leader's name and role keyed by member id (`leaderInfo`), which the rules can compare with `leaderIds` as a whole. That changes how leaders are stored, so it's left for the reviewing window's word.
+- **Marking a small group under-18s clears at most three leaders in that save.** The page says so, and more are added one at a time. That's a per-save step, not a limit on how many leaders a group has.
+- **On going live,** EGBC's leaders have no level, reference or declaration recorded yet. The warnings will show them all amber until the office records them. That's right, but expect it.
+
+**For the synthetic parish:** a youth camp with 30 leaders is fine (it was refused over 20). Their safeguarding officer records each leader's check level, reference and declaration, and leaders tick that they've read the camp's own policy.
+
+**Deploy (the reviewing window's):** sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily (the new warnings), and sgDraftAssessment and sgExtractRequirements (they share the checks file). The rules go live when the hub goes live.

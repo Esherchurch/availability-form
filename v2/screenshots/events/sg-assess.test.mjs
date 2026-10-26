@@ -221,6 +221,11 @@ try {
   ok('   “N/A: Not a mixed group”, and the cover as an amount: “£250,000: …”', a2b.answers.mixedLeaders === 'N/A: Not a mixed group' && /^£250,000: The beach/.test(a2b.answers.insurance), J([a2b.answers.mixedLeaders, a2b.answers.insurance]));
   await go(L, 'safeguarding.html?event=ev_trip', '#sgaSign');
   ok('   COVER UNDER £1 MILLION is flagged amber at its question; no flag for the mixed group', /^Public liability cover under £1 million$/.test(await text(L, '[data-ckflag="insurance"]')) && (await L.$eval('[data-ckflag="insurance"]', (e) => e.className)).includes('amber') && !(await L.$('[data-ckflag="mixedLeaders"]')), await text(L, '[data-ck="insurance"]'));
+  /* S3: the other checks, beside DBS and training (Vic has none recorded) */
+  const chips = await L.$$eval('[data-chk]', (a) => a.map((x) => x.getAttribute('data-chk') + ':' + x.className.replace('flag ', '') + ':' + x.innerText));
+  ok('S3: A LEADER’S OTHER CHECKS: the barred list (flagged, an under-18s event), the reference, the declaration', J(chips) === J(['level:warn:Level of check: not recorded', 'reference:warn:Reference: missing', 'declaration:warn:Declaration: missing']), J(chips));
+  ok('   and the hub’s count at the leaders question: "1 without an Enhanced check with the barred list recorded; 1 without a reference in date; 1 without a declaration in date"',
+    /1 without an Enhanced check with the barred list recorded; 1 without a reference in date; 1 without a declaration in date\./.test(await text(L, '[data-hubcheck]')), await text(L, '[data-hubcheck]'));
   ok('4. THE LEAD sees how many risks are still high, and must say why', /1 risk is still high after the controls: say why it can go ahead/.test(await text(L, '#sgAssessCard')));
   await tap(L, '#sgaSign');
   await until(async () => /Say why it can go ahead/.test(await text(L, '#sgaMsg')));
