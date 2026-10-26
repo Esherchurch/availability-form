@@ -8,14 +8,15 @@ window's own list is SWITCHOVER-events.md.
 
 The rules go live when the hub goes live, never before.
 
-- **`kb/` uploads require sign-in** (FINDINGS-churchhq H-13). Today anyone
-  can upload a video or picture to `kb/` with no sign-in: it cannot be
-  deleted, and every upload is a public link on the church's bucket. It
-  stays open until then because the original site's
+- **`kb/` uploads only for the people the Permissions screen allows**
+  (FINDINGS-churchhq H-13, H-14; Martin: "only admins and core team").
+  Today anyone can upload a video or picture to `kb/` with no sign-in: it
+  cannot be deleted, and every upload is a public link on the church's
+  bucket. It stays open until then because the original site's
   EGBC-Troubleshoot-AV.html uploads to `kb/troubleshoot-av` without
-  signing in. The change: `request.auth != null` on the `kb/{page}/{fileName}`
-  write in `storage.rules`, then `node tools/rules-build.mjs` (both
-  rulesets are built from it). v2's How-to and Play-through pages already
-  sign in, so they keep working.
+  signing in. The change: the `kb/{page}/{fileName}` write in
+  `storage.rules` asks for the `kbUpload` permission (H-14's claim), then
+  `node tools/rules-build.mjs` (both rulesets are built from it). If H-14
+  is not built by then, `request.auth != null` at the least.
 - **The ChurchSuite import, private part** (F-177): only after the rules
   are live.

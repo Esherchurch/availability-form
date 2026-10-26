@@ -666,3 +666,87 @@ Until then, part 1 (the rules port) needs no decision, and I can start it.
 - **In the church ruleset (batch B):** the same rule, behind the church gate. The gate lets a signed-out request through to what is public, so the hole is there too, once per church.
 - **Not changed.** It is a live behaviour, and the rules go live only when the hub goes live. **Suggested:** `request.auth != null` on the write (the uploading pages already sign in), or an admin of the page's team. Martin to decide; it would be one line in `storage.rules` and both rulesets are rebuilt from it.
 - **For the synthetic parish:** with the suggestion, St Aidan's How-to pages work as now for its signed-in people; a stranger can't put files in St Aidan's bucket space.
+
+## H-14. A Permissions screen, by section, with exceptions: the plan (26 Oct 2026; Martin, via the reviewing window)
+
+**For approval; nothing is built.** Mock-ups for Martin in `design-mocks/permissions/`: `permissions-1280.png` and `permissions-375.png` (the screen), and `exceptions-1280.png` and `exceptions-375.png` (the exceptions list, and adding a person). Made-up people.
+
+**Martin's words:** "only admins and core team should be allowed to upload. This needs setting up on the permissions screen." "Split down by section, so it is easy to find… 'permissions' and then a tick box. But we also need an exceptions rule."
+
+### The screen (Church settings > Permissions, master admins only)
+
+- **By section, never one long list:**
+  - the sections are Worship & AV, Children & youth, Events & rooms, Communications, Money, Buildings and Office & admin;
+  - each section is closed until tapped, and shows how many actions and exceptions it holds;
+  - a search box finds an action or a person.
+- **Each action in plain words** (for example, "Upload to How-To AV, Play-Through and AV Troubleshoot"), with tick boxes for who may do it:
+  - **master admins:** always ticked, and can't be unticked;
+  - **jobs**, shown with the church's own team name ("Leadership · Core Team"; the parish sees "Leadership · PCC Standing Committee");
+  - **teams**, under "Choose teams…";
+  - **leaders of the teams ticked**.
+- **Exceptions:** under each action, "+ Add a person" gives one named person that one action, and nothing else of a team's access.
+  - Each exception shows who added it and when, an optional end date and a reason.
+  - The "Exceptions" view lists them all, with "ends in 5 days" when one is about to end.
+  - Each person's address book entry lists theirs.
+- **History:** every change, with who made it and when, and what it was before.
+- **Safeguarding and pastoral care are not tick boxes.** They show read-only: "Only the named safeguarding lead and deputy… Set on Safeguarding settings", and "Only the pastoral team. Set on Teams & groups". This is H-9's rule that they never fall back.
+- **Actions not yet moved** show "Set in code today: moves here later", so the screen is honest from day one.
+
+### How it works
+
+- **One document per church, `churchSettings/permissions`:** for each action, `{ jobs, teams, leaders, people: { memberId: { by, at, until, why } } }`. Master admins aren't stored; they always may.
+  - Only master admins write it, and the rules check its shape.
+  - It's kept under 500 entries per list (H-9).
+- **Defaults are EGBC's values, for every church.** The first action is `kbUpload`: master admins plus the leadership job (EGBC's Core Team), and no exceptions. A new church gets the same until it changes them.
+- **Pages ask one helper,** `EGBCAuth.may('kbUpload')`, and show the upload control only to people allowed. The page's own words are unchanged.
+- **The rules: a claim, not a lookup** (recommended).
+  - When the permissions document, a person's teams or an exception changes, a server function works out each affected person's allowed actions and puts them on their sign-in, as `perms: { <cid>: ['kbUpload', …] }`. It runs beside `hqMembershipClaims`, which already does this for `churches`.
+  - `storage.churches.rules` then allows a kb/ write only if `'kbUpload' in request.auth.token.perms[cid]`.
+  - That costs a few expressions and no document reads. A rules lookup of the document plus the person's teams would cost two or more reads per upload and grow with every team ticked (H-8). I'll measure both before choosing.
+  - Exceptions with an end date are taken off by the daily job on that date.
+- **When a change reaches people:** the next time a page opens (the page refreshes the sign-in when the server says it has changed), within a minute.
+- **The rules go live with the hub,** as always. Until then the original site's kb/ uploads keep working, and nothing of the original site changes (GOING-LIVE.md, updated).
+
+### The gates that move here over time (not now)
+
+Listed by owning window, from today's code: calls to `inTeam`, `isLeaderOf`, `isAdminOf` and `hasRole`, the Menu's `leaderOf`, `data-role="leader"`, and the rules' `onTeam()`.
+
+- **Main** (about 60 gates in 17 files):
+  - the Menu's `leaderOf` (egbc-menu.js, 12): the rota planner, Sunday service plan, Music Uploader, and the AV leaders' pages;
+  - hub-app.js (12) and app.html (4): the hub's and app's cards;
+  - the kb upload gate, egbc-kbadmin.js: today master admins or admins of the page's team. This is the first to move;
+  - addressbook, stickynotes, videos, resources, preaching-plan, inventory, music-uploader, batchupload, planner, SundayServicePlanner, church-settings;
+  - egbc-auth.js's own helpers, which become `may()` underneath.
+- **Events window:** safeguarding.html and safeguarding-risk.html (these stay with the lead and deputy, so they're read-only rows), catering.html, payments.html, and their sections of firestore.rules (`onTeam()`, 27 uses across all windows' sections).
+- **Comms:** egbc-comms.js and EmailBuilder2.html (who sends the e-news and team emails).
+- **Each window moves its own gates** when it next touches that page, one action at a time. Each gets a row on the screen first, then the code asks `may()`, with a check and a break.
+
+### Where it goes in H-9's order
+
+1. H-9 part 1, **the mapping** (jobs to the church's teams; `onJob()`).
+2. **H-14 part 1, this screen,** with its first action, `kbUpload`, end to end (the screen, the claim, the page control, the church Storage rule, checks with breaks). It needs the jobs, and it's small enough to prove the pattern.
+3. H-9 part 2, **main's 61 files.** Main's gates move onto the screen as each file is touched.
+4. **Tell the events window and Comms,** with their gate lists above.
+
+### Questions for Martin (recommended answer first)
+
+1. **"Admins and core team" for kb/ uploads:**
+   - **Recommended:** master admins, plus the leadership job (Core Team), plus the admins of AV and Worship. The second and third are what v2's upload gate does today.
+   - **Or:** master admins and Core Team only (the reviewer's default).
+2. **Exceptions only add.**
+   - **Recommended:** an exception gives one person one more action. To take an action away from someone, change their team.
+   - **Or:** exceptions can also take one action away from a person whose team has it.
+3. **End dates:**
+   - **Recommended:** optional, none by default. A week before one ends, the master admin who added it gets a note.
+   - **Or:** every exception has an end date, 12 months by default.
+4. **"Leaders":**
+   - **Recommended:** leaders of the teams ticked for that action.
+   - **Or:** leaders of any team.
+5. **Who may change permissions:**
+   - **Recommended:** master admins only.
+   - **Or:** master admins and the office job.
+6. **Where it lives:**
+   - **Recommended:** Church settings > Permissions, with a Menu entry for master admins.
+   - **Or:** a page of its own under Menu > Admin.
+
+**For the synthetic parish:** St Aidan's master admin opens Permissions and sees "Upload to How-To AV…" ticked for master admins and "Leadership · PCC Standing Committee" (its leadership team, from Your teams). They add the verger as an exception "until Easter", with the reason "runs the sound desk". The verger sees the upload button; nobody else from the congregation does. A stranger can't upload once the hub is live.
