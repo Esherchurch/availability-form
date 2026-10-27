@@ -29,11 +29,13 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = 4;   // 2: frequencies from the law and the standards; basis on every check (19 Oct)
+  var VERSION = 5;   // 2: frequencies from the law and the standards; basis on every check (19 Oct)
                      // 3: Martin's decisions and the review (19 Oct): roof 6 months, rebuild 3 years,
                      //    play split weekly / monthly, refuge points weekly plus a service
                      // 4: the duties of employing people, from how many the church employs
                      //    (Martin, F-281 question 11; H&S step 2): egbc-hs-core.js DUTIES
+                     // 5: a parish church's tower, bells, churchyard, listed building and
+                     //    candles (F-280; the synthetic parish; H&S step 3)
 
   var GUIDANCE = 'These checks are guidance to help you. Your trustees remain responsible for your building’s safety.';
 
@@ -65,6 +67,11 @@
     { id: 'oilHeating', q: 'Is it heated by oil?' },
     { id: 'woodBurner', q: 'Is there a wood burner or open fire?' },
     { id: 'trees', q: 'Are there trees on the site?' },
+    { id: 'tower', q: 'Is there a tower, spire or roof space people go up into?' },
+    { id: 'bells', q: 'Are there bells that are rung?' },
+    { id: 'churchyard', q: 'Is there a churchyard or memorials (headstones, monuments)?' },
+    { id: 'listed', q: 'Is the building listed, or in a conservation area?' },
+    { id: 'candles', q: 'Are candles or other naked flames used (services, vigils, events)?' },
     { id: 'employees', q: 'Does anyone the church employs work here?', note: 'How many the church employs, and whether anyone works at a screen, is in Health and safety settings: the duties follow from it.' },
     { id: 'children', q: 'Are there activities for children or young people?' },
     { id: 'loneWorking', q: 'Does anyone work here alone (for example cleaning or opening up)?' },
@@ -132,6 +139,12 @@
     { id: 'walk-round', basis: 'practice', area: 'Building', title: 'Monthly walk-round of the building', every: M(1), when: [] },
     { id: 'boundaries', basis: 'practice', area: 'Building', title: 'Boundary walls, paths and steps checked', every: Y(1), when: [] },
     { id: 'trees', basis: 'practice', area: 'Building', title: 'Trees checked for safety', every: Y(1), when: ['trees'] },
+    /* A parish church (version 5) */
+    { id: 'tower-access', basis: 'practice', area: 'Building', title: 'Tower and roof access safe: ladders, hatches, lighting, kept locked', every: Y(1), when: ['tower'], note: 'Who may go up, and never alone.' },
+    { id: 'bells-inspect', basis: 'practice', area: 'Building', title: 'Bells, frame and fittings inspected', every: Y(1), when: ['bells'], note: 'By someone who knows bells; ropes and stays looked at too.' },
+    { id: 'memorials', basis: 'practice', area: 'Building', title: 'Churchyard memorials looked at for any that lean or are loose', every: Y(1), when: ['churchyard'], note: 'A full inspection by a competent person as your diocese or local authority advises. Never test one by pushing it.' },
+    { id: 'listed-consent', basis: 'legal', area: 'Admin', title: 'Consent checked before building work (listed building consent, or a faculty)', every: WORK, when: ['listed'] },
+    { id: 'candles', basis: 'practice', area: 'Fire', title: 'Candles and naked flames: safe holders, away from fabrics, never left alight', every: Y(1), when: ['candles'], note: 'Who puts them out, and checks before locking up.' },
     { id: 'oil', basis: 'standard', area: 'Building', title: 'Oil tank and boiler service', every: Y(1), when: ['oilHeating'] },
     { id: 'wood-burner', basis: 'standard', area: 'Building', title: 'Wood burner serviced and chimney swept', every: Y(1), when: ['woodBurner'] },
     { id: 'accessibility', basis: 'practice', area: 'Building', title: 'Accessibility check (getting in, around and out)', every: Y(1), when: [] },
@@ -244,7 +257,13 @@
     { id: 'play', area: 'Building', hazard: 'An injury on play equipment', who: 'Children', l: 2, s: 3, controls: ['play-visual', 'play-routine', 'play'] },
     { id: 'security', area: 'Security', hazard: 'A security incident at a large gathering', who: 'Everyone at a large event', l: 1, s: 5, controls: ['ml-plans', 'ml-briefing', 'ml-ra'] },
     { id: 'handling', area: 'Health and safety', hazard: 'A strain from moving chairs, staging and kit', who: 'Volunteers setting up', l: 3, s: 2, controls: ['manual-handling'] },
-    { id: 'firstaid', area: 'Health and safety', hazard: 'An injury or a cardiac arrest with no help to hand', who: 'Everyone', l: 2, s: 5, controls: ['first-aid-kits', 'first-aiders', 'defib'] }
+    { id: 'firstaid', area: 'Health and safety', hazard: 'An injury or a cardiac arrest with no help to hand', who: 'Everyone', l: 2, s: 5, controls: ['first-aid-kits', 'first-aiders', 'defib'] },
+    /* a parish church (version 5): only where the building's answers say so (when) */
+    { id: 'tower', area: 'Building', hazard: 'A fall from height in the tower or on the roof', who: 'Bell ringers, volunteers, contractors', l: 2, s: 5, controls: ['tower-access', 'ladders'], when: ['tower'] },
+    { id: 'bells', area: 'Building', hazard: 'An injury from the bells or their ropes', who: 'Bell ringers, visitors to the tower', l: 2, s: 4, controls: ['bells-inspect'], when: ['bells'] },
+    { id: 'memorials', area: 'Building', hazard: 'A memorial or headstone falls on someone', who: 'Visitors to the churchyard, children', l: 1, s: 5, controls: ['memorials'], when: ['churchyard'] },
+    { id: 'heritage', area: 'Admin', hazard: 'Harm to the historic building from work done without consent', who: 'The building, and the church in law', l: 2, s: 3, controls: ['listed-consent', 'cofe-architect'], when: ['listed'] },
+    { id: 'flames', area: 'Fire', hazard: 'A fire from candles or other naked flames', who: 'Everyone in the building', l: 2, s: 5, controls: ['candles', 'fire-ra'], when: ['candles'] }
   ];
   /* A rating from likelihood and severity (1 to 5 each). */
   function rating(l, s) { var n = (+l || 1) * (+s || 1); return { score: n, band: n >= 15 ? 'High' : n >= 5 ? 'Medium' : 'Low' }; }

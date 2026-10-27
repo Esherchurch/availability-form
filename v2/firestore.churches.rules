@@ -3094,6 +3094,94 @@ allow write: if raOffice()
 && (request.resource.data.get('hsLead', '') == '' || request.resource.data.get('hsLead', '') != request.resource.data.get('hsDeputy', ''));
 allow delete: if false;
 }
+function raStr(v, n) { return v is string && v.size() <= n; }
+function raRoles(siteId) {
+let p = /databases/$(database)/documents/churches/$(cid)/raSiteRoles/$(siteId);
+return exists(p) ? get(p).data : {};
+}
+function raAnyLead(siteId) {
+let r = raRoles(siteId);
+let mid = me().get('memberId', '');
+return active() && mid != '' && mid in [r.get('hsLead', '-'), r.get('hsDeputy', '-'), r.get('fireLead', '-')];
+}
+function raLeadOf(siteId, kind) {
+let r = raRoles(siteId);
+let mid = me().get('memberId', '');
+return active() && mid != ''
+&& (kind == 'hs' ? mid in [r.get('hsLead', '-'), r.get('hsDeputy', '-')] : mid in [r.get('fireLead', '-'), r.get('hsLead', '-')]);
+}
+function raAssessSees(siteId) { return cmpSees() || raAnyLead(siteId); }
+function raHsChecklist(kind, p) {
+return ['insurance', 'competent'].concat(kind == 'hs'
+? ['hsHazards', 'hsWho', 'hsControls', 'hsActions', 'hsReview', 'firstAid', 'electrics', 'workAtHeight', 'manualHandling', 'contractors', 'accessibility', 'chemicals']
+.concat(p.get('kitchen', false) == true ? ['foodHygiene'] : [])
+.concat(p.get('gas', false) == true ? ['gas'] : [])
+.concat(p.get('pre2000', false) == true ? ['asbestos'] : [])
+.concat(p.get('lift', false) == true ? ['lift'] : [])
+.concat(p.get('loneWorking', false) == true ? ['loneWorking'] : [])
+.concat(p.get('employees', false) == true ? ['employees'] : [])
+.concat(p.get('children', false) == true ? ['children'] : [])
+.concat(p.get('tower', false) == true ? ['towerAccess'] : [])
+.concat(p.get('churchyard', false) == true ? ['memorials'] : [])
+: ['premises', 'responsible', 'peopleAtRisk', 'ignition', 'fuel', 'detection', 'escape', 'firefighting', 'compartment', 'fireManagement', 'fireActions']
+.concat(p.get('kitchen', false) == true ? ['cooking'] : [])
+.concat(p.get('candles', false) == true ? ['nakedFlames'] : [])
+.concat(p.get('woodBurner', false) == true ? ['heating'] : [])
+.concat(p.get('publicUse', false) == true ? ['hirers'] : []));
+}
+function raChecklistDone(d) {
+let pp = /databases/$(database)/documents/churches/$(cid)/buildingProfiles/$(d.siteId);
+let a = d.get('answers', {});
+return a.keys().hasAll(raHsChecklist(d.kind, exists(pp) ? get(pp).data : {}))
+&& !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
+}
+function raAssessShape(d) {
+return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue',
+'signedBy', 'signedByName', 'signedByRole', 'signedAt', 'signedVersion', 'counterBy', 'counterByName', 'counterAt', 'updatedBy', 'updatedAt'])
+&& d.kind in ['hs', 'fire'] && d.version is int && d.version >= 1
+&& d.status in ['draft', 'signed', 'countersigned']
+&& raStr(d.get('assessor', ''), 200) && raStr(d.get('assessedOn', ''), 10) && raStr(d.get('reviewDue', ''), 10)
+&& d.get('sections', {}) is map && d.get('sections', {}).size() <= 40
+&& d.get('groups', []) is list && d.get('groups', []).size() <= 20
+&& d.get('hazards', []) is list && d.get('hazards', []).size() <= 500
+&& d.get('actions', []) is list && d.get('actions', []).size() <= 500
+&& d.get('answers', {}) is map && d.get('answers', {}).size() <= 200
+&& d.updatedBy == request.auth.uid;
+}
+function raAssessWrite(id, d, before) {
+return raAssessShape(d) && id == d.siteId + '__' + d.kind
+&& exists(/databases/$(database)/documents/churches/$(cid)/sites/$(d.siteId))
+&& (before == null || (before.siteId == d.siteId && before.kind == d.kind))
+&& (
+(d.status == 'draft' && (raOffice() || raAnyLead(d.siteId))
+&& d.get('signedBy', '') == '' && d.get('counterBy', '') == ''
+&& (before == null ? d.version == 1 : (before.status == 'draft' ? d.version == before.version : d.version == before.version + 1)))
+|| (d.status == 'signed' && before != null && before.status == 'draft' && d.version == before.version
+&& d.diff(before).affectedKeys().hasOnly(['status', 'signedBy', 'signedByName', 'signedByRole', 'signedAt', 'signedVersion', 'updatedBy', 'updatedAt'])
+&& d.signedBy == request.auth.uid && d.signedAt == request.time && d.signedVersion == d.version
+&& raStr(d.get('signedByName', ''), 120) && raStr(d.get('signedByRole', ''), 60)
+&& raLeadOf(d.siteId, d.kind) && raChecklistDone(d))
+|| (d.status == 'countersigned' && before != null && before.status == 'signed'
+&& d.diff(before).affectedKeys().hasOnly(['status', 'counterBy', 'counterByName', 'counterAt', 'updatedBy', 'updatedAt'])
+&& d.counterBy == request.auth.uid && d.counterAt == request.time && raStr(d.get('counterByName', ''), 120)
+&& request.auth.uid != before.signedBy && (isMaster() || onTrustees()))
+);
+}
+match /raAssessments/{id} {
+allow read: if raAssessSees(resource.data.siteId);
+allow create, update: if raAssessWrite(id, request.resource.data, resource == null ? null : resource.data);
+allow delete: if false;
+}
+match /raSigned/{id} {
+allow read: if raAssessSees(resource.data.siteId);
+allow create: if request.resource.data.keys().hasOnly(['siteId', 'kind', 'version', 'assessment', 'at'])
+&& id == request.resource.data.siteId + '__' + request.resource.data.kind + '__v' + string(request.resource.data.version)
+&& request.resource.data.at == request.time
+&& getAfter(/databases/$(database)/documents/churches/$(cid)/raAssessments/$(request.resource.data.siteId + '__' + request.resource.data.kind)).data.status == 'countersigned'
+&& getAfter(/databases/$(database)/documents/churches/$(cid)/raAssessments/$(request.resource.data.siteId + '__' + request.resource.data.kind)).data.counterBy == request.auth.uid
+&& request.resource.data.assessment == getAfter(/databases/$(database)/documents/churches/$(cid)/raAssessments/$(request.resource.data.siteId + '__' + request.resource.data.kind)).data;
+allow update, delete: if false;
+}
 function cmpAdmin() { return raOffice(); }
 function cmpTrustee() { return isMaster() || onTrustees(); }
 function cmpSees() { return cmpAdmin() || cmpTrustee(); }
@@ -3138,13 +3226,13 @@ allow read: if active();
 allow write: if false;
 }
 match /buildingProfiles/{siteId} {
-allow read: if cmpSees();
+allow read: if cmpSees() || raAnyLead(siteId);
 allow create, update: if cmpAdmin() && request.resource.data.siteId == siteId
 && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(siteId));
 allow delete: if false;
 }
 match /buildingChecks/{id} {
-allow read: if cmpSees() || cmpAssigned(resource.data);
+allow read: if cmpSees() || cmpAssigned(resource.data) || raAnyLead(resource.data.siteId);
 allow create: if cmpAdmin() && cmpCheckShape(request.resource.data.siteId)
 && (id == request.resource.data.siteId + '__' + request.resource.data.templateId
 || (request.resource.data.templateId == '' && id.matches(request.resource.data.siteId + '__c_[a-z0-9]{4,16}')))
@@ -3167,13 +3255,13 @@ return d.keys().hasOnly(['checkId', 'siteId', 'doneOn', 'doneBy', 'doneByName', 
 && d.get('certExpiry', '') is string;
 }
 match /checkRecords/{id} {
-allow read: if cmpSees() || cmpAssigned(cmpCheck(resource.data.checkId));
+allow read: if cmpSees() || cmpAssigned(cmpCheck(resource.data.checkId)) || raAnyLead(resource.data.siteId);
 allow create: if cmpRecordShape()
 && (cmpAdmin() || (cmpAssigned(cmpCheck(request.resource.data.checkId)) && cmpCheck(request.resource.data.checkId).state == 'on'));
 allow update, delete: if false;
 }
 match /buildingWork/{id} {
-allow read: if cmpSees();
+allow read: if cmpSees() || raAnyLead(resource.data.siteId);
 allow create: if cmpAdmin() && request.resource.data.keys().hasOnly(['siteId', 'kind', 'on', 'note', 'by', 'at'])
 && request.resource.data.by == request.auth.uid && request.resource.data.siteId is string
 && request.resource.data.on is string && request.resource.data.on.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
@@ -3217,7 +3305,7 @@ allow create: if cmpTrustee()
 allow update, delete: if false;
 }
 match /raReports/{id} {
-allow read: if cmpSees();
+allow read: if cmpSees() || raAnyLead(resource.data.siteId);
 allow create: if cmpAdmin()
 && request.resource.data.keys().hasOnly(['siteId', 'kind', 'date', 'assessor', 'nextReview', 'files', 'by', 'byName', 'at'])
 && request.resource.data.kind in ['fire', 'hs']
@@ -3229,7 +3317,7 @@ allow create: if cmpAdmin()
 allow update, delete: if false;
 }
 match /hazards/{id} {
-allow read: if cmpSees();
+allow read: if cmpSees() || raAnyLead(resource.data.siteId);
 allow create, update: if cmpAdmin()
 && request.resource.data.keys().hasOnly(['siteId', 'area', 'hazard', 'who', 'l', 's', 'controls', 'notes', 'status', 'source', 'starterId', 'createdAt', 'updatedAt', 'updatedBy'])
 && request.resource.data.hazard is string && request.resource.data.hazard.size() > 0 && request.resource.data.hazard.size() <= 200

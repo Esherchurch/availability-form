@@ -18,7 +18,7 @@
 <script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-compliance.js?v=202610192300"></script>
-<script src="egbc-compliance-templates.js?v=202610271900"></script>
+<script src="egbc-compliance-templates.js?v=202610281000"></script>
 <script src="egbc-compliance-store.js?v=202610281000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -107,13 +107,47 @@
   /* ---------------- reading one building ---------------- */
   function load() {
     var q = function (c) { return db().collection(c).where('siteId', '==', SITE.id).get().then(all, function () { return []; }); };
-    return Promise.all([ST.load(db(), SITE.id), q('raReports'), q('hazards'), q('riskSnapshots'), db().collection('geeps').doc(SITE.id).get(), q('complianceLog')]).then(function (r) {
+    return Promise.all([ST.load(db(), SITE.id), q('raReports'), q('hazards'), q('riskSnapshots'), db().collection('geeps').doc(SITE.id).get(), q('complianceLog'), q('raAssessments')]).then(function (r) {
       B = r[0]; B.reports = r[1].sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
       B.hazards = r[2]; B.snaps = r[3].sort(function (a, b) { return (b.at && b.at.toMillis ? b.at.toMillis() : 0) - (a.at && a.at.toMillis ? a.at.toMillis() : 0); });
       B.geep = r[4].exists ? r[4].data() : null; B.log = r[5];
       B.sched = C.schedule({ profile: B.profile, templates: TEMPLATES, checks: B.checks, records: B.records, jobs: B.jobs, triggers: B.triggers, today: TODAY });
       B.hz = C.hazards({ hazards: B.hazards, items: B.sched.items, jobs: B.jobs, today: TODAY });
+      B.ra = r[6];
+      return ADMIN ? recordReviews() : null;
     });
+  }
+  /* THE BUILDING'S OWN ASSESSMENTS (H&S step 3; Martin's answer 1): kept beside this register.
+     Their significant findings (Medium or High after the controls) are listed here, coloured by
+     the checks that control them, so the daily checks keep watching them. */
+  var RA_KINDS = { hs: ['Health and safety risk assessment', 'hs-ra'], fire: ['Fire risk assessment', 'fire-ra'] };
+  function raOf(kind) { return (B.ra || []).filter(function (a) { return a.kind === kind; })[0] || null; }
+  function counterDay(a) { return a.counterAt && a.counterAt.toDate ? new Date(a.counterAt.toDate().getTime() - a.counterAt.toDate().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : ''; }
+  /* the review is itself a check: if the countersigner could not record it (a trustee), the office's next visit does */
+  function recordReviews() {
+    return Promise.all(Object.keys(RA_KINDS).map(function (k) {
+      var a = raOf(k); if (!a || a.status !== 'countersigned' || !counterDay(a)) return null;
+      var c = B.checks.filter(function (x) { return x.templateId === RA_KINDS[k][1] && x.state === 'on'; })[0]; if (!c) return null;
+      var last = B.records.filter(function (x) { return x.checkId === c.id; }).map(function (x) { return x.doneOn; }).sort().pop() || '';
+      return last >= counterDay(a) ? null : ST.recordDone(db(), c, { doneOn: counterDay(a), certExpiry: a.reviewDue || '', notes: 'The building’s own assessment, version ' + a.version + ', countersigned', files: [] }, who()).catch(function () { return null; });
+    }));
+  }
+  function assessCard() {
+    var worst = function (ids) { var o = { red: 3, amber: 2, green: 1, grey: 0 }, w = 'grey'; (ids || []).forEach(function (id) { var i = B.sched.items.filter(function (x) { return x.id === id; })[0]; if (i && o[i.rag] > o[w]) w = i.rag; }); return w; };
+    var found = [];
+    Object.keys(RA_KINDS).forEach(function (k) {
+      var a = raOf(k); if (!a || a.status !== 'countersigned') return;
+      (a.hazards || []).forEach(function (h) { var r = T.rating(h.rl, h.rs); if (r.band !== 'Low') found.push({ k: k, h: h, r: r, rag: worst(h.checks) }); });
+    });
+    return '<div class="card" id="assessCard"><h2>The building’s own assessments</h2>' + Object.keys(RA_KINDS).map(function (k) {
+      var a = raOf(k), href = 'assessment.html?site=' + encodeURIComponent(SITE.id) + '&kind=' + k;
+      var words = !a ? 'Not started.' : a.status === 'countersigned' ? 'Countersigned, version ' + a.version + '. Review by ' + day(a.reviewDue) + (a.reviewDue < TODAY ? ': overdue.' : '.') : a.status === 'signed' ? 'Signed; waiting for a trustee to countersign.' : 'Draft, version ' + a.version + '.';
+      var rag = !a || a.status !== 'countersigned' ? 'grey' : a.reviewDue < TODAY ? 'red' : 'green';
+      return '<div class="rec" data-ra="' + k + '"><span class="dot ' + rag + '"></span> <a href="' + href + '">' + esc(RA_KINDS[k][0]) + '</a><div class="m">' + esc(words) + '</div></div>';
+    }).join('') +
+      (found.length ? '<h2 style="margin-top:12px">Their significant findings</h2>' + found.map(function (f) {
+        return '<div class="rec" data-finding="' + esc(f.h.id) + '"><span class="dot ' + f.rag + '"></span> <b>' + esc(f.h.hazard) + '</b> <span class="pill ' + f.r.band + '">' + f.r.band + ' (' + f.r.score + ')</span><div class="m">' + esc(RA_KINDS[f.k][0]) + (f.h.checks && f.h.checks.length ? ' · ' + f.h.checks.length + ' check' + (f.h.checks.length === 1 ? '' : 's') + ' watching it' : ' · no check watches it') + '</div></div>';
+      }).join('') : '') + '</div>';
   }
   function latest(kind) { return B.reports.filter(function (r) { return r.kind === kind; })[0] || null; }
   function since() {
@@ -130,7 +164,7 @@
     if (!SITE) { $('wrap').innerHTML = html + '<div class="card">No buildings yet.</div>'; return wire(); }
     var tabs = [['hazards', 'Hazards'], ['reports', 'Professional assessments'], ['changes', 'Changes since'], ['snapshots', 'Snapshots'], ['geep', 'Visitors who need help (GEEP)']];
     html += '<div class="tabs" id="views">' + tabs.map(function (t) { return '<button data-v="' + t[0] + '" aria-pressed="' + (VIEW === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>';
-    html += VIEW === 'reports' ? reportsView() : VIEW === 'changes' ? changesView() : VIEW === 'snapshots' ? snapsView() : VIEW === 'geep' ? geepView() : hazardsView();
+    html += VIEW === 'reports' ? reportsView() : VIEW === 'changes' ? changesView() : VIEW === 'snapshots' ? snapsView() : VIEW === 'geep' ? geepView() : assessCard() + hazardsView();
     html += '<p class="said" id="said" role="status"></p>';
     $('wrap').innerHTML = html; wire();
   }
@@ -216,7 +250,7 @@
     document.querySelectorAll('[data-hz]').forEach(function (r) { r.onclick = r.onkeydown = function (e) { if (e.type === 'keydown' && e.key !== 'Enter') return; openHazard(r.getAttribute('data-hz')); }; });
     if ($('addStarter')) $('addStarter').onclick = function () {
       var have = B.hazards.map(function (h) { return h.starterId; }), ids = B.checks.filter(function (c) { return c.state === 'on'; }).map(function (c) { return c.id; });
-      var add = T.STARTER_HAZARDS.filter(function (h) { return have.indexOf(h.id) < 0; }).map(function (h) {
+      var add = T.STARTER_HAZARDS.filter(function (h) { return have.indexOf(h.id) < 0 && (h.when || []).every(function (k) { return !!(B.profile && B.profile[k] === true); }); }).map(function (h) {
         return hazardDoc({ area: h.area, hazard: h.hazard, who: h.who, l: h.l, s: h.s, source: 'starter', starterId: h.id,
           controls: h.controls.map(function (t) { return ST.checkId(SITE.id, t); }).filter(function (id) { return ids.indexOf(id) >= 0; }) });
       });

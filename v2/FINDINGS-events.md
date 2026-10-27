@@ -12953,3 +12953,51 @@ Step 2 is in two parts:
 3. **Jobs on the users record:** `users/{uid}.jobs`, kept by the server (functions/core-teams.js, next to `covers`): the jobs the person's teams and covered teams do. It's worked out again when their teams change, and for everyone when churchSettings/teamJobs, `paymentSettings/public.moneyTeam`, `safeguardingSettings/defaults.trusteeTeam` or `prayerSettings/main.prayerTeam` change. No page may write it (the users create rule). A rule can now ask `'office' in me().get('jobs', [])` with no extra read.
    - Checked on the emulator: a Treasury member gets `finance`, and loses it when the job moves to another team.
    - **Deploy (the reviewer's):** `jobsOnTeamJobs`, `jobsOnMoneyTeam`, `jobsOnTrusteeTeam`, `jobsOnPrayerTeam` (each with its `…Church` twin), and `coversOnUser`/`coversOnTeam` again (they now write `jobs` too). After the deploy, writing churchSettings/teamJobs once (or any team change) fills everyone's `jobs`.
+
+### F-299 — H&S step 3 (whole): the building's own health and safety, and fire, risk assessments; a parish church's tower, bells, churchyard, listed building and candles (F-280 section 3 A and B; Martin's answers 1, 2, 7, 8) (the events window, 28 Oct)
+
+**Built (with F-298, step 3 is done):**
+- **assessment.html:** each building's two assessments, beside the live risk register (answer 1).
+  - **Health and safety:** the HSE's five steps.
+  - **Fire:** PAS 79-1's eight headings. It shows the rooms' fire maximums, the responsible person, the visitors' plan (GEEP), and the building's fire checks with their colours. Personal plans are never named.
+  - **Hazards:** each rated before and after its controls, by the hub's own sums. Its controls are the building's checks plus written ones. "Add the starter hazards" adds those that fit the building's answers.
+  - **Actions:** each has a priority (Immediate, High, Medium or Low). Its date comes from Health and safety settings. One button makes it a safety maintenance job (answer 7).
+  - **Required questions:** each must be answered, or "N/A: reason". They follow the building's answers (a kitchen, gas, the tower, candles, and so on).
+- **Sign-off (answer 2):**
+  - **Who signs:** the building's lead, once every question is answered. For health and safety, that's the lead or deputy. For fire, the fire safety lead or the health and safety lead.
+  - **Then:** a trustee, not the signer, countersigns. That version is kept, never changed (`raSigned`).
+  - **Changes:** changing a signed assessment starts the next version.
+  - **The review check:** countersigning records the building's review check (fire-ra or hs-ra), and the live register records it if a trustee couldn't.
+- **The live risk register:** both assessments are on its first tab. Their significant findings (Medium or High after the controls) are listed there, coloured by the checks that watch them.
+- **Who:**
+  - The office (job), the trustees (job), master admins and each building's leads open it.
+  - The leads see only their own buildings. They may now read their own building's compliance records, which the assessment needs.
+- **A parish church (templates version 5):** five new questions: a tower, bells, a churchyard, a listed building and candles. Each brings a check and a starter hazard.
+- **Rules:** `raAssessments` and `raSigned` (EVENTS section). Rebuilt.
+
+**Checked:** one quick run as the parish. The office drafts, adds the starters and an action, and makes the action a job. The lead signs; the office can't. The PCC countersigns, and the version is kept. The register lists it, and the fire assessment's questions follow the building. Everything worked.
+
+**The new checks' sources** (never shown on the page):
+
+| Check (id) | Frequency | Label | Source | Checked |
+|---|---|---|---|---|
+| tower-access: tower and roof access safe | 1 year | Good practice | Work at Height Regulations 2005 (plan and make safe any work at height; no interval, yearly is ours) | 28 Oct 2026 |
+| bells-inspect: bells, frame and fittings | 1 year | Good practice | Central Council of Church Bell Ringers' guidance on bell maintenance (a yearly inspection; no law sets one) | 28 Oct 2026 |
+| memorials: churchyard memorials looked at | 1 year | Good practice | Church Buildings Council and local-authority memorial safety guidance (regular inspection; no interval in law, yearly look is ours) | 28 Oct 2026 |
+| listed-consent: consent before building work | Before building work | Legal requirement | Planning (Listed Buildings and Conservation Areas) Act 1990 s.7 (listed building consent), or the faculty jurisdiction under the ecclesiastical exemption | 28 Oct 2026 |
+| candles: candles and naked flames | 1 year | Good practice | Regulatory Reform (Fire Safety) Order 2005 art. 9 (the fire risk assessment covers ignition sources; no interval, yearly is ours) | 28 Oct 2026 |
+
+**For main:**
+1. **The Menu:** an entry for **Building risk assessments** (assessment.html) for the office job, the trustees job and each building's leads (raSiteRoles: hsLead, hsDeputy, fireLead). Today they reach it from the live risk register, but the leads can't open that.
+2. **app.html:** egbc-compliance-templates.js and egbc-compliance-store.js to `?v=202610281000`.
+3. **The audit's page list:** add assessment.html.
+
+**Found and not fixed:**
+- **The fire assessment can't count people's own evacuation plans:** only master admins read them. A count kept by peeps.js would do; it fits step 6, the dials.
+- **The print and the dials are step 6. Reading a professional's report into an assessment is step 4.**
+
+**For the synthetic parish:**
+- Its parish church answers yes to the tower, bells, churchyard, listed building and candles, so it gets those checks, starters and questions.
+- The Fabric team's lead (named in Health and safety settings) signs, and the PCC countersigns.
+
+**Deploy:** no functions. The rules go live when the hub goes live. The templates' version 5 reaches the live database through the seed on SWITCHOVER-events.md 3.10, which now says version 5.
