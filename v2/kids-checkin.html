@@ -16,8 +16,8 @@
 <script src="egbc-guard.js?v=202610282000"></script>
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-events.js?v=202610281600"></script>
-<script src="egbc-events-forms.js?v=202610081500"></script>
-<script src="egbc-events-kids.js?v=202610251400"></script>
+<script src="egbc-events-forms.js?v=202610291200"></script>
+<script src="egbc-events-kids.js?v=202610291200"></script>
 <script src="egbc-notify-core.js?v=202610262100"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
@@ -231,6 +231,7 @@
     var f = c.flags || null;
     return (f ? (f.allergies ? '<span class="pill no">Allergies</span>' : '') + (f.medical ? '<span class="pill no">Medical</span>' : '') : '<span class="pill wait">Medical not checked</span>') +
       (c.status === 'visitor' ? '<span class="pill wait">Visitor</span>' : '') +
+      (c.photo === false ? '<span class="pill wait">No photos</span>' : '') + (c.film === false || (c.film === undefined && c.photo === false) ? '<span class="pill wait">No filming</span>' : '') +
       (K.consentOk(c, DAY) ? (K.consentSoon(c, DAY) ? '<span class="pill wait">Renew: consent runs out ' + esc(E.fmtDateShort(c.consentUntil + 'T12:00')) + '</span>' : '')
         : '<span class="pill no">Consent ' + (c.consentUntil ? 'ran out' : 'missing') + '</span>');
   }
@@ -430,7 +431,7 @@
     kids.forEach(function (k) {
       var id = 'kc_' + E.key(14), c = { year: k.year, groupFixed: false };
       var groupId = K.groupFor(c, GROUPS);
-      var d = { siteId: V.site, familyId: famId, name: k.name.slice(0, 120), dob: '', year: k.year, dietary: '', photo: false, firstaid: v.firstaid, alone: false,
+      var d = { siteId: V.site, familyId: famId, name: k.name.slice(0, 120), dob: '', year: k.year, dietary: '', photo: false, film: false, firstaid: v.firstaid, alone: false,
         flags: { allergies: K.meaningful(k.allergies), medical: false }, consentUntil: DAY, consentKind: 'door', responseId: '', groupId: groupId, groupFixed: false,
         status: 'visitor', parentName: v.parentName, phone: v.phone, email: v.email, emergency: '', collectors: collectors, familyCode: famCode,
         createdAt: now, updatedAt: now, updatedBy: uid() };
@@ -707,7 +708,7 @@
       '<div id="m-med" class="st wait">Loading the medical details…</div>' +
       '<dl><dt>Parent</dt><dd>' + esc(c.parentName || '') + '</dd><dt>Phone</dt><dd>' + (c.phone ? '<a href="tel:' + esc(tel(c.phone)) + '" style="color:var(--brand)">' + esc(c.phone) + '</a>' : 'none given') + '</dd>' +
       '<dt>Emergency</dt><dd>' + esc(c.emergency || 'none given') + '</dd><dt>May collect</dt><dd>' + esc((c.collectors || []).join(', ')) + '</dd>' +
-      '<dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No: ring the parent') + '</dd><dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd></dl>' +
+      '<dt>First aid</dt><dd>' + (c.firstaid ? 'Yes' : 'No: ring the parent') + '</dd><dt>Photos</dt><dd>' + (c.photo ? 'Yes' : 'No') + '</dd><dt>Filming</dt><dd>' + ((c.film === undefined ? c.photo : c.film) ? 'Yes' : 'No') + '</dd></dl>' +
       callButtons(c));
     document.getElementById('m-close').onclick = closeModal;
     wireCall(c);

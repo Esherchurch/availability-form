@@ -96,6 +96,8 @@
       var c = { name: String(row.name || '').slice(0, 120), dob: row.dob || '', year: row.year || yearFor(row.dob, today), dietary: row.dietary || '',
         /* An answer may be in either half: "first aid" counts as medical (F-038), so it is private. */
         photo: yes(row.photo, p.photo), firstaid: yes(row.firstaid, p.firstaid), alone: yes(row.alone, p.alone),
+        /* filming has its own question now; an older form asked "photos or video" in one */
+        film: row.film === undefined && p.film === undefined ? yes(row.photo, p.photo) : yes(row.film, p.film),
         flags: s ? { allergies: meaningful(p.allergies), medical: meaningful(p.medical) || meaningful(p.medication) || meaningful(p.needs) } : null,
         medicalIndex: i };
       c.groupId = groupFor(c, groups);

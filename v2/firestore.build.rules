@@ -1193,8 +1193,17 @@ return isMaster() || sgLeadOf(siteId) || onTrustees();
 function sgDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
 function sgText(v, n) { return v is string && v.size() <= n; }
 function sgOneToFive(v) { return v is int && v >= 1 && v <= 5; }
+function sgLinkLeader(t, gid) {
+return active() && t in ['kidsGroup', 'smallGroup', 'planGroup'] && gid is string && gid != ''
+&& me().get('memberId', '-') in get(/databases/$(database)/documents/$(t + 's')/$(gid)).data.get('leaderIds', []);
+}
+function sgActLeader(aid) {
+let l = get(/databases/$(database)/documents/sgActivities/$(aid)).data.get('link', {});
+return sgLinkLeader(l.get('type', ''), l.get('id', ''));
+}
 match /sgActivities/{id} {
-allow read: if sgRegSees(resource.data.get('siteId', ''));
+allow read: if sgRegSees(resource.data.get('siteId', ''))
+|| sgLinkLeader(resource.data.link.type, resource.data.link.id);
 allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 && (resource == null || resource.data.siteId == request.resource.data.siteId)
 && request.resource.data.keys().hasOnly(['siteId', 'kind', 'name', 'link', 'active', 'updatedAt', 'updatedBy'])
@@ -1205,7 +1214,8 @@ allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 allow delete: if false;
 }
 match /sgRisks/{id} {
-allow read: if sgRegSees(resource.data.get('siteId', ''));
+allow read: if sgRegSees(resource.data.get('siteId', ''))
+|| sgActLeader(resource.data.activityId);
 allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 && (resource == null || resource.data.siteId == request.resource.data.siteId)
 && exists(/databases/$(database)/documents/sgActivities/$(request.resource.data.get('activityId', '-')))

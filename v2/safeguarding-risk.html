@@ -377,6 +377,31 @@
     }, function (e) { box.innerHTML = '<div class="card">These could not be loaded: ' + esc(e.message || e) + '</div>'; });
   }
 
+  /* ---- AN ACTIVITY'S OWN LEADERS (job 2, item 6) ----
+     A leader of a Sunday group, planner group or small group that is in the
+     register reads that activity's risks, read only: what to watch, the
+     controls, what is still to do. Nothing else of the register. */
+  function leaderView(mid) {
+    var none = '<div class="card" id="notYours"><p style="margin:0">This page is for the safeguarding lead and deputy, the trustees, and the leaders of an activity in the register.</p></div>';
+    if (!mid) { app.innerHTML = none; return; }
+    var q = function (p) { return p.then(function (s) { return s.docs; }, function () { return []; }); };
+    return Promise.all([['kidsGroup', 'kidsGroups'], ['planGroup', 'planGroups'], ['smallGroup', 'smallGroups']].map(function (t) {
+      return q(db().collection(t[1]).where('leaderIds', 'array-contains', mid).limit(50).get()).then(function (gs) {
+        return Promise.all(gs.map(function (g) { return q(db().collection('sgActivities').where('link.type', '==', t[0]).where('link.id', '==', g.id).get()); }));
+      });
+    })).then(function (r) {
+      ACTS = [].concat.apply([], [].concat.apply([], r)).map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (a) { return a.active !== false; })
+        .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      if (!ACTS.length) { app.innerHTML = none; return; }
+      return Promise.all(ACTS.map(function (a) { return q(db().collection('sgRisks').where('activityId', '==', a.id).get()); })).then(function (rs) {
+        RISKS = [].concat.apply([], rs).map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+        document.getElementById('sub').textContent = 'The risks of the activities you lead, how they are controlled, and what is still to do.';
+        app.innerHTML = '<p class="ro" id="readOnly">Read only. The register is kept by the safeguarding lead and deputy: tell them if something here is wrong or has changed.</p>' +
+          '<div id="leaderActs">' + ACTS.map(actCard).join('') + '</div>';
+      });
+    });
+  }
+
   /* ---- who ---- */
   EGBCAuth.require().then(function (profile) {
     ME = { uid: (EGBCAuth.user() || {}).uid, name: (profile || {}).name || '' };
@@ -393,7 +418,7 @@
         TRUSTEE = teams.some(function (t) { return !!(EGBCAuth.inTeam && EGBCAuth.inTeam(t)); });
         var all = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
         SITES = (MASTER || TRUSTEE) ? all : all.filter(function (x) { return LEADSITES.indexOf(x.id) >= 0; });
-        if (!SITES.length) { app.innerHTML = '<div class="card" id="notYours"><p style="margin:0">This page is for the safeguarding lead and deputy, and the trustees.</p></div>'; return; }
+        if (!SITES.length) return leaderView((profile || {}).memberId || '');
         V.site = (SITES.filter(function (x) { return LEADSITES.indexOf(x.id) >= 0; })[0] || SITES[0]).id;
         return load();
       });

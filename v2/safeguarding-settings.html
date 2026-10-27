@@ -16,7 +16,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-forms.js?v=202610081500"></script>
+<script src="egbc-events-forms.js?v=202610291200"></script>
 <script src="egbc-events-safeguarding.js?v=202610261500"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -186,7 +186,7 @@
           var d = c.templates[t.id], mode = (d.validity || {}).mode || 'event';
           return '<div class="tpl"><h3>' + esc(t.title) + '</h3><div class="two">' +
             '<div class="field"><label for="v_' + t.id + '">Answer lasts</label><select id="v_' + t.id + '" class="vmode" data-t="' + t.id + '">' +
-              [['event', 'One event'], ['schoolyear', 'End of school year (31 Aug)'], ['days', 'A number of days'], ['months', 'A number of months']].map(function (o) {
+              [['event', 'One event'], ['term', 'End of the term'], ['schoolyear', 'End of school year (31 Aug)'], ['days', 'A number of days'], ['months', 'A number of months']].map(function (o) {
                 return '<option value="' + o[0] + '"' + (mode === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
             '<div class="field" id="dbox_' + t.id + '" style="max-width:140px;' + (mode === 'days' ? '' : 'display:none') + '"><label for="d_' + t.id + '">Days</label>' +
               '<input class="inp" id="d_' + t.id + '" type="number" min="1" max="3650" value="' + ((d.validity || {}).days || 365) + '"></div>' +

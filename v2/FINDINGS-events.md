@@ -13160,3 +13160,37 @@ The rules go live when the hub goes live. A real AI call only on your word.
 **For main:** app.html loads `egbc-events-bookings.js?v=202610141700`; please bump it to `202610291000`.
 
 **Deploy:** nothing. The rules go live when the hub goes live.
+
+---
+
+### F-304 — Job 2: H&S reminder emails; under-18 teams from the teams' own tick; activity leaders read their activity's risks; filming consent; consent per term (the reviewing window's items 5, 8, 6, 7 and 9, 29 Oct) (the events window)
+
+**5. Reminder emails** (`raRemindersDaily`, functions/ra-reminders.js; every day 08:15, with building compliance on):
+- **A building's H&S or fire assessment:** review due within 6 weeks, to its lead and the H&S deputy, once. Overdue, the same, once a month until reviewed. The fire assessment's lead is the fire safety lead, or the H&S lead when there is none.
+- **Signed, not countersigned:** to the trustees (the trustees job's teams), after 2 days, then every 2 weeks while it waits.
+- **An event's assessment signed by its organiser, not approved:** to the building's H&S lead and deputy, 14 days before the event, and again 2 days before.
+- Each email is sent once (`raReminded/{key}`, server only). Each says what and when, with the link, and never the assessment's contents. With no hub address, nothing is sent and the log says why.
+
+**8. Under-18 teams** (functions/under18-teams.js; triggers `under18OnTeam` and `under18OnTeamChurch`): one record, `teamFlags/under18 { teams }`, kept from each team's own tick (`teams/{id}.under18`, which Teams and groups already sets), plus EGBC's five, as egbc-auth.js does. Archived teams are left out, and there are 100 at most.
+- **For main (your section of the rules):** `under18Teams()` could read it, keeping EGBC's five as the default:
+  `let p = /databases/$(database)/documents/teamFlags/under18; return exists(p) ? get(p).data.teams : ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];`
+  That's one more read where the rota checks an under-18s slot. tests/check-under18-teams-agree.mjs would then compare the default instead.
+
+**6. An activity's own leaders read its risks**, read only. They are the leaders (`leaderIds`) of the Sunday group, planner group or small group the register's activity is linked to.
+- **Rules:** `sgActivities` and `sgRisks` reads; leaders can't write.
+- **Safeguarding risks** shows such a leader only their activities, with "Read only. The register is kept by the safeguarding lead and deputy".
+- **For main:** the Menu's `sgRisk` flag hides the page from them. Could it show for anyone who leads a group (`kidsGroups`, `planGroups` or `smallGroups` `leaderIds`)? The page says plainly when someone has nothing there.
+
+**7. Filming consent, separate from photos:** the consent forms ask "May we take photos that include them?" and "May we film them? (video, including a service that is recorded or streamed)". Kids admin and the door show "No filming" and Filming Yes/No. A form answered before this asked "photos or video" as one question, so that answer counts for filming too.
+
+**9. Consent per term, as a setting:** "End of the term" is a new choice for how long an answer lasts, in Safeguarding settings (each kind of form) and on each form.
+- **The end of the term** is the site's own term dates, where its Kids lead has set them (copied onto the form when it is saved). Otherwise it's 31 December, 31 March or 31 August, as the registers count terms.
+
+**Quick check** (emulator, both rulesets for the rules): 12/12.
+- The reminders: three sent to the right people; each only once; overdue sends a new one; nothing without a hub address.
+- The under-18 record.
+- A leader reads their activity and its risks; someone else can't; the leader can't change one.
+
+**For main:** in app.html, `egbc-events-kids.js?v=` to `202610291200` (and the bookings stamp from F-303).
+
+**Deploy (the reviewing window's):** `raRemindersDaily`, `under18OnTeam` and `under18OnTeamChurch` (new). No new secret. The rules go live when the hub goes live.

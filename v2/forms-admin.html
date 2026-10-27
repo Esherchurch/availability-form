@@ -17,7 +17,7 @@
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-events-checkin.js?v=202610152300"></script>
-<script src="egbc-events-forms.js?v=202610080900"></script>
+<script src="egbc-events-forms.js?v=202610291200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -229,6 +229,7 @@
             return '<option value="' + w[0] + '"' + ((ED.who || 'public') === w[0] ? ' selected' : '') + '>' + w[1] + '</option>'; }).join('') + '</select></div>' +
         '<div class="field"><label for="edValid">An answer lasts</label><select id="edValid">' +
           '<option value="event"' + (v.mode === 'event' ? ' selected' : '') + '>For one event only</option>' +
+          '<option value="term"' + (v.mode === 'term' ? ' selected' : '') + '>To the end of the term</option>' +
           '<option value="schoolyear"' + (v.mode === 'schoolyear' ? ' selected' : '') + '>To the end of the school year</option>' +
           '<option value="days"' + (v.mode === 'days' ? ' selected' : '') + '>A number of days</option>' +
           '<option value="months"' + (v.mode === 'months' ? ' selected' : '') + '>A number of months</option>' +
@@ -317,7 +318,11 @@
       kind: ED.kind || 'custom', version: (ED.version || 0) + 1,
       updatedAt: new Date().toISOString(), updatedBy: uid()
     };
-    db().collection('forms').doc(id).set(d).then(function () {
+    /* "to the end of the term": the site's own term dates, where its Kids lead has set them (kidsTerms) */
+    (d.validity.mode === 'term' && d.siteId ? db().collection('kidsTerms').doc(d.siteId).get().then(function (s) {
+      var ends = ((s.exists && s.data().terms) || []).map(function (t) { return String((t && t.to) || '').slice(5, 10); }).filter(function (e) { return /^[0-9]{2}-[0-9]{2}$/.test(e); });
+      d.validity = ends.length ? { mode: 'term', ends: ends } : { mode: 'term' };
+    }, function () {}) : Promise.resolve()).then(function () { return db().collection('forms').doc(id).set(d); }).then(function () {
       toast('Saved.'); ED = null; document.getElementById('editor').innerHTML = '';
       return loadForms();
     }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });

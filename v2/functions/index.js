@@ -658,6 +658,8 @@ export const [jobsOnPrayerTeam, jobsOnPrayerTeamChurch] = COVERS.prayer;
 /* A new building gets its copy of the Accounts setting at once (H&S step 3a;
    the events window's accounts-copy.js). Room bookings still fills any gap. */
 export const [accountsForNewSite, accountsForNewSiteChurch] = makeAccountsTriggers(twins).site;
+/* The teams that work with under-18s, in one record the rules read (teamFlags/under18; the events window's under18-teams.js). */
+export const [under18OnTeam, under18OnTeamChurch] = makeUnder18Triggers(twins).team;
 
 /* WHO MAY DO WHAT (H-14): each person's permissions on their sign-in, for
    the Storage rules (functions/permissions.js). */
@@ -838,6 +840,7 @@ export { hqMembershipClaims, hqMyChurches } from './hq-directory.js';
 export { hubAddress, hqSlugCheck } from './hub-address.js';
 import { makeCoverTriggers } from './core-teams.js';
 import { makeAccountsTriggers } from './accounts-copy.js';
+import { makeUnder18Triggers } from './under18-teams.js';
 import * as Perms from './permissions.js';
 /* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */
 export { welcomeSubscriber, welcomeSubscriberChurch, welcomeNewcomer, welcomeNewcomerChurch } from './welcome-mail.js';
@@ -850,3 +853,5 @@ export { sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily } from './sg-warnings.j
 export { sgDraftAssessment, sgAiStatus, sgExtractRequirements, sgRequirementsFile, sgRequirementsFromLinks } from './sg-ai.js';
 /* A professional's fire or health and safety report read into the building's own assessment (H&S step 4; the events window's ra-report.js). */
 export { raReadReport, raAiStatus, raDraftAssessment } from './ra-report.js';
+/* Reminder emails for H&S and fire reviews, countersigning and event approvals (the events window's ra-reminders.js). */
+export { raRemindersDaily } from './ra-reminders.js';

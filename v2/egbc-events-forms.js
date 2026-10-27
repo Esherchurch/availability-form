@@ -95,7 +95,10 @@
 
   /* validity.mode: 'event' (this event only), 'days' (N days), 'months' (N
      calendar months from when it is given: Martin's default, 12, for every
-     template), 'schoolyear' (to the next 31 August). Returns YYYY-MM-DD. */
+     template), 'schoolyear' (to the next 31 August), 'term' (to the end of
+     the term: validity.ends, the terms' last days as MM-DD, or the register's
+     own terms - 31 December, 31 March, 31 August; job 2, item 9).
+     Returns YYYY-MM-DD. */
   function validUntil(form, eventStartLocal, now) {
     now = now || new Date();
     var v = form.validity || { mode: 'event' };
@@ -105,6 +108,13 @@
       m.setMonth(m.getMonth() + (parseInt(v.months, 10) || 12));
       return iso(m);
     }
+    if (v.mode === 'term') {
+      var ends = (v.ends && v.ends.length ? v.ends : TERM_ENDS).filter(function (e) { return /^[0-9]{2}-[0-9]{2}$/.test(e); }).slice().sort(), today = iso(now);
+      for (var yr = now.getFullYear(); yr <= now.getFullYear() + 1; yr++) {
+        for (var i = 0; i < ends.length; i++) { if (yr + '-' + ends[i] >= today) return yr + '-' + ends[i]; }
+      }
+      return iso(now);
+    }
     if (v.mode === 'schoolyear') {
       var end = new Date(now.getFullYear(), 7, 31);
       if (now > new Date(now.getFullYear(), 7, 31, 23, 59)) end = new Date(now.getFullYear() + 1, 7, 31);
@@ -113,6 +123,9 @@
     var ev = eventStartLocal ? new Date(String(eventStartLocal).slice(0, 10) + 'T12:00') : now;
     return iso(isNaN(ev) ? now : ev);
   }
+
+  /* the terms' last days when the church hasn't set its own (as the registers count terms) */
+  var TERM_ENDS = ['03-31', '08-31', '12-31'];
 
   function deleteAfter(form, until) {
     var d = new Date(until + 'T12:00');
@@ -125,6 +138,7 @@
     if (v.mode === 'days') return 'Lasts ' + (v.days || 365) + ' days';
     if (v.mode === 'months') return 'Lasts ' + (v.months || 12) + ' months from when it is given';
     if (v.mode === 'schoolyear') return 'Lasts to the end of the school year (31 August)';
+    if (v.mode === 'term') return 'Lasts to the end of the term';
     return 'For one event only';
   }
 
@@ -201,7 +215,9 @@
       f('allergies', 'longtext', 'Allergies', { sensitive: true, help: 'Write "none" if there are none.' }),
       f('dietary', 'text', 'Dietary needs'),
       f('needs', 'longtext', 'Additional needs we should know about', { sensitive: true }),
-      f('photo', 'yesno', 'May we take photos or video that include them?', { required: true }),
+      f('photo', 'yesno', 'May we take photos that include them?', { required: true }),
+      /* filming, separate from photos (job 2, item 7) */
+      f('film', 'yesno', 'May we film them? (video, including a service that is recorded or streamed)', { required: true }),
       f('firstaid', 'yesno', 'May a trained leader give first aid?', { required: true })
     ].concat(extra || []) });
   }
@@ -302,7 +318,7 @@
   var api = {
     TYPES: TYPES, TEMPLATES: TEMPLATES, fromTemplate: fromTemplate, templateDefaults: templateDefaults,
     isSensitive: isSensitive, split: split, merge: merge,
-    validUntil: validUntil, deleteAfter: deleteAfter, validityText: validityText,
+    validUntil: validUntil, deleteAfter: deleteAfter, validityText: validityText, TERM_ENDS: TERM_ENDS,
     findReusable: findReusable, formUrl: formUrl, requestEmail: requestEmail, doneEmail: doneEmail,
     show: show, iso: iso
   };
