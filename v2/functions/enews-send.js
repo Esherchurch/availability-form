@@ -44,6 +44,7 @@ import { under18Emails, isUnder18Record } from './under18.js';
 import { paperLinksFor, personalise } from './meeting-papers.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
 import { hubUrl } from './notify.js';
+import { isOffice } from './comms-office.js';
 
 const REGION = 'europe-west2';
 /* The hub's web address: one church setting, churchSettings/details.hubUrl
@@ -208,7 +209,7 @@ export const enewsTest = onCall({ region: REGION, secrets: SENDING_SECRETS }, as
   const db = getFirestore();
   const me = await db.collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
-  if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) throw new HttpsError('permission-denied', 'For the church office.');
+  if (!(await isOffice(db, p))) throw new HttpsError('permission-denied', 'For the church office.');
   if (!(await featureOn(db, 'enews'))) throw new HttpsError('failed-precondition', 'The e-news is switched off for this church.');
   const id = String((req.data || {}).issueId || '');
   const doc = id && await db.collection('enewsIssues').doc(id).get();

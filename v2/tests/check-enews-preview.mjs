@@ -107,7 +107,7 @@ const BREAKS = [
   ['members-only blocks let through', '  if (bad.length) return', '  if (false) return', 'members’ copy is refused'],
   ['members-only words let through', "    if (bits.some(w => text.includes(w)) ||", "    if (false && bits.some(w => text.includes(w)) ||", 'members-only WORDS'],
   ['an email to members previewed', "  if (x.kind === 'oneoff' && (x.audience || 'subscribers') !== 'subscribers') return", '  if (false) return', 'no public preview'],
-  ['anyone may make one', "  if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) return", '  if (false) return', 'not the office']
+  ['anyone may make one', '  if (!(await isOffice(db, p))) return', '  if (false) return', 'not the office']
 ];
 for (const [what, from, to, expect] of BREAKS) {
   let red = [];

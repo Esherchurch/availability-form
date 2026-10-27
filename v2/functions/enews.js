@@ -42,6 +42,7 @@ import { webhookSecret, SENDING_SECRETS } from './resend-secrets.js';
 import { featureOn } from './features.js';
 import { isUnder18Email, isUnder18Record } from './under18.js';
 import { hubUrl } from './notify.js';
+import { isOffice } from './comms-office.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -312,7 +313,7 @@ export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const me = await db().collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
-  const office = p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office'));
+  const office = await isOffice(db(), p);
   if (!office) throw new HttpsError('permission-denied', 'For the church office.');
   const S = await settings();
   if (!S.on) throw new HttpsError('failed-precondition', 'The e-news is switched off.');

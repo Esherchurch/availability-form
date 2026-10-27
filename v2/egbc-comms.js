@@ -7,7 +7,8 @@
         (the rules only answer a list that names its audiences): public
         and members' events, and church members' events for those who
         may read them. Team and not-listed events are never asked for.
-     EGBCComms.mayOffice()   the church office or a master admin
+     EGBCComms.ready()       the person's jobs, read (a Promise)
+     EGBCComms.mayOffice()   the office job or a master admin (after ready)
      EGBCComms.hubBase()     this page's folder, for links
    =================================================================== */
 (function (global) {
@@ -31,8 +32,13 @@
     });
   }
 
+  /* THE OFFICE (H-9): master admins, and the church's own teams for the
+     office job (EGBCAuth.myJobs: churchSettings/teamJobs; EGBC's Church
+     office when nothing is stored). Ask after ready(): the jobs are read
+     with the person's permissions. */
+  function ready() { return Promise.resolve(EGBCAuth.loadPerms ? EGBCAuth.loadPerms() : null).catch(function () {}); }
   function mayOffice() {
-    return !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || !!(EGBCAuth.inTeam && EGBCAuth.inTeam('Church office'));
+    return !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || !!(EGBCAuth.myJobs && EGBCAuth.myJobs().indexOf('office') >= 0);
   }
   /* The hub's web address: the church setting (churchSettings/details.hubUrl)
      once read, otherwise this page's own folder - today the same address. */
@@ -83,5 +89,5 @@
     return next(null);
   }
 
-  global.EGBCComms = { eventsBetween: eventsBetween, mayOffice: mayOffice, hubBase: hubBase, showMore: showMore, allDocs: allDocs };
+  global.EGBCComms = { eventsBetween: eventsBetween, ready: ready, mayOffice: mayOffice, hubBase: hubBase, showMore: showMore, allDocs: allDocs };
 })(window);

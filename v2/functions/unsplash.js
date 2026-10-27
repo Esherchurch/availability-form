@@ -37,6 +37,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createHash } from 'node:crypto';
+import { isOffice } from './comms-office.js';
 
 export const UNSPLASH_ACCESS_KEY = defineSecret('UNSPLASH_ACCESS_KEY');
 const REGION = 'europe-west2';
@@ -174,7 +175,7 @@ async function office(req) {
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const me = await getFirestore().collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
-  if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) throw new HttpsError('permission-denied', 'For the church office.');
+  if (!(await isOffice(getFirestore(), p))) throw new HttpsError('permission-denied', 'For the church office.');
 }
 const callable = run => onCall({ region: REGION, secrets: [UNSPLASH_ACCESS_KEY] }, async (req) => {
   await office(req);

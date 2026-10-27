@@ -897,7 +897,7 @@
   }
 
   /* ---- start ---------------------------------------------------------- */
-  EGBCAuth.require().then(function () {
+  EGBCAuth.require().then(EGBCComms.ready).then(function () {
     if (!EGBCComms.mayOffice()) { ed.innerHTML = '<div class="note"><b>E-news editor</b><p>This page is for the church office and master admins.</p></div>'; return; }
     if (!(EGBCAuth.uses && EGBCAuth.uses('enews'))) { ed.innerHTML = '<div class="note"><b>E-news editor</b><p>The e-news is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
     var id = new URLSearchParams(location.search).get('issue');

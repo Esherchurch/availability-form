@@ -153,6 +153,8 @@ async function run(rules) {
   await t('a church\u2019s own team name for the office job: its Parish office runs a members\u2019 meeting', assertSucceeds(setDoc(doc(as('parish'), 'churchMeetings', 'cm1', 'private', 'join'), JOIN)));
   await t('a church\u2019s own team name for the trustees job: its PCC runs a members\u2019 meeting', assertSucceeds(setDoc(doc(as('pcc'), 'churchMeetings', 'cm1', 'private', 'join'), JOIN)));
   await t('…and EGBC\u2019s team names are not that church\u2019s jobs: "Church office" can\u2019t write its giving details, "Elders" can\u2019t run its meetings', assertFails(setDoc(doc(as('office'), 'churchSettings', 'giving'), GIVING)).then(() => assertFails(setDoc(doc(as('elders'), 'churchMeetings', 'cm1', 'private', 'join'), JOIN))));
+  await t('a church\u2019s own team name for the office job: its Parish office reads and writes the e-news', assertSucceeds(getDoc(doc(as('parish'), 'enewsIssues', 'draft1'))).then(() => assertSucceeds(setDoc(doc(as('parish'), 'enewsIssues', 'parish1'), issue('en_parish')))));
+  await t('…and EGBC\u2019s "Church office" is not that church\u2019s office: it can\u2019t read the e-news', assertFails(getDoc(doc(as('office'), 'enewsIssues', 'draft1'))));
   await t('…and a PCC member (trustees, not office) can\u2019t write the giving details', assertFails(setDoc(doc(as('pcc'), 'churchSettings', 'giving'), GIVING)));
   await env.cleanup();
   return R;
@@ -168,7 +170,8 @@ const BREAKS = [
   ['anybody may write the web version', 'allow write: if false;          // web version: the sender only', 'allow write: if true;           // web version: the sender only', 'nobody writes the web version'],
   ['the office may write subscribers from a page', 'allow write: if false;          // subscribers: functions only', 'allow write: if enewsOffice(); // subscribers: functions only', 'not even the office writes'],
   ['church members may read subscribers', 'allow read: if enewsOffice();   // subscribers: the office', 'allow read: if active();        // subscribers: the office', 'a church member cannot read subscribers'],
-  ['any admin may read issues', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\'); }', 'function enewsOffice() { return isMaster() || onTeam(\'Church office\') || isAdmin(); }', 'an admin of a team'],
+  ['any admin may read issues', 'function enewsOffice() { return raOffice(); }', 'function enewsOffice() { return raOffice() || isAdmin(); }', 'an admin of a team'],
+  ['the e-news office by team name, not job', 'function enewsOffice() { return raOffice(); }', "function enewsOffice() { return isMaster() || onTeam('Church office'); }", 'its Parish office reads and writes the e-news'],
   ['a sent issue may be changed', "&& resource.data.status in ['draft', 'scheduled']", '', 'a sent issue cannot be changed'],
   ['the office may mark an issue sent', "&& d.status in ['draft', 'scheduled']", "&& d.status in ['draft', 'scheduled', 'sent']", 'the office cannot mark an issue sent'],
   ['any number of social links', "                   && (request.resource.data.church.get('social', []) is list && request.resource.data.church.get('social', []).size() <= 12)", '', 'no more than 12 social links'],

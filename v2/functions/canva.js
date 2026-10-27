@@ -32,6 +32,7 @@ import * as C from './canva-core.js';
 import { storedKeys } from './hq-mail-key.js';
 import { featureOn } from './features.js';
 import { hubUrl } from './notify.js';
+import { isOffice } from './comms-office.js';
 
 const REGION = 'europe-west2';
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
@@ -75,7 +76,7 @@ async function office(req) {
   const db = getFirestore();
   const [me, on] = await Promise.all([db.collection('users').doc(uid).get(), featureOn(db, 'canva')]);
   const p = me.exists ? me.data() : {};
-  if (!(p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office')))) throw new HttpsError('permission-denied', 'For the church office.');
+  if (!(await isOffice(db, p))) throw new HttpsError('permission-denied', 'For the church office.');
   if (!on) throw new HttpsError('failed-precondition', 'Canva is switched off for this church.');
   if (canvaShut()) throw new HttpsError('failed-precondition', 'Canva connects when the church goes live.');
   return uid;

@@ -6,7 +6,7 @@
 <title>Card maker</title>
 <!-- VAL'S CARD MAKER (comms window; FINDINGS-comms C-17, decision 5).
      Feature name cardMaker: off until a master admin turns it on. For the
-     Church office and master admins.
+     office job and master admins.
 
      Pick an event from What's On, a size, a style and a movement; the card
      is drawn here (a canvas, nothing sent anywhere) and saved as an
@@ -47,7 +47,7 @@
 <script src="egbc-auth.js?v=202610272330"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-picture-library.js?v=202610141900"></script>
-<script src="egbc-comms.js?v=202610251500"></script>
+<script src="egbc-comms.js?v=202610272000"></script>
 <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
 <script src="egbc-gif.js?v=202610192100"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
@@ -692,7 +692,7 @@
     };
   }
 
-  EGBCAuth.require().then(function () {
+  EGBCAuth.require().then(EGBCComms.ready).then(function () {
     if (!EGBCComms.mayOffice()) { wrap.innerHTML = '<div class="card"><h1>Card maker</h1><p>This page is for the church office and master admins.</p></div>'; return; }
     if (!(EGBCAuth.uses && EGBCAuth.uses('cardMaker'))) { wrap.innerHTML = '<div class="card"><h1>Card maker</h1><p>The card maker is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
     if (window.EGBCChurch) EGBCChurch.load().then(function () {}, function () {});

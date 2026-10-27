@@ -260,6 +260,44 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 27 Oct: the comms area's office is the office job, not "Church office" (H-9, stage 2). For review
+
+The reviewing window: use main's team jobs (functions/team-jobs.js `readTeamJobs`/`teamsFor`) as the events window did in 7e0073bc, with EGBC's team names only as the defaults.
+
+**The functions** (6). Each one's "For the church office" check now asks one small helper, **`functions/comms-office.js`** (`isOffice`, `isOfficeIn`, `officeTeams`). It is main's `readTeamJobs` + `teamsFor(map, 'office', set)`, and counts master admins and anyone on, or covering, one of the office job's teams.
+- enewsSubscriberSave (enews.js), enewsTest (enews-send.js), enewsPreviewWeb (enews-preview.js), Unsplash (unsplash.js), Canva (canva.js);
+- and who gets the card maker's morning reminder (social.js).
+
+**The rules:** `enewsOffice()` (the e-news, social posts, templates) is now main's `raOffice()`, as members' meetings and the giving details were this morning.
+
+**The pages:** `EGBCComms.mayOffice()` (e-news, editor, card maker, From Canva), the address book's "Gets the e-news" (egbc-enews-ab.js) and the Email Compiler's "email anyone" now ask `EGBCAuth.myJobs()` for "office", after `loadPerms()`. Each page waits for that (`EGBCComms.ready`) before deciding.
+
+**For EGBC nothing changes:** with no mapping stored, the office job is the Church office.
+
+**For the synthetic parish:** with office = "Parish office", its Parish office uses the e-news, the editor, the card maker, Canva, Unsplash and the Compiler's "email anyone". Its reminder emails go to them. A team called "Church office" there is nobody's office.
+
+**One team name left, a question for main:** EmailBuilder2.html's page guard is `<script src="egbc-guard.js" data-admin="any" data-also-team="Church office">`.
+- egbc-guard.js (main's) takes a team name only, so a parish's Parish office can't open the Email Compiler unless it administers a team.
+- **Please could egbc-guard.js take a job** (say `data-also-job="office"`, after `loadPerms`)? The guard check allows this one line until then, and I'll switch it the day it's in.
+- No other job was missing from the mapping.
+
+### Checks
+
+Run before the 27 Oct "build, don't test" rule; stopped part-way, as asked. The office checks that ran passed:
+- **New check-comms-office: 12/12.** A parish's Parish office is the office, and EGBC's "Church office" isn't, there. The real "Preview web version" lets the Parish office in. Typing "Church office" back in turns it red.
+- **check-enews-rules: 78/78.** Members' meetings, the giving details and the e-news by job.
+- page 66/66, editor 50/50, card maker 35/35, Canva 20/20 and 9/9, meeting 20/20, social 13/13.
+
+**Fixed after the run, not re-run:**
+- the send check's address now expects main's made address (`egbc.churchhq.co.uk`);
+- a preview break was aimed at the old line.
+
+**One red, not chased:** check-enews-emails. The members' meeting starter didn't pick the next meeting. Reading the code, the office still counts as a meeting runner for EGBC with no mapping stored, so it doesn't look like this change; it may be main's H-17 meeting changes. Left for the full test.
+
+**Not run:** check-members-meeting.mjs and check-give.mjs (the reviewing window's ask). They're wired to port 8181, and under the new rules I'm not running tests.
+
+---
+
 ## FIXED, 27 Oct: the meeting picker lists only the meetings you're invited to (main's ask, H-17). For review
 
 - **`egbc-meeting-pick.js` `upcoming()`**, the "Add a meeting" picker in the e-news editor and the Email Compiler, now offers only the meetings the person is invited to.

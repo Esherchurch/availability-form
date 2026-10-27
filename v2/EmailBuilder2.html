@@ -507,7 +507,8 @@ function markClean() { dirty = false; $('saveState').textContent = 'All changes 
 /* WHO MAY EMAIL WHOM (Martin, 16 Oct 2026, any church): the church office
    and master admins, anyone; a team leader, the people on their teams. The
    hub's compilerSend checks the same before anything is sent. */
-function mayEmailAnyone() { return EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'); }
+/* The office job (H-9; EGBC: Church office) may email anyone. After loadPerms. */
+function mayEmailAnyone() { return EGBCAuth.isMaster() || (EGBCAuth.myJobs && EGBCAuth.myJobs().indexOf('office') >= 0); }
 function myEmailTeams() {
     const T = EGBCAuth.TEAMS || {};
     const list = mayEmailAnyone() ? Object.keys(T) : (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : []);
@@ -554,7 +555,8 @@ function drawTeamFilters() {
     document.querySelectorAll('.team-filter').forEach(cb => cb.addEventListener('change', () => { if (typeof updateRecipSummary === 'function') updateRecipSummary(); }));
 }
 function escAttr(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-document.addEventListener('egbc-ready', () => {
+document.addEventListener('egbc-ready', () => Promise.resolve(EGBCAuth.loadPerms && EGBCAuth.loadPerms()).catch(() => {}).then(() => {
+    /* Who may email anyone is the office job: read with the permissions. */
     drawTeamFilters();
     EGBCAuth.db.collection('churchSettings').doc('details').get()
         .then(d => { CHURCH_NAME = (d.exists && d.data().name) || ''; CHURCH_LOGO = (d.exists && d.data().logoUrl) || ''; }, () => {})
@@ -567,7 +569,7 @@ document.addEventListener('egbc-ready', () => {
         updateTeamCounts();
         updateRecipSummary();
     });
-});
+}));
 
 // ── Who are you ──────────────────────────────────────────────────────────────
 /* The name on drafts. The person is signed in, so the hub already knows

@@ -31,7 +31,8 @@
   function may() {
     var A = window.EGBCAuth;
     if (!A || !A.profile || !A.profile()) return false;
-    var office = (A.isMaster && A.isMaster()) || (A.inTeam && A.inTeam('Church office'));
+    /* The office job (H-9; EGBC: Church office), after loadPerms. */
+    var office = (A.isMaster && A.isMaster()) || (A.myJobs && A.myJobs().indexOf('office') >= 0);
     return !!office && !!(A.uses && A.uses('enews'));
   }
   function load() {
@@ -129,6 +130,7 @@
   var tries = 0;
   (function wait() {
     if (window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) {
+      Promise.resolve(EGBCAuth.loadPerms ? EGBCAuth.loadPerms() : null).catch(function () {}).then(function () {
       if (!may()) return;
       load().then(function () {
         badgeRows(); drawForm();
@@ -155,6 +157,7 @@
           }
           if (++looks < 100) setTimeout(wrap, 300);
         })();
+      });
       });
       return;
     }

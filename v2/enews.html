@@ -6,7 +6,7 @@
 <title>E-news</title>
 <!-- THE WEEKLY E-NEWS (comms window; FINDINGS-comms, plan bebcbd9e accepted
      19 Oct 2026). Feature name enews: off until a master admin turns it on
-     in Church settings. For the Church office and master admins (rules:
+     in Church settings. For the office job and master admins (rules:
      enewsIssues, enewsSettings).
 
      An issue is a list of blocks (plain data). egbc-mailblocks.js turns
@@ -35,7 +35,7 @@
 <script src="egbc-meeting-pick.js?v=202610271500"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
 <script src="egbc-share.js?v=202610212300"></script>
-<script src="egbc-comms.js?v=202610251500"></script>
+<script src="egbc-comms.js?v=202610272000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -825,7 +825,7 @@
   }
 
   /* ---- start ----------------------------------------------------------- */
-  EGBCAuth.require().then(function () {
+  EGBCAuth.require().then(EGBCComms.ready).then(function () {
     if (!may()) { wrap.innerHTML = '<div class="card"><h1>E-news</h1><p>This page is for the church office and master admins.</p></div>'; return; }
     if (!usesEnews()) { wrap.innerHTML = '<div class="card"><h1>E-news</h1><p>The e-news is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
     return Promise.all([

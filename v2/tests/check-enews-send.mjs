@@ -186,16 +186,15 @@ async function scenario(S) {
   const ada2 = got.find(g => g.to === 'ada.pp@example.invalid') || {};
   t('a meeting more than 30 days gone: no new links', (ada2.html || '').includes(HUBM + 'cm0') && !/meetingPapers/.test(ada2.html || '') && (await db.collection('meetingPaperLinks').get()).size === 1);
 
-  /* The hub's web address is one church setting (reviewing window, 25 Oct):
-     with none given, the links come from churchSettings/details.hubUrl. */
-  await db.collection('churchSettings').doc('details').set({ hubUrl: 'https://testbury.churchhq.example/' }, { merge: true });
+  /* The hub's web address is main's hubUrl (hub-address.js, made at setup, never typed):
+     with none given, the links take it - EGBC’s here (egbc.churchhq.co.uk). */
+
   await db.collection('enewsIssues').doc('hubset').set(Object.assign({}, ISSUE, copies, { status: 'scheduled', sendAt: '2026-10-22T16:00' }));
   got.length = 0;
   await S.runEnewsSend({ db, send, now, fnBase: 'https://fn.example.invalid', gap: 0 });
   const hs = got.find(g => g.to === 'pub.send@example.invalid' && g.meta.issueId === 'hubset') || {};
   const hw = ((await db.collection('enewsWeb').doc('hubset').get()).data() || {}).html || '';
-  t('the hub’s web address comes from the church setting: each unsubscribe link and the web version’s sign-up link', (hs.html || '').includes('https://testbury.churchhq.example/enews-unsubscribe.html?t=tokpub') && hw.includes('https://testbury.churchhq.example/enews-signup.html') && !/esherchurch/.test((hs.html || '') + hw), [(hs.html || '').match(/https:\/\/[^"]*unsubscribe[^"]*/), hw.match(/https:\/\/[^"]*signup[^"]*/)]);
-  await db.collection('churchSettings').doc('details').set({ name: church.name, enquiryEmail: church.email });
+  t('the hub’s web address is main’s hubUrl: each unsubscribe link and the web version’s sign-up link', (hs.html || '').includes('https://egbc.churchhq.co.uk/enews-unsubscribe.html?t=tokpub') && hw.includes('https://egbc.churchhq.co.uk/enews-signup.html') && !/esherchurch/.test((hs.html || '') + hw), [(hs.html || '').match(/https:\/\/[^"]*unsubscribe[^"]*/), hw.match(/https:\/\/[^"]*signup[^"]*/)]);
   return out;
 }
 
@@ -216,7 +215,7 @@ const BREAKS = [
   ['a public web version for a members’ email', "if (issue.kind !== 'oneoff' || (issue.audience || 'subscribers') === 'subscribers') await", 'await', 'no public web version'],
   ['an under-18 sent the e-news', "if (minors.has(String(sub.email || '').toLowerCase())) { under18++; continue; }", '', 'never sent to a 17-year-old'],
   ['no personal link to the papers', "      if (isMember) letter.html = await personalise(db, links, sub, letter.html, { fnBase: fnBase || FN_LIVE, issueId: doc.id });", '', 'their own link to the papers'],
-  ['the hub’s address typed in, not the church setting', '  hub = hub || await hubOf(db);', "  hub = hub || 'https://esherchurch.github.io/availability-form/v2';", 'comes from the church setting'],
+  ['the hub’s address typed in, not the church setting', '  hub = hub || await hubOf(db);', "  hub = hub || 'https://esherchurch.github.io/availability-form/v2';", 'is main’s hubUrl'],
   ['the one-click header left off', "'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'", "'X-Nothing': ''", 'the one-click header']
 ];
 for (const [what, from, to, expect] of BREAKS) {

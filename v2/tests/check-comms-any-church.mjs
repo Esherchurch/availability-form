@@ -16,6 +16,7 @@
  * DELIBERATE BREAKS (each must turn this check red):
  *   --break=word  puts "(e.g. EGBC)" back in enews.html
  *   --break=logo  puts EGBC's logo back in EmailBuilder2.html
+ *   --break=team  names the "Church office" team again in egbc-comms.js
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,9 +27,11 @@ const FILES = ['egbc-mailblocks.js', 'egbc-enews-editor.js', 'egbc-enews-ab.js',
   'cardmaker.html', 'comms.html', 'EmailBuilder2.html', 'enews.html', 'enews-edit.html', 'enews-web.html', 'enews-signup.html', 'enews-confirm.html', 'enews-unsubscribe.html',
   'functions/enews.js', 'functions/enews-send.js', 'functions/enews-preview.js', 'functions/enews-gate.js', 'functions/welcome-mail.js', 'functions/meeting-papers.js',
   'functions/unsplash.js', 'functions/social.js', 'functions/canva.js', 'functions/canva-core.js', 'functions/mail-route.js', 'functions/public-mail.js',
-  'functions/resend-secrets.js', 'functions/under18.js', 'functions/hq-mail.js', 'functions/hq-mail-key.js'];
+  'functions/resend-secrets.js', 'functions/under18.js', 'functions/hq-mail.js', 'functions/hq-mail-key.js',
+  'egbc-meeting-pick.js', 'functions/comms-office.js', 'canva.html'];
 const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
+  team: ['egbc-comms.js', "EGBCAuth.myJobs().indexOf('office') >= 0", "EGBCAuth.inTeam('Church office')"],
   word: ['enews.html', "'Short name for the top line (the church’s initials, say)'", "'Short name for the top line (e.g. EGBC)'"],
   logo: ['EmailBuilder2.html', '<div class="logo" style="display:none"><img src="" alt=""></div>', '<div class="logo"><img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png" alt="EGBC"></div>']
 };
@@ -48,8 +51,14 @@ const NEVER = [
   [/\bVal(’s|'s)?\b(?![a-z])/g, 'Val'],
   [/1774936285076|egbc-worship-planner\.firebasestorage\.app\/o\//g, "EGBC's logo"],
   [/switch-?over/gi, '"switch-over" (it is "going live")'],
-  [/Baptist/gi, 'Baptist']
+  [/Baptist/gi, 'Baptist'],
+  /* Team jobs, not team names (H-9): EGBC's team names, quoted in code. */
+  [/(['"])(Church office|Elders|Kids Church|Worship Team|Youth Worship|AV Team|Core Team|Maintenance|Lazers|ReNu)\1/g, "an EGBC team name (it's a job: EGBCAuth.myJobs / comms-office.js)"]
 ];
+/* Allowed for now, each with its step: EmailBuilder2.html's page guard takes
+   a team name only (main's egbc-guard.js has no job option yet; asked in
+   FINDINGS-comms, 27 Oct). */
+const ALLOWED = [['EmailBuilder2.html', 'data-also-team="Church office"']];
 /* The code's own names aren't shown: EGBCAuth, egbc-*.js, the project id. */
 const NAMES = t => t.replace(/\bEGBC[A-Z][A-Za-z]*/g, '').replace(/egbc-[a-z0-9-]+(\.[a-z]+)?/gi, '').replace(/'EGBC'\s*:/g, '');
 
@@ -60,7 +69,8 @@ for (const f of FILES) {
     if (!t.includes(BREAKS[BREAK][1])) { console.log('break "' + BREAK + '": that line is not in ' + f + ' any more - update the break'); process.exit(2); }
     t = t.replace(BREAKS[BREAK][1], BREAKS[BREAK][2]);
   }
-  const s = NAMES(shown(t));
+  let s = NAMES(shown(t));
+  ALLOWED.forEach(([af, a]) => { if (af === f) s = s.split(a).join(''); });
   for (const [re, what] of NEVER) {
     (s.match(re) || []).forEach(m => {
       const at = s.indexOf(m);

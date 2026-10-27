@@ -26,6 +26,7 @@ import { featureOn } from './features.js';
 import { under18Emails } from './under18.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
 import { hubUrl } from './notify.js';
+import { isOfficeIn, officeTeams } from './comms-office.js';
 
 const REGION = 'europe-west2';
 /* The hub's web address: one church setting, churchSettings/details.hubUrl
@@ -52,10 +53,11 @@ export async function runSocialMorning({ db, send, now = new Date(), hub }) {
   const minors = await under18Emails(db);
   const church = (await db.collection('churchSettings').doc('details').get()).data() || {};
   let sent = 0;
+  const officeT = await officeTeams(db);
   for (const uid of who) {
     const u = await db.collection('users').doc(String(uid)).get();
     const p = u.exists ? u.data() : {};
-    const office = p.status === 'active' && (p.masterAdmin === true || (p.teams || []).includes('Church office'));
+    const office = isOfficeIn(p, officeT);
     const email = String(p.email || '').trim().toLowerCase();
     if (!office || !email || minors.has(email)) continue;
     const html = '<p>Good morning' + (p.name ? ' ' + esc(String(p.name).split(/\s+/)[0]) : '') + ',</p>' +
