@@ -26,7 +26,8 @@
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <script src="egbc-ra-core.js?v=202610271600"></script>
 <script src="egbc-hs-core.js?v=202610281000"></script>
-<script src="egbc-hs-templates.js?v=202610281600"></script>
+<script src="egbc-hs-templates.js?v=202610281800"></script>
+<script src="egbc-ra-draft.js?v=202610281800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -82,7 +83,7 @@
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   var ID = (location.search.match(/[?&]event=([\w-]+)/) || [])[1] || '';
   var ME = {}, JOBP = null, EV = null, U18 = false, A = null, SITES = [], ROLES = {}, ROOMS = [], STAT = {}, SET = {}, READ = null, EDIT = false,
-      OFFICE = false, MASTER = false, RUNS = false, LEADER = false;
+      OFFICE = false, MASTER = false, RUNS = false, LEADER = false, AI = null;
   function db() { return EGBCAuth.db; }
   function $(id) { return document.getElementById(id); }
   function all(s) { return s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); }
@@ -136,23 +137,7 @@
   }
 
   /* ---------------- the hub's own rows (F-280 3C), from its numbers ---------------- */
-  function hubRows() {
-    var out = [];
-    if (!away() && ROOMS.length) {
-      var max = ROOMS.reduce(function (n, r) { return n + (+r.fireMax || 0); }, 0), unset = ROOMS.filter(function (r) { return !r.fireMax; });
-      if (unset.length) out.push({ rag: 'amber', words: 'No fire maximum is set for ' + unset.map(function (r) { return r.name; }).join(', ') + ' (Places).' });
-      else if (A.people > max) out.push({ rag: 'red', mustNot: true, words: A.people + ' people expected; the rooms hold ' + max + ' at most for fire safety: must not go ahead as described.' });
-      else if (A.people) out.push({ rag: 'green', words: A.people + ' people expected; the rooms hold ' + max + ' at most for fire safety.' });
-    }
-    if (!away() && A.siteId) ['fire', 'hs'].forEach(function (k) {
-      var s = STAT[k], name = HT.KINDS[k].title.toLowerCase();
-      if (!s || s.status !== 'countersigned') out.push({ rag: 'amber', words: 'The building’s ' + name + ' is not countersigned yet.' });
-      else if (s.reviewDue < TODAY) out.push({ rag: 'red', words: 'The building’s ' + name + ' is overdue for review (' + RA.longDate(s.reviewDue) + ').' });
-    });
-    if (!away() && A.flags.flames) out.push({ rag: 'amber', words: 'Candles or naked flames in ' + (siteName(A.siteId) || 'the building') + ': see the building’s fire risk assessment, fire hazards' + (STAT.fire && STAT.fire.status === 'countersigned' ? ' (version ' + STAT.fire.version + ')' : '') + '.' });
-    if (away() && !(A.venue && A.venue.readAt)) out.push({ rag: 'amber', words: 'The venue’s own fire arrangements and risk assessment haven’t been read yet.' });
-    return out;
-  }
+  function hubRows() { return HT.eventHubRows({ a: A, rooms: ROOMS, stat: STAT, siteName: siteName(A.siteId), today: TODAY }); }
   function mustNot() { return hubRows().some(function (r) { return r.mustNot; }); }
 
   /* ---------------- reading the form back ---------------- */
@@ -270,7 +255,7 @@
           ['yes', 'no'].map(function (v) { return '<label class="check"><input type="radio" name="care" value="' + v + '"' + (A.care.support === v ? ' checked' : '') + (EDIT ? '' : ' disabled') + '> ' + (v === 'yes' ? 'Yes' : 'No') + '</label>'; }).join('') +
           (A.care.support === 'yes' ? '<p class="banner info" id="careLead" style="margin-top:6px">The safeguarding lead or deputy can see this assessment. Write in general words only: no names and no medical details.</p>' : '') + '</div>';
         return '<div class="item" data-q="' + q.id + '"><label class="l" for="q_' + q.id + '">' + esc(q.label) + blankW + '</label><p class="hint" style="margin:0 0 4px">' + esc(q.hint) + '</p>' +
-          (EDIT ? '<input class="inp" id="q_' + q.id + '" maxlength="2000" value="' + esc(A.answers[q.id] || '') + '">' : '<p>' + esc(A.answers[q.id] || '—') + '</p>') + '</div>';
+          (EDIT ? '<input class="inp" id="q_' + q.id + '" maxlength="2000" value="' + esc(A.answers[q.id] || '') + '">' : '<p>' + esc(A.answers[q.id] || '—') + '</p>') + EGBCRaDraft.suggestion(A, q.id, EDIT) + '</div>';
       }).join('') + '</div>';
   }
   function signHtml() {
@@ -287,8 +272,9 @@
     return out + '</div>';
   }
   function draw() {
-    $('wrap').innerHTML = '<h1>Event risk assessment</h1><p class="sub">' + esc(EV.title || '') + (EV.startLocal ? ' · ' + esc(RA.longDate(String(EV.startLocal).slice(0, 10))) : '') + '</p>' +
-      statusHtml() + '<div class="banner info" id="notAdvice">' + esc(H.NOT_ADVICE) + '</div>' + aboutHtml() + hubHtml() + buildingHtml() + venueHtml() + hazardsHtml() + actionsHtml() +
+    $('wrap').innerHTML = '<h1>Event risk assessment</h1><p class="sub">' + esc(EV.title || '') + (EV.startLocal ? ' · ' + esc(RA.longDate(String(EV.startLocal).slice(0, 10))) : '') +
+      (A.updatedAt ? ' · <a id="printLink" href="ra-print.html?event=' + encodeURIComponent(ID) + '" target="_blank" rel="noopener">Print</a>' : '') + '</p>' +
+      statusHtml() + EGBCRaDraft.label(A, RA.longDate) + '<div class="banner info" id="notAdvice">' + esc(H.NOT_ADVICE) + '</div>' + aboutHtml() + (EDIT ? EGBCRaDraft.box(AI, 'the event') : '') + hubHtml() + buildingHtml() + venueHtml() + hazardsHtml() + actionsHtml() +
       '<div class="card"><h2>The plan for the day</h2><p class="hint">Stewards and their briefing, first aiders, the timings, who is in charge.</p>' + (EDIT ? '<textarea id="sec_plan" rows="4" maxlength="4000">' + esc(A.sections.plan || '') + '</textarea>' : '<p>' + esc(A.sections.plan || '—') + '</p>') + '</div>' +
       questionsHtml() + signHtml() + (EDIT ? '<div class="bar"><button class="btn" type="button" id="saveGo">Save</button><span class="hint" id="said" role="status"></span></div>' : '<p class="hint" id="said" role="status"></p>');
     wire();
@@ -298,6 +284,8 @@
   function base(x) {
     var out = {}; ['calEventId', 'siteId', 'approverSiteId', 'title', 'kind', 'flags', 'care', 'people', 'marked', 'venue', 'sections', 'hazards', 'actions', 'answers', 'version', 'status'].forEach(function (k) { out[k] = x[k]; });
     out.answers = Object.assign({}, x.answers);
+    if (x.ai) out.ai = x.ai;
+    if (x.suggested) out.suggested = x.suggested;
     if (HT.AWAY.indexOf(x.kind) < 0) { out.care = { support: '' }; delete out.answers.careSupport; delete out.answers.careHow; }
     out.updatedBy = uid(); out.updatedAt = nowIso(); return out;
   }
@@ -306,6 +294,7 @@
   function careBad() { var t = (A.answers.careHow || '') + ' ' + (A.answers.medical || ''); return /[^\s@]+@[^\s@]+\.[a-z]{2,}/i.test(t) || /(\+44|\b0)\s?\d{3,4}[\s-]?\d{3}[\s-]?\d{3,4}/.test(t); }
   function save() {
     collect();
+    EGBCRaDraft.checked(A, ME.name, TODAY);   /* saving an AI draft is the person's check */
     if (careBad()) { say('Not saved: take out the phone number or email. General words only.'); return; }
     $('saveGo').disabled = true; say('Saving…');
     ref().set(base(A)).then(load).then(function () { draw(); say('Saved.'); }, function (e) { $('saveGo').disabled = false; say('Not saved: ' + (e.message || e)); });
@@ -335,7 +324,27 @@
     $('readAdd').disabled = true;
     ref().set(base(A)).then(load).then(function () { draw(); say('Added.'); }, function (e) { $('readAdd').disabled = false; $('readMsg').textContent = 'Not added: ' + (e.message || e); });
   }
+  /* THE AI FIRST DRAFT (H&S step 7) */
+  function wireDraft() {
+    if (!$('draftCard')) return;
+    if (!AI) return EGBCAuth.call('raAiStatus', { calEventId: ID }).catch(function () { return { state: 'unreachable', message: 'The AI could not be reached just now.' }; })
+      .then(function (st) { AI = st; if ($('draftCard')) { $('draftCard').outerHTML = EGBCRaDraft.box(AI, 'the event'); wireDraft(); } });
+    if (!$('draftGo')) return;
+    $('draftGo').onclick = function () {
+      collect();
+      var text = $('draftText').value.trim(), msg = $('draftMsg');
+      if (text.length < 10) { msg.textContent = 'Say a little about the event first.'; return; }
+      $('draftGo').disabled = true; msg.textContent = 'Drafting… this takes a minute or two.';
+      EGBCAuth.call('raDraftAssessment', { kind: 'event', calEventId: ID, eventKind: A.kind, flags: A.flags, people: A.people, description: text,
+        questions: HT.eventQuestions(A.kind, A.flags, A.care).map(function (q) { return { id: q.id, label: q.label }; }) }, { timeoutMs: 190000 }).then(function (res) {
+        EGBCRaDraft.merge(A, res, { today: TODAY, targets: H.settingsOf(SET).targets, by: ME.name || '' });
+        draw(); say((res.message ? res.message + ' ' : '') + 'First draft by AI: check every line, then save.');
+      }, function (e) { $('draftGo').disabled = false; msg.textContent = (e && e.name === 'AbortError') ? 'Still working: try again in a minute.' : 'Not drafted: ' + ((e && e.message) || e); });
+    };
+  }
   function wire() {
+    wireDraft();
+    document.querySelectorAll('[data-use]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-use'), e = $('q_' + id); if (e) { e.value = A.suggested[id]; b.parentNode.remove(); say('Not saved yet.'); } }; });
     if ($('saveGo')) $('saveGo').onclick = save;
     var redraw = function () { collect(); draw(); say('Not saved yet.'); };
     ['eKind', 'ePeople'].forEach(function (id) { if ($(id)) $(id).onchange = redraw; });

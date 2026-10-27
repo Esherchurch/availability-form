@@ -20,6 +20,9 @@
 <script src="egbc-compliance.js?v=202610192300"></script>
 <script src="egbc-compliance-templates.js?v=202610281000"></script>
 <script src="egbc-compliance-store.js?v=202610281000"></script>
+<script src="egbc-ra-core.js?v=202610271600"></script>
+<script src="egbc-hs-templates.js?v=202610281800"></script>
+<script src="egbc-hs-dash.js?v=202610281800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -139,11 +142,14 @@
       var a = raOf(k); if (!a || a.status !== 'countersigned') return;
       (a.hazards || []).forEach(function (h) { var r = T.rating(h.rl, h.rs); if (r.band !== 'Low') found.push({ k: k, h: h, r: r, rag: worst(h.checks) }); });
     });
-    return '<div class="card" id="assessCard"><h2>The building’s own assessments</h2>' + Object.keys(RA_KINDS).map(function (k) {
+    /* THE DIALS (H&S step 6): from the hub's own numbers */
+    EGBCHsDash.css();
+    var dials = EGBCHsDash.html(EGBCHsDash.building({ ra: { hs: raOf('hs'), fire: raOf('fire') }, sched: B.sched, profile: B.profile, today: TODAY }));
+    return dials + '<div class="card" id="assessCard"><h2>The building’s own assessments</h2>' + Object.keys(RA_KINDS).map(function (k) {
       var a = raOf(k), href = 'assessment.html?site=' + encodeURIComponent(SITE.id) + '&kind=' + k;
       var words = !a ? 'Not started.' : a.status === 'countersigned' ? 'Countersigned, version ' + a.version + '. Review by ' + day(a.reviewDue) + (a.reviewDue < TODAY ? ': overdue.' : '.') : a.status === 'signed' ? 'Signed; waiting for a trustee to countersign.' : 'Draft, version ' + a.version + '.';
       var rag = !a || a.status !== 'countersigned' ? 'grey' : a.reviewDue < TODAY ? 'red' : 'green';
-      return '<div class="rec" data-ra="' + k + '"><span class="dot ' + rag + '"></span> <a href="' + href + '">' + esc(RA_KINDS[k][0]) + '</a><div class="m">' + esc(words) + '</div></div>';
+      return '<div class="rec" data-ra="' + k + '"><span class="dot ' + rag + '"></span> <a href="' + href + '">' + esc(RA_KINDS[k][0]) + '</a>' + (a ? ' · <a href="ra-print.html?site=' + encodeURIComponent(SITE.id) + '&kind=' + k + '" target="_blank" rel="noopener">Print</a>' : '') + '<div class="m">' + esc(words) + '</div></div>';
     }).join('') +
       (found.length ? '<h2 style="margin-top:12px">Their significant findings</h2>' + found.map(function (f) {
         return '<div class="rec" data-finding="' + esc(f.h.id) + '"><span class="dot ' + f.rag + '"></span> <b>' + esc(f.h.hazard) + '</b> <span class="pill ' + f.r.band + '">' + f.r.band + ' (' + f.r.score + ')</span><div class="m">' + esc(RA_KINDS[f.k][0]) + (f.h.checks && f.h.checks.length ? ' · ' + f.h.checks.length + ' check' + (f.h.checks.length === 1 ? '' : 's') + ' watching it' : ' · no check watches it') + '</div></div>';

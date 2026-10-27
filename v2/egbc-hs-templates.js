@@ -219,7 +219,28 @@
     return out;
   }
 
-  var api = { KINDS: KINDS, EVENT_KINDS: EVENT_KINDS, AWAY: AWAY, EVENT_FLAGS: EVENT_FLAGS, EQ: EQ, E_BASE: E_BASE, E_HERE: E_HERE, E_AWAY: E_AWAY, E_KIND: E_KIND, E_FLAG: E_FLAG,
+  /* THE HUB'S OWN ROWS for an event (F-280 3C), from its numbers: the page and the print say the same.
+     o = { a, rooms (the event's, with fireMax), stat ({ hs, fire }: raStatus), siteName, today } -> [{ rag, words, mustNot }] */
+  function longDay(d) { return RA && RA.longDate ? RA.longDate(d) : d; }
+  function eventHubRows(o) {
+    var a = o.a, out = [], isAway = AWAY.indexOf(a.kind) >= 0, rooms = o.rooms || [], stat = o.stat || {};
+    if (!isAway && rooms.length) {
+      var max = rooms.reduce(function (n, r) { return n + (+r.fireMax || 0); }, 0), unset = rooms.filter(function (r) { return !r.fireMax; });
+      if (unset.length) out.push({ rag: 'amber', words: 'No fire maximum is set for ' + unset.map(function (r) { return r.name; }).join(', ') + ' (Places).' });
+      else if (a.people > max) out.push({ rag: 'red', mustNot: true, words: a.people + ' people expected; the rooms hold ' + max + ' at most for fire safety: must not go ahead as described.' });
+      else if (a.people) out.push({ rag: 'green', words: a.people + ' people expected; the rooms hold ' + max + ' at most for fire safety.' });
+    }
+    if (!isAway && a.siteId) ['fire', 'hs'].forEach(function (k) {
+      var s = stat[k], name = KINDS[k].title.toLowerCase();
+      if (!s || s.status !== 'countersigned') out.push({ rag: 'amber', words: 'The building’s ' + name + ' is not countersigned yet.' });
+      else if (s.reviewDue < o.today) out.push({ rag: 'red', words: 'The building’s ' + name + ' is overdue for review (' + longDay(s.reviewDue) + ').' });
+    });
+    if (!isAway && (a.flags || {}).flames) out.push({ rag: 'amber', words: 'Candles or naked flames in ' + (o.siteName || 'the building') + ': see the building’s fire risk assessment, fire hazards' + (stat.fire && stat.fire.status === 'countersigned' ? ' (version ' + stat.fire.version + ')' : '') + '.' });
+    if (isAway && !(a.venue && a.venue.readAt)) out.push({ rag: 'amber', words: 'The venue’s own fire arrangements and risk assessment haven’t been read yet.' });
+    return out;
+  }
+
+  var api = { KINDS: KINDS, EVENT_KINDS: EVENT_KINDS, eventHubRows: eventHubRows, AWAY: AWAY, EVENT_FLAGS: EVENT_FLAGS, EQ: EQ, E_BASE: E_BASE, E_HERE: E_HERE, E_AWAY: E_AWAY, E_KIND: E_KIND, E_FLAG: E_FLAG,
     eventQuestions: eventQuestions, eventDone: eventDone, needsReasons: needsReasons, GROUPS: GROUPS, SECTIONS: SECTIONS, Q: Q, BASE: BASE, BY_PROFILE: BY_PROFILE, PRIORITIES: PRIORITIES,
     questionsFor: questionsFor, done: done, actionDue: actionDue, addMonths: addMonths, reviewRag: reviewRag };
   global.EGBCHsTemplates = api;

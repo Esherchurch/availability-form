@@ -13087,3 +13087,57 @@ All 11 passed.
 - **Its PCC away day and the pilgrimage abroad** are away events: no safeguarding unless under-18s go. The care question is the only part that can involve the safeguarding lead.
 
 **Deploy (the reviewing window's):** `raReadReport` and `raAiStatus` (changed), and `sgRequirementsFromLinks` and the other sg-ai.js functions (`realDeps` is exported now; nothing else changes). The rules go live when the hub goes live.
+
+### F-302 — H&S steps 6 and 7: the dials and the A4 print; the AI first drafts (F-280 sections 5 and 7) (the events window, 28 Oct)
+
+**Step 6, the dials and the print:**
+- **The live risk register's first tab has six dials,** from the hub's own numbers (egbc-hs-dash.js):
+  - the fire assessment in date
+  - the health and safety assessment in date
+  - the checks in date (%)
+  - actions overdue
+  - open safety jobs
+  - the required questions answered
+- **ra-print.html prints a building's assessment** (`?site=&kind=`) **or an event's** (`?event=`) on A4, with the safeguarding print's shared pieces:
+  - DRAFT until countersigned (a building's) or approved (an event's)
+  - a row of dials, then who signed, who countersigned or approved, and when
+  - the red box for anything that must not go ahead (an event's hub rows)
+  - the "not legal advice" words
+  - each section, with the rooms' fire maximums and the fire checks' colours
+  - the risk table in words, the action plan with priorities and dates, and the required questions
+  - an appendix for a report or a venue that was read
+  - signature boxes
+  - "Print" links on both assessments and on the register.
+- **The fire assessment counts the agreed personal evacuation plans,** never naming them. peeps.js keeps `raCounts/peeps` (F-299's found item).
+
+**Step 7, the AI first drafts:**
+- **A new function, `raDraftAssessment`,** drafts a building's health and safety or fire assessment, or an event's, from a plain description.
+  - Same plumbing, caps and log as the reader; no new secret.
+  - The hub's own facts go with it: the rooms' fire maximums, the checks and their colours, and counts. Never names.
+  - A description with a phone number, email, postcode or name is refused, and socket covers are left out and counted.
+- **The draft comes back to the page, never saved by itself:**
+  - It is labelled "First draft by AI: check every line". The hub does the sums from the AI's numbers.
+  - An overdue check becomes a hub action, whatever the AI says.
+  - Its answers to the required questions are suggestions, each with "Use it". They never count by themselves.
+  - Saving is the person's check: "First draft by AI, checked by <name> on <date>", on the page and the print.
+  - What the AI says must not go ahead is shown in red, to check. The hub's own rows still block an event's signing.
+
+**Checked:** one quick run, with a stand-in AI, all 13 passed:
+- the evacuation plan count
+- the building draft: labelled, socket covers left out, a suggestion used, saved as checked
+- the six dials
+- the building print
+- the event draft, with its must-not
+- the hub row still blocking
+- the event print with its red box
+- a plain member refused, and a phone number refused
+
+**For main:** the audit's page list: add ra-print.html.
+
+**For the synthetic parish:** its Parish office describes St Hild in plain words and gets a first draft that already knows the tower, the kitchen and the overdue checks. It checks every line and saves. The PCC then signs a printed copy for the paper file.
+
+**Deploy (the reviewing window's):**
+- `raDraftAssessment` (new)
+- the peepToday* functions (peeps.js now keeps the count)
+
+The rules go live when the hub goes live. A real AI call only on your word.

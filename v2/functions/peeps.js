@@ -43,6 +43,10 @@ export async function runPeepToday({ db, today }) {
   const old = await db.collection('peepToday').get();
   for (const d of old.docs) if (!on || !d.id.startsWith(today + '__')) await d.ref.delete();
   if (!on) return { off: true };
+  /* HOW MANY personal evacuation plans there are, agreed, for the fire risk
+     assessment (H&S step 6; F-280 3B): a number, never a name. */
+  const agreed = (await db.collection('peeps').where('agreed', '==', true).get()).size;
+  await db.collection('raCounts').doc('peeps').set({ agreed, at: new Date().toISOString() });
 
   const siteDocs = (await db.collection('sites').get()).docs.filter((d) => d.data().active !== false)
     .sort((a, b) => (a.data().order || 0) - (b.data().order || 0));

@@ -3167,7 +3167,7 @@ return a.keys().hasAll(raHsChecklist(d.kind, exists(pp) ? get(pp).data : {}))
 && !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
 }
 function raAssessShape(d) {
-return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue', 'source',
+return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue', 'source', 'ai', 'suggested',
 'signedBy', 'signedByName', 'signedByRole', 'signedAt', 'signedVersion', 'counterBy', 'counterByName', 'counterAt', 'updatedBy', 'updatedAt'])
 && d.kind in ['hs', 'fire'] && d.version is int && d.version >= 1
 && d.status in ['draft', 'signed', 'countersigned']
@@ -3178,6 +3178,7 @@ return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'ass
 && d.get('actions', []) is list && d.get('actions', []).size() <= 500
 && d.get('answers', {}) is map && d.get('answers', {}).size() <= 200
 && d.get('source', {}) is map && d.get('source', {}).size() <= 12
+&& d.get('ai', {}) is map && d.get('ai', {}).size() <= 8 && d.get('suggested', {}) is map && d.get('suggested', {}).size() <= 200
 && d.updatedBy == request.auth.uid;
 }
 function raAssessWrite(id, d, before) {
@@ -3229,7 +3230,7 @@ return cmpSees() || runsEventId(calEventId) || isEventLeader(calEventId) || raAn
 || (d.get('care', {}).get('support', '') == 'yes' && (sgLeadOf(d.get('siteId', '')) || sgLeadOf(d.get('approverSiteId', ''))));
 }
 function raEventShape(d, calEventId) {
-return d.keys().hasOnly(['calEventId', 'siteId', 'approverSiteId', 'title', 'kind', 'flags', 'care', 'people', 'marked', 'venue', 'sections', 'hazards', 'actions', 'answers',
+return d.keys().hasOnly(['calEventId', 'siteId', 'approverSiteId', 'title', 'kind', 'flags', 'care', 'people', 'marked', 'venue', 'sections', 'hazards', 'actions', 'answers', 'ai', 'suggested',
 'version', 'status', 'source', 'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'approvedBy', 'approvedByName', 'approvedAt', 'updatedBy', 'updatedAt'])
 && d.calEventId == calEventId && exists(/databases/$(database)/documents/calEvents/$(calEventId))
 && d.kind in ['general', 'concert', 'fair', 'wedding', 'baptism', 'funeral', 'hire', 'daytrip', 'residential', 'adventurous']
@@ -3244,6 +3245,7 @@ return d.keys().hasOnly(['calEventId', 'siteId', 'approverSiteId', 'title', 'kin
 && d.get('actions', []) is list && d.get('actions', []).size() <= 500
 && d.get('answers', {}) is map && d.get('answers', {}).size() <= 200
 && d.get('source', {}) is map && d.get('source', {}).size() <= 12
+&& d.get('ai', {}) is map && d.get('ai', {}).size() <= 8 && d.get('suggested', {}) is map && d.get('suggested', {}).size() <= 200
 && d.version is int && d.version >= 1 && d.status in ['draft', 'signed', 'approved']
 && d.updatedBy == request.auth.uid;
 }
@@ -3295,6 +3297,10 @@ allow create, update: if request.resource.data.keys().hasOnly(['siteId', 'kind',
 && getAfter(/databases/$(database)/documents/raAssessments/$(id)).data.get('reviewDue', '') == request.resource.data.reviewDue
 && getAfter(/databases/$(database)/documents/raAssessments/$(id)).data.get('counterAt', null) == request.resource.data.get('counterAt', null);
 allow delete: if false;
+}
+match /raCounts/{id} {
+allow read: if active();
+allow write: if false;
 }
 match /raSigned/{id} {
 allow read: if raAssessSees(resource.data.siteId);

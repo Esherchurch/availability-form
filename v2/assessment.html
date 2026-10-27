@@ -26,7 +26,8 @@
 <script src="egbc-compliance-store.js?v=202610281000"></script>
 <script src="egbc-ra-core.js?v=202610271600"></script>
 <script src="egbc-hs-core.js?v=202610281000"></script>
-<script src="egbc-hs-templates.js?v=202610281600"></script>
+<script src="egbc-hs-templates.js?v=202610281800"></script>
+<script src="egbc-ra-draft.js?v=202610281800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -82,7 +83,7 @@
       RA = window.EGBCRaCore, H = window.EGBCHsCore, HT = window.EGBCHsTemplates, esc = E.esc;
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   var ME = {}, JOBP = null, SITES = [], SITE = null, KIND = 'hs', A = null, ROLES = {}, B = null, SCHED = null, ROOMS = [], GEEP = null,
-      SET = {}, CHURCH = '', PEOPLE = {}, HELD = '', EDIT = false, OFFICE = false, TRUSTEE = false, MASTER = false, READ = null, AI = null;
+      SET = {}, CHURCH = '', PEOPLE = {}, HELD = '', EDIT = false, OFFICE = false, TRUSTEE = false, MASTER = false, READ = null, AI = null, PEEPN = null;
   function db() { return EGBCAuth.db; }
   function $(id) { return document.getElementById(id); }
   function all(s) { return s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); }
@@ -114,8 +115,9 @@
     var get = function (c, d) { return db().collection(c).doc(d).get().then(function (x) { return x.exists ? x.data() : null; }, function () { return null; }); };
     return Promise.all([get('raAssessments', id), get('raSiteRoles', SITE.id), ST.load(db(), SITE.id).catch(function () { return null; }),
       db().collection('rooms').where('siteId', '==', SITE.id).get().then(all, function () { return []; }), get('geeps', SITE.id),
-      db().collection('complianceTemplates').get().then(all, function () { return []; }), get('raReads', id)]).then(function (r) {
+      db().collection('complianceTemplates').get().then(all, function () { return []; }), get('raReads', id), get('raCounts', 'peeps')]).then(function (r) {
       READ = r[6];
+      if (r[7]) PEEPN = r[7].agreed || 0;
       A = r[0] || blank(); ROLES = r[1] || {}; B = r[2]; ROOMS = r[3].filter(function (x) { return x.active !== false && x.kind !== 'online'; }); GEEP = r[4];
       var tpl = r[5].length ? r[5] : T.TEMPLATES;
       SCHED = B ? C.schedule({ profile: B.profile, templates: tpl, checks: B.checks, records: B.records, jobs: B.jobs, triggers: B.triggers, today: TODAY }) : { items: [] };
@@ -211,7 +213,7 @@
     if (s.id === 'record' || s.id === 'actions') extra = actionsHtml();
     if (s.id === 'premises') extra = ROOMS.length ? '<table><tr><th>Room</th><th>Fire maximum</th></tr>' + ROOMS.map(function (r) { return '<tr><td>' + esc(r.name) + '</td><td>' + (r.fireMax ? esc(r.fireMax) + ' people' : '<span class="blank">not set (Places)</span>') + '</td></tr>'; }).join('') + '</table>' : '<p class="hint">No rooms in Places yet.</p>';
     if (s.id === 'responsible') extra = '<p id="responsible">' + esc(H.responsible(CHURCH, PEOPLE[ROLES.fireLead] || '')) + '.</p>';
-    if (s.id === 'people') extra = '<p class="hint" id="geepLine">' + (GEEP ? 'The building has a plan for visitors who need help to get out (the live risk register’s GEEP).' : 'No plan yet for visitors who need help to get out: add one on the live risk register (GEEP).') + ' People’s own evacuation plans are kept with the fire roll call, never named here.</p>';
+    if (s.id === 'people') extra = (PEEPN !== null ? '<p id="peepCount">' + PEEPN + ' personal evacuation plan' + (PEEPN === 1 ? '' : 's') + ' agreed (a count; the plans are kept with the fire roll call).</p>' : '') + '<p class="hint" id="geepLine">' + (GEEP ? 'The building has a plan for visitors who need help to get out (the live risk register’s GEEP).' : 'No plan yet for visitors who need help to get out: add one on the live risk register (GEEP).') + ' People’s own evacuation plans are kept with the fire roll call, never named here.</p>';
     if (s.checks) extra += '<div class="hint" style="margin-top:6px">The building’s checks:</div>' + checksHtml(s.checks);
     return '<div class="card" data-sec="' + s.id + '"><h2>' + esc(s.title) + '</h2>' + (s.hint ? '<p class="hint">' + esc(s.hint) + '</p>' : '') + extra +
       (s.id !== 'evaluate' ? '<label class="l" for="sec_' + s.id + '">Notes</label>' + txt('sec_' + s.id, A.sections[s.id]) : txt('sec_' + s.id, A.sections[s.id])) + '</div>';
@@ -221,7 +223,7 @@
     return '<div class="card" id="questions"><h2>Before it is signed: every question answered</h2><p class="hint">Answer each, or write “N/A: ” and the reason. ' + (left.length ? left.length + ' still to answer.' : 'All answered.') + '</p>' +
       qs.map(function (q) {
         return '<div class="item" data-q="' + q.id + '"><label class="l" for="q_' + q.id + '">' + esc(q.label) + (left.indexOf(q.id) >= 0 ? ' <span class="blank">not answered</span>' : '') + '</label><p class="hint" style="margin:0 0 4px">' + esc(q.hint) + '</p>' +
-          (EDIT ? '<input class="inp" id="q_' + q.id + '" maxlength="2000" value="' + esc(A.answers[q.id] || '') + '">' : '<p>' + esc(A.answers[q.id] || '—') + '</p>') + '</div>';
+          (EDIT ? '<input class="inp" id="q_' + q.id + '" maxlength="2000" value="' + esc(A.answers[q.id] || '') + '">' : '<p>' + esc(A.answers[q.id] || '—') + '</p>') + EGBCRaDraft.suggestion(A, q.id, EDIT) + '</div>';
       }).join('') + '</div>';
   }
   function signHtml() {
@@ -241,8 +243,10 @@
     var k = HT.KINDS[KIND], other = KIND === 'hs' ? 'fire' : 'hs';
     var html = '<h1>' + esc(k.title) + '</h1><p class="sub">' + esc(SITE.name || '') + '</p>' +
       (SITES.length > 1 ? '<div class="tabs" id="sites">' + SITES.map(function (s) { return '<a href="?site=' + encodeURIComponent(s.id) + '&kind=' + KIND + '" aria-current="' + (s.id === SITE.id) + '">' + esc(s.name || s.id) + '</a>'; }).join('') + '</div>' : '') +
-      '<div class="tabs" id="kinds"><a href="?site=' + encodeURIComponent(SITE.id) + '&kind=hs" aria-current="' + (KIND === 'hs') + '">Health and safety</a><a href="?site=' + encodeURIComponent(SITE.id) + '&kind=fire" aria-current="' + (KIND === 'fire') + '">Fire</a><a href="risk.html?site=' + encodeURIComponent(SITE.id) + '">The live risk register</a></div>' +
+      '<div class="tabs" id="kinds"><a href="?site=' + encodeURIComponent(SITE.id) + '&kind=hs" aria-current="' + (KIND === 'hs') + '">Health and safety</a><a href="?site=' + encodeURIComponent(SITE.id) + '&kind=fire" aria-current="' + (KIND === 'fire') + '">Fire</a><a href="risk.html?site=' + encodeURIComponent(SITE.id) + '">The live risk register</a>' +
+        (A.version > 1 || A.status !== 'draft' || A.hazards.length ? '<a id="printLink" href="ra-print.html?site=' + encodeURIComponent(SITE.id) + '&kind=' + KIND + '" target="_blank" rel="noopener">Print</a>' : '') + '</div>' +
       (HELD ? '<div class="banner gold" id="held">' + esc(HELD) + '</div>' : '') + statusHtml() +
+      EGBCRaDraft.label(A, RA.longDate) + (EDIT ? EGBCRaDraft.box(AI, 'the building') : '') +
       (A.source && A.source.assessor ? '<p class="hint" id="readFrom">Read from ' + esc(A.source.assessor) + '’s report' + (A.source.date ? ' of ' + esc(RA.longDate(A.source.date)) : '') + ', checked by ' + esc(A.source.checkedBy || '') + ' on ' + esc(RA.longDate(A.source.checkedOn)) + '.</p>' : '') +
       readHtml() +
       '<div class="banner info" id="notAdvice">' + esc(H.NOT_ADVICE) + '</div>' +
@@ -324,7 +328,7 @@
       $('readState').textContent = st.state === 'ready' ? '' : (st.message || 'Not available for you here.');
       $('readRow').style.display = st.state === 'ready' ? '' : 'none';
     };
-    (AI ? Promise.resolve(AI) : EGBCAuth.call('raAiStatus', { siteId: SITE.id }).catch(function () { return { state: 'unreachable', message: 'The AI could not be reached just now.' }; })).then(ready);
+    if (AI) ready(AI);   /* asked once, by the draft's card (wireDraft) */
     $('readGo').onclick = function () { $('readFile').click(); };
     $('readFile').onchange = function () {
       var f = $('readFile').files[0], msg = $('readMsg'); if (!f) return;
@@ -345,6 +349,8 @@
   function base(x) {
     var out = {}; ['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue'].forEach(function (k) { out[k] = x[k]; });
     if (x.source) out.source = x.source;
+    if (x.ai) out.ai = x.ai;
+    if (x.suggested) out.suggested = x.suggested;
     out.updatedBy = uid(); out.updatedAt = nowIso(); return out;
   }
   function ref() { return db().collection('raAssessments').doc(SITE.id + '__' + KIND); }
@@ -360,11 +366,31 @@
   }
   function save() {
     collect();
+    EGBCRaDraft.checked(A, ME.name, TODAY);   /* saving an AI draft is the person's check */
     var b = $('saveGo'); b.disabled = true; say('Saving…');
     return writeA(base(A)).then(function () { return load(); }).then(function () { draw(); say('Saved.'); }, function (e) { b.disabled = false; say('Not saved: ' + (e.message || e)); });
   }
+  /* THE AI FIRST DRAFT (H&S step 7) */
+  function wireDraft() {
+    var card = $('draftCard'); if (!card) return;
+    if (!AI) return EGBCAuth.call('raAiStatus', { siteId: SITE.id }).catch(function () { return { state: 'unreachable', message: 'The AI could not be reached just now.' }; })
+      .then(function (st) { AI = st; if ($('draftCard')) { $('draftCard').outerHTML = EGBCRaDraft.box(AI, 'the building'); wireDraft(); } if ($('readState')) wireRead(); });
+    if (!$('draftGo')) return;
+    $('draftGo').onclick = function () {
+      collect();
+      var text = $('draftText').value.trim(), msg = $('draftMsg');
+      if (text.length < 10) { msg.textContent = 'Say a little about the building first.'; return; }
+      $('draftGo').disabled = true; msg.textContent = 'Drafting… this takes a minute or two.';
+      EGBCAuth.call('raDraftAssessment', { kind: KIND, siteId: SITE.id, description: text, questions: HT.questionsFor(KIND, profile()).map(function (q) { return { id: q.id, label: q.label }; }) }, { timeoutMs: 190000 }).then(function (res) {
+        EGBCRaDraft.merge(A, res, { today: TODAY, targets: H.settingsOf(SET).targets, by: ME.name || '' });
+        AI = null; draw(); say((res.message ? res.message + ' ' : '') + 'First draft by AI: check every line, then save.');
+      }, function (e) { $('draftGo').disabled = false; msg.textContent = (e && e.name === 'AbortError') ? 'Still working: try again in a minute.' : 'Not drafted: ' + ((e && e.message) || e); });
+    };
+  }
   function wire() {
     wireRead();
+    wireDraft();
+    document.querySelectorAll('[data-use]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-use'), e = $('q_' + id); if (e) { e.value = A.suggested[id]; b.parentNode.remove(); say('Not saved yet.'); } }; });
     var redraw = function () { collect(); draw(); say('Not saved yet.'); };
     if ($('saveGo')) $('saveGo').onclick = save;
     if ($('hzAdd')) $('hzAdd').onclick = function () { collect(); A.hazards.push({ id: newId('h'), hazard: '', who: '', l: 3, s: 3, rl: 2, rs: 3, checks: [], written: '', owner: '' }); draw(); say('Not saved yet.'); };

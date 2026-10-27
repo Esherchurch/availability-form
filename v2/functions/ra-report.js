@@ -16,6 +16,11 @@
  *   it found is saved in raReads/<id>__<kind>, NOT in any assessment. The
  *   page shows it and a person checks each line before anything is added.
  *   raAiStatus({ siteId | calEventId | bookingKey })   ready / notset / ...
+ *   raDraftAssessment({ kind: 'hs'|'fire', siteId | kind: 'event', calEventId, eventKind, flags, people,
+ *       description, questions })   (H&S step 7) the AI's first draft, RETURNED to the page and never
+ *       saved by itself: the page labels it "First draft by AI: check every line" and the person
+ *       saves it. The description is refused if it has a person's details. The hub's own facts go
+ *       with it (fire maximums, the checks' colours, counts); the hub does the sums.
  *
  * Who: as for what is being assessed - a building's: master admins, the
  * office (its job) and the building's leads; an event's: its organisers and
@@ -39,6 +44,9 @@ const require = createRequire(import.meta.url);
 const R = require('./ra-report-core.cjs');
 const Links = require('./web-reader-core.cjs');
 const RA = require('./ra-ai-core.cjs');
+const DR = require('./ra-draft-core.cjs');
+const CE = require('./compliance-engine.cjs');
+const CS = require('./compliance-store.cjs');
 const REGION = 'europe-west2';
 const WORDS = {
   notSet: 'Reading with AI isn’t set up yet for this church. Type the findings in by hand.',
@@ -75,6 +83,16 @@ export async function targetFor(dbi, uid, data) {
     const r = (await get(dbi, 'raSiteRoles', siteId)) || {}, mid = me.memberId || '';
     const ok = me._office || (!!mid && [r.hsLead, r.hsDeputy, r.fireLead].includes(mid));
     return { ok, me, kind, siteId, docId: siteId + '__' + kind, path: 'compliance/' + siteId + '/risk-' + kind + '/' + stamp, heads: R.headsFor(kind) };
+  }
+  if (kind === 'event') {
+    const calEventId = String(data.calEventId || '');
+    const ev = calEventId && !calEventId.includes('/') ? await get(dbi, 'calEvents', calEventId) : null;
+    if (!ev) throw new HttpsError('invalid-argument', 'Which event?');
+    const l = (await get(dbi, 'eventLeaders', calEventId)) || {}, mid = me.memberId || '';
+    let ok = me._office || (!!mid && (ev.teamMemberIds || []).includes(mid)) || (ev.teamUids || []).includes(uid) || (l.leaderUids || []).includes(uid)
+      || ((me.adminFor || []).length > 0 && ev.createdBy === uid);
+    if (!ok && mid) { const roles = await dbi.collection('raSiteRoles').get(); ok = roles.docs.some((d) => [d.data().hsLead, d.data().hsDeputy].includes(mid)); }
+    return { ok, me, kind, calEventId, ev, siteId: (ev.location || {}).kind === 'room' ? (ev.location.siteId || '') : '', heads: [] };
   }
   if (kind === 'venue') {
     const calEventId = String(data.calEventId || '');
@@ -177,6 +195,78 @@ export async function readReport({ db: dbi, uid, data, api, bucket, prefix, deps
   return { ok: true, findings: out.findings.length, actions: out.actions.length, gaps: out.gaps.length, leftOut: n.leftOut, personalFound: n.personalFound,
     message: n.personalFound ? 'It seems to have names, phone numbers or emails in it. They were left out of what was read.' : '' };
 }
+
+/* THE AI FIRST DRAFT (H&S step 7) */
+const DRAFT_WORDS = { email: 'It looks like this has an email address in it. Take it out and try again.', phone: 'It looks like this has a phone number in it. Take it out and try again.',
+  postcode: 'It looks like this has a postcode in it. Name the place in general words and try again.', dob: 'It looks like this has a date of birth in it. Give ages in general words and try again.',
+  nhs: 'It looks like this has an NHS number in it. Take it out and try again.', name: 'It looks like this has a person’s name in it. Use their role instead and try again.' };
+async function factsFor(dbi, t, data, today) {
+  const all = (s) => s.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const rooms = t.siteId ? all(await dbi.collection('rooms').where('siteId', '==', t.siteId).get()).filter((r) => r.active !== false && r.kind !== 'online') : [];
+  const peeps = await get(dbi, 'raCounts', 'peeps'), geep = t.siteId ? await get(dbi, 'geeps', t.siteId) : null;
+  const facts = {};
+  if (t.siteId) {
+    const site = (await get(dbi, 'sites', t.siteId)) || {};
+    facts.building = site.name || '';
+    const b = await CS.load(dbi, t.siteId), templates = all(await dbi.collection('complianceTemplates').get());
+    facts.answeredYes = Object.keys(b.answers || {}).filter((k) => b.answers[k] === true);
+    const sched = CE.schedule({ profile: b.profile, templates, checks: b.checks, records: b.records, jobs: b.jobs, triggers: b.triggers, today });
+    facts.checks = sched.items.filter((i) => i.state === 'on').map((i) => ({ check: i.title, colour: i.rag === 'red' ? 'overdue' : i.rag === 'amber' ? 'due soon' : i.rag === 'green' ? 'in date' : 'not yet done' })).slice(0, 150);
+    facts.openSafetyJobs = (sched.safetyJobs || []).length;
+  }
+  if (t.kind === 'event') {
+    const roomIds = ((t.ev.location || {}).roomIds || []);
+    facts.event = { title: String(t.ev.title || '').slice(0, 200), kind: String(data.eventKind || ''), people: Number.isInteger(data.people) ? data.people : 0,
+      flags: Object.keys(data.flags || {}).filter((k) => data.flags[k] === true).slice(0, 10), away: (t.ev.location || {}).kind === 'venue' };
+    facts.rooms = rooms.filter((r) => roomIds.includes(r.id)).map((r) => ({ room: r.name, fireMaximum: r.fireMax || 'not set' }));
+  } else facts.rooms = rooms.map((r) => ({ room: r.name, fireMaximum: r.fireMax || 'not set' }));
+  facts.personalEvacuationPlansAgreed = peeps ? peeps.agreed || 0 : 'not known';
+  facts.planForVisitorsWhoNeedHelp = !!geep;
+  return facts;
+}
+export async function draftAssessment({ db: dbi, uid, data, api, today }) {
+  data = data || {};
+  today = today || londonDay();
+  const kind = data.kind === 'fire' ? 'fire' : data.kind === 'hs' ? 'hs' : data.kind === 'event' ? 'event' : '';
+  if (!kind) throw new HttpsError('invalid-argument', 'Which assessment?');
+  const t = await targetFor(dbi, uid, Object.assign({}, data, { kind }));
+  if (!t.ok) throw new HttpsError('permission-denied', kind === 'event' ? 'This is for the event’s organisers and leaders, the office and the health and safety leads.' : 'This is for the office, the building’s health and safety and fire safety leads, and master admins.');
+  const description = String(data.description || '').trim().slice(0, 4000);
+  if (description.length < 10) throw new HttpsError('invalid-argument', 'Say a little about it first.');
+  const p = RA.personalCheck(description, []);
+  if (p.refuse) throw new HttpsError('invalid-argument', DRAFT_WORDS[p.refuse] || DRAFT_WORDS.name);
+  const questions = (Array.isArray(data.questions) ? data.questions : []).slice(0, 200).map((q) => ({ id: String((q && q.id) || '').slice(0, 60), label: String((q && q.label) || '').slice(0, 200) })).filter((q) => q.id);
+  const base = { siteId: t.siteId || '', calEventId: t.calEventId || '', by: uid, byName: t.me.name || '', chars: description.length, kind: 'draft-' + kind };
+  const key = api || (await apiOf(dbi));
+  if (!key.apiKey) throw new HttpsError('failed-precondition', WORDS.notSet);
+  if (await broken(dbi, key.apiKey)) throw new HttpsError('failed-precondition', WORDS.broken);
+  if (!(await takeOne(dbi, uid, capsOf((await get(dbi, 'raSettings', 'church')) || {})))) { await logIt(dbi, Object.assign({ outcome: 'capped' }, base)); throw new HttpsError('resource-exhausted', WORDS.capped); }
+  const facts = await factsFor(dbi, t, data, today);
+  let res;
+  try {
+    res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, request: { model: DR.MODEL, max_tokens: 16000,
+      system: [{ type: 'text', text: DR.SYSTEM(kind), cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: DR.userText(kind, description, facts, questions) }],
+      output_config: { format: { type: 'json_schema', schema: DR.SCHEMA } } } });
+  } catch (e) { throw await callFailed(dbi, e, key, base, 'raDraftAssessment'); }
+  await noteWorking(dbi, key.apiKey);
+  const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
+  if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', 'The AI couldn’t draft this; write it by hand instead.'); }
+  let parsed = null;
+  try { parsed = res.stop_reason === 'max_tokens' ? null : JSON.parse((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')); } catch (e) { parsed = null; }
+  const n = DR.normalise(parsed, questions.map((q) => q.id));
+  if (!n.ok) { await logIt(dbi, Object.assign({ outcome: 'failed' }, base, usage)); throw new HttpsError('internal', 'The draft came back incomplete; try again.'); }
+  await logIt(dbi, Object.assign({ outcome: 'drafted' }, base, usage));
+  /* the hub's own rows (F-280 section 5): an overdue check is an action, whatever the AI said */
+  const hubActions = (facts.checks || []).filter((c) => c.colour === 'overdue').map((c) => ({ what: 'Overdue check: ' + c.check, priority: 'high', from: 'hub' }));
+  return { ok: true, at: new Date().toISOString(), summary: n.summary, hazards: n.hazards, actions: hubActions.concat(n.actions), answers: n.answers, mustNot: n.mustNot, leftOut: n.leftOut,
+    message: n.leftOut ? n.leftOut + ' suggestion' + (n.leftOut === 1 ? ' was' : 's were') + ' left out: socket covers aren’t advised for UK sockets, which have shutters built in.' : '' };
+}
+export const raDraftAssessment = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180, memory: '512MiB' }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
+  const ch = churchOf(req, getFirestore());
+  return draftAssessment({ db: ch.db, uid: req.auth.uid, data: req.data });
+});
 
 export const raReadReport = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180, memory: '512MiB' }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');

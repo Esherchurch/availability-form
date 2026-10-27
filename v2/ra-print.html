@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Risk assessment: print</title>
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610281400" data-title="Risk assessment: print"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610281400"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-compliance.js?v=202610192300"></script>
+<script src="egbc-compliance-templates.js?v=202610281000"></script>
+<script src="egbc-compliance-store.js?v=202610281000"></script>
+<script src="egbc-ra-core.js?v=202610271600"></script>
+<script src="egbc-ra-print.js?v=202610271600"></script>
+<script src="egbc-hs-core.js?v=202610281000"></script>
+<script src="egbc-hs-templates.js?v=202610281800"></script>
+<script src="egbc-hs-dash.js?v=202610281800"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- A BUILDING'S OR AN EVENT'S HEALTH AND SAFETY ASSESSMENT, PRINTED (H&S step 6; F-280 section 7): A4, not the
+     editing screen. DRAFT until signed and countersigned (a building's) or approved (an event's); a row of dials;
+     the red box for anything that must not go ahead; each section; the risk table in words; the action plan with
+     priorities and dates; an appendix for a report or a venue that was read; signature boxes. The print's styles
+     and pieces are shared with safeguarding's (egbc-ra-print.css and .js). -->
+<link rel="stylesheet" href="egbc-ra-print.css?v=202610271600">
+</head>
+<body>
+<div class="bar noprint"><button id="printIt" type="button">Print / save as PDF</button><span class="hint">Choose “Save as PDF” as the printer to keep a copy. A4.</span></div>
+<div class="sheet" id="sheet"><p>Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  var P = window.EGBCRaPrint, RA = window.EGBCRaCore, H = window.EGBCHsCore, HT = window.EGBCHsTemplates, D = window.EGBCHsDash, C = window.EGBCCompliance,
+      T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = P.esc, longDate = P.longDate, WORDS = P.WORDS;
+  var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  function db() { return EGBCAuth.db; }
+  var sheet = document.getElementById('sheet'), q = new URLSearchParams(location.search);
+  P.printedFooter();
+  document.getElementById('printIt').onclick = function () { window.print(); };
+  function fail(e) { sheet.innerHTML = '<p id="pFail">This can’t be printed here: ' + esc((e && e.message) || e) + '</p>'; }
+  function get(c, d) { return db().collection(c).doc(d).get().then(function (x) { return x.exists ? x.data() : null; }); }
+  function dials(list) { return '<div class="dials" id="pDials">' + list.map(function (d) { return P.dialCell(d.key, d.o, d.title, d.line); }).join('') + '</div>'; }
+  /* the risk table, in words: the checks named, then the controls written */
+  function risks(hz, checkTitle) {
+    return '<div class="wide"><h2>The risks</h2>' + P.riskTable((hz || []).map(function (h) {
+      return { risk: h.hazard, who: h.who, l: h.l, i: h.s, rl: h.rl, ri: h.rs, owner: h.owner || '', from: h.source === 'report' ? '' : '',
+        controls: (h.checks || []).map(checkTitle || function () { return ''; }).filter(Boolean).map(function (t) { return 'Check: ' + t; }).concat(h.written ? [h.written] : []) };
+    })) + '<p class="note">Ratings: likelihood × severity, 1 to 5 each, by the hub’s own sums. 15 or more is High, 5 to 14 Medium, under 5 Low.</p></div>';
+  }
+  function actions(list) {
+    var rows = (list || []).filter(function (a) { return a && a.what; });
+    return '<h2>The action plan</h2>' + (rows.length ? '<table class="ck" id="pActions"><thead><tr><th>Action</th><th>Priority</th><th>By</th><th>Who</th><th>Done</th></tr></thead><tbody>' + rows.map(function (a) {
+      var late = !a.done && a.due && a.due < TODAY;
+      return '<tr data-pact><td>' + esc(a.what) + (a.jobId ? '<div class="note">A maintenance job</div>' : '') + '</td><td>' + (a.priority === 'immediate' ? '<span class="rag red">Immediate</span>' : esc(String(a.priority || '').replace(/^./, function (c) { return c.toUpperCase(); }))) + '</td>' +
+        '<td>' + esc(a.due ? longDate(a.due) : 'No date') + (late ? ' <span class="rag amber">Overdue</span>' : '') + '</td><td>' + esc(a.owner || 'Nobody named') + '</td><td>' + (a.done ? 'Done' : 'Not yet') + '</td></tr>';
+    }).join('') + '</tbody></table>' : '<p class="na">No actions.</p>');
+  }
+  function checklist(qs, ans) {
+    return '<h2>The required questions</h2><table class="ck" id="pChecklist"><tbody>' + qs.map(function (x) {
+      var v = String(ans[x.id] || ''), ok = RA.answered(v), na = /^N\/A:/.test(v);
+      return '<tr data-pck="' + esc(x.id) + '"><td>' + esc(x.label) + '</td><td>' + (!ok ? '<span class="missing" data-pckmissing>Not answered</span>' : na ? '<span class="na">Not applicable: ' + esc(v.replace(/^N\/A:\s*/, '')) + '</span>' : esc(v)) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+  function notAdvice() { return '<p class="note" id="pNotAdvice">' + esc(H.NOT_ADVICE) + '</p>'; }
+  /* an AI first draft (H&S step 7): said, with who checked it */
+  function aiLine(a) { return a && a.ai ? '<p id="pAi"><b>' + (a.ai.checkedBy ? 'First draft by AI, checked by ' + esc(a.ai.checkedBy) + ' on ' + esc(longDate(a.ai.checkedOn)) + '.' : 'AI draft, not yet checked.') + '</b></p>' : ''; }
+
+  /* ---- A BUILDING'S ASSESSMENT ---- */
+  function printBuilding(siteId, kind) {
+    var k = HT.KINDS[kind];
+    return Promise.all([get('raAssessments', siteId + '__' + kind), get('sites', siteId), EGBCChurch.load().catch(function () { return {}; }),
+      ST.load(db(), siteId).catch(function () { return null; }), db().collection('complianceTemplates').get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }, function () { return []; }),
+      get('raSiteRoles', siteId).catch(function () { return null; }), db().collection('rooms').where('siteId', '==', siteId).get().catch(function () { return { docs: [] }; }), get('geeps', siteId).catch(function () { return null; }), get('raCounts', 'peeps').catch(function () { return null; })]).then(function (r) {
+      var a = r[0], site = r[1] || {}, church = r[2] || {}, B = r[3], roles = r[5] || {}, rooms = r[6].docs.map(function (d) { return d.data(); }).filter(function (x) { return x.active !== false && x.kind !== 'online'; });
+      if (!a) throw new Error('there is no ' + k.title.toLowerCase() + ' for this building yet');
+      var sched = B ? C.schedule({ profile: B.profile, templates: r[4].length ? r[4] : T.TEMPLATES, checks: B.checks, records: B.records, jobs: B.jobs, triggers: B.triggers, today: TODAY }) : { items: [] };
+      var checkTitle = function (id) { var i = sched.items.filter(function (x) { return x.id === id; })[0]; return i ? i.title : ''; };
+      var byTpl = function (tid) { return sched.items.filter(function (x) { return x.templateId === tid && x.state === 'on'; })[0]; };
+      var profile = (B && B.profile) || {}, qs = HT.questionsFor(kind, profile), left = HT.done(kind, profile, a.answers);
+      var done = a.status === 'countersigned';
+      var status = done ? '<div class="status" id="pStatus" data-state="signed">SIGNED AND COUNTERSIGNED<small>Signed by ' + esc(a.signedByName) + ', ' + esc(a.signedByRole) + ', on ' + esc(longDate(a.signedAt)) + '. Countersigned for the trustees by ' + esc(a.counterByName) + ' on ' + esc(longDate(a.counterAt)) + '. Version ' + a.version + '.</small></div>'
+        : a.status === 'signed' ? '<div class="status draft" id="pStatus" data-state="signed-only">SIGNED, NOT YET COUNTERSIGNED<small>Signed by ' + esc(a.signedByName) + ', ' + esc(a.signedByRole) + ', on ' + esc(longDate(a.signedAt)) + '. A trustee countersigns it next.</small></div>'
+        : '<div class="status draft" id="pStatus" data-state="draft">DRAFT: NOT SIGNED<small>This counts for nothing until ' + esc(k.signerWords) + ' signs it and a trustee countersigns it.</small></div>';
+      var extra = function (s) {
+        if (s.id === 'who') return '<p>' + esc(HT.GROUPS.filter(function (g) { return (a.groups || []).indexOf(g[0]) >= 0; }).map(function (g) { return g[1]; }).join('; ') || 'None ticked') + '</p>';
+        if (s.id === 'premises') return rooms.length ? '<table class="ck"><tbody>' + rooms.map(function (x) { return '<tr><td>' + esc(x.name) + '</td><td>' + (x.fireMax ? esc(x.fireMax) + ' people at most' : '<span class="missing">No fire maximum set</span>') + '</td></tr>'; }).join('') + '</tbody></table>' : '';
+        if (s.id === 'responsible') return '<p>' + esc(H.responsible(church.name || '', '')) + (roles.fireLead ? ', with the fire safety lead acting for them' : '') + '.</p>';
+        if (s.id === 'people') return (r[8] ? '<p id="pPeeps">' + (r[8].agreed || 0) + ' personal evacuation plan' + (r[8].agreed === 1 ? '' : 's') + ' agreed (a count).</p>' : '') + '<p>' + (r[7] ? 'There is a plan for visitors who need help to get out (GEEP).' : '<span class="missing">No plan yet for visitors who need help to get out.</span>') + ' People’s own evacuation plans are kept with the fire roll call and never named here.</p>';
+        if (s.checks) return '<table class="ck"><tbody>' + s.checks.map(byTpl).filter(Boolean).map(function (i) { return '<tr><td>' + esc(i.title) + '</td><td><span class="rag ' + (i.rag === 'grey' ? 'amber' : i.rag) + '">' + esc(i.why || '') + '</span></td></tr>'; }).join('') + '</tbody></table>';
+        return '';
+      };
+      var src = a.source && a.source.assessor ? a.source : null;
+      sheet.innerHTML = (done ? '' : '<div class="watermark" aria-hidden="true" id="pWatermark">DRAFT</div>') + P.header(church, k.title) +
+        '<h1 id="pTitle">' + esc(site.name || '') + '</h1>' + dials(D.assessment(a, { questions: qs, left: left, today: TODAY, reviewDue: a.reviewDue })) + status + notAdvice() + aiLine(a) +
+        '<h2>The assessment</h2><table class="facts" id="pFacts"><tbody><tr><th>Carried out by</th><td>' + esc(a.assessor || '') + '</td></tr><tr><th>On</th><td>' + esc(longDate(a.assessedOn)) + '</td></tr>' +
+          '<tr><th>Review by</th><td>' + esc(longDate(a.reviewDue)) + '</td></tr>' + (src ? '<tr><th>Read from</th><td id="pReadFrom">' + esc(src.assessor) + '’s report' + (src.date ? ' of ' + esc(longDate(src.date)) : '') + ', checked by ' + esc(src.checkedBy || '') + ' on ' + esc(longDate(src.checkedOn)) + '</td></tr>' : '') + '</tbody></table>' +
+        HT.SECTIONS[kind].map(function (s) { return '<h2>' + esc(s.title) + '</h2>' + extra(s) + (a.sections && a.sections[s.id] ? '<p>' + esc(a.sections[s.id]).replace(/\n/g, '<br>') + '</p>' : ''); }).join('') +
+        risks(a.hazards, checkTitle) + actions(a.actions) + checklist(qs, a.answers || {}) +
+        (src ? '<h2>Appendix: the report that was read</h2><p id="pAppendix">' + esc(src.fileName || '') + ', by ' + esc(src.assessor) + (src.overall ? '. Its overall rating: ' + esc(src.overall) : '') + '. The original file is kept with the building in the hub.' +
+          ((src.gaps || []).length ? ' It had nothing on ' + src.gaps.length + ' heading' + (src.gaps.length === 1 ? '' : 's') + ' a proper assessment covers.' : '') + '</p>' : '') +
+        '<h2>Signatures</h2><p class="note">For a paper file. The hub keeps its own record of who signed and countersigned it, and when.</p>' + P.signBoxes([k.signerWords.replace(/^./, function (c) { return c.toUpperCase(); }), 'For the trustees']);
+      document.title = k.title + ': ' + (site.name || '');
+    });
+  }
+
+  /* ---- AN EVENT'S ASSESSMENT ---- */
+  function printEvent(id) {
+    return Promise.all([get('raEvents', id), get('calEvents', id), EGBCChurch.load().catch(function () { return {}; }), get('eventLeaders', id).catch(function () { return null; }),
+      db().collection('sites').get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); })]).then(function (r) {
+      var a = r[0], ev = r[1] || {}, church = r[2] || {}, sites = r[4];
+      if (!a) throw new Error('this event has no risk assessment yet');
+      var site = a.siteId, siteName = function (sid) { var s = sites.filter(function (x) { return x.id === sid; })[0]; return s ? s.name : ''; };
+      return Promise.all([site ? db().collection('rooms').where('siteId', '==', site).get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }) : [],
+        site ? get('raStatus', site + '__hs').catch(function () { return null; }) : null, site ? get('raStatus', site + '__fire').catch(function () { return null; }) : null]).then(function (w) {
+        var roomIds = (ev.location || {}).roomIds || [], rooms = (w[0] || []).filter(function (x) { return roomIds.indexOf(x.id) >= 0; });
+        var rows = HT.eventHubRows({ a: a, rooms: rooms, stat: { hs: w[1], fire: w[2] }, siteName: siteName(site), today: TODAY }), must = rows.filter(function (x) { return x.mustNot; });
+        var qs = HT.eventQuestions(a.kind, a.flags, a.care), left = HT.eventDone(a.kind, a.flags, a.care, a.answers);
+        var done = a.status === 'approved', kindWords = (HT.EVENT_KINDS.filter(function (x) { return x[0] === a.kind; })[0] || [])[1] || '';
+        var status = done ? '<div class="status" id="pStatus" data-state="signed">SIGNED AND APPROVED<small>Signed by ' + esc(a.signedByName) + ', the organiser, on ' + esc(longDate(a.signedAt)) + '. Approved by ' + esc(a.approvedByName) + ', health and safety, on ' + esc(longDate(a.approvedAt)) + '. Version ' + a.version + '.</small></div>'
+          : a.status === 'signed' ? '<div class="status draft" id="pStatus" data-state="signed-only">SIGNED, NOT YET APPROVED<small>Signed by ' + esc(a.signedByName) + ', the organiser. The health and safety lead or deputy approves it next.</small></div>'
+          : '<div class="status draft" id="pStatus" data-state="draft">DRAFT: NOT SIGNED<small>This counts for nothing until the organiser signs it and the health and safety lead or deputy approves it.</small></div>';
+        var v = a.venue || {};
+        sheet.innerHTML = (done ? '' : '<div class="watermark" aria-hidden="true" id="pWatermark">DRAFT</div>') + P.header(church, 'Event risk assessment') +
+          '<h1 id="pTitle">' + esc(a.title || ev.title || '') + '</h1>' + dials(D.assessment(a, { questions: qs, left: left, today: TODAY, must: must.length > 0 })) + status +
+          P.mustBox(must.map(function (x) { return { risk: x.words }; })) + notAdvice() + aiLine(a) +
+          '<h2>The event</h2><table class="facts" id="pFacts"><tbody><tr><th>When</th><td>' + esc(ev.startLocal ? longDate(String(ev.startLocal).slice(0, 10)) : '') + '</td></tr>' +
+            '<tr><th>Kind</th><td>' + esc(kindWords) + '</td></tr><tr><th>Where</th><td>' + esc(HT.AWAY.indexOf(a.kind) >= 0 ? (v.name || 'The venue') : siteName(site)) + '</td></tr>' +
+            '<tr><th>People, at the most</th><td>' + esc(a.people || '') + '</td></tr><tr><th>Organiser</th><td>' + esc(ev.organiserName || '') + '</td></tr>' +
+            (r[3] && r[3].under18 ? '<tr><th>Under-18s</th><td id="pU18">Going: the event’s safeguarding assessment applies too, kept separately.</td></tr>' : '') + '</tbody></table>' +
+          (rows.length ? '<h2>From the hub’s own numbers</h2><ul id="pHub">' + rows.map(function (x) { return '<li><span class="rag ' + x.rag + '">' + WORDS[x.rag] + '</span> ' + esc(x.words) + '</li>'; }).join('') + '</ul>' : '') +
+          (a.sections && a.sections.plan ? '<h2>The plan for the day</h2><p>' + esc(a.sections.plan).replace(/\n/g, '<br>') + '</p>' : '') +
+          risks(a.hazards) + actions(a.actions) + checklist(qs, a.answers || {}) +
+          (v.readAt ? '<h2>Appendix: the venue</h2><p id="pAppendix">' + esc(v.name || '') + ': its arrangements were read from ' + esc(v.from || 'its own words') + ', checked by ' + esc(v.checkedBy || '') + ' on ' + esc(longDate(v.checkedOn)) + '. What was read is kept with the event in the hub.</p>' : '') +
+          '<h2>Signatures</h2><p class="note">For a paper file. The hub keeps its own record of who signed and approved it, and when.</p>' + P.signBoxes(['The organiser', 'Health and safety lead or deputy']);
+        document.title = 'Event risk assessment: ' + (a.title || '');
+      });
+    });
+  }
+
+  EGBCAuth.require().then(function () {
+    var go = q.get('event') ? printEvent(q.get('event')) : q.get('site') && /^(hs|fire)$/.test(q.get('kind') || '') ? printBuilding(q.get('site'), q.get('kind')) : Promise.reject(new Error('nothing chosen to print'));
+    return go.then(function () { sheet.setAttribute('data-ready', '1'); }, fail);
+  }).catch(fail);
+})();
+</script>
+</body>
+</html>

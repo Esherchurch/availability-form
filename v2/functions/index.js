@@ -849,4 +849,4 @@ export { cateringSync, arrivalCheck } from './rooms-day.js';
 export { sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily } from './sg-warnings.js';
 export { sgDraftAssessment, sgAiStatus, sgExtractRequirements, sgRequirementsFile, sgRequirementsFromLinks } from './sg-ai.js';
 /* A professional's fire or health and safety report read into the building's own assessment (H&S step 4; the events window's ra-report.js). */
-export { raReadReport, raAiStatus } from './ra-report.js';
+export { raReadReport, raAiStatus, raDraftAssessment } from './ra-report.js';
