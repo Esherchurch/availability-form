@@ -260,6 +260,24 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## FIXED, 27 Oct: the meeting picker lists only the meetings you're invited to (main's ask, H-17). For review
+
+- **`egbc-meeting-pick.js` `upcoming()`**, the "Add a meeting" picker in the e-news editor and the Email Compiler, now offers only the meetings the person is invited to.
+  - It uses main's one rule, `EGBCAuth.invitedTo(ev)`, after `EGBCAuth.loadPerms()`.
+  - Master admins and the `meetingsAll` permission still see every meeting. A members' meeting keeps its own rule (church members).
+- **For the synthetic parish:** its office sees the meetings for its own teams, those it's named on or set up, and the APCM if it's on the electoral roll. It doesn't see the choir's, unless it's been given "see all meetings".
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-enews-meeting | 20/20. New: a choir meeting the office isn't invited to is not offered. The office in the check is now a church member, and the prayer meeting is for its team, as a real invitation would be. **Break invited** (the rule left out) → 4 red |
+| Also | check-enews-editor 50/50, check-stamps 11/11 |
+
+**v2 only:** every changed path is under v2/.
+
+---
+
 ## FIXED, 27 Oct: members' meetings and the giving details by team job, not team name (H-9). For review
 
 The events window found two rules in this window's sections that named teams.

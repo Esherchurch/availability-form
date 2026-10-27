@@ -22,6 +22,7 @@
  *   --break=old     the picker offers archived and past meetings
  *   --break=notice  a members' meeting notice stops this week's e-news
  *   --break=logo    the Compiler's email gets EGBC's logo again
+ *   --break=invited the picker offers meetings the person isn't invited to
  */
 import { spawn } from 'node:child_process';
 import http from 'node:http';
@@ -46,6 +47,7 @@ const BREAK = (process.argv.find(a => a.startsWith('--break=')) || '').slice(8);
 const BREAKS = {
   old: ['egbc-meeting-pick.js', ".filter(function (ev) { return ev.archived !== true && roomFor(ev); })", ".filter(function (ev) { return roomFor(ev); })", "where('date', '>=', today)", "where('date', '>=', '2000-01-01')"],
   notice: ['enews.html', "return d.data().week !== 'notice' && String(", 'return String('],
+  invited: ['egbc-meeting-pick.js', ' && roomFor(ev) && EGBCAuth.invitedTo(ev); })', ' && roomFor(ev); })'],
   logo: ['EmailBuilder2.html', "const logo = /^https:\\/\\//.test(CHURCH_LOGO) ? escapeHtml(CHURCH_LOGO) : '';", "const logo = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png';"]
 };
 if (BREAK && !BREAKS[BREAK]) { console.log('Unknown break: ' + BREAK); process.exit(2); }
@@ -77,7 +79,7 @@ const put = (p, data) => req(FS, 'PATCH', DOCS + '/' + p, { fields: Object.fromE
 const list = async c => { const r = JSON.parse((await req(FS, 'GET', DOCS + '/' + c + '?pageSize=100', undefined, OWNER)).body || '{}'); return (r.documents || []).map(d => Object.assign({ _id: d.name.split('/').pop() }, Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, fromFs(v)])))); };
 const subOf = async email => (await list('enewsSubscribers')).find(s => s.email === email);
 
-const USERS = { office: { email: 'meet.office@example.invalid', member: 'ab_meet_office', teams: ['Church office'] } };
+const USERS = { office: { email: 'meet.office@example.invalid', member: 'ab_meet_office', teams: ['Church office'], churchMember: true } };
 const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + n * 86400000));
 const longDay = n => new Date(day(n) + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 
@@ -98,13 +100,15 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
     if (!up.localId) up = JSON.parse((await req(AU, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email: u.email, password: PW, returnSecureToken: true })).body || '{}');
     u.uid = up.localId;
     await req(AU, 'POST', '/identitytoolkit.googleapis.com/v1/projects/egbc-worship-planner/accounts:update', { localId: u.uid, emailVerified: true }, OWNER);
-    await put('addressBook/' + u.member, { name: 'Meet Office Synthetic', email: u.email, markers: u.teams, masterAdmin: false, archived: false });
-    await put('users/' + u.uid, { uid: u.uid, email: u.email, name: 'Meet Synthetic', memberId: u.member, status: 'active', linkedBy: 'admin', teams: u.teams, adminFor: [], masterAdmin: false, attender: true });
+    await put('addressBook/' + u.member, { name: 'Meet Office Synthetic', email: u.email, markers: u.teams, masterAdmin: false, archived: false, churchMember: u.churchMember === true });
+    await put('users/' + u.uid, { uid: u.uid, email: u.email, name: 'Meet Synthetic', memberId: u.member, status: 'active', linkedBy: 'admin', teams: u.teams, adminFor: [], masterAdmin: false, attender: true, churchMember: u.churchMember === true });
   }
   await put('churchSettings/details', { name: 'Synthetic Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '' });
   /* The Meetings list: rota events with a video room. */
   await put('events/m_cmm', { date: day(9), type: 'Church Members Meeting', description: 'Autumn', startTime: '19:30', endTime: '21:00', videoRoom: 'CMM', archived: false });
-  await put('events/m_pray', { date: day(4), type: 'Prayer Meeting', startTime: '20:00', videoRoom: 'Prayer', archived: false });
+  await put('events/m_pray', { date: day(4), type: 'Prayer Meeting', startTime: '20:00', videoRoom: 'Prayer', archived: false, teams: ['Church office'] });
+  /* H-17: a meeting for another team, which the office isn't invited to. */
+  await put('events/m_choir', { date: day(3), type: 'Synthetic choir meeting', startTime: '19:00', videoRoom: 'Prayer', archived: false, teams: ['Choir'] });
   await put('events/m_old', { date: day(-3), type: 'Synthetic past meeting', startTime: '20:00', videoRoom: 'Prayer', archived: false });
   await put('events/m_arch', { date: day(6), type: 'Synthetic archived meeting', startTime: '20:00', videoRoom: 'Prayer', archived: true });
   await put('events/m_nocall', { date: day(5), type: 'Synthetic room-only meeting', startTime: '20:00', videoRoom: '', archived: false });
@@ -175,6 +179,7 @@ const swap = (src, from, to, file) => { if (!src.includes(from)) throw new Error
     const rows = await pickerRows();
     ok('the picker offers the coming meetings with a video room, soonest first', rows.length === 2 && /Prayer Meeting/.test(rows[0]) && /Church Members Meeting/.test(rows[1]), rows);
     ok('never a past or archived meeting, or one with no call', !rows.some(r => /past|archived|room-only/.test(r)), rows);
+    ok('only the meetings this person is invited to (H-17): not another team\u2019s', !rows.some(r => /choir/i.test(r)), rows);
     ok('the CMM is marked "Church members only"', /Church members only/.test(rows[1]) && !/Church members only/.test(rows[0]), rows);
     await shot('picker');
     await pickRow('/Prayer Meeting/'); await sleep(2500);

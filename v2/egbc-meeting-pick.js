@@ -38,11 +38,16 @@
     return list.indexOf(room) >= 0;
   }
 
+  /* Only the meetings this person is invited to (main's H-17, 27 Oct: the
+     hub's one rule, EGBCAuth.invitedTo, after loadPerms - a master admin and
+     the meetingsAll permission see all). */
   function upcoming() {
     var today = londonToday();
-    return EGBCAuth.db.collection('events').where('date', '>=', today).get().then(function (s) {
+    return Promise.resolve(EGBCAuth.loadPerms()).catch(function () {}).then(function () {
+      return EGBCAuth.db.collection('events').where('date', '>=', today).get();
+    }).then(function (s) {
       return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-        .filter(function (ev) { return ev.archived !== true && roomFor(ev); })
+        .filter(function (ev) { return ev.archived !== true && roomFor(ev) && EGBCAuth.invitedTo(ev); })
         .sort(function (a, b) { return (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')); })
         .map(function (ev) { var r = roomFor(ev); return { ev: ev, room: r, label: labelFor(r), members: membersRoom(r) }; });
     });
