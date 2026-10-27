@@ -1038,3 +1038,19 @@ At St Aidan's with St Hild, the small groups' room set up in Settings works the 
   - the pages on the modular SDK with their own database: addressbook.html (the people step, mine, next), Planner, SundayServicePlanner, the youth planner, song-summary, view-only-rota, MonitorStageMap, Performancenotes and index (the availability form);
   - Storage paths.
 - **Quick check** (emulator), 8/8: the dry run writes nothing; `--apply` makes the church's master admin in the church's own users and nothing at EGBC's top level; the sign-in carries the church; its name is in its details; the directory says setup; running it again is refused.
+
+### The setup frame, continued (30 Oct 2026, main): a church's people sign in; the modular pages follow the church
+- **egbc-db.js:** on a church's page, the modular pages' `db` is the church's own document, `churches/<id>`. Modular `collection(db, …)` and `doc(db, …)` take a document as the parent, so all eleven modular pages follow the church with no change: addressbook (the "Your people" step), Planner, SundayServicePlanner, the youth planner, song-summary, view-only-rota, MonitorStageMap, Performancenotes, index and the two training copies. `call()` sends the church. `firestore` is exported for anything needing the database itself; nothing uses it yet.
+- **A church's people sign in** (functions/church-join.js):
+  - **`hqJoinChurch`:** someone signing in on a church's page for the first time, whose **verified** address is on exactly one of the church's address book records (not archived, not a child's), gets their membership, the church on their sign-in, and `churches/<id>/users/<uid>` from that record.
+    - Two records on one address: `ambiguous`, for the office to link.
+    - None: nothing is written, and the page forgets the church.
+  - **`churchBookToUsers`:** a church's users record follows its address book record (teams, admin, member, status), as refreshFromBook does at EGBC.
+  - egbc-auth.js calls `hqJoinChurch` when the sign-in lacks the church, and never writes a church's users record itself.
+- **Moved to events (FINDINGS-events):** Storage paths; youth-access and worshiphubapp, which make their own Firestore; the public pages taking their church from the address (H-6 step 4).
+- **Quick check** (emulator), 6/6:
+  - one record joins, with its teams, member tick and membership;
+  - a shared address becomes ambiguous;
+  - an address the church doesn't hold writes nothing;
+  - an archived record lets nobody in;
+  - the mirror's rule.

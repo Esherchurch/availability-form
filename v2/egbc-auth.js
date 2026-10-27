@@ -921,6 +921,9 @@
 
   function loadProfile(user) {
     return db.collection('users').doc(user.uid).get().then(function (snap) {
+      /* A church's users record is the server's (hqJoinChurch); the page
+         never writes one. Until it exists the person is pending. */
+      if (!snap.exists && CHURCH) return { uid: user.uid, email: (user.email || '').toLowerCase(), teams: [], status: 'pending' };
       if (!snap.exists) return provisionProfile(user);
 
       var d = snap.data();
@@ -1495,11 +1498,20 @@
             global.__egbcChurchChecked = true;
             user.getIdTokenResult().then(function (t) {
               var c = (t && t.claims && t.claims.churches) || [];
-              if (c.indexOf(CHURCH) === -1) {
+              if (c.indexOf(CHURCH) !== -1) return;
+              /* Not yet: the church may hold their verified address
+                 (hqJoinChurch, functions/church-join.js). Joined, the page
+                 opens again with the church on the sign-in; otherwise the
+                 church is forgotten. */
+              callFunction('hqJoinChurch', { churchId: CHURCH }).then(function (r) {
+                r = (r && r.data !== undefined) ? r.data : r;
+                if (r && r.joined) return user.getIdToken(true).then(function () { location.reload(); });
+                throw new Error('not joined');
+              }).catch(function () {
                 try { localStorage.removeItem('egbc-church'); } catch (e) {}
                 var u = new URL(location.href); u.searchParams.delete('church');
                 location.replace(u.toString());
-              }
+              });
             });
           }
 
