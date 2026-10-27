@@ -102,6 +102,7 @@ site still reads and writes the same database without signing in.
     - **Check:** Safeguarding settings names real people on every site; the search is empty.
 18. **The rest of the events window's set-up** ([SWITCHOVER-events.md Part 3](SWITCHOVER-events.md), in its own order): church details, sites and rooms, safeguarding, Kids Church, small groups, sermons, Watch, What's on, prayer, "I'm new here", Gift Aid, room hire.
     - **Who:** as named there.
+    - **Includes the building checks' templates (version 4, F-296):** `node tools/seed-compliance.mjs --templates --live --write` ([SWITCHOVER-events.md](SWITCHOVER-events.md) 3.10), then Health and safety settings set up by the office.
 19. **The Sundays from ChurchSuite onto the rota** (§26 item 19), if not done already.
     - **Who:** Martin.
     - **Check:** What's on shows the Sundays to 27 Dec.

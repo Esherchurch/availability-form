@@ -109,8 +109,14 @@ const OFF_MENU_BY_DESIGN = {
      lists only that person's own groups' sessions, and shows nothing else. */
   'present.html': { roles: 'all', why: 'Present lists only your own groups’ sessions; with none it says so and shows nothing' },
   'present-guide.html': { roles: 'all', why: 'the two-minute guide to Present: words only, nothing of anyone’s' },
-  'quiz.html': { roles: 'all', why: 'a player’s page for a quiz code: nothing without the code' }
+  'quiz.html': { roles: 'all', why: 'a player’s page for a quiz code: nothing without the code' },
+  /* F-293 (the events window): anyone may open it to report a concern; they
+     see only that, or "no events for you here". */
+  'safeguarding.html': { roles: 'all', why: 'report a concern: open to anyone; the lead’s parts only for the lead' }
 };
+/* PAGES IN NOBODY'S MENU THAT ARE AUDITED ANYWAY: reached from another page
+   (check-menu's REACHED_ELSEWHERE), so menuFor() never lists them. */
+const ALSO_AUDIT = ['sg-print.html'];   /* the reviewing window, F-296 item 3 */
 const SKIP_TAP = /sign ?out|log ?out|back to me|stop viewing|delete|remove|archive|clear |reset|unsubscribe|\bsend\b|disconnect|withdraw|decline|cancel (my|this|the) /i;
 const SKIP_LIVE = /save|submit|book|sign ?up|register|\badd\b|create|upload|\bpay\b|give now|confirm|approve|accept|post|publish|mark as|tick|import|generate|sync|\+ ?service|not done|auto-?populate|restore/i;
 /* BUTTONS THAT WRITE TO THE LIVE CHURCH, which a --live run must never
@@ -782,7 +788,7 @@ async function runRole(B, role, size, base, shared) {
   /* ---- website ---- */
   if (!NO_SITE) {
     const menu = await menuFor(B, base);
-    const allPages = [...new Set(['hub.html'].concat(menu.all))].filter(u => !ONLY_PAGES || ONLY_PAGES.includes(u.split('?')[0]));
+    const allPages = [...new Set(['hub.html'].concat(menu.all, ALSO_AUDIT))].filter(u => !ONLY_PAGES || ONLY_PAGES.includes(u.split('?')[0]));
     const mine = new Set(['hub.html'].concat(menu.mine));
     for (const page of allPages) {
       if (!LIVE) await restoreSettings();

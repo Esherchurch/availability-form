@@ -47,7 +47,7 @@
      Every page and every gate the 8 Oct Menu had is still here - nothing
      was taken away, only moved. Address book and Send an email follow WHO
      MAY (16 Oct): master admins, the Church office and team leaders
-     (`messages: true`), which is what their pages' guards already say. */
+     (`messages: true`), which is what their pages' guards already say. */
   /* The teams the Rota planner is for; the Preaching plan's readers are
      the same people. */
   var ROTA_PLANNER_TEAMS = ['Worship Team', 'Kids Church', 'Youth Worship'];
@@ -110,7 +110,8 @@
       { title: 'Rota reports', url: 'rota-reports.html', icon: 'clipboard-list', feature: 'rotaReports',
         adminOf: ['Worship Team', 'AV Team', 'Choir', 'Kids Church', 'Youth Worship'],
         description: 'Clashes, gaps and who is serving how often' },
-      { title: 'Availability form', url: 'index.html', icon: 'check-square', feature: 'availability', core: true,
+      /* Everyone on a team with a rota fills it in (the reviewer, 27 Oct). */
+      { title: 'Availability form', url: 'index.html', icon: 'check-square', feature: 'availability', rotaTeam: true,
         description: 'What the team fills in each term' }
     ] },
 
@@ -158,9 +159,11 @@
          admins reach it from Room bookings' kitchen list. */
       { title: 'Catering orders', url: 'catering.html', icon: 'cooking-pot', feature: 'roomBookings', team: ['Catering'],
         description: 'Refreshments for room bookings, to prepare and serve' },
-      { title: 'Check-in', url: 'checkin.html', icon: 'user-check', feature: 'events', core: true, admin: true,
+      /* And the event's own team, who need them on the day (the reviewer,
+         27 Oct); the pages show them only the events they run. */
+      { title: 'Check-in', url: 'checkin.html', icon: 'user-check', feature: 'events', core: true, admin: true, eventTeam: true,
         description: 'Check people in at an event, with its tickets' },
-      { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', feature: 'events', core: true, admin: true,
+      { title: 'Registers', url: 'attendance.html', icon: 'clipboard-check', feature: 'events', core: true, admin: true, eventTeam: true,
         description: 'Who came to an event or a series, to download' },
       /* The Kids Church leads and master admins (F-226). */
       { title: 'Headcounts', url: 'headcounts.html', icon: 'chart-column', feature: 'events', headcount: true,
@@ -185,6 +188,10 @@
       { title: 'Building compliance', url: 'compliance.html', icon: 'clipboard-check', feature: 'buildingCompliance',
         team: ['Church office', 'Elders'],
         description: 'Every check the building needs, when it is due, and who does it' },
+      /* The events window's hs-settings.html (F-296): master admins and the
+         office job, as the page and its rules decide. */
+      { title: 'Health and safety settings', url: 'hs-settings.html', icon: 'shield-alert', feature: 'buildingCompliance', job: 'office',
+        description: 'Who looks after each building, how many the church employs, insurance' },
       { title: 'The building', url: 'building.html', icon: 'building-2', feature: 'buildingCompliance',
         team: ['Maintenance', 'Church office'],
         description: 'The checks given to you, and reporting a problem' },
@@ -225,7 +232,9 @@
         description: 'The standing risks, and events waiting for sign-off' },
       { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', feature: 'safeguarding', sg: true,
         description: 'Who the lead is, how long checks last, and the ratios' },
-      { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', feature: 'safeguarding', sg: true,
+      /* Master admins only: the page says so, as only they can delete
+         (the access matrix found the deputy offered it and refused, 27 Oct). */
+      { title: 'Due for deletion', url: 'retention.html', icon: 'trash-2', feature: 'safeguarding', master: true,
         description: 'Records whose keeping time is up, to check and delete' },
       /* Run by whoever administers a team. */
       { title: 'Small groups', url: 'groups-admin.html', icon: 'users-round', feature: 'smallGroups', admin: true,
@@ -402,6 +411,10 @@
     /* On any team, administering one, or a master admin. */
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     if (node.planGroup && !who.isPlanGroup) return false;
+    if (node.rotaTeam && !who.onRotaTeam) return false;
+    /* On a team that does this job (Teams & groups, "Who does each job"),
+       never by a team's name; or a master admin. */
+    if (node.job && !who.isMaster && (who.jobs || []).indexOf(node.job) === -1) return false;
     if (node.pinBoard && !who.isMaster && !who.hasBoard) return false;
     if (node.leadsOrCore && !who.leadsOrCore) return false;
     /* The Rota planner's own test, so the two can never disagree. */
@@ -1008,6 +1021,8 @@
            so View as answers for the person being viewed as. */
         mayMessage: !!(A && A.isMaster && A.isMaster()) || !!(A && A.inTeam && A.inTeam('Church office')) || adminFor.length > 0,
         isPlanGroup: !!(A && A.isOnPlanGroup && A.isOnPlanGroup()),
+        onRotaTeam: !!(A && A.onRotaTeam && A.onRotaTeam()),
+        jobs: (A && A.myJobs && A.myJobs()) || [],
         leadsOrCore: !!(A && A.leadsOrCore && A.leadsOrCore()),
         preachingEditor: !!(A && A.preachingEditor && A.preachingEditor()),
         hasBoard: !!(A && A.myBoards && A.myBoards().length),

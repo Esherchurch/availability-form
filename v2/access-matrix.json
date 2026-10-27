@@ -1,5 +1,5 @@
 {
- "made": "2026-10-26T23:28:45.835Z",
+ "made": "2026-10-27T09:40:04.746Z",
  "people": [
   {
    "key": "pending",
@@ -35,6 +35,21 @@
    "key": "worshipLead",
    "short": "Wor lead",
    "name": "AM Worship Lead Synthetic"
+  },
+  {
+   "key": "worshipAdmin",
+   "short": "Wor admin",
+   "name": "AM Worship Admin Synthetic"
+  },
+  {
+   "key": "kidsAdmin",
+   "short": "Kids admin",
+   "name": "AM Kids Admin Synthetic"
+  },
+  {
+   "key": "coreAdmin",
+   "short": "Core admin",
+   "name": "AM Core Admin Synthetic"
   },
   {
    "key": "av",
@@ -85,6 +100,11 @@
    "key": "planlead",
    "short": "Plan grp",
    "name": "AM Plan Group Lead Synthetic"
+  },
+  {
+   "key": "evteam",
+   "short": "Event team",
+   "name": "AM Event Team Synthetic"
   },
   {
    "key": "master",
@@ -1449,6 +1469,11 @@
      "section": "Sundays"
     },
     {
+     "url": "index.html",
+     "title": "Availability form",
+     "section": "Sundays"
+    },
+    {
      "url": "church-meeting.html",
      "title": "Members’ meetings",
      "section": "People and messages"
@@ -1686,6 +1711,11 @@
      "section": "Sundays"
     },
     {
+     "url": "index.html",
+     "title": "Availability form",
+     "section": "Sundays"
+    },
+    {
      "url": "church-meeting.html",
      "title": "Members’ meetings",
      "section": "People and messages"
@@ -1900,6 +1930,11 @@
     {
      "url": "view-only-rota.html",
      "title": "Rota",
+     "section": "Sundays"
+    },
+    {
+     "url": "index.html",
+     "title": "Availability form",
      "section": "Sundays"
     },
     {
@@ -2160,6 +2195,11 @@
      "section": "Sundays"
     },
     {
+     "url": "index.html",
+     "title": "Availability form",
+     "section": "Sundays"
+    },
+    {
      "url": "church-meeting.html",
      "title": "Members’ meetings",
      "section": "People and messages"
@@ -2364,6 +2404,962 @@
     }
    ]
   },
+  "worshipAdmin": {
+   "menu": [
+    {
+     "url": "hub.html",
+     "title": "Home",
+     "section": ""
+    },
+    {
+     "url": "whatson.html",
+     "title": "What's on",
+     "section": ""
+    },
+    {
+     "url": "watch.html",
+     "title": "Watch & Listen",
+     "section": ""
+    },
+    {
+     "url": "give.html",
+     "title": "Give",
+     "section": ""
+    },
+    {
+     "url": "giftaid.html",
+     "title": "Gift Aid",
+     "section": ""
+    },
+    {
+     "url": "care.html",
+     "title": "Care & support",
+     "section": ""
+    },
+    {
+     "url": "prayer.html",
+     "title": "Prayer",
+     "section": ""
+    },
+    {
+     "url": "notifications.html",
+     "title": "Notifications",
+     "section": ""
+    },
+    {
+     "url": "view-only-rota.html",
+     "title": "Rota",
+     "section": "Sundays"
+    },
+    {
+     "url": "Planner.html",
+     "title": "Rota planner",
+     "section": "Sundays"
+    },
+    {
+     "url": "SundayServicePlanner.html",
+     "title": "Sunday service plan",
+     "section": "Sundays"
+    },
+    {
+     "url": "preaching-plan.html",
+     "title": "Preaching plan",
+     "section": "Sundays"
+    },
+    {
+     "url": "rota-reports.html",
+     "title": "Rota reports",
+     "section": "Sundays"
+    },
+    {
+     "url": "index.html",
+     "title": "Availability form",
+     "section": "Sundays"
+    },
+    {
+     "url": "addressbook.html",
+     "title": "Address book",
+     "section": "People and messages"
+    },
+    {
+     "url": "EmailBuilder2.html",
+     "title": "Send an email",
+     "section": "People and messages"
+    },
+    {
+     "url": "church-meeting.html",
+     "title": "Members’ meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "hub.html",
+     "title": "Notices",
+     "section": "People and messages"
+    },
+    {
+     "url": "meeting.html",
+     "title": "Meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "bookings-admin.html",
+     "title": "Room bookings",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "rooms.html",
+     "title": "Book a room",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "hire.html",
+     "title": "Hire our rooms",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "maintenance.html",
+     "title": "Maintenance",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "peep.html",
+     "title": "My evacuation plan",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "groups-admin.html",
+     "title": "Small groups",
+     "section": "Church admin"
+    },
+    {
+     "url": "forms-admin.html",
+     "title": "Forms",
+     "section": "Church admin"
+    },
+    {
+     "url": "Worshipteamcharter.html",
+     "title": "Worship & AV",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-PlayThrough.html",
+     "title": "Play-Through",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-Training-Worship.html",
+     "title": "Worship Training",
+     "section": "My teams"
+    },
+    {
+     "url": "Library.html",
+     "title": "Music Database",
+     "section": "My teams"
+    },
+    {
+     "url": "batchupload.html",
+     "title": "Music Uploader",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-HowTo-AV.html",
+     "title": "How-To AV",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-Troubleshoot-AV.html",
+     "title": "AV Troubleshoot",
+     "section": "My teams"
+    },
+    {
+     "url": "schematic.html",
+     "title": "AV Infrastructure Mapper",
+     "section": "My teams"
+    },
+    {
+     "url": "MonitorStageMap.html",
+     "title": "Monitor Setup",
+     "section": "My teams"
+    },
+    {
+     "url": "churchshow.html",
+     "title": "Connect ChurchShow",
+     "section": "My teams"
+    },
+    {
+     "url": "stickynotes.html",
+     "title": "Pin boards",
+     "section": "Resources"
+    },
+    {
+     "url": "hubresources.html",
+     "title": "Apps and downloads",
+     "section": "Resources"
+    },
+    {
+     "url": "resources.html",
+     "title": "Team Resources",
+     "section": "Resources"
+    },
+    {
+     "url": "videos.html",
+     "title": "Team Videos",
+     "section": "Resources"
+    }
+   ],
+   "opens": true,
+   "blocked": "",
+   "cards": [
+    "charterCard",
+    "noticesCard",
+    "pinBoardCard"
+   ],
+   "verdict": {
+    "addressbook.html": "",
+    "app.html": "",
+    "attendance.html": "",
+    "AVteamlandingpage.html": "",
+    "batchupload.html": "",
+    "birthday.html": "No access to this page",
+    "bookings-admin.html": "",
+    "building.html": "",
+    "care-inbox.html": "",
+    "checkin.html": "",
+    "church-meeting.html": "",
+    "church-settings.html": "Master admins only",
+    "churchshow.html": "",
+    "compliance.html": "",
+    "CoreTeamApp.html": "No access to this page",
+    "Coreteamcharter.html": "No access to this page",
+    "data-tools.html": "No access to this page",
+    "EGBC-HowTo-AV.html": "",
+    "EGBC-PlayThrough.html": "",
+    "EGBC-Training-Worship.html": "",
+    "EGBC-Troubleshoot-AV.html": "",
+    "EGBCWorship&AV.html": "",
+    "EmailBuilder2.html": "",
+    "emailcompilerinstructions.html": "",
+    "events-admin.html": "",
+    "forms-admin.html": "",
+    "giftaid.html": "",
+    "give.html": "",
+    "giving-details.html": "No access to this page",
+    "groups-admin.html": "",
+    "headcounts.html": "",
+    "hubresources.html": "",
+    "inventory-system-2.html": "Not enough permissions",
+    "kids-admin.html": "",
+    "kids-checkin.html": "",
+    "Library.html": "",
+    "maintenance.html": "",
+    "MonitorStageMap.html": "",
+    "music-uploader.html": "",
+    "peep.html": "",
+    "Performancenotes.html": "",
+    "permissions.html": "Master admins only",
+    "picture-library.html": "",
+    "places-admin.html": "",
+    "Planner.html": "",
+    "prayer.html": "",
+    "preaching-plan.html": "",
+    "retention.html": "",
+    "risk.html": "",
+    "rooms.html": "",
+    "rotaplannerinstructions.html": "",
+    "safeguarding-settings.html": "",
+    "safeguarding.html": "",
+    "schematic.html": "",
+    "sermons-admin.html": "",
+    "Serviceplannerinstructions.html": "",
+    "session-planner.html": "",
+    "song-summary.html": "",
+    "stickynotes.html": "",
+    "studio.html": "",
+    "sundayplannersonglibrary.html": "",
+    "SundayServicePlanner.html": "",
+    "teams-admin.html": "No access to this page",
+    "training Sunday planner.html": "",
+    "trainingbatchimporter.html": "",
+    "trainingmusicdatabase.html": "",
+    "trainingportalhub.html": "",
+    "trainingrotaplanner.html": "",
+    "uploaderinstructions.html": "",
+    "videos.html": "",
+    "view-only-rota.html": "",
+    "watch-admin.html": "",
+    "watch.html": "",
+    "worried.html": "",
+    "worshiphubapp.html": "",
+    "Worshipteamcharter.html": "",
+    "Youthcharter.html": "No access to this page",
+    "youthserviceplanner.html": "No access to this page"
+   },
+   "status": "active",
+   "app": [
+    {
+     "space": "me",
+     "label": "Me and my family",
+     "tabs": [
+      "Home",
+      "What's on",
+      "Listen & Watch",
+      "Me"
+     ]
+    },
+    {
+     "space": "worship",
+     "label": "Worship & AV",
+     "tabs": [
+      "Rota",
+      "Sunday",
+      "Learn",
+      "Team"
+     ]
+    }
+   ]
+  },
+  "kidsAdmin": {
+   "menu": [
+    {
+     "url": "hub.html",
+     "title": "Home",
+     "section": ""
+    },
+    {
+     "url": "whatson.html",
+     "title": "What's on",
+     "section": ""
+    },
+    {
+     "url": "watch.html",
+     "title": "Watch & Listen",
+     "section": ""
+    },
+    {
+     "url": "give.html",
+     "title": "Give",
+     "section": ""
+    },
+    {
+     "url": "giftaid.html",
+     "title": "Gift Aid",
+     "section": ""
+    },
+    {
+     "url": "care.html",
+     "title": "Care & support",
+     "section": ""
+    },
+    {
+     "url": "prayer.html",
+     "title": "Prayer",
+     "section": ""
+    },
+    {
+     "url": "notifications.html",
+     "title": "Notifications",
+     "section": ""
+    },
+    {
+     "url": "view-only-rota.html",
+     "title": "Rota",
+     "section": "Sundays"
+    },
+    {
+     "url": "Planner.html",
+     "title": "Rota planner",
+     "section": "Sundays"
+    },
+    {
+     "url": "preaching-plan.html",
+     "title": "Preaching plan",
+     "section": "Sundays"
+    },
+    {
+     "url": "session-planner.html",
+     "title": "Session planner",
+     "section": "Sundays"
+    },
+    {
+     "url": "present.html",
+     "title": "Present",
+     "section": "Sundays"
+    },
+    {
+     "url": "present-guide.html",
+     "title": "How to present",
+     "section": "Sundays"
+    },
+    {
+     "url": "rota-reports.html",
+     "title": "Rota reports",
+     "section": "Sundays"
+    },
+    {
+     "url": "index.html",
+     "title": "Availability form",
+     "section": "Sundays"
+    },
+    {
+     "url": "addressbook.html",
+     "title": "Address book",
+     "section": "People and messages"
+    },
+    {
+     "url": "EmailBuilder2.html",
+     "title": "Send an email",
+     "section": "People and messages"
+    },
+    {
+     "url": "church-meeting.html",
+     "title": "Members’ meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "hub.html",
+     "title": "Notices",
+     "section": "People and messages"
+    },
+    {
+     "url": "meeting.html",
+     "title": "Meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "bookings-admin.html",
+     "title": "Room bookings",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "rooms.html",
+     "title": "Book a room",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "hire.html",
+     "title": "Hire our rooms",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "maintenance.html",
+     "title": "Maintenance",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "peep.html",
+     "title": "My evacuation plan",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "groups-admin.html",
+     "title": "Small groups",
+     "section": "Church admin"
+    },
+    {
+     "url": "forms-admin.html",
+     "title": "Forms",
+     "section": "Church admin"
+    },
+    {
+     "url": "kids-admin.html",
+     "title": "Children's register",
+     "section": "My teams"
+    },
+    {
+     "url": "kids-checkin.html",
+     "title": "Sunday check-in",
+     "section": "My teams"
+    },
+    {
+     "url": "stickynotes.html",
+     "title": "Pin boards",
+     "section": "Resources"
+    },
+    {
+     "url": "hubresources.html",
+     "title": "Apps and downloads",
+     "section": "Resources"
+    },
+    {
+     "url": "resources.html",
+     "title": "Team Resources",
+     "section": "Resources"
+    },
+    {
+     "url": "videos.html",
+     "title": "Team Videos",
+     "section": "Resources"
+    }
+   ],
+   "opens": true,
+   "blocked": "",
+   "cards": [
+    "charterCard",
+    "noticesCard",
+    "pinBoardCard"
+   ],
+   "verdict": {
+    "addressbook.html": "",
+    "app.html": "",
+    "attendance.html": "",
+    "AVteamlandingpage.html": "No access to this page",
+    "batchupload.html": "No access to this page",
+    "birthday.html": "No access to this page",
+    "bookings-admin.html": "",
+    "building.html": "",
+    "care-inbox.html": "",
+    "checkin.html": "",
+    "church-meeting.html": "",
+    "church-settings.html": "Master admins only",
+    "churchshow.html": "No access to this page",
+    "compliance.html": "",
+    "CoreTeamApp.html": "No access to this page",
+    "Coreteamcharter.html": "No access to this page",
+    "data-tools.html": "No access to this page",
+    "EGBC-HowTo-AV.html": "No access to this page",
+    "EGBC-PlayThrough.html": "No access to this page",
+    "EGBC-Training-Worship.html": "No access to this page",
+    "EGBC-Troubleshoot-AV.html": "No access to this page",
+    "EGBCWorship&AV.html": "No access to this page",
+    "EmailBuilder2.html": "",
+    "emailcompilerinstructions.html": "",
+    "events-admin.html": "",
+    "forms-admin.html": "",
+    "giftaid.html": "",
+    "give.html": "",
+    "giving-details.html": "No access to this page",
+    "groups-admin.html": "",
+    "headcounts.html": "",
+    "hubresources.html": "",
+    "inventory-system-2.html": "No access to this page",
+    "kids-admin.html": "",
+    "kids-checkin.html": "",
+    "Library.html": "No access to this page",
+    "maintenance.html": "",
+    "MonitorStageMap.html": "No access to this page",
+    "music-uploader.html": "No access to this page",
+    "peep.html": "",
+    "Performancenotes.html": "No access to this page",
+    "permissions.html": "Master admins only",
+    "picture-library.html": "",
+    "places-admin.html": "",
+    "Planner.html": "",
+    "prayer.html": "",
+    "preaching-plan.html": "",
+    "retention.html": "",
+    "risk.html": "",
+    "rooms.html": "",
+    "rotaplannerinstructions.html": "",
+    "safeguarding-settings.html": "",
+    "safeguarding.html": "",
+    "schematic.html": "No access to this page",
+    "sermons-admin.html": "",
+    "Serviceplannerinstructions.html": "",
+    "session-planner.html": "",
+    "song-summary.html": "",
+    "stickynotes.html": "",
+    "studio.html": "No access to this page",
+    "sundayplannersonglibrary.html": "No access to this page",
+    "SundayServicePlanner.html": "No access to this page",
+    "teams-admin.html": "No access to this page",
+    "training Sunday planner.html": "",
+    "trainingbatchimporter.html": "",
+    "trainingmusicdatabase.html": "",
+    "trainingportalhub.html": "",
+    "trainingrotaplanner.html": "",
+    "uploaderinstructions.html": "",
+    "videos.html": "",
+    "view-only-rota.html": "",
+    "watch-admin.html": "",
+    "watch.html": "",
+    "worried.html": "",
+    "worshiphubapp.html": "No access to this page",
+    "Worshipteamcharter.html": "No access to this page",
+    "Youthcharter.html": "No access to this page",
+    "youthserviceplanner.html": "No access to this page"
+   },
+   "status": "active",
+   "app": [
+    {
+     "space": "me",
+     "label": "Me and my family",
+     "tabs": [
+      "Home",
+      "What's on",
+      "Listen & Watch",
+      "Me"
+     ]
+    },
+    {
+     "space": "kids",
+     "label": "Kids Church",
+     "tabs": [
+      "Today",
+      "Children",
+      "Rota",
+      "Team"
+     ]
+    }
+   ]
+  },
+  "coreAdmin": {
+   "menu": [
+    {
+     "url": "hub.html",
+     "title": "Home",
+     "section": ""
+    },
+    {
+     "url": "whatson.html",
+     "title": "What's on",
+     "section": ""
+    },
+    {
+     "url": "watch.html",
+     "title": "Watch & Listen",
+     "section": ""
+    },
+    {
+     "url": "give.html",
+     "title": "Give",
+     "section": ""
+    },
+    {
+     "url": "giftaid.html",
+     "title": "Gift Aid",
+     "section": ""
+    },
+    {
+     "url": "care.html",
+     "title": "Care & support",
+     "section": ""
+    },
+    {
+     "url": "prayer.html",
+     "title": "Prayer",
+     "section": ""
+    },
+    {
+     "url": "notifications.html",
+     "title": "Notifications",
+     "section": ""
+    },
+    {
+     "url": "view-only-rota.html",
+     "title": "Rota",
+     "section": "Sundays"
+    },
+    {
+     "url": "Planner.html",
+     "title": "Rota planner",
+     "section": "Sundays"
+    },
+    {
+     "url": "SundayServicePlanner.html",
+     "title": "Sunday service plan",
+     "section": "Sundays"
+    },
+    {
+     "url": "preaching-plan.html",
+     "title": "Preaching plan",
+     "section": "Sundays"
+    },
+    {
+     "url": "rota-reports.html",
+     "title": "Rota reports",
+     "section": "Sundays"
+    },
+    {
+     "url": "index.html",
+     "title": "Availability form",
+     "section": "Sundays"
+    },
+    {
+     "url": "addressbook.html",
+     "title": "Address book",
+     "section": "People and messages"
+    },
+    {
+     "url": "EmailBuilder2.html",
+     "title": "Send an email",
+     "section": "People and messages"
+    },
+    {
+     "url": "church-meeting.html",
+     "title": "Members’ meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "hub.html",
+     "title": "Notices",
+     "section": "People and messages"
+    },
+    {
+     "url": "meeting.html",
+     "title": "Meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "events-admin.html",
+     "title": "Events",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "bookings-admin.html",
+     "title": "Room bookings",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "checkin.html",
+     "title": "Check-in",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "attendance.html",
+     "title": "Registers",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "rooms.html",
+     "title": "Book a room",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "hire.html",
+     "title": "Hire our rooms",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "maintenance.html",
+     "title": "Maintenance",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "peep.html",
+     "title": "My evacuation plan",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "groups-admin.html",
+     "title": "Small groups",
+     "section": "Church admin"
+    },
+    {
+     "url": "forms-admin.html",
+     "title": "Forms",
+     "section": "Church admin"
+    },
+    {
+     "url": "data-tools.html",
+     "title": "Backup",
+     "section": "Church admin"
+    },
+    {
+     "url": "Worshipteamcharter.html",
+     "title": "Worship & AV",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-PlayThrough.html",
+     "title": "Play-Through",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-Training-Worship.html",
+     "title": "Worship Training",
+     "section": "My teams"
+    },
+    {
+     "url": "Library.html",
+     "title": "Music Database",
+     "section": "My teams"
+    },
+    {
+     "url": "batchupload.html",
+     "title": "Music Uploader",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-HowTo-AV.html",
+     "title": "How-To AV",
+     "section": "My teams"
+    },
+    {
+     "url": "EGBC-Troubleshoot-AV.html",
+     "title": "AV Troubleshoot",
+     "section": "My teams"
+    },
+    {
+     "url": "inventory-system-2.html",
+     "title": "Inventory",
+     "section": "My teams"
+    },
+    {
+     "url": "schematic.html",
+     "title": "AV Infrastructure Mapper",
+     "section": "My teams"
+    },
+    {
+     "url": "MonitorStageMap.html",
+     "title": "Monitor Setup",
+     "section": "My teams"
+    },
+    {
+     "url": "churchshow.html",
+     "title": "Connect ChurchShow",
+     "section": "My teams"
+    },
+    {
+     "url": "Coreteamcharter.html",
+     "title": "Core Team",
+     "section": "My teams"
+    },
+    {
+     "url": "music-uploader.html",
+     "title": "Music Upload",
+     "section": "My teams"
+    },
+    {
+     "url": "stickynotes.html",
+     "title": "Pin boards",
+     "section": "Resources"
+    },
+    {
+     "url": "hubresources.html",
+     "title": "Apps and downloads",
+     "section": "Resources"
+    },
+    {
+     "url": "resources.html",
+     "title": "Team Resources",
+     "section": "Resources"
+    },
+    {
+     "url": "videos.html",
+     "title": "Team Videos",
+     "section": "Resources"
+    }
+   ],
+   "opens": true,
+   "blocked": "",
+   "cards": [
+    "noticesCard",
+    "pinBoardCard"
+   ],
+   "verdict": {
+    "addressbook.html": "",
+    "app.html": "",
+    "attendance.html": "",
+    "AVteamlandingpage.html": "",
+    "batchupload.html": "",
+    "birthday.html": "",
+    "bookings-admin.html": "",
+    "building.html": "",
+    "care-inbox.html": "",
+    "checkin.html": "",
+    "church-meeting.html": "",
+    "church-settings.html": "Master admins only",
+    "churchshow.html": "",
+    "compliance.html": "",
+    "CoreTeamApp.html": "",
+    "Coreteamcharter.html": "",
+    "data-tools.html": "",
+    "EGBC-HowTo-AV.html": "",
+    "EGBC-PlayThrough.html": "",
+    "EGBC-Training-Worship.html": "",
+    "EGBC-Troubleshoot-AV.html": "",
+    "EGBCWorship&AV.html": "",
+    "EmailBuilder2.html": "",
+    "emailcompilerinstructions.html": "",
+    "events-admin.html": "",
+    "forms-admin.html": "",
+    "giftaid.html": "",
+    "give.html": "",
+    "giving-details.html": "No access to this page",
+    "groups-admin.html": "",
+    "headcounts.html": "",
+    "hubresources.html": "",
+    "inventory-system-2.html": "",
+    "kids-admin.html": "",
+    "kids-checkin.html": "",
+    "Library.html": "",
+    "maintenance.html": "",
+    "MonitorStageMap.html": "",
+    "music-uploader.html": "",
+    "peep.html": "",
+    "Performancenotes.html": "",
+    "permissions.html": "Master admins only",
+    "picture-library.html": "",
+    "places-admin.html": "",
+    "Planner.html": "",
+    "prayer.html": "",
+    "preaching-plan.html": "",
+    "retention.html": "",
+    "risk.html": "",
+    "rooms.html": "",
+    "rotaplannerinstructions.html": "",
+    "safeguarding-settings.html": "",
+    "safeguarding.html": "",
+    "schematic.html": "",
+    "sermons-admin.html": "",
+    "Serviceplannerinstructions.html": "",
+    "session-planner.html": "",
+    "song-summary.html": "",
+    "stickynotes.html": "",
+    "studio.html": "",
+    "sundayplannersonglibrary.html": "",
+    "SundayServicePlanner.html": "",
+    "teams-admin.html": "No access to this page",
+    "training Sunday planner.html": "",
+    "trainingbatchimporter.html": "",
+    "trainingmusicdatabase.html": "",
+    "trainingportalhub.html": "",
+    "trainingrotaplanner.html": "",
+    "uploaderinstructions.html": "",
+    "videos.html": "",
+    "view-only-rota.html": "",
+    "watch-admin.html": "",
+    "watch.html": "",
+    "worried.html": "",
+    "worshiphubapp.html": "",
+    "Worshipteamcharter.html": "",
+    "Youthcharter.html": "No access to this page",
+    "youthserviceplanner.html": "No access to this page"
+   },
+   "status": "active",
+   "app": [
+    {
+     "space": "me",
+     "label": "Me and my family",
+     "tabs": [
+      "Home",
+      "What's on",
+      "Listen & Watch",
+      "Me"
+     ]
+    },
+    {
+     "space": "worship",
+     "label": "Worship & AV",
+     "tabs": [
+      "Rota",
+      "Sunday",
+      "Learn",
+      "Team"
+     ]
+    },
+    {
+     "space": "core",
+     "label": "Core Team",
+     "tabs": [
+      "Plan",
+      "Rota",
+      "Meetings",
+      "Team"
+     ]
+    }
+   ]
+  },
   "av": {
    "menu": [
     {
@@ -2409,6 +3405,11 @@
     {
      "url": "view-only-rota.html",
      "title": "Rota",
+     "section": "Sundays"
+    },
+    {
+     "url": "index.html",
+     "title": "Availability form",
      "section": "Sundays"
     },
     {
@@ -3310,6 +4311,11 @@
      "section": "Events and rooms"
     },
     {
+     "url": "hs-settings.html",
+     "title": "Health and safety settings",
+     "section": "Events and rooms"
+    },
+    {
      "url": "building.html",
      "title": "The building",
      "section": "Events and rooms"
@@ -3750,6 +4756,11 @@
      "section": "Events and rooms"
     },
     {
+     "url": "payments.html",
+     "title": "Payments",
+     "section": "Church admin"
+    },
+    {
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
@@ -4085,6 +5096,11 @@
      "section": ""
     },
     {
+     "url": "care-inbox.html",
+     "title": "Care & support: what has come in",
+     "section": ""
+    },
+    {
      "url": "prayer.html",
      "title": "Prayer",
      "section": ""
@@ -4118,6 +5134,21 @@
      "url": "peep.html",
      "title": "My evacuation plan",
      "section": "Events and rooms"
+    },
+    {
+     "url": "safeguarding.html",
+     "title": "Safeguarding",
+     "section": "Church admin"
+    },
+    {
+     "url": "safeguarding-risk.html",
+     "title": "Safeguarding risks",
+     "section": "Church admin"
+    },
+    {
+     "url": "safeguarding-settings.html",
+     "title": "Safeguarding settings",
+     "section": "Church admin"
     },
     {
      "url": "hubresources.html",
@@ -4599,6 +5630,191 @@
     }
    ]
   },
+  "evteam": {
+   "menu": [
+    {
+     "url": "hub.html",
+     "title": "Home",
+     "section": ""
+    },
+    {
+     "url": "whatson.html",
+     "title": "What's on",
+     "section": ""
+    },
+    {
+     "url": "watch.html",
+     "title": "Watch & Listen",
+     "section": ""
+    },
+    {
+     "url": "give.html",
+     "title": "Give",
+     "section": ""
+    },
+    {
+     "url": "giftaid.html",
+     "title": "Gift Aid",
+     "section": ""
+    },
+    {
+     "url": "care.html",
+     "title": "Care & support",
+     "section": ""
+    },
+    {
+     "url": "prayer.html",
+     "title": "Prayer",
+     "section": ""
+    },
+    {
+     "url": "notifications.html",
+     "title": "Notifications",
+     "section": ""
+    },
+    {
+     "url": "church-meeting.html",
+     "title": "Members’ meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "meeting.html",
+     "title": "Meetings",
+     "section": "People and messages"
+    },
+    {
+     "url": "events-admin.html",
+     "title": "Events",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "checkin.html",
+     "title": "Check-in",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "attendance.html",
+     "title": "Registers",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "hire.html",
+     "title": "Hire our rooms",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "maintenance.html",
+     "title": "Maintenance",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "peep.html",
+     "title": "My evacuation plan",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "hubresources.html",
+     "title": "Apps and downloads",
+     "section": "Resources"
+    }
+   ],
+   "opens": true,
+   "blocked": "",
+   "cards": [],
+   "verdict": {
+    "addressbook.html": "Admins only",
+    "app.html": "",
+    "attendance.html": "",
+    "AVteamlandingpage.html": "No access to this page",
+    "batchupload.html": "No access to this page",
+    "birthday.html": "No access to this page",
+    "bookings-admin.html": "",
+    "building.html": "",
+    "care-inbox.html": "",
+    "checkin.html": "",
+    "church-meeting.html": "",
+    "church-settings.html": "Master admins only",
+    "churchshow.html": "No access to this page",
+    "compliance.html": "",
+    "CoreTeamApp.html": "No access to this page",
+    "Coreteamcharter.html": "No access to this page",
+    "data-tools.html": "No access to this page",
+    "EGBC-HowTo-AV.html": "No access to this page",
+    "EGBC-PlayThrough.html": "No access to this page",
+    "EGBC-Training-Worship.html": "No access to this page",
+    "EGBC-Troubleshoot-AV.html": "No access to this page",
+    "EGBCWorship&AV.html": "No access to this page",
+    "EmailBuilder2.html": "Admins only",
+    "emailcompilerinstructions.html": "",
+    "events-admin.html": "",
+    "forms-admin.html": "Admins only",
+    "giftaid.html": "",
+    "give.html": "",
+    "giving-details.html": "No access to this page",
+    "groups-admin.html": "",
+    "headcounts.html": "",
+    "hubresources.html": "",
+    "inventory-system-2.html": "No access to this page",
+    "kids-admin.html": "",
+    "kids-checkin.html": "",
+    "Library.html": "No access to this page",
+    "maintenance.html": "",
+    "MonitorStageMap.html": "No access to this page",
+    "music-uploader.html": "No access to this page",
+    "peep.html": "",
+    "Performancenotes.html": "No access to this page",
+    "permissions.html": "Master admins only",
+    "picture-library.html": "",
+    "places-admin.html": "",
+    "Planner.html": "No access to this page",
+    "prayer.html": "",
+    "preaching-plan.html": "",
+    "retention.html": "Admins only",
+    "risk.html": "",
+    "rooms.html": "",
+    "rotaplannerinstructions.html": "",
+    "safeguarding-settings.html": "",
+    "safeguarding.html": "",
+    "schematic.html": "No access to this page",
+    "sermons-admin.html": "",
+    "Serviceplannerinstructions.html": "",
+    "session-planner.html": "",
+    "song-summary.html": "",
+    "stickynotes.html": "For the church’s teams",
+    "studio.html": "No access to this page",
+    "sundayplannersonglibrary.html": "No access to this page",
+    "SundayServicePlanner.html": "No access to this page",
+    "teams-admin.html": "No access to this page",
+    "training Sunday planner.html": "",
+    "trainingbatchimporter.html": "",
+    "trainingmusicdatabase.html": "",
+    "trainingportalhub.html": "",
+    "trainingrotaplanner.html": "",
+    "uploaderinstructions.html": "",
+    "videos.html": "For the church’s teams",
+    "view-only-rota.html": "For the church’s teams",
+    "watch-admin.html": "",
+    "watch.html": "",
+    "worried.html": "",
+    "worshiphubapp.html": "No access to this page",
+    "Worshipteamcharter.html": "No access to this page",
+    "Youthcharter.html": "No access to this page",
+    "youthserviceplanner.html": "No access to this page"
+   },
+   "status": "active",
+   "app": [
+    {
+     "space": "me",
+     "label": "Me and my family",
+     "tabs": [
+      "Home",
+      "What's on",
+      "Listen & Watch",
+      "Me"
+     ]
+    }
+   ]
+  },
   "master": {
    "menu": [
     {
@@ -4789,6 +6005,11 @@
     {
      "url": "compliance.html",
      "title": "Building compliance",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "hs-settings.html",
+     "title": "Health and safety settings",
      "section": "Events and rooms"
     },
     {

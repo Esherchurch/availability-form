@@ -328,8 +328,8 @@
      Change it whenever egbc-menu.js changes - tests/check-stamps.mjs fails
      until you do, because MENU_FINGERPRINT must match the file. The hub
      loads the Menu itself with the same stamp. */
-  var MENU_V = '202610270030';
-  var MENU_FINGERPRINT = 'bab5544fa1b3';
+  var MENU_V = '202610272130';
+  var MENU_FINGERPRINT = '2b26eba0d912';
   var POWERED_SRC = 'egbc-poweredby.js';
   var menuLoading = null;
 

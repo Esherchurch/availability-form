@@ -1560,6 +1560,25 @@
     /* Who may use the Rota planner: a leader (isLeaderOf: admin, leader by
        role, or a core team covering it) of a team the rota is for - the
        worship, children's and youth jobs' teams. After loadPerms(). */
+    /* ON A TEAM WITH A ROTA: a team of theirs whose Teams & groups entry
+       has a rota (a group - rota: false - has none; a team the list does
+       not know counts as none). For the Availability form (the reviewer,
+       27 Oct 2026: everyone on a rota team fills it in). View as answers
+       for the team being viewed. */
+    /* The jobs this person's teams do (churchSettings/teamJobs; H-9), for
+       the Menu's `job` entries. After loadPerms(); none until then. View as
+       answers for the team being viewed. */
+    myJobs: function () {
+      var TJ = global.EGBCTeamJobs;
+      if (!PERMS.ready || !TJ) return [];
+      var mine = EGBCAuth.effectiveTeams();
+      return TJ.JOBS.map(function (j) { return j.id; })
+        .filter(function (j) { return TJ.onJob(PERMS.jobs, mine, j, PERMS.set); });
+    },
+    onRotaTeam: function () {
+      if (EGBCAuth.isMaster()) return true;
+      return EGBCAuth.effectiveTeams().some(function (t) { return !!TEAMS[t] && TEAMS[t].rota !== false; });
+    },
     rotaPlannerUser: function () {
       if (EGBCAuth.isMaster()) return true;
       var TJ = global.EGBCTeamJobs;

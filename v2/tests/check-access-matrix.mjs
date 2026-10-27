@@ -10,6 +10,9 @@
  *   BREAK=rooms     node tests/check-access-matrix.mjs   Book a room offered to every member again
  *   BREAK=preaching node tests/check-access-matrix.mjs   the Preaching plan for anyone on a team again
  *   BREAK=refused   node tests/check-access-matrix.mjs   the Menu offers Church settings to everybody
+ *   BREAK=deputy       the safeguarding lead and deputy no longer offered Safeguarding
+ *   BREAK=availability the Availability form for core teams only again
+ *   BREAK=checkin      Check-in no longer offered to the event's own team
  * Each break must fail.
  */
 import fs from 'node:fs';
@@ -27,6 +30,10 @@ const BREAKS = {
   rooms: ['/egbc-menu.js', "feature: 'roomBookings', leadsOrCore: true,", "feature: 'roomBookings',"],
   preaching: ['/egbc-menu.js', "icon: 'book-open', preaching: true,", "icon: 'book-open', anyTeam: true,"],
   refused: ['/egbc-menu.js', "if (node.master && !who.isMaster) return false;", ''],
+  /* The reviewer's findings (27 Oct). */
+  deputy: ['/egbc-menu.js', "if (node.sg && !who.isMaster && !who.isSgLead) return false;", "if (node.sg && !who.isMaster) return false;"],
+  availability: ['/egbc-menu.js', "feature: 'availability', rotaTeam: true,", "feature: 'availability', core: true,"],
+  checkin: ['/egbc-menu.js', "feature: 'events', core: true, admin: true, eventTeam: true,\n        description: 'Check people in", "feature: 'events', core: true, admin: true,\n        description: 'Check people in"],
 };
 let applied = !BREAK;
 const transform = BREAK ? (url, t) => {

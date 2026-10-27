@@ -70,7 +70,7 @@ const APPROVED = [
   ['Sundays', null, [
     ['Rota', c => c.anyTeam], ['Rota planner', c => c.core || ['Worship Team', 'Kids Church', 'Youth Worship'].some(t => c.p.adminFor.includes(t))], ['Sunday service plan', c => c.core || c.worshipLead],
     ['Preaching plan', c => c.preaching], ['Session planner', c => c.plans], ['Present', c => c.plans], ['How to present', c => c.plans], ['Rota reports', c => c.rotaLead],
-    ['Availability form', c => c.core]]],
+    ['Availability form', c => c.rotaTeam]]],
   ['People and messages', null, [
     ['Address book', c => c.messages], ['Send an email', c => c.messages], ['Team emails', c => c.master],
     /* Members' meetings (21 Oct 2026): members, and whoever runs them. */
@@ -83,11 +83,13 @@ const APPROVED = [
     ['Events', c => (c.core && c.admin) || c.eventTeam], ['Places', c => c.runsBookings], ['Room bookings', c => c.books],
     /* The caterers' list (F-260). */
     ['Catering orders', c => c.on('Catering')],
-    ['Check-in', c => c.core && c.admin], ['Registers', c => c.core && c.admin], ['Headcounts', c => c.counts],
+    ['Check-in', c => (c.core && c.admin) || c.eventTeam], ['Registers', c => (c.core && c.admin) || c.eventTeam], ['Headcounts', c => c.counts],
     ['Picture library', c => c.runsBookings], ['Book a room', c => c.leadsOrCore], ['Hire our rooms'], ['Maintenance'],
     /* The building compliance add-on (on at EGBC): the register for the
        office and the Elders, the checks for Maintenance and the office. */
-    ['Building compliance', c => c.on('Church office') || c.on('Elders')], ['The building', c => c.on('Maintenance') || c.on('Church office')],
+    ['Building compliance', c => c.on('Church office') || c.on('Elders')],
+    /* The office job (EGBC: Church office), F-296. */
+    ['Health and safety settings', c => c.on('Church office')], ['The building', c => c.on('Maintenance') || c.on('Church office')],
     ['Live risk register', c => c.on('Church office') || c.on('Elders')], ['My evacuation plan']]],
   ['Church admin', null, [
     /* Master admins only, and the office's bank details on their own page (21 Oct 2026). */
@@ -129,6 +131,10 @@ function ctx(p) {
     /* Formally joined the church (the address book's tick). */
     member: !!p.churchMember,
     anyTeam: master || p.teams.length > 0 || p.adminFor.length > 0,
+    /* On a team with a rota (the reviewer, 27 Oct: the Availability form).
+       EGBC's rota teams, written out again here; a group has none. */
+    rotaTeam: master || ['Worship Team', 'AV Team', 'Choir', 'Youth Worship', 'Kids Church', 'Lazers', 'ReNu', 'Core Team', 'Kids & Youth Core Team']
+      .some(t => p.teams.includes(t)),
     /* Martin, 26 Oct 2026: Book a room is for team leaders and core teams
        (an admin of a team, or on Core Team / Kids & Youth Core Team). */
     leadsOrCore: master || p.adminFor.length > 0 || ['Core Team', 'Kids & Youth Core Team'].some(t => p.teams.includes(t)),
@@ -269,8 +275,9 @@ const PEOPLE = {
      run" is) and the two headings above it, and nothing else in them. */
   "somebody on an event's team": { teams: [], adminFor: [], masterAdmin: false,
     eventTeam: true,
-    sees: ['Events and rooms', 'Events'],
-    doesNot: ['Rota planner', 'Address book', 'Places', 'Room bookings', 'Registers',
+    /* And Check-in and Registers, for the day (the reviewer, 27 Oct). */
+    sees: ['Events and rooms', 'Events', 'Check-in', 'Registers'],
+    doesNot: ['Rota planner', 'Address book', 'Places', 'Room bookings',
               'Church admin', 'Backup', 'Core Team'] },
   /* F-226: leads a plan group (the Lazers, say) and is on no team. The
      Session planner, and none of the team pages. */
@@ -476,7 +483,8 @@ const READ_MENU = `(() => {
   const want = flat(APPROVED);
   console.log('the approved structure has ' + want.length + ' names\n');
 
-  /* The money team's name, as the server writes it (F-200). */
+  /* The money team's name, as the server writes it (F-200); put back at the end. */
+  const hadMoney = await rest('GET', `/v1/projects/${PROJECT}/databases/(default)/documents/paymentSettings/public`);
   await rest('PATCH', `/v1/projects/${PROJECT}/databases/(default)/documents/paymentSettings/public?updateMask.fieldPaths=moneyTeam`,
     { fields: { moneyTeam: val(MONEY_TEAM) } });
   for (const [label, p] of Object.entries(PEOPLE)) {
@@ -779,6 +787,11 @@ const READ_MENU = `(() => {
   if (hadFeatures.status === 200) await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features', { fields: JSON.parse(hadFeatures.body).fields || {} });
   else await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/churchSettings/features');
   await rest('DELETE', '/v1/projects/' + PROJECT + '/databases/(default)/documents/bookingSettings/synthetic_site');
+  /* And the money team's name back, or the next check on this emulator
+     finds Finance off the money team (the access matrix did, 27 Oct). */
+  const moneyWas = hadMoney.status === 200 ? (JSON.parse(hadMoney.body).fields || {}).moneyTeam : undefined;
+  await rest('PATCH', '/v1/projects/' + PROJECT + '/databases/(default)/documents/paymentSettings/public?updateMask.fieldPaths=moneyTeam',
+    { fields: moneyWas ? { moneyTeam: moneyWas } : {} });
 
   console.log('\n' + R.filter(Boolean).length + '/' + R.length + ' passed');
   server.close(); chrome.kill();
