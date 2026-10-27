@@ -3222,9 +3222,12 @@ service cloud.firestore {
         : roomData(roomId).get('rotaWeek', {}).get(dow, null);
       return roomOpen(roomId, d.day) && (s == null || s[d.slotFrom:d.slotTo].hasOnly([0]));
     }
+    // Not each part's closures: closing a part closes every room it is part
+    // of (the closure's wholeIds), so the whole room's own closed day, which
+    // memberCreate checks, covers its parts. Each part's too ran past the
+    // 1,000-expression limit for a hall of four parts in a church's own hub.
     function partMarked(roomId, d, key) {
-      return roomOpen(roomId, d.day)
-             && getAfter(/databases/$(database)/documents/roomDays/$(roomId + '_' + d.day)).data.lastBooking == key;
+      return getAfter(/databases/$(database)/documents/roomDays/$(roomId + '_' + d.day)).data.lastBooking == key;
     }
     function partHeld(roomId, d) {
       return !getAfter(/databases/$(database)/documents/roomDays/$(roomId + '_' + d.day)).data.slots[d.slotFrom:d.slotTo].hasAny([0]);
@@ -3340,16 +3343,33 @@ service cloud.firestore {
     // A room closed for the day (Close a room, F-135) is not free at any
     // time: only the office may book it, as booking over something, with
     // a reason.
+    // (the path built once: for each part of a four-part hall this ran past
+    // the 1,000-expression limit in a church's own hub)
     function roomOpen(roomId, day) {
-      return !(exists(/databases/$(database)/documents/roomClosedDays/$(roomId + '_' + day))
-               && get(/databases/$(database)/documents/roomClosedDays/$(roomId + '_' + day)).data.get('on', false) == true);
+      let c = /databases/$(database)/documents/roomClosedDays/$(roomId + '_' + day);
+      return !exists(c) || get(c).data.get('on', false) != true;
     }
     function slotsFree(d) {
       return slotsFreeIn(d, partsOf(d.roomId));
     }
     function slotsFreeIn(d, p) {
       let dow = string(isoDow(d.day));
-      return p.size() == 0 ? partFree(d.roomId, d, dow) : (roomOpen(d.roomId, d.day) && partsFree(p, d, dow));
+      return p.size() == 0 ? partFree(d.roomId, d, dow) : (roomOpen(d.roomId, d.day) && partsAsked(p, d, dow));
+    }
+    // A REQUEST for a room made of parts (members and the public) holds
+    // nothing: the office's approval marks every part's day, and the rules
+    // check each part fully then. So here only each part's day, where it has
+    // been written, is read: with each part's record and closures too, a hall
+    // of four parts ran past Firestore's limits (10 reads; 1,000 expressions)
+    // and every request for it was refused. The page shows the parts' weekly
+    // patterns, and approving checks them.
+    function partAsked(roomId, d, dow) {
+      return !exists(/databases/$(database)/documents/roomDays/$(roomId + '_' + d.day))
+             || get(/databases/$(database)/documents/roomDays/$(roomId + '_' + d.day)).data.slots[d.slotFrom:d.slotTo].hasOnly([0]);
+    }
+    function partsAsked(p, d, dow) {
+      return p.size() <= 4 && partAsked(p[0], d, dow) && (p.size() < 2 || partAsked(p[1], d, dow))
+             && (p.size() < 3 || partAsked(p[2], d, dow)) && (p.size() < 4 || partAsked(p[3], d, dow));
     }
 
     // Book a room is for team leaders and core teams (Martin, 26 Oct; H-16):
@@ -4400,9 +4420,11 @@ service cloud.firestore {
     function closureShape() {
       let d = request.resource.data;
       return d.keys().hasOnly(['siteId', 'roomId', 'roomName', 'from', 'to', 'days', 'reason', 'status',
-                               'by', 'byName', 'at', 'liftedBy', 'liftedByName', 'liftedAt', 'warnedAt', 'warnedBy', 'warnedCount', 'partIds'])
+                               'by', 'byName', 'at', 'liftedBy', 'liftedByName', 'liftedAt', 'warnedAt', 'warnedBy', 'warnedCount', 'partIds', 'wholeIds'])
              && d.siteId is string && d.roomId is string && roomData(d.roomId).siteId == d.siteId
              && d.get('partIds', []) is list && d.get('partIds', []).size() <= 4
+             // the rooms it is part of, closed with it
+             && d.get('wholeIds', []) is list && d.get('wholeIds', []).size() <= 20
              && d.roomName is string && d.roomName.size() <= 120
              && d.from is string && d.from.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
              && d.to is string && d.to.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && d.to >= d.from
@@ -4436,7 +4458,8 @@ service cloud.firestore {
                       (request.resource.data.on == true
                        && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.status == 'on'
                        && (getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.roomId == request.resource.data.roomId
-                           || request.resource.data.roomId in getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.get('partIds', []))
+                           || request.resource.data.roomId in getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.get('partIds', [])
+                           || request.resource.data.roomId in getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.get('wholeIds', []))
                        && getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.siteId == request.resource.data.siteId
                        && request.resource.data.day in getAfter(/databases/$(database)/documents/roomClosures/$(request.resource.data.closureId)).data.days)
                       || (request.resource.data.on == false && resource != null && resource.data.siteId == request.resource.data.siteId

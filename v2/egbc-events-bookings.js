@@ -720,27 +720,49 @@
     if (!o.reason || !String(o.reason).trim()) return Promise.reject(new Error('Say why the room is closed.'));
     if (!days.length || o.to < o.from) return Promise.reject(new Error('The last day is before the first.'));
     if (days.length > CLOSE_MAX) return Promise.reject(new Error('Close it for a month at most at a time.'));
+    /* Closing a part closes each room it is part of too (the whole hall),
+       so booking the whole hall needs only the hall's own closed day: one
+       read, where checking each part's ran past the rules' limit. */
+    return wholesFor(o.room).then(function (wholes) {
     var w = who(), ref = db().collection('roomClosures').doc(), b = db().batch();
     var c = { siteId: o.room.siteId, roomId: o.room.id, roomName: String(o.room.name || '').slice(0, 120), from: o.from, to: o.to, days: days,
               reason: String(o.reason).trim().slice(0, 300), status: 'on', by: w.uid, byName: w.name, at: firebase.firestore.FieldValue.serverTimestamp() };
     /* Closing a room made of parts closes each part too. */
     if (partIds(o.room).length) c.partIds = partIds(o.room);
+    if (wholes.length) c.wholeIds = wholes.map(function (r) { return r.id; });
     b.set(ref, c);
-    [o.room.id].concat(partIds(o.room)).forEach(function (id) {
+    [o.room.id].concat(partIds(o.room), c.wholeIds || []).forEach(function (id) {
       days.forEach(function (d) { b.set(db().collection('roomClosedDays').doc(id + '_' + d), { closureId: ref.id, roomId: id, siteId: o.room.siteId, day: d, on: true }); });
     });
     return b.commit().then(function () {
       c.id = ref.id;
       return tellClosure(c, o.site, 'closed').catch(function () { return null; }).then(function () { return c; });
     });
+    });
+  }
+  /* The rooms this room is a part of (at most 20). */
+  function wholesFor(room) {
+    if (partIds(room).length) return Promise.resolve([]);
+    return db().collection('rooms').where('parts', 'array-contains', room.id).limit(20).get()
+      .then(function (s) { return know(s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })); });
   }
   /* Opens the closure's days again - only the days still marked by it
      (a later closure of the same day keeps its own). */
   function liftClosure(c, site) {
     var w = who();
     var asks = [];
-    [c.roomId].concat(c.partIds || []).forEach(function (id) { c.days.forEach(function (d) { asks.push([id, d]); }); });
-    return Promise.all(asks.map(function (a) { return db().collection('roomClosedDays').doc(a[0] + '_' + a[1]).get(); })).then(function (snaps) {
+    [c.roomId].concat(c.partIds || [], c.wholeIds || []).forEach(function (id) { c.days.forEach(function (d) { asks.push([id, d]); }); });
+    /* A whole hall stays closed on a day another of its parts is still closed. */
+    var others = [];
+    return Promise.all((c.wholeIds || []).map(function (id) { return roomById(id).catch(function () { return null; }); })).then(function (wholes) {
+      wholes.forEach(function (r) { if (r) partIds(r).forEach(function (p) { if (p !== c.roomId) c.days.forEach(function (d) { others.push([r.id, d, p]); }); }); });
+      return Promise.all(others.map(function (a) { return db().collection('roomClosedDays').doc(a[2] + '_' + a[1]).get().catch(function () { return null; }); }));
+    }).then(function (os) {
+      var keep = {};
+      os.forEach(function (s, i) { if (s && s.exists && s.data().on === true) keep[others[i][0] + '_' + others[i][1]] = true; });
+      asks = asks.filter(function (a) { return !keep[a[0] + '_' + a[1]]; });
+      return Promise.all(asks.map(function (a) { return db().collection('roomClosedDays').doc(a[0] + '_' + a[1]).get(); }));
+    }).then(function (snaps) {
       var b = db().batch();
       b.update(db().collection('roomClosures').doc(c.id), { status: 'lifted', liftedBy: w.uid, liftedByName: w.name, liftedAt: firebase.firestore.FieldValue.serverTimestamp() });
       snaps.forEach(function (s, i) {

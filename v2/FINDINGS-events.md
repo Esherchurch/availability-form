@@ -13141,3 +13141,22 @@ All 11 passed.
 - the peepToday* functions (peeps.js now keeps the count)
 
 The rules go live when the hub goes live. A real AI call only on your word.
+
+---
+
+### F-303 — A room made of four parts: requests, and instant booking in a church's own hub (the reviewing window's job 1, 29 Oct) (the events window)
+
+**Which it was:** two different things. F-298's `users.jobs` fixed the office's instant booking in EGBC's hub. A probe (both rulesets, every way of booking a 4-part hall) found three still refused:
+- **a request** (members, bookings admins, the office): over Firestore's 10-read limit (each part's day, and each part's record for its weekly pattern)
+- **a public hire request:** the same
+- **instant booking in a church's own hub** by the office or a bookings admin: over the 1,000-expression limit (each part's closed day)
+
+**Fixed:**
+- **A request** reads each part's day where it has been written, not each part's record or closures. A request holds nothing: approving it marks every part's day, and the rules check each part fully then.
+- **Closing a part closes every room it is part of** (the whole hall), as `wholeIds` on the closure. Lifting it reopens them, unless another of the hall's parts is still closed that day. So booking the whole hall checks the hall's own closed day only. Rules: `partMarked` no longer reads each part's closures; `roomOpen` builds its path once; `roomClosures` and `roomClosedDays` take `wholeIds` (20 at most).
+
+**Probe, after:** all allowed in both rulesets (a team leader's, a bookings admin's and the office's request and instant booking; a public hire request), and an instant booking of a closed hall refused.
+
+**For main:** app.html loads `egbc-events-bookings.js?v=202610141700`; please bump it to `202610291000`.
+
+**Deploy:** nothing. The rules go live when the hub goes live.
