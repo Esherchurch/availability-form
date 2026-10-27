@@ -210,7 +210,14 @@
         description: 'Each building\'s health and safety and fire risk assessments' },
       /* Anyone signed in: their own personal emergency evacuation plan. */
       { title: 'My evacuation plan', url: 'peep.html', icon: 'door-open', feature: 'buildingCompliance',
-        description: 'If you would need help to leave the building in an emergency' }
+        description: 'If you would need help to leave the building in an emergency' },
+      /* The events window's lone.html (F-305): anyone signed in. */
+      { title: 'Working alone', url: 'lone.html', icon: 'timer', feature: 'buildingCompliance',
+        description: 'Sign in when you work alone at a building, and out when you leave' },
+      /* The events window's transport.html (F-306): anyone signed in (the
+         walk-round check); the drivers' records are the page's to guard. */
+      { title: 'Drivers and vehicles', url: 'transport.html', icon: 'car',
+        description: 'Who is cleared to drive, the vehicles, and the check before you drive' }
     ] },
 
     { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [
@@ -219,6 +226,10 @@
       /* Master admins and the office (Martin, 15 Oct 2026; the office job, H-9). */
       { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', job: 'office',
         description: 'Add, rename, recolour, order and archive teams' },
+      /* The events window's data-records.html (F-307): the office, the
+         trustees, the data protection leads and master admins - the rules'. */
+      { title: 'Data records', url: 'data-records.html', icon: 'database', job: ['office', 'trustees'], dataLead: true,
+        description: 'The information asset register, data breaches and data requests' },
       /* Who may do what (H-14; Martin's answer 6): master admins only. */
       { title: 'Permissions', url: 'permissions.html', icon: 'key-round', master: true,
         description: 'Who may do what, section by section, and exceptions' },
@@ -236,7 +247,7 @@
       { title: 'Safeguarding', url: 'safeguarding.html', icon: 'shield-check', feature: 'safeguarding', sg: true,
         description: 'Leaders’ DBS checks and training, and exceptions' },
       /* The risk register (F-268): the lead and deputy, master admins and
-         the trustees - the rules' sgRegSees(). */
+         the trustees - the rules' sgRegSees() - and group leaders (F-304). */
       { title: 'Safeguarding risks', url: 'safeguarding-risk.html', icon: 'clipboard-list', feature: 'safeguardingRegister', sgRisk: true,
         description: 'The standing risks, and events waiting for sign-off' },
       { title: 'Safeguarding settings', url: 'safeguarding-settings.html', icon: 'settings-2', feature: 'safeguarding', sg: true,
@@ -390,7 +401,8 @@
        any team admin (Martin's rule; the reviewing window, 22 Oct 2026). */
     if (node.sg && !who.isMaster && !who.isSgLead) return false;
     /* The risk register: those, and the trustees' team (F-268). */
-    if (node.sgRisk && !who.isMaster && !who.isSgLead && !who.isSgTrustee) return false;
+    /* ...and a group's leaders, read only, their own activities (F-304). */
+    if (node.sgRisk && !who.isMaster && !who.isSgLead && !who.isSgTrustee && !who.isGroupLeader) return false;
     /* On the money team, by whatever name the church gives it, or a master
        admin (who.isMaster honours "View the site as"). */
     if (node.money && !who.isMaster && (who.teams || []).indexOf(who.moneyTeam || 'Finance') === -1) return false;
@@ -426,7 +438,7 @@
        never by a team's name; or a master admin. */
     /* One job or a list; buildingLead lets a building's leads in too. */
     if (node.job && !who.isMaster && ![].concat(node.job).some(function (j) { return (who.jobs || []).indexOf(j) !== -1; })
-        && !(node.buildingLead && who.isBuildingLead)) return false;
+        && !(node.buildingLead && who.isBuildingLead) && !(node.dataLead && who.isDataLead)) return false;
     if (node.pinBoard && !who.isMaster && !who.hasBoard) return false;
     if (node.leadsOrCore && !who.leadsOrCore) return false;
     /* The Rota planner's own test, so the two can never disagree. */
@@ -1026,6 +1038,8 @@
            which is the safe way round. */
         isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true,
         isBuildingLead: !!(A && A.isBuildingLead && A.isBuildingLead()),
+        isGroupLeader: !!(A && A.isGroupLeader && A.isGroupLeader()),
+        isDataLead: !!(A && A.isDataLead && A.isDataLead()),
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),

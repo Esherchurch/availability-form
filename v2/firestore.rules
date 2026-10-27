@@ -814,8 +814,11 @@ service cloud.firestore {
     // holds it as roles inside Kids Church.
     // The Kids & Youth Core Team too (H-15, Martin, 26 Oct 2026): a core
     // team covering an under-18s team works with under-18s itself.
+    // From each team's own tick (teamFlags/under18, kept by the events
+    // window's under18OnTeam, F-304); EGBC's five when nothing is stored.
     function under18Teams() {
-      return ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
+      let p = /databases/$(database)/documents/teamFlags/under18;
+      return exists(p) ? get(p).data.teams : ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
     }
     function eventIsUnder18() {
       return request.resource.data.get('teams', []).hasAny(under18Teams());

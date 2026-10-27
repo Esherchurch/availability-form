@@ -58,7 +58,8 @@ const fromAuth = [];
 /* From the rules: the names inside under18Teams(). */
 const fromRules = [];
 {
-  const m = /function\s+under18Teams\s*\(\s*\)\s*\{\s*return\s*\[([^\]]*)\]/.exec(rules);
+  /* The default list (teamFlags/under18 when stored, F-304). */
+  const m = /function\s+under18Teams\s*\(\s*\)\s*\{[^}]*?:\s*\[([^\]]*)\]/.exec(rules);
   if (!m) ok('under18Teams() is in firestore.rules', false, 'could not find the function');
   else for (const q of m[1].match(/'([^']+)'/g) || []) fromRules.push(q.slice(1, -1));
 }

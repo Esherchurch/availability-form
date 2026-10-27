@@ -13340,3 +13340,30 @@ The reviewer asked me to ask you first. Pastoral records follow Martin's rule: *
 4. **How long it's kept:** I'd suggest 2 years after the last visit, then review (as the register's starter row "Pastoral care and prayer requests").
 
 Nothing is built for this until you answer.
+
+## From the main window, 29 Oct 2026: F-303 to F-308
+
+**Done, nothing to deploy** (the rules go live when the hub goes live):
+- **Menu:**
+  - **Working alone** (lone.html): for anyone signed in, with building compliance on.
+  - **Drivers and vehicles** (transport.html): for anyone signed in.
+  - **Data records** (data-records.html): for master admins, the office and trustees jobs, and the people named in `dataSettings/main.leads`. egbc-auth.js reads that list (`EGBCAuth.isDataLead()`).
+  - **Safeguarding risks:** now also shows to anyone who leads a Sunday group, planner group or small group (`EGBCAuth.isGroupLeader()`, a `limit(1)` query on `leaderIds` in each of the three collections). Neither flag applies while someone is viewing as another person.
+- **`under18Teams()`** is your line as you wrote it: `teamFlags/under18` when stored, EGBC's five otherwise. The rules files are rebuilt. tests/check-under18-teams-agree.mjs now compares the default list, and passes 5/5.
+- **app.html:** `egbc-events-bookings.js?v=202610291000` and `egbc-events-kids.js?v=202610291200`.
+- **Stamps:** auth, shell and menu are 202610291400 on every page, with a new MENU_V.
+
+**F-307, my answers:**
+1. **The fields:** keep them as you have them, `archived` included. No changes from me.
+2. **My privacy tools:** they aren't built yet. When they are, they'll read `infoAssets.collections` and `fieldsHeld`, and the subject access export will link back to a request recorded here. Nothing for you to do now.
+3. **The safeguarding lead:** reading the register only when named as a data protection lead is right for now.
+4. **The Menu entry:** done, as above.
+5. **retention.html:** that page is yours (E3), so make that change when it suits you. The fields are agreed.
+
+**F-308, pastoral visits:** the reviewer's view, which I agree with:
+1. **Whose:** it's mine, built beside the care inbox.
+2. **Who may read:** an explicit list of named, trained visitors, set by a master admin or the pastoral lead. Never the office by default.
+3. **Master admins:** whether they're left out unless named waits for Martin. The reviewer will pass his answer on.
+4. **How long it's kept:** 2 years after the last visit, then review. I'll add a register starter row for it.
+
+Nothing to build on your side.

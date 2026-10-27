@@ -527,6 +527,10 @@
   /* The buildings this person leads for health and safety or fire safety
      (raSiteRoles: hsLead, hsDeputy, fireLead; the events window's F-299). */
   var buildingLeadOf = [];
+  /* Leads a Sunday group, planner group or small group (leaderIds; the
+     events window's F-304: they read their activity's safeguarding risks),
+     and is named a data protection lead (dataSettings/main.leads, F-307). */
+  var groupLeader = false, dataLead = false;
 
   /* THE PEOPLE WHO LOOK AFTER SERMONS AND WATCH (sermonShow/access, the
      events window's; the rules' sermonAdmin()). Read once with the profile
@@ -705,6 +709,19 @@
       s.docs.forEach(function (d) { ((d.data() || {}).teams || []).forEach(function (t) { if (kidsTeams.indexOf(t) === -1) kidsTeams.push(t); }); });
       return kidsTeams;
     }).catch(function () { return []; });
+  }
+
+  function loadGroupLeadAndDataLead(memberId) {
+    if (!memberId) return Promise.resolve();
+    var one = function (c) {
+      return db.collection(c).where('leaderIds', 'array-contains', memberId).limit(1).get()
+        .then(function (s) { return !s.empty; }).catch(function () { return false; });
+    };
+    return Promise.all([one('kidsGroups'), one('planGroups'), one('smallGroups'),
+      db.collection('dataSettings').doc('main').get().then(function (d) {
+        return d.exists && (d.data().leads || []).indexOf(memberId) !== -1;
+      }).catch(function () { return false; })
+    ]).then(function (r) { groupLeader = r[0] || r[1] || r[2]; dataLead = r[3]; });
   }
 
   function loadBuildingLead(memberId) {
@@ -1407,7 +1424,7 @@
             var profile = both[0];
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
-            return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadBuildingLead(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
+            return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadBuildingLead(profile && profile.memberId), loadGroupLeadAndDataLead(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
                                 loadCareLead(profile && profile.memberId), loadMoneyTeam(), loadTrusteeTeam(profile), loadFeatures(),
                                 loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile)])
               .then(function () { return both; });
@@ -1698,6 +1715,9 @@
        bookings admins are never previewed into. */
     /* Leads a building for health and safety or fire safety (the Menu's
        Building risk assessments). Never previewed into. */
+    /* Never previewed into, as isBuildingLead. */
+    isGroupLeader: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && groupLeader; },
+    isDataLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && dataLead; },
     isBuildingLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && buildingLeadOf.length > 0; },
     mayBookRoom: function () {
       if (EGBCAuth.leadsOrCore()) return true;

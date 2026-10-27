@@ -261,7 +261,8 @@ allow write: if (isMaster() || (raOffice()
 && request.resource.data.get('runs', []).hasOnly(['today', 'people', 'bookings', 'send']);
 }
 function under18Teams() {
-return ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
+let p = /databases/$(database)/documents/churches/$(cid)/teamFlags/under18;
+return exists(p) ? get(p).data.teams : ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
 }
 function eventIsUnder18() {
 return request.resource.data.get('teams', []).hasAny(under18Teams());
