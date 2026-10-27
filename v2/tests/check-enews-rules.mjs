@@ -27,8 +27,14 @@ const PEOPLE = {
   office: { uid: 'en_office', teams: ['Church office'], masterAdmin: false },
   admin:  { uid: 'en_admin', teams: ['Kids Church'], adminFor: ['Kids Church'], masterAdmin: false },
   member: { uid: 'en_member', teams: [], masterAdmin: false, churchMember: true, attender: true },
-  worship:{ uid: 'en_worship', teams: ['Worship Team'], masterAdmin: false }
+  worship:{ uid: 'en_worship', teams: ['Worship Team'], masterAdmin: false },
+  /* TEAM JOBS (H-9): a parish's own teams for the office and trustees jobs. */
+  parish: { uid: 'en_parish', teams: ['Parish office'], masterAdmin: false },
+  pcc:    { uid: 'en_pcc', teams: ['PCC'], masterAdmin: false },
+  elders: { uid: 'en_elders', teams: ['Elders'], masterAdmin: false }
 };
+const GIVING = { accountName: 'Synthetic Parish', sortCode: '00-00-00', accountNumber: '00000000', reference: 'GIFT', giftAid: false, giftAidUrl: '', note: '', updatedAt: 'x', updatedBy: 'x' };
+const JOIN = { zoomUrl: 'https://example.invalid/j/1', zoomId: '000', passcode: '000', updatedAt: 'x', updatedBy: 'x' };
 const issue = (uid, o) => Object.assign({ subject: 'Weekly news', preheader: '', template: 'classic', blocks: [{ type: 'text', html: '<p>Hi</p>' }],
   status: 'draft', sendAt: '', createdAt: '2026-10-19T10:00:00Z', createdBy: uid, updatedAt: '2026-10-19T10:00:00Z', updatedBy: uid }, o);
 
@@ -135,6 +141,19 @@ async function run(rules) {
   await t('the office can tick Under 18', assertSucceeds(setDoc(doc(as('office'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: true })));
   await t('a team leader cannot untick it either', assertFails(setDoc(doc(as('admin'), 'addressBook', 'ab_teen'), { name: 'Teen Synthetic', email: 'teen@example.invalid', markers: ['Kids Church'], isMinor: false, under18: false })));
   await t('a team leader can still save an under-16 they lead, as the page saves it', assertSucceeds(setDoc(doc(as('admin'), 'addressBook', 'ab_kid'), { name: 'Kid Synthetic', email: '', markers: ['Kids Church'], isMinor: true, under18: false })));
+  /* TEAM JOBS (H-9; the reviewing window, 27 Oct). Members' meetings are run
+     by the office and trustees jobs, and the giving details are written by
+     the office job: each church's own teams for them. Nothing stored (EGBC):
+     EGBC's Church office and Elders, as before. */
+  await t('jobs, nothing stored (EGBC): the Church office writes the giving details', assertSucceeds(setDoc(doc(as('office'), 'churchSettings', 'giving'), GIVING)));
+  await t('jobs, nothing stored (EGBC): the Elders run a members\u2019 meeting (its joining details)', assertSucceeds(setDoc(doc(as('elders'), 'churchMeetings', 'cm1', 'private', 'join'), JOIN)));
+  await t('jobs, nothing stored (EGBC): a "Parish office" team is nobody\u2019s office', assertFails(setDoc(doc(as('parish'), 'churchSettings', 'giving'), GIVING)));
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'churchSettings', 'teamJobs'), { office: ['Parish office'], trustees: ['PCC'] }); });
+  await t('a church\u2019s own team name for the office job: its Parish office writes the giving details', assertSucceeds(setDoc(doc(as('parish'), 'churchSettings', 'giving'), GIVING)));
+  await t('a church\u2019s own team name for the office job: its Parish office runs a members\u2019 meeting', assertSucceeds(setDoc(doc(as('parish'), 'churchMeetings', 'cm1', 'private', 'join'), JOIN)));
+  await t('a church\u2019s own team name for the trustees job: its PCC runs a members\u2019 meeting', assertSucceeds(setDoc(doc(as('pcc'), 'churchMeetings', 'cm1', 'private', 'join'), JOIN)));
+  await t('…and EGBC\u2019s team names are not that church\u2019s jobs: "Church office" can\u2019t write its giving details, "Elders" can\u2019t run its meetings', assertFails(setDoc(doc(as('office'), 'churchSettings', 'giving'), GIVING)).then(() => assertFails(setDoc(doc(as('elders'), 'churchMeetings', 'cm1', 'private', 'join'), JOIN))));
+  await t('…and a PCC member (trustees, not office) can\u2019t write the giving details', assertFails(setDoc(doc(as('pcc'), 'churchSettings', 'giving'), GIVING)));
   await env.cleanup();
   return R;
 }
@@ -161,6 +180,8 @@ const BREAKS = [
   ['the office may read the links to the papers', 'allow read, write: if false;   // paper links: the server only', 'allow read, write: if enewsOffice();   // paper links: the server only', 'link to the papers'],
   ['anything on the welcome switches', "&& request.resource.data.keys().hasOnly(['subscriber', 'newcomer', 'updatedAt', 'updatedBy'])", '', 'carry nothing else'],
   ['previews listed', 'allow list: if false;           // previews: never listed', 'allow list: if true;           // previews: never listed', 'list the previews'],
+  ['members\u2019 meetings by team name, not job', '      return raOffice() || onTrustees();', "      return isMaster() || onTeam('Church office') || onTeam('Elders');", 'a church\u2019s own team name for the'],
+  ['the giving details by team name, not job', "                   || (raOffice() && id == 'giving'", "                   || ((isMaster() || onTeam('Church office')) && id == 'giving'", 'its Parish office writes the giving details'],
   ['a recipients list allowed on an issue', "'blocks', 'status', 'sendAt',", "'blocks', 'status', 'sendAt', 'recipients',", 'extra fields']
 ];
 let caught = 0;

@@ -2945,7 +2945,9 @@ service cloud.firestore {
     // point of keeping the bank details off a public document. That trap
     // cost a real mistake once already (the concerns/worries rename).
     // ---- MEMBERS' MEETINGS (21 Oct 2026; design-mocks/members-meeting) ----
-    // Run by master admins, the Church office and the Elders (Martin). Seen
+    // Run by master admins, the office job and the trustees job (H-9: each
+    // church's own teams for them, churchSettings/teamJobs; nothing stored,
+    // EGBC's Church office and Elders). Seen
     // by church members (the address book's tick) and by whoever runs them.
     // Votes: a page may write a vote only while it is a draft, and the
     // chair's outcome once it has closed. Opening, closing, every ballot and
@@ -2953,7 +2955,7 @@ service cloud.firestore {
     // and nobody reads the tally: for a secret vote it is the only place a
     // choice exists, and it is never beside a name.
     function meetingRunner() {
-      return isMaster() || onTeam('Church office') || onTeam('Elders');
+      return raOffice() || onTrustees();
     }
     function meetingMember() {
       return isChurchMember() || meetingRunner();
@@ -3122,11 +3124,12 @@ service cloud.firestore {
                        // name. A hubUrl a page typed in before (25 Oct) is kept as
                        // it is and read by nothing; no page sets or changes it.
                        && request.resource.data.get('hubUrl', '') == (resource == null ? '' : resource.data.get('hubUrl', '')))
-                   // The giving details: a master admin, or the Church
-                   // office, who are the people who would know them.
-                   // Deliberately NOT every admin - a Kids Church admin has
+                   // The giving details: a master admin, or the office job
+                   // (H-9: the church's own team for it; nothing stored, EGBC's
+                   // Church office), who are the people who would know them.
+                   // Deliberately NOT every admin - a children's team admin has
                    // no business changing where the church's money goes.
-                   || ((isMaster() || onTeam('Church office')) && id == 'giving'
+                   || (raOffice() && id == 'giving'
                        && request.resource.data.keys().hasOnly(['accountName', 'sortCode', 'accountNumber',
                             'reference', 'giftAid', 'giftAidUrl', 'note', 'updatedAt', 'updatedBy'])
                        && request.resource.data.accountName is string && request.resource.data.accountName.size() <= 120

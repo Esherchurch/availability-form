@@ -260,6 +260,36 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## FIXED, 27 Oct: members' meetings and the giving details by team job, not team name (H-9). For review
+
+The events window found two rules in this window's sections that named teams.
+
+- **Who runs members' meetings** (`meetingRunner`, firestore.rules):
+  - was: master admins, "Church office" and "Elders";
+  - now: `raOffice() || onTrustees()`. That is master admins, the **office** job and the **trustees** job.
+- **Who writes the giving details** (`churchSettings/giving`):
+  - was: master admins and "Church office";
+  - now: `raOffice()`, master admins and the office job.
+- **Main's own rules helpers do it** (`raJobTeams`/`raOnJob`, `onTrustees`). They give the same answer as `EGBCTeamJobs.teamsFor` and functions/team-jobs.js `readTeamJobs`/`teamsFor`:
+  - the church's teams for the job, from `churchSettings/teamJobs`;
+  - with nothing stored, EGBC's names: "Church office"; for trustees, the safeguarding settings' trustee team, then "Elders".
+  - **For EGBC nothing changes.**
+- **Rebuilt:** firestore.build.rules and firestore.churches.rules (tools/rules-build.mjs). check-rules-build 10/10.
+- **For the synthetic parish:** with office = "Parish office" and trustees = "PCC", its Parish office writes the giving details and runs members' meetings, and its PCC runs them too. A team called "Church office" or "Elders" there has neither job.
+
+### Checks (one test at a time, more than 3 GB free, private TEMP, emulators stopped after each)
+
+| Check | Result |
+|---|---|
+| check-enews-rules | 76/76; 20/20 breaks red. New: nothing stored, EGBC's Church office writes the giving details and its Elders run a meeting, and a "Parish office" team is nobody's office. With a parish's mapping, its Parish office and PCC can, and EGBC's names, or the PCC for giving, can't. **Breaks** (each puts the team names back): members' meetings by team name → red; the giving details by team name → red |
+| check-rules-build | 10/10 |
+
+**Not run:** check-members-meeting.mjs and check-give.mjs. Both talk to the dev emulators (8181), which aren't this window's. The lines they cover are tested above.
+
+**v2 only:** every changed path is under v2/. No original page was looked at.
+
+---
+
 ## BUILT, 26 Oct: C-51, every service in the weekly draft, and the notices by the hub's own rule. For review
 
 **The weekly draft now has every service that Sunday, in every building**, instead of the first one.

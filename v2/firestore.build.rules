@@ -1488,7 +1488,7 @@ allow write: if isAdmin()
 && request.resource.data.get('price', 0) is number && request.resource.data.get('price', 0) >= 0;
 }
 function meetingRunner() {
-return isMaster() || onTeam('Church office') || onTeam('Elders');
+return raOffice() || onTrustees();
 }
 function meetingMember() {
 return isChurchMember() || meetingRunner();
@@ -1597,7 +1597,7 @@ allow write: if (isAdmin() && id == 'details'
 && request.resource.data.enquiryEmail is string && request.resource.data.enquiryEmail.size() <= 200
 && (request.resource.data.enquiryEmail == '' || request.resource.data.enquiryEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))
 && request.resource.data.get('hubUrl', '') == (resource == null ? '' : resource.data.get('hubUrl', '')))
-|| ((isMaster() || onTeam('Church office')) && id == 'giving'
+|| (raOffice() && id == 'giving'
 && request.resource.data.keys().hasOnly(['accountName', 'sortCode', 'accountNumber',
 'reference', 'giftAid', 'giftAidUrl', 'note', 'updatedAt', 'updatedBy'])
 && request.resource.data.accountName is string && request.resource.data.accountName.size() <= 120
