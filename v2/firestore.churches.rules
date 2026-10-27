@@ -2979,10 +2979,13 @@ return d.keys().hasOnly(['siteId', 'people', 'memberIds', 'stewards', 'updatedBy
 && d.get('updatedByName', '') is string && d.get('updatedByName', '').size() <= 200
 && d.get('updatedAt', '') is string;
 }
+function fireLeadOf(id) {
+return id != 'all' && active() && me().get('memberId', '') != '' && raRoles(id).get('fireLead', '-') == me().get('memberId', '');
+}
 match /fireRollCall/{id} {
 allow read: if isMaster()
-|| (id != 'main' && (raOffice() || (active() && me().get('memberId', '') in resource.data.get('memberIds', []))));
-allow create, update: if id != 'main' && raOffice() && fireRollShape(id);
+|| (id != 'main' && (raOffice() || fireLeadOf(id) || (active() && me().get('memberId', '') in resource.data.get('memberIds', []))));
+allow create, update: if id != 'main' && (raOffice() || fireLeadOf(id)) && fireRollShape(id);
 allow delete: if false;
 }
 match /kidsCounts/{id} {
@@ -3071,7 +3074,8 @@ function raSmall(m, k, lo, hi) { return !(k in m) || (m[k] is int && m[k] >= lo 
 match /raSettings/{id} {
 allow read: if active();
 allow write: if raOffice() && id == 'church'
-&& request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'updatedAt', 'updatedBy'])
+&& request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'hireRaTypes', 'updatedAt', 'updatedBy'])
+&& request.resource.data.get('hireRaTypes', []) is list && request.resource.data.get('hireRaTypes', []).size() <= 500
 && raWhole(request.resource.data, 'employees', 0) && raWhole(request.resource.data, 'largerTeam', 1)
 && raWhole(request.resource.data, 'publicLiability', 0) && raWhole(request.resource.data, 'employersLiability', 0)
 && raWhole(request.resource.data, 'minCover', 1) && raWhole(request.resource.data, 'eventPeople', 1)
@@ -3174,9 +3178,97 @@ allow read: if resource == null || raAssessSees(resource.data.siteId);
 allow create, update: if raAssessWrite(id, request.resource.data, resource == null ? null : resource.data);
 allow delete: if false;
 }
+function raEventChecklist(kind, f, care) {
+return ['insurance', 'numbers', 'firstAid', 'accessibility', 'weather', 'incidents']
+.concat(kind in ['daytrip', 'residential', 'adventurous']
+? ['venue', 'venueFire', 'venueRa', 'travel', 'drivers', 'medical', 'contacts', 'leaderOnCall', 'careSupport']
+: ['buildingRas', 'fire', 'crowd'])
+.concat(kind == 'wedding' ? ['traffic'] : kind == 'baptism' ? ['fontWater'] : kind == 'funeral' ? ['churchyard', 'traffic']
+: kind == 'residential' ? ['sleeping', 'nightFire'] : kind == 'adventurous' ? ['instructor', 'activityEquipment', 'activityLicence'] : [])
+.concat(f.get('flames', false) == true ? ['flames'] : [])
+.concat(f.get('food', false) == true ? ['food'] : [])
+.concat(f.get('alcohol', false) == true ? ['alcohol'] : [])
+.concat(f.get('outdoor', false) == true ? ['outdoor'] : [])
+.concat(f.get('equipment', false) == true ? ['equipmentPat'] : [])
+.concat(f.get('music', false) == true ? ['licensing'] : [])
+.concat(kind in ['daytrip', 'residential', 'adventurous'] && care.get('support', '') == 'yes' ? ['careHow'] : []);
+}
+function raEventDone(d) {
+let a = d.get('answers', {});
+return a.keys().hasAll(raEventChecklist(d.kind, d.get('flags', {}), d.get('care', {})))
+&& !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
+}
+function raEventSees(calEventId, d) {
+return cmpSees() || runsEventId(calEventId) || isEventLeader(calEventId) || raAnyLead(d.get('approverSiteId', ''))
+|| (d.get('care', {}).get('support', '') == 'yes' && (sgLeadOf(d.get('siteId', '')) || sgLeadOf(d.get('approverSiteId', ''))));
+}
+function raEventShape(d, calEventId) {
+return d.keys().hasOnly(['calEventId', 'siteId', 'approverSiteId', 'title', 'kind', 'flags', 'care', 'people', 'marked', 'venue', 'sections', 'hazards', 'actions', 'answers',
+'version', 'status', 'source', 'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'approvedBy', 'approvedByName', 'approvedAt', 'updatedBy', 'updatedAt'])
+&& d.calEventId == calEventId && exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
+&& d.kind in ['general', 'concert', 'fair', 'wedding', 'baptism', 'funeral', 'hire', 'daytrip', 'residential', 'adventurous']
+&& raStr(d.get('siteId', ''), 128) && d.approverSiteId is string && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(d.approverSiteId))
+&& raStr(d.get('title', ''), 200)
+&& d.get('flags', {}) is map && d.get('flags', {}).keys().hasOnly(['flames', 'food', 'alcohol', 'outdoor', 'equipment', 'music'])
+&& d.get('care', {}) is map && d.get('care', {}).keys().hasOnly(['support']) && d.get('care', {}).get('support', '') in ['', 'yes', 'no']
+&& d.get('people', 0) is int && d.get('marked', false) is bool
+&& d.get('venue', {}) is map && d.get('venue', {}).size() <= 12
+&& d.get('sections', {}) is map && d.get('sections', {}).size() <= 40
+&& d.get('hazards', []) is list && d.get('hazards', []).size() <= 500
+&& d.get('actions', []) is list && d.get('actions', []).size() <= 500
+&& d.get('answers', {}) is map && d.get('answers', {}).size() <= 200
+&& d.get('source', {}) is map && d.get('source', {}).size() <= 12
+&& d.version is int && d.version >= 1 && d.status in ['draft', 'signed', 'approved']
+&& d.updatedBy == request.auth.uid;
+}
+function raEventWrite(calEventId, d, before) {
+return raEventShape(d, calEventId)
+&& (
+(d.status == 'draft'
+&& (runsEventId(calEventId) || isEventLeader(calEventId) || raOffice() || raAnyLead(d.approverSiteId))
+&& d.get('signedBy', '') == '' && d.get('approvedBy', '') == ''
+&& (before == null ? d.version == 1 : (before.status == 'draft' ? d.version == before.version : d.version == before.version + 1)))
+|| (d.status == 'signed' && before != null && before.status == 'draft' && d.version == before.version
+&& d.diff(before).affectedKeys().hasOnly(['status', 'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'updatedBy', 'updatedAt'])
+&& d.signedBy == request.auth.uid && d.signedAt == request.time && d.signedVersion == d.version && raStr(d.get('signedByName', ''), 120)
+&& runsEventId(calEventId) && raEventDone(d))
+|| (d.status == 'approved' && before != null && before.status == 'signed'
+&& d.diff(before).affectedKeys().hasOnly(['status', 'approvedBy', 'approvedByName', 'approvedAt', 'updatedBy', 'updatedAt'])
+&& d.approvedBy == request.auth.uid && d.approvedAt == request.time && raStr(d.get('approvedByName', ''), 120)
+&& request.auth.uid != before.signedBy && (isMaster() || raLeadOf(d.approverSiteId, 'hs')))
+);
+}
+match /raEvents/{calEventId} {
+allow read: if resource == null || raEventSees(calEventId, resource.data);
+allow create, update: if raEventWrite(calEventId, request.resource.data, resource == null ? null : resource.data);
+allow delete: if false;
+}
+match /raHire/{key} {
+allow read: if resource == null || cmpSees() || theOffice(resource.data.siteId);
+allow create, update: if (theOffice(request.resource.data.siteId) || raOffice())
+&& request.resource.data.keys().hasOnly(['siteId', 'confirmedBy', 'confirmedByName', 'confirmedAt', 'note'])
+&& request.resource.data.confirmedBy == request.auth.uid && request.resource.data.confirmedAt == request.time
+&& raStr(request.resource.data.get('confirmedByName', ''), 120) && raStr(request.resource.data.get('note', ''), 1000)
+&& exists(/databases/$(database)/documents/churches/$(cid)/bookings/$(key))
+&& get(/databases/$(database)/documents/churches/$(cid)/bookings/$(key)).data.siteId == request.resource.data.siteId;
+allow delete: if false;
+}
 match /raReads/{id} {
-allow read: if resource == null || raAssessSees(resource.data.siteId);
+allow read: if resource == null
+|| (resource.data.get('kind', '') in ['hs', 'fire'] && raAssessSees(resource.data.siteId))
+|| (resource.data.get('kind', '') == 'venue' && raEventSees(resource.data.calEventId, {}))
+|| (resource.data.get('kind', '') == 'hire' && (cmpSees() || theOffice(resource.data.siteId)));
 allow write: if false;
+}
+match /raStatus/{id} {
+allow read: if active();
+allow create, update: if request.resource.data.keys().hasOnly(['siteId', 'kind', 'status', 'version', 'reviewDue', 'counterAt'])
+&& id == request.resource.data.siteId + '__' + request.resource.data.kind
+&& getAfter(/databases/$(database)/documents/churches/$(cid)/raAssessments/$(id)).data.status == request.resource.data.status
+&& getAfter(/databases/$(database)/documents/churches/$(cid)/raAssessments/$(id)).data.version == request.resource.data.version
+&& getAfter(/databases/$(database)/documents/churches/$(cid)/raAssessments/$(id)).data.get('reviewDue', '') == request.resource.data.reviewDue
+&& getAfter(/databases/$(database)/documents/churches/$(cid)/raAssessments/$(id)).data.get('counterAt', null) == request.resource.data.get('counterAt', null);
+allow delete: if false;
 }
 match /raSigned/{id} {
 allow read: if raAssessSees(resource.data.siteId);

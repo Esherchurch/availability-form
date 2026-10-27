@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event risk assessment</title>
+<!-- AN EVENT'S HEALTH AND SAFETY ASSESSMENT (H&S step 5; F-280 section 3C; Martin's answers 4 and 5; the reviewing
+     window's away events at any age, 27 Oct). Shorter than a building's: it refers back to the building's own
+     assessments (their date and colour only, raStatus) and adds what the event changes. The hub adds its own rows
+     from its numbers (people against the rooms' fire maximums; candles against the building's fire assessment).
+     Away events (a day trip, a weekend away or retreat, adventurous activities) refer to the VENUE: its own fire
+     arrangements and risk assessment, read from its document or web pages and checked by a person. One question
+     about anyone who may need care or support, in general words only; a yes lets the safeguarding lead or deputy
+     see it. An under-18s event's safeguarding assessment stays its own, linked both ways, never merged. Signed by
+     the organiser once every question is answered, then approved by the building's health and safety lead. -->
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610272330" data-title="Event risk assessment"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610272330"></script>
+<script src="egbc-guard.js?v=202610281000"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-team-jobs.js?v=202610261800"></script>
+<script src="egbc-ra-core.js?v=202610271600"></script>
+<script src="egbc-hs-core.js?v=202610281000"></script>
+<script src="egbc-hs-templates.js?v=202610281600"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
+    --muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+    --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee;
+    --card:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 16px 90px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 12px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--card);padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 6px}
+  .hint{font-size:13px;color:var(--muted);margin:0 0 10px}
+  label.l{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:8px 0 4px}
+  .inp,select,textarea{width:100%;min-height:40px;border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  textarea{min-height:64px;resize:vertical}
+  select[multiple]{min-height:120px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:8px;font:500 14px Inter,sans-serif;cursor:pointer;border:1px solid transparent;background:var(--brand);color:#fff}
+  .btn:hover{background:var(--brand-dark)}
+  .btn.sec{background:#fff;color:var(--brand);border-color:var(--line-2)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+  .tabs a,.tabs button{min-height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line-2);background:#fff;color:var(--body);font:500 13px Inter,sans-serif;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer}
+  .tabs [aria-current="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:12px}
+  .banner.info{background:var(--tint);border:1px solid #cfe0de}
+  .banner.gold{background:var(--gold-bg);color:var(--gold)}
+  .banner.red{background:var(--danger-bg);color:var(--danger)}
+  .banner.ok{background:var(--ok-bg);color:var(--ok)}
+  .item{border-top:1px solid var(--line);padding:12px 0}
+  .item:first-of-type{border-top:none}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
+  .pill.red{background:var(--danger-bg);color:var(--danger)} .pill.amber{background:var(--gold-bg);color:var(--gold)} .pill.green{background:var(--ok-bg);color:var(--ok)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .dot.red{background:var(--danger)} .dot.amber{background:var(--gold)} .dot.green{background:var(--ok)} .dot.grey{background:#9ca3af}
+  table{width:100%;border-collapse:collapse;font-size:13px} td,th{text-align:left;padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+  .bar{position:sticky;bottom:0;background:var(--canvas);padding:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .check{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:14px} .check input{width:18px;height:18px;accent-color:var(--brand)}
+  .blank{color:var(--danger);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="card hint">Loading…</div></div>
+<script>
+(function () {
+  'use strict';
+  var E = window.EGBCEvents, RA = window.EGBCRaCore, H = window.EGBCHsCore, HT = window.EGBCHsTemplates, esc = E.esc;
+  var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  var ID = (location.search.match(/[?&]event=([\w-]+)/) || [])[1] || '';
+  var ME = {}, JOBP = null, EV = null, U18 = false, A = null, SITES = [], ROLES = {}, ROOMS = [], STAT = {}, SET = {}, READ = null, EDIT = false,
+      OFFICE = false, MASTER = false, RUNS = false, LEADER = false;
+  function db() { return EGBCAuth.db; }
+  function $(id) { return document.getElementById(id); }
+  function all(s) { return s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); }
+  function uid() { return (EGBCAuth.user() || {}).uid || ''; }
+  function nowIso() { return new Date().toISOString(); }
+  function newId(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function onJob(job) { return !!JOBP && EGBCTeamJobs.teamsFor(JOBP.jobs, job, JOBP.set).some(function (t) { return EGBCAuth.inTeam(t); }); }
+  function say(m) { var s = $('said'); if (s) s.textContent = m; }
+  function siteName(id) { var s = SITES.filter(function (x) { return x.id === id; })[0]; return s ? (s.name || s.id) : ''; }
+  function away() { return HT.AWAY.indexOf(A.kind) >= 0; }
+  function myHsSites() { var mid = ME.memberId || ''; return Object.keys(ROLES).filter(function (k) { return mid && (ROLES[k].hsLead === mid || ROLES[k].hsDeputy === mid); }); }
+  function mayWrite() { return OFFICE || RUNS || LEADER || myHsSites().indexOf(A.approverSiteId) >= 0; }
+
+  /* which building's lead approves: the event's own, or (away) the first with a health and safety lead */
+  function approverFor(siteId) {
+    if (siteId && ROLES[siteId] && ROLES[siteId].hsLead) return siteId;
+    var withLead = SITES.filter(function (s) { return ROLES[s.id] && ROLES[s.id].hsLead; })[0];
+    return withLead ? withLead.id : (siteId || (SITES[0] ? SITES[0].id : ''));
+  }
+  function kindFromEvent(ev) {
+    var k = ev.sgKind || '';
+    if (k === 'overnight' || k === 'camp') return 'residential';
+    if (k === 'trip' || k === 'offsite' || (ev.location || {}).kind === 'venue') return 'daytrip';
+    return 'general';
+  }
+  function blank() {
+    var site = (EV.location || {}).kind === 'room' ? (EV.location.siteId || '') : '';
+    return { calEventId: ID, siteId: site, approverSiteId: approverFor(site), title: String(EV.title || '').slice(0, 200), kind: kindFromEvent(EV), flags: {}, care: { support: '' },
+      people: +EV.capacity || 0, marked: false, venue: { name: '' }, sections: {}, hazards: [], actions: [], answers: {}, version: 1, status: 'draft' };
+  }
+
+  /* ---------------- loading ---------------- */
+  function load() {
+    var get = function (c, d) { return db().collection(c).doc(d).get().then(function (x) { return x.exists ? x.data() : null; }, function () { return null; }); };
+    return Promise.all([get('calEvents', ID), get('eventLeaders', ID), get('raEvents', ID), db().collection('sites').get().then(all, function () { return []; }),
+      db().collection('raSiteRoles').get().then(all, function () { return []; }), get('raReads', ID + '__venue')]).then(function (r) {
+      EV = r[0]; if (!EV) return null;
+      U18 = !!(r[1] && r[1].under18); LEADER = !!(r[1] && (r[1].leaderUids || []).indexOf(uid()) >= 0);
+      SITES = r[3].filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      ROLES = {}; r[4].forEach(function (x) { ROLES[x.id] = x; });
+      A = r[2] || blank(); READ = r[5];
+      RUNS = E.runsEvent(EV);
+      EDIT = A.status === 'draft' && mayWrite();
+      var site = A.siteId, roomIds = ((EV.location || {}).roomIds || []);
+      return Promise.all([site ? db().collection('rooms').where('siteId', '==', site).get().then(all, function () { return []; }) : [],
+        site ? get('raStatus', site + '__hs') : null, site ? get('raStatus', site + '__fire') : null]).then(function (w) {
+        ROOMS = (w[0] || []).filter(function (x) { return roomIds.indexOf(x.id) >= 0; });
+        STAT = { hs: w[1], fire: w[2] };
+      });
+    });
+  }
+
+  /* ---------------- the hub's own rows (F-280 3C), from its numbers ---------------- */
+  function hubRows() {
+    var out = [];
+    if (!away() && ROOMS.length) {
+      var max = ROOMS.reduce(function (n, r) { return n + (+r.fireMax || 0); }, 0), unset = ROOMS.filter(function (r) { return !r.fireMax; });
+      if (unset.length) out.push({ rag: 'amber', words: 'No fire maximum is set for ' + unset.map(function (r) { return r.name; }).join(', ') + ' (Places).' });
+      else if (A.people > max) out.push({ rag: 'red', mustNot: true, words: A.people + ' people expected; the rooms hold ' + max + ' at most for fire safety: must not go ahead as described.' });
+      else if (A.people) out.push({ rag: 'green', words: A.people + ' people expected; the rooms hold ' + max + ' at most for fire safety.' });
+    }
+    if (!away() && A.siteId) ['fire', 'hs'].forEach(function (k) {
+      var s = STAT[k], name = HT.KINDS[k].title.toLowerCase();
+      if (!s || s.status !== 'countersigned') out.push({ rag: 'amber', words: 'The building’s ' + name + ' is not countersigned yet.' });
+      else if (s.reviewDue < TODAY) out.push({ rag: 'red', words: 'The building’s ' + name + ' is overdue for review (' + RA.longDate(s.reviewDue) + ').' });
+    });
+    if (!away() && A.flags.flames) out.push({ rag: 'amber', words: 'Candles or naked flames in ' + (siteName(A.siteId) || 'the building') + ': see the building’s fire risk assessment, fire hazards' + (STAT.fire && STAT.fire.status === 'countersigned' ? ' (version ' + STAT.fire.version + ')' : '') + '.' });
+    if (away() && !(A.venue && A.venue.readAt)) out.push({ rag: 'amber', words: 'The venue’s own fire arrangements and risk assessment haven’t been read yet.' });
+    return out;
+  }
+  function mustNot() { return hubRows().some(function (r) { return r.mustNot; }); }
+
+  /* ---------------- reading the form back ---------------- */
+  function collect() {
+    if (!EDIT) return;
+    var v = function (id) { var e = $(id); return e ? e.value.trim() : ''; };
+    var k = $('eKind'); if (k) A.kind = k.value;
+    if ($('ePeople')) A.people = Math.max(0, parseInt(v('ePeople'), 10) || 0);
+    if ($('eMarked')) A.marked = $('eMarked').checked;
+    HT.EVENT_FLAGS.forEach(function (f) { var e = $('flag_' + f[0]); if (e) { if (e.checked) A.flags[f[0]] = true; else delete A.flags[f[0]]; } });
+    if ($('vName')) A.venue.name = v('vName').slice(0, 200);
+    var c = document.querySelector('input[name="care"]:checked'); if (c) A.care = { support: c.value };
+    if (A.care.support) A.answers.careSupport = A.care.support === 'yes' ? 'Yes' : 'No';
+    if ($('sec_plan')) A.sections.plan = $('sec_plan').value.slice(0, 4000);
+    A.hazards.forEach(function (h) {
+      var p = 'hz_' + h.id + '_';
+      if (!$(p + 'what')) return;
+      h.hazard = v(p + 'what').slice(0, 300); h.who = v(p + 'who').slice(0, 300); h.written = v(p + 'ctl').slice(0, 1000);
+      ['l', 's', 'rl', 'rs'].forEach(function (x) { var n = +v(p + x); if (n >= 1 && n <= 5) h[x] = n; });
+    });
+    A.actions.forEach(function (a) {
+      var p = 'ac_' + a.id + '_';
+      if (!$(p + 'what')) return;
+      a.what = v(p + 'what').slice(0, 300); a.owner = v(p + 'own').slice(0, 120); a.due = v(p + 'due').slice(0, 10);
+      a.priority = $(p + 'pri').value; a.done = $(p + 'done').checked;
+    });
+    HT.eventQuestions(A.kind, A.flags, A.care).forEach(function (q) { var e = $('q_' + q.id); if (e) A.answers[q.id] = e.value.trim().slice(0, 2000); });
+  }
+
+  /* ---------------- drawing ---------------- */
+  function opt5(v) { var o = ''; for (var i = 1; i <= 5; i++) o += '<option' + (i === v ? ' selected' : '') + '>' + i + '</option>'; return o; }
+  function pill(l, s) { var r = RA.rating(l, s); return '<span class="pill ' + r + '">' + RA.WORDS[r] + ' (' + RA.score(l, s) + ')</span>'; }
+  function statusHtml() {
+    var lead = siteName(A.approverSiteId);
+    if (A.status === 'approved') return '<div class="banner ok" id="status">Version ' + A.version + ': signed by ' + esc(A.signedByName) + ' (the organiser) and approved by ' + esc(A.approvedByName) + ' for ' + esc(lead) + '.</div>';
+    if (A.status === 'signed') return '<div class="banner gold" id="status">Version ' + A.version + ': signed by ' + esc(A.signedByName) + '. Waiting for the health and safety lead or deputy (' + esc(lead) + ') to approve it.</div>';
+    return '<div class="banner gold" id="status">DRAFT, version ' + A.version + '. The organiser signs it once every question below is answered; then the health and safety lead or deputy (' + esc(lead || 'nobody set yet') + ') approves it.</div>';
+  }
+  function aboutHtml() {
+    var reasons = HT.needsReasons(EV, { kind: A.kind, flags: A.flags, people: A.people, marked: A.marked, settings: H.settingsOf(SET) });
+    return '<div class="card" id="about"><h2>The event</h2>' +
+      '<p class="hint" id="needs">' + (reasons.length ? 'It needs an assessment: ' + esc(reasons.join('; ')) + '.' : 'Nothing about it needs an assessment by itself; its organiser can still ask for one.') + '</p>' +
+      '<div class="grid"><div><label class="l" for="eKind">What kind of event</label>' + (EDIT ? '<select id="eKind">' + HT.EVENT_KINDS.map(function (k) { return '<option value="' + k[0] + '"' + (A.kind === k[0] ? ' selected' : '') + '>' + esc(k[1]) + '</option>'; }).join('') + '</select>'
+        : '<p>' + esc((HT.EVENT_KINDS.filter(function (k) { return k[0] === A.kind; })[0] || [])[1] || '') + '</p>') + '</div>' +
+      '<div><label class="l" for="ePeople">How many people, at the most</label>' + (EDIT ? '<input class="inp" type="number" min="0" id="ePeople" value="' + (A.people || '') + '">' : '<p>' + (A.people || '—') + '</p>') + '</div></div>' +
+      HT.EVENT_FLAGS.map(function (f) { return '<label class="check"><input type="checkbox" id="flag_' + f[0] + '"' + (A.flags[f[0]] ? ' checked' : '') + (EDIT ? '' : ' disabled') + '> ' + esc(f[1]) + '</label>'; }).join('') +
+      '<label class="check"><input type="checkbox" id="eMarked"' + (A.marked ? ' checked' : '') + (EDIT ? '' : ' disabled') + '> The organiser wants an assessment anyway</label>' +
+      (U18 ? '<div class="banner info" id="u18">Under-18s are going: the event’s safeguarding assessment applies too. It is kept separately: <a href="safeguarding.html?event=' + encodeURIComponent(ID) + '">the safeguarding assessment</a>.</div>' : '') + '</div>';
+  }
+  function hubHtml() {
+    var rows = hubRows();
+    return rows.length ? '<div class="card" id="hubRows"><h2>From the hub’s own numbers</h2>' + rows.map(function (r) { return '<div class="item" data-hub="' + r.rag + '"' + (r.mustNot ? ' data-mustnot' : '') + '><span class="dot ' + r.rag + '"></span>' + esc(r.words) + '</div>'; }).join('') + '</div>' : '';
+  }
+  function buildingHtml() {
+    if (away() || !A.siteId) return '';
+    return '<div class="card" id="building"><h2>The building’s own assessments: ' + esc(siteName(A.siteId)) + '</h2>' + ['hs', 'fire'].map(function (k) {
+      var s = STAT[k], rag = !s || s.status !== 'countersigned' ? 'grey' : HT.reviewRag(s.reviewDue, TODAY);
+      return '<div class="item" data-bra="' + k + '"><span class="dot ' + rag + '"></span>' + esc(HT.KINDS[k].title) + ': ' + (!s ? 'not started' : s.status === 'countersigned' ? 'version ' + s.version + ', review by ' + esc(RA.longDate(s.reviewDue)) : esc(s.status)) + '</div>';
+    }).join('') + '<p class="hint">This event’s assessment adds only what the event changes.</p></div>';
+  }
+  function venueHtml() {
+    if (!away()) return '';
+    var r = READ && !(A.venue && A.venue.readAt === READ.at) ? READ : null, v = A.venue || {};
+    var out = '<div class="card" id="venueCard"><h2>The venue</h2><label class="l" for="vName">Where</label>' + (EDIT ? '<input class="inp" id="vName" maxlength="200" value="' + esc(v.name || '') + '">' : '<p>' + esc(v.name || '—') + '</p>') +
+      (v.readAt ? '<p class="hint" id="venueRead">Its arrangements were read from ' + esc(v.from || 'its own words') + ', checked by ' + esc(v.checkedBy || '') + ' on ' + esc(RA.longDate(v.checkedOn)) + '.</p>' : '');
+    if (EDIT && !r) out += '<p class="hint">Its fire arrangements, its own risk assessment and its rules for groups: from its document, its web pages (up to 5 addresses; the pages they link to on the same site are read too) or its words pasted in. You check each line before anything is added.</p>' +
+      '<label class="l" for="vUrls">Its web pages (one address a line)</label><textarea id="vUrls" rows="2" placeholder="https://"></textarea>' +
+      '<label class="l" for="vText">Or paste what it says</label><textarea id="vText" rows="3"></textarea>' +
+      '<input type="file" id="vFile" accept=".pdf,.docx,image/*" style="display:none"><div class="row"><button class="btn sec" type="button" id="vRead">Read the pages or words</button><button class="btn sec" type="button" id="vFileGo">Read its document</button><span class="hint" id="vMsg" role="status"></span></div>';
+    if (EDIT && r) out += readCheck(r);
+    return out + '</div>';
+  }
+  function readCheck(r) {
+    var opt = function () { var o = '<option value="0">Choose…</option>'; for (var i = 1; i <= 5; i++) o += '<option>' + i + '</option>'; return o; };
+    return '<div id="readCheck"><h2 style="margin-top:12px">Check what was read: ' + esc(r.report.assessor || 'the venue') + '</h2>' +
+      (r.personalFound ? '<div class="banner gold">It seems to have names, phone numbers or emails in it. They were left out.</div>' : '') +
+      (r.gaps.length ? '<div class="banner red" id="readGaps">Ask the venue about: ' + esc(r.gaps.map(function (g) { return g.words; }).join('; ')) + '. What was read says nothing about them.</div>' : '') +
+      r.findings.map(function (f) { var p = 'rf_' + f.id + '_';
+        return '<div class="item" data-rf="' + esc(f.id) + '"><label class="check"><input type="checkbox" id="' + p + 'on" checked> <b>' + esc(f.hazard) + '</b></label><div class="hint">' + esc(f.who || '') + (f.line ? ' · “' + esc(f.line) + '”' : '') + '</div>' +
+          (f.l && f.s ? '<div>' + pill(f.l, f.s) + '</div>' : '<div class="grid"><div><label class="l" for="' + p + 'l">Likelihood</label><select id="' + p + 'l">' + opt() + '</select></div><div><label class="l" for="' + p + 's">Severity</label><select id="' + p + 's">' + opt() + '</select></div></div>') + '</div>';
+      }).join('') +
+      r.actions.map(function (a) { var p = 'ra_' + a.id + '_';
+        return '<div class="item" data-ra="' + esc(a.id) + '"><label class="check"><input type="checkbox" id="' + p + 'on" checked> <b>What the group must do: ' + esc(a.what) + '</b></label></div>';
+      }).join('') + '<div class="row"><button class="btn" type="button" id="readAdd">Add the ticked lines</button><span class="hint" id="readMsg" role="status"></span></div></div>';
+  }
+  function hazardsHtml() {
+    return '<div class="card" id="hazards"><h2>Hazards: what the event changes</h2>' + (A.hazards.length ? A.hazards.map(function (h) {
+      var p = 'hz_' + h.id + '_';
+      if (!EDIT) return '<div class="item" data-hz="' + esc(h.id) + '"><b>' + esc(h.hazard) + '</b>' + (h.source ? ' <span class="pill amber">From the venue</span>' : '') + ' <span class="hint">' + esc(h.who || '') + '</span><div>Before ' + pill(h.l, h.s) + ' · after ' + pill(h.rl, h.rs) + '</div>' + (h.written ? '<div class="hint">' + esc(h.written) + '</div>' : '') + '</div>';
+      return '<div class="item" data-hz="' + esc(h.id) + '"><label class="l" for="' + p + 'what">What could go wrong</label><input class="inp" id="' + p + 'what" maxlength="300" value="' + esc(h.hazard) + '">' +
+        '<label class="l" for="' + p + 'who">Who could be hurt, and how</label><input class="inp" id="' + p + 'who" maxlength="300" value="' + esc(h.who || '') + '">' +
+        '<div class="grid"><div><label class="l" for="' + p + 'l">Likelihood before</label><select id="' + p + 'l">' + opt5(h.l) + '</select></div><div><label class="l" for="' + p + 's">Severity before</label><select id="' + p + 's">' + opt5(h.s) + '</select></div>' +
+        '<div><label class="l" for="' + p + 'rl">Likelihood after</label><select id="' + p + 'rl">' + opt5(h.rl) + '</select></div><div><label class="l" for="' + p + 'rs">Severity after</label><select id="' + p + 'rs">' + opt5(h.rs) + '</select></div></div>' +
+        '<p style="margin:6px 0">Before ' + pill(h.l, h.s) + ' · after ' + pill(h.rl, h.rs) + '</p>' +
+        '<label class="l" for="' + p + 'ctl">The controls</label><textarea id="' + p + 'ctl" maxlength="1000">' + esc(h.written || '') + '</textarea>' +
+        '<div class="row"><button class="btn sec" type="button" data-hzdrop="' + esc(h.id) + '">Take this hazard off</button></div></div>';
+    }).join('') : '<p class="hint">None yet.</p>') + (EDIT ? '<div class="row"><button class="btn sec" type="button" id="hzAdd">+ Add a hazard</button></div>' : '') + '</div>';
+  }
+  function actionsHtml() {
+    return '<div class="card" id="actions"><h2>Actions</h2>' + (A.actions.length ? A.actions.map(function (a) {
+      var p = 'ac_' + a.id + '_';
+      if (!EDIT) return '<div class="item" data-ac="' + esc(a.id) + '"><b>' + esc(a.what) + '</b> <span class="hint">' + esc(a.priority) + ' · ' + (a.done ? 'done' : 'by ' + esc(RA.longDate(a.due))) + (a.owner ? ' · ' + esc(a.owner) : '') + '</span></div>';
+      return '<div class="item" data-ac="' + esc(a.id) + '"><label class="l" for="' + p + 'what">What needs doing</label><input class="inp" id="' + p + 'what" maxlength="300" value="' + esc(a.what) + '">' +
+        '<div class="grid"><div><label class="l" for="' + p + 'pri">Priority</label><select id="' + p + 'pri">' + HT.PRIORITIES.map(function (x) { return '<option value="' + x[0] + '"' + (a.priority === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
+        '<div><label class="l" for="' + p + 'due">By</label><input class="inp" type="date" id="' + p + 'due" value="' + esc(a.due || '') + '"></div><div><label class="l" for="' + p + 'own">Who</label><input class="inp" id="' + p + 'own" maxlength="120" value="' + esc(a.owner || '') + '"></div></div>' +
+        '<label class="check"><input type="checkbox" id="' + p + 'done"' + (a.done ? ' checked' : '') + '> Done</label><div class="row"><button class="btn sec" type="button" data-acdrop="' + esc(a.id) + '">Take this action off</button></div></div>';
+    }).join('') : '<p class="hint">None yet.</p>') + (EDIT ? '<div class="row"><button class="btn sec" type="button" id="acAdd">+ Add an action</button></div>' : '') + '</div>';
+  }
+  function questionsHtml() {
+    var qs = HT.eventQuestions(A.kind, A.flags, A.care), left = HT.eventDone(A.kind, A.flags, A.care, A.answers).map(function (q) { return q.id; });
+    return '<div class="card" id="questions"><h2>Before it is signed: every question answered</h2><p class="hint">Answer each, or write “N/A: ” and the reason. ' + (left.length ? left.length + ' still to answer.' : 'All answered.') + '</p>' +
+      qs.map(function (q) {
+        var blankW = left.indexOf(q.id) >= 0 ? ' <span class="blank">not answered</span>' : '';
+        if (q.id === 'careSupport') return '<div class="item" data-q="careSupport" id="careQ"><label class="l">Is anyone coming who may need care or support?' + blankW + '</label><p class="hint" style="margin:0 0 4px">' + esc(q.hint) + '</p>' +
+          ['yes', 'no'].map(function (v) { return '<label class="check"><input type="radio" name="care" value="' + v + '"' + (A.care.support === v ? ' checked' : '') + (EDIT ? '' : ' disabled') + '> ' + (v === 'yes' ? 'Yes' : 'No') + '</label>'; }).join('') +
+          (A.care.support === 'yes' ? '<p class="banner info" id="careLead" style="margin-top:6px">The safeguarding lead or deputy can see this assessment. Write in general words only: no names and no medical details.</p>' : '') + '</div>';
+        return '<div class="item" data-q="' + q.id + '"><label class="l" for="q_' + q.id + '">' + esc(q.label) + blankW + '</label><p class="hint" style="margin:0 0 4px">' + esc(q.hint) + '</p>' +
+          (EDIT ? '<input class="inp" id="q_' + q.id + '" maxlength="2000" value="' + esc(A.answers[q.id] || '') + '">' : '<p>' + esc(A.answers[q.id] || '—') + '</p>') + '</div>';
+      }).join('') + '</div>';
+  }
+  function signHtml() {
+    var left = HT.eventDone(A.kind, A.flags, A.care, A.answers), out = '<div class="card" id="signCard"><h2>Sign-off</h2>';
+    if (A.status === 'draft') {
+      out += '<p class="hint">The organiser signs it; save your changes first.</p>';
+      if (RUNS) out += mustNot() ? '<p class="blank" id="signBlocked">Not yet: it must not go ahead as described (see the hub’s numbers above).</p>'
+        : left.length ? '<p class="blank" id="signBlocked">Not yet: ' + left.length + ' question' + (left.length === 1 ? '' : 's') + ' to answer (' + esc(left.map(function (q) { return q.label; }).join(', ')) + ').</p>'
+        : '<button class="btn" type="button" id="signGo">Sign it as the organiser</button>';
+    } else if (A.status === 'signed') {
+      out += (MASTER || myHsSites().indexOf(A.approverSiteId) >= 0) && uid() !== A.signedBy ? '<button class="btn" type="button" id="approveGo">Approve it as the health and safety lead</button>' : '<p class="hint">The health and safety lead or deputy for ' + esc(siteName(A.approverSiteId)) + ' approves it.</p>';
+    }
+    if (A.status !== 'draft' && mayWrite()) out += '<div class="row"><button class="btn sec" type="button" id="changeGo">Change it (starts version ' + (A.version + 1) + ')</button></div>';
+    return out + '</div>';
+  }
+  function draw() {
+    $('wrap').innerHTML = '<h1>Event risk assessment</h1><p class="sub">' + esc(EV.title || '') + (EV.startLocal ? ' · ' + esc(RA.longDate(String(EV.startLocal).slice(0, 10))) : '') + '</p>' +
+      statusHtml() + '<div class="banner info" id="notAdvice">' + esc(H.NOT_ADVICE) + '</div>' + aboutHtml() + hubHtml() + buildingHtml() + venueHtml() + hazardsHtml() + actionsHtml() +
+      '<div class="card"><h2>The plan for the day</h2><p class="hint">Stewards and their briefing, first aiders, the timings, who is in charge.</p>' + (EDIT ? '<textarea id="sec_plan" rows="4" maxlength="4000">' + esc(A.sections.plan || '') + '</textarea>' : '<p>' + esc(A.sections.plan || '—') + '</p>') + '</div>' +
+      questionsHtml() + signHtml() + (EDIT ? '<div class="bar"><button class="btn" type="button" id="saveGo">Save</button><span class="hint" id="said" role="status"></span></div>' : '<p class="hint" id="said" role="status"></p>');
+    wire();
+  }
+
+  /* ---------------- acting ---------------- */
+  function base(x) {
+    var out = {}; ['calEventId', 'siteId', 'approverSiteId', 'title', 'kind', 'flags', 'care', 'people', 'marked', 'venue', 'sections', 'hazards', 'actions', 'answers', 'version', 'status'].forEach(function (k) { out[k] = x[k]; });
+    out.answers = Object.assign({}, x.answers);
+    if (HT.AWAY.indexOf(x.kind) < 0) { out.care = { support: '' }; delete out.answers.careSupport; delete out.answers.careHow; }
+    out.updatedBy = uid(); out.updatedAt = nowIso(); return out;
+  }
+  function ref() { return db().collection('raEvents').doc(ID); }
+  /* general words only: never a phone number or an email in the care answers (a name the page can't know; the words ask) */
+  function careBad() { var t = (A.answers.careHow || '') + ' ' + (A.answers.medical || ''); return /[^\s@]+@[^\s@]+\.[a-z]{2,}/i.test(t) || /(\+44|\b0)\s?\d{3,4}[\s-]?\d{3}[\s-]?\d{3,4}/.test(t); }
+  function save() {
+    collect();
+    if (careBad()) { say('Not saved: take out the phone number or email. General words only.'); return; }
+    $('saveGo').disabled = true; say('Saving…');
+    ref().set(base(A)).then(load).then(function () { draw(); say('Saved.'); }, function (e) { $('saveGo').disabled = false; say('Not saved: ' + (e.message || e)); });
+  }
+  function readWith(data, msg) {
+    collect(); msg.textContent = 'Reading… this takes a minute or two.';
+    return ref().set(base(A)).then(function () {
+      return EGBCAuth.call('raReadReport', Object.assign({ kind: 'venue', calEventId: ID }, data), { timeoutMs: 190000 });
+    }).then(function (res) { return load().then(function () { draw(); say((res && res.message) || 'Read. Check each line.'); }); },
+      function (e) { msg.textContent = (e && e.name === 'AbortError') ? 'Still working: reload in a minute.' : 'Not read: ' + ((e && e.message) || e); });
+  }
+  function readAdd() {
+    collect();
+    var r = READ, unset = [], take = function (p, x) { var e = $(p + x.id + '_on'); return e && e.checked; };
+    var fs = r.findings.filter(function (f) { return take('rf_', f); }).map(function (f) {
+      var l = f.l || +($('rf_' + f.id + '_l') || {}).value || 0, s = f.s || +($('rf_' + f.id + '_s') || {}).value || 0;
+      if (!l || !s) unset.push(f.hazard);
+      return { id: newId('h'), source: 'venue', hazard: f.hazard, who: f.who, l: l, s: s, rl: l, rs: s, written: f.assessorRating ? 'The venue’s own rating: ' + f.assessorRating : '' };
+    });
+    if (unset.length) { $('readMsg').textContent = 'Set the likelihood and severity for: ' + unset.join('; ') + '.'; return; }
+    A.hazards = A.hazards.concat(fs);
+    r.actions.filter(function (a) { return take('ra_', a); }).forEach(function (a) {
+      A.actions.push({ id: newId('a'), source: 'venue', what: a.what, priority: a.priority === 'unstated' ? 'medium' : a.priority, due: a.deadline || HT.actionDue('medium', TODAY, H.settingsOf(SET).targets), owner: '', done: false });
+    });
+    A.venue = Object.assign({}, A.venue, { name: A.venue.name || r.report.assessor || '', from: r.file.name === 'What was read.txt' ? 'its web pages or words' : r.file.name, file: r.file.path,
+      readAt: r.at, checkedBy: ME.name || '', checkedOn: TODAY, gaps: r.gaps.length });
+    $('readAdd').disabled = true;
+    ref().set(base(A)).then(load).then(function () { draw(); say('Added.'); }, function (e) { $('readAdd').disabled = false; $('readMsg').textContent = 'Not added: ' + (e.message || e); });
+  }
+  function wire() {
+    if ($('saveGo')) $('saveGo').onclick = save;
+    var redraw = function () { collect(); draw(); say('Not saved yet.'); };
+    ['eKind', 'ePeople'].forEach(function (id) { if ($(id)) $(id).onchange = redraw; });
+    HT.EVENT_FLAGS.forEach(function (f) { if ($('flag_' + f[0])) $('flag_' + f[0]).onchange = redraw; });
+    document.querySelectorAll('input[name="care"]').forEach(function (r) { r.onchange = redraw; });
+    if ($('hzAdd')) $('hzAdd').onclick = function () { collect(); A.hazards.push({ id: newId('h'), hazard: '', who: '', l: 3, s: 3, rl: 2, rs: 3, written: '' }); draw(); say('Not saved yet.'); };
+    document.querySelectorAll('[data-hzdrop]').forEach(function (b) { b.onclick = function () { collect(); A.hazards = A.hazards.filter(function (h) { return h.id !== b.getAttribute('data-hzdrop'); }); draw(); }; });
+    if ($('acAdd')) $('acAdd').onclick = function () { collect(); A.actions.push({ id: newId('a'), what: '', priority: 'medium', due: HT.actionDue('medium', TODAY, H.settingsOf(SET).targets), owner: '', done: false }); draw(); say('Not saved yet.'); };
+    document.querySelectorAll('[data-acdrop]').forEach(function (b) { b.onclick = function () { collect(); A.actions = A.actions.filter(function (a) { return a.id !== b.getAttribute('data-acdrop'); }); draw(); }; });
+    if ($('vRead')) $('vRead').onclick = function () {
+      var urls = $('vUrls').value.split(/\s+/).filter(Boolean), text = $('vText').value;
+      if (!urls.length && !text.trim()) { $('vMsg').textContent = 'Give its web page addresses, or paste what it says.'; return; }
+      readWith({ urls: urls, text: text }, $('vMsg'));
+    };
+    if ($('vFileGo')) $('vFileGo').onclick = function () { $('vFile').click(); };
+    if ($('vFile')) $('vFile').onchange = function () {
+      var f = $('vFile').files[0]; if (!f) return;
+      if (f.size > 7 * 1024 * 1024) { $('vMsg').textContent = 'The file is too big: 7 MB at most.'; return; }
+      var rd = new FileReader(); rd.onload = function () { readWith({ fileName: f.name, contentType: f.type, data: String(rd.result).split(',')[1] || '' }, $('vMsg')); }; rd.readAsDataURL(f);
+    };
+    if ($('readAdd')) $('readAdd').onclick = readAdd;
+    if ($('signGo')) $('signGo').onclick = function () {
+      $('signGo').disabled = true;
+      ref().update({ status: 'signed', signedBy: uid(), signedByName: ME.name || '', signedAt: firebase.firestore.FieldValue.serverTimestamp(), signedVersion: A.version, updatedBy: uid(), updatedAt: nowIso() })
+        .then(load).then(function () { draw(); say('Signed. The health and safety lead approves it next.'); }, function (e) { $('signGo').disabled = false; say('Not signed: ' + (e.message || e)); });
+    };
+    if ($('approveGo')) $('approveGo').onclick = function () {
+      $('approveGo').disabled = true;
+      ref().update({ status: 'approved', approvedBy: uid(), approvedByName: ME.name || '', approvedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: uid(), updatedAt: nowIso() })
+        .then(load).then(function () { draw(); say('Approved.'); }, function (e) { $('approveGo').disabled = false; say('Not approved: ' + (e.message || e)); });
+    };
+    if ($('changeGo')) $('changeGo').onclick = function () { A = Object.assign(base(A), { version: A.version + 1, status: 'draft' }); EDIT = true; draw(); say('Version ' + A.version + ': not saved yet.'); };
+  }
+
+  /* ---------------- start ---------------- */
+  E.ready().then(function (profile) { ME = E.asSeen(profile || {}); return EGBCAuth.loadPerms().then(function (P) { JOBP = P; }, function () {}); }).then(function () {
+    MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()); OFFICE = MASTER || onJob('office');
+    return db().collection('raSettings').doc('church').get().then(function (s) { SET = s.exists ? s.data() : {}; }, function () {}).then(load);
+  }).then(function () {
+    if (!EV) { $('wrap').innerHTML = '<div class="card">That event can’t be found.</div>'; return; }
+    var sees = MASTER || OFFICE || RUNS || LEADER || myHsSites().length > 0 || onJob('trustees');
+    if (!sees) { E.refused(); $('wrap').innerHTML = '<h1>Event risk assessment</h1><div class="card"><p id="whoFor">This is for the event’s organisers and leaders, the office, the trustees, the health and safety leads, and master admins.</p></div>'; return; }
+    draw();
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

@@ -17,7 +17,7 @@
 <script src="egbc-auth.js?v=202610281400"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-email.js?v=202610212000"></script>
-<script src="egbc-events.js?v=202610262000"></script>
+<script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-events-groups.js?v=202610091600"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -231,8 +231,8 @@
     document.getElementById('signedOut').style.display = ME ? 'none' : '';
     /* Who can come (§21): signed in, ask for the groups this person may come
        to - nothing else is shown, not even as a locked door. */
-    var q = ME ? db().collection('smallGroups').where('canCome', 'array-contains-any', E.myAudiences()) : db().collection('smallGroups').where('visibility', '==', 'public').where('active', '==', true);
-    return Promise.all([q.get(), E.lookups().catch(function () { return {}; }),
+    var q = ME ? E.anyOf(E.myAudiences(), function (c) { return db().collection('smallGroups').where('canCome', 'array-contains-any', c); }) : db().collection('smallGroups').where('visibility', '==', 'public').where('active', '==', true).get();
+    return Promise.all([q, E.lookups().catch(function () { return {}; }),
       ME && ME.memberId ? db().collection('smallGroupMembers').where('personKind', '==', 'addressBook').where('personId', '==', ME.memberId).get().catch(function () { return { docs: [] }; }) : { docs: [] }]);
   }).then(function (r) {
     ALL = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (g) { return g.active !== false; }).sort(function (a, b) { return (a.day || 9) - (b.day || 9) || a.name.localeCompare(b.name); });

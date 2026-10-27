@@ -13041,3 +13041,49 @@ All 11 passed.
 **Deploy (the reviewing window's):** `raReadReport` and `raAiStatus` (new; use CHQ_ANTHROPIC_API_KEY, already set; no new secret). The real call on a real report only on your word.
 
 **For the synthetic parish:** its fire safety lead reads the professional's fire risk assessment of St Hild. They check the lines, and the PCC countersigns.
+
+### F-301 — H&S step 5: events, room hire and away events at any age; and a building's fire safety lead sets its roll call (F-280 sections 3C and 3D; Martin's answers 4, 5 and 6; the away-events plan accepted 27 Oct) (the events window, 28 Oct)
+
+**Built:**
+- **event-ra.html, an event's own assessment** (`raEvents/<eventId>`), reached from Events ("Health and safety", marked "(needed)" when it is).
+  - **It refers back to the building's assessments,** by their date and colour only (`raStatus`, written with each change; F-280 10.8), and adds what the event changes.
+  - **The hub's own rows:**
+    - the people expected against the rooms' fire maximums ("must not go ahead as described", which blocks signing)
+    - the building's assessments not countersigned or overdue
+    - candles, pointing to the building's fire assessment
+  - **Kinds:** a gathering, concert, fair, wedding, baptism, funeral, hirer's event, day trip, weekend away or retreat, and adventurous activities. Each has its own required questions, with flags for flames, food, alcohol, the outdoors, equipment brought in and licences.
+  - **Who signs:** the organiser, once every question is answered. Then the health and safety lead or deputy approves (answer 5).
+  - **When one is needed** (answer 4): the organiser asks, 100 people (the setting), a flag, an outside hirer, or **away from our buildings or overnight, at any age.**
+- **Away events:**
+  - **The venue:** its own fire arrangements and risk assessment are read from its document, its web pages (the same safe web reader) or pasted words. A person checks each line, and the gaps say what to ask the venue.
+  - **The questions:** the overnight and travel questions that aren't about children.
+  - **Care or support:** one question, "Is anyone coming who may need care or support?" A yes asks for general words only (the page refuses a phone number or email), and lets the safeguarding lead or deputy read the assessment.
+  - **Under-18s:** the safeguarding assessment still applies. The two link both ways and are never merged.
+- **Room hire (answer 6):**
+  - The office ticks, in Health and safety settings, which kinds of booking need the hirer's own risk assessment.
+  - On Room bookings, the office puts it up. It is read and checked against the building's significant hazards, and the number booked against the room's fire maximum. The office then confirms it (`raHire`).
+- **`raReadReport` reads venues and hirers' assessments too** (no new secret). `raAiStatus` answers for each.
+- **The last old caps:**
+  - an event's team, 30 → 500, and the page says when it's full
+  - audiences, 30 → no limit, asked 30 at a time (`EGBCEvents.anyOf`)
+- **Folded into step 4, as asked: a building's fire safety lead sets its fire roll call** (Martin, 27 Oct). That building only, never "every building", in the page and the rules. Health and safety settings shows them only that list.
+
+**Checked:** one quick run with a stand-in AI, all 12 passed:
+- the choir trip's venue words are read, its gaps shown and its lines checked
+- care: yes; the organiser signs and the lead approves
+- a party hire: 60 booked against a room of 40, and the hirer's assessment misses the steps and first aid; confirmed by the bookings admin
+- St Hild's fire lead sets St Hild's roll call and is refused another building's
+
+**For main:**
+1. **app.html:** egbc-events.js to `?v=202610281600` (`anyOf`).
+2. **The audit's page list:** add event-ra.html.
+
+**For Comms:** comms.html, team-mail.html, cardmaker.html, my-messages.html, give-regularly.html, giftaid.html, rota-reports.html, picture-library.html and watch-admin.html load egbc-events.js. Please bump it to `?v=202610281600` when you next touch them. They work with the old one.
+
+**For the synthetic parish:**
+- **Its choir trip:** away, with under-18s, so linked to its safeguarding assessment. The venue is read; the trip leader signs; St Hild's lead approves.
+- **Its funerals and weddings** ask about traffic and the churchyard.
+- **Its parties** need the hirer's own assessment.
+- **Its PCC away day and the pilgrimage abroad** are away events: no safeguarding unless under-18s go. The care question is the only part that can involve the safeguarding lead.
+
+**Deploy (the reviewing window's):** `raReadReport` and `raAiStatus` (changed), and `sgRequirementsFromLinks` and the other sg-ai.js functions (`realDeps` is exported now; nothing else changes). The rules go live when the hub goes live.

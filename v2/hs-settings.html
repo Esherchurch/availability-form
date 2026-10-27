@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610281400"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610262000"></script>
+<script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <script src="egbc-compliance.js?v=202610191800"></script>
 <script src="egbc-compliance-store.js?v=202610281000"></script>
@@ -81,13 +81,15 @@
   function now() { return new Date().toISOString(); }
   function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3400); }
   var wrap = document.getElementById('wrap');
-  var SITES = [], ROLES = {}, PEOPLE = [], SAVED = null, CHURCH = {}, MAY = false;
+  var SITES = [], ROLES = {}, PEOPLE = [], SAVED = null, CHURCH = {}, MAY = false, KINDS = [];
   /* THE FIRE ROLL CALL (H&S step 3a): who may open it, for every building
      (fireRollCall/all) and for each one (fireRollCall/<siteId>). Moved here
      from Safeguarding settings, where it was one list for the whole church
      and only master admins set it. FIRE_DIRTY: the lists changed, saved
      with the rest. */
   var FIRE = {}, FIRE_DIRTY = {};
+  /* A building's fire safety lead sets that building's list (Martin, 27 Oct): only those buildings, nothing else here */
+  var FIRE_ONLY = null;
 
   function personOpts(id, sel) {
     return '<select id="' + id + '"><option value="">Nobody set</option>' + PEOPLE.map(function (p) {
@@ -115,6 +117,7 @@
   }
 
   function fireScopes() {
+    if (FIRE_ONLY) return SITES.filter(function (s) { return FIRE_ONLY.indexOf(s.id) >= 0; }).map(function (s) { return { id: s.id, name: s.name || s.id }; });
     return [{ id: H.ROLL_ALL, name: 'Every building' }].concat(SITES.map(function (s) { return { id: s.id, name: s.name || s.id }; }));
   }
   function fireHtml() {
@@ -158,7 +161,21 @@
     });
   }
 
+  function saveFire() {
+    var b = document.getElementById('hsSave'), msg = document.getElementById('hsMsg'), who = { uid: EGBCAuth.user().uid, name: (EGBCAuth.profile() || {}).name || '' };
+    var fires = Object.keys(FIRE_DIRTY);
+    b.disabled = true; msg.textContent = 'Saving…';
+    Promise.all(fires.map(function (id) { return db().collection('fireRollCall').doc(id).set(Object.assign(H.rollCallDoc(id, FIRE[id]), { updatedBy: who.uid, updatedByName: who.name.slice(0, 200), updatedAt: now() })); }))
+      .then(function () { fires.forEach(function (id) { delete FIRE_DIRTY[id]; }); b.disabled = false; msg.textContent = ''; toast('Saved.'); draw(); },
+        function (e) { b.disabled = false; msg.textContent = 'Not saved: ' + ((e && e.message) || e); });
+  }
   function draw() {
+    if (FIRE_ONLY) {
+      wrap.innerHTML = '<h1>Health and safety settings</h1><p class="sub">As the fire safety lead, you name who may open the fire roll call at your building.</p>' + fireHtml() +
+        (PEOPLE.length ? '' : '<p class="hint" id="noBook">The address book can’t be read here, so nobody can be added: ask the office to add them.</p>') +
+        '<div class="bar"><button class="btn" type="button" id="hsSave">Save</button><span class="hint" id="hsMsg" role="status"></span></div>';
+      document.getElementById('hsSave').onclick = saveFire; wireFire(); return;
+    }
     var c = H.settingsOf(SAVED), church = CHURCH.name || '';
     wrap.innerHTML = '<h1>Health and safety settings</h1><p class="sub">Who looks after health, safety and fire at each building, and the numbers the assessments use.</p>' +
       '<div class="banner info" id="hsNotAdvice">' + esc(H.NOT_ADVICE) + '</div>' +
@@ -196,6 +213,10 @@
         '<div class="two"><div class="field"><label for="hsAiChurch">AI drafts a day, for the church</label>' + numInp('hsAiChurch', c.ai.perChurch, { max: 500 }) + '</div>' +
         '<div class="field"><label for="hsAiPerson">AI drafts a day, for one person</label>' + numInp('hsAiPerson', c.ai.perPerson, { max: 500 }) + '</div></div>' +
         '<p class="hint">Separate from safeguarding’s. 0 turns AI drafting off.</p></div>' +
+      /* 5. hirers' own risk assessments (F-280 answer 6; H&S step 5) */
+      '<div class="card" id="hsHire"><h2>Hirers’ own risk assessments</h2><p class="hint" style="margin-top:0">For these kinds of booking, the hirer sends their own risk assessment. Room bookings reads it, checks it against the building’s assessments and the room’s fire maximum, and the office confirms it.</p>' +
+        (KINDS.length ? KINDS.map(function (k) { return '<label class="check"><input type="checkbox" data-hirekind="' + esc(k.id) + '"' + (((SAVED || {}).hireRaTypes || []).indexOf(k.id) >= 0 ? ' checked' : '') + '> ' + esc(k.name || k.id) + '</label>'; }).join('')
+          : '<p class="hint">No kinds of booking yet (Places, Hire prices).</p>') + '</div>' +
       '<div class="bar"><button class="btn" type="button" id="hsSave">Save</button><span class="hint" id="hsMsg" role="status"></span></div>';
     var live = function () { var x = read(); document.getElementById('hsDuties').outerHTML = dutiesHtml(H.settingsOf(x)); document.getElementById('hsCover').outerHTML = coverHtml(H.settingsOf(x)); };
     ['hsEmployees', 'hsLarger', 'hsScreen', 'hsPublic', 'hsEmployers', 'hsMinCover'].forEach(function (id) { var e = document.getElementById(id); e.oninput = live; e.onchange = live; });
@@ -212,6 +233,7 @@
       .forEach(function (p) { var v = n(p[1]); if (v !== null) out[p[0]] = v; });
     [['perChurch', 'hsAiChurch'], ['perPerson', 'hsAiPerson']].forEach(function (p) { var v = n(p[1]); if (v !== null) out.ai[p[0]] = v; });
     [['high', 'hsHigh'], ['medium', 'hsMedium'], ['low', 'hsLow']].forEach(function (p) { var v = n(p[1]); if (v !== null) out.targets[p[0]] = v; });
+    out.hireRaTypes = [].map.call(document.querySelectorAll('[data-hirekind]:checked'), function (e) { return e.getAttribute('data-hirekind'); });
     return out;
   }
 
@@ -254,19 +276,35 @@
   EGBCAuth.require().then(function () { return EGBCAuth.loadPerms(); }).then(function (P) {
     /* covered teams count, as the rules' myTeams() (inTeam) */
     MAY = EGBCAuth.isMaster() || TJ.teamsFor(P.jobs, 'office', P.set).some(function (t) { return EGBCAuth.inTeam(t); });
-    if (!MAY) {
-      E.refused();
-      var office = TJ.label(P.jobs, 'office', null, P.set);
-      wrap.innerHTML = '<div class="card" id="hsRefused"><h1>Health and safety settings</h1><p>These are set by ' + esc(office ? 'the ' + office : 'the church office') + ' and master admins.</p></div>';
-      return;
-    }
+    /* not the office: a building's fire safety lead still sets that building's roll call (Martin, 27 Oct) */
+    var lead = MAY ? Promise.resolve(null) : db().collection('raSiteRoles').get().then(function (s) {
+      var mid = (E.asSeen() || {}).memberId || '';
+      var mine = mid ? s.docs.filter(function (d) { return d.data().fireLead === mid; }).map(function (d) { return d.id; }) : [];
+      return mine.length ? mine : null;
+    }, function () { return null; });
+    return lead.then(function (mine) {
+      if (!MAY && !mine) {
+        E.refused();
+        var office = TJ.label(P.jobs, 'office', null, P.set);
+        wrap.innerHTML = '<div class="card" id="hsRefused"><h1>Health and safety settings</h1><p>These are set by ' + esc(office ? 'the ' + office : 'the church office') + ' and master admins.</p></div>';
+        return null;
+      }
+      FIRE_ONLY = mine;
+      return loadAll();
+    });
+  }).catch(function (e) {
+    wrap.innerHTML = '<div class="card"><div class="banner warn">' + esc((e && e.message) || e) + '</div></div>';
+  });
+  function loadAll() {
     var get = function (c, d) { return db().collection(c).doc(d).get().then(function (x) { return x.exists ? x.data() : null; }, function () { return null; }); };
     return Promise.all([
       db().collection('sites').get().catch(function () { return { docs: [] }; }),
       db().collection('raSiteRoles').get().catch(function () { return { docs: [] }; }),
       db().collection('addressBook').get().catch(function () { return { docs: [] }; }),
-      get('raSettings', 'church'), EGBCChurch.load().catch(function () { return {}; })
+      get('raSettings', 'church'), EGBCChurch.load().catch(function () { return {}; }),
+      db().collection('bookingTypes').get().catch(function () { return { docs: [] }; })
     ]).then(function (w) {
+      KINDS = w[5].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }).filter(function (k) { return k.active !== false; });
       SITES = w[0].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }).filter(function (x) { return x.active !== false; })
         .sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.name || '').localeCompare(String(b.name || '')); });
       w[1].docs.forEach(function (x) { ROLES[x.id] = x.data(); });
@@ -281,9 +319,7 @@
         draw();
       });
     });
-  }).catch(function (e) {
-    wrap.innerHTML = '<div class="card"><div class="banner warn">' + esc((e && e.message) || e) + '</div></div>';
-  });
+  }
 })();
 </script>
 </body>

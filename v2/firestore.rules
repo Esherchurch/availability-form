@@ -5070,10 +5070,14 @@ service cloud.firestore {
              && d.get('updatedByName', '') is string && d.get('updatedByName', '').size() <= 200
              && d.get('updatedAt', '') is string;
     }
+    // A building's fire safety lead sets that building's list too (Martin, 27 Oct; that building only, never "all").
+    function fireLeadOf(id) {
+      return id != 'all' && active() && me().get('memberId', '') != '' && raRoles(id).get('fireLead', '-') == me().get('memberId', '');
+    }
     match /fireRollCall/{id} {
       allow read: if isMaster()
-                  || (id != 'main' && (raOffice() || (active() && me().get('memberId', '') in resource.data.get('memberIds', []))));
-      allow create, update: if id != 'main' && raOffice() && fireRollShape(id);
+                  || (id != 'main' && (raOffice() || fireLeadOf(id) || (active() && me().get('memberId', '') in resource.data.get('memberIds', []))));
+      allow create, update: if id != 'main' && (raOffice() || fireLeadOf(id)) && fireRollShape(id);
       allow delete: if false;   // emptied, never deleted
     }
     // Children's counts for the fire roll-call (F-216; Martin, 15 Oct):
@@ -5211,7 +5215,9 @@ service cloud.firestore {
     match /raSettings/{id} {
       allow read: if active();
       allow write: if raOffice() && id == 'church'
-                   && request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'hireRaTypes', 'updatedAt', 'updatedBy'])
+                   // the kinds of booking whose hirers must send their own risk assessment (answer 6; H&S step 5)
+                   && request.resource.data.get('hireRaTypes', []) is list && request.resource.data.get('hireRaTypes', []).size() <= 500
                    && raWhole(request.resource.data, 'employees', 0) && raWhole(request.resource.data, 'largerTeam', 1)
                    && raWhole(request.resource.data, 'publicLiability', 0) && raWhole(request.resource.data, 'employersLiability', 0)
                    && raWhole(request.resource.data, 'minCover', 1) && raWhole(request.resource.data, 'eventPeople', 1)
@@ -5336,12 +5342,121 @@ service cloud.firestore {
       allow create, update: if raAssessWrite(id, request.resource.data, resource == null ? null : resource.data);
       allow delete: if false;
     }
+    // ---- AN EVENT'S HEALTH AND SAFETY ASSESSMENT (H&S step 5; F-280 section 3C; answers 4 and 5;
+    // away events at any age) ----
+    // raEvents/<calEventId>: written by the event's organisers and leaders,
+    // the office (job) or the H&S leads of the building that approves it
+    // (approverSiteId: the event's own, or a building with a lead for one
+    // away). Signed by the organiser once every required question is
+    // answered (the same ids as egbc-hs-templates.js eventQuestions: change
+    // both together), then approved by that building's health and safety
+    // lead or deputy, not the signer. "Anyone who may need care or support"
+    // answered yes lets the safeguarding lead or deputy read it too, and
+    // nothing else from safeguarding is here: an under-18s event's own
+    // safeguarding assessment stays its own, linked from the page.
+    function raEventChecklist(kind, f, care) {
+      return ['insurance', 'numbers', 'firstAid', 'accessibility', 'weather', 'incidents']
+        .concat(kind in ['daytrip', 'residential', 'adventurous']
+                ? ['venue', 'venueFire', 'venueRa', 'travel', 'drivers', 'medical', 'contacts', 'leaderOnCall', 'careSupport']
+                : ['buildingRas', 'fire', 'crowd'])
+        .concat(kind == 'wedding' ? ['traffic'] : kind == 'baptism' ? ['fontWater'] : kind == 'funeral' ? ['churchyard', 'traffic']
+              : kind == 'residential' ? ['sleeping', 'nightFire'] : kind == 'adventurous' ? ['instructor', 'activityEquipment', 'activityLicence'] : [])
+        .concat(f.get('flames', false) == true ? ['flames'] : [])
+        .concat(f.get('food', false) == true ? ['food'] : [])
+        .concat(f.get('alcohol', false) == true ? ['alcohol'] : [])
+        .concat(f.get('outdoor', false) == true ? ['outdoor'] : [])
+        .concat(f.get('equipment', false) == true ? ['equipmentPat'] : [])
+        .concat(f.get('music', false) == true ? ['licensing'] : [])
+        .concat(kind in ['daytrip', 'residential', 'adventurous'] && care.get('support', '') == 'yes' ? ['careHow'] : []);
+    }
+    function raEventDone(d) {
+      let a = d.get('answers', {});
+      return a.keys().hasAll(raEventChecklist(d.kind, d.get('flags', {}), d.get('care', {})))
+             && !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
+    }
+    function raEventSees(calEventId, d) {
+      return cmpSees() || runsEventId(calEventId) || isEventLeader(calEventId) || raAnyLead(d.get('approverSiteId', ''))
+             || (d.get('care', {}).get('support', '') == 'yes' && (sgLeadOf(d.get('siteId', '')) || sgLeadOf(d.get('approverSiteId', ''))));
+    }
+    function raEventShape(d, calEventId) {
+      return d.keys().hasOnly(['calEventId', 'siteId', 'approverSiteId', 'title', 'kind', 'flags', 'care', 'people', 'marked', 'venue', 'sections', 'hazards', 'actions', 'answers',
+                               'version', 'status', 'source', 'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'approvedBy', 'approvedByName', 'approvedAt', 'updatedBy', 'updatedAt'])
+             && d.calEventId == calEventId && exists(/databases/$(database)/documents/calEvents/$(calEventId))
+             && d.kind in ['general', 'concert', 'fair', 'wedding', 'baptism', 'funeral', 'hire', 'daytrip', 'residential', 'adventurous']
+             && raStr(d.get('siteId', ''), 128) && d.approverSiteId is string && exists(/databases/$(database)/documents/sites/$(d.approverSiteId))
+             && raStr(d.get('title', ''), 200)
+             && d.get('flags', {}) is map && d.get('flags', {}).keys().hasOnly(['flames', 'food', 'alcohol', 'outdoor', 'equipment', 'music'])
+             && d.get('care', {}) is map && d.get('care', {}).keys().hasOnly(['support']) && d.get('care', {}).get('support', '') in ['', 'yes', 'no']
+             && d.get('people', 0) is int && d.get('marked', false) is bool
+             && d.get('venue', {}) is map && d.get('venue', {}).size() <= 12
+             && d.get('sections', {}) is map && d.get('sections', {}).size() <= 40
+             && d.get('hazards', []) is list && d.get('hazards', []).size() <= 500
+             && d.get('actions', []) is list && d.get('actions', []).size() <= 500
+             && d.get('answers', {}) is map && d.get('answers', {}).size() <= 200
+             && d.get('source', {}) is map && d.get('source', {}).size() <= 12
+             && d.version is int && d.version >= 1 && d.status in ['draft', 'signed', 'approved']
+             && d.updatedBy == request.auth.uid;
+    }
+    function raEventWrite(calEventId, d, before) {
+      return raEventShape(d, calEventId)
+             && (
+               (d.status == 'draft'
+                && (runsEventId(calEventId) || isEventLeader(calEventId) || raOffice() || raAnyLead(d.approverSiteId))
+                && d.get('signedBy', '') == '' && d.get('approvedBy', '') == ''
+                && (before == null ? d.version == 1 : (before.status == 'draft' ? d.version == before.version : d.version == before.version + 1)))
+               // SIGNED by the organiser (answer 5), as themselves, now, every question answered
+               || (d.status == 'signed' && before != null && before.status == 'draft' && d.version == before.version
+                   && d.diff(before).affectedKeys().hasOnly(['status', 'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'updatedBy', 'updatedAt'])
+                   && d.signedBy == request.auth.uid && d.signedAt == request.time && d.signedVersion == d.version && raStr(d.get('signedByName', ''), 120)
+                   && runsEventId(calEventId) && raEventDone(d))
+               // APPROVED by the building's health and safety lead or deputy, not the signer
+               || (d.status == 'approved' && before != null && before.status == 'signed'
+                   && d.diff(before).affectedKeys().hasOnly(['status', 'approvedBy', 'approvedByName', 'approvedAt', 'updatedBy', 'updatedAt'])
+                   && d.approvedBy == request.auth.uid && d.approvedAt == request.time && raStr(d.get('approvedByName', ''), 120)
+                   && request.auth.uid != before.signedBy && (isMaster() || raLeadOf(d.approverSiteId, 'hs')))
+             );
+    }
+    match /raEvents/{calEventId} {
+      allow read: if resource == null || raEventSees(calEventId, resource.data);
+      allow create, update: if raEventWrite(calEventId, request.resource.data, resource == null ? null : resource.data);
+      allow delete: if false;
+    }
+    // A HIRER'S OWN RISK ASSESSMENT, checked by the office (H&S step 5; F-280 section 3D; answer 6):
+    // raHire/<booking key> = { siteId, confirmedBy, confirmedByName, confirmedAt, note }
+    match /raHire/{key} {
+      allow read: if resource == null || cmpSees() || theOffice(resource.data.siteId);
+      allow create, update: if (theOffice(request.resource.data.siteId) || raOffice())
+                    && request.resource.data.keys().hasOnly(['siteId', 'confirmedBy', 'confirmedByName', 'confirmedAt', 'note'])
+                    && request.resource.data.confirmedBy == request.auth.uid && request.resource.data.confirmedAt == request.time
+                    && raStr(request.resource.data.get('confirmedByName', ''), 120) && raStr(request.resource.data.get('note', ''), 1000)
+                    && exists(/databases/$(database)/documents/bookings/$(key))
+                    && get(/databases/$(database)/documents/bookings/$(key)).data.siteId == request.resource.data.siteId;
+      allow delete: if false;
+    }
     // WHAT WAS READ FROM A PROFESSIONAL'S REPORT (H&S step 4): written by the
     // raReadReport function only; a person checks it on the page before any
     // of it is added to the assessment.
     match /raReads/{id} {
-      allow read: if resource == null || raAssessSees(resource.data.siteId);
+      // a building's (<siteId>__hs|fire), an away event's venue (<calEventId>__venue), a hirer's (<booking key>__hire)
+      allow read: if resource == null
+                  || (resource.data.get('kind', '') in ['hs', 'fire'] && raAssessSees(resource.data.siteId))
+                  || (resource.data.get('kind', '') == 'venue' && raEventSees(resource.data.calEventId, {}))
+                  || (resource.data.get('kind', '') == 'hire' && (cmpSees() || theOffice(resource.data.siteId)));
       allow write: if false;
+    }
+    // A BUILDING ASSESSMENT'S DATE AND COLOUR, for everyone (H&S step 5; F-280 10.8: only these
+    // cross over): raStatus/<siteId>__<kind>, written in the same batch as the assessment and
+    // held to it, so an event's organiser sees "Fire risk assessment: countersigned, review by ..."
+    // without reading the assessment itself.
+    match /raStatus/{id} {
+      allow read: if active();
+      allow create, update: if request.resource.data.keys().hasOnly(['siteId', 'kind', 'status', 'version', 'reviewDue', 'counterAt'])
+                    && id == request.resource.data.siteId + '__' + request.resource.data.kind
+                    && getAfter(/databases/$(database)/documents/raAssessments/$(id)).data.status == request.resource.data.status
+                    && getAfter(/databases/$(database)/documents/raAssessments/$(id)).data.version == request.resource.data.version
+                    && getAfter(/databases/$(database)/documents/raAssessments/$(id)).data.get('reviewDue', '') == request.resource.data.reviewDue
+                    && getAfter(/databases/$(database)/documents/raAssessments/$(id)).data.get('counterAt', null) == request.resource.data.get('counterAt', null);
+      allow delete: if false;
     }
     // Each countersigned version, as it was: written with the countersigning.
     match /raSigned/{id} {

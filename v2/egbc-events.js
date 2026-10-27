@@ -251,7 +251,21 @@
     if (EGBCAuth.isMaster && EGBCAuth.isMaster()) {
       Object.keys(EGBCAuth.TEAMS || {}).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
     }
-    return out.slice(0, 30);   /* array-contains-any takes at most 30 */
+    return out;   /* no limit (H&S step 5): ask with anyOf, 30 at a time */
+  }
+  /* "Any of" in batches of 30 - Firestore's limit for array-contains-any -
+     so a church with more audiences than that isn't cut off (H-9; H&S step
+     5). build(chunk) gives the query for one batch; the answer looks like
+     one snapshot, each document once. */
+  function anyOf(values, build) {
+    var chunks = [];
+    for (var i = 0; i < (values || []).length; i += 30) chunks.push(values.slice(i, i + 30));
+    if (!chunks.length) chunks.push(['-']);
+    return Promise.all(chunks.map(function (c) { return build(c).get(); })).then(function (snaps) {
+      var seen = {}, docs = [];
+      snaps.forEach(function (s) { s.docs.forEach(function (d) { if (!seen[d.id]) { seen[d.id] = true; docs.push(d); } }); });
+      return { docs: docs, size: docs.length, empty: !docs.length };
+    });
   }
 
   /* Events from now on, soonest first. `limit` is a number of documents,
@@ -259,13 +273,11 @@
   function listUpcoming(opts) {
     opts = opts || {};
     var from = opts.from === undefined ? Date.now() - 6 * 3600 * 1000 : opts.from;
-    var q = db().collection('calEvents')
-      .where('audience', 'array-contains-any', myAudiences())
-      .where('startUtc', '>=', from)
-      .orderBy('startUtc')
-      .limit(opts.limit || 200);
-    return q.get().then(function (snap) {
-      return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    return anyOf(myAudiences(), function (c) {
+      return db().collection('calEvents').where('audience', 'array-contains-any', c).where('startUtc', '>=', from).orderBy('startUtc').limit(opts.limit || 200);
+    }).then(function (snap) {
+      return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); }).slice(0, opts.limit || 200);
     });
   }
 
@@ -1004,7 +1016,7 @@
     audienceFor: audienceFor,
     myAudiences: myAudiences,
     signedIn: signedIn,
-    onTeam: onTeam, ready: ready, refused: refused, mayRunPlaces: mayRunPlaces, mayHeadcount: mayHeadcount, viewing: viewing, asSeen: asSeen, myUid: myUid,
+    onTeam: onTeam, ready: ready, refused: refused, mayRunPlaces: mayRunPlaces, mayHeadcount: mayHeadcount, viewing: viewing, asSeen: asSeen, myUid: myUid, anyOf: anyOf,
     runsEvent: runsEvent,
     eventsIRun: eventsIRun,
     listUpcoming: listUpcoming,

@@ -104,6 +104,8 @@
     function draw() {
       var t = T.EVENT_TEMPLATES[(A && A.templateId) || tplId] || T.EVENT_TEMPLATES.trip;
       var head = '<div class="sga"><h3>Safeguarding assessment ' + statusPill() + '</h3>' +
+        /* the event's health and safety assessment is its own (H&S step 5): linked, never merged */
+        '<p class="muted" id="sgaRaLink">Health and safety has its own assessment: <a href="event-ra.html?event=' + encodeURIComponent(o.calEventId) + '">the event’s risk assessment</a>.</p>' +
         (A && A.status === 'signed' && !A.waived ? '<p class="muted" id="sgaSigned">Signed off by ' + esc(A.signedByName || '') + (A.signedNote ? '. Their note: ' + esc(A.signedNote) : '') + '</p>' : '') +
         (A && A.waived ? '<p class="muted" id="sgaWaived">Not needed, said ' + esc(A.waivedByName || '') + ': ' + esc(A.waivedWhy || '') + '</p>' : '') +
         (!A || (A.status !== 'signed' && !A.waived) ? '<p class="warn" id="sgaGateWords">Bookings open after the safeguarding lead or deputy signs this off.</p>' : '');

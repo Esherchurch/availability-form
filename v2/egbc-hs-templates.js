@@ -19,6 +19,15 @@
      actionDue(priority, from, settings)   a target date from the priority
                                 (Health and safety settings: High 1 month,
                                 Medium 3, Low 6; "immediate" is today)
+
+   EVENTS (H&S step 5; F-280 section 3C; Martin's answers 4 and 5; the
+   reviewing window's away events at any age, 27 Oct):
+     EVENT_KINDS, AWAY, EVENT_FLAGS
+     eventQuestions(kind, flags, care)  the required questions (the rules
+                                hold the same ids: raEventChecklist)
+     needsReasons(ev, o)        why an event needs an assessment: marked by
+                                its organiser, people from the setting (100),
+                                a flag, away (off-site or overnight), a hirer
    Nothing here is any one church's.
    =================================================================== */
 (function (global) {
@@ -134,7 +143,84 @@
     return due <= soon ? 'amber' : 'green';
   }
 
-  var api = { KINDS: KINDS, GROUPS: GROUPS, SECTIONS: SECTIONS, Q: Q, BASE: BASE, BY_PROFILE: BY_PROFILE, PRIORITIES: PRIORITIES,
+  /* ---- EVENTS ---- */
+  var EVENT_KINDS = [
+    ['general', 'A gathering or event in our building'], ['concert', 'A concert or performance'], ['fair', 'A fair, fete or sale'],
+    ['wedding', 'A wedding'], ['baptism', 'A baptism or christening'], ['funeral', 'A funeral'], ['hire', 'An outside hirer’s event here'],
+    ['daytrip', 'A day trip or outing'], ['residential', 'A weekend away or retreat (overnight)'], ['adventurous', 'Adventurous activities']
+  ];
+  var AWAY = ['daytrip', 'residential', 'adventurous'];
+  var EVENT_FLAGS = [
+    ['flames', 'Candles or other naked flames'], ['food', 'Food served'], ['alcohol', 'Alcohol'], ['outdoor', 'Outdoor areas, the car park or traffic'],
+    ['equipment', 'Equipment brought in (sound, lighting, stalls)'], ['music', 'Music or a film that isn’t worship']
+  ];
+  var EQ = {
+    insurance: ['Insurance', 'Public liability cover for this event (and the hirer’s own, for a hirer).'],
+    numbers: ['Numbers', 'How many are expected, against the rooms’ fire maximums or the venue’s own limit.'],
+    firstAid: ['First aid', 'Who the first aiders are on the day, the kit, and how to call for help.'],
+    accessibility: ['Access for disabled people', 'Getting in, around and out, and anyone who needs help.'],
+    weather: ['Weather, or calling it off', 'What happens in heat, cold, wind or rain, and who decides.'],
+    incidents: ['Incidents', 'How an accident or a near miss is recorded, and who is told.'],
+    buildingRas: ['The building’s assessments', 'Its health and safety and fire assessments are in date (shown above).'],
+    fire: ['Fire', 'Exits kept clear, the stewards and their briefing, what happens when the alarm sounds.'],
+    crowd: ['Crowds', 'Stewards, queues, the doors, and keeping numbers under the maximum.'],
+    venue: ['The venue', 'Its name, what it provides, and who there is in charge.'],
+    venueFire: ['The venue’s fire arrangements', 'Its alarm, exits, assembly point and how the group is told.'],
+    venueRa: ['The venue’s own risk assessment', 'Read, and anything the group must do because of it.'],
+    travel: ['Travel', 'How everyone gets there and back, vehicles checked, routes and stops.'],
+    drivers: ['Drivers', 'Licences, insurance, hours and rest breaks.'],
+    medical: ['Medical needs', 'How they are found out and met: general words only, never anyone’s details here.'],
+    contacts: ['Emergency contacts', 'Kept by the leader, never in the hub.'],
+    leaderOnCall: ['A named leader on call', 'Who the group and those at home can reach, day and night.'],
+    careSupport: ['Anyone who may need care or support', 'Yes or No. General words only: no names and no medical details.'],
+    careHow: ['How their care or support is given', 'General words only. The safeguarding lead or deputy can see this answer.'],
+    sleeping: ['Sleeping', 'Rooms, who shares, and adults’ privacy.'],
+    nightFire: ['Fire at night', 'The alarm, exits and roll call where the group sleeps.'],
+    instructor: ['Instructors', 'Qualified for the activity, from a licensed provider where the law asks.'],
+    activityEquipment: ['Activity equipment', 'Provided and checked by the provider, or ours checked.'],
+    activityLicence: ['The provider’s licence', 'An Adventure Activities Licence where needed, or why not needed.'],
+    traffic: ['Traffic and parking', 'Cars arriving and leaving, the hearse or wedding cars, people on foot.'],
+    fontWater: ['The font and water', 'Water temperature, spills, and children near the font.'],
+    churchyard: ['The churchyard', 'Paths, the grave, memorials that lean, and people standing outside.'],
+    flames: ['Candles and naked flames', 'Holders, distance from fabrics, who puts them out (the building’s fire assessment, fire hazards).'],
+    food: ['Food and allergens', 'Who prepares it, their hygiene training, the allergens listed.'],
+    alcohol: ['Alcohol', 'A licence or a temporary event notice, and who serves.'],
+    outdoor: ['Outdoors, the car park and traffic', 'Lighting, surfaces, cars and people kept apart.'],
+    equipmentPat: ['Electrics brought in', 'Safety-tested, leads taped down, sockets not overloaded.'],
+    licensing: ['Licences', 'Music or film licences for an event that isn’t worship.']
+  };
+  var E_BASE = ['insurance', 'numbers', 'firstAid', 'accessibility', 'weather', 'incidents'];
+  var E_HERE = ['buildingRas', 'fire', 'crowd'];
+  var E_AWAY = ['venue', 'venueFire', 'venueRa', 'travel', 'drivers', 'medical', 'contacts', 'leaderOnCall', 'careSupport'];
+  var E_KIND = { wedding: ['traffic'], baptism: ['fontWater'], funeral: ['churchyard', 'traffic'], residential: ['sleeping', 'nightFire'], adventurous: ['instructor', 'activityEquipment', 'activityLicence'] };
+  var E_FLAG = { flames: 'flames', food: 'food', alcohol: 'alcohol', outdoor: 'outdoor', equipment: 'equipmentPat', music: 'licensing' };
+  function eventQuestions(kind, flags, care) {
+    flags = flags || {};
+    var away = AWAY.indexOf(kind) >= 0;
+    var ids = E_BASE.concat(away ? E_AWAY : E_HERE).concat(E_KIND[kind] || []);
+    EVENT_FLAGS.forEach(function (f) { if (flags[f[0]] === true) ids.push(E_FLAG[f[0]]); });
+    if (away && care && care.support === 'yes') ids.push('careHow');
+    return ids.map(function (id) { return { id: id, label: EQ[id][0], hint: EQ[id][1] }; });
+  }
+  function eventDone(kind, flags, care, answers) {
+    answers = answers || {};
+    return eventQuestions(kind, flags, care).filter(function (q) { return !answered(answers[q.id]); });
+  }
+  /* why an event needs an assessment (answer 4, and away events at any age): [] when it doesn't */
+  var AWAY_SG = ['trip', 'overnight', 'offsite', 'camp'];
+  function needsReasons(ev, o) {
+    ev = ev || {}; o = o || {};
+    var out = [], flags = o.flags || {}, people = +o.people || +ev.capacity || 0, at = (o.settings && o.settings.eventPeople) || 100;
+    if (o.marked) out.push('its organiser marked it');
+    if (people >= at) out.push(people + ' people (from ' + at + ')');
+    EVENT_FLAGS.forEach(function (f) { if (flags[f[0]] === true && f[0] !== 'music') out.push(f[1].toLowerCase()); });
+    if (AWAY.indexOf(o.kind) >= 0 || (ev.location || {}).kind === 'venue' || AWAY_SG.indexOf(ev.sgKind || '') >= 0) out.push('away from our buildings, or overnight');
+    if (o.kind === 'hire') out.push('an outside hirer');
+    return out;
+  }
+
+  var api = { KINDS: KINDS, EVENT_KINDS: EVENT_KINDS, AWAY: AWAY, EVENT_FLAGS: EVENT_FLAGS, EQ: EQ, E_BASE: E_BASE, E_HERE: E_HERE, E_AWAY: E_AWAY, E_KIND: E_KIND, E_FLAG: E_FLAG,
+    eventQuestions: eventQuestions, eventDone: eventDone, needsReasons: needsReasons, GROUPS: GROUPS, SECTIONS: SECTIONS, Q: Q, BASE: BASE, BY_PROFILE: BY_PROFILE, PRIORITIES: PRIORITIES,
     questionsFor: questionsFor, done: done, actionDue: actionDue, addMonths: addMonths, reviewRag: reviewRag };
   global.EGBCHsTemplates = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

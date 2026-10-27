@@ -1,18 +1,28 @@
-/* READING A PROFESSIONAL'S RISK ASSESSMENT INTO THE BUILDING'S OWN (H&S
- * step 4; F-280 section 4). The events window's file.
+/* READING A REPORT INTO A RISK ASSESSMENT (H&S steps 4 and 5; F-280
+ * sections 3C, 3D and 4). The events window's file.
  *
- *   raReadReport({ siteId, kind, fileName, contentType, data })
- *       the file (base64) is kept in Storage where the live risk register
- *       keeps reports; Claude reads it (ra-report-core.cjs); what it found
- *       is saved in raReads/<siteId>__<kind>, NOT in the assessment. The
- *       page shows it, a person checks each line, and only then is it added
- *       (Martin's answer 7: each action confirmed before it becomes a job).
- *   raAiStatus({ siteId })   ready / notset / broken / capped / notallowed
+ *   raReadReport({ kind, ... })
+ *     kind 'hs' or 'fire', { siteId, fileName, contentType, data }:
+ *         a professional's report on one of the church's buildings;
+ *     kind 'venue', { calEventId, and a file, or urls (up to 5), or text }:
+ *         an away event's venue - its own fire arrangements, risk
+ *         assessment and rules - read from its document, its web pages
+ *         (web-reader-core.cjs: https and public addresses only, the same
+ *         limits as a host's pages) or pasted words;
+ *     kind 'hire', { bookingKey, fileName, contentType, data }:
+ *         a hirer's own risk assessment, checked against the building's
+ *         significant hazards (each one a heading it should cover).
+ *   The file is kept as it came; Claude reads it (ra-report-core.cjs); what
+ *   it found is saved in raReads/<id>__<kind>, NOT in any assessment. The
+ *   page shows it and a person checks each line before anything is added.
+ *   raAiStatus({ siteId | calEventId | bookingKey })   ready / notset / ...
  *
- * Who: master admins, the office (its job) and the building's leads
- * (raSiteRoles), as for the assessment itself. Caps: Health and safety
- * settings' AI drafts a day (raSettings/church.ai; 20 and 5), separate from
- * safeguarding's (F-280 answer 9): their own records, raAiUse, raAiLog,
+ * Who: as for what is being assessed - a building's: master admins, the
+ * office (its job) and the building's leads; an event's: its organisers and
+ * leaders, the office, master admins; a hire: the office for that building
+ * (admins and its bookings admins) and the office job. Caps: Health and
+ * safety settings' AI drafts a day (raSettings/church.ai; 20 and 5),
+ * separate from safeguarding's (F-280 answer 9): raAiUse, raAiLog,
  * raAiState, raAiStub. For each church, from the sign-in (church-scope.js).
  */
 import { createRequire } from 'node:module';
@@ -20,18 +30,20 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { aiPlumbing, callModel } from './ra-ai.js';
-import { CHQ_ANTHROPIC_API_KEY } from './sg-ai.js';
+import { CHQ_ANTHROPIC_API_KEY, realDeps } from './sg-ai.js';
 import { londonDay } from './sg-warnings.js';
 import { readTeamJobs, onJob } from './team-jobs.js';
 import { churchOf } from './church-scope.js';
 
 const require = createRequire(import.meta.url);
 const R = require('./ra-report-core.cjs');
+const Links = require('./web-reader-core.cjs');
+const RA = require('./ra-ai-core.cjs');
 const REGION = 'europe-west2';
 const WORDS = {
-  notSet: 'Reading reports with AI isn’t set up yet for this church. Type the findings in by hand.',
+  notSet: 'Reading with AI isn’t set up yet for this church. Type the findings in by hand.',
   setup: 'The AI isn’t set up properly yet. Ask the church office.',
-  broken: 'Reading reports with AI is set up but not working yet. Type the findings in by hand for now.',
+  broken: 'Reading with AI is set up but not working yet. Type the findings in by hand for now.',
   capped: 'Today’s limit of AI reads is reached; try tomorrow, or type the findings in by hand.'
 };
 const { apiOf, logIt, broken, noteWorking, callFailed, takeOne, usedUp } = aiPlumbing({ secret: CHQ_ANTHROPIC_API_KEY, day: () => londonDay(),
@@ -42,67 +54,128 @@ export function capsOf(set) {
   const a = (set && set.ai) || {}, n = (v, d) => (Number.isInteger(v) && v >= 0 ? v : d);
   return { perChurch: n(a.perChurch, 20), perPerson: n(a.perPerson, 5) };
 }
-
-/* may this person read a report into this building's assessment? */
-export async function whoFor(dbi, uid, siteId) {
-  const [u, roles, site] = await Promise.all([dbi.collection('users').doc(uid).get(), dbi.collection('raSiteRoles').doc(siteId).get(), dbi.collection('sites').doc(siteId).get()]);
-  const me = u.exists ? u.data() : null;
-  if (!me || me.status !== 'active' || !site.exists) return { ok: false };
-  if (me.masterAdmin === true) return { ok: true, me };
+const get = (dbi, c, d) => dbi.collection(c).doc(d).get().then((s) => (s.exists ? s.data() : null));
+async function person(dbi, uid) {
+  const me = await get(dbi, 'users', uid);
+  if (!me || me.status !== 'active') return null;
   const tj = await readTeamJobs(dbi);
-  if (onJob(tj.map, (me.teams || []).concat(me.covers || []), 'office', tj.set)) return { ok: true, me };
-  const r = roles.exists ? roles.data() : {}, mid = me.memberId || '';
-  return { ok: !!mid && [r.hsLead, r.hsDeputy, r.fireLead].includes(mid), me };
+  me._office = me.masterAdmin === true || onJob(tj.map, (me.teams || []).concat(me.covers || []), 'office', tj.set);
+  return me;
 }
 
-export async function readReport({ db: dbi, uid, data, api, bucket, prefix }) {
-  data = data || {};
-  const siteId = String(data.siteId || ''), kind = data.kind === 'fire' ? 'fire' : data.kind === 'hs' ? 'hs' : '';
-  if (!siteId || siteId.includes('/') || !kind) throw new HttpsError('invalid-argument', 'Which building, and which assessment?');
-  const w = await whoFor(dbi, uid, siteId);
-  if (!w.ok) throw new HttpsError('permission-denied', 'This is for the office, the building’s health and safety and fire safety leads, and master admins.');
-  const type = String(data.contentType || '').toLowerCase(), fileName = String(data.fileName || 'report').replace(/[\\/]/g, '_').slice(0, 120);
-  const fk = R.fileKind(type, fileName);
-  if (!fk) throw new HttpsError('invalid-argument', 'Upload a PDF, a Word document (.docx), or a photo or scan of the report.');
-  const buf = Buffer.from(String(data.data || ''), 'base64');
-  if (!buf.length) throw new HttpsError('invalid-argument', 'The file is empty.');
-  if (buf.length > R.MAX_BYTES) throw new HttpsError('invalid-argument', 'The file is too big: 7 MB at most. A photo of each page will do.');
-  let text = '';
-  if (fk === 'docx') {
-    try { text = R.docxText(buf); } catch (e) { throw new HttpsError('invalid-argument', 'This Word document can’t be read. Save it as a PDF and try that.'); }
-    if (!text.trim()) throw new HttpsError('invalid-argument', 'There are no words in this Word document.');
+/* What is being read for, and may this person? -> { ok, me, siteId, docId, path, heads, calEventId?, bookingKey? } */
+export async function targetFor(dbi, uid, data) {
+  const kind = String(data.kind || '');
+  const me = await person(dbi, uid);
+  if (!me) return { ok: false };
+  const stamp = Date.now() + '-';
+  if (kind === 'hs' || kind === 'fire') {
+    const siteId = String(data.siteId || '');
+    if (!siteId || siteId.includes('/') || !(await get(dbi, 'sites', siteId))) throw new HttpsError('invalid-argument', 'Which building?');
+    const r = (await get(dbi, 'raSiteRoles', siteId)) || {}, mid = me.memberId || '';
+    const ok = me._office || (!!mid && [r.hsLead, r.hsDeputy, r.fireLead].includes(mid));
+    return { ok, me, kind, siteId, docId: siteId + '__' + kind, path: 'compliance/' + siteId + '/risk-' + kind + '/' + stamp, heads: R.headsFor(kind) };
   }
-  const base = { siteId, calEventId: '', by: uid, byName: w.me.name || '', chars: buf.length, kind: 'report-' + kind };
+  if (kind === 'venue') {
+    const calEventId = String(data.calEventId || '');
+    const ev = calEventId && !calEventId.includes('/') ? await get(dbi, 'calEvents', calEventId) : null;
+    if (!ev) throw new HttpsError('invalid-argument', 'Which event?');
+    const l = (await get(dbi, 'eventLeaders', calEventId)) || {}, mid = me.memberId || '';
+    const ok = me._office || (!!mid && (ev.teamMemberIds || []).includes(mid)) || (ev.teamUids || []).includes(uid) || (ev.overseerUids || []).includes(uid)
+      || (me.adminFor || []).length > 0 && ev.createdBy === uid || (l.leaderUids || []).includes(uid);
+    return { ok, me, kind, calEventId, siteId: (ev.location || {}).siteId || '', docId: calEventId + '__venue', path: 'raVenues/' + calEventId + '/' + stamp, heads: R.headsFor('venue') };
+  }
+  if (kind === 'hire') {
+    const bookingKey = String(data.bookingKey || '');
+    const b = bookingKey && !bookingKey.includes('/') ? await get(dbi, 'bookings', bookingKey) : null;
+    if (!b || b.kind !== 'hire') throw new HttpsError('invalid-argument', 'Which booking?');
+    const bs = (await get(dbi, 'bookingSettings', b.siteId)) || {};
+    const ok = me._office || (me.adminFor || []).length > 0 || (!!me.memberId && (bs.bookingsAdmins || []).includes(me.memberId));
+    /* the building's significant hazards (Medium or High after the controls), from its own assessments */
+    const hazards = [];
+    for (const k of ['hs', 'fire']) {
+      const a = await get(dbi, 'raAssessments', b.siteId + '__' + k);
+      ((a && a.hazards) || []).forEach((h) => { if (RA.rating(h.rl, h.rs) !== 'green' && h.hazard) hazards.push(h.hazard); });
+    }
+    return { ok, me, kind, bookingKey, siteId: b.siteId, docId: bookingKey + '__hire', path: 'compliance/' + b.siteId + '/hire/' + bookingKey + '/' + stamp, heads: R.headsFor('hire', hazards), hazards };
+  }
+  throw new HttpsError('invalid-argument', 'What is being read?');
+}
+
+export async function readReport({ db: dbi, uid, data, api, bucket, prefix, deps }) {
+  data = data || {};
+  const t = await targetFor(dbi, uid, data);
+  if (!t.ok) throw new HttpsError('permission-denied', t.kind === 'hire' ? 'This is for the office.' : t.kind === 'venue' ? 'This is for the event’s organisers and leaders, and the office.' : 'This is for the office, the building’s health and safety and fire safety leads, and master admins.');
+  const urls = t.kind === 'venue' ? (Array.isArray(data.urls) ? data.urls : []).map((x) => String(x || '').trim()).filter(Boolean) : [];
+  const pasted = t.kind === 'venue' ? String(data.text || '').slice(0, 60000) : '';
+  if (urls.length > Links.LIMITS.starts) throw new HttpsError('invalid-argument', 'Up to ' + Links.LIMITS.starts + ' addresses at a time.');
+  const fromFile = !!data.data;
+  let fk = '', buf = null, text = '';
+  const type = String(data.contentType || '').toLowerCase(), fileName = String(data.fileName || 'document').replace(/[\\/]/g, '_').slice(0, 120);
+  if (fromFile) {
+    fk = R.fileKind(type, fileName);
+    if (!fk) throw new HttpsError('invalid-argument', 'Upload a PDF, a Word document (.docx), or a photo or scan.');
+    buf = Buffer.from(String(data.data || ''), 'base64');
+    if (!buf.length) throw new HttpsError('invalid-argument', 'The file is empty.');
+    if (buf.length > R.MAX_BYTES) throw new HttpsError('invalid-argument', 'The file is too big: 7 MB at most. A photo of each page will do.');
+    if (fk === 'docx') {
+      try { text = R.docxText(buf); } catch (e) { throw new HttpsError('invalid-argument', 'This Word document can’t be read. Save it as a PDF and try that.'); }
+      if (!text.trim()) throw new HttpsError('invalid-argument', 'There are no words in this Word document.');
+    }
+  } else if (!urls.length && !pasted.trim()) throw new HttpsError('invalid-argument', t.kind === 'venue' ? 'Give the venue’s document, its web page addresses, or paste what it says.' : 'Give the file.');
+  const base = { siteId: t.siteId, calEventId: t.calEventId || '', by: uid, byName: t.me.name || '', chars: buf ? buf.length : pasted.length, kind: 'report-' + t.kind };
   const key = api || (await apiOf(dbi));
   if (!key.apiKey) throw new HttpsError('failed-precondition', WORDS.notSet);
   if (await broken(dbi, key.apiKey)) throw new HttpsError('failed-precondition', WORDS.broken);
-  const set = (await dbi.collection('raSettings').doc('church').get()).data() || {};
+  const set = (await get(dbi, 'raSettings', 'church')) || {};
   if (!(await takeOne(dbi, uid, capsOf(set)))) { await logIt(dbi, Object.assign({ outcome: 'capped' }, base)); throw new HttpsError('resource-exhausted', WORDS.capped); }
-  /* the original, kept as it came, where the live risk register keeps reports */
-  const path = (prefix || '') + 'compliance/' + siteId + '/risk-' + kind + '/' + Date.now() + '-' + fileName.replace(/[^A-Za-z0-9._ -]/g, '_');
-  await (bucket || getStorage().bucket()).file(path).save(buf, { contentType: type || (fk === 'docx' ? R.DOCX : 'application/octet-stream'), resumable: false });
+  const store = bucket || getStorage().bucket();
+  let content, file;
+  if (fromFile) {
+    /* the original, kept as it came */
+    const path = (prefix || '') + t.path + fileName.replace(/[^A-Za-z0-9._ -]/g, '_');
+    await store.file(path).save(buf, { contentType: type || (fk === 'docx' ? R.DOCX : 'application/octet-stream'), resumable: false });
+    file = { path, name: fileName, type: type || fk, size: buf.length };
+    content = R.contentFor(t.kind, fk, buf.toString('base64'), text, type);
+  } else {
+    /* the venue's pages, read safely (on the emulator only, a test may name its own stand-in site) */
+    let d = deps || realDeps();
+    if (!deps && process.env.FUNCTIONS_EMULATOR === 'true') { const s = await get(dbi, 'raAiStub', 'config'); if (s && Array.isArray(s.webHosts)) d = Object.assign({}, d, { testHosts: s.webHosts }); }
+    const read = urls.length ? await Links.readPages(urls, d) : { pages: [], refused: [] };
+    if (!read.pages.length && !pasted.trim()) {
+      await logIt(dbi, Object.assign({ outcome: 'unreadable' }, base));
+      throw new HttpsError('failed-precondition', 'Nothing could be read from those addresses: ' + read.refused.map((r) => r.url + ' (' + r.why + ')').join('; ').slice(0, 600) + '. Paste what the venue says instead.');
+    }
+    const words = read.pages.filter((p) => p.kind !== 'pdf').map((p) => (p.title || p.url) + '\n' + p.url + '\n\n' + p.text).join('\n\n----\n\n') + (pasted.trim() ? '\n\n----\nPasted:\n\n' + pasted : '');
+    const path = (prefix || '') + t.path + 'what-was-read.txt';
+    await store.file(path).save(Buffer.from(words, 'utf8'), { contentType: 'text/plain; charset=utf-8', resumable: false });
+    file = { path, name: 'What was read.txt', type: 'text/plain', size: words.length, pages: read.pages.map((p) => ({ url: p.url, title: p.title || '' })).slice(0, 60) };
+    content = R.contentForPages(t.kind, read.pages, pasted);
+  }
   let res;
   try {
     res = await callModel({ apiKey: key.apiKey, baseURL: key.baseURL, request: { model: R.MODEL, max_tokens: 16000,
-      system: [{ type: 'text', text: R.SYSTEM(kind), cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: R.contentFor(kind, fk, buf.toString('base64'), text, type) }],
-      output_config: { format: { type: 'json_schema', schema: R.SCHEMA(kind) } } } });
+      system: [{ type: 'text', text: R.SYSTEM(t.kind), cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content }],
+      output_config: { format: { type: 'json_schema', schema: R.SCHEMA(t.heads) } } } });
   } catch (e) { throw await callFailed(dbi, e, key, base, 'raReadReport'); }
   await noteWorking(dbi, key.apiKey);
   const usage = { tokensIn: (res.usage || {}).input_tokens || 0, tokensOut: (res.usage || {}).output_tokens || 0 };
-  if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', 'The AI couldn’t read this report; type its findings in by hand.'); }
+  if (res.stop_reason === 'refusal') { await logIt(dbi, Object.assign({ outcome: 'refused-model' }, base, usage)); throw new HttpsError('failed-precondition', 'The AI couldn’t read this; type what it says in by hand.'); }
   let parsed = null;
   try { parsed = res.stop_reason === 'max_tokens' ? null : JSON.parse((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')); } catch (e) { parsed = null; }
-  const n = R.normalise(parsed, kind);
+  const n = R.normalise(parsed, t.heads);
   if (!n.ok) { await logIt(dbi, Object.assign({ outcome: 'failed' }, base, usage)); throw new HttpsError('internal', 'The list came back incomplete; try again.'); }
   const at = new Date().toISOString(), id = (p, i) => p + i + '_' + Math.random().toString(36).slice(2, 8);
-  const read = { siteId, kind, at, by: uid, byName: String(w.me.name || '').slice(0, 120), file: { path, name: fileName, type: type || fk, size: buf.length },
+  const out = { siteId: t.siteId, kind: t.kind, at, by: uid, byName: String(t.me.name || '').slice(0, 120), file,
     report: n.report, findings: n.findings.map((f, i) => Object.assign({ id: id('f', i) }, f)), actions: n.actions.map((a, i) => Object.assign({ id: id('a', i) }, a)),
     gaps: n.gaps, dropped: n.dropped, leftOut: n.leftOut, personalFound: n.personalFound };
-  await dbi.collection('raReads').doc(siteId + '__' + kind).set(read);
+  if (t.calEventId) out.calEventId = t.calEventId;
+  if (t.bookingKey) { out.bookingKey = t.bookingKey; out.buildingHazards = t.hazards.length; }
+  await dbi.collection('raReads').doc(t.docId).set(out);
   await logIt(dbi, Object.assign({ outcome: 'read' }, base, usage));
-  return { ok: true, findings: read.findings.length, actions: read.actions.length, gaps: read.gaps.length, leftOut: n.leftOut, personalFound: n.personalFound,
-    message: n.personalFound ? 'The report seems to have names, phone numbers or emails in it. They were left out of what was read.' : '' };
+  return { ok: true, findings: out.findings.length, actions: out.actions.length, gaps: out.gaps.length, leftOut: n.leftOut, personalFound: n.personalFound,
+    message: n.personalFound ? 'It seems to have names, phone numbers or emails in it. They were left out of what was read.' : '' };
 }
 
 export const raReadReport = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180, memory: '512MiB' }, async (req) => {
@@ -113,12 +186,14 @@ export const raReadReport = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API
 
 export const raAiStatus = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
-  const ch = churchOf(req, getFirestore()), dbi = ch.db, siteId = String((req.data || {}).siteId || '');
-  if (!siteId || siteId.includes('/')) throw new HttpsError('invalid-argument', 'Which building?');
-  if (!(await whoFor(dbi, req.auth.uid, siteId)).ok) return { state: 'notallowed' };
+  const ch = churchOf(req, getFirestore()), dbi = ch.db, d = req.data || {};
+  const kind = d.kind || (d.calEventId ? 'venue' : d.bookingKey ? 'hire' : 'hs');
+  let t;
+  try { t = await targetFor(dbi, req.auth.uid, Object.assign({}, d, { kind })); } catch (e) { return { state: 'notallowed' }; }
+  if (!t.ok) return { state: 'notallowed' };
   const api = await apiOf(dbi);
   if (!api.apiKey) return { state: 'notset', message: WORDS.notSet };
   if (await broken(dbi, api.apiKey)) return { state: 'broken', message: WORDS.broken };
-  if (await usedUp(dbi, req.auth.uid, capsOf((await dbi.collection('raSettings').doc('church').get()).data() || {}))) return { state: 'capped', message: WORDS.capped };
+  if (await usedUp(dbi, req.auth.uid, capsOf((await get(dbi, 'raSettings', 'church')) || {}))) return { state: 'capped', message: WORDS.capped };
   return { state: 'ready' };
 });

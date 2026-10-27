@@ -257,7 +257,7 @@ function pinnedRequest({ url, address, family, maxBytes, timeoutMs }) {
     req.end();
   });
 }
-const realDeps = () => ({ lookup: (h) => dns.promises.lookup(h, { all: true, verbatim: true }), request: pinnedRequest });
+export const realDeps = () => ({ lookup: (h) => dns.promises.lookup(h, { all: true, verbatim: true }), request: pinnedRequest });
 
 export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) {
   data = data || {};

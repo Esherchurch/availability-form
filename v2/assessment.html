@@ -19,14 +19,14 @@
 <script src="egbc-guard.js?v=202610281400"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-launch.js?v=202610141700"></script>
-<script src="egbc-events.js?v=202610262000"></script>
+<script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <script src="egbc-compliance.js?v=202610192300"></script>
 <script src="egbc-compliance-templates.js?v=202610281000"></script>
 <script src="egbc-compliance-store.js?v=202610281000"></script>
 <script src="egbc-ra-core.js?v=202610271600"></script>
 <script src="egbc-hs-core.js?v=202610281000"></script>
-<script src="egbc-hs-templates.js?v=202610281200"></script>
+<script src="egbc-hs-templates.js?v=202610281600"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -306,7 +306,7 @@
     A.source = { assessor: r.report.assessor || '', date: r.report.date || '', nextReview: r.report.nextReview || '', overall: r.report.overall || '', file: r.file.path, fileName: r.file.name,
       readAt: r.at, checkedBy: ME.name || '', checkedOn: TODAY, gaps: r.gaps.map(function (g) { return g.id; }) };
     $('readAdd').disabled = true; $('readMsg').textContent = 'Adding…';
-    ref().set(base(A)).then(function () {
+    writeA(base(A)).then(function () {
       /* the live risk register's record of the professional report, and its review check, as putting one up there does (the office may) */
       if (!(OFFICE && r.report.date && r.report.nextReview && r.report.assessor)) return null;
       return db().collection('raReports').doc().set({ siteId: SITE.id, kind: KIND, date: r.report.date, assessor: r.report.assessor.slice(0, 120), nextReview: r.report.nextReview,
@@ -348,10 +348,20 @@
     out.updatedBy = uid(); out.updatedAt = nowIso(); return out;
   }
   function ref() { return db().collection('raAssessments').doc(SITE.id + '__' + KIND); }
+  /* every write carries its date and colour for everyone (raStatus; F-280 10.8: only these cross over) */
+  function statusOf(b, after) {
+    b.set(db().collection('raStatus').doc(SITE.id + '__' + KIND), { siteId: SITE.id, kind: KIND, status: after.status, version: after.version, reviewDue: after.reviewDue || '', counterAt: after.counterAt || null });
+  }
+  function writeA(change, merge) {
+    var b = db().batch();
+    if (merge) b.update(ref(), change); else b.set(ref(), change);
+    statusOf(b, merge ? Object.assign({}, A, change) : change);
+    return b.commit();
+  }
   function save() {
     collect();
     var b = $('saveGo'); b.disabled = true; say('Saving…');
-    return ref().set(base(A)).then(function () { return load(); }).then(function () { draw(); say('Saved.'); }, function (e) { b.disabled = false; say('Not saved: ' + (e.message || e)); });
+    return writeA(base(A)).then(function () { return load(); }).then(function () { draw(); say('Saved.'); }, function (e) { b.disabled = false; say('Not saved: ' + (e.message || e)); });
   }
   function wire() {
     wireRead();
@@ -390,19 +400,19 @@
       job.set({ siteId: SITE.id, roomId: '', where: SITE.name || '', what: a.what.slice(0, 200), details: 'From the ' + HT.KINDS[KIND].title.toLowerCase() + ' (' + a.priority + ' priority)', photoPath: '', status: 'todo',
         checkId: '', safety: true, due: a.due || '', ownerId: '', reportedBy: uid(), reportedByName: ME.name || '', reportedAt: firebase.firestore.FieldValue.serverTimestamp() }).then(function () {
         a.jobId = job.id;
-        return ref().set(base(A));   /* only while editing a draft */
+        return writeA(base(A));   /* only while editing a draft */
       }).then(function () { return load(); }).then(function () { draw(); say('It is on the Maintenance list, as a safety job.'); }, function (e) { b.disabled = false; say('Not raised: ' + (e.message || e)); });
     }; });
     if ($('signGo')) $('signGo').onclick = function () {
       var role = signRole(); $('signGo').disabled = true;
-      ref().update({ status: 'signed', signedBy: uid(), signedByName: ME.name || '', signedByRole: ROLE_WORDS[role], signedAt: firebase.firestore.FieldValue.serverTimestamp(), signedVersion: A.version, updatedBy: uid(), updatedAt: nowIso() })
+      writeA({ status: 'signed', signedBy: uid(), signedByName: ME.name || '', signedByRole: ROLE_WORDS[role], signedAt: firebase.firestore.FieldValue.serverTimestamp(), signedVersion: A.version, updatedBy: uid(), updatedAt: nowIso() }, true)
         .then(load).then(function () { draw(); say('Signed. A trustee countersigns it next.'); }, function (e) { $('signGo').disabled = false; say('Not signed: ' + (e.message || e)); });
     };
     if ($('counterGo')) $('counterGo').onclick = function () {
       $('counterGo').disabled = true;
       var ch = { status: 'countersigned', counterBy: uid(), counterByName: ME.name || '', counterAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: uid(), updatedAt: nowIso() };
       var after = Object.assign({}, A, ch), batch = db().batch();
-      batch.update(ref(), ch);
+      batch.update(ref(), ch); statusOf(batch, after);
       batch.set(db().collection('raSigned').doc(SITE.id + '__' + KIND + '__v' + A.version), { siteId: SITE.id, kind: KIND, version: A.version, assessment: after, at: firebase.firestore.FieldValue.serverTimestamp() });
       batch.commit().then(function () {
         /* the review is itself a building check (fire-ra / hs-ra): recorded where the countersigner may (the office); the live risk register does it otherwise */
