@@ -34,6 +34,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { enewsShut } from './enews-gate.js';
 import { resendKey, webhookSecret, SENDING_SECRETS } from './resend-secrets.js';
+import { churchIdOf } from './church-scope.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -53,6 +54,9 @@ export async function keyShut() {
 async function master(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
+  /* Church HQ’s keys, one set for every church (batch 8): not a church’s
+     own master admin’s to change. */
+  if (churchIdOf(req)) throw new HttpsError('permission-denied', 'Church HQ’s keys are set by Church HQ, not by each church.');
   const u = (await db().collection('users').doc(uid).get()).data() || {};
   if (u.status !== 'active' || u.masterAdmin !== true) throw new HttpsError('permission-denied', 'Only a master admin can set Church HQ’s keys.');
   return { uid, name: String(u.name || '') };

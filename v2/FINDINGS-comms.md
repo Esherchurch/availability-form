@@ -260,6 +260,40 @@ What Martin would have to set up, so he can decide. Meta changes these rules; I'
 
 ---
 
+## BUILT, 27 Oct: multi-church batch 8, the comms functions serve each church's own data. For review
+
+Main's helpers (church-scope.js, hq-codes.js), as in batches 1 to 7. With no church claim, a function uses EGBC's top-level data, exactly as before.
+
+| Kind | Functions | Their church |
+|---|---|---|
+| Called by a page | enewsSubscriberSave, enewsTest, enewsPreviewWeb, canva* (5), unsplashSearch/Used | the sign-in's (`churchOf`) |
+| Scheduled | enewsSendDue, socialMorning | each church in turn (`eachChurch`) |
+| Triggers | welcomeSubscriber, welcomeNewcomer | path twins on `churches/{cid}/…` (`…Church`) |
+| Public | enewsSignup | the page's address: `<slug>.churchhq.co.uk` through `hqSlugs`. An unknown address is refused |
+| Public | enewsConfirm, enewsUnsubscribe | the link's token, through `hqCodes`, new kind `enews` (written whenever a church makes a token) |
+| Public | canvaCallback | the sign-in's state, through `hqCodes`, new kind `canva` |
+| Public | hqMailEvents | a `church` tag that every church email now carries (hq-mail.js) |
+
+**Also:**
+- **Stay Church HQ's, shared by every church:**
+  - the Unsplash cache and hourly limit (one key);
+  - Canva's app ID and secret, and the key box refuses a church's own admin;
+  - Resend's de-duplicating records.
+- **Canva:** each church connects its own account; its pictures go under `churches/{cid}/` in Storage.
+- **The email cap:** each church keeps 2,000 an hour. A new Church HQ-wide counter (`hqMailHours`, 10,000 unless `HQ_HOURLY_RECIPIENTS` says otherwise) covers the Resend account.
+- **No hub address** (never expected now; it's made at setup):
+  - the e-news isn't sent, and the issue says why (`sendProblem`), with an error in the job's log;
+  - preview and confirmation refuse with a message;
+  - a welcome is refused before it is marked sent, so it goes once the address is there;
+  - the reminder and Canva leave the link out.
+- **In main's files:** two kinds added to `hq-codes.js` KINDS, and the twin exports in `index.js`.
+
+**Quick check** (the only one; the 27 Oct rule): a scheduled e-news for EGBC and a made-up church, through `eachChurch` and the real `runEnewsSend`. Each subscriber got only their own church's, with their own address (`egbc.churchhq.co.uk`, `testbury.churchhq.co.uk`), and both were marked sent. The functions index loads, with all 23 of this window's functions.
+
+**To deploy:** `firebase deploy --only functions:hub`. It carries this, and the office job from 8c24df5d.
+
+---
+
 ## BUILT, 27 Oct: the comms area's office is the office job, not "Church office" (H-9, stage 2). For review
 
 The reviewing window: use main's team jobs (functions/team-jobs.js `readTeamJobs`/`teamsFor`) as the events window did in 7e0073bc, with EGBC's team names only as the defaults.

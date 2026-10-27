@@ -43,9 +43,30 @@ import { featureOn } from './features.js';
 import { isUnder18Email, isUnder18Record } from './under18.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
+import { churchOf, scopedDb } from './church-scope.js';
+import { codeHash, indexCode, dbForCode } from './hq-codes.js';
 
 const REGION = 'europe-west2';
-const db = () => getFirestore();
+/* EACH CHURCH'S OWN LIST (multi-church batch 8): every helper takes the
+   church's db (church-scope.js). A call's church is its sign-in's; a
+   sign-up's is the page's own address; a link's is the codes index
+   (hq-codes.js, kind 'enews'); a Resend report's is the church tag every
+   send carries (hq-mail.js). Nothing of a church's: EGBC's own data. */
+const root = () => getFirestore();
+/* A church's links go in the codes index; EGBC's need no entry. */
+const indexToken = (D, t) => indexCode(D, 'enews', codeHash(t));
+const TOKEN = /^[A-Za-z0-9]{20,64}$/;
+async function dbForToken(t) { return TOKEN.test(String(t || '')) ? dbForCode(root(), 'enews', codeHash(String(t))) : root(); }
+/* The church a sign-up page is for: <slug>.churchhq.co.uk is that church
+   (hqSlugs); EGBC's own address, github.io and a local test are EGBC's.
+   An address no church has: null, refused. */
+async function dbForSite(req) {
+  const m = /^https:\/\/([a-z0-9-]+)\.churchhq\.co\.uk$/.exec(String(req.get('origin') || ''));
+  if (!m || m[1] === 'egbc') return root();
+  const s = await root().collection('hqSlugs').doc(m[1]).get();
+  const id = s.exists ? String((s.data() || {}).churchId || '') : '';
+  try { return id ? scopedDb(root(), id) : null; } catch (e) { return null; }
+}
 const EMULATOR = () => process.env.FUNCTIONS_EMULATOR === 'true';
 /* The hub's web address: one church setting, churchSettings/details.hubUrl
    (main's hubUrl in notify.js, EGBC's address the default), without its
@@ -68,20 +89,23 @@ const hist = (what, extra) => Object.assign({ at: now(), what }, extra || {});
 
 /* Where the links in emails point: the page the person came from, if it
    is a local test of the hub, otherwise the church's hub address. */
-async function baseFrom(req) {
+async function baseFrom(req, D) {
   const o = String(req.get('origin') || '');
   if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(o)) {
     const ref = String(req.get('referer') || '');
     const m = /^(http:\/\/(?:localhost|127\.0\.0\.1):\d+(?:\/[^?#]*)?)\/[^\/?#]*(?:[?#].*)?$/.exec(ref);
     return m ? m[1] : o;
   }
-  return hubOf(db());
+  const hub = await hubOf(D);
+  /* Never a link without an address (the reviewing window, 26 Oct). */
+  if (!hub) throw new Error('This church has no hub address, so the email can\u2019t link to it.');
+  return hub;
 }
 
-async function settings() {
+async function settings(D) {
   /* The e-news switch the way every page and function reads it
      (features.js: stored true/false, else the default). */
-  const [launch, details, on] = await Promise.all([db().collection('churchSettings').doc('launch').get(), db().collection('churchSettings').doc('details').get(), featureOn(db(), 'enews')]);
+  const [launch, details, on] = await Promise.all([D.collection('churchSettings').doc('launch').get(), D.collection('churchSettings').doc('details').get(), featureOn(D, 'enews')]);
   const L = launch.exists ? launch.data() : {};
   return {
     open: !enewsShut() && L.rulesLocked === true,
@@ -91,13 +115,13 @@ async function settings() {
   };
 }
 
-async function findByEmail(email) {
-  const s = await db().collection('enewsSubscribers').where('email', '==', email).limit(1).get();
+async function findByEmail(D, email) {
+  const s = await D.collection('enewsSubscribers').where('email', '==', email).limit(1).get();
   return s.empty ? null : s.docs[0];
 }
-async function findByToken(field, t) {
-  if (!/^[A-Za-z0-9]{20,64}$/.test(String(t || ''))) return null;
-  const s = await db().collection('enewsSubscribers').where(field, '==', String(t)).limit(1).get();
+async function findByToken(D, field, t) {
+  if (!TOKEN.test(String(t || ''))) return null;
+  const s = await D.collection('enewsSubscribers').where(field, '==', String(t)).limit(1).get();
   return s.empty ? null : s.docs[0];
 }
 
@@ -130,7 +154,9 @@ const SIGNUP_SITES = [/^https:\/\/esherchurch\.github\.io$/, /^https:\/\/[a-z0-9
 export const enewsSignup = onRequest({ region: REGION, cors: SIGNUP_SITES, invoker: 'public' }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
   const b = req.body || {};
-  const S = await settings();
+  const D = await dbForSite(req);
+  if (!D) return res.status(404).json({ ok: false, error: 'church' });
+  const S = await settings(D);
   if (!S.on) return res.json({ ok: false, off: true });
   if (!S.open) return res.json({ ok: false, shut: true, opensOn: S.opensOn });
   /* A robot fills in the hidden "website" box; a person never sees it.
@@ -142,10 +168,10 @@ export const enewsSignup = onRequest({ region: REGION, cors: SIGNUP_SITES, invok
   const wording = WORDING[b.wording] ? b.wording : 'signup-1';
 
   const hourAgo = new Date(Date.now() - 3600000).toISOString();
-  const recent = await db().collection('enewsSubscribers').where('createdAt', '>=', hourAgo).count().get().catch(() => null);
+  const recent = await D.collection('enewsSubscribers').where('createdAt', '>=', hourAgo).count().get().catch(() => null);
   if (recent && recent.data().count >= 60) return res.status(429).json({ ok: false, error: 'busy' });
 
-  const doc = await findByEmail(email);
+  const doc = await findByEmail(D, email);
   const decision = signupDecision(doc && doc.data(), Date.now());
   /* The same answer whatever is decided, so the form never tells a
      stranger whether an address is on the list. */
@@ -161,13 +187,15 @@ export const enewsSignup = onRequest({ region: REGION, cors: SIGNUP_SITES, invok
     asked: { at: now(), how: 'web form', wording, text: WORDING[wording] },
     updatedAt: now()
   };
-  const ref = doc ? doc.ref : db().collection('enewsSubscribers').doc();
+  const ref = doc ? doc.ref : D.collection('enewsSubscribers').doc();
   if (!doc) Object.assign(data, { createdAt: now(), token: newToken(), history: [hist('asked to join (web form)')] });
   else data.history = (doc.data().history || []).concat([hist('asked to join again (web form)')]).slice(-50);
   await ref.set(data, { merge: true });
+  await indexToken(D, confirmToken);
+  if (data.token) await indexToken(D, data.token);
 
-  const link = (await baseFrom(req)) + '/enews-confirm.html?t=' + confirmToken;
-  await makeHqSender({ db: db() })({
+  const link = (await baseFrom(req, D)) + '/enews-confirm.html?t=' + confirmToken;
+  await makeHqSender({ db: D })({
     to: email, subject: 'Please confirm: ' + (S.church.name || 'the church') + ' e-news',
     html: confirmEmail(S.church, link), fromName: S.church.name || '', replyTo: S.church.enquiryEmail || ''
   }, { kind: 'enews confirm', subscriberId: ref.id });
@@ -177,9 +205,10 @@ export const enewsSignup = onRequest({ region: REGION, cors: SIGNUP_SITES, invok
 /* ---- confirm ------------------------------------------------------------ */
 export const enewsConfirm = onRequest({ region: REGION, cors: SIGNUP_SITES, invoker: 'public' }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
-  const S = await settings();
+  const t = (req.body || {}).t, D = await dbForToken(t);
+  const S = await settings(D);
   if (!S.open) return res.json({ ok: false, shut: true });
-  const doc = await findByToken('confirmToken', (req.body || {}).t);
+  const doc = await findByToken(D, 'confirmToken', t);
   if (!doc) return res.json({ ok: false, error: 'link' });
   const d = doc.data();
   if (Date.parse(d.confirmExpires || '') < Date.now()) return res.json({ ok: false, error: 'expired' });
@@ -208,7 +237,8 @@ export const enewsUnsubscribe = onRequest({ region: REGION, cors: true, invoker:
   const raw = req.rawBody ? req.rawBody.toString('utf8') : '';
   const oneClick = /List-Unsubscribe=One-Click/.test(raw) || (req.body && req.body['List-Unsubscribe'] === 'One-Click');
   const b = (!oneClick && req.body && typeof req.body === 'object') ? req.body : {};
-  const doc = await findByToken('token', req.query.t || b.t);
+  const t = req.query.t || b.t, D = await dbForToken(t);
+  const doc = await findByToken(D, 'token', t);
   if (oneClick) {
     if (doc) {
       const d = doc.data(), c = unsubChange(d, 'unsubscribe');
@@ -238,9 +268,9 @@ export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'p
   const raw = req.rawBody ? req.rawBody.toString('utf8') : '';
   if (!verifySvix(secret, req.headers, raw)) return res.status(401).send('');
   const id = String(req.get('svix-id') || '');
-  const seen = db().collection('hqMailEvents').doc(id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120) || 'none');
+  const seen = root().collection('hqMailEvents').doc(id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120) || 'none');
   let ev; try { ev = JSON.parse(raw); } catch { return res.status(400).send(''); }
-  const fresh = await db().runTransaction(async tx => {
+  const fresh = await root().runTransaction(async tx => {
     if ((await tx.get(seen)).exists) return false;
     tx.set(seen, { type: String(ev.type || ''), at: now() });
     return true;
@@ -250,11 +280,14 @@ export const hqMailEvents = onRequest({ region: REGION, cors: false, invoker: 'p
   if (!status) return res.status(200).send('');
   const data = ev.data || {};
   const tags = data.tags || {};
-  const subId = String(Array.isArray(tags) ? ((tags.find(t => t.name === 'sub') || {}).value || '') : (tags.sub || ''));
+  const tagOf = (k) => String(Array.isArray(tags) ? ((tags.find(t => t.name === k) || {}).value || '') : (tags[k] || ''));
+  const subId = tagOf('sub'), churchTag = tagOf('church');
+  let D = root();
+  if (churchTag) { try { D = scopedDb(root(), churchTag); } catch (e) { return res.status(200).send(''); } }
   const emails = (Array.isArray(data.to) ? data.to : [data.to]).map(normEmail).filter(Boolean);
   const targets = [];
-  if (/^[A-Za-z0-9_-]{10,40}$/.test(subId)) { const d = await db().collection('enewsSubscribers').doc(subId).get(); if (d.exists) targets.push(d); }
-  if (!targets.length) for (const e of emails) { const d = await findByEmail(e); if (d) targets.push(d); }
+  if (/^[A-Za-z0-9_-]{10,40}$/.test(subId)) { const d = await D.collection('enewsSubscribers').doc(subId).get(); if (d.exists) targets.push(d); }
+  if (!targets.length) for (const e of emails) { const d = await findByEmail(D, e); if (d) targets.push(d); }
   for (const d of targets) {
     const x = d.data();
     if (x.status === 'complained') continue;
@@ -275,14 +308,14 @@ const HOW = { person: 'told the office', paper: 'a paper form', email: 'asked by
    unsubscribed or marked it as spam (only they can come back, from the
    sign-up page - unless the office ticks that they asked again, and never
    from the address book), and a dead address. */
-async function addOne(person, how, uid, opts) {
+async function addOne(D, person, how, uid, opts) {
   const email = normEmail(person.email);
   if (!EMAIL.test(email)) return { email, skipped: 'that email address does not look right' };
-  if (await isUnder18Email(db(), email)) return { email, skipped: 'under 18: the hub never emails under-18s' };
+  if (await isUnder18Email(D, email)) return { email, skipped: 'under 18: the hub never emails under-18s' };
   /* Added from a person's record: never an under-18's record, even when the
      address is a parent's (under18.js). */
-  if (person.memberId) { const r = await db().collection('addressBook').doc(String(person.memberId)).get(); if (r.exists && isUnder18Record(r.data())) return { email, skipped: 'under 18: the hub never emails under-18s' }; }
-  const doc = await findByEmail(email);
+  if (person.memberId) { const r = await D.collection('addressBook').doc(String(person.memberId)).get(); if (r.exists && isUnder18Record(r.data())) return { email, skipped: 'under 18: the hub never emails under-18s' }; }
+  const doc = await findByEmail(D, email);
   const st = doc ? doc.data().status : '';
   if (st === 'subscribed') return { email, skipped: 'already gets the e-news' };
   if (st === 'complained') return { email, skipped: 'marked the e-news as spam: only they can sign up again' };
@@ -295,10 +328,11 @@ async function addOne(person, how, uid, opts) {
     updatedAt: now()
   };
   if (person.memberId) data.memberId = String(person.memberId).slice(0, 80);
-  const ref = doc ? doc.ref : db().collection('enewsSubscribers').doc();
+  const ref = doc ? doc.ref : D.collection('enewsSubscribers').doc();
   if (!doc) Object.assign(data, { createdAt: now(), token: newToken(), history: [entry] });
   else data.history = (doc.data().history || []).concat([entry]).slice(-50);
   await ref.set(data, { merge: true });
+  if (data.token) await indexToken(D, data.token);
   return { email, added: true, id: ref.id };
 }
 
@@ -311,16 +345,17 @@ async function addOne(person, how, uid, opts) {
 export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const me = await db().collection('users').doc(uid).get();
+  const D = churchOf(req, root()).db;
+  const me = await D.collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
-  const office = await isOffice(db(), p);
+  const office = await isOffice(D, p);
   if (!office) throw new HttpsError('permission-denied', 'For the church office.');
-  const S = await settings();
+  const S = await settings(D);
   if (!S.on) throw new HttpsError('failed-precondition', 'The e-news is switched off.');
   if (!S.open) throw new HttpsError('failed-precondition', 'The subscriber list opens when the church goes live' + (S.opensOn ? ' (' + S.opensOn + ')' : '') + '.');
   const d = req.data || {};
   if (d.action === 'stop') {
-    const doc = await findByEmail(normEmail(d.email));
+    const doc = await findByEmail(D, normEmail(d.email));
     if (!doc) return { ok: true, stopped: false };
     const x = doc.data();
     await doc.ref.set({ status: 'unsubscribed', lists: { weekly: false, special: false }, updatedAt: now(),
@@ -332,10 +367,10 @@ export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   if (Array.isArray(d.people)) {
     if (d.people.length > 300) throw new HttpsError('invalid-argument', 'At most 300 at once.');
     const results = [];
-    for (const person of d.people) results.push(await addOne(person || {}, d.how, uid, { from, note: d.note }));
+    for (const person of d.people) results.push(await addOne(D, person || {}, d.how, uid, { from, note: d.note }));
     return { ok: true, added: results.filter(r => r.added).length, skipped: results.filter(r => r.skipped) };
   }
-  const r = await addOne({ email: d.email, firstName: d.firstName, memberId: d.memberId }, d.how, uid, { from, note: d.note, special: d.special, confirmAgain: d.confirmAgain });
+  const r = await addOne(D, { email: d.email, firstName: d.firstName, memberId: d.memberId }, d.how, uid, { from, note: d.note, special: d.special, confirmAgain: d.confirmAgain });
   if (r.skipped) throw new HttpsError('failed-precondition', 'Not added: ' + r.skipped + '.');
   return { ok: true, id: r.id };
 });

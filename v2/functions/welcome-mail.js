@@ -45,6 +45,7 @@ import { under18Emails } from './under18.js';
 import { letterFor } from './enews-send.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
 import { hubUrl } from './notify.js';
+import { churchFromPath } from './church-scope.js';
 
 const REGION = 'europe-west2';
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -63,9 +64,13 @@ async function once(db, key) {
 }
 async function sendOne(db, send, kind, issue, person, ref) {
   if ((await under18Emails(db)).has(person.email)) return { skipped: 'under 18' };
+  /* The hub's address first: never marked sent and then not sent. With none
+     (never expected), refused loudly and left to send once it's there. */
+  const hub = (await hubUrl(db)).replace(/\/+$/, '');
+  if (!hub) throw new Error('No hub address for church ' + (db.churchId || 'egbc') + ': the ' + kind + ' welcome was not sent.');
   if (!(await once(db, kind + '_' + ref))) return { skipped: 'already sent' };
   const church = (await db.collection('churchSettings').doc('details').get()).data() || {};
-  const letter = letterFor(Object.assign({}, issue, { htmlMembers: '' }), person, false, { issueId: 'auto_' + kind, replyTo: church.enquiryEmail || '', hub: (await hubUrl(db)).replace(/\/+$/, '') });
+  const letter = letterFor(Object.assign({}, issue, { htmlMembers: '' }), person, false, { issueId: 'auto_' + kind, replyTo: church.enquiryEmail || '', hub });
   const r = await send(Object.assign(letter, { fromName: church.name || '', replyTo: church.enquiryEmail || '' }),
     { kind: kind === 'subscriber' ? 'subscriber welcome' : 'newcomer welcome', issueId: 'auto_' + kind, ref });
   return { sent: !!(r && r.ok), to: person.email };
@@ -92,9 +97,14 @@ export async function runNewcomerWelcome({ db, send, id, hello }) {
   return sendOne(db, send, 'newcomer', w.issue, { id: 'hello_' + id, email, firstName: String(hello.name || '').trim().split(/\s+/)[0], token: '' }, String(id));
 }
 
-let sender = null;
-const deps = () => { const db = getFirestore(); if (!sender) sender = makeHqSender({ db }); return { db, send: sender }; };
-export const welcomeSubscriber = onDocumentUpdated({ document: 'enewsSubscribers/{id}', region: REGION, secrets: SENDING_SECRETS }, (e) =>
-  runSubscriberWelcome({ ...deps(), id: e.params.id, before: e.data && e.data.before.data(), after: e.data && e.data.after.data() }));
-export const welcomeNewcomer = onDocumentCreated({ document: 'welcomes/{id}', region: REGION, secrets: SENDING_SECRETS }, (e) =>
-  runNewcomerWelcome({ ...deps(), id: e.params.id, hello: e.data && e.data.data() }));
+/* Each church's own (batch 8): a trigger on EGBC's path and its twin on
+   churches/{cid}/..., each with that church's db (main's twins pattern). */
+const deps = (e) => { const db = churchFromPath(e, getFirestore()).db; return { db, send: makeHqSender({ db }) }; };
+const twin = (on, path, run) => [
+  on({ document: path, region: REGION, secrets: SENDING_SECRETS }, run),
+  on({ document: 'churches/{cid}/' + path, region: REGION, secrets: SENDING_SECRETS }, run)
+];
+export const [welcomeSubscriber, welcomeSubscriberChurch] = twin(onDocumentUpdated, 'enewsSubscribers/{id}', (e) =>
+  runSubscriberWelcome({ ...deps(e), id: e.params.id, before: e.data && e.data.before.data(), after: e.data && e.data.after.data() }));
+export const [welcomeNewcomer, welcomeNewcomerChurch] = twin(onDocumentCreated, 'welcomes/{id}', (e) =>
+  runNewcomerWelcome({ ...deps(e), id: e.params.id, hello: e.data && e.data.data() }));

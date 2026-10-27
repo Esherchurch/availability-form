@@ -38,6 +38,7 @@ import { defineSecret } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createHash } from 'node:crypto';
 import { isOffice } from './comms-office.js';
+import { churchOf } from './church-scope.js';
 
 export const UNSPLASH_ACCESS_KEY = defineSecret('UNSPLASH_ACCESS_KEY');
 const REGION = 'europe-west2';
@@ -173,9 +174,12 @@ export async function runUsed({ db, fetch, key, data = {}, now = Date.now() }) {
 async function office(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const me = await getFirestore().collection('users').doc(uid).get();
+  /* The church's own office (batch 8). The searches, their cache and the
+     hourly limit stay Church HQ's: one Unsplash key for every church. */
+  const D = churchOf(req, getFirestore()).db;
+  const me = await D.collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
-  if (!(await isOffice(getFirestore(), p))) throw new HttpsError('permission-denied', 'For the church office.');
+  if (!(await isOffice(D, p))) throw new HttpsError('permission-denied', 'For the church office.');
 }
 const callable = run => onCall({ region: REGION, secrets: [UNSPLASH_ACCESS_KEY] }, async (req) => {
   await office(req);

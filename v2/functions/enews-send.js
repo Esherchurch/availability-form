@@ -45,6 +45,7 @@ import { paperLinksFor, personalise } from './meeting-papers.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
+import { churchOf, eachChurch } from './church-scope.js';
 
 const REGION = 'europe-west2';
 /* The hub's web address: one church setting, churchSettings/details.hubUrl
@@ -128,6 +129,15 @@ async function memberEmails(db) {
 export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, gap = 120 }) {
   if (enewsShut()) return { shut: true };
   hub = hub || await hubOf(db);
+  /* Never sent without the hub's address: refused loudly, in the job's log
+     and on each issue that was due (the reviewing window, 26 Oct). */
+  if (!hub) {
+    const nl = londonNow(now);
+    for (const d of (await db.collection('enewsIssues').where('status', '==', 'scheduled').get()).docs.filter(d => isDue(d.data(), nl))) {
+      await d.ref.set({ sendProblem: 'Not sent: this church has no hub address, so the email can\u2019t link to it. Church HQ sets it up.', updatedAt: new Date().toISOString() }, { merge: true });
+    }
+    throw new Error('No hub address for church ' + (db.churchId || 'egbc') + ': the e-news was not sent.');
+  }
   const nowLocal = londonNow(now);
   const due = (await db.collection('enewsIssues').where('status', '==', 'scheduled').get()).docs.filter(d => isDue(d.data(), nowLocal));
   /* Also any issue a dead timer left half sent. */
@@ -192,8 +202,8 @@ export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, ga
 }
 
 export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 0, timeoutSeconds: 540, secrets: SENDING_SECRETS }, async () => {
-  const db = getFirestore();
-  await runEnewsSend({ db, send: makeHqSender({ db }) });
+  /* Church by church (batch 8): EGBC first, then each active church. */
+  await eachChurch(getFirestore(), (ch) => runEnewsSend({ db: ch.db, send: makeHqSender({ db: ch.db }) }));
 });
 
 /* "SEND ME A TEST" (Martin, 20 Oct: it must work now). The members'
@@ -206,7 +216,7 @@ export const enewsSendDue = onSchedule({ region: REGION, schedule: 'every 5 minu
 export const enewsTest = onCall({ region: REGION, secrets: SENDING_SECRETS }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const db = getFirestore();
+  const db = churchOf(req, getFirestore()).db;
   const me = await db.collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
   if (!(await isOffice(db, p))) throw new HttpsError('permission-denied', 'For the church office.');

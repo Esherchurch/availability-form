@@ -33,6 +33,8 @@ import { storedKeys } from './hq-mail-key.js';
 import { featureOn } from './features.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
+import { churchOf } from './church-scope.js';
+import { codeHash, indexCode, dbForCode } from './hq-codes.js';
 
 const REGION = 'europe-west2';
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
@@ -44,8 +46,9 @@ const canvaShut = () => !EMULATOR && !CANVA_LIVE;
 const hubOf = async db => (await hubUrl(db)).replace(/\/+$/, '');
 /* Back to the hub's own Canva page: a return address on the church's hub
    (or a local test), otherwise its Canva page. */
-async function backTo(returnTo) {
-  const hub = await hubOf(getFirestore()), r = String(returnTo || '');
+async function backTo(returnTo, D) {
+  const hub = await hubOf(D || getFirestore()), r = String(returnTo || '');
+  if (!hub && !/^http:\/\/(localhost|127\.0\.0\.1):\d+\//.test(r)) return '';
   return r && (r.indexOf(hub + '/') === 0 || /^http:\/\/(localhost|127\.0\.0\.1):\d+\//.test(r)) ? r : hub + '/canva.html';
 }
 const CALLBACK_LIVE = 'https://europe-west2-egbc-worship-planner.cloudfunctions.net/canvaCallback';
@@ -53,8 +56,12 @@ const CALLBACK_LIVE = 'https://europe-west2-egbc-worship-planner.cloudfunctions.
 /* The client ID and secret come from the key box (Church settings), read
    on the server only; on the emulator a test may give them in
    functions/.env.local instead. */
-async function deps() {
-  const db = getFirestore(), k = await storedKeys(db);
+/* Each church connects its own Canva account (batch 8): its tokens and its
+   pictures are the church's (D); the app's ID and secret are Church HQ's,
+   one for every church (the key box, top level). */
+async function deps(D) {
+  const db = D || getFirestore(), k = await storedKeys(getFirestore());
+  const prefix = db.churchId ? 'churches/' + db.churchId + '/' : '';
   return {
     db, fetchFn: fetch,
     clientId: k.canvaId || (EMULATOR ? process.env.CANVA_CLIENT_ID || '' : ''), secret: k.canvaSecret || (EMULATOR ? process.env.CANVA_CLIENT_SECRET || '' : ''),
@@ -62,6 +69,7 @@ async function deps() {
     redirectUri: EMULATOR ? (process.env.CANVA_REDIRECT || 'http://127.0.0.1:5101/egbc-worship-planner/europe-west2/canvaCallback') : CALLBACK_LIVE,
     save: async (path, bytes, type) => {
       const bucket = getStorage().bucket(), token = randomUUID();
+      path = prefix + path;
       await bucket.file(path).save(bytes, { contentType: type, metadata: { metadata: { firebaseStorageDownloadTokens: token } } });
       const host = process.env.FIREBASE_STORAGE_EMULATOR_HOST ? 'http://' + process.env.FIREBASE_STORAGE_EMULATOR_HOST : 'https://firebasestorage.googleapis.com';
       return host + '/v0/b/' + bucket.name + '/o/' + encodeURIComponent(path) + '?alt=media&token=' + token;
@@ -73,38 +81,44 @@ async function deps() {
 async function office(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const db = getFirestore();
+  const db = churchOf(req, getFirestore()).db;
   const [me, on] = await Promise.all([db.collection('users').doc(uid).get(), featureOn(db, 'canva')]);
   const p = me.exists ? me.data() : {};
   if (!(await isOffice(db, p))) throw new HttpsError('permission-denied', 'For the church office.');
   if (!on) throw new HttpsError('failed-precondition', 'Canva is switched off for this church.');
   if (canvaShut()) throw new HttpsError('failed-precondition', 'Canva connects when the church goes live.');
-  return uid;
+  return { uid, db };
 }
 const wrap = fn => async (req) => {
-  const uid = await office(req);
-  try { return await fn(req.data || {}, uid); } catch (e) { throw e instanceof HttpsError ? e : new HttpsError('failed-precondition', e.message || String(e)); }
+  const { uid, db } = await office(req);
+  try { return await fn(req.data || {}, uid, db); } catch (e) { throw e instanceof HttpsError ? e : new HttpsError('failed-precondition', e.message || String(e)); }
 };
 
-export const canvaStatus = onCall({ region: REGION }, wrap(async () => C.status(await deps())));
-export const canvaStart = onCall({ region: REGION }, wrap(async (d, uid) => {
-  const x = await deps();
-  if (!x.clientId || !x.secret) throw new Error('The Canva integration is not set up yet: a master admin pastes its client ID and secret in Church settings.');
-  return C.start(Object.assign(x, { uid, returnTo: await backTo(d.returnTo) }));
+export const canvaStatus = onCall({ region: REGION }, wrap(async (d, uid, db) => C.status(await deps(db))));
+export const canvaStart = onCall({ region: REGION }, wrap(async (d, uid, db) => {
+  const x = await deps(db);
+  if (!x.clientId || !x.secret) throw new Error('The Canva integration is not set up yet: Church HQ pastes its client ID and secret in the key box.');
+  const r = await C.start(Object.assign(x, { uid, returnTo: await backTo(d.returnTo, db) }));
+  /* The way back says which church (codes index, kind 'canva'). */
+  await indexCode(db, 'canva', codeHash(r.state));
+  return r;
 }));
-export const canvaDesigns = onCall({ region: REGION, timeoutSeconds: 60 }, wrap(async d => C.designs(await deps(), d)));
-export const canvaImport = onCall({ region: REGION, timeoutSeconds: 180, memory: '512MiB' }, wrap(async (d, uid) => C.importDesign(await deps(), { designId: d.designId, kind: d.kind, title: d.title, uid })));
-export const canvaDisconnect = onCall({ region: REGION }, wrap(async () => C.disconnect(await deps())));
+export const canvaDesigns = onCall({ region: REGION, timeoutSeconds: 60 }, wrap(async (d, uid, db) => C.designs(await deps(db), d)));
+export const canvaImport = onCall({ region: REGION, timeoutSeconds: 180, memory: '512MiB' }, wrap(async (d, uid, db) => C.importDesign(await deps(db), { designId: d.designId, kind: d.kind, title: d.title, uid })));
+export const canvaDisconnect = onCall({ region: REGION }, wrap(async (d, uid, db) => C.disconnect(await deps(db))));
 
 export const canvaCallback = onRequest({ region: REGION, invoker: 'public' }, async (req, res) => {
   const page = (msg, back) => res.status(200).set('Content-Type', 'text/html; charset=utf-8').send(
     '<!DOCTYPE html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px/1.5 Arial,sans-serif;padding:24px;color:#111827">' +
-    '<p>' + String(msg).replace(/[<>&]/g, '') + '</p><p><a href="' + String(back).replace(/"/g, '') + '">Back to the hub</a></p></body>');
-  const home = await backTo('');
+    '<p>' + String(msg).replace(/[<>&]/g, '') + '</p>' + (back ? '<p><a href="' + String(back).replace(/"/g, '') + '">Back to the hub</a></p>' : '') + '</body>');
+  /* The church whose sign-in this is, from its state (codes index). */
+  const state = String(req.query.state || '');
+  const D = /^[A-Za-z0-9_-]{20,80}$/.test(state) ? await dbForCode(getFirestore(), 'canva', codeHash(state)) : getFirestore();
+  const home = await backTo('', D);
   if (canvaShut()) return page('Canva connects when the church goes live.', home);
   if (req.query.error) return page('Canva was not connected (' + String(req.query.error).slice(0, 60) + ').', home);
   try {
-    const r = await C.finish(Object.assign(await deps(), { code: String(req.query.code || ''), state: String(req.query.state || '') }));
+    const r = await C.finish(Object.assign(await deps(D), { code: String(req.query.code || ''), state }));
     const to = r.returnTo || home, back = to + (to.includes('?') ? '&' : '?') + 'connected=1';
     return res.redirect(302, back);
   } catch (e) {

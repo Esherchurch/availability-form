@@ -33,6 +33,7 @@ import { randomBytes } from 'node:crypto';
 import { featureOn } from './features.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
+import { churchOf } from './church-scope.js';
 
 const REGION = 'europe-west2';
 /* The hub's web address: one church setting, churchSettings/details.hubUrl
@@ -90,6 +91,7 @@ export function leaks(blocks, html) {
 export async function runPreview({ db, uid, data = {}, hub }) {
   if (!uid) return { error: 'unauthenticated', message: 'Sign in first.' };
   hub = hub || await hubOf(db);
+  if (!hub) return { error: 'failed-precondition', message: 'This church has no hub address yet, so a preview can\u2019t link to it. Church HQ sets it up.' };
   const me = await db.collection('users').doc(String(uid)).get();
   const p = me.exists ? me.data() : {};
   if (!(await isOffice(db, p))) return { error: 'permission-denied', message: 'For the church office.' };
@@ -119,7 +121,7 @@ export async function runPreview({ db, uid, data = {}, hub }) {
 }
 
 export const enewsPreviewWeb = onCall({ region: REGION }, async (req) => {
-  const r = await runPreview({ db: getFirestore(), uid: req.auth && req.auth.uid, data: req.data || {} });
+  const r = await runPreview({ db: churchOf(req, getFirestore()).db, uid: req.auth && req.auth.uid, data: req.data || {} });
   if (r.error) throw new HttpsError(r.error, r.message);
   return r;
 });

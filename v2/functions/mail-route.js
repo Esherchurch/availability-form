@@ -60,6 +60,10 @@ export const KNOWN_SOURCES = [
   ['careRouting', 'prayer.email']
 ];
 export const HOURLY_RECIPIENTS = 2000;
+/* Church HQ's whole Resend account, every church together (batch 8): its own
+   counter at the top level (hqMailHours), beside each church's. The number
+   is the Resend plan's; HQ_HOURLY_RECIPIENTS sets it without a code change. */
+export const HQ_HOURLY_RECIPIENTS = Number(process.env.HQ_HOURLY_RECIPIENTS || 10000);
 const API = 'https://api.resend.com/emails';
 
 const low = a => String(a || '').trim().toLowerCase();
@@ -87,11 +91,14 @@ export async function checkRecipients(db, to) {
 export async function reserve(db, count, now = new Date()) {
   const hour = now.toISOString().slice(0, 13);
   const ref = db.collection('mailRouteHours').doc(hour);
+  const hq = (db.hq || db).collection('hqMailHours').doc(hour);
   return db.runTransaction(async tx => {
-    const d = await tx.get(ref);
+    const [d, h] = [await tx.get(ref), await tx.get(hq)];
     const used = d.exists ? Number(d.data().recipients || 0) : 0;
-    if (used + count > HOURLY_RECIPIENTS) return false;
+    const all = h.exists ? Number(h.data().recipients || 0) : 0;
+    if (used + count > HOURLY_RECIPIENTS || all + count > HQ_HOURLY_RECIPIENTS) return false;
     tx.set(ref, { recipients: used + count, hour }, { merge: true });
+    tx.set(hq, { recipients: all + count, hour }, { merge: true });
     return true;
   });
 }

@@ -66,7 +66,9 @@ export function makeHqSender({ db, emulator = onEmulator, fetchFn, key } = {}) {
       const body = { from: fromFor(msg.fromName), to: [to], subject: row.subject, html: String(msg.html || '') };
       if (msg.replyTo) body.reply_to = msg.replyTo;
       if (msg.headers && Object.keys(msg.headers).length) body.headers = msg.headers;
-      if (msg.tags) body.tags = Object.entries(msg.tags).map(([name, value]) => ({ name: tagValue(name), value: tagValue(value) }));
+      /* Which church sent it (batch 8): Resend's reports come back to it. */
+      const tags = Object.assign({}, msg.tags || {}, db && db.churchId ? { church: db.churchId } : {});
+      if (Object.keys(tags).length) body.tags = Object.entries(tags).map(([name, value]) => ({ name: tagValue(name), value: tagValue(value) }));
       const h = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + k };
       if (msg.idempotencyKey) h['Idempotency-Key'] = String(msg.idempotencyKey).slice(0, 256);
       const r = await (fetchFn || fetch)(API, { method: 'POST', headers: h, body: JSON.stringify(body) });
