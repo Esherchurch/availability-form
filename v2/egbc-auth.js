@@ -69,7 +69,45 @@
 
   var app = ownApp();
   var auth = firebase.auth(app);
-  var db = firebase.firestore(app);
+
+  /* WHICH CHURCH (FINDINGS-churchhq H-6 step 2; the setup frame). A page is
+     for one church's data, churches/{cid}/..., when a church is chosen:
+     ?church=<id> chooses it (and is remembered on this device), and
+     ?church=egbc forgets it. With none - EGBC, and every page today - the
+     data is the top level, exactly as before. The sign-in must carry the
+     church (its `churches` claim, functions/hq-directory.js): checked once
+     signed in, and a church that is not the person's is forgotten. Until
+     the address decides it (<church>.churchhq.co.uk, H-6 (a)). */
+  var CHURCH = (function () {
+    var ok = function (v) { return /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(v || '')) && v !== 'egbc'; };
+    var asked = null;
+    try { asked = new URLSearchParams(location.search).get('church'); } catch (e) {}
+    try {
+      if (asked === 'egbc' || asked === '') { localStorage.removeItem('egbc-church'); return ''; }
+      if (ok(asked)) { localStorage.setItem('egbc-church', asked); return asked; }
+      var kept = localStorage.getItem('egbc-church');
+      return ok(kept) ? kept : '';
+    } catch (e) { return ok(asked) ? asked : ''; }
+  })();
+  /* A db that stays inside the church: the same .collection(), .doc(),
+     .batch() and .runTransaction() as Firestore's, as the server's scopedDb
+     (functions/church-scope.js). Batches and transactions take references,
+     which already carry the church. */
+  function scopedDb(raw, cid) {
+    var root = raw.collection('churches').doc(cid);
+    return {
+      churchId: cid, raw: raw, app: raw.app,
+      collection: function (name) { return root.collection(name); },
+      doc: function (p) { return raw.doc('churches/' + cid + '/' + String(p).replace(/^\/+/, '')); },
+      batch: function () { return raw.batch(); },
+      runTransaction: function (fn) { return raw.runTransaction(fn); },
+      collectionGroup: function () { throw new Error('A collection group reaches every church: use the church\'s own collection.'); },
+      enablePersistence: function () { return Promise.resolve(); },
+      settings: function () {}
+    };
+  }
+  var rawDb = firebase.firestore(app);
+  var db = CHURCH ? scopedDb(rawDb, CHURCH) : rawDb;
 
   /* The hub's functions. Called over plain fetch with the ID token rather
      than through firebase-functions-compat, because that would be a fourth
@@ -93,7 +131,9 @@
       var opts = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
-        body: JSON.stringify({ data: data || {} })
+        /* A church's page says which church (the server checks it against
+           the sign-in, functions/church-scope.js). */
+        body: JSON.stringify({ data: CHURCH && !(data && data.churchId) ? Object.assign({ churchId: CHURCH }, data || {}) : (data || {}) })
       };
       /* AbortController is everywhere we support, but a page that cannot
          abort should still send rather than refuse to work. */
@@ -456,7 +496,7 @@
   /* Alongside this file, with its own stamp, like egbc-core-meetings.js's video loader. */
   function sibling(name, stamp) {
     if ((name === 'egbc-team-jobs.js' && global.EGBCTeamJobs) || (name === 'egbc-permissions.js' && global.EGBCPermissions)
-        || (name === 'egbc-services.js' && global.EGBCServices)) return Promise.resolve();
+        || (name === 'egbc-services.js' && global.EGBCServices) || (name === 'egbc-setup.js' && global.EGBCSetup)) return Promise.resolve();
     return new Promise(function (done) {
       var me = document.querySelector('script[src*="egbc-auth.js"]');
       var base = me ? me.getAttribute('src').split('egbc-auth.js')[0] : '';
@@ -1440,6 +1480,20 @@
 
           currentUser = user;
 
+          /* A chosen church the sign-in does not carry is forgotten, and the
+             page opens again on the person's own data. */
+          if (CHURCH && !global.__egbcChurchChecked) {
+            global.__egbcChurchChecked = true;
+            user.getIdTokenResult().then(function (t) {
+              var c = (t && t.claims && t.claims.churches) || [];
+              if (c.indexOf(CHURCH) === -1) {
+                try { localStorage.removeItem('egbc-church'); } catch (e) {}
+                var u = new URL(location.href); u.searchParams.delete('church');
+                location.replace(u.toString());
+              }
+            });
+          }
+
           /* The teams read goes alongside the profile read, not after it:
              both are needed before a page draws, and one after the other
              would put two round trips in front of every page. It never
@@ -1838,6 +1892,15 @@
        server keeps them in the sign-in's claims (functions/hq-directory.js).
        fresh: true asks for a new token first, for straight after a change.
        Resolves to a list of church ids; [] when signed out or in none. */
+    /* The church this page is for (H-6), or '' for EGBC's top-level data. */
+    churchId: function () { return CHURCH; },
+    /* A link to another page of this church's: on today's shared address
+       the church goes with it; on the church's own address it is not needed. */
+    churchLink: function (url) {
+      if (!CHURCH) return url;
+      var u = new URL(url, location.href); u.searchParams.set('church', CHURCH);
+      return u.pathname.split('/').pop() + u.search + u.hash;
+    },
     churches: function (fresh) {
       if (!auth || !auth.currentUser) return Promise.resolve([]);
       return auth.currentUser.getIdTokenResult(!!fresh).then(function (t) {
@@ -2274,5 +2337,16 @@
   };
 
   global.EGBCAuth = EGBCAuth;
+
+  /* A NEW CHURCH'S SETUP (the setup frame): a page opened from setup.html
+     has setup=1 in its address and shows the setup bar (egbc-setup.js) once
+     the page is ready. Nothing for any other page. */
+  try {
+    if (new URLSearchParams(location.search).get('setup') === '1') {
+      document.addEventListener('egbc-ready', function () {
+        sibling('egbc-setup.js', '202610301400').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
+      }, { once: true });
+    }
+  } catch (e) {}
 
 })(window);

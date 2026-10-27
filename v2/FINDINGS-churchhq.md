@@ -1002,3 +1002,39 @@ At St Aidan's with St Hild, the small groups' room set up in Settings works the 
   - A parish's kinds, buildings, teams by job, roles and slides.
   - PCC counted as a meeting.
   - ChurchShow: the main building's two services each with its own plan; the chapel's 8am only; the next service; the church's words.
+
+## The setup frame (29 Oct 2026, main): a new church sets itself up on its own screens
+- **Church HQ adds the church** (`tools/hq-create-church.mjs <id> --name … --admin-email … --admin-name …`; dry run first, then `--apply`). It writes:
+  - the directory entry, `status: 'setup'`, and the slug;
+  - the membership and the sign-in's `churches` claim;
+  - the church's own `churches/<id>/users/<uid>`, with the first master admin;
+  - their address book record, and `churchSettings/details.name`.
+  Nothing at EGBC's top level. Running it again is refused.
+- **Everything else is done on the church's screens.** `setup.html?church=<id>` (the church's master admins) lists the steps (`egbc-setup.js`, `EGBCSetup.STEPS`).
+  - Whether a step is done is read from the church's own data, never ticked.
+  - Each step opens an ordinary page with `?setup=1`. That page then shows a bar: "step n of N", all the steps, and the next one. egbc-auth.js loads it, so a step's page needs nothing of its own.
+- **Which church a page is for (H-6 step 2, the part the frame needs):**
+  - `?church=<id>` chooses it, and it's remembered on the device; `?church=egbc` forgets it. With none chosen (EGBC, and every page today) nothing changes.
+  - A church the sign-in doesn't carry is forgotten, and the page opens again.
+  - **`EGBCAuth.db` is then that church's data** (`churches/<id>/…`), with the same `.collection()`, `.doc()`, `.batch()` and `.runTransaction()`. A collection group is refused.
+  - `EGBCAuth.call` sends `churchId`; `EGBCAuth.churchId()`; `EGBCAuth.churchLink(url)`.
+  - Seven of my pages that made their own `firebase.firestore(EGBCAuth.app)` now use `EGBCAuth.db`: app, permissions, worried, teams-admin, pastoral-visits, privacy and care-inbox. Three training copies do too.
+- **The steps, and who owns each page:**
+
+  | Step | Owner | Page |
+  |---|---|---|
+  | Your church | Comms | to build |
+  | Your buildings | events | to build |
+  | Your teams (and their jobs) | main | teams-admin.html |
+  | Your services | main | services-settings.html |
+  | Your people | main | addressbook.html |
+  | Who gets told | main | church-settings.html |
+  | Safeguarding | events | safeguarding-settings.html |
+  | Data protection | events | data-records.html |
+  | Pastoral visitors (optional) | main | pastoral-visits.html |
+
+  Each window keeps its own entries in egbc-setup.js (title, page, done check), as with stamps.
+- **Still to port for church pages** (H-6 step 2, the rest):
+  - the pages on the modular SDK with their own database: addressbook.html (the people step, mine, next), Planner, SundayServicePlanner, the youth planner, song-summary, view-only-rota, MonitorStageMap, Performancenotes and index (the availability form);
+  - Storage paths.
+- **Quick check** (emulator), 8/8: the dry run writes nothing; `--apply` makes the church's master admin in the church's own users and nothing at EGBC's top level; the sign-in carries the church; its name is in its details; the directory says setup; running it again is refused.

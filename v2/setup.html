@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610301200" data-title="Setting up your hub"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Setting up your hub</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610301400"></script>
+<script src="egbc-guard.js?v=202610282000" data-master></script>
+<script src="egbc-setup.js?v=202610301400"></script>
+<style>
+  :root{
+    --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
+    --line:#e5e7eb; --line-2:#d1d5db; --brand:#3d6263; --tint:#eef5f4; --ok:#15803d; --ok-tint:#ecfdf3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 6px;letter-spacing:-.01em}
+  .lede{color:var(--muted);margin:0 0 16px}
+  .meter{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin:0 0 18px}
+  .meter i{display:block;height:100%;background:var(--brand)}
+  .step{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        padding:14px;margin-bottom:10px}
+  .n{flex:0 0 32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;
+     background:var(--tint);color:var(--brand)}
+  .step.done .n{background:var(--ok-tint);color:var(--ok)}
+  .txt{flex:1;min-width:0}
+  .txt b{color:var(--ink);display:block}
+  .txt span{color:var(--muted);font-size:13px}
+  .go{flex:0 0 auto;display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:8px;
+      background:var(--brand);color:#fff;text-decoration:none;font-weight:500}
+  .step.done .go{background:#fff;color:var(--brand);border:1px solid var(--line-2)}
+  .soon{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="h">Setting up your hub</h1>
+  <p class="lede" id="lede">Work down the list. Each step opens the page that does it; come back here at any time.</p>
+  <div class="meter" aria-hidden="true"><i id="meter" style="width:0"></i></div>
+  <div id="list"><div class="step">Loading…</div></div>
+</div>
+<script>
+/* SETTING UP YOUR HUB (the setup frame). A church's master admin works
+   through EGBCSetup.STEPS (egbc-setup.js); whether a step is done comes from
+   the church's own data, so doing it on its page is enough. On a church's
+   page (?church=<id>), every read here is that church's. */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+async function load() {
+  const db = EGBCAuth.db;
+  const d = await db.collection('churchSettings').doc('details').get().then(s => s.exists ? s.data() : {}, () => ({}));
+  if (d.name) $('h').textContent = 'Setting up ' + d.name;
+  const rows = await EGBCSetup.status(db);
+  const need = rows.filter(r => !r.step.optional), done = need.filter(r => r.done).length;
+  $('meter').style.width = Math.round(100 * done / Math.max(1, need.length)) + '%';
+  $('lede').textContent = done === need.length ? 'Every step is done. Church HQ will take you through going live.'
+    : done + ' of ' + need.length + ' steps done. Each step opens the page that does it; come back here at any time.';
+  $('list').innerHTML = rows.map((r, i) => '<div class="step' + (r.done ? ' done' : '') + '">'
+    + '<span class="n">' + (r.done ? '✓' : i + 1) + '</span>'
+    + '<span class="txt"><b>' + esc(r.step.title) + (r.step.optional ? ' <span>(if you want it)</span>' : '') + '</b><span>' + esc(r.step.why) + '</span></span>'
+    + (r.step.page ? '<a class="go" href="' + esc(EGBCSetup.link(r.step.page)) + '">' + (r.done ? 'Change' : 'Start') + '</a>'
+      : '<span class="soon">Coming soon</span>')
+    + '</div>').join('');
+}
+document.addEventListener('egbc-ready', () => load().catch(e => {
+  console.error('setup:', e);
+  $('list').innerHTML = '<div class="step">This could not be loaded. Please try again.</div>';
+}));
+</script>
+</body>
+</html>

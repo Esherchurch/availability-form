@@ -5,7 +5,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610300900"></script>
+<script src="egbc-auth.js?v=202610301400"></script>
 <script src="egbc-guard.js?v=202610282000"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -415,7 +415,7 @@
    for what building a second app from the live config cost: live reads from
    localhost, and no signed-in user on them. This page writes as well as
    reads, so it was the one most exposed. */
-const db = firebase.firestore(EGBCAuth.app);
+const db = EGBCAuth.db;  /* the church's own data on a church's page (H-6) */
 
 // ── SEPARATE FIREBASE COLLECTIONS — never touches live portal ──────────────
 const MENU_DOC      = db.collection('training_portal').doc('menuItems');

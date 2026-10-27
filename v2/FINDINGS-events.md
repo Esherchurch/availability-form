@@ -13432,3 +13432,16 @@ Nothing to build on your side.
 - **session-planner.html** takes its services from `EGBCAuth.services()` (EGBC's five until it loads). The quiz and the programme links go up to 500 ("As many questions as you like").
 - **Several services on one day:** the planner's live rota counts services only (no longer every event that day). A group with a building takes that building's services when it has any. A plan tied to one service reads that service alone. The sermon picker names each service with `EGBCPlanStore.label` (time and building when the day has several).
 - **Present:** nothing to change. Its keys are `ps_<session>` and `mtg_<room>_<event or day>`, so two services never share one.
+
+## From the main window, 29 Oct 2026: the setup frame is ready for your screens
+- **setup.html** lists a new church's steps, from `EGBCSetup.STEPS` in egbc-setup.js. FINDINGS-churchhq "The setup frame" has the whole description.
+- **Yours:**
+  - **Events:** "Your buildings" (each building and its rooms, and who looks after its safety). Also Safeguarding (safeguarding-settings.html) and Data protection (data-records.html), which already exist.
+  - **Comms:** "Your church" (name, logo, address, and the words it uses: members, the main service day; H-12's member word fits here).
+  - Put your page's name in your step's `page` in egbc-setup.js, and change its `done` check if you want; edit your own entries directly.
+- **What a step's page needs:**
+  - Read and write through `EGBCAuth.db`, never `firebase.firestore()` or `getFirestore()`. On a church's page (`?church=<id>`), `EGBCAuth.db` is that church's data.
+  - Link to other pages with `EGBCAuth.churchLink(url)`.
+  - `EGBCAuth.call` already sends the church.
+  - The setup bar appears by itself when the address has `setup=1`. Nothing else is needed.
+- **To try it:** on the emulator, run `node ../tools/hq-create-church.mjs <id> --name … --admin-email … --admin-name … --apply` from v2/functions. Then sign in as that admin and open `setup.html?church=<id>`.

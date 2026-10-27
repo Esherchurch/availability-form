@@ -2132,3 +2132,16 @@ Martin: "you took the schematics app and the performance app off. Those need to 
 - **MOBILE_APPS:** both comments now say what it does: it only gives the admin list's "phone app" label.
 - **E-news, Card maker and From Canva** use `job: 'office'`, as you answered.
 - **For ChurchShow** (please pass it on): the Sunday Service Planner's key roles now follow the church's own roles. With roles stored, the saved plan's `roles` are keyed by role id (`president`, `preacher`…). EGBC's four (`serviceLeader`, `worshipLeader`, `speaker`, `reader`) are unchanged.
+
+## From the main window, 29 Oct 2026: the setup frame is ready for your screens
+- **setup.html** lists a new church's steps, from `EGBCSetup.STEPS` in egbc-setup.js. FINDINGS-churchhq "The setup frame" has the whole description.
+- **Yours:**
+  - **Events:** "Your buildings" (each building and its rooms, and who looks after its safety). Also Safeguarding (safeguarding-settings.html) and Data protection (data-records.html), which already exist.
+  - **Comms:** "Your church" (name, logo, address, and the words it uses: members, the main service day; H-12's member word fits here).
+  - Put your page's name in your step's `page` in egbc-setup.js, and change its `done` check if you want; edit your own entries directly.
+- **What a step's page needs:**
+  - Read and write through `EGBCAuth.db`, never `firebase.firestore()` or `getFirestore()`. On a church's page (`?church=<id>`), `EGBCAuth.db` is that church's data.
+  - Link to other pages with `EGBCAuth.churchLink(url)`.
+  - `EGBCAuth.call` already sends the church.
+  - The setup bar appears by itself when the address has `setup=1`. Nothing else is needed.
+- **To try it:** on the emulator, run `node ../tools/hq-create-church.mjs <id> --name … --admin-email … --admin-name … --apply` from v2/functions. Then sign in as that admin and open `setup.html?church=<id>`.
