@@ -31,14 +31,15 @@ Martin (the owner) is dyslexic and writes no code. Reports to him: plain words, 
 - Test with synthetic data on the emulator. Don't write to the live database unless the reviewing window or Martin says so.
 - Each window's full brief: `v2/NEXT-BRIEF.md` (main), the FINDINGS files in `v2/` for each window's work.
 
-## 5. Work fast: build more, test less often (Martin, 27 Oct 2026)
+## 5. Build now, test at the end (Martin, 27 Oct 2026)
 
-Martin: "In 6 hours we have had 2 completed tasks." Most of the time has gone on test runs and on waiting, not building. From now on:
+Martin: "In 6 hours we have had 2 completed tasks." And: "We are going to do a full test on completion anyway. You are testing when we have no spec to test against."
 
-- **Finish whole jobs.** Don't split a step into 2a, 2b, 3a… Build the whole step, then report once.
-- **While building, run only the tests for what you changed.** No full regression run, no full audit, no "all 37 earlier tests" after each step.
-- **The full runs happen once a day at most, or when Martin or the reviewing window asks.** That means the full audit, every suite and the full rules suite. Run the rules suite when you change the rules.
-- **Deliberate breaks: up to 3 per report**, the ones that matter most. Not 8 to 18.
-- **Never wait on another window's ports.** Tests take their emulator ports from settings or environment variables, so each window uses its own. If a test is hard-wired to another window's ports, change it to take a setting. Don't wait.
-- **Don't wait on another window for something you can do or look up yourself.** Read the code. Ask in FINDINGS only when you are truly blocked, and carry on with other work meanwhile.
-- **Short reports:** what was built, test counts, anything to deploy, and anything for Martin. One screen.
+The real test is the synthetic parish (section 3), once everything is built. Until then:
+
+- **Build, don't test.** No regression runs, no audits, no deliberate breaks, no new test suites, while building.
+- **Only a quick check that what you built works:** open it once, or run the one test that already covers that file, if it's quick. Nothing more.
+- **One exception: anything going live now.** That means a function the reviewing window will deploy, or anything touching live data. Check it runs, so the live hub doesn't break. The rules go live with the hub, so they are tested at the end like everything else.
+- **Finish whole jobs and report once.** No 2a/2b/3a.
+- **Never wait on another window**, its ports or its helpers. Read the code yourself, or carry on with other work.
+- **Short reports:** what was built, anything to deploy, anything for Martin. One screen.
