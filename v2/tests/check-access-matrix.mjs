@@ -13,6 +13,7 @@
  *   BREAK=deputy       the safeguarding lead and deputy no longer offered Safeguarding
  *   BREAK=availability the Availability form for core teams only again
  *   BREAK=checkin      Check-in no longer offered to the event's own team
+ *   BREAK=office       Book a room no longer for the office (Martin, 27 Oct 2026)
  * Each break must fail.
  */
 import fs from 'node:fs';
@@ -33,6 +34,7 @@ const BREAKS = {
   /* The reviewer's findings (27 Oct). */
   deputy: ['/egbc-menu.js', "if (node.sg && !who.isMaster && !who.isSgLead) return false;", "if (node.sg && !who.isMaster) return false;"],
   availability: ['/egbc-menu.js', "feature: 'availability', rotaTeam: true,", "feature: 'availability', core: true,"],
+  office: ['/egbc-auth.js', "if (EGBCAuth.myJobs().indexOf('office') !== -1) return true;", ''],
   checkin: ['/egbc-menu.js', "feature: 'events', core: true, admin: true, eventTeam: true,\n        description: 'Check people in", "feature: 'events', core: true, admin: true,\n        description: 'Check people in"],
 };
 let applied = !BREAK;

@@ -398,13 +398,20 @@ async function browser(port, tag) {
   /* Never wait for ever (27 Oct 2026: a restarted browser stopped answering
      and the audit sat 90 minutes on one sign-in). A command unanswered in
      45 s comes back as an error, so the screen fails and the run goes on. */
+  /* And once one goes unanswered the browser is DEAD: everything after it
+     fails at once rather than 45 s each (a page's settle loop asks dozens
+     of times), and the next page starts on a fresh browser. */
   const send = (m, p = {}) => new Promise(r => {
+    if (B.dead) return r({ error: { message: 'the browser stopped answering' } });
     const i = ++id;
-    const t = setTimeout(() => { if (pend.has(i)) { pend.delete(i); r({ error: { message: 'no answer in 45 s: ' + m } }); } }, 45000);
+    const t = setTimeout(() => { if (pend.has(i)) { pend.delete(i); B.dead = true; r({ error: { message: 'no answer in 45 s: ' + m } }); } }, 45000);
     pend.set(i, (x) => { clearTimeout(t); r(x); });
     try { ws.send(JSON.stringify({ id: i, method: m, params: p })); } catch (e) { clearTimeout(t); pend.delete(i); r({ error: { message: String(e) } }); }
   });
   B.send = send;
+  /* Asked through a function: after a restart B holds the fresh browser's
+     functions, and its flag is on the fresh one. */
+  B.isDead = () => !!B.dead;
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = () => j(new Error('browser on ' + port + ' did not open')); setTimeout(() => j(new Error('browser on ' + port + ' did not open in 30 s')), 30000); });
   ws.onmessage = async (e) => {
     const m = JSON.parse(e.data);
@@ -462,10 +469,22 @@ async function browser(port, tag) {
   /* A fresh browser in the same place, for when taps stop reaching the
      page: everything the run holds on B points at the new one. */
   B.restarts = 0;
+  /* A restarted browser can come up not answering (27 Oct 2026: twice, each
+     time the audit then sat for an hour). It must answer within 15 s, or
+     it is closed and another tried - three times. */
   B.restart = async () => {
     B.close(); await sleep(800);
-    const fresh = await browser(port + 40 + (++B.restarts) % 40, tag + 'r' + B.restarts);
-    const n = B.restarts; Object.assign(B, fresh); B.restarts = n;
+    for (let tries = 0; tries < 3; tries++) {
+      const n = ++B.restarts;
+      let fresh = null;
+      try { fresh = await browser(port + 40 + n % 40, tag + 'r' + n); } catch (e) { fresh = null; }
+      const alive = fresh && await Promise.race([fresh.ev('1+1'), sleep(15000).then(() => null)]) === 2;
+      if (alive) { Object.assign(B, fresh); B.restarts = n; B.dead = false; return; }
+      if (fresh) fresh.close();
+      console.log('          (a fresh browser did not answer; another)');
+      await sleep(1500);
+    }
+    throw new Error('three fresh browsers in a row did not answer');
   };
   return B;
 }
@@ -799,6 +818,7 @@ async function runRole(B, role, size, base, shared) {
     const allPages = [...new Set(['hub.html'].concat(menu.all, ALSO_AUDIT))].filter(u => !ONLY_PAGES || ONLY_PAGES.includes(u.split('?')[0]));
     const mine = new Set(['hub.html'].concat(menu.mine));
     for (const page of allPages) {
+      if (B.isDead()) { console.log('          (the browser stopped answering: a fresh one)'); await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }
       if (!LIVE) await restoreSettings();
       /* "hub.html?notices=1" is Home with its Notices open: offered if the
          page itself is (22 Oct 2026 - it was counted as a page apart). */

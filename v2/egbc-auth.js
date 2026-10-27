@@ -356,10 +356,11 @@
         'If you have joined a team, ask its leader to add you.'];
     }
 
-    /* data-leads: team leaders and core teams (EGBCAuth.leadsOrCore). */
-    if (opts.leadsOrCore && !alsoOk && !EGBCAuth.leadsOrCore()) {
+    /* data-leads: Book a room's people (EGBCAuth.mayBookRoom) - team
+       leaders, core teams, the office and the bookings admins. */
+    if (opts.leadsOrCore && !alsoOk && !EGBCAuth.mayBookRoom()) {
       return ['For team leaders and core teams',
-        'This is for the people who lead a team, and the core teams. ' +
+        'This is for the people who lead a team, the core teams and the office. ' +
         'If you need it, ask your team leader.'];
     }
 
@@ -1272,8 +1273,26 @@
     }
 
     /* Room underneath, so the last thing on the page can be scrolled clear of the strip. */
-    var pad = function () { document.body.style.paddingBottom = (bar.offsetHeight + 12) + 'px'; };
+    /* And a page's own bar stuck to the bottom (a Save bar) goes up above
+       the strip rather than under it (the audit, 27 Oct 2026: "Save" was
+       under #egbc-viewas on Health and safety settings and Permissions).
+       Pages draw late, so it looks again a few times. */
+    var lift = function () {
+      var h = bar.offsetHeight;
+      [].forEach.call(document.body.querySelectorAll('*'), function (el) {
+        if (el === bar || bar.contains(el) || el.id === 'egbc-tabbar') return;
+        var cs = getComputedStyle(el);
+        if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+        var was = el.getAttribute('data-egbc-lifted');
+        /* Not a pop-up's full-screen backdrop (top and bottom 0): that one covers the strip. */
+        if (was === null && (cs.bottom !== '0px' || cs.top === '0px')) return;
+        if (was === null) el.setAttribute('data-egbc-lifted', '1');
+        el.style.bottom = h + 'px';
+      });
+    };
+    var pad = function () { document.body.style.paddingBottom = (bar.offsetHeight + 12) + 'px'; lift(); };
     pad(); window.addEventListener('resize', pad);
+    [600, 2000, 5000].forEach(function (t) { setTimeout(lift, t); });
 
     document.getElementById('egbc-va-team').onchange = apply;
     document.getElementById('egbc-va-admin').onchange = apply;
@@ -1409,6 +1428,17 @@
             }
 
             var no = guardRefusal(opts, profile);
+            /* Book a room counts the office job (team jobs, H-9), which
+               loadPerms() reads: asked for only when the answer turns on it. */
+            if (no && opts.leadsOrCore && !PERMS.ready) {
+              loadPerms().catch(function () {}).then(function () {
+                var again = guardRefusal(opts, profile);
+                if (again) { EGBCAuth._blockPage(again[0], again[1], profile); return; }
+                mountViewAsBar();
+                resolve(profile);
+              });
+              return;
+            }
             if (no) { EGBCAuth._blockPage(no[0], no[1], profile); return; }
 
             mountViewAsBar();
@@ -1545,6 +1575,8 @@
       });
     },
     loadPerms: function () { return loadPerms(); },
+    /* Whether loadPerms() has read the ticks and the team jobs yet. */
+    permsReady: function () { return !!PERMS.ready; },
     /* THE PREACHING PLAN (Martin, 26 Oct 2026): assembled and edited by the
        pastors and elders - a master admin, the Pastor (named in Team
        emails) and the church's overall leaders (the "leadership" job; EGBC:
@@ -1571,7 +1603,9 @@
     myJobs: function () {
       var TJ = global.EGBCTeamJobs;
       if (!PERMS.ready || !TJ) return [];
-      var mine = EGBCAuth.effectiveTeams();
+      /* With the teams their core team covers, as the rules' myTeams() has
+         them (the events window's F-297: covered teams count everywhere). */
+      var own = EGBCAuth.effectiveTeams(), mine = own.concat(coversOf(own));
       return TJ.JOBS.map(function (j) { return j.id; })
         .filter(function (j) { return TJ.onJob(PERMS.jobs, mine, j, PERMS.set); });
     },
@@ -1624,6 +1658,16 @@
       if (!(EGBCAuth.viewingAs && EGBCAuth.viewingAs())
           && Object.keys(roles).some(function (t) { return roleAtLeast(roles, t, 'leader'); })) return true;
       return EGBCAuth.effectiveTeams().some(function (t) { return EGBCAuth.isCoreTeam(t); });
+    },
+    /* BOOK A ROOM (Martin, 27 Oct 2026: "also for the office and the
+       bookings admins"): leadsOrCore(), or on a team doing the office job
+       (after loadPerms()), or a site's bookings admin. The Menu, the app's
+       What's on and rooms.html's data-leads guard all ask this. The
+       bookings admins are never previewed into. */
+    mayBookRoom: function () {
+      if (EGBCAuth.leadsOrCore()) return true;
+      if (EGBCAuth.myJobs().indexOf('office') !== -1) return true;
+      return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && bookingsAdminOf.length > 0;
     },
     /* Whether any of these teams (or what they cover) has a plan group. */
     planGroupFor: function (teams) {
@@ -1868,7 +1912,12 @@
     isSafeguardingLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && sgLead; },
     /* On the trustees' team (the rules' onTeam(sgTrusteeTeam())), as seen -
        View as answers for the person being viewed as. */
-    isSgTrustee: function () { return EGBCAuth.inTeam(trusteeTeam); },
+    /* By the trustees job once the team jobs are read (F-297: a church that
+       gives it to its PCC in team jobs), the setting's team until then. */
+    isSgTrustee: function () {
+      if (PERMS.ready && global.EGBCTeamJobs) return EGBCAuth.myJobs().indexOf('trustees') !== -1;
+      return EGBCAuth.inTeam(trusteeTeam);
+    },
 
     /* Reads Care & support's inbox: the Pastoral team, or the safeguarding
        lead or deputy. NOT a master admin as such - the rules do not let

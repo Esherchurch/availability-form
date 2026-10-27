@@ -194,7 +194,7 @@ export async function build({ quiet, transform } = {}) {
 export function guardWords(g) {
   if (!g) return 'no guard';
   if (g.master) return 'master admins';
-  if (g.leadsOrCore) return 'team leaders and core teams';
+  if (g.leadsOrCore) return 'team leaders, core teams, the office and bookings admins';
   const teams = (g.team || '').split(',').map((s) => s.trim()).filter(Boolean);
   let w = teams.length ? (g.role === 'leader' ? 'leaders of ' : 'on ') + teams.join(', ')
     : g.anyTeam ? 'on any team' : g.adminAny ? 'an admin of any team' : 'anyone signed in';
@@ -211,7 +211,8 @@ export const DECIDED = [
   { url: 'maintenance.html', what: 'Maintenance (report a repair): every member', who: (p) => p.key !== 'pending' },
   { url: 'peep.html', what: 'My evacuation plan: every member', who: (p) => p.key !== 'pending' },
   { url: 'hire.html', what: 'Hire our rooms: every member', who: (p) => p.key !== 'pending' },
-  { url: 'rooms.html', what: 'Book a room: core teams and team leaders only', who: (p) => ['kidsLead', 'worshipLead', 'worshipAdmin', 'kidsAdmin', 'coreAdmin', 'wcore', 'kycore', 'master'].includes(p.key) },
+  /* Martin, 27 Oct 2026: also the office and the bookings admins. */
+  { url: 'rooms.html', what: 'Book a room: core teams, team leaders, the office and the bookings admins', who: (p) => ['kidsLead', 'worshipLead', 'worshipAdmin', 'kidsAdmin', 'coreAdmin', 'wcore', 'kycore', 'office', 'bookings', 'master'].includes(p.key) },
   { url: 'preaching-plan.html', from: 'Martin', what: 'Preaching plan: edited by the leadership job (EGBC: Elders) and the pastor/minister role; read-only for whoever may use the Rota planner; nobody else',
     who: (p, by) => p.key === 'elders' || p.key === 'master' || (((by[p.key] || {}).menu || []).some((m) => m.url === 'Planner.html')) },
   /* THE REVIEWER'S FINDINGS (27 Oct 2026), as settled; Martin to confirm. */

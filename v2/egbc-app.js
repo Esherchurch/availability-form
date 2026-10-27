@@ -75,7 +75,10 @@
     lazers: { label: 'Lazers', colour: '#8a4a5e', tint: '#f6ebef', teams: ['Lazers'], tabs: SIMPLE_TABS },
     renu: { label: 'ReNu', colour: '#6b5a3a', tint: '#f2ede4', teams: ['ReNu'], tabs: SIMPLE_TABS },
     maint: {
-      label: 'Maintenance', colour: '#4f5a66', tint: '#eceff2', teams: ['Maintenance'],
+      /* The buildings job (team jobs; the events window's F-297): EGBC's
+         Maintenance team, a parish's Fabric team. teams is the answer only
+         until the team jobs are read. */
+      label: 'Maintenance', colour: '#4f5a66', tint: '#eceff2', teams: ['Maintenance'], job: 'buildings',
       tabs: [['jobs', 'Jobs', 'wrench'], ['rooms', 'Rooms', 'door-closed'],
              ['team', 'Team', 'users']]
     },
@@ -351,11 +354,13 @@
          list means the app's spaces, the Menu and every page guard answer
          the same question the same way. It honours "View as" too, because
          inTeam reads effectiveTeams. */
-      var mine = (s.teams || []).some(function (t) {
-        return (global.EGBCAuth && EGBCAuth.inTeam ? EGBCAuth.inTeam(t)
-                                                   : me.teams.indexOf(t) !== -1)
-          || me.adminFor.indexOf(t) !== -1;
-      });
+      var A = global.EGBCAuth;
+      var mine = (s.job && A && A.permsReady && A.permsReady())
+        ? A.myJobs().indexOf(s.job) !== -1
+        : (s.teams || []).some(function (t) {
+          return (A && A.inTeam ? A.inTeam(t) : me.teams.indexOf(t) !== -1)
+            || me.adminFor.indexOf(t) !== -1;
+        });
       /* A MASTER ADMIN SEES EVERY MODE (the start screen's mock-up note;
          the reviewing window, 20 Oct 2026: Martin had no Kids and youth
          tile, and Kids Church was exactly what he could not find before).

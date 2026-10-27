@@ -136,8 +136,10 @@ function ctx(p) {
     rotaTeam: master || ['Worship Team', 'AV Team', 'Choir', 'Youth Worship', 'Kids Church', 'Lazers', 'ReNu', 'Core Team', 'Kids & Youth Core Team']
       .some(t => p.teams.includes(t)),
     /* Martin, 26 Oct 2026: Book a room is for team leaders and core teams
-       (an admin of a team, or on Core Team / Kids & Youth Core Team). */
-    leadsOrCore: master || p.adminFor.length > 0 || ['Core Team', 'Kids & Youth Core Team'].some(t => p.teams.includes(t)),
+       (an admin of a team, or on Core Team / Kids & Youth Core Team); and
+       27 Oct 2026, the office (EGBC's office job) and the bookings admins. */
+    leadsOrCore: master || p.adminFor.length > 0 || ['Core Team', 'Kids & Youth Core Team'].some(t => p.teams.includes(t))
+      || office || !!p.bookingsAdmin,
     /* ...and the Preaching plan for its editors (the Elders, EGBC's
        leadership) and the Rota planner's users, nobody else. */
     preaching: master || p.teams.includes('Elders') || core || ['Worship Team', 'Kids Church', 'Youth Worship'].some(t => p.adminFor.includes(t)),
@@ -257,9 +259,8 @@ const PEOPLE = {
      anything else underneath. */
   'a bookings admin who is not Core Team': { teams: ['Worship Team'], adminFor: [], masterAdmin: false,
     bookingsAdmin: true,
-    /* Not Book a room: Martin's rule is team leaders and core teams, and
-       whether a bookings admin counts is asked in FINDINGS-events. */
-    sees: ['Events and rooms', 'Room bookings', 'Places', 'Picture library'],
+    /* And Book a room (Martin, 27 Oct 2026: also the bookings admins). */
+    sees: ['Events and rooms', 'Room bookings', 'Places', 'Picture library', 'Book a room'],
     doesNot: ['Rota planner', 'Address book', 'Events', 'Headcounts', 'Church admin',
               'Backup', 'Kids Church', "Children's register", 'Sunday check-in', 'Core Team'] },
   /* F-200: the church renamed its money team "Treasury" (this check sets

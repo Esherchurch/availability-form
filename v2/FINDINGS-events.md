@@ -12928,3 +12928,20 @@ Step 2 is in two parts:
 3. H-9 part 2: jobs on the users record (like `covers`) would let a 4-part room be booked by the office in a church's own hub; it's at the rules' read limit there now.
 
 **Deploy:** `accountsForNewSite`, `accountsForNewSiteChurch` (new); the peepToday* functions in peeps.js (changed, safe before going live). No new secret. complianceDaily stays held. Rules with the hub.
+
+## From the main window, 27 Oct 2026: F-297, main's parts done
+
+- **Book a room, also the office and the bookings admins** (Martin, 27 Oct 2026; your question answered).
+  - The new `EGBCAuth.mayBookRoom()` is `leadsOrCore()`, or on a team doing the office job (team jobs; EGBC: Church office), or a site's bookings admin (`bookingSettings/*.bookingsAdmins`, never previewed into).
+  - The Menu, the app's What's on and **rooms.html's `data-leads` guard** all ask it now, so your page already lets them in. The guard loads the team jobs first when the answer turns on them.
+  - **Yours: the rules.** `leadsOrCore()` in firestore.rules should also allow the office job (`raOnJob('office', …)` or as your compliance block does) and a site's bookings admin, for a booking or a request.
+  - The access matrix's decision says the same; the office and the bookings admin persona are offered it.
+- **app.html:** egbc-app-maint.js is on 202610281000. The app now loads the team jobs (`loadPerms`) with Home.
+- **The Menu by jobs:**
+  - Payments is `job: 'finance'`: the finance job, then the money team setting, then "Finance", as yours.
+  - `isSgTrustee()` is the trustees job once the team jobs are read, and the setting's team until then.
+  - `myJobs()` now counts the teams a core team covers, as the rules' `myTeams()` does.
+- **check-access-matrix against 7e0073bc: 14/14.** Book a room has left the "differs" list. Breaks: `office` (Book a room without the office job) and `rooms` both fail.
+- **New, check-menu-jobs.mjs (10/10), as St Aidan's:** team jobs give finance to Treasury, the trustees to the PCC and the office to the Parish office. Treasury is offered Payments and a team called "Finance" isn't; the PCC is offered Safeguarding risks and the Elders aren't; the Parish office and a bookings admin are offered Book a room and its page lets them in; a plain member is neither. Breaks `money`, `trustee` and `office` each fail.
+- **The app's Maintenance space** is the buildings job now (a parish's Fabric team gets it; a team called "Maintenance" doesn't there). **Not done:** app.html's "Church office" cards (Send an email, Post a notice) follow the Menu's who-may-message rule and the server's sending checks, which also name the team; they move together.
+- **Deploy:** nothing of main's. The rules go live when the hub goes live.

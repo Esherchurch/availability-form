@@ -173,7 +173,8 @@
         description: 'Pictures the church uses again and again' },
       /* Hiring and reporting something broken are for everybody (the events
          window's maintenance.html, F-123). Booking a room is for team
-         leaders and the core teams (Martin, 26 Oct 2026). */
+         leaders and the core teams (Martin, 26 Oct 2026), the office and
+         the bookings admins (27 Oct 2026): EGBCAuth.mayBookRoom. */
       { title: 'Book a room', url: 'rooms.html', icon: 'calendar-clock', feature: 'roomBookings', leadsOrCore: true,
         description: 'See what is free and book it' },
       { title: 'Hire our rooms', url: 'hire.html', icon: 'door-open', feature: 'roomBookings',
@@ -220,7 +221,9 @@
          (21 Oct 2026: Church settings became master admins only). */
       { title: 'Giving details', url: 'giving-details.html', icon: 'landmark', team: 'Church office', feature: 'payments',
         description: 'The bank details people see on Give' },
-      { title: 'Payments', url: 'payments.html', icon: 'credit-card', feature: 'payments', money: true,
+      /* The finance job (team jobs; the money team setting, then "Finance",
+         when none is stored - F-297), and master admins. */
+      { title: 'Payments', url: 'payments.html', icon: 'credit-card', feature: 'payments', job: 'finance',
         description: 'Card and bank payments through the church\'s own Stripe and GoCardless, with step-by-step guides' },
       /* The safeguarding lead and deputy and anybody who administers
          something (Martin, 14 Oct 2026). */
@@ -1023,7 +1026,7 @@
         isPlanGroup: !!(A && A.isOnPlanGroup && A.isOnPlanGroup()),
         onRotaTeam: !!(A && A.onRotaTeam && A.onRotaTeam()),
         jobs: (A && A.myJobs && A.myJobs()) || [],
-        leadsOrCore: !!(A && A.leadsOrCore && A.leadsOrCore()),
+        leadsOrCore: !!(A && (A.mayBookRoom ? A.mayBookRoom() : (A.leadsOrCore && A.leadsOrCore()))),
         preachingEditor: !!(A && A.preachingEditor && A.preachingEditor()),
         hasBoard: !!(A && A.myBoards && A.myBoards().length),
         mayHeadcount: !!(A && A.mayHeadcount && A.mayHeadcount()),

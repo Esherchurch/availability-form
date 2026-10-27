@@ -43,7 +43,7 @@
      one-time offer on Home, and Kids Church Today's "Call on their phone". -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610272330"></script>
+<script src="egbc-auth.js?v=202610281000"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
@@ -414,8 +414,8 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610262100"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
-<script src="egbc-menu.js?v=202610272330"></script>
-<script src="egbc-app.js?v=202610262330"></script>
+<script src="egbc-menu.js?v=202610281000"></script>
+<script src="egbc-app.js?v=202610281000"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
@@ -423,7 +423,7 @@
 <script src="egbc-app-kids.js?v=202610142100"></script>
 <script src="egbc-app-listen.js?v=202610161800"></script>
 <script src="egbc-app-whatson.js?v=202610221700"></script>
-<script src="egbc-app-maint.js?v=202610101200"></script>
+<script src="egbc-app-maint.js?v=202610281000"></script>
 <script src="egbc-app-office.js?v=202610101200"></script>
 <!-- Core Team ▸ Plan: CoreTeamApp's service planner, shared rather than
      copied (APP-DESIGN-BRIEF §7b). Sortable first, because the planner
@@ -783,7 +783,10 @@ function loadHome(me) {
     /* THE SUNDAY PLAN THEY ARE ON (Martin, 12 Oct 2026). A preacher or a
        service leader is on no team, so nothing else on this screen would
        ever mention them - and the email's link was refusing them. */
-    loadMyPlan(me).then(function (r) { HOME.plans = r; }, function () {})
+    loadMyPlan(me).then(function (r) { HOME.plans = r; }, function () {}),
+    /* The team jobs and permissions (What's on's Book a room asks the
+       office job, 27 Oct 2026). */
+    EGBCAuth.loadPerms ? EGBCAuth.loadPerms().then(function () { A.refresh(); }, function () {}) : Promise.resolve()
   ];
   /* `ready` tells an empty Home the difference between still looking and
      there being nothing. Without it, a new person reads "nothing for you
@@ -1089,8 +1092,8 @@ A.screen('me', 'whatson', function () {
   return head("What's on", 'Everything you can come to')
     + card(
         row('calendar-heart', 'Church events', 'What is coming up, and signing up', null, 'open:whatson.html') +
-        /* Team leaders and the core teams (EGBCAuth.leadsOrCore; 26 Oct 2026). */
-        (EGBCAuth.leadsOrCore && EGBCAuth.leadsOrCore() ? row('door-open', 'Book a room', 'See what is free and book it', null, 'open:rooms.html') : '') +
+        /* Team leaders, the core teams, the office and the bookings admins (EGBCAuth.mayBookRoom; 27 Oct 2026). */
+        (EGBCAuth.mayBookRoom && EGBCAuth.mayBookRoom() ? row('door-open', 'Book a room', 'See what is free and book it', null, 'open:rooms.html') : '') +
         row('users', 'Small groups', 'Your groups, and finding one', null, 'open:groups.html'));
 });
 
