@@ -2344,7 +2344,7 @@
   try {
     if (new URLSearchParams(location.search).get('setup') === '1') {
       document.addEventListener('egbc-ready', function () {
-        sibling('egbc-setup.js', '202610301400').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
+        sibling('egbc-setup.js', '202610301800').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
       }, { once: true });
     }
   } catch (e) {}

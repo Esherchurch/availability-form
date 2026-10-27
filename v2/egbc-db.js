@@ -53,7 +53,7 @@
 import './egbc-nosend.js';
 
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc as docRef } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getStorage, connectStorageEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import { getAuth, connectAuthEmulator, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
@@ -79,7 +79,7 @@ export const auth = getAuth(app);
    getFirestore on the same app - a page cannot add it afterwards.
    Falls back to the plain client where IndexedDB is not available, which is
    private windows and older iOS. */
-export const db = (function () {
+export const firestore = (function () {
   try {
     return initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
@@ -88,6 +88,29 @@ export const db = (function () {
     return getFirestore(app);
   }
 })();
+
+/* WHICH CHURCH (H-6 step 2), by the same rule as egbc-auth.js: ?church=<id>
+   chooses it and is remembered on this device, ?church=egbc forgets it, and
+   egbc-auth.js forgets one the sign-in does not carry. */
+export const churchId = (function () {
+  const ok = (v) => /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(v || '')) && v !== 'egbc';
+  let asked = null;
+  try { asked = new URLSearchParams(location.search).get('church'); } catch (e) {}
+  try {
+    if (asked === 'egbc' || asked === '') { localStorage.removeItem('egbc-church'); return ''; }
+    if (ok(asked)) { localStorage.setItem('egbc-church', asked); return asked; }
+    const kept = localStorage.getItem('egbc-church');
+    return ok(kept) ? kept : '';
+  } catch (e) { return ok(asked) ? asked : ''; }
+})();
+
+/* THE PAGES' db. EGBC's: the database. A church's: the church's own document,
+   churches/<id> - collection(db, 'news') and doc(db, 'news', id) then reach
+   churches/<id>/news without the page changing a line, because the modular
+   collection() and doc() take a document as the parent. writeBatch,
+   runTransaction and collectionGroup need the database itself: use
+   `firestore` for those (no modular page does today). */
+export const db = churchId ? docRef(firestore, 'churches', churchId) : firestore;
 export const storage = getStorage(app);
 
 /* europe-west2, because that is where functions/index.js deploys them. Get
@@ -97,7 +120,7 @@ export const functions = getFunctions(app, 'europe-west2');
 
 /* So a page says call('findMe', { email }) and never repeats the region or
    the emulator. */
-export const call = (name, data) => httpsCallable(functions, name)(data).then(r => r.data);
+export const call = (name, data) => httpsCallable(functions, name)(churchId && !(data && data.churchId) ? Object.assign({ churchId }, data || {}) : data).then(r => r.data);
 
 /* Local work talks to the emulator, exactly as egbc-auth.js does for the
    compat side - ports from firebase.json. Without this a page served from
@@ -116,7 +139,7 @@ const EMU = location.port === '5601'
 
 if (usingEmulator) {
   try {
-    connectFirestoreEmulator(db, 'localhost', EMU.firestore);
+    connectFirestoreEmulator(firestore, 'localhost', EMU.firestore);
     connectAuthEmulator(auth, 'http://localhost:' + EMU.auth, { disableWarnings: true });
     connectStorageEmulator(storage, 'localhost', EMU.storage);
     connectFunctionsEmulator(functions, 'localhost', EMU.functions);
@@ -135,7 +158,7 @@ export const ready = new Promise(resolve => {
 /* So a page, or a test, can say which database it is actually talking to. */
 export function connectionInfo() {
   let host = 'unknown';
-  try { host = (db.toJSON && db.toJSON().settings && db.toJSON().settings.host) || (db._settings && db._settings.host) || 'unknown'; }
+  try { host = (firestore.toJSON && firestore.toJSON().settings && firestore.toJSON().settings.host) || (firestore._settings && firestore._settings.host) || 'unknown'; }
   catch (e) {}
   return { app: app.name, host: host, emulator: usingEmulator, uid: (auth.currentUser && auth.currentUser.uid) || null };
 }

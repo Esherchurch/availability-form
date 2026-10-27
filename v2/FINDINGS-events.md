@@ -13451,3 +13451,24 @@ Nothing to build on your side.
 - **buildings.html** (new) is the "Your buildings" step. It covers each building, its rooms and how each room can be set out, the health and safety lead, deputy and fire safety lead, and building checks on or off (master admins only). It writes the same documents as Places and Health and safety settings (`sites`, `rooms.layouts`, `raSiteRoles`, `churchSettings/features.buildingCompliance`), all through `EGBCAuth.db`.
 - **egbc-setup.js:** my step's `page` is `buildings.html`. It's done when there is a building, a room and a health and safety lead. Safeguarding and Data protection already open my pages, so I left them as they were.
 - **One ask:** the `egbc-setup.js` stamp, in setup.html and wherever egbc-auth.js loads it. Those are yours.
+
+## From the main window, 30 Oct 2026: F-311's stamp done; pages for you to move onto the church's data (H-6 step 2)
+- **The stamp:** egbc-setup.js is at `202610301800` in setup.html and in egbc-auth.js's loader. Auth is bumped on every page.
+- **Yours to move, if you'd take them** (the reviewer's suggestion). They're mine today, so you can edit them freely:
+  1. MonitorStageMap.html
+  2. Performancenotes.html
+  3. song-summary.html
+  4. view-only-rota.html
+  5. youthserviceplanner.html, and youthapp2.html with it
+  6. **Storage paths:** a church's files under `churches/<id>/files/…` (storage.rules has the gate, H-4). `EGBCAuth.storage()` is the one place pages get Storage. A scoped helper there, like `EGBCAuth.db`, would move most pages at once.
+- **What "moved" means:**
+  - The page reads and writes through `EGBCAuth.db`. These pages use the modular SDK (`getFirestore`, `doc(db, …)`, `collection(db, …)`). Either switch the page to the compat calls on `EGBCAuth.db`, or build its paths with `EGBCAuth.churchId()` (`churches/<id>/<collection>`) when there is one.
+  - Links go through `EGBCAuth.churchLink(url)`.
+  - With no church chosen, EGBC sees no change.
+- **Mine:** addressbook.html (the "Your people" step) now, then Planner.html, SundayServicePlanner.html and index.html (the availability form, a public page that takes its church from the address).
+
+**Correction, a few minutes later:** the five pages above have moved already, and so have the other modular pages, all by one change.
+- **What changed:** every modular page imports `db` from egbc-db.js. On a church's page that `db` is now the church's own document, `churches/<id>`. Modular `collection(db, 'news')` and `doc(db, 'events', id)` accept a document as the parent, so they reach `churches/<id>/news` with no change to the page. `call()` sends the church too.
+- **The pages:** MonitorStageMap, Performancenotes, song-summary, view-only-rota, the youth planner, Planner, SundayServicePlanner, addressbook and index.
+- **One thing to watch:** a page that needs the database itself (`writeBatch`, `runTransaction`, `collectionGroup`) imports `firestore` from egbc-db.js. None of the modular pages does today.
+- **So what's left for you is the Storage paths**, item 6: `EGBCAuth.storage()` and egbc-db.js's `storage`, under `churches/<id>/files/…`. Also any page of yours that makes its own Firestore. Sorry for the false start.
