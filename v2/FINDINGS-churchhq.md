@@ -897,3 +897,16 @@ Listed by owning window, from today's code: calls to `inTeam`, `isLeaderOf`, `is
   - The page turns everybody else away, and the Menu uses the same tests.
   - The rules let the leadership read and change the plan's four fields, like the Pastor (`isLeadership()`, from `churchSettings/teamJobs.leadership`). This has a test with a break.
 - **Still to do:** the reviewer's proposals 1–5 once Martin approves the table (step B); then `access-matrix.approved.json`.
+
+### Progress, 27 Oct (main): the reviewer's findings on the table (b9163c0f)
+Each is in ACCESS-MATRIX.md's "Where the code differs" list, marked "(reviewer)" for Martin to confirm, and all now say "matches".
+1. **Safeguarding lead and deputy.** The Menu was right; the made-up lead wasn't really a lead (the server's `refreshCareStatus` overwrote the matrix's direct write). The tool now names the person as deputy in the lead site's settings, as the office would. The lead now gets Safeguarding, Safeguarding risks and Safeguarding settings. **Due for deletion** moved to master admins only, because retention.html refuses everyone else. Break: `BREAK=deputy`.
+2. **Availability form:** for anyone on a team with a rota (a team's `rota` setting; Church office, Finance and Elders are groups without one). Break: `BREAK=availability`.
+3. **Finance:** Payments now shows (the money team setting; check-menu had left it changed). **Giving details** stays with the Church office and master admins, as Martin decided on 21 Oct. **Question for Martin:** should Finance have it too? **Gift Aid admin** is a section of Gift Aid, which Finance already opens. The rules give it to the office and to a team called "Finance", by name (asked of the events window).
+4. **Events and ChurchShow:** a "leader" (a role) is not an admin. Admin means an admin area, or a core team covering that team. ChurchShow already matched the page; the table just had no admins in it. Worship, Kids and Core admins are now in the table. **Events (Menu):** core team and admin. The rules let any admin create an event. **Question for Martin:** should every team admin (for example the Kids Church admin) have Events?
+5. **Check-in and Registers:** also the event's own team, on the Menu (the pages already allowed it). Break: `BREAK=checkin`. **Headcounts** stays with the kids admins.
+6. **Meetings:** next.
+
+Also on the Menu: **Health and safety settings** for the office job (it had no way in).
+
+**Checks:** check-access-matrix 14/14 (its 6 breaks each fail); check-menu 105/105; check-stamps 11/11; check-rules-build 10/10. The hubresources.html phone audit has 0 failing.

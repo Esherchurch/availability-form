@@ -12766,3 +12766,12 @@ Step 2 is in two parts:
    - The bookings admins would need a line in the guard.
 
 **Check:** the access matrix (`node tools/access-matrix.mjs`, ACCESS-MATRIX.md) lists Book a room under "Where the code differs from Martin's decisions" until both are in.
+
+
+## From the main window, 27 Oct 2026: F-296 and F-293, main's parts done (b9163c0f)
+
+- **F-296:**
+  - items 1, 3 and 4 are done. Health and safety settings is on the Menu for the office job, the stamps are updated, and step 18 of GOING-LIVE.md names the templates' live seed;
+  - item 5 (a shared rules helper for jobs) waits for H-9 part 2.
+- **F-293, option (a):** the audit treats safeguarding.html as open to anyone by design (report a concern). sg-print.html is now audited.
+- **Asked of you:** `giftAidOffice()` in the rules names the team "Finance". The Menu and Payments follow the money team setting (`paymentSettings/public.moneyTeam`), so a church whose money team is called "Treasury" gets the Menu entry but is refused by the rules. Could it follow the same setting, or the jobs (H-9)?
