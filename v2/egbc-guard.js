@@ -43,6 +43,9 @@
      than changing what the other two mean, because no page uses both
      today and a page that did would have its access quietly widened. */
   var alsoTeam = script ? script.getAttribute('data-also-team') : null;
+  /* data-also-job="office" - the same, for a team job (team jobs, H-9):
+     whichever of the church's teams does that job. */
+  var alsoJob = script ? script.getAttribute('data-also-job') : null;
   /* data-allow-pending="parent" (FINDINGS-notify N-5.5): the app alone
      lets in a verified address the church holds no record for, as a
      parent, to Parents' Sunday and Notifications and nothing else. */
@@ -175,6 +178,7 @@
     if (role) opts.role = role;
     if (adminAny) opts.adminAny = true;
     if (alsoTeam) opts.alsoTeam = alsoTeam;
+    if (alsoJob) opts.alsoJob = alsoJob;
     if (allowPending) opts.allowPending = allowPending;
     if (anyTeam) opts.anyTeam = true;
     if (masterOnly) opts.master = true;

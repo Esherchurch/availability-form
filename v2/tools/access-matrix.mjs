@@ -85,7 +85,7 @@ export function guards() {
     const m = /<script[^>]*src="egbc-guard\.js[^"]*"([^>]*)><\/script>/i.exec(t);
     if (!m) continue;
     const a = m[1], g = (n) => { const x = new RegExp('data-' + n + '="([^"]*)"').exec(a); return x ? x[1] : null; }, has = (n) => new RegExp('data-' + n + '(\\s|=|$)').test(a);
-    out[f] = { team: g('team'), role: g('role'), adminAny: g('admin') === 'any', alsoTeam: g('also-team'), anyTeam: has('any-team'), master: has('master'), leadsOrCore: has('leads') || has('book-room'), allowPending: g('allow-pending'), feature: g('feature') };
+    out[f] = { team: g('team'), role: g('role'), adminAny: g('admin') === 'any', alsoTeam: g('also-team'), alsoJob: g('also-job'), anyTeam: has('any-team'), master: has('master'), leadsOrCore: has('leads') || has('book-room'), allowPending: g('allow-pending'), feature: g('feature') };
   }
   return out;
 }
@@ -199,6 +199,7 @@ export function guardWords(g) {
   let w = teams.length ? (g.role === 'leader' ? 'leaders of ' : 'on ') + teams.join(', ')
     : g.anyTeam ? 'on any team' : g.adminAny ? 'an admin of any team' : 'anyone signed in';
   if (g.alsoTeam) w += ', or on ' + g.alsoTeam;
+  if (g.alsoJob) w += ', or doing the ' + g.alsoJob + ' job';
   if (g.allowPending) w += ' (pending too)';
   return w;
 }

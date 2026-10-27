@@ -374,7 +374,7 @@
   }
 
   /* The building pages this person's Menu offers, in the Menu's order. */
-  var BUILDING_PAGES = ['building.html', 'compliance.html', 'risk.html'];
+  var BUILDING_PAGES = ['building.html', 'compliance.html', 'risk.html', 'assessment.html'];
   function buildingPages() {
     if (!global.EGBCMenu || !EGBCMenu.forPerson || !EGBCMenu.who) return [];
     var out = [];

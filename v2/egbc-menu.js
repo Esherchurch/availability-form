@@ -186,22 +186,28 @@
          register for master admins, the Church office and the Elders; the
          checks given out, for the Maintenance team, the office and master
          admins - the pages' own tests. */
+      /* By job, as the pages decide since F-297: the office and the trustees. */
       { title: 'Building compliance', url: 'compliance.html', icon: 'clipboard-check', feature: 'buildingCompliance',
-        team: ['Church office', 'Elders'],
+        job: ['office', 'trustees'],
         description: 'Every check the building needs, when it is due, and who does it' },
       /* The events window's hs-settings.html (F-296): master admins and the
          office job, as the page and its rules decide. */
       { title: 'Health and safety settings', url: 'hs-settings.html', icon: 'shield-alert', feature: 'buildingCompliance', job: 'office',
         description: 'Who looks after each building, how many the church employs, insurance' },
       { title: 'The building', url: 'building.html', icon: 'building-2', feature: 'buildingCompliance',
-        team: ['Maintenance', 'Church office'],
+        job: ['buildings', 'office'],
         description: 'The checks given to you, and reporting a problem' },
       /* F-234: always "Live risk register", never "Risk assessment" on its
          own - it supplements the professional assessments. The office, the
          Elders and master admins. */
       { title: 'Live risk register', url: 'risk.html', icon: 'shield-alert', feature: 'buildingCompliance',
-        team: ['Church office', 'Elders'],
+        job: ['office', 'trustees'],
         description: 'How the risks in our professional assessments are managed, day to day' },
+      /* The events window's assessment.html (F-299): the office, the
+         trustees and each building's health and safety and fire leads. */
+      { title: 'Building risk assessments', url: 'assessment.html', icon: 'clipboard-list', feature: 'buildingCompliance',
+        job: ['office', 'trustees'], buildingLead: true,
+        description: 'Each building\'s health and safety and fire risk assessments' },
       /* Anyone signed in: their own personal emergency evacuation plan. */
       { title: 'My evacuation plan', url: 'peep.html', icon: 'door-open', feature: 'buildingCompliance',
         description: 'If you would need help to leave the building in an emergency' }
@@ -417,7 +423,9 @@
     if (node.rotaTeam && !who.onRotaTeam) return false;
     /* On a team that does this job (Teams & groups, "Who does each job"),
        never by a team's name; or a master admin. */
-    if (node.job && !who.isMaster && (who.jobs || []).indexOf(node.job) === -1) return false;
+    /* One job or a list; buildingLead lets a building's leads in too. */
+    if (node.job && !who.isMaster && ![].concat(node.job).some(function (j) { return (who.jobs || []).indexOf(j) !== -1; })
+        && !(node.buildingLead && who.isBuildingLead)) return false;
     if (node.pinBoard && !who.isMaster && !who.hasBoard) return false;
     if (node.leadsOrCore && !who.leadsOrCore) return false;
     /* The Rota planner's own test, so the two can never disagree. */
@@ -1016,6 +1024,7 @@
            that read and sets this before drawing; unset means "not one",
            which is the safe way round. */
         isBookingsAdmin: !previewing && window.EGBC_BOOKINGS_ADMIN === true,
+        isBuildingLead: !!(A && A.isBuildingLead && A.isBuildingLead()),
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),

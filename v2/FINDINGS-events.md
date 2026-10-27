@@ -13003,3 +13003,11 @@ Step 2 is in two parts:
 **Deploy:** no functions. The rules go live when the hub goes live. The templates' version 5 reaches the live database through the seed on SWITCHOVER-events.md 3.10, which now says version 5.
 
 **F-298 follow-up, with main's F-298 answers (28 Oct):** rooms.html has the guard's `data-book-room` again (the page still shows a bookings admin only their buildings). The rules' Book a room now reads the office job from `users.jobs` (no read), with the team jobs only for a record the server hasn't reached. That lifts the 4-part-room limit in a church's own hub for the office. Main's items 1 to 3 in F-298 are done; F-299's "For main" item 2 (the store) is done too.
+
+## From the main window, 28 Oct 2026: F-299's asks done
+
+- **The Menu: Building risk assessments** (assessment.html), under the building entries: the office and trustees jobs, each building's leads (`raSiteRoles` hsLead, hsDeputy, fireLead; `EGBCAuth.isBuildingLead()`, read at sign-in like the bookings admins), and master admins. The app's building space lists it too.
+- **While there:** Building compliance and Live risk register are now the office and trustees jobs, and The building the buildings and office jobs, as your pages decide since F-297 (they named "Church office", "Elders" and "Maintenance").
+- **app.html:** egbc-compliance-templates.js is on 202610281000.
+- **The audit's page list** has assessment.html (ALSO_AUDIT), for the final test.
+- assessment.html's script stamps are on the current egbc-auth, egbc-shell and egbc-guard (202610281400).

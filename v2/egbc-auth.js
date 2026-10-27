@@ -325,6 +325,11 @@
     var alsoOk = !!opts.alsoTeam && String(opts.alsoTeam).split(',').some(function (t) {
       return EGBCAuth.inTeam(t.trim());
     });
+    /* data-also-job: "...or anybody on a team doing this job" (team jobs,
+       H-9; Comms' EmailBuilder2.html by the office job). */
+    if (!alsoOk && opts.alsoJob) alsoOk = String(opts.alsoJob).split(',').some(function (j) {
+      return EGBCAuth.myJobs().indexOf(j.trim()) !== -1;
+    });
 
     /* data-master: master admins and nobody else (the reviewing
        window, 21 Oct 2026: Church settings opened for any area
@@ -508,6 +513,9 @@
      readable by anyone active, so this is a cheap read; it is cached like
      the teams, and it never rejects. */
   var bookingsAdminOf = [];
+  /* The buildings this person leads for health and safety or fire safety
+     (raSiteRoles: hsLead, hsDeputy, fireLead; the events window's F-299). */
+  var buildingLeadOf = [];
 
   /* THE PEOPLE WHO LOOK AFTER SERMONS AND WATCH (sermonShow/access, the
      events window's; the rules' sermonAdmin()). Read once with the profile
@@ -685,6 +693,19 @@
     return db.collection('kidsSettings').get().then(function (s) {
       s.docs.forEach(function (d) { ((d.data() || {}).teams || []).forEach(function (t) { if (kidsTeams.indexOf(t) === -1) kidsTeams.push(t); }); });
       return kidsTeams;
+    }).catch(function () { return []; });
+  }
+
+  function loadBuildingLead(memberId) {
+    if (!memberId) return Promise.resolve([]);
+    return db.collection('raSiteRoles').get().then(function (snap) {
+      var mine = [];
+      snap.forEach(function (doc) {
+        var r = doc.data() || {};
+        if ([r.hsLead, r.hsDeputy, r.fireLead].indexOf(memberId) !== -1) mine.push(doc.id);
+      });
+      buildingLeadOf = mine;
+      return mine;
     }).catch(function () { return []; });
   }
 
@@ -1375,7 +1396,7 @@
             var profile = both[0];
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
-            return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
+            return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadBuildingLead(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
                                 loadCareLead(profile && profile.memberId), loadMoneyTeam(), loadTrusteeTeam(profile), loadFeatures(),
                                 loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile)])
               .then(function () { return both; });
@@ -1430,7 +1451,7 @@
             var no = guardRefusal(opts, profile);
             /* Book a room counts the office job (team jobs, H-9), which
                loadPerms() reads: asked for only when the answer turns on it. */
-            if (no && opts.leadsOrCore && !PERMS.ready) {
+            if (no && (opts.leadsOrCore || opts.alsoJob) && !PERMS.ready) {
               loadPerms().catch(function () {}).then(function () {
                 var again = guardRefusal(opts, profile);
                 if (again) { EGBCAuth._blockPage(again[0], again[1], profile); return; }
@@ -1664,6 +1685,9 @@
        (after loadPerms()), or a site's bookings admin. The Menu, the app's
        What's on and rooms.html's data-leads guard all ask this. The
        bookings admins are never previewed into. */
+    /* Leads a building for health and safety or fire safety (the Menu's
+       Building risk assessments). Never previewed into. */
+    isBuildingLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && buildingLeadOf.length > 0; },
     mayBookRoom: function () {
       if (EGBCAuth.leadsOrCore()) return true;
       if (EGBCAuth.myJobs().indexOf('office') !== -1) return true;

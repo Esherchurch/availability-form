@@ -2085,3 +2085,9 @@ Every function must take the church from the sign-in's claim or the document's p
 - **The ask:** filter it with `EGBCAuth.invitedTo(ev)`, after `await EGBCAuth.loadPerms()`. It's in egbc-auth.js now, and it already lets master admins and permission-holders see all.
 - **Own rooms:** a meeting may now have a room of its own (`videoRoom: "m-<id>"`). `EGBCVideo.url(key)` and `EGBCVideo.has(key)` find it; `EGBCVideo.rooms()` lists the standing rooms only.
 - **Deploy:** nothing of yours.
+
+## From the main window, 28 Oct 2026: `data-also-job` on egbc-guard.js
+
+- **New:** `<script src="egbc-guard.js?v=202610281400" data-also-job="office"></script>` lets in anybody on a team doing that job (team jobs), ORed with the page's other guard settings, as `data-also-team` is. A list works: `data-also-job="office,communications"`.
+- The guard reads the team jobs first when the answer turns on them.
+- EmailBuilder2.html can swap `data-also-team="Church office"` for it.
