@@ -258,9 +258,12 @@
     Promise.all([
       eventsBetween(from, to),
       /* Every service that Sunday, in every building (C-51): main's
-         EGBCPlanStore.dayServices decides which and in what order. */
+         EGBCPlanStore.dayServices decides the order; the church's own kinds
+         of service (EGBCAuth.isServiceType, H-11) which of the day's rota
+         events are services. */
       db().collection('events').where('date', '==', sunIso).get()
-        .then(function (s) { return EGBCPlanStore.dayServices(s.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }), sunIso); }, function () { return []; }),
+        .then(function (s) { return EGBCPlanStore.dayServices(s.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); })
+          .filter(function (e) { return EGBCAuth.isServiceType(e.type); }), sunIso); }, function () { return []; }),
       /* The notices showing now: main's EGBCNotices decides, from all of them. */
       EGBCComms.allDocs(db().collection('news').orderBy('createdAt', 'desc'), 500)
         .then(function (docs) { return docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); }, function () { return []; }),

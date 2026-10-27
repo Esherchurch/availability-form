@@ -555,7 +555,9 @@
       var d = nextSunday(), iso = d.toISOString().slice(0, 10), label = 'Sunday ' + d.getUTCDate() + ' ' + d.toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' });
       return Promise.all([db().collection('events').where('date', '==', iso).get(),
         db().collection('sites').get().then(function (s) { var o = {}; s.docs.forEach(function (x) { if (x.data().active !== false) o[x.id] = x.data().name || ''; }); return o; }, function () { return {}; })]).then(function (r) {
-        var list = MB.serviceBlocks(EGBCPlanStore.dayServices(r[0].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }), iso), label, r[1]).map(function (b) { delete b.auto; return b; });
+        /* The church's own kinds of service (H-11). */
+        var list = MB.serviceBlocks(EGBCPlanStore.dayServices(r[0].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); })
+          .filter(function (e) { return EGBCAuth.isServiceType(e.type); }), iso), label, r[1]).map(function (b) { delete b.auto; return b; });
         if (!list.length) return put({ type: 'sunday', date: label, time: '', title: 'Sunday service', speaker: '' });
         change(function () { var i = Math.max(0, Math.min(at, ISSUE.blocks.length)); Array.prototype.splice.apply(ISSUE.blocks, [i, 0].concat(list)); SEL = i; PANEL = 'block'; });
       }, function () { put({ type: 'sunday', date: '', time: '', title: 'Sunday service', speaker: '' }); });
