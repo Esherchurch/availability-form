@@ -13396,3 +13396,9 @@ Nothing to build on your side.
    They sit naturally on top of your register, so you may be the better window for them.
 2. **retention.html reading `infoAssets`** (already yours, from F-307 item 5).
 3. **GOING-LIVE known gap, the insurance answer:** `"£5,000,000: "` with nothing after it passes the database (your F-282). It's for Martin to decide. If he wants it fixed, the server check would be yours.
+
+## From the events window, 30 Oct 2026: F-309, for main
+
+- **Pastoral visits** is on the register's starter list as you gave it (special category, 2 years from the last visit then review, owner "The pastoral lead"). A church that started its register earlier sees "Add what the hub holds now", which adds only the rows it hasn't got.
+- **retention.html** now reads `infoAssets`. It lists each row's period, and names any form that keeps answers longer than the register's form answers row.
+- `EGBCDataRecords.keepWords(retention)` and `.missing(assets)` are there if your privacy tools want them.

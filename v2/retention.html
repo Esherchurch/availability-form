@@ -16,6 +16,7 @@
 <script src="egbc-guard.js?v=202610282000" data-admin="any"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-data-records.js?v=202610301000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -65,7 +66,8 @@
 (function () {
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
-  var DUE = [], SOON = [], FORMS = {};
+  var DR = window.EGBCDataRecords;
+  var DUE = [], SOON = [], FORMS = {}, ASSETS = null;
 
   function db() { return EGBCAuth.db; }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
@@ -95,6 +97,26 @@
       (filesOf(r).length ? ' · ' + filesOf(r).length + ' file' + (filesOf(r).length === 1 ? '' : 's') : '') + '</span></span></label>';
   }
 
+  /* The information asset register (data-records.html) says how long each
+     kind of record is kept. Form answers are deleted here; a form that keeps
+     them longer than the register says is named, so one of the two is put
+     right. The other rows are listed as the reminder of what else to look at. */
+  function registerCard() {
+    if (ASSETS === null) return '';
+    var live = ASSETS.filter(function (a) { return !a.archived; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    if (!live.length) return '<div class="card"><h2><span class="badge">' + ico('shield-check', 17) + '</span>What the register says</h2><p class="hint">The information asset register isn’t started yet. Start it in <a href="data-records.html">Data records</a>; this page then checks each form against it.</p></div>';
+    var m = DR.formMonths(live), long = !m ? [] : Object.keys(FORMS).map(function (id) { return FORMS[id]; })
+      .filter(function (f) { return !f.archived && (parseInt(f.retentionMonths, 10) || 12) > m; });
+    return '<div class="card" id="register"><h2><span class="badge">' + ico('shield-check', 17) + '</span>What the register says<span class="spacer"></span><a class="hint" href="data-records.html">Data records</a></h2>' +
+      (long.length ? '<div class="banner warn">The register keeps form answers ' + m + ' months. ' + long.length + ' form' + (long.length === 1 ? ' keeps' : 's keep') + ' them longer: ' +
+        esc(long.map(function (f) { return (f.title || 'A form') + ' (' + (parseInt(f.retentionMonths, 10) || 12) + ' months)'; }).join(', ')) + '. Change the form, or the register.</div>' :
+        m ? '<p class="hint">Every form keeps its answers ' + m + ' months or less, as the register says.</p>' : '<p class="hint">The register has no row for form answers.</p>') +
+      live.map(function (a) {
+        return '<div class="check"><span><span class="n">' + esc(a.name) + '</span><br><span class="m">' + esc(DR.keepWords(a.retention)) +
+          (a.retentionKey === 'formResponses' ? ' · deleted from this page' : '') + '</span></span></div>';
+      }).join('') + '</div>';
+  }
+
   function draw() {
     document.getElementById('wrap').innerHTML =
       '<h1>Due for deletion</h1>' +
@@ -105,7 +127,7 @@
           '<div style="margin-top:14px"><button class="btn danger" id="del">' + ico('trash-2') + 'Delete the ticked answers</button></div>'
           : '<p class="hint">Nothing is due.</p>') + '</div>' +
       '<div class="card"><h2><span class="badge">' + ico('calendar-clock', 17) + '</span>Due in the next 30 days<span class="spacer"></span><span class="hint">' + SOON.length + '</span></h2>' +
-        (SOON.length ? SOON.map(function (r) { return line(r, false); }).join('') : '<p class="hint">Nothing.</p>') + '</div>';
+        (SOON.length ? SOON.map(function (r) { return line(r, false); }).join('') : '<p class="hint">Nothing.</p>') + '</div>' + registerCard();
     var b = document.getElementById('del');
     if (b) b.onclick = del;
     icons();
@@ -144,8 +166,10 @@
   function load() {
     return Promise.all([
       db().collection('formResponses').where('deleteAfter', '<=', day(30)).get(),
-      db().collection('forms').get()
+      db().collection('forms').get(),
+      db().collection('infoAssets').get().then(function (s) { return s.docs.map(function (d) { return d.data(); }); }, function () { return null; })
     ]).then(function (r) {
+      ASSETS = r[2];
       r[1].docs.forEach(function (d) { FORMS[d.id] = d.data(); });
       var all = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
         .sort(function (a, b) { return String(a.deleteAfter).localeCompare(String(b.deleteAfter)); });

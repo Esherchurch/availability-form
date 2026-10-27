@@ -24,6 +24,9 @@
 
      DR.LAWFUL, DR.SUBJECTS, DR.REQUEST_KINDS
      DR.SEED                        the hub's own starter register
+     DR.missing(assets)             starter rows a started register hasn't got yet
+     DR.keepWords(retention)        "2 years from the last time it is used, then reviewed"
+     DR.formMonths(assets)          the register's months for form answers (or 0)
      DR.requestDue(r)               the date a request must be answered by
      DR.requestState(r, today)      { rag, words }
      DR.breachDeadline(b)           72 hours after it was discovered (ISO)
@@ -63,8 +66,26 @@
       { specialCategory: true, specialCondition: 'Health: to protect their life (vital interests), and consent' }),
     A('Working alone', ['loneVisits'], 'Making sure someone working alone in a building is safe', 'legitimate', ['volunteers', 'members'], ['name', 'phone', 'building', 'times in and out'], ['The building’s contacts', 'The office'], { keepFor: 30, from: 'created', then: 'delete' }),
     A('Drivers', ['drivers', 'driverOk'], 'Making sure people who drive for the church are licensed and insured', 'legitimate', ['volunteers'], ['licence categories and check date (never the number)', 'insurance date', 'minibus course date'], ['The people the church names'], Y(1, 'leftChurch', 'delete')),
+    A('Pastoral visits', ['pastoralVisits', 'pastoralSettings'], 'Pastoral care of members and others', 'legitimate', ['members', 'visitors'], ['name', 'date and way of the visit', 'the visitors', 'a follow-up date', 'a short private note'], ['The church’s named, trained visitors only'], Y(2, 'lastActivity', 'review'),
+      Object.assign({ retentionKey: 'pastoralVisits', owner: 'The pastoral lead' }, RELIGIOUS)),
     A('Photos and video', ['pictureLibrary', 'uploadItems'], 'Telling the church’s story, with permission', 'consent', ['members', 'children'], ['images'], ['The communications team'], Y(3, 'created', 'review'))
   ];
+
+  /* a register started before a starter row was added gets it offered (matched by name) */
+  function missing(assets) {
+    var have = {}; (assets || []).forEach(function (a) { have[String(a.name || '').toLowerCase()] = 1; });
+    return SEED.filter(function (a) { return !have[a.name.toLowerCase()]; });
+  }
+  function keepWords(r) {
+    r = r || {}; var d = r.keepFor || 0, from = { created: 'from when it is made', lastActivity: 'from the last time it is used', eventEnd: 'after the event', leftChurch: 'after they leave the church' }[r.from] || '';
+    var n = d === 0 ? 'Until they ask to stop' : d % 365 === 0 ? (d / 365) + ' year' + (d / 365 === 1 ? '' : 's') + ' ' + from : d + ' days ' + from;
+    return n + (r.then ? ', then ' + ({ delete: 'deleted', anonymise: 'made anonymous', review: 'reviewed' }[r.then] || r.then) : '');
+  }
+  /* form answers' row: retentionKey 'formResponses', or the collection named */
+  function formMonths(assets) {
+    var a = (assets || []).filter(function (x) { return !x.archived && (x.retentionKey === 'formResponses' || (x.collections || []).indexOf('formResponses') >= 0); })[0];
+    return a && a.retention && a.retention.keepFor ? Math.max(1, Math.round(a.retention.keepFor / 365 * 12)) : 0;
+  }
 
   function addDays(day, n) { var p = String(day).slice(0, 10).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10); }
   function addMonths(day, n) { var p = String(day).slice(0, 10).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1 + n, p[2])).toISOString().slice(0, 10); }
@@ -89,7 +110,7 @@
     return { rag: 'red', words: 'Decide whether to tell the ICO within 72 hours of finding it: ' + Math.max(0, Math.floor(left)) + ' hours left' };
   }
 
-  var api = { LAWFUL: LAWFUL, SUBJECTS: SUBJECTS, REQUEST_KINDS: REQUEST_KINDS, BREACH_KINDS: BREACH_KINDS, SEED: SEED,
+  var api = { LAWFUL: LAWFUL, SUBJECTS: SUBJECTS, REQUEST_KINDS: REQUEST_KINDS, BREACH_KINDS: BREACH_KINDS, SEED: SEED, missing: missing, keepWords: keepWords, formMonths: formMonths,
     requestDue: requestDue, requestState: requestState, breachDeadline: breachDeadline, breachState: breachState, addMonths: addMonths };
   global.EGBCDataRecords = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

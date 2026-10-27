@@ -18,7 +18,7 @@
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
-<script src="egbc-data-records.js?v=202610291700"></script>
+<script src="egbc-data-records.js?v=202610301000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -69,11 +69,7 @@
   var label = function (list, v) { var x = list.filter(function (o) { return o[0] === v; })[0]; return x ? x[1] : v; };
   function nameOf(mid) { var p = PEOPLE.filter(function (x) { return x.id === mid; })[0]; return p ? p.name : 'someone'; }
   function rag(s) { return '<span class="rag ' + s.rag + '" data-rag="' + s.rag + '">' + esc(s.words) + '</span>'; }
-  function keepWords(r) {
-    r = r || {}; var d = r.keepFor || 0, from = { created: 'from when it is made', lastActivity: 'from the last time it is used', eventEnd: 'after the event', leftChurch: 'after they leave the church' }[r.from] || '';
-    var n = d === 0 ? 'Until they ask to stop' : d % 365 === 0 ? (d / 365) + ' year' + (d / 365 === 1 ? '' : 's') + ' ' + from : d + ' days ' + from;
-    return n + (r.then ? ', then ' + ({ delete: 'deleted', anonymise: 'made anonymous', review: 'reviewed' }[r.then] || r.then) : '');
-  }
+  var keepWords = DR.keepWords;
   function tabs() {
     var list = [['register', 'Information assets']];
     if (LEAD) list.push(['breaches', 'Breaches']);
@@ -99,7 +95,7 @@
           '<div class="hint">Kept: ' + esc(keepWords(a.retention)) + ' · Who sees it: ' + esc((a.access || []).join(', ')) + '</div>' +
           '<div class="hint">Processed by: ' + esc((a.processors || []).join('; ')) + '</div></div>' + (may ? '<button class="btn sec sm" data-editasset="' + esc(a.id) + '">Change</button>' : '') + '</div>';
       }).join('') : '<p class="hint" id="noAssets">Nothing in the register yet.</p>') +
-      (may ? '<div class="row">' + (!ASSETS.length ? '<button class="btn" id="seedGo">Start from what the hub holds (' + DR.SEED.length + ')</button>' : '') + '<button class="btn sec" id="addAsset">Add one (paper, a spreadsheet…)</button></div>' : '<p class="hint">Read only: kept by the office and the data protection lead.</p>') + '</div>';
+      (may ? '<div class="row">' + (!ASSETS.length ? '<button class="btn" id="seedGo">Start from what the hub holds (' + DR.SEED.length + ')</button>' : DR.missing(ASSETS).length ? '<button class="btn" id="seedMore">Add what the hub holds now (' + DR.missing(ASSETS).length + ': ' + esc(DR.missing(ASSETS).map(function (a) { return a.name; }).join(', ')) + ')</button>' : '') + '<button class="btn sec" id="addAsset">Add one (paper, a spreadsheet…)</button></div>' : '<p class="hint">Read only: kept by the office and the data protection lead.</p>') + '</div>';
   }
   function assetForm(a) {
     var r = a.retention || { keepFor: 365, from: 'lastActivity', then: 'review' };
@@ -195,11 +191,11 @@
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.getAttribute('data-tab'); V.edit = null; V.msg = ''; draw(); }; });
     if ($('cancel')) $('cancel').onclick = function () { V.edit = null; draw(); };
     /* register */
-    if ($('seedGo')) $('seedGo').onclick = function () {
-      var b = db().batch(), out = [];
-      DR.SEED.forEach(function (a) { var ref = db().collection('infoAssets').doc(); var rec = stamp(JSON.parse(JSON.stringify(a))); b.set(ref, rec); out.push(Object.assign({ id: ref.id }, rec)); });
-      $('seedGo').disabled = true;
-      b.commit().then(function () { ASSETS = out; say('Started: ' + out.length + ' information assets. Check each one, and add anything the hub doesn’t hold (paper, spreadsheets).'); }, function (e) { say('Not started: ' + (e.message || e)); });
+    if ($('seedGo') || $('seedMore')) ($('seedGo') || $('seedMore')).onclick = function () {
+      var b = db().batch(), out = ASSETS.slice(), more = !!$('seedMore');
+      (more ? DR.missing(ASSETS) : DR.SEED).forEach(function (a) { var ref = db().collection('infoAssets').doc(); var rec = stamp(JSON.parse(JSON.stringify(a))); b.set(ref, rec); out.push(Object.assign({ id: ref.id }, rec)); });
+      this.disabled = true;
+      b.commit().then(function () { ASSETS = out; say(more ? 'Added. Check the new rows.' : 'Started: ' + out.length + ' information assets. Check each one, and add anything the hub doesn’t hold (paper, spreadsheets).'); }, function (e) { say('Not started: ' + (e.message || e)); });
     };
     if ($('addAsset')) $('addAsset').onclick = function () { V.edit = { kind: 'asset', x: {} }; draw(); };
     document.querySelectorAll('[data-editasset]').forEach(function (b) { b.onclick = function () { V.edit = { kind: 'asset', x: ASSETS.filter(function (a) { return a.id === b.getAttribute('data-editasset'); })[0] }; draw(); }; });
