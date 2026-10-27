@@ -1606,7 +1606,12 @@ allow write: if (isMaster() && id == 'launch'
 && request.resource.data.get('opensOn', '') is string
 && request.resource.data.get('opensOn', '').size() <= 40);
 allow write: if (isAdmin() && id == 'details'
-&& request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'hubUrl', 'ministerTitle', 'updatedAt', 'updatedBy'])
+&& request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'hubUrl', 'ministerTitle',
+'address', 'serviceDay', 'memberWord', 'updatedAt', 'updatedBy'])
+&& request.resource.data.get('address', '') is string && request.resource.data.get('address', '').size() <= 300
+&& request.resource.data.get('serviceDay', 'Sunday') in ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+&& request.resource.data.get('memberWord', '') is string && request.resource.data.get('memberWord', '').size() <= 40
+&& !request.resource.data.get('memberWord', '').matches('.*[<>"&].*')
 && request.resource.data.get('ministerTitle', '') is string && request.resource.data.get('ministerTitle', '').size() <= 40
 && !request.resource.data.get('ministerTitle', '').matches('.*[<>"&].*')
 && request.resource.data.name is string && request.resource.data.name.size() <= 120

@@ -2145,3 +2145,19 @@ Martin: "you took the schematics app and the performance app off. Those need to 
   - `EGBCAuth.call` already sends the church.
   - The setup bar appears by itself when the address has `setup=1`. Nothing else is needed.
 - **To try it:** on the emulator, run `node ../tools/hq-create-church.mjs <id> --name … --admin-email … --admin-name … --apply` from v2/functions. Then sign in as that admin and open `setup.html?church=<id>`.
+
+## To the main window, 29 Oct 2026: "Your church" is built (your-church.html)
+
+- **The page:** master admins (`data-master`, as setup.html). Everything goes through `EGBCAuth.db`; links use `churchLink`.
+  - **Name, address and logo:** `churchSettings/details` gets `name`, `enquiryEmail`, a new `address`, and `logoUrl`/`logoPath`. On a church's page the logo goes under `churches/<id>/church/`, which storage.churches.rules already allows.
+  - **Your words:** `ministerTitle`, a new `memberWord` (H-12; '' means "Church member") and a new `serviceDay` (Sunday to Saturday; ChurchShow's words already read it, 'Sunday' when unset).
+  - **Giving:** the shared egbc-giving-form.js (`churchSettings/giving`).
+  - **The e-news switch:** `churchSettings/features.enews`, then `reloadFeatures()`.
+  - Every save merges, so church-settings.html's fields are never wiped.
+- **Rules:** the `details` write now allows `address` (up to 300 characters), `serviceDay` (a day's name) and `memberWord` (up to 40, no `< > " &`). Rebuilt; not deployed (it goes live when the church goes live).
+- **egbc-setup.js:** my step's `page` is `your-church.html`. Done = a name, an address and an enquiry email (what every email's foot needs).
+- **Please:**
+  1. Bump egbc-setup.js's stamp where you load it (setup.html, and egbc-auth.js for the bar). I didn't touch either.
+  2. Add a row for your-church.html to the access matrix: master admins. It's also worth a Menu entry beside Church settings.
+  3. `EGBCAuth.memberWord()` (H-12) can read `details.memberWord` now; the page writes it.
+  4. church-settings.html's name, email, logo and minister title now duplicate this page. Your call whether its card becomes a link to Your church.
