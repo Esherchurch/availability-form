@@ -28,6 +28,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldPath } from 'firebase-admin/firestore';
 import { featureOn } from './features.js';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
 
@@ -197,7 +198,10 @@ export async function maySee(dbi, uid, siteId) {
   if (u.masterAdmin === true) return true;
   const b = (await dbi.collection('bookingSettings').doc(String(siteId)).get()).data() || {};
   if (u.memberId && (b.safeguardingLead === u.memberId || b.safeguardingDeputy === u.memberId)) return true;
-  return (u.teams || []).includes((await settingsOf(dbi)).trusteeTeam);
+  /* the trustees job (H-9): team jobs, then the setting, then Elders - as the rules' trusteeTeams() */
+  const tj = await readTeamJobs(dbi);
+  const trustees = teamsFor(tj.map, 'trustees', Object.assign({}, tj.set, { trusteeTeam: (await settingsOf(dbi)).trusteeTeam }));
+  return (u.teams || []).concat(u.covers || []).some((t) => trustees.includes(t));
 }
 export const sgWarningsNow = onCall({ region: REGION }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');

@@ -34,6 +34,7 @@ import crypto from 'node:crypto';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { gcSaveToken, gcSaveWebhook, gcRemove, gcReady, bankPage, checkBank, tidyBank, pollGifts } from './gocardless.js';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 
@@ -74,8 +75,10 @@ export async function isTreasurer(uid) {
   const u = await userOf(uid);
   if (!u) return false;
   if (u.masterAdmin === true) return true;
-  const team = await moneyTeam();
-  return (u.teams || []).includes(team) || (u.adminFor || []).includes(team);
+  /* the finance job (H-9): team jobs, then the money team, then Finance - as the rules' financeTeams() */
+  const { map } = await readTeamJobs(db());
+  const teams = teamsFor(map, 'finance', { moneyTeam: await moneyTeam() });
+  return (u.teams || []).concat(u.covers || []).some((t) => teams.includes(t)) || (u.adminFor || []).some((t) => teams.includes(t));
 }
 
 /* ------------------------------------------------------------ Stripe */

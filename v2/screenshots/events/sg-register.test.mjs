@@ -2,7 +2,7 @@
    window. Invented people, groups and risks only, events emulators only,
    network guard.
 
-     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage \
+     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage,functions \
        --project egbc-worship-planner "node screenshots/events/sg-register.test.mjs"
 
    What it proves:

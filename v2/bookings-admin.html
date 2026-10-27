@@ -22,8 +22,8 @@
 <script src="egbc-events-bookings.js?v=202610141700"></script>
 <script src="egbc-events-roomday.js?v=202610220900"></script>
 <script src="egbc-events-quote.js?v=202610101700"></script>
-<script src="egbc-accounts.js?v=202610131600"></script>
-<script src="egbc-events-money.js?v=202610231000"></script>
+<script src="egbc-accounts.js?v=202610272100"></script>
+<script src="egbc-events-money.js?v=202610272100"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -149,7 +149,7 @@
                         db().collection('charges').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
                         db().collection('hirers').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
                         db().collection('invoices').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; }),
-                        EGBCAccounts.settings(true),
+                        EGBCAccounts.settings(true, V.site),
                         db().collection('roomClosures').where('siteId', '==', V.site).get().catch(function () { return { docs: [] }; })]).then(function (r) {
       var s = r[0];
       CLOSURES = r[5].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
@@ -730,6 +730,8 @@
       ROOMS = all(r[1]).filter(function (x) { return x.kind !== 'online'; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       KIT = all(r[3]);
       MCTX.isAdmin = EGBCAuth.isAdmin();
+      /* each site's copy of the accounts setting, for its bookings admins (a site added since the last save) */
+      if (MCTX.isAdmin) EGBCAccounts.fillMissing(SITES.map(function (s) { return s.id; }));
       all(r[4]).forEach(function (t) { TYPES[t.id] = t; });
       all(r[5]).forEach(function (c) { CARDS[c.id] = c; });
       if (!SITES.length) {

@@ -43,16 +43,21 @@
   function room(id) { return D.rooms.filter(function (r) { return r.id === id; })[0] || null; }
   function site(id) { return D.sites.filter(function (s) { return s.id === id; })[0] || {}; }
   function mayClose(r) { return D.team || D.admin || D.office.indexOf(r.siteId) >= 0; }
+  /* the buildings job (H-9; EGBC: Maintenance), as the rules' maintTeam() */
+  var JOBP = null;
+  function teamWords() { var n = (JOBP && EGBCTeamJobs.label(JOBP.jobs, 'buildings', null, JOBP.set)) || ''; return n ? 'the ' + n + (/team$/i.test(n) ? '' : ' team') : 'the buildings team'; }
+  function photoWords() { return 'Only ' + teamWords() + ' and the office see the photo.'; }
   function closuresOf(r) { return D.closures.filter(function (c) { return c.roomId === r.id; }); }
 
   function load() {
     var p = me();
-    D.team = (p.teams || []).indexOf('Maintenance') >= 0;
     D.admin = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
-    return Promise.all([db().collection('rooms').get(), db().collection('sites').get(),
+    return EGBCAuth.loadPerms().then(function (P) { JOBP = P; }, function () { JOBP = null; }).then(function () {
+      D.team = !!JOBP && EGBCTeamJobs.teamsFor(JOBP.jobs, 'buildings', JOBP.set).some(function (t) { return EGBCAuth.inTeam(t); });
+      return Promise.all([db().collection('rooms').get(), db().collection('sites').get(),
                         db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
                         db().collection('roomClosures').where('status', '==', 'on').get().catch(function () { return { docs: [] }; }),
-                        db().collection('maintJobs').get().catch(function () { return { docs: [] }; })]).then(function (r) {
+                        db().collection('maintJobs').get().catch(function () { return { docs: [] }; })]); }).then(function (r) {
       D.jobs = all(r[4]).sort(function (a, b) { return ms(b.reportedAt) - ms(a.reportedAt); });
       D.rooms = all(r[0]).filter(function (x) { return x.active !== false && x.kind !== 'online'; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       D.sites = all(r[1]).filter(function (s) { return s.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
@@ -102,7 +107,7 @@
         ? '<div class="mt-f"><label for="jb-note">Anything to add? (optional)</label><input id="jb-note" maxlength="500" value="' + esc(JOB.note) + '"></div>' +
           '<div class="actions" style="margin-top:10px">' + act('done:' + j.id, 'Mark done', true, 'check') + (j.photoPath && !JOB.photo[j.id] ? act('photo:' + j.id, 'See the photo', false, 'image') : '') + '</div>'
         : '<div class="actions">' + act('reopen:' + j.id, 'Open it again', false, 'rotate-ccw') + (j.photoPath && !JOB.photo[j.id] ? act('photo:' + j.id, 'See the photo', false, 'image') : '') + '</div>')
-        : (j.photoPath ? '<p class="example">Only the Maintenance team and the office see the photo.</p>' : '')) +
+        : (j.photoPath ? '<p class="example">' + esc(photoWords()) + '</p>' : '')) +
       (JOB.err ? '<p class="mt-err">' + esc(JOB.err) + '</p>' : '');
   }
   function reportView() {
@@ -118,7 +123,7 @@
       '<label for="jb-what">What is wrong</label><input id="jb-what" maxlength="200" value="' + esc(JOB.what) + '" placeholder="e.g. Two lights out">' +
       '<label for="jb-details">More detail (if it helps)</label><input id="jb-details" maxlength="2000" value="' + esc(JOB.details) + '">' +
       '<label for="jb-photo">A photo (optional)</label><input id="jb-photo" type="file" accept="image/*" capture="environment">' +
-      '<p class="sub" style="margin:0">Only the Maintenance team and the office see the photo.</p>' +
+      '<p class="sub" style="margin:0">' + esc(photoWords()) + '</p>' +
       (JOB.err ? '<p class="mt-err" data-m="err">' + esc(JOB.err) + '</p>' : '') + '</div>' +
       '<div class="actions" style="margin-top:12px">' + act('doreport', 'Report it', true, 'send') + act('jobs', 'Cancel') + '</div></div>';
   }
@@ -189,7 +194,7 @@
   function listView() {
     var rooms = D.rooms.filter(mayClose);
     var head = '<div><p class="hello">Close a room</p><p class="sub">Block a room for maintenance so nobody can book it</p></div>';
-    if (!rooms.length) return head + '<div class="card" style="padding:14px" data-m="none"><p style="margin:0">Only the Maintenance team and the office close rooms.</p></div>';
+    if (!rooms.length) return head + '<div class="card" style="padding:14px" data-m="none"><p style="margin:0">Only ' + esc(teamWords()) + ' and the office close rooms.</p></div>';
     var multi = D.sites.length > 1;
     return head + (VIEW.done ? '<div class="card" style="padding:14px" data-m="done"><p style="margin:0">' + esc(VIEW.done) + '</p></div>' : '') +
       '<div class="card list mt-list" data-m="rooms">' + rooms.map(function (r) {

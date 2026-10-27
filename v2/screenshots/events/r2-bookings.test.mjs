@@ -93,7 +93,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     const x = P[k];
     await setDoc(doc(db, 'addressBook', x.mid), { name: x.name, email: x.email, markers: x.admin ? ['Core Team'] : ['Worship'], adminFor: [], masterAdmin: !!x.admin });
     await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.admin ? ['Core Team'] : ['Worship'],
-      adminFor: [], masterAdmin: !!x.admin, status: 'active' });
+      adminFor: [], masterAdmin: !!x.admin, roles: x.admin ? {} : { Worship: 'leader' }, status: 'active' });   /* Book a room is for team leaders and core teams (H-16) */
   }
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
   await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });

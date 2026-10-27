@@ -244,7 +244,7 @@
       open: c('f-open', true), capacity: Math.max(0, Math.min(200, parseInt(v('f-cap'), 10) || 0)), updatedAt: new Date().toISOString(), updatedBy: uid() };
     if (ADMIN) {
       d.visibility = v('f-who') || 'public';
-      d.teams = d.visibility === 'team' ? [].slice.call(document.getElementById('f-teams').selectedOptions).map(function (o) { return o.value; }).slice(0, 10) : [];
+      d.teams = d.visibility === 'team' ? [].slice.call(document.getElementById('f-teams').selectedOptions).map(function (o) { return o.value; }).slice(0, 500) : [];   /* H-9: no cap but what a list holds */
       if (d.visibility === 'team' && !d.teams.length) { document.getElementById('f-err').innerHTML = '<p class="st no">Choose which teams.</p>'; return; }
       d.canCome = E.canComeFor(d.visibility, d.teams);
       d.under18 = c('f-u18', false); d.active = c('f-active', true);

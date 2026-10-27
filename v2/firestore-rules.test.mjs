@@ -1218,6 +1218,13 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
      not about an out-of-date copy. */
   const now = async (id) => { let sl; await env.withSecurityRulesDisabled(async (c) => { sl = (await getDoc(doc(c.firestore(), 'roomDays', id))).data().slots; }); return sl; };
 
+  /* BOOK A ROOM IS FOR TEAM LEADERS AND CORE TEAMS (Martin, 26 Oct; H-16) */
+  await check('BOOK A ROOM: A PLAIN MEMBER (no team led, no core team) IS REFUSED', 'deny', () => book(as('samy'), K('band_1800'), B('2026-11-18', 1080, 1140), wedBefore()));
+  await check('  nor may they ask', 'deny', () => setDoc(doc(as('samy'), 'bookings', K('plain_req')), { ...B('2026-11-25', 600, 660), status: 'requested' }));
+  await env.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'users', 'u_samy'), { covers: ['Worship Team'] }); });
+  await check('  on a core team (it covers teams), they may ask', 'allow', () => setDoc(doc(as('samy'), 'bookings', K('core_req')), { ...B('2026-11-25', 600, 660), status: 'requested' }));
+  await env.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'users', 'u_samy'), { covers: [], roles: { 'Kids Church': 'leader' } }); });
+  /* From here Samy leads Kids Church: the bookings below are a leader's. */
   await check('a member books a free time, confirmed straight away', 'allow', () => book(as('samy'), K('band_1800'), B('2026-11-18', 1080, 1140), wedBefore()));
   await check('not over a confirmed booking', 'deny', async () => book(as('samy'), K('band_over'), B('2026-11-18', 1170, 1230), await now('room_band_2026-11-18')));
   await check('not with a setup time that runs into one', 'deny', async () => book(as('samy'), K('band_setup'), B('2026-11-18', 1200, 1260, { setupMins: 15 }), await now('room_band_2026-11-18')));
@@ -1972,10 +1979,20 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await env.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
     await setDoc(doc(db, 'users', 'u_office'), { memberId: 'm_office', status: 'active', teams: ['Welcome Team'], adminFor: [], masterAdmin: false });
     await setDoc(doc(db, 'bookingSettings', 'site_off'), { bookingsAdmins: ['m_office'], safeguardingLead: '', safeguardingDeputy: '' });
-    await setDoc(doc(db, 'settings', 'accounts'), { mode: 'none', invoiceNumbersBy: 'hub', payText: 'Bank: invented', payDays: 14, officeSites: ['site_off'] }); });
+    await setDoc(doc(db, 'settings', 'accounts'), { mode: 'none', invoiceNumbersBy: 'hub', payText: 'Bank: invented', payDays: 14 });
+    /* a fourth site, where three were all that were checked before (H&S step 2b) */
+    await setDoc(doc(db, 'bookingSettings', 'site_off4'), { bookingsAdmins: ['m_office'], safeguardingLead: '', safeguardingDeputy: '' });
+    for (const s of ['site_off', 'site_off4', 'site_notmine']) await setDoc(doc(db, 'accountsFor', s), { mode: 'none', invoiceNumbersBy: 'hub', payText: 'Bank: invented', payDays: 14, updatedAt: 'x' }); });
+  const ACC = (extra) => ({ mode: 'calla', invoiceNumbersBy: 'hub', payText: 'Bank: invented', payDays: 14, updatedAt: 'x', ...(extra || {}) });
   await check('F-108: an admin reads the accounts setting', 'allow', () => getDoc(doc(as('karen'), 'settings', 'accounts')));
-  await check('F-108: so does the office (a bookings admin of a site it names)', 'allow', () => getDoc(doc(ctx('u_office'), 'settings', 'accounts')));
-  await check('F-108: A MEMBER WHO IS NOT THE OFFICE DOES NOT', 'deny', () => getDoc(doc(as('samy'), 'settings', 'accounts')));
+  await check('F-108: the office reads its own site’s copy', 'allow', () => getDoc(doc(ctx('u_office'), 'accountsFor', 'site_off')));
+  await check('  ANY NUMBER OF SITES: a fourth site’s bookings admin reads that site’s copy', 'allow', () => getDoc(doc(ctx('u_office'), 'accountsFor', 'site_off4')));
+  await check('  not a site it is not the office of', 'deny', () => getDoc(doc(ctx('u_office'), 'accountsFor', 'site_notmine')));
+  await check('  nor the church-wide setting itself (admins only)', 'deny', () => getDoc(doc(ctx('u_office'), 'settings', 'accounts')));
+  await check('F-108: A MEMBER WHO IS NOT THE OFFICE DOES NOT', 'deny', () => getDoc(doc(as('samy'), 'accountsFor', 'site_off')));
+  await check('  an admin writes a site’s copy', 'allow', () => setDoc(doc(as('karen'), 'accountsFor', 'site_off'), ACC()));
+  await check('  a bookings admin cannot', 'deny', () => setDoc(doc(ctx('u_office'), 'accountsFor', 'site_off'), ACC({ mode: 'none' })));
+  await check('  only the setting’s own fields', 'deny', () => setDoc(doc(as('karen'), 'accountsFor', 'site_off'), ACC({ officeSites: ['x'] })));
 }
 
 // ── EVENTS (events window) ── WHO CAN COME (Martin, NEXT-BRIEF §21): events, forms, small groups
@@ -4823,9 +4840,18 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nor anyone signed out', 'deny', () => getDoc(doc(anon(), 'sgRisks', 'sgr_1')));
   await check('  another site’s lead does not see this site’s', 'deny', () => getDoc(doc(cx('u_sgr_other'), 'sgRisks', 'sgr_1')));
   /* the trustee team is the setting */
-  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'safeguardingSettings', 'defaults'), { ...(hadSettings || {}), trusteeTeam: 'Trustees' }); });
+  /* (team jobs saying nothing of the trustees: the setting is the trustees job's fallback, H-9) */
+  let tjHad = null;
+  await env.withSecurityRulesDisabled(async (c) => {
+    const tj = await getDoc(doc(c.firestore(), 'churchSettings', 'teamJobs')); tjHad = tj.exists() ? tj.data() : null;
+    if (tjHad) { const rest = { ...tjHad }; delete rest.trustees; await setDoc(doc(c.firestore(), 'churchSettings', 'teamJobs'), rest); }
+    await setDoc(doc(c.firestore(), 'safeguardingSettings', 'defaults'), { ...(hadSettings || {}), trusteeTeam: 'Trustees' }); });
   await check('THE TRUSTEE TEAM IS A SETTING: set to "Trustees", that team reads it', 'allow', () => getDoc(doc(cx('u_sgr_trustee2'), 'sgRisks', 'sgr_1')));
   await check('  and the Elders no longer do', 'deny', () => getDoc(doc(cx('u_sgr_trustee'), 'sgRisks', 'sgr_1')));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'churchSettings', 'teamJobs'), { ...(tjHad || {}), trustees: ['Elders'] }); });
+  await check('  TEAM JOBS WIN (H-9): with the trustees job given to the Elders, the Elders read it', 'allow', () => getDoc(doc(cx('u_sgr_trustee'), 'sgRisks', 'sgr_1')));
+  await check('    and "Trustees", the setting, no longer do', 'deny', () => getDoc(doc(cx('u_sgr_trustee2'), 'sgRisks', 'sgr_1')));
+  await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'churchSettings', 'teamJobs'); if (tjHad) await setDoc(r, tjHad); else await deleteDoc(r); });
   await check('  the setting is 60 characters at most', 'deny', () => setDoc(doc(as('martin'), 'safeguardingSettings', 'defaults'), { ...(hadSettings || {}), templates: (hadSettings || {}).templates || {}, ratioAll: 5, ratioUnder8: 4, dbsYears: 3, trainingYears: 3, requireChecks: false, trusteeTeam: 'x'.repeat(61) }));
   await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'safeguardingSettings', 'defaults'); if (hadSettings) await setDoc(r, hadSettings); else await deleteDoc(r); });
 }
@@ -5034,6 +5060,58 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  not a volunteer', 'deny', () => getDoc(doc(cx('u_sgr_vol'), 'calEvents', 'ev_teamonly')));
   await check('  nor anyone signed out', 'deny', () => getDoc(doc(anon(), 'calEvents', 'ev_teamonly')));
   await check('  seeing it is all: the lead doesn’t edit it', 'deny', () => updateDoc(doc(cx('u_sgr_lead'), 'calEvents', 'ev_teamonly'), { title: 'Changed' }));
+}
+
+// ── EVENTS (events window) ── H&S step 2b: my gates by JOB, never a team's name (H-9). The synthetic
+// parish (St Aidan's with St Hild, Testbury) names its own teams; EGBC's names then do nothing.
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  let tjWas = null;
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const s = await getDoc(doc(db, 'churchSettings', 'teamJobs')); tjWas = s.exists() ? s.data() : null;
+    await setDoc(doc(db, 'churchSettings', 'teamJobs'), { office: ['Parish office'], trustees: ['PCC'], buildings: ['Fabric team'], catering: ['Kitchen team'], finance: ['Treasury'] });
+    const U = (uid, teams) => setDoc(doc(db, 'users', uid), { uid, memberId: 'm' + uid.slice(1), status: 'active', name: uid, teams, adminFor: [], masterAdmin: false });
+    for (const [u, tm] of [['u_jb_office', ['Parish office']], ['u_jb_oldoffice', ['Church office']], ['u_jb_pcc', ['PCC']], ['u_jb_elder', ['Elders']],
+      ['u_jb_fabric', ['Fabric team']], ['u_jb_maint', ['Maintenance']], ['u_jb_kitchen', ['Kitchen team']], ['u_jb_catering', ['Catering']],
+      ['u_jb_treasury', ['Treasury']], ['u_jb_finance', ['Finance']]]) await U(u, tm);
+    await setDoc(doc(db, 'users', 'u_jb_cover'), { uid: 'u_jb_cover', memberId: 'm_jb_cover', status: 'active', name: 'x', teams: ['Parish staff'], covers: ['Fabric team'], adminFor: [], masterAdmin: false });
+    await setDoc(doc(db, 'sites', 'site_jb'), { name: 'St Hild (synthetic)', active: true });
+    await setDoc(doc(db, 'buildingProfiles', 'site_jb'), { siteId: 'site_jb' });
+    await setDoc(doc(db, 'cateringOrders', 'co_jb'), { siteId: 'site_jb', day: '2026-11-20', state: 'new' });
+    await setDoc(doc(db, 'giftAid', 'ga_jb'), { memberId: 'm_someone' });
+    for (const j of ['mj_jb1', 'mj_jb2', 'mj_jb3']) await setDoc(doc(db, 'maintJobs', j), { siteId: 'site_jb', roomId: '', where: 'Vestry', what: 'A tap drips (invented)', details: '', photoPath: '',
+      status: 'todo', reportedBy: 'u_jb_pcc', reportedByName: 'x', reportedAt: 'x' });
+  });
+  const done = (uid, id) => updateDoc(doc(cx(uid), 'maintJobs', id), { status: 'done', doneBy: uid, doneByName: 'x', doneAt: serverTimestamp(), doneNote: '' });
+  await check('BY JOB (H-9), THE PARISH: its "Parish office" does the office job - it keeps the building compliance', 'allow', () => setDoc(doc(cx('u_jb_office'), 'buildingProfiles', 'site_jb'), { siteId: 'site_jb' }));
+  await check('  and reads it', 'allow', () => getDoc(doc(cx('u_jb_office'), 'buildingProfiles', 'site_jb')));
+  await check('  a team called "Church office" no longer may', 'deny', () => getDoc(doc(cx('u_jb_oldoffice'), 'buildingProfiles', 'site_jb')));
+  await check('  ITS PCC DOES THE TRUSTEES JOB: it reads the compliance', 'allow', () => getDoc(doc(cx('u_jb_pcc'), 'buildingProfiles', 'site_jb')));
+  await check('    but does not keep it', 'deny', () => setDoc(doc(cx('u_jb_pcc'), 'buildingProfiles', 'site_jb'), { siteId: 'site_jb' }));
+  await check('    the Elders no longer read it', 'deny', () => getDoc(doc(cx('u_jb_elder'), 'buildingProfiles', 'site_jb')));
+  await check('    the PCC reads the safeguarding register as the trustees', 'allow', () => getDoc(doc(cx('u_jb_pcc'), 'sgRisks', 'sgr_1')));
+  await check('  ITS FABRIC TEAM DOES THE BUILDINGS JOB: it marks a repair done', 'allow', () => done('u_jb_fabric', 'mj_jb1'));
+  await check('    so does a core team that covers it', 'allow', () => done('u_jb_cover', 'mj_jb2'));
+  await check('    a team called "Maintenance" no longer may', 'deny', () => done('u_jb_maint', 'mj_jb3'));
+  await check('  ITS KITCHEN TEAM DOES THE CATERING JOB: it reads the caterers’ list', 'allow', () => getDoc(doc(cx('u_jb_kitchen'), 'cateringOrders', 'co_jb')));
+  await check('    a team called "Catering" no longer may', 'deny', () => getDoc(doc(cx('u_jb_catering'), 'cateringOrders', 'co_jb')));
+  await check('  ITS TREASURY DOES THE FINANCE JOB: it reads the card payments setting', 'allow', () => getDoc(doc(cx('u_jb_treasury'), 'paymentSettings', 'stripe')));
+  await check('    and the Gift Aid declarations', 'allow', () => getDoc(doc(cx('u_jb_treasury'), 'giftAid', 'ga_jb')));
+  await check('    a team called "Finance" no longer may', 'deny', () => getDoc(doc(cx('u_jb_finance'), 'paymentSettings', 'stripe')));
+  await check('    nor read the declarations', 'deny', () => getDoc(doc(cx('u_jb_finance'), 'giftAid', 'ga_jb')));
+  await check('  the Parish office reads the declarations (the office job)', 'allow', () => getDoc(doc(cx('u_jb_office'), 'giftAid', 'ga_jb')));
+  await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'churchSettings', 'teamJobs'), { office: ['Parish office'], trustees: ['PCC'], buildings: [], catering: ['Kitchen team'], finance: ['Treasury'] }); });
+  await check('  A JOB NOBODY DOES ([]): nobody is on it - the Fabric team may not', 'deny', () => done('u_jb_fabric', 'mj_jb3'));
+  /* NO HIDDEN CAPS (H-9): my old 10, 20, 30 and 60 are now 500, the most one list holds */
+  const many = (n, p) => Array.from({ length: n }, (_, i) => p + i);
+  await check('NO HIDDEN CAPS: 500 people see the newcomers’ hellos (it was 30)', 'allow', () => setDoc(doc(as('martin'), 'welcomeSettings', 'main'), { memberIds: many(500, 'm_w'), updatedAt: serverTimestamp(), updatedBy: 'u_martin' }));
+  await check('  never 501', 'deny', () => setDoc(doc(as('martin'), 'welcomeSettings', 'main'), { memberIds: many(501, 'm_w'), updatedAt: serverTimestamp(), updatedBy: 'u_martin' }));
+  await check('  a children’s site names 500 teams (it was 20)', 'allow', () => setDoc(doc(as('martin'), 'kidsSettings', 'site_jb'), { teams: many(500, 'Team ') }));
+  await check('  the groups admins: 500 teams (it was 20)', 'allow', () => setDoc(doc(as('martin'), 'groupsSettings', 'main'), { teams: many(500, 'Team ') }));
+  await check('  never 501', 'deny', () => setDoc(doc(as('martin'), 'groupsSettings', 'main'), { teams: many(501, 'Team ') }));
+  await check('  the fire roll call holds 500 people (it was 60)', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: many(500, 'm_f').map((m) => ({ memberId: m })), memberIds: [], allSites: [], bySite: {}, updatedBy: 'u_martin', updatedAt: 'x' }));
+  await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'churchSettings', 'teamJobs'); if (tjWas) await setDoc(r, tjWas); else await deleteDoc(r); });
 }
 
 // Nothing else is open.

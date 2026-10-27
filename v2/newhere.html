@@ -184,7 +184,10 @@
     };
   }
   function setWelcomers(ids) {
-    db().collection('welcomeSettings').doc('main').set({ memberIds: ids.filter(function (x, i) { return ids.indexOf(x) === i; }).slice(0, 30), updatedAt: now(), updatedBy: EGBCAuth.user().uid })
+    /* No hidden limit (H-9): 500, the most one list holds, and it says so. */
+    var uniq = ids.filter(function (x, i) { return ids.indexOf(x) === i; });
+    if (uniq.length > 500) { var m = document.getElementById('w-msg'); if (m) m.textContent = 'Not saved: at most 500 people can see the hellos. Take some off first.'; return; }
+    db().collection('welcomeSettings').doc('main').set({ memberIds: uniq, updatedAt: now(), updatedBy: EGBCAuth.user().uid })
       .then(saved('w-msg', 'Saved: who sees the hellos.'), refused('w-msg'));
   }
   function loadTeam() {

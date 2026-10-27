@@ -12775,3 +12775,136 @@ Step 2 is in two parts:
   - item 5 (a shared rules helper for jobs) waits for H-9 part 2.
 - **F-293, option (a):** the audit treats safeguarding.html as open to anyone by design (report a concern). sg-print.html is now audited.
 - **Asked of you:** `giftAidOffice()` in the rules names the team "Finance". The Menu and Payments follow the money team setting (`paymentSettings/public.moneyTeam`), so a church whose money team is called "Treasury" gets the Menu entry but is refused by the rules. Could it follow the same setting, or the jobs (H-9)?
+### F-297 — H&S step 2b: my compliance, risk, maintenance, caterers' and payments pages follow the jobs, not team names; the accounts setting for any number of sites; Book a room for team leaders; my old caps up to 500 (F-280 section 8; H-9; H-16) (the events window, 27 Oct)
+
+**What was built:**
+- **The jobs, not team names (H-9).** Each of these now asks main's jobs mapping (`EGBCTeamJobs.teamsFor`, with the setting and then EGBC's team as fallbacks), on the page, in the rules and in the functions:
+
+  | Where | Job | Was |
+  |---|---|---|
+  | Building compliance, the risk register (pages and rules) | office, trustees | "Church office", the Elders |
+  | Maintenance (page, the app's Maintenance, rules) | buildings | "Maintenance" |
+  | The caterers' list (page and rules) | catering | "Catering" |
+  | Payments, Gift Aid (page, rules, `isTreasurer`) | finance | the money team setting, or "Finance" |
+  | The safeguarding register's trustees (page, rules, `maySee`) | trustees | the trustee team setting |
+  | The monthly compliance summary (functions/compliance.js) | office, trustees | "Church office", the Elders |
+
+  - Covered teams count everywhere, as the rules' `myTeams()` does.
+  - A page that refuses someone names the church's own teams: "This page is for the office (Parish office), the trustees (PCC) and master admins." The maintenance photo words say "Only the Fabric team and the office see the photo".
+  - Payments says when team jobs decide the money team: "Church settings' team jobs say who does the finance job, so it is changed there." The team picker hides then.
+  - **Main's question on `giftAidOffice()` is answered by this:** it is now the office job or the finance job. The finance job falls back to the money team setting, then "Finance". The rules read `paymentSettings/team`, which the setting's function writes together with `paymentSettings/public.moneyTeam`, so they agree.
+- **The accounts setting for any number of sites (F-108's cap of 3 gone).**
+  - Each site's bookings admins now read their own site's copy, `accountsFor/{siteId}`. The church-wide `settings/accounts` is for admins only.
+  - An admin's save writes every site's copy, in batches.
+  - A site added since then gets its copy when an admin next opens Room bookings (`fillMissing`).
+  - Rules: read by that site's office; written by admins; only the setting's own fields.
+- **Book a room for team leaders and core teams (main's H-16 ask):**
+  - rooms.html carries `data-leads`.
+  - A member's booking or request needs `leadsOrCore()` in the rules: a master admin, anyone who administers a team, a leader by role, or a core team (covers).
+- **My old caps up to 500 (H-9), and the page says when a list is full:**
+  - the welcomers (was 30)
+  - Kids Church and groups settings' teams (were 20)
+  - a group's visibility teams (was 10)
+  - the fire roll call's people (was 60)
+
+  Still to do: a job's responsible people (10) and files (10) in step 3; an event's teams (30) and audiences (30) in step 5.
+- **Health and safety settings:** covered teams now count for the office job, as in the rules.
+
+**Tests:**
+- **jobs-2b.test.mjs (new), 28/28.** As the synthetic parish (Parish office, PCC, Fabric team, Kitchen team, Treasury):
+  - each page lets in the team doing the job and turns away a team named as EGBC's
+  - the words name the parish's own teams
+  - a plain member is refused Book a room, and a team leader opens it
+  - the accounts setting is copied to all four sites; the fourth site's bookings admin reads it, but not the church-wide setting; a missing copy is filled
+  - then EGBC with no team jobs stored works as before
+- **The rules, 2040/2040; as a church, 2030/2040 (the known 10).** The new "BY JOB" block covers:
+  - buildings, the safeguarding register, repairs (with a covering core team), the caterers' list, payment settings and Gift Aid
+  - a job nobody does lets nobody in
+  - the accounts copies for a fourth site
+  - Book a room refused to a plain member, allowed to a covering team
+  - the new caps: 500 allowed and 501 refused
+- check-rules-build 10/10. check-stamps 11/11.
+
+**Breaks** (12; each caught; the rules rebuilt after each and at the end):
+
+| Break | Result | Caught by |
+|---|---|---|
+| **THE ONE THAT MATTERS:** compliance's rules ask for a team called "Church office", not the office job | rules 2035/2040; jobs-2b 28/28 | "the Parish office does the office job: it keeps the building compliance" and 4 more |
+| maintenance's rules ask for "Maintenance" | 2037/2040 | "its Fabric team marks a repair done" and 2 more |
+| the caterers' rules ask for "Catering" | 2038/2040 | "its Kitchen team reads the caterers' list" and 1 more |
+| the register's trustees by the setting, not the job | 2037/2040 | "the PCC reads the safeguarding register" and 2 more |
+| Book a room's rules let any member book | 2037/2040 | "a plain member is refused" and 2 more |
+| the welcome list's cap back to 30 | 2039/2040 | "500 people see the newcomers' hellos" |
+| the compliance page asks for "Church office" | 26/28 | "the Parish office opens it" and 1 more |
+| the maintenance page asks for "Maintenance" | 10/13 | "the Fabric team may mark a repair done" and 2 more |
+| the caterers' page asks for "Catering" | 26/28 | "the Kitchen team sees the orders" and 1 more |
+| the payments page asks for "Finance" | 26/28 | "Treasury opens it" and 1 more |
+| Book a room's page lets any member in | 27/28 | "a plain member is turned away" |
+| an admin's save writes no site copies | 25/28 | "copies it to every site" and 2 more |
+
+- The first break passes jobs-2b, because the compliance page decides by the job itself. Only the rules suite catches a rules-only break, so it is the one to run.
+
+**Nothing else changed** (the earlier tests, run again):
+
+| Test | Result |
+|---|---|
+| hs-settings | 30/30 |
+| compliance stage 1, gate, stage 2, stage 3, stage 4 | 57/57, 17/17, 44/44, 31/31, 41/41 |
+| sg-register, sg-dash, sg-warnings, sg-lead | 32/32, 45/45, 34/34, 14/14 |
+| maint-jobs, close-room, roomday | 13/13, 29/29, 34/34 |
+| stripe, payments-shut, gocardless, payments-nowebhook | 34/34, 11/11, 42/42, 17/17 |
+| r2-bookings, r3-bookings, combined-rooms, room-card | 50/50, 42/42, 33/33, 55/55 |
+| c5-stage2, c5-stage3, c5-hire-quote | 32/32, 48/48, 16/16 |
+| newhere, fire-rollcall, e3-settings | 27/27, 24/24, 21/21 |
+| c7-groups, c7-stage2, who-can-come, phone-fixes, app-jobs-office | 35/35, 26/26, 15/15, 24/24, 24/24 |
+
+**Tests I changed, and why:**
+- **The five room tests:** their booking member is now a team leader (Book a room, H-16).
+- **compliance stages 2 and 3:** the new words naming the teams.
+- **c5-stage3:** writes the site's copy, as an admin's save does.
+- **payments-shut:** "when the hub goes live". Main changed the functions' words (69228669), and this test was left behind.
+- **c7-stage2:** a groups admin is not the safeguarding lead, so since the 22 Oct rule she sees "the safeguarding lead can see this", not the DBS dates. A master admin's view is checked instead.
+- **gocardless:** waits for "Changed: £25.00", which the page writes after it reloads.
+- **sg-register:** its header now names the functions emulator, which F-290's step 8 needs.
+
+**For main** (your files; I haven't touched them):
+1. **app.html:** egbc-app-maint.js changed (the buildings job, and the words). Please bump its stamp from 202610101200.
+2. **egbc-app.js SPACES:** the Maintenance space's `teams: ['Maintenance']` could follow the buildings job. app.html's cards that name 'Church office' could follow the office job.
+3. **egbc-menu.js:**
+   - `node.money` checks `who.moneyTeam` only. A church that gives the finance job to "Treasury" in team jobs is let in by the rules and the pages, but the Menu doesn't offer Payments. Could it ask `EGBCTeamJobs.teamsFor(jobs, 'finance', set)`?
+   - The same goes for `isSgTrustee` and the trustees job.
+4. **The access matrix:** I couldn't run check-access-matrix. It uses the dev ports (8181, 9099), and another window's dev emulators held them; I didn't stop them. Please run it when you can. Book a room should now leave the "differs from Martin's decisions" list.
+
+**For Comms:** `meetingRunner` and the giving write in my rules section still name teams. Could they follow the office and trustees jobs (`raOnJob('office', …)`, `onTrustees()`)? They're yours, so I've left them.
+
+**A question for Martin (main's H-16 point 3):** should the Church office and the bookings admins keep Book a room from the app's Bookings tab, to see the day? Now they are refused unless they also lead a team or are on a core team. If they should keep it, I'll add them.
+
+**Found and not fixed:**
+- **Safeguarding settings' trustee box** doesn't say when team jobs decide the trustees, as Payments now does. I'll do it in step 3.
+- **A site added after the accounts setting is saved** gets its copy only when an admin next opens Room bookings. Until then, that site's bookings admins see the default setting (no accounts link, pay within 14 days).
+
+**For the synthetic parish:**
+- Its Parish office runs compliance and the risk register.
+- Its PCC are the trustees: they sign off, and see the safeguarding register.
+- Its Fabric team does the repairs, its Kitchen team sees the caterers' list, and Treasury runs payments and Gift Aid.
+- Each page names those teams.
+- All three buildings' bookings admins read the accounts setting, with no limit of three.
+- Its choir leader can book a room; a choir member asks the leader.
+
+**Deploy:**
+- **Functions changed:** compliance.js, sg-warnings.js and payments.js. The reviewing window deploys these.
+- The rules go live when the hub goes live.
+- SWITCHOVER-events.md 3.8 has a line on the accounts copies: after going live, a master admin opens Room bookings once.
+
+**Step 5's plan: away events for any age (the reviewing window's ask, for Martin, 27 Oct):**
+- **Three new kinds of assessment:** a day trip, a weekend away or retreat (residential), and adventurous activities.
+  - An event needs one automatically when it is off-site or overnight, at any age. This is added to answer 4's triggers, beside "100 people".
+- **It refers to the venue, not our building.**
+  - The venue's own fire and health and safety arrangements, and its risk assessment, are read with the same document and web readers as a host's requirements (F-292, F-293).
+  - Then the camp and overnight questions that aren't about children: sleeping, fire at the venue, travel and drivers, first aid, food and allergens, medical needs, emergency contacts, a named leader on call, weather, adventurous activities.
+- **Adults who may be vulnerable:** one question, "Is anyone coming who may need care or support?"
+  - If yes, it asks the general-words questions only, with no names and no medical details.
+  - Only then does it ask the safeguarding lead or deputy, under the register's existing access. Nothing else from safeguarding shows.
+- **Under-18s coming too:** the safeguarding assessment still applies on top, as now. The two are linked, both ways, and never merged.
+- **The same as the rest:** the AI draft, the dials, the checklist, the print and the rider.
+- **For the synthetic parish:** a PCC away day (a day trip, adults only), a parish pilgrimage abroad (residential and travel, perhaps someone needing support) and a choir trip (a day trip with under-18s, so linked to a safeguarding assessment).

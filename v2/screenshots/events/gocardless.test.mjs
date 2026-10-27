@@ -246,6 +246,7 @@ try {
   const b4 = CALLS.length;
   await D.$eval('#newAmt', e => { e.value = '25'; }); await D.$eval('#change', b => b.click());
   await until(async () => (await data('regularGifts', gift.id)).amount === 25);
+  await until(async () => /Changed: /.test(await text(D, '#msg')), 15000);   /* the page says so after it reloads */
   const put = CALLS.slice(b4).find(c => c.method === 'PUT' && c.url === '/subscriptions/SB1');
   ok('6. CHANGED TO £25: GoCardless told, and the page says so', put && JSON.parse(put.body).subscriptions.amount === 2500 && /Changed: £25\.00/.test(await text(D, '#msg')), 'page: ' + (await text(D, '#gift').catch(e => e.message)) + ' | calls: ' + J(CALLS.slice(b4).map(c => c.method + ' ' + c.url)));
 

@@ -283,8 +283,8 @@ try {
   const rj = (await jobs()).find(j => /chirping/.test(j.what));
   ok('   it is a Maintenance job, marked safety, in the right room', rj && rj.safety === true && rj.roomId === 'cmp_hall_kitchen' && rj.reportedBy === P.val.uid, J(rj));
   await val.goto(URLB + 'compliance.html', { waitUntil: 'networkidle2' });
-  await until(async () => /This page is for the church office/.test(await text(val)));
-  ok('   Val is turned away from the office page, pointed to "The building"', /This page is for the church office, the trustees and master admins/.test(await text(val)));
+  await until(async () => /This page is for the office \(/.test(await text(val)));
+  ok('   Val is turned away from the office page, pointed to "The building"', /This page is for the office \(Church office\), the trustees \(Elders\) and master admins/.test(await text(val)));
 
   /* ---------- 8. others ---------- */
   const vic = await as('vic');
@@ -295,8 +295,8 @@ try {
   ok('   the rules refuse him Val’s check', vicRead === 'permission-denied', vicRead);
   const nina = await as('nina');
   await nina.goto(URLB + 'compliance.html', { waitUntil: 'networkidle2' });
-  await until(async () => /This page is for the church office/.test(await text(nina)));
-  ok('   AN ATTENDER is turned away from the office page', /This page is for the church office/.test(await text(nina)) && !(await nina.$('[data-site]')));
+  await until(async () => /This page is for the office \(/.test(await text(nina)));
+  ok('   AN ATTENDER is turned away from the office page', /This page is for the office \(/.test(await text(nina)) && !(await nina.$('[data-site]')));
   const log = (await db.collection('complianceLog').get()).docs.map(d => d.data());
   ok('   EVERYTHING DONE IS IN THE LOG, by name', ['profile', 'done', 'edit', 'job'].every(w => log.some(l => l.what === w)) && log.some(l => l.byName === P.val.name && l.what === 'done'), J([...new Set(log.map(l => l.what))]));
   ok('   no page errors', errors.length === 0, errors.join(' | '));

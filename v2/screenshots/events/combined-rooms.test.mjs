@@ -76,7 +76,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   for (const k of Object.keys(P)) {
     const x = P[k];
     await setDoc(doc(db, 'addressBook', x.mid), { name: x.name, email: x.email, markers: [], adminFor: [], masterAdmin: !!x.master });
-    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: [], adminFor: [], masterAdmin: !!x.master, attender: true, status: 'active' });
+    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.master ? [] : ['Worship'], roles: x.master ? {} : { Worship: 'leader' }, adminFor: [], masterAdmin: !!x.master, attender: true, status: 'active' });   /* Book a room: team leaders and core teams (H-16) */
   }
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Church (invented)', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
   await setDoc(doc(db, 'sites', 'site_cr'), { name: 'Test Site (invented)', address: 'Invented Road', active: true, order: 1, bookingsEmail: 'bookings@example.invalid' });

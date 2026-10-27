@@ -31,10 +31,16 @@
   function addDays(day, n) { var d = new Date(day + 'T12:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + pad(d.getMonth() + 1, 2) + '-' + pad(d.getDate(), 2); }
 
   /* ---- the setting ---- */
-  var SETTINGS = null;
-  function settings(fresh) {
+  /* Admins read settings/accounts; a site's bookings admins read their
+     site's copy, accountsFor/{siteId} (office only, F-108; no limit on the
+     sites, H&S step 2b). An admin's save writes every site's copy. */
+  var SETTINGS = null, LAST_SITE = '';
+  function settings(fresh, siteId) {
+    if (siteId) LAST_SITE = siteId;
     if (SETTINGS && !fresh) return Promise.resolve(SETTINGS);
-    return db().collection('settings').doc('accounts').get().then(function (s) {
+    var admin = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
+    var ref = admin || !LAST_SITE ? db().collection('settings').doc('accounts') : db().collection('accountsFor').doc(LAST_SITE);
+    return ref.get().then(function (s) {
       SETTINGS = Object.assign({ mode: 'none', invoiceNumbersBy: 'hub', payText: '', payDays: 14 }, s.exists ? s.data() : {});
       return SETTINGS;
     }).catch(function () { SETTINGS = { mode: 'none', invoiceNumbersBy: 'hub', payText: '', payDays: 14 }; return SETTINGS; });
@@ -52,8 +58,27 @@
   /* Send one thing, never blocking: in 'calla' mode it is queued first,
      then tried; a failure leaves it waiting, with the reason. Resolves
      whatever happens. */
-  function send(kind, refId, siteId, payload) {
+  /* An admin's copies, one per site, in batches (a batch holds 500). */
+  function copyToSites(acc, siteIds) {
+    var out = [], b = db().batch(), n = 0, at = new Date().toISOString();
+    (siteIds || []).forEach(function (id) {
+      b.set(db().collection('accountsFor').doc(id), { mode: acc.mode, invoiceNumbersBy: acc.invoiceNumbersBy || 'hub', payText: acc.payText || '', payDays: acc.payDays, updatedAt: at });
+      if (++n === 400) { out.push(b.commit()); b = db().batch(); n = 0; }
+    });
+    if (n) out.push(b.commit());
+    return Promise.all(out);
+  }
+  /* A site added since the last save gets its copy when an admin next opens the bookings. */
+  function fillMissing(siteIds) {
+    if (!(EGBCAuth.isAdmin && EGBCAuth.isAdmin())) return Promise.resolve(0);
     return settings().then(function (st) {
+      return Promise.all((siteIds || []).map(function (id) { return db().collection('accountsFor').doc(id).get().then(function (s) { return s.exists ? null : id; }, function () { return null; }); }))
+        .then(function (missing) { missing = missing.filter(Boolean); return missing.length ? copyToSites(st, missing).then(function () { return missing.length; }) : 0; });
+    }).catch(function () { return 0; });
+  }
+
+  function send(kind, refId, siteId, payload) {
+    return settings(false, siteId).then(function (st) {
       if (st.mode !== 'calla') return ADAPTERS.none.send(kind, payload);
       var ref = db().collection('accountsQueue').doc('aq_' + kind + '_' + refId);
       return ref.set({ kind: kind, refId: refId, siteId: siteId, status: 'waiting', tries: 0, lastError: '', at: new Date().toISOString() })
@@ -73,7 +98,7 @@
   function sendInvoice(inv) { return send('invoice', inv.id, inv.siteId, inv); }
   function sendPayment(charge, p, i) { return send('payment', charge.id + '_' + i, charge.siteId, { charge: charge.id, payment: p }); }
   function fetchPaymentStatus(inv) {
-    return settings().then(function (st) { return (st.mode === 'calla' ? ADAPTERS.calla : ADAPTERS.none).status(inv); })
+    return settings(false, inv && inv.siteId).then(function (st) { return (st.mode === 'calla' ? ADAPTERS.calla : ADAPTERS.none).status(inv); })
       .catch(function (e) { return { ok: false, error: e.message || String(e) }; });
   }
   function waiting(siteId) {
@@ -117,7 +142,7 @@
 
   function issue(charges, o) {
     var counter = db().collection('counters').doc('invoices'), made, pay = '';
-    return settings().then(function (st) {
+    return settings(false, (charges && charges[0] && charges[0].siteId) || '').then(function (st) {
       return payWords(st).then(function (w) { pay = w; return st; });
     }).then(function (st) {
       return db().runTransaction(function (tx) {
@@ -187,7 +212,7 @@
     }, Promise.resolve());
   }
 
-  global.EGBCAccounts = { settings: settings, payWords: payWords, NOT_BUILT: NOT_BUILT, sendCustomer: sendCustomer, sendInvoice: sendInvoice, sendPayment: sendPayment,
+  global.EGBCAccounts = { settings: settings, copyToSites: copyToSites, fillMissing: fillMissing, payWords: payWords, NOT_BUILT: NOT_BUILT, sendCustomer: sendCustomer, sendInvoice: sendInvoice, sendPayment: sendPayment,
     fetchPaymentStatus: fetchPaymentStatus, waiting: waiting, retry: retry, issue: issue, number: number, HEAD: HEAD, rows: rows, markExported: markExported };
 
 })(typeof window !== 'undefined' ? window : this);

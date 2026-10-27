@@ -228,7 +228,7 @@ try {
   const olive = await as('olive');
   await olive.goto(URLB + 'compliance.html', { waitUntil: 'networkidle2' });
   await until(() => olive.$('#toReport')); await tap(olive, '#toReport'); await until(() => olive.$('#repTable'));
-  ok('   THE OFFICE sees the report but has no sign-off (the trustees sign off)', !(await olive.$('#soGo')) && /The trustees \(the Elders\) sign off/.test(await text(olive, '#signoff')));
+  ok('   THE OFFICE sees the report but has no sign-off (the trustees sign off)', !(await olive.$('#soGo')) && /The trustees \(Elders\) sign off/.test(await text(olive, '#signoff')));
 
   /* ---------- 6. fixing a safety job marks its check done ---------- */
   await db.collection('maintJobs').doc('mj_fix').set({ siteId: 'cmp_hall', roomId: 'cmp_hall_kitchen', where: 'Hall kitchen (invented)', what: 'Hot water only 40 degrees (invented)', details: '', photoPath: '', status: 'todo',

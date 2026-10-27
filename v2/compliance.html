@@ -76,8 +76,9 @@
 (function () {
   'use strict';
   /* BUILDING COMPLIANCE (Stage 2; F-230, F-231), feature 'buildingCompliance'.
-     Admins (master admins and the church office) set up buildings and edit
-     schedules; trustees (the Elders and master admins) see everything;
+     Admins (master admins and the teams doing the office job) set up
+     buildings and edit schedules; trustees (the trustees job, and master
+     admins) see everything;
      people a check is assigned to see and complete theirs (in "The
      building", building.html). The rules say the same.
      Due dates and colours come only from EGBCCompliance.schedule(). */
@@ -96,9 +97,11 @@
   /* The label beside every check, in plain words (Martin, 19 Oct). */
   function label(i) { return '<span class="pill basis-' + esc(i.basis || 'practice') + '" data-basis="' + esc(i.basis || 'practice') + '">' + esc(C.BASIS[i.basis] || C.BASIS.practice) + '</span>'; }
 
-  /* ---- who may do what (the rules say the same) ---- */
-  function isOffice() { return (EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : []).indexOf('Church office') >= 0; }
-  function isElder() { return (EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : []).indexOf('Elders') >= 0; }
+  /* ---- who may do what: by job, never a team's name (H-9; the rules say the same) ---- */
+  var JOBP = null;
+  function onJob(job) { return !!JOBP && EGBCTeamJobs.teamsFor(JOBP.jobs, job, JOBP.set).some(function (t) { return EGBCAuth.inTeam(t); }); }
+  function jobName(job) { return (JOBP && EGBCTeamJobs.label(JOBP.jobs, job, null, JOBP.set)) || ''; }
+  function perms(profile) { return EGBCAuth.loadPerms().then(function (P) { JOBP = P; return profile; }, function () { return profile; }); }
 
   function sheet(html) {
     var back = document.createElement('div'); back.className = 'back';
@@ -161,7 +164,7 @@
       (TRUSTEE ? '<div class="noprint">' + (mine.length ? '<p class="m">Signed off for ' + year + '.</p>' : '') +
         '<label class="l" for="soNote">Note (optional)</label><textarea id="soNote" maxlength="1000"></textarea>' +
         '<label class="chk"><input type="checkbox" id="soYes"> I have reviewed the building compliance for ' + year + '.</label>' +
-        '<div class="row"><button class="btn" id="soGo">Sign off for ' + year + '</button></div><p class="said" id="soMsg" role="status"></p></div>' : '<p class="m">The trustees (the Elders) sign off.</p>') + '</div>';
+        '<div class="row"><button class="btn" id="soGo">Sign off for ' + year + '</button></div><p class="said" id="soMsg" role="status"></p></div>' : '<p class="m">The trustees' + (jobName('trustees') ? ' (' + esc(jobName('trustees')) + ')' : '') + ' sign off.</p>') + '</div>';
   }
   function csv() {
     var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -392,14 +395,14 @@
     return Promise.all(SITES.map(function (s) { return loadBuilding(s.id).then(function (b) { s._profile = b.profile && b.profile.siteId ? b.profile : null; s._sched = s._profile ? sched(b) : null; if (s._sched) writeStatus(s.id, s._sched); }); }));
   }
 
-  E.ready().then(function (profile) {
+  E.ready().then(perms).then(function (profile) {
     ME = E.asSeen(profile || {});
     var master = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
-    ADMIN = master || isOffice();
-    TRUSTEE = master || isElder();
+    ADMIN = master || onJob('office');
+    TRUSTEE = master || onJob('trustees');
     if (!ADMIN && !TRUSTEE) {
       E.refused();
-      $('wrap').innerHTML = '<h1>Building compliance</h1><div class="card"><p>This page is for the church office, the trustees and master admins. If a check has been given to you, it is in <a href="building.html">The building</a>.</p></div>';
+      $('wrap').innerHTML = '<h1>Building compliance</h1><div class="card"><p id="whoFor">This page is for the office (' + esc(jobName('office') || 'nobody yet') + '), the trustees (' + esc(jobName('trustees') || 'nobody yet') + ') and master admins. If a check has been given to you, it is in <a href="building.html">The building</a>.</p></div>';
       return null;
     }
     return ST.gate(db(), window.EGBCLaunch).then(function (g) {

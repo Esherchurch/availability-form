@@ -190,17 +190,23 @@ try {
   ok('4. the leader puts up the group\'s picture', !!(await until(async () => /smallGroups/.test((await get('smallGroups', 'sg_youth')).image || ''), 25000)));
 
   /* ---------- 5. under-18s: the leaders' checks ---------- */
+  /* DBS dates are the safeguarding lead and deputy's, and master admins' (Martin's rule, 22 Oct 2026):
+     a groups admin sees that the lead can see them, not the dates. */
   const gB = await as('gina'); const GI = gB.page;
-  await go(GI, 'groups-admin.html', '[data-check="m_lena"]');
-  ok('5. an under-18s group shows its leader\'s checks: DBS and training missing', /Lena Leader: DBS missing, training missing/.test(await text(GI, '[data-checks="sg_youth"]')) && !!(await GI.$('[data-checks-short="1"]')),
+  await go(GI, 'groups-admin.html', '[data-checks="sg_youth"] .hint');
+  ok('5. A GROUPS ADMIN (not the safeguarding lead) sees "the safeguarding lead can see this", not the DBS dates', /Lena Leader: the safeguarding lead can see this/.test(await text(GI, '[data-checks="sg_youth"]')) && !(await GI.$('[data-check="m_lena"]')),
     await text(GI, '[data-checks="sg_youth"]'));
-  ok('   and points to the leader declaration on Forms', !!(await GI.$('[data-checks="sg_youth"] a[href="forms-admin.html"]')));
   const kB = await as('karen'); const KA = kB.page;
+  await go(KA, 'groups-admin.html', '[data-check="m_lena"]');
+  ok('   a master admin sees the leader\'s checks: DBS and training missing', /Lena Leader: DBS missing, training missing/.test(await text(KA, '[data-checks="sg_youth"]')) && !!(await KA.$('[data-checks-short="1"]')),
+    await text(KA, '[data-checks="sg_youth"]'));
+  ok('   and points to the leader declaration on Forms', !!(await KA.$('[data-checks="sg_youth"] a[href="forms-admin.html"]')));
   await go(KA, 'groups-admin.html', '[data-record="m_lena"]'); await tap(KA, '[data-record="m_lena"]'); await KA.waitForSelector('#rc-save');
   await KA.select('#rc-dbs', 'current'); await val(KA, '#rc-seen', TODAY); await val(KA, '#rc-train', TODAY); await tap(KA, '#rc-save');
   await until(async () => (await get('leaderChecks', 'm_lena') || {}).dbsStatus === 'current');
-  await go(GI, 'groups-admin.html', '[data-check="m_lena"]');
-  ok('   a master admin records her checks: she is cleared', /Lena Leader: DBS ok, training ok/.test(await text(GI, '[data-checks="sg_youth"]')) && !(await GI.$('[data-checks-short]')), await text(GI, '[data-checks="sg_youth"]'));
+  await go(KA, 'groups-admin.html', '[data-check="m_lena"]');
+  ok('   a master admin records her checks: she is cleared', /Lena Leader: DBS ok, training ok/.test(await text(KA, '[data-checks="sg_youth"]')) && !(await KA.$('[data-checks-short]')), await text(KA, '[data-checks="sg_youth"]'));
+  await go(GI, 'groups-admin.html', '[data-checks="sg_youth"] .hint');
   /* F-109 (Martin): naming an uncleared leader to an under-18s group is refused */
   await tap(GI, '[data-gedit="sg_youth"]'); await GI.waitForSelector('#f-addlead');
   await GI.select('#f-addlead', 'm_ned'); await tap(GI, '#f-save');
@@ -216,11 +222,12 @@ try {
   await tap(KA, '#f-save');
   await until(async () => (await get('smallGroups', 'sg_youth')).leaderIds.includes('m_ned'));
   ok('   a master admin records an exception, with a reason; then Ned can be named', J((await get('smallGroups', 'sg_youth')).leaderIds) === J(['m_lena', 'm_ned']));
-  await go(GI, 'groups-admin.html', '[data-exception="m_ned"]');
-  ok('   and the group shows the exception, with its reason', /Exception: DBS applied for; always with Lena/.test(await text(GI, '[data-checks="sg_youth"]')));
+  await go(KA, 'groups-admin.html', '[data-exception="m_ned"]');
+  ok('   and the group shows the exception, with its reason', /Exception: DBS applied for; always with Lena/.test(await text(KA, '[data-checks="sg_youth"]')));
   await kB.close();
 
   /* ---------- 6. oversight ---------- */
+  await go(GI, 'groups-admin.html', '[data-tab="oversight"]');   /* fresh: Ned was named since Gina last looked */
   await tap(GI, '[data-tab="oversight"]'); await GI.waitForSelector('[data-ov="sg_youth"]');
   const row = await text(GI, '[data-ov="sg_youth"]');
   ok('6. oversight: every group, its members, when it last met, how many usually come', /Tuesday youth group Under-18s 1 Lena Leader/.test(row) && row.includes('1.8'), row);

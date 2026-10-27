@@ -236,7 +236,9 @@ try {
   ok('   HOW TO PAY: nothing typed in Accounts, so the church\'s bank details, kept on the invoice and its bookings', inv1.payText === GIVING && (await get('bookings', KA1)).invoice.payText === GIVING, J(inv1.payText));
   ok('   and printed in the email', !!mi && mi.html.includes(GIVING), mi && mi.html.slice(-400));
   /* Words typed in the Accounts box override it, from the next invoice on. */
-  await readDb(db => setDoc(doc(db, 'settings', 'accounts'), { mode: 'none', invoiceNumbersBy: 'hub', officeSites: ['site_t'], payText: OWN, payDays: 14 }));
+  /* as an admin's save: the setting, and each site's copy for its bookings admins (accountsFor, H&S step 2b) */
+  await readDb(async db => { await setDoc(doc(db, 'settings', 'accounts'), { mode: 'none', invoiceNumbersBy: 'hub', payText: OWN, payDays: 14 });
+    await setDoc(doc(db, 'accountsFor', 'site_t'), { mode: 'none', invoiceNumbersBy: 'hub', payText: OWN, payDays: 14 }); });
   await go(L, 'bookings-admin.html', '[data-tab="coming"]'); await tap(L, '[data-tab="coming"]');
   await L.waitForSelector(`[data-key="${KB}"] [data-do="invoice"]`);
   ok('   a monthly hirer\'s booking has no "Issue an invoice"; a one-off\'s does', !(await L.$(`[data-key="${KA1}"] [data-do="invoice"]`)));

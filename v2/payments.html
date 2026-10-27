@@ -54,6 +54,11 @@
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
   var STRIPE = null, GC = null, TEAM = 'Finance', MASTER = false, GIFTS = null, DONATIONS = null;
+  /* THE FINANCE JOB (H-9): Church settings' team jobs, where the church has
+     said; otherwise the money team below (EGBC: Finance). */
+  var JOBP = null;
+  function financeTeams() { return JOBP ? EGBCTeamJobs.teamsFor(JOBP.jobs, 'finance', JOBP.set) : [TEAM]; }
+  function byJobs() { return !!(JOBP && JOBP.jobs && Object.prototype.hasOwnProperty.call(JOBP.jobs, 'finance')); }
   function db() { return EGBCAuth.db; }
   function say(id, cls, m) { var el = document.getElementById(id); if (el) { el.className = cls; el.textContent = m; } }
   function when(ts) { var d = ts && ts.toDate ? ts.toDate() : null; return d ? E.fmtDate(d) : ''; }
@@ -144,8 +149,9 @@
       '<p class="hint" style="margin-bottom:0">The key (and the signing secret, if you add the webhook) go to the hub\'s server once and are never shown again, to anyone. To change them, paste new ones.</p></div>';
   }
   function teamCard() {
-    return '<div class="card" id="team"><h2>Who can set this up</h2><p class="hint" style="margin-top:0">Master admins, and anyone on the church\'s money team: <b id="teamName">' + esc(TEAM) + '</b>.</p>' +
-      (MASTER ? '<label for="teamInp">The money team</label><input class="inp" id="teamInp" maxlength="60" value="' + esc(TEAM) + '"><button class="btn sec" id="saveTeam">Save</button><p id="teamMsg" role="status"></p>' : '') + '</div>';
+    return '<div class="card" id="team"><h2>Who can set this up</h2><p class="hint" style="margin-top:0">Master admins, and anyone on the church\'s money team: <b id="teamName">' + esc(byJobs() ? (EGBCTeamJobs.label(JOBP.jobs, 'finance', null, JOBP.set) || 'nobody yet') : TEAM) + '</b>.</p>' +
+      (byJobs() ? '<p class="hint" id="teamByJobs">Church settings’ team jobs say who does the finance job, so it is changed there.</p>' : '') +
+      (MASTER && !byJobs() ? '<label for="teamInp">The money team</label><input class="inp" id="teamInp" maxlength="60" value="' + esc(TEAM) + '"><button class="btn sec" id="saveTeam">Save</button><p id="teamMsg" role="status"></p>' : '') + '</div>';
   }
   function draw() {
     document.getElementById('wrap').innerHTML = '<h1>Payments</h1><p class="sub">Taking money online, straight into the church\'s own accounts.</p>' + stripeCard() + gcCard() + givingCard() + teamCard();
@@ -226,12 +232,15 @@
        shouldn't be seen by anyone other than the admin or designated
        people"). Until switch-over the rules don't, so the page must. Master
        admins and the money team only, as isTreasurer() on the server. */
-    if (MASTER) return load();
-    return db().collection('paymentSettings').doc('team').get().catch(function () { return null; }).then(function (t) {
-      var team = (t && t.exists && t.data().team) || 'Finance';
-      var mine = (EGBCAuth.inTeam && EGBCAuth.inTeam(team)) || (EGBCAuth.isAdminOf && EGBCAuth.isAdminOf(team));
+    return EGBCAuth.loadPerms().then(function (P) { JOBP = P; }, function () { JOBP = null; }).then(function () {
+      if (MASTER) return load();
+      return db().collection('paymentSettings').doc('team').get().catch(function () { return null; }).then(function (t) {
+      TEAM = (t && t.exists && t.data().team) || 'Finance';
+      if (JOBP) JOBP.set = Object.assign({}, JOBP.set, { moneyTeam: TEAM });
+      var mine = financeTeams().some(function (team) { return (EGBCAuth.inTeam && EGBCAuth.inTeam(team)) || (EGBCAuth.isAdminOf && EGBCAuth.isAdminOf(team)); });
       if (!mine) { var err = new Error('permission'); err.code = 'permission-denied'; throw err; }
       return load();
+      });
     });
   }).catch(function (e) {
     var denied = /permission|insufficient/i.test(String(e && (e.code || e.message)));

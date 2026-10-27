@@ -76,8 +76,8 @@
        - changes since the professional assessment
        - the trustees' dated snapshots
        - the building's GEEP (visitors who need help to get out)
-     The office (master admins, Church office) keeps it; the trustees (the
-     Elders, master admins) see it and take snapshots. The rules say so. */
+     The office (master admins, the office job) keeps it; the trustees (the
+     trustees job, master admins) see it and take snapshots. The rules say so. */
   var E = window.EGBCEvents, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates, ST = window.EGBCComplianceStore, esc = E.esc;
   var HELD = '', ME = {}, ADMIN = false, TRUSTEE = false, CHURCH = '', SITES = [], SITE = null, TEMPLATES = [], B = null, VIEW = 'hazards';
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -88,6 +88,11 @@
   function day(s) { if (!s) return ''; var p = String(s).slice(0, 10).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
   function addYears(d, n) { var p = d.split('-').map(Number); return new Date(Date.UTC(p[0] + n, p[1] - 1, p[2])).toISOString().slice(0, 10); }
   function toast(m) { var t = $('said'); if (t) t.textContent = m; }
+  /* ---- who may do what: by job, never a team's name (H-9; the rules say the same) ---- */
+  var JOBP = null;
+  function onJob(job) { return !!JOBP && EGBCTeamJobs.teamsFor(JOBP.jobs, job, JOBP.set).some(function (t) { return EGBCAuth.inTeam(t); }); }
+  function jobName(job) { return (JOBP && EGBCTeamJobs.label(JOBP.jobs, job, null, JOBP.set)) || ''; }
+  function perms(profile) { return EGBCAuth.loadPerms().then(function (P) { JOBP = P; return profile; }, function () { return profile; }); }
   function sheet(html) {
     var back = document.createElement('div'); back.className = 'back';
     back.innerHTML = '<div class="sheet" role="dialog" aria-modal="true"><button class="x" type="button" aria-label="Close">✕</button>' + html + '</div>';
@@ -264,14 +269,14 @@
     };
   }
 
-  E.ready().then(function (profile) {
+  E.ready().then(perms).then(function (profile) {
     ME = E.asSeen(profile || {});
-    var master = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), teams = EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : [];
-    ADMIN = master || teams.indexOf('Church office') >= 0;
-    TRUSTEE = master || teams.indexOf('Elders') >= 0;
+    var master = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+    ADMIN = master || onJob('office');
+    TRUSTEE = master || onJob('trustees');
     if (!ADMIN && !TRUSTEE) {
       E.refused();
-      $('wrap').innerHTML = '<h1>Live risk register</h1><div class="card"><p>This page is for the church office, the trustees and master admins.</p></div>';
+      $('wrap').innerHTML = '<h1>Live risk register</h1><div class="card"><p id="whoFor">This page is for the office (' + esc(jobName('office') || 'nobody yet') + '), the trustees (' + esc(jobName('trustees') || 'nobody yet') + ') and master admins.</p></div>';
       return null;
     }
     return ST.gate(db(), window.EGBCLaunch).then(function (g) {

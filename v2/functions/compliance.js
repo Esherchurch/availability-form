@@ -14,7 +14,8 @@
           overdue    when it turns red
         Each once per due date (complianceReminders/<check>__<due>__<kind>).
      3. On the 1st of the month, A SUMMARY of everything amber or red to the
-        office (Church office), the trustees (Elders) and master admins.
+        office and the trustees (their jobs: churchSettings/teamJobs, H-9;
+        EGBC: Church office, Elders) and master admins.
 
    Due dates and colours come from THE engine - the very file the pages use,
    copied in by tools/sync-compliance.mjs (a test fails if it differs).
@@ -28,6 +29,7 @@
 
 import { createRequire } from 'node:module';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { getFirestore } from 'firebase-admin/firestore';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
@@ -102,8 +104,9 @@ export async function runCompliance({ db, send, today }) {
   if (today.slice(8) === '01') {
     const mark = db.collection('complianceReminders').doc('summary__' + today.slice(0, 7));
     if (!(await mark.get()).exists) {
+      const tj = await readTeamJobs(db), told = teamsFor(tj.map, 'office', tj.set).concat(teamsFor(tj.map, 'trustees', tj.set));
       const users = all(await db.collection('users').where('status', '==', 'active').get())
-        .filter((u) => u.masterAdmin === true || (u.teams || []).includes('Church office') || (u.teams || []).includes('Elders'));
+        .filter((u) => u.masterAdmin === true || (u.teams || []).concat(u.covers || []).some((t) => told.includes(t)));
       const to = [];
       for (const u of users) { const x = u.memberId ? await person(u.memberId) : null; if (x && !x.archived && okMail(x.email)) to.push(String(x.email).toLowerCase()); }
       const uniq = [...new Set(to)];

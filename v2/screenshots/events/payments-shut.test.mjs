@@ -41,7 +41,7 @@ const { initializeApp } = fnRequire('firebase-admin/app');
 const { getFirestore } = fnRequire('firebase-admin/firestore');
 initializeApp({ projectId: PROJECT });
 const db = getFirestore();
-const WORDS = 'Online payments open when the church switches over.';
+const WORDS = 'Online payments open when the hub goes live.';
 
 const results = [];
 function ok(name, pass, why) { results.push(!!pass); console.log((pass ? '  PASS  ' : '  FAIL  ') + name + (pass || !why ? '' : '\n          ' + String(why).slice(0, 600))); }
@@ -160,7 +160,7 @@ try {
   await until(() => G.$('#payNow'));
   await G.$eval('#payNow', b => b.click());
   const c5 = await said(G, '#payMsg');
-  ok('5. OTHER REFUSALS KEEP THEIR OWN WORDS: gate open, no Stripe key: "This church does not take card payments online."', /This church does not take card payments online/.test(c5) && !/switches over/.test(c5), c5);
+  ok('5. OTHER REFUSALS KEEP THEIR OWN WORDS: gate open, no Stripe key: "This church does not take card payments online."', /This church does not take card payments online/.test(c5) && !/switches over|goes live/.test(c5), c5);
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

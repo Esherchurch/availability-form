@@ -384,12 +384,13 @@
     /* the register's own switch (main's safeguardingRegister, F-268) */
     if (EGBCAuth.uses && !EGBCAuth.uses('safeguardingRegister')) { app.innerHTML = '<div class="card" id="regOff">The safeguarding risk register is turned off for this church. Church settings can turn it on.</div>'; return; }
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
-    return Promise.all([SG.myLeadSites(), db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }), db().collection('sites').where('active', '==', true).get()])
+    return Promise.all([SG.myLeadSites(), db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }), db().collection('sites').where('active', '==', true).get(), EGBCAuth.loadPerms().catch(function () { return null; })])
       .then(function (r) {
         LEADSITES = r[0] || [];
         SET = (r[1] && r[1].exists && r[1].data()) || {};
-        var team = SET.trusteeTeam || 'Elders';
-        TRUSTEE = !!(EGBCAuth.inTeam && EGBCAuth.inTeam(team));
+        /* the trustees job (H-9): team jobs, then this setting, then EGBC's Elders */
+        var P = r[3], teams = P ? EGBCTeamJobs.teamsFor(P.jobs, 'trustees', Object.assign({}, P.set, { trusteeTeam: SET.trusteeTeam || 'Elders' })) : [SET.trusteeTeam || 'Elders'];
+        TRUSTEE = teams.some(function (t) { return !!(EGBCAuth.inTeam && EGBCAuth.inTeam(t)); });
         var all = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
         SITES = (MASTER || TRUSTEE) ? all : all.filter(function (x) { return LEADSITES.indexOf(x.id) >= 0; });
         if (!SITES.length) { app.innerHTML = '<div class="card" id="notYours"><p style="margin:0">This page is for the safeguarding lead and deputy, and the trustees.</p></div>'; return; }

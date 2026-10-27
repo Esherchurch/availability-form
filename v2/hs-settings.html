@@ -190,7 +190,8 @@
   }
 
   EGBCAuth.require().then(function () { return EGBCAuth.loadPerms(); }).then(function (P) {
-    MAY = EGBCAuth.isMaster() || TJ.onJob(P.jobs, EGBCAuth.effectiveTeams(), 'office', P.set);
+    /* covered teams count, as the rules' myTeams() (inTeam) */
+    MAY = EGBCAuth.isMaster() || TJ.teamsFor(P.jobs, 'office', P.set).some(function (t) { return EGBCAuth.inTeam(t); });
     if (!MAY) {
       E.refused();
       var office = TJ.label(P.jobs, 'office', null, P.set);

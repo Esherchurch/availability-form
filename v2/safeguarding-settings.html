@@ -168,7 +168,9 @@
       b.onclick = function () { var id = b.getAttribute('data-firedrop'); FIRE.people = FIRE.people.filter(function (p) { return p.memberId !== id; }); redrawFire('Not saved yet.'); };
     });
     document.getElementById('fireSave').onclick = function () {
-      var btn = this, people = (FIRE.people || []).slice(0, 60), bySite = {};
+      /* No hidden limit (H-9): 500, the most one list holds, and it says so. */
+      if ((FIRE.people || []).length > 500) { redrawFire('Not saved: the fire roll call holds at most 500 people. Take some off first.'); return; }
+      var btn = this, people = (FIRE.people || []).slice(), bySite = {};
       people.forEach(function (p) { if (p.siteId) (bySite[p.siteId] = bySite[p.siteId] || []).push(p.memberId); });
       btn.disabled = true;
       db().collection('fireRollCall').doc('main').set({

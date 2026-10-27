@@ -222,10 +222,11 @@
       var sv = document.getElementById('x-save');
       if (sv) sv.onclick = function () {
         var mode = (document.querySelector('input[name="x-mode"]:checked') || {}).value || 'none';
-        /* officeSites: whose bookings admins may read this (office only, F-108). */
-        db().collection('settings').doc('accounts').set({ mode: mode, invoiceNumbersBy: 'hub', officeSites: (ctx.siteIds ? ctx.siteIds() : []).slice(0, 3),
-          payText: document.getElementById('x-pay').value.trim().slice(0, 1000),
-          payDays: Math.max(0, Math.min(120, parseInt(document.getElementById('x-days').value, 10) || 14)) })
+        /* Each site's bookings admins read their site's copy (office only, F-108; every site, no limit). */
+        var acc = { mode: mode, invoiceNumbersBy: 'hub', payText: document.getElementById('x-pay').value.trim().slice(0, 1000),
+          payDays: Math.max(0, Math.min(120, parseInt(document.getElementById('x-days').value, 10) || 14)) };
+        db().collection('settings').doc('accounts').set(acc)
+          .then(function () { return A.copyToSites(acc, ctx.siteIds ? ctx.siteIds() : []); })
           .then(function () { return A.settings(true); }).then(function () { ctx.toast('Saved'); return ctx.reload({ tab: 'accounts' }); })
           .catch(function (e) { ctx.toast('Could not save: ' + (e.message || e)); });
       };

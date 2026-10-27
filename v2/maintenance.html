@@ -73,6 +73,13 @@
      open them again, and they alone see a job's photo. */
   var E = window.EGBCEvents, esc = E.esc;
   var ME = {}, JOBS = [], ROOMS = [], SITES = [], OFFICE_SITES = [], TEAM = false, ADMIN = false;
+  /* ---- who may do what: by job, never a team's name (H-9; the rules say the same) ---- */
+  var JOBP = null;
+  function onJob(job) { return !!JOBP && EGBCTeamJobs.teamsFor(JOBP.jobs, job, JOBP.set).some(function (t) { return EGBCAuth.inTeam(t); }); }
+  function jobName(job) { return (JOBP && EGBCTeamJobs.label(JOBP.jobs, job, null, JOBP.set)) || ''; }
+  function perms(profile) { return EGBCAuth.loadPerms().then(function (P) { JOBP = P; return profile; }, function () { return profile; }); }
+  /* "the Maintenance team", or the church's own name for the buildings job */
+  function teamWords() { var n = jobName('buildings'); return n ? 'the ' + n + (/team$/i.test(n) ? '' : ' team') : 'the buildings team'; }
   function db() { return EGBCAuth.db; }
   function uid() { return (EGBCAuth.user() || {}).uid || ''; }
   function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3500); }
@@ -149,7 +156,7 @@
         '<label class="l" for="r-what">What is wrong</label><input class="inp" id="r-what" maxlength="200" placeholder="e.g. Two lights out">' +
         '<label class="l" for="r-details">More detail (if it helps)</label><textarea id="r-details" maxlength="2000"></textarea>' +
         '<label class="l" for="r-photo">A photo (optional)</label><input class="inp" id="r-photo" type="file" accept="image/*" capture="environment" style="padding:10px">' +
-        '<p class="hint">Only the Maintenance team and the office see the photo.</p>' +
+        '<p class="hint">Only ' + esc(teamWords()) + ' and the office see the photo.</p>' +
         '<div id="r-err"></div><button class="btn" id="r-go">Report it</button></div>' +
       (done.length ? '<div class="card" id="done"><h2>Done</h2>' + done.map(row).join('') + '</div>' : '');
     document.getElementById('r-room').onchange = function () { document.getElementById('r-else-box').style.display = this.value === '__else' ? '' : 'none'; };
@@ -188,7 +195,7 @@
       if (!file) return;
       return EGBCAuth.storage().ref('maintJobs/' + id + '/photo').put(file, { contentType: file.type || 'image/jpeg' })
         .catch(function () { toast('The job is reported, but the photo did not go up.'); return db().collection('maintJobs').doc(id).update({ photoPath: '' }); });
-    }).then(function () { toast('Thank you. The Maintenance team will see it.'); return load(); })
+    }).then(function () { toast('Thank you. ' + teamWords().charAt(0).toUpperCase() + teamWords().slice(1) + ' will see it.'); return load(); })
       .catch(function (e) { btn.disabled = false; err.innerHTML = '<p class="st no">Could not report it: ' + esc(e.message || e) + '</p>'; });
   }
   function markDone(id, btn) {
@@ -239,9 +246,9 @@
     });
   }
 
-  EGBCAuth.require().then(function (profile) {
+  EGBCAuth.require().then(perms).then(function (profile) {
     ME = E.asSeen(profile || {});   /* view as: the person being viewed */
-    TEAM = (ME.teams || []).indexOf('Maintenance') >= 0;
+    TEAM = onJob('buildings');
     ADMIN = !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin());
     return Promise.all([db().collection('sites').get().catch(function () { return { docs: [] }; }), db().collection('rooms').get().catch(function () { return { docs: [] }; }),
                         db().collection('bookingSettings').get().catch(function () { return { docs: [] }; })]);

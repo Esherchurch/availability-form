@@ -1185,8 +1185,10 @@ function sgTrusteeTeam() {
 return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
 ? get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('trusteeTeam', 'Elders') : 'Elders';
 }
+function trusteeTeams() { return raJobTeams('trustees', [sgTrusteeTeam()]); }
+function onTrustees() { return active() && myTeams().hasAny(trusteeTeams()); }
 function sgRegSees(siteId) {
-return isMaster() || sgLeadOf(siteId) || onTeam(sgTrusteeTeam());
+return isMaster() || sgLeadOf(siteId) || onTrustees();
 }
 function sgDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
 function sgText(v, n) { return v is string && v.size() <= n; }
@@ -1288,7 +1290,7 @@ return d.siteId == ev.get('location', {}).get('siteId', '')
 }
 match /sgNoted/{calEventId} {
 allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
-allow create, update: if (isMaster() || onTeam(sgTrusteeTeam()))
+allow create, update: if (isMaster() || onTrustees())
 && request.resource.data.keys().hasOnly(['siteId', 'version', 'by', 'byName', 'at'])
 && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
 && sgText(request.resource.data.get('byName', ''), 80)
@@ -1323,7 +1325,7 @@ match /sgDashboard/{siteId} {
 allow read: if sgRegSees(siteId);
 allow write: if false;
 }
-function sgTrustee() { return onTeam(sgTrusteeTeam()); }
+function sgTrustee() { return onTrustees(); }
 function sgLeadSite() {
 return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
 ? get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', '') : '';
@@ -1755,9 +1757,15 @@ function slotsFreeIn(d, p) {
 let dow = string(isoDow(d.day));
 return p.size() == 0 ? partFree(d.roomId, d, dow) : (roomOpen(d.roomId, d.day) && partsFree(p, d, dow));
 }
+function leadsOrCore() {
+return isMaster() || me().get('adminFor', []).size() > 0
+|| 'owner' in me().get('roles', {})
+|| me().get('roles', {}).values().hasAny(['leader', 'admin', 'owner'])
+|| me().get('covers', []).size() > 0;
+}
 function memberCreate(key) {
 let d = request.resource.data;
-return d.kind == 'member' && active() && d.memberUid == request.auth.uid
+return d.kind == 'member' && active() && d.memberUid == request.auth.uid && leadsOrCore()
 && roomData(d.roomId).get('bookableByMembers', true) == true
 && (!('bookingType' in d) || d.status == 'requested'
 || get(/databases/$(database)/documents/bookingTypes/$(d.bookingType)).data.get('charged', false) == false)
@@ -1836,7 +1844,7 @@ allow update: if (theOffice(resource.data.siteId) && theOffice(request.resource.
 || memberCancel(key) || hirerAccepts() || hirerAsksCancel() || arrives();
 allow delete: if false;
 }
-function cateringSees(siteId) { return theOffice(siteId) || onTeam('Catering'); }
+function cateringSees(siteId) { return theOffice(siteId) || raOnJob('catering', ['Catering']); }
 match /cateringOrders/{key} {
 allow read: if cateringSees(resource.data.siteId);
 allow update: if cateringSees(resource.data.siteId)
@@ -1976,16 +1984,20 @@ allow create, update: if theOffice(request.resource.data.siteId)
 && request.resource.data.get('documents', []) is list && request.resource.data.get('documents', []).size() <= 30;
 allow delete: if false;
 }
-function officeOfListed(sites) {
-return (sites.size() > 0 && bookingsAdminOf(sites[0]))
-|| (sites.size() > 1 && bookingsAdminOf(sites[1]))
-|| (sites.size() > 2 && bookingsAdminOf(sites[2]));
-}
 match /settings/accounts {
-allow read: if isAdmin() || officeOfListed(resource.data.get('officeSites', []));
+allow read: if isAdmin();
 allow write: if isAdmin()
 && request.resource.data.mode in ['none', 'calla']
 && request.resource.data.get('invoiceNumbersBy', 'hub') in ['hub', 'calla'];
+}
+match /accountsFor/{siteId} {
+allow read: if theOffice(siteId);
+allow write: if isAdmin()
+&& request.resource.data.keys().hasOnly(['mode', 'invoiceNumbersBy', 'payText', 'payDays', 'updatedAt'])
+&& request.resource.data.mode in ['none', 'calla']
+&& request.resource.data.get('invoiceNumbersBy', 'hub') in ['hub', 'calla']
+&& request.resource.data.get('payText', '') is string && request.resource.data.get('payText', '').size() <= 1000
+&& request.resource.data.get('payDays', 14) is int;
 }
 match /accountsQueue/{itemId} {
 allow read: if theOffice(resource.data.siteId);
@@ -2036,7 +2048,7 @@ allow update, delete: if false;
 match /kidsSettings/{siteId} {
 allow read: if volunteer();
 allow write: if ((isMaster() || sgLeadOf(siteId))
-&& request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20
+&& request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500
 && request.resource.data.get('formId', '') is string
 && request.resource.data.get('screenPaging', true) is bool)
 || (kidsLead(siteId) && resource != null
@@ -2326,7 +2338,7 @@ let a = d.get('canCome', []);
 return (v == 'public' && a.hasAll(['public', 'members']) && a.size() == 2)
 || (v == 'members' && a == ['members'])
 || (v == 'churchMembers' && a == ['churchMembers'])
-|| (v == 'team' && d.get('teams', []) is list && d.get('teams', []).size() > 0 && d.get('teams', []).size() <= 10 && a == d.get('teams', []));
+|| (v == 'team' && d.get('teams', []) is list && d.get('teams', []).size() > 0 && d.get('teams', []).size() <= 500 && a == d.get('teams', []));
 }
 function groupCountOk(groupId) {
 let b = resource.data.get('memberCount', 0);
@@ -2343,7 +2355,7 @@ return a == b
 }
 match /groupsSettings/{id} {
 allow read: if active();
-allow write: if isMaster() && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20;
+allow write: if isMaster() && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500;
 }
 match /smallGroups/{groupId} {
 allow read: if (resource.data.get('visibility', 'public') == 'public' && resource.data.get('active', true) == true)
@@ -2446,7 +2458,7 @@ allow update: if (groupsAdmin() || groupLeader(resource.data.groupId))
 allow delete: if false;
 }
 function maintTeam() {
-return active() && teamsCovered().hasAny(['Maintenance']);
+return active() && teamsCovered().hasAny(raJobTeams('buildings', ['Maintenance']));
 }
 function maintOffice(siteId) {
 return isAdmin() || bookingsAdminOf(siteId);
@@ -2772,12 +2784,12 @@ match /welcomeSettings/{id} {
 allow read: if id == 'public' || (id == 'main' && (isMaster() || welcomer()));
 allow write: if isMaster() && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time
 && ((id == 'main' && request.resource.data.keys().hasOnly(['memberIds', 'updatedAt', 'updatedBy'])
-&& request.resource.data.memberIds is list && request.resource.data.memberIds.size() <= 30)
+&& request.resource.data.memberIds is list && request.resource.data.memberIds.size() <= 500)
 || (id == 'public' && request.resource.data.keys().hasOnly(['notifyEmail', 'updatedAt', 'updatedBy'])
 && request.resource.data.notifyEmail is string && request.resource.data.notifyEmail.size() <= 200
 && (request.resource.data.notifyEmail == '' || request.resource.data.notifyEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))));
 }
-function giftAidOffice() { return isMaster() || onTeam('Church office') || onTeam('Finance'); }
+function giftAidOffice() { return raOffice() || onMoneyTeam(); }
 function gaName(d) {
 return d.title in ['', 'Mr', 'Mrs', 'Miss', 'Ms', 'Mx', 'Dr', 'Rev']
 && d.firstName is string && d.firstName.size() >= 1 && d.firstName.size() <= 60
@@ -2868,10 +2880,12 @@ allow read, write: if false;
 match /paymentEvents/{id} {
 allow read, write: if false;
 }
+function financeTeams() {
+return raJobTeams('finance', [exists(/databases/$(database)/documents/paymentSettings/team)
+? get(/databases/$(database)/documents/paymentSettings/team).data.get('team', 'Finance') : 'Finance']);
+}
 function onMoneyTeam() {
-return active() && teamsCovered().hasAny([
-(exists(/databases/$(database)/documents/paymentSettings/team)
-? get(/databases/$(database)/documents/paymentSettings/team).data.get('team', 'Finance') : 'Finance')]);
+return active() && teamsCovered().hasAny(financeTeams());
 }
 match /paymentSettings/{id} {
 allow read: if id == 'public' || isAdmin() || onMoneyTeam();
@@ -2977,7 +2991,7 @@ allow read: if isMaster()
 || (id == 'main' && active() && me().get('memberId', '') in resource.data.get('memberIds', []));
 allow write: if isMaster() && id == 'main'
 && request.resource.data.keys().hasOnly(['people', 'memberIds', 'allSites', 'bySite', 'stewards', 'updatedBy', 'updatedByName', 'updatedAt'])
-&& request.resource.data.people is list && request.resource.data.people.size() <= 60
+&& request.resource.data.people is list && request.resource.data.people.size() <= 500
 && request.resource.data.memberIds is list && request.resource.data.allSites is list
 && request.resource.data.bySite is map && request.resource.data.updatedBy == request.auth.uid;
 }
@@ -3091,8 +3105,8 @@ allow write: if raOffice()
 && (request.resource.data.get('hsLead', '') == '' || request.resource.data.get('hsLead', '') != request.resource.data.get('hsDeputy', ''));
 allow delete: if false;
 }
-function cmpAdmin() { return isMaster() || onTeam('Church office'); }
-function cmpTrustee() { return isMaster() || onTeam('Elders'); }
+function cmpAdmin() { return raOffice(); }
+function cmpTrustee() { return isMaster() || onTrustees(); }
 function cmpSees() { return cmpAdmin() || cmpTrustee(); }
 function cmpCheck(id) { return get(/databases/$(database)/documents/buildingChecks/$(id)).data; }
 function cmpAssigned(c) { return active() && me().get('memberId', '-') in c.get('responsibleIds', []); }

@@ -218,6 +218,11 @@ so "Show on screen" can call a parent.
 - **Price cards** per room and kind. VAT is off unless ticked.
 - **Terms and conditions** for each kind.
 - **Bank details** for "how to pay" on invoices: typed **once**, in Church details (the giving details). Every invoice uses them (F-161). Type in Room bookings → Accounts → "How to pay" **only** to say something different on invoices. Until they are in, an invoice says only when to pay.
+- **Each site's copy of the Accounts setting** (F-297): a site's bookings
+  admins read their site's copy. An admin (a master admin, or anyone who
+  administers a team, as can save Accounts) opening Room bookings writes any
+  copy that is missing; saving Accounts writes them all. So after going
+  live, a master admin opens Room bookings once.
 - **Hirer records:** the charity rate needs the charity number checked.
 - **Kit**, the **catering menu** and **outside venues.**
 - **Until prices are set:** the hire page asks people to get in touch about

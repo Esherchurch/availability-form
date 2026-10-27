@@ -2520,8 +2520,13 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
              ? get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('trusteeTeam', 'Elders') : 'Elders';
     }
+    // THE TRUSTEES ARE A JOB (H-9): the teams churchSettings/teamJobs gives
+    // "trustees"; nothing stored, the team named in safeguarding settings;
+    // nothing there, EGBC's Elders. The same answer as EGBCTeamJobs.teamsFor.
+    function trusteeTeams() { return raJobTeams('trustees', [sgTrusteeTeam()]); }
+    function onTrustees() { return active() && myTeams().hasAny(trusteeTeams()); }
     function sgRegSees(siteId) {
-      return isMaster() || sgLeadOf(siteId) || onTeam(sgTrusteeTeam());
+      return isMaster() || sgLeadOf(siteId) || onTrustees();
     }
     function sgDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
     function sgText(v, n) { return v is string && v.size() <= n; }
@@ -2662,7 +2667,7 @@ service cloud.firestore {
     // stops the event.
     match /sgNoted/{calEventId} {
       allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
-      allow create, update: if (isMaster() || onTeam(sgTrusteeTeam()))
+      allow create, update: if (isMaster() || onTrustees())
                     && request.resource.data.keys().hasOnly(['siteId', 'version', 'by', 'byName', 'at'])
                     && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
                     && sgText(request.resource.data.get('byName', ''), 80)
@@ -2704,7 +2709,7 @@ service cloud.firestore {
       allow read: if sgRegSees(siteId);
       allow write: if false;
     }
-    function sgTrustee() { return onTeam(sgTrusteeTeam()); }
+    function sgTrustee() { return onTrustees(); }
     function sgLeadSite() {
       return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
              ? get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', '') : '';
@@ -3341,9 +3346,19 @@ service cloud.firestore {
       return p.size() == 0 ? partFree(d.roomId, d, dow) : (roomOpen(d.roomId, d.day) && partsFree(p, d, dow));
     }
 
+    // Book a room is for team leaders and core teams (Martin, 26 Oct; H-16):
+    // a master admin, anyone who administers a team, a leader or above on
+    // one, or on a core team (covers, the server's own answer). The same as
+    // EGBCAuth.leadsOrCore().
+    function leadsOrCore() {
+      return isMaster() || me().get('adminFor', []).size() > 0
+             || 'owner' in me().get('roles', {})
+             || me().get('roles', {}).values().hasAny(['leader', 'admin', 'owner'])
+             || me().get('covers', []).size() > 0;
+    }
     function memberCreate(key) {
       let d = request.resource.data;
-      return d.kind == 'member' && active() && d.memberUid == request.auth.uid
+      return d.kind == 'member' && active() && d.memberUid == request.auth.uid && leadsOrCore()
              && roomData(d.roomId).get('bookableByMembers', true) == true
              // A charged kind of booking waits for the office, who confirms
              // the price and records the charge (F-077).
@@ -3463,7 +3478,7 @@ service cloud.firestore {
     // booking with refreshments, and nothing about who booked; made and
     // removed only by the server (functions/rooms-day.js). The office and the
     // "Catering" team read it and mark how far they have got.
-    function cateringSees(siteId) { return theOffice(siteId) || onTeam('Catering'); }
+    function cateringSees(siteId) { return theOffice(siteId) || raOnJob('catering', ['Catering']); }
     match /cateringOrders/{key} {
       allow read: if cateringSees(resource.data.siteId);
       allow update: if cateringSees(resource.data.siteId)
@@ -3648,19 +3663,24 @@ service cloud.firestore {
     // settings/accounts: 'none' (the hub is the whole money system; the
     // default) or 'calla'. Who numbers invoices in Calla mode is Martin's to
     // decide (the brief): recorded as 'hub' until he does.
-    // Office only (Martin, F-108): admins, and the bookings admins of the
-    // sites the setting names (officeSites, filled in when an admin saves it;
-    // up to three sites are checked).
-    function officeOfListed(sites) {
-      return (sites.size() > 0 && bookingsAdminOf(sites[0]))
-             || (sites.size() > 1 && bookingsAdminOf(sites[1]))
-             || (sites.size() > 2 && bookingsAdminOf(sites[2]));
-    }
+    // Office only (Martin, F-108): admins read it here; each site's bookings
+    // admins read their site's copy, accountsFor/{siteId}, which an admin's
+    // save writes for every site (H&S step 2b: no limit on the sites, where
+    // three were checked before).
     match /settings/accounts {
-      allow read: if isAdmin() || officeOfListed(resource.data.get('officeSites', []));
+      allow read: if isAdmin();
       allow write: if isAdmin()
                    && request.resource.data.mode in ['none', 'calla']
                    && request.resource.data.get('invoiceNumbersBy', 'hub') in ['hub', 'calla'];
+    }
+    match /accountsFor/{siteId} {
+      allow read: if theOffice(siteId);
+      allow write: if isAdmin()
+                   && request.resource.data.keys().hasOnly(['mode', 'invoiceNumbersBy', 'payText', 'payDays', 'updatedAt'])
+                   && request.resource.data.mode in ['none', 'calla']
+                   && request.resource.data.get('invoiceNumbersBy', 'hub') in ['hub', 'calla']
+                   && request.resource.data.get('payText', '') is string && request.resource.data.get('payText', '').size() <= 1000
+                   && request.resource.data.get('payDays', 14) is int;
     }
     match /accountsQueue/{itemId} {
       allow read: if theOffice(resource.data.siteId);
@@ -3737,7 +3757,7 @@ service cloud.firestore {
       allow read: if volunteer();
       // Who the leads are is set by a master admin or the safeguarding lead.
       allow write: if ((isMaster() || sgLeadOf(siteId))
-                   && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20
+                   && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500
                    && request.resource.data.get('formId', '') is string
                    && request.resource.data.get('screenPaging', true) is bool)
                    // Kids Church leads may switch screen numbers on or off, and nothing else.
@@ -4138,7 +4158,7 @@ service cloud.firestore {
       return (v == 'public' && a.hasAll(['public', 'members']) && a.size() == 2)
              || (v == 'members' && a == ['members'])
              || (v == 'churchMembers' && a == ['churchMembers'])
-             || (v == 'team' && d.get('teams', []) is list && d.get('teams', []).size() > 0 && d.get('teams', []).size() <= 10 && a == d.get('teams', []));
+             || (v == 'team' && d.get('teams', []) is list && d.get('teams', []).size() > 0 && d.get('teams', []).size() <= 500 && a == d.get('teams', []));
     }
     // The count moves with a member added or taken out, named in lastMemberKey.
     function groupCountOk(groupId) {
@@ -4156,7 +4176,7 @@ service cloud.firestore {
     }
     match /groupsSettings/{id} {
       allow read: if active();
-      allow write: if isMaster() && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 20;
+      allow write: if isMaster() && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500;
     }
     match /smallGroups/{groupId} {
       // Who can come (§21): the public read public groups that are running;
@@ -4279,8 +4299,9 @@ service cloud.firestore {
     // the job's site) mark it done or open it again. The photo is the
     // Maintenance team's and the office's only (Martin, A-M1): its file is
     // guarded in storage.rules; here only its path is kept. Never deleted.
+    // The buildings job (H-9; EGBC: Maintenance).
     function maintTeam() {
-      return active() && teamsCovered().hasAny(['Maintenance']);
+      return active() && teamsCovered().hasAny(raJobTeams('buildings', ['Maintenance']));
     }
     function maintOffice(siteId) {
       return isAdmin() || bookingsAdminOf(siteId);
@@ -4705,7 +4726,7 @@ service cloud.firestore {
       allow read: if id == 'public' || (id == 'main' && (isMaster() || welcomer()));
       allow write: if isMaster() && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time
                    && ((id == 'main' && request.resource.data.keys().hasOnly(['memberIds', 'updatedAt', 'updatedBy'])
-                        && request.resource.data.memberIds is list && request.resource.data.memberIds.size() <= 30)
+                        && request.resource.data.memberIds is list && request.resource.data.memberIds.size() <= 500)
                        || (id == 'public' && request.resource.data.keys().hasOnly(['notifyEmail', 'updatedAt', 'updatedBy'])
                            && request.resource.data.notifyEmail is string && request.resource.data.notifyEmail.size() <= 200
                            && (request.resource.data.notifyEmail == '' || request.resource.data.notifyEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))));
@@ -4720,7 +4741,7 @@ service cloud.firestore {
     // declaring again makes a new one. What was declared, when, how and by
     // whom never changes; only the person's name and address can be kept up
     // to date (HMRC asks people to tell the church when they change).
-    function giftAidOffice() { return isMaster() || onTeam('Church office') || onTeam('Finance'); }
+    function giftAidOffice() { return raOffice() || onMoneyTeam(); }
     function gaName(d) {
       return d.title in ['', 'Mr', 'Mrs', 'Miss', 'Ms', 'Mx', 'Dr', 'Rev']
              && d.firstName is string && d.firstName.size() >= 1 && d.firstName.size() <= 60
@@ -4844,10 +4865,15 @@ service cloud.firestore {
     // What a page may know. 'public' (can card payments be taken at all) is
     // for everyone; the account's name, live or test, and who added it are
     // for admins and the church's money team. Written by the server only.
+    // The finance job (H-9): the teams churchSettings/teamJobs gives it;
+    // nothing stored, the money team the payments page names; nothing
+    // there, EGBC's Finance.
+    function financeTeams() {
+      return raJobTeams('finance', [exists(/databases/$(database)/documents/paymentSettings/team)
+          ? get(/databases/$(database)/documents/paymentSettings/team).data.get('team', 'Finance') : 'Finance']);
+    }
     function onMoneyTeam() {
-      return active() && teamsCovered().hasAny([
-        (exists(/databases/$(database)/documents/paymentSettings/team)
-          ? get(/databases/$(database)/documents/paymentSettings/team).data.get('team', 'Finance') : 'Finance')]);
+      return active() && teamsCovered().hasAny(financeTeams());
     }
     match /paymentSettings/{id} {
       allow read: if id == 'public' || isAdmin() || onMoneyTeam();
@@ -5009,7 +5035,7 @@ service cloud.firestore {
                   || (id == 'main' && active() && me().get('memberId', '') in resource.data.get('memberIds', []));
       allow write: if isMaster() && id == 'main'
                    && request.resource.data.keys().hasOnly(['people', 'memberIds', 'allSites', 'bySite', 'stewards', 'updatedBy', 'updatedByName', 'updatedAt'])
-                   && request.resource.data.people is list && request.resource.data.people.size() <= 60
+                   && request.resource.data.people is list && request.resource.data.people.size() <= 500
                    && request.resource.data.memberIds is list && request.resource.data.allSites is list
                    && request.resource.data.bySite is map && request.resource.data.updatedBy == request.auth.uid;
     }
@@ -5177,8 +5203,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    function cmpAdmin() { return isMaster() || onTeam('Church office'); }
-    function cmpTrustee() { return isMaster() || onTeam('Elders'); }
+    // By job (H-9): the office keeps them, the trustees see them.
+    function cmpAdmin() { return raOffice(); }
+    function cmpTrustee() { return isMaster() || onTrustees(); }
     function cmpSees() { return cmpAdmin() || cmpTrustee(); }
     function cmpCheck(id) { return get(/databases/$(database)/documents/buildingChecks/$(id)).data; }
     function cmpAssigned(c) { return active() && me().get('memberId', '-') in c.get('responsibleIds', []); }

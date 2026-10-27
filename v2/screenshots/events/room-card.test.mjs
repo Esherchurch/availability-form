@@ -76,7 +76,7 @@ for (const k of Object.keys(P)) {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: P[k].email, password: 'synthetic-only-123', returnSecureToken: true }) })).json()).localId;
   const x = P[k];
   await db.collection('addressBook').doc(x.mid).set({ name: x.name, email: x.email, markers: x.teams, adminFor: [], masterAdmin: !!x.master });
-  await db.collection('users').doc(x.uid).set({ memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: [], masterAdmin: !!x.master, attender: true, status: 'active' });
+  await db.collection('users').doc(x.uid).set({ memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, roles: x.master ? {} : { [x.teams[0]]: 'leader' }, adminFor: [], masterAdmin: !!x.master, attender: true, status: 'active' });   /* Book a room: team leaders and core teams (H-16) */
 }
 for (const name of ['Core Team', 'Welcome']) await db.collection('teams').doc(name).set({ name, label: name, rota: true, order: 1 });
 await db.collection('churchSettings').doc('details').set({ name: 'Test Green Church', enquiryEmail: 'office@example.invalid' });
