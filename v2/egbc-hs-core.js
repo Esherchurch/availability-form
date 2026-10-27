@@ -20,6 +20,8 @@
                                     employed works): employees5, staffMany, dse
      coverFlags(church)             insurance cover under the minimum
      check(church), checkRoles(r)   [] or the problems, in words
+     rollCallDoc(id, people)        a building's fire roll call record
+     splitRollCall(old)             the old single record, by building
    Nothing here is any one church's: no team, no name.
    =================================================================== */
 (function (global) {
@@ -125,7 +127,40 @@
   /* "NOT LEGAL ADVICE" (F-280 section 7; Martin's answer 12: as written) */
   var NOT_ADVICE = 'The hub helps the church record its assessment. The responsible person remains responsible for it. For a complex building, or where you’re unsure, a competent person, such as a professional fire risk assessor, should carry out or check the assessment.';
 
-  var api = { DEFAULTS: DEFAULTS, EL_MIN: EL_MIN, MOST: MOST, DUTIES: DUTIES, NOT_ADVICE: NOT_ADVICE, settingsOf: settingsOf, flagsFor: flagsFor, duties: duties, coverFlags: coverFlags, check: check, checkRoles: checkRoles, responsible: responsible, pounds: pounds };
+  /* THE FIRE ROLL CALL, ONE RECORD FOR EACH BUILDING (H&S step 3a; F-280:
+     "they have three buildings"). fireRollCall/<siteId> names the fire
+     wardens and duty stewards for that building, and fireRollCall/all those
+     for every building. Each may hold LIST_MOST people (500, the H-9 bound
+     for a list), so a church with more buildings has more room, never a
+     church-wide limit. Names only: who may open the roll call, nothing
+     about them. */
+  var ROLL_ALL = 'all', LIST_MOST = 500;
+  function rollCallDoc(id, people) {
+    var seen = {}, list = [];
+    (people || []).forEach(function (p) {
+      if (!p || !p.memberId || seen[p.memberId]) return;
+      seen[p.memberId] = true;
+      list.push({ memberId: String(p.memberId), name: String(p.name || ''), role: p.role === 'steward' ? 'steward' : 'warden' });
+    });
+    return {
+      siteId: id === ROLL_ALL ? '' : id, people: list,
+      memberIds: list.map(function (p) { return p.memberId; }),
+      stewards: list.filter(function (p) { return p.role === 'steward'; }).map(function (p) { return p.memberId; })
+    };
+  }
+  /* The old single record (fireRollCall/main: people with a siteId, '' for
+     every building), as { all: [...], <siteId>: [...] } for rollCallDoc. */
+  function splitRollCall(old) {
+    var out = {};
+    ((old && old.people) || []).forEach(function (p) {
+      var k = p && p.siteId ? p.siteId : ROLL_ALL;
+      (out[k] = out[k] || []).push({ memberId: p.memberId, name: p.name, role: (old.stewards || []).indexOf(p.memberId) >= 0 || p.role === 'steward' ? 'steward' : 'warden' });
+    });
+    return out;
+  }
+
+  var api = { DEFAULTS: DEFAULTS, EL_MIN: EL_MIN, MOST: MOST, DUTIES: DUTIES, NOT_ADVICE: NOT_ADVICE, settingsOf: settingsOf, flagsFor: flagsFor, duties: duties, coverFlags: coverFlags, check: check, checkRoles: checkRoles, responsible: responsible, pounds: pounds,
+    ROLL_ALL: ROLL_ALL, LIST_MOST: LIST_MOST, rollCallDoc: rollCallDoc, splitRollCall: splitRollCall };
   global.EGBCHsCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

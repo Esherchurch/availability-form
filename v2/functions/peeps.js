@@ -90,9 +90,7 @@ export async function runPeepToday({ db, today }) {
 
   /* Who may read each: the fire wardens for that building (or every
      building), and the duty stewards for it who are on the rota today. */
-  const f = await db.collection('fireRollCall').doc('main').get();
-  const fire = f.exists ? f.data() : {};
-  const stewards = fire.stewards || [], all = fire.allSites || [], per = fire.bySite || {};
+  const { stewards, all, per } = await rollCallOf(db);
   const docs = {};
   for (const site of Object.keys(bySite)) {
     const entries = bySite[site].sort((a, b) => a.name.localeCompare(b.name));
@@ -101,6 +99,27 @@ export async function runPeepToday({ db, today }) {
     docs[site] = { readers, entries };
   }
   return { off: false, docs };
+}
+
+/* The fire roll call: one record for each building, and fireRollCall/all
+   for every building (H&S step 3a). Until tools/migrate-fire-rollcall.mjs
+   has split it, the old single record (fireRollCall/main) still answers. */
+export async function rollCallOf(db) {
+  const snap = await db.collection('fireRollCall').get();
+  const docs = snap.docs.filter((d) => d.id !== 'main');
+  if (!docs.length) {
+    const old = snap.docs.find((d) => d.id === 'main');
+    const fire = old ? old.data() : {};
+    return { stewards: fire.stewards || [], all: fire.allSites || [], per: fire.bySite || {} };
+  }
+  const out = { stewards: [], all: [], per: {} };
+  docs.forEach((d) => {
+    const x = d.data() || {};
+    out.stewards = out.stewards.concat(x.stewards || []);
+    if (d.id === 'all') out.all = x.memberIds || [];
+    else out.per[d.id] = x.memberIds || [];
+  });
+  return out;
 }
 
 const rebuild = async () => { await runPeepToday({ db: getFirestore() }); };

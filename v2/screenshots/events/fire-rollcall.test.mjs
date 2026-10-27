@@ -114,22 +114,24 @@ const text = (pg, sel) => pg.$eval(sel || 'body', e => e.innerText.replace(/\s+/
 const data = async (c, id) => { const s = await db.collection(c).doc(id).get(); return s.exists ? s.data() : null; };
 
 try {
-  /* ---------- 1. the list, in Safeguarding settings ---------- */
+  /* ---------- 1. the lists, in Health and safety settings (one for each building, H&S step 3a) ---------- */
   const M = await browser('martin');
+  await M.goto(URLB + 'hs-settings.html', { waitUntil: 'networkidle2' });
+  await until(() => M.$('#hsFire #fireAdd_all'));
+  const offered = await M.$$eval('#fireAdd_all option', o => o.map(x => x.textContent));
+  ok('1. HEALTH AND SAFETY SETTINGS: a fire roll call list for every building; adults only (the child is not offered)', offered.some(o => /Wanda Warden/.test(o)) && !offered.some(o => /Kit Child/.test(o)), J(offered));
+  await M.select('#fireAdd_all', 'm_wanda');
+  await until(() => M.$('[data-fire="all"] [data-who="m_wanda"]'));
+  await M.select('#fireAdd_site_b', 'm_sid');
+  await until(() => M.$('[data-fire="site_b"] [data-who="m_sid"]'));
+  await M.$eval('#hsSave', b => b.click());
+  const frAll = await until(() => data('fireRollCall', 'all')), frB = await until(() => data('fireRollCall', 'site_b'));
+  ok('   saved: Wanda for every building, Sid for the Hall annex only', frAll && J(frAll.memberIds) === J(['m_wanda']) && frB && J(frB.memberIds) === J(['m_sid']), J(frAll) + J(frB));
   await M.goto(URLB + 'safeguarding-settings.html', { waitUntil: 'networkidle2' });
-  await until(() => M.$('#fireCard #fireAdd'));
-  const offered = await M.$$eval('#fireAdd option', o => o.map(x => x.textContent));
-  ok('1. SAFEGUARDING SETTINGS: a "Fire roll-call" list; adults only (the child is not offered)', offered.some(o => /Wanda Warden/.test(o)) && !offered.some(o => /Kit Child/.test(o)), J(offered));
-  await M.select('#fireAdd', 'm_wanda');
-  await until(() => M.$('[data-fire="m_wanda"]'));
-  await M.select('#fireAdd', 'm_sid');
-  await until(() => M.$('[data-fire="m_sid"]'));
-  await M.select('[data-fire="m_sid"] .fireSite', 'site_b');
-  await M.$eval('#fireSave', b => b.click());
-  await until(async () => /Saved/.test(await text(M, '#fireMsg')));
-  const fr = await data('fireRollCall', 'main');
-  ok('   saved: Wanda for every building, Sid for the Hall annex only', fr && J(fr.allSites) === J(['m_wanda']) && J(fr.bySite) === J({ site_b: ['m_sid'] }) && J(fr.memberIds) === J(['m_wanda', 'm_sid']), J(fr));
-  ok('   and the safeguarding settings were not touched by it', !(await M.$('.banner.gold')));
+  await until(() => M.$('#fireCard'));
+  ok('   Safeguarding settings points there now', !!(await M.$('#fireCard a[href="hs-settings.html"]')));
+  await M.goto(URLB + 'hs-settings.html', { waitUntil: 'networkidle2' });
+  await until(() => M.$('#hsFire'));
   await M.screenshot({ path: path.join(HERE, 'fire-rollcall-settings.png'), fullPage: true });
 
   /* ---------- 2. a check-in records its building ---------- */

@@ -77,6 +77,10 @@
   'use strict';
   var E = window.EGBCEvents, F = window.EGBCForms, SG = window.EGBCSafeguarding, esc = E.esc;
   var ADMIN = false, LEADSITES = [], SAVED = null, DIRTY = false, FORMS_TO = [], EVENTS_TO = [];
+  /* The team jobs (H-9): when Church settings says who does the trustees
+     job, that decides, and the box below only says so (as Payments does). */
+  var JOBP = null;
+  function trusteesByJobs() { return !!(JOBP && JOBP.jobs && Object.prototype.hasOwnProperty.call(JOBP.jobs, 'trustees')); }
   /* WHO LOOKS AFTER SAFEGUARDING (Martin, 14 Oct 2026: he pressed the hub's
      "Set one" and found no way to set a name). Each building's lead and
      deputy are bookingSettings/<site>.safeguardingLead/Deputy - the same
@@ -84,8 +88,6 @@
      forms reach first. Adults only: anyone marked UNDER 16 in the address
      book is not offered (the address book holds no other age). */
   var SITES = [], BS = {}, PEOPLE = [];
-  /* THE FIRE ROLL-CALL (F-214): who may open it, set by a master admin. */
-  var FIRE = { people: [] };
   function adultOpts(sel, id) {
     return '<select id="' + id + '"><option value="">Nobody set</option>' + PEOPLE.map(function (p) {
       return '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') +
@@ -114,74 +116,18 @@
       '<div class="field" style="margin-top:10px"><label for="leadPhone">The lead\'s phone number (optional)</label><input class="inp" id="leadPhone" type="tel" maxlength="30" value="' + esc((SAVED && SAVED.leadPhone) || '') + '">' +
       '<p class="hint" style="margin:4px 0 0">Shown beside "call 999" on the "I\'m worried" form, so people can ring them if it cannot wait.</p></div></div>';
   }
-  /* Who leads where, as the page shows it now. */
-  /* ---- THE FIRE ROLL-CALL (F-214; Martin, 15 Oct) ----
-     Named people (adults) who may open the fire roll-call: who is checked
-     in at today's events and how many, names only. Each for every building
-     or one. Master admins only change this; it saves on its own. */
+  /* ---- THE FIRE ROLL-CALL (F-214) ----
+     Who may open it is now set for each building in Health and safety
+     settings (H&S step 3a), by master admins and the office. Only a pointer
+     is left here, for the people who used to set it on this page. */
   function fireCard() {
     if (!(EGBCAuth.isMaster && EGBCAuth.isMaster())) return '';
-    var list = FIRE.people || [], have = list.map(function (p) { return p.memberId; });
     return '<div class="card" id="fireCard"><h2><span class="badge">' + ico('flame', 17) + '</span>Fire roll-call</h2>' +
-      '<p class="hint" style="margin-top:-4px">The people who may open the fire roll-call for today\'s events: who is checked in, and how many. Names only: no answers, no medical details, no contact details. For example the fire wardens and the duty steward. Master admins always can.</p>' +
-      '<div id="fireList">' + (list.length ? list.map(function (p) {
-        return '<div class="apply" data-fire="' + esc(p.memberId) + '"><span class="t"><strong>' + esc(p.name) + '</strong></span>' +
-          '<select class="fireRole" aria-label="Fire warden or duty steward: ' + esc(p.name) + '"><option value="warden">Fire warden</option><option value="steward"' + (p.role === 'steward' ? ' selected' : '') + '>Duty steward</option></select>' +
-          '<select class="fireSite" aria-label="Which building for ' + esc(p.name) + '"><option value="">All buildings</option>' +
-            SITES.map(function (x) { return '<option value="' + esc(x.id) + '"' + (p.siteId === x.id ? ' selected' : '') + '>' + esc(x.name || x.id) + '</option>'; }).join('') + '</select>' +
-          '<button class="btn ghost" data-firedrop="' + esc(p.memberId) + '">Remove</button></div>';
-      }).join('') : '<p class="hint" id="fireNone">Nobody named yet: only master admins can open it.</p>') + '</div>' +
-      '<div class="row"><div class="f"><label for="fireAdd">Add someone</label><select id="fireAdd"><option value="">Choose someone\u2026</option>' +
-        PEOPLE.filter(function (p) { return have.indexOf(p.id) < 0; }).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select></div></div>' +
-      '<div class="bar"><button class="btn" id="fireSave">' + ico('check') + 'Save the fire roll-call list</button><span class="hint" id="fireMsg" role="status"></span></div></div>';
+      '<p class="hint" style="margin:0">The fire wardens and duty stewards are now named for each building in <a href="hs-settings.html">Health and safety settings</a>.</p></div>';
   }
-  function redrawFire(msg) {
-    var c = document.getElementById('fireCard'); if (!c) return;
-    c.outerHTML = fireCard(); wireFire(); icons();
-    if (msg) document.getElementById('fireMsg').textContent = msg;
-  }
-  function wireFire() {
-    var c = document.getElementById('fireCard'); if (!c) return;
-    var add = document.getElementById('fireAdd');
-    add.onchange = function () {
-      var p = PEOPLE.filter(function (x) { return x.id === add.value; })[0]; if (!p) return;
-      FIRE.people = (FIRE.people || []).concat([{ memberId: p.id, name: p.name, siteId: '' }]);
-      redrawFire('Not saved yet.');
-    };
-    /* A duty steward sees people's evacuation plans only on a day they are
-       on the rota; a fire warden on any day they are needed (F-234). */
-    c.querySelectorAll('.fireRole').forEach(function (s) {
-      s.onchange = function () {
-        var id = s.closest('[data-fire]').getAttribute('data-fire');
-        FIRE.people.forEach(function (p) { if (p.memberId === id) p.role = s.value; });
-        document.getElementById('fireMsg').textContent = 'Not saved yet.';
-      };
-    });
-    c.querySelectorAll('.fireSite').forEach(function (s) {
-      s.onchange = function () {
-        var id = s.closest('[data-fire]').getAttribute('data-fire');
-        FIRE.people.forEach(function (p) { if (p.memberId === id) p.siteId = s.value; });
-        document.getElementById('fireMsg').textContent = 'Not saved yet.';
-      };
-    });
-    c.querySelectorAll('[data-firedrop]').forEach(function (b) {
-      b.onclick = function () { var id = b.getAttribute('data-firedrop'); FIRE.people = FIRE.people.filter(function (p) { return p.memberId !== id; }); redrawFire('Not saved yet.'); };
-    });
-    document.getElementById('fireSave').onclick = function () {
-      /* No hidden limit (H-9): 500, the most one list holds, and it says so. */
-      if ((FIRE.people || []).length > 500) { redrawFire('Not saved: the fire roll call holds at most 500 people. Take some off first.'); return; }
-      var btn = this, people = (FIRE.people || []).slice(), bySite = {};
-      people.forEach(function (p) { if (p.siteId) (bySite[p.siteId] = bySite[p.siteId] || []).push(p.memberId); });
-      btn.disabled = true;
-      db().collection('fireRollCall').doc('main').set({
-        people: people, memberIds: people.map(function (p) { return p.memberId; }),
-        allSites: people.filter(function (p) { return !p.siteId; }).map(function (p) { return p.memberId; }), bySite: bySite,
-        stewards: people.filter(function (p) { return p.role === 'steward'; }).map(function (p) { return p.memberId; }),
-        updatedBy: EGBCAuth.user().uid, updatedByName: (EGBCAuth.profile() || {}).name || '', updatedAt: new Date().toISOString()
-      }).then(function () { btn.disabled = false; redrawFire('Saved.'); }, function (e) { btn.disabled = false; document.getElementById('fireMsg').textContent = 'Not saved: ' + (e.message || e); });
-    };
-  }
+  function wireFire() {}
 
+  /* Who leads where, as the page shows it now. */
   function readWho() {
     var out = { sites: {}, leadSiteId: leadSiteNow() };
     SITES.forEach(function (x) {
@@ -263,8 +209,12 @@
 
       /* THE SAFEGUARDING RISK REGISTER (F-265): who the trustees are - they read it and take its snapshots */
       '<div class="card" id="regCard"><h2><span class="badge">' + ico('shield-check', 17) + '</span>Safeguarding risk register</h2>' +
-        '<div class="field"><label for="trTeam">The trustees are the team</label><input class="inp" id="trTeam" maxlength="60" list="trTeams" value="' + esc((SAVED && SAVED.trusteeTeam) || 'Elders') + '">' +
-        '<datalist id="trTeams">' + ((window.EGBCAuth && EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : []) || []).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>' +
+        (trusteesByJobs()
+          ? '<div class="field" id="trByJobs"><label>The trustees</label><b>' + esc(EGBCTeamJobs.label(JOBP.jobs, 'trustees', null, JOBP.set) || 'Nobody yet') + '</b>' +
+            '<input type="hidden" id="trTeam" value="' + esc((SAVED && SAVED.trusteeTeam) || 'Elders') + '">' +
+            '<p class="hint" style="margin:6px 0 0">Church settings’ team jobs say who does the trustees job, so it is changed there.</p>'
+          : '<div class="field"><label for="trTeam">The trustees are the team</label><input class="inp" id="trTeam" maxlength="60" list="trTeams" value="' + esc((SAVED && SAVED.trusteeTeam) || 'Elders') + '">' +
+            '<datalist id="trTeams">' + ((window.EGBCAuth && EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : []) || []).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>') +
         '<p class="hint" style="margin:6px 0 0">They read the register and take its dated snapshots. They never see a child, a concern or anyone’s medical details there.</p></div>' +
         /* the dials (F-265 step 4): when something counts as "due soon", and each dial's colours */
         (function () {
@@ -496,9 +446,10 @@
 
   EGBCAuth.require().then(function () {
     ADMIN = !!EGBCAuth.isAdmin();
-    return Promise.all([SG.myLeadSites(), db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; })]);
+    return Promise.all([SG.myLeadSites(), db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }),
+      EGBCAuth.loadPerms().catch(function () { return null; })]);
   }).then(function (r) {
-    LEADSITES = r[0];
+    LEADSITES = r[0]; JOBP = r[2] || null;
     if (!ADMIN && !LEADSITES.length) {
       E.refused();
       document.getElementById('wrap').innerHTML = '<div class="card"><h1>Safeguarding settings</h1><p>These are set by admins and the safeguarding lead.</p></div>';
@@ -509,9 +460,8 @@
       db().collection('sites').get().catch(function () { return { docs: [] }; }),
       db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
       ADMIN ? db().collection('addressBook').get().catch(function () { return { docs: [] }; }) : Promise.resolve({ docs: [] }),
-      (EGBCAuth.isMaster && EGBCAuth.isMaster()) ? db().collection('fireRollCall').doc('main').get().catch(function () { return null; }) : Promise.resolve(null)
+      Promise.resolve(null)
     ]).then(function (w) {
-      if (w[3] && w[3].exists) FIRE = w[3].data();
       SITES = w[0].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }).filter(function (x) { return x.active !== false; })
         .sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.name || '').localeCompare(String(b.name || '')); });
       w[1].docs.forEach(function (x) { BS[x.id] = x.data(); });

@@ -18,8 +18,8 @@
 <script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <script src="egbc-compliance.js?v=202610191800"></script>
-<script src="egbc-compliance-store.js?v=202610271900"></script>
-<script src="egbc-hs-core.js?v=202610271900"></script>
+<script src="egbc-compliance-store.js?v=202610281000"></script>
+<script src="egbc-hs-core.js?v=202610281000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -59,6 +59,11 @@
   .banner.warn{background:var(--danger-bg);color:var(--danger)}
   ul.duties{margin:6px 0 0;padding-left:18px}
   ul.duties li{margin:3px 0}
+  .btn.sec{background:#fff;color:var(--brand);border-color:var(--line-2)}
+  .btn.sec:hover{background:var(--tint)}
+  .frow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 8px}
+  .frow .fname{flex:1;min-width:140px;font-weight:500;color:var(--ink)}
+  .frow select{width:auto;flex:none}
   .bar{position:sticky;bottom:0;background:var(--canvas);padding:10px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
          padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
@@ -77,6 +82,12 @@
   function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3400); }
   var wrap = document.getElementById('wrap');
   var SITES = [], ROLES = {}, PEOPLE = [], SAVED = null, CHURCH = {}, MAY = false;
+  /* THE FIRE ROLL CALL (H&S step 3a): who may open it, for every building
+     (fireRollCall/all) and for each one (fireRollCall/<siteId>). Moved here
+     from Safeguarding settings, where it was one list for the whole church
+     and only master admins set it. FIRE_DIRTY: the lists changed, saved
+     with the rest. */
+  var FIRE = {}, FIRE_DIRTY = {};
 
   function personOpts(id, sel) {
     return '<select id="' + id + '"><option value="">Nobody set</option>' + PEOPLE.map(function (p) {
@@ -103,6 +114,50 @@
     return f.length ? '<div class="banner gold" id="hsCover">' + f.map(function (x) { return '<div data-cover="' + esc(x.id) + '">' + esc(x.words) + '</div>'; }).join('') + '</div>' : '<div id="hsCover"></div>';
   }
 
+  function fireScopes() {
+    return [{ id: H.ROLL_ALL, name: 'Every building' }].concat(SITES.map(function (s) { return { id: s.id, name: s.name || s.id }; }));
+  }
+  function fireHtml() {
+    return '<div class="card" id="hsFire"><h2>The fire roll call</h2>' +
+      '<p class="hint" style="margin-top:0">The people who may open the fire roll call for today’s events: who is checked in, and how many. Names only: no answers, no medical details, no contact details. For example the fire wardens and the duty stewards. Master admins always can.</p>' +
+      fireScopes().map(function (sc) {
+        var list = FIRE[sc.id] || [], have = list.map(function (p) { return p.memberId; }), full = list.length >= H.LIST_MOST;
+        return '<div class="site" data-fire="' + esc(sc.id) + '"><h3>' + esc(sc.name) + ' <span class="hint">(' + list.length + ')</span></h3>' +
+          (list.length ? list.map(function (p) {
+            var name = nameOf(p.memberId) || p.name;
+            return '<div class="frow" data-who="' + esc(p.memberId) + '"><span class="fname">' + esc(name) + '</span>' +
+              '<select class="fireRole" aria-label="Fire warden or duty steward: ' + esc(name) + '"><option value="warden">Fire warden</option><option value="steward"' + (p.role === 'steward' ? ' selected' : '') + '>Duty steward</option></select>' +
+              '<button class="btn sec" type="button" data-drop>Remove</button></div>';
+          }).join('') : '<p class="hint">Nobody named yet.</p>') +
+          /* 500, the most one list holds (H-9): said, never cut off quietly */
+          (full ? '<p class="banner gold" data-full>This list is full: ' + H.LIST_MOST + ' people, the most one building’s list holds. Take someone off to add someone else.</p>'
+                : '<div class="field"><label for="fireAdd_' + esc(sc.id) + '">Add someone</label><select id="fireAdd_' + esc(sc.id) + '" data-add><option value="">Choose someone…</option>' +
+                  PEOPLE.filter(function (p) { return have.indexOf(p.id) < 0; }).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select></div>') +
+          '</div>';
+      }).join('') + '</div>';
+  }
+  function wireFire() {
+    var card = document.getElementById('hsFire'); if (!card) return;
+    var changed = function (id, redraw) {
+      FIRE_DIRTY[id] = true;
+      document.getElementById('hsMsg').textContent = 'Not saved yet.';
+      if (redraw) { card.outerHTML = fireHtml(); wireFire(); }
+    };
+    card.querySelectorAll('[data-fire]').forEach(function (box) {
+      var id = box.getAttribute('data-fire'), add = box.querySelector('[data-add]');
+      if (add) add.onchange = function () {
+        var p = PEOPLE.filter(function (x) { return x.id === add.value; })[0]; if (!p) return;
+        FIRE[id] = (FIRE[id] || []).concat([{ memberId: p.id, name: p.name, role: 'warden' }]);
+        changed(id, true);
+      };
+      box.querySelectorAll('.frow').forEach(function (row) {
+        var mid = row.getAttribute('data-who'), sel = row.querySelector('.fireRole');
+        sel.onchange = function () { FIRE[id].forEach(function (p) { if (p.memberId === mid) p.role = sel.value; }); changed(id); };
+        row.querySelector('[data-drop]').onclick = function () { FIRE[id] = FIRE[id].filter(function (p) { return p.memberId !== mid; }); changed(id, true); };
+      });
+    });
+  }
+
   function draw() {
     var c = H.settingsOf(SAVED), church = CHURCH.name || '';
     wrap.innerHTML = '<h1>Health and safety settings</h1><p class="sub">Who looks after health, safety and fire at each building, and the numbers the assessments use.</p>' +
@@ -118,6 +173,7 @@
             '<p class="hint" data-responsible>The responsible person on its fire assessment: ' + esc(H.responsible(church, nameOf(r.fireLead))) + '.</p></div>';
         }).join('') : '<p class="hint">Add your buildings in Places first.</p>') +
         '<p class="hint">The fire safety lead may be the health and safety lead too.</p></div>' +
+      fireHtml() +
       /* 2. employees */
       '<div class="card" id="hsStaff"><h2>The people the church employs</h2>' +
         '<div class="two"><div class="field"><label for="hsEmployees">How many people does the church employ (paid, including part-time)?</label>' + numInp('hsEmployees', c.employees, { ph: 'Not answered yet' }) + '</div>' +
@@ -145,6 +201,7 @@
     ['hsEmployees', 'hsLarger', 'hsScreen', 'hsPublic', 'hsEmployers', 'hsMinCover'].forEach(function (id) { var e = document.getElementById(id); e.oninput = live; e.onchange = live; });
     SITES.forEach(function (s) { var f = document.getElementById('fireLead_' + s.id); f.onchange = function () { f.closest('.site').querySelector('[data-responsible]').textContent = 'The responsible person on its fire assessment: ' + H.responsible(church, nameOf(f.value)) + '.'; }; });
     document.getElementById('hsSave').onclick = save;
+    wireFire();
   }
 
   /* the form, as a record: a box left empty is left out (not answered), never stored as 0 */
@@ -174,8 +231,13 @@
     b.disabled = true; msg.textContent = 'Saving…';
     var jobs = [db().collection('raSettings').doc('church').set(Object.assign({}, c, { updatedAt: now(), updatedBy: who.uid }))];
     Object.keys(roles).forEach(function (sid) { jobs.push(db().collection('raSiteRoles').doc(sid).set(Object.assign({}, roles[sid], { updatedAt: now(), updatedBy: who.uid }))); });
+    var fires = Object.keys(FIRE_DIRTY);
+    fires.forEach(function (id) {
+      jobs.push(db().collection('fireRollCall').doc(id).set(Object.assign(H.rollCallDoc(id, FIRE[id]), { updatedBy: who.uid, updatedByName: who.name.slice(0, 200), updatedAt: now() })));
+    });
     Promise.all(jobs).then(function () {
       SAVED = c; Object.keys(roles).forEach(function (sid) { ROLES[sid] = roles[sid]; });
+      fires.forEach(function (id) { delete FIRE_DIRTY[id]; });
       if (!staffChanged) return null;
       /* THE NUMBER CHANGED: each building's checks follow it (the templates as the church has them) */
       return db().collection('complianceTemplates').get().then(function (t) {
@@ -211,7 +273,13 @@
       PEOPLE = w[2].docs.map(function (x) { var v = x.data(); return { id: x.id, name: (v.name || '').trim(), minor: v.isMinor === true, archived: !!v.archived }; })
         .filter(function (p) { return p.name && !p.minor && !p.archived; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
       SAVED = w[3]; CHURCH = w[4] || {};
-      draw();
+      /* each list by its own id: the rules can't allow a query over the
+         whole collection (they never let anyone but a master admin read
+         the old single list, fireRollCall/main) */
+      return Promise.all(fireScopes().map(function (sc) { return get('fireRollCall', sc.id); })).then(function (f) {
+        fireScopes().forEach(function (sc, i) { if (f[i]) FIRE[sc.id] = (f[i].people || []).slice(); });
+        draw();
+      });
     });
   }).catch(function (e) {
     wrap.innerHTML = '<div class="card"><div class="banner warn">' + esc((e && e.message) || e) + '</div></div>';

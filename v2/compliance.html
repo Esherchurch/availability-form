@@ -19,7 +19,7 @@
 <script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-compliance.js?v=202610191800"></script>
 <script src="egbc-compliance-templates.js?v=202610271900"></script>
-<script src="egbc-compliance-store.js?v=202610271900"></script>
+<script src="egbc-compliance-store.js?v=202610281000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -298,6 +298,8 @@
     if (sh.q('eGo')) sh.q('eGo').onclick = function () {
       var u = sh.q('eU').value, ne = /^(once|demand)$/.test(u) ? Object.assign({}, it.every, { unit: u }) : { n: Math.max(1, +sh.q('eN').value || 1), unit: u },
         ch = { responsibleIds: [].map.call(sh.q('eWho').selectedOptions, function (o) { return o.value; }), reason: sh.q('eWhy') ? sh.q('eWhy').value : '' };
+      /* 500 is the bound for any list (H-9): said, never cut off quietly. */
+      if (ch.responsibleIds.length > 500) { sh.q('eMsg').textContent = 'Not saved: at most 500 people can be responsible for one check. ' + ch.responsibleIds.length + ' are chosen.'; return; }
       if (C.days(ne) !== C.days(it.every) || ne.unit !== (it.every || {}).unit) ch.every = ne;
       ST.editCheck(db(), c.id, ch, who(), C).then(function () { return after('Saved: the church’s copy.'); }, function (e) { sh.q('eMsg').textContent = 'Not saved: ' + (e.message || e); });
     };
@@ -363,11 +365,16 @@
         .then(function () { sh.close(); return reload(); }).then(draw, function (e) { toast('Not added: ' + (e.message || e)); });
     };
   }
-  function drawHistory() {
+  /* The whole history, 200 at a time (H&S step 3a: it used to stop at 200,
+     and said nothing about the older ones). */
+  function drawHistory(shown) {
+    shown = shown || 200;
     db().collection('complianceLog').where('siteId', '==', SITE.id).get().then(function (s) {
-      var l = all(s).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); }).slice(0, 200);
+      var every = all(s).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); }), l = every.slice(0, shown), more = every.length - l.length;
       var words = { profile: 'Answers changed', edit: 'Check changed', add: 'Own check added', done: 'Check done', work: 'Building work recorded', template: 'Followed the updated guidance', signoff: 'Trustees signed off', job: 'Job raised' };
-      $('history').innerHTML = '<h2>History</h2>' + (l.length ? l.map(function (x) { return '<div class="rec"><b>' + esc(words[x.what] || x.what) + '</b> · ' + esc(x.byName || '') + '<div class="m">' + esc(new Date(x.at).toLocaleString('en-GB')) + '</div></div>'; }).join('') : '<p class="m">Nothing yet.</p>');
+      $('history').innerHTML = '<h2>History</h2>' + (l.length ? l.map(function (x) { return '<div class="rec"><b>' + esc(words[x.what] || x.what) + '</b> · ' + esc(x.byName || '') + '<div class="m">' + esc(new Date(x.at).toLocaleString('en-GB')) + '</div></div>'; }).join('') : '<p class="m">Nothing yet.</p>') +
+        (more > 0 ? '<p class="m" id="histMore">Showing the latest ' + l.length + ' of ' + every.length + '. <button class="btn sec" id="histNext">Show ' + Math.min(200, more) + ' older</button></p>' : '');
+      if (more > 0) $('histNext').onclick = function () { drawHistory(shown + 200); };
     }, function () { $('history').innerHTML = '<p class="m">The history could not be read.</p>'; });
   }
 

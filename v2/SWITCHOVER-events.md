@@ -21,6 +21,10 @@ Nothing in this part is new data. It's the order things go live in.
 1. **The hub functions go first**, before the rules (§26 item 1). Mine are
    in there: the notification senders (N-4) and the sermon feed reader
    (`sermonFeedSync`, F-139).
+   - **`complianceDaily` goes now, and not before.** The reviewing window
+     has held it out of every deploy so far, because it sends the monthly
+     building compliance summary to the office and the trustees. It goes
+     live with the hub (the reviewing window, 27 Oct).
 2. **Both rules files go together:** `firestore.rules` **and**
    `storage.rules`. Storage holds the photos guests send, maintenance
    photos and sermon audio.
@@ -32,6 +36,12 @@ Nothing in this part is new data. It's the order things go live in.
    the list, then run it again with `--write`. Anything it lists "for a
    person" (the same member named twice) is put right by hand on the
    event's safeguarding page.
+5. **The fire roll call, one list for each building** (H&S step 3a), at the
+   same moment as the Firestore rules (the reviewing window):
+   `node tools/migrate-fire-rollcall.mjs` lists what it would write; check
+   it, then run it again with `--write`. A building it lists "for a person"
+   is no longer in Places: name its people again in Health and safety
+   settings.
 
 ## Part 2. Straight after the deploy (Martin, about 10 minutes)
 
@@ -223,6 +233,8 @@ so "Show on screen" can call a parent.
   administers a team, as can save Accounts) opening Room bookings writes any
   copy that is missing; saving Accounts writes them all. So after going
   live, a master admin opens Room bookings once.
+  - **A building added later gets its copy at once,** from the function
+    `accountsForNewSite` (H&S step 3a). Nobody needs to open a page.
 - **Hirer records:** the charity rate needs the charity number checked.
 - **Kit**, the **catering menu** and **outside venues.**
 - **Until prices are set:** the hire page asks people to get in touch about
@@ -245,6 +257,9 @@ so "Show on screen" can call a parent.
 - **Health and safety settings** (`hs-settings.html`, the office): how many
   the church employs, each building's health and safety lead, deputy and
   fire safety lead, and the insurance cover. The buildings' checks follow.
+- **The fire roll call** is set there too now, for each building and for
+  every building (it used to be on Safeguarding settings). Check each
+  building's list after the move in Part 1.
 
 ---
 

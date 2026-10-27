@@ -110,7 +110,7 @@ await db.collection('planSessions').doc('ps_aud').set({ groupId: 'pg_aud', date:
 /* an order on the caterers' list (F-260), so its buttons are measured */
 const inAWeek = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
 await db.collection('cateringOrders').doc('co_aud').set({ siteId: 'site_a', roomId: 'room_a', roomName: 'Big hall (invented)', day: inAWeek, startMin: 600, servingAt: '10:30', people: 20, title: 'Coffee morning (invented)', items: [{ name: 'Tea and coffee', qty: 20, unit: 'cup' }], dietary: { vegan: 2 }, notes: '', state: 'new' });
-await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_martin', name: 'Martin Master', siteId: '' }], memberIds: ['m_martin'], allSites: ['m_martin'], bySite: {}, updatedBy: P.martin.uid, updatedByName: 'x', updatedAt: 'x' });
+await db.collection('fireRollCall').doc('all').set({ siteId: '', people: [{ memberId: 'm_martin', name: 'Martin Master', role: 'warden' }], memberIds: ['m_martin'], stewards: [], updatedBy: P.martin.uid, updatedByName: 'x', updatedAt: 'x' });
 
 /* ---------- the pages ---------- */
 const PAGES = ['attendance.html?event=ev_a', 'book.html', 'bookings-admin.html', 'building.html', 'catering.html', 'checkin.html', 'checkin.html?event=ev_a', 'checkin.html?view=rollcall',

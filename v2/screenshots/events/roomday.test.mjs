@@ -102,7 +102,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   for (const k of Object.keys(P)) {
     const x = P[k];
     await setDoc(doc(db, 'addressBook', x.mid), { name: x.name, email: x.email, markers: x.teams, adminFor: [], masterAdmin: !!x.master });
-    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: [], masterAdmin: !!x.master, attender: true, status: 'active' });
+    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: [], masterAdmin: !!x.master, attender: true, status: 'active', roles: x.master ? {} : { [x.teams[0] || 'Worship Team']: 'leader' } });   /* Book a room is for team leaders (H-16) */
   }
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
   /* open all day here, so "booked this month" does not depend on the clock */

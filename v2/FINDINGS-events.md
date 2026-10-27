@@ -12908,3 +12908,23 @@ Step 2 is in two parts:
 - **Under-18s coming too:** the safeguarding assessment still applies on top, as now. The two are linked, both ways, and never merged.
 - **The same as the rest:** the AI draft, the dials, the checklist, the print and the rider.
 - **For the synthetic parish:** a PCC away day (a day trip, adults only), a parish pilgrimage abroad (residential and travel, perhaps someone needing support) and a choir trip (a day trip with under-18s, so linked to a safeguarding assessment).
+
+
+### F-298 — H&S step 3, first part (committed; the step's report comes when step 3 is whole): Book a room for the office and the bookings admins; a new building's Accounts copy at once; the fire roll call for each building; the compliance caps up to 500; the trustee box (the events window, 28 Oct)
+
+**Built:**
+- **Book a room:** the office (by job) and each building's bookings admins may book (Martin, 28 Oct). rooms.html decides it itself (the guard can't ask about bookings admins), so `data-leads` is off its guard. The rules' `mayBookRoom()` agrees; it is kept lean, because a fuller version ran past the rules' limit on work in one request.
+- **A new building's Accounts copy at once:** new function `accountsForNewSite` (+ `...Church`), functions/accounts-copy.js. Never overwrites; Room bookings' repair stays as a backstop.
+- **The fire roll call, one list per building** (`fireRollCall/<siteId>`, and `/all`), 500 each, set in Health and safety settings by master admins and the office job; Safeguarding settings points there. checkin.html and peeps.js read the new lists (peeps.js falls back to the old one until it's moved). The move: `tools/migrate-fire-rollcall.mjs`, on SWITCHOVER Part 1.
+- **Caps to 500:** responsible people, files, items; compliance history shows all, 200 at a time.
+- **Trustee box** says when team jobs decide. **complianceDaily** is on SWITCHOVER Part 1.
+- Also: functions/public-mail-pages.cjs regenerated (F-288 had left it stale).
+
+**Checked:** hs-3a 44/44 (the new function and peeps.js run on the emulator); rules 2074/2074.
+
+**For main:**
+1. Menu and app: Book a room for the office job and any bookings admin too. (A guard attribute for that would let me put the guard back.)
+2. app.html: egbc-compliance-store.js to `?v=202610281000`.
+3. H-9 part 2: jobs on the users record (like `covers`) would let a 4-part room be booked by the office in a church's own hub; it's at the rules' read limit there now.
+
+**Deploy:** `accountsForNewSite`, `accountsForNewSiteChurch` (new); the peepToday* functions in peeps.js (changed, safe before going live). No new secret. complianceDaily stays held. Rules with the hub.

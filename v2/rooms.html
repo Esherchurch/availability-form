@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610272330"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-guard.js?v=202610272330" data-leads></script>
+<script src="egbc-guard.js?v=202610272330"></script>
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610262000"></script>
@@ -387,7 +387,8 @@
       db().collection('bookableResources').get().catch(function () { return { docs: [] }; }),
       db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
       db().collection('bookingTypes').where('active', '==', true).get().catch(function () { return { docs: [] }; }),
-      db().collection('rateCards').get().catch(function () { return { docs: [] }; })
+      db().collection('rateCards').get().catch(function () { return { docs: [] }; }),
+      EGBCAuth.loadPerms().catch(function () { return null; })
     ]).then(function (r) {
       var all = function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); };
       SITES = all(r[0]).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
@@ -398,10 +399,23 @@
       all(r[6]).forEach(function (c) { CARDS[c.id] = c; });
       /* Church and ministry use is always there, and free, first. */
       if (KINDS.length && !KINDS.some(function (t) { return !t.charged; })) KINDS.unshift({ id: '', name: 'Church or ministry use', charged: false });
+      var mid = EGBCEvents.asSeen(profile || {}).memberId || '-';   /* view as: the person being viewed */
+      var mySites = all(r[4]).filter(function (s) { return (s.bookingsAdmins || []).indexOf(mid) >= 0; }).map(function (s) { return s.id; });
+      /* WHO MAY BOOK (H-16; Martin, 28 Oct 2026): team leaders and core
+         teams, the office (its job, never a team's name) and the bookings
+         admins. A bookings admin who is neither books at the buildings
+         they look after, as the rules allow. Checked here, not by the
+         guard: the guard cannot ask who a building's bookings admins are. */
+      var everywhere = EGBCAuth.leadsOrCore() || EGBCAuth.myJobs().indexOf('office') >= 0;
+      if (!everywhere && !mySites.length) {
+        EGBCAuth._blockPage('For team leaders and core teams',
+          'This is for the people who lead a team, the core teams, the office and the bookings admins. If you need it, ask your team leader.', profile);
+        return;
+      }
+      if (!everywhere) ROOMS = ROOMS.filter(function (x) { return mySites.indexOf(x.siteId) >= 0; });
       SITES = SITES.filter(function (s) { return ROOMS.some(function (x) { return x.siteId === s.id; }); });
       V.site = SITES[0] ? SITES[0].id : '';
-      var mid = EGBCEvents.asSeen(profile || {}).memberId || '-';   /* view as: the person being viewed */
-      var office = EGBCAuth.isAdmin() || all(r[4]).some(function (s) { return (s.bookingsAdmins || []).indexOf(mid) >= 0; });
+      var office = EGBCAuth.isAdmin() || mySites.length > 0;
       if (office) document.getElementById('office').innerHTML = 'You look after bookings: <a href="bookings-admin.html" style="color:var(--brand)">open Room bookings</a> to approve, move or cancel any booking.';
       if (!SITES.length) { document.getElementById('cal').innerHTML = '<p class="hint">No rooms can be booked yet.</p>'; return; }
       drawCal();

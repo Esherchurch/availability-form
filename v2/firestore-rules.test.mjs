@@ -1223,6 +1223,29 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('  nor may they ask', 'deny', () => setDoc(doc(as('samy'), 'bookings', K('plain_req')), { ...B('2026-11-25', 600, 660), status: 'requested' }));
   await env.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'users', 'u_samy'), { covers: ['Worship Team'] }); });
   await check('  on a core team (it covers teams), they may ask', 'allow', () => setDoc(doc(as('samy'), 'bookings', K('core_req')), { ...B('2026-11-25', 600, 660), status: 'requested' }));
+  /* THE OFFICE AND THE BOOKINGS ADMINS MAY BOOK TOO (Martin, 28 Oct; H&S step 3a) */
+  let bsWas = null, samyWas = null;
+  await env.withSecurityRulesDisabled(async (c) => {
+    const s = await getDoc(doc(c.firestore(), 'bookingSettings', 'site_bk')); bsWas = s.exists() ? s.data() : null;
+    samyWas = (await getDoc(doc(c.firestore(), 'users', 'u_samy'))).data();
+    await updateDoc(doc(c.firestore(), 'users', 'u_samy'), { covers: [], teams: ['Church office'], memberId: 'm_samy' });
+  });
+  await check('BOOK A ROOM, 3a: THE OFFICE (the office job; EGBC\'s is "Church office") may ask', 'allow', () => setDoc(doc(as('samy'), 'bookings', K('office_req')), { ...B('2026-11-25', 600, 660), status: 'requested' }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    await updateDoc(doc(c.firestore(), 'users', 'u_samy'), { teams: [] });
+    await setDoc(doc(c.firestore(), 'bookingSettings', 'site_bk'), { ...(bsWas || {}), bookingsAdmins: ['m_samy'] });
+  });
+  await check('  THE BUILDING\'S BOOKINGS ADMIN may ask', 'allow', () => setDoc(doc(as('samy'), 'bookings', K('badmin_req')), { ...B('2026-11-25', 600, 660), status: 'requested' }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'bookingSettings', 'site_bk'), { ...(bsWas || {}), bookingsAdmins: [] });
+    await setDoc(doc(c.firestore(), 'bookingSettings', 'site_other_3a'), { bookingsAdmins: ['m_samy'] });
+  });
+  await check('  ANOTHER BUILDING\'S bookings admin may not (only their own buildings)', 'deny', () => setDoc(doc(as('samy'), 'bookings', K('badmin_x')), { ...B('2026-11-25', 600, 660), status: 'requested' }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    if (bsWas) await setDoc(doc(c.firestore(), 'bookingSettings', 'site_bk'), bsWas); else await deleteDoc(doc(c.firestore(), 'bookingSettings', 'site_bk'));
+    await deleteDoc(doc(c.firestore(), 'bookingSettings', 'site_other_3a'));
+    await setDoc(doc(c.firestore(), 'users', 'u_samy'), { ...samyWas, covers: [] });   /* as before these, with no core team */
+  });
   await env.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'users', 'u_samy'), { covers: [], roles: { 'Kids Church': 'leader' } }); });
   /* From here Samy leads Kids Church: the bookings below are a leader's. */
   await check('a member books a free time, confirmed straight away', 'allow', () => book(as('samy'), K('band_1800'), B('2026-11-18', 1080, 1140), wedBefore()));
@@ -4292,7 +4315,11 @@ await check('  while making the same record without it is fine', 'allow',
     await U('u_wanda', 'm_wanda', [], []);   // fire warden, every building
     await U('u_sid', 'm_sid', [], []);       // fire warden, building B only
     await U('u_quinn', 'm_quinn', [], []);   // runs a different event
+    // One record for each building, and 'all' for every building (H&S step 3a).
+    await setDoc(doc(db, 'fireRollCall', 'all'), { siteId: '', people: [{ memberId: 'm_wanda', name: 'Wanda', role: 'warden' }], memberIds: ['m_wanda'], stewards: [], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' });
+    await setDoc(doc(db, 'fireRollCall', 'site_b'), { siteId: 'site_b', people: [{ memberId: 'm_sid', name: 'Sid', role: 'warden' }], memberIds: ['m_sid'], stewards: [], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' });
     await setDoc(doc(db, 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_sid'], allSites: ['m_wanda'], bySite: { site_b: ['m_sid'] }, updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' });
+    await setDoc(doc(db, 'sites', 'site_b'), { name: 'Building B (invented)', active: true });
     await setDoc(doc(db, 'calEvents', 'ev_fa'), { title: 'Film Club A (invented)', audience: ['members'], visibility: 'members', status: 'confirmed', createdBy: 'u_martin', teamMemberIds: [], teamUids: ['u_natasha'] });
     await setDoc(doc(db, 'calEvents', 'ev_qz'), { title: 'Quiz (invented)', audience: ['members'], visibility: 'members', status: 'confirmed', createdBy: 'u_martin', teamMemberIds: ['m_quinn'], teamUids: [] });
     await setDoc(doc(db, 'signups', 'su_fa_1'), { calEventId: 'ev_fa', name: 'Ann Answer (invented)', email: 'ann@example.invalid', places: 1, status: 'confirmed', answers: { q_med: 'SECRET-ASTHMA' } });
@@ -4309,10 +4336,17 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  nor Film Club\'s check-ins', 'deny', () => getDocs(query(collection(ctx('u_quinn'), 'checkins'), where('calEventId', '==', 'ev_fa'))));
   await check('THE WARDEN CANNOT SEE SIGN-UP ANSWERS', 'deny', () => getDocs(query(collection(ctx('u_wanda'), 'signups'), where('calEventId', '==', 'ev_fa'))));
   await check('  nor the children\'s Sunday check-ins', 'deny', () => getDocs(query(collection(ctx('u_wanda'), 'checkins'), where('calEventId', '==', 'kids_grp_junior_' + DAYF))));
-  await check('  a warden reads the list they are on', 'allow', () => getDoc(doc(ctx('u_wanda'), 'fireRollCall', 'main')));
-  await check('  someone not on it does not', 'deny', () => getDoc(doc(ctx('u_quinn'), 'fireRollCall', 'main')));
-  await check('  nor does a warden change it', 'deny', () => setDoc(doc(ctx('u_wanda'), 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_quinn'], allSites: ['m_wanda', 'm_quinn'], bySite: {}, updatedBy: 'u_wanda', updatedByName: 'x', updatedAt: 'x' }));
-  await check('  a master admin does', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_sid'], allSites: ['m_wanda'], bySite: { site_b: ['m_sid'] }, updatedBy: 'u_martin', updatedByName: 'Martin', updatedAt: 'x' }));
+  await check('  a warden reads the list they are on', 'allow', () => getDoc(doc(ctx('u_wanda'), 'fireRollCall', 'all')));
+  await check('  a warden for building B reads building B\'s', 'allow', () => getDoc(doc(ctx('u_sid'), 'fireRollCall', 'site_b')));
+  await check('  but not every building\'s list', 'deny', () => getDoc(doc(ctx('u_sid'), 'fireRollCall', 'all')));
+  await check('  someone not on it does not', 'deny', () => getDoc(doc(ctx('u_quinn'), 'fireRollCall', 'all')));
+  await check('  THE OLD SINGLE RECORD: a warden no longer reads it (only a master admin)', 'deny', () => getDoc(doc(ctx('u_wanda'), 'fireRollCall', 'main')));
+  await check('  nor does a warden change a list', 'deny', () => setDoc(doc(ctx('u_wanda'), 'fireRollCall', 'all'), { siteId: '', people: [{ memberId: 'm_wanda' }, { memberId: 'm_quinn' }], memberIds: ['m_wanda', 'm_quinn'], stewards: [], updatedBy: 'u_wanda', updatedByName: 'x', updatedAt: 'x' }));
+  await check('  a master admin does', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'all'), { siteId: '', people: [{ memberId: 'm_wanda' }], memberIds: ['m_wanda'], stewards: [], updatedBy: 'u_martin', updatedByName: 'Martin', updatedAt: 'x' }));
+  await check('  nobody writes the old single record any more', 'deny', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: [], memberIds: ['m_wanda', 'm_sid'], allSites: ['m_wanda'], bySite: { site_b: ['m_sid'] }, updatedBy: 'u_martin', updatedByName: 'Martin', updatedAt: 'x' }));
+  await check('  a building\'s list says its building', 'deny', () => setDoc(doc(as('martin'), 'fireRollCall', 'site_b'), { siteId: 'site_a', people: [{ memberId: 'm_sid' }], memberIds: ['m_sid'], stewards: [], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' }));
+  await check('  a list for a building that is not in Places is refused', 'deny', () => setDoc(doc(as('martin'), 'fireRollCall', 'site_nowhere'), { siteId: 'site_nowhere', people: [{ memberId: 'm_sid' }], memberIds: ['m_sid'], stewards: [], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' }));
+  await check('  never deleted', 'deny', () => deleteDoc(doc(as('martin'), 'fireRollCall', 'site_b')));
   // Children as numbers (F-216): kidsCounts, kept by a function.
   await env.withSecurityRulesDisabled(async (c) => {
     await setDoc(doc(c.firestore(), 'kidsCounts', 'site_a__' + DAYF), { siteId: 'site_a', day: DAYF, total: 3, groups: [{ groupId: 'g', name: 'Juniors', roomId: '', n: 3 }], updatedAt: 'x' });
@@ -4612,7 +4646,7 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  THE GEEP: the office writes the building’s plan for visitors', 'allow', () => setDoc(doc(ctx('u_poff'), 'geeps', 'ps_a'), { siteId: 'ps_a', identify: 'Ask at the door (invented)', refuges: '', helpers: '', equipment: '', reviewDue: '2027-10-19', updatedBy: 'u_poff', updatedByName: 'x', updatedAt: 'x' }));
   await check('    anyone signed in reads it (it names nobody)', 'allow', () => getDoc(doc(ctx('u_poth'), 'geeps', 'ps_a')));
   await check('    a volunteer does not change it', 'deny', () => setDoc(doc(ctx('u_poth'), 'geeps', 'ps_a'), { siteId: 'ps_a', identify: 'x' }));
-  await check('  THE ROLL-CALL LIST names duty stewards (a master admin)', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: [{ memberId: 'm_pwar', name: 'W', siteId: '', role: 'warden' }, { memberId: 'm_pste', name: 'S', siteId: '', role: 'steward' }], memberIds: ['m_pwar', 'm_pste'], allSites: ['m_pwar', 'm_pste'], bySite: {}, stewards: ['m_pste'], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' }));
+  await check('  THE ROLL-CALL LIST names duty stewards (a master admin)', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'all'), { siteId: '', people: [{ memberId: 'm_pwar', name: 'W', role: 'warden' }, { memberId: 'm_pste', name: 'S', role: 'steward' }], memberIds: ['m_pwar', 'm_pste'], stewards: ['m_pste'], updatedBy: 'u_martin', updatedByName: 'x', updatedAt: 'x' }));
 }
 
 // ── EVENTS (events window) ── ROOMS ON THE DAY (F-260): "we've arrived", and the caterers' list
@@ -5110,7 +5144,63 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  a children’s site names 500 teams (it was 20)', 'allow', () => setDoc(doc(as('martin'), 'kidsSettings', 'site_jb'), { teams: many(500, 'Team ') }));
   await check('  the groups admins: 500 teams (it was 20)', 'allow', () => setDoc(doc(as('martin'), 'groupsSettings', 'main'), { teams: many(500, 'Team ') }));
   await check('  never 501', 'deny', () => setDoc(doc(as('martin'), 'groupsSettings', 'main'), { teams: many(501, 'Team ') }));
-  await check('  the fire roll call holds 500 people (it was 60)', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'main'), { people: many(500, 'm_f').map((m) => ({ memberId: m })), memberIds: [], allSites: [], bySite: {}, updatedBy: 'u_martin', updatedAt: 'x' }));
+  await check('  the fire roll call holds 500 people for every building (it was 60 for the church)', 'allow', () => setDoc(doc(as('martin'), 'fireRollCall', 'all'), { siteId: '', people: many(500, 'm_f').map((m) => ({ memberId: m })), memberIds: many(500, 'm_f'), stewards: [], updatedBy: 'u_martin', updatedAt: 'x' }));
+  await check('  never 501', 'deny', () => setDoc(doc(as('martin'), 'fireRollCall', 'all'), { siteId: '', people: many(501, 'm_f').map((m) => ({ memberId: m })), memberIds: many(501, 'm_f'), stewards: [], updatedBy: 'u_martin', updatedAt: 'x' }));
+  await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'churchSettings', 'teamJobs'); if (tjWas) await setDoc(r, tjWas); else await deleteDoc(r); });
+}
+
+// ── EVENTS (events window) ── H&S step 3a: the fire roll call for each building, by the office JOB;
+// the compliance caps (H-9). The synthetic parish names its own teams.
+{
+  const cx = (uid) => env.authenticatedContext(uid).firestore();
+  const many = (n, p) => Array.from({ length: n }, (_, i) => p + i);
+  let tjWas = null;
+  await env.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const s = await getDoc(doc(db, 'churchSettings', 'teamJobs')); tjWas = s.exists() ? s.data() : null;
+    await setDoc(doc(db, 'churchSettings', 'teamJobs'), { office: ['Parish office'], trustees: ['PCC'] });
+    await setDoc(doc(db, 'users', 'u_3a_office'), { uid: 'u_3a_office', memberId: 'm_3a_office', status: 'active', name: 'x', teams: ['Parish office'], adminFor: [], masterAdmin: false });
+    await setDoc(doc(db, 'users', 'u_3a_old'), { uid: 'u_3a_old', memberId: 'm_3a_old', status: 'active', name: 'x', teams: ['Church office'], adminFor: [], masterAdmin: false });
+    await setDoc(doc(db, 'users', 'u_3a_warden'), { uid: 'u_3a_warden', memberId: 'm_3a_warden', status: 'active', name: 'x', teams: [], adminFor: [], masterAdmin: false });
+    for (const s3 of ['site_3a_church', 'site_3a_hall', 'site_3a_hild']) await setDoc(doc(db, 'sites', s3), { name: s3 + ' (synthetic)', active: true });
+    const CK = { siteId: 'site_3a_church', templateId: 'walk-round', templateVersion: 4, area: 'Fire', title: 'Walk-round', every: { n: 1, unit: 'week' }, kind: 'check', basis: 'practice', legal: false,
+      baseEvery: { n: 1, unit: 'week' }, lengthenReason: '', note: '', state: 'on', offReason: '', responsibleIds: [], custom: false, edited: [], createdAt: 'x', updatedAt: 'x' };
+    await setDoc(doc(db, 'buildingChecks', 'site_3a_church__walk-round'), CK);
+    await setDoc(doc(db, 'complianceTemplates', 'walk-round'), { version: 4, title: 'Walk-round', every: { n: 1, unit: 'week' }, basis: 'practice' });
+  });
+  const ROLL = (id, mids, by) => ({ siteId: id === 'all' ? '' : id, people: mids.map((m) => ({ memberId: m, name: m, role: 'warden' })), memberIds: mids, stewards: [], updatedBy: by, updatedByName: 'x', updatedAt: 'x' });
+  await check('FIRE ROLL CALL BY BUILDING (H&S step 3a), THE PARISH: its Parish office (the office job) names the wardens at St Hild', 'allow', () => setDoc(doc(cx('u_3a_office'), 'fireRollCall', 'site_3a_hild'), ROLL('site_3a_hild', ['m_3a_warden'], 'u_3a_office')));
+  await check('  and for every building', 'allow', () => setDoc(doc(cx('u_3a_office'), 'fireRollCall', 'all'), ROLL('all', ['m_3a_office'], 'u_3a_office')));
+  await check('  and reads them', 'allow', () => getDoc(doc(cx('u_3a_office'), 'fireRollCall', 'site_3a_hild')));
+  await check('  a team called "Church office" may not', 'deny', () => setDoc(doc(cx('u_3a_old'), 'fireRollCall', 'site_3a_hall'), ROLL('site_3a_hall', ['m_3a_old'], 'u_3a_old')));
+  await check('    nor read them', 'deny', () => getDoc(doc(cx('u_3a_old'), 'fireRollCall', 'site_3a_hild')));
+  await check('  the warden named at St Hild reads St Hild\'s list', 'allow', () => getDoc(doc(cx('u_3a_warden'), 'fireRollCall', 'site_3a_hild')));
+  await check('    and St Hild\'s children\'s numbers on the day', 'allow', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'kidsCounts', 'site_3a_hild__2026-11-22'), { siteId: 'site_3a_hild', day: '2026-11-22', total: 2, groups: [], updatedAt: 'x' }); });
+    return getDoc(doc(cx('u_3a_warden'), 'kidsCounts', 'site_3a_hild__2026-11-22'));
+  });
+  await check('    but not the church hall\'s', 'deny', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'kidsCounts', 'site_3a_hall__2026-11-22'), { siteId: 'site_3a_hall', day: '2026-11-22', total: 2, groups: [], updatedAt: 'x' }); });
+    return getDoc(doc(cx('u_3a_warden'), 'kidsCounts', 'site_3a_hall__2026-11-22'));
+  });
+  await check('  EACH BUILDING HOLDS 500: three buildings, 1,500 people named in all', 'allow', async () => {
+    for (const s3 of ['site_3a_church', 'site_3a_hall']) await setDoc(doc(cx('u_3a_office'), 'fireRollCall', s3), ROLL(s3, many(500, 'm_' + s3 + '_'), 'u_3a_office'));
+    return setDoc(doc(cx('u_3a_office'), 'fireRollCall', 'site_3a_hild'), ROLL('site_3a_hild', many(500, 'm_hild_'), 'u_3a_office'));
+  });
+  await check('    never 501 in one', 'deny', () => setDoc(doc(cx('u_3a_office'), 'fireRollCall', 'site_3a_hild'), ROLL('site_3a_hild', many(501, 'm_hild_'), 'u_3a_office')));
+  await setDoc(doc(cx('u_3a_office'), 'fireRollCall', 'site_3a_hild'), ROLL('site_3a_hild', ['m_3a_warden'], 'u_3a_office'));
+  await check('    the hall has its own list now: St Hild\'s warden still does not read the hall\'s children\'s numbers', 'deny', () => getDoc(doc(cx('u_3a_warden'), 'kidsCounts', 'site_3a_hall__2026-11-22')));
+  await check('      nor the hall\'s list', 'deny', () => getDoc(doc(cx('u_3a_warden'), 'fireRollCall', 'site_3a_hall')));
+  await check('    the names and the ids must match in number', 'deny', () => setDoc(doc(cx('u_3a_office'), 'fireRollCall', 'site_3a_hild'), { ...ROLL('site_3a_hild', ['m_a'], 'u_3a_office'), memberIds: ['m_a', 'm_b'] }));
+  await check('    saved in the saver\'s own name only', 'deny', () => setDoc(doc(cx('u_3a_office'), 'fireRollCall', 'site_3a_hild'), ROLL('site_3a_hild', ['m_a'], 'u_martin')));
+  /* THE COMPLIANCE CAPS (H-9): 10 responsible, 10 files and 200 items are now 500 */
+  await check('NO HIDDEN CAPS, 3a: 500 people responsible for one check (it was 10)', 'allow', () => updateDoc(doc(cx('u_3a_office'), 'buildingChecks', 'site_3a_church__walk-round'), { responsibleIds: many(500, 'm_r'), updatedAt: 'y' }));
+  await check('  never 501', 'deny', () => updateDoc(doc(cx('u_3a_office'), 'buildingChecks', 'site_3a_church__walk-round'), { responsibleIds: many(501, 'm_r'), updatedAt: 'y' }));
+  const REC = (files, items) => ({ checkId: 'site_3a_church__walk-round', siteId: 'site_3a_church', doneOn: '2026-10-28', doneBy: 'u_3a_office', doneByName: 'x', notes: '', files, certExpiry: '', items, jobId: '', at: 'x' });
+  await check('  a record holds 500 files (it was 10)', 'allow', () => setDoc(doc(cx('u_3a_office'), 'checkRecords', 'cr_3a_1'), REC(many(500, 'f'), [])));
+  await check('    never 501', 'deny', () => setDoc(doc(cx('u_3a_office'), 'checkRecords', 'cr_3a_2'), REC(many(501, 'f'), [])));
+  await check('  and 500 items, e.g. extinguishers on a walk-round (it was 200)', 'allow', () => setDoc(doc(cx('u_3a_office'), 'checkRecords', 'cr_3a_3'), REC([], many(500, 'i'))));
+  await check('    never 501', 'deny', () => setDoc(doc(cx('u_3a_office'), 'checkRecords', 'cr_3a_4'), REC([], many(501, 'i'))));
   await env.withSecurityRulesDisabled(async (c) => { const r = doc(c.firestore(), 'churchSettings', 'teamJobs'); if (tjWas) await setDoc(r, tjWas); else await deleteDoc(r); });
 }
 

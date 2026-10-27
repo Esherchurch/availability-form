@@ -1737,9 +1737,17 @@ return isMaster() || me().get('adminFor', []).size() > 0
 || me().get('roles', {}).values().hasAny(['leader', 'admin', 'owner'])
 || me().get('covers', []).size() > 0;
 }
+function mayBookRoom(roomId) {
+return leadsOrCore() || officeOrBookingsAdmin(me(), roomData(roomId).siteId);
+}
+function officeOrBookingsAdmin(u, siteId) {
+let bs = /databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId);
+return (exists(bs) && u.get('memberId', '-') in get(bs).data.get('bookingsAdmins', []))
+|| u.get('teams', []).concat(u.get('covers', [])).hasAny(raJobTeams('office', ['Church office']));
+}
 function memberCreate(key) {
 let d = request.resource.data;
-return d.kind == 'member' && active() && d.memberUid == request.auth.uid && leadsOrCore()
+return d.kind == 'member' && active() && d.memberUid == request.auth.uid && mayBookRoom(d.roomId)
 && roomData(d.roomId).get('bookableByMembers', true) == true
 && (!('bookingType' in d) || d.status == 'requested'
 || get(/databases/$(database)/documents/churches/$(cid)/bookingTypes/$(d.bookingType)).data.get('charged', false) == false)
@@ -2951,23 +2959,30 @@ allow read: if id == 'main' && active() && me().get('memberId', '') != ''
 && resource.data.get('pastor', '') == me().get('memberId', '');
 allow write: if false;
 }
-function fireDoc() {
-return get(/databases/$(database)/documents/churches/$(cid)/fireRollCall/main).data;
+function fireNamed(id) {
+return exists(/databases/$(database)/documents/churches/$(cid)/fireRollCall/$(id))
+&& me().get('memberId', '') in get(/databases/$(database)/documents/churches/$(cid)/fireRollCall/$(id)).data.get('memberIds', []);
 }
 function fireWarden(buildingId) {
-return active() && exists(/databases/$(database)/documents/churches/$(cid)/fireRollCall/main)
-&& (me().get('memberId', '') in fireDoc().get('allSites', [])
-|| (buildingId is string && buildingId != ''
-&& me().get('memberId', '') in fireDoc().get('bySite', {}).get(buildingId, [])));
+return active() && (fireNamed('all')
+|| (buildingId is string && buildingId != '' && buildingId != 'all' && buildingId != 'main' && fireNamed(buildingId)));
+}
+function fireRollShape(id) {
+let d = request.resource.data;
+return d.keys().hasOnly(['siteId', 'people', 'memberIds', 'stewards', 'updatedBy', 'updatedByName', 'updatedAt'])
+&& (id == 'all' ? d.siteId == '' : (d.siteId == id && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(id))))
+&& d.people is list && d.people.size() <= 500
+&& d.memberIds is list && d.memberIds.size() == d.people.size()
+&& d.stewards is list && d.stewards.size() <= d.people.size()
+&& d.updatedBy == request.auth.uid
+&& d.get('updatedByName', '') is string && d.get('updatedByName', '').size() <= 200
+&& d.get('updatedAt', '') is string;
 }
 match /fireRollCall/{id} {
 allow read: if isMaster()
-|| (id == 'main' && active() && me().get('memberId', '') in resource.data.get('memberIds', []));
-allow write: if isMaster() && id == 'main'
-&& request.resource.data.keys().hasOnly(['people', 'memberIds', 'allSites', 'bySite', 'stewards', 'updatedBy', 'updatedByName', 'updatedAt'])
-&& request.resource.data.people is list && request.resource.data.people.size() <= 500
-&& request.resource.data.memberIds is list && request.resource.data.allSites is list
-&& request.resource.data.bySite is map && request.resource.data.updatedBy == request.auth.uid;
+|| (id != 'main' && (raOffice() || (active() && me().get('memberId', '') in resource.data.get('memberIds', []))));
+allow create, update: if id != 'main' && raOffice() && fireRollShape(id);
+allow delete: if false;
 }
 match /kidsCounts/{id} {
 allow read: if isMaster() || kidsLead(resource.data.siteId) || fireWarden(resource.data.siteId);
@@ -3104,7 +3119,7 @@ return d.keys().hasOnly(['siteId', 'templateId', 'templateVersion', 'area', 'tit
 && d.state in ['on', 'off', 'removed']
 && d.get('offReason', '') is string && d.get('offReason', '').size() <= 300
 && d.get('lengthenReason', '') is string && d.get('lengthenReason', '').size() <= 300
-&& d.get('responsibleIds', []) is list && d.get('responsibleIds', []).size() <= 10
+&& d.get('responsibleIds', []) is list && d.get('responsibleIds', []).size() <= 500
 && d.get('note', '') is string && d.get('note', '').size() <= 300
 && (d.state != 'off' || d.get('offReason', '').size() > 0);
 }
@@ -3147,8 +3162,8 @@ return d.keys().hasOnly(['checkId', 'siteId', 'doneOn', 'doneBy', 'doneByName', 
 && d.doneOn is string && d.doneOn.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
 && d.doneBy == request.auth.uid
 && d.get('notes', '') is string && d.get('notes', '').size() <= 2000
-&& d.get('files', []) is list && d.get('files', []).size() <= 10
-&& d.get('items', []) is list && d.get('items', []).size() <= 200
+&& d.get('files', []) is list && d.get('files', []).size() <= 500
+&& d.get('items', []) is list && d.get('items', []).size() <= 500
 && d.get('certExpiry', '') is string;
 }
 match /checkRecords/{id} {

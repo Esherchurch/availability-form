@@ -166,7 +166,8 @@ try {
   ok('   a team called "Finance" is turned away', /is for master admins and the church's money team/.test(await text(finn, '#wrap')), await text(finn, '#wrap'));
 
   /* ---------- 5. Book a room ---------- */
-  const settledRooms = async (pg) => (await pg.$('[data-egbc-blocked]')) || /Book|room/i.test(await text(pg));
+  /* the page turns people away itself now, once it has read the bookings admins (H&S step 3a) */
+  const settledRooms = async (pg) => (await pg.$('[data-egbc-blocked]')) || !/Loading/.test(await text(pg, '#cal'));
   await open(sam, 'rooms.html', settledRooms);
   const blocked = await sam.evaluate(() => document.body.getAttribute('data-egbc-blocked'));
   ok('5. BOOK A ROOM: a plain member is turned away, "For team leaders and core teams" (Martin, H-16)', !!blocked && /For team leaders and core teams/.test(await text(sam)), (await text(sam)).slice(0, 300));

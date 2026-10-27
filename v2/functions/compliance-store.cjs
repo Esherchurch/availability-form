@@ -74,7 +74,9 @@
   function editCheck(db, id, changes, who, E) {
     var ok = {}, edited = [];
     if (changes.every) { ok.every = { n: Math.max(1, +changes.every.n || 1), unit: changes.every.unit }; if (changes.every.trigger) { ok.every.trigger = changes.every.trigger; ok.every.triggerWords = changes.every.triggerWords || ''; } edited.push('every'); }
-    if (changes.responsibleIds) { ok.responsibleIds = changes.responsibleIds.slice(0, 10); edited.push('responsible'); }
+    /* No church-size cap (H-9): 500 is the bound for any list, and the page
+       says so before it is reached (H&S step 3a; was 10). */
+    if (changes.responsibleIds) { ok.responsibleIds = changes.responsibleIds.slice(0, 500); edited.push('responsible'); }
     if (changes.title) { ok.title = String(changes.title).slice(0, 140); edited.push('title'); }
     if (changes.state === 'off') {
       if (!String(changes.offReason || '').trim()) return Promise.reject(new Error('Say why it is switched off.'));
@@ -106,7 +108,7 @@
   function addCustomCheck(db, siteId, f, who) {
     var id = siteId + '__c_' + rid();
     var c = { siteId: siteId, templateId: '', templateVersion: 0, area: String(f.area || 'Other').slice(0, 60), title: String(f.title || '').slice(0, 140), every: f.every || { n: 1, unit: 'year' },
-      kind: 'check', basis: 'practice', legal: false, baseEvery: f.every || { n: 1, unit: 'year' }, lengthenReason: '', note: String(f.note || '').slice(0, 300), state: 'on', offReason: '', responsibleIds: (f.responsibleIds || []).slice(0, 10), custom: true, edited: [], createdAt: now(), updatedAt: now() };
+      kind: 'check', basis: 'practice', legal: false, baseEvery: f.every || { n: 1, unit: 'year' }, lengthenReason: '', note: String(f.note || '').slice(0, 300), state: 'on', offReason: '', responsibleIds: (f.responsibleIds || []).slice(0, 500), custom: true, edited: [], createdAt: now(), updatedAt: now() };
     if (!c.title) return Promise.reject(new Error('Give the check a name.'));
     return db.collection('buildingChecks').doc(id).set(c).then(function () { return log(db, siteId, 'add', who, { checkId: id }); }).then(function () { return id; });
   }
@@ -116,7 +118,7 @@
      items ticked. Never deleted. */
   function recordDone(db, check, r, who) {
     var rec = { checkId: check.id, siteId: check.siteId, doneOn: String(r.doneOn).slice(0, 10), doneBy: (who && who.uid) || '', doneByName: (who && who.name) || '',
-      notes: String(r.notes || '').slice(0, 2000), files: (r.files || []).slice(0, 10), certExpiry: r.certExpiry ? String(r.certExpiry).slice(0, 10) : '', items: (r.items || []).slice(0, 200),
+      notes: String(r.notes || '').slice(0, 2000), files: (r.files || []).slice(0, 500), certExpiry: r.certExpiry ? String(r.certExpiry).slice(0, 10) : '', items: (r.items || []).slice(0, 500),
       jobId: r.jobId || '', at: now() };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(rec.doneOn)) return Promise.reject(new Error('Give the date it was done.'));
     var ref = db.collection('checkRecords').doc();

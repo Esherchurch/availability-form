@@ -649,6 +649,9 @@ const beforeOf = (event) => event.data.before && event.data.before.exists ? even
 const COVERS = makeCoverTriggers(twins);
 export const [coversOnUser, coversOnUserChurch] = COVERS.user;
 export const [coversOnTeam, coversOnTeamChurch] = COVERS.team;
+/* A new building gets its copy of the Accounts setting at once (H&S step 3a;
+   the events window's accounts-copy.js). Room bookings still fills any gap. */
+export const [accountsForNewSite, accountsForNewSiteChurch] = makeAccountsTriggers(twins).site;
 
 /* WHO MAY DO WHAT (H-14): each person's permissions on their sign-in, for
    the Storage rules (functions/permissions.js). */
@@ -828,6 +831,7 @@ export { hqMembershipClaims, hqMyChurches } from './hq-directory.js';
 /* The hub's address, made from the church's short name (hub-address.js). */
 export { hubAddress, hqSlugCheck } from './hub-address.js';
 import { makeCoverTriggers } from './core-teams.js';
+import { makeAccountsTriggers } from './accounts-copy.js';
 import * as Perms from './permissions.js';
 /* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */
 export { welcomeSubscriber, welcomeNewcomer } from './welcome-mail.js';

@@ -111,8 +111,10 @@ const TODAY = (() => { const d = new Date(), p = (n) => (n < 10 ? '0' : '') + n;
 const addDays = (d, n) => new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 /* The roll-call list: Wendy a fire warden; Stan and Sue duty stewards. */
 /* Hal is a fire warden for the hall only (Martin, 19 Oct: their building only). */
-await db.collection('fireRollCall').doc('main').set({ people: [{ memberId: 'm_hal', name: P.hal.name, siteId: 'cmp_hall', role: 'warden' }, { memberId: 'm_wendy', name: P.wendy.name, siteId: '', role: 'warden' }, { memberId: 'm_stan', name: P.stan.name, siteId: '', role: 'steward' }, { memberId: 'm_sue', name: P.sue.name, siteId: '', role: 'steward' }],
-  memberIds: ['m_hal', 'm_wendy', 'm_stan', 'm_sue'], allSites: ['m_wendy', 'm_stan', 'm_sue'], bySite: { cmp_hall: ['m_hal'] }, stewards: ['m_stan', 'm_sue'], updatedBy: 'seed', updatedByName: 'x', updatedAt: 'x' });
+/* One list for each building, and one for every building (H&S step 3a). */
+await db.collection('fireRollCall').doc('all').set({ siteId: '', people: [{ memberId: 'm_wendy', name: P.wendy.name, role: 'warden' }, { memberId: 'm_stan', name: P.stan.name, role: 'steward' }, { memberId: 'm_sue', name: P.sue.name, role: 'steward' }],
+  memberIds: ['m_wendy', 'm_stan', 'm_sue'], stewards: ['m_stan', 'm_sue'], updatedBy: 'seed', updatedByName: 'x', updatedAt: 'x' });
+await db.collection('fireRollCall').doc('cmp_hall').set({ siteId: 'cmp_hall', people: [{ memberId: 'm_hal', name: P.hal.name, role: 'warden' }], memberIds: ['m_hal'], stewards: [], updatedBy: 'seed', updatedByName: 'x', updatedAt: 'x' });
 /* Today: Pat checked in at an event in the church; Rob and Sue on the rota; Quinn not here. */
 await db.collection('calEvents').doc('ce_today').set({ title: 'Coffee morning (invented)', startLocal: TODAY + 'T10:00', location: { siteId: 'cmp_church' } });
 await db.collection('signups').doc('su_pat_00000000000000000000000000').set({ calEventId: 'ce_today', personKind: 'addressBook', personId: 'm_pat', name: P.pat.name, status: 'confirmed', places: 1, memberUid: P.pat.uid });
