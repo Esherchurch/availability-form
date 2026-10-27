@@ -766,6 +766,15 @@
   /* The church's service roles (H-11), for the slides and cards that name
      them: read with the profile, so a page draws them first time. */
   var SERVICES = { S: null, cfg: null };
+  /* The church's own words (H-12; Comms' your-church.html writes them):
+     memberWord ('' = "Church member"), ministerTitle, serviceDay. */
+  var WORDS = { memberWord: '', ministerTitle: '', serviceDay: '' };
+  function loadChurchWords() {
+    return db.collection('churchSettings').doc('details').get().then(function (s) {
+      var d = (s.exists && s.data()) || {};
+      WORDS = { memberWord: String(d.memberWord || ''), ministerTitle: String(d.ministerTitle || ''), serviceDay: String(d.serviceDay || '') };
+    }, function () {});
+  }
   function loadServiceRoles() {
     return sibling('egbc-services.js', '202610300900').then(function () {
       return global.EGBCServices ? global.EGBCServices.load(db) : null;
@@ -1505,7 +1514,7 @@
                Running things tabs are decided before the page draws. */
             return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadBuildingLead(profile && profile.memberId), loadGroupLeadAndDataLead(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
                                 loadCareLead(profile && profile.memberId), loadMoneyTeam(), loadTrusteeTeam(profile), loadFeatures(),
-                                loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile), loadServiceRoles()])
+                                loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile), loadServiceRoles(), loadChurchWords()])
               .then(function () { return both; });
           }).then(function (both) {
             var profile = both[0];
@@ -1741,6 +1750,11 @@
       if (EGBCAuth.isMaster()) return true;
       return EGBCAuth.effectiveTeams().some(function (t) { return !!TEAMS[t] && TEAMS[t].rota !== false; });
     },
+    /* The church's word for a member (H-12): "Church member" unless the
+       church has its own ("On the electoral roll"). */
+    memberWord: function () { return WORDS.memberWord || 'Church member'; },
+    ministerTitle: function () { return WORDS.ministerTitle || 'minister'; },
+    serviceDay: function () { return WORDS.serviceDay || 'Sunday'; },
     /* [[role name, who]] for a service's slides and cards (H-11): EGBC's
        Service Leader and Speaker unless the church has its own roles. */
     /* Is this kind a service (H-11)? With nothing stored, the page's own
@@ -2344,7 +2358,7 @@
   try {
     if (new URLSearchParams(location.search).get('setup') === '1') {
       document.addEventListener('egbc-ready', function () {
-        sibling('egbc-setup.js', '202610301800').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
+        sibling('egbc-setup.js', '202610302000').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
       }, { once: true });
     }
   } catch (e) {}

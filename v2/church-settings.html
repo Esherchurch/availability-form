@@ -6,12 +6,12 @@
 <title>Church details</title>
 
 <script src="egbc-nosend.js?v=202610212000"></script>
-<script src="egbc-shell.js?v=202610301200" data-title="Church details"></script>
+<script src="egbc-shell.js?v=202610302000" data-title="Church details"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610301800"></script>
+<script src="egbc-auth.js?v=202610302000"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <!-- An admin, OR the Church office. The office are the people who know
      the church's bank details, which now live on this page, and they are
@@ -69,7 +69,7 @@
 <body>
 <div class="wrap">
   <h1>Church details</h1>
-  <p class="sub">The name, enquiry email and logo shown on the public room-hire pages and in emails. Change them here, once.</p>
+  <p class="sub">Your church's name, email, logo and words are kept on <a href="your-church.html" id="yc-link" style="color:#3d6263;font-weight:600">Your church</a>; the rest of the church's settings are here.</p>
   <p class="sub"><a href="permissions.html" style="color:#3d6263;font-weight:600">Permissions ›</a> who may do what, section by section (H-14).</p>
   <div class="card" id="form"><p class="hint">Loading…</p></div>
 
@@ -140,37 +140,25 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 3000); }
 
+  /* ONE PLACE TO EDIT, NEVER TWO (Martin's no-duplicates rule; the reviewer,
+     30 Oct 2026): the church's name, enquiry email, logo and words are kept
+     on Comms' Your church (your-church.html). This card shows them and links
+     there; the hub's address, which nobody types, stays here. */
   function draw() {
+    var link = EGBCAuth.churchLink ? EGBCAuth.churchLink('your-church.html') : 'your-church.html';
+    var yl = document.getElementById('yc-link'); if (yl) yl.href = link;
     document.getElementById('form').innerHTML =
-      '<div class="field"><label for="c-name">Church name</label><input class="inp" id="c-name" maxlength="120" value="' + esc(D.name) + '"></div>' +
-      '<div class="field"><label for="c-email">Enquiry email</label><input class="inp" id="c-email" type="email" maxlength="200" value="' + esc(D.enquiryEmail) + '">' +
-        '<p class="hint" style="margin:6px 0 0">Where room-hire questions go, and the reply address on emails these pages send.</p></div>' +
+      '<div class="field"><label>Your church</label><p style="margin:0;color:var(--ink,#111827);font-weight:600">' + esc(D.name || 'No name yet') + '</p>' +
+        '<p class="hint" style="margin:4px 0 0">' + esc(D.enquiryEmail || 'No enquiry email yet') + '</p>' +
+        (D.logoUrl ? '<img class="logo" src="' + esc(D.logoUrl) + '" alt="" style="margin-top:8px">' : '') +
+        '<p style="margin:10px 0 0"><a class="btn sec" style="text-decoration:none;display:inline-flex" href="' + esc(link) + '">Change the name, email, logo and words ›</a></p></div>' +
       /* THE HUB'S ADDRESS IS MADE, NEVER TYPED (Martin, 26 Oct 2026): from
          the church's short name, by the server (functions/hub-address.js).
          Shown, with a copy button; Church HQ staff change it. */
       '<div class="field"><label for="c-hub">The hub\u2019s web address</label>' +
-        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><output class="inp" id="c-hub" style="flex:1 1 220px;display:flex;align-items:center;word-break:break-all;background:var(--canvas,#f6f7f7)">' + esc(HUB.url || 'Finding it\u2026') + '</output>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><output class="inp" id="c-hub" style="flex:1 1 220px;display:flex;align-items:center;word-break:break-all;background:var(--canvas,#f6f7f7)">' + esc(HUB.url || 'Being made\u2026') + '</output>' +
         '<button type="button" class="btn sec" id="c-hub-copy"' + (HUB.url ? '' : ' disabled') + '>Copy</button></div>' +
-        '<p class="hint" style="margin:6px 0 0">Every email and link from the hub goes here. It is made from your church\u2019s short name' + (HUB.slug ? ' (' + esc(HUB.slug) + ')' : '') + '; to change it, ask Church HQ, because it changes every link already sent.</p></div>' +
-      /* THE MINISTER'S TITLE (26 Oct 2026; Comms' C-53): the church's own
-         word, as it reads in a sentence. Empty is "minister". */
-      '<div class="field"><label for="c-minister">Your minister\u2019s title</label><input class="inp" id="c-minister" maxlength="40" list="c-minister-list" placeholder="minister" value="' + esc(D.ministerTitle || '') + '">' +
-        '<datalist id="c-minister-list"><option value="vicar"><option value="rector"><option value="minister"><option value="pastor"><option value="priest"><option value="priest in charge"></datalist>' +
-        '<p class="hint" style="margin:6px 0 0">As it reads in a sentence: \u201cLetter from the ' + esc(D.ministerTitle || 'minister') + '\u201d. Left empty, it is \u201cminister\u201d.</p></div>' +
-      '<div class="field"><label>Logo</label>' + (D.logoUrl ? '<img class="logo" id="c-logo" src="' + esc(D.logoUrl) + '" alt="">' : '<p class="hint">No logo yet.</p>') +
-        '<label class="btn sec" style="cursor:pointer;display:inline-flex">' + (D.logoUrl ? 'Change the logo' : 'Add a logo') +
-        '<input type="file" id="c-file" accept="image/png,image/jpeg,image/webp" style="display:none"></label></div>' +
-      '<button class="btn" id="c-save">Save</button>';
-    document.getElementById('c-file').onchange = function () {
-      var f = this.files[0]; if (!f) return;
-      /* Kept small: it is drawn at 32 pixels in page headers. */
-      EGBCRooms.shrink(f, 512, 0.9).then(function (img) {
-        var path = 'church/logo-' + Date.now() + '.jpg', ref = EGBCAuth.storage().ref(path);
-        return ref.put(img.blob, { contentType: 'image/jpeg' }).then(function () { return ref.getDownloadURL(); })
-          .then(function (url) { var old = D.logoPath; D.logoUrl = url; D.logoPath = path; if (old) EGBCAuth.storage().ref(old).delete().catch(function () {}); return save(true); });
-      }).catch(function (e) { toast(e.message || String(e)); });
-    };
-    document.getElementById('c-save').onclick = function () { save(false); };
+        '<p class="hint" style="margin:6px 0 0">Every email and link from the hub goes here. It is made from your church\u2019s short name' + (HUB.slug ? ' (' + esc(HUB.slug) + ')' : '') + '; to change it, ask Church HQ.</p></div>';
     document.getElementById('c-hub-copy').onclick = function () {
       if (!HUB.url) return;
       (navigator.clipboard ? navigator.clipboard.writeText(HUB.url) : Promise.reject()).then(function () { toast('Copied.'); },
@@ -183,22 +171,6 @@
   function loadHub() {
     return EGBCAuth.call('hubAddress', {}).then(function (r) { HUB = { url: String((r && r.url) || ''), slug: String((r && r.slug) || '') }; },
       function () { HUB = { url: '', slug: '' }; }).then(function () { if (document.getElementById('c-hub')) draw(); });
-  }
-
-  function save(logoOnly) {
-    var name = document.getElementById('c-name').value.trim(), email = document.getElementById('c-email').value.trim().toLowerCase();
-    if (!logoOnly && !name) { toast('It needs the church\'s name.'); return Promise.resolve(); }
-    if (!logoOnly && email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('That email address does not look right.'); return Promise.resolve(); }
-    var minBox = document.getElementById('c-minister'), minister = minBox ? minBox.value.trim().replace(/\s+/g, ' ') : (D.ministerTitle || '');
-    if (!logoOnly && /[<>"&]/.test(minister)) { toast('The minister\'s title can\'t have < > " or &.'); return Promise.resolve(); }
-    var u = EGBCAuth.user() || {};
-    D.name = logoOnly ? (D.name || name) : name; D.enquiryEmail = logoOnly ? (D.enquiryEmail || email) : email;
-    D.ministerTitle = logoOnly ? (D.ministerTitle || '') : minister;
-    /* MERGED, so a field this form does not draw is never wiped by Save. */
-    return db().collection('churchSettings').doc('details').set({
-      name: D.name || '', enquiryEmail: D.enquiryEmail || '', logoUrl: D.logoUrl || '', logoPath: D.logoPath || '',
-      ministerTitle: D.ministerTitle || '', updatedAt: new Date().toISOString(), updatedBy: u.uid || ''
-    }, { merge: true }).then(function () { toast('Saved.'); draw(); }).catch(function (e) { toast('Could not save: ' + (e.message || e)); });
   }
 
   /* ---- giving: the church's bank details ---------------------------

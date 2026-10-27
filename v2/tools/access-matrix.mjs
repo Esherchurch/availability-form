@@ -225,6 +225,8 @@ export const DECIDED = [
   { url: 'payments.html', from: 'reviewer', what: 'Payments: the money team (EGBC: Finance) and master admins', who: (p) => ['finance', 'master'].includes(p.key) },
   { url: 'churchshow.html', from: 'reviewer', what: 'Connect ChurchShow: admins of AV or Worship (an admin of the core team covering them too, H-15), and master admins', who: (p) => ['worshipAdmin', 'coreAdmin', 'master'].includes(p.key) },
   { url: 'checkin.html', from: 'reviewer', what: "Check-in: core team admins, the event's own team, master admins", who: (p) => ['coreAdmin', 'evteam', 'master'].includes(p.key) },
+  /* Comms' your-church.html (aa33dfe6): master admins, as Church settings. */
+  { url: 'your-church.html', from: 'reviewer', what: 'Your church: master admins', who: (p) => p.key === 'master' },
   /* Martin, 27 Oct 2026 (via Comms, a69c27cf): the Schematic and Performance apps for the worship and AV team and admin.
      The app's row is on the worship space's Team tab, which these same people reach. */
   { url: 'Performancenotes.html', from: 'Martin', what: 'Performance Notes (and the Schematic and Performance apps on Apps and downloads): the Worship and AV teams, their admins, the core teams covering them, master admins',

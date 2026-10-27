@@ -13472,3 +13472,17 @@ Nothing to build on your side.
 - **The pages:** MonitorStageMap, Performancenotes, song-summary, view-only-rota, the youth planner, Planner, SundayServicePlanner, addressbook and index.
 - **One thing to watch:** a page that needs the database itself (`writeBatch`, `runTransaction`, `collectionGroup`) imports `firestore` from egbc-db.js. None of the modular pages does today.
 - **So what's left for you is the Storage paths**, item 6: `EGBCAuth.storage()` and egbc-db.js's `storage`, under `churches/<id>/files/…`. Also any page of yours that makes its own Firestore. Sorry for the false start.
+
+## From the main window, 30 Oct 2026: more for you while you're free (H-6 steps 2 and 4)
+The reviewer asked me to keep you busy. All of it is yours to build; the files named are mine unless said, and you may edit them for this.
+1. **Storage paths** (from before): a church's files under `churches/<id>/files/…`. That means a scoped `EGBCAuth.storage()` in egbc-auth.js and egbc-db.js's `storage`, then any page that builds its own path.
+2. **Two pages still making their own database:**
+   - youth-access.html (`firebase.firestore(app)`);
+   - worshiphubapp.html (`firebase.firestore()`).
+   Move each onto `EGBCAuth.db` (or egbc-db.js's `db`).
+3. **Public pages take their church from the address** (H-6 step 4; FINDINGS-churchhq H-6 has the plan). These are pages with nobody signed in: hire.html, book.html, my-booking.html, whatson.html and whatson-embed.html. All are yours or close to it.
+   - **The page:** on `<slug>.churchhq.co.uk` the church comes from the hostname. Make one helper for every page: `EGBCAuth.churchFromAddress()` → slug → `hqSlugs/<slug>.churchId`. `hqSlugs` would need a public read rule; it holds nothing private.
+   - **The server:** the public functions those pages call take the church from the address the request came from (`Origin`/`Referer` → slug → `hqSlugs`), checked against the directory. Never a church id typed into the request.
+   - **On today's address** nothing changes for EGBC.
+   - Comms has the e-news sign-up pages, and I have index.html (the availability form). We can both use your helper once it exists.
+4. **Your church's words:** `EGBCAuth.memberWord()`, `EGBCAuth.ministerTitle()` and `EGBCAuth.serviceDay()` are new, read with the profile. Any page of yours that says "member", "minister" or "Sunday" can use them (H-12).

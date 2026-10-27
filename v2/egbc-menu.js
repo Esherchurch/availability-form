@@ -225,6 +225,10 @@
     ] },
 
     { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [
+      /* Comms' your-church.html: the church's name, email, logo, words and
+         giving - one place, never two (Church settings links here). */
+      { title: 'Your church', url: 'your-church.html', icon: 'church', master: true,
+        description: 'The church\'s name, email, logo and the words it uses' },
       { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', master: true,
         description: 'The church\'s name and logo, giving details, and notifications on or off' },
       /* Master admins and the office (Martin, 15 Oct 2026; the office job, H-9). */

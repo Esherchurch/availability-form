@@ -24,6 +24,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 - (reviewer) **Payments: the money team (EGBC: Finance) and master admins** (payments.html): matches
 - (reviewer) **Connect ChurchShow: admins of AV or Worship (an admin of the core team covering them too, H-15), and master admins** (churchshow.html): matches
 - (reviewer) **Check-in: core team admins, the event's own team, master admins** (checkin.html): matches
+- (reviewer) **Your church: master admins** (your-church.html): matches
 - **Performance Notes (and the Schematic and Performance apps on Apps and downloads): the Worship and AV teams, their admins, the core teams covering them, master admins** (Performancenotes.html): matches
 - (reviewer) **Registers: core team admins, the event's own team, master admins** (attendance.html): matches
 - **The pastor/minister role** is the Pastor chosen in Team emails (teamMailSettings/main.pastor), one person, not a team; the table cannot show them because only master admins and the Pastor may read who it is.
@@ -98,6 +99,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 
 | Page | Guard | Pending | Attender | Member | Kids Ch | Kids lead | Worship | Wor lead | Wor admin | Kids admin | Core admin | AV | Wor core | K&Y core | Office | Elders | Finance | Pastoral | SG lead | Bookings | Plan grp | Event team | Master |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Your church <small>(your-church.html)</small> | master admins | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Church settings <small>(church-settings.html)</small> | master admins | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Teams and groups <small>(teams-admin.html)</small> | doing the office job | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Data records <small>(data-records.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ | – | – | – | – | – | – | ✓ |

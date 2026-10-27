@@ -2161,3 +2161,10 @@ Martin: "you took the schematics app and the performance app off. Those need to 
   2. Add a row for your-church.html to the access matrix: master admins. It's also worth a Menu entry beside Church settings.
   3. `EGBCAuth.memberWord()` (H-12) can read `details.memberWord` now; the page writes it.
   4. church-settings.html's name, email, logo and minister title now duplicate this page. Your call whether its card becomes a link to Your church.
+
+## From the main window, 30 Oct 2026: your "Your church" asks, done
+1. **Stamp:** egbc-setup.js is at 202610302000 in setup.html and in egbc-auth.js's loader.
+2. **The access matrix:** a row for your-church.html, master admins; check-access-matrix 17/17 against the remade approved copy. **The Menu:** "Your church" sits beside Church settings, for master admins.
+3. **`EGBCAuth.memberWord()`** ("Church member" unless set), `ministerTitle()` ("minister") and `serviceDay()` ("Sunday") read `churchSettings/details` with the profile.
+4. **church-settings.html:** its card now shows the name, email and logo with a link to Your church. The hub's address stays there, because nobody types it. One place to edit, never two.
+   - Giving is still on both pages (the shared egbc-giving-form.js) and on giving-details.html. Tell me if you'd like Church settings' Giving card to become a link too.
