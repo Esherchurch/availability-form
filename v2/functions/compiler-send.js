@@ -24,6 +24,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { churchOf } from './church-scope.js';
 import { makeSender } from './public-mail.js';
+import { officeTeams, isOfficeIn } from './comms-office.js';
+import { teamsFor } from './team-jobs.js';
 
 const REGION = 'europe-west2';
 const MAX_TO = 50;
@@ -31,10 +33,12 @@ const MAX_TO = 50;
 const low = (e) => String(e || '').trim().toLowerCase();
 
 /* user: users/{uid}. book: the address book records the leader's teams
-   reach ({email, markers}). to: the addresses asked for. */
-export function decide(user, book, to) {
+   reach ({email, markers}). to: the addresses asked for. office: the
+   teams doing the office job (officeTeams(db)); without it, the job's
+   defaults (H-9: the office is the office job, not a team's name). */
+export function decide(user, book, to, office) {
   if (!user || user.status !== 'active') return { ok: false, why: 'not signed in to the church' };
-  const all = user.masterAdmin === true || (user.teams || []).includes('Church office');
+  const all = isOfficeIn(user, office || teamsFor({}, 'office', {}));
   const mine = Array.isArray(user.adminFor) ? user.adminFor : [];
   const list = (Array.isArray(to) ? to : [to]).map(low).filter(Boolean);
   if (!list.length) return { ok: false, why: 'nobody to send to' };
@@ -61,12 +65,13 @@ export const compilerSend = onCall({ region: REGION }, async (req) => {
      leads. */
   let book = [];
   const mine = (user && Array.isArray(user.adminFor) ? user.adminFor : []).slice(0, 30);
-  const all = !!user && (user.masterAdmin === true || (user.teams || []).includes('Church office'));
+  const office = await officeTeams(db);
+  const all = !!user && isOfficeIn(user, office);
   if (user && !all && mine.length) {
     const s = await db.collection('addressBook').where('markers', 'array-contains-any', mine).get();
     book = s.docs.map((x) => x.data()).filter((m) => m.archived !== true);
   }
-  const verdict = decide(user, book, d.to);
+  const verdict = decide(user, book, d.to, office);
   if (!verdict.ok) throw new HttpsError('permission-denied', verdict.why);
   const subject = String(d.subject || '').slice(0, 300);
   const html = String(d.html || '').slice(0, 400000);

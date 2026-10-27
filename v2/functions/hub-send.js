@@ -33,6 +33,7 @@ import { churchOf } from './church-scope.js';
 import { coresMap, coversFor } from './core-teams.js';
 import { makeSender } from './public-mail.js';
 import { decide } from './compiler-send.js';
+import { officeTeams, isOfficeIn } from './comms-office.js';
 import * as MailRoute from './mail-route.js';
 import { isUnder18Record } from './under18.js';
 
@@ -84,13 +85,14 @@ export const SCOPES = {
      teams; the office and master admins: anyone). */
   async compiler(db, u, d, to) {
     let people = [];
-    if (!isMaster(u) && !(u.teams || []).includes('Church office')) people = await book(db);
-    const v = decide(u, people, to);
+    const office = await officeTeams(db);
+    if (!isOfficeIn(u, office)) people = await book(db);
+    const v = decide(u, people, to, office);
     return v.ok ? { ok: true, allowed: null } : { ok: false, why: v.why };
   },
   /* "Send test": to yourself only (it used to go to any typed address). */
   async compilerTest(db, u) {
-    const ok = isMaster(u) || (u.teams || []).includes('Church office') || isAdmin(u);
+    const ok = isMaster(u) || isOfficeIn(u, await officeTeams(db)) || isAdmin(u);
     if (!ok) return { ok: false, why: 'only team leaders and the church office send emails' };
     const mine = new Set([low(u.email)]);
     if (u.memberId) {

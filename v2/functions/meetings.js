@@ -27,20 +27,27 @@
      voteClose  { meeting, vote }  open -> closed; the tally becomes
                   `results` on the vote, which members can read.
 
-   WHO RUNS A MEETING: master admins, the Church office and the Elders
-   (Martin, 21 Oct 2026). firestore.rules says the same (meetingRunner()).
+   WHO RUNS A MEETING: master admins, and the teams doing the office or
+   the trustees job (Martin, 21 Oct 2026; by job, H-9). firestore.rules
+   says the same (meetingRunner(): raOffice() || onTrustees()).
    =================================================================== */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { churchOf } from './church-scope.js';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
 
 const REGION = 'europe-west2';
-export const RUNNER_TEAMS = ['Church office', 'Elders'];
+/* The teams running meetings: the office job's and the trustees job's. */
+export async function runnerTeams(db) {
+  const tj = await readTeamJobs(db);
+  return teamsFor(tj.map, 'office', tj.set).concat(teamsFor(tj.map, 'trustees', tj.set));
+}
 
 const ID = /^[A-Za-z0-9_-]{1,120}$/;
-export const isRunner = (u) => !!u && u.status !== 'archived'
-  && (u.masterAdmin === true || (Array.isArray(u.teams) && u.teams.some(t => RUNNER_TEAMS.includes(t))));
+export const isRunner = (u, teams) => !!u && u.status !== 'archived'
+  && (u.masterAdmin === true || (Array.isArray(u.teams) && u.teams.concat(u.covers || []).some(t => teams.includes(t))));
+const RUNS = 'Only the church office, the trustees and master admins run a members’ meeting.';
 export const isVoter = (u) => !!u && u.status === 'active' && u.churchMember === true && !!u.memberId;
 
 async function who(db, uid) {
@@ -142,7 +149,7 @@ export async function unappoint({ db, uid, data }) {
 }
 
 export async function open({ db, uid, data }) {
-  if (!isRunner(await who(db, uid))) throw new HttpsError('permission-denied', 'Only the Church office, the Elders and master admins run a members’ meeting.');
+  if (!isRunner(await who(db, uid), await runnerTeams(db))) throw new HttpsError('permission-denied', RUNS);
   const r = refs(db, data);
   await db.runTransaction(async (tx) => {
     const v = await tx.get(r.vote);
@@ -154,7 +161,7 @@ export async function open({ db, uid, data }) {
 }
 
 export async function close({ db, uid, data }) {
-  if (!isRunner(await who(db, uid))) throw new HttpsError('permission-denied', 'Only the Church office, the Elders and master admins run a members’ meeting.');
+  if (!isRunner(await who(db, uid), await runnerTeams(db))) throw new HttpsError('permission-denied', RUNS);
   const r = refs(db, data);
   await db.runTransaction(async (tx) => {
     const [v, t] = await Promise.all([tx.get(r.vote), tx.get(r.tally)]);

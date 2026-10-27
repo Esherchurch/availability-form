@@ -1029,9 +1029,9 @@
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),
         /* WHO MAY email and post a notice (16 Oct 2026): master admins, the
-           Church office, and anybody who leads a team - adminFor as seen,
-           so View as answers for the person being viewed as. */
-        mayMessage: !!(A && A.isMaster && A.isMaster()) || !!(A && A.inTeam && A.inTeam('Church office')) || adminFor.length > 0,
+           office (the office job, H-9), and anybody who leads a team -
+           adminFor as seen, so View as answers for the person being viewed as. */
+        mayMessage: !!(A && A.isMaster && A.isMaster()) || ((A && A.myJobs && A.myJobs()) || []).indexOf('office') !== -1 || adminFor.length > 0,
         isPlanGroup: !!(A && A.isOnPlanGroup && A.isOnPlanGroup()),
         onRotaTeam: !!(A && A.onRotaTeam && A.onRotaTeam()),
         jobs: (A && A.myJobs && A.myJobs()) || [],
