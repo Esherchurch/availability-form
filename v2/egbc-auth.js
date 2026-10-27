@@ -540,6 +540,9 @@
      Menu can offer them "Care & support: what has come in". Unread means
      "not one". */
   var careLead = false, sgLead = false;
+  /* Pastoral visits (F-308): named in Who gets told for pastoral concerns
+     (keeps the visitors' list), and on that list (reads the visits). */
+  var pastoralLead = false, pastoralVisitor = false;
   function loadCareLead(memberId) {
     if (!memberId) { careLead = false; return Promise.resolve(false); }
     /* careRouting/status, kept by the server: the lead and deputy, readable
@@ -551,8 +554,12 @@
     /* Named in "Who gets told" for requests for care or pastoral concerns. */
     var named = db.collection('careRouting').doc('main').get().then(function (d) {
       var r = d.exists ? (d.data() || {}) : {};
+      pastoralLead = ((r.pastoral || {}).memberIds || []).indexOf(memberId) !== -1;
       return ['care', 'pastoral'].some(function (k) { return ((r[k] || {}).memberIds || []).indexOf(memberId) !== -1; });
     });
+    db.collection('pastoralSettings').doc('main').get().then(function (d) {
+      pastoralVisitor = d.exists && (d.data().visitorIds || []).indexOf(memberId) !== -1;
+    }).catch(function () {});
     return Promise.all([lead.catch(function () { return false; }), named.catch(function () { return false; })])
       .then(function (x) { careLead = !!(x[0] || x[1]); return careLead; });
   }
@@ -1978,6 +1985,9 @@
        lead or deputy. NOT a master admin as such - the rules do not let
        one read it, so the Menu does not offer it. View-as honoured through
        effectiveTeams; the lead is never previewed into. */
+    /* Never previewed into: being named belongs to the person. */
+    isPastoralVisitor: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && pastoralVisitor; },
+    isPastoralLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && pastoralLead; },
     isCareReader: function () {
       if (EGBCAuth.viewingAs && EGBCAuth.viewingAs()) return (EGBCAuth.effectiveTeams() || []).indexOf('Pastoral') !== -1;
       return careLead || (EGBCAuth.effectiveTeams() || []).indexOf('Pastoral') !== -1;

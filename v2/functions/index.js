@@ -857,3 +857,5 @@ export { raReadReport, raAiStatus, raDraftAssessment } from './ra-report.js';
 export { raRemindersDaily } from './ra-reminders.js';
 /* Working alone: "I'm in" and "I've left", and who is told when someone doesn't sign out (the events window's lone-working.js). */
 export { loneWorkingCheck } from './lone-working.js';
+/* Pastoral visits' follow-up reminders (F-308). */
+export { pastoralFollowUps } from './pastoral-visits.js';

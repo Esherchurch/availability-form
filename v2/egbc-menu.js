@@ -75,6 +75,10 @@
       description: 'Pastoral care for you, or tell us you are worried about someone' },
     { title: 'Care & support: what has come in', url: 'care-inbox.html', icon: 'inbox', feature: 'care', careReader: true,
       description: 'For the pastoral team and the safeguarding lead and deputy' },
+    /* PASTORAL VISITS (F-308): the named, trained visitors read them; a
+       master admin or the pastoral lead keeps the list (and sees only that). */
+    { title: 'Pastoral visits', url: 'pastoral-visits.html', icon: 'heart-handshake', feature: 'care', pastoralVisits: true,
+      description: 'Visits, follow-ups and who the visitors are' },
     /* PRAYER (the events window's prayer.html, F-166). Feature 'prayer'. */
     { title: 'Prayer', url: 'prayer.html', icon: 'church', feature: 'prayer',
       description: 'Prayer requests and praise reports' },
@@ -396,6 +400,7 @@
     if (node.bookings && !who.isAdmin && !who.isBookingsAdmin) return false;
     if (node.sermons && !who.isSermons) return false;
     if (node.careReader && !who.isCareReader) return false;
+    if (node.pastoralVisits && !who.isPastoralVisitor && !who.isPastoralLead && !who.isMaster) return false;
     /* Safeguarding: the lead and deputy (careRouting/status, kept by the
        server). Lead and deputy only, and a master admin (who names the lead) - not
        any team admin (Martin's rule; the reviewing window, 22 Oct 2026). */
@@ -1055,6 +1060,8 @@
         hasBoard: !!(A && A.myBoards && A.myBoards().length),
         mayHeadcount: !!(A && A.mayHeadcount && A.mayHeadcount()),
         isCareReader: !!(A && A.isCareReader && A.isCareReader()),
+        isPastoralVisitor: !!(A && A.isPastoralVisitor && A.isPastoralVisitor()),
+        isPastoralLead: !!(A && A.isPastoralLead && A.isPastoralLead()),
         isSgLead: !previewing && !!(A && A.isSafeguardingLead && A.isSafeguardingLead()),
         isSgTrustee: !!(A && A.isSgTrustee && A.isSgTrustee()),
         moneyTeam: (A && A.moneyTeam && A.moneyTeam()) || 'Finance'

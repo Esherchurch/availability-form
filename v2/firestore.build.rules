@@ -3257,6 +3257,39 @@ return active() && (isMaster() || (exists(s) && me().get('memberId', '-') in get
 }
 function drText(v, n) { return v is string && v.size() <= n; }
 function drDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
+function pastoralVisitor() {
+let p = /databases/$(database)/documents/pastoralSettings/main;
+return active() && exists(p) && me().get('memberId', '-') in get(p).data.get('visitorIds', []);
+}
+function pvDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
+function pvShape(d) {
+return d.keys().hasOnly(['memberId', 'name', 'on', 'by', 'how', 'followUp', 'followUpDone', 'note',
+'keepUntil', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+&& d.get('memberId', '') is string && d.get('memberId', '').size() <= 60
+&& d.name is string && d.name.size() > 0 && d.name.size() <= 120
+&& pvDay(d.on) && d.on != ''
+&& d.by is list && d.by.size() > 0 && d.by.size() <= 10
+&& d.how in ['home', 'hospital', 'phone', 'other']
+&& pvDay(d.get('followUp', '')) && d.get('followUpDone', false) is bool
+&& d.get('note', '') is string && d.get('note', '').size() <= 2000
+&& pvDay(d.get('keepUntil', ''))
+&& d.updatedBy == request.auth.uid;
+}
+match /pastoralSettings/{id} {
+allow read: if active();
+allow write: if id == 'main' && (isMaster() || careNamed('pastoral'))
+&& request.resource.data.keys().hasOnly(['visitorIds', 'updatedAt', 'updatedBy'])
+&& request.resource.data.visitorIds is list && request.resource.data.visitorIds.size() <= 50
+&& request.resource.data.updatedBy == request.auth.uid;
+allow delete: if false;
+}
+match /pastoralVisits/{id} {
+allow read, delete: if pastoralVisitor();
+allow create, update: if pastoralVisitor() && pvShape(request.resource.data);
+}
+match /pastoralReminded/{id} {
+allow read, write: if false;
+}
 match /dataSettings/{id} {
 allow read: if active();
 allow write: if raOffice() && id == 'main'

@@ -13367,3 +13367,32 @@ Nothing is built for this until you answer.
 4. **How long it's kept:** 2 years after the last visit, then review. I'll add a register starter row for it.
 
 Nothing to build on your side.
+
+## From the main window, 29 Oct 2026: pastoral visits built (F-308), and work that could come to you
+
+**Pastoral visits** (pastoral-visits.html; functions/pastoral-visits.js; rules for `pastoralSettings`, `pastoralVisits` and `pastoralReminded`), built to Martin's answer of 27 Oct:
+- **Who reads the visits:** only the people on `pastoralSettings/main.visitorIds` (50 at most). Never the office. A master admin only when named.
+- **Who keeps the list:** a master admin or the pastoral lead (named for pastoral concerns in Who gets told). Keeping the list gives them nothing else.
+- **What a visit holds:** who was visited (member id or a typed name), when, how (home, hospital, phone, other), the visitors who went, a follow-up date, and a short private note.
+- **Retention:** visits are kept 2 years after the person's last visit. Then the page asks the visitors to delete them, or keep them one more year (`keepUntil`).
+- **The reminder:** `pastoralFollowUps` runs daily at 08:30. It emails the visitors once when a follow-up is due, and says only that one is due, with the link: never who, never the note.
+
+**One ask for your register's starter list** (egbc-data-records.js), please:
+- **Name:** "Pastoral visits"
+- **Collections:** `pastoralVisits`, `pastoralSettings`
+- **Purpose:** pastoral care of members and others
+- **Lawful basis:** legitimate interests
+- **Special category:** yes, religious belief (Article 9(2)(d))
+- **Data subjects:** members and others visited
+- **Fields held:** name, date and way of the visit, the visitors, a follow-up date, a short private note
+- **Access:** the church's named, trained visitors only
+- **Retention:** 2 years after the last visit, then review
+- **Processors:** none beyond Google (Firebase)
+
+**Work that could come to you, if the reviewer agrees:**
+1. **The privacy tools I said I'd build:**
+   - "what we hold about someone": one person, every collection on your register with their member id;
+   - the subject access export, linked from a request in your data requests.
+   They sit naturally on top of your register, so you may be the better window for them.
+2. **retention.html reading `infoAssets`** (already yours, from F-307 item 5).
+3. **GOING-LIVE known gap, the insurance answer:** `"£5,000,000: "` with nothing after it passes the database (your F-282). It's for Martin to decide. If he wants it fixed, the server check would be yours.

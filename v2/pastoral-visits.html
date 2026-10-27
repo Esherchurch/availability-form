@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610291800" data-title="Pastoral visits"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Pastoral visits</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610291800"></script>
+<script src="egbc-guard.js?v=202610282000"></script>
+<style>
+  :root{
+    --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
+    --faint:#9ca3af; --line:#e5e7eb; --line-2:#d1d5db; --brand:#3d6263; --brand-dark:#2a4a4b;
+    --tint:#eef5f4; --ring:rgba(61,98,99,.15); --danger:#b0392c; --amber:#a15c07; --amber-tint:#fff7e6;
+    --ok:#15803d; --ok-tint:#ecfdf3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:16px;font-weight:600;color:var(--ink);margin:22px 0 8px}
+  .lede{margin:0 0 6px;color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        box-shadow:0 1px 2px rgba(16,24,40,.05);padding:16px;margin-bottom:12px}
+  .empty{color:var(--muted)}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+       padding:10px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0;padding-top:0}
+  .row b{color:var(--ink)}
+  .meta{font-size:13px;color:var(--muted);margin:2px 0 0}
+  .note{margin:8px 0 0;padding:10px;border-radius:8px;background:var(--tint);white-space:pre-wrap;flex-basis:100%}
+  .due{color:var(--amber);font-weight:600}
+  label.fl{display:block;font-weight:500;color:var(--ink);margin:12px 0 6px}
+  label.fl .opt{font-weight:400;color:var(--faint)}
+  input[type=text],input[type=date],select,textarea{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;
+       padding:8px 12px;font:400 14px/1.5 Inter,system-ui,sans-serif;color:var(--ink);background:#fff}
+  textarea{min-height:80px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:520px){.two{grid-template-columns:1fr}}
+  .tick{display:flex;gap:8px;align-items:center;min-height:40px;cursor:pointer}
+  .tick input{width:18px;height:18px;accent-color:var(--brand)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;margin-top:10px;
+       padding:0 18px;border-radius:8px;border:1px solid var(--line-2);background:#fff;
+       color:var(--ink);font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.small{min-height:36px;margin-top:0;padding:0 12px;font-size:13px}
+  .btn.danger{color:var(--danger)}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 12px;border-radius:999px;background:var(--tint);
+        color:var(--ink);margin:0 6px 6px 0}
+  .chip button{border:0;background:none;color:var(--muted);cursor:pointer;font-size:16px;min-width:28px;min-height:28px}
+  .warn{background:var(--amber-tint);border-color:#f5d9a8}
+  #msg{min-height:20px;margin:8px 0 0;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pastoral visits</h1>
+  <p class="lede" id="who">Only the church’s named, trained visitors can read these.</p>
+  <div id="out"><div class="card empty">Loading…</div></div>
+</div>
+<script>
+/* PASTORAL VISITS (F-308; Martin, 27 Oct 2026).
+   WHO - the rules decide (firestore.rules, PASTORAL VISITS):
+     - the visits: only the people on the visitors' list
+       (pastoralSettings/main visitorIds). Never the office; a master admin
+       only when named on the list.
+     - the list: kept by a master admin or the pastoral lead (named for
+       pastoral concerns in Who gets told). Keeping it is all that gives.
+   KEPT 2 years after the person's last visit, then reviewed here: delete
+   their visits, or keep them another year (keepUntil).
+   FOLLOW-UPS: functions/pastoral-visits.js emails the visitors when one is
+   due - only that it is due, never who or what. */
+const db = firebase.firestore(EGBCAuth.app);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const HOW = { home: 'At home', hospital: 'In hospital', phone: 'By phone', other: 'Somewhere else' };
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+const addYears = (day, n) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() + n); return d.toISOString().slice(0, 10); };
+const nice = (day) => day ? new Date(day + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+let ME = '', VISITOR = false, KEEPER = false, VISITORS = [], BOOK = {}, VISITS = [];
+const nameOf = (id) => (BOOK[id] && BOOK[id].name) || 'Someone';
+
+async function load() {
+  const previewing = !!(EGBCAuth.viewingAs && EGBCAuth.viewingAs());
+  ME = (EGBCAuth.profile() || {}).memberId || '';
+  const [s, r] = await Promise.all([
+    db.collection('pastoralSettings').doc('main').get().catch(() => null),
+    db.collection('careRouting').doc('main').get().catch(() => null)
+  ]);
+  VISITORS = ((s && s.exists && s.data().visitorIds) || []).slice();
+  const leads = ((r && r.exists && (r.data().pastoral || {}).memberIds) || []);
+  VISITOR = !previewing && !!ME && VISITORS.indexOf(ME) !== -1;
+  KEEPER = !previewing && (EGBCAuth.isMaster() || (!!ME && leads.indexOf(ME) !== -1));
+  if (!VISITOR && !KEEPER) {
+    $('out').innerHTML = '<div class="card empty">This is for the church’s named pastoral visitors. '
+      + 'If you need care or support yourself, <a href="care.html">start here</a>.</div>';
+    return;
+  }
+  /* Names for the pickers: the address book, where this person may list it.
+     Without it a visit can still be recorded by name. */
+  try {
+    (await db.collection('addressBook').get()).forEach(d => {
+      const b = d.data() || {};
+      if (b.archived !== true) BOOK[d.id] = { name: String(b.name || b.fullName || d.id) };
+    });
+  } catch (e) { BOOK = {}; }
+  if (VISITOR) {
+    try {
+      VISITS = (await db.collection('pastoralVisits').get()).docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => String(b.on).localeCompare(String(a.on)));
+    } catch (e) {
+      console.error('pastoral-visits: could not load', e);
+      $('out').innerHTML = '<div class="card empty">The visits could not be loaded. Please try again.</div>';
+      return;
+    }
+  }
+  $('who').textContent = VISITOR ? 'You are one of the church’s visitors. Only the visitors can read these: not the office, and not a master admin unless named.'
+    : 'You keep the list of visitors. Only the people on it can read the visits: you too, only if you add yourself.';
+  draw();
+}
+
+function bookList() {
+  return '<datalist id="people">' + Object.keys(BOOK).sort((a, b) => nameOf(a).localeCompare(nameOf(b)))
+    .map(id => '<option value="' + esc(nameOf(id)) + '">').join('') + '</datalist>';
+}
+const idByName = (n) => Object.keys(BOOK).find(id => nameOf(id).toLowerCase() === String(n).trim().toLowerCase()) || '';
+
+function draw() {
+  let h = bookList();
+  if (VISITOR) h += drawVisits();
+  if (KEEPER) h += drawKeep();
+  $('out').innerHTML = h;
+}
+
+/* ---------- the visits (visitors only) ---------- */
+function drawVisits() {
+  const t = today();
+  const due = VISITS.filter(v => v.followUp && !v.followUpDone && v.followUp <= t);
+  const soon = VISITS.filter(v => v.followUp && !v.followUpDone && v.followUp > t);
+  /* 2 years after the person's last visit, unless kept longer. */
+  const last = {};
+  VISITS.forEach(v => { const k = v.memberId || ('name:' + v.name.toLowerCase()); if (!last[k] || v.on > last[k].on) last[k] = v; });
+  const review = Object.keys(last).filter(k => {
+    const mine = VISITS.filter(v => (v.memberId || ('name:' + v.name.toLowerCase())) === k);
+    const keep = mine.reduce((m, v) => (v.keepUntil || '') > m ? v.keepUntil : m, '');
+    return addYears(last[k].on, 2) <= t && keep <= t;
+  });
+  const others = VISITORS.filter(id => id !== ME);
+  let h = '<h2>Record a visit</h2><div class="card">'
+    + '<label class="fl" for="v-name">Who was visited</label><input type="text" id="v-name" list="people" maxlength="120" autocomplete="off">'
+    + '<div class="two"><div><label class="fl" for="v-on">When</label><input type="date" id="v-on" value="' + t + '" max="' + t + '"></div>'
+    + '<div><label class="fl" for="v-how">How</label><select id="v-how">' + Object.keys(HOW).map(k => '<option value="' + k + '">' + HOW[k] + '</option>').join('') + '</select></div></div>'
+    + (others.length ? '<label class="fl">Who went with you <span class="opt">(optional)</span></label>'
+        + others.map(id => '<label class="tick"><input type="checkbox" data-with="' + esc(id) + '"> ' + esc(nameOf(id)) + '</label>').join('') : '')
+    + '<label class="fl" for="v-follow">Follow up on <span class="opt">(optional: you get a reminder on the day)</span></label><input type="date" id="v-follow" min="' + t + '">'
+    + '<label class="fl" for="v-note">A short private note <span class="opt">(optional; only the visitors read it)</span></label><textarea id="v-note" maxlength="2000"></textarea>'
+    + '<button type="button" class="btn primary" id="v-save">Save the visit</button><p id="msg" role="status"></p></div>';
+  if (due.length) h += '<h2>Follow-ups due</h2><div class="card warn">' + due.map(v => visitRow(v, true)).join('') + '</div>';
+  if (review.length) h += '<h2>Due for review</h2><div class="card warn"><p class="meta" style="margin:0 0 6px">Visits are kept for 2 years after the last one. Delete them, or keep them another year if there is still a reason to.</p>'
+    + review.map(k => '<div class="row"><div><b>' + esc(last[k].name) + '</b><p class="meta">Last visited ' + esc(nice(last[k].on)) + '</p></div>'
+      + '<div><button type="button" class="btn small" data-keep="' + esc(k) + '">Keep another year</button> '
+      + '<button type="button" class="btn small danger" data-forget="' + esc(k) + '">Delete their visits</button></div></div>').join('') + '</div>';
+  h += '<h2>Visits</h2><div class="card">' + (VISITS.length ? VISITS.map(v => visitRow(v, false)).join('') : '<p class="empty" style="margin:0">No visits recorded yet.</p>') + '</div>';
+  if (soon.length) h += '<p class="meta">' + soon.length + (soon.length === 1 ? ' follow-up is' : ' follow-ups are') + ' planned.</p>';
+  return h;
+}
+function visitRow(v, dueRow) {
+  const by = (v.by || []).map(nameOf).join(', ');
+  return '<div class="row"><div><b>' + esc(v.name) + '</b><p class="meta">' + esc(nice(v.on)) + ' · ' + esc(HOW[v.how] || '') + ' · ' + esc(by)
+    + (v.followUp && !v.followUpDone ? ' · <span class="' + (v.followUp <= today() ? 'due' : '') + '">follow up ' + esc(nice(v.followUp)) + '</span>' : '')
+    + (v.followUpDone ? ' · followed up' : '') + '</p></div><div>'
+    + (v.followUp && !v.followUpDone ? '<button type="button" class="btn small" data-done="' + esc(v.id) + '">Followed up</button> ' : '')
+    + (dueRow ? '' : '<button type="button" class="btn small danger" data-del="' + esc(v.id) + '">Delete</button>') + '</div>'
+    + (v.note && !dueRow ? '<p class="note">' + esc(v.note) + '</p>' : '') + '</div>';
+}
+
+async function saveVisit() {
+  const name = $('v-name').value.trim();
+  if (!name) { $('msg').textContent = 'Who was visited?'; return; }
+  const on = $('v-on').value, follow = $('v-follow').value;
+  if (!on) { $('msg').textContent = 'When was the visit?'; return; }
+  const by = [ME].concat([...document.querySelectorAll('[data-with]:checked')].map(c => c.dataset.with));
+  const memberId = idByName(name), uid = (EGBCAuth.user() || {}).uid || '', at = new Date().toISOString();
+  const doc = { memberId, name: memberId ? nameOf(memberId) : name, on, by, how: $('v-how').value, followUp: follow || '',
+    followUpDone: false, note: $('v-note').value.trim(), keepUntil: '', createdAt: at, createdBy: uid, updatedAt: at, updatedBy: uid };
+  $('v-save').disabled = true;
+  try {
+    const ref = await db.collection('pastoralVisits').add(doc);
+    VISITS.unshift({ id: ref.id, ...doc });
+    VISITS.sort((a, b) => String(b.on).localeCompare(String(a.on)));
+    draw();
+    $('msg').textContent = 'Saved.';
+  } catch (e) {
+    $('v-save').disabled = false;
+    console.error('pastoral-visits: could not save', e);
+    $('msg').textContent = 'That did not save. Please try again.';
+  }
+}
+async function change(id, fields) {
+  const v = VISITS.find(x => x.id === id);
+  const next = Object.assign({}, v, fields, { updatedAt: new Date().toISOString(), updatedBy: (EGBCAuth.user() || {}).uid || '' });
+  delete next.id;
+  await db.collection('pastoralVisits').doc(id).set(next);
+  Object.assign(v, next);
+}
+const sameKey = (v, k) => (v.memberId || ('name:' + v.name.toLowerCase())) === k;
+
+/* ---------- the visitors' list (a master admin or the pastoral lead) ---------- */
+function drawKeep() {
+  return '<h2>Who the visitors are</h2><div class="card">'
+    + '<p class="meta" style="margin:0 0 10px">Name only people who are trained for pastoral visiting. They can read every visit. '
+    + 'Nobody else can: not the office, and not a master admin unless named here.</p><div id="chips">'
+    + (VISITORS.length ? VISITORS.map(id => '<span class="chip">' + esc(nameOf(id)) + '<button type="button" aria-label="Take ' + esc(nameOf(id)) + ' off the list" data-off="' + esc(id) + '">×</button></span>').join('')
+       : '<p class="empty" style="margin:0 0 6px">Nobody is named yet, so nobody can record or read visits.</p>') + '</div>'
+    + '<label class="fl" for="k-add">Add a visitor</label><input type="text" id="k-add" list="people" maxlength="120" autocomplete="off">'
+    + '<button type="button" class="btn" id="k-plus">Add</button> <button type="button" class="btn primary" id="k-save">Save the list</button>'
+    + '<p id="kmsg" class="meta" role="status"></p></div>';
+}
+async function saveList() {
+  if ($('k-add').value.trim() && !addTyped()) return;
+  $('k-save').disabled = true;
+  try {
+    await db.collection('pastoralSettings').doc('main').set({ visitorIds: VISITORS.slice(0, 50), updatedAt: new Date().toISOString(), updatedBy: (EGBCAuth.user() || {}).uid || '' });
+    load();
+  } catch (e) {
+    $('k-save').disabled = false;
+    $('kmsg').textContent = 'That did not save. Please try again.';
+  }
+}
+function addTyped() {
+  const id = idByName($('k-add').value);
+  if (!id) { $('kmsg').textContent = '“' + $('k-add').value.trim() + '” is not in the address book: pick somebody from the list.'; return false; }
+  if (VISITORS.indexOf(id) === -1) VISITORS.push(id);
+  if (VISITORS.length > 50) { VISITORS.pop(); $('kmsg').textContent = 'Fifty visitors at most.'; return false; }
+  return true;
+}
+
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  try {
+    if (t.id === 'v-save') return saveVisit();
+    if (t.id === 'k-save') return saveList();
+    if (t.id === 'k-plus') { if (addTyped()) { draw(); $('kmsg').textContent = 'Added. Save the list to keep it.'; } return; }
+    if (t.dataset.off) { VISITORS = VISITORS.filter(id => id !== t.dataset.off); draw(); $('kmsg').textContent = 'Taken off. Save the list to keep it.'; return; }
+    if (t.dataset.done) { t.disabled = true; await change(t.dataset.done, { followUpDone: true }); draw(); return; }
+    if (t.dataset.del) {
+      if (!confirm('Delete this visit? It cannot be undone.')) return;
+      await db.collection('pastoralVisits').doc(t.dataset.del).delete();
+      VISITS = VISITS.filter(v => v.id !== t.dataset.del); draw(); return;
+    }
+    if (t.dataset.keep) {
+      t.disabled = true;
+      const until = addYears(today(), 1);
+      for (const v of VISITS.filter(v => sameKey(v, t.dataset.keep))) await change(v.id, { keepUntil: until });
+      draw(); return;
+    }
+    if (t.dataset.forget) {
+      if (!confirm('Delete every visit to this person? It cannot be undone.')) return;
+      for (const v of VISITS.filter(v => sameKey(v, t.dataset.forget))) await db.collection('pastoralVisits').doc(v.id).delete();
+      VISITS = VISITS.filter(v => !sameKey(v, t.dataset.forget)); draw(); return;
+    }
+  } catch (err) {
+    console.error('pastoral-visits:', err);
+    alert('That did not save. Please try again.');
+    t.disabled = false;
+  }
+});
+document.addEventListener('egbc-ready', load);
+</script>
+</body>
+</html>
