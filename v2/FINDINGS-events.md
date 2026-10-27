@@ -13001,3 +13001,5 @@ Step 2 is in two parts:
 - The Fabric team's lead (named in Health and safety settings) signs, and the PCC countersigns.
 
 **Deploy:** no functions. The rules go live when the hub goes live. The templates' version 5 reaches the live database through the seed on SWITCHOVER-events.md 3.10, which now says version 5.
+
+**F-298 follow-up, with main's F-298 answers (28 Oct):** rooms.html has the guard's `data-book-room` again (the page still shows a bookings admin only their buildings). The rules' Book a room now reads the office job from `users.jobs` (no read), with the team jobs only for a record the server hasn't reached. That lifts the 4-part-room limit in a church's own hub for the office. Main's items 1 to 3 in F-298 are done; F-299's "For main" item 2 (the store) is done too.

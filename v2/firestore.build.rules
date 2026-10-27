@@ -1769,7 +1769,8 @@ return leadsOrCore() || officeOrBookingsAdmin(me(), roomData(roomId).siteId);
 function officeOrBookingsAdmin(u, siteId) {
 let bs = /databases/$(database)/documents/bookingSettings/$(siteId);
 return (exists(bs) && u.get('memberId', '-') in get(bs).data.get('bookingsAdmins', []))
-|| u.get('teams', []).concat(u.get('covers', [])).hasAny(raJobTeams('office', ['Church office']));
+|| ('jobs' in u ? 'office' in u.jobs
+: u.get('teams', []).concat(u.get('covers', [])).hasAny(raJobTeams('office', ['Church office'])));
 }
 function memberCreate(key) {
 let d = request.resource.data;
@@ -3194,7 +3195,7 @@ return raAssessShape(d) && id == d.siteId + '__' + d.kind
 );
 }
 match /raAssessments/{id} {
-allow read: if raAssessSees(resource.data.siteId);
+allow read: if resource == null || raAssessSees(resource.data.siteId);
 allow create, update: if raAssessWrite(id, request.resource.data, resource == null ? null : resource.data);
 allow delete: if false;
 }

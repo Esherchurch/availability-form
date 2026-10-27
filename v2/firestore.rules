@@ -3375,7 +3375,10 @@ service cloud.firestore {
     function officeOrBookingsAdmin(u, siteId) {
       let bs = /databases/$(database)/documents/bookingSettings/$(siteId);
       return (exists(bs) && u.get('memberId', '-') in get(bs).data.get('bookingsAdmins', []))
-             || u.get('teams', []).concat(u.get('covers', [])).hasAny(raJobTeams('office', ['Church office']));
+             // the jobs the server keeps on the person's record (main's H-9 part 2): no read;
+             // the team jobs themselves only for a record it hasn't reached yet
+             || ('jobs' in u ? 'office' in u.jobs
+                 : u.get('teams', []).concat(u.get('covers', [])).hasAny(raJobTeams('office', ['Church office'])));
     }
     function memberCreate(key) {
       let d = request.resource.data;
