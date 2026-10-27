@@ -13011,3 +13011,33 @@ Step 2 is in two parts:
 - **app.html:** egbc-compliance-templates.js is on 202610281000.
 - **The audit's page list** has assessment.html (ALSO_AUDIT), for the final test.
 - assessment.html's script stamps are on the current egbc-auth, egbc-shell and egbc-guard (202610281400).
+### F-300 — H&S step 4: a professional's fire or health and safety report read into the building's own assessment (F-280 section 4; Martin's answers 7 and 9) (the events window, 28 Oct)
+
+**Built:**
+- **"Read a professional's report"** on assessment.html, for a draft. It reads a PDF, a Word document, or a photo of each page.
+- **A new function, `raReadReport`, reads it with Claude** (functions/ra-report.js, ra-report-core.cjs):
+  - **It uses the same reader and plumbing as the safeguarding side,** with its own caps (Health and safety settings: 20 a day, 5 a person) and its own log (`raAiUse`, `raAiLog`, `raAiState`).
+  - **What it pulls out:** the assessor, the date, the next review and the overall rating; each finding, with likelihood × severity where the report gives them, or the assessor's own words where not; each action, with its priority and deadline; and the headings a proper assessment has that the report lacks (the gaps).
+  - **What it leaves out:** names, phone numbers and emails, and socket covers.
+  - **The original file is kept** where the live register keeps reports.
+- **Nothing joins the assessment until a person checks each line.**
+  - A finding with only words needs its numbers set first.
+  - An "immediate" action is flagged red.
+  - Ticked lines are then added. The assessment says "Read from <assessor>'s report of <date>, checked by <name> on <date>".
+  - Each action can then become a maintenance job (answer 7).
+- **For the office, adding also does what putting a report up on the live register did:** the report's record (`raReports`), and its review check recorded to the next review date.
+- **`raAiStatus`** says whether reading is set up, working, or at today's limit.
+- **Rules:** `raReads` is read like the assessment and written by the function only. The assessment's `source` is allowed. Rebuilt.
+
+**Checked:** one quick run on the emulator, with a stand-in AI. The office reads a report:
+- the phone number and socket covers are left out, and the missing "people at risk" heading shows as a gap
+- nothing is added before the check
+- a words-only finding waits for its numbers
+- once added, the label, the report record and the review check are there
+- a plain member is refused
+
+All 11 passed.
+
+**Deploy (the reviewing window's):** `raReadReport` and `raAiStatus` (new; use CHQ_ANTHROPIC_API_KEY, already set; no new secret). The real call on a real report only on your word.
+
+**For the synthetic parish:** its fire safety lead reads the professional's fire risk assessment of St Hild. They check the lines, and the PCC countersigns.

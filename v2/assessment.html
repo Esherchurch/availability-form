@@ -82,7 +82,7 @@
       RA = window.EGBCRaCore, H = window.EGBCHsCore, HT = window.EGBCHsTemplates, esc = E.esc;
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   var ME = {}, JOBP = null, SITES = [], SITE = null, KIND = 'hs', A = null, ROLES = {}, B = null, SCHED = null, ROOMS = [], GEEP = null,
-      SET = {}, CHURCH = '', PEOPLE = {}, HELD = '', EDIT = false, OFFICE = false, TRUSTEE = false, MASTER = false;
+      SET = {}, CHURCH = '', PEOPLE = {}, HELD = '', EDIT = false, OFFICE = false, TRUSTEE = false, MASTER = false, READ = null, AI = null;
   function db() { return EGBCAuth.db; }
   function $(id) { return document.getElementById(id); }
   function all(s) { return s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }); }
@@ -114,7 +114,8 @@
     var get = function (c, d) { return db().collection(c).doc(d).get().then(function (x) { return x.exists ? x.data() : null; }, function () { return null; }); };
     return Promise.all([get('raAssessments', id), get('raSiteRoles', SITE.id), ST.load(db(), SITE.id).catch(function () { return null; }),
       db().collection('rooms').where('siteId', '==', SITE.id).get().then(all, function () { return []; }), get('geeps', SITE.id),
-      db().collection('complianceTemplates').get().then(all, function () { return []; })]).then(function (r) {
+      db().collection('complianceTemplates').get().then(all, function () { return []; }), get('raReads', id)]).then(function (r) {
+      READ = r[6];
       A = r[0] || blank(); ROLES = r[1] || {}; B = r[2]; ROOMS = r[3].filter(function (x) { return x.active !== false && x.kind !== 'online'; }); GEEP = r[4];
       var tpl = r[5].length ? r[5] : T.TEMPLATES;
       SCHED = B ? C.schedule({ profile: B.profile, templates: tpl, checks: B.checks, records: B.records, jobs: B.jobs, triggers: B.triggers, today: TODAY }) : { items: [] };
@@ -168,7 +169,7 @@
     var checks = SCHED.items.filter(function (i) { return i.state === 'on'; });
     return '<div id="hazards">' + (A.hazards.length ? A.hazards.map(function (h) {
       var p = 'hz_' + h.id + '_';
-      if (!EDIT) return '<div class="item" data-hz="' + esc(h.id) + '"><b>' + esc(h.hazard) + '</b> <span class="hint">' + esc(h.who || '') + '</span><div>Before the controls ' + pill(h.l, h.s) + ' · after ' + pill(h.rl, h.rs) + '</div>' +
+      if (!EDIT) return '<div class="item" data-hz="' + esc(h.id) + '"><b>' + esc(h.hazard) + '</b>' + (h.source === 'report' ? ' <span class="pill amber">From the report</span>' : '') + ' <span class="hint">' + esc(h.who || '') + '</span><div>Before the controls ' + pill(h.l, h.s) + ' · after ' + pill(h.rl, h.rs) + '</div>' +
         ((h.checks || []).length ? '<div class="hint">Checks: ' + h.checks.map(checkById).filter(Boolean).map(function (i) { return '<span class="dot ' + i.rag + '"></span>' + esc(i.title); }).join(', ') + '</div>' : '') +
         (h.written ? '<div class="hint">Other controls: ' + esc(h.written) + '</div>' : '') + (h.owner ? '<div class="hint">Owner: ' + esc(h.owner) + '</div>' : '') + '</div>';
       return '<div class="item" data-hz="' + esc(h.id) + '">' +
@@ -242,6 +243,8 @@
       (SITES.length > 1 ? '<div class="tabs" id="sites">' + SITES.map(function (s) { return '<a href="?site=' + encodeURIComponent(s.id) + '&kind=' + KIND + '" aria-current="' + (s.id === SITE.id) + '">' + esc(s.name || s.id) + '</a>'; }).join('') + '</div>' : '') +
       '<div class="tabs" id="kinds"><a href="?site=' + encodeURIComponent(SITE.id) + '&kind=hs" aria-current="' + (KIND === 'hs') + '">Health and safety</a><a href="?site=' + encodeURIComponent(SITE.id) + '&kind=fire" aria-current="' + (KIND === 'fire') + '">Fire</a><a href="risk.html?site=' + encodeURIComponent(SITE.id) + '">The live risk register</a></div>' +
       (HELD ? '<div class="banner gold" id="held">' + esc(HELD) + '</div>' : '') + statusHtml() +
+      (A.source && A.source.assessor ? '<p class="hint" id="readFrom">Read from ' + esc(A.source.assessor) + '’s report' + (A.source.date ? ' of ' + esc(RA.longDate(A.source.date)) : '') + ', checked by ' + esc(A.source.checkedBy || '') + ' on ' + esc(RA.longDate(A.source.checkedOn)) + '.</p>' : '') +
+      readHtml() +
       '<div class="banner info" id="notAdvice">' + esc(H.NOT_ADVICE) + '</div>' +
       '<div class="card" id="about"><h2>About this assessment</h2><div class="grid">' +
         '<div><label class="l" for="aWho">Carried out by</label>' + (EDIT ? '<input class="inp" id="aWho" maxlength="200" value="' + esc(A.assessor) + '">' : '<p>' + esc(A.assessor || '—') + '</p>') + '</div>' +
@@ -252,9 +255,96 @@
     $('wrap').innerHTML = html; wire();
   }
 
+  /* ---------------- a professional's report (H&S step 4; F-280 section 4) ---------------- */
+  function pending() { return READ && !(A.source && A.source.readAt === READ.at) ? READ : null; }
+  function readHtml() {
+    if (!EDIT) return '';
+    var r = pending();
+    if (!r) return '<div class="card" id="readCard"><h2>Read a professional’s report</h2><p class="hint">A ' + (KIND === 'fire' ? 'fire risk assessment' : 'health and safety assessment or an insurer’s survey') + ' from a professional: a PDF, a Word document, or a photo of each page. The AI lists its findings, actions and gaps for you to check; nothing is added until you do. The file is kept, as it came.</p>' +
+      '<div id="readState" class="hint">Checking…</div><input type="file" id="readFile" accept=".pdf,.docx,image/*" style="display:none"><div class="row" id="readRow" style="display:none"><button class="btn sec" type="button" id="readGo">Choose the report and read it</button><span class="hint" id="readMsg" role="status"></span></div></div>';
+    var opt = function (v) { var o = '<option value="0">Choose…</option>'; for (var i = 1; i <= 5; i++) o += '<option' + (i === v ? ' selected' : '') + '>' + i + '</option>'; return o; };
+    return '<div class="card" id="readCheck"><h2>Check what was read from ' + esc(r.report.assessor || 'the report') + '’s report</h2>' +
+      '<p class="hint">' + esc(r.file.name) + (r.report.date ? ' · assessed ' + esc(RA.longDate(r.report.date)) : '') + (r.report.nextReview ? ' · next review ' + esc(RA.longDate(r.report.nextReview)) : '') + (r.report.overall ? ' · overall: ' + esc(r.report.overall) : '') + '. Untick anything that is wrong. Nothing is added until you press the button.</p>' +
+      (r.personalFound ? '<div class="banner gold" id="readPersonal">The report seems to have names, phone numbers or emails in it. They were left out of what was read.</div>' : '') +
+      (r.leftOut ? '<div class="banner gold">' + r.leftOut + ' recommendation' + (r.leftOut === 1 ? ' was' : 's were') + ' left out: socket covers aren’t advised for UK sockets.</div>' : '') +
+      (r.gaps.length ? '<div class="banner red" id="readGaps">Gaps: a proper ' + (KIND === 'fire' ? 'fire' : 'health and safety') + ' assessment covers these, and this report has nothing on them: ' + esc(r.gaps.map(function (g) { return g.words; }).join('; ')) + '.</div>' : '') +
+      '<h2 style="margin-top:12px">Findings (' + r.findings.length + ')</h2>' + r.findings.map(function (f) {
+        var p = 'rf_' + f.id + '_';
+        return '<div class="item" data-rf="' + esc(f.id) + '"><label class="check"><input type="checkbox" id="' + p + 'on" checked> <b>' + esc(f.hazard) + '</b></label><div class="hint">' + esc(f.who || '') + (f.line ? ' · “' + esc(f.line) + '”' : '') + '</div>' +
+          (f.l && f.s ? '<div>The report’s rating: ' + pill(f.l, f.s) + '</div>'
+            : '<div class="hint">The report says “' + esc(f.assessorRating || 'no rating') + '”: set the numbers (the assessor’s rating is kept beside them).</div><div class="grid"><div><label class="l" for="' + p + 'l">Likelihood</label><select id="' + p + 'l">' + opt(0) + '</select></div><div><label class="l" for="' + p + 's">Severity</label><select id="' + p + 's">' + opt(0) + '</select></div></div>') + '</div>';
+      }).join('') +
+      '<h2 style="margin-top:12px">Actions (' + r.actions.length + ')</h2>' + r.actions.map(function (a) {
+        var p = 'ra_' + a.id + '_', pr = a.priority === 'unstated' ? 'medium' : a.priority;
+        return '<div class="item" data-ra="' + esc(a.id) + '"><label class="check"><input type="checkbox" id="' + p + 'on" checked> <b>' + esc(a.what) + '</b></label>' + (a.priority === 'immediate' ? ' <span class="pill red" data-immediate>Immediate</span>' : '') +
+          '<div class="grid"><div><label class="l" for="' + p + 'pri">Priority' + (a.priority === 'unstated' ? ' (the report gives none)' : '') + '</label><select id="' + p + 'pri">' + HT.PRIORITIES.map(function (x) { return '<option value="' + x[0] + '"' + (pr === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
+          '<div><label class="l" for="' + p + 'due">By</label><input class="inp" type="date" id="' + p + 'due" value="' + esc(a.deadline || HT.actionDue(pr, TODAY, H.settingsOf(SET).targets)) + '"></div></div></div>';
+      }).join('') +
+      '<div class="row"><button class="btn" type="button" id="readAdd">Add the ticked lines to the assessment</button><span class="hint" id="readMsg" role="status"></span></div></div>';
+  }
+  function readAdd() {
+    collect();
+    var r = pending(), unset = [];
+    var take = function (pfx, x) { var e = $(pfx + x.id + '_on'); return e && e.checked; };
+    r.findings.filter(function (f) { return take('rf_', f); }).forEach(function (f) {
+      var l = f.l, s = f.s;
+      if (!l || !s) { l = +($('rf_' + f.id + '_l') || {}).value || 0; s = +($('rf_' + f.id + '_s') || {}).value || 0; if (!l || !s) { unset.push(f.hazard); return; } }
+      f._l = l; f._s = s;
+    });
+    if (unset.length) { $('readMsg').textContent = 'Set the likelihood and severity for: ' + unset.join('; ') + '.'; return; }
+    r.findings.filter(function (f) { return take('rf_', f); }).forEach(function (f) {
+      /* a report rates the risk as it is, with today's controls: before and after start the same */
+      A.hazards.push({ id: newId('h'), source: 'report', hazard: f.hazard, who: f.who, l: f._l, s: f._s, rl: f._l, rs: f._s, checks: [], owner: '',
+        written: f.assessorRating ? 'The assessor’s rating: ' + f.assessorRating : '' });
+    });
+    r.actions.filter(function (a) { return take('ra_', a); }).forEach(function (a) {
+      A.actions.push({ id: newId('a'), source: 'report', what: a.what, priority: $('ra_' + a.id + '_pri').value, due: $('ra_' + a.id + '_due').value, owner: '', done: false, jobId: '' });
+    });
+    if (!A.assessor && r.report.assessor) A.assessor = r.report.assessor;
+    if (r.report.date) A.assessedOn = r.report.date;
+    if (r.report.nextReview) A.reviewDue = r.report.nextReview;
+    A.source = { assessor: r.report.assessor || '', date: r.report.date || '', nextReview: r.report.nextReview || '', overall: r.report.overall || '', file: r.file.path, fileName: r.file.name,
+      readAt: r.at, checkedBy: ME.name || '', checkedOn: TODAY, gaps: r.gaps.map(function (g) { return g.id; }) };
+    $('readAdd').disabled = true; $('readMsg').textContent = 'Adding…';
+    ref().set(base(A)).then(function () {
+      /* the live risk register's record of the professional report, and its review check, as putting one up there does (the office may) */
+      if (!(OFFICE && r.report.date && r.report.nextReview && r.report.assessor)) return null;
+      return db().collection('raReports').doc().set({ siteId: SITE.id, kind: KIND, date: r.report.date, assessor: r.report.assessor.slice(0, 120), nextReview: r.report.nextReview,
+        files: [{ name: r.file.name.slice(0, 80), path: r.file.path, type: r.file.type || '' }], by: uid(), byName: ME.name || '', at: nowIso() }).then(function () {
+        var c = B && B.checks.filter(function (x) { return x.templateId === HT.KINDS[KIND].review && x.state === 'on'; })[0];
+        return c ? ST.recordDone(db(), c, { doneOn: r.report.date, certExpiry: r.report.nextReview, notes: 'Professional report by ' + r.report.assessor, files: [{ name: r.file.name.slice(0, 80), path: r.file.path, type: r.file.type || '' }] }, { uid: uid(), name: ME.name || '' }) : null;
+      }).catch(function () { return null; });
+    }).then(load).then(function () { draw(); say('Added. Each action can become a maintenance job; the lead signs once every question is answered.'); }, function (e) { $('readAdd').disabled = false; $('readMsg').textContent = 'Not added: ' + (e.message || e); });
+  }
+  function wireRead() {
+    if ($('readAdd')) $('readAdd').onclick = readAdd;
+    if (!$('readState')) return;
+    var ready = function (st) {
+      AI = st;
+      $('readState').textContent = st.state === 'ready' ? '' : (st.message || 'Not available for you here.');
+      $('readRow').style.display = st.state === 'ready' ? '' : 'none';
+    };
+    (AI ? Promise.resolve(AI) : EGBCAuth.call('raAiStatus', { siteId: SITE.id }).catch(function () { return { state: 'unreachable', message: 'The AI could not be reached just now.' }; })).then(ready);
+    $('readGo').onclick = function () { $('readFile').click(); };
+    $('readFile').onchange = function () {
+      var f = $('readFile').files[0], msg = $('readMsg'); if (!f) return;
+      if (f.size > 7 * 1024 * 1024) { msg.textContent = 'The file is too big: 7 MB at most. A photo of each page will do.'; return; }
+      collect(); $('readGo').disabled = true; msg.textContent = 'Reading… this takes a minute or two.';
+      var rd = new FileReader();
+      rd.onload = function () {
+        EGBCAuth.call('raReadReport', { siteId: SITE.id, kind: KIND, fileName: f.name, contentType: f.type, data: String(rd.result).split(',')[1] || '' }, { timeoutMs: 190000 }).then(function (res) {
+          AI = null;
+          return load().then(function () { draw(); say((res && res.message) || 'Read. Check each line below.'); });
+        }, function (e) { $('readGo').disabled = false; msg.textContent = (e && e.name === 'AbortError') ? 'Still working: reload in a minute.' : 'Not read: ' + ((e && e.message) || e); });
+      };
+      rd.readAsDataURL(f);
+    };
+  }
+
   /* ---------------- acting ---------------- */
   function base(x) {
     var out = {}; ['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue'].forEach(function (k) { out[k] = x[k]; });
+    if (x.source) out.source = x.source;
     out.updatedBy = uid(); out.updatedAt = nowIso(); return out;
   }
   function ref() { return db().collection('raAssessments').doc(SITE.id + '__' + KIND); }
@@ -264,6 +354,7 @@
     return ref().set(base(A)).then(function () { return load(); }).then(function () { draw(); say('Saved.'); }, function (e) { b.disabled = false; say('Not saved: ' + (e.message || e)); });
   }
   function wire() {
+    wireRead();
     var redraw = function () { collect(); draw(); say('Not saved yet.'); };
     if ($('saveGo')) $('saveGo').onclick = save;
     if ($('hzAdd')) $('hzAdd').onclick = function () { collect(); A.hazards.push({ id: newId('h'), hazard: '', who: '', l: 3, s: 3, rl: 2, rs: 3, checks: [], written: '', owner: '' }); draw(); say('Not saved yet.'); };

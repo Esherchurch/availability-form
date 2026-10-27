@@ -5292,7 +5292,7 @@ service cloud.firestore {
              && !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
     }
     function raAssessShape(d) {
-      return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue',
+      return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue', 'source',
                                'signedBy', 'signedByName', 'signedByRole', 'signedAt', 'signedVersion', 'counterBy', 'counterByName', 'counterAt', 'updatedBy', 'updatedAt'])
              && d.kind in ['hs', 'fire'] && d.version is int && d.version >= 1
              && d.status in ['draft', 'signed', 'countersigned']
@@ -5303,6 +5303,8 @@ service cloud.firestore {
              && d.get('hazards', []) is list && d.get('hazards', []).size() <= 500
              && d.get('actions', []) is list && d.get('actions', []).size() <= 500
              && d.get('answers', {}) is map && d.get('answers', {}).size() <= 200
+             // read from a professional's report (H&S step 4): who wrote it, and who checked what was read
+             && d.get('source', {}) is map && d.get('source', {}).size() <= 12
              && d.updatedBy == request.auth.uid;
     }
     function raAssessWrite(id, d, before) {
@@ -5333,6 +5335,13 @@ service cloud.firestore {
       allow read: if resource == null || raAssessSees(resource.data.siteId);
       allow create, update: if raAssessWrite(id, request.resource.data, resource == null ? null : resource.data);
       allow delete: if false;
+    }
+    // WHAT WAS READ FROM A PROFESSIONAL'S REPORT (H&S step 4): written by the
+    // raReadReport function only; a person checks it on the page before any
+    // of it is added to the assessment.
+    match /raReads/{id} {
+      allow read: if resource == null || raAssessSees(resource.data.siteId);
+      allow write: if false;
     }
     // Each countersigned version, as it was: written with the countersigning.
     match /raSigned/{id} {

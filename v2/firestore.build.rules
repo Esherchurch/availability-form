@@ -3163,7 +3163,7 @@ return a.keys().hasAll(raHsChecklist(d.kind, exists(pp) ? get(pp).data : {}))
 && !a.values().hasAny(['', 'N/A:', 'N/A: ', 'Yes:', 'Yes: ', 'No:', 'No: ']);
 }
 function raAssessShape(d) {
-return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue',
+return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'assessedOn', 'sections', 'groups', 'hazards', 'actions', 'answers', 'reviewDue', 'source',
 'signedBy', 'signedByName', 'signedByRole', 'signedAt', 'signedVersion', 'counterBy', 'counterByName', 'counterAt', 'updatedBy', 'updatedAt'])
 && d.kind in ['hs', 'fire'] && d.version is int && d.version >= 1
 && d.status in ['draft', 'signed', 'countersigned']
@@ -3173,6 +3173,7 @@ return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'ass
 && d.get('hazards', []) is list && d.get('hazards', []).size() <= 500
 && d.get('actions', []) is list && d.get('actions', []).size() <= 500
 && d.get('answers', {}) is map && d.get('answers', {}).size() <= 200
+&& d.get('source', {}) is map && d.get('source', {}).size() <= 12
 && d.updatedBy == request.auth.uid;
 }
 function raAssessWrite(id, d, before) {
@@ -3198,6 +3199,10 @@ match /raAssessments/{id} {
 allow read: if resource == null || raAssessSees(resource.data.siteId);
 allow create, update: if raAssessWrite(id, request.resource.data, resource == null ? null : resource.data);
 allow delete: if false;
+}
+match /raReads/{id} {
+allow read: if resource == null || raAssessSees(resource.data.siteId);
+allow write: if false;
 }
 match /raSigned/{id} {
 allow read: if raAssessSees(resource.data.siteId);
