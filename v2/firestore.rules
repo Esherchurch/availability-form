@@ -5425,7 +5425,7 @@ service cloud.firestore {
     function drDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
     // ---- PASTORAL VISITS (F-308; Martin, 27 Oct 2026) -------------------
     // Only the church's named, trained visitors read and keep them
-    // (pastoralSettings/main visitorIds). NEVER the office, and a master
+    // (pastoralSettings/main visitorIds, 500 at most). NEVER the office, and a master
     // admin only when named: a master admin or the pastoral lead (named
     // for pastoral concerns in Who gets told, careNamed('pastoral'))
     // keeps the list, and keeping it is all they may do. Kept 2 years after
@@ -5453,7 +5453,7 @@ service cloud.firestore {
       allow read: if active();
       allow write: if id == 'main' && (isMaster() || careNamed('pastoral'))
                    && request.resource.data.keys().hasOnly(['visitorIds', 'updatedAt', 'updatedBy'])
-                   && request.resource.data.visitorIds is list && request.resource.data.visitorIds.size() <= 50
+                   && request.resource.data.visitorIds is list && request.resource.data.visitorIds.size() <= 500
                    && request.resource.data.updatedBy == request.auth.uid;
       allow delete: if false;
     }
@@ -5466,6 +5466,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // The privacy tools' exports (functions/privacy-tools.js): a log of
+    // who exported what for whom, written by the server only.
+    match /dataExports/{id} {
+      allow read: if dataLead();
+      allow write: if false;
+    }
     match /dataSettings/{id} {
       allow read: if active();
       allow write: if raOffice() && id == 'main'

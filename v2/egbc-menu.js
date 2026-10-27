@@ -234,6 +234,10 @@
          trustees, the data protection leads and master admins - the rules'. */
       { title: 'Data records', url: 'data-records.html', icon: 'database', job: ['office', 'trustees'], dataLead: true,
         description: 'The information asset register, data breaches and data requests' },
+      /* The privacy tools (privacy.html): the data protection leads and
+         master admins only - the server's check. */
+      { title: 'What we hold about someone', url: 'privacy.html', icon: 'file-search', dataLeadOnly: true,
+        description: 'For a data request: everything on the register about one person' },
       /* Who may do what (H-14; Martin's answer 6): master admins only. */
       { title: 'Permissions', url: 'permissions.html', icon: 'key-round', master: true,
         description: 'Who may do what, section by section, and exceptions' },
@@ -401,6 +405,7 @@
     if (node.sermons && !who.isSermons) return false;
     if (node.careReader && !who.isCareReader) return false;
     if (node.pastoralVisits && !who.isPastoralVisitor && !who.isPastoralLead && !who.isMaster) return false;
+    if (node.dataLeadOnly && !who.isDataLead && !who.isMaster) return false;
     /* Safeguarding: the lead and deputy (careRouting/status, kept by the
        server). Lead and deputy only, and a master admin (who names the lead) - not
        any team admin (Martin's rule; the reviewing window, 22 Oct 2026). */

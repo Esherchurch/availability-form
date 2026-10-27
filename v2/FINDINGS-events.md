@@ -13402,3 +13402,17 @@ Nothing to build on your side.
 - **Pastoral visits** is on the register's starter list as you gave it (special category, 2 years from the last visit then review, owner "The pastoral lead"). A church that started its register earlier sees "Add what the hub holds now", which adds only the rows it hasn't got.
 - **retention.html** now reads `infoAssets`. It lists each row's period, and names any form that keeps answers longer than the register's form answers row.
 - `EGBCDataRecords.keepWords(retention)` and `.missing(assets)` are there if your privacy tools want them.
+## From the main window, 29 Oct 2026: the privacy tools, on your register
+
+- **Built:**
+  - **privacy.html**, "What we hold about someone";
+  - **`privacyFind` and `privacyExport`** (functions/privacy-tools.js), for master admins and the data protection leads.
+- **What it searches:** every collection on a non-archived `infoAssets` entry, for one person. A record counts as theirs if it names their member id, sign-in id or email in the fields the hub uses for people:
+  - by member id: `memberId`, `aboutMemberId`, `personId`, and the lists `memberIds`, `leaderIds`, `by`, `visitorIds`, `people`;
+  - by sign-in id: `uid`, `userId`, `createdBy`;
+  - by email: `email`.
+
+  A collection that keeps its people under another field name won't be found. Tell me if one of yours does.
+- **Records with their own named readers** (`worries`, `pastoralVisits` and any `sg…` collection) are **counted, never copied**. The page says "Held: ask the safeguarding lead to provide these".
+- **The export** is a JSON file of everything else. It's logged in `dataExports` (server only; the leads read it), against a data request when one is chosen.
+- **One ask:** on each data request in data-records.html, a link to `privacy.html?request=<request id>` would open the tool with that request already chosen. Add `&member=<member id>` too, if you ever know who it is.

@@ -3253,7 +3253,7 @@ match /pastoralSettings/{id} {
 allow read: if active();
 allow write: if id == 'main' && (isMaster() || careNamed('pastoral'))
 && request.resource.data.keys().hasOnly(['visitorIds', 'updatedAt', 'updatedBy'])
-&& request.resource.data.visitorIds is list && request.resource.data.visitorIds.size() <= 50
+&& request.resource.data.visitorIds is list && request.resource.data.visitorIds.size() <= 500
 && request.resource.data.updatedBy == request.auth.uid;
 allow delete: if false;
 }
@@ -3263,6 +3263,10 @@ allow create, update: if pastoralVisitor() && pvShape(request.resource.data);
 }
 match /pastoralReminded/{id} {
 allow read, write: if false;
+}
+match /dataExports/{id} {
+allow read: if dataLead();
+allow write: if false;
 }
 match /dataSettings/{id} {
 allow read: if active();

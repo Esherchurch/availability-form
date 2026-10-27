@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610291800" data-title="Pastoral visits"></script>
+<script src="egbc-shell.js?v=202610292000" data-title="Pastoral visits"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Pastoral visits</title>
@@ -233,7 +233,7 @@ async function saveList() {
   if ($('k-add').value.trim() && !addTyped()) return;
   $('k-save').disabled = true;
   try {
-    await db.collection('pastoralSettings').doc('main').set({ visitorIds: VISITORS.slice(0, 50), updatedAt: new Date().toISOString(), updatedBy: (EGBCAuth.user() || {}).uid || '' });
+    await db.collection('pastoralSettings').doc('main').set({ visitorIds: VISITORS.slice(0, 500), updatedAt: new Date().toISOString(), updatedBy: (EGBCAuth.user() || {}).uid || '' });
     load();
   } catch (e) {
     $('k-save').disabled = false;
@@ -244,7 +244,7 @@ function addTyped() {
   const id = idByName($('k-add').value);
   if (!id) { $('kmsg').textContent = '“' + $('k-add').value.trim() + '” is not in the address book: pick somebody from the list.'; return false; }
   if (VISITORS.indexOf(id) === -1) VISITORS.push(id);
-  if (VISITORS.length > 50) { VISITORS.pop(); $('kmsg').textContent = 'Fifty visitors at most.'; return false; }
+  if (VISITORS.length > 500) { VISITORS.pop(); $('kmsg').textContent = 'The list holds 500 visitors at most.'; return false; }
   return true;
 }
 

@@ -859,3 +859,5 @@ export { raRemindersDaily } from './ra-reminders.js';
 export { loneWorkingCheck } from './lone-working.js';
 /* Pastoral visits' follow-up reminders (F-308). */
 export { pastoralFollowUps } from './pastoral-visits.js';
+/* The privacy tools on the information asset register (UK GDPR). */
+export { privacyFind, privacyExport } from './privacy-tools.js';

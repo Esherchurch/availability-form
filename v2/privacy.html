@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610292000" data-title="What we hold about someone"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>What we hold about someone</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3d6263">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610291800"></script>
+<script src="egbc-guard.js?v=202610282000"></script>
+<style>
+  :root{
+    --canvas:#f6f7f7; --surface:#fff; --ink:#111827; --body:#374151; --muted:#6b7280;
+    --faint:#9ca3af; --line:#e5e7eb; --line-2:#d1d5db; --brand:#3d6263;
+    --tint:#eef5f4; --ring:rgba(61,98,99,.15); --amber:#a15c07; --amber-tint:#fff7e6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);
+       font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 4px}
+  .lede{margin:0 0 14px;color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        box-shadow:0 1px 2px rgba(16,24,40,.05);padding:16px;margin-bottom:12px}
+  .empty{color:var(--muted)}
+  .meta{font-size:13px;color:var(--muted);margin:2px 0 0}
+  label.fl{display:block;font-weight:500;color:var(--ink);margin:12px 0 6px}
+  label.fl .opt{font-weight:400;color:var(--faint)}
+  input[type=text],select{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:8px;
+       padding:8px 12px;font:400 14px/1.5 Inter,system-ui,sans-serif;color:var(--ink);background:#fff}
+  input:focus,select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin:12px 8px 0 0;
+       padding:0 18px;border-radius:8px;border:1px solid var(--line-2);background:#fff;
+       color:var(--ink);font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn[disabled]{opacity:.55;cursor:default}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  td{padding:8px 0;border-top:1px solid var(--line);vertical-align:top}
+  td:first-child{width:38%;color:var(--ink);font-weight:500;padding-right:10px}
+  .ask{background:var(--amber-tint);border-radius:8px;padding:6px 10px;color:var(--amber)}
+  #msg{min-height:20px;margin:8px 0 0;color:var(--muted)}
+  @media print{.no-print{display:none}.card{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>What we hold about someone</h1>
+  <p class="lede">For a data request, or to check before deleting someone. Everything on the
+    <a href="data-records.html">information asset register</a> is searched.</p>
+  <div id="out"><div class="card empty">Loading…</div></div>
+</div>
+<script>
+/* PRIVACY TOOLS (UK GDPR; built on the events window's register, F-307).
+   The searching is the server's (functions/privacy-tools.js:
+   privacyFind, privacyExport), which can see every collection on the
+   register; this page only asks and shows.
+   WHO: master admins and the data protection leads - the server checks.
+   Care, pastoral and safeguarding records are counted, never copied:
+   the person who may read them provides them. */
+const db = firebase.firestore(EGBCAuth.app);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const KIND = { access: 'Access (a copy)', rectify: 'Put right', erase: 'Erase', restrict: 'Restrict', portable: 'Portability', object: 'Object' };
+let BOOK = {}, REQUESTS = [], LAST = null;
+const param = (k) => new URLSearchParams(location.search).get(k) || '';
+const unwrap = (r) => (r && r.data !== undefined ? r.data : r);
+
+async function load() {
+  if (!(EGBCAuth.isMaster() || (EGBCAuth.isDataLead && EGBCAuth.isDataLead()))) {
+    $('out').innerHTML = '<div class="card empty">This is for the church’s data protection leads and master admins. '
+      + 'If you want to know what the church holds about you, ask the church office and they will pass it on.</div>';
+    return;
+  }
+  try {
+    (await db.collection('addressBook').get()).forEach(d => {
+      const b = d.data() || {};
+      BOOK[d.id] = String(b.name || b.fullName || d.id) + (b.archived === true ? ' (archived)' : '');
+    });
+  } catch (e) { BOOK = {}; }
+  try {
+    REQUESTS = (await db.collection('dataRequests').where('status', '==', 'open').get()).docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) { REQUESTS = []; }
+  const names = Object.keys(BOOK).sort((a, b) => BOOK[a].localeCompare(BOOK[b]));
+  $('out').innerHTML = '<div class="card no-print">'
+    + '<label class="fl" for="p-name">Who</label><input type="text" id="p-name" list="people" autocomplete="off" maxlength="200" '
+    + 'placeholder="' + (names.length ? 'Start typing a name, or an email address' : 'Their email address') + '">'
+    + '<datalist id="people">' + names.map(id => '<option value="' + esc(BOOK[id]) + '">').join('') + '</datalist>'
+    + '<label class="fl" for="p-req">For a data request <span class="opt">(optional: the export is logged against it)</span></label>'
+    + '<select id="p-req"><option value="">None</option>' + REQUESTS.map(r => '<option value="' + esc(r.id) + '">'
+      + esc(r.requester) + ' · ' + esc(KIND[r.kind] || r.kind) + ' · received ' + esc(r.receivedOn) + '</option>').join('') + '</select>'
+    + '<button type="button" class="btn primary" id="find">See what we hold</button>'
+    + '<p id="msg" role="status"></p></div><div id="result"></div>';
+  if (param('request')) $('p-req').value = param('request');
+  if (param('member') && BOOK[param('member')]) $('p-name').value = BOOK[param('member')].replace(/ \(archived\)$/, '');
+}
+
+function who() {
+  const v = $('p-name').value.trim();
+  if (!v) return null;
+  const id = Object.keys(BOOK).find(k => BOOK[k].replace(/ \(archived\)$/, '').toLowerCase() === v.toLowerCase());
+  if (id) return { memberId: id };
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return { email: v.toLowerCase() };
+  return false;
+}
+
+async function find() {
+  const p = who();
+  if (p === null) { $('msg').textContent = 'Choose a person first.'; return; }
+  if (p === false) { $('msg').textContent = 'That name is not in the address book. Pick one from the list, or type their email address.'; return; }
+  $('find').disabled = true; $('msg').textContent = 'Searching everything on the register…'; $('result').innerHTML = '';
+  try {
+    LAST = { ask: p, r: unwrap(await EGBCAuth.call('privacyFind', p)) };
+    draw();
+    $('msg').textContent = '';
+  } catch (e) {
+    $('msg').textContent = (e && e.message) || 'The search did not work. Please try again.';
+  }
+  $('find').disabled = false;
+}
+
+function draw() {
+  const r = LAST.r, total = r.assets.reduce((n, a) => n + a.collections.reduce((m, c) => m + c.count, 0), 0);
+  const withheld = r.assets.flatMap(a => a.collections.filter(c => c.askFor));
+  let h = '<div class="card"><h2>' + esc(r.person.name) + '</h2><p class="meta">'
+    + (r.person.emails.length ? esc(r.person.emails.join(', ')) + ' · ' : '')
+    + (r.person.signIns ? 'has signed in to the hub' : 'has never signed in') + ' · '
+    + total + (total === 1 ? ' record' : ' records') + ' found, ' + new Date().toLocaleDateString('en-GB') + '</p></div>';
+  if (!r.assets.length) h += '<div class="card empty">Nothing on the register names this person.</div>';
+  r.assets.forEach(a => {
+    h += '<div class="card"><h2>' + esc(a.asset) + '</h2>'
+      + (a.purpose ? '<p class="meta">Why: ' + esc(a.purpose) + (a.lawfulBasis ? ' · lawful basis: ' + esc(a.lawfulBasis) : '') + '</p>' : '')
+      + '<table>' + a.collections.map(c => '<tr><td>' + c.count + (c.count === 1 ? ' record' : ' records') + '</td><td>'
+        + (c.askFor ? '<span class="ask">Held, and not shown here: ask ' + esc(c.askFor) + ' to provide these.</span>'
+          : 'Holds: ' + esc((c.fields || []).filter(f => !/^(updatedAt|updatedBy|createdAt|createdBy)$/.test(f)).join(', '))) + '</td></tr>').join('')
+      + '</table></div>';
+  });
+  h += '<div class="card no-print"><p class="meta" style="margin:0">The export is every record above as a file, to check and then send. '
+    + (withheld.length ? 'The ' + withheld.length + ' kind' + (withheld.length === 1 ? '' : 's') + ' marked “not shown here” are left out: ask for those separately. ' : '')
+    + 'Before sending, remove anything that is about someone else.</p>'
+    + '<button type="button" class="btn primary" id="export">Download the export</button>'
+    + '<button type="button" class="btn" onclick="print()">Print this summary</button></div>';
+  $('result').innerHTML = h;
+}
+
+async function exportIt() {
+  const b = $('export');
+  b.disabled = true; b.textContent = 'Preparing…';
+  try {
+    const r = unwrap(await EGBCAuth.call('privacyExport', Object.assign({ requestId: $('p-req').value }, LAST.ask)));
+    const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'what-we-hold-' + String(r.person.name || 'person').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + r.madeAt.slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    $('msg').textContent = 'Downloaded' + (r.requestId ? ', and logged against the request.' : '.');
+  } catch (e) {
+    $('msg').textContent = (e && e.message) || 'The export did not work. Please try again.';
+  }
+  b.disabled = false; b.textContent = 'Download the export';
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'find') find();
+  if (e.target.id === 'export') exportIt();
+});
+document.addEventListener('egbc-ready', load);
+</script>
+</body>
+</html>
