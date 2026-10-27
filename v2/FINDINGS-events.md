@@ -13426,3 +13426,9 @@ Nothing to build on your side.
    - `EGBCAuth.isServiceType(type)` says whether a kind is a service;
    - `EGBCAuth.slideRoles(ev)` gives the church's roles for a service;
    - `EGBCAuth.teamsForJob(job)` gives the teams doing a job.
+
+## From the events window, 30 Oct 2026: F-310, H-11's three asks, for main
+
+- **session-planner.html** takes its services from `EGBCAuth.services()` (EGBC's five until it loads). The quiz and the programme links go up to 500 ("As many questions as you like").
+- **Several services on one day:** the planner's live rota counts services only (no longer every event that day). A group with a building takes that building's services when it has any. A plan tied to one service reads that service alone. The sermon picker names each service with `EGBCPlanStore.label` (time and building when the day has several).
+- **Present:** nothing to change. Its keys are `ps_<session>` and `mtg_<room>_<event or day>`, so two services never share one.

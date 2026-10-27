@@ -18,6 +18,7 @@
 <script src="egbc-launch.js?v=202610141700"></script>
 <script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
+<script src="egbc-plan-store.js?v=202610252100"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -105,7 +106,11 @@
      time; the plan adds the title, series, passage and the outline. The
      other way, a server trigger (sermonLinkKeep) keeps sermonLinks/<event>
      for the Preaching plan to show and link to. */
+  /* The church's services (H-11): EGBC's five until EGBCAuth.services() has loaded the church's own. */
   var SERVICE_TYPES = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
+  function isService(e) { return e.whatsOn === true || SERVICE_TYPES.indexOf(e.type) >= 0; }
+  /* 500 is what a plan holds (Martin: no quiz limit; a document's size, not a count, is the real bound) */
+  var MAX_LIST = 500;
   var SERMON_PARTS = ['Introduction', 'Point 1', 'Point 2', 'Point 3', 'Application', 'Response'];
   var EVENT = null;
   function sermon() { return !!G && G.kind === 'sermon'; }
@@ -160,8 +165,8 @@
           (s.special === 'none' ? '<span class="special">No ' + esc(G.name) + (s.title ? ': ' + esc(s.title) : '') + '</span>'
             : (s.special ? '<span class="special">★ ' + esc(s.special) + '</span>' + (s.title || s.lessonCode ? '<br>' : '') : '') + (s.special && !s.title && !s.lessonCode ? '' : '<span class="t">' + (s.lessonCode ? '<span class="code">' + esc(s.lessonCode) + '</span>' : '') + esc(s.title || 'Untitled') + '</span>')) +
           (sermon() && (s.speaker || s.speakerId) ? '<div class="m">Speaker: ' + esc(s.speaker || PEOPLE[s.speakerId] || '') + (s.series ? ' · ' + esc(s.series) : '') + '</div>' : '') +
-          (((LIVE[s.date] || s).onIds || []).length ? '<div class="m">On: ' + esc(names((LIVE[s.date] || s).onIds)) + '</div>' : '') +
-          (((LIVE[s.date] || s).awayIds || []).length ? '<div class="m away">Away: ' + esc(names((LIVE[s.date] || s).awayIds)) + '</div>' : '') + '</div></div>';
+          (((liveOf(s) || s).onIds || []).length ? '<div class="m">On: ' + esc(names((liveOf(s) || s).onIds)) + '</div>' : '') +
+          (((liveOf(s) || s).awayIds || []).length ? '<div class="m away">Away: ' + esc(names((liveOf(s) || s).awayIds)) + '</div>' : '') + '</div></div>';
       }).join('') : '<p class="m">No plans yet.</p>') +
       '<div class="row noprint" style="margin-top:10px">' + (canEdit() ? '<button class="btn" id="addWeek">' + (sermon() ? '+ Plan a sermon for a service' : '+ Add a ' + esc(DAYS[G.day == null ? 0 : +G.day])) + '</button>' : '') +
         '<button class="btn sec" id="printTerm">Print the term</button></div></div>';
@@ -386,23 +391,33 @@
      (the rules allow a leader that one change - onIds, awayIds, rotaAt -
      without it counting as "Last changed by"). LIVE[date] = { onIds,
      awayIds } for a date the rota has a service on; none for a date it
-     hasn't, and the stored copy shows. */
+     hasn't, and the stored copy shows. A day can hold several services in
+     different buildings (H-11): only services count, a group with a
+     building takes that building's services when there are any, and a
+     plan tied to one service (eventId) reads that service alone
+     (LIVE['#' + eventId]). */
   var LIVE = {};
   function liveRota(dates) {
     dates = (dates || []).filter(Boolean).sort();
     if (!dates.length || !G || sermon()) return Promise.resolve({});
     return db().collection('events').where('date', '>=', dates[0]).where('date', '<=', dates[dates.length - 1]).get().then(function (snap) {
-      var evs = all(snap).filter(function (e) { return !e.archived && dates.indexOf(e.date) >= 0; }), byDate = {};
+      var evs = all(snap).filter(function (e) { return !e.archived && dates.indexOf(e.date) >= 0 && isService(e); }), byDate = {};
+      evs = dates.filter(function (d, i) { return dates.indexOf(d) === i; }).map(function (dt) {
+        var day = EGBCPlanStore.dayServices(evs, dt), mine = day.filter(function (e) { return G.siteId && e.siteId === G.siteId; });
+        return mine.length ? mine : day;
+      }).reduce(function (a, b) { return a.concat(b); }, []);
       evs.forEach(function (e) {
-        var d = byDate[e.date] = byDate[e.date] || { on: [], ids: [] };
+        [e.date, '#' + e.id].forEach(function (k) {
+        var d = byDate[k] = byDate[k] || { on: [], ids: [] };
         d.ids.push(e.id);
         Object.keys(e.assignments || {}).forEach(function (role) {
           var team = EGBCAuth.roleTeam ? EGBCAuth.roleTeam(role) : '';
           if (G.teamName && team !== G.teamName) return;
           [].concat(e.assignments[role] || []).forEach(function (a) { var id = a && (a.id || a.memberId); if (id && d.on.indexOf(String(id)) < 0) d.on.push(String(id)); });
         });
+        });
       });
-      var ids = [].concat.apply([], Object.keys(byDate).map(function (k) { return byDate[k].ids; })), chunks = [];
+      var ids = evs.map(function (e) { return e.id; }), chunks = [];
       for (var i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
       return Promise.all(chunks.map(function (c) { return db().collection('availability').where('eventId', 'in', c).get().catch(function () { return { docs: [] }; }); })).then(function (r) {
         var team = TEAMMEM.map(function (p) { return p.id; }).concat(G.leaderIds || []), awayBy = {};
@@ -420,20 +435,21 @@
       });
     }).catch(function () { return {}; });
   }
+  function liveOf(s) { return (s.eventId && LIVE['#' + s.eventId]) || LIVE[s.date]; }
   function same(a, b) { return JSON.stringify((a || []).slice().sort()) === JSON.stringify((b || []).slice().sort()); }
   /* A leader's visit brings the stored copies up to date (the fallback). */
   function refreshCopies() {
     if (!canEdit()) return;
     SESS.forEach(function (s) {
-      var l = LIVE[s.date]; if (!l || (same(l.onIds, s.onIds) && same(l.awayIds, s.awayIds))) return;
+      var l = liveOf(s); if (!l || (same(l.onIds, s.onIds) && same(l.awayIds, s.awayIds))) return;
       s.onIds = l.onIds; s.awayIds = l.awayIds;
       db().collection('planSessions').doc(s.id).update({ onIds: l.onIds, awayIds: l.awayIds, rotaAt: new Date().toISOString() }).catch(function () {});
     });
   }
   function fromRota() {
     return liveRota([S.date]).then(function (m) {
-      var l = m[S.date];
-      if (l) { LIVE[S.date] = l; S.onIds = l.onIds; S.awayIds = l.awayIds; }
+      var l = (S.eventId && m['#' + S.eventId]) || m[S.date];
+      if (l) { LIVE[S.eventId ? '#' + S.eventId : S.date] = l; S.onIds = l.onIds; S.awayIds = l.awayIds; }
       else { S.onIds = S.onIds || []; S.awayIds = S.awayIds || []; }
     });
   }
@@ -501,7 +517,7 @@
       song: function () { return '<label class="l" for="stSong">Song (from the hub\'s song list)</label><input class="inp" id="stSong" list="songList" placeholder="Start typing the title"><datalist id="songList"></datalist>'; },
       timer: function () { return '<label class="l" for="stM">Minutes</label><input class="inp" type="number" id="stM" min="1" max="60" value="5">'; },
       text: function () { return '<label class="l" for="stT">The words on the screen</label><textarea id="stT" maxlength="400"></textarea>'; },
-      quiz: function () { return '<p class="m">Up to 12 questions. For each: the question, then four answers with the right one first (they are mixed up on the screen). A blank line between questions.</p><textarea id="stQ" style="min-height:180px" placeholder="When did Nicodemus come to Jesus?&#10;At night&#10;In the morning&#10;At noon&#10;He never came"></textarea>'; },
+      quiz: function () { return '<p class="m">As many questions as you like. For each: the question, then four answers with the right one first (they are mixed up on the screen). A blank line between questions.</p><textarea id="stQ" style="min-height:180px" placeholder="When did Nicodemus come to Jesus?&#10;At night&#10;In the morning&#10;At noon&#10;He never came"></textarea>'; },
       /* THE POWERPOINT (F-242; Martin, 20 Oct): the .pptx itself, or fetched
          from a OneDrive / SharePoint link - made into slides and speaker notes
          in one step by the converter, so everyone stays in step. Held until
@@ -527,7 +543,7 @@
       if (type === 'quiz') {
         var qs = q('stQ').value.split(/\n\s*\n/).map(function (b) { return b.split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }).filter(function (b) { return b.length >= 3; });
         if (!qs.length) return bad('Write at least one question with its answers.');
-        st.questions = qs.slice(0, 12).map(function (b) { return { q: b[0].slice(0, 160), answers: b.slice(1, 5).map(function (a) { return a.slice(0, 60); }), right: 0, seconds: 20 }; });
+        st.questions = qs.slice(0, MAX_LIST).map(function (b) { return { q: b[0].slice(0, 160), answers: b.slice(1, 5).map(function (a) { return a.slice(0, 60); }), right: 0, seconds: 20 }; });
         st.title = st.questions.length + ' question' + (st.questions.length === 1 ? '' : 's');
       }
       if (type === 'pptx') { if (!PPTX_OK) return bad('Not until switch-over.'); return addDeck(sh, q, st, bad, done); }
@@ -596,7 +612,7 @@
         var doc = { name: name.slice(0, 60), kind: v('kind'), ageFrom: +v('ageFrom') || 0, ageTo: +v('ageTo') || 0, day: +v('day') || 0, time: g.time || '', siteId: v('siteId'),
           leaderIds: card._leaders.slice(0, 30), teamName: v('teamName').trim().slice(0, 60),
           emails: v('emails').split(',').map(function (x) { return x.trim().toLowerCase(); }).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); }).slice(0, 20),
-          programmes: v('programmes').split('\n').map(function (l) { var p = l.split('|'); return { name: (p[0] || '').trim().slice(0, 60), link: (p[1] || '').trim().slice(0, 300) }; }).filter(function (p) { return p.name; }).slice(0, 12),
+          programmes: v('programmes').split('\n').map(function (l) { var p = l.split('|'); return { name: (p[0] || '').trim().slice(0, 60), link: (p[1] || '').trim().slice(0, 300) }; }).filter(function (p) { return p.name; }).slice(0, MAX_LIST),
           parts: v('parts').split(',').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 20), order: g.order || GROUPS.length + 1, archived: false,
           updatedBy: realUid(), updatedAt: new Date().toISOString() };
         msg.textContent = 'Saving…';
@@ -639,18 +655,22 @@
   function openSession(id) {
     var s = SESS.filter(function (x) { return x.id === id; })[0]; if (!s) return;
     S = JSON.parse(JSON.stringify(s)); S.parts = S.parts || []; OPEN = {}; VIEW = 'session'; DIRTY = false; EVENT = null; draw(); window.scrollTo(0, 0);
-    if (!sermon() && LIVE[S.date]) { S.onIds = LIVE[S.date].onIds.slice(); S.awayIds = LIVE[S.date].awayIds.slice(); draw(); }
+    if (!sermon() && liveOf(S)) { S.onIds = liveOf(S).onIds.slice(); S.awayIds = liveOf(S).awayIds.slice(); draw(); }
     if (S.eventId) loadEvent().then(function () { if (VIEW === 'session' && S && S.id === id) { readTop(); draw(); if (DIRTY) say('The Preaching plan has changed the date or the speaker since this was saved. Save to keep the new one.'); } });
   }
   function addSermon() {
     var since = today();
     db().collection('events').where('date', '>=', since).orderBy('date').limit(60).get().then(function (snap) {
       var taken = SESS.map(function (x) { return x.eventId; });
-      var list = all(snap).filter(function (e) { return !e.archived && (SERVICE_TYPES.indexOf(e.type) >= 0 || e.whatsOn === true) && taken.indexOf(e.id) < 0; });
+      var evs = all(snap).filter(function (e) { return !e.archived && isService(e); });
+      var list = evs.filter(function (e) { return taken.indexOf(e.id) < 0; });
+      /* a day with several services names each by its time and building */
+      var site = function (id) { return (SITES.filter(function (x) { return x.id === id; })[0] || {}).name || ''; };
+      var named = function (e) { return EGBCPlanStore.label(e, EGBCPlanStore.dayServices(evs, e.date).length, SITES.length > 1 ? site(e.siteId) : ''); };
       var sh = sheet('<h2 style="margin:0 0 6px">Which service?</h2><p class="m" style="margin:0 0 10px">The services on the rota without a sermon plan yet.</p>' +
         (list.length ? list.map(function (e) {
           return '<button type="button" class="btn sec" data-ev="' + esc(e.id) + '" style="width:100%;justify-content:flex-start;text-align:left;margin:0 0 8px;height:auto;padding:10px 12px;flex-direction:column;align-items:flex-start">' +
-            '<b>' + esc(longDay(e.date)) + (e.type ? ' · ' + esc(e.type) : '') + '</b><span class="m">' + esc([e.publicTitle, e.speaker ? 'Speaker: ' + e.speaker : ''].filter(Boolean).join(' · ') || 'No speaker yet') + '</span></button>';
+            '<b>' + esc(longDay(e.date)) + ' · ' + esc(named(e)) + '</b><span class="m">' + esc([e.publicTitle, e.speaker ? 'Speaker: ' + e.speaker : ''].filter(Boolean).join(' · ') || 'No speaker yet') + '</span></button>';
         }).join('') : '<p>Every service on the rota already has one, or there are none yet.</p>'));
       sh.el.querySelectorAll('[data-ev]').forEach(function (b) { b.onclick = function () {
         var e = list.filter(function (x) { return x.id === b.getAttribute('data-ev'); })[0]; sh.close();
@@ -692,6 +712,7 @@
     return Promise.all([
       db().collection('addressBook').get().then(function (s) { s.docs.forEach(function (d) { var x = d.data(); if (x.name && !x.archived) { PEOPLE[d.id] = x.name; MARKERS[d.id] = x.markers || []; } }); }).catch(function () {}),
       EGBCChurch.load ? EGBCChurch.load().catch(function () {}) : null,
+      EGBCAuth.services ? EGBCAuth.services().then(function (sv) { var n = sv.S.serviceNames(sv.cfg); if (n.length) SERVICE_TYPES = n; }).catch(function () {}) : null,
       db().collection('sites').get().then(function (s) { SITES = all(s).filter(function (x) { return x.active !== false; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); }); }).catch(function () {})
     ]).then(loadGroups);
   }).then(function () {
