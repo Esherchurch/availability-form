@@ -5408,6 +5408,91 @@ service cloud.firestore {
                     && raStr(request.resource.data.defects, 500);
       allow update, delete: if false;
     }
+    // ---- DATA RECORDS, UK GDPR (job 5; egbc-data-records.js; data-records.html) ----
+    // The information asset register (main's fields, so its privacy tools read
+    // the same list), the breach log and data requests. The church names its
+    // data protection lead(s); master admins always. The register: the office
+    // and the leads keep it, the trustees read it. Breaches: the leads only.
+    // Requests: the leads and the office (who usually receives them).
+    function dataLead() {
+      let s = /databases/$(database)/documents/dataSettings/main;
+      return active() && (isMaster() || (exists(s) && me().get('memberId', '-') in get(s).data.get('leads', [])));
+    }
+    function drText(v, n) { return v is string && v.size() <= n; }
+    function drDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
+    match /dataSettings/{id} {
+      allow read: if active();
+      allow write: if raOffice() && id == 'main'
+                   && request.resource.data.keys().hasOnly(['leads', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.leads is list && request.resource.data.leads.size() <= 10 && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+    match /infoAssets/{id} {
+      allow read: if raOffice() || dataLead() || onTrustees();
+      allow write: if (raOffice() || dataLead())
+                   && request.resource.data.keys().hasOnly(['name', 'collections', 'purpose', 'lawfulBasis', 'specialCategory', 'specialCondition', 'dataSubjects', 'fieldsHeld', 'access',
+                                                            'retention', 'retentionKey', 'processors', 'whereHeld', 'owner', 'reviewedOn', 'archived', 'updatedAt', 'updatedBy'])
+                   && drText(request.resource.data.name, 120) && request.resource.data.name.size() > 0
+                   && request.resource.data.collections is list && request.resource.data.collections.size() <= 30
+                   && drText(request.resource.data.purpose, 1000)
+                   && request.resource.data.lawfulBasis in ['consent', 'contract', 'legal', 'vital', 'public', 'legitimate']
+                   && request.resource.data.specialCategory is bool && drText(request.resource.data.get('specialCondition', ''), 500)
+                   && request.resource.data.dataSubjects is list && request.resource.data.dataSubjects.size() <= 20
+                   && request.resource.data.fieldsHeld is list && request.resource.data.fieldsHeld.size() <= 60
+                   && request.resource.data.access is list && request.resource.data.access.size() <= 20
+                   && request.resource.data.retention is map && request.resource.data.retention.keys().hasOnly(['keepFor', 'from', 'then'])
+                   && request.resource.data.retention.keepFor is int && request.resource.data.retention.keepFor >= 0
+                   && request.resource.data.retention.from in ['created', 'lastActivity', 'eventEnd', 'leftChurch']
+                   && request.resource.data.retention.then in ['delete', 'anonymise', 'review']
+                   && drText(request.resource.data.get('retentionKey', ''), 60)
+                   && request.resource.data.processors is list && request.resource.data.processors.size() <= 20
+                   && drText(request.resource.data.get('whereHeld', ''), 120) && drText(request.resource.data.get('owner', ''), 120)
+                   && drDay(request.resource.data.get('reviewedOn', '')) && request.resource.data.get('archived', false) is bool
+                   && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+    match /dataBreaches/{id} {
+      allow read: if dataLead();
+      allow write: if dataLead()
+                   && request.resource.data.keys().hasOnly(['title', 'happenedOn', 'discoveredAt', 'what', 'assetIds', 'kinds', 'people', 'risk', 'icoDecision', 'icoReportedOn', 'icoRef', 'icoWhy',
+                                                            'peopleTold', 'peopleToldOn', 'actions', 'lessons', 'status', 'closedOn', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+                   && drText(request.resource.data.title, 120) && request.resource.data.title.size() > 0
+                   && drDay(request.resource.data.happenedOn) && request.resource.data.discoveredAt is string && request.resource.data.discoveredAt.size() <= 30
+                   && drText(request.resource.data.what, 2000)
+                   && request.resource.data.assetIds is list && request.resource.data.assetIds.size() <= 30
+                   && request.resource.data.kinds is list && request.resource.data.kinds.hasOnly(['confidentiality', 'integrity', 'availability'])
+                   && request.resource.data.people is int && request.resource.data.people >= 0
+                   && request.resource.data.risk in ['', 'unlikely', 'risk', 'high']
+                   && request.resource.data.icoDecision in ['', 'reported', 'not-needed'] && drDay(request.resource.data.icoReportedOn)
+                   && drText(request.resource.data.icoRef, 60) && drText(request.resource.data.icoWhy, 1000)
+                   && request.resource.data.peopleTold in ['', 'yes', 'no', 'not-needed'] && drDay(request.resource.data.peopleToldOn)
+                   && drText(request.resource.data.actions, 2000) && drText(request.resource.data.lessons, 2000)
+                   && request.resource.data.status in ['open', 'closed'] && drDay(request.resource.data.closedOn)
+                   // a closed breach needs the ICO decision, with its reason when not reported
+                   && (request.resource.data.status == 'open' || (request.resource.data.icoDecision != ''
+                       && (request.resource.data.icoDecision == 'reported' || request.resource.data.icoWhy.size() > 0)))
+                   && request.resource.data.updatedBy == request.auth.uid
+                   && (resource == null ? request.resource.data.createdBy == request.auth.uid : request.resource.data.createdBy == resource.data.createdBy);
+      allow delete: if false;
+    }
+    match /dataRequests/{id} {
+      allow read: if dataLead() || raOffice();
+      allow write: if (dataLead() || raOffice())
+                   && request.resource.data.keys().hasOnly(['kind', 'requester', 'receivedOn', 'identity', 'extended', 'extendWhy', 'status', 'doneOn', 'outcome', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+                   && request.resource.data.kind in ['access', 'rectify', 'erase', 'restrict', 'portable', 'object']
+                   && drText(request.resource.data.requester, 120) && request.resource.data.requester.size() > 0
+                   && drDay(request.resource.data.receivedOn) && request.resource.data.receivedOn != ''
+                   && request.resource.data.identity in ['', 'checked', 'not-needed']
+                   && request.resource.data.extended is bool && drText(request.resource.data.extendWhy, 500)
+                   && (request.resource.data.extended == false || request.resource.data.extendWhy.size() > 0)
+                   && request.resource.data.status in ['open', 'done', 'refused'] && drDay(request.resource.data.doneOn)
+                   && drText(request.resource.data.outcome, 1000)
+                   && (request.resource.data.status != 'refused' || request.resource.data.outcome.size() > 0)
+                   && request.resource.data.updatedBy == request.auth.uid
+                   && (resource == null ? request.resource.data.createdBy == request.auth.uid : request.resource.data.createdBy == resource.data.createdBy);
+      // kept 2 years after it was answered, then the lead deletes it
+      allow delete: if dataLead() && resource.data.status != 'open';
+    }
     match /loneSettings/{id} {
       allow read: if active();
       allow write: if raOffice() && id == 'main'

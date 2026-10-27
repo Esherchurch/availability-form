@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data records</title>
+<!-- DATA RECORDS, UK GDPR (the reviewing window's job 5; egbc-data-records.js): the information asset register (what
+     the hub holds, why, on what lawful basis, for how long; main's fields), the breach log (every breach, with the
+     72-hour decision on telling the ICO) and data requests (the one-month deadline). Kept by the church's data
+     protection lead(s) and the office; the trustees read the register. For any church. -->
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610282000" data-title="Data records"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610282000"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-team-jobs.js?v=202610261800"></script>
+<script src="egbc-data-records.js?v=202610291700"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --green:#15803d;--green-bg:#ecfdf3;--amber:#b07d2e;--amber-bg:#fdf6e9;--red:#b0392c;--red-bg:#fdecea}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .tab{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:#fff;font:600 13.5px Inter,sans-serif;color:var(--body);cursor:pointer}
+  .tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--brand);background:var(--brand);color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}
+  .btn.sec{background:#fff;color:var(--brand)}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+  label{display:block;font:600 13px Inter,sans-serif;color:var(--ink);margin:10px 0 4px}
+  .inp,select,textarea{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:8px 10px;font:400 14px Inter,sans-serif;background:#fff;color:var(--ink)}
+  textarea{min-height:70px}
+  .check{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:4px 0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .hint{color:var(--muted);font-size:13px}
+  .item{border-top:1px solid var(--line);padding:10px 0;display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+  .item:first-of-type{border-top:0}
+  .item b{color:var(--ink)}
+  .rag{display:inline-flex;align-items:center;min-height:24px;padding:0 9px;border-radius:999px;font:600 12px Inter,sans-serif}
+  .rag.red{background:var(--red-bg);color:var(--red)}.rag.amber{background:var(--amber-bg);color:var(--amber)}.rag.green{background:var(--green-bg);color:var(--green)}.rag.grey{background:#f3f4f6;color:var(--muted)}
+  .banner{border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--amber-bg);color:#6b4a26;font-size:13px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tint);color:var(--brand-dark);border-radius:999px;padding:4px 10px;margin:4px 6px 0 0;font-size:13px}
+  .chip button{border:0;background:none;color:inherit;cursor:pointer;font-size:15px}
+  @media (max-width:560px){.two{grid-template-columns:1fr}.item{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><p class="hint">Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  var DR = window.EGBCDataRecords, TJ = window.EGBCTeamJobs;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid; }
+  function nowIso() { return new Date().toISOString(); }
+  var wrap = document.getElementById('wrap');
+  var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  var ME = {}, OFFICE = false, LEAD = false, TRUSTEE = false, LEADS = [], PEOPLE = [], ASSETS = [], BREACHES = [], REQUESTS = [], V = { tab: 'register', edit: null, msg: '' };
+  var label = function (list, v) { var x = list.filter(function (o) { return o[0] === v; })[0]; return x ? x[1] : v; };
+  function nameOf(mid) { var p = PEOPLE.filter(function (x) { return x.id === mid; })[0]; return p ? p.name : 'someone'; }
+  function rag(s) { return '<span class="rag ' + s.rag + '" data-rag="' + s.rag + '">' + esc(s.words) + '</span>'; }
+  function keepWords(r) {
+    r = r || {}; var d = r.keepFor || 0, from = { created: 'from when it is made', lastActivity: 'from the last time it is used', eventEnd: 'after the event', leftChurch: 'after they leave the church' }[r.from] || '';
+    var n = d === 0 ? 'Until they ask to stop' : d % 365 === 0 ? (d / 365) + ' year' + (d / 365 === 1 ? '' : 's') + ' ' + from : d + ' days ' + from;
+    return n + (r.then ? ', then ' + ({ delete: 'deleted', anonymise: 'made anonymous', review: 'reviewed' }[r.then] || r.then) : '');
+  }
+  function tabs() {
+    var list = [['register', 'Information assets']];
+    if (LEAD) list.push(['breaches', 'Breaches']);
+    if (LEAD || OFFICE) list.push(['requests', 'Data requests']);
+    if (OFFICE) list.push(['settings', 'Who keeps these']);
+    return '<div class="tabs" role="tablist">' + list.map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '" role="tab" aria-selected="' + (V.tab === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>';
+  }
+  function draw() {
+    var b = V.tab === 'breaches' && LEAD ? breachesHtml() : V.tab === 'requests' && (LEAD || OFFICE) ? requestsHtml() : V.tab === 'settings' && OFFICE ? settingsHtml() : registerHtml();
+    wrap.innerHTML = '<h1>Data records</h1><p class="sub">What the church holds about people, and how it looks after it (UK GDPR).</p>' + tabs() + (V.msg ? '<p class="hint" id="msg" role="status">' + esc(V.msg) + '</p>' : '') + b;
+    wire();
+  }
+
+  /* ---- the register ---- */
+  function registerHtml() {
+    if (V.edit && V.edit.kind === 'asset') return assetForm(V.edit.x);
+    var may = OFFICE || LEAD, list = ASSETS.filter(function (a) { return !a.archived; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    return '<div class="card" id="register"><h2>Information assets</h2><p class="hint" style="margin:0 0 6px">Each kind of personal data the church holds: why, the lawful basis, how long it is kept, who sees it, and who processes it for the church.</p>' +
+      (list.length ? list.map(function (a) {
+        var stale = !a.reviewedOn || a.reviewedOn < DR.addMonths(TODAY, -12);
+        return '<div class="item" data-asset="' + esc(a.id) + '"><div><b>' + esc(a.name) + '</b> ' + (a.specialCategory ? '<span class="rag amber">Special category</span> ' : '') + (stale ? '<span class="rag amber" data-stale>Review it</span>' : '') +
+          '<div class="hint">' + esc(a.purpose) + '</div><div class="hint">Lawful basis: ' + esc(label(DR.LAWFUL, a.lawfulBasis)) + (a.specialCategory && a.specialCondition ? '; ' + esc(a.specialCondition) : '') + '</div>' +
+          '<div class="hint">Kept: ' + esc(keepWords(a.retention)) + ' · Who sees it: ' + esc((a.access || []).join(', ')) + '</div>' +
+          '<div class="hint">Processed by: ' + esc((a.processors || []).join('; ')) + '</div></div>' + (may ? '<button class="btn sec sm" data-editasset="' + esc(a.id) + '">Change</button>' : '') + '</div>';
+      }).join('') : '<p class="hint" id="noAssets">Nothing in the register yet.</p>') +
+      (may ? '<div class="row">' + (!ASSETS.length ? '<button class="btn" id="seedGo">Start from what the hub holds (' + DR.SEED.length + ')</button>' : '') + '<button class="btn sec" id="addAsset">Add one (paper, a spreadsheet…)</button></div>' : '<p class="hint">Read only: kept by the office and the data protection lead.</p>') + '</div>';
+  }
+  function assetForm(a) {
+    var r = a.retention || { keepFor: 365, from: 'lastActivity', then: 'review' };
+    var opts = function (list, v) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === v ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); };
+    return '<div class="card" id="assetForm"><h2>' + esc(a.name || 'A new information asset') + '</h2>' +
+      '<label for="aName">Name</label><input class="inp" id="aName" maxlength="120" value="' + esc(a.name || '') + '">' +
+      '<label for="aPurpose">Why the church holds it</label><textarea id="aPurpose" maxlength="1000">' + esc(a.purpose || '') + '</textarea>' +
+      '<div class="two"><div><label for="aBasis">Lawful basis</label><select id="aBasis">' + opts(DR.LAWFUL, a.lawfulBasis || 'legitimate') + '</select></div>' +
+      '<div><label class="check" style="margin-top:34px"><input type="checkbox" id="aSpecial"' + (a.specialCategory ? ' checked' : '') + '> Special category (health, religious belief…)</label></div></div>' +
+      '<label for="aCond">The condition for special category data</label><input class="inp" id="aCond" maxlength="500" value="' + esc(a.specialCondition || '') + '">' +
+      '<label>Whose data</label>' + DR.SUBJECTS.map(function (s) { return '<label class="check"><input type="checkbox" data-subj="' + s[0] + '"' + ((a.dataSubjects || []).indexOf(s[0]) >= 0 ? ' checked' : '') + '> ' + esc(s[1]) + '</label>'; }).join('') +
+      '<label for="aFields">What is held (commas)</label><input class="inp" id="aFields" value="' + esc((a.fieldsHeld || []).join(', ')) + '">' +
+      '<label for="aAccess">Who sees it (commas)</label><input class="inp" id="aAccess" value="' + esc((a.access || []).join(', ')) + '">' +
+      '<label for="aProc">Who processes it for the church (semicolons)</label><input class="inp" id="aProc" value="' + esc((a.processors || []).join('; ')) + '">' +
+      '<div class="two"><div><label for="aKeep">Kept for (days; 0 = until they ask to stop)</label><input class="inp" type="number" min="0" id="aKeep" value="' + (r.keepFor || 0) + '"></div>' +
+      '<div><label for="aFrom">Counted</label><select id="aFrom">' + opts([['created', 'From when it is made'], ['lastActivity', 'From the last time it is used'], ['eventEnd', 'After the event'], ['leftChurch', 'After they leave the church']], r.from) + '</select></div></div>' +
+      '<div class="two"><div><label for="aThen">Then</label><select id="aThen">' + opts([['delete', 'Deleted'], ['anonymise', 'Made anonymous'], ['review', 'Reviewed']], r.then) + '</select></div>' +
+      '<div><label for="aOwner">Who is responsible (a role)</label><input class="inp" id="aOwner" maxlength="120" value="' + esc(a.owner || 'The church office') + '"></div></div>' +
+      '<label class="check"><input type="checkbox" id="aReviewed"> I have reviewed it today</label>' +
+      '<div class="row"><button class="btn" id="saveAsset">Save</button><button class="btn sec" id="cancel">Cancel</button>' + (a.id ? '<button class="btn sec" id="archiveAsset">No longer held</button>' : '') + '<span class="hint" id="formMsg" role="status"></span></div></div>';
+  }
+
+  /* ---- breaches (the data protection leads) ---- */
+  function breachesHtml() {
+    if (V.edit && V.edit.kind === 'breach') return breachForm(V.edit.x);
+    var list = BREACHES.slice().sort(function (a, b) { return String(b.discoveredAt).localeCompare(String(a.discoveredAt)); });
+    return '<div class="card" id="breaches"><h2>Breaches</h2><p class="hint" style="margin:0 0 6px">Every breach is recorded here, whether or not it is reported. If it is likely to put people at risk, the ICO must be told within 72 hours of finding it; if the risk is high, the people too. General words only: no names here.</p>' +
+      (list.length ? list.map(function (b) {
+        return '<div class="item" data-breach="' + esc(b.id) + '"><div><b>' + esc(b.title) + '</b> ' + rag(DR.breachState(b, Date.now())) + '<div class="hint">Found ' + esc(String(b.discoveredAt).slice(0, 16).replace('T', ' ')) + ' · about ' + (b.people || 0) + ' people</div></div>' +
+          '<button class="btn sec sm" data-editbreach="' + esc(b.id) + '">Open</button></div>';
+      }).join('') : '<p class="hint" id="noBreaches">No breaches recorded.</p>') + '<div class="row"><button class="btn" id="addBreach">Record a breach</button></div></div>';
+  }
+  function breachForm(b) {
+    var opts = function (list, v) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === v ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); };
+    var dl = DR.breachDeadline(b);
+    return '<div class="card" id="breachForm"><h2>' + esc(b.title || 'A breach') + '</h2>' + (b.status !== 'closed' && dl ? '<div class="banner" id="deadline">Decide about the ICO by ' + esc(dl.slice(0, 16).replace('T', ' ')) + ' (72 hours after it was found).</div>' : '') +
+      '<label for="bTitle">In a few words</label><input class="inp" id="bTitle" maxlength="120" value="' + esc(b.title || '') + '" placeholder="Email sent to the wrong group">' +
+      '<div class="two"><div><label for="bHappened">It happened on</label><input class="inp" type="date" id="bHappened" value="' + esc(b.happenedOn || TODAY) + '"></div>' +
+      '<div><label for="bFound">It was found</label><input class="inp" type="datetime-local" id="bFound" value="' + esc(String(b.discoveredAt || new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString()).slice(0, 16)) + '"></div></div>' +
+      '<label for="bWhat">What happened (general words: no names)</label><textarea id="bWhat" maxlength="2000">' + esc(b.what || '') + '</textarea>' +
+      '<label>What kind</label>' + DR.BREACH_KINDS.map(function (k) { return '<label class="check"><input type="checkbox" data-bkind="' + k[0] + '"' + ((b.kinds || []).indexOf(k[0]) >= 0 ? ' checked' : '') + '> ' + esc(k[1]) + '</label>'; }).join('') +
+      '<label>Which data</label>' + (ASSETS.length ? ASSETS.filter(function (a) { return !a.archived; }).map(function (a) { return '<label class="check"><input type="checkbox" data-basset="' + esc(a.id) + '"' + ((b.assetIds || []).indexOf(a.id) >= 0 ? ' checked' : '') + '> ' + esc(a.name) + '</label>'; }).join('') : '<p class="hint">Add the information assets first.</p>') +
+      '<div class="two"><div><label for="bPeople">About how many people</label><input class="inp" type="number" min="0" id="bPeople" value="' + (b.people || 0) + '"></div>' +
+      '<div><label for="bRisk">The risk to them</label><select id="bRisk"><option value="">Not decided</option>' + opts([['unlikely', 'Unlikely to be a risk'], ['risk', 'A risk'], ['high', 'A high risk']], b.risk) + '</select></div></div>' +
+      '<div class="two"><div><label for="bIco">The ICO</label><select id="bIco"><option value="">Not decided yet</option>' + opts([['reported', 'Reported'], ['not-needed', 'Not reportable']], b.icoDecision) + '</select></div>' +
+      '<div><label for="bIcoOn">Reported on, and its reference</label><div class="two"><input class="inp" type="date" id="bIcoOn" value="' + esc(b.icoReportedOn || '') + '"><input class="inp" id="bIcoRef" maxlength="60" value="' + esc(b.icoRef || '') + '"></div></div></div>' +
+      '<label for="bIcoWhy">Why (when not reported, or reported late)</label><textarea id="bIcoWhy" maxlength="1000">' + esc(b.icoWhy || '') + '</textarea>' +
+      '<div class="two"><div><label for="bTold">The people affected</label><select id="bTold"><option value="">Not decided</option>' + opts([['yes', 'Told'], ['no', 'Not told (say why above)'], ['not-needed', 'Not needed']], b.peopleTold) + '</select></div>' +
+      '<div><label for="bToldOn">Told on</label><input class="inp" type="date" id="bToldOn" value="' + esc(b.peopleToldOn || '') + '"></div></div>' +
+      '<label for="bActions">What was done about it</label><textarea id="bActions" maxlength="2000">' + esc(b.actions || '') + '</textarea>' +
+      '<label for="bLessons">What we learned, and what changes</label><textarea id="bLessons" maxlength="2000">' + esc(b.lessons || '') + '</textarea>' +
+      '<div class="row"><button class="btn" id="saveBreach">Save</button>' + (b.id && b.status !== 'closed' ? '<button class="btn sec" id="closeBreach">Close it</button>' : '') + '<button class="btn sec" id="cancel">Cancel</button><span class="hint" id="formMsg" role="status"></span></div></div>';
+  }
+
+  /* ---- requests ---- */
+  function requestsHtml() {
+    if (V.edit && V.edit.kind === 'request') return requestForm(V.edit.x);
+    var list = REQUESTS.slice().sort(function (a, b) { return (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || String(a.receivedOn).localeCompare(String(b.receivedOn)); });
+    return '<div class="card" id="requests"><h2>Data requests</h2><p class="hint" style="margin:0 0 6px">Someone asking to see their data, to correct it, to delete it… Answer within one month of receiving it (three for a complex one, telling them why within the first month). Check who they are first.</p>' +
+      (list.length ? list.map(function (r) {
+        return '<div class="item" data-request="' + esc(r.id) + '"><div><b>' + esc(r.requester) + '</b>: ' + esc(label(DR.REQUEST_KINDS, r.kind)) + ' ' + rag(DR.requestState(r, TODAY)) + '<div class="hint">Received ' + esc(r.receivedOn) + '</div></div>' +
+          '<button class="btn sec sm" data-editrequest="' + esc(r.id) + '">Open</button></div>';
+      }).join('') : '<p class="hint" id="noRequests">No requests recorded.</p>') + '<div class="row"><button class="btn" id="addRequest">Record a request</button></div></div>';
+  }
+  function requestForm(r) {
+    var opts = function (list, v) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === v ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); };
+    return '<div class="card" id="requestForm"><h2>' + esc(r.requester || 'A data request') + '</h2>' + (r.receivedOn ? '<p>' + rag(DR.requestState(r, TODAY)) + '</p>' : '') +
+      '<div class="two"><div><label for="rWho">Who asked</label><input class="inp" id="rWho" maxlength="120" value="' + esc(r.requester || '') + '"></div>' +
+      '<div><label for="rKind">They asked</label><select id="rKind">' + opts(DR.REQUEST_KINDS, r.kind || 'access') + '</select></div></div>' +
+      '<div class="two"><div><label for="rOn">Received on</label><input class="inp" type="date" id="rOn" value="' + esc(r.receivedOn || TODAY) + '"></div>' +
+      '<div><label for="rId">Who they are</label><select id="rId"><option value="">Not checked yet</option>' + opts([['checked', 'Checked'], ['not-needed', 'No need: we know them']], r.identity) + '</select></div></div>' +
+      '<label class="check"><input type="checkbox" id="rExt"' + (r.extended ? ' checked' : '') + '> Extended by two months (a complex request)</label>' +
+      '<label for="rExtWhy">Why it was extended (tell them within the first month)</label><input class="inp" id="rExtWhy" maxlength="500" value="' + esc(r.extendWhy || '') + '">' +
+      '<div class="two"><div><label for="rStatus">Where it is</label><select id="rStatus">' + opts([['open', 'Open'], ['done', 'Answered'], ['refused', 'Refused']], r.status || 'open') + '</select></div>' +
+      '<div><label for="rDone">Answered on</label><input class="inp" type="date" id="rDone" value="' + esc(r.doneOn || '') + '"></div></div>' +
+      '<label for="rOut">What was done (and why, if refused)</label><textarea id="rOut" maxlength="1000">' + esc(r.outcome || '') + '</textarea>' +
+      '<div class="row"><button class="btn" id="saveRequest">Save</button><button class="btn sec" id="cancel">Cancel</button><span class="hint" id="formMsg" role="status"></span></div></div>';
+  }
+
+  /* ---- who keeps these (the office) ---- */
+  function settingsHtml() {
+    return '<div class="card" id="settings"><h2>The data protection lead</h2><p class="hint" style="margin:0">They keep the breach log and the data requests, and look after the register with the office. Master admins always can.</p><div>' +
+      (LEADS.length ? LEADS.map(function (m) { return '<span class="chip">' + esc(nameOf(m)) + '<button type="button" aria-label="Take off" data-droplead="' + esc(m) + '">×</button></span>'; }).join('') : '<p class="hint" id="noLead">Nobody yet.</p>') + '</div>' +
+      (LEADS.length < 10 ? '<select id="addLead" style="margin-top:8px"><option value="">Add someone…</option>' + PEOPLE.filter(function (p) { return LEADS.indexOf(p.id) < 0; }).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select>' : '') + '</div>';
+  }
+
+  function wire() {
+    var $ = function (id) { return document.getElementById(id); }, val = function (id) { var e = $(id); return e ? e.value.trim() : ''; }, say = function (m) { V.msg = m; draw(); };
+    var list = function (id, sep) { return val(id).split(sep || ',').map(function (s) { return s.trim(); }).filter(Boolean); };
+    var checked = function (attr) { return [].map.call(document.querySelectorAll('[' + attr + ']:checked'), function (e) { return e.getAttribute(attr); }); };
+    var warn = function (m) { var e = $('formMsg'); if (e) e.textContent = m; else say(m); };
+    var stamp = function (o) { return Object.assign(o, { updatedAt: nowIso(), updatedBy: uid() }); };
+    document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.getAttribute('data-tab'); V.edit = null; V.msg = ''; draw(); }; });
+    if ($('cancel')) $('cancel').onclick = function () { V.edit = null; draw(); };
+    /* register */
+    if ($('seedGo')) $('seedGo').onclick = function () {
+      var b = db().batch(), out = [];
+      DR.SEED.forEach(function (a) { var ref = db().collection('infoAssets').doc(); var rec = stamp(JSON.parse(JSON.stringify(a))); b.set(ref, rec); out.push(Object.assign({ id: ref.id }, rec)); });
+      $('seedGo').disabled = true;
+      b.commit().then(function () { ASSETS = out; say('Started: ' + out.length + ' information assets. Check each one, and add anything the hub doesn’t hold (paper, spreadsheets).'); }, function (e) { say('Not started: ' + (e.message || e)); });
+    };
+    if ($('addAsset')) $('addAsset').onclick = function () { V.edit = { kind: 'asset', x: {} }; draw(); };
+    document.querySelectorAll('[data-editasset]').forEach(function (b) { b.onclick = function () { V.edit = { kind: 'asset', x: ASSETS.filter(function (a) { return a.id === b.getAttribute('data-editasset'); })[0] }; draw(); }; });
+    var putAsset = function (archived) {
+      var a = V.edit.x;
+      if (!val('aName')) { warn('Give it a name.'); return; }
+      var rec = stamp({ name: val('aName').slice(0, 120), collections: (a.collections || []).slice(0, 30), purpose: val('aPurpose').slice(0, 1000), lawfulBasis: val('aBasis'), specialCategory: $('aSpecial').checked,
+        specialCondition: val('aCond').slice(0, 500), dataSubjects: checked('data-subj'), fieldsHeld: list('aFields').slice(0, 60), access: list('aAccess').slice(0, 20),
+        retention: { keepFor: Math.max(0, parseInt(val('aKeep'), 10) || 0), from: val('aFrom'), then: val('aThen') }, retentionKey: a.retentionKey || '', processors: list('aProc', ';').slice(0, 20),
+        whereHeld: a.whereHeld || 'UK/EU', owner: val('aOwner').slice(0, 120), reviewedOn: $('aReviewed').checked ? TODAY : (a.reviewedOn || ''), archived: !!archived });
+      var ref = a.id ? db().collection('infoAssets').doc(a.id) : db().collection('infoAssets').doc();
+      ref.set(rec).then(function () { ASSETS = ASSETS.filter(function (x) { return x.id !== ref.id; }).concat([Object.assign({ id: ref.id }, rec)]); V.edit = null; say(archived ? 'Marked as no longer held.' : 'Saved.'); }, function (e) { say('Not saved: ' + (e.message || e)); });
+    };
+    if ($('saveAsset')) $('saveAsset').onclick = function () { putAsset(false); };
+    if ($('archiveAsset')) $('archiveAsset').onclick = function () { putAsset(true); };
+    /* breaches */
+    if ($('addBreach')) $('addBreach').onclick = function () { V.edit = { kind: 'breach', x: { status: 'open' } }; draw(); };
+    document.querySelectorAll('[data-editbreach]').forEach(function (b) { b.onclick = function () { V.edit = { kind: 'breach', x: BREACHES.filter(function (x) { return x.id === b.getAttribute('data-editbreach'); })[0] }; draw(); }; });
+    var putBreach = function (close) {
+      var b = V.edit.x;
+      if (!val('bTitle')) { warn('Say in a few words what happened.'); return; }
+      var found = val('bFound'), d = found ? new Date(found) : new Date();
+      var rec = stamp({ title: val('bTitle').slice(0, 120), happenedOn: val('bHappened'), discoveredAt: isNaN(d) ? nowIso() : d.toISOString(), what: val('bWhat').slice(0, 2000), assetIds: checked('data-basset').slice(0, 30),
+        kinds: checked('data-bkind'), people: Math.max(0, parseInt(val('bPeople'), 10) || 0), risk: val('bRisk'), icoDecision: val('bIco'), icoReportedOn: val('bIcoOn'), icoRef: val('bIcoRef').slice(0, 60),
+        icoWhy: val('bIcoWhy').slice(0, 1000), peopleTold: val('bTold'), peopleToldOn: val('bToldOn'), actions: val('bActions').slice(0, 2000), lessons: val('bLessons').slice(0, 2000),
+        status: close ? 'closed' : (b.status || 'open'), closedOn: close ? TODAY : (b.closedOn || ''), createdBy: b.createdBy || uid(), createdAt: b.createdAt || nowIso() });
+      if (close && (!rec.icoDecision || (rec.icoDecision === 'not-needed' && !rec.icoWhy))) { warn('Before closing it: record the ICO decision, and why when it was not reported.'); return; }
+      var ref = b.id ? db().collection('dataBreaches').doc(b.id) : db().collection('dataBreaches').doc();
+      ref.set(rec).then(function () { BREACHES = BREACHES.filter(function (x) { return x.id !== ref.id; }).concat([Object.assign({ id: ref.id }, rec)]); V.edit = null; say(close ? 'Closed.' : 'Saved.'); }, function (e) { say('Not saved: ' + (e.message || e)); });
+    };
+    if ($('saveBreach')) $('saveBreach').onclick = function () { putBreach(false); };
+    if ($('closeBreach')) $('closeBreach').onclick = function () { putBreach(true); };
+    /* requests */
+    if ($('addRequest')) $('addRequest').onclick = function () { V.edit = { kind: 'request', x: { status: 'open' } }; draw(); };
+    document.querySelectorAll('[data-editrequest]').forEach(function (b) { b.onclick = function () { V.edit = { kind: 'request', x: REQUESTS.filter(function (x) { return x.id === b.getAttribute('data-editrequest'); })[0] }; draw(); }; });
+    if ($('saveRequest')) $('saveRequest').onclick = function () {
+      var r = V.edit.x;
+      if (!val('rWho')) { warn('Say who asked.'); return; }
+      if ($('rExt').checked && !val('rExtWhy')) { warn('Say why it was extended.'); return; }
+      if (val('rStatus') === 'refused' && !val('rOut')) { warn('Say why it was refused.'); return; }
+      var rec = stamp({ kind: val('rKind'), requester: val('rWho').slice(0, 120), receivedOn: val('rOn') || TODAY, identity: val('rId'), extended: $('rExt').checked, extendWhy: val('rExtWhy').slice(0, 500),
+        status: val('rStatus'), doneOn: val('rStatus') === 'open' ? '' : (val('rDone') || TODAY), outcome: val('rOut').slice(0, 1000), createdBy: r.createdBy || uid(), createdAt: r.createdAt || nowIso() });
+      var ref = r.id ? db().collection('dataRequests').doc(r.id) : db().collection('dataRequests').doc();
+      ref.set(rec).then(function () { REQUESTS = REQUESTS.filter(function (x) { return x.id !== ref.id; }).concat([Object.assign({ id: ref.id }, rec)]); V.edit = null; say('Saved.'); }, function (e) { say('Not saved: ' + (e.message || e)); });
+    };
+    /* the leads */
+    var putLeads = function (l) { return db().collection('dataSettings').doc('main').set({ leads: l, updatedAt: nowIso(), updatedBy: uid() }).then(function () { LEADS = l; say('Saved.'); }, function (e) { say('Not saved: ' + (e.message || e)); }); };
+    if ($('addLead')) $('addLead').onchange = function () { if (val('addLead')) putLeads(LEADS.concat([val('addLead')]).slice(0, 10)); };
+    document.querySelectorAll('[data-droplead]').forEach(function (b) { b.onclick = function () { var m = b.getAttribute('data-droplead'); putLeads(LEADS.filter(function (x) { return x !== m; })); }; });
+  }
+
+  EGBCAuth.require().then(function (profile) {
+    ME = { name: (profile || {}).name || '', memberId: (profile || {}).memberId || '' };
+    return EGBCAuth.loadPerms().then(function (P) {
+      var MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), on = function (job, set) { return TJ.teamsFor(P.jobs, job, set || P.set).some(function (t) { return EGBCAuth.inTeam(t); }); };
+      OFFICE = MASTER || on('office');
+      return db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }).then(function (sg) {
+        TRUSTEE = on('trustees', Object.assign({}, P.set, { trusteeTeam: (sg && sg.exists && sg.data().trusteeTeam) || 'Elders' }));
+        return db().collection('dataSettings').doc('main').get().catch(function () { return null; });
+      }).then(function (s) {
+        LEADS = (s && s.exists && s.data().leads) || [];
+        LEAD = MASTER || (ME.memberId && LEADS.indexOf(ME.memberId) >= 0);
+        if (!OFFICE && !LEAD && !TRUSTEE) { wrap.innerHTML = '<div class="card" id="notYours"><h1>Data records</h1><p>These are kept by the church office and the data protection lead; the trustees read the register.</p></div>'; return null; }
+        var none = { docs: [] };
+        return Promise.all([
+          db().collection('infoAssets').get().catch(function () { return none; }),
+          LEAD ? db().collection('dataBreaches').get().catch(function () { return none; }) : none,
+          LEAD || OFFICE ? db().collection('dataRequests').get().catch(function () { return none; }) : none,
+          OFFICE ? db().collection('addressBook').get().catch(function () { return none; }) : none
+        ]).then(function (r) {
+          var all = function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); };
+          ASSETS = all(r[0]); BREACHES = all(r[1]); REQUESTS = all(r[2]);
+          PEOPLE = r[3].docs.map(function (d) { var v = d.data(); return { id: d.id, name: String(v.name || '').trim(), minor: v.isMinor === true, archived: !!v.archived }; })
+            .filter(function (p) { return p.name && !p.minor && !p.archived; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+          draw();
+        });
+      });
+    });
+  }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc((e && e.message) || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

@@ -13272,3 +13272,71 @@ Two mistakes in my own code were found and fixed on the way: "mot" in lower case
 **For main:** a Menu entry, "Drivers and vehicles" (transport.html), for everyone signed in.
 
 **Deploy:** nothing. There are no functions. The rules go live when the hub goes live.
+
+---
+
+### F-307 — Job 5: data records, UK GDPR: the information asset register, the breach log, data requests (the reviewing window's job 5, 29 Oct) (the events window)
+
+**Built** (data-records.html; egbc-data-records.js; rules for `infoAssets`, `dataBreaches`, `dataRequests`, `dataSettings`):
+- **The information asset register** (`infoAssets`), to **main's own field list** from 19 Oct (this file, "The INFORMATION ASSET REGISTER"), so your privacy tools can read the same list:
+  - `name`, `collections`, `purpose`, `lawfulBasis`, `specialCategory` and `specialCondition`, `dataSubjects`, `fieldsHeld`, `access`
+  - `retention { keepFor, from, then }` and `retentionKey`
+  - `processors`, `whereHeld`, `owner`, `reviewedOn`
+  - plus `archived`, `updatedAt` and `updatedBy`
+
+  "Start from what the hub holds" fills it with 15 assets, each naming the hub's real collections (checked against the rules). Members' data is marked special category (religious belief; Article 9(2)(d)). An asset not reviewed for 12 months says "Review it".
+- **The breach log** (`dataBreaches`): every breach, reported or not.
+  - **What it records:** what happened in general words, the kind (seen by the wrong people, changed, or lost), which assets, about how many people, the risk, the ICO decision (reported, with date and reference, or not reportable, with the reason), whether the people were told, what was done, and what was learned.
+  - **The 72 hours:** an open breach shows the hours left to decide about the ICO.
+  - **Closing:** it can't be closed without the ICO decision, and the reason when it wasn't reported. The rules check this too.
+- **Data requests** (`dataRequests`): who asked, which right, received on, identity checked, and the deadline:
+  - one month, or three when extended with a reason
+  - amber a week before, red when overdue
+  - done, or refused with the reason
+
+  Answered ones may be deleted by the lead after 2 years.
+- **Who:**
+  - The office names the data protection lead(s), up to 10. Master admins always.
+  - The register: the office and the leads keep it; the trustees read it.
+  - Breaches: the leads only.
+  - Requests: the leads and the office, who usually receives them.
+  - Members see none of it.
+
+**For main (fitting to your answer, not waiting for it):**
+1. The register uses your fields as you wrote them. If you want any changed, say so and I'll change mine. My page's two extras are `archived` and the starter list's collection names.
+2. Your privacy tools ("what we hold about someone", the subject access export) can read `infoAssets.collections` and `fieldsHeld`. A subject access request recorded here could link to your export later.
+3. Your proposal had the safeguarding lead reading the register. The rules can't name "a safeguarding lead of any building" cheaply. For now they read it if named as a data protection lead. Tell me if that's not right.
+4. A Menu entry, "Data records" (data-records.html), for master admins, the office job, the trustees job, and anyone in `dataSettings/main.leads`.
+5. retention.html still uses its own constants for form answers. It could read `infoAssets` (retentionKey `formResponses`) once you agree the fields.
+
+**Quick check** (emulator, the synthetic parish), 10/10:
+- the office starts the register and names the lead
+- the office sees requests, not breaches
+- the lead records a breach with the 72 hours showing
+- a warning keeps what was typed (a bug of mine, fixed on the way)
+- closed only with the ICO decision and reason
+- a request due in a month
+- a trustee reads the register, never breaches
+- a member sees nothing
+- no page errors
+
+**Deploy:** nothing; there are no functions. The rules go live when the hub goes live.
+
+---
+
+### F-308 — Job 10: pastoral visits, a QUESTION for main before anything is built (the reviewing window's item 10, 29 Oct) (the events window)
+
+The reviewer asked me to ask you first. Pastoral records follow Martin's rule: **named trained people only, never the office.**
+
+**Proposal:**
+- `pastoralVisits/{id}`: who was visited (member id), when, by whom (member ids), how (home, hospital, phone, other), a follow-up date, and a short private note.
+- **Who:** only the people named as trained pastoral visitors. Never the office, nor a master admin unless named.
+- **Reminders:** a visitor gets a follow-up when it is due.
+
+**Questions:**
+1. **Is it yours** (beside care-inbox.html, the `pastoral` job, `worries`), or **mine**?
+2. **Who may read:** the `pastoral` job's teams (noFallback), or an explicit list of named, trained visitors (a setting, like the data protection leads)? Martin's "named trained people" suggests the list. Or the list, limited to people on the pastoral job's teams?
+3. **Master admins:** not unless named? That would be the first record a master admin can't read.
+4. **How long it's kept:** I'd suggest 2 years after the last visit, then review (as the register's starter row "Pastoral care and prayer requests").
+
+Nothing is built for this until you answer.
