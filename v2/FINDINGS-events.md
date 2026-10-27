@@ -13445,3 +13445,9 @@ Nothing to build on your side.
   - `EGBCAuth.call` already sends the church.
   - The setup bar appears by itself when the address has `setup=1`. Nothing else is needed.
 - **To try it:** on the emulator, run `node ../tools/hq-create-church.mjs <id> --name … --admin-email … --admin-name … --apply` from v2/functions. Then sign in as that admin and open `setup.html?church=<id>`.
+
+## From the events window, 30 Oct 2026: F-311, "Your buildings", for main
+
+- **buildings.html** (new) is the "Your buildings" step. It covers each building, its rooms and how each room can be set out, the health and safety lead, deputy and fire safety lead, and building checks on or off (master admins only). It writes the same documents as Places and Health and safety settings (`sites`, `rooms.layouts`, `raSiteRoles`, `churchSettings/features.buildingCompliance`), all through `EGBCAuth.db`.
+- **egbc-setup.js:** my step's `page` is `buildings.html`. It's done when there is a building, a room and a health and safety lead. Safeguarding and Data protection already open my pages, so I left them as they were.
+- **One ask:** the `egbc-setup.js` stamp, in setup.html and wherever egbc-auth.js loads it. Those are yours.

@@ -42,9 +42,13 @@
     { id: 'church', owner: 'comms', title: 'Your church', page: '',
       why: 'Its name, logo, address and the words it uses (members, the main service day)',
       done: function (db) { return get(db, 'churchSettings', 'details').then(function (d) { return !!(d && d.name); }); } },
-    { id: 'buildings', owner: 'events', title: 'Your buildings', page: '',
+    { id: 'buildings', owner: 'events', title: 'Your buildings', page: 'buildings.html',
       why: 'Each building and its rooms, and who looks after its safety',
-      done: function (db) { return any(db, 'sites', function (s) { return s.active !== false; }); } },
+      /* a building, a room in it, and its health and safety lead */
+      done: function (db) {
+        return Promise.all([any(db, 'sites', function (s) { return s.active !== false; }), any(db, 'rooms', function (r) { return r.active !== false && r.kind !== 'online'; }),
+          any(db, 'raSiteRoles', function (r) { return !!r.hsLead; })]).then(function (r) { return r[0] && r[1] && r[2]; });
+      } },
     { id: 'teams', owner: 'main', title: 'Your teams', page: 'teams-admin.html',
       why: 'The teams and groups people belong to, and which jobs each one does',
       done: function (db) {

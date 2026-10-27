@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your buildings</title>
+<!-- YOUR BUILDINGS (the setup frame's "Your buildings" step; egbc-setup.js): each building, its rooms and how
+     each room can be set out, who looks after its safety (the health and safety lead and deputy, the fire
+     safety lead), and whether the church uses building checks. One screen for a new church; Places
+     (places-admin.html) and Health and safety settings (hs-settings.html) keep the rest, and write the same
+     documents: sites, rooms (layouts), raSiteRoles, churchSettings/features.buildingCompliance. For any church,
+     any number of buildings. Reads and writes through EGBCAuth.db, so ?church=<id> is that church's data. -->
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610301200" data-title="Your buildings"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610301400"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-guard.js?v=202610282000" data-admin="any"></script>
+<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-events-rooms.js?v=202610221000"></script>
+<script src="egbc-hs-core.js?v=202610281000"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .card h2{font-size:17px;font-weight:600;color:var(--ink);margin:0 0 10px}
+  .card h3{font-size:14px;font-weight:600;color:var(--ink);margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
+  label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:10px 0 5px}
+  .inp,select{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 15px Inter,sans-serif;background:#fff;color:var(--ink)}
+  .btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--brand);background:var(--brand);color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}
+  .btn.sec{background:#fff;color:var(--brand)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .hint{color:var(--muted);font-size:13px}
+  .msg{font-size:13px;margin-left:4px}
+  .msg.bad{color:var(--danger)} .msg.good{color:var(--ok)}
+  .room{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0}
+  .room summary{cursor:pointer;color:var(--ink);font-weight:600}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  @media (max-width:560px){.two,.three{grid-template-columns:1fr}}
+  .switch{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink);margin:0}
+  .switch input{width:20px;height:20px;accent-color:var(--brand);flex:none;margin-top:1px}
+  a{color:var(--brand)}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><p class="hint">Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function db() { return EGBCAuth.db; }
+  function $(id) { return document.getElementById(id); }
+  function link(u) { return EGBCAuth.churchLink ? EGBCAuth.churchLink(u) : u; }
+  function now() { return new Date().toISOString(); }
+  var R = window.EGBCRooms, H = window.EGBCHsCore;
+  var SITES = [], ROOMS = [], ROLES = {}, PEOPLE = [], FEAT = null, MASTER = false;
+
+  function all(s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }
+  function byOrder(a, b) { return (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name)); }
+  function nextOrder(list) { return list.reduce(function (m, x) { return Math.max(m, x.order || 0); }, 0) + 1; }
+  /* a message beside the button that was pressed, so what was typed stays */
+  function say(el, words, good) { if (el) { el.textContent = words; el.className = 'msg ' + (good ? 'good' : 'bad'); } }
+  function oops(el) { return function (e) { say(el, 'Not saved: ' + (e && e.code === 'permission-denied' ? 'you need to be an admin of this church.' : (e.message || e))); }; }
+
+  function peopleOptions(sel) {
+    return '<option value="">Nobody yet</option>' + PEOPLE.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
+  }
+
+  function roomHtml(r) {
+    var l = r.layouts || {};
+    return '<details class="room" data-room="' + esc(r.id) + '"><summary>' + esc(r.name) + (r.capacity ? ' <span class="hint">· ' + esc(r.capacity) + ' people</span>' : '') + '</summary>' +
+      '<div class="two"><div><label>Name</label><input class="inp" data-f="name" maxlength="80" value="' + esc(r.name) + '"></div>' +
+      '<div><label>How many people it holds</label><input class="inp" type="number" min="0" data-f="capacity" value="' + esc(r.capacity || '') + '"></div></div>' +
+      '<label style="margin-top:14px">How it can be set out, and how many each way holds <span class="hint">(leave blank for a way it can’t be)</span></label>' +
+      '<div class="three">' + R.LAYOUTS.map(function (x) {
+        return '<div><label class="hint" style="font-weight:500;margin:4px 0" title="' + esc(x.hint) + '">' + esc(x.label) + ' <span class="hint">(' + esc(x.hint) + ')</span></label><input class="inp" type="number" min="0" data-lay="' + esc(x.id) + '" value="' + esc(l[x.id] || '') + '"></div>';
+      }).join('') + '</div>' +
+      '<div class="row"><button class="btn sec" data-saveroom="' + esc(r.id) + '">Save the room</button><span class="msg"></span></div></details>';
+  }
+
+  function siteHtml(s) {
+    var rooms = ROOMS.filter(function (r) { return r.siteId === s.id; }).sort(byOrder), ro = ROLES[s.id] || {};
+    return '<div class="card" data-site="' + esc(s.id) + '"><h2>' + esc(s.name) + '</h2>' +
+      '<div class="two"><div><label>Name</label><input class="inp" data-sf="name" maxlength="80" value="' + esc(s.name) + '"></div>' +
+      '<div><label>Postcode</label><input class="inp" data-sf="postcode" maxlength="10" value="' + esc(s.postcode || '') + '"></div></div>' +
+      '<label>Address</label><input class="inp" data-sf="address" maxlength="200" value="' + esc(s.address || '') + '">' +
+      '<div class="row"><button class="btn sec" data-savesite="' + esc(s.id) + '">Save the building</button><span class="msg"></span></div>' +
+
+      '<h3>Its rooms</h3>' + (rooms.length ? rooms.map(roomHtml).join('') : '<p class="hint">No rooms yet. Add each room people meet or are booked in, the hall and the church itself included.</p>') +
+      '<div class="two" style="align-items:end"><div><label>A new room</label><input class="inp" data-new="name" maxlength="80" placeholder="Main hall"></div>' +
+      '<div><label>How many people it holds</label><input class="inp" type="number" min="0" data-new="capacity"></div></div>' +
+      '<div class="row"><button class="btn sec" data-addroom="' + esc(s.id) + '">Add the room</button><span class="msg"></span></div>' +
+
+      '<h3>Who looks after its safety</h3>' +
+      '<p class="hint" style="margin:0">They are told about its checks, its assessments and anyone working alone there. The lead and the deputy must be two different people; the fire safety lead may be the lead.</p>' +
+      '<div class="three"><div><label>Health and safety lead</label><select data-role="hsLead">' + peopleOptions(ro.hsLead) + '</select></div>' +
+      '<div><label>Deputy</label><select data-role="hsDeputy">' + peopleOptions(ro.hsDeputy) + '</select></div>' +
+      '<div><label>Fire safety lead</label><select data-role="fireLead">' + peopleOptions(ro.fireLead) + '</select></div></div>' +
+      '<div class="row"><button class="btn sec" data-saveroles="' + esc(s.id) + '">Save who looks after it</button><span class="msg"></span></div></div>';
+  }
+
+  function draw() {
+    var on = FEAT && typeof FEAT.buildingCompliance === 'boolean' ? FEAT.buildingCompliance : !!(EGBCAuth.uses && EGBCAuth.uses('buildingCompliance'));
+    $('wrap').innerHTML = '<h1>Your buildings</h1>' +
+      '<p class="sub">Each building the church uses, its rooms and how each can be set out, and who looks after its safety. Photos, prices and opening hours are in <a href="' + esc(link('places-admin.html')) + '">Places</a>.</p>' +
+      SITES.map(siteHtml).join('') +
+      '<div class="card" id="addSite"><h2>' + (SITES.length ? 'Another building' : 'Your first building') + '</h2>' +
+        '<div class="two"><div><label for="nName">Name</label><input class="inp" id="nName" maxlength="80" placeholder="St Mary’s church"></div>' +
+        '<div><label for="nPc">Postcode</label><input class="inp" id="nPc" maxlength="10"></div></div>' +
+        '<label for="nAddr">Address</label><input class="inp" id="nAddr" maxlength="200">' +
+        '<div class="row"><button class="btn" id="nGo">Add the building</button><span class="msg" id="nMsg"></span></div></div>' +
+      '<div class="card" id="checks"><h2>Building checks</h2>' +
+        '<label class="switch"><input type="checkbox" id="cmp"' + (on ? ' checked' : '') + (MASTER ? '' : ' disabled') + '><span>The church uses building checks: fire and health and safety checks with their dates, risk assessments, and working alone. Their leads above are told when something is due.</span></label>' +
+        (MASTER ? '' : '<p class="hint">Only a master admin can turn this on or off.</p>') +
+        '<div class="row"><span class="msg" id="cmpMsg"></span></div></div>';
+    wire();
+  }
+
+  function wire() {
+    var u = EGBCAuth.user() || {};
+    $('nGo').onclick = function () {
+      var name = $('nName').value.trim(), btn = this;
+      if (!name) return say($('nMsg'), 'Give the building a name.');
+      btn.disabled = true;
+      db().collection('sites').add({ name: name.slice(0, 80), address: $('nAddr').value.trim().slice(0, 200), postcode: $('nPc').value.trim().toUpperCase().slice(0, 10),
+        lat: null, lng: null, active: true, order: nextOrder(SITES) }).then(load, function (e) { btn.disabled = false; oops($('nMsg'))(e); });
+    };
+    document.querySelectorAll('[data-savesite]').forEach(function (b) { b.onclick = function () {
+      var card = b.closest('[data-site]'), m = b.nextElementSibling, f = function (k) { return card.querySelector('[data-sf="' + k + '"]').value.trim(); };
+      if (!f('name')) return say(m, 'Give the building a name.');
+      db().collection('sites').doc(b.getAttribute('data-savesite')).update({ name: f('name').slice(0, 80), address: f('address').slice(0, 200), postcode: f('postcode').toUpperCase().slice(0, 10) })
+        .then(function () { say(m, 'Saved.', true); var s = SITES.filter(function (x) { return x.id === b.getAttribute('data-savesite'); })[0]; if (s) { s.name = f('name'); card.querySelector('h2').textContent = s.name; } }, oops(m));
+    }; });
+    document.querySelectorAll('[data-addroom]').forEach(function (b) { b.onclick = function () {
+      var card = b.closest('[data-site]'), m = b.nextElementSibling, name = card.querySelector('[data-new="name"]').value.trim();
+      if (!name) return say(m, 'Give the room a name.');
+      b.disabled = true;
+      db().collection('rooms').add({ name: name.slice(0, 80), kind: 'room', siteId: b.getAttribute('data-addroom'), videoRoom: '', capacity: Math.max(0, Math.round(+card.querySelector('[data-new="capacity"]').value || 0)),
+        colour: '#3d6263', accessible: false, bookableByMembers: true, bookableByHirers: false, description: '', photoUrl: '', layouts: {}, active: true, order: nextOrder(ROOMS) })
+        .then(load, function (e) { b.disabled = false; oops(m)(e); });
+    }; });
+    document.querySelectorAll('[data-saveroom]').forEach(function (b) { b.onclick = function () {
+      var box = b.closest('[data-room]'), m = b.nextElementSibling, name = box.querySelector('[data-f="name"]').value.trim(), lay = {};
+      if (!name) return say(m, 'Give the room a name.');
+      box.querySelectorAll('[data-lay]').forEach(function (i) { var v = Math.round(+i.value || 0); if (v > 0) lay[i.getAttribute('data-lay')] = v; });
+      db().collection('rooms').doc(b.getAttribute('data-saveroom')).update({ name: name.slice(0, 80), capacity: Math.max(0, Math.round(+box.querySelector('[data-f="capacity"]').value || 0)), layouts: lay })
+        .then(function () { say(m, 'Saved.', true); }, oops(m));
+    }; });
+    document.querySelectorAll('[data-saveroles]').forEach(function (b) { b.onclick = function () {
+      var card = b.closest('[data-site]'), m = b.nextElementSibling, sid = b.getAttribute('data-saveroles');
+      var r = { siteId: sid };
+      ['hsLead', 'hsDeputy', 'fireLead'].forEach(function (k) { r[k] = card.querySelector('[data-role="' + k + '"]').value; });
+      var bad = H.checkRoles(r); if (bad.length) return say(m, bad.join(' '));
+      db().collection('raSiteRoles').doc(sid).set(Object.assign({}, r, { updatedAt: now(), updatedBy: u.uid }))
+        .then(function () { ROLES[sid] = r; say(m, 'Saved.', true); }, oops(m));
+    }; });
+    $('cmp').onchange = function () {
+      var on = this.checked, box = this;
+      db().collection('churchSettings').doc('features').set({ buildingCompliance: on, updatedAt: now(), updatedBy: u.uid }, { merge: true })
+        .then(function () { FEAT = Object.assign(FEAT || {}, { buildingCompliance: on }); say($('cmpMsg'), on ? 'Building checks are on.' : 'Building checks are off. Nothing is deleted.', true); if (EGBCAuth.reloadFeatures) EGBCAuth.reloadFeatures(); },
+          function (e) { box.checked = !on; oops($('cmpMsg'))(e); });
+    };
+  }
+
+  function load() {
+    return Promise.all([
+      db().collection('sites').get().then(all),
+      db().collection('rooms').get().then(all),
+      db().collection('raSiteRoles').get().then(all, function () { return []; }),
+      db().collection('addressBook').get().then(all, function () { return []; }),
+      db().collection('churchSettings').doc('features').get().then(function (d) { return d.exists ? d.data() : {}; }, function () { return null; })
+    ]).then(function (r) {
+      SITES = r[0].filter(function (s) { return s.active !== false; }).sort(byOrder);
+      ROOMS = r[1].filter(function (x) { return x.active !== false && x.kind !== 'online'; });
+      ROLES = {}; r[2].forEach(function (x) { ROLES[x.id] = x; });
+      PEOPLE = r[3].filter(function (p) { return p.name && !p.archived; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      FEAT = r[4];
+      draw();
+    });
+  }
+
+  EGBCAuth.require({ adminAny: true }).then(function () {
+    MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster());
+    return load();
+  }).catch(function (e) { $('wrap').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>
