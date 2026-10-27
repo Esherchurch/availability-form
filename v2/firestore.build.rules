@@ -116,7 +116,7 @@ match /users/{uid} {
 allow read: if signedIn() && (request.auth.uid == uid || volunteer());
 allow create: if signedIn()
 && request.auth.uid == uid
-&& !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers'])
+&& !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers', 'jobs'])
 && (claimsNothing(request.resource.data)
 || mirrorsBook(request.resource.data));
 allow update: if signedIn() && request.auth.uid == uid

@@ -363,9 +363,10 @@ service cloud.firestore {
 
       allow create: if signedIn()
                     && request.auth.uid == uid
-                    // familyGroups opens boards (6c), and covers / adminCovers
-                    // what core teams give (H-15): the server's to write.
-                    && !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers'])
+                    // familyGroups opens boards (6c), covers / adminCovers
+                    // what core teams give (H-15), and jobs the team jobs
+                    // (H-9 part 2): the server's to write.
+                    && !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers', 'jobs'])
                     && (claimsNothing(request.resource.data)
                         || mirrorsBook(request.resource.data));
 

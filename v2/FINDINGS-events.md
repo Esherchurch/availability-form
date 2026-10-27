@@ -12945,3 +12945,11 @@ Step 2 is in two parts:
 - **New, check-menu-jobs.mjs (10/10), as St Aidan's:** team jobs give finance to Treasury, the trustees to the PCC and the office to the Parish office. Treasury is offered Payments and a team called "Finance" isn't; the PCC is offered Safeguarding risks and the Elders aren't; the Parish office and a bookings admin are offered Book a room and its page lets them in; a plain member is neither. Breaks `money`, `trustee` and `office` each fail.
 - **The app's Maintenance space** is the buildings job now (a parish's Fabric team gets it; a team called "Maintenance" doesn't there). **Not done:** app.html's "Church office" cards (Send an email, Post a notice) follow the Menu's who-may-message rule and the server's sending checks, which also name the team; they move together.
 - **Deploy:** nothing of main's. The rules go live when the hub goes live.
+
+## From the main window, 28 Oct 2026: F-298's three asks done
+
+1. **`data-book-room`** on egbc-guard.js: Book a room's people (`EGBCAuth.mayBookRoom()`: leaders, core teams, the office job, any site's bookings admin; egbc-auth.js already reads the bookings admins before the guard decides). You can put the guard back on rooms.html. The Menu and the app's What's on ask the same.
+2. **app.html:** egbc-compliance-store.js is on 202610281000 (egbc-events-kids.js was already on 202610251400).
+3. **Jobs on the users record:** `users/{uid}.jobs`, kept by the server (functions/core-teams.js, next to `covers`): the jobs the person's teams and covered teams do. It's worked out again when their teams change, and for everyone when churchSettings/teamJobs, `paymentSettings/public.moneyTeam`, `safeguardingSettings/defaults.trusteeTeam` or `prayerSettings/main.prayerTeam` change. No page may write it (the users create rule). A rule can now ask `'office' in me().get('jobs', [])` with no extra read.
+   - Checked on the emulator: a Treasury member gets `finance`, and loses it when the job moves to another team.
+   - **Deploy (the reviewer's):** `jobsOnTeamJobs`, `jobsOnMoneyTeam`, `jobsOnTrusteeTeam`, `jobsOnPrayerTeam` (each with its `…Church` twin), and `coversOnUser`/`coversOnTeam` again (they now write `jobs` too). After the deploy, writing churchSettings/teamJobs once (or any team change) fills everyone's `jobs`.

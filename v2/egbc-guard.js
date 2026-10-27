@@ -58,8 +58,10 @@
   var feature = script ? script.getAttribute('data-feature') : null;
   /* data-master - master admins only (Church settings; 21 Oct 2026). */
   var masterOnly = script ? script.hasAttribute('data-master') : false;
-  /* data-leads - team leaders and core teams (Book a room; 26 Oct 2026). */
-  var leadsOnly = script ? script.hasAttribute('data-leads') : false;
+  /* data-book-room (or the older data-leads) - Book a room's people:
+     team leaders, core teams, the office job and the bookings admins
+     (EGBCAuth.mayBookRoom; Martin, 26 and 27 Oct 2026). */
+  var leadsOnly = script ? (script.hasAttribute('data-book-room') || script.hasAttribute('data-leads')) : false;
 
   // Hide the page until we know the user is allowed to see it.
   var style = document.createElement('style');

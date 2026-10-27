@@ -85,7 +85,7 @@ export function guards() {
     const m = /<script[^>]*src="egbc-guard\.js[^"]*"([^>]*)><\/script>/i.exec(t);
     if (!m) continue;
     const a = m[1], g = (n) => { const x = new RegExp('data-' + n + '="([^"]*)"').exec(a); return x ? x[1] : null; }, has = (n) => new RegExp('data-' + n + '(\\s|=|$)').test(a);
-    out[f] = { team: g('team'), role: g('role'), adminAny: g('admin') === 'any', alsoTeam: g('also-team'), anyTeam: has('any-team'), master: has('master'), leadsOrCore: has('leads'), allowPending: g('allow-pending'), feature: g('feature') };
+    out[f] = { team: g('team'), role: g('role'), adminAny: g('admin') === 'any', alsoTeam: g('also-team'), anyTeam: has('any-team'), master: has('master'), leadsOrCore: has('leads') || has('book-room'), allowPending: g('allow-pending'), feature: g('feature') };
   }
   return out;
 }

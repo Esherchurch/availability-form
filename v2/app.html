@@ -48,7 +48,7 @@
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
      "we do not recognise that address" card, which is right. -->
-<script src="egbc-guard.js?v=202610272330" data-allow-pending="parent"></script>
+<script src="egbc-guard.js?v=202610281000" data-allow-pending="parent"></script>
 <script src="egbc-ui.js?v=202610150900"></script>
 <!-- The shared HTML cleaner. The notices sheet shows a notice as it was
      written - bold, lists - and cleans it through the one cleaner the
@@ -2289,7 +2289,7 @@ function loadBuildingHome(me) {
      them read. One answer for this Home and building.html. */
   var checks = loadScript('egbc-compliance.js?v=202610192300')
     .then(function () { return loadScript('egbc-compliance-templates.js?v=202610271900'); })
-    .then(function () { return loadScript('egbc-compliance-store.js?v=202610271900'); })
+    .then(function () { return loadScript('egbc-compliance-store.js?v=202610281000'); })
     .then(function () { return db.collection('complianceTemplates').get().catch(function () { return { docs: [] }; }); })
     .then(function (t) {
       var S = window.EGBCComplianceStore, C = window.EGBCCompliance, T = window.EGBCComplianceTemplates;
