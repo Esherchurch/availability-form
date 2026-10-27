@@ -30,3 +30,15 @@ Martin (the owner) is dyslexic and writes no code. Reports to him: plain words, 
 - Never deploy Firestore or Storage rules.
 - Test with synthetic data on the emulator. Don't write to the live database unless the reviewing window or Martin says so.
 - Each window's full brief: `v2/NEXT-BRIEF.md` (main), the FINDINGS files in `v2/` for each window's work.
+
+## 5. Work fast: build more, test less often (Martin, 27 Oct 2026)
+
+Martin: "In 6 hours we have had 2 completed tasks." Most of the time has gone on test runs and on waiting, not building. From now on:
+
+- **Finish whole jobs.** Don't split a step into 2a, 2b, 3a… Build the whole step, then report once.
+- **While building, run only the tests for what you changed.** No full regression run, no full audit, no "all 37 earlier tests" after each step.
+- **The full runs happen once a day at most, or when Martin or the reviewing window asks.** That means the full audit, every suite and the full rules suite. Run the rules suite when you change the rules.
+- **Deliberate breaks: up to 3 per report**, the ones that matter most. Not 8 to 18.
+- **Never wait on another window's ports.** Tests take their emulator ports from settings or environment variables, so each window uses its own. If a test is hard-wired to another window's ports, change it to take a setting. Don't wait.
+- **Don't wait on another window for something you can do or look up yourself.** Read the code. Ask in FINDINGS only when you are truly blocked, and carry on with other work meanwhile.
+- **Short reports:** what was built, test counts, anything to deploy, and anything for Martin. One screen.
