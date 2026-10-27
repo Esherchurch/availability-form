@@ -40,17 +40,11 @@
   function mayOffice() {
     return !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || !!(EGBCAuth.myJobs && EGBCAuth.myJobs().indexOf('office') >= 0);
   }
-  /* The hub's web address: the church setting (churchSettings/details.hubUrl)
-     once read, otherwise this page's own folder - today the same address. */
-  var HUB_SET = '';
-  function hubBase() { return HUB_SET || location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, ''); }
-  function readHub() {
-    return EGBCAuth.db.collection('churchSettings').doc('details').get().then(function (d) {
-      var u = d.exists ? String((d.data() || {}).hubUrl || '') : '';
-      if (/^https:\/\//.test(u)) HUB_SET = u.replace(/\/+$/, '');
-    }, function () {});
-  }
-  document.addEventListener('egbc-ready', readHub);
+  /* The hub's web address: this page's own folder. Each church's hub is
+     served at its own address (<slug>.churchhq.co.uk, made at setup, never
+     typed; main's hub-address.js), so the page is already there. The old
+     churchSettings/details.hubUrl is read by nothing (main, 26 Oct). */
+  function hubBase() { return location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, ''); }
 
   /* NO HIDDEN CAPS (C-52; CLAUDE.md section 3). A list cut short on purpose
      shows the latest few and says so, with "Show more":
