@@ -39,20 +39,13 @@
   };
 
   var STEPS = [
-<<<<<<< Updated upstream
-    { id: 'church', owner: 'comms', title: 'Your church', page: '',
-      why: 'Its name, logo, address and the words it uses (members, the main service day)',
-      done: function (db) { return get(db, 'churchSettings', 'details').then(function (d) { return !!(d && d.name); }); } },
-    { id: 'buildings', owner: 'events', title: 'Your buildings', page: 'buildings.html',
-=======
     /* Comms' (your-church.html): details, words, giving, the e-news switch.
        Done once it has a name (Church HQ sets one), an address and a way to
        be contacted - the parts every email's foot needs. */
     { id: 'church', owner: 'comms', title: 'Your church', page: 'your-church.html',
       why: 'Its name, logo, address and the words it uses (members, the main service day), its giving details and the e-news',
       done: function (db) { return get(db, 'churchSettings', 'details').then(function (d) { return !!(d && d.name && d.address && d.enquiryEmail); }); } },
-    { id: 'buildings', owner: 'events', title: 'Your buildings', page: '',
->>>>>>> Stashed changes
+    { id: 'buildings', owner: 'events', title: 'Your buildings', page: 'buildings.html',
       why: 'Each building and its rooms, and who looks after its safety',
       /* a building, a room in it, and its health and safety lead */
       done: function (db) {
