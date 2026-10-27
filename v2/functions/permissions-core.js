@@ -67,7 +67,14 @@ const G = {};
     { id: 'kbUpload', section: 'worship',
       words: 'Upload to How-To AV, Play-Through, AV Troubleshoot and Worship Training',
       why: 'Videos and pictures on those pages. Anyone signed in can watch them.',
-      defaults: { jobs: [], coresOf: ['worship'], adminJobs: ['av', 'worship'], teams: [], leaders: false } }
+      defaults: { jobs: [], coresOf: ['worship'], adminJobs: ['av', 'worship'], teams: [], leaders: false } },
+    /* Meetings (27 Oct 2026; Martin: "The only meetings a non-admin should
+       see is the ones they are invited to. They can be given permission
+       (e.g. a small group leader) but not by default."). Nobody by default. */
+    { id: 'meetingsAll', section: 'events',
+      words: 'See and join every video meeting and meeting room',
+      why: 'For example a small group leader who runs calls for groups. Without it, people see only the meetings they are invited to: named on one, or for one of their teams.',
+      defaults: { jobs: [], coresOf: [], adminJobs: [], teams: [], leaders: false } }
   ];
 
   /* What is still decided in code: shown, honestly, as moving here later. */

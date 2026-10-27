@@ -142,7 +142,7 @@
       { title: 'From Canva', url: 'canva.html', icon: 'palette', team: 'Church office', feature: 'canva',
         description: 'Bring finished Canva designs into the picture library' },
       { title: 'Meetings', url: 'meeting.html', icon: 'video', feature: 'meetings',
-        description: 'Set one up, join a call, every meeting room' }
+        description: 'Your meetings: set one up, join a call' }
     ] },
 
     { title: 'Events and rooms', section: true, fold: true, icon: 'calendar-cog', children: [

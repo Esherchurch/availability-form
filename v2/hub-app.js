@@ -1103,21 +1103,17 @@ const videoRoomLabel = r => window.EGBCVideo ? EGBCVideo.label(r) : r;
 let MEETINGS = [];
 let UPCOMING = [];   /* every rota date from today on, before the meetings filter */
 
-/* Mine if it is for one of my teams (the rota calls Youth Worship "Youth"),
-   or I have a role on it. */
-function meetingForMe(ev) {
-  if (EGBCAuth.isMaster()) return true;
-  const mine = myTeams();
-  if ((ev.teams || []).some(t => mine.includes(t === 'Youth' ? 'Youth Worship' : t))) return true;
-  const mid = ME && ME.memberId;
-  return !!mid && Object.values(ev.assignments || {})
-    .some(raw => (Array.isArray(raw) ? raw : [raw]).some(p => p && p.id === mid));
-}
+/* Mine if I am invited to it - EGBCAuth.invitedTo, the one rule for every
+   meetings list (27 Oct 2026). */
+function meetingForMe(ev) { return EGBCAuth.invitedTo(ev); }
 
 async function loadMeetings() {
   /* The pin board card still draws (empty, with no board): its own rule
      decides, not whether this person is on a rota. */
-  if (!isVolunteer()) { UPCOMING = []; MEETINGS = []; renderPinBoardCard().catch(e => console.error('Pin board card failed', e && e.message)); return; }
+  /* The Permissions screen's answers first: "meetingsAll" reaches somebody
+     on no team too (27 Oct 2026). */
+  if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
+  if (!isVolunteer() && !EGBCAuth.seesAllMeetings()) { UPCOMING = []; MEETINGS = []; renderPinBoardCard().catch(e => console.error('Pin board card failed', e && e.message)); return; }
   try {
     if (window.EGBCVideo) await EGBCVideo.load();
     const today = new Date().toISOString().split('T')[0];
@@ -1157,8 +1153,8 @@ function renderMeetings() {
   const box = document.getElementById('meetingsCard');
   if (!box) return;
   /* No video meeting for me in today's diary: no card at all. Menu >
-     Meetings (every room), Core Team > Meetings and each team's "Team
-     meeting room" are still there on every other day. */
+     Meetings (my meetings and rooms), Core Team > Meetings and each team's
+     "Team meeting room" are still there on every other day. */
   if (!meetingsToday().length) { box.innerHTML = ''; return; }
   const today = localToday();
   const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 14}px;height:${s || 14}px"></i>`;
@@ -2559,7 +2555,7 @@ const REGISTRY = [
   { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
     description: 'Take a copy of everything, or put one back' },
   { url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
-    description: 'Video meetings - your upcoming calls and every meeting room' }
+    description: 'Video meetings - your upcoming calls and your meeting rooms' }
 ];
 
 /* AVteamlandingpage carries no text of its own, so a tile pointing at it

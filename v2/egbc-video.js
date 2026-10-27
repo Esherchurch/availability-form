@@ -18,6 +18,18 @@
      EGBCVideo.link(key, ev?)  -> the hub's meeting page for it - what the
                                   hub links to, so the host gets their key
      EGBCVideo.onReady(fn)     -> fn() once the rooms are known (redraw)
+     EGBCVideo.has(key)        -> a room of the church's, standing or a
+                                  meeting's own
+     EGBCVideo.inUse(key, events, now?) -> the meeting in that room right
+                                  now, or null
+     EGBCVideo.until(ev)       -> when it ends, "HH:MM"
+
+   ROOMS IN USE (27 Oct 2026; Martin: "a link for a particular time should
+   somehow say it is in use. If we have a small group link we could have 5
+   groups at the same time."). A meeting booked into a room another meeting
+   has at that time gets a room of its own (functions/meeting-rooms.js):
+   kept on the list with meeting: <event id>, and never listed as a
+   standing room - rooms() is the standing rooms only.
 
    Needs egbc-auth.js (EGBCAuth.db, EGBCAuth.call).
    =================================================================== */
@@ -57,6 +69,22 @@
     return loading;
   }
 
+  /* London's day and time now ("YYYY-MM-DD", "HH:MM"): the rota's times are
+     London wall-clock. */
+  function londonNow(now) {
+    var p = {};
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(now || new Date()).forEach(function (x) { p[x.type] = x.value; });
+    return { day: p.year + '-' + p.month + '-' + p.day, time: p.hour + ':' + p.minute };
+  }
+  /* A meeting's end; an hour after it starts when it has none. */
+  function endOf(ev) {
+    var s = ev.startTime || '00:00';
+    if (ev.endTime && ev.endTime > s) return ev.endTime;
+    var h = Math.min(23, Number(s.slice(0, 2)) + 1);
+    return (h < 10 ? '0' : '') + h + s.slice(2);
+  }
+
   function find(key) {
     for (var i = 0; i < state.rooms.length; i++) if (state.rooms[i].key === key) return state.rooms[i];
     return null;
@@ -64,7 +92,18 @@
 
   global.EGBCVideo = {
     load: load,
-    rooms: function () { return state.rooms.slice(); },
+    rooms: function () { return state.rooms.filter(function (r) { return !r.meeting; }); },
+    has: function (key) { return !!find(key); },
+    inUse: function (key, events, now) {
+      if (!key) return null;
+      var t = londonNow(now);
+      var self = this;
+      return (events || []).filter(function (ev) {
+        return ev && !ev.archived && ev.date === t.day && self.roomFor(ev) === key
+          && (ev.startTime || '00:00') <= t.time && t.time < endOf(ev);
+      }).sort(function (a, b) { return String(a.startTime || '').localeCompare(String(b.startTime || '')); })[0] || null;
+    },
+    until: function (ev) { return endOf(ev); },
     ready: function () { return state.ready; },
     label: function (key) { var r = find(key); return r ? r.label : String(key || ''); },
     url: function (key) { var r = find(key); return r ? (r.url || '') : ''; },

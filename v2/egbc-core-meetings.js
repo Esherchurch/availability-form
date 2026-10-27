@@ -69,7 +69,7 @@
     if (!container) return;
     var today = new Date().toISOString().split('T')[0];
     var upcoming = (events || [])
-      .filter(function (ev) { return !ev.archived && ev.date >= today && videoRoomFor(ev); })
+      .filter(function (ev) { return !ev.archived && ev.date >= today && videoRoomFor(ev) && isForMe(ev); })
       .sort(function (a, b) {
         return (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || ''));
       });
@@ -115,18 +115,25 @@
         + '</div>' + joinBtn(meetingPage(videoRoomFor(ev), ev.id)) + copyBtn(link) + '</div>';
     });
 
-    html += heading('All meeting rooms');
+    var everyRoom = global.EGBCAuth && EGBCAuth.seesAllMeetings && EGBCAuth.seesAllMeetings();
+    html += heading(everyRoom ? 'All meeting rooms' : 'Your meeting rooms');
     /* Not known yet: the first open for a church makes its rooms, which can
        take a few seconds. Say so, rather than an empty list. */
     if (!V() || !V().ready()) {
       html += '<div style="' + card + 'font-size:12px;font-weight:600;color:var(--teal,#3d6263);opacity:0.7;">'
         + 'Finding the rooms…</div>';
     }
-    roomPairs().forEach(function (pair) {
+    roomPairs().filter(function (pair) {
+      return global.EGBCAuth && EGBCAuth.roomForMe && EGBCAuth.roomForMe(pair[0]);
+    }).forEach(function (pair) {
       var room = pair[0], label = pair[1];
       var link = V() ? V().url(room) : '';
+      /* In use now (27 Oct 2026): the meeting's title and when it ends. */
+      var busy = V() && V().inUse ? V().inUse(room, events) : null;
       html += '<div style="' + card + '"><div style="flex:1;min-width:160px;">'
         + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);">' + esc(label) + '</div>'
+        + (busy ? '<div class="in-use" style="font-size:13px;font-weight:600;color:#b45309;">In use now: '
+          + esc(busy.type + (busy.description ? ' \u00b7 ' + busy.description : '')) + ', until ' + esc(V().until(busy)) + '</div>' : '')
         + '<div style="font-size:13px;font-weight:600;color:var(--teal,#3d6263);opacity:0.6;word-break:break-all;">'
         + esc(link) + '</div>'
         + '</div>' + joinBtn(meetingPage(room)) + copyBtn(link) + '</div>';
@@ -162,11 +169,18 @@
       var me = document.querySelector('script[src*="egbc-core-meetings.js"]');
       var base = (here || (me && me.src) || '').replace(/[^/]*$/, '');
       var t = document.createElement('script');
-      t.src = base + 'egbc-video.js?v=202610221500';
+      t.src = base + 'egbc-video.js?v=202610272330';
       t.onload = ok; t.onerror = ok;
       document.head.appendChild(t);
     }).then(function () { return global.EGBCVideo ? global.EGBCVideo.load() : []; });
     return videoReady;
+  }
+
+  /* The Permissions screen's answers ("meetingsAll"), before "which
+     meetings are mine". */
+  function perms() {
+    var A = global.EGBCAuth;
+    return A && A.loadPerms ? A.loadPerms().catch(function () {}) : Promise.resolve();
   }
 
   function mount(opts) {
@@ -176,12 +190,12 @@
     if (opts.toast) H.toast = opts.toast;
     if (opts.events) {
       render(into, opts.events);
-      rooms().then(function () { render(into, opts.events); });
+      Promise.all([rooms(), perms()]).then(function () { render(into, opts.events); });
       return into;
     }
     into.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--muted,#6b7280)">'
       + 'Finding the meetings…</div>';
-    Promise.all([loadEvents(), rooms()]).then(function (r) { render(into, r[0]); });
+    Promise.all([loadEvents(), rooms(), perms()]).then(function (r) { render(into, r[0]); });
     return into;
   }
 
@@ -189,34 +203,24 @@
      meet now at all unless it is in the diary for that day"). The video
      meetings in the diary TODAY that are this person's - the hub's rule
      (hub-app.js meetingForMe and loadMeetings), kept in step: a master
-     admin sees all; anyone else, a meeting for one of their teams (the rota
-     calls Youth Worship "Youth") or one they have a role on; and never a
-     room they may not join (a members' meeting is not an Attender's).
-     Today is the local day, not UTC's. Menu > Meetings and Core Team >
-     Meetings still list every room on every day. */
+     admin sees all; anyone else, the meetings they are invited to
+     (EGBCAuth.invitedTo, 27 Oct 2026: named on it, or for one of their
+     teams or a team their core team covers; more is a permission). Today
+     is the local day, not UTC's. The full list (mount) uses the same rule,
+     and lists only this person's rooms (EGBCAuth.roomForMe). */
   function localDay(d) {
     d = d || new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
   function isForMe(ev) {
     var A = global.EGBCAuth;
-    if (!A) return false;
-    var room = videoRoomFor(ev);
-    if (!room || ev.archived) return false;
-    if (A.mayJoinRoom && !A.mayJoinRoom(room)) return false;
-    if (A.isMaster && A.isMaster()) return true;
-    var mine = (A.effectiveTeams ? A.effectiveTeams() : []) || [];
-    if ((ev.teams || []).some(function (t) { return mine.indexOf(t === 'Youth' ? 'Youth Worship' : t) !== -1; })) return true;
-    var p = A.profile ? A.profile() : null, mid = p && p.memberId;
-    return !!mid && Object.keys(ev.assignments || {}).some(function (k) {
-      var raw = ev.assignments[k];
-      return (Array.isArray(raw) ? raw : [raw]).some(function (x) { return x && x.id === mid; });
-    });
+    if (!A || !A.invitedTo || !videoRoomFor(ev)) return false;
+    return A.invitedTo(ev);
   }
   function todayForMe(now) {
     if (!db()) return Promise.resolve([]);
     var day = localDay(now);
-    return db().collection('events').where('date', '==', day).get().then(function (snap) {
+    return perms().then(function () { return db().collection('events').where('date', '==', day).get(); }).then(function (snap) {
       return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
         .filter(isForMe)
         .sort(function (a, b) { return (a.startTime || '').localeCompare(b.startTime || ''); })

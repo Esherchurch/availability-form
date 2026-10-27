@@ -453,7 +453,7 @@
     var get = function (c, d) { return db.collection(c).doc(d).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; }); };
     var uid = currentUser && currentUser.uid;
     PERMS.promise = Promise.all([
-      sibling('egbc-team-jobs.js', '202610261800').then(function () { return sibling('egbc-permissions.js', '202610262000'); }),
+      sibling('egbc-team-jobs.js', '202610261800').then(function () { return sibling('egbc-permissions.js', '202610272330'); }),
       get('churchSettings', 'permissions'), get('churchSettings', 'teamJobs'),
       get('paymentSettings', 'public'), get('safeguardingSettings', 'defaults'), get('prayerSettings', 'main'),
       /* The Pastor (Team emails): readable by master admins and the Pastor
@@ -1734,6 +1734,49 @@
     mayJoinRoom: function (room) {
       if (EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) === -1) return true;
       return EGBCAuth.isChurchMember();
+    },
+
+    /* MEETINGS (27 Oct 2026; Martin: "The only meetings a non-admin should
+       see is the ones they are invited to. They can be given permission
+       (e.g. a small group leader) but not by default."). One rule for every
+       list and every join: Meetings (meeting.html), the hub's card, Core
+       Team > Meetings and the app's (egbc-core-meetings.js).
+       Invited: named on it (a role on the rota, an invitee, whoever set it
+       up), or it is for one of my teams or a team my core team covers. More
+       is the Permissions screen's "meetingsAll", never on by default; a
+       master admin sees all. A members' meeting keeps its own rule. */
+    seesAllMeetings: function () { return EGBCAuth.isMaster() || EGBCAuth.may('meetingsAll'); },
+    invitedTo: function (ev) {
+      if (!ev || ev.archived) return false;
+      var room = global.EGBCVideo ? global.EGBCVideo.roomFor(ev) : (ev.videoRoom || '');
+      if (room && !EGBCAuth.mayJoinRoom(room)) return false;
+      if (EGBCAuth.seesAllMeetings()) return true;
+      if (room && EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) !== -1) return true;
+      var mine = EGBCAuth.effectiveTeams();
+      mine = mine.concat(coversOf(mine));
+      if ((ev.teams || []).some(function (t) { return mine.indexOf(t === 'Youth' ? 'Youth Worship' : t) !== -1; })) return true;
+      if (viewAs()) return false;
+      var mid = (currentProfile && currentProfile.memberId) || '';
+      if (currentUser && ev.organiserUid && ev.organiserUid === currentUser.uid) return true;
+      if (mid && (ev.invitees || []).indexOf(mid) !== -1) return true;
+      return !!mid && Object.keys(ev.assignments || {}).some(function (k) {
+        var raw = ev.assignments[k];
+        return (Array.isArray(raw) ? raw : [raw]).some(function (x) { return x && x.id === mid; });
+      });
+    },
+    /* The rooms listed for me, and the ones I may open with no meeting:
+       my teams' rooms (or covered, or administered), and the members' room
+       for a member. */
+    roomForMe: function (room) {
+      if (!room || !EGBCAuth.mayJoinRoom(room)) return false;
+      if (EGBCAuth.seesAllMeetings()) return true;
+      var Vd = global.EGBCVideo;
+      if (EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) !== -1 || (Vd && Vd.members && Vd.members(room))) return true;
+      var mine = EGBCAuth.effectiveTeams();
+      mine = mine.concat(coversOf(mine));
+      var admin = EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : [];
+      var teams = Vd ? Vd.teams(room).concat(Vd.hostTeams(room)) : [];
+      return teams.some(function (t) { return mine.indexOf(t) !== -1 || admin.indexOf(t) !== -1; });
     },
 
     isMaster: function () {

@@ -1246,6 +1246,8 @@
     var vRoom = videoRoomFor(ev);
     html += '<select onchange="updateField(\'' + ev.id + '\',\'videoRoom\',this.value)" title="Video call" style="background:' + (vRoom ? '#3d6263' : 'white') + ';border:1px solid #d1dfdf;color:' + (vRoom ? 'white' : '#3d6263') + ';padding:5px 8px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;"><option value=""' + (vRoom ? '' : ' selected') + '>No call</option>';
     rooms().forEach(function (p) { html += '<option value="' + p[0] + '"' + (vRoom === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; });
+    /* Its own room (the one it had was taken then, functions/meeting-rooms.js). */
+    if (vRoom && !rooms().some(function (p) { return p[0] === vRoom; })) html += '<option value="' + String(vRoom).replace(/"/g, '&quot;') + '" selected>Its own room</option>';
     html += '</select>';
     if (vRoom) html += '<a href="meeting.html?room=' + encodeURIComponent(vRoom) + '&event=' + encodeURIComponent(ev.id) + '" target="_blank" rel="noopener" style="background:#16a34a;color:white;padding:5px 10px;border-radius:8px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;text-decoration:none;">Join</a>';
     html += '<div style="display:flex;flex-wrap:wrap;gap:5px;background:white;padding:4px 8px;border-radius:8px;border:1px solid #d1dfdf;">';

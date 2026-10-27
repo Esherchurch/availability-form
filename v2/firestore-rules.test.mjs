@@ -2226,6 +2226,15 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('  every change is kept, by a master admin', 'allow', () => setDoc(doc(as('martin'), 'permissionsLog', 'l1'), { at: 'now', by: 'u_martin', byName: 'Martin', action: 'kbUpload', change: 'added', memberId: 'm_u_samy', name: 'Samy', before: null, after: 'until 2026-12-31' }));
   await check('  and never altered', 'deny', () => setDoc(doc(as('martin'), 'permissionsLog', 'l1'), { at: 'now', by: 'u_martin', byName: 'Martin', action: 'kbUpload', change: 'removed', memberId: 'm_u_samy', name: 'Samy', before: null, after: null }));
   await check('  nor read by anyone but master admins', 'deny', () => getDoc(doc(as('karen'), 'permissionsLog', 'l1')));
+  /* MEETINGS (27 Oct 2026): "See and join every video meeting", never on
+     by default. Whoever has it reads the rota, though on no team. */
+  const KEY = AS_CHURCH || 'egbc';
+  const withPerms = (list) => env.authenticatedContext('u_member', { perms: { [KEY]: list } }).firestore();
+  await check('MEETINGS: a master admin ticks who may see every meeting', 'allow', () => setDoc(doc(as('martin'), 'churchSettings', 'permissions'), { actions: { meetingsAll: { jobs: [], coresOf: [], adminJobs: [], teams: [], leaders: false } }, updatedAt: 'x', updatedBy: 'u_martin' }));
+  await check('  or gives it to one person', 'allow', () => setDoc(doc(as('martin'), 'permissionExceptions', 'meetingsAll_m_u_member'), PX({ action: 'meetingsAll', memberId: 'm_u_member', uid: 'u_member', name: 'Member', until: '' })));
+  await check('  a member on no team does not read the rota', 'deny', () => getDoc(doc(as('member'), 'events', 'e1')));
+  await check('  with it on their sign-in, they do', 'allow', () => getDoc(doc(withPerms(['meetingsAll']), 'events', 'e1')));
+  await check('  another action on their sign-in is not it', 'deny', () => getDoc(doc(withPerms(['kbUpload']), 'events', 'e1')));
 }
 
 // ── GIVING ── the church's bank details (Martin, 12 Oct 2026)

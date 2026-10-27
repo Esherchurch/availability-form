@@ -171,6 +171,12 @@ service cloud.firestore {
                           || me().get('masterAdmin', false) == true);
     }
 
+    // An action from the Permissions screen on this person's sign-in (H-14;
+    // the claim functions/permissions.js keeps). permKey() is 'egbc' here
+    // and the church's id in the church build (tools/rules-build.mjs).
+    function permKey() { return 'egbc'; }
+    function hasPerm(a) { return request.auth != null && a in request.auth.token.get('perms', {}).get(permKey(), []); }
+
     // In the address book, not archived, not a child's record. Carries no
     // information active() does not already imply - mirrorsBook proves the
     // record is theirs - and exists so that a rule meaning "anyone who comes
@@ -577,7 +583,10 @@ service cloud.firestore {
       // person sees who is serving, by name, on every service - no telephone
       // number, no address, no email, because events carries none. Said out
       // loud in YOUTH-ACCESS.md rather than left to be discovered.
-      allow read: if volunteer() || churchShowServices() || youthGranted();
+      // MEETINGS (27 Oct 2026): whoever the Permissions screen lets see
+      // every meeting ("meetingsAll") reads the rota too, though on no team
+      // - a small group leader, say. Never anybody by default.
+      allow read: if volunteer() || (active() && hasPerm('meetingsAll')) || churchShowServices() || youthGranted();
       // SAFEGUARDING IS A SEPARATE GATE, and it applies to admins too. The
       // line above says who may touch the rota; safeguardingOk() says who
       // may be put on it. A master admin is not exempt - the exception
@@ -3071,8 +3080,9 @@ service cloud.firestore {
       allow write: if (isMaster() && id == 'permissions'
                        && request.resource.data.keys().hasOnly(['actions', 'updatedAt', 'updatedBy'])
                        && request.resource.data.actions is map
-                       && request.resource.data.actions.keys().hasOnly(['kbUpload'])
-                       && (!('kbUpload' in request.resource.data.actions) || permAction(request.resource.data.actions.kbUpload)));
+                       && request.resource.data.actions.keys().hasOnly(['kbUpload', 'meetingsAll'])
+                       && (!('kbUpload' in request.resource.data.actions) || permAction(request.resource.data.actions.kbUpload))
+                       && (!('meetingsAll' in request.resource.data.actions) || permAction(request.resource.data.actions.meetingsAll)));
       allow write: if (isMaster() && id == 'teamJobs'
                        && request.resource.data.keys().hasOnly(['office', 'communications', 'trustees', 'leadership', 'finance', 'buildings', 'pastoral',
                             'worship', 'av', 'choir', 'children', 'youth', 'catering', 'welcome', 'prayer', 'updatedAt', 'updatedBy'])
@@ -3136,7 +3146,7 @@ service cloud.firestore {
       allow read: if isMaster() || (signedIn() && resource.data.get('uid', '') == request.auth.uid);
       allow create, update: if isMaster()
                     && request.resource.data.keys().hasOnly(['action', 'memberId', 'uid', 'name', 'by', 'byName', 'at', 'until', 'why', 'notedAt'])
-                    && request.resource.data.action in ['kbUpload']
+                    && request.resource.data.action in ['kbUpload', 'meetingsAll']
                     && request.resource.data.memberId is string && request.resource.data.memberId.size() > 0 && request.resource.data.memberId.size() <= 120
                     && xid == request.resource.data.action + '_' + request.resource.data.memberId
                     && request.resource.data.get('uid', '') is string && request.resource.data.get('uid', '').size() <= 128
@@ -3154,7 +3164,7 @@ service cloud.firestore {
       allow create: if isMaster()
                     && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'action', 'change', 'memberId', 'name', 'before', 'after'])
                     && request.resource.data.by == request.auth.uid
-                    && request.resource.data.action in ['kbUpload']
+                    && request.resource.data.action in ['kbUpload', 'meetingsAll']
                     && request.resource.data.change in ['ticks', 'added', 'removed'];
       allow update, delete: if false;
     }

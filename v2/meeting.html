@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610272130" data-title="Meeting" data-width="full"></script>
+<script src="egbc-shell.js?v=202610272330" data-title="Meeting" data-width="full"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Meeting — EGBC</title>
@@ -17,9 +17,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610272130"></script>
+<script src="egbc-auth.js?v=202610272330"></script>
 <script src="egbc-present.js?v=202610222000"></script>
-<script src="egbc-video.js?v=202610221500"></script>
+<script src="egbc-video.js?v=202610272330"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
 <style>
   :root{--canvas:#f6f7f7;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;
@@ -104,7 +104,7 @@
 /* The church's own rooms (egbc-video.js). */
 const roomLabel = r => window.EGBCVideo ? EGBCVideo.label(r) : r;
 const roomUrl = r => window.EGBCVideo ? EGBCVideo.url(r) : '';
-const roomExists = r => !!window.EGBCVideo && EGBCVideo.rooms().some(x => x.key === r);
+const roomExists = r => !!window.EGBCVideo && EGBCVideo.has(r);
 const roomList = () => window.EGBCVideo ? EGBCVideo.rooms().map(x => [x.key, x.label]) : [];
 
 /* The site's own colours on Daily's controls and backgrounds (Martin: make
@@ -120,7 +120,7 @@ const THEME = { colors: {
 
 const params = new URLSearchParams(location.search);
 const room = params.get('room') || '';
-const eventId = params.get('event') || '';
+let eventId = params.get('event') || '';
 let hostToken = params.get('t') || '';
 let frame = null;
 
@@ -145,7 +145,7 @@ async function copyInvite() {
 /* In a call every pixel goes to the video. The title strip is hidden and its
    job moves into the EGBC bar: the meeting's name and date replace "Meeting /
    Esher Green Baptist Church", and Copy invite link and Full screen sit beside
-   Hub and Menu. The bar is drawn by egbc-shell.js?v=202610272130 once the person is known,
+   Hub and Menu. The bar is drawn by egbc-shell.js?v=202610272330 once the person is known,
    so wait for it. */
 function callBar() {
   const bar = document.getElementById('egbc-bar');
@@ -191,7 +191,9 @@ async function describe(db) {
 }
 
 /* Opened with no room (from the hub menu or "All rooms"): list my upcoming
-   online meetings and every room. Same "is it mine" rule as hub-app.js. */
+   online meetings and my rooms - EGBCAuth.invitedTo and roomForMe, the one
+   rule (27 Oct 2026). Everything for a master admin, or with the
+   Permissions screen's "meetingsAll". */
 const videoRoomFor = ev => window.EGBCVideo ? EGBCVideo.roomFor(ev) : (ev.videoRoom || '');
 
 async function lobby(profile) {
@@ -199,17 +201,14 @@ async function lobby(profile) {
   document.body.classList.add('lobby-mode');
   document.getElementById('copyBtn').style.display = 'none';
   document.getElementById('mtTitle').textContent = 'Meetings';
-  document.getElementById('mtSub').textContent = 'Your upcoming video calls, and every meeting room';
+  const every = EGBCAuth.seesAllMeetings();
+  document.getElementById('mtSub').textContent = every ? 'Your upcoming video calls, and every meeting room' : 'Your upcoming video calls, and your meeting rooms';
   const box = document.getElementById('lobby');
   box.style.display = '';
 
-  const mine = EGBCAuth.isMaster() ? null : (EGBCAuth.effectiveTeams() || []);
-  const mid = profile && profile.memberId;
-  const forMe = ev => !mine
-    || (ev.teams || []).some(t => mine.includes(t === 'Youth' ? 'Youth Worship' : t))
-    || (!!mid && Object.values(ev.assignments || {}).some(raw => (Array.isArray(raw) ? raw : [raw]).some(p => p && p.id === mid)));
+  const forMe = ev => EGBCAuth.invitedTo(ev);
 
-  let upcoming = [];
+  let upcoming = [], all = [];
   try {
     const today = new Date().toISOString().split('T')[0];
     /* The rota is for people on a team (the rules' volunteer()). Somebody
@@ -217,9 +216,10 @@ async function lobby(profile) {
        among them (§21) - so this list is simply empty for them, rather
        than a refusal on the console (audit, 15 Oct 2026). */
     const me = EGBCAuth.profile() || {};
-    if (!me.masterAdmin && !(me.teams || []).length && !(me.adminFor || []).length) throw { quiet: true };
+    if (!me.masterAdmin && !(me.teams || []).length && !(me.adminFor || []).length && !every) throw { quiet: true };
     const snap = await EGBCAuth.db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
-    upcoming = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    upcoming = all
       .filter(ev => !ev.archived && roomExists(videoRoomFor(ev)) && forMe(ev)
                     && EGBCAuth.mayJoinRoom(videoRoomFor(ev)))
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
@@ -240,11 +240,16 @@ async function lobby(profile) {
       <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}&event=${encodeURIComponent(ev.id)}">Join</a></div>`;
   });
 
-  html += '<div class="lab">All meeting rooms</div>';
+  const rooms = roomList().filter(([r]) => EGBCAuth.roomForMe(r));
+  if (rooms.length) html += '<div class="lab">' + (every ? 'All meeting rooms' : 'Your meeting rooms') + '</div>';
   /* A members' meeting is not offered to somebody who is not a member, and
-     is not shown locked either - section 21: it simply is not there. */
-  roomList().filter(([r]) => EGBCAuth.mayJoinRoom(r)).forEach(([r, label]) => {
-    html += `<div class="row"><div class="ic">${I('video')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div><div class="s">${esc(roomUrl(r))}</div></div>
+     is not shown locked either - section 21: it simply is not there. Nor
+     is another team's room (27 Oct 2026). */
+  rooms.forEach(([r, label]) => {
+    /* In use now (27 Oct 2026): the meeting's title and when it ends. */
+    const busy = EGBCVideo.inUse(r, all);
+    const sub = busy ? `<div class="s in-use" style="color:#b45309;font-weight:600">In use now: ${esc(busy.type + (busy.description ? ' · ' + busy.description : ''))}, until ${esc(EGBCVideo.until(busy))}</div>` : '';
+    html += `<div class="row"><div class="ic">${I('video')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(label)}</div>${sub}<div class="s">${esc(roomUrl(r))}</div></div>
       <button class="btn sm" onclick="copyLink('${r}')">${I('link', 15)}Copy invite link</button>
       <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}">Join</a></div>`;
   });
@@ -365,6 +370,16 @@ async function saveNewMeeting() {
   const btn = document.getElementById('nmSave');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
+    /* Taken then by another meeting? This one gets its own room (the hub
+       makes it, functions/meeting-rooms.js), and the person booking is told. */
+    const want = document.getElementById('nmRoom').value;
+    let taken = null;
+    if (want) {
+      const same = await EGBCAuth.db.collection('events').where('date', '==', date).get().catch(() => null);
+      const myEnd = EGBCVideo.until({ startTime, endTime: endTime || startTime });
+      taken = same ? same.docs.map(d => d.data()).find(ev => !ev.archived && videoRoomFor(ev) === want
+        && (ev.startTime || '00:00') < myEnd && startTime < EGBCVideo.until(ev)) : null;
+    }
     await EGBCAuth.db.collection('events').add({
       date, termLabel: termLabel(date),
       type: document.getElementById('nmType').value,
@@ -375,6 +390,8 @@ async function saveNewMeeting() {
       organiserUid: (EGBCAuth.user() || {}).uid || '',
       archived: false,
     });
+    if (taken) alert(roomLabel(want) + ' is taken then (' + taken.type + (taken.description ? ' · ' + taken.description : '')
+      + '), so this meeting has a room of its own. Its link is on Meetings.');
     lobby(CURRENT_PROFILE);
   } catch (e) {
     console.error('Could not save meeting', e);
@@ -394,6 +411,8 @@ let CURRENT_PROFILE = null;
 async function start(profile) {
   CURRENT_PROFILE = profile;
   if (window.EGBCVideo) await EGBCVideo.load();
+  /* The Permissions screen's answers, before "which meetings are mine". */
+  if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
   if (!room) { lobby(profile); return; }
   if (!roomExists(room)) {
     showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
@@ -409,10 +428,52 @@ async function start(profile) {
       '<a class="btn" href="hub.html">Back to hub</a>');
     return;
   }
+  /* Only a meeting I am invited to, or one of my rooms (27 Oct 2026).
+     Hiding the others cannot cover a pasted address, so it is said. */
+  const host = await mayHostHere(profile);
+  if (!host && !(await mayEnter())) {
+    showMsg('Not one of your meetings',
+      'This meeting is for the people invited to it. If you should be there, ask whoever set it up.',
+      '<a class="btn" href="meeting.html">Your meetings</a>');
+    return;
+  }
+  /* IN USE BY ANOTHER MEETING (27 Oct 2026): say so - the meeting's title
+     and when it ends - rather than drop somebody into another group's
+     call. Somebody invited to that meeting is simply taken to it. */
+  const busy = await inUseHere();
+  if (busy && busy.id !== eventId) {
+    if (EGBCAuth.invitedTo(busy)) { eventId = busy.id; }
+    else {
+      showMsg('In use now',
+        esc(busy.type + (busy.description ? ' · ' + busy.description : '')) + ' is using this room until ' + esc(EGBCVideo.until(busy)) + '.',
+        '<a class="btn" href="meeting.html">Your meetings</a>');
+      return;
+    }
+  }
   /* The organiser, a leader of the room's team or a master admin chooses;
      everyone else knocks, as before. */
-  if (!hostToken && await mayHostHere(profile)) { askHost(profile); return; }
+  if (!hostToken && host) { askHost(profile); return; }
   join(profile);
+}
+
+/* The meeting in this room right now, if any (today's rota). */
+async function inUseHere() {
+  try {
+    const t = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+    const snap = await EGBCAuth.db.collection('events').where('date', '==', t).get();
+    return EGBCVideo.inUse(room, snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  } catch (e) { return null; }
+}
+
+/* One of my rooms, or this meeting (in this room) is one I am invited to. */
+async function mayEnter() {
+  if (EGBCAuth.roomForMe(room)) return true;
+  if (!eventId) return false;
+  try {
+    const d = await EGBCAuth.db.collection('events').doc(eventId).get();
+    const ev = d.exists ? d.data() : null;
+    return !!ev && videoRoomFor(ev) === room && EGBCAuth.invitedTo(ev);
+  } catch (e) { return false; }
 }
 
 /* A hint for the page only: the hub decides (meetingHostToken refuses

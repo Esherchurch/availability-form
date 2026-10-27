@@ -99,9 +99,10 @@ export function makeDaily(key, fetchImpl) {
   return {
     fake: false,
     /* Made private, knocking on: everyone waits for the host. */
-    room: async (name) => {
+    /* extra: more of Daily's room properties (a meeting's own room ends: exp). */
+    room: async (name, extra) => {
       const made = await call('POST', '/rooms', { name, privacy: 'private',
-        properties: { enable_knocking: true, enable_screenshare: true, enable_prejoin_ui: true } });
+        properties: Object.assign({ enable_knocking: true, enable_screenshare: true, enable_prejoin_ui: true }, extra || {}) });
       if (made.ok) return { name, url: made.j.url };
       const had = await call('GET', '/rooms/' + encodeURIComponent(name));
       if (had.ok) return { name, url: had.j.url };
@@ -212,7 +213,7 @@ export const videoRoomsEnsure = onCall({ region: REGION, secrets: [DAILY_API_KEY
   const daily = makeDaily(keyNow());
   const ch = churchOf(req, getFirestore());
   const v = await ensureRooms(ch.db, daily, ch.id);
-  return { rooms: v.rooms.map(r => ({ key: r.key, label: r.label, url: r.url || '', teams: r.teams || [], hostTeams: r.hostTeams || ((EGBC_ROOMS.find(x => x.key === r.key) || {}).hostTeams) || [], members: !!r.members })), byType: v.byType };
+  return { rooms: v.rooms.map(r => ({ key: r.key, label: r.label, url: r.url || '', teams: r.teams || [], hostTeams: r.hostTeams || ((EGBC_ROOMS.find(x => x.key === r.key) || {}).hostTeams) || [], members: !!r.members, meeting: r.meeting || '' })), byType: v.byType };
 });
 
 export const meetingHostToken = onCall({ region: REGION, secrets: [DAILY_API_KEY] }, async (req) => {

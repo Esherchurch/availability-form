@@ -395,9 +395,17 @@ async function browser(port, tag) {
   const ws = new WebSocket(page.webSocketDebuggerUrl);
   let id = 0; const pend = new Map();
   const B = { errors: [], acts: [], mainFrame: null, tapping: false, chrome, ws, port };
-  const send = (m, p = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
+  /* Never wait for ever (27 Oct 2026: a restarted browser stopped answering
+     and the audit sat 90 minutes on one sign-in). A command unanswered in
+     45 s comes back as an error, so the screen fails and the run goes on. */
+  const send = (m, p = {}) => new Promise(r => {
+    const i = ++id;
+    const t = setTimeout(() => { if (pend.has(i)) { pend.delete(i); r({ error: { message: 'no answer in 45 s: ' + m } }); } }, 45000);
+    pend.set(i, (x) => { clearTimeout(t); r(x); });
+    try { ws.send(JSON.stringify({ id: i, method: m, params: p })); } catch (e) { clearTimeout(t); pend.delete(i); r({ error: { message: String(e) } }); }
+  });
   B.send = send;
-  await new Promise(r => ws.onopen = r);
+  await new Promise((r, j) => { ws.onopen = r; ws.onerror = () => j(new Error('browser on ' + port + ' did not open')); setTimeout(() => j(new Error('browser on ' + port + ' did not open in 30 s')), 30000); });
   ws.onmessage = async (e) => {
     const m = JSON.parse(e.data);
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result || { error: m.error }); pend.delete(m.id); return; }

@@ -136,7 +136,11 @@ export function buildChurch(src) {
     if (!heads.includes(need)) throw new Error('firestore.rules no longer has ' + need + ': the church build needs looking at');
   }
   const kept = all.filter((it) => !LEFT_OUT.some((re) => re.test(headOf(it))));
-  const moved = kept.map((it) => it.split('/databases/$(database)/documents/').join('/databases/$(database)/documents/churches/$(cid)/'));
+  /* A Permissions-screen claim is kept per church: 'egbc' becomes the
+     church's id (H-14). */
+  const PERM_EGBC = "function permKey() { return 'egbc'; }";
+  if (!kept.some((it) => it.trim() === PERM_EGBC)) throw new Error('firestore.rules no longer has permKey(): the church build needs looking at');
+  const moved = kept.map((it) => it.trim() === PERM_EGBC ? 'function permKey() { return cid; }' : it).map((it) => it.split('/databases/$(database)/documents/').join('/databases/$(database)/documents/churches/$(cid)/'));
   const directory = all.filter((it) => DIRECTORY.some((re) => re.test(headOf(it))));
   return CHURCH_HEADER + [
     "rules_version = '2';",

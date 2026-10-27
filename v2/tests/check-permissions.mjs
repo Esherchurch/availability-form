@@ -58,6 +58,13 @@ ok('  a leader of AV may', may({ roles: { 'AV Team': 'leader' } }, { perms }));
 ok('  a leader of Kids Church may not', !may({ roles: { 'Kids Church': 'leader' } }, { perms }));
 ok('  and the Worship Core Team no longer may (untick it, and it is gone)', !may({ teams: ['Core Team'] }, { perms }));
 
+console.log('Every meeting (27 Oct 2026): never on by default');
+const mayM = (person, extra) => P.may(person, 'meetingsAll', o(extra));
+ok('a master admin may', mayM({ master: true }));
+ok('  nobody else, whatever their teams, admin areas or core teams', ![{ teams: ['Core Team'] }, { teams: ['Kids & Youth Core Team'] }, { adminFor: ['Kids Church'] }, { teams: ['Elders', 'Church office'] }, { roles: { 'Worship Team': 'leader' } }].some((p) => mayM(p)));
+ok('  one person given it (a small group leader) may', mayM({ memberId: 'm_sg' }, { exceptions: [{ action: 'meetingsAll', memberId: 'm_sg', until: '' }] }));
+ok('  and a kb/ exception is not it', !mayM({ memberId: 'm_sam' }));
+
 console.log('The screen\'s shape');
 ok('sections, never one long list', P.SECTIONS.length >= 7 && P.ACTIONS.every((a) => P.SECTIONS.some((s) => s.id === a.section)));
 ok('  safeguarding and pastoral care are read-only, with where they are set', P.READ_ONLY.map((x) => x.id).join() === 'safeguarding,pastoral' && P.READ_ONLY.every((x) => x.where));

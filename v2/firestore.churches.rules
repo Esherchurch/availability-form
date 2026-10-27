@@ -52,6 +52,8 @@ return active() && (me().get('teams', []).size() > 0
 || me().get('adminFor', []).size() > 0
 || me().get('masterAdmin', false) == true);
 }
+function permKey() { return cid; }
+function hasPerm(a) { return request.auth != null && a in request.auth.token.get('perms', {}).get(permKey(), []); }
 function isAttender() {
 return active() && me().get('attender', false) == true;
 }
@@ -161,7 +163,7 @@ match /formRateLimit/{ipHash} {
 allow read, write: if false;
 }
 match /events/{eventId} {
-allow read: if volunteer() || churchShowServices() || youthGranted();
+allow read: if volunteer() || (active() && hasPerm('meetingsAll')) || churchShowServices() || youthGranted();
 allow write: if (isAdmin()
 || onAnyTeam(request.resource.data.get('teams', ['Worship Team'])))
 && safeguardingOk();
@@ -1540,8 +1542,9 @@ allow write: if (isMaster() && id == 'features'
 allow write: if (isMaster() && id == 'permissions'
 && request.resource.data.keys().hasOnly(['actions', 'updatedAt', 'updatedBy'])
 && request.resource.data.actions is map
-&& request.resource.data.actions.keys().hasOnly(['kbUpload'])
-&& (!('kbUpload' in request.resource.data.actions) || permAction(request.resource.data.actions.kbUpload)));
+&& request.resource.data.actions.keys().hasOnly(['kbUpload', 'meetingsAll'])
+&& (!('kbUpload' in request.resource.data.actions) || permAction(request.resource.data.actions.kbUpload))
+&& (!('meetingsAll' in request.resource.data.actions) || permAction(request.resource.data.actions.meetingsAll)));
 allow write: if (isMaster() && id == 'teamJobs'
 && request.resource.data.keys().hasOnly(['office', 'communications', 'trustees', 'leadership', 'finance', 'buildings', 'pastoral',
 'worship', 'av', 'choir', 'children', 'youth', 'catering', 'welcome', 'prayer', 'updatedAt', 'updatedBy'])
@@ -1583,7 +1586,7 @@ match /permissionExceptions/{xid} {
 allow read: if isMaster() || (signedIn() && resource.data.get('uid', '') == request.auth.uid);
 allow create, update: if isMaster()
 && request.resource.data.keys().hasOnly(['action', 'memberId', 'uid', 'name', 'by', 'byName', 'at', 'until', 'why', 'notedAt'])
-&& request.resource.data.action in ['kbUpload']
+&& request.resource.data.action in ['kbUpload', 'meetingsAll']
 && request.resource.data.memberId is string && request.resource.data.memberId.size() > 0 && request.resource.data.memberId.size() <= 120
 && xid == request.resource.data.action + '_' + request.resource.data.memberId
 && request.resource.data.get('uid', '') is string && request.resource.data.get('uid', '').size() <= 128
@@ -1599,7 +1602,7 @@ allow read: if isMaster();
 allow create: if isMaster()
 && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'action', 'change', 'memberId', 'name', 'before', 'after'])
 && request.resource.data.by == request.auth.uid
-&& request.resource.data.action in ['kbUpload']
+&& request.resource.data.action in ['kbUpload', 'meetingsAll']
 && request.resource.data.change in ['ticks', 'added', 'removed'];
 allow update, delete: if false;
 }
