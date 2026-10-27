@@ -136,14 +136,14 @@
         description: 'Agenda, papers, how to join, and the votes' },
       { title: 'Notices', url: 'hub.html?notices=1', icon: 'megaphone', feature: 'notices', messages: true,
         description: 'Post one, or manage them' },
-      /* The comms window's (FINDINGS-comms, 19 Oct 2026): the Church office
-         and master admins; each add-on off until the church switches it on
-         in Church settings. */
-      { title: 'E-news', url: 'enews.html', icon: 'newspaper', team: 'Church office', feature: 'enews',
+      /* The comms window's (FINDINGS-comms, 19 Oct 2026): the office job
+         (comms-office.js; Comms, 28 Oct) and master admins; each add-on off
+         until the church switches it on in Church settings. */
+      { title: 'E-news', url: 'enews.html', job: 'office', icon: 'newspaper', feature: 'enews',
         description: 'The weekly e-news: drafted for you, sent to subscribers' },
-      { title: 'Card maker', url: 'cardmaker.html', icon: 'image-plus', team: 'Church office', feature: 'cardMaker',
+      { title: 'Card maker', url: 'cardmaker.html', job: 'office', icon: 'image-plus', feature: 'cardMaker',
         description: 'Event cards in every size, from What’s On' },
-      { title: 'From Canva', url: 'canva.html', icon: 'palette', team: 'Church office', feature: 'canva',
+      { title: 'From Canva', url: 'canva.html', job: 'office', icon: 'palette', feature: 'canva',
         description: 'Bring finished Canva designs into the picture library' },
       { title: 'Meetings', url: 'meeting.html', icon: 'video', feature: 'meetings',
         description: 'Your meetings: set one up, join a call' }

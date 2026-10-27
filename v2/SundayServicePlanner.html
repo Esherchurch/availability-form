@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
-<script src="egbc-shell.js?v=202610300900" data-title="Sunday Service Planner"></script>
+<script src="egbc-shell.js?v=202610301200" data-title="Sunday Service Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -406,6 +406,29 @@ window.addItem = (val="") => {
     }
 };
 
+/* THE KEY ROLES ARE THE CHURCH'S OWN (H-11; the reviewer, 29 Oct 2026: any
+   church's worship leader opens this page). With roles stored in "Your
+   services" (churchSettings/services.roles), one box each, saved in the
+   plan's roles under the role's id and read from the service's own field
+   first. With nothing stored, EGBC's four boxes, exactly as they were. */
+let CHURCH_ROLES = null, SVC_S = null;
+const rolesReady = (window.EGBCAuth && EGBCAuth.services ? EGBCAuth.services() : Promise.resolve(null)).then(sv => {
+    if (!sv || !sv.cfg || !Array.isArray(sv.cfg.roles) || !sv.cfg.roles.length) return;
+    SVC_S = sv.S; CHURCH_ROLES = sv.S.roles(sv.cfg);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+    const grid = document.getElementById('keyRolesGrid');
+    if (grid) grid.innerHTML = CHURCH_ROLES.map(r => '<div><label for="roleC_' + esc(r.id) + '" class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">'
+        + esc(r.name) + '</label><input id="roleC_' + esc(r.id) + '" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>').join('');
+}, () => {});
+const roleBox = (r) => document.getElementById('roleC_' + r.id);
+/* [[label, value]] for the email and the saved plan, whichever boxes are shown. */
+const keyRoleValues = () => CHURCH_ROLES
+    ? CHURCH_ROLES.map(r => [r.name, (roleBox(r) || {}).value ? roleBox(r).value.trim() : '', r.id])
+    : [["Service Leader", document.getElementById('roleServiceLeader').value.trim(), 'serviceLeader'],
+       ["Worship Leader", document.getElementById('roleWorshipLeader').value.trim(), 'worshipLeader'],
+       ["Speaker", document.getElementById('roleSpeaker').value.trim(), 'speaker'],
+       ["Reader", document.getElementById('roleReader').value.trim(), 'reader']];
+
 window.loadRota = async () => {
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
@@ -442,6 +465,7 @@ function sortAssignments(assignmentsArray) {
 }
 
 window.selectEvent = async () => {
+    await rolesReady;
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
@@ -470,10 +494,16 @@ window.selectEvent = async () => {
 
        Read the event's own fields first; keep the assignment lookup behind
        them so anything entered the old way still shows. */
+    if (CHURCH_ROLES) CHURCH_ROLES.forEach(r => {
+        const box = roleBox(r);
+        if (box) box.value = SVC_S.roleValue(data, r) || findRole(new RegExp(r.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    });
+    else {
     document.getElementById('roleServiceLeader').value = data.serviceLeader || findRole(/service\s*lead|leading|host/i);
     document.getElementById('roleWorshipLeader').value = (worshipLeaderName && worshipLeaderName !== 'None') ? worshipLeaderName : findRole(/worship\s*lead/i);
     document.getElementById('roleSpeaker').value = data.speaker || findRole(/speak|preach|message|sermon/i);
     document.getElementById('roleReader').value = findRole(/read/i);
+    }
 
     let assignmentsArray = Object.entries(data.assignments || {}).filter(([r]) => isWorshipRole(r));
     assignmentsArray = sortAssignments(assignmentsArray);
@@ -506,7 +536,9 @@ window.selectEvent = async () => {
         })) };
     }
     if (saved) {
-        if (saved.roles) {
+        if (saved.roles && CHURCH_ROLES) {
+            CHURCH_ROLES.forEach(r => { const box = roleBox(r); if (box && saved.roles[r.id] && !SVC_S.roleValue(data, r)) box.value = saved.roles[r.id]; });
+        } else if (saved.roles) {
             if (saved.roles.serviceLeader && !data.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
             if (saved.roles.worshipLeader) document.getElementById('roleWorshipLeader').value = saved.roles.worshipLeader;
             if (saved.roles.speaker && !data.speaker) document.getElementById('roleSpeaker').value = saved.roles.speaker;
@@ -611,12 +643,8 @@ window.saveSchedule = async (quiet) => {
         else { order.push({ type: "item", title: b.querySelector('.item-title').value }); }
     });
     const q = query(collection(db, "services"), where("date", "==", date));
-    const roles = {
-        serviceLeader: document.getElementById('roleServiceLeader').value.trim(),
-        worshipLeader: document.getElementById('roleWorshipLeader').value.trim(),
-        speaker: document.getElementById('roleSpeaker').value.trim(),
-        reader: document.getElementById('roleReader').value.trim()
-    };
+    const roles = {};
+    keyRoleValues().forEach(([, v, id]) => { roles[id] = v; });
     const aud = await audienceFor(date);
     const svc = currentService && currentService.date === date ? currentService : null;
     const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order, roles,
@@ -708,12 +736,7 @@ window.emailSchedule = async () => {
   ${serviceNotes ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;"><tr><td width="4" bgcolor="#3d6263" style="font-size:0;border-radius:2px;">&nbsp;</td><td style="padding:14px 18px;background:#f4f9f9;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;line-height:1.7;"><strong>Service Notes</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</td></tr></table>` : ""}
   ${introText ? `<p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#444444;line-height:1.8;">${introText.replace(/\n/g, '<br>')}</p>` : ""}
   ${(() => {
-      const kr = [
-        ["Service Leader", document.getElementById('roleServiceLeader').value.trim()],
-        ["Worship Leader", document.getElementById('roleWorshipLeader').value.trim()],
-        ["Speaker", document.getElementById('roleSpeaker').value.trim()],
-        ["Reader", document.getElementById('roleReader').value.trim()]
-      ].filter(r => r[1]);
+      const kr = keyRoleValues().filter(r => r[1]);
       if (!kr.length) return "";
       return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:26px;"><tr>` +
         kr.map(r => `<td style="padding:10px 12px;background:#f4f9f9;border-radius:10px;font-family:Arial,sans-serif;text-align:center;"><p style="margin:0 0 3px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#7a9e9f;">${r[0]}</p><p style="margin:0;font-size:13px;font-weight:800;color:#3d6263;">${r[1]}</p></td><td width="8" style="font-size:0;">&nbsp;</td>`).join("") + `</tr></table>`;
@@ -1160,7 +1183,7 @@ window.emailSchedule = async () => {
     </div>
     <div class="bg-white p-8 rounded-[14px] shadow-sm border border-[#e5e7eb]">
         <h2 class="text-xl font-semibold text-[#111827] mb-5 pb-4 border-b border-[#e5e7eb]">Key Roles</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="keyRolesGrid">
             <div><label class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Service Leader</label><input id="roleServiceLeader" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
             <div><label class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Worship Leader</label><input id="roleWorshipLeader" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>
             <div><label class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6b8281] block mb-2">Speaker</label><input id="roleSpeaker" list="peopleList" class="styled-input w-full" placeholder="Name..."></div>

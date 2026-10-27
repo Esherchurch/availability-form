@@ -2288,13 +2288,10 @@ async function loadPages() {
   } catch (e) { console.error('Pages load failed', e); PAGES = []; }
 }
 
-/* Pages built for a phone or tablet. They are installed from the home screen
-   and are not much use in a desktop tools list. They are downloaded from
-   hubresources.html ("Apps and downloads"), which is why they need no tiles.
-
-   Performancenotes.html is the exception worth knowing about: nothing links
-   to it, so it is registered - but it stays out of the tools list while it
-   is named here. Take it out of this list if it should be a tile. */
+/* Pages built for a phone or tablet. Since Comms' a69c27cf this keeps
+   nothing off any list: only the admin list's " · phone app" label reads
+   it. Which apps show on Apps and downloads is hubresources.html's own
+   rule, and Performance Notes is on the Menu and the app's Team tab. */
 const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html', 'performancenotes.html'];
 
 /* Charters live on the landing page now, so a link to them here is noise. */
@@ -2526,8 +2523,7 @@ const REGISTRY = [
     description: 'Stage monitor positions and mixes' },
   { url: 'AVteamlandingpage.html', title: 'AV Team Charter', icon: '\u{1F4DC}', team: 'AV Team',
     description: 'Shared with the worship team' },
-  /* Listed so it is not lost, but it will not show as a tile while it is
-     in MOBILE_APPS - see the note there. */
+  /* On the Menu (Worship & AV) and the app's Team tab (a69c27cf). */
   { url: 'Performancenotes.html', title: 'Performance Notes', icon: '\u{1F4DD}', team: 'Worship Team',
     description: 'On-stage view: your part, your monitor mix' },
   /* A whole shadow copy of the site, so someone can learn the rota planner

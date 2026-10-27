@@ -2126,3 +2126,9 @@ Martin: "you took the schematics app and the performance app off. Those need to 
 - **The e-news "This Sunday"** (the weekly draft in enews.html, and the editor's "This Sunday" block): that Sunday's rota events go through `EGBCAuth.isServiceType(e.type)`, then `EGBCPlanStore.dayServices`. So it's every service of the church's own kinds, in time order, each with its building. Rehearsals and other non-service kinds are left out.
 - **sitemaker.html:** nothing to change. It is Calla's business website maker ("Website Maker · Calla Design"): no Firestore, no rota. Its "services" are a business's services. It can come off the H-11 readers list.
 - **To the ChurchShow window** (I don't know which session it is; the reviewer is relaying): `churchShowServicesToday` and `churchShowWords` are ready to deploy (FINDINGS-churchhq, "H-11, built"). The token's `lessons` claim now carries at most 20 lesson groups. Read the full list from `churchShowWords().groups`, not the claim.
+## From the main window, 29 Oct 2026: your a69c27cf asks, done
+- **Menu stamp:** `MENU_V` is 202610301200 on every page, and hub-app.js's stamp is bumped too.
+- **The access matrix:** a decided row for Performance Notes and the two apps on Apps and downloads, for the Worship and AV teams, their admins, the core teams covering them, and master admins. The approved copy is remade, and check-access-matrix passes 16/16.
+- **MOBILE_APPS:** both comments now say what it does: it only gives the admin list's "phone app" label.
+- **E-news, Card maker and From Canva** use `job: 'office'`, as you answered.
+- **For ChurchShow** (please pass it on): the Sunday Service Planner's key roles now follow the church's own roles. With roles stored, the saved plan's `roles` are keyed by role id (`president`, `preacher`…). EGBC's four (`serviceLeader`, `worshipLeader`, `speaker`, `reader`) are unchanged.

@@ -1,5 +1,5 @@
 {
- "made": "2026-10-27T21:23:08.805Z",
+ "made": "2026-10-27T21:59:44.799Z",
  "people": [
   {
    "key": "pending",
@@ -893,6 +893,19 @@
    "allowPending": null,
    "feature": null
   },
+  "services-settings.html": {
+   "team": null,
+   "role": null,
+   "adminAny": false,
+   "alsoTeam": null,
+   "alsoJob": null,
+   "job": "office",
+   "anyTeam": false,
+   "master": false,
+   "leadsOrCore": false,
+   "allowPending": null,
+   "feature": null
+  },
   "session-planner.html": {
    "team": null,
    "role": null,
@@ -1247,6 +1260,7 @@
     "schematic.html": "Signed out",
     "sermons-admin.html": "Signed out",
     "Serviceplannerinstructions.html": "Signed out",
+    "services-settings.html": "Signed out",
     "session-planner.html": "Signed out",
     "song-summary.html": "Signed out",
     "stickynotes.html": "Signed out",
@@ -1425,6 +1439,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "For the church’s teams",
@@ -1609,6 +1624,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "For the church’s teams",
@@ -1825,6 +1841,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -2066,6 +2083,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -2241,6 +2259,11 @@
      "section": "My teams"
     },
     {
+     "url": "Performancenotes.html",
+     "title": "Performance Notes",
+     "section": "My teams"
+    },
+    {
      "url": "stickynotes.html",
      "title": "Pin boards",
      "section": "Resources"
@@ -2327,6 +2350,7 @@
     "schematic.html": "",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -2527,6 +2551,11 @@
      "section": "My teams"
     },
     {
+     "url": "Performancenotes.html",
+     "title": "Performance Notes",
+     "section": "My teams"
+    },
+    {
      "url": "stickynotes.html",
      "title": "Pin boards",
      "section": "Resources"
@@ -2613,6 +2642,7 @@
     "schematic.html": "",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -2848,6 +2878,11 @@
      "section": "My teams"
     },
     {
+     "url": "Performancenotes.html",
+     "title": "Performance Notes",
+     "section": "My teams"
+    },
+    {
      "url": "churchshow.html",
      "title": "Connect ChurchShow",
      "section": "My teams"
@@ -2941,6 +2976,7 @@
     "schematic.html": "",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -3229,6 +3265,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -3489,6 +3526,11 @@
      "section": "My teams"
     },
     {
+     "url": "Performancenotes.html",
+     "title": "Performance Notes",
+     "section": "My teams"
+    },
+    {
      "url": "churchshow.html",
      "title": "Connect ChurchShow",
      "section": "My teams"
@@ -3591,6 +3633,7 @@
     "schematic.html": "",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -3776,6 +3819,11 @@
      "section": "My teams"
     },
     {
+     "url": "Performancenotes.html",
+     "title": "Performance Notes",
+     "section": "My teams"
+    },
+    {
      "url": "stickynotes.html",
      "title": "Pin boards",
      "section": "Resources"
@@ -3862,6 +3910,7 @@
     "schematic.html": "",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -4067,6 +4116,11 @@
      "section": "My teams"
     },
     {
+     "url": "Performancenotes.html",
+     "title": "Performance Notes",
+     "section": "My teams"
+    },
+    {
      "url": "Coreteamcharter.html",
      "title": "Core Team",
      "section": "My teams"
@@ -4163,6 +4217,7 @@
     "schematic.html": "",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -4424,6 +4479,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -4671,6 +4727,11 @@
      "section": "Church admin"
     },
     {
+     "url": "services-settings.html",
+     "title": "Your services",
+     "section": "Church admin"
+    },
+    {
      "url": "giving-details.html",
      "title": "Giving details",
      "section": "Church admin"
@@ -4747,6 +4808,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -4982,6 +5044,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -5183,6 +5246,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -5377,6 +5441,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",
@@ -5581,6 +5646,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "For the church’s teams",
@@ -5785,6 +5851,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "For the church’s teams",
@@ -5996,6 +6063,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "For the church’s teams",
@@ -6195,6 +6263,7 @@
     "schematic.html": "No access to this page",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "No access to this page",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "For the church’s teams",
@@ -6485,6 +6554,11 @@
      "section": "Church admin"
     },
     {
+     "url": "services-settings.html",
+     "title": "Your services",
+     "section": "Church admin"
+    },
+    {
      "url": "permissions.html",
      "title": "Permissions",
      "section": "Church admin"
@@ -6597,6 +6671,11 @@
     {
      "url": "MonitorStageMap.html",
      "title": "Monitor Setup",
+     "section": "My teams"
+    },
+    {
+     "url": "Performancenotes.html",
+     "title": "Performance Notes",
      "section": "My teams"
     },
     {
@@ -6722,6 +6801,7 @@
     "schematic.html": "",
     "sermons-admin.html": "",
     "Serviceplannerinstructions.html": "",
+    "services-settings.html": "",
     "session-planner.html": "",
     "song-summary.html": "",
     "stickynotes.html": "",

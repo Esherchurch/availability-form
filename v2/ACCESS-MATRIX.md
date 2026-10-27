@@ -24,6 +24,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 - (reviewer) **Payments: the money team (EGBC: Finance) and master admins** (payments.html): matches
 - (reviewer) **Connect ChurchShow: admins of AV or Worship (an admin of the core team covering them too, H-15), and master admins** (churchshow.html): matches
 - (reviewer) **Check-in: core team admins, the event's own team, master admins** (checkin.html): matches
+- **Performance Notes (and the Schematic and Performance apps on Apps and downloads): the Worship and AV teams, their admins, the core teams covering them, master admins** (Performancenotes.html): matches
 - (reviewer) **Registers: core team admins, the event's own team, master admins** (attendance.html): matches
 - **The pastor/minister role** is the Pastor chosen in Team emails (teamMailSettings/main.pastor), one person, not a team; the table cannot show them because only master admins and the Pastor may read who it is.
 
@@ -101,6 +102,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Teams and groups <small>(teams-admin.html)</small> | doing the office job | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Data records <small>(data-records.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ | – | – | – | – | – | – | ✓ |
 | What we hold about someone <small>(privacy.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
+| Your services <small>(services-settings.html)</small> | doing the office job | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Permissions <small>(permissions.html)</small> | master admins | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Giving details <small>(giving-details.html)</small> | doing the office job | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Payments <small>(payments.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | ✓ |
@@ -129,6 +131,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Inventory <small>(inventory-system-2.html)</small> | leaders of AV Team | – | – | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | AV Infrastructure Mapper <small>(schematic.html)</small> | on AV Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | Monitor Setup <small>(MonitorStageMap.html)</small> | on AV Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Performance Notes <small>(Performancenotes.html)</small> | on Worship Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | Connect ChurchShow <small>(churchshow.html)</small> | on AV Team, Worship Team | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Youth <small>(Youthcharter.html)</small> | on Youth Worship, Lazers, ReNu | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
 | Youth Service Planner <small>(youthserviceplanner.html)</small> | on Youth Worship | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
