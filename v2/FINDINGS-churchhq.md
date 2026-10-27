@@ -910,3 +910,54 @@ Each is in ACCESS-MATRIX.md's "Where the code differs" list, marked "(reviewer)"
 Also on the Menu: **Health and safety settings** for the office job (it had no way in).
 
 **Checks:** check-access-matrix 14/14 (its 6 breaks each fail); check-menu 105/105; check-stamps 11/11; check-rules-build 10/10. The hubresources.html phone audit has 0 failing.
+
+## H-17. Meetings you're invited to; a meeting in a taken room gets its own (27 Oct 2026, main, 0dc83b7f)
+
+Martin and the reviewer: a non-admin should see only the meetings they're invited to, with more as a permission that's never on by default. And Martin: "a link for a particular time should somehow say it is in use. If we have a small group link we could have 5 groups at the same time."
+
+### Who sees which meetings
+
+- **Invited** means one of these:
+  - named on the meeting (its organiser, an invitee, or a role on it);
+  - the meeting is for one of your teams, or a team your core team covers;
+  - a members' meeting, which keeps its own rule (church members).
+- **Every surface follows it:** Menu > Meetings (meeting.html), Core Team and the core-team spaces' Meetings, the hub app's meetings, and a pasted meeting address. Somebody not invited is told "Not one of your meetings".
+- **Seeing every meeting** is the new permission `meetingsAll`, on the Permissions screen under Events. It's on for nobody by default; master admins see all. For example, give it to a small group leader who runs calls for several groups.
+- **Hosting is unchanged.** The permission is for seeing and joining only.
+- **The rota calendar feed** was already personal (`functions/rota-feed.js`).
+
+### Rooms in use
+
+- **Every scheduled meeting goes in its room as before.** If another meeting already has that room at an overlapping time, the hub gives the new one a room of its own: `functions/meeting-rooms.js`, triggers `meetingOwnRoom` and `meetingOwnRoomChurch`.
+  - The meeting set up first keeps the standing room. Each meeting decides for itself against the others, so five set up in the same second still end with exactly one in the standing room.
+  - An own room has its own Daily link, which ends a day after the meeting. It takes its hosts and its members-only setting from the standing room, and it's never listed as a standing room.
+  - An own room is never moved back, because its link may already be in invitations.
+- **"In use now: <meeting>, until <time>"** shows on the standing room in Meetings and in Core Team > Meetings.
+- **Opening a room in use** by a meeting you're not invited to says it's in use and by which meeting (title only, never its link or host). If you are invited to that meeting, you're taken to it.
+- **The person booking** a time that's taken is told their meeting has a room of its own, and where its link is.
+
+### Checks (all with breaks)
+
+| Check | Result |
+|---|---|
+| check-meetings-visibility: a plain member, Kids Church, Worship, K&Y core, a small group leader without and then with the permission, a master admin | 33/33; BREAK=all, perm and covers each fail |
+| check-meeting-rooms-in-use: five small groups at once | 19/19; BREAK=order and inuse each fail |
+| Rules suite | 2010/2010; church mode 2000/2010, the 10 by-design users self-writes (H-8) |
+| check-permissions | 26/26 |
+| check-access-matrix | 14/14 |
+| check-meeting-host, check-meeting-teams | 19/19, 16/16 |
+| check-stamps, check-rules-build | 11/11, 10/10 |
+
+### For going live
+
+- **The rules:** events stay readable by anyone on a team (the rota needs them). The pages filter what each person sees, and the `meetingsAll` claim adds a holder on no team. The rules go live when the hub goes live.
+- **Room links** (`churchSettings/video`) are readable by the church. They are knock-to-join, and host tokens are never stored.
+- **Deploy (the reviewer's or Martin's):** functions `meetingOwnRoom` and `meetingOwnRoomChurch`. They reuse `DAILY_API_KEY`; no new secret. Until they're deployed, two meetings at the same time in one room still share it, and the page warns the person booking.
+
+### For the synthetic parish
+
+At St Aidan's with St Hild, the small groups' room set up in Settings works the same way. Five groups booked for Wednesday 19:30 get one standing room and four of their own. A group member sees their own group's meeting and not the others'. The vicar (a master admin) sees all of them.
+
+### Asked of Comms
+
+`egbc-meeting-pick.js` (the meeting picker in the email builders) still lists every upcoming meeting to authors (FINDINGS-comms, 27 Oct).

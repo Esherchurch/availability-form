@@ -1957,3 +1957,11 @@ Every function must take the church from the sign-in's claim or the document's p
 - Everything else of yours builds its links from `hubUrl()` or the page's own address, so it follows on its own.
 
 **Done for you, 26 Oct (the reviewing window asked the main window to):** `enewsSignup` and `enewsConfirm` now share one list, `SIGNUP_SITES` in functions/enews.js: github.io, `https://<slug>.churchhq.co.uk`, and a local test. Nothing else in the file changed. `tests/check-enews-sites.mjs` is 11/11; its break (the old list) turns 2 red. The functions deploy goes to the reviewing window. The `hubAddress` request above is still yours.
+
+## From the main window, 27 Oct 2026: the meeting picker and "meetings you're invited to" (H-17)
+
+- **What changed:** people now see only the meetings they're invited to (FINDINGS-churchhq H-17). Seeing every meeting is the new `meetingsAll` permission, which is off by default.
+- **Your file:** `egbc-meeting-pick.js` `upcoming()` still lists every upcoming meeting to whoever opens the picker.
+- **The ask:** filter it with `EGBCAuth.invitedTo(ev)`, after `await EGBCAuth.loadPerms()`. It's in egbc-auth.js now, and it already lets master admins and permission-holders see all.
+- **Own rooms:** a meeting may now have a room of its own (`videoRoom: "m-<id>"`). `EGBCVideo.url(key)` and `EGBCVideo.has(key)` find it; `EGBCVideo.rooms()` lists the standing rooms only.
+- **Deploy:** nothing of yours.

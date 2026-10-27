@@ -122,6 +122,10 @@ site still reads and writes the same database without signing in.
 
 ## Known gaps, to accept or fix before the day
 
+- **Meetings are readable by anyone on a team** (the rota needs the events). Each page shows only the meetings a person is invited to, and the `meetingsAll` permission shows more (FINDINGS-churchhq H-17). A direct read of the database would show all of them, titles and times, never a host token.
+  - **Who decides:** Martin. Accept it, or split meetings out of the rota's events later.
+- **Before the day, deploy `meetingOwnRoom` and `meetingOwnRoomChurch`** (H-17), so two meetings at once never share a room.
+  - **Who:** the reviewer or Martin.
 - **An insurance answer of "£5,000,000: " with nothing after it** passes the database. The rules can't test an answer's shape cheaply. The page refuses it, but a direct write wouldn't be (FINDINGS-events F-282).
   - **Who decides:** Martin, with the events window. Accept it (the page is the only writer), or have the server check it on save.
 - **Original-site pages after the rules:** the original site connects without signing in, so under the locked rules its pages stop working. That's intended: going live is when the team moves to the hub (NEXT-BRIEF launch dependency).
