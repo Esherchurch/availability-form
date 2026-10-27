@@ -13194,3 +13194,41 @@ The rules go live when the hub goes live. A real AI call only on your word.
 **For main:** in app.html, `egbc-events-kids.js?v=` to `202610291200` (and the bookings stamp from F-303).
 
 **Deploy (the reviewing window's):** `raRemindersDaily`, `under18OnTeam` and `under18OnTeamChurch` (new). No new secret. The rules go live when the hub goes live.
+
+---
+
+### F-305 — Job 3: working alone, "I'm in" and "I've left" (the reviewing window's job 3, 29 Oct) (the events window)
+
+**What it does** (lone.html; functions/lone-working.js; rules for `loneVisits`, `loneContacts`, `loneSettings`):
+- **Signing in:** someone working alone at any of the church's buildings signs in with the time they expect to leave (12 hours at most) and a phone number to ring them on. They tap "I've left" when they go, or "I need longer" (30 minutes, 1 hour or 2 hours, from now). **Only the building and the times are kept, never where they are.**
+- **If they don't sign out** (`loneWorkingCheck`, every 5 minutes, for EGBC and every church):
+  - At their time: **they** get "Are you all right?", a loud notification and an email.
+  - 15 minutes later: **the building's contacts** too, "X hasn't signed out: ring them on <phone>". The contacts are the building's own list (up to 10), or its H&S lead and deputy when none are set.
+  - 30 minutes after that: **the office** (the office job's teams) too, and the contacts again.
+  - Each stage is sent once. "I need longer" starts it again from the new time. The times are the office's to change.
+- **What happens next:** a contact or the office sees who is working alone now, with Ring and "They're safe" (with a short note). The page gives the plan:
+  1. Ring them.
+  2. No answer: ring again, and tell another contact or the office.
+  3. Still nothing: two people go to the building together, never one.
+  4. If you think they're hurt or in danger, ring 999 first.
+- **Who sees what:** the person sees their own. A building's contacts, its H&S lead and deputy, and the office see that building's. Nobody else sees any.
+- **Closed visits are deleted after 30 days.**
+- **The way in:** "Working here on your own? Sign in" on The building. The office sets each building's contacts and the times on the same page.
+- **It follows the building compliance switch.** Notifications go through the hub's own sender (as urgent), so they follow its switch too. The page shows a late visit either way.
+
+**Also:** `raRemindersDaily` (F-304) now runs for every church (`eachChurch`), not only EGBC's top level.
+
+**Quick check** (emulator, the synthetic parish), 9/9:
+- signing in keeps only the building and times
+- more than 12 hours is refused
+- the H&S lead sees them, with the phone
+- someone else can't see or read it
+- 20 minutes late: them and the contact told
+- 50 minutes late: the office too
+- each stage only once
+- marked safe by the contact
+- no page errors
+
+**For main:** a Menu entry, "Working alone" (lone.html), for everyone signed in, with building compliance on.
+
+**Deploy (the reviewing window's):** `loneWorkingCheck` (new), and `raRemindersDaily` again. No new secret. The rules go live when the hub goes live.

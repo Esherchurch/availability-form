@@ -89,6 +89,7 @@
     var row = function (i) { return '<button class="item" data-check="' + esc(i.id) + '" data-rag="' + i.rag + '"><span class="dot ' + i.rag + '"></span><div><div class="t">' + esc(i.title) + '</div><div class="m">' + esc(site(i.siteId)) + ' · ' + esc(i.why) + '</div>' + label(i) + '</div><span class="chev">›</span></button>'; };
     show('<h1>Hello ' + esc(first) + '</h1><p class="sub">' + (siteNames.length ? esc(siteNames.join(' and ')) + ' · what needs doing' : 'Nothing has been given to you yet.') + '</p>' +
       '<button class="report" id="report">⚠ Report a problem</button>' +
+      '<p style="margin:-4px 0 14px;text-align:center"><a id="loneLink" href="lone.html" style="color:var(--brand);font-weight:600">Working here on your own? Sign in</a></p>' +
       (due.length ? '<div class="sec">Due now</div><div id="due">' + due.map(row).join('') + '</div>' : (CHECKS.length ? '<div class="card" id="due"><b>Nothing due.</b> Thank you.</div>' : '')) +
       (jobs.length ? '<div class="sec">Jobs to do</div><div id="jobs">' + jobs.map(function (j) {
         var r = j.safety ? (j.due && j.due < TODAY ? 'red' : 'amber') : 'grey';

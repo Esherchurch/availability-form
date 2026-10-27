@@ -3118,6 +3118,58 @@ allow write: if raOffice()
 && (request.resource.data.get('hsLead', '') == '' || request.resource.data.get('hsLead', '') != request.resource.data.get('hsDeputy', ''));
 allow delete: if false;
 }
+function loneContactOf(siteId) {
+let c = /databases/$(database)/documents/churches/$(cid)/loneContacts/$(siteId);
+let r = /databases/$(database)/documents/churches/$(cid)/raSiteRoles/$(siteId);
+let mid = me().get('memberId', '-');
+return active() && (raOffice()
+|| (mid != '' && exists(c) && mid in get(c).data.get('contacts', []))
+|| (mid != '' && exists(r) && (get(r).data.get('hsLead', '') == mid || get(r).data.get('hsDeputy', '') == mid)));
+}
+function loneTimeOk(t) {
+return t is timestamp && t > request.time && t <= request.time + duration.value(12, 'h');
+}
+match /loneVisits/{id} {
+allow read: if active() && (resource.data.uid == request.auth.uid || loneContactOf(resource.data.siteId));
+allow create: if active()
+&& request.resource.data.keys().hasOnly(['uid', 'memberId', 'name', 'phone', 'siteId', 'siteName', 'inAt', 'expectOut', 'status'])
+&& request.resource.data.uid == request.auth.uid && request.resource.data.memberId == me().get('memberId', '')
+&& request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+&& request.resource.data.phone is string && request.resource.data.phone.size() <= 40
+&& request.resource.data.siteId is string && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(request.resource.data.siteId))
+&& request.resource.data.siteName is string && request.resource.data.siteName.size() <= 120
+&& request.resource.data.status == 'in' && request.resource.data.inAt == request.time
+&& loneTimeOk(request.resource.data.expectOut);
+allow update: if active() && resource.data.status in ['in', 'due', 'late', 'escalated'] && (
+(resource.data.uid == request.auth.uid && request.resource.data.status == 'out' && request.resource.data.outAt == request.time
+&& request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'outAt']))
+|| (resource.data.uid == request.auth.uid && request.resource.data.status == 'in' && loneTimeOk(request.resource.data.expectOut)
+&& request.resource.data.extended == resource.data.get('extended', 0) + 1 && request.resource.data.extended <= 20
+&& request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'expectOut', 'extended']))
+|| (loneContactOf(resource.data.siteId) && request.resource.data.status == 'resolved'
+&& request.resource.data.resolvedBy == request.auth.uid && request.resource.data.resolvedAt == request.time
+&& request.resource.data.resolvedByName is string && request.resource.data.resolvedByName.size() <= 120
+&& request.resource.data.resolvedNote is string && request.resource.data.resolvedNote.size() <= 300
+&& request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedByName', 'resolvedAt', 'resolvedNote'])));
+allow delete: if false;
+}
+match /loneContacts/{siteId} {
+allow read: if active();
+allow write: if raOffice() && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(siteId))
+&& request.resource.data.keys().hasOnly(['contacts', 'updatedAt', 'updatedBy'])
+&& request.resource.data.contacts is list && request.resource.data.contacts.size() <= 10
+&& request.resource.data.updatedBy == request.auth.uid;
+allow delete: if false;
+}
+match /loneSettings/{id} {
+allow read: if active();
+allow write: if raOffice() && id == 'main'
+&& request.resource.data.keys().hasOnly(['graceMins', 'escalateMins', 'updatedAt', 'updatedBy'])
+&& request.resource.data.graceMins is int && request.resource.data.graceMins >= 5 && request.resource.data.graceMins <= 120
+&& request.resource.data.escalateMins is int && request.resource.data.escalateMins >= 5 && request.resource.data.escalateMins <= 120
+&& request.resource.data.updatedBy == request.auth.uid;
+allow delete: if false;
+}
 function raStr(v, n) { return v is string && v.size() <= n; }
 function raRoles(siteId) {
 let p = /databases/$(database)/documents/churches/$(cid)/raSiteRoles/$(siteId);

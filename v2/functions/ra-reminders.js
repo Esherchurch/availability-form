@@ -29,6 +29,7 @@ import { hubUrl } from './notify.js';
 import { featureOn } from './compliance.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { addDays, words } from './checklist-reminders.js';
+import { eachChurch } from './church-scope.js';
 
 const REGION = 'europe-west2';
 const londonDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
@@ -127,8 +128,11 @@ export async function runRaReminders({ db, send, now, hub }) {
   return { sent };
 }
 
+/* EGBC, then every church (church-scope.js) */
 export const raRemindersDaily = onSchedule({ region: REGION, schedule: '15 8 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  const db = getFirestore();
-  const r = await runRaReminders({ db, send: makeSender({ db }), now: new Date(), hub: await hubUrl(db) });
-  if (r.sent && r.sent.length) console.log('H&S reminders: ' + r.sent.length);
+  await eachChurch(getFirestore(), async (ch) => {
+    const r = await runRaReminders({ db: ch.db, send: makeSender({ db: ch.db }), now: new Date(), hub: await hubUrl(ch.db) });
+    if (r.sent && r.sent.length) console.log('H&S reminders (' + (ch.id || 'egbc') + '): ' + r.sent.length);
+    return r;
+  });
 });

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Working alone</title>
+<!-- WORKING ALONE (the reviewing window's job 3): "I'm in" at one of the church's buildings, with the time you
+     expect to leave, and "I've left" when you go. Only the building and the times are kept, never where you are.
+     If you don't sign out, the hub asks you first, then tells the building's contacts, then the office
+     (functions/lone-working.js). A contact marks you safe. For any church, any number of buildings. -->
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610282000" data-title="Working alone"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610282000"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-team-jobs.js?v=202610261800"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --ok:#15803d;--ok-bg:#ecfdf3;--danger:#b0392c;--danger-bg:#fdf1ef;--gold:#b07d2e;--gold-bg:#fdf8ee}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 10px}
+  label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:12px 0 5px}
+  .inp,select{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:400 15px Inter,sans-serif;background:#fff;color:var(--ink)}
+  .btn{min-height:48px;padding:0 18px;border-radius:10px;border:1px solid var(--brand);background:var(--brand);color:#fff;font:600 15px Inter,sans-serif;cursor:pointer}
+  .btn.sec{background:#fff;color:var(--brand)}
+  .btn.big{width:100%;min-height:56px;font-size:17px}
+  .btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .hint{color:var(--muted);font-size:13px}
+  .banner{border-radius:10px;padding:10px 12px;margin:0 0 12px}
+  .banner.red{background:var(--danger-bg);color:var(--danger)}.banner.gold{background:var(--gold-bg);color:#6b4a26}.banner.ok{background:var(--ok-bg);color:var(--ok)}
+  .visit{border-top:1px solid var(--line);padding:12px 0}
+  .visit:first-of-type{border-top:0}
+  .visit b{color:var(--ink)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font:600 12px Inter,sans-serif;margin-left:6px}
+  .pill.in{background:var(--tint);color:var(--brand-dark)}.pill.due{background:var(--gold-bg);color:var(--gold)}.pill.late,.pill.escalated{background:var(--danger-bg);color:var(--danger)}
+  ol{margin:6px 0 0;padding-left:20px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tint);color:var(--brand-dark);border-radius:999px;padding:4px 10px;margin:4px 6px 0 0;font-size:13px}
+  .chip button{border:0;background:none;color:inherit;cursor:pointer;font-size:15px;line-height:1}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:520px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><p class="hint">Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function db() { return EGBCAuth.db; }
+  var wrap = document.getElementById('wrap'), TJ = window.EGBCTeamJobs;
+  var OPEN = ['in', 'due', 'late', 'escalated'];
+  var ME = {}, SITES = [], MINE = null, OTHERS = {}, WATCH = [], OFFICE = false, CONTACT_SITES = [], SET = { graceMins: 15, escalateMins: 30 }, CONTACTS = {}, PEOPLE = [], ROLES = {}, MSG = '';
+  function uid() { return (EGBCAuth.user() || {}).uid; }
+  function ms(t) { return t && t.toMillis ? t.toMillis() : 0; }
+  function hhmm(m) { var d = new Date(m); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function siteName(id) { var s = SITES.filter(function (x) { return x.id === id; })[0]; return s ? s.name || id : 'a building'; }
+  function TS(d) { return firebase.firestore.Timestamp.fromDate(d); }
+  var WORDS = { in: 'In', due: 'Past their time', late: 'Not signed out: contacts told', escalated: 'Not signed out: the office told' };
+
+  /* ---- you ---- */
+  function youHtml() {
+    if (MINE) {
+      var out = ms(MINE.expectOut), past = out && out < Date.now();
+      return '<div class="card" id="youIn"><h2>You’re signed in at ' + esc(MINE.siteName || siteName(MINE.siteId)) + '</h2>' +
+        (past ? '<div class="banner red" id="youLate">You said you would leave by ' + hhmm(out) + '. If you’re still here, say how much longer; if you’ve gone, tap “I’ve left”.' + (MINE.status === 'late' || MINE.status === 'escalated' ? ' The building’s contacts have been told, so expect a call.' : '') + '</div>'
+          : '<p style="margin:0 0 4px">Since ' + hhmm(ms(MINE.inAt) || Date.now()) + '. You said you would leave by <b>' + hhmm(out) + '</b>.</p>') +
+        '<button class="btn big" type="button" id="leftGo">I’ve left</button>' +
+        '<p class="hint" style="margin:14px 0 4px">I need longer, from now:</p><div class="row" style="margin-top:0">' +
+          [[30, '30 minutes'], [60, '1 hour'], [120, '2 hours']].map(function (x) { return '<button class="btn sec sm" type="button" data-longer="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+        '<p class="hint" id="youMsg" role="status" style="margin:10px 0 0">' + esc(MSG) + '</p></div>';
+    }
+    var def = new Date(Date.now() + 60 * 60000);
+    return '<div class="card" id="youOut"><h2>I’m working alone</h2>' +
+      '<p class="hint" style="margin:0">Sign in when you start, and out when you leave. If you don’t sign out, the hub asks you, then tells the building’s contacts so someone checks you’re all right. Only the building and the times are kept: never where you are.</p>' +
+      '<label for="lwSite">Where</label><select id="lwSite">' + SITES.map(function (s) { return '<option value="' + esc(s.id) + '">' + esc(s.name || s.id) + '</option>'; }).join('') + '</select>' +
+      '<div class="two"><div><label for="lwBy">I expect to leave by</label><input class="inp" type="time" id="lwBy" value="' + hhmm(def.getTime()) + '"></div>' +
+      '<div><label for="lwPhone">A phone number to ring you on</label><input class="inp" type="tel" id="lwPhone" maxlength="40" value="' + esc(ME.phone || '') + '" autocomplete="tel"></div></div>' +
+      '<div class="row"><button class="btn big" type="button" id="inGo">I’m in</button></div><p class="hint" id="youMsg" role="status" style="margin:10px 0 0">' + esc(MSG) + '</p></div>';
+  }
+
+  /* ---- the building's contacts and the office ---- */
+  function othersHtml() {
+    if (!OFFICE && !CONTACT_SITES.length) return '';
+    var list = Object.keys(OTHERS).map(function (k) { return OTHERS[k]; }).filter(function (v) { return OPEN.indexOf(v.status) >= 0 && v.uid !== uid(); })
+      .sort(function (a, b) { return ms(a.expectOut) - ms(b.expectOut); });
+    var late = list.some(function (v) { return v.status === 'late' || v.status === 'escalated' || ms(v.expectOut) < Date.now(); });
+    return '<div class="card" id="others"><h2>Working alone now</h2>' +
+      '<p class="hint" style="margin:0 0 6px">' + (OFFICE ? 'Every building.' : 'At ' + CONTACT_SITES.map(siteName).map(esc).join(', ') + ', where you are a contact.') + '</p>' +
+      (list.length ? list.map(function (v) {
+        var out = ms(v.expectOut), st = out < Date.now() && v.status === 'in' ? 'due' : v.status;
+        return '<div class="visit" data-visit="' + esc(v.id) + '"><b>' + esc(v.name) + '</b><span class="pill ' + st + '" data-st="' + st + '">' + esc(WORDS[st]) + '</span>' +
+          '<div class="hint">' + esc(v.siteName || siteName(v.siteId)) + ' · in since ' + hhmm(ms(v.inAt)) + ' · leaving by ' + hhmm(out) + '</div>' +
+          '<div class="row">' + (v.phone ? '<a class="btn sec sm" style="display:inline-flex;align-items:center;text-decoration:none" href="tel:' + esc(String(v.phone).replace(/[^0-9+]/g, '')) + '">Ring ' + esc(v.phone) + '</a>' : '') +
+          (st !== 'in' ? '<button class="btn sm" type="button" data-safe="' + esc(v.id) + '">They’re safe</button>' : '') + '</div></div>';
+      }).join('') : '<p class="hint" id="nobody" style="margin:0">Nobody is signed in as working alone.</p>') +
+      (late || list.length ? planHtml() : '') + '</div>';
+  }
+  function planHtml() {
+    return '<div class="banner gold" id="plan" style="margin-top:12px"><b>If someone hasn’t signed out</b><ol>' +
+      '<li>Ring them. Most often they forgot: ask them to sign out, or say they’re safe here.</li>' +
+      '<li>No answer? Ring again in a few minutes, then ring another contact or the office so you’re not on your own with it.</li>' +
+      '<li>Still nothing? Two people go to the building together: never one on their own.</li>' +
+      '<li>If you think they’re hurt or in danger, ring 999 first.</li></ol></div>';
+  }
+
+  /* ---- the office: who the contacts are, and the times ---- */
+  function setupHtml() {
+    if (!OFFICE) return '';
+    return '<div class="card" id="setup"><h2>Setting it up</h2>' +
+      '<p class="hint" style="margin:0">Each building’s contacts are told when someone there doesn’t sign out (up to 10). With none chosen, its health and safety lead and deputy are told. The office is told if it goes on.</p>' +
+      SITES.map(function (s) {
+        var c = CONTACTS[s.id] || [], fb = [ROLES[s.id] && ROLES[s.id].hsLead, ROLES[s.id] && ROLES[s.id].hsDeputy].filter(Boolean);
+        return '<div data-csite="' + esc(s.id) + '" style="margin-top:14px"><b>' + esc(s.name || s.id) + '</b><div>' +
+          (c.length ? c.map(function (m) { return '<span class="chip">' + esc(nameOf(m)) + '<button type="button" aria-label="Take off" data-drop="' + esc(m) + '">×</button></span>'; }).join('')
+            : '<span class="hint">None chosen: ' + (fb.length ? esc(fb.map(nameOf).join(' and ')) + ' (H&S lead and deputy)' : 'nobody yet. Choose someone, or set the H&S lead in Health and safety settings.') + '</span>') + '</div>' +
+          (c.length < 10 ? '<select data-add aria-label="Add a contact" style="margin-top:6px"><option value="">Add a contact…</option>' + PEOPLE.filter(function (p) { return c.indexOf(p.id) < 0; }).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select>' : '<p class="hint">10 contacts: the most.</p>') + '</div>';
+      }).join('') +
+      '<div class="two" style="margin-top:8px"><div><label for="lwGrace">Contacts are told after (minutes past the time)</label><input class="inp" type="number" id="lwGrace" min="5" max="120" value="' + SET.graceMins + '"></div>' +
+      '<div><label for="lwEsc">The office is told after a further (minutes)</label><input class="inp" type="number" id="lwEsc" min="5" max="120" value="' + SET.escalateMins + '"></div></div>' +
+      '<div class="row"><button class="btn sec" type="button" id="setGo">Save the times</button><span class="hint" id="setMsg" role="status"></span></div></div>';
+  }
+  function nameOf(mid) { var p = PEOPLE.filter(function (x) { return x.id === mid; })[0]; return p ? p.name : 'someone'; }
+
+  function draw() {
+    /* what is being typed survives a redraw (a contact's list updates live) */
+    var keep = {}; ['lwSite', 'lwBy', 'lwPhone', 'lwGrace', 'lwEsc'].forEach(function (id) { var e = document.getElementById(id); if (e) keep[id] = e.value; });
+    wrap.innerHTML = '<h1>Working alone</h1><p class="sub">For anyone working on their own in one of the church’s buildings.</p>' + youHtml() + othersHtml() + setupHtml();
+    Object.keys(keep).forEach(function (id) { var e = document.getElementById(id); if (e) e.value = keep[id]; });
+    wire();
+  }
+
+  function wire() {
+    var say = function (m) { MSG = m; var e = document.getElementById('youMsg'); if (e) e.textContent = m; };
+    var inGo = document.getElementById('inGo');
+    if (inGo) inGo.onclick = function () {
+      var t = document.getElementById('lwBy').value, p = document.getElementById('lwPhone').value.trim();
+      if (!/^\d{2}:\d{2}$/.test(t)) { say('Say when you expect to leave.'); return; }
+      var by = new Date(); by.setHours(+t.slice(0, 2), +t.slice(3, 5), 0, 0);
+      if (by.getTime() <= Date.now() + 60000) by.setDate(by.getDate() + 1);
+      if (by.getTime() > Date.now() + 12 * 3600000) { say('That’s more than 12 hours away. Choose a time within 12 hours.'); return; }
+      if (p.replace(/[^0-9]/g, '').length < 10) { say('Give a phone number the contacts can ring you on.'); return; }
+      var siteId = document.getElementById('lwSite').value;
+      inGo.disabled = true;
+      db().collection('loneVisits').add({ uid: uid(), memberId: ME.memberId || '', name: (ME.name || 'Someone').slice(0, 120), phone: p.slice(0, 40), siteId: siteId, siteName: siteName(siteId).slice(0, 120),
+        inAt: firebase.firestore.FieldValue.serverTimestamp(), expectOut: TS(by), status: 'in' }).then(function () { MSG = 'Signed in. Tap “I’ve left” when you go.'; return loadMine(); }, function (e) { inGo.disabled = false; say('Not signed in: ' + (e.message || e)); });
+    };
+    var left = document.getElementById('leftGo');
+    if (left) left.onclick = function () {
+      left.disabled = true;
+      db().collection('loneVisits').doc(MINE.id).update({ status: 'out', outAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .then(function () { MSG = 'Signed out. Thank you.'; return loadMine(); }, function (e) { left.disabled = false; say('Not signed out: ' + (e.message || e)); });
+    };
+    document.querySelectorAll('[data-longer]').forEach(function (b) { b.onclick = function () {
+      b.disabled = true;
+      db().collection('loneVisits').doc(MINE.id).update({ status: 'in', expectOut: TS(new Date(Date.now() + (+b.getAttribute('data-longer')) * 60000)), extended: (MINE.extended || 0) + 1 })
+        .then(function () { MSG = 'Thank you: the new time is saved.'; return loadMine(); }, function (e) { b.disabled = false; say('Not saved: ' + (e.message || e)); });
+    }; });
+    document.querySelectorAll('[data-safe]').forEach(function (b) { b.onclick = function () {
+      var note = window.prompt('They’re safe. A short note (for example “Spoke to them: they forgot to sign out”):', 'Spoke to them');
+      if (note === null) return;
+      b.disabled = true;
+      db().collection('loneVisits').doc(b.getAttribute('data-safe')).update({ status: 'resolved', resolvedBy: uid(), resolvedByName: (ME.name || '').slice(0, 120), resolvedAt: firebase.firestore.FieldValue.serverTimestamp(), resolvedNote: String(note).slice(0, 300) })
+        .catch(function (e) { b.disabled = false; window.alert('Not saved: ' + (e.message || e)); });
+    }; });
+    document.querySelectorAll('[data-csite]').forEach(function (box) {
+      var sid = box.getAttribute('data-csite'), put = function (list) {
+        return db().collection('loneContacts').doc(sid).set({ contacts: list, updatedAt: new Date().toISOString(), updatedBy: uid() }).then(function () { CONTACTS[sid] = list; draw(); }, function (e) { window.alert('Not saved: ' + (e.message || e)); });
+      };
+      var add = box.querySelector('[data-add]');
+      if (add) add.onchange = function () { if (add.value) put((CONTACTS[sid] || []).concat([add.value]).slice(0, 10)); };
+      box.querySelectorAll('[data-drop]').forEach(function (x) { x.onclick = function () { var m = x.getAttribute('data-drop'); put((CONTACTS[sid] || []).filter(function (y) { return y !== m; })); }; });
+    });
+    var setGo = document.getElementById('setGo');
+    if (setGo) setGo.onclick = function () {
+      var g = parseInt(document.getElementById('lwGrace').value, 10), e = parseInt(document.getElementById('lwEsc').value, 10), m = document.getElementById('setMsg');
+      if (!(g >= 5 && g <= 120 && e >= 5 && e <= 120)) { m.textContent = 'Each is 5 to 120 minutes.'; return; }
+      db().collection('loneSettings').doc('main').set({ graceMins: g, escalateMins: e, updatedAt: new Date().toISOString(), updatedBy: uid() })
+        .then(function () { SET = { graceMins: g, escalateMins: e }; m.textContent = 'Saved.'; }, function (x) { m.textContent = 'Not saved: ' + (x.message || x); });
+    };
+  }
+
+  /* ---- loading ---- */
+  function loadMine() {
+    return db().collection('loneVisits').where('uid', '==', uid()).get().then(function (s) {
+      var open = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (v) { return OPEN.indexOf(v.status) >= 0; })
+        .sort(function (a, b) { return ms(b.inAt) - ms(a.inAt); });
+      MINE = open[0] || null; draw();
+    });
+  }
+  /* the visits a contact or the office may see, kept up to date */
+  function watchOthers() {
+    WATCH.forEach(function (u) { u(); }); WATCH = [];
+    var take = function (s, siteId) {
+      Object.keys(OTHERS).forEach(function (k) { if (!siteId || OTHERS[k].siteId === siteId) delete OTHERS[k]; });
+      s.docs.forEach(function (d) { OTHERS[d.id] = Object.assign({ id: d.id }, d.data()); });
+      draw();
+    };
+    var fail = function () {};
+    if (OFFICE) WATCH.push(db().collection('loneVisits').where('status', 'in', OPEN).onSnapshot(function (s) { take(s, null); }, fail));
+    else CONTACT_SITES.slice(0, 20).forEach(function (sid) { WATCH.push(db().collection('loneVisits').where('siteId', '==', sid).onSnapshot(function (s) { take(s, sid); }, fail)); });
+  }
+
+  EGBCAuth.require().then(function (profile) {
+    if (EGBCAuth.uses && !EGBCAuth.uses('buildingCompliance')) { wrap.innerHTML = '<div class="card" id="off">Working alone is part of building compliance, which is turned off for this church.</div>'; return; }
+    ME = { name: (profile || {}).name || '', memberId: (profile || {}).memberId || '' };
+    return EGBCAuth.loadPerms().then(function (P) {
+      OFFICE = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || TJ.teamsFor(P.jobs, 'office', P.set).some(function (t) { return EGBCAuth.inTeam(t); });
+      var mid = ME.memberId, none = { docs: [] };
+      return Promise.all([
+        db().collection('sites').where('active', '==', true).get(),
+        db().collection('loneSettings').doc('main').get().catch(function () { return null; }),
+        mid ? db().collection('loneContacts').where('contacts', 'array-contains', mid).get().catch(function () { return none; }) : none,
+        db().collection('raSiteRoles').get().catch(function () { return none; }),
+        mid ? db().collection('addressBook').doc(mid).get().catch(function () { return null; }) : null,
+        OFFICE ? db().collection('loneContacts').get().catch(function () { return none; }) : none,
+        OFFICE ? db().collection('addressBook').get().catch(function () { return none; }) : none
+      ]).then(function (r) {
+        SITES = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (s) { return s.kind !== 'online'; })
+          .sort(function (a, b) { return (a.order || 0) - (b.order || 0) || String(a.name || '').localeCompare(String(b.name || '')); }).slice(0, 500);
+        if (r[1] && r[1].exists) SET = Object.assign(SET, r[1].data());
+        var cs = r[2].docs.map(function (d) { return d.id; });
+        r[3].docs.forEach(function (d) { ROLES[d.id] = d.data(); if (mid && (d.data().hsLead === mid || d.data().hsDeputy === mid)) cs.push(d.id); });
+        CONTACT_SITES = cs.filter(function (x, i) { return cs.indexOf(x) === i; });
+        ME.phone = (r[4] && r[4].exists && (r[4].data().phone || r[4].data().mobile)) || '';
+        r[5].docs.forEach(function (d) { CONTACTS[d.id] = d.data().contacts || []; });
+        PEOPLE = r[6].docs.map(function (d) { var v = d.data(); return { id: d.id, name: String(v.name || '').trim(), minor: v.isMinor === true, archived: !!v.archived }; })
+          .filter(function (p) { return p.name && !p.minor && !p.archived; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+        if (!SITES.length) { wrap.innerHTML = '<div class="card">The church has no buildings set up yet.</div>'; return; }
+        return loadMine().then(function () { watchOthers(); setInterval(function () { if (MINE || Object.keys(OTHERS).length) draw(); }, 60000); });
+      });
+    });
+  }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc((e && e.message) || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

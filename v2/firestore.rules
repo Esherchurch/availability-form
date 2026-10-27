@@ -5283,6 +5283,71 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- WORKING ALONE (job 3; functions/lone-working.js; lone.html) ----
+    // Someone signs in at a building with the time they expect to leave,
+    // and signs out when they go: the building and the times only, never
+    // where they are. They see their own; the building's contacts (its
+    // list, and always its H&S lead and deputy) and the office see that
+    // building's. The server tells people when someone doesn't sign out;
+    // a contact marks them safe. Never deleted here: the server deletes
+    // closed ones after 30 days.
+    function loneContactOf(siteId) {
+      let c = /databases/$(database)/documents/loneContacts/$(siteId);
+      let r = /databases/$(database)/documents/raSiteRoles/$(siteId);
+      let mid = me().get('memberId', '-');
+      return active() && (raOffice()
+             || (mid != '' && exists(c) && mid in get(c).data.get('contacts', []))
+             || (mid != '' && exists(r) && (get(r).data.get('hsLead', '') == mid || get(r).data.get('hsDeputy', '') == mid)));
+    }
+    function loneTimeOk(t) {
+      return t is timestamp && t > request.time && t <= request.time + duration.value(12, 'h');
+    }
+    match /loneVisits/{id} {
+      allow read: if active() && (resource.data.uid == request.auth.uid || loneContactOf(resource.data.siteId));
+      allow create: if active()
+                    && request.resource.data.keys().hasOnly(['uid', 'memberId', 'name', 'phone', 'siteId', 'siteName', 'inAt', 'expectOut', 'status'])
+                    && request.resource.data.uid == request.auth.uid && request.resource.data.memberId == me().get('memberId', '')
+                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+                    && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
+                    && request.resource.data.siteId is string && exists(/databases/$(database)/documents/sites/$(request.resource.data.siteId))
+                    && request.resource.data.siteName is string && request.resource.data.siteName.size() <= 120
+                    && request.resource.data.status == 'in' && request.resource.data.inAt == request.time
+                    && loneTimeOk(request.resource.data.expectOut);
+      allow update: if active() && resource.data.status in ['in', 'due', 'late', 'escalated'] && (
+                      // the person: "I've left"
+                      (resource.data.uid == request.auth.uid && request.resource.data.status == 'out' && request.resource.data.outAt == request.time
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'outAt']))
+                      // the person: "I need longer" (20 times at most), from now
+                      || (resource.data.uid == request.auth.uid && request.resource.data.status == 'in' && loneTimeOk(request.resource.data.expectOut)
+                          && request.resource.data.extended == resource.data.get('extended', 0) + 1 && request.resource.data.extended <= 20
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'expectOut', 'extended']))
+                      // a contact or the office: "They're safe", with who and a short note
+                      || (loneContactOf(resource.data.siteId) && request.resource.data.status == 'resolved'
+                          && request.resource.data.resolvedBy == request.auth.uid && request.resource.data.resolvedAt == request.time
+                          && request.resource.data.resolvedByName is string && request.resource.data.resolvedByName.size() <= 120
+                          && request.resource.data.resolvedNote is string && request.resource.data.resolvedNote.size() <= 300
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedByName', 'resolvedAt', 'resolvedNote'])));
+      allow delete: if false;
+    }
+    // each building's contacts (member ids, 10 at most), and the church's times
+    match /loneContacts/{siteId} {
+      allow read: if active();
+      allow write: if raOffice() && exists(/databases/$(database)/documents/sites/$(siteId))
+                   && request.resource.data.keys().hasOnly(['contacts', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.contacts is list && request.resource.data.contacts.size() <= 10
+                   && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+    match /loneSettings/{id} {
+      allow read: if active();
+      allow write: if raOffice() && id == 'main'
+                   && request.resource.data.keys().hasOnly(['graceMins', 'escalateMins', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.graceMins is int && request.resource.data.graceMins >= 5 && request.resource.data.graceMins <= 120
+                   && request.resource.data.escalateMins is int && request.resource.data.escalateMins >= 5 && request.resource.data.escalateMins <= 120
+                   && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
     // ---- THE BUILDING'S OWN H&S AND FIRE ASSESSMENTS (H&S step 3; F-280 section 3 A and B) ----
     // raAssessments/<siteId>__<hs|fire>: one for each building and kind. A
     // draft is written by the office (its job) or the building's leads
