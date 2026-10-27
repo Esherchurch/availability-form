@@ -310,6 +310,14 @@ function loadHubApp() {
   }, function () { /* this page's own address is a complete answer */ });
 }
 
+// ── Nobody is sent to the original site from here ──
+/* hub_resources is shared with the original site, so its links name the
+   original site's pages (Performance App: .../availability-form/
+   Performancenotes.html). Shown as the hub's own copy: the same page name,
+   next to this page. The list itself is not changed. */
+const ORIGINAL_SITE = /^https?:\/\/esherchurch\.github\.io\/availability-form\/(?!v2\/)([^\/?#]+\.html)([?#].*)?$/i;
+const ownCopy = u => { const m = ORIGINAL_SITE.exec(String(u || '').trim()); return m ? new URL(m[1] + (m[2] || ''), location.href).href : u; };
+
 // ── The teams' own apps ──
 /* The old hub pages the hub app took over (app.html is each of them now). */
 const REPLACED_PAGES = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html'];
@@ -373,7 +381,7 @@ async function loadResources() {
     docs.filter(d => isAppEntry(d) && !replaced.has(appName(d))).forEach(d => {
       const k = appName(d), a = apps.get(k) || { name: d.name, may: d.may };
       if (d.downloadUrl && !a.apk) { a.apk = d.downloadUrl; a.name = d.name; }
-      if (d.url && !a.web) a.web = d.url;
+      if (d.url && !a.web) a.web = ownCopy(d.url);
       if (d.may !== undefined) a.may = d.may;
       ['description', 'version', 'icon'].forEach(f => { if (!a[f] && (d[f] || (f === 'icon' && d.iconUrl))) a[f] = d[f] || d.iconUrl; });
       apps.set(k, a);
@@ -392,7 +400,7 @@ async function loadResources() {
 }
 
 function cardHTML(r) {
-  const appUrl    = r.url || r.downloadUrl || '';
+  const appUrl    = ownCopy(r.url || r.downloadUrl || '');
   const iconInner = (r.icon || r.iconUrl) ? `<img src="${escHtml(r.icon || r.iconUrl)}" alt="">` : '🔗';
   const version   = r.version ? `<span class="badge badge-version">${escHtml(r.version)}</span>` : '';
   return `<div class="resource-card">
