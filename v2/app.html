@@ -414,7 +414,7 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610262100"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
-<script src="egbc-menu.js?v=202610281400"></script>
+<script src="egbc-menu.js?v=202610281800"></script>
 <script src="egbc-app.js?v=202610281400"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
@@ -2106,7 +2106,7 @@ A.screen('core', 'team', function () {
     /* The Email Compiler fits a phone now (audit, 16 Oct 2026), so it opens
        here in app mode rather than the old Core Team app. Only for those
        who may email (WHO MAY): team leaders, the office, master admins. */
-    ((EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office') || (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : []).length)
+    ((EGBCAuth.isMaster() || EGBCAuth.myJobs().indexOf('office') !== -1 || (EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : []).length)
       ? row('mail', 'Send an email', 'To your team, or to anyone for the office', null, 'open:EmailBuilder2.html') : '') +
     row('video', 'Team meeting room', 'Join a video call', null, 'open:meeting.html') +
     row('folder-open', 'Team resources', 'Documents and links', null, 'open:resources.html'));
@@ -2375,7 +2375,7 @@ A.modeHome('office', function (me) {
   var out = hero(colour, homeGreeting() + ', ' + me.first, homeToday());
   var jobs = [];
   if (runs.indexOf('send') !== -1) jobs.push(row('mail', 'Send an email', 'To a team, or everyone', null, 'go:office:send', colour, '#efe8f5'));
-  if (window.EGBCAuth && EGBCAuth.isMaster && (EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office') || (EGBCAuth.adminAreas() || []).length)) jobs.push(row('megaphone', 'Post a notice', 'On Home and in the app (on the website)', null, 'open:hub.html?notice=new', colour, '#efe8f5'));
+  if (window.EGBCAuth && EGBCAuth.isMaster && (EGBCAuth.isMaster() || EGBCAuth.myJobs().indexOf('office') !== -1 || (EGBCAuth.adminAreas() || []).length)) jobs.push(row('megaphone', 'Post a notice', 'On Home and in the app (on the website)', null, 'open:hub.html?notice=new', colour, '#efe8f5'));
   if (runs.indexOf('people') !== -1) jobs.push(row('contact', 'Address book', 'Find anybody', null, 'go:office:people', colour, '#efe8f5'));
   if (runs.indexOf('bookings') !== -1) jobs.push(row('door-open', 'Room bookings', 'What is waiting, and today', null, 'go:office:bookings', colour, '#efe8f5'));
   if (runs.indexOf('today') !== -1) jobs.push(row('layout-dashboard', 'Today', 'What is on today', null, 'go:office:today', colour, '#efe8f5'));
