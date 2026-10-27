@@ -15,11 +15,11 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 - **Maintenance (report a repair): every member** (maintenance.html): matches
 - **My evacuation plan: every member** (peep.html): matches
 - **Hire our rooms: every member** (hire.html): matches
-- **Book a room: core teams and team leaders only** (rooms.html): matches
+- **Book a room: core teams, team leaders, the office and the bookings admins** (rooms.html): matches
 - **Preaching plan: edited by the leadership job (EGBC: Elders) and the pastor/minister role; read-only for whoever may use the Rota planner; nobody else** (preaching-plan.html): matches
 - (reviewer) **Safeguarding: the lead and deputy, and master admins** (safeguarding.html): matches
 - (reviewer) **Safeguarding settings: the lead and deputy, and master admins** (safeguarding-settings.html): matches
-- (reviewer) **Safeguarding risks: the lead and deputy, the trustees (EGBC: Elders), master admins** (safeguarding-risk.html): matches
+- (reviewer) **Safeguarding risks: the lead and deputy, the trustees (EGBC: Elders), master admins, and group leaders read only (F-304)** (safeguarding-risk.html): matches
 - (reviewer) **Availability form: anyone on a team with a rota** (index.html): matches
 - (reviewer) **Payments: the money team (EGBC: Finance) and master admins** (payments.html): matches
 - (reviewer) **Connect ChurchShow: admins of AV or Worship (an admin of the core team covering them too, H-15), and master admins** (churchshow.html): matches
@@ -38,6 +38,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Give <small>(give.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Gift Aid <small>(giftaid.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Care & support <small>(care.html)</small> | no guard | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Pastoral visits <small>(pastoral-visits.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Prayer <small>(prayer.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Notifications <small>(notifications.html)</small> | no guard | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
@@ -80,26 +81,31 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Registers <small>(attendance.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ |
 | Headcounts <small>(headcounts.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Picture library <small>(picture-library.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | ✓ | – | – | ✓ |
-| Book a room <small>(rooms.html)</small> | anyone signed in | – | – | – | – | ✓ | – | ✓ | ✓ | ✓ | ✓ | – | ✓ | ✓ | – | – | – | – | – | – | – | – | ✓ |
+| Book a room <small>(rooms.html)</small> | team leaders, core teams, the office and bookings admins | – | – | – | – | ✓ | – | ✓ | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | ✓ | – | – | ✓ |
 | Hire our rooms <small>(hire.html)</small> | no guard | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Maintenance <small>(maintenance.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Building compliance <small>(compliance.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ | – | – | – | – | – | – | ✓ |
 | Health and safety settings <small>(hs-settings.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | The building <small>(building.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Live risk register <small>(risk.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ | – | – | – | – | – | – | ✓ |
+| Building risk assessments <small>(assessment.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ | – | – | – | – | – | – | ✓ |
 | My evacuation plan <small>(peep.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Working alone <small>(lone.html)</small> | no guard | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Drivers and vehicles <small>(transport.html)</small> | no guard | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## Church admin
 
 | Page | Guard | Pending | Attender | Member | Kids Ch | Kids lead | Worship | Wor lead | Wor admin | Kids admin | Core admin | AV | Wor core | K&Y core | Office | Elders | Finance | Pastoral | SG lead | Bookings | Plan grp | Event team | Master |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Church settings <small>(church-settings.html)</small> | master admins | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
-| Teams and groups <small>(teams-admin.html)</small> | on Church office | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
+| Teams and groups <small>(teams-admin.html)</small> | doing the office job | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
+| Data records <small>(data-records.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ | – | – | – | – | – | – | ✓ |
+| What we hold about someone <small>(privacy.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Permissions <small>(permissions.html)</small> | master admins | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
-| Giving details <small>(giving-details.html)</small> | on Church office | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
+| Giving details <small>(giving-details.html)</small> | doing the office job | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Payments <small>(payments.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | ✓ |
 | Safeguarding <small>(safeguarding.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | ✓ |
-| Safeguarding risks <small>(safeguarding-risk.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | ✓ | – | – | – | ✓ |
+| Safeguarding risks <small>(safeguarding-risk.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | ✓ | – | ✓ | – | ✓ |
 | Safeguarding settings <small>(safeguarding-settings.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | ✓ |
 | Due for deletion <small>(retention.html)</small> | an admin of any team | – | – | – | – | – | – | – | ◐ | ◐ | ◐ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Small groups <small>(groups-admin.html)</small> | anyone signed in | – | – | – | – | – | – | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
@@ -126,8 +132,8 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Connect ChurchShow <small>(churchshow.html)</small> | on AV Team, Worship Team | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Youth <small>(Youthcharter.html)</small> | on Youth Worship, Lazers, ReNu | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
 | Youth Service Planner <small>(youthserviceplanner.html)</small> | on Youth Worship | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
-| Children's register <small>(kids-admin.html)</small> | anyone signed in | – | – | – | ✓ | ✓ | – | – | – | ✓ | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
-| Sunday check-in <small>(kids-checkin.html)</small> | anyone signed in | – | – | – | ✓ | ✓ | – | – | – | ✓ | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
+| Children's register <small>(kids-admin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
+| Sunday check-in <small>(kids-checkin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Core Team <small>(Coreteamcharter.html)</small> | on Core Team | – | – | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | Music Upload <small>(music-uploader.html)</small> | leaders of Worship Team | – | – | – | – | – | – | ◐ | ◐ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 
@@ -137,8 +143,8 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Pin boards <small>(stickynotes.html)</small> | on any team | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◐ | ◐ | ◐ | ◐ | – | – | – | – | ✓ |
 | Apps and downloads <small>(hubresources.html)</small> | anyone signed in | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Team Resources <small>(resources.html)</small> | no guard | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | – | ✓ |
-| Team Videos <small>(videos.html)</small> | on any team | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | – | ✓ |
+| Team Resources <small>(resources.html)</small> | no guard | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Team Videos <small>(videos.html)</small> | doing the worship,av job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 
 ## The hub's Home cards
 

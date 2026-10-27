@@ -961,3 +961,14 @@ At St Aidan's with St Hild, the small groups' room set up in Settings works the 
 ### Asked of Comms
 
 `egbc-meeting-pick.js` (the meeting picker in the email builders) still lists every upcoming meeting to authors (FINDINGS-comms, 27 Oct).
+
+### Progress, 29 Oct (main): step B, Martin's approval of the table (27 Oct)
+- **Proposal 1, meetings:** done together with the meetings split (Martin: "fix it properly"), next after H-11. Until then `meeting.html` keeps its hub-page `everyone`.
+- **Proposal 2:** `everyone: true` is gone from the hub's pages registry (hub-app.js) for Worshipteamcharter, EGBC-PlayThrough, EGBC-Training-Worship, batchupload, EGBC-HowTo-AV, EGBC-Troubleshoot-AV, Youthcharter, youthserviceplanner, resources and videos. resources.html is no longer one of the shared pages that "Mark shared pages" opens to everyone.
+  - **Live data:** the live database's `hubPages` records may still carry `everyone`. Clearing those is a write to live data, so it's for going live.
+- **Proposal 3, Children's register and Sunday check-in:** on the Menu for the kids leads only, as the pages already decide.
+  - **Who counts:** an admin of a team named in a site's kids settings (or of the children job's teams when nothing is set), each kids group's leaders, and master admins.
+  - **How:** `EGBCAuth.isKidsLead()`.
+- **Proposal 4, Team Resources and Team Videos:** for the worship and AV jobs. That's the Menu entries, the pages' guards (`data-job="worship,av"`, `require({ job: 'worship,av' })`) and the hub's pages.
+- **Proposal 5, Availability form:** already done (b9163c0f).
+- **`access-matrix.approved.json` is made** from the table after these changes. check-access-matrix compares every cell with it and passes 15/15. Safeguarding risks' decision now includes group leaders, read only, as events added in F-304.

@@ -331,9 +331,11 @@
       { title: 'Kids Church', icon: 'baby', team: 'Kids Church',
         description: "The children's team, and the children in their care",
         children: [
-          { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', feature: 'kids', team: 'Kids Church',
+          /* The kids leads and each group's leaders (the access matrix,
+             proposal 3): the pages show a leader only their own group. */
+          { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', feature: 'kids', kidsLead: true,
             description: 'The children, their groups, and who may collect them' },
-          { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', feature: 'kids', team: 'Kids Church',
+          { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', feature: 'kids', kidsLead: true,
             description: 'The desk on a Sunday: check children in and out, labels and the fire roll-call' }
         ] },
       /* The Worship Core Team's own charter, not every core team's (H-15). */
@@ -353,9 +355,11 @@
         description: 'Anything anybody wants to raise' },
       { title: 'Apps and downloads', url: 'hubresources.html', icon: 'smartphone',
         description: 'Put the apps on your phone, and the files you may need' },
-      { title: 'Team Resources', url: 'resources.html', icon: 'file-text', anyTeam: true,
+      /* Worship & AV material: the worship and AV jobs (the access matrix,
+         proposal 4, approved by Martin 27 Oct 2026). */
+      { title: 'Team Resources', url: 'resources.html', icon: 'file-text', job: ['worship', 'av'],
         description: 'Charters, policies and the papers that go with them' },
-      { title: 'Team Videos', url: 'videos.html', icon: 'clapperboard', anyTeam: true,
+      { title: 'Team Videos', url: 'videos.html', icon: 'clapperboard', job: ['worship', 'av'],
         description: 'Recordings worth keeping' }
     ] }
   ];
@@ -411,6 +415,7 @@
     if (node.careReader && !who.isCareReader) return false;
     if (node.pastoralVisits && !who.isPastoralVisitor && !who.isPastoralLead && !who.isMaster) return false;
     if (node.dataLeadOnly && !who.isDataLead && !who.isMaster) return false;
+    if (node.kidsLead && !who.isMaster && !who.isKidsLead && !who.isSgLead) return false;
     /* Safeguarding: the lead and deputy (careRouting/status, kept by the
        server). Lead and deputy only, and a master admin (who names the lead) - not
        any team admin (Martin's rule; the reviewing window, 22 Oct 2026). */
@@ -1055,6 +1060,7 @@
         isBuildingLead: !!(A && A.isBuildingLead && A.isBuildingLead()),
         isGroupLeader: !!(A && A.isGroupLeader && A.isGroupLeader()),
         isDataLead: !!(A && A.isDataLead && A.isDataLead()),
+        isKidsLead: !!(A && A.isKidsLead && A.isKidsLead()),
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),

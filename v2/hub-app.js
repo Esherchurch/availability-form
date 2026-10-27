@@ -440,7 +440,9 @@ const CHARTER_DEFAULTS = {
    They stay under Worship but need to reach everyone, which is the `everyone`
    flag. NOT the pin board (Martin, 26 Oct 2026: "pin board is showing for
    everyone"): a board is for everyone on its team, and nobody else. */
-const SHARED_PAGES = ['view-only-rota.html', 'resources.html', 'trainingportalhub.html'];
+/* Team Resources is no longer one of them: Worship & AV's (the access
+   matrix, approved by Martin 27 Oct 2026, proposals 2 and 4). */
+const SHARED_PAGES = ['view-only-rota.html', 'trainingportalhub.html'];
 
 async function markSharedPages() {
   if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
@@ -2452,25 +2454,25 @@ const REGISTRY = [
 
   { url: 'view-only-rota.html', title: 'Rota', icon: '\u{1F4C5}', team: 'Worship Team', everyone: true,
     description: 'Who is on, and when' },
-  { url: 'Worshipteamcharter.html', title: 'Worship & AV', icon: '\u{1F4DC}', team: 'Worship Team', everyone: true,
+  { url: 'Worshipteamcharter.html', title: 'Worship & AV', icon: '\u{1F4DC}', team: 'Worship Team',
     description: 'How we serve together' },
-  { url: 'EGBC-PlayThrough.html', title: 'Play-Through', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
+  { url: 'EGBC-PlayThrough.html', title: 'Play-Through', icon: '\u{1F3AC}', team: 'Worship Team',
     description: 'Practice videos' },
-  { url: 'EGBC-Training-Worship.html', title: 'Worship Training', icon: '\u{1F4D8}', team: 'Worship Team', everyone: true,
+  { url: 'EGBC-Training-Worship.html', title: 'Worship Training', icon: '\u{1F4D8}', team: 'Worship Team',
     description: 'Training material for the worship team' },
   /* The one visibility change you asked for: the song library goes to
      Worship and AV rather than everyone. AV need the lyrics. */
   { url: 'Library.html', title: 'Music Database', icon: '\u{1F3B5}', team: 'Worship Team', teams: WORSHIP_AV,
     description: 'Every song, with keys and usage' },
-  { url: 'batchupload.html', title: 'Music Uploader', icon: '\u{1F4E4}', team: 'Worship Team', everyone: true,
+  { url: 'batchupload.html', title: 'Music Uploader', icon: '\u{1F4E4}', team: 'Worship Team',
     description: 'Add music to the library' },
-  { url: 'EGBC-HowTo-AV.html', title: 'How-To AV', icon: '\u{1F4D8}', team: 'AV Team', everyone: true,
+  { url: 'EGBC-HowTo-AV.html', title: 'How-To AV', icon: '\u{1F4D8}', team: 'AV Team',
     description: 'Running the desk, step by step' },
-  { url: 'EGBC-Troubleshoot-AV.html', title: 'AV Troubleshoot', icon: '\u{1F6E0}', team: 'AV Team', everyone: true,
+  { url: 'EGBC-Troubleshoot-AV.html', title: 'AV Troubleshoot', icon: '\u{1F6E0}', team: 'AV Team',
     description: 'When something is not working' },
-  { url: 'Youthcharter.html', title: 'Youth', icon: '\u{1F4DC}', team: 'Youth Worship', everyone: true,
+  { url: 'Youthcharter.html', title: 'Youth', icon: '\u{1F4DC}', team: 'Youth Worship',
     description: 'How the youth team serve' },
-  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: 'â›ª', team: 'Youth Worship', everyone: true,
+  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: 'â›ª', team: 'Youth Worship',
     description: 'Planning a youth-led service' },
   { url: 'stickynotes.html', title: "Idea's pin board", icon: '\u{1F4CC}', team: 'Worship Team',
     description: 'Song suggestions and ideas' },
@@ -2548,9 +2550,9 @@ const REGISTRY = [
 
   /* -- shipped in the hub package, never registered ------------------- */
 
-  { url: 'resources.html', title: 'Team Resources', icon: '\u{1F4C1}', team: 'Worship Team', everyone: true,
+  { url: 'resources.html', title: 'Team Resources', icon: '\u{1F4C1}', team: 'Worship Team',
     description: 'Documents and links for your teams' },
-  { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team', everyone: true,
+  { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team',
     description: 'Watch your team\'s videos, and search inside them' },
   { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
     description: 'Take a copy of everything, or put one back' },

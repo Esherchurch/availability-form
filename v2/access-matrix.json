@@ -1,5 +1,5 @@
 {
- "made": "2026-10-27T09:40:04.746Z",
+ "made": "2026-10-27T21:23:08.805Z",
  "people": [
   {
    "key": "pending",
@@ -118,6 +118,8 @@
    "role": null,
    "adminAny": true,
    "alsoTeam": "Church office",
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -129,10 +131,25 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
    "allowPending": "parent",
+   "feature": null
+  },
+  "assessment.html": {
+   "team": null,
+   "role": null,
+   "adminAny": false,
+   "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
+   "anyTeam": false,
+   "master": false,
+   "leadsOrCore": false,
+   "allowPending": null,
    "feature": null
   },
   "attendance.html": {
@@ -140,6 +157,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -151,6 +170,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -162,6 +183,8 @@
    "role": "leader",
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -173,6 +196,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -184,6 +209,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -195,6 +222,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -206,6 +235,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -217,6 +248,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -228,6 +261,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -239,6 +274,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": true,
    "leadsOrCore": false,
@@ -250,6 +287,8 @@
    "role": "admin",
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -261,6 +300,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -272,6 +313,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -283,6 +326,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -294,6 +339,8 @@
    "role": "admin",
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -305,6 +352,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -316,6 +365,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -327,6 +378,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -338,6 +391,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -349,6 +404,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -360,6 +417,8 @@
    "role": null,
    "adminAny": true,
    "alsoTeam": "Church office",
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -371,6 +430,21 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
+   "anyTeam": false,
+   "master": false,
+   "leadsOrCore": false,
+   "allowPending": null,
+   "feature": null
+  },
+  "event-ra.html": {
+   "team": null,
+   "role": null,
+   "adminAny": false,
+   "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -382,6 +456,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -393,6 +469,8 @@
    "role": null,
    "adminAny": true,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -404,6 +482,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -415,6 +495,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -422,10 +504,12 @@
    "feature": "payments"
   },
   "giving-details.html": {
-   "team": "Church office",
+   "team": null,
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": "office",
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -437,6 +521,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -448,6 +534,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -459,6 +547,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -470,6 +560,8 @@
    "role": "leader",
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -481,6 +573,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -492,6 +586,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -503,6 +599,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -514,6 +612,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -525,6 +625,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -536,6 +638,21 @@
    "role": "leader",
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
+   "anyTeam": false,
+   "master": false,
+   "leadsOrCore": false,
+   "allowPending": null,
+   "feature": null
+  },
+  "pastoral-visits.html": {
+   "team": null,
+   "role": null,
+   "adminAny": false,
+   "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -547,6 +664,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -558,6 +677,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -569,6 +690,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": true,
    "leadsOrCore": false,
@@ -580,6 +703,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -591,6 +716,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -602,6 +729,8 @@
    "role": "leader",
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -613,6 +742,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -624,6 +755,21 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
+   "anyTeam": false,
+   "master": false,
+   "leadsOrCore": false,
+   "allowPending": null,
+   "feature": null
+  },
+  "privacy.html": {
+   "team": null,
+   "role": null,
+   "adminAny": false,
+   "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -635,6 +781,8 @@
    "role": null,
    "adminAny": true,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -646,6 +794,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -657,9 +807,11 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
-   "leadsOrCore": false,
+   "leadsOrCore": true,
    "allowPending": null,
    "feature": null
   },
@@ -668,6 +820,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -679,6 +833,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -690,6 +846,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -701,6 +859,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -712,6 +872,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -723,6 +885,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -734,6 +898,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -745,6 +911,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -756,6 +924,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": true,
    "master": false,
    "leadsOrCore": false,
@@ -767,6 +937,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -778,6 +950,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -789,6 +963,8 @@
    "role": "leader",
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -796,10 +972,12 @@
    "feature": null
   },
   "teams-admin.html": {
-   "team": "Church office",
+   "team": null,
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": "office",
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -811,6 +989,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -822,6 +1002,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -833,6 +1015,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -844,6 +1028,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -855,6 +1041,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -866,6 +1054,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -877,7 +1067,9 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
-   "anyTeam": true,
+   "alsoJob": null,
+   "job": "worship,av",
+   "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
    "allowPending": null,
@@ -888,6 +1080,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": true,
    "master": false,
    "leadsOrCore": false,
@@ -899,6 +1093,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -910,6 +1106,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -921,6 +1119,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -932,6 +1132,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -943,6 +1145,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -954,6 +1158,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -965,6 +1171,8 @@
    "role": null,
    "adminAny": false,
    "alsoTeam": null,
+   "alsoJob": null,
+   "job": null,
    "anyTeam": false,
    "master": false,
    "leadsOrCore": false,
@@ -981,6 +1189,7 @@
    "verdict": {
     "addressbook.html": "Signed out",
     "app.html": "Signed out",
+    "assessment.html": "Signed out",
     "attendance.html": "Signed out",
     "AVteamlandingpage.html": "Signed out",
     "batchupload.html": "Signed out",
@@ -1003,6 +1212,7 @@
     "EGBCWorship&AV.html": "Signed out",
     "EmailBuilder2.html": "Signed out",
     "emailcompilerinstructions.html": "Signed out",
+    "event-ra.html": "Signed out",
     "events-admin.html": "Signed out",
     "forms-admin.html": "Signed out",
     "giftaid.html": "Signed out",
@@ -1018,6 +1228,7 @@
     "maintenance.html": "Signed out",
     "MonitorStageMap.html": "Signed out",
     "music-uploader.html": "Signed out",
+    "pastoral-visits.html": "Signed out",
     "peep.html": "Signed out",
     "Performancenotes.html": "Signed out",
     "permissions.html": "Signed out",
@@ -1026,6 +1237,7 @@
     "Planner.html": "Signed out",
     "prayer.html": "Signed out",
     "preaching-plan.html": "Signed out",
+    "privacy.html": "Signed out",
     "retention.html": "Signed out",
     "risk.html": "Signed out",
     "rooms.html": "Signed out",
@@ -1134,6 +1346,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
@@ -1145,6 +1367,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -1167,6 +1390,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -1182,6 +1406,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -1190,9 +1415,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -1212,7 +1438,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "For the church’s teams",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "For the church’s teams",
     "watch-admin.html": "",
     "watch.html": "",
@@ -1304,6 +1530,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
@@ -1315,6 +1551,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -1337,6 +1574,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -1352,6 +1590,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -1360,9 +1599,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -1382,7 +1622,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "For the church’s teams",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "For the church’s teams",
     "watch-admin.html": "",
     "watch.html": "",
@@ -1499,14 +1739,14 @@
      "section": "Events and rooms"
     },
     {
-     "url": "kids-admin.html",
-     "title": "Children's register",
-     "section": "My teams"
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
     },
     {
-     "url": "kids-checkin.html",
-     "title": "Sunday check-in",
-     "section": "My teams"
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
     },
     {
      "url": "stickynotes.html",
@@ -1516,16 +1756,6 @@
     {
      "url": "hubresources.html",
      "title": "Apps and downloads",
-     "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
      "section": "Resources"
     }
    ],
@@ -1537,6 +1767,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -1559,6 +1790,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -1574,6 +1806,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -1582,9 +1815,10 @@
     "Planner.html": "Not enough permissions",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -1604,7 +1838,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -1746,14 +1980,14 @@
      "section": "Events and rooms"
     },
     {
-     "url": "kids-admin.html",
-     "title": "Children's register",
-     "section": "My teams"
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
     },
     {
-     "url": "kids-checkin.html",
-     "title": "Sunday check-in",
-     "section": "My teams"
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
     },
     {
      "url": "stickynotes.html",
@@ -1763,16 +1997,6 @@
     {
      "url": "hubresources.html",
      "title": "Apps and downloads",
-     "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
      "section": "Resources"
     }
    ],
@@ -1784,6 +2008,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -1806,6 +2031,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -1821,6 +2047,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -1829,6 +2056,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -1851,7 +2079,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -1963,6 +2191,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "Worshipteamcharter.html",
      "title": "Worship & AV",
      "section": "My teams"
@@ -2031,6 +2269,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "",
     "batchupload.html": "Not enough permissions",
@@ -2053,6 +2292,7 @@
     "EGBCWorship&AV.html": "",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -2068,6 +2308,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "",
     "music-uploader.html": "Not enough permissions",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "",
     "permissions.html": "Master admins only",
@@ -2076,9 +2317,10 @@
     "Planner.html": "Not enough permissions",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -2230,6 +2472,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "Worshipteamcharter.html",
      "title": "Worship & AV",
      "section": "My teams"
@@ -2303,6 +2555,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "",
     "batchupload.html": "",
@@ -2325,6 +2578,7 @@
     "EGBCWorship&AV.html": "",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -2340,6 +2594,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "",
     "music-uploader.html": "",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "",
     "permissions.html": "Master admins only",
@@ -2348,6 +2603,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -2527,6 +2783,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "groups-admin.html",
      "title": "Small groups",
      "section": "Church admin"
@@ -2617,6 +2883,7 @@
    "verdict": {
     "addressbook.html": "",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "",
     "batchupload.html": "",
@@ -2639,6 +2906,7 @@
     "EGBCWorship&AV.html": "",
     "EmailBuilder2.html": "",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "",
     "giftaid.html": "",
@@ -2654,6 +2922,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "",
     "music-uploader.html": "",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "",
     "permissions.html": "Master admins only",
@@ -2662,6 +2931,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "",
     "risk.html": "",
     "rooms.html": "",
@@ -2851,6 +3121,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "groups-admin.html",
      "title": "Small groups",
      "section": "Church admin"
@@ -2879,16 +3159,6 @@
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
-     "section": "Resources"
     }
    ],
    "opens": true,
@@ -2901,6 +3171,7 @@
    "verdict": {
     "addressbook.html": "",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -2923,6 +3194,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "",
     "giftaid.html": "",
@@ -2938,6 +3210,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -2946,6 +3219,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "",
     "risk.html": "",
     "rooms.html": "",
@@ -2968,7 +3242,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -3140,6 +3414,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "groups-admin.html",
      "title": "Small groups",
      "section": "Church admin"
@@ -3249,6 +3533,7 @@
    "verdict": {
     "addressbook.html": "",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "",
     "batchupload.html": "",
@@ -3271,6 +3556,7 @@
     "EGBCWorship&AV.html": "",
     "EmailBuilder2.html": "",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "",
     "giftaid.html": "",
@@ -3286,6 +3572,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "",
     "music-uploader.html": "",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "",
     "permissions.html": "Master admins only",
@@ -3294,6 +3581,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "",
     "risk.html": "",
     "rooms.html": "",
@@ -3438,6 +3726,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "Worshipteamcharter.html",
      "title": "Worship & AV",
      "section": "My teams"
@@ -3506,6 +3804,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "",
     "batchupload.html": "Not enough permissions",
@@ -3528,6 +3827,7 @@
     "EGBCWorship&AV.html": "",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -3543,6 +3843,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "",
     "music-uploader.html": "Not enough permissions",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "",
     "permissions.html": "Master admins only",
@@ -3551,9 +3852,10 @@
     "Planner.html": "Not enough permissions",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -3705,6 +4007,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "Worshipteamcharter.html",
      "title": "Worship & AV",
      "section": "My teams"
@@ -3793,6 +4105,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "",
     "batchupload.html": "",
@@ -3815,6 +4128,7 @@
     "EGBCWorship&AV.html": "",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -3830,6 +4144,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "",
     "music-uploader.html": "",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "",
     "permissions.html": "Master admins only",
@@ -3838,6 +4153,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -4012,6 +4328,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "Youthcharter.html",
      "title": "Youth",
      "section": "My teams"
@@ -4019,16 +4345,6 @@
     {
      "url": "youthserviceplanner.html",
      "title": "Youth Service Planner",
-     "section": "My teams"
-    },
-    {
-     "url": "kids-admin.html",
-     "title": "Children's register",
-     "section": "My teams"
-    },
-    {
-     "url": "kids-checkin.html",
-     "title": "Sunday check-in",
      "section": "My teams"
     },
     {
@@ -4040,16 +4356,6 @@
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
-     "section": "Resources"
     }
    ],
    "opens": true,
@@ -4060,6 +4366,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -4082,6 +4389,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -4097,6 +4405,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -4105,6 +4414,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -4127,7 +4437,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -4296,6 +4606,11 @@
      "section": "Events and rooms"
     },
     {
+     "url": "rooms.html",
+     "title": "Book a room",
+     "section": "Events and rooms"
+    },
+    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -4326,13 +4641,33 @@
      "section": "Events and rooms"
     },
     {
+     "url": "assessment.html",
+     "title": "Building risk assessments",
+     "section": "Events and rooms"
+    },
+    {
      "url": "peep.html",
      "title": "My evacuation plan",
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "teams-admin.html",
      "title": "Teams and groups",
+     "section": "Church admin"
+    },
+    {
+     "url": "data-records.html",
+     "title": "Data records",
      "section": "Church admin"
     },
     {
@@ -4344,16 +4679,6 @@
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
-     "section": "Resources"
     }
    ],
    "opens": true,
@@ -4364,6 +4689,7 @@
    "verdict": {
     "addressbook.html": "",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -4386,6 +4712,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -4401,6 +4728,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -4409,6 +4737,7 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -4431,7 +4760,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -4554,9 +4883,29 @@
      "section": "Events and rooms"
     },
     {
+     "url": "assessment.html",
+     "title": "Building risk assessments",
+     "section": "Events and rooms"
+    },
+    {
      "url": "peep.html",
      "title": "My evacuation plan",
      "section": "Events and rooms"
+    },
+    {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "data-records.html",
+     "title": "Data records",
+     "section": "Church admin"
     },
     {
      "url": "safeguarding-risk.html",
@@ -4567,16 +4916,6 @@
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
-     "section": "Resources"
     }
    ],
    "opens": true,
@@ -4585,6 +4924,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -4607,6 +4947,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -4622,6 +4963,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -4630,9 +4972,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -4652,7 +4995,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -4756,6 +5099,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "payments.html",
      "title": "Payments",
      "section": "Church admin"
@@ -4763,16 +5116,6 @@
     {
      "url": "hubresources.html",
      "title": "Apps and downloads",
-     "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
      "section": "Resources"
     }
    ],
@@ -4782,6 +5125,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -4804,6 +5148,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -4819,6 +5164,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -4827,9 +5173,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -4849,7 +5196,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -4951,18 +5298,18 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "hubresources.html",
      "title": "Apps and downloads",
-     "section": "Resources"
-    },
-    {
-     "url": "resources.html",
-     "title": "Team Resources",
-     "section": "Resources"
-    },
-    {
-     "url": "videos.html",
-     "title": "Team Videos",
      "section": "Resources"
     }
    ],
@@ -4972,6 +5319,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -4994,6 +5342,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -5009,6 +5358,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -5017,9 +5367,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -5039,7 +5390,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "",
     "watch-admin.html": "",
     "watch.html": "",
@@ -5136,6 +5487,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "safeguarding.html",
      "title": "Safeguarding",
      "section": "Church admin"
@@ -5162,6 +5523,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -5184,6 +5546,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -5199,6 +5562,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -5207,9 +5571,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -5229,7 +5594,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "For the church’s teams",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "For the church’s teams",
     "watch-admin.html": "",
     "watch.html": "",
@@ -5321,6 +5686,11 @@
      "section": "Events and rooms"
     },
     {
+     "url": "rooms.html",
+     "title": "Book a room",
+     "section": "Events and rooms"
+    },
+    {
      "url": "hire.html",
      "title": "Hire our rooms",
      "section": "Events and rooms"
@@ -5336,6 +5706,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
@@ -5347,6 +5727,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -5369,6 +5750,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -5384,6 +5766,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -5392,6 +5775,7 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
     "rooms.html": "",
@@ -5414,7 +5798,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "For the church’s teams",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "For the church’s teams",
     "watch-admin.html": "",
     "watch.html": "",
@@ -5528,6 +5912,21 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "safeguarding-risk.html",
+     "title": "Safeguarding risks",
+     "section": "Church admin"
+    },
+    {
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
@@ -5539,6 +5938,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -5561,6 +5961,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -5576,6 +5977,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -5584,9 +5986,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -5606,7 +6009,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "For the church’s teams",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "For the church’s teams",
     "watch-admin.html": "",
     "watch.html": "",
@@ -5713,6 +6116,16 @@
      "section": "Events and rooms"
     },
     {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
+     "section": "Events and rooms"
+    },
+    {
      "url": "hubresources.html",
      "title": "Apps and downloads",
      "section": "Resources"
@@ -5724,6 +6137,7 @@
    "verdict": {
     "addressbook.html": "Admins only",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "No access to this page",
     "batchupload.html": "No access to this page",
@@ -5746,6 +6160,7 @@
     "EGBCWorship&AV.html": "No access to this page",
     "EmailBuilder2.html": "Admins only",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "Admins only",
     "giftaid.html": "",
@@ -5761,6 +6176,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "No access to this page",
     "music-uploader.html": "No access to this page",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "No access to this page",
     "permissions.html": "Master admins only",
@@ -5769,9 +6185,10 @@
     "Planner.html": "No access to this page",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "Admins only",
     "risk.html": "",
-    "rooms.html": "",
+    "rooms.html": "For team leaders and core teams",
     "rotaplannerinstructions.html": "",
     "safeguarding-settings.html": "",
     "safeguarding.html": "",
@@ -5791,7 +6208,7 @@
     "trainingportalhub.html": "",
     "trainingrotaplanner.html": "",
     "uploaderinstructions.html": "",
-    "videos.html": "For the church’s teams",
+    "videos.html": "No access to this page",
     "view-only-rota.html": "For the church’s teams",
     "watch-admin.html": "",
     "watch.html": "",
@@ -5845,6 +6262,11 @@
     {
      "url": "care.html",
      "title": "Care & support",
+     "section": ""
+    },
+    {
+     "url": "pastoral-visits.html",
+     "title": "Pastoral visits",
      "section": ""
     },
     {
@@ -6023,8 +6445,23 @@
      "section": "Events and rooms"
     },
     {
+     "url": "assessment.html",
+     "title": "Building risk assessments",
+     "section": "Events and rooms"
+    },
+    {
      "url": "peep.html",
      "title": "My evacuation plan",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "lone.html",
+     "title": "Working alone",
+     "section": "Events and rooms"
+    },
+    {
+     "url": "transport.html",
+     "title": "Drivers and vehicles",
      "section": "Events and rooms"
     },
     {
@@ -6035,6 +6472,16 @@
     {
      "url": "teams-admin.html",
      "title": "Teams and groups",
+     "section": "Church admin"
+    },
+    {
+     "url": "data-records.html",
+     "title": "Data records",
+     "section": "Church admin"
+    },
+    {
+     "url": "privacy.html",
+     "title": "What we hold about someone",
      "section": "Church admin"
     },
     {
@@ -6217,6 +6664,7 @@
    "verdict": {
     "addressbook.html": "",
     "app.html": "",
+    "assessment.html": "",
     "attendance.html": "",
     "AVteamlandingpage.html": "",
     "batchupload.html": "",
@@ -6239,6 +6687,7 @@
     "EGBCWorship&AV.html": "",
     "EmailBuilder2.html": "",
     "emailcompilerinstructions.html": "",
+    "event-ra.html": "",
     "events-admin.html": "",
     "forms-admin.html": "",
     "giftaid.html": "",
@@ -6254,6 +6703,7 @@
     "maintenance.html": "",
     "MonitorStageMap.html": "",
     "music-uploader.html": "",
+    "pastoral-visits.html": "",
     "peep.html": "",
     "Performancenotes.html": "",
     "permissions.html": "",
@@ -6262,6 +6712,7 @@
     "Planner.html": "",
     "prayer.html": "",
     "preaching-plan.html": "",
+    "privacy.html": "",
     "retention.html": "",
     "risk.html": "",
     "rooms.html": "",

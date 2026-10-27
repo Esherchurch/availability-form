@@ -220,7 +220,7 @@ export const DECIDED = [
   /* THE REVIEWER'S FINDINGS (27 Oct 2026), as settled; Martin to confirm. */
   { url: 'safeguarding.html', from: 'reviewer', what: 'Safeguarding: the lead and deputy, and master admins', who: (p) => ['sglead', 'master'].includes(p.key) },
   { url: 'safeguarding-settings.html', from: 'reviewer', what: 'Safeguarding settings: the lead and deputy, and master admins', who: (p) => ['sglead', 'master'].includes(p.key) },
-  { url: 'safeguarding-risk.html', from: 'reviewer', what: 'Safeguarding risks: the lead and deputy, the trustees (EGBC: Elders), master admins', who: (p) => ['sglead', 'elders', 'master'].includes(p.key) },
+  { url: 'safeguarding-risk.html', from: 'reviewer', what: 'Safeguarding risks: the lead and deputy, the trustees (EGBC: Elders), master admins, and group leaders read only (F-304)', who: (p) => ['sglead', 'elders', 'master', 'planlead'].includes(p.key) },
   { url: 'index.html', from: 'reviewer', what: 'Availability form: anyone on a team with a rota', who: (p) => ['kids', 'kidsLead', 'kidsAdmin', 'worship', 'worshipLead', 'worshipAdmin', 'av', 'wcore', 'kycore', 'coreAdmin', 'master'].includes(p.key) },
   { url: 'payments.html', from: 'reviewer', what: 'Payments: the money team (EGBC: Finance) and master admins', who: (p) => ['finance', 'master'].includes(p.key) },
   { url: 'churchshow.html', from: 'reviewer', what: 'Connect ChurchShow: admins of AV or Worship (an admin of the core team covering them too, H-15), and master admins', who: (p) => ['worshipAdmin', 'coreAdmin', 'master'].includes(p.key) },

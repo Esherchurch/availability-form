@@ -531,6 +531,10 @@
      events window's F-304: they read their activity's safeguarding risks),
      and is named a data protection lead (dataSettings/main.leads, F-307). */
   var groupLeader = false, dataLead = false;
+  /* The children's register and check-in (the access matrix, proposal 3):
+     a kids lead is an admin of a team a site's kids settings name (as the
+     pages decide), and a group leader leads a kidsGroups group. */
+  var kidsGroupLeader = false, kidsTeams = [];
 
   /* THE PEOPLE WHO LOOK AFTER SERMONS AND WATCH (sermonShow/access, the
      events window's; the rules' sermonAdmin()). Read once with the profile
@@ -728,7 +732,11 @@
       db.collection('dataSettings').doc('main').get().then(function (d) {
         return d.exists && (d.data().leads || []).indexOf(memberId) !== -1;
       }).catch(function () { return false; })
-    ]).then(function (r) { groupLeader = r[0] || r[1] || r[2]; dataLead = r[3]; });
+      , db.collection('kidsSettings').get().then(function (s) {
+        var t = {}; s.forEach(function (d) { ((d.data() || {}).teams || []).forEach(function (x) { t[x] = 1; }); });
+        return Object.keys(t);
+      }).catch(function () { return []; })
+    ]).then(function (r) { groupLeader = r[0] || r[1] || r[2]; dataLead = r[3]; kidsGroupLeader = r[0]; kidsTeams = r[4]; });
   }
 
   function loadBuildingLead(memberId) {
@@ -1724,6 +1732,15 @@
        Building risk assessments). Never previewed into. */
     /* Never previewed into, as isBuildingLead. */
     isGroupLeader: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && groupLeader; },
+    /* An admin of a kids team (View as answers for the person viewed as),
+       or a kids group's leader (never previewed into). */
+    isKidsLead: function () {
+      /* With no kids settings yet, the teams doing the children job. */
+      var TJ = global.EGBCTeamJobs;
+      var teams = kidsTeams.length ? kidsTeams : (PERMS.ready && TJ ? TJ.teamsFor(PERMS.jobs, 'children', PERMS.set) : []);
+      return teams.some(function (t) { return EGBCAuth.isAdminOf(t); })
+        || (!(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && kidsGroupLeader);
+    },
     isDataLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && dataLead; },
     isBuildingLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && buildingLeadOf.length > 0; },
     mayBookRoom: function () {
